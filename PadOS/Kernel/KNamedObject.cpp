@@ -1,0 +1,91 @@
+// This file is part of PadOS.
+//
+// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+//
+// PadOS is free software : you can redistribute it and / or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PadOS is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with PadOS. If not, see <http://www.gnu.org/licenses/>.
+///////////////////////////////////////////////////////////////////////////////
+// Created: 08.03.2018 17:55:02
+
+#include "sam.h"
+
+#include <string.h>
+
+#include "KNamedObject.h"
+#include "KHandleArray.h"
+
+using namespace kernel;
+
+static KHandleArray<KNamedObject> gk_NamedObjectsTable;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KNamedObject::KNamedObject(const char* name, KNamedObjectType type) : m_Type(type)
+{
+    strncpy(m_Name, name, OS_NAME_LENGTH - 1);
+    m_Name[OS_NAME_LENGTH - 1] = 0;
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KNamedObject::~KNamedObject()
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int32_t KNamedObject::RegisterObject(Ptr<KNamedObject> object)
+{
+    int32_t handle = gk_NamedObjectsTable.AllocHandle();
+    if (handle == -1) {
+        return -1;
+    }
+    object->SetHandle(handle);
+    gk_NamedObjectsTable.Set(handle, object);
+    return handle;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KNamedObject::FreeHandle(int32_t handle, KNamedObjectType type)
+{
+    if (GetObject(handle, type) != nullptr) {
+        return gk_NamedObjectsTable.FreeHandle(handle);
+    }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KNamedObject> KNamedObject::GetObject(int32_t handle, KNamedObjectType type)
+{
+    Ptr<KNamedObject> object = gk_NamedObjectsTable.Get(handle);
+
+    if (object != nullptr && object->GetType() == type) {
+        return object;
+    } else {
+        return nullptr;
+    }
+}
+

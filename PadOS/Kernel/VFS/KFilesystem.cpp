@@ -1,0 +1,170 @@
+// This file is part of PadOS.
+//
+// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+//
+// PadOS is free software : you can redistribute it and / or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PadOS is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with PadOS. If not, see <http://www.gnu.org/licenses/>.
+///////////////////////////////////////////////////////////////////////////////
+// Created: 23.02.2018 01:53:33
+
+#include "sam.h"
+
+#include <sys/types.h>
+
+#include "KFilesystem.h"
+#include "KFSVolume.h"
+#include "KINode.h"
+#include "KFileHandle.h"
+#include "System/System.h"
+
+using namespace kernel;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFSVolume> KFilesystem::Mount(Ptr<KINode> mountPoint, const char* devicePath, int devicePathLength)
+{
+    set_last_error(ENOSYS);
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KINode> KFilesystem::LocateInode(Ptr<KINode> parent, const char* path, int pathLength)
+{
+    set_last_error(ENOSYS);
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KFilesystem::ReleaseInode(Ptr<KINode> inode)
+{
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileHandle> KFilesystem::OpenFile(Ptr<KINode> node, int flags)
+{
+    set_last_error(ENOSYS);
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileHandle> KFilesystem::CreateFile(Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission)
+{
+    set_last_error(ENOSYS);
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystem::CloseFile(Ptr<KFileHandle> file)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileHandle> KFilesystem::OpenDirectory(Ptr<KINode> node)
+{
+    set_last_error(ENOSYS);
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileHandle> KFilesystem::CreateDirectory(Ptr<KINode> parent, const char* name, int nameLength, int permission)
+{
+    set_last_error(ENOSYS);
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t KFilesystem::Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t KFilesystem::Write(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystem::DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystem::ReadAsync(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystem::WriteAsync(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystem::CancelAsyncRequest(Ptr<KFileHandle> file, int handle)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+

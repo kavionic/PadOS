@@ -21,12 +21,13 @@
 #include "System/Threads.h"
 #include "System/System.h"
 
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Thread::Thread()
+Thread::Thread(const String& name) : m_Name(name)
 {
 }
 
@@ -42,11 +43,11 @@ Thread::~Thread()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-thread_id Thread::Start(const char* name, bool joinable, int priority, int stackSize)
+thread_id Thread::Start(bool joinable, int priority, int stackSize)
 {
     if (m_ThreadHandle == -1) {
         m_IsJoinable = joinable;
-        m_ThreadHandle = spawn_thread(name, ThreadEntry, priority, this, joinable, stackSize);
+        m_ThreadHandle = spawn_thread(m_Name.c_str(), ThreadEntry, priority, this, joinable, stackSize);
     }
     return m_ThreadHandle;
 }

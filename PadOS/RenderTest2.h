@@ -21,6 +21,9 @@
 
 #include <vector>
 #include "System/GUI/View.h"
+#include "System/Utils/EventTimer.h"
+
+using namespace os;
 
 class RenderTest2 : public View
 {
@@ -28,7 +31,7 @@ public:
     RenderTest2();
     ~RenderTest2();
     
-    virtual void PostAttachedToViewport() override;
+    virtual void AllAttachedToScreen() override;
 
     virtual bool OnMouseDown(MouseButton_e button, const Point& position) override { return true; }
     virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
@@ -37,6 +40,8 @@ public:
         
 private:
     void SlotFrameProcess();
+
+    EventTimer m_UpdateTimer;
 
     std::vector<Point> history;
     int historyPos = 0;

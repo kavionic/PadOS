@@ -29,10 +29,10 @@ class IRect;
  * \par Description:
  *
  * \sa
- * \author	Kurt Skauen (kurt@atheos.cx)
+ * \author Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
-class	Rect
+class Rect
 {
 public:
     float left;
@@ -40,16 +40,16 @@ public:
     float right;
     float bottom;
 
-    Rect()					 {}
-    Rect( float l, float t, float r, float b )	 { left = l; top = t; right = r; bottom = b;	}
-    Rect( const Point& cMin, const Point& cMax ) { left = cMin.x; top = cMin.y; right = cMax.x; bottom = cMax.y;	}
+    Rect()                                       {}
+    Rect( float l, float t, float r, float b )   { left = l; top = t; right = r; bottom = b; }
+    Rect( const Point& cMin, const Point& cMax ) { left = cMin.x; top = cMin.y; right = cMax.x; bottom = cMax.y; }
     inline Rect( const IRect& cRect );
 
     ~Rect() {}
 
-    bool	IsValid() const	{ return( left <= right && top <= bottom );	 }
-    void	Invalidate() { left = top = 999999.0f; right = bottom = -999999.0f;	}
-    bool	DoIntersect( const Point& cPoint ) const
+    bool        IsValid() const     { return( left <= right && top <= bottom ); }
+    void        Invalidate() { left = top = 999999.0f; right = bottom = -999999.0f; }
+    bool        DoIntersect( const Point& cPoint ) const
     { return( !( cPoint.x < left || cPoint.x > right || cPoint.y < top || cPoint.y > bottom ) ); }
   
     bool DoIntersect(const Rect& cRect) const
@@ -64,26 +64,26 @@ public:
     Rect&  Floor()         { left = floor( left ); right = floor( right ); top = floor( top ); bottom = floor( bottom ); return( *this ); }
     Rect&  Ceil()          { left = ceil( left ); right = ceil( right ); top = ceil( top ); bottom = ceil( bottom ); return( *this ); }
     
-    Rect&	Resize( float inLeft, float inTop, float inRight, float inBottom ) {
-	left += inLeft; top += inTop; right += inRight; bottom += inBottom;
-	return( *this );
+    Rect&   Resize( float inLeft, float inTop, float inRight, float inBottom ) {
+        left += inLeft; top += inTop; right += inRight; bottom += inBottom;
+        return( *this );
     }
     Rect operator+( const Point& cPoint ) const
     { return( Rect( left + cPoint.x, top + cPoint.y, right + cPoint.x, bottom + cPoint.y ) ); }
     Rect operator-( const Point& cPoint ) const
     { return( Rect( left - cPoint.x, top - cPoint.y, right - cPoint.x, bottom - cPoint.y ) ); }
 
-    Point operator+( const Rect& cRect ) const	{ return( Point( left + cRect.left, top + cRect.top ) ); }
-    Point operator-( const Rect& cRect ) const	{ return( Point( left - cRect.left, top - cRect.top ) ); }
+    Point operator+( const Rect& cRect ) const  { return( Point( left + cRect.left, top + cRect.top ) ); }
+    Point operator-( const Rect& cRect ) const  { return( Point( left - cRect.left, top - cRect.top ) ); }
 
     Rect operator&( const Rect& cRect ) const
     { return( Rect( _max( left, cRect.left ), _max( top, cRect.top ), _min( right, cRect.right ), _min( bottom, cRect.bottom ) ) ); }
-    void 	operator&=( const Rect& cRect )
+    void    operator&=( const Rect& cRect )
     { left = _max( left, cRect.left ); top = _max( top, cRect.top );
     right = _min( right, cRect.right ); bottom = _min( bottom, cRect.bottom ); }
     Rect operator|( const Rect& cRect ) const
     { return( Rect( _min( left, cRect.left ), _min( top, cRect.top ), _max( right, cRect.right ), _max( bottom, cRect.bottom ) ) ); }
-    void 	operator|=( const Rect& cRect )
+    void    operator|=( const Rect& cRect )
     { left = _min( left, cRect.left ); top = _min( top, cRect.top );
     right = _max( right, cRect.right ); bottom = _max( bottom, cRect.bottom ); }
     Rect operator|( const Point& cPoint ) const
@@ -110,57 +110,57 @@ private:
  * \par Description:
  *
  * \sa
- * \author	Kurt Skauen (kurt@atheos.cx)
+ * \author Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
 class IRect
 {
 public:
-    int	left;
-    int	top;
-    int	right;
-    int	bottom;
+    int left;
+    int top;
+    int right;
+    int bottom;
 
-    IRect( void )	{ left = top = 999999;	right = bottom = -999999;	}
-    IRect( int l, int t, int r, int b )	{ left = l; top = t; right = r; bottom = b;	}
-    IRect( const IPoint& cMin, const IPoint& cMax )	{ left = cMin.x; top = cMin.y; right = cMax.x; bottom = cMax.y;	}
+    IRect( void )   { left = top = 999999; right = bottom = -999999; }
+    IRect( int l, int t, int r, int b ) { left = l; top = t; right = r; bottom = b; }
+    IRect( const IPoint& cMin, const IPoint& cMax ) { left = cMin.x; top = cMin.y; right = cMax.x; bottom = cMax.y; }
     inline IRect( const Rect& cRect );
     ~IRect() {}
 
-    bool	IsValid() const	{ return( left <= right && top <= bottom );	 }
-    void	Invalidate( void ) { left = top = 999999; right = bottom = -999999;	}
-    bool	DoIntersect( const IPoint& cPoint ) const
+    bool        IsValid() const { return( left <= right && top <= bottom ); }
+    void        Invalidate( void ) { left = top = 999999; right = bottom = -999999; }
+    bool        DoIntersect( const IPoint& cPoint ) const
     { return( !( cPoint.x < left || cPoint.x > right || cPoint.y < top || cPoint.y > bottom ) ); }
   
     bool DoIntersect( const IRect& cRect ) const
     { return( !( cRect.right < left || cRect.left > right || cRect.bottom < top || cRect.top > bottom ) ); }
 
-    int	   Width() const	{ return right - left + 1; }
-    int	   Height() const	{ return bottom - top + 1; }
-    IPoint Size() const 	{ return IPoint(right - left + 1, bottom - top + 1); }
-    IPoint LeftTop() const	{ return IPoint(left, top); }
-    IPoint RightBottom() const	{ return IPoint(right, bottom); }
-    IRect  Bounds( void ) const	{ return IRect(0, 0, right - left, bottom - top); }
-    IRect&	Resize( int nLeft, int nTop, int nRight, int nBottom ) {
-	left += nLeft; top += nTop; right += nRight; bottom += nBottom;
-	return( *this );
+    int    Width() const        { return right - left + 1; }
+    int    Height() const       { return bottom - top + 1; }
+    IPoint Size() const         { return IPoint(right - left + 1, bottom - top + 1); }
+    IPoint LeftTop() const      { return IPoint(left, top); }
+    IPoint RightBottom() const  { return IPoint(right, bottom); }
+    IRect  Bounds( void ) const { return IRect(0, 0, right - left, bottom - top); }
+    IRect&  Resize( int nLeft, int nTop, int nRight, int nBottom ) {
+        left += nLeft; top += nTop; right += nRight; bottom += nBottom;
+        return( *this );
     }
     IRect operator+( const IPoint& cPoint ) const
     { return( IRect( left + cPoint.x, top + cPoint.y, right + cPoint.x, bottom + cPoint.y ) ); }
     IRect operator-( const IPoint& cPoint ) const
     { return( IRect( left - cPoint.x, top - cPoint.y, right - cPoint.x, bottom - cPoint.y ) ); }
 
-    IPoint operator+( const IRect& cRect ) const	{ return( IPoint( left + cRect.left, top + cRect.top ) ); }
-    IPoint operator-( const IRect& cRect ) const	{ return( IPoint( left - cRect.left, top - cRect.top ) ); }
+    IPoint operator+( const IRect& cRect ) const        { return( IPoint( left + cRect.left, top + cRect.top ) ); }
+    IPoint operator-( const IRect& cRect ) const        { return( IPoint( left - cRect.left, top - cRect.top ) ); }
 
     IRect operator&( const IRect& cRect ) const
     { return( IRect( _max( left, cRect.left ), _max( top, cRect.top ), _min( right, cRect.right ), _min( bottom, cRect.bottom ) ) ); }
-    void 	operator&=( const IRect& cRect )
+    void    operator&=( const IRect& cRect )
     { left = _max( left, cRect.left ); top = _max( top, cRect.top );
     right = _min( right, cRect.right ); bottom = _min( bottom, cRect.bottom ); }
     IRect operator|( const IRect& cRect ) const
     { return( IRect( _min( left, cRect.left ), _min( top, cRect.top ), _max( right, cRect.right ), _max( bottom, cRect.bottom ) ) ); }
-    void 	operator|=( const IRect& cRect )
+    void    operator|=( const IRect& cRect )
     { left = _min( left, cRect.left ); top = _min( top, cRect.top );
     right = _max( right, cRect.right ); bottom = _max( bottom, cRect.bottom ); }
     IRect operator|( const IPoint& cPoint ) const

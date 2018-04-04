@@ -20,9 +20,9 @@
 #include "sam.h"
 
 #include "RenderTest3.h"
-#include "System/GUI/GUI.h"
+#include "System/GUI/Application.h"
 
-RenderTest3::RenderTest3()
+RenderTest3::RenderTest3() : View("RenderTest3")
 {
 }
 
@@ -30,12 +30,16 @@ RenderTest3::~RenderTest3()
 {
 }
 
-void RenderTest3::PostAttachedToViewport()
+void RenderTest3::AllAttachedToScreen()
 {
-    SetFgColor(0xffff);
+    SetFgColor(Color(0xffffffff));
     FillRect(GetBounds());
 
-    gui.SignalFrameProcess.Connect(this, &RenderTest3::SlotFrameProcess);
+    m_UpdateTimer.Set(100);
+    m_UpdateTimer.SignalTrigged.Connect(this, &RenderTest3::SlotFrameProcess);
+    
+    Application* app = GetApplication();
+    app->AddTimer(&m_UpdateTimer);
 }
 
 bool RenderTest3::OnMouseUp(MouseButton_e button, const Point& position)
@@ -48,13 +52,14 @@ void RenderTest3::SlotFrameProcess()
 {
     Rect bounds = GetBounds();
     
-    SetFgColor(rand());
+    SetFgColor(Color(rand()));
     FillCircle(Point(50 + rand() % int(bounds.Width() - 100), 50 + rand() % int(bounds.Height() - 100)), 5+rand() % 45);
     
     if (m_CircleCount++ > 1000)
     {
         m_CircleCount = 0;
-        SetFgColor(rand());
+        SetFgColor(Color(rand()));
         FillRect(bounds);
-    }        
+    }
+    Sync();    
 }

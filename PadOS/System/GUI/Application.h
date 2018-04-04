@@ -18,15 +18,59 @@
 // Created: 06.11.2017 23:22:03
 
 #pragma once
+#include "System/Threads/Looper.h"
+#include "ApplicationServer/Protocol.h"
 
+namespace os
+{
 
-class Application
+class View;
+    
+class Application : public Looper, public SignalTarget
 {
 public:
-    Application();
+    Application(const String& name);
     ~Application();
+    
+    virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
+
+    static IRect GetScreenIFrame();
+    static Rect GetScreenFrame() { return Rect(GetScreenIFrame()); }
+    
+    bool AddView(Ptr<View> view);
+    bool RemoveView(Ptr<View> view);
+    
+    Ptr<View> FindView(handler_id handle) { return ptr_static_cast<View>(FindHandler(handle)); }
+     
+     void Flush();
 private:
+    friend class View;
+ 
+    template<typename SIGNAL, typename... ARGS>
+    void Post(ARGS&&... args) { SIGNAL::Sender::Emit(this, &Application::AllocMessageBuffer, args...); }
+    
+    void SetViewFrame(handler_id viewID, const Rect& frame) { Post<ASSetViewFrame>(viewID, frame); }
+    void InvalidateView(handler_id viewID, const IRect& frame) { Post<ASInvalidateView>(viewID, frame); }
+
+    void* AllocMessageBuffer(int32_t messageID, size_t size);
+
+    
+//    bool SlotTransmitRemoteSignal(int id, const void* data, size_t length);
+    
+    void SlotRegisterApplicationReply(handler_id serverHandle) { m_ServerHandle = serverHandle; }
+    void SlotCreateViewReply(handler_id clientHandle, handler_id serverHandle);
+    
+    
+    ASRegisterApplicationReply::Receiver RSRegisterApplicationReply;
+    ASCreateViewReply::Receiver          RSCreateViewReply;
+ 
+    handler_id m_ServerHandle = -1;
+
+    uint8_t m_SendBuffer[APPSERVER_MSG_BUFFER_SIZE]; 
+    int32_t m_UsedSendBufferSize = 0;
+        
     Application(const Application &) = delete;
     Application& operator=(const Application &) = delete;
 };
 
+}

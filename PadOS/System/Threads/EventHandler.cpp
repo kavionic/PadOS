@@ -18,11 +18,27 @@
 // Created: 11.03.2018 16:01:50
 
 #include "EventHandler.h"
+#include "System/Signals/RemoteSignal.h"
 
-EventHandler::EventHandler()
+using namespace os;
+
+EventHandler::EventHandler(const String& name) : m_Name(name)
 {
+    static handler_id nextHandle = 0;
+    m_Handle = ++nextHandle;
 }
 
 EventHandler::~EventHandler()
 {
+}
+
+bool EventHandler::HandleMessage(int32_t code, const void* data, size_t length)
+{
+    auto i = m_RemoteSignalMap.find(code);
+    if (i != m_RemoteSignalMap.end()) {
+//        printf("EventHandler::HandleMessage() '%s' handline event %d (%d)\n", m_Name.c_str(), code, length);
+        i->second->Dispatch(data, length);
+        return true;
+    }
+    return false;
 }

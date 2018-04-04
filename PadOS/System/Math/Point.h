@@ -25,7 +25,7 @@ class IPoint;
  * \par Description:
  *
  * \sa
- * \author	Kurt Skauen (kurt@atheos.cx)
+ * \author Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
 class Point
@@ -34,21 +34,21 @@ public:
     float x;
     float y;
 
-    Point()			 { x = y = 0.0f;	}
+    Point()                    { x = y = 0.0f; }
     Point( const Point& cPnt ) { x = cPnt.x; y = cPnt.y; }
     explicit inline Point( const IPoint& cPnt );
-    explicit Point( float value ) { x = y = value;	}
-    Point( float nX, float nY ) { x = nX; y = nY;	}
+    explicit Point( float value ) { x = y = value; }
+    Point( float nX, float nY ) { x = nX; y = nY; }
 
-    Point	 operator-( void ) const 		{ return( Point( -x, -y ) ); }
-    Point	 operator+( const Point& cPoint ) const  { return( Point( x + cPoint.x, y + cPoint.y ) ); }
-    Point	 operator-( const Point& cPoint ) const  { return( Point( x - cPoint.x, y - cPoint.y ) ); }
-    const Point& operator+=( const Point& cPoint )	 {  x += cPoint.x; y += cPoint.y; return( *this ); }
-    const Point& operator-=( const Point& cPoint )	 {  x -= cPoint.x; y -= cPoint.y; return( *this ); }
-    bool	 operator<( const Point& cPoint ) const  { return( y < cPoint.y || ( y == cPoint.y && x < cPoint.x ) ); }
-    bool	 operator>( const Point& cPoint ) const  { return( y > cPoint.y || ( y == cPoint.y && x > cPoint.x ) ); }
-    bool	 operator==( const Point& cPoint ) const { return( y == cPoint.y && x == cPoint.x ); }
-    bool	 operator!=( const Point& cPoint ) const { return( y != cPoint.y || x != cPoint.x ); }
+    Point        operator-( void ) const                 { return( Point( -x, -y ) ); }
+    Point        operator+( const Point& cPoint ) const  { return( Point( x + cPoint.x, y + cPoint.y ) ); }
+    Point        operator-( const Point& cPoint ) const  { return( Point( x - cPoint.x, y - cPoint.y ) ); }
+    const Point& operator+=( const Point& cPoint )       {  x += cPoint.x; y += cPoint.y; return( *this ); }
+    const Point& operator-=( const Point& cPoint )       {  x -= cPoint.x; y -= cPoint.y; return( *this ); }
+    bool         operator<( const Point& cPoint ) const  { return( y < cPoint.y || ( y == cPoint.y && x < cPoint.x ) ); }
+    bool         operator>( const Point& cPoint ) const  { return( y > cPoint.y || ( y == cPoint.y && x > cPoint.x ) ); }
+    bool         operator==( const Point& cPoint ) const { return( y == cPoint.y && x == cPoint.x ); }
+    bool         operator!=( const Point& cPoint ) const { return( y != cPoint.y || x != cPoint.x ); }
 };
 
 /** 
@@ -56,7 +56,7 @@ public:
  * \par Description:
  *
  * \sa
- * \author	Kurt Skauen (kurt@atheos.cx)
+ * \author Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
 class IPoint
@@ -65,21 +65,21 @@ public:
     int x;
     int y;
 
-    IPoint()			 { x = y = 0;	}
+    IPoint()                     { x = y = 0; }
     IPoint( const IPoint& cPnt ) { x = cPnt.x; y = cPnt.y; }
     explicit inline IPoint( const Point& cPnt );
-    explicit IPoint( int value ) { x = y = value;	}
-    IPoint( int nX, int nY )	 { x = nX; y = nY;	}
+    explicit IPoint( int value ) { x = y = value; }
+    IPoint( int nX, int nY )     { x = nX; y = nY; }
 
-    IPoint	  operator-( void ) const 		   { return( IPoint( -x, -y ) ); }
-    IPoint	  operator+( const IPoint& cPoint ) const  { return( IPoint( x + cPoint.x, y + cPoint.y ) ); }
-    IPoint	  operator-( const IPoint& cPoint ) const  { return( IPoint( x - cPoint.x, y - cPoint.y ) ); }
-    const IPoint& operator+=( const IPoint& cPoint )	   {  x += cPoint.x; y += cPoint.y; return( *this ); }
-    const IPoint& operator-=( const IPoint& cPoint )	   {  x -= cPoint.x; y -= cPoint.y; return( *this ); }
-    bool	  operator<( const IPoint& cPoint ) const  { return( y < cPoint.y || ( y == cPoint.y && x < cPoint.x ) ); }
-    bool	  operator>( const IPoint& cPoint ) const  { return( y > cPoint.y || ( y == cPoint.y && x > cPoint.x ) ); }
-    bool	  operator==( const IPoint& cPoint ) const { return( y == cPoint.y && x == cPoint.x ); }
-    bool	  operator!=( const IPoint& cPoint ) const { return( y != cPoint.y || x != cPoint.x ); }
+    IPoint        operator-( void ) const                  { return( IPoint( -x, -y ) ); }
+    IPoint        operator+( const IPoint& cPoint ) const  { return( IPoint( x + cPoint.x, y + cPoint.y ) ); }
+    IPoint        operator-( const IPoint& cPoint ) const  { return( IPoint( x - cPoint.x, y - cPoint.y ) ); }
+    const IPoint& operator+=( const IPoint& cPoint )       {  x += cPoint.x; y += cPoint.y; return( *this ); }
+    const IPoint& operator-=( const IPoint& cPoint )       {  x -= cPoint.x; y -= cPoint.y; return( *this ); }
+    bool          operator<( const IPoint& cPoint ) const  { return( y < cPoint.y || ( y == cPoint.y && x < cPoint.x ) ); }
+    bool          operator>( const IPoint& cPoint ) const  { return( y > cPoint.y || ( y == cPoint.y && x > cPoint.x ) ); }
+    bool          operator==( const IPoint& cPoint ) const { return( y == cPoint.y && x == cPoint.x ); }
+    bool          operator!=( const IPoint& cPoint ) const { return( y != cPoint.y || x != cPoint.x ); }
 };
 
 

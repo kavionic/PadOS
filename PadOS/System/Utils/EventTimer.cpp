@@ -23,10 +23,10 @@
 #include "System/System.h"
 #include "System/Threads/Looper.h"
 
-std::multimap< bigtime_t, EventTimer* > EventTimer::s_TimerMap;
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 EventTimer::EventTimer(bigtime_t timeout, bool singleshot, int32_t id) : m_ID(id), m_Timeout(timeout)
@@ -34,22 +34,20 @@ EventTimer::EventTimer(bigtime_t timeout, bool singleshot, int32_t id) : m_ID(id
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 EventTimer::~EventTimer()
 {
-    //Stop();
+    Stop();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 void EventTimer::Set(bigtime_t timeout)
 {
-//    Stop();
-
     if ( timeout < 1 ) {
         timeout = 1;
     }
@@ -60,28 +58,21 @@ void EventTimer::Set(bigtime_t timeout)
         assert(m_Looper->GetThreadID() == get_thread_id());
         m_Looper->AddTimer(this);
     }
-//    m_IsSingleshot = singleshot;
-//    bigtime_t expireTime = timeout + get_system_time();
-//    m_TimerMapIterator = s_TimerMap.insert( std::make_pair(expireTime,this) );
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-/*void EventTimer::Stop()
+void EventTimer::Stop()
 {
     if (m_Looper != nullptr) {
         m_Looper->RemoveTimer(this);
     }
-    if ( m_Timeout >= 0 ) {
-        s_TimerMap.erase(m_TimerMapIterator);
-    }
-    m_Timeout = -1;
-}*/
+}
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 bool EventTimer::IsRunning() const
@@ -90,7 +81,7 @@ bool EventTimer::IsRunning() const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 void EventTimer::SetID(int32_t id)
@@ -99,7 +90,7 @@ void EventTimer::SetID(int32_t id)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 int32_t EventTimer::GetID() const
@@ -108,7 +99,7 @@ int32_t EventTimer::GetID() const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 bigtime_t EventTimer::GetRemainingTime() const
@@ -120,50 +111,3 @@ bigtime_t EventTimer::GetRemainingTime() const
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-///
-///////////////////////////////////////////////////////////////////////////////
-/*
-void EventTimer::Tick()
-{
-    bigtime_t curTime = get_system_time();
-
-    while (!s_TimerMap.empty())
-    {
-        std::multimap< bigtime_t, EventTimer* >::iterator i = s_TimerMap.begin();
-
-        bigtime_t timeout = (*i).first;
-
-        if ( timeout > curTime ) {
-            break;
-        }
-
-        EventTimer* timer = (*i).second;
-      
-        s_TimerMap.erase(i);
-
-        if ( timer->m_IsSingleshot )
-        {
-            timer->m_Timeout = -1;
-        }
-        else
-        {
-            timeout += timer->m_Timeout;
-            timer->m_TimerMapIterator = s_TimerMap.insert(std::make_pair(timeout, timer));
-        }
-        timer->SignalTrigged(timer);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-///
-///////////////////////////////////////////////////////////////////////////////
-
-void EventTimer::Shutdown()
-{
-  while( !s_TimerMap.empty() )
-  {
-    s_TimerMap.begin()->second->Stop();
-  }
-}
-*/

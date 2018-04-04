@@ -37,19 +37,20 @@ public:
     KMessagePort(const char* name, int maxCount);
     ~KMessagePort();
 
-    bool    SendMessage(int32_t code, const void* data, size_t length, bigtime_t timeout = INFINIT_TIMEOUT);
+    bool    SetReplyPort(port_id port);
+
+    bool    SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout = INFINIT_TIMEOUT);
     
-    ssize_t ReceiveMessage(int32_t* code, void* buffer, size_t bufferSize);
-    ssize_t ReceiveMessageTimeout(int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout);
-    ssize_t ReceiveMessageDeadline(int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline);
+    ssize_t ReceiveMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
+    ssize_t ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout);
+    ssize_t ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline);
     
 private:
-    ssize_t DetachMessage(int32_t* code, void* buffer, size_t bufferSize);
+    ssize_t DetachMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
     
     KSemaphore m_Mutex;
     KSemaphore m_SendSemaphore;
     KSemaphore m_ReceiveSemaphore;
-
 
     KMessagePortMessage* m_FirstMsg = nullptr;
     KMessagePortMessage* m_LastMsg = nullptr;

@@ -35,185 +35,20 @@
 #include "System/Threads/Looper.h"
 #include "System/Threads/Semaphore.h"
 #include "System/Threads/EventHandler.h"
+#include "System/SystemMessageIDs.h"
 #include "System/System.h"
 #include "System/Signals/Signal.h"
-#include <sys/_pthreadtypes.h>
-#include <pthread.h>
-#include <thread>
+#include "System/Signals/RemoteSignal.h"
+
+using namespace os;
 
 
-template<typename T>
-struct RemoteSignalPacker
-{
-};
-
-template<>
-struct RemoteSignalPacker<int>
-{
-    static size_t GetSize(int value) { return sizeof(int); }
-    static void   Write(int value, void* data ) { *reinterpret_cast<int*>(data) = value; }
-    static size_t Read(const void* data, int* value)       { *value = *reinterpret_cast<const int*>(data); return sizeof(*value); }
-};
-
-
-template<>
-struct RemoteSignalPacker<float>
-{
-    static size_t GetSize(float value)           { return sizeof(float); }
-    static void   Write(float value, void* data ) { *reinterpret_cast<float*>(data) = value; }
-    static size_t Read(const void* data, float* value)       { *value = *reinterpret_cast<const float*>(data); return sizeof(*value); }
-};
-
-template<>
-struct RemoteSignalPacker<std::string>
-{
-    static size_t GetSize(const std::string& value)           { return sizeof(uint32_t) + value.size(); }
-    static void   Write(const std::string& value, void* data)
-    {
-        *reinterpret_cast<uint32_t*>(data) = value.size();
-        data = reinterpret_cast<uint32_t*>(data) + 1;
-        value.copy(reinterpret_cast<char*>(data), value.size());
-    }
-    static size_t Read(const void* data, std::string* value)
-    {
-        uint32_t length = *reinterpret_cast<const uint32_t*>(data);
-        data = reinterpret_cast<const uint32_t*>(data) + 1;
-        value->assign(reinterpret_cast<const char*>(data), length);
-        return sizeof(uint32_t) + length;
-    }
-};
-
-    
-template<int ID, typename R, typename... ARGS>
-class RemoteSignalTX : public SignalBase
+class UserView : public EventHandler
 {
 public:
-    RemoteSignalTX() : m_ID(ID) {}
-    
-    template <typename T,typename fT>
-    bool SetTransmitter(const T* object, bool (fT::*callback)(int, const void*, size_t))
-    {
-        try {
-            typedef bool (fT::*Signature)(int, const void*, size_t);
-            m_TransmitSlot = new SlotFull<3, fT, bool, Signature, int, const void*, size_t>(this, const_cast<fT*>(static_cast<const fT*>(object)), callback);
-            return true;
-        } catch (const std::bad_alloc& error) {
-            return false;
-        }
-    }
-    template <typename T,typename fT>
-    bool SetTransmitter(const T* object, bool (fT::*callback)(int, const void*, size_t) const)
-    {
-        try {
-            typedef bool (fT::*Signature)(int, const void*, size_t) const;
-            m_TransmitSlot = new SlotFull<3, fT, bool, Signature, int, const void*, size_t>(this, const_cast<fT*>(static_cast<const fT*>(object)), callback);
-            return true;
-        } catch (const std::bad_alloc& error) {
-            return false;
-        }
-    }
-    bool SetTransmitter(bool (*callback)(int, const void*, size_t))
-    {
-        try {
-            typedef bool (*Signature)(int, const void*, size_t);
-            m_TransmitSlot = new SlotFull<3, SignalTarget, bool, Signature, int, const void*, size_t>(this, nullptr, callback);
-            return true;
-        } catch (const std::bad_alloc& error) {
-            return false;
-        }
-    }
         
-    template<typename FIRST>
-    size_t Accumulate(FIRST&& first) const { return first; }
-        
-    template<typename FIRST, typename... REST>
-    size_t Accumulate(FIRST&& first, REST&&... rest) const { return first + Accumulate<REST...>(std::forward<REST>(rest)...); }
-    
-    template<typename FIRST>
-    void WriteArg(void* buffer, FIRST&& first)
-    {
-        RemoteSignalPacker<std::decay_t<FIRST>>::Write(std::forward<FIRST>(first), buffer);
-    }
-    template<typename FIRST, typename... REST>
-    void WriteArg(void* buffer, FIRST&& first, REST&&... rest)
-    {
-        RemoteSignalPacker<std::decay_t<FIRST>>::Write(std::forward<FIRST>(first), buffer);
-        WriteArg(reinterpret_cast<uint8_t*>(buffer) + RemoteSignalPacker<std::decay_t<FIRST>>::GetSize(std::forward<FIRST>(first)), std::forward<REST>(rest)...);
-    }
-    
-    template<typename... fARGS>
-    bool operator()(fARGS&&... args)
-    {
-        static const size_t MAX_STACK_BUFFER_SIZE = 128;
-        
-        size_t size = Accumulate(RemoteSignalPacker<std::decay_t<ARGS>>::GetSize(std::forward<fARGS>(args))...);
-        
-        void* buffer;
-        if (size <= MAX_STACK_BUFFER_SIZE) {
-            buffer = alloca(size);
-        } else {
-            buffer = malloc(size);
-            if (buffer == nullptr) {
-                return false;
-            }
-        }
-        WriteArg(buffer, args...);
-        bool result = m_TransmitSlot->Call(m_ID, buffer, size);
-        
-        if (size > MAX_STACK_BUFFER_SIZE) {
-            free(buffer);
-        }
-        return result;
-    }
-
-private:
-    Slot<bool, int, const void*, size_t>* m_TransmitSlot;
-    int32_t     m_ID;
 };
 
-template<int ID, typename R, typename... ARGS>
-class RemoteSignalRX : public Signal<R, ARGS...>
-{
-public:
-    typedef std::tuple<std::decay_t<ARGS>...> ArgTuple_t;
-    RemoteSignalRX() {}
-    
-    int GetID() const { return ID; }
-    
-    bool Dispatch(const void* data, size_t length)
-    {
-        using Indices = std::make_index_sequence<std::tuple_size<std::decay_t<ArgTuple_t>>::value>;
-        SendSignal(data, Indices());
-        return true;
-    }
-        
-private:
-    template<int I>
-    void UnpackArgs(ArgTuple_t& tuple, const void* data) {}
-    
-    template<int I, typename FIRST, typename... REST>
-    void UnpackArgs(ArgTuple_t& tuple, const void* data)
-    {
-        data = reinterpret_cast<const uint8_t*>(data) + RemoteSignalPacker<FIRST>::Read(data, &std::get<I>(tuple));
-        UnpackArgs<I+1, REST...>(tuple, data);
-    }
-
-    template<std::size_t... I>
-    void SendSignal(const void* data, std::index_sequence<I...>)
-    {
-        ArgTuple_t argPack;
-        UnpackArgs<0, std::decay_t<ARGS>...>(argPack, data);
-        (*this)(std::get<I>(argPack)...);
-    }
-};
-
-template<int ID, typename R, typename... ARGS>
-class RemoteSignal
-{
-public:
-    typedef RemoteSignalRX<ID, R, ARGS...> Receiver;    
-    typedef RemoteSignalTX<ID, R, ARGS...> Sender;
-};
 
 Tests::Tests() : m_StdOutLock("tests_std_out"), m_MsgPort("test_port", 10)
 {
@@ -252,7 +87,7 @@ void Tests::TestThreadWait()
 class MessagePortTestHandler : public EventHandler, public SignalTarget
 {
 public:
-    MessagePortTestHandler(Semaphore& stdOutLock) : m_StdOutLock(stdOutLock) {
+    MessagePortTestHandler(Semaphore& stdOutLock) : EventHandler("MessagePortTestHandler"), m_StdOutLock(stdOutLock) {
         TestSignal.Connect(this, &MessagePortTestHandler::SlotTest);
     }
 
@@ -269,18 +104,18 @@ public:
     }
 
 private:
-    void SlotTest(int a, float b/*, const std::string& str*/) {
+    void SlotTest(int a, float b/*, const String& str*/) {
         printf("Test: %d, %f: '%s'\n", a, b, "str.c_str()");
     }
     Semaphore& m_StdOutLock;
     
-    RemoteSignal<1, void, int, float, const std::string&>::Receiver TestSignal;
+    RemoteSignal<1, void, int, float, const String&>::Receiver TestSignal;
 };
 
 class MessagePortTestThread : public Looper
 {
 public:
-    MessagePortTestThread(Semaphore& stdOutLock) : Looper(10), m_StdOutLock(stdOutLock)
+    MessagePortTestThread(Semaphore& stdOutLock) : Looper("MessagePortTestThread", 10), m_StdOutLock(stdOutLock)
     {
         Ptr<MessagePortTestHandler> handler = ptr_new<MessagePortTestHandler>(m_StdOutLock);
         
@@ -290,11 +125,6 @@ public:
 private:
     Semaphore& m_StdOutLock;
 };
-
-bool Tests::SlotTransmitRemoteSignal(int id, const void* data, size_t length)
-{
-    return m_MsgPort.SendMessage(id, data, length);
-}
 
 void Tests::TestMessagePort()
 {
@@ -307,10 +137,8 @@ void Tests::TestMessagePort()
 
     looper->Start("looper_message_test", true, 1);
 
-    RemoteSignal<1, void, int, float, const std::string&>::Sender TestSignal;
-    
-    TestSignal.SetTransmitter(this, &Tests::SlotTransmitRemoteSignal);
-    
+    typedef RemoteSignal<1, void, int, float, const String&>::Sender TestSignal;
+        
     for (int i = 0; i < 20; ++i)
     {
         char    message[256];
@@ -318,7 +146,7 @@ void Tests::TestMessagePort()
         sprintf(message, "Test message %d", i);
         bigtime_t curTime = get_system_time_hires();
         
-        TestSignal(i, float(curTime) / 1.0e6f, std::string(message));
+        TestSignal::Emit(m_MsgPort, -1, i, float(curTime) / 1.0e6f, String(message));
         
 /*        if (port.SendMessage(i, message, strlen(message) + 1)) {
             CRITICAL_BEGIN(m_StdOutLock) {
@@ -331,7 +159,7 @@ void Tests::TestMessagePort()
             } CRITICAL_END;
         }*/
     }
-    m_MsgPort.SendMessage(123, nullptr, 0);
+    m_MsgPort.SendMessage(-1, MessageID::QUIT, nullptr, 0);
     int32_t result = looper->Wait();
 //    int32_t result = wait_thread(thread);
     printf("MessagePortTest result: %" PRId32 "\n", result);
@@ -386,7 +214,7 @@ void Tests::TestSemaphore()
 class SignalTester : public Thread, public SignalTarget
 {
 public:
-    SignalTester(Semaphore& stdOutLock) : m_StdOutLock(stdOutLock) {}
+    SignalTester(Semaphore& stdOutLock) : Thread("SignalTester"), m_StdOutLock(stdOutLock) {}
     virtual int Run() override
     {
         TestSignal.Connect(this, &SignalTester::TestSlot);

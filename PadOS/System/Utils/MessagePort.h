@@ -28,22 +28,26 @@ class MessagePort
 {
 public:
     MessagePort(const char* name, int maxCount) : m_Port(create_message_port(name, maxCount)) {}
+    MessagePort(port_id port, bool doClone = false) {
+        m_Port = (doClone) ? duplicate_message_port(port) : port;
+        m_DontDeletePort = !doClone;
+    }
     ~MessagePort() {
-        if (m_Port != -1) delete_message_port(m_Port);
+        if (!m_DontDeletePort && m_Port != -1) delete_message_port(m_Port);
     }
     port_id GetPortID() const { return m_Port; }
     
-    bool    SendMessage(int32_t code, const void* data, size_t length, bigtime_t timeout = INFINIT_TIMEOUT) {
-        return send_message(m_Port, code, data, length, timeout) >= 0;
+    bool    SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout = INFINIT_TIMEOUT) const {
+        return send_message(m_Port, targetHandler, code, data, length, timeout) >= 0;
     }
-    ssize_t ReceiveMessage(int32_t* code, void* buffer, size_t bufferSize) {
-        return receive_message(m_Port, code, buffer, bufferSize);
+    ssize_t ReceiveMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize) const {
+        return receive_message(m_Port, targetHandler, code, buffer, bufferSize);
     }
-    ssize_t ReceiveMessageTimeout(int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout) {
-        return receive_message_timeout(m_Port, code, buffer, bufferSize, timeout);
+    ssize_t ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout) const {
+        return receive_message_timeout(m_Port, targetHandler, code, buffer, bufferSize, timeout);
     }
-    ssize_t ReceiveMessageDeadline(int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline) {
-        return receive_message_deadline(m_Port, code, buffer, bufferSize, deadline);
+    ssize_t ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline) const {
+        return receive_message_deadline(m_Port, targetHandler, code, buffer, bufferSize, deadline);
     }
 
     MessagePort(const MessagePort& other) { m_Port = duplicate_message_port(other.m_Port); }
@@ -56,4 +60,5 @@ public:
     
 private:
     port_id m_Port;
+    bool    m_DontDeletePort = false;
 };

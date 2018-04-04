@@ -17,61 +17,47 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 21.10.2017 00:18:50
 
+#include "sam.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
 #include <inttypes.h>
 
-#undef _U
-#undef _L
-#undef LITTLE_ENDIAN
-
-
-#include "System/Math/Point.h"
-#include "System/Math/Rect.h"
-
 #include <vector>
 #include <deque>
 #include <algorithm>
 
-#include "sam.h"
 #include "component/pio.h"
 #include "SystemSetup.h"
 
-#include "System/GUI/GUI.h"
-#include "System/Signals//Signal.h"
-#include "PaintView.h"
-#include "System/Math/LineSegment.h"
-#include "System/GUI/Region.h"
-#include "RenderTest1.h"
-#include "RenderTest2.h"
-#include "RenderTest3.h"
-#include "RenderTest4.h"
-#include "ScrollTestView.h"
+#include "System/Signals/Signal.h"
 #include "Kernel/HAL/SAME70System.h"
 #include "Kernel/Drivers/HSMCIDriver.h"
-#include "Kernel/Drivers/RA8875Driver/TouchDriver.h"
 #include "FAT.h"
 #include "SDRAM.h"
 #include "System/Utils/EventTimer.h"
 #include "System/Threads.h"
 #include "Kernel/Kernel.h"
 #include "Kernel/Scheduler.h"
-#include "Kernel/Drivers/INA3221Driver.h"
-#include "Kernel/Drivers/BME280Driver.h"
 #include "Kernel/Drivers/UARTDriver.h"
 #include "Kernel/Drivers/I2CDriver.h"
+#include "Kernel/Drivers/FT5x0xDriver.h"
+#include "Kernel/Drivers/INA3221Driver.h"
+#include "Kernel/Drivers/BME280Driver.h"
 #include "DeviceControl/INA3221.h"
 #include "DeviceControl/BME280.h"
 #include "Tests.h"
+#include "ApplicationServer/ApplicationServer.h"
+#include "Applications/TestApp/TestApp.h"
 
 extern "C" void InitializeNewLibMutexes();
 
 typedef enum {
-	SDRAMC_OK = 0,
-	SDRAMC_TIMEOUT = 1,
-	SDRAMC_ERROR = 2,
+    SDRAMC_OK = 0,
+    SDRAMC_TIMEOUT = 1,
+    SDRAMC_ERROR = 2,
 } sdramc_status_t;
 
 /** SDRAM benchmark test size */
@@ -91,71 +77,70 @@ typedef enum {
 
 bigtime_t g_FrameTime = 0;
 
-kernel::TouchDriver kernel::TouchDriver::Instance(LCD_TP_WAKE_Pin, LCD_TP_RESET_Pin, LCD_TP_INT_Pin);
-
 kernel::HSMCIDriver g_SDCardBlockDevice(DigitalPin(e_DigitalPortID_A, 24));
 kernel::FAT         g_FileSystem;
 
+ApplicationServer* g_ApplicationServer;
 
 /*
-E1: 7	PA00: LCD_DATA_B00
-E2: 9	PA02: LCD_DATA_B01
+E1: 7   PA00: LCD_DATA_B00
+E2: 9   PA02: LCD_DATA_B01
 
-E1: 11	PA03: LCD_DATA_B02
-E2: 11	PA03: LCD_DATA_B02
+E1: 11  PA03: LCD_DATA_B02
+E2: 11  PA03: LCD_DATA_B02
 
-E1: 12	PA04: LCD_DATA_B03
-E2: 12	PA04: LCD_DATA_B03
+E1: 12  PA04: LCD_DATA_B03
+E2: 12  PA04: LCD_DATA_B03
 
-E2: 5	PA06: LCD_DATA_B04
-E1: 4	PA19: LCD_DATA_B05
-E2: 13	PA21: LCD_DATA_B06
-E2: 10	PA24: LCD_DATA_B07
+E2: 5   PA06: LCD_DATA_B04
+E1: 4   PA19: LCD_DATA_B05
+E2: 13  PA21: LCD_DATA_B06
+E2: 10  PA24: LCD_DATA_B07
 
-E1: 13	PB00: LCD_DATA_B08
-E1: 14	PB01: LCD_DATA_B09
+E1: 13  PB00: LCD_DATA_B08
+E1: 14  PB01: LCD_DATA_B09
 
-E1: 6	PB02: 0 LEDA
-E1: 5	PB03: 
-E2: 14	PB04
+E1: 6   PB02: 0 LEDA
+E1: 5   PB03: 
+E2: 14  PB04
 
-E2: 4	PC13: 2 CS
-E1: 10	PC17: 3 RD
-E2: 7	PC19: 1 RESET
-E1: 8	PC30: 4 WR
-E1: 3	PC31: 5 RS
+E2: 4   PC13: 2 CS
+E1: 10  PC17: 3 RD
+E2: 7   PC19: 1 RESET
+E1: 8   PC30: 4 WR
+E1: 3   PC31: 5 RS
 
-E2: 6	PD11: LCD_DATA_B10
+E2: 6   PD11: LCD_DATA_B10
 
-E1: 17	PD20: MISO
-E2: 17	PD20: MISO
+E1: 17  PD20: MISO
+E2: 17  PD20: MISO
 
-E1: 16	PD21: MOSI
-E2: 16	PD21: MOSI
+E1: 16  PD21: MOSI
+E2: 16  PD21: MOSI
 
-E1: 18	PD22: SPCK
-E2: 18	PD22: SPCK
+E1: 18  PD22: SPCK
+E2: 18  PD22: SPCK
 
-E1: 15	PD25: LCD_DATA_B11
-E2: 8	PD26: LCD_DATA_B12
-E2: 15	PD27: LCD_DATA_B13
-E1: 9	PD28: LCD_DATA_B14
-E2: 3	PD30: LCD_DATA_B15
+E1: 15  PD25: LCD_DATA_B11
+E2: 8   PD26: LCD_DATA_B12
+E2: 15  PD27: LCD_DATA_B13
+E1: 9   PD28: LCD_DATA_B14
+E2: 3   PD30: LCD_DATA_B15
 
 
-E1: 6	PB02: 0 LEDA
-E1: 3	PC31: 1 RESET
-E1: 8	PC30: 2 CS
-E1: 10	PC17: 3 RD
-E2: 4	PC13: 4 WR
-E2: 7	PC19: 5 RS
+E1: 6   PB02: 0 LEDA
+E1: 3   PC31: 1 RESET
+E1: 8   PC30: 2 CS
+E1: 10  PC17: 3 RD
+E2: 4   PC13: 4 WR
+E2: 7   PC19: 5 RS
 
-E1: 6	PB02: 0 LEDA
-E1: 3	PC31: 5 RS
-E1: 8	PC30: 4 WR
-E1: 10	PC17: 3 RD
-E2: 4	PC13: 2 CS
-E2: 7	PC19: 1 RESET
+E1: 6   PB02: 0 LEDA
+E1: 3   PC31: 5 RS
+E1: 8   PC30: 4 WR
+E1: 10  PC17: 3 RD
+E2: 4   PC13: 2 CS
+E2: 7   PC19: 1 RESET
 
 */
 
@@ -169,433 +154,7 @@ void BusFault_Handler() {kernel::panic("BusFault\n");}
 void UsageFault_Handler() {kernel::panic("UsageFault\n");}
 void DebugMonitor_Handler() {}
 
-/*
-bool IsScreenTouched()
-{
-#if 1
-    gui.FrameProcess();
 
-    GUIEvent event;
-    while( gui.GetEvent(&event) )
-    {
-        switch( event.m_EventID )
-        {
-            case e_EventMouseDown:
-            return true;
-        }
-    }
-    return false;    
-#else
-    static bigtime_t prevTime;
-    bigtime_t curTime = get_system_time();
-    if (curTime - prevTime > bigtime_from_s(10))
-    {
-        prevTime = curTime;
-        return true;
-    }
-    return false;
-#endif
-}
-
-
-void DisplayTest1()
-{
-    Display::Instance.SetFgColor(0xffff);
-    Display::Instance.FillRect(0, 0, 799, 479);
-
-    int posX = 50 + rand() % 700;
-    int posY = 50 + rand() % 380;
-    float dirX = 1;
-    float dirY = 1;
-
-    static const int radius = 40;
-    static const int speed = 5;
-
-    for (;;)
-    {
-        SAME70System::ResetWatchdog();
-        for (uint16_t j = 0 ; j < 10 ; ++j )
-        {
-            if (IsScreenTouched()) return;
-            for (uint16_t j = 0 ; j < 5 ; ++j )
-            {
-                posX += dirX;
-                posY += dirY;
-                dirY += 0.05f;
-                if (posX < radius) {
-                    posX = radius;
-                    dirX = 2 + rand() % speed;
-                    } else if (posX > 799 - radius) {
-                    posX = 799 - radius;
-                    dirX = -(2 + rand() % speed);
-                }
-                if (posY < radius) {
-                    posY = radius;
-                    dirY = 2 + rand() % speed;
-                    } else if (posY > 479 - radius) {
-                    posY = 479 - radius;
-                    dirY = -(2 + rand() % speed);
-                }
-                Display::Instance.SetFgColor(rand());
-                Display::Instance.FillCircle(posX, posY, radius);
-                //            Display::Instance.FillRect(rand() % 480, rand() % 320, rand() % 480, rand() % 320, rand());
-                //            gui.FrameProcess();
-                //            if ( TouchDriver::Instance.IsPressed() ) break;
-            }
-        }        
-        Display::Instance.SetFgColor(rand());
-        Display::Instance.FillCircle(50 + rand() % 700, 50 + rand() % 380, 5+rand() % 45);
-    }
-}
-
-static const int historySize = 100;
-//Point history[historySize][2];
-
-void DisplayTest2()
-{
-    GfxDriver::Instance.SetFgColor(0xffff);
-    Display::Instance.FillRect(0, 0, 799, 479);
-
-    Point pos1(rand() % 799, rand() % 479);
-    Point pos2(rand() % 799, rand() % 479);
-    
-    Point dir1(1,-1);
-    Point dir2(1, 1);
-
-    static const int speed = 3;
-
-    std::vector<Point> history;
-    history.resize(historySize*2);
-  
-    
-    int historyPos = 0;
-    for (;;)
-    {
-        SAME70System::ResetWatchdog();
-        if (IsScreenTouched()) break;
-        for (uint16_t j = 0 ; j < 50 ; ++j )
-        {
-            pos1 += dir1;
-            pos2 += dir2;
-            if (pos1.x < 0) {
-                pos1.x = 0;
-                dir1.x = 2 + rand() % speed;
-            } else if (pos1.x > 799) {
-                pos1.x = 799;
-                dir1.x = -(2 + rand() % speed);
-            }
-            if (pos1.y < 0) {
-                pos1.y = 0;
-                dir1.y = 2 + rand() % speed;
-            } else if (pos1.y > 479) {
-                pos1.y = 479;
-                dir1.y = -(2 + rand() % speed);
-            }
-
-            if (pos2.x < 0) {
-                pos2.x = 0;
-                dir2.x = 2 + rand() % speed;
-            } else if (pos2.x > 799) {
-                pos2.x = 799;
-                dir2.x = -(2 + rand() % speed);
-            }
-            if (pos2.y < 0) {
-                pos2.y = 0;
-                dir2.y = 2 + rand() % speed;
-            } else if (pos2.y > 479) {
-                pos2.y = 479;
-                dir2.y = -(2 + rand() % speed);
-            }
-            Display::Instance.SetFgColor(0xffff);
-            Display::Instance.DrawLine(history[historyPos*2].x, history[historyPos*2].y, history[historyPos*2+1].x, history[historyPos*2+1].y);
-            history[historyPos*2] = pos1;
-            history[historyPos*2+1] = pos2;
-            historyPos = (historyPos + 1) % historySize;
-            Display::Instance.SetFgColor(rand());
-            Display::Instance.DrawLine(pos1.x, pos1.y, pos2.x, pos2.y);
-        }
-    }
-}
-
-void DisplayTest3()
-{
-    Display::Instance.SetFgColor(0xffff);
-    Display::Instance.FillRect(0, 0, 799, 479);
-    for (;;)
-    {
-        SAME70System::ResetWatchdog();
-        for (int i = 0; i < 100; ++i)
-        {
-            if (IsScreenTouched()) return;
-            for (int j = 0; j < 10; ++j)
-            {
-                Display::Instance.SetFgColor(rand());
-                Display::Instance.FillCircle(50 + rand() % 700, 50 + rand() % 380, 5+rand() % 45);
-            }
-        }
-        Display::Instance.SetFgColor(rand());
-        Display::Instance.FillRect(0, 0, 799, 479);
-    }        
-}
-
-void DisplayTest4()
-{
-    Display::Instance.WaitBlitter();
-    Display::Instance.SetWindow(0, 0, 799, 479);
-    Display::Instance.SetFgColor(0xffff);
-    Display::Instance.FillRect(0, 0, 799, 479);
-    
-    
-    ClippingRegion region;
-    
-    IRect frameRect(50.0f, 0.0f, 400.0f, 480.0f);
-    
-    region.AddRect(frameRect);
-    region.RemoveRect(IRect(0.0f, 0.0f, 30.0f, 30.0f) + IPoint(60, 20) );
-    region.RemoveRect(IRect(0.0f, 0.0f, 30.0f, 30.0f) + IPoint(100, 20) );
-    region.RemoveRect(IRect(0.0f, 0.0f, 30.0f, 30.0f) + IPoint(140, 20) );
-    region.RemoveRect(IRect(0.0f, 0.0f, 30.0f, 30.0f) + IPoint(180, 20) );
-    region.RemoveRect(IRect(0.0f, 0.0f, 30.0f, 30.0f) + IPoint(220, 20) );
-    region.RemoveRect(IRect(0.0f, 0.0f, 30.0f, 30.0f) + IPoint(100, 60) );
-
-
-    Region region2(frameRect);
-
-    region2.Exclude(IRect(0, 0, 30, 30.0f) + IPoint(60, 20) );
-    region2.Exclude(IRect(0, 0, 30, 30.0f) + IPoint(100, 20) );
-    region2.Exclude(IRect(0, 0, 30, 30.0f) + IPoint(140, 20) );
-    region2.Exclude(IRect(0, 0, 30, 30.0f) + IPoint(180, 20) );
-    region2.Exclude(IRect(0, 0, 30, 30.0f) + IPoint(220, 20) );
-    region2.Exclude(IRect(0, 0, 30, 30.0f) + IPoint(100, 60) );
-    region2.Optimize();
-    
-    std::vector<ILineSegment> clippedLines;
-    
-    for (int y = 10; y < 310; ++y)
-    {
-        std::deque<ILineSegment> clippedLine;
-    
-        region.Clip(ILineSegment(IPoint(20, y),IPoint(500, y)), clippedLine);
-
-        for (auto l : clippedLine)
-        {
-            clippedLines.push_back(ILineSegment(l.p1, l.p2));
-        }
-    }
-    
-    for (;;)
-    {
-        SAME70System::ResetWatchdog();
-        if (IsScreenTouched()) break;
-        uint32_t startTime = Clock::GetTime();
-        for (int i = 0; i < 10; ++i)
-        {
-            uint16_t color = random();
-            GfxDriver::Instance.SetFgColor(color);
-            for (int y = 10; y < 310; ++y)
-            {
-#if 1
-            
-                ENUMCLIPLIST(&region2.m_cRects, node)
-                {
-                    int x1 = 20;
-                    int y1 = y;
-                    int x2 = 400;
-                    int y2 = y;
-                    
-//                    GfxDriver::Instance.WaitBlitter();
-//                    GfxDriver::Instance.SetWindow(node->m_cBounds.left, node->m_cBounds.top, node->m_cBounds.right, node->m_cBounds.bottom);
-//                    GfxDriver::Instance.DrawLine(x1, y1, x2, y2);
-
-                    if (Region::ClipLine(node->m_cBounds, &x1, &y1, &x2, &y2)) {
-                        //GfxDriver::Instance.DrawLine(20, y, 400, y);
-                        GfxDriver::Instance.DrawLine(x1, y1, x2, y2);
-                    }
-                    
-                }
-#else
-                std::deque<ILineSegment> clippedLine;
-    
-                region2.Clip(ILineSegment(IPoint(20.0f, y),IPoint(400.0f, y)), clippedLine);
-
-                for (auto l : clippedLine)
-                {
-            //        auto l = clippable_line;
-                    float x1 = l.p1.x;
-                    float y1 = l.p1.y;
-                    float x2 = l.p2.x;
-                    float y2 = l.p2.y;
-        
-                    GfxDriver::Instance.DrawHLine(color, x1, y1, x2 - x1);
-                }
-#endif
-            }
-            Display::Instance.SetWindow(0, 0, 799, 479);
-            Display::Instance.SetFgColor(rand());
-            Display::Instance.FillCircle(460 + rand() % 340, 50 + rand() % 380, 5+rand() % 45);
-        }        
-        uint32_t curTime = Clock::GetTime();
-        g_FrameTime = curTime - startTime;
-        startTime = curTime;
-    }        
-    
-}
-
-void DrawBeveledBox(IPoint tl, IPoint br, bool raised)
-{
-    uint16_t colorDark  = GfxDriver::MakeColor(0xa0,0xa0,0xa0);
-    uint16_t colorLight = GfxDriver::MakeColor(0xe0,0xe0,0xe0);
-    if ( !raised ) std::swap(colorDark, colorLight);
-
-    Display::Instance.SetFgColor(colorLight);
-    GfxDriver::Instance.DrawLine(tl.x, tl.y, br.x, tl.y);
-    Display::Instance.SetFgColor(colorDark);
-    GfxDriver::Instance.DrawLine(br.x, tl.y + 1, br.x, br.y);
-    GfxDriver::Instance.DrawLine(br.x - 1, br.y, tl.x - 1, br.y);
-    Display::Instance.SetFgColor(colorLight);
-    GfxDriver::Instance.DrawLine(tl.x, br.y, tl.x, tl.y);
-
-    colorDark  = GfxDriver::MakeColor(0xc0,0xc0,0xc0);
-    colorLight = GfxDriver::MakeColor(0xff,0xff,0xff);
-    if ( !raised ) std::swap(colorDark, colorLight);
-    
-    tl.x++;
-    tl.y++;
-    br.x--;
-    br.y--;
-    Display::Instance.SetFgColor(colorLight);
-    GfxDriver::Instance.DrawLine(tl.x, tl.y, br.x, tl.y);
-    Display::Instance.SetFgColor(colorDark);
-    GfxDriver::Instance.DrawLine(br.x, tl.y + 1, br.x, br.y);
-    GfxDriver::Instance.DrawLine(br.x - 1, br.y, tl.x - 1, br.y);
-    Display::Instance.SetFgColor(colorLight);
-    GfxDriver::Instance.DrawLine(tl.x, br.y, tl.x, tl.y);
-
-    tl.x++;
-    tl.y++;
-    br.x--;
-    br.y--;
-    
-    Display::Instance.SetFgColor((raised) ? GfxDriver::MakeColor(0xd0,0xd0,0xd0) : GfxDriver::MakeColor(0xf0,0xf0,0xf0));
-    GfxDriver::Instance.FillRect(tl.x, tl.y, br.x, br.y);
-}
-#if 0
-void Painter()
-{
-    IPoint screenRes = Display::Instance.GetResolution();
-    //    int16_t prevX = -1;
-    //    int16_t prevY = -1;
-    Display::Instance.SetFgColor(0xffff);
-    Display::Instance.FillRect(0, 0, screenRes.x - 1, screenRes.y - 1);
-    
-    DrawBeveledBox(IPoint(0,440), IPoint(40,479), true);
-    DrawBeveledBox(IPoint(760,440), IPoint(799,479), true);
-    
-    uint32_t prevUpdateTime = Clock::GetTime();
-    
-    int8_t pressedButton = -1;
-    for(;;)
-    {
-        int16_t x;
-        int16_t y;
-        
-        SAME70System::ResetWatchdog();
-
-
-        uint32_t time = Clock::GetTime();
-        
-        if ((time - prevUpdateTime) > 1)
-        {
-            gui.FrameProcess();
-            prevUpdateTime = time;
-        }
-
-        GUIEvent event;
-        
-        if ( gui.GetEvent(&event) )
-        {
-            //printf("Received event %d (%d, %d)\n", event.m_EventID, event.Data.Mouse.x, event.Data.Mouse.y);
-            if ( event.m_EventID == e_EventMouseDown )
-            {
-                int16_t mouseX = event.Data.Mouse.x;
-                int16_t mouseY = event.Data.Mouse.y;
-                
-                if ( mouseY > 280 )
-                {
-                    if ( mouseX < 40 ) {
-                        pressedButton = 0;
-                        DrawBeveledBox(IPoint(0,440), IPoint(40,479), false);
-                    } else if ( mouseX > 440 ) {
-                        pressedButton = 1;
-                        DrawBeveledBox(IPoint(760,440), IPoint(799,479), false);
-                    }
-                }
-                
-            }
-            else if ( event.m_EventID == e_EventMouseUp )
-            {
-                int16_t mouseX = event.Data.Mouse.x;
-                int16_t mouseY = event.Data.Mouse.y;
-
-                if ( mouseY > 440 )
-                {
-                    if ( pressedButton == 0 && mouseX < 40 ) {
-                        Display::Instance.SetFgColor(0xffff);
-                        Display::Instance.FillRect(0, 0, screenRes.x - 1, screenRes.y - 1);
-                    } else if ( pressedButton == 1 && mouseX > 760 ) {
-                        break;
-                    }
-                }
-                DrawBeveledBox(IPoint(0,440), IPoint(40,479), true);
-                DrawBeveledBox(IPoint(760,440), IPoint(799,479), true);
-                pressedButton = -1;
-            }
-        }
-//        if ( pressedButton == -1 && TouchDriver::Instance.IsPressed() )
-        {
-            TouchDriver::Instance.GetCursorPos(&x, &y);
-            
-            //            if ( prevX != ~0 ) {
-            //                Display::Instance.FillCircle(LCD_RGB(255,255,255), prevX, prevY, 10);
-            //            }
-            if ( y > 440 )
-            {
-                if ( x < 40 ) {
-                    continue;
-                    //                    Display::Instance.FillRect(0, 0, screenRes.x - 1, screenRes.y - 1, 0xffff);
-                } else if ( x > 760 ) {
-                    continue;
-                }
-            }
-            //            Display::Instance.FillCircle(rand(), x, y, 4);
-            Display::Instance.SetFgColor(LCD_RGB(0,255,0));
-            Display::Instance.FillCircle(x, y, 4);
-            Display::Instance.SetFgColor(LCD_RGB(0,255,255));
-            Display::Instance.FillCircle(x, y, 2);
-            //            prevX = x;
-            //            prevY = y;
-        }
-    }
-}
-#endif
-
-
-Signal<void, float> SignalTest;
-
-class PaintView : public SignalTarget
-{
-public:
-    PaintView() {
-        SignalTest.Connect(this, &PaintView::SlotTest);
-    }
-    
-    void SlotTest(float arg)
-    {
-        printf("%f\n", arg);
-    }
-    
-};
-*/
 
 /*!
  * \brief Initialize the SWO trace port for debug message printing
@@ -658,114 +217,35 @@ void SWO_PrintChar(char c, uint8_t portNo)
 }
 #endif
 
-void SlotRenderTest1(Ptr<View> view);
-void SlotRenderTest2(Ptr<View> view);
-void SlotRenderTest3(Ptr<View> view);
-void SlotRenderTest4(Ptr<View> view);
-void SlotPaintTest(Ptr<View> view);
-void SlotScrollTest(Ptr<View> view);
-
-void SlotRenderTest1(Ptr<View> view)
-{
-    gui.RemoveView(view);
-    
-    Ptr<RenderTest1> test = ptr_new<RenderTest1>();
-    Rect viewFrame = gui.GetScreenFrame();
-    test->SetFrame(viewFrame);
-  
-    test->SignalDone.Connect(SlotRenderTest2);
-    gui.AddView(test);
-}    
-
-void SlotRenderTest2(Ptr<View> view)
-{
-    gui.RemoveView(view);
-    
-    Ptr<RenderTest2> test = ptr_new<RenderTest2>();
-    Rect viewFrame = gui.GetScreenFrame();
-    test->SetFrame(viewFrame);
-    
-    test->SignalDone.Connect(SlotRenderTest3);
-    gui.AddView(test);
-}
-
-void SlotRenderTest3(Ptr<View> view)
-{
-    gui.RemoveView(view);
-    
-    Ptr<RenderTest3> test = ptr_new<RenderTest3>();
-    Rect viewFrame = gui.GetScreenFrame();
-    test->SetFrame(viewFrame);
-    
-    test->SignalDone.Connect(SlotRenderTest4);
-    gui.AddView(test);
-}
-
-void SlotRenderTest4(Ptr<View> view)
-{
-    gui.RemoveView(view);
-    
-    Ptr<RenderTest4> test = ptr_new<RenderTest4>();
-    Rect viewFrame = gui.GetScreenFrame();
-    test->SetFrame(viewFrame);
-    
-    test->SignalDone.Connect(SlotPaintTest);
-    gui.AddView(test);
-}
-
-void SlotPaintTest(Ptr<View> view)
-{
-    gui.RemoveView(view);
-    
-    Ptr<PaintView> test = ptr_new<PaintView>();
-    Rect viewFrame = gui.GetScreenFrame();
-    test->SetFrame(viewFrame);
-  
-    test->SignalDone.Connect(SlotScrollTest);
-    gui.AddView(test);
-}    
-
-void SlotScrollTest(Ptr<View> view)
-{
-    gui.RemoveView(view);
-    
-    Ptr<ScrollTestView> test = ptr_new<ScrollTestView>();
-    Rect viewFrame = gui.GetScreenFrame();
-    test->SetFrame(viewFrame);
-  
-    test->SignalDone.Connect(SlotRenderTest1);
-    gui.AddView(test);
-}    
-
 uint8_t sdram_access_test()
 {
-	uint32_t i;
-	uint32_t *pul = (uint32_t *)SDRAM_CS_ADDR;
+    uint32_t i;
+    uint32_t *pul = (uint32_t *)SDRAM_CS_ADDR;
 
-	for (i = 0; i < SDRAMC_TEST_LENGTH / 4; ++i) {
-		if (i & 1) {
-			pul[i] = SDRAMC_TEST_ODD_TAG | (i);
-		} else {
-			pul[i] = SDRAMC_TEST_EVEN_TAG | (i);
-		}
-	}
+    for (i = 0; i < SDRAMC_TEST_LENGTH / 4; ++i) {
+        if (i & 1) {
+            pul[i] = SDRAMC_TEST_ODD_TAG | (i);
+        } else {
+            pul[i] = SDRAMC_TEST_EVEN_TAG | (i);
+        }
+    }
 
         pul[0] = 0xdeadbabe;
-	for (i = 1; i < SDRAMC_TEST_LENGTH / 4; ++i) {
-		if (i & 1) {
-			if (pul[i] != (SDRAMC_TEST_ODD_TAG | (i))) {
+    for (i = 1; i < SDRAMC_TEST_LENGTH / 4; ++i) {
+        if (i & 1) {
+            if (pul[i] != (SDRAMC_TEST_ODD_TAG | (i))) {
                         printf("MEMTEST failed at 0x%08" PRIx32 "\n", i*4);
-				return SDRAMC_ERROR;
-			}
-		} else {
-			if (pul[i] != (SDRAMC_TEST_EVEN_TAG | (i))) {
+                return SDRAMC_ERROR;
+            }
+        } else {
+            if (pul[i] != (SDRAMC_TEST_EVEN_TAG | (i))) {
                         printf("MEMTEST failed at 0x%08" PRIx32 "\n", i*4);
-				return SDRAMC_ERROR;
-			}
-		}
-	}
+                return SDRAMC_ERROR;
+            }
+        }
+    }
 
-	return SDRAMC_OK;
+    return SDRAMC_OK;
 }
 
 int g_CurrentSensor = -1;
@@ -809,28 +289,19 @@ static void SetupDevices()
     }
 }
 
-void Thread2(void* args);
-/*{
-    for (;;)
-    {
-        printf("Second task!!!\n");
-//        Schedule();
-    }
-}*/
-
 void MeasureThread(void* args)
 {
 //    __enable_irq();
 
-    INA3221ShuntConfig shuntConfig;
+/*    INA3221ShuntConfig shuntConfig;
     shuntConfig.ShuntValues[INA3221_SENSOR_IDX_1] = 47.0e-3;
     shuntConfig.ShuntValues[INA3221_SENSOR_IDX_2] = 47.0e-3;
     shuntConfig.ShuntValues[INA3221_SENSOR_IDX_3] = 47.0e-3 * 0.5;
-
+*/
     g_CurrentSensor = open("/dev/ina3221/0", O_RDWR);
-    if (g_CurrentSensor >= 0) {
-        INA3221_SetShuntConfig(g_CurrentSensor, shuntConfig);
-    } else {
+    if (g_CurrentSensor < 0) {
+//        INA3221_SetShuntConfig(g_CurrentSensor, shuntConfig);
+//    } else {
         printf("ERROR: Failed to open current sensor\n");
     }
     g_EnvSensor = open("/dev/bme280/0", O_RDWR);
@@ -842,7 +313,7 @@ void MeasureThread(void* args)
     for (;;)
     {
         MeasureCurrent();
-        snooze(500000);
+        snooze(bigtime_from_s(10));
 //        printf("First task!!!\n");
 //        Schedule();
     }
@@ -850,8 +321,6 @@ void MeasureThread(void* args)
 
 int main(void)
 {
-//    SystemInit();
-   
     __disable_irq();
 
 
@@ -919,15 +388,30 @@ void kernel::InitThreadMain(void* argument)
 
     kernel::Kernel::RegisterDevice("i2c/0", ptr_new<kernel::I2CDriver>(kernel::I2CDriver::Channels::Channel0));
     kernel::Kernel::RegisterDevice("i2c/2", ptr_new<kernel::I2CDriver>(kernel::I2CDriver::Channels::Channel2));
+    kernel::Kernel::RegisterDevice("ft5x0x/0", ptr_new<kernel::FT5x0xDriver>(LCD_TP_WAKE_Pin, LCD_TP_RESET_Pin, LCD_TP_INT_Pin, "/dev/i2c/0"));
+    
     kernel::Kernel::RegisterDevice("ina3221/0", ptr_new<kernel::INA3221Driver>("/dev/i2c/2"));
     kernel::Kernel::RegisterDevice("bme280/0", ptr_new<kernel::BME280Driver>("/dev/i2c/2"));
 
-    static int32_t args[] = {1, 2, 3};
-    spawn_thread("SensorDumper", MeasureThread, 0, args);
-    spawn_thread("Tester", RunTests, 0, args);
+    INA3221ShuntConfig shuntConfig;
+    shuntConfig.ShuntValues[INA3221_SENSOR_IDX_1] = 47.0e-3;
+    shuntConfig.ShuntValues[INA3221_SENSOR_IDX_2] = 47.0e-3;
+    shuntConfig.ShuntValues[INA3221_SENSOR_IDX_3] = 47.0e-3 * 0.5;
+
+    int currentSensor = open("/dev/ina3221/0", O_RDWR);
+    if (currentSensor >= 0) {
+        INA3221_SetShuntConfig(currentSensor, shuntConfig);
+        close(currentSensor);
+    } else {
+        printf("ERROR: Failed to open current sensor for configuration.\n");
+    }
+
+//    static int32_t args[] = {1, 2, 3};
+//    spawn_thread("SensorDumper", MeasureThread, 0, args);
+//    spawn_thread("Tester", RunTests, 0, args);
 
     printf("Start I2S clock output\n");
-    //SAME70System::EnablePeripheralClock(ID_PMC);
+    SAME70System::EnablePeripheralClock(ID_PMC);
 /*    PMC->PMC_WPMR = PMC_WPMR_WPKEY_PASSWD; // | PMC_WPMR_WPEN_Msk; // Remove register write protection.
     PMC->PMC_PCK[1] = PMC_PCK_CSS_MAIN_CLK | PMC_PCK_PRES(0);
     PMC->PMC_SCER = PMC_SCER_PCK1_Msk;
@@ -936,14 +420,8 @@ void kernel::InitThreadMain(void* argument)
     */
     printf("Initialize display.\n");    
 
-    {
-        DEBUG_DISABLE_IRQ();
-//        GfxDriverIO::Setup();
-        Display::Instance.InitDisplay();
-    }
+    Display::Instance.InitDisplay();
 
-    {
-        DEBUG_DISABLE_IRQ();
     g_SDCardBlockDevice.Initialize();;
     g_FileSystem.Initialize(&g_SDCardBlockDevice);
 
@@ -956,59 +434,21 @@ void kernel::InitThreadMain(void* argument)
             printf("%s : %" PRIu32 "\n", entry.m_Name, entry.m_Size);
         }
     }
-    }
-    printf("Initializing touch driver.\n");
-    kernel::TouchDriver::Instance.Initialize("/dev/i2c/0");
-    gui.Initialize();
 
     printf("Clear screen.\n");
     Display::Instance.SetFgColor(0xffff);
     Display::Instance.SetWindow(0, 0, 799, 479);
     Display::Instance.FillRect(0, 0, 799, 479);
 
-#if 1
-//    Ptr<PaintView> test = ptr_new<PaintView>();
-    Ptr<RenderTest1> test = ptr_new<RenderTest1>();
-//    Ptr<ScrollTestView> test = ptr_new<ScrollTestView>();
-    Rect viewFrame = gui.GetScreenFrame();
-//    viewFrame.Resize(40.0f, 40.0f, -40.0f, -40.0f);
-    test->SetFrame(viewFrame);
-  
-    test->SignalDone.Connect(SlotRenderTest2);
-    gui.AddView(test);
-    test = nullptr;
+    printf("Start Application Server.\n");
 
-    printf("Start GUI.\n");
+    g_ApplicationServer = new ApplicationServer();
+    g_ApplicationServer->Start("appserver");
 
-//    uint32_t lastCurrentUpdateTime = Clock::GetTime();    
 
-//    EventTimer currentMeasureTimer;
-//    currentMeasureTimer.SignalTrigged.Connect(MeasureCurrent);
-//    currentMeasureTimer.Start(500*1000);
+    Application* testApp = new TestApp();
     
+    testApp->Start("test_app");
 
-    for (;;)
-    {
-        //EventTimer::Tick();
-        gui.Tick();
-//        snooze(5000);
-        //printf("Starting new frame\n");
-    }
-#endif
-//    Display::Instance.DrawHLine(23300, 230, 221, 16);    
-//    Display::Instance.FillCircle(23300, 238, 202, 21);
-
-/*
-    while (1) 
-    {
-        SAME70System::ResetWatchdog();
-//        Display::Instance.FillRect(0, 0, 799, 479, rand());
-
-        DisplayTest1();
-        DisplayTest2();
-        DisplayTest3();
-        DisplayTest4();
-//        Painter();
-
-    }*/
+    exit_thread(0);
 }

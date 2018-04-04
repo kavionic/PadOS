@@ -174,29 +174,28 @@ const uint32_t mmc_trans_multipliers[16] = {
 static void hsmci_reset(void);
 static void hsmci_set_speed(uint32_t speed, uint32_t mck);
 static bool hsmci_wait_busy(void);
-static bool hsmci_send_cmd_execute(uint32_t cmdr, sdmmc_cmd_def_t cmd,
-		uint32_t arg);
+static bool hsmci_send_cmd_execute(uint32_t cmdr, sdmmc_cmd_def_t cmd, uint32_t arg);
 
 /**
  * \brief Reset the HSMCI interface
  */
 static void hsmci_reset(void)
 {
-	uint32_t mr = HSMCI->HSMCI_MR;
-	uint32_t dtor = HSMCI->HSMCI_DTOR;
-	uint32_t sdcr = HSMCI->HSMCI_SDCR;
-	uint32_t cstor = HSMCI->HSMCI_CSTOR;
-	uint32_t cfg = HSMCI->HSMCI_CFG;
-	HSMCI->HSMCI_CR = HSMCI_CR_SWRST;
-	HSMCI->HSMCI_MR = mr;
-	HSMCI->HSMCI_DTOR = dtor;
-	HSMCI->HSMCI_SDCR = sdcr;
-	HSMCI->HSMCI_CSTOR = cstor;
-	HSMCI->HSMCI_CFG = cfg;
-	HSMCI->HSMCI_DMA = 0;
-	HSMCI->HSMCI_DMA = 0;
-	// Enable the HSMCI
-	HSMCI->HSMCI_CR = HSMCI_CR_PWSEN | HSMCI_CR_MCIEN;
+    uint32_t mr = HSMCI->HSMCI_MR;
+    uint32_t dtor = HSMCI->HSMCI_DTOR;
+    uint32_t sdcr = HSMCI->HSMCI_SDCR;
+    uint32_t cstor = HSMCI->HSMCI_CSTOR;
+    uint32_t cfg = HSMCI->HSMCI_CFG;
+    HSMCI->HSMCI_CR = HSMCI_CR_SWRST;
+    HSMCI->HSMCI_MR = mr;
+    HSMCI->HSMCI_DTOR = dtor;
+    HSMCI->HSMCI_SDCR = sdcr;
+    HSMCI->HSMCI_CSTOR = cstor;
+    HSMCI->HSMCI_CFG = cfg;
+    HSMCI->HSMCI_DMA = 0;
+    HSMCI->HSMCI_DMA = 0;
+    // Enable the HSMCI
+    HSMCI->HSMCI_CR = HSMCI_CR_PWSEN | HSMCI_CR_MCIEN;
 }
 
 /**
@@ -216,12 +215,12 @@ static void hsmci_set_speed(uint32_t speed, uint32_t mck)
     if ((speed * 2) < mck)
     {
         div = (mck / speed) - 2;
-	if (mck % speed) {
-	    div++; // Ensure that the card speed not be higher than expected.
-	}
+        if (mck % speed) {
+            div++; // Ensure that the card speed not be higher than expected.
+        }
         clkdiv = div >> 1;
-	// clkodd is the last significant bit of the clock divider (div).
-	clkodd = div % 2;
+        // clkodd is the last significant bit of the clock divider (div).
+        clkodd = div % 2;
     } else {
         clkdiv = 0;
         clkodd = 0;
@@ -230,10 +229,9 @@ static void hsmci_set_speed(uint32_t speed, uint32_t mck)
     HSMCI->HSMCI_MR &= ~HSMCI_MR_CLKDIV_Msk;
     HSMCI->HSMCI_MR |= HSMCI_MR_CLKDIV(clkdiv);
     if (clkodd) {
-	    HSMCI->HSMCI_MR |= HSMCI_MR_CLKODD;
-    }
-    else {
-	    HSMCI->HSMCI_MR &= ~HSMCI_MR_CLKODD;
+        HSMCI->HSMCI_MR |= HSMCI_MR_CLKODD;
+    } else {
+        HSMCI->HSMCI_MR &= ~HSMCI_MR_CLKODD;
     }
 
 }
@@ -244,18 +242,18 @@ static void hsmci_set_speed(uint32_t speed, uint32_t mck)
  */
 static bool hsmci_wait_busy(void)
 {
-	uint32_t busy_wait = 0xFFFFFFFF;
-	uint32_t sr;
+    uint32_t busy_wait = 0xFFFFFFFF;
+    uint32_t sr;
 
-	do {
-		sr = HSMCI->HSMCI_SR;
-		if (busy_wait-- == 0) {
-			hsmci_debug("%s: timeout\n\r", __func__);
-			hsmci_reset();
-			return false;
-		}
-	} while (!((sr & HSMCI_SR_NOTBUSY) && ((sr & HSMCI_SR_DTIP) == 0)));
-	return true;
+    do {
+        sr = HSMCI->HSMCI_SR;
+        if (busy_wait-- == 0) {
+            hsmci_debug("%s: timeout\n\r", __func__);
+            hsmci_reset();
+            return false;
+        }
+    } while (!((sr & HSMCI_SR_NOTBUSY) && ((sr & HSMCI_SR_DTIP) == 0)));
+    return true;
 }
 
 
@@ -267,55 +265,54 @@ static bool hsmci_wait_busy(void)
  *
  * \return true if success, otherwise false
  */
-static bool hsmci_send_cmd_execute(uint32_t cmdr, sdmmc_cmd_def_t cmd,
-		uint32_t arg)
+static bool hsmci_send_cmd_execute(uint32_t cmdr, sdmmc_cmd_def_t cmd, uint32_t arg)
 {
-	uint32_t sr;
+    uint32_t sr;
 
-	cmdr |= HSMCI_CMDR_CMDNB(cmd) | HSMCI_CMDR_SPCMD_STD;
-	if (cmd & SDMMC_RESP_PRESENT) {
-		cmdr |= HSMCI_CMDR_MAXLAT;
-		if (cmd & SDMMC_RESP_136) {
-			cmdr |= HSMCI_CMDR_RSPTYP_136_BIT;
-		} else if (cmd & SDMMC_RESP_BUSY) {
-			cmdr |= HSMCI_CMDR_RSPTYP_R1B;
-		} else {
-			cmdr |= HSMCI_CMDR_RSPTYP_48_BIT;
-		}
-	}
-	if (cmd & SDMMC_CMD_OPENDRAIN) {
-		cmdr |= HSMCI_CMDR_OPDCMD_OPENDRAIN;
-	}
+    cmdr |= HSMCI_CMDR_CMDNB(cmd) | HSMCI_CMDR_SPCMD_STD;
+    if (cmd & SDMMC_RESP_PRESENT) {
+        cmdr |= HSMCI_CMDR_MAXLAT;
+        if (cmd & SDMMC_RESP_136) {
+            cmdr |= HSMCI_CMDR_RSPTYP_136_BIT;
+        } else if (cmd & SDMMC_RESP_BUSY) {
+            cmdr |= HSMCI_CMDR_RSPTYP_R1B;
+        } else {
+            cmdr |= HSMCI_CMDR_RSPTYP_48_BIT;
+        }
+    }
+    if (cmd & SDMMC_CMD_OPENDRAIN) {
+        cmdr |= HSMCI_CMDR_OPDCMD_OPENDRAIN;
+    }
 
-	// Write argument
-	HSMCI->HSMCI_ARGR = arg;
-	// Write and start command
-	HSMCI->HSMCI_CMDR = cmdr;
+    // Write argument
+    HSMCI->HSMCI_ARGR = arg;
+    // Write and start command
+    HSMCI->HSMCI_CMDR = cmdr;
 
-	// Wait end of command
-	do {
-		sr = HSMCI->HSMCI_SR;
-		if (cmd & SDMMC_RESP_CRC) {
-			if (sr & (HSMCI_SR_CSTOE | HSMCI_SR_RTOE | HSMCI_SR_RENDE | HSMCI_SR_RCRCE | HSMCI_SR_RDIRE | HSMCI_SR_RINDE)) {
-				hsmci_debug("%s: CMD 0x%08lx sr 0x%08lx error\n\r", __func__, cmd, sr);
-				hsmci_reset();
-				return false;
-			}
-		} else {
-			if (sr & (HSMCI_SR_CSTOE | HSMCI_SR_RTOE | HSMCI_SR_RENDE | HSMCI_SR_RDIRE | HSMCI_SR_RINDE)) {
-				hsmci_debug("%s: CMD 0x%08lx sr 0x%08lx error\n\r", __func__, cmd, sr);
-				hsmci_reset();
-				return false;
-			}
-		}
-	} while (!(sr & HSMCI_SR_CMDRDY));
+    // Wait end of command
+    do {
+        sr = HSMCI->HSMCI_SR;
+        if (cmd & SDMMC_RESP_CRC) {
+            if (sr & (HSMCI_SR_CSTOE | HSMCI_SR_RTOE | HSMCI_SR_RENDE | HSMCI_SR_RCRCE | HSMCI_SR_RDIRE | HSMCI_SR_RINDE)) {
+                hsmci_debug("%s: CMD 0x%08lx sr 0x%08lx error\n\r", __func__, cmd, sr);
+                hsmci_reset();
+                return false;
+            }
+        } else {
+            if (sr & (HSMCI_SR_CSTOE | HSMCI_SR_RTOE | HSMCI_SR_RENDE | HSMCI_SR_RDIRE | HSMCI_SR_RINDE)) {
+                hsmci_debug("%s: CMD 0x%08lx sr 0x%08lx error\n\r", __func__, cmd, sr);
+                hsmci_reset();
+                return false;
+            }
+        }
+    } while (!(sr & HSMCI_SR_CMDRDY));
 
-	if (cmd & SDMMC_RESP_BUSY) {
-		if (!hsmci_wait_busy()) {
-			return false;
-		}
-	}
-	return true;
+    if (cmd & SDMMC_RESP_BUSY) {
+        if (!hsmci_wait_busy()) {
+            return false;
+        }
+    }
+    return true;
 }
 
 
@@ -496,83 +493,79 @@ bool hsmci_adtc_stop(sdmmc_cmd_def_t cmd, uint32_t arg)
 
 bool hsmci_read_word(uint32_t* value)
 {
-	uint32_t sr;
+    uint32_t sr;
 
-	Assert(((uint32_t)hsmci_block_size * hsmci_nb_block) > hsmci_transfert_pos);
+    Assert(((uint32_t)hsmci_block_size * hsmci_nb_block) > hsmci_transfert_pos);
 
-	// Wait data available
-	do {
-		sr = HSMCI->HSMCI_SR;
-		if (sr & (HSMCI_SR_UNRE | HSMCI_SR_OVRE | \
-				HSMCI_SR_DTOE | HSMCI_SR_DCRCE)) {
-			hsmci_debug("%s: DMA sr 0x%08lx error\n\r",
-					__func__, sr);
-			hsmci_reset();
-			return false;
-		}
-	} while (!(sr & HSMCI_SR_RXRDY));
+    // Wait data available
+    do {
+        sr = HSMCI->HSMCI_SR;
+        if (sr & (HSMCI_SR_UNRE | HSMCI_SR_OVRE | HSMCI_SR_DTOE | HSMCI_SR_DCRCE))
+        {
+            hsmci_debug("%s: DMA sr 0x%08lx error\n\r", __func__, sr);
+            hsmci_reset();
+            return false;
+        }
+    } while (!(sr & HSMCI_SR_RXRDY));
 
-	// Read data
-	*value = HSMCI->HSMCI_RDR;
-	hsmci_transfert_pos += 4;
-	if (((uint32_t)hsmci_block_size * hsmci_nb_block) > hsmci_transfert_pos) {
-		return true;
-	}
+    // Read data
+    *value = HSMCI->HSMCI_RDR;
+    hsmci_transfert_pos += 4;
+    if (((uint32_t)hsmci_block_size * hsmci_nb_block) > hsmci_transfert_pos) {
+        return true;
+    }
 
-	// Wait end of transfer
-	// Note: no need of timeout, because it is include in HSMCI
-	do {
-		sr = HSMCI->HSMCI_SR;
-		if (sr & (HSMCI_SR_UNRE | HSMCI_SR_OVRE | \
-				HSMCI_SR_DTOE | HSMCI_SR_DCRCE)) {
-			hsmci_debug("%s: DMA sr 0x%08lx error\n\r",
-					__func__, sr);
-			hsmci_reset();
-			return false;
-		}
-	} while (!(sr & HSMCI_SR_XFRDONE));
-	return true;
+    // Wait end of transfer
+    // Note: no need of timeout, because it is include in HSMCI
+    do {
+        sr = HSMCI->HSMCI_SR;
+        if (sr & (HSMCI_SR_UNRE | HSMCI_SR_OVRE | HSMCI_SR_DTOE | HSMCI_SR_DCRCE))
+        {
+            hsmci_debug("%s: DMA sr 0x%08lx error\n\r", __func__, sr);
+            hsmci_reset();
+            return false;
+        }
+    } while (!(sr & HSMCI_SR_XFRDONE));
+    return true;
 }
 
 bool hsmci_write_word(uint32_t value)
 {
-	uint32_t sr;
+    uint32_t sr;
 
-	Assert(((uint32_t)hsmci_block_size * hsmci_nb_block) > hsmci_transfert_pos);
+    Assert(((uint32_t)hsmci_block_size * hsmci_nb_block) > hsmci_transfert_pos);
 
-	// Wait data available
-	do {
-		sr = HSMCI->HSMCI_SR;
-		if (sr & (HSMCI_SR_UNRE | HSMCI_SR_OVRE | \
-				HSMCI_SR_DTOE | HSMCI_SR_DCRCE)) {
-			hsmci_debug("%s: DMA sr 0x%08lx error\n\r",
-					__func__, sr);
-			hsmci_reset();
-			return false;
-		}
-	} while (!(sr & HSMCI_SR_TXRDY));
+    // Wait data available
+    do {
+        sr = HSMCI->HSMCI_SR;
+        if (sr & (HSMCI_SR_UNRE | HSMCI_SR_OVRE | HSMCI_SR_DTOE | HSMCI_SR_DCRCE))
+        {
+            hsmci_debug("%s: DMA sr 0x%08lx error\n\r", __func__, sr);
+            hsmci_reset();
+            return false;
+        }
+    } while (!(sr & HSMCI_SR_TXRDY));
 
-	// Write data
-	HSMCI->HSMCI_TDR = value;
-	hsmci_transfert_pos += 4;
-	if (((uint32_t)hsmci_block_size * hsmci_nb_block) > hsmci_transfert_pos) {
-		return true;
-	}
+    // Write data
+    HSMCI->HSMCI_TDR = value;
+    hsmci_transfert_pos += 4;
+    if (((uint32_t)hsmci_block_size * hsmci_nb_block) > hsmci_transfert_pos) {
+        return true;
+    }
 
-	// Wait end of transfer
-	// Note: no need of timeout, because it is include in HSMCI, see DTOE bit.
-	do {
-		sr = HSMCI->HSMCI_SR;
-		if (sr & (HSMCI_SR_UNRE | HSMCI_SR_OVRE | \
-				HSMCI_SR_DTOE | HSMCI_SR_DCRCE)) {
-			hsmci_debug("%s: DMA sr 0x%08lx error\n\r",
-					__func__, sr);
-			hsmci_reset();
-			return false;
-		}
-	} while (!(sr & HSMCI_SR_NOTBUSY));
-	Assert(HSMCI->HSMCI_SR & HSMCI_SR_FIFOEMPTY);
-	return true;
+    // Wait end of transfer
+    // Note: no need of timeout, because it is include in HSMCI, see DTOE bit.
+    do {
+        sr = HSMCI->HSMCI_SR;
+        if (sr & (HSMCI_SR_UNRE | HSMCI_SR_OVRE | HSMCI_SR_DTOE | HSMCI_SR_DCRCE))
+        {
+            hsmci_debug("%s: DMA sr 0x%08lx error\n\r", __func__, sr);
+            hsmci_reset();
+            return false;
+        }
+    } while (!(sr & HSMCI_SR_NOTBUSY));
+    Assert(HSMCI->HSMCI_SR & HSMCI_SR_FIFOEMPTY);
+    return true;
 }
 
 bool hsmci_start_read_blocks(void *dest, uint16_t nb_block)
@@ -1306,49 +1299,48 @@ uint8_t HSMCIDriver::sd_raw_get_info(struct sd_raw_info* info)
  */
 bool HSMCIDriver::sd_mci_op_cond(uint8_t v2)
 {
-	uint32_t arg, retry, resp;
+    uint32_t arg, retry, resp;
 
-	/*
-	 * Timeout 1s = 400KHz / ((6+6+6+6)*8) cylces = 2100 retry
-	 * 6 = cmd byte size
-	 * 6 = response byte size
-	 * 6 = cmd byte size
-	 * 6 = response byte size
-	 */
-	retry = 2100;
-	do {
-		// CMD55 - Indicate to the card that the next command is an
-		// application specific command rather than a standard command.
-		if (!hsmci_send_cmd(SDMMC_CMD55_APP_CMD, 0)) {
-			sd_mmc_debug("%s: CMD55 Fail\n\r", __func__);
-			return false;
-		}
+    /*
+     * Timeout 1s = 400KHz / ((6+6+6+6)*8) cylces = 2100 retry
+     * 6 = cmd byte size
+     * 6 = response byte size
+     * 6 = cmd byte size
+     * 6 = response byte size
+     */
+    retry = 2100;
+    do {
+        // CMD55 - Indicate to the card that the next command is an
+        // application specific command rather than a standard command.
+        if (!hsmci_send_cmd(SDMMC_CMD55_APP_CMD, 0)) {
+            sd_mmc_debug("%s: CMD55 Fail\n\r", __func__);
+            return false;
+        }
 
-		// (ACMD41) Sends host OCR register
-		arg = SD_MMC_VOLTAGE_SUPPORT;
-		if (v2) {
-			arg |= SD_ACMD41_HCS;
-		}
-		// Check response
-		if (!hsmci_send_cmd(SD_MCI_ACMD41_SD_SEND_OP_COND, arg)) {
-			sd_mmc_debug("%s: ACMD41 Fail\n\r", __func__);
-			return false;
-		}
-		resp = hsmci_get_response();
-		if (resp & OCR_POWER_UP_BUSY) {
-			// Card is ready
-			if ((resp & OCR_CCS) != 0) {
-				m_CardType |= CARD_TYPE_HC;
-			}
-			break;
-		}
-		if (retry-- == 0) {
-			sd_mmc_debug("%s: ACMD41 Timeout on busy, resp32 0x%08lx \n\r",
-					__func__, resp);
-			return false;
-		}
-	} while (1);
-	return true;
+        // (ACMD41) Sends host OCR register
+        arg = SD_MMC_VOLTAGE_SUPPORT;
+        if (v2) {
+            arg |= SD_ACMD41_HCS;
+        }
+        // Check response
+        if (!hsmci_send_cmd(SD_MCI_ACMD41_SD_SEND_OP_COND, arg)) {
+            sd_mmc_debug("%s: ACMD41 Fail\n\r", __func__);
+            return false;
+        }
+        resp = hsmci_get_response();
+        if (resp & OCR_POWER_UP_BUSY) {
+            // Card is ready
+            if ((resp & OCR_CCS) != 0) {
+                m_CardType |= CARD_TYPE_HC;
+            }
+            break;
+        }
+        if (retry-- == 0) {
+            sd_mmc_debug("%s: ACMD41 Timeout on busy, resp32 0x%08lx \n\r", __func__, resp);
+            return false;
+        }
+    } while (1);
+    return true;
 }
 
 /**
@@ -1360,37 +1352,37 @@ bool HSMCIDriver::sd_mci_op_cond(uint8_t v2)
  */
 bool HSMCIDriver::mmc_mci_op_cond()
 {
-	uint32_t retry, resp;
+    uint32_t retry, resp;
 
-	/*
-	 * Timeout 1s = 400KHz / ((6+6)*8) cylces = 4200 retry
-	 * 6 = cmd byte size
-	 * 6 = response byte size
-	 */
-	retry = 4200;
-	do {
-		if (!hsmci_send_cmd(MMC_MCI_CMD1_SEND_OP_COND,
-				SD_MMC_VOLTAGE_SUPPORT | OCR_ACCESS_MODE_SECTOR)) {
-			sd_mmc_debug("%s: CMD1 MCI Fail - Busy retry %d\n\r",
-					__func__, (int)(4200 - retry));
-			return false;
-		}
-		// Check busy flag
-		resp = hsmci_get_response();
-		if (resp & OCR_POWER_UP_BUSY) {
-			// Check OCR value
-			if ((resp & OCR_ACCESS_MODE_MASK)
-					== OCR_ACCESS_MODE_SECTOR) {
-				m_CardType |= CARD_TYPE_HC;
-			}
-			break;
-		}
-		if (retry-- == 0) {
-			sd_mmc_debug("%s: CMD1 Timeout on busy\n\r", __func__);
-			return false;
-		}
-	} while (1);
-	return true;
+    /*
+     * Timeout 1s = 400KHz / ((6+6)*8) cylces = 4200 retry
+     * 6 = cmd byte size
+     * 6 = response byte size
+     */
+    retry = 4200;
+    do {
+        if (!hsmci_send_cmd(MMC_MCI_CMD1_SEND_OP_COND, SD_MMC_VOLTAGE_SUPPORT | OCR_ACCESS_MODE_SECTOR))
+        {
+            sd_mmc_debug("%s: CMD1 MCI Fail - Busy retry %d\n\r", __func__, (int)(4200 - retry));
+            return false;
+        }
+        // Check busy flag
+        resp = hsmci_get_response();
+        if (resp & OCR_POWER_UP_BUSY)
+        {
+            // Check OCR value
+            if ((resp & OCR_ACCESS_MODE_MASK) == OCR_ACCESS_MODE_SECTOR)
+            {
+                m_CardType |= CARD_TYPE_HC;
+            }
+            break;
+        }
+        if (retry-- == 0) {
+            sd_mmc_debug("%s: CMD1 Timeout on busy\n\r", __func__);
+            return false;
+        }
+    } while (1);
+    return true;
 }
 
 /**
@@ -1404,47 +1396,47 @@ bool HSMCIDriver::mmc_mci_op_cond()
  */
 bool HSMCIDriver::sdio_op_cond()
 {
-	uint32_t resp;
+    uint32_t resp;
 
-	// CMD5 - SDIO send operation condition (OCR) command.
-	if (!hsmci_send_cmd(SDIO_CMD5_SEND_OP_COND, 0)) {
-		sd_mmc_debug("%s: CMD5 Fail\n\r", __func__);
-		return true; // No error but card type not updated
-	}
-	resp = hsmci_get_response();
-	if ((resp & OCR_SDIO_NF) == 0) {
-		return true; // No error but card type not updated
-	}
+    // CMD5 - SDIO send operation condition (OCR) command.
+    if (!hsmci_send_cmd(SDIO_CMD5_SEND_OP_COND, 0)) {
+        sd_mmc_debug("%s: CMD5 Fail\n\r", __func__);
+        return true; // No error but card type not updated
+    }
+    resp = hsmci_get_response();
+    if ((resp & OCR_SDIO_NF) == 0) {
+        return true; // No error but card type not updated
+    }
 
-	/*
-	 * Wait card ready
-	 * Timeout 1s = 400KHz / ((6+4)*8) cylces = 5000 retry
-	 * 6 = cmd byte size
-	 * 4(SPI) 6(MCI) = response byte size
-	 */
-	uint32_t cmd5_retry = 5000;
-	while (1) {
-		// CMD5 - SDIO send operation condition (OCR) command.
-		if (!hsmci_send_cmd(SDIO_CMD5_SEND_OP_COND, resp & SD_MMC_VOLTAGE_SUPPORT)) {
-			sd_mmc_debug("%s: CMD5 Fail\n\r", __func__);
-			return false;
-		}
-		resp = hsmci_get_response();
-		if ((resp & OCR_POWER_UP_BUSY) == OCR_POWER_UP_BUSY) {
-			break;
-		}
-		if (cmd5_retry-- == 0) {
-			sd_mmc_debug("%s: CMD5 Timeout on busy\n\r", __func__);
-			return false;
-		}
-	}
-	// Update card type at the end of busy
-	if ((resp & OCR_SDIO_MP) > 0) {
-		m_CardType = CARD_TYPE_SD_COMBO;
-	} else {
-		m_CardType = CARD_TYPE_SDIO;
-	}
-	return true; // No error and card type updated with SDIO type
+    /*
+     * Wait card ready
+     * Timeout 1s = 400KHz / ((6+4)*8) cylces = 5000 retry
+     * 6 = cmd byte size
+     * 4(SPI) 6(MCI) = response byte size
+     */
+    uint32_t cmd5_retry = 5000;
+    while (1) {
+        // CMD5 - SDIO send operation condition (OCR) command.
+        if (!hsmci_send_cmd(SDIO_CMD5_SEND_OP_COND, resp & SD_MMC_VOLTAGE_SUPPORT)) {
+            sd_mmc_debug("%s: CMD5 Fail\n\r", __func__);
+            return false;
+        }
+        resp = hsmci_get_response();
+        if ((resp & OCR_POWER_UP_BUSY) == OCR_POWER_UP_BUSY) {
+            break;
+        }
+        if (cmd5_retry-- == 0) {
+            sd_mmc_debug("%s: CMD5 Timeout on busy\n\r", __func__);
+            return false;
+        }
+    }
+    // Update card type at the end of busy
+    if ((resp & OCR_SDIO_MP) > 0) {
+        m_CardType = CARD_TYPE_SD_COMBO;
+    } else {
+        m_CardType = CARD_TYPE_SDIO;
+    }
+    return true; // No error and card type updated with SDIO type
 }
 
 /**
@@ -1460,17 +1452,17 @@ bool HSMCIDriver::sdio_op_cond()
  */
 bool HSMCIDriver::sdio_cmd52(uint8_t rw_flag, uint8_t func_nb, uint32_t reg_addr, uint8_t rd_after_wr, uint8_t *io_data)
 {
-	assert(io_data != nullptr);
-	if (!hsmci_send_cmd(SDIO_CMD52_IO_RW_DIRECT,
-		((uint32_t)*io_data << SDIO_CMD52_WR_DATA)
-		| ((uint32_t)rw_flag << SDIO_CMD52_RW_FLAG)
-		| ((uint32_t)func_nb << SDIO_CMD52_FUNCTION_NUM)
-		| ((uint32_t)rd_after_wr << SDIO_CMD52_RAW_FLAG)
-		| ((uint32_t)reg_addr << SDIO_CMD52_REG_ADRR))) {
-		return false;
-	}
-	*io_data = hsmci_get_response() & 0xFF;
-	return true;
+    assert(io_data != nullptr);
+    if (!hsmci_send_cmd(SDIO_CMD52_IO_RW_DIRECT,
+        ((uint32_t)*io_data << SDIO_CMD52_WR_DATA)
+        | ((uint32_t)rw_flag << SDIO_CMD52_RW_FLAG)
+        | ((uint32_t)func_nb << SDIO_CMD52_FUNCTION_NUM)
+        | ((uint32_t)rd_after_wr << SDIO_CMD52_RAW_FLAG)
+        | ((uint32_t)reg_addr << SDIO_CMD52_REG_ADRR))) {
+        return false;
+    }
+    *io_data = hsmci_get_response() & 0xFF;
+    return true;
 }
 
 /**
@@ -1490,17 +1482,17 @@ bool HSMCIDriver::sdio_cmd52(uint8_t rw_flag, uint8_t func_nb, uint32_t reg_addr
  */
 static bool sdio_cmd53(uint8_t rw_flag, uint8_t func_nb, uint32_t reg_addr, uint8_t inc_addr, uint32_t size, bool access_block)
 {
-	assert(size != 0);
-	assert(size <= 512);
+    assert(size != 0);
+    assert(size <= 512);
 
-	return hsmci_adtc_start((rw_flag == SDIO_CMD53_READ_FLAG) ? SDIO_CMD53_IO_R_BYTE_EXTENDED : SDIO_CMD53_IO_W_BYTE_EXTENDED,
-			  ((size % 512) << SDIO_CMD53_COUNT)
-			| ((uint32_t)reg_addr << SDIO_CMD53_REG_ADDR)
-			| ((uint32_t)inc_addr << SDIO_CMD53_OP_CODE)
-			| ((uint32_t)0 << SDIO_CMD53_BLOCK_MODE)
-			| ((uint32_t)func_nb << SDIO_CMD53_FUNCTION_NUM)
-			| ((uint32_t)rw_flag << SDIO_CMD53_RW_FLAG),
-			size, 1, access_block);
+    return hsmci_adtc_start((rw_flag == SDIO_CMD53_READ_FLAG) ? SDIO_CMD53_IO_R_BYTE_EXTENDED : SDIO_CMD53_IO_W_BYTE_EXTENDED,
+              ((size % 512) << SDIO_CMD53_COUNT)
+            | ((uint32_t)reg_addr << SDIO_CMD53_REG_ADDR)
+            | ((uint32_t)inc_addr << SDIO_CMD53_OP_CODE)
+            | ((uint32_t)0 << SDIO_CMD53_BLOCK_MODE)
+            | ((uint32_t)func_nb << SDIO_CMD53_FUNCTION_NUM)
+            | ((uint32_t)rw_flag << SDIO_CMD53_RW_FLAG),
+            size, 1, access_block);
 }
 
 /**
@@ -1515,74 +1507,73 @@ static bool sdio_cmd53(uint8_t rw_flag, uint8_t func_nb, uint32_t reg_addr, uint
  */
 bool HSMCIDriver::sdio_get_max_speed()
 {
-	uint32_t addr_new, addr_old;
-	uint8_t buf[6];
- 	uint32_t unit;
-	uint32_t mul;
-	uint8_t tplfe_max_tran_speed, i;
-	uint8_t addr_cis[4];
+    uint32_t addr_new, addr_old;
+    uint8_t buf[6];
+    uint32_t unit;
+    uint32_t mul;
+    uint8_t tplfe_max_tran_speed, i;
+    uint8_t addr_cis[4];
 
-	/* Read CIS area address in CCCR area */
-	addr_old = SDIO_CCCR_CIS_PTR;
-	for(i = 0; i < 4; i++) {
-		sdio_cmd52(SDIO_CMD52_READ_FLAG, SDIO_CIA, addr_old, 0, &addr_cis[i]);
-		addr_old++;
-	}
-	addr_old = addr_cis[0] + (addr_cis[1] << 8) + \
-				(addr_cis[2] << 16) + (addr_cis[3] << 24);
-	addr_new = addr_old;
+    /* Read CIS area address in CCCR area */
+    addr_old = SDIO_CCCR_CIS_PTR;
+    for(i = 0; i < 4; i++) {
+        sdio_cmd52(SDIO_CMD52_READ_FLAG, SDIO_CIA, addr_old, 0, &addr_cis[i]);
+        addr_old++;
+    }
+    addr_old = addr_cis[0] + (addr_cis[1] << 8) + (addr_cis[2] << 16) + (addr_cis[3] << 24);
+    addr_new = addr_old;
 
-	while (1) {
-		/* Read a sample of CIA area */
-		for(i=0; i<3; i++) {
-			sdio_cmd52(SDIO_CMD52_READ_FLAG, SDIO_CIA, addr_new, 0, &buf[i]);
-			addr_new++;
-		}
-		if (buf[0] == SDIO_CISTPL_END) {
-			return false; /* Tuple error */
-		}
-		if (buf[0] == SDIO_CISTPL_FUNCE && buf[2] == 0x00) {
-			break; /* Fun0 tuple found */
-		}
-		if (buf[1] == 0) {
-			return false; /* Tuple error */
-		}
-		/* Next address */
-		addr_new += buf[1]-1;
-		if (addr_new > (addr_old + 256)) {
-			return false; /* Outoff CIS area */
-		}
-	}
+    while (1) {
+        /* Read a sample of CIA area */
+        for(i=0; i<3; i++) {
+            sdio_cmd52(SDIO_CMD52_READ_FLAG, SDIO_CIA, addr_new, 0, &buf[i]);
+            addr_new++;
+        }
+        if (buf[0] == SDIO_CISTPL_END) {
+            return false; /* Tuple error */
+        }
+        if (buf[0] == SDIO_CISTPL_FUNCE && buf[2] == 0x00) {
+            break; /* Fun0 tuple found */
+        }
+        if (buf[1] == 0) {
+            return false; /* Tuple error */
+        }
+        /* Next address */
+        addr_new += buf[1]-1;
+        if (addr_new > (addr_old + 256)) {
+            return false; /* Outoff CIS area */
+        }
+    }
 
-	/* Read all Fun0 tuple fields: fn0_blk_siz & max_tran_speed */
-	addr_new -= 3;
-	for(i = 0; i < 6; i++) {
-		sdio_cmd52(SDIO_CMD52_READ_FLAG, SDIO_CIA, addr_new, 0, &buf[i]);
-		addr_new++;
-	}
+    /* Read all Fun0 tuple fields: fn0_blk_siz & max_tran_speed */
+    addr_new -= 3;
+    for(i = 0; i < 6; i++) {
+        sdio_cmd52(SDIO_CMD52_READ_FLAG, SDIO_CIA, addr_new, 0, &buf[i]);
+        addr_new++;
+    }
 
-	tplfe_max_tran_speed = buf[5];
-	if (tplfe_max_tran_speed > 0x32) {
-		/* Error on SDIO register, the high speed is not activated
-		 * and the clock can not be more than 25MHz.
-		 * This error is present on specific SDIO card
-		 * (H&D wireless card - HDG104 WiFi SIP).
-		 */
-		tplfe_max_tran_speed = 0x32; /* 25Mhz */
-	}
+    tplfe_max_tran_speed = buf[5];
+    if (tplfe_max_tran_speed > 0x32) {
+        /* Error on SDIO register, the high speed is not activated
+         * and the clock can not be more than 25MHz.
+         * This error is present on specific SDIO card
+         * (H&D wireless card - HDG104 WiFi SIP).
+         */
+        tplfe_max_tran_speed = 0x32; /* 25Mhz */
+    }
 
-	/* Decode transfer speed in Hz.*/
-	unit = sd_mmc_trans_units[tplfe_max_tran_speed & 0x7];
-	mul = sd_trans_multipliers[(tplfe_max_tran_speed >> 3) & 0xF];
-	m_Clock = unit * mul * 1000;
-	/**
-	 * Note: A combo card shall be a Full-Speed SDIO card
-	 * which supports upto 25MHz.
-	 * A SDIO card alone can be:
-	 * - a Low-Speed SDIO card which supports 400Khz minimum
-	 * - a Full-Speed SDIO card which supports upto 25MHz
-	 */
-	return true;
+    /* Decode transfer speed in Hz.*/
+    unit = sd_mmc_trans_units[tplfe_max_tran_speed & 0x7];
+    mul = sd_trans_multipliers[(tplfe_max_tran_speed >> 3) & 0xF];
+    m_Clock = unit * mul * 1000;
+    /**
+     * Note: A combo card shall be a Full-Speed SDIO card
+     * which supports upto 25MHz.
+     * A SDIO card alone can be:
+     * - a Low-Speed SDIO card which supports 400Khz minimum
+     * - a Full-Speed SDIO card which supports upto 25MHz
+     */
+    return true;
 }
 
 /**
@@ -1594,32 +1585,30 @@ bool HSMCIDriver::sdio_get_max_speed()
  */
 bool HSMCIDriver::sdio_cmd52_set_bus_width()
 {
-	/**
-	 * A SD memory card always supports bus 4bit
-	 * A SD COMBO card always supports bus 4bit
-	 * A SDIO Full-Speed alone always supports 4bit
-	 * A SDIO Low-Speed alone can supports 4bit (Optional)
-	 */
-	uint8_t u8_value = 0;
+    /**
+     * A SD memory card always supports bus 4bit
+     * A SD COMBO card always supports bus 4bit
+     * A SDIO Full-Speed alone always supports 4bit
+     * A SDIO Low-Speed alone can supports 4bit (Optional)
+     */
+    uint8_t u8_value = 0;
 
-	// Check 4bit support in 4BLS of "Card Capability" register
-	if (!sdio_cmd52(SDIO_CMD52_READ_FLAG, SDIO_CIA, SDIO_CCCR_CAP,
-			0, &u8_value)) {
-		return false;
-	}
-	if ((u8_value & SDIO_CAP_4BLS) != SDIO_CAP_4BLS) {
-		// No supported, it is not a protocol error
-		return true;
-	}
-	// HS mode possible, then enable
-	u8_value = SDIO_BUSWIDTH_4B;
-	if (!sdio_cmd52(SDIO_CMD52_WRITE_FLAG, SDIO_CIA, SDIO_CCCR_BUS_CTRL,
-			1, &u8_value)) {
-		return false;
-	}
-	m_BusWidth = 4;
-	sd_mmc_debug("%d-bit bus width enabled.\n\r", (int)m_BusWidth);
-	return true;
+    // Check 4bit support in 4BLS of "Card Capability" register
+    if (!sdio_cmd52(SDIO_CMD52_READ_FLAG, SDIO_CIA, SDIO_CCCR_CAP, 0, &u8_value)) {
+        return false;
+    }
+    if ((u8_value & SDIO_CAP_4BLS) != SDIO_CAP_4BLS) {
+        // No supported, it is not a protocol error
+        return true;
+    }
+    // HS mode possible, then enable
+    u8_value = SDIO_BUSWIDTH_4B;
+    if (!sdio_cmd52(SDIO_CMD52_WRITE_FLAG, SDIO_CIA, SDIO_CCCR_BUS_CTRL, 1, &u8_value)) {
+        return false;
+    }
+    m_BusWidth = 4;
+    sd_mmc_debug("%d-bit bus width enabled.\n\r", (int)m_BusWidth);
+    return true;
 }
 
 /**
@@ -1633,45 +1622,44 @@ bool HSMCIDriver::sdio_cmd52_set_bus_width()
  */
 bool HSMCIDriver::sd_cm6_set_high_speed()
 {
-	uint8_t switch_status[SD_SW_STATUS_BSIZE] = {0};
+    uint8_t switch_status[SD_SW_STATUS_BSIZE] = {0};
 
-	if (!hsmci_adtc_start(SD_CMD6_SWITCH_FUNC,
-			SD_CMD6_MODE_SWITCH
-			| SD_CMD6_GRP6_NO_INFLUENCE
-			| SD_CMD6_GRP5_NO_INFLUENCE
-			| SD_CMD6_GRP4_NO_INFLUENCE
-			| SD_CMD6_GRP3_NO_INFLUENCE
-			| SD_CMD6_GRP2_DEFAULT
-			| SD_CMD6_GRP1_HIGH_SPEED,
-			SD_SW_STATUS_BSIZE, 1, true)) {
-		return false;
-	}
-	if (!hsmci_start_read_blocks(switch_status, 1)) {
-		return false;
-	}
-	if (!hsmci_wait_end_of_read_blocks()) {
-		return false;
-	}
+    if (!hsmci_adtc_start(SD_CMD6_SWITCH_FUNC,
+            SD_CMD6_MODE_SWITCH
+            | SD_CMD6_GRP6_NO_INFLUENCE
+            | SD_CMD6_GRP5_NO_INFLUENCE
+            | SD_CMD6_GRP4_NO_INFLUENCE
+            | SD_CMD6_GRP3_NO_INFLUENCE
+            | SD_CMD6_GRP2_DEFAULT
+            | SD_CMD6_GRP1_HIGH_SPEED,
+            SD_SW_STATUS_BSIZE, 1, true)) {
+        return false;
+    }
+    if (!hsmci_start_read_blocks(switch_status, 1)) {
+        return false;
+    }
+    if (!hsmci_wait_end_of_read_blocks()) {
+        return false;
+    }
 
-	if (hsmci_get_response() & CARD_STATUS_SWITCH_ERROR) {
-		sd_mmc_debug("%s: CMD6 CARD_STATUS_SWITCH_ERROR\n\r", __func__);
-		return false;
-	}
-	if (SD_SW_STATUS_FUN_GRP1_RC(switch_status)
-			== SD_SW_STATUS_FUN_GRP_RC_ERROR) {
-		// No supported, it is not a protocol error
-		return true;
-	}
-	if (SD_SW_STATUS_FUN_GRP1_BUSY(switch_status)) {
-		sd_mmc_debug("%s: CMD6 SD_SW_STATUS_FUN_GRP1_BUSY\n\r", __func__);
-		return false;
-	}
-	// CMD6 function switching period is within 8 clocks
-	// after the end bit of status data.
-	hsmci_send_clock();
-	m_HighSpeed = true;
-	m_Clock *= 2;
-	return true;
+    if (hsmci_get_response() & CARD_STATUS_SWITCH_ERROR) {
+        sd_mmc_debug("%s: CMD6 CARD_STATUS_SWITCH_ERROR\n\r", __func__);
+        return false;
+    }
+    if (SD_SW_STATUS_FUN_GRP1_RC(switch_status) == SD_SW_STATUS_FUN_GRP_RC_ERROR) {
+        // No supported, it is not a protocol error
+        return true;
+    }
+    if (SD_SW_STATUS_FUN_GRP1_BUSY(switch_status)) {
+        sd_mmc_debug("%s: CMD6 SD_SW_STATUS_FUN_GRP1_BUSY\n\r", __func__);
+        return false;
+    }
+    // CMD6 function switching period is within 8 clocks
+    // after the end bit of status data.
+    hsmci_send_clock();
+    m_HighSpeed = true;
+    m_Clock *= 2;
+    return true;
 }
 
 /**
@@ -1686,36 +1674,30 @@ bool HSMCIDriver::sd_cm6_set_high_speed()
  */
 bool HSMCIDriver::mmc_cmd6_set_bus_width(uint8_t bus_width)
 {
-	uint32_t arg;
+    uint32_t arg;
 
-	switch (bus_width) {
-	case 8:
-		arg = MMC_CMD6_ACCESS_SET_BITS
-				| MMC_CMD6_INDEX_BUS_WIDTH
-				| MMC_CMD6_VALUE_BUS_WIDTH_8BIT;
-		break;
-	case 4:
-		arg = MMC_CMD6_ACCESS_SET_BITS
-				| MMC_CMD6_INDEX_BUS_WIDTH
-				| MMC_CMD6_VALUE_BUS_WIDTH_4BIT;
-		break;
-	default:
-		arg = MMC_CMD6_ACCESS_SET_BITS
-				| MMC_CMD6_INDEX_BUS_WIDTH
-				| MMC_CMD6_VALUE_BUS_WIDTH_1BIT;
-		break;
-	}
-	if (!hsmci_send_cmd(MMC_CMD6_SWITCH, arg)) {
-		return false;
-	}
-	if (hsmci_get_response() & CARD_STATUS_SWITCH_ERROR) {
-		// No supported, it is not a protocol error
-		sd_mmc_debug("%s: CMD6 CARD_STATUS_SWITCH_ERROR\n\r", __func__);
-		return false;
-	}
-	m_BusWidth = bus_width;
-	sd_mmc_debug("%d-bit bus width enabled.\n\r", (int)m_BusWidth);
-	return true;
+    switch (bus_width) {
+    case 8:
+        arg = MMC_CMD6_ACCESS_SET_BITS | MMC_CMD6_INDEX_BUS_WIDTH | MMC_CMD6_VALUE_BUS_WIDTH_8BIT;
+        break;
+    case 4:
+        arg = MMC_CMD6_ACCESS_SET_BITS | MMC_CMD6_INDEX_BUS_WIDTH | MMC_CMD6_VALUE_BUS_WIDTH_4BIT;
+        break;
+    default:
+        arg = MMC_CMD6_ACCESS_SET_BITS | MMC_CMD6_INDEX_BUS_WIDTH | MMC_CMD6_VALUE_BUS_WIDTH_1BIT;
+        break;
+    }
+    if (!hsmci_send_cmd(MMC_CMD6_SWITCH, arg)) {
+        return false;
+    }
+    if (hsmci_get_response() & CARD_STATUS_SWITCH_ERROR) {
+        // No supported, it is not a protocol error
+        sd_mmc_debug("%s: CMD6 CARD_STATUS_SWITCH_ERROR\n\r", __func__);
+        return false;
+    }
+    m_BusWidth = bus_width;
+    sd_mmc_debug("%d-bit bus width enabled.\n\r", (int)m_BusWidth);
+    return true;
 }
 
 /**
@@ -1729,20 +1711,17 @@ bool HSMCIDriver::mmc_cmd6_set_bus_width(uint8_t bus_width)
  */
 bool HSMCIDriver::mmc_cmd6_set_high_speed()
 {
-	if (!hsmci_send_cmd(MMC_CMD6_SWITCH,
-			MMC_CMD6_ACCESS_WRITE_BYTE
-			| MMC_CMD6_INDEX_HS_TIMING
-			| MMC_CMD6_VALUE_HS_TIMING_ENABLE)) {
-		return false;
-	}
-	if (hsmci_get_response() & CARD_STATUS_SWITCH_ERROR) {
-		// No supported, it is not a protocol error
-		sd_mmc_debug("%s: CMD6 CARD_STATUS_SWITCH_ERROR\n\r", __func__);
-		return false;
-	}
-	m_HighSpeed = true;
-	m_Clock = 52000000lu;
-	return true;
+    if (!hsmci_send_cmd(MMC_CMD6_SWITCH, MMC_CMD6_ACCESS_WRITE_BYTE | MMC_CMD6_INDEX_HS_TIMING | MMC_CMD6_VALUE_HS_TIMING_ENABLE)) {
+        return false;
+    }
+    if (hsmci_get_response() & CARD_STATUS_SWITCH_ERROR) {
+        // No supported, it is not a protocol error
+        sd_mmc_debug("%s: CMD6 CARD_STATUS_SWITCH_ERROR\n\r", __func__);
+        return false;
+    }
+    m_HighSpeed = true;
+    m_Clock = 52000000lu;
+    return true;
 }
 
 /**
@@ -1753,11 +1732,11 @@ bool HSMCIDriver::mmc_cmd6_set_high_speed()
  */
 bool HSMCIDriver::sd_mmc_cmd9_mci()
 {
-	if (!hsmci_send_cmd(SDMMC_MCI_CMD9_SEND_CSD, (uint32_t)m_RCA << 16)) {
-		return false;
-	}
-	hsmci_get_response_128(m_CSD);
-	return true;
+    if (!hsmci_send_cmd(SDMMC_MCI_CMD9_SEND_CSD, (uint32_t)m_RCA << 16)) {
+        return false;
+    }
+    hsmci_get_response_128(m_CSD);
+    return true;
 }
 
 /**
@@ -1765,59 +1744,57 @@ bool HSMCIDriver::sd_mmc_cmd9_mci()
  */
 void HSMCIDriver::mmc_decode_csd()
 {
- 	uint32_t unit;
-	uint32_t mul;
-	uint32_t tran_speed;
+    uint32_t unit;
+    uint32_t mul;
+    uint32_t tran_speed;
 
-	// Get MMC System Specification version supported by the card
-	switch (MMC_CSD_SPEC_VERS(m_CSD)) {
-	default:
-	case 0:
-		m_CardVersion = CARD_VER_MMC_1_2;
-		break;
+    // Get MMC System Specification version supported by the card
+    switch (MMC_CSD_SPEC_VERS(m_CSD)) {
+    default:
+    case 0:
+        m_CardVersion = CARD_VER_MMC_1_2;
+        break;
 
-	case 1:
-		m_CardVersion = CARD_VER_MMC_1_4;
-		break;
+    case 1:
+        m_CardVersion = CARD_VER_MMC_1_4;
+        break;
 
-	case 2:
-		m_CardVersion = CARD_VER_MMC_2_2;
-		break;
+    case 2:
+        m_CardVersion = CARD_VER_MMC_2_2;
+        break;
 
-	case 3:
-		m_CardVersion = CARD_VER_MMC_3;
-		break;
+    case 3:
+        m_CardVersion = CARD_VER_MMC_3;
+        break;
 
-	case 4:
-		m_CardVersion = CARD_VER_MMC_4;
-		break;
-	}
+    case 4:
+        m_CardVersion = CARD_VER_MMC_4;
+        break;
+    }
 
-	// Get MMC memory max transfer speed in Hz.
-	tran_speed = CSD_TRAN_SPEED(m_CSD);
-	unit = sd_mmc_trans_units[tran_speed & 0x7];
-	mul = mmc_trans_multipliers[(tran_speed >> 3) & 0xF];
-	m_Clock = unit * mul * 1000;
+    // Get MMC memory max transfer speed in Hz.
+    tran_speed = CSD_TRAN_SPEED(m_CSD);
+    unit = sd_mmc_trans_units[tran_speed & 0x7];
+    mul = mmc_trans_multipliers[(tran_speed >> 3) & 0xF];
+    m_Clock = unit * mul * 1000;
 
-	/*
-	 * Get card capacity.
-	 * ----------------------------------------------------
-	 * For normal SD/MMC card:
-	 * memory capacity = BLOCKNR * BLOCK_LEN
-	 * Where
-	 * BLOCKNR = (C_SIZE+1) * MULT
-	 * MULT = 2 ^ (C_SIZE_MULT+2)       (C_SIZE_MULT < 8)
-	 * BLOCK_LEN = 2 ^ READ_BL_LEN      (READ_BL_LEN < 12)
-	 * ----------------------------------------------------
-	 * For high capacity SD/MMC card:
-	 * memory capacity = SEC_COUNT * 512 byte
-	 */
-	if (MMC_CSD_C_SIZE(m_CSD) != 0xFFF) {
-		uint32_t blocknr = ((MMC_CSD_C_SIZE(m_CSD) + 1) *
-			(1 << (MMC_CSD_C_SIZE_MULT(m_CSD) + 2)));
-		m_Capacity = blocknr *
-			(1 << MMC_CSD_READ_BL_LEN(m_CSD)) / 1024;
-	}
+    /*
+     * Get card capacity.
+     * ----------------------------------------------------
+     * For normal SD/MMC card:
+     * memory capacity = BLOCKNR * BLOCK_LEN
+     * Where
+     * BLOCKNR = (C_SIZE+1) * MULT
+     * MULT = 2 ^ (C_SIZE_MULT+2)       (C_SIZE_MULT < 8)
+     * BLOCK_LEN = 2 ^ READ_BL_LEN      (READ_BL_LEN < 12)
+     * ----------------------------------------------------
+     * For high capacity SD/MMC card:
+     * memory capacity = SEC_COUNT * 512 byte
+     */
+    if (MMC_CSD_C_SIZE(m_CSD) != 0xFFF) {
+        uint32_t blocknr = ((MMC_CSD_C_SIZE(m_CSD) + 1) * (1 << (MMC_CSD_C_SIZE_MULT(m_CSD) + 2)));
+        m_Capacity = blocknr * (1 << MMC_CSD_READ_BL_LEN(m_CSD)) / 1024;
+    }
 }
 
 /**
@@ -1825,40 +1802,35 @@ void HSMCIDriver::mmc_decode_csd()
  */
 void HSMCIDriver::sd_decode_csd()
 {
- 	uint32_t unit;
-	uint32_t mul;
-	uint32_t tran_speed;
+    uint32_t unit;
+    uint32_t mul;
+    uint32_t tran_speed;
 
-	// Get SD memory maximum transfer speed in Hz.
-	tran_speed = CSD_TRAN_SPEED(m_CSD);
-	unit = sd_mmc_trans_units[tran_speed & 0x7];
-	mul = sd_trans_multipliers[(tran_speed >> 3) & 0xF];
-	m_Clock = unit * mul * 1000;
+    // Get SD memory maximum transfer speed in Hz.
+    tran_speed = CSD_TRAN_SPEED(m_CSD);
+    unit = sd_mmc_trans_units[tran_speed & 0x7];
+    mul = sd_trans_multipliers[(tran_speed >> 3) & 0xF];
+    m_Clock = unit * mul * 1000;
 
-	/*
-	 * Get card capacity.
-	 * ----------------------------------------------------
-	 * For normal SD/MMC card:
-	 * memory capacity = BLOCKNR * BLOCK_LEN
-	 * Where
-	 * BLOCKNR = (C_SIZE+1) * MULT
-	 * MULT = 2 ^ (C_SIZE_MULT+2)       (C_SIZE_MULT < 8)
-	 * BLOCK_LEN = 2 ^ READ_BL_LEN      (READ_BL_LEN < 12)
-	 * ----------------------------------------------------
-	 * For high capacity SD card:
-	 * memory capacity = (C_SIZE+1) * 512K byte
-	 */
-	if (CSD_STRUCTURE_VERSION(m_CSD) >= SD_CSD_VER_2_0) {
-		m_Capacity =
-				(SD_CSD_2_0_C_SIZE(m_CSD) + 1)
-				* 512;
-	} else {
-		uint32_t blocknr = ((SD_CSD_1_0_C_SIZE(m_CSD) + 1) *
-				(1 << (SD_CSD_1_0_C_SIZE_MULT(m_CSD) + 2)));
-		m_Capacity = blocknr *
-				(1 << SD_CSD_1_0_READ_BL_LEN(m_CSD))
-				/ 1024;
-	}
+    /*
+     * Get card capacity.
+     * ----------------------------------------------------
+     * For normal SD/MMC card:
+     * memory capacity = BLOCKNR * BLOCK_LEN
+     * Where
+     * BLOCKNR = (C_SIZE+1) * MULT
+     * MULT = 2 ^ (C_SIZE_MULT+2)       (C_SIZE_MULT < 8)
+     * BLOCK_LEN = 2 ^ READ_BL_LEN      (READ_BL_LEN < 12)
+     * ----------------------------------------------------
+     * For high capacity SD card:
+     * memory capacity = (C_SIZE+1) * 512K byte
+     */
+    if (CSD_STRUCTURE_VERSION(m_CSD) >= SD_CSD_VER_2_0) {
+        m_Capacity = (SD_CSD_2_0_C_SIZE(m_CSD) + 1) * 512;
+    } else {
+        uint32_t blocknr = ((SD_CSD_1_0_C_SIZE(m_CSD) + 1) * (1 << (SD_CSD_1_0_C_SIZE_MULT(m_CSD) + 2)));
+        m_Capacity = blocknr * (1 << SD_CSD_1_0_READ_BL_LEN(m_CSD)) / 1024;
+    }
 }
 
 /**
@@ -1869,30 +1841,29 @@ void HSMCIDriver::sd_decode_csd()
  */
 bool HSMCIDriver::sd_mmc_cmd13()
 {
-	uint32_t nec_timeout;
+    uint32_t nec_timeout;
 
-	/* Wait for data ready status.
-	 * Nec timing: 0 to unlimited
-	 * However a timeout is used.
-	 * 200 000 * 8 cycles
-	 */
-	nec_timeout = 200000;
-	do {
-		if (!hsmci_send_cmd(SDMMC_MCI_CMD13_SEND_STATUS,
-				(uint32_t)m_RCA << 16)) {
-			return false;
-		}
-		// Check busy flag
-		if (hsmci_get_response() & CARD_STATUS_READY_FOR_DATA) {
-			break;
-		}
-		if (nec_timeout-- == 0) {
-			sd_mmc_debug("%s: CMD13 Busy timeout\n\r", __func__);
-			return false;
-		}
-	} while (1);
+    /* Wait for data ready status.
+     * Nec timing: 0 to unlimited
+     * However a timeout is used.
+     * 200 000 * 8 cycles
+     */
+    nec_timeout = 200000;
+    do {
+        if (!hsmci_send_cmd(SDMMC_MCI_CMD13_SEND_STATUS, (uint32_t)m_RCA << 16)) {
+            return false;
+        }
+        // Check busy flag
+        if (hsmci_get_response() & CARD_STATUS_READY_FOR_DATA) {
+            break;
+        }
+        if (nec_timeout-- == 0) {
+            sd_mmc_debug("%s: CMD13 Busy timeout\n\r", __func__);
+            return false;
+        }
+    } while (1);
 
-	return true;
+    return true;
 }
 
 /**
@@ -1905,25 +1876,24 @@ bool HSMCIDriver::sd_mmc_cmd13()
  */
 bool HSMCIDriver::sdio_cmd52_set_high_speed()
 {
-	uint8_t u8_value = 0;
+    uint8_t u8_value = 0;
 
-	// Check CIA.HS
-	if (!sdio_cmd52(SDIO_CMD52_READ_FLAG, SDIO_CIA, SDIO_CCCR_HS, 0, &u8_value)) {
-		return false;
-	}
-	if ((u8_value & SDIO_SHS) != SDIO_SHS) {
-		// No supported, it is not a protocol error
-		return true;
-	}
-	// HS mode possible, then enable
-	u8_value = SDIO_EHS;
-	if (!sdio_cmd52(SDIO_CMD52_WRITE_FLAG, SDIO_CIA, SDIO_CCCR_HS,
-			1, &u8_value)) {
-		return false;
-	}
-	m_HighSpeed = true;
-	m_Clock *= 2;
-	return true;
+    // Check CIA.HS
+    if (!sdio_cmd52(SDIO_CMD52_READ_FLAG, SDIO_CIA, SDIO_CCCR_HS, 0, &u8_value)) {
+        return false;
+    }
+    if ((u8_value & SDIO_SHS) != SDIO_SHS) {
+        // No supported, it is not a protocol error
+        return true;
+    }
+    // HS mode possible, then enable
+    u8_value = SDIO_EHS;
+    if (!sdio_cmd52(SDIO_CMD52_WRITE_FLAG, SDIO_CIA, SDIO_CCCR_HS, 1, &u8_value)) {
+        return false;
+    }
+    m_HighSpeed = true;
+    m_Clock *= 2;
+    return true;
 }
 
 /**
@@ -1939,47 +1909,47 @@ bool HSMCIDriver::sdio_cmd52_set_high_speed()
  */
 sd_mmc_err_t HSMCIDriver::sd_mmc_select_slot(uint8_t slot)
 {
-	if (slot != 0) {
-		return SD_MMC_ERR_SLOT;
-	}
-	Assert(sd_mmc_nb_block_remaining == 0);
+    if (slot != 0) {
+        return SD_MMC_ERR_SLOT;
+    }
+    Assert(sd_mmc_nb_block_remaining == 0);
 
-	//! Card Detect pins
-	if (m_PinCD.Read()) {
-		if (m_State == SD_MMC_CARD_STATE_DEBOUNCE) {
-			SD_MMC_STOP_TIMEOUT();
-		}
-		m_State = SD_MMC_CARD_STATE_NO_CARD;
-		return SD_MMC_ERR_NO_CARD;
-	}
-	if (m_State == SD_MMC_CARD_STATE_NO_CARD) {
-		// A card plug on going, but this is not initialized
-		m_State = SD_MMC_CARD_STATE_DEBOUNCE;
-		// Debounce + Power On Setup
-		SD_MMC_START_TIMEOUT();
-		return SD_MMC_ERR_NO_CARD;
-	}
-	if (m_State == SD_MMC_CARD_STATE_DEBOUNCE) {
-		if (!SD_MMC_IS_TIMEOUT()) {
-			// Debounce on going
-			return SD_MMC_ERR_NO_CARD;
-		}
-		// Card is not initialized
-		m_State = SD_MMC_CARD_STATE_INIT;
-		// Set 1-bit bus width and low clock for initialization
-		m_Clock = SDMMC_CLOCK_INIT;
-		m_BusWidth = 1;
-		m_HighSpeed = false;
-	}
-	if (m_State == SD_MMC_CARD_STATE_UNUSABLE) {
-		return SD_MMC_ERR_UNUSABLE;
-	}
+    //! Card Detect pins
+    if (m_PinCD.Read()) {
+        if (m_State == SD_MMC_CARD_STATE_DEBOUNCE) {
+            SD_MMC_STOP_TIMEOUT();
+        }
+        m_State = SD_MMC_CARD_STATE_NO_CARD;
+        return SD_MMC_ERR_NO_CARD;
+    }
+    if (m_State == SD_MMC_CARD_STATE_NO_CARD) {
+        // A card plug on going, but this is not initialized
+        m_State = SD_MMC_CARD_STATE_DEBOUNCE;
+        // Debounce + Power On Setup
+        SD_MMC_START_TIMEOUT();
+        return SD_MMC_ERR_NO_CARD;
+    }
+    if (m_State == SD_MMC_CARD_STATE_DEBOUNCE) {
+        if (!SD_MMC_IS_TIMEOUT()) {
+            // Debounce on going
+            return SD_MMC_ERR_NO_CARD;
+        }
+        // Card is not initialized
+        m_State = SD_MMC_CARD_STATE_INIT;
+        // Set 1-bit bus width and low clock for initialization
+        m_Clock = SDMMC_CLOCK_INIT;
+        m_BusWidth = 1;
+        m_HighSpeed = false;
+    }
+    if (m_State == SD_MMC_CARD_STATE_UNUSABLE) {
+        return SD_MMC_ERR_UNUSABLE;
+    }
 
-	// Initialize interface
-	sd_mmc_slot_sel = slot;
-	//sd_mmc_card = &sd_mmc_cards[slot];
-	sd_mmc_configure_slot();
-	return (m_State == SD_MMC_CARD_STATE_INIT) ? SD_MMC_INIT_ONGOING : SD_MMC_OK;
+    // Initialize interface
+    sd_mmc_slot_sel = slot;
+    //sd_mmc_card = &sd_mmc_cards[slot];
+    sd_mmc_configure_slot();
+    return (m_State == SD_MMC_CARD_STATE_INIT) ? SD_MMC_INIT_ONGOING : SD_MMC_OK;
 }
 
 /**
@@ -1987,7 +1957,7 @@ sd_mmc_err_t HSMCIDriver::sd_mmc_select_slot(uint8_t slot)
  */
 void HSMCIDriver::sd_mmc_configure_slot()
 {
-	hsmci_select_device(m_Clock, m_BusWidth, m_HighSpeed);
+    hsmci_select_device(m_Clock, m_BusWidth, m_HighSpeed);
 }
 
 /**
@@ -1997,18 +1967,18 @@ void HSMCIDriver::sd_mmc_configure_slot()
  */
 bool HSMCIDriver::sd_acmd6()
 {
-	// CMD55 - Indicate to the card that the next command is an
-	// application specific command rather than a standard command.
-	if (!hsmci_send_cmd(SDMMC_CMD55_APP_CMD, (uint32_t)m_RCA << 16)) {
-		return false;
-	}
-	// 10b = 4 bits bus
-	if (!hsmci_send_cmd(SD_ACMD6_SET_BUS_WIDTH, 0x2)) {
-		return false;
-	}
-	m_BusWidth = 4;
-	sd_mmc_debug("%d-bit bus width enabled.\n\r", (int)m_BusWidth);
-	return true;
+    // CMD55 - Indicate to the card that the next command is an
+    // application specific command rather than a standard command.
+    if (!hsmci_send_cmd(SDMMC_CMD55_APP_CMD, (uint32_t)m_RCA << 16)) {
+        return false;
+    }
+    // 10b = 4 bits bus
+    if (!hsmci_send_cmd(SD_ACMD6_SET_BUS_WIDTH, 0x2)) {
+        return false;
+    }
+    m_BusWidth = 4;
+    sd_mmc_debug("%d-bit bus width enabled.\n\r", (int)m_BusWidth);
+    return true;
 }
 
 /**
@@ -2024,46 +1994,46 @@ bool HSMCIDriver::sd_acmd6()
  */
 bool HSMCIDriver::sd_acmd51()
 {
-	uint8_t scr[SD_SCR_REG_BSIZE];
+    uint8_t scr[SD_SCR_REG_BSIZE];
 
-	// CMD55 - Indicate to the card that the next command is an
-	// application specific command rather than a standard command.
-	if (!hsmci_send_cmd(SDMMC_CMD55_APP_CMD, (uint32_t)m_RCA << 16)) {
-		return false;
-	}
-	if (!hsmci_adtc_start(SD_ACMD51_SEND_SCR, 0, SD_SCR_REG_BSIZE, 1, true)) {
-		return false;
-	}
-	if (!hsmci_start_read_blocks(scr, 1)) {
-		return false;
-	}
-	if (!hsmci_wait_end_of_read_blocks()) {
-		return false;
-	}
+    // CMD55 - Indicate to the card that the next command is an
+    // application specific command rather than a standard command.
+    if (!hsmci_send_cmd(SDMMC_CMD55_APP_CMD, (uint32_t)m_RCA << 16)) {
+        return false;
+    }
+    if (!hsmci_adtc_start(SD_ACMD51_SEND_SCR, 0, SD_SCR_REG_BSIZE, 1, true)) {
+        return false;
+    }
+    if (!hsmci_start_read_blocks(scr, 1)) {
+        return false;
+    }
+    if (!hsmci_wait_end_of_read_blocks()) {
+        return false;
+    }
 
-	// Get SD Memory Card - Spec. Version
-	switch (SD_SCR_SD_SPEC(scr)) {
-	case SD_SCR_SD_SPEC_1_0_01:
-		m_Version = CARD_VER_SD_1_0;
-		break;
+    // Get SD Memory Card - Spec. Version
+    switch (SD_SCR_SD_SPEC(scr)) {
+    case SD_SCR_SD_SPEC_1_0_01:
+        m_Version = CARD_VER_SD_1_0;
+        break;
 
-	case SD_SCR_SD_SPEC_1_10:
-		m_Version = CARD_VER_SD_1_10;
-		break;
+    case SD_SCR_SD_SPEC_1_10:
+        m_Version = CARD_VER_SD_1_10;
+        break;
 
-	case SD_SCR_SD_SPEC_2_00:
-		if (SD_SCR_SD_SPEC3(scr) == SD_SCR_SD_SPEC_3_00) {
-			m_Version = CARD_VER_SD_3_0;
-		} else {
-			m_Version = CARD_VER_SD_2_0;
-		}
-		break;
+    case SD_SCR_SD_SPEC_2_00:
+        if (SD_SCR_SD_SPEC3(scr) == SD_SCR_SD_SPEC_3_00) {
+            m_Version = CARD_VER_SD_3_0;
+        } else {
+            m_Version = CARD_VER_SD_2_0;
+        }
+        break;
 
-	default:
-		m_Version = CARD_VER_SD_1_0;
-		break;
-	}
-	return true;
+    default:
+        m_Version = CARD_VER_SD_1_0;
+        break;
+    }
+    return true;
 }
 
 /**
@@ -2089,28 +2059,27 @@ void HSMCIDriver::sd_mmc_deselect_slot()
  */
 bool HSMCIDriver::sd_cmd8(uint8_t * v2)
 {
-	uint32_t resp;
+    uint32_t resp;
 
-	*v2 = 0;
-	// Test for SD version 2
-	if (!hsmci_send_cmd(SD_CMD8_SEND_IF_COND,
-			SD_CMD8_PATTERN | SD_CMD8_HIGH_VOLTAGE)) {
-		return true; // It is not a V2
-	}
-	// Check R7 response
-	resp = hsmci_get_response();
-	if (resp == 0xFFFFFFFF) {
-		// No compliance R7 value
-		return true; // It is not a V2
-	}
-	if ((resp & (SD_CMD8_MASK_PATTERN | SD_CMD8_MASK_VOLTAGE)) != (SD_CMD8_PATTERN | SD_CMD8_HIGH_VOLTAGE)) {
-		sd_mmc_debug("%s: CMD8 resp32 0x%08lx UNUSABLE CARD\n\r",
-				__func__, resp);
-		return false;
-	}
-	sd_mmc_debug("SD card V2\n\r");
-	*v2 = 1;
-	return true;
+    *v2 = 0;
+    // Test for SD version 2
+    if (!hsmci_send_cmd(SD_CMD8_SEND_IF_COND,
+            SD_CMD8_PATTERN | SD_CMD8_HIGH_VOLTAGE)) {
+        return true; // It is not a V2
+    }
+    // Check R7 response
+    resp = hsmci_get_response();
+    if (resp == 0xFFFFFFFF) {
+        // No compliance R7 value
+        return true; // It is not a V2
+    }
+    if ((resp & (SD_CMD8_MASK_PATTERN | SD_CMD8_MASK_VOLTAGE)) != (SD_CMD8_PATTERN | SD_CMD8_HIGH_VOLTAGE)) {
+        sd_mmc_debug("%s: CMD8 resp32 0x%08lx UNUSABLE CARD\n\r", __func__, resp);
+        return false;
+    }
+    sd_mmc_debug("SD card V2\n\r");
+    *v2 = 1;
+    return true;
 }
 
 /**
@@ -2123,42 +2092,41 @@ bool HSMCIDriver::sd_cmd8(uint8_t * v2)
  */
 bool HSMCIDriver::mmc_cmd8(uint8_t *b_authorize_high_speed)
 {
-	uint16_t i;
-	uint32_t ext_csd;
-	uint32_t sec_count;
+    uint16_t i;
+    uint32_t ext_csd;
+    uint32_t sec_count;
 
-	if (!hsmci_adtc_start(MMC_CMD8_SEND_EXT_CSD, 0, EXT_CSD_BSIZE, 1, false)) {
-		return false;
-	}
-	//** Read and decode Extended Extended CSD
-	// Note: The read access is done in byte to avoid a buffer
-	// of EXT_CSD_BSIZE Byte in stack.
+    if (!hsmci_adtc_start(MMC_CMD8_SEND_EXT_CSD, 0, EXT_CSD_BSIZE, 1, false)) {
+        return false;
+    }
+    //** Read and decode Extended Extended CSD
+    // Note: The read access is done in byte to avoid a buffer
+    // of EXT_CSD_BSIZE Byte in stack.
 
-	// Read card type
-	for (i = 0; i < (EXT_CSD_CARD_TYPE_INDEX + 4) / 4; i++) {
-		if (!hsmci_read_word(&ext_csd)) {
-			return false;
-		}
-	}
-	*b_authorize_high_speed = (ext_csd >> ((EXT_CSD_CARD_TYPE_INDEX % 4) * 8))
-			& MMC_CTYPE_52MHZ;
+    // Read card type
+    for (i = 0; i < (EXT_CSD_CARD_TYPE_INDEX + 4) / 4; i++) {
+        if (!hsmci_read_word(&ext_csd)) {
+            return false;
+        }
+    }
+    *b_authorize_high_speed = (ext_csd >> ((EXT_CSD_CARD_TYPE_INDEX % 4) * 8)) & MMC_CTYPE_52MHZ;
 
-	if (MMC_CSD_C_SIZE(m_CSD) == 0xFFF) {
-		// For high capacity SD/MMC card,
-		// memory capacity = SEC_COUNT * 512 byte
-		for (; i <(EXT_CSD_SEC_COUNT_INDEX + 4) / 4; i++) {
-			if (!hsmci_read_word(&sec_count)) {
-				return false;
-			}
-		}
-		m_Capacity = sec_count / 2;
-	}
-	for (; i < EXT_CSD_BSIZE / 4; i++) {
-		if (!hsmci_read_word(&sec_count)) {
-			return false;
-		}
-	}
-	return true;
+    if (MMC_CSD_C_SIZE(m_CSD) == 0xFFF) {
+        // For high capacity SD/MMC card,
+        // memory capacity = SEC_COUNT * 512 byte
+        for (; i <(EXT_CSD_SEC_COUNT_INDEX + 4) / 4; i++) {
+            if (!hsmci_read_word(&sec_count)) {
+                return false;
+            }
+        }
+        m_Capacity = sec_count / 2;
+    }
+    for (; i < EXT_CSD_BSIZE / 4; i++) {
+        if (!hsmci_read_word(&sec_count)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /**
@@ -2173,77 +2141,75 @@ bool HSMCIDriver::mmc_cmd8(uint8_t *b_authorize_high_speed)
  */
 bool HSMCIDriver::sd_mmc_mci_install_mmc()
 {
-	uint8_t b_authorize_high_speed;
+    uint8_t b_authorize_high_speed;
 
-	// CMD0 - Reset all cards to idle state.
-	if (!hsmci_send_cmd(SDMMC_MCI_CMD0_GO_IDLE_STATE, 0)) {
-		return false;
-	}
+    // CMD0 - Reset all cards to idle state.
+    if (!hsmci_send_cmd(SDMMC_MCI_CMD0_GO_IDLE_STATE, 0)) {
+        return false;
+    }
 
-	if (!mmc_mci_op_cond()) {
-		return false;
-	}
+    if (!mmc_mci_op_cond()) {
+        return false;
+    }
 
-	// Put the Card in Identify Mode
-	// Note: The CID is not used in this stack
-	if (!hsmci_send_cmd(SDMMC_CMD2_ALL_SEND_CID, 0)) {
-		return false;
-	}
-	// Assign relative address to the card.
-	m_RCA = 1;
-	if (!hsmci_send_cmd(MMC_CMD3_SET_RELATIVE_ADDR,
-			(uint32_t)m_RCA << 16)) {
-		return false;
-	}
-	// Get the Card-Specific Data
-	if (!sd_mmc_cmd9_mci()) {
-		return false;
-	}
-	mmc_decode_csd();
-	// Select the and put it into Transfer Mode
-	if (!hsmci_send_cmd(SDMMC_CMD7_SELECT_CARD_CMD,
-			(uint32_t)m_RCA << 16)) {
-		return false;
-	}
-	if (m_CardVersion >= CARD_VER_MMC_4) {
-		// For MMC 4.0 Higher version
-		// Get EXT_CSD
-		if (!mmc_cmd8(&b_authorize_high_speed)) {
-			return false;
-		}
-//		if (4 <= hsmci_get_bus_width(sd_mmc_slot_sel)) {
-			// Enable more bus width
-			if (!mmc_cmd6_set_bus_width(4/*hsmci_get_bus_width(sd_mmc_slot_sel)*/)) {
-				return false;
-			}
-			// Reinitialize the slot with the bus width
-			sd_mmc_configure_slot();
-//		}
-		if (b_authorize_high_speed) {
-			// Enable HS
-			if (!mmc_cmd6_set_high_speed()) {
-				return false;
-			}
-			// Reinitialize the slot with the new speed
-			sd_mmc_configure_slot();
-		}
-	} else {
-		// Reinitialize the slot with the new speed
-		sd_mmc_configure_slot();
-	}
+    // Put the Card in Identify Mode
+    // Note: The CID is not used in this stack
+    if (!hsmci_send_cmd(SDMMC_CMD2_ALL_SEND_CID, 0)) {
+        return false;
+    }
+    // Assign relative address to the card.
+    m_RCA = 1;
+    if (!hsmci_send_cmd(MMC_CMD3_SET_RELATIVE_ADDR, (uint32_t)m_RCA << 16)) {
+        return false;
+    }
+    // Get the Card-Specific Data
+    if (!sd_mmc_cmd9_mci()) {
+        return false;
+    }
+    mmc_decode_csd();
+    // Select the and put it into Transfer Mode
+    if (!hsmci_send_cmd(SDMMC_CMD7_SELECT_CARD_CMD, (uint32_t)m_RCA << 16)) {
+        return false;
+    }
+    if (m_CardVersion >= CARD_VER_MMC_4) {
+        // For MMC 4.0 Higher version
+        // Get EXT_CSD
+        if (!mmc_cmd8(&b_authorize_high_speed)) {
+            return false;
+        }
+//      if (4 <= hsmci_get_bus_width(sd_mmc_slot_sel)) {
+            // Enable more bus width
+            if (!mmc_cmd6_set_bus_width(4/*hsmci_get_bus_width(sd_mmc_slot_sel)*/)) {
+                return false;
+            }
+            // Reinitialize the slot with the bus width
+            sd_mmc_configure_slot();
+//      }
+        if (b_authorize_high_speed) {
+            // Enable HS
+            if (!mmc_cmd6_set_high_speed()) {
+                return false;
+            }
+            // Reinitialize the slot with the new speed
+            sd_mmc_configure_slot();
+        }
+    } else {
+        // Reinitialize the slot with the new speed
+        sd_mmc_configure_slot();
+    }
 
-	uint8_t retry = 10;
-	while (retry--) {
-		// Retry is a WORKAROUND for no compliance card (Atmel Internal ref. MMC19):
-		// These cards seem not ready immediatly
-		// after the end of busy of mmc_cmd6_set_high_speed()
+    uint8_t retry = 10;
+    while (retry--) {
+        // Retry is a WORKAROUND for no compliance card (Atmel Internal ref. MMC19):
+        // These cards seem not ready immediatly
+        // after the end of busy of mmc_cmd6_set_high_speed()
 
-		// Set default block size
-		if (hsmci_send_cmd(SDMMC_CMD16_SET_BLOCKLEN, SD_MMC_BLOCK_SIZE)) {
-			return true;
-		}
-	}
-	return false;
+        // Set default block size
+        if (hsmci_send_cmd(SDMMC_CMD16_SET_BLOCKLEN, SD_MMC_BLOCK_SIZE)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -2258,114 +2224,114 @@ bool HSMCIDriver::sd_mmc_mci_install_mmc()
  */
 bool HSMCIDriver::sd_mmc_mci_card_init()
 {
-	uint8_t v2 = 0;
-	uint8_t data = 0x08;
+    uint8_t v2 = 0;
+    uint8_t data = 0x08;
 
-	// In first, try to install SD/SDIO card
-	m_CardType = CARD_TYPE_SD;
-	m_Version = CARD_VER_UNKNOWN;
-	m_RCA = 0;
-	sd_mmc_debug("Start SD card install\n\r");
+    // In first, try to install SD/SDIO card
+    m_CardType = CARD_TYPE_SD;
+    m_Version = CARD_VER_UNKNOWN;
+    m_RCA = 0;
+    sd_mmc_debug("Start SD card install\n\r");
 
-	// Card need of 74 cycles clock minimum to start
-	hsmci_send_clock();
+    // Card need of 74 cycles clock minimum to start
+    hsmci_send_clock();
 
-	/* CMD52 Reset SDIO */
-	sdio_cmd52(SDIO_CMD52_WRITE_FLAG, SDIO_CIA,SDIO_CCCR_IOA, 0, &data);
+    /* CMD52 Reset SDIO */
+    sdio_cmd52(SDIO_CMD52_WRITE_FLAG, SDIO_CIA,SDIO_CCCR_IOA, 0, &data);
 
-	// CMD0 - Reset all cards to idle state.
-	if (!hsmci_send_cmd(SDMMC_MCI_CMD0_GO_IDLE_STATE, 0)) {
-		return false;
-	}
-	if (!sd_cmd8(&v2)) {
-		return false;
-	}
-	// Try to get the SDIO card's operating condition
-	if (!sdio_op_cond()) {
-		return false;
-	}
+    // CMD0 - Reset all cards to idle state.
+    if (!hsmci_send_cmd(SDMMC_MCI_CMD0_GO_IDLE_STATE, 0)) {
+        return false;
+    }
+    if (!sd_cmd8(&v2)) {
+        return false;
+    }
+    // Try to get the SDIO card's operating condition
+    if (!sdio_op_cond()) {
+        return false;
+    }
 
-	if (m_CardType & CARD_TYPE_SD) {
-		// Try to get the SD card's operating condition
-		if (!sd_mci_op_cond(v2)) {
-			// It is not a SD card
-			sd_mmc_debug("Start MMC Install\n\r");
-			m_CardType = CARD_TYPE_MMC;
-			return sd_mmc_mci_install_mmc();
-		}
-	}
+    if (m_CardType & CARD_TYPE_SD) {
+        // Try to get the SD card's operating condition
+        if (!sd_mci_op_cond(v2)) {
+            // It is not a SD card
+            sd_mmc_debug("Start MMC Install\n\r");
+            m_CardType = CARD_TYPE_MMC;
+            return sd_mmc_mci_install_mmc();
+        }
+    }
 
-	if (m_CardType & CARD_TYPE_SD) {
-		// SD MEMORY, Put the Card in Identify Mode
-		// Note: The CID is not used in this stack
-		if (!hsmci_send_cmd(SDMMC_CMD2_ALL_SEND_CID, 0)) {
-			return false;
-		}
-	}
-	// Ask the card to publish a new relative address (RCA).
-	if (!hsmci_send_cmd(SD_CMD3_SEND_RELATIVE_ADDR, 0)) {
-		return false;
-	}
-	m_RCA = (hsmci_get_response() >> 16) & 0xFFFF;
+    if (m_CardType & CARD_TYPE_SD) {
+        // SD MEMORY, Put the Card in Identify Mode
+        // Note: The CID is not used in this stack
+        if (!hsmci_send_cmd(SDMMC_CMD2_ALL_SEND_CID, 0)) {
+            return false;
+        }
+    }
+    // Ask the card to publish a new relative address (RCA).
+    if (!hsmci_send_cmd(SD_CMD3_SEND_RELATIVE_ADDR, 0)) {
+        return false;
+    }
+    m_RCA = (hsmci_get_response() >> 16) & 0xFFFF;
 
-	// SD MEMORY, Get the Card-Specific Data
-	if (m_CardType & CARD_TYPE_SD) {
-		if (!sd_mmc_cmd9_mci()) {
-			return false;
-		}
-		sd_decode_csd();
-	}
-	// Select the and put it into Transfer Mode
-	if (!hsmci_send_cmd(SDMMC_CMD7_SELECT_CARD_CMD,
-			(uint32_t)m_RCA << 16)) {
-		return false;
-	}
-	// SD MEMORY, Read the SCR to get card version
-	if (m_CardType & CARD_TYPE_SD) {
-		if (!sd_acmd51()) {
-			return false;
-		}
-	}
-	if (IS_SDIO()) {
-		if (!sdio_get_max_speed()) {
-			return false;
-		}
-	}
-	// TRY to enable 4-bit mode
-	if (IS_SDIO()) {
-		if (!sdio_cmd52_set_bus_width()) {
-			return false;
-		}
-	}
-	if (m_CardType & CARD_TYPE_SD) {
-		if (!sd_acmd6()) {
-			return false;
-		}
-	}
-	// Switch to selected bus mode
-	sd_mmc_configure_slot();
-	// TRY to enable High-Speed Mode
-	if (IS_SDIO()) {
-		if (!sdio_cmd52_set_high_speed()) {
-			return false;
-		}
-	}
-	if (m_CardType & CARD_TYPE_SD) {
-		if (m_Version > CARD_VER_SD_1_0) {
-			if (!sd_cm6_set_high_speed()) {
-				return false;
-			}
-		}
-	}
-	// Valid new configuration
-	sd_mmc_configure_slot();
-	// SD MEMORY, Set default block size
-	if (m_CardType & CARD_TYPE_SD) {
-		if (!hsmci_send_cmd(SDMMC_CMD16_SET_BLOCKLEN, SD_MMC_BLOCK_SIZE)) {
-			return false;
-		}
-	}
-	return true;
+    // SD MEMORY, Get the Card-Specific Data
+    if (m_CardType & CARD_TYPE_SD) {
+        if (!sd_mmc_cmd9_mci()) {
+            return false;
+        }
+        sd_decode_csd();
+    }
+    // Select the and put it into Transfer Mode
+    if (!hsmci_send_cmd(SDMMC_CMD7_SELECT_CARD_CMD,
+            (uint32_t)m_RCA << 16)) {
+        return false;
+    }
+    // SD MEMORY, Read the SCR to get card version
+    if (m_CardType & CARD_TYPE_SD) {
+        if (!sd_acmd51()) {
+            return false;
+        }
+    }
+    if (IS_SDIO()) {
+        if (!sdio_get_max_speed()) {
+            return false;
+        }
+    }
+    // TRY to enable 4-bit mode
+    if (IS_SDIO()) {
+        if (!sdio_cmd52_set_bus_width()) {
+            return false;
+        }
+    }
+    if (m_CardType & CARD_TYPE_SD) {
+        if (!sd_acmd6()) {
+            return false;
+        }
+    }
+    // Switch to selected bus mode
+    sd_mmc_configure_slot();
+    // TRY to enable High-Speed Mode
+    if (IS_SDIO()) {
+        if (!sdio_cmd52_set_high_speed()) {
+            return false;
+        }
+    }
+    if (m_CardType & CARD_TYPE_SD) {
+        if (m_Version > CARD_VER_SD_1_0) {
+            if (!sd_cm6_set_high_speed()) {
+                return false;
+            }
+        }
+    }
+    // Valid new configuration
+    sd_mmc_configure_slot();
+    // SD MEMORY, Set default block size
+    if (m_CardType & CARD_TYPE_SD) {
+        if (!hsmci_send_cmd(SDMMC_CMD16_SET_BLOCKLEN, SD_MMC_BLOCK_SIZE)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 sd_mmc_err_t HSMCIDriver::sd_mmc_check(uint8_t slot)
@@ -2374,19 +2340,19 @@ sd_mmc_err_t HSMCIDriver::sd_mmc_check(uint8_t slot)
 
     sd_mmc_err = sd_mmc_select_slot(slot);
     if (sd_mmc_err != SD_MMC_INIT_ONGOING) {
-	sd_mmc_deselect_slot();
-	return sd_mmc_err;
+        sd_mmc_deselect_slot();
+        return sd_mmc_err;
     }
 
     // Initialization of the card requested
     if (sd_mmc_mci_card_init())
     {
-	sd_mmc_debug("SD/MMC card ready\n\r");
-	m_State = SD_MMC_CARD_STATE_READY;
-	sd_mmc_deselect_slot();
-	// To notify that the card has been just initialized
-	// It is necessary for USB Device MSC
-	return SD_MMC_INIT_ONGOING;
+        sd_mmc_debug("SD/MMC card ready\n\r");
+        m_State = SD_MMC_CARD_STATE_READY;
+        sd_mmc_deselect_slot();
+        // To notify that the card has been just initialized
+        // It is necessary for USB Device MSC
+        return SD_MMC_INIT_ONGOING;
     }
     sd_mmc_debug("SD/MMC card initialization failed\n\r");
     m_State = SD_MMC_CARD_STATE_UNUSABLE;
@@ -2396,29 +2362,29 @@ sd_mmc_err_t HSMCIDriver::sd_mmc_check(uint8_t slot)
 
 card_type_t HSMCIDriver::sd_mmc_get_type(uint8_t slot)
 {
-	if (SD_MMC_OK != sd_mmc_select_slot(slot)) {
-		return CARD_TYPE_UNKNOWN;
-	}
-	sd_mmc_deselect_slot();
-	return m_CardType;
+    if (SD_MMC_OK != sd_mmc_select_slot(slot)) {
+        return CARD_TYPE_UNKNOWN;
+    }
+    sd_mmc_deselect_slot();
+    return m_CardType;
 }
 
 card_version_t HSMCIDriver::sd_mmc_get_version(uint8_t slot)
 {
-	if (SD_MMC_OK != sd_mmc_select_slot(slot)) {
-		return CARD_VER_UNKNOWN;
-	}
-	sd_mmc_deselect_slot();
-	return m_Version;
+    if (SD_MMC_OK != sd_mmc_select_slot(slot)) {
+        return CARD_VER_UNKNOWN;
+    }
+    sd_mmc_deselect_slot();
+    return m_Version;
 }
 
 uint32_t HSMCIDriver::sd_mmc_get_capacity(uint8_t slot)
 {
-	if (SD_MMC_OK != sd_mmc_select_slot(slot)) {
-		return 0;
-	}
-	sd_mmc_deselect_slot();
-	return m_Capacity;
+    if (SD_MMC_OK != sd_mmc_select_slot(slot)) {
+        return 0;
+    }
+    sd_mmc_deselect_slot();
+    return m_Capacity;
 }
 
 sd_mmc_err_t HSMCIDriver::sd_mmc_init_read_blocks(uint8_t slot, uint32_t start, uint16_t nb_block)
@@ -2459,8 +2425,7 @@ sd_mmc_err_t HSMCIDriver::sd_mmc_init_read_blocks(uint8_t slot, uint32_t start, 
     // Check response
     resp = hsmci_get_response();
     if (resp & CARD_STATUS_ERR_RD_WR) {
-        sd_mmc_debug("%s: Read blocks %02d resp32 0x%08lx CARD_STATUS_ERR_RD_WR\n\r",
-		        __func__, (int)SDMMC_CMD_GET_INDEX(cmd), resp);
+        sd_mmc_debug("%s: Read blocks %02d resp32 0x%08lx CARD_STATUS_ERR_RD_WR\n\r", __func__, (int)SDMMC_CMD_GET_INDEX(cmd), resp);
         sd_mmc_deselect_slot();
         return SD_MMC_ERR_COMM;
     }
@@ -2471,222 +2436,221 @@ sd_mmc_err_t HSMCIDriver::sd_mmc_init_read_blocks(uint8_t slot, uint32_t start, 
 
 sd_mmc_err_t HSMCIDriver::sd_mmc_start_read_blocks(void *dest, uint16_t nb_block)
 {
-	Assert(sd_mmc_nb_block_remaining >= nb_block);
+    Assert(sd_mmc_nb_block_remaining >= nb_block);
 
-	if (!hsmci_start_read_blocks(dest, nb_block)) {
-		sd_mmc_nb_block_remaining = 0;
-		return SD_MMC_ERR_COMM;
-	}
-	sd_mmc_nb_block_remaining -= nb_block;
-	return SD_MMC_OK;
+    if (!hsmci_start_read_blocks(dest, nb_block)) {
+        sd_mmc_nb_block_remaining = 0;
+        return SD_MMC_ERR_COMM;
+    }
+    sd_mmc_nb_block_remaining -= nb_block;
+    return SD_MMC_OK;
 }
 
 sd_mmc_err_t HSMCIDriver::sd_mmc_wait_end_of_read_blocks(bool abort)
 {
-	if (!hsmci_wait_end_of_read_blocks()) {
-		return SD_MMC_ERR_COMM;
-	}
-	if (abort) {
-		sd_mmc_nb_block_remaining = 0;
-	} else if (sd_mmc_nb_block_remaining) {
-		return SD_MMC_OK;
-	}
+    if (!hsmci_wait_end_of_read_blocks()) {
+        return SD_MMC_ERR_COMM;
+    }
+    if (abort) {
+        sd_mmc_nb_block_remaining = 0;
+    } else if (sd_mmc_nb_block_remaining) {
+        return SD_MMC_OK;
+    }
 
-	// All blocks are transfered then stop read operation
-	if (sd_mmc_nb_block_to_tranfer == 1) {
-		// Single block transfer, then nothing to do
-		sd_mmc_deselect_slot();
-		return SD_MMC_OK;
-	}
-	// WORKAROUND for no compliance card (Atmel Internal ref. !MMC7 !SD19):
-	// The errors on this command must be ignored
-	// and one retry can be necessary in SPI mode for no compliance card.
-	if (!hsmci_adtc_stop(SDMMC_CMD12_STOP_TRANSMISSION, 0)) {
-		hsmci_adtc_stop(SDMMC_CMD12_STOP_TRANSMISSION, 0);
-	}
-	sd_mmc_deselect_slot();
-	return SD_MMC_OK;
+    // All blocks are transfered then stop read operation
+    if (sd_mmc_nb_block_to_tranfer == 1) {
+        // Single block transfer, then nothing to do
+        sd_mmc_deselect_slot();
+        return SD_MMC_OK;
+    }
+    // WORKAROUND for no compliance card (Atmel Internal ref. !MMC7 !SD19):
+    // The errors on this command must be ignored
+    // and one retry can be necessary in SPI mode for no compliance card.
+    if (!hsmci_adtc_stop(SDMMC_CMD12_STOP_TRANSMISSION, 0)) {
+        hsmci_adtc_stop(SDMMC_CMD12_STOP_TRANSMISSION, 0);
+    }
+    sd_mmc_deselect_slot();
+    return SD_MMC_OK;
 }
 
 sd_mmc_err_t HSMCIDriver::sd_mmc_init_write_blocks(uint8_t slot, uint32_t start, uint16_t nb_block)
 {
-	sd_mmc_err_t sd_mmc_err;
-	uint32_t cmd, arg, resp;
+    sd_mmc_err_t sd_mmc_err;
+    uint32_t cmd, arg, resp;
 
-	sd_mmc_err = sd_mmc_select_slot(slot);
-	if (sd_mmc_err != SD_MMC_OK) {
-		return sd_mmc_err;
-	}
-//	if (sd_mmc_is_write_protected(slot)) {
-//		sd_mmc_deselect_slot();
-//		return SD_MMC_ERR_WP;
-//	}
+    sd_mmc_err = sd_mmc_select_slot(slot);
+    if (sd_mmc_err != SD_MMC_OK) {
+        return sd_mmc_err;
+    }
+//  if (sd_mmc_is_write_protected(slot)) {
+//      sd_mmc_deselect_slot();
+//      return SD_MMC_ERR_WP;
+//  }
 
-	if (nb_block > 1) {
-		cmd = SDMMC_CMD25_WRITE_MULTIPLE_BLOCK;
-	} else {
-		cmd = SDMMC_CMD24_WRITE_BLOCK;
-	}
-	/*
-	 * SDSC Card (CCS=0) uses byte unit address,
-	 * SDHC and SDXC Cards (CCS=1) use block unit address (512 Bytes unit).
-	 */
-	if (m_CardType & CARD_TYPE_HC) {
-		arg = start;
-	} else {
-		arg = (start * SD_MMC_BLOCK_SIZE);
-	}
-	if (!hsmci_adtc_start(cmd, arg, SD_MMC_BLOCK_SIZE, nb_block, true)) {
-		sd_mmc_deselect_slot();
-		return SD_MMC_ERR_COMM;
-	}
-	// Check response
-	resp = hsmci_get_response();
-	if (resp & CARD_STATUS_ERR_RD_WR) {
-		sd_mmc_debug("%s: Write blocks %02d r1 0x%08lx CARD_STATUS_ERR_RD_WR\n\r",
-				__func__, (int)SDMMC_CMD_GET_INDEX(cmd), resp);
-		sd_mmc_deselect_slot();
-		return SD_MMC_ERR_COMM;
-	}
-	sd_mmc_nb_block_remaining = nb_block;
-	sd_mmc_nb_block_to_tranfer = nb_block;
-	return SD_MMC_OK;
+    if (nb_block > 1) {
+        cmd = SDMMC_CMD25_WRITE_MULTIPLE_BLOCK;
+    } else {
+        cmd = SDMMC_CMD24_WRITE_BLOCK;
+    }
+    /*
+     * SDSC Card (CCS=0) uses byte unit address,
+     * SDHC and SDXC Cards (CCS=1) use block unit address (512 Bytes unit).
+     */
+    if (m_CardType & CARD_TYPE_HC) {
+        arg = start;
+    } else {
+        arg = (start * SD_MMC_BLOCK_SIZE);
+    }
+    if (!hsmci_adtc_start(cmd, arg, SD_MMC_BLOCK_SIZE, nb_block, true)) {
+        sd_mmc_deselect_slot();
+        return SD_MMC_ERR_COMM;
+    }
+    // Check response
+    resp = hsmci_get_response();
+    if (resp & CARD_STATUS_ERR_RD_WR) {
+        sd_mmc_debug("%s: Write blocks %02d r1 0x%08lx CARD_STATUS_ERR_RD_WR\n\r", __func__, (int)SDMMC_CMD_GET_INDEX(cmd), resp);
+        sd_mmc_deselect_slot();
+        return SD_MMC_ERR_COMM;
+    }
+    sd_mmc_nb_block_remaining = nb_block;
+    sd_mmc_nb_block_to_tranfer = nb_block;
+    return SD_MMC_OK;
 }
 
 sd_mmc_err_t HSMCIDriver::sd_mmc_start_write_blocks(const void *src, uint16_t nb_block)
 {
-	Assert(sd_mmc_nb_block_remaining >= nb_block);
-	if (!hsmci_start_write_blocks(src, nb_block)) {
-		sd_mmc_nb_block_remaining = 0;
-		return SD_MMC_ERR_COMM;
-	}
-	sd_mmc_nb_block_remaining -= nb_block;
-	return SD_MMC_OK;
+    Assert(sd_mmc_nb_block_remaining >= nb_block);
+    if (!hsmci_start_write_blocks(src, nb_block)) {
+        sd_mmc_nb_block_remaining = 0;
+        return SD_MMC_ERR_COMM;
+    }
+    sd_mmc_nb_block_remaining -= nb_block;
+    return SD_MMC_OK;
 }
 
 sd_mmc_err_t HSMCIDriver::sd_mmc_wait_end_of_write_blocks(bool abort)
 {
-	if (!hsmci_wait_end_of_write_blocks()) {
-		return SD_MMC_ERR_COMM;
-	}
-	if (abort) {
-		sd_mmc_nb_block_remaining = 0;
-	} else if (sd_mmc_nb_block_remaining) {
-		return SD_MMC_OK;
-	}
+    if (!hsmci_wait_end_of_write_blocks()) {
+        return SD_MMC_ERR_COMM;
+    }
+    if (abort) {
+        sd_mmc_nb_block_remaining = 0;
+    } else if (sd_mmc_nb_block_remaining) {
+        return SD_MMC_OK;
+    }
 
-	// All blocks are transfered then stop write operation
-	if (sd_mmc_nb_block_to_tranfer == 1) {
-		// Single block transfer, then nothing to do
-		sd_mmc_deselect_slot();
-		return SD_MMC_OK;
-	}
+    // All blocks are transfered then stop write operation
+    if (sd_mmc_nb_block_to_tranfer == 1) {
+        // Single block transfer, then nothing to do
+        sd_mmc_deselect_slot();
+        return SD_MMC_OK;
+    }
 
-	// Note: SPI multiblock writes terminate using a special
-	// token, not a STOP_TRANSMISSION request.
-	if (!hsmci_adtc_stop(SDMMC_CMD12_STOP_TRANSMISSION, 0)) {
-		sd_mmc_deselect_slot();
-		return SD_MMC_ERR_COMM;
-	}
-	sd_mmc_deselect_slot();
-	return SD_MMC_OK;
+    // Note: SPI multiblock writes terminate using a special
+    // token, not a STOP_TRANSMISSION request.
+    if (!hsmci_adtc_stop(SDMMC_CMD12_STOP_TRANSMISSION, 0)) {
+        sd_mmc_deselect_slot();
+        return SD_MMC_ERR_COMM;
+    }
+    sd_mmc_deselect_slot();
+    return SD_MMC_OK;
 }
 
 sd_mmc_err_t HSMCIDriver::sdio_read_direct(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t *dest)
 {
-	sd_mmc_err_t sd_mmc_err;
+    sd_mmc_err_t sd_mmc_err;
 
-	if (dest == nullptr) {
-		return SD_MMC_ERR_PARAM;
-	}
+    if (dest == nullptr) {
+        return SD_MMC_ERR_PARAM;
+    }
 
-	sd_mmc_err = sd_mmc_select_slot(slot);
-	if (sd_mmc_err != SD_MMC_OK) {
-		return sd_mmc_err;
-	}
+    sd_mmc_err = sd_mmc_select_slot(slot);
+    if (sd_mmc_err != SD_MMC_OK) {
+        return sd_mmc_err;
+    }
 
-	if (!sdio_cmd52(SDIO_CMD52_READ_FLAG, func_num, addr, 0, dest)) {
-		sd_mmc_deselect_slot();
-		return SD_MMC_ERR_COMM;
-	}
-	sd_mmc_deselect_slot();
-	return SD_MMC_OK;
+    if (!sdio_cmd52(SDIO_CMD52_READ_FLAG, func_num, addr, 0, dest)) {
+        sd_mmc_deselect_slot();
+        return SD_MMC_ERR_COMM;
+    }
+    sd_mmc_deselect_slot();
+    return SD_MMC_OK;
 }
 
 sd_mmc_err_t HSMCIDriver::sdio_write_direct(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t data)
 {
-	sd_mmc_err_t sd_mmc_err;
+    sd_mmc_err_t sd_mmc_err;
 
-	sd_mmc_err = sd_mmc_select_slot(slot);
-	if (sd_mmc_err != SD_MMC_OK) {
-		return sd_mmc_err;
-	}
+    sd_mmc_err = sd_mmc_select_slot(slot);
+    if (sd_mmc_err != SD_MMC_OK) {
+        return sd_mmc_err;
+    }
 
-	if (!sdio_cmd52(SDIO_CMD52_WRITE_FLAG, func_num, addr, 0, &data)) {
-		sd_mmc_deselect_slot();
-		return SD_MMC_ERR_COMM;
-	}
+    if (!sdio_cmd52(SDIO_CMD52_WRITE_FLAG, func_num, addr, 0, &data)) {
+        sd_mmc_deselect_slot();
+        return SD_MMC_ERR_COMM;
+    }
 
-	sd_mmc_deselect_slot();
-	return SD_MMC_OK;
+    sd_mmc_deselect_slot();
+    return SD_MMC_OK;
 }
 
 sd_mmc_err_t HSMCIDriver::sdio_read_extended(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t inc_addr, uint8_t *dest, uint16_t size)
 {
-	sd_mmc_err_t sd_mmc_err;
+    sd_mmc_err_t sd_mmc_err;
 
-	if ((size == 0) || (size > 512)) {
-		return SD_MMC_ERR_PARAM;
-	}
+    if ((size == 0) || (size > 512)) {
+        return SD_MMC_ERR_PARAM;
+    }
 
-	sd_mmc_err = sd_mmc_select_slot(slot);
-	if (sd_mmc_err != SD_MMC_OK) {
-		return sd_mmc_err;
-	}
+    sd_mmc_err = sd_mmc_select_slot(slot);
+    if (sd_mmc_err != SD_MMC_OK) {
+        return sd_mmc_err;
+    }
 
-	if (!sdio_cmd53(SDIO_CMD53_READ_FLAG, func_num, addr, inc_addr, size, true)) {
-		sd_mmc_deselect_slot();
-		return SD_MMC_ERR_COMM;
-	}
-	if (!hsmci_start_read_blocks(dest, 1)) {
-		sd_mmc_deselect_slot();
-		return SD_MMC_ERR_COMM;
-	}
-	if (!hsmci_wait_end_of_read_blocks()) {
-		sd_mmc_deselect_slot();
-		return SD_MMC_ERR_COMM;
-	}
+    if (!sdio_cmd53(SDIO_CMD53_READ_FLAG, func_num, addr, inc_addr, size, true)) {
+        sd_mmc_deselect_slot();
+        return SD_MMC_ERR_COMM;
+    }
+    if (!hsmci_start_read_blocks(dest, 1)) {
+        sd_mmc_deselect_slot();
+        return SD_MMC_ERR_COMM;
+    }
+    if (!hsmci_wait_end_of_read_blocks()) {
+        sd_mmc_deselect_slot();
+        return SD_MMC_ERR_COMM;
+    }
 
-	sd_mmc_deselect_slot();
-	return SD_MMC_OK;
+    sd_mmc_deselect_slot();
+    return SD_MMC_OK;
 }
 
 sd_mmc_err_t HSMCIDriver::sdio_write_extended(uint8_t slot, uint8_t func_num, uint32_t addr, uint8_t inc_addr, uint8_t *src, uint16_t size)
 {
-	sd_mmc_err_t sd_mmc_err;
+    sd_mmc_err_t sd_mmc_err;
 
-	if ((size == 0) || (size > 512)) {
-		return SD_MMC_ERR_PARAM;
-	}
+    if ((size == 0) || (size > 512)) {
+        return SD_MMC_ERR_PARAM;
+    }
 
-	sd_mmc_err = sd_mmc_select_slot(slot);
-	if (sd_mmc_err != SD_MMC_OK) {
-		return sd_mmc_err;
-	}
+    sd_mmc_err = sd_mmc_select_slot(slot);
+    if (sd_mmc_err != SD_MMC_OK) {
+        return sd_mmc_err;
+    }
 
-	if (!sdio_cmd53(SDIO_CMD53_WRITE_FLAG, func_num, addr, inc_addr, size, true)) {
-		sd_mmc_deselect_slot();
-		return SD_MMC_ERR_COMM;
-	}
-	if (!hsmci_start_write_blocks(src, 1)) {
-		sd_mmc_deselect_slot();
-		return SD_MMC_ERR_COMM;
-	}
-	if (!hsmci_wait_end_of_write_blocks()) {
-		sd_mmc_deselect_slot();
-		return SD_MMC_ERR_COMM;
-	}
+    if (!sdio_cmd53(SDIO_CMD53_WRITE_FLAG, func_num, addr, inc_addr, size, true)) {
+        sd_mmc_deselect_slot();
+        return SD_MMC_ERR_COMM;
+    }
+    if (!hsmci_start_write_blocks(src, 1)) {
+        sd_mmc_deselect_slot();
+        return SD_MMC_ERR_COMM;
+    }
+    if (!hsmci_wait_end_of_write_blocks()) {
+        sd_mmc_deselect_slot();
+        return SD_MMC_ERR_COMM;
+    }
 
-	sd_mmc_deselect_slot();
-	return SD_MMC_OK;
+    sd_mmc_deselect_slot();
+    return SD_MMC_OK;
 }

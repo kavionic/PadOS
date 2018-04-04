@@ -118,7 +118,7 @@ namespace kernel
 #define INA3221_SENSOR_IDX_3 2
 
 
-class INA3221Driver : public KDeviceNode, public Looper, public SignalTarget
+class INA3221Driver : public KDeviceNode, public os::Looper, public SignalTarget
 {
 public:
     INA3221Driver(const char* i2cPath);
@@ -126,8 +126,6 @@ public:
 
 
     bool Initialize(const char* i2cPath);
-
-//    virtual int Run() override;
 
     virtual int DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 //    virtual ssize_t Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length) override;
@@ -143,9 +141,6 @@ private:
     };
 
 
-    static void TransactionCallback(void* userObject, void* data, ssize_t length);
-    void TransactionCallback(void* data, ssize_t length);
-
     Semaphore m_Mutex;
     State_e m_State = State_e::Idle;
     int     m_CurrentRegister = 0;
@@ -156,13 +151,12 @@ private:
     bigtime_t m_ReadRetryCount = 0;
 
     int  m_I2CDevice;
-//    I2C* m_Port = nullptr;
     uint8_t m_DeviceAddress = 0x40;
 
     double CalculateCurrent(int sensor, int16_t value) const { return double(value / 8)*40e-6/m_ShuntValues[sensor]; }
     double CalculateVoltage(int16_t value) const { return double(value / 8) * 8.0e-3; }
 
-    EventTimer m_Timer;
+    os::EventTimer m_Timer;
 
     INA3221Values m_CurrentValues = { {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0} };
     double m_ShuntValues[INA3221_SENSOR_COUNT] = {1.0, 1.0, 1.0};

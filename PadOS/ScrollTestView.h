@@ -20,6 +20,9 @@
 #pragma once
 
 #include "System/GUI/View.h"
+#include "System/Utils/EventTimer.h"
+
+using namespace os;
 
 class ScrollTestView : public View
 {
@@ -28,18 +31,20 @@ public:
     ~ScrollTestView();
     
     
-    virtual void PostAttachedToViewport() override;
+    virtual void AllAttachedToScreen() override;
 
     virtual bool OnMouseDown(MouseButton_e button, const Point& position) override;
     virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
     virtual bool OnMouseMove(MouseButton_e button, const Point& position) override;
 
-    virtual void Render() override;
+    virtual void Paint(const Rect& updateRect) override;
 
     Signal<void, Ptr<View>> SignalDone;
     
 private:
     void SlotFrameProcess();
+
+    EventTimer m_UpdateTimer;
 
     MouseButton_e m_HitButton = MouseButton_e::None;
     Point         m_HitPos;

@@ -19,53 +19,74 @@
 
 #include "sam.h"
 
+#include <string.h>
+
 #include "I2CDriver.h"
 #include "Kernel/HAL/DigitalPort.h"
 #include "Kernel/HAL/SAME70System.h"
 #include "DeviceControl/I2C.h"
 #include "System/System.h"
+#include "Kernel/Scheduler.h"
+#include "Kernel/KSemaphore.h"
+#include "Kernel/SpinTimer.h"
 
 using namespace kernel;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-I2CDriver::I2CDriver(Channels channel) : m_Mutex("i2c_driver")
+I2CDriver::I2CDriver(Channels channel) : m_Mutex("i2c_driver", 1, true), m_RequestSema("i2c_request", 0, false)
 {
     m_State = State_e::Idle;
-    m_Requests.resize(8);
 
     switch(channel)
     {
         case Channels::Channel0:
             m_Port = TWIHS0;
+            m_DataPin.Set(e_DigitalPortID_A, PIN3_bp);
+            m_ClockPin.Set(e_DigitalPortID_A, PIN4_bp);
+            m_PeripheralID = DigitalPinPeripheralID::A;
             SAME70System::EnablePeripheralClock(ID_TWIHS0);
-            DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN3_bm, DigitalPinPeripheralID::A);
-            DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN4_bm, DigitalPinPeripheralID::A);
             NVIC_ClearPendingIRQ(TWIHS0_IRQn);
             kernel::Kernel::RegisterIRQHandler(TWIHS0_IRQn, IRQCallback, this);
             break;
         case Channels::Channel1:
             m_Port = TWIHS1;
+            m_DataPin.Set(e_DigitalPortID_B, PIN4_bp);
+            m_ClockPin.Set(e_DigitalPortID_B, PIN5_bp);
+            m_PeripheralID = DigitalPinPeripheralID::A;
             SAME70System::EnablePeripheralClock(ID_TWIHS1);
-            DigitalPort::SetPeripheralMux(e_DigitalPortID_B, PIN4_bm, DigitalPinPeripheralID::A);
-            DigitalPort::SetPeripheralMux(e_DigitalPortID_B, PIN5_bm, DigitalPinPeripheralID::A);
             NVIC_ClearPendingIRQ(TWIHS1_IRQn);
             kernel::Kernel::RegisterIRQHandler(TWIHS1_IRQn, IRQCallback, this);
             break;
         case Channels::Channel2:
             m_Port = TWIHS2;
             SAME70System::EnablePeripheralClock(ID_TWIHS2);
-            DigitalPort::SetPeripheralMux(e_DigitalPortID_D, PIN27_bm, DigitalPinPeripheralID::C);
-            DigitalPort::SetPeripheralMux(e_DigitalPortID_D, PIN28_bm, DigitalPinPeripheralID::C);
+            m_DataPin.Set(e_DigitalPortID_D, PIN27_bp);
+            m_ClockPin.Set(e_DigitalPortID_D, PIN28_bp);
+            m_PeripheralID = DigitalPinPeripheralID::C;
             NVIC_ClearPendingIRQ(TWIHS2_IRQn);
             kernel::Kernel::RegisterIRQHandler(TWIHS2_IRQn, IRQCallback, this);
             break;
         default:
             break;
     }
+    m_DataPin = true;
+    m_ClockPin = true;
+    
+    m_DataPin.SetDirection(DigitalPinDirection_e::OpenCollector);
+    m_ClockPin.SetDirection(DigitalPinDirection_e::OpenCollector);
+    
+    m_DataPin.SetPeripheralMux(m_PeripheralID);
+    m_ClockPin.SetPeripheralMux(m_PeripheralID);
+    
+    m_Port->TWIHS_IDR = ~0UL; // Disable interrupts.
+
     SetBaudrate(400000);
+    Reset();
+    ClearBus();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,50 +165,54 @@ int I2CDriver::DeviceControl( Ptr<KFileHandle> file, int request, const void* in
 
 ssize_t I2CDriver::Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length)
 {
-    CRITICAL_SCOPE(m_Mutex);
-    Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
-    if (length > 0)
-    {
-        while((m_Port->TWIHS_SR & TWIHS_SR_TXCOMP_Msk) == 0);
-
-        m_Port->TWIHS_CR = TWIHS_CR_SVDIS_Msk | TWIHS_CR_MSEN_Msk;
-        m_Port->TWIHS_MMR = CalcAddress(i2cfile->m_SlaveAddress, i2cfile->m_InternalAddressLength) | TWIHS_MMR_MREAD_Msk;
-        m_Port->TWIHS_IADR = position;
-        
-        //        if (length > 1) {
-        m_Port->TWIHS_CR = TWIHS_CR_START_Msk;
-        //            } else {
-        //            m_Port->TWIHS_CR = TWIHS_CR_START_Msk | TWIHS_CR_STOP_Msk;
-        //        }
-        for (size_t i = 0; i < length - 1; ++i)
-        {
-            for (;;)
-            {
-                uint32_t status = m_Port->TWIHS_SR;
-                if (status & TWIHS_SR_NACK_Msk) {
-                    m_Port->TWIHS_CR = TWIHS_CR_STOP_Msk;
-                    return i;
-                } else if (status & TWIHS_SR_RXRDY_Msk) {
-                    break;
-                }
-            }
-            ((uint8_t*)buffer)[i] = (m_Port->TWIHS_RHR & TWIHS_RHR_RXDATA_Msk) >> TWIHS_RHR_RXDATA_Pos;
-        }
-        //        if (length > 1) {
-        m_Port->TWIHS_CR = TWIHS_CR_STOP_Msk;
-        //        }
-        for (;;)
-        {
-            uint32_t status = m_Port->TWIHS_SR;
-            if (status & TWIHS_SR_NACK_Msk) {
-                return length - 1;
-            } else if (status & TWIHS_SR_RXRDY_Msk) {
-                break;
-            }
-        }
-        ((uint8_t*)buffer)[length-1] = (m_Port->TWIHS_RHR & TWIHS_RHR_RXDATA_Msk) >> TWIHS_RHR_RXDATA_Pos;
+    if (length < 0 ) {
+        set_last_error(EINVAL);
+        return -1;
+    } else if (length == 0) {
+        return 0;
     }
-    return length;
+    CRITICAL_SCOPE(m_Mutex);
+
+    m_State = State_e::Reading;
+    m_RequestSema.SetCount(0);
+    
+    Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
+
+    while((m_Port->TWIHS_SR & TWIHS_SR_TXCOMP_Msk) == 0);
+    
+    m_Port->TWIHS_SR; // Clear status register.
+    m_Port->TWIHS_RHR; // Clear receive register.
+    
+    m_Port->TWIHS_MMR = 0;
+    m_Port->TWIHS_MMR = CalcAddress(i2cfile->m_SlaveAddress, i2cfile->m_InternalAddressLength) | TWIHS_MMR_MREAD_Msk;
+    m_Port->TWIHS_IADR = 0;
+    m_Port->TWIHS_IADR = position;
+    
+    m_Buffer = buffer;
+    m_Length = length;
+    m_CurPos = 0;
+
+    if (length > 1) {
+        m_Port->TWIHS_CR = TWIHS_CR_START_Msk;
+    } else {
+        m_Port->TWIHS_CR = TWIHS_CR_START_Msk | TWIHS_CR_STOP_Msk;
+    }
+    m_Port->TWIHS_IER = TWIHS_IER_RXRDY_Msk | TWIHS_IER_NACK_Msk | TWIHS_IER_TXCOMP_Msk;
+
+    if (!m_RequestSema.AcquireTimeout(bigtime_from_ms(std::max<uint32_t>(2, i2cfile->m_RelativeTimeout * length / m_Baudrate))))
+    {
+        printf("I2CDriver::Read() request failed: %s\n", strerror(get_last_error()));        
+        m_Port->TWIHS_IDR = ~0UL; // Disable interrupts.
+        Reset();
+        ClearBus();
+    }
+    m_Port->TWIHS_IDR = ~0;
+    m_State = State_e::Idle;
+    if (m_CurPos < 0) {
+        set_last_error(-m_CurPos);
+        return -1;
+    }
+    return m_CurPos;    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -200,11 +225,8 @@ ssize_t I2CDriver::Write(Ptr<KFileHandle> file, off_t position, const void* buff
     Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
     if (length > 0)
     {
-        //        while((m_Port->TWIHS_SR & (TWIHS_SR_TXRDY_Msk | TWIHS_SR_TXCOMP_Msk)) != (TWIHS_SR_TXRDY_Msk | TWIHS_SR_TXCOMP_Msk));
         while((m_Port->TWIHS_SR & TWIHS_SR_TXCOMP_Msk) == 0);
         while((m_Port->TWIHS_SR & TWIHS_SR_TXRDY_Msk) == 0);
-        //        m_Port->TWIHS_CR = TWIHS_CR_MSDIS_Msk;
-        m_Port->TWIHS_CR = TWIHS_CR_SVDIS_Msk | TWIHS_CR_MSEN_Msk;
         m_Port->TWIHS_MMR = CalcAddress(i2cfile->m_SlaveAddress, i2cfile->m_InternalAddressLength);
         m_Port->TWIHS_IADR = position;
 
@@ -236,6 +258,8 @@ ssize_t I2CDriver::Write(Ptr<KFileHandle> file, off_t position, const void* buff
             }
         }
     }
+    bigtime_t startTime = get_system_time();
+    while((m_Port->TWIHS_SR & TWIHS_SR_TXCOMP_Msk) == 0 && (get_system_time() - startTime) < 2000000);
     return length;
 }
 
@@ -243,97 +267,45 @@ ssize_t I2CDriver::Write(Ptr<KFileHandle> file, off_t position, const void* buff
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int I2CDriver::ReadAsync(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
+void I2CDriver::Reset()
 {
-    CRITICAL_SCOPE(m_Mutex);
-//    DEBUG_DISABLE_IRQ();
-    if (length <= 0) {
-        return 0;
-    }        
-    Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
+    m_Port->TWIHS_CR = TWIHS_CR_SWRST; // Reset.
 
-    bigtime_t startTime = get_system_time();
-    for(;;)
+    m_Port->TWIHS_FILTR = TWIHS_FILTR_FILT_Msk | TWIHS_FILTR_PADFEN_Msk | TWIHS_FILTR_THRES(7);
+
+    // Set master mode
+    m_Port->TWIHS_CR = TWIHS_CR_MSDIS;
+    m_Port->TWIHS_CR = TWIHS_CR_SVDIS;
+    m_Port->TWIHS_CR = TWIHS_CR_MSEN;
+    SetBaudrate(m_Baudrate);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void I2CDriver::ClearBus()
+{
+    m_DataPin.SetPeripheralMux(DigitalPinPeripheralID::None);
+    m_ClockPin.SetPeripheralMux(DigitalPinPeripheralID::None);
+    m_DataPin = true;
+    m_ClockPin = true;
+    for (int i = 0; i < 16; ++i)
     {
-        State_e expectedState = State_e::Idle;
-        if (!m_State.compare_exchange_strong(expectedState, State_e::Reading))
-        {
-            if (get_system_time() - startTime > 1000000) {
-//                set_last_error(EBUSY);
-                m_Port->TWIHS_CR   = TWIHS_CR_SVDIS_Msk | TWIHS_CR_MSDIS_Msk;
-                m_Port->TWIHS_IDR = ~0;
-                if (m_State == State_e::Reading)
-                {
-                    m_State = State_e::Idle;
-//                    request.m_Callback(request.m_UserObject, request.m_Buffer, request.m_CurPos);
-//                    requestFinished = true;
-                }
-
-                return -1;
-            }
-            continue;
-            //set_last_error(EBUSY);
-            //return -1;
+        // Clear at ~50kHz
+        m_ClockPin = false;
+        if (i == 15) {
+            m_DataPin = false;
         }
-        break;
+        SpinTimer::SleepuS(10);
+        m_ClockPin = true;
+        SpinTimer::SleepuS(10);
     }
-    startTime = get_system_time();
-    while((m_Port->TWIHS_SR & TWIHS_SR_TXCOMP_Msk) == 0 && (get_system_time() - startTime) < 200000);
-    if (m_PendingRequests < m_Requests.size())
-    {
-        I2CWriteRequest& request = m_Requests[m_CurrentRequest + m_PendingRequests];
-        m_PendingRequests++;
+    m_DataPin = true; // Send STOP
+    SpinTimer::SleepuS(10);
 
-        request.m_Callback              = callback;
-        request.m_UserObject            = userObject;
-        request.m_Buffer                = buffer;
-        request.m_Length                = length;
-        request.m_CurPos                = 0;
-        request.m_SlaveAddress          = i2cfile->m_SlaveAddress;
-        request.m_InternalAddressLength = i2cfile->m_InternalAddressLength;
-        request.m_InternalAddress       = position;
-
-        if (m_PendingRequests == 1) {
-            StartWriteRequest(request);
-        }
-    }
-    return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void I2CDriver::StartWriteRequest(const I2CWriteRequest& request)
-{
-    m_Port->TWIHS_CR   = TWIHS_CR_SVDIS_Msk | TWIHS_CR_MSEN_Msk;
-    m_Port->TWIHS_MMR  = CalcAddress(request.m_SlaveAddress, request.m_InternalAddressLength) | TWIHS_MMR_MREAD_Msk;
-    m_Port->TWIHS_IADR = request.m_InternalAddress;
-        
-    if (request.m_Length > 1) {
-        m_Port->TWIHS_CR = TWIHS_CR_START_Msk;
-    } else {
-        m_Port->TWIHS_CR = TWIHS_CR_START_Msk | TWIHS_CR_STOP_Msk;
-    }
-    m_Port->TWIHS_IER = TWIHS_IER_RXRDY_Msk | TWIHS_IER_NACK_Msk | TWIHS_IER_TXCOMP_Msk;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int I2CDriver::WriteAsync(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
-{
-    return -1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int I2CDriver::CancelAsyncRequest(Ptr<KFileHandle> file, int handle)
-{
-    return -1;
+    m_DataPin.SetPeripheralMux(m_PeripheralID);
+    m_ClockPin.SetPeripheralMux(m_PeripheralID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -342,11 +314,63 @@ int I2CDriver::CancelAsyncRequest(Ptr<KFileHandle> file, int handle)
 
 int I2CDriver::SetBaudrate(uint32_t baudrate)
 {
+    uint32_t peripheralFrequency = SAME70System::GetFrequencyPeripheral();
+
+    // 400k is the max speed allowed for master.
+    if (baudrate > 400000) {
+        set_last_error(EINVAL);
+        return -1;
+    }
+
     CRITICAL_SCOPE(m_Mutex);
+
+    // Highest frequency that give a low-level time of at least 1.3uS
+    static const uint32_t lowLevelTimeLimit = 384000; 
+    
+    if (baudrate > lowLevelTimeLimit) 
+    {
+        uint32_t lowDivider  = peripheralFrequency / (lowLevelTimeLimit * 2) - 3; // Low-level time fixed for 1.3us.
+        uint32_t highDivider = peripheralFrequency / ((baudrate + (baudrate - lowLevelTimeLimit)) * 2) - 3; // Rest of the cycle time for high-level.
+
+        uint32_t clkDivider = 0;
+
+        // lowDivider / highDivider must fit in 8 bits
+        while (lowDivider > 0xff || highDivider > 0xff)
+        {
+            clkDivider++;
+            lowDivider  >>= 1;
+            highDivider >>= 1;
+        }
+        // clkDivider must fit in 3 bits
+        if (clkDivider > 7)
+        {
+            set_last_error(EINVAL);
+            return -1;
+        }            
+        // Set clock waveform generator register
+        m_Port->TWIHS_CWGR = TWIHS_CWGR_CLDIV(lowDivider) | TWIHS_CWGR_CHDIV(highDivider) | TWIHS_CWGR_CKDIV(clkDivider);
+    }
+    else
+    {
+        uint32_t highLowDivider = peripheralFrequency / (baudrate * 2) - 3;
+        uint32_t clkDivider = 0;
+        // highLowDivider must fit in 8 bits, clkDivider must fit in 3 bits
+        while (highLowDivider > 0xff)
+        {
+            clkDivider++;
+            highLowDivider >>= 1;
+        }
+        // clkDivider must fit in 3 bits
+        if (clkDivider > 7)
+        { 
+            set_last_error(EINVAL);
+            return -1;
+        }            
+        // Set clock waveform generator register
+        m_Port->TWIHS_CWGR = TWIHS_CWGR_CLDIV(highLowDivider) | TWIHS_CWGR_CHDIV(highLowDivider) | TWIHS_CWGR_CKDIV(clkDivider);
+    }
     m_Baudrate = baudrate;
 
-    uint32_t peripheralFrequency = SAME70System::GetFrequencyPeripheral();
-    m_Port->TWIHS_CWGR = TWIHS_CWGR_CLDIV(peripheralFrequency / baudrate / 2 - 3) | TWIHS_CWGR_CHDIV(peripheralFrequency / baudrate / 2 - 3) | TWIHS_CWGR_CKDIV(1);
     return 0;
 }
 
@@ -367,49 +391,27 @@ void I2CDriver::HandleIRQ()
 {
     uint32_t status = m_Port->TWIHS_SR;
     
-    if (m_PendingRequests > 0)
+    if (m_State == State_e::Reading)
     {
-        bool requestFinished = false;
-
-        I2CWriteRequest& request = m_Requests[m_CurrentRequest];
         if (status & TWIHS_SR_NACK_Msk)
         {
             m_Port->TWIHS_IDR = ~0;
-            m_State = State_e::Idle;
-            request.m_Callback(request.m_UserObject, request.m_Buffer, request.m_CurPos);
-            requestFinished = true;
+            m_CurPos = -EIO;
+            m_RequestSema.Release();
+            return;
         }
         else if (status & TWIHS_SR_RXRDY_Msk)
         {
-            uint8_t data = (m_Port->TWIHS_RHR & TWIHS_RHR_RXDATA_Msk) >> TWIHS_RHR_RXDATA_Pos;
-            if (request.m_CurPos < request.m_Length) {
-                ((uint8_t*)request.m_Buffer)[request.m_CurPos++] = data;
-            }
-            if (request.m_CurPos == (request.m_Length - 1)) {
+            if (m_CurPos == (m_Length - 2)) {
                 m_Port->TWIHS_CR = TWIHS_CR_STOP_Msk;
-            } //else if (m_CurPos == m_Length) {
-            //            m_State = State_e::Idle;
-            //            m_Callback(m_UserObject, m_Buffer, m_CurPos);
-            //        }
+            }
+            assert(m_CurPos < m_Length);
+            static_cast<uint8_t*>(m_Buffer)[m_CurPos++] = (m_Port->TWIHS_RHR & TWIHS_RHR_RXDATA_Msk) >> TWIHS_RHR_RXDATA_Pos;
         }
-        
         if (status & TWIHS_SR_TXCOMP_Msk)
         {
             m_Port->TWIHS_IDR = ~0;
-            if (m_State == State_e::Reading)
-            {
-                m_State = State_e::Idle;
-                request.m_Callback(request.m_UserObject, request.m_Buffer, request.m_CurPos);
-                requestFinished = true;
-            }
-        }
-        if (requestFinished)
-        {
-            m_CurrentRequest = (m_CurrentRequest + 1) % m_Requests.size();
-            m_PendingRequests--;
-            if (m_PendingRequests != 0) {
-                StartWriteRequest(m_Requests[m_PendingRequests]);
-            }
+            m_RequestSema.Release();
         }
     }
 }
@@ -418,14 +420,7 @@ void I2CDriver::HandleIRQ()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t I2CDriver::CalcAddress(uint32_t slaveAddress, int len)
+uint32_t I2CDriver::CalcAddress(uint32_t slaveAddress, int addressLength)
 {
-    int32_t addressLength = TWIHS_MMR_IADRSZ_NONE;
-    switch(len)
-    {
-        case 1: addressLength = TWIHS_MMR_IADRSZ_1_BYTE; break;
-        case 2: addressLength = TWIHS_MMR_IADRSZ_2_BYTE; break;
-        case 3: addressLength = TWIHS_MMR_IADRSZ_3_BYTE; break;
-    }
-    return TWIHS_MMR_DADR(slaveAddress) | addressLength;
+    return TWIHS_MMR_DADR(slaveAddress) | TWIHS_MMR_IADRSZ(addressLength);
 }

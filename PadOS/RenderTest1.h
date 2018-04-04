@@ -21,6 +21,9 @@
 
 
 #include "System/GUI/View.h"
+#include "System/Utils/EventTimer.h"
+
+using namespace os;
 
 class RenderTest1 : public View
 {
@@ -28,7 +31,7 @@ public:
     RenderTest1();
     ~RenderTest1();
 
-    virtual void PostAttachedToViewport() override;
+    virtual void AllAttachedToScreen() override;
 
     virtual bool OnMouseDown(MouseButton_e button, const Point& position) override { return true; }
     virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
@@ -38,10 +41,12 @@ public:
 private:
     void SlotFrameProcess();
     
+    EventTimer m_UpdateTimer;
+    
     Point m_Pos;
     Point m_Direction;
     
-    RenderTest1( const RenderTest1 &c );
-    RenderTest1& operator=( const RenderTest1 &c );
+    RenderTest1(const RenderTest1&) = delete;
+    RenderTest1& operator=(const RenderTest1&) = delete;
 
 };

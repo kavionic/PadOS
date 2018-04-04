@@ -44,6 +44,7 @@ class File;
 
 static const uint8_t GD_TEXT_FILL_TO_END         = 0x01;
 static const uint8_t GD_TEXT_RENDER_PARTIAL_CHAR = 0x02;
+static const uint8_t GD_TEXT_TRANSPARENT         = 0x04;
 
 
 #define RA8875_PWRR        0x01 // Power and Display Control Register
@@ -330,9 +331,10 @@ public:
 
     void SetFgColor(uint16_t color);
     void SetBgColor(uint16_t color);
+    const FONT_INFO* GetFontDesc(Font_e fontID) const;
     void SetFont(Font_e fontID);
-    int16_t GetFontHeight() const { return m_FontHeight; }
-    int16_t GetStringWidth(const char* string, uint16_t length ) const;
+    float GetFontHeight(Font_e fontID) const;
+    float GetStringWidth(Font_e fontID, const char* string, uint16_t length ) const;
     
     inline void SetCursor(const IPoint& pos) { m_Cursor = pos; }
     inline void SetCursor(int16_t x, int16_t y) { m_Cursor.x = x; m_Cursor.y = y; }
@@ -352,7 +354,7 @@ public:
     void BLT_FillCircle(int32_t x, int32_t y, int32_t radius);
     void BLT_MoveRect(const IRect& srcRect, const IPoint& dstPos);
     
-    uint8_t WriteString(const char* string, uint8_t strLength, int16_t maxWidth, uint8_t flags);
+    uint32_t WriteString(const char* string, size_t strLength, int32_t maxWidth, uint32_t flags);
     uint8_t WriteStringTransparent(const char* string, uint8_t strLength, int16_t maxWidth);
     uint8_t WriteGlyph(char character);
 
@@ -374,6 +376,28 @@ public:
     void SetWindow(const IRect& frame) { SetWindow(frame.left, frame.top, frame.right, frame.bottom); }
     inline void UpdateAddressMode()
     {
+//#define   RA8875_MWCR0_LR_TD_bg     BIT8(RA8875_MWCR0_DIRECTON_bp,0) // Left -> Right then Top -> Down
+//#define   RA8875_MWCR0_RL_TD_bg     BIT8(RA8875_MWCR0_DIRECTON_bp,1) // Right -> Left then Top -> Down
+//#define   RA8875_MWCR0_TD_LR_bg     BIT8(RA8875_MWCR0_DIRECTON_bp,2) // Top -> Down then Left -> Right
+//#define   RA8875_MWCR0_DT_LR_bg     BIT8(RA8875_MWCR0_DIRECTON_bp,3) // Down -> Top then Left -> Right
+        
+        if ( m_FillDirection == e_FillLeftDown )
+        {
+            if ( m_Orientation == e_Landscape ) {
+                LCD_CmdWrite(RA8875_MWCR0, RA8875_MWCR0_LR_TD_bg);
+            } else {
+                LCD_CmdWrite(RA8875_MWCR0, RA8875_MWCR0_TD_LR_bg);
+            }
+        }
+        else
+        {
+            if ( m_Orientation == e_Landscape ) {
+                LCD_CmdWrite(RA8875_MWCR0, RA8875_MWCR0_TD_LR_bg);
+            } else {
+                LCD_CmdWrite(RA8875_MWCR0, RA8875_MWCR0_LR_TD_bg);
+            }
+        }
+        
 /*        WriteCommand(ILI9481_SET_ADDRESS_MODE);
         if ( m_FillDirection == e_FillLeftDown ) {
             if ( m_Orientation == e_Landscape ) {
@@ -389,8 +413,9 @@ public:
             }
         }*/
     }
-    void FastFill16(uint16_t words);
-    void FastFill32(uint32_t words);
+    void FastFill(uint32_t words, uint16_t color);
+//    void FastFill16(uint16_t words);
+//    void FastFill32(uint32_t words);
     inline bool RenderGlyph(char character, int16_t maxWidth, uint8_t flags);
 
 
@@ -411,29 +436,29 @@ public:
     ///////////////check busy
     void Chk_Busy()
     {
-	uint8_t temp; 	
-	do
-	{
-	    temp=LCD_StatusRead();
-	} while((temp&0x80)==0x80);		   
+        uint8_t temp;
+        do
+        {
+            temp=LCD_StatusRead();
+        } while((temp&0x80)==0x80);
     }
     ///////////////check bte busy
     void Chk_BTE_Busy()
     {
-	uint8_t temp; 	
-	do
-	{
-	    temp=LCD_StatusRead();
-	} while((temp&0x40)==0x40);		   
+        uint8_t temp;
+        do
+        {
+            temp=LCD_StatusRead();
+        } while((temp&0x40)==0x40);
     }
     ///////////////check dma busy
     void Chk_DMA_Busy()
     {
-        uint8_t temp; 	
+        uint8_t temp;
         do
         {
-	    LCD_CmdWrite(RA8875_DMACR);
-	    temp =LCD_DataRead();
+            LCD_CmdWrite(RA8875_DMACR);
+            temp =LCD_DataRead();
         } while((temp&0x01)==0x01);   
     }
     void WaitBlitter()
@@ -448,11 +473,11 @@ public:
     ///////////////check dma busy
     void Chk_Circle_Busy()
     {
-        uint8_t temp; 	
+        uint8_t temp;
         do
         {
-	    LCD_CmdWrite(RA8875_DMACR);
-	    temp =LCD_DataRead();
+            LCD_CmdWrite(RA8875_DMACR);
+            temp =LCD_DataRead();
         } while((temp&0x01)==0x01);   
     }
 

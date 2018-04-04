@@ -20,12 +20,12 @@
 #include "sam.h"
 
 #include "RenderTest2.h"
-#include "System/GUI/GUI.h"
 #include "System/Math/Rect.h"
+#include "System/GUI/Application.h"
 
 static const int historySize = 200;
 
-RenderTest2::RenderTest2()
+RenderTest2::RenderTest2() : View("RenderTest2")
 {
     history.resize(historySize*2);
 }
@@ -34,9 +34,9 @@ RenderTest2::~RenderTest2()
 {
 }
 
-void RenderTest2::PostAttachedToViewport()
+void RenderTest2::AllAttachedToScreen()
 {
-    SetFgColor(0xffff);
+    SetFgColor(Color(0xffffffff));
     FillRect(GetBounds());
     
     Rect bounds = GetBounds();
@@ -47,7 +47,11 @@ void RenderTest2::PostAttachedToViewport()
     dir1 = Point(1,-1);
     dir2 = Point(1, 1);
     
-    gui.SignalFrameProcess.Connect(this, &RenderTest2::SlotFrameProcess);
+    m_UpdateTimer.Set(100);
+    m_UpdateTimer.SignalTrigged.Connect(this, &RenderTest2::SlotFrameProcess);
+    
+    Application* app = GetApplication();
+    app->AddTimer(&m_UpdateTimer);
 }
 
 bool RenderTest2::OnMouseUp( MouseButton_e button, const Point& position )
@@ -95,13 +99,14 @@ void RenderTest2::SlotFrameProcess()
             pos2.y = 479;
             dir2.y = -(1 + rand() % speed);
         }
-        SetFgColor(0xffff);
+        SetFgColor(Color(0xffffffff));
         DrawLine(history[historyPos*2].x, history[historyPos*2].y, history[historyPos*2+1].x, history[historyPos*2+1].y);
         history[historyPos*2] = pos1;
         history[historyPos*2+1] = pos2;
         historyPos = (historyPos + 1) % historySize;
-        SetFgColor(rand());
+        SetFgColor(Color(rand()));
         DrawLine(pos1.x, pos1.y, pos2.x, pos2.y);
     }        
+    Sync();
 }
 

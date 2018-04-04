@@ -39,6 +39,8 @@ public:
     KNamedObject(const char* name, KNamedObjectType type);
     virtual ~KNamedObject();
 
+    bool DebugValidate() const { if (m_Magic != MAGIC) { panic("KnamedObject has been overwritten!\n"); return false; } return true; }
+
     KNamedObjectType GetType() const           { return m_Type; }
     const char*      GetName() const           { return m_Name; }
 
@@ -53,6 +55,8 @@ public:
     static Ptr<T>            GetObject(int32_t handle) { return ptr_static_cast<T>(GetObject(handle, T::ObjectType)); }
 
 private:
+    static const uint32_t MAGIC = 0x1ee3babe;
+    uint32_t m_Magic = MAGIC;
     char    m_Name[OS_NAME_LENGTH];
     KNamedObjectType m_Type;
     int32_t m_Handle = -1;

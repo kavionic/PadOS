@@ -37,6 +37,7 @@ public:
     virtual void Tick() {}
 
     virtual Ptr<KFileHandle> Open(int flags);
+    virtual status_t         Close(Ptr<KFileHandle> file);
 
     virtual int     DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) { set_last_error(ENOSYS); return -1; }
 

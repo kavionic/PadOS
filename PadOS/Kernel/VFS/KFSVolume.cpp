@@ -22,14 +22,16 @@
 #include "KFSVolume.h"
 #include "KINode.h"
 #include "KFilesystem.h"
+#include "System/String.h"
 
 using namespace kernel;
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KFSVolume::KFSVolume(Ptr<KFilesystem> filesystem, Ptr<KINode> mountPoint, const std::string& devicePath ) : m_Filesystem(filesystem), m_MountPoint(mountPoint), m_DevicePath(devicePath)
+KFSVolume::KFSVolume(Ptr<KFilesystem> filesystem, Ptr<KINode> mountPoint, const String& devicePath ) : m_Filesystem(filesystem), m_MountPoint(mountPoint), m_DevicePath(devicePath)
 {
 }
 

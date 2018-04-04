@@ -31,13 +31,13 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename fC,typename T, typename... fARGS>
-    auto FindSlot( const T* obj, R (fC::*callback)(fARGS...) ) const
+    template <typename fR, typename fC,typename T, typename... fARGS>
+    auto FindSlot( const T* obj, fR (fC::*callback)(fARGS...) ) const
     {
         for ( SlotBase* i = m_FirstSlot ; i != nullptr ; i = i->GetNextInSignal() )
         {
-            typedef R (fC::*Signature)(fARGS...);
-            typedef SlotFull<sizeof...(fARGS), fC, R, Signature, ARGS...> SlotType;
+            typedef fR (fC::*Signature)(fARGS...);
+            typedef SlotFull<sizeof...(fARGS), fC, fR, Signature, ARGS...> SlotType;
             SlotType* tmp = dynamic_cast<SlotType*>(i);
             if ( tmp != nullptr && tmp->GetSignalTarget() == obj && tmp->m_Callback == callback ) {
                 return tmp;
@@ -50,13 +50,13 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename fC,typename T, typename ...fARGS>
-    auto FindSlot(const T* obj, R (fC::*callback)(fARGS...) const ) const
+    template <typename fR, typename fC,typename T, typename ...fARGS>
+    auto FindSlot(const T* obj, fR (fC::*callback)(fARGS...) const ) const
     {
         for ( SlotBase* i = m_FirstSlot ; i != nullptr ; i = i->GetNextInSignal() )
         {
-            typedef R (fC::*Signature)(fARGS...) const;
-            typedef SlotFull<sizeof...(fARGS), fC, R, Signature, ARGS...> SlotType;
+            typedef fR (fC::*Signature)(fARGS...) const;
+            typedef SlotFull<sizeof...(fARGS), fC, fR, Signature, ARGS...> SlotType;
             SlotType* tmp = dynamic_cast<SlotType*>(i);
             if ( tmp != nullptr && tmp->GetSignalTarget() == obj && tmp->m_Callback == callback ) {
                 return tmp;
@@ -69,13 +69,13 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename ...fARGS>
-    auto FindSlot( R (*callback)(fARGS...) ) const
+    template <typename fR, typename ...fARGS>
+    auto FindSlot( fR (*callback)(fARGS...) ) const
     {
         for ( SlotBase* i = m_FirstSlot ; i != nullptr ; i = i->GetNextInSignal() )
         {
-            typedef R Signature(fARGS...);
-            typedef SlotFull<sizeof...(fARGS), SignalTarget, R, Signature, ARGS...> SlotType;
+            typedef fR Signature(fARGS...);
+            typedef SlotFull<sizeof...(fARGS), SignalTarget, fR, Signature, ARGS...> SlotType;
             SlotType* tmp = dynamic_cast<SlotType*>(i);
             if ( tmp != nullptr && tmp->m_Callback == callback ) {
                 return tmp;
@@ -88,11 +88,11 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename fC,typename T, typename ...fARGS>
-    void Connect(const T* object, R (fC::*callback)(fARGS...)) const
+    template <typename fR, typename fC,typename T, typename ...fARGS>
+    void Connect(const T* object, fR (fC::*callback)(fARGS...)) const
     {
-        typedef R (fC::*Signature)(fARGS...);
-        auto slot = new SlotFull<sizeof...(fARGS), fC, R, Signature, ARGS...>(const_cast<SignalBase*>(static_cast<const SignalBase*>(this)), const_cast<fC*>(static_cast<const fC*>(object)), callback);
+        typedef fR (fC::*Signature)(fARGS...);
+        auto slot = new SlotFull<sizeof...(fARGS), fC, fR, Signature, ARGS...>(const_cast<SignalBase*>(static_cast<const SignalBase*>(this)), const_cast<fC*>(static_cast<const fC*>(object)), callback);
         ConnectInternal(slot);
     }
 
@@ -100,11 +100,11 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename fC,typename T, typename ...fARGS>
-    void Connect(const T* object, R (fC::*callback)(fARGS...) const) const
+    template <typename fR, typename fC,typename T, typename ...fARGS>
+    void Connect(const T* object, fR (fC::*callback)(fARGS...) const) const
     {
-        typedef R (fC::*Signature)(fARGS...) const;
-        auto slot = new SlotFull<sizeof...(fARGS), fC, R, Signature, ARGS...>(const_cast<SignalBase*>(static_cast<const SignalBase*>(this)), object, callback);
+        typedef fR (fC::*Signature)(fARGS...) const;
+        auto slot = new SlotFull<sizeof...(fARGS), fC, fR, Signature, ARGS...>(const_cast<SignalBase*>(static_cast<const SignalBase*>(this)), object, callback);
         ConnectInternal(slot);
     }
 
@@ -112,11 +112,11 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename ...fARGS>
-    void Connect(R (*callback)(fARGS...)) const
+    template <typename fR, typename ...fARGS>
+    void Connect(fR (*callback)(fARGS...)) const
     {
-        typedef R (*Signature)(fARGS...);
-        auto slot = new SlotFull<sizeof...(fARGS), SignalTarget, R, Signature, ARGS...>(const_cast<SignalBase*>(static_cast<const SignalBase*>(this)), nullptr, callback);
+        typedef fR (*Signature)(fARGS...);
+        auto slot = new SlotFull<sizeof...(fARGS), SignalTarget, fR, Signature, ARGS...>(const_cast<SignalBase*>(static_cast<const SignalBase*>(this)), nullptr, callback);
         ConnectInternal(slot);
     }
 
@@ -124,7 +124,7 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename fC,typename T, typename ...fARGS> void Disconnect(const T* obj, R (fC::*callback)(fARGS...)) const
+    template <typename fR, typename fC,typename T, typename ...fARGS> void Disconnect(const T* obj, fR (fC::*callback)(fARGS...)) const
     {
         DisconnectInternal(FindSlot(static_cast<const fC*>(obj), callback));
     }
@@ -133,7 +133,7 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename fC,typename T, typename ...fARGS> void Disconnect(const T* obj, R (fC::*callback)(fARGS...) const) const
+    template <typename fR, typename fC,typename T, typename ...fARGS> void Disconnect(const T* obj, fR (fC::*callback)(fARGS...) const) const
     {
         DisconnectInternal(FindSlot(static_cast<const fC*>(obj), callback ));
     }
@@ -142,8 +142,8 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename ...fARGS>
-    void Disconnect(R (*callback)(fARGS...)) const
+    template <typename fR, typename ...fARGS>
+    void Disconnect(fR (*callback)(fARGS...)) const
     {
         DisconnectInternal(FindSlot(callback));
     }
@@ -152,7 +152,7 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename fC,typename T, typename ...fARGS> bool IsSlotConnected(const T* obj, R (fC::*callback)(fARGS...)) const
+    template <typename fR, typename fC,typename T, typename ...fARGS> bool IsSlotConnected(const T* obj, fR (fC::*callback)(fARGS...)) const
     {
         return FindSlot(static_cast<const fC*>(obj), callback) != nullptr;
     }
@@ -161,7 +161,7 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename fC,typename T, typename ...fARGS> bool IsSlotConnected(const T* obj, R (fC::*callback)(fARGS...) const) const
+    template <typename fR, typename fC,typename T, typename ...fARGS> bool IsSlotConnected(const T* obj, fR (fC::*callback)(fARGS...) const) const
     {
         return FindSlot(static_cast<const fC*>(obj), callback) != nullptr;
     }
@@ -170,7 +170,7 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
-    template <typename ...fARGS> bool IsSlotConnected(R (*callback)(fARGS...)) const
+    template <typename fR, typename ...fARGS> bool IsSlotConnected(fR (*callback)(fARGS...)) const
     {
         return FindSlot(callback)  != nullptr;
     }

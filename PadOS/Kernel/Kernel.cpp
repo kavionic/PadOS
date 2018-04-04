@@ -54,6 +54,7 @@ void kernel::panic(const char* message)
 //    write(1, message, strlen(message));
     volatile bool freeze = true;
     while(freeze);
+    RGBLED_R.Write(false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -20,13 +20,16 @@
 #pragma once
 
 #include "System/GUI/View.h"
+#include "System/Utils/EventTimer.h"
+
+using namespace os;
 
 class RenderTest3 : public View
 {
 public:
     RenderTest3();
     ~RenderTest3();
-    virtual void PostAttachedToViewport() override;
+    virtual void AllAttachedToScreen() override;
 
     virtual bool OnMouseDown(MouseButton_e button, const Point& position) override { return true; }
     virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
@@ -38,5 +41,7 @@ private:
     RenderTest3( const RenderTest3 &c );
     RenderTest3& operator=( const RenderTest3 &c );
 
+    EventTimer m_UpdateTimer;
+
     int m_CircleCount = 0;
-}; //RenderTest3
+};

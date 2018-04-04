@@ -19,18 +19,6 @@
 
 #pragma once
 
-
-enum Event_e
-{
-    e_EventNone,
-    e_EventMouseDown,
-    e_EventMouseUp,
-    e_EventMouseMove,
-    e_EventMouseWheel,
-    
-    e_EventKeyDown
-};
-
 enum class MouseButton_e
 {
     None,
@@ -50,22 +38,9 @@ enum class MouseButton_e
     Touch9,
 };
 
-static const int32_t GUI_FIRST_TOUCH_ID = 100;
-
-struct GUIEvent
+struct MsgMouseEvent
 {
-    uint8_t m_EventID;
-    union
-    {
-        struct
-        {
-            MouseButton_e ButtonID;
-            float x;
-            float y;
-        } Mouse;
-        struct
-        {
-            float delta;
-        } Wheel;
-    } Data;
+    MouseButton_e ButtonID;
+    Point         Position;    
 };
+

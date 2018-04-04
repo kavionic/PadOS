@@ -65,6 +65,8 @@ private:
 
 inline SemaphoreGuard     critical_create_guard(sem_id sema) { return SemaphoreGuard(sema); }
 
-#define CRITICAL_SCOPE(lock) auto CRITICAL_SCOPE_guard##__LINE = critical_create_guard(lock)
-#define CRITICAL_BEGIN(lock) { auto CRITICAL_BEGIN_guard##__LINE = critical_create_guard(lock);
+#define GET_CRITICAL_GUARD_NAME_CONCAT(label, linenr) label##linenr
+#define GET_CRITICAL_GUARD_NAME(label, linenr) GET_CRITICAL_GUARD_NAME_CONCAT(label, linenr)
+#define CRITICAL_SCOPE(lock) auto GET_CRITICAL_GUARD_NAME(CRITICAL_SCOPE_guard,__LINE__) = critical_create_guard(lock)
+#define CRITICAL_BEGIN(lock) { auto GET_CRITICAL_GUARD_NAME(CRITICAL_SCOPE_guard,__LINE__) = critical_create_guard(lock);
 #define CRITICAL_END }

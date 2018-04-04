@@ -28,12 +28,13 @@
 #include "DeviceControl/I2C.h"
 
 using namespace kernel;
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-INA3221Driver::INA3221Driver(const char* i2cPath) : Looper(10), m_Mutex("ina3221_driver"), m_Timer(bigtime_from_ms(10))
+INA3221Driver::INA3221Driver(const char* i2cPath) : Looper("ina3221_driver", 10), m_Mutex("ina3221_driver"), m_Timer(bigtime_from_ms(10))
 {
     SetDeleteOnExit(false);
     Initialize(i2cPath);
@@ -60,30 +61,14 @@ bool INA3221Driver::Initialize(const char* i2cPath)
         I2CIOCTL_SetSlaveAddress(m_I2CDevice, m_DeviceAddress);
         I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
-
         m_Timer.SignalTrigged.Connect(this, &INA3221Driver::SlotTick);
-//        m_Timer.Set(bigtime_from_ms(10));
         AddTimer(&m_Timer);
-        Start("ina3221_driver", true);
+        Start(true);
         return true;
     }
     return false;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-/*int INA3221Driver::Run()
-{
-    for (;;)
-    {
-        SlotTick();
-        snooze(bigtime_from_ms(10));
-    }
-    return 0;
-}
-*/
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -95,16 +80,15 @@ void INA3221Driver::SlotTick()
 
     if (m_State == State_e::Idle)
     {
-        //if ((time - m_LastUpdateTime) >= m_UpdatePeriode)
-        {
-            m_LastUpdateTime = time;
-            m_State = State_e::ReadingRegister;
-            m_CurrentRegister = INA3221_SHUNT_VOLTAGE_1;
-            m_ReadStartTime = time;
-            m_ReadRetryCount = 0;
-            Kernel::ReadAsync(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer), this, TransactionCallback);
-            m_Timer.Set(10000);
-        }
+        m_LastUpdateTime = time;
+        m_State = State_e::ReadingRegister;
+        m_CurrentRegister = INA3221_SHUNT_VOLTAGE_1;
+        m_ReadStartTime = time;
+        m_ReadRetryCount = 0;
+        if (Kernel::Read(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer)) == sizeof(m_RegisterBuffer)) {
+            m_State = State_e::ProcessingRegister;
+        }                
+        m_Timer.Set(10000);
     }
     else if (m_State == State_e::ReadingRegister)
     {
@@ -121,7 +105,9 @@ void INA3221Driver::SlotTick()
             else
             {
                 m_ReadStartTime = time;
-                Kernel::ReadAsync(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer), this, TransactionCallback);
+                if (Kernel::Read(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer)) == sizeof(m_RegisterBuffer)) {
+                    m_State = State_e::ProcessingRegister;
+                }
                 m_Timer.Set(10000);
             }
         }
@@ -162,13 +148,11 @@ void INA3221Driver::SlotTick()
         {
             m_ReadStartTime = time;
             m_ReadRetryCount = 0;
-            Kernel::ReadAsync(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer), this, TransactionCallback);
+            if (Kernel::Read(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer)) == sizeof(m_RegisterBuffer)) {
+                m_State = State_e::ProcessingRegister;
+            }
         }
     }
-/*    if (!m_Timer.IsRunning())
-    {
-        AddTimer(&m_Timer, true);
-    }*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -213,28 +197,5 @@ int INA3221Driver::DeviceControl(Ptr<KFileHandle> file, int request, const void*
         }
         default:
             return -1;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void INA3221Driver::TransactionCallback(void* userObject, void* data, ssize_t length)
-{
-    static_cast<INA3221Driver*>(userObject)->TransactionCallback(data, length);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void INA3221Driver::TransactionCallback(void* data, ssize_t length)
-{
-    //printf("CM: recv\n");
-
-    if (length == sizeof(m_RegisterBuffer))
-    {
-        m_State = State_e::ProcessingRegister;
     }
 }

@@ -97,7 +97,7 @@
  */
 void mpu_enable(uint32_t dw_mpu_enable)
 {
-	MPU->CTRL = dw_mpu_enable ;
+    MPU->CTRL = dw_mpu_enable ;
 }
 
 /**
@@ -107,7 +107,7 @@ void mpu_enable(uint32_t dw_mpu_enable)
  */
 void mpu_set_region_num(uint32_t dw_region_num)
 {
-	MPU->RNR = dw_region_num;
+    MPU->RNR = dw_region_num;
 }
 
 /**
@@ -115,7 +115,7 @@ void mpu_set_region_num(uint32_t dw_region_num)
  */
 void mpu_disable_region(void)
 {
-	MPU->RASR &= 0xfffffffe;
+    MPU->RASR &= 0xfffffffe;
 }
 
 /**
@@ -126,8 +126,8 @@ void mpu_disable_region(void)
  */
 void mpu_set_region(uint32_t dw_region_base_addr, uint32_t dw_region_attr)
 {
-	MPU->RBAR = dw_region_base_addr;
-	MPU->RASR = dw_region_attr;
+    MPU->RBAR = dw_region_base_addr;
+    MPU->RASR = dw_region_attr;
 }
 
 
@@ -136,19 +136,19 @@ void mpu_set_region(uint32_t dw_region_base_addr, uint32_t dw_region_attr)
  */
 uint32_t mpu_cal_mpu_region_size(uint32_t dw_actual_size_in_bytes)
 {
-	uint32_t dwRegionSize = 32;
-	uint32_t dwReturnValue = 4;
+    uint32_t dwRegionSize = 32;
+    uint32_t dwReturnValue = 4;
 
-	while( dwReturnValue < 31 ) {
-		if( dw_actual_size_in_bytes <= dwRegionSize ) {
-			break;
-		} else {
-			dwReturnValue++;
-		}
-		dwRegionSize <<= 1;
-	}
+    while( dwReturnValue < 31 ) {
+        if( dw_actual_size_in_bytes <= dwRegionSize ) {
+            break;
+        } else {
+            dwReturnValue++;
+        }
+        dwRegionSize <<= 1;
+    }
 
-	return ( dwReturnValue << 1 );
+    return ( dwReturnValue << 1 );
 }
 
 
@@ -161,29 +161,29 @@ void mpu_update_regions(uint32_t dw_region_num, uint32_t dw_region_base_addr, ui
 {
     volatile irqflags_t flags;
 
-	/* Get and clear the global interrupt flags */
-	flags = cpu_irq_save();
+    /* Get and clear the global interrupt flags */
+    flags = cpu_irq_save();
 
-	/* Clean up data and instruction buffer */
-	__DSB();
-	__ISB();
+    /* Clean up data and instruction buffer */
+    __DSB();
+    __ISB();
 
-	/* Set active region */
-	mpu_set_region_num(dw_region_num);
+    /* Set active region */
+    mpu_set_region_num(dw_region_num);
 
-	/* Disable region */
-	mpu_disable_region();
+    /* Disable region */
+    mpu_disable_region();
 
-	/* Update region attribute */
-	mpu_set_region( dw_region_base_addr, dw_region_attr);
+    /* Update region attribute */
+    mpu_set_region( dw_region_base_addr, dw_region_attr);
 
-	/* Clean up data and instruction buffer to make the new region taking
-	   effect at once */
-	__DSB();
-	__ISB();
+    /* Clean up data and instruction buffer to make the new region taking
+       effect at once */
+    __DSB();
+    __ISB();
 
-	/* Restore global interrupt flags */
-	cpu_irq_restore(flags);
+    /* Restore global interrupt flags */
+    cpu_irq_restore(flags);
 }
 
 //@}

@@ -19,11 +19,6 @@
 #include "SignalSystem.h"
 #include "SignalTarget.h"
 
-#ifndef NDEBUG
-static int g_SignalCount = 0;
-#endif  //!defined(NDEBUG)
-
-
 
 /*! \page signals The Signal/Slot system.
 

@@ -285,8 +285,10 @@ struct DigitalPort
 class DigitalPin
 {
 public:
+    DigitalPin() : m_Port(nullptr), m_PinMask(0) { }
     DigitalPin(Pio* port, int pin) : m_Port(port), m_PinMask(BIT32(pin, 1)) { }
     
+    void Set(Pio* port, int pin)  { m_Port = port; m_PinMask = BIT32(pin, 1); }
         
 //    void SetDirection(DigitalPinDirection_e dir) { if (dir == DigitalPinDirection_e::IN) m_Port.SetAsInput(m_PinMask); else m_Port.SetAsOutput(m_PinMask); }
     void SetDirection(DigitalPinDirection_e dir) { m_Port.SetDirection(dir, m_PinMask); }
@@ -303,6 +305,9 @@ public:
         
     void Write(bool value) {if (value) m_Port.SetHigh(m_PinMask); else m_Port.SetLow(m_PinMask); }
     bool Read() const { return (m_Port.Get() & m_PinMask) != 0; }
+    
+    operator bool () { return Read(); }
+    DigitalPin& operator=(bool value) { Write(value); return *this; }    
         
 private:
     DigitalPort m_Port;

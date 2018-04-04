@@ -39,6 +39,7 @@ namespace kernel
 {
     struct KMessagePortMessage
     {
+        handler_id           m_TargetHandler;
         int32_t              m_Code;
         size_t               m_Length;
         KMessagePortMessage* m_Next;
@@ -118,7 +119,7 @@ KMessagePort::~KMessagePort()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMessagePort::SendMessage(int32_t code, const void* data, size_t length, bigtime_t timeout)
+bool KMessagePort::SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout)
 {
     bigtime_t deadline = (timeout != INFINIT_TIMEOUT) ? (get_system_time() + timeout) : INFINIT_TIMEOUT;
     if (m_SendSemaphore.AcquireDeadline(deadline))
@@ -128,8 +129,10 @@ bool KMessagePort::SendMessage(int32_t code, const void* data, size_t length, bi
             m_SendSemaphore.Release();
             return false;
         }
-        message->m_Code   = code;
-        message->m_Length = length;
+        message->m_TargetHandler = targetHandler;
+        message->m_Code          = code;
+        message->m_Length        = length;
+        
         memcpy(message + 1, data, length);
         CRITICAL_BEGIN(m_Mutex)
         {
@@ -151,40 +154,40 @@ bool KMessagePort::SendMessage(int32_t code, const void* data, size_t length, bi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KMessagePort::ReceiveMessage(int32_t* code, void* buffer, size_t bufferSize)
+ssize_t KMessagePort::ReceiveMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize)
 {
     if (!m_ReceiveSemaphore.Acquire()) {
         return -1;
     }
-    return DetachMessage(code, buffer, bufferSize);
+    return DetachMessage(targetHandler, code, buffer, bufferSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KMessagePort::ReceiveMessageTimeout(int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout)
+ssize_t KMessagePort::ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout)
 {
-    return ReceiveMessageDeadline(code, buffer, bufferSize, (timeout != INFINIT_TIMEOUT) ? (get_system_time() + timeout) : INFINIT_TIMEOUT);
+    return ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, (timeout != INFINIT_TIMEOUT) ? (get_system_time() + timeout) : INFINIT_TIMEOUT);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KMessagePort::ReceiveMessageDeadline(int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline)
+ssize_t KMessagePort::ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline)
 {
     if (!m_ReceiveSemaphore.AcquireDeadline(deadline)) {
         return -1;
     }
-    return DetachMessage(code, buffer, bufferSize);
+    return DetachMessage(targetHandler, code, buffer, bufferSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KMessagePort::DetachMessage(int32_t* code, void* buffer, size_t bufferSize)
+ssize_t KMessagePort::DetachMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize)
 {
     KMessagePortMessage* message;
     CRITICAL_BEGIN(m_Mutex)
@@ -201,9 +204,10 @@ ssize_t KMessagePort::DetachMessage(int32_t* code, void* buffer, size_t bufferSi
     m_SendSemaphore.Release();
 
     ssize_t bytesReceived = 0;
-    if (code != nullptr) {
-        *code = message->m_Code;
-    }
+    
+    if (targetHandler != nullptr) *targetHandler = message->m_TargetHandler;
+    if (code != nullptr)          *code          = message->m_Code;
+    
     if (buffer != nullptr) {
         bytesReceived = std::min(bufferSize, message->m_Length);
         memcpy(buffer, message + 1, bytesReceived);
@@ -258,11 +262,11 @@ status_t delete_message_port(port_id handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t send_message(port_id handle, int32_t code, const void* data, size_t length, bigtime_t timeout)
+status_t send_message(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout)
 {
     Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
     if (port != nullptr) {
-        return port->SendMessage(code, data, length, timeout) ? 0 : -1;
+        return port->SendMessage(targetHandler, code, data, length, timeout) ? 0 : -1;
     } else {
         set_last_error(EINVAL);
         return -1;
@@ -273,11 +277,11 @@ status_t send_message(port_id handle, int32_t code, const void* data, size_t len
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t receive_message(port_id handle, int32_t* code, void* buffer, size_t bufferSize)
+ssize_t receive_message(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize)
 {
     Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
     if (port != nullptr) {
-        return port->ReceiveMessage(code, buffer, bufferSize);
+        return port->ReceiveMessage(targetHandler, code, buffer, bufferSize);
     } else {
         set_last_error(EINVAL);
         return -1;
@@ -288,11 +292,11 @@ ssize_t receive_message(port_id handle, int32_t* code, void* buffer, size_t buff
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t receive_message_timeout(port_id handle, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout)
+ssize_t receive_message_timeout(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout)
 {
     Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
     if (port != nullptr) {
-        return port->ReceiveMessageTimeout(code, buffer, bufferSize, timeout);
+        return port->ReceiveMessageTimeout(targetHandler, code, buffer, bufferSize, timeout);
     } else {
         set_last_error(EINVAL);
         return -1;
@@ -303,11 +307,11 @@ ssize_t receive_message_timeout(port_id handle, int32_t* code, void* buffer, siz
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t receive_message_deadline(port_id handle, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline)
+ssize_t receive_message_deadline(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline)
 {
     Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
     if (port != nullptr) {
-        return port->ReceiveMessageDeadline(code, buffer, bufferSize, deadline);
+        return port->ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, deadline);
     } else {
         set_last_error(EINVAL);
         return -1;

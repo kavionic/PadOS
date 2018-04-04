@@ -24,17 +24,20 @@
 #include "Kernel/Kernel.h"
 #include "System/Signals/Signal.h"
 
+namespace os
+{
+    
 class Looper;
 
 class EventTimer
 {
 public:
-    EventTimer(bigtime_t timeout, bool singleshot = false, int32_t id = 0);
+    EventTimer(bigtime_t timeout = 0, bool singleshot = false, int32_t id = 0);
     ~EventTimer();
     
     void      Set(bigtime_t timeout); //microseconds
               
-//    void      Stop();
+    void      Stop();
     bool      IsRunning() const;
               
     void      SetID( int32_t ID );
@@ -49,14 +52,14 @@ private:
     friend class Looper;
 
     Looper* m_Looper = nullptr;
-    int32_t                                          m_ID;
-    bigtime_t                                        m_Timeout = -1;
-    bool                                             m_IsSingleshot = false;
+    int32_t                                         m_ID;
+    bigtime_t                                       m_Timeout = -1;
+    bool                                            m_IsSingleshot = false;
     std::multimap<bigtime_t, EventTimer*>::iterator m_TimerMapIterator;
-
-    static  std::multimap<bigtime_t, EventTimer*>   s_TimerMap;
 
     EventTimer( const EventTimer &c );
     EventTimer& operator=( const EventTimer &c );
 
 };
+
+} // namespace

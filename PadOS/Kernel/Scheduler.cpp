@@ -101,10 +101,13 @@ extern "C" uint32_t* select_thread(uint32_t* currentStack)
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         KThreadCB* prevThread = gk_CurrentThread;
+        if (!prevThread->DebugValidate()) {
+            return currentStack;
+        }
         prevThread->m_CurrentStack = currentStack;
         if (intptr_t(prevThread->m_CurrentStack) <= intptr_t(prevThread->GetStackBottom())) {
             panic("Stack overflow!\n");
-//            return currentStack;
+            return currentStack;
         }
         for (int i = KTHREAD_PRIORITY_LEVELS - 1; i >= 0; --i)
         {
@@ -120,6 +123,7 @@ extern "C" uint32_t* select_thread(uint32_t* currentStack)
                     nextThread->m_State = KThreadState::Running;
                     _impure_ptr = &nextThread->m_NewLibreent;
                     gk_CurrentThread = nextThread;
+                    nextThread->DebugValidate();
                     break;
                 }
             }

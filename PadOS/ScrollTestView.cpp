@@ -22,10 +22,10 @@
 #include <math.h>
 
 #include "ScrollTestView.h"
-#include "System/GUI/GUI.h"
+#include "System/GUI/Application.h"
 
 
-ScrollTestView::ScrollTestView()
+ScrollTestView::ScrollTestView() : View("ScrollTestView")
 {
 }
 
@@ -33,11 +33,15 @@ ScrollTestView::~ScrollTestView()
 {
 }
 
-void ScrollTestView::PostAttachedToViewport()
+void ScrollTestView::AllAttachedToScreen()
 {
 //    SetFgColor(0xffff);
 //    FillRect(GetBounds());
-    gui.SignalFrameProcess.Connect(this, &ScrollTestView::SlotFrameProcess);
+    m_UpdateTimer.Set(100);
+    m_UpdateTimer.SignalTrigged.Connect(this, &ScrollTestView::SlotFrameProcess);
+    
+    Application* app = GetApplication();
+    app->AddTimer(&m_UpdateTimer);
 //    Invalidate(true);
 }
 
@@ -70,15 +74,16 @@ bool ScrollTestView::OnMouseMove(MouseButton_e button, const Point& position)
     if (m_HitButton != MouseButton_e::None && button == m_HitButton)
     {
         ScrollBy(position - m_HitPos);
+        Sync();
     }
     return true;
 }
 
-void ScrollTestView::Render()
+void ScrollTestView::Paint(const Rect& updateRect)
 {
     Rect bounds = GetBounds();
 
-    SetFgColor(0xffff);
+    SetFgColor(Color(0xffffffff));
     FillRect(bounds);
 
     SetFgColor(0,255,0);

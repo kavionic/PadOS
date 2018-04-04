@@ -20,9 +20,9 @@
 #include "sam.h"
 
 #include "RenderTest1.h"
-#include "System/GUI/GUI.h"
+#include "System/GUI/Application.h"
 
-RenderTest1::RenderTest1()
+RenderTest1::RenderTest1() : View("RenderTest1")
 {
 
     m_Pos.x = 50 + rand() % 700;
@@ -36,11 +36,17 @@ RenderTest1::~RenderTest1()
 {
 }
 
-void RenderTest1::PostAttachedToViewport()
+void RenderTest1::AllAttachedToScreen()
 {
-    SetFgColor(0xffff);
+    SetFgColor(255, 255, 255);
     FillRect(GetBounds());
-    gui.SignalFrameProcess.Connect(this, &RenderTest1::SlotFrameProcess);
+    
+   
+    m_UpdateTimer.Set(100);
+    m_UpdateTimer.SignalTrigged.Connect(this, &RenderTest1::SlotFrameProcess);
+    
+    Application* app = GetApplication();
+    app->AddTimer(&m_UpdateTimer);
 }
 
 bool RenderTest1::OnMouseUp( MouseButton_e button, const Point& position )
@@ -57,7 +63,7 @@ void RenderTest1::SlotFrameProcess()
 //    for (uint16_t j = 0 ; j < 10 ; ++j )
     {
 //        if (IsScreenTouched()) return;
-//        for (uint16_t j = 0 ; j < 5 ; ++j )
+        for (uint16_t j = 0 ; j < 5 ; ++j )
         {
             m_Pos.x += m_Direction.x;
             m_Pos.y += m_Direction.y;
@@ -76,7 +82,9 @@ void RenderTest1::SlotFrameProcess()
                 m_Pos.y = bounds.bottom - radius;
                 m_Direction.y = -(2 + rand() % speed);
             }
-            SetFgColor(rand());
+            Color color;
+            color.Set16(rand());
+            SetFgColor(color);
             FillCircle(m_Pos, radius);
             //            Display::Instance.FillRect(rand() % 480, rand() % 320, rand() % 480, rand() % 320, rand());
             //            gui.FrameProcess();
@@ -86,5 +94,9 @@ void RenderTest1::SlotFrameProcess()
 //    SetFgColor(rand());
 //    FillCircle(Point(50 + rand() % 700, 50 + rand() % 380), 5+rand() % 45);
 
+//    SetFgColor(0, 0, 0);
+//    MovePenTo(50.0f, 50.0f);
+//    DrawString("Hello world", 512.0f, 0);
+    Sync();
 }
 

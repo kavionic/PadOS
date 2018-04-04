@@ -214,8 +214,12 @@ caddr_t _sbrk_r(_reent* reent, ptrdiff_t __incr)
         return (caddr_t) -1;
     }
     heap += __incr;
-    memset(prev_heap, 0, __incr);
+    if (__incr > 0) {
+        memset(prev_heap, 0, __incr);
+    } else {
+        printf("sbrk(): heap reduced by %d bytes\n", __incr);
+    }        
     return(caddr_t) prev_heap;
 }
 
-};
+}

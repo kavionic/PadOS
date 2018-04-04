@@ -41,9 +41,9 @@ bigtime_t get_system_time_hires();
 port_id  create_message_port(const char* name, int maxCount);
 port_id  duplicate_message_port(port_id handle);
 status_t delete_message_port(port_id handle);
-status_t send_message(port_id handle, int32_t code, const void* data, size_t length, bigtime_t timeout = INFINIT_TIMEOUT);
-ssize_t  receive_message(port_id handle, int32_t* code, void* buffer, size_t bufferSize);
-ssize_t  receive_message_timeout(port_id handle, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout);
-ssize_t  receive_message_deadline(port_id handle, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline);
+status_t send_message(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout = INFINIT_TIMEOUT);
+ssize_t  receive_message(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
+ssize_t  receive_message_timeout(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout);
+ssize_t  receive_message_deadline(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline);
 
 

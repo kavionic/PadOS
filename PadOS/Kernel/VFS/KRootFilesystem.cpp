@@ -26,8 +26,10 @@
 #include "KFileHandle.h"
 #include "KDeviceNode.h"
 #include "System/System.h"
+#include "System/String.h"
 
 using namespace kernel;
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -81,7 +83,7 @@ Ptr<KRootFSINode> KRootFilesystem::LocateParentInode(Ptr<KRootFSINode> parent, c
                 nameStart = i + 1;
                 continue;
             }
-            std::string name(path + nameStart, i - nameStart);
+            String name(path + nameStart, i - nameStart);
             auto nodeIterator = current->m_Children.find(name);
             if (nodeIterator != current->m_Children.end())
             {
@@ -132,7 +134,7 @@ Ptr<KINode> KRootFilesystem::LocateInode(Ptr<KINode> parent, const char* path, i
         return nullptr;
     }
 
-    auto nodeIterator = current->m_Children.find(std::string(path + nameStart, nameLength));
+    auto nodeIterator = current->m_Children.find(String(path + nameStart, nameLength));
     if (nodeIterator != current->m_Children.end())
     {
         return nodeIterator->second;

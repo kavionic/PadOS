@@ -23,17 +23,23 @@
 #include "System/Types.h"
 #include "System/Signals/VFConnector.h"
 #include "System/System.h"
+#include "System/String.h"
+
+namespace os
+{
 
 class Thread
 {
 public:
-    Thread();
+    Thread(const String& name);
     virtual ~Thread();
+
+    const String& GetName() const { return m_Name; }
 
     void SetDeleteOnExit(bool doDelete) { m_DeleteOnExit = doDelete; }
     bool GetDeleteOnExit() const { return m_DeleteOnExit; }
 
-    thread_id Start(const char* name, bool joinable = false, int priority = 0, int stackSize = 0);
+    thread_id Start(bool joinable = false, int priority = 0, int stackSize = 0);
     int       Wait(bigtime_t timeout = INFINIT_TIMEOUT);
 
     thread_id GetThreadID() const { return m_ThreadHandle; }
@@ -46,10 +52,13 @@ public:
 private:
     static void ThreadEntry(void* data);
 
-    thread_id m_ThreadHandle = -1;
-    bool      m_IsJoinable = false;
-    bool      m_DeleteOnExit = true;
+    String      m_Name;
+    thread_id   m_ThreadHandle = -1;
+    bool        m_IsJoinable = false;
+    bool        m_DeleteOnExit = true;
 
     Thread(const Thread &) = delete;
     Thread& operator=(const Thread &) = delete;
 };
+
+} // namespace

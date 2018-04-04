@@ -45,7 +45,8 @@ GfxDriver::GfxDriver()
     m_FgColor = 0x0000;
     m_Cursor.x = 0;
     m_Cursor.y = 0;
-    SetFont(e_FontNormal);
+    m_FontCharSpacing = 3;
+    SetFont(e_FontLarge);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -65,7 +66,7 @@ void GfxDriver::InitDisplay()
 
     PLL_ini();
     
-    LCD_CmdWrite(RA8875_SYSR);	 //SYSR   bit[4:3] color  bit[2:1]=  MPU interface
+    LCD_CmdWrite(RA8875_SYSR);  //SYSR   bit[4:3] color  bit[2:1]=  MPU interface
     LCD_DataWrite(0x0f);   //       16 BIT     65K
     
     LCD_CmdWrite(RA8875_PCSR);    //PCLK
@@ -124,57 +125,81 @@ void GfxDriver::SetBgColor( uint16_t color )
     LCD_DataWrite((color>>11) & 0x1f);        
 }
 
-void GfxDriver::SetFont(Font_e fontID)
+const FONT_INFO* GfxDriver::GetFontDesc(Font_e fontID) const
 {
-    m_Font = fontID;
-    
-    const FONT_INFO* font = 0;
-    
     switch(fontID)
     {
         case e_FontSmall:
         case e_FontNormal:
-            font = &microsoftSansSerif_14ptFontInfo;
-            break;
+            return &microsoftSansSerif_14ptFontInfo;
         case e_FontLarge:
-            font = &microsoftSansSerif_20ptFontInfo;
-            break;
+            return &microsoftSansSerif_20ptFontInfo;
         case e_Font7Seg:
-            font = &microsoftSansSerif_72ptFontInfo;
-            break;
+            return &microsoftSansSerif_72ptFontInfo;
         case e_FontCount:
-            break;
+            return nullptr;
     }
-//    const FONT_INFO* font = &microsoftSansSerif_14ptFontInfo;
+    return nullptr;
+}
+
+void GfxDriver::SetFont(Font_e fontID)
+{
+    m_Font = fontID;
     
-    //    char origChar = character;
-    //    character -= pgm_read_byte(&font->startChar);
-    if ( font != 0 )
+    const FONT_INFO* font = GetFontDesc(fontID);
+    
+    if (font != nullptr)
     {
-        m_FontFirstChar   = font->startChar;
-        m_FontHeight      = font->heightPages;
+        m_FontFirstChar           = font->startChar;
+        m_FontHeight              = font->heightPages;
         m_FontHeightFullBytes     = m_FontHeight >> 3;
         m_FontHeightRemainingBits = m_FontHeight & 7;        
-        m_FontCharSpacing = 3;
-        m_FontGlyphData = font->data;
-        m_FontCharInfo = font->charInfo - m_FontFirstChar;
+        m_FontGlyphData           = font->data;
+        m_FontCharInfo            = font->charInfo - m_FontFirstChar;
     }        
 }
 
-int16_t GfxDriver::GetStringWidth(const char* string, uint16_t length ) const
+
+float GfxDriver::GetFontHeight(Font_e fontID) const
 {
-    int16_t width = 0;
-    
-    while(length--)
+    const FONT_INFO* font = GetFontDesc(fontID);
+
+    if (font != nullptr)
     {
-        uint8_t character = *(string++);
-        if ( character < m_FontFirstChar ) character = m_FontFirstChar;
-        const FONT_CHAR_INFO*	charInfo = m_FontCharInfo + character;
-        width += charInfo->widthBits + m_FontCharSpacing;
+        return font->heightPages;
     }
-    return width;    
+    return 0.0f;        
 }
 
+float GfxDriver::GetStringWidth(Font_e fontID, const char* string, uint16_t length ) const
+{
+    const FONT_INFO* font = GetFontDesc(fontID);
+
+    if (font != nullptr)
+    {
+        float width = 0.0f;
+
+        while(length--)
+        {
+            uint8_t character = *(string++);
+            if ( character < font->startChar ) character = font->startChar;
+            const FONT_CHAR_INFO* charInfo = font->charInfo + character - font->startChar;
+            width += float(charInfo->widthBits + m_FontCharSpacing);
+        }
+        return width;
+    }
+    return 0.0f;        
+}
+
+void GfxDriver::FastFill(uint32_t words, uint16_t color)
+{
+    for ( uint32_t i = 0 ; i < words ; ++i )
+    {
+        Write16(color);
+    }
+}
+
+#if 0
 void GfxDriver::FastFill16(uint16_t words)
 {
     for ( uint8_t i = words & 0xf ; i ; --i )
@@ -220,7 +245,7 @@ void GfxDriver::FastFill16(uint16_t words)
         WriteBus();
     }
 }
-#if 0
+
 void GfxDriver::FastFill32(uint32_t words)
 {
     for(;;)
@@ -258,15 +283,7 @@ void GfxDriver::FillRect(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2)
     WaitBlitter();
     SetWindow(x1, y1, x2, y2);
     MemoryWrite_Position(x1, y1);
-
-    GfxDriverIO::LCD_WR_WAIT();
-    GfxDriverIO::LCD_CS_LOW();
-    GfxDriverIO::LCD_RS_LOW();
-    SetBus16(m_FgColor);
-    FastFill32(uint32_t(x2 - x1 + 1) * (y2 - y1 + 1));
-//    GfxDriverIO::LCD_WR_WAIT();
-//    GfxDriverIO::LCD_RS_HIGH();
-//    GfxDriverIO::LCD_CS_HIGH();
+    FastFill(uint32_t(x2 - x1 + 1) * (y2 - y1 + 1), m_FgColor);
 #endif
 }
 
@@ -399,7 +416,7 @@ void GfxDriver::BLT_FillCircle(int32_t x, int32_t y, int32_t radius)
 
     LCD_CmdWrite(RA8875_DCHR1);
     LCD_DataWrite(x >> 8);
-	
+
     LCD_CmdWrite(RA8875_DCVR0);
     LCD_DataWrite(y & 0xff);
 
@@ -449,7 +466,7 @@ void GfxDriver::BLT_MoveRect(const IRect& srcRect, const IPoint& dstPosIn)
 bool GfxDriver::RenderGlyph(char character, int16_t maxWidth, uint8_t flags)
 {
     if ( character < m_FontFirstChar ) character = m_FontFirstChar;
-    const FONT_CHAR_INFO*	charInfo = m_FontCharInfo + character;
+    const FONT_CHAR_INFO* charInfo = m_FontCharInfo + character;
         
     uint8_t        charWidth = charInfo->widthBits;
     const uint8_t* srcAddr = m_FontGlyphData + charInfo->offset;
@@ -470,42 +487,45 @@ bool GfxDriver::RenderGlyph(char character, int16_t maxWidth, uint8_t flags)
             {
                 if ( line & 0x80 ) {
                     Write16(m_FgColor);
-                    } else {
+                } else {
                     Write16(m_BgColor);
                 }
                 line <<= 1;
             }
         }
-        uint8_t line = *(srcAddr++);
-
-        for( uint8_t i = m_FontHeightRemainingBits ; i ; --i )
+        if (m_FontHeightRemainingBits > 0)
         {
-            if ( line & 0x80 ) {
-                Write16(m_FgColor);
+            uint8_t line = *(srcAddr++);
+
+            for( uint8_t i = m_FontHeightRemainingBits ; i ; --i )
+            {
+                if ( line & 0x80 ) {
+                    Write16(m_FgColor);
                 } else {
-                Write16(m_BgColor);
+                    Write16(m_BgColor);
+                }
+                line <<= 1;
             }
-            line <<= 1;
-        }
+        }        
     }
     m_Cursor.x += charWidth;
     return true;
 }
 
-uint8_t GfxDriver::WriteString(const char* string, uint8_t strLength, int16_t maxWidth, uint8_t flags)
+uint32_t GfxDriver::WriteString(const char* string, size_t strLength, int32_t maxWidth, uint32_t flags)
 {
+    WaitBlitter();
+
     maxWidth += m_Cursor.x;
     if ( maxWidth > GetResolution().x ) maxWidth = GetResolution().x;
     
     FillDirection_e prevFillDir = m_FillDirection;
     SetFillDirection(e_FillDownLeft);
-    SetWindow(m_Cursor.x, m_Cursor.y, maxWidth - 1, m_Cursor.y + m_FontHeight - 1);
+    SetWindow(m_Cursor.x, m_Cursor.y, maxWidth - 1, m_Cursor.y + m_FontHeight - 1);        
     MemoryWrite_Position(m_Cursor.x, m_Cursor.y);
 
-    uint8_t spacing = m_FontCharSpacing;
+    int32_t spacing = m_FontCharSpacing;
         
-//    GfxDriverIO::LCD_CS_LOW();
-
     while(strLength--)
     {
         uint8_t character = *(string++);
@@ -514,29 +534,26 @@ uint8_t GfxDriver::WriteString(const char* string, uint8_t strLength, int16_t ma
         {
             break;
         }
-        SetBus16(m_BgColor);
         if ( m_Cursor.x + spacing < maxWidth )
         {
-            FastFill16(spacing * m_FontHeight);            
+            FastFill(spacing * m_FontHeight, m_BgColor);
             m_Cursor.x += spacing;
         }
         else
         {
             spacing = maxWidth - m_Cursor.x;
-            FastFill16(spacing * m_FontHeight);
+            FastFill(spacing * m_FontHeight, m_BgColor);
             m_Cursor.x += spacing;
             break;
         }
     }
     if ( (flags & GD_TEXT_FILL_TO_END) && m_Cursor.x < maxWidth )
     {
-        FastFill16((maxWidth - m_Cursor.x) * m_FontHeight);
+        FastFill((maxWidth - m_Cursor.x) * m_FontHeight, m_BgColor);
     }
-//    GfxDriverIO::LCD_WR_WAIT();
-//    GfxDriverIO::LCD_CS_HIGH();
     SetFillDirection(prevFillDir);
 //    return charWidth + m_FontCharSpacing;
-    return 0;
+    return m_Cursor.x;
 }
 
 uint8_t GfxDriver::WriteStringTransparent(const char* string, uint8_t strLength, int16_t maxWidth)
@@ -553,7 +570,7 @@ uint8_t GfxDriver::WriteStringTransparent(const char* string, uint8_t strLength,
     {
         uint8_t character = *(string++);
         if ( character < m_FontFirstChar ) character = m_FontFirstChar;
-        const FONT_CHAR_INFO*	charInfo = m_FontCharInfo + character;
+        const FONT_CHAR_INFO* charInfo = m_FontCharInfo + character;
         
         uint8_t        charWidth = charInfo->widthBits;
         const uint8_t* srcAddr = m_FontGlyphData + charInfo->offset;
@@ -607,20 +624,20 @@ uint8_t GfxDriver::WriteStringTransparent(const char* string, uint8_t strLength,
 uint8_t GfxDriver::WriteGlyph(char character)
 {
     if ( character < m_FontFirstChar ) character = m_FontFirstChar;
-    const FONT_CHAR_INFO*	charInfo = m_FontCharInfo + character;
+    const FONT_CHAR_INFO* charInfo = m_FontCharInfo + character;
     
     uint8_t charWidth = charInfo->widthBits;
 //    printf_P(PSTR("Width of '%c' is %d (%d/%d)\n"), origChar, charWidth, m_FontHeight, m_FontHeightBytes);
 
     FillDirection_e prevFillDir = m_FillDirection;
     SetFillDirection(e_FillDownLeft);
+//    SetFillDirection(e_FillLeftDown);
     SetWindow(m_Cursor.x, m_Cursor.y, GetResolution().x - 1/* m_Cursor.x + charWidth + m_FontCharSpacing*/, m_Cursor.y + m_FontHeight - 1);
     MemoryWrite_Position(m_Cursor.x, m_Cursor.y);
     
 //    GfxDriverIO::LCD_CS_LOW();
     RenderGlyph(character, GetResolution().x, 0);
-    SetBus16(0xffff);    
-    FastFill16(m_FontCharSpacing * m_FontHeight);
+    FastFill(m_FontCharSpacing * m_FontHeight, 0xffff);
     m_Cursor.x += charWidth + m_FontCharSpacing;
     
 //    GfxDriverIO::LCD_WR_WAIT();
@@ -670,19 +687,19 @@ void GfxDriver::SetWindow(int x1, int y1, int x2, int y2)
         }
         else
         {
-            //        addressMode |=
+            std::swap(x1, y1);
+            std::swap(x2, y2);
         }
     }
     else
     {
         if ( m_Orientation == e_Landscape )
         {
-            std::swap(x1, y1);
-            std::swap(x2, y2);
         }
         else
         {
-            //        addressMode |=
+            std::swap(x1, y1);
+            std::swap(x2, y2);
         }
     }
 /*    

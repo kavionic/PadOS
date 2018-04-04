@@ -33,7 +33,6 @@ public:
     static void TestThreadWaitThread(void* args);
     void TestThreadWait();
 
-    bool SlotTransmitRemoteSignal(int id, const void* data, size_t length);
     void TestMessagePort();
 
     static void TestSemaphoreThread(void* args);

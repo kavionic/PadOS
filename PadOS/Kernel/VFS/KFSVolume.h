@@ -23,6 +23,7 @@
 
 #include "System/Ptr/PtrTarget.h"
 #include "System/Ptr/Ptr.h"
+#include "System/String.h"
 
 namespace kernel
 {
@@ -33,12 +34,12 @@ class KINode;
 class KFSVolume : public PtrTarget
 {
 public:
-    KFSVolume(Ptr<KFilesystem> filesystem, Ptr<KINode> mountPoint, const std::string& devicePath);
+    KFSVolume(Ptr<KFilesystem> filesystem, Ptr<KINode> mountPoint, const os::String& devicePath);
     Ptr<KFilesystem> m_Filesystem;
-    Ptr<KINode> m_MountPoint;
-    std::string m_DevicePath;
+    Ptr<KINode>      m_MountPoint;
+    os::String       m_DevicePath;
 
-    Ptr<KINode> m_RootNode;
+    Ptr<KINode>      m_RootNode;
 };
 
 } // namespace

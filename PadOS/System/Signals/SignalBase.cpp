@@ -18,6 +18,9 @@
 
 #include "SignalBase.h"
 
+#ifndef NDEBUG
+static int g_SignalCount = 0;
+#endif  //!defined(NDEBUG)
 
 ThreadLocal< SignalBase::EmitGuard* > SignalBase::s_LocalEmitGuard;
 

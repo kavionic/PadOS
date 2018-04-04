@@ -30,32 +30,32 @@ namespace kernel
 {
 
 /**\name I2C addresses */
-#define BME280_I2C_ADDR_PRIM	0x76
-#define BME280_I2C_ADDR_SEC	0x77
+#define BME280_I2C_ADDR_PRIM    0x76
+#define BME280_I2C_ADDR_SEC     0x77
 
 /**\name BME280 chip identifier */
 #define BME280_CHIP_ID  0x60
 
 /**\name Register Address */
-#define BME280_CHIP_ID_ADDR			0xD0
-#define BME280_RESET_ADDR			0xE0
-#define BME280_TEMP_PRESS_CALIB_DATA_ADDR	0x88
-#define BME280_HUMIDITY_CALIB_DATA_ADDR		0xE1
-#define BME280_PWR_CTRL_ADDR			0xF4
-#define BME280_CTRL_HUM_ADDR			0xF2
-#define BME280_CTRL_MEAS_ADDR			0xF4
-#define BME280_CONFIG_ADDR			0xF5
-#define BME280_DATA_ADDR			0xF7
+#define BME280_CHIP_ID_ADDR                 0xD0
+#define BME280_RESET_ADDR                   0xE0
+#define BME280_TEMP_PRESS_CALIB_DATA_ADDR   0x88
+#define BME280_HUMIDITY_CALIB_DATA_ADDR     0xE1
+#define BME280_PWR_CTRL_ADDR                0xF4
+#define BME280_CTRL_HUM_ADDR                0xF2
+#define BME280_CTRL_MEAS_ADDR               0xF4
+#define BME280_CONFIG_ADDR                  0xF5
+#define BME280_DATA_ADDR                    0xF7
 
 /**\name API success code */
-#define BME280_OK			0
+#define BME280_OK           0
 
 /**\name API error codes */
-#define BME280_E_NULL_PTR		(-1)
-#define BME280_E_DEV_NOT_FOUND		(-2)
-#define BME280_E_INVALID_LEN		(-3)
-#define BME280_E_COMM_FAIL		(-4)
-#define BME280_E_SLEEP_MODE_FAIL	(-5)
+#define BME280_E_NULL_PTR           (-1)
+#define BME280_E_DEV_NOT_FOUND      (-2)
+#define BME280_E_INVALID_LEN        (-3)
+#define BME280_E_COMM_FAIL          (-4)
+#define BME280_E_SLEEP_MODE_FAIL    (-5)
 
 /**\name API warning codes */
 #define BME280_W_INVALID_OSR_MACRO       1
@@ -67,22 +67,22 @@ namespace kernel
 #define BME280_MAX_DATA_LEN              BME280_TEMP_PRESS_CALIB_DATA_LEN
 
 /**\name Sensor power modes */
-#define	BME280_SLEEP_MODE		UINT8_C(0x00)
-#define	BME280_FORCED_MODE		UINT8_C(0x01)
-#define	BME280_NORMAL_MODE		UINT8_C(0x03)
+#define BME280_SLEEP_MODE               UINT8_C(0x00)
+#define BME280_FORCED_MODE              UINT8_C(0x01)
+#define BME280_NORMAL_MODE              UINT8_C(0x03)
 
 /**\name Macro to combine two 8 bit data's to form a 16 bit data */
 #define BME280_CONCAT_BYTES(msb, lsb)     (((uint16_t)msb << 8) | (uint16_t)lsb)
 
 #define BME280_SET_BITS(reg_data, bitname, data) \
-				((reg_data & ~(bitname##_MSK)) | \
-				((data << bitname##_POS) & bitname##_MSK))
+                                ((reg_data & ~(bitname##_MSK)) | \
+                                ((data << bitname##_POS) & bitname##_MSK))
 #define BME280_SET_BITS_POS_0(reg_data, bitname, data) \
-				((reg_data & ~(bitname##_MSK)) | \
-				(data & bitname##_MSK))
+                                ((reg_data & ~(bitname##_MSK)) | \
+                                (data & bitname##_MSK))
 
 #define BME280_GET_BITS(reg_data, bitname)  ((reg_data & (bitname##_MSK)) >> \
-							(bitname##_POS))
+                                                         (bitname##_POS))
 #define BME280_GET_BITS_POS_0(reg_data, bitname)  (reg_data & (bitname##_MSK))
 
 // 
@@ -123,40 +123,40 @@ namespace kernel
 #define BME280_CTRL_HUM_OVRSMPL_8  BME280_CTRL_HUM_OVRSMPL(4)
 #define BME280_CTRL_HUM_OVRSMPL_16 BME280_CTRL_HUM_OVRSMPL(5)
 
-#define BME280_FILTER_MSK		UINT8_C(0x1C)
-#define BME280_FILTER_POS		UINT8_C(0x02)
+#define BME280_FILTER_MSK               UINT8_C(0x1C)
+#define BME280_FILTER_POS               UINT8_C(0x02)
 
-#define BME280_STANDBY_MSK		UINT8_C(0xE0)
-#define BME280_STANDBY_POS		UINT8_C(0x05)
+#define BME280_STANDBY_MSK              UINT8_C(0xE0)
+#define BME280_STANDBY_POS              UINT8_C(0x05)
 
 /**\name Sensor component selection macros
    These values are internal for API implementation. Don't relate this to
    data sheet.*/
-#define BME280_PRESS		UINT8_C(1)
-#define BME280_TEMP			UINT8_C(1 << 1)
-#define BME280_HUM			UINT8_C(1 << 2)
-#define BME280_ALL			UINT8_C(0x07)
+#define BME280_PRESS                UINT8_C(1)
+#define BME280_TEMP                 UINT8_C(1 << 1)
+#define BME280_HUM                  UINT8_C(1 << 2)
+#define BME280_ALL                  UINT8_C(0x07)
 
 /**\name Settings selection macros */
-#define BME280_OSR_PRESS_SEL		UINT8_C(1)
-#define BME280_OSR_TEMP_SEL			UINT8_C(1 << 1)
-#define BME280_OSR_HUM_SEL			UINT8_C(1 << 2)
-#define BME280_FILTER_SEL			UINT8_C(1 << 3)
-#define BME280_STANDBY_SEL			UINT8_C(1 << 4)
-#define BME280_ALL_SETTINGS_SEL		UINT8_C(0x1F)
+#define BME280_OSR_PRESS_SEL        UINT8_C(1)
+#define BME280_OSR_TEMP_SEL         UINT8_C(1 << 1)
+#define BME280_OSR_HUM_SEL          UINT8_C(1 << 2)
+#define BME280_FILTER_SEL           UINT8_C(1 << 3)
+#define BME280_STANDBY_SEL          UINT8_C(1 << 4)
+#define BME280_ALL_SETTINGS_SEL     UINT8_C(0x1F)
 
 /**\name Oversampling macros */
-#define BME280_NO_OVERSAMPLING		UINT8_C(0x00)
-#define BME280_OVERSAMPLING_1X		UINT8_C(0x01)
-#define BME280_OVERSAMPLING_2X		UINT8_C(0x02)
-#define BME280_OVERSAMPLING_4X		UINT8_C(0x03)
-#define BME280_OVERSAMPLING_8X		UINT8_C(0x04)
-#define BME280_OVERSAMPLING_16X		UINT8_C(0x05)
+#define BME280_NO_OVERSAMPLING      UINT8_C(0x00)
+#define BME280_OVERSAMPLING_1X      UINT8_C(0x01)
+#define BME280_OVERSAMPLING_2X      UINT8_C(0x02)
+#define BME280_OVERSAMPLING_4X      UINT8_C(0x03)
+#define BME280_OVERSAMPLING_8X      UINT8_C(0x04)
+#define BME280_OVERSAMPLING_16X     UINT8_C(0x05)
 
 /**\name Standby duration selection macros */
 #define BME280_STANDBY_TIME_1_MS              (0x00)
 #define BME280_STANDBY_TIME_62_5_MS           (0x01)
-#define BME280_STANDBY_TIME_125_MS			  (0x02)
+#define BME280_STANDBY_TIME_125_MS            (0x02)
 #define BME280_STANDBY_TIME_250_MS            (0x03)
 #define BME280_STANDBY_TIME_500_MS            (0x04)
 #define BME280_STANDBY_TIME_1000_MS           (0x05)
@@ -175,10 +175,10 @@ namespace kernel
  */
 enum bme280_intf
 {
-	/*! SPI interface */
-	BME280_SPI_INTF,
-	/*! I2C interface */
-	BME280_I2C_INTF
+    /*! SPI interface */
+    BME280_SPI_INTF,
+    /*! I2C interface */
+    BME280_I2C_INTF
 };
 
 /*!
@@ -223,12 +223,12 @@ struct bme280_calib_data
  * humidity data
  */
 struct bme280_data {
-	/*! Compensated pressure */
-	double pressure;
-	/*! Compensated temperature */
-	double temperature;
-	/*! Compensated humidity */
-	double humidity;
+    /*! Compensated pressure */
+    double pressure;
+    /*! Compensated temperature */
+    double temperature;
+    /*! Compensated humidity */
+    double humidity;
 };
 
 /*!
@@ -237,12 +237,12 @@ struct bme280_data {
  */
  #if 0
 struct bme280_uncomp_data {
-	/*! un-compensated pressure */
-	uint32_t pressure;
-	/*! un-compensated temperature */
-	uint32_t temperature;
-	/*! un-compensated humidity */
-	uint32_t humidity;
+    /*! un-compensated pressure */
+    uint32_t pressure;
+    /*! un-compensated temperature */
+    uint32_t temperature;
+    /*! un-compensated humidity */
+    uint32_t humidity;
 };
 #endif
 /*!
@@ -250,20 +250,20 @@ struct bme280_uncomp_data {
  * oversampling and filter settings.
  */
 struct bme280_settings {
-	/*! pressure oversampling */
-	uint8_t osr_p;
-	/*! temperature oversampling */
-	uint8_t osr_t;
-	/*! humidity oversampling */
-	uint8_t osr_h;
-	/*! filter coefficient */
-	uint8_t filter;
-	/*! standby time */
-	uint8_t standby_time;
+    /*! pressure oversampling */
+    uint8_t osr_p;
+    /*! temperature oversampling */
+    uint8_t osr_t;
+    /*! humidity oversampling */
+    uint8_t osr_h;
+    /*! filter coefficient */
+    uint8_t filter;
+    /*! standby time */
+    uint8_t standby_time;
 };
 
 
-class BME280Driver : public KDeviceNode, public Thread, public SignalTarget
+class BME280Driver : public KDeviceNode, public os::Thread, public SignalTarget
 {
 public:
     BME280Driver(const char* i2cPath);
@@ -294,10 +294,6 @@ private:
     double CompensatePressure(uint32_t uncompPressure) const;
     double CompensateHumidity(uint32_t uncompHumidity) const;
 
-    static void TransactionCallback(void* userObject, void* data, ssize_t length);
-    void TransactionCallback(void* data, ssize_t length);
-
-//    EventTimer m_Timer;
 
     Semaphore m_Mutex;
     State_e m_State = State_e::Initializing;
@@ -315,10 +311,6 @@ private:
     bme280_calib_data m_CalibrationData;
 
     BME280Values m_CurrentValues;
-/*    double m_Temperature = 0.0;
-    double m_Pressure    = 0.0;
-    double m_Humidity    = 0.0;*/
-
 
     uint8_t m_ReceiveBuffer[BME280_MAX_DATA_LEN];
     uint8_t m_BytesToReceive = 0;

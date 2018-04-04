@@ -36,7 +36,7 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-BME280Driver::BME280Driver(const char* i2cPath) : m_Mutex("bme280_driver")
+BME280Driver::BME280Driver(const char* i2cPath) : Thread("bme280_driver"), m_Mutex("bme280_driver")
 {
     SetDeleteOnExit(false);
     Initialize(i2cPath);
@@ -63,9 +63,7 @@ bool BME280Driver::Initialize(const char* i2cPath)
         I2CIOCTL_SetSlaveAddress(m_I2CDevice, m_DeviceAddress);
         I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
-        Start("bme280_driver", true);
-        //m_Timer.SignalTrigged.Connect(this, &BME280Driver::SlotTick);
-        //m_Timer.Start(1);
+        Start(true);
 
         return true;
     }
@@ -94,50 +92,35 @@ void BME280Driver::SlotTick()
 {
     CRITICAL_SCOPE(m_Mutex);
     bigtime_t time = get_system_time();
-//    DEBUG_DISABLE_IRQ();
-    if (m_BytesToReceive > 0 && (time - m_ReadStartTime) > 5000000)
-    {
-        printf("ERROR: BME280Driver receive timeout!\n");
-        if (m_State == State_e::Initializing || m_State == State_e::ReadingTempPressCalibration || m_State == State_e::ReadingHumidityCalibration) {
-            m_State = State_e::Initializing;
-        } else {
-            m_State = State_e::Idle;
-        }
-        m_BytesToReceive = 0;
-    }
     if (m_State == State_e::Idle)
     {
-        //if (time - m_LastUpdateTime >= m_UpdatePeriode)
-        {
-            m_LastUpdateTime = time;
-            m_State = State_e::ReadingRegister;
-            RequestData(BME280_DATA_ADDR, BME280_P_T_H_DATA_LEN);
-        }
-        //m_Timer.Start(10000);
+        m_LastUpdateTime = time;
+        m_State = State_e::ReadingRegister;
+        RequestData(BME280_DATA_ADDR, BME280_P_T_H_DATA_LEN);
     }
     else if (m_State == State_e::ReadingRegister && m_BytesReceived == m_BytesToReceive)
     {
-	/* Variables to store the sensor data */
-	uint32_t data_xlsb;
-	uint32_t data_lsb;
-	uint32_t data_msb;
+        // Variables to store the sensor data
+        uint32_t data_xlsb;
+        uint32_t data_lsb;
+        uint32_t data_msb;
 
-	/* Store the parsed register values for pressure data */
-	data_msb = (uint32_t)m_ReceiveBuffer[0] << 12;
-	data_lsb = (uint32_t)m_ReceiveBuffer[1] << 4;
-	data_xlsb = (uint32_t)m_ReceiveBuffer[2] >> 4;
-	uint32_t pressure = data_msb | data_lsb | data_xlsb;
+        // Store the parsed register values for pressure data
+        data_msb = (uint32_t)m_ReceiveBuffer[0] << 12;
+        data_lsb = (uint32_t)m_ReceiveBuffer[1] << 4;
+        data_xlsb = (uint32_t)m_ReceiveBuffer[2] >> 4;
+        uint32_t pressure = data_msb | data_lsb | data_xlsb;
 
-	/* Store the parsed register values for temperature data */
-	data_msb = (uint32_t)m_ReceiveBuffer[3] << 12;
-	data_lsb = (uint32_t)m_ReceiveBuffer[4] << 4;
-	data_xlsb = (uint32_t)m_ReceiveBuffer[5] >> 4;
-	uint32_t temperature = data_msb | data_lsb | data_xlsb;
+        // Store the parsed register values for temperature data
+        data_msb = (uint32_t)m_ReceiveBuffer[3] << 12;
+        data_lsb = (uint32_t)m_ReceiveBuffer[4] << 4;
+        data_xlsb = (uint32_t)m_ReceiveBuffer[5] >> 4;
+        uint32_t temperature = data_msb | data_lsb | data_xlsb;
 
-	/* Store the parsed register values for temperature data */
-	data_lsb = (uint32_t)m_ReceiveBuffer[6] << 8;
-	data_msb = (uint32_t)m_ReceiveBuffer[7];
-	uint32_t humidity = data_msb | data_lsb;
+        // Store the parsed register values for temperature data
+        data_lsb = (uint32_t)m_ReceiveBuffer[6] << 8;
+        data_msb = (uint32_t)m_ReceiveBuffer[7];
+        uint32_t humidity = data_msb | data_lsb;
 
         m_CurrentValues.m_Temperature = CompensateTemperature(temperature);
         m_CurrentValues.m_Pressure    = CompensatePressure(pressure);
@@ -187,19 +170,19 @@ void BME280Driver::SlotTick()
     {
         if (m_I2CDevice != -1)
         {
-	    m_CalibrationData.dig_T1 = BME280_CONCAT_BYTES(m_ReceiveBuffer[1], m_ReceiveBuffer[0]);
-	    m_CalibrationData.dig_T2 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[3], m_ReceiveBuffer[2]);
-	    m_CalibrationData.dig_T3 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[5], m_ReceiveBuffer[4]);
-	    m_CalibrationData.dig_P1 = BME280_CONCAT_BYTES(m_ReceiveBuffer[7], m_ReceiveBuffer[6]);
-	    m_CalibrationData.dig_P2 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[9], m_ReceiveBuffer[8]);
-	    m_CalibrationData.dig_P3 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[11], m_ReceiveBuffer[10]);
-	    m_CalibrationData.dig_P4 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[13], m_ReceiveBuffer[12]);
-	    m_CalibrationData.dig_P5 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[15], m_ReceiveBuffer[14]);
-	    m_CalibrationData.dig_P6 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[17], m_ReceiveBuffer[16]);
-	    m_CalibrationData.dig_P7 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[19], m_ReceiveBuffer[18]);
-	    m_CalibrationData.dig_P8 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[21], m_ReceiveBuffer[20]);
-	    m_CalibrationData.dig_P9 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[23], m_ReceiveBuffer[22]);
-	    m_CalibrationData.dig_H1 = m_ReceiveBuffer[25];
+            m_CalibrationData.dig_T1 = BME280_CONCAT_BYTES(m_ReceiveBuffer[1], m_ReceiveBuffer[0]);
+            m_CalibrationData.dig_T2 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[3], m_ReceiveBuffer[2]);
+            m_CalibrationData.dig_T3 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[5], m_ReceiveBuffer[4]);
+            m_CalibrationData.dig_P1 = BME280_CONCAT_BYTES(m_ReceiveBuffer[7], m_ReceiveBuffer[6]);
+            m_CalibrationData.dig_P2 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[9], m_ReceiveBuffer[8]);
+            m_CalibrationData.dig_P3 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[11], m_ReceiveBuffer[10]);
+            m_CalibrationData.dig_P4 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[13], m_ReceiveBuffer[12]);
+            m_CalibrationData.dig_P5 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[15], m_ReceiveBuffer[14]);
+            m_CalibrationData.dig_P6 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[17], m_ReceiveBuffer[16]);
+            m_CalibrationData.dig_P7 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[19], m_ReceiveBuffer[18]);
+            m_CalibrationData.dig_P8 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[21], m_ReceiveBuffer[20]);
+            m_CalibrationData.dig_P9 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[23], m_ReceiveBuffer[22]);
+            m_CalibrationData.dig_H1 = m_ReceiveBuffer[25];
 
             m_State = State_e::ReadingHumidityCalibration;
             RequestData(BME280_HUMIDITY_CALIB_DATA_ADDR, BME280_HUMIDITY_CALIB_DATA_LEN);
@@ -209,22 +192,22 @@ void BME280Driver::SlotTick()
     {
         if (m_I2CDevice != -1)
         {
-	    int16_t dig_H4_lsb;
-	    int16_t dig_H4_msb;
-	    int16_t dig_H5_lsb;
-	    int16_t dig_H5_msb;
+            int16_t dig_H4_lsb;
+            int16_t dig_H4_msb;
+            int16_t dig_H5_lsb;
+            int16_t dig_H5_msb;
 
-	    m_CalibrationData.dig_H2 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[1], m_ReceiveBuffer[0]);
-	    m_CalibrationData.dig_H3 = m_ReceiveBuffer[2];
+            m_CalibrationData.dig_H2 = (int16_t)BME280_CONCAT_BYTES(m_ReceiveBuffer[1], m_ReceiveBuffer[0]);
+            m_CalibrationData.dig_H3 = m_ReceiveBuffer[2];
 
-	    dig_H4_msb = (int16_t)(int8_t)m_ReceiveBuffer[3] * 16;
-	    dig_H4_lsb = (int16_t)(m_ReceiveBuffer[4] & 0x0F);
-	    m_CalibrationData.dig_H4 = dig_H4_msb | dig_H4_lsb;
+            dig_H4_msb = (int16_t)(int8_t)m_ReceiveBuffer[3] * 16;
+            dig_H4_lsb = (int16_t)(m_ReceiveBuffer[4] & 0x0F);
+            m_CalibrationData.dig_H4 = dig_H4_msb | dig_H4_lsb;
 
-	    dig_H5_msb = (int16_t)(int8_t)m_ReceiveBuffer[5] * 16;
-	    dig_H5_lsb = (int16_t)(m_ReceiveBuffer[4] >> 4);
-	    m_CalibrationData.dig_H5 = dig_H5_msb | dig_H5_lsb;
-	    m_CalibrationData.dig_H6 = (int8_t)m_ReceiveBuffer[6];
+            dig_H5_msb = (int16_t)(int8_t)m_ReceiveBuffer[5] * 16;
+            dig_H5_lsb = (int16_t)(m_ReceiveBuffer[4] >> 4);
+            m_CalibrationData.dig_H5 = dig_H5_msb | dig_H5_lsb;
+            m_CalibrationData.dig_H6 = (int8_t)m_ReceiveBuffer[6];
             m_State = State_e::Idle;
             m_BytesToReceive = 0;
         }
@@ -272,8 +255,10 @@ void BME280Driver::RequestData(uint8_t address, uint8_t length)
     m_BytesToReceive = length;
     m_ReadStartTime  = get_system_time();
     m_ReadRetryCount = 0;
-    Kernel::ReadAsync(m_I2CDevice, address, m_ReceiveBuffer, m_BytesToReceive, this, TransactionCallback);
-//    m_Port->ReceiveAsync(TransactionCallback, this, m_DeviceAddress, 1, address, m_ReceiveBuffer, m_BytesToReceive);
+    m_BytesReceived = Kernel::Read(m_I2CDevice, address, m_ReceiveBuffer, m_BytesToReceive);
+    if (m_BytesReceived != m_BytesToReceive) {
+        printf("ERROR: BME280Driver failed to read from device (%d/%d): %s\n", m_BytesReceived, m_BytesToReceive, strerror(get_last_error()));        
+    }
 }
 
 double BME280Driver::CompensateTemperature(uint32_t uncompTemperature)
@@ -368,23 +353,4 @@ double BME280Driver::CompensateHumidity(uint32_t uncompHumidity) const
         humidity = humidity_min;
     }
     return humidity;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void BME280Driver::TransactionCallback(void* userObject, void* data, ssize_t length)
-{
-    static_cast<BME280Driver*>(userObject)->TransactionCallback(data, length);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void BME280Driver::TransactionCallback(void* data, ssize_t length)
-{
-    //printf("CM: recv\n");
-    m_BytesReceived = length;
 }

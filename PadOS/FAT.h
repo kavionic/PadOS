@@ -126,7 +126,7 @@ struct FAT32SuperBlock
     
 //    uint8_t  m_Unused4[462];
     uint8_t  m_Unused4[420];
-    uint16_t  m_Signature; // 16 Bits	Always 0xAA55    
+    uint16_t  m_Signature; // 16 Bits Always 0xAA55    
 } __attribute__((packed));
 
 #define FAT32_ATTR_READ_ONLY (1<<0)

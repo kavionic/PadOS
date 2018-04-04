@@ -21,6 +21,9 @@
 
 #include "System/GUI/View.h"
 #include "System/GUI/Region.h"
+#include "System/Utils/EventTimer.h"
+
+using namespace os;
 
 class RenderTest4 : public View
 {
@@ -28,7 +31,8 @@ public:
     RenderTest4();
     ~RenderTest4();
 
-    virtual void PostAttachedToViewport() override;
+    virtual void AllAttachedToScreen() override;
+    virtual void DetachedFromScreen() override;
 
     virtual bool OnMouseDown(MouseButton_e button, const Point& position) override { return true; }
     virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
@@ -38,11 +42,12 @@ public:
 private:
     void SlotFrameProcess();
 
-    //ClippingRegion region;
+    EventTimer m_UpdateTimer;
+
     Region region2;
 
     
     RenderTest4( const RenderTest4 &c );
     RenderTest4& operator=( const RenderTest4 &c );
 
-}; //RenderTest4
+};

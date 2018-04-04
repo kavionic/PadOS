@@ -20,15 +20,14 @@
 #include "sam.h"
 
 #include "RenderTest4.h"
-#include "System/GUI/GUI.h"
 #include "System/System.h"
-#include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
+#include "System/GUI/Application.h"
 
 extern bigtime_t g_FrameTime;
 
 using namespace kernel;
 
-RenderTest4::RenderTest4() : region2(IRect(50, 0, 400, 480))
+RenderTest4::RenderTest4() : View("RenderTest4"), region2(IRect(50, 0, 400, 480))
 {
 }
 
@@ -36,9 +35,9 @@ RenderTest4::~RenderTest4()
 {
 }
 
-void RenderTest4::PostAttachedToViewport()
+void RenderTest4::AllAttachedToScreen()
 {
-    SetFgColor(0xffff);
+    SetFgColor(Color(0xffffffff));
     FillRect(GetBounds());
 
     
@@ -61,7 +60,16 @@ void RenderTest4::PostAttachedToViewport()
     region2.Exclude(IRect(0, 0, 30, 30.0f) + IPoint(100, 60) );
     region2.Optimize();
 
-    gui.SignalFrameProcess.Connect(this, &RenderTest4::SlotFrameProcess);
+    m_UpdateTimer.Set(100);
+    m_UpdateTimer.SignalTrigged.Connect(this, &RenderTest4::SlotFrameProcess);
+    
+    Application* app = GetApplication();
+    app->AddTimer(&m_UpdateTimer);
+}
+
+void RenderTest4::DetachedFromScreen()
+{
+    m_UpdateTimer.Stop();
 }
 
 bool RenderTest4::OnMouseUp(MouseButton_e button, const Point& position)
@@ -77,8 +85,7 @@ void RenderTest4::SlotFrameProcess()
     bigtime_t startTime = get_system_time();
     for (int i = 0; i < 10; ++i)
     {
-        uint16_t color = random();
-        GfxDriver::Instance.SetFgColor(color);
+        SetFgColor(Color(random()));
         for (int y = 10; y < 310; ++y)
         {
 #if 1
@@ -96,7 +103,7 @@ void RenderTest4::SlotFrameProcess()
 
                 if (Region::ClipLine(node->m_cBounds, &x1, &y1, &x2, &y2)) {
                     //GfxDriver::Instance.DrawLine(20, y, 400, y);
-                    GfxDriver::Instance.DrawLine(x1, y1, x2, y2);
+                    DrawLine(x1, y1, x2, y2);
                 }
                     
 /*                    if (Region::ClipLine(node->m_cBounds, &x1, &y1, &x2, &y2)) {
@@ -121,7 +128,7 @@ void RenderTest4::SlotFrameProcess()
             }
 #endif
         }
-        SetFgColor(rand());
+        SetFgColor(Color(rand()));
         FillCircle(Point(460 + rand() % 340, 50 + rand() % 380), 5+rand() % 45);
     }        
     bigtime_t curTime = get_system_time();

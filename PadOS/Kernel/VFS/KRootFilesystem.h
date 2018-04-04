@@ -22,6 +22,7 @@
 #include <map>
 #include "KINode.h"
 #include "KFilesystem.h"
+#include "System/String.h"
 
 namespace kernel
 {
@@ -36,7 +37,7 @@ class KRootFSINode : public KINode
 
     Ptr<KDeviceNode> m_DeviceNode;
 
-    std::map<std::string, Ptr<KRootFSINode>> m_Children;
+    std::map<os::String, Ptr<KRootFSINode>> m_Children;
 };
 
 class KRootFilesystem : public KFilesystem

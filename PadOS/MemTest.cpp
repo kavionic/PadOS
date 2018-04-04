@@ -130,10 +130,10 @@ memTestAddressBus(volatile datum * baseAddress, unsigned long nBytes)
     {
         baseAddress[testOffset] = antipattern;
 
-		if (baseAddress[0] != pattern)
-		{
-			return ((datum *) &baseAddress[testOffset]);
-		}
+        if (baseAddress[0] != pattern)
+        {
+            return ((datum *) &baseAddress[testOffset]);
+        }
 
         for (offset = 1; (offset & addressMask) != 0; offset <<= 1)
         {
@@ -172,7 +172,7 @@ memTestAddressBus(volatile datum * baseAddress, unsigned long nBytes)
  *              additional information about the problem.
  *
  **********************************************************************/
-datum* memTestDevice(volatile datum* baseAddress, unsigned long nBytes)	
+datum* memTestDevice(volatile datum* baseAddress, unsigned long nBytes)
 {
     unsigned long offset;
     unsigned long nWords = nBytes / sizeof(datum);

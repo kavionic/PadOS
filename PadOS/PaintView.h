@@ -19,37 +19,16 @@
 
 #pragma once
 
-#include "System/GUI//View.h"
+#include "System/GUI/View.h"
 
 
-class Button : public View
-{
-public:
-    virtual bool OnMouseDown(MouseButton_e button, const Point& position) override;
-    virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
-    virtual bool OnMouseMove(MouseButton_e button, const Point& position) override;
-
-    virtual void Render() override;
-
-
-    void SetPressedState(bool isPressed);
-    bool GetPressedState() const { return m_IsPressed; }
-
-    Signal<void, MouseButton_e, Button*> SignalActivated;
-    
-private:
-    bool m_WasHit    = false;
-    bool m_IsPressed = false;
-        
-};
-
-class PaintView : public View
+class PaintView : public os::View
 {
 public:
     PaintView();
     ~PaintView();
 
-    virtual void PostAttachedToViewport() override;
+    virtual void AllAttachedToScreen() override;
 
     virtual bool OnMouseDown(MouseButton_e button, const Point& position) override;
     virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;

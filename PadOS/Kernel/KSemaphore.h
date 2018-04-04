@@ -47,7 +47,8 @@ public:
     bool AcquireDeadline(bigtime_t deadline);
     bool TryAcquire();
     void Release();
-
+    void SetCount(int count) { m_Count = count; }
+    int  GetCount() const { return m_Count; }
 private:
     int             m_Count;
     bool            m_Recursive;

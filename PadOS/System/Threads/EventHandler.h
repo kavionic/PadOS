@@ -19,26 +19,58 @@
 
 #pragma once
 
+#include <map>
+
 #include "System/Signals/Signal.h"
 #include "System/Ptr/PtrTarget.h"
+#include "System/String.h"
 
+namespace os
+{
+    
 class Looper;
+class RemoteSignalRXBase;
 
 class EventHandler : public PtrTarget
 {
 public:
-    EventHandler();
+    EventHandler(const String& name);
     virtual ~EventHandler();
 
-    virtual bool HandleMessage(int32_t code, const void* data, size_t length) { SignalMessageReceived(code, data); return true; }
+    const String& GetName() const { return m_Name; }
 
-    Signal<void, int, const void*> SignalMessageReceived;
+    handler_id GetHandle() const { return m_Handle; }
+
+    Looper* GetLooper() { return m_Looper; }
+
+    virtual bool HandleMessage(int32_t code, const void* data, size_t length);
+
+    template<typename SIGNAL, typename CALLBACK>
+    void RegisterRemoteSignal(SIGNAL* signal, CALLBACK callback)
+    {
+        m_RemoteSignalMap[signal->GetID()] = signal;
+        signal->Connect(this, callback);
+    }
+    RemoteSignalRXBase* GetSignalForMessage(int32_t code) {
+        auto i = m_RemoteSignalMap.find(code);
+        if (i != m_RemoteSignalMap.end()) {
+            return i->second;
+        }
+        return nullptr;            
+    }
+//    Signal<void, int, const void*> SignalMessageReceived;
 private:
     friend class Looper;
 
-    Looper* m_Looper = nullptr;
+    String     m_Name;
 
+    Looper*    m_Looper = nullptr;
+    handler_id m_Handle;
+    
+    std::map<int, RemoteSignalRXBase*> m_RemoteSignalMap;
+    
     EventHandler(const EventHandler &) = delete;
     EventHandler& operator=(const EventHandler &) = delete;
 };
 
+} // namespace

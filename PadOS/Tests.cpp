@@ -146,7 +146,7 @@ void Tests::TestMessagePort()
         sprintf(message, "Test message %d", i);
         bigtime_t curTime = get_system_time_hires();
         
-        TestSignal::Emit(m_MsgPort, -1, i, float(curTime) / 1.0e6f, String(message));
+        TestSignal::Emit(m_MsgPort, -1, INFINIT_TIMEOUT, i, float(curTime) / 1.0e6f, String(message));
         
 /*        if (port.SendMessage(i, message, strlen(message) + 1)) {
             CRITICAL_BEGIN(m_StdOutLock) {

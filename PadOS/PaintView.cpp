@@ -29,35 +29,28 @@ using namespace os;
 
 PaintView::PaintView() : View("PaintView")
 {
+    printf("PaintView::PaintView()\n");
     Rect bounds = GetBounds();
-    
-    Ptr<Button> clearButton = ptr_new<Button>("ClearButton", "Clear");
-    clearButton->SignalActivated.Connect(this, &PaintView::SlotClearButton);
-    Point size = clearButton->GetPreferredSize(false);
-    clearButton->SetFrame(Rect(0.0f, 0.0f, size.x, size.y));
-    AddChild(clearButton);
-    Ptr<Button> nextButton = ptr_new<Button>("NextButton", "Next");
-    size = nextButton->GetPreferredSize(false);
-    nextButton->SignalActivated.Connect(this, &PaintView::SlotNextButton);
-    nextButton->SetFrame(Rect(799.0f - size.x, 0.0f, 799.0f, size.y));
-    AddChild(nextButton);
-    
 
-    Rect frame(0.0f, 0.0f, 80.0f, 40.0f);
-    frame += Point(50.0f, 60.0f);
-    float x = 50.0f;
+    SetLayoutNode(ptr_new<VLayoutNode>());
+    
+    Ptr<View> topBar    = ptr_new<View>("TopBar", ptr_tmp_cast(this), ViewFlags::TRANSPARENT | ViewFlags::CLIENT_ONLY);
+    Ptr<View> bottomBar = ptr_new<View>("BottomBar", ptr_tmp_cast(this), ViewFlags::TRANSPARENT | ViewFlags::CLIENT_ONLY);
+    
+    topBar->SetLayoutNode(ptr_new<HLayoutNode>());
+    bottomBar->SetLayoutNode(ptr_new<HLayoutNode>());
+ 
+    topBar->GetLayoutNode()->ExtendMaxSize(Point(LAYOUT_MAX_SIZE, LAYOUT_MAX_SIZE));
+    bottomBar->GetLayoutNode()->ExtendMaxSize(Point(LAYOUT_MAX_SIZE, LAYOUT_MAX_SIZE));
+    
+    Ptr<Button> clearButton = ptr_new<Button>("ClearButton", "Clear", topBar);
+    clearButton->SignalActivated.Connect(this, &PaintView::SlotClearButton);
+    Ptr<Button> nextButton = ptr_new<Button>("NextButton", "Next", topBar);
+    nextButton->SignalActivated.Connect(this, &PaintView::SlotNextButton);
+
     for (int i = 0; i < 7; ++i)
     {
-        Ptr<Button> button = ptr_new<Button>("TstButton", String::FormatString("Test%d", i + 1));
-        size = button->GetPreferredSize(false);
-        //button->SignalActivated.Connect(this, &PaintView::SlotClearButton);
-        frame.left = x;
-        frame.right = x + size.x;
-        frame.bottom = frame.top + size.y;
-        x += size.x + 10.0f;
-        button->SetFrame(frame);
-        AddChild(button);
-        frame += Point(100.0f, 0.0f);        
+        Ptr<Button> button = ptr_new<Button>("TstButton", String::FormatString("Test%d", i + 1), bottomBar);
     }
 }
 
@@ -67,6 +60,7 @@ PaintView::PaintView() : View("PaintView")
 
 PaintView::~PaintView()
 {
+    printf("PaintView::~PaintView()\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////

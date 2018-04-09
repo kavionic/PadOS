@@ -28,8 +28,8 @@ namespace os
 class Button : public View
 {
 public:
-    Button(const String& name, const String& label) : View(name), m_Label(label) {}
-        
+    Button(const String& name, const String& label, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    ~Button();
     virtual void AllAttachedToScreen() override { Invalidate(); }
 
     virtual Point GetPreferredSize(bool largest) const override;

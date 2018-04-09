@@ -28,12 +28,12 @@ namespace os
 class ServerView : public ViewBase<ServerView>
 {
 public:
-    ServerView(const String& name);
+    ServerView(const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor);
 
     void SetClientHandle(port_id port, handler_id handle) { m_ClientPort = port; m_ClientHandle = handle; }
 
     void HandleAddedToParent(Ptr<ServerView> parent) {}
-    void HandleRemovedFromParent(Ptr<ServerView> parent) {}
+    void HandleRemovedFromParent(Ptr<ServerView> parent) { UpdateScreenPos(); }
 
     bool        HandleMouseDown(MouseButton_e button, const Point& position);
     bool        HandleMouseUp(MouseButton_e button, const Point& position);
@@ -55,6 +55,7 @@ public:
     void        MoveChilds();
     void        SwapRegions(bool bForce);
     void        RebuildRegion(bool bForce);
+    bool        ExcludeFromRegion(Ptr<Region> region, const IPoint& offset);
     void        ClearDirtyRegFlags();
     void        UpdateRegions(bool force = true, bool root = true);
     void        DeleteRegions();
@@ -70,9 +71,9 @@ public:
 
     void        Show(bool visible = true);
 
-    void        SetFgColor(Color color)    { m_FgColor = color; m_FgColor16 = color.GetColor16(); }
-    void        SetBgColor(Color color)    { m_BgColor = color; m_BgColor16 = color.GetColor16(); }
     void        SetEraseColor(Color color) { m_EraseColor = color; m_EraseColor16 = color.GetColor16(); }
+    void        SetBgColor(Color color)    { m_BgColor = color; m_BgColor16 = color.GetColor16(); }
+    void        SetFgColor(Color color)    { m_FgColor = color; m_FgColor16 = color.GetColor16(); }
 
     void        SetFont(int fontHandle) { m_Font->Set(kernel::GfxDriver::Font_e(fontHandle)); }
 
@@ -83,20 +84,31 @@ public:
     void        FillRect(const Rect& rect);
     void        FillCircle(const Point& position, float radius);
     void        DrawString(const String& string, float maxWidth, uint8_t flags);
-    void        ScrollRect(const Rect& srcRect, const Point& dstPos);
+    void        CopyRect(const Rect& srcRect, const Point& dstPos);
     void        ScrollBy( const Point& cDelta );
-
-    void        Sync();
 
 private:
     friend class ViewBase<ServerView>;
     
+    void UpdateScreenPos()
+    {
+        Ptr<ServerView> parent = m_Parent.Lock();
+        if (parent == nullptr) {
+            m_ScreenPos = m_Frame.LeftTop();
+        } else {
+            m_ScreenPos = parent->m_ScreenPos + m_Frame.LeftTop();
+        }
+        for (Ptr<ServerView> child : m_ChildrenList) {
+            child->UpdateScreenPos();
+        }
+    }
+    
     port_id     m_ClientPort = -1;
     handler_id  m_ClientHandle = -1;
     
+    uint16_t    m_EraseColor16 = 0xffff;
     uint16_t    m_BgColor16    = 0xffff;
     uint16_t    m_FgColor16    = 0x0000;
-    uint16_t    m_EraseColor16 = 0xffff;
     
     Ptr<Font>   m_Font = ptr_new<Font>(kernel::GfxDriver::e_FontLarge);
     

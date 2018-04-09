@@ -662,6 +662,12 @@
     <Compile Include="System\GUI\GUIEvent.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="System\GUI\LayoutNode.cpp">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="System\GUI\LayoutNode.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="System\GUI\Region.cpp">
       <SubType>compile</SubType>
     </Compile>
@@ -870,12 +876,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Device_Startup\SAME70CPad.ld">
-      <SubType>compile</SubType>
-    </None>
-    <None Include="Device_Startup\same70q21_flash.ld">
-      <SubType>compile</SubType>
-    </None>
-    <None Include="Device_Startup\same70q21_sram.ld">
       <SubType>compile</SubType>
     </None>
   </ItemGroup>

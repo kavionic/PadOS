@@ -38,6 +38,7 @@ public:
 
     virtual void Paint(const Rect& updateRect) override;
 
+    virtual bool OnMouseDown(MouseButton_e button, const Point& position) override { return true; }
     virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
 
     Signal<void, Ptr<View>> SignalDone;

@@ -43,27 +43,21 @@ public:
     Ptr<View> FindView(handler_id handle) { return ptr_static_cast<View>(FindHandler(handle)); }
      
      void Flush();
+     void Sync();
 private:
     friend class View;
  
     template<typename SIGNAL, typename... ARGS>
     void Post(ARGS&&... args) { SIGNAL::Sender::Emit(this, &Application::AllocMessageBuffer, args...); }
     
+    void DetachView(Ptr<View> view);
+    
     void SetViewFrame(handler_id viewID, const Rect& frame) { Post<ASSetViewFrame>(viewID, frame); }
     void InvalidateView(handler_id viewID, const IRect& frame) { Post<ASInvalidateView>(viewID, frame); }
 
     void* AllocMessageBuffer(int32_t messageID, size_t size);
-
-    
-//    bool SlotTransmitRemoteSignal(int id, const void* data, size_t length);
-    
-    void SlotRegisterApplicationReply(handler_id serverHandle) { m_ServerHandle = serverHandle; }
-    void SlotCreateViewReply(handler_id clientHandle, handler_id serverHandle);
-    
-    
-    ASRegisterApplicationReply::Receiver RSRegisterApplicationReply;
-    ASCreateViewReply::Receiver          RSCreateViewReply;
- 
+     
+    MessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
 
     uint8_t m_SendBuffer[APPSERVER_MSG_BUFFER_SIZE]; 

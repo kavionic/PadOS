@@ -19,6 +19,8 @@
 
 #include "sam.h"
 
+#include <string.h>
+
 #include "ServerApplication.h"
 #include "ApplicationServer.h"
 #include "Protocol.h"
@@ -32,12 +34,12 @@ using namespace os;
 
 ServerApplication::ServerApplication(ApplicationServer* server, const String& name, port_id clientPort) : EventHandler(name), m_Server(server), m_ClientPort(clientPort)
 {
-    RegisterRemoteSignal(&RSCreateView, &ServerApplication::SlotCreateView);
-    RegisterRemoteSignal(&RSDeleteView, &ServerApplication::SlotDeleteView);
-    RegisterRemoteSignal(&RSSetViewFrame, &ServerApplication::SlotSetViewFrame);
+    RegisterRemoteSignal(&RSSync,           &ServerApplication::SlotSync);
+    RegisterRemoteSignal(&RSCreateView,     &ServerApplication::SlotCreateView);
+    RegisterRemoteSignal(&RSDeleteView,     &ServerApplication::SlotDeleteView);
+    RegisterRemoteSignal(&RSSetViewFrame,   &ServerApplication::SlotSetViewFrame);
     RegisterRemoteSignal(&RSInvalidateView, &ServerApplication::SlotInvalidateView);    
     
-    RegisterRemoteSignal(&RSViewSync,          &ServerApplication::SlotViewSync);
     RegisterRemoteSignal(&RSViewBeginUpdate,   &ServerApplication::SlotViewBeginUpdate);
     RegisterRemoteSignal(&RSViewEndUpdate,     &ServerApplication::SlotViewEndUpdate);
     
@@ -52,6 +54,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const String& na
     RegisterRemoteSignal(&RSViewFillCircle,    &ServerApplication::SlotViewFillCircle);
     RegisterRemoteSignal(&RSViewDrawString,    &ServerApplication::SlotViewDrawString);
     RegisterRemoteSignal(&RSViewScrollBy,      &ServerApplication::SlotViewScrollBy);
+    RegisterRemoteSignal(&RSViewCopyRect,      &ServerApplication::SlotViewCopyRect);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -139,26 +142,35 @@ void ServerApplication::UpdateLowestInvalidView(Ptr<ServerView> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotCreateView(port_id replyPort, handler_id replyTarget, handler_id parentHandle, const String& name, const Rect& frame)
+void ServerApplication::SlotCreateView(port_id clientPort, port_id replyPort, handler_id replyTarget, handler_id parentHandle, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor)
 {
     Ptr<ServerView> parent = (parentHandle == -1) ? m_Server->GetTopView() : m_Server->FindView(parentHandle);
     
     if (parent != nullptr)
     {
-        Ptr<ServerView> view = ptr_new<ServerView>(name);
-        view->SetFrame(frame);
+        Ptr<ServerView> view = ptr_new<ServerView>(name, frame, scrollOffset, flags, hideCount, eraseColor, bgColor, fgColor);
         m_Server->RegisterView(view);
         parent->AddChild(view);
-        view->SetClientHandle(replyPort, replyTarget);
+        view->SetClientHandle(clientPort, replyTarget);
         
-        ASCreateViewReply::Sender::Emit(MessagePort(replyPort), -1, replyTarget, view->GetHandle());
+        MsgCreateViewReply reply;
+        reply.m_ViewHandle = view->GetHandle();
+        if (send_message(replyPort, -1, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0) < 0) {
+            printf("ERROR: ServerApplication::SlotCreateView() failed to send message: %s\n", strerror(get_last_error()));
+        }
 
-        parent->MarkModified(view->GetFrame());
-        UpdateLowestInvalidView(parent);
+        IRect modifiedFrame = view->GetFrame();
+        Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
+        opacParent->MarkModified(modifiedFrame);
+        UpdateLowestInvalidView(opacParent);
     }
     else
     {
-        ASCreateViewReply::Sender::Emit(MessagePort(replyPort), -1, replyTarget, -1);
+        MsgCreateViewReply reply;
+        reply.m_ViewHandle = -1;
+        if (send_message(replyPort, -1, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0) < 0) {
+            printf("ERROR: ServerApplication::SlotCreateView() failed to send message: %s\n", strerror(get_last_error()));
+        }
     }
 }
 
@@ -173,10 +185,15 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
     {
         Ptr<ServerView> parent = view->GetParent();
         
+        
+        IRect modifiedFrame = view->GetIFrame();
+        Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
+
         view->RemoveThis();
         m_Server->RemoveHandler(view);
-        parent->MarkModified(view->GetFrame());
-        UpdateLowestInvalidView(parent);
+        
+        opacParent->MarkModified(modifiedFrame);
+        UpdateLowestInvalidView(opacParent);
     }
     else
     {
@@ -193,8 +210,12 @@ void ServerApplication::SlotSetViewFrame(handler_id clientHandle, const Rect& fr
     Ptr<ServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr)
     {
+        IRect modifiedFrame = view->GetIFrame();
         view->SetFrame(frame);
-        UpdateLowestInvalidView(view->GetParent());
+        modifiedFrame |= view->GetIFrame();
+        Ptr<ServerView> opacParent = ServerView::GetOpacParent(view->GetParent(), &modifiedFrame);
+        opacParent->MarkModified(modifiedFrame);
+        UpdateLowestInvalidView(opacParent);
     }
     else
     {
@@ -210,7 +231,9 @@ void ServerApplication::SlotInvalidateView(handler_id clientHandle, const IRect&
 {
     Ptr<ServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr) {
-        view->Invalidate(frame);
+        IRect invalidFrame = frame;
+        view = ServerView::GetOpacParent(view, &invalidFrame);
+        view->Invalidate(invalidFrame);
         UpdateLowestInvalidView(view);
     } else {
         printf("ERROR: ServerApplication::SlotSetViewFrame() no view with ID %d\n", clientHandle);

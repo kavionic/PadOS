@@ -19,7 +19,6 @@
 
 #pragma once
 
-
 #include <stdint.h>
 #include <vector>
 
@@ -37,12 +36,11 @@
 #include "Application.h"
 #include "Font.h"
 #include "Color.h"
+#include "LayoutNode.h"
 
 namespace os
 {
 
-
-//#include "RA8875Driver/GfxDriver.h"
 
 /** \brief Flags controlling a View
  * \ingroup gui
@@ -50,23 +48,27 @@ namespace os
  * \author Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
-enum view_flags
+namespace ViewFlags
 {
-    WID_FULL_UPDATE_ON_H_RESIZE = 0x0001,  ///< Cause the entire view to be invalidated if made higher
-    WID_FULL_UPDATE_ON_V_RESIZE = 0x0002,  ///< Cause the entire view to be invalidated if made wider
-    WID_FULL_UPDATE_ON_RESIZE   = 0x0003,  ///< Cause the entire view to be invalidated if resized
-    WID_WILL_DRAW               = 0x0004,  ///< Tell the appserver that you want to render stuff to it
-    WID_TRANSPARENT             = 0x0008,  ///< Allow the parent view to render in areas covered by this view
-    WID_CLEAR_BACKGROUND        = 0x0010,  ///< Automatically clear new areas when windows are moved/resized
-    WID_DRAW_ON_CHILDREN        = 0x0020   ///< Setting this flag allows the view to render atop of all its childs
-};
+    enum Type
+    {
+        FULL_UPDATE_ON_H_RESIZE = 0x0001,  ///< Cause the entire view to be invalidated if made higher
+        FULL_UPDATE_ON_V_RESIZE = 0x0002,  ///< Cause the entire view to be invalidated if made wider
+        FULL_UPDATE_ON_RESIZE   = 0x0003,  ///< Cause the entire view to be invalidated if resized
+        WILL_DRAW               = 0x0004,  ///< Tell the appserver that you want to render stuff to it
+        TRANSPARENT             = 0x0008,  ///< Allow the parent view to render in areas covered by this view
+        CLIENT_ONLY             = 0x0010,
+        CLEAR_BACKGROUND        = 0x0020,  ///< Automatically clear new areas when windows are moved/resized
+        DRAW_ON_CHILDREN        = 0x0040   ///< Setting this flag allows the view to render atop of all its childs
+    };
+}
 
 /** \brief Flags controlling how to resize/move a view when the parent is resized.
  * \ingroup gui
  * \sa os::view_flags, os::View
  * \author Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
-
+#if 0
 enum view_resize_flags
 {
     CF_FOLLOW_NONE   = 0x0000, ///< Neither the size nor the position is changed.
@@ -88,6 +90,7 @@ enum view_resize_flags
     CF_FOLLOW_SPECIAL  = 0x0040,
     CF_FOLLOW_MASK     = 0x007f
 };
+#endif
 
 enum drawing_mode
 {
@@ -107,16 +110,62 @@ template<typename ViewType>
 class ViewBase : public EventHandler, public SignalTarget
 {
 public:
-    ViewBase(const String& name) : EventHandler(name) {}
+    typedef std::vector<Ptr<ViewType>> ChildList_t;
+
+    ViewBase(const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor)
+        : EventHandler(name)
+        , m_Frame(frame)
+        , m_IFrame(frame)
+        , m_ScrollOffset(scrollOffset)
+        , m_Flags(flags)
+        , m_HideCount(hideCount)
+        , m_EraseColor(eraseColor)
+        , m_BgColor(bgColor)
+        , m_FgColor(fgColor) {}
 
     Ptr<ViewType>       GetParent()       { return m_Parent.Lock(); }
     Ptr<const ViewType> GetParent() const { return m_Parent.Lock(); }
 
+    const ChildList_t& GetChildList() const { return m_ChildrenList; }
+        
+    typename ChildList_t::iterator begin() { return m_ChildrenList.begin(); }
+    typename ChildList_t::iterator end()   { return m_ChildrenList.end(); }
+        
+    typename ChildList_t::const_iterator begin() const { return m_ChildrenList.begin(); }
+    typename ChildList_t::const_iterator end() const   { return m_ChildrenList.end(); }
+        
+    typename ChildList_t::iterator       GetChildIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.begin(), m_ChildrenList.end(), child); }
+    typename ChildList_t::const_iterator GetChildIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.begin(), m_ChildrenList.end(), child); }
+
+    typename ChildList_t::reverse_iterator       GetChildRIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
+    typename ChildList_t::const_reverse_iterator GetChildRIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
+    
+    int32_t GetChildIndex(Ptr<ViewType> child) const
+    {
+        auto i = GetChildIterator(child);
+        if (i != m_ChildrenList.end()) {
+            return std::distance(m_ChildrenList.begin(), i);
+        } else {
+            return -1;
+        }
+    }
+
+//    void       SetFlags(uint32_t flags);
+    uint32_t   GetFlags() const { return m_Flags; }
+    bool       HasFlag(ViewFlags::Type flag) const { return (m_Flags & uint32_t(flag)) != 0; }
+    bool       HasFlagsAll(uint32_t mask) const { return (m_Flags & mask) == mask; }
+    
+
     const Rect&         GetFrame() const { return m_Frame; }
-    const Rect          GetBounds() const { return m_Frame.Bounds(); }
+    Rect                GetBounds() const { return m_Frame.Bounds() /*- Point(m_Frame.left, m_Frame.top)*/ - m_ScrollOffset; }
+    Rect                GetNormalizedBounds() const { return m_Frame.Bounds(); }
+
+    const IRect&        GetIFrame() const { return m_IFrame; }
+    IRect               GetIBounds() const { return m_IFrame.Bounds() /*- Point(m_Frame.left, m_Frame.top)*/ - IPoint(m_ScrollOffset); }
+    IRect               GetNormalizedIBounds() const { return m_IFrame.Bounds(); }
         
     Point               GetLeftTop() const  { return Point( m_Frame.left, m_Frame.top ); }
-    IPoint              GetILeftTop() const { return IPoint( m_cIFrame.left, m_cIFrame.top ); }
+    IPoint              GetILeftTop() const { return IPoint( m_IFrame.left, m_IFrame.top ); }
         
     Color               GetFgColor() const { return m_FgColor; }
     Color               GetBgColor() const { return m_BgColor; }
@@ -142,6 +191,17 @@ public:
     void                ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos; }
     //Point               GetScrollOffset() const { return( m_ScrollOffset ); }
     
+    static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, IRect* frame)
+    {
+        while(view != nullptr && (view->m_Flags & ViewFlags::TRANSPARENT))
+        {
+            if (frame != nullptr) {
+                *frame += view->m_IFrame.LeftTop();
+            }
+            view = view->GetParent();
+        }
+        return view;
+    }        
 protected:
     friend class GUI;
     friend class Application;
@@ -150,24 +210,6 @@ protected:
 
     void LinkChild(Ptr<ViewType> child, bool topmost);
     void UnlinkChild(Ptr<ViewType> child);
-
-    typedef std::vector<Ptr<ViewType>> ChildList_t;
-
-    typename ChildList_t::iterator       GetChildIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.begin(), m_ChildrenList.end(), child); }
-    typename ChildList_t::const_iterator GetChildIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.begin(), m_ChildrenList.end(), child); }
-
-    typename ChildList_t::reverse_iterator       GetChildRIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
-    typename ChildList_t::const_reverse_iterator GetChildRIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
-    
-    int32_t GetChildIndex(Ptr<ViewType> child) const
-    {
-        auto i = GetChildIterator(child);
-        if (i != m_ChildrenList.end()) {
-            return std::distance(m_ChildrenList.begin(), i);
-        } else {
-            return -1;
-        }
-    }
     
     void Added(ViewBase* parent, int hideCount, int level)
     {
@@ -183,37 +225,24 @@ protected:
         }
     }
 
-    void UpdateScreenPos()
-    {
-        Ptr<ViewBase> parent = m_Parent.Lock();
-        if (parent == nullptr) {
-            m_ScreenPos = m_Frame.LeftTop();
-        } else {
-            m_ScreenPos = parent->m_ScreenPos + m_Frame.LeftTop();
-        }
-        for (Ptr<ViewBase> child : m_ChildrenList) {
-            child->UpdateScreenPos();
-        }
-    }
-
-    uint32_t m_Flags = 0;    
     Rect m_Frame = Rect(0.0f, 0.0f, 0.0f, 0.0f);
-    IRect m_cIFrame; // Frame rectangle relative to our parent
+    IRect m_IFrame; // Frame rectangle relative to our parent
     Point  m_ScrollOffset;
-    IPoint m_cIScrollOffset;
+    uint32_t m_Flags = 0;    
 
     Point m_ScreenPos = Point(0.0f, 0.0f);
     WeakPtr<ViewType> m_Parent;
     
     ChildList_t       m_ChildrenList;
     
-    Color             m_FgColor    = Color(0xff000000);
-    Color             m_BgColor    = Color(0xffffffff);
-    Color             m_EraseColor = Color(0xffffffff);
     Point             m_PenPosition;
 
     int               m_HideCount = 0;
     int               m_Level = 0;
+
+    Color             m_EraseColor = Color(0xffffffff);
+    Color             m_BgColor    = Color(0xffffffff);
+    Color             m_FgColor    = Color(0xff000000);
     
     ViewBase(const ViewBase&) = delete;
     ViewBase& operator=(const ViewBase&) = delete;
@@ -260,7 +289,6 @@ void ViewBase<ViewType>::UnlinkChild(Ptr<ViewType> child)
         } else {
             printf("ERROR: ViewBase::UnlinkChildren() failed to find view in children list.\n");
         }
-        child->UpdateScreenPos();
         child->HandleRemovedFromParent(ptr_tmp_cast(static_cast<ViewType*>(this)));
     }
     else
@@ -272,15 +300,22 @@ void ViewBase<ViewType>::UnlinkChild(Ptr<ViewType> child)
 class View : public ViewBase<View>
 {
 public:
-    View(const String& name);
-
+    View(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    virtual ~View();
+    
     Application* GetApplication();
     
     virtual void AttachedToScreen() {}
     virtual void AllAttachedToScreen() {}
     virtual void DetachedFromScreen() {}
     virtual void AllDetachedFromScreen() {}
-        
+
+    Ptr<LayoutNode> GetLayoutNode() const;
+    void            SetLayoutNode(Ptr<LayoutNode> node);
+    void            InvalidateLayout();
+
+    void            AdjustPrefSize(Point* minSize, Point* maxSize);
+
 //    virtual void Activated(bool isActive);
     //    virtual void WindowActivated( bool bIsActive );
 
@@ -290,12 +325,13 @@ public:
     virtual bool OnMouseUp(MouseButton_e button, const Point& position);
     virtual bool OnMouseMove(MouseButton_e button, const Point& position);
 
-//    virtual void  FrameMoved( const Point& cDelta );
-//    virtual void  FrameSized( const Point& cDelta );
-//    virtual void  ViewScrolled( const Point& cDelta );
-//    virtual void  FontChanged( Font* pcNewFont );
+    virtual void  FrameMoved(const Point& delta);
+    virtual void  FrameSized(const Point& delta);
+    virtual void  ViewScrolled(const Point& delta);
+    virtual void  FontChanged(Ptr<Font> newFont);
     
     virtual Point GetPreferredSize(bool largest) const;
+    virtual float GetWheight() const;
     virtual Point GetContentSize() const;
 
 //    virtual void WheelMoved( const Point& cDelta );
@@ -307,9 +343,6 @@ public:
     Ptr<View>  GetChildAt(const Point& pos);
     Ptr<View>  GetChildAt(int index);
 
-    void       SetFlags( uint32_t nFlags );
-    uint32_t   GetFlags( uint32_t nMask = ~0L ) const;
-
     void       SetResizeMask( uint32_t nFlags );
     uint32_t   GetResizeMask() const;
     
@@ -320,8 +353,6 @@ public:
 //    virtual bool HasFocus() const;
 
 //    Rect GetFrame() const;
-//    Rect GetBounds() const;
-    Rect   GetNormalizedBounds() const;
     float  Width() const;
     float  Height() const;
 //    Point  GetLeftTop() const;
@@ -384,8 +415,7 @@ public:
     virtual void    ScrollTo(float x, float y)             { ScrollTo(Point(x, y)); }
         
     Point           GetScrollOffset() const                { return m_ScrollOffset; }
-    IPoint          GetIScrollOffset() const               { return m_cIScrollOffset; }
-    void            ScrollRect(const Rect& srcRect, const Point& dstPos);
+    void            CopyRect(const Rect& srcRect, const Point& dstPos) { Post<ASViewCopyRect>(srcRect, dstPos); }
     
     //    void DrawBitmap( const Bitmap* pcBitmap, const Rect& cSrcRect, const Rect& cDstRect );
     void            EraseRect( const Rect& cRect );
@@ -423,13 +453,42 @@ private:
 
     void HandleDetachedFromScreen();
 
+    void UpdatePosition(bool forceServerUpdate)
+    {
+        Point newOffset;
+        {
+            Ptr<View> parent = m_Parent.Lock();
+            if (parent != nullptr && parent->HasFlag(ViewFlags::CLIENT_ONLY)) {
+                newOffset = parent->m_PositionOffset + parent->m_Frame.LeftTop();
+            } else {
+                newOffset = Point(0.0f, 0.0f);
+            }
+        }            
+        if (forceServerUpdate || newOffset != m_PositionOffset)
+        {
+            m_PositionOffset = newOffset;
+            if (m_ServerHandle != -1 && !HasFlag(ViewFlags::CLIENT_ONLY))
+            {
+                GetApplication()->SetViewFrame(m_ServerHandle, m_Frame + m_PositionOffset);
+            }                    
+        }
+        for (Ptr<View> child : m_ChildrenList) {
+            child->UpdatePosition(false);
+        }
+    }
+
     void HandlePaint(const Rect& updateRect);
     
-    void SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
-
+    void       SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
+    handler_id GetServerHandle() const            { return m_ServerHandle; }
+        
     void ConstrictRectangle(Rect* rect, const Point& offset);
 
     handler_id m_ServerHandle = -1;
+    
+    Ptr<LayoutNode> m_LayoutNode;
+    
+    Point m_PositionOffset; // Offset relative to first parent that is not client only.
     
     bool m_DidScrollRect = false;
     int  m_BeginPainCount = 0;

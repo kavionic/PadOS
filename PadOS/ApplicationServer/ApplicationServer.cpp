@@ -19,6 +19,7 @@
 
 #include "sam.h"
 
+#include <string.h>
 #include <fcntl.h>
 
 #include "ApplicationServer.h"
@@ -39,11 +40,9 @@ MessagePort os::g_AppserverPort(-1, false);
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ApplicationServer::ApplicationServer() : Looper("appserver", 100, APPSERVER_MSG_BUFFER_SIZE)
+ApplicationServer::ApplicationServer() : Looper("appserver", 10, APPSERVER_MSG_BUFFER_SIZE)
 {
-    m_TopView = ptr_new<ServerView>("::topview::");
-    m_TopView->SetFrame(GetScreenFrame());
-    m_TopView->SetFrame(GetScreenFrame());
+    m_TopView = ptr_new<ServerView>("::topview::", GetScreenFrame(), Point(0.0f, 0.0f), 0, 0, Color(0xffffffff), Color(0xffffffff), Color(0));
 
     AddHandler(m_TopView);
 
@@ -149,13 +148,18 @@ Ptr<ServerView> ApplicationServer::FindView(handler_id handle) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::SlotRegisterApplication(port_id clientPort, const String& name)
+void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name)
 {
     Ptr<ServerApplication> app = ptr_new<ServerApplication>(this, name, clientPort);
     
     AddHandler(app);
 
-    ASRegisterApplicationReply::Sender::Emit(MessagePort(clientPort), -1, app->GetHandle());    
+    MsgRegisterApplicationReply reply;
+    reply.m_ServerHandle = app->GetHandle();
+    
+    if (send_message(replyPort, -1, AppserverProtocol::REGISTER_APPLICATION_REPLY, &reply, sizeof(reply), 0) < 0) {
+        printf("ERROR: ApplicationServer::SlotRegisterApplication() failed to send message: %s\n", strerror(get_last_error()));
+    }
 }
 
 

@@ -48,7 +48,6 @@ public:
     status_t SetReceiveBufferSize(size_t size);
     size_t   GetReceiveBufferSize() const;
 
-//    int32_t AllocReplyToken();
     bool    WaitForReply(handler_id replyHandler, int32_t replyCode);
 
     bool AddHandler(Ptr<EventHandler> handler);

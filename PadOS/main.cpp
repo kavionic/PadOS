@@ -323,7 +323,6 @@ int main(void)
 {
     __disable_irq();
 
-
     SAME70System::EnablePeripheralClock(ID_PIOA);
     SAME70System::EnablePeripheralClock(ID_PIOB);
     SAME70System::EnablePeripheralClock(ID_PIOC);

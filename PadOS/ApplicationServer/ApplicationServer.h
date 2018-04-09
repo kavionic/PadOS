@@ -58,7 +58,7 @@ private:
     void HandleMouseUp(MouseButton_e button, const Point& position);
     void HandleMouseMove(MouseButton_e button, const Point& position);
 
-    void SlotRegisterApplication(port_id clientPort, const String& name);
+    void SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name);
 
     EventTimer m_PollTouchDriverTimer;
 

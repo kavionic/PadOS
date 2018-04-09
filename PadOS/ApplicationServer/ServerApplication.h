@@ -44,12 +44,12 @@ private:
     void UpdateRegions();
     void UpdateLowestInvalidView(Ptr<ServerView> view);
 
-    void SlotCreateView(port_id replyPort, handler_id replyTarget, handler_id parentHandle, const String& name, const Rect& frame);
+    void SlotCreateView(port_id clientPort, port_id replyPort, handler_id replyTarget, handler_id parentHandle, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor);
     void SlotDeleteView(handler_id clientHandle);
     void SlotSetViewFrame(handler_id clientHandle, const Rect& frame);
     void SlotInvalidateView(handler_id clientHandle, const IRect& frame);
 
-    void SlotViewSync(handler_id viewHandle)                                                { ForwardToView(viewHandle, &ServerView::Sync); }
+    void SlotSync(port_id replyPort)                                                        { ASSyncReply::Sender::Emit(MessagePort(replyPort), -1, 0); }
     void SlotViewBeginUpdate(handler_id viewHandle)                                         { ForwardToView(viewHandle, &ServerView::BeginUpdate); }
     void SlotViewEndUpdate(handler_id viewHandle)                                           { ForwardToView(viewHandle, &ServerView::EndUpdate); }
     void SlotViewSetFgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetFgColor, color); }
@@ -63,6 +63,7 @@ private:
     void SlotViewFillCircle(handler_id viewHandle, const Point& position, float radius)     { ForwardToView(viewHandle, &ServerView::FillCircle, position, radius); }
     void SlotViewDrawString(handler_id viewHandle, const String& string, float maxWidth, uint8_t flags)     { ForwardToView(viewHandle, &ServerView::DrawString, string, maxWidth, flags); }
     void SlotViewScrollBy(handler_id viewHandle, const Point& delta)                        { ForwardToView(viewHandle, &ServerView::ScrollBy, delta); }
+    void SlotViewCopyRect(handler_id viewHandle, const Rect& srcRect, const Point& dstPos)  { ForwardToView(viewHandle, &ServerView::CopyRect, srcRect, dstPos); }
 
     template<typename CB, typename... ARGS>
     void ForwardToView(handler_id viewHandle, CB callback, ARGS&&... args)
@@ -83,12 +84,12 @@ private:
     Ptr<ServerView> m_LowestInvalidView;
     int             m_LowestInvalidLevel = std::numeric_limits<int>::max();
     
+    ASSync::Receiver              RSSync;
     ASCreateView::Receiver        RSCreateView;
     ASDeleteView::Receiver        RSDeleteView;
     ASSetViewFrame::Receiver      RSSetViewFrame;
     ASInvalidateView::Receiver    RSInvalidateView;
     
-    ASViewSync::Receiver          RSViewSync;
     ASViewBeginUpdate::Receiver   RSViewBeginUpdate;
     ASViewEndUpdate::Receiver     RSViewEndUpdate;
     ASViewSetFgColor::Receiver    RSViewSetFgColor;
@@ -102,6 +103,7 @@ private:
     ASViewFillCircle::Receiver    RSViewFillCircle;
     ASViewDrawString::Receiver    RSViewDrawString;
     ASViewScrollBy::Receiver      RSViewScrollBy;
+    ASViewCopyRect::Receiver      RSViewCopyRect;
     
     ServerApplication(const ServerApplication&) = delete;
     ServerApplication& operator=(const ServerApplication&) = delete;

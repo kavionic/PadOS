@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 06.11.2017 23:22:03
 
+#include <string.h>
+
 #include "Application.h"
 #include "System/GUI/View.h"
 
@@ -26,27 +28,29 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Application::Application(const String& name) : Looper(name, 10)
+Application::Application(const String& name) : Looper(name, 1000), m_ReplyPort("app_reply", 1000)
 {
-//    RSCreateView.SetTransmitter(this, &Application::SlotTransmitRemoteSignal);
-//    RSDeleteView.SetTransmitter(this, &Application::SlotTransmitRemoteSignal);
-//    RSSetViewFrame.SetTransmitter(this, &Application::SlotTransmitRemoteSignal);
-//    RSInvalidateView.SetTransmitter(this, &Application::SlotTransmitRemoteSignal);
+    ASRegisterApplication::Sender::Emit(g_AppserverPort, -1, INFINIT_TIMEOUT, m_ReplyPort.GetPortID(), GetPortID(), GetName());
     
-    RSRegisterApplicationReply.Connect(this, &Application::SlotRegisterApplicationReply);
-    RSCreateViewReply.Connect(this, &Application::SlotCreateViewReply);
-    
-//    size_t size = RSRegisterApplication.GetSize(GetPortID(), GetName());
-//    RSRegisterApplication(this, &Application::AllocMessageBuffer, GetPortID(), GetName());
-    ASRegisterApplication::Sender::Emit(g_AppserverPort, -1, GetPortID(), GetName());
-//    g_AppserverPort.SendMessage(-1, RSRegisterApplication.GetID(), m_SendBuffer, size);
-//    RSRegisterApplication(g_AppserverPort, -1, GetPortID(), GetName());
-//    Flush();    
-    WaitForReply(-1, AppserverProtocol::REGISTER_APPLICATION_REPLY);
-    
-    
-//    m_TopView = ptr_new<View>();
-//    AddView(m_TopView);
+    for(;;)
+    {
+        MsgRegisterApplicationReply reply;
+        int32_t                     code;
+        if (m_ReplyPort.ReceiveMessage(nullptr, &code, &reply, sizeof(reply)))
+        {
+            if (code == AppserverProtocol::REGISTER_APPLICATION_REPLY) {
+                m_ServerHandle = reply.m_ServerHandle;
+                break;
+            } else {
+                printf("ERROR: Application::Application() received invalid reply: %" PRId32 "\n", code);
+            }
+        }
+        else if (get_last_error() != EINTR)
+        {
+            printf("ERROR: Application::Application() receive failed: %s\n", strerror(get_last_error()));            
+            break;
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -63,13 +67,6 @@ Application::~Application()
 
 bool Application::HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length)
 {
-    if (code == AppserverProtocol::REGISTER_APPLICATION_REPLY) {
-        RSRegisterApplicationReply.Dispatch(data, length);
-        return true;
-    } else if (code == AppserverProtocol::CREATE_VIEW_REPLY) {
-        RSCreateViewReply.Dispatch(data, length);
-        return true;
-    }
     return false;
 }
 
@@ -88,17 +85,67 @@ IRect Application::GetScreenIFrame()
 
 bool Application::AddView(Ptr<View> view)
 {
-    AddHandler(view);
     Ptr<View> parent = view->GetParent();
-    Post<ASCreateView>(GetPortID(), view->GetHandle(), (parent != nullptr) ? parent->m_ServerHandle : -1, view->GetName(), view->m_Frame);
-    Flush();
-    WaitForReply(-1, RSCreateViewReply.GetID());
+    handler_id parentHandle = -1;
+    for (Ptr<View> i = parent; i != nullptr; i = i->GetParent())
+    {
+        if (!i->HasFlag(ViewFlags::CLIENT_ONLY))
+        {
+            parentHandle = i->GetServerHandle();
+            break;
+        }
+    }
+    if (!view->HasFlag(ViewFlags::CLIENT_ONLY))
+    {
+        AddHandler(view);
+        Post<ASCreateView>(GetPortID()
+                            , m_ReplyPort.GetPortID()
+                            , view->GetHandle()
+                            , (parent != nullptr) ? parentHandle : -1
+                            , view->GetName()
+                            , view->m_Frame + view->m_PositionOffset
+                            , view->m_ScrollOffset
+                            , view->m_Flags
+                            , view->m_HideCount
+                            , view->m_EraseColor
+                            , view->m_BgColor
+                            , view->m_FgColor
+                            );
+        Flush();
     
+        for (;;)
+        {
+            MsgCreateViewReply reply;
+            int32_t            code;
+            if (m_ReplyPort.ReceiveMessage(nullptr, &code, &reply, sizeof(reply)))
+            {
+                if (code == AppserverProtocol::CREATE_VIEW_REPLY) {
+                    view->SetServerHandle(reply.m_ViewHandle);
+                    break;
+                } else {
+                    printf("ERROR: Application::AddView() received invalid reply: %" PRId32 "\n", code);
+                }
+            }
+            else if (get_last_error() != EINTR)
+            {
+                printf("ERROR: Application::AddView() receive failed: %s\n", strerror(get_last_error()));
+                break;
+            }
+        }
+    }
+    else // Client only.
+    {
+        if (parent == nullptr) {
+            printf("ERROR: Application::AddView() attempt to add client-only view to viewport.\n");
+            return false;
+        }
+    }
     view->AttachedToScreen();
     for (Ptr<View> child : view->m_ChildrenList) {
         AddView(ptr_static_cast<View>(child));
     }
     view->AllAttachedToScreen();
+    view->InvalidateLayout();
     return true;
 }
 
@@ -112,12 +159,21 @@ bool Application::RemoveView(Ptr<View> view)
         printf("ERROR: Application::RemoveView() attempt to remove a view with no server handle\n");
         return false;
     }
-    if (view->GetParent() != nullptr) {
-        return view->RemoveThis();
+    if (!view->HasFlag(ViewFlags::CLIENT_ONLY))
+    {
+        Post<ASDeleteView>(view->m_ServerHandle);
+        DetachView(view);
     }
-    Post<ASDeleteView>(view->m_ServerHandle);
+    else
+    {
+        for (Ptr<View> child : *view) {
+            RemoveView(child);
+        }
+        RemoveHandler(view);
+        view->SetServerHandle(-1);
+    }
     view->HandleDetachedFromScreen();
-    return RemoveHandler(view);
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -130,6 +186,41 @@ void Application::Flush()
         g_AppserverPort.SendMessage(m_ServerHandle, AppserverProtocol::MESSAGE_BUNDLE, m_SendBuffer, m_UsedSendBufferSize);
         m_UsedSendBufferSize = 0;
     }    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Application::Sync()
+{
+    Post<ASSync>(m_ReplyPort.GetPortID());
+    Flush();
+    int32_t code;
+    for (;;)
+    {
+        if (m_ReplyPort.ReceiveMessage(nullptr, &code, nullptr, 0) < 0 && get_last_error() != EINTR) break;
+        if (code == AppserverProtocol::SYNC_REPLY) {
+            break;
+        } else {
+            printf("ERROR: Application::Sync() received invalid reply: %" PRIi32 "\n", code);
+        }
+        
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Application::DetachView(Ptr<View> view)
+{
+    for (Ptr<View> child : *view)
+    {
+        DetachView(child);
+    }
+    RemoveHandler(view);
+    view->SetServerHandle(-1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -152,26 +243,3 @@ void* Application::AllocMessageBuffer(int32_t messageID, size_t size)
     buffer->m_Length = size;
     return buffer + 1;
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-/*bool Application::SlotTransmitRemoteSignal(int id, const void* data, size_t length)
-{
-    return g_AppserverPort.SendMessage(-1, id, data, length);
-}*/
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void Application::SlotCreateViewReply(handler_id clientHandle, handler_id serverHandle)
-{
-    Ptr<View> view = FindView(clientHandle);
-    if (view != nullptr)
-    {
-        view->SetServerHandle(serverHandle);
-    }
-}
-

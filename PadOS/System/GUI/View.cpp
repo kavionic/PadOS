@@ -36,14 +36,31 @@ WeakPtr<View> View::s_MouseDownView;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(const String& name) : ViewBase(name)
+View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name, Rect(), Point(), flags, 0, Color(0xffffffff), Color(0xffffffff), Color(0))
 {
     RegisterRemoteSignal(&RSPaintView, &View::HandlePaint);
     RegisterRemoteSignal(&RSHandleMouseDown, &View::HandleMouseDown);
     RegisterRemoteSignal(&RSHandleMouseUp, &View::HandleMouseUp);
     RegisterRemoteSignal(&RSHandleMouseMove, &View::HandleMouseMove);    
     
+    if (parent != nullptr) {
+        parent->AddChild(ptr_tmp_cast(this));
+    }
 //    SetFont(ptr_new<Font>(GfxDriver::e_Font7Seg));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+View::~View()
+{
+    SetLayoutNode(nullptr);
+    
+    while(!m_ChildrenList.empty())
+    {
+        RemoveChild(m_ChildrenList[m_ChildrenList.size()-1]);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -53,6 +70,55 @@ View::View(const String& name) : ViewBase(name)
 Application* View::GetApplication()
 {
     return static_cast<Application*>(GetLooper());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<LayoutNode> View::GetLayoutNode() const
+{
+    return m_LayoutNode;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::SetLayoutNode(Ptr<LayoutNode> node)
+{
+    if (m_LayoutNode != nullptr) 
+    {
+        Ptr<LayoutNode> layoutNode = m_LayoutNode;
+        m_LayoutNode = nullptr;
+        layoutNode->AttachedToView(nullptr);
+    }
+    m_LayoutNode = node;
+    if (m_LayoutNode != nullptr) {
+        m_LayoutNode->AttachedToView(this);
+    }
+}    
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::InvalidateLayout()
+{
+    if ( m_LayoutNode != nullptr ) {
+        m_LayoutNode->Layout();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::AdjustPrefSize(Point* minSize, Point* maxSize)
+{
+    if ( m_LayoutNode != nullptr ) {
+        m_LayoutNode->AdjustPrefSize(minSize, maxSize);
+    }    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -98,9 +164,65 @@ bool View::OnMouseMove(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void View::FrameMoved(const Point& delta)
+{
+    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::FrameSized(const Point& delta)
+{
+    if (m_LayoutNode != nullptr)
+    {
+        m_LayoutNode->Layout();
+    }    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::ViewScrolled(const Point& delta)
+{
+    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::FontChanged(Ptr<Font> newFont)
+{
+    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Point View::GetPreferredSize(bool largest) const
 {
-    return largest ? Point(std::numeric_limits<float>::max(), std::numeric_limits<float>::max()) : Point(0.0f, 0.0f);
+    if (m_LayoutNode != nullptr) {
+        return m_LayoutNode->GetPreferredSize(largest);
+    } else {
+        return largest ? Point(std::numeric_limits<float>::max(), std::numeric_limits<float>::max()) : Point(0.0f, 0.0f);
+    }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float View::GetWheight() const
+{
+    if (m_LayoutNode != nullptr) {
+        return m_LayoutNode->GetWheight();
+    } else {
+        return 1.0f;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -151,10 +273,16 @@ bool View::RemoveThis()
 
 void View::SetFrame(const Rect& frame, bool notifyServer)
 {
+    Point deltaSize = frame.Size() - m_Frame.Size();
+    Point deltaPos  = frame.LeftTop() - m_Frame.LeftTop();
     m_Frame = frame;
-    UpdateScreenPos();
-    if (m_ServerHandle != -1) {
-        GetApplication()->SetViewFrame(m_ServerHandle, frame);
+    m_IFrame = frame;
+    UpdatePosition(true);
+    if (deltaSize != Point(0.0f, 0.0f)) {
+        FrameSized(deltaSize);
+    }
+    if (deltaPos != Point(0.0f, 0.0f)) {
+        FrameMoved(deltaPos);
     }
 }
 
@@ -236,6 +364,8 @@ void View::HandleMouseUp(MouseButton_e button, const Point& position)
 {
     Ptr<View> mouseView = s_MouseDownView.Lock();
     if (mouseView != nullptr) {
+        printf("View::HandleMouseUp() %p '%s'\n", ptr_raw_pointer_cast(mouseView), mouseView->GetName().c_str());
+
         mouseView->OnMouseUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
     } else {
         OnMouseUp(button, position);
@@ -357,17 +487,10 @@ void View::Flush()
 
 void View::Sync()
 {
-    if (m_ServerHandle != -1)
-    {
-        Application* app = GetApplication();
-        if (app != nullptr)
-        {
-            Post<ASViewSync>();
-            Flush();
-            Ptr<View> lifeInsurance = ptr_tmp_cast(this);
-            app->WaitForReply(-1, AppserverProtocol::VIEW_SYNC_REPLY);
-        }
-    }    
+    Application* app = GetApplication();
+    if (app != nullptr) {
+        app->Sync();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -380,7 +503,12 @@ void View::HandleAddedToParent(Ptr<View> parent)
 {
     if (parent->m_ServerHandle != -1)
     {
+        UpdatePosition(false);
         GetApplication()->AddView(ptr_tmp_cast(this));
+        
+        if (m_LayoutNode != nullptr) {
+            m_LayoutNode->Layout();
+        }
     }
 }
 

@@ -52,7 +52,14 @@ TestApp::~TestApp()
 
 void TestApp::ThreadStarted()
 {
-    SlotTestDone();    
+//    SlotTestDone();    
+
+    AddView(ptr_new<SensorView>(),     ViewDockType::DockedWindow);
+    AddView(ptr_new<RenderTest1>(),    ViewDockType::DockedWindow);
+    AddView(ptr_new<RenderTest2>(),    ViewDockType::DockedWindow);
+    AddView(ptr_new<RenderTest3>(),    ViewDockType::DockedWindow);
+    AddView(ptr_new<ScrollTestView>(), ViewDockType::DockedWindow);
+    AddView(ptr_new<PaintView>(),      ViewDockType::DockedWindow);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -93,5 +100,5 @@ void TestApp::SlotTestDone()
     } 
     Rect viewFrame = Application::GetScreenFrame();
     m_CurrentView->SetFrame(viewFrame);
-    AddView(m_CurrentView);
+    AddView(m_CurrentView, ViewDockType::FullscreenWindow);
 }

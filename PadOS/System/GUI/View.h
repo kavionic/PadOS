@@ -52,16 +52,29 @@ namespace ViewFlags
 {
     enum Type
     {
-        FULL_UPDATE_ON_H_RESIZE = 0x0001,  ///< Cause the entire view to be invalidated if made higher
-        FULL_UPDATE_ON_V_RESIZE = 0x0002,  ///< Cause the entire view to be invalidated if made wider
-        FULL_UPDATE_ON_RESIZE   = 0x0003,  ///< Cause the entire view to be invalidated if resized
-        WILL_DRAW               = 0x0004,  ///< Tell the appserver that you want to render stuff to it
-        TRANSPARENT             = 0x0008,  ///< Allow the parent view to render in areas covered by this view
+        FULL_UPDATE_ON_H_RESIZE = 0x0001,   ///< Cause the entire view to be invalidated if made higher
+        FULL_UPDATE_ON_V_RESIZE = 0x0002,   ///< Cause the entire view to be invalidated if made wider
+        FULL_UPDATE_ON_RESIZE   = 0x0003,   ///< Cause the entire view to be invalidated if resized
+        WILL_DRAW               = 0x0004,   ///< Tell the appserver that you want to render stuff to it
+        TRANSPARENT             = 0x0008,   ///< Allow the parent view to render in areas covered by this view
         CLIENT_ONLY             = 0x0010,
-        CLEAR_BACKGROUND        = 0x0020,  ///< Automatically clear new areas when windows are moved/resized
-        DRAW_ON_CHILDREN        = 0x0040   ///< Setting this flag allows the view to render atop of all its childs
+        CLEAR_BACKGROUND        = 0x0020,   ///< Automatically clear new areas when windows are moved/resized
+        DRAW_ON_CHILDREN        = 0x0040,   ///< Setting this flag allows the view to render atop of all its childs
+        EAVESDROPPER            = 0x0080,   ///< Client-side view that is connected to a foreign server-side view.
+        IGNORE_MOUSE            = 0x0100,   ///< Make the view invisible to mouse/touch events.
+        FORCE_HANDLE_MOUSE      = 0x0200    ///< Handle the mouse/touch event even if a child view is under the mouse.
     };
 }
+
+enum class ViewDockType : int32_t
+{
+    RootLevelView,
+    ChildView,
+    PopupWindow,
+    DockedWindow,
+    FullscreenWindow,
+    StatusBarIcon
+};
 
 /** \brief Flags controlling how to resize/move a view when the parent is resized.
  * \ingroup gui
@@ -104,6 +117,39 @@ enum drawing_mode
     DM_MIN,
     DM_MAX,
     DM_SELECT
+};
+
+enum class StandardColorID : int32_t
+{
+    NORMAL,
+    SHINE,
+    SHADOW,
+    SELECTED_WND_BORDER,
+    NORMAL_WND_BORDER,
+    MENU_TEXT,
+    SELECTED_MENU_TEXT,
+    MENU_BACKGROUND,
+    SELECTED_MENU_BACKGROUND,
+    SCROLLBAR_BG,
+    SCROLLBAR_KNOB,
+    LISTVIEW_TAB,
+    LISTVIEW_TAB_TEXT,
+    COUNT
+};
+
+Color get_standard_color(StandardColorID colorID);
+void  set_standard_color(StandardColorID colorID, Color color);
+
+enum
+{
+    FRAME_RECESSED    = 0x000008,
+    FRAME_RAISED      = 0x000010,
+    FRAME_THIN	      = 0x000020,
+    FRAME_WHIDE	      = 0x000040,
+    FRAME_ETCHED      = 0x000080,
+    FRAME_FLAT	      = 0x000100,
+    FRAME_DISABLED    = 0x000200,
+    FRAME_TRANSPARENT = 0x010000
 };
 
 template<typename ViewType>
@@ -301,9 +347,11 @@ class View : public ViewBase<View>
 {
 public:
     View(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame);
     virtual ~View();
     
     Application* GetApplication();
+    handler_id   GetServerHandle() const { return m_ServerHandle; }
     
     virtual void AttachedToScreen() {}
     virtual void AllAttachedToScreen() {}
@@ -357,7 +405,7 @@ public:
     float  Height() const;
 //    Point  GetLeftTop() const;
 
-    virtual void        SetFrame(const Rect& frame, bool bNotifyServer = true);
+    virtual void        SetFrame(const Rect& frame);
     void                Move(const Point& delta) { SetFrame(m_Frame + delta); }
 /*    virtual void MoveBy( const Point& cDelta );
     virtual void MoveBy( float vDeltaX, float vDeltaY );
@@ -374,7 +422,7 @@ public:
     void                SetShapeRegion( const Region& cReg );
     void                ClearShapeRegion();
     
-//    virtual int ToggleDepth();
+    virtual void ToggleDepth() { Post<ASViewToggleDepth>(); }
 
     void                Invalidate( const Rect& cRect, bool bRecurse = false );
     void                Invalidate( bool bRecurse = false );
@@ -395,21 +443,22 @@ public:
     void            SetEraseColor(int red, int green, int blue, int alpha = 255) { SetEraseColor(Color(red, green, blue, alpha)); }
     void            SetEraseColor(Color color) { m_EraseColor = color; Post<ASViewSetEraseColor>(color); }
 
-    void            MovePenTo(const Point& pos)                         { m_PenPosition = pos; Post<ASViewMovePenTo>(pos); }
-    void            MovePenTo(float x, float y)                         { MovePenTo(Point(x, y)); }
-    void            MovePenBy(const Point& pos)                         { MovePenTo(m_PenPosition + pos); }
-    void            MovePenBy(float x, float y)                         { MovePenBy(Point(x, y)); }
-    Point           GetPenPosition() const                              { return m_PenPosition; }
-    void            DrawLine(const Point& toPos)                        { Post<ASViewDrawLine1>(toPos); }
-    void            DrawLine(const Point& fromPos, const Point& toPos ) { Post<ASViewDrawLine2>(fromPos, toPos); }
-    void            DrawLine(float x1, float y1, float x2, float y2)    { DrawLine(Point(x1, y1), Point(x2, y2)); }
-    void            FillRect( const Rect& rect )                        { Post<ASViewFillRect>(rect); }
-    void            FillRect( const Rect& rect, Color color ); // WARNING: Will leave FgColor at color
+    void            MovePenTo(const Point& pos)                        { m_PenPosition = pos; Post<ASViewMovePenTo>(pos); }
+    void            MovePenTo(float x, float y)                        { MovePenTo(Point(x, y)); }
+    void            MovePenBy(const Point& pos)                        { MovePenTo(m_PenPosition + pos); }
+    void            MovePenBy(float x, float y)                        { MovePenBy(Point(x, y)); }
+    Point           GetPenPosition() const                             { return m_PenPosition; }
+    void            DrawLine(const Point& toPos)                       { Post<ASViewDrawLine1>(toPos); }
+    void            DrawLine(const Point& fromPos, const Point& toPos) { Post<ASViewDrawLine2>(fromPos, toPos); }
+    void            DrawLine(float x1, float y1, float x2, float y2)   { DrawLine(Point(x1, y1), Point(x2, y2)); }
+    void            FillRect(const Rect& rect)                         { Post<ASViewFillRect>(rect, m_FgColor); }
+    void            FillRect(const Rect& rect, Color color)            { Post<ASViewFillRect>(rect, color); }
+    void            EraseRect(const Rect& rect)                        { Post<ASViewFillRect>(rect, m_EraseColor); }
 
     void            FillCircle(const Point& position, float radius) { Post<ASViewFillCircle>(position, radius); }
     void            DrawString(const String& string, float maxWidth = 100000.0f, uint8_t flags = 0) { Post<ASViewDrawString>(string, maxWidth, flags); }
 
-    virtual void    ScrollBy(const Point& delta)           { Post<ASViewScrollBy>(delta); }
+    virtual void    ScrollBy(const Point& offset)           { /*m_ScrollOffset += offset;*/ Post<ASViewScrollBy>(offset); }
     virtual void    ScrollBy(float vDeltaX, float vDeltaY) { ScrollBy(Point(vDeltaX, vDeltaY)); }
     virtual void    ScrollTo(Point topLeft)                { ScrollBy(topLeft - m_ScrollOffset); }
     virtual void    ScrollTo(float x, float y)             { ScrollTo(Point(x, y)); }
@@ -418,8 +467,7 @@ public:
     void            CopyRect(const Rect& srcRect, const Point& dstPos) { Post<ASViewCopyRect>(srcRect, dstPos); }
     
     //    void DrawBitmap( const Bitmap* pcBitmap, const Rect& cSrcRect, const Rect& cDstRect );
-    void            EraseRect( const Rect& cRect );
-    void            DrawFrame( const Rect& cRect, uint32_t nFlags );
+    void            DrawFrame(const Rect& rect, uint32_t styleFlags);
 
         
     void            DrawBevelBox(Rect frame, bool raised);
@@ -438,6 +486,8 @@ public:
 private:
     friend class Application;
     friend class ViewBase<View>;
+
+    void Initialize();
 
     template<typename SIGNAL, typename... ARGS>
     void Post(ARGS&&... args) {
@@ -469,7 +519,8 @@ private:
             m_PositionOffset = newOffset;
             if (m_ServerHandle != -1 && !HasFlag(ViewFlags::CLIENT_ONLY))
             {
-                GetApplication()->SetViewFrame(m_ServerHandle, m_Frame + m_PositionOffset);
+                Post<ASViewSetFrame>(m_Frame + m_PositionOffset, GetHandle());
+//                GetApplication()->SetViewFrame(m_ServerHandle, m_Frame + m_PositionOffset);
             }                    
         }
         for (Ptr<View> child : m_ChildrenList) {
@@ -480,7 +531,6 @@ private:
     void HandlePaint(const Rect& updateRect);
     
     void       SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
-    handler_id GetServerHandle() const            { return m_ServerHandle; }
         
     void ConstrictRectangle(Rect* rect, const Point& offset);
 
@@ -498,6 +548,7 @@ private:
     static WeakPtr<View> s_MouseDownView;
     
     ASPaintView::Receiver RSPaintView;
+    ASViewFrameChanged::Receiver RSViewFrameChanged;
     
     ASHandleMouseDown::Receiver RSHandleMouseDown;
     ASHandleMouseUp::Receiver   RSHandleMouseUp;

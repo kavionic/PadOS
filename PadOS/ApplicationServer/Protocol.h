@@ -34,6 +34,7 @@ namespace os
 extern MessagePort g_AppserverPort;
 
 typedef int32_t app_handle;
+enum class ViewDockType : int32_t;
 
 namespace AppserverProtocol
 {
@@ -47,13 +48,15 @@ namespace AppserverProtocol
         CREATE_VIEW,
         DELETE_VIEW,
         SHOW_VIEW,
-        SET_VIEW_FRAME,
-        INVALIDATE_VIEW,
 
         // View messages:
+        VIEW_SET_FRAME,
+        VIEW_INVALIDATE,
+        VIEW_ADD_CHILD,
         VIEW_SET_DRAW_REGION,
         VIEW_SET_SHAPE_REGION,
-        
+        VIEW_TOGGLE_DEPTH,
+                
         VIEW_BEGIN_UPDATE,
         VIEW_END_UPDATE,
         VIEW_SET_FG_COLOR,
@@ -73,6 +76,12 @@ namespace AppserverProtocol
         REGISTER_APPLICATION_REPLY,
         CREATE_VIEW_REPLY,
         PAINT_VIEW,
+        VIEW_FRAME_CHANGED,
+        
+        // Appserver <-> Window manager messages:
+        WINDOW_MANAGER_REGISTER_VIEW,
+        WINDOW_MANAGER_UNREGISTER_VIEW,
+        
         
         // Appserver -> application messages:
         SYNC_REPLY,
@@ -102,49 +111,169 @@ struct MsgCreateViewReply
 
 class String;
 
-typedef RemoteSignal<AppserverProtocol::REGISTER_APPLICATION, void, port_id /*replyPort*/, port_id /*clientPort*/, const String& /*name*/> ASRegisterApplication;
+typedef RemoteSignal<AppserverProtocol::REGISTER_APPLICATION
+                                        , port_id       // replyPort
+                                        , port_id       // clientPort
+                                        , const String& // name
+                                        , bool          // isWindowManager
+                                        > ASRegisterApplication;
 
-typedef RemoteSignal<AppserverProtocol::SYNC,                 void, port_id /*replyPort*/>                          ASSync;
+typedef RemoteSignal<AppserverProtocol::SYNC
+                                        ,port_id // replyPort
+                                        > ASSync;
 
-typedef RemoteSignal<AppserverProtocol::CREATE_VIEW,       void, port_id       // clientPort
-                                                               , port_id       // replyPort
-                                                               , handler_id    // replyTarget
-                                                               , handler_id    // parent
-                                                               , const String& // name
-                                                               , const Rect&   // frame
-                                                               , const Point&  // scrollOffset
-                                                               , uint32_t      // flags
-                                                               , int32_t       // hideCount
-                                                               , Color         // eraseColor
-                                                               , Color         // bgColor
-                                                               , Color         // fgColor
-                                                               > ASCreateView;
+typedef RemoteSignal<AppserverProtocol::CREATE_VIEW
+                                        , port_id       // clientPort
+                                        , port_id       // replyPort
+                                        , handler_id    // replyTarget
+                                        , handler_id    // parent
+                                        , ViewDockType  // dockType
+                                        , const String& // name
+                                        , const Rect&   // frame
+                                        , const Point&  // scrollOffset
+                                        , uint32_t      // flags
+                                        , int32_t       // hideCount
+                                        , Color         // eraseColor
+                                        , Color         // bgColor
+                                        , Color         // fgColor
+                                        > ASCreateView;
                                                                
-typedef RemoteSignal<AppserverProtocol::DELETE_VIEW,       void, handler_id /*viewHandle*/>                         ASDeleteView;
-typedef RemoteSignal<AppserverProtocol::SET_VIEW_FRAME,    void, handler_id /*viewHandle*/, const Rect& /*frame*/>  ASSetViewFrame;
-typedef RemoteSignal<AppserverProtocol::INVALIDATE_VIEW,   void, handler_id /*viewHandle*/, const IRect& /*frame*/> ASInvalidateView;
+typedef RemoteSignal<AppserverProtocol::DELETE_VIEW
+                                        , handler_id // viewHandle
+                                        > ASDeleteView;
 
+typedef RemoteSignal<AppserverProtocol::VIEW_SET_FRAME
+                                        , handler_id  // viewHandle
+                                        , const Rect& // frame
+                                        , handler_id  // requestingClient
+                                        > ASViewSetFrame;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_INVALIDATE
+                                        , handler_id   // viewHandle
+                                        , const IRect& // frame
+                                        > ASViewInvalidate;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_ADD_CHILD
+                                        , handler_id // viewHandle
+                                        , handler_id //childHandle
+                                        , handler_id // managerHandle
+                                        > ASViewAddChild;
 
-typedef RemoteSignal<AppserverProtocol::VIEW_BEGIN_UPDATE,    void, handler_id /*viewHandle*/>                                                                  ASViewBeginUpdate;
-typedef RemoteSignal<AppserverProtocol::VIEW_END_UPDATE,      void, handler_id /*viewHandle*/>                                                                  ASViewEndUpdate;
-typedef RemoteSignal<AppserverProtocol::VIEW_SET_FG_COLOR,    void, handler_id /*viewHandle*/, Color /*color*/>                                                 ASViewSetFgColor;
-typedef RemoteSignal<AppserverProtocol::VIEW_SET_BG_COLOR,    void, handler_id /*viewHandle*/, Color /*color*/>                                                 ASViewSetBgColor;
-typedef RemoteSignal<AppserverProtocol::VIEW_SET_ERASE_COLOR, void, handler_id /*viewHandle*/, Color /*color*/>                                                 ASViewSetEraseColor;
-typedef RemoteSignal<AppserverProtocol::VIEW_SET_FONT,        void, handler_id /*viewHandle*/, int /*fontHandle*/>                                              ASViewSetFont;
-typedef RemoteSignal<AppserverProtocol::VIEW_MOVE_PEN_TO,     void, handler_id /*viewHandle*/ ,const Point /*pos*/>                                             ASViewMovePenTo;
-typedef RemoteSignal<AppserverProtocol::VIEW_DRAW_LINE1,      void, handler_id /*viewHandle*/ ,const Point& /*position*/>                                       ASViewDrawLine1;
-typedef RemoteSignal<AppserverProtocol::VIEW_DRAW_LINE2,      void, handler_id /*viewHandle*/ ,const Point& /*pos1*/, const Point& /*pos2*/>                    ASViewDrawLine2;
-typedef RemoteSignal<AppserverProtocol::VIEW_FILL_RECT,       void, handler_id /*viewHandle*/ ,const Rect& /*rect*/>                                            ASViewFillRect;
-typedef RemoteSignal<AppserverProtocol::VIEW_FILL_CIRCLE,     void, handler_id /*viewHandle*/ ,const Point& /*position*/, float /*radius*/>                     ASViewFillCircle;
-typedef RemoteSignal<AppserverProtocol::VIEW_DRAW_STRING,     void, handler_id /*viewHandle*/ ,const String& /*string*/, float /*maxWidth*/, uint8_t /*flags*/> ASViewDrawString;
-typedef RemoteSignal<AppserverProtocol::VIEW_SCROLL_BY,       void, handler_id /*viewHandle*/ ,const Point& /*delta*/>                                          ASViewScrollBy;
-typedef RemoteSignal<AppserverProtocol::VIEW_COPY_RECT,       void, handler_id /*viewHandle*/ ,const Rect& /*srcRect*/, const Point& /*dstPos*/>                ASViewCopyRect;
+typedef RemoteSignal<AppserverProtocol::VIEW_TOGGLE_DEPTH
+                                        , handler_id // viewHandle
+                                        > ASViewToggleDepth;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_BEGIN_UPDATE
+                                        , handler_id // viewHandle
+                                        > ASViewBeginUpdate;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_END_UPDATE
+                                        , handler_id // viewHandle
+                                        > ASViewEndUpdate;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_SET_FG_COLOR
+                                        , handler_id // viewHandle
+                                        , Color      // color
+                                        > ASViewSetFgColor;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_SET_BG_COLOR
+                                        , handler_id // viewHandle
+                                        , Color      // color
+                                        > ASViewSetBgColor;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_SET_ERASE_COLOR
+                                        , handler_id // viewHandle
+                                        , Color      // color
+                                        > ASViewSetEraseColor;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_SET_FONT
+                                        , handler_id // viewHandle
+                                        , int        // fontHandle
+                                        > ASViewSetFont;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_MOVE_PEN_TO
+                                        , handler_id  // viewHandle
+                                        , const Point // pos
+                                        > ASViewMovePenTo;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_DRAW_LINE1
+                                        , handler_id   // viewHandle
+                                        , const Point& // position
+                                        > ASViewDrawLine1;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_DRAW_LINE2
+                                        , handler_id   // viewHandle
+                                        , const Point& // pos1
+                                        , const Point& // pos2
+                                        > ASViewDrawLine2;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_FILL_RECT
+                                        , handler_id  // viewHandle
+                                        , const Rect& // rect
+                                        , Color       // color
+                                        > ASViewFillRect;
 
-typedef RemoteSignal<AppserverProtocol::PAINT_VIEW,                 void, const Rect& /*frame*/>                    ASPaintView;
+typedef RemoteSignal<AppserverProtocol::VIEW_FILL_CIRCLE
+                                        , handler_id   // viewHandle
+                                        , const Point& // position
+                                        , float        // radius
+                                        > ASViewFillCircle;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_DRAW_STRING
+                                        , handler_id    // viewHandle
+                                        , const String& // string
+                                        , float         // maxWidth
+                                        , uint8_t       // flags
+                                        > ASViewDrawString;
+                                        
+typedef RemoteSignal<AppserverProtocol::VIEW_SCROLL_BY
+                                        , handler_id // viewHandle
+                                        , const Point& // delta
+                                        > ASViewScrollBy;
 
-typedef RemoteSignal<AppserverProtocol::SYNC_REPLY,                 void>                                           ASSyncReply;
-typedef RemoteSignal<AppserverProtocol::HANDLE_MOUSE_DOWN, void, MouseButton_e /*button*/, const Point& /*pos*/>    ASHandleMouseDown;
-typedef RemoteSignal<AppserverProtocol::HANDLE_MOUSE_UP,   void, MouseButton_e /*button*/, const Point& /*pos*/>    ASHandleMouseUp;
-typedef RemoteSignal<AppserverProtocol::HANDLE_MOUSE_MOVE, void, MouseButton_e /*button*/, const Point& /*pos*/>    ASHandleMouseMove;
+typedef RemoteSignal<AppserverProtocol::VIEW_COPY_RECT
+                                        , handler_id   // viewHandle
+                                        , const Rect&  // srcRect
+                                        , const Point& // dstPos
+                                        > ASViewCopyRect;
+
+typedef RemoteSignal<AppserverProtocol::PAINT_VIEW
+                                        , const Rect& // frame
+                                        > ASPaintView;
+
+typedef RemoteSignal<AppserverProtocol::VIEW_FRAME_CHANGED
+                                        , const Rect& // frame
+                                        > ASViewFrameChanged;
+
+typedef RemoteSignal<AppserverProtocol::WINDOW_MANAGER_REGISTER_VIEW
+                                        , handler_id    // viewHandle
+                                        , ViewDockType  // dockType
+                                        , const String& // name
+                                        , const Rect&   // frame
+                                        > ASWindowManagerRegisterView;
+
+typedef RemoteSignal<AppserverProtocol::WINDOW_MANAGER_UNREGISTER_VIEW
+                                        , handler_id // viewHandle
+                                        > ASWindowManagerUnregisterView;
+
+typedef RemoteSignal<AppserverProtocol::SYNC_REPLY
+                                        > ASSyncReply;
+                                        
+typedef RemoteSignal<AppserverProtocol::HANDLE_MOUSE_DOWN
+                                        , MouseButton_e // button
+                                        , const Point&  // pos
+                                        > ASHandleMouseDown;
+                                        
+typedef RemoteSignal<AppserverProtocol::HANDLE_MOUSE_UP
+                                        , MouseButton_e // button
+                                        , const Point&  // pos
+                                        > ASHandleMouseUp;
+                                        
+typedef RemoteSignal<AppserverProtocol::HANDLE_MOUSE_MOVE
+                                        , MouseButton_e // button
+                                        , const Point&  // pos
+                                        > ASHandleMouseMove;
+                                        
+
 
 }

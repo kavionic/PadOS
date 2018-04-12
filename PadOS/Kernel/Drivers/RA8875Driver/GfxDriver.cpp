@@ -17,6 +17,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 16.01.2014 22:21:20
 
+#include "sam.h"
+
+#include <stdio.h>
 #include <algorithm>
 
 #include "GfxDriver.h"
@@ -90,8 +93,9 @@ void GfxDriver::InitDisplay()
 //    Active_Window(0,799,0,479);
 
     LCD_CmdWrite(RA8875_P1CR, 0x80);  // PWM setting
-    LCD_CmdWrite(RA8875_P1CR, 0x81);  // open PWM
+//    LCD_CmdWrite(RA8875_P2CR, 0x81);  // open PWM
     LCD_CmdWrite(RA8875_P1DCR, 0xff); // Brightness parameter 0xff-0x00    
+    LCD_CmdWrite(RA8875_P2DCR, 0xff); // Brightness parameter 0xff-0x00    
     LCD_CmdWrite(RA8875_PWRR, RA8875_PWRR_DISPLAY_ON_bm);
 }
 
@@ -383,16 +387,23 @@ void GfxDriver::FillCircle(int32_t x, int32_t y, int32_t radius)
     } */
 }
 
-void GfxDriver::BLT_FillRect( uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2 )
+void GfxDriver::BLT_FillRect(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2)
 {   
     WaitBlitter();
 
-    LCD_CmdWrite(RA8875_DLHSR0, RA8875_DLHSR1, x1);
-    LCD_CmdWrite(RA8875_DLVSR0, RA8875_DLVSR1, y1);
-    LCD_CmdWrite(RA8875_DLHER0, RA8875_DLHER1, x2);
-    LCD_CmdWrite(RA8875_DLVER0, RA8875_DLVER1, y2);
+    if (x1 != x2 || y1 != y2)
+    {
+        LCD_CmdWrite(RA8875_DLHSR0, RA8875_DLHSR1, x1);
+        LCD_CmdWrite(RA8875_DLVSR0, RA8875_DLVSR1, y1);
+        LCD_CmdWrite(RA8875_DLHER0, RA8875_DLHER1, x2);
+        LCD_CmdWrite(RA8875_DLVER0, RA8875_DLVER1, y2);
 
-    LCD_CmdWrite(RA8875_DCR, RA8875_DCR_FILL_bm | RA8875_DCR_LINE_SQR_TRI_bm | RA8875_DCR_SQUARE_bm);
+        LCD_CmdWrite(RA8875_DCR, RA8875_DCR_FILL_bm | RA8875_DCR_LINE_SQR_TRI_bm | RA8875_DCR_SQUARE_bm);
+    }
+    else
+    {
+        WritePixel(x1, y1);
+    }        
 }
 
 void GfxDriver::BLT_DrawLine(int x1, int y1, int x2, int y2 )
@@ -463,96 +474,83 @@ void GfxDriver::BLT_MoveRect(const IRect& srcRect, const IPoint& dstPosIn)
 //    SpinTimer::SleepMS(200);
 }
 
-bool GfxDriver::RenderGlyph(char character, int16_t maxWidth, uint8_t flags)
+bool GfxDriver::RenderGlyph(char character, const IRect& clipRect)
 {
     if ( character < m_FontFirstChar ) character = m_FontFirstChar;
     const FONT_CHAR_INFO* charInfo = m_FontCharInfo + character;
         
     uint8_t        charWidth = charInfo->widthBits;
     const uint8_t* srcAddr = m_FontGlyphData + charInfo->offset;
-        
-    if ( m_Cursor.x + charWidth > maxWidth ) {
-        if ( flags & GD_TEXT_RENDER_PARTIAL_CHAR ) {
-            charWidth = maxWidth - m_Cursor.x;
-        } else {
-            return false;
-        }
-    }
-    for (uint8_t x = charWidth ; x ; --x )
-    {
-        for (uint8_t y = m_FontHeightFullBytes ; y  ; --y )
-        {
-            uint8_t line = *(srcAddr++);
-            for( int8_t i = 8 ; i ; --i )
-            {
-                if ( line & 0x80 ) {
-                    Write16(m_FgColor);
-                } else {
-                    Write16(m_BgColor);
-                }
-                line <<= 1;
-            }
-        }
-        if (m_FontHeightRemainingBits > 0)
-        {
-            uint8_t line = *(srcAddr++);
 
-            for( uint8_t i = m_FontHeightRemainingBits ; i ; --i )
+    IRect bounds(m_Cursor.x, m_Cursor.y, m_Cursor.x + charWidth, m_Cursor.y + m_FontHeight);
+    IRect clippedBounds = bounds & clipRect;
+        
+    if (clippedBounds.Height() <= 0) return false;
+    
+    if (!clippedBounds.IsValid2())
+    {
+        m_Cursor.x += charWidth;
+        return m_Cursor.x < clipRect.right;
+    }        
+    
+    int charHeightBytes = m_FontHeightFullBytes;
+    if (m_FontHeightRemainingBits != 0) charHeightBytes++;
+    
+    
+    int xOffset = (clippedBounds.left - m_Cursor.x) * charHeightBytes;
+    for (int x = clippedBounds.left; x < clippedBounds.right; ++x)
+    {
+        for (int y = clippedBounds.top; y < clippedBounds.bottom; ++y)
+        {
+            int col = y - m_Cursor.y;
+            if (srcAddr[xOffset + (col >> 3)] & (0x80 >> (col & 0x7)))
             {
-                if ( line & 0x80 ) {
-                    Write16(m_FgColor);
-                } else {
-                    Write16(m_BgColor);
-                }
-                line <<= 1;
+                Write16(m_FgColor);
+            } else {
+                Write16(m_BgColor);
             }
-        }        
+        }
+        xOffset += charHeightBytes;
     }
     m_Cursor.x += charWidth;
-    return true;
+    
+    return m_Cursor.x < clippedBounds.right;
 }
 
-uint32_t GfxDriver::WriteString(const char* string, size_t strLength, int32_t maxWidth, uint32_t flags)
+uint32_t GfxDriver::WriteString(const char* string, size_t strLength, const IRect& clipRect)
 {
     WaitBlitter();
 
-    maxWidth += m_Cursor.x;
-    if ( maxWidth > GetResolution().x ) maxWidth = GetResolution().x;
-    
     FillDirection_e prevFillDir = m_FillDirection;
     SetFillDirection(e_FillDownLeft);
-    SetWindow(m_Cursor.x, m_Cursor.y, maxWidth - 1, m_Cursor.y + m_FontHeight - 1);        
-    MemoryWrite_Position(m_Cursor.x, m_Cursor.y);
+    
+    IRect bounds(m_Cursor.x, m_Cursor.y, GetResolution().x, m_Cursor.y + m_FontHeight);
+    bounds &= clipRect;
+    
+    if (!bounds.IsValid2()) return 0;
+    
+    SetWindow(bounds.left, bounds.top, bounds.right - 1, bounds.bottom - 1);
+    MemoryWrite_Position(bounds.left, bounds.top);
 
-    int32_t spacing = m_FontCharSpacing;
-        
     while(strLength--)
     {
-        uint8_t character = *(string++);
-
-        if ( !RenderGlyph(character, maxWidth, flags) )
+        RenderGlyph(*(string++), clipRect);
+        if ( m_Cursor.x + m_FontCharSpacing < bounds.right )
         {
-            break;
-        }
-        if ( m_Cursor.x + spacing < maxWidth )
-        {
-            FastFill(spacing * m_FontHeight, m_BgColor);
-            m_Cursor.x += spacing;
+            FastFill(m_FontCharSpacing * m_FontHeight, m_BgColor);
+            m_Cursor.x += m_FontCharSpacing;
         }
         else
         {
-            spacing = maxWidth - m_Cursor.x;
-            FastFill(spacing * m_FontHeight, m_BgColor);
-            m_Cursor.x += spacing;
+            int32_t spacing = bounds.right - m_Cursor.x;
+            if (spacing > 0) {
+                FastFill(spacing * m_FontHeight, m_BgColor);
+                m_Cursor.x += spacing;
+            }                
             break;
         }
     }
-    if ( (flags & GD_TEXT_FILL_TO_END) && m_Cursor.x < maxWidth )
-    {
-        FastFill((maxWidth - m_Cursor.x) * m_FontHeight, m_BgColor);
-    }
     SetFillDirection(prevFillDir);
-//    return charWidth + m_FontCharSpacing;
     return m_Cursor.x;
 }
 
@@ -620,7 +618,7 @@ uint8_t GfxDriver::WriteStringTransparent(const char* string, uint8_t strLength,
     }
     return 0;
 }
-
+#if 0
 uint8_t GfxDriver::WriteGlyph(char character)
 {
     if ( character < m_FontFirstChar ) character = m_FontFirstChar;
@@ -645,7 +643,7 @@ uint8_t GfxDriver::WriteGlyph(char character)
     SetFillDirection(prevFillDir);
     return charWidth + m_FontCharSpacing;
 }
-
+#endif
 /*static bool StreamImageCallback(int16_t length)
 {
     LCD_CS_LOW();

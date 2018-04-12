@@ -25,7 +25,7 @@
 
 static const int historySize = 200;
 
-RenderTest2::RenderTest2() : View("RenderTest2")
+RenderTest2::RenderTest2() : View("Test2")
 {
     history.resize(historySize*2);
 }
@@ -66,7 +66,7 @@ void RenderTest2::SlotFrameProcess()
 
     static const int speed = 2;
 
-    for (uint16_t j = 0 ; j < 50 ; ++j )
+    for (int j = 0 ; j < 50 ; ++j )
     {
         pos1 += dir1;
         pos2 += dir2;

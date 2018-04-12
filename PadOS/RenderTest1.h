@@ -33,6 +33,13 @@ public:
 
     virtual void AllAttachedToScreen() override;
 
+
+    virtual void Paint(const Rect& updateRect) override
+    {
+        SetFgColor(255, 255, 255);
+        FillRect(GetBounds());
+    }
+
     virtual bool OnMouseDown(MouseButton_e button, const Point& position) override { return true; }
     virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
 

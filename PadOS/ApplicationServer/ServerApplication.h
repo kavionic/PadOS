@@ -44,12 +44,13 @@ private:
     void UpdateRegions();
     void UpdateLowestInvalidView(Ptr<ServerView> view);
 
-    void SlotCreateView(port_id clientPort, port_id replyPort, handler_id replyTarget, handler_id parentHandle, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor);
+    void SlotCreateView(port_id clientPort, port_id replyPort, handler_id replyTarget, handler_id parentHandle, ViewDockType dockType, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor);
     void SlotDeleteView(handler_id clientHandle);
-    void SlotSetViewFrame(handler_id clientHandle, const Rect& frame);
-    void SlotInvalidateView(handler_id clientHandle, const IRect& frame);
-
+    void SlotViewSetFrame(handler_id clientHandle, const Rect& frame, handler_id requestingClient);
+    void SlotViewInvalidate(handler_id clientHandle, const IRect& frame);
+    void SlotViewAddChild(handler_id viewHandle, handler_id childHandle, handler_id managerHandle);
     void SlotSync(port_id replyPort)                                                        { ASSyncReply::Sender::Emit(MessagePort(replyPort), -1, 0); }
+    void SlotViewToggleDepth(handler_id viewHandle)                                         { ForwardToView(viewHandle, &ServerView::ToggleDepth); }
     void SlotViewBeginUpdate(handler_id viewHandle)                                         { ForwardToView(viewHandle, &ServerView::BeginUpdate); }
     void SlotViewEndUpdate(handler_id viewHandle)                                           { ForwardToView(viewHandle, &ServerView::EndUpdate); }
     void SlotViewSetFgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetFgColor, color); }
@@ -59,7 +60,7 @@ private:
     void SlotViewMovePenTo(handler_id viewHandle, const Point& pos)                         { ForwardToView(viewHandle, &ServerView::MovePenTo, pos); }
     void SlotViewDrawLine1(handler_id viewHandle, const Point& toPoint)                     { ForwardToView(viewHandle, &ServerView::DrawLineTo, toPoint); }
     void SlotViewDrawLine2(handler_id viewHandle, const Point& fromPnt, const Point& toPnt) { ForwardToView(viewHandle, &ServerView::DrawLine, fromPnt, toPnt); }
-    void SlotViewFillRect(handler_id viewHandle, const Rect& rect)                          { ForwardToView(viewHandle, &ServerView::FillRect, rect); }
+    void SlotViewFillRect(handler_id viewHandle, const Rect& rect, Color color)             { ForwardToView(viewHandle, &ServerView::FillRect, rect, color); }
     void SlotViewFillCircle(handler_id viewHandle, const Point& position, float radius)     { ForwardToView(viewHandle, &ServerView::FillCircle, position, radius); }
     void SlotViewDrawString(handler_id viewHandle, const String& string, float maxWidth, uint8_t flags)     { ForwardToView(viewHandle, &ServerView::DrawString, string, maxWidth, flags); }
     void SlotViewScrollBy(handler_id viewHandle, const Point& delta)                        { ForwardToView(viewHandle, &ServerView::ScrollBy, delta); }
@@ -87,9 +88,10 @@ private:
     ASSync::Receiver              RSSync;
     ASCreateView::Receiver        RSCreateView;
     ASDeleteView::Receiver        RSDeleteView;
-    ASSetViewFrame::Receiver      RSSetViewFrame;
-    ASInvalidateView::Receiver    RSInvalidateView;
-    
+    ASViewSetFrame::Receiver      RSViewSetFrame;
+    ASViewInvalidate::Receiver    RSViewInvalidate;
+    ASViewAddChild::Receiver      RSViewAddChild;
+    ASViewToggleDepth::Receiver   RSViewToggleDepth;
     ASViewBeginUpdate::Receiver   RSViewBeginUpdate;
     ASViewEndUpdate::Receiver     RSViewEndUpdate;
     ASViewSetFgColor::Receiver    RSViewSetFgColor;

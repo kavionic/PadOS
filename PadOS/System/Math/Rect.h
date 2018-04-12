@@ -128,6 +128,7 @@ public:
     ~IRect() {}
 
     bool        IsValid() const { return( left <= right && top <= bottom ); }
+    bool        IsValid2() const     { return( left < right && top < bottom ); }
     void        Invalidate( void ) { left = top = 999999; right = bottom = -999999; }
     bool        DoIntersect( const IPoint& cPoint ) const
     { return( !( cPoint.x < left || cPoint.x > right || cPoint.y < top || cPoint.y > bottom ) ); }

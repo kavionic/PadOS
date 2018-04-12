@@ -29,7 +29,7 @@ class View;
 class Application : public Looper, public SignalTarget
 {
 public:
-    Application(const String& name);
+    Application(const String& name, bool isWindowManager = false);
     ~Application();
     
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
@@ -37,23 +37,24 @@ public:
     static IRect GetScreenIFrame();
     static Rect GetScreenFrame() { return Rect(GetScreenIFrame()); }
     
-    bool AddView(Ptr<View> view);
+    bool AddView(Ptr<View> view, ViewDockType dockType);
     bool RemoveView(Ptr<View> view);
     
     Ptr<View> FindView(handler_id handle) { return ptr_static_cast<View>(FindHandler(handle)); }
+
+    template<typename SIGNAL, typename... ARGS>
+    void Post(ARGS&&... args) { SIGNAL::Sender::Emit(this, &Application::AllocMessageBuffer, args...); }
      
-     void Flush();
-     void Sync();
+    void Flush();
+    void Sync();
 private:
     friend class View;
  
-    template<typename SIGNAL, typename... ARGS>
-    void Post(ARGS&&... args) { SIGNAL::Sender::Emit(this, &Application::AllocMessageBuffer, args...); }
     
     void DetachView(Ptr<View> view);
     
-    void SetViewFrame(handler_id viewID, const Rect& frame) { Post<ASSetViewFrame>(viewID, frame); }
-    void InvalidateView(handler_id viewID, const IRect& frame) { Post<ASInvalidateView>(viewID, frame); }
+//    void SetViewFrame(handler_id viewID, const Rect& frame, handler_id clientHandle) { Post<ASViewSetFrame>(viewID, frame, clientHandle); }
+//    void InvalidateView(handler_id viewID, const IRect& frame) { Post<ASViewInvalidate>(viewID, frame); }
 
     void* AllocMessageBuffer(int32_t messageID, size_t size);
      

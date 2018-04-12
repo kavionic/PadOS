@@ -30,12 +30,16 @@ public:
 
     virtual void AllAttachedToScreen() override;
 
+    virtual void Paint(const Rect& updateRect) override
+    {
+        SetFgColor(255, 255, 255);
+        FillRect(GetBounds());
+    }
+
     virtual bool OnMouseDown(MouseButton_e button, const Point& position) override;
     virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
     virtual bool OnMouseMove(MouseButton_e button, const Point& position) override;
 
-
-    //virtual void Render() override;
 
     Signal<void, Ptr<View>> SignalDone;
 private:

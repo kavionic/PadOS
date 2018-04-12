@@ -74,6 +74,7 @@ void kernel::check_stack_overflow()
 void SysTick_Handler()
 {
     disable_interrupts();
+    LCD_BL_CTRL_Pin = !LCD_BL_CTRL_Pin;
     Kernel::SystemTick();
     wakeup_sleeping_threads();
     KSWITCH_CONTEXT();

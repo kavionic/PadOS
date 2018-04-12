@@ -103,12 +103,15 @@ bool Button::OnMouseMove(MouseButton_e button, const Point& position)
 
 void Button::Paint(const Rect& updateRect)
 {
-    DrawBevelBox(GetBounds(), !m_IsPressed);
+    SetEraseColor(get_standard_color(StandardColorID::NORMAL));
+//    DrawBevelBox(GetBounds(), !m_IsPressed);
+    DrawFrame(GetBounds(), m_IsPressed ? FRAME_RECESSED : FRAME_RAISED);
     Point labelPos(8.0f, 4.0f);
     if (m_IsPressed) labelPos += Point(1.0f, 1.0f);
     MovePenTo(labelPos);
-    SetFgColor(0, 0, 0);
-    SetBgColor(m_IsPressed ? Color(0xf0,0xf0,0xf0) : Color(0xd0,0xd0,0xd0));
+    SetFgColor(get_standard_color(StandardColorID::MENU_TEXT));
+//    SetBgColor(m_IsPressed ? Color(0xf0,0xf0,0xf0) : Color(0xd0,0xd0,0xd0));
+    SetBgColor(get_standard_color(StandardColorID::NORMAL));
     DrawString(m_Label, 1024.0f, 0);
 }
 

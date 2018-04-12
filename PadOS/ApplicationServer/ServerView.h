@@ -31,6 +31,7 @@ public:
     ServerView(const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor);
 
     void SetClientHandle(port_id port, handler_id handle) { m_ClientPort = port; m_ClientHandle = handle; }
+    void SetManagerHandle(handler_id handle)              { m_ManagerHandle = handle; }
 
     void HandleAddedToParent(Ptr<ServerView> parent) {}
     void HandleRemovedFromParent(Ptr<ServerView> parent) { UpdateScreenPos(); }
@@ -39,11 +40,11 @@ public:
     bool        HandleMouseUp(MouseButton_e button, const Point& position);
     bool        HandleMouseMove(MouseButton_e button, const Point& position);
 
-    void        AddChild(Ptr<ServerView> child);
+    void        AddChild(Ptr<ServerView> child, bool topmost = true);
     void        RemoveChild(Ptr<ServerView> child);
     void        RemoveThis();
 
-    void        SetFrame(const Rect& frame);
+    void        SetFrame(const Rect& frame, handler_id requestingClient);
 
     void        SetDrawRegion(Ptr<Region> pcReg);
     void        SetShapeRegion(Ptr<Region> pcReg);
@@ -61,6 +62,7 @@ public:
     void        DeleteRegions();
     Ptr<Region> GetRegion();
     
+    void        ToggleDepth();
     void        BeginUpdate();
     void        EndUpdate();
     void        Paint(const IRect& updateRect);
@@ -81,7 +83,7 @@ public:
 
     void        DrawLineTo(const Point& toPoint);
     void        DrawLine(const Point& fromPnt, const Point& toPnt);
-    void        FillRect(const Rect& rect);
+    void        FillRect(const Rect& rect, Color color);
     void        FillCircle(const Point& position, float radius);
     void        DrawString(const String& string, float maxWidth, uint8_t flags);
     void        CopyRect(const Rect& srcRect, const Point& dstPos);
@@ -105,6 +107,7 @@ private:
     
     port_id     m_ClientPort = -1;
     handler_id  m_ClientHandle = -1;
+    handler_id  m_ManagerHandle = -1;
     
     uint16_t    m_EraseColor16 = 0xffff;
     uint16_t    m_BgColor16    = 0xffff;

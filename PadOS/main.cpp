@@ -51,6 +51,7 @@
 #include "Tests.h"
 #include "ApplicationServer/ApplicationServer.h"
 #include "Applications/TestApp/TestApp.h"
+#include "Applications/WindowManager/WindowManager.h"
 
 extern "C" void InitializeNewLibMutexes();
 
@@ -443,7 +444,11 @@ void kernel::InitThreadMain(void* argument)
 
     g_ApplicationServer = new ApplicationServer();
     g_ApplicationServer->Start("appserver");
-
+    
+    WindowManager* windowManager = new WindowManager();
+    windowManager->Start("window_manager");
+    
+//    snooze(100000);
 
     Application* testApp = new TestApp();
     

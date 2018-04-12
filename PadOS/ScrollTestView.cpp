@@ -25,7 +25,7 @@
 #include "System/GUI/Application.h"
 
 
-ScrollTestView::ScrollTestView() : View("ScrollTestView")
+ScrollTestView::ScrollTestView() : View("Scroll")
 {
 }
 
@@ -74,6 +74,7 @@ bool ScrollTestView::OnMouseMove(MouseButton_e button, const Point& position)
     if (m_HitButton != MouseButton_e::None && button == m_HitButton)
     {
         ScrollBy(position - m_HitPos);
+        m_HitPos = position;
         Sync();
     }
     return true;

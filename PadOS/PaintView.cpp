@@ -27,9 +27,8 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PaintView::PaintView() : View("PaintView")
+PaintView::PaintView() : View("Paint")
 {
-    printf("PaintView::PaintView()\n");
     Rect bounds = GetBounds();
 
     SetLayoutNode(ptr_new<VLayoutNode>());
@@ -48,10 +47,11 @@ PaintView::PaintView() : View("PaintView")
     Ptr<Button> nextButton = ptr_new<Button>("NextButton", "Next", topBar);
     nextButton->SignalActivated.Connect(this, &PaintView::SlotNextButton);
 
-    for (int i = 0; i < 7; ++i)
+    for (int i = 0; i < 6; ++i)
     {
         Ptr<Button> button = ptr_new<Button>("TstButton", String::FormatString("Test%d", i + 1), bottomBar);
     }
+    InvalidateLayout();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

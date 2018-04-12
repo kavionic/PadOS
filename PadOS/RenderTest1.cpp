@@ -22,7 +22,7 @@
 #include "RenderTest1.h"
 #include "System/GUI/Application.h"
 
-RenderTest1::RenderTest1() : View("RenderTest1")
+RenderTest1::RenderTest1() : View("Test1")
 {
 
     m_Pos.x = 50 + rand() % 700;

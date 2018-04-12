@@ -28,7 +28,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SensorView::SensorView() : View("SensorView")
+SensorView::SensorView() : View("Sens")
 {
     m_CurrentSensor = open("/dev/ina3221/0", O_RDWR);
     if (m_CurrentSensor < 0) {
@@ -77,21 +77,32 @@ void SensorView::AllAttachedToScreen()
 
 void SensorView::Paint(const Rect& updateRect)
 {
+    SetFgColor(255, 255, 255);
+    FillRect(GetBounds());
+    PaintContent();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SensorView::PaintContent()
+{
     float y = 10.0f;
     FontHeight fontHeight = GetFontHeight();
     float lineSpacing = fontHeight.descender - fontHeight.ascender + fontHeight.line_gap;
     
-    float x1 = 20.0f;
+    float x1 = 10.0f;
     float x2 = 195.0f;
 
-    float x11 = 20.0f;
+    float x11 = 10.0f;
     float x12 = x11 + 105.0f;
 
-    float x21 = x12 + 150.0f;
-    float x22 = x21 + 105.0f;
+    float x21 = x12 + 140.0f;
+    float x22 = x21 + 95.0f;
 
-    float x31 = x22 + 150.0f;
-    float x32 = x31 + 105.0f;
+    float x31 = x22 + 120.0f;
+    float x32 = x31 + 95.0f;
    
     DrawValue(x1, x2, y, "Temperature:", "%.3f", "°C", m_EnvValues.m_Temperature);
     y += lineSpacing;
@@ -101,17 +112,17 @@ void SensorView::Paint(const Rect& updateRect)
 
     
     y += lineSpacing * 2.0f;
-    DrawValue(x11, x12, y, "3.3 (V):", "%.3f", "V", m_VoltageValues.Voltages[0]);
-    DrawValue(x21, x22, y, "5.0 (V):", "%.3f", "V", m_VoltageValues.Voltages[1]);
-    DrawValue(x31, x32, y, "Bat (V):", "%.3f", "V", m_VoltageValues.Voltages[2]);    
+    DrawValue(x11, x12, y, "3.3(V):", "%.3f", "V", m_VoltageValues.Voltages[0]);
+    DrawValue(x21, x22, y, "5.0(V):", "%.3f", "V", m_VoltageValues.Voltages[1]);
+    DrawValue(x31, x32, y, "Bat(V):", "%.3f", "V", m_VoltageValues.Voltages[2]);    
     y += lineSpacing;
-    DrawValue(x11, x12, y, "3.3 (I):", "%.2f", "mA", m_VoltageValues.Currents[0] * 1000.0);
-    DrawValue(x21, x22, y, "5.0 (I):", "%.2f", "mA", m_VoltageValues.Currents[1] * 1000.0);
-    DrawValue(x31, x32, y, "Bat (I):", "%.2f", "mA", m_VoltageValues.Currents[2] * 1000.0);
+    DrawValue(x11, x12, y, "3.3(I):", "%.2f", "mA", m_VoltageValues.Currents[0] * 1000.0);
+    DrawValue(x21, x22, y, "5.0(I):", "%.2f", "mA", m_VoltageValues.Currents[1] * 1000.0);
+    DrawValue(x31, x32, y, "Bat(I):", "%.2f", "mA", m_VoltageValues.Currents[2] * 1000.0);
     y += lineSpacing;
-    DrawValue(x11, x12, y, "3.3 (P):", "%.2f", "W", m_VoltageValues.Voltages[0] * m_VoltageValues.Currents[0]);
-    DrawValue(x21, x22, y, "5.0 (P):", "%.2f", "mW", m_VoltageValues.Voltages[1] * m_VoltageValues.Currents[1] * 1000.0);
-    DrawValue(x31, x32, y, "Bat (P):", "%.2f", "W", m_VoltageValues.Voltages[2] * m_VoltageValues.Currents[2]);
+    DrawValue(x11, x12, y, "3.3(P):", "%.2f", "W", m_VoltageValues.Voltages[0] * m_VoltageValues.Currents[0]);
+    DrawValue(x21, x22, y, "5.0(P):", "%.2f", "mW", m_VoltageValues.Voltages[1] * m_VoltageValues.Currents[1] * 1000.0);
+    DrawValue(x31, x32, y, "Bat(P):", "%.2f", "W", m_VoltageValues.Voltages[2] * m_VoltageValues.Currents[2]);
 
     y += lineSpacing * 2.0f;
 
@@ -139,7 +150,8 @@ void SensorView::SlotFrameProcess()
 {
     BME280IOCTL_GetValues(m_EnvSensor, &m_EnvValues);
     INA3221_GetMeasurements(m_CurrentSensor, &m_VoltageValues);
-    Invalidate();
+//    Invalidate();
+    PaintContent();
     Flush();
 }
     

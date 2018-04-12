@@ -46,6 +46,7 @@ public:
 private:
     void SlotFrameProcess();
     
+    void PaintContent();
     void DrawValue(float x1, float x2, float y, const String& label, const char* valueFormat, const String& unit, double value);
     
     EventTimer m_UpdateTimer;

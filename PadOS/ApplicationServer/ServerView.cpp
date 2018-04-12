@@ -43,9 +43,35 @@ ServerView::ServerView(const String& name, const Rect& frame, const Point& scrol
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+template<typename T>
+struct ReverseList
+{
+    ReverseList(T& list) : m_List(list) {}
+    
+    typename T::reverse_iterator begin() { return m_List.rbegin(); }
+    typename T::reverse_iterator end() { return m_List.rend(); }
+    
+    T& m_List;    
+};
+
+template<typename T>
+struct ReverseListConst
+{
+    ReverseListConst(const T& list) : m_List(list) {}
+    
+    typename T::const_reverse_iterator begin() { return m_List.rbegin(); }
+    typename T::const_reverse_iterator end() { return m_List.rend(); }
+    
+    const T& m_List;
+};
+
+template<typename T> ReverseList<T>      reverse_ranged(T& list) { return ReverseList<T>(list); }
+template<typename T> ReverseListConst<T> reverse_ranged(const T& list) { return ReverseList<T>(list); }
+    
 bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
 {
-    if (m_ClientHandle != -1 ) {
+    if (m_ClientHandle != -1 && !HasFlag(ViewFlags::IGNORE_MOUSE))
+    {
         if (!ASHandleMouseDown::Sender::Emit(m_ClientPort, m_ClientHandle, 0, button, position)) {
             printf("ERROR: ServerView::HandleMouseDown() failed to send message: %s\n", strerror(get_last_error()));
             return false;
@@ -57,7 +83,7 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
         return true;
     }
     
-    for (Ptr<ServerView> child : m_ChildrenList)
+    for (Ptr<ServerView> child : reverse_ranged(m_ChildrenList))
     {
         if (child->m_Frame.DoIntersect(position))
         {
@@ -106,9 +132,9 @@ bool ServerView::HandleMouseMove(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::AddChild(Ptr<ServerView> child)
+void ServerView::AddChild(Ptr<ServerView> child, bool topmost)
 {
-    LinkChild(child, true);
+    LinkChild(child, topmost);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -137,19 +163,20 @@ void ServerView::RemoveThis()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::SetFrame(const Rect& rect)
+void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
 {
     m_Frame = rect;
     UpdateScreenPos();
     IRect cIRect(rect);
     
     Ptr<ServerView> parent = m_Parent.Lock();
+
+    if (m_IFrame == cIRect) {
+        return;
+    }
     
     if (m_HideCount == 0)
     {
-        if (m_IFrame == cIRect) {
-            return;
-        }
         m_DeltaMove += IPoint(cIRect.left, cIRect.top ) - IPoint(m_IFrame.left, m_IFrame.top);
         m_DeltaSize += IPoint(cIRect.Width(), cIRect.Height() ) - IPoint(m_IFrame.Width(), m_IFrame.Height());
 
@@ -179,6 +206,26 @@ void ServerView::SetFrame(const Rect& rect)
         }            
     }
     m_IFrame = cIRect;
+    
+    if (requestingClient != -1)
+    {
+        if (requestingClient == m_ClientHandle)
+        {
+            if (m_ManagerHandle != -1) {
+                ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+                if (server !=  nullptr) {
+                    ASViewFrameChanged::Sender::Emit(server->GetWindowManagerPort(), m_ManagerHandle, INFINIT_TIMEOUT, m_Frame);
+                }                    
+            }
+        }
+        else
+        {
+            if (!ASViewFrameChanged::Sender::Emit(m_ClientPort, m_ClientHandle, 0, m_Frame)) {
+                printf("ERROR: ServerView::SetFrame() failed to send message: %s\n", strerror(get_last_error()));
+            }            
+        }
+    }
+    
     if ( parent == nullptr ) {
         Invalidate();
     }
@@ -530,11 +577,12 @@ void ServerView::RebuildRegion( bool bForce )
                     {
                         if (sibling->m_IFrame.DoIntersect(m_IFrame))
                         {
-                            if (sibling->m_ShapeConstrainReg == nullptr) {
+                            sibling->ExcludeFromRegion(m_FullReg, -cLeftTop);
+/*                            if (sibling->m_ShapeConstrainReg == nullptr) {
                                 m_FullReg->Exclude(sibling->m_IFrame - cLeftTop);
                             } else {
                                 m_FullReg->Exclude(*sibling->m_ShapeConstrainReg, sibling->m_IFrame.LeftTop() - cLeftTop);
-                            }
+                            }*/
                         }
                     }
                 }
@@ -621,23 +669,26 @@ void ServerView::UpdateRegions(bool bForce, bool bRoot)
     MoveChilds();
     InvalidateNewAreas();
 
-    if (m_HasInvalidRegs && m_Parent.Lock() == nullptr /*m_pcBitmap != nullptr*/ && m_DamageReg != nullptr)
+    ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+    if (server !=  nullptr)
     {
-//      if ( m_pcBitmap == g_pcScreenBitmap )
+        if (m_HasInvalidRegs && server->GetTopView() == this /*m_pcBitmap != nullptr*/ && m_DamageReg != nullptr)
         {
-            uint16_t color = LCD_RGB( 0x00, 0x60, 0x6b);
-            IPoint    cTopLeft( ConvertToRoot( Point( 0, 0 ) ) );
+//      if ( m_pcBitmap == g_pcScreenBitmap )
+            {
+                IPoint    cTopLeft( ConvertToRoot( Point( 0, 0 ) ) );
 
-            Region cDrawReg(*m_VisibleReg);
-            cDrawReg.Intersect(*m_DamageReg);
+                Region cDrawReg(*m_VisibleReg);
+                cDrawReg.Intersect(*m_DamageReg);
         
-            GfxDriver::Instance.SetFgColor(color);
-            ENUMCLIPLIST( &cDrawReg.m_cRects, pcClip ) {
-                GfxDriver::Instance.FillRect(pcClip->m_cBounds + cTopLeft);
+                GfxDriver::Instance.SetFgColor(m_EraseColor16);
+                ENUMCLIPLIST( &cDrawReg.m_cRects, pcClip ) {
+                    GfxDriver::Instance.FillRect(pcClip->m_cBounds + cTopLeft);
+                }
             }
+            m_DamageReg = nullptr;
         }
-        m_DamageReg = nullptr;
-    }
+    }        
     UpdateIfNeeded(false);
     ClearDirtyRegFlags();
 }
@@ -703,6 +754,50 @@ Ptr<Region> ServerView::GetRegion()
     }
     assert(m_DrawReg != nullptr);
     return m_DrawReg;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerView::ToggleDepth()
+{
+    Ptr<ServerView> self = ptr_tmp_cast(this);
+    Ptr<ServerView> parent = GetParent();
+    if ( parent != NULL )
+    {
+        if (parent->m_ChildrenList[parent->m_ChildrenList.size()-1] == self)
+        {
+            parent->RemoveChild(self);
+            parent->AddChild(self, false);
+        }
+        else
+        {
+            parent->RemoveChild(self);
+            parent->AddChild(self, true);
+        }
+
+//        parent->m_bHasInvalidRegs = true;
+//        SetDirtyRegFlags();
+    
+        Ptr<ServerView> opacParent = GetOpacParent(parent, nullptr);
+        
+        opacParent->SetDirtyRegFlags();
+    
+//        Layer* pcSibling;
+//        for ( pcSibling = m_pcParent->m_pcBottomChild ; pcSibling != NULL ; pcSibling = pcSibling->m_pcHigherSibling )
+        for (Ptr<ServerView> sibling : *parent)
+        {
+            if (sibling->m_IFrame.DoIntersect(m_IFrame)) {
+                sibling->MarkModified(m_IFrame - sibling->m_IFrame.LeftTop());
+            }
+        }
+        opacParent->UpdateRegions(false);
+        //ServerApplication* server = ptr_static_cast<ApplicationServer>(GetLooper());
+        //server->Update
+    }
+//    return false;
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -886,7 +981,7 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
         {
             if (!first) {
                 GfxDriver::Instance.WaitBlitter();
-                } else {
+            } else {
                 first = false;
             }
             GfxDriver::Instance.SetWindow(clip->m_cBounds + screenPos);
@@ -899,13 +994,13 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::FillRect(const Rect& rect)
+void ServerView::FillRect(const Rect& rect, Color color)
 {
     Ptr<const Region> region = GetRegion();
     if (region != nullptr)
     {
         GfxDriver::Instance.WaitBlitter();
-        GfxDriver::Instance.SetFgColor(m_FgColor16);
+        GfxDriver::Instance.SetFgColor(color.GetColor16());
         IPoint screenPos(m_ScreenPos);
         IRect rectScr(rect);
         GfxDriver::Instance.SetWindow(ApplicationServer::GetScreenFrame());
@@ -971,12 +1066,24 @@ void ServerView::FillCircle(const Point& position, float radius)
 
 void ServerView::DrawString(const String& string, float maxWidth, uint8_t flags)
 {
-    GfxDriver::Instance.WaitBlitter();
-    GfxDriver::Instance.SetCursor(m_ScreenPos.x + m_PenPosition.x, m_ScreenPos.y + m_PenPosition.y);
-    GfxDriver::Instance.SetFont(m_Font->Get());
-    GfxDriver::Instance.SetBgColor(m_BgColor16);
-    GfxDriver::Instance.SetFgColor(m_FgColor16);
-    m_PenPosition.x = GfxDriver::Instance.WriteString(string.c_str(), string.size(), maxWidth, flags) - m_ScreenPos.x;
+    Ptr<const Region> region = GetRegion();
+    if (region != nullptr)
+    {
+        GfxDriver::Instance.WaitBlitter();
+        GfxDriver::Instance.SetFont(m_Font->Get());
+        GfxDriver::Instance.SetBgColor(m_BgColor16);
+        GfxDriver::Instance.SetFgColor(m_FgColor16);
+
+        IPoint screenPos(m_ScreenPos);
+        IPoint penPos = screenPos + IPoint(m_PenPosition);
+        ENUMCLIPLIST(&region->m_cRects, clip)
+        {
+            GfxDriver::Instance.SetCursor(penPos);
+            IRect clipRect(clip->m_cBounds.left, clip->m_cBounds.top, clip->m_cBounds.right + 1, clip->m_cBounds.bottom + 1);
+            GfxDriver::Instance.WriteString(string.c_str(), string.size(), clipRect + screenPos);
+        }
+        m_PenPosition = Point(GfxDriver::Instance.GetCursor() - screenPos);
+    }        
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -22,7 +22,7 @@
 #include "RenderTest3.h"
 #include "System/GUI/Application.h"
 
-RenderTest3::RenderTest3() : View("RenderTest3")
+RenderTest3::RenderTest3() : View("Test3")
 {
 }
 
@@ -51,15 +51,17 @@ bool RenderTest3::OnMouseUp(MouseButton_e button, const Point& position)
 void RenderTest3::SlotFrameProcess()
 {
     Rect bounds = GetBounds();
-    
-    SetFgColor(Color(rand()));
-    FillCircle(Point(50 + rand() % int(bounds.Width() - 100), 50 + rand() % int(bounds.Height() - 100)), 5+rand() % 45);
-    
-    if (m_CircleCount++ > 1000)
-    {
-        m_CircleCount = 0;
+    for (int j = 0 ; j < 50 ; ++j )
+    {    
         SetFgColor(Color(rand()));
-        FillRect(bounds);
-    }
+        FillCircle(Point(50 + rand() % int(bounds.Width() - 100), 50 + rand() % int(bounds.Height() - 100)), 5+rand() % 45);
+    
+        if (m_CircleCount++ > 1000)
+        {
+            m_CircleCount = 0;
+            SetFgColor(Color(rand()));
+            FillRect(bounds);
+        }
+    }    
     Sync();    
 }

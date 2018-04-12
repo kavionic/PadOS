@@ -32,21 +32,111 @@ using namespace os;
 
 WeakPtr<View> View::s_MouseDownView;
 
+static Color g_DefaultColors[] =
+{
+    Color(0xaa, 0xaa, 0xaa, 0xff),  // NORMAL
+    Color(0xff, 0xff, 0xff, 0xff),  // SHINE
+    Color(0x00, 0x00, 0x00, 0xff),  // SHADOW
+    Color(0x66, 0x88, 0xbb, 0xff),  // SEL_WND_BORDER
+    Color(0x78, 0x78, 0x78, 0xff),  // NORMAL_WND_BORDER
+    Color(0x00, 0x00, 0x00, 0xff),  // MENU_TEXT
+    Color(0x00, 0x00, 0x00, 0xff),  // SEL_MENU_TEXT
+    Color(0xcc, 0xcc, 0xcc, 0xff),  // MENU_BACKGROUND
+    Color(0x66, 0x88, 0xbb, 0xff),  // SEL_MENU_BACKGROUND
+    Color(0x78, 0x78, 0x78, 0xff),  // SCROLLBAR_BG
+    Color(0xaa, 0xaa, 0xaa, 0xff),  // SCROLLBAR_KNOB
+    Color(0x78, 0x78, 0x78, 0xff),  // LISTVIEW_TAB
+    Color(0xff, 0xff, 0xff, 0xff)   // LISTVIEW_TAB_TEXT
+};
+
+///////////////////////////////////////////////////////////////////////////////
+/// Get the value of one of the standard system colors.
+/// \par Description:
+///     Call this function to obtain one of the user-configurable
+///     system colors. This should be used whenever possible instead
+///     of hard-coding colors to make it possible for the user to
+///     customize the look.
+/// \param
+///     colorID - One of the entries from the StandardColorID enum.
+/// \return
+///     The current color for the given system pen.
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Color os::get_standard_color(StandardColorID colorID)
+{
+    uint32_t index = uint32_t(colorID);
+    if (index < ARRAY_COUNT(g_DefaultColors)) {
+        return g_DefaultColors[index];
+    } else {
+        return g_DefaultColors[int32_t(StandardColorID::NORMAL)];
+    }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void os::set_standard_color(StandardColorID colorID, Color color)
+{
+    uint32_t index = uint32_t(colorID);
+    if (index < ARRAY_COUNT(g_DefaultColors)) {
+        g_DefaultColors[index] = color;
+    }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static Color Tint(const Color& color, float tint)
+{
+    int r = int( (float(color.GetRed()) * tint + 127.0f * (1.0f - tint)) );
+    int g = int( (float(color.GetGreen()) * tint + 127.0f * (1.0f - tint)) );
+    int b = int( (float(color.GetBlue()) * tint + 127.0f * (1.0f - tint)) );
+    if ( r < 0 ) r = 0; else if (r > 255) r = 255;
+    if ( g < 0 ) g = 0; else if (g > 255) g = 255;
+    if ( b < 0 ) b = 0; else if (b > 255) b = 255;
+    return Color(r, g, b, color.GetAlpha());
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name, Rect(), Point(), flags, 0, Color(0xffffffff), Color(0xffffffff), Color(0))
 {
-    RegisterRemoteSignal(&RSPaintView, &View::HandlePaint);
-    RegisterRemoteSignal(&RSHandleMouseDown, &View::HandleMouseDown);
-    RegisterRemoteSignal(&RSHandleMouseUp, &View::HandleMouseUp);
-    RegisterRemoteSignal(&RSHandleMouseMove, &View::HandleMouseMove);    
-    
+    Initialize();
     if (parent != nullptr) {
         parent->AddChild(ptr_tmp_cast(this));
     }
 //    SetFont(ptr_new<Font>(GfxDriver::e_Font7Seg));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+View::View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame) : ViewBase(name, frame, Point(), ViewFlags::EAVESDROPPER, 0, Color(0xffffffff), Color(0xffffffff), Color(0))
+{
+    Initialize();
+    m_ServerHandle = serverHandle;
+    if (parent != nullptr) {
+        parent->AddChild(ptr_tmp_cast(this));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::Initialize()
+{
+    RegisterRemoteSignal(&RSPaintView, &View::HandlePaint);
+    RegisterRemoteSignal(&RSViewFrameChanged, &View::SetFrame);
+    RegisterRemoteSignal(&RSHandleMouseDown, &View::HandleMouseDown);
+    RegisterRemoteSignal(&RSHandleMouseUp, &View::HandleMouseUp);
+    RegisterRemoteSignal(&RSHandleMouseMove, &View::HandleMouseMove);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -206,7 +296,10 @@ void View::FontChanged(Ptr<Font> newFont)
 Point View::GetPreferredSize(bool largest) const
 {
     if (m_LayoutNode != nullptr) {
-        return m_LayoutNode->GetPreferredSize(largest);
+        Point minSize = m_LayoutNode->GetPreferredSize(false);
+        Point maxSize = m_LayoutNode->GetPreferredSize(true);
+        m_LayoutNode->AdjustPrefSize(&minSize, &maxSize);
+        return largest ? maxSize : minSize;
     } else {
         return largest ? Point(std::numeric_limits<float>::max(), std::numeric_limits<float>::max()) : Point(0.0f, 0.0f);
     }        
@@ -271,7 +364,7 @@ bool View::RemoveThis()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetFrame(const Rect& frame, bool notifyServer)
+void View::SetFrame(const Rect& frame)
 {
     Point deltaSize = frame.Size() - m_Frame.Size();
     Point deltaPos  = frame.LeftTop() - m_Frame.LeftTop();
@@ -292,11 +385,12 @@ void View::SetFrame(const Rect& frame, bool notifyServer)
 
 void View::Invalidate(const Rect& rect, bool recurse)
 {
-    Application* app = GetApplication();
+    Post<ASViewInvalidate>(IRect(rect));
+/*    Application* app = GetApplication();
     if (app != nullptr)
     {
         app->InvalidateView(m_ServerHandle, IRect(rect));
-    }
+    }*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -364,7 +458,7 @@ void View::HandleMouseUp(MouseButton_e button, const Point& position)
 {
     Ptr<View> mouseView = s_MouseDownView.Lock();
     if (mouseView != nullptr) {
-        printf("View::HandleMouseUp() %p '%s'\n", ptr_raw_pointer_cast(mouseView), mouseView->GetName().c_str());
+//        printf("View::HandleMouseUp() %p '%s'\n", ptr_raw_pointer_cast(mouseView), mouseView->GetName().c_str());
 
         mouseView->OnMouseUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
     } else {
@@ -390,10 +484,98 @@ void View::HandleMouseMove(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::FillRect(const Rect& rect, Color color)
+void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
 {
-    SetFgColor(color);
-    FillRect(rect);
+    Rect frame(rect);
+    frame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
+    frame.Floor();
+    bool sunken = false;
+
+    if (((syleFlags & FRAME_RAISED) == 0) && (syleFlags & (FRAME_RECESSED))) {
+        sunken = true;
+    }
+
+    Color fgColor = get_standard_color(StandardColorID::SHINE);
+    Color bgColor = get_standard_color(StandardColorID::SHADOW);
+
+    if (syleFlags & FRAME_DISABLED) {
+        fgColor = Tint(fgColor, 0.6f);
+        bgColor = Tint(bgColor, 0.4f);
+    }
+    Color fgShadowColor = Tint(fgColor, 0.6f);
+    Color bgShadowColor = Tint(bgColor, 0.5f);
+  
+    if (syleFlags & FRAME_FLAT)
+    {
+        SetFgColor(sunken ? bgColor : fgColor);
+        MovePenTo(frame.left, frame.bottom - 1.0f);
+        DrawLine(Point( frame.left, frame.top));
+        DrawLine(Point(frame.right - 1.0f, frame.top));
+        DrawLine(Point(frame.right - 1.0f, frame.bottom - 1.0f));
+        DrawLine(Point(frame.left, frame.bottom - 1.0f));
+    }
+    else
+    {
+        if (syleFlags & FRAME_THIN) {
+            SetFgColor(sunken ? bgColor : fgColor);
+        } else {
+            SetFgColor(sunken ? bgColor : fgShadowColor);
+        }
+
+        MovePenTo(frame.left, frame.bottom - 1.0f);
+        DrawLine(Point(frame.left, frame.top));
+        DrawLine(Point(frame.right - 1.0f, frame.top));
+
+        if (syleFlags & FRAME_THIN) {
+            SetFgColor(sunken ? fgColor : bgColor);
+        } else {
+            SetFgColor(sunken ? fgColor : bgShadowColor);
+        }
+        DrawLine(Point(frame.right - 1.0f, frame.bottom - 1.0f));
+        DrawLine(Point(frame.left, frame.bottom - 1.0f));
+
+
+        if ((syleFlags & FRAME_THIN) == 0)
+        {
+            if (syleFlags & FRAME_ETCHED)
+            {
+                SetFgColor(sunken ? bgColor : fgColor);
+
+                MovePenTo(frame.left + 1.0f, frame.bottom - 2.0f);
+
+                DrawLine(Point(frame.left + 1.0f, frame.top + 1.0f));
+                DrawLine(Point(frame.right - 2.0f, frame.top + 1.0f));
+
+                SetFgColor(sunken ? fgColor : bgColor);
+
+                DrawLine(Point(frame.right - 2.0f, frame.bottom - 2.0f));
+                DrawLine(Point(frame.left + 1.0f, frame.bottom - 2.0f));
+            }
+            else
+            {
+                SetFgColor(sunken ? bgShadowColor : fgColor);
+
+                MovePenTo(frame.left + 1.0f, frame.bottom - 2.0f);
+
+                DrawLine(Point(frame.left + 1.0f, frame.top + 1.0f));
+                DrawLine(Point(frame.right - 2.0f, frame.top + 1.0f));
+
+                SetFgColor(sunken ? fgShadowColor : bgColor);
+
+                DrawLine(Point(frame.right - 2.0f, frame.bottom - 2.0f));
+                DrawLine(Point(frame.left + 1.0f, frame.bottom - 2.0f));
+            }
+            if ((syleFlags & FRAME_TRANSPARENT) == 0) {
+                EraseRect(Rect(frame.left + 2.0f, frame.top + 2.0f, frame.right - 3.0f, frame.bottom - 3.0f));
+            }
+        }
+        else
+        {
+            if ((syleFlags & FRAME_TRANSPARENT) == 0) {
+                EraseRect(Rect(frame.left + 1.0f, frame.top + 1.0f, frame.right - 2.0f, frame.bottom - 2.0f));
+            }
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -501,10 +683,10 @@ void View::Sync()
 
 void View::HandleAddedToParent(Ptr<View> parent)
 {
-    if (parent->m_ServerHandle != -1)
+    UpdatePosition(false);
+    if (parent->m_ServerHandle != -1 && !HasFlag(ViewFlags::EAVESDROPPER))
     {
-        UpdatePosition(false);
-        GetApplication()->AddView(ptr_tmp_cast(this));
+        parent->GetApplication()->AddView(ptr_tmp_cast(this), ViewDockType::ChildView);
         
         if (m_LayoutNode != nullptr) {
             m_LayoutNode->Layout();
@@ -520,7 +702,7 @@ void View::HandleAddedToParent(Ptr<View> parent)
     
 void View::HandleRemovedFromParent(Ptr<View> parent)
 {
-    if (m_ServerHandle != -1) {
+    if (m_ServerHandle != -1 && !HasFlag(ViewFlags::EAVESDROPPER)) {
         GetApplication()->RemoveView(ptr_tmp_cast(this));
     }
 }

@@ -354,9 +354,9 @@ public:
     void BLT_FillCircle(int32_t x, int32_t y, int32_t radius);
     void BLT_MoveRect(const IRect& srcRect, const IPoint& dstPos);
     
-    uint32_t WriteString(const char* string, size_t strLength, int32_t maxWidth, uint32_t flags);
+    uint32_t WriteString(const char* string, size_t strLength, const IRect& clipRect);
     uint8_t WriteStringTransparent(const char* string, uint8_t strLength, int16_t maxWidth);
-    uint8_t WriteGlyph(char character);
+//    uint8_t WriteGlyph(char character);
 
     void DrawImage(File* file, int16_t width, int16_t height);
     
@@ -416,7 +416,7 @@ public:
     void FastFill(uint32_t words, uint16_t color);
 //    void FastFill16(uint16_t words);
 //    void FastFill32(uint32_t words);
-    inline bool RenderGlyph(char character, int16_t maxWidth, uint8_t flags);
+    inline bool RenderGlyph(char character, const IRect& clipRect);
 
 
     void LCD_CmdWrite(uint8_t cmd) { WriteCommand(cmd); }

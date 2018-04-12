@@ -28,9 +28,9 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Application::Application(const String& name) : Looper(name, 1000), m_ReplyPort("app_reply", 1000)
+Application::Application(const String& name, bool isWindowManager) : Looper(name, 1000), m_ReplyPort("app_reply", 1000)
 {
-    ASRegisterApplication::Sender::Emit(g_AppserverPort, -1, INFINIT_TIMEOUT, m_ReplyPort.GetPortID(), GetPortID(), GetName());
+    ASRegisterApplication::Sender::Emit(g_AppserverPort, -1, INFINIT_TIMEOUT, m_ReplyPort.GetPortID(), GetPortID(), GetName(), isWindowManager);
     
     for(;;)
     {
@@ -83,7 +83,7 @@ IRect Application::GetScreenIFrame()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Application::AddView(Ptr<View> view)
+bool Application::AddView(Ptr<View> view, ViewDockType dockType)
 {
     Ptr<View> parent = view->GetParent();
     handler_id parentHandle = -1;
@@ -101,7 +101,8 @@ bool Application::AddView(Ptr<View> view)
         Post<ASCreateView>(GetPortID()
                             , m_ReplyPort.GetPortID()
                             , view->GetHandle()
-                            , (parent != nullptr) ? parentHandle : -1
+                            , parentHandle
+                            , dockType
                             , view->GetName()
                             , view->m_Frame + view->m_PositionOffset
                             , view->m_ScrollOffset
@@ -142,7 +143,7 @@ bool Application::AddView(Ptr<View> view)
     }
     view->AttachedToScreen();
     for (Ptr<View> child : view->m_ChildrenList) {
-        AddView(ptr_static_cast<View>(child));
+        AddView(ptr_static_cast<View>(child), ViewDockType::ChildView);
     }
     view->AllAttachedToScreen();
     view->InvalidateLayout();

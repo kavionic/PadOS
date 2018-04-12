@@ -243,7 +243,7 @@ void GfxDriverIO::Setup()
     LCD_RESET_Pin.Write(true);
 
     LCD_BL_CTRL_Pin.SetDirection(DigitalPinDirection_e::Out);
-    LCD_BL_CTRL_Pin.Write(true);
+    LCD_BL_CTRL_Pin = true;
 
 
     SMC->SMC_WPMR = SMC_WPMR_WPKEY_PASSWD;

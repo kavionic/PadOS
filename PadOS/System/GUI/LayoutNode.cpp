@@ -165,7 +165,7 @@ Alignment LayoutNode::GetVAlignment() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayoutNode::AdjustPrefSize( Point* pcMinSize, Point* pcMaxSize )
+void LayoutNode::AdjustPrefSize(Point* pcMinSize, Point* pcMaxSize)
 {
     if ( pcMinSize->x < m_MinSize.x ) pcMinSize->x = m_MinSize.x;
     if ( pcMinSize->y < m_MinSize.y ) pcMinSize->y = m_MinSize.y;
@@ -189,9 +189,30 @@ Point LayoutNode::CalculatePreferredSize(bool largest)
     Point size(0.0f,0.0f);
     if (m_View != nullptr)
     {
-        size = m_View->GetPreferredSize(largest);
-        size.x = ceil(size.x);
-        size.y = ceil(size.y);
+        for (Ptr<View> child : *m_View)
+        {
+            Point currentSize = child->GetPreferredSize(largest);
+            if (largest)
+            {
+                size.x = std::min(size.x, currentSize.x);
+                size.y = std::min(size.y, currentSize.y);
+            }
+            else
+            {
+                size.x = std::max(size.x, currentSize.x);
+                size.y = std::max(size.y, currentSize.y);
+            }            
+        }
+        if (largest)
+        {
+            size.x = floor(size.x);
+            size.y = floor(size.y);
+        }
+        else
+        {
+            size.x = ceil(size.x);
+            size.y = ceil(size.y);            
+        }            
     }
     return size + Point(m_Borders.left + m_Borders.right, m_Borders.top + m_Borders.bottom);
 }
@@ -507,7 +528,7 @@ void HLayoutNode::Layout()
     //    }
         float unusedWidth = SpaceOut(childList.size(), bounds.Width() + 1.0f, vMinWidth, vTotalWheight, minWidths, maxWidths, wheights, finalHeights);
 
-        printf("HLayout: Unused space: %f (%f)\n", unusedWidth, bounds.Width());
+//        printf("HLayout: Unused space: %f (%f)\n", unusedWidth, bounds.Width());
         unusedWidth /= float(childList.size());
         float x = bounds.left + unusedWidth * 0.5f;
     
@@ -520,7 +541,7 @@ void HLayoutNode::Layout()
             frame += Point( x, bounds.top + (bounds.Height() - frame.Height()) * 0.5f);
             x += frame.Width() + 1.0f + unusedWidth;
             frame.Floor();
-            printf("    %d: %.2f->%.2f\n", i, frame.left, frame.right);
+//            printf("    %d: %.2f->%.2f\n", i, frame.left, frame.right);
             childList[i]->SetFrame(frame);
         }
     }    

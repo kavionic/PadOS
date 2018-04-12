@@ -39,6 +39,8 @@ public:
 
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
 
+    const MessagePort& GetWindowManagerPort() const { return m_WindowsManagerPort; }
+
     static Rect  GetScreenFrame();
     static IRect GetScreenIFrame();
 
@@ -58,7 +60,7 @@ private:
     void HandleMouseUp(MouseButton_e button, const Point& position);
     void HandleMouseMove(MouseButton_e button, const Point& position);
 
-    void SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name);
+    void SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name, bool isWindowManager);
 
     EventTimer m_PollTouchDriverTimer;
 
@@ -69,6 +71,8 @@ private:
     WeakPtr<ServerView> m_FocusView;
 
     int        m_TouchInputDevice = -1;
+
+    MessagePort m_WindowsManagerPort;
 
     ApplicationServer(const ApplicationServer&) = delete;
     ApplicationServer& operator=(const ApplicationServer&) = delete;

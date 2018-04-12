@@ -34,12 +34,12 @@ struct Color
     void Set32(uint32_t color)                                     { m_Color = color; }
     void SetRGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) { m_Color = (r << 16) | (g << 8) | b | (a << 24); }
     
-    uint8_t GetR() const { return (m_Color >> 16) & 0xff; }
-    uint8_t GetG() const { return (m_Color >> 8) & 0xff; }
-    uint8_t GetB() const { return m_Color & 0xff; }
-    uint8_t GetA() const { return (m_Color >> 24) & 0xff; }
+    uint8_t GetRed() const { return (m_Color >> 16) & 0xff; }
+    uint8_t GetGreen() const { return (m_Color >> 8) & 0xff; }
+    uint8_t GetBlue() const { return m_Color & 0xff; }
+    uint8_t GetAlpha() const { return (m_Color >> 24) & 0xff; }
     
-    uint16_t GetColor16() const { return ((GetR() & 0xf8) << 8) | ((GetG() & 0xfc) << 3) | ((GetB() & 0xf8) >> 3); }
+    uint16_t GetColor16() const { return ((GetRed() & 0xf8) << 8) | ((GetGreen() & 0xfc) << 3) | ((GetBlue() & 0xf8) >> 3); }
     
     uint32_t m_Color;
 };

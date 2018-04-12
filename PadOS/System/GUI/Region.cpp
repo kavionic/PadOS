@@ -147,16 +147,16 @@ Region::Region( const IRect& cRect )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::Region( const Region& cReg )
+Region::Region(const Region& cReg)
 {
-    Set( cReg );
+    Set(cReg);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::Region( const Region& cReg, const IRect& cRectangle, bool bNormalize )
+Region::Region(const Region& cReg, const IRect& cRectangle, bool bNormalize)
 {
     IPoint cLefTop = cRectangle.LeftTop();
     ENUMCLIPLIST( &cReg.m_cRects, pcOldClip )
@@ -771,14 +771,3 @@ bool Region::ClipLine( const IRect& cRect, int* x1, int* y1, int* x2, int* y2 )
 
     return success;
 }
-
-
-
-
-
-
-
-
-
-
-

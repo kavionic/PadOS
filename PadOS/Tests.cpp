@@ -109,7 +109,7 @@ private:
     }
     Semaphore& m_StdOutLock;
     
-    RemoteSignal<1, void, int, float, const String&>::Receiver TestSignal;
+    RemoteSignal<1, int, float, const String&>::Receiver TestSignal;
 };
 
 class MessagePortTestThread : public Looper
@@ -137,7 +137,7 @@ void Tests::TestMessagePort()
 
     looper->Start("looper_message_test", true, 1);
 
-    typedef RemoteSignal<1, void, int, float, const String&>::Sender TestSignal;
+    typedef RemoteSignal<1, int, float, const String&>::Sender TestSignal;
         
     for (int i = 0; i < 20; ++i)
     {

@@ -40,7 +40,7 @@ MessagePort os::g_AppserverPort(-1, false);
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ApplicationServer::ApplicationServer() : Looper("appserver", 10, APPSERVER_MSG_BUFFER_SIZE)
+ApplicationServer::ApplicationServer() : Looper("appserver", 10, APPSERVER_MSG_BUFFER_SIZE), m_WindowsManagerPort(-1, false)
 {
     m_TopView = ptr_new<ServerView>("::topview::", GetScreenFrame(), Point(0.0f, 0.0f), 0, 0, Color(0xffffffff), Color(0xffffffff), Color(0));
 
@@ -148,11 +148,16 @@ Ptr<ServerView> ApplicationServer::FindView(handler_id handle) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name)
+void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name, bool isWindowManager)
 {
     Ptr<ServerApplication> app = ptr_new<ServerApplication>(this, name, clientPort);
     
     AddHandler(app);
+
+    if (isWindowManager)
+    {
+        m_WindowsManagerPort = MessagePort(clientPort, true);
+    }
 
     MsgRegisterApplicationReply reply;
     reply.m_ServerHandle = app->GetHandle();

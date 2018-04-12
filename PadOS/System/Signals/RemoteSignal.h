@@ -323,12 +323,12 @@ private:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-template<int ID, typename R, typename... ARGS>
+template<int ID, typename... ARGS>
 class RemoteSignal
 {
 public:
-    typedef RemoteSignalRX<ID, R, ARGS...> Receiver;    
-    typedef RemoteSignalTX<ID, R, ARGS...> Sender;
+    typedef RemoteSignalRX<ID, void, ARGS...> Receiver;    
+    typedef RemoteSignalTX<ID, void, ARGS...> Sender;
 };
 
 } // namespace

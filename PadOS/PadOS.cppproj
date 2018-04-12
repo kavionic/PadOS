@@ -326,6 +326,12 @@
     <Compile Include="Applications\TestApp\TestApp.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="Applications\WindowManager\WindowManager.cpp">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Applications\WindowManager\WindowManager.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="ASF\common\utils\interrupt.h">
       <SubType>compile</SubType>
     </Compile>
@@ -838,6 +844,7 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Applications\WindowManager" />
     <Folder Include="Applications\TestApp" />
     <Folder Include="ASF\common" />
     <Folder Include="ASF\common\utils" />

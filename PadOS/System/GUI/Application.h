@@ -29,7 +29,7 @@ class View;
 class Application : public Looper, public SignalTarget
 {
 public:
-    Application(const String& name, bool isWindowManager = false);
+    Application(const String& name);
     ~Application();
     
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;

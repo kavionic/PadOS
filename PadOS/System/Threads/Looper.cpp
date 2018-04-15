@@ -269,7 +269,11 @@ bool Looper::ProcessEvents(handler_id waitTarget, int32_t waitCode)
         handler_id targetHandler;
         int32_t    code;
         
-        ssize_t msgLength = m_Port.ReceiveMessageDeadline(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), nextEventTime);
+        ssize_t msgLength = m_Port.ReceiveMessageTimeout(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), 0);
+        if (msgLength < 0 && get_last_error() == ETIME) {
+            Idle();
+            msgLength = m_Port.ReceiveMessageDeadline(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), nextEventTime);
+        }            
         if (msgLength >= 0)
         {
             ProcessMessage(targetHandler, code, msgLength);

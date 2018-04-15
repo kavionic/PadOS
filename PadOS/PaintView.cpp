@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 07.11.2017 22:20:43
 
+#include "sam.h"
+
 #include "PaintView.h"
 #include "System/GUI/Button.h"
 

@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <queue>
+
 #include "System/Threads/Looper.h"
 #include "System/Signals/SignalTarget.h"
 #include "Protocol.h"
@@ -38,8 +40,7 @@ public:
     ~ApplicationServer();
 
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
-
-    const MessagePort& GetWindowManagerPort() const { return m_WindowsManagerPort; }
+    virtual void Idle() override;
 
     static Rect  GetScreenFrame();
     static IRect GetScreenIFrame();
@@ -60,9 +61,12 @@ private:
     void HandleMouseUp(MouseButton_e button, const Point& position);
     void HandleMouseMove(MouseButton_e button, const Point& position);
 
-    void SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name, bool isWindowManager);
+    void SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name);
 
+    MessagePort m_ReplyPort;
     EventTimer m_PollTouchDriverTimer;
+
+    std::queue<MsgMouseEvent> m_MouseEventQueue;
 
     ASRegisterApplication::Receiver RSRegisterApplication;
     
@@ -71,8 +75,6 @@ private:
     WeakPtr<ServerView> m_FocusView;
 
     int        m_TouchInputDevice = -1;
-
-    MessagePort m_WindowsManagerPort;
 
     ApplicationServer(const ApplicationServer&) = delete;
     ApplicationServer& operator=(const ApplicationServer&) = delete;

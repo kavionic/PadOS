@@ -25,6 +25,7 @@
 #include "System/Math/Point.h"
 #include "System/Math/Rect.h"
 #include "System/Utils/Utils.h"
+#include "SystemSetup.h"
 
 namespace kernel
 {
@@ -339,8 +340,9 @@ public:
     inline void SetCursor(const IPoint& pos) { m_Cursor = pos; }
     inline void SetCursor(int16_t x, int16_t y) { m_Cursor.x = x; m_Cursor.y = y; }
     inline const IPoint& GetCursor() const { return m_Cursor; }
-    void FillRect(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
-    void FillRect(const IRect& rect) {FillRect(rect.left, rect.top, rect.right, rect.bottom); }
+
+    void FillRect(const IRect& frame);
+    
     void WritePixel(int16_t x, int16_t y);
     
     void DrawLine(int x1, int y1, int x2, int y2);
@@ -349,154 +351,113 @@ public:
     
     void FillCircle(int32_t x, int32_t y, int32_t radius);
 
-    void BLT_FillRect(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
+    void BLT_FillRect(const IRect& frame);
     void BLT_DrawLine(int x1, int y1, int x2, int y2);
     void BLT_FillCircle(int32_t x, int32_t y, int32_t radius);
     void BLT_MoveRect(const IRect& srcRect, const IPoint& dstPos);
     
     uint32_t WriteString(const char* string, size_t strLength, const IRect& clipRect);
     uint8_t WriteStringTransparent(const char* string, uint8_t strLength, int16_t maxWidth);
-//    uint8_t WriteGlyph(char character);
 
     void DrawImage(File* file, int16_t width, int16_t height);
     
 //private:
     void PLL_ini();
 
-    /////////////////Set the working window area
-    void Active_Window(int XL,int XR ,int YT ,int YB)
-    {
-        LCD_CmdWrite(RA8875_HSAW0, RA8875_HSAW1, XL);
-        LCD_CmdWrite(RA8875_HEAW0, RA8875_HEAW1, XR);
-        LCD_CmdWrite(RA8875_VSAW0, RA8875_VSAW1, YT);
-        LCD_CmdWrite(RA8875_VEAW0, RA8875_VEAW1, YB);
-    }
 
     void SetWindow(int x1, int y1, int x2, int y2);
     void SetWindow(const IRect& frame) { SetWindow(frame.left, frame.top, frame.right, frame.bottom); }
     inline void UpdateAddressMode()
     {
-//#define   RA8875_MWCR0_LR_TD_bg     BIT8(RA8875_MWCR0_DIRECTON_bp,0) // Left -> Right then Top -> Down
-//#define   RA8875_MWCR0_RL_TD_bg     BIT8(RA8875_MWCR0_DIRECTON_bp,1) // Right -> Left then Top -> Down
-//#define   RA8875_MWCR0_TD_LR_bg     BIT8(RA8875_MWCR0_DIRECTON_bp,2) // Top -> Down then Left -> Right
-//#define   RA8875_MWCR0_DT_LR_bg     BIT8(RA8875_MWCR0_DIRECTON_bp,3) // Down -> Top then Left -> Right
-        
         if ( m_FillDirection == e_FillLeftDown )
         {
             if ( m_Orientation == e_Landscape ) {
-                LCD_CmdWrite(RA8875_MWCR0, RA8875_MWCR0_LR_TD_bg);
+                WriteCommand(RA8875_MWCR0, RA8875_MWCR0_LR_TD_bg); // Left -> Right then Top -> Down
             } else {
-                LCD_CmdWrite(RA8875_MWCR0, RA8875_MWCR0_TD_LR_bg);
+                WriteCommand(RA8875_MWCR0, RA8875_MWCR0_TD_LR_bg); // Top -> Down then Left -> Right
             }
         }
         else
         {
             if ( m_Orientation == e_Landscape ) {
-                LCD_CmdWrite(RA8875_MWCR0, RA8875_MWCR0_TD_LR_bg);
+                WriteCommand(RA8875_MWCR0, RA8875_MWCR0_TD_LR_bg); // Top -> Down then Left -> Right
             } else {
-                LCD_CmdWrite(RA8875_MWCR0, RA8875_MWCR0_LR_TD_bg);
+                WriteCommand(RA8875_MWCR0, RA8875_MWCR0_LR_TD_bg); // Left -> Right then Top -> Down
             }
         }
-        
-/*        WriteCommand(ILI9481_SET_ADDRESS_MODE);
-        if ( m_FillDirection == e_FillLeftDown ) {
-            if ( m_Orientation == e_Landscape ) {
-                WriteData8(LCD_DEFAULT_ADDRESS_MODE | ILI9481_ADDRESS_MODE_PAGE_COLUMN_ORDER_REVERSED | ILI9481_ADDRESS_MODE_REFRESH_BOTTOM_TO_TOP | ILI9481_ADDRESS_MODE_HFLIP | ILI9481_ADDRESS_MODE_VFLIP);
-            } else {
-                WriteData8(LCD_DEFAULT_ADDRESS_MODE | ILI9481_ADDRESS_MODE_HFLIP | ILI9481_ADDRESS_MODE_VFLIP);
-            }
-        } else {
-            if ( m_Orientation == e_Landscape ) {
-                WriteData8(LCD_DEFAULT_ADDRESS_MODE | ILI9481_ADDRESS_MODE_HFLIP | ILI9481_ADDRESS_MODE_VFLIP);
-            } else {
-                WriteData8(LCD_DEFAULT_ADDRESS_MODE | ILI9481_ADDRESS_MODE_PAGE_COLUMN_ORDER_REVERSED | ILI9481_ADDRESS_MODE_REFRESH_BOTTOM_TO_TOP | ILI9481_ADDRESS_MODE_HFLIP | ILI9481_ADDRESS_MODE_VFLIP);
-            }
-        }*/
     }
     void FastFill(uint32_t words, uint16_t color);
-//    void FastFill16(uint16_t words);
-//    void FastFill32(uint32_t words);
     inline bool RenderGlyph(char character, const IRect& clipRect);
-
-
-    void LCD_CmdWrite(uint8_t cmd) { WriteCommand(cmd); }
-    void LCD_CmdWrite(uint8_t cmd, uint8_t data) { WriteCommand(cmd); Write16(data); }
-    void LCD_CmdWrite(uint8_t cmdL, uint8_t cmdH, uint16_t data) { WriteCommand(cmdL); Write16(data & 0xff); WriteCommand(cmdH); Write16(data >> 8); }
-    void LCD_DataWrite(unsigned int data) { Write16(data); }
 
     void MemoryWrite_Position(int X,int Y)
     {
-        LCD_CmdWrite(RA8875_CURH0, RA8875_CURH1, X);
-        LCD_CmdWrite(RA8875_CURV0, RA8875_CURV1, Y);
-        LCD_CmdWrite(RA8875_MRWC);
+        WriteCommand(RA8875_CURH0, RA8875_CURH1, X);
+        WriteCommand(RA8875_CURV0, RA8875_CURV1, Y);
+        WriteCommand(RA8875_MRWC);
     }
 
-    uint8_t LCD_StatusRead();
-    uint16_t LCD_DataRead();
-    ///////////////check busy
+
     void Chk_Busy()
     {
         uint8_t temp;
         do
         {
-            temp=LCD_StatusRead();
+            temp=ReadCommand();
         } while((temp&0x80)==0x80);
     }
-    ///////////////check bte busy
+
     void Chk_BTE_Busy()
     {
         uint8_t temp;
         do
         {
-            temp=LCD_StatusRead();
+            temp=ReadCommand();
         } while((temp&0x40)==0x40);
     }
-    ///////////////check dma busy
+
     void Chk_DMA_Busy()
     {
         uint8_t temp;
         do
         {
-            LCD_CmdWrite(RA8875_DMACR);
-            temp =LCD_DataRead();
+            WriteCommand(RA8875_DMACR);
+            temp = ReadData();
         } while((temp&0x01)==0x01);   
     }
+
     void WaitBlitter()
     {
         Chk_BTE_Busy();
         for (;;)
         {
-            LCD_CmdWrite(RA8875_DCR);
-            if (!(LCD_DataRead() & (RA8875_DCR_CIRCLE_bm | RA8875_DCR_LINE_SQR_TRI_bm))) break;
+            WriteCommand(RA8875_DCR);
+            if (!(ReadData() & (RA8875_DCR_CIRCLE_bm | RA8875_DCR_LINE_SQR_TRI_bm))) break;
         }            
     }
-    ///////////////check dma busy
+
     void Chk_Circle_Busy()
     {
         uint8_t temp;
         do
         {
-            LCD_CmdWrite(RA8875_DMACR);
-            temp =LCD_DataRead();
+            WriteCommand(RA8875_DMACR);
+            temp = ReadData();
         } while((temp&0x01)==0x01);   
     }
 
-    void WriteCommand(uint8_t cmd);
-    void WriteData8(uint8_t data);
+    uint16_t ReadCommand()         { return LCD_REGISTERS->CMD; }
+    void     WriteCommand(uint8_t cmd)                               { LCD_REGISTERS->CMD = cmd; }
+    void     WriteCommand(uint8_t cmd, uint8_t data)                 { LCD_REGISTERS->CMD = cmd; LCD_REGISTERS->DATA = data; }
+    void     WriteCommand(uint8_t cmdL, uint8_t cmdH, uint16_t data) { WriteCommand(cmdL, data & 0xff); WriteCommand(cmdH, data >> 8); }
 
-    void WriteData16(uint16_t data);
+    uint16_t ReadData()             { return LCD_REGISTERS->DATA; }
+    void     WriteData(uint16_t data) { LCD_REGISTERS->DATA = data; }
 
-    void SetBus16(uint16_t data);
-
-    void Write16(uint16_t data);
-
-    void WriteBus();
-
-    Orientation_e   m_Orientation;
-    FillDirection_e m_FillDirection;
-    uint16_t        m_FgColor;
-    uint16_t        m_BgColor;
-    Font_e          m_Font;
+    Orientation_e         m_Orientation;
+    FillDirection_e       m_FillDirection;
+    uint16_t              m_FgColor;
+    uint16_t              m_BgColor;
+    Font_e                m_Font;
     uint8_t               m_FontFirstChar;
     uint8_t               m_FontHeight;
     uint8_t               m_FontHeightFullBytes;
@@ -504,7 +465,7 @@ public:
     uint8_t               m_FontCharSpacing;
     const uint8_t*        m_FontGlyphData;
     const FONT_CHAR_INFO* m_FontCharInfo;
-    IPoint           m_Cursor;
+    IPoint                m_Cursor;
 };
 
 } // namespace

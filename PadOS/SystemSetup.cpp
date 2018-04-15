@@ -23,11 +23,8 @@
 #include "MemTest.h"
 #include "Kernel/HAL/SAME70System.h"
 
-
-uint8_t sdram_access_test();
-
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 extern "C" void PreInitSetup()
@@ -66,18 +63,19 @@ extern "C" void PreInitSetup()
                SDRAMC_CR_NB_BANK4     | 
                SDRAMC_CR_CAS_LATENCY2 | 
                SDRAMC_CR_DBW_Msk      | 
-               SDRAMC_CR_TWR(0/*5*/)       | 
-               SDRAMC_CR_TRC_TRFC(9/*13*/) | 
+               SDRAMC_CR_TWR(0)       | 
+               SDRAMC_CR_TRC_TRFC(9)  | 
                SDRAMC_CR_TRP(3)       | 
                SDRAMC_CR_TRCD(3)      | 
                SDRAMC_CR_TRAS(6)      | 
-               SDRAMC_CR_TXSR(10/*15*/),
+               SDRAMC_CR_TXSR(10),
                0x27,
                25,
                7812,
                SAME70System::GetFrequencyPeripheral());
     SCB_CleanInvalidateDCache();
-
+    
+/*
     volatile datum* sdramStart = (volatile datum*)SDRAM_START;
 
     RGBLED_B.Write(true);
@@ -97,7 +95,7 @@ extern "C" void PreInitSetup()
     RGBLED_R.Write(false);
     RGBLED_G.Write(true);
 
-/*    for(;;)
+    for(;;)
     {
         datum* resultDev = memTestDevice(sdramStart, SDRAM_SIZE);
         if (resultDev != nullptr)
@@ -114,15 +112,10 @@ extern "C" void PreInitSetup()
     RGBLED_R.Write(false);
     RGBLED_G.Write(false);
     RGBLED_B.Write(false);
-
-
-//    SCB_EnableDCache();
-
-    sdram_access_test();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 void SetupEBIPeripherals()
@@ -178,8 +171,6 @@ void SetupEBIPeripherals()
     EBI_LCD_RS_Pin.SetDriveStrength(DigitalPinDriveStrength_e::High);
     EBI_LCD_WR_Pin.SetDriveStrength(DigitalPinDriveStrength_e::High);
 
-
-
     EBI_DB0_Pin.SetPeripheralMux(EBI_DB0_Periph);
     EBI_DB1_Pin.SetPeripheralMux(EBI_DB1_Periph);
     EBI_DB2_Pin.SetPeripheralMux(EBI_DB2_Periph);
@@ -228,29 +219,6 @@ void SetupEBIPeripherals()
     EBI_LCD_WR_Pin.SetPeripheralMux(EBI_LCD_WR_Periph);
 
     MATRIX->CCFG_SMCNFCS = CCFG_SMCNFCS_SDRAMEN_Msk;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-///
-///////////////////////////////////////////////////////////////////////////////
-
-void GfxDriverIO::Setup()
-{
-    NVIC_DisableIRQ(TC9_IRQn);
-
-    
-    LCD_RESET_Pin.SetDirection(DigitalPinDirection_e::Out);
-    LCD_RESET_Pin.Write(true);
-
-    LCD_BL_CTRL_Pin.SetDirection(DigitalPinDirection_e::Out);
-    LCD_BL_CTRL_Pin = true;
-
-
-    SMC->SMC_WPMR = SMC_WPMR_WPKEY_PASSWD;
-    SMC->SMC_CS_NUMBER[3].SMC_SETUP = SMC_SETUP_NWE_SETUP(0) | SMC_SETUP_NCS_WR_SETUP(0) | SMC_SETUP_NRD_SETUP(0);
-    SMC->SMC_CS_NUMBER[3].SMC_PULSE = SMC_PULSE_NWE_PULSE(5) | SMC_PULSE_NCS_WR_PULSE(10) | SMC_PULSE_NRD_PULSE(5) | SMC_PULSE_NCS_RD_PULSE(10);
-    SMC->SMC_CS_NUMBER[3].SMC_CYCLE = SMC_CYCLE_NWE_CYCLE(10) | SMC_CYCLE_NRD_CYCLE(10);
-    SMC->SMC_CS_NUMBER[3].SMC_MODE = SMC_MODE_READ_MODE_Msk | SMC_MODE_WRITE_MODE_Msk | SMC_MODE_EXNW_MODE_DISABLED | SMC_MODE_BAT_BYTE_WRITE | SMC_MODE_DBW_16_BIT | SMC_MODE_TDF_CYCLES(0); // | SMC_MODE_TDF_MODE_Msk;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

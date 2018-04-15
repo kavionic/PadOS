@@ -103,27 +103,27 @@ ClipRect* ClipRectList::RemoveHead()
     return clip;
 }
 
-void ClipRectList::StealRects( ClipRectList* pcList )
+void ClipRectList::StealRects(ClipRectList* list)
 {
-    if ( pcList->m_pcFirst == nullptr ) {
-        assert( pcList->m_pcLast == nullptr );
+    if ( list->m_pcFirst == nullptr ) {
+        assert( list->m_pcLast == nullptr );
         return;
     }
     
     if ( m_pcFirst == nullptr ) {
         assert( m_pcLast == nullptr );
-        m_pcFirst = pcList->m_pcFirst;
-        m_pcLast  = pcList->m_pcLast;
+        m_pcFirst = list->m_pcFirst;
+        m_pcLast  = list->m_pcLast;
     } else {
-        m_pcLast->m_Next = pcList->m_pcFirst;
-        pcList->m_pcFirst->m_Prev = m_pcLast;
-        m_pcLast = pcList->m_pcLast;
+        m_pcLast->m_Next = list->m_pcFirst;
+        list->m_pcFirst->m_Prev = m_pcLast;
+        m_pcLast = list->m_pcLast;
     }
-    m_nCount += pcList->m_nCount;
+    m_nCount += list->m_nCount;
     
-    pcList->m_pcFirst = nullptr;
-    pcList->m_pcLast  = nullptr;
-    pcList->m_nCount  = 0;
+    list->m_pcFirst = nullptr;
+    list->m_pcLast  = nullptr;
+    list->m_nCount  = 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -138,30 +138,30 @@ Region::Region()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::Region( const IRect& cRect )
+Region::Region(const IRect& rect)
 {
-    AddRect( cRect );
+    AddRect(rect);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::Region(const Region& cReg)
+Region::Region(const Region& reg)
 {
-    Set(cReg);
+    Set(reg);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::Region(const Region& cReg, const IRect& cRectangle, bool bNormalize)
+Region::Region(const Region& region, const IRect& rectangle, bool bNormalize)
 {
-    IPoint cLefTop = cRectangle.LeftTop();
-    ENUMCLIPLIST( &cReg.m_cRects, pcOldClip )
+    IPoint topLeft = rectangle.TopLeft();
+    ENUMCLIPLIST( &region.m_cRects, pcOldClip )
     {
-        IRect rect = pcOldClip->m_cBounds & cRectangle;
+        IRect rect = pcOldClip->m_cBounds & rectangle;
     
         if (rect.IsValid())
         {
@@ -169,7 +169,7 @@ Region::Region(const Region& cReg, const IRect& cRectangle, bool bNormalize)
             if (newClip != nullptr)
             {
                 if ( bNormalize ) {
-                    rect -= cLefTop;
+                    rect -= topLeft;
                 }
                 newClip->m_cBounds = rect;
                 m_cRects.AddRect(newClip);
@@ -238,22 +238,22 @@ void Region::FreeClipRect(ClipRect* rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Set( const IRect& cRect )
+void Region::Set(const IRect& rect)
 {
     Clear();
-    AddRect( cRect );
+    AddRect(rect);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Set( const Region& cReg )
+void Region::Set( const Region& region )
 {
     Clear();
 
-    ENUMCLIPLIST( &cReg.m_cRects, clip ) {
-        AddRect( clip->m_cBounds );
+    ENUMCLIPLIST(&region.m_cRects, clip) {
+        AddRect(clip->m_cBounds);
     }
 }
 
@@ -261,7 +261,7 @@ void Region::Set( const Region& cReg )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Clear( void )
+void Region::Clear()
 {
     m_cRects.Clear();
 }
@@ -270,14 +270,14 @@ void Region::Clear( void )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ClipRect *Region::AddRect( const IRect& cRect )
+ClipRect *Region::AddRect(const IRect& rect)
 {
     ClipRect* clipRect = AllocClipRect();
 
-    if ( clipRect != nullptr  )
+    if (clipRect != nullptr)
     {
-        clipRect->m_cBounds = cRect;
-        m_cRects.AddRect( clipRect );
+        clipRect->m_cBounds = rect;
+        m_cRects.AddRect(clipRect);
     }
     return clipRect;
 }
@@ -286,43 +286,43 @@ ClipRect *Region::AddRect( const IRect& cRect )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Include( const IRect& cRect )
+void Region::Include(const IRect& rect)
 {
-    Region cTmpReg( cRect );
+    Region tmpReg(rect);
 
-
-    ENUMCLIPLIST( &m_cRects, DClip ) { /* remove all areas already present in drawlist */
-        cTmpReg.Exclude( DClip->m_cBounds );
+    // Remove all areas already present in clip-list.
+    ENUMCLIPLIST(&m_cRects, clip) {
+        tmpReg.Exclude(clip->m_cBounds);
     }
-    m_cRects.StealRects( &cTmpReg.m_cRects );
+    m_cRects.StealRects(&tmpReg.m_cRects);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Exclude( const IRect& cRect )
+void Region::Exclude(const IRect& rect)
 {
-    ClipRectList cNewList;
+    ClipRectList newList;
 
-    while( m_cRects.m_pcFirst != nullptr )
+    while(m_cRects.m_pcFirst != nullptr)
     {
         ClipRect* clip = m_cRects.RemoveHead();
 
-        IRect cHide = cRect & clip->m_cBounds;
+        IRect hide = rect & clip->m_cBounds;
 
-        if ( cHide.IsValid() == false ) {
-            cNewList.AddRect( clip );
+        if (!hide.IsValid()) {
+            newList.AddRect(clip);
             continue;
         }
         // Boundaries of the four possible rectangles surrounding the one to remove.
 
         IRect newRects[4];
 
-        newRects[3] = IRect( clip->m_cBounds.left, clip->m_cBounds.top, clip->m_cBounds.right, cHide.top - 1 );
-        newRects[2] = IRect( clip->m_cBounds.left, cHide.bottom + 1, clip->m_cBounds.right, clip->m_cBounds.bottom );
-        newRects[0] = IRect( clip->m_cBounds.left, cHide.top, cHide.left - 1, cHide.bottom );
-        newRects[1] = IRect( cHide.right + 1, cHide.top, clip->m_cBounds.right, cHide.bottom );
+        newRects[3] = IRect(clip->m_cBounds.left, clip->m_cBounds.top, clip->m_cBounds.right, hide.top);       // Above (full width)
+        newRects[2] = IRect(clip->m_cBounds.left, hide.bottom, clip->m_cBounds.right, clip->m_cBounds.bottom); // Below (full width)
+        newRects[0] = IRect(clip->m_cBounds.left, hide.top, hide.left, hide.bottom);   // Left (center)
+        newRects[1] = IRect(hide.right, hide.top, clip->m_cBounds.right, hide.bottom); // Right (center)
 
         FreeClipRect(clip);
 
@@ -332,26 +332,25 @@ void Region::Exclude( const IRect& cRect )
             if (newRects[i].IsValid())
             {
                 ClipRect* newClip = AllocClipRect();
-
                 if (newClip != nullptr) {
                     newClip->m_cBounds = newRects[i];
-                    cNewList.AddRect(newClip);
+                    newList.AddRect(newClip);
                 }
             }
         }
     }
     m_cRects.m_pcLast = nullptr;
-    m_cRects.StealRects( &cNewList );
+    m_cRects.StealRects(&newList);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Exclude( const Region& cReg )
+void Region::Exclude( const Region& region )
 {
-    ENUMCLIPLIST( &cReg.m_cRects, clip ) {
-        Exclude( clip->m_cBounds );
+    ENUMCLIPLIST(&region.m_cRects, clip) {
+        Exclude(clip->m_cBounds);
     }
 }
 
@@ -359,10 +358,10 @@ void Region::Exclude( const Region& cReg )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Exclude( const Region& cReg, const IPoint& cOffset )
+void Region::Exclude(const Region& region, const IPoint& offset)
 {
-    ENUMCLIPLIST( &cReg.m_cRects, clip ) {
-        Exclude( clip->m_cBounds + cOffset );
+    ENUMCLIPLIST(&region.m_cRects, clip) {
+        Exclude(clip->m_cBounds + offset);
     }
 }
 
@@ -370,22 +369,22 @@ void Region::Exclude( const Region& cReg, const IPoint& cOffset )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Intersect( const Region& cReg )
+void Region::Intersect(const Region& region)
 {
-    ClipRectList cList;
+    ClipRectList list;
     
-    ENUMCLIPLIST( &cReg.m_cRects , pcVClip )
+    ENUMCLIPLIST(&region.m_cRects, clipV)
     {
-        ENUMCLIPLIST( &m_cRects , pcHClip )
+        ENUMCLIPLIST(&m_cRects, clipH)
         {
-            IRect cRect = pcVClip->m_cBounds & pcHClip->m_cBounds;
-            if ( cRect.IsValid() )
+            IRect rect = clipV->m_cBounds & clipH->m_cBounds;
+            if (rect.IsValid())
             {
                 ClipRect* newClip = AllocClipRect();
-
-                if (newClip != nullptr) {
-                    newClip->m_cBounds = cRect;
-                    cList.AddRect(newClip);
+                if (newClip != nullptr)
+                {
+                    newClip->m_cBounds = rect;
+                    list.AddRect(newClip);
                 }
             }
         }
@@ -393,34 +392,35 @@ void Region::Intersect( const Region& cReg )
 
     Clear();
 
-    m_cRects.StealRects( &cList );
+    m_cRects.StealRects(&list);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Intersect( const Region& cReg, const IPoint& cOffset )
+void Region::Intersect(const Region& region, const IPoint& offset)
 {
-    ClipRectList cList;
+    ClipRectList list;
     
-    ENUMCLIPLIST( &cReg.m_cRects , pcVClip )
+    ENUMCLIPLIST(&region.m_cRects, clipV)
     {
-        ENUMCLIPLIST( &m_cRects , pcHClip )
+        ENUMCLIPLIST(&m_cRects, clipH)
         {
-            IRect cRect = (pcVClip->m_cBounds + cOffset) & pcHClip->m_cBounds;
-            if ( cRect.IsValid() )
+            IRect rect = (clipV->m_cBounds + offset) & clipH->m_cBounds;
+            if (rect.IsValid())
             {
                 ClipRect* newClip = AllocClipRect();
-                if (newClip != nullptr) {
-                    newClip->m_cBounds = cRect;
-                    cList.AddRect(newClip);
+                if (newClip != nullptr)
+                {
+                    newClip->m_cBounds = rect;
+                    list.AddRect(newClip);
                 }
             }
         }
     }
     Clear();
-    m_cRects.StealRects( &cList );
+    m_cRects.StealRects(&list);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -429,30 +429,12 @@ void Region::Intersect( const Region& cReg, const IPoint& cOffset )
 
 IRect Region::GetBounds() const
 {
-    IRect cBounds( 999999, 999999, -999999, -999999 );
+    IRect bounds( 999999, 999999, -999999, -999999 );
   
     ENUMCLIPLIST( &m_cRects , clip ) {
-        cBounds |= clip->m_cBounds;
+        bounds |= clip->m_cBounds;
     }
-    return cBounds;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void Region::Clip(const ILineSegment& line, std::deque<ILineSegment>& result)
-{
-    ENUMCLIPLIST(&m_cRects, node)
-    {
-        int x1 = line.p1.x;
-        int y1 = line.p1.y;
-        int x2 = line.p2.x;
-        int y2 = line.p2.y;
-        if (Region::ClipLine(node->m_cBounds, &x1, &y1, &x2, &y2)) {
-            result.push_back(ILineSegment(IPoint(x1, y1), IPoint(x2, y2)));
-        }                
-    }
+    return bounds;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -485,51 +467,53 @@ public:
 
 void Region::Optimize()
 {
-    std::vector<ClipRect*> cList;
+    std::vector<ClipRect*> list;
 
     if ( m_cRects.GetCount() <= 1 ) {
         return;
     }
-    cList.reserve( m_cRects.GetCount() );
+    list.reserve( m_cRects.GetCount() );
 
     ENUMCLIPLIST( &m_cRects, clip ) {
-        cList.push_back( clip );
+        list.push_back( clip );
     }
-    bool bSomeRemoved = true;
-    while( cList.size() > 1 && bSomeRemoved )
+    bool someRemoved = true;
+    while(list.size() > 1 && someRemoved)
     {
-        bSomeRemoved = false;
-        std::sort( cList.begin(), cList.end(), HSortCmp() );
-        for ( int i = 0 ; i < int(cList.size()) - 1 ; )
+        someRemoved = false;
+        std::sort(list.begin(), list.end(), HSortCmp());
+        for ( int i = 0 ; i < int(list.size()) - 1 ; )
         {
-            if ( cList[i]->m_cBounds.right == cList[i+1]->m_cBounds.left - 1 &&
-                 cList[i]->m_cBounds.top == cList[i+1]->m_cBounds.top && cList[i]->m_cBounds.bottom == cList[i+1]->m_cBounds.bottom )
+            IRect& curr = list[i]->m_cBounds;
+            IRect& next = list[i+1]->m_cBounds;
+            if ( curr.right == next.left && curr.top == next.top && curr.bottom == next.bottom )
             {
-                cList[i]->m_cBounds.right = cList[i+1]->m_cBounds.right;
-                m_cRects.RemoveRect( cList[i+1] );
-                Region::FreeClipRect( cList[i+1] );
-                cList.erase( cList.begin() + i + 1 );
-                bSomeRemoved = true;
+                curr.right = next.right;
+                m_cRects.RemoveRect(list[i+1]);
+                Region::FreeClipRect(list[i+1]);
+                list.erase(list.begin() + i + 1);
+                someRemoved = true;
             }
             else
             {
                 ++i;
             }
         }
-        if ( cList.size() <= 1 ) {
+        if (list.size() <= 1) {
             break;
         }
-        std::sort( cList.begin(), cList.end(), VSortCmp() );
-        for ( int i = 0 ; i < int(cList.size()) - 1 ; )
+        std::sort(list.begin(), list.end(), VSortCmp());
+        for (int i = 0 ; i < int(list.size()) - 1 ;)
         {
-            if ( cList[i]->m_cBounds.bottom == cList[i+1]->m_cBounds.top - 1 &&
-                 cList[i]->m_cBounds.left == cList[i+1]->m_cBounds.left && cList[i]->m_cBounds.right == cList[i+1]->m_cBounds.right )
+            IRect& curr = list[i]->m_cBounds;
+            IRect& next = list[i+1]->m_cBounds;
+            if ( curr.bottom == next.top && curr.left == next.left && curr.right == next.right )
             {
-                cList[i]->m_cBounds.bottom = cList[i+1]->m_cBounds.bottom;
-                m_cRects.RemoveRect( cList[i+1] );
-                Region::FreeClipRect( cList[i+1] );
-                cList.erase( cList.begin() + i + 1 );
-                bSomeRemoved = true;
+                curr.bottom = next.bottom;
+                m_cRects.RemoveRect(list[i+1]);
+                Region::FreeClipRect(list[i+1]);
+                list.erase(list.begin() + i + 1);
+                someRemoved = true;
             }
             else
             {
@@ -543,51 +527,44 @@ void Region::Optimize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Region::ClipLine( const IRect& cRect, int* x1, int* y1, int* x2, int* y2 )
+bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 {
-    bool point_1 = false;
-    bool point_2 = false;     // tracks if each end point is visible or invisible
-
-    bool clip_always = false; // used for clipping override
-
-    int xi=0,yi=0;            // point of intersection
-
-    bool right_edge  = false; // which edges are the endpoints beyond
-    bool left_edge   = false;
-    bool top_edge    = false;
-    bool bottom_edge = false;
-
-
-    bool success = false;               // was there a successfull clipping
-
-    float dx,dy;                   // used to holds slope deltas
-
-    // test if line is completely visible
-
-    if ( (*x1>=cRect.left) && (*x1<=cRect.right) && (*y1>=cRect.top) && (*y1<=cRect.bottom) ) {
-        point_1 = true;
-    }
-
-    if ( (*x2 >= cRect.left) && (*x2 <= cRect.right) && (*y2 >= cRect.top) && (*y2 <= cRect.bottom) ) {
-        point_2 = true;
-    }
+    // Check if each end point is visible or invisible
+    bool point1Inside = rect.DoIntersect(*point1);
+    bool point2Inside = rect.DoIntersect(*point2);
 
     // test endpoints
-    if (point_1 && point_2) {
+    if (point1Inside && point2Inside) {
         return true;
     }
 
+    bool clip_always = false; // used for clipping override
+
+    int xi=0;  // point of intersection
+    int yi=0;
+
+    bool rightEdge  = false; // which edges are the endpoints beyond
+    bool leftEdge   = false;
+    bool topEdge    = false;
+    bool bottomEdge = false;
+
+    bool success = false;  // was there a successful clipping
+
+    float dx,dy;           // used to holds slope deltas
+
+
     // test if line is completely invisible
-    if (point_1==false && point_2==false)
+    if (!point1Inside && !point2Inside)
     {
-        // must test to see if each endpoint is on the same side of one of
+        // Must test to see if each endpoint is on the same side of one of
         // the bounding planes created by each clipping region boundary
 
-        if ( ( (*x1<cRect.left) && (*x2<cRect.left) )   ||  // to the left
-             ( (*x1>cRect.right) && (*x2>cRect.right) ) ||  // to the right
-             ( (*y1<cRect.top) && (*y2<cRect.top) )     ||  // above
-             ( (*y1>cRect.bottom) && (*y2>cRect.bottom) ) ) { // below
-            return 0; // the entire line is otside the rectangle
+        if ( ((point1->x <  rect.left)   && (point2->x <  rect.left))  ||  // to the left
+             ((point1->x >= rect.right)  && (point2->x >= rect.right)) ||  // to the right
+             ((point1->y <  rect.top)    && (point2->y <  rect.top))   ||  // above
+             ((point1->y >= rect.bottom) && (point2->y >= rect.bottom)))   // below
+        {
+            return false; // the entire line is outside the rectangle
         }
 
         // if we got here we have the special case where the line cuts into and
@@ -596,57 +573,57 @@ bool Region::ClipLine( const IRect& cRect, int* x1, int* y1, int* x2, int* y2 )
     }
 
     // take care of case where either endpoint is in clipping region
-    if ( point_1 || clip_always )
+    if (point1Inside || clip_always)
     {
-        dx = *x2 - *x1; // compute deltas
-        dy = *y2 - *y1;
+        dx = point2->x - point1->x; // compute deltas
+        dy = point2->y - point1->y;
 
         // compute what boundary line need to be clipped against
-        if (*x2 > cRect.right)
+        if (point2->x >= rect.right)
         {
             // flag right edge
-            right_edge = true;
+            rightEdge = true;
 
             // compute intersection with right edge
             if (dx!=0) {
-                yi = (int)(.5 + (dy/dx) * (cRect.right - *x1) + *y1);
+                yi = (int)(.5 + (dy/dx) * (rect.right - 1 - point1->x) + point1->y);
             } else {
                 yi = -1;  // invalidate intersection
             }                
         }
-        else if (*x2 < cRect.left)
+        else if (point2->x < rect.left)
         {
             // flag left edge
-            left_edge = true;
+            leftEdge = true;
 
             // compute intersection with left edge
             if (dx!=0) {
-                yi = (int)(.5 + (dy/dx) * (cRect.left - *x1) + *y1);
+                yi = (int)(.5 + (dy/dx) * (rect.left - point1->x) + point1->y);
             } else {
                 yi = -1;  // invalidate intersection
             }
         }
 
         // horizontal intersections
-        if (*y2 > cRect.bottom)
+        if (point2->y >= rect.bottom)
         {
-            bottom_edge = true; // flag bottom edge
+            bottomEdge = true; // flag bottom edge
 
             // compute intersection with right edge
             if (dy!=0) {
-                xi = (int)(.5 + (dx/dy) * (cRect.bottom - *y1) + *x1);
+                xi = (int)(.5 + (dx/dy) * (rect.bottom - 1 - point1->y) + point1->x);
             } else {
                 xi = -1;  // invalidate inntersection
             }
         }
-        else if (*y2 < cRect.top)
+        else if (point2->y < rect.top)
         {
             // flag top edge
-            top_edge = true;
+            topEdge = true;
 
             // compute intersection with top edge
             if (dy!=0) {
-                xi = (int)(.5 + (dx/dy) * (cRect.top - *y1) + *x1);
+                xi = (int)(.5 + (dx/dy) * (rect.top - point1->y) + point1->x);
             } else {
                 xi = -1;  // invalidate intersection
             }
@@ -655,119 +632,119 @@ bool Region::ClipLine( const IRect& cRect, int* x1, int* y1, int* x2, int* y2 )
         // now we know where the line passed thru
         // compute which edge is the proper intersection
 
-        if ( right_edge == true && (yi >= cRect.top && yi <= cRect.bottom) )
+        if (rightEdge == true && (yi >= rect.top && yi < rect.bottom))
         {
-            *x2 = cRect.right;
-            *y2 = yi;
+            point2->x = rect.right - 1;
+            point2->y = yi;
             success = true;
         }
-        else if (left_edge && (yi>=cRect.top && yi<=cRect.bottom) )
+        else if (leftEdge && (yi>=rect.top && yi < rect.bottom))
         {
-            *x2 = cRect.left;
-            *y2 = yi;
+            point2->x = rect.left;
+            point2->y = yi;
             success = true;
         }
 
-        if ( bottom_edge == true && (xi >= cRect.left && xi <= cRect.right) )
+        if (bottomEdge == true && (xi >= rect.left && xi < rect.right))
         {
-            *x2 = xi;
-            *y2 = cRect.bottom;
+            point2->x = xi;
+            point2->y = rect.bottom - 1;
             success = true;
         }
-        else if (top_edge && (xi>=cRect.left && xi<=cRect.right) )
+        else if (topEdge && (xi>=rect.left && xi<rect.right))
         {
-            *x2 = xi;
-            *y2 = cRect.top;
+            point2->x = xi;
+            point2->y = rect.top;
             success = true;
         }
-    } // end if point_1 is visible
+    } // end if point 1 is visible
 
     // reset edge flags
-    right_edge = left_edge = top_edge = bottom_edge = false;
+    rightEdge = leftEdge = topEdge = bottomEdge = false;
 
     // test second endpoint
-    if ( point_2 || clip_always )
+    if (point2Inside || clip_always)
     {
-        dx = *x1 - *x2; // compute deltas
-        dy = *y1 - *y2;
+        dx = point1->x - point2->x; // compute deltas
+        dy = point1->y - point2->y;
 
         // compute what boundary line need to be clipped against
-        if ( *x1 > cRect.right )
+        if ( point1->x >= rect.right )
         {
             // flag right edge
-            right_edge = true;
+            rightEdge = true;
 
             // compute intersection with right edge
             if (dx!=0) {
-                yi = (int)(.5 + (dy/dx) * (cRect.right - *x2) + *y2);
+                yi = (int)(.5 + (dy/dx) * (rect.right - 1 - point2->x) + point2->y);
             } else {
                 yi = -1;  // invalidate inntersection
             }
         }
-        else if (*x1 < cRect.left)
+        else if (point1->x < rect.left)
         {
-            left_edge = true; // flag left edge
+            leftEdge = true; // flag left edge
 
             // compute intersection with left edge
             if (dx!=0) {
-                yi = (int)(.5 + (dy/dx) * (cRect.left - *x2) + *y2);
+                yi = (int)(.5 + (dy/dx) * (rect.left - point2->x) + point2->y);
             } else {
                 yi = -1;  // invalidate intersection
             }
         }
 
         // horizontal intersections
-        if (*y1 > cRect.bottom)
+        if (point1->y >= rect.bottom)
         {
-            bottom_edge = true; // flag bottom edge
+            bottomEdge = true; // flag bottom edge
 
             // compute intersection with right edge
             if (dy!=0) {
-                xi = (int)(.5 + (dx/dy) * (cRect.bottom - *y2) + *x2);
-                } else {
+                xi = (int)(.5 + (dx/dy) * (rect.bottom - 1 - point2->y) + point2->x);
+            } else {
                 xi = -1;  // invalidate inntersection
             }
         }
-        else if (*y1 < cRect.top)
+        else if (point1->y < rect.top)
         {
-            top_edge = true; // flag top edge
+            topEdge = true; // flag top edge
 
             // compute intersection with top edge
             if (dy!=0) {
-                xi = (int)(.5 + (dx/dy) * (cRect.top - *y2) + *x2);
-                } else {
+                xi = (int)(.5 + (dx/dy) * (rect.top - point2->y) + point2->x);
+            } else {
                 xi = -1;  // invalidate inntersection
             }
         }
 
         // now we know where the line passed thru
         // compute which edge is the proper intersection
-        if ( right_edge && (yi >= cRect.top && yi <= cRect.bottom) )
+        if (rightEdge && (yi >= rect.top && yi < rect.bottom))
         {
-            *x1 = cRect.right;
-            *y1 = yi;
+            point1->x = rect.right - 1;
+            point1->y = yi;
             success = true;
         }
-        else if ( left_edge && (yi >= cRect.top && yi <= cRect.bottom) )
+        else if (leftEdge && (yi >= rect.top && yi < rect.bottom))
         {
-            *x1 = cRect.left;
-            *y1 = yi;
+            point1->x = rect.left;
+            point1->y = yi;
             success = true;
         }
 
-        if (bottom_edge && (xi >= cRect.left && xi <= cRect.right) )
+        if (bottomEdge && (xi >= rect.left && xi < rect.right))
         {
-            *x1 = xi;
-            *y1 = cRect.bottom;
+            point1->x = xi;
+            point1->y = rect.bottom - 1;
             success = true;
         }
-        else if (top_edge==1 && (xi>=cRect.left && xi<=cRect.right) )
+        else if (topEdge == 1 && (xi >= rect.left && xi < rect.right))
         {
-            *x1 = xi;
-            *y1 = cRect.top;
+            point1->x = xi;
+            point1->y = rect.top;
             success = true;
         }
-    } // end if point_2 is visible
+    } // end if point 2 is visible
 
     return success;
 }

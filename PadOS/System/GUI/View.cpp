@@ -367,10 +367,11 @@ bool View::RemoveThis()
 void View::SetFrame(const Rect& frame)
 {
     Point deltaSize = frame.Size() - m_Frame.Size();
-    Point deltaPos  = frame.LeftTop() - m_Frame.LeftTop();
+    Point deltaPos  = frame.TopLeft() - m_Frame.TopLeft();
     m_Frame = frame;
     m_IFrame = frame;
     UpdatePosition(true);
+    UpdateScreenPos();
     if (deltaSize != Point(0.0f, 0.0f)) {
         FrameSized(deltaSize);
     }
@@ -431,14 +432,14 @@ bool View::HandleMouseDown(MouseButton_e button, const Point& position)
     {
         if (child->m_Frame.DoIntersect(position))
         {
-            Point childPos = position - child->m_Frame.LeftTop() - m_ScrollOffset;
+            Point childPos = position - child->m_Frame.TopLeft() - child->m_ScrollOffset;
             if (child->HandleMouseDown(button, childPos))
             {
                 return true;
             }
         }
     }
-    bool handled = OnMouseDown(button, position - m_ScrollOffset);
+    bool handled = OnMouseDown(button, position/* - m_ScrollOffset*/);
     if (handled)
     {
         s_MouseDownView = ptr_tmp_cast(this);
@@ -733,7 +734,6 @@ void View::HandlePaint(const Rect& updateRect)
     if (m_BeginPainCount++ == 0) {
         Post<ASViewBeginUpdate>();
     }        
-    ConstrictRectangle(&frame, Point(0.0f, 0.0f));
     Paint(frame);
     if (--m_BeginPainCount == 0) {
         Post<ASViewEndUpdate>();
@@ -746,16 +746,3 @@ void View::HandlePaint(const Rect& updateRect)
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void View::ConstrictRectangle(Rect* rect, const Point& offset)
-{
-    Point off = offset - Point( m_Frame.left, m_Frame.top ) - m_ScrollOffset;
-    *rect &= m_Frame + off;
-    Ptr<View> parent = m_Parent.Lock();
-    if (parent != nullptr) {
-        parent->ConstrictRectangle(rect, off);
-    }
-}

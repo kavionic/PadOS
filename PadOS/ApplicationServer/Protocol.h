@@ -31,7 +31,8 @@ class Rect;
 namespace os
 {
 
-extern MessagePort g_AppserverPort;
+port_id get_appserver_port();
+port_id get_window_manager_port();
 
 typedef int32_t app_handle;
 enum class ViewDockType : int32_t;
@@ -115,7 +116,6 @@ typedef RemoteSignal<AppserverProtocol::REGISTER_APPLICATION
                                         , port_id       // replyPort
                                         , port_id       // clientPort
                                         , const String& // name
-                                        , bool          // isWindowManager
                                         > ASRegisterApplication;
 
 typedef RemoteSignal<AppserverProtocol::SYNC

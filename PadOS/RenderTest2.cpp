@@ -73,30 +73,30 @@ void RenderTest2::SlotFrameProcess()
         if (pos1.x < 0) {
             pos1.x = 0;
             dir1.x = 1 + rand() % speed;
-            } else if (pos1.x > 799) {
-            pos1.x = 799;
+        } else if (pos1.x >= bounds.right) {
+            pos1.x = bounds.right - 1.0f;
             dir1.x = -(1 + rand() % speed);
         }
         if (pos1.y < 0) {
             pos1.y = 0;
             dir1.y = 1 + rand() % speed;
-            } else if (pos1.y > 479) {
-            pos1.y = 479;
+        } else if (pos1.y >= bounds.bottom) {
+            pos1.y = bounds.bottom - 1;
             dir1.y = -(1 + rand() % speed);
         }
 
         if (pos2.x < 0) {
             pos2.x = 0;
             dir2.x = 1 + rand() % speed;
-            } else if (pos2.x > 799) {
-            pos2.x = 799;
+        } else if (pos2.x >= bounds.right) {
+            pos2.x = bounds.right - 1;
             dir2.x = -(1 + rand() % speed);
         }
         if (pos2.y < 0) {
             pos2.y = 0;
             dir2.y = 1 + rand() % speed;
-            } else if (pos2.y > 479) {
-            pos2.y = 479;
+        } else if (pos2.y >= bounds.bottom) {
+            pos2.y = bounds.bottom - 1;
             dir2.y = -(1 + rand() % speed);
         }
         SetFgColor(Color(0xffffffff));

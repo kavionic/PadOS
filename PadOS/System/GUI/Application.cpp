@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 06.11.2017 23:22:03
 
+#include "sam.h"
+
 #include <string.h>
 
 #include "Application.h"
@@ -28,9 +30,9 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Application::Application(const String& name, bool isWindowManager) : Looper(name, 1000), m_ReplyPort("app_reply", 1000)
+Application::Application(const String& name) : Looper(name, 1000), m_ReplyPort("app_reply", 1000)
 {
-    ASRegisterApplication::Sender::Emit(g_AppserverPort, -1, INFINIT_TIMEOUT, m_ReplyPort.GetPortID(), GetPortID(), GetName(), isWindowManager);
+    ASRegisterApplication::Sender::Emit(get_appserver_port(), -1, INFINIT_TIMEOUT, m_ReplyPort.GetPortID(), GetPortID(), GetName());
     
     for(;;)
     {
@@ -184,7 +186,7 @@ bool Application::RemoveView(Ptr<View> view)
 void Application::Flush()
 {
     if (m_UsedSendBufferSize > 0) {
-        g_AppserverPort.SendMessage(m_ServerHandle, AppserverProtocol::MESSAGE_BUNDLE, m_SendBuffer, m_UsedSendBufferSize);
+        send_message(get_appserver_port(), m_ServerHandle, AppserverProtocol::MESSAGE_BUNDLE, m_SendBuffer, m_UsedSendBufferSize);
         m_UsedSendBufferSize = 0;
     }    
 }
@@ -235,8 +237,6 @@ void* Application::AllocMessageBuffer(int32_t messageID, size_t size)
     
     if (m_UsedSendBufferSize + size > sizeof(m_SendBuffer)) {
         Flush();
-//        g_AppserverPort.SendMessage(m_ServerHandle, AppserverProtocol::MESSAGE_BUNDLE, m_SendBuffer, m_UsedSendBufferSize);
-//        m_UsedSendBufferSize = 0;
     }
     AppserverMessage* buffer = reinterpret_cast<AppserverMessage*>(m_SendBuffer + m_UsedSendBufferSize);
     m_UsedSendBufferSize += size;

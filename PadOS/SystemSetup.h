@@ -21,7 +21,6 @@
 
 
 #include "Kernel/HAL/DigitalPort.h"
-#include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
 #include "SAME70TimerDefines.h"
 
 static const uint32_t CLOCK_CRYSTAL_FREQUENCY = 12000000;
@@ -36,81 +35,11 @@ void SetupMemoryRegions();
 #define SDRAM_START SDRAM_CS_ADDR
 #define SDRAM_END   (SDRAM_START + SDRAM_SIZE - 1)
 
-#define SYSTEM_TIMER TC1
-//#define SYSTEM_TIMER_REALTIME_CHANNEL 0
-#define SYSTEM_TIMER_SPIN_TIMER_L     1
-//#define SYSTEM_TIMER_SPIN_TIMER_H     2
+#define SYSTEM_TIMER              TC1
+#define SYSTEM_TIMER_SPIN_TIMER_L 0
 
 #define SYSTEM_TIMER_PERIPHERALID1 ID_TC1_CHANNEL0
-#define SYSTEM_TIMER_PERIPHERALID2 ID_TC1_CHANNEL1
-/*
-#define LCD_TIMER TC0
-#define LCD_TIMER_CHANNEL 0
-#define LCD_TIMER_COUNT_CHANNEL 1
-
-#define LCD_TIMER_COUNTER_CLOCK_ROUTING TC_BMR_TC1XC1S_TIOA0 // Clock XC1 is TIOA0
-#define LCD_TIMER_COUNTER_CLOCK         TC_CMR_TCCLKS_XC1
-
-#define LCD_TIMER_PERIPHERAL_ID1 ID_TC0_CHANNEL0
-#define LCD_TIMER_PERIPHERAL_ID2 ID_TC0_CHANNEL1
-
-#define LCD_DATA_PORT PIOD
-
-#define LCD_DATA_B00 0
-#define LCD_DATA_B01 1
-#define LCD_DATA_B02 2
-#define LCD_DATA_B03 3
-#define LCD_DATA_B04 4
-#define LCD_DATA_B05 5
-#define LCD_DATA_B06 6
-#define LCD_DATA_B07 7
-#define LCD_DATA_B08 8
-#define LCD_DATA_B09 9
-#define LCD_DATA_B10 10
-#define LCD_DATA_B11 11
-#define LCD_DATA_B12 12
-#define LCD_DATA_B13 13
-#define LCD_DATA_B14 14
-#define LCD_DATA_B15 15
-
-#define LCD_DATA_B00_bm BIT32(LCD_DATA_B00, 1)
-#define LCD_DATA_B01_bm BIT32(LCD_DATA_B01, 1)
-#define LCD_DATA_B02_bm BIT32(LCD_DATA_B02, 1)
-#define LCD_DATA_B03_bm BIT32(LCD_DATA_B03, 1)
-#define LCD_DATA_B04_bm BIT32(LCD_DATA_B04, 1)
-#define LCD_DATA_B05_bm BIT32(LCD_DATA_B05, 1)
-#define LCD_DATA_B06_bm BIT32(LCD_DATA_B06, 1)
-#define LCD_DATA_B07_bm BIT32(LCD_DATA_B07, 1)
-#define LCD_DATA_B08_bm BIT32(LCD_DATA_B08, 1)
-#define LCD_DATA_B09_bm BIT32(LCD_DATA_B09, 1)
-#define LCD_DATA_B10_bm BIT32(LCD_DATA_B10, 1)
-#define LCD_DATA_B11_bm BIT32(LCD_DATA_B11, 1)
-#define LCD_DATA_B12_bm BIT32(LCD_DATA_B12, 1)
-#define LCD_DATA_B13_bm BIT32(LCD_DATA_B13, 1)
-#define LCD_DATA_B14_bm BIT32(LCD_DATA_B14, 1)
-#define LCD_DATA_B15_bm BIT32(LCD_DATA_B15, 1)
-
-
-#define LCD_DATA_MASK (LCD_DATA_B00_bm | LCD_DATA_B01_bm | LCD_DATA_B02_bm | LCD_DATA_B03_bm | LCD_DATA_B04_bm | LCD_DATA_B05_bm | LCD_DATA_B06_bm | LCD_DATA_B07_bm | LCD_DATA_B08_bm | LCD_DATA_B09_bm | LCD_DATA_B10_bm | LCD_DATA_B11_bm | LCD_DATA_B12_bm | LCD_DATA_B13_bm | LCD_DATA_B14_bm | LCD_DATA_B15_bm)
-
-#define EB(data, src, dst) (((src < dst) ? (uint32_t(data) << (dst-src)) : (uint32_t(data) >> (src-dst))) & (0x1<<dst))
-
-
-#define LCD_RESET PIN17_bm
-#define LCD_CS PIN19_bm
-#define LCD_RD PIN18_bm
-#define LCD_RS PIN16_bm
-
-#define LCD_CTRL_PORT  e_DigitalPortID_D
-#define LCD_CTRL_PORT2 e_DigitalPortID_D
-
-#define LCD_WR_PORT    e_DigitalPortID_A
-#define LCD_WR PIN0_bm
-
-#define LCD_LEDA PIN21_bm
-#define LCD_LEDA_LOW()  LCD_CTRL_PORT2->PIO_CODR = LCD_LEDA
-#define LCD_LEDA_HIGH() LCD_CTRL_PORT2->PIO_SODR = LCD_LEDA
-*/
+//#define SYSTEM_TIMER_PERIPHERALID2 ID_TC1_CHANNEL1
 
 #define LCD_TP_SDA_bm     PIN3_bm
 #define LCD_TP_SDA_Pin    DigitalPin(e_DigitalPortID_A, PIN3_bp)
@@ -236,29 +165,3 @@ struct LCDRegisters
 };
 
 #define LCD_REGISTERS ((LCDRegisters*)EBI_CS3_ADDR)
-#define LCD_REG_DATA LCD_REGISTERS->DATA // (*((uint16_t volatile*)EBI_CS3_ADDR))
-#define LCD_REG_CMD  LCD_REGISTERS->CMD // (*(((uint16_t volatile*)EBI_CS3_ADDR)+2))
-
-class GfxDriverIO
-{
-public:
-
-    static void Setup();
-    
-    static void LCD_RESET_LOW()  { LCD_RESET_Pin.Write(false); }
-    static void LCD_RESET_HIGH() { LCD_RESET_Pin.Write(true); }
-
-    static uint16_t LCD_READ_CMD()  { return LCD_REGISTERS->CMD; }
-    static uint16_t LCD_READ_DATA() { return LCD_REGISTERS->DATA; }
-
-    static void LCD_WRITE_CMD(uint16_t data)  { LCD_REGISTERS->CMD = data; }
-    static void LCD_WRITE_DATA(uint16_t data)  { LCD_REGISTERS->DATA = data; }
-};
-
-typedef kernel::GfxDriver Display;
-
-class SystemSetup
-{
-public:
-
-};

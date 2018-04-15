@@ -74,7 +74,6 @@ bool ScrollTestView::OnMouseMove(MouseButton_e button, const Point& position)
     if (m_HitButton != MouseButton_e::None && button == m_HitButton)
     {
         ScrollBy(position - m_HitPos);
-        m_HitPos = position;
         Sync();
     }
     return true;
@@ -99,7 +98,11 @@ void ScrollTestView::Paint(const Rect& updateRect)
         DrawLine(prevPos, pos);
         prevPos = pos;
 //        FillCircle(Point(i,  ), 2.0f);
-    }    
+    }
+    
+    SetFgColor(0, 0, 0);
+    MovePenTo(0.0f, floor(bounds.Height() / 2.0f));
+    DrawString("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
 }
 
 void ScrollTestView::SlotFrameProcess()

@@ -72,6 +72,19 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
 {
     if (m_ClientHandle != -1 && !HasFlag(ViewFlags::IGNORE_MOUSE))
     {
+        if (m_ManagerHandle != -1)
+        {
+            if (ASHandleMouseDown::Sender::Emit(get_window_manager_port(), m_ManagerHandle, INFINIT_TIMEOUT, button, position))
+            {
+                
+            }
+            else
+            {
+                printf("ERROR: ServerView::HandleMouseDown() failed to send message: %s\n", strerror(get_last_error()));
+                return false;
+            }            
+        }
+                    
         if (!ASHandleMouseDown::Sender::Emit(m_ClientPort, m_ClientHandle, 0, button, position)) {
             printf("ERROR: ServerView::HandleMouseDown() failed to send message: %s\n", strerror(get_last_error()));
             return false;
@@ -87,7 +100,7 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
     {
         if (child->m_Frame.DoIntersect(position))
         {
-            Point childPos = position - child->m_Frame.LeftTop() - m_ScrollOffset;
+            Point childPos = position - child->m_Frame.TopLeft() - child->m_ScrollOffset;
             if (child->HandleMouseDown(button, childPos))
             {
                 return true;
@@ -198,8 +211,8 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
                     Ptr<ServerView> sibling = *i;
                     if (sibling->m_IFrame.DoIntersect(m_IFrame) || sibling->m_IFrame.DoIntersect(cIRect))
                     {
-                        sibling->MarkModified(m_IFrame - sibling->m_IFrame.LeftTop());
-                        sibling->MarkModified(cIRect - sibling->m_IFrame.LeftTop());
+                        sibling->MarkModified(m_IFrame - sibling->m_IFrame.TopLeft());
+                        sibling->MarkModified(cIRect - sibling->m_IFrame.TopLeft());
                     }
                 }                
             }
@@ -211,10 +224,11 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
     {
         if (requestingClient == m_ClientHandle)
         {
-            if (m_ManagerHandle != -1) {
+            if (m_ManagerHandle != -1)
+            {
                 ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
                 if (server !=  nullptr) {
-                    ASViewFrameChanged::Sender::Emit(server->GetWindowManagerPort(), m_ManagerHandle, INFINIT_TIMEOUT, m_Frame);
+                    ASViewFrameChanged::Sender::Emit(get_window_manager_port(), m_ManagerHandle, INFINIT_TIMEOUT, m_Frame);
                 }                    
             }
         }
@@ -273,7 +287,7 @@ void ServerView::SetShapeRegion(Ptr<Region> pcReg)
                 {
                     Ptr<ServerView> sibling = *i;
                     if ( sibling->m_IFrame.DoIntersect(m_IFrame) ) {
-                        sibling->MarkModified(m_IFrame - sibling->m_IFrame.LeftTop());
+                        sibling->MarkModified(m_IFrame - sibling->m_IFrame.TopLeft());
                     }
                 }
             }
@@ -354,8 +368,8 @@ void ServerView::InvalidateNewAreas()
                     }
                     else
                     {
-                        ENUMCLIPLIST( &region->m_cRects, pcClip ) {
-                            Invalidate( pcClip->m_cBounds );
+                        ENUMCLIPLIST(&region->m_cRects, clip) {
+                            Invalidate(clip->m_cBounds);
                         }
                     }
                 }
@@ -379,24 +393,24 @@ void ServerView::InvalidateNewAreas()
 
 static int SortCmp(const void* pNode1, const void* pNode2)
 {
-    ClipRect* pcClip1 = *((ClipRect**)pNode1);
-    ClipRect* pcClip2 = *((ClipRect**)pNode2);
+    ClipRect* clip1 = *((ClipRect**)pNode1);
+    ClipRect* clip2 = *((ClipRect**)pNode2);
 
 
-    if ( pcClip1->m_cBounds.left > pcClip2->m_cBounds.right && pcClip1->m_cBounds.right < pcClip2->m_cBounds.left )
+    if ( clip1->m_cBounds.left > clip2->m_cBounds.right && clip1->m_cBounds.right < clip2->m_cBounds.left )
     {
-        if ( pcClip1->m_cMove.x < 0 ) {
-            return pcClip1->m_cBounds.left - pcClip2->m_cBounds.left;
+        if ( clip1->m_cMove.x < 0 ) {
+            return clip1->m_cBounds.left - clip2->m_cBounds.left;
             } else {
-            return pcClip2->m_cBounds.left - pcClip1->m_cBounds.left;
+            return clip2->m_cBounds.left - clip1->m_cBounds.left;
         }
     }
     else
     {
-        if ( pcClip1->m_cMove.y < 0 ) {
-            return pcClip1->m_cBounds.top - pcClip2->m_cBounds.top;
+        if ( clip1->m_cMove.y < 0 ) {
+            return clip1->m_cBounds.top - clip2->m_cBounds.top;
             } else {
-            return pcClip2->m_cBounds.top - pcClip1->m_cBounds.top;
+            return clip2->m_cBounds.top - clip1->m_cBounds.top;
         }
     }
 }
@@ -418,53 +432,53 @@ void ServerView::MoveChilds()
     {
         Rect cBounds = GetBounds();
         IRect cIBounds( cBounds );
+        IPoint screenPos(m_ScreenPos);
         for (Ptr<ServerView> child : m_ChildrenList)
         {
-            if ( child->m_DeltaMove.x == 0.0f && child->m_DeltaMove.y == 0.0f ) {
+            if (child->m_DeltaMove.x == 0 && child->m_DeltaMove.y == 0) {
                 continue;
             }
-            if ( child->m_FullReg == nullptr || child->m_PrevFullReg == nullptr ) {
+            if (child->m_FullReg == nullptr || child->m_PrevFullReg == nullptr) {
                 continue;
             }
 
             Ptr<Region> region = ptr_new<Region>(*child->m_PrevFullReg);
-            region->Intersect( *child->m_FullReg );
+            region->Intersect(*child->m_FullReg);
 
-            int nCount = 0;
+            int count = 0;
     
-            IPoint cTopLeft( ConvertToRoot( Point( 0, 0 ) ) );
-
-            IPoint cChildOffset(IPoint(child->m_IFrame.left, child->m_IFrame.top) + cTopLeft);
-            IPoint cChildMove( child->m_DeltaMove );
-            ENUMCLIPLIST(&region->m_cRects, pcClip)
+            IPoint cChildOffset = IPoint(child->m_ScreenPos);
+            IPoint cChildMove(child->m_DeltaMove);
+            ENUMCLIPLIST(&region->m_cRects, clip)
             {
                 // Transform into parents coordinate system
-                pcClip->m_cBounds += cChildOffset;
-                pcClip->m_cMove    = cChildMove;
-                nCount++;
-                assert(pcClip->m_cBounds.IsValid());
+                clip->m_cBounds += cChildOffset;
+                clip->m_cMove    = cChildMove;
+                count++;
+                assert(clip->m_cBounds.IsValid());
             }
-            if ( nCount == 0 ) {
+            if ( count == 0 ) {
                 continue;
             }
 
-            ClipRect** apsClips = new ClipRect*[nCount];
+            ClipRect** apsClips = new ClipRect*[count];
 
-            for ( int i = 0 ; i < nCount ; ++i ) {
+            for ( int i = 0 ; i < count ; ++i ) {
                 apsClips[i] = region->m_cRects.RemoveHead();
                 assert(apsClips[i] != nullptr);
             }
-            qsort( apsClips, nCount, sizeof( ClipRect* ), SortCmp );
+            qsort(apsClips, count, sizeof( ClipRect* ), SortCmp);
 
-            for ( int i = 0 ; i < nCount ; ++i ) {
-                ClipRect* pcClip = apsClips[i];
+            for ( int i = 0 ; i < count ; ++i )
+            {
+                ClipRect* clip = apsClips[i];
 
-                GfxDriver::Instance.BLT_MoveRect(pcClip->m_cBounds - pcClip->m_cMove, IPoint( pcClip->m_cBounds.left, pcClip->m_cBounds.top ));
-                m_VisibleReg->FreeClipRect(pcClip);
+                GfxDriver::Instance.BLT_MoveRect(clip->m_cBounds - clip->m_cMove, clip->m_cBounds.TopLeft());
+                m_VisibleReg->FreeClipRect(clip);
             }
             delete[] apsClips;
         }
-        
+
         // Since the parent window is shrinked before the children is moved
         // we may need to redraw the right and bottom edges.
 
@@ -559,45 +573,41 @@ void ServerView::RebuildRegion( bool bForce )
         {
             assert(parent->m_FullReg != nullptr);
             if ( parent->m_FullReg == nullptr ) {
-                m_FullReg = ptr_new<Region>(m_IFrame);
+                m_FullReg = ptr_new<Region>(m_IFrame.Bounds());
             } else {
                 m_FullReg = ptr_new<Region>(*parent->m_FullReg, m_IFrame, true);
             }
             if ( m_ShapeConstrainReg != nullptr ) {
-                m_FullReg->Intersect( *m_ShapeConstrainReg );
+                m_FullReg->Intersect(*m_ShapeConstrainReg);
             }
-            IPoint cLeftTop(m_IFrame.LeftTop());
+            IPoint topLeft(m_IFrame.TopLeft());
             auto i = parent->GetChildIterator(ptr_tmp_cast(this));
             if (i != parent->m_ChildrenList.end())
             {
-                for (++i; i != parent->m_ChildrenList.end(); ++i)
+                for (++i; i != parent->m_ChildrenList.end(); ++i) // Loop over all siblings above us.
                 {
                     Ptr<ServerView> sibling = *i;
-                    if ( sibling->m_HideCount == 0 )
+                    if (sibling->m_HideCount == 0)
                     {
                         if (sibling->m_IFrame.DoIntersect(m_IFrame))
                         {
-                            sibling->ExcludeFromRegion(m_FullReg, -cLeftTop);
-/*                            if (sibling->m_ShapeConstrainReg == nullptr) {
-                                m_FullReg->Exclude(sibling->m_IFrame - cLeftTop);
-                            } else {
-                                m_FullReg->Exclude(*sibling->m_ShapeConstrainReg, sibling->m_IFrame.LeftTop() - cLeftTop);
-                            }*/
+                            sibling->ExcludeFromRegion(m_FullReg, -topLeft);
                         }
                     }
                 }
             }                
-        }
-        m_FullReg->Optimize();
+            m_FullReg->Optimize();
+        }            
         m_VisibleReg = ptr_new<Region>(*m_FullReg);
 
         if ( (m_Flags & ViewFlags::DRAW_ON_CHILDREN) == 0 )
         {
             bool regModified = false;
+            IPoint scrollOffset(m_ScrollOffset);
             for (Ptr<ServerView> child : m_ChildrenList)
             {
                 // Remove children from child region
-                if (child->ExcludeFromRegion(m_VisibleReg, IPoint(0, 0))) {
+                if (child->ExcludeFromRegion(m_VisibleReg, scrollOffset)) {
                     regModified = true;
                 }
             }
@@ -626,7 +636,7 @@ bool ServerView::ExcludeFromRegion(Ptr<Region> region, const IPoint& offset)
             if ( m_ShapeConstrainReg == nullptr ) {
                 region->Exclude(m_IFrame + offset);
             } else {
-                region->Exclude(*m_ShapeConstrainReg, m_IFrame.LeftTop() + offset);
+                region->Exclude(*m_ShapeConstrainReg, m_IFrame.TopLeft() + offset);
             }
             return true;
         }
@@ -634,10 +644,11 @@ bool ServerView::ExcludeFromRegion(Ptr<Region> region, const IPoint& offset)
         {
 //            printf("View %s is transparent. Excluding childrens (%d, %d)\n", GetName().c_str(), offset.x, offset.y);
             bool wasModified = false;
-            IPoint framePos = m_IFrame.LeftTop();
+            IPoint framePos = m_IFrame.TopLeft();
+            IPoint scrollOffset(m_ScrollOffset);
             for (Ptr<ServerView> child : m_ChildrenList)
             {
-                if (child->ExcludeFromRegion(region, offset + framePos)) {
+                if (child->ExcludeFromRegion(region, offset + framePos + scrollOffset)) {
                     wasModified = true;
                 }                    
             }                
@@ -676,14 +687,13 @@ void ServerView::UpdateRegions(bool bForce, bool bRoot)
         {
 //      if ( m_pcBitmap == g_pcScreenBitmap )
             {
-                IPoint    cTopLeft( ConvertToRoot( Point( 0, 0 ) ) );
-
                 Region cDrawReg(*m_VisibleReg);
                 cDrawReg.Intersect(*m_DamageReg);
         
                 GfxDriver::Instance.SetFgColor(m_EraseColor16);
-                ENUMCLIPLIST( &cDrawReg.m_cRects, pcClip ) {
-                    GfxDriver::Instance.FillRect(pcClip->m_cBounds + cTopLeft);
+                IPoint screenPos(m_ScreenPos);
+                ENUMCLIPLIST(&cDrawReg.m_cRects, clip) {
+                    GfxDriver::Instance.FillRect(clip->m_cBounds + screenPos);
                 }
             }
             m_DamageReg = nullptr;
@@ -789,7 +799,7 @@ void ServerView::ToggleDepth()
         for (Ptr<ServerView> sibling : *parent)
         {
             if (sibling->m_IFrame.DoIntersect(m_IFrame)) {
-                sibling->MarkModified(m_IFrame - sibling->m_IFrame.LeftTop());
+                sibling->MarkModified(m_IFrame - sibling->m_IFrame.TopLeft());
             }
         }
         opacParent->UpdateRegions(false);
@@ -882,9 +892,10 @@ void ServerView::MarkModified(const IRect& rect)
     if ( GetBounds().DoIntersect( rect ) )
     {
         m_HasInvalidRegs = true;
+        IPoint scrollOffset(m_ScrollOffset);
         
         for (Ptr<ServerView> child : m_ChildrenList) {
-            child->MarkModified(rect - child->m_IFrame.LeftTop());
+            child->MarkModified(rect - child->m_IFrame.TopLeft() - scrollOffset);
         }
     }
 }
@@ -931,7 +942,7 @@ void ServerView::Show(bool doShow)
         for (Ptr<ServerView> sibling : parent->m_ChildrenList)
         {
             if (sibling->m_IFrame.DoIntersect(m_IFrame)) {
-                sibling->MarkModified(m_IFrame - sibling->m_IFrame.LeftTop());
+                sibling->MarkModified(m_IFrame - sibling->m_IFrame.TopLeft());
             }
         }
     }
@@ -967,7 +978,7 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
         
         IRect screenFrame = ApplicationServer::GetScreenIFrame();
 
-        if (!Region::ClipLine(screenFrame, &fromPntScr.x, &fromPntScr.y, &toPntScr.x, &toPntScr.y)) return;
+        if (!Region::ClipLine(screenFrame, &fromPntScr, &toPntScr)) return;
 
         if (fromPntScr.x > toPntScr.x)
         {
@@ -975,17 +986,23 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
         }
         
         GfxDriver::Instance.WaitBlitter();
+        GfxDriver::Instance.SetWindow(ApplicationServer::GetScreenFrame());
         GfxDriver::Instance.SetFgColor(m_FgColor16);
         bool first = true;
         ENUMCLIPLIST(&region->m_cRects, clip)
         {
+            IPoint p1 = fromPntScr;
+            IPoint p2 = toPntScr;
+            if (!Region::ClipLine(clip->m_cBounds + screenPos, &p1, &p2)) continue;
+
             if (!first) {
                 GfxDriver::Instance.WaitBlitter();
             } else {
                 first = false;
             }
-            GfxDriver::Instance.SetWindow(clip->m_cBounds + screenPos);
-            GfxDriver::Instance.DrawLine(fromPntScr.x, fromPntScr.y, toPntScr.x, toPntScr.y);
+            GfxDriver::Instance.DrawLine(p1.x, p1.y, p2.x, p2.y);
+//            GfxDriver::Instance.SetWindow(clip->m_cBounds + screenPos);
+//            GfxDriver::Instance.DrawLine(fromPntScr.x, fromPntScr.y, toPntScr.x, toPntScr.y);
         }
     }
 }
@@ -1002,7 +1019,7 @@ void ServerView::FillRect(const Rect& rect, Color color)
         GfxDriver::Instance.WaitBlitter();
         GfxDriver::Instance.SetFgColor(color.GetColor16());
         IPoint screenPos(m_ScreenPos);
-        IRect rectScr(rect);
+        IRect rectScr(rect + m_ScrollOffset);
         GfxDriver::Instance.SetWindow(ApplicationServer::GetScreenFrame());
     
         bool first = true;
@@ -1016,7 +1033,7 @@ void ServerView::FillRect(const Rect& rect, Color color)
             IRect clippedRect(rectScr & clip->m_cBounds);
             if (clippedRect.IsValid()) {
                 clippedRect += screenPos;
-                GfxDriver::Instance.FillRect(clippedRect.left, clippedRect.top, clippedRect.right, clippedRect.bottom);
+                GfxDriver::Instance.FillRect(clippedRect);
             }
         }
     }        
@@ -1075,12 +1092,11 @@ void ServerView::DrawString(const String& string, float maxWidth, uint8_t flags)
         GfxDriver::Instance.SetFgColor(m_FgColor16);
 
         IPoint screenPos(m_ScreenPos);
-        IPoint penPos = screenPos + IPoint(m_PenPosition);
+        IPoint penPos = screenPos + IPoint(m_PenPosition + m_ScrollOffset);
         ENUMCLIPLIST(&region->m_cRects, clip)
         {
             GfxDriver::Instance.SetCursor(penPos);
-            IRect clipRect(clip->m_cBounds.left, clip->m_cBounds.top, clip->m_cBounds.right + 1, clip->m_cBounds.bottom + 1);
-            GfxDriver::Instance.WriteString(string.c_str(), string.size(), clipRect + screenPos);
+            GfxDriver::Instance.WriteString(string.c_str(), string.size(), clip->m_cBounds + screenPos);
         }
         m_PenPosition = Point(GfxDriver::Instance.GetCursor() - screenPos);
     }        
@@ -1096,81 +1112,81 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
         return;
     }
 
-    IRect cISrcRect(srcRect);
-    IPoint cDelta = IPoint( dstPos ) - cISrcRect.LeftTop();
-    IRect cIDstRect = cISrcRect + cDelta;
+    IRect  intSrcRect(srcRect);
+    IPoint delta   = IPoint(dstPos) - intSrcRect.TopLeft();
+    IRect  dstRect = intSrcRect + delta;
 
-    ClipRectList cBltList;
-    Region       cDamage(*m_VisibleReg, cIDstRect, false);
+    ClipRectList bltList;
+    Region       damage(*m_VisibleReg, dstRect, false);
 
-    ENUMCLIPLIST( &m_VisibleReg->m_cRects, pcSrcClip )
+    ENUMCLIPLIST(&m_VisibleReg->m_cRects, srcClip)
     {
         // Clip to source rectangle
-        IRect cSRect( cISrcRect & pcSrcClip->m_cBounds );
+        IRect sRect(intSrcRect & srcClip->m_cBounds);
 
-        if (!cSRect.IsValid()) {
+        if (!sRect.IsValid()) {
             continue;
         }
         // Transform into destination space
-        cSRect += cDelta;
+        sRect += delta;
 
-        ENUMCLIPLIST( &m_VisibleReg->m_cRects, pcDstClip )
+        ENUMCLIPLIST( &m_VisibleReg->m_cRects, dstClip )
         {
-            IRect cDRect = cSRect & pcDstClip->m_cBounds;
+            IRect dRect = sRect & dstClip->m_cBounds;
 
-            if (!cDRect.IsValid()) {
+            if (!dRect.IsValid()) {
                 continue;
             }
-            cDamage.Exclude( cDRect );
-            ClipRect* pcClips = Region::AllocClipRect();
-            pcClips->m_cBounds  = cDRect;
-            pcClips->m_cMove    = cDelta;
+            damage.Exclude(dRect);
+            ClipRect* clip  = Region::AllocClipRect();
+            clip->m_cBounds = dRect;
+            clip->m_cMove   = delta;
 
-            cBltList.AddRect( pcClips );
+            bltList.AddRect(clip);
         }
     }
 
-    int nCount = cBltList.GetCount();
+    int count = bltList.GetCount();
     
-    if (nCount == 0) {
-        Invalidate( cIDstRect );
-        UpdateIfNeeded( true );
+    if (count == 0)
+    {
+        Invalidate(dstRect);
+        UpdateIfNeeded(true);
         return;
     }
 
-    IPoint cTopLeft( ConvertToRoot( Point( 0, 0 ) ) );
+    ClipRect** apsClips = new ClipRect*[count];
 
-    ClipRect** apsClips = new ClipRect*[nCount];
-
-    for ( int i = 0 ; i < nCount ; ++i )
+    for ( int i = 0 ; i < count ; ++i )
     {
-        apsClips[i] = cBltList.RemoveHead();
-        assert( apsClips[i] != nullptr );
+        apsClips[i] = bltList.RemoveHead();
+        assert(apsClips[i] != nullptr);
     }
-    qsort( apsClips, nCount, sizeof( ClipRect* ), SortCmp );
+    qsort(apsClips, count, sizeof( ClipRect* ), SortCmp);
 
-    for ( int i = 0 ; i < nCount ; ++i )
+    IPoint screenPos(m_ScreenPos);
+    for ( int i = 0 ; i < count ; ++i )
     {
-        ClipRect* pcClip = apsClips[i];
-        pcClip->m_cBounds += cTopLeft; // Convert into screen space
-        GfxDriver::Instance.BLT_MoveRect(pcClip->m_cBounds - pcClip->m_cMove, IPoint( pcClip->m_cBounds.left, pcClip->m_cBounds.top ));
-        Region::FreeClipRect( pcClip );
+        ClipRect* clip = apsClips[i];
+        clip->m_cBounds += screenPos; // Convert into screen space
+        GfxDriver::Instance.BLT_MoveRect(clip->m_cBounds - clip->m_cMove, clip->m_cBounds.TopLeft());
+        Region::FreeClipRect(clip);
     }
     delete[] apsClips;
     if (m_DamageReg != nullptr)
     {
-        Region cReg( *m_DamageReg, cISrcRect, false );
+        Region cReg(*m_DamageReg, intSrcRect, false);
         ENUMCLIPLIST( &cReg.m_cRects, pcDmgClip )
         {
-            m_DamageReg->Include( (pcDmgClip->m_cBounds + cDelta)  & cIDstRect );
+            m_DamageReg->Include((pcDmgClip->m_cBounds + delta)  & dstRect);
             if (m_ActiveDamageReg != nullptr) {
-                m_ActiveDamageReg->Exclude((pcDmgClip->m_cBounds + cDelta)  & cIDstRect);
+                m_ActiveDamageReg->Exclude((pcDmgClip->m_cBounds + delta)  & dstRect);
             }
         }
     }
     if (m_ActiveDamageReg != nullptr)
     {
-        Region cReg(*m_ActiveDamageReg, cISrcRect, false);
+        Region cReg(*m_ActiveDamageReg, intSrcRect, false);
         if (cReg.m_cRects.GetCount() > 0)
         {
             if ( m_DamageReg == nullptr ) {
@@ -1178,13 +1194,13 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
             }
             ENUMCLIPLIST( &cReg.m_cRects, pcDmgClip )
             {
-                m_ActiveDamageReg->Exclude((pcDmgClip->m_cBounds + cDelta) & cIDstRect);
-                m_DamageReg->Include((pcDmgClip->m_cBounds + cDelta) & cIDstRect);
+                m_ActiveDamageReg->Exclude((pcDmgClip->m_cBounds + delta) & dstRect);
+                m_DamageReg->Include((pcDmgClip->m_cBounds + delta) & dstRect);
             }
         }
     }
-    ENUMCLIPLIST( &cDamage.m_cRects, pcDstClip ) {
-        Invalidate( pcDstClip->m_cBounds );
+    ENUMCLIPLIST( &damage.m_cRects, dstClip ) {
+        Invalidate(dstClip->m_cBounds);
     }
     if ( m_DamageReg != nullptr ) {
         m_DamageReg->Optimize();
@@ -1205,6 +1221,8 @@ void ServerView::ScrollBy(const Point& offset)
     if ( parent == nullptr ) {
         return;
     }
+    IPoint screenPos(m_ScreenPos);
+
     IPoint oldOffset(m_ScrollOffset);
     m_ScrollOffset += offset;
     IPoint newOffset(m_ScrollOffset);
@@ -1212,13 +1230,11 @@ void ServerView::ScrollBy(const Point& offset)
     if ( newOffset == oldOffset ) {
         return;
     }
+    UpdateScreenPos();
     IPoint intOffset(newOffset - oldOffset);
     
-    for (Ptr<ServerView> child : m_ChildrenList)
-    {
-        child->m_IFrame += intOffset;
-        child->m_Frame  += offset;
-    }
+//    printf("ScrollBy(%.2f, %.2f) -> %.2f, %.2f\n", offset.x, offset.y, m_ScrollOffset.x, m_ScrollOffset.y);
+    
     if ( m_HideCount > 0 ) {
         return;
     }
@@ -1231,81 +1247,82 @@ void ServerView::ScrollBy(const Point& offset)
     }
 
     Rect         cBounds = GetBounds();
-    IRect        cIBounds( cBounds );
-    ClipRectList cBltList;
-    Region       cDamage( *m_VisibleReg );
+    IRect        cIBounds(cBounds);
+    ClipRectList bltList;
+    Region       damage(*m_VisibleReg);
 
-    ENUMCLIPLIST( &m_FullReg->m_cRects, pcSrcClip )
+    ENUMCLIPLIST(&m_FullReg->m_cRects, srcClip)
     {
         // Clip to source rectangle
-        IRect cSRect = cIBounds & pcSrcClip->m_cBounds;
+        IRect sRect = cIBounds & srcClip->m_cBounds;
 
         // Transform into destination space
-        if ( cSRect.IsValid() == false ) {
+        if (!sRect.IsValid()) {
             continue;
         }
-        cSRect += intOffset;
+        sRect += intOffset;
 
-        ENUMCLIPLIST( &m_FullReg->m_cRects, pcDstClip )
+        ENUMCLIPLIST(&m_FullReg->m_cRects, dstClip)
         {
-            IRect cDRect = cSRect & pcDstClip->m_cBounds;
+            IRect dRect = sRect & dstClip->m_cBounds;
 
-            if ( cDRect.IsValid() == false ) {
+            if (!dRect.IsValid()) {
                 continue;
             }
-            cDamage.Exclude( cDRect );
+            damage.Exclude(dRect);
 
-            ClipRect* pcClips = Region::AllocClipRect();
-            pcClips->m_cBounds  = cDRect;
-            pcClips->m_cMove    = intOffset;
+            ClipRect* clip = Region::AllocClipRect();
+            clip->m_cBounds = dRect;
+            clip->m_cMove   = intOffset;
 
-            cBltList.AddRect( pcClips );
+            bltList.AddRect(clip);
         }
     }
   
-    int nCount = cBltList.GetCount();
+    int count = bltList.GetCount();
     
-    if ( nCount == 0 ) {
-        Invalidate( cIBounds );
-        UpdateIfNeeded( true );
+    if (count == 0)
+    {
+        Invalidate(cIBounds);
+        UpdateIfNeeded(true);
         return;
     }
-    IPoint cTopLeft( ConvertToRoot( Point( 0, 0 ) ) );
 
-    ClipRect** apsClips = new ClipRect*[nCount];
+    ClipRect** apsClips = new ClipRect*[count];
 
-    for ( int i = 0 ; i < nCount ; ++i )
+    for (int i = 0 ; i < count ; ++i)
     {
-        apsClips[i] = cBltList.RemoveHead();
+        apsClips[i] = bltList.RemoveHead();
         assert( apsClips[i] != nullptr );
     }
-    qsort( apsClips, nCount, sizeof( ClipRect* ), SortCmp );
+    qsort(apsClips, count, sizeof(ClipRect*), SortCmp);
 
-    for ( int i = 0 ; i < nCount ; ++i )
+    for (int i = 0 ; i < count ; ++i)
     {
-        ClipRect* pcClip = apsClips[i];
+        ClipRect* clip = apsClips[i];
 
-        pcClip->m_cBounds += cTopLeft; // Convert into screen space
+        clip->m_cBounds += screenPos; // Convert into screen space
 
-        GfxDriver::Instance.BLT_MoveRect(pcClip->m_cBounds - pcClip->m_cMove, IPoint( pcClip->m_cBounds.left, pcClip->m_cBounds.top ));
-        Region::FreeClipRect( pcClip );
+        GfxDriver::Instance.BLT_MoveRect(clip->m_cBounds - clip->m_cMove, clip->m_cBounds.TopLeft());
+        Region::FreeClipRect(clip);
     }
     delete[] apsClips;
 
-    if (m_DamageReg != nullptr) {
-        ENUMCLIPLIST( &m_DamageReg->m_cRects, pcDstClip ) {
-            pcDstClip->m_cBounds += intOffset;
+    if (m_DamageReg != nullptr)
+    {
+        ENUMCLIPLIST(&m_DamageReg->m_cRects, dstClip) {
+            dstClip->m_cBounds += intOffset;
         }
     }
 
-    if (m_ActiveDamageReg != nullptr) {
-        ENUMCLIPLIST( &m_ActiveDamageReg->m_cRects, pcDstClip ) {
-            pcDstClip->m_cBounds += intOffset;
+    if (m_ActiveDamageReg != nullptr)
+    {
+        ENUMCLIPLIST(&m_ActiveDamageReg->m_cRects, dstClip) {
+            dstClip->m_cBounds += intOffset;
         }
     }
-    ENUMCLIPLIST( &cDamage.m_cRects, pcDstClip ) {
-        Invalidate(pcDstClip->m_cBounds);
+    ENUMCLIPLIST(&damage.m_cRects, dstClip) {
+        Invalidate(dstClip->m_cBounds);
     }
     UpdateIfNeeded(true);
 }
-

@@ -24,7 +24,7 @@
 #include "System/Utils/EventTimer.h"
 
 using namespace os;
-
+/*
 class RenderTest4 : public View
 {
 public:
@@ -51,3 +51,4 @@ private:
     RenderTest4& operator=( const RenderTest4 &c );
 
 };
+*/

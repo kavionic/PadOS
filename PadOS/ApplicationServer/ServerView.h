@@ -34,7 +34,7 @@ public:
     void SetManagerHandle(handler_id handle)              { m_ManagerHandle = handle; }
 
     void HandleAddedToParent(Ptr<ServerView> parent) {}
-    void HandleRemovedFromParent(Ptr<ServerView> parent) { UpdateScreenPos(); }
+    void HandleRemovedFromParent(Ptr<ServerView> parent) {}
 
     bool        HandleMouseDown(MouseButton_e button, const Point& position);
     bool        HandleMouseUp(MouseButton_e button, const Point& position);
@@ -91,20 +91,7 @@ public:
 
 private:
     friend class ViewBase<ServerView>;
-    
-    void UpdateScreenPos()
-    {
-        Ptr<ServerView> parent = m_Parent.Lock();
-        if (parent == nullptr) {
-            m_ScreenPos = m_Frame.LeftTop();
-        } else {
-            m_ScreenPos = parent->m_ScreenPos + m_Frame.LeftTop();
-        }
-        for (Ptr<ServerView> child : m_ChildrenList) {
-            child->UpdateScreenPos();
-        }
-    }
-    
+        
     port_id     m_ClientPort = -1;
     handler_id  m_ClientHandle = -1;
     handler_id  m_ManagerHandle = -1;

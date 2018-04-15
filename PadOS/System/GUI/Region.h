@@ -123,10 +123,8 @@ public:
     static void         FreeClipRect( ClipRect* pcRect );
     static ClipRect*    AllocClipRect();
     IRect               GetBounds() const;
-    
-    virtual void Clip(const ILineSegment& line, std::deque<ILineSegment>& result);
-    
-    static bool ClipLine( const IRect& cRect, int* x1, int* y1, int* x2, int* y2 );
+        
+    static bool ClipLine(const IRect& rect, IPoint* point1, IPoint* point2);
 
     ClipRectList    m_cRects;
 private:

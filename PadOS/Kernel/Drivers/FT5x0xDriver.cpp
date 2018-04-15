@@ -167,8 +167,7 @@ int FT5x0xDriver::Run()
                 int eventID = 0;
 
                 switch(touchFlags)
-                {
-                    case FT5x0x_TOUCH_FLAGS_DOWN:    eventID = MessageID::MOUSE_DOWN; break;
+                {case FT5x0x_TOUCH_FLAGS_DOWN:    eventID = MessageID::MOUSE_DOWN; break;
                     case FT5x0x_TOUCH_FLAGS_UP:      eventID = MessageID::MOUSE_UP;   break;
                     case FT5x0x_TOUCH_FLAGS_CONTACT: eventID = MessageID::MOUSE_MOVE; break;
                 }
@@ -180,8 +179,10 @@ int FT5x0xDriver::Run()
                         m_TouchPositions[touchID] = position;
                         
                         MsgMouseEvent mouseEvent;
-                        mouseEvent.ButtonID = MouseButton_e(int(MouseButton_e::FirstTouchID) + touchID);
-                        mouseEvent.Position = Point(position);
+                        mouseEvent.Timestamp = get_system_time();
+                        mouseEvent.EventID   = eventID;
+                        mouseEvent.ButtonID  = MouseButton_e(int(MouseButton_e::FirstTouchID) + touchID);
+                        mouseEvent.Position  = Point(position);
 
 //                        printf("Mouse event %d: %d/%d\n", eventID - MessageID::MOUSE_DOWN, position.x, position.y);
                         CRITICAL_BEGIN(m_Mutex)

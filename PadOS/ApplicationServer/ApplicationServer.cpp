@@ -34,13 +34,21 @@
 using namespace os;
 using namespace kernel;
 
-MessagePort os::g_AppserverPort(-1, false);
+static port_id g_AppserverPort = -1;
+
+namespace os
+{
+    port_id get_appserver_port()
+    {
+        return g_AppserverPort;
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ApplicationServer::ApplicationServer() : Looper("appserver", 10, APPSERVER_MSG_BUFFER_SIZE), m_WindowsManagerPort(-1, false)
+ApplicationServer::ApplicationServer() : Looper("appserver", 10, APPSERVER_MSG_BUFFER_SIZE), m_ReplyPort("appserver_reply", 100) //, m_WindowsManagerPort(-1, false)
 {
     m_TopView = ptr_new<ServerView>("::topview::", GetScreenFrame(), Point(0.0f, 0.0f), 0, 0, Color(0xffffffff), Color(0xffffffff), Color(0));
 
@@ -57,7 +65,7 @@ ApplicationServer::ApplicationServer() : Looper("appserver", 10, APPSERVER_MSG_B
     {
         printf("ERROR: ApplicationServer::ApplicationServer() failed to open touch device\n");
     }
-    g_AppserverPort = GetPort();
+    g_AppserverPort = GetPortID();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -74,38 +82,57 @@ ApplicationServer::~ApplicationServer()
 
 bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length)
 {
-    bool result = false;
-    
-
     switch(code)
     {
         case AppserverProtocol::REGISTER_APPLICATION:
             RSRegisterApplication.Dispatch(data, length);
-            result = true;
-            break;        
+            return true;
+            
         case MessageID::MOUSE_DOWN:
-        {
-            const MsgMouseEvent* msg = static_cast<const MsgMouseEvent*>(data);
-            HandleMouseDown(msg->ButtonID, msg->Position);
-            result = true;
-            break;
-        }            
         case MessageID::MOUSE_UP:
-        {
-            const MsgMouseEvent* msg = static_cast<const MsgMouseEvent*>(data);
-            HandleMouseUp(msg->ButtonID, msg->Position);
-            result = true;
-            break;
-        }            
+            m_MouseEventQueue.push(*static_cast<const MsgMouseEvent*>(data));
+            return true;
         case MessageID::MOUSE_MOVE:
-        {
-            const MsgMouseEvent* msg = static_cast<const MsgMouseEvent*>(data);
-            HandleMouseMove(msg->ButtonID, msg->Position);
-            result = true;
-            break;
-        }
+            if (!m_MouseEventQueue.empty() && m_MouseEventQueue.back().EventID == MessageID::MOUSE_MOVE) {
+                m_MouseEventQueue.back() = *static_cast<const MsgMouseEvent*>(data);
+            } else {
+                m_MouseEventQueue.push(*static_cast<const MsgMouseEvent*>(data));
+            }
+            return true;
+            
     }
-    return result;
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::Idle()
+{
+    while(!m_MouseEventQueue.empty())
+    {
+        const MsgMouseEvent& event = m_MouseEventQueue.front();
+        switch(event.EventID)
+        {
+            case MessageID::MOUSE_DOWN:
+            {
+                HandleMouseDown(event.ButtonID, event.Position);
+                break;
+            }            
+            case MessageID::MOUSE_UP:
+            {
+                HandleMouseUp(event.ButtonID, event.Position);
+                break;
+            }            
+            case MessageID::MOUSE_MOVE:
+            {
+                HandleMouseMove(event.ButtonID, event.Position);
+                break;
+            }
+        }
+        m_MouseEventQueue.pop();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -114,7 +141,7 @@ bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, co
 
 Rect ApplicationServer::GetScreenFrame()
 {
-    return Rect(Point(0.0f), Point(GfxDriver::Instance.GetResolution() - IPoint(1, 1)));
+    return Rect(Point(0.0f), Point(GfxDriver::Instance.GetResolution()));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -123,7 +150,7 @@ Rect ApplicationServer::GetScreenFrame()
 
 IRect ApplicationServer::GetScreenIFrame()
 {
-    return IRect(IPoint(0), GfxDriver::Instance.GetResolution() - IPoint(1, 1));
+    return IRect(IPoint(0), GfxDriver::Instance.GetResolution());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -148,16 +175,11 @@ Ptr<ServerView> ApplicationServer::FindView(handler_id handle) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name, bool isWindowManager)
+void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name)
 {
     Ptr<ServerApplication> app = ptr_new<ServerApplication>(this, name, clientPort);
     
     AddHandler(app);
-
-    if (isWindowManager)
-    {
-        m_WindowsManagerPort = MessagePort(clientPort, true);
-    }
 
     MsgRegisterApplicationReply reply;
     reply.m_ServerHandle = app->GetHandle();

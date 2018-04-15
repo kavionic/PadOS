@@ -59,7 +59,8 @@ public:
 
     virtual void ThreadStarted() {}
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) { return false; }
-
+    virtual void Idle() {}
+        
     virtual int Run() override;
     
     bool ProcessEvents(handler_id waitTarget, int32_t waitCode);

@@ -40,6 +40,8 @@ enum class MouseButton_e
 
 struct MsgMouseEvent
 {
+    bigtime_t     Timestamp;
+    int32_t       EventID;
     MouseButton_e ButtonID;
     Point         Position;    
 };

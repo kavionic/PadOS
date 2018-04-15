@@ -18,7 +18,7 @@
 // Created: 03.12.2017 03:16:06
 
 #include "sam.h"
-
+#if 0
 #include "RenderTest4.h"
 #include "System/System.h"
 #include "System/GUI/Application.h"
@@ -136,3 +136,4 @@ void RenderTest4::SlotFrameProcess()
     startTime = curTime;
     
 }
+#endif

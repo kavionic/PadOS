@@ -210,8 +210,8 @@ public:
     IRect               GetIBounds() const { return m_IFrame.Bounds() /*- Point(m_Frame.left, m_Frame.top)*/ - IPoint(m_ScrollOffset); }
     IRect               GetNormalizedIBounds() const { return m_IFrame.Bounds(); }
         
-    Point               GetLeftTop() const  { return Point( m_Frame.left, m_Frame.top ); }
-    IPoint              GetILeftTop() const { return IPoint( m_IFrame.left, m_IFrame.top ); }
+    Point               GetTopLeft() const  { return Point( m_Frame.left, m_Frame.top ); }
+    IPoint              GetITopLeft() const { return IPoint( m_IFrame.left, m_IFrame.top ); }
         
     Color               GetFgColor() const { return m_FgColor; }
     Color               GetBgColor() const { return m_BgColor; }
@@ -219,14 +219,14 @@ public:
 
     
       // Coordinate conversions:
-    Point               ConvertToParent(const Point& point) const   { return point + GetLeftTop(); }
-    void                ConvertToParent(Point* point) const         { *point += GetLeftTop(); }
-    Rect                ConvertToParent(const Rect& rect) const     { return rect + GetLeftTop(); }
-    void                ConvertToParent(Rect* rect) const           { *rect += GetLeftTop(); }
-    Point               ConvertFromParent(const Point& point) const { return point - GetLeftTop(); }
-    void                ConvertFromParent(Point* point) const       { *point -= GetLeftTop(); }
-    Rect                ConvertFromParent(const Rect& rect) const   { return rect - GetLeftTop(); }
-    void                ConvertFromParent(Rect* rect) const         { *rect -= GetLeftTop(); }
+    Point               ConvertToParent(const Point& point) const   { return point + GetTopLeft(); }
+    void                ConvertToParent(Point* point) const         { *point += GetTopLeft(); }
+    Rect                ConvertToParent(const Rect& rect) const     { return rect + GetTopLeft(); }
+    void                ConvertToParent(Rect* rect) const           { *rect += GetTopLeft(); }
+    Point               ConvertFromParent(const Point& point) const { return point - GetTopLeft(); }
+    void                ConvertFromParent(Point* point) const       { *point -= GetTopLeft(); }
+    Rect                ConvertFromParent(const Rect& rect) const   { return rect - GetTopLeft(); }
+    void                ConvertFromParent(Rect* rect) const         { *rect -= GetTopLeft(); }
     Point               ConvertToRoot(const Point& point) const     { return m_ScreenPos + point; }
     void                ConvertToRoot(Point* point) const           { *point += m_ScreenPos; }
     Rect                ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos; }
@@ -235,14 +235,13 @@ public:
     void                ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos; }
     Rect                ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos; }
     void                ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos; }
-    //Point               GetScrollOffset() const { return( m_ScrollOffset ); }
     
     static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, IRect* frame)
     {
         while(view != nullptr && (view->m_Flags & ViewFlags::TRANSPARENT))
         {
             if (frame != nullptr) {
-                *frame += view->m_IFrame.LeftTop();
+                *frame += view->m_IFrame.TopLeft();
             }
             view = view->GetParent();
         }
@@ -262,12 +261,25 @@ protected:
         m_HideCount += hideCount;
         m_Level = level;
         if (parent == nullptr) {
-            m_ScreenPos = m_Frame.LeftTop();
+            m_ScreenPos = m_Frame.TopLeft();
         } else {
-            m_ScreenPos = parent->m_ScreenPos + m_Frame.LeftTop();
+            m_ScreenPos = parent->m_ScreenPos + m_Frame.TopLeft();
         }
         for (Ptr<ViewBase> child : m_ChildrenList) {
             child->Added(this, hideCount, level + 1);
+        }
+    }
+
+    void UpdateScreenPos()
+    {
+        Ptr<ViewType> parent = m_Parent.Lock();
+        if (parent == nullptr) {
+            m_ScreenPos = m_Frame.TopLeft();
+        } else {
+            m_ScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
+        }
+        for (Ptr<ViewType> child : m_ChildrenList) {
+            child->UpdateScreenPos();
         }
     }
 
@@ -335,6 +347,7 @@ void ViewBase<ViewType>::UnlinkChild(Ptr<ViewType> child)
         } else {
             printf("ERROR: ViewBase::UnlinkChildren() failed to find view in children list.\n");
         }
+        child->UpdateScreenPos();
         child->HandleRemovedFromParent(ptr_tmp_cast(static_cast<ViewType*>(this)));
     }
     else
@@ -403,7 +416,7 @@ public:
 //    Rect GetFrame() const;
     float  Width() const;
     float  Height() const;
-//    Point  GetLeftTop() const;
+//    Point  GetTopLeft() const;
 
     virtual void        SetFrame(const Rect& frame);
     void                Move(const Point& delta) { SetFrame(m_Frame + delta); }
@@ -458,7 +471,7 @@ public:
     void            FillCircle(const Point& position, float radius) { Post<ASViewFillCircle>(position, radius); }
     void            DrawString(const String& string, float maxWidth = 100000.0f, uint8_t flags = 0) { Post<ASViewDrawString>(string, maxWidth, flags); }
 
-    virtual void    ScrollBy(const Point& offset)           { /*m_ScrollOffset += offset;*/ Post<ASViewScrollBy>(offset); }
+    virtual void    ScrollBy(const Point& offset)           { m_ScrollOffset += offset; UpdateScreenPos(); Post<ASViewScrollBy>(offset); }
     virtual void    ScrollBy(float vDeltaX, float vDeltaY) { ScrollBy(Point(vDeltaX, vDeltaY)); }
     virtual void    ScrollTo(Point topLeft)                { ScrollBy(topLeft - m_ScrollOffset); }
     virtual void    ScrollTo(float x, float y)             { ScrollTo(Point(x, y)); }
@@ -509,7 +522,7 @@ private:
         {
             Ptr<View> parent = m_Parent.Lock();
             if (parent != nullptr && parent->HasFlag(ViewFlags::CLIENT_ONLY)) {
-                newOffset = parent->m_PositionOffset + parent->m_Frame.LeftTop();
+                newOffset = parent->m_PositionOffset + parent->m_Frame.TopLeft();
             } else {
                 newOffset = Point(0.0f, 0.0f);
             }
@@ -532,8 +545,6 @@ private:
     
     void       SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
         
-    void ConstrictRectangle(Rect* rect, const Point& offset);
-
     handler_id m_ServerHandle = -1;
     
     Ptr<LayoutNode> m_LayoutNode;

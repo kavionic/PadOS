@@ -55,97 +55,10 @@
 
 extern "C" void InitializeNewLibMutexes();
 
-typedef enum {
-    SDRAMC_OK = 0,
-    SDRAMC_TIMEOUT = 1,
-    SDRAMC_ERROR = 2,
-} sdramc_status_t;
-
-/** SDRAM benchmark test size */
-#define SDRAMC_TEST_BUFF_SIZE        (30 * 1024)
-
-/** SDRAM benchmark test page number */
-#define SDRAMC_TEST_PAGE_NUM        (1024)
-
-/** SDRAMC access test length */
-#define SDRAMC_TEST_LENGTH        (1024 * 1024 * 64)
-
-/** SDRAMC access test data in even address */
-#define SDRAMC_TEST_EVEN_TAG        (0x55aaaa55)
-
-/** SDRAMC access test data in odd address */
-#define SDRAMC_TEST_ODD_TAG        (0xaa5555aa)
-
-bigtime_t g_FrameTime = 0;
-
 kernel::HSMCIDriver g_SDCardBlockDevice(DigitalPin(e_DigitalPortID_A, 24));
 kernel::FAT         g_FileSystem;
 
 ApplicationServer* g_ApplicationServer;
-
-/*
-E1: 7   PA00: LCD_DATA_B00
-E2: 9   PA02: LCD_DATA_B01
-
-E1: 11  PA03: LCD_DATA_B02
-E2: 11  PA03: LCD_DATA_B02
-
-E1: 12  PA04: LCD_DATA_B03
-E2: 12  PA04: LCD_DATA_B03
-
-E2: 5   PA06: LCD_DATA_B04
-E1: 4   PA19: LCD_DATA_B05
-E2: 13  PA21: LCD_DATA_B06
-E2: 10  PA24: LCD_DATA_B07
-
-E1: 13  PB00: LCD_DATA_B08
-E1: 14  PB01: LCD_DATA_B09
-
-E1: 6   PB02: 0 LEDA
-E1: 5   PB03: 
-E2: 14  PB04
-
-E2: 4   PC13: 2 CS
-E1: 10  PC17: 3 RD
-E2: 7   PC19: 1 RESET
-E1: 8   PC30: 4 WR
-E1: 3   PC31: 5 RS
-
-E2: 6   PD11: LCD_DATA_B10
-
-E1: 17  PD20: MISO
-E2: 17  PD20: MISO
-
-E1: 16  PD21: MOSI
-E2: 16  PD21: MOSI
-
-E1: 18  PD22: SPCK
-E2: 18  PD22: SPCK
-
-E1: 15  PD25: LCD_DATA_B11
-E2: 8   PD26: LCD_DATA_B12
-E2: 15  PD27: LCD_DATA_B13
-E1: 9   PD28: LCD_DATA_B14
-E2: 3   PD30: LCD_DATA_B15
-
-
-E1: 6   PB02: 0 LEDA
-E1: 3   PC31: 1 RESET
-E1: 8   PC30: 2 CS
-E1: 10  PC17: 3 RD
-E2: 4   PC13: 4 WR
-E2: 7   PC19: 5 RS
-
-E1: 6   PB02: 0 LEDA
-E1: 3   PC31: 5 RS
-E1: 8   PC30: 4 WR
-E1: 10  PC17: 3 RD
-E2: 4   PC13: 2 CS
-E2: 7   PC19: 1 RESET
-
-*/
-
-
 
 
 void NonMaskableInt_Handler() {kernel::panic("NMI\n");}
@@ -154,8 +67,6 @@ void MemoryManagement_Handler() {kernel::panic("MemManage\n");}
 void BusFault_Handler() {kernel::panic("BusFault\n");}
 void UsageFault_Handler() {kernel::panic("UsageFault\n");}
 void DebugMonitor_Handler() {}
-
-
 
 /*!
  * \brief Initialize the SWO trace port for debug message printing
@@ -218,53 +129,9 @@ void SWO_PrintChar(char c, uint8_t portNo)
 }
 #endif
 
-uint8_t sdram_access_test()
-{
-    uint32_t i;
-    uint32_t *pul = (uint32_t *)SDRAM_CS_ADDR;
-
-    for (i = 0; i < SDRAMC_TEST_LENGTH / 4; ++i) {
-        if (i & 1) {
-            pul[i] = SDRAMC_TEST_ODD_TAG | (i);
-        } else {
-            pul[i] = SDRAMC_TEST_EVEN_TAG | (i);
-        }
-    }
-
-        pul[0] = 0xdeadbabe;
-    for (i = 1; i < SDRAMC_TEST_LENGTH / 4; ++i) {
-        if (i & 1) {
-            if (pul[i] != (SDRAMC_TEST_ODD_TAG | (i))) {
-                        printf("MEMTEST failed at 0x%08" PRIx32 "\n", i*4);
-                return SDRAMC_ERROR;
-            }
-        } else {
-            if (pul[i] != (SDRAMC_TEST_EVEN_TAG | (i))) {
-                        printf("MEMTEST failed at 0x%08" PRIx32 "\n", i*4);
-                return SDRAMC_ERROR;
-            }
-        }
-    }
-
-    return SDRAMC_OK;
-}
-
-int g_CurrentSensor = -1;
-int g_EnvSensor = -1;
-
-void MeasureCurrent()
-{
-    INA3221Values values;
-    if (INA3221_GetMeasurements(g_CurrentSensor, &values) >= 0)
-    {
-        printf("1: %.3f/%.3f (%.3f), 2: %.3f/%.3f (%.3f), 3: %.3f/%.3f (%.3f)\n", values.Voltages[0], values.Currents[0] * 1000.0, values.Voltages[0] * values.Currents[0] * 1000.0, values.Voltages[1], values.Currents[1] * 1000.0, values.Voltages[1] * values.Currents[1] * 1000.0, values.Voltages[2], values.Currents[2] * 1000.0, values.Voltages[2] * values.Currents[2] * 1000.0);
-    }
-
-    BME280Values envValues;
-    if (BME280IOCTL_GetValues(g_EnvSensor, &envValues) >= 0) {
-        printf("Temp: %.3f, Pres: %.3f, Hum: %.3f\n", envValues.m_Temperature, envValues.m_Pressure / 100.0, envValues.m_Humidity);
-    }
-}
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 static void SetupDevices()
 {
@@ -290,35 +157,9 @@ static void SetupDevices()
     }
 }
 
-void MeasureThread(void* args)
-{
-//    __enable_irq();
-
-/*    INA3221ShuntConfig shuntConfig;
-    shuntConfig.ShuntValues[INA3221_SENSOR_IDX_1] = 47.0e-3;
-    shuntConfig.ShuntValues[INA3221_SENSOR_IDX_2] = 47.0e-3;
-    shuntConfig.ShuntValues[INA3221_SENSOR_IDX_3] = 47.0e-3 * 0.5;
-*/
-    g_CurrentSensor = open("/dev/ina3221/0", O_RDWR);
-    if (g_CurrentSensor < 0) {
-//        INA3221_SetShuntConfig(g_CurrentSensor, shuntConfig);
-//    } else {
-        printf("ERROR: Failed to open current sensor\n");
-    }
-    g_EnvSensor = open("/dev/bme280/0", O_RDWR);
-    if (g_EnvSensor < 0) {
-        printf("ERROR: Failed to open environment sensor\n");
-    }
-
-
-    for (;;)
-    {
-        MeasureCurrent();
-        snooze(bigtime_from_s(10));
-//        printf("First task!!!\n");
-//        Schedule();
-    }
-}
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 int main(void)
 {
@@ -331,19 +172,14 @@ int main(void)
     SAME70System::EnablePeripheralClock(ID_PIOE);
 
     SAME70System::EnablePeripheralClock(SYSTEM_TIMER_PERIPHERALID1);
-    SAME70System::EnablePeripheralClock(SYSTEM_TIMER_PERIPHERALID2);
-    SAME70System::EnablePeripheralClock(ID_TC0_CHANNEL2);
+//    SAME70System::EnablePeripheralClock(SYSTEM_TIMER_PERIPHERALID2);
+//    SAME70System::EnablePeripheralClock(ID_TC0_CHANNEL2);
 
-//    SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_REALTIME_CHANNEL].TC_CMR = TC_CMR_TCCLKS_TIMER_CLOCK2 | TC_CMR_WAVE_Msk | TC_CMR_WAVESEL_UP_RC;
-//    SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_REALTIME_CHANNEL].TC_IER = TC_IER_CPCS_Msk; // IRQ on C compare.
-//    SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_REALTIME_CHANNEL].TC_RC = SAME70System::GetFrequencyPeripheral() / 8000; // 18750; // Wrap every ms (150e6/8 = 1.8750.000)
-    
 //    SYSTEM_TIMER->TC_BMR = TC_BMR_TC2XC2S_TIOA1_Val;// Clock XC2 is TIOA1
 
     SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_SPIN_TIMER_L].TC_EMR = TC_EMR_NODIVCLK_Msk; // Run at undivided peripheral clock.
     SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_SPIN_TIMER_L].TC_CMR = TC_CMR_WAVE_Msk | TC_CMR_WAVESEL_UP; // | TC_CMR_ACPA_CLEAR | TC_CMR_ACPC_SET;
     
-//    SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_REALTIME_CHANNEL].TC_CCR = TC_CCR_CLKEN_Msk;
     SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_SPIN_TIMER_L].TC_CCR = TC_CCR_SWTRG_Msk;
     SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_SPIN_TIMER_L].TC_CCR = TC_CCR_CLKEN_Msk;
     SYSTEM_TIMER->TC_BCR = TC_BCR_SYNC_Msk;
@@ -366,26 +202,33 @@ int main(void)
     SAME70System::ResetWatchdog();
     kernel::Kernel::Initialize();
 
-
     kernel::start_scheduler();
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void RunTests(void* args)
 {
     Tests tests;
-
     exit_thread(0);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void kernel::InitThreadMain(void* argument)
 {
     SetupDevices();
     
-    printf("InitializeNewLibMutexes()");
     InitializeNewLibMutexes();
 
-    printf("Setup I2C drivers\n");
+    printf("Initialize display.\n");
+    kernel::GfxDriver::Instance.InitDisplay();
 
+    printf("Setup I2C drivers\n");
     kernel::Kernel::RegisterDevice("i2c/0", ptr_new<kernel::I2CDriver>(kernel::I2CDriver::Channels::Channel0));
     kernel::Kernel::RegisterDevice("i2c/2", ptr_new<kernel::I2CDriver>(kernel::I2CDriver::Channels::Channel2));
     kernel::Kernel::RegisterDevice("ft5x0x/0", ptr_new<kernel::FT5x0xDriver>(LCD_TP_WAKE_Pin, LCD_TP_RESET_Pin, LCD_TP_INT_Pin, "/dev/i2c/0"));
@@ -407,10 +250,9 @@ void kernel::InitThreadMain(void* argument)
     }
 
 //    static int32_t args[] = {1, 2, 3};
-//    spawn_thread("SensorDumper", MeasureThread, 0, args);
 //    spawn_thread("Tester", RunTests, 0, args);
 
-    printf("Start I2S clock output\n");
+//    printf("Start I2S clock output\n");
     SAME70System::EnablePeripheralClock(ID_PMC);
 /*    PMC->PMC_WPMR = PMC_WPMR_WPKEY_PASSWD; // | PMC_WPMR_WPEN_Msk; // Remove register write protection.
     PMC->PMC_PCK[1] = PMC_PCK_CSS_MAIN_CLK | PMC_PCK_PRES(0);
@@ -418,9 +260,6 @@ void kernel::InitThreadMain(void* argument)
     PMC->PMC_WPMR = PMC_WPMR_WPKEY_PASSWD | PMC_WPMR_WPEN_Msk; // Write protect registers.
     DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN21_bm, DigitalPort::PeripheralID::B); // PCK1
     */
-    printf("Initialize display.\n");    
-
-    Display::Instance.InitDisplay();
 
     g_SDCardBlockDevice.Initialize();;
     g_FileSystem.Initialize(&g_SDCardBlockDevice);
@@ -435,11 +274,6 @@ void kernel::InitThreadMain(void* argument)
         }
     }
 
-    printf("Clear screen.\n");
-    Display::Instance.SetFgColor(0xffff);
-    Display::Instance.SetWindow(0, 0, 799, 479);
-    Display::Instance.FillRect(0, 0, 799, 479);
-
     printf("Start Application Server.\n");
 
     g_ApplicationServer = new ApplicationServer();
@@ -447,8 +281,6 @@ void kernel::InitThreadMain(void* argument)
     
     WindowManager* windowManager = new WindowManager();
     windowManager->Start("window_manager");
-    
-//    snooze(100000);
 
     Application* testApp = new TestApp();
     

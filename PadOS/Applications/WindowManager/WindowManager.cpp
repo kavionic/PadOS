@@ -25,6 +25,13 @@
 #include "ApplicationServer/ApplicationServer.h"
 #include "System/GUI/Button.h"
 
+static port_id g_WindowManagerPort = -1;
+
+port_id os::get_window_manager_port()
+{
+    return g_WindowManagerPort;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -71,8 +78,9 @@ private:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-WindowManager::WindowManager() : Application("window_manager", true)
+WindowManager::WindowManager() : Application("window_manager")
 {
+    g_WindowManagerPort = GetPortID();
     RSWindowManagerRegisterView.Connect(this, &WindowManager::SlotRegisterView);
     RSWindowManagerUnregisterView.Connect(this, &WindowManager::SlotUnregisterView);
     

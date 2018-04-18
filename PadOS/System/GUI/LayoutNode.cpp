@@ -28,29 +28,14 @@
 
 using namespace os;
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static void RemBorders( Rect* pcRect, const Rect& cBorders )
-{
-    pcRect->Resize( cBorders.left, cBorders.top, -cBorders.right, -cBorders.bottom );
-}
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-LayoutNode::LayoutNode(float wheight) :
-    m_Borders(0.0f,0.0f,0.0f,0.0f), m_MinSize(0.0f,0.0f), m_MaxSizeExtend(0.0f,0.0f), m_MaxSizeLimit(LAYOUT_MAX_SIZE,LAYOUT_MAX_SIZE)
-
+LayoutNode::LayoutNode() :
+    m_MinSize(0.0f,0.0f), m_MaxSizeExtend(0.0f,0.0f), m_MaxSizeLimit(LAYOUT_MAX_SIZE,LAYOUT_MAX_SIZE)
 {
-    m_HAlign = Alignment::Center;
-    m_VAlign = Alignment::Center;
-    
-    m_Wheight = wheight;
-    
     m_WidthRing.m_Next  = this;
     m_WidthRing.m_Prev  = this;
     m_HeightRing.m_Next = this;
@@ -76,12 +61,13 @@ void LayoutNode::Layout()
 {
     if (m_View != nullptr)
     {
-        Rect frame(m_View->GetNormalizedBounds());
-
-        frame.Resize(m_Borders.left, m_Borders.top, -m_Borders.right, -m_Borders.bottom);
+        Rect frame   = m_View->GetNormalizedBounds();
     
         for (Ptr<View> child : *m_View) {
-            child->SetFrame(frame);
+            Rect borders = child->GetBorders();
+            Rect childFrame = frame;
+            childFrame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
+            child->SetFrame(childFrame);
         }            
     }
     
@@ -91,94 +77,19 @@ void LayoutNode::Layout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayoutNode::SetBorders(const Rect& border)
+void LayoutNode::AdjustPrefSize(Point* minSize, Point* maxSize)
 {
-    m_Borders = border;
-    Layout();
-}
+    if ( minSize->x < m_MinSize.x ) minSize->x = m_MinSize.x;
+    if ( minSize->y < m_MinSize.y ) minSize->y = m_MinSize.y;
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
+    if ( maxSize->x < m_MaxSizeExtend.x ) maxSize->x = m_MaxSizeExtend.x;
+    if ( maxSize->y < m_MaxSizeExtend.y ) maxSize->y = m_MaxSizeExtend.y;
 
-Rect LayoutNode::GetBorders() const
-{
-    return m_Borders;
-}
+    if ( maxSize->x > m_MaxSizeLimit.x ) maxSize->x = m_MaxSizeLimit.x;
+    if ( maxSize->y > m_MaxSizeLimit.y ) maxSize->y = m_MaxSizeLimit.y;
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-float LayoutNode::GetWheight() const
-{
-    return m_Wheight;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void LayoutNode::SetWheight(float vWheight)
-{
-    m_Wheight = vWheight;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void LayoutNode::SetHAlignment(Alignment alignment)
-{
-    m_HAlign = alignment;
-    Layout();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void LayoutNode::SetVAlignment(Alignment alignment)
-{
-    m_VAlign = alignment;
-    Layout();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Alignment LayoutNode::GetHAlignment() const
-{
-    return m_HAlign;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Alignment LayoutNode::GetVAlignment() const
-{
-    return m_VAlign;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void LayoutNode::AdjustPrefSize(Point* pcMinSize, Point* pcMaxSize)
-{
-    if ( pcMinSize->x < m_MinSize.x ) pcMinSize->x = m_MinSize.x;
-    if ( pcMinSize->y < m_MinSize.y ) pcMinSize->y = m_MinSize.y;
-
-    if ( pcMaxSize->x < m_MaxSizeExtend.x ) pcMaxSize->x = m_MaxSizeExtend.x;
-    if ( pcMaxSize->y < m_MaxSizeExtend.y ) pcMaxSize->y = m_MaxSizeExtend.y;
-
-    if ( pcMaxSize->x > m_MaxSizeLimit.x ) pcMaxSize->x = m_MaxSizeLimit.x;
-    if ( pcMaxSize->y > m_MaxSizeLimit.y ) pcMaxSize->y = m_MaxSizeLimit.y;
-
-    if ( pcMaxSize->x < pcMinSize->x ) pcMaxSize->x = pcMinSize->x;
-    if ( pcMaxSize->y < pcMinSize->y ) pcMaxSize->y = pcMinSize->y;
+    if ( maxSize->x < minSize->x ) maxSize->x = minSize->x;
+    if ( maxSize->y < minSize->y ) maxSize->y = minSize->y;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -192,7 +103,9 @@ Point LayoutNode::CalculatePreferredSize(bool largest)
     {
         for (Ptr<View> child : *m_View)
         {
-            Point currentSize = child->GetPreferredSize(largest);
+            Rect borders = child->GetBorders();
+            Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            Point currentSize = child->GetPreferredSize(largest) + borderSize;
             if (largest)
             {
                 size.x = std::min(size.x, currentSize.x);
@@ -215,7 +128,7 @@ Point LayoutNode::CalculatePreferredSize(bool largest)
             size.y = ceil(size.y);            
         }            
     }
-    return size + Point(m_Borders.left + m_Borders.right, m_Borders.top + m_Borders.bottom);
+    return size;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -228,21 +141,21 @@ Point LayoutNode::GetPreferredSize(bool largest)
         return CalculatePreferredSize(largest);
     }
     
-    Point cMinSize = CalculatePreferredSize(false);
-    Point cMaxSize;
+    Point minSize = CalculatePreferredSize(false);
+    Point maxSize;
     if (m_WidthRing.m_Next == this || m_HeightRing.m_Next == this) {
-        cMaxSize = CalculatePreferredSize(true);
+        maxSize = CalculatePreferredSize(true);
     } else {
-        cMaxSize = cMinSize;
+        maxSize = minSize;
     }
-    Point size = cMinSize;
+    Point size = minSize;
     if (largest)
     {
         if (m_WidthRing.m_Next == this) {
-            size.x = cMaxSize.x;
+            size.x = maxSize.x;
         }
         if (m_HeightRing.m_Next == this) {
-            size.y = cMaxSize.y;
+            size.y = maxSize.y;
         }
     }
     for (LayoutNode* pcNode = m_WidthRing.m_Next ; pcNode != this ; pcNode = pcNode->m_WidthRing.m_Next)
@@ -303,27 +216,27 @@ void LayoutNode::SetVAlignments( Alignment align, const char* pzFirstName, ... )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayoutNode::ExtendMinSize( const Point& cMinSize )
+void LayoutNode::ExtendMinSize(const Point& minSize)
 {
-    m_MinSize = cMinSize;
+    m_MinSize = minSize;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayoutNode::LimitMaxSize( const Point& cMaxSize )
+void LayoutNode::LimitMaxSize(const Point& maxSize)
 {
-    m_MaxSizeLimit = cMaxSize;
+    m_MaxSizeLimit = maxSize;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayoutNode::ExtendMaxSize( const Point& cMaxSize )
+void LayoutNode::ExtendMaxSize(const Point& maxSize)
 {
-    m_MaxSizeExtend = cMaxSize;
+    m_MaxSizeExtend = maxSize;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -413,50 +326,50 @@ void LayoutNode::AttachedToView(View* view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static float SpaceOut(uint nCount, float vTotalSize, float vTotalMinSize, float vTotalWheight,
+static float SpaceOut(uint32_t count, float totalSize, float totalMinSize, float totalWheight,
                       float* minSizes, float* maxSizes, float* wheights, float* finalSizes)
 {
-    float vExtraSpace = vTotalSize - vTotalMinSize;
+    float extraSpace = totalSize - totalMinSize;
     
-    bool*  abDone = (bool*)alloca(sizeof(bool) * nCount);
+    bool*  doneFlags = (bool*)alloca(sizeof(bool) * count);
 
-    memset(abDone, 0, sizeof(bool) * nCount);
+    memset(doneFlags, 0, sizeof(bool) * count);
 
     for (;;)
     {
-        uint i;
-        for ( i = 0 ; i < nCount ; ++i )
+        uint32_t i;
+        for (i = 0 ; i < count ; ++i)
         {
-            if ( abDone[i] ) {
+            if (doneFlags[i]) {
                 continue;
             }
-            float vWeight = wheights[i] / vTotalWheight;
+            float vWeight = wheights[i] / totalWheight;
 
-            finalSizes[i] = minSizes[i] + vExtraSpace * vWeight;
+            finalSizes[i] = minSizes[i] + extraSpace * vWeight;
             if (finalSizes[i] >= maxSizes[i])
             {
-                vExtraSpace    -= maxSizes[i] - minSizes[i];
-                vTotalWheight  -= wheights[i];
+                extraSpace   -= maxSizes[i] - minSizes[i];
+                totalWheight -= wheights[i];
                 finalSizes[i] = maxSizes[i];
-                abDone[i] = true;
+                doneFlags[i] = true;
                 break;
             }
         }
-        if ( i == nCount ) {
+        if (i == count) {
             break;
         }
     }
-    for ( uint i = 0 ; i < nCount ; ++i ) {
-        vTotalSize -= finalSizes[i];
+    for (uint32_t i = 0 ; i < count ; ++i) {
+        totalSize -= finalSizes[i];
     }
-    return vTotalSize;
+    return totalSize;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-HLayoutNode::HLayoutNode(float vWheight) : LayoutNode(vWheight)
+HLayoutNode::HLayoutNode()
 {
 }
 
@@ -466,21 +379,21 @@ HLayoutNode::HLayoutNode(float vWheight) : LayoutNode(vWheight)
 
 Point HLayoutNode::CalculatePreferredSize(bool largest)
 {
-    Rect  borders( GetBorders() );
     Point size( 0.0f, 0.0f );
 
     if (m_View != nullptr)
     {
         for (Ptr<View> child : *m_View)
         {
-            Point childSize = child->GetPreferredSize(largest);
+            Rect borders = child->GetBorders();
+            Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            Point childSize = child->GetPreferredSize(largest) + borderSize;
             size.x += childSize.x;
             if (childSize.y > size.y) {
                 size.y = childSize.y;
             }
         }
     }
-    size += Point(borders.left + borders.right, borders.top + borders.bottom);
     return size;
 }
 
@@ -496,8 +409,6 @@ void HLayoutNode::Layout()
 
         Rect bounds = m_View->GetNormalizedBounds();
 
-        RemBorders(&bounds, GetBorders());
-    
         float* minWidths    = (float*)alloca(sizeof(float)*childList.size());
         float* maxWidths    = (float*)alloca(sizeof(float)*childList.size());
         float* maxHeights   = (float*)alloca(sizeof(float)*childList.size());
@@ -505,29 +416,36 @@ void HLayoutNode::Layout()
         float* finalHeights = (float*)alloca(sizeof(float)*childList.size());
             
         float  vMinWidth = 0.0f;
-        float  vTotalWheight = 0.0f;
+        float  totalWheight = 0.0f;
     
         for (size_t i = 0 ; i < childList.size() ; ++i)
         {
             Ptr<View> child = childList[i];
+  
+            Rect borders = child->GetBorders();
+            Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
             
-            Point cMinSize = child->GetPreferredSize(false);
-            Point cMaxSize = child->GetPreferredSize(true);
+            Point minSize = child->GetPreferredSize(false);
+            Point maxSize = child->GetPreferredSize(true);
 
-            child->AdjustPrefSize(&cMinSize, &cMaxSize);
+            child->AdjustPrefSize(&minSize, &maxSize);
+            
+            minSize += borderSize;
+            maxSize += borderSize;
+            
             wheights[i]   = child->GetWheight();
 
-            maxHeights[i] = cMaxSize.y;
-            maxWidths[i]  = cMaxSize.x;
-            minWidths[i]  = cMinSize.x;
+            maxHeights[i] = maxSize.y;
+            maxWidths[i]  = maxSize.x;
+            minWidths[i]  = minSize.x;
 
-            vMinWidth += cMinSize.x;
-            vTotalWheight += wheights[i];
+            vMinWidth += minSize.x;
+            totalWheight += wheights[i];
         }
     //    if ( vMinWidth > bounds.Width() + 1.0f ) {
     //      printf( "Error: HLayoutNode::Layout() Width=%.2f, Required width=%.2f\n", bounds.Width() + 1.0f, vMinWidth  );
     //    }
-        float unusedWidth = SpaceOut(childList.size(), bounds.Width() + 1.0f, vMinWidth, vTotalWheight, minWidths, maxWidths, wheights, finalHeights);
+        float unusedWidth = SpaceOut(childList.size(), bounds.Width() + 1.0f, vMinWidth, totalWheight, minWidths, maxWidths, wheights, finalHeights);
 
 //        printf("HLayout: Unused space: %f (%f)\n", unusedWidth, bounds.Width());
         unusedWidth /= float(childList.size());
@@ -535,12 +453,24 @@ void HLayoutNode::Layout()
     
         for (size_t i = 0 ; i < childList.size() ; ++i)
         {
-            Rect frame(0.0f, 0.0f, finalHeights[i] - 1.0f, bounds.bottom);
-            if (frame.Height() + 1.0f > maxHeights[i]) {
-                frame.bottom = maxHeights[i] - 1.0f;
+            Rect frame(0.0f, 0.0f, finalHeights[i], bounds.bottom);
+            if (frame.Height() > maxHeights[i]) {
+                frame.bottom = maxHeights[i];
             }
-            frame += Point( x, bounds.top + (bounds.Height() - frame.Height()) * 0.5f);
-            x += frame.Width() + 1.0f + unusedWidth;
+            float y = 0.0f;
+            switch(childList[i]->GetVAlignment())
+            {
+                case Alignment::Top:    y = bounds.top; break;
+                case Alignment::Right:  y = bounds.bottom - frame.Height() - 1.0f; break;
+                default:           printf( "Error: HLayoutNode::Layout() node '%s' has invalid v-alignment %d\n", m_View->GetName().c_str(), int(childList[i]->GetVAlignment()) );
+                case Alignment::Center: y = bounds.top + (bounds.Height() - frame.Height()) * 0.5f; break;
+            }
+            
+            frame += Point(x, y);
+            Rect borders = childList[i]->GetBorders();
+            frame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
+            
+            x += frame.Width() + unusedWidth;
             frame.Floor();
 //            printf("    %d: %.2f->%.2f\n", i, frame.left, frame.right);
             childList[i]->SetFrame(frame);
@@ -552,7 +482,7 @@ void HLayoutNode::Layout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-VLayoutNode::VLayoutNode(float vWheight) : LayoutNode(vWheight)
+VLayoutNode::VLayoutNode()
 {
 }
 
@@ -562,21 +492,22 @@ VLayoutNode::VLayoutNode(float vWheight) : LayoutNode(vWheight)
 
 Point VLayoutNode::CalculatePreferredSize(bool largest)
 {
-    Rect  borders(GetBorders());
     Point size(0.0f, 0.0f);
     
     if (m_View != nullptr)
     {
         for (Ptr<View> child : *m_View)
         {
-            Point childSize = child->GetPreferredSize(largest);
+            Rect  borders = child->GetBorders();
+            Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+
+            Point childSize = child->GetPreferredSize(largest) + borderSize;
             size.y += childSize.y;
             if (childSize.x > size.x) {
                 size.x = childSize.x;
             }
         }
     }        
-    size += Point(borders.left + borders.right, borders.top + borders.bottom);
     return size;
 }
 
@@ -590,8 +521,6 @@ void VLayoutNode::Layout()
     {
         const auto& childList = m_View->GetChildList();
         Rect bounds = m_View->GetNormalizedBounds();
-
-        RemBorders(&bounds, GetBorders());
     
         float* maxWidths    = (float*)alloca(sizeof(float)*childList.size());
         float* minHeights   = (float*)alloca(sizeof(float)*childList.size());
@@ -599,50 +528,60 @@ void VLayoutNode::Layout()
         float* wheights     = (float*)alloca(sizeof(float)*childList.size());
         float* finalHeights = (float*)alloca(sizeof(float)*childList.size());
 
-        float  vTotalWheight = 0.0f;
+        float  totalWheight = 0.0f;
         float  vMinHeight = 0.0f;
         float  vMaxHeight = 0.0f;
 
         for (size_t i = 0 ; i < childList.size() ; ++i)
         {
             Ptr<View> child = childList[i];
-            Point cMinSize = child->GetPreferredSize(false);
-            Point cMaxSize = child->GetPreferredSize(true);
+            
+            Rect borders = child->GetBorders();
+            Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            
+            Point minSize = child->GetPreferredSize(false);
+            Point maxSize = child->GetPreferredSize(true);
 
-            child->AdjustPrefSize( &cMinSize, &cMaxSize );
+            child->AdjustPrefSize(&minSize, &maxSize);
+
+            minSize += borderSize;
+            maxSize += borderSize;
 
             wheights[i]   = child->GetWheight();
-            maxWidths[i]  = cMaxSize.x;
-            minHeights[i] = cMinSize.y;
-            maxHeights[i] = cMaxSize.y;
+            maxWidths[i]  = maxSize.x;
+            minHeights[i] = minSize.y;
+            maxHeights[i] = maxSize.y;
 
-            vMinHeight += cMinSize.y;
-            vMaxHeight += cMaxSize.y;
-            vTotalWheight += wheights[i];
+            vMinHeight += minSize.y;
+            vMaxHeight += maxSize.y;
+            totalWheight += wheights[i];
         }
     //    if ( vMinHeight > bounds.Height() + 1.0f ) {
     //      printf( "Error: HLayoutNode::Layout() Width=%.2f, Required width=%.2f\n", bounds.Height() + 1.0f, vMinHeight  );
     //    }
-        float vUnusedHeight = SpaceOut(childList.size(), bounds.Height() + 1.0f,  vMinHeight, vTotalWheight, minHeights, maxHeights, wheights, finalHeights);
+        float vUnusedHeight = SpaceOut(childList.size(), bounds.Height() + 1.0f,  vMinHeight, totalWheight, minHeights, maxHeights, wheights, finalHeights);
 
         vUnusedHeight /= float(childList.size());
         float y = bounds.top + vUnusedHeight * 0.5f;
         for (size_t i = 0 ; i < childList.size() ; ++i)
         {
-            Rect frame( 0.0f, 0.0f, bounds.right, finalHeights[i] - 1.0f );
-            if (frame.Width() + 1.0f > maxWidths[i]) {
-                frame.right = maxWidths[i] - 1.0f;
+            Rect frame( 0.0f, 0.0f, bounds.right, finalHeights[i]);
+            if (frame.Width() > maxWidths[i]) {
+                frame.right = maxWidths[i];
             }
             float x;
-            switch(GetHAlignment())
+            switch(childList[i]->GetHAlignment())
             {
                 case Alignment::Left:   x = bounds.left; break;
                 case Alignment::Right:  x = bounds.right - frame.Width() - 1.0f; break;
-                default:           printf( "Error: VLayoutNode::Layout() node '%s' has invalid h-alignment %d\n", m_View->GetName().c_str(), int(GetHAlignment()) );
+                default:           printf( "Error: VLayoutNode::Layout() node '%s' has invalid h-alignment %d\n", m_View->GetName().c_str(), int(childList[i]->GetHAlignment()) );
                 case Alignment::Center: x = bounds.left + (bounds.Width() - frame.Width()) * 0.5f; break;
             }
             frame += Point(x, y);
-            y += frame.Height() + 1.0f + vUnusedHeight;
+            
+            Rect borders = childList[i]->GetBorders();
+            frame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
+            y += frame.Height() + vUnusedHeight;
             frame.Floor();
             childList[i]->SetFrame(frame);
         }
@@ -653,10 +592,10 @@ void VLayoutNode::Layout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-LayoutSpacer::LayoutSpacer(float vWheight, const Point& cMinSize, const Point& cMaxSize) : LayoutNode(vWheight)
+/*LayoutSpacer::LayoutSpacer(float vWheight, const Point& minSize, const Point& maxSize) : LayoutNode(vWheight)
 {
-    m_MinSize = cMinSize;
-    m_cMaxSize = cMaxSize;
+    m_MinSize = minSize;
+    m_MaxSize = maxSize;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -674,7 +613,7 @@ void LayoutSpacer::SetMinSize(const Point& size)
 
 void LayoutSpacer::SetMaxSize(const Point& size)
 {
-    m_cMaxSize = size;
+    m_MaxSize = size;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -683,6 +622,7 @@ void LayoutSpacer::SetMaxSize(const Point& size)
 
 Point LayoutSpacer::CalculatePreferredSize( bool bLargest )
 {
-    return( (bLargest) ? m_cMaxSize : m_MinSize );
+    return( (bLargest) ? m_MaxSize : m_MinSize );
 }
 
+*/

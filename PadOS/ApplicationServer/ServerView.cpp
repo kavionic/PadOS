@@ -240,7 +240,7 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
         }
     }
     
-    if ( parent == nullptr ) {
+    if (parent == nullptr) {
         Invalidate();
     }
 }
@@ -249,9 +249,9 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::SetDrawRegion(Ptr<Region> pcReg)
+void ServerView::SetDrawRegion(Ptr<Region> region)
 {
-    m_DrawConstrainReg = pcReg;
+    m_DrawConstrainReg = region;
 
     if ( m_HideCount == 0 ) {
         m_HasInvalidRegs = true;
@@ -263,9 +263,9 @@ void ServerView::SetDrawRegion(Ptr<Region> pcReg)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::SetShapeRegion(Ptr<Region> pcReg)
+void ServerView::SetShapeRegion(Ptr<Region> region)
 {
-    m_ShapeConstrainReg = pcReg;
+    m_ShapeConstrainReg = region;
 
     if (m_HideCount == 0)
     {
@@ -319,7 +319,7 @@ void ServerView::Invalidate(bool reqursive)
 {
     if (m_HideCount == 0)
     {
-        m_DamageReg = ptr_new<Region>(static_cast<IRect>(GetBounds()));
+        m_DamageReg = ptr_new<Region>(static_cast<IRect>(GetNormalizedBounds()));
         if (reqursive)
         {
             for (Ptr<ServerView> child : m_ChildrenList) {
@@ -357,12 +357,12 @@ void ServerView::InvalidateNewAreas()
                 {
                     Ptr<Region> region = ptr_new<Region>(*m_VisibleReg);
     
-                    if ( m_PrevVisibleReg != nullptr ) {
+                    if (m_PrevVisibleReg != nullptr) {
                         region->Exclude( *m_PrevVisibleReg );
                     }
                     if (m_DamageReg == nullptr)
                     {
-                        if ( region->IsEmpty() == false ) {
+                        if (!region->IsEmpty()) {
                             m_DamageReg = region;
                         }
                     }
@@ -397,19 +397,19 @@ static int SortCmp(const void* pNode1, const void* pNode2)
     ClipRect* clip2 = *((ClipRect**)pNode2);
 
 
-    if ( clip1->m_cBounds.left > clip2->m_cBounds.right && clip1->m_cBounds.right < clip2->m_cBounds.left )
+    if (clip1->m_cBounds.left >= clip2->m_cBounds.right && clip1->m_cBounds.right <= clip2->m_cBounds.left)
     {
-        if ( clip1->m_cMove.x < 0 ) {
+        if (clip1->m_cMove.x < 0) {
             return clip1->m_cBounds.left - clip2->m_cBounds.left;
-            } else {
+        } else {
             return clip2->m_cBounds.left - clip1->m_cBounds.left;
         }
     }
     else
     {
-        if ( clip1->m_cMove.y < 0 ) {
+        if (clip1->m_cMove.y < 0) {
             return clip1->m_cBounds.top - clip2->m_cBounds.top;
-            } else {
+        } else {
             return clip2->m_cBounds.top - clip1->m_cBounds.top;
         }
     }
@@ -430,8 +430,7 @@ void ServerView::MoveChilds()
   
     if ( m_HasInvalidRegs )
     {
-        Rect cBounds = GetBounds();
-        IRect cIBounds( cBounds );
+        IRect bounds(GetNormalizedBounds());
         IPoint screenPos(m_ScreenPos);
         for (Ptr<ServerView> child : m_ChildrenList)
         {
@@ -485,22 +484,24 @@ void ServerView::MoveChilds()
         Ptr<ServerView> parent = m_Parent.Lock();
         if ( parent != nullptr && (m_DeltaMove.x != 0.0f || m_DeltaMove.y != 0.0f) )
         {
-            if ( parent->m_DeltaSize.x < 0 ) {
-                IRect cRect = cIBounds;
+            if (parent->m_DeltaSize.x < 0)
+            {
+                IRect rect = bounds;
 
-                cRect.left = cRect.right + int(parent->m_DeltaSize.x + parent->m_IFrame.right - parent->m_IFrame.left - m_IFrame.right);
+                rect.left = rect.right + int(parent->m_DeltaSize.x + parent->m_IFrame.right - parent->m_IFrame.left - m_IFrame.right);
 
-                if ( cRect.IsValid() ) {
-                    Invalidate( cRect );
+                if (rect.IsValid()) {
+                    Invalidate( rect );
                 }
             }
-            if ( parent->m_DeltaSize.y < 0 ) {
-                IRect cRect = cIBounds;
+            if (parent->m_DeltaSize.y < 0)
+            {
+                IRect rect = bounds;
 
-                cRect.top = cRect.bottom + int(parent->m_DeltaSize.y + parent->m_IFrame.bottom - parent->m_IFrame.top - m_IFrame.bottom);
+                rect.top = rect.bottom + int(parent->m_DeltaSize.y + parent->m_IFrame.bottom - parent->m_IFrame.top - m_IFrame.bottom);
 
-                if ( cRect.IsValid() ) {
-                    Invalidate(cRect);
+                if (rect.IsValid()) {
+                    Invalidate(rect);
                 }
             }
         }
@@ -889,7 +890,7 @@ void ServerView::UpdateIfNeeded(bool force)
 
 void ServerView::MarkModified(const IRect& rect)
 {
-    if ( GetBounds().DoIntersect( rect ) )
+    if (GetNormalizedBounds().DoIntersect(rect))
     {
         m_HasInvalidRegs = true;
         IPoint scrollOffset(m_ScrollOffset);
@@ -973,38 +974,58 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
         IPoint screenPos(m_ScreenPos);
         IPoint fromPntScr(fromPnt + m_ScrollOffset);
         IPoint toPntScr(toPnt + m_ScrollOffset);
+
+        IRect boundingBox;
+        if (fromPntScr.x > toPntScr.x) {
+            std::swap(toPntScr, fromPntScr);
+        }
+        boundingBox.left  = fromPntScr.x;
+        boundingBox.right = toPntScr.x + 1;
+        
+        if (fromPntScr.y < toPntScr.y) {
+            boundingBox.top    = fromPntScr.y;
+            boundingBox.bottom = toPntScr.y + 1;
+        } else {
+            boundingBox.top  = toPntScr.y;
+            boundingBox.bottom = fromPntScr.y + 1;
+        }
+
         fromPntScr += screenPos;
         toPntScr   += screenPos;
         
         IRect screenFrame = ApplicationServer::GetScreenIFrame();
 
         if (!Region::ClipLine(screenFrame, &fromPntScr, &toPntScr)) return;
-
-        if (fromPntScr.x > toPntScr.x)
-        {
-            std::swap(toPntScr, fromPntScr);
-        }
         
         GfxDriver::Instance.WaitBlitter();
-        GfxDriver::Instance.SetWindow(ApplicationServer::GetScreenFrame());
         GfxDriver::Instance.SetFgColor(m_FgColor16);
         bool first = true;
         ENUMCLIPLIST(&region->m_cRects, clip)
         {
-            IPoint p1 = fromPntScr;
-            IPoint p2 = toPntScr;
-            if (!Region::ClipLine(clip->m_cBounds + screenPos, &p1, &p2)) continue;
-
-            if (!first) {
-                GfxDriver::Instance.WaitBlitter();
-            } else {
-                first = false;
-            }
-            GfxDriver::Instance.DrawLine(p1.x, p1.y, p2.x, p2.y);
-//            GfxDriver::Instance.SetWindow(clip->m_cBounds + screenPos);
-//            GfxDriver::Instance.DrawLine(fromPntScr.x, fromPntScr.y, toPntScr.x, toPntScr.y);
+            if (clip->m_cBounds.DoIntersect(boundingBox))
+            {
+                if (!first) {
+                    GfxDriver::Instance.WaitBlitter();
+                } else {
+                    first = false;
+                }
+                GfxDriver::Instance.SetWindow(clip->m_cBounds + screenPos);
+                GfxDriver::Instance.DrawLine(fromPntScr.x, fromPntScr.y, toPntScr.x, toPntScr.y);
+            }                
         }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerView::DrawRect(const Rect& frame)
+{
+    DrawLine(Point(frame.left, frame.top), Point(frame.right - 1.0f, frame.top));
+    DrawLine(Point(frame.right - 1.0f, frame.top), Point(frame.right - 1.0f, frame.bottom - 1.0f));
+    DrawLine(Point(frame.right - 1.0f, frame.bottom - 1.0f), Point(frame.left, frame.bottom - 1.0f));
+    DrawLine(Point(frame.left, frame.bottom - 1.0f), Point(frame.left, frame.top));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1019,7 +1040,8 @@ void ServerView::FillRect(const Rect& rect, Color color)
         GfxDriver::Instance.WaitBlitter();
         GfxDriver::Instance.SetFgColor(color.GetColor16());
         IPoint screenPos(m_ScreenPos);
-        IRect rectScr(rect + m_ScrollOffset);
+        IRect  rectScr(rect + m_ScrollOffset);
+        
         GfxDriver::Instance.SetWindow(ApplicationServer::GetScreenFrame());
     
         bool first = true;
@@ -1081,7 +1103,7 @@ void ServerView::FillCircle(const Point& position, float radius)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DrawString(const String& string, float maxWidth, uint8_t flags)
+void ServerView::DrawString(const String& string)
 {
     Ptr<const Region> region = GetRegion();
     if (region != nullptr)
@@ -1092,13 +1114,21 @@ void ServerView::DrawString(const String& string, float maxWidth, uint8_t flags)
         GfxDriver::Instance.SetFgColor(m_FgColor16);
 
         IPoint screenPos(m_ScreenPos);
-        IPoint penPos = screenPos + IPoint(m_PenPosition + m_ScrollOffset);
+        IPoint penPos = IPoint(m_PenPosition + m_ScrollOffset);
+        
+        IRect boundingBox(penPos.x, penPos.y, penPos.x + GfxDriver::Instance.GetStringWidth(m_Font->Get(), string.c_str(), string.size()), penPos.y + GfxDriver::Instance.GetFontHeight(m_Font->Get()));
+        
+        penPos += screenPos;
+        
         ENUMCLIPLIST(&region->m_cRects, clip)
         {
-            GfxDriver::Instance.SetCursor(penPos);
-            GfxDriver::Instance.WriteString(string.c_str(), string.size(), clip->m_cBounds + screenPos);
+            if (clip->m_cBounds.DoIntersect(boundingBox))
+            {
+                GfxDriver::Instance.SetCursor(penPos);
+                GfxDriver::Instance.WriteString(string.c_str(), string.size(), clip->m_cBounds + screenPos);
+            }                
         }
-        m_PenPosition = Point(GfxDriver::Instance.GetCursor() - screenPos);
+        m_PenPosition.x += boundingBox.Width();
     }        
 }
 
@@ -1175,27 +1205,27 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     delete[] apsClips;
     if (m_DamageReg != nullptr)
     {
-        Region cReg(*m_DamageReg, intSrcRect, false);
-        ENUMCLIPLIST( &cReg.m_cRects, pcDmgClip )
+        Region region(*m_DamageReg, intSrcRect, false);
+        ENUMCLIPLIST(&region.m_cRects, dmgClip)
         {
-            m_DamageReg->Include((pcDmgClip->m_cBounds + delta)  & dstRect);
+            m_DamageReg->Include((dmgClip->m_cBounds + delta)  & dstRect);
             if (m_ActiveDamageReg != nullptr) {
-                m_ActiveDamageReg->Exclude((pcDmgClip->m_cBounds + delta)  & dstRect);
+                m_ActiveDamageReg->Exclude((dmgClip->m_cBounds + delta)  & dstRect);
             }
         }
     }
     if (m_ActiveDamageReg != nullptr)
     {
-        Region cReg(*m_ActiveDamageReg, intSrcRect, false);
-        if (cReg.m_cRects.GetCount() > 0)
+        Region region(*m_ActiveDamageReg, intSrcRect, false);
+        if (region.m_cRects.GetCount() > 0)
         {
             if ( m_DamageReg == nullptr ) {
                 m_DamageReg = ptr_new<Region>();
             }
-            ENUMCLIPLIST( &cReg.m_cRects, pcDmgClip )
+            ENUMCLIPLIST(&region.m_cRects, dmgClip)
             {
-                m_ActiveDamageReg->Exclude((pcDmgClip->m_cBounds + delta) & dstRect);
-                m_DamageReg->Include((pcDmgClip->m_cBounds + delta) & dstRect);
+                m_ActiveDamageReg->Exclude((dmgClip->m_cBounds + delta) & dstRect);
+                m_DamageReg->Include((dmgClip->m_cBounds + delta) & dstRect);
             }
         }
     }
@@ -1209,6 +1239,46 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
         m_ActiveDamageReg->Optimize();
     }
     UpdateIfNeeded(true);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerView::DebugDraw(Color color, uint32_t drawFlags)
+{
+    GfxDriver::Instance.WaitBlitter();
+    GfxDriver::Instance.SetWindow(ApplicationServer::GetScreenFrame());
+    GfxDriver::Instance.SetFgColor(color.GetColor16());
+    GfxDriver::Instance.SetBgColor(color.GetColor16());
+    
+    IPoint screenPos(m_ScreenPos);
+    
+    if (drawFlags & ViewDebugDrawFlags::ViewFrame)
+    {
+        DebugDrawRect(m_IFrame.Bounds() + screenPos);
+    }
+    if (drawFlags & ViewDebugDrawFlags::DrawRegion)
+    {
+        if (m_VisibleReg != nullptr)
+        {
+            ENUMCLIPLIST(&m_VisibleReg->m_cRects, clip)
+            {
+                DebugDrawRect(clip->m_cBounds + screenPos);
+            }
+        }
+    }        
+    if (drawFlags & ViewDebugDrawFlags::DamageRegion)
+    {
+        Ptr<Region> region = GetRegion();
+        if (region != nullptr)
+        {
+            ENUMCLIPLIST(&region->m_cRects, clip)
+            {
+                DebugDrawRect(clip->m_cBounds + screenPos);
+            }
+        }
+    }        
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1246,15 +1316,14 @@ void ServerView::ScrollBy(const Point& offset)
         return;
     }
 
-    Rect         cBounds = GetBounds();
-    IRect        cIBounds(cBounds);
+    IRect        bounds(GetNormalizedBounds());
     ClipRectList bltList;
     Region       damage(*m_VisibleReg);
 
     ENUMCLIPLIST(&m_FullReg->m_cRects, srcClip)
     {
         // Clip to source rectangle
-        IRect sRect = cIBounds & srcClip->m_cBounds;
+        IRect sRect = bounds & srcClip->m_cBounds;
 
         // Transform into destination space
         if (!sRect.IsValid()) {
@@ -1283,7 +1352,7 @@ void ServerView::ScrollBy(const Point& offset)
     
     if (count == 0)
     {
-        Invalidate(cIBounds);
+        Invalidate(bounds);
         UpdateIfNeeded(true);
         return;
     }
@@ -1325,4 +1394,28 @@ void ServerView::ScrollBy(const Point& offset)
         Invalidate(dstClip->m_cBounds);
     }
     UpdateIfNeeded(true);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerView::DebugDrawRect(const IRect& frame)
+{
+    IPoint p1(frame.left, frame.top);
+    IPoint p2(frame.right - 1, frame.top);
+    IPoint p3(frame.right - 1, frame.bottom - 1);
+    IPoint p4(frame.left, frame.bottom - 1);
+
+    GfxDriver::Instance.WaitBlitter();
+    GfxDriver::Instance.DrawLine(p1.x, p1.y, p2.x, p2.y);
+
+    GfxDriver::Instance.WaitBlitter();
+    GfxDriver::Instance.DrawLine(p2.x, p2.y, p3.x, p3.y);
+
+    GfxDriver::Instance.WaitBlitter();
+    GfxDriver::Instance.DrawLine(p4.x, p4.y, p3.x, p3.y);
+
+    GfxDriver::Instance.WaitBlitter();
+    GfxDriver::Instance.DrawLine(p1.x, p1.y, p4.x, p4.y);    
 }

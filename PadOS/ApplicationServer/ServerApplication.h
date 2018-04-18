@@ -62,9 +62,10 @@ private:
     void SlotViewDrawLine2(handler_id viewHandle, const Point& fromPnt, const Point& toPnt) { ForwardToView(viewHandle, &ServerView::DrawLine, fromPnt, toPnt); }
     void SlotViewFillRect(handler_id viewHandle, const Rect& rect, Color color)             { ForwardToView(viewHandle, &ServerView::FillRect, rect, color); }
     void SlotViewFillCircle(handler_id viewHandle, const Point& position, float radius)     { ForwardToView(viewHandle, &ServerView::FillCircle, position, radius); }
-    void SlotViewDrawString(handler_id viewHandle, const String& string, float maxWidth, uint8_t flags)     { ForwardToView(viewHandle, &ServerView::DrawString, string, maxWidth, flags); }
+    void SlotViewDrawString(handler_id viewHandle, const String& string)                    { ForwardToView(viewHandle, &ServerView::DrawString, string); }
     void SlotViewScrollBy(handler_id viewHandle, const Point& delta)                        { ForwardToView(viewHandle, &ServerView::ScrollBy, delta); }
     void SlotViewCopyRect(handler_id viewHandle, const Rect& srcRect, const Point& dstPos)  { ForwardToView(viewHandle, &ServerView::CopyRect, srcRect, dstPos); }
+    void SlotViewDebugDraw(handler_id viewHandle, Color color, uint32_t drawFlags)          { ForwardToView(viewHandle, &ServerView::DebugDraw, color, drawFlags); }
 
     template<typename CB, typename... ARGS>
     void ForwardToView(handler_id viewHandle, CB callback, ARGS&&... args)
@@ -106,6 +107,7 @@ private:
     ASViewDrawString::Receiver    RSViewDrawString;
     ASViewScrollBy::Receiver      RSViewScrollBy;
     ASViewCopyRect::Receiver      RSViewCopyRect;
+    ASViewDebugDraw::Receiver     RSViewDebugDraw;
     
     ServerApplication(const ServerApplication&) = delete;
     ServerApplication& operator=(const ServerApplication&) = delete;

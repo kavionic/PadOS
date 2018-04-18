@@ -52,25 +52,14 @@ enum class Orientation
 class LayoutNode : public PtrTarget
 {
 public:
-    LayoutNode(float wheight = 1.0f);
+    LayoutNode();
     virtual ~LayoutNode();
 
     virtual void        Layout();
     
-    virtual void        SetBorders(const Rect& border);
-    virtual Rect        GetBorders() const;
-
-    float               GetWheight() const;
-    void                SetWheight(float wheight);
-
     void                ExtendMinSize(const Point& minSize);
     void                LimitMaxSize(const Point& maxSize);
     void                ExtendMaxSize(const Point& maxSize);
-
-    void                SetHAlignment(Alignment alignment);
-    void                SetVAlignment(Alignment alignment);
-    Alignment           GetHAlignment() const;
-    Alignment           GetVAlignment() const;
     
     void                AdjustPrefSize(Point* minSize, Point* maxSize);
     virtual Point       GetPreferredSize(bool largest);
@@ -99,14 +88,9 @@ private:
         LayoutNode* m_Next;
         LayoutNode* m_Prev;
     };
-    Rect      m_Borders;
-    float     m_Wheight;
     Point     m_MinSize;
     Point     m_MaxSizeExtend;
     Point     m_MaxSizeLimit;
-
-    Alignment m_HAlign;
-    Alignment m_VAlign;
 
     ShareNode m_WidthRing;
     ShareNode m_HeightRing;
@@ -116,7 +100,7 @@ private:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class LayoutSpacer : public LayoutNode
+/*class LayoutSpacer : public LayoutNode
 {
 public:
     LayoutSpacer(float vWheight = 1.0f, const Point& cMinSize = Point(0.0f,0.0f), const Point& cMaxSize = Point(LAYOUT_MAX_SIZE,LAYOUT_MAX_SIZE));
@@ -153,7 +137,7 @@ public:
     HLayoutSpacer(float vMinWidth = 0.0f, float vMaxWidth = LAYOUT_MAX_SIZE, float vWheight = 1.0f ) :
         LayoutSpacer(vWheight, Point( vMinWidth, 0.0f ), Point( vMaxWidth, 0.0f ) )
     {}
-};
+};*/
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -162,7 +146,7 @@ public:
 class HLayoutNode : public LayoutNode
 {
 public:
-    HLayoutNode(float vWheight = 1.0f);
+    HLayoutNode();
 //    virtual Point GetPreferredSize( bool bLargest );
     virtual void  Layout() override;
 private:
@@ -176,7 +160,7 @@ private:
 class VLayoutNode : public LayoutNode
 {
 public:
-    VLayoutNode(float vWheight = 1.0f);
+    VLayoutNode();
 //    virtual Point GetPreferredSize( bool bLargest );
     virtual void  Layout() override;
 

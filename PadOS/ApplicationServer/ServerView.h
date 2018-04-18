@@ -83,14 +83,19 @@ public:
 
     void        DrawLineTo(const Point& toPoint);
     void        DrawLine(const Point& fromPnt, const Point& toPnt);
+    void        DrawRect(const Rect& frame);        
+    
     void        FillRect(const Rect& rect, Color color);
     void        FillCircle(const Point& position, float radius);
-    void        DrawString(const String& string, float maxWidth, uint8_t flags);
+    void        DrawString(const String& string);
     void        CopyRect(const Rect& srcRect, const Point& dstPos);
+    void        DebugDraw(Color color, uint32_t drawFlags);
     void        ScrollBy( const Point& cDelta );
 
 private:
     friend class ViewBase<ServerView>;
+        
+    void DebugDrawRect(const IRect& frame);
         
     port_id     m_ClientPort = -1;
     handler_id  m_ClientHandle = -1;

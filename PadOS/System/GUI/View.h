@@ -66,6 +66,15 @@ namespace ViewFlags
     };
 }
 
+namespace ViewDebugDrawFlags
+{
+    enum Type
+    {
+        ViewFrame    = 0x01,
+        DrawRegion   = 0x02,
+        DamageRegion = 0x04
+    };
+}
 enum class ViewDockType : int32_t
 {
     RootLevelView,
@@ -373,6 +382,18 @@ public:
 
     Ptr<LayoutNode> GetLayoutNode() const;
     void            SetLayoutNode(Ptr<LayoutNode> node);
+    
+    void            SetBorders(const Rect& border);
+    Rect            GetBorders() const;
+
+    float           GetWheight() const;
+    void            SetWheight(float wheight);
+    
+    void            SetHAlignment(Alignment alignment);
+    void            SetVAlignment(Alignment alignment);
+    Alignment       GetHAlignment() const;
+    Alignment       GetVAlignment() const;
+    
     void            InvalidateLayout();
 
     void            AdjustPrefSize(Point* minSize, Point* maxSize);
@@ -392,8 +413,10 @@ public:
     virtual void  FontChanged(Ptr<Font> newFont);
     
     virtual Point GetPreferredSize(bool largest) const;
-    virtual float GetWheight() const;
     virtual Point GetContentSize() const;
+
+    void PreferredSizeChanged();
+    void ContentSizeChanged();
 
 //    virtual void WheelMoved( const Point& cDelta );
 
@@ -464,12 +487,20 @@ public:
     void            DrawLine(const Point& toPos)                       { Post<ASViewDrawLine1>(toPos); }
     void            DrawLine(const Point& fromPos, const Point& toPos) { Post<ASViewDrawLine2>(fromPos, toPos); }
     void            DrawLine(float x1, float y1, float x2, float y2)   { DrawLine(Point(x1, y1), Point(x2, y2)); }
+    void            DrawRect(const Rect& frame)
+    {
+        MovePenTo(Point(frame.left, frame.top));
+        DrawLine(Point(frame.right - 1.0f, frame.top));
+        DrawLine(Point(frame.right - 1.0f, frame.bottom - 1.0f));
+        DrawLine(Point(frame.left, frame.bottom - 1.0f));
+        DrawLine(Point(frame.left, frame.top));
+    }        
     void            FillRect(const Rect& rect)                         { Post<ASViewFillRect>(rect, m_FgColor); }
     void            FillRect(const Rect& rect, Color color)            { Post<ASViewFillRect>(rect, color); }
     void            EraseRect(const Rect& rect)                        { Post<ASViewFillRect>(rect, m_EraseColor); }
 
     void            FillCircle(const Point& position, float radius) { Post<ASViewFillCircle>(position, radius); }
-    void            DrawString(const String& string, float maxWidth = 100000.0f, uint8_t flags = 0) { Post<ASViewDrawString>(string, maxWidth, flags); }
+    void            DrawString(const String& string) { Post<ASViewDrawString>(string); }
 
     virtual void    ScrollBy(const Point& offset)           { m_ScrollOffset += offset; UpdateScreenPos(); Post<ASViewScrollBy>(offset); }
     virtual void    ScrollBy(float vDeltaX, float vDeltaY) { ScrollBy(Point(vDeltaX, vDeltaY)); }
@@ -478,6 +509,7 @@ public:
         
     Point           GetScrollOffset() const                { return m_ScrollOffset; }
     void            CopyRect(const Rect& srcRect, const Point& dstPos) { Post<ASViewCopyRect>(srcRect, dstPos); }
+    void            DebugDraw(Color color, uint32_t drawFlags)         { Post<ASViewDebugDraw>(color, drawFlags); }
     
     //    void DrawBitmap( const Bitmap* pcBitmap, const Rect& cSrcRect, const Rect& cDstRect );
     void            DrawFrame(const Rect& rect, uint32_t styleFlags);
@@ -548,6 +580,11 @@ private:
     handler_id m_ServerHandle = -1;
     
     Ptr<LayoutNode> m_LayoutNode;
+    
+    Rect      m_Borders = Rect(0.0f, 0.0f, 0.0f, 0.0f);
+    float     m_Wheight = 1.0f;
+    Alignment m_HAlign = Alignment::Center;
+    Alignment m_VAlign = Alignment::Center;
     
     Point m_PositionOffset; // Offset relative to first parent that is not client only.
     

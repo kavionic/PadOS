@@ -347,7 +347,7 @@ void Region::Exclude(const IRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Exclude( const Region& region )
+void Region::Exclude(const Region& region)
 {
     ENUMCLIPLIST(&region.m_cRects, clip) {
         Exclude(clip->m_cBounds);
@@ -482,7 +482,7 @@ void Region::Optimize()
     {
         someRemoved = false;
         std::sort(list.begin(), list.end(), HSortCmp());
-        for ( int i = 0 ; i < int(list.size()) - 1 ; )
+        for (size_t i = 0 ; i < list.size() - 1 ;)
         {
             IRect& curr = list[i]->m_cBounds;
             IRect& next = list[i+1]->m_cBounds;
@@ -503,11 +503,11 @@ void Region::Optimize()
             break;
         }
         std::sort(list.begin(), list.end(), VSortCmp());
-        for (int i = 0 ; i < int(list.size()) - 1 ;)
+        for (size_t i = 0 ; i < list.size() - 1 ;)
         {
             IRect& curr = list[i]->m_cBounds;
             IRect& next = list[i+1]->m_cBounds;
-            if ( curr.bottom == next.top && curr.left == next.left && curr.right == next.right )
+            if (curr.bottom == next.top && curr.left == next.left && curr.right == next.right)
             {
                 curr.bottom = next.bottom;
                 m_cRects.RemoveRect(list[i+1]);
@@ -538,7 +538,7 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
         return true;
     }
 
-    bool clip_always = false; // used for clipping override
+    bool clipAlways = false; // used for clipping override
 
     int xi=0;  // point of intersection
     int yi=0;
@@ -569,11 +569,11 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
         // if we got here we have the special case where the line cuts into and
         // out of the clipping region
-        clip_always = true;
+        clipAlways = true;
     }
 
     // take care of case where either endpoint is in clipping region
-    if (point1Inside || clip_always)
+    if (point1Inside || clipAlways)
     {
         dx = point2->x - point1->x; // compute deltas
         dy = point2->y - point1->y;
@@ -586,7 +586,8 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with right edge
             if (dx!=0) {
-                yi = (int)(.5 + (dy/dx) * (rect.right - 1 - point1->x) + point1->y);
+                int hOffset = rect.right - 1 - point1->x;
+                yi = (dy * hOffset + dx - 1) / dx + point1->y;
             } else {
                 yi = -1;  // invalidate intersection
             }                
@@ -598,7 +599,8 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with left edge
             if (dx!=0) {
-                yi = (int)(.5 + (dy/dx) * (rect.left - point1->x) + point1->y);
+                int hOffset = rect.left - point1->x;
+                yi = (dy * hOffset + dx - 1) / dx + point1->y;
             } else {
                 yi = -1;  // invalidate intersection
             }
@@ -611,7 +613,9 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with right edge
             if (dy!=0) {
-                xi = (int)(.5 + (dx/dy) * (rect.bottom - 1 - point1->y) + point1->x);
+                int vDelta = rect.bottom - 1 - point1->y;
+                int rounding = dy / 2;
+                xi = (dx * vDelta + rounding) / dy + point1->x;
             } else {
                 xi = -1;  // invalidate inntersection
             }
@@ -623,7 +627,9 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with top edge
             if (dy!=0) {
-                xi = (int)(.5 + (dx/dy) * (rect.top - point1->y) + point1->x);
+                int vDelta = rect.top - point1->y;
+                int rounding = dy / 2;
+                xi = (dx * vDelta + rounding) / dy + point1->x;
             } else {
                 xi = -1;  // invalidate intersection
             }
@@ -663,7 +669,7 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
     rightEdge = leftEdge = topEdge = bottomEdge = false;
 
     // test second endpoint
-    if (point2Inside || clip_always)
+    if (point2Inside || clipAlways)
     {
         dx = point1->x - point2->x; // compute deltas
         dy = point1->y - point2->y;
@@ -676,9 +682,11 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with right edge
             if (dx!=0) {
-                yi = (int)(.5 + (dy/dx) * (rect.right - 1 - point2->x) + point2->y);
+                int hDelta = rect.right - 1 - point2->x;
+                int rounding = dx / 2;
+                yi = (dy * hDelta + rounding) / dx + point2->y;
             } else {
-                yi = -1;  // invalidate inntersection
+                yi = -1;  // invalidate intersection
             }
         }
         else if (point1->x < rect.left)
@@ -687,7 +695,9 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with left edge
             if (dx!=0) {
-                yi = (int)(.5 + (dy/dx) * (rect.left - point2->x) + point2->y);
+                int hDelta = rect.left - point2->x;
+                int rounding = dx / 2;
+                yi = (dy * hDelta + rounding) / dx + point2->y;
             } else {
                 yi = -1;  // invalidate intersection
             }
@@ -700,9 +710,11 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with right edge
             if (dy!=0) {
-                xi = (int)(.5 + (dx/dy) * (rect.bottom - 1 - point2->y) + point2->x);
+                int vDelta = rect.bottom - 1 - point2->y;
+                int rounding = dy / 2;
+                xi = (dx * vDelta + rounding) / dy + point2->x;
             } else {
-                xi = -1;  // invalidate inntersection
+                xi = -1;  // invalidate intersection
             }
         }
         else if (point1->y < rect.top)
@@ -711,13 +723,15 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with top edge
             if (dy!=0) {
-                xi = (int)(.5 + (dx/dy) * (rect.top - point2->y) + point2->x);
+                int vDelta = rect.top - point2->y;
+                int rounding = dy / 2;
+                xi = (dx * vDelta + rounding) / dy + point2->x;
             } else {
-                xi = -1;  // invalidate inntersection
+                xi = -1;  // invalidate intersection
             }
         }
 
-        // now we know where the line passed thru
+        // now we know where the line passed through
         // compute which edge is the proper intersection
         if (rightEdge && (yi >= rect.top && yi < rect.bottom))
         {

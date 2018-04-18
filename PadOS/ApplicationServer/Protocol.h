@@ -72,6 +72,7 @@ namespace AppserverProtocol
         VIEW_DRAW_STRING,
         VIEW_SCROLL_BY,
         VIEW_COPY_RECT,
+        VIEW_DEBUG_DRAW,
         
         // Appserver -> view reply messages:
         REGISTER_APPLICATION_REPLY,
@@ -222,8 +223,6 @@ typedef RemoteSignal<AppserverProtocol::VIEW_FILL_CIRCLE
 typedef RemoteSignal<AppserverProtocol::VIEW_DRAW_STRING
                                         , handler_id    // viewHandle
                                         , const String& // string
-                                        , float         // maxWidth
-                                        , uint8_t       // flags
                                         > ASViewDrawString;
                                         
 typedef RemoteSignal<AppserverProtocol::VIEW_SCROLL_BY
@@ -236,6 +235,12 @@ typedef RemoteSignal<AppserverProtocol::VIEW_COPY_RECT
                                         , const Rect&  // srcRect
                                         , const Point& // dstPos
                                         > ASViewCopyRect;
+
+typedef RemoteSignal<AppserverProtocol::VIEW_DEBUG_DRAW
+                                        , handler_id   // viewHandle
+                                        , Color        // renderColor
+                                        , uint32_t     // drawFlags
+                                        > ASViewDebugDraw;
 
 typedef RemoteSignal<AppserverProtocol::PAINT_VIEW
                                         , const Rect& // frame

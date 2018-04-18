@@ -78,7 +78,7 @@ public:
         va_end(argList);
         return result;
     }
-        
+    static String zero;        
 };
 
 }

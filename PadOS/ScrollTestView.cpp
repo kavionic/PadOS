@@ -83,7 +83,10 @@ void ScrollTestView::Paint(const Rect& updateRect)
 {
     Rect bounds = GetBounds();
 
-    SetFgColor(Color(0xffffffff));
+    Color color;
+    color.Set16(rand());
+
+    SetFgColor(Color(255, 255, 255));
     FillRect(bounds);
 
     SetFgColor(0,255,0);
@@ -100,9 +103,12 @@ void ScrollTestView::Paint(const Rect& updateRect)
 //        FillCircle(Point(i,  ), 2.0f);
     }
     
-    SetFgColor(0, 0, 0);
+    SetFgColor(color);
     MovePenTo(0.0f, floor(bounds.Height() / 2.0f));
-    DrawString("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+//    DrawString("abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+    DrawString("abcdefghijklmnopqrstuvwxyz0123456789ABCDEF");
+    
+//    DebugDraw(Color(255, 0, 0), ViewDebugDrawFlags::DrawRegion);
 }
 
 void ScrollTestView::SlotFrameProcess()

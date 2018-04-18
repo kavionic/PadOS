@@ -43,10 +43,16 @@ class File;
 
 #define LCD_RGB(r,g,b) ( (int16_t(r>>3)<<11) | (int16_t(g>>2)<<5) | (b>>3) )
 
-static const uint8_t GD_TEXT_FILL_TO_END         = 0x01;
-static const uint8_t GD_TEXT_RENDER_PARTIAL_CHAR = 0x02;
-static const uint8_t GD_TEXT_TRANSPARENT         = 0x04;
-
+#define   RA8875_STATUS_ROM_BUSY_bp       0
+#define   RA8875_STATUS_ROM_BUSY_bm       BIT8(RA8875_STATUS_ROM_BUSY_bp, 1)
+#define   RA8875_STATUS_SLEEP_STATUS_bp   4
+#define   RA8875_STATUS_SLEEP_STATUS_bm   BIT8(RA8875_STATUS_SLEEP_STATUS_bp, 1)
+#define   RA8875_STATUS_TOUCH_DETECTED_bp 5
+#define   RA8875_STATUS_TOUCH_DETECTED_bm BIT8(RA8875_STATUS_TOUCH_DETECTED_bp, 1)
+#define   RA8875_STATUS_BTE_BUSY_bp       6
+#define   RA8875_STATUS_BTE_BUSY_bm       BIT8(RA8875_STATUS_BTE_BUSY_bp, 1)
+#define   RA8875_STATUS_MEMORY_BUSY_bp    7
+#define   RA8875_STATUS_MEMORY_BUSY_bm    BIT8(RA8875_STATUS_MEMORY_BUSY_bp, 1)
 
 #define RA8875_PWRR        0x01 // Power and Display Control Register
 #define   RA8875_PWRR_SW_RESET_bp   0
@@ -387,7 +393,7 @@ public:
         }
     }
     void FastFill(uint32_t words, uint16_t color);
-    inline bool RenderGlyph(char character, const IRect& clipRect);
+    inline void RenderGlyph(char character, const IRect& clipRect);
 
     void MemoryWrite_Position(int X,int Y)
     {
@@ -397,60 +403,17 @@ public:
     }
 
 
-    void Chk_Busy()
-    {
-        uint8_t temp;
-        do
-        {
-            temp=ReadCommand();
-        } while((temp&0x80)==0x80);
-    }
+    void WaitMemory()  { while(ReadCommand() & RA8875_STATUS_MEMORY_BUSY_bm); }
+    void WaitBTE()     { while(ReadCommand() & RA8875_STATUS_BTE_BUSY_bm); }
+    void WaitROM()     { while(ReadCommand() & RA8875_STATUS_ROM_BUSY_bm); }
+    void WaitBlitter() { while(ReadCommand() & (RA8875_STATUS_MEMORY_BUSY_bm | RA8875_STATUS_BTE_BUSY_bm)); }
 
-    void Chk_BTE_Busy()
-    {
-        uint8_t temp;
-        do
-        {
-            temp=ReadCommand();
-        } while((temp&0x40)==0x40);
-    }
-
-    void Chk_DMA_Busy()
-    {
-        uint8_t temp;
-        do
-        {
-            WriteCommand(RA8875_DMACR);
-            temp = ReadData();
-        } while((temp&0x01)==0x01);   
-    }
-
-    void WaitBlitter()
-    {
-        Chk_BTE_Busy();
-        for (;;)
-        {
-            WriteCommand(RA8875_DCR);
-            if (!(ReadData() & (RA8875_DCR_CIRCLE_bm | RA8875_DCR_LINE_SQR_TRI_bm))) break;
-        }            
-    }
-
-    void Chk_Circle_Busy()
-    {
-        uint8_t temp;
-        do
-        {
-            WriteCommand(RA8875_DMACR);
-            temp = ReadData();
-        } while((temp&0x01)==0x01);   
-    }
-
-    uint16_t ReadCommand()         { return LCD_REGISTERS->CMD; }
+    uint16_t ReadCommand()                                           { return LCD_REGISTERS->CMD; }
     void     WriteCommand(uint8_t cmd)                               { LCD_REGISTERS->CMD = cmd; }
     void     WriteCommand(uint8_t cmd, uint8_t data)                 { LCD_REGISTERS->CMD = cmd; LCD_REGISTERS->DATA = data; }
     void     WriteCommand(uint8_t cmdL, uint8_t cmdH, uint16_t data) { WriteCommand(cmdL, data & 0xff); WriteCommand(cmdH, data >> 8); }
 
-    uint16_t ReadData()             { return LCD_REGISTERS->DATA; }
+    uint16_t ReadData()               { return LCD_REGISTERS->DATA; }
     void     WriteData(uint16_t data) { LCD_REGISTERS->DATA = data; }
 
     Orientation_e         m_Orientation;

@@ -56,6 +56,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const String& na
     RegisterRemoteSignal(&RSViewDrawString,    &ServerApplication::SlotViewDrawString);
     RegisterRemoteSignal(&RSViewScrollBy,      &ServerApplication::SlotViewScrollBy);
     RegisterRemoteSignal(&RSViewCopyRect,      &ServerApplication::SlotViewCopyRect);
+    RegisterRemoteSignal(&RSViewDebugDraw,     &ServerApplication::SlotViewDebugDraw);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -119,8 +120,8 @@ void ServerApplication::UpdateRegions()
 {
     if (m_LowestInvalidView != nullptr)
     {
-        m_Server->GetTopView()->UpdateRegions(false);
-//        m_LowestInvalidView->UpdateRegions(false);
+//        m_Server->GetTopView()->UpdateRegions(false);
+        m_LowestInvalidView->UpdateRegions(false);
         //HandleMouseTransaction();
         m_LowestInvalidView = nullptr;
         m_LowestInvalidLevel = std::numeric_limits<int>::max();

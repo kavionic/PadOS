@@ -124,16 +124,16 @@ void GfxDriver::SetOrientation( Orientation_e orientation )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void GfxDriver::SetFgColor( uint16_t color )
+void GfxDriver::SetFgColor(uint16_t color)
 {
     m_FgColor = color;
     WaitBlitter();
     WriteCommand(RA8875_FGCR0);
-    WriteData(color & 0x1f);
+    WriteData((color >> 11) & 0x1f);
     WriteCommand(RA8875_FGCR1);
     WriteData((color>>5) & 0x3f);
     WriteCommand(RA8875_FGCR2);
-    WriteData((color>>11) & 0x1f);        
+    WriteData(color & 0x1f);        
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -145,11 +145,11 @@ void GfxDriver::SetBgColor( uint16_t color )
     m_BgColor = color;
     WaitBlitter();
     WriteCommand(RA8875_BGCR0);
-    WriteData(color & 0x1f);
+    WriteData((color>>11) & 0x1f);        
     WriteCommand(RA8875_BGCR1);
     WriteData((color>>5) & 0x3f);
     WriteCommand(RA8875_BGCR2);
-    WriteData((color>>11) & 0x1f);        
+    WriteData(color & 0x1f);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -286,14 +286,15 @@ void GfxDriver::WritePixel(int16_t x, int16_t y)
 
 void GfxDriver::DrawLine(int x1, int y1, int x2, int y2)
 {
-    if (y1==y2)
+    if (x1 == x2 && y1 == y2) return;
+/*    if (y1==y2)
         DrawHLine(x1, y1, x2-x1);
     else if (x1==x2)
         DrawVLine(x1, y1, y2-y1);
-    else
+    else*/
         BLT_DrawLine(x1, y1, x2, y2);
-    /*
-    if (y1==y2)
+
+/*    if (y1==y2)
         DrawHLine(x1, y1, x2-x1);
     else if (x1==x2)
         DrawVLine(x1, y1, y2-y1);
@@ -352,7 +353,7 @@ void GfxDriver::DrawHLine(int x, int y, int l)
 {
     if (l>0)
     {
-        FillRect(IRect(x, y, x + l, y));
+        FillRect(IRect(x, y, x + l, y + 1));
     }
 }
 
@@ -362,7 +363,7 @@ void GfxDriver::DrawHLine(int x, int y, int l)
 
 void GfxDriver::DrawVLine(int x, int y, int l)
 {
-    FillRect(IRect(x, y, x, y + l));
+    FillRect(IRect(x, y, x + 1, y + l));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -394,12 +395,12 @@ void GfxDriver::BLT_FillRect(const IRect& frame)
 {   
     WaitBlitter();
 
-    if (frame.left != frame.right || frame.top != frame.bottom)
+    if (frame.left != (frame.right - 1) || frame.top != (frame.bottom - 1))
     {
         WriteCommand(RA8875_DLHSR0, RA8875_DLHSR1, frame.left);
         WriteCommand(RA8875_DLVSR0, RA8875_DLVSR1, frame.top);
-        WriteCommand(RA8875_DLHER0, RA8875_DLHER1, frame.right);
-        WriteCommand(RA8875_DLVER0, RA8875_DLVER1, frame.bottom);
+        WriteCommand(RA8875_DLHER0, RA8875_DLHER1, frame.right - 1);
+        WriteCommand(RA8875_DLVER0, RA8875_DLVER1, frame.bottom - 1);
 
         WriteCommand(RA8875_DCR, RA8875_DCR_FILL_bm | RA8875_DCR_LINE_SQR_TRI_bm | RA8875_DCR_SQUARE_bm);
     }
@@ -458,7 +459,7 @@ void GfxDriver::BLT_FillCircle(int32_t x, int32_t y, int32_t radius)
 void GfxDriver::BLT_MoveRect(const IRect& srcRect, const IPoint& dstPosIn)
 {
     WaitBlitter();
-//    Chk_BTE_Busy();
+
     SetWindow(IRect(IPoint(0), GetResolution()));
     
     uint8_t ctrl;
@@ -493,7 +494,7 @@ void GfxDriver::BLT_MoveRect(const IRect& srcRect, const IPoint& dstPosIn)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool GfxDriver::RenderGlyph(char character, const IRect& clipRect)
+void GfxDriver::RenderGlyph(char character, const IRect& clipRect)
 {
     if ( character < m_FontFirstChar ) character = m_FontFirstChar;
     const FONT_CHAR_INFO* charInfo = m_FontCharInfo + character;
@@ -504,12 +505,15 @@ bool GfxDriver::RenderGlyph(char character, const IRect& clipRect)
     IRect bounds(m_Cursor.x, m_Cursor.y, m_Cursor.x + charWidth, m_Cursor.y + m_FontHeight);
     IRect clippedBounds = bounds & clipRect;
         
-    if (clippedBounds.Height() <= 0) return false;
+    if (clippedBounds.Height() <= 0) {
+        m_Cursor.x += charWidth;
+        return;
+    }        
     
     if (!clippedBounds.IsValid())
     {
         m_Cursor.x += charWidth;
-        return m_Cursor.x < clipRect.right;
+        return;
     }        
     
     int charHeightBytes = m_FontHeightFullBytes;
@@ -532,8 +536,6 @@ bool GfxDriver::RenderGlyph(char character, const IRect& clipRect)
         xOffset += charHeightBytes;
     }
     m_Cursor.x += charWidth;
-    
-    return m_Cursor.x < clippedBounds.right;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -543,35 +545,29 @@ bool GfxDriver::RenderGlyph(char character, const IRect& clipRect)
 uint32_t GfxDriver::WriteString(const char* string, size_t strLength, const IRect& clipRect)
 {
     WaitBlitter();
-
-    FillDirection_e prevFillDir = m_FillDirection;
-    SetFillDirection(e_FillDownLeft);
     
     IRect bounds(m_Cursor.x, m_Cursor.y, GetResolution().x, m_Cursor.y + m_FontHeight);
     bounds &= clipRect;
     
     if (!bounds.IsValid()) return 0;
+
+    FillDirection_e prevFillDir = m_FillDirection;
+    SetFillDirection(e_FillDownLeft);
     
     SetWindow(bounds);
     MemoryWrite_Position(bounds.left, bounds.top);
 
-    while(strLength--)
+    while(strLength-- && m_Cursor.x < bounds.right)
     {
         RenderGlyph(*(string++), clipRect);
-        if ( m_Cursor.x + m_FontCharSpacing < bounds.right )
+        int spaceStart = std::max(m_Cursor.x, clipRect.left);
+        int spaceEnd   = std::min(m_Cursor.x + m_FontCharSpacing, clipRect.right);
+        int spaceWidth = spaceEnd - spaceStart;
+        if (spaceWidth > 0)
         {
-            FastFill(m_FontCharSpacing * m_FontHeight, m_BgColor);
-            m_Cursor.x += m_FontCharSpacing;
+            FastFill(spaceWidth * bounds.Height(), m_BgColor);
         }
-        else
-        {
-            int32_t spacing = bounds.right - m_Cursor.x;
-            if (spacing > 0) {
-                FastFill(spacing * m_FontHeight, m_BgColor);
-                m_Cursor.x += spacing;
-            }                
-            break;
-        }
+        m_Cursor.x += m_FontCharSpacing;
     }
     SetFillDirection(prevFillDir);
     return m_Cursor.x;
@@ -672,7 +668,7 @@ void GfxDriver::SetWindow(int x1, int y1, int x2, int y2)
         std::swap(x2, y2);
     }
 
-    Chk_BTE_Busy();
+    WaitBlitter();
     
     WriteCommand(RA8875_HSAW0, RA8875_HSAW1, x1);
     WriteCommand(RA8875_HEAW0, RA8875_HEAW1, x2 - 1);

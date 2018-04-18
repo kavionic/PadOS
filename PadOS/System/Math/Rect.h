@@ -38,7 +38,10 @@ public:
     float right;
     float bottom;
 
-    Rect() {}
+    Rect() { left = top = right = bottom = 0.0f; }
+    explicit Rect(bool initialize) { if (initialize) { left = top = right = bottom = 0.0f; } }
+    explicit Rect(float value)     { left = top = right = bottom = value; }
+        
     Rect(float l, float t, float r, float b)             { left = l; top = t; right = r; bottom = b; }
     Rect(const Point& topLeft, const Point& bottomRight) { left = topLeft.x; top = topLeft.y; right = bottomRight.x; bottom = bottomRight.y; }
     inline Rect(const IRect& rect);
@@ -98,6 +101,7 @@ public:
     int bottom;
 
     IRect()   { left = top = 999999; right = bottom = -999999; }
+    explicit IRect(int value)             { left = top = right = bottom = value; }
     IRect(int l, int t, int r, int b ) { left = l; top = t; right = r; bottom = b; }
     IRect(const IPoint& topLeft, const IPoint& bottomRight) { left = topLeft.x; top = topLeft.y; right = bottomRight.x; bottom = bottomRight.y; }
     inline IRect(const Rect& rect);

@@ -17,7 +17,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 03.04.2018 23:17:36
 
-
 #pragma once
 
 #include "System/GUI/View.h"
@@ -27,6 +26,7 @@
 
 using namespace os;
 
+class EnvironmentView;
 
 class SensorView : public View
 {
@@ -56,6 +56,8 @@ private:
 
     BME280Values  m_EnvValues;
     INA3221Values m_VoltageValues;
+
+    Ptr<EnvironmentView> m_EnvironmentView;
 
     SensorView(const SensorView&) = delete;
     SensorView& operator=(const SensorView&) = delete;

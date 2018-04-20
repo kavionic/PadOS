@@ -18,119 +18,60 @@
 
 #pragma once
 
-#include <deque>
+#include <vector>
 
 #include "System/Math/Rect.h"
 #include "System/Math/Point.h"
 #include "System/Ptr/PtrTarget.h"
 
-//#include <util/locker.h>
 
-class ILineSegment;
-
-#define ENUMCLIPLIST( list, node ) for ( ClipRect* node = (list)->m_pcFirst ; node != nullptr ; node = node->m_Next )
-
-//namespace os
-//{
-//#if 0
-//}
-//#endif // Fool Emacs auto-indent
-
-/** 
- * \ingroup gui
- * \par Description:
- *
- * \sa
- * \author Kurt Skauen (kurt@atheos.cx)
- *****************************************************************************/
-
-struct ClipRect
+namespace os
 {
-    ClipRect() {}
-    ClipRect( const IRect& cFrame, const IPoint& cOffset ) : m_cBounds(cFrame), m_cMove(cOffset) {}
 
-    ClipRect* m_Next;
-    ClipRect* m_Prev;
-    IRect     m_cBounds;
-    IPoint    m_cMove; // Used to sort rectangles, so no blits destroy needed areas
-};
-
-/** 
- * \par Description:
- * \par Note:
- * \par Warning:
- * \param
- * \return
- * \par Error codes:
- * \sa
- * \author Kurt Skauen (kurt@atheos.cx)
- *****************************************************************************/
-
-class ClipRectList
-{
-public:
-    ClipRectList();
-    ~ClipRectList();
-    
-    void        Clear();
-    void        AddRect( ClipRect* pcRect );
-    void        RemoveRect( ClipRect* pcRect );
-    ClipRect*   RemoveHead();
-    void        StealRects( ClipRectList* pcList );
-    int         GetCount() const { return( m_nCount ); }
-   
-    ClipRect*   m_pcFirst;
-    ClipRect*   m_pcLast;
-    int         m_nCount;
-};
-
-/** 
- * \ingroup gui
- * \par Description:
- *
- * \sa
- * \author Kurt Skauen (kurt@atheos.cx)
- *****************************************************************************/
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 class Region : public PtrTarget
 {
 public:
     Region();
-    Region( const IRect& cRect );
-    Region( const Region& cReg );
-    Region( const Region& cReg, const IRect& cRect, bool bNormalize );
+    Region(const IRect& rect);
+    Region(const Region& region);
+    Region(const Region& region, const IRect& rect, bool normalize);
 
     ~Region();
 
-    void        Set( const IRect& cRect );
-    void        Set( const Region& cRect );
-    void        Clear( void );
-    bool        IsEmpty() const { return( m_cRects.GetCount() == 0 ); }
-    int         GetClipCount() const { return( m_cRects.GetCount() ); } //! /since 0.3.7
-    void        Include( const IRect& cRect );
-    void        Intersect( const Region& cReg );
-    void        Intersect( const Region& cReg, const IPoint& cOffset );
+    void        Set(const IRect& rect);
+    void        Set(const Region& region);
+    void        Clear();
+    bool        IsEmpty() const      { return m_Rects.empty(); }
+    int         GetClipCount() const { return m_Rects.size(); }
+        
+    void        Include(const IRect& rect);
+    void        Intersect(const Region& region);
+    void        Intersect(const Region& region, const IPoint& offset);
 
-    void        Exclude( const IRect& cRect );
-    void        Exclude( const Region& cReg );
-    void        Exclude( const Region& cReg, const IPoint& cOffset );
+    void        Exclude(const IRect& rect);
+    void        Exclude(const Region& region);
+    void        Exclude(const Region& region, const IPoint& offset);
 
-    ClipRect*   AddRect( const IRect& cRect );
+    void        AddRect(const IRect& rect);
     
-//    Ptr<Region>       Clone( const IRect& cRectangle, bool bNormalize );
     void        Optimize();
-
-    static void         FreeClipRect( ClipRect* pcRect );
-    static ClipRect*    AllocClipRect();
-    IRect               GetBounds() const;
+    IRect       GetBounds() const;
         
     static bool ClipLine(const IRect& rect, IPoint* point1, IPoint* point2);
+    
+    void Validate();
 
-    ClipRectList    m_cRects;
+    std::vector<IRect> m_Rects;
+
 private:
-    static void** s_pFirstClip;
-//    static Locker s_cClipListMutex;
+    int FindUnusedClip(int prevUnused, int lastToCheck);
+    int AddOrReuseClip(int prevUnused, int lastToCheck, const IRect& frame);
+    void RemoveUnusedClips(size_t firstToCheck, size_t lastToCheck);
   
 };
 
-//} // End of namespace
+} // namespace

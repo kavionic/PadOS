@@ -165,10 +165,7 @@ int I2CDriver::DeviceControl( Ptr<KFileHandle> file, int request, const void* in
 
 ssize_t I2CDriver::Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length)
 {
-    if (length < 0 ) {
-        set_last_error(EINVAL);
-        return -1;
-    } else if (length == 0) {
+    if (length == 0) {
         return 0;
     }
     CRITICAL_SCOPE(m_Mutex);

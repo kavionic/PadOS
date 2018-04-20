@@ -26,105 +26,8 @@
 #include <algorithm>
 
 #include "Region.h"
-#include "System/Math/LineSegment.h"
 
-
-void** Region::s_pFirstClip = nullptr;
-//Locker Region::s_cClipListMutex( "region_cliplist_lock" );
-
-
-ClipRectList::ClipRectList()
-{
-    m_pcFirst = nullptr;
-    m_pcLast  = nullptr;
-    m_nCount  = 0;
-}
-
-ClipRectList::~ClipRectList()
-{
-    while( m_pcFirst != nullptr ) {
-        ClipRect* rect = m_pcFirst;
-        m_pcFirst = rect->m_Next;
-        Region::FreeClipRect(rect);
-    }
-}
-
-void ClipRectList::Clear()
-{
-    while( m_pcFirst != nullptr ) {
-        ClipRect* rect = m_pcFirst;
-        m_pcFirst = rect->m_Next;
-        Region::FreeClipRect(rect);
-    }
-    m_pcLast = nullptr;
-    m_nCount = 0;
-}
-
-void ClipRectList::AddRect(ClipRect* rect)
-{
-    rect->m_Prev = nullptr;
-    rect->m_Next = m_pcFirst;
-    if ( m_pcFirst != nullptr ) {
-        m_pcFirst->m_Prev = rect;
-    }
-    m_pcFirst = rect;
-    if ( m_pcLast == nullptr ) {
-        m_pcLast = rect;
-    }
-    m_nCount++;
-}
-
-void ClipRectList::RemoveRect(ClipRect* rect)
-{
-    if ( rect->m_Prev != nullptr ) {
-        rect->m_Prev->m_Next = rect->m_Next;
-    } else {
-        m_pcFirst = rect->m_Next;
-    }
-    if ( rect->m_Next != nullptr ) {
-        rect->m_Next->m_Prev = rect->m_Prev;
-    } else {
-        m_pcLast = rect->m_Prev;
-    }
-    m_nCount--;
-}
-
-ClipRect* ClipRectList::RemoveHead()
-{
-    if ( m_nCount == 0 ) {
-        return nullptr;
-    }
-    ClipRect* clip = m_pcFirst;
-    m_pcFirst = clip->m_Next;
-    if ( m_pcFirst == nullptr ) {
-        m_pcLast = nullptr;
-    }
-    m_nCount--;
-    return clip;
-}
-
-void ClipRectList::StealRects(ClipRectList* list)
-{
-    if ( list->m_pcFirst == nullptr ) {
-        assert( list->m_pcLast == nullptr );
-        return;
-    }
-    
-    if ( m_pcFirst == nullptr ) {
-        assert( m_pcLast == nullptr );
-        m_pcFirst = list->m_pcFirst;
-        m_pcLast  = list->m_pcLast;
-    } else {
-        m_pcLast->m_Next = list->m_pcFirst;
-        list->m_pcFirst->m_Prev = m_pcLast;
-        m_pcLast = list->m_pcLast;
-    }
-    m_nCount += list->m_nCount;
-    
-    list->m_pcFirst = nullptr;
-    list->m_pcLast  = nullptr;
-    list->m_nCount  = 0;
-}
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -147,7 +50,7 @@ Region::Region(const IRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::Region(const Region& reg)
+Region::Region(const Region& reg) : PtrTarget()
 {
     Set(reg);
 }
@@ -156,26 +59,21 @@ Region::Region(const Region& reg)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::Region(const Region& region, const IRect& rectangle, bool bNormalize)
+Region::Region(const Region& region, const IRect& rectangle, bool normalize)
 {
     IPoint topLeft = rectangle.TopLeft();
-    ENUMCLIPLIST( &region.m_cRects, pcOldClip )
+    for (const Rect& oldClip : region.m_Rects)
     {
-        IRect rect = pcOldClip->m_cBounds & rectangle;
-    
+        IRect rect = oldClip & rectangle;
+            
         if (rect.IsValid())
         {
-            ClipRect* newClip = AllocClipRect();
-            if (newClip != nullptr)
-            {
-                if ( bNormalize ) {
-                    rect -= topLeft;
-                }
-                newClip->m_cBounds = rect;
-                m_cRects.AddRect(newClip);
+            if (normalize) {
+                rect -= topLeft;
             }
+            m_Rects.push_back(rect);
         }
-    }
+    }   	
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -190,71 +88,27 @@ Region::~Region()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ClipRect* Region::AllocClipRect()
-{
-/*    int nError;
-  
-    while( (nError = s_cClipListMutex.Lock() ) < 0 ) {
-        dbprintf( "Region::AllocClipRect failed to lock list : %s (%d)\n", strerror( errno ), nError );
-        if ( EINTR != errno ) {
-            return nullptr;
-        }
-    }*/
-    if ( s_pFirstClip == nullptr ) {
-//      s_cClipListMutex.Unlock();
-        return new ClipRect;
-    }
-  
-    void** pHeader = s_pFirstClip;
-    s_pFirstClip = (void**) pHeader[0];
-
-//    s_cClipListMutex.Unlock();
-  
-    return (ClipRect*) pHeader;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void Region::FreeClipRect(ClipRect* rect)
-{
-/*    int nError;
-  
-    while( (nError = s_cClipListMutex.Lock() ) < 0 ) {
-        dbprintf( "Region::FreeClipRect failed to lock list : %s (%d)\n", strerror( errno ), nError );
-        if ( EINTR != errno ) {
-            return;
-        }
-    }*/
-
-    ((void**)rect)[0] = s_pFirstClip;
-    s_pFirstClip = (void**)rect;
-
-//    s_cClipListMutex.Unlock();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void Region::Set(const IRect& rect)
 {
-    Clear();
-    AddRect(rect);
+    try
+    {
+        m_Rects.clear();
+        m_Rects.push_back(rect);
+    }
+    catch (const std::bad_alloc& error) {}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Set( const Region& region )
+void Region::Set(const Region& region)
 {
-    Clear();
-
-    ENUMCLIPLIST(&region.m_cRects, clip) {
-        AddRect(clip->m_cBounds);
+    try
+    {
+        m_Rects = region.m_Rects;
     }
+    catch (const std::bad_alloc& error) {}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -263,23 +117,20 @@ void Region::Set( const Region& region )
 
 void Region::Clear()
 {
-    m_cRects.Clear();
+    m_Rects.clear();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ClipRect *Region::AddRect(const IRect& rect)
+void Region::AddRect(const IRect& rect)
 {
-    ClipRect* clipRect = AllocClipRect();
-
-    if (clipRect != nullptr)
+    try
     {
-        clipRect->m_cBounds = rect;
-        m_cRects.AddRect(clipRect);
+        m_Rects.push_back(rect);
     }
-    return clipRect;
+    catch (const std::bad_alloc& error) {}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -288,13 +139,17 @@ ClipRect *Region::AddRect(const IRect& rect)
 
 void Region::Include(const IRect& rect)
 {
-    Region tmpReg(rect);
+    try
+    {
+        Region tmpReg(rect);
 
-    // Remove all areas already present in clip-list.
-    ENUMCLIPLIST(&m_cRects, clip) {
-        tmpReg.Exclude(clip->m_cBounds);
+        // Remove all areas already present in clip-list.
+        for (const IRect& clip : m_Rects) {
+            tmpReg.Exclude(clip);
+        }
+        m_Rects.insert(m_Rects.begin(), tmpReg.m_Rects.begin(), tmpReg.m_Rects.end());
     }
-    m_cRects.StealRects(&tmpReg.m_cRects);
+    catch (const std::bad_alloc& error) {}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -303,44 +158,42 @@ void Region::Include(const IRect& rect)
 
 void Region::Exclude(const IRect& rect)
 {
-    ClipRectList newList;
-
-    while(m_cRects.m_pcFirst != nullptr)
+    try
     {
-        ClipRect* clip = m_cRects.RemoveHead();
+        size_t prevClipCount = m_Rects.size();
+    
+        size_t nextFree = 0;
+    
+        for (size_t i = 0; i < prevClipCount; ++i)
+        {
+            IRect oldFrame = m_Rects[i];
+        
+            IRect hide = rect & oldFrame;
 
-        IRect hide = rect & clip->m_cBounds;
-
-        if (!hide.IsValid()) {
-            newList.AddRect(clip);
-            continue;
-        }
-        // Boundaries of the four possible rectangles surrounding the one to remove.
-
-        IRect newRects[4];
-
-        newRects[3] = IRect(clip->m_cBounds.left, clip->m_cBounds.top, clip->m_cBounds.right, hide.top);       // Above (full width)
-        newRects[2] = IRect(clip->m_cBounds.left, hide.bottom, clip->m_cBounds.right, clip->m_cBounds.bottom); // Below (full width)
-        newRects[0] = IRect(clip->m_cBounds.left, hide.top, hide.left, hide.bottom);   // Left (center)
-        newRects[1] = IRect(hide.right, hide.top, clip->m_cBounds.right, hide.bottom); // Right (center)
-
-        FreeClipRect(clip);
-
-        // Create clip rects for the remaining areas.
-        for ( int i = 0 ; i < 4 ; ++i )
-        { 
-            if (newRects[i].IsValid())
-            {
-                ClipRect* newClip = AllocClipRect();
-                if (newClip != nullptr) {
-                    newClip->m_cBounds = newRects[i];
-                    newList.AddRect(newClip);
-                }
+            if (!hide.IsValid()) {
+                continue;
             }
+            m_Rects[i].left = m_Rects[i].right; // Mark it as unused.
+            // Boundaries of the four possible rectangles surrounding the one to remove.
+
+            if (oldFrame.left < hide.left) { // Left (center)
+                nextFree = AddOrReuseClip(nextFree, i, IRect(oldFrame.left, hide.top, hide.left, hide.bottom));
+            }
+            if (hide.right < oldFrame.right) { // Right (center)
+                nextFree = AddOrReuseClip(nextFree, i, IRect(hide.right, hide.top, oldFrame.right, hide.bottom));
+            }
+            if (oldFrame.top < hide.top) { // Above (full width)
+                nextFree = AddOrReuseClip(nextFree, i, IRect(oldFrame.left, oldFrame.top, oldFrame.right, hide.top));
+            }
+            if (hide.bottom < oldFrame.bottom) { // Below (full width)
+                nextFree = AddOrReuseClip(nextFree, i, IRect(oldFrame.left, hide.bottom, oldFrame.right, oldFrame.bottom));
+            }        
         }
+        RemoveUnusedClips(nextFree, prevClipCount);
+    
+        Validate();
     }
-    m_cRects.m_pcLast = nullptr;
-    m_cRects.StealRects(&newList);
+    catch (const std::bad_alloc& error) {}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -349,8 +202,8 @@ void Region::Exclude(const IRect& rect)
 
 void Region::Exclude(const Region& region)
 {
-    ENUMCLIPLIST(&region.m_cRects, clip) {
-        Exclude(clip->m_cBounds);
+    for (const IRect& clip : region.m_Rects) {
+        Exclude(clip);
     }
 }
 
@@ -360,8 +213,8 @@ void Region::Exclude(const Region& region)
 
 void Region::Exclude(const Region& region, const IPoint& offset)
 {
-    ENUMCLIPLIST(&region.m_cRects, clip) {
-        Exclude(clip->m_cBounds + offset);
+    for (const IRect& clip : region.m_Rects) {
+        Exclude(clip + offset);
     }
 }
 
@@ -371,28 +224,22 @@ void Region::Exclude(const Region& region, const IPoint& offset)
 
 void Region::Intersect(const Region& region)
 {
-    ClipRectList list;
-    
-    ENUMCLIPLIST(&region.m_cRects, clipV)
+    try
     {
-        ENUMCLIPLIST(&m_cRects, clipH)
+        std::vector<IRect> newList;
+        for (const IRect& dstRect : m_Rects)
         {
-            IRect rect = clipV->m_cBounds & clipH->m_cBounds;
-            if (rect.IsValid())
+            for (const IRect& srcRect : region.m_Rects)
             {
-                ClipRect* newClip = AllocClipRect();
-                if (newClip != nullptr)
-                {
-                    newClip->m_cBounds = rect;
-                    list.AddRect(newClip);
+                IRect rect = dstRect & srcRect;
+                if (rect.IsValid()) {
+                    newList.push_back(rect);
                 }
             }
         }
+        m_Rects = std::move(newList);
     }
-
-    Clear();
-
-    m_cRects.StealRects(&list);
+    catch (const std::bad_alloc& error) {}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -401,26 +248,22 @@ void Region::Intersect(const Region& region)
 
 void Region::Intersect(const Region& region, const IPoint& offset)
 {
-    ClipRectList list;
-    
-    ENUMCLIPLIST(&region.m_cRects, clipV)
+    try
     {
-        ENUMCLIPLIST(&m_cRects, clipH)
+        std::vector<IRect> newList;
+        for (const IRect& dstRect : m_Rects)
         {
-            IRect rect = (clipV->m_cBounds + offset) & clipH->m_cBounds;
-            if (rect.IsValid())
+            for (const IRect& srcRect : region.m_Rects)
             {
-                ClipRect* newClip = AllocClipRect();
-                if (newClip != nullptr)
-                {
-                    newClip->m_cBounds = rect;
-                    list.AddRect(newClip);
+                IRect rect = dstRect & (srcRect + offset);
+                if (rect.IsValid()) {
+                    newList.push_back(rect);
                 }
             }
         }
+        m_Rects = std::move(newList);
     }
-    Clear();
-    m_cRects.StealRects(&list);
+    catch (const std::bad_alloc& error) {}        
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -429,10 +272,10 @@ void Region::Intersect(const Region& region, const IPoint& offset)
 
 IRect Region::GetBounds() const
 {
-    IRect bounds( 999999, 999999, -999999, -999999 );
+    IRect bounds(999999, 999999, -999999, -999999);
   
-    ENUMCLIPLIST( &m_cRects , clip ) {
-        bounds |= clip->m_cBounds;
+    for (const IRect& clip : m_Rects) {
+        bounds |= clip;
     }
     return bounds;
 }
@@ -441,86 +284,66 @@ IRect Region::GetBounds() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class HSortCmp
-{
-public:
-    bool operator()(const ClipRect* rect1, ClipRect* rect2 ) {
-        return rect1->m_cBounds.left < rect2->m_cBounds.left;
-    }
-};
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-class VSortCmp
-{
-public:
-    bool operator()(const ClipRect* rect1, ClipRect* rect2 ) {
-        return rect1->m_cBounds.top < rect2->m_cBounds.top;
-    }
-};
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void Region::Optimize()
 {
-    std::vector<ClipRect*> list;
-
-    if ( m_cRects.GetCount() <= 1 ) {
-        return;
-    }
-    list.reserve( m_cRects.GetCount() );
-
-    ENUMCLIPLIST( &m_cRects, clip ) {
-        list.push_back( clip );
-    }
-    bool someRemoved = true;
-    while(list.size() > 1 && someRemoved)
+    try
     {
-        someRemoved = false;
-        std::sort(list.begin(), list.end(), HSortCmp());
-        for (size_t i = 0 ; i < list.size() - 1 ;)
+        if ( m_Rects.size() <= 1 ) {
+            return;
+        }
+        std::vector<IRect*> list;
+
+        list.reserve(m_Rects.size());
+
+        for (IRect& clip : m_Rects) {
+            list.push_back(&clip);
+        }
+    
+        bool someRemoved = true;
+        while(list.size() > 1 && someRemoved)
         {
-            IRect& curr = list[i]->m_cBounds;
-            IRect& next = list[i+1]->m_cBounds;
-            if ( curr.right == next.left && curr.top == next.top && curr.bottom == next.bottom )
+            someRemoved = false;
+            std::sort(list.begin(), list.end(), [](const IRect* lhs, const IRect* rhs) { return lhs->left < rhs->left; });
+            for (size_t i = 0 ; i < list.size() - 1 ;)
             {
-                curr.right = next.right;
-                m_cRects.RemoveRect(list[i+1]);
-                Region::FreeClipRect(list[i+1]);
-                list.erase(list.begin() + i + 1);
-                someRemoved = true;
+                IRect& curr = *list[i];
+                IRect& next = *list[i+1];
+                if ( curr.right == next.left && curr.top == next.top && curr.bottom == next.bottom )
+                {
+                    curr.right = next.right; // Expand
+                    next.left = next.right;  // Mark as unused
+                    list.erase(list.begin() + i + 1);
+                    someRemoved = true;
+                }
+                else
+                {
+                    ++i;
+                }
             }
-            else
+            if (list.size() <= 1) {
+                break;
+            }
+            std::sort(list.begin(), list.end(), [](const IRect* lhs, const IRect* rhs) { return lhs->top < rhs->top; });
+            for (size_t i = 0 ; i < list.size() - 1 ;)
             {
-                ++i;
+                IRect& curr = *list[i];
+                IRect& next = *list[i+1];
+                if (curr.bottom == next.top && curr.left == next.left && curr.right == next.right)
+                {
+                    curr.bottom = next.bottom; // Expand
+                    next.left = next.right;    // Mark as unused
+                    list.erase(list.begin() + i + 1);
+                    someRemoved = true;
+                }
+                else
+                {
+                    ++i;
+                }
             }
         }
-        if (list.size() <= 1) {
-            break;
-        }
-        std::sort(list.begin(), list.end(), VSortCmp());
-        for (size_t i = 0 ; i < list.size() - 1 ;)
-        {
-            IRect& curr = list[i]->m_cBounds;
-            IRect& next = list[i+1]->m_cBounds;
-            if (curr.bottom == next.top && curr.left == next.left && curr.right == next.right)
-            {
-                curr.bottom = next.bottom;
-                m_cRects.RemoveRect(list[i+1]);
-                Region::FreeClipRect(list[i+1]);
-                list.erase(list.begin() + i + 1);
-                someRemoved = true;
-            }
-            else
-            {
-                ++i;
-            }
-        }
+        RemoveUnusedClips(1, m_Rects.size());
     }
+    catch (const std::bad_alloc& error) {}        
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -761,4 +584,102 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
     } // end if point 2 is visible
 
     return success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Region::Validate()
+{
+    for (const IRect& clip1 : m_Rects)
+    {
+        for (const IRect& clip2 : m_Rects)
+        {
+            if (&clip1 != &clip2 && clip1.DoIntersect(clip2)) {
+                printf("ERROR: Region::Validate() CLIPS OEVRLAP!!!\n");
+            }
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int Region::FindUnusedClip(int prevUnused, int lastToCheck)
+{
+    if (prevUnused != -1)
+    {
+        for (int i = prevUnused; i <= lastToCheck; ++i)
+        {
+            if (m_Rects[i].left == m_Rects[i].right) {
+                return i;
+            }
+        }
+    }    
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int Region::AddOrReuseClip(int prevUnused, int lastToCheck, const IRect& frame)
+{
+    try
+    {
+        int freeSlot = FindUnusedClip(prevUnused, lastToCheck);
+        if (freeSlot == -1) {
+            m_Rects.push_back(frame);
+            return lastToCheck + 1;
+        } else {
+            m_Rects[freeSlot] = frame;
+            return freeSlot + 1;
+        }
+    }
+    catch (const std::bad_alloc& error)
+    {
+        return prevUnused;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Region::RemoveUnusedClips(size_t firstToCheck, size_t lastToCheck)
+{
+    try
+    {
+        size_t newClipCount = m_Rects.size();
+        for (size_t i = firstToCheck; i < lastToCheck; )
+        {
+            if (m_Rects[i].left == m_Rects[i].right)
+            {
+                if (i == m_Rects.size() - 1)
+                {
+                    m_Rects.erase(m_Rects.begin() + i); // Last clip. Just delete it.
+                    lastToCheck--;
+                    newClipCount--;
+                }
+                else
+                {
+                    newClipCount--;
+                    m_Rects[i] = m_Rects[newClipCount]; // Erase by swapping in the last entry.
+                    if (newClipCount < lastToCheck) {
+                        --lastToCheck;
+                    } else {                    
+                        ++i; // If the clip swapped in came from outside the range to check, skip to next.
+                    }                    
+                }
+            }
+            else
+            {
+                ++i;
+            }
+        }
+        m_Rects.resize(newClipCount);
+    }
+    catch (const std::bad_alloc& error) {}
 }

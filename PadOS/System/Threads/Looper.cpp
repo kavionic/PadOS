@@ -244,6 +244,10 @@ int Looper::Run()
     return 0;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool Looper::ProcessEvents(handler_id waitTarget, int32_t waitCode)
 {
     while (m_DoRun)
@@ -273,12 +277,11 @@ bool Looper::ProcessEvents(handler_id waitTarget, int32_t waitCode)
         if (msgLength < 0 && get_last_error() == ETIME) {
             Idle();
             msgLength = m_Port.ReceiveMessageDeadline(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), nextEventTime);
-        }            
+        }
         if (msgLength >= 0)
         {
             ProcessMessage(targetHandler, code, msgLength);
         }            
-//        free(buffer);
     }
     return false;
 }

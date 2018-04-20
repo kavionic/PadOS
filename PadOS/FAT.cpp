@@ -501,7 +501,7 @@ bool FAT::UpdateSegment(FileHandle* file)
                 uint16_t nextCluster = fat[i];
                 printf("UpdateCluster: %d\n", nextCluster);
                 
-                if ( nextCluster == FAT16_CLUSTER_FREE || nextCluster == FAT16_CLUSTER_BAD || (nextCluster >= FAT16_CLUSTER_RESERVED_MIN && nextCluster <= FAT16_CLUSTER_RESERVED_MAX) || (nextCluster >= FAT16_CLUSTER_LAST_MIN && nextCluster <= FAT16_CLUSTER_LAST_MAX) )
+                if (nextCluster == FAT16_CLUSTER_FREE || nextCluster == FAT16_CLUSTER_BAD || (nextCluster >= FAT16_CLUSTER_RESERVED_MIN && nextCluster <= FAT16_CLUSTER_RESERVED_MAX) || nextCluster >= FAT16_CLUSTER_LAST_MIN)
                 {
                     return false;
                 }

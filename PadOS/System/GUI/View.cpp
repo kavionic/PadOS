@@ -669,13 +669,13 @@ void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
                 DrawLine(Point(frame.left + 1.0f, frame.bottom - 2.0f));
             }
             if ((syleFlags & FRAME_TRANSPARENT) == 0) {
-                EraseRect(Rect(frame.left + 2.0f, frame.top + 2.0f, frame.right - 3.0f, frame.bottom - 3.0f));
+                EraseRect(Rect(frame.left + 2.0f, frame.top + 2.0f, frame.right - 2.0f, frame.bottom - 2.0f));
             }
         }
         else
         {
             if ((syleFlags & FRAME_TRANSPARENT) == 0) {
-                EraseRect(Rect(frame.left + 1.0f, frame.top + 1.0f, frame.right - 2.0f, frame.bottom - 2.0f));
+                EraseRect(Rect(frame.left + 1.0f, frame.top + 1.0f, frame.right - 1.0f, frame.bottom - 1.0f));
             }
         }
     }

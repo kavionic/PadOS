@@ -368,8 +368,8 @@ void ServerView::InvalidateNewAreas()
                     }
                     else
                     {
-                        ENUMCLIPLIST(&region->m_cRects, clip) {
-                            Invalidate(clip->m_cBounds);
+                        for (const IRect& clip : region->m_Rects) {
+                            Invalidate(clip);
                         }
                     }
                 }
@@ -391,29 +391,31 @@ void ServerView::InvalidateNewAreas()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static int SortCmp(const void* pNode1, const void* pNode2)
+struct BlitSortCompare
 {
-    ClipRect* clip1 = *((ClipRect**)pNode1);
-    ClipRect* clip2 = *((ClipRect**)pNode2);
-
-
-    if (clip1->m_cBounds.left >= clip2->m_cBounds.right && clip1->m_cBounds.right <= clip2->m_cBounds.left)
+    BlitSortCompare(const IPoint& deltaMove) : m_DeltaMove(deltaMove) {}
+        
+    bool operator()(IRect* lhs, IRect* rhs) const
     {
-        if (clip1->m_cMove.x < 0) {
-            return clip1->m_cBounds.left - clip2->m_cBounds.left;
-        } else {
-            return clip2->m_cBounds.left - clip1->m_cBounds.left;
+        if (lhs->left >= rhs->right && lhs->right <= rhs->left)
+        {
+            if (m_DeltaMove.x < 0) {
+                return lhs->left < rhs->left;
+            } else {
+                return rhs->left < lhs->left;
+            }
+        }
+        else
+        {
+            if (m_DeltaMove.y < 0) {
+                return lhs->top < rhs->top;
+            } else {
+                return rhs->top < lhs->top;
+            }
         }
     }
-    else
-    {
-        if (clip1->m_cMove.y < 0) {
-            return clip1->m_cBounds.top - clip2->m_cBounds.top;
-        } else {
-            return clip2->m_cBounds.top - clip1->m_cBounds.top;
-        }
-    }
-}
+    IPoint m_DeltaMove;
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -444,38 +446,30 @@ void ServerView::MoveChilds()
             Ptr<Region> region = ptr_new<Region>(*child->m_PrevFullReg);
             region->Intersect(*child->m_FullReg);
 
-            int count = 0;
-    
-            IPoint cChildOffset = IPoint(child->m_ScreenPos);
-            IPoint cChildMove(child->m_DeltaMove);
-            ENUMCLIPLIST(&region->m_cRects, clip)
-            {
-                // Transform into parents coordinate system
-                clip->m_cBounds += cChildOffset;
-                clip->m_cMove    = cChildMove;
-                count++;
-                assert(clip->m_cBounds.IsValid());
-            }
-            if ( count == 0 ) {
+            if (region->IsEmpty()) {
                 continue;
             }
 
-            ClipRect** apsClips = new ClipRect*[count];
-
-            for ( int i = 0 ; i < count ; ++i ) {
-                apsClips[i] = region->m_cRects.RemoveHead();
-                assert(apsClips[i] != nullptr);
-            }
-            qsort(apsClips, count, sizeof( ClipRect* ), SortCmp);
-
-            for ( int i = 0 ; i < count ; ++i )
+            IPoint cChildOffset = IPoint(child->m_ScreenPos);
+            IPoint cChildMove(child->m_DeltaMove);
+            for (IRect& clip : region->m_Rects)
             {
-                ClipRect* clip = apsClips[i];
-
-                GfxDriver::Instance.BLT_MoveRect(clip->m_cBounds - clip->m_cMove, clip->m_cBounds.TopLeft());
-                m_VisibleReg->FreeClipRect(clip);
+                // Transform into parents coordinate system
+                clip += cChildOffset;
+                assert(clip.IsValid());
             }
-            delete[] apsClips;
+
+            std::vector<IRect*> clipList;
+            clipList.reserve(region->m_Rects.size());
+
+            for (IRect& clip : region->m_Rects) {
+                clipList.push_back(&clip);
+            }
+            std::sort(clipList.begin(), clipList.end(), BlitSortCompare(cChildMove));
+
+            for (const IRect* clip : clipList) {
+                GfxDriver::Instance.BLT_MoveRect(*clip - cChildMove, clip->TopLeft());
+            }
         }
 
         // Since the parent window is shrinked before the children is moved
@@ -632,8 +626,6 @@ bool ServerView::ExcludeFromRegion(Ptr<Region> region, const IPoint& offset)
     {
         if ((m_Flags & ViewFlags::TRANSPARENT) == 0)
         {
-//            IRect r = m_IFrame + offset;
-//            printf("Exclude %s: %d, %d, %d, %d\n", GetName().c_str(), r.left, r.top, r.right, r.bottom);
             if ( m_ShapeConstrainReg == nullptr ) {
                 region->Exclude(m_IFrame + offset);
             } else {
@@ -643,7 +635,6 @@ bool ServerView::ExcludeFromRegion(Ptr<Region> region, const IPoint& offset)
         }
         else
         {
-//            printf("View %s is transparent. Excluding childrens (%d, %d)\n", GetName().c_str(), offset.x, offset.y);
             bool wasModified = false;
             IPoint framePos = m_IFrame.TopLeft();
             IPoint scrollOffset(m_ScrollOffset);
@@ -693,8 +684,8 @@ void ServerView::UpdateRegions(bool bForce, bool bRoot)
         
                 GfxDriver::Instance.SetFgColor(m_EraseColor16);
                 IPoint screenPos(m_ScreenPos);
-                ENUMCLIPLIST(&cDrawReg.m_cRects, clip) {
-                    GfxDriver::Instance.FillRect(clip->m_cBounds + screenPos);
+                for (const IRect& clip : cDrawReg.m_Rects) {
+                    GfxDriver::Instance.FillRect(clip + screenPos);
                 }
             }
             m_DamageReg = nullptr;
@@ -788,15 +779,10 @@ void ServerView::ToggleDepth()
             parent->AddChild(self, true);
         }
 
-//        parent->m_bHasInvalidRegs = true;
-//        SetDirtyRegFlags();
-    
         Ptr<ServerView> opacParent = GetOpacParent(parent, nullptr);
         
         opacParent->SetDirtyRegFlags();
     
-//        Layer* pcSibling;
-//        for ( pcSibling = m_pcParent->m_pcBottomChild ; pcSibling != NULL ; pcSibling = pcSibling->m_pcHigherSibling )
         for (Ptr<ServerView> sibling : *parent)
         {
             if (sibling->m_IFrame.DoIntersect(m_IFrame)) {
@@ -804,11 +790,7 @@ void ServerView::ToggleDepth()
             }
         }
         opacParent->UpdateRegions(false);
-        //ServerApplication* server = ptr_static_cast<ApplicationServer>(GetLooper());
-        //server->Update
     }
-//    return false;
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1000,16 +982,16 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
         GfxDriver::Instance.WaitBlitter();
         GfxDriver::Instance.SetFgColor(m_FgColor16);
         bool first = true;
-        ENUMCLIPLIST(&region->m_cRects, clip)
+        for (const IRect& clip : region->m_Rects)
         {
-            if (clip->m_cBounds.DoIntersect(boundingBox))
+            if (clip.DoIntersect(boundingBox))
             {
                 if (!first) {
                     GfxDriver::Instance.WaitBlitter();
                 } else {
                     first = false;
                 }
-                GfxDriver::Instance.SetWindow(clip->m_cBounds + screenPos);
+                GfxDriver::Instance.SetWindow(clip + screenPos);
                 GfxDriver::Instance.DrawLine(fromPntScr.x, fromPntScr.y, toPntScr.x, toPntScr.y);
             }                
         }
@@ -1045,14 +1027,14 @@ void ServerView::FillRect(const Rect& rect, Color color)
         GfxDriver::Instance.SetWindow(ApplicationServer::GetScreenFrame());
     
         bool first = true;
-        ENUMCLIPLIST(&region->m_cRects, clip)
+        for (const IRect& clip : region->m_Rects)
         {
             if (!first) {
                 GfxDriver::Instance.WaitBlitter();
             } else {
                 first = false;
             }
-            IRect clippedRect(rectScr & clip->m_cBounds);
+            IRect clippedRect(rectScr & clip);
             if (clippedRect.IsValid()) {
                 clippedRect += screenPos;
                 GfxDriver::Instance.FillRect(clippedRect);
@@ -1082,9 +1064,9 @@ void ServerView::FillCircle(const Point& position, float radius)
         GfxDriver::Instance.SetFgColor(m_FgColor16);
         bool first = true;
         IRect boundingBox(positionScr.x - radiusRounded + 2, positionScr.y - radiusRounded + 2, positionScr.x + radiusRounded - 2, positionScr.y + radiusRounded - 2);
-        ENUMCLIPLIST(&region->m_cRects, clip)
+        for (const IRect& clip : region->m_Rects)
         {
-            IRect clipRect = clip->m_cBounds + screenPos;
+            IRect clipRect = clip + screenPos;
             if (!boundingBox.DoIntersect(clipRect)) {
                 continue;
             }
@@ -1120,12 +1102,12 @@ void ServerView::DrawString(const String& string)
         
         penPos += screenPos;
         
-        ENUMCLIPLIST(&region->m_cRects, clip)
+        for (const IRect& clip : region->m_Rects)
         {
-            if (clip->m_cBounds.DoIntersect(boundingBox))
+            if (clip.DoIntersect(boundingBox))
             {
                 GfxDriver::Instance.SetCursor(penPos);
-                GfxDriver::Instance.WriteString(string.c_str(), string.size(), clip->m_cBounds + screenPos);
+                GfxDriver::Instance.WriteString(string.c_str(), string.size(), clip + screenPos);
             }                
         }
         m_PenPosition.x += boundingBox.Width();
@@ -1146,13 +1128,13 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     IPoint delta   = IPoint(dstPos) - intSrcRect.TopLeft();
     IRect  dstRect = intSrcRect + delta;
 
-    ClipRectList bltList;
+    std::vector<IRect> bltList;
     Region       damage(*m_VisibleReg, dstRect, false);
 
-    ENUMCLIPLIST(&m_VisibleReg->m_cRects, srcClip)
+    for (const IRect& srcClip : m_VisibleReg->m_Rects)
     {
         // Clip to source rectangle
-        IRect sRect(intSrcRect & srcClip->m_cBounds);
+        IRect sRect(intSrcRect & srcClip);
 
         if (!sRect.IsValid()) {
             continue;
@@ -1160,77 +1142,68 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
         // Transform into destination space
         sRect += delta;
 
-        ENUMCLIPLIST( &m_VisibleReg->m_cRects, dstClip )
+        for(const IRect& dstClip : m_VisibleReg->m_Rects)
         {
-            IRect dRect = sRect & dstClip->m_cBounds;
+            IRect dRect = sRect & dstClip;
 
             if (!dRect.IsValid()) {
                 continue;
             }
             damage.Exclude(dRect);
-            ClipRect* clip  = Region::AllocClipRect();
-            clip->m_cBounds = dRect;
-            clip->m_cMove   = delta;
-
-            bltList.AddRect(clip);
+            bltList.push_back(dRect);
         }
     }
 
-    int count = bltList.GetCount();
     
-    if (count == 0)
+    if (bltList.empty())
     {
         Invalidate(dstRect);
         UpdateIfNeeded(true);
         return;
     }
 
-    ClipRect** apsClips = new ClipRect*[count];
-
-    for ( int i = 0 ; i < count ; ++i )
-    {
-        apsClips[i] = bltList.RemoveHead();
-        assert(apsClips[i] != nullptr);
+    std::vector<IRect*> clipList;
+    clipList.reserve(bltList.size());
+    
+    for (IRect& clip : bltList) {
+        clipList.push_back(&clip);
     }
-    qsort(apsClips, count, sizeof( ClipRect* ), SortCmp);
+    std::sort(clipList.begin(), clipList.end(), BlitSortCompare(delta));
 
     IPoint screenPos(m_ScreenPos);
-    for ( int i = 0 ; i < count ; ++i )
+    for (IRect* clip : clipList)
     {
-        ClipRect* clip = apsClips[i];
-        clip->m_cBounds += screenPos; // Convert into screen space
-        GfxDriver::Instance.BLT_MoveRect(clip->m_cBounds - clip->m_cMove, clip->m_cBounds.TopLeft());
-        Region::FreeClipRect(clip);
+        *clip += screenPos; // Convert into screen space
+        GfxDriver::Instance.BLT_MoveRect(*clip - delta, clip->TopLeft());
     }
-    delete[] apsClips;
     if (m_DamageReg != nullptr)
     {
         Region region(*m_DamageReg, intSrcRect, false);
-        ENUMCLIPLIST(&region.m_cRects, dmgClip)
+        for (const IRect& dmgClip : region.m_Rects)
         {
-            m_DamageReg->Include((dmgClip->m_cBounds + delta)  & dstRect);
+            m_DamageReg->Include((dmgClip + delta)  & dstRect);
             if (m_ActiveDamageReg != nullptr) {
-                m_ActiveDamageReg->Exclude((dmgClip->m_cBounds + delta)  & dstRect);
+                m_ActiveDamageReg->Exclude((dmgClip + delta)  & dstRect);
             }
         }
     }
     if (m_ActiveDamageReg != nullptr)
     {
         Region region(*m_ActiveDamageReg, intSrcRect, false);
-        if (region.m_cRects.GetCount() > 0)
+        if (!region.IsEmpty())
         {
             if ( m_DamageReg == nullptr ) {
                 m_DamageReg = ptr_new<Region>();
             }
-            ENUMCLIPLIST(&region.m_cRects, dmgClip)
+            for (const IRect& dmgClip : region.m_Rects)
             {
-                m_ActiveDamageReg->Exclude((dmgClip->m_cBounds + delta) & dstRect);
-                m_DamageReg->Include((dmgClip->m_cBounds + delta) & dstRect);
+                m_ActiveDamageReg->Exclude((dmgClip + delta) & dstRect);
+                m_DamageReg->Include((dmgClip + delta) & dstRect);
             }
         }
     }
-    ENUMCLIPLIST( &damage.m_cRects, dstClip ) {
-        Invalidate(dstClip->m_cBounds);
+    for (const IRect& dstClip : damage.m_Rects) {
+        Invalidate(dstClip);
     }
     if ( m_DamageReg != nullptr ) {
         m_DamageReg->Optimize();
@@ -1262,9 +1235,9 @@ void ServerView::DebugDraw(Color color, uint32_t drawFlags)
     {
         if (m_VisibleReg != nullptr)
         {
-            ENUMCLIPLIST(&m_VisibleReg->m_cRects, clip)
+            for (const IRect& clip : m_VisibleReg->m_Rects)
             {
-                DebugDrawRect(clip->m_cBounds + screenPos);
+                DebugDrawRect(clip + screenPos);
             }
         }
     }        
@@ -1273,9 +1246,9 @@ void ServerView::DebugDraw(Color color, uint32_t drawFlags)
         Ptr<Region> region = GetRegion();
         if (region != nullptr)
         {
-            ENUMCLIPLIST(&region->m_cRects, clip)
+            for (const IRect& clip : region->m_Rects)
             {
-                DebugDrawRect(clip->m_cBounds + screenPos);
+                DebugDrawRect(clip + screenPos);
             }
         }
     }        
@@ -1317,13 +1290,13 @@ void ServerView::ScrollBy(const Point& offset)
     }
 
     IRect        bounds(GetNormalizedBounds());
-    ClipRectList bltList;
+    std::vector<IRect> bltList;
     Region       damage(*m_VisibleReg);
 
-    ENUMCLIPLIST(&m_FullReg->m_cRects, srcClip)
+    for (const IRect& srcClip : m_FullReg->m_Rects)
     {
         // Clip to source rectangle
-        IRect sRect = bounds & srcClip->m_cBounds;
+        IRect sRect = bounds & srcClip;
 
         // Transform into destination space
         if (!sRect.IsValid()) {
@@ -1331,67 +1304,55 @@ void ServerView::ScrollBy(const Point& offset)
         }
         sRect += intOffset;
 
-        ENUMCLIPLIST(&m_FullReg->m_cRects, dstClip)
+        for(const IRect& dstClip : m_FullReg->m_Rects)
         {
-            IRect dRect = sRect & dstClip->m_cBounds;
-
-            if (!dRect.IsValid()) {
-                continue;
-            }
-            damage.Exclude(dRect);
-
-            ClipRect* clip = Region::AllocClipRect();
-            clip->m_cBounds = dRect;
-            clip->m_cMove   = intOffset;
-
-            bltList.AddRect(clip);
+            IRect dRect = sRect & dstClip;
+            if (dRect.IsValid()) {
+                damage.Exclude(dRect);
+                bltList.push_back(dRect);
+            }                
         }
     }
   
-    int count = bltList.GetCount();
-    
-    if (count == 0)
+    if (bltList.empty())
     {
         Invalidate(bounds);
         UpdateIfNeeded(true);
         return;
     }
 
-    ClipRect** apsClips = new ClipRect*[count];
+    std::vector<IRect*> clipList;
+    clipList.reserve(bltList.size());
 
-    for (int i = 0 ; i < count ; ++i)
-    {
-        apsClips[i] = bltList.RemoveHead();
-        assert( apsClips[i] != nullptr );
+    for (IRect& clip : bltList) {
+        clipList.push_back(&clip);
     }
-    qsort(apsClips, count, sizeof(ClipRect*), SortCmp);
+    std::sort(clipList.begin(), clipList.end(), BlitSortCompare(intOffset));
 
-    for (int i = 0 ; i < count ; ++i)
+    for (size_t i = 0 ; i < clipList.size() ; ++i)
     {
-        ClipRect* clip = apsClips[i];
+        IRect* clip = clipList[i];
 
-        clip->m_cBounds += screenPos; // Convert into screen space
+        *clip += screenPos; // Convert into screen space
 
-        GfxDriver::Instance.BLT_MoveRect(clip->m_cBounds - clip->m_cMove, clip->m_cBounds.TopLeft());
-        Region::FreeClipRect(clip);
+        GfxDriver::Instance.BLT_MoveRect(*clip - intOffset, clip->TopLeft());
     }
-    delete[] apsClips;
 
     if (m_DamageReg != nullptr)
     {
-        ENUMCLIPLIST(&m_DamageReg->m_cRects, dstClip) {
-            dstClip->m_cBounds += intOffset;
+        for (IRect& dstClip : m_DamageReg->m_Rects) {
+            dstClip += intOffset;
         }
     }
 
     if (m_ActiveDamageReg != nullptr)
     {
-        ENUMCLIPLIST(&m_ActiveDamageReg->m_cRects, dstClip) {
-            dstClip->m_cBounds += intOffset;
+        for (IRect& dstClip : m_ActiveDamageReg->m_Rects) {
+            dstClip += intOffset;
         }
     }
-    ENUMCLIPLIST(&damage.m_cRects, dstClip) {
-        Invalidate(dstClip->m_cBounds);
+    for (const IRect& dstClip : damage.m_Rects) {
+        Invalidate(dstClip);
     }
     UpdateIfNeeded(true);
 }

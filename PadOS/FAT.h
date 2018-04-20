@@ -98,7 +98,8 @@ struct FAT32SuperBlock
         {
             uint8_t  m_DriveNumber;
             uint8_t  m_Reserved1; // Reserved (used by Windows NT). Code that formats FAT volumes should always set this byte to 0.
-            uint8_t  m_BootSignature; // Extended boot signature (0x29). This is a signature byte that indicates that the following three fields in the boot sector are present.            uint32_t m_VolumeID;
+            uint8_t  m_BootSignature; // Extended boot signature (0x29). This is a signature byte that indicates that the following three fields in the boot sector are present.
+            uint32_t m_VolumeID;
             uint8_t  m_VolumeLabel[11];
             uint8_t  m_FilesType[8];
             uint8_t  m_Reserved[28];
@@ -114,7 +115,8 @@ struct FAT32SuperBlock
             uint8_t  m_Reserved[12];
             uint8_t  m_DriveNumber;
             uint8_t  m_Reserved1; // Reserved (used by Windows NT). Code that formats FAT volumes should always set this byte to 0.
-            uint8_t  m_BootSignature; // Extended boot signature (0x29). This is a signature byte that indicates that the following three fields in the boot sector are present.            uint32_t m_VolumeID;
+            uint8_t  m_BootSignature; // Extended boot signature (0x29). This is a signature byte that indicates that the following three fields in the boot sector are present.
+            uint32_t m_VolumeID;
             uint8_t  m_VolumeLabel[11];
             uint8_t  m_FilesType[8];            
         } FAT32 __attribute__((packed)); // 54

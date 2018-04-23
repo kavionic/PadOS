@@ -188,6 +188,12 @@ public:
         
     typename ChildList_t::const_iterator begin() const { return m_ChildrenList.begin(); }
     typename ChildList_t::const_iterator end() const   { return m_ChildrenList.end(); }
+
+    typename ChildList_t::reverse_iterator rbegin() { return m_ChildrenList.rbegin(); }
+    typename ChildList_t::reverse_iterator rend()   { return m_ChildrenList.rend(); }
+
+    typename ChildList_t::const_reverse_iterator rbegin() const { return m_ChildrenList.rbegin(); }
+    typename ChildList_t::const_reverse_iterator rend() const   { return m_ChildrenList.rend(); }
         
     typename ChildList_t::iterator       GetChildIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.begin(), m_ChildrenList.end(), child); }
     typename ChildList_t::const_iterator GetChildIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.begin(), m_ChildrenList.end(), child); }
@@ -384,6 +390,7 @@ public:
     void            SetLayoutNode(Ptr<LayoutNode> node);
     
     void            SetBorders(const Rect& border);
+    void            SetBorders(float l, float t, float r, float b) { SetBorders(Rect(l, t, r, b)); }
     Rect            GetBorders() const;
 
     float           GetWheight() const;
@@ -394,14 +401,22 @@ public:
     Alignment       GetHAlignment() const;
     Alignment       GetVAlignment() const;
     
-    void            InvalidateLayout();
+    void            SetWidthOverride(PrefSizeType sizeType, SizeOverride when, float size);
+    void            SetHeightOverride(PrefSizeType sizeType, SizeOverride when, float size);
+    
+    void            AddToWidthRing(Ptr<View> ring);
+    void            RemoveFromWidthRing();
 
-    void            AdjustPrefSize(Point* minSize, Point* maxSize);
+    void            AddToHeightRing(Ptr<View> ring);
+    void            RemoveFromHeightRing();
+        
+    void            InvalidateLayout();
+    void            UpdateLayout();
 
 //    virtual void Activated(bool isActive);
     //    virtual void WindowActivated( bool bIsActive );
 
-    virtual void Paint(const Rect& updateRect) {}
+    virtual void Paint(const Rect& updateRect) { EraseRect(updateRect); }
 
     virtual bool OnMouseDown(MouseButton_e button, const Point& position);
     virtual bool OnMouseUp(MouseButton_e button, const Point& position);
@@ -412,11 +427,14 @@ public:
     virtual void  ViewScrolled(const Point& delta);
     virtual void  FontChanged(Ptr<Font> newFont);
     
-    virtual Point GetPreferredSize(bool largest) const;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const;
+    
+    Point GetPreferredSize(PrefSizeType sizeType) const;
     virtual Point GetContentSize() const;
 
     void PreferredSizeChanged();
     void ContentSizeChanged();
+
 
 //    virtual void WheelMoved( const Point& cDelta );
 
@@ -425,21 +443,16 @@ public:
     bool RemoveThis();
     
     Ptr<View>  GetChildAt(const Point& pos);
-    Ptr<View>  GetChildAt(int index);
+    Ptr<View>  GetChildAt(size_t index);
 
-    void       SetResizeMask( uint32_t nFlags );
-    uint32_t   GetResizeMask() const;
-    
-    void       Show( bool bVisible = true );
-    void       Hide() { Show( false ); }
+    void       Show(bool visible = true);
+    void       Hide() { Show(false); }
     bool       IsVisible() const;
 //    virtual void MakeFocus( bool bFocus = true );
 //    virtual bool HasFocus() const;
 
-//    Rect GetFrame() const;
     float  Width() const;
     float  Height() const;
-//    Point  GetTopLeft() const;
 
     virtual void        SetFrame(const Rect& frame);
     void                Move(const Point& delta) { SetFrame(m_Frame + delta); }
@@ -508,15 +521,12 @@ public:
     virtual void    ScrollTo(float x, float y)             { ScrollTo(Point(x, y)); }
         
     Point           GetScrollOffset() const                { return m_ScrollOffset; }
-    void            CopyRect(const Rect& srcRect, const Point& dstPos) { Post<ASViewCopyRect>(srcRect, dstPos); }
+    void            CopyRect(const Rect& srcRect, const Point& dstPos);
     void            DebugDraw(Color color, uint32_t drawFlags)         { Post<ASViewDebugDraw>(color, drawFlags); }
     
     //    void DrawBitmap( const Bitmap* pcBitmap, const Rect& cSrcRect, const Rect& cDstRect );
     void            DrawFrame(const Rect& rect, uint32_t styleFlags);
-
         
-    void            DrawBevelBox(Rect frame, bool raised);
-
     FontHeight      GetFontHeight() const;
     float           GetStringWidth(const char* string, size_t length) const;
     float           GetStringWidth(const String& string) const { return GetStringWidth(string.data(), string.length()); }
@@ -544,7 +554,6 @@ private:
 
     void HandleAddedToParent(Ptr<View> parent);
     void HandleRemovedFromParent(Ptr<View> parent);
-
 
     void HandleDetachedFromScreen();
 
@@ -575,32 +584,48 @@ private:
 
     void HandlePaint(const Rect& updateRect);
     
-    void       SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
+    void SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
+        
+    void UpdateRingSize();
         
     handler_id m_ServerHandle = -1;
     
     Ptr<LayoutNode> m_LayoutNode;
     
-    Rect      m_Borders = Rect(0.0f, 0.0f, 0.0f, 0.0f);
-    float     m_Wheight = 1.0f;
-    Alignment m_HAlign = Alignment::Center;
-    Alignment m_VAlign = Alignment::Center;
+    Rect         m_Borders = Rect(0.0f, 0.0f, 0.0f, 0.0f);
+    float        m_Wheight = 1.0f;
+    Alignment    m_HAlign = Alignment::Center;
+    Alignment    m_VAlign = Alignment::Center;
+    Point        m_LocalPrefSize[int(PrefSizeType::Count)];
+    Point        m_PreferredSizes[int(PrefSizeType::Count)];
+
+    float        m_WidthOverride[int(PrefSizeType::Count)]  = {0.0f, 0.0f};
+    float        m_HeightOverride[int(PrefSizeType::Count)] = {0.0f, 0.0f};
     
-    Point m_PositionOffset; // Offset relative to first parent that is not client only.
+    SizeOverride m_WidthOverrideType[int(PrefSizeType::Count)]  = {SizeOverride::None, SizeOverride::None};
+    SizeOverride m_HeightOverrideType[int(PrefSizeType::Count)] = {SizeOverride::None, SizeOverride::None};
+        
+    bool         m_IsPrefSizeValid = false;
+    bool         m_IsLayoutValid   = true;
+    bool         m_DidScrollRect   = false;
     
-    bool m_DidScrollRect = false;
-    int  m_BeginPainCount = 0;
+    View*        m_WidthRing  = nullptr;
+    View*        m_HeightRing = nullptr;
+    
+    Point        m_PositionOffset; // Offset relative to first parent that is not client only.
+    
+    int          m_BeginPainCount = 0;
 
     Ptr<Font> m_Font = ptr_new<Font>(kernel::GfxDriver::e_FontLarge);
     
     static WeakPtr<View> s_MouseDownView;
     
-    ASPaintView::Receiver RSPaintView;
+    ASPaintView::Receiver        RSPaintView;
     ASViewFrameChanged::Receiver RSViewFrameChanged;
     
-    ASHandleMouseDown::Receiver RSHandleMouseDown;
-    ASHandleMouseUp::Receiver   RSHandleMouseUp;
-    ASHandleMouseMove::Receiver RSHandleMouseMove;
+    ASHandleMouseDown::Receiver  RSHandleMouseDown;
+    ASHandleMouseUp::Receiver    RSHandleMouseUp;
+    ASHandleMouseMove::Receiver  RSHandleMouseMove;
 };
 
 } // namespace

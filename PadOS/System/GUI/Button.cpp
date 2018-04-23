@@ -28,9 +28,13 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Button::Button(const String& name, const String& label, Ptr<View> parent, uint32_t flags) : View(name, parent, flags), m_Label(label)
+Button::Button(const String& name, const String& label, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::FULL_UPDATE_ON_RESIZE), m_Label(label)
 {
-
+    m_LabelSize.x = GetStringWidth(m_Label);
+    FontHeight fontHeight = GetFontHeight();
+    m_LabelSize.y = fontHeight.descender - fontHeight.ascender + fontHeight.line_gap;
+    
+    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -45,11 +49,11 @@ Button::~Button()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point Button::GetPreferredSize(bool largest) const
+void Button::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
 {
-    FontHeight fontHeight = GetFontHeight();
-    float stringWidth = GetStringWidth(m_Label);
-    return Point(stringWidth + 16.0f, fontHeight.descender - fontHeight.ascender + fontHeight.line_gap + 8.0f);
+    Point size(m_LabelSize.x + 16.0f, m_LabelSize.y + 8.0f);
+    *minSize = size;
+    *maxSize = size;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -104,9 +108,10 @@ bool Button::OnMouseMove(MouseButton_e button, const Point& position)
 
 void Button::Paint(const Rect& updateRect)
 {
+    Rect bounds = GetBounds();
     SetEraseColor(get_standard_color(StandardColorID::NORMAL));
-    DrawFrame(GetBounds(), m_IsPressed ? FRAME_RECESSED : FRAME_RAISED);
-    Point labelPos(8.0f, 4.0f);
+    DrawFrame(bounds, m_IsPressed ? FRAME_RECESSED : FRAME_RAISED);
+    Point labelPos(round((bounds.Width() - m_LabelSize.x) * 0.5f), round((bounds.Height() - m_LabelSize.y) * 0.5f));
     if (m_IsPressed) labelPos += Point(1.0f, 1.0f);
     MovePenTo(labelPos);
     SetFgColor(get_standard_color(StandardColorID::MENU_TEXT));
@@ -124,7 +129,5 @@ void Button::SetPressedState(bool isPressed)
     {
         m_IsPressed = isPressed;
         Invalidate();
-        Flush();
     }
 }
-

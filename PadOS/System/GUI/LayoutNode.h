@@ -30,7 +30,15 @@ class View;
 
 #define LAYOUT_MAX_SIZE 100000.0f
 
-enum class Alignment
+enum class PrefSizeType : uint8_t
+{
+    Smallest,
+    Greatest,
+    Count,
+    All = Count
+};
+
+enum class Alignment : uint8_t
 {
     Left,
     Right,
@@ -39,12 +47,20 @@ enum class Alignment
     Center
 };
 
-enum class Orientation
+enum class Orientation : uint8_t
 {
     Horizontal,
     Vertical
 };
 
+
+enum class SizeOverride : uint8_t
+{
+    None,
+    Always,
+    IfSmaller,
+    IfGreater
+};
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -55,89 +71,17 @@ public:
     LayoutNode();
     virtual ~LayoutNode();
 
-    virtual void        Layout();
-    
-    void                ExtendMinSize(const Point& minSize);
-    void                LimitMaxSize(const Point& maxSize);
-    void                ExtendMaxSize(const Point& maxSize);
-    
-    void                AdjustPrefSize(Point* minSize, Point* maxSize);
-    virtual Point       GetPreferredSize(bool largest);
+    virtual void Layout();
+    virtual void CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight);
 
-//    void SameWidth( const char* pzName1, ... );
-//    void SameHeight( const char* pzName1, ... );
-    
-//    void SetBorders( const Rect& cBorders, const char* pzFirstName, ... );
-//    void SetWheights( float vWheight, const char* pzFirstName, ... );
-//    void SetHAlignments( Alignment eAlign, const char* pzFirstName, ... );
-//    void SetVAlignments( Alignment eAlign, const char* pzFirstName, ... );
-
-    void AddToWidthRing(LayoutNode* ring);
-    void AddToHeightRing(LayoutNode* ring);
-    
-protected:    
-    virtual Point    CalculatePreferredSize(bool largest);
-    View*            m_View = nullptr;
+protected:
+    View* m_View = nullptr;
 
 private:
     friend class View;
 
     void AttachedToView(View* view);
-
-    struct ShareNode {
-        LayoutNode* m_Next;
-        LayoutNode* m_Prev;
-    };
-    Point     m_MinSize;
-    Point     m_MaxSizeExtend;
-    Point     m_MaxSizeLimit;
-
-    ShareNode m_WidthRing;
-    ShareNode m_HeightRing;
 };
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-/*class LayoutSpacer : public LayoutNode
-{
-public:
-    LayoutSpacer(float vWheight = 1.0f, const Point& cMinSize = Point(0.0f,0.0f), const Point& cMaxSize = Point(LAYOUT_MAX_SIZE,LAYOUT_MAX_SIZE));
-
-    void SetMinSize( const Point& cSize );
-    void SetMaxSize( const Point& cSize );
-
-private:
-    virtual Point CalculatePreferredSize( bool bLargest ) override;
-
-    Point m_MinSize;
-    Point m_cMaxSize;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-class VLayoutSpacer : public LayoutSpacer
-{
-public:
-    VLayoutSpacer(float vMinHeight = 0.0f, float vMaxHeight = LAYOUT_MAX_SIZE, float vWheight = 1.0f) :
-        LayoutSpacer(vWheight, Point( 0.0f, vMinHeight ), Point( 0.0f, vMaxHeight ) )
-    {}
-};
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-class HLayoutSpacer : public LayoutSpacer
-{
-public:
-    HLayoutSpacer(float vMinWidth = 0.0f, float vMaxWidth = LAYOUT_MAX_SIZE, float vWheight = 1.0f ) :
-        LayoutSpacer(vWheight, Point( vMinWidth, 0.0f ), Point( vMaxWidth, 0.0f ) )
-    {}
-};*/
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -147,10 +91,8 @@ class HLayoutNode : public LayoutNode
 {
 public:
     HLayoutNode();
-//    virtual Point GetPreferredSize( bool bLargest );
-    virtual void  Layout() override;
-private:
-    virtual Point CalculatePreferredSize( bool bLargest ) override;
+    virtual void Layout() override;
+    virtual void CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight) override;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -161,12 +103,8 @@ class VLayoutNode : public LayoutNode
 {
 public:
     VLayoutNode();
-//    virtual Point GetPreferredSize( bool bLargest );
-    virtual void  Layout() override;
-
-protected:
-    virtual Point CalculatePreferredSize( bool bLargest ) override;
-private:
+    virtual void Layout() override;
+    virtual void CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight) override;
 };
 
 

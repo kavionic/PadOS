@@ -76,6 +76,23 @@ bool Application::HandleMessage(handler_id targetHandler, int32_t code, const vo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void Application::Idle()
+{
+    while(!m_ViewsNeedingLayout.empty())
+    {
+        std::set<Ptr<View>> list = std::move(m_ViewsNeedingLayout);
+        for (Ptr<View> view : list)
+        {
+            view->UpdateLayout();
+        }
+    }
+    Flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 IRect Application::GetScreenIFrame()
 {
     return IRect(IPoint(0), kernel::GfxDriver::Instance.GetResolution() - IPoint(1, 1));
@@ -148,7 +165,10 @@ bool Application::AddView(Ptr<View> view, ViewDockType dockType)
         AddView(ptr_static_cast<View>(child), ViewDockType::ChildView);
     }
     view->AllAttachedToScreen();
-    view->InvalidateLayout();
+    view->m_IsLayoutValid = false;
+    if (parent == nullptr) {
+        RegisterViewForLayout(view);
+    }
     return true;
 }
 

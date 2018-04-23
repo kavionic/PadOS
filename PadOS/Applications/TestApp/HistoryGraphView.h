@@ -15,31 +15,34 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
+// Created: 15.04.2018 11:46:11
 
-#include "sam.h"
+#pragma once
 
-#include "Font.h"
+#include <deque>
+
+#include "System/GUI/View.h"
+#include "System/GUI/GUIEvent.h"
 
 using namespace os;
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
-FontHeight Font::GetHeight() const
+class HistoryGraphView : public View
 {
-    FontHeight height;
-    height.ascender = 0.0f;
-    height.descender = kernel::GfxDriver::Instance.GetFontHeight(m_Font);
-    height.line_gap = ceil((height.descender - height.ascender) / 10.0f);
-    return height;
-}
+public:
+    HistoryGraphView(const String& name, Ptr<View> parent, uint32_t flags = 0);
+    ~HistoryGraphView();
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
+    void AddValue(float value);
 
-float Font::GetStringWidth(const char* string, size_t length) const
-{
-    return kernel::GfxDriver::Instance.GetStringWidth(m_Font, string, length);
-}
+    virtual void Paint(const Rect& updateRect) override;
+
+
+private:
+    std::deque<float> m_Values;
+    float m_MinValue = std::numeric_limits<float>::max();
+    float m_MaxValue = std::numeric_limits<float>::lowest();
+    
+    HistoryGraphView(const HistoryGraphView&) = delete;
+    HistoryGraphView& operator=(const HistoryGraphView&) = delete;
+};

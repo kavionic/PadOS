@@ -18,6 +18,9 @@
 // Created: 06.11.2017 23:22:03
 
 #pragma once
+
+#include <set>
+
 #include "System/Threads/Looper.h"
 #include "ApplicationServer/Protocol.h"
 
@@ -33,7 +36,7 @@ public:
     ~Application();
     
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
-
+    virtual void Idle() override;
     static IRect GetScreenIFrame();
     static Rect GetScreenFrame() { return Rect(GetScreenIFrame()); }
     
@@ -47,23 +50,26 @@ public:
      
     void Flush();
     void Sync();
+    
 private:
     friend class View;
  
     
     void DetachView(Ptr<View> view);
     
-//    void SetViewFrame(handler_id viewID, const Rect& frame, handler_id clientHandle) { Post<ASViewSetFrame>(viewID, frame, clientHandle); }
-//    void InvalidateView(handler_id viewID, const IRect& frame) { Post<ASViewInvalidate>(viewID, frame); }
-
     void* AllocMessageBuffer(int32_t messageID, size_t size);
-     
+
+    void RegisterViewForLayout(Ptr<View> view) { m_ViewsNeedingLayout.insert(view); }
+        
     MessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
 
     uint8_t m_SendBuffer[APPSERVER_MSG_BUFFER_SIZE]; 
     int32_t m_UsedSendBufferSize = 0;
-        
+
+    std::set<Ptr<View>> m_ViewsNeedingLayout;
+
+
     Application(const Application &) = delete;
     Application& operator=(const Application &) = delete;
 };

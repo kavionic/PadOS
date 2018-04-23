@@ -35,7 +35,7 @@ public:
     
 //    virtual void AllAttachedToScreen() override { Invalidate(); }
 
-    virtual Point GetPreferredSize(bool largest) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
 
     virtual void Paint(const Rect& updateRect) override;
         

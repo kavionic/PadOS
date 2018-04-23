@@ -27,6 +27,10 @@
 
 static port_id g_WindowManagerPort = -1;
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 port_id os::get_window_manager_port()
 {
     return g_WindowManagerPort;
@@ -42,9 +46,9 @@ public:
     WindowBar(Ptr<View> parent) : View("wmgr_window_bar", parent)
     {
         SetLayoutNode(ptr_new<VLayoutNode>());
-        GetLayoutNode()->ExtendMinSize(Point(100.0f, 0));
-        GetLayoutNode()->LimitMaxSize(Point(100.0f, LAYOUT_MAX_SIZE));        
-        GetLayoutNode()->ExtendMaxSize(Point(100.0f, LAYOUT_MAX_SIZE));
+        SetWidthOverride(PrefSizeType::All, SizeOverride::Always, 100.0f);
+        SetHeightOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
+        SetHeightOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);
     }
     
     virtual void Paint(const Rect& updateRect) override
@@ -61,7 +65,7 @@ public:
 class WindowIcon : public Button
 {
 public:
-    WindowIcon(Ptr<View> parent, Ptr<View> window) : Button("wicon", /*String(window->GetName(), 0, 1)*/window->GetName(), parent), m_Window(window)
+    WindowIcon(Ptr<View> parent, Ptr<View> window) : Button("wicon", window->GetName(), parent), m_Window(window)
     {
         SignalActivated.Connect(this, &WindowIcon::SlotClicked);
     }
@@ -92,7 +96,11 @@ WindowManager::WindowManager() : Application("window_manager")
     
     m_ClientsView = ptr_new<View>("wmgr_clients", m_TopView, ViewFlags::IGNORE_MOUSE);
     m_ClientsView->SetLayoutNode(ptr_new<LayoutNode>());
-    m_ClientsView->GetLayoutNode()->ExtendMaxSize(Point(LAYOUT_MAX_SIZE, LAYOUT_MAX_SIZE));
+    m_ClientsView->SetWidthOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
+    m_ClientsView->SetWidthOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);
+    
+    m_ClientsView->SetHeightOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
+    m_ClientsView->SetHeightOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);
     
     AddView(m_TopView, ViewDockType::RootLevelView);
 }
@@ -135,12 +143,12 @@ void WindowManager::SlotRegisterView(handler_id viewHandle, ViewDockType dockTyp
     Post<ASViewAddChild>(m_ClientsView->GetServerHandle(), viewHandle, view->GetHandle());
     AddHandler(view);
 
+    Ptr<View> prevIcon = m_SidebarView->GetChildAt(0);
     Ptr<WindowIcon> windowIcon = ptr_new<WindowIcon>(m_SidebarView, view);
     
-    m_TopView->InvalidateLayout();
-    m_ClientsView->InvalidateLayout();
-    m_SidebarView->InvalidateLayout();
-    Flush();
+    if (prevIcon != nullptr) {
+        windowIcon->AddToWidthRing(prevIcon);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

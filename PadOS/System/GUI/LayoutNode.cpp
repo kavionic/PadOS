@@ -33,13 +33,8 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-LayoutNode::LayoutNode() :
-    m_MinSize(0.0f,0.0f), m_MaxSizeExtend(0.0f,0.0f), m_MaxSizeLimit(LAYOUT_MAX_SIZE,LAYOUT_MAX_SIZE)
+LayoutNode::LayoutNode()
 {
-    m_WidthRing.m_Next  = this;
-    m_WidthRing.m_Prev  = this;
-    m_HeightRing.m_Next = this;
-    m_HeightRing.m_Prev = this;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -77,103 +72,42 @@ void LayoutNode::Layout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayoutNode::AdjustPrefSize(Point* minSize, Point* maxSize)
+void LayoutNode::CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight)
 {
-    if ( minSize->x < m_MinSize.x ) minSize->x = m_MinSize.x;
-    if ( minSize->y < m_MinSize.y ) minSize->y = m_MinSize.y;
-
-    if ( maxSize->x < m_MaxSizeExtend.x ) maxSize->x = m_MaxSizeExtend.x;
-    if ( maxSize->y < m_MaxSizeExtend.y ) maxSize->y = m_MaxSizeExtend.y;
-
-    if ( maxSize->x > m_MaxSizeLimit.x ) maxSize->x = m_MaxSizeLimit.x;
-    if ( maxSize->y > m_MaxSizeLimit.y ) maxSize->y = m_MaxSizeLimit.y;
-
-    if ( maxSize->x < minSize->x ) maxSize->x = minSize->x;
-    if ( maxSize->y < minSize->y ) maxSize->y = minSize->y;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Point LayoutNode::CalculatePreferredSize(bool largest)
-{
-    Point size(0.0f,0.0f);
+    Point minSize(0.0f,0.0f);
+    Point maxSize(0.0f, 0.0f);
+    
     if (m_View != nullptr)
     {
         for (Ptr<View> child : *m_View)
         {
             Rect borders = child->GetBorders();
             Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
-            Point currentSize = child->GetPreferredSize(largest) + borderSize;
-            if (largest)
-            {
-                size.x = std::min(size.x, currentSize.x);
-                size.y = std::min(size.y, currentSize.y);
+            Point currentMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
+            Point currentMaxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+            if (includeWidth) {
+                minSize.x = std::max(minSize.x, currentMinSize.x);
+                maxSize.x = std::min(maxSize.x, currentMaxSize.x);
             }
-            else
-            {
-                size.x = std::max(size.x, currentSize.x);
-                size.y = std::max(size.y, currentSize.y);
-            }            
+            if (includeHeight) {
+                minSize.y = std::max(minSize.y, currentMinSize.y);
+                maxSize.y = std::min(maxSize.y, currentMaxSize.y);
+            }                
         }
-        if (largest)
-        {
-            size.x = floor(size.x);
-            size.y = floor(size.y);
-        }
-        else
-        {
-            size.x = ceil(size.x);
-            size.y = ceil(size.y);            
+        if (includeWidth) {
+            minSizeOut->x = ceil(minSize.x);
+            maxSizeOut->x = floor(maxSize.x);
+        }            
+        if (includeHeight) {
+            minSizeOut->y = ceil(minSize.y);
+            maxSizeOut->y = floor(maxSize.y);
         }            
     }
-    return size;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
-
-Point LayoutNode::GetPreferredSize(bool largest)
-{
-    if (m_WidthRing.m_Next == this && m_HeightRing.m_Next == this) {
-        return CalculatePreferredSize(largest);
-    }
-    
-    Point minSize = CalculatePreferredSize(false);
-    Point maxSize;
-    if (m_WidthRing.m_Next == this || m_HeightRing.m_Next == this) {
-        maxSize = CalculatePreferredSize(true);
-    } else {
-        maxSize = minSize;
-    }
-    Point size = minSize;
-    if (largest)
-    {
-        if (m_WidthRing.m_Next == this) {
-            size.x = maxSize.x;
-        }
-        if (m_HeightRing.m_Next == this) {
-            size.y = maxSize.y;
-        }
-    }
-    for (LayoutNode* pcNode = m_WidthRing.m_Next ; pcNode != this ; pcNode = pcNode->m_WidthRing.m_Next)
-    {
-        Point cSSize = pcNode->CalculatePreferredSize(false);
-        if ( cSSize.x > size.x ) {
-            size.x = cSSize.x;
-        }
-    }
-    for (LayoutNode* pcNode = m_HeightRing.m_Next ; pcNode != this ; pcNode = pcNode->m_HeightRing.m_Next)
-    {
-        Point cSSize = pcNode->CalculatePreferredSize(false);
-        if ( cSSize.y > size.y ) {
-            size.y = cSSize.y;
-        }
-    }    
-    return size;
-}
 
 
 /*
@@ -212,56 +146,6 @@ void LayoutNode::SetVAlignments( Alignment align, const char* pzFirstName, ... )
 }
 */
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void LayoutNode::ExtendMinSize(const Point& minSize)
-{
-    m_MinSize = minSize;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void LayoutNode::LimitMaxSize(const Point& maxSize)
-{
-    m_MaxSizeLimit = maxSize;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void LayoutNode::ExtendMaxSize(const Point& maxSize)
-{
-    m_MaxSizeExtend = maxSize;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void LayoutNode::AddToWidthRing( LayoutNode* ring )
-{
-    m_WidthRing.m_Next = ring;
-    m_WidthRing.m_Prev = ring->m_WidthRing.m_Prev;
-    ring->m_WidthRing.m_Prev->m_WidthRing.m_Next = this;
-    ring->m_WidthRing.m_Prev = this;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void LayoutNode::AddToHeightRing(LayoutNode* ring)
-{
-    m_HeightRing.m_Next = ring;
-    m_HeightRing.m_Prev = ring->m_HeightRing.m_Prev;
-    ring->m_HeightRing.m_Prev->m_HeightRing.m_Next = this;
-    ring->m_HeightRing.m_Prev = this;
-}
 /*
 void LayoutNode::SameWidth( const char* pzName1, ... )
 {
@@ -377,9 +261,10 @@ HLayoutNode::HLayoutNode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point HLayoutNode::CalculatePreferredSize(bool largest)
+void HLayoutNode::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
-    Point size( 0.0f, 0.0f );
+    *minSize = Point(0.0f, 0.0f);
+    *maxSize = Point(0.0f, 0.0f);
 
     if (m_View != nullptr)
     {
@@ -387,14 +272,18 @@ Point HLayoutNode::CalculatePreferredSize(bool largest)
         {
             Rect borders = child->GetBorders();
             Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
-            Point childSize = child->GetPreferredSize(largest) + borderSize;
-            size.x += childSize.x;
-            if (childSize.y > size.y) {
-                size.y = childSize.y;
+            Point childMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
+            Point childMaxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+            if (includeWidth) {
+                minSize->x += childMinSize.x;
+                maxSize->x += childMaxSize.x;
             }
+            if (includeHeight) {
+                if (childMinSize.y > minSize->y) minSize->y = childMinSize.y;
+                if (childMaxSize.y > maxSize->y) maxSize->y = childMaxSize.y;
+            }                
         }
     }
-    return size;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -425,11 +314,9 @@ void HLayoutNode::Layout()
             Rect borders = child->GetBorders();
             Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
             
-            Point minSize = child->GetPreferredSize(false);
-            Point maxSize = child->GetPreferredSize(true);
+            Point minSize = child->GetPreferredSize(PrefSizeType::Smallest);
+            Point maxSize = child->GetPreferredSize(PrefSizeType::Greatest);
 
-            child->AdjustPrefSize(&minSize, &maxSize);
-            
             minSize += borderSize;
             maxSize += borderSize;
             
@@ -468,9 +355,11 @@ void HLayoutNode::Layout()
             
             frame += Point(x, y);
             Rect borders = childList[i]->GetBorders();
+            
+            float width = frame.Width();
             frame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
             
-            x += frame.Width() + unusedWidth;
+            x += width + unusedWidth;
             frame.Floor();
 //            printf("    %d: %.2f->%.2f\n", i, frame.left, frame.right);
             childList[i]->SetFrame(frame);
@@ -490,9 +379,10 @@ VLayoutNode::VLayoutNode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point VLayoutNode::CalculatePreferredSize(bool largest)
+void VLayoutNode::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
-    Point size(0.0f, 0.0f);
+    *minSize = Point(0.0f, 0.0f);
+    *maxSize = Point(0.0f, 0.0f);
     
     if (m_View != nullptr)
     {
@@ -501,14 +391,19 @@ Point VLayoutNode::CalculatePreferredSize(bool largest)
             Rect  borders = child->GetBorders();
             Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
 
-            Point childSize = child->GetPreferredSize(largest) + borderSize;
-            size.y += childSize.y;
-            if (childSize.x > size.x) {
-                size.x = childSize.x;
+            Point childMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
+            Point childMaxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+            
+            if (includeWidth) {
+                if (childMinSize.x > minSize->x) minSize->x = childMinSize.x;
+                if (childMaxSize.x > maxSize->x) maxSize->x = childMaxSize.x;
+            }
+            if (includeHeight) {
+                minSize->y += childMinSize.y;
+                maxSize->y += childMaxSize.y;
             }
         }
     }        
-    return size;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -539,10 +434,8 @@ void VLayoutNode::Layout()
             Rect borders = child->GetBorders();
             Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
             
-            Point minSize = child->GetPreferredSize(false);
-            Point maxSize = child->GetPreferredSize(true);
-
-            child->AdjustPrefSize(&minSize, &maxSize);
+            Point minSize = child->GetPreferredSize(PrefSizeType::Smallest);
+            Point maxSize = child->GetPreferredSize(PrefSizeType::Greatest);
 
             minSize += borderSize;
             maxSize += borderSize;
@@ -579,50 +472,12 @@ void VLayoutNode::Layout()
             }
             frame += Point(x, y);
             
+            float height = frame.Height();
             Rect borders = childList[i]->GetBorders();
             frame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
-            y += frame.Height() + vUnusedHeight;
+            y += height + vUnusedHeight;
             frame.Floor();
             childList[i]->SetFrame(frame);
         }
     }        
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-/*LayoutSpacer::LayoutSpacer(float vWheight, const Point& minSize, const Point& maxSize) : LayoutNode(vWheight)
-{
-    m_MinSize = minSize;
-    m_MaxSize = maxSize;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void LayoutSpacer::SetMinSize(const Point& size)
-{
-    m_MinSize = size;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void LayoutSpacer::SetMaxSize(const Point& size)
-{
-    m_MaxSize = size;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Point LayoutSpacer::CalculatePreferredSize( bool bLargest )
-{
-    return( (bLargest) ? m_MaxSize : m_MinSize );
-}
-
-*/

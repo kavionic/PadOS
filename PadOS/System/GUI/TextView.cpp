@@ -20,6 +20,7 @@
 #include "sam.h"
 
 #include "TextView.h"
+#include "System/Utils/Utils.h"
 
 using namespace os;
 
@@ -30,6 +31,8 @@ using namespace os;
 
 TextView::TextView(const String& name, const String& text, Ptr<View> parent, uint32_t flags) : View(name, parent, flags), m_Text(text)
 {
+    SetBgColor(GetEraseColor());
+    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -46,21 +49,28 @@ TextView::~TextView()
 
 void TextView::SetText(const String& text)
 {
+//    ProfileTimer timer("TextView::SetText()");    
     m_Text = text;
     PreferredSizeChanged();
     Invalidate();
-    Sync();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point TextView::GetPreferredSize(bool largest) const
+void TextView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
 {
-    FontHeight fontHeight = GetFontHeight();
-    float      stringWidth = GetStringWidth(m_Text);
-    return Point(stringWidth, fontHeight.descender - fontHeight.ascender + fontHeight.line_gap);
+    Point size;
+    if (includeWidth) {
+        size.x = GetStringWidth(m_Text);
+    }
+    if (includeHeight) {
+        FontHeight fontHeight = GetFontHeight();
+        size.y = fontHeight.descender - fontHeight.ascender + fontHeight.line_gap;
+    }
+    *minSize = size;
+    *maxSize = size;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

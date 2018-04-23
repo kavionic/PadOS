@@ -32,7 +32,7 @@ public:
     ~Button();
     virtual void AllAttachedToScreen() override { Invalidate(); }
 
-    virtual Point GetPreferredSize(bool largest) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
 
     virtual bool OnMouseDown(MouseButton_e button, const Point& position) override;
     virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
@@ -51,7 +51,8 @@ private:
     bool m_IsPressed = false;
         
     String m_Label;
-    
+    Point  m_LabelSize;
+        
     Button(const Button&) = delete;
     Button& operator=(const Button&) = delete;
 };

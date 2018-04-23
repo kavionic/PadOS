@@ -19,6 +19,9 @@
 #pragma once
 
 #include "cmsis_gcc.h"
+#include "System/Types.h"
+#include "System/System.h"
+#include "System/String.h"
 
 namespace std {
     template<typename T> inline const T& clamp(const T& value, const T& bottom, const T& top) { return (value < bottom) ? bottom : ((value > top) ? top : value); }
@@ -35,6 +38,49 @@ template<typename T> inline T wrap(const T& bottom, const T& top, const T& value
         return value;
     }        
 }
+namespace os
+{
+template<typename T>
+struct ReverseRangedWrapper
+{
+    ReverseRangedWrapper(T& list) : m_List(list) {}
+    
+    auto begin() { return m_List.rbegin(); }
+    auto end() { return m_List.rend(); }
+    
+    T& m_List;    
+};
+
+template<typename T>
+struct ReverseRangedWrapperConst
+{
+    ReverseRangedWrapperConst(const T& list) : m_List(list) {}
+    
+    auto begin() { return m_List.rbegin(); }
+    auto end() { return m_List.rend(); }
+    
+    const T& m_List;
+};
+
+template<typename T> ReverseRangedWrapper<T>      reverse_ranged(T& list) { return ReverseRangedWrapper<T>(list); }
+template<typename T> ReverseRangedWrapperConst<T> reverse_ranged(const T& list) { return ReverseRangedWrapper<T>(list); }
+
+
+class ProfileTimer
+{
+    public:
+    ProfileTimer(const String& title) : m_Title(title) { m_StartTime = get_system_time_hires(); }
+    ~ProfileTimer()
+    {
+        bigtime_t time = get_system_time_hires();
+        printf("Prof: %s (%.3f)\n", m_Title.c_str(), double(time - m_StartTime) / 1000.0);
+    }
+    
+    String    m_Title;
+    bigtime_t m_StartTime;
+};
+
+} // namespace
 
 #define I8(value) static_cast<int8_t>(value)
 #define U8(value) static_cast<uint8_t>(value)

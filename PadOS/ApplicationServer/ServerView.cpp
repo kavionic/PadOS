@@ -43,30 +43,6 @@ ServerView::ServerView(const String& name, const Rect& frame, const Point& scrol
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-template<typename T>
-struct ReverseList
-{
-    ReverseList(T& list) : m_List(list) {}
-    
-    typename T::reverse_iterator begin() { return m_List.rbegin(); }
-    typename T::reverse_iterator end() { return m_List.rend(); }
-    
-    T& m_List;    
-};
-
-template<typename T>
-struct ReverseListConst
-{
-    ReverseListConst(const T& list) : m_List(list) {}
-    
-    typename T::const_reverse_iterator begin() { return m_List.rbegin(); }
-    typename T::const_reverse_iterator end() { return m_List.rend(); }
-    
-    const T& m_List;
-};
-
-template<typename T> ReverseList<T>      reverse_ranged(T& list) { return ReverseList<T>(list); }
-template<typename T> ReverseListConst<T> reverse_ranged(const T& list) { return ReverseList<T>(list); }
     
 bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
 {
@@ -1129,7 +1105,7 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     IRect  dstRect = intSrcRect + delta;
 
     std::vector<IRect> bltList;
-    Region       damage(*m_VisibleReg, dstRect, false);
+    Region       damage(*m_VisibleReg, intSrcRect, false);
 
     for (const IRect& srcClip : m_VisibleReg->m_Rects)
     {

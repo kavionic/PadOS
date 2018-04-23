@@ -26,6 +26,7 @@
 
 #include "View.h"
 #include "Application.h"
+#include "System/Utils/Utils.h"
 
 using namespace kernel;
 using namespace os;
@@ -104,7 +105,7 @@ static Color Tint(const Color& color, float tint)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name, Rect(), Point(), flags, 0, Color(0xffffffff), Color(0xffffffff), Color(0))
+View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name, Rect(), Point(), flags, 0, get_standard_color(StandardColorID::NORMAL), get_standard_color(StandardColorID::NORMAL), Color(0))
 {
     Initialize();
     if (parent != nullptr) {
@@ -137,6 +138,8 @@ void View::Initialize()
     RegisterRemoteSignal(&RSHandleMouseDown, &View::HandleMouseDown);
     RegisterRemoteSignal(&RSHandleMouseUp, &View::HandleMouseUp);
     RegisterRemoteSignal(&RSHandleMouseMove, &View::HandleMouseMove);
+    
+    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -146,7 +149,9 @@ void View::Initialize()
 View::~View()
 {
     SetLayoutNode(nullptr);
-    
+    RemoveFromWidthRing();
+    RemoveFromHeightRing();
+       
     while(!m_ChildrenList.empty())
     {
         RemoveChild(m_ChildrenList[m_ChildrenList.size()-1]);
@@ -197,8 +202,7 @@ void View::SetBorders(const Rect& border)
 {
     m_Borders = border;
     Ptr<View> parent = GetParent();
-    if (parent != nullptr)
-    {
+    if (parent != nullptr) {
         parent->InvalidateLayout();
     }
 }
@@ -229,8 +233,7 @@ void View::SetWheight(float vWheight)
 {
     m_Wheight = vWheight;
     Ptr<View> parent = GetParent();
-    if (parent != nullptr)
-    {
+    if (parent != nullptr) {
         parent->InvalidateLayout();
     }
 }
@@ -243,8 +246,7 @@ void View::SetHAlignment(Alignment alignment)
 {
     m_HAlign = alignment;
     Ptr<View> parent = GetParent();
-    if (parent != nullptr)
-    {
+    if (parent != nullptr) {
         parent->InvalidateLayout();
     }
 }
@@ -257,8 +259,7 @@ void View::SetVAlignment(Alignment alignment)
 {
     m_VAlign = alignment;
     Ptr<View> parent = GetParent();
-    if (parent != nullptr)
-    {
+    if (parent != nullptr) {
         parent->InvalidateLayout();
     }
 }
@@ -285,10 +286,73 @@ Alignment View::GetVAlignment() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::InvalidateLayout()
+void View::SetWidthOverride(PrefSizeType sizeType, SizeOverride when, float size)
 {
-    if ( m_LayoutNode != nullptr ) {
-        m_LayoutNode->Layout();
+    if (sizeType == PrefSizeType::Smallest || sizeType == PrefSizeType::Greatest) {
+        m_WidthOverride[int(sizeType)]     = size;
+        m_WidthOverrideType[int(sizeType)] = when;
+    } else if (sizeType == PrefSizeType::All) {
+        m_WidthOverride[int(PrefSizeType::Smallest)]     = size;
+        m_WidthOverrideType[int(PrefSizeType::Smallest)] = when;
+        
+        m_WidthOverride[int(PrefSizeType::Greatest)]     = size;
+        m_WidthOverrideType[int(PrefSizeType::Greatest)] = when;        
+    }
+    PreferredSizeChanged();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::SetHeightOverride(PrefSizeType sizeType, SizeOverride when, float size)
+{
+    if (sizeType == PrefSizeType::Smallest || sizeType == PrefSizeType::Greatest) {
+        m_HeightOverride[int(sizeType)]     = size;
+        m_HeightOverrideType[int(sizeType)] = when;
+    } else if (sizeType == PrefSizeType::All) {
+        m_HeightOverride[int(PrefSizeType::Smallest)]     = size;
+        m_HeightOverrideType[int(PrefSizeType::Smallest)] = when;
+        
+        m_HeightOverride[int(PrefSizeType::Greatest)]     = size;
+        m_HeightOverrideType[int(PrefSizeType::Greatest)] = when;        
+    }
+    PreferredSizeChanged();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::AddToWidthRing(Ptr<View> ring)
+{
+    if (m_WidthRing != nullptr) {
+        RemoveFromWidthRing();
+    }
+    m_WidthRing = (ring->m_WidthRing != nullptr) ? ring->m_WidthRing : ptr_raw_pointer_cast(ring);
+    ring->m_WidthRing = this;
+    UpdateRingSize();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::RemoveFromWidthRing()
+{
+    if (m_WidthRing != nullptr)
+    {
+        for (View* i = m_WidthRing;; i = i->m_WidthRing)
+        {
+            if (i->m_WidthRing == this)
+            {
+                i->m_WidthRing = (m_WidthRing != i) ? m_WidthRing : nullptr;
+                m_WidthRing = nullptr;
+                UpdateRingSize();
+                i->UpdateRingSize();
+                break;
+            }
+        }
     }
 }
 
@@ -296,11 +360,83 @@ void View::InvalidateLayout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::AdjustPrefSize(Point* minSize, Point* maxSize)
+void View::AddToHeightRing(Ptr<View> ring)
 {
-    if ( m_LayoutNode != nullptr ) {
-        m_LayoutNode->AdjustPrefSize(minSize, maxSize);
+    RemoveFromHeightRing();
+    m_HeightRing = (ring->m_HeightRing != nullptr) ? ring->m_HeightRing : ptr_raw_pointer_cast(ring);
+    ring->m_HeightRing = this;    
+    UpdateRingSize();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::RemoveFromHeightRing()
+{
+    if (m_HeightRing != nullptr)
+    {
+        for (View* i = m_HeightRing;; i = i->m_HeightRing)
+        {
+            if (i->m_HeightRing == this)
+            {
+                i->m_HeightRing = (m_HeightRing != i) ? m_HeightRing : nullptr;
+                m_HeightRing = nullptr;
+                UpdateRingSize();
+                i->UpdateRingSize();
+                break;
+            }
+        }
     }    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::InvalidateLayout()
+{
+    if (m_IsLayoutValid)
+    {
+        Application* app = GetApplication();
+    
+        if (app != nullptr)
+        {
+            Ptr<View> i = ptr_tmp_cast(this);
+            for (;;)
+            {
+                if (!i->m_IsLayoutValid) {
+                    break;
+                }
+                Ptr<View> parent = i->GetParent();
+                if (parent == nullptr) {
+                    app->RegisterViewForLayout(i);
+                    break;
+                }
+                i = parent;
+            }
+        }
+        m_IsLayoutValid = false;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::UpdateLayout()
+{
+    if (!m_IsLayoutValid)
+    {
+        if (m_LayoutNode != nullptr)
+        {
+            m_LayoutNode->Layout();
+        }
+        m_IsLayoutValid = true;
+    }    
+    for (Ptr<View> child : *this) {
+        child->UpdateLayout();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -357,9 +493,8 @@ void View::FrameMoved(const Point& delta)
 
 void View::FrameSized(const Point& delta)
 {
-    if (m_LayoutNode != nullptr)
-    {
-        m_LayoutNode->Layout();
+    if (m_LayoutNode != nullptr) {
+        InvalidateLayout();
     }    
 }
 
@@ -385,16 +520,25 @@ void View::FontChanged(Ptr<Font> newFont)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point View::GetPreferredSize(bool largest) const
+void View::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
 {
     if (m_LayoutNode != nullptr) {
-        Point minSize = m_LayoutNode->GetPreferredSize(false);
-        Point maxSize = m_LayoutNode->GetPreferredSize(true);
-        m_LayoutNode->AdjustPrefSize(&minSize, &maxSize);
-        return largest ? maxSize : minSize;
+        m_LayoutNode->CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     } else {
-        return largest ? Point(std::numeric_limits<float>::max(), std::numeric_limits<float>::max()) : Point(0.0f, 0.0f);
-    }        
+        minSize->x = 0.0f;
+        minSize->y = 0.0f;
+        maxSize->x = LAYOUT_MAX_SIZE;
+        maxSize->y = LAYOUT_MAX_SIZE;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Point View::GetPreferredSize(PrefSizeType sizeType) const
+{
+    return m_PreferredSizes[int(sizeType)];
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -412,12 +556,40 @@ Point View::GetContentSize() const
 
 void View::PreferredSizeChanged()
 {
-    Ptr<View> parent = GetParent();
-    if (parent != nullptr)
+    Point sizes[int(PrefSizeType::Count)];
+    
+    bool includeWidth  = m_WidthOverrideType[int(PrefSizeType::Smallest)] != SizeOverride::Always || m_WidthOverrideType[int(PrefSizeType::Greatest)] != SizeOverride::Always;
+    bool includeHeight = m_HeightOverrideType[int(PrefSizeType::Smallest)] != SizeOverride::Always || m_HeightOverrideType[int(PrefSizeType::Greatest)] != SizeOverride::Always;
+    
+    CalculatePreferredSize(&sizes[int(PrefSizeType::Smallest)], &sizes[int(PrefSizeType::Greatest)], includeWidth, includeHeight);
+    
+    for (int i = 0; i < int(PrefSizeType::Count); ++i)
     {
-        parent->PreferredSizeChanged();
-        parent->InvalidateLayout();        
-    }    
+        switch(m_WidthOverrideType[i])
+        {
+            case SizeOverride::None: break;
+            case SizeOverride::Always:    sizes[i].x = m_WidthOverride[i]; break;
+            case SizeOverride::IfSmaller: sizes[i].x = std::max(sizes[i].x, m_WidthOverride[i]); break;
+            case SizeOverride::IfGreater: sizes[i].x = std::min(sizes[i].x, m_WidthOverride[i]); break;
+        }
+        switch(m_HeightOverrideType[i])
+        {
+            case SizeOverride::None: break;
+            case SizeOverride::Always:    sizes[i].y = m_HeightOverride[i]; break;
+            case SizeOverride::IfSmaller: sizes[i].y = std::max(sizes[i].y, m_HeightOverride[i]); break;
+            case SizeOverride::IfGreater: sizes[i].y = std::min(sizes[i].y, m_HeightOverride[i]); break;
+        }
+        if (sizes[i].x > LAYOUT_MAX_SIZE) sizes[i].x = LAYOUT_MAX_SIZE;
+        if (sizes[i].y > LAYOUT_MAX_SIZE) sizes[i].y = LAYOUT_MAX_SIZE;
+    }
+    
+    if (sizes[int(PrefSizeType::Smallest)] != m_LocalPrefSize[int(PrefSizeType::Smallest)] || sizes[int(PrefSizeType::Greatest)] != m_LocalPrefSize[int(PrefSizeType::Greatest)])
+    {
+        m_LocalPrefSize[int(PrefSizeType::Smallest)] = sizes[int(PrefSizeType::Smallest)];
+        m_LocalPrefSize[int(PrefSizeType::Greatest)] = sizes[int(PrefSizeType::Greatest)];
+        
+        UpdateRingSize();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -460,6 +632,34 @@ bool View::RemoveThis()
         return true;
     }
     return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<View> View::GetChildAt(const Point& pos)
+{
+    for (Ptr<View> child : reverse_ranged(*this))
+    {
+        if (child->GetFrame().DoIntersect(pos)) {
+            return child;
+        }
+    }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<View> View::GetChildAt(size_t index)
+{
+    if (index < m_ChildrenList.size()) {
+        return m_ChildrenList[index];
+    } else {
+        return nullptr;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -587,10 +787,21 @@ void View::HandleMouseMove(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void View::CopyRect(const Rect& srcRect, const Point& dstPos)
+{
+    if (m_BeginPainCount != 0) {
+        m_DidScrollRect = true;
+    }
+    Post<ASViewCopyRect>(srcRect, dstPos);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
 {
     Rect frame(rect);
-    frame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
     frame.Floor();
     bool sunken = false;
 
@@ -685,46 +896,6 @@ void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::DrawBevelBox(Rect frame, bool raised)
-{
-    Color colorDark(0xa0,0xa0,0xa0);
-    Color colorLight(0xe0,0xe0,0xe0);
-    if ( !raised ) std::swap(colorDark, colorLight);
-
-    SetFgColor(colorLight);
-    DrawLine(frame.left, frame.top, frame.right, frame.top);
-    
-    SetFgColor(colorDark);
-    DrawLine(frame.right, frame.top + 1, frame.right, frame.bottom);
-    DrawLine(frame.right - 1, frame.bottom, frame.left - 1, frame.bottom);
-    
-    SetFgColor(colorLight);
-    DrawLine(frame.left, frame.bottom, frame.left, frame.top);
-
-    colorDark.SetRGBA(0xc0,0xc0,0xc0);
-    colorLight.SetRGBA(0xff,0xff,0xff);
-    if ( !raised ) std::swap(colorDark, colorLight);
-    
-    frame.Resize(1.0f, 1.0f, -1.0f, -1.0f);
-    
-    SetFgColor(colorLight);
-    DrawLine(frame.left, frame.top, frame.right, frame.top);
-
-    SetFgColor(colorDark);
-    DrawLine(frame.right, frame.top + 1, frame.right, frame.bottom);
-    DrawLine(frame.right - 1, frame.bottom, frame.left - 1, frame.bottom);
-
-    SetFgColor(colorLight);
-    DrawLine(frame.left, frame.bottom, frame.left, frame.top);
-
-    frame.Resize(1.0f, 1.0f, -1.0f, -1.0f);
-    FillRect(frame, (raised) ? Color(0xd0,0xd0,0xd0) : Color(0xf0,0xf0,0xf0) );
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 FontHeight View::GetFontHeight() const
 {
     if (m_Font != nullptr)
@@ -790,11 +961,9 @@ void View::HandleAddedToParent(Ptr<View> parent)
     if (parent->m_ServerHandle != -1 && !HasFlag(ViewFlags::EAVESDROPPER))
     {
         parent->GetApplication()->AddView(ptr_tmp_cast(this), ViewDockType::ChildView);
-        
-        if (m_LayoutNode != nullptr) {
-            m_LayoutNode->Layout();
-        }
     }
+    parent->PreferredSizeChanged();
+    parent->InvalidateLayout();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -844,7 +1013,129 @@ void View::HandlePaint(const Rect& updateRect)
         m_DidScrollRect = false;
         Sync();
     } else {
-        Flush();
+//        Flush();
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::UpdateRingSize()
+{
+    if (m_WidthRing == nullptr && m_HeightRing == nullptr)
+    {
+        if (m_LocalPrefSize[int(PrefSizeType::Smallest)] != m_PreferredSizes[int(PrefSizeType::Smallest)] || m_LocalPrefSize[int(PrefSizeType::Greatest)] != m_PreferredSizes[int(PrefSizeType::Greatest)])
+        {
+            m_PreferredSizes[int(PrefSizeType::Smallest)] = m_LocalPrefSize[int(PrefSizeType::Smallest)];
+            m_PreferredSizes[int(PrefSizeType::Greatest)] = m_LocalPrefSize[int(PrefSizeType::Greatest)];
+            Ptr<View> parent = GetParent();
+            if (parent != nullptr) {
+                parent->PreferredSizeChanged();
+                parent->InvalidateLayout();
+            }
+        }
+    }
+    else
+    {
+        Point ringSizes[int(PrefSizeType::Count)];
+        //// Calculate ring with. ////
+        if (m_WidthRing == nullptr)
+        {
+            for (int i = 0; i < int(PrefSizeType::Count); ++i) {
+                ringSizes[i].x = m_LocalPrefSize[i].x;
+            }
+        }
+        else
+        {
+            View* member = this;
+            do
+            {
+                for (int i = 0; i < int(PrefSizeType::Count); ++i)
+                {
+                    if (member->m_LocalPrefSize[i].x > ringSizes[i].x) ringSizes[i].x = member->m_LocalPrefSize[i].x;
+                }
+                member = member->m_WidthRing;
+            } while (member != this);
+        }
+        //// Calculate ring height. ////
+        if (m_HeightRing == nullptr)
+        {
+            for (int i = 0; i < int(PrefSizeType::Count); ++i) {
+                ringSizes[i].y = m_LocalPrefSize[i].y;
+            }
+        }
+        else
+        {
+            View* member = this;
+            do
+            {
+                for (int i = 0; i < int(PrefSizeType::Count); ++i)
+                {
+                    if (member->m_LocalPrefSize[i].y > ringSizes[i].y) ringSizes[i].y = member->m_LocalPrefSize[i].y;
+                }
+                member = member->m_HeightRing;
+            } while (member != this);
+        }
+        
+        if (ringSizes[int(PrefSizeType::Smallest)] != m_PreferredSizes[int(PrefSizeType::Smallest)] || ringSizes[int(PrefSizeType::Greatest)] != m_PreferredSizes[int(PrefSizeType::Greatest)])
+        {
+            //// Update members of width ring. ////
+            if (m_WidthRing != nullptr)
+            {
+                View* member = this;
+                do
+                {
+                    member->m_PreferredSizes[int(PrefSizeType::Smallest)] = ringSizes[int(PrefSizeType::Smallest)];
+                    member->m_PreferredSizes[int(PrefSizeType::Greatest)] = ringSizes[int(PrefSizeType::Greatest)];
+                    member = member->m_WidthRing;
+                } while (member != this);
+            }
+            //// Update members of height ring. ////
+            if (m_HeightRing != nullptr)
+            {
+                View* member = this;
+                do
+                {
+                    member->m_PreferredSizes[int(PrefSizeType::Smallest)] = ringSizes[int(PrefSizeType::Smallest)];
+                    member->m_PreferredSizes[int(PrefSizeType::Greatest)] = ringSizes[int(PrefSizeType::Greatest)];
+                    member = member->m_HeightRing;
+                } while (member != this);
+            }
+            std::set<View*> notifiedParents;
+            
+            //// Notify parents of with ring members. ////
+            if (m_WidthRing != nullptr)
+            {
+                View* member = this;
+                do
+                {
+                    Ptr<View> parent = member->GetParent();
+                    if (parent != nullptr && notifiedParents.count(ptr_raw_pointer_cast(parent)) == 0)
+                    {
+                        notifiedParents.insert(ptr_raw_pointer_cast(parent));
+                        parent->PreferredSizeChanged();
+                        parent->InvalidateLayout();
+                    }
+                    member = member->m_WidthRing;
+                } while (member != this);
+            }
+            //// Notify parents of height ring members. ////
+            if (m_HeightRing != nullptr)
+            {
+                View* member = this;
+                do
+                {
+                    Ptr<View> parent = member->GetParent();
+                    if (parent != nullptr && notifiedParents.count(ptr_raw_pointer_cast(parent)) == 0)
+                    {
+                        notifiedParents.insert(ptr_raw_pointer_cast(parent));
+                        parent->PreferredSizeChanged();
+                        parent->InvalidateLayout();
+                    }
+                    member = member->m_HeightRing;
+                } while (member != this);
+            }
+        }
+    }    
+}

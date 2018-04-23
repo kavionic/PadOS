@@ -41,9 +41,16 @@ PaintView::PaintView() : View("Paint")
     topBar->SetLayoutNode(ptr_new<HLayoutNode>());
     bottomBar->SetLayoutNode(ptr_new<HLayoutNode>());
  
-    topBar->GetLayoutNode()->ExtendMaxSize(Point(LAYOUT_MAX_SIZE, LAYOUT_MAX_SIZE));
-    bottomBar->GetLayoutNode()->ExtendMaxSize(Point(LAYOUT_MAX_SIZE, LAYOUT_MAX_SIZE));
-    
+    topBar->SetWidthOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
+    topBar->SetWidthOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);
+    topBar->SetHeightOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
+    topBar->SetHeightOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);
+
+    bottomBar->SetWidthOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
+    bottomBar->SetWidthOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);
+    bottomBar->SetHeightOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
+    bottomBar->SetHeightOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);
+        
     Ptr<Button> clearButton = ptr_new<Button>("ClearButton", "Clear", topBar);
     clearButton->SignalActivated.Connect(this, &PaintView::SlotClearButton);
     Ptr<Button> nextButton = ptr_new<Button>("NextButton", "Next", topBar);
@@ -53,7 +60,6 @@ PaintView::PaintView() : View("Paint")
     {
         Ptr<Button> button = ptr_new<Button>("TstButton", String::FormatString("Test%d", i + 1), bottomBar);
     }
-    InvalidateLayout();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,7 +79,6 @@ void PaintView::AllAttachedToScreen()
 {
     SetFgColor(255, 255, 255);
     FillRect(GetBounds());
-    Flush();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -115,7 +120,6 @@ bool PaintView::OnMouseMove(MouseButton_e button, const Point& position)
         FillCircle(position, 4.0f);
         SetFgColor(0,255,255);
         FillCircle(position, 2.0f);
-        Flush();
         return true;
     }
     return false;        
@@ -128,9 +132,6 @@ bool PaintView::OnMouseMove(MouseButton_e button, const Point& position)
 void PaintView::SlotClearButton()
 {
     FillRect(GetBounds(), Color(0xffffffff));
-    Flush();
-//    Invalidate(true);
-//    UpdateIfNeeded(false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

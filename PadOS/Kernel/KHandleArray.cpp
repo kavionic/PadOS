@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 07.03.2018 16:00:14
 
+#include "sam.h"
+
 #include "KHandleArray.h"
 #include "System/Ptr/NoPtr.h"
 

@@ -145,7 +145,7 @@ private:
     State_e m_State = State_e::Idle;
     int     m_CurrentRegister = 0;
 
-    bigtime_t m_UpdatePeriode  = 500000;
+    bigtime_t m_UpdatePeriode  = 10000;
     bigtime_t m_LastUpdateTime = 0;
     bigtime_t m_ReadStartTime  = 0;
     bigtime_t m_ReadRetryCount = 0;

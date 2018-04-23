@@ -88,7 +88,7 @@ void INA3221Driver::SlotTick()
         if (Kernel::Read(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer)) == sizeof(m_RegisterBuffer)) {
             m_State = State_e::ProcessingRegister;
         }                
-        m_Timer.Set(10000);
+        m_Timer.Set(1000);
     }
     else if (m_State == State_e::ReadingRegister)
     {
@@ -108,7 +108,7 @@ void INA3221Driver::SlotTick()
                 if (Kernel::Read(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer)) == sizeof(m_RegisterBuffer)) {
                     m_State = State_e::ProcessingRegister;
                 }
-                m_Timer.Set(10000);
+                m_Timer.Set(2000);
             }
         }
     }
@@ -119,27 +119,27 @@ void INA3221Driver::SlotTick()
         switch(m_CurrentRegister)
         {
             case INA3221_SHUNT_VOLTAGE_1:
-                m_CurrentValues.Currents[0] = CalculateCurrent(0, value);
+                m_CurrentValues.Currents[0] += (CalculateCurrent(0, value) - m_CurrentValues.Currents[0]) * 0.01;
                 m_CurrentRegister = INA3221_BUS_VOLTAGE_1;
                 break;
             case INA3221_BUS_VOLTAGE_1:
-                m_CurrentValues.Voltages[0] = CalculateVoltage(value);
+                m_CurrentValues.Voltages[0] += (CalculateVoltage(value) - m_CurrentValues.Voltages[0]) * 0.01;
                 m_CurrentRegister = INA3221_SHUNT_VOLTAGE_2;
                 break;
             case INA3221_SHUNT_VOLTAGE_2:
-                m_CurrentValues.Currents[1] = CalculateCurrent(1, value);
+                m_CurrentValues.Currents[1] += (CalculateCurrent(1, value) - m_CurrentValues.Currents[1]) * 0.01;
                 m_CurrentRegister = INA3221_BUS_VOLTAGE_2;
                 break;
             case INA3221_BUS_VOLTAGE_2:
-                m_CurrentValues.Voltages[1] = CalculateVoltage(value);
+                m_CurrentValues.Voltages[1] += (CalculateVoltage(value) - m_CurrentValues.Voltages[1]) * 0.01;
                 m_CurrentRegister = INA3221_SHUNT_VOLTAGE_3;
                 break;
             case INA3221_SHUNT_VOLTAGE_3:
-                m_CurrentValues.Currents[2] = CalculateCurrent(2, value);
+                m_CurrentValues.Currents[2] +=  (CalculateCurrent(2, value) - m_CurrentValues.Currents[2]) * 0.01;
                 m_CurrentRegister = INA3221_BUS_VOLTAGE_3;
                 break;
             case INA3221_BUS_VOLTAGE_3:
-                m_CurrentValues.Voltages[2] = CalculateVoltage(value);
+                m_CurrentValues.Voltages[2] += (CalculateVoltage(value) - m_CurrentValues.Voltages[2]) * 0.01;
                 m_State = State_e::Idle;
                 m_Timer.Set(m_UpdatePeriode - (time - m_LastUpdateTime));
                 break;

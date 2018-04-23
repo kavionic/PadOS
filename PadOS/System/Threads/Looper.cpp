@@ -270,17 +270,22 @@ bool Looper::ProcessEvents(handler_id waitTarget, int32_t waitCode)
             nextEventTime = INFINIT_TIMEOUT;
         }
         // RACE!!! If another thread start a timer now, we might get stuck waiting for a message.
-        handler_id targetHandler;
-        int32_t    code;
-        
-        ssize_t msgLength = m_Port.ReceiveMessageTimeout(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), 0);
-        if (msgLength < 0 && get_last_error() == ETIME) {
-            Idle();
-            msgLength = m_Port.ReceiveMessageDeadline(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), nextEventTime);
-        }
-        if (msgLength >= 0)
+        for (;;)
         {
-            ProcessMessage(targetHandler, code, msgLength);
+            handler_id targetHandler;
+            int32_t    code;
+        
+            ssize_t msgLength = m_Port.ReceiveMessageTimeout(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), 0);
+            if (msgLength < 0 && get_last_error() == ETIME) {
+                Idle();
+                msgLength = m_Port.ReceiveMessageDeadline(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), nextEventTime);
+            }
+            if (msgLength >= 0) {
+                ProcessMessage(targetHandler, code, msgLength);
+            }
+            else {
+                break;
+            }
         }            
     }
     return false;

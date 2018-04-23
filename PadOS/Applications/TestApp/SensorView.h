@@ -27,6 +27,7 @@
 using namespace os;
 
 class EnvironmentView;
+class CurrentSensorView;
 
 class SensorView : public View
 {
@@ -58,6 +59,9 @@ private:
     INA3221Values m_VoltageValues;
 
     Ptr<EnvironmentView> m_EnvironmentView;
+    Ptr<CurrentSensorView> m_CurrentView33;
+    Ptr<CurrentSensorView> m_CurrentView50;
+    Ptr<CurrentSensorView> m_CurrentViewBat;
 
     SensorView(const SensorView&) = delete;
     SensorView& operator=(const SensorView&) = delete;

@@ -20,11 +20,10 @@
 #pragma once
 
 #include "Kernel/VFS/KDeviceNode.h"
+#include "Kernel/KMutex.h"
 #include "DeviceControl/BME280.h"
 #include "System/Utils/Utils.h"
 #include "System/Threads/Thread.h"
-#include "System/Threads/Semaphore.h"
-//#include "System/Utils/EventTimer.h"
 
 namespace kernel
 {
@@ -295,7 +294,7 @@ private:
     double CompensateHumidity(uint32_t uncompHumidity) const;
 
 
-    Semaphore m_Mutex;
+    KMutex  m_Mutex;
     State_e m_State = State_e::Initializing;
 
     bigtime_t m_UpdatePeriode  = 500000;

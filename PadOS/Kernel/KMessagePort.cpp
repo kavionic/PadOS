@@ -95,9 +95,9 @@ static void free_message(KMessagePortMessage* message)
 ///////////////////////////////////////////////////////////////////////////////
 
 KMessagePort::KMessagePort(const char* name, int maxCount) : KNamedObject(name, ObjectType),
-                                                             m_Mutex("message_port_mutex", 1, false),
-                                                             m_SendSemaphore("message_port_send", maxCount, false),
-                                                             m_ReceiveSemaphore("message_port_receive", 0, false)
+                                                             m_Mutex("message_port_mutex", false),
+                                                             m_SendSemaphore("message_port_send", maxCount),
+                                                             m_ReceiveSemaphore("message_port_receive", 0)
 {
 }
 

@@ -23,6 +23,7 @@
 #include "Kernel/VFS/KDeviceNode.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/KSemaphore.h"
+#include "Kernel/KMutex.h"
 #include "System/Threads/Thread.h"
 #include "System/Math/Point.h"
 
@@ -151,7 +152,7 @@ private:
 
     std::vector<Ptr<FT5x0xFile>> m_OpenFiles;
 
-    KSemaphore m_Mutex;
+    KMutex     m_Mutex;
     KSemaphore m_EventSemaphore;
     
     static const int MAX_POINTS = 10;

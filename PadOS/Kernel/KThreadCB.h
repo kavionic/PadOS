@@ -48,29 +48,6 @@ enum class KThreadState
     Deleted
 };
 
-
-struct KThreadWaitNode
-{
-    bool Detatch()
-    {
-        if (m_List != nullptr) {
-            m_List->Remove(this);
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    bigtime_t                        m_ResumeTime = 0;
-    KThreadCB*                       m_Thread = nullptr;
-    int                              m_ReturnCode = 0;
-    KThreadWaitNode*                 m_Next = nullptr;
-    KThreadWaitNode*                 m_Prev = nullptr;
-    IntrusiveList<KThreadWaitNode>*  m_List = nullptr;
-};
-
-typedef IntrusiveList<KThreadWaitNode> KThreadWaitList;
-
 class KThreadCB : public KNamedObject
 {
 public:
@@ -80,7 +57,6 @@ public:
     ~KThreadCB();
 
     void InitializeStack(ThreadEntryPoint_t entryPoint, void* arguments);
-
 
     uint8_t* GetStackBottom() const { return m_StackBuffer + THREAD_STACK_PADDING + THREAD_MAX_TLS_SLOTS * sizeof(void*); }
 
@@ -96,8 +72,6 @@ public:
     uint8_t*                  m_StackBuffer;
     int                       m_StackSize;
 
-    KThreadWaitList            m_WaitingThreads; // Threads waiting for us to die.
-    
     KThreadCB*                m_Prev = nullptr;
     KThreadCB*                m_Next = nullptr;
     IntrusiveList<KThreadCB>* m_List = nullptr;
@@ -106,4 +80,3 @@ public:
 typedef IntrusiveList<KThreadCB>       KThreadList;
 
 } // namespace
-

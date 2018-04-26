@@ -24,7 +24,7 @@
 #include <atomic>
 
 #include "Thread.h"
-#include "Semaphore.h"
+#include "Mutex.h"
 #include "System/Ptr/Ptr.h"
 #include "System/Utils/MessagePort.h"
 
@@ -68,7 +68,7 @@ private:
     void ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgLength);
     bigtime_t RunTimers();
 
-    Semaphore m_Mutex;
+    Mutex       m_Mutex;
     MessagePort m_Port;
     std::vector<uint8_t>                    m_ReceiveBuffer;
     bigtime_t                               m_NextEventTime = 0;

@@ -24,6 +24,7 @@
 #include "Kernel/VFS/KDeviceNode.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/KSemaphore.h"
+#include "Kernel/KMutex.h"
 #include "Kernel/HAL/DigitalPort.h"
 
 
@@ -104,7 +105,7 @@ private:
     
     uint32_t CalcAddress(uint32_t slaveAddress, int len);
 
-    KSemaphore m_Mutex;
+    KMutex     m_Mutex;
     KSemaphore m_RequestSema;
     Twihs* m_Port;
     DigitalPin m_ClockPin;

@@ -23,8 +23,8 @@
 #include "System/Signals/SignalTarget.h"
 #include "Kernel/VFS/KDeviceNode.h"
 #include "Kernel/VFS/KFileHandle.h"
+#include "Kernel/KMutex.h"
 #include "System/Threads/Looper.h"
-#include "System/Threads/Semaphore.h"
 #include "System/Utils/EventTimer.h"
 
 namespace kernel
@@ -141,7 +141,7 @@ private:
     };
 
 
-    Semaphore m_Mutex;
+    KMutex  m_Mutex;
     State_e m_State = State_e::Idle;
     int     m_CurrentRegister = 0;
 

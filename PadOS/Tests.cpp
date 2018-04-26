@@ -165,7 +165,7 @@ void Tests::TestMessagePort()
     printf("MessagePortTest result: %" PRId32 "\n", result);
 }
 
-Semaphore s_Semaphore("test_sema", 1, true);
+Mutex s_Mutex("test_sema", true);
 std::atomic_int s_SemaphoreTestCounter;
 void Tests::TestSemaphoreThread(void* args)
 {
@@ -173,7 +173,7 @@ void Tests::TestSemaphoreThread(void* args)
     {
         for (int i = 0; i < 1000; ++i)
         {
-            CRITICAL_BEGIN(s_Semaphore)
+            CRITICAL_BEGIN(s_Mutex)
             {
                 s_SemaphoreTestCounter++;
                 if (s_SemaphoreTestCounter != 1) {
@@ -182,7 +182,7 @@ void Tests::TestSemaphoreThread(void* args)
                 s_SemaphoreTestCounter--;
             } CRITICAL_END;
         }
-        CRITICAL_BEGIN(s_Semaphore) {
+        CRITICAL_BEGIN(s_Mutex) {
             printf("%d\n", get_thread_id());
         } CRITICAL_END;
     }
@@ -192,8 +192,6 @@ void Tests::TestSemaphoreThread(void* args)
 void Tests::TestSemaphore()
 {
     static const int threadCount = 1000;
-
-    //s_Semaphore = create_semaphore("test_sema", 1, true);
 
     for (int i = 0; i < threadCount; ++i)
     {

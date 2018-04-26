@@ -38,7 +38,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FT5x0xDriver::FT5x0xDriver(const DigitalPin& pinWAKE, const DigitalPin& pinRESET, const DigitalPin& pinINT, const char* i2cPath) : Thread("ft5x0x_driver"), m_PinWAKE(pinWAKE), m_PinRESET(pinRESET), m_PinINT(pinINT), m_Mutex("ft5x0x_mutex", 1, true), m_EventSemaphore("ft5x0x_events", 0, false)
+FT5x0xDriver::FT5x0xDriver(const DigitalPin& pinWAKE, const DigitalPin& pinRESET, const DigitalPin& pinINT, const char* i2cPath) : Thread("ft5x0x_driver"), m_PinWAKE(pinWAKE), m_PinRESET(pinRESET), m_PinINT(pinINT), m_Mutex("ft5x0x_mutex", true), m_EventSemaphore("ft5x0x_events", 0)
 {
     SetDeleteOnExit(false);
     

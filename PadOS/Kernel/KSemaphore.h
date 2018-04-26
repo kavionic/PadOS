@@ -39,7 +39,7 @@ class KSemaphore : public KNamedObject
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::Semaphore;
 
-    KSemaphore(const char* name, int count, bool recursive);
+    KSemaphore(const char* name, int count);
     ~KSemaphore();
 
     bool Acquire();
@@ -52,7 +52,6 @@ public:
 private:
     int             m_Count;
     bool            m_Recursive;
-    KThreadWaitList m_WaitQueue;
     thread_id       m_Holder = -1; // Thread currently holding the semaphore.
 
     KSemaphore(const KSemaphore &) = delete;
@@ -84,7 +83,7 @@ public:
 private:
     KSemaphore* m_Semaphore;
 
-    KSemaphoreGuardRaw(KSemaphoreGuardRaw& other)  = delete;
+    KSemaphoreGuardRaw(KSemaphoreGuardRaw& other) = delete;
 };
 
 inline KSemaphoreGuard    critical_create_guard(Ptr<KSemaphore> sema) { return KSemaphoreGuard(sema); }

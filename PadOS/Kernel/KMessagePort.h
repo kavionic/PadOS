@@ -21,6 +21,7 @@
 
 #include "KNamedObject.h"
 #include "KSemaphore.h"
+#include "KMutex.h"
 #include "System/Types.h"
 #include "System/System.h"
 
@@ -48,7 +49,7 @@ public:
 private:
     ssize_t DetachMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
     
-    KSemaphore m_Mutex;
+    KMutex     m_Mutex;
     KSemaphore m_SendSemaphore;
     KSemaphore m_ReceiveSemaphore;
 

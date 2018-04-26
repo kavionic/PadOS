@@ -30,10 +30,9 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KSemaphore::KSemaphore(const char* name, int count, bool recursive) : KNamedObject(name, KNamedObjectType::Semaphore)
+KSemaphore::KSemaphore(const char* name, int count) : KNamedObject(name, KNamedObjectType::Semaphore)
 {
     m_Count = count;
-    m_Recursive = recursive;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -69,7 +68,7 @@ bool KSemaphore::Acquire()
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (m_Count > 0 || (m_Recursive && m_Holder == thread->GetHandle()))
+            if (m_Count > 0)
             {
                 m_Count--;
                 m_Holder = thread->GetHandle();
@@ -115,7 +114,7 @@ bool KSemaphore::AcquireDeadline(bigtime_t deadline)
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (m_Count > 0 || (m_Recursive && m_Holder == thread->GetHandle()))
+            if (m_Count > 0)
             {
                 m_Count--;
                 m_Holder = thread->GetHandle();
@@ -166,7 +165,7 @@ bool KSemaphore::TryAcquire()
 
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        if (m_Count > 0 || (m_Recursive && m_Holder == thread->GetHandle()))
+        if (m_Count > 0)
         {
             m_Count--;
             m_Holder = thread->GetHandle();
@@ -198,10 +197,10 @@ void KSemaphore::Release()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-sem_id create_semaphore(const char* name, int count, bool recursive)
+sem_id create_semaphore(const char* name, int count)
 {
     try {
-        return KNamedObject::RegisterObject(ptr_new<KSemaphore>(name, count, recursive));
+        return KNamedObject::RegisterObject(ptr_new<KSemaphore>(name, count));
     } catch(const std::bad_alloc& error) {
         set_last_error(ENOMEM);
         return -1;
@@ -241,13 +240,7 @@ status_t delete_semaphore(sem_id handle)
 
 status_t acquire_semaphore(sem_id handle)
 {
-    Ptr<KSemaphore> sema = KGetSemaphore(handle);
-    if (sema != nullptr) {
-        return sema->Acquire() ? 0 : -1;
-    } else {
-        set_last_error(EINVAL);
-        return -1;
-    }
+    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::Acquire);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -256,13 +249,7 @@ status_t acquire_semaphore(sem_id handle)
 
 status_t acquire_semaphore_timeout(sem_id handle, bigtime_t timeout)
 {
-    Ptr<KSemaphore> sema = KGetSemaphore(handle);
-    if (sema != nullptr) {
-        return sema->AcquireTimeout(timeout) ? 0 : -1;
-    } else {
-        set_last_error(EINVAL);
-        return -1;
-    }        
+    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::AcquireTimeout, timeout);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -271,13 +258,7 @@ status_t acquire_semaphore_timeout(sem_id handle, bigtime_t timeout)
 
 status_t acquire_semaphore_deadline(sem_id handle, bigtime_t deadline)
 {
-    Ptr<KSemaphore> sema = KGetSemaphore(handle);
-    if (sema != nullptr) {
-        return sema->AcquireDeadline(deadline) ? 0 : -1;
-    } else {
-        set_last_error(EINVAL);
-        return -1;
-    }    
+    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::AcquireDeadline, deadline);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -286,13 +267,7 @@ status_t acquire_semaphore_deadline(sem_id handle, bigtime_t deadline)
 
 status_t try_acquire_semaphore(sem_id handle)
 {
-    Ptr<KSemaphore> sema = KGetSemaphore(handle);
-    if (sema != nullptr) {
-        return sema->TryAcquire() ? 0 : -1;
-    } else {
-        set_last_error(EINVAL);
-        return -1;
-    }
+    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::TryAcquire);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -301,12 +276,5 @@ status_t try_acquire_semaphore(sem_id handle)
 
 status_t release_semaphore(sem_id handle)
 {
-    Ptr<KSemaphore> sema = KGetSemaphore(handle);
-    if (sema != nullptr) {
-        sema->Release();
-        return 0;
-    } else {
-        set_last_error(EINVAL);
-        return -1;
-    }
+    return KNamedObject::ForwardToHandleVoid<KSemaphore>(handle, &KSemaphore::Release);
 }

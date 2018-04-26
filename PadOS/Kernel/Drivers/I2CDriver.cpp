@@ -37,7 +37,7 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-I2CDriver::I2CDriver(Channels channel) : m_Mutex("i2c_driver", 1, true), m_RequestSema("i2c_request", 0, false)
+I2CDriver::I2CDriver(Channels channel) : m_Mutex("i2c_driver", true), m_RequestSema("i2c_request", 0)
 {
     m_State = State_e::Idle;
 

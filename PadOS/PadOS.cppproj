@@ -408,6 +408,12 @@
     <Compile Include="Kernel\KMessagePort.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="Kernel\KMutex.cpp">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Kernel\KMutex.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="Kernel\KNamedObject.cpp">
       <SubType>compile</SubType>
     </Compile>
@@ -709,6 +715,9 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="System\Threads\Looper.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="System\Threads\Mutex.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="System\Threads\Semaphore.cpp">

@@ -27,7 +27,7 @@
 
 #include "Kernel/Kernel.h"
 #include "Kernel/Scheduler.h"
-#include "Kernel/KSemaphore.h"
+#include "Kernel/KMutex.h"
 
 extern unsigned char* _sheap;
 extern unsigned char* _eheap;
@@ -44,10 +44,9 @@ void _exit(int status)
     for(;;);
 }
 
-struct __lock : public KSemaphore
+struct __lock : public KMutex
 {
-    __lock() : KSemaphore("newlib", 1, true) {}
-//    sem_id m_Semaphore;
+    __lock() : KMutex("newlib", true) {}
 };
 
 struct __lock __lock___sinit_recursive_mutex;
@@ -64,15 +63,15 @@ static bool g_MutexesInitialized = false;
 void InitializeNewLibMutexes()
 {
     g_MutexesInitialized = true;
-/*    __lock___malloc_recursive_mutex.m_Semaphore = create_semaphore("newlib_sinit", 1, true);
-    __lock___sinit_recursive_mutex.m_Semaphore  = create_semaphore("newlib_sinit", 1, true);
-    __lock___sfp_recursive_mutex.m_Semaphore    = create_semaphore("newlib_sinit", 1, true);
-    __lock___atexit_recursive_mutex.m_Semaphore = create_semaphore("newlib_sinit", 1, true);
-    __lock___at_quick_exit_mutex.m_Semaphore    = create_semaphore("newlib_sinit", 1, true);
-    __lock___env_recursive_mutex.m_Semaphore    = create_semaphore("newlib_sinit", 1, true);
-    __lock___tz_mutex.m_Semaphore               = create_semaphore("newlib_sinit", 1, true);
-    __lock___dd_hash_mutex.m_Semaphore          = create_semaphore("newlib_sinit", 1, true);
-    __lock___arc4random_mutex.m_Semaphore       = create_semaphore("newlib_sinit", 1, true);*/
+/*    __lock___malloc_recursive_mutex.m_Mutex   = create_mutex("newlib_sinit", true);
+    __lock___sinit_recursive_mutex.m_Mutex  = create_mutex("newlib_sinit", true);
+    __lock___sfp_recursive_mutex.m_Mutex    = create_mutex("newlib_sinit", true);
+    __lock___atexit_recursive_mutex.m_Mutex = create_mutex("newlib_sinit", true);
+    __lock___at_quick_exit_mutex.m_Mutex    = create_mutex("newlib_sinit", true);
+    __lock___env_recursive_mutex.m_Mutex    = create_mutex("newlib_sinit", true);
+    __lock___tz_mutex.m_Mutex               = create_mutex("newlib_sinit", true);
+    __lock___dd_hash_mutex.m_Mutex          = create_mutex("newlib_sinit", true);
+    __lock___arc4random_mutex.m_Mutex       = create_mutex("newlib_sinit", true);*/
 }
 
 void __retarget_lock_init (_LOCK_T *lock)
@@ -82,7 +81,6 @@ void __retarget_lock_init (_LOCK_T *lock)
     } catch(const std::bad_alloc& error) {
         *lock = nullptr;
     }
-    //(*lock)->m_Semaphore = create_semaphore("newlib", 1, false);
 }
 
 void __retarget_lock_init_recursive(_LOCK_T *lock)
@@ -92,52 +90,48 @@ void __retarget_lock_init_recursive(_LOCK_T *lock)
     } catch(const std::bad_alloc& error) {
         *lock = nullptr;
     }
-
-    //(*lock)->m_Semaphore = create_semaphore("newlib", 1, true);
 }
 
 void __retarget_lock_close(_LOCK_T lock)
 {
-    //delete_semaphore(lock->m_Semaphore);
     delete lock;
 }
 
 void __retarget_lock_close_recursive(_LOCK_T lock)
 {
-    //delete_semaphore(lock->m_Semaphore);
     delete lock;
 }
 
 void __retarget_lock_acquire (_LOCK_T lock)
 {
-    if (g_MutexesInitialized && lock != nullptr) lock->Acquire();
+    if (g_MutexesInitialized && lock != nullptr) lock->Lock();
 }
 
 void __retarget_lock_acquire_recursive (_LOCK_T lock)
 {
-    if (g_MutexesInitialized && lock != nullptr) lock->Acquire();
+    if (g_MutexesInitialized && lock != nullptr) lock->Lock();
 }
 
 int __retarget_lock_try_acquire(_LOCK_T lock)
 {
-    if (g_MutexesInitialized && lock != nullptr) return (lock->TryAcquire()) ? 0 : -1;
+    if (g_MutexesInitialized && lock != nullptr) return (lock->TryLock()) ? 0 : -1;
     return -1;
 }
 
 int __retarget_lock_try_acquire_recursive(_LOCK_T lock)
 {
-    if (g_MutexesInitialized && lock != nullptr) return (lock->TryAcquire()) ? 0 : -1;
+    if (g_MutexesInitialized && lock != nullptr) return (lock->TryLock()) ? 0 : -1;
     return -1;
 }
 
 void __retarget_lock_release (_LOCK_T lock)
 {
-    if (g_MutexesInitialized && lock != nullptr) lock->Release();
+    if (g_MutexesInitialized && lock != nullptr) lock->Unlock();
 }
 
 void __retarget_lock_release_recursive (_LOCK_T lock)
 {
-    if (g_MutexesInitialized && lock != nullptr) lock->Release();
+    if (g_MutexesInitialized && lock != nullptr) lock->Unlock();
 }
 
 int _open_r(_reent* reent, const char* path, int flags)

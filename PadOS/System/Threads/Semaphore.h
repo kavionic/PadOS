@@ -27,21 +27,11 @@ public:
 
     explicit Semaphore(NoInit) : m_Handle(-1) {}
 
-    Semaphore(const char* name, int count = 1, bool recursive = true) {
-        m_Handle = create_semaphore(name, count, recursive);
+    Semaphore(const char* name, int count = 1) {
+        m_Handle = create_semaphore(name, count);
     }
     ~Semaphore() {
         if (m_Handle != -1) delete_semaphore(m_Handle);
-    }
-
-    bool Initialize(const char* name, int count, bool recursive)
-    {
-        if (m_Handle == -1)
-        {
-            m_Handle = create_semaphore(name, count, recursive);
-            return m_Handle >= 0;
-        }
-        return true;
     }
 
     bool Acquire()                           { return acquire_semaphore(m_Handle) >= 0; }

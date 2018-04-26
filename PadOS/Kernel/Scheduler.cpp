@@ -140,7 +140,7 @@ extern "C" uint32_t* select_thread(uint32_t* currentStack)
             }
             else
             {
-                wakeup_wait_queue(&prevThread->m_WaitingThreads, prevThread->m_NewLibreent._errno, 0);
+                wakeup_wait_queue(&prevThread->GetWaitQueue(), prevThread->m_NewLibreent._errno, 0);
             }
         }
     } CRITICAL_END;
@@ -389,7 +389,7 @@ int wait_thread(thread_id handle)
             if (child->m_State != KThreadState::Zombie)
             {
                 thread->m_State = KThreadState::Waiting;
-                child->m_WaitingThreads.Append(&waitNode);
+                child->GetWaitQueue().Append(&waitNode);
                 KSWITCH_CONTEXT();
             }
         } CRITICAL_END;

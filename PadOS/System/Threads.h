@@ -35,7 +35,7 @@ thread_id get_thread_id();
 status_t snooze(bigtime_t micros);
 status_t snooze_until(bigtime_t resumeTime);
 
-sem_id   create_semaphore(const char* name, int count, bool recursive);
+sem_id   create_semaphore(const char* name, int count);
 sem_id   duplicate_semaphore(sem_id handle);
 status_t delete_semaphore(sem_id handle);
 status_t acquire_semaphore(sem_id handle);
@@ -43,6 +43,22 @@ status_t acquire_semaphore_timeout(sem_id handle, bigtime_t timeout);
 status_t acquire_semaphore_deadline(sem_id handle, bigtime_t deadline);
 status_t try_acquire_semaphore(sem_id handle);
 status_t release_semaphore(sem_id handle);
+
+sem_id   create_mutex(const char* name, bool recursive);
+sem_id   duplicate_mutex(sem_id handle);
+status_t delete_mutex(sem_id handle);
+status_t lock_mutex(sem_id handle);
+status_t lock_mutex_timeout(sem_id handle, bigtime_t timeout);
+status_t lock_mutex_deadline(sem_id handle, bigtime_t deadline);
+status_t try_lock_mutex(sem_id handle);
+status_t unlock_mutex(sem_id handle);
+
+status_t lock_mutex_shared(sem_id handle);
+status_t lock_mutex_shared_timeout(sem_id handle, bigtime_t timeout);
+status_t lock_mutex_shared_deadline(sem_id handle, bigtime_t deadline);
+status_t try_lock_mutex_shared(sem_id handle);
+status_t unlock_mutex_shared(sem_id handle);
+
 
 int   alloc_thread_local_storage(TLSDestructor_t destructor);
 int   delete_thread_local_storage(int slot);

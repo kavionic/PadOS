@@ -402,7 +402,9 @@ void I2CDriver::HandleIRQ()
             if (m_CurPos == (m_Length - 2)) {
                 m_Port->TWIHS_CR = TWIHS_CR_STOP_Msk;
             }
-            assert(m_CurPos < m_Length);
+            if (m_CurPos >= m_Length) {
+                panic("ERROR: I2CDriver::HandleIRQ() to many bytes received!");
+            }
             static_cast<uint8_t*>(m_Buffer)[m_CurPos++] = (m_Port->TWIHS_RHR & TWIHS_RHR_RXDATA_Msk) >> TWIHS_RHR_RXDATA_Pos;
         }
         if (status & TWIHS_SR_TXCOMP_Msk)

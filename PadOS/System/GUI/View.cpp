@@ -1012,8 +1012,6 @@ void View::HandlePaint(const Rect& updateRect)
     if (m_DidScrollRect) {
         m_DidScrollRect = false;
         Sync();
-    } else {
-//        Flush();
     }
 }
 

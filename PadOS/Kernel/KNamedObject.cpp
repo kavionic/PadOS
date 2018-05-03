@@ -45,6 +45,24 @@ KNamedObject::KNamedObject(const char* name, KNamedObjectType type) : m_Type(typ
 
 KNamedObject::~KNamedObject()
 {
+    int ourPriLevel = gk_CurrentThread->m_PriorityLevel;
+    bool needSchedule = false;
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        for (KThreadWaitNode* waitNode = m_WaitQueue.m_First; waitNode != nullptr; waitNode = m_WaitQueue.m_First)
+        {
+            waitNode->m_TargetDeleted = true;
+            KThreadCB* thread = waitNode->m_Thread;
+            if (thread != nullptr && (thread->m_State == KThreadState::Sleeping || thread->m_State == KThreadState::Waiting)) {
+                if (thread->m_PriorityLevel > ourPriLevel) needSchedule = true;
+                add_thread_to_ready_list(thread);
+            }
+            m_WaitQueue.Remove(waitNode);
+        }
+    } CRITICAL_END;
+    if (needSchedule) {
+        KSWITCH_CONTEXT();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

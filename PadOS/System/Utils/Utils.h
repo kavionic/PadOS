@@ -22,6 +22,7 @@
 #include "System/Types.h"
 #include "System/System.h"
 #include "System/String.h"
+#include "Kernel/Scheduler.h"
 
 namespace std {
     template<typename T> inline const T& clamp(const T& value, const T& bottom, const T& top) { return (value < bottom) ? bottom : ((value > top) ? top : value); }
@@ -79,6 +80,30 @@ class ProfileTimer
     String    m_Title;
     bigtime_t m_StartTime;
 };
+
+struct DebugCallTracker
+{
+    DebugCallTracker(const char* currentFunction)
+    {
+        m_PrevTracker  = kernel::gk_CurrentThread->m_FirstDebugCallTracker;
+        m_Function = currentFunction;
+        kernel::gk_CurrentThread->m_FirstDebugCallTracker = this;
+    }
+    ~DebugCallTracker()
+    {
+        kernel::gk_CurrentThread->m_FirstDebugCallTracker  = m_PrevTracker;
+    }
+    
+//    static const char*       s_CurrentFunction;
+//    static DebugCallTracker* s_CurrentTracker;
+    
+    DebugCallTracker* m_PrevTracker;
+//    const char*       m_PrevFunction;
+    const char*       m_Function;
+};
+
+#define DEBUG_TRACK_FUNCTION() DebugCallTracker debugCallTracker__(__func__)
+
 
 } // namespace
 

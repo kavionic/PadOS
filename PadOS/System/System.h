@@ -28,8 +28,8 @@
 static const bigtime_t INFINIT_TIMEOUT = std::numeric_limits<bigtime_t>::max();
 static const int OS_NAME_LENGTH = 32;
 
-inline bigtime_t bigtime_from_s(bigtime_t ms) { return ms * 1000000; }
-inline bigtime_t bigtime_from_sf(double ms) { return bigtime_t(ms * 1000000.0); }
+inline bigtime_t bigtime_from_s(bigtime_t s) { return s * 1000000; }
+inline bigtime_t bigtime_from_sf(double s) { return bigtime_t(s * 1000000.0); }
 inline bigtime_t bigtime_from_ms(bigtime_t ms) { return ms * 1000; }
 
 int get_last_error();

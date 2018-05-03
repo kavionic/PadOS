@@ -187,33 +187,28 @@ ssize_t _write_r(_reent* reent, int file, const void *buffer, size_t length)
 
 uint32_t g_HeapSize = 0;
 
-caddr_t _sbrk_r(_reent* reent, ptrdiff_t __incr)
+caddr_t _sbrk_r(_reent* reent, ptrdiff_t size)
 {
     static uint8_t* heap = nullptr;
     uint8_t* prev_heap;
  
-    g_HeapSize += __incr;
+    g_HeapSize += size;
     
-    if(heap == nullptr)
-    {
+    if(heap == nullptr) {
         heap = HEAP_START;
     }
     prev_heap = heap;
     
-    if((heap + __incr) > HEAP_END)
+    if((heap + size) > HEAP_END)
     {
         reent->_errno = ENOMEM;
-//        assert(strerror(errno));
-//        __BKPT(0);
-        return (caddr_t) -1;
+        return caddr_t(-1);
     }
-    heap += __incr;
-    if (__incr > 0) {
-        memset(prev_heap, 0, __incr);
-    } else {
-        printf("sbrk(): heap reduced by %d bytes\n", __incr);
+    heap += size;
+    if (size > 0) {
+        memset(prev_heap, 0, size);
     }        
-    return(caddr_t) prev_heap;
+    return caddr_t(prev_heap);
 }
 
 }

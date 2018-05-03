@@ -335,7 +335,7 @@ typedef uint32_t sdmmc_cmd_def_t;
 #define SD_MCI_ACMD41_SD_SEND_OP_COND    (41 | SDMMC_CMD_R3 | SDMMC_CMD_OPENDRAIN)
 /**
  * ACMD41(R1): Send host capacity support information (HCS) and activates the
- * card's initilization process
+ * card's initialization process
  */
 #define SD_SPI_ACMD41_SD_SEND_OP_COND    (41 | SDMMC_CMD_R1)
 /**
@@ -453,8 +453,7 @@ typedef uint32_t sdmmc_cmd_def_t;
 #define SDIO_R5_ERROR           (1lu << 11) /**< General error */
 #define SDIO_R5_FUNC_NUM        (1lu << 9)  /**< Invalid function number */
 #define SDIO_R5_OUT_OF_RANGE    (1lu << 8)  /**< Argument out of range */
-#define SDIO_R5_STATUS_ERR      (SDIO_R5_ERROR | SDIO_R5_FUNC_NUM \
-		| SDIO_R5_OUT_OF_RANGE) //!< Errro status bits mask
+#define SDIO_R5_STATUS_ERR      (SDIO_R5_ERROR | SDIO_R5_FUNC_NUM | SDIO_R5_OUT_OF_RANGE) //!< Erro status bits mask
   //! @}
 
   //! \name SDIO state (in R6)
@@ -466,8 +465,7 @@ typedef uint32_t sdmmc_cmd_def_t;
 /** A general or an unknown error occurred during the operation. */
 #define SDIO_R6_ERROR           (1lu << 13)
 /** Status bits mask for SDIO R6 */
-#define SDIO_STATUS_R6  (SDIO_R6_COM_CRC_ERROR \
-		| SDIO_R6_ILLEGAL_COMMAND | SDIO_R6_ERROR)
+#define SDIO_STATUS_R6  (SDIO_R6_COM_CRC_ERROR | SDIO_R6_ILLEGAL_COMMAND | SDIO_R6_ERROR)
   //! @}
 
   //! \name SDIO CMD52 argument bit offset
@@ -692,30 +690,28 @@ typedef uint32_t sdmmc_cmd_def_t;
  * \brief Macro function to extract a bits field from a large SD MMC register
  * Used by : CSD, SCR, Switch status
  */
-static inline uint32_t SDMMC_UNSTUFF_BITS(uint8_t *reg, uint16_t reg_size,
-		uint16_t pos, uint8_t size)
+static inline uint32_t SDMMC_UNSTUFF_BITS(uint8_t *reg, uint16_t reg_size, uint16_t pos, uint8_t size)
 {
-	uint32_t value;
-	value = reg[((reg_size - pos + 7) / 8) - 1] >> (pos % 8);
-	if (((pos % 8) + size) > 8) {
-		value |= (uint32_t)reg[((reg_size - pos + 7) / 8) - 2] << (8 - (pos % 8));
-	}
-	if (((pos % 8) + size) > 16) {
-		value |= (uint32_t)reg[((reg_size - pos + 7) / 8) - 3] << (16 - (pos % 8));
-	}
-	if (((pos % 8) + size) > 16) {
-		value |= (uint32_t)reg[((reg_size - pos + 7) / 8) - 3] << (16 - (pos % 8));
-	}
-	value &=  ((uint32_t)1 << size) - 1;
-	return value;
+    uint32_t value;
+    value = reg[((reg_size - pos + 7) / 8) - 1] >> (pos % 8);
+    if (((pos % 8) + size) > 8) {
+        value |= (uint32_t)reg[((reg_size - pos + 7) / 8) - 2] << (8 - (pos % 8));
+    }
+    if (((pos % 8) + size) > 16) {
+        value |= (uint32_t)reg[((reg_size - pos + 7) / 8) - 3] << (16 - (pos % 8));
+    }
+    if (((pos % 8) + size) > 16) {
+        value |= (uint32_t)reg[((reg_size - pos + 7) / 8) - 3] << (16 - (pos % 8));
+    }
+    value &=  ((uint32_t)1 << size) - 1;
+    return value;
 }
 
   //! \name CSD Fields
   //! @{
 #define CSD_REG_BIT_SIZE            128 //!< 128 bits
 #define CSD_REG_BSIZE               (CSD_REG_BIT_SIZE / 8) //!< 16 bytes
-#define CSD_STRUCTURE(csd, pos, size) \
-		SDMMC_UNSTUFF_BITS(csd, CSD_REG_BIT_SIZE, pos, size)
+#define CSD_STRUCTURE(csd, pos, size) SDMMC_UNSTUFF_BITS(csd, CSD_REG_BIT_SIZE, pos, size)
 #define CSD_STRUCTURE_VERSION(csd)  CSD_STRUCTURE(csd, 126, 2)
 #define   SD_CSD_VER_1_0            0
 #define   SD_CSD_VER_2_0            1
@@ -767,8 +763,7 @@ static inline uint32_t SDMMC_UNSTUFF_BITS(uint8_t *reg, uint16_t reg_size,
   //! @{
 #define SD_SCR_REG_BIT_SIZE    64 //!< 64 bits
 #define SD_SCR_REG_BSIZE       (SD_SCR_REG_BIT_SIZE / 8) //!< 8 bytes
-#define SD_SCR_STRUCTURE(scr, pos, size) \
-		SDMMC_UNSTUFF_BITS(scr, SD_SCR_REG_BIT_SIZE, pos, size)
+#define SD_SCR_STRUCTURE(scr, pos, size) SDMMC_UNSTUFF_BITS(scr, SD_SCR_REG_BIT_SIZE, pos, size)
 #define SD_SCR_SCR_STRUCTURE(scr)            SD_SCR_STRUCTURE(scr, 60, 4)
 #define   SD_SCR_SCR_STRUCTURE_1_0             0
 #define SD_SCR_SD_SPEC(scr)                  SD_SCR_STRUCTURE(scr, 56, 4)
@@ -795,49 +790,28 @@ static inline uint32_t SDMMC_UNSTUFF_BITS(uint8_t *reg, uint16_t reg_size,
   //! @{
 #define SD_SW_STATUS_BIT_SIZE   512 //!< 512 bits
 #define SD_SW_STATUS_BSIZE      (SD_SW_STATUS_BIT_SIZE / 8) //!< 64 bytes
-#define SD_SW_STATUS_STRUCTURE(sd_sw_status, pos, size) \
-		SDMMC_UNSTUFF_BITS(sd_sw_status, SD_SW_STATUS_BIT_SIZE, pos, size)
-#define SD_SW_STATUS_MAX_CURRENT_CONSUMPTION(status) \
-		SD_SW_STATUS_STRUCTURE(status, 496, 16)
-#define SD_SW_STATUS_FUN_GRP6_INFO(status) \
-		SD_SW_STATUS_STRUCTURE(status, 480, 16)
-#define SD_SW_STATUS_FUN_GRP5_INFO(status) \
-		SD_SW_STATUS_STRUCTURE(status, 464, 16)
-#define SD_SW_STATUS_FUN_GRP4_INFO(status) \
-		SD_SW_STATUS_STRUCTURE(status, 448, 16)
-#define SD_SW_STATUS_FUN_GRP3_INFO(status) \
-		SD_SW_STATUS_STRUCTURE(status, 432, 16)
-#define SD_SW_STATUS_FUN_GRP2_INFO(status) \
-		SD_SW_STATUS_STRUCTURE(status, 416, 16)
-#define SD_SW_STATUS_FUN_GRP1_INFO(status) \
-		SD_SW_STATUS_STRUCTURE(status, 400, 16)
-#define SD_SW_STATUS_FUN_GRP6_RC(status) \
-		SD_SW_STATUS_STRUCTURE(status, 396, 4)
-#define SD_SW_STATUS_FUN_GRP5_RC(status) \
-		SD_SW_STATUS_STRUCTURE(status, 392, 4)
-#define SD_SW_STATUS_FUN_GRP4_RC(status) \
-		SD_SW_STATUS_STRUCTURE(status, 388, 4)
-#define SD_SW_STATUS_FUN_GRP3_RC(status) \
-		SD_SW_STATUS_STRUCTURE(status, 384, 4)
-#define SD_SW_STATUS_FUN_GRP2_RC(status) \
-		SD_SW_STATUS_STRUCTURE(status, 380, 4)
-#define SD_SW_STATUS_FUN_GRP1_RC(status) \
-		SD_SW_STATUS_STRUCTURE(status, 376, 4)
+#define SD_SW_STATUS_STRUCTURE(sd_sw_status, pos, size) SDMMC_UNSTUFF_BITS(sd_sw_status, SD_SW_STATUS_BIT_SIZE, pos, size)
+#define SD_SW_STATUS_MAX_CURRENT_CONSUMPTION(status) SD_SW_STATUS_STRUCTURE(status, 496, 16)
+#define SD_SW_STATUS_FUN_GRP6_INFO(status)           SD_SW_STATUS_STRUCTURE(status, 480, 16)
+#define SD_SW_STATUS_FUN_GRP5_INFO(status)           SD_SW_STATUS_STRUCTURE(status, 464, 16)
+#define SD_SW_STATUS_FUN_GRP4_INFO(status)           SD_SW_STATUS_STRUCTURE(status, 448, 16)
+#define SD_SW_STATUS_FUN_GRP3_INFO(status)           SD_SW_STATUS_STRUCTURE(status, 432, 16)
+#define SD_SW_STATUS_FUN_GRP2_INFO(status)           SD_SW_STATUS_STRUCTURE(status, 416, 16)
+#define SD_SW_STATUS_FUN_GRP1_INFO(status)           SD_SW_STATUS_STRUCTURE(status, 400, 16)
+#define SD_SW_STATUS_FUN_GRP6_RC(status)             SD_SW_STATUS_STRUCTURE(status, 396, 4)
+#define SD_SW_STATUS_FUN_GRP5_RC(status)             SD_SW_STATUS_STRUCTURE(status, 392, 4)
+#define SD_SW_STATUS_FUN_GRP4_RC(status)             SD_SW_STATUS_STRUCTURE(status, 388, 4)
+#define SD_SW_STATUS_FUN_GRP3_RC(status)             SD_SW_STATUS_STRUCTURE(status, 384, 4)
+#define SD_SW_STATUS_FUN_GRP2_RC(status)             SD_SW_STATUS_STRUCTURE(status, 380, 4)
+#define SD_SW_STATUS_FUN_GRP1_RC(status)             SD_SW_STATUS_STRUCTURE(status, 376, 4)
 #define SD_SW_STATUS_FUN_GRP_RC_ERROR   0xFU
-#define SD_SW_STATUS_DATA_STRUCT_VER(status) \
-		SD_SW_STATUS_STRUCTURE(status, 368, 8)
-#define SD_SW_STATUS_FUN_GRP6_BUSY(status) \
-		SD_SW_STATUS_STRUCTURE(status, 352, 16)
-#define SD_SW_STATUS_FUN_GRP5_BUSY(status) \
-		SD_SW_STATUS_STRUCTURE(status, 336, 16)
-#define SD_SW_STATUS_FUN_GRP4_BUSY(status) \
-		SD_SW_STATUS_STRUCTURE(status, 320, 16)
-#define SD_SW_STATUS_FUN_GRP3_BUSY(status) \
-		SD_SW_STATUS_STRUCTURE(status, 304, 16)
-#define SD_SW_STATUS_FUN_GRP2_BUSY(status) \
-		SD_SW_STATUS_STRUCTURE(status, 288, 16)
-#define SD_SW_STATUS_FUN_GRP1_BUSY(status) \
-		SD_SW_STATUS_STRUCTURE(status, 272, 16)
+#define SD_SW_STATUS_DATA_STRUCT_VER(status)         SD_SW_STATUS_STRUCTURE(status, 368, 8)
+#define SD_SW_STATUS_FUN_GRP6_BUSY(status)           SD_SW_STATUS_STRUCTURE(status, 352, 16)
+#define SD_SW_STATUS_FUN_GRP5_BUSY(status)           SD_SW_STATUS_STRUCTURE(status, 336, 16)
+#define SD_SW_STATUS_FUN_GRP4_BUSY(status)           SD_SW_STATUS_STRUCTURE(status, 320, 16)
+#define SD_SW_STATUS_FUN_GRP3_BUSY(status)           SD_SW_STATUS_STRUCTURE(status, 304, 16)
+#define SD_SW_STATUS_FUN_GRP2_BUSY(status)           SD_SW_STATUS_STRUCTURE(status, 288, 16)
+#define SD_SW_STATUS_FUN_GRP1_BUSY(status)           SD_SW_STATUS_STRUCTURE(status, 272, 16)
   //! @}
 
   //! \name Card Status Fields
@@ -874,13 +848,7 @@ static inline uint32_t SDMMC_UNSTUFF_BITS(uint8_t *reg, uint16_t reg_size,
 #define CARD_STATUS_ADDRESS_MISALIGN  (1lu << 30)
 #define CARD_STATUS_ADDR_OUT_OF_RANGE (1lu << 31)
 
-#define CARD_STATUS_ERR_RD_WR    (CARD_STATUS_ADDR_OUT_OF_RANGE \
-		| CARD_STATUS_ADDRESS_MISALIGN \
-		| CARD_STATUS_BLOCK_LEN_ERROR \
-		| CARD_STATUS_WP_VIOLATION \
-		| CARD_STATUS_ILLEGAL_COMMAND \
-		| CARD_STATUS_CC_ERROR \
-		| CARD_STATUS_ERROR)
+#define CARD_STATUS_ERR_RD_WR    (CARD_STATUS_ADDR_OUT_OF_RANGE | CARD_STATUS_ADDRESS_MISALIGN | CARD_STATUS_BLOCK_LEN_ERROR | CARD_STATUS_WP_VIOLATION | CARD_STATUS_ILLEGAL_COMMAND | CARD_STATUS_CC_ERROR | CARD_STATUS_ERROR)
   //! @}
 
   //! \name SD Status Field
@@ -987,8 +955,7 @@ static inline uint32_t SDMMC_UNSTUFF_BITS(uint8_t *reg, uint16_t reg_size,
 #define SPI_TOKEN_SINGLE_WRITE            0xFE
 #define SPI_TOKEN_MULTI_WRITE             0xFC
 #define SPI_TOKEN_STOP_TRAN               0xFD
-#define SPI_TOKEN_DATA_RESP_VALID(token)  \
-		((((token) & (1 << 4)) == 0) && (((token) & (1 << 0)) == 1))
+#define SPI_TOKEN_DATA_RESP_VALID(token)  ((((token) & (1 << 4)) == 0) && (((token) & (1 << 0)) == 1))
 #define SPI_TOKEN_DATA_RESP_CODE(token)   ((token) & 0x1E)
 #define SPI_TOKEN_DATA_RESP_ACCEPTED      (2lu << 1)
 #define SPI_TOKEN_DATA_RESP_CRC_ERR       (5lu << 1)

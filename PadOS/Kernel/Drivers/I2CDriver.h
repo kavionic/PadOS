@@ -76,10 +76,6 @@ public:
     virtual ssize_t Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length) override;
     virtual ssize_t Write(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length) override;
 
-//    virtual int ReadAsync(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) override;
-//    I2CWriteRequest* StartRead(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback, KSemaphore* semaphore);
-//    virtual int WriteAsync(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) override;
-//    virtual int CancelAsyncRequest(Ptr<KFileHandle> file, int handle) override;
 private:
     void Reset();
     void ClearBus();

@@ -57,11 +57,22 @@ Ptr<KThreadCB> get_thread(thread_id handle);
 void add_to_sleep_list(KThreadWaitNode* waitNode);
 void remove_from_sleep_list(KThreadWaitNode* waitNode);
 
+void add_thread_to_ready_list(KThreadCB* thread);
+
 bool wakeup_wait_queue(KThreadWaitList* queue, int returnCode, int maxCount);
 
 
 void start_scheduler();
 
+enum class IRQEnableState
+{
+    Enabled,
+    NormalLatencyDisabled,
+    LowLatencyDisabled,
+};
+
+IRQEnableState get_interrupt_enabled_state();
+void           set_interrupt_enabled_state(IRQEnableState state);
 
 uint32_t disable_interrupts();
 uint32_t KDisableLowLatenctInterrupts();

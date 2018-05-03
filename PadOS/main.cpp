@@ -55,18 +55,35 @@
 
 extern "C" void InitializeNewLibMutexes();
 
-kernel::HSMCIDriver g_SDCardBlockDevice(DigitalPin(e_DigitalPortID_A, 24));
+//kernel::HSMCIDriver g_SDCardBlockDevice(DigitalPin(e_DigitalPortID_A, 24));
 kernel::FAT         g_FileSystem;
 
 ApplicationServer* g_ApplicationServer;
 
 
-void NonMaskableInt_Handler() {kernel::panic("NMI\n");}
-void HardFault_Handler() {kernel::panic("HardFault\n");}
-void MemoryManagement_Handler() {kernel::panic("MemManage\n");}
-void BusFault_Handler() {kernel::panic("BusFault\n");}
-void UsageFault_Handler() {kernel::panic("UsageFault\n");}
-void DebugMonitor_Handler() {}
+void NonMaskableInt_Handler()
+{
+    kernel::panic("NMI\n");
+}
+void HardFault_Handler()
+{
+    kernel::panic("HardFault\n");
+}
+void MemoryManagement_Handler()
+{
+    kernel::panic("MemManage\n");
+}
+void BusFault_Handler()
+{
+    kernel::panic("BusFault\n");
+}
+void UsageFault_Handler()
+{
+    kernel::panic("UsageFault\n");
+}
+void DebugMonitor_Handler()
+{   
+}
 
 /*!
  * \brief Initialize the SWO trace port for debug message printing
@@ -236,6 +253,8 @@ void kernel::InitThreadMain(void* argument)
     kernel::Kernel::RegisterDevice("ina3221/0", ptr_new<kernel::INA3221Driver>("/dev/i2c/2"));
     kernel::Kernel::RegisterDevice("bme280/0", ptr_new<kernel::BME280Driver>("/dev/i2c/2"));
 
+    kernel::Kernel::RegisterDevice("sdcard/0", ptr_new<kernel::HSMCIDriver>(DigitalPin(e_DigitalPortID_A, 24)));
+    
     INA3221ShuntConfig shuntConfig;
     shuntConfig.ShuntValues[INA3221_SENSOR_IDX_1] = 47.0e-3;
     shuntConfig.ShuntValues[INA3221_SENSOR_IDX_2] = 47.0e-3;
@@ -261,8 +280,9 @@ void kernel::InitThreadMain(void* argument)
     DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN21_bm, DigitalPort::PeripheralID::B); // PCK1
     */
 
-    g_SDCardBlockDevice.Initialize();;
-    g_FileSystem.Initialize(&g_SDCardBlockDevice);
+    int sdcardDevice = Kernel::OpenFile("/dev/sdcard/0", O_RDWR);
+//    g_SDCardBlockDevice.Initialize();;
+    g_FileSystem.Initialize(sdcardDevice);
 
     kernel::Directory* rootDir = g_FileSystem.OpenDir("");
     if (rootDir != nullptr)

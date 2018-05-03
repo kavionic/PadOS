@@ -47,7 +47,7 @@ FAT::FAT()
 ///
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FAT::Initialize(HSMCIDriver* blockDevice)
+bool FAT::Initialize(int blockDevice)
 {    
     m_BlockDevice = blockDevice;
     MasterBootRecord* mbr = (MasterBootRecord*)ReadSector(0);
@@ -311,7 +311,7 @@ void* FAT::ReadSector(uint32_t sector)
     }
     else
     {
-        if ( m_BlockDevice->ReadBlocks(sector, m_SectorBuffer, 1) )
+        if (Kernel::Read(m_BlockDevice, sector * 512, m_SectorBuffer, 512) == 512)
         {
             m_CurrentSector = sector;
             return m_SectorBuffer;
@@ -365,20 +365,21 @@ int16_t FAT::Read(FileHandle* file, void* buffer, int16_t size)
 //        printf("bytesToRead: %d\n", bytesToRead);
         if ( bytesToRead >= 512 )
         {
-            m_BlockDevice->StartReadBlocks(sector, bytesToRead / 512);
+            off_t sectorsToRead = bytesToRead / 512;
+            Kernel::Read(m_BlockDevice, sector * 512, dst, sectorsToRead * 512);
+            bytesToRead -= sectorsToRead * 512;
+            dst += sectorsToRead * 512;
+            sector += sectorsToRead;
+            
+/*            m_BlockDevice->StartReadBlocks(sector, bytesToRead / 512);
             while ( bytesToRead >= 512 )
             {
-//                uint8_t* data = static_cast<uint8_t*>(ReadSector(sector++));
-//                if ( data == nullptr ) return -1;
-//                memcpy(dst, data, 512);
-                
-                
                 if ( !m_BlockDevice->ReadNextBlocks(dst, 1) ) { m_BlockDevice->EndReadBlocks(); return -1; }
                 sector++;
                 dst += 512;
                 bytesToRead -= 512;
             }
-            m_BlockDevice->EndReadBlocks();
+            m_BlockDevice->EndReadBlocks();*/
         }            
         if ( bytesToRead )
         {

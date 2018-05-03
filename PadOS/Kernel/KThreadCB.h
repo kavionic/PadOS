@@ -26,6 +26,10 @@
 #include "System/Utils/IntrusiveList.h"
 #include "System/Threads.h"
 
+namespace os
+{
+    class DebugCallTracker;
+}
 namespace kernel
 {
 
@@ -75,6 +79,7 @@ public:
     KThreadCB*                m_Prev = nullptr;
     KThreadCB*                m_Next = nullptr;
     IntrusiveList<KThreadCB>* m_List = nullptr;
+    os::DebugCallTracker*     m_FirstDebugCallTracker = nullptr;
 };
 
 typedef IntrusiveList<KThreadCB>       KThreadList;

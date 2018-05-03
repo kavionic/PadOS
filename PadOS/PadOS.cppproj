@@ -282,6 +282,9 @@
     <Compile Include="DeviceControl\BME280.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="DeviceControl\DeviceControl.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="DeviceControl\FT5x0x.h">
       <SubType>compile</SubType>
     </Compile>
@@ -289,6 +292,9 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="DeviceControl\INA3221.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="DeviceControl\SDCARD.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="Device_Startup\startup_same70q21.c">
@@ -388,6 +394,12 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="Kernel\HAL\SAME70System.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Kernel\KConditionVariable.cpp">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Kernel\KConditionVariable.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="Kernel\Kernel.cpp">

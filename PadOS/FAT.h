@@ -66,13 +66,13 @@ struct PartitionTabelEntry
     uint8_t m_CHSEndAddress[3];
     uint32_t m_LBAStart;
     uint32_t m_LBASize;
-};
+} __attribute__((packed));
 
 struct MasterBootRecord
 {
     uint8_t m_BootLoader[446];
     PartitionTabelEntry m_Partitions[4];
-};
+} __attribute__((packed));
 
 struct FAT32SuperBlock
 {
@@ -187,7 +187,7 @@ public:
     enum PartitionType_e { e_PartitionTypeFAT16, e_PartitionTypeFAT32 };
     FAT();
     ~FAT();
-    bool Initialize(HSMCIDriver* blockDevice);
+    bool Initialize(int blockDevice);
     bool    ChangeDirectory(const char* path);
     
     File*      OpenFile(const char* path);
@@ -213,8 +213,11 @@ private:
     friend class FileBase;
     friend class Directory;
 
-    HSMCIDriver* m_BlockDevice = nullptr;
-    uint8_t  m_SectorBuffer[512];
+    int m_BlockDevice = -1;
+//    uint8_t  m_SectorBuffer[512];
+    uint8_t  m_SectorBuffer_[512+31];
+//    uint8_t*  m_SectorBuffer = (uint8_t*)((intptr_t(m_SectorBuffer_) + 31) & ~31);
+    uint8_t*  m_SectorBuffer = (uint8_t*)((intptr_t(m_SectorBuffer_) + 1));
     
     PartitionType_e m_PartitionType;
     uint32_t m_CurrentSector;

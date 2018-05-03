@@ -83,6 +83,10 @@ bool KSemaphore::Acquire()
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             waitNode.Detatch();
+            if (waitNode.m_TargetDeleted) {
+                set_last_error(EINVAL);
+                return false;
+            }
             if (m_Count > 0)
             {
                 m_Count--;
@@ -146,6 +150,10 @@ bool KSemaphore::AcquireDeadline(bigtime_t deadline)
         {
             waitNode.Detatch();
             sleepNode.Detatch();
+            if (waitNode.m_TargetDeleted) {
+                set_last_error(EINVAL);
+                return false;
+            }
         } CRITICAL_END;
     }
 }

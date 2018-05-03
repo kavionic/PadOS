@@ -35,6 +35,7 @@ enum class KNamedObjectType
     Thread,
     Semaphore,
     Mutex,
+    ConditionVariable,
     MessagePort,
 };
 
@@ -53,6 +54,7 @@ struct KThreadWaitNode
     bigtime_t                       m_ResumeTime = 0;
     KThreadCB*                      m_Thread = nullptr;
     int                             m_ReturnCode = 0;
+    bool                            m_TargetDeleted = false;
     KThreadWaitNode*                m_Next = nullptr;
     KThreadWaitNode*                m_Prev = nullptr;
     IntrusiveList<KThreadWaitNode>* m_List = nullptr;

@@ -85,7 +85,7 @@ void SysTick_Handler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void add_thread_to_ready_list(KThreadCB* thread)
+void kernel::add_thread_to_ready_list(KThreadCB* thread)
 {
     thread->m_State = KThreadState::Ready;
     gk_ReadyThreadLists[thread->m_PriorityLevel].Append(thread);
@@ -530,6 +530,40 @@ status_t snooze_until(bigtime_t resumeTime)
             return -1;
         }
     }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+IRQEnableState kernel::get_interrupt_enabled_state()
+{
+    uint32_t basePri = __get_BASEPRI();
+    if (basePri == 0) {
+        return IRQEnableState::Enabled;
+    } else if (basePri >= (KIRQ_PRI_NORMAL_LATENCY_MAX << (8-__NVIC_PRIO_BITS))) {
+        return IRQEnableState::NormalLatencyDisabled;
+    } else {
+        return IRQEnableState::LowLatencyDisabled;
+    }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kernel::set_interrupt_enabled_state(IRQEnableState state)
+{
+    __disable_irq();
+    switch(state)
+    {
+        case IRQEnableState::Enabled:               __set_BASEPRI(0); break;
+        case IRQEnableState::NormalLatencyDisabled: __set_BASEPRI(KIRQ_PRI_NORMAL_LATENCY_MAX << (8-__NVIC_PRIO_BITS)); break;
+        case IRQEnableState::LowLatencyDisabled:    __set_BASEPRI(KIRQ_PRI_LOW_LATENCY_MAX << (8-__NVIC_PRIO_BITS)); break;
+    }
+    __DSB();
+    __ISB();
+    __enable_irq();    
 }
 
 ///////////////////////////////////////////////////////////////////////////////

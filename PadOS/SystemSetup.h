@@ -31,6 +31,9 @@ static const uint32_t CLOCK_PERIF_FREQUENCY   = CLOCK_CPU_FREQUENCY / 3;
 void SetupEBIPeripherals();
 void SetupMemoryRegions();
 
+#define DCACHE_LINE_SIZE 32
+#define DCACHE_LINE_SIZE_MASK (DCACHE_LINE_SIZE - 1)
+
 #define SDRAM_SIZE (64*1024*1024)
 #define SDRAM_START SDRAM_CS_ADDR
 #define SDRAM_END   (SDRAM_START + SDRAM_SIZE - 1)

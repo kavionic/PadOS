@@ -54,7 +54,7 @@ public:
     bool TryLockShared();
     void UnlockShared();
     
-    bool IsLocked() const { return m_Count <= 0; }
+    bool IsLocked() const;
 private:
     int             m_Count;
     bool            m_Recursive;

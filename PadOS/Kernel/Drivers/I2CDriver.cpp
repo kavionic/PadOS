@@ -163,7 +163,7 @@ int I2CDriver::DeviceControl( Ptr<KFileHandle> file, int request, const void* in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t I2CDriver::Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length)
+ssize_t I2CDriver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length)
 {
     if (length == 0) {
         return 0;
@@ -216,7 +216,7 @@ ssize_t I2CDriver::Read(Ptr<KFileHandle> file, off_t position, void* buffer, siz
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t I2CDriver::Write(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length)
+ssize_t I2CDriver::Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);

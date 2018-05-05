@@ -33,8 +33,8 @@ public:
     virtual ~UARTDriver() override;
 
     virtual int     DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    virtual ssize_t Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length) override;
-    virtual ssize_t Write(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length) override;
+    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length) override;
+    virtual ssize_t Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length) override;
 
 
 private:

@@ -48,12 +48,12 @@ public:
     virtual Ptr<KFileHandle> OpenDirectory(Ptr<KINode> node);
     virtual Ptr<KFileHandle> CreateDirectory(Ptr<KINode> parent, const char* name, int nameLength, int permission);
 
-    virtual ssize_t Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length);
-    virtual ssize_t Write(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length);
+    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length);
+    virtual ssize_t Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length);
     virtual int     DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
-    virtual int ReadAsync(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback);
-    virtual int WriteAsync(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback);
+    virtual int ReadAsync(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback);
+    virtual int WriteAsync(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback);
     virtual int CancelAsyncRequest(Ptr<KFileHandle> file, int handle);
 
 };

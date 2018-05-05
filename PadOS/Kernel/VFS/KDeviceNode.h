@@ -41,11 +41,11 @@ public:
 
     virtual int     DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) { set_last_error(ENOSYS); return -1; }
 
-    virtual ssize_t Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length) { set_last_error(ENOSYS); return -1; }
-    virtual ssize_t Write(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length) { set_last_error(ENOSYS); return -1; }
+    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length) { set_last_error(ENOSYS); return -1; }
+    virtual ssize_t Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length) { set_last_error(ENOSYS); return -1; }
 
-    virtual int ReadAsync(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) { return -1; }
-    virtual int WriteAsync(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) { return -1; }
+    virtual int ReadAsync(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) { return -1; }
+    virtual int WriteAsync(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) { return -1; }
     virtual int CancelAsyncRequest(Ptr<KFileHandle> file, int handle) { set_last_error(ENOSYS); return -1; }
 
 private:

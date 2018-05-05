@@ -48,12 +48,12 @@ public:
     virtual Ptr<KFileHandle> OpenFile(Ptr<KINode> node, int flags) override;
     virtual Ptr<KFileHandle> CreateFile(Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission) override;
 
-    virtual ssize_t Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length) override;
-    virtual ssize_t Write(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length) override;
+    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length) override;
+    virtual ssize_t Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length) override;
     virtual int     DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
-    virtual int ReadAsync(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) override;
-    virtual int WriteAsync(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) override;
+    virtual int ReadAsync(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) override;
+    virtual int WriteAsync(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) override;
     virtual int CancelAsyncRequest(Ptr<KFileHandle> file, int handle) override;
 
     int RegisterDevice(const char* path, Ptr<KDeviceNode> device);

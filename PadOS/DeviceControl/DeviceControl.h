@@ -21,7 +21,7 @@
 
 struct DeviceGeometry
 {
-    off_t   SectorCount;
+    off64_t SectorCount;
     size_t  SectorSize;
     bool    ReadOnly;
     bool    Removable;

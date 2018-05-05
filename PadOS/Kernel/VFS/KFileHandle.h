@@ -35,8 +35,8 @@ class KFileHandle : public PtrTarget
 public:
 //    KFileHandle(Ptr<KINode> inode);
     Ptr<KINode> m_INode;
-    int   m_FileMode = 0;
-    off_t m_Position = 0;
+    int         m_FileMode = 0;
+    off64_t     m_Position = 0;
 };
 
 class KDirectoryHandle : public KFileHandle

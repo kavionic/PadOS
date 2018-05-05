@@ -36,7 +36,6 @@ KNamedObject::KNamedObject(const char* name, KNamedObjectType type) : m_Type(typ
 {
     strncpy(m_Name, name, OS_NAME_LENGTH - 1);
     m_Name[OS_NAME_LENGTH - 1] = 0;
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////

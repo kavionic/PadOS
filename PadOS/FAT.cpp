@@ -27,6 +27,7 @@
 #include "SystemSetup.h"
 
 #include "FAT.h"
+#include "DeviceControl/DeviceControl.h"
 
 using namespace kernel;
 
@@ -50,9 +51,18 @@ FAT::FAT()
 bool FAT::Initialize(int blockDevice)
 {    
     m_BlockDevice = blockDevice;
-    MasterBootRecord* mbr = (MasterBootRecord*)ReadSector(0);
-    if ( mbr != nullptr )
+    
+    DeviceGeometry geometry;
+     
+    Kernel::DeviceControl(m_BlockDevice, DEVCTL_GET_DEVICE_GEOMETRY, nullptr, 0, &geometry, sizeof(geometry));
+    
+    m_BlockCache.SetDevice(m_BlockDevice, geometry.SectorCount, 512);
+    
+    KCacheBlockDesc mbrBlock = m_BlockCache.GetBlock(0, true);
+    
+    if (mbrBlock.m_Buffer != nullptr)
     {
+        MasterBootRecord* mbr = static_cast<MasterBootRecord*>(mbrBlock.m_Buffer);
         for ( uint8_t i = 0 ; i < 4 ; ++i )
         {
             const PartitionTabelEntry& partition = mbr->m_Partitions[i];
@@ -72,9 +82,10 @@ bool FAT::Initialize(int blockDevice)
         printf("Partition start: %ld, size: %ld\n", m_PartitionStart, m_PartitionSize);
         if ( m_PartitionSize > 0 )
         {
-            const FAT32SuperBlock* superBlock = (const FAT32SuperBlock*)ReadSector(m_PartitionStart);
-            if (superBlock != nullptr)
+            KCacheBlockDesc superBlockDesc = m_BlockCache.GetBlock(m_PartitionStart, true);
+            if (superBlockDesc.m_Buffer != nullptr)
             {
+                const FAT32SuperBlock* superBlock = static_cast<const FAT32SuperBlock*>(superBlockDesc.m_Buffer);
                 m_BytesPerSector    = superBlock->m_BytesPerSector;
                 m_SectorsPerCluster = superBlock->m_SectorsPerCluster;
                 m_FATCount          = superBlock->m_FATCount;
@@ -302,31 +313,6 @@ Directory* FAT::OpenDir(Directory* parent, const char* name)
 ///////////////////////////////////////////////////////////////////////////////
 ///
 ///////////////////////////////////////////////////////////////////////////////
-
-void* FAT::ReadSector(uint32_t sector)
-{
-    if ( sector == m_CurrentSector )
-    {
-        return m_SectorBuffer;
-    }
-    else
-    {
-        if (Kernel::Read(m_BlockDevice, sector * 512, m_SectorBuffer, 512) == 512)
-        {
-            m_CurrentSector = sector;
-            return m_SectorBuffer;
-        }
-        else
-        {
-            m_CurrentSector = -1; // We might have trashed the previous buffer before the failure.
-            return nullptr;
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-///
-///////////////////////////////////////////////////////////////////////////////
     
 int16_t FAT::Read(FileHandle* file, void* buffer, int16_t size)
 {
@@ -353,7 +339,8 @@ int16_t FAT::Read(FileHandle* file, void* buffer, int16_t size)
         // Read end of first sector if partial.
         if ( sectorOffset )
         {
-            uint8_t* data = static_cast<uint8_t*>(ReadSector(sector++));
+            KCacheBlockDesc blockDesc = m_BlockCache.GetBlock(sector++, true);
+            uint8_t* data = static_cast<uint8_t*>(blockDesc.m_Buffer);
             if (data == nullptr) return -1;
             
             int16_t bytesToReadFromSector = std::min<int16_t>(bytesToRead, 512 - sectorOffset);
@@ -365,25 +352,16 @@ int16_t FAT::Read(FileHandle* file, void* buffer, int16_t size)
 //        printf("bytesToRead: %d\n", bytesToRead);
         if ( bytesToRead >= 512 )
         {
-            off_t sectorsToRead = bytesToRead / 512;
-            Kernel::Read(m_BlockDevice, sector * 512, dst, sectorsToRead * 512);
+            size_t sectorsToRead = bytesToRead / 512;
+            m_BlockCache.CachedRead(sector, dst, sectorsToRead);
             bytesToRead -= sectorsToRead * 512;
             dst += sectorsToRead * 512;
             sector += sectorsToRead;
-            
-/*            m_BlockDevice->StartReadBlocks(sector, bytesToRead / 512);
-            while ( bytesToRead >= 512 )
-            {
-                if ( !m_BlockDevice->ReadNextBlocks(dst, 1) ) { m_BlockDevice->EndReadBlocks(); return -1; }
-                sector++;
-                dst += 512;
-                bytesToRead -= 512;
-            }
-            m_BlockDevice->EndReadBlocks();*/
         }            
         if ( bytesToRead )
         {
-            uint8_t* data = static_cast<uint8_t*>(ReadSector(sector++));
+            KCacheBlockDesc blockDesc = m_BlockCache.GetBlock(sector++, true);
+            uint8_t* data = static_cast<uint8_t*>(blockDesc.m_Buffer);
             if (data == nullptr) return -1;
             
             memcpy(dst, data, bytesToRead);
@@ -493,7 +471,8 @@ bool FAT::UpdateSegment(FileHandle* file)
             uint32_t fatOffset = currentCluster * 2;
             uint32_t fatSector = m_FATStart + (fatOffset >> 9);
             printf("Load fat: %ld, %ld\n", fatOffset, fatSector);
-            uint16_t* fat = static_cast<uint16_t*>(ReadSector(fatSector));
+            KCacheBlockDesc blockDesc = m_BlockCache.GetBlock(fatSector, true);
+            uint16_t* fat = static_cast<uint16_t*>(blockDesc.m_Buffer);
             
             if (fat != nullptr)
             {
@@ -536,7 +515,10 @@ bool FAT::UpdateSegment(FileHandle* file)
             uint32_t currentCluster = (file->m_SegmentStart + (file->m_SegmentSize >> 9) - m_ClusterStart) / m_SectorsPerCluster + 1;
             uint32_t fatOffset = currentCluster * 4;
             uint32_t fatSector = m_FATStart + (fatOffset >> 9);
-            uint32_t* fat = static_cast<uint32_t*>(ReadSector(fatSector));
+            
+            KCacheBlockDesc blockDesc = m_BlockCache.GetBlock(fatSector, true);
+            
+            uint32_t* fat = static_cast<uint32_t*>(blockDesc.m_Buffer);
     
             if (fat != nullptr)
             {

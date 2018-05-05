@@ -27,3 +27,4 @@ typedef int     port_id;
 typedef int     handler_id;
 typedef int64_t bigtime_t;
 typedef int     status_t;
+typedef int64_t off64_t;

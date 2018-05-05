@@ -462,6 +462,12 @@
     <Compile Include="Kernel\SpinTimer.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="Kernel\VFS\KBlockCache.cpp">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Kernel\VFS\KBlockCache.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="Kernel\VFS\KDeviceNode.cpp">
       <SubType>compile</SubType>
     </Compile>

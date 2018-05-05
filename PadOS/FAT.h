@@ -26,6 +26,7 @@
 
 #include "Kernel/Drivers/HSMCIDriver.h"
 #include "System/Utils/Utils.h"
+#include "Kernel/VFS/KBlockCache.h"
 
 namespace kernel
 {
@@ -202,8 +203,6 @@ public:
     bool    ReadDir(FileHandle* directory, FileEntry* entry);
     void    Rewind(FileHandle* file);
 
-    void* ReadSector(uint32_t sector);
-    
 private:
     void Open(FileHandle* file, uint32_t startCluster, uint32_t size);
     IOError  Open(FileHandle* file, uint32_t parentCluster, const char* path, bool openDirectory);
@@ -214,10 +213,7 @@ private:
     friend class Directory;
 
     int m_BlockDevice = -1;
-//    uint8_t  m_SectorBuffer[512];
-    uint8_t  m_SectorBuffer_[512+31];
-//    uint8_t*  m_SectorBuffer = (uint8_t*)((intptr_t(m_SectorBuffer_) + 31) & ~31);
-    uint8_t*  m_SectorBuffer = (uint8_t*)((intptr_t(m_SectorBuffer_) + 1));
+    KBlockCache m_BlockCache;
     
     PartitionType_e m_PartitionType;
     uint32_t m_CurrentSector;

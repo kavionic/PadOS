@@ -261,7 +261,7 @@ int HSMCIDriver::DeviceControl(Ptr<KFileHandle> file, int request, const void* i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t HSMCIDriver::Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length)
+ssize_t HSMCIDriver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length)
 {
     if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0)
     {
@@ -341,7 +341,7 @@ ssize_t HSMCIDriver::Read(Ptr<KFileHandle> file, off_t position, void* buffer, s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t HSMCIDriver::Write(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length)
+ssize_t HSMCIDriver::Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length)
 {
     if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0) {
         set_last_error(EINVAL);

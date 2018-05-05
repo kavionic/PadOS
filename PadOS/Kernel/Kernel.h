@@ -30,6 +30,7 @@
 
 #include "System/Ptr/PtrTarget.h"
 #include "System/Ptr/Ptr.h"
+#include "System/String.h"
 
 namespace kernel
 {
@@ -50,13 +51,40 @@ struct KIRQAction
     KIRQAction*  m_Next;
 };
 
+template<typename ...ARGS> int kprintf(const char* fmt, ARGS&&... args) { return printf(fmt, args...); }
+
 void panic(const char* message);
 
-template<typename ...ARGS>
-void kassure(bool expression, ARGS... args)
+template<typename FIRSTARG, typename... ARGS>
+void panic(const char* fmt, FIRSTARG&& firstArg, ARGS&&... args)
 {
-    if (!expression) printf(args...);
+    panic(os::String::FormatString(fmt, firstArg, args...).c_str());
 }
+
+inline void kassert_function(const char* file, int line, const char* func, const char* expression)
+{
+    os::String message;
+    message.Format("KASSERT %s / %s:%d: %s -> ", func, file, line, expression);
+    panic(message.c_str());
+}
+
+template<typename... ARGS>
+void kassert_function(const char* file, int line, const char* func, const char* expression, const char* fmt, ARGS&&... args)
+{
+    os::String message;
+    message.Format("KASSERT %s / %s:%d: %s -> ", func, file, line, expression);
+    message += os::String::FormatString(fmt, args...);
+    panic(message.c_str());
+}
+
+#define kassert(expression, ...) if (!(expression)) kassert_function(__FILE__, __LINE__, __func__, #expression __VA_ARGS__)
+
+template<typename ...ARGS>
+void kassure(bool expression, const char* fmt, ARGS&&... args)
+{
+    if (!expression) kprintf(fmt, args...);
+}
+
 
 typedef void AsyncIOResultCallback(void* userObject, void* data, ssize_t length);
 
@@ -82,12 +110,12 @@ public:
     static int     CloseFile(int handle);
     static ssize_t Read(int handle, void* buffer, size_t length);
     static ssize_t Write(int handle, const void* buffer, size_t length);
-    static ssize_t Write(int handle, off_t position, const void* buffer, size_t length);
-    static ssize_t Read(int handle, off_t position, void* buffer, size_t length);
+    static ssize_t Write(int handle, off64_t position, const void* buffer, size_t length);
+    static ssize_t Read(int handle, off64_t position, void* buffer, size_t length);
     static int     DeviceControl(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
-    static int ReadAsync(int handle, off_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback);
-    static int WriteAsync(int handle, off_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback);
+    static int ReadAsync(int handle, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback);
+    static int WriteAsync(int handle, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback);
     static int CancelAsyncRequest(int handle, int requestHandle);
 
 private:

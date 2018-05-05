@@ -112,7 +112,7 @@ Ptr<KFileHandle> KFilesystem::CreateDirectory(Ptr<KINode> parent, const char* na
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KFilesystem::Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length)
+ssize_t KFilesystem::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length)
 {
     set_last_error(ENOSYS);
     return -1;
@@ -122,7 +122,7 @@ ssize_t KFilesystem::Read(Ptr<KFileHandle> file, off_t position, void* buffer, s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KFilesystem::Write(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length)
+ssize_t KFilesystem::Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length)
 {
     set_last_error(ENOSYS);
     return -1;
@@ -142,7 +142,7 @@ int KFilesystem::DeviceControl(Ptr<KFileHandle> file, int request, const void* i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KFilesystem::ReadAsync(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
+int KFilesystem::ReadAsync(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
 {
     set_last_error(ENOSYS);
     return -1;
@@ -152,7 +152,7 @@ int KFilesystem::ReadAsync(Ptr<KFileHandle> file, off_t position, void* buffer, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KFilesystem::WriteAsync(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
+int KFilesystem::WriteAsync(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
 {
     set_last_error(ENOSYS);
     return -1;

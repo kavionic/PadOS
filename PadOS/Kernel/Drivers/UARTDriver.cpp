@@ -53,7 +53,7 @@ int UARTDriver::DeviceControl(Ptr<KFileHandle> file, int request, const void* in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t UARTDriver::Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length)
+ssize_t UARTDriver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length)
 {
     return -1;
 }
@@ -62,7 +62,7 @@ ssize_t UARTDriver::Read(Ptr<KFileHandle> file, off_t position, void* buffer, si
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t UARTDriver::Write(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length)
+ssize_t UARTDriver::Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length)
 {
     m_Port.Send(buffer, length);
 

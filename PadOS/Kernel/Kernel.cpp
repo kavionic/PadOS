@@ -368,7 +368,7 @@ ssize_t Kernel::Write(int handle, const void* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t Kernel::Read(int handle, off_t position, void* buffer, size_t length)
+ssize_t Kernel::Read(int handle, off64_t position, void* buffer, size_t length)
 {
     Ptr<KFileHandle> file = GetFile(handle);
     if (file == nullptr)
@@ -386,7 +386,7 @@ ssize_t Kernel::Read(int handle, off_t position, void* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t Kernel::Write(int handle, off_t position, const void* buffer, size_t length)
+ssize_t Kernel::Write(int handle, off64_t position, const void* buffer, size_t length)
 {
     Ptr<KFileHandle> file = GetFile(handle);
     if (file == nullptr)
@@ -420,7 +420,7 @@ int Kernel::DeviceControl(int handle, int request, const void* inData, size_t in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Kernel::ReadAsync(int handle, off_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
+int Kernel::ReadAsync(int handle, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
 {
     Ptr<KFileHandle> file = GetFile(handle);
     if (file == nullptr)
@@ -437,7 +437,7 @@ int Kernel::ReadAsync(int handle, off_t position, void* buffer, size_t length, v
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Kernel::WriteAsync(int handle, off_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
+int Kernel::WriteAsync(int handle, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
 {
     Ptr<KFileHandle> file = GetFile(handle);
     if (file == nullptr)

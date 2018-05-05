@@ -190,7 +190,7 @@ Ptr<KFileHandle> KRootFilesystem::CreateFile(Ptr<KINode> parent, const char* nam
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KRootFilesystem::Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length)
+ssize_t KRootFilesystem::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length)
 {
     Ptr<KRootFSINode> inode = ptr_static_cast<KRootFSINode>(file->m_INode);
     if (inode->m_DeviceNode != nullptr)
@@ -205,7 +205,7 @@ ssize_t KRootFilesystem::Read(Ptr<KFileHandle> file, off_t position, void* buffe
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KRootFilesystem::Write(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length)
+ssize_t KRootFilesystem::Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length)
 {
     Ptr<KRootFSINode> inode = ptr_static_cast<KRootFSINode>(file->m_INode);
     if (inode->m_DeviceNode != nullptr)
@@ -235,7 +235,7 @@ int KRootFilesystem::DeviceControl(Ptr<KFileHandle> file, int request, const voi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::ReadAsync(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
+int KRootFilesystem::ReadAsync(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
 {
     Ptr<KRootFSINode> inode = ptr_static_cast<KRootFSINode>(file->m_INode);
     if (inode->m_DeviceNode != nullptr)
@@ -250,7 +250,7 @@ int KRootFilesystem::ReadAsync(Ptr<KFileHandle> file, off_t position, void* buff
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::WriteAsync(Ptr<KFileHandle> file, off_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
+int KRootFilesystem::WriteAsync(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
 {
     Ptr<KRootFSINode> inode = ptr_static_cast<KRootFSINode>(file->m_INode);
     if (inode->m_DeviceNode != nullptr)

@@ -34,13 +34,14 @@
 
 #include "System/Signals/Signal.h"
 #include "Kernel/HAL/SAME70System.h"
-#include "Kernel/Drivers/HSMCIDriver.h"
 #include "FAT.h"
 #include "SDRAM.h"
 #include "System/Utils/EventTimer.h"
 #include "System/Threads.h"
 #include "Kernel/Kernel.h"
 #include "Kernel/Scheduler.h"
+#include "Kernel/VFS/KBlockCache.h"
+#include "Kernel/Drivers/HSMCIDriver.h"
 #include "Kernel/Drivers/UARTDriver.h"
 #include "Kernel/Drivers/I2CDriver.h"
 #include "Kernel/Drivers/FT5x0xDriver.h"
@@ -245,6 +246,8 @@ void kernel::InitThreadMain(void* argument)
     printf("Initialize display.\n");
     kernel::GfxDriver::Instance.InitDisplay();
 
+    KBlockCache::Initialize();
+    
     printf("Setup I2C drivers\n");
     kernel::Kernel::RegisterDevice("i2c/0", ptr_new<kernel::I2CDriver>(kernel::I2CDriver::Channels::Channel0));
     kernel::Kernel::RegisterDevice("i2c/2", ptr_new<kernel::I2CDriver>(kernel::I2CDriver::Channels::Channel2));

@@ -240,7 +240,7 @@ int BME280Driver::DeviceControl(Ptr<KFileHandle> file, int request, const void* 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t BME280Driver::Read(Ptr<KFileHandle> file, off_t position, void* buffer, size_t length)
+ssize_t BME280Driver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length)
 {
     return 0;
 }

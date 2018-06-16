@@ -31,7 +31,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KFSVolume::KFSVolume(Ptr<KFilesystem> filesystem, Ptr<KINode> mountPoint, const String& devicePath ) : m_Filesystem(filesystem), m_MountPoint(mountPoint), m_DevicePath(devicePath)
+KFSVolume::KFSVolume(fs_id volumeID, const String& devicePath ) : m_VolumeID(volumeID), m_DevicePath(devicePath)
 {
 }
 

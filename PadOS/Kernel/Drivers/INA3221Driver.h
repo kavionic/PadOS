@@ -118,16 +118,15 @@ namespace kernel
 #define INA3221_SENSOR_IDX_3 2
 
 
-class INA3221Driver : public KDeviceNode, public os::Looper, public SignalTarget
+class INA3221Driver : public PtrTarget, public os::Looper, public KFilesystemFileOps, public SignalTarget
 {
 public:
-    INA3221Driver(const char* i2cPath);
+    INA3221Driver();
     ~INA3221Driver();
 
+    bool Setup(const char* devicePath, const char* i2cPath);
 
-    bool Initialize(const char* i2cPath);
-
-    virtual int DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual int DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 //    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length) override;
 
 private:

@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include "Kernel/VFS/FileIO.h"
+
 enum SDCardDeviceControl
 {
     SDCDEVCTL_SDIO_READ_DIRECT,
@@ -61,7 +63,7 @@ inline status_t SDCDEVCTL_SDIOReadDirect(int device, uint8_t functionNumber, uin
     SDCDEVCTL_SDIOReadDirectArgs args;
     args.Address = addr;
     args.FunctionNumber = functionNumber;
-    return kernel::Kernel::DeviceControl(device, SDCDEVCTL_SDIO_READ_DIRECT, &args, sizeof(args), dest, sizeof(*dest));
+    return os::FileIO::DeviceControl(device, SDCDEVCTL_SDIO_READ_DIRECT, &args, sizeof(args), dest, sizeof(*dest));
 }
 
 inline status_t SDCDEVCTL_SDIOWriteDirect(int device, uint8_t functionNumber, uint32_t addr, uint8_t data)
@@ -70,7 +72,7 @@ inline status_t SDCDEVCTL_SDIOWriteDirect(int device, uint8_t functionNumber, ui
     args.Address = addr;
     args.FunctionNumber = functionNumber;
     args.Data = data;
-    return kernel::Kernel::DeviceControl(device, SDCDEVCTL_SDIO_WRITE_DIRECT, &args, sizeof(args), nullptr, 0);
+    return os::FileIO::DeviceControl(device, SDCDEVCTL_SDIO_WRITE_DIRECT, &args, sizeof(args), nullptr, 0);
 }
 
 inline ssize_t  SDCDEVCTL_SDIOReadExtended(int device, uint8_t functionNumber, uint32_t addr, bool incrementAddr, void* buffer, size_t size)
@@ -79,7 +81,7 @@ inline ssize_t  SDCDEVCTL_SDIOReadExtended(int device, uint8_t functionNumber, u
     args.Address = addr;
     args.FunctionNumber = functionNumber;
     args.IncrementAddr = incrementAddr;
-    return kernel::Kernel::DeviceControl(device, SDCDEVCTL_SDIO_READ_EXTENDED, &args, sizeof(args), buffer, size);
+    return os::FileIO::DeviceControl(device, SDCDEVCTL_SDIO_READ_EXTENDED, &args, sizeof(args), buffer, size);
 }
 
 inline ssize_t  SDCDEVCTL_SDIOWriteExtended(int device, uint8_t functionNumber, uint32_t addr, bool incrementAddr, const void* buffer, size_t size)
@@ -90,6 +92,6 @@ inline ssize_t  SDCDEVCTL_SDIOWriteExtended(int device, uint8_t functionNumber, 
     args.IncrementAddr = incrementAddr;
     args.Buffer        = buffer;
     args.Size          = size;
-    return kernel::Kernel::DeviceControl(device, SDCDEVCTL_SDIO_WRITE_EXTENDED, &args, sizeof(args), nullptr, 0);
+    return os::FileIO::DeviceControl(device, SDCDEVCTL_SDIO_WRITE_EXTENDED, &args, sizeof(args), nullptr, 0);
 }
 

@@ -33,14 +33,14 @@ namespace kernel
 
 class KSemaphore;
 
-class I2CFile : public KFileHandle
+class I2CFile : public KFileNode
 {
 public:
     uint8_t m_SlaveAddress = 0;
     uint8_t m_InternalAddressLength = 0;
     uint32_t m_InternalAddress = 0;
     uint32_t m_RelativeTimeout = 2000; // Timeout relative to the theoretic minimum time * 1000 
-    AsyncIOResultCallback* m_Callback = nullptr;
+//    AsyncIOResultCallback* m_Callback = nullptr;
 };
 
 struct I2CWriteRequest
@@ -53,11 +53,11 @@ struct I2CWriteRequest
     uint8_t                        m_SlaveAddress = 0;
     uint8_t                        m_InternalAddressLength = 0;
     uint32_t                       m_InternalAddress = 0;
-    AsyncIOResultCallback* m_Callback = nullptr;
+//    AsyncIOResultCallback* m_Callback = nullptr;
     void*                          m_UserObject = nullptr;
 };
 
-class I2CDriver : public KDeviceNode
+class I2CDriverINode : public KINode
 {
 public:
     enum class Channels : int8_t
@@ -67,14 +67,15 @@ public:
         Channel2 = 2,
         ChannelCount,
     };
-    I2CDriver(Channels channel);
-    virtual ~I2CDriver() override;
+    I2CDriverINode(KFilesystemFileOps* fileOps, Channels channel);
+    virtual ~I2CDriverINode() override;
 
-    virtual Ptr<KFileHandle> Open(int flags) override;
 
-    virtual int     DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length) override;
-    virtual ssize_t Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length) override;
+    Ptr<KFileNode> Open(int flags);
+
+    int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length);
+    ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length);
 
 private:
     void Reset();
@@ -82,12 +83,12 @@ private:
     int SetBaudrate(uint32_t baudrate);
     int GetBaudrate() const;
 
-    I2CDriver( const I2CDriver &c );
-    I2CDriver& operator=( const I2CDriver &c );
+    I2CDriverINode(const I2CDriverINode&) = delete;
+    I2CDriverINode& operator=(const I2CDriverINode&) = delete;
 
-    friend void TWIHS0_Handler();
-    friend void TWIHS1_Handler();
-    friend void TWIHS2_Handler();
+//    friend void TWIHS0_Handler();
+//    friend void TWIHS1_Handler();
+//    friend void TWIHS2_Handler();
     
     enum class State_e
     {
@@ -96,7 +97,7 @@ private:
         Writing
     };
     
-    static void IRQCallback(IRQn_Type irq, void* userData) { static_cast<I2CDriver*>(userData)->HandleIRQ(); }
+    static void IRQCallback(IRQn_Type irq, void* userData) { static_cast<I2CDriverINode*>(userData)->HandleIRQ(); }
     void HandleIRQ();
     
     uint32_t CalcAddress(uint32_t slaveAddress, int len);
@@ -120,4 +121,18 @@ private:
 
 };
 
+class I2CDriver : public PtrTarget, public KFilesystemFileOps
+{
+public:
+    void Setup(const char* devicePath, I2CDriverINode::Channels channel);
+
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
+    virtual int              CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file) override;
+
+    virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
+    virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+
+};
+    
 } // namespace

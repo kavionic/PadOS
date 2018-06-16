@@ -19,6 +19,7 @@
 
 #pragma once
 
+
 template<typename T>
 struct IntrusiveList
 {
@@ -78,4 +79,29 @@ struct IntrusiveList
     }
     T* m_First = nullptr;
     T* m_Last = nullptr;
+};
+
+template<typename T>
+class IntrusiveListNode
+{
+public:
+    T* GetNext() { return m_Next; }
+    T* GetPrev() { return m_Prev; }
+    IntrusiveList<T>* GetList() { return m_List; }
+        
+    bool RemoveFromList()
+    {
+        if (m_List != nullptr) {
+            m_List->Remove(static_cast<T*>(this));
+            return true;
+        } else {
+            return false;
+        }
+    }        
+protected:
+    friend class IntrusiveList<T>;
+    
+    T*                m_Prev = nullptr;
+    T*                m_Next = nullptr;
+    IntrusiveList<T>* m_List = nullptr;    
 };

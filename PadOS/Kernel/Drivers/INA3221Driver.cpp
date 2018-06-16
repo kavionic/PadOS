@@ -26,6 +26,7 @@
 #include "INA3221Driver.h"
 #include "I2CDriver.h"
 #include "DeviceControl/I2C.h"
+#include "Kernel/VFS/KFSVolume.h"
 
 using namespace kernel;
 using namespace os;
@@ -34,10 +35,9 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-INA3221Driver::INA3221Driver(const char* i2cPath) : Looper("ina3221_driver", 10), m_Mutex("ina3221_driver"), m_Timer(bigtime_from_ms(10))
+INA3221Driver::INA3221Driver() : Looper("ina3221_driver", 10), m_Mutex("ina3221_driver"), m_Timer(bigtime_from_ms(10))
 {
     SetDeleteOnExit(false);
-    Initialize(i2cPath);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -52,9 +52,9 @@ INA3221Driver::~INA3221Driver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool INA3221Driver::Initialize(const char* i2cPath)
+bool INA3221Driver::Setup(const char* devicePath, const char* i2cPath)
 {
-    m_I2CDevice = Kernel::OpenFile(i2cPath, O_RDWR);
+    m_I2CDevice = FileIO::Open(i2cPath, O_RDWR);
 
     if (m_I2CDevice >= 0)
     {
@@ -64,6 +64,9 @@ bool INA3221Driver::Initialize(const char* i2cPath)
         m_Timer.SignalTrigged.Connect(this, &INA3221Driver::SlotTick);
         AddTimer(&m_Timer);
         Start(true);
+        
+        Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
+        Kernel::RegisterDevice(devicePath, inode);
         return true;
     }
     return false;
@@ -85,7 +88,7 @@ void INA3221Driver::SlotTick()
         m_CurrentRegister = INA3221_SHUNT_VOLTAGE_1;
         m_ReadStartTime = time;
         m_ReadRetryCount = 0;
-        if (Kernel::Read(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer)) == sizeof(m_RegisterBuffer)) {
+        if (FileIO::Read(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer)) == sizeof(m_RegisterBuffer)) {
             m_State = State_e::ProcessingRegister;
         }                
         m_Timer.Set(1000);
@@ -105,7 +108,7 @@ void INA3221Driver::SlotTick()
             else
             {
                 m_ReadStartTime = time;
-                if (Kernel::Read(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer)) == sizeof(m_RegisterBuffer)) {
+                if (FileIO::Read(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer)) == sizeof(m_RegisterBuffer)) {
                     m_State = State_e::ProcessingRegister;
                 }
                 m_Timer.Set(2000);
@@ -148,7 +151,7 @@ void INA3221Driver::SlotTick()
         {
             m_ReadStartTime = time;
             m_ReadRetryCount = 0;
-            if (Kernel::Read(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer)) == sizeof(m_RegisterBuffer)) {
+            if (FileIO::Read(m_I2CDevice, m_CurrentRegister, m_RegisterBuffer, sizeof(m_RegisterBuffer)) == sizeof(m_RegisterBuffer)) {
                 m_State = State_e::ProcessingRegister;
             }
         }
@@ -159,7 +162,7 @@ void INA3221Driver::SlotTick()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int INA3221Driver::DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+int INA3221Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
     switch(request)

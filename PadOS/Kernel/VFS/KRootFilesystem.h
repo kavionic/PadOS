@@ -23,6 +23,7 @@
 #include "KINode.h"
 #include "KFilesystem.h"
 #include "System/String.h"
+#include "Kernel/KMutex.h"
 
 namespace kernel
 {
@@ -33,34 +34,43 @@ class KDeviceNode;
 class KRootFSINode : public KINode
 {
     public:
-    KRootFSINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume) : KINode(filesystem, volume) {}
+    KRootFSINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, bool isDirectory);
 
     Ptr<KDeviceNode> m_DeviceNode;
 
-    std::map<os::String, Ptr<KRootFSINode>> m_Children;
+    std::map<os::String, Ptr<KINode>> m_Children;
 };
 
-class KRootFilesystem : public KFilesystem
+class KRootFilesystem : public KFilesystem, public KFilesystemFileOps
 {
 public:
-    virtual Ptr<KFSVolume>   Mount(Ptr<KINode> mountPoint, const char* devicePath, int devicePathLength) override;
-    virtual Ptr<KINode>      LocateInode(Ptr<KINode> parent, const char* path, int pathLength) override;
-    virtual Ptr<KFileHandle> OpenFile(Ptr<KINode> node, int flags) override;
-    virtual Ptr<KFileHandle> CreateFile(Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission) override;
+    KRootFilesystem() : m_Mutex("root_fs_mutex") {}
+    virtual Ptr<KFSVolume>   Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength) override;
+    virtual Ptr<KINode>      LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
+//    virtual Ptr<KFileHandle> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
+    virtual Ptr<KFileNode> CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission) override;
 
-    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length) override;
-    virtual ssize_t Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length) override;
-    virtual int     DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual Ptr<KINode>      LoadInode(Ptr<KFSVolume> volume, ino_t inode) override;
+    virtual int              CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission) override;
 
-    virtual int ReadAsync(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) override;
-    virtual int WriteAsync(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) override;
-    virtual int CancelAsyncRequest(Ptr<KFileHandle> file, int handle) override;
+//    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length) override;
+//    virtual ssize_t Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length) override;
+//    virtual int     DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
-    int RegisterDevice(const char* path, Ptr<KDeviceNode> device);
+//    virtual int ReadAsync(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) override;
+//    virtual int WriteAsync(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) override;
+//    virtual int CancelAsyncRequest(Ptr<KFileHandle> file, int handle) override;
 
+    int RegisterDevice(const char* path, Ptr<KINode> deviceNode);
+    int RenameDevice(int handle, const char* newPath);
+    int RemoveDevice(int handle);
+
+    static int AllocINodeNumber();
 private:
+    Ptr<KINode>       FindINode(Ptr<KRootFSINode> parent, ino_t inodeNum, bool remove, Ptr<KRootFSINode>* parentNode);
     Ptr<KRootFSINode> LocateParentInode(Ptr<KRootFSINode> parent, const char* path, int pathLength, bool createParents, int* nameStart);
 
+    KMutex            m_Mutex;
     Ptr<KFSVolume>    m_Volume;
     Ptr<KRootFSINode> m_DevRoot;
 };

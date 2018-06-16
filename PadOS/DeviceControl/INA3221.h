@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Kernel/Kernel.h"
+#include "Kernel/VFS/FileIO.h"
 
 #define INA3221_SENSOR_COUNT 3
 
@@ -39,7 +40,7 @@ struct INA3221Values
 #define INA3221_CMD_GET_SHUNT_CFG    2
 
 
-inline int INA3221_GetMeasurements(int device, INA3221Values* values)           { return kernel::Kernel::DeviceControl(device, INA3221_CMD_GET_MEASUREMENTS, nullptr, 0, values, sizeof(*values)); }
-inline int INA3221_SetShuntConfig(int device, const INA3221ShuntConfig& config) { return kernel::Kernel::DeviceControl(device, INA3221_CMD_SET_SHUNT_CFG, &config, sizeof(INA3221ShuntConfig), nullptr, 0); }
-inline int INA3221_GetShuntConfig(int device, INA3221ShuntConfig* config)       { return kernel::Kernel::DeviceControl(device, INA3221_CMD_GET_SHUNT_CFG, nullptr, 0, config, sizeof(*config)); }
+inline int INA3221_GetMeasurements(int device, INA3221Values* values)           { return os::FileIO::DeviceControl(device, INA3221_CMD_GET_MEASUREMENTS, nullptr, 0, values, sizeof(*values)); }
+inline int INA3221_SetShuntConfig(int device, const INA3221ShuntConfig& config) { return os::FileIO::DeviceControl(device, INA3221_CMD_SET_SHUNT_CFG, &config, sizeof(INA3221ShuntConfig), nullptr, 0); }
+inline int INA3221_GetShuntConfig(int device, INA3221ShuntConfig* config)       { return os::FileIO::DeviceControl(device, INA3221_CMD_GET_SHUNT_CFG, nullptr, 0, config, sizeof(*config)); }
 

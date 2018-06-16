@@ -28,7 +28,7 @@
 #include "System/Threads.h"
 #include "System/SystemMessageIDs.h"
 #include "System/GUI/GUIEvent.h"
-
+#include "Kernel/VFS/KFSVolume.h"
 
 using namespace kernel;
 using namespace os;
@@ -38,11 +38,30 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FT5x0xDriver::FT5x0xDriver(const DigitalPin& pinWAKE, const DigitalPin& pinRESET, const DigitalPin& pinINT, const char* i2cPath) : Thread("ft5x0x_driver"), m_PinWAKE(pinWAKE), m_PinRESET(pinRESET), m_PinINT(pinINT), m_Mutex("ft5x0x_mutex", true), m_EventSemaphore("ft5x0x_events", 0)
+FT5x0xDriver::FT5x0xDriver() : Thread("ft5x0x_driver"), m_Mutex("ft5x0x_mutex", true), m_EventSemaphore("ft5x0x_events", 0)
 {
     SetDeleteOnExit(false);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+FT5x0xDriver::~FT5x0xDriver()
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, const DigitalPin& pinRESET, const DigitalPin& pinINT, const char* i2cPath)
+{
+    m_PinWAKE  = pinWAKE;
+    m_PinRESET = pinRESET;
+    m_PinINT   = pinINT;
     
-    m_I2CDevice = Kernel::OpenFile(i2cPath, O_RDWR);
+    m_I2CDevice = FileIO::Open(i2cPath, O_RDWR);
 
     if (m_I2CDevice >= 0)
     {
@@ -72,29 +91,25 @@ FT5x0xDriver::FT5x0xDriver(const DigitalPin& pinWAKE, const DigitalPin& pinRESET
         Kernel::RegisterIRQHandler(PIOA_IRQn, IRQHandler, this);
 
         uint8_t reg = 0;
-        Kernel::Write(m_I2CDevice, 0, &reg, 1);
+        FileIO::Write(m_I2CDevice, 0, &reg, 1);
 //        reg = 3;
-//        Kernel::Write(m_I2CDevice, FT5x0x_REG_G_PERIODE_ACTIVE, &reg, 1);
+//        FileIO::Write(m_I2CDevice, FT5x0x_REG_G_PERIODE_ACTIVE, &reg, 1);
 /*        for (;;)
         {
-            if (Kernel::Read(m_I2CDevice, FT5x0x_REG_G_PERIODE_ACTIVE, &reg, 1) != 1) {
+            if (FileIO::Read(m_I2CDevice, FT5x0x_REG_G_PERIODE_ACTIVE, &reg, 1) != 1) {
                 snooze(bigtime_from_s(5));
             }
             snooze(bigtime_from_ms(100));
         }*/
         PrintChipStatus();
-//        Kernel::Write(m_I2CDevice, )
+//        FileIO::Write(m_I2CDevice, )
 
         Start(true, 10);
+        
+        Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
+        Kernel::RegisterDevice(devicePath, inode);
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-FT5x0xDriver::~FT5x0xDriver()
-{
+    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -107,8 +122,8 @@ void FT5x0xDriver::PrintChipStatus()
 
 #define PRINT_REG(NAME) \
         /*reg = FT5x0x_REG_##NAME;*/ \
-        /*Kernel::Write(m_I2CDevice, 0, &reg, 1);*/ \
-        if (Kernel::Read(m_I2CDevice, FT5x0x_REG_##NAME, &reg, 1) == 1) { \
+        /*FileIO::Write(m_I2CDevice, 0, &reg, 1);*/ \
+        if (FileIO::Read(m_I2CDevice, FT5x0x_REG_##NAME, &reg, 1) == 1) { \
             printf(#NAME ": %d\n", reg); \
         } else { \
             printf(#NAME ": failed (%s)\n", strerror(get_last_error())); \
@@ -131,8 +146,8 @@ void FT5x0xDriver::PrintChipStatus()
             printf("Log: '");
             for ( int i = reg; i > 0; --i) {
 //                reg = FT5x0x_REG_LOG_CUR_CHAR;
-//                Kernel::Write(m_I2CDevice, 0, &reg, 1);
-                if (Kernel::Read(m_I2CDevice, FT5x0x_REG_LOG_CUR_CHAR, &reg, 1) == 1) {
+//                FileIO::Write(m_I2CDevice, 0, &reg, 1);
+                if (FileIO::Read(m_I2CDevice, FT5x0x_REG_LOG_CUR_CHAR, &reg, 1) == 1) {
                     printf("%c", reg);
                 } else {
                     printf(".");
@@ -154,7 +169,7 @@ int FT5x0xDriver::Run()
         
         FT5x0xOMRegisters registers;
 
-        ssize_t length = kernel::Kernel::Read(m_I2CDevice, 0, &registers, sizeof(FT5x0xOMRegisters) - 2);
+        ssize_t length = FileIO::Read(m_I2CDevice, 0, &registers, sizeof(FT5x0xOMRegisters) - 2);
         
         if (length == (sizeof(FT5x0xOMRegisters) - 2))
         {
@@ -216,7 +231,7 @@ int FT5x0xDriver::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileHandle> FT5x0xDriver::Open( int flags)
+Ptr<KFileNode> FT5x0xDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<FT5x0xFile> file = ptr_new<FT5x0xFile>();
@@ -228,7 +243,7 @@ Ptr<KFileHandle> FT5x0xDriver::Open( int flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FT5x0xDriver::Close(Ptr<KFileHandle> file)
+status_t FT5x0xDriver::CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file)
 {
     CRITICAL_SCOPE(m_Mutex);
     auto i = std::find(m_OpenFiles.begin(), m_OpenFiles.end(), file);
@@ -243,7 +258,7 @@ status_t FT5x0xDriver::Close(Ptr<KFileHandle> file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FT5x0xDriver::DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+int FT5x0xDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<FT5x0xFile> ftFile = ptr_static_cast<FT5x0xFile>(file);

@@ -67,13 +67,35 @@ private:
 class KMutexGuard
 {
 public:
-    KMutexGuard(Ptr<KMutex> sema) : m_Mutex(sema) { m_Mutex->Lock(); }
-    ~KMutexGuard() { if (m_Mutex != nullptr) m_Mutex->Unlock(); }
+    KMutexGuard(Ptr<KMutex> sema, bool doLock) : m_Mutex(sema), m_IsLocked(doLock) { if (doLock) m_Mutex->Lock(); }
+    ~KMutexGuard() { if (m_IsLocked) m_Mutex->Unlock(); }
+
+    void Lock()
+    {
+        if (!m_IsLocked)
+        {
+            m_IsLocked = true;
+            if (m_Mutex != nullptr) {
+                m_Mutex->Lock();
+            }
+        }
+    }
+    void Unlock()
+    {
+        if (m_IsLocked)
+        {
+            m_IsLocked = false;
+            if (m_Mutex != nullptr) {
+                m_Mutex->Unlock();
+            }
+        }
+    }
 
     KMutexGuard(KMutexGuard&& other) : m_Mutex(other.m_Mutex) { m_Mutex = nullptr; }
 
 private:
     Ptr<KMutex> m_Mutex;
+    bool        m_IsLocked;
 
     KMutexGuard(KMutexGuard& other)  = delete;
 };
@@ -81,18 +103,76 @@ private:
 class KMutexGuardRaw
 {
 public:
-    KMutexGuardRaw(KMutex& sema) : m_Mutex(&sema) { m_Mutex->Lock(); }
-    ~KMutexGuardRaw() { if (m_Mutex != nullptr) m_Mutex->Unlock(); }
+    KMutexGuardRaw(KMutex& mutex, bool doLock) : m_Mutex(&mutex), m_IsLocked(doLock) { if (doLock) m_Mutex->Lock(); }
+    ~KMutexGuardRaw() { if (m_IsLocked && m_Mutex != nullptr) m_Mutex->Unlock(); }
+
+    void Lock()
+    {
+        if (!m_IsLocked)
+        {
+            m_IsLocked = true;
+            if (m_Mutex != nullptr) {
+                m_Mutex->Lock();
+            }                
+        }
+    }
+    void Unlock()
+    {
+        if (m_IsLocked)
+        {
+            m_IsLocked = false;
+            if (m_Mutex != nullptr) {
+                m_Mutex->Unlock();
+            }
+        }
+    }
 
     KMutexGuardRaw(KMutexGuardRaw&& other) : m_Mutex(other.m_Mutex) { m_Mutex = nullptr; }
 
 private:
     KMutex* m_Mutex;
-
+    bool    m_IsLocked;
     KMutexGuardRaw(KMutexGuardRaw& other)  = delete;
 };
 
-inline KMutexGuard    critical_create_guard(Ptr<KMutex> sema) { return KMutexGuard(sema); }
-inline KMutexGuardRaw critical_create_guard(KMutex& sema) { return KMutexGuardRaw(sema); }
+class KMutexSharedGuard
+{
+public:
+    KMutexSharedGuard(KMutex& mutex, bool doLock) : m_Mutex(&mutex), m_IsLocked(doLock) { if (doLock) m_Mutex->LockShared(); }
+    ~KMutexSharedGuard() { if (m_IsLocked && m_Mutex != nullptr) m_Mutex->UnlockShared(); }
+
+    void LockShared()
+    {
+        if (!m_IsLocked)
+        {
+            m_IsLocked = true;
+            if (m_Mutex != nullptr) {
+                m_Mutex->LockShared();
+            }                
+        }
+    }
+    void UnlockShared()
+    {
+        if (m_IsLocked)
+        {
+            m_IsLocked = false;
+            if (m_Mutex != nullptr) {
+                m_Mutex->UnlockShared();
+            }
+        }
+    }
+
+    KMutexSharedGuard(KMutexSharedGuard&& other) : m_Mutex(other.m_Mutex) { m_Mutex = nullptr; }
+
+private:
+    KMutex* m_Mutex;
+    bool    m_IsLocked;
+    KMutexSharedGuard(KMutexSharedGuard& other)  = delete;
+};
+
+inline KMutexGuard    critical_create_guard(Ptr<KMutex> sema, bool doLock = true) { return KMutexGuard(sema, doLock); }
+inline KMutexGuardRaw critical_create_guard(KMutex& sema, bool doLock = true) { return KMutexGuardRaw(sema, doLock); }
+
+inline KMutexSharedGuard critical_create_shared_guard(KMutex& sema, bool doLock = true) { return KMutexSharedGuard(sema, doLock); }
 
 } // namespace

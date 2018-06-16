@@ -44,7 +44,7 @@ KDeviceNode::~KDeviceNode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileHandle> KDeviceNode::Open(int flags)
+Ptr<KFileNode> KDeviceNode::Open(int flags)
 {
     return nullptr;
 }
@@ -53,7 +53,7 @@ Ptr<KFileHandle> KDeviceNode::Open(int flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t KDeviceNode::Close(Ptr<KFileHandle> file)
+status_t KDeviceNode::Close(Ptr<KFileNode> file)
 {
     set_last_error(ENOSYS);
     return -1;

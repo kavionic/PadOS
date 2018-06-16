@@ -31,10 +31,11 @@
 #include "Kernel/KMutex.h"
 #include "Kernel/KConditionVariable.h"
 #include "Kernel/KSemaphore.h"
+#include "Kernel/VFS/KINode.h"
 
 namespace kernel
 {
-class KFileHandle;
+class KFileNode;
 
 namespace HSMCICardType
 {
@@ -61,19 +62,31 @@ enum class HSMCICardVersion
     MMC_4    = 0x40    //! MMC version 4
 };
 
+class HSMCIINode : public KINode
+{
+public:
+    HSMCIINode(KFilesystemFileOps* fileOps);
+    int		bi_nOpenCount = 0;
+    int		bi_nNodeHandle = -1;
+    int		bi_nPartitionType = 0;
+    off64_t	bi_nStart = 0;
+    off64_t	bi_nSize = 0;    
+};
 
-class HSMCIDriver : public KDeviceNode, public os::Thread
+class HSMCIDriver : public PtrTarget, public KFilesystemFileOps, public os::Thread
 {
 public:
     HSMCIDriver(const DigitalPin& pinCD);
+
+    bool Setup(const os::String& devicePath);
     
     virtual int Run() override;
     
-    virtual Ptr<KFileHandle> Open(int flags) override;
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
 
-    virtual int     DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length) override;
-    virtual ssize_t Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length) override;
+    virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
+    virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
 
 private:
     static const uint32_t BLOCK_SIZE = 512;
@@ -88,6 +101,10 @@ private:
 
     bool InitializeCard();
     bool InitializeMMCCard();
+
+    static size_t ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size);
+
+    int  DecodePartitions(/*Ptr<HSMCIINode> inode*/);
 
     void SetState(CardState state);
     
@@ -169,11 +186,15 @@ private:
     KSemaphore          m_DeviceSemaphore;
     DigitalPin          m_PinCD;
     
+    os::String                   m_DevicePathBase;
+    Ptr<HSMCIINode>              m_RawINode;
+    std::vector<Ptr<HSMCIINode>> m_PartitionINodes;
+    
     bool                m_CardInserted = false;
     HSMCICardType::Type m_CardType     = HSMCICardType::Unknown;
     HSMCICardVersion    m_CardVersion  = HSMCICardVersion::Unknown;
     uint32_t            m_Clock        = 0;
-    uint32_t            m_SectorCount  = 0;
+    uint64_t            m_SectorCount  = 0;
     CardState           m_CardState    = CardState::NoCard;
     int                 m_BusWidth     = 1;
     bool                m_HighSpeed    = false;

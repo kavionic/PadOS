@@ -24,6 +24,7 @@
 #include "System/Ptr/PtrTarget.h"
 #include "System/Ptr/Ptr.h"
 #include "System/String.h"
+#include "KFilesystem.h"
 
 namespace kernel
 {
@@ -31,10 +32,23 @@ namespace kernel
 class KFilesystem;
 class KINode;
 
+enum
+{
+    VOLID_ROOT = 1,
+    VOLID_FIRST_NORMAL = 100 // Reserve the first IDs for special mounts like root, dev, pty, etc etc
+};
+
 class KFSVolume : public PtrTarget
 {
 public:
-    KFSVolume(Ptr<KFilesystem> filesystem, Ptr<KINode> mountPoint, const os::String& devicePath);
+    KFSVolume(fs_id volumeID, const os::String& devicePath);
+    
+    void     SetFlags(uint32_t flags) { m_Flags = flags; }
+    uint32_t GetFlags() const         { return m_Flags; }
+    bool     HasFlag(FSVolumeFlags flag) const { return m_Flags & uint32_t(flag); }
+    
+    fs_id            m_VolumeID;
+    uint32_t         m_Flags;
     Ptr<KFilesystem> m_Filesystem;
     Ptr<KINode>      m_MountPoint;
     os::String       m_DevicePath;

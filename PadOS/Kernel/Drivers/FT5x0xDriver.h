@@ -120,23 +120,31 @@ struct FT5x0xOMRegisters
 #define FT5x0x_TOUCH_YH_TOUCH_ID(reg) (((reg) & FT5x0x_TOUCH_YH_TOUCH_ID_bm) >> FT5x0x_TOUCH_YH_TOUCH_ID_bp)
 
 
-class FT5x0xFile : public KFileHandle
+class FT5x0xFile : public KFileNode
 {
     public:
     port_id m_TargetPort = -1;
 };
 
-class FT5x0xDriver : public KDeviceNode, public os::Thread
+/*class FT5x0xDriverINode : public KINode
 {
 public:
-    FT5x0xDriver(const DigitalPin& pinWAKE, const DigitalPin& pinRESET, const DigitalPin& pinINT, const char* i2cPath);
+    
+};*/
+
+class FT5x0xDriver : public PtrTarget, public os::Thread, public KFilesystemFileOps
+{
+public:
+    FT5x0xDriver();
     ~FT5x0xDriver();
+
+    void Setup(const char* devicePath, const DigitalPin& pinWAKE, const DigitalPin& pinRESET, const DigitalPin& pinINT, const char* i2cPath);
 
     virtual int Run() override;
 
-    virtual Ptr<KFileHandle> Open( int flags) override;
-    virtual status_t         Close(Ptr<KFileHandle> file) override;
-    virtual int              DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags) override;
+    virtual status_t         CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file) override;
+    virtual int              DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
     void PrintChipStatus();

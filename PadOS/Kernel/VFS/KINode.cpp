@@ -29,7 +29,7 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KINode::KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume) : m_Filesystem(filesystem), m_Volume(volume)
+KINode::KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, bool isDirectory) : m_Filesystem(filesystem), m_Volume(volume), m_FileOps(fileOps), m_IsDirectory(isDirectory)
 {
 }
 

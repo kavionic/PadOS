@@ -34,7 +34,6 @@
 
 #include "System/Signals/Signal.h"
 #include "Kernel/HAL/SAME70System.h"
-#include "FAT.h"
 #include "SDRAM.h"
 #include "System/Utils/EventTimer.h"
 #include "System/Threads.h"
@@ -53,11 +52,12 @@
 #include "ApplicationServer/ApplicationServer.h"
 #include "Applications/TestApp/TestApp.h"
 #include "Applications/WindowManager/WindowManager.h"
+#include "Kernel/FSDrivers/FAT/FATFilesystem.h"
+#include "Kernel/VFS/KFilesystem.h"
 
 extern "C" void InitializeNewLibMutexes();
 
 //kernel::HSMCIDriver g_SDCardBlockDevice(DigitalPin(e_DigitalPortID_A, 24));
-kernel::FAT         g_FileSystem;
 
 ApplicationServer* g_ApplicationServer;
 
@@ -151,22 +151,24 @@ void SWO_PrintChar(char c, uint8_t portNo)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+static Ptr<kernel::UARTDriver> g_UARTDriver = ptr_new<kernel::UARTDriver>();
 static void SetupDevices()
 {
-    kernel::Kernel::RegisterDevice("uart/0", ptr_new<kernel::UARTDriver>(kernel::UART::Channels::Channel4_D18D19));
+    g_UARTDriver->Setup("uart/0", kernel::UART::Channels::Channel4_D18D19);
+//    kernel::Kernel::RegisterDevice("uart/0", ptr_new<kernel::UARTDriver>(kernel::UART::Channels::Channel4_D18D19));
 
     int file = open("/dev/uart/0", O_WRONLY);
     
     if (file >= 0)
     {
         if (file != 0) {
-            kernel::Kernel::DupeFile(file, 0);
+            FileIO::Dupe(file, 0);
         }
         if (file != 1) {
-            kernel::Kernel::DupeFile(file, 1);
+            FileIO::Dupe(file, 1);
         }
         if (file != 2) {
-            kernel::Kernel::DupeFile(file, 2);
+            FileIO::Dupe(file, 2);
         }
         if (file != 0 && file != 1 && file != 2) {
             close(file);
@@ -233,9 +235,84 @@ void RunTests(void* args)
     exit_thread(0);
 }
 
+bool PrintFileContent(const char* format, const char* path)
+{
+    int testFile = FileIO::Open(path, O_RDONLY);
+    if (testFile != -1)
+    {
+        std::vector<char> buffer;
+        buffer.resize(1024);
+        
+        int length = FileIO::Read(testFile, 0, buffer.data(), buffer.size() - 1);
+        if (length >= 0) {
+            buffer[length] = 0;
+            printf(format, buffer.data());
+        } else {
+            printf(format, "*ERROR READING*");            
+        }
+        FileIO::Close(testFile);
+        return true;
+    }
+    else
+    {
+        printf(format, "*ERROR OPENING*");
+        return false;
+    }
+}
+
+static void TestFilesystem()
+{
+    int dir = FileIO::Open("/sdcard", O_RDONLY);
+    if (dir >= 0)
+    {
+        printf("Listing SD-card\n");
+        kernel::dir_entry entry;
+        for (int i = 0; FileIO::ReadDirectory(dir, i, &entry, sizeof(entry)) == 1; ++i) {
+            printf("%02d: '%s'\n", i, entry.d_name);            
+        }
+    }
+    int testFile = FileIO::Open("/sdcard/TestTextFile.txt", O_RDONLY);
+    if (testFile != -1)
+    {
+        printf("Succeeded opening file\n");
+        char buffer[512];
+        int length = FileIO::Read(testFile, 0, buffer, sizeof(buffer) - 1);
+        if (length >= 0) {
+            buffer[length] = 0;
+            printf("Content: '%s'\n", buffer);
+        }
+        FileIO::Close(testFile);
+    }
+    
+    if (PrintFileContent("Existing write test file: '%s'\n", "/sdcard/WriteTestFile.txt"))
+    {
+        if (FileIO::Unlink("/sdcard/WriteTestFile.txt") >= 0) {
+            printf("Successfully removed the previous write test file.\n");
+        } else {            
+            printf("ERROR: Failed to remove old write test file.\n");
+        }        
+    }
+    
+    testFile = FileIO::Open("/sdcard/WriteTestFile.txt", O_RDWR | O_CREAT);
+    if (testFile != -1)
+    {
+        String buffer("Test write string");
+        if (FileIO::Write(testFile, buffer.c_str(), buffer.size()) != buffer.size()) {
+            printf("ERROR: Failed to write test file: %s\n", strerror(get_last_error()));
+        }
+        FileIO::Close(testFile);
+    }
+    PrintFileContent("Write test content: '%s'\n", "/sdcard/WriteTestFile.txt");
+}
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+Ptr<kernel::I2CDriver>     g_I2CDriver;
+Ptr<kernel::FT5x0xDriver>  g_FT5x0xDriver;
+Ptr<kernel::INA3221Driver> g_INA3221Driver;
+Ptr<kernel::BME280Driver>  g_BME280Driver;
+Ptr<kernel::HSMCIDriver>   g_HSMCIDriver;
 
 void kernel::InitThreadMain(void* argument)
 {
@@ -247,16 +324,29 @@ void kernel::InitThreadMain(void* argument)
     kernel::GfxDriver::Instance.InitDisplay();
 
     KBlockCache::Initialize();
-    
-    printf("Setup I2C drivers\n");
-    kernel::Kernel::RegisterDevice("i2c/0", ptr_new<kernel::I2CDriver>(kernel::I2CDriver::Channels::Channel0));
-    kernel::Kernel::RegisterDevice("i2c/2", ptr_new<kernel::I2CDriver>(kernel::I2CDriver::Channels::Channel2));
-    kernel::Kernel::RegisterDevice("ft5x0x/0", ptr_new<kernel::FT5x0xDriver>(LCD_TP_WAKE_Pin, LCD_TP_RESET_Pin, LCD_TP_INT_Pin, "/dev/i2c/0"));
-    
-    kernel::Kernel::RegisterDevice("ina3221/0", ptr_new<kernel::INA3221Driver>("/dev/i2c/2"));
-    kernel::Kernel::RegisterDevice("bme280/0", ptr_new<kernel::BME280Driver>("/dev/i2c/2"));
 
-    kernel::Kernel::RegisterDevice("sdcard/0", ptr_new<kernel::HSMCIDriver>(DigitalPin(e_DigitalPortID_A, 24)));
+    g_I2CDriver = ptr_new<kernel::I2CDriver>();
+    g_I2CDriver->Setup("i2c/0", kernel::I2CDriverINode::Channels::Channel0);
+    g_I2CDriver->Setup("i2c/2", kernel::I2CDriverINode::Channels::Channel2);
+    printf("Setup I2C drivers\n");
+//    kernel::Kernel::RegisterDevice("i2c/0", ptr_new<kernel::I2CDriver>(kernel::I2CDriver::Channels::Channel0));
+//    kernel::Kernel::RegisterDevice("i2c/2", ptr_new<kernel::I2CDriver>(kernel::I2CDriver::Channels::Channel2));
+
+//    kernel::Kernel::RegisterDevice("ft5x0x/0", ptr_new<kernel::FT5x0xDriver>(LCD_TP_WAKE_Pin, LCD_TP_RESET_Pin, LCD_TP_INT_Pin, "/dev/i2c/0"));
+    g_FT5x0xDriver = ptr_new<kernel::FT5x0xDriver>();
+    g_FT5x0xDriver->Setup("ft5x0x/0", LCD_TP_WAKE_Pin, LCD_TP_RESET_Pin, LCD_TP_INT_Pin, "/dev/i2c/0");
+    
+//    kernel::Kernel::RegisterDevice("ina3221/0", ptr_new<kernel::INA3221Driver>("/dev/i2c/2"));
+    g_INA3221Driver = ptr_new<kernel::INA3221Driver>();
+    g_INA3221Driver->Setup("ina3221/0", "/dev/i2c/2");
+    
+//    kernel::Kernel::RegisterDevice("bme280/0", ptr_new<kernel::BME280Driver>("/dev/i2c/2"));
+    g_BME280Driver = ptr_new<kernel::BME280Driver>();
+    g_BME280Driver->Setup("bme280/0", "/dev/i2c/2");
+    
+//    kernel::Kernel::RegisterDevice("sdcard/0", ptr_new<kernel::HSMCIDriver>(DigitalPin(e_DigitalPortID_A, 24)));
+    g_HSMCIDriver = ptr_new<kernel::HSMCIDriver>(DigitalPin(e_DigitalPortID_A, 24));
+    g_HSMCIDriver->Setup("sdcard/");
     
     INA3221ShuntConfig shuntConfig;
     shuntConfig.ShuntValues[INA3221_SENSOR_IDX_1] = 47.0e-3;
@@ -282,20 +372,47 @@ void kernel::InitThreadMain(void* argument)
     PMC->PMC_WPMR = PMC_WPMR_WPKEY_PASSWD | PMC_WPMR_WPEN_Msk; // Write protect registers.
     DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN21_bm, DigitalPort::PeripheralID::B); // PCK1
     */
-
-    int sdcardDevice = Kernel::OpenFile("/dev/sdcard/0", O_RDWR);
-//    g_SDCardBlockDevice.Initialize();;
-    g_FileSystem.Initialize(sdcardDevice);
-
-    kernel::Directory* rootDir = g_FileSystem.OpenDir("");
-    if (rootDir != nullptr)
+    snooze(bigtime_from_ms(1000));
+#if 0
+    std::vector<uint8_t> buffer1;
+    std::vector<uint8_t> buffer2;
+    
+    for (int i = 0; i < 512 / 2; ++i) {
+        buffer1.push_back((i+42) << 8);
+        buffer1.push_back((i+42));
+    }
+    buffer2.resize(buffer1.size());
+    
+    int dev = FileIO::Open("/dev/sdcard/0", O_RDWR);
+    if (dev >= 0)
     {
-        kernel::FileEntry entry;
-        while(rootDir->ReadDir(&entry))
+        off64_t pos = 1024LL*1024LL*1024LL*16LL;
+        if (FileIO::Write(dev, pos, buffer1.data(), buffer1.size()) == buffer1.size())
         {
-            printf("%s : %" PRIu32 "\n", entry.m_Name, entry.m_Size);
+            if (FileIO::Read(dev, pos, buffer2.data(), buffer2.size()) == buffer2.size())
+            {
+                for (size_t i = 0; i < buffer1.size(); ++i)
+                {
+                    if (buffer1[i] != buffer2[i]) {
+                        kprintf("ERROR: Failed to write block %" PRIu64 ". Mismatch at %d\n", pos, i);
+                        break;
+                    }
+                }
+            }            
         }
     }
+#else
+    printf("Initializeing the FAT filesystem driver\n");
+    FileIO::RegisterFilesystem("fat", ptr_new<FATFilesystem>());
+
+    printf("Mounting SD-card\n");
+    
+    FileIO::CreateDirectory("/sdcard", 0777);
+    FileIO::Mount("/dev/sdcard/0", "/sdcard", "fat", 0, nullptr, 0);
+
+    TestFilesystem();    
+#endif
+
 
     printf("Start Application Server.\n");
 

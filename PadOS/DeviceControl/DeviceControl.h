@@ -19,12 +19,12 @@
 
 #pragma once
 
-struct DeviceGeometry
+struct device_geometry
 {
-    off64_t SectorCount;
-    size_t  SectorSize;
-    bool    ReadOnly;
-    bool    Removable;
+    off64_t sector_count;
+    size_t  bytes_per_sector;
+    bool    read_only;
+    bool    removable;
 };
 
 enum DeviceControlID

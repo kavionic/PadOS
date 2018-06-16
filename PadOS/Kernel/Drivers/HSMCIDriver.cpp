@@ -27,12 +27,18 @@
 #include "Kernel/HAL/SAME70System.h"
 #include "ASF/sam/drivers/xdmac/xdmac.h"
 #include "Kernel/VFS/KFileHandle.h"
+#include "Kernel/VFS/KFSVolume.h"
 #include "System/String.h"
 #include "DeviceControl/DeviceControl.h"
 #include "DeviceControl/SDCARD.h"
+#include "Kernel/VFS/KVFSManager.h"
 
 using namespace kernel;
 using namespace os;
+
+HSMCIINode::HSMCIINode(KFilesystemFileOps* fileOps) : KINode(nullptr, nullptr, fileOps, false)
+{
+}
 
 static const uint32_t CONF_HSMCI_XDMAC_CHANNEL = 0;
 
@@ -103,6 +109,13 @@ HSMCIDriver::HSMCIDriver(const DigitalPin& pinCD) : Thread("hsmci_driver"), m_Mu
     DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN31_bm, DigitalPinPeripheralID::C);
     DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN26_bm, DigitalPinPeripheralID::C);
     DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN27_bm, DigitalPinPeripheralID::C);
+
+    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN28_bm);
+    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN25_bm);
+    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN30_bm);
+    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN31_bm);
+    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN26_bm);
+    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN27_bm);
     
     m_CardState = CardState::Initializing;
 
@@ -116,9 +129,23 @@ HSMCIDriver::HSMCIDriver(const DigitalPin& pinCD) : Thread("hsmci_driver"), m_Mu
     HSMCI->HSMCI_MR    = HSMCI_MR_PWSDIV_Msk;                                  // Set power saving to maximum value
     HSMCI->HSMCI_CR    = HSMCI_CR_MCIEN_Msk | HSMCI_CR_PWSEN_Msk;              // Enable the HSMCI and the Power Saving
 
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool HSMCIDriver::Setup(const String& devicePath)
+{
     kernel::Kernel::RegisterIRQHandler(HSMCI_IRQn, IRQCallback, this);
     
     Start(true);
+
+    m_DevicePathBase = devicePath;
+
+    m_RawINode = ptr_new<HSMCIINode>(this);
+    m_RawINode->bi_nNodeHandle = Kernel::RegisterDevice((devicePath + "raw").c_str(), m_RawINode);
+    return true;    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -155,12 +182,13 @@ int HSMCIDriver::Run()
                 // Initialization of the card requested
                 if (InitializeCard())
                 {
-                    printf("SD/MMC card ready: %" PRIu64 "\n", uint64_t(m_SectorCount) * BLOCK_SIZE);
+                    kprintf("SD/MMC card ready: %" PRIu64 "\n", m_SectorCount * BLOCK_SIZE);
                     SetState(CardState::Ready);
+                    DecodePartitions();
                 }
                 else
                 {
-                    printf("SD/MMC card initialization failed\n");
+                    kprintf("SD/MMC card initialization failed\n");
                     SetState(CardState::Unusable);
                 }            
             }
@@ -177,7 +205,7 @@ int HSMCIDriver::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileHandle> HSMCIDriver::Open(int flags)
+Ptr<KFileNode> HSMCIDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -185,14 +213,15 @@ Ptr<KFileHandle> HSMCIDriver::Open(int flags)
         set_last_error(ENODEV);
         return nullptr;
     }
-    return ptr_new<KFileHandle>();
+    return KFilesystemFileOps::OpenFile(volume, node, flags);
+//    return ptr_new<KFileHandle>();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int HSMCIDriver::DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+int HSMCIDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -205,17 +234,20 @@ int HSMCIDriver::DeviceControl(Ptr<KFileHandle> file, int request, const void* i
     {
         case DEVCTL_GET_DEVICE_GEOMETRY:
         {
-            if (outData == nullptr || outDataLength < sizeof(DeviceGeometry)) {
+            if (outData == nullptr || outDataLength < sizeof(device_geometry)) {
                 set_last_error(EINVAL);
                 return -1;
             }
-            DeviceGeometry* geometry = static_cast<DeviceGeometry*>(outData);
-            geometry->SectorSize  = BLOCK_SIZE;
-            geometry->SectorCount = m_SectorCount;
-            geometry->ReadOnly    = false;
-            geometry->Removable   = true;
+            device_geometry* geometry = static_cast<device_geometry*>(outData);
+            geometry->bytes_per_sector  = BLOCK_SIZE;
+            geometry->sector_count = m_SectorCount;
+            geometry->read_only    = false;
+            geometry->removable   = true;
             return 0;
         }
+        case DEVCTL_REREAD_PARTITION_TABLE:
+            return DecodePartitions();
+            
         case SDCDEVCTL_SDIO_READ_DIRECT:
         {
             if (inData == nullptr || outData == nullptr || inDataLength < sizeof(SDCDEVCTL_SDIOReadDirectArgs) || outDataLength != sizeof(uint8_t)) {
@@ -261,8 +293,25 @@ int HSMCIDriver::DeviceControl(Ptr<KFileHandle> file, int request, const void* i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t HSMCIDriver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length)
+ssize_t HSMCIDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
 {
+    Ptr<HSMCIINode> inode = (file != nullptr) ? ptr_static_cast<HSMCIINode>(file->GetINode()) : nullptr;
+    
+    bool needLocking = false;
+    if (inode != nullptr)
+    {
+        needLocking = true;
+        if (position + length > inode->bi_nSize)
+        {
+            if (position >= inode->bi_nSize) {
+                return 0;
+            } else {
+                length = inode->bi_nSize - position;
+            }
+        }
+        position += inode->bi_nStart;
+    }
+    
     if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0)
     {
         set_last_error(EINVAL);
@@ -278,7 +327,7 @@ ssize_t HSMCIDriver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer,
         CRITICAL_SCOPE(m_DeviceSemaphore);
         
         error = 0;
-        CRITICAL_SCOPE(m_Mutex);
+        CRITICAL_SCOPE(m_Mutex, needLocking);
 
         if (!IsReady()) {
             set_last_error(ENODEV);
@@ -308,15 +357,17 @@ ssize_t HSMCIDriver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer,
         uint32_t response = GetResponse();
         if (response & CARD_STATUS_ERR_RD_WR)
         {
-            printf("ERROR: HSMCIDriver::Read() Read %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
+            kprintf("ERROR: HSMCIDriver::Read() Read %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
             error = EIO;
             continue;
         }
 
         bool result;
-        if (useDMA) {
+        if (useDMA && retry < 50) {
+//            kprintf("ReadDMA %ld at %Ld\n", length, position);
             result = ReadDMA(buffer, BLOCK_SIZE, blockCount);
         } else {
+//            kprintf("ReadNoDMA %ld at %Ld\n", length, position);
             result = ReadNoDMA(buffer, BLOCK_SIZE, blockCount);
         }
         if (!result) {
@@ -341,8 +392,25 @@ ssize_t HSMCIDriver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t HSMCIDriver::Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length)
+ssize_t HSMCIDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
 {
+    Ptr<HSMCIINode> inode = (file != nullptr) ? ptr_static_cast<HSMCIINode>(file->GetINode()) : nullptr;
+    
+    bool needLocking = false;
+    if (inode != nullptr)
+    {
+        needLocking = true;
+        if (position + length > inode->bi_nSize)
+        {
+            if (position >= inode->bi_nSize) {
+                return 0;
+            } else {
+                length = inode->bi_nSize - position;
+            }
+        }
+        position += inode->bi_nStart;
+    }
+
     if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0) {
         set_last_error(EINVAL);
         return -1;
@@ -357,7 +425,7 @@ ssize_t HSMCIDriver::Write(Ptr<KFileHandle> file, off64_t position, const void* 
         CRITICAL_SCOPE(m_DeviceSemaphore);
         
         error = 0;
-        CRITICAL_SCOPE(m_Mutex);
+        CRITICAL_SCOPE(m_Mutex, needLocking);
 
         if (!IsReady()) {
             set_last_error(ENODEV);
@@ -380,7 +448,7 @@ ssize_t HSMCIDriver::Write(Ptr<KFileHandle> file, off64_t position, const void* 
         uint32_t response = GetResponse();
         if (response & CARD_STATUS_ERR_RD_WR)
         {
-            printf("ERROR: HSMCIDriver::Write() Write %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
+            kprintf("ERROR: HSMCIDriver::Write() Write %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
             error = EIO;
             continue;
         }
@@ -422,7 +490,7 @@ bool HSMCIDriver::InitializeCard()
     m_CardVersion = HSMCICardVersion::Unknown;
     m_RCA         = 0;
 
-    printf("Start SD card install\n");
+    kprintf("Start SD card install\n");
 
     // Card need of 74 cycles clock minimum to start
     SendClock();
@@ -451,7 +519,7 @@ bool HSMCIDriver::InitializeCard()
         if (!OperationalConditionMCI_sd(v2))
         {
             // It is not a SD card
-            printf("Start MMC Install\n");
+            kprintf("Start MMC Install\n");
             m_CardType = HSMCICardType::MMC;
             return InitializeMMCCard();
         }
@@ -528,6 +596,155 @@ bool HSMCIDriver::InitializeCard()
         }
     }
     return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t HSMCIDriver::ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size)
+{
+    return static_cast<HSMCIDriver*>(userData)->Read(nullptr, position, buffer, size );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int HSMCIDriver::DecodePartitions(/*Ptr<HSMCIINode> psInode*/)
+{
+    device_geometry diskGeom;
+    std::vector<disk_partition_desc> partitions;
+
+/*    try {
+        partitions.resize(16);
+    } catch(const std::bad_alloc&) {
+        set_last_error(ENOMEM);
+        return -1;
+    }
+
+    if (psInode->bi_nPartitionType != 0) {
+	set_last_error(EINVAL);
+        return -1;
+    }*/
+
+    m_RawINode->bi_nSize = m_SectorCount * BLOCK_SIZE;
+
+    memset(&diskGeom, 0, sizeof(diskGeom));
+    diskGeom.sector_count     = m_SectorCount;
+    diskGeom.bytes_per_sector = BLOCK_SIZE;
+    diskGeom.read_only 	      = false;
+    diskGeom.removable 	      = true;
+
+    kprintf( "HSMCIDriver::DecodePartitions(): Decoding partition table\n");
+
+    if (KVFSManager::DecodeDiskPartitions(diskGeom, &partitions, &ReadPartitionData, this) < 0) {
+	kprintf( "   Invalid partition table\n" );
+	return -1;
+    }
+    for (size_t i = 0 ; i < partitions.size() ; ++i)
+    {
+	if ( partitions[i].p_type != 0 && partitions[i].p_size != 0 )
+        {
+	    kprintf( "   Partition %" PRIu32 " : %10" PRIu64 " -> %10" PRIu64 " %02x (%" PRIu64 ")\n", uint32_t(i), partitions[i].p_start,
+		     partitions[i].p_start + partitions[i].p_size - 1LL, partitions[i].p_type,
+		     partitions[i].p_size);
+	}
+    }
+
+    for (Ptr<HSMCIINode> partition : m_PartitionINodes)
+    {
+	bool found = false;
+	for (size_t i = 0 ; i < partitions.size() ; ++i)
+        {
+	    if ( partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize ) {
+		found = true;
+		break;
+	    }
+	}
+	if (!found && partition->bi_nOpenCount > 0) {
+	    kprintf("ERROR: HSMCIDriver::DecodePartitions() Open partition has changed\n");
+	    set_last_error(EBUSY);
+	    return -1;
+	}
+    }
+
+      // Remove deleted partitions from /dev/
+    for (Ptr<HSMCIINode> partition : m_PartitionINodes)
+    {
+	bool found = false;
+	for (size_t i = 0 ; i < partitions.size() ; ++i)
+        {
+	    if (partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize )
+            {
+		partitions[i].p_size = 0;
+		partition->bi_nPartitionType = partitions[i].p_type;
+		found = true;
+		break;
+	    }
+	}
+	if (!found) {
+	    Kernel::RemoveDevice(partition->bi_nNodeHandle);
+            partition->bi_nNodeHandle = -1;
+	}
+    }
+
+      // Create nodes for any new partitions.
+    for (size_t i = 0 ; i < partitions.size() ; ++i)
+    {
+	if ( partitions[i].p_type == 0 || partitions[i].p_size == 0 ) {
+	    continue;
+	}
+        try
+        {
+            Ptr<HSMCIINode> partition;
+            for (Ptr<HSMCIINode> i : m_PartitionINodes)
+            {
+                if (i->bi_nNodeHandle == -1) {
+                    partition = i;
+                    break;
+                }
+            }                
+            if (partition == nullptr) {
+                partition = ptr_new<HSMCIINode>(this);
+                m_PartitionINodes.push_back(partition);
+            }
+	    partition->bi_nStart = partitions[i].p_start;
+	    partition->bi_nSize  = partitions[i].p_size;            
+        }
+        catch (const std::bad_alloc&) {
+	    kprintf( "Error: bdd_decode_partitions() no memory for partition inode\n" );
+            set_last_error(ENOMEM);
+            return -1;            
+        }        
+    }
+    std::sort(m_PartitionINodes.begin(), m_PartitionINodes.end(), [](Ptr<HSMCIINode> lhs, Ptr<HSMCIINode> rhs) { return (lhs->bi_nNodeHandle == -1 || rhs->bi_nNodeHandle == -1) ? (rhs->bi_nNodeHandle < lhs->bi_nNodeHandle) : (lhs->bi_nStart < rhs->bi_nStart); });
+      // We now have to rename nodes that might have moved around in the table and
+      // got new names. To avoid name-clashes while renaming we first give all
+      // nodes a unique temporary name before looping over again giving them their
+      // final names
+
+    for (size_t i = 0; i < m_PartitionINodes.size(); ++i)    
+    {
+        Ptr<HSMCIINode> partition = m_PartitionINodes[i];
+        if (partition->bi_nNodeHandle != -1)
+        {
+            String path = m_DevicePathBase + String::format_string("%lu_new", i);
+	    Kernel::RenameDevice(partition->bi_nNodeHandle, path.c_str());
+        }            
+    }
+    for (size_t i = 0; i < m_PartitionINodes.size(); ++i)
+    {
+        String path = m_DevicePathBase + String::format_string("%lu", i);
+        
+        Ptr<HSMCIINode> partition = m_PartitionINodes[i];
+        if (partition->bi_nNodeHandle != -1) {
+            Kernel::RenameDevice(partition->bi_nNodeHandle, path.c_str());
+        } else {
+            Kernel::RegisterDevice(path.c_str(), partition);
+        }
+    }
+    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -642,7 +859,7 @@ void HSMCIDriver::HandleIRQ()
         {
             HSMCI->HSMCI_IDR = ~0;
             m_IOError = EIO;
-            printf("ERROR: HSMCIDriver::HandleIRQ() error: %s\n", GetStatusFlagNames(status).c_str());
+            kprintf("ERROR: HSMCIDriver::HandleIRQ() error: %s\n", GetStatusFlagNames(status).c_str());
             m_IOCondition.Wakeup(0);
             return;
         }
@@ -652,7 +869,7 @@ void HSMCIDriver::HandleIRQ()
             {
                 HSMCI->HSMCI_IDR = ~0;
                 m_IOError = EIO;
-                printf("ERROR: HSMCIDriver::HandleIRQ() to many bytes received: %s\n", GetStatusFlagNames(status).c_str());
+                kprintf("ERROR: HSMCIDriver::HandleIRQ() to many bytes received: %s\n", GetStatusFlagNames(status).c_str());
                 m_IOCondition.Wakeup(0);
                 return;
             }
@@ -798,7 +1015,7 @@ bool HSMCIDriver::ReadDMA(void* buffer, uint16_t blockSize, size_t blockCount)
     uint32_t bytesToRead = blockSize * blockCount;
     
     if ((intptr_t(buffer) & DCACHE_LINE_SIZE_MASK) || (bytesToRead & DCACHE_LINE_SIZE_MASK)) {
-        printf("ERROR: HSMCIDriver::ReadDMA() called with unaligned buffer or size\n");
+        kprintf("ERROR: HSMCIDriver::ReadDMA() called with unaligned buffer or size\n");
         set_last_error(EINVAL);
         return false;
     }
@@ -843,7 +1060,7 @@ bool HSMCIDriver::WriteDMA(const void* buffer, uint16_t blockSize, size_t blockC
         return false;
     }
 
-    uint32_t bytesToRead = blockSize * blockCount;
+    uint32_t bytesToWRite = blockSize * blockCount;
 
     xdmac_channel_config_t dmaCfg = {0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -860,13 +1077,13 @@ bool HSMCIDriver::WriteDMA(const void* buffer, uint16_t blockSize, size_t blockC
     if(intptr_t(buffer) & 3)
     {
         dmaCfg.mbr_cfg |= XDMAC_CC_DWIDTH_BYTE;
-        dmaCfg.mbr_ubc = bytesToRead;
+        dmaCfg.mbr_ubc = bytesToWRite;
         HSMCI->HSMCI_MR |= HSMCI_MR_FBYTE;
     }
     else
     {
         dmaCfg.mbr_cfg |= XDMAC_CC_DWIDTH_WORD;
-        dmaCfg.mbr_ubc = bytesToRead / 4;
+        dmaCfg.mbr_ubc = bytesToWRite / 4;
         HSMCI->HSMCI_MR &= ~HSMCI_MR_FBYTE;
     }
     
@@ -877,7 +1094,6 @@ bool HSMCIDriver::WriteDMA(const void* buffer, uint16_t blockSize, size_t blockC
     xdmac_channel_enable(XDMAC, CONF_HSMCI_XDMAC_CHANNEL);
     bool result = WaitIRQ(HSMCI_IER_XFRDONE_Msk | HSMCI_IER_UNRE_Msk | HSMCI_IER_OVRE_Msk | HSMCI_IER_DTOE_Msk | HSMCI_IER_DCRCE_Msk);
     xdmac_channel_disable(XDMAC, CONF_HSMCI_XDMAC_CHANNEL);
-    
     return result;
 }
 
@@ -1120,7 +1336,7 @@ bool HSMCIDriver::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint16_
         } else if (cmd & SDMMC_CMD_MULTI_BLOCK) {
             cmdr |= HSMCI_CMDR_TRTYP_MULTIPLE;
         } else {
-            printf("ERROR: StartAddressedDataTransCmd() invalid command flags: %lx\n", cmd);
+            kprintf("ERROR: StartAddressedDataTransCmd() invalid command flags: %lx\n", cmd);
             return false;
         }
     }
@@ -1154,7 +1370,7 @@ bool HSMCIDriver::OperationalConditionMCI_sd(bool v2)
     {
         // CMD55 - Tell the card that the next command is an application specific command.
         if (!SendCmd(SDMMC_CMD55_APP_CMD, 0)) {
-            printf("ERROR: OperationalConditionMCI_sd() CMD55 failed.\n");
+            kprintf("ERROR: OperationalConditionMCI_sd() CMD55 failed.\n");
             return false;
         }
 
@@ -1164,7 +1380,7 @@ bool HSMCIDriver::OperationalConditionMCI_sd(bool v2)
             arg |= SD_ACMD41_HCS;
         }
         if (!SendCmd(SD_MCI_ACMD41_SD_SEND_OP_COND, arg)) {
-            printf("ERROR: OperationalConditionMCI_sd() ACMD41 failed.\n");
+            kprintf("ERROR: OperationalConditionMCI_sd() ACMD41 failed.\n");
             return false;
         }
         uint32_t response = GetResponse();
@@ -1177,7 +1393,7 @@ bool HSMCIDriver::OperationalConditionMCI_sd(bool v2)
             break;
         }
         if (get_system_time() > deadline) {
-            printf("ERROR: OperationalConditionMCI_sd(): Timeout (0x%08lx)\n", response);
+            kprintf("ERROR: OperationalConditionMCI_sd(): Timeout (0x%08lx)\n", response);
             return false;
         }
     }
@@ -1200,7 +1416,7 @@ bool HSMCIDriver::OperationalConditionMCI_mmc()
     {
         if (!SendCmd(MMC_MCI_CMD1_SEND_OP_COND, SD_MMC_VOLTAGE_SUPPORT | OCR_ACCESS_MODE_SECTOR))
         {
-            printf("ERROR: OperationalConditionMCI_mmc() CMD1 MCI failed.\n");
+            kprintf("ERROR: OperationalConditionMCI_mmc() CMD1 MCI failed.\n");
             return false;
         }
         uint32_t response = GetResponse();
@@ -1214,7 +1430,7 @@ bool HSMCIDriver::OperationalConditionMCI_mmc()
             break;
         }
         if (get_system_time() > deadline) {
-            printf("ERROR: OperationalConditionMCI_mmc(): Timeout (0x%08lx)\n", response);
+            kprintf("ERROR: OperationalConditionMCI_mmc(): Timeout (0x%08lx)\n", response);
             return false;
         }
     }
@@ -1236,7 +1452,7 @@ bool HSMCIDriver::OperationalCondition_sdio()
 {
     // CMD5 - SDIO send operation condition (OCR) command.
     if (!SendCmd(SDIO_CMD5_SEND_OP_COND, 0)) {
-        printf("ERROR: HSMCIDriver::OperationalCondition_sdio:1() CMD5 Fail\n");
+        kprintf("ERROR: HSMCIDriver::OperationalCondition_sdio:1() CMD5 Fail\n");
         return true; // No error but card type not updated
     }
     uint32_t response = GetResponse();
@@ -1249,7 +1465,7 @@ bool HSMCIDriver::OperationalCondition_sdio()
     {
         // CMD5 - SDIO send operation condition (OCR) command.
         if (!SendCmd(SDIO_CMD5_SEND_OP_COND, response & SD_MMC_VOLTAGE_SUPPORT)) {
-            printf("ERROR: HSMCIDriver::OperationalCondition_sdio:2() CMD5 Fail\n");
+            kprintf("ERROR: HSMCIDriver::OperationalCondition_sdio:2() CMD5 Fail\n");
             return false;
         }
         response = GetResponse();
@@ -1257,7 +1473,7 @@ bool HSMCIDriver::OperationalCondition_sdio()
             break;
         }
         if (get_system_time() > deadline) {
-            printf("ERROR: OperationalCondition_sdio(): Timeout (0x%08lx)\n", response);
+            kprintf("ERROR: OperationalCondition_sdio(): Timeout (0x%08lx)\n", response);
             return false;
         }
     }
@@ -1371,7 +1587,7 @@ bool HSMCIDriver::SetBusWidth_sdio()
         return false;
     }
     m_BusWidth = 4;
-    printf("%d-bit bus width enabled.\n", m_BusWidth);
+    kprintf("%d-bit bus width enabled.\n", m_BusWidth);
     return true;
 }
 
@@ -1438,7 +1654,7 @@ bool HSMCIDriver::SetHighSpeed_sd()
     }
 
     if (GetResponse() & CARD_STATUS_SWITCH_ERROR) {
-        printf("ERROR: SetHighSpeed_sd() CMD6 CARD_STATUS_SWITCH_ERROR\n");
+        kprintf("ERROR: SetHighSpeed_sd() CMD6 CARD_STATUS_SWITCH_ERROR\n");
         return false;
     }
     if (SD_SW_STATUS_FUN_GRP1_RC(switch_status) == SD_SW_STATUS_FUN_GRP_RC_ERROR) {
@@ -1446,7 +1662,7 @@ bool HSMCIDriver::SetHighSpeed_sd()
         return true;
     }
     if (SD_SW_STATUS_FUN_GRP1_BUSY(switch_status)) {
-        printf("ERROR: SetHighSpeed_sd() CMD6 SD_SW_STATUS_FUN_GRP1_BUSY\n");
+        kprintf("ERROR: SetHighSpeed_sd() CMD6 SD_SW_STATUS_FUN_GRP1_BUSY\n");
         return false;
     }
     // CMD6 function switching period is within 8 clocks after the end bit of status data.
@@ -1489,11 +1705,11 @@ bool HSMCIDriver::SetBusWidth_mmc(int busWidth)
     }
     if (GetResponse() & CARD_STATUS_SWITCH_ERROR) {
         // Not supported, it is not a protocol error
-        printf("ERROR: SetBusWidth_mmc() CMD6 CARD_STATUS_SWITCH_ERROR\n");
+        kprintf("ERROR: SetBusWidth_mmc() CMD6 CARD_STATUS_SWITCH_ERROR\n");
         return false;
     }
     m_BusWidth = busWidth;
-    printf("%d-bit bus width enabled.\n", m_BusWidth);
+    kprintf("%d-bit bus width enabled.\n", m_BusWidth);
     return true;
 }
 
@@ -1515,7 +1731,7 @@ bool HSMCIDriver::SetHighSpeed_mmc()
     }
     if (GetResponse() & CARD_STATUS_SWITCH_ERROR) {
         // Not supported, it is not a protocol error
-        printf("ERROR: SetHighSpeed_mmc() CMD6 CARD_STATUS_SWITCH_ERROR\n");
+        kprintf("ERROR: SetHighSpeed_mmc() CMD6 CARD_STATUS_SWITCH_ERROR\n");
         return false;
     }
     m_HighSpeed = true;
@@ -1630,7 +1846,7 @@ void HSMCIDriver::ApplySpeedAndBusWidth()
         case 4: busWidthCfg = HSMCI_SDCR_SDCBUS_4; break;
         case 8: busWidthCfg = HSMCI_SDCR_SDCBUS_8; break;
         default:
-            printf("ERROR: HSMCIDriver invalid bus width (%d) using 1-bit.\n", m_BusWidth);
+            kprintf("ERROR: HSMCIDriver invalid bus width (%d) using 1-bit.\n", m_BusWidth);
             break;
     }
     HSMCI->HSMCI_SDCR = HSMCI_SDCR_SDCSEL_SLOTA | busWidthCfg;    
@@ -1653,7 +1869,7 @@ bool HSMCIDriver::ACmd6_sd()
         return false;
     }
     m_BusWidth = 4;
-    printf("%d-bit bus width enabled.\n", m_BusWidth);
+    kprintf("%d-bit bus width enabled.\n", m_BusWidth);
     return true;
 }
 
@@ -1686,10 +1902,10 @@ bool HSMCIDriver::Cmd8_sd(bool* v2)
         return true; // It is not a V2
     }
     if ((response & (SD_CMD8_MASK_PATTERN | SD_CMD8_MASK_VOLTAGE)) != (SD_CMD8_PATTERN | SD_CMD8_HIGH_VOLTAGE)) {
-        printf("ERROR: Cmd8_sd() CMD8 resp32 0x%08lx UNUSABLE CARD\n", response);
+        kprintf("ERROR: Cmd8_sd() CMD8 resp32 0x%08lx UNUSABLE CARD\n", response);
         return false;
     }
-    printf("SD card V2\n");
+    kprintf("SD card V2\n");
     *v2 = true;
     return true;
 }
@@ -1769,7 +1985,7 @@ bool HSMCIDriver::Cmd13_sdmmc()
             return true;
         }
         if (get_system_time() > deadline) {
-            printf("ERROR: Cmd13_sdmmc() timeout\n");
+            kprintf("ERROR: Cmd13_sdmmc() timeout\n");
             return false;
         }
     }
@@ -1829,7 +2045,7 @@ bool HSMCIDriver::ACmd51_sd()
 bool HSMCIDriver::Cmd52_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t readAfterWriteFlag, uint8_t* data)
 {
     if (data == nullptr) {
-        printf("ERROR: Cmd52_sdio() called with nullptr data\n");
+        kprintf("ERROR: Cmd52_sdio() called with nullptr data\n");
         return false;
     }
     if (!SendCmd(SDIO_CMD52_IO_RW_DIRECT,
@@ -1864,7 +2080,7 @@ bool HSMCIDriver::Cmd52_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t re
 bool HSMCIDriver::Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t incrementAddr, uint32_t size, bool useDMA)
 {
     if (size == 0 || size > BLOCK_SIZE) {
-        printf("ERROR: Cmd53_sdio() invalid size %" PRIu32 "\n", size);
+        kprintf("ERROR: Cmd53_sdio() invalid size %" PRIu32 "\n", size);
         return false;
     }
     

@@ -30,19 +30,40 @@
 namespace kernel
 {
 
-class KFileHandle : public PtrTarget
+
+class KFileTableNode : public PtrTarget
 {
 public:
-//    KFileHandle(Ptr<KINode> inode);
+    KFileTableNode(bool isDirectory) : m_IsDirectory(isDirectory) {}
+
+    void        SetINode(Ptr<KINode> inode) { m_INode = inode; }        
+    Ptr<KINode> GetINode()          { return m_INode; }
+    bool        IsDirectory() const { return m_IsDirectory; }
+
+private:
     Ptr<KINode> m_INode;
+    bool        m_IsDirectory;
+};
+
+class KFileNode : public KFileTableNode
+{
+public:
+    KFileNode() : KFileTableNode(false) {}
     int         m_FileMode = 0;
     off64_t     m_Position = 0;
 };
 
+class KDirectoryNode : public KFileTableNode
+{
+public:
+    KDirectoryNode() : KFileTableNode(true) {}
+};
+
+/*
 class KDirectoryHandle : public KFileHandle
 {
 public:
 //    KDirectoryHandle(Ptr<KINode> inode);
-};
+};*/
 
 } // namespace

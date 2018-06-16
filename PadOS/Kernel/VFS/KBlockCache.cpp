@@ -25,13 +25,18 @@
 
 #include "KBlockCache.h"
 #include "SystemSetup.h"
+#include "FileIO.h"
 
 using namespace kernel;
+using namespace os;
 
+//static const int KBLOCK_CACHE_BLOCK_COUNT = 65536;
 static const int KBLOCK_CACHE_BLOCK_COUNT = 32;
 
 static uint8_t           gk_BCacheBuffer[KBlockCache::BUFFER_BLOCK_SIZE * KBLOCK_CACHE_BLOCK_COUNT + DCACHE_LINE_SIZE];
 static KCacheBlockHeader gk_BCacheHeaders[KBLOCK_CACHE_BLOCK_COUNT];
+//static uint8_t*           gk_BCacheBuffer;
+//static KCacheBlockHeader* gk_BCacheHeaders;
 
 std::map<int, KBlockCache*>                  KBlockCache::s_DeviceMap;
 IntrusiveList<KCacheBlockHeader>             KBlockCache::s_FreeList;
@@ -54,6 +59,7 @@ KBlockCache::KBlockCache() : m_Device(-1), m_BlockSize(0), m_BlockCount(0), m_Bl
 
 KBlockCache::~KBlockCache()
 {
+    Flush();
     SetDevice(-1, 0, 0);
 }
 
@@ -101,9 +107,12 @@ bool KBlockCache::SetDevice(int device, off64_t blockCount, size_t blockSize)
     switch(m_BlockSize)
     {
         case 512:
-            m_BlocksPerBuffer = 8;
-            m_BlockToBufferShift = 3;
-            m_BufferOffsetMask = 0x07;
+//            m_BlocksPerBuffer = 8;
+//            m_BlockToBufferShift = 3;
+//            m_BufferOffsetMask = 0x07;
+            m_BlocksPerBuffer = 1;
+            m_BlockToBufferShift = 0;
+            m_BufferOffsetMask = 0x00;
             break;
         case 1024:
             m_BlocksPerBuffer = 4;
@@ -135,6 +144,10 @@ bool KBlockCache::SetDevice(int device, off64_t blockCount, size_t blockSize)
 
 void KBlockCache::Initialize()
 {
+//    gk_BCacheBuffer = new uint8_t[KBlockCache::BUFFER_BLOCK_SIZE * KBLOCK_CACHE_BLOCK_COUNT + DCACHE_LINE_SIZE];
+//    gk_BCacheHeaders = new KCacheBlockHeader[KBLOCK_CACHE_BLOCK_COUNT];
+    
+    
     uint8_t* buffer = reinterpret_cast<uint8_t*>((reinterpret_cast<intptr_t>(&gk_BCacheBuffer[0]) + DCACHE_LINE_SIZE_MASK) & ~DCACHE_LINE_SIZE_MASK);
     for (int i = 0; i < KBLOCK_CACHE_BLOCK_COUNT; ++i)
     {
@@ -151,6 +164,9 @@ void KBlockCache::Initialize()
 KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
 {
     CRITICAL_SCOPE(s_Mutex);
+    
+    
+    doLoad = true; // Until we properly handle partially loaded blocks.
     
     off64_t bufferNum   = blockNum >> m_BlockToBufferShift;
     size_t  blockOffset = (blockNum & m_BufferOffsetMask) * m_BlockSize;
@@ -191,16 +207,21 @@ KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
             if (block != nullptr)
             {
                 if (doLoad) {
-                    if (Kernel::Read(m_Device, bufferNum * BUFFER_BLOCK_SIZE, block->m_Buffer, BUFFER_BLOCK_SIZE) < 0) {
-                        printf("ERROR: KBlockCache::GetBlock() failed to read block from disk: %s\n", strerror(get_last_error()));
+                    if (FileIO::Read(m_Device, bufferNum * BUFFER_BLOCK_SIZE, block->m_Buffer, BUFFER_BLOCK_SIZE) < 0) {
+                        printf("ERROR: KBlockCache::GetBlock() failed to read block %" PRIu64 " from disk: %s\n", bufferNum * BUFFER_BLOCK_SIZE, strerror(get_last_error()));
                         s_FreeList.Append(block);
                         return KCacheBlockDesc();
                     }
                 }
-                block->AddRef();
-                block->m_UseCount = 1;
-                block->m_Flags    = 0;
+//                block->AddRef();
+                block->m_UseCount     = 1;
+                block->m_Flags        = 0;
+                block->m_Device       = m_Device;
+                block->m_bufferNumber = bufferNum;
                 m_BlockMap[bufferNum] = block;
+                
+//                kprintf("Block %" PRIu64 " read\n", bufferNum);
+                
                 return KCacheBlockDesc(block, blockOffset);
             }
             return KCacheBlockDesc();
@@ -214,11 +235,22 @@ KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-/*bool KBlockCache::MarkBlockDirty(off64_t blockNum)
+bool KBlockCache::MarkBlockDirty(off64_t blockNum)
 {
+    CRITICAL_SCOPE(s_Mutex);
+
     off64_t bufferNum   = blockNum >> m_BlockToBufferShift;
-    size_t  blockOffset = (blockNum & m_BufferOffsetMask) * m_BlockSize;    
-}*/
+//    size_t  blockOffset = (blockNum & m_BufferOffsetMask) * m_BlockSize;
+    
+    auto i = m_BlockMap.find(bufferNum);
+    if (i != m_BlockMap.end())
+    {
+        KCacheBlockHeader* block = i->second;
+        block->SetDirty(true);
+        return true;
+    }
+    return false;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -252,7 +284,9 @@ int KBlockCache::CachedWrite(off64_t blockNum, const void* buffer, size_t blockC
         KCacheBlockDesc block = GetBlock(blockNum + i, true); // FIXME: Don't load the buffer if it's all going to be overwritten.
 
         if (block.m_Buffer != nullptr) {
+            kprintf("Block %" PRIu64 " written\n", blockNum + i);
             memcpy(block.m_Buffer, reinterpret_cast<const uint8_t*>(buffer) + i * m_BlockSize, m_BlockSize);
+            CRITICAL_SCOPE(s_Mutex);
             block.m_Block->SetDirty(true);
         } else {
             printf("KBlockCache::CachedWrite() failed to find block %d / %" PRIu64 "\n", m_Device, blockNum + i);
@@ -268,6 +302,7 @@ int KBlockCache::CachedWrite(off64_t blockNum, const void* buffer, size_t blockC
 
 bool KBlockCache::FlushBuffer(int device, off64_t bufferNum, bool removeAfter)
 {
+    kassert(s_Mutex.IsLocked());
     KBlockCache* cache = GetDeviceCache(device);
     if (cache != nullptr)
     {
@@ -282,6 +317,7 @@ bool KBlockCache::FlushBuffer(int device, off64_t bufferNum, bool removeAfter)
     
 bool KBlockCache::FlushBuffer(off64_t bufferNum, bool removeAfter)
 {
+    kassert(s_Mutex.IsLocked());
     auto i = m_BlockMap.find(bufferNum);
     if (i != m_BlockMap.end())
     {
@@ -291,6 +327,7 @@ bool KBlockCache::FlushBuffer(off64_t bufferNum, bool removeAfter)
             block->Flush(s_Mutex);
         }
         if (removeAfter) {
+            kprintf("Block %" PRIu64 " removed\n", bufferNum);
             m_BlockMap.erase(i);
         }
         return true;
@@ -337,6 +374,16 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
             m_Flags |= BCF_DIRTY;
             KBlockCache::s_DirtyBlockCount++;
         }
+        
+        kprintf("Block %" PRIu64 " dirty\n", m_bufferNumber);
+        
+        
+        Flush(KBlockCache::s_Mutex);
+        
+        
+        
+        
+        
     }
     else
     {
@@ -359,7 +406,29 @@ bool KCacheBlockHeader::Flush(KMutex& mutex)
     {
         SetIsFlushing(true);
         mutex.Unlock();   
-        bool result = Kernel::Write(m_Device, m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, m_Buffer, KBlockCache::BUFFER_BLOCK_SIZE) >= 0;
+        
+        kprintf("Block %" PRIu64 " flushed\n", m_bufferNumber);
+
+        bool result = FileIO::Write(m_Device, m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, m_Buffer, KBlockCache::BUFFER_BLOCK_SIZE) >= 0;
+        if (result) {
+            std::vector<uint8_t> buffer;
+            buffer.resize(KBlockCache::BUFFER_BLOCK_SIZE);
+            if (FileIO::Read(m_Device, m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, buffer.data(), KBlockCache::BUFFER_BLOCK_SIZE) == KBlockCache::BUFFER_BLOCK_SIZE)
+            {
+                for (size_t i = 0; i < KBlockCache::BUFFER_BLOCK_SIZE; ++i)
+                {
+                    if (static_cast<uint8_t*>(m_Buffer)[i] != buffer[i]) {
+                        kprintf("ERROR: Failed to write block %" PRIu64 ". Mismatch at %d\n", m_bufferNumber, i);
+                        break;
+                    }
+                }
+//                if (memcmp(m_Buffer, buffer.data(), KBlockCache::BUFFER_BLOCK_SIZE) != 0) {
+//                    kprintf("ERROR: Failed to write block %" PRIu64 "\n", m_bufferNumber);
+//                }
+            } else {
+                kprintf("ERROR: Failed to read back block %" PRIu64 "\n", m_bufferNumber);                
+            }
+        }
         mutex.Lock();
         SetIsFlushing(false);
         SetDirty(false);
@@ -378,6 +447,54 @@ bool KCacheBlockHeader::Flush(KMutex& mutex)
 
 KCacheBlockDesc::~KCacheBlockDesc()
 {
-    CRITICAL_SCOPE(KBlockCache::s_Mutex);
-    if (m_Block != nullptr) m_Block->RemoveRef();
+    if (m_Block != nullptr)
+    {
+        CRITICAL_SCOPE(KBlockCache::s_Mutex);
+        m_Block->RemoveRef();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KCacheBlockDesc& KCacheBlockDesc::operator=(KCacheBlockDesc&& src)
+{
+    if (m_Block != nullptr)
+    {
+        CRITICAL_SCOPE(KBlockCache::s_Mutex);
+        m_Block->RemoveRef();
+    }
+    m_Block = src.m_Block;
+    m_Buffer = src.m_Buffer;
+    src.m_Block = nullptr;
+    src.m_Buffer = nullptr;
+    return *this;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KCacheBlockDesc::MarkDirty()
+{
+    if (m_Block != nullptr)
+    {
+        CRITICAL_SCOPE(KBlockCache::s_Mutex);
+        m_Block->SetDirty(true);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KCacheBlockDesc::Reset()
+{
+    if (m_Block != nullptr)
+    {
+        CRITICAL_SCOPE(KBlockCache::s_Mutex);
+        m_Block->RemoveRef();
+        m_Block = nullptr;
+    }        
 }

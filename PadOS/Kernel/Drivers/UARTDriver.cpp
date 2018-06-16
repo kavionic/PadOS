@@ -18,6 +18,8 @@
 // Created: 22.02.2018 23:06:22
 
 #include "UARTDriver.h"
+#include "Kernel/VFS/KFileHandle.h"
+#include "Kernel/VFS/KFSVolume.h"
 
 using namespace kernel;
 
@@ -25,11 +27,22 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-UARTDriver::UARTDriver(UART::Channels channel)
+UARDDriverINode::UARDDriverINode(UART::Channels channel, KFilesystemFileOps* fileOps) : KINode(nullptr, nullptr, fileOps, false)
 {
     m_Port.Initialize(channel, 921600);
     m_Port.SetParity(UART::Parity::NONE);
     m_Port.EnableTX(true);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+UARTDriver::UARTDriver()
+{
+/*    m_Port.Initialize(channel, 921600);
+    m_Port.SetParity(UART::Parity::NONE);
+    m_Port.EnableTX(true);*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,7 +57,17 @@ UARTDriver::~UARTDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int UARTDriver::DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void UARTDriver::Setup(const char* devicePath, UART::Channels channel)
+{
+    Ptr<UARDDriverINode> node = ptr_new<UARDDriverINode>(channel, this);
+    Kernel::RegisterDevice(devicePath, node);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int UARTDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     return -1;
 }
@@ -53,7 +76,7 @@ int UARTDriver::DeviceControl(Ptr<KFileHandle> file, int request, const void* in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t UARTDriver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length)
+ssize_t UARTDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
 {
     return -1;
 }
@@ -62,9 +85,10 @@ ssize_t UARTDriver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t UARTDriver::Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length)
+ssize_t UARTDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
 {
-    m_Port.Send(buffer, length);
+    Ptr<UARDDriverINode> node = ptr_static_cast<UARDDriverINode>(file->GetINode());
+    node->m_Port.Send(buffer, length);
 
     return length;
 }

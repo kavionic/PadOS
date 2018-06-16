@@ -73,12 +73,16 @@ struct KCacheBlockDesc
     KCacheBlockDesc() : m_Block(nullptr), m_Buffer(nullptr) {}
     KCacheBlockDesc(KCacheBlockHeader* block, size_t blockOffset) : m_Block(block), m_Buffer(static_cast<uint8_t*>(block->m_Buffer) + blockOffset) {}
     ~KCacheBlockDesc();
+
+    void MarkDirty();
+
+    void Reset();
         
     KCacheBlockHeader* m_Block;
     void*              m_Buffer;
 
     KCacheBlockDesc(KCacheBlockDesc&& src) : m_Block(src.m_Block), m_Buffer(src.m_Buffer) { src.m_Block = nullptr; src.m_Buffer = nullptr; }
-    KCacheBlockDesc& operator=(KCacheBlockDesc&& src) { m_Block = src.m_Block; m_Buffer = src.m_Buffer; src.m_Block = nullptr; src.m_Buffer = nullptr; return *this; }
+    KCacheBlockDesc& operator=(KCacheBlockDesc&& src);
     
     KCacheBlockDesc(const KCacheBlockDesc&) = delete;
     KCacheBlockDesc& operator=(const KCacheBlockDesc&) = delete;
@@ -91,7 +95,7 @@ struct KCacheBlockDesc
 class KBlockCache
 {
 public:
-    static const size_t BUFFER_BLOCK_SIZE = 4096;
+    static const size_t BUFFER_BLOCK_SIZE = 512; //4096;
     static const size_t MIN_BLOCK_SIZE    = 512;
     static const size_t MAX_BLOCK_SIZE    = BUFFER_BLOCK_SIZE;
     
@@ -103,12 +107,15 @@ public:
     
     static void Initialize();
         
-    KCacheBlockDesc GetBlock(off64_t blockNum, bool doLoad);
+    KCacheBlockDesc GetBlock(off64_t blockNum, bool doLoad = true);
     bool            MarkBlockDirty(off64_t blockNum);
     
     int  CachedRead(off64_t blockNum, void* buffer, size_t blockCount);
     int  CachedWrite(off64_t blockNum, const void* buffer, size_t blockCount);
 
+    bool Flush() {return true;}
+    bool Shutdown(bool flush) { if (flush) return Flush(); return true; }
+        
 private:
     friend struct KCacheBlockHeader;
     friend struct KCacheBlockDesc;

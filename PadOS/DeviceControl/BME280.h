@@ -19,6 +19,9 @@
 
 #pragma once
 
+#include "Kernel/VFS/FileIO.h"
+
+
 struct BME280Values
 {
     double m_Temperature = 0.0;
@@ -31,4 +34,4 @@ enum BME280IOCTL
     BME280IOCTL_GET_VALUES
 };
 
-inline int BME280IOCTL_GetValues(int device, BME280Values* values) { return kernel::Kernel::DeviceControl(device, BME280IOCTL_GET_VALUES, nullptr, 0, values, sizeof(*values)); }
+inline int BME280IOCTL_GetValues(int device, BME280Values* values) { return os::FileIO::DeviceControl(device, BME280IOCTL_GET_VALUES, nullptr, 0, values, sizeof(*values)); }

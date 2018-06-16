@@ -22,21 +22,33 @@
 
 #include <string>
 #include <map>
-#include <vector>
 
 #include "System/Ptr/PtrTarget.h"
 #include "System/Ptr/Ptr.h"
+#include "Kernel/KMutex.h"
+
+struct device_geometry;
 
 namespace kernel
 {
 
 class KFSVolume;
 class KFilesystem;
-class KFileHandle;
+class KFileNode;
 class KDeviceNode;
 class KRootFilesystem;
 
 class KINode;
+
+typedef size_t disk_read_op(void* cookie, off64_t offset, void* buffer, size_t size);
+
+struct disk_partition_desc
+{
+    off64_t p_start;	/* Offset in bytes */
+    off64_t p_size;	/* Size in bytes   */
+    int     p_type;	/* Type as found in the partition table	*/
+    int     p_status;	/* Status as found in partition table (bit 7=active) */
+};
 
 
 class KVFSManager
@@ -45,10 +57,20 @@ public:
     KVFSManager();
     ~KVFSManager();
 
-    void RegisterFilesystem(Ptr<KFilesystem> filesystem);
-    //void Mount(Ptr<KINode> mountPoint, 
+    static void RegisterFilesystem(Ptr<KFilesystem> filesystem);
+
+    static int DecodeDiskPartitions(const device_geometry& diskGeom, std::vector<disk_partition_desc>* partitions, disk_read_op* readCallback, void* userData);
+
+    static bool           RegisterVolume(Ptr<KFSVolume> volume);
+    static Ptr<KFSVolume> GetVolume(fs_id volumeID);
+    static Ptr<KINode>    GetINode(fs_id volumeID, ino_t inodeID, bool crossMount);
 
 private:
+    static KMutex s_INodeMapMutex;
+    static std::map<std::pair<fs_id, ino_t>, Ptr<KINode>> s_INodeMap;
+    static IntrusiveList<KINode>                      s_InodeMRUList;
+    static std::map<fs_id, Ptr<KFSVolume>>            s_VolumeMap;
+
     KVFSManager( const KVFSManager &c );
     KVFSManager& operator=( const KVFSManager &c );
 };

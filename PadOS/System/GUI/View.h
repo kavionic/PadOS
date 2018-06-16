@@ -42,11 +42,12 @@ namespace os
 {
 
 
-/** \brief Flags controlling a View
- * \ingroup gui
- * \sa os::view_resize_flags, os::View
- * \author Kurt Skauen (kurt@atheos.cx)
- *****************************************************************************/
+///////////////////////////////////////////////////////////////////////////////
+/// \brief Flags controlling a View
+/// \ingroup gui
+/// \sa os::view_resize_flags, os::View
+/// \author Kurt Skauen (kurt@atheos.cx)
+///////////////////////////////////////////////////////////////////////////////
 
 namespace ViewFlags
 {
@@ -85,11 +86,13 @@ enum class ViewDockType : int32_t
     StatusBarIcon
 };
 
-/** \brief Flags controlling how to resize/move a view when the parent is resized.
- * \ingroup gui
- * \sa os::view_flags, os::View
- * \author Kurt Skauen (kurt@atheos.cx)
- *****************************************************************************/
+///////////////////////////////////////////////////////////////////////////////
+/// \brief Flags controlling how to resize/move a view when the parent is resized.
+/// \ingroup gui
+/// \sa os::view_flags, os::View
+/// \author Kurt Skauen (kurt@atheos.cx)
+///////////////////////////////////////////////////////////////////////////////
+
 #if 0
 enum view_resize_flags
 {

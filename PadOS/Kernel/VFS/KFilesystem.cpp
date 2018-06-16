@@ -33,7 +33,17 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFSVolume> KFilesystem::Mount(Ptr<KINode> mountPoint, const char* devicePath, int devicePathLength)
+int KFilesystem::Probe(const char* devicePath, fs_info* fsInfo)
+{
+    set_last_error(ENOSYS);
+    return -1;    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFSVolume> KFilesystem::Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength)
 {
     set_last_error(ENOSYS);
     return nullptr;
@@ -43,46 +53,7 @@ Ptr<KFSVolume> KFilesystem::Mount(Ptr<KINode> mountPoint, const char* devicePath
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> KFilesystem::LocateInode(Ptr<KINode> parent, const char* path, int pathLength)
-{
-    set_last_error(ENOSYS);
-    return nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KFilesystem::ReleaseInode(Ptr<KINode> inode)
-{
-
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<KFileHandle> KFilesystem::OpenFile(Ptr<KINode> node, int flags)
-{
-    set_last_error(ENOSYS);
-    return nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<KFileHandle> KFilesystem::CreateFile(Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission)
-{
-    set_last_error(ENOSYS);
-    return nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int KFilesystem::CloseFile(Ptr<KFileHandle> file)
+int KFilesystem::Unmount(Ptr<KFSVolume> volume)
 {
     set_last_error(ENOSYS);
     return -1;
@@ -92,7 +63,37 @@ int KFilesystem::CloseFile(Ptr<KFileHandle> file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileHandle> KFilesystem::OpenDirectory(Ptr<KINode> node)
+int KFilesystem::Sync(Ptr<KFSVolume> volume)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystem::ReadFSStat(Ptr<KFSVolume> volume, fs_info* fsinfo)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystem::WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint32_t mask)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KINode> KFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* path, int pathLength)
 {
     set_last_error(ENOSYS);
     return nullptr;
@@ -102,7 +103,35 @@ Ptr<KFileHandle> KFilesystem::OpenDirectory(Ptr<KINode> node)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileHandle> KFilesystem::CreateDirectory(Ptr<KINode> parent, const char* name, int nameLength, int permission)
+bool KFilesystem::ReleaseInode(Ptr<KINode> inode)
+{
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileNode> KFilesystemFileOps::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags)
+{
+    try
+    {
+        Ptr<KFileNode> file = ptr_new<KFileNode>();
+//        file->m_INode = node;
+    	return file;
+    }
+    catch (const std::bad_alloc&)
+    {
+        set_last_error(ENOMEM);
+        return nullptr;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileNode> KFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission)
 {
     set_last_error(ENOSYS);
     return nullptr;
@@ -112,7 +141,36 @@ Ptr<KFileHandle> KFilesystem::CreateDirectory(Ptr<KINode> parent, const char* na
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KFilesystem::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length)
+int KFilesystemFileOps::CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file)
+{
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KINode> KFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inode)
+{
+    set_last_error(ENOSYS);
+    return nullptr;    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KDirectoryNode> KFilesystemFileOps::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node)
+{
+    set_last_error(ENOSYS);
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission)
 {
     set_last_error(ENOSYS);
     return -1;
@@ -122,7 +180,17 @@ ssize_t KFilesystem::Read(Ptr<KFileHandle> file, off64_t position, void* buffer,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KFilesystem::Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length)
+int KFilesystem::Rename(Ptr<KFSVolume> volume, Ptr<KINode> oldParent, const char* oldName, int oldNameLen, Ptr<KINode> newParent, const char* newName, int newNameLen, bool mustBeDir)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+    
+int KFilesystem::Unlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength)
 {
     set_last_error(ENOSYS);
     return -1;
@@ -132,7 +200,7 @@ ssize_t KFilesystem::Write(Ptr<KFileHandle> file, off64_t position, const void* 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KFilesystem::DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+int KFilesystem::RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength)
 {
     set_last_error(ENOSYS);
     return -1;
@@ -142,7 +210,108 @@ int KFilesystem::DeviceControl(Ptr<KFileHandle> file, int request, const void* i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KFilesystem::ReadAsync(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
+int KFilesystemFileOps::CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t KFilesystemFileOps::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t KFilesystemFileOps::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystemFileOps::ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystemFileOps::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystemFileOps::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, int position, dir_entry* entry, size_t bufSize)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystemFileOps::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node, Ptr<KDirectoryNode> dirNode)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystemFileOps::CheckAccess(Ptr<KFSVolume> _vol, Ptr<KINode> _node, int mode)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystemFileOps::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* stat)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystemFileOps::WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* stat, uint32_t mask)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+/*int KFilesystem::ReadAsync(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
 {
     set_last_error(ENOSYS);
     return -1;
@@ -167,4 +336,4 @@ int KFilesystem::CancelAsyncRequest(Ptr<KFileHandle> file, int handle)
     set_last_error(ENOSYS);
     return -1;
 }
-
+*/

@@ -29,6 +29,7 @@
 #include "Kernel/Scheduler.h"
 #include "Kernel/KSemaphore.h"
 #include "Kernel/SpinTimer.h"
+#include "Kernel/VFS/KFSVolume.h"
 
 using namespace kernel;
 
@@ -37,7 +38,7 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-I2CDriver::I2CDriver(Channels channel) : m_Mutex("i2c_driver", true), m_RequestSema("i2c_request", 0)
+I2CDriverINode::I2CDriverINode(KFilesystemFileOps* fileOps, Channels channel) : KINode(nullptr, nullptr, fileOps, false), m_Mutex("i2c_driver", true), m_RequestSema("i2c_request", 0)
 {
     m_State = State_e::Idle;
 
@@ -93,7 +94,7 @@ I2CDriver::I2CDriver(Channels channel) : m_Mutex("i2c_driver", true), m_RequestS
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-I2CDriver::~I2CDriver()
+I2CDriverINode::~I2CDriverINode()
 {
 
 }
@@ -102,7 +103,7 @@ I2CDriver::~I2CDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileHandle> I2CDriver::Open( int flags)
+Ptr<KFileNode> I2CDriverINode::Open( int flags)
 {
     Ptr<I2CFile> file = ptr_new<I2CFile>();
     return file;
@@ -112,7 +113,7 @@ Ptr<KFileHandle> I2CDriver::Open( int flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int I2CDriver::DeviceControl( Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+int I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
@@ -163,7 +164,7 @@ int I2CDriver::DeviceControl( Ptr<KFileHandle> file, int request, const void* in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t I2CDriver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length)
+ssize_t I2CDriverINode::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
 {
     if (length == 0) {
         return 0;
@@ -216,7 +217,7 @@ ssize_t I2CDriver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t I2CDriver::Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length)
+ssize_t I2CDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
@@ -264,7 +265,7 @@ ssize_t I2CDriver::Write(Ptr<KFileHandle> file, off64_t position, const void* bu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriver::Reset()
+void I2CDriverINode::Reset()
 {
     m_Port->TWIHS_CR = TWIHS_CR_SWRST; // Reset.
 
@@ -281,7 +282,7 @@ void I2CDriver::Reset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriver::ClearBus()
+void I2CDriverINode::ClearBus()
 {
     m_DataPin.SetPeripheralMux(DigitalPinPeripheralID::None);
     m_ClockPin.SetPeripheralMux(DigitalPinPeripheralID::None);
@@ -309,7 +310,7 @@ void I2CDriver::ClearBus()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int I2CDriver::SetBaudrate(uint32_t baudrate)
+int I2CDriverINode::SetBaudrate(uint32_t baudrate)
 {
     uint32_t peripheralFrequency = SAME70System::GetFrequencyPeripheral();
 
@@ -375,7 +376,7 @@ int I2CDriver::SetBaudrate(uint32_t baudrate)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int I2CDriver::GetBaudrate() const
+int I2CDriverINode::GetBaudrate() const
 {
     return m_Baudrate;
 }
@@ -384,7 +385,7 @@ int I2CDriver::GetBaudrate() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriver::HandleIRQ()
+void I2CDriverINode::HandleIRQ()
 {
     uint32_t status = m_Port->TWIHS_SR;
     
@@ -419,7 +420,63 @@ void I2CDriver::HandleIRQ()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t I2CDriver::CalcAddress(uint32_t slaveAddress, int addressLength)
+uint32_t I2CDriverINode::CalcAddress(uint32_t slaveAddress, int addressLength)
 {
     return TWIHS_MMR_DADR(slaveAddress) | TWIHS_MMR_IADRSZ(addressLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void I2CDriver::Setup(const char* devicePath, I2CDriverINode::Channels channel)
+{
+    Ptr<I2CDriverINode> node = ptr_new<I2CDriverINode>(this, channel);
+    Kernel::RegisterDevice(devicePath, node);    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileNode> I2CDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags)
+{
+    return ptr_static_cast<I2CDriverINode>(inode)->Open(flags);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int I2CDriver::CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file)
+{
+//    return ptr_static_cast<I2CDriverINode>(inode)->Open(flags);
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t I2CDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+{
+    return ptr_static_cast<I2CDriverINode>(file->GetINode())->Read(file, position, buffer, length);    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t I2CDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
+{
+    return ptr_static_cast<I2CDriverINode>(file->GetINode())->Write(file, position, buffer, length);    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int I2CDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+{
+    return ptr_static_cast<I2CDriverINode>(file->GetINode())->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);
 }

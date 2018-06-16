@@ -56,7 +56,7 @@ ApplicationServer::ApplicationServer() : Looper("appserver", 10, APPSERVER_MSG_B
 
     RSRegisterApplication.Connect(this, &ApplicationServer::SlotRegisterApplication); 
     
-    m_TouchInputDevice = Kernel::OpenFile("/dev/ft5x0x/0", O_RDWR);
+    m_TouchInputDevice = FileIO::Open("/dev/ft5x0x/0", O_RDWR);
     if (m_TouchInputDevice != -1)
     {
         FT5x0xIOCTL_SetTargetPort(m_TouchInputDevice, GetPortID());
@@ -82,6 +82,7 @@ ApplicationServer::~ApplicationServer()
 
 bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length)
 {
+    DEBUG_TRACK_FUNCTION();
     switch(code)
     {
         case AppserverProtocol::REGISTER_APPLICATION:
@@ -110,6 +111,7 @@ bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, co
 
 void ApplicationServer::Idle()
 {
+    DEBUG_TRACK_FUNCTION();
     while(!m_MouseEventQueue.empty())
     {
         const MsgMouseEvent& event = m_MouseEventQueue.front();

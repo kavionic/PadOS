@@ -28,6 +28,7 @@
 #include "Kernel/Kernel.h"
 #include "Kernel/Scheduler.h"
 #include "Kernel/KMutex.h"
+#include "Kernel/VFS/FileIO.h"
 
 extern unsigned char* _sheap;
 extern unsigned char* _eheap;
@@ -36,6 +37,7 @@ extern unsigned char* _eheap;
 #define HEAP_END   ((uint8_t*)&_eheap)
 
 using namespace kernel;
+using namespace os;
 
 extern "C" {
 
@@ -136,18 +138,18 @@ void __retarget_lock_release_recursive (_LOCK_T lock)
 
 int _open_r(_reent* reent, const char* path, int flags)
 {
-    return Kernel::OpenFile(path, flags);
+    return FileIO::Open(path, flags);
 }
 
 int _dup_r(_reent* reent, int oldFile)
 {
-    return Kernel::DupeFile(oldFile, -1);
+    return FileIO::Dupe(oldFile, -1);
 }
 
-//int dup2(int oldFile, int newFile) { return Kernel::DupeFile(oldFile, newFile); }
+//int dup2(int oldFile, int newFile) { return FileIO::DupeFile(oldFile, newFile); }
 int _close_r(_reent* reent, int file)
 {
-    return Kernel::CloseFile(file);
+    return FileIO::Close(file);
 }
 
 int _fstat(int file, struct stat *buf)
@@ -167,7 +169,7 @@ off_t _lseek(int file, off_t offset, int whence)
 
 ssize_t _read_r(_reent* reent, int file, void *buffer, size_t length)
 {
-    return Kernel::Read(file, buffer, length);
+    return FileIO::Read(file, buffer, length);
 }
 
 int _kill(pid_t pid, int sig)
@@ -182,7 +184,7 @@ pid_t _getpid(void)
 
 ssize_t _write_r(_reent* reent, int file, const void *buffer, size_t length)
 {
-    return Kernel::Write(file, buffer, length);
+    return FileIO::Write(file, buffer, length);
 }
 
 uint32_t g_HeapSize = 0;

@@ -262,19 +262,20 @@ struct bme280_settings {
 };
 
 
-class BME280Driver : public KDeviceNode, public os::Thread, public SignalTarget
+class BME280Driver : public PtrTarget, public os::Thread, public SignalTarget, public KFilesystemFileOps
 {
 public:
-    BME280Driver(const char* i2cPath);
+    BME280Driver();
     ~BME280Driver();
+
+    bool Setup(const char* devicePath, const char* i2cPath);
 
     virtual int Run() override;
     void SlotTick();
 
-    bool Initialize(const char* i2cPath);
 
-    virtual int DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length) override;
+    virtual int DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
 
 private:
     enum class State_e

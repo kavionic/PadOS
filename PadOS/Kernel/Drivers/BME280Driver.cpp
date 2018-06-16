@@ -29,17 +29,19 @@
 #include "I2CDriver.h"
 #include "DeviceControl/I2C.h"
 #include "System/System.h"
+#include "Kernel/VFS/FileIO.h"
+#include "Kernel/VFS/KFSVolume.h"
 
 using namespace kernel;
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-BME280Driver::BME280Driver(const char* i2cPath) : Thread("bme280_driver"), m_Mutex("bme280_driver")
+BME280Driver::BME280Driver() : Thread("bme280_driver"), m_Mutex("bme280_driver")
 {
     SetDeleteOnExit(false);
-    Initialize(i2cPath);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -54,9 +56,9 @@ BME280Driver::~BME280Driver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool BME280Driver::Initialize(const char* i2cPath)
+bool BME280Driver::Setup(const char* devicePath, const char* i2cPath)
 {
-    m_I2CDevice = Kernel::OpenFile(i2cPath, O_RDWR);
+    m_I2CDevice = FileIO::Open(i2cPath, O_RDWR);
 
     if (m_I2CDevice >= 0)
     {
@@ -65,6 +67,8 @@ bool BME280Driver::Initialize(const char* i2cPath)
 
         Start(true);
 
+        Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
+        Kernel::RegisterDevice(devicePath, inode);
         return true;
     }
     return false;
@@ -137,27 +141,27 @@ void BME280Driver::SlotTick()
         {
             uint8_t chipID = 0;
 
-            if (Kernel::Read(m_I2CDevice, BME280_CHIP_ID_ADDR, &chipID, 1) != 1) {
+            if (FileIO::Read(m_I2CDevice, BME280_CHIP_ID_ADDR, &chipID, 1) != 1) {
                 printf("ERROR: BME280 failed to read chip ID\n");
             } else {
                 printf("BME280 ChipID: %02x\n", chipID);
             }
             uint8_t humCfg = 0;
-            if (Kernel::Read(m_I2CDevice, BME280_CTRL_HUM_ADDR, &humCfg, 1) != 1) {
+            if (FileIO::Read(m_I2CDevice, BME280_CTRL_HUM_ADDR, &humCfg, 1) != 1) {
                 printf("ERROR: BME280 failed to read humidity config\n");
             }
 
             humCfg = (humCfg & ~BME280_CTRL_HUM_OVRSMPL_bm) | BME280_CTRL_HUM_OVRSMPL_4;
             uint8_t measCfg = BME280_CTRL_MEAS_SENSOR_MODE_NORMAL | BME280_CTRL_MEAS_OVRSMPL_PRESS_4 | BME280_CTRL_MEAS_OVRSMPL_TEMP_4;
 
-            if (Kernel::Write(m_I2CDevice, BME280_CTRL_HUM_ADDR, &humCfg, 1) != 1) {
+            if (FileIO::Write(m_I2CDevice, BME280_CTRL_HUM_ADDR, &humCfg, 1) != 1) {
                 printf("ERROR: BME280 failed to write humidity config\n");
             }
-            if (Kernel::Write(m_I2CDevice, BME280_CTRL_MEAS_ADDR, &measCfg, 1) != 1) {
+            if (FileIO::Write(m_I2CDevice, BME280_CTRL_MEAS_ADDR, &measCfg, 1) != 1) {
                 printf("ERROR: BME280 failed to write measurement config\n");
             }
             uint8_t measCfg2 = 0;
-            if (Kernel::Read(m_I2CDevice, BME280_CTRL_MEAS_ADDR, &measCfg2, 1) != 1) {
+            if (FileIO::Read(m_I2CDevice, BME280_CTRL_MEAS_ADDR, &measCfg2, 1) != 1) {
                 printf("ERROR: BME280 failed to read measurement config\n");
             }
 
@@ -218,7 +222,7 @@ void BME280Driver::SlotTick()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int BME280Driver::DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+int BME280Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
     switch(request)
@@ -240,7 +244,7 @@ int BME280Driver::DeviceControl(Ptr<KFileHandle> file, int request, const void* 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t BME280Driver::Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length)
+ssize_t BME280Driver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
 {
     return 0;
 }
@@ -255,7 +259,7 @@ void BME280Driver::RequestData(uint8_t address, uint8_t length)
     m_BytesToReceive = length;
     m_ReadStartTime  = get_system_time();
     m_ReadRetryCount = 0;
-    m_BytesReceived = Kernel::Read(m_I2CDevice, address, m_ReceiveBuffer, m_BytesToReceive);
+    m_BytesReceived = FileIO::Read(m_I2CDevice, address, m_ReceiveBuffer, m_BytesToReceive);
     if (m_BytesReceived != m_BytesToReceive) {
         printf("ERROR: BME280Driver failed to read from device (%d/%d): %s\n", m_BytesReceived, m_BytesToReceive, strerror(get_last_error()));        
     }

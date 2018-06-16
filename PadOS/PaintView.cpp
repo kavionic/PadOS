@@ -58,7 +58,7 @@ PaintView::PaintView() : View("Paint")
 
     for (int i = 0; i < 6; ++i)
     {
-        Ptr<Button> button = ptr_new<Button>("TstButton", String::FormatString("Test%d", i + 1), bottomBar);
+        Ptr<Button> button = ptr_new<Button>("TstButton", String::format_string("Test%d", i + 1), bottomBar);
     }
 }
 

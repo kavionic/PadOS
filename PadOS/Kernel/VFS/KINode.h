@@ -19,25 +19,39 @@
 
 #pragma once
 
+#include <sys/types.h>
+
 #include "System/Ptr/PtrTarget.h"
 #include "System/Ptr/Ptr.h"
+#include "System/Utils/IntrusiveList.h"
 
 namespace kernel
 {
 
 class KFilesystem;
+class KFilesystemFileOps;
 class KFSVolume;
 class KINode;
 
-class KINode : public PtrTarget
+class KINode : public PtrTarget, public IntrusiveListNode<KINode>
 {
-    public:
-    KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume);
-    Ptr<KFilesystem> m_Filesystem;
-    Ptr<KFSVolume>   m_Volume; // The volume this inode came from.
-    Ptr<KINode>      m_MountRoot; // Root node of filesystem mounted on this inode if any.
-    uint64_t         m_Number = 0;
+public:
+    KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, bool isDirectory);
+    
+    void SetDeletedFlag(bool isDeleted) { m_IsDeleted = isDeleted; }
+    bool IsDeleted() { return m_IsDeleted; }
+    bool IsDirectory() const { return m_IsDirectory; }
+    
+    Ptr<KFilesystem>    m_Filesystem;
+    Ptr<KFSVolume>      m_Volume; // The volume this i-node came from.
+    KFilesystemFileOps* m_FileOps;
+    Ptr<KINode>         m_MountRoot; // Root node of filesystem mounted on this inode if any.
+    ino_t               m_INodeID = 0;
 
+    static_assert(sizeof(ino_t) == 8);
+
+    bool m_IsDirectory;
+    bool m_IsDeleted = false;
 };
 
 } // namespace

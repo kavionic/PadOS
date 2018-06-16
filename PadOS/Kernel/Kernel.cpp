@@ -30,16 +30,59 @@
 #include "VFS/KFileHandle.h"
 #include "System/Utils/Utils.h"
 #include "HAL/SAME70System.h"
+#include "VFS/FileIO.h"
 
 using namespace kernel;
+using namespace os;
 
 volatile bigtime_t            Kernel::s_SystemTime = 0;
 //int                           Kernel::s_LastError = 0;
-Ptr<KFileHandle>              Kernel::s_PlaceholderFile;
-Ptr<KRootFilesystem>          Kernel::s_RootFilesystem;
-Ptr<KFSVolume>                Kernel::s_RootVolume;
-std::vector<Ptr<KFileHandle>> Kernel::s_FileTable;
 KIRQAction*                   Kernel::s_IRQHandlers[PERIPH_COUNT_IRQn];
+
+static std::map<int, KLogSeverity> gk_KernelLogLevels;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int  kernel::kernel_log_alloc_category(KLogSeverity initialLogLevel)
+{
+    static int prevCategoryID = 0;
+    int category = ++prevCategoryID;
+    if (initialLogLevel != KLogSeverity::NONE) {
+        gk_KernelLogLevels[category] = initialLogLevel;
+    }        
+    return category;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kernel::kernel_log_set_category_log_level(int category, KLogSeverity logLevel)
+{
+    if (logLevel != KLogSeverity::NONE) {
+        gk_KernelLogLevels[category] = logLevel;
+    } else {
+        auto i = gk_KernelLogLevels.find(category);
+        if (i != gk_KernelLogLevels.end()) {
+            gk_KernelLogLevels.erase(i);
+        }
+    }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool kernel::kernel_log_is_category_active(int category, KLogSeverity logLevel)
+{
+    auto i = gk_KernelLogLevels.find(category);
+    if (i != gk_KernelLogLevels.end()) {
+        return logLevel >= i->second;
+    }
+    return false;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -70,6 +113,15 @@ bigtime_t get_system_time()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bigtime_t get_real_time()
+{
+    return Kernel::GetTime() + bigtime_from_s(1000000000);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bigtime_t get_system_time_hires()
 {
     for (;;)
@@ -88,9 +140,7 @@ bigtime_t get_system_time_hires()
 
 void Kernel::Initialize()
 {
-    s_PlaceholderFile = ptr_new<KFileHandle>();
-    s_RootFilesystem = ptr_new<KRootFilesystem>();
-    s_RootVolume =  s_RootFilesystem->Mount(nullptr, "", 0);
+    FileIO::Initialze();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -106,10 +156,27 @@ void Kernel::SystemTick()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Kernel::RegisterDevice(const char* path, Ptr<KDeviceNode> device)
+int Kernel::RegisterDevice(const char* path, Ptr<KINode> deviceNode)
 {
-    s_RootFilesystem->RegisterDevice(path, device);
-    return 0;
+    return FileIO::s_RootFilesystem->RegisterDevice(path, deviceNode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int Kernel::RenameDevice(int handle, const char* newPath)
+{
+    return FileIO::s_RootFilesystem->RenameDevice(handle, newPath);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int Kernel::RemoveDevice(int handle)
+{
+    return FileIO::s_RootFilesystem->RemoveDevice(handle);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -227,303 +294,7 @@ bigtime_t Kernel::GetTime()
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
-int Kernel::OpenFile(const char* path, int flags)
-{
-    if (path[0] == '/') path++;
-    int handle = AllocateFileHandle();
-    if (handle < 0) {
-        return handle;
-    }
-    Ptr<KINode> inode = s_RootFilesystem->LocateInode(s_RootVolume->m_RootNode, path, strlen(path));
-    if (inode == nullptr)
-    {
-        FreeFileHandle(handle);
-        return -1;
-    }
-    Ptr<KFileHandle> file =s_RootFilesystem->OpenFile(inode, flags);
-    if (file == nullptr)
-    {
-        s_RootFilesystem->ReleaseInode(inode);
-        FreeFileHandle(handle);
-        return -1;
-    }
-    SetFile(handle, file);
-    return handle;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int Kernel::DupeFile(int oldHandle, int newHandle)
-{
-    if (oldHandle == newHandle)
-    {
-        set_last_error(EINVAL);
-        return -1;
-    }
-    Ptr<KFileHandle> file = GetFile(oldHandle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
-        return -1;
-    }
-    if (newHandle == -1) {
-        newHandle = AllocateFileHandle();
-    } else {
-        CloseFile(newHandle);
-        if (newHandle >= int(s_FileTable.size())) {
-            s_FileTable.resize(newHandle + 1);
-        }
-    }
-    if (newHandle >= 0) {
-        SetFile(newHandle, file);
-    } else {
-        set_last_error(EMFILE);
-    }
-    return newHandle;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int Kernel::CloseFile(int handle)
-{
-    int result = 0;
-
-    Ptr<KFileHandle> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
-        return -1;
-    }
-    FreeFileHandle(handle);
-
-    Ptr<KINode> inode = file->m_INode;
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-
-    if (inode->m_Filesystem->CloseFile(file) < 0)
-    {
-        result = -1;
-    }
-    inode->m_Filesystem->ReleaseInode(inode);
-
-    return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t Kernel::Read(int handle, void* buffer, size_t length)
-{
-    Ptr<KFileHandle> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
-        return -1;
-    }
-    Ptr<KINode> inode = file->m_INode;
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-
-    ssize_t result = inode->m_Filesystem->Read(file, file->m_Position, buffer, length);
-    if (result < 0)
-    {
-        return result;
-    }
-    file->m_Position += result;
-    return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t Kernel::Write(int handle, const void* buffer, size_t length)
-{
-    Ptr<KFileHandle> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
-        return -1;
-    }
-    Ptr<KINode> inode = file->m_INode;
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-
-    ssize_t result = inode->m_Filesystem->Write(file, file->m_Position, buffer, length);
-    if (result < 0)
-    {
-        return result;
-    }
-    file->m_Position += result;
-    return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t Kernel::Read(int handle, off64_t position, void* buffer, size_t length)
-{
-    Ptr<KFileHandle> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
-        return -1;
-    }
-    Ptr<KINode> inode = file->m_INode;
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-
-    return inode->m_Filesystem->Read(file, position, buffer, length);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t Kernel::Write(int handle, off64_t position, const void* buffer, size_t length)
-{
-    Ptr<KFileHandle> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
-        return -1;
-    }
-    Ptr<KINode> inode = file->m_INode;
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-    return inode->m_Filesystem->Write(file, position, buffer, length);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int Kernel::DeviceControl(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
-{
-    Ptr<KFileHandle> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
-        return -1;
-    }
-    Ptr<KINode> inode = file->m_INode;
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-    return inode->m_Filesystem->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int Kernel::ReadAsync(int handle, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
-{
-    Ptr<KFileHandle> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
-        return -1;
-    }
-    Ptr<KINode> inode = file->m_INode;
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-    return inode->m_Filesystem->ReadAsync(file, position, buffer, length, userObject, callback);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int Kernel::WriteAsync(int handle, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
-{
-    Ptr<KFileHandle> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
-        return -1;
-    }
-    Ptr<KINode> inode = file->m_INode;
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-    return inode->m_Filesystem->WriteAsync(file, position, buffer, length, userObject, callback);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int Kernel::CancelAsyncRequest(int handle, int requestHandle)
-{
-    Ptr<KFileHandle> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
-        return -1;
-    }
-    Ptr<KINode> inode = file->m_INode;
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-    return inode->m_Filesystem->CancelAsyncRequest(file, requestHandle);    
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int Kernel::AllocateFileHandle()
-{
-    auto i = std::find(s_FileTable.begin(), s_FileTable.end(), nullptr);
-    if (i != s_FileTable.end())
-    {
-        int file = i - s_FileTable.begin();
-        s_FileTable[file] = s_PlaceholderFile;
-        return file;
-    }
-    else
-    {
-        int file = s_FileTable.size();
-        s_FileTable.push_back(s_PlaceholderFile);
-        return file;
-        //set_last_error(EMFILE);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void Kernel::FreeFileHandle(int handle)
-{
-    if (handle >= 0 && handle < int(s_FileTable.size())) {
-        s_FileTable[handle] = nullptr;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<KFileHandle> Kernel::GetFile(int handle)
-{
-    if (handle >= 0 && handle < int(s_FileTable.size()) && s_FileTable[handle] != nullptr && s_FileTable[handle]->m_INode != nullptr)
-    {
-        return s_FileTable[handle];
-    }
-    return nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void Kernel::SetFile(int handle, Ptr<KFileHandle> file)
-{
-    if (handle >= 0 && handle < int(s_FileTable.size()))
-    {
-        s_FileTable[handle] = file;
-    }
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

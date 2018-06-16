@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include "Kernel/VFS/FileIO.h"
+
 
 enum I2CIOCTL
 {
@@ -32,35 +34,35 @@ enum I2CIOCTL
     I2CIOCTL_GET_BAUDRATE
 };
 
-inline int I2CIOCTL_SetSlaveAddress(int device, int address) { return kernel::Kernel::DeviceControl(device, I2CIOCTL_SET_SLAVE_ADDRESS, &address, sizeof(address), nullptr, 0); }
+inline int I2CIOCTL_SetSlaveAddress(int device, int address) { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_SLAVE_ADDRESS, &address, sizeof(address), nullptr, 0); }
 inline int I2CIOCTL_GetSlaveAddress(int device)
 {
     int address;
-    if (kernel::Kernel::DeviceControl(device, I2CIOCTL_GET_SLAVE_ADDRESS, nullptr, 0, &address, sizeof(address)) < 0) return -1;
+    if (os::FileIO::DeviceControl(device, I2CIOCTL_GET_SLAVE_ADDRESS, nullptr, 0, &address, sizeof(address)) < 0) return -1;
     return address;
 }
 
-inline int I2CIOCTL_SetInternalAddrLen(int device, int length) { return kernel::Kernel::DeviceControl(device, I2CIOCTL_SET_INTERNAL_ADDR_LEN, &length, sizeof(length), nullptr, 0); }
+inline int I2CIOCTL_SetInternalAddrLen(int device, int length) { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_INTERNAL_ADDR_LEN, &length, sizeof(length), nullptr, 0); }
 inline int I2CIOCTL_GetInternalAddrLen(int device)
 {
     int length;
-    if (kernel::Kernel::DeviceControl(device, I2CIOCTL_GET_INTERNAL_ADDR_LEN, nullptr, 0, &length, sizeof(length)) < 0) return -1;
+    if (os::FileIO::DeviceControl(device, I2CIOCTL_GET_INTERNAL_ADDR_LEN, nullptr, 0, &length, sizeof(length)) < 0) return -1;
     return length;
 }
 
-inline int I2CIOCTL_SetInternalAddr(int device, int address) { return kernel::Kernel::DeviceControl(device, I2CIOCTL_SET_INTERNAL_ADDR, &address, sizeof(address), nullptr, 0); }
+inline int I2CIOCTL_SetInternalAddr(int device, int address) { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_INTERNAL_ADDR, &address, sizeof(address), nullptr, 0); }
 inline int I2CIOCTL_GetInternalAddr(int device)
 {
     int address;
-    if (kernel::Kernel::DeviceControl(device, I2CIOCTL_GET_INTERNAL_ADDR, nullptr, 0, &address, sizeof(address)) < 0) return -1;
+    if (os::FileIO::DeviceControl(device, I2CIOCTL_GET_INTERNAL_ADDR, nullptr, 0, &address, sizeof(address)) < 0) return -1;
     return address;
 }
 
 
-inline int I2CIOCTL_SetBaudrate(int device, int baudrate) { return kernel::Kernel::DeviceControl(device, I2CIOCTL_SET_BAUDRATE, &baudrate, sizeof(baudrate), nullptr, 0); }
+inline int I2CIOCTL_SetBaudrate(int device, int baudrate) { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_BAUDRATE, &baudrate, sizeof(baudrate), nullptr, 0); }
 inline int I2CIOCTL_GetBaudrate(int device)
 {
     int baudrate;
-    if (kernel::Kernel::DeviceControl(device, I2CIOCTL_GET_BAUDRATE, nullptr, 0, &baudrate, sizeof(baudrate)) < 0) return -1;
+    if (os::FileIO::DeviceControl(device, I2CIOCTL_GET_BAUDRATE, nullptr, 0, &baudrate, sizeof(baudrate)) < 0) return -1;
     return baudrate;
 }

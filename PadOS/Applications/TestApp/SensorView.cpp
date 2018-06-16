@@ -59,8 +59,9 @@ public:
 
     void Update(double value)
     {
+        DEBUG_TRACK_FUNCTION();
 //        ProfileTimer timer("CurrentSensorView::Update()");
-        m_ValueView->SetText(String::FormatString(m_ValueFormat.c_str(), value));
+        m_ValueView->SetText(String::format_string(m_ValueFormat.c_str(), value));
         m_HistoryView->AddValue(value);
     }
 
@@ -71,6 +72,7 @@ public:
 
     virtual void Paint(const Rect& updateRect) override
     {
+        DEBUG_TRACK_FUNCTION();
         DrawFrame(GetBounds(), FRAME_ETCHED);
     }
     
@@ -101,6 +103,7 @@ public:
     
     void Update(const BME280Values& values)
     {
+        DEBUG_TRACK_FUNCTION();
         m_TempView->Update(values.m_Temperature);
         m_HumidityView->Update(values.m_Humidity);
         m_PressureView->Update(values.m_Pressure / 100.0);
@@ -108,6 +111,7 @@ public:
     
     virtual void Paint(const Rect& updateRect) override
     {
+        DEBUG_TRACK_FUNCTION();
         EraseRect(GetBounds());
     }
     
@@ -161,10 +165,11 @@ public:
     
     void Update(double voltage, double current)
     {
+        DEBUG_TRACK_FUNCTION();
 //        ProfileTimer timer("CurrentSensorView::Update()");
-        m_VoltageView->SetText(String::FormatString("%.3fV", voltage));
-        m_CurrentView->SetText(String::FormatString("%.2fmA", current * 1000.0));
-        m_PowerView->SetText(String::FormatString("%.2fW", voltage * current));
+        m_VoltageView->SetText(String::format_string("%.3fV", voltage));
+        m_CurrentView->SetText(String::format_string("%.2fmA", current * 1000.0));
+        m_PowerView->SetText(String::format_string("%.2fW", voltage * current));
         
         m_CurrentHistoryView->AddValue(current);
     }
@@ -178,6 +183,7 @@ public:
 
     virtual void Paint(const Rect& updateRect) override
     {
+        DEBUG_TRACK_FUNCTION();
         DrawFrame(GetBounds(), FRAME_ETCHED);
     }
     
@@ -258,6 +264,7 @@ void SensorView::AllAttachedToScreen()
 
 void SensorView::Paint(const Rect& updateRect)
 {
+    DEBUG_TRACK_FUNCTION();
     PaintContent();
 }
 
@@ -267,6 +274,7 @@ void SensorView::Paint(const Rect& updateRect)
 
 void SensorView::PaintContent()
 {
+    DEBUG_TRACK_FUNCTION();
     float y = 10.0f;
     FontHeight fontHeight = GetFontHeight();
     float lineSpacing = fontHeight.descender - fontHeight.ascender + fontHeight.line_gap;
@@ -302,6 +310,7 @@ void SensorView::PaintContent()
 
 bool SensorView::OnMouseUp(MouseButton_e button, const Point& position)
 {
+    DEBUG_TRACK_FUNCTION();
     SignalDone(ptr_tmp_cast(this));
     return true;
 }
@@ -312,9 +321,10 @@ bool SensorView::OnMouseUp(MouseButton_e button, const Point& position)
 
 void SensorView::SlotFrameProcess()
 {
+    DEBUG_TRACK_FUNCTION();
     static uint32_t frameCount = 0;
     frameCount++;
-    bigtime_t startTime = get_system_time_hires();
+//    bigtime_t startTime = get_system_time_hires();
 
     BME280Values envValues;
     BME280IOCTL_GetValues(m_EnvSensor, &envValues);
@@ -335,10 +345,10 @@ void SensorView::SlotFrameProcess()
     }
     Invalidate();
 
-    static bigtime_t prevTime = get_system_time_hires();
-    bigtime_t endTime = get_system_time_hires();
-    printf("Time: %.3f (%.3f)\n", double(endTime - startTime) / 1000.0, double(endTime - prevTime) / 1000.0);
-    prevTime = endTime;
+//    static bigtime_t prevTime = get_system_time_hires();
+//    bigtime_t endTime = get_system_time_hires();
+//    printf("Time: %.3f (%.3f)\n", double(endTime - startTime) / 1000.0, double(endTime - prevTime) / 1000.0);
+//    prevTime = endTime;
 }
     
 ///////////////////////////////////////////////////////////////////////////////
@@ -347,12 +357,13 @@ void SensorView::SlotFrameProcess()
 
 void SensorView::DrawValue(float x1, float x2, float y, const String& label, const char* valueFormat, const String& unit, double value)
 {
+    DEBUG_TRACK_FUNCTION();
     MovePenTo(x1, y);
     SetFgColor(0, 0, 0);
     DrawString(label);
     MovePenTo(x2, y);
     SetFgColor(0, 0, 255);
-    DrawString(String::FormatString(valueFormat, value));
+    DrawString(String::format_string(valueFormat, value));
     SetFgColor(0, 0, 220);
     DrawString(unit + "   ");    
 }

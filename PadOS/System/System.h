@@ -38,6 +38,8 @@ void set_last_error(int error);
 bigtime_t get_system_time();
 bigtime_t get_system_time_hires();
 
+bigtime_t get_real_time();
+
 port_id  create_message_port(const char* name, int maxCount);
 port_id  duplicate_message_port(port_id handle);
 status_t delete_message_port(port_id handle);

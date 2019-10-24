@@ -49,6 +49,7 @@
 
 #include <compiler.h>
 #include <parts.h>
+#include "cmsis_gcc.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -18,14 +18,19 @@
 // Created: 29.10.2017 19:51:50
 
 #include "SAME70System.h"
-#include "SystemSetup.h"
+//#include "SystemSetup.h"
+
+uint32_t SAME70System::s_FrequencyCrystal;
+uint32_t SAME70System::s_FrequencyCore;
+uint32_t SAME70System::s_FrequencyPeripheral;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SAME70System::SetupClock()
-{
+void SAME70System::SetupClock(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral)
+{  
     PMC->PMC_WPMR = PMC_WPMR_WPKEY_PASSWD; // | PMC_WPMR_WPEN_Msk; // Remove register write protection.
     
     PMC->CKGR_MOR = (PMC->CKGR_MOR & ~CKGR_MOR_MOSCXTEN_Msk) | CKGR_MOR_KEY_PASSWD |
@@ -41,7 +46,7 @@ void SAME70System::SetupClock()
     {
         PMC->CKGR_MCFR = (PMC->CKGR_MCFR & ~CKGR_MCFR_RCMEAS_Msk) | CKGR_MCFR_RCMEAS_Msk; // Start frequency measurement.
         while((PMC->CKGR_MCFR & CKGR_MCFR_MAINFRDY_Msk) == 0); // Wait for the measurement result.
-        if (((PMC->CKGR_MCFR & CKGR_MCFR_MAINF_Msk) >> CKGR_MCFR_MAINF_Pos) > 16*CLOCK_CRYSTAL_FREQUENCY/2/32000)
+        if (((PMC->CKGR_MCFR & CKGR_MCFR_MAINF_Msk) >> CKGR_MCFR_MAINF_Pos) > 16*frequencyCrystal/2/32000)
         {
             break; // We have reach at least half the target frequency.
         }
@@ -57,7 +62,7 @@ void SAME70System::SetupClock()
     
     PMC->CKGR_PLLAR = CKGR_PLLAR_ONE_Msk |
     CKGR_PLLAR_DIVA(1) |          // Main clock divider.
-    CKGR_PLLAR_MULA(CLOCK_CPU_FREQUENCY/CLOCK_CRYSTAL_FREQUENCY - 1) |          // Main clock multiplier - 1.
+    CKGR_PLLAR_MULA(frequencyCore/frequencyCrystal - 1) |          // Main clock multiplier - 1.
     CKGR_PLLAR_PLLACOUNT(63);     // Number of clock cycles before LOCKA is set.
 
     while((PMC->PMC_SR & PMC_SR_LOCKA_Msk) == 0); // Wait for PLL to lock.
@@ -85,13 +90,24 @@ void SAME70System::SetupClock()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SAME70System::EnablePeripheralClock( int prefID )
+void SAME70System::SetupFrequencies(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral)
+{
+    s_FrequencyCrystal    = frequencyCrystal;
+    s_FrequencyCore       = frequencyCore;
+    s_FrequencyPeripheral = frequencyPeripheral;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SAME70System::EnablePeripheralClock( int perifID )
 {
     PMC->PMC_WPMR = PMC_WPMR_WPKEY_PASSWD; // Write enable registers.
-    if (prefID < 32) {
-        PMC->PMC_PCER0 = BIT32(prefID, 1);
+    if (perifID < 32) {
+        PMC->PMC_PCER0 = BIT32(perifID, 1);
     } else {        
-        PMC->PMC_PCER1 = BIT32(prefID-32, 1);
+        PMC->PMC_PCER1 = BIT32(perifID-32, 1);
     }        
     PMC->PMC_WPMR = PMC_WPMR_WPKEY_PASSWD | PMC_WPMR_WPEN_Msk; // Write protect registers.
 }
@@ -100,13 +116,13 @@ void SAME70System::EnablePeripheralClock( int prefID )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SAME70System::DisablePeripheralClock( int prefID )
+void SAME70System::DisablePeripheralClock( int perifID )
 {
     PMC->PMC_WPMR = PMC_WPMR_WPKEY_PASSWD; // Write enable registers.
-    if (prefID < 32) {
-        PMC->PMC_PCDR0 = BIT32(prefID, 1);
+    if (perifID < 32) {
+        PMC->PMC_PCDR0 = BIT32(perifID, 1);
     } else {        
-        PMC->PMC_PCDR1 = BIT32(prefID-32, 1);
+        PMC->PMC_PCDR1 = BIT32(perifID-32, 1);
     }        
     PMC->PMC_WPMR = PMC_WPMR_WPKEY_PASSWD | PMC_WPMR_WPEN_Msk; // Write protect registers.
 }
@@ -117,7 +133,8 @@ void SAME70System::DisablePeripheralClock( int prefID )
 
 uint32_t SAME70System::GetFrequencyCrystal()
 {
-    return CLOCK_CRYSTAL_FREQUENCY;
+    return s_FrequencyCrystal;
+//    return CLOCK_CRYSTAL_FREQUENCY;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -126,7 +143,8 @@ uint32_t SAME70System::GetFrequencyCrystal()
     
 uint32_t SAME70System::GetFrequencyCore()
 {
-    return CLOCK_CPU_FREQUENCY;
+    return s_FrequencyCore;
+//    return CLOCK_CPU_FREQUENCY;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -135,7 +153,8 @@ uint32_t SAME70System::GetFrequencyCore()
     
 uint32_t SAME70System::GetFrequencyPeripheral()
 {
-    return CLOCK_PERIF_FREQUENCY;
+    return s_FrequencyPeripheral;
+//    return CLOCK_PERIF_FREQUENCY;
 }
 
 

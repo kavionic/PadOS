@@ -26,6 +26,7 @@
 #include "System/Ptr/PtrTarget.h"
 #include "System/Ptr/Ptr.h"
 #include "Kernel/KMutex.h"
+#include "Kernel/KConditionVariable.h"
 
 struct device_geometry;
 
@@ -64,13 +65,20 @@ public:
     static bool           RegisterVolume(Ptr<KFSVolume> volume);
     static Ptr<KFSVolume> GetVolume(fs_id volumeID);
     static Ptr<KINode>    GetINode(fs_id volumeID, ino_t inodeID, bool crossMount);
-
+    static void           InodeReleased(KINode* inode);
+    static void           FlushInodes();
 private:
+    static void DiscardInode(KINode* inode);
+    
+    static const int     MAX_INODE_CACHE_COUNT = 5;
+    static KINode* const PENDING_INODE;
+    
     static KMutex s_INodeMapMutex;
-    static std::map<std::pair<fs_id, ino_t>, Ptr<KINode>> s_INodeMap;
+    static std::map<std::pair<fs_id, ino_t>, KINode*> s_INodeMap;
     static IntrusiveList<KINode>                      s_InodeMRUList;
+    static int                                        s_UnusedInodeCount;
     static std::map<fs_id, Ptr<KFSVolume>>            s_VolumeMap;
-
+    static KConditionVariable                         s_InodeMapConditionVar;
     KVFSManager( const KVFSManager &c );
     KVFSManager& operator=( const KVFSManager &c );
 };

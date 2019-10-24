@@ -105,6 +105,7 @@ public:
     
     
     bool ReadSuperBlock(int deviceFile);
+    void UpdateFSInfo();
 
     void Shutdown();
 

@@ -218,8 +218,8 @@ int FileIO::Close(int handle)
         return -1;
     }
     FreeFileHandle(handle);
-
-    Ptr<KINode> inode = file->GetINode();
+    return 0;
+/*    Ptr<KINode> inode = file->GetINode();
     assert(inode != nullptr && inode->m_Filesystem != nullptr && inode->m_FileOps !=  nullptr);
 
     int result = 0;
@@ -228,9 +228,8 @@ int FileIO::Close(int handle)
     } else {
         result = inode->m_FileOps->CloseFile(inode->m_Volume, ptr_static_cast<KFileNode>(file));
     }
-//    inode->m_Filesystem->ReleaseInode(inode);
 
-    return result;
+    return result;*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -365,16 +364,15 @@ int FileIO::DeviceControl(int handle, int request, const void* inData, size_t in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FileIO::ReadDirectory(int handle, int position, dir_entry* entry, size_t bufSize)
+int FileIO::ReadDirectory(int handle, dir_entry* entry, size_t bufSize)
 {
     Ptr<KDirectoryNode> dir = GetDirectory(handle);
-    if (dir == nullptr)
-    {
+    if (dir == nullptr) {
         set_last_error(EBADF);
         return -1;
     }
-    
-    Ptr<KINode> inode = dir->GetINode();
+    return dir->ReadDirectory(entry, bufSize);
+/*    Ptr<KINode> inode = dir->GetINode();
     assert(inode != nullptr && inode->m_Filesystem != nullptr);
 
     if (inode->m_FileOps == nullptr) {
@@ -382,7 +380,21 @@ int FileIO::ReadDirectory(int handle, int position, dir_entry* entry, size_t buf
         return -1;
     }
     
-    return inode->m_FileOps->ReadDirectory(inode->m_Volume, dir, position, entry, bufSize);
+    return inode->m_FileOps->ReadDirectory(inode->m_Volume, dir, entry, bufSize);*/
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int FileIO::RewindDirectory(int handle)
+{
+    Ptr<KDirectoryNode> dir = GetDirectory(handle);
+    if (dir == nullptr) {
+        set_last_error(EBADF);
+        return -1;
+    }
+    return dir->RewindDirectory();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -653,7 +665,7 @@ void FileIO::FreeFileHandle(int handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileTableNode> FileIO::GetFileNode(int handle)
+Ptr<KFileTableNode> FileIO::GetFileNode(int handle, bool forKernel)
 {
     if (handle >= 0 && handle < int(s_FileTable.size()) && s_FileTable[handle] != nullptr && s_FileTable[handle]->GetINode() != nullptr)
     {

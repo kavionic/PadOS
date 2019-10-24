@@ -73,6 +73,7 @@ ServerApplication::~ServerApplication()
 
 bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t length)
 {
+    DEBUG_TRACK_FUNCTION();
     bool wasHandled = false;
     switch(code)
     {

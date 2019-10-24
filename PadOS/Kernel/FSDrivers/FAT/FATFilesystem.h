@@ -63,10 +63,10 @@ public:
     virtual int                 WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint32_t mask) override;
     
     virtual Ptr<KINode>         LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
-    virtual bool                ReleaseInode(Ptr<KINode> inode) override;
+    virtual bool                ReleaseInode(KINode* inode) override;
     virtual Ptr<KFileNode>      OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
     virtual Ptr<KFileNode>      CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission) override;
-    virtual int                 CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file) override;
+    virtual int                 CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
 
     virtual Ptr<KINode>         LoadInode(Ptr<KFSVolume> volume, ino_t inode) override;
 
@@ -80,8 +80,8 @@ public:
     
     virtual ssize_t             Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
     virtual ssize_t             Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
-    virtual int                 ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, int position, dir_entry* entry, size_t bufSize) override;
-    virtual int                 RewindDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node, Ptr<KDirectoryNode> dirNode) override;
+    virtual int                 ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize) override;
+    virtual int                 RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode) override;
     virtual int                 ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize) override;
 
     virtual int                 CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, int mode) override;
@@ -93,7 +93,6 @@ public:
 
 private:
     status_t CreateVolumeLabel(Ptr<FATVolume> vol, const char* name, uint32_t* index);
-    void     UpdateFSInfo(Ptr<FATVolume> volume);
     status_t FindShortName(Ptr<FATVolume> vol, Ptr<FATINode> parent, const char* rawShortName);
     status_t DoLocateINode(Ptr<FATVolume> vol, Ptr<FATINode> dir, const os::String& fileName, Ptr<FATINode>* node);
     status_t IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATINode> dir);

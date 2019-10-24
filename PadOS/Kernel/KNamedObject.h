@@ -65,6 +65,7 @@ typedef IntrusiveList<KThreadWaitNode> KThreadWaitList;
 class KNamedObject : public PtrTarget
 {
 public:
+    static void InitializeStatics();
     KNamedObject(const char* name, KNamedObjectType type);
     virtual ~KNamedObject();
 

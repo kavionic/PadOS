@@ -24,14 +24,16 @@
 #include <map>
 
 #include "KBlockCache.h"
-#include "SystemSetup.h"
+//#include "SystemSetup.h"
 #include "FileIO.h"
+#include "KVFSManager.h"
 
 using namespace kernel;
 using namespace os;
 
 //static const int KBLOCK_CACHE_BLOCK_COUNT = 65536;
 static const int KBLOCK_CACHE_BLOCK_COUNT = 32;
+static const int BC_FLUSH_COUNT = 4;
 
 static uint8_t           gk_BCacheBuffer[KBlockCache::BUFFER_BLOCK_SIZE * KBLOCK_CACHE_BLOCK_COUNT + DCACHE_LINE_SIZE];
 static KCacheBlockHeader gk_BCacheHeaders[KBLOCK_CACHE_BLOCK_COUNT];
@@ -44,6 +46,7 @@ IntrusiveList<KCacheBlockHeader>             KBlockCache::s_MRUList;
 KMutex                                       KBlockCache::s_Mutex("bcache_mutex", false);
 KConditionVariable                           KBlockCache::s_FlushingConditionVar("bcache_flush_cond");
 std::atomic_int                              KBlockCache::s_DirtyBlockCount;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -155,6 +158,7 @@ void KBlockCache::Initialize()
         buffer += BUFFER_BLOCK_SIZE;
         s_FreeList.Append(&gk_BCacheHeaders[i]);
     }
+    spawn_thread("disk_cache_flusher", DiskCacheFlusher, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -190,7 +194,7 @@ KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
             }
             else if (s_MRUList.m_First != nullptr)
             {
-                for (block = s_MRUList.m_First; block != nullptr && block->IsFlushing(); block = block->m_Next) /*EMPTY*/;
+                for (block = s_MRUList.m_First; block != nullptr && block->m_UseCount == 0 && block->IsFlushing(); block = block->m_Next) /*EMPTY*/;
                 if (block == nullptr) {
                     s_FlushingConditionVar.Wait(s_Mutex);
                     continue;
@@ -213,7 +217,7 @@ KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
                         return KCacheBlockDesc();
                     }
                 }
-//                block->AddRef();
+                s_MRUList.Append(block);
                 block->m_UseCount     = 1;
                 block->m_Flags        = 0;
                 block->m_Device       = m_Device;
@@ -327,7 +331,7 @@ bool KBlockCache::FlushBuffer(off64_t bufferNum, bool removeAfter)
             block->Flush(s_Mutex);
         }
         if (removeAfter) {
-            kprintf("Block %" PRIu64 " removed\n", bufferNum);
+//            kprintf("Block %" PRIu64 " removed\n", bufferNum);
             m_BlockMap.erase(i);
         }
         return true;
@@ -342,9 +346,6 @@ bool KBlockCache::FlushBuffer(off64_t bufferNum, bool removeAfter)
 void KCacheBlockHeader::AddRef()
 {
     kassert(KBlockCache::s_Mutex.IsLocked());
-    if (m_UseCount == 0) {
-        KBlockCache::s_MRUList.Remove(this);
-    }
     m_UseCount++;
 }
 
@@ -357,7 +358,7 @@ void KCacheBlockHeader::RemoveRef()
     kassert(KBlockCache::s_Mutex.IsLocked());
     m_UseCount--;
     if (m_UseCount == 0) {
-        KBlockCache::s_MRUList.Append(this);
+        KBlockCache::s_FlushingConditionVar.Wakeup(0);
     }
 }
 
@@ -374,16 +375,7 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
             m_Flags |= BCF_DIRTY;
             KBlockCache::s_DirtyBlockCount++;
         }
-        
-        kprintf("Block %" PRIu64 " dirty\n", m_bufferNumber);
-        
-        
-        Flush(KBlockCache::s_Mutex);
-        
-        
-        
-        
-        
+        kernel_log(KLogCategory::BlockCache, KLogSeverity::INFO_HIGH_VOL, "Block %" PRIu64 " from device %d dirty\n", m_bufferNumber, m_Device);
     }
     else
     {
@@ -410,25 +402,6 @@ bool KCacheBlockHeader::Flush(KMutex& mutex)
         kprintf("Block %" PRIu64 " flushed\n", m_bufferNumber);
 
         bool result = FileIO::Write(m_Device, m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, m_Buffer, KBlockCache::BUFFER_BLOCK_SIZE) >= 0;
-        if (result) {
-            std::vector<uint8_t> buffer;
-            buffer.resize(KBlockCache::BUFFER_BLOCK_SIZE);
-            if (FileIO::Read(m_Device, m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, buffer.data(), KBlockCache::BUFFER_BLOCK_SIZE) == KBlockCache::BUFFER_BLOCK_SIZE)
-            {
-                for (size_t i = 0; i < KBlockCache::BUFFER_BLOCK_SIZE; ++i)
-                {
-                    if (static_cast<uint8_t*>(m_Buffer)[i] != buffer[i]) {
-                        kprintf("ERROR: Failed to write block %" PRIu64 ". Mismatch at %d\n", m_bufferNumber, i);
-                        break;
-                    }
-                }
-//                if (memcmp(m_Buffer, buffer.data(), KBlockCache::BUFFER_BLOCK_SIZE) != 0) {
-//                    kprintf("ERROR: Failed to write block %" PRIu64 "\n", m_bufferNumber);
-//                }
-            } else {
-                kprintf("ERROR: Failed to read back block %" PRIu64 "\n", m_bufferNumber);                
-            }
-        }
         mutex.Lock();
         SetIsFlushing(false);
         SetDirty(false);
@@ -497,4 +470,70 @@ void KCacheBlockDesc::Reset()
         m_Block->RemoveRef();
         m_Block = nullptr;
     }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCount)
+{
+    kernel_log(KLogCategory::BlockCache, KLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() flushing %d blocks.\n", blockCount);
+    for (size_t i = 0; i < blockCount; ++i)
+    {
+        KCacheBlockHeader* block = blockList[i];
+        
+        kernel_log(KLogCategory::BlockCache, KLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() writing block %" PRId64 " from device %d\n", block->m_bufferNumber, block->m_Device);
+        
+        if (FileIO::Write(block->m_Device, block->m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, block->m_Buffer, KBlockCache::BUFFER_BLOCK_SIZE) < 0) {
+            kernel_log(KLogCategory::BlockCache, KLogSeverity::CRITICAL, "Failed to flush block %" PRId64 " from device %d\n", block->m_bufferNumber, block->m_Device);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KBlockCache::DiskCacheFlusher(void* arg)
+{
+    for (;;)
+    {
+        if (s_DirtyBlockCount > 0) {
+            snooze(bigtime_from_ms(250));
+        } else {
+            snooze(bigtime_from_s(5));
+        }
+        KVFSManager::FlushInodes();
+        CRITICAL_BEGIN(s_Mutex)
+        {
+            KCacheBlockHeader* blockList[BC_FLUSH_COUNT];
+            if (s_DirtyBlockCount > 0)
+            {
+                int blocksFlushed = 0;
+                int deviceID = -1;
+                for (KCacheBlockHeader* block = s_MRUList.m_First; block != nullptr && blocksFlushed < BC_FLUSH_COUNT && s_DirtyBlockCount > 0; block = block->m_Next)
+                {
+                    if (block->IsDirty() && !block->IsFlushing())
+                    {
+                        if (deviceID == -1) deviceID = block->m_Device;
+                        if (block->m_Device == deviceID) {
+                            block->SetIsFlushing(true);
+                            blockList[blocksFlushed++] = block;
+                        }
+                    }
+                }
+                s_Mutex.Unlock();
+                FlushBlockList(blockList, blocksFlushed);
+                s_Mutex.Lock();
+                for (size_t i = 0; i < blocksFlushed; ++i)
+                {
+                    KCacheBlockHeader* block = blockList[i];
+                    block->SetDirty(false);
+                    block->SetIsFlushing(false);
+                }
+                s_FlushingConditionVar.Wakeup(0);
+            }
+        } CRITICAL_END;
+    }
 }

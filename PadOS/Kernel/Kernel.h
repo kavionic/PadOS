@@ -32,6 +32,12 @@
 #include "System/Ptr/Ptr.h"
 #include "System/String.h"
 
+
+#define DCACHE_LINE_SIZE 32 // Cortex-M7 size of cache line is fixed to 8 words (32 bytes)
+#define DCACHE_LINE_SIZE_MASK (DCACHE_LINE_SIZE - 1)
+
+class DigitalPin;
+
 namespace kernel
 {
 
@@ -53,6 +59,15 @@ struct KIRQAction
 
 template<typename ...ARGS> int kprintf(const char* fmt, ARGS&&... args) { return printf(fmt, args...); }
 
+enum class KLogCategory
+{
+    General,
+    VFS,
+    BlockCache,
+    Scheduler,
+    COUNT
+};
+
 enum class KLogSeverity
 {
     INFO_HIGH_VOL,
@@ -70,6 +85,9 @@ bool kernel_log_is_category_active(int category, KLogSeverity logLevel);
 
 template<typename ...ARGS>
 void kernel_log(int category, KLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel_log_is_category_active(category, severity)) kprintf(fmt, args...); }
+
+template<typename ...ARGS>
+void kernel_log(KLogCategory category, KLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel_log_is_category_active(int(category), severity)) kprintf(fmt, args...); }
 
 void panic(const char* message);
 
@@ -109,7 +127,8 @@ class Kernel
 {
 public:
 
-    static void Initialize();
+    static void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
+    static void Initialize(uint32_t coreFrequency, TcChannel* spinTimerChannel, TcChannel* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch);
     static void SystemTick();
     static int RegisterDevice(const char* path, Ptr<KINode> deviceNode);
     static int RenameDevice(int handle, const char* newPath);

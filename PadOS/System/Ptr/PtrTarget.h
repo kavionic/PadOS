@@ -145,7 +145,11 @@ public:
         return m_ReferenceCount;
     }
 
-    virtual bool LastReferenceGone() { delete this; return true; }
+    virtual bool LastReferenceGone() {
+        m_ReferenceCount++; // In case the destructor convert "this" to a smart pointer.
+        delete this;
+        return true;
+    }
     void NotifyMonitors();
 
 protected:
@@ -164,6 +168,10 @@ private:
     void AddPtrRef() const
     {
         m_ReferenceCount++;
+    }
+    void AddPtrRef(int value)
+    {
+        m_ReferenceCount += value;
     }
 
     bool AddPtrRefIfNotZero() const;

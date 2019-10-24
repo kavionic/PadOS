@@ -123,6 +123,9 @@ private:
     static bool     FlushBuffer(int device, off64_t bufferNum, bool removeAfter);
     bool            FlushBuffer(off64_t bufferNum, bool removeAfter);
     
+    static void  FlushBlockList(KCacheBlockHeader** blockList, size_t blockCount);
+    static void  DiskCacheFlusher(void* arg);
+    
     static std::map<int, KBlockCache*>                  s_DeviceMap;
     static IntrusiveList<KCacheBlockHeader>             s_FreeList;
     static IntrusiveList<KCacheBlockHeader>             s_MRUList;

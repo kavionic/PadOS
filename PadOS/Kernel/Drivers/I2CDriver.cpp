@@ -448,7 +448,7 @@ Ptr<KFileNode> I2CDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int I2CDriver::CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file)
+int I2CDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
 //    return ptr_static_cast<I2CDriverINode>(inode)->Open(flags);
     return 0;

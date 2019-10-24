@@ -261,15 +261,52 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
 	return nullptr;
     }
     
-    //0x000ec3d8
-    uint32_t freeClusters = 0;
-    bool     isFreeClustersValid = true;
-    if (!vol->HasFlag(FSVolumeFlags::FS_IS_READONLY))
+    
+//    uint32_t freeClusters = 0;
+    bool     isFreeClustersValid = vol->HasFlag(FSVolumeFlags::FS_IS_READONLY);
+    if (!isFreeClustersValid)
     {
-        isFreeClustersValid = vol->GetFATTable()->CountFreeClusters(&freeClusters);
-	if (!isFreeClustersValid) {
-	    kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::ERROR, "FATFilesystem::Mount(): error counting free clusters (%s)\n", strerror(get_last_error()));
-	}
+        if (vol->m_FSInfoSector != 0xffff)
+        {
+            KCacheBlockDesc bufferDesc = vol->m_BCache.GetBlock(vol->m_FSInfoSector);
+            FATFSInfo* fsInfo = static_cast<FATFSInfo*>(bufferDesc.m_Buffer);
+            if (fsInfo != nullptr)
+            {
+                if (fsInfo->m_Signature1 == 0x41615252 && fsInfo->m_Signature2 == 0x61417272 && fsInfo->m_Signature3 == 0xaa550000)
+                {
+                    vol->m_FreeClusters         = fsInfo->m_FreeClusters;
+                    vol->m_LastAllocatedCluster = fsInfo->m_LastAllocatedCluster;
+#if 0                    
+                    uint32_t freeClusters;
+                    vol->GetFATTable()->CountFreeClusters(&freeClusters);
+                    if (freeClusters != vol->m_FreeClusters)
+                    {
+                        vol->m_FreeClusters = freeClusters;
+                        kernel_log(LOGC_FS, KLogSeverity::ERROR, "Mismatching free cluster count in fsinfo block. Found %u should be %u\n", vol->m_FreeClusters, freeClusters);
+                    }
+#endif                    
+                    isFreeClustersValid = true;
+                }
+                else
+                {
+                    uint32_t signature1 = fsInfo->m_Signature1;
+                    uint32_t signature2 = fsInfo->m_Signature2;
+                    uint32_t signature3 = fsInfo->m_Signature3;
+                    kernel_log(LOGC_FS, KLogSeverity::CRITICAL, "FATFilesystem::Mount(): fsinfo block has invalid magic number %08x, %08x, %08x\n", signature1, signature2, signature3);
+                }
+            }
+            else
+            {
+                kernel_log(LOGC_FS, KLogSeverity::ERROR, "FATFilesystem::Mount(): error getting fsinfo sector %x\n", vol->m_FSInfoSector);
+            }
+        }
+        if (!isFreeClustersValid)
+        {
+            isFreeClustersValid = vol->GetFATTable()->CountFreeClusters(&vol->m_FreeClusters);
+	    if (!isFreeClustersValid) {
+	        kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::ERROR, "FATFilesystem::Mount(): error counting free clusters (%s)\n", strerror(get_last_error()));
+	    }
+        }            
     }
     if (isFreeClustersValid)
     {
@@ -341,7 +378,7 @@ int FATFilesystem::Unmount(Ptr<KFSVolume> volume)
 	
     kernel_log(LOGC_FS, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::Unmount(): %x\n", vol->m_VolumeID);
 
-    UpdateFSInfo(vol);
+    vol->UpdateFSInfo();
     vol->m_BCache.Shutdown(true);
 
     result = FileIO::Close(vol->m_DeviceFile);
@@ -368,7 +405,7 @@ int FATFilesystem::Sync(Ptr<KFSVolume> _vol)
     
     kernel_log(LOGC_FS, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::Sync() called on volume %x\n", vol->m_VolumeID);
 
-    UpdateFSInfo(vol);
+    vol->UpdateFSInfo();
     vol->m_BCache.Flush();
 
     return 0;
@@ -578,10 +615,10 @@ Ptr<KINode> FATFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATFilesystem::ReleaseInode(Ptr<KINode> inode)
+bool FATFilesystem::ReleaseInode(KINode* inode)
 {
     Ptr<FATVolume> vol  = ptr_static_cast<FATVolume>(inode->m_Volume);
-    Ptr<FATINode>  node = ptr_static_cast<FATINode>(inode);
+    FATINode*      node = static_cast<FATINode*>(inode);
     
     if (!vol->CheckMagic(__func__) || !node->CheckMagic(__func__)) {
 	set_last_error(EINVAL);
@@ -611,7 +648,7 @@ bool FATFilesystem::ReleaseInode(Ptr<KINode> inode)
         if (vol->HasINodeIDToLocationIDMapping(node->m_INodeID)) {
             vol->RemoveINodeIDToLocationIDMapping(node->m_INodeID);
         }
-        /* and from the dlist as well */
+        // If directory, remove from directory mapping.
         if (node->m_DOSAttribs & FAT_SUBDIR) {
             vol->RemoveDirectoryMapping(node->m_INodeID);
         }      
@@ -667,8 +704,8 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> _node,
     }
 
     try {
-        Ptr<FATFileNode> fileNode = ptr_new<FATFileNode>(/*node*/);
-        
+        Ptr<FATFileNode> fileNode = ptr_new<FATFileNode>();
+
         fileNode->m_Mode = omode;
         fileNode->m_FATIteration  = node->m_Iteration;
         fileNode->m_FATChainIndex = 0;
@@ -820,10 +857,10 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FATFilesystem::CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file)
+int FATFilesystem::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
     Ptr<FATVolume>   vol      = ptr_static_cast<FATVolume>(volume);
-    Ptr<FATFileNode> fileNode = ptr_static_cast<FATFileNode>(file);
+    FATFileNode*     fileNode = static_cast<FATFileNode*>(file);
     Ptr<FATINode>    node     = ptr_static_cast<FATINode>(file->GetINode());
 
     CRITICAL_SCOPE(vol->m_Mutex);
@@ -1616,7 +1653,7 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, int position, dir_entry* entry, size_t bufSize)
+int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize)
 {
     Ptr<FATVolume>        vol     = ptr_static_cast<FATVolume>(volume);
     Ptr<FATDirectoryNode> dirNode = ptr_static_cast<FATDirectoryNode>(directory);
@@ -1696,11 +1733,11 @@ int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dire
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 			
-int FATFilesystem::RewindDirectory(Ptr<KFSVolume> _vol, Ptr<KINode> _node, Ptr<KDirectoryNode> _dirNode)
+int FATFilesystem::RewindDirectory(Ptr<KFSVolume> _vol, Ptr<KDirectoryNode> _dirNode)
 {
     Ptr<FATVolume>        vol     = ptr_static_cast<FATVolume>(_vol);
-    Ptr<FATINode>         node    = ptr_static_cast<FATINode>(_node);
     Ptr<FATDirectoryNode> dirNode = ptr_static_cast<FATDirectoryNode>(_dirNode);
+    Ptr<FATINode>         node    = ptr_static_cast<FATINode>(_dirNode->GetINode());
 
     CRITICAL_SCOPE(vol->m_Mutex);
 
@@ -1975,18 +2012,18 @@ status_t FATFilesystem::CreateVolumeLabel(Ptr<FATVolume> vol, const char* name, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::UpdateFSInfo(Ptr<FATVolume> vol)
+void FATVolume::UpdateFSInfo()
 {
-    if (vol->m_FATBits == 32 && vol->m_FSInfoSector != 0xffff && !vol->HasFlag(FSVolumeFlags::FS_IS_READONLY))
+    if (m_FSInfoSector != 0xffff && !HasFlag(FSVolumeFlags::FS_IS_READONLY))
     {
-        KCacheBlockDesc bufferDesc = vol->m_BCache.GetBlock(vol->m_FSInfoSector);
+        KCacheBlockDesc bufferDesc = m_BCache.GetBlock(m_FSInfoSector);
         FATFSInfo* buffer = static_cast<FATFSInfo*>(bufferDesc.m_Buffer);
         if (buffer != nullptr)
         {
             if (buffer->m_Signature1 == 0x41615252 && buffer->m_Signature2 == 0x61417272 && buffer->m_Signature3 == 0xaa550000)
             {
-                buffer->m_FreeClusters         = vol->m_FreeClusters;
-                buffer->m_LastAllocatedCluster = vol->m_LastAllocatedCluster;
+                buffer->m_FreeClusters         = m_FreeClusters;
+                buffer->m_LastAllocatedCluster = m_LastAllocatedCluster;
                 bufferDesc.MarkDirty();
             }
             else
@@ -1994,12 +2031,12 @@ void FATFilesystem::UpdateFSInfo(Ptr<FATVolume> vol)
                 uint32_t signature1 = buffer->m_Signature1;
                 uint32_t signature2 = buffer->m_Signature2;
                 uint32_t signature3 = buffer->m_Signature3;
-                kernel_log(LOGC_FS, KLogSeverity::CRITICAL, "FATFilesystem::UpdateFSInfo(): fsinfo block has invalid magic number %08x, %08x, %08x\n", signature1, signature2, signature3);
+                kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::CRITICAL, "FATVolume::UpdateFSInfo(): fsinfo block has invalid magic number %08x, %08x, %08x\n", signature1, signature2, signature3);
             }
         }
         else
         {
-            kernel_log(LOGC_FS, KLogSeverity::ERROR, "FATFilesystem::UpdateFSInfo(): error getting fsinfo sector %x\n", vol->m_FSInfoSector);
+            kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::ERROR, "FATVolume::UpdateFSInfo(): error getting fsinfo sector %x\n", m_FSInfoSector);
         }
     }
 }

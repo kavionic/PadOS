@@ -103,7 +103,7 @@ Ptr<KINode> KFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KFilesystem::ReleaseInode(Ptr<KINode> inode)
+bool KFilesystem::ReleaseInode(KINode* inode)
 {
     return true;
 }
@@ -141,7 +141,7 @@ Ptr<KFileNode> KFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KFilesystemFileOps::CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file)
+int KFilesystemFileOps::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
     return 0;
 }
@@ -260,7 +260,7 @@ int KFilesystemFileOps::DeviceControl(Ptr<KFileNode> file, int request, const vo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KFilesystemFileOps::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, int position, dir_entry* entry, size_t bufSize)
+int KFilesystemFileOps::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize)
 {
     set_last_error(ENOSYS);
     return -1;
@@ -270,7 +270,7 @@ int KFilesystemFileOps::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode>
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KFilesystemFileOps::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node, Ptr<KDirectoryNode> dirNode)
+int KFilesystemFileOps::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode)
 {
     set_last_error(ENOSYS);
     return -1;

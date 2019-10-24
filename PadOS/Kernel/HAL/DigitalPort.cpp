@@ -15,37 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 06.03.2018 11:48:18
+// Created: 18/08/26 23:04:19
 
-#pragma once
+#include "DigitalPort.h"
 
-#include "System/System.h"
-#include "System/Signals/SignalTarget.h"
-#include "System/Threads/Semaphore.h"
-#include "System/Utils/MessagePort.h"
-
-class Tests : public SignalTarget
-{
-public:
-    Tests();
-    ~Tests();
-
-    static void TestThreadWaitThread(void* args);
-    void TestThreadWait();
-
-    void TestMessagePort();
-
-    static void TestSemaphoreThread(void* args);
-    void TestSemaphore();
-    void TestSignals();
-
-private:
-    Semaphore m_StdOutLock;
-
-    MessagePort m_MsgPort;
-
-    Tests( const Tests &c );
-    Tests& operator=( const Tests &c );
-
-};
-
+DigitalPort::IntMaskAcc DigitalPort::s_IntMaskAccumulators[e_DigitalPortID_Count];

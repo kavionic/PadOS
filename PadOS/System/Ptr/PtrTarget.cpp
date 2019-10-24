@@ -185,7 +185,6 @@ bool PtrTarget::HandleLastRefGone() const
             assert(m_ReferenceCount == 0);
             notifier->AddRef();
         }
-        m_ReferenceCount++; // In case the destructor convert "this" to a smart pointer.
         const_cast<PtrTarget*>(this)->LastReferenceGone();
         if ( notifier != nullptr ) {
             notifier->Unlock();

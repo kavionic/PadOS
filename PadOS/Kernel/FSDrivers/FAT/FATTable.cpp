@@ -373,7 +373,7 @@ bool FATTable::AllocateClusters(size_t count, uint32_t* firstCluster)
 
         tableIterator.Increment();
     }
-
+    m_Volume->UpdateFSInfo();
     if (!result)
     {
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::AllocateClusters(): Failed to allocate %ld clusters. Clearing chain (%lx): %s\n", count, first, strerror(result));
@@ -431,6 +431,7 @@ bool FATTable::ClearFATChain(uint32_t cluster)
     if (cluster != END_FAT_ENTRY) {
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::CRITICAL, "FATTable::ClearFATChain(): fat chain terminated improperly with %lx\n", cluster);
     }
+    m_Volume->UpdateFSInfo();
     return true;
 }
 

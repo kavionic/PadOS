@@ -25,13 +25,20 @@
 #include "System/Math/Point.h"
 #include "System/Math/Rect.h"
 #include "System/Utils/Utils.h"
-#include "SystemSetup.h"
+#include "Kernel/HAL/DigitalPort.h"
+//#include "SystemSetup.h"
 
 namespace kernel
 {
 
+struct LCDRegisters
+{
+    volatile uint16_t DATA;
+    volatile uint16_t CMD;
+};
 
-class File;
+
+//class File;
 
 #define LCD_DEFAULT_ADDRESS_MODE (/*ILI9481_ADDRESS_MODE_VFLIP |*/ ILI9481_ADDRESS_MODE_REFRESH_BOTTOM_TO_TOP | ILI9481_ADDRESS_MODE_RGB_BGR)
 
@@ -328,7 +335,8 @@ public:
     enum Font_e { e_FontSmall, e_FontNormal, e_FontLarge, e_Font7Seg, e_FontCount };
         
     GfxDriver();
-    void InitDisplay();
+    void InitDisplay(LCDRegisters* registers, const DigitalPin& pinLCDReset, const DigitalPin& pinTouchpadReset, const DigitalPin& pinBacklightControl);
+    void Shutdown();
 
     void SetOrientation(Orientation_e orientation);
     inline void SetFillDirection( FillDirection_e direction ) { m_FillDirection = direction; UpdateAddressMode(); }
@@ -365,7 +373,7 @@ public:
     uint32_t WriteString(const char* string, size_t strLength, const IRect& clipRect);
     uint8_t WriteStringTransparent(const char* string, uint8_t strLength, int16_t maxWidth);
 
-    void DrawImage(File* file, int16_t width, int16_t height);
+//    void DrawImage(File* file, int16_t width, int16_t height);
     
 //private:
     void PLL_ini();
@@ -408,13 +416,18 @@ public:
     void WaitROM()     { while(ReadCommand() & RA8875_STATUS_ROM_BUSY_bm); }
     void WaitBlitter() { while(ReadCommand() & (RA8875_STATUS_MEMORY_BUSY_bm | RA8875_STATUS_BTE_BUSY_bm)); }
 
-    uint16_t ReadCommand()                                           { return LCD_REGISTERS->CMD; }
-    void     WriteCommand(uint8_t cmd)                               { LCD_REGISTERS->CMD = cmd; }
-    void     WriteCommand(uint8_t cmd, uint8_t data)                 { LCD_REGISTERS->CMD = cmd; LCD_REGISTERS->DATA = data; }
+    uint16_t ReadCommand()                                           { return m_Registers->CMD; }
+    void     WriteCommand(uint8_t cmd)                               { m_Registers->CMD = cmd; }
+    void     WriteCommand(uint8_t cmd, uint8_t data)                 { m_Registers->CMD = cmd; m_Registers->DATA = data; }
     void     WriteCommand(uint8_t cmdL, uint8_t cmdH, uint16_t data) { WriteCommand(cmdL, data & 0xff); WriteCommand(cmdH, data >> 8); }
 
-    uint16_t ReadData()               { return LCD_REGISTERS->DATA; }
-    void     WriteData(uint16_t data) { LCD_REGISTERS->DATA = data; }
+    uint16_t ReadData()               { return m_Registers->DATA; }
+    void     WriteData(uint16_t data) { m_Registers->DATA = data; }
+
+    LCDRegisters*         m_Registers = nullptr;
+    DigitalPin            m_PinLCDReset;
+    DigitalPin            m_PinTouchpadReset;
+    DigitalPin            m_PinBacklightControl;
 
     Orientation_e         m_Orientation;
     FillDirection_e       m_FillDirection;

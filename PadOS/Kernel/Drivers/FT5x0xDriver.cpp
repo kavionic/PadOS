@@ -235,7 +235,7 @@ Ptr<KFileNode> FT5x0xDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, 
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<FT5x0xFile> file = ptr_new<FT5x0xFile>();
-    m_OpenFiles.push_back(file);
+    m_OpenFiles.push_back(ptr_raw_pointer_cast(file));
     return file;
 }
 
@@ -243,7 +243,7 @@ Ptr<KFileNode> FT5x0xDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FT5x0xDriver::CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file)
+status_t FT5x0xDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
     CRITICAL_SCOPE(m_Mutex);
     auto i = std::find(m_OpenFiles.begin(), m_OpenFiles.end(), file);

@@ -54,24 +54,29 @@ GfxDriver::GfxDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void GfxDriver::InitDisplay()
+void GfxDriver::InitDisplay(LCDRegisters* registers, const DigitalPin& pinLCDReset, const DigitalPin& pinTouchpadReset, const DigitalPin& pinBacklightControl)
 {
-    LCD_RESET_Pin   = true;
-    LCD_BL_CTRL_Pin = true;
+    m_Registers = registers;
+    m_PinLCDReset = pinLCDReset;
+    m_PinTouchpadReset = pinTouchpadReset;
+    m_PinBacklightControl = pinBacklightControl;
+    
+    m_PinLCDReset         = true;
+    m_PinBacklightControl = true;
 
-    LCD_RESET_Pin.SetDirection(DigitalPinDirection_e::Out);
-    LCD_BL_CTRL_Pin.SetDirection(DigitalPinDirection_e::Out);
+    m_PinLCDReset.SetDirection(DigitalPinDirection_e::Out);
+    m_PinBacklightControl.SetDirection(DigitalPinDirection_e::Out);
 
     SMC->SMC_WPMR = SMC_WPMR_WPKEY_PASSWD;
-    SMC->SMC_CS_NUMBER[3].SMC_SETUP = SMC_SETUP_NWE_SETUP(0) | SMC_SETUP_NCS_WR_SETUP(0) | SMC_SETUP_NRD_SETUP(0);
-    SMC->SMC_CS_NUMBER[3].SMC_PULSE = SMC_PULSE_NWE_PULSE(5) | SMC_PULSE_NCS_WR_PULSE(10) | SMC_PULSE_NRD_PULSE(5) | SMC_PULSE_NCS_RD_PULSE(10);
-    SMC->SMC_CS_NUMBER[3].SMC_CYCLE = SMC_CYCLE_NWE_CYCLE(10) | SMC_CYCLE_NRD_CYCLE(10);
-    SMC->SMC_CS_NUMBER[3].SMC_MODE = SMC_MODE_READ_MODE_Msk | SMC_MODE_WRITE_MODE_Msk | SMC_MODE_EXNW_MODE_DISABLED | SMC_MODE_BAT_BYTE_WRITE | SMC_MODE_DBW_16_BIT | SMC_MODE_TDF_CYCLES(0); // | SMC_MODE_TDF_MODE_Msk;
+    SMC->SmcCsNumber[3].SMC_SETUP = SMC_SETUP_NWE_SETUP(0) | SMC_SETUP_NCS_WR_SETUP(0) | SMC_SETUP_NRD_SETUP(0);
+    SMC->SmcCsNumber[3].SMC_PULSE = SMC_PULSE_NWE_PULSE(5) | SMC_PULSE_NCS_WR_PULSE(10) | SMC_PULSE_NRD_PULSE(5) | SMC_PULSE_NCS_RD_PULSE(10);
+    SMC->SmcCsNumber[3].SMC_CYCLE = SMC_CYCLE_NWE_CYCLE(10) | SMC_CYCLE_NRD_CYCLE(10);
+    SMC->SmcCsNumber[3].SMC_MODE = SMC_MODE_READ_MODE_Msk | SMC_MODE_WRITE_MODE_Msk | SMC_MODE_EXNW_MODE_DISABLED | SMC_MODE_BAT_BYTE_WRITE | SMC_MODE_DBW_16_BIT | SMC_MODE_TDF_CYCLES(0); // | SMC_MODE_TDF_MODE_Msk;
 
     SpinTimer::SleepMS(1);
-    LCD_RESET_Pin = false;
+    m_PinLCDReset = false;
     SpinTimer::SleepMS(10);
-    LCD_RESET_Pin = true;
+    m_PinLCDReset = true;
     SpinTimer::SleepMS(100);
 
     PLL_ini();
@@ -103,11 +108,48 @@ void GfxDriver::InitDisplay()
     FillRect(screenFrame);
 
 
+//    WriteCommand(RA8875_P1CR, 0x00);  // PWM setting
+//    WriteCommand(RA8875_P2CR, 0x00);  // open PWM
+/*
     WriteCommand(RA8875_P1CR, 0x80);  // PWM setting
 //    WriteCommand(RA8875_P2CR, 0x81);  // open PWM
     WriteCommand(RA8875_P1DCR, 0xff); // Brightness parameter 0xff-0x00    
     WriteCommand(RA8875_P2DCR, 0xff); // Brightness parameter 0xff-0x00    
+    */
     WriteCommand(RA8875_PWRR, RA8875_PWRR_DISPLAY_ON_bm);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void GfxDriver::Shutdown()
+{
+    m_PinBacklightControl = false;
+//    WriteCommand(RA8875_P1CR, 0x00);  // PWM setting
+//    WaitBlitter();
+
+/*    m_PinLCDReset = false;
+    snooze(bigtime_from_ms(1));
+    m_PinLCDReset = true;
+    snooze(bigtime_from_ms(100));*/
+    
+    //Set PLL to default:
+    WriteCommand(RA8875_PLLC1, 0x07);
+    snooze(bigtime_from_ms(1));
+    WriteCommand(RA8875_PLLC2, 0x03);
+    snooze(bigtime_from_ms(1));
+    WriteCommand(RA8875_PCSR, 0x02); // Pixel-clock
+    snooze(bigtime_from_ms(1));
+
+    // Display off:
+//    WriteCommand(RA8875_PWRR, 0);
+//    snooze(bigtime_from_ms(100));
+    // Sleep mode:
+    WriteCommand(RA8875_PWRR, RA8875_PWRR_SLEEP_MODE_bm);
+    snooze(bigtime_from_ms(100));
+    m_PinTouchpadReset = false;
+//    m_PinLCDReset = false;    
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -96,6 +96,7 @@ enum class dir_entry_type : uint32_t
 };
 
 #define NAME_MAX 255
+#define PATH_MAX 4096
 
 struct dir_entry
 {
@@ -111,7 +112,7 @@ class KFilesystemFileOps
 {
 public:
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags);
-    virtual int              CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file);
+    virtual int              CloseFile(Ptr<KFSVolume> volume, KFileNode* file);
 
     virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node);
     virtual int                 CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory);
@@ -121,8 +122,8 @@ public:
     virtual int     ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize);
     virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
-    virtual int     ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, int position, dir_entry* entry, size_t bufSize);
-    virtual int     RewindDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node, Ptr<KDirectoryNode> dirNode);
+    virtual int     ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize);
+    virtual int     RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode);
 
     virtual int     CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, int mode);
 
@@ -143,7 +144,7 @@ public:
     virtual int              ReadFSStat(Ptr<KFSVolume> volume, fs_info* fsinfo);
     virtual int              WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint32_t mask);
     virtual Ptr<KINode>      LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* path, int pathLength);
-    virtual bool             ReleaseInode(Ptr<KINode> inode);
+    virtual bool             ReleaseInode(KINode* inode);
 //    virtual Ptr<KFileHandle> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags);
     virtual Ptr<KFileNode> CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission);
 //    virtual int              CloseFile(Ptr<KFileHandle> file);

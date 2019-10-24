@@ -25,6 +25,11 @@
 #include "System/Ptr/Ptr.h"
 #include "System/Utils/IntrusiveList.h"
 
+namespace os
+{
+class String;
+}
+
 namespace kernel
 {
 
@@ -37,17 +42,22 @@ class KINode : public PtrTarget, public IntrusiveListNode<KINode>
 {
 public:
     KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, bool isDirectory);
+    virtual ~KINode();
+    
+    virtual bool LastReferenceGone() override;
     
     void SetDeletedFlag(bool isDeleted) { m_IsDeleted = isDeleted; }
     bool IsDeleted() { return m_IsDeleted; }
     bool IsDirectory() const { return m_IsDirectory; }
+    
+    int     GetDirectoryPath(os::String* path);
     
     Ptr<KFilesystem>    m_Filesystem;
     Ptr<KFSVolume>      m_Volume; // The volume this i-node came from.
     KFilesystemFileOps* m_FileOps;
     Ptr<KINode>         m_MountRoot; // Root node of filesystem mounted on this inode if any.
     ino_t               m_INodeID = 0;
-
+    time_t              m_LastUseTime = 0; // If the reference count is 0, this record the time (in seconds) when it reach 0.
     static_assert(sizeof(ino_t) == 8);
 
     bool m_IsDirectory;

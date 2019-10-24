@@ -15,42 +15,32 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 07.11.2017 22:20:43
+// Created: 18/06/19 23:44:30
 
 #pragma once
 
-#include "System/GUI/View.h"
+#include <map>
 
+#include "System/Ptr/Ptr.h"
 
-class PaintView : public os::View
+class KNodeMonitorNode;
+
+namespace kernel
+{
+
+class KIOContext
 {
 public:
-    PaintView();
-    ~PaintView();
+    KIOContext();
+    ~KIOContext();
+    
+    bool AddNodeMonitor(Ptr<KNodeMonitorNode> node);
 
-    virtual void AllAttachedToScreen() override;
-
-    virtual void Paint(const Rect& updateRect) override
-    {
-        SetFgColor(255, 255, 255);
-        FillRect(GetBounds());
-    }
-
-    virtual bool OnMouseDown(MouseButton_e button, const Point& position) override;
-    virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
-    virtual bool OnMouseMove(MouseButton_e button, const Point& position) override;
-
-
-    Signal<void, Ptr<View>> SignalDone;
 private:
-    void SlotClearButton();
-    void SlotNextButton();
-
-    bool m_WasHit = false;
-
-
-
-    PaintView( const PaintView &c );
-    PaintView& operator=( const PaintView &c );
-
+//    std::map<int, Ptr<KNodeMonitorNode>> m_NodeMonitorMap;
+    
+    KIOContext(const KIOContext&) = delete;
+    KIOContext& operator=(const KIOContext&) = delete;
 };
+
+} // namespace

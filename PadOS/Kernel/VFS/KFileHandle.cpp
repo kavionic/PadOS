@@ -18,5 +18,40 @@
 // Created: 23.02.2018 01:47:38
 
 #include "KFileHandle.h"
+#include "KFSVolume.h"
 #include "KINode.h"
+#include "KFilesystem.h"
 
+bool kernel::KFileNode::LastReferenceGone()
+{
+    Ptr<KINode> inode = GetINode();
+    inode->m_FileOps->CloseFile(inode->m_Volume, this);
+    return KFileTableNode::LastReferenceGone();
+}
+
+bool kernel::KDirectoryNode::LastReferenceGone()
+{
+    Ptr<KINode> inode = GetINode();
+    inode->m_FileOps->CloseDirectory(inode->m_Volume, ptr_tmp_cast(this));
+    return KFileTableNode::LastReferenceGone();
+}
+
+int kernel::KDirectoryNode::ReadDirectory(dir_entry* entry, size_t bufSize)
+{
+    Ptr<KINode> inode = GetINode();
+    if (inode != nullptr && inode->m_FileOps != nullptr) {
+        return inode->m_FileOps->ReadDirectory(inode->m_Volume, ptr_tmp_cast(this), entry, bufSize);
+    }
+    set_last_error(EINVAL);
+    return -1;
+}
+
+int kernel::KDirectoryNode::RewindDirectory()
+{
+    Ptr<KINode> inode = GetINode();
+    if (inode != nullptr && inode->m_FileOps != nullptr) {
+        return inode->m_FileOps->RewindDirectory(inode->m_Volume, ptr_tmp_cast(this));
+    }
+    set_last_error(EINVAL);
+    return -1;
+}

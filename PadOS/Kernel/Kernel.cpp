@@ -20,10 +20,11 @@
 #include <assert.h>
 #include <string.h>
 
-#include "SystemSetup.h"
+//#include "SystemSetup.h"
 
 #include "Kernel.h"
 #include "Scheduler.h"
+#include "KPowerManager.h"
 #include "VFS/KDeviceNode.h"
 #include "VFS/KRootFilesystem.h"
 #include "VFS/KFSVolume.h"
@@ -31,6 +32,9 @@
 #include "System/Utils/Utils.h"
 #include "HAL/SAME70System.h"
 #include "VFS/FileIO.h"
+#include "SAME70TimerDefines.h"
+#include "SpinTimer.h"
+
 
 using namespace kernel;
 using namespace os;
@@ -47,7 +51,7 @@ static std::map<int, KLogSeverity> gk_KernelLogLevels;
 
 int  kernel::kernel_log_alloc_category(KLogSeverity initialLogLevel)
 {
-    static int prevCategoryID = 0;
+    static int prevCategoryID = int(KLogCategory::COUNT);
     int category = ++prevCategoryID;
     if (initialLogLevel != KLogSeverity::NONE) {
         gk_KernelLogLevels[category] = initialLogLevel;
@@ -129,7 +133,7 @@ bigtime_t get_system_time_hires()
         uint32_t ticks = SysTick->VAL;
         bigtime_t time = Kernel::GetTime();
         if (SysTick->VAL <= ticks) {
-            return time + ((CLOCK_CPU_FREQUENCY / 1000 - 1) - ticks) * 1000 / (CLOCK_CPU_FREQUENCY / 1000);
+            return time + ((SAME70System::GetFrequencyCore() / 1000 - 1) - ticks) * 1000 / (SAME70System::GetFrequencyCore() / 1000);
         }
     }    
 }
@@ -138,9 +142,79 @@ bigtime_t get_system_time_hires()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Kernel::Initialize()
+void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral)
 {
+    SUPC->SUPC_MR = SUPC_MR_KEY_PASSWD | SUPC_MR_BODRSTEN_Msk | SUPC_MR_ONREG_Msk;
+    SUPC->SUPC_WUMR = SUPC_WUMR_SMEN_Msk | SUPC_WUMR_WKUPDBC_4096_SLCK;
+    SUPC->SUPC_WUIR = SUPC_WUIR_WKUPEN9_Msk;
+    
+    WDT->WDT_MR = WDT_MR_WDDIS;
+
+    // FPU:
+    __DSB();
+    SCB->CPACR |= 0xF << 20; // Full access to CP10 & CP 11
+    FPU->FPCCR |= FPU_FPCCR_ASPEN_Msk | // Enable CONTROL.FPCA setting on execution of a floating-point instruction.
+                  FPU_FPCCR_LSPEN_Msk;  // Enable automatic lazy state preservation for floating-point context.
+    __DSB();
+    __ISB();
+       
+    // TCM:
+    __DSB();
+    __ISB();
+    SCB->ITCMCR &= ~(uint32_t)(1UL);
+    SCB->DTCMCR &= ~(uint32_t)SCB_DTCMCR_EN_Msk;
+    __DSB();
+    __ISB();
+
+    SCB_EnableDCache();
+    SCB_EnableICache();
+    SAME70System::SetupClock(frequencyCrystal, frequencyCore, frequencyPeripheral);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Kernel::Initialize(uint32_t coreFrequency, TcChannel* spinTimerChannel, TcChannel* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch)
+{
+//    SAME70System::EnablePeripheralClock(ID_TC0_CHANNEL2);
+
+//    SYSTEM_TIMER->TC_BMR = TC_BMR_TC2XC2S_TIOA1_Val;// Clock XC2 is TIOA1
+
+    spinTimerChannel->TC_EMR = TC_EMR_NODIVCLK_Msk; // Run at undivided peripheral clock.
+    spinTimerChannel->TC_CMR = TC_CMR_WAVE_Msk | TC_CMR_WAVESEL_UP; // | TC_CMR_ACPA_CLEAR | TC_CMR_ACPC_SET;
+    
+    spinTimerChannel->TC_CCR = TC_CCR_CLKEN_Msk;
+    spinTimerChannel->TC_CCR = TC_CCR_SWTRG_Msk;
+    
+//    SYSTEM_TIMER->TC_BCR = TC_BCR_SYNC_Msk;
+
+    SpinTimer::Initialize(spinTimerChannel);
+    
+/*    ITM->TCR |= ITM_TCR_ITMENA_Msk;
+    ITM->TER |= 0x01;    */
+//    SWO_Init(0x1, CLOCK_CPU_FREQUENCY);
+
+    ITM_SendChar('a');
+    ITM_SendChar('a');
+    ITM_SendChar('a');
+    ITM_SendChar('a');
+    ITM_SendChar('\n');
+    ITM_SendChar(0);
+  
+//    RGBLED_R.Write(false);
+//    RGBLED_G.Write(false);
+//    RGBLED_B.Write(false);
+    
+    SAME70System::ResetWatchdog();
+    
+    gk_KernelLogLevels[int(KLogCategory::General)]    = KLogSeverity::INFO_HIGH_VOL;
+    gk_KernelLogLevels[int(KLogCategory::VFS)]        = KLogSeverity::INFO_HIGH_VOL;
+    gk_KernelLogLevels[int(KLogCategory::BlockCache)] = KLogSeverity::INFO_HIGH_VOL;
+    gk_KernelLogLevels[int(KLogCategory::Scheduler)]  = KLogSeverity::INFO_HIGH_VOL;
     FileIO::Initialze();
+    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
+    kernel::start_scheduler(coreFrequency);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -326,12 +400,16 @@ void EFC_Handler          ( void ) { Kernel::HandleIRQ(EFC_IRQn); }
 //void UART1_Handler        ( void ) { Kernel::HandleIRQ(UART1_IRQn); }
 void PIOA_Handler         ( void ) { Kernel::HandleIRQ(PIOA_IRQn); }
 void PIOB_Handler         ( void ) { Kernel::HandleIRQ(PIOB_IRQn); }
+#ifdef PIOC
 void PIOC_Handler         ( void ) { Kernel::HandleIRQ(PIOC_IRQn); }
+#endif
 void USART0_Handler       ( void ) { Kernel::HandleIRQ(USART0_IRQn); }
 void USART1_Handler       ( void ) { Kernel::HandleIRQ(USART1_IRQn); }
 void USART2_Handler       ( void ) { Kernel::HandleIRQ(USART2_IRQn); }
 void PIOD_Handler         ( void ) { Kernel::HandleIRQ(PIOD_IRQn); }
+#ifdef PIOE
 void PIOE_Handler         ( void ) { Kernel::HandleIRQ(PIOE_IRQn); }
+#endif
 void HSMCI_Handler        ( void ) { Kernel::HandleIRQ(HSMCI_IRQn); }
 void TWIHS0_Handler       ( void ) { Kernel::HandleIRQ(TWIHS0_IRQn); }
 void TWIHS1_Handler       ( void ) { Kernel::HandleIRQ(TWIHS1_IRQn); }
@@ -349,12 +427,16 @@ void PWM0_Handler         ( void ) { Kernel::HandleIRQ(PWM0_IRQn); }
 void ICM_Handler          ( void ) { Kernel::HandleIRQ(ICM_IRQn); }
 void ACC_Handler          ( void ) { Kernel::HandleIRQ(ACC_IRQn); }
 void USBHS_Handler        ( void ) { Kernel::HandleIRQ(USBHS_IRQn); }
-void MCAN0_Handler        ( void ) { Kernel::HandleIRQ(MCAN0_IRQn); }
-void MCAN1_Handler        ( void ) { Kernel::HandleIRQ(MCAN1_IRQn); }
+void MCAN0_INT0_Handler        ( void ) { Kernel::HandleIRQ(MCAN0_INT0_IRQn); }
+void MCAN0_INT1_Handler        ( void ) { Kernel::HandleIRQ(MCAN0_INT1_IRQn); }
+void MCAN1_INT0_Handler        ( void ) { Kernel::HandleIRQ(MCAN1_INT0_IRQn); }
+void MCAN1_INT1_Handler        ( void ) { Kernel::HandleIRQ(MCAN1_INT1_IRQn); }
 void GMAC_Handler         ( void ) { Kernel::HandleIRQ(GMAC_IRQn); }
 void AFEC1_Handler        ( void ) { Kernel::HandleIRQ(AFEC1_IRQn); }
 void TWIHS2_Handler       ( void ) { Kernel::HandleIRQ(TWIHS2_IRQn); }
+#ifdef SPI1
 void SPI1_Handler         ( void ) { Kernel::HandleIRQ(SPI1_IRQn); }
+#endif
 void QSPI_Handler         ( void ) { Kernel::HandleIRQ(QSPI_IRQn); }
 //void UART2_Handler        ( void ) { Kernel::HandleIRQ(UART2_IRQn); }
 //void UART3_Handler        ( void ) { Kernel::HandleIRQ(UART3_IRQn); }
@@ -370,5 +452,7 @@ void TRNG_Handler         ( void ) { Kernel::HandleIRQ(TRNG_IRQn); }
 void XDMAC_Handler        ( void ) { Kernel::HandleIRQ(XDMAC_IRQn); }
 void ISI_Handler          ( void ) { Kernel::HandleIRQ(ISI_IRQn); }
 void PWM1_Handler         ( void ) { Kernel::HandleIRQ(PWM1_IRQn); }
+#ifdef SDRAMC
 void SDRAMC_Handler       ( void ) { Kernel::HandleIRQ(SDRAMC_IRQn); }
+#endif
 void RSWDT_Handler        ( void ) { Kernel::HandleIRQ(RSWDT_IRQn); }

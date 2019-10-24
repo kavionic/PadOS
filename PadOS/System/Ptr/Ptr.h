@@ -106,9 +106,9 @@ Ptr<T> ptr_tmp_cast(T* obj)
     Ptr<T> ptr;
     if ( obj != nullptr )
     {
-#ifndef NDEBUG
-        obj->ValidateRefCount(0);
-#endif
+//#ifndef NDEBUG
+//        obj->ValidateRefCount(0);
+//#endif
         ptr.Set(obj);
     }
     return ptr;
@@ -137,7 +137,7 @@ Ptr<T> ptr_new_cast(T* obj)
 #ifndef NDEBUG
         obj->ValidateRefCount(PtrTarget::e_PreInitRefCount);
 #endif
-        obj->m_ReferenceCount -= PtrTarget::e_PreInitRefCount;
+        obj->AddPtrRef(-PtrTarget::e_PreInitRefCount);
     }
     return ptr;
 }

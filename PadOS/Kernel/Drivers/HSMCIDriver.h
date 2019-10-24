@@ -104,7 +104,7 @@ private:
 
     static size_t ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size);
 
-    int  DecodePartitions(/*Ptr<HSMCIINode> inode*/);
+    int  DecodePartitions(bool force);
 
     void SetState(CardState state);
     

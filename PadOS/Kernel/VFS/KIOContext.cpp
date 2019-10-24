@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2017-2018 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,28 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 18.03.2018 19:41:52
+// Created: 18/06/19 23:44:30
 
-#pragma once
+#include "sam.h"
 
-#include "System/GUI/Application.h"
+#include "KIOContext.h"
+#include "KNodeMonitor.h"
 
-using namespace os;
-
-class TestApp : public Application
+namespace kernel
 {
-public:
-    TestApp();
-    ~TestApp();
     
-    virtual void ThreadStarted() override;
-    
-private:
-    void SlotTestDone();
-    
-    int m_CurrentTest = -1;
-    Ptr<View> m_CurrentView;    
-    TestApp(const TestApp&) = delete;
-    TestApp& operator=(const TestApp&) = delete;
-};
 
+KIOContext::KIOContext()
+{
+}
+
+KIOContext::~KIOContext()
+{
+}
+
+
+} // namespace

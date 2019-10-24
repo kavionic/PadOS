@@ -22,6 +22,7 @@
 #include "System/Ptr/PtrTarget.h"
 #include "System/Threads.h"
 #include "KThreadCB.h"
+#include "VFS/KIOContext.h"
 
 namespace kernel
 {
@@ -42,9 +43,13 @@ public:
     int  AllocTLSSlot(TLSDestructor_t destructor);
     bool FreeTLSSlot(int slot);
 
+    KIOContext* GetIOContext() { return &m_IOContext; }
+
 private:
     TLSDestructor_t m_TLSDestructors[THREAD_MAX_TLS_SLOTS];
     uint32_t        m_TLSAllocationMap[(THREAD_MAX_TLS_SLOTS + 31) / 32];
+
+    KIOContext m_IOContext;
 
     KProcess(const KProcess &) = delete;
     KProcess& operator=(const KProcess &) = delete;

@@ -143,7 +143,7 @@ public:
     virtual int Run() override;
 
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags) override;
-    virtual status_t         CloseFile(Ptr<KFSVolume> volume, Ptr<KFileNode> file) override;
+    virtual status_t         CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
     virtual int              DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
@@ -158,7 +158,7 @@ private:
     
     int m_I2CDevice = -1;
 
-    std::vector<Ptr<FT5x0xFile>> m_OpenFiles;
+    std::vector<FT5x0xFile*> m_OpenFiles;
 
     KMutex     m_Mutex;
     KSemaphore m_EventSemaphore;

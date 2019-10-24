@@ -15,3 +15,17 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
+
+#include "SpinTimer.h"
+#include "HAL/SAME70System.h"
+
+using namespace kernel;
+
+uint32_t   SpinTimer::s_TicksPerMicroSec;
+TcChannel* SpinTimer::s_TimerChannel;
+
+void SpinTimer::Initialize(TcChannel* timerChannel)
+{
+    s_TicksPerMicroSec = SAME70System::GetFrequencyPeripheral() / 1000000;
+    s_TimerChannel = timerChannel;
+}

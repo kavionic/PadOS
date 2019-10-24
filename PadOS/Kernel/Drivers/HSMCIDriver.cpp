@@ -184,7 +184,7 @@ int HSMCIDriver::Run()
                 {
                     kprintf("SD/MMC card ready: %" PRIu64 "\n", m_SectorCount * BLOCK_SIZE);
                     SetState(CardState::Ready);
-                    DecodePartitions();
+                    DecodePartitions(true);
                 }
                 else
                 {
@@ -195,6 +195,7 @@ int HSMCIDriver::Run()
             else
             {
                 SetState(CardState::NoCard);
+                DecodePartitions(true);
             }
         }
         snooze(bigtime_from_ms(100));
@@ -246,7 +247,7 @@ int HSMCIDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inD
             return 0;
         }
         case DEVCTL_REREAD_PARTITION_TABLE:
-            return DecodePartitions();
+            return DecodePartitions(false);
             
         case SDCDEVCTL_SDIO_READ_DIRECT:
         {
@@ -611,140 +612,137 @@ size_t HSMCIDriver::ReadPartitionData(void* userData, off64_t position, void* bu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int HSMCIDriver::DecodePartitions(/*Ptr<HSMCIINode> psInode*/)
+int HSMCIDriver::DecodePartitions(bool force)
 {
-    device_geometry diskGeom;
-    std::vector<disk_partition_desc> partitions;
-
-/*    try {
-        partitions.resize(16);
-    } catch(const std::bad_alloc&) {
-        set_last_error(ENOMEM);
-        return -1;
-    }
-
-    if (psInode->bi_nPartitionType != 0) {
-	set_last_error(EINVAL);
-        return -1;
-    }*/
-
-    m_RawINode->bi_nSize = m_SectorCount * BLOCK_SIZE;
-
-    memset(&diskGeom, 0, sizeof(diskGeom));
-    diskGeom.sector_count     = m_SectorCount;
-    diskGeom.bytes_per_sector = BLOCK_SIZE;
-    diskGeom.read_only 	      = false;
-    diskGeom.removable 	      = true;
-
-    kprintf( "HSMCIDriver::DecodePartitions(): Decoding partition table\n");
-
-    if (KVFSManager::DecodeDiskPartitions(diskGeom, &partitions, &ReadPartitionData, this) < 0) {
-	kprintf( "   Invalid partition table\n" );
-	return -1;
-    }
-    for (size_t i = 0 ; i < partitions.size() ; ++i)
+    try
     {
-	if ( partitions[i].p_type != 0 && partitions[i].p_size != 0 )
-        {
-	    kprintf( "   Partition %" PRIu32 " : %10" PRIu64 " -> %10" PRIu64 " %02x (%" PRIu64 ")\n", uint32_t(i), partitions[i].p_start,
-		     partitions[i].p_start + partitions[i].p_size - 1LL, partitions[i].p_type,
-		     partitions[i].p_size);
-	}
-    }
+        device_geometry diskGeom;
+        std::vector<disk_partition_desc> partitions;
 
-    for (Ptr<HSMCIINode> partition : m_PartitionINodes)
-    {
-	bool found = false;
-	for (size_t i = 0 ; i < partitions.size() ; ++i)
-        {
-	    if ( partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize ) {
-		found = true;
-		break;
-	    }
-	}
-	if (!found && partition->bi_nOpenCount > 0) {
-	    kprintf("ERROR: HSMCIDriver::DecodePartitions() Open partition has changed\n");
-	    set_last_error(EBUSY);
+        m_RawINode->bi_nSize = m_SectorCount * BLOCK_SIZE;
+
+        memset(&diskGeom, 0, sizeof(diskGeom));
+        diskGeom.sector_count     = m_SectorCount;
+        diskGeom.bytes_per_sector = BLOCK_SIZE;
+        diskGeom.read_only 	  = false;
+        diskGeom.removable 	  = true;
+
+        kprintf("HSMCIDriver::DecodePartitions(): Decoding partition table\n");
+
+        if (KVFSManager::DecodeDiskPartitions(diskGeom, &partitions, &ReadPartitionData, this) < 0) {
+	    kprintf( "   Invalid partition table\n" );
 	    return -1;
-	}
-    }
-
-      // Remove deleted partitions from /dev/
-    for (Ptr<HSMCIINode> partition : m_PartitionINodes)
-    {
-	bool found = false;
-	for (size_t i = 0 ; i < partitions.size() ; ++i)
+        }
+        for (size_t i = 0 ; i < partitions.size() ; ++i)
         {
-	    if (partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize )
+	    if ( partitions[i].p_type != 0 && partitions[i].p_size != 0 )
             {
-		partitions[i].p_size = 0;
-		partition->bi_nPartitionType = partitions[i].p_type;
-		found = true;
-		break;
+	        kprintf( "   Partition %" PRIu32 " : %10" PRIu64 " -> %10" PRIu64 " %02x (%" PRIu64 ")\n", uint32_t(i), partitions[i].p_start,
+		         partitions[i].p_start + partitions[i].p_size - 1LL, partitions[i].p_type,
+		         partitions[i].p_size);
 	    }
-	}
-	if (!found) {
-	    Kernel::RemoveDevice(partition->bi_nNodeHandle);
-            partition->bi_nNodeHandle = -1;
-	}
-    }
+        }
 
-      // Create nodes for any new partitions.
-    for (size_t i = 0 ; i < partitions.size() ; ++i)
-    {
-	if ( partitions[i].p_type == 0 || partitions[i].p_size == 0 ) {
-	    continue;
-	}
-        try
+        for (Ptr<HSMCIINode> partition : m_PartitionINodes)
         {
-            Ptr<HSMCIINode> partition;
-            for (Ptr<HSMCIINode> i : m_PartitionINodes)
+	    bool found = false;
+	    for (size_t i = 0 ; i < partitions.size() ; ++i)
             {
-                if (i->bi_nNodeHandle == -1) {
-                    partition = i;
-                    break;
-                }
-            }                
-            if (partition == nullptr) {
-                partition = ptr_new<HSMCIINode>(this);
-                m_PartitionINodes.push_back(partition);
-            }
-	    partition->bi_nStart = partitions[i].p_start;
-	    partition->bi_nSize  = partitions[i].p_size;            
+	        if ( partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize ) {
+		    found = true;
+		    break;
+	        }
+	    }
+	    if (!force && !found && partition->bi_nOpenCount > 0) {
+	        kprintf("ERROR: HSMCIDriver::DecodePartitions() Open partition has changed.\n");
+	        set_last_error(EBUSY);
+	        return -1;
+	    }
         }
-        catch (const std::bad_alloc&) {
-	    kprintf( "Error: bdd_decode_partitions() no memory for partition inode\n" );
-            set_last_error(ENOMEM);
-            return -1;            
-        }        
-    }
-    std::sort(m_PartitionINodes.begin(), m_PartitionINodes.end(), [](Ptr<HSMCIINode> lhs, Ptr<HSMCIINode> rhs) { return (lhs->bi_nNodeHandle == -1 || rhs->bi_nNodeHandle == -1) ? (rhs->bi_nNodeHandle < lhs->bi_nNodeHandle) : (lhs->bi_nStart < rhs->bi_nStart); });
-      // We now have to rename nodes that might have moved around in the table and
-      // got new names. To avoid name-clashes while renaming we first give all
-      // nodes a unique temporary name before looping over again giving them their
-      // final names
-
-    for (size_t i = 0; i < m_PartitionINodes.size(); ++i)    
-    {
-        Ptr<HSMCIINode> partition = m_PartitionINodes[i];
-        if (partition->bi_nNodeHandle != -1)
+    
+        std::vector<Ptr<HSMCIINode>> unusedPartitionINodes; // = std::move(m_PartitionINodes);
+          // Remove deleted partitions from /dev/
+        for (auto i = m_PartitionINodes.begin(); i != m_PartitionINodes.end(); )
         {
-            String path = m_DevicePathBase + String::format_string("%lu_new", i);
-	    Kernel::RenameDevice(partition->bi_nNodeHandle, path.c_str());
-        }            
-    }
-    for (size_t i = 0; i < m_PartitionINodes.size(); ++i)
-    {
-        String path = m_DevicePathBase + String::format_string("%lu", i);
-        
-        Ptr<HSMCIINode> partition = m_PartitionINodes[i];
-        if (partition->bi_nNodeHandle != -1) {
-            Kernel::RenameDevice(partition->bi_nNodeHandle, path.c_str());
-        } else {
-            Kernel::RegisterDevice(path.c_str(), partition);
+            Ptr<HSMCIINode> partition = *i;
+	    bool found = false;
+	    for (size_t i = 0 ; i < partitions.size() ; ++i)
+            {
+	        if (partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize )
+                {
+		    partitions[i].p_size = 0;
+		    partition->bi_nPartitionType = partitions[i].p_type;
+		    found = true;
+		    break;
+	        }
+	    }
+	    if (!found)
+            {
+	        Kernel::RemoveDevice(partition->bi_nNodeHandle);
+                partition->bi_nNodeHandle = -1;
+                i = m_PartitionINodes.erase(i);
+                if (partition->bi_nOpenCount == 0) {
+                    unusedPartitionINodes.push_back(partition);
+                }                    
+	    }
+            else
+            {
+                ++i;
+            }
         }
+
+          // Create nodes for any new partitions.
+        for (size_t i = 0 ; i < partitions.size() ; ++i)
+        {
+	    if ( partitions[i].p_type == 0 || partitions[i].p_size == 0 ) {
+	        continue;
+	    }
+            Ptr<HSMCIINode> partition;
+            if (!unusedPartitionINodes.empty()) {
+                partition = unusedPartitionINodes.back();
+                unusedPartitionINodes.pop_back();
+            } else {
+                partition = ptr_new<HSMCIINode>(this);
+            }
+            m_PartitionINodes.push_back(partition);
+	    partition->bi_nStart = partitions[i].p_start;
+	    partition->bi_nSize  = partitions[i].p_size;
+        }
+        
+        std::sort(m_PartitionINodes.begin(), m_PartitionINodes.end(), [](Ptr<HSMCIINode> lhs, Ptr<HSMCIINode> rhs) { return lhs->bi_nStart < rhs->bi_nStart; });
+
+          // We now have to rename nodes that might have moved around in the table and
+          // got new names. To avoid name-clashes while renaming we first give all
+          // nodes a unique temporary name before looping over again giving them their
+          // final names
+
+        for (size_t i = 0; i < m_PartitionINodes.size(); ++i)    
+        {
+            Ptr<HSMCIINode> partition = m_PartitionINodes[i];
+            if (partition->bi_nNodeHandle != -1)
+            {
+                String path = m_DevicePathBase + String::format_string("%lu_new", i);
+	        Kernel::RenameDevice(partition->bi_nNodeHandle, path.c_str());
+            }            
+        }
+        for (size_t i = 0; i < m_PartitionINodes.size(); ++i)
+        {
+            String path = m_DevicePathBase + String::format_string("%lu", i);
+        
+            Ptr<HSMCIINode> partition = m_PartitionINodes[i];
+            if (partition->bi_nNodeHandle != -1) {
+                Kernel::RenameDevice(partition->bi_nNodeHandle, path.c_str());
+            } else {
+                Kernel::RegisterDevice(path.c_str(), partition);
+            }
+        }
+        return 0;
     }
-    return 0;
+    catch (const std::bad_alloc&) {
+	kprintf( "Error: bdd_decode_partitions() no memory for partition inode\n" );
+        set_last_error(ENOMEM);
+        return -1;            
+    }        
 }
 
 ///////////////////////////////////////////////////////////////////////////////

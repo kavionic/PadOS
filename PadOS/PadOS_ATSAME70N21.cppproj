@@ -4,8 +4,8 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectVersion>7.0</ProjectVersion>
     <ToolchainName>com.Atmel.ARMGCC.CPP</ToolchainName>
-    <ProjectGuid>593863E2-BED0-4795-AF52-2B813E5BDDA5</ProjectGuid>
-    <avrdevice>ATSAME70Q21</avrdevice>
+    <ProjectGuid>555F17FD-AFE9-4D37-822E-788D658BA7AE</ProjectGuid>
+    <avrdevice>ATSAME70N21</avrdevice>
     <avrdeviceseries>same70</avrdeviceseries>
     <OutputType>Executable</OutputType>
     <Language>CPP</Language>
@@ -49,7 +49,8 @@
         <board id="board.user_board.same70q21" value="Add" config="" content-id="Atmel.ASF" />
       </framework-data>
     </AsfFrameworkConfig>
-    <avrtool>com.atmel.avrdbg.tool.atmelice</avrtool>
+    <avrtool>
+    </avrtool>
     <avrtoolserialnumber>J41800085024</avrtoolserialnumber>
     <avrdeviceexpectedsignature>0xA1020E00</avrdeviceexpectedsignature>
     <custom>
@@ -297,109 +298,109 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'DebugN21BO' ">
     <ToolchainSettings>
-      <ArmGccCpp xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-        <armgcc.common.outputfiles.hex>True</armgcc.common.outputfiles.hex>
-        <armgcc.common.outputfiles.lss>True</armgcc.common.outputfiles.lss>
-        <armgcc.common.outputfiles.eep>True</armgcc.common.outputfiles.eep>
-        <armgcc.common.outputfiles.bin>True</armgcc.common.outputfiles.bin>
-        <armgcc.common.outputfiles.srec>True</armgcc.common.outputfiles.srec>
-        <armgcc.compiler.symbols.DefSymbols>
-          <ListValues>
-            <Value>ARM_MATH_CM7=true</Value>
-            <Value>__PADOS__</Value>
-            <Value>DEBUG</Value>
-          </ListValues>
-        </armgcc.compiler.symbols.DefSymbols>
-        <armgcc.compiler.directories.IncludePaths>
-          <ListValues>
-            <Value>..</Value>
-            <Value>../ASF/common/utils</Value>
-            <Value>../ASF/sam/utils</Value>
-            <Value>../ASF/sam/utils/header_files</Value>
-            <Value>../src/ASF/common/boards/user_board</Value>
-            <Value>../src</Value>
-            <Value>../src/config</Value>
-            <Value>%24(PackRepoDir)\atmel\SAME70_DFP\2.4.166\same70a\include</Value>
-            <Value>.</Value>
-            <Value>%24(PackRepoDir)\arm\CMSIS\5.4.0\CMSIS\Core\Include\</Value>
-          </ListValues>
-        </armgcc.compiler.directories.IncludePaths>
-        <armgcc.compiler.optimization.level>Optimize (-O1)</armgcc.compiler.optimization.level>
-        <armgcc.compiler.optimization.OtherFlags>-fdata-sections</armgcc.compiler.optimization.OtherFlags>
-        <armgcc.compiler.optimization.PrepareFunctionsForGarbageCollection>True</armgcc.compiler.optimization.PrepareFunctionsForGarbageCollection>
-        <armgcc.compiler.optimization.EnableFastMath>True</armgcc.compiler.optimization.EnableFastMath>
-        <armgcc.compiler.optimization.DebugLevel>Maximum (-g3)</armgcc.compiler.optimization.DebugLevel>
-        <armgcc.compiler.warnings.AllWarnings>True</armgcc.compiler.warnings.AllWarnings>
-        <armgcc.compiler.miscellaneous.OtherFlags>-pipe -fno-strict-aliasing -Wall -Wstrict-prototypes -Wmissing-prototypes -Werror-implicit-function-declaration -Wpointer-arith -std=gnu99 -ffunction-sections -fdata-sections -Wchar-subscripts -Wcomment -Wformat=2 -Wimplicit-int -Wmain -Wparentheses -Wsequence-point -Wreturn-type -Wswitch -Wtrigraphs -Wunused -Wuninitialized -Wunknown-pragmas -Wfloat-equal -Wundef -Wshadow -Wbad-function-cast -Wwrite-strings -Wsign-compare -Waggregate-return -Wmissing-declarations -Wformat -Wmissing-format-attribute -Wno-deprecated-declarations -Wpacked -Wredundant-decls -Wnested-externs -Wlong-long -Wunreachable-code -Wcast-align --param max-inline-insns-single=500 -mfloat-abi=hard</armgcc.compiler.miscellaneous.OtherFlags>
-        <armgcccpp.compiler.symbols.DefSymbols>
-          <ListValues>
-            <Value>ARM_MATH_CM7=true</Value>
-            <Value>__machine_ino_t_defined</Value>
-            <Value>__ino_t=int64_t</Value>
-            <Value>__PADOS__</Value>
-            <Value>DEBUG</Value>
-          </ListValues>
-        </armgcccpp.compiler.symbols.DefSymbols>
-        <armgcccpp.compiler.directories.IncludePaths>
-          <ListValues>
-            <Value>..</Value>
-            <Value>../ASF/common/utils</Value>
-            <Value>../ASF/sam/utils</Value>
-            <Value>../ASF/sam/utils/header_files</Value>
-            <Value>../src/config</Value>
-            <Value>%24(BOOST)</Value>
-            <Value>%24(PackRepoDir)\atmel\SAME70_DFP\2.4.166\same70a\include</Value>
-            <Value>.</Value>
-            <Value>%24(PackRepoDir)\arm\CMSIS\5.4.0\CMSIS\Core\Include\</Value>
-          </ListValues>
-        </armgcccpp.compiler.directories.IncludePaths>
-        <armgcccpp.compiler.optimization.level>Optimize debugging experience (-Og)</armgcccpp.compiler.optimization.level>
-        <armgcccpp.compiler.optimization.PrepareFunctionsForGarbageCollection>True</armgcccpp.compiler.optimization.PrepareFunctionsForGarbageCollection>
-        <armgcccpp.compiler.optimization.EnableFastMath>True</armgcccpp.compiler.optimization.EnableFastMath>
-        <armgcccpp.compiler.optimization.DisableRTTI>False</armgcccpp.compiler.optimization.DisableRTTI>
-        <armgcccpp.compiler.optimization.DisableExceptions>False</armgcccpp.compiler.optimization.DisableExceptions>
-        <armgcccpp.compiler.optimization.DebugLevel>Maximum (-g3)</armgcccpp.compiler.optimization.DebugLevel>
-        <armgcccpp.compiler.warnings.AllWarnings>True</armgcccpp.compiler.warnings.AllWarnings>
-        <armgcccpp.compiler.warnings.ExtraWarnings>True</armgcccpp.compiler.warnings.ExtraWarnings>
-        <armgcccpp.compiler.miscellaneous.OtherFlags>-mfloat-abi=hard -mtp=cp15 -mtls-dialect=gnu2 -Wsuggest-override -Wnoexcept -Wno-unused-parameter -Wno-multichar -Wno-sign-compare</armgcccpp.compiler.miscellaneous.OtherFlags>
-        <armgcccpp.linker.libraries.LibrarySearchPaths>
-          <ListValues>
-            <Value>%24(ProjectDir)\Device_Startup</Value>
-          </ListValues>
-        </armgcccpp.linker.libraries.LibrarySearchPaths>
-        <armgcccpp.linker.optimization.GarbageCollectUnusedSections>True</armgcccpp.linker.optimization.GarbageCollectUnusedSections>
-        <armgcccpp.linker.optimization.EnableFastMath>True</armgcccpp.linker.optimization.EnableFastMath>
-        <armgcccpp.linker.memorysettings.ExternalRAM>0x04000000</armgcccpp.linker.memorysettings.ExternalRAM>
-        <armgcccpp.linker.miscellaneous.LinkerFlags>-mfloat-abi=hard  -mfpu=fpv5-sp-d16</armgcccpp.linker.miscellaneous.LinkerFlags>
-        <armgcccpp.linker.miscellaneous.OtherOptions>
-          <ListValues>
-            <Value>--defsym=__heap_size__=0x04000000</Value>
-            <Value>--defsym=__heap_size__XX=0x0005c000</Value>
-            <Value>--defsym=__heap_start=0x70000000</Value>
-            <Value>--defsym=__heap_end=0x73ffffff</Value>
-          </ListValues>
-        </armgcccpp.linker.miscellaneous.OtherOptions>
-        <armgcccpp.assembler.general.IncludePaths>
-          <ListValues>
-            <Value>../src/ASF/common/boards/user_board</Value>
-            <Value>../src</Value>
-            <Value>../src/config</Value>
-            <Value>%24(PackRepoDir)\atmel\SAME70_DFP\2.4.166\same70a\include</Value>
-            <Value>%24(PackRepoDir)\arm\CMSIS\5.4.0\CMSIS\Core\Include\</Value>
-          </ListValues>
-        </armgcccpp.assembler.general.IncludePaths>
-        <armgcccpp.assembler.debugging.DebugLevel>Default (-g)</armgcccpp.assembler.debugging.DebugLevel>
-        <armgcccpp.preprocessingassembler.general.IncludePaths>
-          <ListValues>
-            <Value>../src/ASF/common/boards/user_board</Value>
-            <Value>../src</Value>
-            <Value>../src/config</Value>
-            <Value>%24(PackRepoDir)\atmel\SAME70_DFP\2.2.91\same70a\include</Value>
-            <Value>%24(PackRepoDir)\arm\CMSIS\5.4.0\CMSIS\Core\Include\</Value>
-          </ListValues>
-        </armgcccpp.preprocessingassembler.general.IncludePaths>
-        <armgcccpp.preprocessingassembler.debugging.DebugLevel>Default (-Wa,-g)</armgcccpp.preprocessingassembler.debugging.DebugLevel>
-      </ArmGccCpp>
+      <ArmGccCpp>
+  <armgcc.common.outputfiles.hex>True</armgcc.common.outputfiles.hex>
+  <armgcc.common.outputfiles.lss>True</armgcc.common.outputfiles.lss>
+  <armgcc.common.outputfiles.eep>True</armgcc.common.outputfiles.eep>
+  <armgcc.common.outputfiles.bin>True</armgcc.common.outputfiles.bin>
+  <armgcc.common.outputfiles.srec>True</armgcc.common.outputfiles.srec>
+  <armgcc.compiler.symbols.DefSymbols>
+    <ListValues>
+      <Value>ARM_MATH_CM7=true</Value>
+      <Value>__PADOS__</Value>
+      <Value>DEBUG</Value>
+    </ListValues>
+  </armgcc.compiler.symbols.DefSymbols>
+  <armgcc.compiler.directories.IncludePaths>
+    <ListValues>
+      <Value>..</Value>
+      <Value>../ASF/common/utils</Value>
+      <Value>../ASF/sam/utils</Value>
+      <Value>../ASF/sam/utils/header_files</Value>
+      <Value>../src/ASF/common/boards/user_board</Value>
+      <Value>../src</Value>
+      <Value>../src/config</Value>
+      <Value>%24(PackRepoDir)\atmel\SAME70_DFP\2.4.166\same70a\include</Value>
+      <Value>.</Value>
+      <Value>%24(PackRepoDir)\arm\CMSIS\5.4.0\CMSIS\Core\Include\</Value>
+    </ListValues>
+  </armgcc.compiler.directories.IncludePaths>
+  <armgcc.compiler.optimization.level>Optimize most (-O3)</armgcc.compiler.optimization.level>
+  <armgcc.compiler.optimization.OtherFlags>-fdata-sections</armgcc.compiler.optimization.OtherFlags>
+  <armgcc.compiler.optimization.PrepareFunctionsForGarbageCollection>True</armgcc.compiler.optimization.PrepareFunctionsForGarbageCollection>
+  <armgcc.compiler.optimization.EnableFastMath>True</armgcc.compiler.optimization.EnableFastMath>
+  <armgcc.compiler.optimization.DebugLevel>Maximum (-g3)</armgcc.compiler.optimization.DebugLevel>
+  <armgcc.compiler.warnings.AllWarnings>True</armgcc.compiler.warnings.AllWarnings>
+  <armgcc.compiler.miscellaneous.OtherFlags>-pipe -fno-strict-aliasing -Wall -Wstrict-prototypes -Wmissing-prototypes -Werror-implicit-function-declaration -Wpointer-arith -std=gnu99 -ffunction-sections -fdata-sections -Wchar-subscripts -Wcomment -Wformat=2 -Wimplicit-int -Wmain -Wparentheses -Wsequence-point -Wreturn-type -Wswitch -Wtrigraphs -Wunused -Wuninitialized -Wunknown-pragmas -Wfloat-equal -Wundef -Wshadow -Wbad-function-cast -Wwrite-strings -Wsign-compare -Waggregate-return -Wmissing-declarations -Wformat -Wmissing-format-attribute -Wno-deprecated-declarations -Wpacked -Wredundant-decls -Wnested-externs -Wlong-long -Wunreachable-code -Wcast-align --param max-inline-insns-single=500 -mfloat-abi=hard</armgcc.compiler.miscellaneous.OtherFlags>
+  <armgcccpp.compiler.symbols.DefSymbols>
+    <ListValues>
+      <Value>ARM_MATH_CM7=true</Value>
+      <Value>__machine_ino_t_defined</Value>
+      <Value>__ino_t=int64_t</Value>
+      <Value>__PADOS__</Value>
+      <Value>DEBUG</Value>
+    </ListValues>
+  </armgcccpp.compiler.symbols.DefSymbols>
+  <armgcccpp.compiler.directories.IncludePaths>
+    <ListValues>
+      <Value>..</Value>
+      <Value>../ASF/common/utils</Value>
+      <Value>../ASF/sam/utils</Value>
+      <Value>../ASF/sam/utils/header_files</Value>
+      <Value>../src/config</Value>
+      <Value>%24(BOOST)</Value>
+      <Value>%24(PackRepoDir)\atmel\SAME70_DFP\2.4.166\same70a\include</Value>
+      <Value>.</Value>
+      <Value>%24(PackRepoDir)\arm\CMSIS\5.4.0\CMSIS\Core\Include\</Value>
+    </ListValues>
+  </armgcccpp.compiler.directories.IncludePaths>
+  <armgcccpp.compiler.optimization.level>Optimize most (-O3)</armgcccpp.compiler.optimization.level>
+  <armgcccpp.compiler.optimization.PrepareFunctionsForGarbageCollection>True</armgcccpp.compiler.optimization.PrepareFunctionsForGarbageCollection>
+  <armgcccpp.compiler.optimization.EnableFastMath>True</armgcccpp.compiler.optimization.EnableFastMath>
+  <armgcccpp.compiler.optimization.DisableRTTI>False</armgcccpp.compiler.optimization.DisableRTTI>
+  <armgcccpp.compiler.optimization.DisableExceptions>False</armgcccpp.compiler.optimization.DisableExceptions>
+  <armgcccpp.compiler.optimization.DebugLevel>Maximum (-g3)</armgcccpp.compiler.optimization.DebugLevel>
+  <armgcccpp.compiler.warnings.AllWarnings>True</armgcccpp.compiler.warnings.AllWarnings>
+  <armgcccpp.compiler.warnings.ExtraWarnings>True</armgcccpp.compiler.warnings.ExtraWarnings>
+  <armgcccpp.compiler.miscellaneous.OtherFlags>-mfloat-abi=hard -mtp=cp15 -mtls-dialect=gnu2 -Wsuggest-override -Wnoexcept -Wno-unused-parameter -Wno-multichar -Wno-sign-compare</armgcccpp.compiler.miscellaneous.OtherFlags>
+  <armgcccpp.linker.libraries.LibrarySearchPaths>
+    <ListValues>
+      <Value>%24(ProjectDir)\Device_Startup</Value>
+    </ListValues>
+  </armgcccpp.linker.libraries.LibrarySearchPaths>
+  <armgcccpp.linker.optimization.GarbageCollectUnusedSections>True</armgcccpp.linker.optimization.GarbageCollectUnusedSections>
+  <armgcccpp.linker.optimization.EnableFastMath>True</armgcccpp.linker.optimization.EnableFastMath>
+  <armgcccpp.linker.memorysettings.ExternalRAM>0x04000000</armgcccpp.linker.memorysettings.ExternalRAM>
+  <armgcccpp.linker.miscellaneous.LinkerFlags>-mfloat-abi=hard  -mfpu=fpv5-sp-d16</armgcccpp.linker.miscellaneous.LinkerFlags>
+  <armgcccpp.linker.miscellaneous.OtherOptions>
+    <ListValues>
+      <Value>--defsym=__heap_size__=0x04000000</Value>
+      <Value>--defsym=__heap_size__XX=0x0005c000</Value>
+      <Value>--defsym=__heap_start=0x70000000</Value>
+      <Value>--defsym=__heap_end=0x73ffffff</Value>
+    </ListValues>
+  </armgcccpp.linker.miscellaneous.OtherOptions>
+  <armgcccpp.assembler.general.IncludePaths>
+    <ListValues>
+      <Value>../src/ASF/common/boards/user_board</Value>
+      <Value>../src</Value>
+      <Value>../src/config</Value>
+      <Value>%24(PackRepoDir)\atmel\SAME70_DFP\2.4.166\same70a\include</Value>
+      <Value>%24(PackRepoDir)\arm\CMSIS\5.4.0\CMSIS\Core\Include\</Value>
+    </ListValues>
+  </armgcccpp.assembler.general.IncludePaths>
+  <armgcccpp.assembler.debugging.DebugLevel>Default (-g)</armgcccpp.assembler.debugging.DebugLevel>
+  <armgcccpp.preprocessingassembler.general.IncludePaths>
+    <ListValues>
+      <Value>../src/ASF/common/boards/user_board</Value>
+      <Value>../src</Value>
+      <Value>../src/config</Value>
+      <Value>%24(PackRepoDir)\atmel\SAME70_DFP\2.2.91\same70a\include</Value>
+      <Value>%24(PackRepoDir)\arm\CMSIS\5.4.0\CMSIS\Core\Include\</Value>
+    </ListValues>
+  </armgcccpp.preprocessingassembler.general.IncludePaths>
+  <armgcccpp.preprocessingassembler.debugging.DebugLevel>Default (-Wa,-g)</armgcccpp.preprocessingassembler.debugging.DebugLevel>
+</ArmGccCpp>
     </ToolchainSettings>
     <OutputFileName>libPadOS</OutputFileName>
     <OutputFileExtension>.a</OutputFileExtension>
@@ -539,9 +540,9 @@
     <Compile Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_72.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="Kernel\Drivers\RA8875Driver\GfxDriver.cpp">
+    <None Include="Kernel\Drivers\RA8875Driver\GfxDriver.cpp">
       <SubType>compile</SubType>
-    </Compile>
+    </None>
     <Compile Include="Kernel\Drivers\RA8875Driver\GfxDriver.h">
       <SubType>compile</SubType>
     </Compile>
@@ -785,57 +786,57 @@
     <Compile Include="SAME70TimerDefines.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="SDRAM.cpp">
+    <None Include="SDRAM.cpp">
       <SubType>compile</SubType>
-    </Compile>
+    </None>
     <Compile Include="SDRAM.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="System\GUI\Application.cpp">
+    <None Include="System\GUI\Application.cpp">
       <SubType>compile</SubType>
-    </Compile>
+    </None>
     <Compile Include="System\GUI\Application.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="System\GUI\Button.cpp">
+    <None Include="System\GUI\Button.cpp">
       <SubType>compile</SubType>
-    </Compile>
+    </None>
     <Compile Include="System\GUI\Button.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="System\GUI\Color.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="System\GUI\Font.cpp">
+    <None Include="System\GUI\Font.cpp">
       <SubType>compile</SubType>
-    </Compile>
+    </None>
     <Compile Include="System\GUI\Font.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="System\GUI\GUIEvent.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="System\GUI\LayoutNode.cpp">
+    <None Include="System\GUI\LayoutNode.cpp">
       <SubType>compile</SubType>
-    </Compile>
+    </None>
     <Compile Include="System\GUI\LayoutNode.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="System\GUI\Region.cpp">
+    <None Include="System\GUI\Region.cpp">
       <SubType>compile</SubType>
-    </Compile>
+    </None>
     <Compile Include="System\GUI\Region.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="System\GUI\TextView.cpp">
+    <None Include="System\GUI\TextView.cpp">
       <SubType>compile</SubType>
-    </Compile>
+    </None>
     <Compile Include="System\GUI\TextView.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="System\GUI\View.cpp">
+    <None Include="System\GUI\View.cpp">
       <SubType>compile</SubType>
-    </Compile>
+    </None>
     <Compile Include="System\GUI\View.h">
       <SubType>compile</SubType>
     </Compile>

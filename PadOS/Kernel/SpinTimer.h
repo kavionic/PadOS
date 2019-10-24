@@ -18,7 +18,10 @@
 
 #pragma once
 
-#include "SystemSetup.h"
+#include "sam.h"
+
+//#include "SystemSetup.h"
+
 
 namespace kernel
 {
@@ -27,20 +30,20 @@ namespace kernel
 class SpinTimer
 {
 public:
-    static void Initialize();
+    static void Initialize(TcChannel* timerChannel); // SYSTEM_TIMER->TcChannel[SYSTEM_TIMER_SPIN_TIMER_L]
 
     static void SleepuS(int32_t delay)
     {
-        delay = delay * (CLOCK_PERIF_FREQUENCY / 1000000);
-        uint16_t startTime = SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_SPIN_TIMER_L].TC_CV;
+        delay = delay * s_TicksPerMicroSec;
+        uint16_t startTime = s_TimerChannel->TC_CV;
         for (;;)
         {
             if (delay > 3000) {
-                while(int16_t(SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_SPIN_TIMER_L].TC_CV - startTime) < 3000);
+                while(int16_t(s_TimerChannel->TC_CV - startTime) < 3000);
                 delay -= 3000;
                 startTime += 3000;
             } else {
-                while(int16_t(SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_SPIN_TIMER_L].TC_CV - startTime) < delay);
+                while(int16_t(s_TimerChannel->TC_CV - startTime) < delay);
                 break;
             }
         }        
@@ -50,6 +53,9 @@ public:
     {
         SleepuS(delay * 1000);
     }
+private:
+    static uint32_t   s_TicksPerMicroSec;
+    static TcChannel* s_TimerChannel;
 };
 
 } // namespace

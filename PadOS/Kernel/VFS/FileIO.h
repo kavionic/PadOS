@@ -62,14 +62,14 @@ public:
     static int     Close(int handle);
     
     
-    
     static ssize_t Read(int handle, void* buffer, size_t length);
     static ssize_t Write(int handle, const void* buffer, size_t length);
     static ssize_t Write(int handle, off64_t position, const void* buffer, size_t length);
     static ssize_t Read(int handle, off64_t position, void* buffer, size_t length);
     static int     DeviceControl(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
-    static int     ReadDirectory(int handle, int position, kernel::dir_entry* entry, size_t bufSize);
+    static int     ReadDirectory(int handle, kernel::dir_entry* entry, size_t bufSize);
+    static int     RewindDirectory(int handle);
 
     static int     CreateDirectory(const char* name, int permission);
 
@@ -89,7 +89,7 @@ private:
     static Ptr<kernel::KINode>         LocateParentInode(Ptr<kernel::KINode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength);
     static int                         AllocateFileHandle();
     static void                        FreeFileHandle(int handle);
-    static Ptr<kernel::KFileTableNode> GetFileNode(int handle);
+    static Ptr<kernel::KFileTableNode> GetFileNode(int handle, bool forKernel = false);
     static Ptr<kernel::KFileNode>    GetFile(int handle);
     static Ptr<kernel::KDirectoryNode> GetDirectory(int handle);
     static void                        SetFile(int handle, Ptr<kernel::KFileTableNode> file);

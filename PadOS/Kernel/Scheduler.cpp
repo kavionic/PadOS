@@ -29,7 +29,7 @@
 #include "KSemaphore.h"
 #include "Kernel.h"
 #include "KHandleArray.h"
-#include "SystemSetup.h"
+//#include "SystemSetup.h"
 
 #include "Kernel/HAL/SAME70System.h"
 
@@ -300,6 +300,33 @@ Ptr<KThreadCB> kernel::get_thread(thread_id handle)
 {
     Ptr<KThreadCB> thread = gk_ThreadTable.Get(handle);
     return (thread != nullptr && thread->m_State != KThreadState::Deleted) ? thread : nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KProcess*  kernel::get_current_process()
+{
+    return gk_CurrentProcess;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KThreadCB* kernel::get_current_thread()
+{
+    return gk_CurrentThread;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KIOContext* kernel::get_current_iocxt(bool forKernel)
+{
+    return gk_CurrentProcess->GetIOContext();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -666,7 +693,7 @@ static void init_thread_entry(void* arguments)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::start_scheduler()
+void kernel::start_scheduler(uint32_t coreFrequency)
 {
     NVIC_SetPriority(PendSV_IRQn, KIRQ_PRI_KERNEL);
     NVIC_SetPriority(SysTick_IRQn, KIRQ_PRI_KERNEL);
@@ -697,7 +724,7 @@ void kernel::start_scheduler()
     __DSB();
     __ISB();
 
-    SysTick->LOAD = SAME70System::GetFrequencyCore() / 1000 - 1;
+    SysTick->LOAD = coreFrequency / 1000 - 1;
     SysTick->VAL  = 0;
     SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk;
 

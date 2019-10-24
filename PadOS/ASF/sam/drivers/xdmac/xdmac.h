@@ -105,8 +105,12 @@
  * @{
  */
 
+#include "sam.h"
 #include  "ASF/sam/utils/compiler.h"
 #include  "ASF/sam/utils/status_codes.h"
+//#include "same70q21.h"
+//#include "core_cm7.h"
+#include "component/xdmac.h"
 
 /** @cond */
 /**INDENT-OFF**/
@@ -480,7 +484,7 @@ static inline void xdmac_channel_enable_interrupt(Xdmac *xdmac, uint32_t channel
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CIE = mask;
+	xdmac->XdmacChid[channel_num].XDMAC_CIE = mask;
 }
 
 /**
@@ -494,7 +498,7 @@ static inline void xdmac_channel_disable_interrupt(Xdmac *xdmac, uint32_t channe
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CID = mask;
+	xdmac->XdmacChid[channel_num].XDMAC_CID = mask;
 }
 
 /**
@@ -507,7 +511,7 @@ static inline uint32_t xdmac_channel_get_interrupt_mask(Xdmac *xdmac, uint32_t c
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	return xdmac->XDMAC_CHID[channel_num].XDMAC_CIM;
+	return xdmac->XdmacChid[channel_num].XDMAC_CIM;
 }
 
 /**
@@ -520,7 +524,7 @@ static inline uint32_t xdmac_channel_get_interrupt_status(Xdmac *xdmac, uint32_t
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	return xdmac->XDMAC_CHID[channel_num].XDMAC_CIS;
+	return xdmac->XdmacChid[channel_num].XDMAC_CIS;
 }
 
 /**
@@ -548,7 +552,7 @@ static inline void xdmac_channel_set_source_addr(Xdmac *xdmac, uint32_t channel_
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CSA = src_addr;
+	xdmac->XdmacChid[channel_num].XDMAC_CSA = src_addr;
 }
 
 /**
@@ -562,7 +566,7 @@ static inline void xdmac_channel_set_destination_addr(Xdmac *xdmac, uint32_t cha
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CDA = dst_addr;
+	xdmac->XdmacChid[channel_num].XDMAC_CDA = dst_addr;
 }
 
 /**
@@ -579,7 +583,7 @@ static inline void xdmac_channel_set_descriptor_addr(Xdmac *xdmac, uint32_t chan
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
 	Assert(ndaif<2);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CNDA = (desc_addr & 0xFFFFFFFC) | ndaif;
+	xdmac->XdmacChid[channel_num].XDMAC_CNDA = (desc_addr & 0xFFFFFFFC) | ndaif;
 }
 
 /**
@@ -593,7 +597,7 @@ static inline void xdmac_channel_set_descriptor_control(Xdmac *xdmac, uint32_t c
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CNDC = config;
+	xdmac->XdmacChid[channel_num].XDMAC_CNDC = config;
 }
 
 /**
@@ -607,7 +611,7 @@ static inline void xdmac_channel_set_microblock_control(Xdmac *xdmac, uint32_t c
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CUBC = XDMAC_CUBC_UBLEN(ublen);
+	xdmac->XdmacChid[channel_num].XDMAC_CUBC = XDMAC_CUBC_UBLEN(ublen);
 }
 
 /**
@@ -621,7 +625,7 @@ static inline void xdmac_channel_set_block_control(Xdmac *xdmac, uint32_t channe
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CBC = XDMAC_CBC_BLEN(blen);
+	xdmac->XdmacChid[channel_num].XDMAC_CBC = XDMAC_CBC_BLEN(blen);
 }
 
 /**
@@ -635,7 +639,7 @@ static inline void xdmac_channel_set_config(Xdmac *xdmac, uint32_t channel_num, 
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CC = config;
+	xdmac->XdmacChid[channel_num].XDMAC_CC = config;
 }
 
 /**
@@ -649,7 +653,7 @@ static inline void xdmac_channel_set_datastride_mempattern(Xdmac *xdmac, uint32_
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CDS_MSP = dds_msp;
+	xdmac->XdmacChid[channel_num].XDMAC_CDS_MSP = dds_msp;
 }
 
 /**
@@ -664,7 +668,7 @@ static inline void xdmac_channel_set_source_microblock_stride(Xdmac *xdmac,
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CSUS = XDMAC_CSUS_SUBS(subs);
+	xdmac->XdmacChid[channel_num].XDMAC_CSUS = XDMAC_CSUS_SUBS(subs);
 }
 
 /**
@@ -679,7 +683,7 @@ static inline void xdmac_channel_set_destination_microblock_stride(Xdmac *xdmac,
 {
 	Assert(xdmac);
 	Assert(channel_num < XDMACCHID_NUMBER);
-	xdmac->XDMAC_CHID[channel_num].XDMAC_CDUS = XDMAC_CDUS_DUBS(dubs);
+	xdmac->XdmacChid[channel_num].XDMAC_CDUS = XDMAC_CDUS_DUBS(dubs);
 }
 
 void xdmac_configure_transfer(Xdmac *xdmac, uint32_t channel_num,

@@ -30,6 +30,7 @@
 namespace kernel
 {
 
+struct dir_entry;
 
 class KFileTableNode : public PtrTarget
 {
@@ -49,6 +50,9 @@ class KFileNode : public KFileTableNode
 {
 public:
     KFileNode() : KFileTableNode(false) {}
+        
+    virtual bool LastReferenceGone() override;
+
     int         m_FileMode = 0;
     off64_t     m_Position = 0;
 };
@@ -57,13 +61,12 @@ class KDirectoryNode : public KFileTableNode
 {
 public:
     KDirectoryNode() : KFileTableNode(true) {}
+
+    virtual bool LastReferenceGone() override;
+        
+    int ReadDirectory(dir_entry* entry, size_t bufSize);
+    int RewindDirectory();
 };
 
-/*
-class KDirectoryHandle : public KFileHandle
-{
-public:
-//    KDirectoryHandle(Ptr<KINode> inode);
-};*/
 
 } // namespace

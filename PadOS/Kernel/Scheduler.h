@@ -26,6 +26,7 @@ namespace kernel
 {
 
 class KProcess;
+class KIOContext;
 
 extern void InitThreadMain(void* argument);
 
@@ -54,6 +55,10 @@ extern KThreadCB* volatile gk_CurrentThread;
 
 Ptr<KThreadCB> get_thread(thread_id handle);
 
+KProcess*      get_current_process();
+KThreadCB*     get_current_thread();
+KIOContext*    get_current_iocxt(bool forKernel);
+
 void add_to_sleep_list(KThreadWaitNode* waitNode);
 void remove_from_sleep_list(KThreadWaitNode* waitNode);
 
@@ -62,7 +67,7 @@ void add_thread_to_ready_list(KThreadCB* thread);
 bool wakeup_wait_queue(KThreadWaitList* queue, int returnCode, int maxCount);
 
 
-void start_scheduler();
+void start_scheduler(uint32_t coreFrequency);
 
 enum class IRQEnableState
 {

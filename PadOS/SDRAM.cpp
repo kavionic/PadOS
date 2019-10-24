@@ -18,10 +18,10 @@
 
 #include "sam.h"
 #include "SDRAM.h"
-#include "SystemSetup.h"
-#include "Kernel/SpinTimer.h"
+//#include "SystemSetup.h"
+//#include "Kernel/SpinTimer.h"
 
-using namespace kernel;
+//using namespace kernel;
 
 void SetupSDRAM(uint32_t configReg, uint32_t mode, uint32_t block1Bit, uint32_t refreshNS, uint32_t clkFrequency)
 {
@@ -143,4 +143,13 @@ void SetupSDRAM(uint32_t configReg, uint32_t mode, uint32_t block1Bit, uint32_t 
 
         
     SDRAMC->SDRAMC_CFR1 |= SDRAMC_CFR1_UNAL; // Enable unaligned access.
+}
+
+void ShutdownSDRAM()
+{
+    volatile uint16_t *pSdram = (uint16_t *)(SDRAM_CS_ADDR);
+    SDRAMC->SDRAMC_MR = SDRAMC_MR_MODE_NOP;
+    *pSdram = 0x0;
+    SDRAMC->SDRAMC_MR = SDRAMC_MR_MODE_DEEP_POWERDOWN;    
+    *pSdram = 0x0;
 }

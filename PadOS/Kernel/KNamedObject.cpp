@@ -26,7 +26,13 @@
 
 using namespace kernel;
 
-static KHandleArray<KNamedObject> gk_NamedObjectsTable;
+static uint8_t gk_NamedObjectsTableBuffer[sizeof(KHandleArray<KNamedObject>)];
+static KHandleArray<KNamedObject>& gk_NamedObjectsTable = *reinterpret_cast<KHandleArray<KNamedObject>*>(gk_NamedObjectsTableBuffer);
+
+void KNamedObject::InitializeStatics()
+{
+    new ((void*)gk_NamedObjectsTableBuffer) KHandleArray<KNamedObject>();
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

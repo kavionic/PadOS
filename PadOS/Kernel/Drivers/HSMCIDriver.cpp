@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 07.12.2017 23:50:32
 
-#include "sam.h"
+#include "Platform.h"
 
 #include <string.h>
 #include <stdio.h>

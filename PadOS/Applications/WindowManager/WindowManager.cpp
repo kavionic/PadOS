@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 09.04.2018 22:56:33
 
-#include "sam.h"
+#include "Platform.h"
 
 #include "WindowManager.h"
 #include "System/GUI/View.h"

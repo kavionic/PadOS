@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM">
+      <Configuration>Release</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{766859B1-38A1-45BE-9E67-7BAC93D8791E}</ProjectGuid>
+    <Keyword>MakeFileProj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <NMakeBuildCommandLine>make -j12</NMakeBuildCommandLine>
+    <NMakeOutput>Debug/LibPadOS.a</NMakeOutput>
+    <NMakeCleanCommandLine>make clean</NMakeCleanCommandLine>
+    <NMakeReBuildCommandLine>make clean%3bmake -j12</NMakeReBuildCommandLine>
+    <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <NMakeBuildCommandLine>make -j12</NMakeBuildCommandLine>
+    <NMakeOutput>Debug/LibPadOS.a</NMakeOutput>
+    <NMakeCleanCommandLine>make clean</NMakeCleanCommandLine>
+    <NMakeReBuildCommandLine>make clean%3bmake -j12</NMakeReBuildCommandLine>
+    <NMakePreprocessorDefinitions>WIN32;NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <None Include="Kernel\Drivers\STM32\Files.mk" />
+    <None Include="Kernel\Files.mk" />
+    <None Include="Kernel\HAL\STM32\Files.mk" />
+    <None Include="Kernel\VFS\Files.mk" />
+    <None Include="Makefile" />
+    <None Include="makefile.rules" />
+    <None Include="release\SAME70XplainedTest.bin" />
+    <None Include="System\Files.mk" />
+    <None Include="System\Ptr\Files.mk" />
+    <None Include="System\Signals\Files.mk" />
+    <None Include="System\Threads\Files.mk" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="ApplicationServer\ApplicationServer.cpp" />
+    <ClCompile Include="ApplicationServer\ServerApplication.cpp" />
+    <ClCompile Include="ApplicationServer\ServerView.cpp" />
+    <ClCompile Include="Applications\WindowManager\WindowManager.cpp" />
+    <ClCompile Include="ASF\sam\drivers\xdmac\xdmac.c" />
+    <ClCompile Include="Init.cpp" />
+    <ClCompile Include="Kernel\Drivers\BME280Driver.cpp" />
+    <ClCompile Include="Kernel\Drivers\FT5x0xDriver.cpp" />
+    <ClCompile Include="Kernel\Drivers\HSMCIDriver.cpp" />
+    <ClCompile Include="Kernel\Drivers\I2CDriver.cpp" />
+    <ClCompile Include="Kernel\Drivers\INA3221Driver.cpp" />
+    <ClCompile Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_14.c" />
+    <ClCompile Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_20.c" />
+    <ClCompile Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_72.c" />
+    <ClCompile Include="Kernel\Drivers\RA8875Driver\GfxDriver.cpp" />
+    <ClCompile Include="Kernel\Drivers\STM32\I2CDriver.cpp" />
+    <ClCompile Include="Kernel\Drivers\STM32\TLV493DDriver.cpp" />
+    <ClCompile Include="Kernel\Drivers\STM32\USARTDriver.cpp" />
+    <ClCompile Include="Kernel\Drivers\UART.cpp" />
+    <ClCompile Include="Kernel\Drivers\UARTDriver.cpp" />
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATClusterSectorIterator.cpp" />
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATDirectoryIterator.cpp" />
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATDirectoryNode.cpp" />
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATFileNode.cpp" />
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATFilesystem.cpp" />
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATINode.cpp" />
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATTable.cpp" />
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATTableIterator.cpp" />
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATVolume.cpp" />
+    <ClCompile Include="Kernel\HAL\DigitalPort.cpp" />
+    <ClCompile Include="Kernel\HAL\SAME70System.cpp" />
+    <ClCompile Include="Kernel\HAL\STM32\DMA_STM32.cpp" />
+    <ClCompile Include="Kernel\KConditionVariable.cpp" />
+    <ClCompile Include="Kernel\Kernel.cpp" />
+    <ClCompile Include="Kernel\KHandleArray.cpp" />
+    <ClCompile Include="Kernel\KMessagePort.cpp" />
+    <ClCompile Include="Kernel\KMutex.cpp" />
+    <ClCompile Include="Kernel\KNamedObject.cpp" />
+    <ClCompile Include="Kernel\KObjectWaitGroup.cpp" />
+    <ClCompile Include="Kernel\KPowerManager.cpp" />
+    <ClCompile Include="Kernel\KProcess.cpp" />
+    <ClCompile Include="Kernel\KSemaphore.cpp" />
+    <ClCompile Include="Kernel\KThreadCB.cpp" />
+    <ClCompile Include="Kernel\Scheduler.cpp" />
+    <ClCompile Include="Kernel\SpinTimer.cpp" />
+    <ClCompile Include="Kernel\VFS\FileIO.cpp" />
+    <ClCompile Include="Kernel\VFS\KBlockCache.cpp" />
+    <ClCompile Include="Kernel\VFS\KDeviceNode.cpp" />
+    <ClCompile Include="Kernel\VFS\KFileHandle.cpp" />
+    <ClCompile Include="Kernel\VFS\KFilesystem.cpp" />
+    <ClCompile Include="Kernel\VFS\KFSVolume.cpp" />
+    <ClCompile Include="Kernel\VFS\KINode.cpp" />
+    <ClCompile Include="Kernel\VFS\KIOContext.cpp" />
+    <ClCompile Include="Kernel\VFS\KNodeMonitor.cpp" />
+    <ClCompile Include="Kernel\VFS\KRootFilesystem.cpp" />
+    <ClCompile Include="Kernel\VFS\KVFSManager.cpp" />
+    <ClCompile Include="MemTest.cpp" />
+    <ClCompile Include="MPU.cpp" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_cortex.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_dma.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_dma_ex.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_exti.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_flash.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_flash_ex.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_gpio.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_hsem.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_i2c.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_i2c_ex.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_mdma.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_pwr.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_pwr_ex.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_rcc.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_rcc_ex.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_tim.c" />
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_tim_ex.c" />
+    <ClCompile Include="posix.cpp" />
+    <ClCompile Include="SDRAM.cpp" />
+    <ClCompile Include="System\GUI\Application.cpp" />
+    <ClCompile Include="System\GUI\Button.cpp" />
+    <ClCompile Include="System\GUI\Font.cpp" />
+    <ClCompile Include="System\GUI\LayoutNode.cpp" />
+    <ClCompile Include="System\GUI\Region.cpp" />
+    <ClCompile Include="System\GUI\TextView.cpp" />
+    <ClCompile Include="System\GUI\View.cpp" />
+    <ClCompile Include="System\Math\LineSegment.cpp" />
+    <ClCompile Include="System\Math\Rect.cpp" />
+    <ClCompile Include="System\Ptr\PtrTarget.cpp" />
+    <ClCompile Include="System\Signals\SignalBase.cpp" />
+    <ClCompile Include="System\Signals\SignalSystem.cpp" />
+    <ClCompile Include="System\Signals\SignalTarget.cpp" />
+    <ClCompile Include="System\Signals\SlotBase.cpp" />
+    <ClCompile Include="System\String.cpp" />
+    <ClCompile Include="System\Threads\EventHandler.cpp" />
+    <ClCompile Include="System\Threads\Looper.cpp" />
+    <ClCompile Include="System\Threads\Semaphore.cpp" />
+    <ClCompile Include="System\Threads\Thread.cpp" />
+    <ClCompile Include="System\Threads\ThreadLocal.cpp" />
+    <ClCompile Include="System\Utils\EventTimer.cpp" />
+    <ClCompile Include="System\Utils\IntrusiveList.cpp" />
+    <ClCompile Include="System\Utils\MessagePort.cpp" />
+    <ClCompile Include="System\Utils\Utils.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ApplicationServer\ApplicationServer.h" />
+    <ClInclude Include="ApplicationServer\Protocol.h" />
+    <ClInclude Include="ApplicationServer\ServerApplication.h" />
+    <ClInclude Include="ApplicationServer\ServerView.h" />
+    <ClInclude Include="Applications\WindowManager\WindowManager.h" />
+    <ClInclude Include="ASF\common\utils\interrupt.h" />
+    <ClInclude Include="ASF\common\utils\interrupt\interrupt_sam_nvic.h" />
+    <ClInclude Include="ASF\common\utils\parts.h" />
+    <ClInclude Include="ASF\sam\drivers\xdmac\xdmac.h" />
+    <ClInclude Include="ASF\sam\utils\compiler.h" />
+    <ClInclude Include="ASF\sam\utils\header_files\io.h" />
+    <ClInclude Include="ASF\sam\utils\preprocessor\mrepeat.h" />
+    <ClInclude Include="ASF\sam\utils\preprocessor\preprocessor.h" />
+    <ClInclude Include="ASF\sam\utils\preprocessor\stringz.h" />
+    <ClInclude Include="ASF\sam\utils\preprocessor\tpaste.h" />
+    <ClInclude Include="ASF\sam\utils\status_codes.h" />
+    <ClInclude Include="DeviceControl\BME280.h" />
+    <ClInclude Include="DeviceControl\DeviceControl.h" />
+    <ClInclude Include="DeviceControl\FT5x0x.h" />
+    <ClInclude Include="DeviceControl\I2C.h" />
+    <ClInclude Include="DeviceControl\INA3221.h" />
+    <ClInclude Include="DeviceControl\SDCARD.h" />
+    <ClInclude Include="DeviceControl\TLV493D.h" />
+    <ClInclude Include="Kernel\Drivers\BME280Driver.h" />
+    <ClInclude Include="Kernel\Drivers\FT5x0xDriver.h" />
+    <ClInclude Include="Kernel\Drivers\HSMCIDriver.h" />
+    <None Include="Kernel\Drivers\I2CDriver.h" />
+    <ClInclude Include="Kernel\Drivers\INA3221Driver.h" />
+    <ClInclude Include="Kernel\Drivers\RA8875Driver\Font.h" />
+    <ClInclude Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_14.h" />
+    <ClInclude Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_20.h" />
+    <ClInclude Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_72.h" />
+    <ClInclude Include="Kernel\Drivers\RA8875Driver\GfxDriver.h" />
+    <ClInclude Include="Kernel\Drivers\sd_mmc_protocol.h" />
+    <ClInclude Include="Kernel\Drivers\STM32\I2CDriver.h" />
+    <ClInclude Include="Kernel\Drivers\STM32\TLV493DDriver.h" />
+    <ClInclude Include="Kernel\Drivers\STM32\USARTDriver.h" />
+    <ClInclude Include="Kernel\Drivers\UART.h" />
+    <ClInclude Include="Kernel\Drivers\UARTDriver.h" />
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATClusterSectorIterator.h" />
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATDirectoryIterator.h" />
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATDirectoryNode.h" />
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATFileNode.h" />
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATFilesystem.h" />
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATINode.h" />
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATTable.h" />
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATTableIterator.h" />
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATVolume.h" />
+    <ClInclude Include="Kernel\HAL\DigitalPort.h" />
+    <ClInclude Include="Kernel\HAL\DigitalPort_ATSAM.h" />
+    <ClInclude Include="Kernel\HAL\DigitalPort_STM32.h" />
+    <ClInclude Include="Kernel\HAL\DMA.h" />
+    <ClInclude Include="Kernel\HAL\SAME70System.h" />
+    <ClInclude Include="Kernel\HAL\STM32H7System.h" />
+    <ClInclude Include="Kernel\HAL\STM32\DMARequestID.h" />
+    <ClInclude Include="Kernel\HAL\STM32\DMA_STM32.h" />
+    <ClInclude Include="Kernel\KConditionVariable.h" />
+    <ClInclude Include="Kernel\Kernel.h" />
+    <ClInclude Include="Kernel\KHandleArray.h" />
+    <ClInclude Include="Kernel\KMessagePort.h" />
+    <ClInclude Include="Kernel\KMutex.h" />
+    <ClInclude Include="Kernel\KNamedObject.h" />
+    <ClInclude Include="Kernel\KObjectWaitGroup.h" />
+    <ClInclude Include="Kernel\KPowerManager.h" />
+    <ClInclude Include="Kernel\KProcess.h" />
+    <ClInclude Include="Kernel\KSemaphore.h" />
+    <ClInclude Include="Kernel\KThreadCB.h" />
+    <ClInclude Include="Kernel\Scheduler.h" />
+    <ClInclude Include="Kernel\SpinTimer.h" />
+    <ClInclude Include="Kernel\VFS\FileIO.h" />
+    <ClInclude Include="Kernel\VFS\KBlockCache.h" />
+    <ClInclude Include="Kernel\VFS\KDeviceNode.h" />
+    <ClInclude Include="Kernel\VFS\KFileHandle.h" />
+    <ClInclude Include="Kernel\VFS\KFilesystem.h" />
+    <ClInclude Include="Kernel\VFS\KFSVolume.h" />
+    <ClInclude Include="Kernel\VFS\KINode.h" />
+    <ClInclude Include="Kernel\VFS\KIOContext.h" />
+    <ClInclude Include="Kernel\VFS\KNodeMonitor.h" />
+    <ClInclude Include="Kernel\VFS\KRootFilesystem.h" />
+    <ClInclude Include="Kernel\VFS\KVFSManager.h" />
+    <ClInclude Include="MemTest.h" />
+    <ClInclude Include="MPU.h" />
+    <ClInclude Include="Platform.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\stm32h743xx.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\stm32h7xx.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\system_stm32h7xx.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_armcc.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_armclang.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_compiler.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_gcc.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_iccarm.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_version.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_armv8mbl.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_armv8mml.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm0.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm0plus.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm1.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm23.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm3.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm33.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm4.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm7.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_sc000.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_sc300.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\mpu_armv7.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\mpu_armv8.h" />
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\tz_context.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\Legacy\stm32_hal_legacy.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_cortex.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_def.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_dma.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_dma_ex.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_exti.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash_ex.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_gpio.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_gpio_ex.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_hsem.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_i2c.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_i2c_ex.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_mdma.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_pwr.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_pwr_ex.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_rcc.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_rcc_ex.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim.h" />
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim_ex.h" />
+    <ClInclude Include="SAME70TimerDefines.h" />
+    <ClInclude Include="SDRAM.h" />
+    <ClInclude Include="System\GUI\Application.h" />
+    <ClInclude Include="System\GUI\Button.h" />
+    <ClInclude Include="System\GUI\Color.h" />
+    <ClInclude Include="System\GUI\Font.h" />
+    <ClInclude Include="System\GUI\GUIEvent.h" />
+    <ClInclude Include="System\GUI\LayoutNode.h" />
+    <ClInclude Include="System\GUI\Region.h" />
+    <ClInclude Include="System\GUI\TextView.h" />
+    <ClInclude Include="System\GUI\View.h" />
+    <ClInclude Include="System\Math\LineSegment.h" />
+    <ClInclude Include="System\Math\Point.h" />
+    <ClInclude Include="System\Math\Rect.h" />
+    <ClInclude Include="System\Ptr\NoPtr.h" />
+    <ClInclude Include="System\Ptr\Ptr.h" />
+    <ClInclude Include="System\Ptr\Ptr.inl.h" />
+    <ClInclude Include="System\Ptr\PtrTarget.h" />
+    <ClInclude Include="System\Ptr\SigWeakPtr.h" />
+    <ClInclude Include="System\Ptr\SigWeakPtr.inl.h" />
+    <ClInclude Include="System\Ptr\WeakPtr.h" />
+    <ClInclude Include="System\Ptr\WeakPtr.inl.h" />
+    <ClInclude Include="System\Signals\RemoteSignal.h" />
+    <ClInclude Include="System\Signals\Signal.h" />
+    <ClInclude Include="System\Signals\SignalBase.h" />
+    <ClInclude Include="System\Signals\SignalSlotList.h" />
+    <ClInclude Include="System\Signals\SignalSystem.h" />
+    <ClInclude Include="System\Signals\SignalTarget.h" />
+    <ClInclude Include="System\Signals\Slot.h" />
+    <ClInclude Include="System\Signals\SlotBase.h" />
+    <ClInclude Include="System\Signals\VFConnector.h" />
+    <ClInclude Include="System\String.h" />
+    <ClInclude Include="System\System.h" />
+    <ClInclude Include="System\SystemMessageIDs.h" />
+    <ClInclude Include="System\Threads.h" />
+    <ClInclude Include="System\Threads\EventHandler.h" />
+    <ClInclude Include="System\Threads\Looper.h" />
+    <ClInclude Include="System\Threads\Mutex.h" />
+    <ClInclude Include="System\Threads\Semaphore.h" />
+    <ClInclude Include="System\Threads\Thread.h" />
+    <ClInclude Include="System\Threads\ThreadLocal.h" />
+    <ClInclude Include="System\Types.h" />
+    <ClInclude Include="System\UTF8Utils.h" />
+    <ClInclude Include="System\Utils\EventTimer.h" />
+    <ClInclude Include="System\Utils\IntrusiveList.h" />
+    <ClInclude Include="System\Utils\MessagePort.h" />
+    <ClInclude Include="System\Utils\Utils.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

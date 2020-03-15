@@ -23,6 +23,7 @@
 
 #include "Kernel.h"
 #include "System/Ptr/PtrTarget.h"
+#include "System/Ptr/Ptr.h"
 #include "System/System.h"
 #include "System/Utils/IntrusiveList.h"
 
@@ -36,6 +37,7 @@ enum class KNamedObjectType
     Semaphore,
     Mutex,
     ConditionVariable,
+	ObjectWaitGroup,
     MessagePort,
 };
 
@@ -69,7 +71,7 @@ public:
     KNamedObject(const char* name, KNamedObjectType type);
     virtual ~KNamedObject();
 
-    bool DebugValidate() const { if (m_Magic != MAGIC) { panic("KnamedObject has been overwritten!\n"); return false; } return true; }
+    bool DebugValidate() const;
 
     KNamedObjectType GetType() const           { return m_Type; }
     const char*      GetName() const           { return m_Name; }

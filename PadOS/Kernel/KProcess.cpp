@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 11.03.2018 01:23:12
 
-#include "sam.h"
+#include "Platform.h"
 
 #include <string.h>
 #include <sys/errno.h>

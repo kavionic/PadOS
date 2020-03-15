@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 04.03.2018 19:30:41
 
-#include "sam.h"
+#include "Platform.h"
 
 #include <algorithm>
 #include <stdint.h>
@@ -89,8 +89,8 @@ void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, void* arguments)
     memset(stackFrame, 0, sizeof(*stackFrame));
     stackFrame->m_EXEC_RETURN = 0xfffffffd; // Return to Thread mode, exception return uses non-floating-point state from the PSP and execution uses PSP after return
     stackFrame->m_R0 = uint32_t(arguments);
-    stackFrame->m_LR = uint32_t(invalid_return_handler);
-    stackFrame->m_PC = uint32_t(entryPoint);
+    stackFrame->m_LR = uint32_t(invalid_return_handler) & ~1; // Clear the thump flag from the function pointer.
+    stackFrame->m_PC = uint32_t(entryPoint) & ~1; // Clear the thump flag from the function pointer.
     stackFrame->m_xPSR = xPSR_T_Msk; // Always in Thumb state.
 
     m_CurrentStack = reinterpret_cast<uint32_t*>(stackFrame);

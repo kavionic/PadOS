@@ -79,6 +79,7 @@ public:
     KThreadCB*                m_Prev = nullptr;
     KThreadCB*                m_Next = nullptr;
     IntrusiveList<KThreadCB>* m_List = nullptr;
+    KNamedObject*             m_BlockingObject = nullptr;
     os::DebugCallTracker*     m_FirstDebugCallTracker = nullptr;
 };
 

@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 11.03.2018 16:00:25
 
-#include "sam.h"
+#include "Platform.h"
 
 #include "Looper.h"
 #include "EventHandler.h"

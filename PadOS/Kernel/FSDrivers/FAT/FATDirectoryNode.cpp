@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18/06/08 23:53:12
 
-#include "sam.h"
+#include "Platform.h"
 
 #include "FATDirectoryNode.h"
 

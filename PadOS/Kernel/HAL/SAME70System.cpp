@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2017-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2017-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,9 +18,7 @@
 // Created: 29.10.2017 19:51:50
 
 #include "SAME70System.h"
-//#include "SystemSetup.h"
 
-uint32_t SAME70System::s_FrequencyCrystal;
 uint32_t SAME70System::s_FrequencyCore;
 uint32_t SAME70System::s_FrequencyPeripheral;
 
@@ -90,17 +88,6 @@ void SAME70System::SetupClock(uint32_t frequencyCrystal, uint32_t frequencyCore,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SAME70System::SetupFrequencies(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral)
-{
-    s_FrequencyCrystal    = frequencyCrystal;
-    s_FrequencyCore       = frequencyCore;
-    s_FrequencyPeripheral = frequencyPeripheral;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void SAME70System::EnablePeripheralClock( int perifID )
 {
     PMC->PMC_WPMR = PMC_WPMR_WPKEY_PASSWD; // Write enable registers.
@@ -126,35 +113,3 @@ void SAME70System::DisablePeripheralClock( int perifID )
     }        
     PMC->PMC_WPMR = PMC_WPMR_WPKEY_PASSWD | PMC_WPMR_WPEN_Msk; // Write protect registers.
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-uint32_t SAME70System::GetFrequencyCrystal()
-{
-    return s_FrequencyCrystal;
-//    return CLOCK_CRYSTAL_FREQUENCY;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-    
-uint32_t SAME70System::GetFrequencyCore()
-{
-    return s_FrequencyCore;
-//    return CLOCK_CPU_FREQUENCY;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-    
-uint32_t SAME70System::GetFrequencyPeripheral()
-{
-    return s_FrequencyPeripheral;
-//    return CLOCK_PERIF_FREQUENCY;
-}
-
-

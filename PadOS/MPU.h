@@ -48,6 +48,8 @@
 #ifndef _MPU_H_
 #define _MPU_H_
 
+#if defined(__SAME70Q21__)
+
 #include "compiler.h"
 
 /*----------------------------------------------------------------------------
@@ -185,6 +187,11 @@
 /************** USBHS_RAM region macros ******************/
 #define USBHSRAM_START_ADDRESS               0xA0100000UL
 #define USBHSRAM_END_ADDRESS                 0xA01FFFFFUL
+
+#elif defined(STM32H743xx)
+#else
+#error Unknown platform
+#endif
 
 /*----------------------------------------------------------------------------
  *        Export functions

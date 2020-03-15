@@ -17,8 +17,16 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18/08/25 0:24:37
 
-#include "sam.h"
+#include "Platform.h"
+
+#if defined(__SAME70Q21__)
 #include "component/supc.h"
+#elif defined(STM32H743xx)
+#else
+#error Unknown platform
+#endif
+
+
 
 #include "KPowerManager.h"
 #include "Kernel.h"
@@ -37,8 +45,8 @@ static int POWER_BUTTON_RESET_THRESHOLD; //   = 2 * CLOCK_PERIF_FREQUENCY / 6553
 
 KPowerManager::KPowerManager() : Thread("sys_power_manager")
 {
-    POWER_BUTTON_PRESSED_THRESHOLD = SAME70System::GetFrequencyPeripheral() / 65536 / 10; // ~100mS
-    POWER_BUTTON_RESET_THRESHOLD   = 2 * SAME70System::GetFrequencyPeripheral() / 65536; // ~2S
+    POWER_BUTTON_PRESSED_THRESHOLD = kernel::Kernel::GetFrequencyPeripheral() / 65536 / 10; // ~100mS
+    POWER_BUTTON_RESET_THRESHOLD   = 2 * kernel::Kernel::GetFrequencyPeripheral() / 65536; // ~2S
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -63,10 +71,11 @@ KPowerManager& KPowerManager::GetInstance()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KPowerManager::Initialize(TcChannel* timerChannel, const DigitalPin& pinPowerSwitch)
+void KPowerManager::Initialize(MCU_Timer16_t* timerChannel, const DigitalPin& pinPowerSwitch)
 {
     m_TimerChannel = timerChannel;
     m_PinPowerSwitch = pinPowerSwitch;
+#if defined(__SAME70Q21__)
     kernel::Kernel::RegisterIRQHandler(PIOA_IRQn, IRQCallback, this);
     kernel::Kernel::RegisterIRQHandler(TC4_IRQn, TimerIRQCallback, this);
 
@@ -81,6 +90,10 @@ void KPowerManager::Initialize(TcChannel* timerChannel, const DigitalPin& pinPow
 
 //    SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_POWER_SW_TIMER].TC_CCR = TC_CCR_CLKEN_Msk;
 //    SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_POWER_SW_TIMER].TC_CCR = TC_CCR_SWTRG_Msk;
+#elif defined(STM32H743xx)
+#else
+#error Unknown platform
+#endif
 
     SetState(sys_power_state::running);
     Start(false);
@@ -98,9 +111,14 @@ void KPowerManager::Shutdown()
 //    QSPI_RESET_Pin   = false;
 //    WIFI_RESET_Pin   = false;
 
+#if defined(__SAME70Q21__)
     SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
     SUPC->SUPC_CR = SUPC_CR_KEY_PASSWD | SUPC_CR_VROFF_Msk;
     __WFE();
+#elif defined(STM32H743xx)
+#else
+#error Unknown platform
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,6 +162,7 @@ int KPowerManager::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+#if defined(__SAME70Q21__)
 void KPowerManager::HandleIRQ()
 {
     if (m_PinPowerSwitch.GetInterruptStatus())
@@ -210,3 +229,8 @@ void KPowerManager::HandleTimerIRQ()
         }
     }    
 }
+
+#elif defined(STM32H743xx)
+#else
+#error Unknown platform
+#endif

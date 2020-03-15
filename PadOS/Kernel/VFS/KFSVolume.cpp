@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.02.2018 01:46:15
 
- #include "sam.h"
+ #include "Platform.h"
 
 #include "KFSVolume.h"
 #include "KINode.h"

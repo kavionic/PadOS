@@ -17,15 +17,16 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "SpinTimer.h"
-#include "HAL/SAME70System.h"
+#include "Kernel/Kernel.h"
 
 using namespace kernel;
 
 uint32_t   SpinTimer::s_TicksPerMicroSec;
-TcChannel* SpinTimer::s_TimerChannel;
+//MCU_Timer16_t* SpinTimer::s_TimerChannel;
 
-void SpinTimer::Initialize(TcChannel* timerChannel)
+void SpinTimer::Initialize()
 {
-    s_TicksPerMicroSec = SAME70System::GetFrequencyPeripheral() / 1000000;
-    s_TimerChannel = timerChannel;
+//    s_TicksPerMicroSec = Kernel::GetFrequencyPeripheral() / 1000000;
+    s_TicksPerMicroSec = Kernel::GetFrequencyCore() / 1000000;
+//    s_TimerChannel = timerChannel;
 }

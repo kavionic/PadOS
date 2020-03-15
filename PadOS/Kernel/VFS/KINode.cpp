@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.02.2018 01:44:31
 
-#include "sam.h"
+#include "Platform.h"
 
 #include "KINode.h"
 #include "KFilesystem.h"

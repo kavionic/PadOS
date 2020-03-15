@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 21.10.2017 00:18:50
 
-#include "sam.h"
+#include "Platform.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -29,7 +29,7 @@
 #include <deque>
 #include <algorithm>
 
-#include "component/pio.h"
+//#include "component/pio.h"
 
 #include "System/Signals/Signal.h"
 #include "Kernel/HAL/SAME70System.h"
@@ -46,27 +46,27 @@ extern "C" void InitializeNewLibMutexes();
 
 
 
-void NonMaskableInt_Handler()
+extern "C" void NonMaskableInt_Handler()
 {
     kernel::panic("NMI\n");
 }
-void HardFault_Handler()
+extern "C" void HardFault_Handler()
 {
     kernel::panic("HardFault\n");
 }
-void MemoryManagement_Handler()
+extern "C" void MemoryManagement_Handler()
 {
     kernel::panic("MemManage\n");
 }
-void BusFault_Handler()
+extern "C" void BusFault_Handler()
 {
     kernel::panic("BusFault\n");
 }
-void UsageFault_Handler()
+extern "C" void UsageFault_Handler()
 {
     kernel::panic("UsageFault\n");
 }
-void DebugMonitor_Handler()
+extern "C" void DebugMonitor_Handler()
 {   
 }
 

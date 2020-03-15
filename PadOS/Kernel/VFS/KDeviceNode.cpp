@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 16.02.2018 20:54:52
 
- #include "sam.h"
+ #include "Platform.h"
 
 #include "KDeviceNode.h"
 #include "KFileHandle.h"

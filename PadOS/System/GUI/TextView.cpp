@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 15.04.2018 16:38:59
 
-#include "sam.h"
+#include "Platform.h"
 
 #include "TextView.h"
 #include "System/Utils/Utils.h"

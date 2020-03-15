@@ -31,7 +31,16 @@ enum I2CIOCTL
     I2CIOCTL_SET_INTERNAL_ADDR,
     I2CIOCTL_GET_INTERNAL_ADDR,
     I2CIOCTL_SET_BAUDRATE,
-    I2CIOCTL_GET_BAUDRATE
+    I2CIOCTL_GET_BAUDRATE,
+	I2CIOCTL_SET_TIMEOUT,	// Timeout in microseconds (bigtime_t) for IO operations. Defaults to INFINIT_TIMEOUT
+	I2CIOCTL_GET_TIMEOUT,
+	I2CIOCTL_CLEAR_BUS		// Clock out any ongoing bits from a faulty transaction.
+};
+
+enum I2C_ADDR_LEN
+{
+	I2C_ADDR_LEN_7BIT = 1,
+	I2C_ADDR_LEN_10BIT = 2
 };
 
 inline int I2CIOCTL_SetSlaveAddress(int device, int address) { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_SLAVE_ADDRESS, &address, sizeof(address), nullptr, 0); }
@@ -66,3 +75,8 @@ inline int I2CIOCTL_GetBaudrate(int device)
     if (os::FileIO::DeviceControl(device, I2CIOCTL_GET_BAUDRATE, nullptr, 0, &baudrate, sizeof(baudrate)) < 0) return -1;
     return baudrate;
 }
+
+inline int I2CIOCTL_SetTimeout(int device, bigtime_t timeout)  { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_TIMEOUT, &timeout, sizeof(timeout), nullptr, 0); }
+inline int I2CIOCTL_GetTimeout(int device, bigtime_t* timeout) { return os::FileIO::DeviceControl(device, I2CIOCTL_GET_TIMEOUT, nullptr, 0, timeout, sizeof(*timeout)); }
+
+inline int I2CIOCTL_ClearBus(int device) { return os::FileIO::DeviceControl(device, I2CIOCTL_CLEAR_BUS, nullptr, 0, nullptr, 0); }

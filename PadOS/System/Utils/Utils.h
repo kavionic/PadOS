@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "cmsis_gcc.h"
+//#include "cmsis_gcc.h"
 #include "System/Types.h"
 #include "System/System.h"
 #include "System/String.h"
@@ -39,6 +39,9 @@ template<typename T> inline T wrap(const T& bottom, const T& top, const T& value
         return value;
     }        
 }
+
+template<typename T1, typename T2, typename T3> inline void set_bit_group(T1& target, T2 mask, T3 value) { target = (target & ~mask) | value; }
+
 namespace os
 {
 template<typename T>
@@ -74,7 +77,7 @@ class ProfileTimer
     ~ProfileTimer()
     {
         bigtime_t time = get_system_time_hires();
-        printf("Prof: %s (%.3f)\n", m_Title.c_str(), double(time - m_StartTime) / 1000.0);
+        printf("Prof: %s (%.3f)\n", m_Title.c_str(), double(time - m_StartTime) / 1000000.0);
     }
     
     String    m_Title;

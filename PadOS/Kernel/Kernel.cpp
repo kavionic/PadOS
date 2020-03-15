@@ -20,8 +20,6 @@
 #include <assert.h>
 #include <string.h>
 
-//#include "SystemSetup.h"
-
 #include "Kernel.h"
 #include "Scheduler.h"
 #include "KPowerManager.h"
@@ -35,13 +33,14 @@
 #include "SAME70TimerDefines.h"
 #include "SpinTimer.h"
 
-
 using namespace kernel;
 using namespace os;
 
+uint32_t                      Kernel::s_FrequencyCore;
+uint32_t                      Kernel::s_FrequencyPeripheral;
 volatile bigtime_t            Kernel::s_SystemTime = 0;
 //int                           Kernel::s_LastError = 0;
-KIRQAction*                   Kernel::s_IRQHandlers[PERIPH_COUNT_IRQn];
+KIRQAction*                   Kernel::s_IRQHandlers[IRQ_COUNT];
 
 static std::map<int, KLogSeverity> gk_KernelLogLevels;
 
@@ -94,14 +93,14 @@ bool kernel::kernel_log_is_category_active(int category, KLogSeverity logLevel)
 
 void kernel::panic(const char* message)
 {
-    RGBLED_R.Write(true);
-    RGBLED_G.Write(false);
-    RGBLED_B.Write(false);
+//    RGBLED_R.Write(true);
+//    RGBLED_G.Write(false);
+//    RGBLED_B.Write(false);
 
 //    write(1, message, strlen(message));
     volatile bool freeze = true;
     while(freeze);
-    RGBLED_R.Write(false);
+//    RGBLED_R.Write(false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -123,19 +122,65 @@ bigtime_t get_real_time()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// Return system time in nano seconds with the resolution of the core clock.
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 bigtime_t get_system_time_hires()
 {
+	uint32_t coreFrequency = Kernel::GetFrequencyCore();
     for (;;)
     {
-        uint32_t ticks = SysTick->VAL;
+        uint32_t  ticks = SysTick->VAL;
         bigtime_t time = Kernel::GetTime();
-        if (SysTick->VAL <= ticks) {
-            return time + ((SAME70System::GetFrequencyCore() / 1000 - 1) - ticks) * 1000 / (SAME70System::GetFrequencyCore() / 1000);
+        if (SysTick->VAL <= ticks) { // If timer didn't wrap while reading the timer-tick count, convert sys-ticks since last wrap to nS.
+        	time *= 1000; // Convert system time from uS to nS.
+            return time + bigtime_t(SysTick->LOAD - ticks) * 1000000000LL / coreFrequency;
         }
-    }    
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Return number of core clock cycles since last wrap. Wraps every ms.
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint64_t get_core_clock_cycles()
+{
+	uint32_t timerLoadVal = SysTick->LOAD;
+
+	CRITICAL_SCOPE(CRITICAL_IRQ);
+	uint32_t ticks = SysTick->VAL;
+	return timerLoadVal - ticks;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Kernel::SetupFrequencies(uint32_t frequencyCore, uint32_t frequencyPeripheral)
+{
+    s_FrequencyCore       = frequencyCore;
+    s_FrequencyPeripheral = frequencyPeripheral;
+    SpinTimer::Initialize();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t Kernel::GetFrequencyCore()
+{
+    return s_FrequencyCore;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t Kernel::GetFrequencyPeripheral()
+{
+    return s_FrequencyPeripheral;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,11 +189,16 @@ bigtime_t get_system_time_hires()
 
 void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral)
 {
+#if defined(__SAME70Q21__)
     SUPC->SUPC_MR = SUPC_MR_KEY_PASSWD | SUPC_MR_BODRSTEN_Msk | SUPC_MR_ONREG_Msk;
     SUPC->SUPC_WUMR = SUPC_WUMR_SMEN_Msk | SUPC_WUMR_WKUPDBC_4096_SLCK;
     SUPC->SUPC_WUIR = SUPC_WUIR_WKUPEN9_Msk;
     
     WDT->WDT_MR = WDT_MR_WDDIS;
+#elif defined(STM32H743xx)
+#else
+#error Unknown platform
+#endif
 
     // FPU:
     __DSB();
@@ -168,33 +218,20 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
 
     SCB_EnableDCache();
     SCB_EnableICache();
+#if defined(__SAME70Q21__)
     SAME70System::SetupClock(frequencyCrystal, frequencyCore, frequencyPeripheral);
+#elif defined(STM32H743xx)
+#else
+#error Unknown platform
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Kernel::Initialize(uint32_t coreFrequency, TcChannel* spinTimerChannel, TcChannel* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch)
+void Kernel::Initialize(uint32_t coreFrequency, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch)
 {
-//    SAME70System::EnablePeripheralClock(ID_TC0_CHANNEL2);
-
-//    SYSTEM_TIMER->TC_BMR = TC_BMR_TC2XC2S_TIOA1_Val;// Clock XC2 is TIOA1
-
-    spinTimerChannel->TC_EMR = TC_EMR_NODIVCLK_Msk; // Run at undivided peripheral clock.
-    spinTimerChannel->TC_CMR = TC_CMR_WAVE_Msk | TC_CMR_WAVESEL_UP; // | TC_CMR_ACPA_CLEAR | TC_CMR_ACPC_SET;
-    
-    spinTimerChannel->TC_CCR = TC_CCR_CLKEN_Msk;
-    spinTimerChannel->TC_CCR = TC_CCR_SWTRG_Msk;
-    
-//    SYSTEM_TIMER->TC_BCR = TC_BCR_SYNC_Msk;
-
-    SpinTimer::Initialize(spinTimerChannel);
-    
-/*    ITM->TCR |= ITM_TCR_ITMENA_Msk;
-    ITM->TER |= 0x01;    */
-//    SWO_Init(0x1, CLOCK_CPU_FREQUENCY);
-
     ITM_SendChar('a');
     ITM_SendChar('a');
     ITM_SendChar('a');
@@ -206,14 +243,14 @@ void Kernel::Initialize(uint32_t coreFrequency, TcChannel* spinTimerChannel, TcC
 //    RGBLED_G.Write(false);
 //    RGBLED_B.Write(false);
     
-    SAME70System::ResetWatchdog();
+    ResetWatchdog();
     
     gk_KernelLogLevels[int(KLogCategory::General)]    = KLogSeverity::INFO_HIGH_VOL;
     gk_KernelLogLevels[int(KLogCategory::VFS)]        = KLogSeverity::INFO_HIGH_VOL;
     gk_KernelLogLevels[int(KLogCategory::BlockCache)] = KLogSeverity::INFO_HIGH_VOL;
     gk_KernelLogLevels[int(KLogCategory::Scheduler)]  = KLogSeverity::INFO_HIGH_VOL;
-    FileIO::Initialze();
-    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
+//    FileIO::Initialze();
+//    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
     kernel::start_scheduler(coreFrequency);
 }
 
@@ -259,7 +296,7 @@ int Kernel::RemoveDevice(int handle)
 
 int Kernel::RegisterIRQHandler(IRQn_Type irqNum, KIRQHandler* handler, void* userData)
 {
-    if (irqNum < 0 || irqNum >= PERIPH_COUNT_IRQn || handler == nullptr)
+    if (irqNum < 0 || irqNum >= IRQ_COUNT || handler == nullptr)
     {
         set_last_error(EINVAL);
         return -1;
@@ -297,7 +334,7 @@ int Kernel::RegisterIRQHandler(IRQn_Type irqNum, KIRQHandler* handler, void* use
 
 int Kernel::UnregisterIRQHandler(IRQn_Type irqNum, int handle)
 {
-    if (irqNum < 0 || irqNum >= PERIPH_COUNT_IRQn)
+    if (irqNum < 0 || irqNum >= IRQ_COUNT)
     {
         set_last_error(EINVAL);
         return -1;
@@ -332,9 +369,12 @@ int Kernel::UnregisterIRQHandler(IRQn_Type irqNum, int handle)
 
 void Kernel::HandleIRQ(IRQn_Type irqNum)
 {
-    for (KIRQAction* action = s_IRQHandlers[irqNum]; action != nullptr; action = action->m_Next) {
-        action->m_Handler(irqNum, action->m_UserData);
-    }
+	if (irqNum < IRQ_COUNT)
+	{
+		for (KIRQAction* action = s_IRQHandlers[irqNum]; action != nullptr; action = action->m_Next) {
+			action->m_Handler(irqNum, action->m_UserData);
+		}
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -343,7 +383,14 @@ void Kernel::HandleIRQ(IRQn_Type irqNum)
 
 bigtime_t Kernel::GetTime()
 {
-    for (;;)
+	bigtime_t time;
+	CRITICAL_BEGIN(CRITICAL_IRQ)
+	{
+		time = s_SystemTime;
+    } CRITICAL_END;
+	return time * 1000;
+
+/*    for (;;)
     {
         volatile uint32_t* timer = reinterpret_cast<volatile uint32_t*>(&s_SystemTime);
 
@@ -365,7 +412,7 @@ bigtime_t Kernel::GetTime()
 #else // LITTLE_ENDIAN
 #error
 #endif // LITTLE_ENDIAN
-    }
+    }*/
 }
 
 
@@ -388,7 +435,12 @@ void set_last_error(int error)
     gk_CurrentThread->m_NewLibreent._errno = error;
 }
 
+extern "C" void KernelHandleIRQ(int irq)
+{
+	Kernel::HandleIRQ(IRQn_Type(irq));
+}
 
+/*
 void SUPC_Handler         ( void ) { Kernel::HandleIRQ(SUPC_IRQn); }
 void RSTC_Handler         ( void ) { Kernel::HandleIRQ(RSTC_IRQn); }
 void RTC_Handler          ( void ) { Kernel::HandleIRQ(RTC_IRQn); }
@@ -456,3 +508,4 @@ void PWM1_Handler         ( void ) { Kernel::HandleIRQ(PWM1_IRQn); }
 void SDRAMC_Handler       ( void ) { Kernel::HandleIRQ(SDRAMC_IRQn); }
 #endif
 void RSWDT_Handler        ( void ) { Kernel::HandleIRQ(RSWDT_IRQn); }
+*/

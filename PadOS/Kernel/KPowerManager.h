@@ -40,7 +40,7 @@ public:
 
     static void SetExternalReset(bool reset);
 
-    void Initialize(TcChannel* timerChannel, const DigitalPin& pinPowerSwitch);
+    void Initialize(MCU_Timer16_t* timerChannel, const DigitalPin& pinPowerSwitch);
     static void Shutdown();
     void SetState(sys_power_state newState);
 
@@ -52,7 +52,7 @@ private:
     void        HandleIRQ();
     void        HandleTimerIRQ();
 
-    TcChannel*      m_TimerChannel = nullptr;    
+    MCU_Timer16_t*  m_TimerChannel = nullptr;
     DigitalPin      m_PinPowerSwitch;
     sys_power_state m_State = sys_power_state::uninitialized;
     bool            m_PowerButtonState = false;

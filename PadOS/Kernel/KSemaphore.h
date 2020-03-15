@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "sam.h"
+#include "Platform.h"
 
 #include <atomic>
 #include <map>

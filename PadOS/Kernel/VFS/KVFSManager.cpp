@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 19.02.2018 21:39:19
 
- #include "sam.h"
+ #include "Platform.h"
 
 #include <string.h>
 #include <assert.h>

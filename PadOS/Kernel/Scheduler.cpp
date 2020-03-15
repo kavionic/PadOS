@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 27.02.2018 21:06:38
 
-#include "sam.h"
+#include "Platform.h"
 #include <sys/errno.h>
 
 #include <string.h>
@@ -25,15 +25,16 @@
 #include <map>
 
 #include "Scheduler.h"
+
+#include "HAL/DigitalPort.h"
 #include "KProcess.h"
 #include "KSemaphore.h"
 #include "Kernel.h"
 #include "KHandleArray.h"
-//#include "SystemSetup.h"
-
-#include "Kernel/HAL/SAME70System.h"
+#include "VFS/FileIO.h"
 
 using namespace kernel;
+using namespace os;
 
 static KProcess gk_FirstProcess;
 KProcess*  volatile kernel::gk_CurrentProcess = &gk_FirstProcess;
@@ -71,10 +72,15 @@ void kernel::check_stack_overflow()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SysTick_Handler()
+extern "C" void SysTick_Handler()
 {
     disable_interrupts();
     //LCD_BL_CTRL_Pin = !LCD_BL_CTRL_Pin;
+    static int i = 0;
+    if (i++ % 1000 == 0) {
+    	DigitalPin userLED2(e_DigitalPortID_E, 1);
+    	userLED2 = !userLED2;
+    }
     Kernel::SystemTick();
     wakeup_sleeping_threads();
     KSWITCH_CONTEXT();
@@ -185,7 +191,7 @@ void SVCHandler_main(unsigned int * svc_args)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SVCall_Handler( void )
+extern "C" void SVCall_Handler( void )
 {
 }
 
@@ -221,7 +227,7 @@ static void start_first_thread()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PendSV_Handler( void )
+extern "C" void PendSV_Handler( void )
 {
     __asm volatile
     (
@@ -654,6 +660,8 @@ static void init_thread_entry(void* arguments)
 {
     KThreadCB* thread = gk_CurrentThread;
 
+    FileIO::Initialze();
+
     // To avoid any special cases in the first context switch we allow the
     // context switch routine to dump the initial context on the idle-thread's
     // stack. To make the idle-thread do it's job when all other threads go
@@ -730,6 +738,7 @@ void kernel::start_scheduler(uint32_t coreFrequency)
 
     start_first_thread();
 
+    for(;;);
     // Should never get here!
     panic("Failed to launch first thread!\n");
 }

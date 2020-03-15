@@ -110,17 +110,21 @@ bool KConditionVariable::WaitDeadline(KMutex& lock, bigtime_t deadline)
                 thread->m_State = KThreadState::Sleeping;
                 m_WaitQueue.Append(&waitNode);
                 add_to_sleep_list(&sleepNode);
+                thread->m_BlockingObject = this;
             }
             else
             {
                 set_last_error(ETIME);
                 return false;
             }
+            lock.Unlock();
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.
+        lock.Lock();
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
+        	thread->m_BlockingObject = nullptr;
             sleepNode.Detatch();
             if (waitNode.m_TargetDeleted) {
                 set_last_error(EINVAL);

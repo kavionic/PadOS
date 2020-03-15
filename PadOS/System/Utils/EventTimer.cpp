@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 25.02.2018 12:57:08
 
-#include "sam.h"
+#include "Platform.h"
 
 #include "EventTimer.h"
 #include "System/System.h"

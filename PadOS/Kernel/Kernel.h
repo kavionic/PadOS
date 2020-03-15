@@ -19,14 +19,15 @@
 
 #pragma once
 
-#include "sam.h"
+
+#include "Platform.h"
 
 #include <stdio.h>
 
 #include <vector>
 #include <atomic>
 #include <cstdint>
-#include <unistd.h>
+//#include <unistd.h>
 
 #include "System/Ptr/PtrTarget.h"
 #include "System/Ptr/Ptr.h"
@@ -126,9 +127,17 @@ void kassure(bool expression, const char* fmt, ARGS&&... args)
 class Kernel
 {
 public:
+    static void     SetupFrequencies(uint32_t frequencyCore, uint32_t frequencyPeripheral);
+    static uint32_t GetFrequencyCore();
+    static uint32_t GetFrequencyPeripheral();
 
+#if defined(__SAME70Q21__)
+    static void ResetWatchdog() { WDT->WDT_CR = WDT_CR_KEY_PASSWD | WDT_CR_WDRSTT_Msk; }
+#elif defined(STM32H743xx)
+    static void ResetWatchdog() { /*IWDG1->KR = 0xaaaa;*/ }
+#endif
     static void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
-    static void Initialize(uint32_t coreFrequency, TcChannel* spinTimerChannel, TcChannel* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch);
+    static void Initialize(uint32_t coreFrequency, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch);
     static void SystemTick();
     static int RegisterDevice(const char* path, Ptr<KINode> deviceNode);
     static int RenameDevice(int handle, const char* newPath);
@@ -144,11 +153,13 @@ public:
     static bigtime_t GetTime();
 
 
-private:
+//private:
 
+    static uint32_t s_FrequencyCore;
+    static uint32_t s_FrequencyPeripheral;
     static volatile bigtime_t   s_SystemTime;
 //    static int                  s_LastError;
-    static KIRQAction*                   s_IRQHandlers[PERIPH_COUNT_IRQn];
+    static KIRQAction*                   s_IRQHandlers[IRQ_COUNT];
 };
 
 } // namespace

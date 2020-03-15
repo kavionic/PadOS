@@ -20,7 +20,7 @@
 #pragma once
 
 
-#include "sam.h"
+#include "Platform.h"
 
 #include <stdint.h>
 #include <atomic>

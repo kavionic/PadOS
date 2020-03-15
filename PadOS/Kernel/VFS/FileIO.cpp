@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 08.05.2018 20:01:27
 
-#include "sam.h"
+#include "Platform.h"
 
 #include <string.h>
 #include <fcntl.h>
@@ -46,6 +46,9 @@ std::vector<Ptr<KFileTableNode>>               FileIO::s_FileTable;
 void FileIO::Initialze()
 {
     s_PlaceholderFile = ptr_new<KFileTableNode>(false);
+//    s_FileTable.push_back(s_PlaceholderFile);
+//    s_FileTable.push_back(s_PlaceholderFile);
+//    s_FileTable.push_back(s_PlaceholderFile);
     s_RootFilesystem = ptr_new<KRootFilesystem>();
     s_RootVolume =  s_RootFilesystem->Mount(VOLID_ROOT, "", 0, nullptr, 0);
 }

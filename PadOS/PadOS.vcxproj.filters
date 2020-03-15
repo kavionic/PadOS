@@ -1,0 +1,1013 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="Source Files\Applications">
+      <UniqueIdentifier>{57d33b6c-e4de-4a4d-8c14-1e43035c7927}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Applications\WindowManager">
+      <UniqueIdentifier>{9107b79f-8e65-4421-af84-d36db29969d6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\System">
+      <UniqueIdentifier>{4c4e06bf-7f3a-445a-9683-9b0574f9c1b8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ApplicationServer">
+      <UniqueIdentifier>{2bc43b59-8bb6-4af3-a25f-e9643cd99650}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ASF">
+      <UniqueIdentifier>{c864b277-3995-4d1f-b933-d7d0397a7e20}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ASF\common">
+      <UniqueIdentifier>{130e7486-539f-4923-8179-0e40666344ec}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ASF\common\utils">
+      <UniqueIdentifier>{5b231edb-02c0-47f4-916e-46f46ce4eed2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ASF\common\utils\interrupt">
+      <UniqueIdentifier>{93a19618-0d0a-4766-833e-af78d448b997}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ASF\sam">
+      <UniqueIdentifier>{5196d7a9-5eff-4dab-886d-661cca26e135}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ASF\sam\drivers">
+      <UniqueIdentifier>{630e5856-cc22-4aba-a63c-6dc9efb2c171}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ASF\sam\utils">
+      <UniqueIdentifier>{c4849234-bb4a-4dcf-b1f6-0b763f625916}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ASF\sam\drivers\xdmac">
+      <UniqueIdentifier>{280199d6-ceed-412a-82e6-7b5b0e95f1d8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ASF\sam\utils\header_files">
+      <UniqueIdentifier>{ff20f9c7-254b-420c-9bda-a3e2957f8ecc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ASF\sam\utils\preprocessor">
+      <UniqueIdentifier>{8423d41f-40f7-4fcc-9765-e6941b3b5f64}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\DeviceControl">
+      <UniqueIdentifier>{62ebe5ec-cf38-4456-b4af-8f9d6a91ef76}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernel">
+      <UniqueIdentifier>{fbbe8861-320d-4464-ac41-428628044a6b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernel\Drivers">
+      <UniqueIdentifier>{06018226-ebe3-4a7c-ac0a-afe0ea6837b6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernel\Drivers\RA8875Driver">
+      <UniqueIdentifier>{c1558d8f-59c4-4727-8918-f246a84be5a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernel\Drivers\STM32">
+      <UniqueIdentifier>{d75b38d5-00f9-4325-a014-f40990e5064f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernel\Drivers\RA8875Driver\Fonts">
+      <UniqueIdentifier>{d0ec2193-a4e8-4aa9-b783-9edeb38e91ee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernel\FSDrivers">
+      <UniqueIdentifier>{6e960bb4-d097-4bac-9a63-bec61c45dda6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernel\FSDrivers\FAT">
+      <UniqueIdentifier>{ae0801ce-a80b-4327-9955-d2f530448bba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernel\HAL">
+      <UniqueIdentifier>{44e05e7c-ef82-4ea1-a39c-d10ac920b416}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernel\HAL\STM32">
+      <UniqueIdentifier>{0d8f407f-75fb-4c0a-aeee-42fd4bec62c8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernel\VFS">
+      <UniqueIdentifier>{2a1c5579-f562-4dc5-937c-ad355bda6199}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformDrivers">
+      <UniqueIdentifier>{1c26b6da-72f2-4fbf-9def-3768572c4893}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformDrivers\CMSIS">
+      <UniqueIdentifier>{01a6055c-5594-4d25-a8bf-8afe3aef4d01}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformDrivers\CMSIS\Device">
+      <UniqueIdentifier>{ba0e92c7-bcec-408f-b7ba-8a81758b1db0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformDrivers\CMSIS\Device\ST">
+      <UniqueIdentifier>{ebe8a6a5-ec23-479c-b297-5a6912426d50}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformDrivers\CMSIS\Device\ST\STM32H7xx">
+      <UniqueIdentifier>{0ba3cd24-f386-4733-9621-518340823c47}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include">
+      <UniqueIdentifier>{9351806c-729f-4a00-adb0-c1b0ac835cdf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformDrivers\CMSIS\Include">
+      <UniqueIdentifier>{2cee23d0-e4a5-4d9d-bb16-b2ee3aaa2d4f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformDrivers\STM32H7xx_HAL_Driver">
+      <UniqueIdentifier>{8510a9ff-5e13-46c6-ae5c-0261610df0d8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc">
+      <UniqueIdentifier>{388f5b96-69b8-4309-b3e1-63ea66dddaa4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc\Legacy">
+      <UniqueIdentifier>{64ec4433-6014-4a9e-9865-8ceb6b29e49f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src">
+      <UniqueIdentifier>{3b0f106d-1f1c-4589-a65f-9bdac8468a7e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\System\GUI">
+      <UniqueIdentifier>{5b748d0e-b72e-4d34-81f4-7e3425a064f3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\System\Math">
+      <UniqueIdentifier>{53ab8a59-5603-41f4-8a3d-613e46756d7d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\System\Ptr">
+      <UniqueIdentifier>{b851c0f7-a9ff-440a-b871-5039f5356fc1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\System\Signals">
+      <UniqueIdentifier>{8ab790c0-aa01-49b6-9ae9-8c9c26803ddf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\System\Threads">
+      <UniqueIdentifier>{b9331bd0-15fc-4e67-8d62-54e05af67f1a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\System\Utils">
+      <UniqueIdentifier>{c11af63f-1094-49aa-8ca3-5eee78e4d5b9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="release\SAME70XplainedTest.bin">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="Makefile">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="makefile.rules">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="System\Files.mk">
+      <Filter>Source Files\System</Filter>
+    </None>
+    <None Include="Kernel\Drivers\STM32\Files.mk">
+      <Filter>Source Files\Kernel\Drivers\STM32</Filter>
+    </None>
+    <None Include="Kernel\HAL\STM32\Files.mk">
+      <Filter>Source Files\Kernel\HAL\STM32</Filter>
+    </None>
+    <None Include="Kernel\VFS\Files.mk">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </None>
+    <None Include="Kernel\Files.mk">
+      <Filter>Source Files\Kernel</Filter>
+    </None>
+    <None Include="System\Ptr\Files.mk">
+      <Filter>Source Files\System\Ptr</Filter>
+    </None>
+    <None Include="System\Signals\Files.mk">
+      <Filter>Source Files\System\Signals</Filter>
+    </None>
+    <None Include="System\Threads\Files.mk">
+      <Filter>Source Files\System\Threads</Filter>
+    </None>
+    <None Include="Kernel\Drivers\I2CDriver.h">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Init.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MemTest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MPU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="posix.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SDRAM.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Applications\WindowManager\WindowManager.cpp">
+      <Filter>Source Files\Applications\WindowManager</Filter>
+    </ClCompile>
+    <ClCompile Include="System\String.cpp">
+      <Filter>Source Files\System</Filter>
+    </ClCompile>
+    <ClCompile Include="ApplicationServer\ApplicationServer.cpp">
+      <Filter>Source Files\ApplicationServer</Filter>
+    </ClCompile>
+    <ClCompile Include="ApplicationServer\ServerApplication.cpp">
+      <Filter>Source Files\ApplicationServer</Filter>
+    </ClCompile>
+    <ClCompile Include="ApplicationServer\ServerView.cpp">
+      <Filter>Source Files\ApplicationServer</Filter>
+    </ClCompile>
+    <ClCompile Include="ASF\sam\drivers\xdmac\xdmac.c">
+      <Filter>Source Files\ASF\sam\drivers\xdmac</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_14.c">
+      <Filter>Source Files\Kernel\Drivers\RA8875Driver\Fonts</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_20.c">
+      <Filter>Source Files\Kernel\Drivers\RA8875Driver\Fonts</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_72.c">
+      <Filter>Source Files\Kernel\Drivers\RA8875Driver\Fonts</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\RA8875Driver\GfxDriver.cpp">
+      <Filter>Source Files\Kernel\Drivers\RA8875Driver</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\STM32\USARTDriver.cpp">
+      <Filter>Source Files\Kernel\Drivers\STM32</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\BME280Driver.cpp">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\FT5x0xDriver.cpp">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\HSMCIDriver.cpp">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\INA3221Driver.cpp">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\UART.cpp">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\UARTDriver.cpp">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATClusterSectorIterator.cpp">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATDirectoryIterator.cpp">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATDirectoryNode.cpp">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATFileNode.cpp">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATFilesystem.cpp">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATINode.cpp">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATTable.cpp">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATTableIterator.cpp">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\FSDrivers\FAT\FATVolume.cpp">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\HAL\STM32\DMA_STM32.cpp">
+      <Filter>Source Files\Kernel\HAL\STM32</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\HAL\DigitalPort.cpp">
+      <Filter>Source Files\Kernel\HAL</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\HAL\SAME70System.cpp">
+      <Filter>Source Files\Kernel\HAL</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\VFS\FileIO.cpp">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\VFS\KBlockCache.cpp">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\VFS\KDeviceNode.cpp">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\VFS\KFileHandle.cpp">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\VFS\KFilesystem.cpp">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\VFS\KFSVolume.cpp">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\VFS\KINode.cpp">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\VFS\KIOContext.cpp">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\VFS\KNodeMonitor.cpp">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\VFS\KRootFilesystem.cpp">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\VFS\KVFSManager.cpp">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\KConditionVariable.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Kernel.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\KHandleArray.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\KMessagePort.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\KMutex.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\KNamedObject.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\KObjectWaitGroup.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\KPowerManager.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\KProcess.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\KSemaphore.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\KThreadCB.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Scheduler.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\SpinTimer.cpp">
+      <Filter>Source Files\Kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_cortex.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_dma.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_dma_ex.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_exti.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_flash.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_flash_ex.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_gpio.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_hsem.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_i2c.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_i2c_ex.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_mdma.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_pwr.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_pwr_ex.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_rcc.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_rcc_ex.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_tim.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_tim_ex.c">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
+    </ClCompile>
+    <ClCompile Include="System\GUI\Application.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\GUI\Button.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\GUI\Font.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\GUI\LayoutNode.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\GUI\Region.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\GUI\TextView.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\GUI\View.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Math\LineSegment.cpp">
+      <Filter>Source Files\System\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Math\Rect.cpp">
+      <Filter>Source Files\System\Math</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Ptr\PtrTarget.cpp">
+      <Filter>Source Files\System\Ptr</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Signals\SignalBase.cpp">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Signals\SignalSystem.cpp">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Signals\SignalTarget.cpp">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Signals\SlotBase.cpp">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Threads\EventHandler.cpp">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Threads\Looper.cpp">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Threads\Semaphore.cpp">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Threads\Thread.cpp">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Threads\ThreadLocal.cpp">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Utils\EventTimer.cpp">
+      <Filter>Source Files\System\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Utils\IntrusiveList.cpp">
+      <Filter>Source Files\System\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Utils\MessagePort.cpp">
+      <Filter>Source Files\System\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Utils\Utils.cpp">
+      <Filter>Source Files\System\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\STM32\I2CDriver.cpp">
+      <Filter>Source Files\Kernel\Drivers\STM32</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\I2CDriver.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\STM32\TLV493DDriver.cpp">
+      <Filter>Source Files\Kernel\Drivers\STM32</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="MemTest.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MPU.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SAME70TimerDefines.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SDRAM.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Applications\WindowManager\WindowManager.h">
+      <Filter>Source Files\Applications\WindowManager</Filter>
+    </ClInclude>
+    <ClInclude Include="System\String.h">
+      <Filter>Source Files\System</Filter>
+    </ClInclude>
+    <ClInclude Include="System\System.h">
+      <Filter>Source Files\System</Filter>
+    </ClInclude>
+    <ClInclude Include="System\SystemMessageIDs.h">
+      <Filter>Source Files\System</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Threads.h">
+      <Filter>Source Files\System</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Types.h">
+      <Filter>Source Files\System</Filter>
+    </ClInclude>
+    <ClInclude Include="System\UTF8Utils.h">
+      <Filter>Source Files\System</Filter>
+    </ClInclude>
+    <ClInclude Include="ApplicationServer\ApplicationServer.h">
+      <Filter>Source Files\ApplicationServer</Filter>
+    </ClInclude>
+    <ClInclude Include="ApplicationServer\Protocol.h">
+      <Filter>Source Files\ApplicationServer</Filter>
+    </ClInclude>
+    <ClInclude Include="ApplicationServer\ServerApplication.h">
+      <Filter>Source Files\ApplicationServer</Filter>
+    </ClInclude>
+    <ClInclude Include="ApplicationServer\ServerView.h">
+      <Filter>Source Files\ApplicationServer</Filter>
+    </ClInclude>
+    <ClInclude Include="ASF\common\utils\interrupt.h">
+      <Filter>Source Files\ASF\common\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="ASF\common\utils\parts.h">
+      <Filter>Source Files\ASF\common\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="ASF\common\utils\interrupt\interrupt_sam_nvic.h">
+      <Filter>Source Files\ASF\common\utils\interrupt</Filter>
+    </ClInclude>
+    <ClInclude Include="ASF\sam\drivers\xdmac\xdmac.h">
+      <Filter>Source Files\ASF\sam\drivers\xdmac</Filter>
+    </ClInclude>
+    <ClInclude Include="ASF\sam\utils\header_files\io.h">
+      <Filter>Source Files\ASF\sam\utils\header_files</Filter>
+    </ClInclude>
+    <ClInclude Include="ASF\sam\utils\preprocessor\mrepeat.h">
+      <Filter>Source Files\ASF\sam\utils\preprocessor</Filter>
+    </ClInclude>
+    <ClInclude Include="ASF\sam\utils\preprocessor\preprocessor.h">
+      <Filter>Source Files\ASF\sam\utils\preprocessor</Filter>
+    </ClInclude>
+    <ClInclude Include="ASF\sam\utils\preprocessor\stringz.h">
+      <Filter>Source Files\ASF\sam\utils\preprocessor</Filter>
+    </ClInclude>
+    <ClInclude Include="ASF\sam\utils\preprocessor\tpaste.h">
+      <Filter>Source Files\ASF\sam\utils\preprocessor</Filter>
+    </ClInclude>
+    <ClInclude Include="ASF\sam\utils\compiler.h">
+      <Filter>Source Files\ASF\sam\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="ASF\sam\utils\status_codes.h">
+      <Filter>Source Files\ASF\sam\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceControl\BME280.h">
+      <Filter>Source Files\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceControl\DeviceControl.h">
+      <Filter>Source Files\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceControl\FT5x0x.h">
+      <Filter>Source Files\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceControl\I2C.h">
+      <Filter>Source Files\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceControl\INA3221.h">
+      <Filter>Source Files\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceControl\SDCARD.h">
+      <Filter>Source Files\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_14.h">
+      <Filter>Source Files\Kernel\Drivers\RA8875Driver\Fonts</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_20.h">
+      <Filter>Source Files\Kernel\Drivers\RA8875Driver\Fonts</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_72.h">
+      <Filter>Source Files\Kernel\Drivers\RA8875Driver\Fonts</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\RA8875Driver\Font.h">
+      <Filter>Source Files\Kernel\Drivers\RA8875Driver</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\RA8875Driver\GfxDriver.h">
+      <Filter>Source Files\Kernel\Drivers\RA8875Driver</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\STM32\USARTDriver.h">
+      <Filter>Source Files\Kernel\Drivers\STM32</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\BME280Driver.h">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\FT5x0xDriver.h">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\HSMCIDriver.h">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\INA3221Driver.h">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\sd_mmc_protocol.h">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\UART.h">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\UARTDriver.h">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATClusterSectorIterator.h">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATDirectoryIterator.h">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATDirectoryNode.h">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATFileNode.h">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATFilesystem.h">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATINode.h">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATTable.h">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATTableIterator.h">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\FSDrivers\FAT\FATVolume.h">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\HAL\STM32\DMA_STM32.h">
+      <Filter>Source Files\Kernel\HAL\STM32</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\HAL\STM32\DMARequestID.h">
+      <Filter>Source Files\Kernel\HAL\STM32</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\HAL\DigitalPort.h">
+      <Filter>Source Files\Kernel\HAL</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\HAL\DigitalPort_ATSAM.h">
+      <Filter>Source Files\Kernel\HAL</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\HAL\DigitalPort_STM32.h">
+      <Filter>Source Files\Kernel\HAL</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\HAL\DMA.h">
+      <Filter>Source Files\Kernel\HAL</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\HAL\SAME70System.h">
+      <Filter>Source Files\Kernel\HAL</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\HAL\STM32H7System.h">
+      <Filter>Source Files\Kernel\HAL</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\VFS\FileIO.h">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\VFS\KBlockCache.h">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\VFS\KDeviceNode.h">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\VFS\KFileHandle.h">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\VFS\KFilesystem.h">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\VFS\KFSVolume.h">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\VFS\KINode.h">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\VFS\KIOContext.h">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\VFS\KNodeMonitor.h">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\VFS\KRootFilesystem.h">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\VFS\KVFSManager.h">
+      <Filter>Source Files\Kernel\VFS</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\KConditionVariable.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Kernel.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\KHandleArray.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\KMessagePort.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\KMutex.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\KNamedObject.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\KObjectWaitGroup.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\KPowerManager.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\KProcess.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\KSemaphore.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\KThreadCB.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Scheduler.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\SpinTimer.h">
+      <Filter>Source Files\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\stm32h7xx.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\stm32h743xx.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\system_stm32h7xx.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_armcc.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_armclang.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_compiler.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_gcc.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_iccarm.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_version.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_armv8mbl.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_armv8mml.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm0.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm0plus.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm1.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm3.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm4.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm7.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm23.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm33.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_sc000.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_sc300.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\mpu_armv7.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\mpu_armv8.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\CMSIS\Include\tz_context.h">
+      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\Legacy\stm32_hal_legacy.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc\Legacy</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_cortex.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_def.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_dma.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_dma_ex.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_exti.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash_ex.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_gpio.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_gpio_ex.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_hsem.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_i2c.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_i2c_ex.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_mdma.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_pwr.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_pwr_ex.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_rcc.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_rcc_ex.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim_ex.h">
+      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
+    </ClInclude>
+    <ClInclude Include="System\GUI\Application.h">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="System\GUI\Button.h">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="System\GUI\Color.h">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="System\GUI\Font.h">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="System\GUI\GUIEvent.h">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="System\GUI\LayoutNode.h">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="System\GUI\Region.h">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="System\GUI\TextView.h">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="System\GUI\View.h">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Math\LineSegment.h">
+      <Filter>Source Files\System\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Math\Point.h">
+      <Filter>Source Files\System\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Math\Rect.h">
+      <Filter>Source Files\System\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Ptr\NoPtr.h">
+      <Filter>Source Files\System\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Ptr\Ptr.h">
+      <Filter>Source Files\System\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Ptr\Ptr.inl.h">
+      <Filter>Source Files\System\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Ptr\PtrTarget.h">
+      <Filter>Source Files\System\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Ptr\SigWeakPtr.h">
+      <Filter>Source Files\System\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Ptr\SigWeakPtr.inl.h">
+      <Filter>Source Files\System\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Ptr\WeakPtr.h">
+      <Filter>Source Files\System\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Ptr\WeakPtr.inl.h">
+      <Filter>Source Files\System\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Signals\RemoteSignal.h">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Signals\Signal.h">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Signals\SignalBase.h">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Signals\SignalSlotList.h">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Signals\SignalSystem.h">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Signals\SignalTarget.h">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Signals\Slot.h">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Signals\SlotBase.h">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Signals\VFConnector.h">
+      <Filter>Source Files\System\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Threads\EventHandler.h">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Threads\Looper.h">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Threads\Mutex.h">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Threads\Semaphore.h">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Threads\Thread.h">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Threads\ThreadLocal.h">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Utils\EventTimer.h">
+      <Filter>Source Files\System\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Utils\IntrusiveList.h">
+      <Filter>Source Files\System\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Utils\MessagePort.h">
+      <Filter>Source Files\System\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="System\Utils\Utils.h">
+      <Filter>Source Files\System\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\STM32\I2CDriver.h">
+      <Filter>Source Files\Kernel\Drivers\STM32</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\STM32\TLV493DDriver.h">
+      <Filter>Source Files\Kernel\Drivers\STM32</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceControl\TLV493D.h">
+      <Filter>Source Files\DeviceControl</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

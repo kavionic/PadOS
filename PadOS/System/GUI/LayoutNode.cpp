@@ -16,7 +16,7 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "sam.h"
+#include "Platform.h"
 
 #include <algorithm>
 #include <stdio.h>

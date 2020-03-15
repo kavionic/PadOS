@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2017-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2017-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "sam.h"
+#include "Platform.h"
 #include "System/Utils/Utils.h"
 
 class SAME70System
@@ -27,19 +27,10 @@ class SAME70System
 public:
     static SAME70System Instance;
     static void SetupClock(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
-    static void SetupFrequencies(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
- 
-    static void ResetWatchdog() { WDT->WDT_CR = WDT_CR_KEY_PASSWD | WDT_CR_WDRSTT_Msk; }
     
     static void EnablePeripheralClock(int perifID);
     static void DisablePeripheralClock(int perifID);
-    
-    static uint32_t GetFrequencyCrystal();
-    static uint32_t GetFrequencyCore();
-    static uint32_t GetFrequencyPeripheral();
-    
+      
 private:
     static uint32_t s_FrequencyCrystal;
-    static uint32_t s_FrequencyCore;
-    static uint32_t s_FrequencyPeripheral;
 };

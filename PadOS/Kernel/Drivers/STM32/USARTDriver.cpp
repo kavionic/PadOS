@@ -24,12 +24,15 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USARTDriverINode::USARTDriverINode(USART_TypeDef* port, uint32_t clockFrequency, KFilesystemFileOps* fileOps)
+USARTDriverINode::USARTDriverINode(USART_TypeDef* port, DMAMUX1_REQUEST dmaRequestRX, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency, KFilesystemFileOps* fileOps)
 	: KINode(nullptr, nullptr, fileOps, false)
 	, m_MutexRead("USARTDriverINodeRead")
 	, m_MutexWrite("USARTDriverINodeWrite")
 	, m_ReceiveCondition("USARTDriverINodeReceive")
 	, m_TransmitCondition("USARTDriverINodeTransmit")
+	, m_DMARequestRX(dmaRequestRX)
+	, m_DMARequestTX(dmaRequestTX)
+
 {
 	m_Port = port;
 
@@ -51,7 +54,7 @@ USARTDriverINode::USARTDriverINode(USART_TypeDef* port, uint32_t clockFrequency,
 		NVIC_ClearPendingIRQ(irq);
 		kernel::Kernel::RegisterIRQHandler(irq, IRQCallbackReceive, this);
 
-		dma_setup_per_to_mem(m_ReceiveDMAChannel, DMAMUX1_REQUEST::REQ_USART1_RX, m_ReceiveBuffer, &m_Port->RDR, m_ReceiveBufferSize);
+		dma_setup_per_to_mem(m_ReceiveDMAChannel, m_DMARequestRX, m_ReceiveBuffer, &m_Port->RDR, m_ReceiveBufferSize);
 		dma_start(m_ReceiveDMAChannel);
 	}
 	if (m_SendDMAChannel != -1)
@@ -89,14 +92,14 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length)
 		if (length == bytesReceived)
 		{
 			m_ReceiveBufferInPos = 0;
-			dma_setup_per_to_mem(m_ReceiveDMAChannel, DMAMUX1_REQUEST::REQ_USART1_RX, m_ReceiveBuffer, &m_Port->RDR, m_ReceiveBufferSize);
+			dma_setup_per_to_mem(m_ReceiveDMAChannel, m_DMARequestRX, m_ReceiveBuffer, &m_Port->RDR, m_ReceiveBufferSize);
 		}
 		else
 		{
 			memmove(m_ReceiveBuffer, m_ReceiveBuffer + length, bytesReceived - length);
 			SCB_CleanInvalidateDCache();
 			m_ReceiveBufferInPos = bytesReceived - length;
-			dma_setup_per_to_mem(m_ReceiveDMAChannel, DMAMUX1_REQUEST::REQ_USART1_RX, m_ReceiveBuffer + m_ReceiveBufferInPos, &m_Port->RDR, m_ReceiveBufferSize - m_ReceiveBufferInPos);
+			dma_setup_per_to_mem(m_ReceiveDMAChannel, m_DMARequestRX, m_ReceiveBuffer + m_ReceiveBufferInPos, &m_Port->RDR, m_ReceiveBufferSize - m_ReceiveBufferInPos);
 		}
 		dma_start(m_ReceiveDMAChannel);
 		return length;
@@ -112,7 +115,7 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length)
 		}
 		for (size_t currentLen = std::min<size_t>(m_ReceiveBufferSize, remainingLen); remainingLen > 0; remainingLen -= currentLen, currentTarget += currentLen)
 		{
-			dma_setup_per_to_mem(m_ReceiveDMAChannel, DMAMUX1_REQUEST::REQ_USART1_RX, m_ReceiveBuffer, &m_Port->RDR, currentLen);
+			dma_setup_per_to_mem(m_ReceiveDMAChannel, m_DMARequestRX, m_ReceiveBuffer, &m_Port->RDR, currentLen);
 			CRITICAL_BEGIN(CRITICAL_IRQ)
 			{
 				dma_start(m_ReceiveDMAChannel);
@@ -122,7 +125,7 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length)
 			memcpy(currentTarget, m_ReceiveBuffer, currentLen);
 		}
 		m_ReceiveBufferInPos = 0;
-		dma_setup_per_to_mem(m_ReceiveDMAChannel, DMAMUX1_REQUEST::REQ_USART1_RX, m_ReceiveBuffer, &m_Port->RDR, m_ReceiveBufferSize);
+		dma_setup_per_to_mem(m_ReceiveDMAChannel, m_DMARequestRX, m_ReceiveBuffer, &m_Port->RDR, m_ReceiveBufferSize);
 		dma_start(m_ReceiveDMAChannel);
 	}
 	return length;
@@ -144,7 +147,7 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
 	{
 		m_Port->ICR = USART_ICR_TCCF;
 
-		dma_setup_mem_to_per(m_SendDMAChannel, DMAMUX1_REQUEST::REQ_USART1_TX, &m_Port->TDR, currentTarget, currentLen);
+		dma_setup_mem_to_per(m_SendDMAChannel, m_DMARequestTX, &m_Port->TDR, currentTarget, currentLen);
 		CRITICAL_BEGIN(CRITICAL_IRQ)
 		{
 			dma_start(m_SendDMAChannel);
@@ -200,9 +203,9 @@ USARTDriver::~USARTDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USARTDriver::Setup(const char* devicePath, USART_TypeDef* port, uint32_t clockFrequency)
+void USARTDriver::Setup(const char* devicePath, USART_TypeDef* port, DMAMUX1_REQUEST dmaRequestRX, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency)
 {
-    Ptr<USARTDriverINode> node = ptr_new<USARTDriverINode>(port, clockFrequency, this);
+    Ptr<USARTDriverINode> node = ptr_new<USARTDriverINode>(port, dmaRequestRX, dmaRequestTX, clockFrequency, this);
     Kernel::RegisterDevice(devicePath, node);
 }
 

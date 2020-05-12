@@ -103,6 +103,11 @@
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="ApplicationServer\Files.mk" />
+    <None Include="Applications\WindowManager\Files.mk" />
+    <None Include="Kernel\Drivers\Files.mk" />
+    <None Include="Kernel\Drivers\RA8875Driver\Files.mk" />
+    <None Include="Kernel\Drivers\RA8875Driver\Fonts\Files.mk" />
     <None Include="Kernel\Drivers\STM32\Files.mk" />
     <None Include="Kernel\Files.mk" />
     <None Include="Kernel\HAL\STM32\Files.mk" />
@@ -111,9 +116,12 @@
     <None Include="makefile.rules" />
     <None Include="release\SAME70XplainedTest.bin" />
     <None Include="System\Files.mk" />
+    <None Include="System\GUI\Files.mk" />
+    <None Include="System\Math\Files.mk" />
     <None Include="System\Ptr\Files.mk" />
     <None Include="System\Signals\Files.mk" />
     <None Include="System\Threads\Files.mk" />
+    <None Include="System\Utils\Files.mk" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ApplicationServer\ApplicationServer.cpp" />

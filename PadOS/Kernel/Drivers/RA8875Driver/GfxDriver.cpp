@@ -27,8 +27,6 @@
 #include "Fonts/MicrosoftSansSerif_20.h"
 #include "Fonts/MicrosoftSansSerif_72.h"
 
-#include "Kernel/SpinTimer.h"
-
 using namespace kernel;
 
 GfxDriver GfxDriver::Instance;
@@ -67,17 +65,12 @@ void GfxDriver::InitDisplay(LCDRegisters* registers, const DigitalPin& pinLCDRes
     m_PinLCDReset.SetDirection(DigitalPinDirection_e::Out);
     m_PinBacklightControl.SetDirection(DigitalPinDirection_e::Out);
 
-    SMC->SMC_WPMR = SMC_WPMR_WPKEY_PASSWD;
-    SMC->SmcCsNumber[3].SMC_SETUP = SMC_SETUP_NWE_SETUP(0) | SMC_SETUP_NCS_WR_SETUP(0) | SMC_SETUP_NRD_SETUP(0);
-    SMC->SmcCsNumber[3].SMC_PULSE = SMC_PULSE_NWE_PULSE(5) | SMC_PULSE_NCS_WR_PULSE(10) | SMC_PULSE_NRD_PULSE(5) | SMC_PULSE_NCS_RD_PULSE(10);
-    SMC->SmcCsNumber[3].SMC_CYCLE = SMC_CYCLE_NWE_CYCLE(10) | SMC_CYCLE_NRD_CYCLE(10);
-    SMC->SmcCsNumber[3].SMC_MODE = SMC_MODE_READ_MODE_Msk | SMC_MODE_WRITE_MODE_Msk | SMC_MODE_EXNW_MODE_DISABLED | SMC_MODE_BAT_BYTE_WRITE | SMC_MODE_DBW_16_BIT | SMC_MODE_TDF_CYCLES(0); // | SMC_MODE_TDF_MODE_Msk;
 
-    SpinTimer::SleepMS(1);
+    snooze(bigtime_from_ms(1));
     m_PinLCDReset = false;
-    SpinTimer::SleepMS(10);
+	snooze(bigtime_from_ms(10));
     m_PinLCDReset = true;
-    SpinTimer::SleepMS(100);
+	snooze(bigtime_from_ms(100));
 
     PLL_ini();
     
@@ -86,7 +79,7 @@ void GfxDriver::InitDisplay(LCDRegisters* registers, const DigitalPin& pinLCDRes
     
     WriteCommand(RA8875_PCSR); // PCLK
     WriteData(0x81);
-    SpinTimer::SleepMS(1);
+	snooze(bigtime_from_ms(1));
 
     //Horizontal set
     WriteCommand(RA8875_HDWR, 100-1);  //Horizontal display width(pixels) = (HDWR + 1)*8
@@ -182,7 +175,7 @@ void GfxDriver::SetFgColor(uint16_t color)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void GfxDriver::SetBgColor( uint16_t color )
+void GfxDriver::SetBgColor(uint16_t color)
 {
     m_BgColor = color;
     WaitBlitter();
@@ -296,7 +289,12 @@ void GfxDriver::FillRect(const IRect& frame)
 #if 1
     BLT_FillRect(frame);
 #else
-    if (x1 > 799) x1 = 799;
+	int32_t x1 = frame.left;
+	int32_t y1 = frame.top;
+	int32_t x2 = frame.right;
+	int32_t y2 = frame.bottom;
+
+	if (x1 > 799) x1 = 799;
     if (x2 > 799) x2 = 799;
     
     if (y1 > 479) y1 = 479;
@@ -414,19 +412,22 @@ void GfxDriver::DrawVLine(int x, int y, int l)
 
 void GfxDriver::FillCircle(int32_t x, int32_t y, int32_t radius)
 {
+#if 1
     BLT_FillCircle(x, y, radius);
-/*    for( int y1 =- radius ; y1 <= 0; ++y1 )
+#else
+    for( int y1 =- radius ; y1 <= 0; ++y1 )
     {
         for( int x1 =- radius; x1 <= 0; ++x1 )
         {
             if( x1*x1 + y1*y1 <= radius*radius )
             {
-                DrawHLine(m_FgColor, x+x1, y+y1, 2*(-x1));
-                DrawHLine(m_FgColor, x+x1, y-y1, 2*(-x1));
+                DrawHLine(x+x1, y+y1, 2*(-x1));
+                DrawHLine(x+x1, y-y1, 2*(-x1));
                 break;
             }
         }
-    } */
+    }
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -692,10 +693,10 @@ void GfxDriver::PLL_ini()
 {
     WriteCommand(RA8875_PLLC1);
     WriteData(0x0a);
-    SpinTimer::SleepMS(1);
+	snooze(bigtime_from_ms(1));
     WriteCommand(RA8875_PLLC2);
     WriteData(0x02);
-    SpinTimer::SleepMS(1);
+	snooze(bigtime_from_ms(1));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

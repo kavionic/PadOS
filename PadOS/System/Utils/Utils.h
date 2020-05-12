@@ -42,6 +42,16 @@ template<typename T> inline T wrap(const T& bottom, const T& top, const T& value
 
 template<typename T1, typename T2, typename T3> inline void set_bit_group(T1& target, T2 mask, T3 value) { target = (target & ~mask) | value; }
 
+inline uint32_t nanoseconds_to_cycles_floor(uint32_t clockFrequency, uint32_t nanoSeconds)
+{
+	return uint32_t((uint64_t(clockFrequency) * uint64_t(nanoSeconds)) / 1000000000);
+}
+
+inline uint32_t nanoseconds_to_cycles_ceil(uint32_t clockFrequency, uint32_t nanoSeconds)
+{
+	return uint32_t((uint64_t(clockFrequency) * uint64_t(nanoSeconds) + 1000000000 - 1) / 1000000000);
+}
+
 namespace os
 {
 template<typename T>

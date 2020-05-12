@@ -350,6 +350,7 @@ void HLayoutNode::Layout()
                 case Alignment::Top:    y = bounds.top; break;
                 case Alignment::Right:  y = bounds.bottom - frame.Height() - 1.0f; break;
                 default:           printf( "Error: HLayoutNode::Layout() node '%s' has invalid v-alignment %d\n", m_View->GetName().c_str(), int(childList[i]->GetVAlignment()) );
+                [[fallthrough]];
                 case Alignment::Center: y = bounds.top + (bounds.Height() - frame.Height()) * 0.5f; break;
             }
             
@@ -468,6 +469,7 @@ void VLayoutNode::Layout()
                 case Alignment::Left:   x = bounds.left; break;
                 case Alignment::Right:  x = bounds.right - frame.Width() - 1.0f; break;
                 default:           printf( "Error: VLayoutNode::Layout() node '%s' has invalid h-alignment %d\n", m_View->GetName().c_str(), int(childList[i]->GetHAlignment()) );
+                [[fallthrough]];
                 case Alignment::Center: x = bounds.left + (bounds.Width() - frame.Width()) * 0.5f; break;
             }
             frame += Point(x, y);

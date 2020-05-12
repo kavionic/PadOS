@@ -38,7 +38,15 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-I2CDriverINode::I2CDriverINode(KFilesystemFileOps* fileOps, I2C_TypeDef* port, const PinMuxTarget& clockPinCfg, const PinMuxTarget& dataPinCfg, uint32_t clockFrequency, double fallTime, double riseTime)
+I2CDriverINode::I2CDriverINode(KFilesystemFileOps* fileOps
+								, I2C_TypeDef* port
+								, const PinMuxTarget& clockPinCfg
+								, const PinMuxTarget& dataPinCfg
+								, IRQn_Type eventIRQ
+								, IRQn_Type errorIRQ
+								, uint32_t clockFrequency
+								, double fallTime
+								, double riseTime)
 	: KINode(nullptr, nullptr, fileOps, false)
 	, m_Mutex("I2CDriverINode")
 	, m_RequestCondition("I2CDriverINodeRequest")
@@ -51,8 +59,8 @@ I2CDriverINode::I2CDriverINode(KFilesystemFileOps* fileOps, I2C_TypeDef* port, c
 {
     m_State = State_e::Idle;
 
-	DigitalPin clockPin(m_ClockPin.PORT, m_ClockPin.PIN);
-	DigitalPin dataPin(m_DataPin.PORT, m_DataPin.PIN);
+	DigitalPin clockPin(m_ClockPin.PINID);
+	DigitalPin dataPin(m_DataPin.PINID);
 
 	clockPin.SetDirection(DigitalPinDirection_e::OpenCollector);
 	dataPin.SetDirection(DigitalPinDirection_e::OpenCollector);
@@ -63,8 +71,8 @@ I2CDriverINode::I2CDriverINode(KFilesystemFileOps* fileOps, I2C_TypeDef* port, c
 	clockPin.SetPullMode(PinPullMode_e::Up);
 	dataPin.SetPullMode(PinPullMode_e::Up);
 
-	kernel::Kernel::RegisterIRQHandler(I2C2_EV_IRQn, IRQCallbackEvent, this);
-	kernel::Kernel::RegisterIRQHandler(I2C2_ER_IRQn, IRQCallbackError, this);
+	kernel::Kernel::RegisterIRQHandler(eventIRQ, IRQCallbackEvent, this);
+	kernel::Kernel::RegisterIRQHandler(errorIRQ, IRQCallbackError, this);
 
 	SetSpeed(I2CSpeed::Fast);
 
@@ -280,8 +288,8 @@ void I2CDriverINode::ResetPeripheral()
 
 void I2CDriverINode::ClearBus()
 {
-	DigitalPin clockPin(m_ClockPin.PORT, m_ClockPin.PIN);
-	DigitalPin dataPin(m_DataPin.PORT, m_DataPin.PIN);
+	DigitalPin clockPin(m_ClockPin.PINID);
+	DigitalPin dataPin(m_DataPin.PINID);
 
 
 	clockPin.SetPeripheralMux(DigitalPinPeripheralID::None);
@@ -493,6 +501,7 @@ void I2CDriverINode::HandleEventIRQ()
 
 void I2CDriverINode::HandleErrorIRQ()
 {
+	m_Port->CR1 &= ~I2C_CR1_ERRIE;
 	m_CurPos = -EIO;
 	m_RequestCondition.Wakeup();
 }
@@ -501,9 +510,9 @@ void I2CDriverINode::HandleErrorIRQ()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriver::Setup(const char* devicePath, I2C_TypeDef* port, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime)
+void I2CDriver::Setup(const char* devicePath, I2C_TypeDef* port, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, IRQn_Type eventIRQ, IRQn_Type errorIRQ, uint32_t clockFrequency, double fallTime, double riseTime)
 {
-    Ptr<I2CDriverINode> node = ptr_new<I2CDriverINode>(this, port, clockPin, dataPin, clockFrequency, fallTime, riseTime);
+    Ptr<I2CDriverINode> node = ptr_new<I2CDriverINode>(this, port, clockPin, dataPin, eventIRQ, errorIRQ, clockFrequency, fallTime, riseTime);
     Kernel::RegisterDevice(devicePath, node);    
 }
 

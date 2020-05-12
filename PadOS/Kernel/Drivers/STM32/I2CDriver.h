@@ -109,7 +109,7 @@ public:
 class I2CDriverINode : public KINode
 {
 public:
-    I2CDriverINode(KFilesystemFileOps* fileOps, I2C_TypeDef* port, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
+	I2CDriverINode(KFilesystemFileOps* fileOps, I2C_TypeDef* port, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, IRQn_Type eventIRQ, IRQn_Type errorIRQ, uint32_t clockFrequency, double fallTime, double riseTime);
     virtual ~I2CDriverINode() override;
 
 
@@ -164,7 +164,7 @@ private:
 class I2CDriver : public PtrTarget, public KFilesystemFileOps
 {
 public:
-    void Setup(const char* devicePath, I2C_TypeDef* port, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
+    void Setup(const char* devicePath, I2C_TypeDef* port, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, IRQn_Type eventIRQ, IRQn_Type errorIRQ, uint32_t clockFrequency, double fallTime, double riseTime);
 
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
     virtual int              CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;

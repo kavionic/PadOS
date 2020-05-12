@@ -55,9 +55,9 @@ FT5x0xDriver::~FT5x0xDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, const DigitalPin& pinRESET, const DigitalPin& pinINT, const char* i2cPath)
+void FT5x0xDriver::Setup(const char* devicePath/*, const DigitalPin& pinWAKE*/, const DigitalPin& pinRESET, const DigitalPin& pinINT, IRQn_Type irqNum, const char* i2cPath)
 {
-    m_PinWAKE  = pinWAKE;
+//    m_PinWAKE  = pinWAKE;
     m_PinRESET = pinRESET;
     m_PinINT   = pinINT;
     
@@ -65,30 +65,39 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
 
     if (m_I2CDevice >= 0)
     {
-        I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x38);
+		I2CIOCTL_SetTimeout(m_I2CDevice, bigtime_from_ms(100));
+		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x38);
         I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
-        m_PinWAKE.Write(true);
+//        m_PinWAKE.Write(true);
         m_PinRESET.Write(false);
         m_PinRESET.SetDirection(DigitalPinDirection_e::Out);
-        m_PinWAKE.SetDirection(DigitalPinDirection_e::Out);
+//        m_PinWAKE.SetDirection(DigitalPinDirection_e::Out);
     
-//        m_PinRESET.Write(false);
         snooze(bigtime_from_ms(200));
         m_PinRESET.Write(true);
         snooze(bigtime_from_ms(300));
-        m_PinWAKE.Write(false);
+/*        m_PinWAKE.Write(false);
         snooze(bigtime_from_ms(200));
         m_PinWAKE.Write(true);
-        snooze(bigtime_from_ms(200));
-//        m_PinRESET.SetDirection(DigitalPinDirection_e::In);
+        snooze(bigtime_from_ms(200));*/
 
-        m_PinINT.SetInterruptMode(PinInterruptMode_e::FallingEdge);
+
+
+#if defined(__SAME70Q21__)
+		m_PinINT.SetInterruptMode(PinInterruptMode_e::FallingEdge);
         m_PinINT.GetInterruptStatus(); // Clear any pending interrupts.
         m_PinINT.EnableInterrupts();
+#elif defined(STM32H743xx)
+		SYSCFG->EXTICR[0] = (SYSCFG->EXTICR[0] & ~SYSCFG_EXTICR1_EXTI1_Msk) | SYSCFG_EXTICR1_EXTI1_PC; // IRQ0 -> Port C.
+		EXTI->FTSR1 |= EXTI_FTSR1_TR7_Msk; // EXTI1 falling edge enabled.
+		EXTI->IMR1 |= EXTI_IMR1_IM1_Msk; // Enable EXTI1
+#else
+#error Unknown platform
+#endif
 
         
-        Kernel::RegisterIRQHandler(PIOA_IRQn, IRQHandler, this);
+        Kernel::RegisterIRQHandler(irqNum, IRQHandler, this);
 
         uint8_t reg = 0;
         FileIO::Write(m_I2CDevice, 0, &reg, 1);
@@ -288,8 +297,19 @@ int FT5x0xDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
 
 void FT5x0xDriver::HandleIRQ()
 {
-    if (m_PinINT.GetInterruptStatus())
-    {
-        m_EventSemaphore.Release();
-    }
+#if defined(__SAME70Q21__)
+	if (m_PinINT.GetInterruptStatus())
+	{
+		m_EventSemaphore.Release();
+	}
+#elif defined(STM32H743xx)
+	if (EXTI->PR1 & EXTI_PR1_PR1_Msk)
+	{
+		EXTI->PR1 = EXTI_PR1_PR1_Msk;
+		m_EventSemaphore.Release();
+	}
+#else
+#error Unknown platform
+#endif
+
 }

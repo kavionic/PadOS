@@ -26,7 +26,6 @@
 #include "System/Math/Rect.h"
 #include "System/Utils/Utils.h"
 #include "Kernel/HAL/DigitalPort.h"
-//#include "SystemSetup.h"
 
 namespace kernel
 {

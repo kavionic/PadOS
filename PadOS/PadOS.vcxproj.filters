@@ -177,6 +177,30 @@
     <None Include="Kernel\Drivers\I2CDriver.h">
       <Filter>Source Files\Kernel\Drivers</Filter>
     </None>
+    <None Include="Kernel\Drivers\RA8875Driver\Files.mk">
+      <Filter>Source Files\Kernel\Drivers\RA8875Driver</Filter>
+    </None>
+    <None Include="Kernel\Drivers\RA8875Driver\Fonts\Files.mk">
+      <Filter>Source Files\Kernel\Drivers\RA8875Driver\Fonts</Filter>
+    </None>
+    <None Include="Applications\WindowManager\Files.mk">
+      <Filter>Source Files\Applications\WindowManager</Filter>
+    </None>
+    <None Include="ApplicationServer\Files.mk">
+      <Filter>Source Files\ApplicationServer</Filter>
+    </None>
+    <None Include="System\GUI\Files.mk">
+      <Filter>Source Files\System\GUI</Filter>
+    </None>
+    <None Include="System\Math\Files.mk">
+      <Filter>Source Files\System\Math</Filter>
+    </None>
+    <None Include="System\Utils\Files.mk">
+      <Filter>Source Files\System\Utils</Filter>
+    </None>
+    <None Include="Kernel\Drivers\Files.mk">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Init.cpp">

@@ -33,7 +33,9 @@ CC   = arm-none-eabi-gcc
 CCPP = arm-none-eabi-g++
 
 OBJDIR	:= Debug
-SUBDIRS := Kernel Kernel/Drivers/STM32 Kernel/HAL/STM32 Kernel/VFS System System/Ptr System/Signals System/Threads
+SUBDIRS := Kernel Kernel/Drivers Kernel/Drivers/RA8875Driver Kernel/Drivers/RA8875Driver/Fonts Kernel/Drivers/STM32 Kernel/HAL/STM32 Kernel/VFS 
+SUBDIRS := $(SUBDIRS) System System/GUI System/Math System/Ptr System/Signals System/Threads System/Utils
+SUBDIRS := $(SUBDIRS) ApplicationServer Applications/WindowManager
 SOURCES := Init.cpp posix.cpp
 
 include $(foreach dir, $(SUBDIRS), $(dir)/Files.mk)

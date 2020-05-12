@@ -12,6 +12,7 @@
 #include "Kernel/KConditionVariable.h"
 #include "Kernel/VFS/KINode.h"
 #include "Kernel/VFS/KFilesystem.h"
+#include "Kernel/HAL/STM32/DMARequestID.h"
 
 namespace kernel
 {
@@ -19,7 +20,7 @@ namespace kernel
 class USARTDriverINode : public KINode
 {
 public:
-	USARTDriverINode(USART_TypeDef* port, uint32_t clockFrequency, KFilesystemFileOps* fileOps);
+	USARTDriverINode(USART_TypeDef* port, DMAMUX1_REQUEST dmaRequestRX, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency, KFilesystemFileOps* fileOps);
 
     ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
 	ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
@@ -39,6 +40,9 @@ private:
 
 
 	USART_TypeDef* m_Port;
+	DMAMUX1_REQUEST	m_DMARequestRX;
+	DMAMUX1_REQUEST	m_DMARequestTX;
+
 	int            m_ReceiveDMAChannel = -1;
 	int            m_SendDMAChannel = -1;
 	int32_t        m_ReceiveBufferSize = 1024;
@@ -55,7 +59,7 @@ public:
 	USARTDriver();
 	~USARTDriver();
 
-    void Setup(const char* devicePath, USART_TypeDef* port, uint32_t clockFrequency);
+    void Setup(const char* devicePath, USART_TypeDef* port, DMAMUX1_REQUEST dmaRequestRX, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency);
 
     virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
     virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;

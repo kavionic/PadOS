@@ -161,26 +161,28 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USARTDriverINode::HandleIRQReceive()
+IRQResult USARTDriverINode::HandleIRQReceive()
 {
 	if (dma_get_interrupt_flags(m_ReceiveDMAChannel) & DMA_LISR_TCIF0)
 	{
 		dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
 		m_ReceiveCondition.Wakeup();
 	}
+	return IRQResult::HANDLED;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USARTDriverINode::HandleIRQSend()
+IRQResult USARTDriverINode::HandleIRQSend()
 {
 	if (dma_get_interrupt_flags(m_SendDMAChannel) & DMA_LISR_TCIF0)
 	{
 		dma_clear_interrupt_flags(m_SendDMAChannel, DMA_LIFCR_CTCIF0);
 		m_TransmitCondition.Wakeup();
 	}
+	return IRQResult::HANDLED;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

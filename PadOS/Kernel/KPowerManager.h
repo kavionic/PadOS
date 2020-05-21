@@ -47,10 +47,10 @@ public:
     virtual int Run() override;
 
 private:
-    static void IRQCallback(IRQn_Type irq, void* userData) { static_cast<KPowerManager*>(userData)->HandleIRQ(); }
-    static void TimerIRQCallback(IRQn_Type irq, void* userData) { static_cast<KPowerManager*>(userData)->HandleTimerIRQ(); }
-    void        HandleIRQ();
-    void        HandleTimerIRQ();
+    static kernel::IRQResult IRQCallback(IRQn_Type irq, void* userData) { return static_cast<KPowerManager*>(userData)->HandleIRQ(); }
+    static kernel::IRQResult TimerIRQCallback(IRQn_Type irq, void* userData) { return static_cast<KPowerManager*>(userData)->HandleTimerIRQ(); }
+    kernel::IRQResult        HandleIRQ();
+    kernel::IRQResult        HandleTimerIRQ();
 
     MCU_Timer16_t*  m_TimerChannel = nullptr;
     DigitalPin      m_PinPowerSwitch;

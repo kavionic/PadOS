@@ -27,10 +27,10 @@ public:
 
 private:
 
-	static void IRQCallbackReceive(IRQn_Type irq, void* userData) { static_cast<USARTDriverINode*>(userData)->HandleIRQReceive(); }
-    void HandleIRQReceive();
-	static void IRQCallbackSend(IRQn_Type irq, void* userData) { static_cast<USARTDriverINode*>(userData)->HandleIRQSend(); }
-    void HandleIRQSend();
+	static IRQResult IRQCallbackReceive(IRQn_Type irq, void* userData) { return static_cast<USARTDriverINode*>(userData)->HandleIRQReceive(); }
+	IRQResult HandleIRQReceive();
+	static IRQResult IRQCallbackSend(IRQn_Type irq, void* userData) { return static_cast<USARTDriverINode*>(userData)->HandleIRQSend(); }
+	IRQResult HandleIRQSend();
 
 	KMutex m_MutexRead;
 	KMutex m_MutexWrite;

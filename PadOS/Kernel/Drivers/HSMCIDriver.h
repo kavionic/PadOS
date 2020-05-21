@@ -121,8 +121,8 @@ private:
             }
         }            
     }
-    static void IRQCallback(IRQn_Type irq, void* userData) { static_cast<HSMCIDriver*>(userData)->HandleIRQ(); }
-    void        HandleIRQ();
+    static IRQResult IRQCallback(IRQn_Type irq, void* userData) { return static_cast<HSMCIDriver*>(userData)->HandleIRQ(); }
+	IRQResult        HandleIRQ();
     
     bool     WaitIRQ(uint32_t flags);
     bool     WaitIRQ(uint32_t flags, bigtime_t timeout);

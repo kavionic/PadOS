@@ -83,7 +83,7 @@ int BME280Driver::Run()
     for (;;)
     {
         SlotTick();
-        snooze(bigtime_from_ms(10));
+		snooze_ms(10);
     }
     return 0;
 }

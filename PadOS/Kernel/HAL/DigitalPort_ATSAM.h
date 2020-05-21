@@ -204,6 +204,8 @@ struct DigitalPort
     {
         switch(mode)
         {
+            case PinInterruptMode_e::None:
+				break;
             case PinInterruptMode_e::BothEdges:
                 DigitalPortsRegisters[portID]->PIO_AIMDR = pins; // Set default mode (both edges).
                 break;
@@ -231,20 +233,12 @@ struct DigitalPort
         }
     }
             
-/*    static PortData_t GetInterruptStatus(DigitalPortID portID, IntMaskAcc* flagAccumulator, PortData_t pins)
-    {
-        *flagAccumulator |= DigitalPortsRegisters[portID]->PIO_ISR;
-        PortData_t result = *flagAccumulator;
-        *flagAccumulator &= ~pins;
-        return result;
-    }*/
-    static PortData_t GetInterruptStatus(DigitalPortID portID, PortData_t pins)
+    static PortData_t GetAndClearInterruptStatus(DigitalPortID portID, PortData_t pins)
     {
         s_IntMaskAccumulators[portID] |= DigitalPortsRegisters[portID]->PIO_ISR;
         PortData_t result = s_IntMaskAccumulators[portID];
         s_IntMaskAccumulators[portID] &= ~pins;
         return result;
-//        return DigitalPortsRegisters[portID]->PIO_ISR;
     }
 
     static void SetPeripheralMux(DigitalPortID portID, PortData_t pins, DigitalPinPeripheralID peripheral)
@@ -277,8 +271,7 @@ struct DigitalPort
     inline void EnableInterrupts(PortData_t pins)                          { EnableInterrupts(m_Port, pins); }
     inline void DisableInterrupts(PortData_t pins)                         { DisableInterrupts(m_Port, pins); }
     inline void SetInterruptMode(PinInterruptMode_e mode, PortData_t pins) { SetInterruptMode(m_Port, mode, pins); }
-//    inline PortData_t GetInterruptStatus(IntMaskAcc* flagAccumulator, PortData_t pins) { return GetInterruptStatus(m_Port, flagAccumulator, pins); }
-    inline PortData_t GetInterruptStatus(PortData_t pins)                                                           { return GetInterruptStatus(m_Port, pins); }
+    inline PortData_t GetAndClearInterruptStatus(PortData_t pins)          { return GetAndClearInterruptStatus(m_Port, pins); }
 
     inline void Set(PortData_t pins)                   { Set(m_Port, pins); }
     inline void SetSome(PortData_t mask, PortData_t pins) { SetSome(m_Port, mask, pins); }
@@ -309,8 +302,7 @@ public:
     void EnableInterrupts()                                        { m_Port.EnableInterrupts(m_PinMask); }
     void DisableInterrupts()                                       { m_Port.DisableInterrupts(m_PinMask); }
     void SetInterruptMode(PinInterruptMode_e mode)                 { m_Port.SetInterruptMode(mode, m_PinMask); }
-//    bool GetInterruptStatus(DigitalPort::IntMaskAcc* flagAccumulator) { return (m_Port.GetInterruptStatus(flagAccumulator, m_PinMask) & m_PinMask) != 0; }
-    bool GetInterruptStatus()                                                       { return (m_Port.GetInterruptStatus(m_PinMask) & m_PinMask) != 0; }
+    bool GetAndClearInterruptStatus()                              { return (m_Port.GetAndClearInterruptStatus(m_PinMask) & m_PinMask) != 0; }
         
     void Write(bool value) {if (value) m_Port.SetHigh(m_PinMask); else m_Port.SetLow(m_PinMask); }
     bool Read() const { return (m_Port.Get() & m_PinMask) != 0; }

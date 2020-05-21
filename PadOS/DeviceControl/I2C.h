@@ -28,8 +28,6 @@ enum I2CIOCTL
     I2CIOCTL_GET_SLAVE_ADDRESS,
     I2CIOCTL_SET_INTERNAL_ADDR_LEN,
     I2CIOCTL_GET_INTERNAL_ADDR_LEN,
-    I2CIOCTL_SET_INTERNAL_ADDR,
-    I2CIOCTL_GET_INTERNAL_ADDR,
     I2CIOCTL_SET_BAUDRATE,
     I2CIOCTL_GET_BAUDRATE,
 	I2CIOCTL_SET_TIMEOUT,	// Timeout in microseconds (bigtime_t) for IO operations. Defaults to INFINIT_TIMEOUT
@@ -58,15 +56,6 @@ inline int I2CIOCTL_GetInternalAddrLen(int device)
     if (os::FileIO::DeviceControl(device, I2CIOCTL_GET_INTERNAL_ADDR_LEN, nullptr, 0, &length, sizeof(length)) < 0) return -1;
     return length;
 }
-
-inline int I2CIOCTL_SetInternalAddr(int device, int address) { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_INTERNAL_ADDR, &address, sizeof(address), nullptr, 0); }
-inline int I2CIOCTL_GetInternalAddr(int device)
-{
-    int address;
-    if (os::FileIO::DeviceControl(device, I2CIOCTL_GET_INTERNAL_ADDR, nullptr, 0, &address, sizeof(address)) < 0) return -1;
-    return address;
-}
-
 
 inline int I2CIOCTL_SetBaudrate(int device, int baudrate) { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_BAUDRATE, &baudrate, sizeof(baudrate), nullptr, 0); }
 inline int I2CIOCTL_GetBaudrate(int device)

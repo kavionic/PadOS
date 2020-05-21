@@ -74,7 +74,7 @@ bool TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, const Dig
 		m_PowerPin = true;
 		m_PowerPin.SetDriveStrength(DigitalPinDriveStrength_e::VeryHigh);
 
-		snooze(bigtime_from_ms(5));
+		snooze_ms(5);
 
 		Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
 		Kernel::RegisterDevice(devicePath, inode);
@@ -114,7 +114,7 @@ void TLV493DDriver::ResetSensor()
 	errorCount = 0;
 	while (FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters)) != sizeof(m_ReadRegisters) && errorCount++ < 5) {
 		printf("Error: Failed to read initial TLV493D registers!\n");
-		snooze(bigtime_from_ms(10));
+		snooze_ms(10);
 	}
 	printf("TLV493DDriver: initial registers read.\n");
 
@@ -131,12 +131,11 @@ void TLV493DDriver::ResetSensor()
 	errorCount = 0;
 	while (FileIO::Write(m_I2CDevice, 0, &m_WriteRegisters, sizeof(m_WriteRegisters)) != sizeof(m_WriteRegisters) && errorCount++ < 5) {
 		printf("Error: Failed to write TLV493D config registers!\n");
-		snooze(bigtime_from_ms(10));
+		snooze_ms(10);
 	}
 	printf("TLV493DDriver: config written.\n");
 
 	FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters)); // Trigger first conversion
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -46,11 +46,15 @@ enum class DigitalPinDriveStrength_e
 
 enum class PinInterruptMode_e
 {
-    BothEdges,
-    FallingEdge,
-    RisingEdge,
-    LowLevel,
-    HighLevel
+	  None
+    , BothEdges
+    , FallingEdge
+    , RisingEdge
+#if defined(__SAME70Q21__)
+	, LowLevel,
+    , HighLevel
+#endif // defined(__SAME70Q21__)
+
 };
 
 #if defined(__SAME70Q21__)

@@ -372,7 +372,7 @@ void Kernel::HandleIRQ(IRQn_Type irqNum)
 	if (irqNum < IRQ_COUNT)
 	{
 		for (KIRQAction* action = s_IRQHandlers[irqNum]; action != nullptr; action = action->m_Next) {
-			action->m_Handler(irqNum, action->m_UserData);
+			if (action->m_Handler(irqNum, action->m_UserData) == IRQResult::HANDLED) break;
 		}
 	}
 }

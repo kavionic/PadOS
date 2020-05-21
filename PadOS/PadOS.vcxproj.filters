@@ -509,6 +509,12 @@
     <ClCompile Include="Kernel\Drivers\STM32\TLV493DDriver.cpp">
       <Filter>Source Files\Kernel\Drivers\STM32</Filter>
     </ClCompile>
+    <ClCompile Include="Kernel\Drivers\GSLx680Driver.cpp">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\GSLx680Firmware.cpp">
+      <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MemTest.h">
@@ -596,9 +602,6 @@
       <Filter>Source Files\DeviceControl</Filter>
     </ClInclude>
     <ClInclude Include="DeviceControl\DeviceControl.h">
-      <Filter>Source Files\DeviceControl</Filter>
-    </ClInclude>
-    <ClInclude Include="DeviceControl\FT5x0x.h">
       <Filter>Source Files\DeviceControl</Filter>
     </ClInclude>
     <ClInclude Include="DeviceControl\I2C.h">
@@ -1032,6 +1035,12 @@
     </ClInclude>
     <ClInclude Include="DeviceControl\TLV493D.h">
       <Filter>Source Files\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceControl\HID.h">
+      <Filter>Source Files\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\GSLx680Driver.h">
+      <Filter>Source Files\Kernel\Drivers</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

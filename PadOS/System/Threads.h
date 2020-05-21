@@ -32,8 +32,11 @@ status_t  wakeup_thread(thread_id handle);
 int thread_yield();
 
 thread_id get_thread_id();
-status_t snooze(bigtime_t micros);
 status_t snooze_until(bigtime_t resumeTime);
+
+status_t snooze_us(bigtime_t micros);
+status_t snooze_ms(bigtime_t millis);
+status_t snooze_s(bigtime_t seconds);
 
 sem_id   create_semaphore(const char* name, int count);
 sem_id   duplicate_semaphore(sem_id handle);

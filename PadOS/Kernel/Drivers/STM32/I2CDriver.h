@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 23.02.2018 21:25:42
 
 #pragma once
 
@@ -100,8 +99,7 @@ class I2CFile : public KFileNode
 public:
 	I2C_ADDR_LEN	m_SlaveAddressLength = I2C_ADDR_LEN_7BIT;
     uint8_t			m_SlaveAddress = 0;
-    uint8_t			m_InternalAddressLength = 0;
-    uint32_t		m_InternalAddress = 0;
+    int8_t			m_InternalAddressLength = 0;
 	bigtime_t		m_Timeout = INFINIT_TIMEOUT; // Timeout for any IO operations.
 };
 
@@ -128,18 +126,22 @@ private:
     I2CDriverINode(const I2CDriverINode&) = delete;
     I2CDriverINode& operator=(const I2CDriverINode&) = delete;
 
-    enum class State_e
-    {
-        Idle,
+	enum class State_e
+	{
+		Idle,
+		SendReadAddress,
+		SendWriteAddress,
         Reading,
         Writing
     };
     
-    static void IRQCallbackEvent(IRQn_Type irq, void* userData) { static_cast<I2CDriverINode*>(userData)->HandleEventIRQ(); }
-    void HandleEventIRQ();
+	void UpdateTransactionLength(uint32_t& CR2);
 
-	static void IRQCallbackError(IRQn_Type irq, void* userData) { static_cast<I2CDriverINode*>(userData)->HandleErrorIRQ(); }
-	void HandleErrorIRQ();
+	static IRQResult IRQCallbackEvent(IRQn_Type irq, void* userData) { return static_cast<I2CDriverINode*>(userData)->HandleEventIRQ(); }
+	IRQResult HandleEventIRQ();
+
+	static IRQResult IRQCallbackError(IRQn_Type irq, void* userData) { return static_cast<I2CDriverINode*>(userData)->HandleErrorIRQ(); }
+	IRQResult HandleErrorIRQ();
 
 	KMutex m_Mutex;
 
@@ -156,7 +158,10 @@ private:
 	int						m_DigitalFilterCount = 0;
     uint32_t				m_Baudrate = 400000;
 
-    uint8_t*				m_Buffer = nullptr;
+	uint8_t					m_RegisterAddress[4];
+	int8_t					m_RegisterAddressLength = 0;
+	int8_t					m_RegisterAddressPos = 0;
+	uint8_t*				m_Buffer = nullptr;
     int32_t					m_Length = 0;
     volatile int32_t		m_CurPos = 0;
 };

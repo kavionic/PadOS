@@ -66,11 +66,11 @@ void GfxDriver::InitDisplay(LCDRegisters* registers, const DigitalPin& pinLCDRes
     m_PinBacklightControl.SetDirection(DigitalPinDirection_e::Out);
 
 
-    snooze(bigtime_from_ms(1));
+	snooze_ms(1);
     m_PinLCDReset = false;
-	snooze(bigtime_from_ms(10));
+	snooze_ms(10);
     m_PinLCDReset = true;
-	snooze(bigtime_from_ms(100));
+	snooze_ms(100);
 
     PLL_ini();
     
@@ -79,7 +79,7 @@ void GfxDriver::InitDisplay(LCDRegisters* registers, const DigitalPin& pinLCDRes
     
     WriteCommand(RA8875_PCSR); // PCLK
     WriteData(0x81);
-	snooze(bigtime_from_ms(1));
+	snooze_ms(1);
 
     //Horizontal set
     WriteCommand(RA8875_HDWR, 100-1);  //Horizontal display width(pixels) = (HDWR + 1)*8
@@ -123,24 +123,24 @@ void GfxDriver::Shutdown()
 //    WaitBlitter();
 
 /*    m_PinLCDReset = false;
-    snooze(bigtime_from_ms(1));
+    snooze_ms(1);
     m_PinLCDReset = true;
-    snooze(bigtime_from_ms(100));*/
+    snooze_ms(100);*/
     
     //Set PLL to default:
     WriteCommand(RA8875_PLLC1, 0x07);
-    snooze(bigtime_from_ms(1));
+	snooze_ms(1);
     WriteCommand(RA8875_PLLC2, 0x03);
-    snooze(bigtime_from_ms(1));
+	snooze_ms(1);
     WriteCommand(RA8875_PCSR, 0x02); // Pixel-clock
-    snooze(bigtime_from_ms(1));
+	snooze_ms(1);
 
     // Display off:
 //    WriteCommand(RA8875_PWRR, 0);
-//    snooze(bigtime_from_ms(100));
+//    snooze_ms(100);
     // Sleep mode:
     WriteCommand(RA8875_PWRR, RA8875_PWRR_SLEEP_MODE_bm);
-    snooze(bigtime_from_ms(100));
+	snooze_ms(100);
     m_PinTouchpadReset = false;
 //    m_PinLCDReset = false;    
 }
@@ -693,10 +693,10 @@ void GfxDriver::PLL_ini()
 {
     WriteCommand(RA8875_PLLC1);
     WriteData(0x0a);
-	snooze(bigtime_from_ms(1));
+	snooze_ms(1);
     WriteCommand(RA8875_PLLC2);
     WriteData(0x02);
-	snooze(bigtime_from_ms(1));
+	snooze_ms(1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

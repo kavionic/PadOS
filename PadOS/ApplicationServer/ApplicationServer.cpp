@@ -29,7 +29,7 @@
 #include "System/GUI/View.h"
 #include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
 #include "System/SystemMessageIDs.h"
-#include "DeviceControl/FT5x0x.h"
+#include "DeviceControl/HID.h"
 
 using namespace os;
 using namespace kernel;
@@ -56,10 +56,10 @@ ApplicationServer::ApplicationServer() : Looper("appserver", 10, APPSERVER_MSG_B
 
     RSRegisterApplication.Connect(this, &ApplicationServer::SlotRegisterApplication); 
     
-    m_TouchInputDevice = FileIO::Open("/dev/ft5x0x/0", O_RDWR);
+    m_TouchInputDevice = FileIO::Open("/dev/touchscreen/0", O_RDWR);
     if (m_TouchInputDevice != -1)
     {
-        FT5x0xIOCTL_SetTargetPort(m_TouchInputDevice, GetPortID());
+        HIDIOCTL_SetTargetPort(m_TouchInputDevice, GetPortID());
     }
     else
     {

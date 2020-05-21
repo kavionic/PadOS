@@ -24,7 +24,7 @@
 
 #include "FT5x0xDriver.h"
 #include "DeviceControl/I2C.h"
-#include "DeviceControl/FT5x0x.h"
+#include "DeviceControl/HID.h"
 #include "System/Threads.h"
 #include "System/SystemMessageIDs.h"
 #include "System/GUI/GUIEvent.h"
@@ -55,12 +55,14 @@ FT5x0xDriver::~FT5x0xDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FT5x0xDriver::Setup(const char* devicePath/*, const DigitalPin& pinWAKE*/, const DigitalPin& pinRESET, const DigitalPin& pinINT, IRQn_Type irqNum, const char* i2cPath)
+void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, const DigitalPin& pinRESET, const DigitalPin& pinINT, IRQn_Type irqNum, const char* i2cPath)
 {
-//    m_PinWAKE  = pinWAKE;
+    m_PinWAKE  = pinWAKE;
     m_PinRESET = pinRESET;
     m_PinINT   = pinINT;
     
+	m_PinINT.SetDirection(DigitalPinDirection_e::In);
+
     m_I2CDevice = FileIO::Open(i2cPath, O_RDWR);
 
     if (m_I2CDevice >= 0)
@@ -69,33 +71,22 @@ void FT5x0xDriver::Setup(const char* devicePath/*, const DigitalPin& pinWAKE*/, 
 		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x38);
         I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
-//        m_PinWAKE.Write(true);
-        m_PinRESET.Write(false);
-        m_PinRESET.SetDirection(DigitalPinDirection_e::Out);
-//        m_PinWAKE.SetDirection(DigitalPinDirection_e::Out);
-    
-        snooze(bigtime_from_ms(200));
-        m_PinRESET.Write(true);
-        snooze(bigtime_from_ms(300));
-/*        m_PinWAKE.Write(false);
-        snooze(bigtime_from_ms(200));
         m_PinWAKE.Write(true);
-        snooze(bigtime_from_ms(200));*/
+        m_PinRESET.SetDirection(DigitalPinDirection_e::Out);
+        m_PinRESET.Write(false);
+        m_PinWAKE.SetDirection(DigitalPinDirection_e::Out);
+    
+        snooze_ms(200);
+        m_PinRESET.Write(true);
+		snooze_ms(300);
+        m_PinWAKE.Write(false);
+		snooze_ms(200);
+        m_PinWAKE.Write(true);
+		snooze_ms(200);
 
-
-
-#if defined(__SAME70Q21__)
 		m_PinINT.SetInterruptMode(PinInterruptMode_e::FallingEdge);
-        m_PinINT.GetInterruptStatus(); // Clear any pending interrupts.
+        m_PinINT.GetAndClearInterruptStatus(); // Clear any pending interrupts.
         m_PinINT.EnableInterrupts();
-#elif defined(STM32H743xx)
-		SYSCFG->EXTICR[0] = (SYSCFG->EXTICR[0] & ~SYSCFG_EXTICR1_EXTI1_Msk) | SYSCFG_EXTICR1_EXTI1_PC; // IRQ0 -> Port C.
-		EXTI->FTSR1 |= EXTI_FTSR1_TR7_Msk; // EXTI1 falling edge enabled.
-		EXTI->IMR1 |= EXTI_IMR1_IM1_Msk; // Enable EXTI1
-#else
-#error Unknown platform
-#endif
-
         
         Kernel::RegisterIRQHandler(irqNum, IRQHandler, this);
 
@@ -108,7 +99,7 @@ void FT5x0xDriver::Setup(const char* devicePath/*, const DigitalPin& pinWAKE*/, 
             if (FileIO::Read(m_I2CDevice, FT5x0x_REG_G_PERIODE_ACTIVE, &reg, 1) != 1) {
                 snooze(bigtime_from_s(5));
             }
-            snooze(bigtime_from_ms(100));
+            snooze_ms(100);
         }*/
         PrintChipStatus();
 //        FileIO::Write(m_I2CDevice, )
@@ -227,9 +218,9 @@ int FT5x0xDriver::Run()
         {
             printf("ERROR: FT5x0xDriver::Run() read error. Resetting touch device.\n");
             m_PinRESET.Write(false);
-            snooze(bigtime_from_ms(5));
+			snooze_ms(5);
             m_PinRESET.Write(true);
-            snooze(bigtime_from_ms(300));
+			snooze_ms(300);
             m_EventSemaphore.SetCount(1);
         }        
     }
@@ -277,11 +268,11 @@ int FT5x0xDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
     
     switch(request)
     {
-        case FT5x0xIOCTL_SET_TARGET_PORT:
+        case HIDIOCTL_SET_TARGET_PORT:
             if (inArg == nullptr || inDataLength != sizeof(port_id)) { set_last_error(EINVAL); return -1; }
             ftFile->m_TargetPort = *inArg;
             return 0;
-        case FT5x0xIOCTL_GET_TARGET_PORT:
+        case HIDIOCTL_GET_TARGET_PORT:
             if (outArg == nullptr || outDataLength != sizeof(port_id)) { set_last_error(EINVAL); return -1; }
             *outArg = ftFile->m_TargetPort;
             return 0;
@@ -295,21 +286,12 @@ int FT5x0xDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FT5x0xDriver::HandleIRQ()
+IRQResult FT5x0xDriver::HandleIRQ()
 {
-#if defined(__SAME70Q21__)
-	if (m_PinINT.GetInterruptStatus())
+	if (m_PinINT.GetAndClearInterruptStatus())
 	{
 		m_EventSemaphore.Release();
+		return IRQResult::HANDLED;
 	}
-#elif defined(STM32H743xx)
-	if (EXTI->PR1 & EXTI_PR1_PR1_Msk)
-	{
-		EXTI->PR1 = EXTI_PR1_PR1_Msk;
-		m_EventSemaphore.Release();
-	}
-#else
-#error Unknown platform
-#endif
-
+	return IRQResult::UNHANDLED;
 }

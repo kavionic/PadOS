@@ -45,6 +45,7 @@ enum DigitalPortID
 
 enum class DigitalPinID : uint32_t
 {
+	None = uint32_t(-1),
 	A0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 0),
 	A1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 1),
 	A2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 2),
@@ -225,7 +226,7 @@ enum class DigitalPinID : uint32_t
 	K7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 7)
 };
 
-static GPIO_Port_t* DigitalPortsRegisters[] =
+constexpr GPIO_Port_t* DigitalPortsRegisters[] =
 {
 	GPIOA,
 	GPIOB,
@@ -266,7 +267,6 @@ enum class DigitalPinPeripheralID : int
 
 struct PinMuxTarget
 {
-//	const DigitalPortID          PORT;
 	const DigitalPinID           PINID;
 	const DigitalPinPeripheralID MUX;
 };
@@ -592,9 +592,9 @@ private:
 class DigitalPin
 {
 public:
-    DigitalPin() : m_Port(e_DigitalPortID_None), m_PinMask(0) { }
-	DigitalPin(DigitalPinID pinID) : m_Port(DIGITAL_PIN_ID_PORT(pinID)), m_PinMask(BIT32(DIGITAL_PIN_ID_PIN(pinID), 1)) { }
-	DigitalPin(DigitalPortID port, int pin) : m_Port(port), m_PinMask(BIT32(pin, 1)) { }
+    DigitalPin() : m_PinID(DigitalPinID::None), m_Port(e_DigitalPortID_None), m_PinMask(0) { }
+	DigitalPin(DigitalPinID pinID) : m_PinID(pinID), m_Port(DIGITAL_PIN_ID_PORT(pinID)), m_PinMask(BIT32(DIGITAL_PIN_ID_PIN(pinID), 1)) { }
+	DigitalPin(DigitalPortID port, int pin) : m_PinID(DigitalPinID(MAKE_DIGITAL_PIN_ID(port, pin))), m_Port(port), m_PinMask(BIT32(pin, 1)) { }
     
     void Set(DigitalPortID port, int pin)  { m_Port = port; m_PinMask = BIT32(pin, 1); }
         
@@ -604,14 +604,48 @@ public:
     void SetPullMode(PinPullMode_e mode) { m_Port.SetPullMode(mode, m_PinMask); }
     void SetPeripheralMux(DigitalPinPeripheralID peripheral) { m_Port.SetPeripheralMux(m_PinMask, peripheral); }
 	static void ActivatePeripheralMux(const PinMuxTarget& PinMux) { DigitalPin(PinMux.PINID).SetPeripheralMux(PinMux.MUX); }
-        
+
+	void EnableInterrupts() { EXTI->IMR1 |= m_PinMask; }
+	void DisableInterrupts() { EXTI->IMR1 &= ~m_PinMask; }
+	void SetInterruptMode(PinInterruptMode_e mode)
+	{
+		int pinIndex = DIGITAL_PIN_ID_PIN(m_PinID);
+
+		if (mode == PinInterruptMode_e::FallingEdge || mode == PinInterruptMode_e::BothEdges) {
+			EXTI->FTSR1 |= m_PinMask; // EXTI1 falling edge enabled.
+		} else {
+			EXTI->FTSR1 &= ~m_PinMask; // EXTI1 falling edge enabled.
+		}
+		if (mode == PinInterruptMode_e::RisingEdge || mode == PinInterruptMode_e::BothEdges) {
+			EXTI->RTSR1 |= m_PinMask; // EXTI1 rising edge enabled.
+		} else {
+			EXTI->RTSR1 &= ~m_PinMask; // EXTI1 rising edge enabled.
+		}
+		if (mode != PinInterruptMode_e::None)
+		{
+			int portIndex = DIGITAL_PIN_ID_PORT(m_PinID);
+			uint32_t regIndex = pinIndex >> 2;
+			uint32_t groupPos = (pinIndex & 0x03) * 4;
+			uint32_t mask = 0x000f << groupPos;
+			SYSCFG->EXTICR[regIndex] = (SYSCFG->EXTICR[regIndex] & ~mask) | (portIndex << groupPos); // Route signals from this port to EXTI.
+		}
+	}
+	bool GetAndClearInterruptStatus()
+	{
+		bool flag = (EXTI->PR1 & m_PinMask) != 0;
+		EXTI->PR1 = m_PinMask;
+		return flag;
+	}
+
     void Write(bool value) {if (value) m_Port.SetHigh(m_PinMask); else m_Port.SetLow(m_PinMask); }
     bool Read() const { return (m_Port.Get() & m_PinMask) != 0; }
     
+
     operator bool () { return Read(); }
     DigitalPin& operator=(bool value) { Write(value); return *this; }    
         
 private:
-    DigitalPort m_Port;
-    uint32_t    m_PinMask;
+	DigitalPinID	m_PinID;
+	DigitalPort		m_Port;
+    uint32_t		m_PinMask;
 };

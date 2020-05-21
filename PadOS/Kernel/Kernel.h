@@ -47,7 +47,13 @@ class KFileNode;
 class KFSVolume;
 class KRootFilesystem;
 
-typedef void KIRQHandler(IRQn_Type irq, void* userData);
+enum class IRQResult : int
+{
+	UNHANDLED,
+	HANDLED
+};
+
+typedef IRQResult KIRQHandler(IRQn_Type irq, void* userData);
 
 struct KIRQAction
 {

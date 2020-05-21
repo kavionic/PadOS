@@ -385,7 +385,7 @@ int I2CDriverINode::GetBaudrate() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriverINode::HandleIRQ()
+IRQResult I2CDriverINode::HandleIRQ()
 {
     uint32_t status = m_Port->TWIHS_SR;
     
@@ -414,6 +414,7 @@ void I2CDriverINode::HandleIRQ()
             m_RequestSema.Release();
         }
     }
+	return IRQResult::HANDLED;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

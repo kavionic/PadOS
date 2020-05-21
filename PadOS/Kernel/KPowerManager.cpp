@@ -107,7 +107,7 @@ void KPowerManager::Shutdown()
 {
 //    kernel::GfxDriver::Instance.Shutdown();
 //    ShutdownSDRAM();
-    snooze(bigtime_from_ms(100));
+	snooze_ms(100);
 //    QSPI_RESET_Pin   = false;
 //    WIFI_RESET_Pin   = false;
 
@@ -163,7 +163,7 @@ int KPowerManager::Run()
 ///////////////////////////////////////////////////////////////////////////////
 
 #if defined(__SAME70Q21__)
-void KPowerManager::HandleIRQ()
+kernel::IRQResult KPowerManager::HandleIRQ()
 {
     if (m_PinPowerSwitch.GetInterruptStatus())
     {
@@ -215,10 +215,12 @@ void KPowerManager::HandleIRQ()
         } else {
             RGBLED_B.Write(true);            
         }*/
+		return kernel::IRQResult::HANDLED;
     }
+	return kernel::IRQResult::UNHANDLED;
 }
 
-void KPowerManager::HandleTimerIRQ()
+IRQResult KPowerManager::HandleTimerIRQ()
 {
     if (m_TimerChannel->TC_SR & TC_SR_COVFS_Msk)
     {
@@ -228,6 +230,7 @@ void KPowerManager::HandleTimerIRQ()
             RSTC->RSTC_CR = RSTC_CR_KEY_PASSWD | RSTC_CR_PROCRST_Msk;
         }
     }    
+	return IRQResult::HANDLED;
 }
 
 #elif defined(STM32H743xx)

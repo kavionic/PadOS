@@ -97,8 +97,8 @@ private:
         Writing
     };
     
-    static void IRQCallback(IRQn_Type irq, void* userData) { static_cast<I2CDriverINode*>(userData)->HandleIRQ(); }
-    void HandleIRQ();
+    static IRQResult IRQCallback(IRQn_Type irq, void* userData) { return static_cast<I2CDriverINode*>(userData)->HandleIRQ(); }
+	IRQResult HandleIRQ();
     
     uint32_t CalcAddress(uint32_t slaveAddress, int len);
 

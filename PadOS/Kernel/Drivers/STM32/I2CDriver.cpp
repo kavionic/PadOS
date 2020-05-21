@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 23.02.2018 21:25:42
 
 #include "Platform.h"
 
@@ -76,8 +75,8 @@ I2CDriverINode::I2CDriverINode(KFilesystemFileOps* fileOps
 
 	SetSpeed(I2CSpeed::Fast);
 
+	ClearBus();
 	ResetPeripheral();
-    ClearBus();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -121,20 +120,12 @@ int I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void*
             *outArg = i2cfile->m_SlaveAddress;
             break;
         case I2CIOCTL_SET_INTERNAL_ADDR_LEN:
-            if (inArg == nullptr || inDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
+            if (inArg == nullptr || inDataLength != sizeof(int) || *inArg < 0 || *inArg > sizeof(m_RegisterAddress)) { set_last_error(EINVAL); return -1; }
             i2cfile->m_InternalAddressLength = *inArg;
             break;
         case I2CIOCTL_GET_INTERNAL_ADDR_LEN:
             if (outArg == nullptr || outDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
             *outArg = i2cfile->m_InternalAddressLength;
-            break;
-        case I2CIOCTL_SET_INTERNAL_ADDR:
-            if (inArg == nullptr || inDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
-            i2cfile->m_InternalAddress = *inArg;
-            break;
-        case I2CIOCTL_GET_INTERNAL_ADDR:
-            if (outArg == nullptr || outDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
-            *outArg = i2cfile->m_InternalAddress;
             break;
         case I2CIOCTL_SET_BAUDRATE:
             if (inArg == nullptr || inDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
@@ -171,29 +162,50 @@ ssize_t I2CDriverINode::Read(Ptr<KFileNode> file, off64_t position, void* buffer
     }
     CRITICAL_SCOPE(m_Mutex);
 	
-    m_State = State_e::Reading;
-    
+	if (m_Port->ISR & I2C_ISR_BUSY) {
+		ResetPeripheral();
+	}
+   
     Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
 
 	m_Buffer = reinterpret_cast<uint8_t*>(buffer);
 	m_Length = length;
+	m_RegisterAddressPos = 0;
 	m_CurPos = 0;
 
-	m_Port->CR2 = ((i2cfile->m_SlaveAddress << I2C_CR2_SADD_Pos) & I2C_CR2_SADD_Msk)
-				| I2C_CR2_RD_WRN
-				| ((i2cfile->m_SlaveAddressLength == I2C_ADDR_LEN_10BIT) ? I2C_CR2_ADD10 : 0)
-				| ((m_Length <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) ? (m_Length << I2C_CR2_NBYTES_Pos) : I2C_CR2_NBYTES_Msk)
-				| (m_Length > (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos) ? I2C_CR2_RELOAD : 0)
-				| I2C_CR2_AUTOEND;
+	uint32_t CR2 = I2C_CR2_START | ((i2cfile->m_SlaveAddress << I2C_CR2_SADD_Pos) & I2C_CR2_SADD_Msk) | ((i2cfile->m_SlaveAddressLength == I2C_ADDR_LEN_10BIT) ? I2C_CR2_ADD10 : 0);
+
+	m_RegisterAddressLength = i2cfile->m_InternalAddressLength;
+	if (m_RegisterAddressLength > 0)
+	{
+		m_State = State_e::SendReadAddress;
+		
+		for (int i = 0; i < m_RegisterAddressLength; ++i) m_RegisterAddress[i] = (position >> ((m_RegisterAddressLength - i - 1) * 8)) & 0xff;
+
+		CR2 |= uint32_t(m_RegisterAddressLength) << I2C_CR2_NBYTES_Pos;
+		if (m_Port->ISR & I2C_ISR_TXE)
+		{
+			m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
+		}
+	}
+	else
+	{
+		m_State = State_e::Reading;
+
+		if (m_Length <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
+			CR2 |= m_Length << I2C_CR2_NBYTES_Pos;
+		} else {
+			CR2 |= I2C_CR2_NBYTES | I2C_CR2_RELOAD;
+		}
+		CR2 |= I2C_CR2_RD_WRN | I2C_CR2_AUTOEND;
+	}
 
 	CRITICAL_BEGIN(CRITICAL_IRQ)
 	{
 		const uint32_t interruptFlags = I2C_CR1_RXIE | I2C_CR1_STOPIE | I2C_CR1_NACKIE | I2C_CR1_TCIE | I2C_CR1_ERRIE;
 		m_Port->ICR = I2C_ICR_ADDRCF | I2C_ICR_NACKCF | I2C_ICR_STOPCF | I2C_ICR_BERRCF | I2C_ICR_ARLOCF | I2C_ICR_OVRCF | I2C_ICR_PECCF | I2C_ICR_TIMOUTCF | I2C_ICR_ALERTCF;
 		m_Port->CR1 |= interruptFlags;
-
-		m_Port->CR2 |= I2C_CR2_START;
-
+		m_Port->CR2 = CR2;
 
 		if (!m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout))
 		{
@@ -223,20 +235,54 @@ ssize_t I2CDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void*
 	}
 	CRITICAL_SCOPE(m_Mutex);
 
-	m_State = State_e::Writing;
+	if (m_Port->ISR & I2C_ISR_BUSY) {
+		ResetPeripheral();
+	}
 
 	Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
 
 	m_Buffer = reinterpret_cast<uint8_t*>(const_cast<void*>(buffer));
 	m_Length = length;
+	m_RegisterAddressPos = 0;
 	m_CurPos = 0;
 
+	uint32_t CR2 = I2C_CR2_START | ((i2cfile->m_SlaveAddress << I2C_CR2_SADD_Pos) & I2C_CR2_SADD_Msk) | ((i2cfile->m_SlaveAddressLength == I2C_ADDR_LEN_10BIT) ? I2C_CR2_ADD10 : 0);
 
-	m_Port->CR2 = ((i2cfile->m_SlaveAddress << I2C_CR2_SADD_Pos) & I2C_CR2_SADD_Msk)
-				| ((i2cfile->m_SlaveAddressLength == I2C_ADDR_LEN_10BIT) ? I2C_CR2_ADD10 : 0)
-				| ((m_Length <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) ? (m_Length << I2C_CR2_NBYTES_Pos) : I2C_CR2_NBYTES_Msk)
-				| (m_Length > (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos) ? I2C_CR2_RELOAD : 0)
-				| I2C_CR2_AUTOEND;
+	m_RegisterAddressLength = i2cfile->m_InternalAddressLength;
+	if (m_RegisterAddressLength > 0)
+	{
+		m_State = State_e::SendWriteAddress;
+		
+		for (int i = 0; i < m_RegisterAddressLength; ++i) m_RegisterAddress[i] = (position >> ((m_RegisterAddressLength - i - 1) * 8)) & 0xff;
+
+		int32_t totalLength = m_Length + m_RegisterAddressLength;
+		if (totalLength <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
+			CR2 |= (totalLength << I2C_CR2_NBYTES_Pos) | I2C_CR2_AUTOEND;
+		} else {
+			CR2 |= I2C_CR2_NBYTES | I2C_CR2_RELOAD;
+		}
+		if (m_Port->ISR & I2C_ISR_TXE)
+		{
+			m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
+			if (m_RegisterAddressLength == 1) {
+				m_State = State_e::Writing;
+			}
+		}
+	}
+	else
+	{
+		m_State = State_e::Writing;
+
+		if (m_Length <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
+			CR2 |= (m_Length << I2C_CR2_NBYTES_Pos) | I2C_CR2_AUTOEND;
+		} else {
+			CR2 |= I2C_CR2_NBYTES | I2C_CR2_RELOAD;
+		}
+		if (m_Port->ISR & I2C_ISR_TXE)
+		{
+			m_Port->TXDR = m_Buffer[m_CurPos++];
+		}
+	}
 
 	CRITICAL_BEGIN(CRITICAL_IRQ)
 	{
@@ -244,20 +290,14 @@ ssize_t I2CDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void*
 
 		m_Port->ICR = I2C_ICR_ADDRCF | I2C_ICR_NACKCF | I2C_ICR_STOPCF | I2C_ICR_BERRCF | I2C_ICR_ARLOCF | I2C_ICR_OVRCF | I2C_ICR_PECCF | I2C_ICR_TIMOUTCF | I2C_ICR_ALERTCF;
 		m_Port->CR1 |= interruptFlags;
-
-		m_Port->CR2 |= I2C_CR2_START;
-
-		if (m_Port->ISR & I2C_ISR_TXIS)
-		{
-			m_Port->TXDR = m_Buffer[m_CurPos++];
-		}
+		m_Port->CR2 = CR2;
 
 		if (!m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout))
 		{
 			ResetPeripheral();
 			m_CurPos = -ETIME;
 		}
-		m_Port->CR1 &= interruptFlags;
+		m_Port->CR1 &= ~interruptFlags;
 	} CRITICAL_END;
 	m_State = State_e::Idle;
 	if (m_CurPos < 0)
@@ -450,48 +490,15 @@ int I2CDriverINode::GetBaudrate() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriverINode::HandleEventIRQ()
+void kernel::I2CDriverINode::UpdateTransactionLength(uint32_t& CR2)
 {
-	uint32_t status = m_Port->ISR;
+	CR2 &= ~(I2C_CR2_NBYTES_Msk | I2C_CR2_RELOAD);
 
-	if (status & I2C_ISR_NACKF)
-	{
-		m_CurPos = -ECONNREFUSED;
-		m_Port->ICR = I2C_ICR_NACKCF;
-		m_RequestCondition.Wakeup();
-		return;
-	}
-
-	if (m_State == State_e::Reading && status & I2C_ISR_RXNE)
-	{
-		m_Buffer[m_CurPos++] = m_Port->RXDR;
-	}
-	if (m_State == State_e::Writing && status & I2C_ISR_TXIS)
-	{
-		m_Port->TXDR = m_Buffer[m_CurPos++];
-	}
-
-	if (status & I2C_ISR_TCR) // Transfer complete reload.
-	{
-		uint32_t CR2 = m_Port->CR2;
-		CR2 &= ~(I2C_CR2_NBYTES_Msk | I2C_CR2_RELOAD);
-
-		int32_t remainingLength = m_Length - m_CurPos;
-		if (remainingLength <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
-			CR2 |= remainingLength << I2C_CR2_NBYTES_Pos;
-		} else {
-			CR2 |= I2C_CR2_NBYTES_Msk | I2C_CR2_RELOAD;
-		}
-		m_Port->CR2 = CR2;
-	}
-	if (status & I2C_ISR_STOPF) // Transfer complete.
-	{
-		m_Port->ICR = I2C_ICR_STOPCF;
-		m_RequestCondition.Wakeup();
-	}
-	if (status & I2C_ISR_TC) // Transfer complete.
-	{
-		m_RequestCondition.Wakeup();
+	int32_t remainingLength = m_Length - m_CurPos;
+	if (remainingLength <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
+		CR2 |= (remainingLength << I2C_CR2_NBYTES_Pos) | I2C_CR2_AUTOEND;
+	} else {
+		CR2 |= I2C_CR2_NBYTES_Msk | I2C_CR2_RELOAD;
 	}
 }
 
@@ -499,11 +506,102 @@ void I2CDriverINode::HandleEventIRQ()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriverINode::HandleErrorIRQ()
+IRQResult I2CDriverINode::HandleEventIRQ()
+{
+	if (m_Port->ISR & I2C_ISR_NACKF)
+	{
+		m_CurPos = -ECONNREFUSED;
+		m_Port->ICR = I2C_ICR_NACKCF;
+		m_Port->CR1 &= ~I2C_CR1_TXIE;
+		m_RequestCondition.Wakeup();
+		return IRQResult::HANDLED;
+	}
+
+	switch (m_State)
+	{
+	case State_e::SendReadAddress:
+		while (m_RegisterAddressPos != m_RegisterAddressLength && (m_Port->ISR & I2C_ISR_TXE))
+		{
+			m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
+		}
+		if (m_Port->ISR & I2C_ISR_STOPF) // Transfer complete.
+		{
+			m_Port->ICR = I2C_ICR_STOPCF;
+			uint32_t CR2 = m_Port->CR2;
+			UpdateTransactionLength(CR2);
+			CR2 |= I2C_CR2_START | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND;
+			m_Port->CR2 = CR2;
+			m_State = State_e::Reading;
+		}
+		else if (m_Port->ISR & I2C_ISR_TC) // Transfer complete.
+		{
+			uint32_t CR2 = m_Port->CR2;
+			UpdateTransactionLength(CR2);
+			CR2 |= I2C_CR2_START | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND;
+			m_Port->CR2 = CR2;
+			m_State = State_e::Reading;
+		}
+		break;
+	case State_e::SendWriteAddress:
+		while (m_RegisterAddressPos != m_RegisterAddressLength && (m_Port->ISR & I2C_ISR_TXE))
+		{
+			m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
+		}
+		if (m_RegisterAddressPos == m_RegisterAddressLength) {
+			m_State = State_e::Writing;
+		}
+		break;
+	default:
+		break;
+	}
+	if (m_Port->ISR & I2C_ISR_TCR) // Transfer complete reload.
+	{
+		uint32_t CR2 = m_Port->CR2;
+		UpdateTransactionLength(CR2);
+		m_Port->CR2 = CR2;
+	}
+	switch (m_State)
+	{
+	case State_e::Reading:
+		while ((m_Port->ISR & I2C_ISR_RXNE) && m_CurPos != m_Length)
+		{
+			m_Buffer[m_CurPos++] = m_Port->RXDR;
+		}
+		break;
+	case State_e::Writing:
+		while ((m_Port->ISR & I2C_ISR_TXE) && m_CurPos != m_Length)
+		{
+			m_Port->TXDR = m_Buffer[m_CurPos++];
+		}
+		break;
+	default:
+		break;
+	}
+	if (m_Port->ISR & I2C_ISR_STOPF) // Transfer complete.
+	{
+		m_Port->ICR = I2C_ICR_STOPCF;
+		m_Port->CR1 &= ~I2C_CR1_TXIE;
+		m_RequestCondition.Wakeup();
+	}
+	if (m_Port->ISR & I2C_ISR_TC) // Transfer complete.
+	{
+		m_Port->CR1 &= ~I2C_CR1_TXIE;
+		m_RequestCondition.Wakeup();
+	}
+	return IRQResult::HANDLED;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+IRQResult I2CDriverINode::HandleErrorIRQ()
 {
 	m_Port->CR1 &= ~I2C_CR1_ERRIE;
 	m_CurPos = -EIO;
 	m_RequestCondition.Wakeup();
+
+	return IRQResult::HANDLED;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

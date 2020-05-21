@@ -132,6 +132,8 @@
     <ClCompile Include="Init.cpp" />
     <ClCompile Include="Kernel\Drivers\BME280Driver.cpp" />
     <ClCompile Include="Kernel\Drivers\FT5x0xDriver.cpp" />
+    <ClCompile Include="Kernel\Drivers\GSLx680Driver.cpp" />
+    <ClCompile Include="Kernel\Drivers\GSLx680Firmware.cpp" />
     <ClCompile Include="Kernel\Drivers\HSMCIDriver.cpp" />
     <ClCompile Include="Kernel\Drivers\I2CDriver.cpp" />
     <ClCompile Include="Kernel\Drivers\INA3221Driver.cpp" />
@@ -246,13 +248,14 @@
     <ClInclude Include="ASF\sam\utils\status_codes.h" />
     <ClInclude Include="DeviceControl\BME280.h" />
     <ClInclude Include="DeviceControl\DeviceControl.h" />
-    <ClInclude Include="DeviceControl\FT5x0x.h" />
+    <ClInclude Include="DeviceControl\HID.h" />
     <ClInclude Include="DeviceControl\I2C.h" />
     <ClInclude Include="DeviceControl\INA3221.h" />
     <ClInclude Include="DeviceControl\SDCARD.h" />
     <ClInclude Include="DeviceControl\TLV493D.h" />
     <ClInclude Include="Kernel\Drivers\BME280Driver.h" />
     <ClInclude Include="Kernel\Drivers\FT5x0xDriver.h" />
+    <ClInclude Include="Kernel\Drivers\GSLx680Driver.h" />
     <ClInclude Include="Kernel\Drivers\HSMCIDriver.h" />
     <None Include="Kernel\Drivers\I2CDriver.h" />
     <ClInclude Include="Kernel\Drivers\INA3221Driver.h" />

@@ -500,9 +500,9 @@ void KBlockCache::DiskCacheFlusher(void* arg)
     for (;;)
     {
         if (s_DirtyBlockCount > 0) {
-            snooze(bigtime_from_ms(250));
+			snooze_ms(250);
         } else {
-            snooze(bigtime_from_s(5));
+            snooze_s(5);
         }
         KVFSManager::FlushInodes();
         CRITICAL_BEGIN(s_Mutex)

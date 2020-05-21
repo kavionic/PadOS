@@ -155,14 +155,14 @@ bool HSMCIDriver::Setup(const String& devicePath)
 
 int HSMCIDriver::Run()
 {
-    snooze(bigtime_from_ms(250));
+	snooze_ms(250);
     
     for(;;)
     {
         bool hasCard = !m_PinCD;
         
         if (hasCard != m_CardInserted) {
-            snooze(bigtime_from_ms(100)); // De-bounce
+			snooze_ms(100); // De-bounce
             hasCard = !m_PinCD;
         }            
         if (hasCard != m_CardInserted)
@@ -198,7 +198,7 @@ int HSMCIDriver::Run()
                 DecodePartitions(true);
             }
         }
-        snooze(bigtime_from_ms(100));
+		snooze_ms(100);
     }
 }
 
@@ -844,7 +844,7 @@ void HSMCIDriver::SetState(CardState state)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void HSMCIDriver::HandleIRQ()
+IRQResult HSMCIDriver::HandleIRQ()
 {
     for (;;)
     {
@@ -859,7 +859,7 @@ void HSMCIDriver::HandleIRQ()
             m_IOError = EIO;
             kprintf("ERROR: HSMCIDriver::HandleIRQ() error: %s\n", GetStatusFlagNames(status).c_str());
             m_IOCondition.Wakeup(0);
-            return;
+            return IRQResult::HANDLED;
         }
         if (status & HSMCI_SR_RXRDY_Msk)
         {
@@ -869,7 +869,7 @@ void HSMCIDriver::HandleIRQ()
                 m_IOError = EIO;
                 kprintf("ERROR: HSMCIDriver::HandleIRQ() to many bytes received: %s\n", GetStatusFlagNames(status).c_str());
                 m_IOCondition.Wakeup(0);
-                return;
+                return IRQResult::HANDLED;
             }
             if (HSMCI->HSMCI_MR & HSMCI_MR_FBYTE_Msk)
             {
@@ -899,7 +899,8 @@ void HSMCIDriver::HandleIRQ()
             m_IOCondition.Wakeup(0);
         }
         break;
-    }        
+    }
+	return IRQResult::HANDLED
 }
 
 ///////////////////////////////////////////////////////////////////////////////

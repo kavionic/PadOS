@@ -138,7 +138,7 @@ public:
     FT5x0xDriver();
     ~FT5x0xDriver();
 
-    void Setup(const char* devicePath/*, const DigitalPin& pinWAKE*/, const DigitalPin& pinRESET, const DigitalPin& pinINT, IRQn_Type irqNum, const char* i2cPath);
+    void Setup(const char* devicePath, const DigitalPin& pinWAKE, const DigitalPin& pinRESET, const DigitalPin& pinINT, IRQn_Type irqNum, const char* i2cPath);
 
     virtual int Run() override;
 
@@ -149,8 +149,8 @@ public:
 private:
     void PrintChipStatus();
     
-    static void IRQHandler(IRQn_Type irq, void* userData) { static_cast<FT5x0xDriver*>(userData)->HandleIRQ(); }
-    void HandleIRQ();
+    static IRQResult IRQHandler(IRQn_Type irq, void* userData) { return static_cast<FT5x0xDriver*>(userData)->HandleIRQ(); }
+	IRQResult HandleIRQ();
 
     DigitalPin   m_PinWAKE;
     DigitalPin   m_PinRESET;

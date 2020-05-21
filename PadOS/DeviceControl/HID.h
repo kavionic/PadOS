@@ -22,17 +22,17 @@
 #include "Kernel/VFS/FileIO.h"
 
 
-enum FT5x0xIOCTL
+enum HIDIOCTL
 {
-    FT5x0xIOCTL_SET_TARGET_PORT,
-    FT5x0xIOCTL_GET_TARGET_PORT
+	HIDIOCTL_SET_TARGET_PORT,
+	HIDIOCTL_GET_TARGET_PORT
 };
 
-inline int FT5x0xIOCTL_SetTargetPort(int device, port_id port) { return os::FileIO::DeviceControl(device, FT5x0xIOCTL_SET_TARGET_PORT, &port, sizeof(port), nullptr, 0); }
-inline int FT5x0xIOCTL_GetTargetPort(int device)
+inline int HIDIOCTL_SetTargetPort(int device, port_id port) { return os::FileIO::DeviceControl(device, HIDIOCTL_SET_TARGET_PORT, &port, sizeof(port), nullptr, 0); }
+inline int HIDIOCTL_GetTargetPort(int device)
 {
     port_id port;
-    if (os::FileIO::DeviceControl(device, FT5x0xIOCTL_GET_TARGET_PORT, nullptr, 0, &port, sizeof(port)) < 0) return -1;
+    if (os::FileIO::DeviceControl(device, HIDIOCTL_GET_TARGET_PORT, nullptr, 0, &port, sizeof(port)) < 0) return -1;
     return port;
 }
 

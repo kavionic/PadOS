@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -39,38 +39,34 @@ using namespace os;
 uint32_t                      Kernel::s_FrequencyCore;
 uint32_t                      Kernel::s_FrequencyPeripheral;
 volatile bigtime_t            Kernel::s_SystemTime = 0;
-//int                           Kernel::s_LastError = 0;
 KIRQAction*                   Kernel::s_IRQHandlers[IRQ_COUNT];
 
-static std::map<int, KLogSeverity> gk_KernelLogLevels;
+static KMutex												gk_KernelLogMutex("kernel_log", false);
+static std::map<int, std::pair<KLogSeverity, os::String>>	gk_KernelLogLevels;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int  kernel::kernel_log_alloc_category(KLogSeverity initialLogLevel)
+bool kernel::kernel_log_register_category(uint32_t categoryHash, const char* categoryName, KLogSeverity initialLogLevel)
 {
-    static int prevCategoryID = int(KLogCategory::COUNT);
-    int category = ++prevCategoryID;
-    if (initialLogLevel != KLogSeverity::NONE) {
-        gk_KernelLogLevels[category] = initialLogLevel;
-    }        
-    return category;
+	CRITICAL_SCOPE(gk_KernelLogMutex, gk_CurrentThread != nullptr);
+	gk_KernelLogLevels[categoryHash] = std::make_pair(initialLogLevel, os::String(categoryName));
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::kernel_log_set_category_log_level(int category, KLogSeverity logLevel)
+void kernel::kernel_log_set_category_log_level(uint32_t categoryHash, KLogSeverity logLevel)
 {
-    if (logLevel != KLogSeverity::NONE) {
-        gk_KernelLogLevels[category] = logLevel;
+	CRITICAL_SCOPE(gk_KernelLogMutex);
+	auto i = gk_KernelLogLevels.find(categoryHash);
+	if (i != gk_KernelLogLevels.end()) {
+        i->second.first = logLevel;
     } else {
-        auto i = gk_KernelLogLevels.find(category);
-        if (i != gk_KernelLogLevels.end()) {
-            gk_KernelLogLevels.erase(i);
-        }
+		kprintf("ERROR: kernel_log_set_category_log_level() called with unknown categoryHash %08x\n", categoryHash);
     }        
 }
 
@@ -78,12 +74,16 @@ void kernel::kernel_log_set_category_log_level(int category, KLogSeverity logLev
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool kernel::kernel_log_is_category_active(int category, KLogSeverity logLevel)
+bool kernel::kernel_log_is_category_active(uint32_t categoryHash, KLogSeverity logLevel)
 {
-    auto i = gk_KernelLogLevels.find(category);
+	CRITICAL_SCOPE(gk_KernelLogMutex);
+	
+	auto i = gk_KernelLogLevels.find(categoryHash);
     if (i != gk_KernelLogLevels.end()) {
-        return logLevel >= i->second;
-    }
+        return logLevel >= i->second.first;
+	} else {
+		kprintf("ERROR: kernel_log_is_category_active() called with unknown categoryHash %08x\n", categoryHash);
+	}
     return false;
 }
 
@@ -244,11 +244,12 @@ void Kernel::Initialize(uint32_t coreFrequency, MCU_Timer16_t* powerSwitchTimerC
 //    RGBLED_B.Write(false);
     
     ResetWatchdog();
-    
-    gk_KernelLogLevels[int(KLogCategory::General)]    = KLogSeverity::INFO_HIGH_VOL;
-    gk_KernelLogLevels[int(KLogCategory::VFS)]        = KLogSeverity::INFO_HIGH_VOL;
-    gk_KernelLogLevels[int(KLogCategory::BlockCache)] = KLogSeverity::INFO_HIGH_VOL;
-    gk_KernelLogLevels[int(KLogCategory::Scheduler)]  = KLogSeverity::INFO_HIGH_VOL;
+
+	REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_General,    KLogSeverity::INFO_HIGH_VOL);
+	REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_VFS,        KLogSeverity::INFO_HIGH_VOL);
+	REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL);
+	REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler,  KLogSeverity::INFO_HIGH_VOL);
+
 //    FileIO::Initialze();
 //    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
     kernel::start_scheduler(coreFrequency);
@@ -389,33 +390,7 @@ bigtime_t Kernel::GetTime()
 		time = s_SystemTime;
     } CRITICAL_END;
 	return time * 1000;
-
-/*    for (;;)
-    {
-        volatile uint32_t* timer = reinterpret_cast<volatile uint32_t*>(&s_SystemTime);
-
-#ifdef LITTLE_ENDIAN
-        uint32_t time1LO = timer[0];
-        __DMB();
-        uint32_t time1HI = timer[1];
-        __DMB();
-        uint32_t time2LO = timer[0];
-        // Make sure we re-fetch s_SystemTime if the previous increment caused
-        // a wrapping, and we got interrupted after reading the first word.
-        if (time1LO <= time2LO) {
-            uint64_t result;
-            uint32_t* resultPtr = reinterpret_cast<uint32_t*>(&result);
-            resultPtr[0] = time1LO;
-            resultPtr[1] = time1HI;
-            return result * 1000;
-        }
-#else // LITTLE_ENDIAN
-#error
-#endif // LITTLE_ENDIAN
-    }*/
 }
-
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -439,73 +414,3 @@ extern "C" void KernelHandleIRQ(int irq)
 {
 	Kernel::HandleIRQ(IRQn_Type(irq));
 }
-
-/*
-void SUPC_Handler         ( void ) { Kernel::HandleIRQ(SUPC_IRQn); }
-void RSTC_Handler         ( void ) { Kernel::HandleIRQ(RSTC_IRQn); }
-void RTC_Handler          ( void ) { Kernel::HandleIRQ(RTC_IRQn); }
-void RTT_Handler          ( void ) { Kernel::HandleIRQ(RTT_IRQn); }
-void WDT_Handler          ( void ) { Kernel::HandleIRQ(WDT_IRQn); }
-void PMC_Handler          ( void ) { Kernel::HandleIRQ(PMC_IRQn); }
-void EFC_Handler          ( void ) { Kernel::HandleIRQ(EFC_IRQn); }
-//void UART0_Handler        ( void ) { Kernel::HandleIRQ(UART0_IRQn); }
-//void UART1_Handler        ( void ) { Kernel::HandleIRQ(UART1_IRQn); }
-void PIOA_Handler         ( void ) { Kernel::HandleIRQ(PIOA_IRQn); }
-void PIOB_Handler         ( void ) { Kernel::HandleIRQ(PIOB_IRQn); }
-#ifdef PIOC
-void PIOC_Handler         ( void ) { Kernel::HandleIRQ(PIOC_IRQn); }
-#endif
-void USART0_Handler       ( void ) { Kernel::HandleIRQ(USART0_IRQn); }
-void USART1_Handler       ( void ) { Kernel::HandleIRQ(USART1_IRQn); }
-void USART2_Handler       ( void ) { Kernel::HandleIRQ(USART2_IRQn); }
-void PIOD_Handler         ( void ) { Kernel::HandleIRQ(PIOD_IRQn); }
-#ifdef PIOE
-void PIOE_Handler         ( void ) { Kernel::HandleIRQ(PIOE_IRQn); }
-#endif
-void HSMCI_Handler        ( void ) { Kernel::HandleIRQ(HSMCI_IRQn); }
-void TWIHS0_Handler       ( void ) { Kernel::HandleIRQ(TWIHS0_IRQn); }
-void TWIHS1_Handler       ( void ) { Kernel::HandleIRQ(TWIHS1_IRQn); }
-void SPI0_Handler         ( void ) { Kernel::HandleIRQ(SPI0_IRQn); }
-void SSC_Handler          ( void ) { Kernel::HandleIRQ(SSC_IRQn); }
-void TC0_Handler          ( void ) { Kernel::HandleIRQ(TC0_IRQn); }
-void TC1_Handler          ( void ) { Kernel::HandleIRQ(TC1_IRQn); }
-void TC2_Handler          ( void ) { Kernel::HandleIRQ(TC2_IRQn); }
-void TC3_Handler          ( void ) { Kernel::HandleIRQ(TC3_IRQn); }
-void TC4_Handler          ( void ) { Kernel::HandleIRQ(TC4_IRQn); }
-void TC5_Handler          ( void ) { Kernel::HandleIRQ(TC5_IRQn); }
-void AFEC0_Handler        ( void ) { Kernel::HandleIRQ(AFEC0_IRQn); }
-void DACC_Handler         ( void ) { Kernel::HandleIRQ(DACC_IRQn); }
-void PWM0_Handler         ( void ) { Kernel::HandleIRQ(PWM0_IRQn); }
-void ICM_Handler          ( void ) { Kernel::HandleIRQ(ICM_IRQn); }
-void ACC_Handler          ( void ) { Kernel::HandleIRQ(ACC_IRQn); }
-void USBHS_Handler        ( void ) { Kernel::HandleIRQ(USBHS_IRQn); }
-void MCAN0_INT0_Handler        ( void ) { Kernel::HandleIRQ(MCAN0_INT0_IRQn); }
-void MCAN0_INT1_Handler        ( void ) { Kernel::HandleIRQ(MCAN0_INT1_IRQn); }
-void MCAN1_INT0_Handler        ( void ) { Kernel::HandleIRQ(MCAN1_INT0_IRQn); }
-void MCAN1_INT1_Handler        ( void ) { Kernel::HandleIRQ(MCAN1_INT1_IRQn); }
-void GMAC_Handler         ( void ) { Kernel::HandleIRQ(GMAC_IRQn); }
-void AFEC1_Handler        ( void ) { Kernel::HandleIRQ(AFEC1_IRQn); }
-void TWIHS2_Handler       ( void ) { Kernel::HandleIRQ(TWIHS2_IRQn); }
-#ifdef SPI1
-void SPI1_Handler         ( void ) { Kernel::HandleIRQ(SPI1_IRQn); }
-#endif
-void QSPI_Handler         ( void ) { Kernel::HandleIRQ(QSPI_IRQn); }
-//void UART2_Handler        ( void ) { Kernel::HandleIRQ(UART2_IRQn); }
-//void UART3_Handler        ( void ) { Kernel::HandleIRQ(UART3_IRQn); }
-//void UART4_Handler        ( void ) { Kernel::HandleIRQ(UART4_IRQn); }
-void TC6_Handler          ( void ) { Kernel::HandleIRQ(TC6_IRQn); }
-void TC7_Handler          ( void ) { Kernel::HandleIRQ(TC7_IRQn); }
-void TC8_Handler          ( void ) { Kernel::HandleIRQ(TC8_IRQn); }
-void TC9_Handler          ( void ) { Kernel::HandleIRQ(TC9_IRQn); }
-void TC10_Handler         ( void ) { Kernel::HandleIRQ(TC10_IRQn); }
-void TC11_Handler         ( void ) { Kernel::HandleIRQ(TC11_IRQn); }
-void AES_Handler          ( void ) { Kernel::HandleIRQ(AES_IRQn); }
-void TRNG_Handler         ( void ) { Kernel::HandleIRQ(TRNG_IRQn); }
-void XDMAC_Handler        ( void ) { Kernel::HandleIRQ(XDMAC_IRQn); }
-void ISI_Handler          ( void ) { Kernel::HandleIRQ(ISI_IRQn); }
-void PWM1_Handler         ( void ) { Kernel::HandleIRQ(PWM1_IRQn); }
-#ifdef SDRAMC
-void SDRAMC_Handler       ( void ) { Kernel::HandleIRQ(SDRAMC_IRQn); }
-#endif
-void RSWDT_Handler        ( void ) { Kernel::HandleIRQ(RSWDT_IRQn); }
-*/

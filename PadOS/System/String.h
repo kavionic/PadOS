@@ -95,7 +95,15 @@ public:
         va_end(argList);
         return result;
     }
+
+	// FNV-1a 32bit hashing algorithm.
+	static constexpr uint32_t hash_string_literal(char const* s, size_t count)
+	{
+		return ((count ? hash_string_literal(s, count - 1) : 2166136261u) ^ s[count]) * 16777619u;
+	}
+
     static String zero;        
 };
+
 
 }

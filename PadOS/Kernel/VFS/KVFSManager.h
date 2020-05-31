@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -60,7 +60,7 @@ public:
 
     static void RegisterFilesystem(Ptr<KFilesystem> filesystem);
 
-    static int DecodeDiskPartitions(const device_geometry& diskGeom, std::vector<disk_partition_desc>* partitions, disk_read_op* readCallback, void* userData);
+    static int DecodeDiskPartitions(void* blockBuffer, size_t bufferSize, const device_geometry& diskGeom, std::vector<disk_partition_desc>* partitions, disk_read_op* readCallback, void* userData);
 
     static bool           RegisterVolume(Ptr<KFSVolume> volume);
     static Ptr<KFSVolume> GetVolume(fs_id volumeID);

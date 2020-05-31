@@ -92,50 +92,65 @@ bool TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, const Dig
 
 void TLV493DDriver::ResetSensor()
 {
-	printf("Resetting TLV493D.\n");
+	for (;;)
+	{
+		printf("Resetting TLV493D.\n");
 
-	I2CIOCTL_ClearBus(m_I2CDevice);
+		m_PowerPin = false;
+		snooze_ms(100);
+		m_PowerPin = true;
+		snooze_ms(100);
 
-	I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0);
+		I2CIOCTL_ClearBus(m_I2CDevice);
 
-	int errorCount = 0;
+		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0);
 
-	uint8_t cfg = 0xff;
+		int errorCount = 0;
 
-	// Write to slave-address zero to reset the sensor. After the address the sensor read the SDA
-	// to set it's slave-address to one of two values. So writing 0x00 will make it read a '0'
-	// and writing 0xff will make it read a '1'. The actual write operation will return an error
-	// code since the data-byte is being transmitted while the sensor is resetting, and will not
-	// be ack'd.
+		uint8_t cfg = 0xff;
 
-	FileIO::Write(m_I2CDevice, 0, &cfg, 1);
-	I2CIOCTL_SetSlaveAddress(m_I2CDevice, m_DeviceAddress);
+		// Write to slave-address zero to reset the sensor. After the address the sensor read the SDA
+		// to set it's slave-address to one of two values. So writing 0x00 will make it read a '0'
+		// and writing 0xff will make it read a '1'. The actual write operation will return an error
+		// code since the data-byte is being transmitted while the sensor is resetting, and will not
+		// be ack'd.
 
-	errorCount = 0;
-	while (FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters)) != sizeof(m_ReadRegisters) && errorCount++ < 5) {
-		printf("Error: Failed to read initial TLV493D registers!\n");
-		snooze_ms(10);
+		FileIO::Write(m_I2CDevice, 0, &cfg, 1);
+		I2CIOCTL_SetSlaveAddress(m_I2CDevice, m_DeviceAddress);
+
+		errorCount = 0;
+		while (FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters)) != sizeof(m_ReadRegisters) && errorCount++ < 5) {
+			printf("Error: Failed to read initial TLV493D registers!\n");
+			snooze_ms(10);
+		}
+		printf("TLV493DDriver: initial registers read.\n");
+
+		m_WriteRegisters.Reserved1 = 0;
+		m_WriteRegisters.Mode1 = m_ReadRegisters.DefaultCfg1;
+		m_WriteRegisters.Reserved2 = m_ReadRegisters.DefaultCfg2;
+		m_WriteRegisters.Mode2 = m_ReadRegisters.DefaultCfg3;
+
+		m_WriteRegisters.Mode1 |= TLV493D_MODE1_LOW;
+		m_WriteRegisters.Mode1 |= TLV493D_MODE1_FAST;
+		m_WriteRegisters.Mode1 &= ~TLV493D_MODE1_INT;
+		UpdateParity();
+
+		errorCount = 0;
+		while (FileIO::Write(m_I2CDevice, 0, &m_WriteRegisters, sizeof(m_WriteRegisters)) != sizeof(m_WriteRegisters) && ++errorCount < 5) {
+			snooze_ms(10);
+		} if (errorCount == 5) {
+			printf("Error: Failed to write TLV493D config registers!\n");
+			snooze_s(1);
+			continue;
+		} else if (errorCount > 0) {
+			printf("TLV493DDriver: config written (%d retries).\n", errorCount);
+		} else {
+			printf("TLV493DDriver: config written.\n");
+		}
+
+		FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters)); // Trigger first conversion
+		break;
 	}
-	printf("TLV493DDriver: initial registers read.\n");
-
-	m_WriteRegisters.Reserved1 = 0;
-	m_WriteRegisters.Mode1 = m_ReadRegisters.DefaultCfg1;
-	m_WriteRegisters.Reserved2 = m_ReadRegisters.DefaultCfg2;
-	m_WriteRegisters.Mode2 = m_ReadRegisters.DefaultCfg3;
-
-	m_WriteRegisters.Mode1 |= TLV493D_MODE1_LOW;
-	m_WriteRegisters.Mode1 |= TLV493D_MODE1_FAST;
-	m_WriteRegisters.Mode1 &= ~TLV493D_MODE1_INT;
-	UpdateParity();
-
-	errorCount = 0;
-	while (FileIO::Write(m_I2CDevice, 0, &m_WriteRegisters, sizeof(m_WriteRegisters)) != sizeof(m_WriteRegisters) && errorCount++ < 5) {
-		printf("Error: Failed to write TLV493D config registers!\n");
-		snooze_ms(10);
-	}
-	printf("TLV493DDriver: config written.\n");
-
-	FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters)); // Trigger first conversion
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -189,7 +204,9 @@ int TLV493DDriver::Run()
 		}
 		if ((m_ReadRegisters.TempHFrmCh & TLV493D_FRAME) == lastFrame) {
 			errorCount++;
-			printf("Error: TLV493D frame counter didn't advance %d.\n", errorCount);
+			if (errorCount > 1) {
+				printf("Error: TLV493D frame counter didn't advance %d.\n", errorCount);
+			}
 			continue;
 		}
 		errorCount = 0;

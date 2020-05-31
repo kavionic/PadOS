@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -375,7 +375,7 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
             m_Flags |= BCF_DIRTY;
             KBlockCache::s_DirtyBlockCount++;
         }
-        kernel_log(KLogCategory::BlockCache, KLogSeverity::INFO_HIGH_VOL, "Block %" PRIu64 " from device %d dirty\n", m_bufferNumber, m_Device);
+        kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "Block %" PRIu64 " from device %d dirty\n", m_bufferNumber, m_Device);
     }
     else
     {
@@ -478,15 +478,15 @@ void KCacheBlockDesc::Reset()
 
 void KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCount)
 {
-    kernel_log(KLogCategory::BlockCache, KLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() flushing %d blocks.\n", blockCount);
+    kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() flushing %d blocks.\n", blockCount);
     for (size_t i = 0; i < blockCount; ++i)
     {
         KCacheBlockHeader* block = blockList[i];
         
-        kernel_log(KLogCategory::BlockCache, KLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() writing block %" PRId64 " from device %d\n", block->m_bufferNumber, block->m_Device);
+        kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() writing block %" PRId64 " from device %d\n", block->m_bufferNumber, block->m_Device);
         
         if (FileIO::Write(block->m_Device, block->m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, block->m_Buffer, KBlockCache::BUFFER_BLOCK_SIZE) < 0) {
-            kernel_log(KLogCategory::BlockCache, KLogSeverity::CRITICAL, "Failed to flush block %" PRId64 " from device %d\n", block->m_bufferNumber, block->m_Device);
+            kernel_log(LogCatKernel_BlockCache, KLogSeverity::CRITICAL, "Failed to flush block %" PRId64 " from device %d\n", block->m_bufferNumber, block->m_Device);
         }
     }
 }

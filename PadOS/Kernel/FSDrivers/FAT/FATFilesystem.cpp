@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -42,10 +42,6 @@ using namespace os;
 
 namespace kernel
 {
-int FATFilesystem::LOGC_FS;
-int FATFilesystem::LOGC_FATTABLE;
-int FATFilesystem::LOGC_DIR;
-int FATFilesystem::LOGC_FILE;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -53,10 +49,10 @@ int FATFilesystem::LOGC_FILE;
 
 FATFilesystem::FATFilesystem()
 {
-    LOGC_FS       = kernel_log_alloc_category(KLogSeverity::INFO_HIGH_VOL);
-    LOGC_FATTABLE = kernel_log_alloc_category(KLogSeverity::INFO_HIGH_VOL);
-    LOGC_DIR      = kernel_log_alloc_category(KLogSeverity::INFO_LOW_VOL);
-    LOGC_FILE     = kernel_log_alloc_category(KLogSeverity::INFO_LOW_VOL);
+	REGISTER_KERNEL_LOG_CATEGORY(LOGC_FS,       KLogSeverity::WARNING);
+	REGISTER_KERNEL_LOG_CATEGORY(LOGC_FATTABLE, KLogSeverity::WARNING);
+	REGISTER_KERNEL_LOG_CATEGORY(LOGC_DIR,      KLogSeverity::WARNING);
+	REGISTER_KERNEL_LOG_CATEGORY(LOGC_FILE,     KLogSeverity::WARNING);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1884,26 +1880,24 @@ int FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KINode> _node, const struc
             set_last_error(EISDIR);
             return -1;
         }
-        else if (st->st_size > FAT_MAX_FILE_SIZE)
+		if (size64_t(st->st_size) > FAT_MAX_FILE_SIZE)
+		{
+			kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::WriteStat(): desired file size exceeds fat limit\n");
+			set_last_error(E2BIG);
+			return -1;
+		}
+
+        uint32_t clusters = (st->st_size + vol->m_BytesPerSector*vol->m_SectorsPerCluster - 1) / vol->m_BytesPerSector / vol->m_SectorsPerCluster;
+        kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::WriteStat(): setting FAT chain length to %lx clusters\n", clusters);
+        if (vol->GetFATTable()->SetChainLength(node, clusters, true))
         {
-            kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::WriteStat(): desired file size exceeds fat limit\n");
-            set_last_error(E2BIG);
-            return -1;
+            node->m_Size = st->st_size;
+            node->m_Iteration++;
+            dirty = true;
         }
         else
         {
-            uint32_t clusters = (st->st_size + vol->m_BytesPerSector*vol->m_SectorsPerCluster - 1) / vol->m_BytesPerSector / vol->m_SectorsPerCluster;
-            kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::WriteStat(): setting FAT chain length to %lx clusters\n", clusters);
-            if (vol->GetFATTable()->SetChainLength(node, clusters, true))
-            {
-                node->m_Size = st->st_size;
-                node->m_Iteration++;
-                dirty = true;
-            }
-            else
-            {
-                return -1;
-            }
+            return -1;
         }
     }
     

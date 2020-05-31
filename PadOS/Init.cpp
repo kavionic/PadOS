@@ -29,8 +29,6 @@
 #include <deque>
 #include <algorithm>
 
-//#include "component/pio.h"
-
 #include "System/Signals/Signal.h"
 #include "Kernel/HAL/SAME70System.h"
 #include "SDRAM.h"
@@ -41,9 +39,6 @@
 #include "Kernel/VFS/KBlockCache.h"
 
 extern "C" void InitializeNewLibMutexes();
-
-//kernel::HSMCIDriver g_SDCardBlockDevice(DigitalPin(e_DigitalPortID_A, 24));
-
 
 
 extern "C" void NonMaskableInt_Handler()

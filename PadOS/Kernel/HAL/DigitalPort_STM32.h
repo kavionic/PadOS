@@ -432,6 +432,34 @@ constexpr PinMuxTarget	PINMUX_FMC_D29_PI7		= { DigitalPinID::I7,	DigitalPinPerip
 constexpr PinMuxTarget	PINMUX_FMC_D30_PI9		= { DigitalPinID::I9,	DigitalPinPeripheralID::AF12 };
 constexpr PinMuxTarget	PINMUX_FMC_D31_PI10		= { DigitalPinID::I10,	DigitalPinPeripheralID::AF12 };
 
+constexpr PinMuxTarget	PINMUX_SDMMC1_D0_PC8 = { DigitalPinID::C8,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D1_PC9 = { DigitalPinID::C9,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D2_PC10 = { DigitalPinID::C10,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D3_PC11 = { DigitalPinID::C11,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D4_PB8 = { DigitalPinID::B8,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D5_PB9 = { DigitalPinID::B9,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D6_PC6 = { DigitalPinID::C6,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D7_PC7 = { DigitalPinID::C7,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_CMD_PD2 = { DigitalPinID::D2,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_CK_PC12 = { DigitalPinID::C12,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_CKIN_PB8 = { DigitalPinID::B8,	DigitalPinPeripheralID::AF7 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_CDIR_PB9 = { DigitalPinID::B9,	DigitalPinPeripheralID::AF7 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D0DIR_PC6 = { DigitalPinID::C6,	DigitalPinPeripheralID::AF8 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D123DIR_PC7 = { DigitalPinID::C7,	DigitalPinPeripheralID::AF8 };
+
+constexpr PinMuxTarget	PINMUX_SDMMC2_D0_PB14 = { DigitalPinID::B14,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D1_PB15 = { DigitalPinID::B15,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D2_PB3		= { DigitalPinID::B3,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D2_PG11 = { DigitalPinID::G11,	DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D3_PB4		= { DigitalPinID::B4,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D4_PB8		= { DigitalPinID::B8,	DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D5_PB9		= { DigitalPinID::B9,	DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D6_PC6		= { DigitalPinID::C6,	DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D7_PC7		= { DigitalPinID::C7,	DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_CMD_PA0 = { DigitalPinID::A0,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_CMD_PD7 = { DigitalPinID::D7,	DigitalPinPeripheralID::AF11 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_CK_PC1 = { DigitalPinID::C1,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_CK_PD6		= { DigitalPinID::D6,	DigitalPinPeripheralID::AF11 };
 
 
 struct DigitalPort

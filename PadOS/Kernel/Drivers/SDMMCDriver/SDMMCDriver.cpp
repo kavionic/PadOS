@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2017-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2017-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -21,11 +21,11 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <malloc.h>
 
-#include "HSMCIDriver.h"
+#include "SDMMCDriver.h"
 #include "Kernel/SpinTimer.h"
 #include "Kernel/HAL/SAME70System.h"
-#include "ASF/sam/drivers/xdmac/xdmac.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/VFS/KFSVolume.h"
 #include "System/String.h"
@@ -35,8 +35,9 @@
 
 using namespace kernel;
 using namespace os;
+using namespace sdmmc;
 
-HSMCIINode::HSMCIINode(KFilesystemFileOps* fileOps) : KINode(nullptr, nullptr, fileOps, false)
+SDMMCINode::SDMMCINode(KFilesystemFileOps* fileOps) : KINode(nullptr, nullptr, fileOps, false)
 {
 }
 
@@ -46,105 +47,53 @@ static const uint32_t CONF_HSMCI_XDMAC_CHANNEL = 0;
 #define SD_MMC_VOLTAGE_SUPPORT (OCR_VDD_27_28 | OCR_VDD_28_29 | OCR_VDD_29_30 | OCR_VDD_30_31 | OCR_VDD_31_32 | OCR_VDD_32_33)
 
 // SD/MMC transfer rate unit list (speed / 10000)
-static const uint32_t g_TransferRateUnits[7] = { 10, 100, 1000, 10000, 0, 0, 0 };
+static constexpr uint32_t g_TransferRateUnits[7] = { 10, 100, 1000, 10000, 0, 0, 0 };
     
 // SD transfer multiplier list (multiplier * 10)
-static const uint32_t g_TransferRateMultipliers_sd[16] = { 0, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80 };
+static constexpr uint32_t g_TransferRateMultipliers_sd[16] = { 0, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80 };
     
 // MMC transfer multiplier list (multiplier * 10)
-static const uint32_t g_TransferRateMultipliers_mmc[16] = { 0, 10, 12, 13, 15, 20, 26, 30, 35, 40, 45, 52, 55, 60, 70, 80 };
+static constexpr uint32_t g_TransferRateMultipliers_mmc[16] = { 0, 10, 12, 13, 15, 20, 26, 30, 35, 40, 45, 52, 55, 60, 70, 80 };
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static String GetStatusFlagNames(uint32_t flags)
+SDMMCDriver::SDMMCDriver() : Thread("hsmci_driver"), m_Mutex("hsmci_driver_mutex", false), m_CardStateCondition("hsmci_driver_cstate"), m_IOCondition("hsmci_driver_io"), m_DeviceSemaphore("hsmci_driver_dev_sema", 1)
 {
-    String result;
-    
-#define ADD_FLAG(name) if (flags & HSMCI_SR_##name##_Msk) { if (!result.empty()) result += ", "; result += #name; }
-    
-    ADD_FLAG(CMDRDY);             /**< (HSMCI_SR) Command Ready (cleared by writing in HSMCI_CMDR) Mask */
-    ADD_FLAG(RXRDY);              /**< (HSMCI_SR) Receiver Ready (cleared by reading HSMCI_RDR) Mask */
-    ADD_FLAG(TXRDY)               /**< (HSMCI_SR) Transmit Ready (cleared by writing in HSMCI_TDR) Mask */
-    ADD_FLAG(BLKE)                /**< (HSMCI_SR) Data Block Ended (cleared on read) Mask */
-    ADD_FLAG(DTIP)                /**< (HSMCI_SR) Data Transfer in Progress (cleared at the end of CRC16 calculation) Mask */
-    ADD_FLAG(NOTBUSY)             /**< (HSMCI_SR) HSMCI Not Busy Mask */
-    ADD_FLAG(SDIOIRQA)            /**< (HSMCI_SR) SDIO Interrupt for Slot A (cleared on read) Mask */
-    ADD_FLAG(SDIOWAIT)            /**< (HSMCI_SR) SDIO Read Wait Operation Status Mask */
-    ADD_FLAG(CSRCV)               /**< (HSMCI_SR) CE-ATA Completion Signal Received (cleared on read) Mask */
-    ADD_FLAG(RINDE)               /**< (HSMCI_SR) Response Index Error (cleared by writing in HSMCI_CMDR) Mask */
-    ADD_FLAG(RDIRE)               /**< (HSMCI_SR) Response Direction Error (cleared by writing in HSMCI_CMDR) Mask */
-    ADD_FLAG(RCRCE)               /**< (HSMCI_SR) Response CRC Error (cleared by writing in HSMCI_CMDR) Mask */
-    ADD_FLAG(RENDE)               /**< (HSMCI_SR) Response End Bit Error (cleared by writing in HSMCI_CMDR) Mask */
-    ADD_FLAG(RTOE)                /**< (HSMCI_SR) Response Time-out Error (cleared by writing in HSMCI_CMDR) Mask */
-    ADD_FLAG(DCRCE)               /**< (HSMCI_SR) Data CRC Error (cleared on read) Mask */
-    ADD_FLAG(DTOE)                /**< (HSMCI_SR) Data Time-out Error (cleared on read) Mask */
-    ADD_FLAG(CSTOE)               /**< (HSMCI_SR) Completion Signal Time-out Error (cleared on read) Mask */
-    ADD_FLAG(BLKOVRE)             /**< (HSMCI_SR) DMA Block Overrun Error (cleared on read) Mask */
-    ADD_FLAG(FIFOEMPTY)           /**< (HSMCI_SR) FIFO empty flag Mask */
-    ADD_FLAG(XFRDONE)             /**< (HSMCI_SR) Transfer Done flag Mask */
-    ADD_FLAG(ACKRCV)              /**< (HSMCI_SR) Boot Operation Acknowledge Received (cleared on read) Mask */
-    ADD_FLAG(ACKRCVE)             /**< (HSMCI_SR) Boot Operation Acknowledge Error (cleared on read) Mask */
-    ADD_FLAG(OVRE)                /**< (HSMCI_SR) Overrun (if FERRCTRL = 1, cleared by writing in HSMCI_CMDR or cleared on read if FERRCTRL = 0) Mask */
-    ADD_FLAG(UNRE)                /**< (HSMCI_SR) Underrun (if FERRCTRL = 1, cleared by writing in HSMCI_CMDR or cleared on read if FERRCTRL = 0) Mask */
-
-#undef ADD_FLAG
-
-    return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-HSMCIDriver::HSMCIDriver(const DigitalPin& pinCD) : Thread("hsmci_driver"), m_Mutex("hsmci_driver_mutex", false), m_CardStateCondition("hsmci_driver_cstate"), m_IOCondition("hsmci_driver_io"), m_DeviceSemaphore("hsmci_driver_dev_sema", 1), m_PinCD(pinCD)
-{    
     m_CardType = 0;
-    m_PinCD.SetPullMode(PinPullMode_e::Up);
-
-    DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN28_bm, DigitalPinPeripheralID::C);
-    DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN25_bm, DigitalPinPeripheralID::D);
-    DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN30_bm, DigitalPinPeripheralID::C);
-    DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN31_bm, DigitalPinPeripheralID::C);
-    DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN26_bm, DigitalPinPeripheralID::C);
-    DigitalPort::SetPeripheralMux(e_DigitalPortID_A, PIN27_bm, DigitalPinPeripheralID::C);
-
-    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN28_bm);
-    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN25_bm);
-    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN30_bm);
-    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN31_bm);
-    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN26_bm);
-    DigitalPort::SetDriveStrength(e_DigitalPortID_A, DigitalPinDriveStrength_e::High, PIN27_bm);
-    
     m_CardState = CardState::Initializing;
 
-    SAME70System::EnablePeripheralClock(ID_HSMCI);
-    // Enable clock for DMA controller
-    SAME70System::EnablePeripheralClock(ID_XDMAC);
-    
-    HSMCI->HSMCI_DTOR  = HSMCI_DTOR_DTOMUL_1048576 | HSMCI_DTOR_DTOCYC(2);     // Set the Data Timeout Register to 2 Mega Cycles
-    HSMCI->HSMCI_CSTOR = HSMCI_CSTOR_CSTOMUL_1048576 | HSMCI_CSTOR_CSTOCYC(2); // Set Completion Signal Timeout to 2 Mega Cycles
-    HSMCI->HSMCI_CFG   = HSMCI_CFG_FIFOMODE | HSMCI_CFG_FERRCTRL;              // Set Configuration Register
-    HSMCI->HSMCI_MR    = HSMCI_MR_PWSDIV_Msk;                                  // Set power saving to maximum value
-    HSMCI->HSMCI_CR    = HSMCI_CR_MCIEN_Msk | HSMCI_CR_PWSEN_Msk;              // Enable the HSMCI and the Power Saving
-
+	m_CacheAlignedBuffer = memalign(DCACHE_LINE_SIZE, BLOCK_SIZE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::Setup(const String& devicePath)
+SDMMCDriver::~SDMMCDriver()
 {
-    kernel::Kernel::RegisterIRQHandler(HSMCI_IRQn, IRQCallback, this);
+	free(m_CacheAlignedBuffer);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SDMMCDriver::SetupBase(const String& devicePath, const DigitalPin& pinCD)
+{
+	m_PinCD = pinCD;
+	m_PinCD.SetDirection(DigitalPinDirection_e::In);
+	m_PinCD.SetPullMode(PinPullMode_e::Up);
     
-    Start(true);
 
     m_DevicePathBase = devicePath;
 
-    m_RawINode = ptr_new<HSMCIINode>(this);
+    m_RawINode = ptr_new<SDMMCINode>(this);
     m_RawINode->bi_nNodeHandle = Kernel::RegisterDevice((devicePath + "raw").c_str(), m_RawINode);
+
+    Start(true);
     return true;    
 }
 
@@ -153,7 +102,7 @@ bool HSMCIDriver::Setup(const String& devicePath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int HSMCIDriver::Run()
+int SDMMCDriver::Run()
 {
 	snooze_ms(250);
     
@@ -206,7 +155,7 @@ int HSMCIDriver::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> HSMCIDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags)
+Ptr<KFileNode> SDMMCDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -215,14 +164,13 @@ Ptr<KFileNode> HSMCIDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, in
         return nullptr;
     }
     return KFilesystemFileOps::OpenFile(volume, node, flags);
-//    return ptr_new<KFileHandle>();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int HSMCIDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+int SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -294,9 +242,9 @@ int HSMCIDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inD
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t HSMCIDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
 {
-    Ptr<HSMCIINode> inode = (file != nullptr) ? ptr_static_cast<HSMCIINode>(file->GetINode()) : nullptr;
+    Ptr<SDMMCINode> inode = (file != nullptr) ? ptr_static_cast<SDMMCINode>(file->GetINode()) : nullptr;
     
     bool needLocking = false;
     if (inode != nullptr)
@@ -345,36 +293,22 @@ ssize_t HSMCIDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, s
         // SDSC Card (CCS=0) uses byte unit address,
         // SDHC and SDXC Cards (CCS=1) use block unit address (512 Bytes unit).
         uint32_t start = firstBlock;
-        if ((m_CardType & HSMCICardType::HC) == 0) {
+        if ((m_CardType & SDMMCCardType::HC) == 0) {
             start *= BLOCK_SIZE;
         }
 
-        bool useDMA = (intptr_t(buffer) & DCACHE_LINE_SIZE_MASK) == 0;
-        
-        if (!StartAddressedDataTransCmd(cmd, start, BLOCK_SIZE, blockCount, useDMA)) {
+        if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, buffer)) {
             error = EIO;
             continue;
         }
         uint32_t response = GetResponse();
         if (response & CARD_STATUS_ERR_RD_WR)
         {
-            kprintf("ERROR: HSMCIDriver::Read() Read %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
+            kprintf("ERROR: SDMMCDriver::Read() Read %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
             error = EIO;
             continue;
         }
 
-        bool result;
-        if (useDMA && retry < 50) {
-//            kprintf("ReadDMA %ld at %Ld\n", length, position);
-            result = ReadDMA(buffer, BLOCK_SIZE, blockCount);
-        } else {
-//            kprintf("ReadNoDMA %ld at %Ld\n", length, position);
-            result = ReadNoDMA(buffer, BLOCK_SIZE, blockCount);
-        }
-        if (!result) {
-            error = EIO;
-            continue;
-        }
         // WORKAROUND for no compliance card: The errors on this command must be ignored and one retry can be necessary in SPI mode for no compliance card.
         if (blockCount > 1 && !StopAddressedDataTransCmd(SDMMC_CMD12_STOP_TRANSMISSION, 0)) {
             StopAddressedDataTransCmd(SDMMC_CMD12_STOP_TRANSMISSION, 0);
@@ -393,9 +327,9 @@ ssize_t HSMCIDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t HSMCIDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
+ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
 {
-    Ptr<HSMCIINode> inode = (file != nullptr) ? ptr_static_cast<HSMCIINode>(file->GetINode()) : nullptr;
+    Ptr<SDMMCINode> inode = (file != nullptr) ? ptr_static_cast<SDMMCINode>(file->GetINode()) : nullptr;
     
     bool needLocking = false;
     if (inode != nullptr)
@@ -438,26 +372,23 @@ ssize_t HSMCIDriver::Write(Ptr<KFileNode> file, off64_t position, const void* bu
         // SDSC Card (CCS=0) uses byte unit address,
         // SDHC and SDXC Cards (CCS=1) use block unit address (512 Bytes unit).
         uint32_t start = firstBlock;
-        if ((m_CardType & HSMCICardType::HC) == 0) {
+        if ((m_CardType & SDMMCCardType::HC) == 0) {
             start *= BLOCK_SIZE;
         }
 
-        if (!StartAddressedDataTransCmd(cmd, start, BLOCK_SIZE, blockCount, true)) {
+        if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, buffer)) {
             error = EIO;
             continue;
         }
         uint32_t response = GetResponse();
         if (response & CARD_STATUS_ERR_RD_WR)
         {
-            kprintf("ERROR: HSMCIDriver::Write() Write %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
+            kprintf("ERROR: SDMMCDriver::Write() Write %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
             error = EIO;
             continue;
         }
-        if (!WriteDMA(buffer, BLOCK_SIZE, blockCount)) {
-            error = EIO;
-            continue;
-        }
-        // SPI multi-block writes terminate using a special token, not a STOP_TRANSMISSION request.
+
+		// SPI multi-block writes terminate using a special token, not a STOP_TRANSMISSION request.
         if (blockCount > 1 && !StopAddressedDataTransCmd(SDMMC_CMD12_STOP_TRANSMISSION, 0)) {
             error = EIO;
             continue;
@@ -484,11 +415,11 @@ ssize_t HSMCIDriver::Write(Ptr<KFileNode> file, off64_t position, const void* bu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::InitializeCard()
+bool SDMMCDriver::InitializeCard()
 {
     // In first, try to install SD/SDIO card
-    m_CardType    = HSMCICardType::SD;
-    m_CardVersion = HSMCICardVersion::Unknown;
+    m_CardType    = SDMMCCardType::SD;
+    m_CardVersion = SDMMCCardVersion::Unknown;
     m_RCA         = 0;
 
     kprintf("Start SD card install\n");
@@ -514,19 +445,19 @@ bool HSMCIDriver::InitializeCard()
         return false;
     }
 
-    if (m_CardType & HSMCICardType::SD)
+    if (m_CardType & SDMMCCardType::SD)
     {
         // Try to get the SD card's operating condition
         if (!OperationalConditionMCI_sd(v2))
         {
             // It is not a SD card
             kprintf("Start MMC Install\n");
-            m_CardType = HSMCICardType::MMC;
+            m_CardType = SDMMCCardType::MMC;
             return InitializeMMCCard();
         }
     }
 
-    if (m_CardType & HSMCICardType::SD)
+    if (m_CardType & SDMMCCardType::SD)
     {
         // SD MEMORY, Put the Card in Identify Mode
         if (!SendCmd(SDMMC_CMD2_ALL_SEND_CID, 0)) {
@@ -540,7 +471,7 @@ bool HSMCIDriver::InitializeCard()
     m_RCA = GetResponse() >> 16;
 
     // SD MEMORY, Get the Card-Specific Data
-    if (m_CardType & HSMCICardType::SD)
+    if (m_CardType & SDMMCCardType::SD)
     {
         if (!Cmd9MCI_sdmmc()) {
             return false;
@@ -552,37 +483,37 @@ bool HSMCIDriver::InitializeCard()
         return false;
     }
     // SD MEMORY, Read the SCR to get card version
-    if (m_CardType & HSMCICardType::SD) {
+    if (m_CardType & SDMMCCardType::SD) {
         if (!ACmd51_sd()) {
             return false;
         }
     }
-    if (m_CardType & HSMCICardType::SDIO) {
+    if (m_CardType & SDMMCCardType::SDIO) {
         if (!GetMaxSpeed_sdio()) {
             return false;
         }
     }
     // TRY to enable 4-bit mode
-    if (m_CardType & HSMCICardType::SDIO) {
+    if (m_CardType & SDMMCCardType::SDIO) {
         if (!SetBusWidth_sdio()) {
             return false;
         }
     }
-    if (m_CardType & HSMCICardType::SD) {
+    if (m_CardType & SDMMCCardType::SD) {
         if (!ACmd6_sd()) {
             return false;
         }
     }
     ApplySpeedAndBusWidth();
     // Try to enable high-speed mode
-    if (m_CardType & HSMCICardType::SDIO) {
+    if (m_CardType & SDMMCCardType::SDIO) {
         if (!SetHighSpeed_sdio()) {
             return false;
         }
     }
-    if (m_CardType & HSMCICardType::SD)
+    if (m_CardType & SDMMCCardType::SD)
     {
-        if (m_CardVersion > HSMCICardVersion::SD_1_0) {
+        if (m_CardVersion > SDMMCCardVersion::SD_1_0) {
             if (!SetHighSpeed_sd()) {
                 return false;
             }
@@ -590,7 +521,7 @@ bool HSMCIDriver::InitializeCard()
     }
     ApplySpeedAndBusWidth();
     // SD MEMORY, Set default block size
-    if (m_CardType & HSMCICardType::SD)
+    if (m_CardType & SDMMCCardType::SD)
     {
         if (!SendCmd(SDMMC_CMD16_SET_BLOCKLEN, BLOCK_SIZE)) {
             return false;
@@ -603,16 +534,16 @@ bool HSMCIDriver::InitializeCard()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t HSMCIDriver::ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size)
+size_t SDMMCDriver::ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size)
 {
-    return static_cast<HSMCIDriver*>(userData)->Read(nullptr, position, buffer, size );
+    return static_cast<SDMMCDriver*>(userData)->Read(nullptr, position, buffer, size );
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int HSMCIDriver::DecodePartitions(bool force)
+int SDMMCDriver::DecodePartitions(bool force)
 {
     try
     {
@@ -627,9 +558,9 @@ int HSMCIDriver::DecodePartitions(bool force)
         diskGeom.read_only 	  = false;
         diskGeom.removable 	  = true;
 
-        kprintf("HSMCIDriver::DecodePartitions(): Decoding partition table\n");
+        kprintf("SDMMCDriver::DecodePartitions(): Decoding partition table\n");
 
-        if (KVFSManager::DecodeDiskPartitions(diskGeom, &partitions, &ReadPartitionData, this) < 0) {
+        if (KVFSManager::DecodeDiskPartitions(m_CacheAlignedBuffer, BLOCK_SIZE, diskGeom, &partitions, &ReadPartitionData, this) < 0) {
 	    kprintf( "   Invalid partition table\n" );
 	    return -1;
         }
@@ -643,7 +574,7 @@ int HSMCIDriver::DecodePartitions(bool force)
 	    }
         }
 
-        for (Ptr<HSMCIINode> partition : m_PartitionINodes)
+        for (Ptr<SDMMCINode> partition : m_PartitionINodes)
         {
 	    bool found = false;
 	    for (size_t i = 0 ; i < partitions.size() ; ++i)
@@ -654,17 +585,17 @@ int HSMCIDriver::DecodePartitions(bool force)
 	        }
 	    }
 	    if (!force && !found && partition->bi_nOpenCount > 0) {
-	        kprintf("ERROR: HSMCIDriver::DecodePartitions() Open partition has changed.\n");
+	        kprintf("ERROR: SDMMCDriver::DecodePartitions() Open partition has changed.\n");
 	        set_last_error(EBUSY);
 	        return -1;
 	    }
         }
     
-        std::vector<Ptr<HSMCIINode>> unusedPartitionINodes; // = std::move(m_PartitionINodes);
+        std::vector<Ptr<SDMMCINode>> unusedPartitionINodes; // = std::move(m_PartitionINodes);
           // Remove deleted partitions from /dev/
         for (auto i = m_PartitionINodes.begin(); i != m_PartitionINodes.end(); )
         {
-            Ptr<HSMCIINode> partition = *i;
+            Ptr<SDMMCINode> partition = *i;
 	    bool found = false;
 	    for (size_t i = 0 ; i < partitions.size() ; ++i)
             {
@@ -697,19 +628,19 @@ int HSMCIDriver::DecodePartitions(bool force)
 	    if ( partitions[i].p_type == 0 || partitions[i].p_size == 0 ) {
 	        continue;
 	    }
-            Ptr<HSMCIINode> partition;
+            Ptr<SDMMCINode> partition;
             if (!unusedPartitionINodes.empty()) {
                 partition = unusedPartitionINodes.back();
                 unusedPartitionINodes.pop_back();
             } else {
-                partition = ptr_new<HSMCIINode>(this);
+                partition = ptr_new<SDMMCINode>(this);
             }
             m_PartitionINodes.push_back(partition);
 	    partition->bi_nStart = partitions[i].p_start;
 	    partition->bi_nSize  = partitions[i].p_size;
         }
         
-        std::sort(m_PartitionINodes.begin(), m_PartitionINodes.end(), [](Ptr<HSMCIINode> lhs, Ptr<HSMCIINode> rhs) { return lhs->bi_nStart < rhs->bi_nStart; });
+        std::sort(m_PartitionINodes.begin(), m_PartitionINodes.end(), [](Ptr<SDMMCINode> lhs, Ptr<SDMMCINode> rhs) { return lhs->bi_nStart < rhs->bi_nStart; });
 
           // We now have to rename nodes that might have moved around in the table and
           // got new names. To avoid name-clashes while renaming we first give all
@@ -718,7 +649,7 @@ int HSMCIDriver::DecodePartitions(bool force)
 
         for (size_t i = 0; i < m_PartitionINodes.size(); ++i)    
         {
-            Ptr<HSMCIINode> partition = m_PartitionINodes[i];
+            Ptr<SDMMCINode> partition = m_PartitionINodes[i];
             if (partition->bi_nNodeHandle != -1)
             {
                 String path = m_DevicePathBase + String::format_string("%lu_new", i);
@@ -729,7 +660,7 @@ int HSMCIDriver::DecodePartitions(bool force)
         {
             String path = m_DevicePathBase + String::format_string("%lu", i);
         
-            Ptr<HSMCIINode> partition = m_PartitionINodes[i];
+            Ptr<SDMMCINode> partition = m_PartitionINodes[i];
             if (partition->bi_nNodeHandle != -1) {
                 Kernel::RenameDevice(partition->bi_nNodeHandle, path.c_str());
             } else {
@@ -757,7 +688,7 @@ int HSMCIDriver::DecodePartitions(bool force)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::InitializeMMCCard()
+bool SDMMCDriver::InitializeMMCCard()
 {
     // CMD0 - Reset all cards to idle state.
     if (!SendCmd(SDMMC_MCI_CMD0_GO_IDLE_STATE, 0)) {
@@ -786,7 +717,7 @@ bool HSMCIDriver::InitializeMMCCard()
     if (!SendCmd(SDMMC_CMD7_SELECT_CARD_CMD, uint32_t(m_RCA) << 16)) {
         return false;
     }
-    if (m_CardVersion >= HSMCICardVersion::MMC_4)
+    if (m_CardVersion >= SDMMCCardVersion::MMC_4)
     {
         // For MMC 4.0 Higher version
         // Get EXT_CSD
@@ -831,7 +762,7 @@ bool HSMCIDriver::InitializeMMCCard()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void HSMCIDriver::SetState(CardState state)
+void SDMMCDriver::SetState(CardState state)
 {
     if (state != m_CardState)
     {
@@ -844,263 +775,7 @@ void HSMCIDriver::SetState(CardState state)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult HSMCIDriver::HandleIRQ()
-{
-    for (;;)
-    {
-        uint32_t status = HSMCI->HSMCI_SR & HSMCI->HSMCI_IMR;
-        
-        static const uint32_t eventFlags = HSMCI_SR_XFRDONE_Msk | HSMCI_SR_CMDRDY_Msk | HSMCI_SR_NOTBUSY_Msk;
-        static const uint32_t errorFlags = ~(eventFlags | HSMCI_SR_RXRDY_Msk);
-        
-        if (status & errorFlags)
-        {
-            HSMCI->HSMCI_IDR = ~0;
-            m_IOError = EIO;
-            kprintf("ERROR: HSMCIDriver::HandleIRQ() error: %s\n", GetStatusFlagNames(status).c_str());
-            m_IOCondition.Wakeup(0);
-            return IRQResult::HANDLED;
-        }
-        if (status & HSMCI_SR_RXRDY_Msk)
-        {
-            if (m_BytesToRead == 0)
-            {
-                HSMCI->HSMCI_IDR = ~0;
-                m_IOError = EIO;
-                kprintf("ERROR: HSMCIDriver::HandleIRQ() to many bytes received: %s\n", GetStatusFlagNames(status).c_str());
-                m_IOCondition.Wakeup(0);
-                return IRQResult::HANDLED;
-            }
-            if (HSMCI->HSMCI_MR & HSMCI_MR_FBYTE_Msk)
-            {
-                *reinterpret_cast<uint8_t*>(m_CurrentBuffer) = HSMCI->HSMCI_RDR;
-                m_CurrentBuffer = reinterpret_cast<uint8_t*>(m_CurrentBuffer) + 1;
-                m_BytesToRead--;
-
-                if ((intptr_t(m_CurrentBuffer) & 3) == 0 && m_BytesToRead >= 4) {
-                    HSMCI->HSMCI_MR &= ~HSMCI_MR_FBYTE_Msk;
-                }
-            }
-            else
-            {
-                *reinterpret_cast<uint32_t*>(m_CurrentBuffer) = HSMCI->HSMCI_RDR;
-                m_CurrentBuffer = reinterpret_cast<uint32_t*>(m_CurrentBuffer) + 1;
-                m_BytesToRead -= 4;
-                
-                if (m_BytesToRead < 4 && m_BytesToRead != 0) {
-                    HSMCI->HSMCI_MR |= HSMCI_MR_FBYTE_Msk;
-                }
-            }
-            continue;
-        }
-        if (status & eventFlags) {
-            HSMCI->HSMCI_IDR = ~0;
-            m_IOError = 0;
-            m_IOCondition.Wakeup(0);
-        }
-        break;
-    }
-	return IRQResult::HANDLED
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool HSMCIDriver::WaitIRQ(uint32_t flags)
-{
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        HSMCI->HSMCI_IER = flags;
-        while(!m_IOCondition.IRQWait())
-        {
-            if (get_last_error() != EINTR) {
-                HSMCI->HSMCI_IDR = ~0;
-                m_IOError = get_last_error();
-                break;
-            }
-        }
-    } CRITICAL_END;
-    if (m_IOError != 0) {
-        Reset();
-        set_last_error(m_IOError);
-        return false;
-    }
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool HSMCIDriver::WaitIRQ(uint32_t flags, bigtime_t timeout)
-{
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        HSMCI->HSMCI_IER = flags;
-        while(!m_IOCondition.IRQWaitTimeout(timeout))
-        {
-            if (get_last_error() != EINTR) {
-                HSMCI->HSMCI_IDR = ~0;
-                m_IOError = get_last_error();
-                break;
-            }
-        }
-    } CRITICAL_END;
-    if (m_IOError != 0) {
-        Reset();
-        set_last_error(m_IOError);
-        return false;
-    }
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \brief Reset the HSMCI interface
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void HSMCIDriver::Reset()
-{
-    uint32_t mr    = HSMCI->HSMCI_MR;
-    uint32_t dtor  = HSMCI->HSMCI_DTOR;
-    uint32_t sdcr  = HSMCI->HSMCI_SDCR;
-    uint32_t cstor = HSMCI->HSMCI_CSTOR;
-    uint32_t cfg   = HSMCI->HSMCI_CFG;
-    
-    HSMCI->HSMCI_CR    = HSMCI_CR_SWRST;
-    HSMCI->HSMCI_MR    = mr;
-    HSMCI->HSMCI_DTOR  = dtor;
-    HSMCI->HSMCI_SDCR  = sdcr;
-    HSMCI->HSMCI_CSTOR = cstor;
-    HSMCI->HSMCI_CFG   = cfg;
-    HSMCI->HSMCI_DMA   = 0;
-    HSMCI->HSMCI_CR    = HSMCI_CR_PWSEN | HSMCI_CR_MCIEN;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool HSMCIDriver::ReadNoDMA(void* buffer, uint16_t blockSize, size_t blockCount)
-{
-    m_CurrentBuffer = buffer;
-    m_BytesToRead   = blockSize * blockCount;
-    m_IOError       = 0;
-    
-    if ((intptr_t(buffer) & 3) || (m_BytesToRead < 4)) {
-        HSMCI->HSMCI_MR |= HSMCI_MR_FBYTE;        
-    } else {
-        HSMCI->HSMCI_MR &= ~HSMCI_MR_FBYTE;
-    }
-
-    return WaitIRQ(HSMCI_IER_RXRDY_Msk | HSMCI_IER_XFRDONE_Msk | HSMCI_IER_UNRE_Msk | HSMCI_IER_OVRE_Msk | HSMCI_IER_DTOE_Msk | HSMCI_IER_DCRCE_Msk);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool HSMCIDriver::ReadDMA(void* buffer, uint16_t blockSize, size_t blockCount)
-{
-    if (blockCount == 0) {
-        return true;
-    }
-    if (buffer == nullptr) {
-        set_last_error(EINVAL);
-        return false;
-    }
-
-    uint32_t bytesToRead = blockSize * blockCount;
-    
-    if ((intptr_t(buffer) & DCACHE_LINE_SIZE_MASK) || (bytesToRead & DCACHE_LINE_SIZE_MASK)) {
-        kprintf("ERROR: HSMCIDriver::ReadDMA() called with unaligned buffer or size\n");
-        set_last_error(EINVAL);
-        return false;
-    }
-    
-    HSMCI->HSMCI_MR &= ~HSMCI_MR_FBYTE;        
-    xdmac_channel_config_t dmaCfg = {0, 0, 0, 0, 0, 0, 0, 0};
-        
-    dmaCfg.mbr_cfg = XDMAC_CC_TYPE_PER_TRAN
-                    | XDMAC_CC_MBSIZE_SINGLE
-                    | XDMAC_CC_DSYNC_PER2MEM
-                    | XDMAC_CC_CSIZE_CHK_1
-                    | XDMAC_CC_SIF_AHB_IF1
-                    | XDMAC_CC_DIF_AHB_IF0
-                    | XDMAC_CC_SAM_FIXED_AM
-                    | XDMAC_CC_DAM_INCREMENTED_AM
-                    | XDMAC_CC_DWIDTH_WORD
-                    | XDMAC_CC_PERID(CONF_HSMCI_XDMAC_CHANNEL);
-
-    dmaCfg.mbr_ubc = bytesToRead / 4;
-    dmaCfg.mbr_sa  = intptr_t(&HSMCI->HSMCI_FIFO[0]);
-    dmaCfg.mbr_da  = intptr_t(buffer);
-    
-    xdmac_configure_transfer(XDMAC, CONF_HSMCI_XDMAC_CHANNEL, &dmaCfg);
-    xdmac_channel_enable(XDMAC, CONF_HSMCI_XDMAC_CHANNEL);
-    bool result = WaitIRQ(HSMCI_IER_XFRDONE_Msk | HSMCI_IER_UNRE_Msk | HSMCI_IER_OVRE_Msk | HSMCI_IER_DTOE_Msk | HSMCI_IER_DCRCE_Msk);
-    xdmac_channel_disable(XDMAC, CONF_HSMCI_XDMAC_CHANNEL);
-
-    return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool HSMCIDriver::WriteDMA(const void* buffer, uint16_t blockSize, size_t blockCount)
-{
-    if (blockCount == 0) {
-        return true;
-    }
-    if (buffer == nullptr) {
-        set_last_error(EINVAL);
-        return false;
-    }
-
-    uint32_t bytesToWRite = blockSize * blockCount;
-
-    xdmac_channel_config_t dmaCfg = {0, 0, 0, 0, 0, 0, 0, 0};
-
-    dmaCfg.mbr_cfg = XDMAC_CC_TYPE_PER_TRAN
-                   | XDMAC_CC_MBSIZE_SINGLE
-                   | XDMAC_CC_DSYNC_MEM2PER
-                   | XDMAC_CC_CSIZE_CHK_1
-                   | XDMAC_CC_SIF_AHB_IF0
-                   | XDMAC_CC_DIF_AHB_IF1
-                   | XDMAC_CC_SAM_INCREMENTED_AM
-                   | XDMAC_CC_DAM_FIXED_AM
-                   | XDMAC_CC_PERID(CONF_HSMCI_XDMAC_CHANNEL);
-
-    if(intptr_t(buffer) & 3)
-    {
-        dmaCfg.mbr_cfg |= XDMAC_CC_DWIDTH_BYTE;
-        dmaCfg.mbr_ubc = bytesToWRite;
-        HSMCI->HSMCI_MR |= HSMCI_MR_FBYTE;
-    }
-    else
-    {
-        dmaCfg.mbr_cfg |= XDMAC_CC_DWIDTH_WORD;
-        dmaCfg.mbr_ubc = bytesToWRite / 4;
-        HSMCI->HSMCI_MR &= ~HSMCI_MR_FBYTE;
-    }
-    
-    dmaCfg.mbr_sa = intptr_t(buffer);
-    dmaCfg.mbr_da = intptr_t(&HSMCI->HSMCI_FIFO[0]);
-
-    xdmac_configure_transfer(XDMAC, CONF_HSMCI_XDMAC_CHANNEL, &dmaCfg);
-    xdmac_channel_enable(XDMAC, CONF_HSMCI_XDMAC_CHANNEL);
-    bool result = WaitIRQ(HSMCI_IER_XFRDONE_Msk | HSMCI_IER_UNRE_Msk | HSMCI_IER_OVRE_Msk | HSMCI_IER_DTOE_Msk | HSMCI_IER_DCRCE_Msk);
-    xdmac_channel_disable(XDMAC, CONF_HSMCI_XDMAC_CHANNEL);
-    return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t HSMCIDriver::SDIOReadDirect(uint8_t functionNumber, uint32_t addr, uint8_t *dest)
+status_t SDMMCDriver::SDIOReadDirect(uint8_t functionNumber, uint32_t addr, uint8_t *dest)
 {
     if (dest == nullptr) {
         set_last_error(EINVAL);
@@ -1117,7 +792,7 @@ status_t HSMCIDriver::SDIOReadDirect(uint8_t functionNumber, uint32_t addr, uint
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t HSMCIDriver::SDIOWriteDirect(uint8_t functionNumber, uint32_t addr, uint8_t data)
+status_t SDMMCDriver::SDIOWriteDirect(uint8_t functionNumber, uint32_t addr, uint8_t data)
 {
     if (!Cmd52_sdio(SDIO_CMD52_WRITE_FLAG, functionNumber, addr, 0, &data)) {
         set_last_error(EIO);
@@ -1130,225 +805,36 @@ status_t HSMCIDriver::SDIOWriteDirect(uint8_t functionNumber, uint32_t addr, uin
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t HSMCIDriver::SDIOReadExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, void* buffer, size_t size)
+ssize_t SDMMCDriver::SDIOReadExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, void* buffer, size_t size)
 {
     if ((size == 0) || (size > BLOCK_SIZE)) {
         set_last_error(EINVAL);
         return -1;
     }
-    bool useDMA = (intptr_t(buffer) & DCACHE_LINE_SIZE_MASK) == 0 && (size & DCACHE_LINE_SIZE_MASK) == 0;
-    if (!Cmd53_sdio(SDIO_CMD53_READ_FLAG, functionNumber, addr, incrementAddr, size, useDMA)) {
+
+	if (Cmd53_sdio(SDIO_CMD53_READ_FLAG, functionNumber, addr, incrementAddr, size, buffer)) {
+		return size;
+	} else {
         set_last_error(EIO);
         return -1;
     }
-    bool result;
-    if (useDMA) {
-        result = ReadDMA(buffer, size, 1);
-    } else {
-        result = ReadNoDMA(buffer, size, 1);
-    }        
-    return (result) ? size : -1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t HSMCIDriver::SDIOWriteExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, const void* buffer, size_t size)
+ssize_t SDMMCDriver::SDIOWriteExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, const void* buffer, size_t size)
 {
     if ((size == 0) || (size > BLOCK_SIZE)) {
         set_last_error(EINVAL);
         return -1;
     }
-    if (!Cmd53_sdio(SDIO_CMD53_WRITE_FLAG, functionNumber, addr, incrementAddr, size, true)) {
+    if (!Cmd53_sdio(SDIO_CMD53_WRITE_FLAG, functionNumber, addr, incrementAddr, size, buffer)) {
         set_last_error(EIO);
-        return -1;
-    }
-    if (!WriteDMA(buffer, size, 1)) {
         return -1;
     }
     return size;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \brief Set HSMCI clock frequency.
-///
-/// \param frequency    HSMCI clock frequency in Hz.
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void HSMCIDriver::SetClockFrequency(uint32_t frequency)
-{
-    uint32_t peripheralClock = SAME70System::GetFrequencyPeripheral();
-    uint32_t divider = 0;
-
-    // frequency = peripheralClock / (divider + 2)
-    if (frequency * 2 < peripheralClock) {
-        divider = (peripheralClock + frequency - 1) / frequency - 2;
-    }
-    
-    uint32_t clockCfg = HSMCI_MR_CLKDIV(divider >> 1);
-    if (divider & 1) clockCfg |= HSMCI_MR_CLKODD;
-    
-    HSMCI->HSMCI_MR = (HSMCI->HSMCI_MR & ~(HSMCI_MR_CLKDIV_Msk | HSMCI_MR_CLKODD)) | clockCfg;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void HSMCIDriver::SendClock()
-{
-    // Configure command
-    HSMCI->HSMCI_MR &= ~(HSMCI_MR_WRPROOF_Msk | HSMCI_MR_RDPROOF_Msk | HSMCI_MR_FBYTE_Msk);
-    // Write argument
-    HSMCI->HSMCI_ARGR = 0;
-    // Write and start initialization command
-    HSMCI->HSMCI_CMDR = HSMCI_CMDR_RSPTYP_NORESP | HSMCI_CMDR_SPCMD_INIT | HSMCI_CMDR_OPDCMD_OPENDRAIN;
-    // Wait end of initialization command
-    WaitIRQ(HSMCI_SR_CMDRDY_Msk);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \brief Send a command
-///
-/// \param cmdr       CMDR register bit to use for this command
-/// \param cmd        Command definition
-/// \param arg        Argument of the command
-///
-/// \return true if success, otherwise false
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool HSMCIDriver::ExecuteCmd(uint32_t cmdr, uint32_t cmd, uint32_t arg)
-{
-    cmdr |= HSMCI_CMDR_CMDNB(cmd) | HSMCI_CMDR_SPCMD_STD;
-    if (cmd & SDMMC_RESP_PRESENT)
-    {
-        cmdr |= HSMCI_CMDR_MAXLAT;
-        if (cmd & SDMMC_RESP_136) {
-            cmdr |= HSMCI_CMDR_RSPTYP_136_BIT;
-        } else if (cmd & SDMMC_RESP_BUSY) {
-            cmdr |= HSMCI_CMDR_RSPTYP_R1B;
-        } else {
-            cmdr |= HSMCI_CMDR_RSPTYP_48_BIT;
-        }
-    }
-    if (cmd & SDMMC_CMD_OPENDRAIN) {
-        cmdr |= HSMCI_CMDR_OPDCMD_OPENDRAIN;
-    }
-
-    HSMCI->HSMCI_ARGR = arg;  // Write argument
-    HSMCI->HSMCI_CMDR = cmdr; // Write and start command
-
-    uint32_t errorFlags = HSMCI_SR_CSTOE_Msk | HSMCI_SR_RTOE_Msk | HSMCI_SR_RENDE_Msk | HSMCI_SR_RDIRE_Msk | HSMCI_SR_RINDE_Msk;
-    if (cmd & SDMMC_RESP_CRC) {
-        errorFlags |= HSMCI_SR_RCRCE_Msk;
-    }
-    // Wait end of command
-    if (!WaitIRQ(HSMCI_SR_CMDRDY_Msk | errorFlags)) {
-        return false;
-    }
-    if (cmd & SDMMC_RESP_BUSY)
-    {
-        // Should we have checked HSMCI_SR_DTIP_Msk to? Atmel do, but don't tell why.
-        if (!WaitIRQ(HSMCI_SR_NOTBUSY_Msk, bigtime_from_s(1))) {
-            return false;
-        }
-    }
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool HSMCIDriver::SendCmd(uint32_t cmd, uint32_t arg)
-{
-    // Configure command
-    HSMCI->HSMCI_MR &= ~(HSMCI_MR_WRPROOF_Msk | HSMCI_MR_RDPROOF_Msk | HSMCI_MR_FBYTE_Msk);
-    // Disable DMA for HSMCI
-    HSMCI->HSMCI_DMA = 0;
-    HSMCI->HSMCI_BLKR = 0;
-    return ExecuteCmd(0, cmd, arg);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void HSMCIDriver::GetResponse128(uint8_t* response)
-{
-    for (int i = 0; i < 4; ++i)
-    {
-        uint32_t response32 = GetResponse();
-        *response++ = (response32 >> 24) & 0xff;
-        *response++ = (response32 >> 16) & 0xff;
-        *response++ = (response32 >>  8) & 0xff;
-        *response++ = (response32 >>  0) & 0xff;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool HSMCIDriver::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint16_t block_size, uint16_t blockCount, bool setupDMA)
-{
-    uint32_t cmdr;
-
-    // Enable DMA for HSMCI
-    HSMCI->HSMCI_DMA = (setupDMA) ? HSMCI_DMA_DMAEN : 0;
-
-    // Enabling Read/Write Proof allows to stop the HSMCI Clock during
-    // read/write  access if the internal FIFO is full.
-    // This will guarantee data integrity, not bandwidth.
-    HSMCI->HSMCI_MR |= HSMCI_MR_WRPROOF_Msk | HSMCI_MR_RDPROOF_Msk;
-    // Force byte transfer if needed
-    if (block_size & 0x3) {
-        HSMCI->HSMCI_MR |= HSMCI_MR_FBYTE_Msk;
-    } else {
-        HSMCI->HSMCI_MR &= ~HSMCI_MR_FBYTE_Msk;
-    }
-
-    if (cmd & SDMMC_CMD_WRITE) {
-        cmdr = HSMCI_CMDR_TRCMD_START_DATA | HSMCI_CMDR_TRDIR_WRITE;
-    } else {
-        cmdr = HSMCI_CMDR_TRCMD_START_DATA | HSMCI_CMDR_TRDIR_READ;
-    }
-
-    if (cmd & SDMMC_CMD_SDIO_BYTE)
-    {
-        cmdr |= HSMCI_CMDR_TRTYP_BYTE;
-        // Value 0 corresponds to a 512-byte transfer
-        HSMCI->HSMCI_BLKR = ((block_size % BLOCK_SIZE) << HSMCI_BLKR_BCNT_Pos);
-    }
-    else
-    {
-        HSMCI->HSMCI_BLKR = (block_size << HSMCI_BLKR_BLKLEN_Pos) | (blockCount << HSMCI_BLKR_BCNT_Pos);
-        if (cmd & SDMMC_CMD_SDIO_BLOCK) {
-            cmdr |= HSMCI_CMDR_TRTYP_BLOCK;
-        } else if (cmd & SDMMC_CMD_STREAM) {
-            cmdr |= HSMCI_CMDR_TRTYP_STREAM;
-        } else if (cmd & SDMMC_CMD_SINGLE_BLOCK) {
-            cmdr |= HSMCI_CMDR_TRTYP_SINGLE;
-        } else if (cmd & SDMMC_CMD_MULTI_BLOCK) {
-            cmdr |= HSMCI_CMDR_TRTYP_MULTIPLE;
-        } else {
-            kprintf("ERROR: StartAddressedDataTransCmd() invalid command flags: %lx\n", cmd);
-            return false;
-        }
-    }
-    return ExecuteCmd(cmdr, cmd, arg);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool HSMCIDriver::StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg)
-{
-    return ExecuteCmd(HSMCI_CMDR_TRCMD_STOP_DATA, cmd, arg);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1362,7 +848,7 @@ bool HSMCIDriver::StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::OperationalConditionMCI_sd(bool v2)
+bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
 {
     bigtime_t deadline = get_system_time() + bigtime_from_s(1);
     for(;;)
@@ -1387,7 +873,7 @@ bool HSMCIDriver::OperationalConditionMCI_sd(bool v2)
         {
             // Card is ready
             if ((response & OCR_CCS) != 0) {
-                m_CardType |= HSMCICardType::HC;
+                m_CardType |= SDMMCCardType::HC;
             }
             break;
         }
@@ -1408,7 +894,7 @@ bool HSMCIDriver::OperationalConditionMCI_sd(bool v2)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::OperationalConditionMCI_mmc()
+bool SDMMCDriver::OperationalConditionMCI_mmc()
 {
     bigtime_t deadline = get_system_time() + bigtime_from_s(1);
     for(;;)
@@ -1424,7 +910,7 @@ bool HSMCIDriver::OperationalConditionMCI_mmc()
             // Check OCR value
             if ((response & OCR_ACCESS_MODE_MASK) == OCR_ACCESS_MODE_SECTOR)
             {
-                m_CardType |= HSMCICardType::HC;
+                m_CardType |= SDMMCCardType::HC;
             }
             break;
         }
@@ -1447,11 +933,11 @@ bool HSMCIDriver::OperationalConditionMCI_mmc()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::OperationalCondition_sdio()
+bool SDMMCDriver::OperationalCondition_sdio()
 {
     // CMD5 - SDIO send operation condition (OCR) command.
     if (!SendCmd(SDIO_CMD5_SEND_OP_COND, 0)) {
-        kprintf("ERROR: HSMCIDriver::OperationalCondition_sdio:1() CMD5 Fail\n");
+        kprintf("ERROR: SDMMCDriver::OperationalCondition_sdio:1() CMD5 Fail\n");
         return true; // No error but card type not updated
     }
     uint32_t response = GetResponse();
@@ -1464,7 +950,7 @@ bool HSMCIDriver::OperationalCondition_sdio()
     {
         // CMD5 - SDIO send operation condition (OCR) command.
         if (!SendCmd(SDIO_CMD5_SEND_OP_COND, response & SD_MMC_VOLTAGE_SUPPORT)) {
-            kprintf("ERROR: HSMCIDriver::OperationalCondition_sdio:2() CMD5 Fail\n");
+            kprintf("ERROR: SDMMCDriver::OperationalCondition_sdio:2() CMD5 Fail\n");
             return false;
         }
         response = GetResponse();
@@ -1477,9 +963,9 @@ bool HSMCIDriver::OperationalCondition_sdio()
         }
     }
     if ((response & OCR_SDIO_MP) > 0) {
-        m_CardType = HSMCICardType::SD_COMBO;
+        m_CardType = SDMMCCardType::SD_COMBO;
     } else {
-        m_CardType = HSMCICardType::SDIO;
+        m_CardType = SDMMCCardType::SDIO;
     }
     return true;
 }
@@ -1495,7 +981,7 @@ bool HSMCIDriver::OperationalCondition_sdio()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::GetMaxSpeed_sdio()
+bool SDMMCDriver::GetMaxSpeed_sdio()
 {
     uint8_t addr_cis[4];
 
@@ -1565,7 +1051,7 @@ bool HSMCIDriver::GetMaxSpeed_sdio()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::SetBusWidth_sdio()
+bool SDMMCDriver::SetBusWidth_sdio()
 {
      // SD, SD/COMBO, SDIO full-speed card always supports 4bit bus.
      // SDIO low-Speed alone can optionally support 4bit bus.
@@ -1600,7 +1086,7 @@ bool HSMCIDriver::SetBusWidth_sdio()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::SetHighSpeed_sdio()
+bool SDMMCDriver::SetHighSpeed_sdio()
 {
     uint8_t u8_value = 0;
 
@@ -1633,9 +1119,11 @@ bool HSMCIDriver::SetHighSpeed_sdio()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::SetHighSpeed_sd()
+bool SDMMCDriver::SetHighSpeed_sd()
 {
-    uint8_t switch_status[SD_SW_STATUS_BSIZE] = {0};
+	static_assert(SD_SW_STATUS_SIZE_BYTES < BLOCK_SIZE);
+
+	uint8_t* switch_status = reinterpret_cast<uint8_t*>(m_CacheAlignedBuffer);
 
     if (!StartAddressedDataTransCmd(SD_CMD6_SWITCH_FUNC,
                                     SD_CMD6_MODE_SWITCH
@@ -1645,10 +1133,7 @@ bool HSMCIDriver::SetHighSpeed_sd()
                                   | SD_CMD6_GRP3_NO_INFLUENCE
                                   | SD_CMD6_GRP2_DEFAULT
                                   | SD_CMD6_GRP1_HIGH_SPEED,
-                                    SD_SW_STATUS_BSIZE, 1, false)) {
-        return false;
-    }
-    if (!ReadNoDMA(switch_status, SD_SW_STATUS_BSIZE, 1)) {
+									get_first_bit_index(SD_SW_STATUS_SIZE_BYTES), 1, switch_status)) {
         return false;
     }
 
@@ -1683,7 +1168,7 @@ bool HSMCIDriver::SetHighSpeed_sd()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::SetBusWidth_mmc(int busWidth)
+bool SDMMCDriver::SetBusWidth_mmc(int busWidth)
 {
     uint32_t arg;
 
@@ -1723,7 +1208,7 @@ bool HSMCIDriver::SetBusWidth_mmc(int busWidth)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::SetHighSpeed_mmc()
+bool SDMMCDriver::SetHighSpeed_mmc()
 {
     if (!SendCmd(MMC_CMD6_SWITCH, MMC_CMD6_ACCESS_WRITE_BYTE | MMC_CMD6_INDEX_HS_TIMING | MMC_CMD6_VALUE_HS_TIMING_ENABLE)) {
         return false;
@@ -1743,7 +1228,7 @@ bool HSMCIDriver::SetHighSpeed_mmc()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void HSMCIDriver::DecodeCSD_mmc()
+void SDMMCDriver::DecodeCSD_mmc()
 {
     uint32_t unit;
     uint32_t mul;
@@ -1753,11 +1238,11 @@ void HSMCIDriver::DecodeCSD_mmc()
     switch (MMC_CSD_SPEC_VERS(m_CSD))
     {
         default:
-        case 0: m_CardVersion = HSMCICardVersion::MMC_1_2; break;
-        case 1: m_CardVersion = HSMCICardVersion::MMC_1_4; break;
-        case 2: m_CardVersion = HSMCICardVersion::MMC_2_2; break;
-        case 3: m_CardVersion = HSMCICardVersion::MMC_3;   break;
-        case 4: m_CardVersion = HSMCICardVersion::MMC_4;   break;
+        case 0: m_CardVersion = SDMMCCardVersion::MMC_1_2; break;
+        case 1: m_CardVersion = SDMMCCardVersion::MMC_1_4; break;
+        case 2: m_CardVersion = SDMMCCardVersion::MMC_2_2; break;
+        case 3: m_CardVersion = SDMMCCardVersion::MMC_3;   break;
+        case 4: m_CardVersion = SDMMCCardVersion::MMC_4;   break;
     }
 
     // Get MMC memory max transfer speed in Hz.
@@ -1790,7 +1275,7 @@ void HSMCIDriver::DecodeCSD_mmc()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void HSMCIDriver::DecodeCSD_sd()
+void SDMMCDriver::DecodeCSD_sd()
 {
     uint32_t unit;
     uint32_t mul;
@@ -1822,34 +1307,6 @@ void HSMCIDriver::DecodeCSD_sd()
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \brief Configures the driver with the selected card configuration
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void HSMCIDriver::ApplySpeedAndBusWidth()
-{
-    uint32_t busWidthCfg = HSMCI_SDCR_SDCBUS_1;
-
-    if (m_HighSpeed) {
-        HSMCI->HSMCI_CFG |= HSMCI_CFG_HSMODE;
-    } else {
-        HSMCI->HSMCI_CFG &= ~HSMCI_CFG_HSMODE;
-    }
-
-    SetClockFrequency(m_Clock);
-
-    switch (m_BusWidth)
-    {
-        case 1: busWidthCfg = HSMCI_SDCR_SDCBUS_1; break;
-        case 4: busWidthCfg = HSMCI_SDCR_SDCBUS_4; break;
-        case 8: busWidthCfg = HSMCI_SDCR_SDCBUS_8; break;
-        default:
-            kprintf("ERROR: HSMCIDriver invalid bus width (%d) using 1-bit.\n", m_BusWidth);
-            break;
-    }
-    HSMCI->HSMCI_SDCR = HSMCI_SDCR_SDCSEL_SLOTA | busWidthCfg;    
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \brief ACMD6 - Define the data bus width to 4 bits bus
@@ -1858,7 +1315,7 @@ void HSMCIDriver::ApplySpeedAndBusWidth()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::ACmd6_sd()
+bool SDMMCDriver::ACmd6_sd()
 {
     // CMD55 - Tell the card that the next command is an application specific command.
     if (!SendCmd(SDMMC_CMD55_APP_CMD, (uint32_t)m_RCA << 16)) {
@@ -1887,7 +1344,7 @@ bool HSMCIDriver::ACmd6_sd()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::Cmd8_sd(bool* v2)
+bool SDMMCDriver::Cmd8_sd(bool* v2)
 {
     *v2 = false;
     // Test for SD version 2
@@ -1919,24 +1376,16 @@ bool HSMCIDriver::Cmd8_sd(bool* v2)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::Cmd8_mmc(bool* authorizeHighSpeed)
+bool SDMMCDriver::Cmd8_mmc(bool* authorizeHighSpeed)
 {
-    if (!StartAddressedDataTransCmd(MMC_CMD8_SEND_EXT_CSD, 0, EXT_CSD_BSIZE, 1, true)) {
-        return false;
-    }
-    std::vector<uint8_t> bufferAllocator;
-    uint32_t* buffer;
-    try {
-        bufferAllocator.resize(EXT_CSD_BSIZE + DCACHE_LINE_SIZE - 1);
-        buffer = reinterpret_cast<uint32_t*>((intptr_t(bufferAllocator.data()) + DCACHE_LINE_SIZE_MASK) & ~DCACHE_LINE_SIZE_MASK);
-    } catch (std::bad_alloc&) {
-        set_last_error(ENOMEM);
-        return false;
-    }
-    // Read and decode Extended Card Specific Data.
-    if (!ReadDMA(buffer, EXT_CSD_BSIZE, 1)) {
-        return false;
-    }
+	static_assert(EXT_CSD_SIZE_BYTES <= BLOCK_SIZE);
+	
+	uint32_t* buffer = reinterpret_cast<uint32_t*>(m_CacheAlignedBuffer);
+
+	// Read and decode Extended Card Specific Data.
+	if (!StartAddressedDataTransCmd(MMC_CMD8_SEND_EXT_CSD, 0, get_first_bit_index(EXT_CSD_SIZE_BYTES), 1, buffer)) {
+		return false;
+	}
     *authorizeHighSpeed = ((buffer[EXT_CSD_CARD_TYPE_INDEX / 4] >> ((EXT_CSD_CARD_TYPE_INDEX % 4) * 8)) & MMC_CTYPE_52MHZ) != 0;
 
     if (MMC_CSD_C_SIZE(m_CSD) == 0xfff) {
@@ -1955,7 +1404,7 @@ bool HSMCIDriver::Cmd8_mmc(bool* authorizeHighSpeed)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::Cmd9MCI_sdmmc()
+bool SDMMCDriver::Cmd9MCI_sdmmc()
 {
     if (!SendCmd(SDMMC_MCI_CMD9_SEND_CSD, uint32_t(m_RCA) << 16)) {
         return false;
@@ -1972,7 +1421,7 @@ bool HSMCIDriver::Cmd9MCI_sdmmc()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::Cmd13_sdmmc()
+bool SDMMCDriver::Cmd13_sdmmc()
 {
     bigtime_t deadline = get_system_time() + bigtime_from_s(1);
     for(;;)
@@ -2002,28 +1451,26 @@ bool HSMCIDriver::Cmd13_sdmmc()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::ACmd51_sd()
+bool SDMMCDriver::ACmd51_sd()
 {
-    uint8_t scr[SD_SCR_REG_BSIZE];
+	static_assert(SD_SCR_REG_SIZE_BYTES <= BLOCK_SIZE);
+	uint8_t* scr = reinterpret_cast<uint8_t*>(m_CacheAlignedBuffer);
 
     // CMD55 - Tell the card that the next command is an application specific command.
-    if (!SendCmd(SDMMC_CMD55_APP_CMD, (uint32_t)m_RCA << 16)) {
+    if (!SendCmd(SDMMC_CMD55_APP_CMD, uint32_t(m_RCA) << 16)) {
         return false;
     }
-    if (!StartAddressedDataTransCmd(SD_ACMD51_SEND_SCR, 0, SD_SCR_REG_BSIZE, 1, false)) {
-        return false;
-    }
-    if (!ReadNoDMA(scr, SD_SCR_REG_BSIZE, 1)) {
+    if (!StartAddressedDataTransCmd(SD_ACMD51_SEND_SCR, 0, get_first_bit_index(SD_SCR_REG_SIZE_BYTES), 1, scr)) {
         return false;
     }
 
     // Get SD Memory Card - Spec. Version
     switch (SD_SCR_SD_SPEC(scr))
     {
-        case SD_SCR_SD_SPEC_1_0_01: m_CardVersion = HSMCICardVersion::SD_1_0; break;
-        case SD_SCR_SD_SPEC_1_10:   m_CardVersion = HSMCICardVersion::SD_1_10; break;
-        case SD_SCR_SD_SPEC_2_00:   m_CardVersion = (SD_SCR_SD_SPEC3(scr) == SD_SCR_SD_SPEC_3_00) ? HSMCICardVersion::SD_3_0 : HSMCICardVersion::SD_2_0; break;
-        default:                    m_CardVersion = HSMCICardVersion::SD_1_0; break;
+        case SD_SCR_SD_SPEC_1_0_01: m_CardVersion = SDMMCCardVersion::SD_1_0; break;
+        case SD_SCR_SD_SPEC_1_10:   m_CardVersion = SDMMCCardVersion::SD_1_10; break;
+        case SD_SCR_SD_SPEC_2_00:   m_CardVersion = (SD_SCR_SD_SPEC3(scr) == SD_SCR_SD_SPEC_3_00) ? SDMMCCardVersion::SD_3_0 : SDMMCCardVersion::SD_2_0; break;
+        default:                    m_CardVersion = SDMMCCardVersion::SD_1_0; break;
     }
     return true;
 }
@@ -2041,7 +1488,7 @@ bool HSMCIDriver::ACmd51_sd()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::Cmd52_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t readAfterWriteFlag, uint8_t* data)
+bool SDMMCDriver::Cmd52_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t readAfterWriteFlag, uint8_t* data)
 {
     if (data == nullptr) {
         kprintf("ERROR: Cmd52_sdio() called with nullptr data\n");
@@ -2076,7 +1523,7 @@ bool HSMCIDriver::Cmd52_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t re
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool HSMCIDriver::Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t incrementAddr, uint32_t size, bool useDMA)
+bool SDMMCDriver::Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t incrementAddr, uint32_t size, const void* buffer)
 {
     if (size == 0 || size > BLOCK_SIZE) {
         kprintf("ERROR: Cmd53_sdio() invalid size %" PRIu32 "\n", size);
@@ -2091,5 +1538,5 @@ bool HSMCIDriver::Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t re
                      | ((uint32_t)rwFlag << SDIO_CMD53_RW_FLAG);
 
 
-    return StartAddressedDataTransCmd((rwFlag == SDIO_CMD53_READ_FLAG) ? SDIO_CMD53_IO_R_BYTE_EXTENDED : SDIO_CMD53_IO_W_BYTE_EXTENDED, cmdArgs, size, 1, useDMA);
+    return StartAddressedDataTransCmd((rwFlag == SDIO_CMD53_READ_FLAG) ? SDIO_CMD53_IO_R_BYTE_EXTENDED : SDIO_CMD53_IO_W_BYTE_EXTENDED, cmdArgs, get_first_bit_index(1), size, buffer);
 }

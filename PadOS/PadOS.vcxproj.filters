@@ -139,6 +139,12 @@
     <Filter Include="Source Files\System\Utils">
       <UniqueIdentifier>{c11af63f-1094-49aa-8ca3-5eee78e4d5b9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Kernel\Drivers\ATSAM">
+      <UniqueIdentifier>{e8314924-323c-4b06-9e84-55fd582488f7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Kernel\Drivers\SDMMCDriver">
+      <UniqueIdentifier>{4bc2f80b-1f47-4b02-be28-8611a57cdc28}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="release\SAME70XplainedTest.bin">
@@ -201,6 +207,15 @@
     <None Include="Kernel\Drivers\Files.mk">
       <Filter>Source Files\Kernel\Drivers</Filter>
     </None>
+    <None Include="Kernel\Drivers\ATSAM\Files.mk">
+      <Filter>Source Files\Kernel\Drivers\ATSAM</Filter>
+    </None>
+    <None Include="Kernel\FSDrivers\FAT\Files.mk">
+      <Filter>Source Files\Kernel\FSDrivers\FAT</Filter>
+    </None>
+    <None Include="Kernel\Drivers\SDMMCDriver\Files.mk">
+      <Filter>Source Files\Kernel\Drivers\SDMMCDriver</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Init.cpp">
@@ -255,9 +270,6 @@
       <Filter>Source Files\Kernel\Drivers</Filter>
     </ClCompile>
     <ClCompile Include="Kernel\Drivers\FT5x0xDriver.cpp">
-      <Filter>Source Files\Kernel\Drivers</Filter>
-    </ClCompile>
-    <ClCompile Include="Kernel\Drivers\HSMCIDriver.cpp">
       <Filter>Source Files\Kernel\Drivers</Filter>
     </ClCompile>
     <ClCompile Include="Kernel\Drivers\INA3221Driver.cpp">
@@ -515,6 +527,15 @@
     <ClCompile Include="Kernel\Drivers\GSLx680Firmware.cpp">
       <Filter>Source Files\Kernel\Drivers</Filter>
     </ClCompile>
+    <ClCompile Include="Kernel\Drivers\ATSAM\SDMMC_ATSAM.cpp">
+      <Filter>Source Files\Kernel\Drivers\ATSAM</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\STM32\SDMMCDriver_STM32.cpp">
+      <Filter>Source Files\Kernel\Drivers\STM32</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\SDMMCDriver\SDMMCDriver.cpp">
+      <Filter>Source Files\Kernel\Drivers\SDMMCDriver</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MemTest.h">
@@ -637,13 +658,7 @@
     <ClInclude Include="Kernel\Drivers\FT5x0xDriver.h">
       <Filter>Source Files\Kernel\Drivers</Filter>
     </ClInclude>
-    <ClInclude Include="Kernel\Drivers\HSMCIDriver.h">
-      <Filter>Source Files\Kernel\Drivers</Filter>
-    </ClInclude>
     <ClInclude Include="Kernel\Drivers\INA3221Driver.h">
-      <Filter>Source Files\Kernel\Drivers</Filter>
-    </ClInclude>
-    <ClInclude Include="Kernel\Drivers\sd_mmc_protocol.h">
       <Filter>Source Files\Kernel\Drivers</Filter>
     </ClInclude>
     <ClInclude Include="Kernel\Drivers\UART.h">
@@ -1041,6 +1056,18 @@
     </ClInclude>
     <ClInclude Include="Kernel\Drivers\GSLx680Driver.h">
       <Filter>Source Files\Kernel\Drivers</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\ATSAM\SDMMC_ATSAM.h">
+      <Filter>Source Files\Kernel\Drivers\ATSAM</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\STM32\SDMMCDriver_STM32.h">
+      <Filter>Source Files\Kernel\Drivers\STM32</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\SDMMCDriver\SDMMCDriver.h">
+      <Filter>Source Files\Kernel\Drivers\SDMMCDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\SDMMCDriver\SDMMCProtocol.h">
+      <Filter>Source Files\Kernel\Drivers\SDMMCDriver</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

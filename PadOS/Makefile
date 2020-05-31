@@ -27,13 +27,14 @@ FLAGS   := $(FLAGS) -ffast-math -mfpu=fpv5-d16 -mfloat-abi=hard -mtp=cp15 -mtls-
 FLAGS   := $(FLAGS) -Wno-psabi
  
 CFLAGS  := $(FLAGS) -std=gnu11
-CPPFLAGS := $(FLAGS) -Wsuggest-override -Wnoexcept
+CPPFLAGS := $(FLAGS) -std=gnu++17 -Wsuggest-override -Wnoexcept
 
 CC   = arm-none-eabi-gcc
 CCPP = arm-none-eabi-g++
 
 OBJDIR	:= Debug
-SUBDIRS := Kernel Kernel/Drivers Kernel/Drivers/RA8875Driver Kernel/Drivers/RA8875Driver/Fonts Kernel/Drivers/STM32 Kernel/HAL/STM32 Kernel/VFS 
+SUBDIRS := Kernel Kernel/Drivers Kernel/Drivers/SDMMCDriver Kernel/Drivers/RA8875Driver Kernel/Drivers/RA8875Driver/Fonts Kernel/Drivers/STM32 Kernel/HAL/STM32 Kernel/VFS 
+SUBDIRS := $(SUBDIRS) Kernel/FSDrivers/FAT
 SUBDIRS := $(SUBDIRS) System System/GUI System/Math System/Ptr System/Signals System/Threads System/Utils
 SUBDIRS := $(SUBDIRS) ApplicationServer Applications/WindowManager
 SOURCES := Init.cpp posix.cpp

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -110,11 +110,9 @@ KVFSManager::~KVFSManager()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-
-int KVFSManager::DecodeDiskPartitions(const device_geometry& diskGeom, std::vector<disk_partition_desc>* partitions, disk_read_op* readCallback, void* userData)
+int KVFSManager::DecodeDiskPartitions(void* blockBuffer, size_t bufferSize, const device_geometry& diskGeom, std::vector<disk_partition_desc>* partitions, disk_read_op* readCallback, void* userData)
 {
-    std::vector<uint8_t> buffer;
-    buffer.resize(512);
+	uint8_t* buffer = reinterpret_cast<uint8_t*>(blockBuffer);
     PartitionRecord* recordTable = reinterpret_cast<PartitionRecord*>(&buffer[0x1be]);
     off64_t diskSize = diskGeom.sector_count * diskGeom.bytes_per_sector;
     off64_t tablePos = 0;
@@ -127,7 +125,7 @@ int KVFSManager::DecodeDiskPartitions(const device_geometry& diskGeom, std::vect
 
     for (;partitions->size() < MAX_PARTITIONS ;)
     {
-        if (readCallback( userData, tablePos, buffer.data(), buffer.size()) != buffer.size()) {
+        if (readCallback( userData, tablePos, buffer, bufferSize) != bufferSize) {
 	    kprintf( "ERROR: KVFSManager::DecodeDiskPartitions() failed to read MBR\n" );
 	    return 0;
         }

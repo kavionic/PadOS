@@ -18,15 +18,15 @@
 
 #pragma once
 
-//#include "cmsis_gcc.h"
 #include "System/Types.h"
 #include "System/System.h"
 #include "System/String.h"
 #include "Kernel/Scheduler.h"
 
-namespace std {
-    template<typename T> inline const T& clamp(const T& value, const T& bottom, const T& top) { return (value < bottom) ? bottom : ((value > top) ? top : value); }
-}
+template<typename T>
+constexpr int get_first_bit_index(T value) { return (value & 0x01) ? 0 : get_first_bit_index(value >> 1) + 1; }
+template<typename T>
+constexpr int get_bit_count(T value) { return (value == 0) ? 0 : get_bit_count(value >> 1) + (value & 0x01); }
 
 template<typename T> inline T wrap(const T& bottom, const T& top, const T& value)
 {
@@ -78,7 +78,6 @@ struct ReverseRangedWrapperConst
 
 template<typename T> ReverseRangedWrapper<T>      reverse_ranged(T& list) { return ReverseRangedWrapper<T>(list); }
 template<typename T> ReverseRangedWrapperConst<T> reverse_ranged(const T& list) { return ReverseRangedWrapper<T>(list); }
-
 
 class ProfileTimer
 {

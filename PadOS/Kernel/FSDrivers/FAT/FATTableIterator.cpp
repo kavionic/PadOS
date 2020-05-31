@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -171,7 +171,7 @@ bool FATTableIterator::GetEntry(uint32_t* value)
     
     if (m_Volume->m_FATBits == 12)
     {
-        uint16_t val;
+        uint32_t val;
         if (m_OffsetInSector == m_Volume->m_BytesPerSector - 1) {
             kassert(block2 != nullptr);
             val = block1[m_OffsetInSector] + 0x100*block2[0];
@@ -190,7 +190,7 @@ bool FATTableIterator::GetEntry(uint32_t* value)
     }
     else if (m_Volume->m_FATBits == 16)
     {
-        uint16_t val = block1[m_OffsetInSector] + 0x100*block1[m_OffsetInSector+1];
+        uint32_t val = block1[m_OffsetInSector] + 0x100*block1[m_OffsetInSector+1];
         if (val > 0xfff0) val |= 0x0fff0000;
         *value = val;
         return true;

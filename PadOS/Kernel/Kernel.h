@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -27,7 +27,6 @@
 #include <vector>
 #include <atomic>
 #include <cstdint>
-//#include <unistd.h>
 
 #include "System/Ptr/PtrTarget.h"
 #include "System/Ptr/Ptr.h"
@@ -66,14 +65,14 @@ struct KIRQAction
 
 template<typename ...ARGS> int kprintf(const char* fmt, ARGS&&... args) { return printf(fmt, args...); }
 
-enum class KLogCategory
-{
-    General,
-    VFS,
-    BlockCache,
-    Scheduler,
-    COUNT
-};
+#define DEFINE_KERNEL_LOG_CATEGORY(CATEGORY)   static constexpr uint32_t CATEGORY = os::String::hash_string_literal(#CATEGORY, sizeof(#CATEGORY) - 1); static constexpr const char* CATEGORY##_Name = #CATEGORY
+#define GET_KERNEL_LOG_CATEGORY_NAME(CATEGORY) CATEGORY##_Name
+#define REGISTER_KERNEL_LOG_CATEGORY(CATEGORY, INITIAL_LEVEL) kernel_log_register_category(CATEGORY, #CATEGORY, INITIAL_LEVEL)
+
+DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_General);
+DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_VFS);
+DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache);
+DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler);
 
 enum class KLogSeverity
 {
@@ -86,15 +85,14 @@ enum class KLogSeverity
     NONE
 };
 
-int  kernel_log_alloc_category(KLogSeverity initialLogLevel);
-void kernel_log_set_category_log_level(int category, KLogSeverity logLevel);
-bool kernel_log_is_category_active(int category, KLogSeverity logLevel);
+
+bool kernel_log_register_category(uint32_t categoryHash, const char* categoryName, KLogSeverity initialLogLevel);
+void kernel_log_set_category_log_level(uint32_t categoryHash, KLogSeverity logLevel);
+bool kernel_log_is_category_active(uint32_t categoryHash, KLogSeverity logLevel);
 
 template<typename ...ARGS>
-void kernel_log(int category, KLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel_log_is_category_active(category, severity)) kprintf(fmt, args...); }
+void kernel_log(uint32_t category, KLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel_log_is_category_active(category, severity)) kprintf(fmt, args...); }
 
-template<typename ...ARGS>
-void kernel_log(KLogCategory category, KLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel_log_is_category_active(int(category), severity)) kprintf(fmt, args...); }
 
 void panic(const char* message);
 
@@ -153,9 +151,6 @@ public:
     static int UnregisterIRQHandler(IRQn_Type irqNum, int handle);
     static void HandleIRQ(IRQn_Type irqNum);
 
-//    static void SetError(int error) { s_LastError = error; }
-//    static int  GetLastError() { return s_LastError; }
-
     static bigtime_t GetTime();
 
 
@@ -164,7 +159,6 @@ public:
     static uint32_t s_FrequencyCore;
     static uint32_t s_FrequencyPeripheral;
     static volatile bigtime_t   s_SystemTime;
-//    static int                  s_LastError;
     static KIRQAction*                   s_IRQHandlers[IRQ_COUNT];
 };
 

@@ -25,7 +25,7 @@
 #include "Kernel/HAL/DigitalPort.h"
 #include "Kernel/VFS/KDeviceNode.h"
 
-#include "sd_mmc_protocol.h"
+#include "SDMMCProtocol.h"
 #include "System/Ptr/Ptr.h"
 #include "System/Threads/Thread.h"
 #include "Kernel/KMutex.h"
@@ -37,7 +37,7 @@ namespace kernel
 {
 class KFileNode;
 
-namespace HSMCICardType
+namespace SDMMCCardType
 {
     typedef uint8_t Type;
     static const uint8_t Unknown  = 0x00;      //!< Unknown type card
@@ -48,7 +48,7 @@ namespace HSMCICardType
     static const uint8_t SD_COMBO = (SD | SDIO); //!< SD combo card (io + memory)
 }
 
-enum class HSMCICardVersion
+enum class SDMMCCardVersion
 {
     Unknown  = 0,      //! Unknown card version
     SD_1_0   = 0x10,   //! SD version 1.0 and 1.01
@@ -62,10 +62,10 @@ enum class HSMCICardVersion
     MMC_4    = 0x40    //! MMC version 4
 };
 
-class HSMCIINode : public KINode
+class SDMMCINode : public KINode
 {
 public:
-    HSMCIINode(KFilesystemFileOps* fileOps);
+    SDMMCINode(KFilesystemFileOps* fileOps);
     int		bi_nOpenCount = 0;
     int		bi_nNodeHandle = -1;
     int		bi_nPartitionType = 0;
@@ -73,12 +73,13 @@ public:
     off64_t	bi_nSize = 0;    
 };
 
-class HSMCIDriver : public PtrTarget, public KFilesystemFileOps, public os::Thread
+class SDMMCDriver : public PtrTarget, public KFilesystemFileOps, public os::Thread
 {
 public:
-    HSMCIDriver(const DigitalPin& pinCD);
+    SDMMCDriver();
+	virtual ~SDMMCDriver();
 
-    bool Setup(const os::String& devicePath);
+    bool SetupBase(const os::String& devicePath, const DigitalPin& pinCD);
     
     virtual int Run() override;
     
@@ -88,8 +89,9 @@ public:
     virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
     virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
 
-private:
-    static const uint32_t BLOCK_SIZE = 512;
+protected:
+    static constexpr uint32_t BLOCK_SIZE = 512;
+//	static constexpr SDMMC_BlockSizePowers BLOCK_SIZE_BITS = SDMMC_BlockSizePowers::SZ512;
 
     enum class CardState
     {
@@ -121,32 +123,21 @@ private:
             }
         }            
     }
-    static IRQResult IRQCallback(IRQn_Type irq, void* userData) { return static_cast<HSMCIDriver*>(userData)->HandleIRQ(); }
-	IRQResult        HandleIRQ();
     
-    bool     WaitIRQ(uint32_t flags);
-    bool     WaitIRQ(uint32_t flags, bigtime_t timeout);
-
-    void     Reset();
     
-    bool     ReadNoDMA(void* buffer, uint16_t blockSize, size_t blockCount);
-    bool     ReadDMA(void* buffer, uint16_t blockSize, size_t blockCount);
-    bool     WriteDMA(const void *buffer, uint16_t blockSize, size_t blockCount);
-
     status_t SDIOReadDirect(uint8_t functionNumber, uint32_t addr, uint8_t *dest);
     status_t SDIOWriteDirect(uint8_t functionNumber, uint32_t addr, uint8_t data);
     ssize_t  SDIOReadExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, void* buffer, size_t size);
     ssize_t  SDIOWriteExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, const void* buffer, size_t size);
 
-    void     SetClockFrequency(uint32_t frequency);
+    virtual void     SetClockFrequency(uint32_t frequency) = 0;
+    virtual void     SendClock() = 0;
     
-    void     SendClock();
-    bool     ExecuteCmd(uint32_t cmdr, uint32_t cmd, uint32_t arg);
-    bool     SendCmd(uint32_t cmd, uint32_t arg);
-    uint32_t GetResponse() { return HSMCI->HSMCI_RSPR[0]; }
-    void     GetResponse128(uint8_t* response);
-    bool     StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint16_t block_size, uint16_t blockCount, bool setupDMA);
-    bool     StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg);
+    virtual bool		SendCmd(uint32_t cmd, uint32_t arg) = 0;
+	virtual uint32_t	GetResponse() = 0;
+    virtual void		GetResponse128(uint8_t* response) = 0;
+    virtual bool		StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint16_t blockCount, const void* buffer) = 0;
+    virtual bool		StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg) = 0;
     
     bool     OperationalConditionMCI_sd(bool v2);
     bool     OperationalConditionMCI_mmc();
@@ -164,7 +155,7 @@ private:
     void     DecodeCSD_mmc();
     void     DecodeCSD_sd();
 
-    void     ApplySpeedAndBusWidth();
+    virtual void     ApplySpeedAndBusWidth() = 0;
     
     bool     ACmd6_sd();
 
@@ -178,7 +169,7 @@ private:
     bool     ACmd51_sd();
 
     bool     Cmd52_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t readAfterWriteFlag, uint8_t* data);
-    bool     Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t incrementAddr, uint32_t size, bool useDMA);
+    bool     Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t incrementAddr, uint32_t size, const void* buffer);
 
     KMutex              m_Mutex;
     KConditionVariable  m_CardStateCondition;
@@ -187,23 +178,22 @@ private:
     DigitalPin          m_PinCD;
     
     os::String                   m_DevicePathBase;
-    Ptr<HSMCIINode>              m_RawINode;
-    std::vector<Ptr<HSMCIINode>> m_PartitionINodes;
+    Ptr<SDMMCINode>              m_RawINode;
+    std::vector<Ptr<SDMMCINode>> m_PartitionINodes;
     
     bool                m_CardInserted = false;
-    HSMCICardType::Type m_CardType     = HSMCICardType::Unknown;
-    HSMCICardVersion    m_CardVersion  = HSMCICardVersion::Unknown;
+    SDMMCCardType::Type m_CardType     = SDMMCCardType::Unknown;
+    SDMMCCardVersion    m_CardVersion  = SDMMCCardVersion::Unknown;
     uint32_t            m_Clock        = 0;
     uint64_t            m_SectorCount  = 0;
     CardState           m_CardState    = CardState::NoCard;
     int                 m_BusWidth     = 1;
     bool                m_HighSpeed    = false;
-    uint16_t            m_RCA;                //!< Relative card address
-    uint8_t             m_CSD[CSD_REG_BSIZE]; //!< CSD register
 
-    size_t              m_BlockCount    = 0;
-    void*               m_CurrentBuffer = nullptr; // If non-null this is the buffer for non-DMA transfere;
-    size_t              m_BytesToRead   = 0;
+	void*				m_CacheAlignedBuffer = nullptr;	// 512 byte cache-line aligned temp-buffer for IO.
+    uint16_t            m_RCA;                // Relative card address
+    uint8_t             m_CSD[sdmmc::CSD_REG_SIZE_BYTES]; // CSD register
+
     volatile int        m_IOError       = 0;
 };
 

@@ -32,6 +32,7 @@
 
 using namespace kernel;
 
+DEFINE_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -217,8 +218,9 @@ ssize_t I2CDriverINode::Read(Ptr<KFileNode> file, off64_t position, void* buffer
 	m_State = State_e::Idle;
     if (m_CurPos < 0)
     {
+		ResetPeripheral();
         set_last_error(-m_CurPos);
-		printf("I2CDriver::Read() request failed: %s\n", strerror(get_last_error()));
+		kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::INFO_LOW_VOL, "I2CDriver::Read() request failed: %s\n", strerror(get_last_error()));
         return -1;
     }
     return m_CurPos;    
@@ -303,7 +305,7 @@ ssize_t I2CDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void*
 	if (m_CurPos < 0)
 	{
 		set_last_error(-m_CurPos);
-		printf("I2CDriver::Write() request failed: %s\n", strerror(get_last_error()));
+		kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::INFO_LOW_VOL, "I2CDriver::Write() request failed: %s\n", strerror(get_last_error()));
 		return -1;
 	}
 	return m_CurPos;
@@ -464,7 +466,7 @@ int I2CDriverINode::SetSpeed(I2CSpeed speed)
 		}
 	}
 	if (minError == std::numeric_limits<uint32_t>::max()) {
-		printf("ERROR: I2C failed to set baudrate!\n");
+		kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::CRITICAL, "ERROR: I2C failed to set baudrate!\n");
 		return -1;
 	}
 //	m_Port->TIMINGR = 0x00b03fdb;
@@ -610,6 +612,8 @@ IRQResult I2CDriverINode::HandleErrorIRQ()
 
 void I2CDriver::Setup(const char* devicePath, I2C_TypeDef* port, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, IRQn_Type eventIRQ, IRQn_Type errorIRQ, uint32_t clockFrequency, double fallTime, double riseTime)
 {
+	REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, KLogSeverity::WARNING);
+
     Ptr<I2CDriverINode> node = ptr_new<I2CDriverINode>(this, port, clockPin, dataPin, eventIRQ, errorIRQ, clockFrequency, fallTime, riseTime);
     Kernel::RegisterDevice(devicePath, node);    
 }

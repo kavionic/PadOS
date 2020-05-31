@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -46,10 +46,11 @@ struct FATNewDirEntryInfo
 class FATFilesystem : public KFilesystem, public KFilesystemFileOps
 {
 public:
-    static int LOGC_FS;
-    static int LOGC_FATTABLE;
-    static int LOGC_DIR;
-    static int LOGC_FILE;
+
+    DEFINE_KERNEL_LOG_CATEGORY(LOGC_FS);
+    DEFINE_KERNEL_LOG_CATEGORY(LOGC_FATTABLE);
+    DEFINE_KERNEL_LOG_CATEGORY(LOGC_DIR);
+    DEFINE_KERNEL_LOG_CATEGORY(LOGC_FILE);
 public:
     FATFilesystem();
     

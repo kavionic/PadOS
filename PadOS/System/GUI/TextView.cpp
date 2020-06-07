@@ -17,10 +17,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 15.04.2018 16:38:59
 
-#include "Platform.h"
+#include "System/Platform.h"
 
-#include "TextView.h"
-#include "System/Utils/Utils.h"
+#include "GUI/TextView.h"
+#include "Utils/Utils.h"
 
 using namespace os;
 

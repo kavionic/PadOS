@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "Point.h"
+#include "Math/Point.h"
 
 class LineSegment
 {

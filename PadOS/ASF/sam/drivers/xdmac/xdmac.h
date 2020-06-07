@@ -105,7 +105,7 @@
  * @{
  */
 
-#include "Platform.h"
+#include "System/Platform.h"
 #include  "ASF/sam/utils/compiler.h"
 #include  "ASF/sam/utils/status_codes.h"
 //#include "same70q21.h"

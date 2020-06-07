@@ -18,7 +18,7 @@
 // Created: 25.04.2018 20:52:53
 
 #pragma once
-#include "System/Threads.h"
+#include "Threads/Threads.h"
 
 namespace os
 {

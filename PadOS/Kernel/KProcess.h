@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include "System/Ptr/PtrTarget.h"
-#include "System/Threads.h"
+#include "Ptr/PtrTarget.h"
+#include "Threads/Threads.h"
 #include "KThreadCB.h"
 #include "VFS/KIOContext.h"
 

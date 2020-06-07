@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 17.03.2018 20:45:16
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <string.h>
 #include <fcntl.h>
@@ -26,7 +26,7 @@
 #include "ServerApplication.h"
 #include "ServerView.h"
 #include "Protocol.h"
-#include "System/GUI/View.h"
+#include "GUI/View.h"
 #include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
 #include "System/SystemMessageIDs.h"
 #include "DeviceControl/HID.h"

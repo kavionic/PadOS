@@ -21,7 +21,7 @@
 
 #include <map>
 
-#include "System/Ptr/Ptr.h"
+#include "Ptr/Ptr.h"
 
 class KNodeMonitorNode;
 

@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 09.03.2018 16:02:32
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +26,7 @@
 #include <new>
 
 #include "KMessagePort.h"
-#include "System/Threads.h"
+#include "Threads/Threads.h"
 #include "Kernel.h"
 
 using namespace kernel;

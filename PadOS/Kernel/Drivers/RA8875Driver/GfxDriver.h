@@ -22,9 +22,9 @@
 
 #include <stdint.h>
 #include "Font.h"
-#include "System/Math/Point.h"
-#include "System/Math/Rect.h"
-#include "System/Utils/Utils.h"
+#include "Math/Point.h"
+#include "Math/Rect.h"
+#include "Utils/Utils.h"
 #include "Kernel/HAL/DigitalPort.h"
 
 namespace kernel

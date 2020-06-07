@@ -20,9 +20,9 @@
 #pragma once
 
 
-#include "System/Threads/EventHandler.h"
-#include "System/Utils/MessagePort.h"
-#include "System/Math/Rect.h"
+#include "Threads/EventHandler.h"
+#include "Utils/MessagePort.h"
+#include "Math/Rect.h"
 
 #include "ApplicationServer.h"
 #include "ServerView.h"

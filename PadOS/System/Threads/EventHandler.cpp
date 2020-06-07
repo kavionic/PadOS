@@ -17,8 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 11.03.2018 16:01:50
 
-#include "EventHandler.h"
-#include "System/Signals/RemoteSignal.h"
+#include "Threads/EventHandler.h"
+#include "Signals/RemoteSignal.h"
 
 using namespace os;
 

@@ -18,7 +18,7 @@
 // Created: 18/08/25 0:24:37
 
 #pragma once
-#include "System/Threads/Thread.h"
+#include "Threads/Thread.h"
 #include "HAL/DigitalPort.h"
 //#include "SystemSetup.h"
 

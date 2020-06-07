@@ -17,13 +17,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 09.04.2018 22:56:33
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include "WindowManager.h"
-#include "System/GUI/View.h"
-#include "System/GUI/LayoutNode.h"
+#include "GUI/View.h"
+#include "GUI/LayoutNode.h"
 #include "ApplicationServer/ApplicationServer.h"
-#include "System/GUI/Button.h"
+#include "GUI/Button.h"
 
 static port_id g_WindowManagerPort = -1;
 

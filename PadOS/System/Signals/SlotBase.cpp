@@ -17,9 +17,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 17.03.2018 14:59:22
 
-#include "SlotBase.h"
-#include "SignalBase.h"
-#include "SignalTarget.h"
+#include "Signals/SlotBase.h"
+#include "Signals/SignalBase.h"
+#include "Signals/SignalTarget.h"
 
 #ifndef NDEBUG
 static int g_SlotCount = 0;

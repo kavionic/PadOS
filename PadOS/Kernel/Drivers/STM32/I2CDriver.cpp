@@ -16,7 +16,7 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <string.h>
 #include <cmath>

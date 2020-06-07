@@ -23,8 +23,8 @@
 #include <sys/reent.h>
 
 #include "KNamedObject.h"
-#include "System/Utils/IntrusiveList.h"
-#include "System/Threads.h"
+#include "Utils/IntrusiveList.h"
+#include "Threads/Threads.h"
 
 namespace os
 {

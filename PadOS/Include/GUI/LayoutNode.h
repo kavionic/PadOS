@@ -21,8 +21,8 @@
 
 #include <vector>
 
-#include "System/Ptr/PtrTarget.h"
-#include "System/Math/Rect.h"
+#include "Ptr/PtrTarget.h"
+#include "Math/Rect.h"
 
 namespace os
 {

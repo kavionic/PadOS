@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 21.10.2017 00:18:50
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -29,11 +29,11 @@
 #include <deque>
 #include <algorithm>
 
-#include "System/Signals/Signal.h"
+#include "Signals/Signal.h"
 #include "Kernel/HAL/SAME70System.h"
 #include "SDRAM.h"
-#include "System/Utils/EventTimer.h"
-#include "System/Threads.h"
+#include "Threads/EventTimer.h"
+#include "Threads/Threads.h"
 #include "Kernel/Kernel.h"
 #include "Kernel/Scheduler.h"
 #include "Kernel/VFS/KBlockCache.h"

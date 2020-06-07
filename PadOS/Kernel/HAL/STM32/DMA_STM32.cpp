@@ -19,7 +19,7 @@
 #include "DMA_STM32.h"
 
 #include "Kernel/KMutex.h"
-#include "System/Utils/Utils.h"
+#include "Utils/Utils.h"
 
 namespace kernel
 {

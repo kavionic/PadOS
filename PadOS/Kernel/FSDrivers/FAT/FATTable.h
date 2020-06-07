@@ -21,8 +21,8 @@
 
 #include <stdint.h>
 
-#include "System/Ptr/Ptr.h"
-#include "System/Ptr/PtrTarget.h"
+#include "Ptr/Ptr.h"
+#include "Ptr/PtrTarget.h"
 #include "FATTableIterator.h"
 
 #define END_FAT_ENTRY 0x0ffffff8

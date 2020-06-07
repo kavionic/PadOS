@@ -17,8 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 11.03.2018 13:10:28
 
-#include "Thread.h"
-#include "System/Threads.h"
+#include "Threads/Thread.h"
+#include "Threads/Threads.h"
 #include "System/System.h"
 
 using namespace os;

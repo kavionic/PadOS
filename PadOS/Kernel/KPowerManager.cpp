@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18/08/25 0:24:37
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #if defined(__SAME70Q21__)
 #include "component/supc.h"

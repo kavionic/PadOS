@@ -21,9 +21,9 @@
 
 #include <sys/types.h>
 
-#include "System/Ptr/PtrTarget.h"
-#include "System/Ptr/Ptr.h"
-#include "System/Utils/IntrusiveList.h"
+#include "Ptr/PtrTarget.h"
+#include "Ptr/Ptr.h"
+#include "Utils/IntrusiveList.h"
 
 namespace os
 {

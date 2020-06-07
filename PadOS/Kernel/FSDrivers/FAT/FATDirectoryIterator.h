@@ -20,7 +20,7 @@
 #pragma once
 
 #include "System/Types.h"
-#include "System/Ptr/Ptr.h"
+#include "Ptr/Ptr.h"
 #include "Kernel/VFS/KBlockCache.h"
 #include "FATClusterSectorIterator.h"
 

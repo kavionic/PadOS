@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 14.05.2020 21:30:24
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <string.h>
 #include <fcntl.h>
@@ -25,9 +25,9 @@
 #include "GSLx680Driver.h"
 #include "DeviceControl/I2C.h"
 #include "DeviceControl/HID.h"
-#include "System/Threads.h"
+#include "Threads/Threads.h"
 #include "System/SystemMessageIDs.h"
-#include "System/GUI/GUIEvent.h"
+#include "GUI/GUIEvent.h"
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/HAL/Peripherals.h"
 

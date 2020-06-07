@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "System/GUI/Application.h"
+#include "App/Application.h"
 
 
 using namespace os;

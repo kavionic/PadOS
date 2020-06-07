@@ -17,16 +17,16 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 30.01.2014 23:46:08
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 
 #include <algorithm>
 #include <stddef.h>
 #include <stdio.h>
 
-#include "View.h"
-#include "Application.h"
-#include "System/Utils/Utils.h"
+#include "GUI/View.h"
+#include "App/Application.h"
+#include "Utils/Utils.h"
 
 using namespace kernel;
 using namespace os;

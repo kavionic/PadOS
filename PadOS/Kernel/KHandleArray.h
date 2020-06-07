@@ -21,9 +21,9 @@
 
 #include <sys/errno.h>
 
-#include "System/Ptr/PtrTarget.h"
-#include "System/Ptr/Ptr.h"
-#include "System/Utils/Utils.h"
+#include "Ptr/PtrTarget.h"
+#include "Ptr/Ptr.h"
+#include "Utils/Utils.h"
 #include "Scheduler.h"
 
 namespace kernel

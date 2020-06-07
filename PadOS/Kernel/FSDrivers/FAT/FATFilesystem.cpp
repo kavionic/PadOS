@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18/05/19 18:04:07
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <string.h>
 #include <fcntl.h>
@@ -32,9 +32,9 @@
 #include "Kernel/VFS/KVFSManager.h"
 #include "FATDirectoryIterator.h"
 #include "FATFileNode.h"
-#include "System/Ptr/NoPtr.h"
+#include "Ptr/NoPtr.h"
 #include "FATDirectoryNode.h"
-#include "System/Utils/Utils.h"
+#include "Utils/Utils.h"
 
 using namespace os;
 

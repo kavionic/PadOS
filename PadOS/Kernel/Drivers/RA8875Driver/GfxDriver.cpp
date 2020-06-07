@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 16.01.2014 22:21:20
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <stdio.h>
 #include <algorithm>

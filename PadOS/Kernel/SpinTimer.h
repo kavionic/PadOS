@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 
 namespace kernel

@@ -21,10 +21,10 @@
 
 #include <inttypes.h>
 
-#include "System/Signals/RemoteSignal.h"
-#include "System/Utils/MessagePort.h"
-#include "System/GUI/GUIEvent.h"
-#include "System/GUI/Color.h"
+#include "Signals/RemoteSignal.h"
+#include "Utils/MessagePort.h"
+#include "GUI/GUIEvent.h"
+#include "GUI/Color.h"
 
 class Rect;
 

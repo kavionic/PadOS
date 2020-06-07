@@ -15,36 +15,34 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 15.04.2018 16:38:59
 
 #pragma once
 
-#include "View.h"
-
+#include "Ptr/PtrTarget.h"
+#include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
 
 namespace os
 {
 
-class TextView : public View
+struct FontHeight
+{
+    float ascender;   // Pixels from baseline to top of glyph (positive)
+    float descender;  // Pixels from baseline to bottom of glyph (negative)
+    float line_gap;   // Space between lines (positive)    
+};
+
+class Font : public PtrTarget
 {
 public:
-    TextView(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    ~TextView();
-    
-    void SetText(const String& text);
-    
-//    virtual void AllAttachedToScreen() override { Invalidate(); }
+    Font(kernel::GfxDriver::Font_e font) : m_Font(font) {}
 
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
-
-    virtual void Paint(const Rect& updateRect) override;
-        
+    void Set(kernel::GfxDriver::Font_e font) { m_Font = font; }
+    kernel::GfxDriver::Font_e Get() const { return m_Font; }
+    FontHeight GetHeight() const;        
+    float GetStringWidth(const char* string, size_t length) const;
+    
 private:
-    String m_Text;
-    
-    TextView(const TextView&) = delete;
-    TextView& operator=(const TextView&) = delete;
+    kernel::GfxDriver::Font_e m_Font;
 };
-    
-    
+
 } // namespace

@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include "Platform.h"
-#include "System/Utils/Utils.h"
+#include "System/Platform.h"
+#include "Utils/Utils.h"
 
 class SAME70System
 {

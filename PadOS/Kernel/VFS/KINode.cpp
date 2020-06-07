@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.02.2018 01:44:31
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include "KINode.h"
 #include "KFilesystem.h"

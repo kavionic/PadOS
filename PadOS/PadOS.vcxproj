@@ -101,10 +101,10 @@
     <NMakePreprocessorDefinitions>WIN32;NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Project\Projects\PadOS\PadOS;C:\ST\STM32CubeIDE_1.1.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.0.0.201904181610\tools\arm-none-eabi\include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include</IncludePath>
+    <IncludePath>C:\Project\Projects\PadOS\PadOS\Include;C:\Project\Projects\PadOS\PadOS;C:\ST\STM32CubeIDE_1.1.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.0.0.201904181610\tools\arm-none-eabi\include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Project\Projects\PadOS\PadOS;C:\ST\STM32CubeIDE_1.1.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.0.0.201904181610\tools\arm-none-eabi\include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include</IncludePath>
+    <IncludePath>C:\Project\Projects\PadOS\PadOS\Include;C:\Project\Projects\PadOS\PadOS;C:\ST\STM32CubeIDE_1.1.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.0.0.201904181610\tools\arm-none-eabi\include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>
@@ -212,15 +212,15 @@
     <ClCompile Include="System\Signals\SignalSystem.cpp" />
     <ClCompile Include="System\Signals\SignalTarget.cpp" />
     <ClCompile Include="System\Signals\SlotBase.cpp" />
-    <ClCompile Include="System\String.cpp" />
     <ClCompile Include="System\Threads\EventHandler.cpp" />
+    <ClCompile Include="System\Threads\EventTimer.cpp" />
     <ClCompile Include="System\Threads\Looper.cpp" />
     <ClCompile Include="System\Threads\Semaphore.cpp" />
     <ClCompile Include="System\Threads\Thread.cpp" />
     <ClCompile Include="System\Threads\ThreadLocal.cpp" />
-    <ClCompile Include="System\Utils\EventTimer.cpp" />
     <ClCompile Include="System\Utils\IntrusiveList.cpp" />
     <ClCompile Include="System\Utils\MessagePort.cpp" />
+    <ClCompile Include="System\Utils\String.cpp" />
     <ClCompile Include="System\Utils\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -240,14 +240,59 @@
     <ClInclude Include="ASF\sam\utils\preprocessor\stringz.h" />
     <ClInclude Include="ASF\sam\utils\preprocessor\tpaste.h" />
     <ClInclude Include="ASF\sam\utils\status_codes.h" />
-    <ClInclude Include="DeviceControl\BME280.h" />
-    <ClInclude Include="DeviceControl\DeviceControl.h" />
-    <ClInclude Include="DeviceControl\HID.h" />
-    <ClInclude Include="DeviceControl\I2C.h" />
-    <ClInclude Include="DeviceControl\INA3221.h" />
-    <ClInclude Include="DeviceControl\SDCARD.h" />
-    <ClInclude Include="DeviceControl\TLV493D.h" />
-    <ClInclude Include="DeviceControl\WS2812B.h" />
+    <ClInclude Include="Include\App\Application.h" />
+    <ClInclude Include="Include\DeviceControl\BME280.h" />
+    <ClInclude Include="Include\DeviceControl\DeviceControl.h" />
+    <ClInclude Include="Include\DeviceControl\HID.h" />
+    <ClInclude Include="Include\DeviceControl\I2C.h" />
+    <ClInclude Include="Include\DeviceControl\INA3221.h" />
+    <ClInclude Include="Include\DeviceControl\SDCARD.h" />
+    <ClInclude Include="Include\DeviceControl\TLV493D.h" />
+    <ClInclude Include="Include\DeviceControl\WS2812B.h" />
+    <ClInclude Include="Include\GUI\Button.h" />
+    <ClInclude Include="Include\GUI\Color.h" />
+    <ClInclude Include="Include\GUI\Font.h" />
+    <ClInclude Include="Include\GUI\GUIEvent.h" />
+    <ClInclude Include="Include\GUI\LayoutNode.h" />
+    <ClInclude Include="Include\GUI\Region.h" />
+    <ClInclude Include="Include\GUI\TextView.h" />
+    <ClInclude Include="Include\GUI\View.h" />
+    <ClInclude Include="Include\Math\LineSegment.h" />
+    <ClInclude Include="Include\Math\Point.h" />
+    <ClInclude Include="Include\Math\Rect.h" />
+    <ClInclude Include="Include\Ptr\NoPtr.h" />
+    <ClInclude Include="Include\Ptr\Ptr.h" />
+    <ClInclude Include="Include\Ptr\Ptr.inl.h" />
+    <ClInclude Include="Include\Ptr\PtrTarget.h" />
+    <ClInclude Include="Include\Ptr\SigWeakPtr.h" />
+    <ClInclude Include="Include\Ptr\SigWeakPtr.inl.h" />
+    <ClInclude Include="Include\Ptr\WeakPtr.h" />
+    <ClInclude Include="Include\Ptr\WeakPtr.inl.h" />
+    <ClInclude Include="Include\Signals\RemoteSignal.h" />
+    <ClInclude Include="Include\Signals\Signal.h" />
+    <ClInclude Include="Include\Signals\SignalBase.h" />
+    <ClInclude Include="Include\Signals\SignalSlotList.h" />
+    <ClInclude Include="Include\Signals\SignalSystem.h" />
+    <ClInclude Include="Include\Signals\SignalTarget.h" />
+    <ClInclude Include="Include\Signals\Slot.h" />
+    <ClInclude Include="Include\Signals\SlotBase.h" />
+    <ClInclude Include="Include\Signals\VFConnector.h" />
+    <ClInclude Include="Include\System\Platform.h" />
+    <ClInclude Include="Include\System\System.h" />
+    <ClInclude Include="Include\System\Types.h" />
+    <ClInclude Include="Include\Threads\EventHandler.h" />
+    <ClInclude Include="Include\Threads\EventTimer.h" />
+    <ClInclude Include="Include\Threads\Looper.h" />
+    <ClInclude Include="Include\Threads\Mutex.h" />
+    <ClInclude Include="Include\Threads\Semaphore.h" />
+    <ClInclude Include="Include\Threads\Thread.h" />
+    <ClInclude Include="Include\Threads\ThreadLocal.h" />
+    <ClInclude Include="Include\Threads\Threads.h" />
+    <ClInclude Include="Include\Utils\IntrusiveList.h" />
+    <ClInclude Include="Include\Utils\MessagePort.h" />
+    <ClInclude Include="Include\Utils\String.h" />
+    <ClInclude Include="Include\Utils\UTF8Utils.h" />
+    <ClInclude Include="Include\Utils\Utils.h" />
     <ClInclude Include="Kernel\Drivers\ATSAM\SDMMC_ATSAM.h" />
     <ClInclude Include="Kernel\Drivers\BME280Driver.h" />
     <ClInclude Include="Kernel\Drivers\FT5x0xDriver.h" />
@@ -313,54 +358,9 @@
     <ClInclude Include="Kernel\VFS\KVFSManager.h" />
     <ClInclude Include="MemTest.h" />
     <ClInclude Include="MPU.h" />
-    <ClInclude Include="Platform.h" />
     <ClInclude Include="SAME70TimerDefines.h" />
     <ClInclude Include="SDRAM.h" />
-    <ClInclude Include="System\GUI\Application.h" />
-    <ClInclude Include="System\GUI\Button.h" />
-    <ClInclude Include="System\GUI\Color.h" />
-    <ClInclude Include="System\GUI\Font.h" />
-    <ClInclude Include="System\GUI\GUIEvent.h" />
-    <ClInclude Include="System\GUI\LayoutNode.h" />
-    <ClInclude Include="System\GUI\Region.h" />
-    <ClInclude Include="System\GUI\TextView.h" />
-    <ClInclude Include="System\GUI\View.h" />
-    <ClInclude Include="System\Math\LineSegment.h" />
-    <ClInclude Include="System\Math\Point.h" />
-    <ClInclude Include="System\Math\Rect.h" />
-    <ClInclude Include="System\Ptr\NoPtr.h" />
-    <ClInclude Include="System\Ptr\Ptr.h" />
-    <ClInclude Include="System\Ptr\Ptr.inl.h" />
-    <ClInclude Include="System\Ptr\PtrTarget.h" />
-    <ClInclude Include="System\Ptr\SigWeakPtr.h" />
-    <ClInclude Include="System\Ptr\SigWeakPtr.inl.h" />
-    <ClInclude Include="System\Ptr\WeakPtr.h" />
-    <ClInclude Include="System\Ptr\WeakPtr.inl.h" />
-    <ClInclude Include="System\Signals\RemoteSignal.h" />
-    <ClInclude Include="System\Signals\Signal.h" />
-    <ClInclude Include="System\Signals\SignalBase.h" />
-    <ClInclude Include="System\Signals\SignalSlotList.h" />
-    <ClInclude Include="System\Signals\SignalSystem.h" />
-    <ClInclude Include="System\Signals\SignalTarget.h" />
-    <ClInclude Include="System\Signals\Slot.h" />
-    <ClInclude Include="System\Signals\SlotBase.h" />
-    <ClInclude Include="System\Signals\VFConnector.h" />
-    <ClInclude Include="System\String.h" />
-    <ClInclude Include="System\System.h" />
     <ClInclude Include="System\SystemMessageIDs.h" />
-    <ClInclude Include="System\Threads.h" />
-    <ClInclude Include="System\Threads\EventHandler.h" />
-    <ClInclude Include="System\Threads\Looper.h" />
-    <ClInclude Include="System\Threads\Mutex.h" />
-    <ClInclude Include="System\Threads\Semaphore.h" />
-    <ClInclude Include="System\Threads\Thread.h" />
-    <ClInclude Include="System\Threads\ThreadLocal.h" />
-    <ClInclude Include="System\Types.h" />
-    <ClInclude Include="System\UTF8Utils.h" />
-    <ClInclude Include="System\Utils\EventTimer.h" />
-    <ClInclude Include="System\Utils\IntrusiveList.h" />
-    <ClInclude Include="System\Utils\MessagePort.h" />
-    <ClInclude Include="System\Utils\Utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

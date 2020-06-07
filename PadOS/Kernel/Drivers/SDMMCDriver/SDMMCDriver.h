@@ -26,8 +26,8 @@
 #include "Kernel/VFS/KDeviceNode.h"
 
 #include "SDMMCProtocol.h"
-#include "System/Ptr/Ptr.h"
-#include "System/Threads/Thread.h"
+#include "Ptr/Ptr.h"
+#include "Threads/Thread.h"
 #include "Kernel/KMutex.h"
 #include "Kernel/KConditionVariable.h"
 #include "Kernel/KSemaphore.h"

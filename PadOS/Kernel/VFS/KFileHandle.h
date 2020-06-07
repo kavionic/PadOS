@@ -23,8 +23,8 @@
 #include <sys/types.h>
 #include <stddef.h>
 
-#include "System/Ptr/PtrTarget.h"
-#include "System/Ptr/Ptr.h"
+#include "Ptr/PtrTarget.h"
+#include "Ptr/Ptr.h"
 #include "KINode.h"
 
 namespace kernel

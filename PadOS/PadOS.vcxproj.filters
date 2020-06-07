@@ -55,9 +55,6 @@
     <Filter Include="Source Files\ASF\sam\utils\preprocessor">
       <UniqueIdentifier>{8423d41f-40f7-4fcc-9765-e6941b3b5f64}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\DeviceControl">
-      <UniqueIdentifier>{62ebe5ec-cf38-4456-b4af-8f9d6a91ef76}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\Kernel">
       <UniqueIdentifier>{fbbe8861-320d-4464-ac41-428628044a6b}</UniqueIdentifier>
     </Filter>
@@ -111,6 +108,36 @@
     </Filter>
     <Filter Include="Source Files\Kernel\Drivers\SDMMCDriver">
       <UniqueIdentifier>{4bc2f80b-1f47-4b02-be28-8611a57cdc28}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include">
+      <UniqueIdentifier>{7301b3cb-9856-484f-a5e2-5bd810d78e84}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include\GUI">
+      <UniqueIdentifier>{d101138a-0f93-4c93-8851-766a9596504a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include\App">
+      <UniqueIdentifier>{910ede38-9301-4689-a126-a0ff6ae5edc9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include\Math">
+      <UniqueIdentifier>{b2f7c7d3-506b-4290-a0cd-8e24fc337aad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include\Ptr">
+      <UniqueIdentifier>{3b02e0e1-c24d-47b3-bf7b-5a9a350e914e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include\Threads">
+      <UniqueIdentifier>{802d3742-20ea-4a14-9ddb-11427b57f9b6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include\Signals">
+      <UniqueIdentifier>{0df9ccdd-7ade-4f22-a61a-90010be18c51}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include\Utils">
+      <UniqueIdentifier>{a68eadc3-80f9-4649-8106-09d403b9f4cb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include\System">
+      <UniqueIdentifier>{ed84eb63-7e04-4439-b68f-ff4f75d3dca2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include\DeviceControl">
+      <UniqueIdentifier>{8cb7cad4-65f8-4eaf-9ff2-7d9ea5b595fb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -202,9 +229,6 @@
     </ClCompile>
     <ClCompile Include="Applications\WindowManager\WindowManager.cpp">
       <Filter>Source Files\Applications\WindowManager</Filter>
-    </ClCompile>
-    <ClCompile Include="System\String.cpp">
-      <Filter>Source Files\System</Filter>
     </ClCompile>
     <ClCompile Include="ApplicationServer\ApplicationServer.cpp">
       <Filter>Source Files\ApplicationServer</Filter>
@@ -413,9 +437,6 @@
     <ClCompile Include="System\Threads\ThreadLocal.cpp">
       <Filter>Source Files\System\Threads</Filter>
     </ClCompile>
-    <ClCompile Include="System\Utils\EventTimer.cpp">
-      <Filter>Source Files\System\Utils</Filter>
-    </ClCompile>
     <ClCompile Include="System\Utils\IntrusiveList.cpp">
       <Filter>Source Files\System\Utils</Filter>
     </ClCompile>
@@ -452,15 +473,18 @@
     <ClCompile Include="Kernel\Drivers\STM32\WS2812BDriver.cpp">
       <Filter>Source Files\Kernel\Drivers\STM32</Filter>
     </ClCompile>
+    <ClCompile Include="System\Threads\EventTimer.cpp">
+      <Filter>Source Files\System\Threads</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Utils\String.cpp">
+      <Filter>Source Files\System\Utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MemTest.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="MPU.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Platform.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="SAME70TimerDefines.h">
@@ -472,22 +496,7 @@
     <ClInclude Include="Applications\WindowManager\WindowManager.h">
       <Filter>Source Files\Applications\WindowManager</Filter>
     </ClInclude>
-    <ClInclude Include="System\String.h">
-      <Filter>Source Files\System</Filter>
-    </ClInclude>
-    <ClInclude Include="System\System.h">
-      <Filter>Source Files\System</Filter>
-    </ClInclude>
     <ClInclude Include="System\SystemMessageIDs.h">
-      <Filter>Source Files\System</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Threads.h">
-      <Filter>Source Files\System</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Types.h">
-      <Filter>Source Files\System</Filter>
-    </ClInclude>
-    <ClInclude Include="System\UTF8Utils.h">
       <Filter>Source Files\System</Filter>
     </ClInclude>
     <ClInclude Include="ApplicationServer\ApplicationServer.h">
@@ -534,21 +543,6 @@
     </ClInclude>
     <ClInclude Include="ASF\sam\utils\status_codes.h">
       <Filter>Source Files\ASF\sam\utils</Filter>
-    </ClInclude>
-    <ClInclude Include="DeviceControl\BME280.h">
-      <Filter>Source Files\DeviceControl</Filter>
-    </ClInclude>
-    <ClInclude Include="DeviceControl\DeviceControl.h">
-      <Filter>Source Files\DeviceControl</Filter>
-    </ClInclude>
-    <ClInclude Include="DeviceControl\I2C.h">
-      <Filter>Source Files\DeviceControl</Filter>
-    </ClInclude>
-    <ClInclude Include="DeviceControl\INA3221.h">
-      <Filter>Source Files\DeviceControl</Filter>
-    </ClInclude>
-    <ClInclude Include="DeviceControl\SDCARD.h">
-      <Filter>Source Files\DeviceControl</Filter>
     </ClInclude>
     <ClInclude Include="Kernel\Drivers\RA8875Driver\Fonts\MicrosoftSansSerif_14.h">
       <Filter>Source Files\Kernel\Drivers\RA8875Driver\Fonts</Filter>
@@ -706,134 +700,11 @@
     <ClInclude Include="Kernel\SpinTimer.h">
       <Filter>Source Files\Kernel</Filter>
     </ClInclude>
-    <ClInclude Include="System\GUI\Application.h">
-      <Filter>Source Files\System\GUI</Filter>
-    </ClInclude>
-    <ClInclude Include="System\GUI\Button.h">
-      <Filter>Source Files\System\GUI</Filter>
-    </ClInclude>
-    <ClInclude Include="System\GUI\Color.h">
-      <Filter>Source Files\System\GUI</Filter>
-    </ClInclude>
-    <ClInclude Include="System\GUI\Font.h">
-      <Filter>Source Files\System\GUI</Filter>
-    </ClInclude>
-    <ClInclude Include="System\GUI\GUIEvent.h">
-      <Filter>Source Files\System\GUI</Filter>
-    </ClInclude>
-    <ClInclude Include="System\GUI\LayoutNode.h">
-      <Filter>Source Files\System\GUI</Filter>
-    </ClInclude>
-    <ClInclude Include="System\GUI\Region.h">
-      <Filter>Source Files\System\GUI</Filter>
-    </ClInclude>
-    <ClInclude Include="System\GUI\TextView.h">
-      <Filter>Source Files\System\GUI</Filter>
-    </ClInclude>
-    <ClInclude Include="System\GUI\View.h">
-      <Filter>Source Files\System\GUI</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Math\LineSegment.h">
-      <Filter>Source Files\System\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Math\Point.h">
-      <Filter>Source Files\System\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Math\Rect.h">
-      <Filter>Source Files\System\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Ptr\NoPtr.h">
-      <Filter>Source Files\System\Ptr</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Ptr\Ptr.h">
-      <Filter>Source Files\System\Ptr</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Ptr\Ptr.inl.h">
-      <Filter>Source Files\System\Ptr</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Ptr\PtrTarget.h">
-      <Filter>Source Files\System\Ptr</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Ptr\SigWeakPtr.h">
-      <Filter>Source Files\System\Ptr</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Ptr\SigWeakPtr.inl.h">
-      <Filter>Source Files\System\Ptr</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Ptr\WeakPtr.h">
-      <Filter>Source Files\System\Ptr</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Ptr\WeakPtr.inl.h">
-      <Filter>Source Files\System\Ptr</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Signals\RemoteSignal.h">
-      <Filter>Source Files\System\Signals</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Signals\Signal.h">
-      <Filter>Source Files\System\Signals</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Signals\SignalBase.h">
-      <Filter>Source Files\System\Signals</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Signals\SignalSlotList.h">
-      <Filter>Source Files\System\Signals</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Signals\SignalSystem.h">
-      <Filter>Source Files\System\Signals</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Signals\SignalTarget.h">
-      <Filter>Source Files\System\Signals</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Signals\Slot.h">
-      <Filter>Source Files\System\Signals</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Signals\SlotBase.h">
-      <Filter>Source Files\System\Signals</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Signals\VFConnector.h">
-      <Filter>Source Files\System\Signals</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Threads\EventHandler.h">
-      <Filter>Source Files\System\Threads</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Threads\Looper.h">
-      <Filter>Source Files\System\Threads</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Threads\Mutex.h">
-      <Filter>Source Files\System\Threads</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Threads\Semaphore.h">
-      <Filter>Source Files\System\Threads</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Threads\Thread.h">
-      <Filter>Source Files\System\Threads</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Threads\ThreadLocal.h">
-      <Filter>Source Files\System\Threads</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Utils\EventTimer.h">
-      <Filter>Source Files\System\Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Utils\IntrusiveList.h">
-      <Filter>Source Files\System\Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Utils\MessagePort.h">
-      <Filter>Source Files\System\Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="System\Utils\Utils.h">
-      <Filter>Source Files\System\Utils</Filter>
-    </ClInclude>
     <ClInclude Include="Kernel\Drivers\STM32\I2CDriver.h">
       <Filter>Source Files\Kernel\Drivers\STM32</Filter>
     </ClInclude>
     <ClInclude Include="Kernel\Drivers\STM32\TLV493DDriver.h">
       <Filter>Source Files\Kernel\Drivers\STM32</Filter>
-    </ClInclude>
-    <ClInclude Include="DeviceControl\TLV493D.h">
-      <Filter>Source Files\DeviceControl</Filter>
-    </ClInclude>
-    <ClInclude Include="DeviceControl\HID.h">
-      <Filter>Source Files\DeviceControl</Filter>
     </ClInclude>
     <ClInclude Include="Kernel\Drivers\GSLx680Driver.h">
       <Filter>Source Files\Kernel\Drivers</Filter>
@@ -853,14 +724,170 @@
     <ClInclude Include="Kernel\Drivers\STM32\WS2812BDriver.h">
       <Filter>Source Files\Kernel\Drivers\STM32</Filter>
     </ClInclude>
-    <ClInclude Include="DeviceControl\WS2812B.h">
-      <Filter>Source Files\DeviceControl</Filter>
-    </ClInclude>
     <ClInclude Include="Kernel\HAL\Peripherals.h">
       <Filter>Source Files\Kernel\HAL</Filter>
     </ClInclude>
     <ClInclude Include="Kernel\HAL\STM32\Peripherals_STM32H7.h">
       <Filter>Source Files\Kernel\HAL\STM32</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\Button.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\Color.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\Font.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\GUIEvent.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\LayoutNode.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\Region.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\TextView.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\View.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\App\Application.h">
+      <Filter>Include\App</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Math\LineSegment.h">
+      <Filter>Include\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Math\Point.h">
+      <Filter>Include\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Math\Rect.h">
+      <Filter>Include\Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Ptr\NoPtr.h">
+      <Filter>Include\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Ptr\Ptr.h">
+      <Filter>Include\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Ptr\Ptr.inl.h">
+      <Filter>Include\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Ptr\PtrTarget.h">
+      <Filter>Include\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Ptr\SigWeakPtr.h">
+      <Filter>Include\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Ptr\SigWeakPtr.inl.h">
+      <Filter>Include\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Ptr\WeakPtr.h">
+      <Filter>Include\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Ptr\WeakPtr.inl.h">
+      <Filter>Include\Ptr</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Threads\EventHandler.h">
+      <Filter>Include\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Threads\Looper.h">
+      <Filter>Include\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Threads\Mutex.h">
+      <Filter>Include\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Threads\Semaphore.h">
+      <Filter>Include\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Threads\Thread.h">
+      <Filter>Include\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Threads\ThreadLocal.h">
+      <Filter>Include\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Signals\RemoteSignal.h">
+      <Filter>Include\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Signals\Signal.h">
+      <Filter>Include\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Signals\SignalBase.h">
+      <Filter>Include\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Signals\SignalSlotList.h">
+      <Filter>Include\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Signals\SignalSystem.h">
+      <Filter>Include\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Signals\SignalTarget.h">
+      <Filter>Include\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Signals\Slot.h">
+      <Filter>Include\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Signals\SlotBase.h">
+      <Filter>Include\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Signals\VFConnector.h">
+      <Filter>Include\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Threads\EventTimer.h">
+      <Filter>Include\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Utils\IntrusiveList.h">
+      <Filter>Include\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Utils\MessagePort.h">
+      <Filter>Include\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Utils\Utils.h">
+      <Filter>Include\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Utils\String.h">
+      <Filter>Include\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\System\Types.h">
+      <Filter>Include\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Utils\UTF8Utils.h">
+      <Filter>Include\Signals</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\System\System.h">
+      <Filter>Include\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Threads\Threads.h">
+      <Filter>Include\Threads</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\System\Platform.h">
+      <Filter>Include\System</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\DeviceControl\BME280.h">
+      <Filter>Include\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\DeviceControl\DeviceControl.h">
+      <Filter>Include\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\DeviceControl\HID.h">
+      <Filter>Include\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\DeviceControl\I2C.h">
+      <Filter>Include\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\DeviceControl\INA3221.h">
+      <Filter>Include\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\DeviceControl\SDCARD.h">
+      <Filter>Include\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\DeviceControl\TLV493D.h">
+      <Filter>Include\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\DeviceControl\WS2812B.h">
+      <Filter>Include\DeviceControl</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

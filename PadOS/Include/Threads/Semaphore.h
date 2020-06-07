@@ -18,7 +18,7 @@
 // Created: 09.03.2018 14:53:24
 
 #pragma once
-#include "System/Threads.h"
+#include "Threads/Threads.h"
 
 class Semaphore
 {

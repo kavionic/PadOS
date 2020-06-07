@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <atomic>
 #include <map>
@@ -29,7 +29,7 @@
 #include "Kernel.h"
 #include "KNamedObject.h"
 #include "Scheduler.h"
-#include "System/Threads.h"
+#include "Threads/Threads.h"
 
 namespace kernel
 {

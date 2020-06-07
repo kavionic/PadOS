@@ -26,8 +26,8 @@
 #include "Kernel/KMutex.h"
 #include "Kernel/KConditionVariable.h"
 #include "DeviceControl/TLV493D.h"
-#include "System/Utils/Utils.h"
-#include "System/Threads/Thread.h"
+#include "Utils/Utils.h"
+#include "Threads/Thread.h"
 
 namespace kernel
 {

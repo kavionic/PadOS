@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "Platform.h"
+#include "System/Platform.h"
 #include "Kernel/KMutex.h"
 #include "Kernel/KConditionVariable.h"
 #include "Kernel/VFS/KINode.h"

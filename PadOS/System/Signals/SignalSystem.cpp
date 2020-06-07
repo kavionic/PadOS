@@ -16,8 +16,8 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "SignalSystem.h"
-#include "SignalTarget.h"
+#include "Signals/SignalSystem.h"
+#include "Signals/SignalTarget.h"
 
 
 /*! \page signals The Signal/Slot system.

@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 11.03.2018 01:23:12
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <string.h>
 #include <sys/errno.h>
@@ -26,7 +26,7 @@
 #include "KThreadCB.h"
 #include "Kernel.h"
 #include "Scheduler.h"
-#include "System/Utils/Utils.h"
+#include "Utils/Utils.h"
 
 using namespace kernel;
 

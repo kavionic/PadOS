@@ -23,9 +23,9 @@
 
 #include "Signal.h"
 #include "Slot.h"
-#include "System/Math/Rect.h"
-#include "System/Utils/MessagePort.h"
-#include "System/String.h"
+#include "Math/Rect.h"
+#include "Utils/MessagePort.h"
+#include "Utils/String.h"
 
 namespace os
 {

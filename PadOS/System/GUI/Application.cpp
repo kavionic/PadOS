@@ -17,12 +17,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 06.11.2017 23:22:03
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <string.h>
 
-#include "Application.h"
-#include "System/GUI/View.h"
+#include "App/Application.h"
+#include "GUI/View.h"
 
 using namespace os;
 

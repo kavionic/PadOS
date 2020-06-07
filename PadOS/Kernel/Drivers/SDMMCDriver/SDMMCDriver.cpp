@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 07.12.2017 23:50:32
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -29,7 +29,7 @@
 #include "Kernel/VFS/KVFSManager.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/VFS/KFSVolume.h"
-#include "System/String.h"
+#include "Utils/String.h"
 #include "DeviceControl/DeviceControl.h"
 #include "DeviceControl/SDCARD.h"
 

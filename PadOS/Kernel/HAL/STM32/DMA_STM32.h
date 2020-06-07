@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Platform.h"
+#include "System/Platform.h"
 #include "DMARequestID.h"
 
 namespace kernel

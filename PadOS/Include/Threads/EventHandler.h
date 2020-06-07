@@ -21,9 +21,9 @@
 
 #include <map>
 
-#include "System/Signals/Signal.h"
-#include "System/Ptr/PtrTarget.h"
-#include "System/String.h"
+#include "Signals/Signal.h"
+#include "Ptr/PtrTarget.h"
+#include "Utils/String.h"
 
 namespace os
 {

@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 04.03.2020 21:59:38
 
- #include "Platform.h"
+ #include "System/Platform.h"
 
 #include <assert.h>
 #include <stdio.h>

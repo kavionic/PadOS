@@ -26,8 +26,8 @@
 #include <map>
 
 #include "System/Types.h"
-#include "System/Ptr/Ptr.h"
-#include "System/String.h"
+#include "Ptr/Ptr.h"
+#include "Utils/String.h"
 
 
 namespace kernel

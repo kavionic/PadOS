@@ -24,8 +24,8 @@
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/KConditionVariable.h"
 #include "Kernel/KMutex.h"
-#include "System/Threads/Thread.h"
-#include "System/Math/Point.h"
+#include "Threads/Thread.h"
+#include "Math/Point.h"
 
 namespace kernel
 {

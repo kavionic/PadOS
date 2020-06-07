@@ -20,9 +20,9 @@
 
 #include <vector>
 
-#include "System/Math/Rect.h"
-#include "System/Math/Point.h"
-#include "System/Ptr/PtrTarget.h"
+#include "Math/Rect.h"
+#include "Math/Point.h"
+#include "Ptr/PtrTarget.h"
 
 
 namespace os

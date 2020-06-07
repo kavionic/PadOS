@@ -21,7 +21,7 @@
 #include <algorithm>
 #include <math.h>
 
-#include "point.h"
+#include "Math/point.h"
 
 
 class IRect;

@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "System/GUI/View.h"
+#include "GUI/View.h"
 
 namespace os
 {

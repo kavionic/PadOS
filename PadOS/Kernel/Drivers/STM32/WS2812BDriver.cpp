@@ -23,13 +23,13 @@
 #include <algorithm>
 #include <cstring>
 
-#include "System/Ptr/Ptr.h"
+#include "Ptr/Ptr.h"
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/HAL/DMA.h"
 #include "DeviceControl/WS2812B.h"
-#include "System/Utils/Utils.h"
-#include "System/GUI/Color.h"
+#include "Utils/Utils.h"
+#include "GUI/Color.h"
 
 using namespace os;
 

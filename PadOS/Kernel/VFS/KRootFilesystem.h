@@ -22,7 +22,7 @@
 #include <map>
 #include "KINode.h"
 #include "KFilesystem.h"
-#include "System/String.h"
+#include "Utils/String.h"
 #include "Kernel/KMutex.h"
 
 namespace kernel

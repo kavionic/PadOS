@@ -17,11 +17,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 25.02.2018 12:57:08
 
-#include "Platform.h"
+#include "System/Platform.h"
 
-#include "EventTimer.h"
+#include "Threads/EventTimer.h"
 #include "System/System.h"
-#include "System/Threads/Looper.h"
+#include "Threads/Looper.h"
 
 using namespace os;
 

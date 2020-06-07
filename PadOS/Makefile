@@ -13,7 +13,7 @@
 #     -Og -ffunction-sections -ffast-math -mlong-calls -g3 -Wall -Wextra -mcpu=cortex-m7 -c -mfloat-abi=hard -mtp=cp15 -mtls-dialect=gnu2
 #     -Wsuggest-override -Wnoexcept -Wno-unused-parameter -Wno-multichar -Wno-sign-compare -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)" 
 
-INCLUDE_PATHS = -I.
+INCLUDE_PATHS = -I. -IInclude
 INCLUDE_PATHS := $(INCLUDE_PATHS) -IC:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include -IC:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include
 
 C_VERSION	:= -std=gnu11
@@ -21,7 +21,7 @@ CPP_VERSION	:= -std=gnu++17
 
 FLAGS_WARNINGS = -Wall -Wextra -Wno-unused-parameter -Wno-multichar -Wno-sign-compare
 FLAGS_OPTIMIZING = -g3 -Og
-FLAGS_SYMBOLS = -D__PADOS__ -DUSE_HAL_DRIVER_______________ -DSTM32H743xx -D__FPU_PRESENT -DDEBUG -DARM_MATH_CM7=true -D__machine_ino_t_defined -D__ino_t=int64_t
+FLAGS_SYMBOLS = -D__PADOS__ -DSTM32H743xx -D__FPU_PRESENT -DDEBUG -DARM_MATH_CM7=true -D__machine_ino_t_defined -D__ino_t=int64_t
 FLAGS   := $(FLAGS_WARNINGS) $(FLAGS_SYMBOLS) $(INCLUDE_PATHS) $(FLAGS_OPTIMIZING) -mcpu=cortex-m7 -c -ffunction-sections -fdata-sections -fstack-usage -mthumb
 FLAGS   := $(FLAGS) -ffast-math -mfpu=fpv5-d16 -mfloat-abi=hard -mtp=cp15 -mtls-dialect=gnu2
 #FLAGS   := $(FLAGS) -mlong-calls

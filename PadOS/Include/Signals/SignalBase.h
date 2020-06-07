@@ -20,7 +20,7 @@
 
 #include <assert.h>
 #include "SlotBase.h"
-#include "System/Threads/ThreadLocal.h"
+#include "Threads/ThreadLocal.h"
 
 class SignalBase
 {

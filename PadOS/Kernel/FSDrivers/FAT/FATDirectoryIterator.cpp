@@ -17,12 +17,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18/06/01 1:03:46
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <string.h>
 #include <algorithm>
 
-#include "System/Utils/Utils.h"
+#include "Utils/Utils.h"
 
 #include "FATDirectoryIterator.h"
 #include "FATVolume.h"

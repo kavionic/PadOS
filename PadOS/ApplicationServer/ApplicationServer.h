@@ -21,12 +21,12 @@
 
 #include <queue>
 
-#include "System/Threads/Looper.h"
-#include "System/Signals/SignalTarget.h"
+#include "Threads/Looper.h"
+#include "Signals/SignalTarget.h"
 #include "Protocol.h"
-#include "System/Math/Rect.h"
-#include "System/GUI/GUIEvent.h"
-#include "System/Utils/EventTimer.h"
+#include "Math/Rect.h"
+#include "GUI/GUIEvent.h"
+#include "Threads/EventTimer.h"
 #include "ServerView.h"
 
 namespace os

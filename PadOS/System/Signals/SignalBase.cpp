@@ -16,7 +16,7 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "SignalBase.h"
+#include "Signals/SignalBase.h"
 
 #ifndef NDEBUG
 static int g_SignalCount = 0;

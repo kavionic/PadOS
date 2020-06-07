@@ -20,7 +20,7 @@
 #pragma once
 
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <stdio.h>
 
@@ -28,9 +28,9 @@
 #include <atomic>
 #include <cstdint>
 
-#include "System/Ptr/PtrTarget.h"
-#include "System/Ptr/Ptr.h"
-#include "System/String.h"
+#include "Ptr/PtrTarget.h"
+#include "Ptr/Ptr.h"
+#include "Utils/String.h"
 
 
 #define DCACHE_LINE_SIZE 32 // Cortex-M7 size of cache line is fixed to 8 words (32 bytes)

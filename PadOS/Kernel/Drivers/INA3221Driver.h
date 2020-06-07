@@ -20,12 +20,12 @@
 #pragma once
 
 #include "DeviceControl/INA3221.h"
-#include "System/Signals/SignalTarget.h"
+#include "Signals/SignalTarget.h"
 #include "Kernel/VFS/KDeviceNode.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/KMutex.h"
-#include "System/Threads/Looper.h"
-#include "System/Utils/EventTimer.h"
+#include "Threads/Looper.h"
+#include "Threads/EventTimer.h"
 
 namespace kernel
 {

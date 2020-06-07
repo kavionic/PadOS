@@ -17,10 +17,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 07.03.2018 16:00:14
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include "KHandleArray.h"
-#include "System/Ptr/NoPtr.h"
+#include "Ptr/NoPtr.h"
 
 using namespace kernel;
 

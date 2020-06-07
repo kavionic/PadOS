@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <cstring>
 
-#include "System/Ptr/Ptr.h"
+#include "Ptr/Ptr.h"
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/HAL/DMA.h"

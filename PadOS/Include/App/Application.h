@@ -21,7 +21,7 @@
 
 #include <set>
 
-#include "System/Threads/Looper.h"
+#include "Threads/Looper.h"
 #include "ApplicationServer/Protocol.h"
 
 namespace os

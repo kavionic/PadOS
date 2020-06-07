@@ -22,10 +22,10 @@
 #include <sys/errno.h>
 
 #include "Kernel.h"
-#include "System/Ptr/PtrTarget.h"
-#include "System/Ptr/Ptr.h"
+#include "Ptr/PtrTarget.h"
+#include "Ptr/Ptr.h"
 #include "System/System.h"
-#include "System/Utils/IntrusiveList.h"
+#include "Utils/IntrusiveList.h"
 
 namespace kernel
 {

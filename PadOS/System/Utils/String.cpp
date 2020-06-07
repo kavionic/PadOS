@@ -19,8 +19,8 @@
 
 #include <string.h>
 
-#include "String.h"
-#include "UTF8Utils.h"
+#include "Utils/String.h"
+#include "Utils/UTF8Utils.h"
 
 using namespace os;
 

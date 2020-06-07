@@ -22,7 +22,7 @@
 #include <map>
 
 #include "Kernel/Kernel.h"
-#include "System/Signals/Signal.h"
+#include "Signals/Signal.h"
 
 namespace os
 {

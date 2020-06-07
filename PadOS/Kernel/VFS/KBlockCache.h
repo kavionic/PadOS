@@ -24,7 +24,7 @@
 #include <atomic>
 
 #include "System/Types.h"
-#include "System/Utils/IntrusiveList.h"
+#include "Utils/IntrusiveList.h"
 #include "Kernel/KMutex.h"
 #include "Kernel/KConditionVariable.h"
 

@@ -20,7 +20,7 @@
 
 #include "System/Types.h"
 #include "System/System.h"
-#include "System/String.h"
+#include "Utils/String.h"
 #include "Kernel/Scheduler.h"
 
 template<typename T>

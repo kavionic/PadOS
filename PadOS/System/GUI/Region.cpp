@@ -25,7 +25,7 @@
 #include <deque>
 #include <algorithm>
 
-#include "Region.h"
+#include "GUI/Region.h"
 
 using namespace os;
 

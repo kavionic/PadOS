@@ -17,9 +17,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 02.04.2018 13:08:46
 
-#include "Platform.h"
+#include "System/Platform.h"
 
-#include "Button.h"
+#include "GUI/Button.h"
 
 using namespace os;
 

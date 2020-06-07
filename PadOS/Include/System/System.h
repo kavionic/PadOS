@@ -23,7 +23,7 @@
 
 #include <limits>
 
-#include "Types.h"
+#include "System/Types.h"
 
 static const bigtime_t INFINIT_TIMEOUT = std::numeric_limits<bigtime_t>::max();
 static const int OS_NAME_LENGTH = 32;

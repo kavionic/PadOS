@@ -16,9 +16,9 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Platform.h"
+#include "System/Platform.h"
 
-#include "Font.h"
+#include "GUI/Font.h"
 
 using namespace os;
 

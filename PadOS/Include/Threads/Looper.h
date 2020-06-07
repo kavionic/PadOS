@@ -25,8 +25,8 @@
 
 #include "Thread.h"
 #include "Mutex.h"
-#include "System/Ptr/Ptr.h"
-#include "System/Utils/MessagePort.h"
+#include "Ptr/Ptr.h"
+#include "Utils/MessagePort.h"
 
 namespace os
 {

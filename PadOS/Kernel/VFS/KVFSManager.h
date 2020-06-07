@@ -23,8 +23,8 @@
 #include <string>
 #include <map>
 
-#include "System/Ptr/PtrTarget.h"
-#include "System/Ptr/Ptr.h"
+#include "Ptr/PtrTarget.h"
+#include "Ptr/Ptr.h"
 #include "Kernel/KMutex.h"
 #include "Kernel/KConditionVariable.h"
 

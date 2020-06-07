@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "System/Ptr/Ptr.h"
+#include "Ptr/Ptr.h"
 #include "Kernel/VFS/KBlockCache.h"
 
 namespace kernel

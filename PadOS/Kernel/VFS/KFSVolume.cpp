@@ -17,12 +17,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.02.2018 01:46:15
 
- #include "Platform.h"
+ #include "System/Platform.h"
 
 #include "KFSVolume.h"
 #include "KINode.h"
 #include "KFilesystem.h"
-#include "System/String.h"
+#include "Utils/String.h"
 
 using namespace kernel;
 using namespace os;

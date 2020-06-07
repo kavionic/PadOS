@@ -21,9 +21,9 @@
 
 
 #include "System/Types.h"
-#include "System/Signals/VFConnector.h"
+#include "Signals/VFConnector.h"
 #include "System/System.h"
-#include "System/String.h"
+#include "Utils/String.h"
 
 namespace os
 {

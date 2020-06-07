@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "Types.h"
+#include "System/Types.h"
 
 typedef void (*ThreadEntryPoint_t)( void * );
 typedef void (*TLSDestructor_t)(void *);

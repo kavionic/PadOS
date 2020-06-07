@@ -21,9 +21,9 @@
 
 #include <string>
 
-#include "System/Ptr/PtrTarget.h"
-#include "System/Ptr/Ptr.h"
-#include "System/String.h"
+#include "Ptr/PtrTarget.h"
+#include "Ptr/Ptr.h"
+#include "Utils/String.h"
 #include "KFilesystem.h"
 
 namespace kernel

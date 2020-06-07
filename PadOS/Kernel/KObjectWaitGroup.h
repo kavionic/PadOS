@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "KNamedObject.h"
-#include "System/Ptr/Ptr.h"
+#include "Ptr/Ptr.h"
 
 namespace kernel
 {

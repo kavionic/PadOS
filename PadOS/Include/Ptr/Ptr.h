@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "PtrTarget.h"
+#include "Ptr/PtrTarget.h"
 template <class T> class WeakPtr;
 template <class T> class SigWeakPtr;
 template <class T> class NoPtr;

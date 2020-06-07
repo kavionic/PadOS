@@ -16,15 +16,15 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <algorithm>
 #include <stdio.h>
 #include <limits.h>
 #include <string.h>
 
-#include "LayoutNode.h"
-#include "View.h"
+#include "GUI/LayoutNode.h"
+#include "GUI/View.h"
 
 using namespace os;
 

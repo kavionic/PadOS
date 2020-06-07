@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.02.2018 01:49:14
 
-#include "Platform.h"
+#include "System/Platform.h"
 
 #include <string.h>
 
@@ -26,7 +26,7 @@
 #include "KFileHandle.h"
 #include "KDeviceNode.h"
 #include "System/System.h"
-#include "System/String.h"
+#include "Utils/String.h"
 
 using namespace kernel;
 using namespace os;

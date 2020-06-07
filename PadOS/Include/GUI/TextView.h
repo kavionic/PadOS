@@ -15,46 +15,35 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 02.04.2018 13:08:47
+// Created: 15.04.2018 16:38:59
 
 #pragma once
 
-#include "View.h"
+#include "GUI/View.h"
 
 
 namespace os
 {
 
-class Button : public View
+class TextView : public View
 {
 public:
-    Button(const String& name, const String& label, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    ~Button();
-    virtual void AllAttachedToScreen() override { Invalidate(); }
+    TextView(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    ~TextView();
+    
+    void SetText(const String& text);
+    
+//    virtual void AllAttachedToScreen() override { Invalidate(); }
 
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
 
-    virtual bool OnMouseDown(MouseButton_e button, const Point& position) override;
-    virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
-    virtual bool OnMouseMove(MouseButton_e button, const Point& position) override;
-
     virtual void Paint(const Rect& updateRect) override;
-
-
-    void SetPressedState(bool isPressed);
-    bool GetPressedState() const { return m_IsPressed; }
-
-    Signal<void, MouseButton_e, Button*> SignalActivated;
         
 private:
-    bool m_WasHit    = false;
-    bool m_IsPressed = false;
-        
-    String m_Label;
-    Point  m_LabelSize;
-        
-    Button(const Button&) = delete;
-    Button& operator=(const Button&) = delete;
+    String m_Text;
+    
+    TextView(const TextView&) = delete;
+    TextView& operator=(const TextView&) = delete;
 };
     
     

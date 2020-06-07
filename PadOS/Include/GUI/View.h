@@ -22,21 +22,21 @@
 #include <stdint.h>
 #include <vector>
 
-#include "System/Ptr/Ptr.h"
-#include "System/Ptr/WeakPtr.h"
-#include "system/Threads/EventHandler.h"
-#include "System/Signals/SignalTarget.h"
-#include "System/Signals/VFConnector.h"
-#include "System/Math/Rect.h"
-#include "System/Math/Point.h"
-#include "System/GUI/Region.h"
-#include "System/GUI/GUIEvent.h"
+#include "Ptr/Ptr.h"
+#include "Ptr/WeakPtr.h"
+#include "Threads/EventHandler.h"
+#include "Signals/SignalTarget.h"
+#include "Signals/VFConnector.h"
+#include "Math/Rect.h"
+#include "Math/Point.h"
+#include "GUI/Region.h"
+#include "GUI/GUIEvent.h"
 #include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
 #include "ApplicationServer/Protocol.h"
-#include "Application.h"
-#include "Font.h"
-#include "Color.h"
-#include "LayoutNode.h"
+#include "App/Application.h"
+#include "GUI/Font.h"
+#include "GUI/Color.h"
+#include "GUI/LayoutNode.h"
 
 namespace os
 {

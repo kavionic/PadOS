@@ -16,8 +16,8 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "PtrTarget.h"
-#include "System/Threads.h"
+#include "Ptr/PtrTarget.h"
+#include "Threads/Threads.h"
 
 #include <assert.h>
 

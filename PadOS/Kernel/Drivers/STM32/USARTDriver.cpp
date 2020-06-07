@@ -1,9 +1,21 @@
-/*
- * USARTDriver.cpp
- *
- *  Created on: Jan 3, 2020
- *      Author: kurts
- */
+// This file is part of PadOS.
+//
+// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+//
+// PadOS is free software : you can redistribute it and / or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PadOS is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with PadOS. If not, see <http://www.gnu.org/licenses/>.
+///////////////////////////////////////////////////////////////////////////////
+// Created: 03.01.2020 12:00:00
 
 #include "USARTDriver.h"
 
@@ -39,7 +51,8 @@ USARTDriverINode::USARTDriverINode(USART_TypeDef* port, DMAMUX1_REQUEST dmaReque
 	m_Port->CR1 = USART_CR1_RE | USART_CR1_FIFOEN;
 	m_Port->CR3 = USART_CR3_DMAR | USART_CR3_DMAT;
 
-	m_Port->BRR = clockFrequency / 921600;
+	m_Baudrate = 921600;
+	m_Port->BRR = clockFrequency / m_Baudrate;
 
 	m_Port->CR1 |= USART_CR1_UE | USART_CR1_RE | USART_CR1_TE;
 
@@ -54,7 +67,7 @@ USARTDriverINode::USARTDriverINode(USART_TypeDef* port, DMAMUX1_REQUEST dmaReque
 		NVIC_ClearPendingIRQ(irq);
 		kernel::Kernel::RegisterIRQHandler(irq, IRQCallbackReceive, this);
 
-		dma_setup_per_to_mem(m_ReceiveDMAChannel, m_DMARequestRX, m_ReceiveBuffer, &m_Port->RDR, m_ReceiveBufferSize);
+		dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
 		dma_start(m_ReceiveDMAChannel);
 	}
 	if (m_SendDMAChannel != -1)
@@ -92,14 +105,14 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length)
 		if (length == bytesReceived)
 		{
 			m_ReceiveBufferInPos = 0;
-			dma_setup_per_to_mem(m_ReceiveDMAChannel, m_DMARequestRX, m_ReceiveBuffer, &m_Port->RDR, m_ReceiveBufferSize);
+			dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
 		}
 		else
 		{
 			memmove(m_ReceiveBuffer, m_ReceiveBuffer + length, bytesReceived - length);
 			SCB_CleanInvalidateDCache();
 			m_ReceiveBufferInPos = bytesReceived - length;
-			dma_setup_per_to_mem(m_ReceiveDMAChannel, m_DMARequestRX, m_ReceiveBuffer + m_ReceiveBufferInPos, &m_Port->RDR, m_ReceiveBufferSize - m_ReceiveBufferInPos);
+			dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer + m_ReceiveBufferInPos, m_ReceiveBufferSize - m_ReceiveBufferInPos);
 		}
 		dma_start(m_ReceiveDMAChannel);
 		return length;
@@ -115,7 +128,7 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length)
 		}
 		for (size_t currentLen = std::min<size_t>(m_ReceiveBufferSize, remainingLen); remainingLen > 0; remainingLen -= currentLen, currentTarget += currentLen)
 		{
-			dma_setup_per_to_mem(m_ReceiveDMAChannel, m_DMARequestRX, m_ReceiveBuffer, &m_Port->RDR, currentLen);
+			dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, currentLen);
 			CRITICAL_BEGIN(CRITICAL_IRQ)
 			{
 				dma_start(m_ReceiveDMAChannel);
@@ -125,7 +138,7 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length)
 			memcpy(currentTarget, m_ReceiveBuffer, currentLen);
 		}
 		m_ReceiveBufferInPos = 0;
-		dma_setup_per_to_mem(m_ReceiveDMAChannel, m_DMARequestRX, m_ReceiveBuffer, &m_Port->RDR, m_ReceiveBufferSize);
+		dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
 		dma_start(m_ReceiveDMAChannel);
 	}
 	return length;
@@ -147,11 +160,15 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
 	{
 		m_Port->ICR = USART_ICR_TCCF;
 
-		dma_setup_mem_to_per(m_SendDMAChannel, m_DMARequestTX, &m_Port->TDR, currentTarget, currentLen);
+		dma_stop(m_SendDMAChannel);
+		dma_setup(m_SendDMAChannel, DMAMode::MemToPeriph, m_DMARequestTX, &m_Port->TDR, currentTarget, currentLen);
 		CRITICAL_BEGIN(CRITICAL_IRQ)
 		{
 			dma_start(m_SendDMAChannel);
-			m_TransmitCondition.IRQWait();
+			if (!m_TransmitCondition.IRQWaitTimeout(bigtime_t(currentLen) * 10 * 2 * 1000000 / m_Baudrate + bigtime_from_ms(100)))
+			{
+				return -1;
+			}
 		} CRITICAL_END;
 	}
 	return length;

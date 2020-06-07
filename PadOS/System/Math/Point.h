@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+#include <cmath>
 
 class IPoint;
 
@@ -40,6 +41,8 @@ public:
     explicit Point( float value ) { x = y = value; }
     Point( float nX, float nY ) { x = nX; y = nY; }
 
+	float LengthSqr() const { return x * x + y * y; }
+	float Length() const { return sqrt(LengthSqr()); }
     Point        operator-( void ) const                 { return( Point( -x, -y ) ); }
     Point        operator+( const Point& cPoint ) const  { return( Point( x + cPoint.x, y + cPoint.y ) ); }
     Point        operator-( const Point& cPoint ) const  { return( Point( x - cPoint.x, y - cPoint.y ) ); }

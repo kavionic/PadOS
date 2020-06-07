@@ -15,11 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
+// Created: 07.06.2020 14:25:38
 
 #pragma once
 
 #if defined(STM32H743xx)
-#include "STM32/DMA_STM32.h"
+#include "STM32/Peripherals_STM32H7.h"
 #else
 #error Unknown platform
 #endif

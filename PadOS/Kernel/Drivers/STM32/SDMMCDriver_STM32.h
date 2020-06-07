@@ -32,7 +32,7 @@ public:
 	SDMMCDriver_STM32();
 	~SDMMCDriver_STM32();
 
-	bool Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, const DigitalPin& pinCD, IRQn_Type irqNum);
+	bool Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, DigitalPinID pinCD, IRQn_Type irqNum);
 
 
     virtual void     SetClockFrequency(uint32_t frequency) override;

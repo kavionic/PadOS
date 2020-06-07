@@ -210,12 +210,12 @@ ssize_t I2CDriverINode::Read(Ptr<KFileNode> file, off64_t position, void* buffer
 
 		if (!m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout))
 		{
+			m_State = State_e::Idle;
 			ResetPeripheral();
 			m_CurPos = -ETIME;
 		}
 		m_Port->CR1 &= ~interruptFlags;
 	} CRITICAL_END;
-	m_State = State_e::Idle;
     if (m_CurPos < 0)
     {
 		ResetPeripheral();
@@ -296,12 +296,12 @@ ssize_t I2CDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void*
 
 		if (!m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout))
 		{
+			m_State = State_e::Idle;
 			ResetPeripheral();
 			m_CurPos = -ETIME;
 		}
 		m_Port->CR1 &= ~interruptFlags;
 	} CRITICAL_END;
-	m_State = State_e::Idle;
 	if (m_CurPos < 0)
 	{
 		set_last_error(-m_CurPos);
@@ -515,6 +515,8 @@ IRQResult I2CDriverINode::HandleEventIRQ()
 		m_CurPos = -ECONNREFUSED;
 		m_Port->ICR = I2C_ICR_NACKCF;
 		m_Port->CR1 &= ~I2C_CR1_TXIE;
+
+		m_State = State_e::Idle;
 		m_RequestCondition.Wakeup();
 		return IRQResult::HANDLED;
 	}
@@ -583,11 +585,13 @@ IRQResult I2CDriverINode::HandleEventIRQ()
 	{
 		m_Port->ICR = I2C_ICR_STOPCF;
 		m_Port->CR1 &= ~I2C_CR1_TXIE;
+		m_State = State_e::Idle;
 		m_RequestCondition.Wakeup();
 	}
 	if (m_Port->ISR & I2C_ISR_TC) // Transfer complete.
 	{
 		m_Port->CR1 &= ~I2C_CR1_TXIE;
+		m_State = State_e::Idle;
 		m_RequestCondition.Wakeup();
 	}
 	return IRQResult::HANDLED;

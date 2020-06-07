@@ -410,7 +410,17 @@ void set_last_error(int error)
     gk_CurrentThread->m_NewLibreent._errno = error;
 }
 
-extern "C" void KernelHandleIRQ(int irq)
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+extern "C" void KernelHandleIRQ()
 {
-	Kernel::HandleIRQ(IRQn_Type(irq));
+	volatile int irq = SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk;
+
+	if (irq >= 16) {
+		Kernel::HandleIRQ(IRQn_Type(irq - 16));
+	} else {
+		panic("Unhandled exception.");
+	}
 }

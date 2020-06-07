@@ -91,7 +91,7 @@ public:
 	GSLx680Driver();
     ~GSLx680Driver();
 
-    void Setup(const char* devicePath, int threadPriority, const DigitalPin& pinShutdown, const DigitalPin& pinIRQ, IRQn_Type irqNum, const char* i2cPath);
+    void Setup(const char* devicePath, int threadPriority, DigitalPinID pinShutdown, DigitalPinID pinIRQ, const char* i2cPath);
 
     virtual int Run() override;
 

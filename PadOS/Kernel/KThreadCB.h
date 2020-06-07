@@ -33,9 +33,9 @@ namespace os
 namespace kernel
 {
 
-static const int32_t THREAD_STACK_PADDING      = 512;
+static const int32_t THREAD_STACK_PADDING      = 0; // 512;
 static const int32_t THREAD_DEFAULT_STACK_SIZE = 1024*4;
-static const int32_t THREAD_MAX_TLS_SLOTS      = 256;
+static const int32_t THREAD_MAX_TLS_SLOTS      = 64;
 class KThreadCB;
 
 static const int KTHREAD_PRIORITY_MIN = -16;

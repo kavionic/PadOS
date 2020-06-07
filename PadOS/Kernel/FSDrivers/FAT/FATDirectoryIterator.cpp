@@ -34,13 +34,6 @@ namespace kernel
 {
     
 const char g_ValidShortNameCharacters[]="!#$%&'()-0123456789@ABCDEFGHIJKLMNOPQRSTUVWXYZ^_`{}~";
-const char illegal[]   = "\\/:*?\"<>|";
-const char underbar[]  = "+,;=[]"
-                        "\x83\x85\x88\x89\x8A\x8B\x8C\x8D"
-                        "\x93\x95\x96\x97\x98"
-                        "\xA0\xA1\xA2\xA3";
-const char capitalize_from[] = "\x81\x82\x84\x86\x87\x91\x94\xA4";
-const char capitalize_to[]   = "\x9A\x90\x8E\x8F\x80\x92\x99\xA5";
 
 static const uint16_t g_CP437ToUTF162[] = {
     0x00C7, 0x00FC, 0x00E9, 0x00E2, 0x00E4, 0x00E0, 0x00E5, 0x00E7, 0x00EA, 0x00EB, 0x00E8, 0x00EF, 0x00EE, 0x00EC, 0x00C4, 0x00C5,
@@ -74,6 +67,10 @@ static const UTF16ToCP437Node g_UTF16ToCP437[] =
     {0x2566, 0xcb}, {0x2567, 0xcf}, {0x2568, 0xd0}, {0x2569, 0xca}, {0x256A, 0xd8}, {0x256B, 0xd7}, {0x256C, 0xce}, {0x2580, 0xdf}, {0x2584, 0xdc}, {0x2588, 0xdb}, {0x258C, 0xdd}, {0x2590, 0xde}, {0x2591, 0xb0}, {0x2592, 0xb1}, {0x2593, 0xb2}, {0x25A0, 0xfe}
 };
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 uint16_t CP437ToUTF16(uint8_t cp437)
 {
     if (cp437 < 0x80) {
@@ -82,6 +79,10 @@ uint16_t CP437ToUTF16(uint8_t cp437)
         return g_CP437ToUTF162[cp437 - 0x80];
     }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 static bool UTF16ToCP437(uint16_t unicode, uint8_t* result)
 {
@@ -102,15 +103,32 @@ static bool UTF16ToCP437(uint16_t unicode, uint8_t* result)
     }        
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static bool IsCharacterValid(uint16_t character)
+{
+	static const char illegal[]   = "\\/:*?\"<>|";
+	return (character < 0x80) ? strchr(illegal, char(character)) == nullptr : true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 static bool FilteredUTF16ToCP437(uint16_t utf16, uint8_t* result)
 {
-    uint8_t character;
+	static const char capitalize_to[]   = "\x9A\x90\x8E\x8F\x80\x92\x99\xA5";
+	static const char capitalize_from[] = "\x81\x82\x84\x86\x87\x91\x94\xA4";
+	static const char underbar[]  = "+,;=[]"
+									"\x83\x85\x88\x89\x8A\x8B\x8C\x8D"
+									"\x93\x95\x96\x97\x98"
+									"\xA0\xA1\xA2\xA3";
+
+	uint8_t character;
     if (UTF16ToCP437(utf16, &character))
     {
-        if (strchr(illegal, character)) {
-            set_last_error(EINVAL);
-            return -1;
-        }                
         char *cp;
         if (character >= 'a' && character <= 'z') {
             *result = character - 'a' + 'A';
@@ -128,6 +146,10 @@ static bool FilteredUTF16ToCP437(uint16_t utf16, uint8_t* result)
     }
     return false;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 static status_t FATRawShortNameToUTF8(const char* src, String* dst)
 {
@@ -247,6 +269,10 @@ status_t FATDirectoryIterator::GenerateShortName(const wchar16_t* longName, size
                 break;    // Extension found.
             }
         }
+		if (!IsCharacterValid(longName[srcPos])) {
+			set_last_error(EINVAL);
+			return -1;
+		}
         uint8_t c;
         if (FilteredUTF16ToCP437(longName[srcPos], &c))
         {
@@ -270,15 +296,18 @@ status_t FATDirectoryIterator::GenerateShortName(const wchar16_t* longName, size
     {
         if (longName[srcPos] == 0) return 0;
 
+		if (!IsCharacterValid(longName[srcPos])) {
+			set_last_error(EINVAL);
+			return -1;
+		}
         uint8_t c;
         if (FilteredUTF16ToCP437(longName[srcPos], &c))
         {
-            shortName[dstPos++] = c;
+			shortName[dstPos++] = c;
         }        
     }
     return 0;
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

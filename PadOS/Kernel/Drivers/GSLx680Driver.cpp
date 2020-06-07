@@ -29,6 +29,7 @@
 #include "System/SystemMessageIDs.h"
 #include "System/GUI/GUIEvent.h"
 #include "Kernel/VFS/KFSVolume.h"
+#include "Kernel/HAL/Peripherals.h"
 
 using namespace kernel;
 using namespace os;
@@ -54,7 +55,7 @@ GSLx680Driver::~GSLx680Driver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void GSLx680Driver::Setup(const char* devicePath, int threadPriority, const DigitalPin& pinShutdown, const DigitalPin& pinIRQ, IRQn_Type irqNum, const char* i2cPath)
+void GSLx680Driver::Setup(const char* devicePath, int threadPriority, DigitalPinID pinShutdown, DigitalPinID pinIRQ, const char* i2cPath)
 {
     m_PinShutdown = pinShutdown;
 	m_PinIRQ = pinIRQ;
@@ -70,7 +71,7 @@ void GSLx680Driver::Setup(const char* devicePath, int threadPriority, const Digi
 	m_PinIRQ.GetAndClearInterruptStatus(); // Clear any pending interrupts.
 	m_PinIRQ.EnableInterrupts();
 
-	Kernel::RegisterIRQHandler(irqNum, IRQHandler, this);
+	Kernel::RegisterIRQHandler(get_peripheral_irq(pinIRQ), IRQHandler, this);
 
 	m_I2CDevice = FileIO::Open(i2cPath, O_RDWR);
 

@@ -15,11 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
+// Created: 01.06.2020 21:40:07
 
 #pragma once
 
-#if defined(STM32H743xx)
-#include "STM32/DMA_STM32.h"
-#else
-#error Unknown platform
-#endif
+#include "Kernel/VFS/FileIO.h"
+
+
+enum WS2812BIOCTL
+{
+	WS2812BIOCTL_SET_LED_COUNT,
+	WS2812BIOCTL_GET_LED_COUNT
+};
+
+
+inline int WS2812BIOCTL_SetLEDCount(int device, int count) { return os::FileIO::DeviceControl(device, WS2812BIOCTL_SET_LED_COUNT, &count, sizeof(count), nullptr, 0); }
+inline int WS2812BIOCTL_GetLEDCount(int device)
+{
+    int count;
+    if (os::FileIO::DeviceControl(device, WS2812BIOCTL_GET_LED_COUNT, nullptr, 0, &count, sizeof(count)) < 0) return -1;
+    return count;
+}

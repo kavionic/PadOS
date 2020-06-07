@@ -88,39 +88,6 @@
     <Filter Include="Source Files\Kernel\VFS">
       <UniqueIdentifier>{2a1c5579-f562-4dc5-937c-ad355bda6199}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\PlatformDrivers">
-      <UniqueIdentifier>{1c26b6da-72f2-4fbf-9def-3768572c4893}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\PlatformDrivers\CMSIS">
-      <UniqueIdentifier>{01a6055c-5594-4d25-a8bf-8afe3aef4d01}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\PlatformDrivers\CMSIS\Device">
-      <UniqueIdentifier>{ba0e92c7-bcec-408f-b7ba-8a81758b1db0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\PlatformDrivers\CMSIS\Device\ST">
-      <UniqueIdentifier>{ebe8a6a5-ec23-479c-b297-5a6912426d50}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\PlatformDrivers\CMSIS\Device\ST\STM32H7xx">
-      <UniqueIdentifier>{0ba3cd24-f386-4733-9621-518340823c47}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include">
-      <UniqueIdentifier>{9351806c-729f-4a00-adb0-c1b0ac835cdf}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\PlatformDrivers\CMSIS\Include">
-      <UniqueIdentifier>{2cee23d0-e4a5-4d9d-bb16-b2ee3aaa2d4f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\PlatformDrivers\STM32H7xx_HAL_Driver">
-      <UniqueIdentifier>{8510a9ff-5e13-46c6-ae5c-0261610df0d8}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc">
-      <UniqueIdentifier>{388f5b96-69b8-4309-b3e1-63ea66dddaa4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc\Legacy">
-      <UniqueIdentifier>{64ec4433-6014-4a9e-9865-8ceb6b29e49f}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src">
-      <UniqueIdentifier>{3b0f106d-1f1c-4589-a65f-9bdac8468a7e}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\System\GUI">
       <UniqueIdentifier>{5b748d0e-b72e-4d34-81f4-7e3425a064f3}</UniqueIdentifier>
     </Filter>
@@ -389,60 +356,6 @@
     <ClCompile Include="Kernel\SpinTimer.cpp">
       <Filter>Source Files\Kernel</Filter>
     </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_cortex.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_dma.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_dma_ex.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_exti.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_flash.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_flash_ex.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_gpio.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_hsem.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_i2c.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_i2c_ex.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_mdma.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_pwr.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_pwr_ex.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_rcc.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_rcc_ex.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_tim.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_tim_ex.c">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Src</Filter>
-    </ClCompile>
     <ClCompile Include="System\GUI\Application.cpp">
       <Filter>Source Files\System\GUI</Filter>
     </ClCompile>
@@ -535,6 +448,9 @@
     </ClCompile>
     <ClCompile Include="Kernel\Drivers\SDMMCDriver\SDMMCDriver.cpp">
       <Filter>Source Files\Kernel\Drivers\SDMMCDriver</Filter>
+    </ClCompile>
+    <ClCompile Include="Kernel\Drivers\STM32\WS2812BDriver.cpp">
+      <Filter>Source Files\Kernel\Drivers\STM32</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -790,141 +706,6 @@
     <ClInclude Include="Kernel\SpinTimer.h">
       <Filter>Source Files\Kernel</Filter>
     </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\stm32h7xx.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\stm32h743xx.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\system_stm32h7xx.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_armcc.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_armclang.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_compiler.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_gcc.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_iccarm.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_version.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_armv8mbl.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_armv8mml.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm0.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm0plus.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm1.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm3.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm4.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm7.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm23.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm33.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_sc000.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_sc300.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\mpu_armv7.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\mpu_armv8.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\tz_context.h">
-      <Filter>Source Files\PlatformDrivers\CMSIS\Include</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\Legacy\stm32_hal_legacy.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc\Legacy</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_cortex.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_def.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_dma.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_dma_ex.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_exti.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash_ex.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_gpio.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_gpio_ex.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_hsem.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_i2c.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_i2c_ex.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_mdma.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_pwr.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_pwr_ex.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_rcc.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_rcc_ex.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim_ex.h">
-      <Filter>Source Files\PlatformDrivers\STM32H7xx_HAL_Driver\Inc</Filter>
-    </ClInclude>
     <ClInclude Include="System\GUI\Application.h">
       <Filter>Source Files\System\GUI</Filter>
     </ClInclude>
@@ -1068,6 +849,18 @@
     </ClInclude>
     <ClInclude Include="Kernel\Drivers\SDMMCDriver\SDMMCProtocol.h">
       <Filter>Source Files\Kernel\Drivers\SDMMCDriver</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\Drivers\STM32\WS2812BDriver.h">
+      <Filter>Source Files\Kernel\Drivers\STM32</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceControl\WS2812B.h">
+      <Filter>Source Files\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\HAL\Peripherals.h">
+      <Filter>Source Files\Kernel\HAL</Filter>
+    </ClInclude>
+    <ClInclude Include="Kernel\HAL\STM32\Peripherals_STM32H7.h">
+      <Filter>Source Files\Kernel\HAL\STM32</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

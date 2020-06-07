@@ -69,7 +69,7 @@ SDMMCDriver_STM32::~SDMMCDriver_STM32()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver_STM32::Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, const DigitalPin& pinCD, IRQn_Type irqNum)
+bool SDMMCDriver_STM32::Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, DigitalPinID pinCD, IRQn_Type irqNum)
 {
 	m_PeripheralClockFrequency = peripheralClockFrequency;
 	m_SDMMC = port;

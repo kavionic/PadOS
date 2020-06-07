@@ -79,7 +79,7 @@ public:
     SDMMCDriver();
 	virtual ~SDMMCDriver();
 
-    bool SetupBase(const os::String& devicePath, const DigitalPin& pinCD);
+    bool SetupBase(const os::String& devicePath, DigitalPinID pinCD);
     
     virtual int Run() override;
     
@@ -100,6 +100,9 @@ protected:
         Initializing,
         Unusable
     };
+
+	static IRQResult IRQHandler(IRQn_Type irq, void* userData) { return static_cast<SDMMCDriver*>(userData)->HandleIRQ(); }
+	IRQResult HandleIRQ();
 
     bool InitializeCard();
     bool InitializeMMCCard();
@@ -172,7 +175,8 @@ protected:
     bool     Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t incrementAddr, uint32_t size, const void* buffer);
 
     KMutex              m_Mutex;
-    KConditionVariable  m_CardStateCondition;
+	KConditionVariable  m_CardDetectCondition;
+	KConditionVariable  m_CardStateCondition;
     KConditionVariable  m_IOCondition;
     KSemaphore          m_DeviceSemaphore;
     DigitalPin          m_PinCD;

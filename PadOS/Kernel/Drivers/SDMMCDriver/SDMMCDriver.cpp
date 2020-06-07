@@ -25,23 +25,17 @@
 
 #include "SDMMCDriver.h"
 #include "Kernel/SpinTimer.h"
-#include "Kernel/HAL/SAME70System.h"
+#include "Kernel/HAL/STM32/Peripherals_STM32H7.h"
+#include "Kernel/VFS/KVFSManager.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/VFS/KFSVolume.h"
 #include "System/String.h"
 #include "DeviceControl/DeviceControl.h"
 #include "DeviceControl/SDCARD.h"
-#include "Kernel/VFS/KVFSManager.h"
 
 using namespace kernel;
 using namespace os;
 using namespace sdmmc;
-
-SDMMCINode::SDMMCINode(KFilesystemFileOps* fileOps) : KINode(nullptr, nullptr, fileOps, false)
-{
-}
-
-static const uint32_t CONF_HSMCI_XDMAC_CHANNEL = 0;
 
 // Supported voltages
 #define SD_MMC_VOLTAGE_SUPPORT (OCR_VDD_27_28 | OCR_VDD_28_29 | OCR_VDD_29_30 | OCR_VDD_30_31 | OCR_VDD_31_32 | OCR_VDD_32_33)
@@ -60,7 +54,15 @@ static constexpr uint32_t g_TransferRateMultipliers_mmc[16] = { 0, 10, 12, 13, 1
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCDriver::SDMMCDriver() : Thread("hsmci_driver"), m_Mutex("hsmci_driver_mutex", false), m_CardStateCondition("hsmci_driver_cstate"), m_IOCondition("hsmci_driver_io"), m_DeviceSemaphore("hsmci_driver_dev_sema", 1)
+SDMMCINode::SDMMCINode(KFilesystemFileOps* fileOps) : KINode(nullptr, nullptr, fileOps, false)
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SDMMCDriver::SDMMCDriver() : Thread("hsmci_driver"), m_Mutex("hsmci_driver_mutex", false), m_CardDetectCondition("hsmci_driver_cd"), m_CardStateCondition("hsmci_driver_cstate"), m_IOCondition("hsmci_driver_io"), m_DeviceSemaphore("hsmci_driver_dev_sema", 1)
 {
     m_CardType = 0;
     m_CardState = CardState::Initializing;
@@ -81,12 +83,13 @@ SDMMCDriver::~SDMMCDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver::SetupBase(const String& devicePath, const DigitalPin& pinCD)
+bool SDMMCDriver::SetupBase(const String& devicePath, DigitalPinID pinCD)
 {
 	m_PinCD = pinCD;
 	m_PinCD.SetDirection(DigitalPinDirection_e::In);
 	m_PinCD.SetPullMode(PinPullMode_e::Up);
-    
+	m_PinCD.SetInterruptMode(PinInterruptMode_e::BothEdges);
+	m_PinCD.EnableInterrupts();
 
     m_DevicePathBase = devicePath;
 
@@ -94,6 +97,9 @@ bool SDMMCDriver::SetupBase(const String& devicePath, const DigitalPin& pinCD)
     m_RawINode->bi_nNodeHandle = Kernel::RegisterDevice((devicePath + "raw").c_str(), m_RawINode);
 
     Start(true);
+
+	Kernel::RegisterIRQHandler(get_peripheral_irq(pinCD), IRQHandler, this);
+
     return true;    
 }
 
@@ -104,20 +110,27 @@ bool SDMMCDriver::SetupBase(const String& devicePath, const DigitalPin& pinCD)
 
 int SDMMCDriver::Run()
 {
-	snooze_ms(250);
-    
-    for(;;)
+	m_CardState = CardState::NoCard;
+	for (;;)
     {
-        bool hasCard = !m_PinCD;
-        
-        if (hasCard != m_CardInserted) {
-			snooze_ms(100); // De-bounce
-            hasCard = !m_PinCD;
-        }            
-        if (hasCard != m_CardInserted)
+		bool hasCard;
+
+		CRITICAL_BEGIN(CRITICAL_IRQ)
+		{
+			hasCard = !m_PinCD;
+			if (hasCard == m_CardInserted) {
+				m_CardDetectCondition.IRQWait();
+			}
+		} CRITICAL_END;
+
+		snooze_ms(100); // De-bounce
+		hasCard = !m_PinCD;
+
+		if (hasCard != m_CardInserted)
         {
-            m_CardInserted = hasCard;
-            CRITICAL_SCOPE(m_Mutex);
+			CRITICAL_SCOPE(m_Mutex);
+
+			m_CardInserted = hasCard;
             if (m_CardInserted)
             {
                 m_CardState = CardState::Initializing;
@@ -147,7 +160,6 @@ int SDMMCDriver::Run()
                 DecodePartitions(true);
             }
         }
-		snooze_ms(100);
     }
 }
 
@@ -402,6 +414,20 @@ ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const void* bu
         return -1;
     }
 }    
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+IRQResult SDMMCDriver::HandleIRQ()
+{
+	if (m_PinCD.GetAndClearInterruptStatus())
+	{
+		m_CardDetectCondition.Wakeup();
+		return IRQResult::HANDLED;
+	}
+	return IRQResult::UNHANDLED;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \brief Initialize the SD card in MCI mode.

@@ -432,34 +432,194 @@ constexpr PinMuxTarget	PINMUX_FMC_D29_PI7		= { DigitalPinID::I7,	DigitalPinPerip
 constexpr PinMuxTarget	PINMUX_FMC_D30_PI9		= { DigitalPinID::I9,	DigitalPinPeripheralID::AF12 };
 constexpr PinMuxTarget	PINMUX_FMC_D31_PI10		= { DigitalPinID::I10,	DigitalPinPeripheralID::AF12 };
 
-constexpr PinMuxTarget	PINMUX_SDMMC1_D0_PC8 = { DigitalPinID::C8,	DigitalPinPeripheralID::AF12 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_D1_PC9 = { DigitalPinID::C9,	DigitalPinPeripheralID::AF12 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_D2_PC10 = { DigitalPinID::C10,	DigitalPinPeripheralID::AF12 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_D3_PC11 = { DigitalPinID::C11,	DigitalPinPeripheralID::AF12 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_D4_PB8 = { DigitalPinID::B8,	DigitalPinPeripheralID::AF12 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_D5_PB9 = { DigitalPinID::B9,	DigitalPinPeripheralID::AF12 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_D6_PC6 = { DigitalPinID::C6,	DigitalPinPeripheralID::AF12 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_D7_PC7 = { DigitalPinID::C7,	DigitalPinPeripheralID::AF12 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_CMD_PD2 = { DigitalPinID::D2,	DigitalPinPeripheralID::AF12 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_CK_PC12 = { DigitalPinID::C12,	DigitalPinPeripheralID::AF12 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_CKIN_PB8 = { DigitalPinID::B8,	DigitalPinPeripheralID::AF7 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_CDIR_PB9 = { DigitalPinID::B9,	DigitalPinPeripheralID::AF7 };
-constexpr PinMuxTarget	PINMUX_SDMMC1_D0DIR_PC6 = { DigitalPinID::C6,	DigitalPinPeripheralID::AF8 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D0_PC8	= { DigitalPinID::C8,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D1_PC9	= { DigitalPinID::C9,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D2_PC10	= { DigitalPinID::C10,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D3_PC11	= { DigitalPinID::C11,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D4_PB8	= { DigitalPinID::B8,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D5_PB9	= { DigitalPinID::B9,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D6_PC6	= { DigitalPinID::C6,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D7_PC7	= { DigitalPinID::C7,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_CMD_PD2	= { DigitalPinID::D2,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_CK_PC12	= { DigitalPinID::C12,	DigitalPinPeripheralID::AF12 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_CKIN_PB8	= { DigitalPinID::B8,	DigitalPinPeripheralID::AF7 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_CDIR_PB9	= { DigitalPinID::B9,	DigitalPinPeripheralID::AF7 };
+constexpr PinMuxTarget	PINMUX_SDMMC1_D0DIR_PC6	= { DigitalPinID::C6,	DigitalPinPeripheralID::AF8 };
 constexpr PinMuxTarget	PINMUX_SDMMC1_D123DIR_PC7 = { DigitalPinID::C7,	DigitalPinPeripheralID::AF8 };
 
-constexpr PinMuxTarget	PINMUX_SDMMC2_D0_PB14 = { DigitalPinID::B14,	DigitalPinPeripheralID::AF9 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_D1_PB15 = { DigitalPinID::B15,	DigitalPinPeripheralID::AF9 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_D2_PB3		= { DigitalPinID::B3,	DigitalPinPeripheralID::AF9 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_D2_PG11 = { DigitalPinID::G11,	DigitalPinPeripheralID::AF10 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_D3_PB4		= { DigitalPinID::B4,	DigitalPinPeripheralID::AF9 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_D4_PB8		= { DigitalPinID::B8,	DigitalPinPeripheralID::AF10 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_D5_PB9		= { DigitalPinID::B9,	DigitalPinPeripheralID::AF10 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_D6_PC6		= { DigitalPinID::C6,	DigitalPinPeripheralID::AF10 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_D7_PC7		= { DigitalPinID::C7,	DigitalPinPeripheralID::AF10 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_CMD_PA0 = { DigitalPinID::A0,	DigitalPinPeripheralID::AF9 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_CMD_PD7 = { DigitalPinID::D7,	DigitalPinPeripheralID::AF11 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_CK_PC1 = { DigitalPinID::C1,	DigitalPinPeripheralID::AF9 };
-constexpr PinMuxTarget	PINMUX_SDMMC2_CK_PD6		= { DigitalPinID::D6,	DigitalPinPeripheralID::AF11 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D0_PB14	= { DigitalPinID::B14,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D1_PB15	= { DigitalPinID::B15,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D2_PB3	= { DigitalPinID::B3,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D2_PG11	= { DigitalPinID::G11,	DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D3_PB4	= { DigitalPinID::B4,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D4_PB8	= { DigitalPinID::B8,	DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D5_PB9	= { DigitalPinID::B9,	DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D6_PC6	= { DigitalPinID::C6,	DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_D7_PC7	= { DigitalPinID::C7,	DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_CMD_PA0	= { DigitalPinID::A0,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_CMD_PD7	= { DigitalPinID::D7,	DigitalPinPeripheralID::AF11 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_CK_PC1	= { DigitalPinID::C1,	DigitalPinPeripheralID::AF9 };
+constexpr PinMuxTarget	PINMUX_SDMMC2_CK_PD6	= { DigitalPinID::D6,	DigitalPinPeripheralID::AF11 };
+
+
+constexpr PinMuxTarget	PINMUX_SPI1_NSS_PA4		= { DigitalPinID::A4,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_WS_PA4		= { DigitalPinID::A4,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI1_SCK_PA5		= { DigitalPinID::A5,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_CK_PA5		= { DigitalPinID::A5,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI1_MISO_PA6	= { DigitalPinID::A6,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_SDI_PA6		= { DigitalPinID::A6,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI1_MOSI_PA7	= { DigitalPinID::A7,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_SDO_PA7		= { DigitalPinID::A7,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI1_NSS_PA15	= { DigitalPinID::A15,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_WS_PA15		= { DigitalPinID::A15,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI1_SCK_PB3		= { DigitalPinID::B3,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_CK_PB3		= { DigitalPinID::B3,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI1_MISO_PB4	= { DigitalPinID::B4,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_SDI_PB4		= { DigitalPinID::B4,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI1_MOSI_PB5	= { DigitalPinID::B5,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_SDO_PB5		= { DigitalPinID::B5,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI1_MOSI_PD7	= { DigitalPinID::D7,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_SDO_PD7		= { DigitalPinID::D7,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI1_MISO_PG9	= { DigitalPinID::G9,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_SDI_PG9		= { DigitalPinID::G9,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI1_NSS_PG10	= { DigitalPinID::G10,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_WS_PG10		= { DigitalPinID::G10,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI1_SCK_PG11	= { DigitalPinID::G11,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S1_CK_PG11		= { DigitalPinID::G11,		DigitalPinPeripheralID::AF5 };
+
+
+constexpr PinMuxTarget	PINMUX_SPI2_SCK_PA9		= { DigitalPinID::A9,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_CK_PA9		= { DigitalPinID::A9,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_NSS_PA11	= { DigitalPinID::A11,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_WS_PA11		= { DigitalPinID::A11,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_SCK_PA12	= { DigitalPinID::A12,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_CK_PA12		= { DigitalPinID::A12,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_NSS_PB4		= { DigitalPinID::B4,		DigitalPinPeripheralID::AF7 };
+constexpr PinMuxTarget	PINMUX_I2S2_WS_PB4		= { DigitalPinID::B4,		DigitalPinPeripheralID::AF7 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_NSS_PB9		= { DigitalPinID::B9,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_WS_PB9		= { DigitalPinID::B9,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_SCK_PB10	= { DigitalPinID::B10,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_CK_PB10		= { DigitalPinID::B10,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_NSS_PB12	= { DigitalPinID::B12,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_WS_PB12		= { DigitalPinID::B12,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_SCK_PB13	= { DigitalPinID::B13,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_CK_PB13		= { DigitalPinID::B13,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_MISO_PB14	= { DigitalPinID::B14,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_SDI_PB14	= { DigitalPinID::B14,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_MOSI_PB15	= { DigitalPinID::B15,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_SDO_PB15	= { DigitalPinID::B15,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_MOSI_PC1	= { DigitalPinID::C1,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_SDO_PC1		= { DigitalPinID::C1,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_MISO_PC2	= { DigitalPinID::C2,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_SDI_PC2		= { DigitalPinID::C2,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_MOSI_PC3	= { DigitalPinID::C3,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_SDO_PC3		= { DigitalPinID::C3,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_SCK_PD3		= { DigitalPinID::D3,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_CK_PD3		= { DigitalPinID::D3,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_NSS_PI0		= { DigitalPinID::I0,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_WS_PI0		={ DigitalPinID::I0,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_SCK_PI1		= { DigitalPinID::I1,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_CK_PI1		= { DigitalPinID::I1,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_MISO_PI2	= { DigitalPinID::I2,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_SDI_PI2		= { DigitalPinID::I2,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI2_MOSI_PI3	= { DigitalPinID::I3,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S2_SDO_PI3		= { DigitalPinID::I3,		DigitalPinPeripheralID::AF5 };
+
+
+constexpr PinMuxTarget	PINMUX_SPI3_NSS_PA4		= { DigitalPinID::A4,		DigitalPinPeripheralID::AF6 };
+constexpr PinMuxTarget	PINMUX_I2S3_WS_PA4		= { DigitalPinID::A4,		DigitalPinPeripheralID::AF6 };
+
+constexpr PinMuxTarget	PINMUX_SPI3_NSS_PA15	= { DigitalPinID::A15,		DigitalPinPeripheralID::AF6 };
+constexpr PinMuxTarget	PINMUX_I2S3_WS_PA15		= { DigitalPinID::A15,		DigitalPinPeripheralID::AF6 };
+
+constexpr PinMuxTarget	PINMUX_SPI3_MOSI_PB2	= { DigitalPinID::B2,		DigitalPinPeripheralID::AF7 };
+constexpr PinMuxTarget	PINMUX_I2S3_SDO_PB2		= { DigitalPinID::B2,		DigitalPinPeripheralID::AF7 };
+
+constexpr PinMuxTarget	PINMUX_SPI3_SCK_PB3		= { DigitalPinID::B3,		DigitalPinPeripheralID::AF6 };
+constexpr PinMuxTarget	PINMUX_I2S3_CK_PB3		= { DigitalPinID::B3,		DigitalPinPeripheralID::AF6 };
+
+constexpr PinMuxTarget	PINMUX_SPI3_MISO_PB4	= { DigitalPinID::B4,		DigitalPinPeripheralID::AF6 };
+constexpr PinMuxTarget	PINMUX_I2S3_SDI_PB4		= { DigitalPinID::B4,		DigitalPinPeripheralID::AF6 };
+
+constexpr PinMuxTarget	PINMUX_SPI3_MOSI_PB5	= { DigitalPinID::B5,		DigitalPinPeripheralID::AF7 };
+constexpr PinMuxTarget	PINMUX_I2S3_SDO_PB5		= { DigitalPinID::B5,		DigitalPinPeripheralID::AF7 };
+
+constexpr PinMuxTarget	PINMUX_SPI3_SCK_PC10	= { DigitalPinID::C10,		DigitalPinPeripheralID::AF6 };
+constexpr PinMuxTarget	PINMUX_I2S3_CK_PC10		= { DigitalPinID::C10,		DigitalPinPeripheralID::AF6 };
+
+constexpr PinMuxTarget	PINMUX_SPI3_MISO_PC11	= { DigitalPinID::C11,		DigitalPinPeripheralID::AF6 };
+constexpr PinMuxTarget	PINMUX_I2S3_SDI_PC11	= { DigitalPinID::C11,		DigitalPinPeripheralID::AF6 };
+
+constexpr PinMuxTarget	PINMUX_SPI3_MOSI_PC12	= { DigitalPinID::C12,		DigitalPinPeripheralID::AF6 };
+constexpr PinMuxTarget	PINMUX_I2S3_SDO_PC12	= { DigitalPinID::C12,		DigitalPinPeripheralID::AF6 };
+
+constexpr PinMuxTarget	PINMUX_SPI3_MOSI_PD6	= { DigitalPinID::D6,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_I2S3_SDO_PD6		= { DigitalPinID::D6,		DigitalPinPeripheralID::AF5 };
+
+
+constexpr PinMuxTarget	PINMUX_SPI4_SCK_PE2		= { DigitalPinID::E2,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI4_NSS_PE4		= { DigitalPinID::E4,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI4_MISO_PE5	= { DigitalPinID::E5,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI4_MOSI_PE6	= { DigitalPinID::E6,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI4_NSS_PE11	= { DigitalPinID::E11,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI4_SCK_PE12	= { DigitalPinID::E12,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI4_MISO_PE13	= { DigitalPinID::E13,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI4_MOSI_PE14	= { DigitalPinID::E14,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI5_NSS_PF6		= { DigitalPinID::F6,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI5_SCK_PF7		= { DigitalPinID::F7,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI5_MISO_PF8	= { DigitalPinID::F8,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI5_MOSI_PF9	= { DigitalPinID::F9,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI5_MOSI_PF11	= { DigitalPinID::F11,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI5_NSS_PH5		= { DigitalPinID::H5,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI5_SCK_PH6		= { DigitalPinID::H6,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI5_MISO_PH7	= { DigitalPinID::H7,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI5_MOSI_PJ10	= { DigitalPinID::J10,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI5_MISO_PJ11	= { DigitalPinID::J11,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI5_SCK_PK0		= { DigitalPinID::K0,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI5_NSS_PK1		= { DigitalPinID::K1,		DigitalPinPeripheralID::AF5 };
+
+constexpr PinMuxTarget	PINMUX_SPI6_NSS_PA4		= { DigitalPinID::A4,		DigitalPinPeripheralID::AF8 };
+constexpr PinMuxTarget	PINMUX_SPI6_SCK_PA5		= { DigitalPinID::A5,		DigitalPinPeripheralID::AF8 };
+constexpr PinMuxTarget	PINMUX_SPI6_MISO_PA6	= { DigitalPinID::A6,		DigitalPinPeripheralID::AF8 };
+constexpr PinMuxTarget	PINMUX_SPI6_MOSI_PA7	= { DigitalPinID::A7,		DigitalPinPeripheralID::AF8 };
+constexpr PinMuxTarget	PINMUX_SPI6_NSS_PA15	= { DigitalPinID::A15,		DigitalPinPeripheralID::AF7 };
+constexpr PinMuxTarget	PINMUX_SPI6_SCK_PB3		= { DigitalPinID::B3,		DigitalPinPeripheralID::AF8 };
+constexpr PinMuxTarget	PINMUX_SPI6_MISO_PB4	= { DigitalPinID::B4,		DigitalPinPeripheralID::AF8 };
+constexpr PinMuxTarget	PINMUX_SPI6_MOSI_PB5	= { DigitalPinID::B5,		DigitalPinPeripheralID::AF8 };
+constexpr PinMuxTarget	PINMUX_SPI6_NSS_PG8		= { DigitalPinID::G8,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI6_MISO_PG12	= { DigitalPinID::G12,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI6_SCK_PG13	= { DigitalPinID::G13,		DigitalPinPeripheralID::AF5 };
+constexpr PinMuxTarget	PINMUX_SPI6_MOSI_PG14	= { DigitalPinID::G14,		DigitalPinPeripheralID::AF5 };
+
 
 
 struct DigitalPort
@@ -625,7 +785,8 @@ public:
 	DigitalPin(DigitalPortID port, int pin) : m_PinID(DigitalPinID(MAKE_DIGITAL_PIN_ID(port, pin))), m_Port(port), m_PinMask(BIT32(pin, 1)) { }
     
     void Set(DigitalPortID port, int pin)  { m_Port = port; m_PinMask = BIT32(pin, 1); }
-        
+	void Set(DigitalPinID pinID) { m_PinID = pinID; m_Port = DIGITAL_PIN_ID_PORT(pinID); m_PinMask = BIT32(DIGITAL_PIN_ID_PIN(pinID), 1); }
+
     void SetDirection(DigitalPinDirection_e dir) { m_Port.SetDirection(dir, m_PinMask); }
     void SetDriveStrength(DigitalPinDriveStrength_e strength) { m_Port.SetDriveStrength(strength, m_PinMask); }
 
@@ -670,8 +831,9 @@ public:
     
 
     operator bool () { return Read(); }
-    DigitalPin& operator=(bool value) { Write(value); return *this; }    
-        
+    DigitalPin& operator=(DigitalPinID pinID) { Set(pinID); return *this; }    
+	DigitalPin& operator=(bool value) { Write(value); return *this; }
+
 private:
 	DigitalPinID	m_PinID;
 	DigitalPort		m_Port;

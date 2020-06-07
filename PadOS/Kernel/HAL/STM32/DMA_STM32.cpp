@@ -1,3 +1,21 @@
+// This file is part of PadOS.
+//
+// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+//
+// PadOS is free software : you can redistribute it and / or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PadOS is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with PadOS. If not, see <http://www.gnu.org/licenses/>.
+///////////////////////////////////////////////////////////////////////////////
+
 #include "DMA_STM32.h"
 
 #include "Kernel/KMutex.h"
@@ -5,6 +23,16 @@
 
 namespace kernel
 {
+#define IS_DMA_UART_USART_REQUEST_BASE(__REQUEST__) ((((__REQUEST__) >= DMAMUX1_REQUEST::REQ_USART1_RX)  &&  ((__REQUEST__) <= DMAMUX1_REQUEST::REQ_USART3_TX)) || \
+                                                    (((__REQUEST__) >= DMAMUX1_REQUEST::REQ_UART4_RX)  &&  ((__REQUEST__) <= DMAMUX1_REQUEST::REQ_UART5_TX )) || \
+                                                    (((__REQUEST__) >= DMAMUX1_REQUEST::REQ_USART6_RX) &&  ((__REQUEST__) <= DMAMUX1_REQUEST::REQ_USART6_TX)) || \
+                                                    (((__REQUEST__) >= DMAMUX1_REQUEST::REQ_UART7_RX)  &&  ((__REQUEST__) <= DMAMUX1_REQUEST::REQ_UART8_TX )))
+
+#if defined(UART9)
+#define IS_DMA_UART_USART_REQUEST(__REQUEST__) (IS_DMA_UART_USART_REQUEST_BASE(__REQUEST__) || ((__REQUEST__) >= DMAMUX1_REQUEST::REQ_UART9_RX)  &&  ((__REQUEST__) <= DMAMUX1_REQUEST::REQ_USART10_TX )))
+#else
+#define IS_DMA_UART_USART_REQUEST(__REQUEST__) IS_DMA_UART_USART_REQUEST_BASE(__REQUEST__)
+#endif
 
 static uint32_t g_UsedChannels = 0;
 
@@ -65,47 +93,29 @@ IRQn_Type dma_get_channel_irq(int channel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void dma_setup_mem_to_per(int channel, DMAMUX1_REQUEST requestID, volatile void* registerAddr, const void* buffer, int32_t length)
+void dma_setup(int channel, DMAMode mode, DMAMUX1_REQUEST requestID, volatile const void* registerAddr, const void* memAddr, int32_t length)
 {
 	int localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);
-//	auto dma         = (channel < DMA_CHANNELS_PER_UNIT) ? DMA1 : DMA2;
 	auto dmaStream   = (channel < DMA_CHANNELS_PER_UNIT) ? (DMA1_Stream0 + localChannel) : (DMA2_Stream0 + localChannel);
+
+	DMAMUX1_ChannelStatus->CFR = 1 << channel;
 
 	dmaStream->NDTR = length;
 	dmaStream->PAR  = intptr_t(registerAddr);
-	dmaStream->M0AR = intptr_t(buffer);
-	dmaStream->CR   = DMA_SxCR_MINC | DMA_SxCR_DIR_0 | DMA_SxCR_TCIE;
+	dmaStream->M0AR = intptr_t(memAddr);
+	dmaStream->CR   = DMA_SxCR_MINC | DMA_SxCR_TCIE | ((uint32_t(mode) << DMA_SxCR_DIR_Pos) & DMA_SxCR_DIR_Msk);
 
+	// Workaround for the "DMA stream locked when transferring data to/from USART/UART" errata.
+	// Criteria taken from the ST HAL driver.
+#if (STM32H7_DEV_ID == 0x450UL)
+	if ((DBGMCU->IDCODE & 0xFFFF0000U) >= 0x20000000U)
+#endif // STM32H7_DEV_ID == 0x450UL
+	{
+		if (IS_DMA_UART_USART_REQUEST(requestID)) {
+			dmaStream->CR |= DMA_SxCR_TRBUFF;
+		}
+	}
 	dma_clear_interrupt_flags(channel, DMA_LIFCR_CFEIF0 | DMA_LIFCR_CDMEIF0 | DMA_LIFCR_CTEIF0 | DMA_LIFCR_CHTIF0 | DMA_LIFCR_CTCIF0);
-/*	if (localChannel < 4) {
-		dma->LIFCR = (DMA_LIFCR_CFEIF0 | DMA_LIFCR_CDMEIF0 | DMA_LIFCR_CTEIF0 | DMA_LIFCR_CHTIF0 | DMA_LIFCR_CTCIF0) << (localChannel * 6);
-	} else {
-		dma->HIFCR = (DMA_HIFCR_CFEIF4 | DMA_HIFCR_CDMEIF4 | DMA_HIFCR_CTEIF4 | DMA_HIFCR_CHTIF4 | DMA_HIFCR_CTCIF4) << ((localChannel - 4) * 6);
-	}*/
-	DMAMUX1[channel].CCR = uint32_t(requestID);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void dma_setup_per_to_mem(int channel, DMAMUX1_REQUEST requestID, void* buffer, volatile const void* registerAddr, int32_t length)
-{
-	int localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);
-//	auto dma         = (channel < DMA_CHANNELS_PER_UNIT) ? DMA1 : DMA2;
-	auto dmaStream   = (channel < DMA_CHANNELS_PER_UNIT) ? (DMA1_Stream0 + localChannel) : (DMA2_Stream0 + localChannel);
-
-	dmaStream->NDTR = length;
-	dmaStream->PAR  = intptr_t(registerAddr);
-	dmaStream->M0AR = intptr_t(buffer);
-	dmaStream->CR   = DMA_SxCR_MINC | DMA_SxCR_TCIE;
-
-	dma_clear_interrupt_flags(channel, DMA_LIFCR_CFEIF0 | DMA_LIFCR_CDMEIF0 | DMA_LIFCR_CTEIF0 | DMA_LIFCR_CHTIF0 | DMA_LIFCR_CTCIF0);
-/*	if (localChannel < 4) {
-		dma->LIFCR = (DMA_LIFCR_CFEIF0 | DMA_LIFCR_CDMEIF0 | DMA_LIFCR_CTEIF0 | DMA_LIFCR_CHTIF0 | DMA_LIFCR_CTCIF0) << (localChannel * 6);
-	} else {
-		dma->HIFCR = (DMA_HIFCR_CFEIF4 | DMA_HIFCR_CDMEIF4 | DMA_HIFCR_CTEIF4 | DMA_HIFCR_CHTIF4 | DMA_HIFCR_CTCIF4) << ((localChannel - 4) * 6);
-	}*/
 	DMAMUX1[channel].CCR = uint32_t(requestID);
 }
 
@@ -118,10 +128,18 @@ uint32_t dma_get_interrupt_flags(int channel)
 	int localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);
 	auto dma         = (channel < DMA_CHANNELS_PER_UNIT) ? DMA1 : DMA2;
 
-	if (localChannel < 4) {
-		return dma->LISR >> (localChannel * 6);
-	} else {
-		return dma->HISR >> ((localChannel - 4) * 6);
+	if (localChannel < 4)
+	{
+		int offset = localChannel * 6;
+		if (localChannel > 1) offset += 4;
+		return dma->LISR >> offset;
+	}
+	else
+	{
+		localChannel -= 4;
+		int offset = localChannel * 6;
+		if (localChannel > 1) offset += 4;
+		return dma->HISR >> offset;
 	}
 }
 
@@ -136,9 +154,14 @@ void dma_clear_interrupt_flags(int channel, uint32_t flags)
 
 
 	if (localChannel < 4) {
-		dma->LIFCR = flags << (localChannel * 6);
+		int offset = localChannel * 6;
+		if (localChannel > 1) offset += 4;
+		dma->LIFCR = flags << offset;
 	} else {
-		dma->HIFCR = flags << ((localChannel - 4) * 6);
+		localChannel -= 4;
+		int offset = localChannel * 6;
+		if (localChannel > 1) offset += 4;
+		dma->HIFCR = flags << offset;
 	}
 }
 
@@ -176,7 +199,7 @@ void dma_stop(int channel)
 	auto dmaStream   = (channel < DMA_CHANNELS_PER_UNIT) ? (DMA1_Stream0 + localChannel) : (DMA2_Stream0 + localChannel);
 
 	dmaStream->CR &= ~DMA_SxCR_EN;
-	while(dmaStream->CR & DMA_SxCR_EN);
+	while (dmaStream->CR & DMA_SxCR_EN);
 }
 
 

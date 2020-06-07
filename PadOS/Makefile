@@ -13,10 +13,11 @@
 #     -Og -ffunction-sections -ffast-math -mlong-calls -g3 -Wall -Wextra -mcpu=cortex-m7 -c -mfloat-abi=hard -mtp=cp15 -mtls-dialect=gnu2
 #     -Wsuggest-override -Wnoexcept -Wno-unused-parameter -Wno-multichar -Wno-sign-compare -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)" 
 
-INCLUDE_PATHS = -I. -ICore/Inc -IPlatformDrivers/CMSIS/Include -IPlatformDrivers/CMSIS/Device/ST/STM32H7xx/Include -IPlatformDrivers/STM32H7xx_HAL_Driver/Inc \
-				-I../Drivers/CMSIS/Include -I../Core/Inc -I../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H7xx/Include -I../Drivers/STM32H7xx_HAL_Driver/Inc
+INCLUDE_PATHS = -I.
+INCLUDE_PATHS := $(INCLUDE_PATHS) -IC:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include -IC:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include
 
-#-I"." -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\arm\CMSIS\5.4.0\CMSIS\Core\Include" -I"C:\Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\SAME70_DFP\2.4.166\same70a\include" -I"../../../PadOS/PadOS" -I"../../../PadOS/PadOS/ASF/common/utils" -I"../../../PadOS/PadOS/ASF/sam/utils" -I"../../../PadOS/PadOS/ASF/sam/utils/header_files"
+C_VERSION	:= -std=gnu11
+CPP_VERSION	:= -std=gnu++17
 
 FLAGS_WARNINGS = -Wall -Wextra -Wno-unused-parameter -Wno-multichar -Wno-sign-compare
 FLAGS_OPTIMIZING = -g3 -Og
@@ -26,8 +27,8 @@ FLAGS   := $(FLAGS) -ffast-math -mfpu=fpv5-d16 -mfloat-abi=hard -mtp=cp15 -mtls-
 #FLAGS   := $(FLAGS) -mlong-calls
 FLAGS   := $(FLAGS) -Wno-psabi
  
-CFLAGS  := $(FLAGS) -std=gnu11
-CPPFLAGS := $(FLAGS) -std=gnu++17 -Wsuggest-override -Wnoexcept
+CFLAGS  := $(FLAGS) $(C_VERSION)
+CPPFLAGS := $(FLAGS) $(CPP_VERSION) -Wsuggest-override -Wnoexcept
 
 CC   = arm-none-eabi-gcc
 CCPP = arm-none-eabi-g++

@@ -100,6 +100,12 @@
     <NMakeReBuildCommandLine>make clean%3bmake -j12</NMakeReBuildCommandLine>
     <NMakePreprocessorDefinitions>WIN32;NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>C:\Project\Projects\PadOS\PadOS;C:\ST\STM32CubeIDE_1.1.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.0.0.201904181610\tools\arm-none-eabi\include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>C:\Project\Projects\PadOS\PadOS;C:\ST\STM32CubeIDE_1.1.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.0.0.201904181610\tools\arm-none-eabi\include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include</IncludePath>
+  </PropertyGroup>
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -149,6 +155,7 @@
     <ClCompile Include="Kernel\Drivers\STM32\SDMMCDriver_STM32.cpp" />
     <ClCompile Include="Kernel\Drivers\STM32\TLV493DDriver.cpp" />
     <ClCompile Include="Kernel\Drivers\STM32\USARTDriver.cpp" />
+    <ClCompile Include="Kernel\Drivers\STM32\WS2812BDriver.cpp" />
     <ClCompile Include="Kernel\Drivers\UART.cpp" />
     <ClCompile Include="Kernel\Drivers\UARTDriver.cpp" />
     <ClCompile Include="Kernel\FSDrivers\FAT\FATClusterSectorIterator.cpp" />
@@ -189,24 +196,6 @@
     <ClCompile Include="Kernel\VFS\KVFSManager.cpp" />
     <ClCompile Include="MemTest.cpp" />
     <ClCompile Include="MPU.cpp" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_cortex.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_dma.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_dma_ex.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_exti.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_flash.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_flash_ex.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_gpio.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_hsem.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_i2c.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_i2c_ex.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_mdma.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_pwr.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_pwr_ex.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_rcc.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_rcc_ex.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_tim.c" />
-    <ClCompile Include="PlatformDrivers\STM32H7xx_HAL_Driver\Src\stm32h7xx_hal_tim_ex.c" />
     <ClCompile Include="posix.cpp" />
     <ClCompile Include="SDRAM.cpp" />
     <ClCompile Include="System\GUI\Application.cpp" />
@@ -258,6 +247,7 @@
     <ClInclude Include="DeviceControl\INA3221.h" />
     <ClInclude Include="DeviceControl\SDCARD.h" />
     <ClInclude Include="DeviceControl\TLV493D.h" />
+    <ClInclude Include="DeviceControl\WS2812B.h" />
     <ClInclude Include="Kernel\Drivers\ATSAM\SDMMC_ATSAM.h" />
     <ClInclude Include="Kernel\Drivers\BME280Driver.h" />
     <ClInclude Include="Kernel\Drivers\FT5x0xDriver.h" />
@@ -275,6 +265,7 @@
     <ClInclude Include="Kernel\Drivers\STM32\SDMMCDriver_STM32.h" />
     <ClInclude Include="Kernel\Drivers\STM32\TLV493DDriver.h" />
     <ClInclude Include="Kernel\Drivers\STM32\USARTDriver.h" />
+    <ClInclude Include="Kernel\Drivers\STM32\WS2812BDriver.h" />
     <ClInclude Include="Kernel\Drivers\UART.h" />
     <ClInclude Include="Kernel\Drivers\UARTDriver.h" />
     <ClInclude Include="Kernel\FSDrivers\FAT\FATClusterSectorIterator.h" />
@@ -290,10 +281,12 @@
     <ClInclude Include="Kernel\HAL\DigitalPort_ATSAM.h" />
     <ClInclude Include="Kernel\HAL\DigitalPort_STM32.h" />
     <ClInclude Include="Kernel\HAL\DMA.h" />
+    <ClInclude Include="Kernel\HAL\Peripherals.h" />
     <ClInclude Include="Kernel\HAL\SAME70System.h" />
     <ClInclude Include="Kernel\HAL\STM32H7System.h" />
     <ClInclude Include="Kernel\HAL\STM32\DMARequestID.h" />
     <ClInclude Include="Kernel\HAL\STM32\DMA_STM32.h" />
+    <ClInclude Include="Kernel\HAL\STM32\Peripherals_STM32H7.h" />
     <ClInclude Include="Kernel\KConditionVariable.h" />
     <ClInclude Include="Kernel\Kernel.h" />
     <ClInclude Include="Kernel\KHandleArray.h" />
@@ -321,51 +314,6 @@
     <ClInclude Include="MemTest.h" />
     <ClInclude Include="MPU.h" />
     <ClInclude Include="Platform.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\stm32h743xx.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\stm32h7xx.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Device\ST\STM32H7xx\Include\system_stm32h7xx.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_armcc.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_armclang.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_compiler.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_gcc.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_iccarm.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\cmsis_version.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_armv8mbl.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_armv8mml.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm0.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm0plus.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm1.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm23.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm3.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm33.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm4.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_cm7.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_sc000.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\core_sc300.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\mpu_armv7.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\mpu_armv8.h" />
-    <ClInclude Include="PlatformDrivers\CMSIS\Include\tz_context.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\Legacy\stm32_hal_legacy.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_cortex.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_def.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_dma.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_dma_ex.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_exti.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash_ex.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_gpio.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_gpio_ex.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_hsem.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_i2c.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_i2c_ex.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_mdma.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_pwr.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_pwr_ex.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_rcc.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_rcc_ex.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim.h" />
-    <ClInclude Include="PlatformDrivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim_ex.h" />
     <ClInclude Include="SAME70TimerDefines.h" />
     <ClInclude Include="SDRAM.h" />
     <ClInclude Include="System\GUI\Application.h" />

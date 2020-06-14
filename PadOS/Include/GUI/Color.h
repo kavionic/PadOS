@@ -39,11 +39,11 @@ struct Color
     uint8_t GetBlue() const { return m_Color & 0xff; }
     uint8_t GetAlpha() const { return (m_Color >> 24) & 0xff; }
 
-	Color GetNorimalized() const { return GetNorimalized(GetAlpha()); }
-	Color GetNorimalized(uint8_t alpha) const { return Color(uint32_t(GetRed()) * alpha / 255, uint32_t(GetGreen()) * alpha / 255, uint32_t(GetBlue()) * alpha / 255); }
+    Color GetNorimalized() const { return GetNorimalized(GetAlpha()); }
+    Color GetNorimalized(uint8_t alpha) const { return Color((uint32_t(GetRed()) * alpha + 127) / 255, (uint32_t(GetGreen()) * alpha + 127) / 255, (uint32_t(GetBlue()) * alpha + 127) / 255); }
 
     uint16_t GetColor16() const { return ((GetRed() & 0xf8) << 8) | ((GetGreen() & 0xfc) << 3) | ((GetBlue() & 0xf8) >> 3); }
-	uint32_t GetColor32() const { return m_Color; }
+    uint32_t GetColor32() const { return m_Color; }
 
 
     uint32_t m_Color;

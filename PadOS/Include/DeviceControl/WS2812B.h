@@ -25,14 +25,33 @@
 enum WS2812BIOCTL
 {
 	WS2812BIOCTL_SET_LED_COUNT,
-	WS2812BIOCTL_GET_LED_COUNT
+	WS2812BIOCTL_GET_LED_COUNT,
+	WS2812BIOCTL_SET_EXPONENTIAL,
+	WS2812BIOCTL_GET_EXPONENTIAL,
 };
 
 
-inline int WS2812BIOCTL_SetLEDCount(int device, int count) { return os::FileIO::DeviceControl(device, WS2812BIOCTL_SET_LED_COUNT, &count, sizeof(count), nullptr, 0); }
+inline int WS2812BIOCTL_SetLEDCount(int device, int count)
+{
+    return os::FileIO::DeviceControl(device, WS2812BIOCTL_SET_LED_COUNT, &count, sizeof(count), nullptr, 0);
+}
+
 inline int WS2812BIOCTL_GetLEDCount(int device)
 {
     int count;
     if (os::FileIO::DeviceControl(device, WS2812BIOCTL_GET_LED_COUNT, nullptr, 0, &count, sizeof(count)) < 0) return -1;
     return count;
+}
+
+inline int WS2812BIOCTL_SetExponential(int device, bool exponential)
+{
+    int value = int(exponential);
+    return os::FileIO::DeviceControl(device, WS2812BIOCTL_SET_EXPONENTIAL, &value, sizeof(value), nullptr, 0);
+}
+
+inline int WS2812BIOCTL_GetExponential(int device)
+{
+    int value;
+    if (os::FileIO::DeviceControl(device, WS2812BIOCTL_GET_EXPONENTIAL, nullptr, 0, &value, sizeof(value)) < 0) return -1;
+    return value;
 }

@@ -200,9 +200,12 @@
     <ClCompile Include="SDRAM.cpp" />
     <ClCompile Include="System\GUI\Application.cpp" />
     <ClCompile Include="System\GUI\Button.cpp" />
+    <ClCompile Include="System\GUI\Control.cpp" />
     <ClCompile Include="System\GUI\Font.cpp" />
+    <ClCompile Include="System\GUI\GroupView.cpp" />
     <ClCompile Include="System\GUI\LayoutNode.cpp" />
     <ClCompile Include="System\GUI\Region.cpp" />
+    <ClCompile Include="System\GUI\Slider.cpp" />
     <ClCompile Include="System\GUI\TextView.cpp" />
     <ClCompile Include="System\GUI\View.cpp" />
     <ClCompile Include="System\Math\LineSegment.cpp" />
@@ -251,10 +254,13 @@
     <ClInclude Include="Include\DeviceControl\WS2812B.h" />
     <ClInclude Include="Include\GUI\Button.h" />
     <ClInclude Include="Include\GUI\Color.h" />
+    <ClInclude Include="Include\GUI\Control.h" />
     <ClInclude Include="Include\GUI\Font.h" />
+    <ClInclude Include="Include\GUI\GroupView.h" />
     <ClInclude Include="Include\GUI\GUIEvent.h" />
     <ClInclude Include="Include\GUI\LayoutNode.h" />
     <ClInclude Include="Include\GUI\Region.h" />
+    <ClInclude Include="Include\GUI\Slider.h" />
     <ClInclude Include="Include\GUI\TextView.h" />
     <ClInclude Include="Include\GUI\View.h" />
     <ClInclude Include="Include\Math\LineSegment.h" />

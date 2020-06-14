@@ -46,7 +46,7 @@ ServerView::ServerView(const String& name, const Rect& frame, const Point& scrol
     
 bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
 {
-    if (m_ClientHandle != -1 && !HasFlag(ViewFlags::IGNORE_MOUSE))
+    if (m_ClientHandle != -1 && !HasFlags(ViewFlags::IgnoreMouse))
     {
         if (m_ManagerHandle != -1)
         {
@@ -154,26 +154,28 @@ void ServerView::RemoveThis()
 
 void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
 {
+    IRect intFrame(rect);
+
+    IRect prevIFrame = GetIFrame();
     m_Frame = rect;
     UpdateScreenPos();
-    IRect cIRect(rect);
-    
-    Ptr<ServerView> parent = m_Parent.Lock();
 
-    if (m_IFrame == cIRect) {
+    if (intFrame == prevIFrame) {
         return;
     }
-    
+
+    Ptr<ServerView> parent = m_Parent.Lock();
+
     if (m_HideCount == 0)
     {
-        m_DeltaMove += IPoint(cIRect.left, cIRect.top ) - IPoint(m_IFrame.left, m_IFrame.top);
-        m_DeltaSize += IPoint(cIRect.Width(), cIRect.Height() ) - IPoint(m_IFrame.Width(), m_IFrame.Height());
+        m_DeltaMove += IPoint(intFrame.left, intFrame.top ) - IPoint(prevIFrame.left, prevIFrame.top);
+        m_DeltaSize += IPoint(intFrame.Width(), intFrame.Height() ) - IPoint(prevIFrame.Width(), prevIFrame.Height());
 
         if (parent != nullptr)
         {
             for (Ptr<ServerView> i = parent; i != nullptr; i = i->GetParent())
             {
-                if ((i->m_Flags & ViewFlags::TRANSPARENT) == 0) {
+                if ((i->m_Flags & ViewFlags::Transparent) == 0) {
                     i->SetDirtyRegFlags();
                     break;
                 }                    
@@ -185,16 +187,17 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
                 for (++i; i != parent->m_ChildrenList.rend(); ++i)
                 {
                     Ptr<ServerView> sibling = *i;
-                    if (sibling->m_IFrame.DoIntersect(m_IFrame) || sibling->m_IFrame.DoIntersect(cIRect))
+		    IRect siblingIFrame = sibling->GetIFrame();
+                    if (siblingIFrame.DoIntersect(prevIFrame) || siblingIFrame.DoIntersect(intFrame))
                     {
-                        sibling->MarkModified(m_IFrame - sibling->m_IFrame.TopLeft());
-                        sibling->MarkModified(cIRect - sibling->m_IFrame.TopLeft());
+                        sibling->MarkModified(prevIFrame - siblingIFrame.TopLeft());
+                        sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
                     }
                 }                
             }
         }            
     }
-    m_IFrame = cIRect;
+//    m_IFrame = intFrame;
     
     if (requestingClient != -1)
     {
@@ -250,7 +253,7 @@ void ServerView::SetShapeRegion(Ptr<Region> region)
         {
             for (Ptr<ServerView> i = parent; i != nullptr; i = i->GetParent())
             {
-                if ((i->m_Flags & ViewFlags::TRANSPARENT) == 0) {
+                if ((i->m_Flags & ViewFlags::Transparent) == 0) {
                     i->SetDirtyRegFlags();
                     break;
                 }                    
@@ -259,11 +262,13 @@ void ServerView::SetShapeRegion(Ptr<Region> region)
             auto i = parent->GetChildRIterator(ptr_tmp_cast(this));
             if (i != parent->m_ChildrenList.rend())
             {
+		IRect intFrame = GetIFrame();
                 for (++i; i != parent->m_ChildrenList.rend(); ++i)
                 {
                     Ptr<ServerView> sibling = *i;
-                    if ( sibling->m_IFrame.DoIntersect(m_IFrame) ) {
-                        sibling->MarkModified(m_IFrame - sibling->m_IFrame.TopLeft());
+		    IRect siblingIFrame = sibling->GetIFrame();
+                    if ( siblingIFrame.DoIntersect(intFrame) ) {
+                        sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
                     }
                 }
             }
@@ -321,7 +326,7 @@ void ServerView::InvalidateNewAreas()
   
     if (m_HasInvalidRegs)
     {
-        if ( ((m_Flags & ViewFlags::FULL_UPDATE_ON_H_RESIZE) && m_DeltaSize.x != 0) || ((m_Flags & ViewFlags::FULL_UPDATE_ON_V_RESIZE) && m_DeltaSize.y != 0) )
+        if ( ((m_Flags & ViewFlags::FullUpdateOnResizeH) && m_DeltaSize.x != 0) || ((m_Flags & ViewFlags::FullUpdateOnResizeV) && m_DeltaSize.y != 0) )
         {
             Invalidate(false);
         }
@@ -458,7 +463,9 @@ void ServerView::MoveChilds()
             {
                 IRect rect = bounds;
 
-                rect.left = rect.right + int(parent->m_DeltaSize.x + parent->m_IFrame.right - parent->m_IFrame.left - m_IFrame.right);
+		IRect parentIFrame = parent->GetIFrame();
+
+                rect.left = rect.right + int(parent->m_DeltaSize.x + parentIFrame.right - parentIFrame.left - GetIFrame().right);
 
                 if (rect.IsValid()) {
                     Invalidate( rect );
@@ -468,7 +475,8 @@ void ServerView::MoveChilds()
             {
                 IRect rect = bounds;
 
-                rect.top = rect.bottom + int(parent->m_DeltaSize.y + parent->m_IFrame.bottom - parent->m_IFrame.top - m_IFrame.bottom);
+		IRect parentIFrame = parent->GetIFrame();
+		rect.top = rect.bottom + int(parent->m_DeltaSize.y + parentIFrame.bottom - parentIFrame.top - GetIFrame().bottom);
 
                 if (rect.IsValid()) {
                     Invalidate(rect);
@@ -538,20 +546,21 @@ void ServerView::RebuildRegion( bool bForce )
         Ptr<ServerView> parent = m_Parent.Lock();
         if ( parent == nullptr )
         {
-            m_FullReg = ptr_new<Region>(m_IFrame);
+            m_FullReg = ptr_new<Region>(GetIFrame());
         }
         else
         {
+	    const IRect intFrame = GetIFrame();
             assert(parent->m_FullReg != nullptr);
             if ( parent->m_FullReg == nullptr ) {
-                m_FullReg = ptr_new<Region>(m_IFrame.Bounds());
+                m_FullReg = ptr_new<Region>(intFrame.Bounds());
             } else {
-                m_FullReg = ptr_new<Region>(*parent->m_FullReg, m_IFrame, true);
+                m_FullReg = ptr_new<Region>(*parent->m_FullReg, intFrame, true);
             }
             if ( m_ShapeConstrainReg != nullptr ) {
                 m_FullReg->Intersect(*m_ShapeConstrainReg);
             }
-            IPoint topLeft(m_IFrame.TopLeft());
+            IPoint topLeft(intFrame.TopLeft());
             auto i = parent->GetChildIterator(ptr_tmp_cast(this));
             if (i != parent->m_ChildrenList.end())
             {
@@ -560,7 +569,7 @@ void ServerView::RebuildRegion( bool bForce )
                     Ptr<ServerView> sibling = *i;
                     if (sibling->m_HideCount == 0)
                     {
-                        if (sibling->m_IFrame.DoIntersect(m_IFrame))
+                        if (sibling->GetIFrame().DoIntersect(intFrame))
                         {
                             sibling->ExcludeFromRegion(m_FullReg, -topLeft);
                         }
@@ -571,7 +580,7 @@ void ServerView::RebuildRegion( bool bForce )
         }            
         m_VisibleReg = ptr_new<Region>(*m_FullReg);
 
-        if ( (m_Flags & ViewFlags::DRAW_ON_CHILDREN) == 0 )
+        if ( (m_Flags & ViewFlags::DrawOnChildren) == 0 )
         {
             bool regModified = false;
             IPoint scrollOffset(m_ScrollOffset);
@@ -600,19 +609,19 @@ bool ServerView::ExcludeFromRegion(Ptr<Region> region, const IPoint& offset)
 {
     if (m_HideCount == 0)
     {
-        if ((m_Flags & ViewFlags::TRANSPARENT) == 0)
+        if ((m_Flags & ViewFlags::Transparent) == 0)
         {
             if ( m_ShapeConstrainReg == nullptr ) {
-                region->Exclude(m_IFrame + offset);
+                region->Exclude(GetIFrame() + offset);
             } else {
-                region->Exclude(*m_ShapeConstrainReg, m_IFrame.TopLeft() + offset);
+                region->Exclude(*m_ShapeConstrainReg, GetITopLeft() + offset);
             }
             return true;
         }
         else
         {
             bool wasModified = false;
-            IPoint framePos = m_IFrame.TopLeft();
+            IPoint framePos = GetITopLeft();
             IPoint scrollOffset(m_ScrollOffset);
             for (Ptr<ServerView> child : m_ChildrenList)
             {
@@ -759,10 +768,12 @@ void ServerView::ToggleDepth()
         
         opacParent->SetDirtyRegFlags();
     
-        for (Ptr<ServerView> sibling : *parent)
+	IRect intFrame = GetIFrame();
+	for (Ptr<ServerView> sibling : *parent)
         {
-            if (sibling->m_IFrame.DoIntersect(m_IFrame)) {
-                sibling->MarkModified(m_IFrame - sibling->m_IFrame.TopLeft());
+	    IRect siblingIFrame = sibling->GetIFrame();
+            if (siblingIFrame.DoIntersect(intFrame)) {
+                sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
             }
         }
         opacParent->UpdateRegions(false);
@@ -854,7 +865,7 @@ void ServerView::MarkModified(const IRect& rect)
         IPoint scrollOffset(m_ScrollOffset);
         
         for (Ptr<ServerView> child : m_ChildrenList) {
-            child->MarkModified(rect - child->m_IFrame.TopLeft() - scrollOffset);
+            child->MarkModified(rect - child->GetITopLeft() - scrollOffset);
         }
     }
 }
@@ -893,15 +904,17 @@ void ServerView::Show(bool doShow)
     {
         for (Ptr<ServerView> i = parent; i != nullptr; i = i->GetParent())
         {
-            if ((i->m_Flags & ViewFlags::TRANSPARENT) == 0) {
+            if ((i->m_Flags & ViewFlags::Transparent) == 0) {
                 i->SetDirtyRegFlags();
                 break;
             }                    
         }
+	IRect intFrame = GetIFrame();
         for (Ptr<ServerView> sibling : parent->m_ChildrenList)
         {
-            if (sibling->m_IFrame.DoIntersect(m_IFrame)) {
-                sibling->MarkModified(m_IFrame - sibling->m_IFrame.TopLeft());
+	    IRect siblingIFrame = sibling->GetIFrame();
+            if (siblingIFrame.DoIntersect(intFrame)) {
+                sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
             }
         }
     }
@@ -1205,7 +1218,7 @@ void ServerView::DebugDraw(Color color, uint32_t drawFlags)
     
     if (drawFlags & ViewDebugDrawFlags::ViewFrame)
     {
-        DebugDrawRect(m_IFrame.Bounds() + screenPos);
+        DebugDrawRect(GetNormalizedIBounds() + screenPos);
     }
     if (drawFlags & ViewDebugDrawFlags::DrawRegion)
     {

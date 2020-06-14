@@ -88,13 +88,13 @@ WindowManager::WindowManager() : Application("window_manager")
     RSWindowManagerRegisterView.Connect(this, &WindowManager::SlotRegisterView);
     RSWindowManagerUnregisterView.Connect(this, &WindowManager::SlotUnregisterView);
     
-    m_TopView = ptr_new<View>("wmgr_root", nullptr, ViewFlags::IGNORE_MOUSE);
+    m_TopView = ptr_new<View>("wmgr_root", nullptr, ViewFlags::IgnoreMouse);
     m_TopView->SetFrame(ApplicationServer::GetScreenFrame());
     m_TopView->SetLayoutNode(ptr_new<HLayoutNode>());
     
     m_SidebarView = ptr_new<WindowBar>(m_TopView);
     
-    m_ClientsView = ptr_new<View>("wmgr_clients", m_TopView, ViewFlags::IGNORE_MOUSE);
+    m_ClientsView = ptr_new<View>("wmgr_clients", m_TopView, ViewFlags::IgnoreMouse);
     m_ClientsView->SetLayoutNode(ptr_new<LayoutNode>());
     m_ClientsView->SetWidthOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
     m_ClientsView->SetWidthOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);

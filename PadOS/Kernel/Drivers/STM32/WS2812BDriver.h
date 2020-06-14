@@ -54,6 +54,10 @@ private:
 
 	bool SetLEDCount(size_t count);
 	size_t GetLEDCount() const { return m_LEDCount; }
+
+	void SetExponential(bool exponential) { m_Exponential = exponential; }
+	bool GetExponential() const { return m_Exponential; }
+
 	KMutex				m_Mutex;
 	KConditionVariable	m_TransmitCondition;
 
@@ -62,14 +66,14 @@ private:
 	SPI_TypeDef*	m_Port;
 	DMAMUX1_REQUEST	m_DMARequestTX;
 
-	int			m_SendDMAChannel = -1;
+	int		m_SendDMAChannel = -1;
 	int32_t		m_ReceiveBufferSize = 1024;
 	int32_t		m_ReceiveBufferOutPos = 0;
 	int32_t		m_ReceiveBufferInPos = 0;
 	size_t		m_LEDCount = 0;
 	size_t		m_TransmitBufferSize = 0;
 	uint8_t*	m_TransmitBuffer = nullptr;
-
+	bool		m_Exponential = false;
 };
 
 

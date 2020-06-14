@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,12 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 15.04.2018 16:38:59
 
-#include "System/Platform.h"
-
-#include "GUI/TextView.h"
-#include "Utils/Utils.h"
+#include <Gui/Control.h>
 
 using namespace os;
 
@@ -29,16 +25,17 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextView::TextView(const String& name, const String& text, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw), m_Text(text)
+Control::Control(const String& name, Ptr<View> parent, uint32_t flags)
+    : View(name, parent, flags )
 {
-    PreferredSizeChanged();
+    m_IsEnabled	= true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextView::~TextView()
+Control::~Control()
 {
 }
 
@@ -46,49 +43,20 @@ TextView::~TextView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextView::SetText(const String& text)
+void Control::SetEnable(bool enable)
 {
-    DEBUG_TRACK_FUNCTION();
-//    ProfileTimer timer("TextView::SetText()");    
-    m_Text = text;
-    PreferredSizeChanged();
-    Invalidate();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void TextView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
-{
-    Point size;
-    if (includeWidth) {
-        size.x = GetStringWidth(m_Text);
+    if (m_IsEnabled != enable) {
+	m_IsEnabled = enable;
+	EnableStatusChanged(m_IsEnabled);
     }
-    if (includeHeight) {
-        FontHeight fontHeight = GetFontHeight();
-        size.y = fontHeight.descender - fontHeight.ascender;
-	if (HasFlags(TextViewFlags::IncludeLineGap)) {
-	    size.y += fontHeight.line_gap;
-	}
-    }
-    *minSize = size;
-    *maxSize = size;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextView::Paint(const Rect& updateRect)
+bool Control::IsEnabled() const
 {
-    SetEraseColor(GetBgColor());
-    Rect bounds = GetBounds();
-    EraseRect(bounds);
-
-    MovePenTo(0.0f, 0.0f);
-    DrawString(m_Text);
-
-//    DrawRect(bounds);    
-//    DebugDraw(Color(255, 0, 0), ViewDebugDrawFlags::ViewFrame);
+    return m_IsEnabled;
 }
+

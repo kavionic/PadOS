@@ -479,6 +479,15 @@
     <ClCompile Include="System\Utils\String.cpp">
       <Filter>Source Files\System\Utils</Filter>
     </ClCompile>
+    <ClCompile Include="System\GUI\Slider.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\GUI\Control.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\GUI\GroupView.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MemTest.h">
@@ -888,6 +897,15 @@
     </ClInclude>
     <ClInclude Include="Include\DeviceControl\WS2812B.h">
       <Filter>Include\DeviceControl</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\Slider.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\Control.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\GroupView.h">
+      <Filter>Include\GUI</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

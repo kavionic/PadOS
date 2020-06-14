@@ -28,7 +28,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Button::Button(const String& name, const String& label, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::FULL_UPDATE_ON_RESIZE), m_Label(label)
+Button::Button(const String& name, const String& label, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::FullUpdateOnResize), m_Label(label)
 {
     m_LabelSize.x = GetStringWidth(m_Label);
     FontHeight fontHeight = GetFontHeight();

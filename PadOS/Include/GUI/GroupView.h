@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,41 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 15.04.2018 16:38:59
+// Created: 14.06.2020 16:30:00
 
 #pragma once
 
 #include "GUI/View.h"
 
-
 namespace os
 {
 
-namespace TextViewFlags
-{
-static constexpr uint32_t IncludeLineGap = 0x01 << ViewFlags::FirstUserBit;
-}
-
-class TextView : public View
+class GroupView : public View
 {
 public:
-    TextView(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    ~TextView();
-    
-    void SetText(const String& text);
-    
-//    virtual void AllAttachedToScreen() override { Invalidate(); }
+    GroupView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
 
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
-
+    // From View:
     virtual void Paint(const Rect& updateRect) override;
-        
+
 private:
-    String m_Text;
-    
-    TextView(const TextView&) = delete;
-    TextView& operator=(const TextView&) = delete;
 };
-    
-    
-} // namespace
+
+}

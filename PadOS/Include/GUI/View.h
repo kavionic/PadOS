@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2014-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -51,20 +51,19 @@ namespace os
 
 namespace ViewFlags
 {
-    enum Type
-    {
-        FULL_UPDATE_ON_H_RESIZE = 0x0001,   ///< Cause the entire view to be invalidated if made higher
-        FULL_UPDATE_ON_V_RESIZE = 0x0002,   ///< Cause the entire view to be invalidated if made wider
-        FULL_UPDATE_ON_RESIZE   = 0x0003,   ///< Cause the entire view to be invalidated if resized
-        WILL_DRAW               = 0x0004,   ///< Tell the appserver that you want to render stuff to it
-        TRANSPARENT             = 0x0008,   ///< Allow the parent view to render in areas covered by this view
-        CLIENT_ONLY             = 0x0010,
-        CLEAR_BACKGROUND        = 0x0020,   ///< Automatically clear new areas when windows are moved/resized
-        DRAW_ON_CHILDREN        = 0x0040,   ///< Setting this flag allows the view to render atop of all its childs
-        EAVESDROPPER            = 0x0080,   ///< Client-side view that is connected to a foreign server-side view.
-        IGNORE_MOUSE            = 0x0100,   ///< Make the view invisible to mouse/touch events.
-        FORCE_HANDLE_MOUSE      = 0x0200    ///< Handle the mouse/touch event even if a child view is under the mouse.
-    };
+    static constexpr uint32_t FullUpdateOnResizeH = 0x0001;   ///< Cause the entire view to be invalidated if made wider
+    static constexpr uint32_t FullUpdateOnResizeV = 0x0002;   ///< Cause the entire view to be invalidated if made higher
+    static constexpr uint32_t FullUpdateOnResize  = 0x0003;   ///< Cause the entire view to be invalidated if resized
+    static constexpr uint32_t WillDraw            = 0x0004;   ///< Tell the appserver that you want to render stuff to it
+    static constexpr uint32_t Transparent         = 0x0008;   ///< Allow the parent view to render in areas covered by this view
+    static constexpr uint32_t ClientOnly          = 0x0010;
+    static constexpr uint32_t ClearBackground     = 0x0020;   ///< Automatically clear new areas when windows are moved/resized
+    static constexpr uint32_t DrawOnChildren      = 0x0040;   ///< Setting this flag allows the view to render atop of all its childs
+    static constexpr uint32_t Eavesdropper        = 0x0080;   ///< Client-side view that is connected to a foreign server-side view.
+    static constexpr uint32_t IgnoreMouse         = 0x0100;   ///< Make the view invisible to mouse/touch events.
+    static constexpr uint32_t ForceHandleMouse    = 0x0200;    ///< Handle the mouse/touch event even if a child view is under the mouse.
+
+    static constexpr int FirstUserBit = 16;    // Inheriting classes should shift their flags this much to the left to avoid collisions.
 }
 
 namespace ViewDebugDrawFlags
@@ -173,7 +172,6 @@ public:
     ViewBase(const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor)
         : EventHandler(name)
         , m_Frame(frame)
-        , m_IFrame(frame)
         , m_ScrollOffset(scrollOffset)
         , m_Flags(flags)
         , m_HideCount(hideCount)
@@ -213,53 +211,56 @@ public:
             return -1;
         }
     }
+    virtual void OnFlagsChanged(uint32_t oldFlags) {}
 
-//    void       SetFlags(uint32_t flags);
-    uint32_t   GetFlags() const { return m_Flags; }
-    bool       HasFlag(ViewFlags::Type flag) const { return (m_Flags & uint32_t(flag)) != 0; }
-    bool       HasFlagsAll(uint32_t mask) const { return (m_Flags & mask) == mask; }
+    void	ReplaceFlags(uint32_t flags)	    { uint32_t oldFlags = m_Flags; if (flags != m_Flags) { m_Flags = flags; OnFlagsChanged(oldFlags); } }
+    void	MergeFlags(uint32_t flags)	    { ReplaceFlags(m_Flags | flags); }
+    void	ClearFlags(uint32_t flags)	    { ReplaceFlags(m_Flags & ~flags); }
+    uint32_t	GetFlags() const		    { return m_Flags; }
+    bool	HasFlags(uint32_t flags) const	    { return (m_Flags & flags) != 0; }
+    bool	HasFlagsAll(uint32_t mask) const    { return (m_Flags & mask) == mask; }
     
 
-    const Rect&         GetFrame() const { return m_Frame; }
-    Rect                GetBounds() const { return m_Frame.Bounds() /*- Point(m_Frame.left, m_Frame.top)*/ - m_ScrollOffset; }
-    Rect                GetNormalizedBounds() const { return m_Frame.Bounds(); }
+    const Rect&	GetFrame() const { return m_Frame; }
+    Rect	GetBounds() const { return m_Frame.Bounds() /*- Point(m_Frame.left, m_Frame.top)*/ - m_ScrollOffset; }
+    Rect	GetNormalizedBounds() const { return m_Frame.Bounds(); }
 
-    const IRect&        GetIFrame() const { return m_IFrame; }
-    IRect               GetIBounds() const { return m_IFrame.Bounds() /*- Point(m_Frame.left, m_Frame.top)*/ - IPoint(m_ScrollOffset); }
-    IRect               GetNormalizedIBounds() const { return m_IFrame.Bounds(); }
+    IRect	GetIFrame() const { return IRect(m_Frame); }
+    IRect	GetIBounds() const { return GetIFrame().Bounds() /*- Point(m_Frame.left, m_Frame.top)*/ - IPoint(m_ScrollOffset); }
+    IRect	GetNormalizedIBounds() const { return GetIFrame().Bounds(); }
         
-    Point               GetTopLeft() const  { return Point( m_Frame.left, m_Frame.top ); }
-    IPoint              GetITopLeft() const { return IPoint( m_IFrame.left, m_IFrame.top ); }
+    Point	GetTopLeft() const  { return Point( m_Frame.left, m_Frame.top ); }
+    IPoint	GetITopLeft() const { return IPoint(m_Frame.TopLeft()); }
         
-    Color               GetFgColor() const { return m_FgColor; }
-    Color               GetBgColor() const { return m_BgColor; }
-    Color               GetEraseColor() const { return m_EraseColor; }
+    Color	GetFgColor() const { return m_FgColor; }
+    Color	GetBgColor() const { return m_BgColor; }
+    Color	GetEraseColor() const { return m_EraseColor; }
 
     
       // Coordinate conversions:
-    Point               ConvertToParent(const Point& point) const   { return point + GetTopLeft(); }
-    void                ConvertToParent(Point* point) const         { *point += GetTopLeft(); }
-    Rect                ConvertToParent(const Rect& rect) const     { return rect + GetTopLeft(); }
-    void                ConvertToParent(Rect* rect) const           { *rect += GetTopLeft(); }
-    Point               ConvertFromParent(const Point& point) const { return point - GetTopLeft(); }
-    void                ConvertFromParent(Point* point) const       { *point -= GetTopLeft(); }
-    Rect                ConvertFromParent(const Rect& rect) const   { return rect - GetTopLeft(); }
-    void                ConvertFromParent(Rect* rect) const         { *rect -= GetTopLeft(); }
-    Point               ConvertToRoot(const Point& point) const     { return m_ScreenPos + point; }
-    void                ConvertToRoot(Point* point) const           { *point += m_ScreenPos; }
-    Rect                ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos; }
-    void                ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos; }
-    Point               ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos; }
-    void                ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos; }
-    Rect                ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos; }
-    void                ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos; }
+    Point       ConvertToParent(const Point& point) const   { return point + GetTopLeft(); }
+    void        ConvertToParent(Point* point) const         { *point += GetTopLeft(); }
+    Rect        ConvertToParent(const Rect& rect) const     { return rect + GetTopLeft(); }
+    void        ConvertToParent(Rect* rect) const           { *rect += GetTopLeft(); }
+    Point       ConvertFromParent(const Point& point) const { return point - GetTopLeft(); }
+    void        ConvertFromParent(Point* point) const       { *point -= GetTopLeft(); }
+    Rect        ConvertFromParent(const Rect& rect) const   { return rect - GetTopLeft(); }
+    void        ConvertFromParent(Rect* rect) const         { *rect -= GetTopLeft(); }
+    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point; }
+    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos; }
+    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos; }
+    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos; }
+    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos; }
+    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos; }
+    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos; }
+    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos; }
     
     static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, IRect* frame)
     {
-        while(view != nullptr && (view->m_Flags & ViewFlags::TRANSPARENT))
+        while(view != nullptr && (view->m_Flags & ViewFlags::Transparent))
         {
             if (frame != nullptr) {
-                *frame += view->m_IFrame.TopLeft();
+                *frame += view->GetITopLeft();
             }
             view = view->GetParent();
         }
@@ -302,7 +303,6 @@ protected:
     }
 
     Rect m_Frame = Rect(0.0f, 0.0f, 0.0f, 0.0f);
-    IRect m_IFrame; // Frame rectangle relative to our parent
     Point  m_ScrollOffset;
     uint32_t m_Flags = 0;    
 
@@ -451,8 +451,8 @@ public:
     void       Show(bool visible = true);
     void       Hide() { Show(false); }
     bool       IsVisible() const;
-//    virtual void MakeFocus( bool bFocus = true );
-//    virtual bool HasFocus() const;
+	virtual void MakeFocus(bool bFocus = true) {}
+	virtual bool HasFocus() const { return true; }
 
     float  Width() const;
     float  Height() const;
@@ -488,12 +488,17 @@ public:
     void            HandleMouseUp(MouseButton_e button, const Point& position);
     void            HandleMouseMove(MouseButton_e button, const Point& position);
     
-    void            SetFgColor(int red, int green, int blue, int alpha = 255) { SetFgColor(Color(red, green, blue, alpha)); }
-    void            SetFgColor(Color color) { m_FgColor = color; Post<ASViewSetFgColor>(color); }
-    void            SetBgColor(int red, int green, int blue, int alpha = 255) { SetBgColor(Color(red, green, blue, alpha)); }
-    void            SetBgColor(Color color) { m_BgColor = color; Post<ASViewSetBgColor>(color); }
-    void            SetEraseColor(int red, int green, int blue, int alpha = 255) { SetEraseColor(Color(red, green, blue, alpha)); }
-    void            SetEraseColor(Color color) { m_EraseColor = color; Post<ASViewSetEraseColor>(color); }
+    void            SetFgColor(int red, int green, int blue, int alpha = 255)	    { SetFgColor(Color(red, green, blue, alpha)); }
+    void            SetFgColor(Color color)					    { m_FgColor = color; Post<ASViewSetFgColor>(color); }
+    void            SetFgColor(StandardColorID colorID)				    { SetFgColor(get_standard_color(colorID)); }
+
+    void            SetBgColor(int red, int green, int blue, int alpha = 255)	    { SetBgColor(Color(red, green, blue, alpha)); }
+    void            SetBgColor(Color color)					    { m_BgColor = color; Post<ASViewSetBgColor>(color); }
+    void            SetBgColor(StandardColorID colorID)				    { SetBgColor(get_standard_color(colorID)); }
+
+    void            SetEraseColor(int red, int green, int blue, int alpha = 255)    { SetEraseColor(Color(red, green, blue, alpha)); }
+    void            SetEraseColor(Color color)					    { m_EraseColor = color; Post<ASViewSetEraseColor>(color); }
+    void            SetEraseColor(StandardColorID colorID)			    { SetEraseColor(get_standard_color(colorID)); }
 
     void            MovePenTo(const Point& pos)                        { m_PenPosition = pos; Post<ASViewMovePenTo>(pos); }
     void            MovePenTo(float x, float y)                        { MovePenTo(Point(x, y)); }
@@ -502,6 +507,7 @@ public:
     Point           GetPenPosition() const                             { return m_PenPosition; }
     void            DrawLine(const Point& toPos)                       { Post<ASViewDrawLine1>(toPos); }
     void            DrawLine(const Point& fromPos, const Point& toPos) { Post<ASViewDrawLine2>(fromPos, toPos); }
+    void            DrawLine(float x, float y)			       { DrawLine(Point(x, y)); }
     void            DrawLine(float x1, float y1, float x2, float y2)   { DrawLine(Point(x1, y1), Point(x2, y2)); }
     void            DrawRect(const Rect& frame)
     {
@@ -541,6 +547,7 @@ public:
     VFConnector<bool, MouseButton_e, const Point&> VFMouseUp;
     VFConnector<bool, const Point&>                VFMouseMoved;
     
+    Signal<void>    SignalPreferredSizeChanged;
 private:
     friend class Application;
     friend class ViewBase<View>;
@@ -565,7 +572,7 @@ private:
         Point newOffset;
         {
             Ptr<View> parent = m_Parent.Lock();
-            if (parent != nullptr && parent->HasFlag(ViewFlags::CLIENT_ONLY)) {
+            if (parent != nullptr && parent->HasFlags(ViewFlags::ClientOnly)) {
                 newOffset = parent->m_PositionOffset + parent->m_Frame.TopLeft();
             } else {
                 newOffset = Point(0.0f, 0.0f);
@@ -574,7 +581,7 @@ private:
         if (forceServerUpdate || newOffset != m_PositionOffset)
         {
             m_PositionOffset = newOffset;
-            if (m_ServerHandle != -1 && !HasFlag(ViewFlags::CLIENT_ONLY))
+            if (m_ServerHandle != -1 && !HasFlags(ViewFlags::ClientOnly))
             {
                 Post<ASViewSetFrame>(m_Frame + m_PositionOffset, GetHandle());
 //                GetApplication()->SetViewFrame(m_ServerHandle, m_Frame + m_PositionOffset);

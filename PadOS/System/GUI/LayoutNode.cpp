@@ -75,16 +75,17 @@ void LayoutNode::Layout()
 void LayoutNode::CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight)
 {
     Point minSize(0.0f,0.0f);
-    Point maxSize(0.0f, 0.0f);
+    Point maxSize(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
     
     if (m_View != nullptr)
     {
         for (Ptr<View> child : *m_View)
         {
-            Rect borders = child->GetBorders();
-            Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
-            Point currentMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
-            Point currentMaxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+            const Rect borders = child->GetBorders();
+            const Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            const Point currentMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
+            const Point currentMaxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+
             if (includeWidth) {
                 minSize.x = std::max(minSize.x, currentMinSize.x);
                 maxSize.x = std::min(maxSize.x, currentMaxSize.x);

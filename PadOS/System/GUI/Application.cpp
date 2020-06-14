@@ -108,13 +108,13 @@ bool Application::AddView(Ptr<View> view, ViewDockType dockType)
     handler_id parentHandle = -1;
     for (Ptr<View> i = parent; i != nullptr; i = i->GetParent())
     {
-        if (!i->HasFlag(ViewFlags::CLIENT_ONLY))
+        if (!i->HasFlags(ViewFlags::ClientOnly))
         {
             parentHandle = i->GetServerHandle();
             break;
         }
     }
-    if (!view->HasFlag(ViewFlags::CLIENT_ONLY))
+    if (!view->HasFlags(ViewFlags::ClientOnly))
     {
         AddHandler(view);
         Post<ASCreateView>(GetPortID()
@@ -182,7 +182,7 @@ bool Application::RemoveView(Ptr<View> view)
         printf("ERROR: Application::RemoveView() attempt to remove a view with no server handle\n");
         return false;
     }
-    if (!view->HasFlag(ViewFlags::CLIENT_ONLY))
+    if (!view->HasFlags(ViewFlags::ClientOnly))
     {
         Post<ASDeleteView>(view->m_ServerHandle);
         DetachView(view);

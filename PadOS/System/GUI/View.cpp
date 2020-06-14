@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2014-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -118,7 +118,7 @@ View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame) : ViewBase(name, frame, Point(), ViewFlags::EAVESDROPPER, 0, Color(0xffffffff), Color(0xffffffff), Color(0))
+View::View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame) : ViewBase(name, frame, Point(), ViewFlags::Eavesdropper, 0, Color(0xffffffff), Color(0xffffffff), Color(0))
 {
     Initialize();
     m_ServerHandle = serverHandle;
@@ -671,7 +671,7 @@ void View::SetFrame(const Rect& frame)
     Point deltaSize = frame.Size() - m_Frame.Size();
     Point deltaPos  = frame.TopLeft() - m_Frame.TopLeft();
     m_Frame = frame;
-    m_IFrame = frame;
+
     UpdatePosition(true);
     UpdateScreenPos();
     if (deltaSize != Point(0.0f, 0.0f)) {
@@ -958,7 +958,7 @@ void View::Sync()
 void View::HandleAddedToParent(Ptr<View> parent)
 {
     UpdatePosition(false);
-    if (parent->m_ServerHandle != -1 && !HasFlag(ViewFlags::EAVESDROPPER))
+    if (parent->m_ServerHandle != -1 && !HasFlags(ViewFlags::Eavesdropper))
     {
         parent->GetApplication()->AddView(ptr_tmp_cast(this), ViewDockType::ChildView);
     }
@@ -974,7 +974,7 @@ void View::HandleAddedToParent(Ptr<View> parent)
     
 void View::HandleRemovedFromParent(Ptr<View> parent)
 {
-    if (m_ServerHandle != -1 && !HasFlag(ViewFlags::EAVESDROPPER)) {
+    if (m_ServerHandle != -1 && !HasFlags(ViewFlags::Eavesdropper)) {
         GetApplication()->RemoveView(ptr_tmp_cast(this));
     }
 }
@@ -1032,6 +1032,7 @@ void View::UpdateRingSize()
                 parent->PreferredSizeChanged();
                 parent->InvalidateLayout();
             }
+	    SignalPreferredSizeChanged();
         }
     }
     else

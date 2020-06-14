@@ -54,12 +54,14 @@ public:
     bool  DoIntersect(const Point& point) const { return !(point.x < left || point.x >= right || point.y < top || point.y >= bottom); }
     bool  DoIntersect(const Rect& rect) const { return !(rect.right <= left || rect.left >= right || rect.bottom <= top || rect.top >= bottom); }
 
-    float Width() const       { return right - left; }
-    float Height() const      { return bottom - top; }
-    Point Size() const        { return Point(right - left, bottom - top); }
-    Point TopLeft() const     { return Point(left, top); }
-    Point RightBottom() const { return Point(right, bottom); }
-    Rect  Bounds() const      { return Rect(0.0f, 0.0f, right - left, bottom - top); }
+    float Width() const		{ return right - left; }
+    float Height() const	{ return bottom - top; }
+    Point Size() const		{ return Point(right - left, bottom - top); }
+    Point TopLeft() const	{ return Point(left, top); }
+    Point TopRight() const	{ return Point(right, top); }
+    Point BottomLeft() const	{ return Point(left, bottom); }
+    Point BottomRight() const	{ return Point(right, bottom); }
+    Rect  Bounds() const	{ return Rect(0.0f, 0.0f, right - left, bottom - top); }
     
     Rect& Floor()             { left = floor( left ); right = floor( right ); top = floor( top ); bottom = floor( bottom ); return *this; }
     Rect& Ceil()              { left = ceil( left ); right = ceil( right ); top = ceil( top ); bottom = ceil( bottom ); return *this; }

@@ -21,6 +21,9 @@
 
 #include "Math/Point.h"
 
+namespace os
+{
+
 class LineSegment
 {
 public:
@@ -43,3 +46,4 @@ public:
   IPoint p2;      
 };
 
+} // namespace os

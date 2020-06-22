@@ -22,14 +22,34 @@
 
 #include <algorithm>
 #include <stddef.h>
+#include <string.h>
 #include <stdio.h>
+#include <pugixml/src/pugixml.hpp>
 
 #include "GUI/View.h"
 #include "App/Application.h"
 #include "Utils/Utils.h"
+#include "Utils/XMLFactory.h"
+#include "Utils/XMLObjectParser.h"
 
 using namespace kernel;
 using namespace os;
+
+const std::map<String, uint32_t> ViewFlags::FlagMap
+{
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResizeH),
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResizeV),
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResize),
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, WillDraw),
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, Transparent),
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, ClientOnly),
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, ClearBackground),
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, DrawOnChildren),
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, Eavesdropper),
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, IgnoreMouse),
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, ForceHandleMouse)
+};
+
 
 WeakPtr<View> View::s_MouseDownView;
 
@@ -112,6 +132,30 @@ View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name
         parent->AddChild(ptr_tmp_cast(this));
     }
 //    SetFont(ptr_new<Font>(GfxDriver::e_Font7Seg));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+View::View(Ptr<View> parent, const pugi::xml_node& xmlData)
+    : ViewBase(xmlData.attribute("name").value(),
+	       Rect(),
+	       Point(),
+	       xml_object_parser::parse_flags_attribute<uint32_t>(xmlData, ViewFlags::FlagMap, "flags", 0),
+	       0,
+	       get_standard_color(StandardColorID::NORMAL),
+	       get_standard_color(StandardColorID::NORMAL),
+	       Color(0))
+{
+    Initialize();
+
+    SetLayoutNode(xml_object_parser::parse_attribute(xmlData, "layout", Ptr<LayoutNode>()));
+    m_Borders = xml_object_parser::parse_attribute(xmlData, "layout_borders", Rect(0.0f));
+
+    if (parent != nullptr) {
+	parent->AddChild(ptr_tmp_cast(this));
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -608,6 +652,7 @@ void View::ContentSizeChanged()
 void View::AddChild(Ptr<View> child)
 {
     LinkChild(child, true);
+    child->PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

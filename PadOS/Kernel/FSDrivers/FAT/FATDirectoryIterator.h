@@ -90,8 +90,8 @@ public:
     FATDirectoryEntryCombo* GetCurrentEntry();
     FATDirectoryEntryCombo* GetNextRawEntry();
 
-    status_t                GetNextLFNEntry(FATDirectoryEntryInfo* oinfo, os::String* filename);
-    status_t                GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* inodeID, os::String* filename);
+    status_t                GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, os::String* outFilename);
+    status_t                GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, os::String* outFilename, uint32_t* outDosAttribs);
 
     FATDirectoryEntryCombo* Rewind();
     void                    MarkDirty() { m_IsDirty = true; }  

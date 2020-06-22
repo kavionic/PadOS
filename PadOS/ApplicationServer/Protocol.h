@@ -26,10 +26,10 @@
 #include "GUI/GUIEvent.h"
 #include "GUI/Color.h"
 
-class Rect;
 
 namespace os
 {
+class Rect;
 
 port_id get_appserver_port();
 port_id get_window_manager_port();

@@ -339,7 +339,7 @@ public:
 
     void SetOrientation(Orientation_e orientation);
     inline void SetFillDirection( FillDirection_e direction ) { m_FillDirection = direction; UpdateAddressMode(); }
-    IPoint GetResolution() const { return (m_Orientation == e_Landscape) ? IPoint(800, 480) : IPoint(480, 800); }
+    os::IPoint GetResolution() const { return (m_Orientation == e_Landscape) ? os::IPoint(800, 480) : os::IPoint(480, 800); }
 
     static inline uint16_t MakeColor(uint8_t r, uint8_t g, uint8_t b) { return ((r & 248) << 8) | ((g & 252) << 3) | ((b & 248) >> 3); }
 
@@ -350,11 +350,11 @@ public:
     float GetFontHeight(Font_e fontID) const;
     float GetStringWidth(Font_e fontID, const char* string, uint16_t length ) const;
     
-    inline void SetCursor(const IPoint& pos) { m_Cursor = pos; }
+    inline void SetCursor(const os::IPoint& pos) { m_Cursor = pos; }
     inline void SetCursor(int16_t x, int16_t y) { m_Cursor.x = x; m_Cursor.y = y; }
-    inline const IPoint& GetCursor() const { return m_Cursor; }
+    inline const os::IPoint& GetCursor() const { return m_Cursor; }
 
-    void FillRect(const IRect& frame);
+    void FillRect(const os::IRect& frame);
     
     void WritePixel(int16_t x, int16_t y);
     
@@ -364,12 +364,12 @@ public:
     
     void FillCircle(int32_t x, int32_t y, int32_t radius);
 
-    void BLT_FillRect(const IRect& frame);
+    void BLT_FillRect(const os::IRect& frame);
     void BLT_DrawLine(int x1, int y1, int x2, int y2);
     void BLT_FillCircle(int32_t x, int32_t y, int32_t radius);
-    void BLT_MoveRect(const IRect& srcRect, const IPoint& dstPos);
+    void BLT_MoveRect(const os::IRect& srcRect, const os::IPoint& dstPos);
     
-    uint32_t WriteString(const char* string, size_t strLength, const IRect& clipRect);
+    uint32_t WriteString(const char* string, size_t strLength, const os::IRect& clipRect);
     uint8_t WriteStringTransparent(const char* string, uint8_t strLength, int16_t maxWidth);
 
 //    void DrawImage(File* file, int16_t width, int16_t height);
@@ -379,7 +379,7 @@ public:
 
 
     void SetWindow(int x1, int y1, int x2, int y2);
-    void SetWindow(const IRect& frame) { SetWindow(frame.left, frame.top, frame.right, frame.bottom); }
+    void SetWindow(const os::IRect& frame) { SetWindow(frame.left, frame.top, frame.right, frame.bottom); }
     inline void UpdateAddressMode()
     {
         if ( m_FillDirection == e_FillLeftDown )
@@ -400,7 +400,7 @@ public:
         }
     }
     void FastFill(uint32_t words, uint16_t color);
-    inline void RenderGlyph(char character, const IRect& clipRect);
+    inline void RenderGlyph(char character, const os::IRect& clipRect);
 
     void MemoryWrite_Position(int X,int Y)
     {
@@ -440,7 +440,7 @@ public:
     uint8_t               m_FontCharSpacing;
     const uint8_t*        m_FontGlyphData;
     const FONT_CHAR_INFO* m_FontCharInfo;
-    IPoint                m_Cursor;
+    os::IPoint                m_Cursor;
 };
 
 } // namespace

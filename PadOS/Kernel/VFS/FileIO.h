@@ -73,6 +73,8 @@ public:
 
     static int     CreateDirectory(const char* name, int permission);
 
+    static int	   ReadStats(int handle, struct stat* outStats);
+
     static int     Rename(const char* oldPath, const char* newPath);
     static int     Unlink(const char* path);
     static int     RemoveDirectory(const char* path);

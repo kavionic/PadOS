@@ -129,7 +129,7 @@ private:
     KConditionVariable	m_EventCondition;
     
     static const int MAX_POINTS = 10;
-    IPoint		m_TouchPositions[MAX_POINTS];
+    os::IPoint		m_TouchPositions[MAX_POINTS];
 	uint32_t	m_PointFlags = 0;	// Bitmask telling which point ID's are currently pressed.
     
 	GSLx680Driver(const GSLx680Driver&) = delete;

@@ -154,6 +154,18 @@ int _close_r(_reent* reent, int file)
 
 int _fstat(int file, struct stat *buf)
 {
+    return FileIO::ReadStats(file, buf);
+}
+
+int _stat(const char* path, struct stat *buf)
+{
+    int file = FileIO::Open(path, O_RDONLY);
+    if (file != -1)
+    {
+	int result = FileIO::ReadStats(file, buf);
+	FileIO::Close(file);
+	return result;
+    }
     return -1;
 }
 

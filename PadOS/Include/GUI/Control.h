@@ -37,19 +37,22 @@ class Control	: public View
 {
 public:
     Control(const String& name, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
+    Control(Ptr<View> parent, const pugi::xml_node& xmlData);
     ~Control();
 
       // From Control:
-    virtual void EnableStatusChanged(bool bIsEnabled) = 0;
-    
+    virtual void OnEnableStatusChanged(bool bIsEnabled) = 0;
+    virtual void OnLabelChanged(const String& label) { Invalidate(); Flush(); PreferredSizeChanged(); }
+
     virtual void SetEnable(bool enabled);
     virtual bool IsEnabled() const;
 
-    virtual void	SetLabel(const String& label) {}
-    virtual String	GetLabel() const { return String::zero; }
+    void	SetLabel(const String& label);
+    String	GetLabel() const { return m_Label; }
     
 private:
-    bool	m_IsEnabled;
+    String  m_Label;
+    bool    m_IsEnabled;
 };
 
 }

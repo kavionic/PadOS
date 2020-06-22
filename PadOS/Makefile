@@ -13,7 +13,7 @@
 #     -Og -ffunction-sections -ffast-math -mlong-calls -g3 -Wall -Wextra -mcpu=cortex-m7 -c -mfloat-abi=hard -mtp=cp15 -mtls-dialect=gnu2
 #     -Wsuggest-override -Wnoexcept -Wno-unused-parameter -Wno-multichar -Wno-sign-compare -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)" 
 
-INCLUDE_PATHS = -I. -IInclude
+INCLUDE_PATHS = -I. -IInclude -IExternalLibs
 INCLUDE_PATHS := $(INCLUDE_PATHS) -IC:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include -IC:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include
 
 C_VERSION	:= -std=gnu11
@@ -38,6 +38,7 @@ SUBDIRS := Kernel Kernel/Drivers Kernel/Drivers/SDMMCDriver Kernel/Drivers/RA887
 SUBDIRS := $(SUBDIRS) Kernel/FSDrivers/FAT
 SUBDIRS := $(SUBDIRS) System System/GUI System/Math System/Ptr System/Signals System/Threads System/Utils
 SUBDIRS := $(SUBDIRS) ApplicationServer Applications/WindowManager
+SUBDIRS := $(SUBDIRS) ExternalLibs/pugixml/src
 SOURCES := Init.cpp posix.cpp
 
 include $(foreach dir, $(SUBDIRS), $(dir)/Files.mk)

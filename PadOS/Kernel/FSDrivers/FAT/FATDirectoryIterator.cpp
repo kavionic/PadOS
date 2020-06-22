@@ -601,7 +601,7 @@ status_t FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* oinfo, Str
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* inodeID, String* filename)
+status_t FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, String* outFilename, uint32_t* outDosAttribs)
 {
     FATDirectoryEntryInfo info;
     status_t result;
@@ -612,58 +612,61 @@ status_t FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, in
     }
 
     do {
-        filename->clear();
-        result = GetNextLFNEntry(&info, filename);
+        outFilename->clear();
+        result = GetNextLFNEntry(&info, outFilename);
         if (result < 0) return result;
         // Only hide volume label entries in the root directory.
     } while ((info.m_DOSAttribs & FAT_VOLUME) && (directory->m_INodeID == m_SectorIterator.m_Volume->m_RootINode->m_INodeID));
     
-    if (*filename == ".")
+    if (outDosAttribs != nullptr) {
+	*outDosAttribs = info.m_DOSAttribs;
+    }
+    if (*outFilename == ".")
     {
         // Assign inode ID based on parent.
-        if (inodeID != nullptr) *inodeID = directory->m_INodeID;
+        if (outInodeID != nullptr) *outInodeID = directory->m_INodeID;
     }
-    else if (*filename == "..")
+    else if (*outFilename == "..")
     {
         // Assign inode ID based on parent of parent.
-        if (inodeID != nullptr) *inodeID = directory->m_ParentINodeID;
+        if (outInodeID != nullptr) *outInodeID = directory->m_ParentINodeID;
     }
     else
     {
-        if (inodeID != nullptr)
+        if (outInodeID != nullptr)
         {
             ino_t loc = (m_SectorIterator.m_Volume->IsDataCluster(info.m_StartCluster)) ? GENERATE_DIR_CLUSTER_INODEID(directory->m_INodeID, info.m_StartCluster) : GENERATE_DIR_INDEX_INODEID(directory->m_INodeID, info.m_StartIndex);
 
             // If an inode ID is already associated with the location, use that.
-            if (!m_SectorIterator.m_Volume->GetLocationIDToINodeIDMapping(loc, inodeID))
+            if (!m_SectorIterator.m_Volume->GetLocationIDToINodeIDMapping(loc, outInodeID))
             {
                 // ...else check if another inode is already using our preferred ID
                 if (m_SectorIterator.m_Volume->HasINodeIDToLocationIDMapping(loc))
                 {
                     // if one does, create a random one to prevent a collision
-                    *inodeID = m_SectorIterator.m_Volume->AllocUniqueINodeID();
+                    *outInodeID = m_SectorIterator.m_Volume->AllocUniqueINodeID();
                     // and add it to the inode cache
-                    if (!m_SectorIterator.m_Volume->SetINodeIDToLocationIDMapping(*inodeID, loc)) {
+                    if (!m_SectorIterator.m_Volume->SetINodeIDToLocationIDMapping(*outInodeID, loc)) {
                         return -1;
                     }
                 }
                 else
                 {
-                    *inodeID = loc;
+                    *outInodeID = loc;
                 }
             }
 
             if (info.m_DOSAttribs & FAT_SUBDIR)
             {
                 if (m_SectorIterator.m_Volume->GetDirectoryMapping(info.m_StartCluster) == -1) {
-                    if (!m_SectorIterator.m_Volume->AddDirectoryMapping(*inodeID)) {
+                    if (!m_SectorIterator.m_Volume->AddDirectoryMapping(*outInodeID)) {
                         return -1;
                     }
                 }
             }
         }
     }
-    kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GetNextDirectoryEntry(): found %s (inode ID %" PRIx64 ").\n", filename->c_str(), *inodeID);
+    kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GetNextDirectoryEntry(): found %s (inode ID %" PRIx64 ").\n", outFilename->c_str(), *outInodeID);
     return 0;
 }
 

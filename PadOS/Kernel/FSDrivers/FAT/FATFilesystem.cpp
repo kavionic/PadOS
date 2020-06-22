@@ -1681,6 +1681,7 @@ int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dire
 		strcpy(entry->d_name, "..");
 		entry->d_namelength = 2;
 	    }
+	    entry->d_type = dir_entry_type::DT_DIRECTORY;
 	    entry->d_inode = vol->m_RootINode->m_INodeID;
             entry->d_volumeid = vol->m_VolumeID;
 	    return 1;
@@ -1689,13 +1690,17 @@ int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dire
 
     FATDirectoryIterator diri(vol, dir->m_StartCluster, dirNode->m_CurrentIndex);
     String fileName;
-    int result = diri.GetNextDirectoryEntry(dir, &entry->d_inode, &fileName);
+    uint32_t dosAttributes = 0;
+
+    int result = diri.GetNextDirectoryEntry(dir, &entry->d_inode, &fileName, &dosAttributes);
     if (result >= 0)
     {
 	kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::ReadDirectory(): found file '%s' / %" PRId32 "\n", fileName.c_str(), fileName.size());
         if (fileName.size() <= NAME_MAX) {
             fileName.copy(entry->d_name, fileName.size());
             entry->d_name[fileName.size()] = 0;
+            entry->d_type = (dosAttributes & FAT_SUBDIR) ? dir_entry_type::DT_DIRECTORY : dir_entry_type::DT_FILE;
+
         } else {
             kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::WARNING, "FATFilesystem::ReadDirectory(): filename to long '%s' / %" PRId32 "\n", fileName.c_str(), fileName.size());
             set_last_error(ENAMETOOLONG);
@@ -2089,7 +2094,7 @@ status_t FATFilesystem::DoLocateINode(Ptr<FATVolume> vol, Ptr<FATINode> dir, con
         for(;;)
         {
             String curName;
-            if (diri.GetNextDirectoryEntry(dir, &inodeID, &curName) < 0) {
+            if (diri.GetNextDirectoryEntry(dir, &inodeID, &curName, nullptr) < 0) {
                 return -1;
             }
             if (curName == fileName) {

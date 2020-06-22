@@ -22,9 +22,8 @@
 #include "App/Application.h"
 
 
-using namespace os;
 
-class WindowManager : public Application
+class WindowManager : public os::Application
 {
 public:
     WindowManager();
@@ -33,15 +32,15 @@ public:
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
 
 private:
-    void SlotRegisterView(handler_id viewHandle, ViewDockType dockType, const String& name, const Rect& frame);
+    void SlotRegisterView(handler_id viewHandle, os::ViewDockType dockType, const os::String& name, const os::Rect& frame);
     void SlotUnregisterView(handler_id viewHandle);
 
-    ASWindowManagerRegisterView::Receiver RSWindowManagerRegisterView;
-    ASWindowManagerUnregisterView::Receiver RSWindowManagerUnregisterView;
+    os::ASWindowManagerRegisterView::Receiver RSWindowManagerRegisterView;
+    os::ASWindowManagerUnregisterView::Receiver RSWindowManagerUnregisterView;
     
-    Ptr<View> m_TopView;
-    Ptr<View> m_SidebarView;
-    Ptr<View> m_ClientsView;
+    Ptr<os::View> m_TopView;
+    Ptr<os::View> m_SidebarView;
+    Ptr<os::View> m_ClientsView;
     
     WindowManager(const WindowManager&) = delete;
     WindowManager& operator=(const WindowManager&) = delete;

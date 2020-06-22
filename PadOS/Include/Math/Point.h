@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -13,15 +13,18 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with PadOS. If not, see < http://www.gnu.org/licenses/>.
+// along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 #include <cmath>
 
+namespace os
+{
+
 class IPoint;
 
-/** 
+/**
  * \ingroup gui
  * \par Description:
  *
@@ -35,26 +38,26 @@ public:
     float x;
     float y;
 
-    Point()                    { x = y = 0.0f; }
-    Point( const Point& cPnt ) { x = cPnt.x; y = cPnt.y; }
-    explicit inline Point( const IPoint& cPnt );
-    explicit Point( float value ) { x = y = value; }
-    Point( float nX, float nY ) { x = nX; y = nY; }
+    Point() { x = y = 0.0f; }
+    Point(const Point& cPnt) { x = cPnt.x; y = cPnt.y; }
+    explicit inline Point(const IPoint& cPnt);
+    explicit Point(float value) { x = y = value; }
+    Point(float nX, float nY) { x = nX; y = nY; }
 
-	float LengthSqr() const { return x * x + y * y; }
-	float Length() const { return sqrt(LengthSqr()); }
-    Point        operator-( void ) const                 { return( Point( -x, -y ) ); }
-    Point        operator+( const Point& cPoint ) const  { return( Point( x + cPoint.x, y + cPoint.y ) ); }
-    Point        operator-( const Point& cPoint ) const  { return( Point( x - cPoint.x, y - cPoint.y ) ); }
-    const Point& operator+=( const Point& cPoint )       {  x += cPoint.x; y += cPoint.y; return( *this ); }
-    const Point& operator-=( const Point& cPoint )       {  x -= cPoint.x; y -= cPoint.y; return( *this ); }
-    bool         operator<( const Point& cPoint ) const  { return( y < cPoint.y || ( y == cPoint.y && x < cPoint.x ) ); }
-    bool         operator>( const Point& cPoint ) const  { return( y > cPoint.y || ( y == cPoint.y && x > cPoint.x ) ); }
-    bool         operator==( const Point& cPoint ) const { return( y == cPoint.y && x == cPoint.x ); }
-    bool         operator!=( const Point& cPoint ) const { return( y != cPoint.y || x != cPoint.x ); }
+    float LengthSqr() const { return x * x + y * y; }
+    float Length() const { return sqrt(LengthSqr()); }
+    Point        operator-(void) const { return(Point(-x, -y)); }
+    Point        operator+(const Point& cPoint) const { return(Point(x + cPoint.x, y + cPoint.y)); }
+    Point        operator-(const Point& cPoint) const { return(Point(x - cPoint.x, y - cPoint.y)); }
+    const Point& operator+=(const Point& cPoint) { x += cPoint.x; y += cPoint.y; return(*this); }
+    const Point& operator-=(const Point& cPoint) { x -= cPoint.x; y -= cPoint.y; return(*this); }
+    bool         operator<(const Point& cPoint) const { return(y < cPoint.y || (y == cPoint.y && x < cPoint.x)); }
+    bool         operator>(const Point& cPoint) const { return(y > cPoint.y || (y == cPoint.y && x > cPoint.x)); }
+    bool         operator==(const Point& cPoint) const { return(y == cPoint.y && x == cPoint.x); }
+    bool         operator!=(const Point& cPoint) const { return(y != cPoint.y || x != cPoint.x); }
 };
 
-/** 
+/**
  * \ingroup gui
  * \par Description:
  *
@@ -68,33 +71,34 @@ public:
     int x;
     int y;
 
-    IPoint()                     { x = y = 0; }
-    IPoint( const IPoint& cPnt ) { x = cPnt.x; y = cPnt.y; }
-    explicit inline IPoint( const Point& cPnt );
-    explicit IPoint( int value ) { x = y = value; }
-    IPoint( int nX, int nY )     { x = nX; y = nY; }
+    IPoint() { x = y = 0; }
+    IPoint(const IPoint& cPnt) { x = cPnt.x; y = cPnt.y; }
+    explicit inline IPoint(const Point& cPnt);
+    explicit IPoint(int value) { x = y = value; }
+    IPoint(int nX, int nY) { x = nX; y = nY; }
 
-    IPoint        operator-( void ) const                  { return( IPoint( -x, -y ) ); }
-    IPoint        operator+( const IPoint& cPoint ) const  { return( IPoint( x + cPoint.x, y + cPoint.y ) ); }
-    IPoint        operator-( const IPoint& cPoint ) const  { return( IPoint( x - cPoint.x, y - cPoint.y ) ); }
-    const IPoint& operator+=( const IPoint& cPoint )       {  x += cPoint.x; y += cPoint.y; return( *this ); }
-    const IPoint& operator-=( const IPoint& cPoint )       {  x -= cPoint.x; y -= cPoint.y; return( *this ); }
-    bool          operator<( const IPoint& cPoint ) const  { return( y < cPoint.y || ( y == cPoint.y && x < cPoint.x ) ); }
-    bool          operator>( const IPoint& cPoint ) const  { return( y > cPoint.y || ( y == cPoint.y && x > cPoint.x ) ); }
-    bool          operator==( const IPoint& cPoint ) const { return( y == cPoint.y && x == cPoint.x ); }
-    bool          operator!=( const IPoint& cPoint ) const { return( y != cPoint.y || x != cPoint.x ); }
+    IPoint        operator-(void) const { return(IPoint(-x, -y)); }
+    IPoint        operator+(const IPoint& cPoint) const { return(IPoint(x + cPoint.x, y + cPoint.y)); }
+    IPoint        operator-(const IPoint& cPoint) const { return(IPoint(x - cPoint.x, y - cPoint.y)); }
+    const IPoint& operator+=(const IPoint& cPoint) { x += cPoint.x; y += cPoint.y; return(*this); }
+    const IPoint& operator-=(const IPoint& cPoint) { x -= cPoint.x; y -= cPoint.y; return(*this); }
+    bool          operator<(const IPoint& cPoint) const { return(y < cPoint.y || (y == cPoint.y && x < cPoint.x)); }
+    bool          operator>(const IPoint& cPoint) const { return(y > cPoint.y || (y == cPoint.y && x > cPoint.x)); }
+    bool          operator==(const IPoint& cPoint) const { return(y == cPoint.y && x == cPoint.x); }
+    bool          operator!=(const IPoint& cPoint) const { return(y != cPoint.y || x != cPoint.x); }
 };
 
 
-Point::Point( const IPoint& cPnt )
+Point::Point(const IPoint& cPnt)
 {
     x = float(cPnt.x);
     y = float(cPnt.y);
 }
 
-IPoint::IPoint( const Point& cPnt )
+IPoint::IPoint(const Point& cPnt)
 {
     x = int(cPnt.x);
     y = int(cPnt.y);
 }
 
+} // namespace os

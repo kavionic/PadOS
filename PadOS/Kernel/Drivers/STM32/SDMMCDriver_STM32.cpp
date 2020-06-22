@@ -69,9 +69,10 @@ SDMMCDriver_STM32::~SDMMCDriver_STM32()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver_STM32::Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, DigitalPinID pinCD, IRQn_Type irqNum)
+bool SDMMCDriver_STM32::Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, uint32_t clockCap, DigitalPinID pinCD, IRQn_Type irqNum)
 {
 	m_PeripheralClockFrequency = peripheralClockFrequency;
+	m_ClockCap = clockCap;
 	m_SDMMC = port;
 
 	SetClockFrequency(SDMMC_CLOCK_INIT);
@@ -417,12 +418,14 @@ void SDMMCDriver_STM32::Reset()
 
 void SDMMCDriver_STM32::SetClockFrequency(uint32_t frequency)
 {
-	const uint32_t divider = (m_PeripheralClockFrequency + (frequency * 2) - 1) / (frequency * 2);
+    if (m_ClockCap != 0 && frequency > m_ClockCap) frequency = m_ClockCap;
 
-	uint32_t CLKCR = m_SDMMC->CLKCR;
-	CLKCR &= ~SDMMC_CLKCR_CLKDIV_Msk;
-	CLKCR |= divider << SDMMC_CLKCR_CLKDIV_Pos;
-	m_SDMMC->CLKCR = CLKCR;
+    const uint32_t divider = (m_PeripheralClockFrequency + (frequency * 2) - 1) / (frequency * 2);
+
+    uint32_t CLKCR = m_SDMMC->CLKCR;
+    CLKCR &= ~SDMMC_CLKCR_CLKDIV_Msk;
+    CLKCR |= divider << SDMMC_CLKCR_CLKDIV_Pos;
+    m_SDMMC->CLKCR = CLKCR;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

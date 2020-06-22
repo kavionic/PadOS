@@ -29,35 +29,36 @@ namespace kernel
 class SDMMCDriver_STM32 : public SDMMCDriver
 {
 public:
-	SDMMCDriver_STM32();
-	~SDMMCDriver_STM32();
+    SDMMCDriver_STM32();
+    ~SDMMCDriver_STM32();
 
-	bool Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, DigitalPinID pinCD, IRQn_Type irqNum);
+    bool Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, uint32_t clockCap, DigitalPinID pinCD, IRQn_Type irqNum);
 
 
     virtual void     SetClockFrequency(uint32_t frequency) override;
     virtual void     SendClock() override;
 
-	bool ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32_t arg);
+    bool ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32_t arg);
 
-	virtual bool		SendCmd(uint32_t cmd, uint32_t arg) override;
-	virtual uint32_t	GetResponse() override;
-	virtual void		GetResponse128(uint8_t* response) override;
-	virtual bool		StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint16_t blockCount, const void* buffer) override;
-	virtual bool		StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg) override;
-	virtual void		ApplySpeedAndBusWidth() override;
+    virtual bool	SendCmd(uint32_t cmd, uint32_t arg) override;
+    virtual uint32_t	GetResponse() override;
+    virtual void	GetResponse128(uint8_t* response) override;
+    virtual bool	StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint16_t blockCount, const void* buffer) override;
+    virtual bool	StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg) override;
+    virtual void	ApplySpeedAndBusWidth() override;
 
 private:
-	static IRQResult IRQCallback(IRQn_Type irq, void* userData) { return static_cast<SDMMCDriver_STM32*>(userData)->HandleIRQ(); }
-	IRQResult        HandleIRQ();
+    static IRQResult IRQCallback(IRQn_Type irq, void* userData) { return static_cast<SDMMCDriver_STM32*>(userData)->HandleIRQ(); }
+    IRQResult        HandleIRQ();
 
-	bool     WaitIRQ(uint32_t flags);
-	bool     WaitIRQ(uint32_t flags, bigtime_t timeout);
+    bool     WaitIRQ(uint32_t flags);
+    bool     WaitIRQ(uint32_t flags, bigtime_t timeout);
 
-	void     Reset();
+    void     Reset();
 
-	SDMMC_TypeDef* m_SDMMC;
-	uint32_t       m_PeripheralClockFrequency = 0;
+    SDMMC_TypeDef*  m_SDMMC;
+    uint32_t	    m_PeripheralClockFrequency = 0;
+    uint32_t	    m_ClockCap = 0;
 };
 
 } // namespace

@@ -36,6 +36,7 @@ enum class MouseButton_e
     Touch7,
     Touch8,
     Touch9,
+    LastTouchID = Touch9
 };
 
 struct MsgMouseEvent
@@ -43,6 +44,6 @@ struct MsgMouseEvent
     bigtime_t     Timestamp;
     int32_t       EventID;
     MouseButton_e ButtonID;
-    Point         Position;    
+    os::Point     Position;
 };
 

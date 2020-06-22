@@ -417,6 +417,25 @@ int FileIO::CreateDirectory(const char* path, int permission)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int FileIO::ReadStats(int handle, struct stat* outStats)
+{
+    Ptr<KFileTableNode> node = GetFileNode(handle);
+    if (node == nullptr) {
+	set_last_error(EBADF);
+	return -1;
+    }
+    Ptr<KINode> inode = node->GetINode();
+    if (inode == nullptr || inode->m_FileOps == nullptr) {
+	set_last_error(ENOSYS);
+	return -1;
+    }
+    return inode->m_FileOps->ReadStat(inode->m_Volume, inode, outStats);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 ///    Some operations need to remove trailing slashes for POSIX.1 conformance.
 ///    For rename we also need to change the behavior depending on whether we
 ///    had a trailing slash or not.. (we cannot rename normal files with

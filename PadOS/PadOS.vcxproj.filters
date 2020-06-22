@@ -139,6 +139,15 @@
     <Filter Include="Include\DeviceControl">
       <UniqueIdentifier>{8cb7cad4-65f8-4eaf-9ff2-7d9ea5b595fb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ExternalLibs">
+      <UniqueIdentifier>{a71e9d55-3ef3-4adb-bea7-8635b4a7ed4f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ExternalLibs\rapidxml">
+      <UniqueIdentifier>{5783e40b-0865-408a-b09c-1d7e5d21c162}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ExternalLibs\pugixml">
+      <UniqueIdentifier>{45274a0b-7afc-4802-afbc-7b599a22c31e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="release\SAME70XplainedTest.bin">
@@ -209,6 +218,9 @@
     </None>
     <None Include="Kernel\Drivers\SDMMCDriver\Files.mk">
       <Filter>Source Files\Kernel\Drivers\SDMMCDriver</Filter>
+    </None>
+    <None Include="ExternalLibs\pugixml\src\Files.mk">
+      <Filter>ExternalLibs\pugixml</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -487,6 +499,24 @@
     </ClCompile>
     <ClCompile Include="System\GUI\GroupView.cpp">
       <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\GUI\Checkbox.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Utils\XMLFactory.cpp">
+      <Filter>Source Files\System\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="System\GUI\ViewFactory.cpp">
+      <Filter>Source Files\System\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="ExternalLibs\pugixml\src\pugixml.cpp">
+      <Filter>ExternalLibs\pugixml</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Utils\XMLObjectParser.cpp">
+      <Filter>Source Files\System\Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="System\Utils\HashCalculator.cpp">
+      <Filter>Source Files\System\Utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -906,6 +936,39 @@
     </ClInclude>
     <ClInclude Include="Include\GUI\GroupView.h">
       <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\Checkbox.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="ExternalLibs\rapidxml\rapidxml.hpp">
+      <Filter>ExternalLibs\rapidxml</Filter>
+    </ClInclude>
+    <ClInclude Include="ExternalLibs\rapidxml\rapidxml_iterators.hpp">
+      <Filter>ExternalLibs\rapidxml</Filter>
+    </ClInclude>
+    <ClInclude Include="ExternalLibs\rapidxml\rapidxml_print.hpp">
+      <Filter>ExternalLibs\rapidxml</Filter>
+    </ClInclude>
+    <ClInclude Include="ExternalLibs\rapidxml\rapidxml_utils.hpp">
+      <Filter>ExternalLibs\rapidxml</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Utils\XMLFactory.h">
+      <Filter>Include\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\GUI\ViewFactory.h">
+      <Filter>Include\GUI</Filter>
+    </ClInclude>
+    <ClInclude Include="ExternalLibs\pugixml\src\pugiconfig.hpp">
+      <Filter>ExternalLibs\pugixml</Filter>
+    </ClInclude>
+    <ClInclude Include="ExternalLibs\pugixml\src\pugixml.hpp">
+      <Filter>ExternalLibs\pugixml</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Utils\XMLObjectParser.h">
+      <Filter>Include\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Include\Utils\HashCalculator.h">
+      <Filter>Include\Utils</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

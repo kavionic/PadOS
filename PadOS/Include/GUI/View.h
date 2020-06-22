@@ -38,6 +38,13 @@
 #include "GUI/Color.h"
 #include "GUI/LayoutNode.h"
 
+namespace pugi
+{
+class xml_node;
+}
+
+#define DEFINE_FLAG_MAP_ENTRY(NAMESPACE, FLAG) {#FLAG, NAMESPACE::FLAG}
+
 namespace os
 {
 
@@ -64,6 +71,8 @@ namespace ViewFlags
     static constexpr uint32_t ForceHandleMouse    = 0x0200;    ///< Handle the mouse/touch event even if a child view is under the mouse.
 
     static constexpr int FirstUserBit = 16;    // Inheriting classes should shift their flags this much to the left to avoid collisions.
+
+    extern const std::map<String, uint32_t> FlagMap;
 }
 
 namespace ViewDebugDrawFlags
@@ -201,7 +210,31 @@ public:
 
     typename ChildList_t::reverse_iterator       GetChildRIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
     typename ChildList_t::const_reverse_iterator GetChildRIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
+
+    template<typename T>
+    Ptr<T> FindChild(const String& name, bool recursive = true)
+    {
+	return ptr_dynamic_cast<T>(FindChildInternal(name, recursive));
+    }
+
     
+    Ptr<ViewType> FindChildInternal(const String& name, bool recursive = true)
+    {
+	for (const Ptr<ViewType>& child : m_ChildrenList)
+	{
+	    if (child->GetName() == name) return child;
+	}
+	if (recursive)
+	{
+	    for (const Ptr<ViewType>& child : m_ChildrenList)
+	    {
+		Ptr<ViewType> view = child->FindChildInternal(name, true);
+		if (view != nullptr) return view;
+	    }
+	}
+	return nullptr;
+    }
+
     int32_t GetChildIndex(Ptr<ViewType> child) const
     {
         auto i = GetChildIterator(child);
@@ -378,6 +411,7 @@ class View : public ViewBase<View>
 {
 public:
     View(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    View(Ptr<View> parent, const pugi::xml_node& xmlData);
     View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame);
     virtual ~View();
     

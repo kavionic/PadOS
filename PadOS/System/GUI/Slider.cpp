@@ -21,9 +21,23 @@
 #include "GUI/Slider.h"
 #include "GUI/Region.h"
 #include "GUI/TextView.h"
+#include "Utils/XMLFactory.h"
+#include "Utils/XMLObjectParser.h"
 
 
 using namespace os;
+
+const std::map<String, uint32_t> SliderFlags::FlagMap
+{
+    DEFINE_FLAG_MAP_ENTRY(SliderFlags, TicksAbove),
+    DEFINE_FLAG_MAP_ENTRY(SliderFlags, TicksBelow),
+    DEFINE_FLAG_MAP_ENTRY(SliderFlags, TicksLeft),
+    DEFINE_FLAG_MAP_ENTRY(SliderFlags, TicksRight),
+    DEFINE_FLAG_MAP_ENTRY(SliderFlags, KnobPointUp),
+    DEFINE_FLAG_MAP_ENTRY(SliderFlags, KnobPointDown),
+    DEFINE_FLAG_MAP_ENTRY(SliderFlags, KnobPointLeft),
+    DEFINE_FLAG_MAP_ENTRY(SliderFlags, KnobPointRight)
+};
 
 static constexpr float TICK_LENGTH	= 6.0f;
 static constexpr float TICK_SPACING	= 3.0f;
@@ -42,6 +56,35 @@ Slider::Slider(const String& name, Ptr<View> parent, uint32_t flags, int tickCou
 
     m_SliderColor1  = get_standard_color(StandardColorID::SCROLLBAR_BG);;
     m_SliderColor2  = m_SliderColor1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Slider::Slider(Ptr<View> parent, const pugi::xml_node& xmlData) : Control(parent, xmlData)
+{
+    MergeFlags(xml_object_parser::parse_flags_attribute(xmlData, SliderFlags::FlagMap, "flags", SliderFlags::TicksBelow | SliderFlags::KnobPointDown) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
+
+    m_Orientation   = Orientation::Horizontal; // orientation;
+    m_NumTicks	    = xml_object_parser::parse_attribute(xmlData, "num_ticks", 10);
+
+    m_MinLabel = xml_object_parser::parse_attribute(xmlData, "min_label", String::zero);
+    m_MaxLabel = xml_object_parser::parse_attribute(xmlData, "max_label", String::zero);
+
+    m_Min   = xml_object_parser::parse_attribute(xmlData, "min", 0.0f);
+    m_Max   = xml_object_parser::parse_attribute(xmlData, "max", 1.0f);
+    m_Value = xml_object_parser::parse_attribute(xmlData, "value", m_Min);
+
+    m_SliderColor1  = get_standard_color(StandardColorID::SCROLLBAR_BG);;
+    m_SliderColor2  = m_SliderColor1;
+
+    SetValueStringFormat(xml_object_parser::parse_attribute(xmlData, "value_format", String::zero), xml_object_parser::parse_attribute(xmlData, "value_scale", 1.0f));
+/*    if (!m_ValueFormat.empty())
+    {
+	UpdateValueView();
+	LayoutValueView();
+    }*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -385,6 +428,7 @@ void Slider::SetLimitLabels(const String& minLabel, const String& maxLabel)
 {
     m_MinLabel = minLabel;
     m_MaxLabel = maxLabel;
+    PreferredSizeChanged();
     RefreshDisplay();
 }
 
@@ -410,7 +454,7 @@ void Slider::GetLimitLabels(String* minLabel, String* maxLabel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::EnableStatusChanged(bool isEnabled)
+void Slider::OnEnableStatusChanged(bool isEnabled)
 {
     if (m_HitButton != MouseButton_e::None)
     {
@@ -422,7 +466,6 @@ void Slider::EnableStatusChanged(bool isEnabled)
 	}
 	MakeFocus(false);
     }
-
     Invalidate();
 }
 

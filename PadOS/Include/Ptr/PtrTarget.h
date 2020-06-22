@@ -146,7 +146,6 @@ public:
     }
 
     virtual bool LastReferenceGone() {
-        m_ReferenceCount++; // In case the destructor convert "this" to a smart pointer.
         delete this;
         return true;
     }

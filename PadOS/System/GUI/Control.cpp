@@ -16,7 +16,9 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <Gui/Control.h>
+#include "Gui/Control.h"
+#include "Utils/XMLFactory.h"
+#include "Utils/XMLObjectParser.h"
 
 using namespace os;
 
@@ -35,6 +37,16 @@ Control::Control(const String& name, Ptr<View> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+Control::Control(Ptr<View> parent, const pugi::xml_node& xmlData) : View(parent, xmlData)
+{
+    m_Label = xml_object_parser::parse_attribute(xmlData, "label", String::zero);
+    m_IsEnabled = xml_object_parser::parse_attribute<bool>(xmlData, "enabled", true);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Control::~Control()
 {
 }
@@ -47,7 +59,7 @@ void Control::SetEnable(bool enable)
 {
     if (m_IsEnabled != enable) {
 	m_IsEnabled = enable;
-	EnableStatusChanged(m_IsEnabled);
+	OnEnableStatusChanged(m_IsEnabled);
     }
 }
 
@@ -58,5 +70,18 @@ void Control::SetEnable(bool enable)
 bool Control::IsEnabled() const
 {
     return m_IsEnabled;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Control::SetLabel(const String& label)
+{
+    if (label != m_Label)
+    {
+	m_Label = label;
+	OnLabelChanged(m_Label);
+    }
 }
 

@@ -19,6 +19,7 @@
 #pragma once
 
 #include <limits.h>
+#include <map>
 #include "Control.h"
 
 
@@ -38,6 +39,9 @@ static constexpr uint32_t KnobPointUp	    = 0x0004 << ViewFlags::FirstUserBit;
 static constexpr uint32_t KnobPointDown	    = 0x0008 << ViewFlags::FirstUserBit;
 static constexpr uint32_t KnobPointLeft	    = KnobPointUp;
 static constexpr uint32_t KnobPointRight    = KnobPointDown;
+
+extern const std::map<String, uint32_t> FlagMap;
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -53,6 +57,8 @@ class Slider : public Control
 public:
     Slider(const String& name, Ptr<View> parent = nullptr, uint32_t flags = SliderFlags::TicksBelow,
 	   int tickCount = 10, Orientation orientation = Orientation::Horizontal);
+    Slider(Ptr<View> parent, const pugi::xml_node& xmlData);
+
     ~Slider();
 
     // From View:
@@ -99,7 +105,7 @@ public:
     virtual void    SetMinMax(float min, float max ) { m_Min = min; m_Max = max; }
     
     // From Control:
-    virtual void    EnableStatusChanged(bool isEnabled) override;
+    virtual void    OnEnableStatusChanged(bool isEnabled) override;
     
     //	From View
     virtual void AttachedToScreen() override;

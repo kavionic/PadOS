@@ -28,7 +28,7 @@
 #include "Fonts/MicrosoftSansSerif_72.h"
 
 using namespace kernel;
-
+using namespace os;
 GfxDriver GfxDriver::Instance;
 
 ///////////////////////////////////////////////////////////////////////////////

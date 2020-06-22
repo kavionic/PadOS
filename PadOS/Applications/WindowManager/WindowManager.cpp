@@ -25,6 +25,8 @@
 #include "ApplicationServer/ApplicationServer.h"
 #include "GUI/Button.h"
 
+using namespace os;
+
 static port_id g_WindowManagerPort = -1;
 
 ///////////////////////////////////////////////////////////////////////////////

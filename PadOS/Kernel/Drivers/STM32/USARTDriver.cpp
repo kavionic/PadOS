@@ -84,64 +84,73 @@ USARTDriverINode::USARTDriverINode(USART_TypeDef* port, DMAMUX1_REQUEST dmaReque
 
 ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length)
 {
-	CRITICAL_SCOPE(m_MutexRead);
+    CRITICAL_SCOPE(m_MutexRead);
 
-	uint8_t* currentTarget = reinterpret_cast<uint8_t*>(buffer);
-	ssize_t remainingLen = length;
+    uint8_t* currentTarget = reinterpret_cast<uint8_t*>(buffer);
+    ssize_t remainingLen = length;
 
-	CRITICAL_BEGIN(CRITICAL_IRQ)
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+	dma_stop(m_ReceiveDMAChannel);
+	dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
+    } CRITICAL_END;
+
+    if (m_Port->ISR & USART_ISR_ORE) {
+	m_Port->ICR = USART_ICR_ORECF;
+	set_last_error(EIO);
+	return -1;
+    }
+
+    int32_t bytesReceived = m_ReceiveBufferSize - dma_get_transfer_count(m_ReceiveDMAChannel);
+
+    if (bytesReceived >= length)
+    {
+	SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((bytesReceived + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
+	memcpy(currentTarget, m_ReceiveBuffer, length);
+
+	if (length == bytesReceived)
 	{
-		dma_stop(m_ReceiveDMAChannel);
-		dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
-	} CRITICAL_END;
-
-	int32_t bytesReceived = m_ReceiveBufferSize - dma_get_transfer_count(m_ReceiveDMAChannel);
-
-	if (bytesReceived >= length)
-	{
-		SCB_CleanInvalidateDCache();
-		memcpy(currentTarget, m_ReceiveBuffer, length);
-
-		if (length == bytesReceived)
-		{
-			m_ReceiveBufferInPos = 0;
-			dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
-		}
-		else
-		{
-			memmove(m_ReceiveBuffer, m_ReceiveBuffer + length, bytesReceived - length);
-			SCB_CleanInvalidateDCache();
-			m_ReceiveBufferInPos = bytesReceived - length;
-			dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer + m_ReceiveBufferInPos, m_ReceiveBufferSize - m_ReceiveBufferInPos);
-		}
-		dma_start(m_ReceiveDMAChannel);
-		return length;
+	    m_ReceiveBufferInPos = 0;
+	    dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
 	}
 	else
 	{
-		if (bytesReceived > 0)
-		{
-			SCB_CleanInvalidateDCache();
-			memcpy(currentTarget, m_ReceiveBuffer, bytesReceived);
-			remainingLen -= bytesReceived;
-			currentTarget += bytesReceived;
-		}
-		for (size_t currentLen = std::min<size_t>(m_ReceiveBufferSize, remainingLen); remainingLen > 0; remainingLen -= currentLen, currentTarget += currentLen)
-		{
-			dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, currentLen);
-			CRITICAL_BEGIN(CRITICAL_IRQ)
-			{
-				dma_start(m_ReceiveDMAChannel);
-				while (!m_ReceiveCondition.IRQWait() && get_last_error() == EINTR);
-			} CRITICAL_END;
-			SCB_CleanInvalidateDCache();
-			memcpy(currentTarget, m_ReceiveBuffer, currentLen);
-		}
-		m_ReceiveBufferInPos = 0;
-		dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
-		dma_start(m_ReceiveDMAChannel);
+	    memmove(m_ReceiveBuffer, m_ReceiveBuffer + length, bytesReceived - length);
+	    m_ReceiveBufferInPos = bytesReceived - length;
+	    dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer + m_ReceiveBufferInPos, m_ReceiveBufferSize - m_ReceiveBufferInPos);
 	}
+	dma_start(m_ReceiveDMAChannel);
 	return length;
+    }
+    else
+    {
+	if (bytesReceived > 0)
+	{
+	    SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((bytesReceived + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
+	    memcpy(currentTarget, m_ReceiveBuffer, bytesReceived);
+	    remainingLen -= bytesReceived;
+	    currentTarget += bytesReceived;
+	}
+	for (size_t currentLen = std::min<size_t>(m_ReceiveBufferSize, remainingLen); remainingLen > 0; )
+	{
+	    dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, currentLen);
+	    CRITICAL_BEGIN(CRITICAL_IRQ)
+	    {
+		dma_start(m_ReceiveDMAChannel);
+		while (!m_ReceiveCondition.IRQWait() && get_last_error() == EINTR);
+	    } CRITICAL_END;
+	    SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((currentLen + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
+	    memcpy(currentTarget, m_ReceiveBuffer, currentLen);
+
+	    remainingLen -= currentLen;
+	    currentTarget += currentLen;
+	    currentLen = std::min<size_t>(m_ReceiveBufferSize, remainingLen);
+	}
+	m_ReceiveBufferInPos = 0;
+	dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
+	dma_start(m_ReceiveDMAChannel);
+    }
+    return length;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -184,6 +193,7 @@ IRQResult USARTDriverINode::HandleIRQReceive()
 	{
 		dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
 		m_ReceiveCondition.Wakeup();
+		KSWITCH_CONTEXT();
 	}
 	return IRQResult::HANDLED;
 }

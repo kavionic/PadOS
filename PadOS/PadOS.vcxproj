@@ -101,16 +101,17 @@
     <NMakePreprocessorDefinitions>WIN32;NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Project\Projects\PadOS\PadOS\Include;C:\Project\Projects\PadOS\PadOS;C:\ST\STM32CubeIDE_1.1.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.0.0.201904181610\tools\arm-none-eabi\include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include</IncludePath>
+    <IncludePath>C:\Project\Projects\PadOS\PadOS\ExternalLibs;C:\Project\Projects\PadOS\PadOS\Include;C:\Project\Projects\PadOS\PadOS;C:\ST\STM32CubeIDE_1.1.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.0.0.201904181610\tools\arm-none-eabi\include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Project\Projects\PadOS\PadOS\Include;C:\Project\Projects\PadOS\PadOS;C:\ST\STM32CubeIDE_1.1.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.0.0.201904181610\tools\arm-none-eabi\include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include</IncludePath>
+    <IncludePath>C:\Project\Projects\PadOS\PadOS\ExternalLibs;C:\Project\Projects\PadOS\PadOS\Include;C:\Project\Projects\PadOS\PadOS;C:\ST\STM32CubeIDE_1.1.0\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.7-2018-q2-update.win32_1.0.0.201904181610\tools\arm-none-eabi\include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Core/Include;C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.7.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup>
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="ApplicationServer\Files.mk" />
     <None Include="Applications\WindowManager\Files.mk" />
+    <None Include="ExternalLibs\pugixml\src\Files.mk" />
     <None Include="Kernel\Drivers\ATSAM\Files.mk" />
     <None Include="Kernel\Drivers\Files.mk" />
     <None Include="Kernel\Drivers\RA8875Driver\Files.mk" />
@@ -138,6 +139,7 @@
     <ClCompile Include="ApplicationServer\ServerView.cpp" />
     <ClCompile Include="Applications\WindowManager\WindowManager.cpp" />
     <ClCompile Include="ASF\sam\drivers\xdmac\xdmac.c" />
+    <ClCompile Include="ExternalLibs\pugixml\src\pugixml.cpp" />
     <ClCompile Include="Init.cpp" />
     <ClCompile Include="Kernel\Drivers\ATSAM\SDMMC_ATSAM.cpp" />
     <ClCompile Include="Kernel\Drivers\BME280Driver.cpp" />
@@ -200,6 +202,7 @@
     <ClCompile Include="SDRAM.cpp" />
     <ClCompile Include="System\GUI\Application.cpp" />
     <ClCompile Include="System\GUI\Button.cpp" />
+    <ClCompile Include="System\GUI\Checkbox.cpp" />
     <ClCompile Include="System\GUI\Control.cpp" />
     <ClCompile Include="System\GUI\Font.cpp" />
     <ClCompile Include="System\GUI\GroupView.cpp" />
@@ -208,6 +211,7 @@
     <ClCompile Include="System\GUI\Slider.cpp" />
     <ClCompile Include="System\GUI\TextView.cpp" />
     <ClCompile Include="System\GUI\View.cpp" />
+    <ClCompile Include="System\GUI\ViewFactory.cpp" />
     <ClCompile Include="System\Math\LineSegment.cpp" />
     <ClCompile Include="System\Math\Rect.cpp" />
     <ClCompile Include="System\Ptr\PtrTarget.cpp" />
@@ -221,10 +225,13 @@
     <ClCompile Include="System\Threads\Semaphore.cpp" />
     <ClCompile Include="System\Threads\Thread.cpp" />
     <ClCompile Include="System\Threads\ThreadLocal.cpp" />
+    <ClCompile Include="System\Utils\HashCalculator.cpp" />
     <ClCompile Include="System\Utils\IntrusiveList.cpp" />
     <ClCompile Include="System\Utils\MessagePort.cpp" />
     <ClCompile Include="System\Utils\String.cpp" />
     <ClCompile Include="System\Utils\Utils.cpp" />
+    <ClCompile Include="System\Utils\XMLFactory.cpp" />
+    <ClCompile Include="System\Utils\XMLObjectParser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ApplicationServer\ApplicationServer.h" />
@@ -243,6 +250,12 @@
     <ClInclude Include="ASF\sam\utils\preprocessor\stringz.h" />
     <ClInclude Include="ASF\sam\utils\preprocessor\tpaste.h" />
     <ClInclude Include="ASF\sam\utils\status_codes.h" />
+    <ClInclude Include="ExternalLibs\pugixml\src\pugiconfig.hpp" />
+    <ClInclude Include="ExternalLibs\pugixml\src\pugixml.hpp" />
+    <ClInclude Include="ExternalLibs\rapidxml\rapidxml.hpp" />
+    <ClInclude Include="ExternalLibs\rapidxml\rapidxml_iterators.hpp" />
+    <ClInclude Include="ExternalLibs\rapidxml\rapidxml_print.hpp" />
+    <ClInclude Include="ExternalLibs\rapidxml\rapidxml_utils.hpp" />
     <ClInclude Include="Include\App\Application.h" />
     <ClInclude Include="Include\DeviceControl\BME280.h" />
     <ClInclude Include="Include\DeviceControl\DeviceControl.h" />
@@ -253,6 +266,7 @@
     <ClInclude Include="Include\DeviceControl\TLV493D.h" />
     <ClInclude Include="Include\DeviceControl\WS2812B.h" />
     <ClInclude Include="Include\GUI\Button.h" />
+    <ClInclude Include="Include\GUI\Checkbox.h" />
     <ClInclude Include="Include\GUI\Color.h" />
     <ClInclude Include="Include\GUI\Control.h" />
     <ClInclude Include="Include\GUI\Font.h" />
@@ -263,6 +277,7 @@
     <ClInclude Include="Include\GUI\Slider.h" />
     <ClInclude Include="Include\GUI\TextView.h" />
     <ClInclude Include="Include\GUI\View.h" />
+    <ClInclude Include="Include\GUI\ViewFactory.h" />
     <ClInclude Include="Include\Math\LineSegment.h" />
     <ClInclude Include="Include\Math\Point.h" />
     <ClInclude Include="Include\Math\Rect.h" />
@@ -294,11 +309,14 @@
     <ClInclude Include="Include\Threads\Thread.h" />
     <ClInclude Include="Include\Threads\ThreadLocal.h" />
     <ClInclude Include="Include\Threads\Threads.h" />
+    <ClInclude Include="Include\Utils\HashCalculator.h" />
     <ClInclude Include="Include\Utils\IntrusiveList.h" />
     <ClInclude Include="Include\Utils\MessagePort.h" />
     <ClInclude Include="Include\Utils\String.h" />
     <ClInclude Include="Include\Utils\UTF8Utils.h" />
     <ClInclude Include="Include\Utils\Utils.h" />
+    <ClInclude Include="Include\Utils\XMLFactory.h" />
+    <ClInclude Include="Include\Utils\XMLObjectParser.h" />
     <ClInclude Include="Kernel\Drivers\ATSAM\SDMMC_ATSAM.h" />
     <ClInclude Include="Kernel\Drivers\BME280Driver.h" />
     <ClInclude Include="Kernel\Drivers\FT5x0xDriver.h" />

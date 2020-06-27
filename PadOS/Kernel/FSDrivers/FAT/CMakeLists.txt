@@ -1,0 +1,20 @@
+target_sources(PadOS PRIVATE
+	FATClusterSectorIterator.cpp
+	FATClusterSectorIterator.h
+	FATDirectoryIterator.cpp
+	FATDirectoryIterator.h
+	FATDirectoryNode.cpp
+	FATDirectoryNode.h
+	FATFileNode.cpp
+	FATFileNode.h
+	FATFilesystem.cpp
+	FATFilesystem.h
+	FATINode.cpp
+	FATINode.h
+	FATTable.cpp
+	FATTable.h
+	FATTableIterator.cpp
+	FATTableIterator.h
+	FATVolume.cpp
+	FATVolume.h
+)

@@ -23,9 +23,9 @@
 #include <algorithm>
 
 #include "GfxDriver.h"
-#include "Fonts/MicrosoftSansSerif_14.h"
-#include "Fonts/MicrosoftSansSerif_20.h"
-#include "Fonts/MicrosoftSansSerif_72.h"
+#include "Fonts/SansSerif_14.h"
+#include "Fonts/SansSerif_20.h"
+#include "Fonts/SansSerif_72.h"
 
 using namespace kernel;
 using namespace os;
@@ -197,11 +197,11 @@ const FONT_INFO* GfxDriver::GetFontDesc(Font_e fontID) const
     {
         case e_FontSmall:
         case e_FontNormal:
-            return &microsoftSansSerif_14ptFontInfo;
+            return &sansSerif_14ptFontInfo;
         case e_FontLarge:
-            return &microsoftSansSerif_20ptFontInfo;
+            return &sansSerif_20ptFontInfo;
         case e_Font7Seg:
-            return &microsoftSansSerif_72ptFontInfo;
+            return &sansSerif_72ptFontInfo;
         case e_FontCount:
             return nullptr;
     }

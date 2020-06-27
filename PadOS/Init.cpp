@@ -51,11 +51,79 @@ extern "C" void HardFault_Handler()
 }
 extern "C" void MemoryManagement_Handler()
 {
-    kernel::panic("MemManage\n");
+    volatile uint32_t   faultAddress = 0xff00ffff;
+    volatile bool       fpuLazyStatePreservation = false;
+    volatile bool       exceptionStackingError = false;
+	volatile bool       exceptionUnstackingError = false;
+    volatile bool       dataAccessError = false;
+	volatile bool       instrAccessError = false;
+    if (SCB->CFSR & SCB_CFSR_MMARVALID_Msk) {
+        faultAddress = SCB->MMFAR;
+    }
+    if (SCB->CFSR & SCB_CFSR_MLSPERR_Msk) {
+        fpuLazyStatePreservation = true;
+    }
+    if (SCB->CFSR & SCB_CFSR_MSTKERR_Msk) {
+        exceptionStackingError = true;
+    }
+	if (SCB->CFSR & SCB_CFSR_MUNSTKERR_Msk) {
+		exceptionUnstackingError = true;
+	}
+	if (SCB->CFSR & SCB_CFSR_DACCVIOL_Msk) {
+		dataAccessError = true;
+	}
+	if (SCB->CFSR & SCB_CFSR_IACCVIOL_Msk) {
+		instrAccessError = true;
+	}
+	(void)faultAddress;
+	(void)fpuLazyStatePreservation;
+	(void)exceptionStackingError;
+	(void)exceptionUnstackingError;
+	(void)dataAccessError;
+	(void)instrAccessError;
+	kernel::panic("MemManage\n");
 }
 extern "C" void BusFault_Handler()
 {
-    kernel::panic("BusFault\n");
+	volatile uint32_t   faultAddress = 0xff00ffff;
+	volatile bool       fpuLazyStatePreservation = false;
+	volatile bool       exceptionStackingError = false;
+	volatile bool       exceptionUnstackingError = false;
+	volatile bool		impreciseError = false;
+	volatile bool		preciseError = false;
+	volatile bool       dataAccessError = false;
+	volatile bool       instrBusError = false;
+	if (SCB->CFSR & SCB_CFSR_BFARVALID_Msk) {
+		faultAddress = SCB->BFAR;
+	}
+	if (SCB->CFSR & SCB_CFSR_LSPERR_Msk) {
+		fpuLazyStatePreservation = true;
+	}
+	if (SCB->CFSR & SCB_CFSR_STKERR_Msk) {
+		exceptionStackingError = true;
+	}
+	if (SCB->CFSR & SCB_CFSR_UNSTKERR_Msk) {
+		exceptionUnstackingError = true;
+	}
+	if (SCB->CFSR & SCB_CFSR_IMPRECISERR_Msk) {
+		impreciseError = true;
+	}
+	if (SCB->CFSR & SCB_CFSR_PRECISERR_Msk) {
+		preciseError = true;
+	}
+	if (SCB->CFSR & SCB_CFSR_IBUSERR_Msk) {
+		instrBusError = true;
+	}
+	(void)faultAddress;
+	(void)fpuLazyStatePreservation;
+	(void)exceptionStackingError;
+	(void)exceptionUnstackingError;
+	(void)impreciseError;
+	(void)preciseError;
+	(void)dataAccessError;
+	(void)instrBusError;
+
+	kernel::panic("BusFault\n");
 }
 extern "C" void UsageFault_Handler()
 {

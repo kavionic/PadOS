@@ -119,14 +119,16 @@ int SDMMCDriver::Run()
 		{
 			hasCard = !m_PinCD;
 			if (hasCard == m_CardInserted) {
-				m_CardDetectCondition.IRQWait();
+                if (!m_CardInserted || m_CardState == SDMMCDriver::CardState::Ready) {
+                    m_CardDetectCondition.IRQWait();
+                }
 			}
 		} CRITICAL_END;
 
 		snooze_ms(100); // De-bounce
 		hasCard = !m_PinCD;
 
-		if (hasCard != m_CardInserted)
+		if (hasCard != m_CardInserted || m_CardState != SDMMCDriver::CardState::Ready)
         {
 			CRITICAL_SCOPE(m_Mutex);
 
@@ -152,7 +154,8 @@ int SDMMCDriver::Run()
                 {
                     kprintf("SD/MMC card initialization failed\n");
                     SetState(CardState::Unusable);
-                }            
+					snooze_ms(500);
+                }
             }
             else
             {
@@ -1482,14 +1485,19 @@ bool SDMMCDriver::ACmd51_sd()
 	static_assert(SD_SCR_REG_SIZE_BYTES <= BLOCK_SIZE);
 	uint8_t* scr = reinterpret_cast<uint8_t*>(m_CacheAlignedBuffer);
 
-    // CMD55 - Tell the card that the next command is an application specific command.
-    if (!SendCmd(SDMMC_CMD55_APP_CMD, uint32_t(m_RCA) << 16)) {
-        return false;
+    int retries = 0;
+    for (;;)
+    {
+		// CMD55 - Tell the card that the next command is an application specific command.
+		if (!SendCmd(SDMMC_CMD55_APP_CMD, uint32_t(m_RCA) << 16)) {
+			return false;
+		}
+        if (StartAddressedDataTransCmd(SD_ACMD51_SEND_SCR, 0, get_first_bit_index(SD_SCR_REG_SIZE_BYTES), 1, scr)) {
+            break;
+        } else if (++retries > 5) {
+            return false;
+        }
     }
-    if (!StartAddressedDataTransCmd(SD_ACMD51_SEND_SCR, 0, get_first_bit_index(SD_SCR_REG_SIZE_BYTES), 1, scr)) {
-        return false;
-    }
-
     // Get SD Memory Card - Spec. Version
     switch (SD_SCR_SD_SPEC(scr))
     {

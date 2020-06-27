@@ -19,26 +19,23 @@
 
 #include "System/Platform.h"
 
+#include <malloc.h>
 #include <string.h>
 
 #include <map>
 
 #include "KBlockCache.h"
-//#include "SystemSetup.h"
 #include "FileIO.h"
 #include "KVFSManager.h"
 
 using namespace kernel;
 using namespace os;
 
-//static const int KBLOCK_CACHE_BLOCK_COUNT = 65536;
 static const int KBLOCK_CACHE_BLOCK_COUNT = 32;
 static const int BC_FLUSH_COUNT = 4;
 
-static uint8_t           gk_BCacheBuffer[KBlockCache::BUFFER_BLOCK_SIZE * KBLOCK_CACHE_BLOCK_COUNT + DCACHE_LINE_SIZE];
+static uint8_t* gk_BCacheBuffer;
 static KCacheBlockHeader gk_BCacheHeaders[KBLOCK_CACHE_BLOCK_COUNT];
-//static uint8_t*           gk_BCacheBuffer;
-//static KCacheBlockHeader* gk_BCacheHeaders;
 
 std::map<int, KBlockCache*>                  KBlockCache::s_DeviceMap;
 IntrusiveList<KCacheBlockHeader>             KBlockCache::s_FreeList;
@@ -147,18 +144,15 @@ bool KBlockCache::SetDevice(int device, off64_t blockCount, size_t blockSize)
 
 void KBlockCache::Initialize()
 {
-//    gk_BCacheBuffer = new uint8_t[KBlockCache::BUFFER_BLOCK_SIZE * KBLOCK_CACHE_BLOCK_COUNT + DCACHE_LINE_SIZE];
-//    gk_BCacheHeaders = new KCacheBlockHeader[KBLOCK_CACHE_BLOCK_COUNT];
-    
-    
-    uint8_t* buffer = reinterpret_cast<uint8_t*>((reinterpret_cast<intptr_t>(&gk_BCacheBuffer[0]) + DCACHE_LINE_SIZE_MASK) & ~DCACHE_LINE_SIZE_MASK);
+    gk_BCacheBuffer = reinterpret_cast<uint8_t*>(memalign(DCACHE_LINE_SIZE, KBlockCache::BUFFER_BLOCK_SIZE * KBLOCK_CACHE_BLOCK_COUNT));
+    uint8_t* buffer = gk_BCacheBuffer;
     for (int i = 0; i < KBLOCK_CACHE_BLOCK_COUNT; ++i)
     {
         gk_BCacheHeaders[i].m_Buffer = buffer;
         buffer += BUFFER_BLOCK_SIZE;
         s_FreeList.Append(&gk_BCacheHeaders[i]);
     }
-    spawn_thread("disk_cache_flusher", DiskCacheFlusher, 0);
+    spawn_thread("disk_cache_flusher", DiskCacheFlusher, 1024);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

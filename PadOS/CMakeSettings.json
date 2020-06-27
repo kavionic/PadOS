@@ -1,0 +1,69 @@
+﻿{
+  "configurations": [
+    {
+      "name": "STM32H7-Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "gcc-arm" ],
+      "variables": [
+        {
+          "name": "CMAKE_C_FLAGS_DEBUG",
+          "value": "-Og -g3",
+          "type": "STRING"
+        },
+        {
+          "name": "CMAKE_CXX_FLAGS_DEBUG",
+          "value": "-Og -g3",
+          "type": "STRING"
+        }
+      ],
+      "intelliSenseMode": "linux-gcc-arm",
+      "cmakeToolchain": "Tools/CMake/ToolChains/arm-gcc.cmake"
+    },
+    {
+      "name": "STM32H7-Release",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "cmakeToolchain": "Tools/CMake/ToolChains/arm-gcc.cmake",
+      "inheritEnvironments": [ "gcc-arm" ],
+      "variables": [
+        {
+          "name": "CMAKE_BUILD_TYPE",
+          "value": "Release",
+          "type": "STRING"
+        }
+      ],
+      "intelliSenseMode": "linux-gcc-arm"
+    },
+    {
+      "name": "STM32H7-ReleaseWidthDbg",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "cmakeToolchain": "Tools/CMake/ToolChains/arm-gcc.cmake",
+      "inheritEnvironments": [ "gcc-arm" ],
+      "variables": [
+        {
+          "name": "CMAKE_BUILD_TYPE",
+          "value": "RelWithDebInfo",
+          "type": "STRING"
+        }
+      ],
+      "intelliSenseMode": "linux-gcc-arm"
+    }
+  ]
+}

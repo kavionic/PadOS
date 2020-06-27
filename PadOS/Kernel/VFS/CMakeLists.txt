@@ -1,0 +1,24 @@
+target_sources(PadOS PRIVATE
+	FileIO.cpp
+	FileIO.h
+	KBlockCache.cpp
+	KBlockCache.h
+	KDeviceNode.cpp
+	KDeviceNode.h
+	KFileHandle.cpp
+	KFileHandle.h
+	KFilesystem.cpp
+	KFilesystem.h
+	KFSVolume.cpp
+	KFSVolume.h
+	KINode.cpp
+	KINode.h
+	KIOContext.cpp
+	KIOContext.h
+	KNodeMonitor.cpp
+	KNodeMonitor.h
+	KRootFilesystem.cpp
+	KRootFilesystem.h
+	KVFSManager.cpp
+	KVFSManager.h
+)

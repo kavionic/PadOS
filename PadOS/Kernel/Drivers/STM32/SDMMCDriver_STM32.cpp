@@ -104,7 +104,7 @@ bool SDMMCDriver_STM32::ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32
 
 	if (cmd & SDMMC_RESP_PRESENT)
 	{
-		m_SDMMC->DTIMER = m_Clock; // 1 second.
+		m_SDMMC->DTIMER = 100000000;
 		if (cmd & SDMMC_RESP_136) {
 			response = 3; // Long response, expect CMDREND or CCRCFAIL flag
 			interrupts |= SDMMC_MASK_CCRCFAILIE;
@@ -230,8 +230,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
 			return false;
 		}
 	}
-	SCB_CleanInvalidateDCache();
-	m_SDMMC->DTIMER = m_Clock; // 1 second.
+	m_SDMMC->DTIMER = 100000000;
 	m_SDMMC->CLKCR |= SDMMC_CLKCR_HWFC_EN; // Hardware flow-control enabled.
 	m_SDMMC->IDMABASE0 = intptr_t(dmaTarget);
 	m_SDMMC->IDMACTRL = SDMMC_IDMA_IDMAEN;

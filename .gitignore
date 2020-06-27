@@ -33,6 +33,7 @@ bld/
 [Bb]uild[Ll]og.*
 out
 trash
+\.settings
 
 # NUNIT
 *.VisualState.xml

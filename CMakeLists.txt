@@ -21,7 +21,15 @@ set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${PADOS_C_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PADOS_C_CXX_FLAGS} -Wsuggest-override -Wnoexcept")
 
 # add the library
-add_library(PadOS Init.cpp posix.cpp MPU.cpp MPU.h)
+add_library(PadOS)
+
+target_sources(PadOS PRIVATE
+	Init.cpp
+	posix.cpp
+	MPU.cpp
+	MPU.h
+)
+
 
 add_subdirectory(Applications)
 add_subdirectory(ApplicationServer)

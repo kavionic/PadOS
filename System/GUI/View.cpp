@@ -42,7 +42,6 @@ const std::map<String, uint32_t> ViewFlags::FlagMap
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResize),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, WillDraw),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, Transparent),
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, ClientOnly),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, ClearBackground),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, DrawOnChildren),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, Eavesdropper),
@@ -134,27 +133,173 @@ View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name
 //    SetFont(ptr_new<Font>(GfxDriver::e_Font7Seg));
 }
 
+template< typename T>
+static SizeOverride GetSizeOverride(pugi::xml_attribute absoluteAttr, pugi::xml_attribute limitAttr, pugi::xml_attribute extendAttr, T& outValue)
+{
+    if (!absoluteAttr.empty() && xml_object_parser::parse(absoluteAttr.value(), outValue)) {
+        return SizeOverride::Always;
+    } else if (!limitAttr.empty() && xml_object_parser::parse(limitAttr.value(), outValue)) {
+        return SizeOverride::Limit;
+    } else if (!extendAttr.empty() && xml_object_parser::parse(extendAttr.value(), outValue)) {
+        return SizeOverride::Extend;
+    }
+    return SizeOverride::None;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(Ptr<View> parent, const pugi::xml_node& xmlData)
+View::View(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData)
     : ViewBase(xmlData.attribute("name").value(),
-	       Rect(),
-	       Point(),
-	       xml_object_parser::parse_flags_attribute<uint32_t>(xmlData, ViewFlags::FlagMap, "flags", 0),
-	       0,
-	       get_standard_color(StandardColorID::NORMAL),
-	       get_standard_color(StandardColorID::NORMAL),
-	       Color(0))
+               Rect(),
+               Point(),
+               context->GetFlagsAttribute<uint32_t>(xmlData, ViewFlags::FlagMap, "flags", 0),
+               0,
+               get_standard_color(StandardColorID::NORMAL),
+               get_standard_color(StandardColorID::NORMAL),
+               Color(0))
 {
     Initialize();
 
-    SetLayoutNode(xml_object_parser::parse_attribute(xmlData, "layout", Ptr<LayoutNode>()));
-    m_Borders = xml_object_parser::parse_attribute(xmlData, "layout_borders", Rect(0.0f));
+    SetHAlignment(context->GetAttribute(xmlData, "h_alignment", Alignment::Center));
+    SetVAlignment(context->GetAttribute(xmlData, "v_alignment", Alignment::Center));
+
+	Point sizeOverride;
+	Point sizeSmallestOverride;
+    Point sizeGreatestOverride;
+	SizeOverride overrideType;
+    SizeOverride overrideTypeSmallestH;
+	SizeOverride overrideTypeGreatestH;
+	SizeOverride overrideTypeSmallestV;
+	SizeOverride overrideTypeGreatestV;
+
+    overrideType = GetSizeOverride(context->GetAttribute(xmlData, "size"), context->GetAttribute(xmlData, "size_limit"), context->GetAttribute(xmlData, "size_extend"), sizeOverride);
+    overrideTypeSmallestH = overrideTypeGreatestH = overrideTypeSmallestV = overrideTypeGreatestV = overrideType;
+    sizeSmallestOverride = sizeGreatestOverride = sizeOverride;
+
+    float value;
+	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "width"), context->GetAttribute(xmlData, "width_limit"), context->GetAttribute(xmlData, "width_extend"), value);
+    if (overrideType != SizeOverride::None) {
+        sizeSmallestOverride.x = sizeGreatestOverride.x = value;
+        overrideTypeSmallestH = overrideTypeGreatestH = overrideType;
+    }
+	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "height"), context->GetAttribute(xmlData, "height_limit"), context->GetAttribute(xmlData, "height_extend"), value);
+	if (overrideType != SizeOverride::None) {
+		sizeSmallestOverride.y = sizeGreatestOverride.y = value;
+		overrideTypeSmallestV = overrideTypeGreatestV = overrideType;
+	}
+
+	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "min_size"), context->GetAttribute(xmlData, "min_size_limit"), context->GetAttribute(xmlData, "min_size_extend"), sizeOverride);
+    if (overrideType != SizeOverride::None) {
+        overrideTypeSmallestH = overrideTypeSmallestV = overrideType;
+        sizeSmallestOverride = sizeOverride;
+    }
+	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "min_width"), context->GetAttribute(xmlData, "min_width_limit"), context->GetAttribute(xmlData, "min_width_extend"), value);
+	if (overrideType != SizeOverride::None) {
+		sizeSmallestOverride.y = value;
+		overrideTypeSmallestH = overrideType;
+	}
+	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "min_height"), context->GetAttribute(xmlData, "min_height_limit"), context->GetAttribute(xmlData, "min_height_extend"), value);
+	if (overrideType != SizeOverride::None) {
+		sizeSmallestOverride.y = value;
+		overrideTypeSmallestV = overrideType;
+	}
+
+
+	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "max_size"), context->GetAttribute(xmlData, "max_size_limit"), context->GetAttribute(xmlData, "max_size_extend"), sizeOverride);
+	if (overrideType != SizeOverride::None) {
+		overrideTypeGreatestH = overrideTypeGreatestV = overrideType;
+		sizeGreatestOverride = sizeOverride;
+	}
+	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "max_width"), context->GetAttribute(xmlData, "max_width_limit"), context->GetAttribute(xmlData, "max_width_extend"), value);
+	if (overrideType != SizeOverride::None) {
+		sizeGreatestOverride.y = value;
+		overrideTypeGreatestH = overrideType;
+	}
+	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "max_height"), context->GetAttribute(xmlData, "max_height_limit"), context->GetAttribute(xmlData, "max_height_extend"), value);
+	if (overrideType != SizeOverride::None) {
+		sizeGreatestOverride.y = value;
+		overrideTypeGreatestV = overrideType;
+	}
+
+    if (overrideTypeSmallestH != SizeOverride::None) {
+		SetWidthOverride(PrefSizeType::Smallest, overrideTypeSmallestH, sizeSmallestOverride.x);
+    }
+	if (overrideTypeGreatestH != SizeOverride::None) {
+		SetWidthOverride(PrefSizeType::Greatest, overrideTypeGreatestH, sizeGreatestOverride.x);
+	}
+	if (overrideTypeSmallestV != SizeOverride::None) {
+		SetHeightOverride(PrefSizeType::Smallest, overrideTypeSmallestV, sizeSmallestOverride.y);
+	}
+	if (overrideTypeGreatestV != SizeOverride::None) {
+		SetHeightOverride(PrefSizeType::Greatest, overrideTypeGreatestV, sizeGreatestOverride.y);
+	}
+
+//    pugi::xml_attribute attribute = context->GetAttribute(xmlData, "size");
+//    if (!attribute.empty())
+//    {
+//        Point size;
+//        if (xml_object_parser::parse(attribute.value(), size))
+//        {
+//            SetWidthOverride(PrefSizeType::All, SizeOverride::Always, size.x);
+//            SetHeightOverride(PrefSizeType::All, SizeOverride::Always, size.y);
+//        }
+//    } else
+//    {
+//        attribute = context->GetAttribute(xmlData, "size_limit");
+//        if (!attribute.empty())
+//        {
+//            Point size;
+//            if (xml_object_parser::parse(attribute.value(), size))
+//            {
+//                SetWidthOverride(PrefSizeType::All, SizeOverride::Limit, size.x);
+//                SetHeightOverride(PrefSizeType::All, SizeOverride::Limit, size.y);
+//            }
+//        } else
+//        {
+//            attribute = context->GetAttribute(xmlData, "size_extend");
+//            if (!attribute.empty())
+//            {
+//                Point size;
+//                if (xml_object_parser::parse(attribute.value(), size))
+//                {
+//                    SetWidthOverride(PrefSizeType::All, SizeOverride::Extend, size.x);
+//                    SetHeightOverride(PrefSizeType::All, SizeOverride::Extend, size.y);
+//                }
+//            }
+//        }
+//    }
+
+
+    SetLayoutNode(context->GetAttribute(xmlData, "layout", Ptr<LayoutNode>()));
+    m_Borders = context->GetAttribute(xmlData, "layout_borders", Rect(0.0f));
+
+    String widthGroupName = context->GetAttribute(xmlData, "width_group", String::zero);
+	String heightGroupName = context->GetAttribute(xmlData, "height_group", String::zero);
+
+    if (!widthGroupName.empty())
+    {
+		auto i = context->m_WidthRings.find(widthGroupName);
+		if (i != context->m_WidthRings.end()) {
+			AddToWidthRing(i->second);
+		} else {
+            context->m_WidthRings[widthGroupName] = ptr_tmp_cast(this);
+		}
+    }
+
+	if (!heightGroupName.empty())
+	{
+		auto i = context->m_HeightRings.find(heightGroupName);
+		if (i != context->m_HeightRings.end()) {
+			AddToHeightRing(i->second);
+		} else {
+			context->m_HeightRings[heightGroupName] = ptr_tmp_cast(this);
+		}
+	}
 
     if (parent != nullptr) {
-	parent->AddChild(ptr_tmp_cast(this));
+        parent->AddChild(ptr_tmp_cast(this));
     }
 }
 
@@ -162,7 +307,7 @@ View::View(Ptr<View> parent, const pugi::xml_node& xmlData)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame) : ViewBase(name, frame, Point(), ViewFlags::Eavesdropper, 0, Color(0xffffffff), Color(0xffffffff), Color(0))
+View::View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame) : ViewBase(name, frame, Point(), ViewFlags::Eavesdropper | ViewFlags::WillDraw, 0, Color(0xffffffff), Color(0xffffffff), Color(0))
 {
     Initialize();
     m_ServerHandle = serverHandle;
@@ -182,8 +327,6 @@ void View::Initialize()
     RegisterRemoteSignal(&RSHandleMouseDown, &View::HandleMouseDown);
     RegisterRemoteSignal(&RSHandleMouseUp, &View::HandleMouseUp);
     RegisterRemoteSignal(&RSHandleMouseMove, &View::HandleMouseMove);
-    
-    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -528,7 +671,6 @@ bool View::OnMouseMove(MouseButton_e button, const Point& position)
 
 void View::FrameMoved(const Point& delta)
 {
-    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -548,7 +690,6 @@ void View::FrameSized(const Point& delta)
 
 void View::ViewScrolled(const Point& delta)
 {
-    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -557,7 +698,6 @@ void View::ViewScrolled(const Point& delta)
 
 void View::FontChanged(Ptr<Font> newFont)
 {
-    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -612,16 +752,16 @@ void View::PreferredSizeChanged()
         switch(m_WidthOverrideType[i])
         {
             case SizeOverride::None: break;
-            case SizeOverride::Always:    sizes[i].x = m_WidthOverride[i]; break;
-            case SizeOverride::IfSmaller: sizes[i].x = std::max(sizes[i].x, m_WidthOverride[i]); break;
-            case SizeOverride::IfGreater: sizes[i].x = std::min(sizes[i].x, m_WidthOverride[i]); break;
+            case SizeOverride::Always:  sizes[i].x = m_WidthOverride[i]; break;
+            case SizeOverride::Extend:  sizes[i].x = std::max(sizes[i].x, m_WidthOverride[i]); break;
+            case SizeOverride::Limit:   sizes[i].x = std::min(sizes[i].x, m_WidthOverride[i]); break;
         }
         switch(m_HeightOverrideType[i])
         {
             case SizeOverride::None: break;
-            case SizeOverride::Always:    sizes[i].y = m_HeightOverride[i]; break;
-            case SizeOverride::IfSmaller: sizes[i].y = std::max(sizes[i].y, m_HeightOverride[i]); break;
-            case SizeOverride::IfGreater: sizes[i].y = std::min(sizes[i].y, m_HeightOverride[i]); break;
+            case SizeOverride::Always:  sizes[i].y = m_HeightOverride[i]; break;
+            case SizeOverride::Extend:  sizes[i].y = std::max(sizes[i].y, m_HeightOverride[i]); break;
+            case SizeOverride::Limit:   sizes[i].y = std::min(sizes[i].y, m_HeightOverride[i]); break;
         }
         if (sizes[i].x > LAYOUT_MAX_SIZE) sizes[i].x = LAYOUT_MAX_SIZE;
         if (sizes[i].y > LAYOUT_MAX_SIZE) sizes[i].y = LAYOUT_MAX_SIZE;
@@ -642,7 +782,6 @@ void View::PreferredSizeChanged()
 
 void View::ContentSizeChanged()
 {
-    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -652,7 +791,9 @@ void View::ContentSizeChanged()
 void View::AddChild(Ptr<View> child)
 {
     LinkChild(child, true);
-    child->PreferredSizeChanged();
+    if (HasFlags(ViewFlags::IsAttachedToScreen)) {
+        child->PreferredSizeChanged();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -733,12 +874,9 @@ void View::SetFrame(const Rect& frame)
 
 void View::Invalidate(const Rect& rect, bool recurse)
 {
-    Post<ASViewInvalidate>(IRect(rect));
-/*    Application* app = GetApplication();
-    if (app != nullptr)
-    {
-        app->InvalidateView(m_ServerHandle, IRect(rect));
-    }*/
+    if (m_ServerHandle != INVALID_HANDLE) {
+        Post<ASViewInvalidate>(IRect(rect));
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1007,7 +1145,7 @@ void View::HandleAddedToParent(Ptr<View> parent)
     {
         parent->GetApplication()->AddView(ptr_tmp_cast(this), ViewDockType::ChildView);
     }
-    parent->PreferredSizeChanged();
+    /*parent->*/PreferredSizeChanged();
     parent->InvalidateLayout();
 }
 

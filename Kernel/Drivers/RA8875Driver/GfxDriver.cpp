@@ -261,7 +261,10 @@ float GfxDriver::GetStringWidth(Font_e fontID, const char* string, uint16_t leng
             uint8_t character = *(string++);
             if ( character < font->startChar ) character = font->startChar;
             const FONT_CHAR_INFO* charInfo = font->charInfo + character - font->startChar;
-            width += float(charInfo->widthBits + m_FontCharSpacing);
+            width += float(charInfo->widthBits);
+            if (length != 0) {
+				width += float(m_FontCharSpacing);
+            }
         }
         return width;
     }

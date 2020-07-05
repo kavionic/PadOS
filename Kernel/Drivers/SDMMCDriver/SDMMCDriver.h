@@ -133,6 +133,8 @@ protected:
     ssize_t  SDIOReadExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, void* buffer, size_t size);
     ssize_t  SDIOWriteExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, const void* buffer, size_t size);
 
+	virtual void     Reset() = 0;
+
     virtual void     SetClockFrequency(uint32_t frequency) = 0;
     virtual void     SendClock() = 0;
     
@@ -198,7 +200,7 @@ protected:
     uint16_t            m_RCA;                // Relative card address
     uint8_t             m_CSD[sdmmc::CSD_REG_SIZE_BYTES]; // CSD register
 
-    volatile int        m_IOError       = 0;
+    volatile uint32_t   m_IOError       = 0;
 };
 
 } // namespace

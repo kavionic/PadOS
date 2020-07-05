@@ -141,6 +141,7 @@ int SDMMCDriver::Run()
                 m_BusWidth = 1;
                 m_HighSpeed = false;
 
+                Reset();
                 ApplySpeedAndBusWidth();
             
                 // Initialization of the card requested
@@ -464,7 +465,6 @@ bool SDMMCDriver::InitializeCard()
     if (!SendCmd(SDMMC_MCI_CMD0_GO_IDLE_STATE, 0)) {
         return false;
     }
-    
     bool v2 = false;
     if (!Cmd8_sd(&v2)) {
         return false;

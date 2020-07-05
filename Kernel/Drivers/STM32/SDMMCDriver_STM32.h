@@ -35,6 +35,7 @@ public:
     bool Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, uint32_t clockCap, DigitalPinID pinCD, IRQn_Type irqNum);
 
 
+	virtual void     Reset() override;
     virtual void     SetClockFrequency(uint32_t frequency) override;
     virtual void     SendClock() override;
 
@@ -54,7 +55,6 @@ private:
     bool     WaitIRQ(uint32_t flags);
     bool     WaitIRQ(uint32_t flags, bigtime_t timeout);
 
-    void     Reset();
 
     SDMMC_TypeDef*  m_SDMMC;
     uint32_t	    m_PeripheralClockFrequency = 0;

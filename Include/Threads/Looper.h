@@ -42,6 +42,8 @@ public:
 
     void Stop() { m_DoRun = false; }
 
+    Mutex& GetMutex() const { return m_Mutex; }
+
     MessagePort GetPort() const { return m_Port; }
     port_id GetPortID() const { return m_Port.GetPortID(); }
 
@@ -68,8 +70,8 @@ private:
     void ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgLength);
     bigtime_t RunTimers();
 
-    Mutex       m_Mutex;
-    MessagePort m_Port;
+    mutable Mutex                           m_Mutex;
+    MessagePort                             m_Port;
     std::vector<uint8_t>                    m_ReceiveBuffer;
     bigtime_t                               m_NextEventTime = 0;
     volatile std::atomic_bool               m_DoRun;

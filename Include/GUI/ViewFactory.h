@@ -22,6 +22,7 @@
 #include <pugixml/src/pugixml.hpp>
 
 #include "Utils/XMLFactory.h"
+#include "ViewFactoryContext.h"
 
 
 namespace os
@@ -57,7 +58,7 @@ public:
 };
 
 
-class ViewFactory : public XMLFactory<Ptr<View>, const pugi::xml_node&>
+class ViewFactory : public XMLFactory<ViewFactoryContext*, Ptr<View>, const pugi::xml_node&>
 {
 public:
     ViewFactory();
@@ -67,8 +68,8 @@ public:
     Ptr<View> LoadView(Ptr<View> parentView, const char* path);
 
 private:
-    bool Parse(Ptr<View> parentView, const pugi::xml_node& xmlNode);
+    bool Parse(ViewFactoryContext* context, Ptr<View> parentView, const pugi::xml_node& xmlNode);
 };
 
 
-}
+} // namespace

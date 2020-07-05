@@ -110,90 +110,18 @@ void LayoutNode::CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-
-/*
-#define FOR_EACH_NAME( name1, func ) { \
-    va_list pArgs; va_start( pArgs, name1 );    \
-    for( const char* name = name1 ; name != nullptr ; name = va_arg(pArgs,const char*) ) {  \
-        LayoutNode* pcNode = FindNode( name, true, true );                                  \
-        if ( pcNode != nullptr ) {                                                          \
-            pcNode->##func;                                                                 \
-        } else {                                                                            \
-            dbprintf( "Warning: LayoutNode::%s() could not find node '%s'\n", __FUNCTION__, name ); \
-        }                                                                                   \
-    }                                                                                       \
-    va_end( pArgs );                                                                        \
-}
-
-
-void LayoutNode::SetBorders( const Rect& cBorders, const char* pzName1, ... )
+void LayoutNode::ApplyInnerBorders(const Rect& borders, float spacing)
 {
-    FOR_EACH_NAME( pzName1, SetBorders( cBorders ) );
-}
-
-void LayoutNode::SetWheights( float vWheight, const char* pzFirstName, ... )
-{
-    FOR_EACH_NAME( pzFirstName, SetWheight( vWheight ) );
-}
-
-void LayoutNode::SetHAlignments( Alignment align, const char* pzFirstName, ... )
-{
-    FOR_EACH_NAME( pzFirstName, SetHAlignment( align ) );
-}
-
-void LayoutNode::SetVAlignments( Alignment align, const char* pzFirstName, ... )
-{
-    FOR_EACH_NAME( pzFirstName, SetVAlignment( align ) );
-}
-*/
-
-/*
-void LayoutNode::SameWidth( const char* pzName1, ... )
-{
-
-    va_list pArgs;
-    va_start( pArgs, pzName1 );
-    LayoutNode* pcFirstNode = FindNode( pzName1, true, true );
-
-    if ( pcFirstNode == nullptr ) {
-        dbprintf( "LayoutNode::SameWidth() failed to find node '%s'\n", pzName1 );
-        return;
-    }
-    
-    for( const char* pzName = va_arg(pArgs,const char*) ; pzName != nullptr ; pzName = va_arg(pArgs,const char*) ) {
-        LayoutNode* pcNode = FindNode( pzName, true, true );
-        if ( pcNode == nullptr ) {
-            dbprintf( "LayoutNode::SameWidth() failed to find node '%s'\n", pzName );
-            continue;
+    if (m_View != nullptr)
+    {
+        for (Ptr<View> child : *m_View)
+        {
+            Rect childBorders = child->GetBorders();
+            childBorders.Resize(borders.left, borders.top, borders.right, borders.bottom);
+            child->SetBorders(childBorders);
         }
-        pcNode->AddToWidthRing( pcFirstNode );
     }
-    va_end( pArgs );
 }
-
-void LayoutNode::SameHeight( const char* pzName1, ... )
-{
-
-    va_list pArgs;
-    va_start( pArgs, pzName1 );
-    LayoutNode* pcFirstNode = FindNode( pzName1, true, true );
-
-    if ( pcFirstNode == nullptr ) {
-        dbprintf( "LayoutNode::SameHeight() failed to find node '%s'\n", pzName1 );
-        return;
-    }
-    
-    for( const char* pzName = va_arg(pArgs,const char*) ; pzName != nullptr ; pzName = va_arg(pArgs,const char*) ) {
-        LayoutNode* pcNode = FindNode( pzName, true, true );
-        if ( pcNode == nullptr ) {
-            dbprintf( "LayoutNode::SameHeight() failed to find node '%s'\n", pzName );
-            continue;
-        }
-        pcNode->AddToHeightRing( pcFirstNode );
-    }
-    va_end( pArgs );
-}*/
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -283,6 +211,47 @@ void HLayoutNode::CalculatePreferredSize(Point* minSize, Point* maxSize, bool in
                 if (childMinSize.y > minSize->y) minSize->y = childMinSize.y;
                 if (childMaxSize.y > maxSize->y) maxSize->y = childMaxSize.y;
             }                
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void HLayoutNode::ApplyInnerBorders(const Rect& borders, float spacing)
+{
+    if (m_View == nullptr) {
+        return;
+    }
+    const auto& childList = m_View->GetChildList();
+    if (childList.empty()) {
+        return;
+    }
+    if (childList.size() == 1)
+    {
+        Rect childBorders = childList[0]->GetBorders();
+        childBorders.Resize(borders.left, borders.top, borders.right, borders.bottom);
+        childList[0]->SetBorders(childBorders);
+    }
+    else
+    {
+        // Apply to left-most child:
+        Rect childBorders = childList[0]->GetBorders();
+        childBorders.Resize(borders.left, borders.top, spacing, borders.bottom);
+        childList[0]->SetBorders(childBorders);
+		
+		// Apply to right-most child:
+        childBorders = childList[childList.size() - 1]->GetBorders();
+		childBorders.Resize(0.0f, borders.top, borders.right, borders.bottom);
+		childList[childList.size() - 1]->SetBorders(childBorders);
+		
+        // Apply to center children:
+        for (size_t i = 1; i < childList.size() - 1; ++i)
+        {
+			childBorders = childList[i]->GetBorders();
+			childBorders.Resize(0.0f, borders.top, spacing, borders.bottom);
+			childList[i]->SetBorders(childBorders);
         }
     }
 }
@@ -483,4 +452,45 @@ void VLayoutNode::Layout()
             childList[i]->SetFrame(frame);
         }
     }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void VLayoutNode::ApplyInnerBorders(const Rect& borders, float spacing)
+{
+	if (m_View == nullptr) {
+		return;
+	}
+	const auto& childList = m_View->GetChildList();
+	if (childList.empty()) {
+		return;
+	}
+	if (childList.size() == 1)
+	{
+		Rect childBorders = childList[0]->GetBorders();
+		childBorders.Resize(borders.left, borders.top, borders.right, borders.bottom);
+		childList[0]->SetBorders(childBorders);
+	}
+    else
+	{
+		// Apply to top child:
+		Rect childBorders = childList[0]->GetBorders();
+		childBorders.Resize(borders.left, borders.top, borders.right, spacing);
+		childList[0]->SetBorders(childBorders);
+
+		// Apply to bottom child:
+		childBorders = childList[childList.size() - 1]->GetBorders();
+		childBorders.Resize(borders.left, 0.0f, borders.right, borders.bottom);
+		childList[childList.size() - 1]->SetBorders(childBorders);
+
+		// Apply to center children:
+		for (size_t i = 1; i < childList.size() - 1; ++i)
+		{
+			childBorders = childList[i]->GetBorders();
+			childBorders.Resize(borders.left, 0.0f, borders.right, spacing);
+			childList[i]->SetBorders(childBorders);
+		}
+	}
 }

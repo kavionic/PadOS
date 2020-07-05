@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 02.04.2018 13:08:47
 
 #pragma once
 
@@ -24,29 +23,30 @@
 namespace os
 {
 
-class Button : public ButtonBase
+///////////////////////////////////////////////////////////////////////////////
+/// 2-state check box.
+/// \ingroup gui
+/// \par Description:
+///
+/// \sa
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+class RadioButton : public ButtonBase
 {
 public:
-    Button(const String& name, const String& label, Ptr<View> parent = nullptr, uint32_t flags = 0);
-	Button(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
-    ~Button();
+    RadioButton(const String& name, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
+    RadioButton(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    ~RadioButton();
 
-    // From View:
-    virtual void AllAttachedToScreen() override { Invalidate(); }
+      // From View:
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
     virtual void Paint(const Rect& updateRect) override;
 
-	// From Control:
-    virtual void OnEnableStatusChanged(bool bIsEnabled) override { Invalidate(); Flush(); }
-	virtual void OnLabelChanged(const String& label) override;
+    // From Control:
+    virtual void OnEnableStatusChanged(bool isEnabled) override;
 
 private:
-    void UpdateLabelSize();
-    Point  m_LabelSize;
-        
-    Button(const Button&) = delete;
-    Button& operator=(const Button&) = delete;
 };
-    
-    
-} // namespace
+
+}

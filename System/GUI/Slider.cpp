@@ -62,29 +62,24 @@ Slider::Slider(const String& name, Ptr<View> parent, uint32_t flags, int tickCou
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Slider::Slider(Ptr<View> parent, const pugi::xml_node& xmlData) : Control(parent, xmlData)
+Slider::Slider(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
 {
-    MergeFlags(xml_object_parser::parse_flags_attribute(xmlData, SliderFlags::FlagMap, "flags", SliderFlags::TicksBelow | SliderFlags::KnobPointDown) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
+    MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, SliderFlags::FlagMap, "flags", SliderFlags::TicksBelow | SliderFlags::KnobPointDown) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
 
-    m_Orientation   = Orientation::Horizontal; // orientation;
-    m_NumTicks	    = xml_object_parser::parse_attribute(xmlData, "num_ticks", 10);
+    m_Orientation   = context->GetAttribute(xmlData, "orientation", Orientation::Horizontal);
+    m_NumTicks	    = context->GetAttribute(xmlData, "num_ticks", 10);
 
-    m_MinLabel = xml_object_parser::parse_attribute(xmlData, "min_label", String::zero);
-    m_MaxLabel = xml_object_parser::parse_attribute(xmlData, "max_label", String::zero);
+    m_MinLabel = context->GetAttribute(xmlData, "min_label", String::zero);
+    m_MaxLabel = context->GetAttribute(xmlData, "max_label", String::zero);
 
-    m_Min   = xml_object_parser::parse_attribute(xmlData, "min", 0.0f);
-    m_Max   = xml_object_parser::parse_attribute(xmlData, "max", 1.0f);
-    m_Value = xml_object_parser::parse_attribute(xmlData, "value", m_Min);
+    m_Min   = context->GetAttribute(xmlData, "min", 0.0f);
+    m_Max   = context->GetAttribute(xmlData, "max", 1.0f);
+    m_Value = context->GetAttribute(xmlData, "value", m_Min);
 
     m_SliderColor1  = get_standard_color(StandardColorID::SCROLLBAR_BG);;
     m_SliderColor2  = m_SliderColor1;
 
-    SetValueStringFormat(xml_object_parser::parse_attribute(xmlData, "value_format", String::zero), xml_object_parser::parse_attribute(xmlData, "value_scale", 1.0f));
-/*    if (!m_ValueFormat.empty())
-    {
-	UpdateValueView();
-	LayoutValueView();
-    }*/
+    SetValueStringFormat(context->GetAttribute(xmlData, "value_format", String::zero), context->GetAttribute(xmlData, "value_scale", 1.0f));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -120,67 +115,26 @@ void Slider::FrameSized(const Point& delta)
 
 void Slider::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
 {
-    const FontHeight fontHeight = GetFontHeight();
+	Rect frame;
+	float minLength;
+	GetSliderFrame(&frame, &minLength);
 
-    if (m_Orientation == Orientation::Horizontal)
-    {
-	Point size(100.0f, GetSliderSize());
-	Rect  sliderFrame = GetSliderFrame();
-	const Rect  knobFrame   = GetKnobFrame(GetKnobFrameMode::FullFrame);
-
-	const float center = ceil(sliderFrame.top + sliderFrame.Height() * 0.5f);
-	if (!m_MinLabel.empty() && !m_MaxLabel.empty())
+	if (m_Orientation == Orientation::Horizontal)
 	{
-	    const float stringWidth = GetStringWidth(m_MinLabel) + GetStringWidth(m_MaxLabel) + 20.0f;
-	    if (stringWidth > size.x) {
-		size.x = stringWidth;
-	    }
-	    sliderFrame.bottom += fontHeight.ascender + fontHeight.descender + TICK_SPACING + TICK_LENGTH + HLABEL_SPACING;
+		minSize->x = minLength;
+		minSize->y = frame.Height();
+
+		maxSize->x = 2000.0f;
+		maxSize->y = minSize->y;
 	}
-	else if (HasFlags(SliderFlags::TicksBelow))
+	else
 	{
-	    sliderFrame.bottom += TICK_SPACING + TICK_LENGTH;
-	}
-	if (center + knobFrame.bottom > sliderFrame.bottom) {
-	    sliderFrame.bottom = center + knobFrame.bottom;
-	}
-	size.y = sliderFrame.bottom;
-	*minSize = Point(ceil(size.x), ceil(size.y));
-	maxSize->x = 2000.0f;
-	maxSize->y = minSize->y;
-    }
-    else
-    {
-	Point size(GetSliderSize(), 100.0f);
+		minSize->x = frame.Width();
+		minSize->y = minLength;
 
-	if (HasFlags(SliderFlags::TicksLeft)) {
-	    size.x += TICK_SPACING + TICK_LENGTH + 1.0f;
+		maxSize->x = minSize->x;
+		maxSize->y = 2000.0f;
 	}
-	if (HasFlags(SliderFlags::TicksRight)) {
-	    size.x += TICK_SPACING + TICK_LENGTH + 1.0f;
-	}
-
-	if (m_MinLabel.size() > 0) {
-	    float stringWidth = GetStringWidth(m_MinLabel);
-	    if (stringWidth > size.x) {
-		size.x = stringWidth;
-	    }
-	    size.y += fontHeight.ascender + fontHeight.descender + VLABEL_SPACING;
-	}
-	if (m_MaxLabel.size() > 0) {
-	    float stringWidth = GetStringWidth(m_MaxLabel);
-	    if (stringWidth > size.x) {
-		size.x = stringWidth;
-	    }
-	    size.y += fontHeight.ascender + fontHeight.descender + VLABEL_SPACING;
-	}
-	if (size.x < GetKnobFrame(GetKnobFrameMode::FullFrame).Width()) {
-	    size.x = GetKnobFrame(GetKnobFrameMode::FullFrame).Width();
-	}
-	*minSize = Point(ceil(size.x), ceil(size.y));
-	maxSize->x = minSize->x;
-	maxSize->y = 2000.0f;
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -326,17 +280,17 @@ String Slider::GetValueString() const
 
 void Slider::SetValue(float value, bool sendEvent)
 {
-    if (value != m_Value)
-    {
-	m_Changed = true;
-	Rect knobFrame = GetKnobFrame(GetKnobFrameMode::FullFrame) + ValToPos(m_Value);
-	m_Value = value;
-	knobFrame |= GetKnobFrame(GetKnobFrameMode::FullFrame) + ValToPos(m_Value);
-	Invalidate(knobFrame);
-	UpdateValueView();
-	Sync();
-	SignalValueChanged(m_Value, m_HitButton == MouseButton_e::None);
-    }
+	if (value != m_Value)
+	{
+		m_Changed = true;
+		Rect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value);
+		m_Value = value;
+		knobFrame |= GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value);
+		Invalidate(knobFrame);
+		UpdateValueView();
+		Sync();
+		SignalValueChanged(m_Value, m_HitButton == MouseButton_e::None, ptr_tmp_cast(this));
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -456,17 +410,17 @@ void Slider::GetLimitLabels(String* minLabel, String* maxLabel)
 
 void Slider::OnEnableStatusChanged(bool isEnabled)
 {
-    if (m_HitButton != MouseButton_e::None)
-    {
-	m_HitButton = MouseButton_e::None;
-	if (m_Changed)
+	if (m_HitButton != MouseButton_e::None)
 	{
-	    SignalValueChanged(m_Value, true);
-	    m_Changed = false;
+		m_HitButton = MouseButton_e::None;
+		if (m_Changed)
+		{
+			SignalValueChanged(m_Value, true, ptr_tmp_cast(this));
+			m_Changed = false;
+		}
+		MakeFocus(false);
 	}
-	MakeFocus(false);
-    }
-    Invalidate();
+	Invalidate();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -475,15 +429,16 @@ void Slider::OnEnableStatusChanged(bool isEnabled)
 
 bool Slider::OnMouseDown(MouseButton_e button, const Point& position)
 {
-    if (!IsEnabled()) return false;
-    if (m_HitButton == MouseButton_e::None)
-    {
-	m_HitButton = button;
-	m_HitPos    = position - ValToPos(GetValue());;
-	m_Changed   = false;
-	MakeFocus(true);
-    }
-    return true;
+	if (!IsEnabled()) return false;
+	if (m_HitButton == MouseButton_e::None)
+	{
+		m_HitButton = button;
+		m_HitPos = position - ValToPos(GetValue());;
+		m_Changed = false;
+		MakeFocus(true);
+		SignalBeginDrag(m_Value, ptr_tmp_cast(this), button);
+	}
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -492,18 +447,19 @@ bool Slider::OnMouseDown(MouseButton_e button, const Point& position)
 
 bool Slider::OnMouseUp(MouseButton_e button, const Point& position)
 {
-    if (!IsEnabled()) return false;
-    if (button == m_HitButton)
-    {
-	m_HitButton = MouseButton_e::None;
-	if (m_Changed)
+	if (!IsEnabled()) return false;
+	if (button == m_HitButton)
 	{
-	    SignalValueChanged(m_Value, true);
-	    m_Changed = false;
+		m_HitButton = MouseButton_e::None;
+		if (m_Changed)
+		{
+			SignalValueChanged(m_Value, true, ptr_tmp_cast(this));
+			m_Changed = false;
+		}
+		MakeFocus(false);
+		SignalEndDrag(m_Value, ptr_tmp_cast(this), button);
 	}
-	MakeFocus(false);
-    }
-    return true;
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -525,108 +481,108 @@ bool Slider::OnMouseMove(MouseButton_e button, const Point& position)
 
 void Slider::RenderSlider()
 {
-    Rect bounds = GetNormalizedBounds();
+	Rect bounds = GetNormalizedBounds();
 
-    Rect sliderFrame = GetSliderFrame();
-    Rect knobFrame = GetKnobFrame(GetKnobFrameMode::FullFrame) + ValToPos(GetValue());
+	Rect sliderFrame = GetSliderFrame();
+	Rect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(GetValue());
 
-    // Clear areas not fully overwritten by the slider track and the knob.
-    Region clearRegion(bounds);
-    clearRegion.Exclude(sliderFrame);
-    clearRegion.Exclude(knobFrame);
-    clearRegion.Optimize();
-    for (const IRect& rect : clearRegion.m_Rects) {
-	EraseRect(rect);
-    }
-
-    RenderTicks();
-    RenderLabels();
-    RenderKnob();
-
-    if (sliderFrame.IsValid())
-    {
-	const Color shineColor    = get_standard_color(StandardColorID::SHINE);
-	const Color shadowColor   = get_standard_color(StandardColorID::SHADOW);
-
-	if (m_Orientation == Orientation::Horizontal)
-	{
-	    Rect leftSliderFrame(sliderFrame.left, sliderFrame.top, knobFrame.left, sliderFrame.bottom);
-	    Rect rightSliderFrame(knobFrame.right - 1.0f, sliderFrame.top, sliderFrame.right, sliderFrame.bottom);
-	    if (leftSliderFrame.IsValid())
-	    {
-		Rect leftSliderCenter = leftSliderFrame;
-		leftSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
-		leftSliderCenter.Resize(1.0f, 1.0f, 0.0f, -1.0f);
-		
-		SetFgColor(shadowColor);
-		MovePenTo(leftSliderFrame.BottomLeft());
-		DrawLine(leftSliderFrame.TopLeft());
-		DrawLine(leftSliderFrame.TopRight());
-
-		SetFgColor(shineColor);
-		MovePenTo(leftSliderFrame.BottomRight());
-		DrawLine(Point(leftSliderFrame.left + 1, leftSliderFrame.bottom));
-
-		FillRect(leftSliderCenter, m_SliderColor1);
-	    }
-	    if (rightSliderFrame.IsValid())
-	    {
-		Rect rightSliderCenter = rightSliderFrame;
-		rightSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
-		rightSliderCenter.Resize(0.0f, 1.0f, -1.0f, -1.0f);
-
-		SetFgColor(shadowColor);
-		MovePenTo(rightSliderFrame.TopLeft());
-		DrawLine(rightSliderFrame.TopRight());
-
-		SetFgColor(shineColor);
-		MovePenTo(Point(rightSliderFrame.right, rightSliderFrame.top + 1.0f));
-		DrawLine(rightSliderFrame.BottomRight());
-		DrawLine(rightSliderFrame.BottomLeft() + Point(1.0f, 0.0f));
-
-		FillRect(rightSliderCenter, m_SliderColor2);
-	    }
+	// Clear areas not fully overwritten by the slider track and the knob.
+	Region clearRegion(bounds);
+	clearRegion.Exclude(sliderFrame);
+	clearRegion.Exclude(knobFrame);
+	clearRegion.Optimize();
+	for (const IRect& rect : clearRegion.m_Rects) {
+		EraseRect(rect);
 	}
-	else
+
+	RenderTicks();
+	RenderLabels();
+	RenderKnob();
+
+	if (sliderFrame.IsValid())
 	{
-	    Rect topSliderFrame(sliderFrame.left, sliderFrame.top, sliderFrame.right, knobFrame.top);
-	    Rect bottomSliderFrame(sliderFrame.left, knobFrame.bottom - 1.0f, sliderFrame.right, sliderFrame.bottom);
-	    if (topSliderFrame.IsValid())
-	    {
-		Rect topSliderCenter = topSliderFrame;
-		topSliderCenter.Resize(1.0f, 1.0f, -1.0f, 0.0f);
-		topSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
+		const Color shineColor = get_standard_color(StandardColorID::SHINE);
+		const Color shadowColor = get_standard_color(StandardColorID::SHADOW);
 
-		SetFgColor(shadowColor);
-		MovePenTo(topSliderFrame.BottomLeft());
-		DrawLine(topSliderFrame.TopLeft());
-		DrawLine(topSliderFrame.TopRight());
+		if (m_Orientation == Orientation::Horizontal)
+		{
+			Rect leftSliderFrame(sliderFrame.left, sliderFrame.top, knobFrame.left, sliderFrame.bottom);
+			Rect rightSliderFrame(knobFrame.right - 1.0f, sliderFrame.top, sliderFrame.right, sliderFrame.bottom);
+			if (leftSliderFrame.IsValid())
+			{
+				Rect leftSliderCenter = leftSliderFrame;
+				leftSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
+				leftSliderCenter.Resize(1.0f, 1.0f, 0.0f, -1.0f);
 
-		SetFgColor(shineColor);
-		MovePenTo(topSliderFrame.BottomRight());
-		DrawLine(Point(topSliderFrame.right, topSliderFrame.top + 1.0f));
+				SetFgColor(shadowColor);
+				MovePenTo(leftSliderFrame.BottomLeft());
+				DrawLine(leftSliderFrame.TopLeft());
+				DrawLine(leftSliderFrame.TopRight());
 
-		FillRect(topSliderCenter, m_SliderColor1);
-	    }
-	    if (bottomSliderFrame.IsValid())
-	    {
-		Rect bottomSliderCenter = bottomSliderFrame;
-		bottomSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
-		bottomSliderCenter.Resize(1.0f, 0.0f, -1.0f, -1.0f);
+				SetFgColor(shineColor);
+				MovePenTo(leftSliderFrame.BottomRight());
+				DrawLine(Point(leftSliderFrame.left + 1, leftSliderFrame.bottom));
 
-		SetFgColor(shadowColor);
-		MovePenTo(bottomSliderFrame.TopLeft());
-		DrawLine(bottomSliderFrame.BottomLeft());
+				FillRect(leftSliderCenter, m_SliderColor1);
+			}
+			if (rightSliderFrame.IsValid())
+			{
+				Rect rightSliderCenter = rightSliderFrame;
+				rightSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
+				rightSliderCenter.Resize(0.0f, 1.0f, -1.0f, -1.0f);
 
-		SetFgColor(shineColor);
-		MovePenTo(Point(bottomSliderFrame.left + 1.0f, bottomSliderFrame.bottom));
-		DrawLine(bottomSliderFrame.BottomRight());
-		DrawLine(bottomSliderFrame.TopRight() + Point(0.0f, 1.0f));
+				SetFgColor(shadowColor);
+				MovePenTo(rightSliderFrame.TopLeft());
+				DrawLine(rightSliderFrame.TopRight());
 
-		FillRect(bottomSliderCenter, m_SliderColor2);
-	    }
+				SetFgColor(shineColor);
+				MovePenTo(Point(rightSliderFrame.right, rightSliderFrame.top + 1.0f));
+				DrawLine(rightSliderFrame.BottomRight());
+				DrawLine(rightSliderFrame.BottomLeft() + Point(1.0f, 0.0f));
+
+				FillRect(rightSliderCenter, m_SliderColor2);
+			}
+		}
+		else
+		{
+			Rect topSliderFrame(sliderFrame.left, sliderFrame.top, sliderFrame.right, knobFrame.top);
+			Rect bottomSliderFrame(sliderFrame.left, knobFrame.bottom - 1.0f, sliderFrame.right, sliderFrame.bottom);
+			if (topSliderFrame.IsValid())
+			{
+				Rect topSliderCenter = topSliderFrame;
+				topSliderCenter.Resize(1.0f, 1.0f, -1.0f, 0.0f);
+				topSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
+
+				SetFgColor(shadowColor);
+				MovePenTo(topSliderFrame.BottomLeft());
+				DrawLine(topSliderFrame.TopLeft());
+				DrawLine(topSliderFrame.TopRight());
+
+				SetFgColor(shineColor);
+				MovePenTo(topSliderFrame.BottomRight());
+				DrawLine(Point(topSliderFrame.right, topSliderFrame.top + 1.0f));
+
+				FillRect(topSliderCenter, m_SliderColor1);
+			}
+			if (bottomSliderFrame.IsValid())
+			{
+				Rect bottomSliderCenter = bottomSliderFrame;
+				bottomSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
+				bottomSliderCenter.Resize(1.0f, 0.0f, -1.0f, -1.0f);
+
+				SetFgColor(shadowColor);
+				MovePenTo(bottomSliderFrame.TopLeft());
+				DrawLine(bottomSliderFrame.BottomLeft());
+
+				SetFgColor(shineColor);
+				MovePenTo(Point(bottomSliderFrame.left + 1.0f, bottomSliderFrame.bottom));
+				DrawLine(bottomSliderFrame.BottomRight());
+				DrawLine(bottomSliderFrame.TopRight() + Point(0.0f, 1.0f));
+
+				FillRect(bottomSliderCenter, m_SliderColor2);
+			}
+		}
 	}
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -635,7 +591,7 @@ void Slider::RenderSlider()
 
 void Slider::RenderKnob()
 {
-    Rect knobFrame = GetKnobFrame(GetKnobFrameMode::SquareFrame) + ValToPos(GetValue());
+    Rect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::SquareFrame) + ValToPos(GetValue());
 
     if (!HasFlags(SliderFlags::KnobPointUp | SliderFlags::KnobPointDown))
     {
@@ -658,7 +614,7 @@ void Slider::RenderKnob()
 	const Color shineColor    = get_standard_color(StandardColorID::SHINE);
 	const Color shadowColor   = get_standard_color(StandardColorID::SHADOW);
 
-	Rect knobFullFrame = GetKnobFrame(GetKnobFrameMode::FullFrame) + ValToPos(GetValue());
+	Rect knobFullFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(GetValue());
 
 	Rect centerFrame = knobFrame;
 	knobFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
@@ -762,38 +718,37 @@ void Slider::RenderKnob()
 
 void Slider::RenderLabels()
 {
-    const Rect bounds = GetNormalizedBounds();
-    const Rect sliderFrame = GetSliderFrame();
-    const Point center(bounds.Width() * 0.5f, bounds.Height() * 0.5f);
-    const FontHeight fontHeight = GetFontHeight();
+	const Rect			bounds = GetNormalizedBounds();
+	const Rect			sliderFrame = GetSliderFrame();
+	const Point			center(bounds.Width() * 0.5f, bounds.Height() * 0.5f);
+	const FontHeight	fontHeight = GetFontHeight();
 
-    SetBgColor(GetEraseColor());
-    SetFgColor(0, 0, 0);
-    if (m_Orientation == Orientation::Horizontal)
-    {
-	if (!m_MinLabel.empty() && !m_MaxLabel.empty())
+	SetBgColor(GetEraseColor());
+	SetFgColor(0, 0, 0);
+	if (m_Orientation == Orientation::Horizontal)
 	{
-	    MovePenTo(0.0f, sliderFrame.bottom + fontHeight.ascender + TICK_SPACING + TICK_LENGTH + HLABEL_SPACING);
-	    DrawString(m_MinLabel);
-	    MovePenTo(bounds.right - GetStringWidth(m_MaxLabel.c_str()),
-		      sliderFrame.bottom + fontHeight.ascender + TICK_SPACING + TICK_LENGTH + HLABEL_SPACING);
-	    DrawString(m_MaxLabel);
+		if (!m_MinLabel.empty() && !m_MaxLabel.empty())
+		{
+			MovePenTo(0.0f, sliderFrame.bottom + fontHeight.ascender + TICK_SPACING + TICK_LENGTH + HLABEL_SPACING);
+			DrawString(m_MinLabel);
+			MovePenTo(bounds.right - GetStringWidth(m_MaxLabel.c_str()),
+					  sliderFrame.bottom + fontHeight.ascender + TICK_SPACING + TICK_LENGTH + HLABEL_SPACING);
+			DrawString(m_MaxLabel);
+		}
 	}
-    }
-    else
-    {
-	const float offset = ceil(GetKnobFrame(GetKnobFrameMode::FullFrame).Height() * 0.5f) + VLABEL_SPACING;
-	if (!m_MaxLabel.empty())
+	else
 	{
-	    MovePenTo(center.x - GetStringWidth(m_MaxLabel) * 0.5f, sliderFrame.top - fontHeight.descender - offset);
-	    DrawString(m_MaxLabel);
+		const float offset = ceil(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame).Height() * 0.5f) + VLABEL_SPACING;
+		if (!m_MaxLabel.empty())
+		{
+			MovePenTo(center.x - GetStringWidth(m_MaxLabel) * 0.5f, sliderFrame.top - fontHeight.descender - offset);
+			DrawString(m_MaxLabel);
+		}
+		if (!m_MinLabel.empty()) {
+			MovePenTo(center.x - GetStringWidth(m_MinLabel) * 0.5f, sliderFrame.bottom + fontHeight.ascender + offset);
+			DrawString(m_MinLabel);
+		}
 	}
-	if (!m_MinLabel.empty()) {
-	    MovePenTo(center.x - GetStringWidth(m_MinLabel) * 0.5f, sliderFrame.bottom + fontHeight.ascender + offset);
-	    DrawString(m_MinLabel);
-	}
-    }
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -925,91 +880,182 @@ Point Slider::ValToPos(float value) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Rect Slider::GetKnobFrame(GetKnobFrameMode mode) const
+Rect Slider::GetKnobFrame(Orientation orientation, GetKnobFrameMode mode) const
 {
-    Rect solidFrame(-7.0f, -10.0f, 8.0f, 11.0f);
+	Rect solidFrame(-7.0f, -10.0f, 8.0f, 11.0f);
 
-    if (HasFlags(SliderFlags::KnobPointUp) || HasFlags(SliderFlags::KnobPointDown)) {
-	solidFrame.top += 4.0f;
-	solidFrame.bottom -= 4.0f;
-    }
-
-
-    if (HasFlags(SliderFlags::KnobPointUp))
-    {
-	if (mode == GetKnobFrameMode::FullFrame) {
-	    solidFrame.top -= 10;
-	} else {
-	    solidFrame.top -= 2;
+	if (HasFlags(SliderFlags::KnobPointUp) || HasFlags(SliderFlags::KnobPointDown))
+	{
+		solidFrame.top		+= 4.0f;
+		solidFrame.bottom	-= 4.0f;
 	}
-    }
-    if (HasFlags(SliderFlags::KnobPointDown))
-    {
-	if (mode == GetKnobFrameMode::FullFrame) {
-	    solidFrame.bottom += 10;
-	} else {
-	    solidFrame.bottom += 2;
+	if (HasFlags(SliderFlags::KnobPointUp))
+	{
+		if (mode == GetKnobFrameMode::FullFrame) {
+			solidFrame.top -= 10;
+		} else {
+			solidFrame.top -= 2;
+		}
 	}
-    }
-
-    if (m_Orientation == Orientation::Vertical)
-    {
-	std::swap(solidFrame.left, solidFrame.top);
-	std::swap(solidFrame.right, solidFrame.bottom);
-    }
-    return solidFrame;
+	if (HasFlags(SliderFlags::KnobPointDown))
+	{
+		if (mode == GetKnobFrameMode::FullFrame) {
+			solidFrame.bottom += 10;
+		} else {
+			solidFrame.bottom += 2;
+		}
+	}
+	if (orientation == Orientation::Vertical)
+	{
+		std::swap(solidFrame.left, solidFrame.top);
+		std::swap(solidFrame.right, solidFrame.bottom);
+	}
+	return solidFrame;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Rect Slider::GetSliderFrame() const
+Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
 {
-    const Rect  bounds(GetNormalizedBounds());
-    const Rect  knobFrame = GetKnobFrame(GetKnobFrameMode::FullFrame);
-    Rect  sliderBounds;
+	const Rect  bounds(GetNormalizedBounds());
+	Rect  knobFrame = GetKnobFrame(Orientation::Horizontal, GetKnobFrameMode::FullFrame);
 
-    const float size = ceil(GetSliderSize() * 0.5f);
+	float center = ceil(GetSliderSize() * 0.5f);
+	Rect sliderFrame(0.0f, -center, 0.0f, GetSliderSize() - center);
+	Rect totalFrame = sliderFrame;
 
-    if (m_Orientation == Orientation::Horizontal)
-    {
-	sliderBounds.left   = ceil(knobFrame.Width() * 0.5f);
-	sliderBounds.right  = bounds.right - ceil(knobFrame.Width() * 0.5f);
-	sliderBounds.top    = -ceil(GetSliderSize() * 0.5f);
+	if (HasFlags(SliderFlags::TicksAbove)) {
+		totalFrame.top -= TICK_SPACING + TICK_LENGTH;
+	}
+	if (HasFlags(SliderFlags::TicksAbove)) {
+		totalFrame.bottom += TICK_SPACING + TICK_LENGTH;
+	}
+	if (knobFrame.top < totalFrame.top)			totalFrame.top = knobFrame.top;
+	if (knobFrame.bottom > totalFrame.bottom)	totalFrame.bottom = knobFrame.bottom;
 
-	if (knobFrame.top < sliderBounds.top) sliderBounds.top = knobFrame.top;
-
-	if (m_ValueView != nullptr)
+	if (m_Orientation == Orientation::Vertical)
 	{
-	    float textOffset = std::max(TICK_SPACING + TICK_LENGTH, -knobFrame.top);
-	    float height = -(m_ValueView->GetPreferredSize(PrefSizeType::Smallest).y + textOffset);
-	    if (height < sliderBounds.top) {
-		sliderBounds.top = height;
-	    }
+		std::swap(knobFrame.left,	knobFrame.top);
+		std::swap(knobFrame.right,	knobFrame.bottom);
+		std::swap(sliderFrame.left, sliderFrame.top);
+		std::swap(sliderFrame.right, sliderFrame.bottom);
+		std::swap(totalFrame.left, totalFrame.top);
+		std::swap(totalFrame.right, totalFrame.bottom);
+	}
+
+	if (m_Orientation == Orientation::Horizontal)
+	{
+		if (m_ValueView != nullptr)
+		{
+			totalFrame.top -= m_ValueView->GetPreferredSize(PrefSizeType::Smallest).y;
+		}
+		if (!m_MinLabel.empty() || !m_MaxLabel.empty())
+		{
+			const FontHeight	fontHeight = GetFontHeight();
+			totalFrame.bottom += fontHeight.ascender + fontHeight.descender;
+		}
+		const float knobCenter = ceil(knobFrame.Width() * 0.5f);
+		sliderFrame.left = knobCenter;
+		sliderFrame.right = bounds.right - knobCenter;
+		totalFrame.left = bounds.left;
+		totalFrame.right = bounds.right;
+		if (minimumLength != nullptr) {
+			*minimumLength = knobCenter * 2.0f;
+		}
 	}
 	else
 	{
-	    if (HasFlags(SliderFlags::TicksAbove)) {
-		if (-(TICK_SPACING + TICK_LENGTH) < sliderBounds.top) sliderBounds.top = -(TICK_SPACING + TICK_LENGTH);
-	    }
+		const FontHeight	fontHeight = GetFontHeight();
+
+		const float minLabelWidth = GetStringWidth(m_MinLabel);
+		const float minLabelFontHeight = (m_MinLabel.empty()) ? 0.0f : (fontHeight.ascender + fontHeight.descender + VLABEL_SPACING);
+
+		const float maxLabelWidth = GetStringWidth(m_MaxLabel);
+		const float maxLabelFontHeight = (m_MaxLabel.empty()) ? 0.0f : (fontHeight.ascender + fontHeight.descender + VLABEL_SPACING);
+
+		const float labelCenter = ceil(std::max(minLabelWidth, maxLabelWidth) * 0.5f);
+
+		if (-labelCenter < totalFrame.left) totalFrame.left = -labelCenter;
+		if (labelCenter > totalFrame.right) totalFrame.right = labelCenter;
+
+		const float knobCenter = ceil(knobFrame.Height() * 0.5f);
+		sliderFrame.top		= knobCenter;
+		sliderFrame.bottom	= bounds.bottom - knobCenter;
+
+		sliderFrame.top		+= maxLabelFontHeight;
+		sliderFrame.bottom	-= minLabelFontHeight;
+
+		totalFrame.top	  = bounds.top;
+		totalFrame.bottom = bounds.bottom;
+		if (minimumLength != nullptr) {
+			*minimumLength = knobCenter * 2.0f + minLabelFontHeight + maxLabelFontHeight;
+		}
 	}
-	sliderBounds.bottom = GetSliderSize() - sliderBounds.top;
-	sliderBounds.top = sliderBounds.bottom - GetSliderSize();
-    }
-    else
-    {
-	const Point	    center(bounds.Width() * 0.5f, bounds.Height() * 0.5f);
-	const FontHeight    fontHeight = GetFontHeight();
-	const float	    knobHeight = ceil((knobFrame.Height() + 1.0f) * 0.5f);
+	sliderFrame.left -= totalFrame.left;
+	sliderFrame.right -= totalFrame.left;
+	totalFrame.right -= totalFrame.left;
+	totalFrame.left = 0.0f;
 
-	const float minLabelFontHeight = (m_MinLabel.empty()) ? 0.0f : (fontHeight.ascender + fontHeight.descender + VLABEL_SPACING);
-	const float maxLabelFontHeight = (m_MaxLabel.empty()) ? 0.0f : (fontHeight.ascender + fontHeight.descender + VLABEL_SPACING);
+	sliderFrame.top -= totalFrame.top;
+	sliderFrame.bottom -= totalFrame.top;
+	totalFrame.bottom -= totalFrame.top;
+	totalFrame.top = 0.0f;
 
-	sliderBounds = Rect(center.x - size, knobHeight + maxLabelFontHeight, center.x + size, bounds.bottom - knobHeight - minLabelFontHeight);
-    }
-    sliderBounds.Floor();
-    return sliderBounds;
+	Point centerOffset;
+	if (m_Orientation == Orientation::Horizontal) {
+		centerOffset.y = floor((bounds.Height() - totalFrame.Height()) * 0.5f);
+	} else {
+		centerOffset.x = floor((bounds.Width() - totalFrame.Width()) * 0.5f);
+	}
+	sliderFrame += centerOffset;
+	totalFrame += centerOffset;
+	if (outTotalFrame != nullptr) {
+		*outTotalFrame = totalFrame;
+	}
+	return sliderFrame;
+
+//	const float size = ceil(GetSliderSize() * 0.5f);
+//
+//	if (m_Orientation == Orientation::Horizontal)
+//	{
+//		sliderBounds.left = ceil(knobFrame.Width() * 0.5f);
+//		sliderBounds.right = bounds.right - ceil(knobFrame.Width() * 0.5f);
+//		sliderBounds.top = -ceil(GetSliderSize() * 0.5f);
+//
+//		if (knobFrame.top < sliderBounds.top) sliderBounds.top = knobFrame.top;
+//
+//		if (m_ValueView != nullptr)
+//		{
+//			const float textOffset = std::max(TICK_SPACING + TICK_LENGTH, -knobFrame.top);
+//			const float height = -(m_ValueView->GetPreferredSize(PrefSizeType::Smallest).y + textOffset);
+//			if (height < sliderBounds.top) {
+//				sliderBounds.top = height;
+//			}
+//		}
+//		else
+//		{
+//			if (HasFlags(SliderFlags::TicksAbove)) {
+//				if (-(TICK_SPACING + TICK_LENGTH) < sliderBounds.top) sliderBounds.top = -(TICK_SPACING + TICK_LENGTH);
+//			}
+//		}
+//		sliderBounds.bottom = GetSliderSize() - sliderBounds.top;
+//		sliderBounds.top = sliderBounds.bottom - GetSliderSize();
+//	}
+//	else
+//	{
+//		const Point			center(bounds.Width() * 0.5f, bounds.Height() * 0.5f);
+//		const FontHeight	fontHeight = GetFontHeight();
+//		const float			knobHeight = ceil((knobFrame.Height() + 1.0f) * 0.5f);
+//
+//		const float minLabelFontHeight = (m_MinLabel.empty()) ? 0.0f : (fontHeight.ascender + fontHeight.descender + VLABEL_SPACING);
+//		const float maxLabelFontHeight = (m_MaxLabel.empty()) ? 0.0f : (fontHeight.ascender + fontHeight.descender + VLABEL_SPACING);
+//
+//		sliderBounds = Rect(center.x - size, knobHeight + maxLabelFontHeight, center.x + size, bounds.bottom - knobHeight - minLabelFontHeight);
+//	}
+//	sliderBounds.Floor();
+//	return sliderBounds;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

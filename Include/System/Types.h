@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <inttypes.h>
 
 typedef int      thread_id;
@@ -33,3 +34,6 @@ typedef uint64_t size64_t;
 typedef int64_t  ssize64_t;
 
 typedef uint16_t wchar16_t;
+
+constexpr handler_id	INVALID_HANDLE = -1;
+constexpr size_t		INVALID_INDEX = size_t(-1);

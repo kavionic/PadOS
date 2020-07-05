@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 14.06.2020 16:30:00
 
+#include <math.h>
+
 #include "GUI/GroupView.h"
 #include "Utils/XMLFactory.h"
 
@@ -26,7 +28,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-GroupView::GroupView(const String& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags)
+GroupView::GroupView(const String& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
 {
 }
 
@@ -34,8 +36,10 @@ GroupView::GroupView(const String& name, Ptr<View> parent, uint32_t flags) : Vie
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-GroupView::GroupView(Ptr<View> parent, const pugi::xml_node& xmlData) : View(parent, xmlData)
+GroupView::GroupView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
 {
+    MergeFlags(ViewFlags::WillDraw);
+	m_Label = context->GetAttribute(xmlData, "label", String::zero);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,5 +48,45 @@ GroupView::GroupView(Ptr<View> parent, const pugi::xml_node& xmlData) : View(par
 
 void GroupView::Paint(const Rect& updateRect)
 {
-    DrawFrame(GetNormalizedBounds(), FRAME_RECESSED);
+    EraseRect(updateRect);
+
+	float labelHeight = 0.0f;
+	float labelWidth = 0.0f;
+
+    if (!m_Label.empty())
+    {
+        FontHeight fontHeight = GetFontHeight();
+
+        SetFgColor(StandardColorID::SHADOW);
+		MovePenTo(30.0f, fontHeight.ascender);
+		DrawString(m_Label);
+
+        labelHeight = fontHeight.descender - fontHeight.ascender;
+        labelWidth = GetStringWidth(m_Label);
+    }
+
+    Rect bound = GetNormalizedBounds();
+    bound.Resize(0.0f, floor(labelHeight * 0.5f), -1.0f, -1.0f);
+
+    for (int i = 0; i < 2; ++i)
+    {
+        SetFgColor(StandardColorID::SHADOW);
+        MovePenTo(bound.BottomLeft());
+        DrawLine(bound.TopLeft());
+
+        if (!m_Label.empty())
+        {
+            DrawLine(15.0f, bound.top);
+
+            MovePenTo(30.0f + labelWidth + 10.0f, bound.top);
+        }
+        DrawLine(bound.TopRight());
+
+        SetFgColor(StandardColorID::SHINE);
+        MovePenTo(bound.TopRight() + Point(0.0f, 1.0f));
+        DrawLine(bound.BottomRight());
+        DrawLine(bound.BottomLeft() + Point(1.0f, 0.0f));
+
+		bound.Resize(1.0f, 1.0f, -1.0f, -1.0f);
+    }
 }

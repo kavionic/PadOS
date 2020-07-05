@@ -104,7 +104,7 @@ bool SDMMCDriver_STM32::ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32
 
 	if (cmd & SDMMC_RESP_PRESENT)
 	{
-		m_SDMMC->DTIMER = 100000000;
+		m_SDMMC->DTIMER = 0xffffffff;
 		if (cmd & SDMMC_RESP_136) {
 			response = 3; // Long response, expect CMDREND or CCRCFAIL flag
 			interrupts |= SDMMC_MASK_CCRCFAILIE;
@@ -132,7 +132,7 @@ bool SDMMCDriver_STM32::ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32
 		return false;
 	}
 	if ((cmd & SDMMC_RESP_BUSY) && (m_SDMMC->STA & SDMMC_STA_BUSYD0)) {
-		if (!WaitIRQ(SDMMC_MASK_BUSYD0ENDIE, SDMMC_MASK_CTIMEOUTIE)) {
+		if (!WaitIRQ(SDMMC_MASK_BUSYD0ENDIE | SDMMC_MASK_CTIMEOUTIE)) {
 			return false;
 		}
 	}
@@ -230,7 +230,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
 			return false;
 		}
 	}
-	m_SDMMC->DTIMER = 100000000;
+	m_SDMMC->DTIMER = 0xffffffff;
 	m_SDMMC->CLKCR |= SDMMC_CLKCR_HWFC_EN; // Hardware flow-control enabled.
 	m_SDMMC->IDMABASE0 = intptr_t(dmaTarget);
 	m_SDMMC->IDMACTRL = SDMMC_IDMA_IDMAEN;
@@ -329,7 +329,7 @@ IRQResult SDMMCDriver_STM32::HandleIRQ()
 	if (status & errorFlags)
 	{
 		m_SDMMC->MASK = 0;
-		m_IOError = EIO;
+		m_IOError = status & errorFlags;
 		m_IOCondition.Wakeup(0);
 		return IRQResult::HANDLED;
 	}
@@ -354,14 +354,26 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
 		{
 			if (get_last_error() != EINTR) {
 				m_SDMMC->MASK = 0;
-				m_IOError = get_last_error();
+				m_IOError = ~0L; // get_last_error();
 				break;
 			}
 		}
 	} CRITICAL_END;
 	if (m_IOError != 0) {
-		Reset();
-		set_last_error(m_IOError);
+//		Reset();
+		if (m_IOError != ~0L)
+		{
+			if (m_IOError & SDMMC_STA_CTIMEOUT) {
+				kprintf("SDMMC: ERROR SDMMC_STA_CTIMEOUT\n");
+			}
+			if (m_IOError & SDMMC_STA_DTIMEOUT) {
+				kprintf("SDMMC: ERROR SDMMC_STA_SDMMC_STA_DTIMEOUT\n");
+			}
+			if (m_IOError & SDMMC_STA_CCRCFAIL) {
+				kprintf("SDMMC: ERROR SDMMC_STA_CCRCFAIL\n");
+			}
+			set_last_error(EIO);
+		}
 		return false;
 	}
 	return true;
@@ -388,7 +400,7 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags, bigtime_t timeout)
 	} CRITICAL_END;
 	if (m_IOError != 0)
 	{
-		Reset();
+//		Reset();
 		set_last_error(m_IOError);
 		return false;
 	}

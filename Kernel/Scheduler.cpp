@@ -76,12 +76,13 @@ extern "C" void SysTick_Handler()
 {
     disable_interrupts();
     //LCD_BL_CTRL_Pin = !LCD_BL_CTRL_Pin;
-    static int i = 0;
-    if (i++ % 1000 == 0) {
+    static uint32_t i = 0;
+    if ((i++ & 0x3ff) == 0) {
     	DigitalPin userLED2(e_DigitalPortID_E, 1);
     	userLED2 = !userLED2;
     }
-    Kernel::SystemTick();
+	Kernel::s_SystemTime++;
+//    Kernel::SystemTick();
     wakeup_sleeping_threads();
     KSWITCH_CONTEXT();
     restore_interrupts(0);

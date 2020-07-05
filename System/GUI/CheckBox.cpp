@@ -30,16 +30,19 @@ static constexpr float CB_CHECK_BORDER = 7.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-CheckBox::CheckBox(const String& name, Ptr<View> parent, uint32_t flags) : Control(name, parent, flags)
+CheckBox::CheckBox(const String& name, Ptr<View> parent, uint32_t flags) : ButtonBase(name, parent, flags | ViewFlags::WillDraw)
 {
+    SetCheckable(true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-CheckBox::CheckBox(Ptr<View> parent, const pugi::xml_node& xmlData) : Control(parent, xmlData)
+CheckBox::CheckBox(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : ButtonBase(context, parent, xmlData, Alignment::Right)
 {
+    MergeFlags(ViewFlags::WillDraw);
+	SetCheckable(true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -67,114 +70,71 @@ void CheckBox::OnEnableStatusChanged(bool isEnabled)
 void CheckBox::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
 {
     Point size(CB_SIZE, CB_SIZE);
-  
+
     const String& label = GetLabel();
     if (!label.empty())
     {
-	FontHeight fontHeight = GetFontHeight();
-	if ( fontHeight.ascender + fontHeight.descender > size.y ) {
-	    size.y = fontHeight.ascender + fontHeight.descender;
-	}
-	size.x += CB_LABEL_SPACING + GetStringWidth(label);
+        FontHeight fontHeight = GetFontHeight();
+        if (fontHeight.ascender + fontHeight.descender > size.y) {
+            size.y = fontHeight.ascender + fontHeight.descender;
+        }
+        size.x += CB_LABEL_SPACING + GetStringWidth(label);
     }
     *minSize = size;
     *maxSize = size;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool CheckBox::OnMouseDown(MouseButton_e button, const Point& position)
-{
-    if (button == MouseButton_e::Left || (button >= MouseButton_e::Touch0 && button <= MouseButton_e::LastTouchID))
-    {
-	SetChecked(!IsChecked());
-    }
-    return false;
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool CheckBox::OnMouseUp(MouseButton_e button, const Point& position)
-{
-    if (button == MouseButton_e::Left || (button >= MouseButton_e::Touch0 && button <= MouseButton_e::LastTouchID))
-    {
-	return false;
-    }
-    else
-    {
-	return false;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void CheckBox::Paint( const Rect& cUpdateRect )
+void CheckBox::Paint(const Rect& cUpdateRect)
 {
     Rect bounds = GetBounds();
 
     SetFgColor(StandardColorID::NORMAL);
-    FillRect( cUpdateRect );
-  
+    FillRect(cUpdateRect);
+
     const String& label = GetLabel();
     if (!label.empty())
     {
-	FontHeight fontHeight = GetFontHeight();
-	MovePenTo(CB_SIZE + CB_LABEL_SPACING, bounds.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender );
+        FontHeight fontHeight = GetFontHeight();
+        MovePenTo(CB_SIZE + CB_LABEL_SPACING, bounds.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender);
 
-	SetFgColor( 0, 0, 0 );
-	SetBgColor(StandardColorID::NORMAL);
-	DrawString(label);
+        SetFgColor(0, 0, 0);
+        SetBgColor(StandardColorID::NORMAL);
+        DrawString(label);
     }
 
     SetEraseColor(StandardColorID::NORMAL);
 
-    Rect buttonFrame( 0, 0, CB_SIZE, CB_SIZE);
+    Rect buttonFrame(0, 0, CB_SIZE, CB_SIZE);
 
     float delta = (bounds.Height() - buttonFrame.Height()) / 2;
     buttonFrame.top += delta;
     buttonFrame.bottom += delta;
-  
+
     DrawFrame(buttonFrame, FRAME_RECESSED | FRAME_TRANSPARENT);
-  
+
     if (IsChecked())
     {
-	Point	point1;
-	Point	point2;
+        Point	point1;
+        Point	point2;
 
-	SetFgColor(0, 0, 0);
+        SetFgColor(0, 0, 0);
 
-	point1 = Point(buttonFrame.left + CB_CHECK_BORDER, buttonFrame.top + CB_CHECK_BORDER);
-	point2 = Point(buttonFrame.right - CB_CHECK_BORDER, buttonFrame.bottom - CB_CHECK_BORDER);
+        point1 = Point(buttonFrame.left + CB_CHECK_BORDER, buttonFrame.top + CB_CHECK_BORDER);
+        point2 = Point(buttonFrame.right - CB_CHECK_BORDER, buttonFrame.bottom - CB_CHECK_BORDER);
 
-	for (int i = 0; i < 7; ++i) {
-	    DrawLine(point1 + Point(i - 3, 0.0f), point2 + Point(i - 3, 0.0f));
-	}
-	point1 = Point(buttonFrame.left + CB_CHECK_BORDER, buttonFrame.bottom - CB_CHECK_BORDER);
-	point2 = Point(buttonFrame.right - CB_CHECK_BORDER, buttonFrame.top + CB_CHECK_BORDER);
+        for (int i = 0; i < 7; ++i) {
+            DrawLine(point1 + Point(i - 3, 0.0f), point2 + Point(i - 3, 0.0f));
+        }
+        point1 = Point(buttonFrame.left + CB_CHECK_BORDER, buttonFrame.bottom - CB_CHECK_BORDER);
+        point2 = Point(buttonFrame.right - CB_CHECK_BORDER, buttonFrame.top + CB_CHECK_BORDER);
 
-	for (int i = 0; i < 7; ++i) {
-	    DrawLine(point1 + Point(i - 3, 0.0f), point2 + Point(i - 3, 0.0f));
-	}
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void CheckBox::SetChecked(bool checked)
-{
-    if (checked != m_IsChecked)
-    {
-	m_IsChecked = checked;
-	SignalToggled(m_IsChecked, ptr_tmp_cast(this));
-	Invalidate();
-	Flush();
+        for (int i = 0; i < 7; ++i) {
+            DrawLine(point1 + Point(i - 3, 0.0f), point2 + Point(i - 3, 0.0f));
+        }
     }
 }

@@ -28,13 +28,20 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Button::Button(const String& name, const String& label, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::FullUpdateOnResize), m_Label(label)
+Button::Button(const String& name, const String& label, Ptr<View> parent, uint32_t flags) : ButtonBase(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
-    m_LabelSize.x = GetStringWidth(m_Label);
-    FontHeight fontHeight = GetFontHeight();
-    m_LabelSize.y = fontHeight.descender - fontHeight.ascender + fontHeight.line_gap;
-    
-    PreferredSizeChanged();
+    SetLabel(label);
+	UpdateLabelSize();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Button::Button(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : ButtonBase(context, parent, xmlData, Alignment::Center)
+{
+    MergeFlags(ViewFlags::WillDraw);
+	UpdateLabelSize();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -60,74 +67,43 @@ void Button::CalculatePreferredSize(Point* minSize, Point* maxSize, bool include
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Button::OnMouseDown(MouseButton_e button, const Point& position)
-{
-//    printf("Button: Mouse down %d, %.1f/%.1f\n", int(button), position.x, position.y);
-    m_WasHit = true;
-    SetPressedState(true);
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool Button::OnMouseUp(MouseButton_e button, const Point& position)
-{
-//    printf("Button: Mouse up %d, %.1f/%.1f\n", int(button), position.x, position.y);
-    if (m_WasHit)
-    {
-        m_WasHit = false;
-        if (m_IsPressed)
-        {
-            SetPressedState(false);
-            SignalActivated(button, this);
-        }
-        return true;
-    }
-    return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool Button::OnMouseMove(MouseButton_e button, const Point& position)
-{
-    if (m_WasHit)
-    {
-//        printf("Button: Mouse move %d, %.1f/%.1f\n", int(button), position.x, position.y);
-        SetPressedState(GetBounds().DoIntersect(position));
-    }
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void Button::Paint(const Rect& updateRect)
 {
+    const bool isPressed = GetPressedState();
     Rect bounds = GetBounds();
     SetEraseColor(get_standard_color(StandardColorID::NORMAL));
-    DrawFrame(bounds, m_IsPressed ? FRAME_RECESSED : FRAME_RAISED);
+    DrawFrame(bounds, isPressed ? FRAME_RECESSED : FRAME_RAISED);
     Point labelPos(round((bounds.Width() - m_LabelSize.x) * 0.5f), round((bounds.Height() - m_LabelSize.y) * 0.5f));
-    if (m_IsPressed) labelPos += Point(1.0f, 1.0f);
+    
+    if (isPressed) {
+        labelPos += Point(1.0f, 1.0f);
+    }
+
     MovePenTo(labelPos);
     SetFgColor(get_standard_color(StandardColorID::MENU_TEXT));
     SetBgColor(get_standard_color(StandardColorID::NORMAL));
-    DrawString(m_Label);
+    DrawString(GetLabel());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Button::SetPressedState(bool isPressed)
+void Button::OnLabelChanged(const String& label)
 {
-    if (isPressed != m_IsPressed)
-    {
-        m_IsPressed = isPressed;
-        Invalidate();
-    }
+    UpdateLabelSize();
+    Invalidate();
+    Flush();
+    PreferredSizeChanged();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Button::UpdateLabelSize()
+{
+	m_LabelSize.x = GetStringWidth(GetLabel());
+	FontHeight fontHeight = GetFontHeight();
+	m_LabelSize.y = fontHeight.descender - fontHeight.ascender + fontHeight.line_gap;
 }

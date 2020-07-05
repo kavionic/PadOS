@@ -28,39 +28,7 @@ namespace os
 {
 class View;
 
-#define LAYOUT_MAX_SIZE 100000.0f
 
-enum class PrefSizeType : uint8_t
-{
-    Smallest,
-    Greatest,
-    Count,
-    All = Count
-};
-
-enum class Alignment : uint8_t
-{
-    Left,
-    Right,
-    Top,
-    Bottom,
-    Center
-};
-
-enum class Orientation : uint8_t
-{
-    Horizontal,
-    Vertical
-};
-
-
-enum class SizeOverride : uint8_t
-{
-    None,
-    Always,
-    IfSmaller,
-    IfGreater
-};
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,7 +41,7 @@ public:
 
     virtual void Layout();
     virtual void CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight);
-
+    virtual void ApplyInnerBorders(const Rect& borders, float spacing);
 protected:
     View* m_View = nullptr;
 
@@ -93,6 +61,7 @@ public:
     HLayoutNode();
     virtual void Layout() override;
     virtual void CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight) override;
+	virtual void ApplyInnerBorders(const Rect& borders, float spacing) override;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -105,6 +74,7 @@ public:
     VLayoutNode();
     virtual void Layout() override;
     virtual void CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight) override;
+	virtual void ApplyInnerBorders(const Rect& borders, float spacing) override;
 };
 
 

@@ -26,30 +26,30 @@ namespace os
 
 class Mutex
 {
-    public:
+public:
     enum class NoInit {};
 
-    explicit Mutex(NoInit) : m_Handle(-1) {}
+    explicit Mutex(NoInit) : m_Handle(INVALID_HANDLE) {}
 
     Mutex(const char* name, bool recursive = true) {
         m_Handle = create_mutex(name, recursive);
     }
     ~Mutex() {
-        if (m_Handle != -1) delete_mutex(m_Handle);
+        if (m_Handle != INVALID_HANDLE) delete_mutex(m_Handle);
     }
 
-    bool Lock()                           { return lock_mutex(m_Handle) >= 0; }
-    bool LockTimeout(bigtime_t timeout)   { return lock_mutex_timeout(m_Handle, timeout) >= 0; }
+    bool Lock() { return lock_mutex(m_Handle) >= 0; }
+    bool LockTimeout(bigtime_t timeout) { return lock_mutex_timeout(m_Handle, timeout) >= 0; }
     bool LockDeadline(bigtime_t deadline) { return lock_mutex_deadline(m_Handle, deadline) >= 0; }
-    bool TryLock()                        { return try_lock_mutex(m_Handle) >= 0; }
-    bool Unlock()                         { return unlock_mutex(m_Handle) >= 0; }
+    bool TryLock() { return try_lock_mutex(m_Handle) >= 0; }
+    bool Unlock() { return unlock_mutex(m_Handle) >= 0; }
 
-    Mutex(Mutex&& other) : m_Handle(other.m_Handle) { other.m_Handle = -1; }
+    Mutex(Mutex&& other) : m_Handle(other.m_Handle) { other.m_Handle = INVALID_HANDLE; }
 
     Mutex(const Mutex& other) { m_Handle = duplicate_mutex(other.m_Handle); }
     Mutex& operator=(const Mutex& other) { m_Handle = duplicate_mutex(other.m_Handle); return *this; }
 
-    private:
+private:
     sem_id m_Handle;
 };
 

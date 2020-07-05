@@ -1,15 +1,21 @@
 target_sources(PadOS PRIVATE
 	Button.h
+	ButtonBase.h
+	ButtonGroup.h
 	CheckBox.h
 	Color.h
 	Control.h
 	Font.h
 	GroupView.h
+	GUIDefines.h
 	GUIEvent.h
 	LayoutNode.h
+	RadioButton.h
 	Region.h
 	Slider.h
 	TextView.h
 	View.h
+	ViewBase.h
 	ViewFactory.h
+	ViewFactoryContext.h
 )

@@ -32,8 +32,11 @@
 namespace os
 {
 class String;
+class Point;
 class Rect;
 class LayoutNode;
+enum class Alignment : uint8_t;
+enum class Orientation : uint8_t;
 }
 
 namespace xml_object_parser
@@ -49,31 +52,35 @@ bool parse(const char* text, double& value);
 bool parse(const char* text, bool& value);
 
 bool parse(const char* text, os::String& value);
+bool parse(const char* text, os::Point& value);
 bool parse(const char* text, os::Rect& value);
 bool parse(const char* text, Ptr<os::LayoutNode>& value);
+bool parse(const char* text, os::Alignment& value);
+bool parse(const char* text, os::Orientation& value);
 
 
 template<typename T>
 bool parse_flags(const char* text, const std::map<os::String, T>& flagDefinitions, T& value)
 {
-    T flags = 0;
-    const char* start = text;
+	T flags = 0;
+	const char* start = text;
 
-    for (;;)
-    {
-	while (*start != '\0' && (*start == '|' || isspace(*start))) ++start;
-	if (*start == '\0') break;
-	const char* end = strchr(start, '|');
-	if (end == nullptr) end = start + strlen(start);
-	while (isspace(end[-1])) --end;
+	for (;;)
+	{
+		while (*start != '\0' && (*start == '|' || isspace(*start))) ++start;
+		if (*start == '\0') break;
+		const char* end = strchr(start, '|');
+		if (end == nullptr) end = start + strlen(start);
+		while (isspace(end[-1])) --end;
 
-	auto i = flagDefinitions.find(os::String(start, end));
-	if (i != flagDefinitions.end()) {
-	    flags |= i->second;
+		auto i = flagDefinitions.find(os::String(start, end));
+		if (i != flagDefinitions.end()) {
+			flags |= i->second;
+		}
+		start = end;
 	}
-	start = end;
-    }
-    return true;
+	value = flags;
+	return true;
 }
 
 template<typename T>

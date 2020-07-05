@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "GUI/Control.h"
+#include "GUI/ButtonBase.h"
 
 namespace os
 {
@@ -32,30 +32,21 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class CheckBox : public Control
+class CheckBox : public ButtonBase
 {
 public:
     CheckBox(const String& name, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
-    CheckBox(Ptr<View> parent, const pugi::xml_node& xmlData);
+    CheckBox(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~CheckBox();
 
       // From View:
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
-    virtual bool    OnMouseDown(MouseButton_e button, const Point& position) override;
-    virtual bool    OnMouseUp(MouseButton_e button, const Point& position) override;
-    virtual void    Paint(const Rect& updateRect) override;
+    virtual void Paint(const Rect& updateRect) override;
 
     // From Control:
     virtual void OnEnableStatusChanged(bool isEnabled) override;
 
-    bool IsChecked() const { return m_IsChecked; }
-    void SetChecked(bool checked);
-
-
-    Signal<void, bool, Ptr<CheckBox>> SignalToggled;
 private:
-    String m_Label;
-    bool   m_IsChecked = false;
 };
 
 }

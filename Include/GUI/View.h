@@ -29,14 +29,16 @@
 #include "Signals/VFConnector.h"
 #include "Math/Rect.h"
 #include "Math/Point.h"
+#include "App/Application.h"
+#include "GUI/ViewBase.h"
 #include "GUI/Region.h"
 #include "GUI/GUIEvent.h"
-#include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
-#include "ApplicationServer/Protocol.h"
-#include "App/Application.h"
 #include "GUI/Font.h"
 #include "GUI/Color.h"
 #include "GUI/LayoutNode.h"
+#include "ApplicationServer/Protocol.h"
+#include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
+#include "ViewFactoryContext.h"
 
 namespace pugi
 {
@@ -48,370 +50,18 @@ class xml_node;
 namespace os
 {
 
+class ButtonGroup;
 
-///////////////////////////////////////////////////////////////////////////////
-/// \brief Flags controlling a View
-/// \ingroup gui
-/// \sa os::view_resize_flags, os::View
-/// \author Kurt Skauen (kurt@atheos.cx)
-///////////////////////////////////////////////////////////////////////////////
-
-namespace ViewFlags
-{
-    static constexpr uint32_t FullUpdateOnResizeH = 0x0001;   ///< Cause the entire view to be invalidated if made wider
-    static constexpr uint32_t FullUpdateOnResizeV = 0x0002;   ///< Cause the entire view to be invalidated if made higher
-    static constexpr uint32_t FullUpdateOnResize  = 0x0003;   ///< Cause the entire view to be invalidated if resized
-    static constexpr uint32_t WillDraw            = 0x0004;   ///< Tell the appserver that you want to render stuff to it
-    static constexpr uint32_t Transparent         = 0x0008;   ///< Allow the parent view to render in areas covered by this view
-    static constexpr uint32_t ClientOnly          = 0x0010;
-    static constexpr uint32_t ClearBackground     = 0x0020;   ///< Automatically clear new areas when windows are moved/resized
-    static constexpr uint32_t DrawOnChildren      = 0x0040;   ///< Setting this flag allows the view to render atop of all its childs
-    static constexpr uint32_t Eavesdropper        = 0x0080;   ///< Client-side view that is connected to a foreign server-side view.
-    static constexpr uint32_t IgnoreMouse         = 0x0100;   ///< Make the view invisible to mouse/touch events.
-    static constexpr uint32_t ForceHandleMouse    = 0x0200;    ///< Handle the mouse/touch event even if a child view is under the mouse.
-
-    static constexpr int FirstUserBit = 16;    // Inheriting classes should shift their flags this much to the left to avoid collisions.
-
-    extern const std::map<String, uint32_t> FlagMap;
-}
-
-namespace ViewDebugDrawFlags
-{
-    enum Type
-    {
-        ViewFrame    = 0x01,
-        DrawRegion   = 0x02,
-        DamageRegion = 0x04
-    };
-}
-enum class ViewDockType : int32_t
-{
-    RootLevelView,
-    ChildView,
-    PopupWindow,
-    DockedWindow,
-    FullscreenWindow,
-    StatusBarIcon
-};
-
-///////////////////////////////////////////////////////////////////////////////
-/// \brief Flags controlling how to resize/move a view when the parent is resized.
-/// \ingroup gui
-/// \sa os::view_flags, os::View
-/// \author Kurt Skauen (kurt@atheos.cx)
-///////////////////////////////////////////////////////////////////////////////
-
-#if 0
-enum view_resize_flags
-{
-    CF_FOLLOW_NONE   = 0x0000, ///< Neither the size nor the position is changed.
-    CF_FOLLOW_LEFT   = 0x0001, ///< Left edge follows the parents left edge.
-    CF_FOLLOW_RIGHT  = 0x0002, ///< Right edge follows the parents right edge.
-    CF_FOLLOW_TOP    = 0x0004, ///< Top edge follows the parents top edge.
-    CF_FOLLOW_BOTTOM = 0x0008, ///< Bottom edge follows the parents bottom edge.
-    CF_FOLLOW_ALL    = 0x000F, ///< All edges follows the corresponding edge in the parent
-      /**
-       * If the CF_FOLLOW_LEFT is set the right edge follows the parents center.
-       * if the CF_FOLLOW_RIGHT is set the left edge follows the parents center.
-       */
-    CF_FOLLOW_H_MIDDLE = 0x0010,
-      /**
-       * If the CF_FOLLOW_TOP is set the bottom edge follows the parents center.
-       * if the CF_FOLLOW_BOTTOM is set the top edge follows the parents center.
-       */
-    CF_FOLLOW_V_MIDDLE = 0x0020,
-    CF_FOLLOW_SPECIAL  = 0x0040,
-    CF_FOLLOW_MASK     = 0x007f
-};
-#endif
-
-enum drawing_mode
-{
-    DM_COPY,
-    DM_OVER,
-    DM_INVERT,
-    DM_ERASE,
-    DM_BLEND,
-    DM_ADD,
-    DM_SUBTRACT,
-    DM_MIN,
-    DM_MAX,
-    DM_SELECT
-};
-
-enum class StandardColorID : int32_t
-{
-    NORMAL,
-    SHINE,
-    SHADOW,
-    SELECTED_WND_BORDER,
-    NORMAL_WND_BORDER,
-    MENU_TEXT,
-    SELECTED_MENU_TEXT,
-    MENU_BACKGROUND,
-    SELECTED_MENU_BACKGROUND,
-    SCROLLBAR_BG,
-    SCROLLBAR_KNOB,
-    LISTVIEW_TAB,
-    LISTVIEW_TAB_TEXT,
-    COUNT
-};
 
 Color get_standard_color(StandardColorID colorID);
 void  set_standard_color(StandardColorID colorID, Color color);
 
-enum
-{
-    FRAME_RECESSED    = 0x000008,
-    FRAME_RAISED      = 0x000010,
-    FRAME_THIN	      = 0x000020,
-    FRAME_WHIDE	      = 0x000040,
-    FRAME_ETCHED      = 0x000080,
-    FRAME_FLAT	      = 0x000100,
-    FRAME_DISABLED    = 0x000200,
-    FRAME_TRANSPARENT = 0x010000
-};
-
-template<typename ViewType>
-class ViewBase : public EventHandler, public SignalTarget
-{
-public:
-    typedef std::vector<Ptr<ViewType>> ChildList_t;
-
-    ViewBase(const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor)
-        : EventHandler(name)
-        , m_Frame(frame)
-        , m_ScrollOffset(scrollOffset)
-        , m_Flags(flags)
-        , m_HideCount(hideCount)
-        , m_EraseColor(eraseColor)
-        , m_BgColor(bgColor)
-        , m_FgColor(fgColor) {}
-
-    Ptr<ViewType>       GetParent()       { return m_Parent.Lock(); }
-    Ptr<const ViewType> GetParent() const { return m_Parent.Lock(); }
-
-    const ChildList_t& GetChildList() const { return m_ChildrenList; }
-        
-    typename ChildList_t::iterator begin() { return m_ChildrenList.begin(); }
-    typename ChildList_t::iterator end()   { return m_ChildrenList.end(); }
-        
-    typename ChildList_t::const_iterator begin() const { return m_ChildrenList.begin(); }
-    typename ChildList_t::const_iterator end() const   { return m_ChildrenList.end(); }
-
-    typename ChildList_t::reverse_iterator rbegin() { return m_ChildrenList.rbegin(); }
-    typename ChildList_t::reverse_iterator rend()   { return m_ChildrenList.rend(); }
-
-    typename ChildList_t::const_reverse_iterator rbegin() const { return m_ChildrenList.rbegin(); }
-    typename ChildList_t::const_reverse_iterator rend() const   { return m_ChildrenList.rend(); }
-        
-    typename ChildList_t::iterator       GetChildIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.begin(), m_ChildrenList.end(), child); }
-    typename ChildList_t::const_iterator GetChildIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.begin(), m_ChildrenList.end(), child); }
-
-    typename ChildList_t::reverse_iterator       GetChildRIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
-    typename ChildList_t::const_reverse_iterator GetChildRIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
-
-    template<typename T>
-    Ptr<T> FindChild(const String& name, bool recursive = true)
-    {
-	return ptr_dynamic_cast<T>(FindChildInternal(name, recursive));
-    }
-
-    
-    Ptr<ViewType> FindChildInternal(const String& name, bool recursive = true)
-    {
-	for (const Ptr<ViewType>& child : m_ChildrenList)
-	{
-	    if (child->GetName() == name) return child;
-	}
-	if (recursive)
-	{
-	    for (const Ptr<ViewType>& child : m_ChildrenList)
-	    {
-		Ptr<ViewType> view = child->FindChildInternal(name, true);
-		if (view != nullptr) return view;
-	    }
-	}
-	return nullptr;
-    }
-
-    int32_t GetChildIndex(Ptr<ViewType> child) const
-    {
-        auto i = GetChildIterator(child);
-        if (i != m_ChildrenList.end()) {
-            return std::distance(m_ChildrenList.begin(), i);
-        } else {
-            return -1;
-        }
-    }
-    virtual void OnFlagsChanged(uint32_t oldFlags) {}
-
-    void	ReplaceFlags(uint32_t flags)	    { uint32_t oldFlags = m_Flags; if (flags != m_Flags) { m_Flags = flags; OnFlagsChanged(oldFlags); } }
-    void	MergeFlags(uint32_t flags)	    { ReplaceFlags(m_Flags | flags); }
-    void	ClearFlags(uint32_t flags)	    { ReplaceFlags(m_Flags & ~flags); }
-    uint32_t	GetFlags() const		    { return m_Flags; }
-    bool	HasFlags(uint32_t flags) const	    { return (m_Flags & flags) != 0; }
-    bool	HasFlagsAll(uint32_t mask) const    { return (m_Flags & mask) == mask; }
-    
-
-    const Rect&	GetFrame() const { return m_Frame; }
-    Rect	GetBounds() const { return m_Frame.Bounds() /*- Point(m_Frame.left, m_Frame.top)*/ - m_ScrollOffset; }
-    Rect	GetNormalizedBounds() const { return m_Frame.Bounds(); }
-
-    IRect	GetIFrame() const { return IRect(m_Frame); }
-    IRect	GetIBounds() const { return GetIFrame().Bounds() /*- Point(m_Frame.left, m_Frame.top)*/ - IPoint(m_ScrollOffset); }
-    IRect	GetNormalizedIBounds() const { return GetIFrame().Bounds(); }
-        
-    Point	GetTopLeft() const  { return Point( m_Frame.left, m_Frame.top ); }
-    IPoint	GetITopLeft() const { return IPoint(m_Frame.TopLeft()); }
-        
-    Color	GetFgColor() const { return m_FgColor; }
-    Color	GetBgColor() const { return m_BgColor; }
-    Color	GetEraseColor() const { return m_EraseColor; }
-
-    
-      // Coordinate conversions:
-    Point       ConvertToParent(const Point& point) const   { return point + GetTopLeft(); }
-    void        ConvertToParent(Point* point) const         { *point += GetTopLeft(); }
-    Rect        ConvertToParent(const Rect& rect) const     { return rect + GetTopLeft(); }
-    void        ConvertToParent(Rect* rect) const           { *rect += GetTopLeft(); }
-    Point       ConvertFromParent(const Point& point) const { return point - GetTopLeft(); }
-    void        ConvertFromParent(Point* point) const       { *point -= GetTopLeft(); }
-    Rect        ConvertFromParent(const Rect& rect) const   { return rect - GetTopLeft(); }
-    void        ConvertFromParent(Rect* rect) const         { *rect -= GetTopLeft(); }
-    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point; }
-    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos; }
-    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos; }
-    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos; }
-    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos; }
-    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos; }
-    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos; }
-    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos; }
-    
-    static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, IRect* frame)
-    {
-        while(view != nullptr && (view->m_Flags & ViewFlags::Transparent))
-        {
-            if (frame != nullptr) {
-                *frame += view->GetITopLeft();
-            }
-            view = view->GetParent();
-        }
-        return view;
-    }        
-protected:
-    friend class GUI;
-    friend class Application;
-    friend class ApplicationServer;
-    friend class ServerApplication;
-
-    void LinkChild(Ptr<ViewType> child, bool topmost);
-    void UnlinkChild(Ptr<ViewType> child);
-    
-    void Added(ViewBase* parent, int hideCount, int level)
-    {
-        m_HideCount += hideCount;
-        m_Level = level;
-        if (parent == nullptr) {
-            m_ScreenPos = m_Frame.TopLeft();
-        } else {
-            m_ScreenPos = parent->m_ScreenPos + m_Frame.TopLeft();
-        }
-        for (Ptr<ViewBase> child : m_ChildrenList) {
-            child->Added(this, hideCount, level + 1);
-        }
-    }
-
-    void UpdateScreenPos()
-    {
-        Ptr<ViewType> parent = m_Parent.Lock();
-        if (parent == nullptr) {
-            m_ScreenPos = m_Frame.TopLeft();
-        } else {
-            m_ScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
-        }
-        for (Ptr<ViewType> child : m_ChildrenList) {
-            child->UpdateScreenPos();
-        }
-    }
-
-    Rect m_Frame = Rect(0.0f, 0.0f, 0.0f, 0.0f);
-    Point  m_ScrollOffset;
-    uint32_t m_Flags = 0;    
-
-    Point m_ScreenPos = Point(0.0f, 0.0f);
-    WeakPtr<ViewType> m_Parent;
-    
-    ChildList_t       m_ChildrenList;
-    
-    Point             m_PenPosition;
-
-    int               m_HideCount = 0;
-    int               m_Level = 0;
-
-    Color             m_EraseColor = Color(0xffffffff);
-    Color             m_BgColor    = Color(0xffffffff);
-    Color             m_FgColor    = Color(0xff000000);
-    
-    ViewBase(const ViewBase&) = delete;
-    ViewBase& operator=(const ViewBase&) = delete;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-template<typename ViewType>
-void ViewBase<ViewType>::LinkChild(Ptr<ViewType> child, bool topmost)
-{
-    if ( child->m_Parent.Lock() == nullptr )
-    {
-        child->m_Parent = ptr_tmp_cast(static_cast<ViewType*>(this));
-        if (topmost) {
-            m_ChildrenList.push_back(child);
-        } else {
-            m_ChildrenList.insert(m_ChildrenList.begin(), child);
-        }            
-        child->Added(this, m_HideCount, m_Level + 1);
-        child->HandleAddedToParent(ptr_tmp_cast(static_cast<ViewType*>(this)));
-    }
-    else
-    {
-        printf( "ERROR : Attempt to add a view already belonging to a window\n" );
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-template<typename ViewType>
-void ViewBase<ViewType>::UnlinkChild(Ptr<ViewType> child)
-{
-    if(child->m_Parent.Lock() == static_cast<ViewType*>(this))
-    {
-        child->m_Parent = nullptr;
-
-        auto i = GetChildIterator(child);
-        if (i != m_ChildrenList.end()) {
-            m_ChildrenList.erase(i);
-        } else {
-            printf("ERROR: ViewBase::UnlinkChildren() failed to find view in children list.\n");
-        }
-        child->UpdateScreenPos();
-        child->HandleRemovedFromParent(ptr_tmp_cast(static_cast<ViewType*>(this)));
-    }
-    else
-    {
-        printf( "ERROR : Attempt to remove a view not belonging to this window\n" );
-    }
-}
 
 class View : public ViewBase<View>
 {
 public:
     View(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    View(Ptr<View> parent, const pugi::xml_node& xmlData);
+    View(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
     View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame);
     virtual ~View();
     
@@ -541,7 +191,7 @@ public:
     Point           GetPenPosition() const                             { return m_PenPosition; }
     void            DrawLine(const Point& toPos)                       { Post<ASViewDrawLine1>(toPos); }
     void            DrawLine(const Point& fromPos, const Point& toPos) { Post<ASViewDrawLine2>(fromPos, toPos); }
-    void            DrawLine(float x, float y)			       { DrawLine(Point(x, y)); }
+    void            DrawLine(float x, float y)			               { DrawLine(Point(x, y)); }
     void            DrawLine(float x1, float y1, float x2, float y2)   { DrawLine(Point(x1, y1), Point(x2, y2)); }
     void            DrawRect(const Rect& frame)
     {
@@ -606,7 +256,7 @@ private:
         Point newOffset;
         {
             Ptr<View> parent = m_Parent.Lock();
-            if (parent != nullptr && parent->HasFlags(ViewFlags::ClientOnly)) {
+            if (parent != nullptr && !parent->HasFlags(ViewFlags::WillDraw)) {
                 newOffset = parent->m_PositionOffset + parent->m_Frame.TopLeft();
             } else {
                 newOffset = Point(0.0f, 0.0f);
@@ -615,7 +265,7 @@ private:
         if (forceServerUpdate || newOffset != m_PositionOffset)
         {
             m_PositionOffset = newOffset;
-            if (m_ServerHandle != -1 && !HasFlags(ViewFlags::ClientOnly))
+            if (m_ServerHandle != INVALID_HANDLE/* && HasFlags(ViewFlags::WillDraw)*/)
             {
                 Post<ASViewSetFrame>(m_Frame + m_PositionOffset, GetHandle());
 //                GetApplication()->SetViewFrame(m_ServerHandle, m_Frame + m_PositionOffset);
@@ -632,7 +282,7 @@ private:
         
     void UpdateRingSize();
         
-    handler_id m_ServerHandle = -1;
+    handler_id m_ServerHandle = INVALID_HANDLE;
     
     Ptr<LayoutNode> m_LayoutNode;
     

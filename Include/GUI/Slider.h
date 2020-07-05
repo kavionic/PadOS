@@ -33,7 +33,7 @@ namespace SliderFlags
 {
 static constexpr uint32_t TicksAbove	    = 0x0001 << ViewFlags::FirstUserBit;
 static constexpr uint32_t TicksBelow	    = 0x0002 << ViewFlags::FirstUserBit;
-static constexpr uint32_t TicksLeft	    = TicksAbove;
+static constexpr uint32_t TicksLeft         = TicksAbove;
 static constexpr uint32_t TicksRight	    = TicksBelow;
 static constexpr uint32_t KnobPointUp	    = 0x0004 << ViewFlags::FirstUserBit;
 static constexpr uint32_t KnobPointDown	    = 0x0008 << ViewFlags::FirstUserBit;
@@ -57,7 +57,7 @@ class Slider : public Control
 public:
     Slider(const String& name, Ptr<View> parent = nullptr, uint32_t flags = SliderFlags::TicksBelow,
 	   int tickCount = 10, Orientation orientation = Orientation::Horizontal);
-    Slider(Ptr<View> parent, const pugi::xml_node& xmlData);
+    Slider(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     ~Slider();
 
@@ -74,8 +74,8 @@ public:
     virtual Point ValToPos(float value) const;
 
     enum class GetKnobFrameMode {FullFrame, SquareFrame};
-    virtual Rect    GetKnobFrame(GetKnobFrameMode mode) const;
-    virtual Rect    GetSliderFrame() const;
+    virtual Rect    GetKnobFrame(Orientation orientation, GetKnobFrameMode mode) const;
+    virtual Rect    GetSliderFrame(Rect* outTotalFrame = nullptr, float* minimumLength = nullptr) const;
 
     virtual void    SetSliderColors(const Color& color1, const Color& color2);
     virtual void    GetSliderColors(Color* color1, Color* color2) const;
@@ -117,7 +117,9 @@ public:
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
 
 
-    Signal<void, float, bool>	SignalValueChanged;
+    Signal<void, float, Ptr<Slider>, MouseButton_e>	SignalBeginDrag;
+	Signal<void, float, Ptr<Slider>, MouseButton_e>	SignalEndDrag;
+	Signal<void, float, bool, Ptr<Slider>>	SignalValueChanged;
 private:
     void UpdateValueView();
     void LayoutValueView();

@@ -45,7 +45,7 @@ port_id os::get_window_manager_port()
 class WindowBar : public View
 {
 public:
-    WindowBar(Ptr<View> parent) : View("wmgr_window_bar", parent)
+    WindowBar(Ptr<View> parent) : View("wmgr_window_bar", parent, ViewFlags::WillDraw)
     {
         SetLayoutNode(ptr_new<VLayoutNode>());
         SetWidthOverride(PrefSizeType::All, SizeOverride::Always, 100.0f);
@@ -96,7 +96,7 @@ WindowManager::WindowManager() : Application("window_manager")
     
     m_SidebarView = ptr_new<WindowBar>(m_TopView);
     
-    m_ClientsView = ptr_new<View>("wmgr_clients", m_TopView, ViewFlags::IgnoreMouse);
+    m_ClientsView = ptr_new<View>("wmgr_clients", m_TopView, ViewFlags::IgnoreMouse | ViewFlags::WillDraw);
     m_ClientsView->SetLayoutNode(ptr_new<LayoutNode>());
     m_ClientsView->SetWidthOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
     m_ClientsView->SetWidthOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);

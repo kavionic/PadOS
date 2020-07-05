@@ -21,6 +21,7 @@
 
 #include "GUI/TextView.h"
 #include "Utils/Utils.h"
+#include "Utils/XMLObjectParser.h"
 
 using namespace os;
 
@@ -31,7 +32,16 @@ using namespace os;
 
 TextView::TextView(const String& name, const String& text, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw), m_Text(text)
 {
-    PreferredSizeChanged();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TextView::TextView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+{
+    MergeFlags(ViewFlags::WillDraw);
+	m_Text = context->GetAttribute(xmlData, "text", String::zero);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

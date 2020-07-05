@@ -235,11 +235,14 @@ Ptr<EventHandler> Looper::FindHandler(handler_id handle) const
 
 int Looper::Run()
 {
-    ThreadStarted();
+	CRITICAL_BEGIN(m_Mutex)
+	{
+		ThreadStarted();
+	} CRITICAL_END;
 
     while (m_DoRun)
     {
-        ProcessEvents(-1, -1);
+        ProcessEvents(INVALID_HANDLE, -1);
     }
     return 0;
 }
@@ -277,7 +280,10 @@ bool Looper::ProcessEvents(handler_id waitTarget, int32_t waitCode)
         
             ssize_t msgLength = m_Port.ReceiveMessageTimeout(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), 0);
             if (msgLength < 0 && get_last_error() == ETIME) {
-                Idle();
+				CRITICAL_BEGIN(m_Mutex)
+				{
+					Idle();
+				} CRITICAL_END;
                 msgLength = m_Port.ReceiveMessageDeadline(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), nextEventTime);
             }
             if (msgLength >= 0) {
@@ -304,7 +310,7 @@ void Looper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgL
     }
     if (!HandleMessage(targetHandler, code, m_ReceiveBuffer.data(), msgLength))
     {
-        if (targetHandler != -1)
+        if (targetHandler != INVALID_HANDLE)
         {
             auto i = m_HandlerMap.find(targetHandler);
             if (i != m_HandlerMap.end()) {

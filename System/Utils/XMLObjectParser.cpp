@@ -21,6 +21,7 @@
 #include "Utils/XMLObjectParser.h"
 #include "Math/Rect.h"
 #include "GUI/LayoutNode.h"
+#include "GUI/GUIDefines.h"
 
 using namespace os;
 
@@ -35,6 +36,9 @@ bool parse(const char* text, uint64_t& value)	{ return sscanf(text, " %llu ", &v
 bool parse(const char* text, float& value)	{ return sscanf(text, " %f ", &value) == 1; }
 bool parse(const char* text, double& value)	{ return sscanf(text, " %lf ", &value) == 1; }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 bool parse(const char* text, bool& value)
 {
@@ -48,12 +52,36 @@ bool parse(const char* text, bool& value)
 	return false;
 }
 
-bool parse(const char* text, String& value) { value = text; return true; }
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool parse(const char* text, String& value)
+{
+	value = text; return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool parse(const char* text, Point& value)
+{
+    return sscanf(text, "Point( %f , %f )", &value.x, &value.y) == 2;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 bool parse(const char* text, Rect& value)
 {
-    return sscanf(text, "Rect( %f , %f , %f , %f )", &value.left, &value.top, &value.right, &value.bottom) == 4;
+	return sscanf(text, "Rect( %f , %f , %f , %f )", &value.left, &value.top, &value.right, &value.bottom) == 4;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 bool parse(const char* text, Ptr<LayoutNode>& value)
 {
@@ -81,5 +109,66 @@ bool parse(const char* text, Ptr<LayoutNode>& value)
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool parse(const char* text, Alignment& value)
+{
+	if (*text != '\0')
+	{
+		if (strcmp(text, "left") == 0) {
+			value = Alignment::Left;
+			return true;
+		} else if (strcmp(text, "right") == 0) {
+			value = Alignment::Right;
+			return true;
+		} else if (strcmp(text, "top") == 0) {
+			value = Alignment::Top;
+			return true;
+		} else if (strcmp(text, "bottom") == 0) {
+			value = Alignment::Bottom;
+			return true;
+		} else if (strcmp(text, "center") == 0) {
+			value = Alignment::Center;
+			return true;
+		} else {
+			printf("ERROR: View - invalid layout mode '%s'\n", text);
+			value = Alignment::Left;
+			return false;
+		}
+	} else
+	{
+		value = Alignment::Left;
+		return true;
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool parse(const char* text, Orientation& value)
+{
+	if (*text != '\0')
+	{
+		if (strcmp(text, "horizontal") == 0) {
+			value = Orientation::Horizontal;
+			return true;
+		} else if (strcmp(text, "vertical") == 0) {
+			value = Orientation::Vertical;
+			return true;
+		} else {
+			printf("ERROR: View - invalid orientation '%s'\n", text);
+			value = Orientation::Horizontal;
+			return false;
+		}
+	}
+	else
+	{
+		value = Orientation::Horizontal;
+		return true;
+	}
+}
 
 }

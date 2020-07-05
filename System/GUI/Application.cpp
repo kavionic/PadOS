@@ -105,16 +105,17 @@ IRect Application::GetScreenIFrame()
 bool Application::AddView(Ptr<View> view, ViewDockType dockType)
 {
     Ptr<View> parent = view->GetParent();
-    handler_id parentHandle = -1;
+    handler_id parentHandle = INVALID_HANDLE;
     for (Ptr<View> i = parent; i != nullptr; i = i->GetParent())
     {
-        if (!i->HasFlags(ViewFlags::ClientOnly))
+        handler_id curParentHandle = i->GetServerHandle();
+        if (curParentHandle != INVALID_HANDLE /*i->HasFlags(ViewFlags::WillDraw)*/)
         {
-            parentHandle = i->GetServerHandle();
+            parentHandle = curParentHandle; // i->GetServerHandle();
             break;
         }
     }
-    if (!view->HasFlags(ViewFlags::ClientOnly))
+    if (dockType != ViewDockType::ChildView || view->HasFlags(ViewFlags::WillDraw))
     {
         AddHandler(view);
         Post<ASCreateView>(GetPortID()
@@ -156,15 +157,17 @@ bool Application::AddView(Ptr<View> view, ViewDockType dockType)
     else // Client only.
     {
         if (parent == nullptr) {
-            printf("ERROR: Application::AddView() attempt to add client-only view to viewport.\n");
+            printf("ERROR: Application::AddView() attempt to add client-only view '%s' to viewport.\n", view->GetName().c_str());
             return false;
         }
     }
+    view->MergeFlags(ViewFlags::IsAttachedToScreen);
     view->AttachedToScreen();
     for (Ptr<View> child : view->m_ChildrenList) {
         AddView(ptr_static_cast<View>(child), ViewDockType::ChildView);
     }
     view->AllAttachedToScreen();
+	view->PreferredSizeChanged();
     view->m_IsLayoutValid = false;
     if (parent == nullptr) {
         RegisterViewForLayout(view);
@@ -182,7 +185,7 @@ bool Application::RemoveView(Ptr<View> view)
         printf("ERROR: Application::RemoveView() attempt to remove a view with no server handle\n");
         return false;
     }
-    if (!view->HasFlags(ViewFlags::ClientOnly))
+    if (view->m_ServerHandle != -1)
     {
         Post<ASDeleteView>(view->m_ServerHandle);
         DetachView(view);
@@ -195,6 +198,7 @@ bool Application::RemoveView(Ptr<View> view)
         RemoveHandler(view);
         view->SetServerHandle(-1);
     }
+	view->ClearFlags(ViewFlags::IsAttachedToScreen);
     view->HandleDetachedFromScreen();
     return true;
 }

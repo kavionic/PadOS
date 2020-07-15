@@ -351,6 +351,18 @@ View::~View()
 
 Application* View::GetApplication()
 {
+    Looper* looper = GetLooper();
+    if (looper != nullptr) {
+        return static_cast<Application*>(looper);
+    } else {
+        Ptr<View> parent = GetParent();
+        if (parent != nullptr) {
+            return parent->GetApplication();
+        } else {
+            return nullptr;
+        }
+    }
+
     return static_cast<Application*>(GetLooper());
 }
 
@@ -1141,7 +1153,7 @@ void View::Sync()
 void View::HandleAddedToParent(Ptr<View> parent)
 {
     UpdatePosition(false);
-    if (parent->m_ServerHandle != -1 && !HasFlags(ViewFlags::Eavesdropper))
+    if (parent->HasFlags(ViewFlags::IsAttachedToScreen) && !HasFlags(ViewFlags::Eavesdropper))
     {
         parent->GetApplication()->AddView(ptr_tmp_cast(this), ViewDockType::ChildView);
     }

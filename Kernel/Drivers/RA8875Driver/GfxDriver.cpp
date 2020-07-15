@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2014-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2014-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -26,6 +26,8 @@
 #include "Fonts/SansSerif_14.h"
 #include "Fonts/SansSerif_20.h"
 #include "Fonts/SansSerif_72.h"
+#include "GUI/Color.h"
+#include "GUI/Region.h"
 
 using namespace kernel;
 using namespace os;
@@ -415,17 +417,48 @@ void GfxDriver::DrawVLine(int x, int y, int l)
 
 void GfxDriver::FillCircle(int32_t x, int32_t y, int32_t radius)
 {
-#if 1
+#if 0
     BLT_FillCircle(x, y, radius);
 #else
-    for( int y1 =- radius ; y1 <= 0; ++y1 )
+
+    int x1 = -radius;
+
+    if (x1 + x < 0) {
+        x1 = -x;
+    }
+
+    Rect frame(x - radius, y - radius, x + radius, y + radius);
+
+    IPoint resolution = GetResolution();
+
+    frame &= IRect(IPoint(0, 0), resolution);
+    frame -= Point(x, y);
+
+    int radiusSqr = radius * radius;
+    for (int y1 = frame.top; y1 <= 0; ++y1)
     {
-        for( int x1 =- radius; x1 <= 0; ++x1 )
+        for (int x1 = frame.left; x1 <= 0; ++x1)
         {
-            if( x1*x1 + y1*y1 <= radius*radius )
+            if (x1 * x1 + y1 * y1 <= radiusSqr)
             {
-                DrawHLine(x+x1, y+y1, 2*(-x1));
-                DrawHLine(x+x1, y-y1, 2*(-x1));
+                IPoint startT(x + x1, y + y1);
+				IPoint endT(x - x1, startT.y);
+                if (endT.x >= resolution.x) endT.x = resolution.x - 1;
+                int length = endT.x - startT.x;
+
+                if (startT.y >= resolution.y) {
+                    return;
+                }
+                if (length > 0)
+                {
+                    IPoint startB(startT.x, y - y1);
+					IPoint endB(endT.x, y - y1);
+
+                    DrawHLine(startT.x, startT.y, length);
+                    if (startB.y < resolution.y) {
+						DrawHLine(startB.x, startB.y, length);
+                    }
+                }
                 break;
             }
         }
@@ -720,4 +753,48 @@ void GfxDriver::SetWindow(int x1, int y1, int x2, int y2)
     WriteCommand(RA8875_HEAW0, RA8875_HEAW1, x2 - 1);
     WriteCommand(RA8875_VSAW0, RA8875_VSAW1, y1);
     WriteCommand(RA8875_VEAW0, RA8875_VEAW1, y2 - 1);    
+}
+
+void GfxDriver::Test()
+{
+    IRect screenFrame(IPoint(), GetResolution());
+	SetFgColor(Color(255, 255, 255).GetColor16());
+	FillRect(screenFrame);
+
+    Region region(IRect(100, 100, 200, 200));
+	Region region2(IRect(100, 100, 200, 200));
+
+    region.Exclude(IRect(110, 110, 190, 190));
+
+    static Color palette[] = { Color(255, 0, 0), Color(0, 255, 0), Color(0, 0, 255), Color(255, 255, 0), Color(0, 255, 255), Color(255, 0, 255), Color(128, 128, 120), Color(0, 0, 0) };
+
+    for (;;)
+    {
+		SetFgColor(Color(128, 128, 128).GetColor16());
+        for (size_t i = 0; i < region.m_Rects.size(); ++i)
+        {
+//			SetFgColor(palette[i % ARRAY_COUNT(palette)].GetColor16());
+            FillRect(region.m_Rects[i]);
+        }
+        continue;
+        for (int x = 65; x < 235; x+=1)
+        {
+			SetWindow(screenFrame);
+			BLT_MoveRect(IRect(100, 100, 199, 200), IPoint(101, 100));
+			SetWindow(IRect(100, 100, 101, 200));
+
+            SetFgColor(Color(255, 0, 0).GetColor16());
+            FillRect(IRect(100, 100, 200, 200));
+            SetFgColor(Color(0, 255, 0).GetColor16());
+            //    DrawLine(99, 120, 99, 180);
+            //	DrawLine(50, 150, 250, 150);
+            //	DrawLine(200, 120, 200, 180);
+
+            FillCircle(x, 150, 30);
+			SetFgColor(Color(0, 0, 255).GetColor16());
+			FillCircle(x, 150, 20);
+            snooze_ms(10);
+        }
+    }
+    for (;;) snooze_ms(1000);
 }

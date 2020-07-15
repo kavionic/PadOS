@@ -192,7 +192,7 @@ IRQResult USARTDriverINode::HandleIRQReceive()
 	if (dma_get_interrupt_flags(m_ReceiveDMAChannel) & DMA_LISR_TCIF0)
 	{
 		dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
-		m_ReceiveCondition.Wakeup();
+		m_ReceiveCondition.Wakeup(1);
 		KSWITCH_CONTEXT();
 	}
 	return IRQResult::HANDLED;
@@ -207,7 +207,7 @@ IRQResult USARTDriverINode::HandleIRQSend()
 	if (dma_get_interrupt_flags(m_SendDMAChannel) & DMA_LISR_TCIF0)
 	{
 		dma_clear_interrupt_flags(m_SendDMAChannel, DMA_LIFCR_CTCIF0);
-		m_TransmitCondition.Wakeup();
+		m_TransmitCondition.Wakeup(1);
 	}
 	return IRQResult::HANDLED;
 }

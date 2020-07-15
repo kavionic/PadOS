@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -191,7 +191,7 @@ public:
 
     static bool Emit(const MessagePort& port, handler_id targetHandler, bigtime_t timeout, ARGS... args)
     {
-        return Emit(port.GetPortID(), targetHandler, timeout, args...);
+        return Emit(port.GetHandle(), targetHandler, timeout, args...);
     }
 private:
 };

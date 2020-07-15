@@ -94,6 +94,14 @@ bool ButtonBase::OnMouseDown(MouseButton_e button, const Point& position)
 	{
 		m_HitButton = button;
 		SetPressedState(true);
+		if (m_CanBeCheked)
+		{
+			if (m_ButtonGroup != nullptr) {
+				m_ButtonGroup->SelectButton(ptr_tmp_cast(this));
+			} else {
+				SetChecked(!m_IsChecked);
+			}
+		}
 		return true;
 	}
 	return false;
@@ -112,16 +120,7 @@ bool ButtonBase::OnMouseUp(MouseButton_e button, const Point& position)
 		if (m_IsPressed)
 		{
 			SetPressedState(false);
-			if (m_CanBeCheked)
-			{
-				if (m_ButtonGroup != nullptr) {
-					m_ButtonGroup->SelectButton(ptr_tmp_cast(this));
-				} else {
-					SetChecked(!m_IsChecked);
-				}
-			}
-			else
-			{
+			if (!m_CanBeCheked) {
 				SignalActivated(button, this);
 			}
 		}

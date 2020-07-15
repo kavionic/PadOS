@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -206,7 +206,6 @@ caddr_t _sbrk_r(_reent* reent, ptrdiff_t size)
     static uint8_t* heap = nullptr;
     uint8_t* prev_heap;
  
-    g_HeapSize += size;
     
     if(heap == nullptr) {
         heap = HEAP_START;
@@ -218,6 +217,7 @@ caddr_t _sbrk_r(_reent* reent, ptrdiff_t size)
         reent->_errno = ENOMEM;
         return caddr_t(-1);
     }
+	g_HeapSize += size;
     heap += size;
     if (size > 0) {
         memset(prev_heap, 0, size);

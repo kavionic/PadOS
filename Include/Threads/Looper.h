@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@
 #include "Mutex.h"
 #include "Ptr/Ptr.h"
 #include "Utils/MessagePort.h"
+#include "ConditionVariable.h"
+#include "ObjectWaitGroup.h"
 
 namespace os
 {
@@ -45,7 +47,7 @@ public:
     Mutex& GetMutex() const { return m_Mutex; }
 
     MessagePort GetPort() const { return m_Port; }
-    port_id GetPortID() const { return m_Port.GetPortID(); }
+    port_id GetPortID() const { return m_Port.GetHandle(); }
 
     status_t SetReceiveBufferSize(size_t size);
     size_t   GetReceiveBufferSize() const;
@@ -65,15 +67,22 @@ public:
         
     virtual int Run() override;
     
-    bool ProcessEvents(handler_id waitTarget, int32_t waitCode);
+    bool ProcessEvents();
 private:
     void ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgLength);
-    bigtime_t RunTimers();
+    void RunTimers();
 
+#if DEBUG_LOOPER_LIST
+    static std::vector<Looper*> s_LooperList;
+#endif
+    kernel::KThreadCB* m_Thread = nullptr;
     mutable Mutex                           m_Mutex;
     MessagePort                             m_Port;
+    ConditionVariable                       m_TimerMapCondition;
+    ObjectWaitGroup                         m_WaitGroup;
+
     std::vector<uint8_t>                    m_ReceiveBuffer;
-    bigtime_t                               m_NextEventTime = 0;
+    bigtime_t                               m_NextEventTime = INFINIT_TIMEOUT;
     volatile std::atomic_bool               m_DoRun;
     std::multimap<bigtime_t, EventTimer*>   m_TimerMap;
     std::map<handler_id, Ptr<EventHandler>> m_HandlerMap;

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,6 +20,8 @@
 #pragma once
 
 #include "System/Types.h"
+#include "Kernel/KNamedObject.h"
+
 
 typedef void (*ThreadEntryPoint_t)( void * );
 typedef void (*TLSDestructor_t)(void *);
@@ -62,6 +64,25 @@ status_t lock_mutex_shared_deadline(sem_id handle, bigtime_t deadline);
 status_t try_lock_mutex_shared(sem_id handle);
 status_t unlock_mutex_shared(sem_id handle);
 
+handle_id create_condition_var(const char* name);
+status_t  condition_var_wait(handle_id handle, handle_id mutexHandle);
+status_t  condition_var_wait_timeout(handle_id handle, handle_id mutexHandle, bigtime_t timeout);
+status_t  condition_var_wait_deadline(handle_id handle, handle_id mutexHandle, bigtime_t deadline);
+status_t  condition_var_wakeup(handle_id handle, int threadCount);
+status_t  condition_var_wakeup_all(handle_id handle);
+
+handle_id create_object_wait_group(const char* name);
+
+status_t  object_wait_group_add_object(handle_id handle, handle_id objectHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+status_t  object_wait_group_remove_object(handle_id handle, handle_id objectHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+status_t  object_wait_group_clear(handle_id handle);
+
+status_t  object_wait_group_wait(handle_id handle, handle_id mutexHandle, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);
+status_t  object_wait_group_wait_timeout(handle_id handle, handle_id mutexHandle, bigtime_t timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);
+status_t  object_wait_group_wait_deadline(handle_id handle, handle_id mutexHandle, bigtime_t deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);
+
+sem_id   duplicate_handle(sem_id handle);
+status_t delete_handle(sem_id handle);
 
 int   alloc_thread_local_storage(TLSDestructor_t destructor);
 int   delete_thread_local_storage(int slot);

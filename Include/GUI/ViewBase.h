@@ -63,7 +63,7 @@ public:
     typename ChildList_t::reverse_iterator          GetChildRIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
     typename ChildList_t::const_reverse_iterator    GetChildRIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
 
-    template<typename T>
+    template<typename T = View>
     Ptr<T> FindChild(const String& name, bool recursive = true)
     {
 	    return ptr_dynamic_cast<T>(FindChildInternal(name, recursive));

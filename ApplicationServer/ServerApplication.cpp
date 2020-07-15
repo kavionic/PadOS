@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -206,7 +206,6 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
         Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
 
         view->RemoveThis();
-        m_Server->RemoveHandler(view);
         
         opacParent->MarkModified(modifiedFrame);
         UpdateLowestInvalidView(opacParent);

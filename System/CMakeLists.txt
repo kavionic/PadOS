@@ -1,4 +1,7 @@
-target_sources(PadOS PRIVATE SystemMessageIDs.h)
+target_sources(PadOS PRIVATE
+  HandleObject.cpp
+  SystemMessageIDs.h
+)
 
 add_subdirectory(GUI)
 add_subdirectory(Math)

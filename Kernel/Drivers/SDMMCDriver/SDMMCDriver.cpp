@@ -427,7 +427,7 @@ IRQResult SDMMCDriver::HandleIRQ()
 {
 	if (m_PinCD.GetAndClearInterruptStatus())
 	{
-		m_CardDetectCondition.Wakeup();
+		m_CardDetectCondition.Wakeup(1);
 		return IRQResult::HANDLED;
 	}
 	return IRQResult::UNHANDLED;

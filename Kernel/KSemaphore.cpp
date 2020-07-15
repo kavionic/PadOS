@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -287,4 +287,31 @@ status_t try_acquire_semaphore(sem_id handle)
 status_t release_semaphore(sem_id handle)
 {
     return KNamedObject::ForwardToHandleVoid<KSemaphore>(handle, &KSemaphore::Release);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+sem_id duplicate_handle(handle_id handle)
+{
+    Ptr<KNamedObject> object = KNamedObject::GetAnyObject(handle);
+    if (object != nullptr) {
+        return KNamedObject::RegisterObject(object);
+    }
+    set_last_error(EINVAL);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+status_t delete_handle(handle_id handle)
+{
+	if (KNamedObject::FreeHandle(handle)) {
+		return 0;
+	}
+	set_last_error(EINVAL);
+	return -1;
 }

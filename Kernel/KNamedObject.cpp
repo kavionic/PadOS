@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -29,6 +29,11 @@ using namespace kernel;
 static uint8_t gk_NamedObjectsTableBuffer[sizeof(KHandleArray<KNamedObject>)];
 static KHandleArray<KNamedObject>& gk_NamedObjectsTable = *reinterpret_cast<KHandleArray<KNamedObject>*>(gk_NamedObjectsTableBuffer);
 
+#if DEBUG_HANDLE_OBJECT_LIST
+size_t KNamedObject::s_ObjectCount;
+KNamedObject* KNamedObject::s_FirstObject;
+#endif // DEBUG_HANDLE_OBJECT_LIST
+
 void KNamedObject::InitializeStatics()
 {
     new ((void*)gk_NamedObjectsTableBuffer) KHandleArray<KNamedObject>();
@@ -40,6 +45,19 @@ void KNamedObject::InitializeStatics()
 
 KNamedObject::KNamedObject(const char* name, KNamedObjectType type) : m_Type(type)
 {
+#if DEBUG_HANDLE_OBJECT_LIST
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        s_ObjectCount++;
+
+        if (s_FirstObject != nullptr) {
+            s_FirstObject->m_PrevObject = this;
+        }
+        m_NextObject = s_FirstObject;
+        s_FirstObject = this;
+    } CRITICAL_END;
+#endif // DEBUG_HANDLE_OBJECT_LIST
+
     strncpy(m_Name, name, OS_NAME_LENGTH - 1);
     m_Name[OS_NAME_LENGTH - 1] = 0;
 }
@@ -50,6 +68,20 @@ KNamedObject::KNamedObject(const char* name, KNamedObjectType type) : m_Type(typ
 
 KNamedObject::~KNamedObject()
 {
+#if DEBUG_HANDLE_OBJECT_LIST
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        s_ObjectCount--;
+
+        if (m_PrevObject != nullptr) {
+            m_PrevObject->m_NextObject = m_NextObject;
+        } else {
+            s_FirstObject = m_NextObject;
+        }
+        if (m_NextObject != nullptr) m_NextObject->m_PrevObject = m_PrevObject;
+    } CRITICAL_END;
+#endif // DEBUG_HANDLE_OBJECT_LIST
+
     int ourPriLevel = gk_CurrentThread->m_PriorityLevel;
     bool needSchedule = false;
     CRITICAL_BEGIN(CRITICAL_IRQ)
@@ -98,12 +130,24 @@ int32_t KNamedObject::RegisterObject(Ptr<KNamedObject> object)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KNamedObject::FreeHandle(int32_t handle, KNamedObjectType type)
+bool KNamedObject::FreeHandle(int32_t handle)
 {
-    if (GetObject(handle, type) != nullptr) {
+    if (GetAnyObject(handle) != nullptr) {
         return gk_NamedObjectsTable.FreeHandle(handle);
     }
     return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KNamedObject::FreeHandle(int32_t handle, KNamedObjectType type)
+{
+	if (GetObject(handle, type) != nullptr) {
+		return gk_NamedObjectsTable.FreeHandle(handle);
+	}
+	return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -121,3 +165,24 @@ Ptr<KNamedObject> KNamedObject::GetObject(int32_t handle, KNamedObjectType type)
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KNamedObject> KNamedObject::GetAnyObject(int32_t handle)
+{
+	Ptr<KNamedObject> object = gk_NamedObjectsTable.Get(handle);
+
+	if (object != nullptr) {
+		return object;
+	} else {
+		return nullptr;
+	}
+}
+
+bool KNamedObject::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
+{
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+    m_WaitQueue.Append(waitNode);
+    return true;
+}

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -27,6 +27,13 @@
 #include "System/System.h"
 #include "Utils/IntrusiveList.h"
 
+enum class ObjectWaitMode : uint8_t
+{
+    Read,
+    Write,
+    ReadWrite
+};
+
 namespace kernel
 {
 class KThreadCB;
@@ -40,6 +47,7 @@ enum class KNamedObjectType
 	ObjectWaitGroup,
     MessagePort,
 };
+
 
 struct KThreadWaitNode
 {
@@ -80,14 +88,18 @@ public:
     int32_t          GetHandle() const         { return m_Handle; }
 
     static int32_t           RegisterObject(Ptr<KNamedObject> object);
-    static bool              FreeHandle(int32_t handle, KNamedObjectType type);
+    static bool              FreeHandle(int32_t handle);
+	static bool              FreeHandle(int32_t handle, KNamedObjectType type);
 
     static Ptr<KNamedObject> GetObject(int32_t handle, KNamedObjectType type);
     template<typename T>
     static Ptr<T>            GetObject(int32_t handle) { return ptr_static_cast<T>(GetObject(handle, T::ObjectType)); }
+	static Ptr<KNamedObject> GetAnyObject(int32_t handle);
 
     KThreadWaitList& GetWaitQueue() { return m_WaitQueue; }
 
+    // If access would block, add to wait-list and return true. If not, don't add to any list and return false.
+    virtual bool AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode);
 
     template<typename T, typename CALLBACK, typename... ARGS>
     static status_t ForwardToHandle(int handle, CALLBACK callback, ARGS&&... args)
@@ -125,6 +137,13 @@ protected:
 
 private:
     static const uint32_t MAGIC = 0x1ee3babe;
+
+#if DEBUG_HANDLE_OBJECT_LIST
+    static size_t s_ObjectCount;
+    static KNamedObject* s_FirstObject;
+    KNamedObject* m_PrevObject = nullptr;
+    KNamedObject* m_NextObject = nullptr;
+#endif // DEBUG_HANDLE_OBJECT_LIST
     uint32_t         m_Magic = MAGIC;
     char             m_Name[OS_NAME_LENGTH];
     KNamedObjectType m_Type;

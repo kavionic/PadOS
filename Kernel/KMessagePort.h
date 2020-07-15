@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #pragma once
 
 #include "KNamedObject.h"
-#include "KSemaphore.h"
+#include "KConditionVariable.h"
 #include "KMutex.h"
 #include "System/Types.h"
 #include "System/System.h"
@@ -35,8 +35,11 @@ class KMessagePort : public KNamedObject
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::MessagePort;
 
-    KMessagePort(const char* name, int maxCount);
+    KMessagePort(const char* name, size_t maxCount);
     ~KMessagePort();
+
+    // From KNamedObject:
+    virtual bool AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
 
     bool    SetReplyPort(port_id port);
 
@@ -50,8 +53,11 @@ private:
     ssize_t DetachMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
     
     KMutex     m_Mutex;
-    KSemaphore m_SendSemaphore;
-    KSemaphore m_ReceiveSemaphore;
+    KConditionVariable m_SendCondition;
+    KConditionVariable m_ReceiveCondition;
+
+    size_t  m_MaxCount;
+    size_t  m_MessageCount = 0;
 
     KMessagePortMessage* m_FirstMsg = nullptr;
     KMessagePortMessage* m_LastMsg = nullptr;

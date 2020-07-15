@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -271,3 +271,74 @@ void KConditionVariable::Wakeup(int threadCount)
         if (wakeup_wait_queue(&m_WaitQueue, 0, threadCount)) KSWITCH_CONTEXT();
     } CRITICAL_END;    
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+handle_id create_condition_var(const char* name)
+{
+  try {
+    return KNamedObject::RegisterObject(ptr_new<KConditionVariable>(name));
+  }
+  catch (const std::bad_alloc& error) {
+    set_last_error(ENOMEM);
+    return -1;
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+status_t  condition_var_wait(handle_id handle, handle_id mutexHandle)
+{
+  Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(mutexHandle, KNamedObjectType::Mutex));
+  if (mutex == nullptr) {
+    set_last_error(EINVAL);
+    return -1;
+  }
+  return KNamedObject::ForwardToHandleBoolToInt<KConditionVariable>(handle, &KConditionVariable::Wait, *mutex);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+status_t  condition_var_wait_timeout(handle_id handle, handle_id mutexHandle, bigtime_t timeout)
+{
+  return condition_var_wait_deadline(handle, mutexHandle, (timeout != INFINIT_TIMEOUT) ? get_system_time() + timeout : INFINIT_TIMEOUT);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+status_t  condition_var_wait_deadline(handle_id handle, handle_id mutexHandle, bigtime_t deadline)
+{
+  Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(mutexHandle, KNamedObjectType::Mutex));
+  if (mutex == nullptr) {
+    set_last_error(EINVAL);
+    return -1;
+  }
+  return KNamedObject::ForwardToHandleBoolToInt<KConditionVariable>(handle, &KConditionVariable::WaitDeadline, *mutex, deadline);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+status_t condition_var_wakeup(handle_id handle, int threadCount)
+{
+  return KNamedObject::ForwardToHandleVoid<KConditionVariable>(handle, &KConditionVariable::Wakeup, threadCount);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+status_t condition_var_wakeup_all(handle_id handle)
+{
+  return KNamedObject::ForwardToHandleVoid<KConditionVariable>(handle, &KConditionVariable::WakeupAll);
+}
+

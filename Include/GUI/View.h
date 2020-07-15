@@ -142,8 +142,11 @@ public:
     float  Height() const;
 
     virtual void        SetFrame(const Rect& frame);
-    void                Move(const Point& delta) { SetFrame(m_Frame + delta); }
-/*    virtual void MoveBy( const Point& cDelta );
+    void                MoveBy(const Point& delta) { SetFrame(m_Frame + delta); }
+	void                MoveBy(float x, float y) { MoveBy(Point(x, y)); }
+	void                MoveTo(const Point& position) { SetFrame(m_Frame.Bounds() + position); }
+	void                MoveTo(float x, float y) { MoveTo(Point(x, y)); }
+	/*    virtual void MoveBy( const Point& cDelta );
     virtual void MoveBy( float vDeltaX, float vDeltaY );
     virtual void MoveTo( const Point& cPos );
     virtual void MoveTo( float x, float y );

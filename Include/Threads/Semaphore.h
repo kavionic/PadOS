@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ class Semaphore
 public:
     enum class NoInit {};
 
-    explicit Semaphore(NoInit) : m_Handle(-1) {}
+    explicit Semaphore(NoInit) : m_Handle(INVALID_HANDLE) {}
 
     Semaphore(const char* name, int count = 1) {
         m_Handle = create_semaphore(name, count);
@@ -40,7 +40,7 @@ public:
     bool TryAcquire()                        { return try_acquire_semaphore(m_Handle) >= 0; }
     bool Release()                          { return release_semaphore(m_Handle) >= 0; }
 
-    Semaphore(Semaphore&& other) : m_Handle(other.m_Handle) { other.m_Handle = -1; }
+    Semaphore(Semaphore&& other) : m_Handle(other.m_Handle) { other.m_Handle = INVALID_HANDLE; }
 
     Semaphore(const Semaphore& other) { m_Handle = duplicate_semaphore(other.m_Handle); }
     Semaphore& operator=(const Semaphore& other) { m_Handle = duplicate_semaphore(other.m_Handle); return *this; }

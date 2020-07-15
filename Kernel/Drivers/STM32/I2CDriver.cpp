@@ -517,7 +517,7 @@ IRQResult I2CDriverINode::HandleEventIRQ()
 		m_Port->CR1 &= ~I2C_CR1_TXIE;
 
 		m_State = State_e::Idle;
-		m_RequestCondition.Wakeup();
+		m_RequestCondition.Wakeup(1);
 		return IRQResult::HANDLED;
 	}
 
@@ -586,13 +586,13 @@ IRQResult I2CDriverINode::HandleEventIRQ()
 		m_Port->ICR = I2C_ICR_STOPCF;
 		m_Port->CR1 &= ~I2C_CR1_TXIE;
 		m_State = State_e::Idle;
-		m_RequestCondition.Wakeup();
+		m_RequestCondition.Wakeup(1);
 	}
 	if (m_Port->ISR & I2C_ISR_TC) // Transfer complete.
 	{
 		m_Port->CR1 &= ~I2C_CR1_TXIE;
 		m_State = State_e::Idle;
-		m_RequestCondition.Wakeup();
+		m_RequestCondition.Wakeup(1);
 	}
 	return IRQResult::HANDLED;
 }
@@ -605,7 +605,7 @@ IRQResult I2CDriverINode::HandleErrorIRQ()
 {
 	m_Port->CR1 &= ~I2C_CR1_ERRIE;
 	m_CurPos = -EIO;
-	m_RequestCondition.Wakeup();
+	m_RequestCondition.Wakeup(1);
 
 	return IRQResult::HANDLED;
 }

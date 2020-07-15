@@ -216,7 +216,7 @@ IRQResult WS2812BDriverINode::HandleIRQ()
 	{
 		dma_clear_interrupt_flags(m_SendDMAChannel, DMA_LIFCR_CTCIF0);
 		m_State = State::Idle;
-		m_TransmitCondition.Wakeup();
+		m_TransmitCondition.WakeupAll();
 	}
 	return IRQResult::HANDLED;
 }

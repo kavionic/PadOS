@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2014-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2014-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -336,6 +336,8 @@ public:
     GfxDriver();
     void InitDisplay(LCDRegisters* registers, const DigitalPin& pinLCDReset, const DigitalPin& pinTouchpadReset, const DigitalPin& pinBacklightControl);
     void Shutdown();
+
+    void Test();
 
     void SetOrientation(Orientation_e orientation);
     inline void SetFillDirection( FillDirection_e direction ) { m_FillDirection = direction; UpdateAddressMode(); }

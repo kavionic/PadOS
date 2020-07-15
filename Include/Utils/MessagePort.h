@@ -22,43 +22,42 @@
 
 #include "System/Types.h"
 #include "System/System.h"
+#include "System/HandleObject.h"
 
+namespace os
+{
 
-class MessagePort
+class MessagePort : public HandleObject
 {
 public:
-    MessagePort(const char* name, int maxCount) : m_Port(create_message_port(name, maxCount)) {}
-    MessagePort(port_id port, bool doClone = false) {
-        m_Port = (doClone) ? duplicate_message_port(port) : port;
+    MessagePort(const char* name, int maxCount) : HandleObject(create_message_port(name, maxCount)) {}
+    MessagePort(port_id port, bool doClone = false) : HandleObject((doClone) ? duplicate_message_port(port) : port) {
         m_DontDeletePort = !doClone;
     }
     ~MessagePort() {
-        if (!m_DontDeletePort && m_Port != -1) delete_message_port(m_Port);
+        if (m_DontDeletePort) m_Handle = INVALID_HANDLE;
     }
-    port_id GetPortID() const { return m_Port; }
     
     bool    SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout = INFINIT_TIMEOUT) const {
-        return send_message(m_Port, targetHandler, code, data, length, timeout) >= 0;
+        return send_message(m_Handle, targetHandler, code, data, length, timeout) >= 0;
     }
     ssize_t ReceiveMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize) const {
-        return receive_message(m_Port, targetHandler, code, buffer, bufferSize);
+        return receive_message(m_Handle, targetHandler, code, buffer, bufferSize);
     }
     ssize_t ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout) const {
-        return receive_message_timeout(m_Port, targetHandler, code, buffer, bufferSize, timeout);
+        return receive_message_timeout(m_Handle, targetHandler, code, buffer, bufferSize, timeout);
     }
     ssize_t ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline) const {
-        return receive_message_deadline(m_Port, targetHandler, code, buffer, bufferSize, deadline);
+        return receive_message_deadline(m_Handle, targetHandler, code, buffer, bufferSize, deadline);
     }
 
-    MessagePort(const MessagePort& other) { m_Port = duplicate_message_port(other.m_Port); }
-    MessagePort& operator=(const MessagePort& other)
-    {
-        if (m_Port != -1) delete_message_port(m_Port);        
-        m_Port = duplicate_message_port(other.m_Port);
-        return *this;
-    }
+    MessagePort(MessagePort&& other) = default;
+    MessagePort(const MessagePort& other) = default;
+    MessagePort& operator=(const MessagePort&) = default;
+
     
 private:
-    port_id m_Port;
     bool    m_DontDeletePort = false;
 };
+
+} // namespace

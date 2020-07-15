@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,24 +19,20 @@
 
 #pragma once
 #include "Threads/Threads.h"
+#include "System/HandleObject.h"
 
 namespace os
 {
 
 
-class Mutex
+class Mutex : public HandleObject
 {
 public:
     enum class NoInit {};
 
-    explicit Mutex(NoInit) : m_Handle(INVALID_HANDLE) {}
+    explicit Mutex(NoInit) : HandleObject(INVALID_HANDLE) {}
 
-    Mutex(const char* name, bool recursive = true) {
-        m_Handle = create_mutex(name, recursive);
-    }
-    ~Mutex() {
-        if (m_Handle != INVALID_HANDLE) delete_mutex(m_Handle);
-    }
+    Mutex(const char* name, bool recursive = true) : HandleObject(create_mutex(name, recursive)) {}
 
     bool Lock() { return lock_mutex(m_Handle) >= 0; }
     bool LockTimeout(bigtime_t timeout) { return lock_mutex_timeout(m_Handle, timeout) >= 0; }
@@ -44,13 +40,11 @@ public:
     bool TryLock() { return try_lock_mutex(m_Handle) >= 0; }
     bool Unlock() { return unlock_mutex(m_Handle) >= 0; }
 
-    Mutex(Mutex&& other) : m_Handle(other.m_Handle) { other.m_Handle = INVALID_HANDLE; }
-
-    Mutex(const Mutex& other) { m_Handle = duplicate_mutex(other.m_Handle); }
-    Mutex& operator=(const Mutex& other) { m_Handle = duplicate_mutex(other.m_Handle); return *this; }
+    Mutex(Mutex&& other) = default;
+    Mutex(const Mutex& other) = default;
+    Mutex& operator=(const Mutex& other) = default;
 
 private:
-    sem_id m_Handle;
 };
 
 class MutexObjGuard

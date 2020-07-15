@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2017-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2017-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ using namespace os;
 
 Application::Application(const String& name) : Looper(name, 1000), m_ReplyPort("app_reply", 1000)
 {
-    ASRegisterApplication::Sender::Emit(get_appserver_port(), -1, INFINIT_TIMEOUT, m_ReplyPort.GetPortID(), GetPortID(), GetName());
+    ASRegisterApplication::Sender::Emit(get_appserver_port(), -1, INFINIT_TIMEOUT, m_ReplyPort.GetHandle(), GetPortID(), GetName());
     
     for(;;)
     {
@@ -119,7 +119,7 @@ bool Application::AddView(Ptr<View> view, ViewDockType dockType)
     {
         AddHandler(view);
         Post<ASCreateView>(GetPortID()
-                            , m_ReplyPort.GetPortID()
+                            , m_ReplyPort.GetHandle()
                             , view->GetHandle()
                             , parentHandle
                             , dockType
@@ -181,22 +181,16 @@ bool Application::AddView(Ptr<View> view, ViewDockType dockType)
 
 bool Application::RemoveView(Ptr<View> view)
 {
-    if (view->m_ServerHandle == -1) {
-        printf("ERROR: Application::RemoveView() attempt to remove a view with no server handle\n");
-        return false;
-    }
-    if (view->m_ServerHandle != -1)
+    if (view->m_ServerHandle != INVALID_HANDLE)
     {
         Post<ASDeleteView>(view->m_ServerHandle);
         DetachView(view);
     }
-    else
-    {
-        for (Ptr<View> child : *view) {
-            RemoveView(child);
-        }
+    if (view->GetLooper() != nullptr) {
         RemoveHandler(view);
-        view->SetServerHandle(-1);
+    }
+    for (Ptr<View> child : *view) {
+        RemoveView(child);
     }
 	view->ClearFlags(ViewFlags::IsAttachedToScreen);
     view->HandleDetachedFromScreen();
@@ -221,7 +215,7 @@ void Application::Flush()
 
 void Application::Sync()
 {
-    Post<ASSync>(m_ReplyPort.GetPortID());
+    Post<ASSync>(m_ReplyPort.GetHandle());
     Flush();
     int32_t code;
     for (;;)
@@ -242,12 +236,11 @@ void Application::Sync()
 
 void Application::DetachView(Ptr<View> view)
 {
+    view->SetServerHandle(INVALID_HANDLE);
     for (Ptr<View> child : *view)
     {
         DetachView(child);
     }
-    RemoveHandler(view);
-    view->SetServerHandle(-1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

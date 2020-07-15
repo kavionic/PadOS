@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -94,10 +94,11 @@ static void free_message(KMessagePortMessage* message)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KMessagePort::KMessagePort(const char* name, int maxCount) : KNamedObject(name, ObjectType),
-                                                             m_Mutex("message_port_mutex", false),
-                                                             m_SendSemaphore("message_port_send", maxCount),
-                                                             m_ReceiveSemaphore("message_port_receive", 0)
+KMessagePort::KMessagePort(const char* name, size_t maxCount) : KNamedObject(name, ObjectType)
+                                                              , m_Mutex("message_port_mutex", false)
+                                                              , m_SendCondition("message_port_send")
+                                                              , m_ReceiveCondition("message_port_receive")
+                                                              , m_MaxCount(maxCount)
 {
 }
 
@@ -119,35 +120,68 @@ KMessagePort::~KMessagePort()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool KMessagePort::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
+{
+    CRITICAL_SCOPE(m_Mutex);
+
+    switch (mode)
+    {
+        case ObjectWaitMode::Read:
+            if (m_MessageCount == 0) {
+                return m_ReceiveCondition.AddListener(waitNode, ObjectWaitMode::Read);
+            } else {
+                return false; // Will not block.
+            }
+        case ObjectWaitMode::Write:
+            if (m_MessageCount >= m_MaxCount) {
+                return m_SendCondition.AddListener(waitNode, ObjectWaitMode::Read);
+            } else {
+                return false; // Will not block.
+            }
+        default:
+            return false;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool KMessagePort::SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout)
 {
     bigtime_t deadline = (timeout != INFINIT_TIMEOUT) ? (get_system_time() + timeout) : INFINIT_TIMEOUT;
-    if (m_SendSemaphore.AcquireDeadline(deadline))
+    CRITICAL_SCOPE(m_Mutex);
+
+    while (m_MessageCount >= m_MaxCount)
     {
-        KMessagePortMessage* message = alloc_message(length);
-        if (message == nullptr) {
-            m_SendSemaphore.Release();
-            return false;
-        }
-        message->m_TargetHandler = targetHandler;
-        message->m_Code          = code;
-        message->m_Length        = length;
-        
-        memcpy(message + 1, data, length);
-        CRITICAL_BEGIN(m_Mutex)
-        {
-            message->m_Next = nullptr;
-            if (m_LastMsg != nullptr) {
-                m_LastMsg->m_Next = message;
-            } else {
-                m_FirstMsg = message;
+        if (!m_SendCondition.WaitDeadline(m_Mutex, deadline)) {
+            if (get_last_error() != EINTR)
+            {
+                return false;
             }
-            m_LastMsg = message;
-        } CRITICAL_END;
-        m_ReceiveSemaphore.Release();
-        return true;
+        }
     }
-    return false;
+
+    KMessagePortMessage* message = alloc_message(length);
+    if (message == nullptr) {
+        return false;
+    }
+    message->m_TargetHandler = targetHandler;
+    message->m_Code = code;
+    message->m_Length = length;
+
+    memcpy(message + 1, data, length);
+
+    message->m_Next = nullptr;
+    if (m_LastMsg != nullptr) {
+        m_LastMsg->m_Next = message;
+    } else {
+        m_FirstMsg = message;
+    }
+    m_LastMsg = message;
+    m_MessageCount++;
+    m_ReceiveCondition.WakeupAll();
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -156,8 +190,16 @@ bool KMessagePort::SendMessage(handler_id targetHandler, int32_t code, const voi
 
 ssize_t KMessagePort::ReceiveMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize)
 {
-    if (!m_ReceiveSemaphore.Acquire()) {
-        return -1;
+	CRITICAL_SCOPE(m_Mutex);
+
+    while (m_MessageCount == 0)
+    {
+        if (!m_ReceiveCondition.Wait(m_Mutex))
+        {
+            if (get_last_error() != EINTR) {
+                return -1;
+            }
+        }
     }
     return DetachMessage(targetHandler, code, buffer, bufferSize);
 }
@@ -177,9 +219,18 @@ ssize_t KMessagePort::ReceiveMessageTimeout(handler_id* targetHandler, int32_t* 
 
 ssize_t KMessagePort::ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline)
 {
-    if (!m_ReceiveSemaphore.AcquireDeadline(deadline)) {
-        return -1;
-    }
+	CRITICAL_SCOPE(m_Mutex);
+
+	while (m_MessageCount == 0)
+	{
+		if (!m_ReceiveCondition.WaitDeadline(m_Mutex, deadline))
+		{
+			if (get_last_error() != EINTR)
+			{
+				return -1;
+			}
+		}
+	}
     return DetachMessage(targetHandler, code, buffer, bufferSize);
 }
 
@@ -189,19 +240,18 @@ ssize_t KMessagePort::ReceiveMessageDeadline(handler_id* targetHandler, int32_t*
 
 ssize_t KMessagePort::DetachMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize)
 {
-    KMessagePortMessage* message;
-    CRITICAL_BEGIN(m_Mutex)
-    {
-        message = m_FirstMsg;
-        kassure(message != nullptr, "ERROR: KMessagePort::ReceiveMessage() acquired receive semaphore with no message available.: %s\n", GetName());
-        if (message == nullptr) {
-            set_last_error(EINVAL); // Pretty random. Really should never get here if we successfully acquired the receive semaphore.
-            return -1;
-        }
-        m_FirstMsg = message->m_Next;
-        if (m_FirstMsg == nullptr) m_LastMsg = nullptr;
-    } CRITICAL_END;
-    m_SendSemaphore.Release();
+    KMessagePortMessage* message = m_FirstMsg;
+    kassure(m_MessageCount > 0 && message != nullptr, "ERROR: KMessagePort::ReceiveMessage() acquired receive semaphore with no message available.: %s\n", GetName());
+    if (message == nullptr) {
+        set_last_error(EINVAL); // DetachMessage() should never be called unless there is a message available.
+        return -1;
+    }
+    m_FirstMsg = message->m_Next;
+    if (m_FirstMsg == nullptr) {
+        m_LastMsg = nullptr;
+    }
+    m_MessageCount--;
+    m_SendCondition.WakeupAll();
 
     ssize_t bytesReceived = 0;
     

@@ -509,7 +509,7 @@ IRQResult GSLx680Driver::HandleIRQ()
 {
 	if (m_PinIRQ.GetAndClearInterruptStatus())
 	{
-		m_EventCondition.Wakeup();
+		m_EventCondition.Wakeup(1);
 		return IRQResult::HANDLED;
 	}
 	return IRQResult::UNHANDLED;

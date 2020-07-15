@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -302,7 +302,7 @@ void HLayoutNode::Layout()
     //    if ( vMinWidth > bounds.Width() + 1.0f ) {
     //      printf( "Error: HLayoutNode::Layout() Width=%.2f, Required width=%.2f\n", bounds.Width() + 1.0f, vMinWidth  );
     //    }
-        float unusedWidth = SpaceOut(childList.size(), bounds.Width() + 1.0f, vMinWidth, totalWheight, minWidths, maxWidths, wheights, finalHeights);
+        float unusedWidth = SpaceOut(childList.size(), bounds.Width(), vMinWidth, totalWheight, minWidths, maxWidths, wheights, finalHeights);
 
 //        printf("HLayout: Unused space: %f (%f)\n", unusedWidth, bounds.Width());
         unusedWidth /= float(childList.size());
@@ -318,7 +318,7 @@ void HLayoutNode::Layout()
             switch(childList[i]->GetVAlignment())
             {
                 case Alignment::Top:    y = bounds.top; break;
-                case Alignment::Right:  y = bounds.bottom - frame.Height() - 1.0f; break;
+                case Alignment::Right:  y = bounds.bottom - frame.Height(); break;
                 default:           printf( "Error: HLayoutNode::Layout() node '%s' has invalid v-alignment %d\n", m_View->GetName().c_str(), int(childList[i]->GetVAlignment()) );
                 [[fallthrough]];
                 case Alignment::Center: y = bounds.top + (bounds.Height() - frame.Height()) * 0.5f; break;
@@ -386,7 +386,7 @@ void VLayoutNode::Layout()
     if (m_View != nullptr)
     {
         const auto& childList = m_View->GetChildList();
-        Rect bounds = m_View->GetNormalizedBounds();
+        const Rect bounds = m_View->GetNormalizedBounds();
     
         float* maxWidths    = (float*)alloca(sizeof(float)*childList.size());
         float* minHeights   = (float*)alloca(sizeof(float)*childList.size());
@@ -423,7 +423,7 @@ void VLayoutNode::Layout()
     //    if ( vMinHeight > bounds.Height() + 1.0f ) {
     //      printf( "Error: HLayoutNode::Layout() Width=%.2f, Required width=%.2f\n", bounds.Height() + 1.0f, vMinHeight  );
     //    }
-        float vUnusedHeight = SpaceOut(childList.size(), bounds.Height() + 1.0f,  vMinHeight, totalWheight, minHeights, maxHeights, wheights, finalHeights);
+        float vUnusedHeight = SpaceOut(childList.size(), bounds.Height(),  vMinHeight, totalWheight, minHeights, maxHeights, wheights, finalHeights);
 
         vUnusedHeight /= float(childList.size());
         float y = bounds.top + vUnusedHeight * 0.5f;
@@ -437,7 +437,7 @@ void VLayoutNode::Layout()
             switch(childList[i]->GetHAlignment())
             {
                 case Alignment::Left:   x = bounds.left; break;
-                case Alignment::Right:  x = bounds.right - frame.Width() - 1.0f; break;
+                case Alignment::Right:  x = bounds.right - frame.Width(); break;
                 default:           printf( "Error: VLayoutNode::Layout() node '%s' has invalid h-alignment %d\n", m_View->GetName().c_str(), int(childList[i]->GetHAlignment()) );
                 [[fallthrough]];
                 case Alignment::Center: x = bounds.left + (bounds.Width() - frame.Width()) * 0.5f; break;

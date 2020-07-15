@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,10 +23,22 @@
 #include "Threads/EventHandler.h"
 #include "Threads/EventTimer.h"
 #include "System/SystemMessageIDs.h"
+#include "../../Kernel/Scheduler.h"
 
 using namespace os;
 
+#if DEBUG_LOOPER_LIST
+std::vector<Looper*> Looper::s_LooperList;
+
+static Mutex& GetLooperListMutex()
+{
+    static Mutex mutex("LooperList");
+    return mutex;
+}
+#endif // DEBUG_LOOPER_LIST
+
 int32_t Looper::s_NextReplyToken;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -34,7 +46,15 @@ int32_t Looper::s_NextReplyToken;
 
 Looper::Looper(const String& name, int portSize, size_t receiveBufferSize) : Thread(name), m_Mutex("looper"), m_Port("looper", portSize), m_DoRun(true)
 {
+#if DEBUG_LOOPER_LIST
+    CRITICAL_BEGIN(GetLooperListMutex()) {
+        s_LooperList.push_back(this);
+    } CRITICAL_END;
+#endif
     SetReceiveBufferSize(receiveBufferSize);
+
+    m_WaitGroup.AddObject(m_Port);
+    m_WaitGroup.AddObject(m_TimerMapCondition);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -43,10 +63,15 @@ Looper::Looper(const String& name, int portSize, size_t receiveBufferSize) : Thr
 
 Looper::~Looper()
 {
-/*  while( !m_TimerMap.empty() )
-  {
-      m_TimerMap.begin()->second->Stop();
-  }*/
+    for (auto& i : m_TimerMap)
+    {
+        i.second->m_Looper = nullptr;
+    }
+#if DEBUG_LOOPER_LIST
+    CRITICAL_BEGIN(GetLooperListMutex()) {
+        s_LooperList.erase(std::find(s_LooperList.begin(), s_LooperList.end(), this));
+    } CRITICAL_END;
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -125,16 +150,23 @@ bool Looper::WaitForReply(handler_id replyHandler, int32_t replyCode)
 
 bool Looper::AddHandler(Ptr<EventHandler> handler)
 {
-    CRITICAL_SCOPE(m_Mutex);
-    if (handler->m_Looper != nullptr)
+    try
     {
-        printf("ERROR: Looper::AddHandler() attempt to add handler %s(%d) already owned by looper %s(%d)\n", handler->GetName().c_str(), handler->GetHandle(), handler->m_Looper->GetName().c_str(), handler->m_Looper->GetThreadID());
-        set_last_error(EBUSY);
+        CRITICAL_SCOPE(m_Mutex);
+
+        if (handler->m_Looper != nullptr)
+        {
+            printf("ERROR: Looper::AddHandler() attempt to add handler %s(%d) already owned by looper %s(%d)\n", handler->GetName().c_str(), handler->GetHandle(), handler->m_Looper->GetName().c_str(), handler->m_Looper->GetThreadID());
+            set_last_error(EBUSY);
+            return false;
+        }
+        m_HandlerMap[handler->m_Handle] = handler;
+        handler->m_Looper = this;
+        return true;
+    }
+    catch (const std::bad_alloc&) {
         return false;
     }
-    m_HandlerMap[handler->m_Handle] = handler;
-    handler->m_Looper = this;
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -165,33 +197,35 @@ bool Looper::RemoveHandler(Ptr<EventHandler> handler)
 
 bool Looper::AddTimer(EventTimer* timer, bool singleshot)
 {
-    bigtime_t expireTime = get_system_time();
-    CRITICAL_SCOPE(m_Mutex);
-
-    if (timer->m_Looper != nullptr)
+    try
     {
-        if (timer->m_Looper == this) {
-            m_TimerMap.erase(timer->m_TimerMapIterator);
-        } else {
-            set_last_error(EBUSY);
-            return false;
+        bigtime_t expireTime = get_system_time();
+        CRITICAL_SCOPE(m_Mutex);
+
+        if (timer->m_Looper != nullptr)
+        {
+            if (timer->m_Looper == this) {
+                m_TimerMap.erase(timer->m_TimerMapIterator);
+            } else {
+                set_last_error(EBUSY);
+                return false;
+            }
         }
-    }
+        expireTime += timer->m_Timeout;
 
-    expireTime += timer->m_Timeout;
+        timer->m_Looper = this;
+        timer->m_IsSingleshot = singleshot;
+        timer->m_TimerMapIterator = m_TimerMap.insert(std::make_pair(expireTime, timer));
 
-    timer->m_Looper = this;
-    timer->m_IsSingleshot = singleshot;
-    timer->m_TimerMapIterator = m_TimerMap.insert(std::make_pair(expireTime,timer));
-
-    if (expireTime < m_NextEventTime) {
-        m_NextEventTime = expireTime;
-        thread_id thread = GetThreadID();
-        if (get_thread_id() != thread) {
-            wakeup_thread(thread);
+        if (m_NextEventTime == INFINIT_TIMEOUT || expireTime < m_NextEventTime) {
+            m_NextEventTime = expireTime;
+            m_TimerMapCondition.WakeupAll();
         }
+        return true;
     }
-    return true;
+    catch (const std::bad_alloc&) {
+        return false;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -206,6 +240,7 @@ bool Looper::RemoveTimer(EventTimer* timer)
     {
         timer->m_Looper = nullptr;
         m_TimerMap.erase(timer->m_TimerMapIterator);
+        m_NextEventTime = (m_TimerMap.empty()) ? INFINIT_TIMEOUT : m_TimerMap.begin()->first;
         return true;
     }
     else
@@ -235,14 +270,13 @@ Ptr<EventHandler> Looper::FindHandler(handler_id handle) const
 
 int Looper::Run()
 {
-	CRITICAL_BEGIN(m_Mutex)
-	{
-		ThreadStarted();
-	} CRITICAL_END;
+    m_Thread = kernel::get_current_thread();
+    CRITICAL_SCOPE(m_Mutex);
+    ThreadStarted();
 
     while (m_DoRun)
     {
-        ProcessEvents(INVALID_HANDLE, -1);
+        ProcessEvents();
     }
     return 0;
 }
@@ -251,48 +285,26 @@ int Looper::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Looper::ProcessEvents(handler_id waitTarget, int32_t waitCode)
+bool Looper::ProcessEvents()
 {
+
     while (m_DoRun)
     {
-        bigtime_t nextEventTime;
-        if (waitCode == -1)
-        {
-            CRITICAL_BEGIN(m_Mutex)
-            {
-                RunTimers();
-                if (m_TimerMap.empty()) {
-                    nextEventTime = INFINIT_TIMEOUT;
-                } else {
-                    nextEventTime = m_TimerMap.begin()->first;
-                }
-            } CRITICAL_END;
-        }
-        else
-        {
-            nextEventTime = INFINIT_TIMEOUT;
-        }
-        // RACE!!! If another thread start a timer now, we might get stuck waiting for a message.
+        RunTimers();
+        m_WaitGroup.WaitDeadline(m_Mutex, m_NextEventTime);
         for (;;)
         {
             handler_id targetHandler;
             int32_t    code;
-        
+
             ssize_t msgLength = m_Port.ReceiveMessageTimeout(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), 0);
-            if (msgLength < 0 && get_last_error() == ETIME) {
-				CRITICAL_BEGIN(m_Mutex)
-				{
-					Idle();
-				} CRITICAL_END;
-                msgLength = m_Port.ReceiveMessageDeadline(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), nextEventTime);
-            }
             if (msgLength >= 0) {
                 ProcessMessage(targetHandler, code, msgLength);
-            }
-            else {
+            } else {
+                Idle();
                 break;
             }
-        }            
+        }
     }
     return false;
 }
@@ -303,8 +315,6 @@ bool Looper::ProcessEvents(handler_id waitTarget, int32_t waitCode)
 
 void Looper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgLength)
 {
-    CRITICAL_SCOPE(m_Mutex);
-
     if (code == MessageID::QUIT) {
         Stop();
     }
@@ -317,28 +327,15 @@ void Looper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgL
                 i->second->HandleMessage(code, m_ReceiveBuffer.data(), msgLength);
             }
         }
-/*                    for (auto i : m_HandlerMap)
-        {
-            if (i.second->HandleMessage(code, m_ReceiveBuffer.data(), msgLength)) {
-                break;
-            }
-        }*/
     }
-/*    if ((waitCode != -1 && code == waitCode) && (waitTarget == -1 || waitTarget == targetHandler))
-    {
-        return true;
-    }*/
-//            printf("Looper::ProcessEvents() '%s' handline event %d (%d)\n", GetName().c_str(), code, msgLength);
-//           printf("Looper::Run() message received\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bigtime_t Looper::RunTimers()
+void Looper::RunTimers()
 {
-    CRITICAL_SCOPE(m_Mutex);
     bigtime_t curTime = get_system_time();
 
     while (!m_TimerMap.empty())
@@ -348,7 +345,8 @@ bigtime_t Looper::RunTimers()
         bigtime_t timeout = (*i).first;
 
         if ( timeout > curTime ) {
-            return timeout;
+            m_NextEventTime = timeout;
+            return;
         }
 
         EventTimer* timer = (*i).second;
@@ -366,6 +364,5 @@ bigtime_t Looper::RunTimers()
         }
         timer->SignalTrigged(timer);
     }
-    return INFINIT_TIMEOUT;
+    m_NextEventTime = INFINIT_TIMEOUT;
 }
-

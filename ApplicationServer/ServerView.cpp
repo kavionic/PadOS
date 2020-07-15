@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@
 using namespace os;
 using namespace kernel;
 
+static int g_ServerViewCount = 0;
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -37,6 +39,20 @@ ServerView::ServerView(const String& name, const Rect& frame, const Point& scrol
     , m_BgColor16(bgColor.GetColor16())
     , m_FgColor16(fgColor.GetColor16())
 {
+    g_ServerViewCount++;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ServerView::~ServerView()
+{
+    g_ServerViewCount--;
+
+	while (!m_ChildrenList.empty())	{
+		RemoveChild(m_ChildrenList[m_ChildrenList.size() - 1]);
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -133,6 +149,11 @@ void ServerView::AddChild(Ptr<ServerView> child, bool topmost)
 void ServerView::RemoveChild(Ptr<ServerView> child)
 {
     UnlinkChild(child);
+
+    Looper* looper = child->GetLooper();
+    if (looper != nullptr) {
+        looper->RemoveHandler(child);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -232,7 +253,7 @@ void ServerView::SetDrawRegion(Ptr<Region> region)
 {
     m_DrawConstrainReg = region;
 
-    if ( m_HideCount == 0 ) {
+    if (m_HideCount == 0) {
         m_HasInvalidRegs = true;
     }
     m_DrawReg = nullptr;
@@ -515,49 +536,45 @@ void ServerView::SwapRegions( bool bForce )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::RebuildRegion( bool bForce )
+void ServerView::RebuildRegion(bool bForce)
 {
-/*    if (m_pcWindow != nullptr && (m_pcWindow->GetDesktopMask() & (1 << get_active_desktop())) == 0) {
-        return;
-    }*/
-
-    if ( m_HideCount > 0 )
+    if (m_HideCount > 0)
     {
-        if ( m_VisibleReg != nullptr ) {
+        if (m_VisibleReg != nullptr) {
             DeleteRegions();
         }
         return;
     }
-  
-    if ( bForce ) {
+
+    if (bForce) {
         m_HasInvalidRegs = true;
     }
-  
+
     if (m_HasInvalidRegs)
     {
         m_DrawReg = nullptr;
 
         assert(m_PrevVisibleReg == nullptr);
         assert(m_PrevFullReg == nullptr);
-    
+
         m_PrevVisibleReg = m_VisibleReg;
-        m_PrevFullReg    = m_FullReg;
+        m_PrevFullReg = m_FullReg;
 
         Ptr<ServerView> parent = m_Parent.Lock();
-        if ( parent == nullptr )
+        if (parent == nullptr)
         {
             m_FullReg = ptr_new<Region>(GetIFrame());
         }
         else
         {
-	    const IRect intFrame = GetIFrame();
+            const IRect intFrame = GetIFrame();
             assert(parent->m_FullReg != nullptr);
-            if ( parent->m_FullReg == nullptr ) {
+            if (parent->m_FullReg == nullptr) {
                 m_FullReg = ptr_new<Region>(intFrame.Bounds());
             } else {
                 m_FullReg = ptr_new<Region>(*parent->m_FullReg, intFrame, true);
             }
-            if ( m_ShapeConstrainReg != nullptr ) {
+            if (m_ShapeConstrainReg != nullptr) {
                 m_FullReg->Intersect(*m_ShapeConstrainReg);
             }
             IPoint topLeft(intFrame.TopLeft());
@@ -575,12 +592,12 @@ void ServerView::RebuildRegion( bool bForce )
                         }
                     }
                 }
-            }                
+            }
             m_FullReg->Optimize();
-        }            
+        }
         m_VisibleReg = ptr_new<Region>(*m_FullReg);
 
-        if ( (m_Flags & ViewFlags::DrawOnChildren) == 0 )
+        if ((m_Flags & ViewFlags::DrawOnChildren) == 0)
         {
             bool regModified = false;
             IPoint scrollOffset(m_ScrollOffset);
@@ -968,18 +985,11 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
 
         if (!Region::ClipLine(screenFrame, &fromPntScr, &toPntScr)) return;
         
-        GfxDriver::Instance.WaitBlitter();
         GfxDriver::Instance.SetFgColor(m_FgColor16);
-        bool first = true;
         for (const IRect& clip : region->m_Rects)
         {
             if (clip.DoIntersect(boundingBox))
             {
-                if (!first) {
-                    GfxDriver::Instance.WaitBlitter();
-                } else {
-                    first = false;
-                }
                 GfxDriver::Instance.SetWindow(clip + screenPos);
                 GfxDriver::Instance.DrawLine(fromPntScr.x, fromPntScr.y, toPntScr.x, toPntScr.y);
             }                
@@ -1051,18 +1061,12 @@ void ServerView::FillCircle(const Point& position, float radius)
         
         GfxDriver::Instance.WaitBlitter();
         GfxDriver::Instance.SetFgColor(m_FgColor16);
-        bool first = true;
-        IRect boundingBox(positionScr.x - radiusRounded + 2, positionScr.y - radiusRounded + 2, positionScr.x + radiusRounded - 2, positionScr.y + radiusRounded - 2);
+        IRect boundingBox(positionScr.x - radiusRounded - 2, positionScr.y - radiusRounded - 2, positionScr.x + radiusRounded + 2, positionScr.y + radiusRounded + 2);
         for (const IRect& clip : region->m_Rects)
         {
             IRect clipRect = clip + screenPos;
             if (!boundingBox.DoIntersect(clipRect)) {
                 continue;
-            }
-            if (!first) {
-                GfxDriver::Instance.WaitBlitter();
-            } else {
-                first = false;
             }
             GfxDriver::Instance.SetWindow(clipRect);
             GfxDriver::Instance.FillCircle(positionScr.x, positionScr.y, radiusRounded);

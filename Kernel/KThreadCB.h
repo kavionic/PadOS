@@ -25,6 +25,7 @@
 #include "KNamedObject.h"
 #include "Utils/IntrusiveList.h"
 #include "Threads/Threads.h"
+#include "System/SysTime.h"
 
 namespace os
 {
@@ -70,6 +71,8 @@ public:
     uint32_t*                 m_CurrentStack;
     KThreadState              m_State;
     int                       m_PriorityLevel;
+    TimeValNanos              m_StartTime;
+    TimeValNanos              m_RunTime;
     _reent                    m_NewLibreent;
     bool                      m_IsJoinable;
     bool                      m_RestartSyscalls = true;

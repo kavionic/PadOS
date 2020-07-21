@@ -20,7 +20,7 @@
 #pragma once
 #include "Threads/Thread.h"
 #include "HAL/DigitalPort.h"
-//#include "SystemSetup.h"
+#include "Kernel/IRQDispatcher.h"
 
 enum class sys_power_state
 {

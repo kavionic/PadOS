@@ -41,8 +41,8 @@ public:
     bool        HandleMouseMove(MouseButton_e button, const Point& position);
 
     void        AddChild(Ptr<ServerView> child, bool topmost = true);
-    void        RemoveChild(Ptr<ServerView> child);
-    void        RemoveThis();
+    void        RemoveChild(Ptr<ServerView> child, bool removeAsHandler);
+    void        RemoveThis(bool removeAsHandler);
 
     void        SetFrame(const Rect& frame, handler_id requestingClient);
 

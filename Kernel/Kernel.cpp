@@ -32,6 +32,7 @@
 #include "VFS/FileIO.h"
 #include "SAME70TimerDefines.h"
 #include "SpinTimer.h"
+#include "System/SysTime.h"
 
 using namespace kernel;
 using namespace os;
@@ -39,7 +40,6 @@ using namespace os;
 uint32_t                      Kernel::s_FrequencyCore;
 uint32_t                      Kernel::s_FrequencyPeripheral;
 volatile bigtime_t            Kernel::s_SystemTime = 0;
-KIRQAction*                   Kernel::s_IRQHandlers[IRQ_COUNT];
 
 static KMutex												gk_KernelLogMutex("kernel_log", false);
 static std::map<int, std::pair<KLogSeverity, os::String>>	gk_KernelLogLevels;
@@ -103,56 +103,6 @@ void kernel::panic(const char* message)
 //    RGBLED_R.Write(false);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bigtime_t get_system_time()
-{
-    return Kernel::GetTime();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bigtime_t get_real_time()
-{
-    return Kernel::GetTime() + bigtime_from_s(1000000000);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// Return system time in nano seconds with the resolution of the core clock.
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bigtime_t get_system_time_hires()
-{
-	uint32_t coreFrequency = Kernel::GetFrequencyCore();
-    for (;;)
-    {
-        uint32_t  ticks = SysTick->VAL;
-        bigtime_t time = Kernel::GetTime();
-        if (SysTick->VAL <= ticks) { // If timer didn't wrap while reading the timer-tick count, convert sys-ticks since last wrap to nS.
-        	time *= 1000; // Convert system time from uS to nS.
-            return time + bigtime_t(SysTick->LOAD - ticks) * 1000000000LL / coreFrequency;
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// Return number of core clock cycles since last wrap. Wraps every ms.
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-uint64_t get_core_clock_cycles()
-{
-	uint32_t timerLoadVal = SysTick->LOAD;
-
-	CRITICAL_SCOPE(CRITICAL_IRQ);
-	uint32_t ticks = SysTick->VAL;
-	return timerLoadVal - ticks;
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -251,15 +201,6 @@ void Kernel::Initialize(uint32_t coreFrequency, MCU_Timer16_t* powerSwitchTimerC
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Kernel::SystemTick()
-{
-    s_SystemTime++;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 int Kernel::RegisterDevice(const char* path, Ptr<KINode> deviceNode)
 {
     return FileIO::s_RootFilesystem->RegisterDevice(path, deviceNode);
@@ -287,107 +228,6 @@ int Kernel::RemoveDevice(int handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Kernel::RegisterIRQHandler(IRQn_Type irqNum, KIRQHandler* handler, void* userData)
-{
-    if (irqNum < 0 || irqNum >= IRQ_COUNT || handler == nullptr)
-    {
-        set_last_error(EINVAL);
-        return -1;
-    }
-    KIRQAction* action = new KIRQAction;
-    if (action == nullptr) {
-        set_last_error(ENOMEM);
-        return -1;
-    }
-    static int currentHandle = 0;
-    int handle = ++currentHandle;
-
-    action->m_Handle = handle;
-    action->m_Handler = handler;
-    action->m_UserData = userData;
-
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        bool needEnabled = s_IRQHandlers[irqNum] == nullptr;
-        
-        action->m_Next = s_IRQHandlers[irqNum];
-        s_IRQHandlers[irqNum] = action;
-
-        if (needEnabled) {
-            NVIC_SetPriority(irqNum, KIRQ_PRI_NORMAL_LATENCY2);
-            NVIC_EnableIRQ(irqNum);
-        }
-    } CRITICAL_END;
-    return handle;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int Kernel::UnregisterIRQHandler(IRQn_Type irqNum, int handle)
-{
-    if (irqNum < 0 || irqNum >= IRQ_COUNT)
-    {
-        set_last_error(EINVAL);
-        return -1;
-    }
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        KIRQAction* prev = nullptr;
-        for (KIRQAction* action = s_IRQHandlers[irqNum]; action != nullptr; action = action->m_Next)
-        {
-            if (action->m_Handle == handle)
-            {
-                if (prev != nullptr) {
-                    prev->m_Next = action->m_Next;
-                } else {
-                    s_IRQHandlers[irqNum] = action->m_Next;
-                }
-                delete action;
-                if (s_IRQHandlers[irqNum] == nullptr) {
-                    NVIC_DisableIRQ(irqNum);
-                }
-                return 0;
-            }
-        }
-    } CRITICAL_END;
-    set_last_error(EINVAL);
-    return -1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void Kernel::HandleIRQ(IRQn_Type irqNum)
-{
-	if (irqNum < IRQ_COUNT)
-	{
-		for (KIRQAction* action = s_IRQHandlers[irqNum]; action != nullptr; action = action->m_Next) {
-			if (action->m_Handler(irqNum, action->m_UserData) == IRQResult::HANDLED) break;
-		}
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bigtime_t Kernel::GetTime()
-{
-	bigtime_t time;
-	CRITICAL_BEGIN(CRITICAL_IRQ)
-	{
-		time = s_SystemTime;
-    } CRITICAL_END;
-	return time * 1000;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 int get_last_error()
 {
     return gk_CurrentThread->m_NewLibreent._errno;
@@ -400,19 +240,4 @@ int get_last_error()
 void set_last_error(int error)
 {
     gk_CurrentThread->m_NewLibreent._errno = error;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-extern "C" void KernelHandleIRQ()
-{
-	volatile int irq = SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk;
-
-	if (irq >= 16) {
-		Kernel::HandleIRQ(IRQn_Type(irq - 16));
-	} else {
-		panic("Unhandled exception.");
-	}
 }

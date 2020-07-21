@@ -46,22 +46,9 @@ class KFileNode;
 class KFSVolume;
 class KRootFilesystem;
 
-enum class IRQResult : int
-{
-	UNHANDLED,
-	HANDLED
-};
 
-typedef IRQResult KIRQHandler(IRQn_Type irq, void* userData);
+static constexpr uint32_t SYS_TICKS_PER_SEC = 1000;
 
-struct KIRQAction
-{
-
-    KIRQHandler* m_Handler;
-    void*        m_UserData;
-    int32_t      m_Handle;
-    KIRQAction*  m_Next;
-};
 
 template<typename ...ARGS> int kprintf(const char* fmt, ARGS&&... args) { return printf(fmt, args...); }
 
@@ -142,24 +129,15 @@ public:
 #endif
     static void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
     static void Initialize(uint32_t coreFrequency, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch);
-    static void SystemTick();
     static int RegisterDevice(const char* path, Ptr<KINode> deviceNode);
     static int RenameDevice(int handle, const char* newPath);
     static int RemoveDevice(int handle);
-
-    static int RegisterIRQHandler(IRQn_Type irqNum, KIRQHandler* handler, void* userData);
-    static int UnregisterIRQHandler(IRQn_Type irqNum, int handle);
-    static void HandleIRQ(IRQn_Type irqNum);
-
-    static bigtime_t GetTime();
-
 
 //private:
 
     static uint32_t s_FrequencyCore;
     static uint32_t s_FrequencyPeripheral;
     static volatile bigtime_t   s_SystemTime;
-    static KIRQAction*                   s_IRQHandlers[IRQ_COUNT];
 };
 
 } // namespace

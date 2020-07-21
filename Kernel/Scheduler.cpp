@@ -40,7 +40,8 @@ static KProcess gk_FirstProcess;
 KProcess*  volatile kernel::gk_CurrentProcess = &gk_FirstProcess;
 KThreadCB* volatile kernel::gk_CurrentThread = nullptr;
 
-static KThreadCB*                gk_IdleThread = nullptr;
+KThreadCB*          kernel::gk_IdleThread = nullptr;
+
 static KThreadCB*                gk_InitThread = nullptr;
 
 static KThreadList               gk_ReadyThreadLists[KTHREAD_PRIORITY_LEVELS];
@@ -150,6 +151,9 @@ extern "C" uint32_t* select_thread(uint32_t* currentStack)
                 wakeup_wait_queue(&prevThread->GetWaitQueue(), prevThread->m_NewLibreent._errno, 0);
             }
         }
+        TimeValNanos curTime = get_system_time_hires();
+        prevThread->m_RunTime += curTime - prevThread->m_StartTime;
+        gk_CurrentThread->m_StartTime = curTime;
     } CRITICAL_END;
 
     if (intptr_t(gk_CurrentThread->m_CurrentStack) <= intptr_t(gk_CurrentThread->GetStackBottom())) {
@@ -200,10 +204,6 @@ extern "C" void SVCall_Handler( void )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 static void start_first_thread()
 {
     static uint32_t* SCB_VTOR_addr = (uint32_t*)&SCB->VTOR;
@@ -233,7 +233,7 @@ extern "C" void PendSV_Handler( void )
     __asm volatile
     (
     "    mrs r0, psp\n"
-    "    isb\n"
+    "    isb\n"                     // Flush instruction pipeline.
     ""
     "    tst lr, #0x10\n"           // Test bit 4 in EXEC_RETURN to check if the thread use the FPU context.
     "    it eq\n"
@@ -250,7 +250,7 @@ extern "C" void PendSV_Handler( void )
     "    vldmiaeq r0!, {s16-s31}\n" // If bit 4 not set, pop the high FPU registers.
     ""
     "    msr psp, r0\n"
-    "    isb\n"
+    "    isb\n"                     // Flush instruction pipeline.
     "    bx lr\n"
     );
 }
@@ -286,7 +286,7 @@ bool kernel::wakeup_wait_queue(KThreadWaitList* queue, int returnCode, int maxCo
 
 static void wakeup_sleeping_threads()
 {
-    bigtime_t curTime = Kernel::GetTime();
+    bigtime_t curTime = Kernel::s_SystemTime * SYS_TICKS_PER_SEC;
 
     for (KThreadWaitNode* waitNode = gk_SleepingThreads.m_First; waitNode != nullptr && waitNode->m_ResumeTime <= curTime; waitNode = gk_SleepingThreads.m_First)
     {

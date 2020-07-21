@@ -57,6 +57,7 @@ enum KIRQPriorityLevels
 
 extern KProcess*  volatile gk_CurrentProcess;
 extern KThreadCB* volatile gk_CurrentThread;
+extern KThreadCB* gk_IdleThread;
 
 Ptr<KThreadCB> get_thread(thread_id handle);
 

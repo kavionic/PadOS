@@ -26,6 +26,7 @@
 #include "Kernel/KMutex.h"
 #include "Threads/Thread.h"
 #include "Math/Point.h"
+#include "Kernel/IRQDispatcher.h"
 
 namespace kernel
 {

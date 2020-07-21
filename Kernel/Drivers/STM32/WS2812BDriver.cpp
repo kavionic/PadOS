@@ -76,7 +76,7 @@ WS2812BDriverINode::WS2812BDriverINode(SPI_TypeDef* port, bool swapIOPins, DMAMU
 	{
 		auto irq = dma_get_channel_irq(m_SendDMAChannel);
 		NVIC_ClearPendingIRQ(irq);
-		kernel::Kernel::RegisterIRQHandler(irq, IRQCallbackSend, this);
+		kernel::register_irq_handler(irq, IRQCallbackSend, this);
 	}
 }
 

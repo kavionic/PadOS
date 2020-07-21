@@ -71,8 +71,8 @@ I2CDriverINode::I2CDriverINode(KFilesystemFileOps* fileOps
 	clockPin.SetPullMode(PinPullMode_e::Up);
 	dataPin.SetPullMode(PinPullMode_e::Up);
 
-	kernel::Kernel::RegisterIRQHandler(eventIRQ, IRQCallbackEvent, this);
-	kernel::Kernel::RegisterIRQHandler(errorIRQ, IRQCallbackError, this);
+	kernel::register_irq_handler(eventIRQ, IRQCallbackEvent, this);
+	kernel::register_irq_handler(errorIRQ, IRQCallbackError, this);
 
 	SetSpeed(I2CSpeed::Fast);
 

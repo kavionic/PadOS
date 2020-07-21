@@ -88,7 +88,7 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
         m_PinINT.GetAndClearInterruptStatus(); // Clear any pending interrupts.
         m_PinINT.EnableInterrupts();
         
-        Kernel::RegisterIRQHandler(irqNum, IRQHandler, this);
+        kernel::register_irq_handler(irqNum, IRQHandler, this);
 
         uint8_t reg = 0;
         FileIO::Write(m_I2CDevice, 0, &reg, 1);

@@ -28,6 +28,7 @@
 #include "SDMMCProtocol.h"
 #include "Ptr/Ptr.h"
 #include "Threads/Thread.h"
+#include "Kernel/IRQDispatcher.h"
 #include "Kernel/KMutex.h"
 #include "Kernel/KConditionVariable.h"
 #include "Kernel/KSemaphore.h"

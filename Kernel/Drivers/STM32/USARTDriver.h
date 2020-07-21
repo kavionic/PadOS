@@ -20,6 +20,7 @@
 #pragma once
 
 #include "System/Platform.h"
+#include "Kernel/IRQDispatcher.h"
 #include "Kernel/KMutex.h"
 #include "Kernel/KConditionVariable.h"
 #include "Kernel/VFS/KINode.h"

@@ -79,7 +79,7 @@ bool SDMMCDriver_STM32::Setup(const os::String& devicePath, SDMMC_TypeDef* port,
 	m_SDMMC->POWER = 3 << SDMMC_POWER_PWRCTRL_Pos;
 
 	if (!SetupBase(devicePath, pinCD)) return false;
-	kernel::Kernel::RegisterIRQHandler(irqNum, IRQCallback, this);
+    kernel::register_irq_handler(irqNum, IRQCallback, this);
 	return true;
 }
 

@@ -51,7 +51,7 @@ ServerView::~ServerView()
     g_ServerViewCount--;
 
 	while (!m_ChildrenList.empty())	{
-		RemoveChild(m_ChildrenList[m_ChildrenList.size() - 1]);
+		RemoveChild(m_ChildrenList[m_ChildrenList.size() - 1], true);
 	}
 }
 
@@ -146,13 +146,16 @@ void ServerView::AddChild(Ptr<ServerView> child, bool topmost)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::RemoveChild(Ptr<ServerView> child)
+void ServerView::RemoveChild(Ptr<ServerView> child, bool removeAsHandler)
 {
     UnlinkChild(child);
 
-    Looper* looper = child->GetLooper();
-    if (looper != nullptr) {
-        looper->RemoveHandler(child);
+    if (removeAsHandler)
+    {
+        Looper* looper = child->GetLooper();
+        if (looper != nullptr) {
+            looper->RemoveHandler(child);
+        }
     }
 }
 
@@ -160,12 +163,12 @@ void ServerView::RemoveChild(Ptr<ServerView> child)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::RemoveThis()
+void ServerView::RemoveThis(bool removeAsHandler)
 {
     Ptr<ServerView> parent = m_Parent.Lock();
     if (parent != nullptr)
     {
-        parent->RemoveChild(ptr_tmp_cast(this));
+        parent->RemoveChild(ptr_tmp_cast(this), removeAsHandler);
     }
 }
 
@@ -772,12 +775,12 @@ void ServerView::ToggleDepth()
     {
         if (parent->m_ChildrenList[parent->m_ChildrenList.size()-1] == self)
         {
-            parent->RemoveChild(self);
+            parent->RemoveChild(self, false);
             parent->AddChild(self, false);
         }
         else
         {
-            parent->RemoveChild(self);
+            parent->RemoveChild(self, false);
             parent->AddChild(self, true);
         }
 

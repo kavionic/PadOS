@@ -98,7 +98,7 @@ bool SDMMCDriver::SetupBase(const String& devicePath, DigitalPinID pinCD)
 
     Start(true);
 
-	Kernel::RegisterIRQHandler(get_peripheral_irq(pinCD), IRQHandler, this);
+    kernel::register_irq_handler(get_peripheral_irq(pinCD), IRQHandler, this);
 
     return true;    
 }

@@ -1,6 +1,7 @@
 add_subdirectory(App)
 add_subdirectory(DeviceControl)
 add_subdirectory(GUI)
+add_subdirectory(Kernel)
 add_subdirectory(Math)
 add_subdirectory(Ptr)
 add_subdirectory(Signals)

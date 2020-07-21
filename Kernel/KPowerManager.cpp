@@ -30,7 +30,6 @@
 
 #include "KPowerManager.h"
 #include "Kernel.h"
-//#include "SystemSetup.h"
 #include "Drivers/RA8875Driver/GfxDriver.h"
 #include "SDRAM.h"
 #include "HAL/SAME70System.h"

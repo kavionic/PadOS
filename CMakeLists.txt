@@ -24,11 +24,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PADOS_C_CXX_FLAGS} -Wsuggest-override 
 add_library(PadOS)
 
 target_sources(PadOS PRIVATE
+	SDCard/System/WindowManagerLayout.xml
 	Init.cpp
 	posix.cpp
 	MPU.cpp
 	MPU.h
-)
+ "Include/System/SystemInfo.h" "Include/System/CPUInfo.h" "Include/System/SysTime.h" "Kernel/SysTime.cpp" "Kernel/IRQDispatcher.cpp" "Include/Kernel/IRQDispatcher.h")
 
 
 add_subdirectory(Applications)

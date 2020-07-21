@@ -24,6 +24,7 @@
 #include "GUI/LayoutNode.h"
 #include "ApplicationServer/ApplicationServer.h"
 #include "GUI/Button.h"
+#include "GUI/ViewFactory.h"
 
 using namespace os;
 
@@ -90,21 +91,21 @@ WindowManager::WindowManager() : Application("window_manager")
     RSWindowManagerRegisterView.Connect(this, &WindowManager::SlotRegisterView);
     RSWindowManagerUnregisterView.Connect(this, &WindowManager::SlotUnregisterView);
     
-    m_TopView = ptr_new<View>("wmgr_root", nullptr, ViewFlags::IgnoreMouse);
-    m_TopView->SetFrame(ApplicationServer::GetScreenFrame());
-    m_TopView->SetLayoutNode(ptr_new<HLayoutNode>());
-    
-    m_SidebarView = ptr_new<WindowBar>(m_TopView);
-    
-    m_ClientsView = ptr_new<View>("wmgr_clients", m_TopView, ViewFlags::IgnoreMouse | ViewFlags::WillDraw);
-    m_ClientsView->SetLayoutNode(ptr_new<LayoutNode>());
-    m_ClientsView->SetWidthOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
-    m_ClientsView->SetWidthOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);
-    
-    m_ClientsView->SetHeightOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
-    m_ClientsView->SetHeightOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);
-    
-    AddView(m_TopView, ViewDockType::RootLevelView);
+    m_TopView = ViewFactory::GetInstance().LoadView(nullptr, "/sdcard/Rainbow3D/System/WindowManagerLayout.xml");
+    if (m_TopView != nullptr)
+    {
+        m_TopView->SetFrame(ApplicationServer::GetScreenFrame());
+        m_TopView->SetLayoutNode(ptr_new<HLayoutNode>());
+
+        m_SidebarView = m_TopView->FindChild("SideBar");
+        m_ClientsView = m_TopView->FindChild("ClientView");
+
+        if (m_SidebarView != nullptr)
+        {
+            m_SidebarView->SetEraseColor(100, 100, 100);
+        }
+        AddView(m_TopView, ViewDockType::RootLevelView);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -140,16 +141,21 @@ bool WindowManager::HandleMessage(handler_id targetHandler, int32_t code, const 
 
 void WindowManager::SlotRegisterView(handler_id viewHandle, ViewDockType dockType, const String& name, const Rect& frame)
 {
-    Ptr<View> view = ptr_new<View>(m_ClientsView, viewHandle, name, frame);
-    
-    Post<ASViewAddChild>(m_ClientsView->GetServerHandle(), viewHandle, view->GetHandle());
-    AddHandler(view);
+    if (m_ClientsView != nullptr)
+    {
+        Ptr<View> view = ptr_new<View>(m_ClientsView, viewHandle, name, frame);
 
-    Ptr<View> prevIcon = m_SidebarView->GetChildAt(0);
-    Ptr<WindowIcon> windowIcon = ptr_new<WindowIcon>(m_SidebarView, view);
-    
-    if (prevIcon != nullptr) {
-        windowIcon->AddToWidthRing(prevIcon);
+        Post<ASViewAddChild>(m_ClientsView->GetServerHandle(), viewHandle, view->GetHandle());
+        AddHandler(view);
+        if (m_SidebarView != nullptr)
+        {
+            Ptr<View> prevIcon = m_SidebarView->GetChildAt(0);
+            Ptr<WindowIcon> windowIcon = ptr_new<WindowIcon>(m_SidebarView, view);
+
+            if (prevIcon != nullptr) {
+                windowIcon->AddToWidthRing(prevIcon);
+            }
+        }
     }
 }
 

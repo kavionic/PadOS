@@ -22,6 +22,7 @@
 #include "Threads/EventTimer.h"
 #include "System/System.h"
 #include "Threads/Looper.h"
+#include "System/SysTime.h"
 
 using namespace os;
 

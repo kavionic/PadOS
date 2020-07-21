@@ -71,7 +71,7 @@ void GSLx680Driver::Setup(const char* devicePath, int threadPriority, DigitalPin
 	m_PinIRQ.GetAndClearInterruptStatus(); // Clear any pending interrupts.
 	m_PinIRQ.EnableInterrupts();
 
-	Kernel::RegisterIRQHandler(get_peripheral_irq(pinIRQ), IRQHandler, this);
+	kernel::register_irq_handler(get_peripheral_irq(pinIRQ), IRQHandler, this);
 
 	m_I2CDevice = FileIO::Open(i2cPath, O_RDWR);
 

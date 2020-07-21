@@ -22,6 +22,7 @@
 #include "Kernel/HAL/DigitalPort.h"
 #include "Kernel/VFS/KDeviceNode.h"
 #include "Kernel/VFS/KFileHandle.h"
+#include "Kernel/IRQDispatcher.h"
 #include "Kernel/KSemaphore.h"
 #include "Kernel/KMutex.h"
 #include "Threads/Thread.h"

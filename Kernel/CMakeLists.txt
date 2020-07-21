@@ -4,6 +4,7 @@ add_subdirectory(HAL)
 add_subdirectory(VFS)
 
 target_sources(PadOS PRIVATE
+	IRQDispatcher.cpp
 	KConditionVariable.cpp
 	KConditionVariable.h
 	Kernel.cpp
@@ -30,4 +31,5 @@ target_sources(PadOS PRIVATE
 	Scheduler.h
 	SpinTimer.cpp
 	SpinTimer.h
+	SysTime.cpp
 )

@@ -205,7 +205,7 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
         IRect modifiedFrame = view->GetIFrame();
         Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
 
-        view->RemoveThis();
+        view->RemoveThis(true);
         
         opacParent->MarkModified(modifiedFrame);
         UpdateLowestInvalidView(opacParent);

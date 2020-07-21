@@ -24,6 +24,7 @@
 #include <cstring>
 
 #include "Ptr/Ptr.h"
+#include "Kernel/IRQDispatcher.h"
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/HAL/DMA.h"
@@ -65,7 +66,7 @@ USARTDriverINode::USARTDriverINode(USART_TypeDef* port, DMAMUX1_REQUEST dmaReque
 
 		auto irq = dma_get_channel_irq(m_ReceiveDMAChannel);
 		NVIC_ClearPendingIRQ(irq);
-		kernel::Kernel::RegisterIRQHandler(irq, IRQCallbackReceive, this);
+		kernel::register_irq_handler(irq, IRQCallbackReceive, this);
 
 		dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
 		dma_start(m_ReceiveDMAChannel);
@@ -74,7 +75,7 @@ USARTDriverINode::USARTDriverINode(USART_TypeDef* port, DMAMUX1_REQUEST dmaReque
 	{
 		auto irq = dma_get_channel_irq(m_SendDMAChannel);
 		NVIC_ClearPendingIRQ(irq);
-		kernel::Kernel::RegisterIRQHandler(irq, IRQCallbackSend, this);
+		kernel::register_irq_handler(irq, IRQCallbackSend, this);
 	}
 }
 

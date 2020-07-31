@@ -67,7 +67,7 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
 
     if (m_I2CDevice >= 0)
     {
-		I2CIOCTL_SetTimeout(m_I2CDevice, bigtime_from_ms(100));
+        I2CIOCTL_SetTimeout(m_I2CDevice, TimeValMicros::FromMilliseconds(100));
 		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x38);
         I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 

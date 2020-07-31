@@ -56,7 +56,7 @@ thread_id Thread::Start(bool joinable, int priority, int stackSize)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Thread::Wait(bigtime_t timeout)
+int Thread::Wait(TimeValMicros timeout)
 {
     if (m_IsJoinable)
     {

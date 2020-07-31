@@ -23,6 +23,7 @@
 #include "KMutex.h"
 
 using namespace kernel;
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -55,7 +56,7 @@ bool KConditionVariable::Wait(KMutex& lock)
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             waitNode.m_Thread = thread;
-            thread->m_State = KThreadState::Waiting;
+            thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
             lock.Unlock();
             KSWITCH_CONTEXT();
@@ -86,7 +87,7 @@ bool KConditionVariable::Wait(KMutex& lock)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::WaitDeadline(KMutex& lock, bigtime_t deadline)
+bool KConditionVariable::WaitDeadline(KMutex& lock, TimeValMicros deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -97,19 +98,26 @@ bool KConditionVariable::WaitDeadline(KMutex& lock, bigtime_t deadline)
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (deadline == INFINIT_TIMEOUT || get_system_time() < deadline)
+            if (deadline.IsInfinit() || get_system_time() < deadline)
             {
                 if (!first) {
                     set_last_error(EINTR);
                     return false;
                 }
                 waitNode.m_Thread      = thread;
-                sleepNode.m_Thread     = thread;
-                sleepNode.m_ResumeTime = deadline;
 
-                thread->m_State = KThreadState::Sleeping;
                 m_WaitQueue.Append(&waitNode);
-                add_to_sleep_list(&sleepNode);
+                if (!deadline.IsInfinit())
+                {
+                    thread->m_State = ThreadState::Sleeping;
+                    sleepNode.m_Thread = thread;
+                    sleepNode.m_ResumeTime = deadline;
+                    add_to_sleep_list(&sleepNode);
+                }
+                else
+                {
+                    thread->m_State = ThreadState::Waiting;
+                }
                 thread->m_BlockingObject = this;
             }
             else
@@ -139,9 +147,9 @@ bool KConditionVariable::WaitDeadline(KMutex& lock, bigtime_t deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::WaitTimeout(KMutex& lock, bigtime_t timeout)
+bool KConditionVariable::WaitTimeout(KMutex& lock, TimeValMicros timeout)
 {
-    return WaitDeadline(lock, (timeout != INFINIT_TIMEOUT) ? (get_system_time() + timeout) : INFINIT_TIMEOUT);
+    return WaitDeadline(lock, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -166,7 +174,7 @@ bool KConditionVariable::IRQWait()
         KThreadWaitNode waitNode;
 
         waitNode.m_Thread = thread;
-        thread->m_State = KThreadState::Waiting;
+        thread->m_State = ThreadState::Waiting;
         m_WaitQueue.Append(&waitNode);
 
         KSWITCH_CONTEXT();
@@ -194,7 +202,7 @@ bool KConditionVariable::IRQWait()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::IRQWaitDeadline(bigtime_t deadline)
+bool KConditionVariable::IRQWaitDeadline(TimeValMicros deadline)
 {
     IRQEnableState irqState = get_interrupt_enabled_state();
     
@@ -212,19 +220,26 @@ bool KConditionVariable::IRQWaitDeadline(bigtime_t deadline)
         KThreadWaitNode waitNode;
         KThreadWaitNode sleepNode;
 
-        if (deadline == INFINIT_TIMEOUT || get_system_time() < deadline)
+        if (deadline.IsInfinit() || get_system_time() < deadline)
         {
             if (!first) {
                 set_last_error(EINTR);
                 return false;
             }
             waitNode.m_Thread      = thread;
-            sleepNode.m_Thread     = thread;
-            sleepNode.m_ResumeTime = deadline;
 
-            thread->m_State = KThreadState::Sleeping;
             m_WaitQueue.Append(&waitNode);
-            add_to_sleep_list(&sleepNode);
+            if (!deadline.IsInfinit())
+            {
+                thread->m_State = ThreadState::Sleeping;
+                sleepNode.m_Thread = thread;
+                sleepNode.m_ResumeTime = deadline;
+                add_to_sleep_list(&sleepNode);
+            }
+            else
+            {
+                thread->m_State = ThreadState::Waiting;
+            }
         }
         else
         {
@@ -252,9 +267,9 @@ bool KConditionVariable::IRQWaitDeadline(bigtime_t deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::IRQWaitTimeout(bigtime_t timeout)
+bool KConditionVariable::IRQWaitTimeout(TimeValMicros timeout)
 {
-    return IRQWaitDeadline((timeout != INFINIT_TIMEOUT) ? (get_system_time() + timeout) : INFINIT_TIMEOUT);
+    return IRQWaitDeadline((!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -307,7 +322,7 @@ status_t  condition_var_wait(handle_id handle, handle_id mutexHandle)
 
 status_t  condition_var_wait_timeout(handle_id handle, handle_id mutexHandle, bigtime_t timeout)
 {
-  return condition_var_wait_deadline(handle, mutexHandle, (timeout != INFINIT_TIMEOUT) ? get_system_time() + timeout : INFINIT_TIMEOUT);
+    return condition_var_wait_deadline(handle, mutexHandle, (timeout != TimeValMicros::infinit.AsMicroSeconds()) ? (get_system_time().AsMicroSeconds() + timeout) : TimeValMicros::infinit.AsMicroSeconds());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -321,7 +336,7 @@ status_t  condition_var_wait_deadline(handle_id handle, handle_id mutexHandle, b
     set_last_error(EINVAL);
     return -1;
   }
-  return KNamedObject::ForwardToHandleBoolToInt<KConditionVariable>(handle, &KConditionVariable::WaitDeadline, *mutex, deadline);
+  return KNamedObject::ForwardToHandleBoolToInt<KConditionVariable>(handle, &KConditionVariable::WaitDeadline, *mutex, TimeValMicros::FromMicroseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

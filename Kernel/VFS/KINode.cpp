@@ -49,7 +49,7 @@ KINode::~KINode()
 
 bool KINode::LastReferenceGone()
 {
-    m_LastUseTime = get_system_time() / 1000000;
+    m_LastUseTime = get_system_time().AsSeconds();
     KVFSManager::InodeReleased(this);
     return true;
 }

@@ -184,12 +184,12 @@ int TLV493DDriver::Run()
 			errorCount = 0;
 		}
 
-		bigtime_t currentTime = get_system_time();
-		bigtime_t timeSinceLastUpdate = currentTime - m_LastUpdateTime;
+		TimeValMicros currentTime = get_system_time();
+		TimeValMicros timeSinceLastUpdate = currentTime - m_LastUpdateTime;
 
 		if (timeSinceLastUpdate < m_PeriodTime) continue;
 
-		if (timeSinceLastUpdate < m_PeriodTime * 2) {
+		if (timeSinceLastUpdate < m_PeriodTime * 2LL) {
 			m_LastUpdateTime += m_PeriodTime;
 		} else {
 			m_LastUpdateTime = currentTime;	// Catch-up if we are falling too far behind.
@@ -249,14 +249,14 @@ void TLV493DDriver::ConfigChanged()
 {
 	if (m_Config.frame_rate > 0)
 	{
-		m_PeriodTime = bigtime_from_s(1) / m_Config.frame_rate;
+        m_PeriodTime = TimeValMicros::FromMicroseconds(TimeValMicros::TicksPerSecond / m_Config.frame_rate);
 		if (m_PeriodTime < TLV493D_CONVERSION_TIME) m_PeriodTime = TLV493D_CONVERSION_TIME;
-		I2CIOCTL_SetTimeout(m_I2CDevice, m_PeriodTime * 2);
+		I2CIOCTL_SetTimeout(m_I2CDevice, m_PeriodTime * 2LL);
 	}
 	else
 	{
-		m_PeriodTime = INFINIT_TIMEOUT;
-		I2CIOCTL_SetTimeout(m_I2CDevice, bigtime_from_s(1));
+		m_PeriodTime = TimeValMicros::infinit;
+		I2CIOCTL_SetTimeout(m_I2CDevice, TimeValMicros::FromSeconds(1LL));
 	}
 	m_AveragingScale = 1.0f / float(m_Config.oversampling);
 	m_NewFrameCondition.Wakeup(0);

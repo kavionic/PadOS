@@ -383,7 +383,7 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags, bigtime_t timeout)
+bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags, TimeValMicros timeout)
 {
 	CRITICAL_BEGIN(CRITICAL_IRQ)
 	{
@@ -448,9 +448,9 @@ void SDMMCDriver_STM32::SendClock()
 	uint32_t CLKCR = m_SDMMC->CLKCR;
 
 	m_SDMMC->CLKCR &= ~SDMMC_CLKCR_PWRSAV;	// Disable power-save to make sure the clock is running.
-	bigtime_t delay = (1000000 * 74 + m_Clock - 1) / m_Clock;	// Sleep for at least 74 SDMMC clock cycles.
-	if (delay < 0) delay = 1;
-	SpinTimer::SleepuS(delay);
+    TimeValMicros delay = TimeValMicros::FromMicroseconds((TimeValMicros::TicksPerSecond * 74 + m_Clock - 1) / m_Clock);	// Sleep for at least 74 SDMMC clock cycles.
+	if (delay < TimeValMicros::zero) delay = TimeValMicros::FromMicroseconds(1);
+	SpinTimer::SleepuS(delay.AsMicroSeconds());
 
 	m_SDMMC->CLKCR = CLKCR; // Restore power-save.
 }

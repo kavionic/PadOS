@@ -18,15 +18,13 @@
 
 #include "SpinTimer.h"
 #include "Kernel/Kernel.h"
+#include "System/SysTime.h"
 
 using namespace kernel;
 
 uint32_t   SpinTimer::s_TicksPerMicroSec;
-//MCU_Timer16_t* SpinTimer::s_TimerChannel;
 
 void SpinTimer::Initialize()
 {
-//    s_TicksPerMicroSec = Kernel::GetFrequencyPeripheral() / 1000000;
-    s_TicksPerMicroSec = Kernel::GetFrequencyCore() / 1000000;
-//    s_TimerChannel = timerChannel;
+    s_TicksPerMicroSec = Kernel::GetFrequencyCore() / TimeValMicros::TicksPerSecond;
 }

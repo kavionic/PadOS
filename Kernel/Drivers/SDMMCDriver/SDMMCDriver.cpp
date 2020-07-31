@@ -879,7 +879,7 @@ ssize_t SDMMCDriver::SDIOWriteExtended(uint8_t functionNumber, uint32_t addr, ui
 
 bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
 {
-    bigtime_t deadline = get_system_time() + bigtime_from_s(1);
+    TimeValMicros deadline = get_system_time() + 1.0;
     for(;;)
     {
         // CMD55 - Tell the card that the next command is an application specific command.
@@ -925,7 +925,7 @@ bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
 
 bool SDMMCDriver::OperationalConditionMCI_mmc()
 {
-    bigtime_t deadline = get_system_time() + bigtime_from_s(1);
+    TimeValMicros deadline = get_system_time() + 1.0;
     for(;;)
     {
         if (!SendCmd(MMC_MCI_CMD1_SEND_OP_COND, SD_MMC_VOLTAGE_SUPPORT | OCR_ACCESS_MODE_SECTOR))
@@ -974,7 +974,7 @@ bool SDMMCDriver::OperationalCondition_sdio()
         return true; // No error but card type not updated
     }
 
-    bigtime_t deadline = get_system_time() + bigtime_from_s(1);
+    TimeValMicros deadline = get_system_time() + 1.0;
     for (;;)
     {
         // CMD5 - SDIO send operation condition (OCR) command.
@@ -1452,7 +1452,7 @@ bool SDMMCDriver::Cmd9MCI_sdmmc()
 
 bool SDMMCDriver::Cmd13_sdmmc()
 {
-    bigtime_t deadline = get_system_time() + bigtime_from_s(1);
+    TimeValMicros deadline = get_system_time() + 1.0;
     for(;;)
     {
         if (!SendCmd(SDMMC_MCI_CMD13_SEND_STATUS, (uint32_t)m_RCA << 16)) {

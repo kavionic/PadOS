@@ -329,7 +329,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
         vol->m_RootINode->m_DirStartIndex     = 0xffffffff;
         vol->m_RootINode->m_DirEndIndex     = 0xffffffff;
         vol->m_RootINode->m_DOSAttribs   = FAT_SUBDIR;
-        vol->m_RootINode->m_Time    = get_real_time() / 1000000;
+        vol->m_RootINode->m_Time    = get_real_time().AsSeconds();
         vol->AddDirectoryMapping(vol->m_RootINode->m_INodeID);
 
         // find volume label (supersedes any label in the bpb)
@@ -812,7 +812,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
         dummy->m_EndCluster = 0;
         dummy->m_DOSAttribs = 0;
         dummy->m_Size = 0;
-        dummy->m_Time = get_real_time() / 1000000;
+        dummy->m_Time = get_real_time().AsSeconds();
 
         if (CreateDirectoryEntry(vol, dir, dummy, name, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex) < 0) {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::CreateFile(): error creating directory entry for %s (%s)\n", name.c_str(), strerror(get_last_error()));
@@ -1088,7 +1088,7 @@ int FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, co
 	    dummy->m_DOSAttribs |= FAT_READ_ONLY;
         }
         dummy->m_Size = vol->m_BytesPerSector*vol->m_SectorsPerCluster;
-        dummy->m_Time = get_real_time() / 1000000;
+        dummy->m_Time = get_real_time().AsSeconds();
 
         dummy->m_INodeID = GENERATE_DIR_CLUSTER_INODEID(dummy->m_ParentINodeID, dummy->m_StartCluster);
         kassert(!vol->HasINodeIDToLocationIDMapping(dummy->m_INodeID));
@@ -1997,7 +1997,7 @@ status_t FATFilesystem::CreateVolumeLabel(Ptr<FATVolume> vol, const char* name, 
     struct FATNewDirEntryInfo info = {
         FAT_ARCHIVE | FAT_VOLUME, 0, 0, 0
     };
-    info.time = get_real_time() / 1000000;
+    info.time = get_real_time().AsSeconds();
 
     // check if name already exists
     if (FindShortName(vol, vol->m_RootINode, name) == 0) {
@@ -2240,7 +2240,7 @@ status_t FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> p
                 memcpy(shortName, tempName, 11);
                 kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATFilesystem::CreateDirectoryEntry(): trying short name %11.11s\n", shortName);
                 
-                int value = (uint32_t(get_system_time() / 1024)) % 99999 + 1;
+                int value = (uint32_t(get_system_time().AsMicroSeconds() / 1024)) % 99999 + 1;
 
                 FATDirectoryIterator::MungeShortName(shortName, value);
                 if (FindShortName(vol, parent, shortName) < 0)

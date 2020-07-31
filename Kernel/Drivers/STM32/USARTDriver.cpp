@@ -175,7 +175,7 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
 		CRITICAL_BEGIN(CRITICAL_IRQ)
 		{
 			dma_start(m_SendDMAChannel);
-			if (!m_TransmitCondition.IRQWaitTimeout(bigtime_t(currentLen) * 10 * 2 * 1000000 / m_Baudrate + bigtime_from_ms(100)))
+            if (!m_TransmitCondition.IRQWaitTimeout(TimeValMicros::FromMicroseconds(bigtime_t(currentLen) * 10 * 2 * TimeValMicros::TicksPerSecond / m_Baudrate) + TimeValMicros::FromMilliseconds(100)))
 			{
 				return -1;
 			}

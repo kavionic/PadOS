@@ -30,7 +30,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-EventTimer::EventTimer(bigtime_t timeout, bool singleshot, int32_t id) : m_ID(id), m_Timeout(timeout)
+EventTimer::EventTimer(TimeValMicros timeout, bool singleshot, int32_t id) : m_ID(id), m_Timeout(timeout)
 {
 }
 
@@ -47,10 +47,10 @@ EventTimer::~EventTimer()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void EventTimer::Set(bigtime_t timeout)
+void EventTimer::Set(TimeValMicros timeout)
 {
-    if ( timeout < 1 ) {
-        timeout = 1;
+    if ( timeout <= TimeValMicros::zero ) {
+        timeout = TimeValMicros::FromMicroseconds(1);
     }
     m_Timeout = timeout;
     
@@ -103,10 +103,10 @@ int32_t EventTimer::GetID() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bigtime_t EventTimer::GetRemainingTime() const
+TimeValMicros EventTimer::GetRemainingTime() const
 {  
     if (m_Looper == nullptr) {
-        return 0;
+        return TimeValMicros::zero;
     } else {
         return m_TimerMapIterator->first - get_system_time();
     }

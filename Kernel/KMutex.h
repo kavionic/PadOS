@@ -43,14 +43,14 @@ public:
     ~KMutex();
 
     bool Lock();
-    bool LockTimeout(bigtime_t timeout);
-    bool LockDeadline(bigtime_t deadline);
+    bool LockTimeout(TimeValMicros timeout);
+    bool LockDeadline(TimeValMicros deadline);
     bool TryLock();
     void Unlock();
     
     bool LockShared();
-    bool LockSharedTimeout(bigtime_t timeout);
-    bool LockSharedDeadline(bigtime_t deadline);
+    bool LockSharedTimeout(TimeValMicros timeout);
+    bool LockSharedDeadline(TimeValMicros deadline);
     bool TryLockShared();
     void UnlockShared();
     

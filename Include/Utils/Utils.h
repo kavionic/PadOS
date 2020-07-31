@@ -44,12 +44,12 @@ template<typename T1, typename T2, typename T3> inline void set_bit_group(T1& ta
 
 inline uint32_t nanoseconds_to_cycles_floor(uint32_t clockFrequency, uint32_t nanoSeconds)
 {
-	return uint32_t((uint64_t(clockFrequency) * uint64_t(nanoSeconds)) / 1000000000);
+	return uint32_t((uint64_t(clockFrequency) * uint64_t(nanoSeconds)) / TimeValNanos::TicksPerSecond);
 }
 
 inline uint32_t nanoseconds_to_cycles_ceil(uint32_t clockFrequency, uint32_t nanoSeconds)
 {
-	return uint32_t((uint64_t(clockFrequency) * uint64_t(nanoSeconds) + 1000000000 - 1) / 1000000000);
+	return uint32_t((uint64_t(clockFrequency) * uint64_t(nanoSeconds) + TimeValNanos::TicksPerSecond - 1) / TimeValNanos::TicksPerSecond);
 }
 
 namespace os
@@ -85,12 +85,12 @@ class ProfileTimer
     ProfileTimer(const String& title) : m_Title(title) { m_StartTime = get_system_time_hires(); }
     ~ProfileTimer()
     {
-        bigtime_t time = get_system_time_hires();
-        printf("Prof: %s (%.3f)\n", m_Title.c_str(), double(time - m_StartTime) / 1000000.0);
+        TimeValNanos time = get_system_time_hires();
+        printf("Prof: %s (%.3f)\n", m_Title.c_str(), double((time - m_StartTime).AsNanoSeconds()) / 1000000.0);
     }
     
     String    m_Title;
-    bigtime_t m_StartTime;
+    TimeValNanos m_StartTime;
 };
 
 struct DebugCallTracker

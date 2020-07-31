@@ -165,7 +165,7 @@ public:
         return true;
     }
 
-    static bool Emit(port_id port, handler_id targetHandler, bigtime_t timeout, ARGS... args)
+    static bool Emit(port_id port, handler_id targetHandler, TimeValMicros timeout, ARGS... args)
     {
         static const size_t MAX_STACK_BUFFER_SIZE = 128;
         
@@ -181,7 +181,7 @@ public:
             }
         }
         WriteArg(buffer, args...);
-        bool result = send_message(port, targetHandler, ID, buffer, size, timeout) >= 0;
+        bool result = send_message(port, targetHandler, ID, buffer, size, timeout.AsMicroSeconds()) >= 0;
         
         if (size > MAX_STACK_BUFFER_SIZE) {
             free(buffer);
@@ -189,7 +189,7 @@ public:
         return result;
     }
 
-    static bool Emit(const MessagePort& port, handler_id targetHandler, bigtime_t timeout, ARGS... args)
+    static bool Emit(const MessagePort& port, handler_id targetHandler, TimeValMicros timeout, ARGS... args)
     {
         return Emit(port.GetHandle(), targetHandler, timeout, args...);
     }

@@ -28,6 +28,7 @@
 #include "Utils/Utils.h"
 
 using namespace kernel;
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -54,7 +55,7 @@ KThreadCB::KThreadCB(const char* name, int priority, bool joinable, int stackSiz
     m_StackBuffer = new uint8_t[m_StackSize + KSTACK_ALIGNMENT];
     memset(m_StackBuffer, 0, THREAD_MAX_TLS_SLOTS * sizeof(void*));
     m_CurrentStack  = (uint32_t*) ((intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1));
-    m_State         = KThreadState::Ready;
+    m_State         = ThreadState::Ready;
     m_PriorityLevel = PriToLevel(priority);
     _REENT_INIT_PTR(&m_NewLibreent);
 }

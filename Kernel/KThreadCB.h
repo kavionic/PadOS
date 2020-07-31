@@ -43,15 +43,6 @@ static const int KTHREAD_PRIORITY_MIN = -16;
 static const int KTHREAD_PRIORITY_MAX = 15;
 static const int KTHREAD_PRIORITY_LEVELS = KTHREAD_PRIORITY_MAX - KTHREAD_PRIORITY_MIN + 1;
 
-enum class KThreadState
-{
-    Running,
-    Ready,
-    Sleeping,
-    Waiting,
-    Zombie,
-    Deleted
-};
 
 class KThreadCB : public KNamedObject
 {
@@ -65,11 +56,13 @@ public:
 
     uint8_t* GetStackBottom() const { return m_StackBuffer + THREAD_STACK_PADDING + THREAD_MAX_TLS_SLOTS * sizeof(void*); }
 
+    int GetPriority() const { return LevelToPri(m_PriorityLevel);  }
+
     static int PriToLevel(int priority);
     static int LevelToPri(int level);
 
     uint32_t*                 m_CurrentStack;
-    KThreadState              m_State;
+    os::ThreadState           m_State;
     int                       m_PriorityLevel;
     TimeValNanos              m_StartTime;
     TimeValNanos              m_RunTime;

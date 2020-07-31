@@ -93,16 +93,8 @@ bool kernel::kernel_log_is_category_active(uint32_t categoryHash, KLogSeverity l
 
 void kernel::panic(const char* message)
 {
-//    RGBLED_R.Write(true);
-//    RGBLED_G.Write(false);
-//    RGBLED_B.Write(false);
-
-//    write(1, message, strlen(message));
-    volatile bool freeze = true;
-    while(freeze);
-//    RGBLED_R.Write(false);
+    handle_panic(message);
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

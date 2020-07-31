@@ -77,7 +77,7 @@ void GSLx680Driver::Setup(const char* devicePath, int threadPriority, DigitalPin
 
 	if (m_I2CDevice != -1)
 	{
-		I2CIOCTL_SetTimeout(m_I2CDevice, bigtime_from_ms(1000));
+		I2CIOCTL_SetTimeout(m_I2CDevice, TimeValMicros::FromMilliseconds(1000));
 		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x80);
 		I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 

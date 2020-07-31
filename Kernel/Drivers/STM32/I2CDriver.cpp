@@ -138,11 +138,11 @@ int I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void*
             break;
 		case I2CIOCTL_SET_TIMEOUT:
 			if (inData == nullptr || inDataLength != sizeof(bigtime_t)) { set_last_error(EINVAL); return -1; }
-			i2cfile->m_Timeout = *reinterpret_cast<const bigtime_t*>(inData);
+            i2cfile->m_Timeout = TimeValMicros::FromMicroseconds(*reinterpret_cast<const bigtime_t*>(inData));
 			break;
 		case I2CIOCTL_GET_TIMEOUT:
 			if (outData == nullptr || outDataLength != sizeof(bigtime_t)) { set_last_error(EINVAL); return -1; }
-			*reinterpret_cast<bigtime_t*>(outData) = i2cfile->m_Timeout;
+			*reinterpret_cast<bigtime_t*>(outData) = i2cfile->m_Timeout.AsMicroSeconds();
 			break;
 		case I2CIOCTL_CLEAR_BUS:
 			ClearBus();

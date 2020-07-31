@@ -35,12 +35,12 @@ public:
     ~KConditionVariable();
     
     bool Wait(KMutex& lock);
-    bool WaitTimeout(KMutex& lock, bigtime_t timeout);
-    bool WaitDeadline(KMutex& lock, bigtime_t deadline);
+    bool WaitTimeout(KMutex& lock, TimeValMicros timeout);
+    bool WaitDeadline(KMutex& lock, TimeValMicros deadline);
 
     bool IRQWait();
-    bool IRQWaitTimeout(bigtime_t timeout);
-    bool IRQWaitDeadline(bigtime_t deadline);
+    bool IRQWaitTimeout(TimeValMicros timeout);
+    bool IRQWaitDeadline(TimeValMicros deadline);
     
     void Wakeup(int threadCount);
     void WakeupAll() { Wakeup(0); }

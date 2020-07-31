@@ -170,7 +170,7 @@ void ServerApplication::SlotCreateView(port_id clientPort, port_id replyPort, ha
     if (parent != nullptr) {
         parent->AddChild(view);
     } else {
-        ASWindowManagerRegisterView::Sender::Emit(get_window_manager_port(), -1, INFINIT_TIMEOUT, view->GetHandle(), dockType, view->GetName(), frame);
+        ASWindowManagerRegisterView::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, view->GetHandle(), dockType, view->GetName(), frame);
     }
     view->SetClientHandle(clientPort, replyTarget);
         

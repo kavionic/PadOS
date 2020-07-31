@@ -199,7 +199,7 @@ bool Looper::AddTimer(EventTimer* timer, bool singleshot)
 {
     try
     {
-        bigtime_t expireTime = get_system_time();
+        TimeValMicros expireTime = get_system_time();
         CRITICAL_SCOPE(m_Mutex);
 
         if (timer->m_Looper != nullptr)
@@ -217,7 +217,8 @@ bool Looper::AddTimer(EventTimer* timer, bool singleshot)
         timer->m_IsSingleshot = singleshot;
         timer->m_TimerMapIterator = m_TimerMap.insert(std::make_pair(expireTime, timer));
 
-        if (m_NextEventTime == INFINIT_TIMEOUT || expireTime < m_NextEventTime) {
+        if (m_NextEventTime.IsInfinit() || expireTime < m_NextEventTime)
+        {
             m_NextEventTime = expireTime;
             m_TimerMapCondition.WakeupAll();
         }
@@ -240,7 +241,7 @@ bool Looper::RemoveTimer(EventTimer* timer)
     {
         timer->m_Looper = nullptr;
         m_TimerMap.erase(timer->m_TimerMapIterator);
-        m_NextEventTime = (m_TimerMap.empty()) ? INFINIT_TIMEOUT : m_TimerMap.begin()->first;
+        m_NextEventTime = (m_TimerMap.empty()) ? TimeValMicros::infinit : m_TimerMap.begin()->first;
         return true;
     }
     else
@@ -297,7 +298,7 @@ bool Looper::ProcessEvents()
             handler_id targetHandler;
             int32_t    code;
 
-            ssize_t msgLength = m_Port.ReceiveMessageTimeout(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), 0);
+            ssize_t msgLength = m_Port.ReceiveMessageTimeout(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), TimeValMicros::zero);
             if (msgLength >= 0) {
                 ProcessMessage(targetHandler, code, msgLength);
             } else {
@@ -336,13 +337,13 @@ void Looper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgL
 
 void Looper::RunTimers()
 {
-    bigtime_t curTime = get_system_time();
+    TimeValMicros curTime = get_system_time();
 
     while (!m_TimerMap.empty())
     {
         auto i = m_TimerMap.begin();
 
-        bigtime_t timeout = (*i).first;
+        TimeValMicros timeout = (*i).first;
 
         if ( timeout > curTime ) {
             m_NextEventTime = timeout;
@@ -360,9 +361,9 @@ void Looper::RunTimers()
         else
         {
             timeout += timer->m_Timeout;
-            timer->m_TimerMapIterator = m_TimerMap.insert(std::make_pair(std::max(curTime + 1,timeout), timer));
+            timer->m_TimerMapIterator = m_TimerMap.insert(std::make_pair(std::max(curTime + TimeValMicros::FromMicroseconds(1),timeout), timer));
         }
         timer->SignalTrigged(timer);
     }
-    m_NextEventTime = INFINIT_TIMEOUT;
+    m_NextEventTime = TimeValMicros::infinit;
 }

@@ -766,7 +766,7 @@ void GfxDriver::Test()
 
     region.Exclude(IRect(110, 110, 190, 190));
 
-    static Color palette[] = { Color(255, 0, 0), Color(0, 255, 0), Color(0, 0, 255), Color(255, 255, 0), Color(0, 255, 255), Color(255, 0, 255), Color(128, 128, 120), Color(0, 0, 0) };
+    //static Color palette[] = { Color(255, 0, 0), Color(0, 255, 0), Color(0, 0, 255), Color(255, 255, 0), Color(0, 255, 255), Color(255, 0, 255), Color(128, 128, 120), Color(0, 0, 0) };
 
     for (;;)
     {

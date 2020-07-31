@@ -25,6 +25,7 @@
 #include "Scheduler.h"
 
 using namespace kernel;
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -114,7 +115,7 @@ void KObjectWaitGroup::Clear()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::Wait(KMutex* lock, bigtime_t deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
+bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
 {
     CRITICAL_SCOPE(m_Mutex);
     KThreadCB* thread = gk_CurrentThread;
@@ -167,9 +168,9 @@ bool KObjectWaitGroup::Wait(KMutex* lock, bigtime_t deadline, void* readyFlagsBu
         }
         if (!isReady)
         {
-            if (deadline != INFINIT_TIMEOUT)
+            if (!deadline.IsInfinit())
             {
-                thread->m_State = KThreadState::Sleeping;
+                thread->m_State = ThreadState::Sleeping;
 
                 m_SleepNode.m_Thread = thread;
                 m_SleepNode.m_ResumeTime = deadline;
@@ -177,7 +178,7 @@ bool KObjectWaitGroup::Wait(KMutex* lock, bigtime_t deadline, void* readyFlagsBu
             }
             else
             {
-                thread->m_State = KThreadState::Waiting;
+                thread->m_State = ThreadState::Waiting;
             }
             thread->m_BlockingObject = this;
             if (lock != nullptr) lock->Unlock();
@@ -190,7 +191,7 @@ bool KObjectWaitGroup::Wait(KMutex* lock, bigtime_t deadline, void* readyFlagsBu
     bool didTimeout = false;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        didTimeout = !m_SleepNode.Detatch() && deadline != INFINIT_TIMEOUT;
+        didTimeout = !m_SleepNode.Detatch() && !deadline.IsInfinit();
         for (int i = 0; i < m_Objects.size(); ++i)
         {
             KThreadWaitNode& waitNode = m_WaitNodes[i];
@@ -293,7 +294,7 @@ status_t object_wait_group_wait(handle_id handle, handle_id mutexHandle, void* r
 
 status_t object_wait_group_wait_timeout(handle_id handle, handle_id mutexHandle, bigtime_t timeout, void* readyFlagsBuffer, size_t readyFlagsSize)
 {
-    return object_wait_group_wait_deadline(handle, mutexHandle, (timeout != INFINIT_TIMEOUT) ? get_system_time() + timeout : INFINIT_TIMEOUT, readyFlagsBuffer, readyFlagsSize);
+    return object_wait_group_wait_deadline(handle, mutexHandle, (timeout != TimeValMicros::infinit.AsMicroSeconds()) ? (get_system_time().AsMicroSeconds() + timeout) : TimeValMicros::infinit.AsMicroSeconds(), readyFlagsBuffer, readyFlagsSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -312,8 +313,8 @@ status_t object_wait_group_wait_deadline(handle_id handle, handle_id mutexHandle
         }
     }
     if (mutex != nullptr) {
-        return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(KMutex&, bigtime_t, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), *mutex, deadline, readyFlagsBuffer, readyFlagsSize);
+        return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(KMutex&, TimeValMicros, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), *mutex, TimeValMicros::FromMicroseconds(deadline), readyFlagsBuffer, readyFlagsSize);
     } else {
-        return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(bigtime_t, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), deadline, readyFlagsBuffer, readyFlagsSize);
+        return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(TimeValMicros, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), TimeValMicros::FromMicroseconds(deadline), readyFlagsBuffer, readyFlagsSize);
     }
 }

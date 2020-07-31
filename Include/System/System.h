@@ -24,9 +24,10 @@
 #include <limits>
 
 #include "System/Types.h"
+#include "SysTime.h"
 
-static const bigtime_t INFINIT_TIMEOUT = std::numeric_limits<bigtime_t>::max();
-static const int OS_NAME_LENGTH = 32;
+static constexpr TimeValMicros INFINIT_TIMEOUT = TimeValMicros::FromMicroseconds(std::numeric_limits<bigtime_t>::max());
+static constexpr int OS_NAME_LENGTH = 32;
 
 
 int get_last_error();
@@ -36,7 +37,7 @@ void set_last_error(int error);
 port_id  create_message_port(const char* name, int maxCount);
 port_id  duplicate_message_port(port_id handle);
 status_t delete_message_port(port_id handle);
-status_t send_message(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout = INFINIT_TIMEOUT);
+status_t send_message(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout = TimeValMicros::infinit.AsMicroSeconds());
 ssize_t  receive_message(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
 ssize_t  receive_message_timeout(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout);
 ssize_t  receive_message_deadline(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline);

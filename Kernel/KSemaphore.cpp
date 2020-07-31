@@ -25,6 +25,7 @@
 #include "System/System.h"
 
 using namespace kernel;
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -75,7 +76,7 @@ bool KSemaphore::Acquire()
                 return true;
             }
             waitNode.m_Thread = thread;
-            thread->m_State = KThreadState::Waiting;
+            thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->m_BlockingObject = this;
             KSWITCH_CONTEXT();
@@ -109,7 +110,7 @@ bool KSemaphore::Acquire()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KSemaphore::AcquireDeadline(bigtime_t deadline)
+bool KSemaphore::AcquireDeadline(TimeValMicros deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -126,19 +127,26 @@ bool KSemaphore::AcquireDeadline(bigtime_t deadline)
                 m_Holder = thread->GetHandle();
                 return true;
             }
-            if (deadline == INFINIT_TIMEOUT || get_system_time() < deadline)
+            if (deadline.IsInfinit() || get_system_time() < deadline)
             {
                 if (!first) {
                     set_last_error(EINTR);
                     return false;
                 }
                 waitNode.m_Thread      = thread;
-                sleepNode.m_Thread     = thread;
-                sleepNode.m_ResumeTime = deadline;
 
-                thread->m_State = KThreadState::Sleeping;
                 m_WaitQueue.Append(&waitNode);
-                add_to_sleep_list(&sleepNode);
+                if (!deadline.IsInfinit())
+                {
+                    thread->m_State = ThreadState::Sleeping;
+                    sleepNode.m_Thread = thread;
+                    sleepNode.m_ResumeTime = deadline;
+                    add_to_sleep_list(&sleepNode);
+                }
+                else
+                {
+                    thread->m_State = ThreadState::Waiting;
+                }
             }
             else
             {
@@ -160,9 +168,9 @@ bool KSemaphore::AcquireDeadline(bigtime_t deadline)
     }
 }
 
-bool KSemaphore::AcquireTimeout(bigtime_t timeout)
+bool KSemaphore::AcquireTimeout(TimeValMicros timeout)
 {
-    return AcquireDeadline((timeout != INFINIT_TIMEOUT) ? (get_system_time() + timeout) : INFINIT_TIMEOUT);
+    return AcquireDeadline((!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -259,7 +267,7 @@ status_t acquire_semaphore(sem_id handle)
 
 status_t acquire_semaphore_timeout(sem_id handle, bigtime_t timeout)
 {
-    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::AcquireTimeout, timeout);
+    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::AcquireTimeout, TimeValMicros::FromMicroseconds(timeout));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -268,7 +276,7 @@ status_t acquire_semaphore_timeout(sem_id handle, bigtime_t timeout)
 
 status_t acquire_semaphore_deadline(sem_id handle, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::AcquireDeadline, deadline);
+    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::AcquireDeadline, TimeValMicros::FromMicroseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

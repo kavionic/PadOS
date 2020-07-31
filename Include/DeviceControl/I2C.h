@@ -65,7 +65,23 @@ inline int I2CIOCTL_GetBaudrate(int device)
     return baudrate;
 }
 
-inline int I2CIOCTL_SetTimeout(int device, bigtime_t timeout)  { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_TIMEOUT, &timeout, sizeof(timeout), nullptr, 0); }
-inline int I2CIOCTL_GetTimeout(int device, bigtime_t* timeout) { return os::FileIO::DeviceControl(device, I2CIOCTL_GET_TIMEOUT, nullptr, 0, timeout, sizeof(*timeout)); }
+inline int I2CIOCTL_SetTimeout(int device, TimeValMicros timeout)
+{
+    bigtime_t timeoutLL = timeout.AsMicroSeconds();
+    return os::FileIO::DeviceControl(device, I2CIOCTL_SET_TIMEOUT, &timeoutLL, sizeof(timeoutLL), nullptr, 0);
+}
+inline int I2CIOCTL_GetTimeout(int device, TimeValMicros* timeout)
+{
+    if (timeout == nullptr) {
+        set_last_error(EINVAL);
+        return -1;
+    }
+    bigtime_t timeoutLL;
+    const int result = os::FileIO::DeviceControl(device, I2CIOCTL_GET_TIMEOUT, nullptr, 0, &timeoutLL, sizeof(timeoutLL));
+    if (result >= 0) {
+        *timeout = TimeValMicros::FromMicroseconds(timeoutLL);
+    }
+    return result;
+}
 
 inline int I2CIOCTL_ClearBus(int device) { return os::FileIO::DeviceControl(device, I2CIOCTL_CLEAR_BUS, nullptr, 0, nullptr, 0); }

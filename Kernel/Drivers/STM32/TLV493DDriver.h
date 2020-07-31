@@ -81,7 +81,7 @@ static const uint8_t TLV493D_MODE1_IICADDR2	= 0x40;
 static const uint8_t TLV493D_MODE1_PARITY	= 0x80;
 
 constexpr int32_t   TLV493D_MAX_FRAMERATE = 2475; // 3.3kHz - 25%
-constexpr bigtime_t TLV493D_CONVERSION_TIME = bigtime_from_s(1) / TLV493D_MAX_FRAMERATE;
+constexpr TimeValMicros TLV493D_CONVERSION_TIME = TimeValMicros::FromMicroseconds(TimeValMicros::TicksPerSecond / TLV493D_MAX_FRAMERATE);
 
 class TLV493DDriver : public PtrTarget, public os::Thread, public SignalTarget, public KFilesystemFileOps
 {
@@ -116,15 +116,15 @@ private:
 	KConditionVariable m_NewFrameCondition;
 	KConditionVariable m_NewConfigCondition;
 
-	State_e m_State = State_e::Initializing;
-	bigtime_t	m_LastUpdateTime = 0;
-	bigtime_t	m_PeriodTime = 0;
-	float		m_AveragingScale = 1.0f;
-	DigitalPin m_PowerPin;
-    int m_I2CDevice = -1;
-    uint8_t m_DeviceAddress = TLV493D_I2C_ADDR_PRIM;
+	State_e			m_State = State_e::Initializing;
+    TimeValMicros	m_LastUpdateTime;
+	TimeValMicros	m_PeriodTime;
+	float			m_AveragingScale = 1.0f;
+	DigitalPin		m_PowerPin;
+    int				m_I2CDevice = -1;
+    uint8_t			m_DeviceAddress = TLV493D_I2C_ADDR_PRIM;
 
-	tlv493d_config m_Config;
+	tlv493d_config	m_Config;
 
 	tlv493d_read_registers m_ReadRegisters;
 	tlv493d_write_registers m_WriteRegisters;

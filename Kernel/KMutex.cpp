@@ -25,6 +25,7 @@
 #include "System/System.h"
 
 using namespace kernel;
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -67,7 +68,7 @@ bool KMutex::Lock()
                 return true;
             }
             waitNode.m_Thread = thread;
-            thread->m_State = KThreadState::Waiting;
+            thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->m_BlockingObject = this;
             KSWITCH_CONTEXT();
@@ -103,7 +104,7 @@ bool KMutex::Lock()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::LockDeadline(bigtime_t deadline)
+bool KMutex::LockDeadline(TimeValMicros deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -120,19 +121,26 @@ bool KMutex::LockDeadline(bigtime_t deadline)
                 m_Holder = thread->GetHandle();
                 return true;
             }
-            if (deadline == INFINIT_TIMEOUT || get_system_time() < deadline)
+            if (deadline.IsInfinit() || get_system_time() < deadline)
             {
                 if (!first) {
                     set_last_error(EINTR);
                     return false;
                 }
                 waitNode.m_Thread      = thread;
-                sleepNode.m_Thread     = thread;
-                sleepNode.m_ResumeTime = deadline;
 
-                thread->m_State = KThreadState::Sleeping;
                 m_WaitQueue.Append(&waitNode);
-                add_to_sleep_list(&sleepNode);
+                if (!deadline.IsInfinit())
+                {
+                    thread->m_State = ThreadState::Sleeping;
+                    sleepNode.m_Thread = thread;
+                    sleepNode.m_ResumeTime = deadline;
+                    add_to_sleep_list(&sleepNode);
+                }
+                else
+                {
+                    thread->m_State = ThreadState::Waiting;
+                }
             }
             else
             {
@@ -159,9 +167,9 @@ bool KMutex::LockDeadline(bigtime_t deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::LockTimeout(bigtime_t timeout)
+bool KMutex::LockTimeout(TimeValMicros timeout)
 {
-    return LockDeadline((timeout != INFINIT_TIMEOUT) ? (get_system_time() + timeout) : INFINIT_TIMEOUT);
+    return LockDeadline((!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -221,7 +229,7 @@ bool KMutex::LockShared()
                 return true;
             }
             waitNode.m_Thread = thread;
-            thread->m_State = KThreadState::Waiting;
+            thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->m_BlockingObject = this;
             KSWITCH_CONTEXT();
@@ -256,7 +264,7 @@ bool KMutex::LockShared()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::LockSharedDeadline(bigtime_t deadline)
+bool KMutex::LockSharedDeadline(TimeValMicros deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -272,19 +280,26 @@ bool KMutex::LockSharedDeadline(bigtime_t deadline)
                 m_Count++;
                 return true;
             }
-            if (deadline == INFINIT_TIMEOUT || get_system_time() < deadline)
+            if (deadline.IsInfinit() || get_system_time() < deadline)
             {
                 if (!first) {
                     set_last_error(EINTR);
                     return false;
                 }
                 waitNode.m_Thread      = thread;
-                sleepNode.m_Thread     = thread;
-                sleepNode.m_ResumeTime = deadline;
 
-                thread->m_State = KThreadState::Sleeping;
                 m_WaitQueue.Append(&waitNode);
-                add_to_sleep_list(&sleepNode);
+                if (!deadline.IsInfinit())
+                {
+                    thread->m_State = ThreadState::Sleeping;
+                    sleepNode.m_Thread = thread;
+                    sleepNode.m_ResumeTime = deadline;
+                    add_to_sleep_list(&sleepNode);
+                }
+                else
+                {
+                    thread->m_State = ThreadState::Waiting;
+                }
             }
             else
             {
@@ -313,9 +328,9 @@ bool KMutex::LockSharedDeadline(bigtime_t deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::LockSharedTimeout(bigtime_t timeout)
+bool KMutex::LockSharedTimeout(TimeValMicros timeout)
 {
-    return LockSharedDeadline((timeout != INFINIT_TIMEOUT) ? (get_system_time() + timeout) : INFINIT_TIMEOUT);
+    return LockSharedDeadline((!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -417,7 +432,7 @@ status_t lock_mutex(sem_id handle)
 
 status_t lock_mutex_timeout(sem_id handle, bigtime_t timeout)
 {
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockTimeout, timeout);
+    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockTimeout, TimeValMicros::FromMicroseconds(timeout));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -426,7 +441,7 @@ status_t lock_mutex_timeout(sem_id handle, bigtime_t timeout)
 
 status_t lock_mutex_deadline(sem_id handle, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockDeadline, deadline);
+    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockDeadline, TimeValMicros::FromMicroseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -462,7 +477,7 @@ status_t lock_mutex_shared(sem_id handle)
 
 status_t lock_mutex_shared_timeout(sem_id handle, bigtime_t timeout)
 {
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockSharedTimeout, timeout);
+    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockSharedTimeout, TimeValMicros::FromMicroseconds(timeout));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -471,7 +486,7 @@ status_t lock_mutex_shared_timeout(sem_id handle, bigtime_t timeout)
 
 status_t lock_mutex_shared_deadline(sem_id handle, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockSharedDeadline, deadline);
+    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockSharedDeadline, TimeValMicros::FromMicroseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

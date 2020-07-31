@@ -43,8 +43,8 @@ public:
     ~KSemaphore();
 
     bool Acquire();
-    bool AcquireTimeout(bigtime_t timeout);
-    bool AcquireDeadline(bigtime_t deadline);
+    bool AcquireTimeout(TimeValMicros timeout);
+    bool AcquireDeadline(TimeValMicros deadline);
     bool TryAcquire();
     void Release();
     void SetCount(int count) { m_Count = count; }

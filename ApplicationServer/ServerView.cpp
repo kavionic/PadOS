@@ -66,7 +66,7 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
     {
         if (m_ManagerHandle != -1)
         {
-            if (ASHandleMouseDown::Sender::Emit(get_window_manager_port(), m_ManagerHandle, INFINIT_TIMEOUT, button, position))
+            if (ASHandleMouseDown::Sender::Emit(get_window_manager_port(), m_ManagerHandle, TimeValMicros::infinit, button, position))
             {
                 
             }
@@ -77,7 +77,7 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
             }            
         }
                     
-        if (!ASHandleMouseDown::Sender::Emit(m_ClientPort, m_ClientHandle, 0, button, position)) {
+        if (!ASHandleMouseDown::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position)) {
             printf("ERROR: ServerView::HandleMouseDown() failed to send message: %s\n", strerror(get_last_error()));
             return false;
         }
@@ -110,7 +110,7 @@ bool ServerView::HandleMouseUp(MouseButton_e button, const Point& position)
 {
     if (m_ClientHandle != -1 )
     {
-        if (!ASHandleMouseUp::Sender::Emit(m_ClientPort, m_ClientHandle, 0, button, position)) {
+        if (!ASHandleMouseUp::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position)) {
             printf("ERROR: ServerView::HandleMouseUp() failed to send message: %s\n", strerror(get_last_error()));
         }
         return true;
@@ -125,7 +125,7 @@ bool ServerView::HandleMouseUp(MouseButton_e button, const Point& position)
 bool ServerView::HandleMouseMove(MouseButton_e button, const Point& position)
 {
     if (m_ClientHandle != -1 ) {
-        if (!ASHandleMouseMove::Sender::Emit(m_ClientPort, m_ClientHandle, 0, button, position)) {
+        if (!ASHandleMouseMove::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position)) {
             printf("ERROR: ServerView::HandleMouseMove() failed to send message: %s\n", strerror(get_last_error()));
         }
         return true;
@@ -231,13 +231,13 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
             {
                 ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
                 if (server !=  nullptr) {
-                    ASViewFrameChanged::Sender::Emit(get_window_manager_port(), m_ManagerHandle, INFINIT_TIMEOUT, m_Frame);
+                    ASViewFrameChanged::Sender::Emit(get_window_manager_port(), m_ManagerHandle, TimeValMicros::infinit, m_Frame);
                 }                    
             }
         }
         else
         {
-            if (!ASViewFrameChanged::Sender::Emit(m_ClientPort, m_ClientHandle, 0, m_Frame)) {
+            if (!ASViewFrameChanged::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, m_Frame)) {
                 printf("ERROR: ServerView::SetFrame() failed to send message: %s\n", strerror(get_last_error()));
             }            
         }
@@ -839,7 +839,7 @@ void ServerView::Paint(const IRect& updateRect)
     if ( m_HideCount > 0 || m_IsUpdating == true || m_ClientHandle == -1) {
         return;
     }
-    if (!ASPaintView::Sender::Emit(m_ClientPort, m_ClientHandle, 0, updateRect)) {
+    if (!ASPaintView::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, updateRect)) {
         printf("ERROR: ServerView::Paint() failed to send message: %s\n", strerror(get_last_error()));        
     }
 }

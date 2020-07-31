@@ -46,6 +46,8 @@ class KFileNode;
 class KFSVolume;
 class KRootFilesystem;
 
+void handle_panic(const char* message); // To be implemented by user code.
+
 
 static constexpr uint32_t SYS_TICKS_PER_SEC = 1000;
 

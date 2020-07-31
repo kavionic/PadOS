@@ -20,8 +20,46 @@
 #pragma once
 
 #include "System/Types.h"
+#include "System/SysTime.h"
 #include "Kernel/KNamedObject.h"
 
+namespace os
+{
+
+enum class ThreadState
+{
+    Running,
+    Ready,
+    Sleeping,
+    Waiting,
+    Zombie,
+    Deleted
+};
+
+
+struct ThreadInfo
+{
+    handle_id       ThreadID;
+    handle_id       ProcessID;
+    char            ProcessName[OS_NAME_LENGTH];
+    char            ThreadName[OS_NAME_LENGTH];
+
+    ThreadState     State;		    // Current task state.
+    uint32_t        Flags;
+    handle_id       BlockingObject;	// The object we wait for, or INVALID_HANDLE.
+
+    int             Priority;
+    int             DynamicPri;
+    TimeValNanos    SysTime;		//	Nanos in kernel mode.
+    TimeValNanos    UserTime;		//	Nanos in user mode.
+    TimeValNanos    RealTime;		//	Total nanos of execution.
+    TimeValNanos    Quantum;		//	Maximum allowed nanos of execution before preemption.
+
+    void*           Stack;
+    size_t          StackSize;
+};
+
+}
 
 typedef void (*ThreadEntryPoint_t)( void * );
 typedef void (*TLSDestructor_t)(void *);
@@ -31,10 +69,14 @@ int       exit_thread(int returnCode);
 int       wait_thread(thread_id handle);
 status_t  wakeup_thread(thread_id handle);
 
+int get_thread_info(handle_id handle, os::ThreadInfo* info);
+int get_next_thread_info(os::ThreadInfo* info);
+
 int thread_yield();
 
 thread_id get_thread_id();
-status_t snooze_until(bigtime_t resumeTime);
+status_t snooze_until(TimeValMicros resumeTime);
+status_t snooze(TimeValMicros delay);
 
 status_t snooze_us(bigtime_t micros);
 status_t snooze_ms(bigtime_t millis);

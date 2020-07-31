@@ -53,7 +53,7 @@ private:
     IRQResult        HandleIRQ();
 
     bool     WaitIRQ(uint32_t flags);
-    bool     WaitIRQ(uint32_t flags, bigtime_t timeout);
+    bool     WaitIRQ(uint32_t flags, TimeValMicros timeout);
 
 
     SDMMC_TypeDef*  m_SDMMC;

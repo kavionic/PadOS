@@ -215,6 +215,42 @@ public:
         }
         return nullptr;
     }
+
+    template<typename DELEGATE>
+    Ptr<T> GetNext(int handle, DELEGATE delegate)
+    {
+        for (int i = (handle != INVALID_HANDLE) ? (handle + 1) : 0; i <= 0xffffff; ++i)
+        {
+            int index1 = (i >> 16) & 0xff;
+            int index2 = (i >> 8) & 0xff;
+            int index3 = i & 0xff;
+
+            CRITICAL_BEGIN(CRITICAL_IRQ)
+            {
+                Ptr<KHandleArrayBlock> block2 = ptr_static_cast<KHandleArrayBlock>(m_TopLevel.m_Array[index1]);
+                if (block2 == KHandleArrayEmptyBlock::GetInstance()) {
+                    i = ((index1 + 1) << 16) - 1;
+                    continue;
+                }
+                Ptr<KHandleArrayBlock> block3 = ptr_static_cast<KHandleArrayBlock>(block2->m_Array[index2]);
+                if (block3 == KHandleArrayEmptyBlock::GetInstance()) {
+                    i = (index1 << 16) + ((index2 + 1) << 8) - 1;
+                    continue;
+                }
+                if (block3->m_Array[index3] != KHandleArrayEmptyBlock::GetInstance())
+                {
+                    Ptr<T> object = ptr_static_cast<T>(block3->m_Array[index3]);
+
+                    if (delegate(object))
+                    {
+                        return object;
+                    }
+                }
+            } CRITICAL_END;
+        }
+        return nullptr;
+    }
+
 private:
 
 ///////////////////////////////////////////////////////////////////////////////

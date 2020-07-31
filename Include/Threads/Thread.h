@@ -40,7 +40,7 @@ public:
     bool GetDeleteOnExit() const { return m_DeleteOnExit; }
 
     thread_id Start(bool joinable = false, int priority = 0, int stackSize = 0);
-    int       Wait(bigtime_t timeout = INFINIT_TIMEOUT);
+    int       Wait(TimeValMicros timeout = TimeValMicros::infinit);
 
     thread_id GetThreadID() const { return m_ThreadHandle; }
 

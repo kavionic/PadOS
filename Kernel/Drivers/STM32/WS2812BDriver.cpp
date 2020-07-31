@@ -231,7 +231,7 @@ bool WS2812BDriverINode::WaitForIdle()
 	{
 		while (m_State != State::Idle)
 		{
-			if (!m_TransmitCondition.IRQWaitTimeout(bigtime_from_ms(100))) // Timeout in 100mS. Max transmit time is about 27mS (>7000LEDs)
+            if (!m_TransmitCondition.IRQWaitTimeout(TimeValMicros::FromMilliseconds(100))) // Timeout in 100mS. Max transmit time is about 27mS (>7000LEDs)
 			{
 				if (get_last_error() != EINTR) {
 					return false;

@@ -35,12 +35,12 @@ public:
 	void Clear() { object_wait_group_clear(m_Handle); }
 
 	bool Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)								{ return object_wait_group_wait(m_Handle, INVALID_HANDLE, readyFlagsBuffer, readyFlagsSize) >= 0; }
-	bool WaitTimeout(bigtime_t timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)	{ return object_wait_group_wait_timeout(m_Handle, INVALID_HANDLE, timeout, readyFlagsBuffer, readyFlagsSize) >= 0; }
-	bool WaitDeadline(bigtime_t deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)	{ return object_wait_group_wait_deadline(m_Handle, INVALID_HANDLE, deadline, readyFlagsBuffer, readyFlagsSize) >= 0; }
+    bool WaitTimeout(TimeValMicros timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return object_wait_group_wait_timeout(m_Handle, INVALID_HANDLE, timeout.AsMicroSeconds(), readyFlagsBuffer, readyFlagsSize) >= 0; }
+	bool WaitDeadline(TimeValMicros deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)	{ return object_wait_group_wait_deadline(m_Handle, INVALID_HANDLE, deadline.AsMicroSeconds(), readyFlagsBuffer, readyFlagsSize) >= 0; }
 
 	bool Wait(Mutex& lock, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)								{ return object_wait_group_wait(m_Handle, lock.GetHandle(), readyFlagsBuffer, readyFlagsSize) >= 0; }
-	bool WaitTimeout(Mutex& lock, bigtime_t timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)	{ return object_wait_group_wait_timeout(m_Handle, lock.GetHandle(), timeout, readyFlagsBuffer, readyFlagsSize) >= 0; }
-	bool WaitDeadline(Mutex& lock, bigtime_t deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return object_wait_group_wait_deadline(m_Handle, lock.GetHandle(), deadline, readyFlagsBuffer, readyFlagsSize) >= 0; }
+	bool WaitTimeout(Mutex& lock, TimeValMicros timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)	{ return object_wait_group_wait_timeout(m_Handle, lock.GetHandle(), timeout.AsMicroSeconds(), readyFlagsBuffer, readyFlagsSize) >= 0; }
+	bool WaitDeadline(Mutex& lock, TimeValMicros deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return object_wait_group_wait_deadline(m_Handle, lock.GetHandle(), deadline.AsMicroSeconds(), readyFlagsBuffer, readyFlagsSize) >= 0; }
 
 private:
 

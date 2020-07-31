@@ -38,17 +38,17 @@ public:
         if (m_DontDeletePort) m_Handle = INVALID_HANDLE;
     }
     
-    bool    SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout = INFINIT_TIMEOUT) const {
-        return send_message(m_Handle, targetHandler, code, data, length, timeout) >= 0;
+    bool    SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValMicros timeout = TimeValMicros::infinit) const {
+        return send_message(m_Handle, targetHandler, code, data, length, timeout.AsMicroSeconds()) >= 0;
     }
     ssize_t ReceiveMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize) const {
         return receive_message(m_Handle, targetHandler, code, buffer, bufferSize);
     }
-    ssize_t ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout) const {
-        return receive_message_timeout(m_Handle, targetHandler, code, buffer, bufferSize, timeout);
+    ssize_t ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValMicros timeout) const {
+        return receive_message_timeout(m_Handle, targetHandler, code, buffer, bufferSize, timeout.AsMicroSeconds());
     }
-    ssize_t ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline) const {
-        return receive_message_deadline(m_Handle, targetHandler, code, buffer, bufferSize, deadline);
+    ssize_t ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValMicros deadline) const {
+        return receive_message_deadline(m_Handle, targetHandler, code, buffer, bufferSize, deadline.AsMicroSeconds());
     }
 
     MessagePort(MessagePort&& other) = default;

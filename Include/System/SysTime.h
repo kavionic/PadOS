@@ -19,69 +19,250 @@
 
 #pragma once
 
+#include <limits>
+
 #include "System/Types.h"
 
 
-struct TimeValMicros
+template<typename T, uint64_t TICKS_PER_SECOND>
+struct TimeValue
 {
-    static constexpr bigtime_t TicksPerSecond = 1000000LL;
-    static constexpr bigtime_t TicksPerMillisecond = TicksPerSecond / 1000;
-    static constexpr bigtime_t TicksPerMicrosecond = 1;
+    // Constants:
+    static constexpr T TicksPerSecond = TICKS_PER_SECOND;
+    static constexpr T TicksPerMillisecond = TicksPerSecond / 1000;
+    static constexpr T TicksPerMicrosecond = TicksPerMillisecond / 1000;
+    static constexpr T TicksPerNanosecond = TicksPerMicrosecond / 1000;
+    static constexpr TimeValue zero = TimeValue::FromNative(0);
+    static constexpr TimeValue infinit = TimeValue::FromNative(std::numeric_limits<T>::max());
 
-    static TimeValMicros FromSeconds(bigtime_t value)       { return TimeValMicros(value * TicksPerSecond); }
-    static TimeValMicros FromSeconds(float value)           { return TimeValMicros(bigtime_t(value * float(TicksPerSecond))); }
-    static TimeValMicros FromSeconds(double value)          { return TimeValMicros(bigtime_t(value * double(TicksPerSecond))); }
-    static TimeValMicros FromMilliseconds(bigtime_t value)  { return TimeValMicros(value * TicksPerMillisecond); }
-    static TimeValMicros FromNanoseconds(bigtime_t value)   { return TimeValMicros(value / 1000); }
+    // Conversions from misc time domains to TimeValue:
+    static constexpr TimeValue FromNative(T value) { return TimeValue(value); }
 
-    TimeValMicros() : m_Value(0) {}
-    TimeValMicros(bigtime_t value) : m_Value(value) {}
-    TimeValMicros& operator=(bigtime_t value) { m_Value = value; return *this; }
-    TimeValMicros& operator=(const TimeValMicros& value) = default;
+    static constexpr TimeValue FromSeconds(T value) { return TimeValue(value * TicksPerSecond); }
+    static constexpr TimeValue FromSeconds(float value) { return TimeValue(T(value * double(TicksPerSecond))); }
+    static constexpr TimeValue FromSeconds(double value) { return TimeValue(T(value * double(TicksPerSecond))); }
+    static constexpr TimeValue FromMilliseconds(T value) { return TimeValue(value * TicksPerMillisecond); }
+    static constexpr TimeValue FromMicroseconds(T value)
+    {
+        if constexpr (TicksPerMicrosecond > 0) {
+            return TimeValue(value * TicksPerMicrosecond);
+        } else {
+            return TimeValue(value / (1000000 / TicksPerSecond));
+        }
+    }
+    static TimeValue FromNanoseconds(T value)
+    {
+        if constexpr (TicksPerNanosecond > 0) {
+            return TimeValue(value * TicksPerNanosecond);
+        } else {
+            return TimeValue(value / (1000000000 / TicksPerSecond));
+        }
+    }
 
-    TimeValMicros operator+(const TimeValMicros& rhs) const { return TimeValMicros(m_Value + rhs.m_Value); }
-    TimeValMicros operator-(const TimeValMicros& rhs) const { return TimeValMicros(m_Value - rhs.m_Value); }
-    TimeValMicros& operator+=(const TimeValMicros& rhs) { m_Value += rhs.m_Value; return *this; }
-    TimeValMicros& operator-=(const TimeValMicros& rhs) { m_Value -= rhs.m_Value; return *this; }
+    // Constructors:
+    constexpr TimeValue() : m_Value(0) {}
+    constexpr TimeValue(float value) : m_Value(FromSeconds(value)) {}
+    constexpr TimeValue(double value) : m_Value(FromSeconds(value)) {}
 
-    operator bigtime_t() const { return m_Value; }
-    bigtime_t m_Value;
+    template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
+    constexpr TimeValue(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& value)
+    {
+        if (value.IsInfinit()) {
+            m_Value = infinit.m_Value;
+            return;
+        }
+        if constexpr (value.TicksPerSecond > TicksPerSecond) {
+            m_Value = value.AsNative() / (value.TicksPerSecond / TicksPerSecond);
+        } else {
+            m_Value = value.AsNative() * (TicksPerSecond / value.TicksPerSecond);
+        }
+    }
+
+    // Compare operators:
+    template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
+    bool operator==(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    {
+        if (IsInfinit() || rhs.IsInfinit()) {
+            return IsInfinit() == rhs.IsInfinit();
+        }
+        if constexpr (rhs.TicksPerSecond > TicksPerSecond) {
+            return m_Value * (rhs.TicksPerSecond / TicksPerSecond) == rhs.AsNative();
+        } else {
+            return m_Value == rhs.AsNative() * (TicksPerSecond / rhs.TicksPerSecond);
+        }
+    }
+    template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
+    bool operator!=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    {
+        if (IsInfinit() || rhs.IsInfinit()) {
+            return IsInfinit() != rhs.IsInfinit();
+        }
+        if constexpr (rhs.TicksPerSecond > TicksPerSecond) {
+            return m_Value * (rhs.TicksPerSecond / TicksPerSecond) != rhs.AsNative();
+        } else {
+            return m_Value != rhs.AsNative() * (TicksPerSecond / rhs.TicksPerSecond);
+        }
+    }
+    template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
+    bool operator>(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    {
+        if (IsInfinit() || rhs.IsInfinit()) {
+            return IsInfinit() > rhs.IsInfinit();
+        }
+        if constexpr (rhs.TicksPerSecond > TicksPerSecond) {
+            return m_Value * (rhs.TicksPerSecond / TicksPerSecond) > rhs.AsNative();
+        } else {
+            return m_Value > rhs.AsNative() * (TicksPerSecond / rhs.TicksPerSecond);
+        }
+    }
+    template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
+    bool operator<(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    {
+        if (IsInfinit() || rhs.IsInfinit()) {
+            return IsInfinit() < rhs.IsInfinit();
+        }
+        if constexpr (rhs.TicksPerSecond > TicksPerSecond) {
+            return m_Value * (rhs.TicksPerSecond / TicksPerSecond) < rhs.AsNative();
+        } else {
+            return m_Value < rhs.AsNative()* (TicksPerSecond / rhs.TicksPerSecond);
+        }
+    }
+    template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
+    bool operator>=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    {
+        if (IsInfinit() || rhs.IsInfinit()) {
+            return IsInfinit() >= rhs.IsInfinit();
+        }
+        if constexpr (rhs.TicksPerSecond > TicksPerSecond) {
+            return m_Value * (rhs.TicksPerSecond / TicksPerSecond) >= rhs.AsNative();
+        } else {
+            return m_Value >= rhs.AsNative() * (TicksPerSecond / rhs.TicksPerSecond);
+        }
+    }
+    template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
+    bool operator<=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    {
+        if (IsInfinit() || rhs.IsInfinit()) {
+            return IsInfinit() <= rhs.IsInfinit();
+        }
+        if constexpr (rhs.TicksPerSecond > TicksPerSecond) {
+            return m_Value * (rhs.TicksPerSecond / TicksPerSecond) <= rhs.AsNative();
+        } else {
+            return m_Value <= rhs.AsNative() * (TicksPerSecond / rhs.TicksPerSecond);
+        }
+    }
+
+    // Arithmetic operators:
+    TimeValue& operator=(const TimeValue& value) = default;
+
+    template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
+    TimeValue& operator+=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs)
+    {
+        if constexpr (rhs.TicksPerSecond > TicksPerSecond) {
+            m_Value += rhs.AsNative() / (rhs.TicksPerSecond / TicksPerSecond);
+        } else {
+            m_Value += rhs.AsNative() * (TicksPerSecond / rhs.TicksPerSecond);
+        }
+        return *this;
+    }
+    template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
+    TimeValue& operator-=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs)
+    {
+        if constexpr (rhs.TicksPerSecond > TicksPerSecond) {
+            m_Value -= rhs.AsNative() / (rhs.TicksPerSecond / TicksPerSecond);
+        } else {
+            m_Value -= rhs.AsNative() * (TicksPerSecond / rhs.TicksPerSecond);
+        }
+        return *this;
+    }
+
+    TimeValue operator+(float rhs) const { return TimeValue(m_Value + FromSeconds(rhs).AsNative()); }
+    TimeValue operator-(float rhs) const { return TimeValue(m_Value - FromSeconds(rhs).AsNative()); }
+    TimeValue& operator+=(float rhs) { m_Value += FromSeconds(rhs).AsNative(); return *this; }
+    TimeValue& operator-=(float rhs) { m_Value -= FromSeconds(rhs).AsNative(); return *this; }
+
+    TimeValue operator+(double rhs) const { return TimeValue(m_Value + FromSeconds(rhs).AsNative()); }
+    TimeValue operator-(double rhs) const { return TimeValue(m_Value - FromSeconds(rhs).AsNative()); }
+    TimeValue& operator+=(double rhs) { m_Value += FromSeconds(rhs).AsNative(); return *this; }
+    TimeValue& operator-=(double rhs) { m_Value -= FromSeconds(rhs).AsNative(); return *this; }
+
+    TimeValue operator*(float multiplier) const { return TimeValue(m_Value * multiplier); }
+    TimeValue& operator*=(float multiplier) { m_Value *= multiplier; return *this; }
+
+    TimeValue operator*(T multiplier) const { return TimeValue(m_Value * multiplier); }
+    TimeValue& operator*=(T multiplier) { m_Value *= multiplier; return *this; }
+
+    // Getters for the different time domains:
+    T AsMilliSeconds() const { return m_Value / (TicksPerSecond / 1000); }
+    T AsMicroSeconds() const
+    {
+        if constexpr (TicksPerSecond >= 1000000) {
+            return m_Value / (TicksPerSecond / 1000000);
+        } else {
+            return m_Value * (1000000 / TicksPerSecond);
+        }
+    }
+    T AsNanoSeconds() const
+    {
+        if constexpr (TicksPerSecond >= 1000000000) {
+            return m_Value / (TicksPerSecond / 1000000000);
+        } else {
+            return m_Value * (1000000000 / TicksPerSecond);
+        }
+    }
+    double AsSeconds() const { return double(m_Value) / double(TicksPerSecond); }
+    T AsNative() const { return m_Value; }
+
+    // Misc:
+    bool IsZero() const { return m_Value == 0; }
+    bool IsInfinit() const { return m_Value == infinit.m_Value; }
+
+private:
+    explicit constexpr TimeValue(T value) : m_Value(value) {}
+
+    T m_Value;
 };
 
-struct TimeValNanos
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<typename LHS_T, uint64_t LHS_TICKS_PER_SECOND, typename RHS_T, uint64_t RHS_TICKS_PER_SECOND>
+TimeValue<LHS_T, LHS_TICKS_PER_SECOND> operator+(const TimeValue<LHS_T, LHS_TICKS_PER_SECOND>& lhs, const TimeValue<RHS_T, RHS_TICKS_PER_SECOND>& rhs)
 {
-    static constexpr bigtime_t TicksPerSecond = 1000000000LL;
-    static constexpr bigtime_t TicksPerMillisecond = TicksPerSecond / 1000;
-    static constexpr bigtime_t TicksPerMicrosecond = TicksPerMillisecond / 1000;
-    static constexpr bigtime_t TicksPerNanosecond = 1;
+    if constexpr (rhs.TicksPerSecond > lhs.TicksPerSecond) {
+        return TimeValue<LHS_T, LHS_TICKS_PER_SECOND>::FromNative(lhs.AsNative() + rhs.AsNative() / (rhs.TicksPerSecond / lhs.TicksPerSecond));
+    } else {
+        return TimeValue<LHS_T, LHS_TICKS_PER_SECOND>::FromNative(lhs.AsNative() + rhs.AsNative() * (lhs.TicksPerSecond / rhs.TicksPerSecond));
+    }
+}
 
-    static TimeValNanos FromSeconds(bigtime_t value)        { return TimeValNanos(value * TicksPerSecond); }
-    static TimeValNanos FromSeconds(float value)            { return TimeValNanos(bigtime_t(value * double(TicksPerSecond))); }
-    static TimeValNanos FromSeconds(double value)           { return TimeValNanos(bigtime_t(value * double(TicksPerSecond))); }
-    static TimeValNanos FromMilliseconds(bigtime_t value)   { return TimeValNanos(value * TicksPerMillisecond); }
-    static TimeValNanos FromMicroseconds(bigtime_t value)   { return TimeValNanos(value * TicksPerMicrosecond); }
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-    TimeValNanos() : m_Value(0) {}
-    TimeValNanos(bigtime_t value) : m_Value(value) {}
-    TimeValNanos& operator=(bigtime_t value) { m_Value = value; return *this; }
-    TimeValNanos& operator=(const TimeValNanos& value) = default;
+template<typename LHS_T, uint64_t LHS_TICKS_PER_SECOND, typename RHS_T, uint64_t RHS_TICKS_PER_SECOND>
+TimeValue<LHS_T, LHS_TICKS_PER_SECOND> operator-(const TimeValue<LHS_T, LHS_TICKS_PER_SECOND>& lhs, const TimeValue<RHS_T, RHS_TICKS_PER_SECOND>& rhs)
+{
+    if constexpr (rhs.TicksPerSecond > lhs.TicksPerSecond) {
+        return TimeValue<LHS_T, LHS_TICKS_PER_SECOND>::FromNative(lhs.AsNative() - rhs.AsNative() / (rhs.TicksPerSecond / lhs.TicksPerSecond));
+    } else {
+        return TimeValue<LHS_T, LHS_TICKS_PER_SECOND>::FromNative(lhs.AsNative() - rhs.AsNative() * (lhs.TicksPerSecond / rhs.TicksPerSecond));
+    }
+}
 
-    TimeValNanos operator+(const TimeValNanos& rhs) const { return TimeValNanos(m_Value + rhs.m_Value); }
-    TimeValNanos operator-(const TimeValNanos& rhs) const { return TimeValNanos(m_Value - rhs.m_Value); }
-    TimeValNanos& operator+=(const TimeValNanos& rhs) { m_Value += rhs.m_Value; return *this; }
-    TimeValNanos& operator-=(const TimeValNanos& rhs) { m_Value -= rhs.m_Value; return *this; }
+using TimeValMillis = TimeValue<bigtime_t, 1000LL>;
+using TimeValMicros = TimeValue<bigtime_t, 1000000LL>;
+using TimeValNanos  = TimeValue<bigtime_t, 1000000000LL>;
 
-    operator bigtime_t() const { return m_Value; }
-    bigtime_t m_Value;
-};
+TimeValMicros   get_system_time();
+TimeValNanos    get_system_time_hires();
+TimeValNanos    get_idle_time();
+uint64_t        get_core_clock_cycles();
 
-constexpr bigtime_t bigtime_from_s(bigtime_t s) { return s * 1000000; }
-inline bigtime_t bigtime_from_sf(double s) { return bigtime_t(s * 1000000.0); }
-inline bigtime_t bigtime_from_ms(bigtime_t ms) { return ms * 1000; }
+TimeValMicros   get_real_time();
 
-bigtime_t get_system_time();
-TimeValNanos get_system_time_hires();
-TimeValNanos get_idle_time();
-uint64_t    get_core_clock_cycles();
-
-bigtime_t get_real_time();
+namespace unit_test
+{
+void TestTimeValue();
+}

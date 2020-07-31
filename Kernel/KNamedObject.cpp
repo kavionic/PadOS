@@ -25,6 +25,7 @@
 #include "KHandleArray.h"
 
 using namespace kernel;
+using namespace os;
 
 static uint8_t gk_NamedObjectsTableBuffer[sizeof(KHandleArray<KNamedObject>)];
 static KHandleArray<KNamedObject>& gk_NamedObjectsTable = *reinterpret_cast<KHandleArray<KNamedObject>*>(gk_NamedObjectsTableBuffer);
@@ -90,7 +91,7 @@ KNamedObject::~KNamedObject()
         {
             waitNode->m_TargetDeleted = true;
             KThreadCB* thread = waitNode->m_Thread;
-            if (thread != nullptr && (thread->m_State == KThreadState::Sleeping || thread->m_State == KThreadState::Waiting)) {
+            if (thread != nullptr && (thread->m_State == ThreadState::Sleeping || thread->m_State == ThreadState::Waiting)) {
                 if (thread->m_PriorityLevel > ourPriLevel) needSchedule = true;
                 add_thread_to_ready_list(thread);
             }

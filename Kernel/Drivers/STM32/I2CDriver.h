@@ -101,7 +101,7 @@ public:
 	I2C_ADDR_LEN	m_SlaveAddressLength = I2C_ADDR_LEN_7BIT;
     uint8_t			m_SlaveAddress = 0;
     int8_t			m_InternalAddressLength = 0;
-	bigtime_t		m_Timeout = INFINIT_TIMEOUT; // Timeout for any IO operations.
+	TimeValMicros	m_Timeout = TimeValMicros::infinit; // Timeout for any IO operations.
 };
 
 

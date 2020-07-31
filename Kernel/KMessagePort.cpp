@@ -147,9 +147,9 @@ bool KMessagePort::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMessagePort::SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout)
+bool KMessagePort::SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValMicros timeout)
 {
-    bigtime_t deadline = (timeout != INFINIT_TIMEOUT) ? (get_system_time() + timeout) : INFINIT_TIMEOUT;
+    TimeValMicros deadline = (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit;
     CRITICAL_SCOPE(m_Mutex);
 
     while (m_MessageCount >= m_MaxCount)
@@ -208,16 +208,16 @@ ssize_t KMessagePort::ReceiveMessage(handler_id* targetHandler, int32_t* code, v
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KMessagePort::ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout)
+ssize_t KMessagePort::ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValMicros timeout)
 {
-    return ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, (timeout != INFINIT_TIMEOUT) ? (get_system_time() + timeout) : INFINIT_TIMEOUT);
+    return ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KMessagePort::ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline)
+ssize_t KMessagePort::ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValMicros deadline)
 {
 	CRITICAL_SCOPE(m_Mutex);
 
@@ -316,7 +316,7 @@ status_t send_message(port_id handle, handler_id targetHandler, int32_t code, co
 {
     Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
     if (port != nullptr) {
-        return port->SendMessage(targetHandler, code, data, length, timeout) ? 0 : -1;
+        return port->SendMessage(targetHandler, code, data, length, TimeValMicros::FromMicroseconds(timeout)) ? 0 : -1;
     } else {
         set_last_error(EINVAL);
         return -1;
@@ -346,7 +346,7 @@ ssize_t receive_message_timeout(port_id handle, handler_id* targetHandler, int32
 {
     Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
     if (port != nullptr) {
-        return port->ReceiveMessageTimeout(targetHandler, code, buffer, bufferSize, timeout);
+        return port->ReceiveMessageTimeout(targetHandler, code, buffer, bufferSize, TimeValMicros::FromMicroseconds(timeout));
     } else {
         set_last_error(EINVAL);
         return -1;
@@ -361,7 +361,7 @@ ssize_t receive_message_deadline(port_id handle, handler_id* targetHandler, int3
 {
     Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
     if (port != nullptr) {
-        return port->ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, deadline);
+        return port->ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, TimeValMicros::FromMicroseconds(deadline));
     } else {
         set_last_error(EINVAL);
         return -1;

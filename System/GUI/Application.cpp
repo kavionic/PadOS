@@ -32,7 +32,7 @@ using namespace os;
 
 Application::Application(const String& name) : Looper(name, 1000), m_ReplyPort("app_reply", 1000)
 {
-    ASRegisterApplication::Sender::Emit(get_appserver_port(), -1, INFINIT_TIMEOUT, m_ReplyPort.GetHandle(), GetPortID(), GetName());
+    ASRegisterApplication::Sender::Emit(get_appserver_port(), -1, TimeValMicros::infinit, m_ReplyPort.GetHandle(), GetPortID(), GetName());
     
     for(;;)
     {

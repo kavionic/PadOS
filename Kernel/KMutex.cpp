@@ -19,9 +19,9 @@
 
 #include <string.h>
 
-#include "KMutex.h"
-#include "KHandleArray.h"
-#include "Scheduler.h"
+#include "Kernel/KMutex.h"
+#include "Kernel/KHandleArray.h"
+#include "Kernel/Scheduler.h"
 #include "System/System.h"
 
 using namespace kernel;

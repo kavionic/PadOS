@@ -16,7 +16,7 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "DMA_STM32.h"
+#include "Kernel/HAL/STM32/DMA_STM32.h"
 
 #include "Kernel/KMutex.h"
 #include "Utils/Utils.h"

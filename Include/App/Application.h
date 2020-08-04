@@ -43,7 +43,7 @@ public:
     bool AddView(Ptr<View> view, ViewDockType dockType);
     bool RemoveView(Ptr<View> view);
     
-    Ptr<View> FindView(handler_id handle) { return ptr_static_cast<View>(FindHandler(handle)); }
+    Ptr<View> FindView(handler_id handle);
 
 
     void SetFocusView(MouseButton_e button, Ptr<View> view, bool focus);
@@ -64,7 +64,7 @@ private:
     
     void* AllocMessageBuffer(int32_t messageID, size_t size);
 
-    void RegisterViewForLayout(Ptr<View> view) { m_ViewsNeedingLayout.insert(view); }
+    void RegisterViewForLayout(Ptr<View> view);
 
     void      SetMouseDownView(MouseButton_e button, Ptr<View> view);
     Ptr<View> GetMouseDownView(MouseButton_e button) const;

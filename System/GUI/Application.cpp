@@ -201,6 +201,15 @@ bool Application::RemoveView(Ptr<View> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+Ptr<View> Application::FindView(handler_id handle)
+{
+    return ptr_static_cast<View>(FindHandler(handle));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void Application::SetFocusView(MouseButton_e button, Ptr<View> view, bool focus)
 {
     int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
@@ -333,6 +342,15 @@ void* Application::AllocMessageBuffer(int32_t messageID, size_t size)
     buffer->m_Code = messageID;
     buffer->m_Length = size;
     return buffer + 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Application::RegisterViewForLayout(Ptr<View> view)
+{
+    m_ViewsNeedingLayout.insert(view);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

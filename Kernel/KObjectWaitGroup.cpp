@@ -19,10 +19,9 @@
 
 #include <string.h>
 
-#include "KObjectWaitGroup.h"
-
-#include "KMutex.h"
-#include "Scheduler.h"
+#include "Kernel/KObjectWaitGroup.h"
+#include "Kernel/KMutex.h"
+#include "Kernel/Scheduler.h"
 
 using namespace kernel;
 using namespace os;

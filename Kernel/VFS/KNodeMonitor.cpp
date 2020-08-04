@@ -19,7 +19,7 @@
 
 #include "System/Platform.h"
 
-#include "KNodeMonitor.h"
+#include "Kernel/VFS/KNodeMonitor.h"
 
 #if 0
 

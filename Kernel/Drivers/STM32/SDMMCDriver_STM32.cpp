@@ -20,7 +20,7 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "SDMMCDriver_STM32.h"
+#include "Kernel/Drivers/STM32/SDMMCDriver_STM32.h"
 #include "Kernel/SpinTimer.h"
 
 using namespace kernel;

@@ -16,7 +16,7 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "SpinTimer.h"
+#include "Kernel/SpinTimer.h"
 #include "Kernel/Kernel.h"
 #include "System/SysTime.h"
 

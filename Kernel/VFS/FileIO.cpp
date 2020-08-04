@@ -22,12 +22,12 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "FileIO.h"
-#include "KFileHandle.h"
-#include "KFSVolume.h"
-#include "KINode.h"
-#include "KRootFilesystem.h"
-#include "KVFSManager.h"
+#include "Kernel/VFS/FileIO.h"
+#include "Kernel/VFS/KFileHandle.h"
+#include "Kernel/VFS/KFSVolume.h"
+#include "Kernel/VFS/KINode.h"
+#include "Kernel/VFS/KRootFilesystem.h"
+#include "Kernel/VFS/KVFSManager.h"
 
 using namespace kernel;
 using namespace os;

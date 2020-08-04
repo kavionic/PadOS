@@ -23,7 +23,7 @@
 
 #include "FATVolume.h"
 #include "FATINode.h"
-#include "FATFilesystem.h"
+#include "Kernel/FSDrivers/FAT/FATFilesystem.h"
 #include "Kernel/VFS/FileIO.h"
 
 using namespace os;

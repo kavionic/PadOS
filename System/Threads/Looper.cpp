@@ -23,7 +23,7 @@
 #include "Threads/EventHandler.h"
 #include "Threads/EventTimer.h"
 #include "System/SystemMessageIDs.h"
-#include "../../Kernel/Scheduler.h"
+#include "Kernel/Scheduler.h"
 
 using namespace os;
 

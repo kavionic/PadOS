@@ -6,30 +6,17 @@ add_subdirectory(VFS)
 target_sources(PadOS PRIVATE
 	IRQDispatcher.cpp
 	KConditionVariable.cpp
-	KConditionVariable.h
 	Kernel.cpp
-	Kernel.h
 	KHandleArray.cpp
-	KHandleArray.h
 	KMessagePort.cpp
-	KMessagePort.h
 	KMutex.cpp
-	KMutex.h
 	KNamedObject.cpp
-	KNamedObject.h
 	KObjectWaitGroup.cpp
-	KObjectWaitGroup.h
 	KPowerManager.cpp
-	KPowerManager.h
 	KProcess.cpp
-	KProcess.h
 	KSemaphore.cpp
-	KSemaphore.h
 	KThreadCB.cpp
-	KThreadCB.h
 	Scheduler.cpp
-	Scheduler.h
 	SpinTimer.cpp
-	SpinTimer.h
 	SysTime.cpp
 )

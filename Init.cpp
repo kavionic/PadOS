@@ -31,7 +31,6 @@
 
 #include "Signals/Signal.h"
 #include "Kernel/HAL/SAME70System.h"
-#include "SDRAM.h"
 #include "Threads/EventTimer.h"
 #include "Threads/Threads.h"
 #include "Kernel/Kernel.h"

@@ -24,7 +24,7 @@
 #include "Utils/MessagePort.h"
 #include "Math/Rect.h"
 
-#include "ApplicationServer.h"
+#include "ApplicationServer/ApplicationServer.h"
 #include "ServerView.h"
 
 namespace os

@@ -23,8 +23,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "KThreadCB.h"
-#include "Scheduler.h"
+#include "Kernel/KThreadCB.h"
+#include "Kernel/Scheduler.h"
 #include "Utils/Utils.h"
 
 using namespace kernel;

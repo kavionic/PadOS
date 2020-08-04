@@ -20,7 +20,7 @@
 
 #include "FATTableIterator.h"
 #include "FATVolume.h"
-#include "FATFilesystem.h"
+#include "Kernel/FSDrivers/FAT/FATFilesystem.h"
 
 namespace kernel
 {

@@ -21,10 +21,10 @@
 
 #include <string.h>
 
-#include "KRootFilesystem.h"
-#include "KFSVolume.h"
-#include "KFileHandle.h"
-#include "KDeviceNode.h"
+#include "Kernel/VFS/KRootFilesystem.h"
+#include "Kernel/VFS/KFSVolume.h"
+#include "Kernel/VFS/KFileHandle.h"
+#include "Kernel/VFS/KDeviceNode.h"
 #include "System/System.h"
 #include "Utils/String.h"
 

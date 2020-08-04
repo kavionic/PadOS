@@ -24,9 +24,9 @@
 
 #include <map>
 
-#include "KBlockCache.h"
-#include "FileIO.h"
-#include "KVFSManager.h"
+#include "Kernel/VFS/KBlockCache.h"
+#include "Kernel/VFS/FileIO.h"
+#include "Kernel/VFS/KVFSManager.h"
 
 using namespace kernel;
 using namespace os;

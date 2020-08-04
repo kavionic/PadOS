@@ -23,15 +23,16 @@
 
 #include "Threads/Looper.h"
 #include "Signals/SignalTarget.h"
-#include "Protocol.h"
+#include "ApplicationServer/Protocol.h"
 #include "Math/Rect.h"
 #include "GUI/GUIEvent.h"
 #include "Threads/EventTimer.h"
-#include "ServerView.h"
+//#include "ServerView.h"
 
 namespace os
 {
 
+class ServerView;
 
 class ApplicationServer : public Looper, public SignalTarget
 {
@@ -45,7 +46,7 @@ public:
     static Rect  GetScreenFrame();
     static IRect GetScreenIFrame();
 
-    Ptr<ServerView> GetTopView() { return m_TopView; }
+    Ptr<ServerView> GetTopView();
     
     bool            RegisterView(Ptr<ServerView> view);
     Ptr<ServerView> FindView(handler_id handle) const;

@@ -37,7 +37,6 @@
 #include "GUI/Color.h"
 #include "GUI/LayoutNode.h"
 #include "ApplicationServer/Protocol.h"
-#include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
 #include "ViewFactoryContext.h"
 
 namespace pugi
@@ -104,6 +103,10 @@ public:
     //    virtual void WindowActivated( bool bIsActive );
 
     virtual void Paint(const Rect& updateRect) { EraseRect(updateRect); }
+
+    virtual bool OnTouchDown(MouseButton_e pointID, const Point& position)  { return OnMouseDown(pointID, position); }
+    virtual bool OnTouchUp(MouseButton_e pointID, const Point& position)    { return OnMouseUp(pointID, position);   }
+    virtual bool OnTouchMove(MouseButton_e pointID, const Point& position)  { return OnMouseMove(pointID, position); }
 
     virtual bool OnMouseDown(MouseButton_e button, const Point& position);
     virtual bool OnMouseUp(MouseButton_e button, const Point& position);

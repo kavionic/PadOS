@@ -1056,7 +1056,12 @@ bool View::HandleMouseDown(std::set<View*>& visitedViews, MouseButton_e button, 
         }
     }
     visitedViews.insert(this);
-    bool handled = OnMouseDown(button, position/* - m_ScrollOffset*/);
+    bool handled;
+    if (button < MouseButton_e::FirstTouchID) {
+        handled = OnMouseDown(button, position);
+    } else {
+        handled = OnTouchDown(button, position);
+    }
     if (handled)
     {
         Application* app = GetApplication();
@@ -1078,7 +1083,11 @@ void View::HandleMouseUp(MouseButton_e button, const Point& position)
     if (mouseView != nullptr) {
 //        printf("View::HandleMouseUp() %p '%s'\n", ptr_raw_pointer_cast(mouseView), mouseView->GetName().c_str());
 
-        mouseView->OnMouseUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
+        if (button < MouseButton_e::FirstTouchID) {
+            mouseView->OnMouseUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
+        } else {
+            mouseView->OnTouchUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
+        }
     } else {
         OnMouseUp(button, position);
     }        
@@ -1093,9 +1102,17 @@ void View::HandleMouseMove(MouseButton_e button, const Point& position)
     Application* app = GetApplication();
     Ptr<View> mouseView = (app != nullptr) ? app->GetFocusView(button) : nullptr;
     if (mouseView != nullptr) {
-        mouseView->OnMouseMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
+        if (button < MouseButton_e::FirstTouchID) {
+            mouseView->OnMouseMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
+        } else {
+            mouseView->OnTouchMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
+        }
     } else {
-        OnMouseMove(button, position);
+        if (button < MouseButton_e::FirstTouchID) {
+            OnMouseMove(button, position);
+        } else {
+            OnTouchMove(button, position);
+        }
     }        
 }
 

@@ -21,8 +21,8 @@
 
 #include <string.h>
 
-#include "KNamedObject.h"
-#include "KHandleArray.h"
+#include "Kernel/KNamedObject.h"
+#include "Kernel/KHandleArray.h"
 
 using namespace kernel;
 using namespace os;

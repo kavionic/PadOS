@@ -20,18 +20,18 @@
 #include <assert.h>
 #include <string.h>
 
-#include "Kernel.h"
-#include "Scheduler.h"
-#include "KPowerManager.h"
-#include "VFS/KDeviceNode.h"
-#include "VFS/KRootFilesystem.h"
-#include "VFS/KFSVolume.h"
-#include "VFS/KFileHandle.h"
+#include "Kernel/Kernel.h"
+#include "Kernel/Scheduler.h"
+#include "Kernel/KPowerManager.h"
+#include "Kernel/VFS/KDeviceNode.h"
+#include "Kernel/VFS/KRootFilesystem.h"
+#include "Kernel/VFS/KFSVolume.h"
+#include "Kernel/VFS/KFileHandle.h"
 #include "Utils/Utils.h"
-#include "HAL/SAME70System.h"
-#include "VFS/FileIO.h"
-#include "SAME70TimerDefines.h"
-#include "SpinTimer.h"
+#include "Kernel/HAL/SAME70System.h"
+#include "Kernel/VFS/FileIO.h"
+#include "Kernel/HAL/ATSAM/SAME70TimerDefines.h"
+#include "Kernel/SpinTimer.h"
 #include "System/SysTime.h"
 
 using namespace kernel;

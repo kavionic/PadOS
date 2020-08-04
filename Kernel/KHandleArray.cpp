@@ -19,7 +19,7 @@
 
 #include "System/Platform.h"
 
-#include "KHandleArray.h"
+#include "Kernel/KHandleArray.h"
 #include "Ptr/NoPtr.h"
 
 using namespace kernel;

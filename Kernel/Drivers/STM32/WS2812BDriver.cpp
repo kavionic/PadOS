@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 01.06.2020 16:30:05
 
-#include "WS2812BDriver.h"
+#include "Kernel/Drivers/STM32/WS2812BDriver.h"
 
 #include <malloc.h>
 #include <algorithm>

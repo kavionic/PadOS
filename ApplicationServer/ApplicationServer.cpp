@@ -22,10 +22,10 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "ApplicationServer.h"
+#include "ApplicationServer/ApplicationServer.h"
+#include "ApplicationServer/Protocol.h"
 #include "ServerApplication.h"
 #include "ServerView.h"
-#include "Protocol.h"
 #include "GUI/View.h"
 #include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
 #include "System/SystemMessageIDs.h"
@@ -153,6 +153,15 @@ Rect ApplicationServer::GetScreenFrame()
 IRect ApplicationServer::GetScreenIFrame()
 {
     return IRect(IPoint(0), GfxDriver::Instance.GetResolution());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<ServerView> ApplicationServer::GetTopView()
+{
+    return m_TopView;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

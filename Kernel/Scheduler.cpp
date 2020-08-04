@@ -24,14 +24,13 @@
 #include <vector>
 #include <map>
 
-#include "Scheduler.h"
-
-#include "HAL/DigitalPort.h"
-#include "KProcess.h"
-#include "KSemaphore.h"
-#include "Kernel.h"
-#include "KHandleArray.h"
-#include "VFS/FileIO.h"
+#include "Kernel/Scheduler.h"
+#include "Kernel/HAL/DigitalPort.h"
+#include "Kernel/KProcess.h"
+#include "Kernel/KSemaphore.h"
+#include "Kernel/Kernel.h"
+#include "Kernel/KHandleArray.h"
+#include "Kernel/VFS/FileIO.h"
 
 using namespace kernel;
 using namespace os;

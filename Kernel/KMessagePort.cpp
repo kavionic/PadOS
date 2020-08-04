@@ -25,9 +25,9 @@
 
 #include <new>
 
-#include "KMessagePort.h"
+#include "Kernel/KMessagePort.h"
+#include "Kernel/Kernel.h"
 #include "Threads/Threads.h"
-#include "Kernel.h"
 
 using namespace kernel;
 

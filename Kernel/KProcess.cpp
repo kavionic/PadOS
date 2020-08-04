@@ -22,10 +22,10 @@
 #include <string.h>
 #include <sys/errno.h>
 
-#include "KProcess.h"
-#include "KThreadCB.h"
-#include "Kernel.h"
-#include "Scheduler.h"
+#include "Kernel/KProcess.h"
+#include "Kernel/KThreadCB.h"
+#include "Kernel/Kernel.h"
+#include "Kernel/Scheduler.h"
 #include "Utils/Utils.h"
 
 using namespace kernel;

@@ -22,7 +22,7 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "GSLx680Driver.h"
+#include "Kernel/Drivers/GSLx680Driver.h"
 #include "DeviceControl/I2C.h"
 #include "DeviceControl/HID.h"
 #include "Threads/Threads.h"

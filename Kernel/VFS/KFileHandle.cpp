@@ -17,10 +17,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.02.2018 01:47:38
 
-#include "KFileHandle.h"
-#include "KFSVolume.h"
-#include "KINode.h"
-#include "KFilesystem.h"
+#include "Kernel/VFS/KFileHandle.h"
+#include "Kernel/VFS/KFSVolume.h"
+#include "Kernel/VFS/KINode.h"
+#include "Kernel/VFS/KFilesystem.h"
 
 bool kernel::KFileNode::LastReferenceGone()
 {

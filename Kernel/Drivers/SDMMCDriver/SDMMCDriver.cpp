@@ -23,7 +23,7 @@
 #include <stdio.h>
 #include <malloc.h>
 
-#include "SDMMCDriver.h"
+#include "Kernel/Drivers/SDMMCDriver/SDMMCDriver.h"
 #include "Kernel/SpinTimer.h"
 #include "Kernel/HAL/STM32/Peripherals_STM32H7.h"
 #include "Kernel/VFS/KVFSManager.h"

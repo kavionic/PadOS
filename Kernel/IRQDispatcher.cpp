@@ -20,10 +20,10 @@
 #include <sys/errno.h>
 
 #include "Kernel/IRQDispatcher.h"
+#include "Kernel/Scheduler.h"
 #include "System/Platform.h"
 #include "System/System.h"
 #include "Threads/Threads.h"
-#include "Scheduler.h"
 
 
 namespace kernel

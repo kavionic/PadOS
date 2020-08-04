@@ -18,9 +18,9 @@
 // Created: 27.04.2018 22:30:54
 
 
-#include "KConditionVariable.h"
-#include "Scheduler.h"
-#include "KMutex.h"
+#include "Kernel/KConditionVariable.h"
+#include "Kernel/Scheduler.h"
+#include "Kernel/KMutex.h"
 
 using namespace kernel;
 using namespace os;

@@ -21,7 +21,7 @@
 
 #include "FATTable.h"
 #include "FATVolume.h"
-#include "FATFilesystem.h"
+#include "Kernel/FSDrivers/FAT/FATFilesystem.h"
 #include "FATINode.h"
 
 namespace kernel

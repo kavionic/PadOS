@@ -24,9 +24,8 @@
 #include <fcntl.h>
 #include <string.h>
 
-#include "TLV493DDriver.h"
-
-#include "I2CDriver.h"
+#include "Kernel/Drivers/STM32/TLV493DDriver.h"
+#include "Kernel/Drivers/STM32/I2CDriver.h"
 #include "DeviceControl/I2C.h"
 #include "System/System.h"
 #include "Kernel/VFS/FileIO.h"

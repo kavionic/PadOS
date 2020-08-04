@@ -22,7 +22,7 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "FT5x0xDriver.h"
+#include "Kernel/Drivers/FT5x0xDriver.h"
 #include "DeviceControl/I2C.h"
 #include "DeviceControl/HID.h"
 #include "Threads/Threads.h"

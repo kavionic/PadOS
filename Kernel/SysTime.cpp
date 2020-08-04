@@ -19,8 +19,8 @@
 
 #include "System/SysTime.h"
 #include "Threads/Threads.h"
-#include "Kernel.h"
-#include "Scheduler.h"
+#include "Kernel/Kernel.h"
+#include "Kernel/Scheduler.h"
 
 using namespace kernel;
 

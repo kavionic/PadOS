@@ -19,8 +19,8 @@
 
 #include "System/Platform.h"
 
-#include "KIOContext.h"
-#include "KNodeMonitor.h"
+#include "Kernel/VFS/KIOContext.h"
+#include "Kernel/VFS/KNodeMonitor.h"
 
 namespace kernel
 {

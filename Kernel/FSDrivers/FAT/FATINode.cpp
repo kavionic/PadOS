@@ -22,9 +22,9 @@
 #include <string.h>
 
 #include "FATINode.h"
-#include "FATFilesystem.h"
 #include "FATVolume.h"
 #include "FATDirectoryIterator.h"
+#include "Kernel/FSDrivers/FAT/FATFilesystem.h"
 
 namespace kernel
 {

@@ -19,9 +19,9 @@
 
 #include <string.h>
 
-#include "KSemaphore.h"
-#include "KHandleArray.h"
-#include "Scheduler.h"
+#include "Kernel/KSemaphore.h"
+#include "Kernel/KHandleArray.h"
+#include "Kernel/Scheduler.h"
 #include "System/System.h"
 
 using namespace kernel;

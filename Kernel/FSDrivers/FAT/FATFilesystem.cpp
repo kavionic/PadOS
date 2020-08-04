@@ -23,7 +23,7 @@
 #include <fcntl.h>
 #include <set>
 
-#include "FATFilesystem.h"
+#include "Kernel/FSDrivers/FAT/FATFilesystem.h"
 #include "FATVolume.h"
 #include "FATINode.h"
 #include "DeviceControl/DeviceControl.h"

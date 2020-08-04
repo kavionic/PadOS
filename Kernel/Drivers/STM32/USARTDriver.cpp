@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 03.01.2020 12:00:00
 
-#include "USARTDriver.h"
+#include "Kernel/Drivers/STM32/USARTDriver.h"
 
 #include <malloc.h>
 #include <algorithm>

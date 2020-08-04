@@ -22,8 +22,8 @@
 #include <string.h>
 
 #include "ServerApplication.h"
-#include "ApplicationServer.h"
-#include "Protocol.h"
+#include "ApplicationServer/ApplicationServer.h"
+#include "ApplicationServer/Protocol.h"
 
 using namespace os;
 

@@ -21,7 +21,7 @@
 #include <string.h>
 #include <cmath>
 
-#include "I2CDriver.h"
+#include "Kernel/Drivers/STM32/I2CDriver.h"
 #include "Kernel/HAL/DigitalPort.h"
 #include "Kernel/HAL/SAME70System.h"
 #include "System/System.h"

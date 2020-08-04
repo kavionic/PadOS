@@ -22,10 +22,10 @@
 #include <stdio.h>
 #include <algorithm>
 
-#include "GfxDriver.h"
-#include "Fonts/SansSerif_14.h"
-#include "Fonts/SansSerif_20.h"
-#include "Fonts/SansSerif_72.h"
+#include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
+#include "Kernel/Drivers/RA8875Driver/Fonts/SansSerif_14.h"
+#include "Kernel/Drivers/RA8875Driver/Fonts/SansSerif_20.h"
+#include "Kernel/Drivers/RA8875Driver/Fonts/SansSerif_72.h"
 #include "GUI/Color.h"
 #include "GUI/Region.h"
 #include "Utils/UTF8Utils.h"

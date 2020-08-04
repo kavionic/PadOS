@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-#include "GSLx680Driver.h"
+#include "Kernel/Drivers/GSLx680Driver.h"
 #include "Utils/Utils.h"
 
 namespace kernel

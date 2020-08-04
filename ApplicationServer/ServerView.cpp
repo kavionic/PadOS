@@ -22,7 +22,7 @@
 #include <string.h>
 
 #include "ServerView.h"
-#include "ApplicationServer.h"
+#include "ApplicationServer/ApplicationServer.h"
 
 using namespace os;
 using namespace kernel;

@@ -22,10 +22,10 @@
 #include <string.h>
 #include <assert.h>
 
-#include "KVFSManager.h"
-#include "KDeviceNode.h"
-#include "KFSVolume.h"
-#include "KINode.h"
+#include "Kernel/VFS/KVFSManager.h"
+#include "Kernel/VFS/KDeviceNode.h"
+#include "Kernel/VFS/KFSVolume.h"
+#include "Kernel/VFS/KINode.h"
 #include "DeviceControl/DeviceControl.h"
 
 using namespace kernel;

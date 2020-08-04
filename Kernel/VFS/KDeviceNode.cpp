@@ -19,8 +19,8 @@
 
  #include "System/Platform.h"
 
-#include "KDeviceNode.h"
-#include "KFileHandle.h"
+#include "Kernel/VFS/KDeviceNode.h"
+#include "Kernel/VFS/KFileHandle.h"
 
 using namespace kernel;
 

@@ -19,10 +19,10 @@
 
 #include "System/Platform.h"
 
-#include "KINode.h"
-#include "KFilesystem.h"
-#include "KFSVolume.h"
-#include "KVFSManager.h"
+#include "Kernel/VFS/KINode.h"
+#include "Kernel/VFS/KFilesystem.h"
+#include "Kernel/VFS/KFSVolume.h"
+#include "Kernel/VFS/KVFSManager.h"
 
 using namespace os;
 using namespace kernel;

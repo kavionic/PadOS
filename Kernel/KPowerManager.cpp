@@ -28,12 +28,12 @@
 
 
 
-#include "KPowerManager.h"
-#include "Kernel.h"
-#include "Drivers/RA8875Driver/GfxDriver.h"
-#include "SDRAM.h"
-#include "HAL/SAME70System.h"
-#include "SAME70TimerDefines.h"
+#include "Kernel/KPowerManager.h"
+#include "Kernel/Kernel.h"
+#include "Kernel/HAL/ATSAM/SDRAM.h"
+#include "Kernel/HAL/SAME70System.h"
+#include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
+#include "Kernel/HAL/ATSAM/SAME70TimerDefines.h"
 
 static int POWER_BUTTON_PRESSED_THRESHOLD; // = CLOCK_PERIF_FREQUENCY / 65536 / 10; // ~100mS
 static int POWER_BUTTON_RESET_THRESHOLD; //   = 2 * CLOCK_PERIF_FREQUENCY / 65536; // ~2S

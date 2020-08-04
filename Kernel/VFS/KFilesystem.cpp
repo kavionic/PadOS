@@ -21,10 +21,10 @@
 
 #include <sys/types.h>
 
-#include "KFilesystem.h"
-#include "KFSVolume.h"
-#include "KINode.h"
-#include "KFileHandle.h"
+#include "Kernel/VFS/KFilesystem.h"
+#include "Kernel/VFS/KFSVolume.h"
+#include "Kernel/VFS/KINode.h"
+#include "Kernel/VFS/KFileHandle.h"
 #include "System/System.h"
 
 using namespace kernel;

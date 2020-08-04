@@ -17,6 +17,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18/08/26 23:04:19
 
-#include "DigitalPort.h"
+#include "Kernel/HAL/DigitalPort.h"
 
 DigitalPort::IntMaskAcc DigitalPort::s_IntMaskAccumulators[e_DigitalPortID_Count];

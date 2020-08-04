@@ -46,7 +46,7 @@
 
 #include "System/Platform.h"
 #include "Kernel/Scheduler.h"
-#include "MPU.h"
+#include "Kernel/HAL/ARM/MPU.h"
 
 /**
  * \defgroup sam_drivers_mpu_group MPU - Memory Protect Unit

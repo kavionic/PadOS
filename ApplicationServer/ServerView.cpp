@@ -59,18 +59,26 @@ ServerView::~ServerView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void ServerView::HandleRemovedFromParent(Ptr<ServerView> parent)
+{
+    ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+    if (server != nullptr) {
+        server->ViewDestructed(this);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
     
 bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
 {
-    if (m_ClientHandle != -1 && !HasFlags(ViewFlags::IgnoreMouse))
+    if (m_ClientHandle != INVALID_HANDLE && !HasFlags(ViewFlags::IgnoreMouse))
     {
-        if (m_ManagerHandle != -1)
+        if (m_ManagerHandle != INVALID_HANDLE)
         {
-            if (ASHandleMouseDown::Sender::Emit(get_window_manager_port(), m_ManagerHandle, TimeValMicros::infinit, button, position))
-            {
-                
-            }
-            else
+            if (!ASHandleMouseDown::Sender::Emit(get_window_manager_port(), m_ManagerHandle, TimeValMicros::infinit, button, position))
             {
                 printf("ERROR: ServerView::HandleMouseDown() failed to send message: %s\n", strerror(get_last_error()));
                 return false;
@@ -83,7 +91,7 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
         }
         ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
         if (server !=  nullptr) {
-            server->SetMouseDownView(ptr_tmp_cast(this));
+            server->SetMouseDownView(button, ptr_tmp_cast(this));
         }
         return true;
     }

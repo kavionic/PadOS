@@ -37,6 +37,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const String& na
     RegisterRemoteSignal(&RSSync,           &ServerApplication::SlotSync);
     RegisterRemoteSignal(&RSCreateView,     &ServerApplication::SlotCreateView);
     RegisterRemoteSignal(&RSDeleteView,     &ServerApplication::SlotDeleteView);
+    RegisterRemoteSignal(&RSFocusView,      &ServerApplication::SlotFocusView);
     RegisterRemoteSignal(&RSViewSetFrame,   &ServerApplication::SlotViewSetFrame);
     RegisterRemoteSignal(&RSViewInvalidate, &ServerApplication::SlotViewInvalidate);    
     RegisterRemoteSignal(&RSViewAddChild,   &ServerApplication::SlotViewAddChild);
@@ -213,6 +214,19 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
     else
     {
         printf("ERROR: ServerApplication::SlotDeleteView() no view with ID %d\n", clientHandle);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotFocusView(handler_id clientHandle, MouseButton_e button, bool focus)
+{
+    Ptr<ServerView> view = m_Server->FindView(clientHandle);
+    if (view != nullptr)
+    {
+        m_Server->SetFocusView(button, view, focus);
     }
 }
 

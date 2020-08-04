@@ -28,6 +28,7 @@
 #include "Fonts/SansSerif_72.h"
 #include "GUI/Color.h"
 #include "GUI/Region.h"
+#include "Utils/UTF8Utils.h"
 
 using namespace kernel;
 using namespace os;
@@ -250,7 +251,7 @@ float GfxDriver::GetFontHeight(Font_e fontID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float GfxDriver::GetStringWidth(Font_e fontID, const char* string, uint16_t length ) const
+float GfxDriver::GetStringWidth(Font_e fontID, const char* string, size_t length ) const
 {
     const FONT_INFO* font = GetFontDesc(fontID);
 
@@ -271,6 +272,45 @@ float GfxDriver::GetStringWidth(Font_e fontID, const char* string, uint16_t leng
         return width;
     }
     return 0.0f;        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t GfxDriver::GetStringLength(Font_e fontID, const char* string, size_t length, float width, bool includeLast)
+{
+    const FONT_INFO* font = GetFontDesc(fontID);
+
+    if (font == nullptr) {
+        return 0;
+    }
+    size_t strLen = 0;
+
+    while (length > 0)
+    {
+        int charLen = utf8_char_length(*string);
+        if (charLen > length) {
+            break;
+        }
+        int character = utf8_to_unicode(string);
+        if (character < font->startChar || character > font->endChar) character = font->startChar;
+
+        const FONT_CHAR_INFO* charInfo = font->charInfo + character - font->startChar;
+        float advance = float(charInfo->widthBits);
+        if (width < advance)
+        {
+            if (includeLast) {
+                strLen += charLen;
+            }
+            break;
+        }
+        string += charLen;
+        length -= charLen;
+        strLen += charLen;
+        width -= advance;
+    }
+    return strLen;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

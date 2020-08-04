@@ -51,7 +51,7 @@ namespace os
 {
 
 class ButtonGroup;
-
+class ScrollBar;
 
 Color get_standard_color(StandardColorID colorID);
 void  set_standard_color(StandardColorID colorID, Color color);
@@ -65,7 +65,7 @@ public:
     View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame);
     virtual ~View();
     
-    Application* GetApplication();
+    Application* GetApplication() const;
     handler_id   GetServerHandle() const { return m_ServerHandle; }
     
     virtual void AttachedToScreen() {}
@@ -132,29 +132,28 @@ public:
     Ptr<View>  GetChildAt(const Point& pos);
     Ptr<View>  GetChildAt(size_t index);
 
+    Ptr<ScrollBar> GetVScrollBar() const;
+    Ptr<ScrollBar> GetHScrollBar() const;
+
     void       Show(bool visible = true);
     void       Hide() { Show(false); }
     bool       IsVisible() const;
-	virtual void MakeFocus(bool bFocus = true) {}
-	virtual bool HasFocus() const { return true; }
+    virtual void MakeFocus(MouseButton_e button, bool focus = true);
+    virtual bool HasFocus(MouseButton_e button) const;
 
     float  Width() const;
     float  Height() const;
 
-    virtual void        SetFrame(const Rect& frame);
-    void                MoveBy(const Point& delta) { SetFrame(m_Frame + delta); }
-	void                MoveBy(float x, float y) { MoveBy(Point(x, y)); }
-	void                MoveTo(const Point& position) { SetFrame(m_Frame.Bounds() + position); }
-	void                MoveTo(float x, float y) { MoveTo(Point(x, y)); }
-	/*    virtual void MoveBy( const Point& cDelta );
-    virtual void MoveBy( float vDeltaX, float vDeltaY );
-    virtual void MoveTo( const Point& cPos );
-    virtual void MoveTo( float x, float y );
+    virtual void    SetFrame(const Rect& frame);
+    void            MoveBy(const Point& delta) { SetFrame(m_Frame + delta); }
+    void            MoveBy(float x, float y) { MoveBy(Point(x, y)); }
+    void            MoveTo(const Point& position) { SetFrame(m_Frame.Bounds() + position); }
+    void            MoveTo(float x, float y) { MoveTo(Point(x, y)); }
 
-    virtual void ResizeBy( const Point& cDelta );
-    virtual void ResizeBy( float vDeltaW, float vDeltaH );
-    virtual void ResizeTo( const Point& cSize );
-    virtual void ResizeTo( float W, float H );*/
+    virtual void    ResizeBy(const Point& delta);
+    virtual void    ResizeBy(float deltaW, float deltaH);
+    virtual void    ResizeTo(const Point& size);
+    virtual void    ResizeTo(float w, float h);
 
     void                SetDrawingRegion( const Region& cReg );
     void                ClearDrawingRegion();
@@ -166,26 +165,28 @@ public:
     void                Invalidate( const Rect& cRect, bool bRecurse = false );
     void                Invalidate( bool bRecurse = false );
 
-    void                SetDrawingMode( drawing_mode nMode );
+    void                SetDrawingMode(drawing_mode nMode) {}
     drawing_mode        GetDrawingMode() const;
     void                SetFont(Ptr<Font> font);
     Ptr<Font>           GetFont() const;
 
-    bool            HandleMouseDown(MouseButton_e button, const Point& position);
+    bool            SlotHandleMouseDown(MouseButton_e button, const Point& position);
+
+    bool            HandleMouseDown(std::set<View*>& visitedViews, MouseButton_e button, const Point& position);
     void            HandleMouseUp(MouseButton_e button, const Point& position);
     void            HandleMouseMove(MouseButton_e button, const Point& position);
     
-    void            SetFgColor(int red, int green, int blue, int alpha = 255)	    { SetFgColor(Color(red, green, blue, alpha)); }
-    void            SetFgColor(Color color)					    { m_FgColor = color; Post<ASViewSetFgColor>(color); }
-    void            SetFgColor(StandardColorID colorID)				    { SetFgColor(get_standard_color(colorID)); }
+    void            SetFgColor(int red, int green, int blue, int alpha = 255)       { SetFgColor(Color(red, green, blue, alpha)); }
+    void            SetFgColor(Color color)                                         { m_FgColor = color; Post<ASViewSetFgColor>(color); }
+    void            SetFgColor(StandardColorID colorID)                             { SetFgColor(get_standard_color(colorID)); }
 
-    void            SetBgColor(int red, int green, int blue, int alpha = 255)	    { SetBgColor(Color(red, green, blue, alpha)); }
-    void            SetBgColor(Color color)					    { m_BgColor = color; Post<ASViewSetBgColor>(color); }
-    void            SetBgColor(StandardColorID colorID)				    { SetBgColor(get_standard_color(colorID)); }
+    void            SetBgColor(int red, int green, int blue, int alpha = 255)       { SetBgColor(Color(red, green, blue, alpha)); }
+    void            SetBgColor(Color color)                                         { m_BgColor = color; Post<ASViewSetBgColor>(color); }
+    void            SetBgColor(StandardColorID colorID)                             { SetBgColor(get_standard_color(colorID)); }
 
     void            SetEraseColor(int red, int green, int blue, int alpha = 255)    { SetEraseColor(Color(red, green, blue, alpha)); }
-    void            SetEraseColor(Color color)					    { m_EraseColor = color; Post<ASViewSetEraseColor>(color); }
-    void            SetEraseColor(StandardColorID colorID)			    { SetEraseColor(get_standard_color(colorID)); }
+    void            SetEraseColor(Color color)                                      { m_EraseColor = color; Post<ASViewSetEraseColor>(color); }
+    void            SetEraseColor(StandardColorID colorID)                          { SetEraseColor(get_standard_color(colorID)); }
 
     void            MovePenTo(const Point& pos)                        { m_PenPosition = pos; Post<ASViewMovePenTo>(pos); }
     void            MovePenTo(float x, float y)                        { MovePenTo(Point(x, y)); }
@@ -194,7 +195,7 @@ public:
     Point           GetPenPosition() const                             { return m_PenPosition; }
     void            DrawLine(const Point& toPos)                       { Post<ASViewDrawLine1>(toPos); }
     void            DrawLine(const Point& fromPos, const Point& toPos) { Post<ASViewDrawLine2>(fromPos, toPos); }
-    void            DrawLine(float x, float y)			               { DrawLine(Point(x, y)); }
+    void            DrawLine(float x, float y)                         { DrawLine(Point(x, y)); }
     void            DrawLine(float x1, float y1, float x2, float y2)   { DrawLine(Point(x1, y1), Point(x2, y2)); }
     void            DrawRect(const Rect& frame)
     {
@@ -210,8 +211,9 @@ public:
 
     void            FillCircle(const Point& position, float radius) { Post<ASViewFillCircle>(position, radius); }
     void            DrawString(const String& string) { Post<ASViewDrawString>(string); }
+    void            DrawString(const String& string, const Point& pos) { MovePenTo(pos); Post<ASViewDrawString>(string); }
 
-    virtual void    ScrollBy(const Point& offset)           { m_ScrollOffset += offset; UpdateScreenPos(); Post<ASViewScrollBy>(offset); }
+    virtual void    ScrollBy(const Point& offset);
     virtual void    ScrollBy(float vDeltaX, float vDeltaY) { ScrollBy(Point(vDeltaX, vDeltaY)); }
     virtual void    ScrollTo(Point topLeft)                { ScrollBy(topLeft - m_ScrollOffset); }
     virtual void    ScrollTo(float x, float y)             { ScrollTo(Point(x, y)); }
@@ -238,6 +240,7 @@ public:
 private:
     friend class Application;
     friend class ViewBase<View>;
+    friend class ScrollBar;
 
     void Initialize();
 
@@ -284,7 +287,10 @@ private:
     void SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
         
     void UpdateRingSize();
-        
+
+    void SetVScrollBar(ScrollBar* scrollBar);
+    void SetHScrollBar(ScrollBar* scrollBar);
+
     handler_id m_ServerHandle = INVALID_HANDLE;
     
     Ptr<LayoutNode> m_LayoutNode;
@@ -313,9 +319,10 @@ private:
     
     int          m_BeginPainCount = 0;
 
+    ScrollBar* m_pcHScrollBar = nullptr;
+    ScrollBar* m_pcVScrollBar = nullptr;
+
     Ptr<Font> m_Font = ptr_new<Font>(kernel::GfxDriver::e_FontLarge);
-    
-    static WeakPtr<View> s_MouseDownView;
     
     ASPaintView::Receiver        RSPaintView;
     ASViewFrameChanged::Receiver RSViewFrameChanged;

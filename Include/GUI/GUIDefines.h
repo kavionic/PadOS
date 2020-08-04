@@ -105,48 +105,85 @@ enum class StandardColorID : int32_t
 
 enum
 {
-	FRAME_RECESSED = 0x000008,
-	FRAME_RAISED = 0x000010,
-	FRAME_THIN = 0x000020,
-	FRAME_WHIDE = 0x000040,
-	FRAME_ETCHED = 0x000080,
-	FRAME_FLAT = 0x000100,
-	FRAME_DISABLED = 0x000200,
-	FRAME_TRANSPARENT = 0x010000
+    FRAME_RECESSED = 0x000008,
+    FRAME_RAISED = 0x000010,
+    FRAME_THIN = 0x000020,
+    FRAME_WHIDE = 0x000040,
+    FRAME_ETCHED = 0x000080,
+    FRAME_FLAT = 0x000100,
+    FRAME_DISABLED = 0x000200,
+    FRAME_TRANSPARENT = 0x010000
 };
 
 static constexpr float LAYOUT_MAX_SIZE = 100000.0f;
+static constexpr float COORD_MAX = 16000000.0f;
 
 
 enum class Alignment : uint8_t
 {
-	Left,
-	Right,
-	Top,
-	Bottom,
-	Center
+    Left,
+    Right,
+    Top,
+    Bottom,
+    Center
 };
 
 enum class Orientation : uint8_t
 {
-	Horizontal,
-	Vertical
+    Horizontal,
+    Vertical
 };
 
 enum class PrefSizeType : uint8_t
 {
-	Smallest,
-	Greatest,
-	Count,
-	All = Count
+    Smallest,
+    Greatest,
+    Count,
+    All = Count
 };
 
 enum class SizeOverride : uint8_t
 {
-	None,
-	Always,
-	Extend,
-	Limit
+    None,
+    Always,
+    Extend,
+    Limit
 };
+
+enum class ScrollDirection : uint8_t
+{
+    Left,
+    Right,
+    Up,
+    Down
+};
+
+/// \anchor os_gui_qualifiers
+/// \par Description:
+///     Bit-masks for the various qualifier keys. This defines can be used
+///     to check whether a given qualifier (or group of qualifiers) are
+///     pressed or not. The current qualifier mask is passed into various
+///     hook members dealing with keyboard input in the View class and it
+///     can also be retrieved asyncronously with the View::GetQualifiers()
+///     member.
+///////////////////////////////////////////////////////////////////////////////
+
+enum
+{
+    QUAL_LSHIFT = 0x01,                     //!< Left <SHIFT> key.
+    QUAL_RSHIFT = 0x02,                     //!< Right <SHIFT> key.
+    QUAL_SHIFT = QUAL_LSHIFT | QUAL_RSHIFT, //!< Any <SHIFT> key.
+
+    QUAL_LCTRL = 0x04,                      //!< Left <CONTROL> key.
+    QUAL_RCTRL = 0x08,                      //!< Right <CONTROL> key.
+    QUAL_CTRL = QUAL_LCTRL | QUAL_RCTRL,    //!< Any <CONTROL> key.
+
+    QUAL_LALT = 0x10,                       //!< Left <ALT> key.
+    QUAL_RALT = 0x20,                       //!< Right <ALT> key.
+    QUAL_ALT = QUAL_LALT | QUAL_RALT,       //!< Any <ALT> key.
+
+    QUAL_REPEAT = 0x40                      //!< Set if the key-down event was caused by key repeating.
+};
+
 
 } // namespace

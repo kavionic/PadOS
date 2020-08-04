@@ -27,6 +27,7 @@
 #include <pugixml/src/pugixml.hpp>
 
 #include "GUI/View.h"
+#include "GUI/ScrollBar.h"
 #include "App/Application.h"
 #include "Utils/Utils.h"
 #include "Utils/XMLFactory.h"
@@ -48,9 +49,6 @@ const std::map<String, uint32_t> ViewFlags::FlagMap
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, IgnoreMouse),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, ForceHandleMouse)
 };
-
-
-WeakPtr<View> View::s_MouseDownView;
 
 static Color g_DefaultColors[] =
 {
@@ -324,7 +322,7 @@ void View::Initialize()
 {
     RegisterRemoteSignal(&RSPaintView, &View::HandlePaint);
     RegisterRemoteSignal(&RSViewFrameChanged, &View::SetFrame);
-    RegisterRemoteSignal(&RSHandleMouseDown, &View::HandleMouseDown);
+    RegisterRemoteSignal(&RSHandleMouseDown, &View::SlotHandleMouseDown);
     RegisterRemoteSignal(&RSHandleMouseUp, &View::HandleMouseUp);
     RegisterRemoteSignal(&RSHandleMouseMove, &View::HandleMouseMove);
 }
@@ -335,6 +333,12 @@ void View::Initialize()
 
 View::~View()
 {
+    if (m_pcVScrollBar != nullptr) {
+        m_pcVScrollBar->SetScrollTarget(nullptr);
+    }
+    if (m_pcHScrollBar != nullptr) {
+        m_pcHScrollBar->SetScrollTarget(nullptr);
+    }
     SetLayoutNode(nullptr);
     RemoveFromWidthRing();
     RemoveFromHeightRing();
@@ -349,13 +353,13 @@ View::~View()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Application* View::GetApplication()
+Application* View::GetApplication() const
 {
     Looper* looper = GetLooper();
     if (looper != nullptr) {
         return static_cast<Application*>(looper);
     } else {
-        Ptr<View> parent = GetParent();
+        Ptr<const View> parent = GetParent();
         if (parent != nullptr) {
             return parent->GetApplication();
         } else {
@@ -864,6 +868,46 @@ Ptr<View> View::GetChildAt(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+Ptr<ScrollBar> View::GetVScrollBar() const
+{
+    return ptr_tmp_cast(m_pcVScrollBar);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<ScrollBar> View::GetHScrollBar() const
+{
+    return ptr_tmp_cast(m_pcHScrollBar);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::MakeFocus(MouseButton_e button, bool focus)
+{
+    Application* app = GetApplication();
+    if (app != nullptr) {
+        app->SetFocusView(button, ptr_tmp_cast(this), focus);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool View::HasFocus(MouseButton_e button) const
+{
+    const Application* app = GetApplication();
+    return app != nullptr && ptr_raw_pointer_cast(app->GetFocusView(button)) == this;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void View::SetFrame(const Rect& frame)
 {
     Point deltaSize = frame.Size() - m_Frame.Size();
@@ -879,6 +923,67 @@ void View::SetFrame(const Rect& frame)
         FrameMoved(deltaPos);
     }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::ResizeBy(const Point& delta)
+{
+    SetFrame(Rect(m_Frame.left, m_Frame.top, m_Frame.right + delta.x, m_Frame.bottom + delta.y));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::ResizeBy(float deltaW, float deltaH)
+{
+    SetFrame(Rect(m_Frame.left, m_Frame.top, m_Frame.right + deltaW, m_Frame.bottom + deltaH));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Set a new absolute size for the view.
+/// \par Description:
+///     See ResizeTo(float,float)
+/// \param size
+///     New size (os::Point::x is width, os::Point::y is height).
+/// \sa ResizeTo(float,float)
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::ResizeTo(const Point& size)
+{
+    SetFrame(Rect(m_Frame.left, m_Frame.top, m_Frame.left + size.x, m_Frame.top + size.y));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///* Set a new absolute size for the view.
+/// \par Description:
+///	    Move the bottom/right corner of the view to give it
+///	    the new size. The top/left corner will not be affected.
+///	    This will cause FrameSized() to be called and any child
+///	    views to be resized according to their resize flags if
+///	    the new size differ from the previous.
+/// \note
+///	    Coordinates start in the middle of a pixel and all rectangles
+///	    are inclusive so the real width and height in pixels will be
+///	    1 larger than the value given in \p w and \p h.
+/// \param w
+///	    New width
+/// \param h
+///	    New height.
+/// \return
+/// \par Error codes:
+/// \sa ResizeTo(const Point&), ResizeBy(), SetFrame()
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::ResizeTo(float w, float h)
+{
+    SetFrame(Rect(m_Frame.left, m_Frame.top, m_Frame.left + w, m_Frame.top + h));
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -923,27 +1028,41 @@ Ptr<Font> View::GetFont() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::HandleMouseDown(MouseButton_e button, const Point& position)
+bool View::SlotHandleMouseDown(MouseButton_e button, const Point& position)
 {
-    for (Ptr<View> child : m_ChildrenList)
+    std::set<View*> visitedViews;
+
+    while (visitedViews.count(this) == 0)
     {
-        if (child->m_Frame.DoIntersect(position))
-        {
-            Point childPos = position - child->m_Frame.TopLeft() - child->m_ScrollOffset;
-            if (child->HandleMouseDown(button, childPos))
-            {
-                return true;
-            }
+        if (HandleMouseDown(visitedViews, button, position)) {
+            return true;
         }
     }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool View::HandleMouseDown(std::set<View*>& visitedViews, MouseButton_e button, const Point& position)
+{
+    for (Ptr<View> child : reverse_ranged(m_ChildrenList))
+    {
+        if (visitedViews.count(ptr_raw_pointer_cast(child)) == 0 && !child->HasFlags(ViewFlags::IgnoreMouse) && child->m_Frame.DoIntersect(position))
+        {
+            Point childPos = position - child->m_Frame.TopLeft() - child->m_ScrollOffset;
+            return child->HandleMouseDown(visitedViews, button, childPos);
+        }
+    }
+    visitedViews.insert(this);
     bool handled = OnMouseDown(button, position/* - m_ScrollOffset*/);
     if (handled)
     {
-        s_MouseDownView = ptr_tmp_cast(this);
-        //Application* app = GetApplication();
-/*        if (app != nullptr) {
-            app->SetMouseDownView(ptr_tmp_cast(this));
-        }            */
+        Application* app = GetApplication();
+        if (app != nullptr) {
+            app->SetMouseDownView(button, ptr_tmp_cast(this));
+        }
     }
     return handled;
 }
@@ -954,7 +1073,8 @@ bool View::HandleMouseDown(MouseButton_e button, const Point& position)
 
 void View::HandleMouseUp(MouseButton_e button, const Point& position)
 {
-    Ptr<View> mouseView = s_MouseDownView.Lock();
+    Application* app = GetApplication();
+    Ptr<View> mouseView = (app != nullptr) ? app->GetMouseDownView(button) : nullptr;
     if (mouseView != nullptr) {
 //        printf("View::HandleMouseUp() %p '%s'\n", ptr_raw_pointer_cast(mouseView), mouseView->GetName().c_str());
 
@@ -970,12 +1090,36 @@ void View::HandleMouseUp(MouseButton_e button, const Point& position)
 
 void View::HandleMouseMove(MouseButton_e button, const Point& position)
 {
-    Ptr<View> mouseView = s_MouseDownView.Lock();
+    Application* app = GetApplication();
+    Ptr<View> mouseView = (app != nullptr) ? app->GetFocusView(button) : nullptr;
     if (mouseView != nullptr) {
         mouseView->OnMouseMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
     } else {
         OnMouseMove(button, position);
     }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::ScrollBy(const Point& offset)
+{
+    if (offset.x == 0.0f && offset.y == 0.0f) {
+        return;
+    }
+
+    m_ScrollOffset += offset;
+    UpdateScreenPos();
+    Post<ASViewScrollBy>(offset);
+
+    if (offset.x != 0 && m_pcHScrollBar != nullptr) {
+        m_pcHScrollBar->SetValue(-m_ScrollOffset.x);
+    }
+    if (offset.y != 0 && m_pcVScrollBar != nullptr) {
+        m_pcVScrollBar->SetValue(-m_ScrollOffset.y);
+    }
+    ViewScrolled(offset);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1333,3 +1477,22 @@ void View::UpdateRingSize()
         }
     }    
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::SetVScrollBar(ScrollBar* scrollBar)
+{
+    m_pcVScrollBar = scrollBar;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::SetHScrollBar(ScrollBar* scrollBar)
+{
+    m_pcHScrollBar = scrollBar;
+}
+

@@ -45,12 +45,17 @@ public:
     
     Ptr<View> FindView(handler_id handle) { return ptr_static_cast<View>(FindHandler(handle)); }
 
+
+    void SetFocusView(MouseButton_e button, Ptr<View> view, bool focus);
+    Ptr<View> GetFocusView(MouseButton_e button) const;
+
     template<typename SIGNAL, typename... ARGS>
     void Post(ARGS&&... args) { SIGNAL::Sender::Emit(this, &Application::AllocMessageBuffer, args...); }
      
     void Flush();
     void Sync();
-    
+
+    uint32_t GetQualifiers() const { return 0; }
 private:
     friend class View;
  
@@ -60,12 +65,18 @@ private:
     void* AllocMessageBuffer(int32_t messageID, size_t size);
 
     void RegisterViewForLayout(Ptr<View> view) { m_ViewsNeedingLayout.insert(view); }
-        
+
+    void      SetMouseDownView(MouseButton_e button, Ptr<View> view);
+    Ptr<View> GetMouseDownView(MouseButton_e button) const;
+
     MessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
 
     uint8_t m_SendBuffer[APPSERVER_MSG_BUFFER_SIZE]; 
     int32_t m_UsedSendBufferSize = 0;
+
+    std::map<int, View*>   m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
+    std::map<int, View*>   m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
 
     std::set<Ptr<View>> m_ViewsNeedingLayout;
 

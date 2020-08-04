@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -50,10 +50,12 @@ public:
     bool            RegisterView(Ptr<ServerView> view);
     Ptr<ServerView> FindView(handler_id handle) const;
 
-    void            SetFocusView(Ptr<ServerView> view);
-    Ptr<ServerView> GetFocusView() const;
-    void            SetMouseDownView(Ptr<ServerView> view);
-    
+    void ViewDestructed(ServerView* view);
+
+    void            SetFocusView(MouseButton_e button, Ptr<ServerView> view, bool focus);
+    Ptr<ServerView> GetFocusView(MouseButton_e button) const;
+    void            SetMouseDownView(MouseButton_e button, Ptr<ServerView> view);
+    Ptr<ServerView> GetMouseDownView(MouseButton_e button) const;
 private:
     
     
@@ -71,8 +73,9 @@ private:
     ASRegisterApplication::Receiver RSRegisterApplication;
     
     Ptr<ServerView> m_TopView;
-    WeakPtr<ServerView> m_MouseDownView;
-    WeakPtr<ServerView> m_FocusView;
+
+    std::map<int, ServerView*>   m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
+    std::map<int, ServerView*>   m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
 
     int        m_TouchInputDevice = -1;
 

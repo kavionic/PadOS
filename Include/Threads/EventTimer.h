@@ -35,10 +35,11 @@ public:
     EventTimer(TimeValMicros timeout = TimeValMicros::zero, bool singleshot = false, int32_t id = 0);
     ~EventTimer();
     
-    void      Set(TimeValMicros timeout); //microseconds
+    void      Set(TimeValMicros timeout, bool singleshot = false);
               
     void      Stop();
     bool      IsRunning() const;
+    bool      IsSingleshot() const { return m_IsSingleshot; }
               
     void      SetID(int32_t ID);
     int32_t   GetID() const;

@@ -39,6 +39,12 @@ public:
     void Set(kernel::GfxDriver::Font_e font) { m_Font = font; }
     kernel::GfxDriver::Font_e Get() const { return m_Font; }
     FontHeight GetHeight() const;        
+
+    int		GetStringLength(const char* pzString, float vWidth, bool bIncludeLast = false) const;
+    int		GetStringLength(const char* pzString, int nLength, float vWidth, bool bIncludeLast = false) const;
+    int		GetStringLength(const std::string& cString, float vWidth, bool bIncludeLast = false) const;
+    void	GetStringLengths(const char** stringArray, const int* lengthArray, int stringCount, float width, int* maxLengthArray, bool includeLast = false) const;
+
     float GetStringWidth(const char* string, size_t length) const;
     
 private:

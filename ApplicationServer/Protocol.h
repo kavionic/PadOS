@@ -49,6 +49,7 @@ namespace AppserverProtocol
         CREATE_VIEW,
         DELETE_VIEW,
         SHOW_VIEW,
+        FOCUS_VIEW,
 
         // View messages:
         VIEW_SET_FRAME,
@@ -142,6 +143,12 @@ typedef RemoteSignal<AppserverProtocol::CREATE_VIEW
 typedef RemoteSignal<AppserverProtocol::DELETE_VIEW
                                         , handler_id // viewHandle
                                         > ASDeleteView;
+
+using ASFocusView = RemoteSignal<AppserverProtocol::FOCUS_VIEW
+    , handler_id    // viewHandle
+    , MouseButton_e // button
+    , bool          // 'true' for set, 'false' for clear focus.
+>;
 
 typedef RemoteSignal<AppserverProtocol::VIEW_SET_FRAME
                                         , handler_id  // viewHandle

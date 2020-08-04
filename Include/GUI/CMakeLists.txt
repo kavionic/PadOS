@@ -10,8 +10,12 @@ target_sources(PadOS PRIVATE
 	GUIDefines.h
 	GUIEvent.h
 	LayoutNode.h
+	ListView.h
+	ListViewRow.h
+	ListViewStringRow.h
 	RadioButton.h
 	Region.h
+	ScrollBar.h
 	Slider.h
 	TextView.h
 	View.h

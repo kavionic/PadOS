@@ -350,8 +350,9 @@ public:
     const FONT_INFO* GetFontDesc(Font_e fontID) const;
     void SetFont(Font_e fontID);
     float GetFontHeight(Font_e fontID) const;
-    float GetStringWidth(Font_e fontID, const char* string, uint16_t length ) const;
-    
+    float   GetStringWidth(Font_e fontID, const char* string, size_t length ) const;
+    size_t  GetStringLength(Font_e fontID, const char* string, size_t length, float width, bool includeLast);
+
     inline void SetCursor(const os::IPoint& pos) { m_Cursor = pos; }
     inline void SetCursor(int16_t x, int16_t y) { m_Cursor.x = x; m_Cursor.y = y; }
     inline const os::IPoint& GetCursor() const { return m_Cursor; }

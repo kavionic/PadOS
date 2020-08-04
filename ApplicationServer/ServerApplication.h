@@ -46,6 +46,7 @@ private:
 
     void SlotCreateView(port_id clientPort, port_id replyPort, handler_id replyTarget, handler_id parentHandle, ViewDockType dockType, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor);
     void SlotDeleteView(handler_id clientHandle);
+    void SlotFocusView(handler_id clientHandle, MouseButton_e button, bool focus);
     void SlotViewSetFrame(handler_id clientHandle, const Rect& frame, handler_id requestingClient);
     void SlotViewInvalidate(handler_id clientHandle, const IRect& frame);
     void SlotViewAddChild(handler_id viewHandle, handler_id childHandle, handler_id managerHandle);
@@ -89,6 +90,7 @@ private:
     ASSync::Receiver              RSSync;
     ASCreateView::Receiver        RSCreateView;
     ASDeleteView::Receiver        RSDeleteView;
+    ASFocusView::Receiver         RSFocusView;
     ASViewSetFrame::Receiver      RSViewSetFrame;
     ASViewInvalidate::Receiver    RSViewInvalidate;
     ASViewAddChild::Receiver      RSViewAddChild;

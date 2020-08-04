@@ -201,6 +201,62 @@ bool Application::RemoveView(Ptr<View> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void Application::SetFocusView(MouseButton_e button, Ptr<View> view, bool focus)
+{
+    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+
+    if (view != nullptr)
+    {
+        Ptr<View> root = view;
+        while (root->GetParent() != nullptr) root = root->GetParent();
+
+        if (focus)
+        {
+            m_MouseFocusMap[deviceID] = ptr_raw_pointer_cast(view);
+            Post<ASFocusView>(root->m_ServerHandle, button, true);
+        }
+        else
+        {
+            auto iterator = m_MouseFocusMap.find(deviceID);
+            if (iterator != m_MouseFocusMap.end() && iterator->second == ptr_raw_pointer_cast(view))
+            {
+                m_MouseFocusMap.erase(iterator);
+                Post<ASFocusView>(root->m_ServerHandle, button, false);
+            }
+        }
+    }
+    else
+    {
+        auto iterator = m_MouseFocusMap.find(deviceID);
+        if (iterator != m_MouseFocusMap.end())
+        {
+            Ptr<View> root = ptr_tmp_cast(iterator->second);
+            while (root->GetParent() != nullptr) root = root->GetParent();
+            m_MouseFocusMap.erase(iterator);
+            Post<ASFocusView>(root->m_ServerHandle, button, false);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<View> Application::GetFocusView(MouseButton_e button) const
+{
+    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+
+    auto iterator = m_MouseFocusMap.find(deviceID);
+    if (iterator != m_MouseFocusMap.end()) {
+        return ptr_tmp_cast(iterator->second);
+    }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void Application::Flush()
 {
     if (m_UsedSendBufferSize > 0) {
@@ -236,6 +292,23 @@ void Application::Sync()
 
 void Application::DetachView(Ptr<View> view)
 {
+    for (auto i = m_MouseFocusMap.begin(); i != m_MouseFocusMap.end(); )
+    {
+        if (i->second == ptr_raw_pointer_cast(view)) {
+            i = m_MouseFocusMap.erase(i);
+        } else {
+            ++i;
+        }
+    }
+    for (auto i = m_MouseViewMap.begin(); i != m_MouseViewMap.end(); )
+    {
+        if (i->second == ptr_raw_pointer_cast(view)) {
+            i = m_MouseViewMap.erase(i);
+        } else {
+            ++i;
+        }
+    }
+
     view->SetServerHandle(INVALID_HANDLE);
     for (Ptr<View> child : *view)
     {
@@ -260,4 +333,39 @@ void* Application::AllocMessageBuffer(int32_t messageID, size_t size)
     buffer->m_Code = messageID;
     buffer->m_Length = size;
     return buffer + 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Application::SetMouseDownView(MouseButton_e button, Ptr<View> view)
+{
+    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+
+    if (view != nullptr)
+    {
+        m_MouseViewMap[deviceID] = ptr_raw_pointer_cast(view);
+    } else
+    {
+        auto iterator = m_MouseViewMap.find(deviceID);
+        if (iterator != m_MouseViewMap.end()) {
+            m_MouseViewMap.erase(iterator);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<View> Application::GetMouseDownView(MouseButton_e button) const
+{
+    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+
+    auto iterator = m_MouseViewMap.find(deviceID);
+    if (iterator != m_MouseViewMap.end()) {
+        return ptr_tmp_cast(iterator->second);
+    }
+    return nullptr;
 }

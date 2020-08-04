@@ -8,8 +8,18 @@ target_sources(PadOS PRIVATE
 	Font.cpp
 	GroupView.cpp
 	LayoutNode.cpp
+	ListView.cpp
+	ListViewColumnView.h
+	ListViewColumnView.cpp
+	ListViewHeaderView.h
+	ListViewHeaderView.cpp
+	ListViewRow.cpp
+	ListViewScrolledView.h
+	ListViewScrolledView.cpp
+	ListViewStringRow.cpp
 	RadioButton.cpp
 	Region.cpp
+	ScrollBar.cpp
 	Slider.cpp
 	TextView.cpp
 	View.cpp

@@ -16,6 +16,8 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <string.h>
+
 #include "System/Platform.h"
 
 #include "GUI/Font.h"
@@ -33,6 +35,104 @@ FontHeight Font::GetHeight() const
     height.descender = kernel::GfxDriver::Instance.GetFontHeight(m_Font);
     height.line_gap = ceil((height.descender - height.ascender) / 10.0f);
     return height;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int Font::GetStringLength(const char* pzString, float vWidth, bool bIncludeLast) const
+{
+    return GetStringLength(pzString, strlen(pzString), vWidth, bIncludeLast);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int Font::GetStringLength(const char* pzString, int nLength, float vWidth, bool bIncludeLast) const
+{
+    const char* apzStrPtr[] = { pzString };
+    int		nMaxLength;
+
+    GetStringLengths(apzStrPtr, &nLength, 1, vWidth, &nMaxLength, bIncludeLast);
+
+    return nMaxLength;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int Font::GetStringLength(const std::string& cString, float vWidth, bool bIncludeLast) const
+{
+    const char* apzStrPtr[] = { cString.c_str() };
+    int		nMaxLength;
+    int		nLength = cString.size();
+
+    GetStringLengths(apzStrPtr, &nLength, 1, vWidth, &nMaxLength, bIncludeLast);
+
+    return(nMaxLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Font::GetStringLengths(const char** stringArray, const int* lengthArray, int stringCount, float width, int* maxLengthArray, bool includeLast) const
+{
+    for (int i = 0; i < stringCount; ++i)
+    {
+        maxLengthArray[i] = kernel::GfxDriver::Instance.GetStringLength(m_Font, stringArray[i], lengthArray[i], width, includeLast);
+    }
+//    int	i;
+//    // The first string size, and one byte of the first string is already included
+//    int	nBufSize = sizeof(AR_GetStringLengths_s) - sizeof(int) - 1;
+//
+//    for (i = 0; i < stringCount; ++i) {
+//        nBufSize += lengthArray[i] + sizeof(int);
+//    }
+//
+//    AR_GetStringLengths_s* psReq;
+//
+//    char* pBuffer = new char[nBufSize];
+//
+//    psReq = (AR_GetStringLengths_s*)pBuffer;
+//
+//    psReq->hReply = m_hReplyPort;
+//    psReq->hFontToken = m_hFontHandle;
+//    psReq->stringCount = stringCount;
+//    psReq->nWidth = width;
+//    psReq->includeLast = includeLast;
+//
+//    int* pnLen = &psReq->sFirstHeader.nLength;
+//
+//    for (i = 0; i < stringCount; ++i) {
+//        int	nLen = lengthArray[i];
+//
+//        *pnLen = nLen;
+//        pnLen++;
+//
+//        memcpy(pnLen, stringArray[i], nLen);
+//        pnLen = (int*)(((uint8*)pnLen) + nLen);
+//    }
+//
+//    if (send_msg(Application::GetInstance()->GetAppPort(), AR_GET_STRING_LENGTHS, psReq, nBufSize) == 0) {
+//        AR_GetStringLengthsReply_s* psReply = (AR_GetStringLengthsReply_s*)pBuffer;
+//
+//        if (get_msg(m_hReplyPort, NULL, psReply, nBufSize) == 0) {
+//            if (0 == psReply->nError) {
+//                for (i = 0; i < stringCount; ++i) {
+//                    maxLengthArray[i] = psReply->anLengths[i];
+//                }
+//            }
+//        } else {
+//            dbprintf("Error: Font::GetStringLengths() failed to get reply\n");
+//        }
+//    } else {
+//        dbprintf("Error: Font::GetStringLengths() failed to send AR_GET_STRING_LENGTHS request to server\n");
+//    }
+//    delete[] pBuffer;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

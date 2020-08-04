@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -177,6 +177,30 @@ Ptr<ServerView> ApplicationServer::FindView(handler_id handle) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void ApplicationServer::ViewDestructed(ServerView* view)
+{
+    for (auto i = m_MouseViewMap.begin(); i != m_MouseViewMap.end(); )
+    {
+        if (i->second == view) {
+            i = m_MouseViewMap.erase(i);
+        } else {
+            ++i;
+        }
+    }
+    for (auto i = m_MouseFocusMap.begin(); i != m_MouseFocusMap.end(); )
+    {
+        if (i->second == view) {
+            i = m_MouseFocusMap.erase(i);
+        } else {
+            ++i;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name)
 {
     Ptr<ServerApplication> app = ptr_new<ServerApplication>(this, name, clientPort);
@@ -207,15 +231,18 @@ void ApplicationServer::HandleMouseDown(MouseButton_e button, const Point& posit
 
 void ApplicationServer::HandleMouseUp(MouseButton_e button, const Point& position)
 {
-    if (m_MouseDownView.Lock() != nullptr)
+    Ptr<ServerView> mouseView = GetMouseDownView(button);
+
+    if (mouseView != nullptr)
     {
-        m_MouseDownView.Lock()->HandleMouseUp(button, position - m_MouseDownView.Lock()->m_ScreenPos - m_MouseDownView.Lock()->m_ScrollOffset);
+        mouseView->HandleMouseUp(button, position - mouseView->m_ScreenPos - mouseView->m_ScrollOffset);
+        SetMouseDownView(button, nullptr);
     }
-    if (m_FocusView.Lock() != nullptr && m_FocusView != m_MouseDownView)
+    Ptr<ServerView> focusView = GetFocusView(button);
+    if (focusView != nullptr && focusView != mouseView)
     {
-        m_FocusView.Lock()->HandleMouseUp(button, position - m_FocusView.Lock()->m_ScreenPos - m_FocusView.Lock()->m_ScrollOffset);
+        focusView->HandleMouseUp(button, position - focusView->m_ScreenPos - focusView->m_ScrollOffset);
     }
-    m_MouseDownView = nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -224,39 +251,96 @@ void ApplicationServer::HandleMouseUp(MouseButton_e button, const Point& positio
 
 void ApplicationServer::HandleMouseMove(MouseButton_e button, const Point& position)
 {
-    if (m_MouseDownView.Lock() != nullptr)
+//    Ptr<ServerView> mouseView = GetMouseDownView(button);
+//    if (mouseView != nullptr)
+//    {
+//        mouseView->HandleMouseMove(button, position - mouseView->m_ScreenPos - mouseView->m_ScrollOffset);
+//    }
+    Ptr<ServerView> focusView = GetFocusView(button);
+    if (focusView != nullptr /*&& focusView != mouseView*/)
     {
-        m_MouseDownView.Lock()->HandleMouseMove(button, position - m_MouseDownView.Lock()->m_ScreenPos - m_MouseDownView.Lock()->m_ScrollOffset);
+        focusView->HandleMouseMove(button, position - focusView->m_ScreenPos - focusView->m_ScrollOffset);
     }
-    if (m_FocusView.Lock() != nullptr && m_FocusView != m_MouseDownView)
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SetMouseDownView(MouseButton_e button, Ptr<ServerView> view)
+{
+    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+
+    if (view != nullptr)
     {
-        m_FocusView.Lock()->HandleMouseMove(button, position - m_FocusView.Lock()->m_ScreenPos - m_FocusView.Lock()->m_ScrollOffset);
-    }    
+        m_MouseViewMap[deviceID] = ptr_raw_pointer_cast(view);
+    }
+    else
+    {
+        auto iterator = m_MouseViewMap.find(deviceID);
+        if (iterator != m_MouseViewMap.end()) {
+            m_MouseViewMap.erase(iterator);
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::SetMouseDownView( Ptr<ServerView> view )
+Ptr<ServerView> ApplicationServer::GetMouseDownView(MouseButton_e button) const
 {
-    m_MouseDownView = view;
+    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+
+    auto iterator = m_MouseViewMap.find(deviceID);
+    if (iterator != m_MouseViewMap.end()) {
+        return ptr_tmp_cast(iterator->second);
+    }
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::SetFocusView( Ptr<ServerView> view )
+void ApplicationServer::SetFocusView(MouseButton_e button, Ptr<ServerView> view, bool focus)
 {
-    m_FocusView = view;
+    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+
+    if (view != nullptr)
+    {
+        if (focus)
+        {
+            m_MouseFocusMap[deviceID] = ptr_raw_pointer_cast(view);
+        }
+        else
+        {
+            auto iterator = m_MouseFocusMap.find(deviceID);
+            if (iterator != m_MouseFocusMap.end() && iterator->second == ptr_raw_pointer_cast(view)) {
+                m_MouseFocusMap.erase(iterator);
+            }
+        }
+    }
+    else
+    {
+        auto iterator = m_MouseFocusMap.find(deviceID);
+        if (iterator != m_MouseFocusMap.end()) {
+            m_MouseFocusMap.erase(iterator);
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ServerView> ApplicationServer::GetFocusView() const
+Ptr<ServerView> ApplicationServer::GetFocusView(MouseButton_e button) const
 {
-    return m_FocusView.Lock();
+    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+
+    auto iterator = m_MouseFocusMap.find(deviceID);
+    if (iterator != m_MouseFocusMap.end()) {
+        return ptr_tmp_cast(iterator->second);
+    }
+    return nullptr;
 }

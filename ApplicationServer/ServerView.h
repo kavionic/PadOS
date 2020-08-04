@@ -34,7 +34,7 @@ public:
     void SetManagerHandle(handler_id handle)              { m_ManagerHandle = handle; }
 
     void HandleAddedToParent(Ptr<ServerView> parent) {}
-    void HandleRemovedFromParent(Ptr<ServerView> parent) {}
+    void HandleRemovedFromParent(Ptr<ServerView> parent);
 
     bool        HandleMouseDown(MouseButton_e button, const Point& position);
     bool        HandleMouseUp(MouseButton_e button, const Point& position);

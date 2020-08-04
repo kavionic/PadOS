@@ -31,13 +31,13 @@ class TextView;
 
 namespace SliderFlags
 {
-static constexpr uint32_t TicksAbove	    = 0x0001 << ViewFlags::FirstUserBit;
-static constexpr uint32_t TicksBelow	    = 0x0002 << ViewFlags::FirstUserBit;
+static constexpr uint32_t TicksAbove        = 0x0001 << ViewFlags::FirstUserBit;
+static constexpr uint32_t TicksBelow        = 0x0002 << ViewFlags::FirstUserBit;
 static constexpr uint32_t TicksLeft         = TicksAbove;
-static constexpr uint32_t TicksRight	    = TicksBelow;
-static constexpr uint32_t KnobPointUp	    = 0x0004 << ViewFlags::FirstUserBit;
-static constexpr uint32_t KnobPointDown	    = 0x0008 << ViewFlags::FirstUserBit;
-static constexpr uint32_t KnobPointLeft	    = KnobPointUp;
+static constexpr uint32_t TicksRight        = TicksBelow;
+static constexpr uint32_t KnobPointUp       = 0x0004 << ViewFlags::FirstUserBit;
+static constexpr uint32_t KnobPointDown     = 0x0008 << ViewFlags::FirstUserBit;
+static constexpr uint32_t KnobPointLeft     = KnobPointUp;
 static constexpr uint32_t KnobPointRight    = KnobPointDown;
 
 extern const std::map<String, uint32_t> FlagMap;
@@ -56,7 +56,7 @@ class Slider : public Control
 {
 public:
     Slider(const String& name, Ptr<View> parent = nullptr, uint32_t flags = SliderFlags::TicksBelow,
-	   int tickCount = 10, Orientation orientation = Orientation::Horizontal);
+           int tickCount = 10, Orientation orientation = Orientation::Horizontal);
     Slider(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     ~Slider();
@@ -87,19 +87,19 @@ public:
     virtual String  GetValueStringFormat() const;
     virtual String  GetValueString() const;
 
-    void	    SetValue(float value, bool sendEvent = true);
-    float	    GetValue() const;
+    void        SetValue(float value, bool sendEvent = true);
+    float       GetValue() const;
 
-    void	    SetStepCount(int count);
-    int		    GetStepCount() const;
+    void        SetStepCount(int count);
+    int         GetStepCount() const;
     
-    void	    SetTickCount( int count);
-    int		    GetTickCount() const;
+    void        SetTickCount( int count);
+    int         GetTickCount() const;
 
-    void	    SetLimitLabels(const String& minLabel, const String& maxLabel);
-    void	    GetLimitLabels(String* minLabel, String* maxLabel);
+    void        SetLimitLabels(const String& minLabel, const String& maxLabel);
+    void        GetLimitLabels(String* minLabel, String* maxLabel);
     
-    virtual void    SetSteps(float small, float big)	     { m_SmallStep = small; m_BigStep = big; }
+    virtual void    SetSteps(float small, float big)         { m_SmallStep = small; m_BigStep = big; }
     virtual void    GetSteps(float* small, float* big) const { *small = m_SmallStep; *big = m_BigStep; }
 
     virtual void    SetMinMax(float min, float max ) { m_Min = min; m_Max = max; }
@@ -107,7 +107,7 @@ public:
     // From Control:
     virtual void    OnEnableStatusChanged(bool isEnabled) override;
     
-    //	From View
+    // From View
     virtual void AttachedToScreen() override;
     virtual bool OnMouseDown(MouseButton_e button, const Point& position) override;
     virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
@@ -117,36 +117,36 @@ public:
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
 
 
-    Signal<void, float, Ptr<Slider>, MouseButton_e>	SignalBeginDrag;
-	Signal<void, float, Ptr<Slider>, MouseButton_e>	SignalEndDrag;
-	Signal<void, float, bool, Ptr<Slider>>	SignalValueChanged;
+    Signal<void, float, Ptr<Slider>, MouseButton_e> SignalBeginDrag;
+    Signal<void, float, Ptr<Slider>, MouseButton_e> SignalEndDrag;
+    Signal<void, float, bool, Ptr<Slider>>          SignalValueChanged;
 private:
     void UpdateValueView();
     void LayoutValueView();
     void RefreshDisplay();
 
-    Ptr<TextView> m_ValueView;
+    Ptr<TextView>   m_ValueView;
 
-    String	m_MinLabel;
-    String	m_MaxLabel;
-    String	m_ValueFormat;
-    float	m_ValueScale = 1.0f;
+    String          m_MinLabel;
+    String          m_MaxLabel;
+    String          m_ValueFormat;
+    float           m_ValueScale = 1.0f;
 
-    Color	m_SliderColor1;
-    Color	m_SliderColor2;
-    float	m_SliderSize = 5.0f;
-    int		m_NumSteps = 0;
-    int		m_NumTicks;
-    float	m_Min = 0.0f;
-    float	m_Max = 1.0f;
-    float	m_SmallStep = 0.05f;
-    float	m_BigStep = 0.1f;
-    Orientation	m_Orientation;
-    float	m_Value = 0.0f;
+    Color           m_SliderColor1;
+    Color           m_SliderColor2;
+    float           m_SliderSize = 5.0f;
+    int             m_NumSteps = 0;
+    int             m_NumTicks;
+    float           m_Min = 0.0f;
+    float           m_Max = 1.0f;
+    float           m_SmallStep = 0.05f;
+    float           m_BigStep = 0.1f;
+    Orientation     m_Orientation;
+    float           m_Value = 0.0f;
     
-    bool	m_Changed = false;
+    bool            m_Changed = false;
     MouseButton_e   m_HitButton = MouseButton_e::None;
-    Point	    m_HitPos;
+    Point           m_HitPos;
 };
 
 }

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,14 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 25.02.2018 12:57:08
 
-#include "System/Platform.h"
-
-#include "Threads/EventTimer.h"
-#include "System/System.h"
-#include "Threads/Looper.h"
-#include "System/SysTime.h"
+#include "GUI/ListViewRow.h"
+#include "GUI/View.h"
 
 using namespace os;
 
@@ -30,7 +25,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-EventTimer::EventTimer(TimeValMicros timeout, bool singleshot, int32_t id) : m_ID(id), m_Timeout(timeout)
+ListViewRow::ListViewRow()
 {
 }
 
@@ -38,77 +33,51 @@ EventTimer::EventTimer(TimeValMicros timeout, bool singleshot, int32_t id) : m_I
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-EventTimer::~EventTimer()
+ListViewRow::~ListViewRow()
 {
-    Stop();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void EventTimer::Set(TimeValMicros timeout, bool singleshot)
+bool ListViewRow::HitTest(Ptr<View> view, const Rect& frame, int column, const Point& pos)
 {
-    if ( timeout <= TimeValMicros::zero ) {
-        timeout = TimeValMicros::FromMicroseconds(1);
-    }
-    m_Timeout = timeout;
-    
-    if (m_Looper != nullptr)
-    {
-        assert(m_Looper->GetThreadID() == get_thread_id());
-        m_Looper->AddTimer(this, singleshot);
-    }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void EventTimer::Stop()
+void ListViewRow::SetIsSelectable(bool selectable)
 {
-    if (m_Looper != nullptr) {
-        m_Looper->RemoveTimer(this);
-    }
+    m_IsSelectable = selectable;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool EventTimer::IsRunning() const
+bool ListViewRow::IsSelectable() const
 {
-    return m_Looper != nullptr;
+    return m_IsSelectable;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void EventTimer::SetID(int32_t id)
+bool ListViewRow::IsSelected() const
 {
-    m_ID = id;
+    return m_Selected;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int32_t EventTimer::GetID() const
+bool ListViewRow::IsHighlighted() const
 {
-    return m_ID;
+    return m_Highlighted;
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-TimeValMicros EventTimer::GetRemainingTime() const
-{  
-    if (m_Looper == nullptr) {
-        return TimeValMicros::zero;
-    } else {
-        return m_TimerMapIterator->first - get_system_time();
-    }
-}
-

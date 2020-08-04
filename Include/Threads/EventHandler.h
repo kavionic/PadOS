@@ -41,7 +41,7 @@ public:
 
     handler_id GetHandle() const { return m_Handle; }
 
-    Looper* GetLooper() { return m_Looper; }
+    Looper* GetLooper() const { return m_Looper; }
 
     virtual bool HandleMessage(int32_t code, const void* data, size_t length);
 

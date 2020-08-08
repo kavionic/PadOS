@@ -46,11 +46,28 @@ public:
 
     float LengthSqr() const { return x * x + y * y; }
     float Length() const { return sqrt(LengthSqr()); }
+
+    Point GetNormalized() const { return *this * (1.0f / Length()); }
+    Point& Normalize() { return *this *= (1.0f / Length()); }
+
     Point        operator-(void) const { return(Point(-x, -y)); }
     Point        operator+(const Point& cPoint) const { return(Point(x + cPoint.x, y + cPoint.y)); }
     Point        operator-(const Point& cPoint) const { return(Point(x - cPoint.x, y - cPoint.y)); }
-    const Point& operator+=(const Point& cPoint) { x += cPoint.x; y += cPoint.y; return(*this); }
-    const Point& operator-=(const Point& cPoint) { x -= cPoint.x; y -= cPoint.y; return(*this); }
+    Point&       operator+=(const Point& cPoint) { x += cPoint.x; y += cPoint.y; return *this; }
+    Point&       operator-=(const Point& cPoint) { x -= cPoint.x; y -= cPoint.y; return *this; }
+
+    Point        operator*(const Point& rhs) const  { return Point(x * rhs.x, y * rhs.y);   }
+    Point        operator*(float rhs) const         { return Point(x * rhs, y * rhs);       }
+    
+    Point        operator/(const Point& rhs) const  { return Point(x / rhs.x, y / rhs.y);   }
+    Point        operator/(float rhs) const         { return Point(x / rhs, y / rhs);       }
+
+    Point&       operator*=(const Point& rhs) { x *= rhs.x; y *= rhs.y; return *this; }
+    Point&       operator*=(float rhs)        { x *= rhs; y *= rhs; return *this; }
+
+    Point&       operator/=(const Point& rhs) { x /= rhs.x; y /= rhs.y; return *this; }
+    Point&       operator/=(float rhs)        { x /= rhs; y /= rhs; return *this; }
+
     bool         operator<(const Point& cPoint) const { return(y < cPoint.y || (y == cPoint.y && x < cPoint.x)); }
     bool         operator>(const Point& cPoint) const { return(y > cPoint.y || (y == cPoint.y && x > cPoint.x)); }
     bool         operator==(const Point& cPoint) const { return(y == cPoint.y && x == cPoint.x); }

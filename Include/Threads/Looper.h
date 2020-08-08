@@ -42,6 +42,8 @@ public:
     Looper(const String& name, int portSize, size_t receiveBufferSize = 512);
     ~Looper();
 
+    static Looper* GetCurrentLooper() { return dynamic_cast<Looper*>(GetCurrentThread()); }
+
     void Stop() { m_DoRun = false; }
 
     Mutex& GetMutex() const { return m_Mutex; }

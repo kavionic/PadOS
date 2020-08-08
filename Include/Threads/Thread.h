@@ -34,6 +34,8 @@ public:
     Thread(const String& name);
     virtual ~Thread();
 
+    static Thread* GetCurrentThread();
+
     const String& GetName() const { return m_Name; }
 
     void SetDeleteOnExit(bool doDelete) { m_DeleteOnExit = doDelete; }
@@ -51,6 +53,7 @@ public:
     VFConnector<int, Thread*> VFRun;
 private:
     static void ThreadEntry(void* data);
+    static int GetThreadObjTLSSlot();
 
     String      m_Name;
     thread_id   m_ThreadHandle = -1;

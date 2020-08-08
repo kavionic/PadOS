@@ -1,5 +1,6 @@
 target_sources(PadOS PRIVATE
 	HashCalculator.h
+	InertialScroller.h
 	IntrusiveList.h
 	MessagePort.h
 	String.h

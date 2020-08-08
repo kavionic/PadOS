@@ -123,22 +123,22 @@ public:
 
     
       // Coordinate conversions:
-    Point       ConvertToParent(const Point& point) const   { return point + GetTopLeft(); }
-    void        ConvertToParent(Point* point) const         { *point += GetTopLeft(); }
-    Rect        ConvertToParent(const Rect& rect) const     { return rect + GetTopLeft(); }
-    void        ConvertToParent(Rect* rect) const           { *rect += GetTopLeft(); }
-    Point       ConvertFromParent(const Point& point) const { return point - GetTopLeft(); }
-    void        ConvertFromParent(Point* point) const       { *point -= GetTopLeft(); }
-    Rect        ConvertFromParent(const Rect& rect) const   { return rect - GetTopLeft(); }
-    void        ConvertFromParent(Rect* rect) const         { *rect -= GetTopLeft(); }
-    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point; }
-    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos; }
-    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos; }
-    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos; }
-    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos; }
-    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos; }
-    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos; }
-    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos; }
+    Point       ConvertToParent(const Point& point) const   { return point + GetTopLeft() + m_ScrollOffset; }
+    void        ConvertToParent(Point* point) const         { *point += GetTopLeft() + m_ScrollOffset; }
+    Rect        ConvertToParent(const Rect& rect) const     { return rect + GetTopLeft() + m_ScrollOffset; }
+    void        ConvertToParent(Rect* rect) const           { *rect += GetTopLeft() + m_ScrollOffset; }
+    Point       ConvertFromParent(const Point& point) const { return point - GetTopLeft() - m_ScrollOffset; }
+    void        ConvertFromParent(Point* point) const       { *point -= GetTopLeft() - m_ScrollOffset; }
+    Rect        ConvertFromParent(const Rect& rect) const   { return rect - GetTopLeft() - m_ScrollOffset; }
+    void        ConvertFromParent(Rect* rect) const         { *rect -= GetTopLeft() - m_ScrollOffset; }
+    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
+    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
+    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos + m_ScrollOffset; }
+    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
     
     static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, IRect* frame)
     {
@@ -167,7 +167,7 @@ protected:
         if (parent == nullptr) {
             m_ScreenPos = m_Frame.TopLeft();
         } else {
-            m_ScreenPos = parent->m_ScreenPos + m_Frame.TopLeft();
+            m_ScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
         }
         for (Ptr<ViewBase> child : m_ChildrenList) {
             child->Added(this, hideCount, level + 1);

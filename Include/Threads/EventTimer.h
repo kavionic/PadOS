@@ -36,7 +36,8 @@ public:
     ~EventTimer();
     
     void      Set(TimeValMicros timeout, bool singleshot = false);
-              
+
+    bool      Start(bool singleShot = false, Looper* looper = nullptr);
     void      Stop();
     bool      IsRunning() const;
     bool      IsSingleshot() const { return m_IsSingleshot; }

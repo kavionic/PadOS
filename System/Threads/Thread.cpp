@@ -43,6 +43,15 @@ Thread::~Thread()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+Thread* Thread::GetCurrentThread()
+{
+    return static_cast<Thread*>(get_thread_local(GetThreadObjTLSSlot()));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 thread_id Thread::Start(bool joinable, int priority, int stackSize)
 {
     if (m_ThreadHandle == -1) {
@@ -100,5 +109,16 @@ void Thread::Exit(int returnCode)
 
 void Thread::ThreadEntry(void* data)
 {
+    set_thread_local(GetThreadObjTLSSlot(), data);
     static_cast<Thread*>(data)->Exit(static_cast<Thread*>(data)->Run());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int Thread::GetThreadObjTLSSlot()
+{
+    static int slot = alloc_thread_local_storage(nullptr);
+    return slot;
 }

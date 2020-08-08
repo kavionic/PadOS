@@ -23,7 +23,6 @@
 
 using namespace os;
 
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -32,6 +31,9 @@ ListViewScrolledView::ListViewScrolledView(Ptr<ListView> listView)
     : View("main_view", nullptr, ViewFlags::WillDraw | ViewFlags::DrawOnChildren)
 {
     m_ListView = ptr_raw_pointer_cast(listView);
+
+    m_InertialScroller.SetScrollHBounds(0.0f, 0.0f);
+    m_InertialScroller.SignalUpdate.Connect(this, &ListViewScrolledView::SlotInertialScrollUpdate);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -120,6 +122,67 @@ void ListViewScrolledView::StopScroll()
             //          looper->RemoveTimer(this, AUTOSCROLL_TIMER);
         }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool ListViewScrolledView::OnTouchDown(MouseButton_e pointID, const Point& position)
+{
+    if (m_HitButton != MouseButton_e::None) {
+        return true;
+    }
+    m_HitButton = pointID;
+
+    const Rect bounds = GetBounds();
+    if (m_ContentHeight > bounds.Height())
+    {
+        m_InertialScroller.BeginDrag(GetScrollOffset(), ConvertToRoot(position));
+    }
+    m_MouseMoved = false;
+    MakeFocus(pointID, true);
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool ListViewScrolledView::OnTouchUp(MouseButton_e pointID, const Point& position)
+{
+    if (pointID != m_HitButton) {
+        return true;
+    }
+    m_HitButton = MouseButton_e::None;
+    MakeFocus(pointID, false);
+
+    m_InertialScroller.EndDrag();
+
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool ListViewScrolledView::OnTouchMove(MouseButton_e pointID, const Point& position)
+{
+    if (pointID != m_HitButton) {
+        return true;
+    }
+    m_MouseMoved = true;
+    m_InertialScroller.AddUpdate(ConvertToRoot(position));
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ListViewScrolledView::SlotInertialScrollUpdate(const Point& position)
+{
+    ScrollTo(position);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -359,6 +422,7 @@ size_t ListViewScrolledView::GetRowIndex(Ptr<const ListViewRow> row) const
 
 void ListViewScrolledView::FrameSized(const Point& delta)
 {
+    LayoutColumns();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -593,18 +657,22 @@ void ListViewScrolledView::LayoutColumns()
 {
     float x = 0.0f;
 
+    float height = std::max(Height(), m_ContentHeight);
+
     for (size_t i = 0; i < m_ColumnMap.size(); ++i)
     {
-        Rect frame = GetColumn(i)->GetFrame();
-
-        GetColumn(i)->MoveTo(x, 0.0f);
+        Ptr<ListViewColumnView> columnView = GetColumn(i);
+        Rect frame(x, 0.0f, x + columnView->Width(), height);
+        columnView->SetFrame(frame);
         if (i == m_ColumnMap.size() - 1) {
-            x += GetColumn(i)->m_ContentWidth;
+            x += columnView->m_ContentWidth;
         } else {
             x += frame.Width();
         }
     }
     m_TotalWidth = x;
+
+    m_InertialScroller.SetScrollVBounds(Height() - m_ContentHeight, 0.0f);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -686,6 +754,7 @@ size_t ListViewScrolledView::InsertRow(size_t index, Ptr<ListViewRow> row, bool 
         }
         m_Rows[i]->m_YPos = y;
     }
+    LayoutColumns();
     if (update)
     {
         Rect bounds = GetBounds();
@@ -746,6 +815,7 @@ Ptr<ListViewRow> ListViewScrolledView::RemoveRow(size_t index, bool update)
         }
     }
 
+    LayoutColumns();
     if (update)
     {
         Rect bounds = GetBounds();
@@ -877,7 +947,7 @@ void ListViewScrolledView::Paint(const Rect& updateRect)
 {
     Rect frame = GetBounds();
     frame.top    = 0.0f;
-    frame.bottom = COORD_MAX;
+    frame.bottom = m_ContentHeight;
 
     if (!m_ColumnMap.empty())
     {
@@ -886,6 +956,18 @@ void ListViewScrolledView::Paint(const Rect& updateRect)
     }
     SetFgColor(255, 255, 255);
     FillRect(frame);
+
+    if (m_InertialScroller.GetState() == InertialScroller::State::Dragging) {
+        SetFgColor(StandardColorID::NORMAL);
+    }
+    frame = GetBounds();
+
+    if (frame.top < 0.0f) {
+        FillRect(Rect(frame.left, frame.top, frame.right, 0.0f));
+    }
+    if (frame.bottom > m_ContentHeight) {
+        FillRect(Rect(frame.left, m_ContentHeight, frame.right, frame.bottom));
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

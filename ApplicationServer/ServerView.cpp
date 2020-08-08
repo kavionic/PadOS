@@ -571,6 +571,8 @@ void ServerView::RebuildRegion(bool bForce)
         m_PrevVisibleReg = m_VisibleReg;
         m_PrevFullReg = m_FullReg;
 
+        IPoint scrollOffset(m_ScrollOffset);
+
         Ptr<ServerView> parent = m_Parent.Lock();
         if (parent == nullptr)
         {
@@ -583,7 +585,7 @@ void ServerView::RebuildRegion(bool bForce)
             if (parent->m_FullReg == nullptr) {
                 m_FullReg = ptr_new<Region>(intFrame.Bounds());
             } else {
-                m_FullReg = ptr_new<Region>(*parent->m_FullReg, intFrame, true);
+                m_FullReg = ptr_new<Region>(*parent->m_FullReg, intFrame + IPoint(parent->m_ScrollOffset), true);
             }
             if (m_ShapeConstrainReg != nullptr) {
                 m_FullReg->Intersect(*m_ShapeConstrainReg);
@@ -611,7 +613,7 @@ void ServerView::RebuildRegion(bool bForce)
         if ((m_Flags & ViewFlags::DrawOnChildren) == 0)
         {
             bool regModified = false;
-            IPoint scrollOffset(m_ScrollOffset);
+//            IPoint scrollOffset(m_ScrollOffset);
             for (Ptr<ServerView> child : m_ChildrenList)
             {
                 // Remove children from child region
@@ -847,7 +849,7 @@ void ServerView::Paint(const IRect& updateRect)
     if ( m_HideCount > 0 || m_IsUpdating == true || m_ClientHandle == -1) {
         return;
     }
-    if (!ASPaintView::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, updateRect)) {
+    if (!ASPaintView::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, updateRect - IPoint(m_ScrollOffset))) {
         printf("ERROR: ServerView::Paint() failed to send message: %s\n", strerror(get_last_error()));        
     }
 }
@@ -1059,7 +1061,7 @@ void ServerView::FillRect(const Rect& rect, Color color)
 
 void ServerView::FillCircle(const Point& position, float radius)
 {
-    if (int(position.y + m_ScreenPos.y + radius) >= 510) return; // Broken clipping past that.
+    if (int(position.y + m_ScreenPos.y + m_ScrollOffset.y + radius) >= 510) return; // Broken clipping past that.
     
     Ptr<const Region> region = GetRegion();
     if (region != nullptr)
@@ -1130,6 +1132,12 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
 
     IRect  intSrcRect(srcRect);
     IPoint delta   = IPoint(dstPos) - intSrcRect.TopLeft();
+
+    if (delta.x == 0 && delta.y == 0) {
+        return;
+    }
+
+    intSrcRect += IPoint(m_ScrollOffset);
     IRect  dstRect = intSrcRect + delta;
 
     std::vector<IRect> bltList;
@@ -1274,13 +1282,11 @@ void ServerView::ScrollBy(const Point& offset)
     m_ScrollOffset += offset;
     IPoint newOffset(m_ScrollOffset);
     
-    if ( newOffset == oldOffset ) {
+    if (newOffset == oldOffset) {
         return;
     }
     UpdateScreenPos();
     IPoint intOffset(newOffset - oldOffset);
-    
-//    printf("ScrollBy(%.2f, %.2f) -> %.2f, %.2f\n", offset.x, offset.y, m_ScrollOffset.x, m_ScrollOffset.y);
     
     if ( m_HideCount > 0 ) {
         return;

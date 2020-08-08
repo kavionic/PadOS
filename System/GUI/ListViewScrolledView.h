@@ -19,6 +19,8 @@
 #pragma once
 
 #include "GUI/View.h"
+#include "Threads/EventTimer.h"
+#include "Utils/InertialScroller.h"
 
 namespace os
 {
@@ -52,6 +54,11 @@ private:
     void                StopScroll();
 
     virtual void    FrameSized(const Point& delta) override;
+
+    virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position) override;
+    virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position) override;
+    virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position) override;
+
     virtual bool    OnMouseDown(MouseButton_e button, const Point& position) override;
     virtual bool    OnMouseUp(MouseButton_e button, const Point& position) override;
     virtual bool    OnMouseMove(MouseButton_e button, const Point& position) override;
@@ -71,10 +78,15 @@ private:
     void    InvertRange(size_t start, size_t end);
     void    ExpandSelect(size_t row, bool invert, bool clear);
 
+    void SlotInertialScrollUpdate(const Point& position);
+
     std::vector<Ptr<ListViewColumnView>>    m_ColumnViews;
     std::vector<size_t>                     m_ColumnMap;
     std::vector<Ptr<ListViewRow>>           m_Rows;
     ListView*                               m_ListView;
+
+    MouseButton_e                           m_HitButton = MouseButton_e::None;
+    InertialScroller                        m_InertialScroller;
     Rect                                    m_SelectRect;
     bool                                    m_IsSelecting       = false;
     bool                                    m_MouseMoved        = false;

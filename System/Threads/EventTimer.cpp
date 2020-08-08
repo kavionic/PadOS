@@ -65,6 +65,22 @@ void EventTimer::Set(TimeValMicros timeout, bool singleshot)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool EventTimer::Start(bool singleShot, Looper* looper)
+{
+    if (looper == nullptr) {
+        looper = Looper::GetCurrentLooper();
+    }
+    if (looper != nullptr) {
+        looper->AddTimer(this, singleShot);
+        return true;
+    }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void EventTimer::Stop()
 {
     if (m_Looper != nullptr) {

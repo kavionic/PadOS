@@ -144,14 +144,14 @@ public:
     virtual void MakeFocus(MouseButton_e button, bool focus = true);
     virtual bool HasFocus(MouseButton_e button) const;
 
-    float  Width() const;
-    float  Height() const;
+    float  Width() const    { return m_Frame.Width(); }
+    float  Height() const   { return m_Frame.Height(); }
 
     virtual void    SetFrame(const Rect& frame);
-    void            MoveBy(const Point& delta) { SetFrame(m_Frame + delta); }
-    void            MoveBy(float x, float y) { MoveBy(Point(x, y)); }
-    void            MoveTo(const Point& position) { SetFrame(m_Frame.Bounds() + position); }
-    void            MoveTo(float x, float y) { MoveTo(Point(x, y)); }
+    void            MoveBy(const Point& delta)      { SetFrame(m_Frame + delta); }
+    void            MoveBy(float x, float y)        { MoveBy(Point(x, y)); }
+    void            MoveTo(const Point& position)   { SetFrame(m_Frame.Bounds() + position); }
+    void            MoveTo(float x, float y)        { MoveTo(Point(x, y)); }
 
     virtual void    ResizeBy(const Point& delta);
     virtual void    ResizeBy(float deltaW, float deltaH);

@@ -789,6 +789,7 @@ void View::PreferredSizeChanged()
         m_LocalPrefSize[int(PrefSizeType::Greatest)] = sizes[int(PrefSizeType::Greatest)];
         
         UpdateRingSize();
+        SignalPreferredSizeChanged(ptr_tmp_cast(this));
     }
 }
 
@@ -918,9 +919,11 @@ void View::SetFrame(const Rect& frame)
     UpdateScreenPos();
     if (deltaSize != Point(0.0f, 0.0f)) {
         FrameSized(deltaSize);
+        SignalFrameSized(deltaSize, ptr_tmp_cast(this));
     }
     if (deltaPos != Point(0.0f, 0.0f)) {
         FrameMoved(deltaPos);
+        SignalFrameMoved(deltaSize, ptr_tmp_cast(this));
     }
 }
 
@@ -1137,6 +1140,7 @@ void View::ScrollBy(const Point& offset)
         m_pcVScrollBar->SetValue(-m_ScrollOffset.y);
     }
     ViewScrolled(offset);
+    SignalViewScrolled(offset, ptr_tmp_cast(this));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1387,8 +1391,7 @@ void View::UpdateRingSize()
             if (parent != nullptr) {
                 parent->PreferredSizeChanged();
                 parent->InvalidateLayout();
-            }
-	    SignalPreferredSizeChanged();
+            }          
         }
     }
     else
@@ -1432,7 +1435,7 @@ void View::UpdateRingSize()
                 member = member->m_HeightRing;
             } while (member != this);
         }
-        
+
         if (ringSizes[int(PrefSizeType::Smallest)] != m_PreferredSizes[int(PrefSizeType::Smallest)] || ringSizes[int(PrefSizeType::Greatest)] != m_PreferredSizes[int(PrefSizeType::Greatest)])
         {
             //// Update members of width ring. ////
@@ -1458,7 +1461,7 @@ void View::UpdateRingSize()
                 } while (member != this);
             }
             std::set<View*> notifiedParents;
-            
+
             //// Notify parents of with ring members. ////
             if (m_WidthRing != nullptr)
             {
@@ -1492,7 +1495,7 @@ void View::UpdateRingSize()
                 } while (member != this);
             }
         }
-    }    
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -194,7 +194,7 @@ protected:
     Point       m_ScreenPos = Point(0.0f, 0.0f);
 
     WeakPtr<ViewType>   m_Parent;
-    ChildList_t         m_ChildrenList;
+    std::vector<Ptr<ViewType>>  m_ChildrenList;
     
     Point       m_PenPosition;
 

@@ -239,7 +239,10 @@ public:
     VFConnector<bool, MouseButton_e, const Point&> VFMouseUp;
     VFConnector<bool, const Point&>                VFMouseMoved;
     
-    Signal<void>    SignalPreferredSizeChanged;
+    Signal<void, Ptr<View>>               SignalPreferredSizeChanged;
+    Signal<void, const Point&, Ptr<View>> SignalFrameSized;
+    Signal<void, const Point&, Ptr<View>> SignalFrameMoved;
+    Signal<void, const Point&, Ptr<View>> SignalViewScrolled;
 private:
     friend class Application;
     friend class ViewBase<View>;

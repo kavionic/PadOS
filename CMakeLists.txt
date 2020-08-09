@@ -26,6 +26,7 @@ add_library(PadOS)
 target_sources(PadOS PRIVATE
 	SDCard/System/WindowManagerLayout.xml
 	Init.cpp
+	PadOS.natvis
 	posix.cpp
 "Kernel/SysTime.cpp" "Kernel/IRQDispatcher.cpp" "Include/Kernel/IRQDispatcher.h")
 

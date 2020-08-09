@@ -49,6 +49,10 @@ public:
     void SetScrollVBounds(float top, float bottom) { m_ScrollBounds.top = top; m_ScrollBounds.bottom = bottom; }
     Rect GetScrollBounds() const { return m_ScrollBounds; }
 
+    void SetDetentSpacing(const Point& spacing) { m_DetentSpacing = spacing; }
+    void SetDetentSpacing(float horizontal, float vertical) { SetDetentSpacing(Point(horizontal, vertical)); }
+    Point GetDetentSpacing() const              { return m_DetentSpacing; }
+
     void BeginDrag(const Point& scrollOffset, const Point& dragPosition, Looper* looper = nullptr);
     void EndDrag();
     void AddUpdate(const Point& value);
@@ -67,7 +71,7 @@ private:
     static float    s_MinSpeed;
     static float    s_OverscrollSlip;
 
-    Point           m_DetentSpacing = Point(0.0f, 33.0f);
+    Point           m_DetentSpacing = Point(0.0f, 0.0f);
     Point           m_DetentAttraction = Point(20.0f, 20.0f);
 
     float           m_MaxVOverscroll = 40.0f;

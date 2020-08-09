@@ -69,11 +69,11 @@ void GfxDriver::InitDisplay(LCDRegisters* registers, const DigitalPin& pinLCDRes
     m_PinBacklightControl.SetDirection(DigitalPinDirection_e::Out);
 
 
-	snooze_ms(1);
+    snooze_ms(1);
     m_PinLCDReset = false;
-	snooze_ms(10);
+    snooze_ms(10);
     m_PinLCDReset = true;
-	snooze_ms(100);
+    snooze_ms(100);
 
     PLL_ini();
     
@@ -82,7 +82,7 @@ void GfxDriver::InitDisplay(LCDRegisters* registers, const DigitalPin& pinLCDRes
     
     WriteCommand(RA8875_PCSR); // PCLK
     WriteData(0x81);
-	snooze_ms(1);
+    snooze_ms(1);
 
     //Horizontal set
     WriteCommand(RA8875_HDWR, 100-1);  //Horizontal display width(pixels) = (HDWR + 1)*8
@@ -132,18 +132,18 @@ void GfxDriver::Shutdown()
     
     //Set PLL to default:
     WriteCommand(RA8875_PLLC1, 0x07);
-	snooze_ms(1);
+    snooze_ms(1);
     WriteCommand(RA8875_PLLC2, 0x03);
-	snooze_ms(1);
+    snooze_ms(1);
     WriteCommand(RA8875_PCSR, 0x02); // Pixel-clock
-	snooze_ms(1);
+    snooze_ms(1);
 
     // Display off:
 //    WriteCommand(RA8875_PWRR, 0);
 //    snooze_ms(100);
     // Sleep mode:
     WriteCommand(RA8875_PWRR, RA8875_PWRR_SLEEP_MODE_bm);
-	snooze_ms(100);
+    snooze_ms(100);
     m_PinTouchpadReset = false;
 //    m_PinLCDReset = false;    
 }
@@ -266,7 +266,7 @@ float GfxDriver::GetStringWidth(Font_e fontID, const char* string, size_t length
             const FONT_CHAR_INFO* charInfo = font->charInfo + character - font->startChar;
             width += float(charInfo->widthBits);
             if (length != 0) {
-				width += float(m_FontCharSpacing);
+                width += float(m_FontCharSpacing);
             }
         }
         return width;
@@ -331,15 +331,20 @@ void GfxDriver::FastFill(uint32_t words, uint16_t color)
 
 void GfxDriver::FillRect(const IRect& frame)
 {
+    IPoint resolution = GetResolution();
+    IRect clippedFrame = frame & IRect(IPoint(0, 0), resolution);
+    if (!clippedFrame.IsValid()) {
+        return;
+    }
 #if 1
-    BLT_FillRect(frame);
+    BLT_FillRect(clippedFrame);
 #else
-	int32_t x1 = frame.left;
-	int32_t y1 = frame.top;
-	int32_t x2 = frame.right;
-	int32_t y2 = frame.bottom;
+    int32_t x1 = clippedFrame.left;
+    int32_t y1 = clippedFrame.top;
+    int32_t x2 = clippedFrame.right;
+    int32_t y2 = clippedFrame.bottom;
 
-	if (x1 > 799) x1 = 799;
+    if (x1 > 799) x1 = 799;
     if (x2 > 799) x2 = 799;
     
     if (y1 > 479) y1 = 479;
@@ -460,19 +465,7 @@ void GfxDriver::FillCircle(int32_t x, int32_t y, int32_t radius)
 #if 0
     BLT_FillCircle(x, y, radius);
 #else
-
-    int x1 = -radius;
-
-    if (x1 + x < 0) {
-        x1 = -x;
-    }
-
-    Rect frame(x - radius, y - radius, x + radius, y + radius);
-
-    IPoint resolution = GetResolution();
-
-    frame &= IRect(IPoint(0, 0), resolution);
-    frame -= Point(x, y);
+    Rect frame(-radius, -radius, radius, radius);
 
     int radiusSqr = radius * radius;
     for (int y1 = frame.top; y1 <= 0; ++y1)
@@ -482,22 +475,16 @@ void GfxDriver::FillCircle(int32_t x, int32_t y, int32_t radius)
             if (x1 * x1 + y1 * y1 <= radiusSqr)
             {
                 IPoint startT(x + x1, y + y1);
-				IPoint endT(x - x1, startT.y);
-                if (endT.x >= resolution.x) endT.x = resolution.x - 1;
+                IPoint endT(x - x1, startT.y);
                 int length = endT.x - startT.x;
 
-                if (startT.y >= resolution.y) {
-                    return;
-                }
                 if (length > 0)
                 {
                     IPoint startB(startT.x, y - y1);
-					IPoint endB(endT.x, y - y1);
+                    IPoint endB(endT.x, y - y1);
 
                     DrawHLine(startT.x, startT.y, length);
-                    if (startB.y < resolution.y) {
-						DrawHLine(startB.x, startB.y, length);
-                    }
+                    DrawHLine(startB.x, startB.y, length);
                 }
                 break;
             }
@@ -769,10 +756,10 @@ void GfxDriver::PLL_ini()
 {
     WriteCommand(RA8875_PLLC1);
     WriteData(0x0a);
-	snooze_ms(1);
+    snooze_ms(1);
     WriteCommand(RA8875_PLLC2);
     WriteData(0x02);
-	snooze_ms(1);
+    snooze_ms(1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -798,11 +785,11 @@ void GfxDriver::SetWindow(int x1, int y1, int x2, int y2)
 void GfxDriver::Test()
 {
     IRect screenFrame(IPoint(), GetResolution());
-	SetFgColor(Color(255, 255, 255).GetColor16());
-	FillRect(screenFrame);
+    SetFgColor(Color(255, 255, 255).GetColor16());
+    FillRect(screenFrame);
 
     Region region(IRect(100, 100, 200, 200));
-	Region region2(IRect(100, 100, 200, 200));
+    Region region2(IRect(100, 100, 200, 200));
 
     region.Exclude(IRect(110, 110, 190, 190));
 
@@ -810,29 +797,29 @@ void GfxDriver::Test()
 
     for (;;)
     {
-		SetFgColor(Color(128, 128, 128).GetColor16());
+        SetFgColor(Color(128, 128, 128).GetColor16());
         for (size_t i = 0; i < region.m_Rects.size(); ++i)
         {
-//			SetFgColor(palette[i % ARRAY_COUNT(palette)].GetColor16());
+//          SetFgColor(palette[i % ARRAY_COUNT(palette)].GetColor16());
             FillRect(region.m_Rects[i]);
         }
         continue;
         for (int x = 65; x < 235; x+=1)
         {
-			SetWindow(screenFrame);
-			BLT_MoveRect(IRect(100, 100, 199, 200), IPoint(101, 100));
-			SetWindow(IRect(100, 100, 101, 200));
+            SetWindow(screenFrame);
+            BLT_MoveRect(IRect(100, 100, 199, 200), IPoint(101, 100));
+            SetWindow(IRect(100, 100, 101, 200));
 
             SetFgColor(Color(255, 0, 0).GetColor16());
             FillRect(IRect(100, 100, 200, 200));
             SetFgColor(Color(0, 255, 0).GetColor16());
             //    DrawLine(99, 120, 99, 180);
-            //	DrawLine(50, 150, 250, 150);
-            //	DrawLine(200, 120, 200, 180);
+            //  DrawLine(50, 150, 250, 150);
+            //  DrawLine(200, 120, 200, 180);
 
             FillCircle(x, 150, 30);
-			SetFgColor(Color(0, 0, 255).GetColor16());
-			FillCircle(x, 150, 20);
+            SetFgColor(Color(0, 0, 255).GetColor16());
+            FillCircle(x, 150, 20);
             snooze_ms(10);
         }
     }

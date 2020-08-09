@@ -48,7 +48,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ApplicationServer::ApplicationServer() : Looper("appserver", 10, APPSERVER_MSG_BUFFER_SIZE), m_ReplyPort("appserver_reply", 100) //, m_WindowsManagerPort(-1, false)
+ApplicationServer::ApplicationServer() : Looper("Appserver", 10, APPSERVER_MSG_BUFFER_SIZE), m_ReplyPort("appserver_reply", 100) //, m_WindowsManagerPort(-1, false)
 {
     m_TopView = ptr_new<ServerView>("::topview::", GetScreenFrame(), Point(0.0f, 0.0f), 0, 0, Color(0xffffffff), Color(0xffffffff), Color(0));
 

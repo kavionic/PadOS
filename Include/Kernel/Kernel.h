@@ -38,6 +38,8 @@
 
 class DigitalPin;
 
+size_t get_heap_size();
+
 namespace kernel
 {
 

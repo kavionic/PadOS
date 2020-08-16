@@ -34,9 +34,10 @@ namespace os
 namespace kernel
 {
 
-static const int32_t THREAD_STACK_PADDING      = 0; // 512;
-static const int32_t THREAD_DEFAULT_STACK_SIZE = 1024*8;
-static const int32_t THREAD_MAX_TLS_SLOTS      = 64;
+static constexpr int32_t THREAD_DEFAULT_STACK_SIZE = 1024*4;
+static constexpr int32_t THREAD_MAX_TLS_SLOTS      = 64;
+static constexpr size_t  THREAD_TLS_SLOTS_BUFFER_SIZE = (THREAD_MAX_TLS_SLOTS * sizeof(void*) + 7) & ~7;
+
 class KThreadCB;
 
 static const int KTHREAD_PRIORITY_MIN = -16;
@@ -54,7 +55,8 @@ public:
 
     void InitializeStack(ThreadEntryPoint_t entryPoint, void* arguments);
 
-    uint8_t* GetStackBottom() const { return m_StackBuffer + THREAD_STACK_PADDING + THREAD_MAX_TLS_SLOTS * sizeof(void*); }
+    uint8_t* GetStackTop() const { return m_StackBuffer + THREAD_TLS_SLOTS_BUFFER_SIZE; }
+    uint8_t* GetStackBottom() const { return m_StackBuffer + m_StackSize - 4; }
 
     int GetPriority() const { return LevelToPri(m_PriorityLevel);  }
 

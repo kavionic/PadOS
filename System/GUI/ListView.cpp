@@ -90,6 +90,26 @@ const std::map<String, uint32_t> ListViewFlags::FlagMap
 ListView::ListView(const String& name, Ptr<View> parent, uint32_t flags) :
     Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
+    Construct();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ListView::ListView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
+{
+    MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, ListViewFlags::FlagMap, "flags", ListViewFlags::MultiSelect | ListViewFlags::RenderBorder) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
+
+    Construct();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ListView::Construct()
+{
     m_HeaderView = ptr_new<ListViewHeaderView>(ptr_tmp_cast(this));
     m_ScrolledContainerView = m_HeaderView->m_ScrolledContainerView;
 

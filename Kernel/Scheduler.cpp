@@ -56,7 +56,7 @@ static void wakeup_sleeping_threads();
 
 int kernel::get_remaining_stack()
 {
-    return __get_PSP() - intptr_t(gk_CurrentThread->GetStackBottom());
+    return __get_PSP() - intptr_t(gk_CurrentThread->GetStackTop());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -106,7 +106,7 @@ extern "C" uint32_t* select_thread(uint32_t* currentStack)
             return currentStack;
         }
         prevThread->m_CurrentStack = currentStack;
-        if (intptr_t(prevThread->m_CurrentStack) <= intptr_t(prevThread->GetStackBottom())) {
+        if (intptr_t(prevThread->m_CurrentStack) <= intptr_t(prevThread->GetStackTop())) {
             panic("Stack overflow!\n");
             return currentStack;
         }
@@ -148,7 +148,7 @@ extern "C" uint32_t* select_thread(uint32_t* currentStack)
         gk_CurrentThread->m_StartTime = curTime;
     } CRITICAL_END;
 
-    if (intptr_t(gk_CurrentThread->m_CurrentStack) <= intptr_t(gk_CurrentThread->GetStackBottom())) {
+    if (intptr_t(gk_CurrentThread->m_CurrentStack) <= intptr_t(gk_CurrentThread->GetStackTop())) {
         panic("Stack overflow!\n");
     }
     return gk_CurrentThread->m_CurrentStack;
@@ -487,8 +487,8 @@ static void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
     info->RealTime      = thread->m_RunTime;
     info->UserTime      = info->RealTime - info->SysTime;
     info->Quantum       = TimeValNanos::FromNanoseconds(TimeValNanos::TicksPerSecond / SYS_TICKS_PER_SEC);
-    info->Stack         = thread->GetStackBottom();
-    info->StackSize     = thread->m_StackSize;
+    info->Stack         = thread->GetStackTop();
+    info->StackSize     = thread->m_StackSize - THREAD_TLS_SLOTS_BUFFER_SIZE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

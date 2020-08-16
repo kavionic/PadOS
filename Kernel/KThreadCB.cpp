@@ -47,13 +47,14 @@ static void invalid_return_handler()
 KThreadCB::KThreadCB(const char* name, int priority, bool joinable, int stackSize) : KNamedObject(name, KNamedObjectType::Thread)
 {
     if (stackSize == 0) stackSize = THREAD_DEFAULT_STACK_SIZE;
-    stackSize += THREAD_STACK_PADDING + THREAD_MAX_TLS_SLOTS * sizeof(void*);
+    stackSize += THREAD_TLS_SLOTS_BUFFER_SIZE;
 
     m_IsJoinable = joinable;
 
     m_StackSize = stackSize & ~3;
     m_StackBuffer = new uint8_t[m_StackSize + KSTACK_ALIGNMENT];
-    memset(m_StackBuffer, 0, THREAD_MAX_TLS_SLOTS * sizeof(void*));
+    memset(m_StackBuffer, 0, THREAD_TLS_SLOTS_BUFFER_SIZE);
+    memset(m_StackBuffer + THREAD_TLS_SLOTS_BUFFER_SIZE, THREAD_STACK_FILLER, m_StackSize + KSTACK_ALIGNMENT - THREAD_TLS_SLOTS_BUFFER_SIZE);
     m_CurrentStack  = (uint32_t*) ((intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1));
     m_State         = ThreadState::Ready;
     m_PriorityLevel = PriToLevel(priority);

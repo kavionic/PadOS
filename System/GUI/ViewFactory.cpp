@@ -26,6 +26,7 @@
 #include "GUI/Button.h"
 #include "GUI/ButtonGroup.h"
 #include "GUI/Checkbox.h"
+#include "GUI/ListView.h"
 #include "GUI/RadioButton.h"
 #include "GUI/Slider.h"
 #include "GUI/TextView.h"
@@ -47,11 +48,12 @@ ViewFactory::ViewFactory()
 {
     VIEW_FACTORY_REGISTER_CLASS(Button);
     VIEW_FACTORY_REGISTER_CLASS(CheckBox);
-	VIEW_FACTORY_REGISTER_CLASS(GroupView);
-	VIEW_FACTORY_REGISTER_CLASS(RadioButton);
+    VIEW_FACTORY_REGISTER_CLASS(GroupView);
+    VIEW_FACTORY_REGISTER_CLASS(ListView);
+    VIEW_FACTORY_REGISTER_CLASS(RadioButton);
     VIEW_FACTORY_REGISTER_CLASS(Slider);
-	VIEW_FACTORY_REGISTER_CLASS(TextView);
-	VIEW_FACTORY_REGISTER_CLASS(View);
+    VIEW_FACTORY_REGISTER_CLASS(TextView);
+    VIEW_FACTORY_REGISTER_CLASS(View);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -104,19 +106,19 @@ Ptr<View> ViewFactory::LoadView(Ptr<View> parentView, const char* path)
 {
     int file = FileIO::Open(path, O_RDONLY);
     if (file == -1) {
-	return nullptr;
+        return nullptr;
     }
     struct stat stats;
 
     if (FileIO::ReadStats(file, &stats) != -1)
     {
-	std::vector<char> buffer;
-	buffer.resize(stats.st_size + 1);
-	if (FileIO::Read(file, buffer.data(), stats.st_size) == stats.st_size)
-	{
-	    buffer[stats.st_size] = '\0';
-	    return CreateView(parentView, std::move(buffer));
-	}
+        std::vector<char> buffer;
+        buffer.resize(stats.st_size + 1);
+        if (FileIO::Read(file, buffer.data(), stats.st_size) == stats.st_size)
+        {
+            buffer[stats.st_size] = '\0';
+            return CreateView(parentView, std::move(buffer));
+        }
     }
     return nullptr;
 }
@@ -150,7 +152,7 @@ bool ViewFactory::Parse(ViewFactoryContext* context, Ptr<View> parentView, const
         context->m_Templates.erase(i);
     }
     localTemplates.clear();
-    
+
     Ptr<LayoutNode> layoutNode = parentView->GetLayoutNode();
     if (layoutNode != nullptr)
     {
@@ -158,14 +160,8 @@ bool ViewFactory::Parse(ViewFactoryContext* context, Ptr<View> parentView, const
         float spacing = context->GetAttribute(xmlNode, "spacing", 0.0f);
 
         if (spacing != 0.0f || innerBorders.left != 0.0f || innerBorders.top != 0.0f || innerBorders.right != 0.0f || innerBorders.bottom != 0.0f) {
-			layoutNode->ApplyInnerBorders(innerBorders, spacing);
+            layoutNode->ApplyInnerBorders(innerBorders, spacing);
         }
-
-//        pugi::xml_attribute innerBordersAttr = context->GetAttribute(xmlNode, "inner_borders");
-//        if (innerBordersAttr && xml_object_parser::parse(innerBordersAttr.value(), innerBorders))
-//        {
-//            layoutNode->ApplyInnerBorders(innerBorders);
-//        }
     }
     return true;
 }

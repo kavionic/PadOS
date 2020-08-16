@@ -226,3 +226,8 @@ caddr_t _sbrk_r(_reent* reent, ptrdiff_t size)
 }
 
 }
+
+size_t get_heap_size()
+{
+    return g_HeapSize;
+}

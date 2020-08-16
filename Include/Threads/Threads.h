@@ -61,6 +61,8 @@ struct ThreadInfo
 
 }
 
+static constexpr uint8_t THREAD_STACK_FILLER = 0x5f;
+
 typedef void (*ThreadEntryPoint_t)( void * );
 typedef void (*TLSDestructor_t)(void *);
 

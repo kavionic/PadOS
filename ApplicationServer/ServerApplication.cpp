@@ -22,8 +22,11 @@
 #include <string.h>
 
 #include "ServerApplication.h"
-#include "ApplicationServer/ApplicationServer.h"
-#include "ApplicationServer/Protocol.h"
+#include <ApplicationServer/ApplicationServer.h>
+#include <ApplicationServer/DisplayDriver.h>
+#include <ApplicationServer/ServerBitmap.h>
+#include <ApplicationServer/Protocol.h>
+#include <Utils/Utils.h>
 
 using namespace os;
 
@@ -166,7 +169,7 @@ void ServerApplication::SlotCreateView(port_id clientPort, port_id replyPort, ha
         }
     }
     
-    Ptr<ServerView> view = ptr_new<ServerView>(name, frame, scrollOffset, flags, hideCount, eraseColor, bgColor, fgColor);
+    Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, flags, hideCount, eraseColor, bgColor, fgColor);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
         parent->AddChild(view);

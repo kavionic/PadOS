@@ -27,24 +27,27 @@
 #include "Math/Rect.h"
 #include "GUI/GUIEvent.h"
 #include "Threads/EventTimer.h"
-//#include "ServerView.h"
+#include "ServerBitmap.h"
 
 namespace os
 {
 
 class ServerView;
+class DisplayDriver;
 
 class ApplicationServer : public Looper, public SignalTarget
 {
 public:
-    ApplicationServer();
+    ApplicationServer(Ptr<DisplayDriver> displayDriver);
     ~ApplicationServer();
 
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
     virtual void Idle() override;
 
-    static Rect  GetScreenFrame();
-    static IRect GetScreenIFrame();
+    static Rect             GetScreenFrame();
+    static IRect            GetScreenIFrame();
+    static SrvBitmap*       GetScreenBitmap() { return ptr_raw_pointer_cast(s_ScreenBitmap); }
+    static DisplayDriver*   GetDisplayDriver();
 
     Ptr<ServerView> GetTopView();
     
@@ -65,6 +68,9 @@ private:
     void HandleMouseMove(MouseButton_e button, const Point& position);
 
     void SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name);
+
+    static Ptr<DisplayDriver>   s_DisplayDriver;
+    static Ptr<SrvBitmap>       s_ScreenBitmap;
 
     MessagePort m_ReplyPort;
     EventTimer m_PollTouchDriverTimer;

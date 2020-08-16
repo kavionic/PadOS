@@ -93,8 +93,8 @@ static bool UTF16ToCP437(uint16_t unicode, uint8_t* result)
     }
     else
     {
-        auto i = std::lower_bound(&g_UTF16ToCP437[0], &g_UTF16ToCP437[256], unicode);
-        if (i != &g_UTF16ToCP437[256] && i->m_UTF16 == unicode) {
+        auto i = std::lower_bound(std::begin(g_UTF16ToCP437), std::end(g_UTF16ToCP437), unicode);
+        if (i != std::end(g_UTF16ToCP437) && i->m_UTF16 == unicode) {
             *result = i->m_CP437;
             return true;
         } else {

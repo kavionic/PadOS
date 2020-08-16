@@ -23,6 +23,8 @@
 
 #include "App/Application.h"
 #include "GUI/View.h"
+#include <ApplicationServer/ApplicationServer.h>
+#include <ApplicationServer/DisplayDriver.h>
 
 using namespace os;
 
@@ -95,7 +97,7 @@ void Application::Idle()
 
 IRect Application::GetScreenIFrame()
 {
-    return IRect(IPoint(0), kernel::GfxDriver::Instance.GetResolution() - IPoint(1, 1));
+    return ApplicationServer::GetScreenIFrame();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

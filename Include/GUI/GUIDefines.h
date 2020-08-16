@@ -19,7 +19,9 @@
 
 #pragma once
 
+#include <map>
 #include <stdint.h>
+#include <Utils/String.h>
 
 namespace os
 {
@@ -68,6 +70,12 @@ enum class ViewDockType : int32_t
     DockedWindow,
     FullscreenWindow,
     StatusBarIcon
+};
+
+enum
+{
+    TRANSPARENT_CMAP8 = 0xff,
+    TRANSPARENT_RGB32 = 0xffffffff
 };
 
 enum drawing_mode
@@ -185,5 +193,24 @@ enum
     QUAL_REPEAT = 0x40                      //!< Set if the key-down event was caused by key repeating.
 };
 
+enum color_space
+{
+    CS_NO_COLOR_SPACE,
+    CS_RGB32,
+    CS_RGBA32,
+    CS_RGB24,
+    CS_RGB16,
+    CS_RGB15,
+    CS_RGBA15,
+    CS_CMAP8,
+    CS_GRAY8,
+    CS_GRAY1,
+    CS_YUV422,
+    CS_YUV411,
+    CS_YUV420,
+    CS_YUV444,
+    CS_YUV9,
+    CS_YUV12
+};
 
 } // namespace

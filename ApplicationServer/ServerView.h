@@ -20,15 +20,17 @@
 
 #pragma once
 
-#include "GUI/View.h"
+#include <GUI/View.h>
 
 namespace os
 {
 
+class SrvBitmap;
+
 class ServerView : public ViewBase<ServerView>
 {
 public:
-    ServerView(const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor);
+    ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor);
     virtual ~ServerView();
     void SetClientHandle(port_id port, handler_id handle) { m_ClientPort = port; m_ClientHandle = handle; }
     void SetManagerHandle(handler_id handle)              { m_ManagerHandle = handle; }
@@ -73,11 +75,11 @@ public:
 
     void        Show(bool visible = true);
 
-    void        SetEraseColor(Color color) { m_EraseColor = color; m_EraseColor16 = color.GetColor16(); }
-    void        SetBgColor(Color color)    { m_BgColor = color; m_BgColor16 = color.GetColor16(); }
-    void        SetFgColor(Color color)    { m_FgColor = color; m_FgColor16 = color.GetColor16(); }
+    void        SetEraseColor(Color color) { m_EraseColor = color; }
+    void        SetBgColor(Color color)    { m_BgColor = color; }
+    void        SetFgColor(Color color)    { m_FgColor = color; }
 
-    void        SetFont(int fontHandle) { m_Font->Set(kernel::GfxDriver::Font_e(fontHandle)); }
+    void        SetFont(int fontHandle) { m_Font->Set(Font_e(fontHandle)); }
 
     void        MovePenTo(const Point& pos) { m_PenPosition = pos; }
 
@@ -95,17 +97,16 @@ public:
 private:
     friend class ViewBase<ServerView>;
         
-    void DebugDrawRect(const IRect& frame);
+    void DebugDrawRect(const IRect& frame, Color color);
         
-    port_id     m_ClientPort = -1;
-    handler_id  m_ClientHandle = -1;
-    handler_id  m_ManagerHandle = -1;
+    SrvBitmap*  m_Bitmap        = nullptr;
+    port_id     m_ClientPort    = INVALID_INDEX;
+    handler_id  m_ClientHandle  = INVALID_INDEX;
+    handler_id  m_ManagerHandle = INVALID_INDEX;
     
-    uint16_t    m_EraseColor16 = 0xffff;
-    uint16_t    m_BgColor16    = 0xffff;
-    uint16_t    m_FgColor16    = 0x0000;
+    drawing_mode m_DrawingMode  = DM_COPY;
     
-    Ptr<Font>   m_Font = ptr_new<Font>(kernel::GfxDriver::e_FontLarge);
+    Ptr<Font>   m_Font = ptr_new<Font>(Font_e::e_FontLarge);
     
     IPoint      m_DeltaMove;             // Relative movement since last region update
     IPoint      m_DeltaSize;             // Relative sizing since last region update

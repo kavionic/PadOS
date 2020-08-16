@@ -22,19 +22,26 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "ApplicationServer/ApplicationServer.h"
-#include "ApplicationServer/Protocol.h"
+#include <ApplicationServer/ApplicationServer.h>
+#include <ApplicationServer/Protocol.h>
+#include <ApplicationServer/DisplayDriver.h>
+#include <ApplicationServer/ServerBitmap.h>
+#include <ApplicationServer/ServerView.h>
+#include <Utils/Utils.h>
+#include <GUI/View.h>
+
+#include <System/SystemMessageIDs.h>
+#include <DeviceControl/HID.h>
+
 #include "ServerApplication.h"
-#include "ServerView.h"
-#include "GUI/View.h"
-#include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
-#include "System/SystemMessageIDs.h"
-#include "DeviceControl/HID.h"
 
 using namespace os;
 using namespace kernel;
 
 static port_id g_AppserverPort = -1;
+
+Ptr<os::DisplayDriver>  ApplicationServer::s_DisplayDriver;
+Ptr<SrvBitmap>          ApplicationServer::s_ScreenBitmap;
 
 namespace os
 {
@@ -48,9 +55,14 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ApplicationServer::ApplicationServer() : Looper("Appserver", 10, APPSERVER_MSG_BUFFER_SIZE), m_ReplyPort("appserver_reply", 100) //, m_WindowsManagerPort(-1, false)
+ApplicationServer::ApplicationServer(Ptr<os::DisplayDriver> displayDriver)
+    : Looper("Appserver", 10, APPSERVER_MSG_BUFFER_SIZE)
+    , m_ReplyPort("appserver_reply", 100)
 {
-    m_TopView = ptr_new<ServerView>("::topview::", GetScreenFrame(), Point(0.0f, 0.0f), 0, 0, Color(0xffffffff), Color(0xffffffff), Color(0));
+    s_DisplayDriver = displayDriver;
+    s_DisplayDriver->Open();
+    s_ScreenBitmap = s_DisplayDriver->GetScreenBitmap();
+    m_TopView = ptr_new<ServerView>(ptr_raw_pointer_cast(s_ScreenBitmap), "::topview::", GetScreenFrame(), Point(0.0f, 0.0f), 0, 0, Color(0xffffffff), Color(0xffffffff), Color(0));
 
     AddHandler(m_TopView);
 
@@ -143,7 +155,7 @@ void ApplicationServer::Idle()
 
 Rect ApplicationServer::GetScreenFrame()
 {
-    return Rect(Point(0.0f), Point(GfxDriver::Instance.GetResolution()));
+    return Rect(Point(0.0f), Point(s_DisplayDriver->GetResolution()));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -152,7 +164,16 @@ Rect ApplicationServer::GetScreenFrame()
 
 IRect ApplicationServer::GetScreenIFrame()
 {
-    return IRect(IPoint(0), GfxDriver::Instance.GetResolution());
+    return IRect(IPoint(0), s_DisplayDriver->GetResolution());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+DisplayDriver* ApplicationServer::GetDisplayDriver()
+{
+    return ptr_raw_pointer_cast(s_DisplayDriver);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

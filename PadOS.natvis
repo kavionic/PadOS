@@ -201,6 +201,7 @@
 
 
 
+<!-- Copy from  "Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\IDE\CommonExtensions\Microsoft\Linux\Linux\stl.natvis". Remove if I figure out how to import more than one .natvis file. -->
 
   <!-- gnu stl -->
   <Type Name="std::initializer_list&lt;*&gt;">

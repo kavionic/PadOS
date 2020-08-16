@@ -53,6 +53,9 @@ public:
     void SetDetentSpacing(float horizontal, float vertical) { SetDetentSpacing(Point(horizontal, vertical)); }
     Point GetDetentSpacing() const              { return m_DetentSpacing; }
 
+    void SetFriction(float pixelsPerSecond) { s_DefaultFriction = pixelsPerSecond; }
+    float GetFriction() const { return s_DefaultFriction; }
+
     void BeginDrag(const Point& scrollOffset, const Point& dragPosition, Looper* looper = nullptr);
     void EndDrag();
     void AddUpdate(const Point& value);
@@ -67,7 +70,7 @@ private:
     void SlotTick();
 
     static float    s_SpringConstant;
-    static float    s_DefaultFriction;
+    float    s_DefaultFriction = 1000.0f;
     static float    s_MinSpeed;
     static float    s_OverscrollSlip;
 

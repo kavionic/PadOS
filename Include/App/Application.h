@@ -37,8 +37,8 @@ public:
     
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
     virtual void Idle() override;
-    static IRect GetScreenIFrame();
-    static Rect GetScreenFrame() { return Rect(GetScreenIFrame()); }
+    static IRect    GetScreenIFrame();
+    static Rect     GetScreenFrame() { return Rect(GetScreenIFrame()); }
     
     bool AddView(Ptr<View> view, ViewDockType dockType);
     bool RemoveView(Ptr<View> view);

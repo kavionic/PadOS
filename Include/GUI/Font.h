@@ -18,11 +18,14 @@
 
 #pragma once
 
-#include "Ptr/PtrTarget.h"
-#include "Kernel/Drivers/RA8875Driver/GfxDriver.h"
+#include <string>
+
+#include <Ptr/PtrTarget.h>
 
 namespace os
 {
+
+enum class Font_e : uint8_t { e_FontSmall, e_FontNormal, e_FontLarge, e_Font7Seg, e_FontCount };
 
 struct FontHeight
 {
@@ -34,10 +37,10 @@ struct FontHeight
 class Font : public PtrTarget
 {
 public:
-    Font(kernel::GfxDriver::Font_e font) : m_Font(font) {}
+    Font(Font_e font) : m_Font(font) {}
 
-    void Set(kernel::GfxDriver::Font_e font) { m_Font = font; }
-    kernel::GfxDriver::Font_e Get() const { return m_Font; }
+    void Set(Font_e font) { m_Font = font; }
+    Font_e Get() const { return m_Font; }
     FontHeight GetHeight() const;        
 
     int		GetStringLength(const char* pzString, float vWidth, bool bIncludeLast = false) const;
@@ -48,7 +51,7 @@ public:
     float GetStringWidth(const char* string, size_t length) const;
     
 private:
-    kernel::GfxDriver::Font_e m_Font;
+    Font_e m_Font;
 };
 
 } // namespace

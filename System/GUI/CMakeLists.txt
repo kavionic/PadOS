@@ -1,5 +1,6 @@
 target_sources(PadOS PRIVATE
 	Application.cpp
+	Bitmap.cpp
 	Button.cpp
 	ButtonBase.cpp
 	ButtonGroup.cpp

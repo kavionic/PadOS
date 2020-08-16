@@ -15,39 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 16.01.2014 22:23:28
+// Created: 16.01.2014 22:21
 
 #pragma once
 
-
-#include <stdint.h>
-#include "Font.h"
-#include "Math/Point.h"
-#include "Math/Rect.h"
-#include "Utils/Utils.h"
-#include "Kernel/HAL/DigitalPort.h"
-
-namespace kernel
+namespace os
 {
-
-struct LCDRegisters
-{
-    volatile uint16_t DATA;
-    volatile uint16_t CMD;
-};
-
-
-//class File;
-
-#define LCD_DEFAULT_ADDRESS_MODE (/*ILI9481_ADDRESS_MODE_VFLIP |*/ ILI9481_ADDRESS_MODE_REFRESH_BOTTOM_TO_TOP | ILI9481_ADDRESS_MODE_RGB_BGR)
-
-
-
-#define LCD_RED_MASK   0xF800
-#define LCD_GREEN_MASK 0x07E0
-#define LCD_BLUE_MASK  0x001F
-
-#define LCD_RGB(r,g,b) ( (int16_t(r>>3)<<11) | (int16_t(g>>2)<<5) | (b>>3) )
 
 #define   RA8875_STATUS_ROM_BUSY_bp       0
 #define   RA8875_STATUS_ROM_BUSY_bm       BIT8(RA8875_STATUS_ROM_BUSY_bp, 1)
@@ -323,127 +296,4 @@ struct LCDRegisters
 #define RA8875_INTC1       0xF0 // Interrupt Control Register1
 #define RA8875_INTC2       0xF1 // Interrupt Control Register2
 
-
-class GfxDriver
-{
-public:
-    static GfxDriver Instance;
-    
-    enum Orientation_e { e_Portrait, e_Landscape };
-    enum FillDirection_e { e_FillLeftDown, e_FillDownLeft };
-    enum Font_e { e_FontSmall, e_FontNormal, e_FontLarge, e_Font7Seg, e_FontCount };
-        
-    GfxDriver();
-    void InitDisplay(LCDRegisters* registers, const DigitalPin& pinLCDReset, const DigitalPin& pinTouchpadReset, const DigitalPin& pinBacklightControl);
-    void Shutdown();
-
-    void Test();
-
-    void SetOrientation(Orientation_e orientation);
-    inline void SetFillDirection( FillDirection_e direction ) { m_FillDirection = direction; UpdateAddressMode(); }
-    os::IPoint GetResolution() const { return (m_Orientation == e_Landscape) ? os::IPoint(800, 480) : os::IPoint(480, 800); }
-
-    static inline uint16_t MakeColor(uint8_t r, uint8_t g, uint8_t b) { return ((r & 248) << 8) | ((g & 252) << 3) | ((b & 248) >> 3); }
-
-    void SetFgColor(uint16_t color);
-    void SetBgColor(uint16_t color);
-    const FONT_INFO* GetFontDesc(Font_e fontID) const;
-    void SetFont(Font_e fontID);
-    float GetFontHeight(Font_e fontID) const;
-    float   GetStringWidth(Font_e fontID, const char* string, size_t length ) const;
-    size_t  GetStringLength(Font_e fontID, const char* string, size_t length, float width, bool includeLast);
-
-    inline void SetCursor(const os::IPoint& pos) { m_Cursor = pos; }
-    inline void SetCursor(int16_t x, int16_t y) { m_Cursor.x = x; m_Cursor.y = y; }
-    inline const os::IPoint& GetCursor() const { return m_Cursor; }
-
-    void FillRect(const os::IRect& frame);
-    
-    void WritePixel(int16_t x, int16_t y);
-    
-    void DrawLine(int x1, int y1, int x2, int y2);
-    void DrawHLine(int x, int y, int l);
-    void DrawVLine(int x, int y, int l);
-    
-    void FillCircle(int32_t x, int32_t y, int32_t radius);
-
-    void BLT_FillRect(const os::IRect& frame);
-    void BLT_DrawLine(int x1, int y1, int x2, int y2);
-    void BLT_FillCircle(int32_t x, int32_t y, int32_t radius);
-    void BLT_MoveRect(const os::IRect& srcRect, const os::IPoint& dstPos);
-    
-    uint32_t WriteString(const char* string, size_t strLength, const os::IRect& clipRect);
-    uint8_t WriteStringTransparent(const char* string, uint8_t strLength, int16_t maxWidth);
-
-//    void DrawImage(File* file, int16_t width, int16_t height);
-    
-//private:
-    void PLL_ini();
-
-
-    void SetWindow(int x1, int y1, int x2, int y2);
-    void SetWindow(const os::IRect& frame) { SetWindow(frame.left, frame.top, frame.right, frame.bottom); }
-    inline void UpdateAddressMode()
-    {
-        if ( m_FillDirection == e_FillLeftDown )
-        {
-            if ( m_Orientation == e_Landscape ) {
-                WriteCommand(RA8875_MWCR0, RA8875_MWCR0_LR_TD_bg); // Left -> Right then Top -> Down
-            } else {
-                WriteCommand(RA8875_MWCR0, RA8875_MWCR0_TD_LR_bg); // Top -> Down then Left -> Right
-            }
-        }
-        else
-        {
-            if ( m_Orientation == e_Landscape ) {
-                WriteCommand(RA8875_MWCR0, RA8875_MWCR0_TD_LR_bg); // Top -> Down then Left -> Right
-            } else {
-                WriteCommand(RA8875_MWCR0, RA8875_MWCR0_LR_TD_bg); // Left -> Right then Top -> Down
-            }
-        }
-    }
-    void FastFill(uint32_t words, uint16_t color);
-    inline void RenderGlyph(char character, const os::IRect& clipRect);
-
-    void MemoryWrite_Position(int X,int Y)
-    {
-        WriteCommand(RA8875_CURH0, RA8875_CURH1, X);
-        WriteCommand(RA8875_CURV0, RA8875_CURV1, Y);
-        WriteCommand(RA8875_MRWC);
-    }
-
-
-    void WaitMemory()  { while(ReadCommand() & RA8875_STATUS_MEMORY_BUSY_bm); }
-    void WaitBTE()     { while(ReadCommand() & RA8875_STATUS_BTE_BUSY_bm); }
-    void WaitROM()     { while(ReadCommand() & RA8875_STATUS_ROM_BUSY_bm); }
-    void WaitBlitter() { while(ReadCommand() & (RA8875_STATUS_MEMORY_BUSY_bm | RA8875_STATUS_BTE_BUSY_bm)); }
-
-    uint16_t ReadCommand()                                           { return m_Registers->CMD; }
-    void     WriteCommand(uint8_t cmd)                               { m_Registers->CMD = cmd; }
-    void     WriteCommand(uint8_t cmd, uint8_t data)                 { m_Registers->CMD = cmd; m_Registers->DATA = data; }
-    void     WriteCommand(uint8_t cmdL, uint8_t cmdH, uint16_t data) { WriteCommand(cmdL, data & 0xff); WriteCommand(cmdH, data >> 8); }
-
-    uint16_t ReadData()               { return m_Registers->DATA; }
-    void     WriteData(uint16_t data) { m_Registers->DATA = data; }
-
-    LCDRegisters*         m_Registers = nullptr;
-    DigitalPin            m_PinLCDReset;
-    DigitalPin            m_PinTouchpadReset;
-    DigitalPin            m_PinBacklightControl;
-
-    Orientation_e         m_Orientation;
-    FillDirection_e       m_FillDirection;
-    uint16_t              m_FgColor;
-    uint16_t              m_BgColor;
-    Font_e                m_Font;
-    uint8_t               m_FontFirstChar;
-    uint8_t               m_FontHeight;
-    uint8_t               m_FontHeightFullBytes;
-    uint8_t               m_FontHeightRemainingBits;
-    uint8_t               m_FontCharSpacing;
-    const uint8_t*        m_FontGlyphData;
-    const FONT_CHAR_INFO* m_FontCharInfo;
-    os::IPoint                m_Cursor;
-};
-
-} // namespace
+} // namespace os

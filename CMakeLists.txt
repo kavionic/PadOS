@@ -28,7 +28,7 @@ target_sources(PadOS PRIVATE
 	Init.cpp
 	PadOS.natvis
 	posix.cpp
-"Kernel/SysTime.cpp" "Kernel/IRQDispatcher.cpp" "Include/Kernel/IRQDispatcher.h")
+)
 
 
 add_subdirectory(Applications)

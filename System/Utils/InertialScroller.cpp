@@ -22,7 +22,6 @@
 using namespace os;
 
 float InertialScroller::s_SpringConstant  = 20.0f;
-float InertialScroller::s_DefaultFriction = 1000.0f;
 float InertialScroller::s_MinSpeed        = 40.0f;
 float InertialScroller::s_OverscrollSlip  = 0.25f;
 

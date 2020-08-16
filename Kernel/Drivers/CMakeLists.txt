@@ -10,6 +10,5 @@ target_sources(PadOS PRIVATE
 )
 
 #add_subdirectory(ATSAM)
-add_subdirectory(RA8875Driver)
 add_subdirectory(SDMMCDriver)
 add_subdirectory(STM32)

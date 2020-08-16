@@ -328,7 +328,7 @@ private:
     ScrollBar* m_pcHScrollBar = nullptr;
     ScrollBar* m_pcVScrollBar = nullptr;
 
-    Ptr<Font> m_Font = ptr_new<Font>(kernel::GfxDriver::e_FontLarge);
+    Ptr<Font> m_Font = ptr_new<Font>(Font_e::e_FontLarge);
     
     ASPaintView::Receiver        RSPaintView;
     ASViewFrameChanged::Receiver RSViewFrameChanged;

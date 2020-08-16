@@ -201,9 +201,9 @@ protected:
     int         m_HideCount = 0;
     int         m_Level = 0;
 
-    Color       m_EraseColor = Color(0xffffffff);
-    Color       m_BgColor    = Color(0xffffffff);
-    Color       m_FgColor    = Color(0xff000000);
+    Color       m_EraseColor   = Color::FromRGB32A(255, 255, 255);
+    Color       m_BgColor      = Color::FromRGB32A(255, 255, 255);
+    Color       m_FgColor      = Color::FromRGB32A(0, 0, 0);
     
     ViewBase(const ViewBase&) = delete;
     ViewBase& operator=(const ViewBase&) = delete;

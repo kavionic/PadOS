@@ -17,12 +17,16 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 19.03.2018 20:56:30
 
-#include "System/Platform.h"
+#include <System/Platform.h>
 
 #include <string.h>
 
+#include <ApplicationServer/ApplicationServer.h>
+#include <ApplicationServer/DisplayDriver.h>
+#include <ApplicationServer/ServerBitmap.h>
+#include <Utils/Utils.h>
+
 #include "ServerView.h"
-#include "ApplicationServer/ApplicationServer.h"
 
 using namespace os;
 using namespace kernel;
@@ -33,11 +37,9 @@ static int g_ServerViewCount = 0;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ServerView::ServerView(const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor)
+ServerView::ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor)
     : ViewBase(name, frame, scrollOffset, flags, hideCount, eraseColor, bgColor, fgColor)
-    , m_EraseColor16(eraseColor.GetColor16())
-    , m_BgColor16(bgColor.GetColor16())
-    , m_FgColor16(fgColor.GetColor16())
+    , m_Bitmap(bitmap)
 {
     g_ServerViewCount++;
 }
@@ -481,7 +483,7 @@ void ServerView::MoveChilds()
             std::sort(clipList.begin(), clipList.end(), BlitSortCompare(cChildMove));
 
             for (const IRect* clip : clipList) {
-                GfxDriver::Instance.BLT_MoveRect(*clip - cChildMove, clip->TopLeft());
+                m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, *clip - cChildMove, clip->TopLeft(), DM_COPY);
             }
         }
 
@@ -692,15 +694,14 @@ void ServerView::UpdateRegions(bool bForce, bool bRoot)
     {
         if (m_HasInvalidRegs && server->GetTopView() == this /*m_pcBitmap != nullptr*/ && m_DamageReg != nullptr)
         {
-//      if ( m_pcBitmap == g_pcScreenBitmap )
+            if ( m_Bitmap == ApplicationServer::GetScreenBitmap())
             {
                 Region cDrawReg(*m_VisibleReg);
                 cDrawReg.Intersect(*m_DamageReg);
         
-                GfxDriver::Instance.SetFgColor(m_EraseColor16);
                 IPoint screenPos(m_ScreenPos);
                 for (const IRect& clip : cDrawReg.m_Rects) {
-                    GfxDriver::Instance.FillRect(clip + screenPos);
+                    m_Bitmap->m_Driver->FillRect(m_Bitmap, clip + screenPos, m_EraseColor);
                 }
             }
             m_DamageReg = nullptr;
@@ -998,14 +999,12 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
 
         if (!Region::ClipLine(screenFrame, &fromPntScr, &toPntScr)) return;
         
-        GfxDriver::Instance.SetFgColor(m_FgColor16);
         for (const IRect& clip : region->m_Rects)
         {
             if (clip.DoIntersect(boundingBox))
             {
-                GfxDriver::Instance.SetWindow(clip + screenPos);
-                GfxDriver::Instance.DrawLine(fromPntScr.x, fromPntScr.y, toPntScr.x, toPntScr.y);
-            }                
+                m_Bitmap->m_Driver->DrawLine(m_Bitmap, clip + screenPos, fromPntScr, toPntScr, m_FgColor, m_DrawingMode);
+            }
         }
     }
 }
@@ -1031,25 +1030,15 @@ void ServerView::FillRect(const Rect& rect, Color color)
     Ptr<const Region> region = GetRegion();
     if (region != nullptr)
     {
-        GfxDriver::Instance.WaitBlitter();
-        GfxDriver::Instance.SetFgColor(color.GetColor16());
         IPoint screenPos(m_ScreenPos);
         IRect  rectScr(rect + m_ScrollOffset);
         
-        GfxDriver::Instance.SetWindow(ApplicationServer::GetScreenFrame());
-    
-        bool first = true;
         for (const IRect& clip : region->m_Rects)
         {
-            if (!first) {
-                GfxDriver::Instance.WaitBlitter();
-            } else {
-                first = false;
-            }
             IRect clippedRect(rectScr & clip);
             if (clippedRect.IsValid()) {
                 clippedRect += screenPos;
-                GfxDriver::Instance.FillRect(clippedRect);
+                m_Bitmap->m_Driver->FillRect(m_Bitmap, clippedRect, color);
             }
         }
     }        
@@ -1072,8 +1061,6 @@ void ServerView::FillCircle(const Point& position, float radius)
         
         positionScr += screenPos;
         
-        GfxDriver::Instance.WaitBlitter();
-        GfxDriver::Instance.SetFgColor(m_FgColor16);
         IRect boundingBox(positionScr.x - radiusRounded - 2, positionScr.y - radiusRounded - 2, positionScr.x + radiusRounded + 2, positionScr.y + radiusRounded + 2);
         for (const IRect& clip : region->m_Rects)
         {
@@ -1081,8 +1068,7 @@ void ServerView::FillCircle(const Point& position, float radius)
             if (!boundingBox.DoIntersect(clipRect)) {
                 continue;
             }
-            GfxDriver::Instance.SetWindow(clipRect);
-            GfxDriver::Instance.FillCircle(positionScr.x, positionScr.y, radiusRounded);
+            m_Bitmap->m_Driver->FillCircle(m_Bitmap, clipRect, positionScr, radius, m_FgColor, m_DrawingMode);
         }
     }    
 }
@@ -1096,24 +1082,20 @@ void ServerView::DrawString(const String& string)
     Ptr<const Region> region = GetRegion();
     if (region != nullptr)
     {
-        GfxDriver::Instance.WaitBlitter();
-        GfxDriver::Instance.SetFont(m_Font->Get());
-        GfxDriver::Instance.SetBgColor(m_BgColor16);
-        GfxDriver::Instance.SetFgColor(m_FgColor16);
-
         IPoint screenPos(m_ScreenPos);
         IPoint penPos = IPoint(m_PenPosition + m_ScrollOffset);
         
-        IRect boundingBox(penPos.x, penPos.y, penPos.x + GfxDriver::Instance.GetStringWidth(m_Font->Get(), string.c_str(), string.size()), penPos.y + GfxDriver::Instance.GetFontHeight(m_Font->Get()));
-        
+        DisplayDriver* driver = m_Bitmap->m_Driver;
+
+        IRect boundingBox(penPos.x, penPos.y, penPos.x + driver->GetStringWidth(m_Font->Get(), string.c_str(), string.size()), penPos.y + driver->GetFontHeight(m_Font->Get()));
+
         penPos += screenPos;
         
         for (const IRect& clip : region->m_Rects)
         {
             if (clip.DoIntersect(boundingBox))
             {
-                GfxDriver::Instance.SetCursor(penPos);
-                GfxDriver::Instance.WriteString(string.c_str(), string.size(), clip + screenPos);
+                driver->WriteString(m_Bitmap, penPos, string.c_str(), string.size(), clip + screenPos, m_BgColor, m_FgColor, m_Font->Get());
             }                
         }
         m_PenPosition.x += boundingBox.Width();
@@ -1186,7 +1168,7 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     for (IRect* clip : clipList)
     {
         *clip += screenPos; // Convert into screen space
-        GfxDriver::Instance.BLT_MoveRect(*clip - delta, clip->TopLeft());
+        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, *clip - delta, clip->TopLeft(), m_DrawingMode);
     }
     if (m_DamageReg != nullptr)
     {
@@ -1232,16 +1214,11 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
 
 void ServerView::DebugDraw(Color color, uint32_t drawFlags)
 {
-    GfxDriver::Instance.WaitBlitter();
-    GfxDriver::Instance.SetWindow(ApplicationServer::GetScreenFrame());
-    GfxDriver::Instance.SetFgColor(color.GetColor16());
-    GfxDriver::Instance.SetBgColor(color.GetColor16());
-    
     IPoint screenPos(m_ScreenPos);
     
     if (drawFlags & ViewDebugDrawFlags::ViewFrame)
     {
-        DebugDrawRect(GetNormalizedIBounds() + screenPos);
+        DebugDrawRect(GetNormalizedIBounds() + screenPos, color);
     }
     if (drawFlags & ViewDebugDrawFlags::DrawRegion)
     {
@@ -1249,7 +1226,7 @@ void ServerView::DebugDraw(Color color, uint32_t drawFlags)
         {
             for (const IRect& clip : m_VisibleReg->m_Rects)
             {
-                DebugDrawRect(clip + screenPos);
+                DebugDrawRect(clip + screenPos, color);
             }
         }
     }        
@@ -1260,7 +1237,7 @@ void ServerView::DebugDraw(Color color, uint32_t drawFlags)
         {
             for (const IRect& clip : region->m_Rects)
             {
-                DebugDrawRect(clip + screenPos);
+                DebugDrawRect(clip + screenPos, color);
             }
         }
     }        
@@ -1345,7 +1322,7 @@ void ServerView::ScrollBy(const Point& offset)
 
         *clip += screenPos; // Convert into screen space
 
-        GfxDriver::Instance.BLT_MoveRect(*clip - intOffset, clip->TopLeft());
+        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, *clip - intOffset, clip->TopLeft(), DM_COPY);
     }
 
     if (m_DamageReg != nullptr)
@@ -1371,22 +1348,15 @@ void ServerView::ScrollBy(const Point& offset)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DebugDrawRect(const IRect& frame)
+void ServerView::DebugDrawRect(const IRect& frame, Color color)
 {
     IPoint p1(frame.left, frame.top);
     IPoint p2(frame.right - 1, frame.top);
     IPoint p3(frame.right - 1, frame.bottom - 1);
     IPoint p4(frame.left, frame.bottom - 1);
 
-    GfxDriver::Instance.WaitBlitter();
-    GfxDriver::Instance.DrawLine(p1.x, p1.y, p2.x, p2.y);
-
-    GfxDriver::Instance.WaitBlitter();
-    GfxDriver::Instance.DrawLine(p2.x, p2.y, p3.x, p3.y);
-
-    GfxDriver::Instance.WaitBlitter();
-    GfxDriver::Instance.DrawLine(p4.x, p4.y, p3.x, p3.y);
-
-    GfxDriver::Instance.WaitBlitter();
-    GfxDriver::Instance.DrawLine(p1.x, p1.y, p4.x, p4.y);    
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p1, p2, color, DM_COPY);
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p2, p3, color, DM_COPY);
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p4, p3, color, DM_COPY);
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p1, p4, color, DM_COPY);
 }

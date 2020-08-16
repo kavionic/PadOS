@@ -21,6 +21,8 @@
 #include "System/Platform.h"
 
 #include "GUI/Font.h"
+#include "ApplicationServer/ApplicationServer.h"
+#include "ApplicationServer/DisplayDriver.h"
 
 using namespace os;
 
@@ -30,9 +32,10 @@ using namespace os;
 
 FontHeight Font::GetHeight() const
 {
+    DisplayDriver* driver = ApplicationServer::GetDisplayDriver();
     FontHeight height;
     height.ascender = 0.0f;
-    height.descender = kernel::GfxDriver::Instance.GetFontHeight(m_Font);
+    height.descender = driver->GetFontHeight(m_Font);
     height.line_gap = ceil((height.descender - height.ascender) / 10.0f);
     return height;
 }
@@ -81,9 +84,10 @@ int Font::GetStringLength(const std::string& cString, float vWidth, bool bInclud
 
 void Font::GetStringLengths(const char** stringArray, const int* lengthArray, int stringCount, float width, int* maxLengthArray, bool includeLast) const
 {
+    DisplayDriver* driver = ApplicationServer::GetDisplayDriver();
     for (int i = 0; i < stringCount; ++i)
     {
-        maxLengthArray[i] = kernel::GfxDriver::Instance.GetStringLength(m_Font, stringArray[i], lengthArray[i], width, includeLast);
+        maxLengthArray[i] = driver->GetStringLength(m_Font, stringArray[i], lengthArray[i], width, includeLast);
     }
 //    int	i;
 //    // The first string size, and one byte of the first string is already included
@@ -141,5 +145,6 @@ void Font::GetStringLengths(const char** stringArray, const int* lengthArray, in
 
 float Font::GetStringWidth(const char* string, size_t length) const
 {
-    return kernel::GfxDriver::Instance.GetStringWidth(m_Font, string, length);
+    DisplayDriver* driver = ApplicationServer::GetScreenBitmap()->m_Driver;
+    return driver->GetStringWidth(m_Font, string, length);
 }

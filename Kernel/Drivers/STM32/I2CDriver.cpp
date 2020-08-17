@@ -114,7 +114,7 @@ int I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void*
     {
         case I2CIOCTL_SET_SLAVE_ADDRESS:
             if (inArg == nullptr || inDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
-            i2cfile->m_SlaveAddress = *inArg;
+            i2cfile->m_SlaveAddress = uint8_t(*inArg);
             break;
         case I2CIOCTL_GET_SLAVE_ADDRESS:
             if (outArg == nullptr || outDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
@@ -122,7 +122,7 @@ int I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void*
             break;
         case I2CIOCTL_SET_INTERNAL_ADDR_LEN:
             if (inArg == nullptr || inDataLength != sizeof(int) || *inArg < 0 || *inArg > sizeof(m_RegisterAddress)) { set_last_error(EINVAL); return -1; }
-            i2cfile->m_InternalAddressLength = *inArg;
+            i2cfile->m_InternalAddressLength = uint8_t(*inArg);
             break;
         case I2CIOCTL_GET_INTERNAL_ADDR_LEN:
             if (outArg == nullptr || outDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
@@ -181,7 +181,7 @@ ssize_t I2CDriverINode::Read(Ptr<KFileNode> file, off64_t position, void* buffer
 	{
 		m_State = State_e::SendReadAddress;
 		
-		for (int i = 0; i < m_RegisterAddressLength; ++i) m_RegisterAddress[i] = (position >> ((m_RegisterAddressLength - i - 1) * 8)) & 0xff;
+		for (int i = 0; i < m_RegisterAddressLength; ++i) m_RegisterAddress[i] = uint8_t((position >> ((m_RegisterAddressLength - i - 1) * 8)) & 0xff);
 
 		CR2 |= uint32_t(m_RegisterAddressLength) << I2C_CR2_NBYTES_Pos;
 		if (m_Port->ISR & I2C_ISR_TXE)
@@ -255,7 +255,7 @@ ssize_t I2CDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void*
 	{
 		m_State = State_e::SendWriteAddress;
 		
-		for (int i = 0; i < m_RegisterAddressLength; ++i) m_RegisterAddress[i] = (position >> ((m_RegisterAddressLength - i - 1) * 8)) & 0xff;
+		for (int i = 0; i < m_RegisterAddressLength; ++i) m_RegisterAddress[i] = uint8_t((position >> ((m_RegisterAddressLength - i - 1) * 8)) & 0xff);
 
 		int32_t totalLength = m_Length + m_RegisterAddressLength;
 		if (totalLength <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
@@ -447,7 +447,7 @@ int I2CDriverINode::SetSpeed(I2CSpeed speed)
 		}
 		double clockPeriod = double(SCLL + SCLH + 2) * clockCycleTime + tsync1 + tsync2;
 
-		uint32_t rate = 1.0 / clockPeriod;
+		uint32_t rate = uint32_t(1.0 / clockPeriod);
 		if (rate < spec.BaudrateMin || rate > spec.Baudrate) {
 			continue;
 		}
@@ -569,7 +569,7 @@ IRQResult I2CDriverINode::HandleEventIRQ()
 	case State_e::Reading:
 		while ((m_Port->ISR & I2C_ISR_RXNE) && m_CurPos != m_Length)
 		{
-			m_Buffer[m_CurPos++] = m_Port->RXDR;
+			m_Buffer[m_CurPos++] = uint8_t(m_Port->RXDR);
 		}
 		break;
 	case State_e::Writing:

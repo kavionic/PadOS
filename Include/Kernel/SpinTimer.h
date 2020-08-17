@@ -30,20 +30,20 @@ class SpinTimer
 public:
     static void Initialize();
 
-    static void SleepuS(int32_t delay)
+    static void SleepuS(uint32_t delay)
     {
-        delay = delay * s_TicksPerMicroSec;
+        int32_t delayCycles = delay * s_TicksPerMicroSec;
 
 		uint32_t prev = SysTick->VAL;
 		uint32_t range = SysTick->LOAD;
 
-        while(delay > 0)
+        while(delayCycles > 0)
         {
 			uint32_t current = SysTick->VAL;
 			if (current <= prev) {
-				delay -= prev - current;
+                delayCycles -= prev - current;
 			} else {
-        		delay -= prev + (range - current);
+                delayCycles -= prev + (range - current);
         	}
 			prev = current;
         }

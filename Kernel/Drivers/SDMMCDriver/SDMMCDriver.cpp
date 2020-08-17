@@ -271,7 +271,7 @@ ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, s
             if (position >= inode->bi_nSize) {
                 return 0;
             } else {
-                length = inode->bi_nSize - position;
+                length = size_t(inode->bi_nSize - position);
             }
         }
         position += inode->bi_nStart;
@@ -283,7 +283,7 @@ ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, s
         return -1;
     }
     
-    uint32_t firstBlock = position / BLOCK_SIZE;
+    uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
     uint32_t blockCount = length / BLOCK_SIZE;
     
     int error;
@@ -356,7 +356,7 @@ ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const void* bu
             if (position >= inode->bi_nSize) {
                 return 0;
             } else {
-                length = inode->bi_nSize - position;
+                length = size_t(inode->bi_nSize - position);
             }
         }
         position += inode->bi_nStart;
@@ -367,7 +367,7 @@ ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const void* bu
         return -1;
     }
 
-    uint32_t firstBlock = position / BLOCK_SIZE;
+    uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
     uint32_t blockCount = length / BLOCK_SIZE;
 
     int error;
@@ -497,7 +497,7 @@ bool SDMMCDriver::InitializeCard()
     if (!SendCmd(SD_CMD3_SEND_RELATIVE_ADDR, 0)) {
         return false;
     }
-    m_RCA = GetResponse() >> 16;
+    m_RCA = uint16_t(GetResponse() >> 16);
 
     // SD MEMORY, Get the Card-Specific Data
     if (m_CardType & SDMMCCardType::SD)

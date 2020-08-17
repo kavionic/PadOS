@@ -254,7 +254,7 @@ bool FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool update
         return result;
     }
 
-    i = (node->m_Size + m_Volume->m_BytesPerSector * m_Volume->m_SectorsPerCluster - 1) / m_Volume->m_BytesPerSector / m_Volume->m_SectorsPerCluster;
+    i = uint32_t((node->m_Size + m_Volume->m_BytesPerSector * m_Volume->m_SectorsPerCluster - 1) / m_Volume->m_BytesPerSector / m_Volume->m_SectorsPerCluster);
     if (i == clusters) return true;
 
     if (clusters > i)

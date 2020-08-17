@@ -167,7 +167,7 @@ KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
     doLoad = true; // Until we properly handle partially loaded blocks.
     
     off64_t bufferNum   = blockNum >> m_BlockToBufferShift;
-    size_t  blockOffset = (blockNum & m_BufferOffsetMask) * m_BlockSize;
+    size_t  blockOffset = size_t((blockNum & m_BufferOffsetMask) * m_BlockSize);
     
     for (int retry = 0; retry < 10; ++retry)
     {

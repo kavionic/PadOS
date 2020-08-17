@@ -131,7 +131,7 @@ void TLV493DDriver::ResetSensor()
 
 		m_WriteRegisters.Mode1 |= TLV493D_MODE1_LOW;
 		m_WriteRegisters.Mode1 |= TLV493D_MODE1_FAST;
-		m_WriteRegisters.Mode1 &= ~TLV493D_MODE1_INT;
+		m_WriteRegisters.Mode1 &= uint8_t(~TLV493D_MODE1_INT);
 		UpdateParity();
 
 		errorCount = 0;
@@ -281,13 +281,13 @@ void TLV493DDriver::UpdateParity()
 		value ^= data[i];
 	}
 	// Combine all bits of this byte
-	value = value ^ (value >> 1);
-	value = value ^ (value >> 2);
-	value = value ^ (value >> 4);
+	value = uint8_t(value ^ (value >> 1));
+	value = uint8_t(value ^ (value >> 2));
+	value = uint8_t(value ^ (value >> 4));
 
 	// Parity is in the LSB of 'value'.
 	if ((value & 0x01) == 0) {
-		m_WriteRegisters.Mode1 &= ~TLV493D_MODE1_PARITY;
+		m_WriteRegisters.Mode1 &= uint8_t(~TLV493D_MODE1_PARITY);
 	}
 }
 

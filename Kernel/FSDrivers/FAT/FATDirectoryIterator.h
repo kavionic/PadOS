@@ -72,10 +72,10 @@ struct FATDirectoryEntryInfo
 {
     uint32_t m_StartIndex;
     uint32_t m_EndIndex;
-    uint32_t m_DOSAttribs;
     uint32_t m_StartCluster;
     uint32_t m_Size;
     uint32_t m_FATTime;
+    uint8_t  m_DOSAttribs;
 };
 
 

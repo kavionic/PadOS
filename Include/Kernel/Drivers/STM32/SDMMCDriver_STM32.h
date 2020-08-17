@@ -44,7 +44,7 @@ public:
     virtual bool	SendCmd(uint32_t cmd, uint32_t arg) override;
     virtual uint32_t	GetResponse() override;
     virtual void	GetResponse128(uint8_t* response) override;
-    virtual bool	StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint16_t blockCount, const void* buffer) override;
+    virtual bool	StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const void* buffer) override;
     virtual bool	StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg) override;
     virtual void	ApplySpeedAndBusWidth() override;
 

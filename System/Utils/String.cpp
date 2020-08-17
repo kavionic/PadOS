@@ -60,7 +60,7 @@ size_t String::copy_utf16(wchar16_t* dst, size_t length, size_t pos) const
     size_t outPos = 0;
     for (size_t i = pos; i < size() && outPos < length; i += utf8_char_length(at(i)))
     {
-        dst[outPos++] = utf8_to_unicode(data() + i);
+        dst[outPos++] = wchar16_t(utf8_to_unicode(data() + i));
     }
     return outPos;
 }
@@ -144,7 +144,8 @@ String& String::lstrip()
 String& String::rstrip()
 {
     size_t spaces = 0;
-    for (ssize_t i = size() - 1 ; i >= 0 ; --i) {
+    for (ssize_t i = size() - 1 ; i >= 0 ; --i)
+    {
         if (!isspace((*this)[i])) {
             break;
         }
@@ -161,7 +162,7 @@ String& String::rstrip()
 String& String::lower()
 {
     for (size_t i = 0 ; i < size() ; ++i) {
-        (*this)[i] = tolower((*this)[i]);
+        (*this)[i] = char(tolower((*this)[i]));
     }
     return *this;
 }
@@ -173,7 +174,7 @@ String& String::lower()
 String& String::upper()
 {
     for ( uint i = 0 ; i < size() ; ++i ) {
-        (*this)[i] = toupper((*this)[i]);
+        (*this)[i] = char(toupper((*this)[i]));
     }
     return *this;
 }

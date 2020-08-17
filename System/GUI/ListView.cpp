@@ -322,7 +322,7 @@ void ListView::AdjustScrollBars(bool okToHScroll)
         {
             if (m_HScrollBar == nullptr)
             {
-                m_HScrollBar = ptr_new<ScrollBar>("h_scroll", ptr_tmp_cast(this), 0, 1000, Orientation::Horizontal);
+                m_HScrollBar = ptr_new<ScrollBar>("h_scroll", ptr_tmp_cast(this), 0.0f, 1000.0f, Orientation::Horizontal);
                 m_HScrollBar->SetScrollTarget(m_HeaderView);
                 Layout();
             }

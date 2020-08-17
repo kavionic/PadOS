@@ -214,10 +214,10 @@ void RA8875Driver::DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPoi
 
         SetFgColor(color.GetColor16());
 
-        WriteCommand(RA8875_DLHSR0, RA8875_DLHSR1, pos1.x);
-        WriteCommand(RA8875_DLVSR0, RA8875_DLVSR1, pos1.y);
-        WriteCommand(RA8875_DLHER0, RA8875_DLHER1, pos2.x);
-        WriteCommand(RA8875_DLVER0, RA8875_DLVER1, pos2.y);
+        WriteCommand(RA8875_DLHSR0, RA8875_DLHSR1, uint16_t(pos1.x));
+        WriteCommand(RA8875_DLVSR0, RA8875_DLVSR1, uint16_t(pos1.y));
+        WriteCommand(RA8875_DLHER0, RA8875_DLHER1, uint16_t(pos2.x));
+        WriteCommand(RA8875_DLVER0, RA8875_DLVER1, uint16_t(pos2.y));
 
         WriteCommand(RA8875_DCR, RA8875_DCR_LINE_SQR_TRI_bm);
     }
@@ -241,10 +241,10 @@ void RA8875Driver::FillRect(SrvBitmap* bitmap, const IRect& rect, const Color& c
         if (rect.left != (rect.right - 1) || rect.top != (rect.bottom - 1))
         {
             SetFgColor(color.GetColor16());
-            WriteCommand(RA8875_DLHSR0, RA8875_DLHSR1, rect.left);
-            WriteCommand(RA8875_DLVSR0, RA8875_DLVSR1, rect.top);
-            WriteCommand(RA8875_DLHER0, RA8875_DLHER1, rect.right - 1);
-            WriteCommand(RA8875_DLVER0, RA8875_DLVER1, rect.bottom - 1);
+            WriteCommand(RA8875_DLHSR0, RA8875_DLHSR1, uint16_t(rect.left));
+            WriteCommand(RA8875_DLVSR0, RA8875_DLVSR1, uint16_t(rect.top));
+            WriteCommand(RA8875_DLHER0, RA8875_DLHER1, uint16_t(rect.right - 1));
+            WriteCommand(RA8875_DLVER0, RA8875_DLVER1, uint16_t(rect.bottom - 1));
 
             WriteCommand(RA8875_DCR, RA8875_DCR_FILL_bm | RA8875_DCR_LINE_SQR_TRI_bm | RA8875_DCR_SQUARE_bm);
         }
@@ -287,13 +287,13 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, const IR
             srcPos = IPoint(srcRect.left, srcRect.top);
             dstPos = dstPosIn;
         }
-        WriteCommand(RA8875_HSBE0, RA8875_HSBE1, srcPos.x);
-        WriteCommand(RA8875_VSBE0, RA8875_VSBE1, srcPos.y);
-        WriteCommand(RA8875_HDBE0, RA8875_HDBE1, dstPos.x);
-        WriteCommand(RA8875_VDBE0, RA8875_VDBE1, dstPos.y);
+        WriteCommand(RA8875_HSBE0, RA8875_HSBE1, uint16_t(srcPos.x));
+        WriteCommand(RA8875_VSBE0, RA8875_VSBE1, uint16_t(srcPos.y));
+        WriteCommand(RA8875_HDBE0, RA8875_HDBE1, uint16_t(dstPos.x));
+        WriteCommand(RA8875_VDBE0, RA8875_VDBE1, uint16_t(dstPos.y));
 
-        WriteCommand(RA8875_BEWR0, RA8875_BEWR1, srcRect.Width());
-        WriteCommand(RA8875_BEHR0, RA8875_BEHR1, srcRect.Height());
+        WriteCommand(RA8875_BEWR0, RA8875_BEWR1, uint16_t(srcRect.Width()));
+        WriteCommand(RA8875_BEHR0, RA8875_BEHR1, uint16_t(srcRect.Height()));
 
         WriteCommand(RA8875_BECR1, ctrl | RA8875_BTE_ROP_S);
         WriteCommand(RA8875_BECR0, RA8875_BECR0_SRC_BLOCK | RA8875_BECR0_DST_BLOCK | RA8875_BECR0_ENABLE_bm);
@@ -573,8 +573,8 @@ void RA8875Driver::SetWindow(int x1, int y1, int x2, int y2)
 
     WaitBlitter();
 
-    WriteCommand(RA8875_HSAW0, RA8875_HSAW1, x1);
-    WriteCommand(RA8875_HEAW0, RA8875_HEAW1, x2 - 1);
-    WriteCommand(RA8875_VSAW0, RA8875_VSAW1, y1);
-    WriteCommand(RA8875_VEAW0, RA8875_VEAW1, y2 - 1);
+    WriteCommand(RA8875_HSAW0, RA8875_HSAW1, uint16_t(x1));
+    WriteCommand(RA8875_HEAW0, RA8875_HEAW1, uint16_t(x2 - 1));
+    WriteCommand(RA8875_VSAW0, RA8875_VSAW1, uint16_t(y1));
+    WriteCommand(RA8875_VEAW0, RA8875_VEAW1, uint16_t(y2 - 1));
 }

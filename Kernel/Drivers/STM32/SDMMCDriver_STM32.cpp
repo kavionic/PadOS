@@ -167,10 +167,10 @@ void SDMMCDriver_STM32::GetResponse128(uint8_t* response)
 	for (int i = 0; i < 4; ++i)
 	{
 		uint32_t response32 = (&m_SDMMC->RESP1)[i];
-		*response++ = (response32 >> 24) & 0xff;
-		*response++ = (response32 >> 16) & 0xff;
-		*response++ = (response32 >> 8) & 0xff;
-		*response++ = (response32 >> 0) & 0xff;
+		*response++ = uint8_t((response32 >> 24) & 0xff);
+		*response++ = uint8_t((response32 >> 16) & 0xff);
+		*response++ = uint8_t((response32 >> 8) & 0xff);
+		*response++ = uint8_t((response32 >> 0) & 0xff);
 	}
 }
 
@@ -178,7 +178,7 @@ void SDMMCDriver_STM32::GetResponse128(uint8_t* response)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint16_t blockCount, const void* buffer)
+bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const void* buffer)
 {
 	const uint32_t blockSize = 1 << blockSizePower;
 	const uint32_t byteLength = blockSize * blockCount;
@@ -450,7 +450,7 @@ void SDMMCDriver_STM32::SendClock()
 	m_SDMMC->CLKCR &= ~SDMMC_CLKCR_PWRSAV;	// Disable power-save to make sure the clock is running.
     TimeValMicros delay = TimeValMicros::FromMicroseconds((TimeValMicros::TicksPerSecond * 74 + m_Clock - 1) / m_Clock);	// Sleep for at least 74 SDMMC clock cycles.
 	if (delay < TimeValMicros::zero) delay = TimeValMicros::FromMicroseconds(1);
-	SpinTimer::SleepuS(delay.AsMicroSeconds());
+	SpinTimer::SleepuS(uint32_t(delay.AsMicroSeconds()));
 
 	m_SDMMC->CLKCR = CLKCR; // Restore power-save.
 }

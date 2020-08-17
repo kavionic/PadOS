@@ -25,8 +25,8 @@ namespace os
 
 struct Color
 {
-    static constexpr Color FromRGB15(uint16_t color) { return Color(((color >> 10) & 0x1f) * 255 / 31, ((color >> 5) & 0x1f) * 255 / 31, (color & 0x1f) * 255 / 31, 255); }
-    static constexpr Color FromRGB16(uint16_t color) { return Color(((color >> 11) & 0x1f) * 255 / 31, ((color >> 6) & 0x3f) * 255 / 63, (color & 0x1f) * 255 / 31, 255); }
+    static constexpr Color FromRGB15(uint16_t color) { return Color(uint8_t(((color >> 10) & 0x1f) * 255 / 31), uint8_t(((color >> 5) & 0x1f) * 255 / 31), uint8_t((color & 0x1f) * 255 / 31), 255); }
+    static constexpr Color FromRGB16(uint16_t color) { return Color(uint8_t(((color >> 11) & 0x1f) * 255 / 31), uint8_t(((color >> 6) & 0x3f) * 255 / 63), uint8_t((color & 0x1f) * 255 / 31), 255); }
     static constexpr Color FromRGB32A(uint32_t color) { return Color(color); }
     static constexpr Color FromRGB32A(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255) { return Color(red, blue, green, alpha); }
 
@@ -35,24 +35,24 @@ struct Color
     explicit constexpr Color(uint32_t color32) : m_Color(color32) {}
     constexpr Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : m_Color((r << 16) | (g << 8) | b | (a << 24)) {}
 
-    void Set16(uint16_t color)                                     { SetRGBA(((color >> 11) & 0x1f) * 255 / 31, ((color >> 6) & 0x3f) * 255 / 63, (color & 0x1f) * 255 / 31, 255); }
+    void Set16(uint16_t color)                                     { SetRGBA(uint8_t(((color >> 11) & 0x1f) * 255 / 31), uint8_t(((color >> 6) & 0x3f) * 255 / 63), uint8_t((color & 0x1f) * 255 / 31), 255); }
     void Set32(uint32_t color)                                     { m_Color = color; }
     void SetRGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) { m_Color = (r << 16) | (g << 8) | b | (a << 24); }
     
-    uint8_t GetRed() const { return (m_Color >> 16) & 0xff; }
-    uint8_t GetGreen() const { return (m_Color >> 8) & 0xff; }
-    uint8_t GetBlue() const { return m_Color & 0xff; }
-    uint8_t GetAlpha() const { return (m_Color >> 24) & 0xff; }
+    uint8_t GetRed() const { return uint8_t((m_Color >> 16) & 0xff); }
+    uint8_t GetGreen() const { return uint8_t((m_Color >> 8) & 0xff); }
+    uint8_t GetBlue() const { return uint8_t(m_Color & 0xff); }
+    uint8_t GetAlpha() const { return uint8_t((m_Color >> 24) & 0xff); }
 
     Color GetNorimalized() const { return GetNorimalized(GetAlpha()); }
-    Color GetNorimalized(uint8_t alpha) const { return Color((uint32_t(GetRed()) * alpha + 127) / 255, (uint32_t(GetGreen()) * alpha + 127) / 255, (uint32_t(GetBlue()) * alpha + 127) / 255); }
+    Color GetNorimalized(uint8_t alpha) const { return Color(uint8_t((uint32_t(GetRed()) * alpha + 127) / 255), uint8_t((uint32_t(GetGreen()) * alpha + 127) / 255), uint8_t((uint32_t(GetBlue()) * alpha + 127) / 255)); }
 
-    uint16_t GetColor15() const { return ((GetRed() & 0xf8) << 7) | ((GetGreen() & 0xf8) << 2) | ((GetBlue() & 0xf8) >> 3); }
-    uint16_t GetColor16() const { return ((GetRed() & 0xf8) << 8) | ((GetGreen() & 0xfc) << 3) | ((GetBlue() & 0xf8) >> 3); }
+    uint16_t GetColor15() const { return uint16_t(((GetRed() & 0xf8) << 7) | ((GetGreen() & 0xf8) << 2) | ((GetBlue() & 0xf8) >> 3)); }
+    uint16_t GetColor16() const { return uint16_t(((GetRed() & 0xf8) << 8) | ((GetGreen() & 0xfc) << 3) | ((GetBlue() & 0xf8) >> 3)); }
     uint32_t GetColor32() const { return m_Color; }
 
-    Color GetInverted() const { return Color(255 - GetRed(), 255 - GetGreen(), 255 - GetBlue(), GetAlpha()); }
-    void  Invert() { SetRGBA(255 - GetRed(), 255 - GetGreen(), 255 - GetBlue(), GetAlpha()); }
+    Color GetInverted() const { return Color(uint8_t(255 - GetRed()), uint8_t(255 - GetGreen()), uint8_t(255 - GetBlue()), GetAlpha()); }
+    void  Invert() { SetRGBA(uint8_t(255 - GetRed()), uint8_t(255 - GetGreen()), uint8_t(255 - GetBlue()), GetAlpha()); }
 
     uint32_t m_Color;
 };

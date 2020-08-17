@@ -45,7 +45,7 @@ public:
     Point(float nX, float nY) { x = nX; y = nY; }
 
     float LengthSqr() const { return x * x + y * y; }
-    float Length() const { return sqrt(LengthSqr()); }
+    float Length() const { return sqrtf(LengthSqr()); }
 
     Point GetNormalized() const { return *this * (1.0f / Length()); }
     Point& Normalize() { return *this *= (1.0f / Length()); }

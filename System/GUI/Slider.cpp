@@ -774,9 +774,9 @@ void Slider::RenderTicks()
             const float y3 = y4 + TICK_LENGTH;
 
             SetFgColor(get_standard_color(StandardColorID::SHADOW));
-            for (float i = 0; i < m_NumTicks; i += 1.0f)
+            for (int i = 0; i < m_NumTicks; ++i)
             {
-                const float x = floor(sliderFrame.left + width * i * scale);
+                const float x = floor(sliderFrame.left + width * float(i) * scale);
                 if (HasFlags(SliderFlags::TicksAbove)) {
                     DrawLine(Point(x, y1), Point(x, y2));
                 }
@@ -785,9 +785,9 @@ void Slider::RenderTicks()
                 }
             }
             SetFgColor(get_standard_color(StandardColorID::SHINE));
-            for (float i = 0; i < m_NumTicks; i += 1.0f)
+            for (int i = 0; i < m_NumTicks; ++i)
             {
-                const float x = floor(sliderFrame.left + width * i * scale) + 1.0f;
+                const float x = floor(sliderFrame.left + width * float(i) * scale) + 1.0f;
                 if (HasFlags(SliderFlags::TicksAbove)) {
                     DrawLine(Point(x, y1), Point(x, y2));
                 }
@@ -806,9 +806,9 @@ void Slider::RenderTicks()
             const float x3 = x4 + TICK_LENGTH;
 
             SetFgColor(get_standard_color(StandardColorID::SHADOW));
-            for (float i = 0; i < m_NumTicks; i += 1.0f)
+            for (int i = 0; i < m_NumTicks; ++i)
             {
-                const float y = floor(sliderFrame.top + height * i * scale);
+                const float y = floor(sliderFrame.top + height * float(i) * scale);
                 if (HasFlags(SliderFlags::TicksLeft)) {
                     DrawLine(Point(x1, y), Point(x2, y));
                 }
@@ -817,9 +817,9 @@ void Slider::RenderTicks()
                 }
             }
             SetFgColor(get_standard_color(StandardColorID::SHINE));
-            for (float i = 0; i < m_NumTicks; i += 1.0f)
+            for (int i = 0; i < m_NumTicks; ++i)
             {
-                const float y = floor(sliderFrame.top + height * i * scale) + 1.0f;
+                const float y = floor(sliderFrame.top + height * float(i) * scale) + 1.0f;
                 if (HasFlags(SliderFlags::TicksLeft)) {
                     DrawLine(Point(x1, y), Point(x2, y));
                 }

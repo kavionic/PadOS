@@ -340,7 +340,7 @@ void KVFSManager::FlushInodes()
     {
         CRITICAL_SCOPE(s_INodeMapMutex);
 
-        time_t curTime = get_system_time().AsSeconds();
+        time_t curTime = get_system_time().AsSecondsI();
         while(s_InodeMRUList.m_First != nullptr && curTime > (s_InodeMRUList.m_First->m_LastUseTime + 1))
         {
             DiscardInode(s_InodeMRUList.m_First);

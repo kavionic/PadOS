@@ -36,10 +36,10 @@ class FATINode;
 
 struct FATNewDirEntryInfo
 {
-    uint32_t m_DOSAttribs;
-    uint32_t cluster;
-    uint32_t size;
-    time_t time;
+    uint32_t    cluster;
+    size_t      size;
+    time_t      time;
+    uint8_t     m_DOSAttribs;
 };
 
 

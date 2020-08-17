@@ -81,9 +81,9 @@ public:
     uint32_t m_DirEndIndex;   // Ending index of directory entry.
     uint32_t m_StartCluster;  // Data starting cluster.
     uint32_t m_EndCluster;    // Last data cluster.
-    uint32_t m_DOSAttribs;    // DOS-style attributes.
     off64_t  m_Size;          // Size in bytes.
     time_t   m_Time;          // Unix type timestamp.
+    uint8_t  m_DOSAttribs;    // DOS-style attributes.
 
 private:
     FATINode(const FATINode&) = delete;

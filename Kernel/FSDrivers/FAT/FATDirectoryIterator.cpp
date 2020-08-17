@@ -88,7 +88,7 @@ static bool UTF16ToCP437(uint16_t unicode, uint8_t* result)
 {
     if (unicode < 0x80)
     {
-        *result = unicode;
+        *result = uint8_t(unicode);
         return true;
     }
     else
@@ -131,7 +131,7 @@ static bool FilteredUTF16ToCP437(uint16_t utf16, uint8_t* result)
     {
         char *cp;
         if (character >= 'a' && character <= 'z') {
-            *result = character - 'a' + 'A';
+            *result = uint8_t(character - 'a' + 'A');
             return true;
         } else if (strchr(underbar, character)) {
             *result = '_';
@@ -699,7 +699,7 @@ uint8_t FATDirectoryIterator::HashMSDOSName(const char* name)
     const uint8_t* p = reinterpret_cast<const uint8_t*>(name);
     uint8_t c = 0;
     for (int i = 0; i < 11; ++i) {
-        c = (c << 7) + (c >> 1) + *(p++);
+        c = uint8_t((c << 7) + (c >> 1) + *(p++));
     }
     return c;
 }

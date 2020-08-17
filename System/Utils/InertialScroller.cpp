@@ -69,7 +69,7 @@ void InertialScroller::BeginDrag(const Point& scrollOffset, const Point& dragPos
 
 void InertialScroller::EndDrag()
 {
-    const float deltaTime = (get_system_time() - m_BeginDragTime).AsSeconds();
+    const float deltaTime = (get_system_time() - m_BeginDragTime).AsSecondsF();
     if (deltaTime > 0.0f && deltaTime < 0.2f) {
         m_Velocity = (m_TargetPosition - m_BeginDragPosition) / deltaTime;
     }
@@ -154,7 +154,7 @@ void InertialScroller::SlotTick()
     if (curTime == m_LastTickTime) {
         return;
     }
-    const float deltaTime = (curTime - m_LastTickTime).AsSeconds();
+    const float deltaTime = (curTime - m_LastTickTime).AsSecondsF();
 
     m_LastTickTime = curTime;
 

@@ -142,7 +142,7 @@ protected:
     virtual bool		SendCmd(uint32_t cmd, uint32_t arg) = 0;
 	virtual uint32_t	GetResponse() = 0;
     virtual void		GetResponse128(uint8_t* response) = 0;
-    virtual bool		StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint16_t blockCount, const void* buffer) = 0;
+    virtual bool		StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const void* buffer) = 0;
     virtual bool		StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg) = 0;
     
     bool     OperationalConditionMCI_sd(bool v2);

@@ -21,7 +21,7 @@
 #include <stm32h743xx.h>
 #include "Kernel/HAL/DigitalPort.h"
 
-static constexpr IRQn_Type INVALID_IRQ = IRQn_Type(0xffff);
+static constexpr IRQn_Type INVALID_IRQ = IRQn_Type(255);
 
 inline IRQn_Type get_peripheral_irq(DigitalPinID portPin)
 {

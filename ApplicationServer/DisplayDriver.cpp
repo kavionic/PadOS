@@ -426,7 +426,7 @@ void DisplayDriver::SetMousePos(IPoint cNewPos)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::FillBlit8(uint8_t* pDst, int nMod, int W, int H, int nColor)
+void DisplayDriver::FillBlit8(uint8_t* pDst, int nMod, int W, int H, uint8_t nColor)
 {
     int X, Y;
 
@@ -443,7 +443,7 @@ void DisplayDriver::FillBlit8(uint8_t* pDst, int nMod, int W, int H, int nColor)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::FillBlit16(uint16_t* pDst, int nMod, int W, int H, uint32_t nColor)
+void DisplayDriver::FillBlit16(uint16_t* pDst, int nMod, int W, int H, uint16_t nColor)
 {
     int X, Y;
 
@@ -469,7 +469,7 @@ void DisplayDriver::FillBlit24(uint8_t* pDst, int nMod, int W, int H, uint32_t n
         for (X = 0; X < W; X++)
         {
             *pDst++ = nColor & 0xff;
-            *((uint16_t*)pDst) = nColor >> 8;
+            *((uint16_t*)pDst) = uint16_t(nColor >> 8);
             pDst += 2;
         }
         pDst += nMod;
@@ -1164,9 +1164,9 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
                         *pDst = sSrcColor.GetColor16();
                     } else if (nAlpha != 0x00) {
                         Color sDstColor = Color::FromRGB16(*pDst);
-                        *pDst = Color(sDstColor.GetRed() * (256 - nAlpha) / 256   + sSrcColor.GetRed() * nAlpha / 256,
-                                      sDstColor.GetGreen() * (256 - nAlpha) / 256 + sSrcColor.GetGreen() * nAlpha / 256,
-                                      sDstColor.GetBlue() * (256 - nAlpha) / 256  + sSrcColor.GetBlue() * nAlpha / 256,
+                        *pDst = Color(uint8_t(sDstColor.GetRed() * (256 - nAlpha) / 256   + sSrcColor.GetRed() * nAlpha / 256),
+                                      uint8_t(sDstColor.GetGreen() * (256 - nAlpha) / 256 + sSrcColor.GetGreen() * nAlpha / 256),
+                                      uint8_t(sDstColor.GetBlue() * (256 - nAlpha) / 256  + sSrcColor.GetBlue() * nAlpha / 256),
                                       0).GetColor16();
                     }
                     pDst++;
@@ -1192,9 +1192,9 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
                         *pDst = sSrcColor.GetColor15();
                     } else if (nAlpha != 0x00) {
                         Color sDstColor = Color::FromRGB15(*pDst);
-                        *pDst = Color(sDstColor.GetRed() * (256 - nAlpha) / 256   + sSrcColor.GetRed() * nAlpha / 256,
-                                      sDstColor.GetGreen() * (256 - nAlpha) / 256 + sSrcColor.GetGreen() * nAlpha / 256,
-                                      sDstColor.GetBlue() * (256 - nAlpha) / 256  + sSrcColor.GetBlue() * nAlpha / 256,
+                        *pDst = Color(uint8_t(sDstColor.GetRed() * (256 - nAlpha) / 256   + sSrcColor.GetRed() * nAlpha / 256),
+                                      uint8_t(sDstColor.GetGreen() * (256 - nAlpha) / 256 + sSrcColor.GetGreen() * nAlpha / 256),
+                                      uint8_t(sDstColor.GetBlue() * (256 - nAlpha) / 256  + sSrcColor.GetBlue() * nAlpha / 256),
                                       0).GetColor15();
                     }
                     pDst++;
@@ -1220,9 +1220,9 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
                         *pDst = sSrcColor.GetColor32();
                     } else if (nAlpha != 0x00) {
                         Color sDstColor = Color::FromRGB32A(*pDst);
-                        *pDst = Color(sDstColor.GetRed() * (256 - nAlpha) / 256 + sSrcColor.GetRed() * nAlpha / 256,
-                                      sDstColor.GetGreen() * (256 - nAlpha) / 256 + sSrcColor.GetGreen() * nAlpha / 256,
-                                      sDstColor.GetBlue() * (256 - nAlpha) / 256 + sSrcColor.GetBlue() * nAlpha / 256,
+                        *pDst = Color(uint8_t(sDstColor.GetRed() * (256 - nAlpha) / 256 + sSrcColor.GetRed() * nAlpha / 256),
+                                      uint8_t(sDstColor.GetGreen() * (256 - nAlpha) / 256 + sSrcColor.GetGreen() * nAlpha / 256),
+                                      uint8_t(sDstColor.GetBlue() * (256 - nAlpha) / 256 + sSrcColor.GetBlue() * nAlpha / 256),
                                       0).GetColor32();
                     }
                     pDst++;
@@ -1416,7 +1416,7 @@ void DisplayDriver::BltBitmapMask(SrvBitmap* pcDstBitMap, SrvBitmap* pcSrcBitMap
 
 void DisplayDriver::FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, drawing_mode mode)
 {
-    Rect frame(-radius, -radius, radius, radius);
+    IRect frame(-radius, -radius, radius, radius);
 
     int radiusSqr = radius * radius;
     for (int y1 = frame.top; y1 <= 0; ++y1)

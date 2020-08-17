@@ -210,7 +210,10 @@ struct TimeValue
             return m_Value * (1000000000 / TicksPerSecond);
         }
     }
-    double AsSeconds() const { return double(m_Value) / double(TicksPerSecond); }
+    double      AsSeconds() const { return double(m_Value) / double(TicksPerSecond); }
+    float       AsSecondsF() const { return float(AsSeconds()); }
+    bigtime_t   AsSecondsI() const { return m_Value / TicksPerSecond; }
+
     T AsNative() const { return m_Value; }
 
     // Misc:

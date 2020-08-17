@@ -491,7 +491,7 @@ void ServerView::MoveChilds()
         // we may need to redraw the right and bottom edges.
 
         Ptr<ServerView> parent = m_Parent.Lock();
-        if ( parent != nullptr && (m_DeltaMove.x != 0.0f || m_DeltaMove.y != 0.0f) )
+        if ( parent != nullptr && (m_DeltaMove.x != 0 || m_DeltaMove.y != 0) )
         {
             if (parent->m_DeltaSize.x < 0)
             {
@@ -1068,7 +1068,7 @@ void ServerView::FillCircle(const Point& position, float radius)
             if (!boundingBox.DoIntersect(clipRect)) {
                 continue;
             }
-            m_Bitmap->m_Driver->FillCircle(m_Bitmap, clipRect, positionScr, radius, m_FgColor, m_DrawingMode);
+            m_Bitmap->m_Driver->FillCircle(m_Bitmap, clipRect, positionScr, int32_t(roundf(radius)), m_FgColor, m_DrawingMode);
         }
     }    
 }
@@ -1087,7 +1087,7 @@ void ServerView::DrawString(const String& string)
         
         DisplayDriver* driver = m_Bitmap->m_Driver;
 
-        IRect boundingBox(penPos.x, penPos.y, penPos.x + driver->GetStringWidth(m_Font->Get(), string.c_str(), string.size()), penPos.y + driver->GetFontHeight(m_Font->Get()));
+        IRect boundingBox(penPos.x, penPos.y, penPos.x + int(driver->GetStringWidth(m_Font->Get(), string.c_str(), string.size())), penPos.y + int(driver->GetFontHeight(m_Font->Get())));
 
         penPos += screenPos;
         
@@ -1098,7 +1098,7 @@ void ServerView::DrawString(const String& string)
                 driver->WriteString(m_Bitmap, penPos, string.c_str(), string.size(), clip + screenPos, m_BgColor, m_FgColor, m_Font->Get());
             }                
         }
-        m_PenPosition.x += boundingBox.Width();
+        m_PenPosition.x += float(boundingBox.Width());
     }        
 }
 

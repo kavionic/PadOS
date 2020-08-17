@@ -115,20 +115,20 @@ bool FATTableIterator::SetEntry(uint32_t value)
             ormask = value & 0xfff;
             andmask = 0xf000;
         }
-        block1[m_OffsetInSector] = (block1[m_OffsetInSector] & andmask) | ormask;
+        block1[m_OffsetInSector] = uint8_t((block1[m_OffsetInSector] & andmask) | ormask);
             
         if (m_OffsetInSector == m_Volume->m_BytesPerSector - 1)
         {
             kassert(block2 != nullptr);
-            block2[0] = (block2[0] & (andmask >> 8)) | (ormask >> 8);
-            m_Volume->GetFATTable()->MirrorFAT(m_LoadedSector2, block2);
+            block2[0] = uint8_t((block2[0] & (andmask >> 8)) | (ormask >> 8));
+            m_Volume->GetFATTable()->MirrorFAT(uint32_t(m_LoadedSector2), block2);
             m_Block2.MarkDirty();
         }
         else
         {
-            block1[m_OffsetInSector+1] = (block1[m_OffsetInSector+1] & (andmask >> 8)) | (ormask >> 8);
+            block1[m_OffsetInSector+1] = uint8_t((block1[m_OffsetInSector+1] & (andmask >> 8)) | (ormask >> 8));
         }
-        m_Volume->GetFATTable()->MirrorFAT(m_LoadedSector1, block1);
+        m_Volume->GetFATTable()->MirrorFAT(uint32_t(m_LoadedSector1), block1);
         m_Block1.MarkDirty();
         return true;
     }

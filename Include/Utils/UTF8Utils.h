@@ -55,24 +55,24 @@ inline int utf8_to_unicode(const char* source)
 inline int unicode_to_utf8(char* dest, uint32_t character)
 {
     if ((character & 0xff80) == 0) {
-        *dest = character;
+        *dest = uint8_t(character);
         return 1;
     } else if ((character & 0xf800) == 0) {
-        dest[0] = 0xc0 | (character >> 6);
-        dest[1] = 0x80 | ((character) & 0x3f);
+        dest[0] = 0xc0 | uint8_t(character >> 6);
+        dest[1] = 0x80 | uint8_t((character) & 0x3f);
         return 2;
     } else if ((character & 0xfc00) != 0xd800) {
-        dest[0] = 0xe0 | (character >> 12);
-        dest[1] = 0x80 | ((character >> 6) & 0x3f);
-        dest[2] = 0x80 | ((character) & 0x3f);
+        dest[0] = 0xe0 | uint8_t(character >> 12);
+        dest[1] = 0x80 | uint8_t((character >> 6) & 0x3f);
+        dest[2] = 0x80 | uint8_t((character) & 0x3f);
         return 3;
     } else {
-        int   nValue;
+        uint32_t nValue;
         nValue = ( ((character << 16) - 0xd7c0) << 10 ) | (character & 0x3ff);
-        dest[0] = 0xf0 | (nValue >> 18);
-        dest[1] = 0x80 | ((nValue >> 12) & 0x3f);
-        dest[2] = 0x80 | ((nValue >> 6) & 0x3f);
-        dest[3] = 0x80 | (nValue & 0x3f);
+        dest[0] = 0xf0 | uint8_t(nValue >> 18);
+        dest[1] = 0x80 | uint8_t((nValue >> 12) & 0x3f);
+        dest[2] = 0x80 | uint8_t((nValue >> 6) & 0x3f);
+        dest[3] = 0x80 | uint8_t(nValue & 0x3f);
         return 4;
     }
 }

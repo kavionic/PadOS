@@ -128,13 +128,13 @@ void CheckBox::Paint(const Rect& cUpdateRect)
         point2 = Point(buttonFrame.right - CB_CHECK_BORDER, buttonFrame.bottom - CB_CHECK_BORDER);
 
         for (int i = 0; i < 7; ++i) {
-            DrawLine(point1 + Point(i - 3, 0.0f), point2 + Point(i - 3, 0.0f));
+            DrawLine(point1 + Point(float(i - 3), 0.0f), point2 + Point(float(i - 3), 0.0f));
         }
         point1 = Point(buttonFrame.left + CB_CHECK_BORDER, buttonFrame.bottom - CB_CHECK_BORDER);
         point2 = Point(buttonFrame.right - CB_CHECK_BORDER, buttonFrame.top + CB_CHECK_BORDER);
 
         for (int i = 0; i < 7; ++i) {
-            DrawLine(point1 + Point(i - 3, 0.0f), point2 + Point(i - 3, 0.0f));
+            DrawLine(point1 + Point(float(i - 3), 0.0f), point2 + Point(float(i - 3), 0.0f));
         }
     }
 }

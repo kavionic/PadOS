@@ -99,8 +99,8 @@ private:
 
     void MemoryWrite_Position(int X, int Y)
     {
-        WriteCommand(RA8875_CURH0, RA8875_CURH1, X);
-        WriteCommand(RA8875_CURV0, RA8875_CURV1, Y);
+        WriteCommand(RA8875_CURH0, RA8875_CURH1, uint16_t(X));
+        WriteCommand(RA8875_CURV0, RA8875_CURV1, uint16_t(Y));
         WriteCommand(RA8875_MRWC);
     }
 
@@ -112,7 +112,7 @@ private:
     uint16_t    ReadCommand() { return m_Registers->CMD; }
     void        WriteCommand(uint8_t cmd) { m_Registers->CMD = cmd; }
     void        WriteCommand(uint8_t cmd, uint8_t data) { m_Registers->CMD = cmd; m_Registers->DATA = data; }
-    void        WriteCommand(uint8_t cmdL, uint8_t cmdH, uint16_t data) { WriteCommand(cmdL, data & 0xff); WriteCommand(cmdH, data >> 8); }
+    void        WriteCommand(uint8_t cmdL, uint8_t cmdH, uint16_t data) { WriteCommand(cmdL, uint8_t(data & 0xff)); WriteCommand(cmdH, uint8_t(data >> 8)); }
 
     uint16_t    ReadData() { return m_Registers->DATA; }
     void        WriteData(uint16_t data) { m_Registers->DATA = data; }

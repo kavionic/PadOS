@@ -24,16 +24,16 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Bitmap::Bitmap(int nWidth, int nHeight, color_space colorSpace, uint32_t nFlags)
+Bitmap::Bitmap(int width, int height, color_space colorSpace, uint32_t nFlags)
 {
     //    area_id   hArea;
-    m_Bounds = Rect(0, 0, nWidth - 1, nHeight - 1);
+    m_Bounds = Rect(0, 0, float(width), float(height));
 
     m_Handle = -1;
     m_Raster = NULL;
     m_ColorSpace = colorSpace;
 
-    //    int nError = Application::GetInstance()->CreateBitmap( nWidth, nHeight, colorSpace, nFlags, &m_Handle, &hArea );
+    //    int nError = Application::GetInstance()->CreateBitmap( width, height, colorSpace, nFlags, &m_Handle, &hArea );
 
     //    if ( nError < 0 ) {
     //  throw( GeneralFailure( "Application server failed to create bitmap", -nError ) );

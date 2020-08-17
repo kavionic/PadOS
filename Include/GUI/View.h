@@ -179,17 +179,17 @@ public:
     void            HandleMouseUp(MouseButton_e button, const Point& position);
     void            HandleMouseMove(MouseButton_e button, const Point& position);
     
-    void            SetFgColor(int red, int green, int blue, int alpha = 255)       { SetFgColor(Color(red, green, blue, alpha)); }
-    void            SetFgColor(Color color)                                         { m_FgColor = color; Post<ASViewSetFgColor>(color); }
-    void            SetFgColor(StandardColorID colorID)                             { SetFgColor(get_standard_color(colorID)); }
+    void            SetFgColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)   { SetFgColor(Color(red, green, blue, alpha)); }
+    void            SetFgColor(Color color)                                                     { m_FgColor = color; Post<ASViewSetFgColor>(color); }
+    void            SetFgColor(StandardColorID colorID)                                         { SetFgColor(get_standard_color(colorID)); }
 
-    void            SetBgColor(int red, int green, int blue, int alpha = 255)       { SetBgColor(Color(red, green, blue, alpha)); }
-    void            SetBgColor(Color color)                                         { m_BgColor = color; Post<ASViewSetBgColor>(color); }
-    void            SetBgColor(StandardColorID colorID)                             { SetBgColor(get_standard_color(colorID)); }
+    void            SetBgColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)   { SetBgColor(Color(red, green, blue, alpha)); }
+    void            SetBgColor(Color color)                                                     { m_BgColor = color; Post<ASViewSetBgColor>(color); }
+    void            SetBgColor(StandardColorID colorID)                                         { SetBgColor(get_standard_color(colorID)); }
 
-    void            SetEraseColor(int red, int green, int blue, int alpha = 255)    { SetEraseColor(Color(red, green, blue, alpha)); }
-    void            SetEraseColor(Color color)                                      { m_EraseColor = color; Post<ASViewSetEraseColor>(color); }
-    void            SetEraseColor(StandardColorID colorID)                          { SetEraseColor(get_standard_color(colorID)); }
+    void            SetEraseColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255){ SetEraseColor(Color(red, green, blue, alpha)); }
+    void            SetEraseColor(Color color)                                                  { m_EraseColor = color; Post<ASViewSetEraseColor>(color); }
+    void            SetEraseColor(StandardColorID colorID)                                      { SetEraseColor(get_standard_color(colorID)); }
 
     void            MovePenTo(const Point& pos)                        { m_PenPosition = pos; Post<ASViewMovePenTo>(pos); }
     void            MovePenTo(float x, float y)                        { MovePenTo(Point(x, y)); }

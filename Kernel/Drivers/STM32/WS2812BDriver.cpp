@@ -134,7 +134,7 @@ ssize_t WS2812BDriverINode::Write(Ptr<KFileNode> file, off64_t position, const v
     }
     CRITICAL_SCOPE(m_Mutex);
 
-    size_t firstLED = position / 4;
+    size_t firstLED = size_t(position / 4);
     size_t lastLED  = std::min(m_LEDCount, firstLED + length / 4);
     if (lastLED < firstLED) {
 	set_last_error(EINVAL);

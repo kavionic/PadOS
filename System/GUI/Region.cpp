@@ -373,7 +373,8 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
     bool success = false;  // was there a successful clipping
 
-    float dx,dy;           // used to holds slope deltas
+//    float dx,dy;           // used to holds slope deltas
+    int dx, dy;           // used to holds slope deltas
 
 
     // test if line is completely invisible

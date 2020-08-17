@@ -639,7 +639,7 @@ struct DigitalPort
         switch(direction)
         {
             case DigitalPinDirection_e::In:
-            	for (uint16_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
+            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
             	{
             		if (j & pins) {
             			port->MODER = (port->MODER & ~(3<<i)); // Mode 0: input
@@ -647,7 +647,7 @@ struct DigitalPort
             	}
                 break;
             case DigitalPinDirection_e::Out:
-            	for (uint16_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
+            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
             	{
             		if (j & pins) {
             			port->MODER = (port->MODER & ~(3<<i)) | (1<<i); // Mode 1: output
@@ -656,7 +656,7 @@ struct DigitalPort
                 port->OTYPER &= ~pins; // 0: push-pull
                 break;
             case DigitalPinDirection_e::OpenCollector:
-            	for (uint16_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
+            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
             	{
             		if (j & pins) {
             			port->MODER = (port->MODER & ~(3<<i)) | (1<<i); // Mode 1: output
@@ -670,7 +670,7 @@ struct DigitalPort
     static inline void SetDriveStrength(DigitalPortID portID, DigitalPinDriveStrength_e strength, PortData_t pins)
     {
     	GPIO_Port_t* port = GetPortRegs(portID);
-    	for (uint16_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
+    	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
     		if (j & pins) {
     			port->OSPEEDR = (port->OSPEEDR & ~(3<<i)) | (uint32_t(strength)<<i);
     		}
@@ -691,21 +691,21 @@ struct DigitalPort
         switch(mode)
         {
             case PinPullMode_e::None:
-            	for (uint16_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
+            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
             		if (j & pins) {
             			port->PUPDR = (port->PUPDR & ~(3<<i)) | (0<<i); // 0: no pull
             		}
             	}
                 break;
             case PinPullMode_e::Down:
-            	for (uint16_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
+            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
             		if (j & pins) {
             			port->PUPDR = (port->PUPDR & ~(3<<i)) | (2<<i); // 2: pull down
             		}
             	}
                 break;
             case PinPullMode_e::Up:
-            	for (uint16_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
+            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
             		if (j & pins) {
             			port->PUPDR = (port->PUPDR & ~(3<<i)) | (1<<i); // 1: pull up
             		}
@@ -719,7 +719,7 @@ struct DigitalPort
     	GPIO_Port_t* port = GetPortRegs(portID);
         if (peripheral == DigitalPinPeripheralID::None)
         {
-        	for (uint16_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
+        	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
 			{
         		if (j & pins) {
         			port->MODER = (port->MODER & ~(3<<i)) | (3<<i); // Mode 3: analog (reset state)
@@ -732,7 +732,7 @@ struct DigitalPort
         	uint32_t valueMask = 0xf;
 
         	int modeBitPos = 0;
-        	for (uint8_t pinsL = uint8_t(pins); pinsL != 0; pinsL >>= 1, value <<= 4, valueMask <<= 4)
+        	for (uint32_t pinsL = pins & 0xff; pinsL != 0; pinsL >>= 1, value <<= 4, valueMask <<= 4)
         	{
         		if (pinsL & 0x01)
         		{
@@ -744,7 +744,7 @@ struct DigitalPort
         	modeBitPos = 2*8;
         	value = uint32_t(peripheral) & 0xf;
         	valueMask = 0xf;
-        	for (uint8_t pinsH = uint8_t(pins >> 8); pinsH != 0; pinsH >>= 1, value <<= 4, valueMask <<= 4)
+        	for (uint32_t pinsH = (pins >> 8) & 0xff; pinsH != 0; pinsH >>= 1, value <<= 4, valueMask <<= 4)
         	{
         		if (pinsH & 0x01)
         		{

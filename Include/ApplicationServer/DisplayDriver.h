@@ -98,8 +98,8 @@ public:
     const FONT_INFO* GetFontDesc(Font_e fontID) const;
 
 private:
-    void    FillBlit8(uint8_t* pDst, int nMod, int W, int H, int nColor);
-    void    FillBlit16(uint16_t* pDst, int nMod, int W, int H, uint32_t nColor);
+    void    FillBlit8(uint8_t* pDst, int nMod, int W, int H, uint8_t nColor);
+    void    FillBlit16(uint16_t* pDst, int nMod, int W, int H, uint16_t nColor);
     void    FillBlit24(uint8_t* pDst, int nMod, int W, int H, uint32_t nColor);
     void    FillBlit32(uint32_t* pDst, int nMod, int W, int H, uint32_t nColor);
 

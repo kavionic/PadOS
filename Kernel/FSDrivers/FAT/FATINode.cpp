@@ -111,13 +111,13 @@ bool FATINode::Write()
     buffer->m_Normal.m_Attribs = m_DOSAttribs; // file attributes
     
     buffer->m_Normal.m_Time = UnixTimeToFATTime(m_Time);
-    buffer->m_Normal.m_FirstClusterLow = m_StartCluster & 0xffff;	// starting cluster
-    buffer->m_Normal.m_FirstClusterHigh = m_StartCluster >> 16;
+    buffer->m_Normal.m_FirstClusterLow  = uint16_t(m_StartCluster & 0xffff);	// starting cluster
+    buffer->m_Normal.m_FirstClusterHigh = uint16_t(m_StartCluster >> 16);
     
     if (m_DOSAttribs & FAT_SUBDIR) {
         buffer->m_Normal.m_FileSize = 0;
     } else {
-        buffer->m_Normal.m_FileSize = m_Size;
+        buffer->m_Normal.m_FileSize = uint32_t(m_Size);
     }
     diri.MarkDirty();
     return true;
@@ -144,17 +144,18 @@ uint32_t FATINode::UnixTimeToFATTime(time_t unixTime)
 {
     uint32_t fatTime, d, y, days;
 
-    fatTime = (unixTime % 60) / 2;
+    fatTime = uint32_t((unixTime % 60) / 2);
     unixTime /= 60;
     unixTime -= tzoffset;
-    fatTime += (unixTime % 60) << 5;
+    fatTime += uint32_t((unixTime % 60) << 5);
     unixTime /= 60;
-    fatTime += (unixTime % 24) << 11;
+    fatTime += uint32_t((unixTime % 24) << 11);
     unixTime /= 24;
 
     unixTime -= 10 * 365 + 2; // Convert from 1970-based year to 1980-based year
 
-    for (y = 0;; ++y) {
+    for (y = 0;; ++y)
+    {
         days = IS_LEAP_YEAR(80 + y) ? 366 : 365;
         if (unixTime < days) break;
         unixTime -= days;
@@ -175,7 +176,7 @@ uint32_t FATINode::UnixTimeToFATTime(time_t unixTime)
             break;
         }
     }
-    d = (d << 5) + (unixTime - daze[d+1]);
+    d = (d << 5) + int32_t(unixTime - daze[d+1]);
 
 bi:
     d += (1 << 5) + 1; // Make date 1-based

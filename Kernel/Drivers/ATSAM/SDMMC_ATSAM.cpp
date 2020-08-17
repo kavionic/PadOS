@@ -507,7 +507,7 @@ void SDMMCDriver::GetResponse128(uint8_t* response)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint16_t blockSizePower, uint16_t blockCount, bool setupDMA)
+bool SDMMCDriver::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint16_t blockSizePower, uint32_t blockCount, bool setupDMA)
 {
 	uint32_t cmdr;
 

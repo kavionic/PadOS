@@ -21,18 +21,20 @@
 
 #include <pugixml/src/pugixml.hpp>
 
-#include "GUI/ViewFactory.h"
-#include "GUI/View.h"
-#include "GUI/Button.h"
-#include "GUI/ButtonGroup.h"
-#include "GUI/Checkbox.h"
-#include "GUI/ListView.h"
-#include "GUI/RadioButton.h"
-#include "GUI/Slider.h"
-#include "GUI/TextView.h"
-#include "GUI/GroupView.h"
-#include "Utils/XMLObjectParser.h"
-#include "Kernel/VFS/FileIO.h"
+#include <GUI/ViewFactory.h>
+#include <GUI/View.h>
+#include <GUI/Button.h>
+#include <GUI/ButtonGroup.h>
+#include <GUI/Checkbox.h>
+#include <GUI/ListView.h>
+#include <GUI/RadioButton.h>
+#include <GUI/ScrollView.h>
+#include <GUI/Slider.h>
+#include <GUI/TextBox.h>
+#include <GUI/TextView.h>
+#include <GUI/GroupView.h>
+#include <Utils/XMLObjectParser.h>
+#include <Kernel/VFS/FileIO.h>
 
 
 using namespace os;
@@ -52,8 +54,18 @@ ViewFactory::ViewFactory()
     VIEW_FACTORY_REGISTER_CLASS(ListView);
     VIEW_FACTORY_REGISTER_CLASS(RadioButton);
     VIEW_FACTORY_REGISTER_CLASS(Slider);
+    VIEW_FACTORY_REGISTER_CLASS(TextBox);
     VIEW_FACTORY_REGISTER_CLASS(TextView);
     VIEW_FACTORY_REGISTER_CLASS(View);
+
+    RegisterClass("ScrollView", [](ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData)
+        {
+            Ptr<ScrollView> view = ptr_new<ScrollView>(context, parent, xmlData);
+            Ptr<View> client = view->GetClientView();
+            return (client != nullptr) ? client : ptr_static_cast<View>(view);
+        }
+    );
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////

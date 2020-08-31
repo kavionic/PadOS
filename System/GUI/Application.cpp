@@ -130,6 +130,7 @@ bool Application::AddView(Ptr<View> view, ViewDockType dockType)
                             , view->m_ScrollOffset
                             , view->m_Flags
                             , view->m_HideCount
+                            , view->m_DrawingMode
                             , view->m_EraseColor
                             , view->m_BgColor
                             , view->m_FgColor
@@ -262,6 +263,52 @@ Ptr<View> Application::GetFocusView(MouseButton_e button) const
         return ptr_tmp_cast(iterator->second);
     }
     return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool Application::CreateBitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, handle_id* outHandle, uint8_t** outFramebuffer)
+{
+    Post<ASCreateBitmap>(m_ReplyPort.GetHandle(), width, height, colorSpace, flags);
+    Flush();
+
+    for (;;)
+    {
+        MsgCreateBitmapReply reply;
+        int32_t              code;
+        if (m_ReplyPort.ReceiveMessage(nullptr, &code, &reply, sizeof(reply)))
+        {
+            if (code == AppserverProtocol::CREATE_BITMAP_REPLY)
+            {
+                if (reply.m_BitmapHandle == INVALID_HANDLE) {
+                    return false;
+                }
+                *outHandle      = reply.m_BitmapHandle;
+                *outFramebuffer = reply.m_Framebuffer;
+                return true;
+            }
+            else
+            {
+                printf("ERROR: Application::CreateBitmap() received invalid reply: %" PRId32 "\n", code);
+            }
+        }
+        else if (get_last_error() != EINTR)
+        {
+            printf("ERROR: Application::CreateBitmap() receive failed: %s\n", strerror(get_last_error()));
+            return false;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Application::DeleteBitmap(handle_id bitmapHandle)
+{
+    Post<ASDeleteBitmap>(bitmapHandle);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

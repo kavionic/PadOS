@@ -26,6 +26,7 @@
 
 #include <GUI/Bitmap.h>
 #include <GUI/Color.h>
+#include <Utils/Utils.h>
 #include <Utils/UTF8Utils.h>
 
 #include "ApplicationServer/Fonts/SansSerif_14.h"
@@ -37,267 +38,6 @@ using namespace os;
 #define RAS_OFFSET8( ptr, x, y, bpl )  (((uint8_t*)(ptr)) + (x) + (y) * (bpl))
 #define RAS_OFFSET16( ptr, x, y, bpl ) ((uint16_t*)(((uint8_t*)(ptr)) + (x*2) + (y) * (bpl)))
 #define RAS_OFFSET32( ptr, x, y, bpl ) ((uint32_t*)(((uint8_t*)(ptr)) + (x*4) + (y) * (bpl)))
-
-
-static const Color g_asDefaultPallette[] =
-{
-    Color(0x00, 0x00, 0x00, 0x00),  // 0
-    Color(0x08, 0x08, 0x08, 0x00),
-    Color(0x10, 0x10, 0x10, 0x00),
-    Color(0x18, 0x18, 0x18, 0x00),
-    Color(0x20, 0x20, 0x20, 0x00),
-    Color(0x28, 0x28, 0x28, 0x00),  // 5
-    Color(0x30, 0x30, 0x30, 0x00),
-    Color(0x38, 0x38, 0x38, 0x00),
-    Color(0x40, 0x40, 0x40, 0x00),
-    Color(0x48, 0x48, 0x48, 0x00),
-    Color(0x50, 0x50, 0x50, 0x00),  // 10
-    Color(0x58, 0x58, 0x58, 0x00),
-    Color(0x60, 0x60, 0x60, 0x00),
-    Color(0x68, 0x68, 0x68, 0x00),
-    Color(0x70, 0x70, 0x70, 0x00),
-    Color(0x78, 0x78, 0x78, 0x00),  // 15
-    Color(0x80, 0x80, 0x80, 0x00),
-    Color(0x88, 0x88, 0x88, 0x00),
-    Color(0x90, 0x90, 0x90, 0x00),
-    Color(0x98, 0x98, 0x98, 0x00),
-    Color(0xa0, 0xa0, 0xa0, 0x00),  // 20
-    Color(0xa8, 0xa8, 0xa8, 0x00),
-    Color(0xb0, 0xb0, 0xb0, 0x00),
-    Color(0xb8, 0xb8, 0xb8, 0x00),
-    Color(0xc0, 0xc0, 0xc0, 0x00),
-    Color(0xc8, 0xc8, 0xc8, 0x00),  // 25
-    Color(0xd0, 0xd0, 0xd0, 0x00),
-    Color(0xd9, 0xd9, 0xd9, 0x00),
-    Color(0xe2, 0xe2, 0xe2, 0x00),
-    Color(0xeb, 0xeb, 0xeb, 0x00),
-    Color(0xf5, 0xf5, 0xf5, 0x00),  // 30
-    Color(0xfe, 0xfe, 0xfe, 0x00),
-    Color(0x00, 0x00, 0xff, 0x00),
-    Color(0x00, 0x00, 0xe5, 0x00),
-    Color(0x00, 0x00, 0xcc, 0x00),
-    Color(0x00, 0x00, 0xb3, 0x00),  // 35
-    Color(0x00, 0x00, 0x9a, 0x00),
-    Color(0x00, 0x00, 0x81, 0x00),
-    Color(0x00, 0x00, 0x69, 0x00),
-    Color(0x00, 0x00, 0x50, 0x00),
-    Color(0x00, 0x00, 0x37, 0x00),  // 40
-    Color(0x00, 0x00, 0x1e, 0x00),
-    Color(0xff, 0x00, 0x00, 0x00),
-    Color(0xe4, 0x00, 0x00, 0x00),
-    Color(0xcb, 0x00, 0x00, 0x00),
-    Color(0xb2, 0x00, 0x00, 0x00),  // 45
-    Color(0x99, 0x00, 0x00, 0x00),
-    Color(0x80, 0x00, 0x00, 0x00),
-    Color(0x69, 0x00, 0x00, 0x00),
-    Color(0x50, 0x00, 0x00, 0x00),
-    Color(0x37, 0x00, 0x00, 0x00),  // 50
-    Color(0x1e, 0x00, 0x00, 0x00),
-    Color(0x00, 0xff, 0x00, 0x00),
-    Color(0x00, 0xe4, 0x00, 0x00),
-    Color(0x00, 0xcb, 0x00, 0x00),
-    Color(0x00, 0xb2, 0x00, 0x00),  // 55
-    Color(0x00, 0x99, 0x00, 0x00),
-    Color(0x00, 0x80, 0x00, 0x00),
-    Color(0x00, 0x69, 0x00, 0x00),
-    Color(0x00, 0x50, 0x00, 0x00),
-    Color(0x00, 0x37, 0x00, 0x00),  // 60
-    Color(0x00, 0x1e, 0x00, 0x00),
-    Color(0x00, 0x98, 0x33, 0x00),
-    Color(0xff, 0xff, 0xff, 0x00),
-    Color(0xcb, 0xff, 0xff, 0x00),
-    Color(0xcb, 0xff, 0xcb, 0x00),  // 65
-    Color(0xcb, 0xff, 0x98, 0x00),
-    Color(0xcb, 0xff, 0x66, 0x00),
-    Color(0xcb, 0xff, 0x33, 0x00),
-    Color(0xcb, 0xff, 0x00, 0x00),
-    Color(0x98, 0xff, 0xff, 0x00),
-    Color(0x98, 0xff, 0xcb, 0x00),
-    Color(0x98, 0xff, 0x98, 0x00),
-    Color(0x98, 0xff, 0x66, 0x00),
-    Color(0x98, 0xff, 0x33, 0x00),
-    Color(0x98, 0xff, 0x00, 0x00),
-    Color(0x66, 0xff, 0xff, 0x00),
-    Color(0x66, 0xff, 0xcb, 0x00),
-    Color(0x66, 0xff, 0x98, 0x00),
-    Color(0x66, 0xff, 0x66, 0x00),
-    Color(0x66, 0xff, 0x33, 0x00),
-    Color(0x66, 0xff, 0x00, 0x00),
-    Color(0x33, 0xff, 0xff, 0x00),
-    Color(0x33, 0xff, 0xcb, 0x00),
-    Color(0x33, 0xff, 0x98, 0x00),
-    Color(0x33, 0xff, 0x66, 0x00),
-    Color(0x33, 0xff, 0x33, 0x00),
-    Color(0x33, 0xff, 0x00, 0x00),
-    Color(0xff, 0x98, 0xff, 0x00),
-    Color(0xff, 0x98, 0xcb, 0x00),
-    Color(0xff, 0x98, 0x98, 0x00),
-    Color(0xff, 0x98, 0x66, 0x00),
-    Color(0xff, 0x98, 0x33, 0x00),
-    Color(0xff, 0x98, 0x00, 0x00),
-    Color(0x00, 0x66, 0xff, 0x00),
-    Color(0x00, 0x66, 0xcb, 0x00),
-    Color(0xcb, 0xcb, 0xff, 0x00),
-    Color(0xcb, 0xcb, 0xcb, 0x00),
-    Color(0xcb, 0xcb, 0x98, 0x00),
-    Color(0xcb, 0xcb, 0x66, 0x00),
-    Color(0xcb, 0xcb, 0x33, 0x00),
-    Color(0xcb, 0xcb, 0x00, 0x00),
-    Color(0x98, 0xcb, 0xff, 0x00),
-    Color(0x98, 0xcb, 0xcb, 0x00),
-    Color(0x98, 0xcb, 0x98, 0x00),
-    Color(0x98, 0xcb, 0x66, 0x00),
-    Color(0x98, 0xcb, 0x33, 0x00),
-    Color(0x98, 0xcb, 0x00, 0x00),
-    Color(0x66, 0xcb, 0xff, 0x00),
-    Color(0x66, 0xcb, 0xcb, 0x00),
-    Color(0x66, 0xcb, 0x98, 0x00),
-    Color(0x66, 0xcb, 0x66, 0x00),
-    Color(0x66, 0xcb, 0x33, 0x00),
-    Color(0x66, 0xcb, 0x00, 0x00),
-    Color(0x33, 0xcb, 0xff, 0x00),
-    Color(0x33, 0xcb, 0xcb, 0x00),
-    Color(0x33, 0xcb, 0x98, 0x00),
-    Color(0x33, 0xcb, 0x66, 0x00),
-    Color(0x33, 0xcb, 0x33, 0x00),
-    Color(0x33, 0xcb, 0x00, 0x00),
-    Color(0xff, 0x66, 0xff, 0x00),
-    Color(0xff, 0x66, 0xcb, 0x00),
-    Color(0xff, 0x66, 0x98, 0x00),
-    Color(0xff, 0x66, 0x66, 0x00),
-    Color(0xff, 0x66, 0x33, 0x00),
-    Color(0xff, 0x66, 0x00, 0x00),
-    Color(0x00, 0x66, 0x98, 0x00),
-    Color(0x00, 0x66, 0x66, 0x00),
-    Color(0xcb, 0x98, 0xff, 0x00),
-    Color(0xcb, 0x98, 0xcb, 0x00),
-    Color(0xcb, 0x98, 0x98, 0x00),
-    Color(0xcb, 0x98, 0x66, 0x00),
-    Color(0xcb, 0x98, 0x33, 0x00),
-    Color(0xcb, 0x98, 0x00, 0x00),
-    Color(0x98, 0x98, 0xff, 0x00),
-    Color(0x98, 0x98, 0xcb, 0x00),
-    Color(0x98, 0x98, 0x98, 0x00),
-    Color(0x98, 0x98, 0x66, 0x00),
-    Color(0x98, 0x98, 0x33, 0x00),
-    Color(0x98, 0x98, 0x00, 0x00),
-    Color(0x66, 0x98, 0xff, 0x00),
-    Color(0x66, 0x98, 0xcb, 0x00),
-    Color(0x66, 0x98, 0x98, 0x00),
-    Color(0x66, 0x98, 0x66, 0x00),
-    Color(0x66, 0x98, 0x33, 0x00),
-    Color(0x66, 0x98, 0x00, 0x00),
-    Color(0x33, 0x98, 0xff, 0x00),
-    Color(0x33, 0x98, 0xcb, 0x00),
-    Color(0x33, 0x98, 0x98, 0x00),
-    Color(0x33, 0x98, 0x66, 0x00),
-    Color(0x33, 0x98, 0x33, 0x00),
-    Color(0x33, 0x98, 0x00, 0x00),
-    Color(0xe6, 0x86, 0x00, 0x00),
-    Color(0xff, 0x33, 0xcb, 0x00),
-    Color(0xff, 0x33, 0x98, 0x00),
-    Color(0xff, 0x33, 0x66, 0x00),
-    Color(0xff, 0x33, 0x33, 0x00),
-    Color(0xff, 0x33, 0x00, 0x00),
-    Color(0x00, 0x66, 0x33, 0x00),
-    Color(0x00, 0x66, 0x00, 0x00),
-    Color(0xcb, 0x66, 0xff, 0x00),
-    Color(0xcb, 0x66, 0xcb, 0x00),
-    Color(0xcb, 0x66, 0x98, 0x00),
-    Color(0xcb, 0x66, 0x66, 0x00),
-    Color(0xcb, 0x66, 0x33, 0x00),
-    Color(0xcb, 0x66, 0x00, 0x00),
-    Color(0x98, 0x66, 0xff, 0x00),
-    Color(0x98, 0x66, 0xcb, 0x00),
-    Color(0x98, 0x66, 0x98, 0x00),
-    Color(0x98, 0x66, 0x66, 0x00),
-    Color(0x98, 0x66, 0x33, 0x00),
-    Color(0x98, 0x66, 0x00, 0x00),
-    Color(0x66, 0x66, 0xff, 0x00),
-    Color(0x66, 0x66, 0xcb, 0x00),
-    Color(0x66, 0x66, 0x98, 0x00),
-    Color(0x66, 0x66, 0x66, 0x00),
-    Color(0x66, 0x66, 0x33, 0x00),
-    Color(0x66, 0x66, 0x00, 0x00),
-    Color(0x33, 0x66, 0xff, 0x00),
-    Color(0x33, 0x66, 0xcb, 0x00),
-    Color(0x33, 0x66, 0x98, 0x00),
-    Color(0x33, 0x66, 0x66, 0x00),
-    Color(0x33, 0x66, 0x33, 0x00),
-    Color(0x33, 0x66, 0x00, 0x00),
-    Color(0xff, 0x00, 0xff, 0x00),
-    Color(0xff, 0x00, 0xcb, 0x00),
-    Color(0xff, 0x00, 0x98, 0x00),
-    Color(0xff, 0x00, 0x66, 0x00),
-    Color(0xff, 0x00, 0x33, 0x00),
-    Color(0xff, 0xaf, 0x13, 0x00),
-    Color(0x00, 0x33, 0xff, 0x00),
-    Color(0x00, 0x33, 0xcb, 0x00),
-    Color(0xcb, 0x33, 0xff, 0x00),
-    Color(0xcb, 0x33, 0xcb, 0x00),
-    Color(0xcb, 0x33, 0x98, 0x00),
-    Color(0xcb, 0x33, 0x66, 0x00),
-    Color(0xcb, 0x33, 0x33, 0x00),
-    Color(0xcb, 0x33, 0x00, 0x00),
-    Color(0x98, 0x33, 0xff, 0x00),
-    Color(0x98, 0x33, 0xcb, 0x00),
-    Color(0x98, 0x33, 0x98, 0x00),
-    Color(0x98, 0x33, 0x66, 0x00),
-    Color(0x98, 0x33, 0x33, 0x00),
-    Color(0x98, 0x33, 0x00, 0x00),
-    Color(0x66, 0x33, 0xff, 0x00),
-    Color(0x66, 0x33, 0xcb, 0x00),
-    Color(0x66, 0x33, 0x98, 0x00),
-    Color(0x66, 0x33, 0x66, 0x00),
-    Color(0x66, 0x33, 0x33, 0x00),
-    Color(0x66, 0x33, 0x00, 0x00),
-    Color(0x33, 0x33, 0xff, 0x00),
-    Color(0x33, 0x33, 0xcb, 0x00),
-    Color(0x33, 0x33, 0x98, 0x00),
-    Color(0x33, 0x33, 0x66, 0x00),
-    Color(0x33, 0x33, 0x33, 0x00),
-    Color(0x33, 0x33, 0x00, 0x00),
-    Color(0xff, 0xcb, 0x66, 0x00),
-    Color(0xff, 0xcb, 0x98, 0x00),
-    Color(0xff, 0xcb, 0xcb, 0x00),
-    Color(0xff, 0xcb, 0xff, 0x00),
-    Color(0x00, 0x33, 0x98, 0x00),
-    Color(0x00, 0x33, 0x66, 0x00),
-    Color(0x00, 0x33, 0x33, 0x00),
-    Color(0x00, 0x33, 0x00, 0x00),
-    Color(0xcb, 0x00, 0xff, 0x00),
-    Color(0xcb, 0x00, 0xcb, 0x00),
-    Color(0xcb, 0x00, 0x98, 0x00),
-    Color(0xcb, 0x00, 0x66, 0x00),
-    Color(0xcb, 0x00, 0x33, 0x00),
-    Color(0xff, 0xe3, 0x46, 0x00),
-    Color(0x98, 0x00, 0xff, 0x00),
-    Color(0x98, 0x00, 0xcb, 0x00),
-    Color(0x98, 0x00, 0x98, 0x00),
-    Color(0x98, 0x00, 0x66, 0x00),
-    Color(0x98, 0x00, 0x33, 0x00),
-    Color(0x98, 0x00, 0x00, 0x00),
-    Color(0x66, 0x00, 0xff, 0x00),
-    Color(0x66, 0x00, 0xcb, 0x00),
-    Color(0x66, 0x00, 0x98, 0x00),
-    Color(0x66, 0x00, 0x66, 0x00),
-    Color(0x66, 0x00, 0x33, 0x00),
-    Color(0x66, 0x00, 0x00, 0x00),
-    Color(0x33, 0x00, 0xff, 0x00),
-    Color(0x33, 0x00, 0xcb, 0x00),
-    Color(0x33, 0x00, 0x98, 0x00),
-    Color(0x33, 0x00, 0x66, 0x00),
-    Color(0x33, 0x00, 0x33, 0x00),
-    Color(0x33, 0x00, 0x00, 0x00),
-    Color(0xff, 0xcb, 0x33, 0x00),
-    Color(0xff, 0xcb, 0x00, 0x00),
-    Color(0xff, 0xff, 0x00, 0x00),
-    Color(0xff, 0xff, 0x33, 0x00),
-    Color(0xff, 0xff, 0x66, 0x00),
-    Color(0xff, 0xff, 0x98, 0x00),
-    Color(0xff, 0xff, 0xcb, 0x00),
-    Color(0xff, 0xff, 0xff, 0xff)
-};
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -365,7 +105,7 @@ int DisplayDriver::GetFramebufferOffset()
 //    if (m_pcMouseImage != NULL) {
 //        m_pcMouseImage->Release();
 //    }
-//    m_pcMouseImage = new SrvBitmap(nWidth, nHeight, CS_CMAP8);
+//    m_pcMouseImage = new SrvBitmap(nWidth, nHeight, ColorSpace::CMAP8);
 //
 //    uint8_t* pDstRaster = m_pcMouseImage->m_Raster;
 //    const uint8_t* pSrcRaster = static_cast<const uint8_t*>(pRaster);
@@ -420,6 +160,15 @@ void DisplayDriver::SetMousePos(IPoint cNewPos)
 //        m_pcMouseSprite->MoveTo(cNewPos);
 //    }
     m_cMousePos = cNewPos;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Color DisplayDriver::GetPaletteEntry(uint8_t index)
+{
+    return Color::FromCMAP8(index);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -501,17 +250,17 @@ void DisplayDriver::WritePixel(SrvBitmap* bitmap, const IPoint& pos, Color color
 {
     switch (bitmap->m_ColorSpace)
     {
-        case CS_RGB15:
+        case ColorSpace::RGB15:
             *reinterpret_cast<uint16_t*>(&bitmap->m_Raster[pos.x * 2 + pos.y * bitmap->m_BytesPerLine]) = color.GetColor15();
             break;
-        case CS_RGB16:
+        case ColorSpace::RGB16:
             *reinterpret_cast<uint16_t*>(&bitmap->m_Raster[pos.x * 2 + pos.y * bitmap->m_BytesPerLine]) = color.GetColor16();
             break;
-        case CS_RGB32:
+        case ColorSpace::RGB32:
             *reinterpret_cast<uint32_t*>(&bitmap->m_Raster[pos.x * 4 + pos.y * bitmap->m_BytesPerLine]) = color.GetColor32();
             break;
         default:
-            printf("DisplayDriver::WritePixel() unknown color space %d\n", bitmap->m_ColorSpace);
+            printf("DisplayDriver::WritePixel() unknown color space %d\n", int(bitmap->m_ColorSpace));
             break;
     }
 }
@@ -531,24 +280,24 @@ void DisplayDriver::FillRect(SrvBitmap* pcBitmap, const IRect& cRect, const Colo
 
     switch (pcBitmap->m_ColorSpace)
     {
-        //    case CS_CMAP8:
+        //    case ColorSpace::CMAP8:
         //      FillBlit8( pcBitmap->m_Raster + ((BltY * pcBitmap->m_BytesPerLine) + BltX),
         //       pcBitmap->m_BytesPerLine - BltW, BltW, BltH, nColor );
         //      break;
-        case CS_RGB15:
+        case ColorSpace::RGB15:
             FillBlit16((uint16_t*)&pcBitmap->m_Raster[BltY * pcBitmap->m_BytesPerLine + BltX * 2], pcBitmap->m_BytesPerLine / 2 - BltW, BltW, BltH, sColor.GetColor15());
             break;
-        case CS_RGB16:
+        case ColorSpace::RGB16:
             FillBlit16((uint16_t*)&pcBitmap->m_Raster[BltY * pcBitmap->m_BytesPerLine + BltX * 2], pcBitmap->m_BytesPerLine / 2 - BltW, BltW, BltH, sColor.GetColor16());
             break;
-        case CS_RGB24:
+        case ColorSpace::RGB24:
             FillBlit24( &pcBitmap->m_Raster[ BltY * pcBitmap->m_BytesPerLine + BltX * 3 ], pcBitmap->m_BytesPerLine - BltW * 3, BltW, BltH, sColor.GetColor32() );
             break;
-        case CS_RGB32:
+        case ColorSpace::RGB32:
             FillBlit32((uint32_t*)&pcBitmap->m_Raster[BltY * pcBitmap->m_BytesPerLine + BltX * 4], pcBitmap->m_BytesPerLine / 4 - BltW, BltW, BltH, sColor.GetColor32());
             break;
         default:
-            printf("DisplayDriver::FillRect() unknown color space %d\n", pcBitmap->m_ColorSpace);
+            printf("DisplayDriver::FillRect() unknown color space %d\n", int(pcBitmap->m_ColorSpace));
             break;
     }
 }
@@ -697,18 +446,18 @@ static inline void BitBlit(SrvBitmap* sbm, SrvBitmap* dbm, int sx, int sy, int d
 
 static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const IRect& cSrcRect, const IPoint& cDstPos)
 {
-    switch ((int)pcSrc->m_ColorSpace)
+    switch (pcSrc->m_ColorSpace)
     {
-        case CS_CMAP8:
+        case ColorSpace::CMAP8:
         {
             uint8_t* pSrc = RAS_OFFSET8(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
 
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width();
 
-            switch ((int)pcDst->m_ColorSpace)
+            switch (pcDst->m_ColorSpace)
             {
-                case CS_RGB15:
-                case CS_RGBA15:
+                case ColorSpace::RGB15:
+                case ColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -717,14 +466,14 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = g_asDefaultPallette[*pSrc++].GetColor15();
+                            *pDst++ = DisplayDriver::GetPaletteEntry(*pSrc++).GetColor15();
                         }
                         pSrc += nSrcModulo;
                         pDst = (uint16_t*)(((uint8_t*)pDst) + nDstModulo);
                     }
                     break;
                 }
-                case CS_RGB16:
+                case ColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -733,15 +482,15 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = g_asDefaultPallette[*pSrc++].GetColor16();
+                            *pDst++ = DisplayDriver::GetPaletteEntry(*pSrc++).GetColor16();
                         }
                         pSrc += nSrcModulo;
                         pDst = (uint16_t*)(((uint8_t*)pDst) + nDstModulo);
                     }
                     break;
                 }
-                case CS_RGB32:
-                case CS_RGBA32:
+                case ColorSpace::RGB32:
+                case ColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -749,25 +498,27 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = g_asDefaultPallette[*pSrc++].GetColor32();
+                            *pDst++ = DisplayDriver::GetPaletteEntry(*pSrc++).GetColor32();
                         }
                         pSrc += nSrcModulo;
                         pDst = (uint32_t*)(((uint8_t*)pDst) + nDstModulo);
                     }
                     break;
                 }
+                default:
+                    break;
             }
             break;
         }
-        case CS_RGB15:
-        case CS_RGBA15:
+        case ColorSpace::RGB15:
+        case ColorSpace::RGBA15:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
-            switch ((int)pcDst->m_ColorSpace)
+            switch (pcDst->m_ColorSpace)
             {
-                case CS_RGB16:
+                case ColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -782,8 +533,8 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case CS_RGB32:
-                case CS_RGBA32:
+                case ColorSpace::RGB32:
+                case ColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -798,18 +549,20 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
+                default:
+                    break;
             }
             break;
         }
-        case CS_RGB16:
+        case ColorSpace::RGB16:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
-            switch ((int)pcDst->m_ColorSpace)
+            switch (pcDst->m_ColorSpace)
             {
-                case CS_RGB15:
-                case CS_RGBA15:
+                case ColorSpace::RGB15:
+                case ColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -824,8 +577,8 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case CS_RGB32:
-                case CS_RGBA32:
+                case ColorSpace::RGB32:
+                case ColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -840,18 +593,20 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
+                default:
+                    break;
             }
             break;
         }
-        case CS_RGB32:
-        case CS_RGBA32:
+        case ColorSpace::RGB32:
+        case ColorSpace::RGBA32:
         {
             uint32_t* pSrc = RAS_OFFSET32(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 4;
 
-            switch ((int)pcDst->m_ColorSpace)
+            switch (pcDst->m_ColorSpace)
             {
-                case CS_RGB16:
+                case ColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -866,7 +621,7 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case CS_RGB15:
+                case ColorSpace::RGB15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -881,11 +636,13 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
+                default:
+                    break;
             }
             break;
         }
         default:
-            printf("blit_convert_copy() unknown src color space %d\n", pcSrc->m_ColorSpace);
+            printf("blit_convert_copy() unknown src color space %d\n", int(pcSrc->m_ColorSpace));
             break;
     }
 }
@@ -896,18 +653,18 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
 
 static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const IRect& cSrcRect, const IPoint& cDstPos)
 {
-    switch ((int)pcSrc->m_ColorSpace)
+    switch (pcSrc->m_ColorSpace)
     {
-        case CS_CMAP8:
+        case ColorSpace::CMAP8:
         {
             uint8_t* pSrc = RAS_OFFSET8(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
 
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width();
 
-            switch ((int)pcDst->m_ColorSpace)
+            switch (pcDst->m_ColorSpace)
             {
-                case CS_RGB15:
-                case CS_RGBA15:
+                case ColorSpace::RGB15:
+                case ColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -917,9 +674,9 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x)
                         {
-                            int nPix = *pSrc++;
-                            if (nPix != TRANSPARENT_CMAP8) {
-                                *pDst = g_asDefaultPallette[nPix].GetColor15();
+                            uint8_t nPix = *pSrc++;
+                            if (nPix != TransparentColors::CMAP8) {
+                                *pDst = DisplayDriver::GetPaletteEntry(nPix).GetColor15();
                             }
                             pDst++;
                         }
@@ -928,7 +685,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case CS_RGB16:
+                case ColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -937,9 +694,9 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x)
                         {
-                            int nPix = *pSrc++;
-                            if (nPix != TRANSPARENT_CMAP8) {
-                                *pDst = g_asDefaultPallette[nPix].GetColor16();
+                            uint8_t nPix = *pSrc++;
+                            if (nPix != TransparentColors::CMAP8) {
+                                *pDst = DisplayDriver::GetPaletteEntry(nPix).GetColor16();
                             }
                             pDst++;
                         }
@@ -948,8 +705,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case CS_RGB32:
-                case CS_RGBA32:
+                case ColorSpace::RGB32:
+                case ColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -958,9 +715,9 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x)
                         {
-                            int nPix = *pSrc++;
-                            if (nPix != TRANSPARENT_CMAP8) {
-                                *pDst = g_asDefaultPallette[nPix].GetColor32();
+                            uint8_t nPix = *pSrc++;
+                            if (nPix != TransparentColors::CMAP8) {
+                                *pDst = DisplayDriver::GetPaletteEntry(nPix).GetColor32();
                             }
                             pDst++;
                         }
@@ -970,20 +727,20 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     break;
                 }
                 default:
-                    printf("blit_convert_over() unknown dst colorspace for 8 bit src %d\n", pcDst->m_ColorSpace);
+                    printf("blit_convert_over() unknown dst colorspace for 8 bit src %d\n", int(pcDst->m_ColorSpace));
                     break;
             }
             break;
         }
-        case CS_RGB15:
-        case CS_RGBA15:
+        case ColorSpace::RGB15:
+        case ColorSpace::RGBA15:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
-            switch ((int)pcDst->m_ColorSpace)
+            switch (pcDst->m_ColorSpace)
             {
-                case CS_RGB16:
+                case ColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -998,8 +755,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case CS_RGB32:
-                case CS_RGBA32:
+                case ColorSpace::RGB32:
+                case ColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -1015,18 +772,20 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
+                default:
+                    break;
             }
             break;
         }
-        case CS_RGB16:
+        case ColorSpace::RGB16:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
-            switch ((int)pcDst->m_ColorSpace)
+            switch (pcDst->m_ColorSpace)
             {
-                case CS_RGB15:
-                case CS_RGBA15:
+                case ColorSpace::RGB15:
+                case ColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -1041,8 +800,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case CS_RGB32:
-                case CS_RGBA32:
+                case ColorSpace::RGB32:
+                case ColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -1057,18 +816,20 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
+                default:
+                    break;
             }
             break;
         }
-        case CS_RGB32:
-        case CS_RGBA32:
+        case ColorSpace::RGB32:
+        case ColorSpace::RGBA32:
         {
             uint32_t* pSrc = RAS_OFFSET32(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 4;
 
-            switch ((int)pcDst->m_ColorSpace)
+            switch (pcDst->m_ColorSpace)
             {
-                case CS_RGB16:
+                case ColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -1088,7 +849,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case CS_RGB15:
+                case ColorSpace::RGB15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -1108,7 +869,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case CS_RGB32:
+                case ColorSpace::RGB32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -1128,11 +889,13 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
+                default:
+                    break;
             }
             break;
         }
         default:
-            printf("blit_convert_over() unknown src color space %d\n", pcSrc->m_ColorSpace);
+            printf("blit_convert_over() unknown src color space %d\n", int(pcSrc->m_ColorSpace));
             break;
     }
 }
@@ -1146,9 +909,9 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
     uint32_t* pSrc = RAS_OFFSET32(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
     int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 4;
 
-    switch ((int)pcDst->m_ColorSpace)
+    switch (pcDst->m_ColorSpace)
     {
-        case CS_RGB16:
+        case ColorSpace::RGB16:
         {
             uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
             int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -1176,7 +939,7 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
             }
             break;
         }
-        case CS_RGB15:
+        case ColorSpace::RGB15:
         {
             uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
             int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -1204,7 +967,7 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
             }
             break;
         }
-        case CS_RGB32:
+        case ColorSpace::RGB32:
         {
             uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
             int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -1232,6 +995,8 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
             }
             break;
         }
+        default:
+            break;
     }
 }
 
@@ -1239,12 +1004,13 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, const IRect& srcRect, const IPoint& dstPos, drawing_mode mode)
+void DisplayDriver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bgColor, Color fgColor, const IRect& srcRect, const IPoint& dstPos, DrawingMode mode)
 {
     switch (mode)
     {
-        case DM_COPY:
-            if (srcBitmap->m_ColorSpace == dstBitmap->m_ColorSpace) {
+        case DrawingMode::Copy:
+            if (srcBitmap->m_ColorSpace == dstBitmap->m_ColorSpace)
+            {
                 int sx = srcRect.left;
                 int sy = srcRect.top;
                 int dx = dstPos.x;
@@ -1253,15 +1019,17 @@ void DisplayDriver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, const I
                 int h = srcRect.Height();
 
                 BitBlit(srcBitmap, dstBitmap, sx, sy, dx, dy, w, h);
-            } else {
+            }
+            else
+            {
                 blit_convert_copy(dstBitmap, srcBitmap, srcRect, dstPos);
             }
             break;
-        case DM_OVER:
+        case DrawingMode::Overlay:
             blit_convert_over(dstBitmap, srcBitmap, srcRect, dstPos);
             break;
-        case DM_BLEND:
-            if (srcBitmap->m_ColorSpace == CS_RGB32) {
+        case DrawingMode::Blend:
+            if (srcBitmap->m_ColorSpace == ColorSpace::RGB32) {
                 blit_convert_alpha(dstBitmap, srcBitmap, srcRect, dstPos);
             } else {
                 blit_convert_over(dstBitmap, srcBitmap, srcRect, dstPos);
@@ -1414,7 +1182,7 @@ void DisplayDriver::BltBitmapMask(SrvBitmap* pcDstBitMap, SrvBitmap* pcSrcBitMap
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, drawing_mode mode)
+void DisplayDriver::FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, DrawingMode mode)
 {
     IRect frame(-radius, -radius, radius, radius);
 
@@ -1517,7 +1285,7 @@ uint32_t DisplayDriver::WriteString(SrvBitmap* bitmap, const IPoint& position, c
 //    Color sCurCol;
 //    Color sBgColor;
 //
-//    if (pcBitmap->m_ColorSpace == CS_RGB16) {
+//    if (pcBitmap->m_ColorSpace == ColorSpace::RGB16) {
 //        int   nDstModulo = pcBitmap->m_BytesPerLine / 2 - nWidth;
 //        uint16_t* pDst = (uint16_t*)pcBitmap->m_Raster + cRect.left + (cRect.top * pcBitmap->m_BytesPerLine / 2);
 //
@@ -1546,7 +1314,7 @@ uint32_t DisplayDriver::WriteString(SrvBitmap* bitmap, const IPoint& position, c
 //            pSrc += nSrcModulo;
 //            pDst += nDstModulo;
 //        }
-//    } else if (pcBitmap->m_ColorSpace == CS_RGB32) {
+//    } else if (pcBitmap->m_ColorSpace == ColorSpace::RGB32) {
 //        int   nDstModulo = pcBitmap->m_BytesPerLine / 4 - nWidth;
 //        uint32_t* pDst = (uint32_t*)pcBitmap->m_Raster + cRect.left + (cRect.top * pcBitmap->m_BytesPerLine / 4);
 //

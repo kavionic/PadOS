@@ -43,6 +43,9 @@ public:
     Ptr<ViewType>       GetParent()       { return m_Parent.Lock(); }
     Ptr<const ViewType> GetParent() const { return m_Parent.Lock(); }
 
+    Ptr<ViewType>       GetRoot() { Ptr<ViewType> parent = GetParent(); return (parent != nullptr) ? parent->GetRoot() : ptr_static_cast<ViewType>(ptr_tmp_cast(this)); }
+    Ptr<const ViewType> GetRoot() const { Ptr<const ViewType> parent = GetParent(); return (parent != nullptr) ? parent->GetRoot() : ptr_tmp_cast(this); }
+
     const ChildList_t& GetChildList() const { return m_ChildrenList; }
         
     typename ChildList_t::iterator                  begin() { return m_ChildrenList.begin(); }
@@ -107,19 +110,21 @@ public:
     
 
     const Rect&	GetFrame() const { return m_Frame; }
-    Rect	GetBounds() const { return m_Frame.Bounds() /*- Point(m_Frame.left, m_Frame.top)*/ - m_ScrollOffset; }
-    Rect	GetNormalizedBounds() const { return m_Frame.Bounds(); }
+    Rect	    GetBounds() const { return m_Frame.Bounds() - m_ScrollOffset; }
+    Rect	    GetNormalizedBounds() const { return m_Frame.Bounds(); }
 
-    IRect	GetIFrame() const { return IRect(m_Frame); }
-    IRect	GetIBounds() const { return GetIFrame().Bounds() /*- Point(m_Frame.left, m_Frame.top)*/ - IPoint(m_ScrollOffset); }
-    IRect	GetNormalizedIBounds() const { return GetIFrame().Bounds(); }
+    IRect	    GetIFrame() const { return IRect(m_Frame); }
+    IRect	    GetIBounds() const { return GetIFrame().Bounds() - IPoint(m_ScrollOffset); }
+    IRect	    GetNormalizedIBounds() const { return GetIFrame().Bounds(); }
         
-    Point	GetTopLeft() const  { return Point( m_Frame.left, m_Frame.top ); }
-    IPoint	GetITopLeft() const { return IPoint(m_Frame.TopLeft()); }
+    Point	    GetTopLeft() const  { return Point( m_Frame.left, m_Frame.top ); }
+    IPoint	    GetITopLeft() const { return IPoint(m_Frame.TopLeft()); }
         
-    Color	GetFgColor() const { return m_FgColor; }
-    Color	GetBgColor() const { return m_BgColor; }
-    Color	GetEraseColor() const { return m_EraseColor; }
+    Point       GetScrollOffset() const { return m_ScrollOffset; }
+
+    Color	    GetFgColor() const { return m_FgColor; }
+    Color	    GetBgColor() const { return m_BgColor; }
+    Color	    GetEraseColor() const { return m_EraseColor; }
 
     
       // Coordinate conversions:
@@ -131,14 +136,14 @@ public:
     void        ConvertFromParent(Point* point) const       { *point -= GetTopLeft() - m_ScrollOffset; }
     Rect        ConvertFromParent(const Rect& rect) const   { return rect - GetTopLeft() - m_ScrollOffset; }
     void        ConvertFromParent(Rect* rect) const         { *rect -= GetTopLeft() - m_ScrollOffset; }
-    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
-    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
-    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
-    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos + m_ScrollOffset; }
-    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos + m_ScrollOffset; }
-    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
+//    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
+//    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
+//    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
+//    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos + m_ScrollOffset; }
+//    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos - m_ScrollOffset; }
+//    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos + m_ScrollOffset; }
+//    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
+//    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
     
     static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, IRect* frame)
     {
@@ -157,8 +162,9 @@ protected:
     friend class ApplicationServer;
     friend class ServerApplication;
 
-    void LinkChild(Ptr<ViewType> child, bool topmost);
-    void UnlinkChild(Ptr<ViewType> child);
+    void            LinkChild(Ptr<ViewType> child, bool topmost);
+    Ptr<ViewType>   UnlinkChild(typename  ChildList_t::iterator iterator);
+    void            UnlinkChild(Ptr<ViewType> child);
     
     void Added(ViewBase* parent, int hideCount, int level)
     {
@@ -171,19 +177,6 @@ protected:
         }
         for (Ptr<ViewBase> child : m_ChildrenList) {
             child->Added(this, hideCount, level + 1);
-        }
-    }
-
-    void UpdateScreenPos()
-    {
-        Ptr<ViewType> parent = m_Parent.Lock();
-        if (parent == nullptr) {
-            m_ScreenPos = m_Frame.TopLeft();
-        } else {
-            m_ScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
-        }
-        for (Ptr<ViewType> child : m_ChildrenList) {
-            child->UpdateScreenPos();
         }
     }
 
@@ -239,20 +232,39 @@ void ViewBase<ViewType>::LinkChild(Ptr<ViewType> child, bool topmost)
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename ViewType>
+Ptr<ViewType> ViewBase<ViewType>::UnlinkChild(typename  ChildList_t::iterator iterator)
+{
+    Ptr<ViewType> child = *iterator;
+    if (child->m_Parent.Lock() == static_cast<ViewType*>(this))
+    {
+        child->m_Parent = nullptr;
+
+        m_ChildrenList.erase(iterator);
+
+        child->HandleRemovedFromParent(ptr_tmp_cast(static_cast<ViewType*>(this)));
+    }
+    else
+    {
+        printf("ERROR : Attempt to remove a view not belonging to this window\n");
+    }
+    return child;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<typename ViewType>
 void ViewBase<ViewType>::UnlinkChild(Ptr<ViewType> child)
 {
 	if (child->m_Parent.Lock() == static_cast<ViewType*>(this))
 	{
-		child->m_Parent = nullptr;
-
 		auto i = GetChildIterator(child);
 		if (i != m_ChildrenList.end()) {
-			m_ChildrenList.erase(i);
+            UnlinkChild(i);
 		} else {
 			printf("ERROR: ViewBase::UnlinkChildren() failed to find view in children list.\n");
 		}
-		child->UpdateScreenPos();
-		child->HandleRemovedFromParent(ptr_tmp_cast(static_cast<ViewType*>(this)));
 	}
     else
 	{

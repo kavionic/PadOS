@@ -22,6 +22,8 @@
 namespace os
 {
 
+using ra9975_regaddr = uint8_t;
+
 #define   RA8875_STATUS_ROM_BUSY_bp       0
 #define   RA8875_STATUS_ROM_BUSY_bm       BIT8(RA8875_STATUS_ROM_BUSY_bp, 1)
 #define   RA8875_STATUS_SLEEP_STATUS_bp   4
@@ -33,7 +35,7 @@ namespace os
 #define   RA8875_STATUS_MEMORY_BUSY_bp    7
 #define   RA8875_STATUS_MEMORY_BUSY_bm    BIT8(RA8875_STATUS_MEMORY_BUSY_bp, 1)
 
-#define RA8875_PWRR        0x01 // Power and Display Control Register
+static constexpr ra9975_regaddr RA8875_PWRR = 0x01; // Power and Display Control Register
 #define   RA8875_PWRR_SW_RESET_bp   0
 #define   RA8875_PWRR_SW_RESET_bm   BIT8(RA8875_PWRR_SW_RESET_bp, 1)
 
@@ -43,57 +45,57 @@ namespace os
 #define   RA8875_PWRR_DISPLAY_ON_bp 7
 #define   RA8875_PWRR_DISPLAY_ON_bm BIT8(RA8875_PWRR_DISPLAY_ON_bp, 1)
 
-#define RA8875_MRWC        0x02 // Memory Read/Write Command
-#define RA8875_PCSR        0x04 // Pixel Clock Setting Register
-#define RA8875_SROC        0x05 // Serial Flash/ROM Configuration Register
-#define RA8875_SFCLR       0x06 // Serial Flash/ROM CLK Setting Register
-#define RA8875_SYSR        0x10 // System Configuration Register
-#define RA8875_GPI         0x12 // General Purpose Input from pin KIN[4:0]
-#define RA8875_GPO         0x13 // General Purpose Output to KOUT[3:0]
-#define RA8875_HDWR        0x14 // LCD Horizontal Display Width Register
-#define RA8875_HNDFTR      0x15 // Horizontal Non-Display Period Fine Tuning Option Register
-#define RA8875_HNDR        0x16 // LCD Horizontal Non-Display Period Register
-#define RA8875_HSTR        0x17 // HSYNC Start Position Register
-#define RA8875_HPWR        0x18 // HSYNC Pulse Width Register
-#define RA8875_VDHR0       0x19 // LCD Vertical Display Height Register
-#define RA8875_VDHR1       0x1A // LCD Vertical Display Height Register 0
-#define RA8875_VNDR0       0x1B // LCD Vertical Non-Display Period Register
-#define RA8875_VNDR1       0x1C // LCD Vertical Non-Display Period Register
-#define RA8875_VSTR0       0x1D // VSYNC Start Position Register
-#define RA8875_VSTR1       0x1E // VSYNC Start Position Register
-#define RA8875_VPWR        0x1F // VSYNC Pulse Width Register
-#define RA8875_DPCR        0x20 // Display Configuration Register
-#define RA8875_FNCR0       0x21 // Font Control Register 0
-#define RA8875_FNCR1       0x22 // Font Control Register 1
-#define RA8875_CGSR        0x23 // CGRAM Select Register
-#define RA8875_HOFS0       0x24 // Horizontal Scroll Offset Register 0
-#define RA8875_HOFS1       0x25 // Horizontal Scroll Offset Register 1
-#define RA8875_VOFS0       0x26 // Vertical Scroll Offset Register 0
-#define RA8875_VOFS1       0x27 // Vertical Scroll Offset Register 1
-#define RA8875_FLDR        0x29 // Font Line Distance Setting Register
-#define RA8875_F_CURXL     0x2A // Font Write Cursor Horizontal Position Register 0
-#define RA8875_F_CURXH     0x2B // Font Write Cursor Horizontal Position Register 1
-#define RA8875_F_CURYL     0x2C // Font Write Cursor Vertical Position Register 0
-#define RA8875_F_CURYH     0x2D // Font Write Cursor Vertical Position Register 1
-#define RA8875_FWTS        0x2E // Font Write Type Setting Register
-#define RA8875_SFRS        0x2F // Serial Font ROM Setting
-#define RA8875_HSAW0       0x30 // Horizontal Start Point 0 of Active Window
-#define RA8875_HSAW1       0x31 // Horizontal Start Point 1 of Active Window
-#define RA8875_VSAW0       0x32 // Vertical Start Point 0 of Active Window
-#define RA8875_VSAW1       0x33 // Vertical Start Point 1 of Active Window
-#define RA8875_HEAW0       0x34 // Horizontal End Point 0 of Active Window
-#define RA8875_HEAW1       0x35 // Horizontal End Point 1 of Active Window
-#define RA8875_VEAW0       0x36 // Vertical End Point of Active Window 0
-#define RA8875_VEAW1       0x37 // Vertical End Point of Active Window 1
-#define RA8875_HSSW0       0x38 // Horizontal Start Point 0 of Scroll Window
-#define RA8875_HSSW1       0x39 // Horizontal Start Point 1 of Scroll Window
-#define RA8875_VSSW0       0x3A // Vertical Start Point 0 of Scroll Window
-#define RA8875_VSSW1       0x3B // Vertical Start Point 1 of Scroll Window
-#define RA8875_HESW0       0x3C // Horizontal End Point 0 of Scroll Window
-#define RA8875_HESW1       0x3D // Horizontal End Point 1 of Scroll Window
-#define RA8875_VESW0       0x3E // Vertical End Point 0 of Scroll Window
-#define RA8875_VESW1       0x3F // Vertical End Point 1 of Scroll Window
-#define RA8875_MWCR0       0x40 // Memory Write Control Register 0
+static constexpr ra9975_regaddr RA8875_MRWC     = 0x02; // Memory Read/Write Command
+static constexpr ra9975_regaddr RA8875_PCSR     = 0x04; // Pixel Clock Setting Register
+static constexpr ra9975_regaddr RA8875_SROC     = 0x05; // Serial Flash/ROM Configuration Register
+static constexpr ra9975_regaddr RA8875_SFCLR    = 0x06; // Serial Flash/ROM CLK Setting Register
+static constexpr ra9975_regaddr RA8875_SYSR     = 0x10; // System Configuration Register
+static constexpr ra9975_regaddr RA8875_GPI      = 0x12; // General Purpose Input from pin KIN[4:0]
+static constexpr ra9975_regaddr RA8875_GPO      = 0x13; // General Purpose Output to KOUT[3:0]
+static constexpr ra9975_regaddr RA8875_HDWR     = 0x14; // LCD Horizontal Display Width Register
+static constexpr ra9975_regaddr RA8875_HNDFTR   = 0x15; // Horizontal Non-Display Period Fine Tuning Option Register
+static constexpr ra9975_regaddr RA8875_HNDR     = 0x16; // LCD Horizontal Non-Display Period Register
+static constexpr ra9975_regaddr RA8875_HSTR     = 0x17; // HSYNC Start Position Register
+static constexpr ra9975_regaddr RA8875_HPWR     = 0x18; // HSYNC Pulse Width Register
+static constexpr ra9975_regaddr RA8875_VDHR0    = 0x19; // LCD Vertical Display Height Register
+static constexpr ra9975_regaddr RA8875_VDHR1    = 0x1A; // LCD Vertical Display Height Register 0
+static constexpr ra9975_regaddr RA8875_VNDR0    = 0x1B; // LCD Vertical Non-Display Period Register
+static constexpr ra9975_regaddr RA8875_VNDR1    = 0x1C; // LCD Vertical Non-Display Period Register
+static constexpr ra9975_regaddr RA8875_VSTR0    = 0x1D; // VSYNC Start Position Register
+static constexpr ra9975_regaddr RA8875_VSTR1    = 0x1E; // VSYNC Start Position Register
+static constexpr ra9975_regaddr RA8875_VPWR     = 0x1F; // VSYNC Pulse Width Register
+static constexpr ra9975_regaddr RA8875_DPCR     = 0x20; // Display Configuration Register
+static constexpr ra9975_regaddr RA8875_FNCR0    = 0x21; // Font Control Register 0
+static constexpr ra9975_regaddr RA8875_FNCR1    = 0x22; // Font Control Register 1
+static constexpr ra9975_regaddr RA8875_CGSR     = 0x23; // CGRAM Select Register
+static constexpr ra9975_regaddr RA8875_HOFS0    = 0x24; // Horizontal Scroll Offset Register 0
+static constexpr ra9975_regaddr RA8875_HOFS1    = 0x25; // Horizontal Scroll Offset Register 1
+static constexpr ra9975_regaddr RA8875_VOFS0    = 0x26; // Vertical Scroll Offset Register 0
+static constexpr ra9975_regaddr RA8875_VOFS1    = 0x27; // Vertical Scroll Offset Register 1
+static constexpr ra9975_regaddr RA8875_FLDR     = 0x29; // Font Line Distance Setting Register
+static constexpr ra9975_regaddr RA8875_F_CURXL  = 0x2A; // Font Write Cursor Horizontal Position Register 0
+static constexpr ra9975_regaddr RA8875_F_CURXH  = 0x2B; // Font Write Cursor Horizontal Position Register 1
+static constexpr ra9975_regaddr RA8875_F_CURYL  = 0x2C; // Font Write Cursor Vertical Position Register 0
+static constexpr ra9975_regaddr RA8875_F_CURYH  = 0x2D; // Font Write Cursor Vertical Position Register 1
+static constexpr ra9975_regaddr RA8875_FWTS     = 0x2E; // Font Write Type Setting Register
+static constexpr ra9975_regaddr RA8875_SFRS     = 0x2F; // Serial Font ROM Setting
+static constexpr ra9975_regaddr RA8875_HSAW0    = 0x30; // Horizontal Start Point 0 of Active Window
+static constexpr ra9975_regaddr RA8875_HSAW1    = 0x31; // Horizontal Start Point 1 of Active Window
+static constexpr ra9975_regaddr RA8875_VSAW0    = 0x32; // Vertical Start Point 0 of Active Window
+static constexpr ra9975_regaddr RA8875_VSAW1    = 0x33; // Vertical Start Point 1 of Active Window
+static constexpr ra9975_regaddr RA8875_HEAW0    = 0x34; // Horizontal End Point 0 of Active Window
+static constexpr ra9975_regaddr RA8875_HEAW1    = 0x35; // Horizontal End Point 1 of Active Window
+static constexpr ra9975_regaddr RA8875_VEAW0    = 0x36; // Vertical End Point of Active Window 0
+static constexpr ra9975_regaddr RA8875_VEAW1    = 0x37; // Vertical End Point of Active Window 1
+static constexpr ra9975_regaddr RA8875_HSSW0    = 0x38; // Horizontal Start Point 0 of Scroll Window
+static constexpr ra9975_regaddr RA8875_HSSW1    = 0x39; // Horizontal Start Point 1 of Scroll Window
+static constexpr ra9975_regaddr RA8875_VSSW0    = 0x3A; // Vertical Start Point 0 of Scroll Window
+static constexpr ra9975_regaddr RA8875_VSSW1    = 0x3B; // Vertical Start Point 1 of Scroll Window
+static constexpr ra9975_regaddr RA8875_HESW0    = 0x3C; // Horizontal End Point 0 of Scroll Window
+static constexpr ra9975_regaddr RA8875_HESW1    = 0x3D; // Horizontal End Point 1 of Scroll Window
+static constexpr ra9975_regaddr RA8875_VESW0    = 0x3E; // Vertical End Point 0 of Scroll Window
+static constexpr ra9975_regaddr RA8875_VESW1    = 0x3F; // Vertical End Point 1 of Scroll Window
+static constexpr ra9975_regaddr RA8875_MWCR0    = 0x40; // Memory Write Control Register 0
 
 #define   RA8875_MWCR0_RD_AUTOINC_DISABLE_bp  0
 #define   RA8875_MWCR0_RD_AUTOINC_DISABLE_bm  BIT8(RA8875_MWCR0_RD_AUTOINC_DISABLE_bp, 1)
@@ -117,20 +119,20 @@ namespace os
 #define   RA8875_MWCR0_TEXT_MODE_bp  7
 #define   RA8875_MWCR0_TEXT_MODE_bm  BIT8(RA8875_MWCR0_TEXT_MODE_bp, 1)
 
-#define RA8875_MWCR1       0x41 // Memory Write Control Register 1
-#define RA8875_BTCR        0x44 // Blink Time Control Register
-#define RA8875_MRCD        0x45 // Memory Read Cursor Direction
-#define RA8875_CURH0       0x46 // Memory Write Cursor Horizontal Position Register 0
-#define RA8875_CURH1       0x47 // Memory Write Cursor Horizontal Position Register 1
-#define RA8875_CURV0       0x48 // Memory Write Cursor Vertical Position Register 0
-#define RA8875_CURV1       0x49 // Memory Write Cursor Vertical Position Register 1
-#define RA8875_RCURH0      0x4A // Memory Read Cursor Horizontal Position Register 0
-#define RA8875_RCURH1      0x4B // Memory Read Cursor Horizontal Position Register 1
-#define RA8875_RCURV0      0x4C // Memory Read Cursor Vertical Position Register 0
-#define RA8875_RCURV1      0x4D // Memory Read Cursor Vertical Position Register 1
-#define RA8875_CURHS       0x4E // Font Write Cursor and Memory Write Cursor Horizontal Size Register
-#define RA8875_CURVS       0x4F // Font Write Cursor Vertical Size Register
-#define RA8875_BECR0       0x50 // BTE Function Control Register 0         
+static constexpr ra9975_regaddr RA8875_MWCR1    = 0x41; // Memory Write Control Register 1
+static constexpr ra9975_regaddr RA8875_BTCR     = 0x44; // Blink Time Control Register
+static constexpr ra9975_regaddr RA8875_MRCD     = 0x45; // Memory Read Cursor Direction
+static constexpr ra9975_regaddr RA8875_CURH0    = 0x46; // Memory Write Cursor Horizontal Position Register 0
+static constexpr ra9975_regaddr RA8875_CURH1    = 0x47; // Memory Write Cursor Horizontal Position Register 1
+static constexpr ra9975_regaddr RA8875_CURV0    = 0x48; // Memory Write Cursor Vertical Position Register 0
+static constexpr ra9975_regaddr RA8875_CURV1    = 0x49; // Memory Write Cursor Vertical Position Register 1
+static constexpr ra9975_regaddr RA8875_RCURH0   = 0x4A; // Memory Read Cursor Horizontal Position Register 0
+static constexpr ra9975_regaddr RA8875_RCURH1   = 0x4B; // Memory Read Cursor Horizontal Position Register 1
+static constexpr ra9975_regaddr RA8875_RCURV0   = 0x4C; // Memory Read Cursor Vertical Position Register 0
+static constexpr ra9975_regaddr RA8875_RCURV1   = 0x4D; // Memory Read Cursor Vertical Position Register 1
+static constexpr ra9975_regaddr RA8875_CURHS    = 0x4E; // Font Write Cursor and Memory Write Cursor Horizontal Size Register
+static constexpr ra9975_regaddr RA8875_CURVS    = 0x4F; // Font Write Cursor Vertical Size Register
+static constexpr ra9975_regaddr RA8875_BECR0    = 0x50; // BTE Function Control Register 0         
 
 #define   RA8875_BECR0_DST_LINEAR_bp 5
 #define   RA8875_BECR0_DST_LINEAR_bm BIT8(RA8875_BECR0_DST_LINEAR_bp, 1)
@@ -145,7 +147,7 @@ namespace os
 #define   RA8875_BECR0_ENABLE_bp     7
 #define   RA8875_BECR0_ENABLE_bm     BIT8(RA8875_BECR0_ENABLE_bp, 1)
 
-#define RA8875_BECR1       0x51 // BTE Function Control Register1
+static constexpr ra9975_regaddr RA8875_BECR1 = 0x51; // BTE Function Control Register1
 
 #define   RA8875_BTE_OP_bp                  0
 #define   RA8875_BTE_OP_WRITE_ROP           BIT8(RA8875_BTE_OP_bp, 0)
@@ -163,22 +165,22 @@ namespace os
 #define   RA8875_BTE_OP_FILL                BIT8(RA8875_BTE_OP_bp, 12)
 
 #define   RA8875_BTE_ROP_bp       4
-#define   RA8875_BTE_ROP_BLACK    BIT8(RA8875_BTE_ROP_bp, 0)  // 0 ( Blackness )
-#define   RA8875_BTE_ROP_nSxnD    BIT8(RA8875_BTE_ROP_bp, 1)  // ~S?~D or ~ ( S+D )
-#define   RA8875_BTE_ROP_nSxD     BIT8(RA8875_BTE_ROP_bp, 2)  // ~S?D
+#define   RA8875_BTE_ROP_BLACK    BIT8(RA8875_BTE_ROP_bp, 0)  // 0 (Blackness)
+#define   RA8875_BTE_ROP_nSxnD    BIT8(RA8875_BTE_ROP_bp, 1)  // ~S * ~D | ~(S + D)
+#define   RA8875_BTE_ROP_nSxD     BIT8(RA8875_BTE_ROP_bp, 2)  // ~S * D
 #define   RA8875_BTE_ROP_nS       BIT8(RA8875_BTE_ROP_bp, 3)  // ~S
-#define   RA8875_BTE_ROP_SxnD     BIT8(RA8875_BTE_ROP_bp, 4)  // S?~D
+#define   RA8875_BTE_ROP_SxnD     BIT8(RA8875_BTE_ROP_bp, 4)  // S * ~D
 #define   RA8875_BTE_ROP_nD       BIT8(RA8875_BTE_ROP_bp, 5)  // ~D
 #define   RA8875_BTE_ROP_SxorD    BIT8(RA8875_BTE_ROP_bp, 6)  // S^D
-#define   RA8875_BTE_ROP_nSplusnD BIT8(RA8875_BTE_ROP_bp, 7)  // ~S+~D or ~ ( S?D )
-#define   RA8875_BTE_ROP_SxD      BIT8(RA8875_BTE_ROP_bp, 8)  // S?D
-#define   RA8875_BTE_ROP_SxorDn   BIT8(RA8875_BTE_ROP_bp, 9)  // ~ ( S^D )
+#define   RA8875_BTE_ROP_nSplusnD BIT8(RA8875_BTE_ROP_bp, 7)  // ~S + ~D | ~ (S * D)
+#define   RA8875_BTE_ROP_SxD      BIT8(RA8875_BTE_ROP_bp, 8)  // S * D
+#define   RA8875_BTE_ROP_SxorDn   BIT8(RA8875_BTE_ROP_bp, 9)  // ~(S^D)
 #define   RA8875_BTE_ROP_D        BIT8(RA8875_BTE_ROP_bp, 10) // D
-#define   RA8875_BTE_ROP_nSplusD  BIT8(RA8875_BTE_ROP_bp, 11) // ~S+D
+#define   RA8875_BTE_ROP_nSplusD  BIT8(RA8875_BTE_ROP_bp, 11) // ~S + D
 #define   RA8875_BTE_ROP_S        BIT8(RA8875_BTE_ROP_bp, 12) // S
-#define   RA8875_BTE_ROP_SplusnD  BIT8(RA8875_BTE_ROP_bp, 13) // S+~D
-#define   RA8875_BTE_ROP_SplusD   BIT8(RA8875_BTE_ROP_bp, 14) // S+D
-#define   RA8875_BTE_ROP_WHITE    BIT8(RA8875_BTE_ROP_bp, 15) // 1 ( Whiteness )
+#define   RA8875_BTE_ROP_SplusnD  BIT8(RA8875_BTE_ROP_bp, 13) // S + ~D
+#define   RA8875_BTE_ROP_SplusD   BIT8(RA8875_BTE_ROP_bp, 14) // S + D
+#define   RA8875_BTE_ROP_WHITE    BIT8(RA8875_BTE_ROP_bp, 15) // 1 (Whiteness)
 
 
 

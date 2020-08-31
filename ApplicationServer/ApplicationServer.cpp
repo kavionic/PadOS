@@ -62,7 +62,7 @@ ApplicationServer::ApplicationServer(Ptr<os::DisplayDriver> displayDriver)
     s_DisplayDriver = displayDriver;
     s_DisplayDriver->Open();
     s_ScreenBitmap = s_DisplayDriver->GetScreenBitmap();
-    m_TopView = ptr_new<ServerView>(ptr_raw_pointer_cast(s_ScreenBitmap), "::topview::", GetScreenFrame(), Point(0.0f, 0.0f), 0, 0, Color(0xffffffff), Color(0xffffffff), Color(0));
+    m_TopView = ptr_new<ServerView>(ptr_raw_pointer_cast(s_ScreenBitmap), "::topview::", GetScreenFrame(), Point(0.0f, 0.0f), 0, 0, DrawingMode::Copy, Color(0xffffffff), Color(0xffffffff), Color(0));
 
     AddHandler(m_TopView);
 
@@ -103,13 +103,13 @@ bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, co
             
         case MessageID::MOUSE_DOWN:
         case MessageID::MOUSE_UP:
-            m_MouseEventQueue.push(*static_cast<const MsgMouseEvent*>(data));
+            m_MouseEventQueue.push(*static_cast<const MotionEvent*>(data));
             return true;
         case MessageID::MOUSE_MOVE:
             if (!m_MouseEventQueue.empty() && m_MouseEventQueue.back().EventID == MessageID::MOUSE_MOVE) {
-                m_MouseEventQueue.back() = *static_cast<const MsgMouseEvent*>(data);
+                m_MouseEventQueue.back() = *static_cast<const MotionEvent*>(data);
             } else {
-                m_MouseEventQueue.push(*static_cast<const MsgMouseEvent*>(data));
+                m_MouseEventQueue.push(*static_cast<const MotionEvent*>(data));
             }
             return true;
             
@@ -126,22 +126,22 @@ void ApplicationServer::Idle()
     DEBUG_TRACK_FUNCTION();
     while(!m_MouseEventQueue.empty())
     {
-        const MsgMouseEvent& event = m_MouseEventQueue.front();
+        const MotionEvent& event = m_MouseEventQueue.front();
         switch(event.EventID)
         {
             case MessageID::MOUSE_DOWN:
             {
-                HandleMouseDown(event.ButtonID, event.Position);
+                HandleMouseDown(event.ButtonID, event.Position, event);
                 break;
             }            
             case MessageID::MOUSE_UP:
             {
-                HandleMouseUp(event.ButtonID, event.Position);
+                HandleMouseUp(event.ButtonID, event.Position, event);
                 break;
             }            
             case MessageID::MOUSE_MOVE:
             {
-                HandleMouseMove(event.ButtonID, event.Position);
+                HandleMouseMove(event.ButtonID, event.Position, event);
                 break;
             }
         }
@@ -250,28 +250,28 @@ void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clien
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::HandleMouseDown(MouseButton_e button, const Point& position)
+void ApplicationServer::HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-    m_TopView->HandleMouseDown(button, position);
+    m_TopView->HandleMouseDown(button, position, event);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::HandleMouseUp(MouseButton_e button, const Point& position)
+void ApplicationServer::HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     Ptr<ServerView> mouseView = GetMouseDownView(button);
 
     if (mouseView != nullptr)
     {
-        mouseView->HandleMouseUp(button, position - mouseView->m_ScreenPos - mouseView->m_ScrollOffset);
+        mouseView->HandleMouseUp(button, position - mouseView->m_ScreenPos - mouseView->m_ScrollOffset, event);
         SetMouseDownView(button, nullptr);
     }
     Ptr<ServerView> focusView = GetFocusView(button);
     if (focusView != nullptr && focusView != mouseView)
     {
-        focusView->HandleMouseUp(button, position - focusView->m_ScreenPos - focusView->m_ScrollOffset);
+        focusView->HandleMouseUp(button, position - focusView->m_ScreenPos - focusView->m_ScrollOffset, event);
     }
 }
 
@@ -279,7 +279,7 @@ void ApplicationServer::HandleMouseUp(MouseButton_e button, const Point& positio
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::HandleMouseMove(MouseButton_e button, const Point& position)
+void ApplicationServer::HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
 //    Ptr<ServerView> mouseView = GetMouseDownView(button);
 //    if (mouseView != nullptr)
@@ -289,7 +289,7 @@ void ApplicationServer::HandleMouseMove(MouseButton_e button, const Point& posit
     Ptr<ServerView> focusView = GetFocusView(button);
     if (focusView != nullptr /*&& focusView != mouseView*/)
     {
-        focusView->HandleMouseMove(button, position - focusView->m_ScreenPos - focusView->m_ScrollOffset);
+        focusView->HandleMouseMove(button, position - focusView->m_ScreenPos - focusView->m_ScrollOffset, event);
     }
 }
 

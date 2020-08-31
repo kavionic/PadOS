@@ -51,18 +51,18 @@ public:
 
     virtual int             GetScreenModeCount() override;
     virtual bool            GetScreenModeDesc(size_t index, ScreenMode& outMode) override;
-    virtual bool            SetScreenMode(const IPoint& resolution, color_space colorSpace, float refreshRate) override;
+    virtual bool            SetScreenMode(const IPoint& resolution, ColorSpace colorSpace, float refreshRate) override;
 
     virtual IPoint          GetResolution() override;
     virtual int             GetBytesPerLine() override;
-    virtual color_space     GetColorSpace() override;
+    virtual ColorSpace      GetColorSpace() override;
     virtual void            SetColor(size_t index, const Color& color) override;
 
     virtual void            WritePixel(SrvBitmap* bitmap, const IPoint& pos, Color color) override;
-    virtual void            DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2, const Color& color, drawing_mode mode) override;
+    virtual void            DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2, const Color& color, DrawingMode mode) override;
     virtual void            FillRect(SrvBitmap* bitmap, const IRect& rect, const Color& color) override;
-    virtual void            CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, const IRect& srcRect, const IPoint& dstPos, drawing_mode mode) override;
-    //    virtual void    FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, drawing_mode mode) override;
+    virtual void            CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bgColor, Color fgColor, const IRect& srcRect, const IPoint& dstPos, DrawingMode mode) override;
+    //    virtual void    FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, DrawingMode mode) override;
 
     IPoint                  RenderGlyph(const IPoint& position, char character, const IRect& clipRect, const FONT_INFO* font, uint16_t colorBg, uint16_t colorFg);
     virtual uint32_t        WriteString(SrvBitmap* bitmap, const IPoint& position, const char* string, size_t strLength, const IRect& clipRect, Color colorBg, Color colorFg, Font_e fontID) override;
@@ -73,6 +73,7 @@ private:
 
     void SetFgColor(uint16_t color);
     void SetBgColor(uint16_t color);
+    void SetTransparantColor(uint16_t color);
 
     void SetWindow(int x1, int y1, int x2, int y2);
     void SetWindow(const IRect& frame) { SetWindow(frame.left, frame.top, frame.right, frame.bottom); }
@@ -101,9 +102,9 @@ private:
     {
         WriteCommand(RA8875_CURH0, RA8875_CURH1, uint16_t(X));
         WriteCommand(RA8875_CURV0, RA8875_CURV1, uint16_t(Y));
-        WriteCommand(RA8875_MRWC);
+        BeginWriteData();
     }
-
+    void        BeginWriteData() { WriteCommand(RA8875_MRWC); }
     void        WaitMemory() { while (ReadCommand() & RA8875_STATUS_MEMORY_BUSY_bm); }
     void        WaitBTE() { while (ReadCommand() & RA8875_STATUS_BTE_BUSY_bm); }
     void        WaitROM() { while (ReadCommand() & RA8875_STATUS_ROM_BUSY_bm); }

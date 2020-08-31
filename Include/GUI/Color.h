@@ -25,8 +25,35 @@ namespace os
 
 struct Color
 {
+    static constexpr uint8_t Expand5to8(uint8_t src) { return uint8_t((src << 3) | (src >> 2)); }
+    static constexpr uint8_t Expand6to8(uint8_t src) { return uint8_t((src << 2) | (src >> 4)); }
+
+    static constexpr Color FromCMAP8(uint8_t colorIndex)
+    {
+        constexpr uint8_t normalColors[] = { 0, 51, 102, 152, 203, 255 };
+        constexpr uint8_t fillerColors[] = { 228, 178, 128 };
+
+        if (colorIndex < 32) {
+            uint8_t c = uint8_t(colorIndex * 8U);
+            return Color(c, c, c, 255);
+        } else if (colorIndex < 33) {
+            return Color(255, 255, 255, 255);
+        } else if (colorIndex < 36) {
+            return Color(fillerColors[colorIndex - 33], 0, 0, 255);
+        } else if (colorIndex < 39) {
+            return Color(0, fillerColors[colorIndex - 36], 0, 255);
+        } else if (colorIndex < 41) {
+            return Color(0, 0, fillerColors[colorIndex - 39], 255);
+        } else if (colorIndex < 255) {
+            const int index = colorIndex - 40;
+            return Color(normalColors[(index / 36) % 6], normalColors[(index / 6) % 6], normalColors[index % 6], 255);
+        } else {
+            return Color(255, 4, 255, 0);
+        }
+    }
+
     static constexpr Color FromRGB15(uint16_t color) { return Color(uint8_t(((color >> 10) & 0x1f) * 255 / 31), uint8_t(((color >> 5) & 0x1f) * 255 / 31), uint8_t((color & 0x1f) * 255 / 31), 255); }
-    static constexpr Color FromRGB16(uint16_t color) { return Color(uint8_t(((color >> 11) & 0x1f) * 255 / 31), uint8_t(((color >> 6) & 0x3f) * 255 / 63), uint8_t((color & 0x1f) * 255 / 31), 255); }
+    static constexpr Color FromRGB16(uint16_t color) { return Color(Expand5to8(uint8_t(color >> 11) & 0x1f), Expand6to8(uint8_t(color >> 5) & 0x3f), Expand5to8(uint8_t(color) & 0x1f), 255); }
     static constexpr Color FromRGB32A(uint32_t color) { return Color(color); }
     static constexpr Color FromRGB32A(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255) { return Color(red, blue, green, alpha); }
 
@@ -35,7 +62,7 @@ struct Color
     explicit constexpr Color(uint32_t color32) : m_Color(color32) {}
     constexpr Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : m_Color((r << 16) | (g << 8) | b | (a << 24)) {}
 
-    void Set16(uint16_t color)                                     { SetRGBA(uint8_t(((color >> 11) & 0x1f) * 255 / 31), uint8_t(((color >> 6) & 0x3f) * 255 / 63), uint8_t((color & 0x1f) * 255 / 31), 255); }
+    void Set16(uint16_t color)                                     { SetRGBA(uint8_t(((color >> 11) & 0x1f) * 255 / 31), uint8_t(((color >> 5) & 0x3f) * 255 / 63), uint8_t((color & 0x1f) * 255 / 31), 255); }
     void Set32(uint32_t color)                                     { m_Color = color; }
     void SetRGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) { m_Color = (r << 16) | (g << 8) | b | (a << 24); }
     

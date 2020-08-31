@@ -44,12 +44,12 @@ public:
     template<typename T>
     Ptr<T> CreateInstance(const String& name, ARGS... args)
     {
-	auto i = m_ClassMap.find(name);
-	if (i != m_ClassMap.end())
-	{
-	    return ptr_dynamic_cast<T>(i->second(args...));
-	}
-	return nullptr;
+        auto i = m_ClassMap.find(name);
+        if (i != m_ClassMap.end())
+        {
+            return ptr_dynamic_cast<T>(i->second(args...));
+        }
+        return nullptr;
     }
 private:
     std::map<String, CreateObjectCallback> m_ClassMap;

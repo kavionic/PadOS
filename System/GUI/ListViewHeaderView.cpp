@@ -101,7 +101,7 @@ void ListViewHeaderView::Paint(const Rect& cUpdateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewHeaderView::OnMouseMove(MouseButton_e button, const Point& position)
+bool ListViewHeaderView::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     Ptr<ListView> listView = ptr_static_cast<ListView>(GetParent());
     assert(listView != nullptr);
@@ -170,7 +170,7 @@ void ListViewHeaderView::ViewScrolled(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewHeaderView::OnMouseDown(MouseButton_e button, const Point& position)
+bool ListViewHeaderView::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (m_ScrolledContainerView->m_ColumnMap.empty()) {
         return false;
@@ -210,7 +210,7 @@ bool ListViewHeaderView::OnMouseDown(MouseButton_e button, const Point& position
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewHeaderView::OnMouseUp(MouseButton_e button, const Point& position)
+bool ListViewHeaderView::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     m_SizeColumn = INVALID_INDEX;
 

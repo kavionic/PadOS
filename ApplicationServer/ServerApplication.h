@@ -39,14 +39,31 @@ public:
     
     virtual bool HandleMessage(int32_t code, const void* data, size_t length) override;
     
+    Ptr<SrvBitmap> GetBitmap(handle_id bitmapHandle) const;
+
 private:
     void ProcessMessage(int32_t code, const void* data, size_t length);
     void UpdateRegions();
     void UpdateLowestInvalidView(Ptr<ServerView> view);
 
-    void SlotCreateView(port_id clientPort, port_id replyPort, handler_id replyTarget, handler_id parentHandle, ViewDockType dockType, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor);
+    void SlotCreateView(port_id clientPort,
+                        port_id replyPort,
+                        handler_id replyTarget,
+                        handler_id parentHandle,
+                        ViewDockType dockType,
+                        const String& name,
+                        const Rect& frame,
+                        const Point& scrollOffset,
+                        uint32_t flags,
+                        int32_t hideCount,
+                        DrawingMode drawingMode,
+                        Color eraseColor,
+                        Color bgColor,
+                        Color fgColor);
     void SlotDeleteView(handler_id clientHandle);
     void SlotFocusView(handler_id clientHandle, MouseButton_e button, bool focus);
+    void SlotCreateBitmap(port_id replyPort, int width, int height, ColorSpace colorSpace, uint32_t flags);
+    void SlotDeleteBitmap(handle_id bitmapHandle);
     void SlotViewSetFrame(handler_id clientHandle, const Rect& frame, handler_id requestingClient);
     void SlotViewInvalidate(handler_id clientHandle, const IRect& frame);
     void SlotViewAddChild(handler_id viewHandle, handler_id childHandle, handler_id managerHandle);
@@ -57,6 +74,7 @@ private:
     void SlotViewSetFgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetFgColor, color); }
     void SlotViewSetBgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetBgColor, color); }
     void SlotViewSetEraseColor(handler_id viewHandle, Color color)                          { ForwardToView(viewHandle, &ServerView::SetEraseColor, color); }
+    void SlotViewSetDrawingMode(handler_id viewHandle, DrawingMode mode)                   { ForwardToView(viewHandle, &ServerView::SetDrawingMode, mode); }
     void SlotViewSetFont(handler_id viewHandle, int fontHandle)                             { ForwardToView(viewHandle, &ServerView::SetFont, fontHandle); }
     void SlotViewMovePenTo(handler_id viewHandle, const Point& pos)                         { ForwardToView(viewHandle, &ServerView::MovePenTo, pos); }
     void SlotViewDrawLine1(handler_id viewHandle, const Point& toPoint)                     { ForwardToView(viewHandle, &ServerView::DrawLineTo, toPoint); }
@@ -66,6 +84,7 @@ private:
     void SlotViewDrawString(handler_id viewHandle, const String& string)                    { ForwardToView(viewHandle, &ServerView::DrawString, string); }
     void SlotViewScrollBy(handler_id viewHandle, const Point& delta)                        { ForwardToView(viewHandle, &ServerView::ScrollBy, delta); }
     void SlotViewCopyRect(handler_id viewHandle, const Rect& srcRect, const Point& dstPos)  { ForwardToView(viewHandle, &ServerView::CopyRect, srcRect, dstPos); }
+    void SlotViewDrawBitmap(handler_id viewHandle, handle_id bitmapHandle, const Rect& srcRect, const Point& dstPos) { ForwardToView(viewHandle, &ServerView::DrawBitmap, GetBitmap(bitmapHandle), srcRect, dstPos); }
     void SlotViewDebugDraw(handler_id viewHandle, Color color, uint32_t drawFlags)          { ForwardToView(viewHandle, &ServerView::DebugDraw, color, drawFlags); }
 
     template<typename CB, typename... ARGS>
@@ -87,29 +106,36 @@ private:
     Ptr<ServerView> m_LowestInvalidView;
     int             m_LowestInvalidLevel = std::numeric_limits<int>::max();
     
-    ASSync::Receiver              RSSync;
-    ASCreateView::Receiver        RSCreateView;
-    ASDeleteView::Receiver        RSDeleteView;
-    ASFocusView::Receiver         RSFocusView;
-    ASViewSetFrame::Receiver      RSViewSetFrame;
-    ASViewInvalidate::Receiver    RSViewInvalidate;
-    ASViewAddChild::Receiver      RSViewAddChild;
-    ASViewToggleDepth::Receiver   RSViewToggleDepth;
-    ASViewBeginUpdate::Receiver   RSViewBeginUpdate;
-    ASViewEndUpdate::Receiver     RSViewEndUpdate;
-    ASViewSetFgColor::Receiver    RSViewSetFgColor;
-    ASViewSetBgColor::Receiver    RSViewSetBgColor;
-    ASViewSetEraseColor::Receiver RSViewSetEraseColor;
-    ASViewSetFont::Receiver       RSViewSetFont;
-    ASViewMovePenTo::Receiver     RSViewMovePenTo;
-    ASViewDrawLine1::Receiver     RSViewDrawLine1;
-    ASViewDrawLine2::Receiver     RSViewDrawLine2;
-    ASViewFillRect::Receiver      RSViewFillRect;
-    ASViewFillCircle::Receiver    RSViewFillCircle;
-    ASViewDrawString::Receiver    RSViewDrawString;
-    ASViewScrollBy::Receiver      RSViewScrollBy;
-    ASViewCopyRect::Receiver      RSViewCopyRect;
-    ASViewDebugDraw::Receiver     RSViewDebugDraw;
+    handle_id                           m_NextBitmapHandle = 1;
+    std::map<handle_id, Ptr<SrvBitmap>> m_BitmapMap;
+
+    ASSync::Receiver                RSSync;
+    ASCreateView::Receiver          RSCreateView;
+    ASDeleteView::Receiver          RSDeleteView;
+    ASFocusView::Receiver           RSFocusView;
+    ASCreateBitmap::Receiver        RSCreateBitmap;
+    ASDeleteBitmap::Receiver        RSDeleteBitmap;
+    ASViewSetFrame::Receiver        RSViewSetFrame;
+    ASViewInvalidate::Receiver      RSViewInvalidate;
+    ASViewAddChild::Receiver        RSViewAddChild;
+    ASViewToggleDepth::Receiver     RSViewToggleDepth;
+    ASViewBeginUpdate::Receiver     RSViewBeginUpdate;
+    ASViewEndUpdate::Receiver       RSViewEndUpdate;
+    ASViewSetFgColor::Receiver      RSViewSetFgColor;
+    ASViewSetBgColor::Receiver      RSViewSetBgColor;
+    ASViewSetEraseColor::Receiver   RSViewSetEraseColor;
+    ASViewSetDrawingMode::Receiver  RSViewSetDrawingMode;
+    ASViewSetFont::Receiver         RSViewSetFont;
+    ASViewMovePenTo::Receiver       RSViewMovePenTo;
+    ASViewDrawLine1::Receiver       RSViewDrawLine1;
+    ASViewDrawLine2::Receiver       RSViewDrawLine2;
+    ASViewFillRect::Receiver        RSViewFillRect;
+    ASViewFillCircle::Receiver      RSViewFillCircle;
+    ASViewDrawString::Receiver      RSViewDrawString;
+    ASViewScrollBy::Receiver        RSViewScrollBy;
+    ASViewCopyRect::Receiver        RSViewCopyRect;
+    ASViewDrawBitmap::Receiver      RSViewDrawBitmap;
+    ASViewDebugDraw::Receiver       RSViewDebugDraw;
     
     ServerApplication(const ServerApplication&) = delete;
     ServerApplication& operator=(const ServerApplication&) = delete;

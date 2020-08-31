@@ -25,7 +25,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SrvBitmap::SrvBitmap(const os::IPoint& size, os::color_space colorSpace, uint8_t* raster, size_t bytesPerLine)
+SrvBitmap::SrvBitmap(const os::IPoint& size, os::ColorSpace colorSpace, uint8_t* raster, size_t bytesPerLine)
     : m_ColorSpace(colorSpace)
     , m_Size(size)
     , m_BytesPerLine(bytesPerLine)
@@ -34,6 +34,7 @@ SrvBitmap::SrvBitmap(const os::IPoint& size, os::color_space colorSpace, uint8_t
     {
         int bitsPerPixel = BitsPerPixel(colorSpace);
         m_BytesPerLine = (size.x * bitsPerPixel + 7) / 8;
+        m_BytesPerLine = (m_BytesPerLine + 3) & ~3; // Keep each line 32-bit aligned.
     }
     if (m_Size.x == 0 || raster != nullptr)
     {

@@ -117,16 +117,16 @@ void ListViewColumnView::Paint(const Rect& updateRect)
 
     if (parent->m_IsSelecting)
     {
-        parent->SetDrawingMode(DM_INVERT);
+        parent->SetDrawingMode(DrawingMode::Invert);
         parent->DrawFrame(parent->m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-        parent->SetDrawingMode(DM_COPY);
+        parent->SetDrawingMode(DrawingMode::Copy);
     }
     Refresh(updateRect);
     if (parent->m_IsSelecting)
     {
-        parent->SetDrawingMode(DM_INVERT);
+        parent->SetDrawingMode(DrawingMode::Invert);
         parent->DrawFrame(parent->m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-        parent->SetDrawingMode(DM_COPY);
+        parent->SetDrawingMode(DrawingMode::Copy);
     }
 }
 

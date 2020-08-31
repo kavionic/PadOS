@@ -40,6 +40,11 @@ template<typename T> inline T wrap(const T& bottom, const T& top, const T& value
     }        
 }
 
+template<typename T>
+T* add_bytes_to_pointer(T* pointer, ssize_t adder) { return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(pointer) + adder); }
+template<typename T>
+const T* add_bytes_to_pointer(const T* pointer, ssize_t adder) { return reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(pointer) + adder); }
+
 template<typename T1, typename T2, typename T3> inline void set_bit_group(T1& target, T2 mask, T3 value) { target = (target & ~mask) | value; }
 
 inline uint32_t nanoseconds_to_cycles_floor(uint32_t clockFrequency, uint32_t nanoSeconds)

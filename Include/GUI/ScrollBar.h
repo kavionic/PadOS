@@ -45,9 +45,9 @@ public:
     // From View
     virtual void    FrameSized(const Point& delta) override;
 
-    virtual bool    OnMouseDown(MouseButton_e button, const Point& position) override;
-    virtual bool    OnMouseUp(MouseButton_e button, const Point& position) override;
-    virtual bool    OnMouseMove(MouseButton_e button, const Point& position) override;
+    virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
 
 //    virtual void	WheelMoved(const Point& cDelta);
 

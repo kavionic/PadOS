@@ -37,30 +37,34 @@ using namespace os;
 
 ServerApplication::ServerApplication(ApplicationServer* server, const String& name, port_id clientPort) : EventHandler(name), m_Server(server), m_ClientPort(clientPort)
 {
-    RegisterRemoteSignal(&RSSync,           &ServerApplication::SlotSync);
-    RegisterRemoteSignal(&RSCreateView,     &ServerApplication::SlotCreateView);
-    RegisterRemoteSignal(&RSDeleteView,     &ServerApplication::SlotDeleteView);
-    RegisterRemoteSignal(&RSFocusView,      &ServerApplication::SlotFocusView);
-    RegisterRemoteSignal(&RSViewSetFrame,   &ServerApplication::SlotViewSetFrame);
-    RegisterRemoteSignal(&RSViewInvalidate, &ServerApplication::SlotViewInvalidate);    
-    RegisterRemoteSignal(&RSViewAddChild,   &ServerApplication::SlotViewAddChild);
-    RegisterRemoteSignal(&RSViewToggleDepth,   &ServerApplication::SlotViewToggleDepth);
-    RegisterRemoteSignal(&RSViewBeginUpdate,   &ServerApplication::SlotViewBeginUpdate);
-    RegisterRemoteSignal(&RSViewEndUpdate,     &ServerApplication::SlotViewEndUpdate);
+    RegisterRemoteSignal(&RSSync,               &ServerApplication::SlotSync);
+    RegisterRemoteSignal(&RSCreateView,         &ServerApplication::SlotCreateView);
+    RegisterRemoteSignal(&RSDeleteView,         &ServerApplication::SlotDeleteView);
+    RegisterRemoteSignal(&RSFocusView,          &ServerApplication::SlotFocusView);
+    RegisterRemoteSignal(&RSCreateBitmap,       &ServerApplication::SlotCreateBitmap);
+    RegisterRemoteSignal(&RSDeleteBitmap,       &ServerApplication::SlotDeleteBitmap);
+    RegisterRemoteSignal(&RSViewSetFrame,       &ServerApplication::SlotViewSetFrame);
+    RegisterRemoteSignal(&RSViewInvalidate,     &ServerApplication::SlotViewInvalidate);    
+    RegisterRemoteSignal(&RSViewAddChild,       &ServerApplication::SlotViewAddChild);
+    RegisterRemoteSignal(&RSViewToggleDepth,    &ServerApplication::SlotViewToggleDepth);
+    RegisterRemoteSignal(&RSViewBeginUpdate,    &ServerApplication::SlotViewBeginUpdate);
+    RegisterRemoteSignal(&RSViewEndUpdate,      &ServerApplication::SlotViewEndUpdate);
     
-    RegisterRemoteSignal(&RSViewSetFgColor,    &ServerApplication::SlotViewSetFgColor);
-    RegisterRemoteSignal(&RSViewSetBgColor,    &ServerApplication::SlotViewSetBgColor);
-    RegisterRemoteSignal(&RSViewSetEraseColor, &ServerApplication::SlotViewSetEraseColor);
-    RegisterRemoteSignal(&RSViewSetFont,       &ServerApplication::SlotViewSetFont);
-    RegisterRemoteSignal(&RSViewMovePenTo,     &ServerApplication::SlotViewMovePenTo);
-    RegisterRemoteSignal(&RSViewDrawLine1,     &ServerApplication::SlotViewDrawLine1);
-    RegisterRemoteSignal(&RSViewDrawLine2,     &ServerApplication::SlotViewDrawLine2);
-    RegisterRemoteSignal(&RSViewFillRect,      &ServerApplication::SlotViewFillRect);
-    RegisterRemoteSignal(&RSViewFillCircle,    &ServerApplication::SlotViewFillCircle);
-    RegisterRemoteSignal(&RSViewDrawString,    &ServerApplication::SlotViewDrawString);
-    RegisterRemoteSignal(&RSViewScrollBy,      &ServerApplication::SlotViewScrollBy);
-    RegisterRemoteSignal(&RSViewCopyRect,      &ServerApplication::SlotViewCopyRect);
-    RegisterRemoteSignal(&RSViewDebugDraw,     &ServerApplication::SlotViewDebugDraw);
+    RegisterRemoteSignal(&RSViewSetFgColor,     &ServerApplication::SlotViewSetFgColor);
+    RegisterRemoteSignal(&RSViewSetBgColor,     &ServerApplication::SlotViewSetBgColor);
+    RegisterRemoteSignal(&RSViewSetEraseColor,  &ServerApplication::SlotViewSetEraseColor);
+    RegisterRemoteSignal(&RSViewSetDrawingMode, &ServerApplication::SlotViewSetDrawingMode);
+    RegisterRemoteSignal(&RSViewSetFont,        &ServerApplication::SlotViewSetFont);
+    RegisterRemoteSignal(&RSViewMovePenTo,      &ServerApplication::SlotViewMovePenTo);
+    RegisterRemoteSignal(&RSViewDrawLine1,      &ServerApplication::SlotViewDrawLine1);
+    RegisterRemoteSignal(&RSViewDrawLine2,      &ServerApplication::SlotViewDrawLine2);
+    RegisterRemoteSignal(&RSViewFillRect,       &ServerApplication::SlotViewFillRect);
+    RegisterRemoteSignal(&RSViewFillCircle,     &ServerApplication::SlotViewFillCircle);
+    RegisterRemoteSignal(&RSViewDrawString,     &ServerApplication::SlotViewDrawString);
+    RegisterRemoteSignal(&RSViewScrollBy,       &ServerApplication::SlotViewScrollBy);
+    RegisterRemoteSignal(&RSViewCopyRect,       &ServerApplication::SlotViewCopyRect);
+    RegisterRemoteSignal(&RSViewDrawBitmap,     &ServerApplication::SlotViewDrawBitmap);
+    RegisterRemoteSignal(&RSViewDebugDraw,      &ServerApplication::SlotViewDebugDraw);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -121,6 +125,20 @@ void ServerApplication::ProcessMessage(int32_t code, const void* data, size_t le
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+Ptr<SrvBitmap> ServerApplication::GetBitmap(handle_id bitmapHandle) const
+{
+    auto i = m_BitmapMap.find(bitmapHandle);
+    if (i != m_BitmapMap.end()) {
+        return i->second;
+    } else {
+        return nullptr;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ServerApplication::UpdateRegions()
 {
     if (m_LowestInvalidView != nullptr)
@@ -150,7 +168,20 @@ void ServerApplication::UpdateLowestInvalidView(Ptr<ServerView> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotCreateView(port_id clientPort, port_id replyPort, handler_id replyTarget, handler_id parentHandle, ViewDockType dockType, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor)
+void ServerApplication::SlotCreateView(port_id          clientPort,
+                                       port_id          replyPort,
+                                       handler_id       replyTarget,
+                                       handler_id       parentHandle,
+                                       ViewDockType     dockType,
+                                       const String&    name,
+                                       const Rect&      frame,
+                                       const Point&     scrollOffset,
+                                       uint32_t         flags,
+                                       int32_t          hideCount,
+                                       DrawingMode     drawingMode,
+                                       Color            eraseColor,
+                                       Color            bgColor,
+                                       Color            fgColor)
 {
     Ptr<ServerView> parent; // = (parentHandle == -1) ? m_Server->GetTopView() : m_Server->FindView(parentHandle);
     
@@ -169,7 +200,7 @@ void ServerApplication::SlotCreateView(port_id clientPort, port_id replyPort, ha
         }
     }
     
-    Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, flags, hideCount, eraseColor, bgColor, fgColor);
+    Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, flags, hideCount, drawingMode, eraseColor, bgColor, fgColor);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
         parent->AddChild(view);
@@ -237,6 +268,40 @@ void ServerApplication::SlotFocusView(handler_id clientHandle, MouseButton_e but
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int height, ColorSpace colorSpace, uint32_t flags)
+{
+    Ptr<SrvBitmap> bitmap = ptr_new<SrvBitmap>(IPoint(width, height), colorSpace);
+
+    handle_id handle = m_NextBitmapHandle++;
+
+    m_BitmapMap[handle] = bitmap;
+
+    MsgCreateBitmapReply reply;
+    reply.m_BitmapHandle = handle;
+    reply.m_Framebuffer  = bitmap->m_Raster;
+    if (send_message(replyPort, -1, AppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), 0) < 0) {
+        printf("ERROR: ServerApplication::SlotCreateBitmap() failed to send message: %s\n", strerror(get_last_error()));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotDeleteBitmap(handle_id bitmapHandle)
+{
+    auto i = m_BitmapMap.find(bitmapHandle);
+    if (i != m_BitmapMap.end()) {
+        m_BitmapMap.erase(i);
+    } else {
+        printf("ERROR: ServerApplication::SlotDeleteBitmap() invalid handle: %d\n", bitmapHandle);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ServerApplication::SlotViewSetFrame(handler_id clientHandle, const Rect& frame, handler_id requestingClient)
 {
     Ptr<ServerView> view = m_Server->FindView(clientHandle);
@@ -263,7 +328,7 @@ void ServerApplication::SlotViewInvalidate(handler_id clientHandle, const IRect&
 {
     Ptr<ServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr) {
-        IRect invalidFrame = frame;
+        IRect invalidFrame = frame + IPoint(view->GetScrollOffset());
         view = ServerView::GetOpacParent(view, &invalidFrame);
         view->Invalidate(invalidFrame);
         UpdateLowestInvalidView(view);

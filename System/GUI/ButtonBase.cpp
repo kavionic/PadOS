@@ -87,7 +87,7 @@ Ptr<ButtonGroup> ButtonBase::FindButtonGroup(Ptr<View> root, const String& name)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ButtonBase::OnMouseDown(MouseButton_e button, const Point& position)
+bool ButtonBase::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
 	//    printf("Button: Mouse down %d, %.1f/%.1f\n", int(button), position.x, position.y);
 	if (m_HitButton == MouseButton_e::None)
@@ -111,7 +111,7 @@ bool ButtonBase::OnMouseDown(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ButtonBase::OnMouseUp(MouseButton_e button, const Point& position)
+bool ButtonBase::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
 	//    printf("Button: Mouse up %d, %.1f/%.1f\n", int(button), position.x, position.y);
 	if (button == m_HitButton)
@@ -133,7 +133,7 @@ bool ButtonBase::OnMouseUp(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ButtonBase::OnMouseMove(MouseButton_e button, const Point& position)
+bool ButtonBase::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
 	if (button == m_HitButton)
 	{

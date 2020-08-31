@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,40 +15,44 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 15.04.2018 16:38:59
+// Created: 22.08.2020 15:30
 
 #pragma once
 
-#include "GUI/View.h"
+#include <GUI/Control.h>
 
 
 namespace os
 {
 
-namespace TextViewFlags
+namespace TextBoxFlags
 {
 static constexpr uint32_t IncludeLineGap = 0x01 << ViewFlags::FirstUserBit;
+static constexpr uint32_t RaisedFrame    = 0x02 << ViewFlags::FirstUserBit;
+
 extern const std::map<String, uint32_t> FlagMap;
 }
 
-class TextView : public View
+class TextBox : public Control
 {
 public:
-    TextView(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
-	TextView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
-    ~TextView();
+    TextBox(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    TextBox(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    ~TextBox();
     
     void SetText(const String& text);
     const String& GetText() const { return m_Text; }
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
-
     virtual void Paint(const Rect& updateRect) override;
-        
+
+    Point GetSizeForString(const String& text, bool includeWidth = true, bool includeHeight = true) const;
+
+    Signal<void, const String&, bool, TextBox*> SignalTextChanged;
 private:
     String m_Text;
     
-    TextView(const TextView&) = delete;
-    TextView& operator=(const TextView&) = delete;
+    TextBox(const TextBox&) = delete;
+    TextBox& operator=(const TextBox&) = delete;
 };
     
     

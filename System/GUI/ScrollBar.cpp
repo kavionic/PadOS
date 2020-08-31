@@ -239,7 +239,7 @@ void ScrollBar::SlotTimerTick()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ScrollBar::OnMouseDown(MouseButton_e button, const Point& position)
+bool ScrollBar::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
 	MakeFocus(button, true);
 	m_HitState = HIT_NONE;
@@ -299,7 +299,7 @@ bool ScrollBar::OnMouseDown(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ScrollBar::OnMouseUp(MouseButton_e button, const Point& position)
+bool ScrollBar::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
 	if (m_HitState == HIT_ARROW)
 	{
@@ -359,7 +359,7 @@ bool ScrollBar::OnMouseUp(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ScrollBar::OnMouseMove(MouseButton_e button, const Point& position)
+bool ScrollBar::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
 	if (m_HitState == HIT_ARROW)
 	{
@@ -524,13 +524,13 @@ void ScrollBar::Paint(const Rect& cUpdateRect)
 //			}
 			DrawFrame(m_ArrowRects[i], (m_ArrowStates[i] ? FRAME_RECESSED : FRAME_RAISED) | FRAME_THIN);
 
-			SetDrawingMode(DM_OVER);
+			SetDrawingMode(DrawingMode::Overlay);
 
 //			DrawBitmap(pcBitmap, cBmRect, cBmRect.Bounds() + Point((m_acArrowRects[i].Width() + 1.0f) * 0.5 - (cBmRect.Width() + 1.0f) * 0.5,
 //				(m_acArrowRects[i].Height() + 1.0f) * 0.5 - (cBmRect.Height() + 1.0f) * 0.5) +
 //				m_acArrowRects[i].LeftTop());
 
-			SetDrawingMode(DM_COPY);
+			SetDrawingMode(DrawingMode::Copy);
 
 		}
 	}

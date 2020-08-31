@@ -26,12 +26,13 @@
 #include <stdio.h>
 #include <pugixml/src/pugixml.hpp>
 
-#include "GUI/View.h"
-#include "GUI/ScrollBar.h"
-#include "App/Application.h"
-#include "Utils/Utils.h"
-#include "Utils/XMLFactory.h"
-#include "Utils/XMLObjectParser.h"
+#include <GUI/View.h>
+#include <GUI/ScrollBar.h>
+#include <GUI/Bitmap.h>
+#include <App/Application.h>
+#include <Utils/Utils.h>
+#include <Utils/XMLFactory.h>
+#include <Utils/XMLObjectParser.h>
 
 using namespace kernel;
 using namespace os;
@@ -233,42 +234,6 @@ View::View(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& 
 	if (overrideTypeGreatestV != SizeOverride::None) {
 		SetHeightOverride(PrefSizeType::Greatest, overrideTypeGreatestV, sizeGreatestOverride.y);
 	}
-
-//    pugi::xml_attribute attribute = context->GetAttribute(xmlData, "size");
-//    if (!attribute.empty())
-//    {
-//        Point size;
-//        if (xml_object_parser::parse(attribute.value(), size))
-//        {
-//            SetWidthOverride(PrefSizeType::All, SizeOverride::Always, size.x);
-//            SetHeightOverride(PrefSizeType::All, SizeOverride::Always, size.y);
-//        }
-//    } else
-//    {
-//        attribute = context->GetAttribute(xmlData, "size_limit");
-//        if (!attribute.empty())
-//        {
-//            Point size;
-//            if (xml_object_parser::parse(attribute.value(), size))
-//            {
-//                SetWidthOverride(PrefSizeType::All, SizeOverride::Limit, size.x);
-//                SetHeightOverride(PrefSizeType::All, SizeOverride::Limit, size.y);
-//            }
-//        } else
-//        {
-//            attribute = context->GetAttribute(xmlData, "size_extend");
-//            if (!attribute.empty())
-//            {
-//                Point size;
-//                if (xml_object_parser::parse(attribute.value(), size))
-//                {
-//                    SetWidthOverride(PrefSizeType::All, SizeOverride::Extend, size.x);
-//                    SetHeightOverride(PrefSizeType::All, SizeOverride::Extend, size.y);
-//                }
-//            }
-//        }
-//    }
-
 
     SetLayoutNode(context->GetAttribute(xmlData, "layout", Ptr<LayoutNode>()));
     m_Borders = context->GetAttribute(xmlData, "layout_borders", Rect(0.0f));
@@ -646,23 +611,22 @@ void View::UpdateLayout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::OnMouseDown(MouseButton_e button, const Point& position)
+bool View::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (!VFMouseDown.Empty()) {
-        return VFMouseDown(button, position);
-    } else {
-        return false;
-    }        
+        return VFMouseDown(button, position, event);
+    }
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::OnMouseUp(MouseButton_e button, const Point& position)
+bool View::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (!VFMouseUp.Empty()) {
-        return VFMouseUp(button, position);
+        return VFMouseUp(button, position, event);
     } else {
         return false;
     }
@@ -672,10 +636,10 @@ bool View::OnMouseUp(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::OnMouseMove(MouseButton_e button, const Point& position)
+bool View::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (!VFMouseMoved.Empty()) {
-        return VFMouseMoved(position);
+        return VFMouseMoved(position, event);
     } else {
         return false;
     }        
@@ -698,6 +662,14 @@ void View::FrameSized(const Point& delta)
     if (m_LayoutNode != nullptr) {
         InvalidateLayout();
     }    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void  View::ScreenFrameMoved(const Point& delta)
+{
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -799,6 +771,7 @@ void View::PreferredSizeChanged()
 
 void View::ContentSizeChanged()
 {
+    SignalContentSizeChanged(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -820,6 +793,15 @@ void View::AddChild(Ptr<View> child)
 void View::RemoveChild(Ptr<View> child)
 {
     UnlinkChild(child);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<View> View::RemoveChild(ChildList_t::iterator iterator)
+{
+    return UnlinkChild(iterator);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -916,12 +898,13 @@ void View::SetFrame(const Rect& frame)
     m_Frame = frame;
 
     UpdatePosition(true);
-    UpdateScreenPos();
-    if (deltaSize != Point(0.0f, 0.0f)) {
+    if (deltaSize != Point(0.0f, 0.0f))
+    {
         FrameSized(deltaSize);
         SignalFrameSized(deltaSize, ptr_tmp_cast(this));
     }
-    if (deltaPos != Point(0.0f, 0.0f)) {
+    if (deltaPos != Point(0.0f, 0.0f))
+    {
         FrameMoved(deltaPos);
         SignalFrameMoved(deltaSize, ptr_tmp_cast(this));
     }
@@ -1012,6 +995,28 @@ void View::Invalidate(bool recurse)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void View::SetDrawingMode(DrawingMode mode)
+{
+    if (mode != m_DrawingMode)
+    {
+        m_DrawingMode = mode;
+        Post<ASViewSetDrawingMode>(m_DrawingMode);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+DrawingMode View::GetDrawingMode() const
+{
+    return m_DrawingMode;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void View::SetFont(Ptr<Font> font)
 {
     m_Font = font;
@@ -1031,45 +1036,64 @@ Ptr<Font> View::GetFont() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::SlotHandleMouseDown(MouseButton_e button, const Point& position)
+bool View::SlotHandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-    std::set<View*> visitedViews;
-
-    while (visitedViews.count(this) == 0)
+    for (Ptr<View> child : reverse_ranged(m_ChildrenList))
     {
-        if (HandleMouseDown(visitedViews, button, position)) {
-            return true;
+        if (!child->HasFlags(ViewFlags::IgnoreMouse) && child->m_Frame.DoIntersect(position))
+        {
+            Point childPos = position - child->m_Frame.TopLeft() - child->m_ScrollOffset;
+            return child->SlotHandleMouseDown(button, childPos, event);
         }
     }
-    return false;
+    return HandleMouseDown(button, position, event);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::HandleMouseDown(std::set<View*>& visitedViews, MouseButton_e button, const Point& position)
+bool View::HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-    for (Ptr<View> child : reverse_ranged(m_ChildrenList))
-    {
-        if (visitedViews.count(ptr_raw_pointer_cast(child)) == 0 && !child->HasFlags(ViewFlags::IgnoreMouse) && child->m_Frame.DoIntersect(position))
-        {
-            Point childPos = position - child->m_Frame.TopLeft() - child->m_ScrollOffset;
-            return child->HandleMouseDown(visitedViews, button, childPos);
-        }
-    }
-    visitedViews.insert(this);
     bool handled;
     if (button < MouseButton_e::FirstTouchID) {
-        handled = OnMouseDown(button, position);
+        handled = OnMouseDown(button, position, event);
     } else {
-        handled = OnTouchDown(button, position);
+        handled = OnTouchDown(button, position, event);
     }
     if (handled)
     {
         Application* app = GetApplication();
         if (app != nullptr) {
             app->SetMouseDownView(button, ptr_tmp_cast(this));
+        }
+    }
+    else
+    {
+        Ptr<View> parent = GetParent();
+
+        if (parent != nullptr)
+        {
+            // Event not handled by us. Check if the mouse hit any overlapping siblings below us.
+            Point parentPos = ConvertToParent(position);
+            auto i = parent->GetChildRIterator(ptr_tmp_cast(this));
+            if (i != parent->rend())
+            {
+                ++i;
+                if (i != parent->rend())
+                {
+                    for (; i != parent->rend(); ++i)
+                    {
+                        Ptr<View> sibling = *i;
+                        if (!sibling->HasFlags(ViewFlags::IgnoreMouse) && sibling->GetFrame().DoIntersect(parentPos))
+                        {
+                            return sibling->HandleMouseDown(button, sibling->ConvertFromParent(parentPos), event);
+                        }
+                    }
+                }
+            }
+            // No lower sibling hit, send to parent.
+            return parent->HandleMouseDown(button, parentPos, event);
         }
     }
     return handled;
@@ -1079,20 +1103,23 @@ bool View::HandleMouseDown(std::set<View*>& visitedViews, MouseButton_e button, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::HandleMouseUp(MouseButton_e button, const Point& position)
+void View::HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     Application* app = GetApplication();
     Ptr<View> mouseView = (app != nullptr) ? app->GetMouseDownView(button) : nullptr;
-    if (mouseView != nullptr) {
+    if (mouseView != nullptr)
+    {
 //        printf("View::HandleMouseUp() %p '%s'\n", ptr_raw_pointer_cast(mouseView), mouseView->GetName().c_str());
 
         if (button < MouseButton_e::FirstTouchID) {
-            mouseView->OnMouseUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
+            mouseView->OnMouseUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), event);
         } else {
-            mouseView->OnTouchUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
+            mouseView->OnTouchUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), event);
         }
-    } else {
-        OnMouseUp(button, position);
+    }
+    else
+    {
+        OnMouseUp(button, position, event);
     }        
 }
 
@@ -1100,21 +1127,21 @@ void View::HandleMouseUp(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::HandleMouseMove(MouseButton_e button, const Point& position)
+void View::HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     Application* app = GetApplication();
     Ptr<View> mouseView = (app != nullptr) ? app->GetFocusView(button) : nullptr;
     if (mouseView != nullptr) {
         if (button < MouseButton_e::FirstTouchID) {
-            mouseView->OnMouseMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
+            mouseView->OnMouseMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), event);
         } else {
-            mouseView->OnTouchMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)));
+            mouseView->OnTouchMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), event);
         }
     } else {
         if (button < MouseButton_e::FirstTouchID) {
-            OnMouseMove(button, position);
+            OnMouseMove(button, position, event);
         } else {
-            OnTouchMove(button, position);
+            OnTouchMove(button, position, event);
         }
     }        
 }
@@ -1130,7 +1157,7 @@ void View::ScrollBy(const Point& offset)
     }
 
     m_ScrollOffset += offset;
-    UpdateScreenPos();
+    UpdatePosition(false);
     Post<ASViewScrollBy>(offset);
 
     if (offset.x != 0 && m_pcHScrollBar != nullptr) {
@@ -1153,6 +1180,15 @@ void View::CopyRect(const Rect& srcRect, const Point& dstPos)
         m_DidScrollRect = true;
     }
     Post<ASViewCopyRect>(srcRect, dstPos);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::DrawBitmap(Ptr<const Bitmap> bitmap, const Rect& srcRect, const Point& dstPos)
+{
+    Post<ASViewDrawBitmap>(bitmap->m_Handle, srcRect, dstPos);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1336,6 +1372,7 @@ void View::HandleRemovedFromParent(Ptr<View> parent)
 {
     if (m_ServerHandle != -1 && !HasFlags(ViewFlags::Eavesdropper)) {
         GetApplication()->RemoveView(ptr_tmp_cast(this));
+        UpdatePosition(false);
     }
 }
 

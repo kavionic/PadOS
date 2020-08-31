@@ -6,6 +6,7 @@ target_sources(PadOS PRIVATE
 	CheckBox.h
 	Color.h
 	Control.h
+	DropdownMenu.h
 	Font.h
 	GroupView.h
 	GUIDefines.h
@@ -17,7 +18,9 @@ target_sources(PadOS PRIVATE
 	RadioButton.h
 	Region.h
 	ScrollBar.h
+	ScrollView.h
 	Slider.h
+	TextBox.h
 	TextView.h
 	View.h
 	ViewBase.h

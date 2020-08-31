@@ -34,16 +34,17 @@ public:
     template <typename fR, typename fC,typename T, typename... fARGS>
     auto FindSlot( const T* obj, fR (fC::*callback)(fARGS...) ) const
     {
+        typedef fR(fC::* Signature)(fARGS...);
+        typedef SlotFull<sizeof...(fARGS), fC, fR, Signature, ARGS...> SlotType;
+
         for ( SlotBase* i = m_FirstSlot ; i != nullptr ; i = i->GetNextInSignal() )
         {
-            typedef fR (fC::*Signature)(fARGS...);
-            typedef SlotFull<sizeof...(fARGS), fC, fR, Signature, ARGS...> SlotType;
             SlotType* tmp = dynamic_cast<SlotType*>(i);
-            if ( tmp != nullptr && tmp->GetSignalTarget() == obj && tmp->m_Callback == callback ) {
+            if ( tmp != nullptr && tmp->GetSignalTarget() == obj && tmp->GetCallback() == callback ) {
                 return tmp;
             }
         }
-        return nullptr;
+        return (SlotType*) nullptr;
     }
 
     /////////////////////////////////////////////////////////////////////////////
@@ -53,16 +54,17 @@ public:
     template <typename fR, typename fC,typename T, typename ...fARGS>
     auto FindSlot(const T* obj, fR (fC::*callback)(fARGS...) const ) const
     {
+        typedef fR(fC::* Signature)(fARGS...) const;
+        typedef SlotFull<sizeof...(fARGS), fC, fR, Signature, ARGS...> SlotType;
+
         for ( SlotBase* i = m_FirstSlot ; i != nullptr ; i = i->GetNextInSignal() )
         {
-            typedef fR (fC::*Signature)(fARGS...) const;
-            typedef SlotFull<sizeof...(fARGS), fC, fR, Signature, ARGS...> SlotType;
             SlotType* tmp = dynamic_cast<SlotType*>(i);
-            if ( tmp != nullptr && tmp->GetSignalTarget() == obj && tmp->m_Callback == callback ) {
+            if ( tmp != nullptr && tmp->GetSignalTarget() == obj && tmp->GetCallback() == callback ) {
                 return tmp;
             }
         }
-        return nullptr;
+        return (SlotType*) nullptr;
     }
 
     /////////////////////////////////////////////////////////////////////////////
@@ -72,16 +74,17 @@ public:
     template <typename fR, typename ...fARGS>
     auto FindSlot( fR (*callback)(fARGS...) ) const
     {
+        typedef fR Signature(fARGS...);
+        typedef SlotFull<sizeof...(fARGS), SignalTarget, fR, Signature, ARGS...> SlotType;
+
         for ( SlotBase* i = m_FirstSlot ; i != nullptr ; i = i->GetNextInSignal() )
         {
-            typedef fR Signature(fARGS...);
-            typedef SlotFull<sizeof...(fARGS), SignalTarget, fR, Signature, ARGS...> SlotType;
             SlotType* tmp = dynamic_cast<SlotType*>(i);
-            if ( tmp != nullptr && tmp->m_Callback == callback ) {
+            if ( tmp != nullptr && tmp->GetCallback() == callback ) {
                 return tmp;
             }
         }
-        return nullptr;
+        return (SlotType*) nullptr;
     }
 
     /////////////////////////////////////////////////////////////////////////////

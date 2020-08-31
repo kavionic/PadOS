@@ -37,9 +37,10 @@ static int g_ServerViewCount = 0;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ServerView::ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor)
+ServerView::ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, DrawingMode drawingMode, Color eraseColor, Color bgColor, Color fgColor)
     : ViewBase(name, frame, scrollOffset, flags, hideCount, eraseColor, bgColor, fgColor)
     , m_Bitmap(bitmap)
+    , m_DrawingMode(drawingMode)
 {
     g_ServerViewCount++;
 }
@@ -74,20 +75,20 @@ void ServerView::HandleRemovedFromParent(Ptr<ServerView> parent)
 ///////////////////////////////////////////////////////////////////////////////
 
     
-bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
+bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (m_ClientHandle != INVALID_HANDLE && !HasFlags(ViewFlags::IgnoreMouse))
     {
         if (m_ManagerHandle != INVALID_HANDLE)
         {
-            if (!ASHandleMouseDown::Sender::Emit(get_window_manager_port(), m_ManagerHandle, TimeValMicros::infinit, button, position))
+            if (!ASHandleMouseDown::Sender::Emit(get_window_manager_port(), m_ManagerHandle, TimeValMicros::infinit, button, position, event))
             {
                 printf("ERROR: ServerView::HandleMouseDown() failed to send message: %s\n", strerror(get_last_error()));
                 return false;
             }            
         }
                     
-        if (!ASHandleMouseDown::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position)) {
+        if (!ASHandleMouseDown::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position, event)) {
             printf("ERROR: ServerView::HandleMouseDown() failed to send message: %s\n", strerror(get_last_error()));
             return false;
         }
@@ -103,7 +104,7 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
         if (child->m_Frame.DoIntersect(position))
         {
             Point childPos = position - child->m_Frame.TopLeft() - child->m_ScrollOffset;
-            if (child->HandleMouseDown(button, childPos))
+            if (child->HandleMouseDown(button, childPos, event))
             {
                 return true;
             }
@@ -116,11 +117,11 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ServerView::HandleMouseUp(MouseButton_e button, const Point& position)
+bool ServerView::HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (m_ClientHandle != -1 )
     {
-        if (!ASHandleMouseUp::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position)) {
+        if (!ASHandleMouseUp::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position, event)) {
             printf("ERROR: ServerView::HandleMouseUp() failed to send message: %s\n", strerror(get_last_error()));
         }
         return true;
@@ -132,10 +133,10 @@ bool ServerView::HandleMouseUp(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ServerView::HandleMouseMove(MouseButton_e button, const Point& position)
+bool ServerView::HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (m_ClientHandle != -1 ) {
-        if (!ASHandleMouseMove::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position)) {
+        if (!ASHandleMouseMove::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position, event)) {
             printf("ERROR: ServerView::HandleMouseMove() failed to send message: %s\n", strerror(get_last_error()));
         }
         return true;
@@ -483,7 +484,7 @@ void ServerView::MoveChilds()
             std::sort(clipList.begin(), clipList.end(), BlitSortCompare(cChildMove));
 
             for (const IRect* clip : clipList) {
-                m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, *clip - cChildMove, clip->TopLeft(), DM_COPY);
+                m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - cChildMove, clip->TopLeft(), DrawingMode::Copy);
             }
         }
 
@@ -1168,7 +1169,7 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     for (IRect* clip : clipList)
     {
         *clip += screenPos; // Convert into screen space
-        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, *clip - delta, clip->TopLeft(), m_DrawingMode);
+        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - delta, clip->TopLeft(), m_DrawingMode);
     }
     if (m_DamageReg != nullptr)
     {
@@ -1206,6 +1207,46 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
         m_ActiveDamageReg->Optimize();
     }
     UpdateIfNeeded(true);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerView::DrawBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Point& dstPos)
+{
+    if (bitmap == nullptr || m_VisibleReg == nullptr) {
+        return;
+    }
+    Ptr<const Region> region = GetRegion();
+
+    if (region == nullptr) {
+        return;
+    }
+
+    IPoint screenPos(m_ScreenPos);
+
+    IRect  intSrcRect(srcRect);
+    IPoint intDstPos(dstPos + m_ScrollOffset);
+
+    IRect clippedSrcRect = intSrcRect & IRect(IPoint(0, 0), bitmap->m_Size);
+    intDstPos += clippedSrcRect.TopLeft() - intSrcRect.TopLeft();
+
+    IRect  dstRect = clippedSrcRect.Bounds() + intDstPos;
+    IPoint srcPos(clippedSrcRect.TopLeft());
+
+    for (const IRect& clipRect : region->m_Rects)
+    {
+        IRect rect = dstRect & clipRect;
+
+        if (rect.IsValid())
+        {
+            IPoint cDst = rect.TopLeft() + screenPos;
+            IRect  cSrc = rect - intDstPos + srcPos;
+
+            m_Bitmap->m_Driver->CopyRect(m_Bitmap, ptr_raw_pointer_cast(bitmap), m_BgColor, m_FgColor, cSrc, cDst, m_DrawingMode);
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1322,7 +1363,7 @@ void ServerView::ScrollBy(const Point& offset)
 
         *clip += screenPos; // Convert into screen space
 
-        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, *clip - intOffset, clip->TopLeft(), DM_COPY);
+        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - intOffset, clip->TopLeft(), DrawingMode::Copy);
     }
 
     if (m_DamageReg != nullptr)
@@ -1348,6 +1389,24 @@ void ServerView::ScrollBy(const Point& offset)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void ServerView::UpdateScreenPos()
+{
+    Ptr<ServerView> parent = m_Parent.Lock();
+    if (parent == nullptr) {
+        m_ScreenPos = m_Frame.TopLeft();
+    }
+    else {
+        m_ScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
+    }
+    for (Ptr<ServerView> child : m_ChildrenList) {
+        child->UpdateScreenPos();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ServerView::DebugDrawRect(const IRect& frame, Color color)
 {
     IPoint p1(frame.left, frame.top);
@@ -1355,8 +1414,8 @@ void ServerView::DebugDrawRect(const IRect& frame, Color color)
     IPoint p3(frame.right - 1, frame.bottom - 1);
     IPoint p4(frame.left, frame.bottom - 1);
 
-    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p1, p2, color, DM_COPY);
-    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p2, p3, color, DM_COPY);
-    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p4, p3, color, DM_COPY);
-    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p1, p4, color, DM_COPY);
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p1, p2, color, DrawingMode::Copy);
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p2, p3, color, DrawingMode::Copy);
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p4, p3, color, DrawingMode::Copy);
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p1, p4, color, DrawingMode::Copy);
 }

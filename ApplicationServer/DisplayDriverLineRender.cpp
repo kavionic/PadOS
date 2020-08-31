@@ -531,42 +531,42 @@ static void invert_line32(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::DrawLine(SrvBitmap* psBitmap, const IRect& cClipRect, const IPoint& cPnt1, const IPoint& cPnt2, const Color& sColor, drawing_mode nMode)
+void DisplayDriver::DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& point1, const IPoint& point2, const Color& color, DrawingMode mode)
 {
-    switch (nMode)
+    switch (mode)
     {
-        case DM_COPY:
-        case DM_OVER:
+        case DrawingMode::Copy:
+        case DrawingMode::Overlay:
         default:
-            switch (psBitmap->m_ColorSpace)
+            switch (bitmap->m_ColorSpace)
             {
-                case CS_RGB15:
-                    draw_line16(psBitmap, cClipRect, cPnt1, cPnt2, sColor.GetColor15());
+                case ColorSpace::RGB15:
+                    draw_line16(bitmap, clipRect, point1, point2, color.GetColor15());
                     break;
-                case CS_RGB16:
-                    draw_line16(psBitmap, cClipRect, cPnt1, cPnt2, sColor.GetColor16());
+                case ColorSpace::RGB16:
+                    draw_line16(bitmap, clipRect, point1, point2, color.GetColor16());
                     break;
-                case CS_RGB32:
-                    draw_line32(psBitmap, cClipRect, cPnt1, cPnt2, sColor.GetColor32());
+                case ColorSpace::RGB32:
+                    draw_line32(bitmap, clipRect, point1, point2, color.GetColor32());
                     break;
                 default:
-                    printf("DisplayDriver::DrawLine() unknown color space %d\n", psBitmap->m_ColorSpace);
+                    printf("DisplayDriver::DrawLine() unknown color space %d\n", int(bitmap->m_ColorSpace));
             }
             break;
-        case DM_INVERT:
-            switch (psBitmap->m_ColorSpace)
+        case DrawingMode::Invert:
+            switch (bitmap->m_ColorSpace)
             {
-                case CS_RGB15:
-                    invert_line15(psBitmap, cClipRect, cPnt1, cPnt2);
+                case ColorSpace::RGB15:
+                    invert_line15(bitmap, clipRect, point1, point2);
                     break;
-                case CS_RGB16:
-                    invert_line16(psBitmap, cClipRect, cPnt1, cPnt2);
+                case ColorSpace::RGB16:
+                    invert_line16(bitmap, clipRect, point1, point2);
                     break;
-                case CS_RGB32:
-                    invert_line32(psBitmap, cClipRect, cPnt1, cPnt2);
+                case ColorSpace::RGB32:
+                    invert_line32(bitmap, clipRect, point1, point2);
                     break;
                 default:
-                    printf("DisplayDriver::DrawLine() unknown color space %d can't invert\n", psBitmap->m_ColorSpace);
+                    printf("DisplayDriver::DrawLine() unknown color space %d can't invert\n", int(bitmap->m_ColorSpace));
             }
             break;
     }

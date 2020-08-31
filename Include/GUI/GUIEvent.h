@@ -19,7 +19,7 @@
 
 #pragma once
 
-enum class MouseButton_e
+enum class MouseButton_e : uint32_t
 {
     None,
     Left,
@@ -39,11 +39,22 @@ enum class MouseButton_e
     LastTouchID = Touch9
 };
 
-struct MsgMouseEvent
+enum class MotionToolType : uint32_t
 {
-    TimeValMicros Timestamp;
-    int32_t       EventID;
-    MouseButton_e ButtonID;
-    os::Point     Position;
+    Mouse,
+    Finger,
+    Stylus,
+    Eraser
+};
+
+static constexpr MotionToolType GetMotionToolType(MouseButton_e button) { return button < MouseButton_e::FirstTouchID ? MotionToolType::Mouse : MotionToolType::Finger; }
+
+struct MotionEvent
+{
+    TimeValMicros   Timestamp;
+    int32_t         EventID;
+    MotionToolType  ToolType;
+    MouseButton_e   ButtonID;
+    os::Point       Position;
 };
 

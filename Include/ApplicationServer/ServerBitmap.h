@@ -29,9 +29,9 @@ class DisplayDriver;
 class SrvBitmap : public PtrTarget
 {
 public:
-    SrvBitmap(const os::IPoint& size, os::color_space colorSpace, uint8_t* raster = nullptr, size_t bytesPerLine = 0);
+    SrvBitmap(const os::IPoint& size, os::ColorSpace colorSpace, uint8_t* raster = nullptr, size_t bytesPerLine = 0);
 
-    color_space     m_ColorSpace    = color_space::CS_NO_COLOR_SPACE;
+    ColorSpace     m_ColorSpace    = ColorSpace::NO_COLOR_SPACE;
     IPoint          m_Size;
     size_t          m_BytesPerLine  = 0;
     uint8_t*        m_Raster        = nullptr;  // Frame buffer address.

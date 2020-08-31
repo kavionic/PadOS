@@ -90,7 +90,7 @@ WindowManager::WindowManager() : Application("window_manager")
     g_WindowManagerPort = GetPortID();
     RSWindowManagerRegisterView.Connect(this, &WindowManager::SlotRegisterView);
     RSWindowManagerUnregisterView.Connect(this, &WindowManager::SlotUnregisterView);
-    
+
     m_TopView = ViewFactory::GetInstance().LoadView(nullptr, "/sdcard/Rainbow3D/System/WindowManagerLayout.xml");
     if (m_TopView != nullptr)
     {
@@ -122,16 +122,16 @@ WindowManager::~WindowManager()
 
 bool WindowManager::HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length)
 {
-    switch(code)
+    switch (code)
     {
-        case AppserverProtocol::WINDOW_MANAGER_REGISTER_VIEW:
-            RSWindowManagerRegisterView.Dispatch(data, length);
-            return true;
-        case AppserverProtocol::WINDOW_MANAGER_UNREGISTER_VIEW:
-            RSWindowManagerUnregisterView.Dispatch(data, length);
-            return true;
-        default:
-            return false;
+    case AppserverProtocol::WINDOW_MANAGER_REGISTER_VIEW:
+        RSWindowManagerRegisterView.Dispatch(data, length);
+        return true;
+    case AppserverProtocol::WINDOW_MANAGER_UNREGISTER_VIEW:
+        RSWindowManagerUnregisterView.Dispatch(data, length);
+        return true;
+    default:
+        return false;
     }
 }
 
@@ -147,14 +147,18 @@ void WindowManager::SlotRegisterView(handler_id viewHandle, ViewDockType dockTyp
 
         Post<ASViewAddChild>(m_ClientsView->GetServerHandle(), viewHandle, view->GetHandle());
         AddHandler(view);
-        if (m_SidebarView != nullptr)
+        if (dockType == ViewDockType::DockedWindow)
         {
-            Ptr<View> prevIcon = m_SidebarView->GetChildAt(0);
-            Ptr<WindowIcon> windowIcon = ptr_new<WindowIcon>(m_SidebarView, view);
+            if (m_SidebarView != nullptr)
+            {
+                Ptr<View> prevIcon = m_SidebarView->GetChildAt(0);
+                Ptr<WindowIcon> windowIcon = ptr_new<WindowIcon>(m_SidebarView, view);
 
-            if (prevIcon != nullptr) {
-                windowIcon->AddToWidthRing(prevIcon);
+                if (prevIcon != nullptr) {
+                    windowIcon->AddToWidthRing(prevIcon);
+                }
             }
+            view->SetFrame(m_ClientsView->GetBounds());
         }
     }
 }
@@ -165,5 +169,13 @@ void WindowManager::SlotRegisterView(handler_id viewHandle, ViewDockType dockTyp
 
 void WindowManager::SlotUnregisterView(handler_id viewHandle)
 {
-    
+    for (auto i = m_ClientsView->begin(); i != m_ClientsView->end(); ++i)
+    {
+        Ptr<View> view = *i;
+        if (view->GetHandle() == viewHandle)
+        {
+            m_ClientsView->RemoveChild(i);
+            break;
+        }
+    }
 }

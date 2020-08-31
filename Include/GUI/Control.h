@@ -43,7 +43,7 @@ public:
     ~Control();
 
       // From Control:
-    virtual void OnEnableStatusChanged(bool bIsEnabled) { Invalidate(); Flush(); }
+    virtual void OnEnableStatusChanged(bool isEnabled) { Invalidate(); Flush(); }
     virtual void OnLabelChanged(const String& label) { Invalidate(); Flush(); PreferredSizeChanged(); }
 
     virtual void SetEnable(bool enabled);

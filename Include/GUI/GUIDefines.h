@@ -62,6 +62,7 @@ namespace ViewDebugDrawFlags
         DamageRegion = 0x04
     };
 }
+
 enum class ViewDockType : int32_t
 {
     RootLevelView,
@@ -72,24 +73,25 @@ enum class ViewDockType : int32_t
     StatusBarIcon
 };
 
-enum
+namespace TransparentColors
 {
-    TRANSPARENT_CMAP8 = 0xff,
-    TRANSPARENT_RGB32 = 0xffffffff
+static constexpr uint8_t    CMAP8 = 0xff;
+static constexpr uint16_t   RGB16 = (0x1f << 11) | (0x01 << 5) | 0x1f; // (255, 4, 255)
+static constexpr uint32_t   RGB32 = 0xffffffff;
 };
 
-enum drawing_mode
+enum class DrawingMode : uint8_t
 {
-    DM_COPY,
-    DM_OVER,
-    DM_INVERT,
-    DM_ERASE,
-    DM_BLEND,
-    DM_ADD,
-    DM_SUBTRACT,
-    DM_MIN,
-    DM_MAX,
-    DM_SELECT
+    Copy,
+    Overlay,
+    Invert,
+    Erase,
+    Blend,
+    Add,
+    Subtract,
+    Min,
+    Max,
+    Select
 };
 
 enum class StandardColorID : int32_t
@@ -193,24 +195,25 @@ enum
     QUAL_REPEAT = 0x40                      //!< Set if the key-down event was caused by key repeating.
 };
 
-enum color_space
+enum class ColorSpace : uint32_t
 {
-    CS_NO_COLOR_SPACE,
-    CS_RGB32,
-    CS_RGBA32,
-    CS_RGB24,
-    CS_RGB16,
-    CS_RGB15,
-    CS_RGBA15,
-    CS_CMAP8,
-    CS_GRAY8,
-    CS_GRAY1,
-    CS_YUV422,
-    CS_YUV411,
-    CS_YUV420,
-    CS_YUV444,
-    CS_YUV9,
-    CS_YUV12
+    NO_COLOR_SPACE,
+
+    RGB32,
+    RGBA32,
+    RGB24,
+    RGB16,
+    RGB15,
+    RGBA15,
+    CMAP8,
+    GRAY8,
+    MONO1,
+    YUV422,
+    YUV411,
+    YUV420,
+    YUV444,
+    YUV9,
+    YUV12
 };
 
 } // namespace

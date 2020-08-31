@@ -39,9 +39,9 @@ Control::Control(const String& name, Ptr<View> parent, uint32_t flags)
 
 Control::Control(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment) : View(context, parent, xmlData)
 {
-    m_Label = context->GetAttribute(xmlData, "label", String::zero);
-    m_LabelAlignment = context->GetAttribute(xmlData, "label_alignment", defaultLabelAlignment);
-    m_IsEnabled = context->GetAttribute<bool>(xmlData, "enabled", true);
+    m_Label             = context->GetAttribute(xmlData, "label", String::zero);
+    m_LabelAlignment    = context->GetAttribute(xmlData, "label_alignment", defaultLabelAlignment);
+    m_IsEnabled         = context->GetAttribute<bool>(xmlData, "enabled", true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -59,8 +59,8 @@ Control::~Control()
 void Control::SetEnable(bool enable)
 {
     if (m_IsEnabled != enable) {
-	m_IsEnabled = enable;
-	OnEnableStatusChanged(m_IsEnabled);
+        m_IsEnabled = enable;
+        OnEnableStatusChanged(m_IsEnabled);
     }
 }
 

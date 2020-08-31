@@ -50,6 +50,8 @@ class SlotFull : public Slot<R, ARGS_FULL...>
 public:
     SlotFull(SignalBase* targetSignal, fT* obj, SIGNATURE callback) : Slot<R, ARGS_FULL...>(targetSignal, obj), m_Callback(callback) {}
     
+    SIGNATURE GetCallback() const { return m_Callback; }
+
     template<typename OBJ_TYPE, typename ARGS, std::size_t... I>
     R DoInvoke(OBJ_TYPE*, ARGS&& args, std::index_sequence<I...>) const {
         return (static_cast<fT*>(this->m_Object)->*m_Callback)(std::forward<decltype(std::get<I>(args))>(std::get<I>(args))...);

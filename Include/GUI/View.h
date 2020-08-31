@@ -51,6 +51,7 @@ namespace os
 
 class ButtonGroup;
 class ScrollBar;
+class Bitmap;
 
 Color get_standard_color(StandardColorID colorID);
 void  set_standard_color(StandardColorID colorID, Color color);
@@ -104,16 +105,17 @@ public:
 
     virtual void Paint(const Rect& updateRect) { EraseRect(updateRect); }
 
-    virtual bool OnTouchDown(MouseButton_e pointID, const Point& position)  { return OnMouseDown(pointID, position); }
-    virtual bool OnTouchUp(MouseButton_e pointID, const Point& position)    { return OnMouseUp(pointID, position);   }
-    virtual bool OnTouchMove(MouseButton_e pointID, const Point& position)  { return OnMouseMove(pointID, position); }
+    virtual bool OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event)  { return OnMouseDown(pointID, position, event); }
+    virtual bool OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event)    { return OnMouseUp(pointID, position, event);   }
+    virtual bool OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event)  { return OnMouseMove(pointID, position, event); }
 
-    virtual bool OnMouseDown(MouseButton_e button, const Point& position);
-    virtual bool OnMouseUp(MouseButton_e button, const Point& position);
-    virtual bool OnMouseMove(MouseButton_e button, const Point& position);
+    virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
+    virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
+    virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event);
 
     virtual void  FrameMoved(const Point& delta);
     virtual void  FrameSized(const Point& delta);
+    virtual void  ScreenFrameMoved(const Point& delta);
     virtual void  ViewScrolled(const Point& delta);
     virtual void  FontChanged(Ptr<Font> newFont);
     
@@ -128,8 +130,9 @@ public:
 
 //    virtual void WheelMoved( const Point& cDelta );
 
-    void AddChild(Ptr<View> child);
-    void RemoveChild(Ptr<View> child);
+    void        AddChild(Ptr<View> child);
+    void        RemoveChild(Ptr<View> child);
+    Ptr<View>   RemoveChild(ChildList_t::iterator iterator);
     bool RemoveThis();
     
     Ptr<View>  GetChildAt(const Point& pos);
@@ -158,26 +161,26 @@ public:
     virtual void    ResizeTo(const Point& size);
     virtual void    ResizeTo(float w, float h);
 
-    void                SetDrawingRegion( const Region& cReg );
+    void                SetDrawingRegion(const Region& region);
     void                ClearDrawingRegion();
-    void                SetShapeRegion( const Region& cReg );
+    void                SetShapeRegion(const Region& region);
     void                ClearShapeRegion();
     
     virtual void ToggleDepth() { Post<ASViewToggleDepth>(); }
 
-    void                Invalidate( const Rect& cRect, bool bRecurse = false );
-    void                Invalidate( bool bRecurse = false );
+    void                Invalidate(const Rect& rect, bool recurse = false);
+    void                Invalidate(bool recurse = false);
 
-    void                SetDrawingMode(drawing_mode nMode) {}
-    drawing_mode        GetDrawingMode() const;
+    void                SetDrawingMode(DrawingMode mode);
+    DrawingMode         GetDrawingMode() const;
     void                SetFont(Ptr<Font> font);
     Ptr<Font>           GetFont() const;
 
-    bool            SlotHandleMouseDown(MouseButton_e button, const Point& position);
+    bool            SlotHandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
 
-    bool            HandleMouseDown(std::set<View*>& visitedViews, MouseButton_e button, const Point& position);
-    void            HandleMouseUp(MouseButton_e button, const Point& position);
-    void            HandleMouseMove(MouseButton_e button, const Point& position);
+    bool            HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
+    void            HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
+    void            HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event);
     
     void            SetFgColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)   { SetFgColor(Color(red, green, blue, alpha)); }
     void            SetFgColor(Color color)                                                     { m_FgColor = color; Post<ASViewSetFgColor>(color); }
@@ -221,11 +224,10 @@ public:
     virtual void    ScrollTo(Point topLeft)                { ScrollBy(topLeft - m_ScrollOffset); }
     virtual void    ScrollTo(float x, float y)             { ScrollTo(Point(x, y)); }
         
-    Point           GetScrollOffset() const                { return m_ScrollOffset; }
     void            CopyRect(const Rect& srcRect, const Point& dstPos);
     void            DebugDraw(Color color, uint32_t drawFlags)         { Post<ASViewDebugDraw>(color, drawFlags); }
     
-    //    void DrawBitmap( const Bitmap* pcBitmap, const Rect& cSrcRect, const Rect& cDstRect );
+    void            DrawBitmap(Ptr<const Bitmap> bitmap, const Rect& srcRect, const Point& dstPos);
     void            DrawFrame(const Rect& rect, uint32_t styleFlags);
         
     FontHeight      GetFontHeight() const;
@@ -235,11 +237,30 @@ public:
     void            Flush();
     void            Sync();
 
-    VFConnector<bool, MouseButton_e, const Point&> VFMouseDown;
-    VFConnector<bool, MouseButton_e, const Point&> VFMouseUp;
-    VFConnector<bool, const Point&>                VFMouseMoved;
+    Point       ConvertToRoot(const Point& point) const { return m_ScreenPos + point + m_ScrollOffset; }
+    void        ConvertToRoot(Point* point) const { *point += m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertToRoot(const Rect& rect) const { return rect + m_ScreenPos + m_ScrollOffset; }
+    void        ConvertToRoot(Rect* rect) const { *rect += m_ScreenPos + m_ScrollOffset; }
+    Point       ConvertFromRoot(const Point& point) const { return point - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromRoot(Point* point) const { *point -= m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertFromRoot(const Rect& rect) const { return rect - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromRoot(Rect* rect) const { *rect -= m_ScreenPos + m_ScrollOffset; }
+
+    Point       ConvertToScreen(const Point& point) const { return m_ScreenPos + point + m_ScrollOffset; }
+    void        ConvertToScreen(Point* point) const { *point += m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertToScreen(const Rect& rect) const { return rect + m_ScreenPos + m_ScrollOffset; }
+    void        ConvertToScreen(Rect* rect) const { *rect += m_ScreenPos + m_ScrollOffset; }
+    Point       ConvertFromScreen(const Point& point) const { return point - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromScreen(Point* point) const { *point -= m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertFromScreen(const Rect& rect) const { return rect - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromScreen(Rect* rect) const { *rect -= m_ScreenPos + m_ScrollOffset; }
+
+    VFConnector<bool, MouseButton_e, const Point&, const MotionEvent&> VFMouseDown;
+    VFConnector<bool, MouseButton_e, const Point&, const MotionEvent&> VFMouseUp;
+    VFConnector<bool, const Point&, const MotionEvent&>                VFMouseMoved;
     
     Signal<void, Ptr<View>>               SignalPreferredSizeChanged;
+    Signal<void, View*>                   SignalContentSizeChanged;
     Signal<void, const Point&, Ptr<View>> SignalFrameSized;
     Signal<void, const Point&, Ptr<View>> SignalFrameMoved;
     Signal<void, const Point&, Ptr<View>> SignalViewScrolled;
@@ -266,6 +287,7 @@ private:
     void UpdatePosition(bool forceServerUpdate)
     {
         Point newOffset;
+        Point newScreenPos;
         {
             Ptr<View> parent = m_Parent.Lock();
             if (parent != nullptr && !parent->HasFlags(ViewFlags::WillDraw)) {
@@ -273,18 +295,28 @@ private:
             } else {
                 newOffset = Point(0.0f, 0.0f);
             }
-        }            
+            if (parent == nullptr) {
+                newScreenPos = m_Frame.TopLeft();
+            } else {
+                newScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
+            }
+        }
         if (forceServerUpdate || newOffset != m_PositionOffset)
         {
             m_PositionOffset = newOffset;
-            if (m_ServerHandle != INVALID_HANDLE/* && HasFlags(ViewFlags::WillDraw)*/)
+            if (m_ServerHandle != INVALID_HANDLE)
             {
                 Post<ASViewSetFrame>(m_Frame + m_PositionOffset, GetHandle());
-//                GetApplication()->SetViewFrame(m_ServerHandle, m_Frame + m_PositionOffset);
             }                    
         }
+        Point deltaScreenPos = m_ScreenPos - newScreenPos;
+        m_ScreenPos = newScreenPos;
+
         for (Ptr<View> child : m_ChildrenList) {
             child->UpdatePosition(false);
+        }
+        if (deltaScreenPos.x != 0.0f || deltaScreenPos.y != 0.0f) {
+            ScreenFrameMoved(deltaScreenPos);
         }
     }
 
@@ -303,6 +335,7 @@ private:
     
     Rect         m_Borders = Rect(0.0f, 0.0f, 0.0f, 0.0f);
     float        m_Wheight = 1.0f;
+    DrawingMode  m_DrawingMode = DrawingMode::Overlay;
     Alignment    m_HAlign = Alignment::Center;
     Alignment    m_VAlign = Alignment::Center;
     Point        m_LocalPrefSize[int(PrefSizeType::Count)];

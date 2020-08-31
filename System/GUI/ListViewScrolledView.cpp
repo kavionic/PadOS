@@ -128,7 +128,7 @@ void ListViewScrolledView::StopScroll()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewScrolledView::OnTouchDown(MouseButton_e pointID, const Point& position)
+bool ListViewScrolledView::OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event)
 {
     if (m_HitButton != MouseButton_e::None) {
         return true;
@@ -149,7 +149,7 @@ bool ListViewScrolledView::OnTouchDown(MouseButton_e pointID, const Point& posit
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewScrolledView::OnTouchUp(MouseButton_e pointID, const Point& position)
+bool ListViewScrolledView::OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event)
 {
     if (pointID != m_HitButton) {
         return true;
@@ -166,7 +166,7 @@ bool ListViewScrolledView::OnTouchUp(MouseButton_e pointID, const Point& positio
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewScrolledView::OnTouchMove(MouseButton_e pointID, const Point& position)
+bool ListViewScrolledView::OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event)
 {
     if (pointID != m_HitButton) {
         return true;
@@ -189,7 +189,7 @@ void ListViewScrolledView::SlotInertialScrollUpdate(const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewScrolledView::OnMouseDown(MouseButton_e button, const Point& position)
+bool ListViewScrolledView::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     MakeFocus(button, true);
 
@@ -263,9 +263,9 @@ bool ListViewScrolledView::OnMouseDown(MouseButton_e button, const Point& positi
         {
             m_IsSelecting = true;
             m_SelectRect = Rect(position.x, position.y, position.x, position.y);
-            SetDrawingMode(DM_INVERT);
+            SetDrawingMode(DrawingMode::Invert);
             DrawFrame(m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-            SetDrawingMode(DM_COPY);
+            SetDrawingMode(DrawingMode::Copy);
         }
     }
     Flush();
@@ -276,7 +276,7 @@ bool ListViewScrolledView::OnMouseDown(MouseButton_e button, const Point& positi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewScrolledView::OnMouseUp(MouseButton_e button, const Point& position)
+bool ListViewScrolledView::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     m_MousDownSeen = false;
 
@@ -291,9 +291,9 @@ bool ListViewScrolledView::OnMouseUp(MouseButton_e button, const Point& position
     }
 
     if (m_IsSelecting) {
-        SetDrawingMode(DM_INVERT);
+        SetDrawingMode(DrawingMode::Invert);
         DrawFrame(m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-        SetDrawingMode(DM_COPY);
+        SetDrawingMode(DrawingMode::Copy);
         m_IsSelecting = false;
         Flush();
     }
@@ -308,7 +308,7 @@ bool ListViewScrolledView::OnMouseUp(MouseButton_e button, const Point& position
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewScrolledView::OnMouseMove(MouseButton_e button, const Point& position)
+bool ListViewScrolledView::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     m_MouseMoved = true;
     if (!m_MousDownSeen) {
@@ -322,9 +322,9 @@ bool ListViewScrolledView::OnMouseMove(MouseButton_e button, const Point& positi
             m_MousDownSeen = false;
             if (m_IsSelecting)
             {
-                SetDrawingMode(DM_INVERT);
+                SetDrawingMode(DrawingMode::Invert);
                 DrawFrame(m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-                SetDrawingMode(DM_COPY);
+                SetDrawingMode(DrawingMode::Copy);
                 m_IsSelecting = false;
             }
             return true;
@@ -333,9 +333,9 @@ bool ListViewScrolledView::OnMouseMove(MouseButton_e button, const Point& positi
 
     if (m_IsSelecting)
     {
-        SetDrawingMode(DM_INVERT);
+        SetDrawingMode(DrawingMode::Invert);
         DrawFrame(m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-        SetDrawingMode(DM_COPY);
+        SetDrawingMode(DrawingMode::Copy);
         m_SelectRect.right = position.x;
         m_SelectRect.bottom = position.y;
 
@@ -354,9 +354,9 @@ bool ListViewScrolledView::OnMouseMove(MouseButton_e button, const Point& positi
         if (hitRowIndex != m_EndSel) {
             ExpandSelect(hitRowIndex, true, false);
         }
-        SetDrawingMode(DM_INVERT);
+        SetDrawingMode(DrawingMode::Invert);
         DrawFrame(m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-        SetDrawingMode(DM_COPY);
+        SetDrawingMode(DrawingMode::Copy);
         Flush();
         Rect bounds = GetBounds();
 
@@ -476,9 +476,9 @@ void ListViewScrolledView::FrameSized(const Point& delta)
 //  }
 //  if (vCurScroll != vPrevScroll) {
 //      if (m_IsSelecting) {
-//          SetDrawingMode(DM_INVERT);
+//          SetDrawingMode(DrawingMode::DM_INVERT);
 //          DrawFrame(m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-//          SetDrawingMode(DM_COPY);
+//          SetDrawingMode(DrawingMode::Copy);
 //      }
 //      ScrollTo(0, vCurScroll);
 //      if (m_IsSelecting) {
@@ -498,9 +498,9 @@ void ListViewScrolledView::FrameSized(const Point& delta)
 //          if (hitRow != m_EndSel) {
 //              ExpandSelect(hitRow, true, false);
 //          }
-//          SetDrawingMode(DM_INVERT);
+//          SetDrawingMode(DrawingMode::DM_INVERT);
 //          DrawFrame(m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-//          SetDrawingMode(DM_COPY);
+//          SetDrawingMode(DrawingMode::Copy);
 //      }
 //      Flush();
 //  }
@@ -910,9 +910,9 @@ void ListViewScrolledView::Clear()
 {
     if (m_IsSelecting)
     {
-        SetDrawingMode(DM_INVERT);
+        SetDrawingMode(DrawingMode::Invert);
         DrawFrame(m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-        SetDrawingMode(DM_COPY);
+        SetDrawingMode(DrawingMode::Copy);
         m_IsSelecting = false;
         Flush();
     }

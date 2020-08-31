@@ -34,7 +34,9 @@ class Application : public Looper, public SignalTarget
 public:
     Application(const String& name);
     ~Application();
-    
+
+    static Application* GetCurrentApplication() { return dynamic_cast<Application*>(GetCurrentThread()); }
+
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
     virtual void Idle() override;
     static IRect    GetScreenIFrame();
@@ -48,6 +50,9 @@ public:
 
     void SetFocusView(MouseButton_e button, Ptr<View> view, bool focus);
     Ptr<View> GetFocusView(MouseButton_e button) const;
+
+    bool CreateBitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, handle_id* outHandle, uint8_t** outFramebuffer);
+    void DeleteBitmap(handle_id bitmapHandle);
 
     template<typename SIGNAL, typename... ARGS>
     void Post(ARGS&&... args) { SIGNAL::Sender::Emit(this, &Application::AllocMessageBuffer, args...); }

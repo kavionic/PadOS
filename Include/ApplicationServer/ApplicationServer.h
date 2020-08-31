@@ -63,9 +63,9 @@ public:
 private:
     
     
-    void HandleMouseDown(MouseButton_e button, const Point& position);
-    void HandleMouseUp(MouseButton_e button, const Point& position);
-    void HandleMouseMove(MouseButton_e button, const Point& position);
+    void HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
+    void HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
+    void HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event);
 
     void SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name);
 
@@ -75,7 +75,7 @@ private:
     MessagePort m_ReplyPort;
     EventTimer m_PollTouchDriverTimer;
 
-    std::queue<MsgMouseEvent> m_MouseEventQueue;
+    std::queue<MotionEvent> m_MouseEventQueue;
 
     ASRegisterApplication::Receiver RSRegisterApplication;
     

@@ -166,11 +166,12 @@ int GSLx680Driver::Run()
 
 			if (eventID != MessageID::MOUSE_MOVE || (moveFlags & mask))
 			{
-				MsgMouseEvent mouseEvent;
-				mouseEvent.Timestamp = get_system_time();
-				mouseEvent.EventID = eventID;
-				mouseEvent.ButtonID = MouseButton_e(int(MouseButton_e::FirstTouchID) + i);
-				mouseEvent.Position = Point(m_TouchPositions[i]);
+                MotionEvent mouseEvent;
+				mouseEvent.Timestamp    = get_system_time();
+				mouseEvent.EventID      = eventID;
+                mouseEvent.ToolType     = MotionToolType::Finger;
+				mouseEvent.ButtonID     = MouseButton_e(int(MouseButton_e::FirstTouchID) + i);
+				mouseEvent.Position     = Point(m_TouchPositions[i]);
 
 				// printf("Mouse event %d: %d/%d\n", eventID - MessageID::MOUSE_DOWN, m_TouchPositions[i].x, m_TouchPositions[i].y);
 				CRITICAL_BEGIN(m_Mutex)

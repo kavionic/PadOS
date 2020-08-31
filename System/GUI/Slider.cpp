@@ -429,7 +429,7 @@ void Slider::OnEnableStatusChanged(bool isEnabled)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Slider::OnMouseDown(MouseButton_e button, const Point& position)
+bool Slider::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (!IsEnabled()) return false;
     if (m_HitButton == MouseButton_e::None)
@@ -447,7 +447,7 @@ bool Slider::OnMouseDown(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Slider::OnMouseUp(MouseButton_e button, const Point& position)
+bool Slider::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (!IsEnabled()) return false;
     if (button == m_HitButton)
@@ -468,7 +468,7 @@ bool Slider::OnMouseUp(MouseButton_e button, const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Slider::OnMouseMove(MouseButton_e button, const Point& position)
+bool Slider::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (!IsEnabled()) return false;
     if (button == m_HitButton) {

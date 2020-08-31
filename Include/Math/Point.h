@@ -50,6 +50,9 @@ public:
     Point GetNormalized() const { return *this * (1.0f / Length()); }
     Point& Normalize() { return *this *= (1.0f / Length()); }
 
+    Point   GetRounded() const { return Point(roundf(x), roundf(y)); }
+    Point&  Round()            { x = roundf(x); y = roundf(y); return *this; }
+
     Point        operator-(void) const { return(Point(-x, -y)); }
     Point        operator+(const Point& cPoint) const { return(Point(x + cPoint.x, y + cPoint.y)); }
     Point        operator-(const Point& cPoint) const { return(Point(x - cPoint.x, y - cPoint.y)); }

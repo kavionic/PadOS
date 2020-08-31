@@ -193,9 +193,10 @@ int FT5x0xDriver::Run()
                     {
                         m_TouchPositions[touchID] = position;
                         
-                        MsgMouseEvent mouseEvent;
+                        MotionEvent mouseEvent;
                         mouseEvent.Timestamp = get_system_time();
                         mouseEvent.EventID   = eventID;
+                        mouseEvent.ToolType  = MotionToolType::Finger;
                         mouseEvent.ButtonID  = MouseButton_e(int(MouseButton_e::FirstTouchID) + touchID);
                         mouseEvent.Position  = Point(position);
 

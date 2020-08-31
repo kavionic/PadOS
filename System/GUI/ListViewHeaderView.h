@@ -39,9 +39,9 @@ private:
     void  DrawButton(const char* title, const Rect& frame, Ptr<Font> font, FontHeight* fontHeight);
     virtual void    Paint(const Rect& updateRect) override;
 
-    virtual bool    OnMouseDown(MouseButton_e button, const Point& position) override;
-    virtual bool    OnMouseUp(MouseButton_e button, const Point& position) override;
-    virtual bool    OnMouseMove(MouseButton_e button, const Point& position) override;
+    virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual void    FrameSized(const Point& deltaSize) override;
     virtual void    ViewScrolled(const Point& delta) override;
 

@@ -1,4 +1,4 @@
 <root name="wmgr_root" layout="horizontal" flags="WillDraw|IgnoreMouse">
 		<View name="SideBar" layout="vertical" min_height="0" max_height="10000" width="100" flags="WillDraw"/>
-    <View name="ClientView" layout="stacked" flags="WillDraw|IgnoreMouse"/>
+    <View name="ClientView" flags="WillDraw|IgnoreMouse"/>
 </root>

@@ -6,6 +6,9 @@ target_sources(PadOS PRIVATE
 	ButtonGroup.cpp
 	CheckBox.cpp
 	Control.cpp
+	DropdownMenu.cpp
+	DropdownMenuPopupView.cpp
+	DropdownMenuPopupView.h
 	Font.cpp
 	GroupView.cpp
 	LayoutNode.cpp
@@ -21,7 +24,9 @@ target_sources(PadOS PRIVATE
 	RadioButton.cpp
 	Region.cpp
 	ScrollBar.cpp
+	ScrollView.cpp
 	Slider.cpp
+	TextBox.cpp
 	TextView.cpp
 	View.cpp
 	ViewFactory.cpp

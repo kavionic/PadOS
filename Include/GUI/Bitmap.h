@@ -20,12 +20,14 @@
 
 #include <GUI/GUIDefines.h>
 #include <Math/Rect.h>
+#include <Ptr/PtrTarget.h>
 
 namespace os
 {
 
 class Window;
 class View;
+class Application;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Container for bitmap-image data.
@@ -46,69 +48,70 @@ class View;
 ///     added much like a os::Window object. All rendering performed
 ///     by the views will then go into the bitmap's offscreen buffer
 ///     rather than the screen. The rendered image can then be read
-///     out by the application (requiers the \b SHARE_FRAMEBUFFER flag
-///     to be set aswell) or it can be blited into other views.
+///     out by the application (requires the \b SHARE_FRAMEBUFFER flag
+///     to be set as well) or it can be blited into other views.
 ///
 /// \sa View, Window
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class Bitmap
+class Bitmap : public PtrTarget
 {
 public:
     enum { ACCEPT_VIEWS = 0x0001, SHARE_FRAMEBUFFER = 0x0002 };
-    Bitmap( int nWidth, int nHeight, color_space colorSpace, uint32_t nFlags = SHARE_FRAMEBUFFER );
+    Bitmap(int width, int height, ColorSpace colorSpace, uint32_t flags = SHARE_FRAMEBUFFER, Application* application = nullptr);
     virtual ~Bitmap();
 
-    bool        IsValid( void ) const;
+    bool            IsValid() const;
 
-    color_space GetColorSpace() const;
-    Rect        GetBounds( void ) const;
-    int     GetBytesPerRow() const;
-    virtual void    AddChild( View* pcView );
-    virtual bool    RemoveChild( View* pcView );
-    View*       FindView( const char* pzName ) const;
+    ColorSpace      GetColorSpace() const;
+    Rect            GetBounds() const;
+    int             GetBytesPerRow() const;
+    virtual void    AddChild(View* view);
+    virtual bool    RemoveChild(View* view);
+    View*           FindView(const char* name) const;
 
-    void        Sync( void );
-    void        Flush( void );
+    void            Sync();
+    void            Flush();
 
-    uint8_t*    LockRaster( void ) { return( m_Raster ); }
-    void        UnlockRaster() {}
+    uint8_t*        LockRaster() { return m_Raster; }
+    void            UnlockRaster() {}
 
 private:
     friend class View;
     friend class Window;
     friend class Sprite;
-  
-    Window*     m_Window;
-    int         m_Handle;
-    color_space m_ColorSpace;
-    Rect        m_Bounds;
-    uint8_t*    m_Raster;
+
+    Application*    m_Application   = nullptr;
+    Window*         m_Window        = nullptr;
+    handle_id       m_Handle        = INVALID_HANDLE;
+    ColorSpace      m_ColorSpace    = ColorSpace::NO_COLOR_SPACE;
+    Rect            m_Bounds;
+    uint8_t*        m_Raster        = nullptr;
 };
 
 
 
-inline int BitsPerPixel( color_space colorSpace )
+inline int BitsPerPixel(ColorSpace colorSpace)
 {
     switch(colorSpace)
     {
-    case CS_RGB32:
-    case CS_RGBA32:
+    case ColorSpace::RGB32:
+    case ColorSpace::RGBA32:
         return 32;
-    case CS_RGB24:
+    case ColorSpace::RGB24:
         return 24;
-    case CS_RGB16:
-    case CS_RGB15:
-    case CS_RGBA15:
+    case ColorSpace::RGB16:
+    case ColorSpace::RGB15:
+    case ColorSpace::RGBA15:
         return 16;
-    case CS_CMAP8:
-    case CS_GRAY8:
+    case ColorSpace::CMAP8:
+    case ColorSpace::GRAY8:
         return 8;
-    case CS_GRAY1:
+    case ColorSpace::MONO1:
         return 1;
     default:
-        printf( "BitsPerPixel() invalid color space %d\n", colorSpace);
+        printf( "BitsPerPixel() invalid color space %d\n", int(colorSpace));
         return 8;
     }
 }

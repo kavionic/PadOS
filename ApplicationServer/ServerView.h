@@ -30,7 +30,7 @@ class SrvBitmap;
 class ServerView : public ViewBase<ServerView>
 {
 public:
-    ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor);
+    ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, DrawingMode drawingMode, Color eraseColor, Color bgColor, Color fgColor);
     virtual ~ServerView();
     void SetClientHandle(port_id port, handler_id handle) { m_ClientPort = port; m_ClientHandle = handle; }
     void SetManagerHandle(handler_id handle)              { m_ManagerHandle = handle; }
@@ -38,9 +38,9 @@ public:
     void HandleAddedToParent(Ptr<ServerView> parent) {}
     void HandleRemovedFromParent(Ptr<ServerView> parent);
 
-    bool        HandleMouseDown(MouseButton_e button, const Point& position);
-    bool        HandleMouseUp(MouseButton_e button, const Point& position);
-    bool        HandleMouseMove(MouseButton_e button, const Point& position);
+    bool        HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
+    bool        HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
+    bool        HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event);
 
     void        AddChild(Ptr<ServerView> child, bool topmost = true);
     void        RemoveChild(Ptr<ServerView> child, bool removeAsHandler);
@@ -75,6 +75,7 @@ public:
 
     void        Show(bool visible = true);
 
+    void        SetDrawingMode(DrawingMode mode) { m_DrawingMode = mode; }
     void        SetEraseColor(Color color) { m_EraseColor = color; }
     void        SetBgColor(Color color)    { m_BgColor = color; }
     void        SetFgColor(Color color)    { m_FgColor = color; }
@@ -91,12 +92,14 @@ public:
     void        FillCircle(const Point& position, float radius);
     void        DrawString(const String& string);
     void        CopyRect(const Rect& srcRect, const Point& dstPos);
+    void        DrawBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Point& dstPos);
     void        DebugDraw(Color color, uint32_t drawFlags);
     void        ScrollBy( const Point& cDelta );
 
 private:
     friend class ViewBase<ServerView>;
-        
+
+    void UpdateScreenPos();
     void DebugDrawRect(const IRect& frame, Color color);
         
     SrvBitmap*  m_Bitmap        = nullptr;
@@ -104,7 +107,7 @@ private:
     handler_id  m_ClientHandle  = INVALID_INDEX;
     handler_id  m_ManagerHandle = INVALID_INDEX;
     
-    drawing_mode m_DrawingMode  = DM_COPY;
+    DrawingMode m_DrawingMode  = DrawingMode::Copy;
     
     Ptr<Font>   m_Font = ptr_new<Font>(Font_e::e_FontLarge);
     

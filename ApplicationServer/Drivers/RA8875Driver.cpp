@@ -33,7 +33,7 @@ RA8875Driver::RA8875Driver(LCDRegisters* registers, DigitalPinID pinLCDReset, Di
     , m_PinTouchpadReset(pinTouchpadReset)
     , m_PinBacklightControl(pinBacklightControl)
 {
-    m_ScreenBitmap = ptr_new<SrvBitmap>(IPoint(0, 0), color_space::CS_RGB16);
+    m_ScreenBitmap = ptr_new<SrvBitmap>(IPoint(0, 0), ColorSpace::RGB16);
     m_ScreenBitmap->m_VideoMem = true;
     m_ScreenBitmap->m_Driver = this;
 }
@@ -132,7 +132,7 @@ bool RA8875Driver::GetScreenModeDesc(size_t index, ScreenMode& outMode)
 {
     if (index == 0)
     {
-        outMode = ScreenMode(IPoint(800, 480), 800 * 2, color_space::CS_RGB16);
+        outMode = ScreenMode(IPoint(800, 480), 800 * 2, ColorSpace::RGB16);
         return true;
     }
     return false;
@@ -142,7 +142,7 @@ bool RA8875Driver::GetScreenModeDesc(size_t index, ScreenMode& outMode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool RA8875Driver::SetScreenMode(const IPoint& resolution, color_space colorSpace, float refreshRate)
+bool RA8875Driver::SetScreenMode(const IPoint& resolution, ColorSpace colorSpace, float refreshRate)
 {
     return true;
 }
@@ -169,9 +169,9 @@ int RA8875Driver::GetBytesPerLine()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-color_space RA8875Driver::GetColorSpace()
+ColorSpace RA8875Driver::GetColorSpace()
 {
-    return color_space::CS_RGB16;
+    return ColorSpace::RGB16;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -203,7 +203,7 @@ void RA8875Driver::WritePixel(SrvBitmap* bitmap, const IPoint& pos, Color color)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2, const Color& color, drawing_mode mode)
+void RA8875Driver::DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2, const Color& color, DrawingMode mode)
 {
     if (bitmap->m_VideoMem)
     {
@@ -263,13 +263,11 @@ void RA8875Driver::FillRect(SrvBitmap* bitmap, const IRect& rect, const Color& c
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, const IRect& srcRect, const IPoint& dstPosIn, drawing_mode mode)
+void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bgColor, Color fgColor, const IRect& srcRect, const IPoint& dstPosIn, DrawingMode mode)
 {
     if (dstBitmap->m_VideoMem && srcBitmap->m_VideoMem)
     {
         WaitBlitter();
-
-        SetWindow(IRect(IPoint(0), GetResolution()));
 
         uint8_t ctrl;
         IPoint srcPos;
@@ -298,9 +296,103 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, const IR
         WriteCommand(RA8875_BECR1, ctrl | RA8875_BTE_ROP_S);
         WriteCommand(RA8875_BECR0, RA8875_BECR0_SRC_BLOCK | RA8875_BECR0_DST_BLOCK | RA8875_BECR0_ENABLE_bm);
     }
+    else if (dstBitmap->m_VideoMem)
+    {
+        WaitBlitter();
+
+        WriteCommand(RA8875_HDBE0, RA8875_HDBE1, uint16_t(dstPosIn.x));
+        WriteCommand(RA8875_VDBE0, RA8875_VDBE1, uint16_t(dstPosIn.y));
+        WriteCommand(RA8875_BEWR0, RA8875_BEWR1, uint16_t(srcRect.Width()));
+        WriteCommand(RA8875_BEHR0, RA8875_BEHR1, uint16_t(srcRect.Height()));
+
+        bool colorKeyed = false;
+        switch (mode)
+        {
+            case DrawingMode::Copy:
+                WriteCommand(RA8875_BECR1, RA8875_BTE_OP_WRITE_ROP | RA8875_BTE_ROP_S);
+                break;
+            case DrawingMode::Overlay:
+                WriteCommand(RA8875_BECR1, RA8875_BTE_OP_WRITE_TRAN | RA8875_BTE_ROP_S);
+                colorKeyed = true;
+                break;
+            case DrawingMode::Invert:
+                break;
+            case DrawingMode::Erase:
+                break;
+            case DrawingMode::Blend:
+                break;
+            case DrawingMode::Add:
+                break;
+            case DrawingMode::Subtract:
+                break;
+            case DrawingMode::Min:
+                break;
+            case DrawingMode::Max:
+                break;
+            case DrawingMode::Select:
+                break;
+            default:
+                break;
+        }
+        if (colorKeyed)
+        {
+            if (srcBitmap->m_ColorSpace != ColorSpace::MONO1) {
+                SetFgColor(TransparentColors::RGB16);
+            } else {
+                SetFgColor(uint16_t(~fgColor.GetColor16()));
+            }
+        }
+        WriteCommand(RA8875_BECR0, RA8875_BECR0_SRC_BLOCK | RA8875_BECR0_DST_BLOCK | RA8875_BECR0_ENABLE_bm);
+
+        switch (srcBitmap->m_ColorSpace)
+        {
+            case ColorSpace::MONO1:
+            {
+                const uint32_t* src = reinterpret_cast<const uint32_t*>(srcBitmap->m_Raster + srcRect.top * srcBitmap->m_BytesPerLine);
+
+                uint16_t bgColor16 = (colorKeyed) ? uint16_t(~fgColor.GetColor16()) : bgColor.GetColor16();
+                uint16_t fgColor16 = fgColor.GetColor16();
+
+                BeginWriteData();
+                for (int y = srcRect.top; y < srcRect.bottom; ++y)
+                {
+                    for (int x = srcRect.left; x < srcRect.right; ++x)
+                    {
+                        WaitMemory();
+                        if (src[x / 32] & (1 << (31 - (x & 31)))) {
+                            WriteData(fgColor16);
+                        } else {
+                            WriteData(bgColor16);
+                        }
+                    }
+                    src = add_bytes_to_pointer(src, srcBitmap->m_BytesPerLine);
+                }
+                break;
+            }
+            case ColorSpace::CMAP8:
+            {
+                const uint8_t* src = srcBitmap->m_Raster + srcRect.top * srcBitmap->m_BytesPerLine;
+
+                BeginWriteData();
+                for (int y = srcRect.top; y < srcRect.bottom; ++y)
+                {
+                    for (int x = srcRect.left; x < srcRect.right; ++x)
+                    {
+                        WaitMemory();
+                        WriteData(GetPaletteEntry(src[x]).GetColor16());
+                    }
+                    src += srcBitmap->m_BytesPerLine;
+                }
+                break;
+            }
+            default:
+                break;
+        }
+        WriteCommand(RA8875_BECR0, 0);
+    }
     else if (!srcBitmap->m_VideoMem && !dstBitmap->m_VideoMem)
     {
-        DisplayDriver::CopyRect(dstBitmap, srcBitmap, srcRect, dstPosIn, mode);
+        DisplayDriver::CopyRect(dstBitmap, srcBitmap, bgColor, fgColor, srcRect, dstPosIn, mode);
     }
 }
 
@@ -308,7 +400,7 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, const IR
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-//void RA8875Driver::FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, drawing_mode mode)
+//void RA8875Driver::FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, DrawingMode mode)
 //{
 //    SetWindow(clipRect);
 //
@@ -556,6 +648,21 @@ void RA8875Driver::SetBgColor(uint16_t color)
     WriteCommand(RA8875_BGCR1);
     WriteData((color >> 5) & 0x3f);
     WriteCommand(RA8875_BGCR2);
+    WriteData(color & 0x1f);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875Driver::SetTransparantColor(uint16_t color)
+{
+    WaitBlitter();
+    WriteCommand(RA8875_BGTR0);
+    WriteData((color >> 11) & 0x1f);
+    WriteCommand(RA8875_BGTR1);
+    WriteData((color >> 5) & 0x3f);
+    WriteCommand(RA8875_BGTR2);
     WriteData(color & 0x1f);
 }
 

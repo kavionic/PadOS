@@ -109,9 +109,9 @@ public:
     
     // From View
     virtual void AttachedToScreen() override;
-    virtual bool OnMouseDown(MouseButton_e button, const Point& position) override;
-    virtual bool OnMouseUp(MouseButton_e button, const Point& position) override;
-    virtual bool OnMouseMove(MouseButton_e button, const Point& position) override;
+    virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual void FrameSized(const Point& delta) override;
     virtual void Paint(const Rect& updateRect) override;
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;

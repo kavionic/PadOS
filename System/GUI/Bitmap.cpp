@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <GUI/Bitmap.h>
+#include <App/Application.h>
 
 using namespace os;
 
@@ -24,27 +25,24 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Bitmap::Bitmap(int width, int height, color_space colorSpace, uint32_t nFlags)
+Bitmap::Bitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, Application* application)
 {
-    //    area_id   hArea;
     m_Bounds = Rect(0, 0, float(width), float(height));
 
-    m_Handle = -1;
-    m_Raster = NULL;
+    m_Handle = INVALID_HANDLE;
+    m_Raster = nullptr;
     m_ColorSpace = colorSpace;
 
-    //    int nError = Application::GetInstance()->CreateBitmap( width, height, colorSpace, nFlags, &m_Handle, &hArea );
-
-    //    if ( nError < 0 ) {
-    //  throw( GeneralFailure( "Application server failed to create bitmap", -nError ) );
-    //    }
-
-    //    if ( nFlags & SHARE_FRAMEBUFFER ) {
-    //  m_hArea = clone_area( "bm_clone", (void**) &m_Raster, AREA_FULL_ACCESS, AREA_NO_LOCK, hArea );
-    //    } else {
-    //  m_hArea = -1;
-    //    }
-//    if (nFlags & ACCEPT_VIEWS) {
+    if (application == nullptr) {
+        application = Application::GetCurrentApplication();
+    }
+    if (application != nullptr)
+    {
+        if (application->CreateBitmap(width, height, colorSpace, flags, &m_Handle, &m_Raster)) {
+            m_Application = application;
+        }
+    }
+//    if (flags & ACCEPT_VIEWS) {
 //        m_pcWindow = new Window(this);
 //        m_pcWindow->Unlock();
 //    } else {
@@ -58,18 +56,16 @@ Bitmap::Bitmap(int width, int height, color_space colorSpace, uint32_t nFlags)
 
 Bitmap::~Bitmap()
 {
-//    if (m_hArea != -1) {
-//        delete_area(m_hArea);
-//    }
-//    delete m_pcWindow;
-//    Application::GetInstance()->DeleteBitmap(m_Handle);
+    if (m_Application != nullptr) {
+        m_Application->DeleteBitmap(m_Handle);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-color_space Bitmap::GetColorSpace() const
+ColorSpace Bitmap::GetColorSpace() const
 {
     return m_ColorSpace;
 }
@@ -116,7 +112,7 @@ View* Bitmap::FindView(const char* pzName) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Bitmap::Flush(void)
+void Bitmap::Flush()
 {
 //    if (NULL != m_pcWindow) {
 //        m_pcWindow->Flush();
@@ -127,7 +123,7 @@ void Bitmap::Flush(void)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Bitmap::Sync(void)
+void Bitmap::Sync()
 {
 //    if (NULL != m_pcWindow) {
 //        m_pcWindow->Sync();
@@ -138,7 +134,7 @@ void Bitmap::Sync(void)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Rect Bitmap::GetBounds( void ) const
+Rect Bitmap::GetBounds() const
 {
     return m_Bounds;
 }
@@ -149,9 +145,9 @@ Rect Bitmap::GetBounds( void ) const
 
 int Bitmap::GetBytesPerRow() const
 {
-    int nBitsPerPix = BitsPerPixel(m_ColorSpace);
-    if (nBitsPerPix == 15) {
-        nBitsPerPix = 16;
+    int bitsPerPix = BitsPerPixel(m_ColorSpace);
+    if (bitsPerPix == 15) {
+        bitsPerPix = 16;
     }
-    return int(m_Bounds.right - m_Bounds.left + 1.0f) * nBitsPerPix / 8;
+    return (int(m_Bounds.Width()) * bitsPerPix / 8 + 3) & ~3;;
 }

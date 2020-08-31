@@ -133,10 +133,10 @@ public:
     void        AddChild(Ptr<View> child);
     void        RemoveChild(Ptr<View> child);
     Ptr<View>   RemoveChild(ChildList_t::iterator iterator);
-    bool RemoveThis();
+    bool        RemoveThis();
     
-    Ptr<View>  GetChildAt(const Point& pos);
-    Ptr<View>  GetChildAt(size_t index);
+    Ptr<View>   GetChildAt(const Point& pos);
+    Ptr<View>   GetChildAt(size_t index);
 
     Ptr<ScrollBar> GetVScrollBar() const;
     Ptr<ScrollBar> GetHScrollBar() const;
@@ -237,23 +237,23 @@ public:
     void            Flush();
     void            Sync();
 
-    Point       ConvertToRoot(const Point& point) const { return m_ScreenPos + point + m_ScrollOffset; }
-    void        ConvertToRoot(Point* point) const { *point += m_ScreenPos + m_ScrollOffset; }
-    Rect        ConvertToRoot(const Rect& rect) const { return rect + m_ScreenPos + m_ScrollOffset; }
-    void        ConvertToRoot(Rect* rect) const { *rect += m_ScreenPos + m_ScrollOffset; }
-    Point       ConvertFromRoot(const Point& point) const { return point - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromRoot(Point* point) const { *point -= m_ScreenPos + m_ScrollOffset; }
-    Rect        ConvertFromRoot(const Rect& rect) const { return rect - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromRoot(Rect* rect) const { *rect -= m_ScreenPos + m_ScrollOffset; }
+    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
+    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
+    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos + m_ScrollOffset; }
+    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
 
-    Point       ConvertToScreen(const Point& point) const { return m_ScreenPos + point + m_ScrollOffset; }
-    void        ConvertToScreen(Point* point) const { *point += m_ScreenPos + m_ScrollOffset; }
-    Rect        ConvertToScreen(const Rect& rect) const { return rect + m_ScreenPos + m_ScrollOffset; }
-    void        ConvertToScreen(Rect* rect) const { *rect += m_ScreenPos + m_ScrollOffset; }
+    Point       ConvertToScreen(const Point& point) const   { return m_ScreenPos + point + m_ScrollOffset; }
+    void        ConvertToScreen(Point* point) const         { *point += m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertToScreen(const Rect& rect) const     { return rect + m_ScreenPos + m_ScrollOffset; }
+    void        ConvertToScreen(Rect* rect) const           { *rect += m_ScreenPos + m_ScrollOffset; }
     Point       ConvertFromScreen(const Point& point) const { return point - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromScreen(Point* point) const { *point -= m_ScreenPos + m_ScrollOffset; }
-    Rect        ConvertFromScreen(const Rect& rect) const { return rect - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromScreen(Rect* rect) const { *rect -= m_ScreenPos + m_ScrollOffset; }
+    void        ConvertFromScreen(Point* point) const       { *point -= m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertFromScreen(const Rect& rect) const   { return rect - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromScreen(Rect* rect) const         { *rect -= m_ScreenPos + m_ScrollOffset; }
 
     VFConnector<bool, MouseButton_e, const Point&, const MotionEvent&> VFMouseDown;
     VFConnector<bool, MouseButton_e, const Point&, const MotionEvent&> VFMouseUp;
@@ -272,7 +272,8 @@ private:
     void Initialize();
 
     template<typename SIGNAL, typename... ARGS>
-    void Post(ARGS&&... args) {
+    void Post(ARGS&&... args)
+    {
         Application* app = GetApplication();
         if (app != nullptr) {
             SIGNAL::Sender::Emit(app, &Application::AllocMessageBuffer, m_ServerHandle, args...);
@@ -284,42 +285,6 @@ private:
 
     void HandleDetachedFromScreen();
 
-    void UpdatePosition(bool forceServerUpdate)
-    {
-        Point newOffset;
-        Point newScreenPos;
-        {
-            Ptr<View> parent = m_Parent.Lock();
-            if (parent != nullptr && !parent->HasFlags(ViewFlags::WillDraw)) {
-                newOffset = parent->m_PositionOffset + parent->m_Frame.TopLeft();
-            } else {
-                newOffset = Point(0.0f, 0.0f);
-            }
-            if (parent == nullptr) {
-                newScreenPos = m_Frame.TopLeft();
-            } else {
-                newScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
-            }
-        }
-        if (forceServerUpdate || newOffset != m_PositionOffset)
-        {
-            m_PositionOffset = newOffset;
-            if (m_ServerHandle != INVALID_HANDLE)
-            {
-                Post<ASViewSetFrame>(m_Frame + m_PositionOffset, GetHandle());
-            }                    
-        }
-        Point deltaScreenPos = m_ScreenPos - newScreenPos;
-        m_ScreenPos = newScreenPos;
-
-        for (Ptr<View> child : m_ChildrenList) {
-            child->UpdatePosition(false);
-        }
-        if (deltaScreenPos.x != 0.0f || deltaScreenPos.y != 0.0f) {
-            ScreenFrameMoved(deltaScreenPos);
-        }
-    }
-
     void HandlePaint(const Rect& updateRect);
     
     void SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
@@ -329,39 +294,41 @@ private:
     void SetVScrollBar(ScrollBar* scrollBar);
     void SetHScrollBar(ScrollBar* scrollBar);
 
-    handler_id m_ServerHandle = INVALID_HANDLE;
+    void UpdatePosition(bool forceServerUpdate);
+
+    handler_id      m_ServerHandle = INVALID_HANDLE;
     
     Ptr<LayoutNode> m_LayoutNode;
     
-    Rect         m_Borders = Rect(0.0f, 0.0f, 0.0f, 0.0f);
-    float        m_Wheight = 1.0f;
-    DrawingMode  m_DrawingMode = DrawingMode::Overlay;
-    Alignment    m_HAlign = Alignment::Center;
-    Alignment    m_VAlign = Alignment::Center;
-    Point        m_LocalPrefSize[int(PrefSizeType::Count)];
-    Point        m_PreferredSizes[int(PrefSizeType::Count)];
+    Rect            m_Borders = Rect(0.0f, 0.0f, 0.0f, 0.0f);
+    float           m_Wheight = 1.0f;
+    DrawingMode     m_DrawingMode = DrawingMode::Overlay;
+    Alignment       m_HAlign = Alignment::Center;
+    Alignment       m_VAlign = Alignment::Center;
+    Point           m_LocalPrefSize[int(PrefSizeType::Count)];
+    Point           m_PreferredSizes[int(PrefSizeType::Count)];
 
-    float        m_WidthOverride[int(PrefSizeType::Count)]  = {0.0f, 0.0f};
-    float        m_HeightOverride[int(PrefSizeType::Count)] = {0.0f, 0.0f};
+    float           m_WidthOverride[int(PrefSizeType::Count)]  = {0.0f, 0.0f};
+    float           m_HeightOverride[int(PrefSizeType::Count)] = {0.0f, 0.0f};
     
-    SizeOverride m_WidthOverrideType[int(PrefSizeType::Count)]  = {SizeOverride::None, SizeOverride::None};
-    SizeOverride m_HeightOverrideType[int(PrefSizeType::Count)] = {SizeOverride::None, SizeOverride::None};
+    SizeOverride    m_WidthOverrideType[int(PrefSizeType::Count)]  = {SizeOverride::None, SizeOverride::None};
+    SizeOverride    m_HeightOverrideType[int(PrefSizeType::Count)] = {SizeOverride::None, SizeOverride::None};
         
-    bool         m_IsPrefSizeValid = false;
-    bool         m_IsLayoutValid   = true;
-    bool         m_DidScrollRect   = false;
+    bool            m_IsPrefSizeValid = false;
+    bool            m_IsLayoutValid   = true;
+    bool            m_DidScrollRect   = false;
     
-    View*        m_WidthRing  = nullptr;
-    View*        m_HeightRing = nullptr;
+    View*           m_WidthRing  = nullptr;
+    View*           m_HeightRing = nullptr;
     
-    Point        m_PositionOffset; // Offset relative to first parent that is not client only.
+    Point           m_PositionOffset; // Offset relative to first parent that is not client only.
     
-    int          m_BeginPainCount = 0;
+    int             m_BeginPainCount = 0;
 
-    ScrollBar* m_pcHScrollBar = nullptr;
-    ScrollBar* m_pcVScrollBar = nullptr;
+    ScrollBar*      m_HScrollBar = nullptr;
+    ScrollBar*      m_VScrollBar = nullptr;
 
-    Ptr<Font> m_Font = ptr_new<Font>(Font_e::e_FontLarge);
+    Ptr<Font>       m_Font = ptr_new<Font>(Font_e::e_FontLarge);
     
     ASPaintView::Receiver        RSPaintView;
     ASViewFrameChanged::Receiver RSViewFrameChanged;

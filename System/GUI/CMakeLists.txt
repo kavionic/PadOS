@@ -21,6 +21,7 @@ target_sources(PadOS PRIVATE
 	ListViewScrolledView.h
 	ListViewScrolledView.cpp
 	ListViewStringRow.cpp
+	ProgressBar.cpp
 	RadioButton.cpp
 	Region.cpp
 	ScrollBar.cpp

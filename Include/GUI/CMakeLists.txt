@@ -15,6 +15,7 @@ target_sources(PadOS PRIVATE
 	ListView.h
 	ListViewRow.h
 	ListViewStringRow.h
+	ProgressBar.h
 	RadioButton.h
 	Region.h
 	ScrollBar.h

@@ -298,11 +298,11 @@ void View::Initialize()
 
 View::~View()
 {
-    if (m_pcVScrollBar != nullptr) {
-        m_pcVScrollBar->SetScrollTarget(nullptr);
+    if (m_VScrollBar != nullptr) {
+        m_VScrollBar->SetScrollTarget(nullptr);
     }
-    if (m_pcHScrollBar != nullptr) {
-        m_pcHScrollBar->SetScrollTarget(nullptr);
+    if (m_HScrollBar != nullptr) {
+        m_HScrollBar->SetScrollTarget(nullptr);
     }
     SetLayoutNode(nullptr);
     RemoveFromWidthRing();
@@ -853,7 +853,7 @@ Ptr<View> View::GetChildAt(size_t index)
 
 Ptr<ScrollBar> View::GetVScrollBar() const
 {
-    return ptr_tmp_cast(m_pcVScrollBar);
+    return ptr_tmp_cast(m_VScrollBar);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -862,7 +862,7 @@ Ptr<ScrollBar> View::GetVScrollBar() const
 
 Ptr<ScrollBar> View::GetHScrollBar() const
 {
-    return ptr_tmp_cast(m_pcHScrollBar);
+    return ptr_tmp_cast(m_HScrollBar);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1160,11 +1160,11 @@ void View::ScrollBy(const Point& offset)
     UpdatePosition(false);
     Post<ASViewScrollBy>(offset);
 
-    if (offset.x != 0 && m_pcHScrollBar != nullptr) {
-        m_pcHScrollBar->SetValue(-m_ScrollOffset.x);
+    if (offset.x != 0 && m_HScrollBar != nullptr) {
+        m_HScrollBar->SetValue(-m_ScrollOffset.x);
     }
-    if (offset.y != 0 && m_pcVScrollBar != nullptr) {
-        m_pcVScrollBar->SetValue(-m_ScrollOffset.y);
+    if (offset.y != 0 && m_VScrollBar != nullptr) {
+        m_VScrollBar->SetValue(-m_ScrollOffset.y);
     }
     ViewScrolled(offset);
     SignalViewScrolled(offset, ptr_tmp_cast(this));
@@ -1541,7 +1541,7 @@ void View::UpdateRingSize()
 
 void View::SetVScrollBar(ScrollBar* scrollBar)
 {
-    m_pcVScrollBar = scrollBar;
+    m_VScrollBar = scrollBar;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1550,6 +1550,47 @@ void View::SetVScrollBar(ScrollBar* scrollBar)
 
 void View::SetHScrollBar(ScrollBar* scrollBar)
 {
-    m_pcHScrollBar = scrollBar;
+    m_HScrollBar = scrollBar;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::UpdatePosition(bool forceServerUpdate)
+{
+    Point newOffset;
+    Point newScreenPos;
+    {
+        Ptr<View> parent = m_Parent.Lock();
+        if (parent != nullptr && !parent->HasFlags(ViewFlags::WillDraw)) {
+            newOffset = parent->m_PositionOffset + parent->m_Frame.TopLeft();
+        }
+        else {
+            newOffset = Point(0.0f, 0.0f);
+        }
+        if (parent == nullptr) {
+            newScreenPos = m_Frame.TopLeft();
+        }
+        else {
+            newScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
+        }
+    }
+    if (forceServerUpdate || newOffset != m_PositionOffset)
+    {
+        m_PositionOffset = newOffset;
+        if (m_ServerHandle != INVALID_HANDLE)
+        {
+            Post<ASViewSetFrame>(m_Frame + m_PositionOffset, GetHandle());
+        }
+    }
+    Point deltaScreenPos = m_ScreenPos - newScreenPos;
+    m_ScreenPos = newScreenPos;
+
+    for (Ptr<View> child : m_ChildrenList) {
+        child->UpdatePosition(false);
+    }
+    if (deltaScreenPos.x != 0.0f || deltaScreenPos.y != 0.0f) {
+        ScreenFrameMoved(deltaScreenPos);
+    }
+}

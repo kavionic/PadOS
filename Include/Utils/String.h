@@ -52,54 +52,54 @@ public:
 
     String& format(const char* fmt, va_list pArgs)
     {
-	int maxLen = 128;
-	int length;
-	{
-	    char buffer[maxLen];
-	    length = vsnprintf(buffer, maxLen, fmt, pArgs);
+        int maxLen = 128;
+        int length;
+        {
+            char buffer[maxLen];
+            length = vsnprintf(buffer, maxLen, fmt, pArgs);
 
-	    if (length < maxLen) {
-		assign(buffer);
-		return *this;
-	    }
-	}
-	while (length >= maxLen)
-	{
-	    maxLen *= 2;
-	    std::vector<char> buffer;
-	    buffer.resize(maxLen);
+            if (length < maxLen) {
+                assign(buffer);
+                return *this;
+            }
+        }
+        while (length >= maxLen)
+        {
+            maxLen *= 2;
+            std::vector<char> buffer;
+            buffer.resize(maxLen);
 
-	    length = vsnprintf(buffer.data(), maxLen, fmt, pArgs);
-	    if (length < maxLen) {
-		assign(buffer.data());
-	    }
-	}
-	return *this;
+            length = vsnprintf(buffer.data(), maxLen, fmt, pArgs);
+            if (length < maxLen) {
+                assign(buffer.data());
+            }
+        }
+        return *this;
     }
 
     String& format(const char* fmt, ...)
     {
-	va_list argList;
-	va_start(argList, fmt);
-	format(fmt, argList);
-	va_end(argList);
-	return *this;
+        va_list argList;
+        va_start(argList, fmt);
+        format(fmt, argList);
+        va_end(argList);
+        return *this;
     }
 
     static String format_string(const char* fmt, ...)
     {
-	String result;
-	va_list argList;
-	va_start(argList, fmt);
-	result.format(fmt, argList);
-	va_end(argList);
-	return result;
+        String result;
+        va_list argList;
+        va_start(argList, fmt);
+        result.format(fmt, argList);
+        va_end(argList);
+        return result;
     }
 
     // FNV-1a 32bit hashing algorithm.
     static constexpr uint32_t hash_string_literal(char const* s, size_t count)
     {
-	return ((count ? hash_string_literal(s, count - 1) : 2166136261u) ^ s[count]) * 16777619u;
+        return ((count ? hash_string_literal(s, count - 1) : 2166136261u) ^ s[count]) * 16777619u;
     }
 
     static String zero;

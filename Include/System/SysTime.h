@@ -61,8 +61,8 @@ struct TimeValue
 
     // Constructors:
     constexpr TimeValue() : m_Value(0) {}
-    constexpr TimeValue(float value) : m_Value(FromSeconds(value)) {}
-    constexpr TimeValue(double value) : m_Value(FromSeconds(value)) {}
+    constexpr TimeValue(float value) : m_Value(T(value * double(TicksPerSecond))) {}
+    constexpr TimeValue(double value) : m_Value(T(value * double(TicksPerSecond))) {}
 
     template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
     constexpr TimeValue(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& value)

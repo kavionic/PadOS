@@ -106,7 +106,7 @@ void RadioButton::Paint(const Rect& updateRect)
 {
     Rect bounds = GetBounds();
     Rect buttonFrame = bounds;
-    SetFgColor(StandardColorID::NORMAL);
+    SetFgColor(StandardColorID::DefaultBackground);
     FillRect(updateRect);
 
     const String& label = GetLabel();
@@ -136,13 +136,13 @@ void RadioButton::Paint(const Rect& updateRect)
             }
         }
 		SetFgColor(0, 0, 0);
-		SetBgColor(StandardColorID::NORMAL);
+		SetBgColor(StandardColorID::DefaultBackground);
 		DrawString(label);
     }
 
-    SetEraseColor(StandardColorID::NORMAL);
+    SetEraseColor(StandardColorID::DefaultBackground);
 
-    SetFgColor(StandardColorID::SHADOW);
+    SetFgColor(StandardColorID::Shadow);
 
 
     float radius = floor(RB_SIZE * 0.5f);
@@ -151,13 +151,13 @@ void RadioButton::Paint(const Rect& updateRect)
     radius -= 1.0f;
     FillCircle(center, radius);
 
-    SetFgColor(StandardColorID::NORMAL);
+    SetFgColor(StandardColorID::DefaultBackground);
 	radius -= 3.0f;
 	FillCircle(center, radius);
 
     if (IsChecked())
     {
-        SetFgColor(StandardColorID::SHADOW);
+        SetFgColor(StandardColorID::Shadow);
 		radius -= 3.0f;
 		FillCircle(center, radius);
     }

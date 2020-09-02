@@ -169,7 +169,7 @@ bool DropdownMenu::OnMouseDown(MouseButton_e button, const Point& position, cons
 
 void DropdownMenu::Paint(const Rect& cUpdateRect)
 {
-    SetEraseColor(StandardColorID::NORMAL);
+    SetEraseColor(StandardColorID::DefaultBackground);
     DrawFrame(m_ArrowFrame, (m_MenuWindow != nullptr) ? FRAME_RECESSED : FRAME_RAISED);
 
     Point center(m_ArrowFrame.left + m_ArrowFrame.Width() * 0.5f, m_ArrowFrame.top + m_ArrowFrame.Height() * 0.5f);

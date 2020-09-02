@@ -53,11 +53,11 @@ bool ListViewHeaderView::HasFocus(MouseButton_e button) const
 
 void ListViewHeaderView::DrawButton(const char* title, const Rect& frame, Ptr<Font> font, FontHeight* fontHeight)
 {
-    SetEraseColor(StandardColorID::LISTVIEW_TAB);
+    SetEraseColor(StandardColorID::ListViewTab);
     DrawFrame(frame, FRAME_RAISED);
 
-    SetFgColor(StandardColorID::LISTVIEW_TAB_TEXT);
-    SetBgColor(StandardColorID::LISTVIEW_TAB);
+    SetFgColor(StandardColorID::ListViewTabText);
+    SetBgColor(StandardColorID::ListViewTab);
 
     float vFontHeight = fontHeight->ascender + fontHeight->descender;
 

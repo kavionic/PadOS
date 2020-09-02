@@ -93,7 +93,7 @@ void CheckBox::Paint(const Rect& cUpdateRect)
 {
     Rect bounds = GetBounds();
 
-    SetFgColor(StandardColorID::NORMAL);
+    SetFgColor(StandardColorID::DefaultBackground);
     FillRect(cUpdateRect);
 
     const String& label = GetLabel();
@@ -103,11 +103,11 @@ void CheckBox::Paint(const Rect& cUpdateRect)
         MovePenTo(CB_SIZE + CB_LABEL_SPACING, bounds.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender);
 
         SetFgColor(0, 0, 0);
-        SetBgColor(StandardColorID::NORMAL);
+        SetBgColor(StandardColorID::DefaultBackground);
         DrawString(label);
     }
 
-    SetEraseColor(StandardColorID::NORMAL);
+    SetEraseColor(StandardColorID::DefaultBackground);
 
     Rect buttonFrame(0, 0, CB_SIZE, CB_SIZE);
 

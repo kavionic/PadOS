@@ -53,19 +53,26 @@ const std::map<String, uint32_t> ViewFlags::FlagMap
 
 static Color g_DefaultColors[] =
 {
-    Color(0xaa, 0xaa, 0xaa, 0xff),  // NORMAL
-    Color(0xff, 0xff, 0xff, 0xff),  // SHINE
-    Color(0x00, 0x00, 0x00, 0xff),  // SHADOW
-    Color(0x66, 0x88, 0xbb, 0xff),  // SEL_WND_BORDER
-    Color(0x78, 0x78, 0x78, 0xff),  // NORMAL_WND_BORDER
-    Color(0x00, 0x00, 0x00, 0xff),  // MENU_TEXT
-    Color(0x00, 0x00, 0x00, 0xff),  // SEL_MENU_TEXT
-    Color(0xcc, 0xcc, 0xcc, 0xff),  // MENU_BACKGROUND
-    Color(0x66, 0x88, 0xbb, 0xff),  // SEL_MENU_BACKGROUND
-    Color(0x78, 0x78, 0x78, 0xff),  // SCROLLBAR_BG
-    Color(0xaa, 0xaa, 0xaa, 0xff),  // SCROLLBAR_KNOB
-    Color(0x78, 0x78, 0x78, 0xff),  // LISTVIEW_TAB
-    Color(0xff, 0xff, 0xff, 0xff)   // LISTVIEW_TAB_TEXT
+    [int(StandardColorID::DefaultBackground)]                      = Color(170, 170, 170, 0xff),  // NORMAL
+    [int(StandardColorID::Shine)]                       = Color(0xff, 0xff, 0xff, 0xff),  // SHINE
+    [int(StandardColorID::Shadow)]                      = Color(0x00, 0x00, 0x00, 0xff),  // SHADOW
+    [int(StandardColorID::WindowBorderActive)]         = Color(0x66, 0x88, 0xbb, 0xff),  // SEL_WND_BORDER
+    [int(StandardColorID::WindowBorderInactive)]           = Color(0x78, 0x78, 0x78, 0xff),  // NORMAL_WND_BORDER
+    [int(StandardColorID::MenuText)]                   = Color(0x00, 0x00, 0x00, 0xff),  // MENU_TEXT
+    [int(StandardColorID::MenuTextSelected)]          = Color(0x00, 0x00, 0x00, 0xff),  // SEL_MENU_TEXT
+    [int(StandardColorID::MenuBackground)]             = Color(0xcc, 0xcc, 0xcc, 0xff),  // MENU_BACKGROUND
+    [int(StandardColorID::MenuBackgroundSelected)]    = Color(0x66, 0x88, 0xbb, 0xff),  // SEL_MENU_BACKGROUND
+    [int(StandardColorID::ScrollBarBackground)]                = Color(0x78, 0x78, 0x78, 0xff),  // SCROLLBAR_BG
+    [int(StandardColorID::ScrollBarKnob)]              = Color(170, 170, 170, 0xff),  // SCROLLBAR_KNOB
+    [int(StandardColorID::SliderKnobNormal)]            = Color(46, 30, 137),
+    [int(StandardColorID::SliderKnobPressed)]           = Color(88, 58, 255),
+    [int(StandardColorID::SliderKnobShadow)]            = Color(170, 170, 170),
+    [int(StandardColorID::SliderKnobDisabled)]          = Color(170, 170, 170),
+    [int(StandardColorID::SliderTrackNormal)]           = Color(170, 170, 170),
+    [int(StandardColorID::SliderTrackDisabled)]         = Color(170, 170, 170),
+
+    [int(StandardColorID::ListViewTab)]                = Color(0x78, 0x78, 0x78, 0xff),  // LISTVIEW_TAB
+    [int(StandardColorID::ListViewTabText)]           = Color(0xff, 0xff, 0xff, 0xff)   // LISTVIEW_TAB_TEXT
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -88,7 +95,7 @@ Color os::get_standard_color(StandardColorID colorID)
     if (index < ARRAY_COUNT(g_DefaultColors)) {
         return g_DefaultColors[index];
     } else {
-        return g_DefaultColors[int32_t(StandardColorID::NORMAL)];
+        return g_DefaultColors[int32_t(StandardColorID::DefaultBackground)];
     }        
 }
 
@@ -123,7 +130,7 @@ static Color Tint(const Color& color, float tint)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name, Rect(), Point(), flags, 0, get_standard_color(StandardColorID::NORMAL), get_standard_color(StandardColorID::NORMAL), Color(0))
+View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name, Rect(), Point(), flags, 0, get_standard_color(StandardColorID::DefaultBackground), get_standard_color(StandardColorID::DefaultBackground), Color(0))
 {
     Initialize();
     if (parent != nullptr) {
@@ -155,8 +162,8 @@ View::View(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& 
                Point(),
                context->GetFlagsAttribute<uint32_t>(xmlData, ViewFlags::FlagMap, "flags", 0),
                0,
-               get_standard_color(StandardColorID::NORMAL),
-               get_standard_color(StandardColorID::NORMAL),
+               get_standard_color(StandardColorID::DefaultBackground),
+               get_standard_color(StandardColorID::DefaultBackground),
                Color(0))
 {
     Initialize();
@@ -1205,8 +1212,8 @@ void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
         sunken = true;
     }
 
-    Color fgColor = get_standard_color(StandardColorID::SHINE);
-    Color bgColor = get_standard_color(StandardColorID::SHADOW);
+    Color fgColor = get_standard_color(StandardColorID::Shine);
+    Color bgColor = get_standard_color(StandardColorID::Shadow);
 
     if (syleFlags & FRAME_DISABLED) {
         fgColor = Tint(fgColor, 0.6f);

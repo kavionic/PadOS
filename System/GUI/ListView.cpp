@@ -777,7 +777,7 @@ void ListView::Paint(const Rect& updateRect)
         const Rect scrollBarFrameH = m_HScrollBar->GetFrame();
         const Rect scrollBarFrameV = m_VScrollBar->GetFrame();
         const Rect frame(scrollBarFrameH.right, scrollBarFrameV.bottom, scrollBarFrameV.right, scrollBarFrameH.bottom);
-        FillRect(frame, get_standard_color(StandardColorID::NORMAL));
+        FillRect(frame, get_standard_color(StandardColorID::DefaultBackground));
     }
     if (HasFlags(ListViewFlags::RenderBorder)) {
         DrawFrame(GetBounds(), FRAME_RECESSED | FRAME_TRANSPARENT);

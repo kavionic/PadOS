@@ -96,20 +96,26 @@ enum class DrawingMode : uint8_t
 
 enum class StandardColorID : int32_t
 {
-    NORMAL,
-    SHINE,
-    SHADOW,
-    SELECTED_WND_BORDER,
-    NORMAL_WND_BORDER,
-    MENU_TEXT,
-    SELECTED_MENU_TEXT,
-    MENU_BACKGROUND,
-    SELECTED_MENU_BACKGROUND,
-    SCROLLBAR_BG,
-    SCROLLBAR_KNOB,
-    LISTVIEW_TAB,
-    LISTVIEW_TAB_TEXT,
-    COUNT
+    DefaultBackground,
+    Shine,
+    Shadow,
+    WindowBorderActive,
+    WindowBorderInactive,
+    MenuText,
+    MenuTextSelected,
+    MenuBackground,
+    MenuBackgroundSelected,
+    ScrollBarBackground,
+    ScrollBarKnob,
+    SliderKnobNormal,
+    SliderKnobPressed,
+    SliderKnobShadow,
+    SliderKnobDisabled,
+    SliderTrackNormal,
+    SliderTrackDisabled,
+    ListViewTab,
+    ListViewTabText,
+    Count
 };
 
 

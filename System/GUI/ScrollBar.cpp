@@ -434,7 +434,7 @@ void ScrollBar::Paint(const Rect& cUpdateRect)
 
 	//    DrawFrame( cBounds, FRAME_RECESSED | FRAME_TRANSPARENT | FRAME_THIN );
 
-	SetEraseColor(StandardColorID::SCROLLBAR_KNOB);
+	SetEraseColor(StandardColorID::ScrollBarKnob);
 	DrawFrame(cKnobFrame, FRAME_RAISED);
 
 	if (m_Orientation == Orientation::Horizontal)
@@ -443,12 +443,12 @@ void ScrollBar::Paint(const Rect& cUpdateRect)
 		{
 			const float vDist = 5.0f;
 			float vCenter = cKnobFrame.left + (cKnobFrame.Width() + 1.0f) * 0.5f;
-			SetFgColor(StandardColorID::SHINE);
+			SetFgColor(StandardColorID::Shine);
 			DrawLine(Point(vCenter - vDist, cKnobFrame.top + 4.0f), Point(vCenter - vDist, cKnobFrame.bottom - 4.0f));
 			DrawLine(Point(vCenter, cKnobFrame.top + 4.0f), Point(vCenter, cKnobFrame.bottom - 4.0f));
 			DrawLine(Point(vCenter + vDist, cKnobFrame.top + 4.0f), Point(vCenter + vDist, cKnobFrame.bottom - 4.0f));
 
-			SetFgColor(StandardColorID::SHADOW);
+			SetFgColor(StandardColorID::Shadow);
 			vCenter -= 1.0f;
 			DrawLine(Point(vCenter - vDist, cKnobFrame.top + 4.0f), Point(vCenter - vDist, cKnobFrame.bottom - 4.0f));
 			DrawLine(Point(vCenter, cKnobFrame.top + 4.0f), Point(vCenter, cKnobFrame.bottom - 4.0f));
@@ -461,12 +461,12 @@ void ScrollBar::Paint(const Rect& cUpdateRect)
 		{
 			const float vDist = 5.0f;
 			float vCenter = cKnobFrame.top + (cKnobFrame.Height() + 1.0f) * 0.5f;
-			SetFgColor(StandardColorID::SHINE);
+			SetFgColor(StandardColorID::Shine);
 			DrawLine(Point(cKnobFrame.left + 4.0f, vCenter - vDist), Point(cKnobFrame.right - 4.0f, vCenter - vDist));
 			DrawLine(Point(cKnobFrame.left + 4.0f, vCenter), Point(cKnobFrame.right - 4.0f, vCenter));
 			DrawLine(Point(cKnobFrame.left + 4.0f, vCenter + vDist), Point(cKnobFrame.right - 4.0f, vCenter + vDist));
 
-			SetFgColor(StandardColorID::SHADOW);
+			SetFgColor(StandardColorID::Shadow);
 			vCenter -= 1.0f;
 			DrawLine(Point(cKnobFrame.left + 4.0f, vCenter - vDist), Point(cKnobFrame.right - 4.0f, vCenter - vDist));
 			DrawLine(Point(cKnobFrame.left + 4.0f, vCenter), Point(cKnobFrame.right - 4.0f, vCenter));
@@ -474,7 +474,7 @@ void ScrollBar::Paint(const Rect& cUpdateRect)
 		}
 	}
 
-	SetFgColor(StandardColorID::SCROLLBAR_BG);
+	SetFgColor(StandardColorID::ScrollBarBackground);
 
 	cBounds.left += 1;
 	cBounds.top += 1;
@@ -498,16 +498,16 @@ void ScrollBar::Paint(const Rect& cUpdateRect)
 	FillRect(cFrame);
 	if (m_Orientation == Orientation::Horizontal)
 	{
-		SetFgColor(Tint(get_standard_color(StandardColorID::SHADOW), 0.5f));
+		SetFgColor(Tint(get_standard_color(StandardColorID::Shadow), 0.5f));
 		DrawLine(Point(m_KnobArea.left, m_KnobArea.top - 1.0f), Point(m_KnobArea.right, m_KnobArea.top - 1.0f));
-		SetFgColor(Tint(get_standard_color(StandardColorID::SHINE), 0.6f));
+		SetFgColor(Tint(get_standard_color(StandardColorID::Shine), 0.6f));
 		DrawLine(Point(m_KnobArea.left, m_KnobArea.bottom + 1.0f), Point(m_KnobArea.right, m_KnobArea.bottom + 1.0f));
 	}
 	else
 	{
-		SetFgColor(Tint(get_standard_color(StandardColorID::SHADOW), 0.5f));
+		SetFgColor(Tint(get_standard_color(StandardColorID::Shadow), 0.5f));
 		DrawLine(Point(m_KnobArea.left - 1.0f, m_KnobArea.top), Point(m_KnobArea.left - 1.0f, m_KnobArea.bottom));
-		SetFgColor(Tint(get_standard_color(StandardColorID::SHINE), 0.6f));
+		SetFgColor(Tint(get_standard_color(StandardColorID::Shine), 0.6f));
 		DrawLine(Point(m_KnobArea.right + 1.0f, m_KnobArea.top), Point(m_KnobArea.right + 1.0f, m_KnobArea.bottom));
 	}
 	for (int i = 0; i < 4; ++i)

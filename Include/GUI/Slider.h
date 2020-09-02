@@ -67,7 +67,7 @@ public:
     // From Slider:
     virtual void RenderLabels();
     virtual void RenderSlider();
-    virtual void RenderKnob();
+    virtual void RenderKnob(StandardColorID knobColor, float value);
     virtual void RenderTicks();
     
     virtual float PosToVal(const Point& position) const;
@@ -104,6 +104,11 @@ public:
 
     virtual void    SetMinMax(float min, float max ) { m_Min = min; m_Max = max; }
     
+    void            SetShadowKnobsCount(size_t count);
+    size_t          GetShadowKnobsCount() const;
+    void            SetShadowKnobValue(size_t index, float value);
+
+    bool            IsBeingDragged() const { return m_HitButton != MouseButton_e::None; }
     // From Control:
     virtual void    OnEnableStatusChanged(bool isEnabled) override;
     
@@ -144,6 +149,8 @@ private:
     Orientation     m_Orientation;
     float           m_Value = 0.0f;
     
+    std::vector<float>  m_ShadowArrows;
+
     bool            m_Changed = false;
     MouseButton_e   m_HitButton = MouseButton_e::None;
     Point           m_HitPos;

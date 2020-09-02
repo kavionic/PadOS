@@ -57,7 +57,7 @@ void GroupView::Paint(const Rect& updateRect)
     {
         FontHeight fontHeight = GetFontHeight();
 
-        SetFgColor(StandardColorID::SHADOW);
+        SetFgColor(StandardColorID::Shadow);
 		MovePenTo(30.0f, fontHeight.ascender);
 		DrawString(m_Label);
 
@@ -70,7 +70,7 @@ void GroupView::Paint(const Rect& updateRect)
 
     for (int i = 0; i < 2; ++i)
     {
-        SetFgColor(StandardColorID::SHADOW);
+        SetFgColor(StandardColorID::Shadow);
         MovePenTo(bound.BottomLeft());
         DrawLine(bound.TopLeft());
 
@@ -82,7 +82,7 @@ void GroupView::Paint(const Rect& updateRect)
         }
         DrawLine(bound.TopRight());
 
-        SetFgColor(StandardColorID::SHINE);
+        SetFgColor(StandardColorID::Shine);
         MovePenTo(bound.TopRight() + Point(0.0f, 1.0f));
         DrawLine(bound.BottomRight());
         DrawLine(bound.BottomLeft() + Point(1.0f, 0.0f));

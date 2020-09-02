@@ -71,7 +71,7 @@ void Button::Paint(const Rect& updateRect)
 {
     const bool isPressed = GetPressedState();
     Rect bounds = GetBounds();
-    SetEraseColor(get_standard_color(StandardColorID::NORMAL));
+    SetEraseColor(get_standard_color(StandardColorID::DefaultBackground));
     DrawFrame(bounds, isPressed ? FRAME_RECESSED : FRAME_RAISED);
     Point labelPos(round((bounds.Width() - m_LabelSize.x) * 0.5f), round((bounds.Height() - m_LabelSize.y) * 0.5f));
     
@@ -80,8 +80,8 @@ void Button::Paint(const Rect& updateRect)
     }
 
     MovePenTo(labelPos);
-    SetFgColor(get_standard_color(StandardColorID::MENU_TEXT));
-    SetBgColor(get_standard_color(StandardColorID::NORMAL));
+    SetFgColor(get_standard_color(StandardColorID::MenuText));
+    SetBgColor(get_standard_color(StandardColorID::DefaultBackground));
     DrawString(GetLabel());
 }
 

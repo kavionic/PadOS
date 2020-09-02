@@ -958,7 +958,7 @@ void ListViewScrolledView::Paint(const Rect& updateRect)
     FillRect(frame);
 
     if (m_InertialScroller.GetState() == InertialScroller::State::Dragging) {
-        SetFgColor(StandardColorID::NORMAL);
+        SetFgColor(StandardColorID::DefaultBackground);
     }
     frame = GetBounds();
 

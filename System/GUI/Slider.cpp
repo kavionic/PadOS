@@ -54,7 +54,7 @@ Slider::Slider(const String& name, Ptr<View> parent, uint32_t flags, int tickCou
     m_Orientation   = orientation;
     m_NumTicks      = tickCount;
 
-    m_SliderColor1  = get_standard_color(StandardColorID::SCROLLBAR_BG);;
+    m_SliderColor1  = get_standard_color(StandardColorID::ScrollBarBackground);;
     m_SliderColor2  = m_SliderColor1;
 }
 
@@ -76,7 +76,7 @@ Slider::Slider(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_no
     m_Max   = context->GetAttribute(xmlData, "max", 1.0f);
     m_Value = context->GetAttribute(xmlData, "value", m_Min);
 
-    m_SliderColor1  = get_standard_color(StandardColorID::SCROLLBAR_BG);;
+    m_SliderColor1  = get_standard_color(StandardColorID::ScrollBarBackground);;
     m_SliderColor2  = m_SliderColor1;
 
     SetValueStringFormat(context->GetAttribute(xmlData, "value_format", String::zero), context->GetAttribute(xmlData, "value_scale", 1.0f));
@@ -291,7 +291,9 @@ void Slider::SetValue(float value, bool sendEvent)
         Invalidate(knobFrame);
         UpdateValueView();
         Sync();
-        SignalValueChanged(m_Value, m_HitButton == MouseButton_e::None, ptr_tmp_cast(this));
+        if (sendEvent) {
+            SignalValueChanged(m_Value, m_HitButton == MouseButton_e::None, ptr_tmp_cast(this));
+        }
     }
 }
 
@@ -410,6 +412,40 @@ void Slider::GetLimitLabels(String* minLabel, String* maxLabel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void Slider::SetShadowKnobsCount(size_t count)
+{
+    m_ShadowArrows.resize(count);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t Slider::GetShadowKnobsCount() const
+{
+    return m_ShadowArrows.size();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Slider::SetShadowKnobValue(size_t index, float value)
+{
+    if (index >= m_ShadowArrows.size() || value == m_ShadowArrows[index]) {
+        return;
+    }
+    Rect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_ShadowArrows[index]);
+    m_ShadowArrows[index] = value;
+    knobFrame |= GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(value);
+    Invalidate(knobFrame);
+    Flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void Slider::OnEnableStatusChanged(bool isEnabled)
 {
     if (m_HitButton != MouseButton_e::None)
@@ -438,6 +474,8 @@ bool Slider::OnMouseDown(MouseButton_e button, const Point& position, const Moti
         m_HitPos = position - ValToPos(GetValue());;
         m_Changed = false;
         MakeFocus(button, true);
+        Invalidate(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value));
+
         SignalBeginDrag(m_Value, ptr_tmp_cast(this), button);
     }
     return true;
@@ -459,6 +497,8 @@ bool Slider::OnMouseUp(MouseButton_e button, const Point& position, const Motion
             SignalValueChanged(m_Value, true, ptr_tmp_cast(this));
             m_Changed = false;
         }
+        Invalidate(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value));
+
         SignalEndDrag(m_Value, ptr_tmp_cast(this), button);
     }
     return true;
@@ -499,12 +539,11 @@ void Slider::RenderSlider()
 
     RenderTicks();
     RenderLabels();
-    RenderKnob();
 
     if (sliderFrame.IsValid())
     {
-        const Color shineColor = get_standard_color(StandardColorID::SHINE);
-        const Color shadowColor = get_standard_color(StandardColorID::SHADOW);
+        const Color shineColor = get_standard_color(StandardColorID::Shine);
+        const Color shadowColor = get_standard_color(StandardColorID::Shadow);
 
         if (m_Orientation == Orientation::Horizontal)
         {
@@ -585,15 +624,21 @@ void Slider::RenderSlider()
             }
         }
     }
+    for (float value : m_ShadowArrows)
+    {
+        RenderKnob(StandardColorID::SliderKnobShadow, value);
+    }
+
+    RenderKnob((IsBeingDragged()) ? StandardColorID::SliderKnobPressed : StandardColorID::SliderKnobNormal, GetValue());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::RenderKnob()
+void Slider::RenderKnob(StandardColorID knobColor, float value)
 {
-    Rect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::SquareFrame) + ValToPos(GetValue());
+    Rect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::SquareFrame) + ValToPos(value);
 
     if (!HasFlags(SliderFlags::KnobPointUp | SliderFlags::KnobPointDown))
     {
@@ -601,22 +646,22 @@ void Slider::RenderKnob()
         center.Resize(1.0f, 1.0f, -1.0f, -1.0f);
         knobFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
 
-        SetFgColor(StandardColorID::SHINE);
+        SetFgColor(StandardColorID::Shine);
         MovePenTo(knobFrame.BottomLeft());
         DrawLine(knobFrame.TopLeft());
         DrawLine(knobFrame.TopRight());
 
-        SetFgColor(StandardColorID::SHADOW);
+        SetFgColor(StandardColorID::Shadow);
         DrawLine(knobFrame.BottomRight());
         DrawLine(knobFrame.BottomLeft() + Point(1.0f, 0.0f));
-        FillRect(center, get_standard_color(StandardColorID::SCROLLBAR_KNOB));
+        FillRect(center, get_standard_color(knobColor));
     }
     else
     {
-        const Color shineColor = get_standard_color(StandardColorID::SHINE);
-        const Color shadowColor = get_standard_color(StandardColorID::SHADOW);
+        const Color shineColor = get_standard_color(StandardColorID::Shine);
+        const Color shadowColor = get_standard_color(StandardColorID::Shadow);
 
-        Rect knobFullFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(GetValue());
+        Rect knobFullFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(value);
 
         Rect centerFrame = knobFrame;
         knobFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
@@ -626,7 +671,7 @@ void Slider::RenderKnob()
         {
             const float center = floor(knobFrame.left + (knobFrame.right - knobFrame.left) * 0.5f);
 
-            SetFgColor(StandardColorID::SCROLLBAR_KNOB);
+            SetFgColor(knobColor);
             float offset = 0.0f;
             float direction = 1.0f;
             for (float x = knobFrame.left; x <= knobFrame.right; x += 1.0f)
@@ -640,7 +685,7 @@ void Slider::RenderKnob()
                 SetFgColor(GetEraseColor());
                 if (HasFlags(SliderFlags::KnobPointUp))     DrawLine(x, knobFullFrame.top, x, y1 - 1.0f);
                 if (HasFlags(SliderFlags::KnobPointDown))   DrawLine(x, y2 + 1.0f, x, knobFullFrame.bottom);
-                SetFgColor(StandardColorID::SCROLLBAR_KNOB);
+                SetFgColor(knobColor);
                 DrawLine(x, y1, x, y2);
                 if (direction > 0.0f && x >= center) {
                     direction = -1.0f;
@@ -671,7 +716,7 @@ void Slider::RenderKnob()
         {
             const float center = floor(knobFrame.top + (knobFrame.bottom - knobFrame.top) * 0.5f);
 
-            SetFgColor(StandardColorID::SCROLLBAR_KNOB);
+            SetFgColor(knobColor);
             float offset = 0.0f;
             float direction = 1.0f;
             for (float y = knobFrame.top; y <= knobFrame.bottom; y += 1.0f)
@@ -685,7 +730,7 @@ void Slider::RenderKnob()
                 SetFgColor(GetEraseColor());
                 if (HasFlags(SliderFlags::KnobPointLeft))  DrawLine(knobFullFrame.left, y, x1 - 1.0f, y);
                 if (HasFlags(SliderFlags::KnobPointRight)) DrawLine(x2 + 1.0f, y, knobFullFrame.right, y);
-                SetFgColor(StandardColorID::SCROLLBAR_KNOB);
+                SetFgColor(knobColor);
                 DrawLine(x1, y, x2, y);
                 if (direction > 0.0f && y >= center) {
                     direction = -1.0f;
@@ -773,7 +818,7 @@ void Slider::RenderTicks()
             const float y4 = floor(sliderFrame.bottom + TICK_SPACING);
             const float y3 = y4 + TICK_LENGTH;
 
-            SetFgColor(get_standard_color(StandardColorID::SHADOW));
+            SetFgColor(get_standard_color(StandardColorID::Shadow));
             for (int i = 0; i < m_NumTicks; ++i)
             {
                 const float x = floor(sliderFrame.left + width * float(i) * scale);
@@ -784,7 +829,7 @@ void Slider::RenderTicks()
                     DrawLine(Point(x, y3), Point(x, y4));
                 }
             }
-            SetFgColor(get_standard_color(StandardColorID::SHINE));
+            SetFgColor(get_standard_color(StandardColorID::Shine));
             for (int i = 0; i < m_NumTicks; ++i)
             {
                 const float x = floor(sliderFrame.left + width * float(i) * scale) + 1.0f;
@@ -805,7 +850,7 @@ void Slider::RenderTicks()
             const float x4 = floor(sliderFrame.right + TICK_SPACING - 1.0f);
             const float x3 = x4 + TICK_LENGTH;
 
-            SetFgColor(get_standard_color(StandardColorID::SHADOW));
+            SetFgColor(get_standard_color(StandardColorID::Shadow));
             for (int i = 0; i < m_NumTicks; ++i)
             {
                 const float y = floor(sliderFrame.top + height * float(i) * scale);
@@ -816,7 +861,7 @@ void Slider::RenderTicks()
                     DrawLine(Point(x3, y), Point(x4, y));
                 }
             }
-            SetFgColor(get_standard_color(StandardColorID::SHINE));
+            SetFgColor(get_standard_color(StandardColorID::Shine));
             for (int i = 0; i < m_NumTicks; ++i)
             {
                 const float y = floor(sliderFrame.top + height * float(i) * scale) + 1.0f;

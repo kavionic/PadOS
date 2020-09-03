@@ -5,6 +5,7 @@ target_sources(PadOS PRIVATE
 	ButtonBase.cpp
 	ButtonGroup.cpp
 	CheckBox.cpp
+	Color.cpp
 	Control.cpp
 	DropdownMenu.cpp
 	DropdownMenuPopupView.cpp

@@ -1,4 +1,5 @@
 target_sources(PadOS PRIVATE
+	combsort.h
 	HashCalculator.h
 	InertialScroller.h
 	IntrusiveList.h

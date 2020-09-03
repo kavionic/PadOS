@@ -29,6 +29,7 @@
 #include <GUI/View.h>
 #include <GUI/ScrollBar.h>
 #include <GUI/Bitmap.h>
+#include <GUI/NamedColors.h>
 #include <App/Application.h>
 #include <Utils/Utils.h>
 #include <Utils/XMLFactory.h>
@@ -36,6 +37,9 @@
 
 using namespace kernel;
 using namespace os;
+
+
+
 
 const std::map<String, uint32_t> ViewFlags::FlagMap
 {
@@ -53,26 +57,25 @@ const std::map<String, uint32_t> ViewFlags::FlagMap
 
 static Color g_DefaultColors[] =
 {
-    [int(StandardColorID::DefaultBackground)]                      = Color(170, 170, 170, 0xff),  // NORMAL
-    [int(StandardColorID::Shine)]                       = Color(0xff, 0xff, 0xff, 0xff),  // SHINE
-    [int(StandardColorID::Shadow)]                      = Color(0x00, 0x00, 0x00, 0xff),  // SHADOW
-    [int(StandardColorID::WindowBorderActive)]         = Color(0x66, 0x88, 0xbb, 0xff),  // SEL_WND_BORDER
-    [int(StandardColorID::WindowBorderInactive)]           = Color(0x78, 0x78, 0x78, 0xff),  // NORMAL_WND_BORDER
-    [int(StandardColorID::MenuText)]                   = Color(0x00, 0x00, 0x00, 0xff),  // MENU_TEXT
-    [int(StandardColorID::MenuTextSelected)]          = Color(0x00, 0x00, 0x00, 0xff),  // SEL_MENU_TEXT
-    [int(StandardColorID::MenuBackground)]             = Color(0xcc, 0xcc, 0xcc, 0xff),  // MENU_BACKGROUND
-    [int(StandardColorID::MenuBackgroundSelected)]    = Color(0x66, 0x88, 0xbb, 0xff),  // SEL_MENU_BACKGROUND
-    [int(StandardColorID::ScrollBarBackground)]                = Color(0x78, 0x78, 0x78, 0xff),  // SCROLLBAR_BG
-    [int(StandardColorID::ScrollBarKnob)]              = Color(170, 170, 170, 0xff),  // SCROLLBAR_KNOB
-    [int(StandardColorID::SliderKnobNormal)]            = Color(46, 30, 137),
-    [int(StandardColorID::SliderKnobPressed)]           = Color(88, 58, 255),
-    [int(StandardColorID::SliderKnobShadow)]            = Color(170, 170, 170),
-    [int(StandardColorID::SliderKnobDisabled)]          = Color(170, 170, 170),
-    [int(StandardColorID::SliderTrackNormal)]           = Color(170, 170, 170),
-    [int(StandardColorID::SliderTrackDisabled)]         = Color(170, 170, 170),
-
-    [int(StandardColorID::ListViewTab)]                = Color(0x78, 0x78, 0x78, 0xff),  // LISTVIEW_TAB
-    [int(StandardColorID::ListViewTabText)]           = Color(0xff, 0xff, 0xff, 0xff)   // LISTVIEW_TAB_TEXT
+    [int(StandardColorID::DefaultBackground)]       = Color(NamedColors::darkgray),
+    [int(StandardColorID::Shine)]                   = Color(NamedColors::white),
+    [int(StandardColorID::Shadow)]                  = Color(NamedColors::black),
+    [int(StandardColorID::WindowBorderActive)]      = Color(NamedColors::steelblue),
+    [int(StandardColorID::WindowBorderInactive)]    = Color(NamedColors::slategray),
+    [int(StandardColorID::MenuText)]                = Color(NamedColors::black),
+    [int(StandardColorID::MenuTextSelected)]        = Color(NamedColors::black),
+    [int(StandardColorID::MenuBackground)]          = Color(NamedColors::silver),
+    [int(StandardColorID::MenuBackgroundSelected)]  = Color(NamedColors::steelblue),
+    [int(StandardColorID::ScrollBarBackground)]     = Color(NamedColors::slategray),
+    [int(StandardColorID::ScrollBarKnob)]           = Color(NamedColors::darkgray),
+    [int(StandardColorID::SliderKnobNormal)]        = Color(NamedColors::lightslategray),
+    [int(StandardColorID::SliderKnobPressed)]       = Color(NamedColors::lightsteelblue),
+    [int(StandardColorID::SliderKnobShadow)]        = Color(NamedColors::darkgray),
+    [int(StandardColorID::SliderKnobDisabled)]      = Color(NamedColors::darkgray),
+    [int(StandardColorID::SliderTrackNormal)]       = Color(NamedColors::darkgray),
+    [int(StandardColorID::SliderTrackDisabled)]     = Color(NamedColors::darkgray),
+    [int(StandardColorID::ListViewTab)]             = Color(NamedColors::slategray),
+    [int(StandardColorID::ListViewTabText)]         = Color(NamedColors::white)
 };
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -97,12 +97,44 @@ public:
     }
 
     // FNV-1a 32bit hashing algorithm.
-    static constexpr uint32_t hash_string_literal(char const* s, size_t count)
+    inline static constexpr uint32_t hash_string_literal(char const* s, size_t count)
     {
-        return ((count ? hash_string_literal(s, count - 1) : 2166136261u) ^ s[count]) * 16777619u;
+        return hash_string_literal_recurse(s, 2166136261u, count);
+    }
+    inline static constexpr uint32_t hash_string_literal_nocase(char const* s, size_t count)
+    {
+        return hash_string_literal_nocase_recurse(s, 2166136261u, count);
+    }
+
+
+    inline static constexpr uint32_t hash_string_literal(char const* s)
+    {
+        return hash_string_literal_recurse(s, 2166136261u);
+    }
+    inline static constexpr uint32_t hash_string_literal_nocase(char const* s)
+    {
+        return hash_string_literal_nocase_recurse(s, 2166136261u);
     }
 
     static String zero;
+private:
+    inline static constexpr uint32_t hash_string_literal_recurse(char const* s, uint32_t hash, size_t count)
+    {
+        return count ? hash_string_literal_recurse(s + 1, (hash ^ *s) * 16777619u, count - 1) : hash;
+    }
+    inline static constexpr uint32_t hash_string_literal_nocase_recurse(char const* s, uint32_t hash, size_t count)
+    {
+        return count ? hash_string_literal_nocase_recurse(s + 1, (hash ^ tolower(*s)) * 16777619u, count - 1) : hash;
+    }
+    inline static constexpr uint32_t hash_string_literal_recurse(char const* s, uint32_t hash)
+    {
+        return s[0] ? hash_string_literal_recurse(s + 1, (hash ^ *s) * 16777619u) : hash;
+    }
+    inline static constexpr uint32_t hash_string_literal_nocase_recurse(char const* s, uint32_t hash)
+    {
+        return s[0] ? hash_string_literal_nocase_recurse(s + 1, (hash ^ tolower(*s)) * 16777619u) : hash;
+    }
+
 };
 
 

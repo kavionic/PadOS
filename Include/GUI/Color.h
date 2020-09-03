@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,6 +18,8 @@
 // Created: 02.04.2018 17:54:36
  
 #pragma once
+
+#include <GUI/NamedColors.h>
 
 
 namespace os
@@ -55,12 +57,18 @@ struct Color
     static constexpr Color FromRGB15(uint16_t color) { return Color(uint8_t(((color >> 10) & 0x1f) * 255 / 31), uint8_t(((color >> 5) & 0x1f) * 255 / 31), uint8_t((color & 0x1f) * 255 / 31), 255); }
     static constexpr Color FromRGB16(uint16_t color) { return Color(Expand5to8(uint8_t(color >> 11) & 0x1f), Expand6to8(uint8_t(color >> 5) & 0x3f), Expand5to8(uint8_t(color) & 0x1f), 255); }
     static constexpr Color FromRGB32A(uint32_t color) { return Color(color); }
-    static constexpr Color FromRGB32A(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255) { return Color(red, blue, green, alpha); }
+    static constexpr Color FromRGB32A(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255) { return Color(red, green, blue, alpha); }
+    static           Color FromColorID(NamedColors colorID);
+    static           Color FromColorName(const char* name)   { return FromColorID(NamedColors(String::hash_string_literal_nocase(name))); }
+    static           Color FromColorName(const String& name) { return FromColorName(name.c_str()); }
 
     constexpr Color() : m_Color(0) {}
     constexpr Color(const Color& color) : m_Color(color.m_Color) {}
     explicit constexpr Color(uint32_t color32) : m_Color(color32) {}
     constexpr Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : m_Color((r << 16) | (g << 8) | b | (a << 24)) {}
+    
+    Color(NamedColors colorID);
+    Color(const String& name);
 
     void Set16(uint16_t color)                                     { SetRGBA(uint8_t(((color >> 11) & 0x1f) * 255 / 31), uint8_t(((color >> 5) & 0x3f) * 255 / 63), uint8_t((color & 0x1f) * 255 / 31), 255); }
     void Set32(uint32_t color)                                     { m_Color = color; }
@@ -85,3 +93,8 @@ struct Color
 };
 
 } // namespace
+
+namespace unit_test
+{
+void TestNamedColors();
+}

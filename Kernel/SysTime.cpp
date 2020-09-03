@@ -18,10 +18,12 @@
 // Created: 19.07.2020 20:19
 
 #include <math.h>
-#include "System/SysTime.h"
-#include "Threads/Threads.h"
-#include "Kernel/Kernel.h"
-#include "Kernel/Scheduler.h"
+
+#include <System/SysTime.h>
+#include <Threads/Threads.h>
+#include <Kernel/Kernel.h>
+#include <Kernel/Scheduler.h>
+#include <Utils/Utils.h>
 
 using namespace kernel;
 
@@ -102,8 +104,6 @@ uint64_t get_core_clock_cycles()
 
 namespace unit_test
 {
-#define EXPECT_TRUE(expr) if (!(expr)) { printf("TEST FAILED: %s\n", #expr);}
-#define EXPECT_NEAR(expr1, expr2, abs_error) if (fabs((expr1) - (expr2)) > abs_error) { printf("TEST FAILED: %s != %s\n", #expr1, #expr2); }
 
 void TestTimeValue()
 {

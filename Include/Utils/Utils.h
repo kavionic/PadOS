@@ -221,3 +221,6 @@ struct DebugCallTracker
 #define PIN31_bm BIT32(PIN31_bp, 1)
 #endif // PIN0_bm
 
+#define EXPECT_TRUE(expr) if (!(expr)) { printf("TEST FAILED: %s\n", #expr);}
+#define EXPECT_FALSE(expr) if ((expr)) { printf("TEST FAILED: %s\n", #expr);}
+#define EXPECT_NEAR(expr1, expr2, abs_error) if (fabs((expr1) - (expr2)) > abs_error) { printf("TEST FAILED: %s != %s\n", #expr1, #expr2); }

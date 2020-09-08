@@ -179,14 +179,15 @@ int FT5x0xDriver::Run()
                 int touchID = FT5x0x_TOUCH_YH_TOUCH_ID(touch.TOUCH_YH);
                 int touchFlags = FT5x0x_TOUCH_XH_TOUCH_FLAGS(touch.TOUCH_XH);
 
-                int eventID = 0;
+                MessageID eventID = MessageID::NONE;
 
                 switch(touchFlags)
-                {case FT5x0x_TOUCH_FLAGS_DOWN:    eventID = MessageID::MOUSE_DOWN; break;
+                {
+                    case FT5x0x_TOUCH_FLAGS_DOWN:    eventID = MessageID::MOUSE_DOWN; break;
                     case FT5x0x_TOUCH_FLAGS_UP:      eventID = MessageID::MOUSE_UP;   break;
                     case FT5x0x_TOUCH_FLAGS_CONTACT: eventID = MessageID::MOUSE_MOVE; break;
                 }
-                if (eventID != 0 && touchID < MAX_POINTS)
+                if (eventID != MessageID::NONE && touchID < MAX_POINTS)
                 {
                     IPoint position(FT5x0x_TOUCH_XH_TOUCH_X(touch.TOUCH_XL, touch.TOUCH_XH), FT5x0x_TOUCH_YH_TOUCH_Y(touch.TOUCH_YL, touch.TOUCH_YH));
                     if (eventID != MessageID::MOUSE_MOVE || position != m_TouchPositions[touchID])
@@ -206,7 +207,7 @@ int FT5x0xDriver::Run()
                             for (auto file : m_OpenFiles)
                             {
                                 if (file->m_TargetPort != -1) {
-                                    send_message(file->m_TargetPort, -1, eventID, &mouseEvent, sizeof(mouseEvent));
+                                    send_message(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
                                 }
                             }
                         } CRITICAL_END;                            

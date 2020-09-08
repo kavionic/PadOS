@@ -139,7 +139,7 @@ int GSLx680Driver::Run()
 		}
 		uint32_t toggledPoints = pointFlags ^ m_PointFlags;
 
-		int eventID = 0;
+		MessageID eventID = MessageID::NONE;
 
 		for (int i = 0; i < MAX_POINTS; ++i)
 		{
@@ -179,7 +179,7 @@ int GSLx680Driver::Run()
 					for (auto file : m_OpenFiles)
 					{
 						if (file->m_TargetPort != -1) {
-							send_message(file->m_TargetPort, -1, eventID, &mouseEvent, sizeof(mouseEvent));
+							send_message(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
 						}
 					}
 				} CRITICAL_END;

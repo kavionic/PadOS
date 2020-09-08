@@ -269,6 +269,44 @@ Ptr<View> Application::GetFocusView(MouseButton_e button) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void Application::SetKeyboardFocus(Ptr<View> view, bool focus, bool notifyServer)
+{
+    if (!focus && view != m_KeyboardFocusView) {
+        return;
+    }
+
+    View* newFocus = (focus) ? ptr_raw_pointer_cast(view) : nullptr;
+    View* oldFocus = m_KeyboardFocusView;
+    if (newFocus != oldFocus)
+    {
+        m_KeyboardFocusView = newFocus;
+
+        if (oldFocus != nullptr) {
+            oldFocus->OnKeyboardFocusChanged(false);
+        }
+        if (newFocus != nullptr) {
+            newFocus->OnKeyboardFocusChanged(true);
+        }
+
+        if (notifyServer) {
+            Post<ASSetKeyboardFocus>(view->m_ServerHandle, focus);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<View> Application::GetKeyboardFocus() const
+{
+    return ptr_tmp_cast(m_KeyboardFocusView);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool Application::CreateBitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, handle_id* outHandle, uint8_t** outFramebuffer)
 {
     Post<ASCreateBitmap>(m_ReplyPort.GetHandle(), width, height, colorSpace, flags);
@@ -366,7 +404,10 @@ void Application::DetachView(Ptr<View> view)
             ++i;
         }
     }
-
+    if (view == m_KeyboardFocusView) {
+        m_KeyboardFocusView = nullptr;
+        view->OnKeyboardFocusChanged(false);
+    }
     view->SetServerHandle(INVALID_HANDLE);
     for (Ptr<View> child : *view)
     {

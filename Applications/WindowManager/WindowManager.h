@@ -19,9 +19,16 @@
 
 #pragma once
 
-#include "App/Application.h"
+#include <App/Application.h>
+#include <Threads/EventTimer.h>
+#include <Utils/Utils.h>
+#include <Utils/ValueAnimator.h>
+#include <Utils/EasingCurve.h>
 
 
+namespace os
+{
+class VirtualKeyboardView;
 
 class WindowManager : public os::Application
 {
@@ -34,16 +41,25 @@ public:
 private:
     void SlotRegisterView(handler_id viewHandle, os::ViewDockType dockType, const os::String& name, const os::Rect& frame);
     void SlotUnregisterView(handler_id viewHandle);
+    void SlotEnableVKeyboard(bool enable);
+    void SlotKeyboardAnimTimer();
 
-    os::ASWindowManagerRegisterView::Receiver RSWindowManagerRegisterView;
-    os::ASWindowManagerUnregisterView::Receiver RSWindowManagerUnregisterView;
-    
+    os::ASWindowManagerRegisterView::Receiver       RSWindowManagerRegisterView;
+    os::ASWindowManagerUnregisterView::Receiver     RSWindowManagerUnregisterView;
+    os::ASWindowManagerEnableVKeyboard::Receiver    RSWindowManagerEnableVKeyboard;
+
     Ptr<os::View> m_TopView;
     Ptr<os::View> m_SidebarView;
     Ptr<os::View> m_ClientsView;
-    
+
+    Ptr<os::VirtualKeyboardView>        m_KeyboardView;
+    bool                                m_IsKeyboardActive = false;
+    EventTimer                          m_KeyboardAnimTimer;
+    ValueAnimator<float, EasingCurve>   m_KeyboardAnimator;
+
     WindowManager(const WindowManager&) = delete;
     WindowManager& operator=(const WindowManager&) = delete;
 };
 
 
+} // namespace os

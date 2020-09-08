@@ -62,7 +62,7 @@ public:
     ~Slider();
 
     // From View:
-    virtual void OnFlagsChanged(uint32_t oldFlags) override { Control::OnFlagsChanged(oldFlags); PreferredSizeChanged(); Invalidate(); }
+    virtual void OnFlagsChanged(uint32_t changedFlags) override { Control::OnFlagsChanged(changedFlags); PreferredSizeChanged(); Invalidate(); }
 
     // From Slider:
     virtual void RenderLabels();

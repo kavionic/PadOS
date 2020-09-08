@@ -19,18 +19,18 @@
 
 #pragma once
 
-inline bool is_first_utf8_byte(uint8_t byte)
+inline constexpr bool is_first_utf8_byte(uint8_t byte)
 {
     return( (byte & 0x80) == 0 || (byte & 0xc0) == 0xc0 );
     
 }
 
-inline int utf8_char_length(uint8_t firstByte)
+inline constexpr int utf8_char_length(uint8_t firstByte)
 {
     return ((0xe5000000 >> ((firstByte >> 3) & 0x1e)) & 3) + 1;
 }
 
-inline int utf8_to_unicode(const char* source)
+inline constexpr int utf8_to_unicode(const char* source)
 {
     if ( (source[0] & 0x80) == 0 ) {
         return *source;
@@ -45,9 +45,8 @@ inline int utf8_to_unicode(const char* source)
     } else if ((source[3] & 0xC0) != 0x80) {
         return 0xfffd;
     } else {
-        int   nValue;
-        nValue = ((source[0] & 0x07)<<18) | ((source[1] & 0x3f)<<12) | ((source[2] & 0x3f)<<6) | (source[3] & 0x3f);
-        return ((0xd7c0+(nValue>>10)) << 16) | (0xdc00+(nValue & 0x3ff));
+        const int value = ((source[0] & 0x07)<<18) | ((source[1] & 0x3f)<<12) | ((source[2] & 0x3f)<<6) | (source[3] & 0x3f);
+        return ((0xd7c0+(value>>10)) << 16) | (0xdc00+(value & 0x3ff));
     }
     
 }
@@ -67,12 +66,12 @@ inline int unicode_to_utf8(char* dest, uint32_t character)
         dest[2] = 0x80 | uint8_t((character) & 0x3f);
         return 3;
     } else {
-        uint32_t nValue;
-        nValue = ( ((character << 16) - 0xd7c0) << 10 ) | (character & 0x3ff);
-        dest[0] = 0xf0 | uint8_t(nValue >> 18);
-        dest[1] = 0x80 | uint8_t((nValue >> 12) & 0x3f);
-        dest[2] = 0x80 | uint8_t((nValue >> 6) & 0x3f);
-        dest[3] = 0x80 | uint8_t(nValue & 0x3f);
+        uint32_t value;
+        value = ( ((character << 16) - 0xd7c0) << 10 ) | (character & 0x3ff);
+        dest[0] = 0xf0 | uint8_t(value >> 18);
+        dest[1] = 0x80 | uint8_t((value >> 12) & 0x3f);
+        dest[2] = 0x80 | uint8_t((value >> 6) & 0x3f);
+        dest[3] = 0x80 | uint8_t(value & 0x3f);
         return 4;
     }
 }

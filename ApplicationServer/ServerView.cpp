@@ -37,9 +37,10 @@ static int g_ServerViewCount = 0;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ServerView::ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, DrawingMode drawingMode, Color eraseColor, Color bgColor, Color fgColor)
+ServerView::ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, ViewDockType dockType, uint32_t flags, int32_t hideCount, DrawingMode drawingMode, Color eraseColor, Color bgColor, Color fgColor)
     : ViewBase(name, frame, scrollOffset, flags, hideCount, eraseColor, bgColor, fgColor)
     , m_Bitmap(bitmap)
+    , m_DockType(dockType)
     , m_DrawingMode(drawingMode)
 {
     g_ServerViewCount++;

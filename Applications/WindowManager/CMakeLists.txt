@@ -1,1 +1,6 @@
-target_sources(PadOS PRIVATE WindowManager.cpp WindowManager.h)
+target_sources(PadOS PRIVATE
+	VirtualKeyboardView.cpp
+	VirtualKeyboardView.h
+	WindowManager.cpp
+	WindowManager.h
+)

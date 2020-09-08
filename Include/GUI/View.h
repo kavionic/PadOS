@@ -64,7 +64,10 @@ public:
     View(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
     View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame);
     virtual ~View();
-    
+
+    // From EventHandler:
+    virtual bool HandleMessage(int32_t code, const void* data, size_t length) override;
+
     Application* GetApplication() const;
     handler_id   GetServerHandle() const { return m_ServerHandle; }
     
@@ -113,6 +116,9 @@ public:
     virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
     virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event);
 
+    virtual void OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event);
+    virtual void OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& event);
+
     virtual void  FrameMoved(const Point& delta);
     virtual void  FrameSized(const Point& delta);
     virtual void  ScreenFrameMoved(const Point& delta);
@@ -146,6 +152,11 @@ public:
     bool       IsVisible() const;
     virtual void MakeFocus(MouseButton_e button, bool focus = true);
     virtual bool HasFocus(MouseButton_e button) const;
+
+    void SetKeyboardFocus(bool focus = true);
+    bool HasKeyboardFocus() const;
+    virtual void OnKeyboardFocusChanged(bool hasFocus) {}
+
 
     float  Width() const    { return m_Frame.Width(); }
     float  Height() const   { return m_Frame.Height(); }
@@ -185,14 +196,17 @@ public:
     void            SetFgColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)   { SetFgColor(Color(red, green, blue, alpha)); }
     void            SetFgColor(Color color)                                                     { m_FgColor = color; Post<ASViewSetFgColor>(color); }
     void            SetFgColor(StandardColorID colorID)                                         { SetFgColor(get_standard_color(colorID)); }
+    void            SetFgColor(NamedColors colorID)                                             { SetFgColor(Color(colorID)); }
 
     void            SetBgColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)   { SetBgColor(Color(red, green, blue, alpha)); }
     void            SetBgColor(Color color)                                                     { m_BgColor = color; Post<ASViewSetBgColor>(color); }
     void            SetBgColor(StandardColorID colorID)                                         { SetBgColor(get_standard_color(colorID)); }
+    void            SetBgColor(NamedColors colorID)                                             { SetBgColor(Color(colorID)); }
 
     void            SetEraseColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255){ SetEraseColor(Color(red, green, blue, alpha)); }
     void            SetEraseColor(Color color)                                                  { m_EraseColor = color; Post<ASViewSetEraseColor>(color); }
     void            SetEraseColor(StandardColorID colorID)                                      { SetEraseColor(get_standard_color(colorID)); }
+    void            SetEraseColor(NamedColors colorID)                                          { SetEraseColor(Color(colorID)); }
 
     void            MovePenTo(const Point& pos)                        { m_PenPosition = pos; Post<ASViewMovePenTo>(pos); }
     void            MovePenTo(float x, float y)                        { MovePenTo(Point(x, y)); }
@@ -296,6 +310,8 @@ private:
 
     void UpdatePosition(bool forceServerUpdate);
 
+    void SlotKeyboardFocusChanged(bool hasFocus);
+
     handler_id      m_ServerHandle = INVALID_HANDLE;
     
     Ptr<LayoutNode> m_LayoutNode;
@@ -332,7 +348,8 @@ private:
     
     ASPaintView::Receiver        RSPaintView;
     ASViewFrameChanged::Receiver RSViewFrameChanged;
-    
+    ASViewFocusChanged::Receiver RSViewFocusChanged;
+
     ASHandleMouseDown::Receiver  RSHandleMouseDown;
     ASHandleMouseUp::Receiver    RSHandleMouseUp;
     ASHandleMouseMove::Receiver  RSHandleMouseMove;

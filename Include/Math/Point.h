@@ -38,11 +38,11 @@ public:
     float x;
     float y;
 
-    Point() { x = y = 0.0f; }
-    Point(const Point& cPnt) { x = cPnt.x; y = cPnt.y; }
-    explicit inline Point(const IPoint& cPnt);
-    explicit Point(float value) { x = y = value; }
-    Point(float nX, float nY) { x = nX; y = nY; }
+    constexpr Point() : x(0.0f), y(0.0f) {}
+    constexpr Point(const Point& other) : x(other.x), y(other.y) {}
+    constexpr explicit inline Point(const IPoint& other);
+    constexpr explicit Point(float value) : x(value), y(value) {}
+    constexpr Point(float X, float Y) : x(X), y(Y) {}
 
     float LengthSqr() const { return x * x + y * y; }
     float Length() const { return sqrtf(LengthSqr()); }
@@ -91,11 +91,11 @@ public:
     int x;
     int y;
 
-    IPoint() { x = y = 0; }
-    IPoint(const IPoint& cPnt) { x = cPnt.x; y = cPnt.y; }
-    explicit inline IPoint(const Point& cPnt);
-    explicit IPoint(int value) { x = y = value; }
-    IPoint(int nX, int nY) { x = nX; y = nY; }
+    constexpr IPoint() : x(0), y(0) {}
+    constexpr IPoint(const IPoint& other) : x(other.x), y(other.y) {}
+    constexpr explicit inline IPoint(const Point& other);
+    constexpr explicit IPoint(int value) : x(value), y(value) {}
+    constexpr IPoint(int X, int Y) : x(X), y(Y) {}
 
     IPoint        operator-(void) const { return(IPoint(-x, -y)); }
     IPoint        operator+(const IPoint& cPoint) const { return(IPoint(x + cPoint.x, y + cPoint.y)); }
@@ -109,16 +109,7 @@ public:
 };
 
 
-Point::Point(const IPoint& cPnt)
-{
-    x = float(cPnt.x);
-    y = float(cPnt.y);
-}
-
-IPoint::IPoint(const Point& cPnt)
-{
-    x = int(cPnt.x);
-    y = int(cPnt.y);
-}
+constexpr Point::Point(const IPoint& other) : x(float(other.x)), y(float(other.y)) {}
+constexpr IPoint::IPoint(const Point& other) : x(int(other.x)), y(int(other.y)) {}
 
 } // namespace os

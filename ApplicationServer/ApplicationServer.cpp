@@ -59,10 +59,12 @@ ApplicationServer::ApplicationServer(Ptr<os::DisplayDriver> displayDriver)
     : Looper("Appserver", 10, APPSERVER_MSG_BUFFER_SIZE)
     , m_ReplyPort("appserver_reply", 100)
 {
+    set_input_event_port(GetPortID());
+
     s_DisplayDriver = displayDriver;
     s_DisplayDriver->Open();
     s_ScreenBitmap = s_DisplayDriver->GetScreenBitmap();
-    m_TopView = ptr_new<ServerView>(ptr_raw_pointer_cast(s_ScreenBitmap), "::topview::", GetScreenFrame(), Point(0.0f, 0.0f), 0, 0, DrawingMode::Copy, Color(0xffffffff), Color(0xffffffff), Color(0));
+    m_TopView = ptr_new<ServerView>(ptr_raw_pointer_cast(s_ScreenBitmap), "::topview::", GetScreenFrame(), Point(0.0f, 0.0f), ViewDockType::TopLevelView, 0, 0, DrawingMode::Copy, Color(0xffffffff), Color(0xffffffff), Color(0));
 
     AddHandler(m_TopView);
 
@@ -101,18 +103,27 @@ bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, co
             RSRegisterApplication.Dispatch(data, length);
             return true;
             
-        case MessageID::MOUSE_DOWN:
-        case MessageID::MOUSE_UP:
+        case int32_t(MessageID::MOUSE_DOWN):
+        case int32_t(MessageID::MOUSE_UP):
             m_MouseEventQueue.push(*static_cast<const MotionEvent*>(data));
             return true;
-        case MessageID::MOUSE_MOVE:
+        case int32_t(MessageID::MOUSE_MOVE):
             if (!m_MouseEventQueue.empty() && m_MouseEventQueue.back().EventID == MessageID::MOUSE_MOVE) {
                 m_MouseEventQueue.back() = *static_cast<const MotionEvent*>(data);
             } else {
                 m_MouseEventQueue.push(*static_cast<const MotionEvent*>(data));
             }
             return true;
-            
+        case int32_t(MessageID::KEY_DOWN):
+        case int32_t(MessageID::KEY_UP):
+        {
+            Ptr<ServerView> focusView = GetKeyboardFocus();
+            if (focusView != nullptr)
+            {
+                send_message(focusView->GetClientPort(), focusView->GetClientHandle(), code, data, length, TimeValMicros::FromMilliseconds(500).AsMicroSeconds());
+            }
+            return true;
+        }
     }
     return false;
 }
@@ -144,6 +155,8 @@ void ApplicationServer::Idle()
                 HandleMouseMove(event.ButtonID, event.Position, event);
                 break;
             }
+            default:
+                break;
         }
         m_MouseEventQueue.pop();
     }
@@ -225,6 +238,9 @@ void ApplicationServer::ViewDestructed(ServerView* view)
             ++i;
         }
     }
+    if (view == m_KeyboardFocusView) {
+        SetKeyboardFocus(ptr_tmp_cast(view), false);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -253,6 +269,9 @@ void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clien
 void ApplicationServer::HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     m_TopView->HandleMouseDown(button, position, event);
+//    if (m_KeyboardFocusView != nullptr) {
+//        m_KeyboardFocusView->HandleMouseDown(button, position - m_KeyboardFocusView->m_ScreenPos - m_KeyboardFocusView->m_ScrollOffset, event);
+//    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -290,6 +309,9 @@ void ApplicationServer::HandleMouseMove(MouseButton_e button, const Point& posit
     if (focusView != nullptr /*&& focusView != mouseView*/)
     {
         focusView->HandleMouseMove(button, position - focusView->m_ScreenPos - focusView->m_ScrollOffset, event);
+    }
+    if (m_KeyboardFocusView != nullptr && m_KeyboardFocusView != ptr_raw_pointer_cast(focusView)) {
+        m_KeyboardFocusView->HandleMouseMove(button, position - m_KeyboardFocusView->m_ScreenPos - m_KeyboardFocusView->m_ScrollOffset, event);
     }
 }
 
@@ -374,3 +396,35 @@ Ptr<ServerView> ApplicationServer::GetFocusView(MouseButton_e button) const
     }
     return nullptr;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::SetKeyboardFocus(Ptr<ServerView> view, bool focus)
+{
+    if (focus)
+    {
+        m_KeyboardFocusView = ptr_raw_pointer_cast(view);
+        if (m_KeyboardFocusView != nullptr) {
+            ASWindowManagerEnableVKeyboard::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, true);
+        }
+    }
+    else
+    {
+        if (view == m_KeyboardFocusView) {
+            m_KeyboardFocusView = nullptr;
+            ASWindowManagerEnableVKeyboard::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, false);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<ServerView> ApplicationServer::GetKeyboardFocus() const
+{
+    return ptr_tmp_cast(m_KeyboardFocusView);
+}
+

@@ -42,6 +42,7 @@ namespace AppserverProtocol
 {
     enum Type
     {
+        NONE,
         // Appserver messages:
         MESSAGE_BUNDLE,
         REGISTER_APPLICATION,
@@ -51,6 +52,7 @@ namespace AppserverProtocol
         DELETE_VIEW,
         SHOW_VIEW,
         FOCUS_VIEW,
+        SET_KEYBOARD_FOCUS,
         CREATE_BITMAP,
         DELETE_BITMAP,
 
@@ -86,11 +88,12 @@ namespace AppserverProtocol
         CREATE_BITMAP_REPLY,
         PAINT_VIEW,
         VIEW_FRAME_CHANGED,
+        VIEW_FOCUS_CHANGED,
         
         // Appserver <-> Window manager messages:
         WINDOW_MANAGER_REGISTER_VIEW,
         WINDOW_MANAGER_UNREGISTER_VIEW,
-        
+        WINDOW_MANAGER_ENABLE_VKEYBOARD,
         
         // Appserver -> application messages:
         SYNC_REPLY,
@@ -161,6 +164,11 @@ typedef RemoteSignal<AppserverProtocol::DELETE_VIEW
 using ASFocusView = RemoteSignal<AppserverProtocol::FOCUS_VIEW
     , handler_id    // viewHandle
     , MouseButton_e // button
+    , bool          // 'true' for set, 'false' for clear focus.
+>;
+
+using ASSetKeyboardFocus = RemoteSignal<AppserverProtocol::SET_KEYBOARD_FOCUS
+    , handler_id    // viewHandle
     , bool          // 'true' for set, 'false' for clear focus.
 >;
 
@@ -291,20 +299,28 @@ typedef RemoteSignal<AppserverProtocol::PAINT_VIEW
                                         , const Rect& // frame
                                         > ASPaintView;
 
-typedef RemoteSignal<AppserverProtocol::VIEW_FRAME_CHANGED
-                                        , const Rect& // frame
-                                        > ASViewFrameChanged;
+using  ASViewFrameChanged = RemoteSignal<AppserverProtocol::VIEW_FRAME_CHANGED
+    , const Rect& // frame
+>;
 
-typedef RemoteSignal<AppserverProtocol::WINDOW_MANAGER_REGISTER_VIEW
-                                        , handler_id    // viewHandle
-                                        , ViewDockType  // dockType
-                                        , const String& // name
-                                        , const Rect&   // frame
-                                        > ASWindowManagerRegisterView;
+using  ASViewFocusChanged = RemoteSignal<AppserverProtocol::VIEW_FOCUS_CHANGED
+    , bool // hasFocus
+>;
 
-typedef RemoteSignal<AppserverProtocol::WINDOW_MANAGER_UNREGISTER_VIEW
-                                        , handler_id // viewHandle
-                                        > ASWindowManagerUnregisterView;
+using ASWindowManagerRegisterView = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_REGISTER_VIEW
+    , handler_id    // viewHandle
+    , ViewDockType  // dockType
+    , const String& // name
+    , const Rect&   // frame
+>;
+
+using ASWindowManagerUnregisterView = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_UNREGISTER_VIEW
+    , handler_id // viewHandle
+>;
+
+using ASWindowManagerEnableVKeyboard = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_ENABLE_VKEYBOARD
+    , bool // enable
+>;
 
 typedef RemoteSignal<AppserverProtocol::SYNC_REPLY
                                         > ASSyncReply;

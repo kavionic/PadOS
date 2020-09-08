@@ -11,6 +11,7 @@ target_sources(PadOS PRIVATE
 	GroupView.h
 	GUIDefines.h
 	GUIEvent.h
+	KeyboardView.h
 	LayoutNode.h
 	ListView.h
 	ListViewRow.h
@@ -22,6 +23,7 @@ target_sources(PadOS PRIVATE
 	ScrollView.h
 	Slider.h
 	TextBox.h
+	TextEditView.h
 	TextView.h
 	View.h
 	ViewBase.h

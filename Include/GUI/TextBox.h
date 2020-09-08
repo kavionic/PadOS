@@ -20,6 +20,7 @@
 #pragma once
 
 #include <GUI/Control.h>
+#include <GUI/TextEditView.h>
 
 
 namespace os
@@ -29,31 +30,41 @@ namespace TextBoxFlags
 {
 static constexpr uint32_t IncludeLineGap = 0x01 << ViewFlags::FirstUserBit;
 static constexpr uint32_t RaisedFrame    = 0x02 << ViewFlags::FirstUserBit;
+static constexpr uint32_t ReadOnly       = 0x04 << ViewFlags::FirstUserBit;
 
 extern const std::map<String, uint32_t> FlagMap;
 }
+
 
 class TextBox : public Control
 {
 public:
     TextBox(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
     TextBox(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
-    ~TextBox();
-    
-    void SetText(const String& text);
-    const String& GetText() const { return m_Text; }
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
-    virtual void Paint(const Rect& updateRect) override;
 
-    Point GetSizeForString(const String& text, bool includeWidth = true, bool includeHeight = true) const;
+    // From View:
+    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void    FrameSized(const Point& delta) override;
+    virtual void    Paint(const Rect& updateRect) override;
+
+    // From TextBox:
+    void            SetText(const String& text) { m_Editor->SetText(text); }
+    const String&   GetText() const { return m_Editor->GetText(); }
+
+    Point           GetSizeForString(const String& text, bool includeWidth = true, bool includeHeight = true) const;
+
+    void            HandleKeyPress(KeyCodes keyCode, const String& text) { m_Editor->HandleKeyPress(keyCode, text); }
 
     Signal<void, const String&, bool, TextBox*> SignalTextChanged;
 private:
-    String m_Text;
-    
+    void Initialize(const String& text);
+
+    Ptr<TextEditView> m_Editor;
+
     TextBox(const TextBox&) = delete;
     TextBox& operator=(const TextBox&) = delete;
 };
+
     
     
-} // namespace
+} // namespace os

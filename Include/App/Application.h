@@ -51,6 +51,9 @@ public:
     void SetFocusView(MouseButton_e button, Ptr<View> view, bool focus);
     Ptr<View> GetFocusView(MouseButton_e button) const;
 
+    void SetKeyboardFocus(Ptr<View> view, bool focus, bool notifyServer);
+    Ptr<View> GetKeyboardFocus() const;
+
     bool CreateBitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, handle_id* outHandle, uint8_t** outFramebuffer);
     void DeleteBitmap(handle_id bitmapHandle);
 
@@ -82,7 +85,7 @@ private:
 
     std::map<int, View*>   m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
     std::map<int, View*>   m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
-
+    View*                  m_KeyboardFocusView = nullptr;
     std::set<Ptr<View>> m_ViewsNeedingLayout;
 
 

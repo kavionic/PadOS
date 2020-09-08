@@ -42,4 +42,5 @@ ssize_t  receive_message(port_id handle, handler_id* targetHandler, int32_t* cod
 ssize_t  receive_message_timeout(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout);
 ssize_t  receive_message_deadline(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline);
 
-
+status_t set_input_event_port(port_id port);
+port_id  get_input_event_port();

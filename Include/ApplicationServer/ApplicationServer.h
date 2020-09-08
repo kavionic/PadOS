@@ -60,6 +60,10 @@ public:
     Ptr<ServerView> GetFocusView(MouseButton_e button) const;
     void            SetMouseDownView(MouseButton_e button, Ptr<ServerView> view);
     Ptr<ServerView> GetMouseDownView(MouseButton_e button) const;
+
+    void            SetKeyboardFocus(Ptr<ServerView> view, bool focus);
+    Ptr<ServerView> GetKeyboardFocus() const;
+
 private:
     
     
@@ -81,8 +85,9 @@ private:
     
     Ptr<ServerView> m_TopView;
 
-    std::map<int, ServerView*>   m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
-    std::map<int, ServerView*>   m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
+    std::map<int, ServerView*>  m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
+    std::map<int, ServerView*>  m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
+    ServerView*                 m_KeyboardFocusView = nullptr;
 
     int        m_TouchInputDevice = -1;
 

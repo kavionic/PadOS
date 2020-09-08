@@ -4,6 +4,7 @@ target_sources(PadOS PRIVATE
 	Platform.h
 	System.h
 	SystemInfo.h
+	SystemMessageIDs.h
 	SysTime.h
 	Types.h
 )

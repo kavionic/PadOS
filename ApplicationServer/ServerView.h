@@ -30,9 +30,14 @@ class SrvBitmap;
 class ServerView : public ViewBase<ServerView>
 {
 public:
-    ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, DrawingMode drawingMode, Color eraseColor, Color bgColor, Color fgColor);
+    ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, ViewDockType dockType, uint32_t flags, int32_t hideCount, DrawingMode drawingMode, Color eraseColor, Color bgColor, Color fgColor);
     virtual ~ServerView();
-    void SetClientHandle(port_id port, handler_id handle) { m_ClientPort = port; m_ClientHandle = handle; }
+    void        SetClientHandle(port_id port, handler_id handle) { m_ClientPort = port; m_ClientHandle = handle; }
+    port_id     GetClientPort() const   { return m_ClientPort; }
+    handler_id  GetClientHandle() const { return m_ClientHandle; }
+
+    ViewDockType   GetDockType() const { return m_DockType; }
+
     void SetManagerHandle(handler_id handle)              { m_ManagerHandle = handle; }
 
     void HandleAddedToParent(Ptr<ServerView> parent) {}
@@ -103,10 +108,12 @@ private:
     void DebugDrawRect(const IRect& frame, Color color);
         
     SrvBitmap*  m_Bitmap        = nullptr;
-    port_id     m_ClientPort    = INVALID_INDEX;
-    handler_id  m_ClientHandle  = INVALID_INDEX;
-    handler_id  m_ManagerHandle = INVALID_INDEX;
+    port_id     m_ClientPort    = INVALID_HANDLE;
+    handler_id  m_ClientHandle  = INVALID_HANDLE;
+    handler_id  m_ManagerHandle = INVALID_HANDLE;
     
+    ViewDockType    m_DockType;
+
     DrawingMode m_DrawingMode  = DrawingMode::Copy;
     
     Ptr<Font>   m_Font = ptr_new<Font>(Font_e::e_FontLarge);

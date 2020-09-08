@@ -40,30 +40,28 @@ public:
     float right;
     float bottom;
 
-    Rect() { left = top = right = bottom = 0.0f; }
+    constexpr Rect() : left(0.0f), top(0.0f), right(0.0f), bottom(0.0f) {}
     explicit Rect(bool initialize) { if (initialize) { left = top = right = bottom = 0.0f; } }
-    explicit Rect(float value) { left = top = right = bottom = value; }
+    constexpr explicit Rect(float value) : left(value), top(value), right(value), bottom(value) {}
 
-    Rect(float l, float t, float r, float b) { left = l; top = t; right = r; bottom = b; }
-    Rect(const Point& topLeft, const Point& bottomRight) { left = topLeft.x; top = topLeft.y; right = bottomRight.x; bottom = bottomRight.y; }
-    inline Rect(const IRect& rect);
+    constexpr Rect(float l, float t, float r, float b) : left(l), top(t), right(r), bottom(b) {}
+    constexpr Rect(const Point& topLeft, const Point& bottomRight) : left(topLeft.x), top(topLeft.y), right(bottomRight.x), bottom(bottomRight.y) {}
+    constexpr inline Rect(const IRect& rect);
 
-    ~Rect() {}
-
-    bool  IsValid() const { return left < right && top < bottom; }
+    constexpr bool  IsValid() const { return left < right && top < bottom; }
     void  Invalidate() { left = top = 999999.0f; right = bottom = -999999.0f; }
 
-    bool  DoIntersect(const Point& point) const { return !(point.x < left || point.x >= right || point.y < top || point.y >= bottom); }
-    bool  DoIntersect(const Rect& rect) const { return !(rect.right <= left || rect.left >= right || rect.bottom <= top || rect.top >= bottom); }
+    constexpr bool  DoIntersect(const Point& point) const { return !(point.x < left || point.x >= right || point.y < top || point.y >= bottom); }
+    constexpr bool  DoIntersect(const Rect& rect) const { return !(rect.right <= left || rect.left >= right || rect.bottom <= top || rect.top >= bottom); }
 
-    float Width() const { return right - left; }
-    float Height() const { return bottom - top; }
-    Point Size() const { return Point(right - left, bottom - top); }
-    Point TopLeft() const { return Point(left, top); }
-    Point TopRight() const { return Point(right, top); }
-    Point BottomLeft() const { return Point(left, bottom); }
-    Point BottomRight() const { return Point(right, bottom); }
-    Rect  Bounds() const { return Rect(0.0f, 0.0f, right - left, bottom - top); }
+    constexpr float Width() const { return right - left; }
+    constexpr float Height() const { return bottom - top; }
+    constexpr Point Size() const { return Point(right - left, bottom - top); }
+    constexpr Point TopLeft() const { return Point(left, top); }
+    constexpr Point TopRight() const { return Point(right, top); }
+    constexpr Point BottomLeft() const { return Point(left, bottom); }
+    constexpr Point BottomRight() const { return Point(right, bottom); }
+    constexpr Rect  Bounds() const { return Rect(0.0f, 0.0f, right - left, bottom - top); }
 
     Rect& Floor() { left = floor(left); right = floor(right); top = floor(top); bottom = floor(bottom); return *this; }
     Rect& Ceil() { left = ceil(left); right = ceil(right); top = ceil(top); bottom = ceil(bottom); return *this; }
@@ -104,11 +102,11 @@ public:
     int right;
     int bottom;
 
-    IRect() { left = top = 999999; right = bottom = -999999; }
-    explicit IRect(int value) { left = top = right = bottom = value; }
-    IRect(int l, int t, int r, int b) { left = l; top = t; right = r; bottom = b; }
-    IRect(const IPoint& topLeft, const IPoint& bottomRight) { left = topLeft.x; top = topLeft.y; right = bottomRight.x; bottom = bottomRight.y; }
-    inline IRect(const Rect& rect);
+    constexpr IRect() : left(999999), top(999999), right(-999999), bottom(-999999) {}
+    constexpr explicit IRect(int value) : left(value), top(value), right(value), bottom(value) {}
+    constexpr IRect(int l, int t, int r, int b) : left(l), top(t), right(r), bottom(b) {}
+    constexpr IRect(const IPoint& topLeft, const IPoint& bottomRight) : left(topLeft.x), top(topLeft.y), right(bottomRight.x), bottom(bottomRight.y) {}
+    constexpr inline IRect(const Rect& rect);
 
     bool   IsValid() const { return left < right && top < bottom; }
     void   Invalidate() { left = top = 999999; right = bottom = -999999; }
@@ -116,12 +114,12 @@ public:
     bool   DoIntersect(const IPoint& point) const { return !(point.x < left || point.x >= right || point.y < top || point.y >= bottom); }
     bool   DoIntersect(const IRect& rect) const { return !(rect.right <= left || rect.left >= right || rect.bottom <= top || rect.top >= bottom); }
 
-    int    Width() const { return right - left; }
-    int    Height() const { return bottom - top; }
-    IPoint Size() const { return IPoint(right - left, bottom - top); }
-    IPoint TopLeft() const { return IPoint(left, top); }
-    IPoint RightBottom() const { return IPoint(right, bottom); }
-    IRect  Bounds(void) const { return IRect(0, 0, right - left, bottom - top); }
+    constexpr int    Width() const { return right - left; }
+    constexpr int    Height() const { return bottom - top; }
+    constexpr IPoint Size() const { return IPoint(right - left, bottom - top); }
+    constexpr IPoint TopLeft() const { return IPoint(left, top); }
+    constexpr IPoint RightBottom() const { return IPoint(right, bottom); }
+    constexpr IRect  Bounds(void) const { return IRect(0, 0, right - left, bottom - top); }
 
     IRect& Resize(int inLeft, int inTop, int inRight, int inBottom) { left += inLeft; top += inTop; right += inRight; bottom += inBottom; return *this; }
 
@@ -151,25 +149,13 @@ public:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Rect::Rect(const IRect& rect)
-{
-    left   = float(rect.left);
-    top    = float(rect.top);
-    right  = float(rect.right);
-    bottom = float(rect.bottom);
-}
+constexpr Rect::Rect(const IRect& rect) : left(float(rect.left)), top(float(rect.top)), right(float(rect.right)), bottom(float(rect.bottom)) {}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRect::IRect(const Rect& rect)
-{
-    left   = int(rect.left);
-    top    = int(rect.top);
-    right  = int(rect.right);
-    bottom = int(rect.bottom);
-}
+constexpr IRect::IRect(const Rect& rect) : left(int(rect.left)), top(int(rect.top)), right(int(rect.right)), bottom(int(rect.bottom)) {}
 
 
 } // namespace os

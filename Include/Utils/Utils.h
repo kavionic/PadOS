@@ -40,6 +40,8 @@ template<typename T> inline T wrap(const T& bottom, const T& top, const T& value
     }        
 }
 
+template<typename T> T square(T value) { return value * value; }
+
 template<typename T>
 T* add_bytes_to_pointer(T* pointer, ssize_t adder) { return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(pointer) + adder); }
 template<typename T>

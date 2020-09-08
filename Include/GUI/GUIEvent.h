@@ -19,6 +19,13 @@
 
 #pragma once
 
+#include <System/SystemMessageIDs.h>
+#include <GUI/GUIDefines.h>
+
+namespace os
+{
+
+
 enum class MouseButton_e : uint32_t
 {
     None,
@@ -49,12 +56,26 @@ enum class MotionToolType : uint32_t
 
 static constexpr MotionToolType GetMotionToolType(MouseButton_e button) { return button < MouseButton_e::FirstTouchID ? MotionToolType::Mouse : MotionToolType::Finger; }
 
-struct MotionEvent
+struct InputEvent
 {
     TimeValMicros   Timestamp;
-    int32_t         EventID;
-    MotionToolType  ToolType;
-    MouseButton_e   ButtonID;
-    os::Point       Position;
+    MessageID       EventID;
+
 };
 
+struct MotionEvent : InputEvent
+{
+    MotionToolType  ToolType;
+    MouseButton_e   ButtonID;
+    Point           Position;
+};
+
+struct KeyEvent : InputEvent
+{
+    static constexpr size_t MAX_TEXT_LENGTH = 11;
+
+    KeyCodes    m_KeyCode;
+    char        m_Text[MAX_TEXT_LENGTH + 1];
+};
+
+} // namespace os

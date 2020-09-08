@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,25 +15,26 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 17.03.2018 20:30:19
- 
+// Created: 05.09.2020 22:15
+
 #pragma once
+
+#include <GUI/View.h>
 
 namespace os
 {
 
-namespace MessageID
+class TextBox;
+class KeyboardView;
+
+class VirtualKeyboardView : public View
 {
-    enum Type
-    {
-        FIRST_SYSTEM_ID = std::numeric_limits<int32_t>::max() - 100000,
-        MOUSE_DOWN,
-        MOUSE_UP,
-        MOUSE_MOVE,
-        QUIT
-    };
-}
+public:
+    VirtualKeyboardView();
+private:
+    void SlotKeyPressed(KeyCodes keyCode, const String& text);
 
+    Ptr<KeyboardView>   m_KeyboardView;
+};
 
-
-}
+} // namespace os

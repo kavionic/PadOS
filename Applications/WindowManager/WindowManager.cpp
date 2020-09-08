@@ -25,6 +25,7 @@
 #include "ApplicationServer/ApplicationServer.h"
 #include "GUI/Button.h"
 #include "GUI/ViewFactory.h"
+#include "VirtualKeyboardView.h"
 
 using namespace os;
 
@@ -85,11 +86,12 @@ private:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-WindowManager::WindowManager() : Application("window_manager")
+WindowManager::WindowManager() : Application("window_manager"), m_KeyboardAnimator(EasingCurveFunction::EaseOut)
 {
     g_WindowManagerPort = GetPortID();
     RSWindowManagerRegisterView.Connect(this, &WindowManager::SlotRegisterView);
     RSWindowManagerUnregisterView.Connect(this, &WindowManager::SlotUnregisterView);
+    RSWindowManagerEnableVKeyboard.Connect(this, &WindowManager::SlotEnableVKeyboard);
 
     m_TopView = ViewFactory::GetInstance().LoadView(nullptr, "/sdcard/Rainbow3D/System/WindowManagerLayout.xml");
     if (m_TopView != nullptr)
@@ -106,6 +108,11 @@ WindowManager::WindowManager() : Application("window_manager")
         }
         AddView(m_TopView, ViewDockType::RootLevelView);
     }
+
+    m_KeyboardAnimator.SetPeriod(0.3);
+
+    m_KeyboardAnimTimer.Set(1.0 / 30.0);
+    m_KeyboardAnimTimer.SignalTrigged.Connect(this, &WindowManager::SlotKeyboardAnimTimer);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -129,6 +136,9 @@ bool WindowManager::HandleMessage(handler_id targetHandler, int32_t code, const 
         return true;
     case AppserverProtocol::WINDOW_MANAGER_UNREGISTER_VIEW:
         RSWindowManagerUnregisterView.Dispatch(data, length);
+        return true;
+    case AppserverProtocol::WINDOW_MANAGER_ENABLE_VKEYBOARD:
+        RSWindowManagerEnableVKeyboard.Dispatch(data, length);
         return true;
     default:
         return false;
@@ -176,6 +186,77 @@ void WindowManager::SlotUnregisterView(handler_id viewHandle)
         {
             m_ClientsView->RemoveChild(i);
             break;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void WindowManager::SlotEnableVKeyboard(bool enable)
+{
+    if (enable)
+    {
+        m_IsKeyboardActive = true;
+        if (m_KeyboardView == nullptr)
+        {
+            m_KeyboardView = ptr_new<VirtualKeyboardView>();
+            m_KeyboardView->PreferredSizeChanged();
+
+            Rect frame = m_ClientsView->GetBounds();
+            frame.top       = frame.bottom;
+            frame.bottom    = frame.top + m_KeyboardView->GetPreferredSize(PrefSizeType::Smallest).y;
+            m_KeyboardView->SetFrame(frame);
+            AddView(m_KeyboardView, ViewDockType::PopupWindow);
+
+            m_KeyboardAnimator.SetStartValue(frame.top);
+            m_KeyboardAnimator.SetEndValue(frame.top - frame.Height());
+            m_KeyboardAnimator.Start();
+            m_KeyboardAnimTimer.Start();
+        }
+        else
+        {
+            m_KeyboardAnimator.Reverse();
+        }
+    }
+    else
+    {
+        m_IsKeyboardActive = false;
+        if (m_KeyboardView != nullptr)
+        {
+            Rect screenFrame = m_TopView->GetBounds();
+            Rect keyboardFrame = m_KeyboardView->GetFrame();
+
+            m_KeyboardAnimTimer.Stop();
+            m_KeyboardAnimator.SetStartValue(keyboardFrame.top);
+            m_KeyboardAnimator.SetEndValue(screenFrame.bottom);
+            m_KeyboardAnimator.Start();
+            m_KeyboardAnimTimer.Start();
+        }
+        else
+        {
+            m_KeyboardAnimator.Reverse();
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void WindowManager::SlotKeyboardAnimTimer()
+{
+    Rect frame = m_KeyboardView->GetBounds() + Point(0.0f, round(m_KeyboardAnimator.GetValue()));
+    m_KeyboardView->SetFrame(frame);
+
+    if (!m_KeyboardAnimator.IsRunning())
+    {
+        m_KeyboardAnimTimer.Stop();
+        if (!m_IsKeyboardActive)
+        {
+            RemoveView(m_KeyboardView);
+            m_KeyboardView = nullptr;
         }
     }
 }

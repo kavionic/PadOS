@@ -1,6 +1,5 @@
 target_sources(PadOS PRIVATE
   HandleObject.cpp
-  SystemMessageIDs.h
 )
 
 add_subdirectory(GUI)

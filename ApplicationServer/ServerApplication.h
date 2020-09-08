@@ -62,6 +62,7 @@ private:
                         Color fgColor);
     void SlotDeleteView(handler_id clientHandle);
     void SlotFocusView(handler_id clientHandle, MouseButton_e button, bool focus);
+    void SlotSetKeyboardFocus(handler_id clientHandle, bool focus);
     void SlotCreateBitmap(port_id replyPort, int width, int height, ColorSpace colorSpace, uint32_t flags);
     void SlotDeleteBitmap(handle_id bitmapHandle);
     void SlotViewSetFrame(handler_id clientHandle, const Rect& frame, handler_id requestingClient);
@@ -113,6 +114,7 @@ private:
     ASCreateView::Receiver          RSCreateView;
     ASDeleteView::Receiver          RSDeleteView;
     ASFocusView::Receiver           RSFocusView;
+    ASSetKeyboardFocus::Receiver    RSSetKeyboardFocus;
     ASCreateBitmap::Receiver        RSCreateBitmap;
     ASDeleteBitmap::Receiver        RSDeleteBitmap;
     ASViewSetFrame::Receiver        RSViewSetFrame;

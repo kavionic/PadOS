@@ -297,6 +297,7 @@ void View::Initialize()
 {
     RegisterRemoteSignal(&RSPaintView, &View::HandlePaint);
     RegisterRemoteSignal(&RSViewFrameChanged, &View::SetFrame);
+    RegisterRemoteSignal(&RSViewFocusChanged, &View::SlotKeyboardFocusChanged);
     RegisterRemoteSignal(&RSHandleMouseDown, &View::SlotHandleMouseDown);
     RegisterRemoteSignal(&RSHandleMouseUp, &View::HandleMouseUp);
     RegisterRemoteSignal(&RSHandleMouseMove, &View::HandleMouseMove);
@@ -321,6 +322,31 @@ View::~View()
     while(!m_ChildrenList.empty())
     {
         RemoveChild(m_ChildrenList[m_ChildrenList.size()-1]);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool View::HandleMessage(int32_t code, const void* data, size_t length)
+{
+    switch (MessageID(code))
+    {
+        case os::MessageID::KEY_DOWN:
+        {
+            const KeyEvent* event = static_cast<const KeyEvent*>(data);
+            OnKeyDown(event->m_KeyCode, event->m_Text, *event);
+            return true;
+        }
+        case os::MessageID::KEY_UP:
+        {
+            const KeyEvent* event = static_cast<const KeyEvent*>(data);
+            OnKeyUp(event->m_KeyCode, event->m_Text, *event);
+            return true;
+        }
+        default:
+            return ViewBase<View>::HandleMessage(code, data, length);
     }
 }
 
@@ -659,6 +685,22 @@ bool View::OnMouseMove(MouseButton_e button, const Point& position, const Motion
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void View::OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event)
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& event)
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void View::FrameMoved(const Point& delta)
 {
 }
@@ -792,7 +834,7 @@ void View::AddChild(Ptr<View> child)
 {
     LinkChild(child, true);
     if (HasFlags(ViewFlags::IsAttachedToScreen)) {
-        child->PreferredSizeChanged();
+        PreferredSizeChanged();
     }
 }
 
@@ -895,6 +937,28 @@ bool View::HasFocus(MouseButton_e button) const
 {
     const Application* app = GetApplication();
     return app != nullptr && ptr_raw_pointer_cast(app->GetFocusView(button)) == this;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::SetKeyboardFocus(bool focus)
+{
+    Application* app = GetApplication();
+    if (app != nullptr) {
+        app->SetKeyboardFocus(ptr_tmp_cast(this), focus, true);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool View::HasKeyboardFocus() const
+{
+    const Application* app = GetApplication();
+    return app != nullptr && ptr_raw_pointer_cast(app->GetKeyboardFocus()) == this;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1602,5 +1666,17 @@ void View::UpdatePosition(bool forceServerUpdate)
     }
     if (deltaScreenPos.x != 0.0f || deltaScreenPos.y != 0.0f) {
         ScreenFrameMoved(deltaScreenPos);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::SlotKeyboardFocusChanged(bool hasFocus)
+{
+    Application* app = GetApplication();
+    if (app != nullptr) {
+        app->SetKeyboardFocus(ptr_tmp_cast(this), hasFocus, false);
     }
 }

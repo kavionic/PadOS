@@ -43,6 +43,7 @@ volatile bigtime_t            Kernel::s_SystemTime = 0;
 
 static KMutex												gk_KernelLogMutex("kernel_log", false);
 static std::map<int, std::pair<KLogSeverity, os::String>>	gk_KernelLogLevels;
+static port_id                                              gk_InputEventPort = INVALID_HANDLE;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -232,4 +233,23 @@ int get_last_error()
 void set_last_error(int error)
 {
     gk_CurrentThread->m_NewLibreent._errno = error;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+status_t set_input_event_port(port_id port)
+{
+    gk_InputEventPort = port;
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+port_id  get_input_event_port()
+{
+    return gk_InputEventPort;
 }

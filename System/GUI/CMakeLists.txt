@@ -12,8 +12,9 @@ target_sources(PadOS PRIVATE
 	DropdownMenuPopupView.h
 	Font.cpp
 	GroupView.cpp
+	KeyboardView.cpp
 	LayoutNode.cpp
-	ListView.cpp
+ 	ListView.cpp
 	ListViewColumnView.h
 	ListViewColumnView.cpp
 	ListViewHeaderView.h
@@ -29,6 +30,7 @@ target_sources(PadOS PRIVATE
 	ScrollView.cpp
 	Slider.cpp
 	TextBox.cpp
+	TextEditView.cpp
 	TextView.cpp
 	View.cpp
 	ViewFactory.cpp

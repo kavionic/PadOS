@@ -1408,7 +1408,8 @@ size_t DisplayDriver::GetStringLength(Font_e fontID, const char* string, size_t 
         if (character < font->startChar || character > font->endChar) character = font->startChar;
 
         const FONT_CHAR_INFO* charInfo = font->charInfo + character - font->startChar;
-        float advance = float(charInfo->widthBits);
+        float advance = float(charInfo->widthBits + CHARACTER_SPACING);
+
         if (width < advance)
         {
             if (includeLast) {

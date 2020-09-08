@@ -99,9 +99,9 @@ public:
             return -1;
         }
     }
-    virtual void OnFlagsChanged(uint32_t oldFlags) {}
+    virtual void OnFlagsChanged(uint32_t changedFlags) {}
 
-    void        ReplaceFlags(uint32_t flags)	    { uint32_t oldFlags = m_Flags; if (flags != m_Flags) { m_Flags = flags; OnFlagsChanged(oldFlags); } }
+    void        ReplaceFlags(uint32_t flags)	    { if (flags != m_Flags) { uint32_t changedFlags = m_Flags ^ flags; m_Flags = flags; OnFlagsChanged(changedFlags); } }
     void        MergeFlags(uint32_t flags)	        { ReplaceFlags(m_Flags | flags); }
     void        ClearFlags(uint32_t flags)	        { ReplaceFlags(m_Flags & ~flags); }
     uint32_t    GetFlags() const		            { return m_Flags; }

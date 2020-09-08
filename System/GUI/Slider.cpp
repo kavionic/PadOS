@@ -663,7 +663,6 @@ void Slider::RenderKnob(StandardColorID knobColor, float value)
 
         Rect knobFullFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(value);
 
-        Rect centerFrame = knobFrame;
         knobFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
         knobFullFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
 

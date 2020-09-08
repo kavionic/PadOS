@@ -291,8 +291,8 @@ bool Looper::ProcessEvents()
 
     while (m_DoRun)
     {
-        RunTimers();
         m_WaitGroup.WaitDeadline(m_Mutex, m_NextEventTime);
+        RunTimers();
         for (;;)
         {
             handler_id targetHandler;
@@ -316,7 +316,7 @@ bool Looper::ProcessEvents()
 
 void Looper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgLength)
 {
-    if (code == MessageID::QUIT) {
+    if (MessageID(code) == MessageID::QUIT) {
         Stop();
     }
     if (!HandleMessage(targetHandler, code, m_ReceiveBuffer.data(), msgLength))

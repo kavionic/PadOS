@@ -41,6 +41,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const String& na
     RegisterRemoteSignal(&RSCreateView,         &ServerApplication::SlotCreateView);
     RegisterRemoteSignal(&RSDeleteView,         &ServerApplication::SlotDeleteView);
     RegisterRemoteSignal(&RSFocusView,          &ServerApplication::SlotFocusView);
+    RegisterRemoteSignal(&RSSetKeyboardFocus,   &ServerApplication::SlotSetKeyboardFocus);
     RegisterRemoteSignal(&RSCreateBitmap,       &ServerApplication::SlotCreateBitmap);
     RegisterRemoteSignal(&RSDeleteBitmap,       &ServerApplication::SlotDeleteBitmap);
     RegisterRemoteSignal(&RSViewSetFrame,       &ServerApplication::SlotViewSetFrame);
@@ -178,16 +179,19 @@ void ServerApplication::SlotCreateView(port_id          clientPort,
                                        const Point&     scrollOffset,
                                        uint32_t         flags,
                                        int32_t          hideCount,
-                                       DrawingMode     drawingMode,
+                                       DrawingMode      drawingMode,
                                        Color            eraseColor,
                                        Color            bgColor,
                                        Color            fgColor)
 {
     Ptr<ServerView> parent; // = (parentHandle == -1) ? m_Server->GetTopView() : m_Server->FindView(parentHandle);
     
-    if (dockType == ViewDockType::RootLevelView) {
+    if (dockType == ViewDockType::RootLevelView)
+    {
         parent = m_Server->GetTopView();
-    } else if (dockType == ViewDockType::ChildView) {
+    }
+    else if (dockType == ViewDockType::ChildView)
+    {
         parent = m_Server->FindView(parentHandle);
         if (parent == nullptr)
         {
@@ -200,7 +204,7 @@ void ServerApplication::SlotCreateView(port_id          clientPort,
         }
     }
     
-    Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, flags, hideCount, drawingMode, eraseColor, bgColor, fgColor);
+    Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hideCount, drawingMode, eraseColor, bgColor, fgColor);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
         parent->AddChild(view);
@@ -240,6 +244,10 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
         IRect modifiedFrame = view->GetIFrame();
         Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
 
+        ViewDockType dockType = view->GetDockType();
+        if (dockType != ViewDockType::RootLevelView && dockType != ViewDockType::ChildView) {
+            ASWindowManagerUnregisterView::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, view->GetHandle());
+        }
         view->RemoveThis(true);
         
         opacParent->MarkModified(modifiedFrame);
@@ -261,6 +269,19 @@ void ServerApplication::SlotFocusView(handler_id clientHandle, MouseButton_e but
     if (view != nullptr)
     {
         m_Server->SetFocusView(button, view, focus);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotSetKeyboardFocus(handler_id clientHandle, bool focus)
+{
+    Ptr<ServerView> view = m_Server->FindView(clientHandle);
+    if (view != nullptr)
+    {
+        m_Server->SetKeyboardFocus(view, focus);
     }
 }
 

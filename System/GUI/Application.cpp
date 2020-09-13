@@ -35,7 +35,10 @@ using namespace os;
 Application::Application(const String& name) : Looper(name, 1000), m_ReplyPort("app_reply", 1000)
 {
     ASRegisterApplication::Sender::Emit(get_appserver_port(), -1, TimeValMicros::infinit, m_ReplyPort.GetHandle(), GetPortID(), GetName());
-    
+
+    m_LongPressTimer.Set(LONG_PRESS_DELAY, true);
+    m_LongPressTimer.SignalTrigged.Connect(this, &Application::SlotLongPressTimer);
+
     for(;;)
     {
         MsgRegisterApplicationReply reply;
@@ -130,6 +133,7 @@ bool Application::AddView(Ptr<View> view, ViewDockType dockType)
                             , view->m_ScrollOffset
                             , view->m_Flags
                             , view->m_HideCount
+                            , view->m_FocusKeyboardMode
                             , view->m_DrawingMode
                             , view->m_EraseColor
                             , view->m_BgColor
@@ -186,9 +190,11 @@ bool Application::RemoveView(Ptr<View> view)
 {
     if (view->m_ServerHandle != INVALID_HANDLE)
     {
-        Post<ASDeleteView>(view->m_ServerHandle);
+        handle_id serverHandle = view->m_ServerHandle;
         DetachView(view);
+        Post<ASDeleteView>(serverHandle);
     }
+    view->HandleDetachedFromScreen();
     if (view->GetLooper() != nullptr) {
         RemoveHandler(view);
     }
@@ -196,7 +202,6 @@ bool Application::RemoveView(Ptr<View> view)
         RemoveView(child);
     }
 	view->ClearFlags(ViewFlags::IsAttachedToScreen);
-    view->HandleDetachedFromScreen();
     return true;
 }
 
@@ -447,18 +452,24 @@ void Application::RegisterViewForLayout(Ptr<View> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::SetMouseDownView(MouseButton_e button, Ptr<View> view)
+void Application::SetMouseDownView(MouseButton_e button, Ptr<View> view, const MotionEvent& motionEvent)
 {
     int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
 
     if (view != nullptr)
     {
         m_MouseViewMap[deviceID] = ptr_raw_pointer_cast(view);
-    } else
+        m_LastClickEvent = motionEvent;
+        m_LongPressTimer.Start(true);
+    }
+    else
     {
         auto iterator = m_MouseViewMap.find(deviceID);
         if (iterator != m_MouseViewMap.end()) {
             m_MouseViewMap.erase(iterator);
+            if (button == m_LastClickEvent.ButtonID) {
+                m_LongPressTimer.Stop();
+            }
         }
     }
 }
@@ -476,4 +487,16 @@ Ptr<View> Application::GetMouseDownView(MouseButton_e button) const
         return ptr_tmp_cast(iterator->second);
     }
     return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Application::SlotLongPressTimer()
+{
+    Ptr<View> lastPressedView = GetMouseDownView(m_LastClickEvent.ButtonID);
+    if (lastPressedView != nullptr) {
+        lastPressedView->OnLongPress(m_LastClickEvent.ButtonID, lastPressedView->ConvertFromScreen(m_LastClickEvent.Position), m_LastClickEvent);
+    }
 }

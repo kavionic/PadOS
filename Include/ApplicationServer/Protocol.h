@@ -37,6 +37,7 @@ port_id get_window_manager_port();
 
 typedef int32_t app_handle;
 enum class ViewDockType : int32_t;
+enum class FocusKeyboardMode : uint8_t;
 
 namespace AppserverProtocol
 {
@@ -66,6 +67,7 @@ namespace AppserverProtocol
                 
         VIEW_BEGIN_UPDATE,
         VIEW_END_UPDATE,
+        VIEW_SET_FOCUS_KEYBOARD_MODE,
         VIEW_SET_DRAWING_MODE,
         VIEW_SET_FG_COLOR,
         VIEW_SET_BG_COLOR,
@@ -94,6 +96,7 @@ namespace AppserverProtocol
         WINDOW_MANAGER_REGISTER_VIEW,
         WINDOW_MANAGER_UNREGISTER_VIEW,
         WINDOW_MANAGER_ENABLE_VKEYBOARD,
+        WINDOW_MANAGER_DISABLE_VKEYBOARD,
         
         // Appserver -> application messages:
         SYNC_REPLY,
@@ -141,20 +144,21 @@ typedef RemoteSignal<AppserverProtocol::SYNC
                                         > ASSync;
 
 typedef RemoteSignal<AppserverProtocol::CREATE_VIEW
-                                        , port_id       // clientPort
-                                        , port_id       // replyPort
-                                        , handler_id    // replyTarget
-                                        , handler_id    // parent
-                                        , ViewDockType  // dockType
-                                        , const String& // name
-                                        , const Rect&   // frame
-                                        , const Point&  // scrollOffset
-                                        , uint32_t      // flags
-                                        , int32_t       // hideCount
-                                        , DrawingMode  // drawingMode
-                                        , Color         // eraseColor
-                                        , Color         // bgColor
-                                        , Color         // fgColor
+                                        , port_id           // clientPort
+                                        , port_id           // replyPort
+                                        , handler_id        // replyTarget
+                                        , handler_id        // parent
+                                        , ViewDockType      // dockType
+                                        , const String&     // name
+                                        , const Rect&       // frame
+                                        , const Point&      // scrollOffset
+                                        , uint32_t          // flags
+                                        , int32_t           // hideCount
+                                        , FocusKeyboardMode // focusKeyboardMode
+                                        , DrawingMode       // drawingMode
+                                        , Color             // eraseColor
+                                        , Color             // bgColor
+                                        , Color             // fgColor
                                         > ASCreateView;
                                                                
 typedef RemoteSignal<AppserverProtocol::DELETE_VIEW
@@ -212,7 +216,12 @@ typedef RemoteSignal<AppserverProtocol::VIEW_BEGIN_UPDATE
 typedef RemoteSignal<AppserverProtocol::VIEW_END_UPDATE
                                         , handler_id // viewHandle
                                         > ASViewEndUpdate;
-                                        
+
+using ASViewSetFocusKeyboardMode = RemoteSignal<AppserverProtocol::VIEW_SET_FOCUS_KEYBOARD_MODE
+    , handler_id        // viewHandle
+    , FocusKeyboardMode // Mode
+>;
+
 using ASViewSetDrawingMode = RemoteSignal<AppserverProtocol::VIEW_SET_DRAWING_MODE
     , handler_id    // viewHandle
     , DrawingMode  // Mode
@@ -319,7 +328,11 @@ using ASWindowManagerUnregisterView = RemoteSignal<AppserverProtocol::WINDOW_MAN
 >;
 
 using ASWindowManagerEnableVKeyboard = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_ENABLE_VKEYBOARD
-    , bool // enable
+    , const Rect&   // focusViewEditArea
+    , bool          // numerical
+>;
+
+using ASWindowManagerDisableVKeyboard = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_DISABLE_VKEYBOARD
 >;
 
 typedef RemoteSignal<AppserverProtocol::SYNC_REPLY

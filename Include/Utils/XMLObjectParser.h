@@ -37,6 +37,7 @@ class Rect;
 class LayoutNode;
 enum class Alignment : uint8_t;
 enum class Orientation : uint8_t;
+enum class KeyCodes : uint32_t;
 }
 
 namespace xml_object_parser
@@ -57,6 +58,7 @@ bool parse(const char* text, os::Rect& value);
 bool parse(const char* text, Ptr<os::LayoutNode>& value);
 bool parse(const char* text, os::Alignment& value);
 bool parse(const char* text, os::Orientation& value);
+bool parse(const char* text, os::KeyCodes& value);
 
 
 template<typename T>

@@ -24,6 +24,7 @@
 #include <Utils/combsort.h>
 #include <Utils/Utils.h>
 #include <GUI/Color.h>
+#include <GUI/View.h>
 
 
 namespace os
@@ -222,6 +223,14 @@ Color::Color(NamedColors colorID)
 Color::Color(const String& name)
 {
     m_Color = FromColorName(name).m_Color;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+DynamicColor::DynamicColor(StandardColorID colorID) : Color(get_standard_color(colorID))
+{
 }
 
 

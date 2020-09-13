@@ -56,6 +56,7 @@ private:
                         const Point& scrollOffset,
                         uint32_t flags,
                         int32_t hideCount,
+                        FocusKeyboardMode focusKeyboardMode,
                         DrawingMode drawingMode,
                         Color eraseColor,
                         Color bgColor,
@@ -75,7 +76,8 @@ private:
     void SlotViewSetFgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetFgColor, color); }
     void SlotViewSetBgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetBgColor, color); }
     void SlotViewSetEraseColor(handler_id viewHandle, Color color)                          { ForwardToView(viewHandle, &ServerView::SetEraseColor, color); }
-    void SlotViewSetDrawingMode(handler_id viewHandle, DrawingMode mode)                   { ForwardToView(viewHandle, &ServerView::SetDrawingMode, mode); }
+    void SlotViewSetFocusKeyboardMode(handler_id viewHandle, FocusKeyboardMode mode)        { ForwardToView(viewHandle, &ServerView::SetFocusKeyboardMode, mode); }
+    void SlotViewSetDrawingMode(handler_id viewHandle, DrawingMode mode)                    { ForwardToView(viewHandle, &ServerView::SetDrawingMode, mode); }
     void SlotViewSetFont(handler_id viewHandle, int fontHandle)                             { ForwardToView(viewHandle, &ServerView::SetFont, fontHandle); }
     void SlotViewMovePenTo(handler_id viewHandle, const Point& pos)                         { ForwardToView(viewHandle, &ServerView::MovePenTo, pos); }
     void SlotViewDrawLine1(handler_id viewHandle, const Point& toPoint)                     { ForwardToView(viewHandle, &ServerView::DrawLineTo, toPoint); }
@@ -110,34 +112,35 @@ private:
     handle_id                           m_NextBitmapHandle = 1;
     std::map<handle_id, Ptr<SrvBitmap>> m_BitmapMap;
 
-    ASSync::Receiver                RSSync;
-    ASCreateView::Receiver          RSCreateView;
-    ASDeleteView::Receiver          RSDeleteView;
-    ASFocusView::Receiver           RSFocusView;
-    ASSetKeyboardFocus::Receiver    RSSetKeyboardFocus;
-    ASCreateBitmap::Receiver        RSCreateBitmap;
-    ASDeleteBitmap::Receiver        RSDeleteBitmap;
-    ASViewSetFrame::Receiver        RSViewSetFrame;
-    ASViewInvalidate::Receiver      RSViewInvalidate;
-    ASViewAddChild::Receiver        RSViewAddChild;
-    ASViewToggleDepth::Receiver     RSViewToggleDepth;
-    ASViewBeginUpdate::Receiver     RSViewBeginUpdate;
-    ASViewEndUpdate::Receiver       RSViewEndUpdate;
-    ASViewSetFgColor::Receiver      RSViewSetFgColor;
-    ASViewSetBgColor::Receiver      RSViewSetBgColor;
-    ASViewSetEraseColor::Receiver   RSViewSetEraseColor;
-    ASViewSetDrawingMode::Receiver  RSViewSetDrawingMode;
-    ASViewSetFont::Receiver         RSViewSetFont;
-    ASViewMovePenTo::Receiver       RSViewMovePenTo;
-    ASViewDrawLine1::Receiver       RSViewDrawLine1;
-    ASViewDrawLine2::Receiver       RSViewDrawLine2;
-    ASViewFillRect::Receiver        RSViewFillRect;
-    ASViewFillCircle::Receiver      RSViewFillCircle;
-    ASViewDrawString::Receiver      RSViewDrawString;
-    ASViewScrollBy::Receiver        RSViewScrollBy;
-    ASViewCopyRect::Receiver        RSViewCopyRect;
-    ASViewDrawBitmap::Receiver      RSViewDrawBitmap;
-    ASViewDebugDraw::Receiver       RSViewDebugDraw;
+    ASSync::Receiver                        RSSync;
+    ASCreateView::Receiver                  RSCreateView;
+    ASDeleteView::Receiver                  RSDeleteView;
+    ASFocusView::Receiver                   RSFocusView;
+    ASSetKeyboardFocus::Receiver            RSSetKeyboardFocus;
+    ASCreateBitmap::Receiver                RSCreateBitmap;
+    ASDeleteBitmap::Receiver                RSDeleteBitmap;
+    ASViewSetFrame::Receiver                RSViewSetFrame;
+    ASViewInvalidate::Receiver              RSViewInvalidate;
+    ASViewAddChild::Receiver                RSViewAddChild;
+    ASViewToggleDepth::Receiver             RSViewToggleDepth;
+    ASViewBeginUpdate::Receiver             RSViewBeginUpdate;
+    ASViewEndUpdate::Receiver               RSViewEndUpdate;
+    ASViewSetFgColor::Receiver              RSViewSetFgColor;
+    ASViewSetBgColor::Receiver              RSViewSetBgColor;
+    ASViewSetEraseColor::Receiver           RSViewSetEraseColor;
+    ASViewSetFocusKeyboardMode::Receiver    RSViewSetFocusKeyboardMode;
+    ASViewSetDrawingMode::Receiver          RSViewSetDrawingMode;
+    ASViewSetFont::Receiver                 RSViewSetFont;
+    ASViewMovePenTo::Receiver               RSViewMovePenTo;
+    ASViewDrawLine1::Receiver               RSViewDrawLine1;
+    ASViewDrawLine2::Receiver               RSViewDrawLine2;
+    ASViewFillRect::Receiver                RSViewFillRect;
+    ASViewFillCircle::Receiver              RSViewFillCircle;
+    ASViewDrawString::Receiver              RSViewDrawString;
+    ASViewScrollBy::Receiver                RSViewScrollBy;
+    ASViewCopyRect::Receiver                RSViewCopyRect;
+    ASViewDrawBitmap::Receiver              RSViewDrawBitmap;
+    ASViewDebugDraw::Receiver               RSViewDebugDraw;
     
     ServerApplication(const ServerApplication&) = delete;
     ServerApplication& operator=(const ServerApplication&) = delete;

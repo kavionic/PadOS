@@ -20,48 +20,30 @@
 #pragma once
 
 #include <GUI/View.h>
-#include <Utils/InertialScroller.h>
+#include <GUI/ViewScroller.h>
 
 namespace os
 {
 
-
-class ScrollView : public View
+class ScrollView : public View, public ViewScroller
 {
 public:
     ScrollView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
     ScrollView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
-    static Ptr<ScrollView> GetScrollView(View* view);
-
     // From View:
-    virtual void  FrameSized(const Point& delta) override;
-
+    virtual void    FrameSized(const Point& delta) override;
     virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
     virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
     virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-
     virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
 
-    void BeginSwipe(const Point& position);
-    void SwipeMove(const Point& position);
-    void EndSwipe();
-
-    Ptr<View>   SetClientView(Ptr<View> view);
-    Ptr<View>   GetClientView() const { return m_ClientView; }
+    // From ViewScroller:
+    virtual Ptr<View>   SetScrolledView(Ptr<View> view) override;
 
 private:
-    void Initialize();
-    void UpdateScroller();
-
-    void SlotInertialScrollUpdate(const Point& position);
-
-    Ptr<View> m_ClientView;
-
-    MouseButton_e       m_HitButton = MouseButton_e::None;
-    InertialScroller    m_InertialScroller;
+    MouseButton_e   m_HitButton = MouseButton_e::None;
 
 };
-
 
 } // namespace os

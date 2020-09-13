@@ -136,14 +136,14 @@ public:
     void        ConvertFromParent(Point* point) const       { *point -= GetTopLeft() - m_ScrollOffset; }
     Rect        ConvertFromParent(const Rect& rect) const   { return rect - GetTopLeft() - m_ScrollOffset; }
     void        ConvertFromParent(Rect* rect) const         { *rect -= GetTopLeft() - m_ScrollOffset; }
-//    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
-//    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
-//    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
-//    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos + m_ScrollOffset; }
-//    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos - m_ScrollOffset; }
-//    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos + m_ScrollOffset; }
-//    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
-//    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
+    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
+    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
+    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos + m_ScrollOffset; }
+    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos + m_ScrollOffset; }
+    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
     
     static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, IRect* frame)
     {

@@ -17,10 +17,20 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 04.09.2020 22:30
 
+#include <sys/fcntl.h>
+#include <pugixml/src/pugixml.hpp>
+
 #include <GUI/Bitmap.h>
+#include <GUI/ViewFactory.h>
 #include <GUI/KeyboardView.h>
 #include <Utils/Utils.h>
+#include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KFilesystem.h>
 
+//#pragma GCC optimize ("O0")
+
+
+using namespace pugi;
 
 namespace os
 {
@@ -120,32 +130,9 @@ static constexpr IRect KEY_BM_FRAME_SPACE(0, KEY_BM_FRAME_ENTER.bottom, 32, KEY_
 
 static constexpr IPoint KEYS_BITMAP_SIZE(32, KEY_BM_FRAME_BACKSPACE.Height() + KEY_BM_FRAME_SHIFT.Height() + KEY_BM_FRAME_ENTER.Height() + KEY_BM_FRAME_SPACE.Height());
 
-static constexpr float W_NUM = 1.0f / 10.0f;
-static constexpr float W_CHR = 1.0f / 11.0f;
-static constexpr float W_05  = 0.5f / 11.0f;
-static constexpr float W_15  = 1.5f / 11.0f;
-static constexpr float W_20  = 2.0f / 11.0f;
-
 static constexpr Point KEY_SPACING(5.0f, 5.0f);
 
-struct KLNode
-{
-    constexpr KLNode(float width, KeyCodes keyCode) : m_Width(width), m_KeyCode(keyCode) {}
-    constexpr KLNode(float width, const char* keyCode) : m_Width(width), m_KeyCode(KeyCodes(utf8_to_unicode(keyCode))) {}
-    float       m_Width;
-    KeyCodes    m_KeyCode;
-};
-
-using K = KLNode;
-using KC = KeyCodes;
-static constexpr std::array<std::array<KLNode, 11>, 5> g_KeyMap
-{
-    std::array<K, 11>{K(W_NUM, KC::NUM_1), K(W_NUM, KC::NUM_2), K(W_NUM, KC::NUM_3), K(W_NUM, KC::NUM_4), K(W_NUM, KC::NUM_5), K(W_NUM, KC::NUM_6), K(W_NUM, KC::NUM_7), K(W_NUM, KC::NUM_8), K(W_NUM, KC::NUM_9), K(W_NUM, KC::NUM_0), K(0.0f, KC::NONE)},
-    std::array<K, 11>{K(W_CHR, KC::Q), K(W_CHR, KC::W), K(W_CHR, KC::E), K(W_CHR, KC::R), K(W_CHR, KC::T), K(W_CHR, KC::Y), K(W_CHR, KC::U), K(W_CHR, KC::I), K(W_CHR, KC::O), K(W_CHR, KC::P), K(W_CHR, KC::AA)},
-    std::array<K, 11>{K(W_CHR, KC::A), K(W_CHR, KC::S), K(W_CHR, KC::D), K(W_CHR, KC::F), K(W_CHR, KC::G), K(W_CHR, KC::H), K(W_CHR, KC::J), K(W_CHR, KC::K), K(W_CHR, KC::L), K(W_CHR, KC::OE), K(W_CHR, KC::AE)},
-    std::array<K, 11>{K(W_15, KeyCodes::SHIFT),   K(W_05, KC::NONE), K(W_CHR, KC::Z), K(W_CHR, KC::X), K(W_CHR, KC::C), K(W_CHR, KC::V), K(W_CHR, KC::B), K(W_CHR, KC::N), K(W_CHR, KC::M), K(W_05, KC::NONE), K(W_15, KeyCodes::BACKSPACE)},
-    std::array<K, 11>{K(W_20, KeyCodes::SYMBOLS), K(W_05, KC::NONE), K(0.0f, KC::NONE), K(W_CHR, ":"), K(W_CHR, "/"), K(W_20, KC::SPACE), K(W_CHR, "."), K(W_CHR, ","), K(0.0f, KC::NONE), K(W_05, KC::NONE), K(W_20, KeyCodes::ENTER)},
-};
+NoPtr<KeyboardViewStyle> KeyboardView::s_DefaultStyle;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -153,8 +140,8 @@ static constexpr std::array<std::array<KLNode, 11>, 5> g_KeyMap
 
 KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
-    const FontHeight fontHeight = GetFontHeight();
-    m_KeyHeight = fontHeight.descender - fontHeight.ascender + 8.0f;
+    const FontHeight fontHeight = m_Style->LargeFont->GetHeight();
+    m_KeyHeight = fontHeight.descender - fontHeight.ascender + 11.0f;
 
     m_KeysBitmap = ptr_new<Bitmap>(KEYS_BITMAP_SIZE.x, KEYS_BITMAP_SIZE.y, ColorSpace::MONO1, Bitmap::SHARE_FRAMEBUFFER);
 
@@ -184,23 +171,144 @@ KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags)
         m_KeysBitmap->UnlockRaster();
     }
 
-    m_KeyButtons.reserve(g_KeyMap.size() * g_KeyMap[0].size());
-
-    Point position(0.0f, 0.0f);
-    for (size_t rowIndex = 0; rowIndex < g_KeyMap.size(); ++rowIndex)
+    int dir = FileIO::Open("/sdcard/Rainbow3D/System/Keyboards", O_RDONLY);
+    if (dir >= 0)
     {
-        const auto& row = g_KeyMap[rowIndex];
-
-        position.x = 0.0f;
-        for (const KLNode& node : row)
+        kernel::dir_entry entry;
+        for (int i = 0; FileIO::ReadDirectory(dir, &entry, sizeof(entry)) == 1; ++i)
         {
-            if (node.m_KeyCode != KeyCodes::NONE) {
-                m_KeyButtons.emplace_back(position, node.m_Width, node.m_KeyCode);
+            String name(entry.d_name);
+            if (name.compare_nocase("numerical.xml") == 0) {
+                continue;
             }
-            position.x += node.m_Width;
+            if (name.size() > 4 && strcmp(&name[name.size() - 4], ".xml") == 0)
+            {
+                name.resize(name.size() - 4);
+                m_Keyboards.push_back(name);
+            }
         }
-        position.y += 1.0f;
     }
+    if (HasFlags(KeyboardViewFlags::Numerical))
+    {
+        LoadKeyboard("/sdcard/Rainbow3D/System/Keyboards/Numerical.xml");
+    }
+    else
+    {
+        if (!m_Keyboards.empty())
+        {
+            if (m_SelectedKeyboard >= m_Keyboards.size()) m_SelectedKeyboard = 0;
+            LoadKeyboard(String("/sdcard/Rainbow3D/System/Keyboards/") + m_Keyboards[m_SelectedKeyboard] + String(".xml"));
+        }
+    }
+//    LoadKeyboard("/sdcard/Rainbow3D/System/Keyboards/English.xml");
+//    LoadKeyboard("/sdcard/Rainbow3D/System/Keyboards/Norwegian.xml");
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KeyboardView::LoadKeyboard(const String& path)
+{
+    int file = FileIO::Open(path.c_str(), O_RDONLY);
+    if (file == -1) {
+        return false;
+    }
+    struct stat stats;
+
+    if (FileIO::ReadStats(file, &stats) == -1)
+    {
+        FileIO::Close(file);
+        return false;
+    }
+    std::vector<char> buffer;
+    buffer.resize(stats.st_size + 1);
+
+    ssize_t bytesRead = FileIO::Read(file, buffer.data(), stats.st_size);
+    FileIO::Close(file);
+
+    if (bytesRead != stats.st_size) {
+        return false;
+    }
+    buffer[stats.st_size] = '\0';
+
+    XMLDocument doc;
+
+    if (!doc.Parse(std::move(buffer))) {
+        return false;
+    }
+
+    xml_node rootNode = doc.GetDocumentElement();
+
+    if (!rootNode) {
+        return false;
+    }
+
+    m_CurrentLayout = &m_DefaultLayout;
+    m_SymbolsActive = false;
+
+    m_DefaultLayout.Clear();
+    m_SymbolLayouts.clear();
+    m_SymbolLayouts.reserve(2);
+
+    for (xml_node layoutNode = rootNode.first_child(); layoutNode; layoutNode = layoutNode.next_sibling())
+    {
+        if (strcmp(layoutNode.name(), "Layout") != 0) {
+            continue;
+        }
+        String typeName = xml_object_parser::parse_attribute(layoutNode, "type", String::zero);
+        KeyboardLayout* layout = nullptr;
+
+        if (typeName.compare_nocase("normal") == 0 || typeName.compare_nocase("numerical") == 0) {
+            layout = &m_DefaultLayout;
+        } else if (typeName.compare_nocase("symbols") == 0) {
+            layout = &m_SymbolLayouts.emplace_back();
+        }
+
+        float totalHeight = 0.0f;
+        for (xml_node rowNode = layoutNode.first_child(); rowNode; rowNode = rowNode.next_sibling())
+        {
+            if (strcmp(rowNode.name(), "KeyRow") == 0) {
+                totalHeight += 1.0f;
+            }
+        }
+        Point position(0.0f, 0.0f);
+        for (xml_node rowNode = layoutNode.first_child(); rowNode; rowNode = rowNode.next_sibling())
+        {
+            if (strcmp(rowNode.name(), "KeyRow") != 0) {
+                continue;
+            }
+            float totalWidth = 0.0f;
+            for (xml_node keyNode = rowNode.first_child(); keyNode; keyNode = keyNode.next_sibling())
+            {
+                if (strcmp(keyNode.name(), "Key") == 0) {
+                    totalWidth += xml_object_parser::parse_attribute(keyNode, "width", 1.0f);
+                }
+            }
+            position.x = 0.0f;
+            for (xml_node keyNode = rowNode.first_child(); keyNode; keyNode = keyNode.next_sibling())
+            {
+                if (strcmp(keyNode.name(), "Key") != 0) {
+                    continue;
+                }
+
+                float   width = xml_object_parser::parse_attribute(keyNode, "width", 1.0f) / totalWidth;
+                KeyCodes normalKeyCode = xml_object_parser::parse_attribute(keyNode, "normal", KeyCodes::NONE);
+                KeyCodes lowerKeyCode = xml_object_parser::parse_attribute(keyNode, "lower", KeyCodes(std::towlower(int(normalKeyCode))));
+                KeyCodes extraKeyCode = xml_object_parser::parse_attribute(keyNode, "extra", KeyCodes::NONE);
+                KeyCodes symbolKeyCode = xml_object_parser::parse_attribute(keyNode, "symbol", KeyCodes::NONE);
+
+                if (normalKeyCode != KeyCodes::NONE) {
+                    layout->m_KeyButtons.emplace_back(position, width, 1.0f / totalHeight, normalKeyCode, lowerKeyCode, extraKeyCode, symbolKeyCode);
+                }
+                position.x += width;
+            }
+            position.y += 1.0f / totalHeight;
+            layout->m_KeyRows++;
+        }
+    }
+    m_CurrentLayout->Layout(GetBounds(), KEY_SPACING, m_KeyHeight + KEY_SPACING.y);
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -209,7 +317,7 @@ KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags)
 
 void KeyboardView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
 {
-    Point size(11.0f * 40.0f, (m_KeyHeight + KEY_SPACING.y) * float(g_KeyMap.size()) + KEY_SPACING.y);
+    Point size(11.0f * 40.0f, (m_KeyHeight + KEY_SPACING.y) * std::max(5.0f, float(m_CurrentLayout->m_KeyRows)) + KEY_SPACING.y);
 
     *minSize = size;
     *maxSize = size;
@@ -223,14 +331,7 @@ void KeyboardView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
 void KeyboardView::FrameSized(const Point& delta)
 {
     const Rect bounds = GetBounds();
-
-    const float viewWidth = bounds.Width() - KEY_SPACING.x;
-
-    for (auto& button : m_KeyButtons)
-    {
-        Point position(round(button.m_RelativePos.x * viewWidth) + KEY_SPACING.x, round(button.m_RelativePos.y * (m_KeyHeight + KEY_SPACING.y)) + KEY_SPACING.y);
-        button.m_Frame = Rect(position.x, position.y, position.x + floorf(viewWidth * button.m_Width - KEY_SPACING.x), position.y + m_KeyHeight);
-    }
+    m_CurrentLayout->Layout(bounds, KEY_SPACING, m_KeyHeight + KEY_SPACING.y);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -240,7 +341,7 @@ void KeyboardView::FrameSized(const Point& delta)
 void KeyboardView::Paint(const Rect& updateRect)
 {
     Region clearRegion(updateRect);
-    for (const auto& button : m_KeyButtons)
+    for (const auto& button : m_CurrentLayout->m_KeyButtons)
     {
         if (updateRect.DoIntersect(button.m_Frame)) {
             clearRegion.Exclude(button.m_Frame);
@@ -249,13 +350,14 @@ void KeyboardView::Paint(const Rect& updateRect)
     for (const IRect& rect : clearRegion.m_Rects) {
         EraseRect(rect);
     }
-    for (size_t i = 0; i < m_KeyButtons.size(); ++i)
+    for (size_t i = 0; i < m_CurrentLayout->m_KeyButtons.size(); ++i)
     {
-        const KeyButton& button = m_KeyButtons[i];
-
-        DrawButton(button, i == m_PressedButton);
+        const KeyButton& button = m_CurrentLayout->m_KeyButtons[i];
+        if (button.m_Frame.DoIntersect(updateRect)) {
+            DrawButton(button, i == m_PressedButton);
+        }
     }
-    SetEraseColor(StandardColorID::DefaultBackground);
+    SetEraseColor(m_Style->BackgroundColor);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -280,6 +382,58 @@ bool KeyboardView::OnTouchDown(MouseButton_e pointID, const Point& position, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool KeyboardView::OnLongPress(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+{
+    if (pointID != m_HitButton) {
+        return false;
+    }
+    bool cancelPress = false;
+    if (m_PressedButton != INVALID_INDEX)
+    {
+        KeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
+
+        if (button.m_NormalKeyCode == KeyCodes::SHIFT)
+        {
+            if (!m_SymbolsActive)
+            {
+                if (m_CapsLockMode == CapsLockMode::Off) {
+                    m_CapsLockMode = CapsLockMode::Locked;
+                } else {
+                    m_CapsLockMode = CapsLockMode::Off;
+                }
+                cancelPress = true;
+            }
+        }
+        else if (button.m_NormalKeyCode == KeyCodes::ENTER && !HasFlags(KeyboardViewFlags::Numerical))
+        {
+            if (!m_Keyboards.empty())
+            {
+                m_SelectedKeyboard++;
+                if (m_SelectedKeyboard >= m_Keyboards.size()) m_SelectedKeyboard = 0;
+                LoadKeyboard(String("/sdcard/Rainbow3D/System/Keyboards/") + m_Keyboards[m_SelectedKeyboard] + String(".xml"));
+                cancelPress = true;
+            }
+        }
+        else if (button.m_ExtraKeyCode != KeyCodes::NONE)
+        {
+            SignalKeyPressed(button.m_ExtraKeyCode, GetKeyText(button.m_ExtraKeyCode), this);
+            cancelPress = true;
+        }
+    }
+    if (cancelPress)
+    {
+        SetPressedButton(INVALID_INDEX);
+        m_HitButton = MouseButton_e::None;
+        MakeFocus(pointID, false);
+        Invalidate();
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool KeyboardView::OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event)
 {
     if (pointID != m_HitButton) {
@@ -288,39 +442,67 @@ bool KeyboardView::OnTouchUp(MouseButton_e pointID, const Point& position, const
 
     if (m_PressedButton != INVALID_INDEX)
     {
-        KeyButton& button = m_KeyButtons[m_PressedButton];
+        KeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
+        SetPressedButton(INVALID_INDEX);
 
         bool resetCapsLock = false;
-        if (button.m_KeyCode == KeyCodes::SHIFT)
+        if (button.m_NormalKeyCode == KeyCodes::SHIFT)
         {
-            if (m_CapsLockMode == CapsLockMode::Off) {
-                m_CapsLockMode = CapsLockMode::Single;
+            if (m_SymbolsActive)
+            {
+                if (!m_SymbolLayouts.empty())
+                {
+                    m_SymbolPage++;
+                    if (m_SymbolPage >= m_SymbolLayouts.size()) {
+                        m_SymbolPage = 0;
+                    }
+                    SetLayout(&m_SymbolLayouts[m_SymbolPage]);
+                }
             }
-            else if (m_CapsLockMode == CapsLockMode::Single) {
-                m_CapsLockMode = CapsLockMode::Locked;
-            }
-            else {
-                m_CapsLockMode = CapsLockMode::Off;
+            else
+            {
+                if (m_CapsLockMode == CapsLockMode::Off) {
+                    m_CapsLockMode = CapsLockMode::Single;
+                }
+                else if (m_CapsLockMode == CapsLockMode::Single) {
+                    m_CapsLockMode = CapsLockMode::Locked;
+                }
+                else {
+                    m_CapsLockMode = CapsLockMode::Off;
+                }
             }
             Invalidate();
         }
-        else if (button.m_KeyCode == KeyCodes::SYMBOLS)
+        else if (button.m_NormalKeyCode == KeyCodes::SYMBOLS)
         {
             m_SymbolsActive = !m_SymbolsActive;
-            Invalidate();
+            if (m_SymbolsActive)
+            {
+                if (!m_SymbolLayouts.empty()) {
+                    SetLayout(&m_SymbolLayouts[m_SymbolPage]);
+                }
+                else {
+                    m_SymbolsActive = false;
+                }
+            }
+            else
+            {
+                SetLayout(&m_DefaultLayout);
+            }
         }
-        else if (button.m_KeyCode != KeyCodes::SPACE)
+        else if (button.m_NormalKeyCode != KeyCodes::SPACE)
         {
             resetCapsLock = true;
         }
-        SignalKeyPressed(button.m_KeyCode, GetKeyText(button), this);
-        if (resetCapsLock && m_CapsLockMode == CapsLockMode::Single) {
+        SignalKeyPressed(button.m_NormalKeyCode, GetKeyText((m_CapsLockMode == CapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode), this);
+        if (resetCapsLock && m_CapsLockMode == CapsLockMode::Single)
+        {
             m_CapsLockMode = CapsLockMode::Off;
             Invalidate();
         }
-        SetPressedButton(INVALID_INDEX);
     }
 
+    m_IsDraggingCursor = false;
     m_HitButton = MouseButton_e::None;
     MakeFocus(pointID, false);
     return true;
@@ -335,8 +517,33 @@ bool KeyboardView::OnTouchMove(MouseButton_e pointID, const Point& position, con
     if (pointID != m_HitButton) {
         return View::OnTouchMove(pointID, position, event);
     }
-    if ((position - m_HitPos).LengthSqr() > 20.0f * 20.0f) {
-        SetPressedButton(INVALID_INDEX);
+
+    if (m_IsDraggingCursor)
+    {
+        int cursorPos = int(round((position.x - m_HitPos.x) / 20.0f));
+        while (cursorPos < m_PrevCursorPos)
+        {
+            m_PrevCursorPos--;
+            SignalKeyPressed(KeyCodes::CURSOR_LEFT, String::zero, this);
+        }
+        while (cursorPos > m_PrevCursorPos)
+        {
+            m_PrevCursorPos++;
+            SignalKeyPressed(KeyCodes::CURSOR_RIGHT, String::zero, this);
+        }
+    }
+    else if (m_PressedButton != INVALID_INDEX)
+    {
+        if ((position - m_HitPos).LengthSqr() > square(BEGIN_DRAG_OFFSET))
+        {
+            KeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
+            if (button.m_NormalKeyCode == KeyCodes::SPACE)
+            {
+                m_IsDraggingCursor = true;
+                m_PrevCursorPos = int(round((position.x - m_HitPos.x) / 20.0f));
+            }
+            SetPressedButton(INVALID_INDEX);
+        }
     }
     return true;
 }
@@ -345,20 +552,30 @@ bool KeyboardView::OnTouchMove(MouseButton_e pointID, const Point& position, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String KeyboardView::GetKeyText(const KeyButton& button) const
+void KeyboardView::SetLayout(KeyboardLayout* layout)
 {
-    if (button.m_KeyCode > KeyCodes::LAST_SPECIAL)
+    m_CurrentLayout = layout;
+
+    m_CurrentLayout->Layout(GetBounds(), KEY_SPACING, m_KeyHeight + KEY_SPACING.y);
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+String KeyboardView::GetKeyText(KeyCodes keyCode) const
+{
+    if (keyCode > KeyCodes::LAST_SPECIAL)
     {
         String text;
 
-        if (button.m_KeyCode == KeyCodes::TAB) {
+        if (keyCode == KeyCodes::TAB) {
             text = "\t";
-        } else if (button.m_KeyCode == KeyCodes::ENTER) {
+        } else if (keyCode == KeyCodes::ENTER) {
             text = "\n";
-        } else if (m_CapsLockMode != CapsLockMode::Off) {
-            text.append(uint32_t(button.m_KeyCode));
         } else {
-            text.append(tolower(uint32_t(button.m_KeyCode)));
+            text.append(uint32_t(keyCode));
         }
         return text;
     }
@@ -371,22 +588,24 @@ String KeyboardView::GetKeyText(const KeyButton& button) const
 
 void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
 {
-    Color textColor(NamedColors::black);
+    Color textColor = m_Style->NormalTextColor;
 
     if (pressed)
     {
-        SetEraseColor(NamedColors::mediumblue);
+        SetEraseColor(m_Style->PressedButtonColor);
     }
-    else if (button.m_KeyCode == KeyCodes::SHIFT)
+    else if (!m_SymbolsActive && button.m_NormalKeyCode == KeyCodes::SHIFT)
     {
-        SetEraseColor(m_CapsLockMode == CapsLockMode::Locked ? NamedColors::darkblue : NamedColors::dimgray);
-        if (m_CapsLockMode == CapsLockMode::Single) {
-            textColor = NamedColors::darkblue;
+        switch (m_CapsLockMode)
+        {
+            case os::CapsLockMode::Off:     SetEraseColor(m_Style->NormalButtonColor);      break;
+            case os::CapsLockMode::Single:  SetEraseColor(m_Style->SelectedButtonColor); textColor = m_Style->SelectedTextColor;   break;
+            case os::CapsLockMode::Locked:  SetEraseColor(m_Style->LockedButtonColor);   textColor = m_Style->LockedTextColor;     break;
         }
     }
     else
     {
-        SetEraseColor(NamedColors::dimgray);
+        SetEraseColor(m_Style->NormalButtonColor);
     }
 
     DrawFrame(button.m_Frame, FRAME_RAISED);
@@ -394,7 +613,7 @@ void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
 
     Rect bitmapFrame(0.0f, 0.0f, 0.0f, 0.0f);
 
-    switch (KeyCodes(button.m_KeyCode))
+    switch (KeyCodes(button.m_NormalKeyCode))
     {
         case KeyCodes::ENTER:           bitmapFrame = KEY_BM_FRAME_ENTER; break;
         case KeyCodes::BACKSPACE:       bitmapFrame = KEY_BM_FRAME_BACKSPACE; break;
@@ -407,7 +626,11 @@ void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
         case KeyCodes::HOME:            break;
         case KeyCodes::END:             break;
         case KeyCodes::TAB:             break;
-        case KeyCodes::SHIFT:           bitmapFrame = KEY_BM_FRAME_SHIFT; break;
+        case KeyCodes::SHIFT:
+            if (!m_SymbolsActive) {
+                bitmapFrame = KEY_BM_FRAME_SHIFT;
+            }
+            break;
         case KeyCodes::CTRL:            break;
         case KeyCodes::ALT:             break;
         case KeyCodes::SYMBOLS:         break;
@@ -425,16 +648,36 @@ void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
         SetBgColor(GetEraseColor());
 
         String label;
-        if (button.m_KeyCode != KeyCodes::SYMBOLS)
-        {
-            label = GetKeyText(button);
-        }
-        else {
+        if (button.m_NormalKeyCode == KeyCodes::SYMBOLS) {
             label = m_SymbolsActive ? "ABC" : "!#1";
         }
-        const float labelWidth = GetStringWidth(label);
+        else if (button.m_NormalKeyCode == KeyCodes::SHIFT && m_SymbolsActive) {
+            label = String::format_string("%ld/%ld", m_SymbolPage + 1, m_SymbolLayouts.size());
+        } else {
+            label = GetKeyText((m_CapsLockMode == CapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode);
+        }
+        String smallLabel = GetKeyText(button.m_ExtraKeyCode);
 
-        DrawString(label, button.m_Frame.TopLeft() + Point(round((button.m_Frame.Width() - labelWidth) * 0.5f), 4.0f));
+        SetFont(m_Style->LargeFont);
+        const FontHeight fontHeight = m_Style->LargeFont->GetHeight();
+        const float labelWidth = GetStringWidth(label);
+        const float labelHeight = fontHeight.descender - fontHeight.ascender;
+
+        Point labelPos = button.m_Frame.TopLeft() + Point(round((button.m_Frame.Width() - labelWidth) * 0.5f), ceilf((button.m_Frame.Height() - labelHeight) * 0.5f));
+
+        if (!smallLabel.empty()) {
+            labelPos.y += 2.0f;
+        }
+
+        DrawString(label, labelPos);
+
+        if (!smallLabel.empty())
+        {
+            const float smallLabelWidth = GetStringWidth(smallLabel);
+            SetFont(m_Style->SmallFont);
+            SetFgColor(m_Style->ExtraTextColor);
+            DrawString(smallLabel, button.m_Frame.TopRight() + Point(-smallLabelWidth - 6.0f, 2.0f));
+        }
     }
 }
 
@@ -451,11 +694,11 @@ void KeyboardView::SetPressedButton(size_t index)
 
         if (prevIndex != INVALID_INDEX)
         {
-            Invalidate(m_KeyButtons[prevIndex].m_Frame);
+            Invalidate(m_CurrentLayout->m_KeyButtons[prevIndex].m_Frame);
         }
         if (m_PressedButton != INVALID_INDEX)
         {
-            Invalidate(m_KeyButtons[m_PressedButton].m_Frame);
+            Invalidate(m_CurrentLayout->m_KeyButtons[m_PressedButton].m_Frame);
         }
     }
 }
@@ -466,9 +709,9 @@ void KeyboardView::SetPressedButton(size_t index)
 
 size_t KeyboardView::GetButtonIndex(const Point& position) const
 {
-    for (size_t i = 0; i < m_KeyButtons.size(); ++i)
+    for (size_t i = 0; i < m_CurrentLayout->m_KeyButtons.size(); ++i)
     {
-        if (m_KeyButtons[i].m_Frame.DoIntersect(position)) {
+        if (m_CurrentLayout->m_KeyButtons[i].m_Frame.DoIntersect(position)) {
             return i;
         }
     }
@@ -476,3 +719,5 @@ size_t KeyboardView::GetButtonIndex(const Point& position) const
 }
 
 } // namespace os
+
+//#pragma GCC optimize ("O3")

@@ -18,26 +18,24 @@
 
 #pragma once
 
-#include <GUI/ScrollView.h>
+#include <GUI/ViewScroller.h>
 
 namespace os
 {
 class DropdownMenu;
-}
 
 namespace osi
 {
-using namespace os;
-
 class DropdownMenuPopupView;
 
-class DropdownMenuPopupWindow : public ScrollView
+class DropdownMenuPopupWindow : public View, public ViewScroller
 {
 public:
     DropdownMenuPopupWindow(const std::vector<String>& itemList, size_t selection);
-
     // From View:
     virtual void Paint(const Rect& updateRect) override;
+    virtual void FrameSized(const Point& delta) override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
 
     void MakeSelectionVisible();
 
@@ -69,7 +67,7 @@ public:
 
     void MakeSelectionVisible();
 
-    Signal<void, size_t, bool>&  SignalSelectionChanged;
+    Signal<void, size_t, bool>& SignalSelectionChanged;
 private:
     size_t PositionToIndex(const Point& position);
 
@@ -86,3 +84,4 @@ private:
 };
 
 } // namespace osi
+} // namespace os

@@ -64,7 +64,7 @@ ApplicationServer::ApplicationServer(Ptr<os::DisplayDriver> displayDriver)
     s_DisplayDriver = displayDriver;
     s_DisplayDriver->Open();
     s_ScreenBitmap = s_DisplayDriver->GetScreenBitmap();
-    m_TopView = ptr_new<ServerView>(ptr_raw_pointer_cast(s_ScreenBitmap), "::topview::", GetScreenFrame(), Point(0.0f, 0.0f), ViewDockType::TopLevelView, 0, 0, DrawingMode::Copy, Color(0xffffffff), Color(0xffffffff), Color(0));
+    m_TopView = ptr_new<ServerView>(ptr_raw_pointer_cast(s_ScreenBitmap), "::topview::", GetScreenFrame(), Point(0.0f, 0.0f), ViewDockType::TopLevelView, 0, 0, FocusKeyboardMode::None, DrawingMode::Copy, Color(0xffffffff), Color(0xffffffff), Color(0));
 
     AddHandler(m_TopView);
 
@@ -406,15 +406,19 @@ void ApplicationServer::SetKeyboardFocus(Ptr<ServerView> view, bool focus)
     if (focus)
     {
         m_KeyboardFocusView = ptr_raw_pointer_cast(view);
-        if (m_KeyboardFocusView != nullptr) {
-            ASWindowManagerEnableVKeyboard::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, true);
+        if (m_KeyboardFocusView != nullptr && m_KeyboardFocusView->GetFocusKeyboardMode() != FocusKeyboardMode::None)
+        {
+            Ptr<ServerView> root = view;
+            while (root != nullptr && !root->IsWindowManagerControlled()) root = root->GetParent();
+
+            ASWindowManagerEnableVKeyboard::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, view->ConvertToRoot(view->GetFrame()), m_KeyboardFocusView->GetFocusKeyboardMode() == FocusKeyboardMode::Numeric);
         }
     }
     else
     {
         if (view == m_KeyboardFocusView) {
             m_KeyboardFocusView = nullptr;
-            ASWindowManagerEnableVKeyboard::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, false);
+            ASWindowManagerDisableVKeyboard::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit);
         }
     }
 }

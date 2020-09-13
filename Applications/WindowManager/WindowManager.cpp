@@ -86,12 +86,13 @@ private:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-WindowManager::WindowManager() : Application("window_manager"), m_KeyboardAnimator(EasingCurveFunction::EaseOut)
+WindowManager::WindowManager() : Application("window_manager"), m_KeyboardAnimator(EasingCurveFunction::EaseOut), m_TargetAnimator(EasingCurveFunction::EaseOut)
 {
     g_WindowManagerPort = GetPortID();
     RSWindowManagerRegisterView.Connect(this, &WindowManager::SlotRegisterView);
     RSWindowManagerUnregisterView.Connect(this, &WindowManager::SlotUnregisterView);
     RSWindowManagerEnableVKeyboard.Connect(this, &WindowManager::SlotEnableVKeyboard);
+    RSWindowManagerDisableVKeyboard.Connect(this, &WindowManager::SlotDisableVKeyboard);
 
     m_TopView = ViewFactory::GetInstance().LoadView(nullptr, "/sdcard/Rainbow3D/System/WindowManagerLayout.xml");
     if (m_TopView != nullptr)
@@ -110,6 +111,7 @@ WindowManager::WindowManager() : Application("window_manager"), m_KeyboardAnimat
     }
 
     m_KeyboardAnimator.SetPeriod(0.3);
+    m_TargetAnimator.SetPeriod(0.25);
 
     m_KeyboardAnimTimer.Set(1.0 / 30.0);
     m_KeyboardAnimTimer.SignalTrigged.Connect(this, &WindowManager::SlotKeyboardAnimTimer);
@@ -139,6 +141,9 @@ bool WindowManager::HandleMessage(handler_id targetHandler, int32_t code, const 
         return true;
     case AppserverProtocol::WINDOW_MANAGER_ENABLE_VKEYBOARD:
         RSWindowManagerEnableVKeyboard.Dispatch(data, length);
+        return true;
+    case AppserverProtocol::WINDOW_MANAGER_DISABLE_VKEYBOARD:
+        RSWindowManagerDisableVKeyboard.Dispatch(data, length);
         return true;
     default:
         return false;
@@ -194,51 +199,67 @@ void WindowManager::SlotUnregisterView(handler_id viewHandle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void WindowManager::SlotEnableVKeyboard(bool enable)
+void WindowManager::SlotEnableVKeyboard(const Rect& focusViewEditArea, bool numerical)
 {
-    if (enable)
+    m_IsKeyboardActive = true;
+    if (m_KeyboardView == nullptr)
     {
-        m_IsKeyboardActive = true;
-        if (m_KeyboardView == nullptr)
-        {
-            m_KeyboardView = ptr_new<VirtualKeyboardView>();
-            m_KeyboardView->PreferredSizeChanged();
+        m_KeyboardView = ptr_new<VirtualKeyboardView>(numerical);
+        m_KeyboardView->PreferredSizeChanged();
 
-            Rect frame = m_ClientsView->GetBounds();
-            frame.top       = frame.bottom;
-            frame.bottom    = frame.top + m_KeyboardView->GetPreferredSize(PrefSizeType::Smallest).y;
-            m_KeyboardView->SetFrame(frame);
-            AddView(m_KeyboardView, ViewDockType::PopupWindow);
+        Rect frame = m_ClientsView->GetBounds();
+        frame.top = frame.bottom;
+        frame.bottom = frame.top + m_KeyboardView->GetPreferredSize(PrefSizeType::Smallest).y;
+        m_KeyboardView->SetFrame(frame);
 
-            m_KeyboardAnimator.SetStartValue(frame.top);
-            m_KeyboardAnimator.SetEndValue(frame.top - frame.Height());
-            m_KeyboardAnimator.Start();
-            m_KeyboardAnimTimer.Start();
+        float finalKeyboardTop = frame.top - frame.Height();
+
+        AddView(m_KeyboardView, ViewDockType::RootLevelView);
+
+        float targetScrollOffset = 0.0f;
+        if (focusViewEditArea.bottom >= finalKeyboardTop) {
+            targetScrollOffset = (finalKeyboardTop - focusViewEditArea.Height()) * 0.5f - focusViewEditArea.top;
         }
-        else
-        {
-            m_KeyboardAnimator.Reverse();
-        }
+
+        m_TargetAnimator.SetRange(0.0f, targetScrollOffset);
+        m_KeyboardAnimator.SetRange(frame.top, finalKeyboardTop);
+
+        m_TargetAnimator.Start();
+        m_KeyboardAnimator.Start();
+        m_KeyboardAnimTimer.Start();
     }
     else
     {
-        m_IsKeyboardActive = false;
-        if (m_KeyboardView != nullptr)
-        {
-            Rect screenFrame = m_TopView->GetBounds();
-            Rect keyboardFrame = m_KeyboardView->GetFrame();
-
-            m_KeyboardAnimTimer.Stop();
-            m_KeyboardAnimator.SetStartValue(keyboardFrame.top);
-            m_KeyboardAnimator.SetEndValue(screenFrame.bottom);
-            m_KeyboardAnimator.Start();
-            m_KeyboardAnimTimer.Start();
-        }
-        else
-        {
-            m_KeyboardAnimator.Reverse();
-        }
+        m_KeyboardAnimator.Reverse();
+        m_TargetAnimator.Reverse();
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void WindowManager::SlotDisableVKeyboard()
+{
+    m_IsKeyboardActive = false;
+    if (m_KeyboardView != nullptr)
+    {
+        Rect screenFrame = m_TopView->GetBounds();
+        Rect keyboardFrame = m_KeyboardView->GetFrame();
+
+        m_TargetAnimator.SetRange(m_TopView->GetScrollOffset().y, 0.0f);
+        m_KeyboardAnimator.SetRange(keyboardFrame.top, screenFrame.bottom);
+
+        m_TargetAnimator.Start();
+        m_KeyboardAnimator.Start();
+        m_KeyboardAnimTimer.Start();
+    }
+    else
+    {
+        m_KeyboardAnimator.Reverse();
+        m_TargetAnimator.Reverse();
+    }
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -250,12 +271,15 @@ void WindowManager::SlotKeyboardAnimTimer()
     Rect frame = m_KeyboardView->GetBounds() + Point(0.0f, round(m_KeyboardAnimator.GetValue()));
     m_KeyboardView->SetFrame(frame);
 
+    m_TopView->ScrollTo(Point(0.0f, round(m_TargetAnimator.GetValue())));
+
     if (!m_KeyboardAnimator.IsRunning())
     {
         m_KeyboardAnimTimer.Stop();
         if (!m_IsKeyboardActive)
         {
             RemoveView(m_KeyboardView);
+            m_TopView->ScrollTo(Point(0.0f, 0.0f));
             m_KeyboardView = nullptr;
         }
     }

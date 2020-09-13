@@ -97,6 +97,7 @@ enum class DrawingMode : uint8_t
 
 enum class StandardColorID : int32_t
 {
+    None,
     DefaultBackground,
     Shine,
     Shadow,
@@ -188,10 +189,10 @@ enum class KeyCodes : uint32_t
     BACKSPACE = 8,
     TAB = 9,
     ENTER = 10,
-    SHIFT,
-    CTRL,
-    ALT,
-    SYMBOLS,
+    SHIFT = 11,
+    CTRL = 12,
+    ALT = 13,
+    SYMBOLS = 14,
     LAST_SPECIAL = SYMBOLS,
     SPACE = ' ',
     NUM_0 = '0',
@@ -234,6 +235,7 @@ enum class KeyCodes : uint32_t
     OE = 0xd8,
     AA = 0xc5
 };
+
 
 /// \anchor os_gui_qualifiers
 /// \par Description:
@@ -282,5 +284,8 @@ enum class ColorSpace : uint32_t
     YUV9,
     YUV12
 };
+
+static constexpr float LONG_PRESS_DELAY = 0.5f;
+static constexpr float BEGIN_DRAG_OFFSET = 20.0f;
 
 } // namespace

@@ -57,6 +57,13 @@ Color get_standard_color(StandardColorID colorID);
 void  set_standard_color(StandardColorID colorID, Color color);
 
 
+enum class FocusKeyboardMode : uint8_t
+{
+    None,
+    Alphanumeric,
+    Numeric
+};
+
 class View : public ViewBase<View>
 {
 public:
@@ -70,7 +77,10 @@ public:
 
     Application* GetApplication() const;
     handler_id   GetServerHandle() const { return m_ServerHandle; }
-    
+
+    virtual void OnAttachedToParent(Ptr<View> parent) {}
+    virtual void OnDetachedFromParent(Ptr<View> parent) {}
+
     virtual void AttachedToScreen() {}
     virtual void AllAttachedToScreen() {}
     virtual void DetachedFromScreen() {}
@@ -111,6 +121,7 @@ public:
     virtual bool OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event)  { return OnMouseDown(pointID, position, event); }
     virtual bool OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event)    { return OnMouseUp(pointID, position, event);   }
     virtual bool OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event)  { return OnMouseMove(pointID, position, event); }
+    virtual bool OnLongPress(MouseButton_e pointID, const Point& position, const MotionEvent& event) { return false; }
 
     virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
     virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
@@ -182,6 +193,9 @@ public:
     void                Invalidate(const Rect& rect, bool recurse = false);
     void                Invalidate(bool recurse = false);
 
+    void                SetFocusKeyboardMode(FocusKeyboardMode mode);
+    FocusKeyboardMode   GetFocusKeyboardMode() const { return m_FocusKeyboardMode; }
+
     void                SetDrawingMode(DrawingMode mode);
     DrawingMode         GetDrawingMode() const;
     void                SetFont(Ptr<Font> font);
@@ -251,14 +265,14 @@ public:
     void            Flush();
     void            Sync();
 
-    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
-    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
-    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
-    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos + m_ScrollOffset; }
-    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos + m_ScrollOffset; }
-    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
+//    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
+//    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
+//    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
+//    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos + m_ScrollOffset; }
+//    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos - m_ScrollOffset; }
+//    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos + m_ScrollOffset; }
+//    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
+//    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
 
     Point       ConvertToScreen(const Point& point) const   { return m_ScreenPos + point + m_ScrollOffset; }
     void        ConvertToScreen(Point* point) const         { *point += m_ScreenPos + m_ScrollOffset; }
@@ -308,8 +322,12 @@ private:
     void SetVScrollBar(ScrollBar* scrollBar);
     void SetHScrollBar(ScrollBar* scrollBar);
 
-    void UpdatePosition(bool forceServerUpdate);
+    void SetFrameInternal(const Rect& frame, bool notifyServer);
 
+    enum class UpdatePositionNotifyServer { Never, Always, IfChanged };
+    void UpdatePosition(UpdatePositionNotifyServer notifyMode);
+
+    void SlotFrameChanged(const Rect& frame);
     void SlotKeyboardFocusChanged(bool hasFocus);
 
     handler_id      m_ServerHandle = INVALID_HANDLE;
@@ -329,7 +347,8 @@ private:
     
     SizeOverride    m_WidthOverrideType[int(PrefSizeType::Count)]  = {SizeOverride::None, SizeOverride::None};
     SizeOverride    m_HeightOverrideType[int(PrefSizeType::Count)] = {SizeOverride::None, SizeOverride::None};
-        
+
+    FocusKeyboardMode   m_FocusKeyboardMode = FocusKeyboardMode::None;
     bool            m_IsPrefSizeValid = false;
     bool            m_IsLayoutValid   = true;
     bool            m_DidScrollRect   = false;

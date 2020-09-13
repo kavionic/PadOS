@@ -35,4 +35,5 @@ target_sources(PadOS PRIVATE
 	View.cpp
 	ViewFactory.cpp
 	ViewFactoryContext.cpp
+	ViewScroller.cpp
 )

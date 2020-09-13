@@ -21,6 +21,8 @@
 
 #include <GUI/Control.h>
 #include <GUI/TextEditView.h>
+#include <GUI/ViewScroller.h>
+#include <Ptr/NoPtr.h>
 
 
 namespace os
@@ -35,17 +37,33 @@ static constexpr uint32_t ReadOnly       = 0x04 << ViewFlags::FirstUserBit;
 extern const std::map<String, uint32_t> FlagMap;
 }
 
+struct TextBoxStyle : PtrTarget
+{
+    Color   BackgroundColor         = Color(NamedColors::white);
+    Color   TextColor               = Color(NamedColors::black);
+    Color   ReadOnlyBackgroundColor = Color(NamedColors::darkgray);
+    Color   ReadOnlyTextColor       = Color(NamedColors::black);
+    Color   DisabledBackgroundColor = Color(NamedColors::darkgray);
+    Color   DisabledTextColor       = Color(NamedColors::dimgray);
+};
 
-class TextBox : public Control
+class TextBox : public Control, public ViewScroller
 {
 public:
     TextBox(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
     TextBox(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
+    static Ptr<TextBoxStyle> GetDefaultStyle() { return s_DefaultStyle; }
+
     // From View:
+    virtual void    OnFlagsChanged(uint32_t changedFlags) override;
     virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
     virtual void    FrameSized(const Point& delta) override;
     virtual void    Paint(const Rect& updateRect) override;
+
+    virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
 
     // From TextBox:
     void            SetText(const String& text) { m_Editor->SetText(text); }
@@ -53,11 +71,15 @@ public:
 
     Point           GetSizeForString(const String& text, bool includeWidth = true, bool includeHeight = true) const;
 
-    void            HandleKeyPress(KeyCodes keyCode, const String& text) { m_Editor->HandleKeyPress(keyCode, text); }
+    Ptr<const TextBoxStyle> GetStyle() const { return m_Editor->GetStyle(); }
+    void                    SetStyle(Ptr<const TextBoxStyle> style) { m_Editor->SetStyle(style); }
 
     Signal<void, const String&, bool, TextBox*> SignalTextChanged;
 private:
     void Initialize(const String& text);
+
+    static NoPtr<TextBoxStyle> s_DefaultStyle;
+
 
     Ptr<TextEditView> m_Editor;
 
@@ -65,6 +87,4 @@ private:
     TextBox& operator=(const TextBox&) = delete;
 };
 
-    
-    
 } // namespace os

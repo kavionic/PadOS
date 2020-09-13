@@ -29,4 +29,5 @@ target_sources(PadOS PRIVATE
 	ViewBase.h
 	ViewFactory.h
 	ViewFactoryContext.h
+	ViewScroller.h
 )

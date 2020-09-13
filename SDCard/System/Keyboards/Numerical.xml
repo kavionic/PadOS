@@ -1,0 +1,33 @@
+<Keyboard>
+	<Layout type="numerical">
+		<KeyRow>
+			<Key normal="7"/>
+			<Key normal="8"/>
+			<Key normal="9"/>
+			<Key normal="+"/>
+			<Key normal="/"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="4"/>
+			<Key normal="5"/>
+			<Key normal="6"/>
+			<Key normal="-"/>
+			<Key normal="*"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="1"/>
+			<Key normal="2"/>
+			<Key normal="3"/>
+			<Key normal="."/>
+			<Key normal=","/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="0"/>
+			<Key normal="SPACE" width="2"/>
+			<Key normal="BACKSPACE"/>
+			<Key normal="ENTER" width="1"/>
+		</KeyRow>
+	</Layout>
+</Keyboard>
+
+

@@ -30,7 +30,7 @@ class KeyboardView;
 class VirtualKeyboardView : public View
 {
 public:
-    VirtualKeyboardView();
+    VirtualKeyboardView(bool numerical);
 private:
     void SlotKeyPressed(KeyCodes keyCode, const String& text);
 

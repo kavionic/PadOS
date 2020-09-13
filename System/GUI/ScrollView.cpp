@@ -27,7 +27,6 @@ using namespace os;
 
 ScrollView::ScrollView(const String& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
 {
-    Initialize();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -37,30 +36,6 @@ ScrollView::ScrollView(const String& name, Ptr<View> parent, uint32_t flags) : V
 ScrollView::ScrollView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
 {
     MergeFlags(ViewFlags::WillDraw);
-    Initialize();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ScrollView::Initialize()
-{
-    m_InertialScroller.SetScrollHBounds(0.0f, 0.0f);
-    UpdateScroller();
-    m_InertialScroller.SignalUpdate.Connect(this, &ScrollView::SlotInertialScrollUpdate);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<ScrollView> ScrollView::GetScrollView(View* view)
-{
-    if (view == nullptr) return nullptr;
-
-    ScrollView* scrollView = dynamic_cast<ScrollView*>(view);
-    return (scrollView != nullptr) ? ptr_tmp_cast(scrollView) : GetScrollView(ptr_raw_pointer_cast(view->GetParent()));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -69,13 +44,13 @@ Ptr<ScrollView> ScrollView::GetScrollView(View* view)
 
 void ScrollView::FrameSized(const Point& delta)
 {
-    if (m_ClientView != nullptr)
+    Ptr<View> clientView = GetScrolledView();
+    if (clientView != nullptr)
     {
         Rect clientFrame = GetBounds();
-        Rect clientBorders = m_ClientView->GetBorders();
+        Rect clientBorders = clientView->GetBorders();
         clientFrame.Resize(clientBorders.left, clientBorders.top, clientBorders.right, clientBorders.bottom);
-        m_ClientView->SetFrame(clientFrame);
-        UpdateScroller();
+        clientView->SetFrame(clientFrame);
     }
 }
 
@@ -132,11 +107,12 @@ bool ScrollView::OnTouchMove(MouseButton_e pointID, const Point& position, const
 
 void ScrollView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
 {
-    if (m_ClientView != nullptr)
+    Ptr<View> clientView = GetScrolledView();
+    if (clientView != nullptr)
     {
-        *minSize = m_ClientView->GetPreferredSize(PrefSizeType::Smallest);
-        *maxSize = m_ClientView->GetPreferredSize(PrefSizeType::Greatest);
-        Rect  clientBorders = m_ClientView->GetBorders();
+        *minSize = clientView->GetPreferredSize(PrefSizeType::Smallest);
+        *maxSize = clientView->GetPreferredSize(PrefSizeType::Greatest);
+        Rect  clientBorders = clientView->GetBorders();
         Point borderSize(clientBorders.left + clientBorders.right, clientBorders.top + clientBorders.bottom);
 
         *minSize += borderSize;
@@ -152,80 +128,19 @@ void ScrollView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool inc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollView::BeginSwipe(const Point& position)
+Ptr<View> ScrollView::SetScrolledView(Ptr<View> view)
 {
-    if (m_ClientView != nullptr)
-    {
-        const Rect bounds = m_ClientView->GetBounds();
-        if (m_ClientView->GetContentSize().y > bounds.Height())
-        {
-            m_InertialScroller.BeginDrag(m_ClientView->GetScrollOffset(), ConvertToRoot(position));
-        }
+    Ptr<View> prevClient = ViewScroller::SetScrolledView(view);
+    if (prevClient == view) {
+        return prevClient;
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ScrollView::SwipeMove(const Point& position)
-{
-    m_InertialScroller.AddUpdate(ConvertToRoot(position));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ScrollView::EndSwipe()
-{
-    m_InertialScroller.EndDrag();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ScrollView::SlotInertialScrollUpdate(const Point& position)
-{
-    if (m_ClientView != nullptr) {
-        m_ClientView->ScrollTo(position);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<View> ScrollView::SetClientView(Ptr<View> view)
-{
-    if (m_ClientView != nullptr)
+    if (prevClient != nullptr)
     {
-        m_ClientView->SignalContentSizeChanged.Disconnect(this, &ScrollView::UpdateScroller);
-        m_ClientView->RemoveThis();
-        m_ClientView->ScrollTo(0.0f, 0.0f);
+        RemoveChild(prevClient);
     }
-    Ptr<View> prevClient = m_ClientView;
-    m_ClientView = view;
-    if (m_ClientView != nullptr)
+    if (view != nullptr)
     {
-        AddChild(m_ClientView);
-        m_ClientView->SignalContentSizeChanged.Connect(this, &ScrollView::UpdateScroller);
-        UpdateScroller();
+        AddChild(view);
     }
     return prevClient;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ScrollView::UpdateScroller()
-{
-    if (m_ClientView != nullptr)
-    {
-        Rect  frame = m_ClientView->GetFrame();
-        Point contentSize = m_ClientView->GetContentSize();
-        m_InertialScroller.SetScrollVBounds(frame.Height() - contentSize.y, 0.0f);
-    }
 }

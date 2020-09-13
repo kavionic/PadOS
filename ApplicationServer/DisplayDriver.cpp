@@ -1370,10 +1370,18 @@ float DisplayDriver::GetStringWidth(Font_e fontID, const char* string, size_t le
     {
         float width = 0.0f;
 
-        while (length--)
+        while (length > 0)
         {
-            uint8_t character = *(string++);
-            if (character < font->startChar) character = font->startChar;
+            int charLen = utf8_char_length(*string);
+            if (charLen > length) {
+                break;
+            }
+            uint32_t character = utf8_to_unicode(string);
+            string += charLen;
+            length -= charLen;
+
+            if (character < font->startChar) continue;
+
             const FONT_CHAR_INFO* charInfo = font->charInfo + character - font->startChar;
             width += float(charInfo->widthBits);
             if (length != 0) {
@@ -1404,12 +1412,14 @@ size_t DisplayDriver::GetStringLength(Font_e fontID, const char* string, size_t 
         if (charLen > length) {
             break;
         }
-        int character = utf8_to_unicode(string);
-        if (character < font->startChar || character > font->endChar) character = font->startChar;
-
-        const FONT_CHAR_INFO* charInfo = font->charInfo + character - font->startChar;
-        float advance = float(charInfo->widthBits + CHARACTER_SPACING);
-
+        uint32_t character = utf8_to_unicode(string);
+        
+        float advance = 0.0f;
+        if (character >= font->startChar && character <= font->endChar)
+        {
+            const FONT_CHAR_INFO* charInfo = font->charInfo + character - font->startChar;
+            advance = float(charInfo->widthBits + CHARACTER_SPACING);
+        }
         if (width < advance)
         {
             if (includeLast) {

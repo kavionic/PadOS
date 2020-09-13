@@ -41,12 +41,14 @@ public:
 private:
     void SlotRegisterView(handler_id viewHandle, os::ViewDockType dockType, const os::String& name, const os::Rect& frame);
     void SlotUnregisterView(handler_id viewHandle);
-    void SlotEnableVKeyboard(bool enable);
+    void SlotEnableVKeyboard(const Rect& focusViewEditArea, bool numerical);
+    void SlotDisableVKeyboard();
     void SlotKeyboardAnimTimer();
 
     os::ASWindowManagerRegisterView::Receiver       RSWindowManagerRegisterView;
     os::ASWindowManagerUnregisterView::Receiver     RSWindowManagerUnregisterView;
     os::ASWindowManagerEnableVKeyboard::Receiver    RSWindowManagerEnableVKeyboard;
+    os::ASWindowManagerDisableVKeyboard::Receiver   RSWindowManagerDisableVKeyboard;
 
     Ptr<os::View> m_TopView;
     Ptr<os::View> m_SidebarView;
@@ -56,6 +58,7 @@ private:
     bool                                m_IsKeyboardActive = false;
     EventTimer                          m_KeyboardAnimTimer;
     ValueAnimator<float, EasingCurve>   m_KeyboardAnimator;
+    ValueAnimator<float, EasingCurve>   m_TargetAnimator;
 
     WindowManager(const WindowManager&) = delete;
     WindowManager& operator=(const WindowManager&) = delete;

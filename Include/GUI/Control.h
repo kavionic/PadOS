@@ -33,7 +33,7 @@ namespace os
 ///////////////////////////////////////////////////////////////////////////////
 
 
-class Control	: public View
+class Control : public View
 {
 public:
     static constexpr int32_t INVALID_ID = -1;

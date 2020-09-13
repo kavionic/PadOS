@@ -51,6 +51,8 @@ public:
     void            SetPeriod(TimeValMicros period) { m_Period = period; }
     TimeValMicros   GetPeriod() const { return m_Period; }
 
+    void        SetRange(const VALUE_TYPE& startValue, const VALUE_TYPE& endValue) { m_StartValue = startValue; m_EndValue = endValue; }
+
     void        SetStartValue(const VALUE_TYPE& value) { m_StartValue = value; }
     VALUE_TYPE  GetStartValue() const { return m_StartValue; }
 

@@ -57,6 +57,7 @@ const std::map<String, uint32_t> ViewFlags::FlagMap
 
 static Color g_DefaultColors[] =
 {
+    [int(StandardColorID::None)]                    = Color(0, 0, 0),
     [int(StandardColorID::DefaultBackground)]       = Color(NamedColors::darkgray),
     [int(StandardColorID::Shine)]                   = Color(NamedColors::white),
     [int(StandardColorID::Shadow)]                  = Color(NamedColors::black),
@@ -296,7 +297,7 @@ View::View(Ptr<View> parent, handler_id serverHandle, const String& name, const 
 void View::Initialize()
 {
     RegisterRemoteSignal(&RSPaintView, &View::HandlePaint);
-    RegisterRemoteSignal(&RSViewFrameChanged, &View::SetFrame);
+    RegisterRemoteSignal(&RSViewFrameChanged, &View::SlotFrameChanged);
     RegisterRemoteSignal(&RSViewFocusChanged, &View::SlotKeyboardFocusChanged);
     RegisterRemoteSignal(&RSHandleMouseDown, &View::SlotHandleMouseDown);
     RegisterRemoteSignal(&RSHandleMouseUp, &View::HandleMouseUp);
@@ -833,9 +834,6 @@ void View::ContentSizeChanged()
 void View::AddChild(Ptr<View> child)
 {
     LinkChild(child, true);
-    if (HasFlags(ViewFlags::IsAttachedToScreen)) {
-        PreferredSizeChanged();
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -967,21 +965,7 @@ bool View::HasKeyboardFocus() const
 
 void View::SetFrame(const Rect& frame)
 {
-    Point deltaSize = frame.Size() - m_Frame.Size();
-    Point deltaPos  = frame.TopLeft() - m_Frame.TopLeft();
-    m_Frame = frame;
-
-    UpdatePosition(true);
-    if (deltaSize != Point(0.0f, 0.0f))
-    {
-        FrameSized(deltaSize);
-        SignalFrameSized(deltaSize, ptr_tmp_cast(this));
-    }
-    if (deltaPos != Point(0.0f, 0.0f))
-    {
-        FrameMoved(deltaPos);
-        SignalFrameMoved(deltaSize, ptr_tmp_cast(this));
-    }
+    SetFrameInternal(frame, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1069,6 +1053,19 @@ void View::Invalidate(bool recurse)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void View::SetFocusKeyboardMode(FocusKeyboardMode mode)
+{
+    if (mode != m_FocusKeyboardMode)
+    {
+        m_FocusKeyboardMode = mode;
+        Post<ASViewSetFocusKeyboardMode>(m_FocusKeyboardMode);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void View::SetDrawingMode(DrawingMode mode)
 {
     if (mode != m_DrawingMode)
@@ -1139,7 +1136,7 @@ bool View::HandleMouseDown(MouseButton_e button, const Point& position, const Mo
     {
         Application* app = GetApplication();
         if (app != nullptr) {
-            app->SetMouseDownView(button, ptr_tmp_cast(this));
+            app->SetMouseDownView(button, ptr_tmp_cast(this), event);
         }
     }
     else
@@ -1183,8 +1180,6 @@ void View::HandleMouseUp(MouseButton_e button, const Point& position, const Moti
     Ptr<View> mouseView = (app != nullptr) ? app->GetMouseDownView(button) : nullptr;
     if (mouseView != nullptr)
     {
-//        printf("View::HandleMouseUp() %p '%s'\n", ptr_raw_pointer_cast(mouseView), mouseView->GetName().c_str());
-
         if (button < MouseButton_e::FirstTouchID) {
             mouseView->OnMouseUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), event);
         } else {
@@ -1231,7 +1226,7 @@ void View::ScrollBy(const Point& offset)
     }
 
     m_ScrollOffset += offset;
-    UpdatePosition(false);
+    UpdatePosition(View::UpdatePositionNotifyServer::IfChanged);
     Post<ASViewScrollBy>(offset);
 
     if (offset.x != 0 && m_HScrollBar != nullptr) {
@@ -1427,13 +1422,16 @@ void View::Sync()
 
 void View::HandleAddedToParent(Ptr<View> parent)
 {
-    UpdatePosition(false);
-    if (parent->HasFlags(ViewFlags::IsAttachedToScreen) && !HasFlags(ViewFlags::Eavesdropper))
+    UpdatePosition(View::UpdatePositionNotifyServer::IfChanged);
+    if (parent->HasFlags(ViewFlags::IsAttachedToScreen))
     {
-        parent->GetApplication()->AddView(ptr_tmp_cast(this), ViewDockType::ChildView);
+        if (!HasFlags(ViewFlags::Eavesdropper)) {
+            parent->GetApplication()->AddView(ptr_tmp_cast(this), ViewDockType::ChildView);
+        }
     }
-    /*parent->*/PreferredSizeChanged();
+    PreferredSizeChanged();
     parent->InvalidateLayout();
+    OnAttachedToParent(parent);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1444,9 +1442,10 @@ void View::HandleAddedToParent(Ptr<View> parent)
     
 void View::HandleRemovedFromParent(Ptr<View> parent)
 {
+    OnDetachedFromParent(parent);
     if (m_ServerHandle != -1 && !HasFlags(ViewFlags::Eavesdropper)) {
         GetApplication()->RemoveView(ptr_tmp_cast(this));
-        UpdatePosition(false);
+        UpdatePosition(View::UpdatePositionNotifyServer::IfChanged);
     }
 }
 
@@ -1458,7 +1457,6 @@ void View::HandleRemovedFromParent(Ptr<View> parent)
 
 void View::HandleDetachedFromScreen()
 {
-    m_ServerHandle = -1;
     DetachedFromScreen();
     for (Ptr<View> child : m_ChildrenList) {
         child->HandleDetachedFromScreen();
@@ -1499,7 +1497,8 @@ void View::UpdateRingSize()
             m_PreferredSizes[int(PrefSizeType::Smallest)] = m_LocalPrefSize[int(PrefSizeType::Smallest)];
             m_PreferredSizes[int(PrefSizeType::Greatest)] = m_LocalPrefSize[int(PrefSizeType::Greatest)];
             Ptr<View> parent = GetParent();
-            if (parent != nullptr) {
+            if (parent != nullptr)
+            {
                 parent->PreferredSizeChanged();
                 parent->InvalidateLayout();
             }          
@@ -1631,7 +1630,31 @@ void View::SetHScrollBar(ScrollBar* scrollBar)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::UpdatePosition(bool forceServerUpdate)
+void View::SetFrameInternal(const Rect& frame, bool notifyServer)
+{
+    const Point deltaSize = frame.Size() - m_Frame.Size();
+    const Point deltaPos = frame.TopLeft() - m_Frame.TopLeft();
+
+    m_Frame = frame;
+
+    UpdatePosition(notifyServer ? View::UpdatePositionNotifyServer::Always : View::UpdatePositionNotifyServer::Never);
+    if (deltaSize != Point(0.0f, 0.0f))
+    {
+        FrameSized(deltaSize);
+        SignalFrameSized(deltaSize, ptr_tmp_cast(this));
+    }
+    if (deltaPos != Point(0.0f, 0.0f))
+    {
+        FrameMoved(deltaPos);
+        SignalFrameMoved(deltaSize, ptr_tmp_cast(this));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::UpdatePosition(UpdatePositionNotifyServer notifyMode)
 {
     Point newOffset;
     Point newScreenPos;
@@ -1650,7 +1673,7 @@ void View::UpdatePosition(bool forceServerUpdate)
             newScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
         }
     }
-    if (forceServerUpdate || newOffset != m_PositionOffset)
+    if (notifyMode == View::UpdatePositionNotifyServer::Always || (notifyMode == View::UpdatePositionNotifyServer::IfChanged && newOffset != m_PositionOffset))
     {
         m_PositionOffset = newOffset;
         if (m_ServerHandle != INVALID_HANDLE)
@@ -1662,11 +1685,16 @@ void View::UpdatePosition(bool forceServerUpdate)
     m_ScreenPos = newScreenPos;
 
     for (Ptr<View> child : m_ChildrenList) {
-        child->UpdatePosition(false);
+        child->UpdatePosition((notifyMode == View::UpdatePositionNotifyServer::Never) ? View::UpdatePositionNotifyServer::Never : View::UpdatePositionNotifyServer::IfChanged);
     }
     if (deltaScreenPos.x != 0.0f || deltaScreenPos.y != 0.0f) {
         ScreenFrameMoved(deltaScreenPos);
     }
+}
+
+void View::SlotFrameChanged(const Rect& frame)
+{
+    SetFrameInternal(frame, false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

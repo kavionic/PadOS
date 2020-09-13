@@ -49,6 +49,14 @@ public:
     void SetScrollVBounds(float top, float bottom) { m_ScrollBounds.top = top; m_ScrollBounds.bottom = bottom; }
     Rect GetScrollBounds() const { return m_ScrollBounds; }
 
+    void  SetMaxHOverscroll(float value)    { m_MaxHOverscroll = value; }
+    float GetMaxHOverscroll() const         { return m_MaxHOverscroll; }
+
+    void  SetMaxVOverscroll(float value)    { m_MaxVOverscroll = value; }
+    float GetMaxVOverscroll() const         { return m_MaxVOverscroll; }
+
+    void  SetMaxOverscroll(float horizontal, float vertical)    { m_MaxHOverscroll = horizontal; m_MaxVOverscroll = vertical; }
+
     void SetDetentSpacing(const Point& spacing) { m_DetentSpacing = spacing; }
     void SetDetentSpacing(float horizontal, float vertical) { SetDetentSpacing(Point(horizontal, vertical)); }
     Point GetDetentSpacing() const              { return m_DetentSpacing; }

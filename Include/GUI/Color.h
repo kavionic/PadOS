@@ -20,6 +20,7 @@
 #pragma once
 
 #include <GUI/NamedColors.h>
+#include <GUI/GUIDefines.h>
 
 
 namespace os
@@ -90,6 +91,24 @@ struct Color
     void  Invert() { SetRGBA(uint8_t(255 - GetRed()), uint8_t(255 - GetGreen()), uint8_t(255 - GetBlue()), GetAlpha()); }
 
     uint32_t m_Color;
+};
+
+class DynamicColor : public Color
+{
+public:
+    constexpr DynamicColor() {}
+    constexpr DynamicColor(const DynamicColor& color) : Color(color.m_Color) {}
+    explicit constexpr DynamicColor(const Color& color) : Color(color.m_Color) {}
+    explicit constexpr DynamicColor(uint32_t color32) : Color(color32) {}
+    constexpr DynamicColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : Color(r, g, b, a) {}
+
+    DynamicColor(NamedColors colorID) : Color(colorID) {}
+    DynamicColor(const String& name) : Color(name) {}
+
+    DynamicColor(StandardColorID colorID);
+
+private:
+//    StandardColorID m_StandardColorID = StandardColorID::None;
 };
 
 } // namespace

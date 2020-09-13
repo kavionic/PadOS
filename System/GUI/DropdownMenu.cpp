@@ -25,7 +25,8 @@
 
 #include "DropdownMenuPopupView.h"
 
-using namespace os;
+namespace os
+{
 using namespace osi;
 
 
@@ -43,11 +44,16 @@ static const uint32_t g_ArrowBitmapRaster[] =
     0b00000000010000000000000000000000
 };
 
-static constexpr int    ARROW_WIDTH  = 19;
+static constexpr int    ARROW_WIDTH = 19;
 static constexpr int    ARROW_HEIGHT = 10;
 static constexpr float  ARROW_BUTTON_ASPECT_RATIO = 0.9f;
 
 static Ptr<Bitmap> g_ArrowBitmap;
+
+const std::map<String, uint32_t> DropdownMenuFlags::FlagMap
+{
+    DEFINE_FLAG_MAP_ENTRY(DropdownMenuFlags, ReadOnly)
+};
 
 /** DropdownMenu constructor
  * \param cFrame - The size and position of the edit box and it's associated button.
@@ -62,7 +68,7 @@ static Ptr<Bitmap> g_ArrowBitmap;
 DropdownMenu::DropdownMenu(const String& name, Ptr<View> parent, uint32_t flags) :
     Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
-    m_EditBox = ptr_new<TextBox>("text_view", String::zero, ptr_tmp_cast(this), TextBoxFlags::RaisedFrame);
+    m_EditBox = ptr_new<TextBox>("text_view", String::zero, ptr_tmp_cast(this), HasFlags(DropdownMenuFlags::ReadOnly) ? (TextBoxFlags::ReadOnly | TextBoxFlags::RaisedFrame) : 0);
     FrameSized(Point(0, 0));
 
     m_EditBox->SignalTextChanged.Connect(this, &DropdownMenu::SlotTextChanged);
@@ -89,6 +95,31 @@ DropdownMenu::DropdownMenu(const String& name, Ptr<View> parent, uint32_t flags)
 ///////////////////////////////////////////////////////////////////////////////
 
 DropdownMenu::~DropdownMenu()
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void DropdownMenu::OnFlagsChanged(uint32_t changedFlags)
+{
+    Control::OnFlagsChanged(changedFlags);
+    if (changedFlags & DropdownMenuFlags::ReadOnly)
+    {
+        if (HasFlags(DropdownMenuFlags::ReadOnly)) {
+            m_EditBox->MergeFlags(TextBoxFlags::ReadOnly | TextBoxFlags::RaisedFrame);
+        } else {
+            m_EditBox->ClearFlags(TextBoxFlags::ReadOnly | TextBoxFlags::RaisedFrame);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void DropdownMenu::DetachedFromScreen()
 {
     CloseMenu();
 }
@@ -207,33 +238,6 @@ void DropdownMenu::OnEnableStatusChanged(bool isEnabled)
     Invalidate();
     Flush();
 }
-
-/** Change the "read-only" status.
- * \par Description:
- *  When the DropdownMenu is set in read-only mode the user will not be able
- *  to edit the contents of the edit box. It will also make the menu open
- *  when the user click inside the edit box.
- * \param bFlag - Is true the menu will be read-only, if false it will be read/write.
- * \sa GetReadOnly()
- * \author  Kurt Skauen (kurt@atheos.cx)
- *//////////////////////////////////////////////////////////////////////////////
-
-
-//void DropdownMenu::SetReadOnly(bool bFlag)
-//{
-//    m_EditBox->SetReadOnly();
-//}
-
-/** Returns the read-only status.
- * \return true if read only, false if read/write.
- * \sa SetReadOnly()
- * \author  Kurt Skauen (kurt@atheos.cx)
- *//////////////////////////////////////////////////////////////////////////////
-
-//bool DropdownMenu::GetReadOnly() const
-//{
-//    return(m_EditBox->GetReadOnly());
-//}
 
 /** Add a item to the end of the drop down list.
  * \param pzString - The string to be appended
@@ -506,3 +510,5 @@ void DropdownMenu::SlotSelectionChanged(size_t selection, bool finalUpdate)
         CloseMenu();
     }
 }
+
+} // namespace os

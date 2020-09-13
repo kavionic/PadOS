@@ -19,19 +19,24 @@
 #include <GUI/DropdownMenu.h>
 #include "DropdownMenuPopupView.h"
 
-using namespace os;
-using namespace osi;
+namespace os
+{
+namespace osi
+{
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<String>& itemList, size_t selection) : ScrollView(String::zero)
+DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<String>& itemList, size_t selection) : View(String::zero, nullptr, ViewFlags::WillDraw)
 {
     m_ContentView = ptr_new<DropdownMenuPopupView>(itemList, selection, SignalSelectionChanged);
     m_ContentView->SetBorders(2.0f, 4.0f, 2.0f, 4.0f);
-    SetClientView(m_ContentView);
+    SetScrolledView(m_ContentView);
+
+    AddChild(m_ContentView);
+    FrameSized(Point());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -42,6 +47,33 @@ void DropdownMenuPopupWindow::Paint(const Rect& updateRect)
 {
     SetEraseColor(255, 255, 255);
     DrawFrame(GetBounds(), FRAME_RECESSED);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void DropdownMenuPopupWindow::FrameSized(const Point& delta)
+{
+    Rect contentFrame = GetBounds();
+    Rect contentBorders = m_ContentView->GetBorders();
+    contentFrame.Resize(contentBorders.left, contentBorders.top, contentBorders.right, contentBorders.bottom);
+    m_ContentView->SetFrame(contentFrame);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void DropdownMenuPopupWindow::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+{
+    *minSize = m_ContentView->GetPreferredSize(PrefSizeType::Smallest);
+    *maxSize = m_ContentView->GetPreferredSize(PrefSizeType::Greatest);
+    Rect  clientBorders = m_ContentView->GetBorders();
+    Point borderSize(clientBorders.left + clientBorders.right, clientBorders.top + clientBorders.bottom);
+
+    *minSize += borderSize;
+    *maxSize += borderSize;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -108,7 +140,7 @@ void DropdownMenuPopupView::Paint(const Rect& updateRect)
                 SetFgColor(0, 0, 200);
             }
 
-            itemFrame.top    = y;
+            itemFrame.top = y;
             itemFrame.bottom = itemFrame.top + m_GlyphHeight;
             FillRect(itemFrame);
 
@@ -162,7 +194,7 @@ bool DropdownMenuPopupView::OnTouchDown(MouseButton_e pointID, const Point& posi
     if (m_HitButton != MouseButton_e::None) {
         return View::OnTouchDown(pointID, position, event);
     }
-    m_HitPos    = position;
+    m_HitPos = position;
     m_HitButton = pointID;
 
     m_HitItem = PositionToIndex(position);
@@ -186,14 +218,14 @@ bool DropdownMenuPopupView::OnTouchUp(MouseButton_e pointID, const Point& positi
     if (pointID != m_HitButton) {
         return View::OnTouchUp(pointID, position, event);
     }
-    
+
     m_HitButton = MouseButton_e::None;
 
     if (m_MouseMoved)
     {
-        Ptr<ScrollView> scrollView = ScrollView::GetScrollView(this);
-        if (scrollView != nullptr) {
-            scrollView->EndSwipe();
+        ViewScroller* viewScroller = ViewScroller::GetViewScroller(this);
+        if (viewScroller != nullptr) {
+            viewScroller->EndSwipe();
         }
         m_MouseMoved = false;
     }
@@ -216,9 +248,9 @@ bool DropdownMenuPopupView::OnTouchMove(MouseButton_e pointID, const Point& posi
     }
     if (m_MouseMoved)
     {
-        Ptr<ScrollView> scrollView = ScrollView::GetScrollView(this);
-        if (scrollView != nullptr) {
-            scrollView->SwipeMove(position);
+        ViewScroller* viewScroller = ViewScroller::GetViewScroller(this);
+        if (viewScroller != nullptr) {
+            viewScroller->SwipeMove(position);
         }
         if (m_HitItem != INVALID_INDEX)
         {
@@ -234,9 +266,9 @@ bool DropdownMenuPopupView::OnTouchMove(MouseButton_e pointID, const Point& posi
     {
         if ((position - m_HitPos).LengthSqr() > 20.0f * 20.0f)
         {
-            Ptr<ScrollView> scrollView = ScrollView::GetScrollView(this);
-            if (scrollView != nullptr) {
-                scrollView->BeginSwipe(position);
+            ViewScroller* viewScroller = ViewScroller::GetViewScroller(this);
+            if (viewScroller != nullptr) {
+                viewScroller->BeginSwipe(position);
             }
             m_MouseMoved = true;
         }
@@ -342,6 +374,10 @@ size_t DropdownMenuPopupView::PositionToIndex(const Point& position)
     newSelection = size_t(position.y / m_GlyphHeight);
     if (newSelection >= m_ItemList.size()) {
         newSelection = m_ItemList.size() - 1;
-    }   
+    }
     return newSelection;
 }
+
+} // namespace osi
+} // namespace os
+

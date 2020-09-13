@@ -20,6 +20,7 @@
 #include <GUI/TextEditView.h>
 #include <GUI/TextBox.h>
 #include <Utils/UTF8Utils.h>
+#include <Utils/Utils.h>
 
 namespace os
 {
@@ -51,8 +52,11 @@ TextEditView::TextEditView(ViewFactoryContext* context, Ptr<View> parent, const 
 
 void TextEditView::Initialize()
 {
+    m_Style = TextBox::GetDefaultStyle();
     m_CursorTimer.Set(TimeValMicros::FromSeconds(0.8));
     m_CursorTimer.SignalTrigged.Connect(this, &TextEditView::SlotCursorTimer);
+
+    SetFocusKeyboardMode(FocusKeyboardMode::Alphanumeric);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -70,6 +74,7 @@ TextEditView::~TextEditView()
 void TextEditView::OnKeyboardFocusChanged(bool hasFocus)
 {
     UpdateCursorTimer();
+    ContentSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -81,6 +86,7 @@ void TextEditView::OnFlagsChanged(uint32_t changedFlags)
     Control::OnFlagsChanged(changedFlags);
     if (changedFlags & TextBoxFlags::ReadOnly) {
         if (HasFlags(TextBoxFlags::ReadOnly)) SetKeyboardFocus(false);
+        Invalidate();
     }
 }
 
@@ -99,17 +105,45 @@ void TextEditView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+Point TextEditView::GetContentSize() const
+{
+    Point size = GetSizeForString(m_Text, true, true);
+    if (!HasFlags(TextBoxFlags::ReadOnly) && HasKeyboardFocus()) {
+        size.x += 10.0f;
+    }
+    return size;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void TextEditView::Paint(const Rect& updateRect)
 {
+    if (!IsEnabled())
+    {
+        SetBgColor(m_Style->DisabledBackgroundColor);
+        SetFgColor(m_Style->DisabledTextColor);
+    }
+    else if (HasFlags(TextBoxFlags::ReadOnly))
+    {
+        SetBgColor(m_Style->ReadOnlyBackgroundColor);
+        SetFgColor(m_Style->ReadOnlyTextColor);
+    }
+    else
+    {
+        SetBgColor(m_Style->BackgroundColor);
+        SetFgColor(m_Style->TextColor);
+    }
+
     SetEraseColor(GetBgColor());
     Rect bounds = GetBounds();
     EraseRect(bounds);
 
     MovePenTo(0.0f, 0.0f);
-    SetFgColor(0, 0, 0);
     DrawString(m_Text);
 
-    if (!HasFlags(TextBoxFlags::ReadOnly) && HasKeyboardFocus() && (m_CursorActive || m_CursorFrozen)) {
+    if (m_CursorVisible) {
         FillRect(GetCursorFrame());
     }
 }
@@ -121,20 +155,23 @@ void TextEditView::Paint(const Rect& updateRect)
 bool TextEditView::OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event)
 {
     if (HasFlags(TextBoxFlags::ReadOnly) || m_HitButton != MouseButton_e::None) {
-        return View::OnTouchDown(pointID, position, event);
+        return false;
     }
+
     if (GetBounds().DoIntersect(position))
     {
-        m_HitButton = pointID;
-        m_HitPos = position;
-
-        SetKeyboardFocus(true);
-
-        SetCursorPos(ViewPosToCursorPos(position));
-
-        m_CursorFrozen = true;
         MakeFocus(pointID, true);
-        UpdateCursorTimer();
+
+        m_HitButton = pointID;
+        m_HitPos    = position;
+
+        m_IsScrolling = false;
+
+        if (HasKeyboardFocus())
+        {
+            m_CursorFrozen = true;
+            UpdateCursorTimer();
+        }
     }
     else
     {
@@ -150,10 +187,28 @@ bool TextEditView::OnTouchDown(MouseButton_e pointID, const Point& position, con
 bool TextEditView::OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event)
 {
     if (pointID != m_HitButton) {
-        return View::OnTouchUp(pointID, position, event);
+        return false;
     }
-    m_CursorFrozen = false;
-    m_HitButton = MouseButton_e::None;
+
+    if (m_IsScrolling)
+    {
+        ViewScroller* scroller = ViewScroller::GetViewScroller(this);
+        if (scroller != nullptr) {
+            scroller->EndSwipe();
+        }
+    }
+    else
+    {
+        if (!m_IsDraggingCursor) {
+            SetCursorPos(ViewPosToCursorPos(position));
+        }
+        SetKeyboardFocus(true);
+    }
+    m_IsScrolling       = false;
+    m_IsDraggingCursor  = false;
+    m_CursorFrozen      = false;
+    m_HitButton         = MouseButton_e::None;
+
     MakeFocus(pointID, false);
 
     UpdateCursorTimer();
@@ -167,12 +222,74 @@ bool TextEditView::OnTouchUp(MouseButton_e pointID, const Point& position, const
 bool TextEditView::OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event)
 {
     if (pointID != m_HitButton) {
-        return View::OnTouchMove(pointID, position, event);
+        return false;
     }
-    SetCursorPos(ViewPosToCursorPos(position));
+
+    if (HasKeyboardFocus())
+    {
+        if (!m_IsDraggingCursor && (position - m_HitPos).LengthSqr() > square(20.0f)) {
+            m_IsDraggingCursor = true;
+            m_HitPos.x -= m_CursorViewPos.x;
+        }
+        if (m_IsDraggingCursor) {
+            SetCursorPos(ViewPosToCursorPos(position - m_HitPos));
+        }
+    }
+    else if (!m_IsScrolling)
+    {
+        if ((position - m_HitPos).LengthSqr() > square(20.0f))
+        {
+            m_IsScrolling = true;
+            ViewScroller* scroller = ViewScroller::GetViewScroller(this);
+            if (scroller != nullptr) {
+                scroller->BeginSwipe(ConvertToScreen(m_HitPos));
+            }
+        }
+    }
+    else
+    {
+        ViewScroller* scroller = ViewScroller::GetViewScroller(this);
+        if (scroller != nullptr) {
+            scroller->SwipeMove(ConvertToScreen(position));
+        }
+    }
 
     return true;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void TextEditView::OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& event)
+{
+    if (keyCode == KeyCodes::CURSOR_LEFT)
+    {
+        MoveCursor(-1);
+    }
+    else if (keyCode == KeyCodes::CURSOR_RIGHT)
+    {
+        MoveCursor(1);
+    }
+    else if (keyCode == KeyCodes::BACKSPACE)
+    {
+        if (m_CursorPos != 0)
+        {
+            if (MoveCursor(-1)) {
+                Delete();
+            }
+        }
+    }
+    else if (keyCode == KeyCodes::ENTER)
+    {
+        SetKeyboardFocus(false);
+    }
+    else if (!text.empty())
+    {
+        InsertText(text);
+    }
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -183,6 +300,7 @@ void TextEditView::SetText(const String& text)
     m_Text = text;
 
     PreferredSizeChanged();
+    ContentSizeChanged();
     Invalidate();
 
     SignalTextChanged(m_Text, true, this);
@@ -201,6 +319,7 @@ void TextEditView::InsertText(const String& text)
     SetCursorPos(m_CursorPos + text.size());
 
     PreferredSizeChanged();
+    ContentSizeChanged();
     if (damageRect.IsValid()) {
         Invalidate(damageRect);
     }
@@ -215,6 +334,7 @@ void TextEditView::Delete()
 {
     m_Text.erase(m_Text.begin() + m_CursorPos);
     PreferredSizeChanged();
+    ContentSizeChanged();
     Rect damageRect = GetBounds();
     damageRect.left = m_CursorViewPos.x;
     if (damageRect.IsValid()) {
@@ -261,11 +381,48 @@ bool TextEditView::SetCursorPos(size_t position)
     if (position > m_Text.size()) position = m_Text.size();
     if (position != m_CursorPos)
     {
-        Invalidate(GetCursorFrame());
+        if (m_CursorVisible) {
+            Invalidate(GetCursorFrame());
+        }
         m_CursorPos = position;
         m_CursorViewPos.x = GetStringWidth(m_Text.c_str(), m_CursorPos);
-        Invalidate(GetCursorFrame());
 
+        if (m_CursorTimer.IsRunning())
+        {
+            m_CursorTimer.Stop();
+            m_CursorVisible = true;
+            m_CursorTimer.Start(false, GetLooper());
+        }
+        if (m_CursorVisible) {
+            Invalidate(GetCursorFrame());
+        }
+        if (HasKeyboardFocus())
+        {
+            Rect bounds = GetBounds();
+            float maxScroll = bounds.Width() - GetContentSize().x;
+            if (maxScroll < 0.0f)
+            {
+                float prevOffset = GetScrollOffset().x;
+                float offset = prevOffset;
+                if (m_CursorViewPos.x < bounds.left + 20.0f)
+                {
+                    offset = std::clamp(20.0f - m_CursorViewPos.x, maxScroll, 0.0f);
+                }
+                else if (m_CursorViewPos.x > bounds.right - 20.0f)
+                {
+                    offset = std::clamp(bounds.Width() - m_CursorViewPos.x - 20.0f, maxScroll, 0.0f);
+                }
+                if (offset != prevOffset)
+                {
+                    m_HitPos.x += prevOffset - offset;
+                    ScrollTo(offset, 0.0f);
+                }
+            }
+            else
+            {
+                ScrollTo(0.0f, 0.0f);
+            }
+        }
         return true;
     }
     return false;
@@ -311,25 +468,23 @@ Point TextEditView::GetSizeForString(const String& text, bool includeWidth, bool
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextEditView::HandleKeyPress(KeyCodes keyCode, const String& text)
+Ptr<const TextBoxStyle> TextEditView::GetStyle() const
 {
-    if (keyCode == KeyCodes::BACKSPACE)
-    {
-        if (m_CursorPos != 0)
-        {
-            if (MoveCursor(-1)) {
-                Delete();
-            }
-        }
+    return m_Style;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void TextEditView::SetStyle(Ptr<const TextBoxStyle> style)
+{
+    if (style != nullptr) {
+        m_Style = style;
+    } else {
+        m_Style = TextBox::GetDefaultStyle();
     }
-    if (keyCode == KeyCodes::ENTER)
-    {
-        SetKeyboardFocus(false);
-    }
-    else if (!text.empty())
-    {
-        InsertText(text);
-    }
+    Invalidate();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -349,23 +504,28 @@ Rect TextEditView::GetCursorFrame()
 
 void TextEditView::UpdateCursorTimer()
 {
-    if (!m_CursorFrozen && HasKeyboardFocus())
+    const bool hasFocus = !HasFlags(TextBoxFlags::ReadOnly) && HasKeyboardFocus();
+    bool showCursor = m_CursorVisible;
+    if (!m_CursorFrozen && hasFocus)
     {
         if (!m_CursorTimer.IsRunning())
         {
-            m_CursorActive = true;
+            showCursor = true;
             m_CursorTimer.Start(false, GetLooper());
-            Invalidate(GetCursorFrame());
         }
-    }
+    }                                                                                                                                
     else
     {
         if (m_CursorTimer.IsRunning())
         {
-            m_CursorActive = false;
             m_CursorTimer.Stop();
-            Invalidate(GetCursorFrame());
         }
+        showCursor = hasFocus; // false if no focus, true if frozen.
+    }
+    if (showCursor != m_CursorVisible)
+    {
+        m_CursorVisible = showCursor;
+        Invalidate(GetCursorFrame());
     }
 }
 
@@ -375,7 +535,7 @@ void TextEditView::UpdateCursorTimer()
 
 void TextEditView::SlotCursorTimer()
 {
-    m_CursorActive = !m_CursorActive;
+    m_CursorVisible = !m_CursorVisible;
     Invalidate(GetCursorFrame());
 }
 

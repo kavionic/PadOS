@@ -51,21 +51,22 @@ ServerApplication::ServerApplication(ApplicationServer* server, const String& na
     RegisterRemoteSignal(&RSViewBeginUpdate,    &ServerApplication::SlotViewBeginUpdate);
     RegisterRemoteSignal(&RSViewEndUpdate,      &ServerApplication::SlotViewEndUpdate);
     
-    RegisterRemoteSignal(&RSViewSetFgColor,     &ServerApplication::SlotViewSetFgColor);
-    RegisterRemoteSignal(&RSViewSetBgColor,     &ServerApplication::SlotViewSetBgColor);
-    RegisterRemoteSignal(&RSViewSetEraseColor,  &ServerApplication::SlotViewSetEraseColor);
-    RegisterRemoteSignal(&RSViewSetDrawingMode, &ServerApplication::SlotViewSetDrawingMode);
-    RegisterRemoteSignal(&RSViewSetFont,        &ServerApplication::SlotViewSetFont);
-    RegisterRemoteSignal(&RSViewMovePenTo,      &ServerApplication::SlotViewMovePenTo);
-    RegisterRemoteSignal(&RSViewDrawLine1,      &ServerApplication::SlotViewDrawLine1);
-    RegisterRemoteSignal(&RSViewDrawLine2,      &ServerApplication::SlotViewDrawLine2);
-    RegisterRemoteSignal(&RSViewFillRect,       &ServerApplication::SlotViewFillRect);
-    RegisterRemoteSignal(&RSViewFillCircle,     &ServerApplication::SlotViewFillCircle);
-    RegisterRemoteSignal(&RSViewDrawString,     &ServerApplication::SlotViewDrawString);
-    RegisterRemoteSignal(&RSViewScrollBy,       &ServerApplication::SlotViewScrollBy);
-    RegisterRemoteSignal(&RSViewCopyRect,       &ServerApplication::SlotViewCopyRect);
-    RegisterRemoteSignal(&RSViewDrawBitmap,     &ServerApplication::SlotViewDrawBitmap);
-    RegisterRemoteSignal(&RSViewDebugDraw,      &ServerApplication::SlotViewDebugDraw);
+    RegisterRemoteSignal(&RSViewSetFgColor,             &ServerApplication::SlotViewSetFgColor);
+    RegisterRemoteSignal(&RSViewSetBgColor,             &ServerApplication::SlotViewSetBgColor);
+    RegisterRemoteSignal(&RSViewSetEraseColor,          &ServerApplication::SlotViewSetEraseColor);
+    RegisterRemoteSignal(&RSViewSetFocusKeyboardMode,   &ServerApplication::SlotViewSetFocusKeyboardMode);
+    RegisterRemoteSignal(&RSViewSetDrawingMode,         &ServerApplication::SlotViewSetDrawingMode);
+    RegisterRemoteSignal(&RSViewSetFont,                &ServerApplication::SlotViewSetFont);
+    RegisterRemoteSignal(&RSViewMovePenTo,              &ServerApplication::SlotViewMovePenTo);
+    RegisterRemoteSignal(&RSViewDrawLine1,              &ServerApplication::SlotViewDrawLine1);
+    RegisterRemoteSignal(&RSViewDrawLine2,              &ServerApplication::SlotViewDrawLine2);
+    RegisterRemoteSignal(&RSViewFillRect,               &ServerApplication::SlotViewFillRect);
+    RegisterRemoteSignal(&RSViewFillCircle,             &ServerApplication::SlotViewFillCircle);
+    RegisterRemoteSignal(&RSViewDrawString,             &ServerApplication::SlotViewDrawString);
+    RegisterRemoteSignal(&RSViewScrollBy,               &ServerApplication::SlotViewScrollBy);
+    RegisterRemoteSignal(&RSViewCopyRect,               &ServerApplication::SlotViewCopyRect);
+    RegisterRemoteSignal(&RSViewDrawBitmap,             &ServerApplication::SlotViewDrawBitmap);
+    RegisterRemoteSignal(&RSViewDebugDraw,              &ServerApplication::SlotViewDebugDraw);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -169,20 +170,21 @@ void ServerApplication::UpdateLowestInvalidView(Ptr<ServerView> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotCreateView(port_id          clientPort,
-                                       port_id          replyPort,
-                                       handler_id       replyTarget,
-                                       handler_id       parentHandle,
-                                       ViewDockType     dockType,
-                                       const String&    name,
-                                       const Rect&      frame,
-                                       const Point&     scrollOffset,
-                                       uint32_t         flags,
-                                       int32_t          hideCount,
-                                       DrawingMode      drawingMode,
-                                       Color            eraseColor,
-                                       Color            bgColor,
-                                       Color            fgColor)
+void ServerApplication::SlotCreateView(port_id              clientPort,
+                                       port_id              replyPort,
+                                       handler_id           replyTarget,
+                                       handler_id           parentHandle,
+                                       ViewDockType         dockType,
+                                       const String&        name,
+                                       const Rect&          frame,
+                                       const Point&         scrollOffset,
+                                       uint32_t             flags,
+                                       int32_t              hideCount,
+                                       FocusKeyboardMode    focusKeyboardMode,
+                                       DrawingMode          drawingMode,
+                                       Color                eraseColor,
+                                       Color                bgColor,
+                                       Color                fgColor)
 {
     Ptr<ServerView> parent; // = (parentHandle == -1) ? m_Server->GetTopView() : m_Server->FindView(parentHandle);
     
@@ -204,11 +206,12 @@ void ServerApplication::SlotCreateView(port_id          clientPort,
         }
     }
     
-    Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hideCount, drawingMode, eraseColor, bgColor, fgColor);
+    Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hideCount, focusKeyboardMode, drawingMode, eraseColor, bgColor, fgColor);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
         parent->AddChild(view);
     } else {
+        view->SetIsWindowManagerControlled(true);
         ASWindowManagerRegisterView::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, view->GetHandle(), dockType, view->GetName(), frame);
     }
     view->SetClientHandle(clientPort, replyTarget);
@@ -244,8 +247,7 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
         IRect modifiedFrame = view->GetIFrame();
         Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
 
-        ViewDockType dockType = view->GetDockType();
-        if (dockType != ViewDockType::RootLevelView && dockType != ViewDockType::ChildView) {
+        if (view->IsWindowManagerControlled()) {
             ASWindowManagerUnregisterView::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, view->GetHandle());
         }
         view->RemoveThis(true);

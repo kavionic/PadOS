@@ -30,11 +30,11 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-VirtualKeyboardView::VirtualKeyboardView() : View("VirtualKeyboard", nullptr, ViewFlags::WillDraw)
+VirtualKeyboardView::VirtualKeyboardView(bool numerical) : View("VirtualKeyboard", nullptr, ViewFlags::WillDraw)
 {
     SetLayoutNode(ptr_new<LayoutNode>());
 
-    m_KeyboardView = ptr_new<KeyboardView>("Keyboard", ptr_tmp_cast(this));
+    m_KeyboardView = ptr_new<KeyboardView>("Keyboard", ptr_tmp_cast(this), (numerical) ? KeyboardViewFlags::Numerical : 0);
     m_KeyboardView->PreferredSizeChanged();
 
     m_KeyboardView->SignalKeyPressed.Connect(this, &VirtualKeyboardView::SlotKeyPressed);

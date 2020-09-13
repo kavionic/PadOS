@@ -25,6 +25,8 @@
 namespace os
 {
 
+struct TextBoxStyle;
+
 class TextEditView : public Control
 {
 public:
@@ -33,31 +35,33 @@ public:
     ~TextEditView();
 
     // From View:
-    virtual void OnKeyboardFocusChanged(bool hasFocus) override;
-    virtual void OnFlagsChanged(uint32_t changedFlags) override;
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
-    virtual void Paint(const Rect& updateRect) override;
+    virtual void    OnKeyboardFocusChanged(bool hasFocus) override;
+    virtual void    OnFlagsChanged(uint32_t changedFlags) override;
+    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual Point   GetContentSize() const override;
+    virtual void    Paint(const Rect& updateRect) override;
 
-    virtual bool OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
 
-    virtual void OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& event) override { HandleKeyPress(keyCode, text); }
+    virtual void OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& event) override;
 
     // From TextEditView:
-    void            SetText(const String& text);
-    void            InsertText(const String& text);
-    void            Delete();
+    void                    SetText(const String& text);
+    void                    InsertText(const String& text);
+    void                    Delete();
 
-    const String&   GetText() const { return m_Text; }
+    const String&           GetText() const { return m_Text; }
 
-    bool MoveCursor(int delta);
-    bool SetCursorPos(size_t position);
-    size_t ViewPosToCursorPos(const Point& position) const;
+    bool                    MoveCursor(int delta);
+    bool                    SetCursorPos(size_t position);
+    size_t                  ViewPosToCursorPos(const Point& position) const;
 
-    Point           GetSizeForString(const String& text, bool includeWidth = true, bool includeHeight = true) const;
+    Point                   GetSizeForString(const String& text, bool includeWidth = true, bool includeHeight = true) const;
 
-    void            HandleKeyPress(KeyCodes keyCode, const String& text);
+    Ptr<const TextBoxStyle> GetStyle() const;
+    void                    SetStyle(Ptr<const TextBoxStyle> style);
 
     Signal<void, const String&, bool, TextEditView*> SignalTextChanged;
 private:
@@ -66,15 +70,18 @@ private:
     void UpdateCursorTimer();
     void SlotCursorTimer();
 
-    String      m_Text;
-    size_t      m_CursorPos = 0;
-    Point       m_CursorViewPos;
-    EventTimer  m_CursorTimer;
-    bool        m_CursorActive = false;
-    bool        m_CursorFrozen = false;
-
+    String                  m_Text;
+    size_t                  m_CursorPos = 0;
+    Point                   m_CursorViewPos;
+    EventTimer              m_CursorTimer;
+    bool                    m_CursorVisible = false;
+    bool                    m_CursorFrozen = false;
+    bool                    m_IsScrolling = false;
+    bool                    m_IsDraggingCursor = false;
     MouseButton_e           m_HitButton = MouseButton_e::None;
     Point                   m_HitPos;
+
+    Ptr<const TextBoxStyle> m_Style;
 
     TextEditView(const TextEditView&) = delete;
     TextEditView& operator=(const TextEditView&) = delete;

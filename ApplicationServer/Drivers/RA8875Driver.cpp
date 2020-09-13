@@ -20,6 +20,7 @@
 #include <ApplicationServer/Drivers/RA8875Driver.h>
 #include <ApplicationServer/ServerBitmap.h>
 #include <GUI/Color.h>
+#include <Utils/UTF8Utils.h>
 
 using namespace os;
 
@@ -430,7 +431,7 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IPoint RA8875Driver::RenderGlyph(const IPoint& position, char character, const IRect& clipRect, const FONT_INFO* font, uint16_t colorBg, uint16_t colorFg)
+IPoint RA8875Driver::RenderGlyph(const IPoint& position, uint32_t character, const IRect& clipRect, const FONT_INFO* font, uint16_t colorBg, uint16_t colorFg)
 {  
     if (font == nullptr || character < font->startChar || character > font->endChar) {
         return position;
@@ -516,9 +517,16 @@ uint32_t RA8875Driver::WriteString(SrvBitmap* bitmap, const IPoint& position, co
         uint16_t colorBg16 = colorBg.GetColor16();
         uint16_t colorFg16 = colorFg.GetColor16();
 
-        while (strLength-- && cursor.x < bounds.right)
+        while (strLength > 0 && cursor.x < bounds.right)
         {
-            cursor = RenderGlyph(cursor, *(string++), clipRect, font, colorBg16, colorFg16);
+            int charLen = utf8_char_length(*string);
+            if (charLen > strLength) {
+                break;
+            }
+            uint32_t character = utf8_to_unicode(string);
+            string    += charLen;
+            strLength -= charLen;
+            cursor = RenderGlyph(cursor, character, clipRect, font, colorBg16, colorFg16);
             int spaceStart = std::max(cursor.x, clipRect.left);
             int spaceEnd = std::min(cursor.x + CHARACTER_SPACING, clipRect.right);
             int spaceWidth = spaceEnd - spaceStart;

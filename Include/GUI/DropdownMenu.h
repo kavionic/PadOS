@@ -35,6 +35,19 @@ namespace os
 class TextBox;
 class DropdownMenu;
 
+
+namespace DropdownMenuFlags
+{
+// When the DropdownMenu is in read-only mode the user will not be able
+// to edit the contents of the edit box.It will also make the menu open
+// when the user click inside the edit box.
+
+static constexpr uint32_t ReadOnly    = 0x01 << ViewFlags::FirstUserBit;
+
+extern const std::map<String, uint32_t> FlagMap;
+}
+
+
 /** Edit box with an asociated item-menu.
  * \ingroup gui
  * \par Description:
@@ -50,6 +63,8 @@ public:
     ~DropdownMenu();
 
     // From View:
+    virtual void    OnFlagsChanged(uint32_t changedFlags) override;
+    virtual void    DetachedFromScreen() override;
     virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
     virtual void    FrameSized(const Point& cDelta) override;
     virtual void    ScreenFrameMoved(const Point& delta) override;

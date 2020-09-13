@@ -61,7 +61,7 @@ ViewFactory::ViewFactory()
     RegisterClass("ScrollView", [](ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData)
         {
             Ptr<ScrollView> view = ptr_new<ScrollView>(context, parent, xmlData);
-            Ptr<View> client = view->GetClientView();
+            Ptr<View> client = view->GetScrolledView();
             return (client != nullptr) ? client : ptr_static_cast<View>(view);
         }
     );
@@ -122,17 +122,22 @@ Ptr<View> ViewFactory::LoadView(Ptr<View> parentView, const char* path)
     }
     struct stat stats;
 
-    if (FileIO::ReadStats(file, &stats) != -1)
+    if (FileIO::ReadStats(file, &stats) == -1)
     {
-        std::vector<char> buffer;
-        buffer.resize(stats.st_size + 1);
-        if (FileIO::Read(file, buffer.data(), stats.st_size) == stats.st_size)
-        {
-            buffer[stats.st_size] = '\0';
-            return CreateView(parentView, std::move(buffer));
-        }
+        FileIO::Close(file);
+        return nullptr;
     }
-    return nullptr;
+    std::vector<char> buffer;
+    buffer.resize(stats.st_size + 1);
+
+    ssize_t bytesRead = FileIO::Read(file, buffer.data(), stats.st_size);
+    FileIO::Close(file);
+
+    if (bytesRead != stats.st_size) {
+        return nullptr;
+    }
+    buffer[stats.st_size] = '\0';
+    return CreateView(parentView, std::move(buffer));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

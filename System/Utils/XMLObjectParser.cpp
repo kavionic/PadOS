@@ -18,10 +18,12 @@
 // Created: 17.06.2020 23:45:32
 
 
-#include "Utils/XMLObjectParser.h"
-#include "Math/Rect.h"
-#include "GUI/LayoutNode.h"
-#include "GUI/GUIDefines.h"
+#include <Utils/XMLObjectParser.h>
+
+#include <Math/Rect.h>
+#include <GUI/LayoutNode.h>
+#include <GUI/GUIDefines.h>
+#include <Utils/UTF8Utils.h>
 
 using namespace os;
 
@@ -169,6 +171,51 @@ bool parse(const char* text, Orientation& value)
 		value = Orientation::Horizontal;
 		return true;
 	}
+}
+
+bool parse(const char* text, KeyCodes& value)
+{
+    if (text[0] == '\0')
+    {
+        return false;
+    }
+    else if (text[1] == '\0')
+    {
+        if ((text[0] >= 'A' && text[0] <= 'Z') || (text[0] >= '0' && text[0] <= '9') || text[0] == ' ') {
+            value = KeyCodes(text[0]);
+            return true;
+        }
+    }
+    static const std::map<String, KeyCodes> nameMap =
+    {
+        {"NONE",            KeyCodes::NONE},
+        {"CURSOR_LEFT",     KeyCodes::CURSOR_LEFT},
+        {"CURSOR_RIGHT",    KeyCodes::CURSOR_RIGHT},
+        {"CURSOR_UP",       KeyCodes::CURSOR_UP},
+        {"CURSOR_DOWN",     KeyCodes::CURSOR_DOWN},
+        {"HOME",            KeyCodes::HOME},
+        {"END",             KeyCodes::END},
+        {"DELETE",          KeyCodes::DELETE},
+        {"BACKSPACE",       KeyCodes::BACKSPACE},
+        {"TAB",             KeyCodes::TAB},
+        {"ENTER",           KeyCodes::ENTER},
+        {"SHIFT",           KeyCodes::SHIFT},
+        {"CTRL",            KeyCodes::CTRL},
+        {"ALT",             KeyCodes::ALT},
+        {"SYMBOLS",         KeyCodes::SYMBOLS},
+        {"SPACE",           KeyCodes::SPACE},
+
+        {"AE",              KeyCodes::AE},
+        {"OE",              KeyCodes::OE},
+        {"AA",              KeyCodes::AA},
+    };
+    auto i = nameMap.find(text);
+    if (i != nameMap.end()) {
+        value = i->second;
+    } else {
+        value = KeyCodes(utf8_to_unicode(text));
+    }
+    return true;
 }
 
 }

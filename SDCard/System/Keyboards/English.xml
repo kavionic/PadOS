@@ -1,0 +1,193 @@
+<Keyboard>
+	<Layout type="normal">
+		<KeyRow>
+			<Key normal="1"/>
+			<Key normal="2"/>
+			<Key normal="3"/>
+			<Key normal="4"/>
+			<Key normal="5"/>
+			<Key normal="6"/>
+			<Key normal="7"/>
+			<Key normal="8"/>
+			<Key normal="9"/>
+			<Key normal="0"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="Q" extra="+"/>
+			<Key normal="W" extra="×"/>
+			<Key normal="E" extra="÷"/>
+			<Key normal="R" extra="="/>
+			<Key normal="T" extra="/"/>
+			<Key normal="Y" extra="_"/>
+			<Key normal="U" extra="&lt;"/>
+			<Key normal="I" extra="&gt;"/>
+			<Key normal="O" extra="["/>
+			<Key normal="P" extra="]"/>
+		</KeyRow>
+		<KeyRow columns="10">
+			<Key width="0.5"/>
+			<Key normal="A" extra="!"/>
+			<Key normal="S" extra="$"/>
+			<Key normal="D" extra="#"/>
+			<Key normal="F" extra="%"/>
+			<Key normal="G" extra="^"/>
+			<Key normal="H" extra="&amp;"/>
+			<Key normal="J" extra="*"/>
+			<Key normal="K" extra="("/>
+			<Key normal="L" extra=")"/>
+			<Key width="0.5"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="SHIFT" width="1.5"/>
+			<Key normal="" width="0.5"/>
+			<Key normal="Z" extra="-"/>
+			<Key normal="X" extra="'"/>
+			<Key normal="C" extra="&quot;"/>
+			<Key normal="V" extra=":"/>
+			<Key normal="B" extra=";"/>
+			<Key normal="N" extra=","/>
+			<Key normal="M" extra="?"/>
+			<Key normal="" width="0.5"/>
+			<Key normal="BACKSPACE" width="1.5"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="SYMBOLS" width="2"/>
+			<Key normal="" width="0.5"/>
+			<Key normal="" width="0"/>
+			<Key normal=":"/>
+			<Key normal="/"/>
+			<Key normal="SPACE" width="2"/>
+			<Key normal="."/>
+			<Key normal=","/>
+			<Key normal="" width="0"/>
+			<Key normal="" width="0.5"/>
+			<Key normal="ENTER" width="2"/>
+		</KeyRow>
+	</Layout>
+	<Layout type="symbols">
+		<KeyRow>
+			<Key normal="1"/>
+			<Key normal="2"/>
+			<Key normal="3"/>
+			<Key normal="4"/>
+			<Key normal="5"/>
+			<Key normal="6"/>
+			<Key normal="7"/>
+			<Key normal="8"/>
+			<Key normal="9"/>
+			<Key normal="0"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="+"/>
+			<Key normal="×"/>
+			<Key normal="÷"/>
+			<Key normal="="/>
+			<Key normal="/"/>
+			<Key normal="_"/>
+			<Key normal="¢"/>
+			<Key normal="£"/>
+			<Key normal="¥"/>
+			<Key normal="¤"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="!"/>
+			<Key normal="@"/>
+			<Key normal="#"/>
+			<Key normal="$"/>
+			<Key normal="%"/>
+			<Key normal="^"/>
+			<Key normal="&amp;"/>
+			<Key normal="*"/>
+			<Key normal="("/>
+			<Key normal=")"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="SHIFT" width="1.5"/>
+			<Key normal="" width="0.15"/>
+			<Key normal="-" width="1.1"/>
+			<Key normal="'" width="1.1"/>
+			<Key normal="&quot;" width="1.1"/>
+			<Key normal=":" width="1.1"/>
+			<Key normal=";" width="1.1"/>
+			<Key normal="," width="1.1"/>
+			<Key normal="?" width="1.1"/>
+			<Key normal="" width="0.15"/>
+			<Key normal="BACKSPACE" width="1.5"/>
+		</KeyRow>
+		<KeyRow columns="11">
+			<Key normal="SYMBOLS" width="2"/>
+			<Key normal="" width="0.5"/>
+			<Key normal=":"/>
+			<Key normal="SPACE" width="4"/>
+			<Key normal="."/>
+			<Key normal="" width="0.5"/>
+			<Key normal="ENTER" width="2"/>
+		</KeyRow>
+	</Layout>
+	<Layout type="symbols">
+		<KeyRow>
+			<Key normal="1"/>
+			<Key normal="2"/>
+			<Key normal="3"/>
+			<Key normal="4"/>
+			<Key normal="5"/>
+			<Key normal="6"/>
+			<Key normal="7"/>
+			<Key normal="8"/>
+			<Key normal="9"/>
+			<Key normal="0"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="`"/>
+			<Key normal="~"/>
+			<Key normal="\"/>
+			<Key normal="|"/>
+			<Key normal="&lt;"/>
+			<Key normal="&gt;"/>
+			<Key normal="{"/>
+			<Key normal="}"/>
+			<Key normal="["/>
+			<Key normal="]"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="°"/>
+			<Key normal="·"/>
+			<Key normal="±"/>
+			<Key normal="º"/>
+			<Key normal="¼"/>
+			<Key normal="½"/>
+			<Key normal="¾"/>
+			<Key normal="µ"/>
+			<Key normal="©"/>
+			<Key normal="§"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="SHIFT" width="1.5"/>
+			<Key normal="" width="0.15"/>
+			<Key normal="¹" width="1.1"/>
+			<Key normal="²" width="1.1"/>
+			<Key normal="³" width="1.1"/>
+			<Key normal="«" width="1.1"/>
+			<Key normal="»" width="1.1"/>
+			<Key normal="¡" width="1.1"/>
+			<Key normal="¿" width="1.1"/>
+			<Key normal="" width="0.15"/>
+			<Key normal="BACKSPACE" width="1.5"/>
+		</KeyRow>
+		<KeyRow>
+			<Key normal="SYMBOLS" width="2"/>
+			<Key normal="" width="0.5"/>
+			<Key normal="" width="0"/>
+			<Key normal="" width="0"/>
+			<Key normal=":"/>
+			<Key normal="SPACE" width="4"/>
+			<Key normal="."/>
+			<Key normal="" width="0"/>
+			<Key normal="" width="0"/>
+			<Key normal="" width="0.5"/>
+			<Key normal="ENTER" width="2"/>
+		</KeyRow>
+	</Layout>
+</Keyboard>
+
+

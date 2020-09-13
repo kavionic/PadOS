@@ -30,13 +30,16 @@ class SrvBitmap;
 class ServerView : public ViewBase<ServerView>
 {
 public:
-    ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, ViewDockType dockType, uint32_t flags, int32_t hideCount, DrawingMode drawingMode, Color eraseColor, Color bgColor, Color fgColor);
+    ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, ViewDockType dockType, uint32_t flags, int32_t hideCount, FocusKeyboardMode focusKeyboardMode, DrawingMode drawingMode, Color eraseColor, Color bgColor, Color fgColor);
     virtual ~ServerView();
     void        SetClientHandle(port_id port, handler_id handle) { m_ClientPort = port; m_ClientHandle = handle; }
     port_id     GetClientPort() const   { return m_ClientPort; }
     handler_id  GetClientHandle() const { return m_ClientHandle; }
 
     ViewDockType   GetDockType() const { return m_DockType; }
+
+    void SetIsWindowManagerControlled(bool value)   { m_IsWindowManagerControlled = value; }
+    bool IsWindowManagerControlled() const          { return m_IsWindowManagerControlled; }
 
     void SetManagerHandle(handler_id handle)              { m_ManagerHandle = handle; }
 
@@ -80,6 +83,9 @@ public:
 
     void        Show(bool visible = true);
 
+    void                SetFocusKeyboardMode(FocusKeyboardMode mode) { m_FocusKeyboardMode = mode; }
+    FocusKeyboardMode   GetFocusKeyboardMode() const                 { return m_FocusKeyboardMode; }
+
     void        SetDrawingMode(DrawingMode mode) { m_DrawingMode = mode; }
     void        SetEraseColor(Color color) { m_EraseColor = color; }
     void        SetBgColor(Color color)    { m_BgColor = color; }
@@ -114,7 +120,8 @@ private:
     
     ViewDockType    m_DockType;
 
-    DrawingMode m_DrawingMode  = DrawingMode::Copy;
+    FocusKeyboardMode   m_FocusKeyboardMode = FocusKeyboardMode::None;
+    DrawingMode         m_DrawingMode  = DrawingMode::Copy;
     
     Ptr<Font>   m_Font = ptr_new<Font>(Font_e::e_FontLarge);
     
@@ -134,6 +141,7 @@ private:
     
     bool    m_HasInvalidRegs = true; // True if something made our clipping region invalid
     bool    m_IsUpdating = false;    // True while we paint areas from the damage list
+    bool    m_IsWindowManagerControlled = false;
 };
 
 } // namespace

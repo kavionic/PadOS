@@ -21,8 +21,9 @@
 
 #include <set>
 
-#include "Threads/Looper.h"
-#include "ApplicationServer/Protocol.h"
+#include <Threads/Looper.h>
+#include <Threads/EventTimer.h>
+#include <ApplicationServer/Protocol.h>
 
 namespace os
 {
@@ -74,8 +75,10 @@ private:
 
     void RegisterViewForLayout(Ptr<View> view);
 
-    void      SetMouseDownView(MouseButton_e button, Ptr<View> view);
+    void      SetMouseDownView(MouseButton_e button, Ptr<View> view, const MotionEvent& motionEvent);
     Ptr<View> GetMouseDownView(MouseButton_e button) const;
+
+    void SlotLongPressTimer();
 
     MessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
@@ -83,10 +86,14 @@ private:
     uint8_t m_SendBuffer[APPSERVER_MSG_BUFFER_SIZE]; 
     int32_t m_UsedSendBufferSize = 0;
 
-    std::map<int, View*>   m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
-    std::map<int, View*>   m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
-    View*                  m_KeyboardFocusView = nullptr;
-    std::set<Ptr<View>> m_ViewsNeedingLayout;
+    std::map<int, View*>    m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
+    std::map<int, View*>    m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
+    MotionEvent             m_LastClickEvent;
+    View*                   m_KeyboardFocusView = nullptr;
+
+    EventTimer              m_LongPressTimer;
+
+    std::set<Ptr<View>>     m_ViewsNeedingLayout;
 
 
     Application(const Application &) = delete;

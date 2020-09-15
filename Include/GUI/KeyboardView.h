@@ -107,6 +107,9 @@ public:
 
     static Ptr<KeyboardViewStyle> GetDefaultStyle() { return s_DefaultStyle; }
 
+    // From ViewBase:
+    virtual void OnFlagsChanged(uint32_t changedFlags) override;
+
     // From View:
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
     virtual void FrameSized(const Point& delta) override;

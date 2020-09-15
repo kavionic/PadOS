@@ -83,7 +83,7 @@ public:
 
     void        Show(bool visible = true);
 
-    void                SetFocusKeyboardMode(FocusKeyboardMode mode) { m_FocusKeyboardMode = mode; }
+    void                SetFocusKeyboardMode(FocusKeyboardMode mode);
     FocusKeyboardMode   GetFocusKeyboardMode() const                 { return m_FocusKeyboardMode; }
 
     void        SetDrawingMode(DrawingMode mode) { m_DrawingMode = mode; }

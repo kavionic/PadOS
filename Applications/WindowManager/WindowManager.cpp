@@ -202,37 +202,48 @@ void WindowManager::SlotUnregisterView(handler_id viewHandle)
 void WindowManager::SlotEnableVKeyboard(const Rect& focusViewEditArea, bool numerical)
 {
     m_IsKeyboardActive = true;
+
+    Rect keyboardFrame;
     if (m_KeyboardView == nullptr)
     {
         m_KeyboardView = ptr_new<VirtualKeyboardView>(numerical);
         m_KeyboardView->PreferredSizeChanged();
 
-        Rect frame = m_ClientsView->GetBounds();
-        frame.top = frame.bottom;
-        frame.bottom = frame.top + m_KeyboardView->GetPreferredSize(PrefSizeType::Smallest).y;
-        m_KeyboardView->SetFrame(frame);
-
-        float finalKeyboardTop = frame.top - frame.Height();
+        keyboardFrame = m_ClientsView->GetBounds();
+        keyboardFrame.top = keyboardFrame.bottom;
+        keyboardFrame.bottom = keyboardFrame.top + m_KeyboardView->GetPreferredSize(PrefSizeType::Smallest).y;
+        m_KeyboardView->SetFrame(keyboardFrame);
 
         AddView(m_KeyboardView, ViewDockType::RootLevelView);
-
-        float targetScrollOffset = 0.0f;
-        if (focusViewEditArea.bottom >= finalKeyboardTop) {
-            targetScrollOffset = (finalKeyboardTop - focusViewEditArea.Height()) * 0.5f - focusViewEditArea.top;
-        }
-
-        m_TargetAnimator.SetRange(0.0f, targetScrollOffset);
-        m_KeyboardAnimator.SetRange(frame.top, finalKeyboardTop);
-
-        m_TargetAnimator.Start();
-        m_KeyboardAnimator.Start();
-        m_KeyboardAnimTimer.Start();
     }
     else
     {
-        m_KeyboardAnimator.Reverse();
-        m_TargetAnimator.Reverse();
+        m_KeyboardView->SetIsNumerical(numerical);
+        keyboardFrame = m_KeyboardView->GetFrame();
+        keyboardFrame.bottom = keyboardFrame.top + m_KeyboardView->GetPreferredSize(PrefSizeType::Smallest).y;
     }
+
+    const Rect screenFrame = m_ClientsView->GetBounds();
+    const float finalKeyboardTop = screenFrame.bottom - keyboardFrame.Height();
+
+    const float currentScrollOffset = m_TopView->GetScrollOffset().y;
+    float targetScrollOffset = 0.0f;
+    if (focusViewEditArea.bottom - currentScrollOffset >= finalKeyboardTop) {
+        targetScrollOffset = (finalKeyboardTop - focusViewEditArea.Height()) * 0.5f - focusViewEditArea.top + currentScrollOffset;
+    }
+
+    float animTime = 0.3f;
+    animTime *= fabsf(keyboardFrame.top - finalKeyboardTop) / keyboardFrame.Height();
+
+    m_TargetAnimator.SetRange(currentScrollOffset, targetScrollOffset);
+    m_KeyboardAnimator.SetRange(keyboardFrame.top, finalKeyboardTop);
+
+    m_TargetAnimator.SetPeriod(animTime);
+    m_KeyboardAnimator.SetPeriod(animTime * 0.95f);
+
+    m_TargetAnimator.Start();
+    m_KeyboardAnimator.Start();
+    m_KeyboardAnimTimer.Start();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -244,22 +255,24 @@ void WindowManager::SlotDisableVKeyboard()
     m_IsKeyboardActive = false;
     if (m_KeyboardView != nullptr)
     {
-        Rect screenFrame = m_TopView->GetBounds();
-        Rect keyboardFrame = m_KeyboardView->GetFrame();
+        const Rect screenFrame   = m_ClientsView->GetBounds();
+        const Rect keyboardFrame = m_KeyboardView->GetFrame();
+
+        const float finalKeyboardTop = screenFrame.bottom;
+
+        float animTime = 0.2f;
+        animTime *= fabsf(keyboardFrame.top - finalKeyboardTop) / keyboardFrame.Height();
 
         m_TargetAnimator.SetRange(m_TopView->GetScrollOffset().y, 0.0f);
         m_KeyboardAnimator.SetRange(keyboardFrame.top, screenFrame.bottom);
+
+        m_TargetAnimator.SetPeriod(animTime * 0.95f);
+        m_KeyboardAnimator.SetPeriod(animTime);
 
         m_TargetAnimator.Start();
         m_KeyboardAnimator.Start();
         m_KeyboardAnimTimer.Start();
     }
-    else
-    {
-        m_KeyboardAnimator.Reverse();
-        m_TargetAnimator.Reverse();
-    }
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -283,4 +296,5 @@ void WindowManager::SlotKeyboardAnimTimer()
             m_KeyboardView = nullptr;
         }
     }
+    Sync();
 }

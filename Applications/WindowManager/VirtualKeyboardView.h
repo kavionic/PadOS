@@ -31,6 +31,7 @@ class VirtualKeyboardView : public View
 {
 public:
     VirtualKeyboardView(bool numerical);
+    void SetIsNumerical(bool numerical);
 private:
     void SlotKeyPressed(KeyCodes keyCode, const String& text);
 

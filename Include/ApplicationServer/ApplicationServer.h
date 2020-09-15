@@ -63,6 +63,7 @@ public:
 
     void            SetKeyboardFocus(Ptr<ServerView> view, bool focus);
     Ptr<ServerView> GetKeyboardFocus() const;
+    void            UpdateViewFocusMode(ServerView* view);
 
 private:
     

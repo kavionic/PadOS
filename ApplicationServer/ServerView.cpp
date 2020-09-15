@@ -55,9 +55,9 @@ ServerView::~ServerView()
 {
     g_ServerViewCount--;
 
-	while (!m_ChildrenList.empty())	{
-		RemoveChild(m_ChildrenList[m_ChildrenList.size() - 1], true);
-	}
+    while (!m_ChildrenList.empty()) {
+        RemoveChild(m_ChildrenList[m_ChildrenList.size() - 1], true);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -224,7 +224,7 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
                 for (++i; i != parent->m_ChildrenList.rend(); ++i)
                 {
                     Ptr<ServerView> sibling = *i;
-		    IRect siblingIFrame = sibling->GetIFrame();
+                    IRect siblingIFrame = sibling->GetIFrame();
                     if (siblingIFrame.DoIntersect(prevIFrame) || siblingIFrame.DoIntersect(intFrame))
                     {
                         sibling->MarkModified(prevIFrame - siblingIFrame.TopLeft());
@@ -299,11 +299,11 @@ void ServerView::SetShapeRegion(Ptr<Region> region)
             auto i = parent->GetChildRIterator(ptr_tmp_cast(this));
             if (i != parent->m_ChildrenList.rend())
             {
-		IRect intFrame = GetIFrame();
+                IRect intFrame = GetIFrame();
                 for (++i; i != parent->m_ChildrenList.rend(); ++i)
                 {
                     Ptr<ServerView> sibling = *i;
-		    IRect siblingIFrame = sibling->GetIFrame();
+                    IRect siblingIFrame = sibling->GetIFrame();
                     if ( siblingIFrame.DoIntersect(intFrame) ) {
                         sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
                     }
@@ -500,7 +500,7 @@ void ServerView::MoveChilds()
             {
                 IRect rect = bounds;
 
-		IRect parentIFrame = parent->GetIFrame();
+                IRect parentIFrame = parent->GetIFrame();
 
                 rect.left = rect.right + int(parent->m_DeltaSize.x + parentIFrame.right - parentIFrame.left - GetIFrame().right);
 
@@ -512,8 +512,8 @@ void ServerView::MoveChilds()
             {
                 IRect rect = bounds;
 
-		IRect parentIFrame = parent->GetIFrame();
-		rect.top = rect.bottom + int(parent->m_DeltaSize.y + parentIFrame.bottom - parentIFrame.top - GetIFrame().bottom);
+                IRect parentIFrame = parent->GetIFrame();
+                rect.top = rect.bottom + int(parent->m_DeltaSize.y + parentIFrame.bottom - parentIFrame.top - GetIFrame().bottom);
 
                 if (rect.IsValid()) {
                     Invalidate(rect);
@@ -802,10 +802,10 @@ void ServerView::ToggleDepth()
         
         opacParent->SetDirtyRegFlags();
     
-	IRect intFrame = GetIFrame();
-	for (Ptr<ServerView> sibling : *parent)
+        IRect intFrame = GetIFrame();
+        for (Ptr<ServerView> sibling : *parent)
         {
-	    IRect siblingIFrame = sibling->GetIFrame();
+            IRect siblingIFrame = sibling->GetIFrame();
             if (siblingIFrame.DoIntersect(intFrame)) {
                 sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
             }
@@ -943,10 +943,10 @@ void ServerView::Show(bool doShow)
                 break;
             }                    
         }
-	IRect intFrame = GetIFrame();
+        IRect intFrame = GetIFrame();
         for (Ptr<ServerView> sibling : parent->m_ChildrenList)
         {
-	    IRect siblingIFrame = sibling->GetIFrame();
+            IRect siblingIFrame = sibling->GetIFrame();
             if (siblingIFrame.DoIntersect(intFrame)) {
                 sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
             }
@@ -954,6 +954,23 @@ void ServerView::Show(bool doShow)
     }
     for (auto child = m_ChildrenList.rbegin(); child != m_ChildrenList.rend(); ++child) {
         (*child)->Show(doShow);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerView::SetFocusKeyboardMode(FocusKeyboardMode mode)
+{
+    if (mode != m_FocusKeyboardMode)
+    {
+        m_FocusKeyboardMode = mode;
+
+        ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+        if (server != nullptr) {
+            server->UpdateViewFocusMode(this);
+        }
     }
 }
 

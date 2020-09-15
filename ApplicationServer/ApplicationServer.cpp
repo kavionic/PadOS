@@ -408,9 +408,6 @@ void ApplicationServer::SetKeyboardFocus(Ptr<ServerView> view, bool focus)
         m_KeyboardFocusView = ptr_raw_pointer_cast(view);
         if (m_KeyboardFocusView != nullptr && m_KeyboardFocusView->GetFocusKeyboardMode() != FocusKeyboardMode::None)
         {
-            Ptr<ServerView> root = view;
-            while (root != nullptr && !root->IsWindowManagerControlled()) root = root->GetParent();
-
             ASWindowManagerEnableVKeyboard::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, view->ConvertToRoot(view->GetFrame()), m_KeyboardFocusView->GetFocusKeyboardMode() == FocusKeyboardMode::Numeric);
         }
     }
@@ -432,3 +429,21 @@ Ptr<ServerView> ApplicationServer::GetKeyboardFocus() const
     return ptr_tmp_cast(m_KeyboardFocusView);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::UpdateViewFocusMode(ServerView* view)
+{
+    if (view == m_KeyboardFocusView)
+    {
+        if (view->GetFocusKeyboardMode() != FocusKeyboardMode::None)
+        {
+            ASWindowManagerEnableVKeyboard::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, view->ConvertToRoot(view->GetFrame()), view->GetFocusKeyboardMode() == FocusKeyboardMode::Numeric);
+        }
+        else
+        {
+            ASWindowManagerDisableVKeyboard::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit);
+        }
+    }
+}

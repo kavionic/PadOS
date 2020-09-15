@@ -200,8 +200,6 @@ KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags)
             LoadKeyboard(String("/sdcard/Rainbow3D/System/Keyboards/") + m_Keyboards[m_SelectedKeyboard] + String(".xml"));
         }
     }
-//    LoadKeyboard("/sdcard/Rainbow3D/System/Keyboards/English.xml");
-//    LoadKeyboard("/sdcard/Rainbow3D/System/Keyboards/Norwegian.xml");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -309,6 +307,32 @@ bool KeyboardView::LoadKeyboard(const String& path)
     }
     m_CurrentLayout->Layout(GetBounds(), KEY_SPACING, m_KeyHeight + KEY_SPACING.y);
     return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KeyboardView::OnFlagsChanged(uint32_t changedFlags)
+{
+    if (changedFlags & KeyboardViewFlags::Numerical)
+    {
+        m_SymbolsActive = false;
+        m_SymbolPage = 0;
+        if (HasFlags(KeyboardViewFlags::Numerical))
+        {
+            LoadKeyboard("/sdcard/Rainbow3D/System/Keyboards/Numerical.xml");
+        }
+        else
+        {
+            if (!m_Keyboards.empty())
+            {
+                if (m_SelectedKeyboard >= m_Keyboards.size()) m_SelectedKeyboard = 0;
+                LoadKeyboard(String("/sdcard/Rainbow3D/System/Keyboards/") + m_Keyboards[m_SelectedKeyboard] + String(".xml"));
+            }
+        }
+        Invalidate();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -463,11 +487,9 @@ bool KeyboardView::OnTouchUp(MouseButton_e pointID, const Point& position, const
             {
                 if (m_CapsLockMode == CapsLockMode::Off) {
                     m_CapsLockMode = CapsLockMode::Single;
-                }
-                else if (m_CapsLockMode == CapsLockMode::Single) {
+                } else if (m_CapsLockMode == CapsLockMode::Single) {
                     m_CapsLockMode = CapsLockMode::Locked;
-                }
-                else {
+                } else {
                     m_CapsLockMode = CapsLockMode::Off;
                 }
             }
@@ -490,7 +512,7 @@ bool KeyboardView::OnTouchUp(MouseButton_e pointID, const Point& position, const
                 SetLayout(&m_DefaultLayout);
             }
         }
-        else if (button.m_NormalKeyCode != KeyCodes::SPACE)
+        else if (button.m_NormalKeyCode != KeyCodes::SPACE && button.m_NormalKeyCode != KeyCodes::ENTER)
         {
             resetCapsLock = true;
         }

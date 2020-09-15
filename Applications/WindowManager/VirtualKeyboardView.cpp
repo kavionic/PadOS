@@ -44,6 +44,19 @@ VirtualKeyboardView::VirtualKeyboardView(bool numerical) : View("VirtualKeyboard
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void VirtualKeyboardView::SetIsNumerical(bool numerical)
+{
+    if (numerical) {
+        m_KeyboardView->MergeFlags(KeyboardViewFlags::Numerical);
+    } else {
+        m_KeyboardView->ClearFlags(KeyboardViewFlags::Numerical);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void VirtualKeyboardView::SlotKeyPressed(KeyCodes keyCode, const String& text)
 {
     KeyEvent event;

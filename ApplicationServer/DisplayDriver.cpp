@@ -1380,7 +1380,7 @@ float DisplayDriver::GetStringWidth(Font_e fontID, const char* string, size_t le
             string += charLen;
             length -= charLen;
 
-            if (character < font->startChar) continue;
+            if (character < font->startChar || character > font->endChar) continue;
 
             const FONT_CHAR_INFO* charInfo = font->charInfo + character - font->startChar;
             width += float(charInfo->widthBits);

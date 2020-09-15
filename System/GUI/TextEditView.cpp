@@ -158,24 +158,17 @@ bool TextEditView::OnTouchDown(MouseButton_e pointID, const Point& position, con
         return false;
     }
 
-    if (GetBounds().DoIntersect(position))
+    MakeFocus(pointID, true);
+
+    m_HitButton = pointID;
+    m_HitPos    = position;
+
+    m_IsScrolling = false;
+
+    if (HasKeyboardFocus())
     {
-        MakeFocus(pointID, true);
-
-        m_HitButton = pointID;
-        m_HitPos    = position;
-
-        m_IsScrolling = false;
-
-        if (HasKeyboardFocus())
-        {
-            m_CursorFrozen = true;
-            UpdateCursorTimer();
-        }
-    }
-    else
-    {
-        SetKeyboardFocus(false);
+        m_CursorFrozen = true;
+        UpdateCursorTimer();
     }
     return true;
 }

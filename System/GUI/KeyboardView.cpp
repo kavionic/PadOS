@@ -27,9 +27,6 @@
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KFilesystem.h>
 
-//#pragma GCC optimize ("O0")
-
-
 using namespace pugi;
 
 namespace os
@@ -200,6 +197,7 @@ KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags)
             LoadKeyboard(String("/sdcard/Rainbow3D/System/Keyboards/") + m_Keyboards[m_SelectedKeyboard] + String(".xml"));
         }
     }
+    m_RepeatTimer.SignalTrigged.Connect(this, &KeyboardView::SlotRepeatTimer);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -398,6 +396,17 @@ bool KeyboardView::OnTouchDown(MouseButton_e pointID, const Point& position, con
 
     SetPressedButton(GetButtonIndex(position));
 
+    if (m_PressedButton != INVALID_INDEX)
+    {
+        KeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
+
+        if (button.m_NormalKeyCode == KeyCodes::BACKSPACE)
+        {
+            SignalKeyPressed(button.m_NormalKeyCode, GetKeyText((m_CapsLockMode == CapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode), this);
+            m_RepeatTimer.Set(KEYREPEAT_DELAY, true);
+            m_RepeatTimer.Start(true);
+        }
+    }
     MakeFocus(pointID, true);
     return true;
 }
@@ -512,18 +521,20 @@ bool KeyboardView::OnTouchUp(MouseButton_e pointID, const Point& position, const
                 SetLayout(&m_DefaultLayout);
             }
         }
-        else if (button.m_NormalKeyCode != KeyCodes::SPACE && button.m_NormalKeyCode != KeyCodes::ENTER)
+        else if (button.m_NormalKeyCode != KeyCodes::BACKSPACE && button.m_NormalKeyCode != KeyCodes::SPACE && button.m_NormalKeyCode != KeyCodes::ENTER)
         {
             resetCapsLock = true;
         }
-        SignalKeyPressed(button.m_NormalKeyCode, GetKeyText((m_CapsLockMode == CapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode), this);
+        if (!m_RepeatTimer.IsRunning()) {
+            SignalKeyPressed(button.m_NormalKeyCode, GetKeyText((m_CapsLockMode == CapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode), this);
+        }
         if (resetCapsLock && m_CapsLockMode == CapsLockMode::Single)
         {
             m_CapsLockMode = CapsLockMode::Off;
             Invalidate();
         }
     }
-
+    m_RepeatTimer.Stop();
     m_IsDraggingCursor = false;
     m_HitButton = MouseButton_e::None;
     MakeFocus(pointID, false);
@@ -740,6 +751,24 @@ size_t KeyboardView::GetButtonIndex(const Point& position) const
     return INVALID_INDEX;
 }
 
-} // namespace os
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-//#pragma GCC optimize ("O3")
+void KeyboardView::SlotRepeatTimer()
+{
+    if (m_PressedButton != INVALID_INDEX)
+    {
+        KeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
+
+        if (button.m_NormalKeyCode == KeyCodes::BACKSPACE)
+        {
+            SignalKeyPressed(KeyCodes::BACKSPACE, String::zero, this);
+
+            m_RepeatTimer.Set(KEYREPEAT_REPEAT, true);
+            m_RepeatTimer.Start(true);
+        }
+    }
+}
+
+} // namespace os

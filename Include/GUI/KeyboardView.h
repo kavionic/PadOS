@@ -125,11 +125,12 @@ public:
 
     Signal<void, KeyCodes, const String&, KeyboardView*> SignalKeyPressed;
 private:
-    void SetLayout(KeyboardLayout* layout);
+    void    SetLayout(KeyboardLayout* layout);
     String  GetKeyText(KeyCodes keyCode) const;
     void    DrawButton(const KeyButton& button, bool pressed);
     void    SetPressedButton(size_t index);
     size_t  GetButtonIndex(const Point& position) const;
+    void    SlotRepeatTimer();
 
     static NoPtr<KeyboardViewStyle> s_DefaultStyle;
     Ptr<KeyboardViewStyle>          m_Style = s_DefaultStyle;

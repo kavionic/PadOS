@@ -208,8 +208,11 @@ void RA8875Driver::DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPoi
 {
     if (bitmap->m_VideoMem)
     {
-        if (pos1 == pos2) return;
-
+        if (pos1 == pos2)
+        {
+            WritePixel(bitmap, pos1, color);
+            return;
+        }
         SetWindow(clipRect);
         WaitBlitter();
 

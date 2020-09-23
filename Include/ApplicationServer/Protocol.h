@@ -67,6 +67,7 @@ namespace AppserverProtocol
                 
         VIEW_BEGIN_UPDATE,
         VIEW_END_UPDATE,
+        VIEW_SHOW,
         VIEW_SET_FOCUS_KEYBOARD_MODE,
         VIEW_SET_DRAWING_MODE,
         VIEW_SET_FG_COLOR,
@@ -133,37 +134,37 @@ struct MsgCreateBitmapReply
 
 class String;
 
-typedef RemoteSignal<AppserverProtocol::REGISTER_APPLICATION
-                                        , port_id       // replyPort
-                                        , port_id       // clientPort
-                                        , const String& // name
-                                        > ASRegisterApplication;
+using ASRegisterApplication = RemoteSignal<AppserverProtocol::REGISTER_APPLICATION
+    , port_id       // replyPort
+    , port_id       // clientPort
+    , const String& // name
+>;
 
-typedef RemoteSignal<AppserverProtocol::SYNC
-                                        ,port_id // replyPort
-                                        > ASSync;
+using ASSync = RemoteSignal<AppserverProtocol::SYNC
+    ,port_id // replyPort
+>;
 
-typedef RemoteSignal<AppserverProtocol::CREATE_VIEW
-                                        , port_id           // clientPort
-                                        , port_id           // replyPort
-                                        , handler_id        // replyTarget
-                                        , handler_id        // parent
-                                        , ViewDockType      // dockType
-                                        , const String&     // name
-                                        , const Rect&       // frame
-                                        , const Point&      // scrollOffset
-                                        , uint32_t          // flags
-                                        , int32_t           // hideCount
-                                        , FocusKeyboardMode // focusKeyboardMode
-                                        , DrawingMode       // drawingMode
-                                        , Color             // eraseColor
-                                        , Color             // bgColor
-                                        , Color             // fgColor
-                                        > ASCreateView;
+using ASCreateView = RemoteSignal<AppserverProtocol::CREATE_VIEW
+    , port_id           // clientPort
+    , port_id           // replyPort
+    , handler_id        // replyTarget
+    , handler_id        // parent
+    , ViewDockType      // dockType
+    , const String&     // name
+    , const Rect&       // frame
+    , const Point&      // scrollOffset
+    , uint32_t          // flags
+    , int32_t           // hideCount
+    , FocusKeyboardMode // focusKeyboardMode
+    , DrawingMode       // drawingMode
+    , Color             // eraseColor
+    , Color             // bgColor
+    , Color             // fgColor
+>;
                                                                
-typedef RemoteSignal<AppserverProtocol::DELETE_VIEW
-                                        , handler_id // viewHandle
-                                        > ASDeleteView;
+using ASDeleteView = RemoteSignal<AppserverProtocol::DELETE_VIEW
+    , handler_id // viewHandle
+>;
 
 using ASFocusView = RemoteSignal<AppserverProtocol::FOCUS_VIEW
     , handler_id    // viewHandle
@@ -188,34 +189,39 @@ using ASDeleteBitmap = RemoteSignal<AppserverProtocol::DELETE_BITMAP
     , handler_id    // handle
 >;
 
-typedef RemoteSignal<AppserverProtocol::VIEW_SET_FRAME
-                                        , handler_id  // viewHandle
-                                        , const Rect& // frame
-                                        , handler_id  // requestingClient
-                                        > ASViewSetFrame;
+using ASViewSetFrame = RemoteSignal<AppserverProtocol::VIEW_SET_FRAME
+    , handler_id  // viewHandle
+    , const Rect& // frame
+    , handler_id  // requestingClient
+>;
                                         
-typedef RemoteSignal<AppserverProtocol::VIEW_INVALIDATE
-                                        , handler_id   // viewHandle
-                                        , const IRect& // frame
-                                        > ASViewInvalidate;
+using ASViewInvalidate = RemoteSignal<AppserverProtocol::VIEW_INVALIDATE
+    , handler_id   // viewHandle
+    , const IRect& // frame
+>;
                                         
-typedef RemoteSignal<AppserverProtocol::VIEW_ADD_CHILD
-                                        , handler_id // viewHandle
-                                        , handler_id //childHandle
-                                        , handler_id // managerHandle
-                                        > ASViewAddChild;
+using ASViewAddChild = RemoteSignal<AppserverProtocol::VIEW_ADD_CHILD
+    , handler_id // viewHandle
+    , handler_id //childHandle
+    , handler_id // managerHandle
+>;
 
-typedef RemoteSignal<AppserverProtocol::VIEW_TOGGLE_DEPTH
-                                        , handler_id // viewHandle
-                                        > ASViewToggleDepth;
+using ASViewToggleDepth = RemoteSignal<AppserverProtocol::VIEW_TOGGLE_DEPTH
+    , handler_id // viewHandle
+>;
                                         
-typedef RemoteSignal<AppserverProtocol::VIEW_BEGIN_UPDATE
-                                        , handler_id // viewHandle
-                                        > ASViewBeginUpdate;
+using ASViewBeginUpdate = RemoteSignal<AppserverProtocol::VIEW_BEGIN_UPDATE
+    , handler_id // viewHandle
+>;
                                         
-typedef RemoteSignal<AppserverProtocol::VIEW_END_UPDATE
-                                        , handler_id // viewHandle
-                                        > ASViewEndUpdate;
+using ASViewEndUpdate = RemoteSignal<AppserverProtocol::VIEW_END_UPDATE
+    , handler_id // viewHandle
+>;
+
+using ASViewShow = RemoteSignal<AppserverProtocol::VIEW_SHOW
+    , handler_id // viewHandle
+    , bool       // show
+>;
 
 using ASViewSetFocusKeyboardMode = RemoteSignal<AppserverProtocol::VIEW_SET_FOCUS_KEYBOARD_MODE
     , handler_id        // viewHandle
@@ -298,15 +304,15 @@ using ASViewDrawBitmap = RemoteSignal<AppserverProtocol::VIEW_DRAW_BITMAP
     , const Point&  // dstPos
 >;
 
-typedef RemoteSignal<AppserverProtocol::VIEW_DEBUG_DRAW
-                                        , handler_id   // viewHandle
-                                        , Color        // renderColor
-                                        , uint32_t     // drawFlags
-                                        > ASViewDebugDraw;
+using  ASViewDebugDraw = RemoteSignal<AppserverProtocol::VIEW_DEBUG_DRAW
+    , handler_id   // viewHandle
+    , Color        // renderColor
+    , uint32_t     // drawFlags
+>;
 
-typedef RemoteSignal<AppserverProtocol::PAINT_VIEW
-                                        , const Rect& // frame
-                                        > ASPaintView;
+using ASPaintView = RemoteSignal<AppserverProtocol::PAINT_VIEW
+    , const Rect& // frame
+>;
 
 using  ASViewFrameChanged = RemoteSignal<AppserverProtocol::VIEW_FRAME_CHANGED
     , const Rect& // frame
@@ -335,26 +341,25 @@ using ASWindowManagerEnableVKeyboard = RemoteSignal<AppserverProtocol::WINDOW_MA
 using ASWindowManagerDisableVKeyboard = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_DISABLE_VKEYBOARD
 >;
 
-typedef RemoteSignal<AppserverProtocol::SYNC_REPLY
-                                        > ASSyncReply;
+using ASSyncReply = RemoteSignal<AppserverProtocol::SYNC_REPLY>;
                                         
-typedef RemoteSignal<AppserverProtocol::HANDLE_MOUSE_DOWN
-                                        , MouseButton_e         // button
-                                        , const Point&          // position
-                                        , const MotionEvent&    // event
-                                        > ASHandleMouseDown;
+using ASHandleMouseDown = RemoteSignal<AppserverProtocol::HANDLE_MOUSE_DOWN
+    , MouseButton_e         // button
+    , const Point&          // position
+    , const MotionEvent&    // event
+>;
                                         
-typedef RemoteSignal<AppserverProtocol::HANDLE_MOUSE_UP
-                                        , MouseButton_e         // button
-                                        , const Point&          // position
-                                        , const MotionEvent&    // event
-                                        > ASHandleMouseUp;
+using ASHandleMouseUp = RemoteSignal<AppserverProtocol::HANDLE_MOUSE_UP
+    , MouseButton_e         // button
+    , const Point&          // position
+    , const MotionEvent&    // event
+>;
                                         
-typedef RemoteSignal<AppserverProtocol::HANDLE_MOUSE_MOVE
-                                        , MouseButton_e         // button
-                                        , const Point&          // position
-                                        , const MotionEvent&    // event
-                                        > ASHandleMouseMove;
+using ASHandleMouseMove = RemoteSignal<AppserverProtocol::HANDLE_MOUSE_MOVE
+    , MouseButton_e         // button
+    , const Point&          // position
+    , const MotionEvent&    // event
+>;
                                         
 
 

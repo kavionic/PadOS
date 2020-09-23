@@ -330,40 +330,39 @@ private:
     void SlotFrameChanged(const Rect& frame);
     void SlotKeyboardFocusChanged(bool hasFocus);
 
-    handler_id      m_ServerHandle = INVALID_HANDLE;
+    handler_id          m_ServerHandle = INVALID_HANDLE;
     
-    Ptr<LayoutNode> m_LayoutNode;
+    Ptr<LayoutNode>     m_LayoutNode;
     
-    Rect            m_Borders = Rect(0.0f, 0.0f, 0.0f, 0.0f);
-    float           m_Wheight = 1.0f;
-    DrawingMode     m_DrawingMode = DrawingMode::Overlay;
-    Alignment       m_HAlign = Alignment::Center;
-    Alignment       m_VAlign = Alignment::Center;
-    Point           m_LocalPrefSize[int(PrefSizeType::Count)];
-    Point           m_PreferredSizes[int(PrefSizeType::Count)];
+    Rect                m_Borders = Rect(0.0f, 0.0f, 0.0f, 0.0f);
+    float               m_Wheight = 1.0f;
+    DrawingMode         m_DrawingMode = DrawingMode::Overlay;
+    Alignment           m_HAlign = Alignment::Center;
+    Alignment           m_VAlign = Alignment::Center;
+    Point               m_LocalPrefSize[int(PrefSizeType::Count)];
+    Point               m_PreferredSizes[int(PrefSizeType::Count)];
 
-    float           m_WidthOverride[int(PrefSizeType::Count)]  = {0.0f, 0.0f};
-    float           m_HeightOverride[int(PrefSizeType::Count)] = {0.0f, 0.0f};
+    float               m_WidthOverride[int(PrefSizeType::Count)]  = {0.0f, 0.0f};
+    float               m_HeightOverride[int(PrefSizeType::Count)] = {0.0f, 0.0f};
     
-    SizeOverride    m_WidthOverrideType[int(PrefSizeType::Count)]  = {SizeOverride::None, SizeOverride::None};
-    SizeOverride    m_HeightOverrideType[int(PrefSizeType::Count)] = {SizeOverride::None, SizeOverride::None};
+    SizeOverride        m_WidthOverrideType[int(PrefSizeType::Count)]  = {SizeOverride::None, SizeOverride::None};
+    SizeOverride        m_HeightOverrideType[int(PrefSizeType::Count)] = {SizeOverride::None, SizeOverride::None};
 
     FocusKeyboardMode   m_FocusKeyboardMode = FocusKeyboardMode::None;
-    bool            m_IsPrefSizeValid = false;
-    bool            m_IsLayoutValid   = true;
-    bool            m_DidScrollRect   = false;
+    bool                m_IsPrefSizeValid = false;
+    bool                m_IsLayoutValid   = true;
+    bool                m_DidScrollRect   = false;
     
-    View*           m_WidthRing  = nullptr;
-    View*           m_HeightRing = nullptr;
+    View*               m_WidthRing  = nullptr;
+    View*               m_HeightRing = nullptr;
     
-    Point           m_PositionOffset; // Offset relative to first parent that is not client only.
-    
-    int             m_BeginPainCount = 0;
+    Point               m_PositionOffset; // Offset relative to first parent that is not client only.
+    int                 m_BeginPainCount = 0;
 
-    ScrollBar*      m_HScrollBar = nullptr;
-    ScrollBar*      m_VScrollBar = nullptr;
+    ScrollBar*          m_HScrollBar = nullptr;
+    ScrollBar*          m_VScrollBar = nullptr;
 
-    Ptr<Font>       m_Font = ptr_new<Font>(Font_e::e_FontLarge);
+    Ptr<Font>           m_Font = ptr_new<Font>(Font_e::e_FontLarge);
     
     ASPaintView::Receiver        RSPaintView;
     ASViewFrameChanged::Receiver RSViewFrameChanged;

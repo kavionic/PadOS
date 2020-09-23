@@ -43,7 +43,7 @@ public:
 
     void SetManagerHandle(handler_id handle)              { m_ManagerHandle = handle; }
 
-    void HandleAddedToParent(Ptr<ServerView> parent) {}
+    void HandleAddedToParent(Ptr<ServerView> parent);
     void HandleRemovedFromParent(Ptr<ServerView> parent);
 
     bool        HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
@@ -53,6 +53,9 @@ public:
     void        AddChild(Ptr<ServerView> child, bool topmost = true);
     void        RemoveChild(Ptr<ServerView> child, bool removeAsHandler);
     void        RemoveThis(bool removeAsHandler);
+
+    void        Show(bool show = true);
+    bool        IsVisible() const;
 
     void        SetFrame(const Rect& frame, handler_id requestingClient);
 
@@ -80,8 +83,6 @@ public:
     void        UpdateIfNeeded(bool force);
     void        MarkModified(const IRect& rect);
     void        SetDirtyRegFlags();
-
-    void        Show(bool visible = true);
 
     void                SetFocusKeyboardMode(FocusKeyboardMode mode);
     FocusKeyboardMode   GetFocusKeyboardMode() const                 { return m_FocusKeyboardMode; }

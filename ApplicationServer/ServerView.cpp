@@ -64,11 +64,25 @@ ServerView::~ServerView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void ServerView::HandleAddedToParent(Ptr<ServerView> parent)
+{
+    if (!parent->IsVisible()) {
+        Show(false);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ServerView::HandleRemovedFromParent(Ptr<ServerView> parent)
 {
     ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
     if (server != nullptr) {
         server->ViewDestructed(this);
+    }
+    if (!parent->IsVisible()) {
+        Show(true);
     }
 }
 
@@ -79,7 +93,7 @@ void ServerView::HandleRemovedFromParent(Ptr<ServerView> parent)
     
 bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-    if (m_ClientHandle != INVALID_HANDLE && !HasFlags(ViewFlags::IgnoreMouse))
+    if (m_ClientHandle != INVALID_HANDLE && m_HideCount == 0 && !HasFlags(ViewFlags::IgnoreMouse))
     {
         if (m_ManagerHandle != INVALID_HANDLE)
         {
@@ -189,6 +203,15 @@ void ServerView::RemoveThis(bool removeAsHandler)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool ServerView::IsVisible() const
+{
+    return m_HideCount == 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
 {
     IRect intFrame(rect);
@@ -234,7 +257,6 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
             }
         }            
     }
-//    m_IFrame = intFrame;
     
     if (requestingClient != -1)
     {
@@ -927,33 +949,40 @@ void ServerView::Show(bool doShow)
     //      dbprintf( "Error: Layer::Show() attempt to hide root layer\n" );
     //      return;
     //    }
+    const bool wasVisible = IsVisible();
+
     if ( doShow ) {
         m_HideCount--;
     } else {
         m_HideCount++;
     }
 
-    Ptr<ServerView> parent = m_Parent.Lock();
-    if (parent != nullptr)
+    const bool isVisible = IsVisible();
+    if (isVisible != wasVisible)
     {
-        for (Ptr<ServerView> i = parent; i != nullptr; i = i->GetParent())
+
+        Ptr<ServerView> parent = m_Parent.Lock();
+        if (parent != nullptr)
         {
-            if ((i->m_Flags & ViewFlags::Transparent) == 0) {
-                i->SetDirtyRegFlags();
-                break;
-            }                    
-        }
-        IRect intFrame = GetIFrame();
-        for (Ptr<ServerView> sibling : parent->m_ChildrenList)
-        {
-            IRect siblingIFrame = sibling->GetIFrame();
-            if (siblingIFrame.DoIntersect(intFrame)) {
-                sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
+            for (Ptr<ServerView> i = parent; i != nullptr; i = i->GetParent())
+            {
+                if ((i->m_Flags & ViewFlags::Transparent) == 0) {
+                    i->SetDirtyRegFlags();
+                    break;
+                }
+            }
+            IRect intFrame = GetIFrame();
+            for (Ptr<ServerView> sibling : parent->m_ChildrenList)
+            {
+                IRect siblingIFrame = sibling->GetIFrame();
+                if (siblingIFrame.DoIntersect(intFrame)) {
+                    sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
+                }
             }
         }
-    }
-    for (auto child = m_ChildrenList.rbegin(); child != m_ChildrenList.rend(); ++child) {
-        (*child)->Show(doShow);
+        for (auto child = m_ChildrenList.rbegin(); child != m_ChildrenList.rend(); ++child) {
+            (*child)->Show(isVisible);
+        }
     }
 }
 
@@ -981,7 +1010,6 @@ void ServerView::SetFocusKeyboardMode(FocusKeyboardMode mode)
 void ServerView::DrawLineTo(const Point& toPoint)
 {
     DrawLine(m_PenPosition, toPoint);
-    m_PenPosition = toPoint;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1027,6 +1055,7 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
             }
         }
     }
+    m_PenPosition = toPnt;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

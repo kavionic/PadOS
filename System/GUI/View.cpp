@@ -919,6 +919,40 @@ Ptr<ScrollBar> View::GetHScrollBar() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void View::Show(bool visible)
+{
+    const bool wasVisible = IsVisible();
+
+    if (visible) {
+        m_HideCount--;
+    } else {
+        m_HideCount++;
+    }
+    const bool isVisible = IsVisible();
+    if (isVisible != wasVisible)
+    {
+        if (m_ServerHandle != INVALID_HANDLE) {
+            Post<ASViewShow>(isVisible);
+        }
+        for (Ptr<View> child : *this) {
+            child->Show(isVisible);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool View::IsVisible() const
+{
+    return m_HideCount == 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void View::MakeFocus(MouseButton_e button, bool focus)
 {
     Application* app = GetApplication();
@@ -1109,9 +1143,12 @@ Ptr<Font> View::GetFont() const
 
 bool View::SlotHandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
+    if (m_HideCount != 0 || HasFlags(ViewFlags::IgnoreMouse)) {
+        return false;
+    }
     for (Ptr<View> child : reverse_ranged(m_ChildrenList))
     {
-        if (!child->HasFlags(ViewFlags::IgnoreMouse) && child->m_Frame.DoIntersect(position))
+        if (child->m_Frame.DoIntersect(position))
         {
             Point childPos = position - child->m_Frame.TopLeft() - child->m_ScrollOffset;
             return child->SlotHandleMouseDown(button, childPos, event);
@@ -1126,11 +1163,16 @@ bool View::SlotHandleMouseDown(MouseButton_e button, const Point& position, cons
 
 bool View::HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-    bool handled;
-    if (button < MouseButton_e::FirstTouchID) {
-        handled = OnMouseDown(button, position, event);
-    } else {
-        handled = OnTouchDown(button, position, event);
+    bool handled = false;
+
+    if (m_HideCount == 0 && !HasFlags(ViewFlags::IgnoreMouse))
+    {
+        if (button < MouseButton_e::FirstTouchID) {
+            handled = OnMouseDown(button, position, event);
+        }
+        else {
+            handled = OnTouchDown(button, position, event);
+        }
     }
     if (handled)
     {
@@ -1156,9 +1198,11 @@ bool View::HandleMouseDown(MouseButton_e button, const Point& position, const Mo
                     for (; i != parent->rend(); ++i)
                     {
                         Ptr<View> sibling = *i;
-                        if (!sibling->HasFlags(ViewFlags::IgnoreMouse) && sibling->GetFrame().DoIntersect(parentPos))
+                        if (sibling->GetFrame().DoIntersect(parentPos))
                         {
-                            return sibling->HandleMouseDown(button, sibling->ConvertFromParent(parentPos), event);
+                            if (sibling->HandleMouseDown(button, sibling->ConvertFromParent(parentPos), event)) {
+                                return true;
+                            }
                         }
                     }
                 }
@@ -1200,13 +1244,16 @@ void View::HandleMouseMove(MouseButton_e button, const Point& position, const Mo
 {
     Application* app = GetApplication();
     Ptr<View> mouseView = (app != nullptr) ? app->GetFocusView(button) : nullptr;
-    if (mouseView != nullptr) {
+    if (mouseView != nullptr)
+    {
         if (button < MouseButton_e::FirstTouchID) {
             mouseView->OnMouseMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), event);
         } else {
             mouseView->OnTouchMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), event);
         }
-    } else {
+    }
+    else if (m_HideCount == 0 && !HasFlags(ViewFlags::IgnoreMouse))
+    {
         if (button < MouseButton_e::FirstTouchID) {
             OnMouseMove(button, position, event);
         } else {
@@ -1423,6 +1470,9 @@ void View::Sync()
 void View::HandleAddedToParent(Ptr<View> parent)
 {
     UpdatePosition(View::UpdatePositionNotifyServer::IfChanged);
+    if (!parent->IsVisible()) {
+        Show(false);
+    }
     if (parent->HasFlags(ViewFlags::IsAttachedToScreen))
     {
         if (!HasFlags(ViewFlags::Eavesdropper)) {
@@ -1442,6 +1492,9 @@ void View::HandleAddedToParent(Ptr<View> parent)
     
 void View::HandleRemovedFromParent(Ptr<View> parent)
 {
+    if (!parent->IsVisible()) {
+        Show(true);
+    }
     OnDetachedFromParent(parent);
     if (m_ServerHandle != -1 && !HasFlags(ViewFlags::Eavesdropper)) {
         GetApplication()->RemoveView(ptr_tmp_cast(this));

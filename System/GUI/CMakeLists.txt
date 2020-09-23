@@ -29,6 +29,7 @@ target_sources(PadOS PRIVATE
 	ScrollBar.cpp
 	ScrollView.cpp
 	Slider.cpp
+	TabView.cpp
 	TextBox.cpp
 	TextEditView.cpp
 	TextView.cpp

@@ -22,6 +22,7 @@ target_sources(PadOS PRIVATE
 	ScrollBar.h
 	ScrollView.h
 	Slider.h
+	TabView.h
 	TextBox.h
 	TextEditView.h
 	TextView.h

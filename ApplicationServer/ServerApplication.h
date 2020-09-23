@@ -73,6 +73,7 @@ private:
     void SlotViewToggleDepth(handler_id viewHandle)                                         { ForwardToView(viewHandle, &ServerView::ToggleDepth); }
     void SlotViewBeginUpdate(handler_id viewHandle)                                         { ForwardToView(viewHandle, &ServerView::BeginUpdate); }
     void SlotViewEndUpdate(handler_id viewHandle)                                           { ForwardToView(viewHandle, &ServerView::EndUpdate); }
+    void SlotViewShow(handler_id viewHandle, bool show)                                     { ForwardToView(viewHandle, &ServerView::Show, show); }
     void SlotViewSetFgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetFgColor, color); }
     void SlotViewSetBgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetBgColor, color); }
     void SlotViewSetEraseColor(handler_id viewHandle, Color color)                          { ForwardToView(viewHandle, &ServerView::SetEraseColor, color); }
@@ -125,6 +126,7 @@ private:
     ASViewToggleDepth::Receiver             RSViewToggleDepth;
     ASViewBeginUpdate::Receiver             RSViewBeginUpdate;
     ASViewEndUpdate::Receiver               RSViewEndUpdate;
+    ASViewShow::Receiver                    RSViewShow;
     ASViewSetFgColor::Receiver              RSViewSetFgColor;
     ASViewSetBgColor::Receiver              RSViewSetBgColor;
     ASViewSetEraseColor::Receiver           RSViewSetEraseColor;

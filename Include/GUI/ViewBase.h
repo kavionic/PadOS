@@ -166,9 +166,8 @@ protected:
     Ptr<ViewType>   UnlinkChild(typename  ChildList_t::iterator iterator);
     void            UnlinkChild(Ptr<ViewType> child);
     
-    void Added(ViewBase* parent, int hideCount, int level)
+    void Added(ViewBase* parent, int level)
     {
-        m_HideCount += hideCount;
         m_Level = level;
         if (parent == nullptr) {
             m_ScreenPos = m_Frame.TopLeft();
@@ -176,7 +175,7 @@ protected:
             m_ScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
         }
         for (Ptr<ViewBase> child : m_ChildrenList) {
-            child->Added(this, hideCount, level + 1);
+            child->Added(this, level + 1);
         }
     }
 
@@ -218,7 +217,7 @@ void ViewBase<ViewType>::LinkChild(Ptr<ViewType> child, bool topmost)
 		} else {
 			m_ChildrenList.insert(m_ChildrenList.begin(), child);
 		}
-		child->Added(this, m_HideCount, m_Level + 1);
+		child->Added(this, m_Level + 1);
 		child->HandleAddedToParent(ptr_tmp_cast(static_cast<ViewType*>(this)));
 	}
     else

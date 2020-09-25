@@ -93,7 +93,11 @@ void ServerView::HandleRemovedFromParent(Ptr<ServerView> parent)
     
 bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-    if (m_ClientHandle != INVALID_HANDLE && m_HideCount == 0 && !HasFlags(ViewFlags::IgnoreMouse))
+    if (!IsVisible())
+    {
+        return false;
+    }
+    if (m_ClientHandle != INVALID_HANDLE && !HasFlags(ViewFlags::IgnoreMouse))
     {
         if (m_ManagerHandle != INVALID_HANDLE)
         {
@@ -119,7 +123,7 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position, co
     {
         if (child->m_Frame.DoIntersect(position))
         {
-            Point childPos = position - child->m_Frame.TopLeft() - child->m_ScrollOffset;
+            const Point childPos = child->ConvertFromParent(position);
             if (child->HandleMouseDown(button, childPos, event))
             {
                 return true;
@@ -640,7 +644,6 @@ void ServerView::RebuildRegion(bool bForce)
         if ((m_Flags & ViewFlags::DrawOnChildren) == 0)
         {
             bool regModified = false;
-//            IPoint scrollOffset(m_ScrollOffset);
             for (Ptr<ServerView> child : m_ChildrenList)
             {
                 // Remove children from child region
@@ -872,7 +875,7 @@ void ServerView::EndUpdate( void )
 
 void ServerView::Paint(const IRect& updateRect)
 {
-    if ( m_HideCount > 0 || m_IsUpdating == true || m_ClientHandle == -1) {
+    if ( m_HideCount > 0 || m_IsUpdating == true || m_ClientHandle == INVALID_HANDLE) {
         return;
     }
     if (!ASPaintView::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, updateRect - IPoint(m_ScrollOffset))) {
@@ -1099,8 +1102,6 @@ void ServerView::FillRect(const Rect& rect, Color color)
 
 void ServerView::FillCircle(const Point& position, float radius)
 {
-    if (int(position.y + m_ScreenPos.y + m_ScrollOffset.y + radius) >= 510) return; // Broken clipping past that.
-    
     Ptr<const Region> region = GetRegion();
     if (region != nullptr)
     {

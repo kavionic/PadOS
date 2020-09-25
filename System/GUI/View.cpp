@@ -1143,17 +1143,16 @@ Ptr<Font> View::GetFont() const
 
 bool View::SlotHandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-    if (m_HideCount != 0 || HasFlags(ViewFlags::IgnoreMouse)) {
-        return false;
-    }
+    // Dive down the hierarchy to find the top-most children under the mouse.
     for (Ptr<View> child : reverse_ranged(m_ChildrenList))
     {
-        if (child->m_Frame.DoIntersect(position))
+        if (child->IsVisible() && child->m_Frame.DoIntersect(position))
         {
-            Point childPos = position - child->m_Frame.TopLeft() - child->m_ScrollOffset;
+            const Point childPos = child->ConvertFromParent(position);
             return child->SlotHandleMouseDown(button, childPos, event);
         }
     }
+    // No children eligible for handling the mouse, so attempt to handle it ourself.
     return HandleMouseDown(button, position, event);
 }
 
@@ -1165,12 +1164,11 @@ bool View::HandleMouseDown(MouseButton_e button, const Point& position, const Mo
 {
     bool handled = false;
 
-    if (m_HideCount == 0 && !HasFlags(ViewFlags::IgnoreMouse))
+    if (!HasFlags(ViewFlags::IgnoreMouse))
     {
         if (button < MouseButton_e::FirstTouchID) {
             handled = OnMouseDown(button, position, event);
-        }
-        else {
+        } else {
             handled = OnTouchDown(button, position, event);
         }
     }
@@ -1188,22 +1186,15 @@ bool View::HandleMouseDown(MouseButton_e button, const Point& position, const Mo
         if (parent != nullptr)
         {
             // Event not handled by us. Check if the mouse hit any overlapping siblings below us.
-            Point parentPos = ConvertToParent(position);
+            const Point parentPos = ConvertToParent(position);
             auto i = parent->GetChildRIterator(ptr_tmp_cast(this));
             if (i != parent->rend())
             {
-                ++i;
-                if (i != parent->rend())
+                for (++i; i != parent->rend(); ++i)
                 {
-                    for (; i != parent->rend(); ++i)
-                    {
-                        Ptr<View> sibling = *i;
-                        if (sibling->GetFrame().DoIntersect(parentPos))
-                        {
-                            if (sibling->HandleMouseDown(button, sibling->ConvertFromParent(parentPos), event)) {
-                                return true;
-                            }
-                        }
+                    Ptr<View> sibling = *i;
+                    if (sibling->IsVisible() && sibling->GetFrame().DoIntersect(parentPos)) {
+                        return sibling->HandleMouseDown(button, sibling->ConvertFromParent(parentPos), event);
                     }
                 }
             }

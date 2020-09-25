@@ -161,6 +161,7 @@ public:
     void       Show(bool visible = true);
     void       Hide() { Show(false); }
     bool       IsVisible() const;
+    bool       IsVisibleToMouse() const { return IsVisible() && !HasFlags(ViewFlags::IgnoreMouse); }
     virtual void MakeFocus(MouseButton_e button, bool focus = true);
     virtual bool HasFocus(MouseButton_e button) const;
 

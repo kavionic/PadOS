@@ -270,7 +270,7 @@ void ApplicationServer::HandleMouseDown(MouseButton_e button, const Point& posit
 {
     m_TopView->HandleMouseDown(button, position, event);
 //    if (m_KeyboardFocusView != nullptr) {
-//        m_KeyboardFocusView->HandleMouseDown(button, position - m_KeyboardFocusView->m_ScreenPos - m_KeyboardFocusView->m_ScrollOffset, event);
+//        m_KeyboardFocusView->HandleMouseDown(button, m_KeyboardFocusView->ConvertFromRoot(position), event);
 //    }
 }
 
@@ -284,13 +284,13 @@ void ApplicationServer::HandleMouseUp(MouseButton_e button, const Point& positio
 
     if (mouseView != nullptr)
     {
-        mouseView->HandleMouseUp(button, position - mouseView->m_ScreenPos - mouseView->m_ScrollOffset, event);
+        mouseView->HandleMouseUp(button, mouseView->ConvertFromRoot(position), event);
         SetMouseDownView(button, nullptr);
     }
     Ptr<ServerView> focusView = GetFocusView(button);
     if (focusView != nullptr && focusView != mouseView)
     {
-        focusView->HandleMouseUp(button, position - focusView->m_ScreenPos - focusView->m_ScrollOffset, event);
+        focusView->HandleMouseUp(button, focusView->ConvertFromRoot(position), event);
     }
 }
 
@@ -303,15 +303,15 @@ void ApplicationServer::HandleMouseMove(MouseButton_e button, const Point& posit
 //    Ptr<ServerView> mouseView = GetMouseDownView(button);
 //    if (mouseView != nullptr)
 //    {
-//        mouseView->HandleMouseMove(button, position - mouseView->m_ScreenPos - mouseView->m_ScrollOffset);
+//        mouseView->HandleMouseMove(button, mouseView->ConvertFromRoot(position));
 //    }
     Ptr<ServerView> focusView = GetFocusView(button);
     if (focusView != nullptr /*&& focusView != mouseView*/)
     {
-        focusView->HandleMouseMove(button, position - focusView->m_ScreenPos - focusView->m_ScrollOffset, event);
+        focusView->HandleMouseMove(button, focusView->ConvertFromRoot(position), event);
     }
     if (m_KeyboardFocusView != nullptr && m_KeyboardFocusView != ptr_raw_pointer_cast(focusView)) {
-        m_KeyboardFocusView->HandleMouseMove(button, position - m_KeyboardFocusView->m_ScreenPos - m_KeyboardFocusView->m_ScrollOffset, event);
+        m_KeyboardFocusView->HandleMouseMove(button, m_KeyboardFocusView->ConvertFromRoot(position), event);
     }
 }
 

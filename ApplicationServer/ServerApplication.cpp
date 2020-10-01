@@ -292,9 +292,9 @@ void ServerApplication::SlotSetKeyboardFocus(handler_id clientHandle, bool focus
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int height, ColorSpace colorSpace, uint32_t flags)
+void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int height, ColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags)
 {
-    Ptr<SrvBitmap> bitmap = ptr_new<SrvBitmap>(IPoint(width, height), colorSpace);
+    Ptr<SrvBitmap> bitmap = ptr_new<SrvBitmap>(IPoint(width, height), colorSpace, static_cast<uint8_t*>(raster), bytesPerRow);
 
     handle_id handle = m_NextBitmapHandle++;
 
@@ -303,6 +303,8 @@ void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int heigh
     MsgCreateBitmapReply reply;
     reply.m_BitmapHandle = handle;
     reply.m_Framebuffer  = bitmap->m_Raster;
+    reply.m_BytesPerRow  = bitmap->m_BytesPerLine;
+
     if (send_message(replyPort, -1, AppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), 0) < 0) {
         printf("ERROR: ServerApplication::SlotCreateBitmap() failed to send message: %s\n", strerror(get_last_error()));
     }

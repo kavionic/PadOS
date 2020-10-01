@@ -193,6 +193,7 @@ enum class KeyCodes : uint32_t
     CTRL = 12,
     ALT = 13,
     SYMBOLS = 14,
+    ESCAPE  = 27,
     LAST_SPECIAL = SYMBOLS,
     SPACE = ' ',
     NUM_0 = '0',

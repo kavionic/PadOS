@@ -64,7 +64,7 @@ private:
     void SlotDeleteView(handler_id clientHandle);
     void SlotFocusView(handler_id clientHandle, MouseButton_e button, bool focus);
     void SlotSetKeyboardFocus(handler_id clientHandle, bool focus);
-    void SlotCreateBitmap(port_id replyPort, int width, int height, ColorSpace colorSpace, uint32_t flags);
+    void SlotCreateBitmap(port_id replyPort, int width, int height, ColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags);
     void SlotDeleteBitmap(handle_id bitmapHandle);
     void SlotViewSetFrame(handler_id clientHandle, const Rect& frame, handler_id requestingClient);
     void SlotViewInvalidate(handler_id clientHandle, const IRect& frame);

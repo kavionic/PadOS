@@ -17,12 +17,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 06.11.2017 23:22:03
 
-#include "System/Platform.h"
+#include <System/Platform.h>
 
 #include <string.h>
 
-#include "App/Application.h"
-#include "GUI/View.h"
+#include <App/Application.h>
+#include <GUI/View.h>
+#include <GUI/Bitmap.h>
 #include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/DisplayDriver.h>
 
@@ -312,9 +313,9 @@ Ptr<View> Application::GetKeyboardFocus() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Application::CreateBitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, handle_id* outHandle, uint8_t** outFramebuffer)
+bool Application::CreateBitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow)
 {
-    Post<ASCreateBitmap>(m_ReplyPort.GetHandle(), width, height, colorSpace, flags);
+    Post<ASCreateBitmap>(m_ReplyPort.GetHandle(), width, height, colorSpace, (flags & Bitmap::CUSTOM_FRAMEBUFFER) ? inOutFramebuffer : nullptr, (flags & Bitmap::CUSTOM_FRAMEBUFFER) ? inOutBytesPerRow : 0, flags);
     Flush();
 
     for (;;)
@@ -328,8 +329,9 @@ bool Application::CreateBitmap(int width, int height, ColorSpace colorSpace, uin
                 if (reply.m_BitmapHandle == INVALID_HANDLE) {
                     return false;
                 }
-                *outHandle      = reply.m_BitmapHandle;
-                *outFramebuffer = reply.m_Framebuffer;
+                outHandle         = reply.m_BitmapHandle;
+                inOutFramebuffer  = reply.m_Framebuffer;
+                inOutBytesPerRow  = reply.m_BytesPerRow;
                 return true;
             }
             else

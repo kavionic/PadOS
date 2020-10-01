@@ -23,6 +23,11 @@ target_sources(PadOS PRIVATE
 	ListViewScrolledView.h
 	ListViewScrolledView.cpp
 	ListViewStringRow.cpp
+	Menu.cpp
+	MenuItem.cpp
+	MenuRenderView.cpp
+	MenuRenderView.h
+	MenuSeparator.cpp
 	ProgressBar.cpp
 	RadioButton.cpp
 	Region.cpp

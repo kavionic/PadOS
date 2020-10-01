@@ -58,14 +58,17 @@ class Application;
 class Bitmap : public PtrTarget
 {
 public:
-    enum { ACCEPT_VIEWS = 0x0001, SHARE_FRAMEBUFFER = 0x0002 };
+    enum { ACCEPT_VIEWS = 0x0001, SHARE_FRAMEBUFFER = 0x0002, CUSTOM_FRAMEBUFFER = 0x0004, READ_ONLY = 0x0008 };
     Bitmap(int width, int height, ColorSpace colorSpace, uint32_t flags = SHARE_FRAMEBUFFER, Application* application = nullptr);
+    Bitmap(int width, int height, ColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags = 0, Application* application = nullptr);
+    Bitmap(int width, int height, ColorSpace colorSpace, const void* raster, size_t bytesPerRow, uint32_t flags = 0, Application* application = nullptr);
+
     virtual ~Bitmap();
 
     bool            IsValid() const;
 
     ColorSpace      GetColorSpace() const;
-    Rect            GetBounds() const;
+    IRect           GetBounds() const;
     int             GetBytesPerRow() const;
     virtual void    AddChild(View* view);
     virtual bool    RemoveChild(View* view);
@@ -78,6 +81,8 @@ public:
     void            UnlockRaster() {}
 
 private:
+    void Initialize(int width, int height, ColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, Application* application);
+
     friend class View;
     friend class Window;
     friend class Sprite;
@@ -86,7 +91,8 @@ private:
     Window*         m_Window        = nullptr;
     handle_id       m_Handle        = INVALID_HANDLE;
     ColorSpace      m_ColorSpace    = ColorSpace::NO_COLOR_SPACE;
-    Rect            m_Bounds;
+    size_t          m_BytesPerRow   = 0;
+    IRect           m_Bounds;
     uint8_t*        m_Raster        = nullptr;
 };
 

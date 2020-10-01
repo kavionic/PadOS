@@ -130,6 +130,7 @@ struct MsgCreateBitmapReply
 {
     handler_id  m_BitmapHandle;
     uint8_t*    m_Framebuffer;
+    size_t      m_BytesPerRow;
 };
 
 class String;
@@ -181,7 +182,9 @@ using ASCreateBitmap = RemoteSignal<AppserverProtocol::CREATE_BITMAP
     , port_id       // replyPort
     , int           // width
     , int           // height
-    , ColorSpace   // colorSpace
+    , ColorSpace    // colorSpace
+    , void*         // raster
+    , size_t        // bytesPerRow
     , uint32_t      // flags
 >;
 

@@ -75,18 +75,7 @@ DropdownMenu::DropdownMenu(const String& name, Ptr<View> parent, uint32_t flags)
 
     if (g_ArrowBitmap == nullptr)
     {
-        g_ArrowBitmap = ptr_new<Bitmap>(ARROW_WIDTH, ARROW_HEIGHT, ColorSpace::MONO1, Bitmap::SHARE_FRAMEBUFFER);
-
-        uint8_t* raster = g_ArrowBitmap->LockRaster();
-        if (raster != nullptr)
-        {
-            for (int y = 0; y < ARROW_HEIGHT; ++y)
-            {
-                memcpy(raster, &g_ArrowBitmapRaster[y], sizeof(g_ArrowBitmapRaster[y]));
-                raster = add_bytes_to_pointer(raster, g_ArrowBitmap->GetBytesPerRow());
-            }
-            g_ArrowBitmap->UnlockRaster();
-        }
+        g_ArrowBitmap = ptr_new<Bitmap>(ARROW_WIDTH, ARROW_HEIGHT, ColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
     }
 }
 

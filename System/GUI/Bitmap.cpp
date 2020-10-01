@@ -27,18 +27,46 @@ using namespace os;
 
 Bitmap::Bitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, Application* application)
 {
-    m_Bounds = Rect(0, 0, float(width), float(height));
+    Initialize(width, height, colorSpace, nullptr, 0, flags, application);
+}
 
-    m_Handle = INVALID_HANDLE;
-    m_Raster = nullptr;
-    m_ColorSpace = colorSpace;
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Bitmap::Bitmap(int width, int height, ColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags, Application* application)
+{
+    Initialize(width, height, colorSpace, static_cast<uint8_t*>(raster), bytesPerRow, flags | CUSTOM_FRAMEBUFFER, application);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Bitmap::Bitmap(int width, int height, ColorSpace colorSpace, const void* raster, size_t bytesPerRow, uint32_t flags, Application* application)
+{
+    Initialize(width, height, colorSpace, static_cast<uint8_t*>(const_cast<void*>(raster)), bytesPerRow, flags | CUSTOM_FRAMEBUFFER | READ_ONLY, application);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Bitmap::Initialize(int width, int height, ColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, Application* application)
+{
+    m_Bounds = IRect(0, 0, width, height);
+
+    m_Handle        = INVALID_HANDLE;
+    m_Raster        = raster;
+    m_ColorSpace    = colorSpace;
+    m_BytesPerRow   = bytesPerRow;
 
     if (application == nullptr) {
         application = Application::GetCurrentApplication();
     }
     if (application != nullptr)
     {
-        if (application->CreateBitmap(width, height, colorSpace, flags, &m_Handle, &m_Raster)) {
+        if (application->CreateBitmap(width, height, colorSpace, flags, m_Handle, m_Raster, m_BytesPerRow)) {
             m_Application = application;
         }
     }
@@ -134,7 +162,7 @@ void Bitmap::Sync()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Rect Bitmap::GetBounds() const
+IRect Bitmap::GetBounds() const
 {
     return m_Bounds;
 }
@@ -145,9 +173,5 @@ Rect Bitmap::GetBounds() const
 
 int Bitmap::GetBytesPerRow() const
 {
-    int bitsPerPix = BitsPerPixel(m_ColorSpace);
-    if (bitsPerPix == 15) {
-        bitsPerPix = 16;
-    }
-    return (int(m_Bounds.Width()) * bitsPerPix / 8 + 3) & ~3;;
+    return m_BytesPerRow;
 }

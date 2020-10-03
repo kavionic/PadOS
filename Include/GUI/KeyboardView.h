@@ -28,6 +28,8 @@
 
 namespace os
 {
+class Menu;
+class MenuItem;
 
 struct KeyboardViewStyle : public PtrTarget
 {
@@ -131,6 +133,7 @@ private:
     void    SetPressedButton(size_t index);
     size_t  GetButtonIndex(const Point& position) const;
     void    SlotRepeatTimer();
+    void    SlotLayoutSelected(Ptr<MenuItem> item);
 
     static NoPtr<KeyboardViewStyle> s_DefaultStyle;
     Ptr<KeyboardViewStyle>          m_Style = s_DefaultStyle;
@@ -152,6 +155,7 @@ private:
     CapsLockMode                m_CapsLockMode  = CapsLockMode::Single;
     size_t                      m_SymbolPage = 0;
     int                         m_PrevCursorPos = 0;
+    Ptr<Menu>                   m_LayoutSelectMenu;
     bool                        m_IsDraggingCursor = false;
     bool                        m_SymbolsActive = false;
 

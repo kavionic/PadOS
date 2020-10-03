@@ -30,6 +30,11 @@
 namespace os
 {
 
+const std::map<String, uint32_t> MenuFlags::FlagMap
+{
+    DEFINE_FLAG_MAP_ENTRY(MenuFlags, NoKeyboardFocus)
+};
+
 static const uint32_t g_ArrowBitmapRaster[] =
 {
 
@@ -316,6 +321,9 @@ void Menu::Open(const Point& screenPosition, MenuLocation relativeLocation)
                 frame += Point(-round(size.x * 0.5f), 20.0f);
             }
             break;
+        case os::MenuLocation::Center:
+            frame += (screenPosition - frame.Size() * 0.5f).GetRounded();
+            break;
         case os::MenuLocation::TopLeft:
             frame += screenPosition;
             break;
@@ -356,13 +364,14 @@ void Menu::Open(const Point& screenPosition, MenuLocation relativeLocation)
     }
 
     SetFrame(frame);
-    SetKeyboardFocus(true);
-    SelectItem(m_Items.empty() ? nullptr : m_Items[0]);
+    if (!HasFlags(MenuFlags::NoKeyboardFocus)) {
+        SetKeyboardFocus(true);
+    }
 
     Application* app = Application::GetCurrentApplication();
 
     if (app != nullptr) {
-        app->AddView(ptr_tmp_cast(this), ViewDockType::TopLevelView);
+        app->AddView(ptr_tmp_cast(this), ViewDockType::RootLevelView);
     }
 
     Flush();
@@ -403,7 +412,7 @@ void Menu::Close(bool bCloseChilds, bool bCloseParent, Ptr<MenuItem> selectedIte
         Ptr<Menu> parent = GetSuperMenu();
         if (parent != nullptr)
         {
-            if (parent->m_IsOpen) {
+            if (parent->m_IsOpen && !HasFlags(MenuFlags::NoKeyboardFocus)) {
                 parent->SetKeyboardFocus(true);
             }
             parent->m_HasOpenChildren = false;

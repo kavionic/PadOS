@@ -43,6 +43,7 @@ public:
     MenuItem(Ptr<Menu> menu);
     ~MenuItem();
 
+    int             GetID() const { return m_ID; }
     Ptr<Menu>       GetSubMenu() const;
     Ptr<Menu>       GetSuperMenu() const;
     Rect            GetFrame() const;

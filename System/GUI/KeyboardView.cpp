@@ -23,6 +23,9 @@
 #include <GUI/Bitmap.h>
 #include <GUI/ViewFactory.h>
 #include <GUI/KeyboardView.h>
+#include <GUI/Menu.h>
+#include <GUI/MenuItem.h>
+#include <GUI/Desktop.h>
 #include <Utils/Utils.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KFilesystem.h>
@@ -439,11 +442,20 @@ bool KeyboardView::OnLongPress(MouseButton_e pointID, const Point& position, con
         }
         else if (button.m_NormalKeyCode == KeyCodes::ENTER && !HasFlags(KeyboardViewFlags::Numerical))
         {
-            if (!m_Keyboards.empty())
+            if (!m_Keyboards.empty() && m_LayoutSelectMenu == nullptr)
             {
-                m_SelectedKeyboard++;
-                if (m_SelectedKeyboard >= m_Keyboards.size()) m_SelectedKeyboard = 0;
-                LoadKeyboard(String("/sdcard/Rainbow3D/System/Keyboards/") + m_Keyboards[m_SelectedKeyboard] + String(".xml"));
+                m_LayoutSelectMenu = ptr_new<Menu>(String::zero, MenuLayout::Vertical, MenuFlags::NoKeyboardFocus);
+
+                for (size_t i = 0; i < m_Keyboards.size(); ++i)
+                {
+                    Ptr<MenuItem> item = m_LayoutSelectMenu->AddStringItem(m_Keyboards[i], i);
+                    if (i == m_SelectedKeyboard) {
+                        item->Highlight(true);
+                    }
+                }
+
+                m_LayoutSelectMenu->SignalItemSelected.Connect(this, &KeyboardView::SlotLayoutSelected);
+                m_LayoutSelectMenu->Open(Desktop().GetResolution() * 0.5f, MenuLocation::Center);
                 cancelPress = true;
             }
         }
@@ -769,6 +781,22 @@ void KeyboardView::SlotRepeatTimer()
             m_RepeatTimer.Start(true);
         }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KeyboardView::SlotLayoutSelected(Ptr<MenuItem> item)
+{
+    if (item != nullptr)
+    {
+        m_SelectedKeyboard = item->GetID();
+        if (m_SelectedKeyboard >= m_Keyboards.size()) m_SelectedKeyboard = 0;
+        LoadKeyboard(String("/sdcard/Rainbow3D/System/Keyboards/") + m_Keyboards[m_SelectedKeyboard] + String(".xml"));
+        Invalidate();
+    }
+    m_LayoutSelectMenu = nullptr;
 }
 
 } // namespace os

@@ -76,15 +76,11 @@ bool MenuRenderView::OnTouchDown(MouseButton_e pointID, const Point& position, c
 
     if (item != nullptr)
     {
-        m_Menu->SetKeyboardFocus(true);
+        if (!m_Menu->HasFlags(MenuFlags::NoKeyboardFocus)) {
+            m_Menu->SetKeyboardFocus(true);
+        }
         m_Menu->SelectItem(item);
-//        if (m_Menu->m_eLayout == MenuLayout::Horizontal) {
-//            m_Menu->OpenSelection();
-//        } else {
-//            m_Menu->StartOpenTimer(0.2);
-//        }
     }
-//    m_Menu->OpenSelection();
 
     MakeFocus(pointID, true);
     return true;
@@ -166,15 +162,11 @@ bool MenuRenderView::OnMouseDown(MouseButton_e button, const Point& position, co
 
         if (pcItem != nullptr)
         {
-            m_Menu->SetKeyboardFocus(true);
+            if (!m_Menu->HasFlags(MenuFlags::NoKeyboardFocus)) {
+                m_Menu->SetKeyboardFocus(true);
+            }
             m_Menu->SelectItem(pcItem);
-//            if (m_Menu->m_eLayout == MenuLayout::Horizontal) {
-//                m_Menu->OpenSelection();
-//            } else {
-//                m_Menu->StartOpenTimer(0.2);
-//            }
         }
-//        m_Menu->OpenSelection();
     }
     else
     {

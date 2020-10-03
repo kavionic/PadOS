@@ -27,6 +27,15 @@ class Menu;
 class MenuItem;
 class MenuRenderView;
 
+
+namespace MenuFlags
+{
+static constexpr uint32_t NoKeyboardFocus = 0x01 << ViewFlags::FirstUserBit;
+
+extern const std::map<String, uint32_t> FlagMap;
+}
+
+
 enum class MenuLayout : uint8_t
 {
     Vertical,
@@ -36,6 +45,7 @@ enum class MenuLayout : uint8_t
 enum class MenuLocation
 {
     Auto,
+    Center,
     TopLeft,
     BottomLeft
 };

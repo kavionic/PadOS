@@ -657,7 +657,7 @@ bool FATFilesystem::ReleaseInode(KINode* inode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> _node, int omode)
+Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> _node, int openFlags)
 {
     Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(volume);
     Ptr<FATINode>  node = ptr_static_cast<FATINode>(_node);
@@ -669,25 +669,25 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> _node,
         return nullptr;
     }
 
-    kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::OpenFile(): inode ID %" PRIx64 ", omode %x\n", node->m_INodeID, omode);
+    kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::OpenFile(): inode ID %" PRIx64 ", openFlags %x\n", node->m_INodeID, openFlags);
 
-    if (omode & O_CREAT) {
+    if (openFlags & O_CREAT) {
         kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::OpenFile(): called with O_CREAT.\n");
         set_last_error(EINVAL);
         return nullptr;
     }
 
     if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY) || (node->m_DOSAttribs & FAT_READ_ONLY) || (node->m_DOSAttribs & FAT_SUBDIR)) {
-        omode = (omode & ~O_ACCMODE) | O_RDONLY;
+        openFlags = (openFlags & ~O_ACCMODE) | O_RDONLY;
     }
 
-    if ((omode & O_TRUNC) && ((omode & O_ACCMODE) == O_RDONLY)) {
+    if ((openFlags & O_TRUNC) && ((openFlags & O_ACCMODE) == O_RDONLY)) {
         kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::OpenFile(): can't open file for reading with O_TRUNC\n");
         set_last_error(EPERM);
         return nullptr;
     }
 
-    if (omode & O_TRUNC)
+    if (openFlags & O_TRUNC)
     {
         kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::OpenFile() called with O_TRUNC set.\n");
         if (!vol->GetFATTable()->SetChainLength(node, 0, true)) {
@@ -700,9 +700,8 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> _node,
     }
 
     try {
-        Ptr<FATFileNode> fileNode = ptr_new<FATFileNode>();
+        Ptr<FATFileNode> fileNode = ptr_new<FATFileNode>(openFlags);
 
-        fileNode->m_Mode = omode;
         fileNode->m_FATIteration  = node->m_Iteration;
         fileNode->m_FATChainIndex = 0;
         fileNode->m_CachedCluster = node->m_StartCluster;
@@ -720,7 +719,7 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> _node,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* _name, int nameLength, int omode, int perms)
+Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* _name, int nameLength, int openFlags, int perms)
 {
     Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(volume);
     Ptr<FATINode>  dir = ptr_static_cast<FATINode>(parent);
@@ -747,7 +746,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
     
     CRITICAL_SCOPE(vol->m_Mutex);
 
-    kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::CreateFile() called: %" PRIx64 "/%s perms=%o omode=%o\n", dir->m_INodeID, name.c_str(), perms, omode);
+    kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::CreateFile() called: %" PRIx64 "/%s perms=%o openFlags=%o\n", dir->m_INodeID, name.c_str(), perms, openFlags);
 
     if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
         kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::CreateFile() called on read-only volume.\n");
@@ -767,7 +766,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
         return nullptr;
     }
 
-    if ((omode & O_ACCMODE) == O_RDONLY) {
+    if ((openFlags & O_ACCMODE) == O_RDONLY) {
         kernel_log(LOGC_FILE, KLogSeverity::ERROR, "invalid permissions used in creating file.\n");
         set_last_error(EPERM);
         return nullptr;
@@ -778,7 +777,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
     Ptr<FATINode> file;
     if (DoLocateINode(vol, dir, name, &file) == 0)
     {
-        if (omode & O_EXCL) {
+        if (openFlags & O_EXCL) {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::CreateFile() with O_EXCL called on existing file %s.\n", name.c_str());
             set_last_error(EEXIST);
             return nullptr;
@@ -790,13 +789,13 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
             return nullptr;
         }
 
-        if (omode & O_TRUNC) {
+        if (openFlags & O_TRUNC) {
             vol->GetFATTable()->SetChainLength(file, 0, true);
             file->m_Size = 0;
             file->m_Iteration++;
         }
         try {
-            fileNode = ptr_new<FATFileNode>();
+            fileNode = ptr_new<FATFileNode>(openFlags);
         } catch(const std::bad_alloc&) {
             set_last_error(ENOMEM);
             return nullptr;
@@ -833,7 +832,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
             return nullptr;
         }
         try {
-            fileNode = ptr_new<FATFileNode>();
+            fileNode = ptr_new<FATFileNode>(openFlags);
             fileNode->SetINode(file);
         } catch(const std::bad_alloc&) {
             set_last_error(ENOMEM);
@@ -841,7 +840,6 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
         }        
     }
 
-    fileNode->m_Mode = omode;
     fileNode->m_FATIteration  = file->m_Iteration;
     fileNode->m_FATChainIndex = 0;
     fileNode->m_CachedCluster = file->m_StartCluster;
@@ -1006,7 +1004,7 @@ Ptr<KDirectoryNode> FATFilesystem::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINo
 
     try
     {
-        Ptr<FATDirectoryNode> dirNode = ptr_new<FATDirectoryNode>();
+        Ptr<FATDirectoryNode> dirNode = ptr_new<FATDirectoryNode>(O_RDONLY);
         dirNode->m_CurrentIndex = 0;
         return dirNode;
     }
@@ -1503,7 +1501,7 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
 
     kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::Write() called %d bytes at %" PRId64 " from buffer at %lx (inode ID %" PRIx64 ")\n", len, pos, (uint32_t)buf, node->m_INodeID);
 
-    if ((fileNode->m_Mode & O_ACCMODE) == O_RDONLY) {
+    if ((fileNode->GetOpenFlags() & O_ACCMODE) == O_RDONLY) {
 	kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): called on file opened as read-only.\n");
         set_last_error(EPERM);
 	return -1;
@@ -1511,7 +1509,7 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
 
     if (pos < 0) pos = 0;
 	
-    if (fileNode->m_Mode & O_APPEND) {
+    if (fileNode->GetOpenFlags() & O_APPEND) {
 	pos = node->m_Size;
     } 
 
@@ -1651,41 +1649,44 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
 
 int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize)
 {
-    Ptr<FATVolume>        vol     = ptr_static_cast<FATVolume>(volume);
+    Ptr<FATVolume>        vol = ptr_static_cast<FATVolume>(volume);
     Ptr<FATDirectoryNode> dirNode = ptr_static_cast<FATDirectoryNode>(directory);
-    Ptr<FATINode>         dir     = ptr_static_cast<FATINode>(directory->GetINode());
+    Ptr<FATINode>         dir = ptr_static_cast<FATINode>(directory->GetINode());
 
     CRITICAL_SCOPE(vol->m_Mutex);
-	
+
     if (!vol->CheckMagic(__func__) || !dir->CheckMagic(__func__) || !dirNode->CheckMagic(__func__)) {
-	set_last_error(EINVAL);
+        set_last_error(EINVAL);
         return -1;
     }
 
     kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATFilesystem::ReadDirectory(): inode ID %" PRIx64 ", index %lx\n", dir->m_INodeID, dirNode->m_CurrentIndex);
 
     entry->d_reclength = sizeof(*entry);
-      // simulate '.' and '..' entries for root directory
+    // simulate '.' and '..' entries for root directory
     if (dir->m_INodeID == vol->m_RootINode->m_INodeID)
     {
-	if (dirNode->m_CurrentIndex >= 2)
+        if (dirNode->m_CurrentIndex >= 2)
         {
-	    dirNode->m_CurrentIndex -= 2;
-	}
+            dirNode->m_CurrentIndex -= 2;
+        }
         else
         {
-	    if (dirNode->m_CurrentIndex++ == 0) {
-		strcpy(entry->d_name, ".");
-		entry->d_namelength = 1;
-	    } else {
-		strcpy(entry->d_name, "..");
-		entry->d_namelength = 2;
-	    }
-	    entry->d_type = dir_entry_type::DT_DIRECTORY;
-	    entry->d_inode = vol->m_RootINode->m_INodeID;
+            if (dirNode->m_CurrentIndex++ == 0)
+            {
+                strcpy(entry->d_name, ".");
+                entry->d_namelength = 1;
+            }
+            else
+            {
+                strcpy(entry->d_name, "..");
+                entry->d_namelength = 2;
+            }
+            entry->d_type = dir_entry_type::DT_DIRECTORY;
+            entry->d_inode = vol->m_RootINode->m_INodeID;
             entry->d_volumeid = vol->m_VolumeID;
-	    return 1;
-	}
+            return 1;
+        }
     }
 
     FATDirectoryIterator diri(vol, dir->m_StartCluster, dirNode->m_CurrentIndex);
@@ -1695,37 +1696,40 @@ int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dire
     int result = diri.GetNextDirectoryEntry(dir, &entry->d_inode, &fileName, &dosAttributes);
     if (result >= 0)
     {
-	kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::ReadDirectory(): found file '%s' / %" PRId32 "\n", fileName.c_str(), fileName.size());
-        if (fileName.size() <= NAME_MAX) {
+        kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::ReadDirectory(): found file '%s' / %" PRId32 "\n", fileName.c_str(), fileName.size());
+        if (fileName.size() <= NAME_MAX)
+        {
             fileName.copy(entry->d_name, fileName.size());
             entry->d_name[fileName.size()] = 0;
             entry->d_type = (dosAttributes & FAT_SUBDIR) ? dir_entry_type::DT_DIRECTORY : dir_entry_type::DT_FILE;
 
-        } else {
+        }
+        else
+        {
             kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::WARNING, "FATFilesystem::ReadDirectory(): filename to long '%s' / %" PRId32 "\n", fileName.c_str(), fileName.size());
             set_last_error(ENAMETOOLONG);
             result = -1;
-        }            
+        }
     }
     dirNode->m_CurrentIndex = diri.m_CurrentIndex;
 
     if (dir->m_INodeID == vol->m_RootINode->m_INodeID) {
-	dirNode->m_CurrentIndex += 2;
-    }	
+        dirNode->m_CurrentIndex += 2;
+    }
     if (result >= 0)
     {
-	entry->d_volumeid = vol->m_VolumeID;
-	entry->d_namelength = strlen(entry->d_name);
-	kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATFilesystem::ReadDirectory(): found file %s\n", entry->d_name);
+        entry->d_volumeid = vol->m_VolumeID;
+        entry->d_namelength = strlen(entry->d_name);
+        kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATFilesystem::ReadDirectory(): found file %s\n", entry->d_name);
         return 1;
     }
     else if (get_last_error() == ENOENT)
     {
-	return 0; // End of directory
+        return 0; // End of directory
     }
     else
     {
-	kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::ReadDirectory(): error returned by GetNextDirectoryEntry() (%s)\n", strerror(get_last_error()));
+        kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::ReadDirectory(): error returned by GetNextDirectoryEntry() (%s)\n", strerror(get_last_error()));
         return -1;
     }
 }

@@ -92,9 +92,9 @@ I2CDriverINode::~I2CDriverINode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> I2CDriverINode::Open( int flags)
+Ptr<KFileNode> I2CDriverINode::Open(int flags)
 {
-    Ptr<I2CFile> file = ptr_new<I2CFile>();
+    Ptr<I2CFile> file = ptr_new<I2CFile>(flags);
     return file;
 }
 

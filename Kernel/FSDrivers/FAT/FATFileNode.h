@@ -30,7 +30,7 @@ class FATFileNode : public KFileNode
 {
     public:
     static const uint32_t MAGIC = 0x8b10664d;
-    FATFileNode() { m_Magic = MAGIC; }
+    FATFileNode(int openFlags) : KFileNode(openFlags) { m_Magic = MAGIC; }
     ~FATFileNode() { m_Magic = ~MAGIC; }
     
     bool CheckMagic(const char* functionName)
@@ -44,7 +44,6 @@ class FATFileNode : public KFileNode
     }
 
     uint32_t m_Magic;
-    uint32_t m_Mode; // Open mode
 
     uint32_t m_FATIteration;  // Iteration from the inode. If it don't match the inode, the cached cluster must be discarded.
     uint32_t m_FATChainIndex; // Index in the fat chain

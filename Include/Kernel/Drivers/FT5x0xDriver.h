@@ -123,7 +123,9 @@ struct FT5x0xOMRegisters
 
 class FT5x0xFile : public KFileNode
 {
-    public:
+public:
+    FT5x0xFile(int openFlags) : KFileNode(openFlags) {}
+
     port_id m_TargetPort = -1;
 };
 

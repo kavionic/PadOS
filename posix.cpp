@@ -225,6 +225,16 @@ caddr_t _sbrk_r(_reent* reent, ptrdiff_t size)
     return caddr_t(prev_heap);
 }
 
+char* getcwd(char* path, size_t bufferSize)
+{
+    if (bufferSize < 2) {
+        errno = ERANGE;
+        return nullptr;
+    }
+    strncpy(path, "/", bufferSize);
+    return path;
+}
+
 }
 
 size_t get_heap_size()

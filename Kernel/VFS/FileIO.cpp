@@ -32,6 +32,43 @@
 using namespace kernel;
 using namespace os;
 
+///////////////////////////////////////////////////////////////////////////////
+/// Prepends a new name in front of a path.
+///
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static int PrependNameToPath(char* buffer, int currentPathLength, char* name, int nameLength)
+{
+    if (currentPathLength > 0) {
+        memmove(buffer + nameLength + 1, buffer, currentPathLength);
+    }
+    buffer[0] = '/';
+    memcpy(buffer + 1, name, nameLength);
+    return(currentPathLength + nameLength + 1);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Some operations need to remove trailing slashes for POSIX.1 conformance.
+/// For rename we also need to change the behavior depending on whether we
+/// had a trailing slash or not.. (we cannot rename normal files with
+/// trailing slashes, only directories)
+///    
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static bool RemoveTrailingSlashes(String* name)
+{
+    bool slashesRemoved = false;
+    while (name->size() > 1 && (*name)[name->size() - 1] == '/')
+    {
+        name->resize(name->size() - 1);
+        slashesRemoved = true;
+    }
+    return slashesRemoved;
+}
+
+
 std::map<os::String, Ptr<kernel::KFilesystem>> FileIO::s_FilesystemDrivers;
 Ptr<KFileTableNode>                            FileIO::s_PlaceholderFile;
 Ptr<KRootFilesystem>                           FileIO::s_RootFilesystem;
@@ -45,12 +82,9 @@ std::vector<Ptr<KFileTableNode>>               FileIO::s_FileTable;
 
 void FileIO::Initialze()
 {
-    s_PlaceholderFile = ptr_new<KFileTableNode>(false);
-//    s_FileTable.push_back(s_PlaceholderFile);
-//    s_FileTable.push_back(s_PlaceholderFile);
-//    s_FileTable.push_back(s_PlaceholderFile);
+    s_PlaceholderFile = ptr_new<KFileTableNode>(false, 0);
     s_RootFilesystem = ptr_new<KRootFilesystem>();
-    s_RootVolume =  s_RootFilesystem->Mount(VOLID_ROOT, "", 0, nullptr, 0);
+    s_RootVolume = s_RootFilesystem->Mount(VOLID_ROOT, "", 0, nullptr, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -62,10 +96,11 @@ bool FileIO::RegisterFilesystem(const char* name, Ptr<KFilesystem> filesystem)
     try {
         s_FilesystemDrivers[name] = filesystem;
         return true;
-    } catch(const std::bad_alloc&) {
+    }
+    catch (const std::bad_alloc&) {
         set_last_error(ENOMEM);
         return false;
-    }        
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -112,7 +147,7 @@ int FileIO::Mount(const char* devicePath, const char* directoryPath, const char*
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FileIO::Open(const char* path, int flags, int permissions)
+int FileIO::Open(int baseFolderFD, const char* path, int openFlags, int permissions)
 {
     int handle = AllocateFileHandle();
     if (handle < 0) {
@@ -124,23 +159,35 @@ int FileIO::Open(const char* path, int flags, int permissions)
         void Detach() { m_Handle = -1; }
         int m_Handle;
     } handleGuard(handle);
-    
+
+    Ptr<KINode> baseInode;
+    if (baseFolderFD != -1)
+    {
+        Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
+        if (baseFolderFile == nullptr)
+        {
+            set_last_error(EBADF);
+            return -1;
+        }
+        baseInode = baseFolderFile->GetINode();
+    }
+
     size_t      pathLength = strlen(path);
     const char* name;
     size_t      nameLength;
-    Ptr<KINode> parent = LocateParentInode(nullptr, path, pathLength, &name, &nameLength);
+    Ptr<KINode> parent = LocateParentInode(baseInode, path, pathLength, &name, &nameLength);
     if (parent == nullptr) {
         return -1;
     }
-    
+
     Ptr<KINode> inode = LocateInodeByName(parent, name, nameLength, true);
 
     Ptr<KFileTableNode> file;
     if (inode == nullptr)
     {
-        if (get_last_error() == ENOENT && (flags & O_CREAT))
+        if (get_last_error() == ENOENT && (openFlags & O_CREAT))
         {
-            file = parent->m_Filesystem->CreateFile(parent->m_Volume, parent, name, nameLength, flags, permissions);
+            file = parent->m_Filesystem->CreateFile(parent->m_Volume, parent, name, nameLength, openFlags, permissions);
             if (file == nullptr) {
                 return -1;
             }
@@ -152,8 +199,6 @@ int FileIO::Open(const char* path, int flags, int permissions)
     }
     if (file == nullptr)
     {
-//    Ptr<KINode> inode = LocateInodeByPath(nullptr, path, strlen(path));
-    
         if (inode->m_FileOps == nullptr)
         {
             set_last_error(ENOSYS);
@@ -161,17 +206,33 @@ int FileIO::Open(const char* path, int flags, int permissions)
         }
         if (inode->IsDirectory()) {
             file = inode->m_FileOps->OpenDirectory(inode->m_Volume, inode);
-        } else {
-            file = inode->m_FileOps->OpenFile(inode->m_Volume, inode, (flags & ~O_CREAT));
-        }        
+        }
+        else {
+            file = inode->m_FileOps->OpenFile(inode->m_Volume, inode, (openFlags & ~O_CREAT));
+        }
         if (file == nullptr) {
             return -1;
         }
         file->SetINode(inode);
-    }        
+    }
     handleGuard.Detach();
     SetFile(handle, file);
     return handle;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int FileIO::CopyFD(int oldHandle)
+{
+    Ptr<KFileTableNode> fileNode = GetFileNode(oldHandle);
+
+    if (fileNode == nullptr) {
+        set_last_error(EBADF);
+        return -1;
+    }
+    return OpenInode(false, fileNode->GetINode(), fileNode->GetOpenFlags());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -191,9 +252,12 @@ int FileIO::Dupe(int oldHandle, int newHandle)
         set_last_error(EBADF);
         return -1;
     }
-    if (newHandle == -1) {
+    if (newHandle == -1)
+    {
         newHandle = AllocateFileHandle();
-    } else {
+    }
+    else
+    {
         Close(newHandle);
         if (newHandle >= int(s_FileTable.size())) {
             s_FileTable.resize(newHandle + 1);
@@ -213,7 +277,6 @@ int FileIO::Dupe(int oldHandle, int newHandle)
 
 int FileIO::Close(int handle)
 {
-
     Ptr<KFileTableNode> file = GetFileNode(handle);
     if (file == nullptr)
     {
@@ -222,17 +285,6 @@ int FileIO::Close(int handle)
     }
     FreeFileHandle(handle);
     return 0;
-/*    Ptr<KINode> inode = file->GetINode();
-    assert(inode != nullptr && inode->m_Filesystem != nullptr && inode->m_FileOps !=  nullptr);
-
-    int result = 0;
-    if (inode->IsDirectory()) {
-        result = inode->m_FileOps->CloseDirectory(inode->m_Volume, ptr_static_cast<KDirectoryNode>(file));
-    } else {
-        result = inode->m_FileOps->CloseFile(inode->m_Volume, ptr_static_cast<KFileNode>(file));
-    }
-
-    return result;*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -305,7 +357,7 @@ ssize_t FileIO::Read(int handle, off64_t position, void* buffer, size_t length)
         set_last_error(EBADF);
         return -1;
     }
-    
+
     Ptr<KINode> inode = file->GetINode();
     assert(inode != nullptr && inode->m_Filesystem != nullptr);
 
@@ -331,12 +383,12 @@ ssize_t FileIO::Write(int handle, off64_t position, const void* buffer, size_t l
     }
     Ptr<KINode> inode = file->GetINode();
     assert(inode != nullptr && inode->m_Filesystem != nullptr);
-    
+
     if (inode->m_FileOps == nullptr) {
         set_last_error(ENOSYS);
         return -1;
     }
-    
+
     return inode->m_FileOps->Write(file, position, buffer, length);
 }
 
@@ -359,7 +411,7 @@ int FileIO::DeviceControl(int handle, int request, const void* inData, size_t in
         set_last_error(ENOSYS);
         return -1;
     }
-    
+
     return inode->m_FileOps->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);
 }
 
@@ -375,15 +427,6 @@ int FileIO::ReadDirectory(int handle, dir_entry* entry, size_t bufSize)
         return -1;
     }
     return dir->ReadDirectory(entry, bufSize);
-/*    Ptr<KINode> inode = dir->GetINode();
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-
-    if (inode->m_FileOps == nullptr) {
-        set_last_error(ENOSYS);
-        return -1;
-    }
-    
-    return inode->m_FileOps->ReadDirectory(inode->m_Volume, dir, entry, bufSize);*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -404,12 +447,25 @@ int FileIO::RewindDirectory(int handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FileIO::CreateDirectory(const char* path, int permission)
+int FileIO::CreateDirectory(int baseFolderFD, const char* path, int permission)
 {
     int         pathLength = strlen(path);
     const char* name;
     size_t      nameLength;
-    Ptr<KINode> parent = LocateParentInode(nullptr, path, pathLength, &name, &nameLength);
+
+    Ptr<KINode> baseInode;
+    if (baseFolderFD != -1)
+    {
+        Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
+        if (baseFolderFile == nullptr)
+        {
+            set_last_error(EBADF);
+            return -1;
+        }
+        baseInode = baseFolderFile->GetINode();
+    }
+
+    Ptr<KINode> parent = LocateParentInode(baseInode, path, pathLength, &name, &nameLength);
     if (parent == nullptr) {
         return -1;
     }
@@ -420,67 +476,29 @@ int FileIO::CreateDirectory(const char* path, int permission)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+int FileIO::Symlink(int baseFolderFD, const char* target, const char* linkPath)
+{
+    set_last_error(ENOSYS);
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 int FileIO::ReadStats(int handle, struct stat* outStats)
 {
     Ptr<KFileTableNode> node = GetFileNode(handle);
     if (node == nullptr) {
-	set_last_error(EBADF);
-	return -1;
+        set_last_error(EBADF);
+        return -1;
     }
     Ptr<KINode> inode = node->GetINode();
     if (inode == nullptr || inode->m_FileOps == nullptr) {
-	set_last_error(ENOSYS);
-	return -1;
+        set_last_error(ENOSYS);
+        return -1;
     }
     return inode->m_FileOps->ReadStat(inode->m_Volume, inode, outStats);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-///    Some operations need to remove trailing slashes for POSIX.1 conformance.
-///    For rename we also need to change the behavior depending on whether we
-///    had a trailing slash or not.. (we cannot rename normal files with
-///    trailing slashes, only dirs)
-///    
-///    "dummy" is used to make sure we don't do "/" -> "".
-///
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static bool remove_trailing_slashes(String* name)
-{
-    bool slashesRemoved = false;
-    while(name->size() > 1 && (*name)[name->size()-1] == '/') {
-        name->resize(name->size() - 1);
-    }
-    return slashesRemoved;
-/*    
-    int   nError;
-    char  nChar[1];
-    char* pzRemove = nChar + 1;
-
-    for (;;) {
-	char c = *pzName;
-	pzName++;
-	if ( c == 0 ) {
-	    break;
-	}
-	if ( c != '/' ) {
-	    pzRemove = NULL;
-	    continue;
-	}
-	if ( pzRemove != NULL ) {
-	    continue;
-	}
-	pzRemove = pzName;
-    }
-
-    nError = 0;
-    if ( pzRemove != NULL ) {
-	pzRemove[-1] = 0;
-	nError = 1;
-    }
-
-    return( nError );*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -497,22 +515,22 @@ int FileIO::Rename(const char* inOldPath, const char* inNewPath)
     {
         String oldPath(inOldPath);
         String newPath(inNewPath);
-        
-        bool mustBeDir = remove_trailing_slashes(&oldPath);
-        mustBeDir = remove_trailing_slashes(&newPath) | mustBeDir;
-        
+
+        bool mustBeDir = RemoveTrailingSlashes(&oldPath);
+        mustBeDir = RemoveTrailingSlashes(&newPath) || mustBeDir;
+
         const char* oldName;
         size_t      oldNameLength;
         Ptr<KINode> oldParent = LocateParentInode(nullptr, oldPath.c_str(), oldPath.size(), &oldName, &oldNameLength);
-        
+
         if (oldParent == nullptr) {
             return -1;
         }
-        
+
         const char* newName;
         size_t      newNameLength;
         Ptr<KINode> newParent = LocateParentInode(nullptr, newPath.c_str(), newPath.size(), &newName, &newNameLength);
-                
+
         if (newParent == nullptr) {
             return -1;
         }
@@ -522,29 +540,41 @@ int FileIO::Rename(const char* inOldPath, const char* inNewPath)
         }
         return oldParent->m_Filesystem->Rename(oldParent->m_Volume, oldParent, oldName, oldNameLength, newParent, newName, newNameLength, mustBeDir);
     }
-    catch(const std::bad_alloc&)
+    catch (const std::bad_alloc&)
     {
         set_last_error(ENOMEM);
         return -1;
-    }    
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FileIO::Unlink(const char* inPath)
+int FileIO::Unlink(int baseFolderFD, const char* inPath)
 {
     if (inPath == nullptr) {
         set_last_error(EINVAL);
         return -1;
     }
     String path(inPath);
-    
+
+    Ptr<KINode> baseInode;
+    if (baseFolderFD != -1)
+    {
+        Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
+        if (baseFolderFile == nullptr)
+        {
+            set_last_error(EBADF);
+            return -1;
+        }
+        baseInode = baseFolderFile->GetINode();
+    }
+
     const char* name;
     size_t      nameLength;
-    
-    Ptr<KINode> parent = LocateParentInode(nullptr, path.c_str(), path.size(), &name, &nameLength);
+
+    Ptr<KINode> parent = LocateParentInode(baseInode, path.c_str(), path.size(), &name, &nameLength);
     if (parent == nullptr) {
         return -1;
     }
@@ -555,18 +585,30 @@ int FileIO::Unlink(const char* inPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FileIO::RemoveDirectory(const char* inPath)
+int FileIO::RemoveDirectory(int baseFolderFD, const char* inPath)
 {
     if (inPath == nullptr) {
         set_last_error(EINVAL);
         return -1;
     }
     String path(inPath);
-    
+
     const char* name;
     size_t      nameLength;
-    
-    Ptr<KINode> parent = LocateParentInode(nullptr, path.c_str(), path.size(), &name, &nameLength);
+
+    Ptr<KINode> baseInode;
+    if (baseFolderFD != -1)
+    {
+        Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
+        if (baseFolderFile == nullptr)
+        {
+            set_last_error(EBADF);
+            return -1;
+        }
+        baseInode = baseFolderFile->GetINode();
+    }
+
+    Ptr<KINode> parent = LocateParentInode(baseInode, path.c_str(), path.size(), &name, &nameLength);
     if (parent == nullptr) {
         return -1;
     }
@@ -577,11 +619,28 @@ int FileIO::RemoveDirectory(const char* inPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+int FileIO::GetDirectoryPath(int handle, char* buffer, size_t bufferSize)
+{
+    Ptr<KDirectoryNode> directory = GetDirectory(handle);
+    if (directory == nullptr)
+    {
+        set_last_error(EBADF);
+        return -1;
+    }
+    Ptr<KINode> inode = directory->GetINode();
+    assert(inode != nullptr && inode->m_Filesystem != nullptr);
+    return GetDirectoryName(inode, buffer, bufferSize);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<KINode> FileIO::LocateInodeByName(Ptr<KINode> parent, const char* name, int nameLength, bool crossMount)
 {
     if (nameLength == 2 && name[0] == '.' && name[1] == '.' && parent == parent->m_Volume->m_RootNode)
     {
-        if ( parent != s_RootVolume->m_RootNode ) {
+        if (parent != s_RootVolume->m_RootNode) {
             parent = parent->m_Volume->m_MountPoint;
         } else {
             return parent;
@@ -616,21 +675,24 @@ Ptr<KINode> FileIO::LocateInodeByPath(Ptr<KINode> parent, const char* path, int 
 Ptr<KINode> FileIO::LocateParentInode(Ptr<KINode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength)
 {
     Ptr<KINode> current = parent;
-    
+
     int i = 0;
-    if (path[0] == '/') {
+    if (path[0] == '/')
+    {
         current = s_RootVolume->m_RootNode;
         ++i;
-    } else if (current == nullptr) {
+    }
+    else if (current == nullptr)
+    {
         current = s_RootVolume->m_RootNode; // FIXME: Implement working directory
     }
     int nameStart = i;
-    
+
     for (;; ++i)
     {
         if (i == pathLength)
         {
-            *outName       = path + nameStart;
+            *outName = path + nameStart;
             *outNameLength = pathLength - nameStart;
             return current;
         }
@@ -648,6 +710,85 @@ Ptr<KINode> FileIO::LocateParentInode(Ptr<KINode> parent, const char* path, int 
         }
     }
     return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int FileIO::GetDirectoryName(Ptr<KINode> inode, char* path, size_t bufferSize)
+{
+    status_t    error = 0;
+    int         pathLength = 0;
+
+    while (error == 0)
+    {
+        dir_entry   dirEntry;
+        int         directoryHandle;
+
+        Ptr<KINode> parent = LocateInodeByName(inode, "..", 2, true);
+        if (parent == nullptr) {
+            break;
+        }
+        directoryHandle = OpenInode(true, parent, O_RDONLY);
+
+        if (directoryHandle < 0) {
+            return -1;
+        }
+        bool isMountPoint = (inode->m_Volume != parent->m_Volume);
+        error = ENOENT;
+        while (ReadDirectory(directoryHandle, &dirEntry, sizeof(dirEntry)) == 1)
+        {
+            if (strcmp(dirEntry.d_name, ".") == 0 || strcmp(dirEntry.d_name, "..") == 0) {
+                continue;
+            }
+            if (isMountPoint)
+            {
+                Ptr<KINode> entryInode = LocateInodeByName(parent, dirEntry.d_name, dirEntry.d_namelength, false);
+                if (entryInode == nullptr)
+                {
+                    error = get_last_error();
+                    if (error == 0) error = EINVAL;
+                    break;
+                }
+                if (entryInode->m_MountRoot == inode)
+                {
+                    if (pathLength + dirEntry.d_namelength + 1 > bufferSize) {
+                        error = ENAMETOOLONG;
+                        break;
+                    }
+                    pathLength = PrependNameToPath(path, pathLength, dirEntry.d_name, dirEntry.d_namelength);
+                    error = 0;
+                    break;
+                }
+            }
+            else if (dirEntry.d_inode == inode->m_INodeID)
+            {
+                if (pathLength + dirEntry.d_namelength + 1 > bufferSize) {
+                    error = ENAMETOOLONG;
+                    break;
+                }
+                pathLength = PrependNameToPath(path, pathLength, dirEntry.d_name, dirEntry.d_namelength);
+                error = 0;
+                break;
+            }
+        }
+        Close(directoryHandle);
+        inode = parent;
+        if (error == 0 && inode == s_RootVolume->m_RootNode)
+        {
+            if (pathLength < bufferSize) {
+                path[pathLength] = '\0';
+            }
+            break;
+        }
+    }
+    if (error == 0) {
+        return pathLength;
+    } else {
+        set_last_error(error);
+        return -1;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -681,6 +822,45 @@ void FileIO::FreeFileHandle(int handle)
     if (handle >= 0 && handle < int(s_FileTable.size())) {
         s_FileTable[handle] = nullptr;
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int FileIO::OpenInode(bool kernelFile, Ptr<KINode> inode, int openFlags)
+{
+    int handle = AllocateFileHandle();
+    if (handle < 0) {
+        return handle;
+    }
+    struct HandleGuard {
+        HandleGuard(int handle) : m_Handle(handle) {}
+        ~HandleGuard() { if (m_Handle != -1) FileIO::FreeFileHandle(m_Handle); }
+        void Detach() { m_Handle = -1; }
+        int m_Handle;
+    } handleGuard(handle);
+
+    Ptr<KFileTableNode> file;
+    if (inode->m_FileOps == nullptr)
+    {
+        set_last_error(ENOSYS);
+        return -1;
+    }
+    if (inode->IsDirectory()) {
+        file = inode->m_FileOps->OpenDirectory(inode->m_Volume, inode);
+    }
+    else {
+        file = inode->m_FileOps->OpenFile(inode->m_Volume, inode, (openFlags & ~O_CREAT));
+    }
+    if (file == nullptr) {
+        return -1;
+    }
+    file->SetINode(inode);
+
+    handleGuard.Detach();
+    SetFile(handle, file);
+    return handle;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -721,7 +901,7 @@ Ptr<kernel::KDirectoryNode> FileIO::GetDirectory(int handle)
         return ptr_static_cast<KDirectoryNode>(node);
     } else {
         return nullptr;
-    }    
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -735,4 +915,3 @@ void FileIO::SetFile(int handle, Ptr<KFileTableNode> file)
         s_FileTable[handle] = file;
     }
 }
-

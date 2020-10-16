@@ -98,6 +98,8 @@ constexpr I2CSpec I2CSpecs[] =
 class I2CFile : public KFileNode
 {
 public:
+    I2CFile(int openFlags) : KFileNode(openFlags) {}
+
 	I2C_ADDR_LEN	m_SlaveAddressLength = I2C_ADDR_LEN_7BIT;
     uint8_t			m_SlaveAddress = 0;
     int8_t			m_InternalAddressLength = 0;

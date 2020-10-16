@@ -65,8 +65,8 @@ public:
     
     virtual Ptr<KINode>         LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
     virtual bool                ReleaseInode(KINode* inode) override;
-    virtual Ptr<KFileNode>      OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
-    virtual Ptr<KFileNode>      CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission) override;
+    virtual Ptr<KFileNode>      OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int openFlags) override;
+    virtual Ptr<KFileNode>      CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int openFlags, int permission) override;
     virtual int                 CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
 
     virtual Ptr<KINode>         LoadInode(Ptr<KFSVolume> volume, ino_t inode) override;

@@ -81,7 +81,9 @@ struct GSLx680_TouchData
 
 class GSLx680File : public KFileNode
 {
-    public:
+public:
+    GSLx680File(int openFlags) : KFileNode(openFlags) {}
+
     port_id m_TargetPort = -1;
 };
 

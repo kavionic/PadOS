@@ -236,7 +236,7 @@ int FT5x0xDriver::Run()
 Ptr<KFileNode> FT5x0xDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags)
 {
     CRITICAL_SCOPE(m_Mutex);
-    Ptr<FT5x0xFile> file = ptr_new<FT5x0xFile>();
+    Ptr<FT5x0xFile> file = ptr_new<FT5x0xFile>(flags);
     m_OpenFiles.push_back(ptr_raw_pointer_cast(file));
     return file;
 }

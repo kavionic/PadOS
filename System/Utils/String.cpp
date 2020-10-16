@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 15.04.2018 16:58:13
 
-#include <string.h>
+#include <strings.h>
 
 #include "Utils/String.h"
 #include "Utils/UTF8Utils.h"
@@ -173,7 +173,7 @@ String& String::lower()
 
 String& String::upper()
 {
-    for ( uint i = 0 ; i < size() ; ++i ) {
+    for (size_t i = 0; i < size(); ++i) {
         (*this)[i] = char(toupper((*this)[i]));
     }
     return *this;

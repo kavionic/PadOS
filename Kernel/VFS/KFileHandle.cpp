@@ -33,7 +33,7 @@ bool kernel::KDirectoryNode::LastReferenceGone()
 {
     Ptr<KINode> inode = GetINode();
     if (inode->m_FileOps != nullptr) {
-	inode->m_FileOps->CloseDirectory(inode->m_Volume, ptr_tmp_cast(this));
+        inode->m_FileOps->CloseDirectory(inode->m_Volume, ptr_tmp_cast(this));
     }
     return KFileTableNode::LastReferenceGone();
 }

@@ -1,0 +1,223 @@
+// This file is part of PadOS.
+//
+// Copyright (C) 2001-2020 Kurt Skauen <http://kavionic.com/>
+//
+// PadOS is free software : you can redistribute it and / or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PadOS is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with PadOS. If not, see <http://www.gnu.org/licenses/>.
+///////////////////////////////////////////////////////////////////////////////
+
+#include <unistd.h>
+#include <sys/fcntl.h>
+#include <assert.h>
+#include <limits.h>
+#include <Storage/Symlink.h>
+#include <Storage/FileReference.h>
+#include <Storage/Path.h>
+
+
+using namespace os;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SymLink::SymLink()
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SymLink::SymLink(const String& path, int openFlags) : FSNode(path, openFlags | O_NOFOLLOW)
+{
+    if (!IsLink()) {
+        errno = EINVAL;
+        Unset();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SymLink::SymLink(const Directory& directory, const String& name, int openFlags) : FSNode(directory, name, openFlags | O_NOFOLLOW)
+{
+    if (!IsLink()) {
+        errno = EINVAL;
+        Unset();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SymLink::SymLink(const FileReference& reference, int openFlags) : FSNode(reference, openFlags | O_NOFOLLOW)
+{
+    if (!IsLink()) {
+        errno = EINVAL;
+        Unset();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SymLink::SymLink(const FSNode& node) : FSNode(node)
+{
+    if (!IsLink()) {
+        errno = EINVAL;
+        Unset();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SymLink::SymLink(const SymLink& link) : FSNode(link)
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SymLink::~SymLink()
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SymLink::SetTo(const String& path, int openFlags)
+{
+    return SetTo(FSNode(path, openFlags | O_NOFOLLOW));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SymLink::SetTo(const Directory& directory, const String& path, int openFlags)
+{
+    return SetTo(FSNode(directory, path, openFlags | O_NOFOLLOW));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SymLink::SetTo(const FileReference& reference, int openFlags)
+{
+    return SetTo(FSNode(reference, openFlags | O_NOFOLLOW));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SymLink::SetTo(const FSNode& node)
+{
+    if (node.IsValid() && !node.IsLink()) {
+        errno = EINVAL;
+        return false;
+    }
+    return FSNode::SetTo(node);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SymLink::SetTo(const SymLink& link)
+{
+    return FSNode::SetTo(link);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SymLink::ReadLink(String& buffer)
+{
+    return false;
+//    String cBuffer;
+//
+//    cBuffer.resize(PATH_MAX);
+//    for (;;) {
+//        ssize_t nLen = freadlink(GetFileDescriptor(), cBuffer.begin(), cBuffer.size());
+//        if (nLen == ssize_t(cBuffer.size())) {
+//            cBuffer.resize(cBuffer.size() * 2);
+//        }
+//        else if (nLen < 0) {
+//            return(-1);
+//        }
+//        else {
+//            cBuffer.resize(nLen);
+//            break;
+//        }
+//    }
+//    *pcBuffer = cBuffer;
+//    return(0);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+String SymLink::ReadLink()
+{
+    String buffer;
+    if (ReadLink(buffer)) {
+        return buffer;
+    } else {
+        return String::zero;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SymLink::ConstructPath(const String& parent, Path& outPath)
+{
+    String buffer;
+    if (!ReadLink(buffer)) {
+        return false;
+    }
+    if (buffer[0] == '/') {
+        outPath = buffer.c_str();
+    } else {
+        outPath = parent;
+        outPath.Append(buffer);
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SymLink::ConstructPath(const Directory& parent, Path& outPath)
+{
+    String parentPath;
+    if (!parent.GetPath(parentPath)) {
+        return false;
+    }
+    return ConstructPath(parentPath, outPath);
+}
+

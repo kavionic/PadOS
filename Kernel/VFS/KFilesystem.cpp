@@ -112,12 +112,11 @@ bool KFilesystem::ReleaseInode(KINode* inode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> KFilesystemFileOps::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags)
+Ptr<KFileNode> KFilesystemFileOps::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int openFlags)
 {
     try
     {
-        Ptr<KFileNode> file = ptr_new<KFileNode>();
-//        file->m_INode = node;
+        Ptr<KFileNode> file = ptr_new<KFileNode>(openFlags);
     	return file;
     }
     catch (const std::bad_alloc&)
@@ -131,7 +130,7 @@ Ptr<KFileNode> KFilesystemFileOps::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> n
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> KFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission)
+Ptr<KFileNode> KFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int openFlags, int permission)
 {
     set_last_error(ENOSYS);
     return nullptr;
@@ -280,7 +279,7 @@ int KFilesystemFileOps::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNod
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KFilesystemFileOps::CheckAccess(Ptr<KFSVolume> _vol, Ptr<KINode> _node, int mode)
+int KFilesystemFileOps::CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, int mode)
 {
     set_last_error(ENOSYS);
     return -1;
@@ -305,35 +304,3 @@ int KFilesystemFileOps::WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const
     set_last_error(ENOSYS);
     return -1;
 }
-
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-/*int KFilesystem::ReadAsync(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
-{
-    set_last_error(ENOSYS);
-    return -1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int KFilesystem::WriteAsync(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback)
-{
-    set_last_error(ENOSYS);
-    return -1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int KFilesystem::CancelAsyncRequest(Ptr<KFileHandle> file, int handle)
-{
-    set_last_error(ENOSYS);
-    return -1;
-}
-*/

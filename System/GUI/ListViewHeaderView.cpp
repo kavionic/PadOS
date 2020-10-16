@@ -79,7 +79,7 @@ void ListViewHeaderView::Paint(const Rect& cUpdateRect)
     FontHeight sHeight = pcFont->GetHeight();
 
     Rect cFrame;
-    for (uint i = 0; i < m_ScrolledContainerView->m_ColumnMap.size(); ++i)
+    for (size_t i = 0; i < m_ScrolledContainerView->m_ColumnMap.size(); ++i)
     {
         Ptr<ListViewColumnView> pcCol = m_ScrolledContainerView->GetColumn(i);
         cFrame = pcCol->GetFrame();
@@ -240,7 +240,7 @@ bool ListViewHeaderView::OnMouseUp(MouseButton_e button, const Point& position, 
     //      int column;
     //      if (pcData->FindInt("column", &column) == 0) {
     //          Point cMVPos = m_pcMainView->ConvertFromParent(position);
-    //          for (uint i = 0; i < m_pcMainView->m_ColumnMap.size(); ++i)
+    //          for (size_t i = 0; i < m_pcMainView->m_ColumnMap.size(); ++i)
     //          {
     //              Rect cFrame(m_pcMainView->GetColumn(i)->GetFrame());
     //

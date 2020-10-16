@@ -22,6 +22,7 @@
 
 #include <sys/types.h>
 #include <stddef.h>
+#include <fcntl.h>
 
 #include "Ptr/PtrTarget.h"
 #include "Ptr/Ptr.h"
@@ -35,32 +36,33 @@ struct dir_entry;
 class KFileTableNode : public PtrTarget
 {
 public:
-    KFileTableNode(bool isDirectory) : m_IsDirectory(isDirectory) {}
+    KFileTableNode(bool isDirectory, int openFlags) : m_IsDirectory(isDirectory), m_OpenFlags(openFlags & ~O_CREAT) {}
 
     void        SetINode(Ptr<KINode> inode) { m_INode = inode; }        
-    Ptr<KINode> GetINode()          { return m_INode; }
-    bool        IsDirectory() const { return m_IsDirectory; }
+    Ptr<KINode> GetINode()                  { return m_INode; }
+    bool        IsDirectory() const         { return m_IsDirectory; }
+    int         GetOpenFlags() const        { return m_OpenFlags; }
 
 private:
     Ptr<KINode> m_INode;
     bool        m_IsDirectory;
+    int         m_OpenFlags = 0;
 };
 
 class KFileNode : public KFileTableNode
 {
 public:
-    KFileNode() : KFileTableNode(false) {}
+    KFileNode(int openFlags) : KFileTableNode(false, openFlags) {}
         
     virtual bool LastReferenceGone() override;
 
-    int         m_FileMode = 0;
     off64_t     m_Position = 0;
 };
 
 class KDirectoryNode : public KFileTableNode
 {
 public:
-    KDirectoryNode() : KFileTableNode(true) {}
+    KDirectoryNode(int openFlags) : KFileTableNode(true, openFlags) {}
 
     virtual bool LastReferenceGone() override;
         

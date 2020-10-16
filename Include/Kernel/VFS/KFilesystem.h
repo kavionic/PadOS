@@ -111,7 +111,7 @@ struct dir_entry
 class KFilesystemFileOps
 {
 public:
-    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags);
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int openFlags);
     virtual int              CloseFile(Ptr<KFSVolume> volume, KFileNode* file);
 
     virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node);
@@ -146,7 +146,7 @@ public:
     virtual Ptr<KINode>      LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* path, int pathLength);
     virtual bool             ReleaseInode(KINode* inode);
 //    virtual Ptr<KFileHandle> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags);
-    virtual Ptr<KFileNode> CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission);
+    virtual Ptr<KFileNode> CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int openFlags, int permission);
 //    virtual int              CloseFile(Ptr<KFileHandle> file);
 
     virtual Ptr<KINode>      LoadInode(Ptr<KFSVolume> volume, ino_t inode);

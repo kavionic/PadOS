@@ -123,7 +123,7 @@ public:
     virtual bool OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
 
     // From KeyboardView:
-    bool LoadKeyboard(const String& path);
+    bool LoadKeyboard(const String& name);
 
     Signal<void, KeyCodes, const String&, KeyboardView*> SignalKeyPressed;
 private:

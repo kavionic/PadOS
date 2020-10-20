@@ -26,9 +26,10 @@
 #include <GUI/Menu.h>
 #include <GUI/MenuItem.h>
 #include <GUI/Desktop.h>
+#include <Storage/StandardPaths.h>
+#include <Storage/Directory.h>
+#include <Storage/File.h>
 #include <Utils/Utils.h>
-#include <Kernel/VFS/FileIO.h>
-#include <Kernel/VFS/KFilesystem.h>
 
 using namespace pugi;
 
@@ -171,33 +172,30 @@ KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags)
         m_KeysBitmap->UnlockRaster();
     }
 
-    int dir = FileIO::Open("/sdcard/Rainbow3D/System/Keyboards", O_RDONLY);
-    if (dir >= 0)
+    Directory   keyboardDir(StandardPaths::GetPath(StandardPath::Keyboards));
+    String      fileName;
+    while(keyboardDir.GetNextEntry(fileName))
     {
-        kernel::dir_entry entry;
-        for (int i = 0; FileIO::ReadDirectory(dir, &entry, sizeof(entry)) == 1; ++i)
+        if (fileName.compare_nocase("numerical.xml") == 0) {
+            continue;
+        }
+        if (fileName.size() > 4 && strcmp(&fileName[fileName.size() - 4], ".xml") == 0)
         {
-            String name(entry.d_name);
-            if (name.compare_nocase("numerical.xml") == 0) {
-                continue;
-            }
-            if (name.size() > 4 && strcmp(&name[name.size() - 4], ".xml") == 0)
-            {
-                name.resize(name.size() - 4);
-                m_Keyboards.push_back(name);
-            }
+            fileName.resize(fileName.size() - 4);
+            m_Keyboards.push_back(fileName);
         }
     }
+
     if (HasFlags(KeyboardViewFlags::Numerical))
     {
-        LoadKeyboard("/sdcard/Rainbow3D/System/Keyboards/Numerical.xml");
+        LoadKeyboard("Numerical");
     }
     else
     {
         if (!m_Keyboards.empty())
         {
             if (m_SelectedKeyboard >= m_Keyboards.size()) m_SelectedKeyboard = 0;
-            LoadKeyboard(String("/sdcard/Rainbow3D/System/Keyboards/") + m_Keyboards[m_SelectedKeyboard] + String(".xml"));
+            LoadKeyboard(m_Keyboards[m_SelectedKeyboard]);
         }
     }
     m_RepeatTimer.SignalTrigged.Connect(this, &KeyboardView::SlotRepeatTimer);
@@ -207,29 +205,18 @@ KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KeyboardView::LoadKeyboard(const String& path)
+bool KeyboardView::LoadKeyboard(const String& name)
 {
-    int file = FileIO::Open(path.c_str(), O_RDONLY);
-    if (file == -1) {
+    File file(StandardPaths::GetPath(StandardPath::Keyboards, name + String(".xml")));
+
+    if (!file.IsValid()) {
         return false;
     }
-    struct stat stats;
 
-    if (FileIO::ReadStats(file, &stats) == -1)
-    {
-        FileIO::Close(file);
+    String buffer;
+    if (!file.Read(buffer)) {
         return false;
     }
-    std::vector<char> buffer;
-    buffer.resize(stats.st_size + 1);
-
-    ssize_t bytesRead = FileIO::Read(file, buffer.data(), stats.st_size);
-    FileIO::Close(file);
-
-    if (bytesRead != stats.st_size) {
-        return false;
-    }
-    buffer[stats.st_size] = '\0';
 
     XMLDocument doc;
 
@@ -322,14 +309,14 @@ void KeyboardView::OnFlagsChanged(uint32_t changedFlags)
         m_SymbolPage = 0;
         if (HasFlags(KeyboardViewFlags::Numerical))
         {
-            LoadKeyboard("/sdcard/Rainbow3D/System/Keyboards/Numerical.xml");
+            LoadKeyboard("Numerical");
         }
         else
         {
             if (!m_Keyboards.empty())
             {
                 if (m_SelectedKeyboard >= m_Keyboards.size()) m_SelectedKeyboard = 0;
-                LoadKeyboard(String("/sdcard/Rainbow3D/System/Keyboards/") + m_Keyboards[m_SelectedKeyboard] + String(".xml"));
+                LoadKeyboard(m_Keyboards[m_SelectedKeyboard]);
             }
         }
         Invalidate();
@@ -793,7 +780,7 @@ void KeyboardView::SlotLayoutSelected(Ptr<MenuItem> item)
     {
         m_SelectedKeyboard = item->GetID();
         if (m_SelectedKeyboard >= m_Keyboards.size()) m_SelectedKeyboard = 0;
-        LoadKeyboard(String("/sdcard/Rainbow3D/System/Keyboards/") + m_Keyboards[m_SelectedKeyboard] + String(".xml"));
+        LoadKeyboard(m_Keyboards[m_SelectedKeyboard]);
         Invalidate();
     }
     m_LayoutSelectMenu = nullptr;

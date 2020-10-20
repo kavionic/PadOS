@@ -21,12 +21,13 @@
 #include <sys/fcntl.h>
 #include <limits.h>
 
+#include <new>
+
 #include <Storage/File.h>
 #include <Storage/FileReference.h>
 #include <Storage/Path.h>
+#include <System/System.h>
 #include <Kernel/VFS/FileIO.h>
-
-#include <new>
 
 using namespace os;
 
@@ -409,6 +410,45 @@ ssize_t File::Read(void* buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool File::Read(String& buffer, ssize_t size)
+{
+    try
+    {
+        buffer.resize(size);
+        ssize_t bytesRead = Read(buffer.data(), size);
+        if (bytesRead < 0)
+        {
+            buffer.clear();
+            return false;
+        }
+        else
+        {
+            if (bytesRead < size) {
+                buffer.resize(bytesRead);
+            }
+            return true;
+        }
+    }
+    catch (const std::bad_alloc&)
+    {
+        set_last_error(ENOMEM);
+    }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool File::Read(String& buffer)
+{
+    return Read(buffer, ssize_t(GetSize()));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 ssize_t File::Write(const void* buffer, ssize_t size)
 {
     ssize_t bytesWritten = WritePos(m_Position, buffer, size);
@@ -416,6 +456,24 @@ ssize_t File::Write(const void* buffer, ssize_t size)
         m_Position += bytesWritten;
     }
     return bytesWritten;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool File::Write(const String& buffer, ssize_t size)
+{
+    return Write(buffer.c_str(), size) == size;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool File::Write(const String& buffer)
+{
+    return Write(buffer, buffer.size());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

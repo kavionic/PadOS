@@ -37,24 +37,16 @@ public:
     XMLDocument() { m_Parser = new pugi::xml_document(); }
     ~XMLDocument() { delete m_Parser; }
 
-    bool Parse(const String& data)
+    bool Parse(String&& data)
     {
-	m_Buffer.clear();
-	m_Buffer.insert(m_Buffer.begin(), data.begin(), data.end());
-	m_Buffer.push_back('\0');
-	return m_Parser->load_buffer_inplace(&m_Buffer[0], m_Buffer.size());
-    }
-    
-    bool Parse(std::vector<char>&& data)
-    {
-	m_Buffer = std::move(data);
-	return m_Parser->load_buffer_inplace(&m_Buffer[0], m_Buffer.size());
+        m_Buffer = std::move(data);
+        return m_Parser->load_buffer_inplace(&m_Buffer[0], m_Buffer.size());
     }
 
     pugi::xml_node GetDocumentElement() { return m_Parser->document_element(); }
 
     pugi::xml_document* m_Parser;
-    std::vector<char> m_Buffer;
+    String              m_Buffer;
 };
 
 
@@ -64,8 +56,8 @@ public:
     ViewFactory();
     static ViewFactory& GetInstance();
 
-    Ptr<View> CreateView(Ptr<View> parentView, std::vector<char>&& XML);
-    Ptr<View> LoadView(Ptr<View> parentView, const char* path);
+    Ptr<View> CreateView(Ptr<View> parentView, String&& XML);
+    Ptr<View> LoadView(Ptr<View> parentView, const String& path);
 
 private:
     bool Parse(ViewFactoryContext* context, Ptr<View> parentView, const pugi::xml_node& xmlNode);

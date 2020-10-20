@@ -34,7 +34,8 @@
 #include <GUI/TextView.h>
 #include <GUI/GroupView.h>
 #include <Utils/XMLObjectParser.h>
-#include <Kernel/VFS/FileIO.h>
+#include <Storage/StandardPaths.h>
+#include <Storage/File.h>
 
 
 using namespace os;
@@ -82,7 +83,7 @@ ViewFactory& ViewFactory::GetInstance()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> ViewFactory::CreateView(Ptr<View> parentView, std::vector<char>&& XML)
+Ptr<View> ViewFactory::CreateView(Ptr<View> parentView, String&& XML)
 {
     XMLDocument doc;
 
@@ -114,29 +115,18 @@ Ptr<View> ViewFactory::CreateView(Ptr<View> parentView, std::vector<char>&& XML)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> ViewFactory::LoadView(Ptr<View> parentView, const char* path)
+Ptr<View> ViewFactory::LoadView(Ptr<View> parentView, const String& path)
 {
-    int file = FileIO::Open(path, O_RDONLY);
-    if (file == -1) {
+    File file(StandardPaths::GetPath(StandardPath::GUI, path));
+
+    if (!file.IsValid()) {
         return nullptr;
     }
-    struct stat stats;
-
-    if (FileIO::ReadStats(file, &stats) == -1)
-    {
-        FileIO::Close(file);
+    String buffer;
+    if (!file.Read(buffer)) {
         return nullptr;
     }
-    std::vector<char> buffer;
-    buffer.resize(stats.st_size + 1);
-
-    ssize_t bytesRead = FileIO::Read(file, buffer.data(), stats.st_size);
-    FileIO::Close(file);
-
-    if (bytesRead != stats.st_size) {
-        return nullptr;
-    }
-    buffer[stats.st_size] = '\0';
+    file.Unset();
     return CreateView(parentView, std::move(buffer));
 }
 

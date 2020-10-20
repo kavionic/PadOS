@@ -432,7 +432,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* oinfo, String* filename)
+status_t FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, String* filename)
 {
     uint8_t            hash = 0;
     std::vector<wchar16_t> utf16Buffer;
@@ -572,24 +572,25 @@ status_t FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* oinfo, Str
     }
 
     // Process short name
-    if (startIndex == 0xffff) {
+    if (startIndex == 0xffff)
+    {
         startIndex = m_CurrentIndex;
         if (filename != nullptr) {
             FATRawShortNameToUTF8(buffer->m_Normal.m_Filename, filename);
         }            
     }
 
-    if (oinfo)
+    if (outInfo)
     {
-        oinfo->m_StartIndex = startIndex;
-        oinfo->m_EndIndex   = m_CurrentIndex;
-        oinfo->m_DOSAttribs = buffer->m_Normal.m_Attribs;
-        oinfo->m_StartCluster = buffer->m_Normal.m_FirstClusterLow;
+        outInfo->m_StartIndex = startIndex;
+        outInfo->m_EndIndex   = m_CurrentIndex;
+        outInfo->m_DOSAttribs = buffer->m_Normal.m_Attribs;
+        outInfo->m_StartCluster = buffer->m_Normal.m_FirstClusterLow;
         if (m_SectorIterator.m_Volume->m_FATBits == 32) {
-            oinfo->m_StartCluster |= uint32_t(buffer->m_Normal.m_FirstClusterHigh) << 16;
+            outInfo->m_StartCluster |= uint32_t(buffer->m_Normal.m_FirstClusterHigh) << 16;
         }            
-        oinfo->m_Size = buffer->m_Normal.m_FileSize;
-        oinfo->m_FATTime = buffer->m_Normal.m_Time;
+        outInfo->m_Size = buffer->m_Normal.m_FileSize;
+        outInfo->m_FATTime = buffer->m_Normal.m_Time;
     }
 
     GetNextRawEntry();

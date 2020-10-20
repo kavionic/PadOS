@@ -44,6 +44,32 @@ namespace kernel
 {
 
 ///////////////////////////////////////////////////////////////////////////////
+// Short name cannot be any of the DOS/Win device names (list from wikipedia).
+///////////////////////////////////////////////////////////////////////////////
+
+static std::set<String> g_DOSDeviceNames =
+{
+    "CON        ",
+    "PRN        ",
+    "AUX        ",
+    "CLOCK$     ",
+    "NUL        ",
+    "COM1       ",
+    "COM2       ",
+    "COM3       ",
+    "COM4       ",
+    "LPT1       ",
+    "LPT2       ",
+    "LPT3       ",
+    "LPT4       ", // Only in some versions of DR-DOS,
+    "LST        ", // Only in 86-DOS and DOS 1.xx.
+    "KEYBD$     ", // Only in multitasking MS-DOS 4.0.
+    "SCREEN$    ", // Only in multitasking MS-DOS 4.0.
+    "$IDLE$     ", // Only in Concurrent DOS 386, Multiuser DOS and DR DOS 5.0 and higher.
+    "CONFIG$    "  // Only in MS-DOS 7.0-8.0.
+};
+
+///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -185,7 +211,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
     vol->m_DeviceFile = deviceFile;
     vol->SetFlags(volumeFlags);
 
-    /* check that the partition is large enough to contain the file system */
+    // Check that the partition is large enough to contain the file system.
 
     if (vol->m_TotalSectors > geo.sector_count) {
         kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::ERROR, "FATFilesystem::Mount(): volume extends past end of partition (%ld > %Ld)\n", vol->m_TotalSectors, geo.sector_count);
@@ -193,7 +219,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
         return nullptr;
     }
 
-    // perform sanity checks on the FAT
+    // Perform sanity checks on the FAT.
 
     std::vector<uint8_t> buffer;
     try {
@@ -249,7 +275,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
         }
     }
 
-    // now we are convinced of the drive's validity
+    // Now we are convinced of the drive is valid.
 
     // XXX: if fsinfo exists, read from there?
     vol->m_LastAllocatedCluster = 2;
@@ -1042,12 +1068,8 @@ int FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, co
         return -1;
     }
     name.assign(_name, nameLength);
-//    memcpy(name, _name, nameLength);
-//    name[nameLength] = '\0';
 	
     CRITICAL_SCOPE(vol->m_Mutex);
-
-
 
     kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::CreateDirectory() called: %" PRIx64 "/%s (perm %o)\n", dir->m_INodeID, name.c_str(), perms);
 
@@ -1071,8 +1093,8 @@ int FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, co
     try {
         buffer.resize(vol->m_BytesPerSector);
     } catch(std::bad_alloc&) {        
-	set_last_error(ENOMEM);
-	return -1;
+	    set_last_error(ENOMEM);
+	    return -1;
     }
       /* only used to create directory entry */
     NoPtr<FATINode> dummyObj(ptr_tmp_cast(this), vol, true); /* used only to create directory entry */
@@ -1193,9 +1215,15 @@ int FATFilesystem::Rename(Ptr<KFSVolume> _vol, Ptr<KINode> _odir, const char* pz
     if ( nOldNameLen > 255 || nNewNameLen > 255 ) {
         return( -ENAMETOOLONG );
     }
-    oldname.assign(pzOldName, nOldNameLen);
-    newname.assign(pzNewName, nNewNameLen);
-    
+    try {
+        oldname.assign(pzOldName, nOldNameLen);
+        newname.assign(pzNewName, nNewNameLen);
+    }
+    catch (std::bad_alloc&) {
+        set_last_error(ENOMEM);
+        return -1;
+    }
+
     CRITICAL_SCOPE(vol->m_Mutex);
 
     if (!vol->CheckMagic(__func__) || !odir->CheckMagic(__func__) || !ndir->CheckMagic(__func__)) {
@@ -1225,7 +1253,8 @@ int FATFilesystem::Rename(Ptr<KFSVolume> _vol, Ptr<KINode> _odir, const char* pz
     // see if file already exists and erase it if it does
     if (DoLocateINode(vol, ndir, newname, &file2) >= 0)
     {
-        if (file2->m_DOSAttribs & FAT_SUBDIR) {
+        if (file2->m_DOSAttribs & FAT_SUBDIR)
+        {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Rename(): destination already occupied by a directory\n");
             set_last_error(EPERM);
             return -1;
@@ -1314,7 +1343,13 @@ int FATFilesystem::Unlink(Ptr<KFSVolume> vol, Ptr<KINode> dir, const char* _name
         set_last_error(ENAMETOOLONG);
         return -1;
     }
-    name.assign(_name, nameLength);
+    try {
+        name.assign(_name, nameLength);
+    }
+    catch (std::bad_alloc&) {
+        set_last_error(ENOMEM);
+        return -1;
+    }
 
     return DoUnlink(vol,dir,name,true);
 }
@@ -1333,8 +1368,14 @@ int FATFilesystem::RemoveDirectory(Ptr<KFSVolume> vol, Ptr<KINode> dir, const ch
         return -1;
     }
 
-    name.assign(_name, nameLength);
-    
+    try {
+        name.assign(_name, nameLength);
+    }
+    catch (std::bad_alloc&) {
+        set_last_error(ENOMEM);
+        return -1;
+    }
+
     return DoUnlink(vol, dir, name, false);
 }
 
@@ -1513,88 +1554,92 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
 	pos = node->m_Size;
     } 
 
-    if (pos >= FAT_MAX_FILE_SIZE) {
-	kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): write position exceeds fat limits.\n");
+    if (pos >= FAT_MAX_FILE_SIZE)
+    {
+	    kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): write position exceeds fat limits.\n");
         set_last_error(E2BIG);
         return -1;
     }
 
     if (pos + len >= FAT_MAX_FILE_SIZE) {
-	len = (size_t)(FAT_MAX_FILE_SIZE - pos);
+	    len = (size_t)(FAT_MAX_FILE_SIZE - pos);
     }
 
     if (node->m_Size && (fileNode->m_FATIteration == node->m_Iteration) && (pos >= fileNode->m_FATChainIndex * vol->m_BytesPerSector * vol->m_SectorsPerCluster))
     {
-	kassert(vol->IsDataCluster(fileNode->m_CachedCluster));
+        kassert(vol->IsDataCluster(fileNode->m_CachedCluster));
         kassert(vol->GetFATTable()->ValidateChainEntry(node->m_StartCluster, fileNode->m_FATChainIndex, fileNode->m_CachedCluster));
-	cluster1 = fileNode->m_CachedCluster;
-	diff = pos - fileNode->m_FATChainIndex * vol->m_BytesPerSector * vol->m_SectorsPerCluster;
+        cluster1 = fileNode->m_CachedCluster;
+        diff = pos - fileNode->m_FATChainIndex * vol->m_BytesPerSector * vol->m_SectorsPerCluster;
     }
     else
     {
-	cluster1 = 0xffffffff;
-	diff = 0;
+        cluster1 = 0xffffffff;
+        diff = 0;
     }
 
       // extend file size if needed
     if (pos + len > node->m_Size)
     {
-	uint32_t clusters = uint32_t((pos + len + vol->m_BytesPerSector*vol->m_SectorsPerCluster - 1) / vol->m_BytesPerSector / vol->m_SectorsPerCluster);
-	if (node->m_Size <= (clusters - 1) * vol->m_SectorsPerCluster * vol->m_BytesPerSector) {
-	    if (!vol->GetFATTable()->SetChainLength(node, clusters, true)) {
-		return -1;
-	    }
-	    node->m_Iteration++;
-	}
-	node->m_Size = pos + len;
+        uint32_t clusters = uint32_t((pos + len + vol->m_BytesPerSector * vol->m_SectorsPerCluster - 1) / vol->m_BytesPerSector / vol->m_SectorsPerCluster);
+        if (node->m_Size <= (clusters - 1) * vol->m_SectorsPerCluster * vol->m_BytesPerSector)
+        {
+            if (!vol->GetFATTable()->SetChainLength(node, clusters, true)) {
+                return -1;
+            }
+            node->m_Iteration++;
+        }
+        node->m_Size = pos + len;
 
-	// needs to be written to disk asap so that later inode number calculations by get_next_dirent are correct
-	node->Write();
+        // needs to be written to disk asap so that later inode number calculations by get_next_dirent are correct
+        node->Write();
 
-	kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::Write(): Setting file size to %ld (%ld clusters)\n", node->m_Size, clusters);
+        kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::Write(): Setting file size to %ld (%ld clusters)\n", node->m_Size, clusters);
     }
 
     if (cluster1 == 0xffffffff) {
-	cluster1 = node->m_StartCluster;
-	diff = pos;
+        cluster1 = node->m_StartCluster;
+        diff = pos;
     }
-    diff /= vol->m_BytesPerSector; /* convert to sectors */
+    diff /= vol->m_BytesPerSector; // Convert to sectors.
 
     FATClusterSectorIterator iter(vol, cluster1, 0);
 	
-    if (diff && ((result = iter.Increment(int(diff))) != 0)) {
-	kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): end of file reached (init).\n");
+    if (diff && ((result = iter.Increment(int(diff))) != 0))
+    {
+        kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): end of file reached (init).\n");
         set_last_error(EIO);
-	return -1;
+        return -1;
     }
 
     kassert(vol->GetFATTable()->ValidateChainEntry(node->m_StartCluster, uint32_t(pos / vol->m_BytesPerSector / vol->m_SectorsPerCluster), iter.m_CurrentCluster));
 
-      // write partial first sector if necessary
+    // Write partial first sector if necessary
     if ((pos % vol->m_BytesPerSector) != 0)
     {
-	size_t amt;
-	KCacheBlockDesc buffer = iter.GetBlock();
-	if (buffer.m_Buffer == nullptr) {
-	    kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): error writing cluster %lx, sector %lx\n", iter.m_CurrentCluster, iter.m_CurrentSector);
+        size_t amt;
+        KCacheBlockDesc buffer = iter.GetBlock();
+        if (buffer.m_Buffer == nullptr)
+        {
+            kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): error writing cluster %lx, sector %lx\n", iter.m_CurrentCluster, iter.m_CurrentSector);
             set_last_error(EIO);
             return -1;
-	}
-	amt = size_t(vol->m_BytesPerSector - (pos % vol->m_BytesPerSector));
-	if (amt > len) amt = len;
-	memcpy(static_cast<uint8_t*>(buffer.m_Buffer) + (pos % vol->m_BytesPerSector), buf, amt);
+        }
+        amt = size_t(vol->m_BytesPerSector - (pos % vol->m_BytesPerSector));
+        if (amt > len) amt = len;
+        memcpy(static_cast<uint8_t*>(buffer.m_Buffer) + (pos % vol->m_BytesPerSector), buf, amt);
         iter.MarkBlockDirty();
-	bytesWritten += amt;
+        bytesWritten += amt;
 
-	if (bytesWritten < len)
+        if (bytesWritten < len)
         {
-	    if ((result = iter.Increment(1)) != 0)
+            if ((result = iter.Increment(1)) != 0)
             {
-		kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): end of file reached\n");
+                kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): end of file reached\n");
                 set_last_error(EIO);
                 return -1;
-	    }
-        }            
+            }
+        }
     }
 
       // write middle sectors
@@ -2175,7 +2220,6 @@ status_t FATFilesystem::IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATINode> di
 status_t FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> parent, Ptr<FATINode> node, const String& name, uint32_t* startIndex, uint32_t* endIndex)
 {
     status_t error;
-    wchar16_t longName[258];
     struct FATNewDirEntryInfo info;
 
     // check if name already exists
@@ -2194,26 +2238,35 @@ status_t FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> p
     // existing names pose a problem; in these cases, we'll just live with
     // two identical short names. not a great solution, but there's little
     // we can do about it.
-    size_t len = name.copy_utf16(longName, ARRAY_COUNT(longName));
 
-    if (len == ARRAY_COUNT(longName))
+    std::vector<wchar16_t> longName;
+    try {
+        longName.resize(258, 0xffff);
+    }
+    catch (const std::bad_alloc&) {
+        set_last_error(ENOMEM);
+        return -1;
+    }
+
+    size_t len = name.copy_utf16(longName.data(), longName.size());
+
+    if (len == longName.size())
     {
         kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::CRITICAL, "FATFilesystem::CreateDirectoryEntry(): Error converting utf8 name '%s' to UNICODE. Result to long.\n", name.c_str());
         set_last_error(ENAMETOOLONG);
         return -1;
     }
     longName[len++] = 0;
-    memset(longName + len, 0xff, (ARRAY_COUNT(longName) - len) * sizeof(longName[0])); // Pad with 0xffff
 
     char shortName[11];
-    error = FATDirectoryIterator::GenerateShortName(longName, len, shortName);
+    error = FATDirectoryIterator::GenerateShortName(longName.data(), len, shortName);
     if (error < 0) {
         kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::CRITICAL, "FATFilesystem::CreateDirectoryEntry(): Error generating short name for '%s'\n", name.c_str());
         return error;
     }
 
     // If there is a long name, patch short name and check for duplication
-    if (FATDirectoryIterator::RequiresLongName(longName, len))
+    if (FATDirectoryIterator::RequiresLongName(longName.data(), len))
     {
         char tempName[11]; // Temporary short name
 
@@ -2274,7 +2327,7 @@ status_t FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> p
     info.size    = size_t(node->m_Size);
     info.time    = node->m_Time;
 
-    return DoCreateDirectoryEntry(vol, parent, &info, (char *)shortName, longName, len, startIndex, endIndex);
+    return DoCreateDirectoryEntry(vol, parent, &info, (char*)shortName, longName.data(), len, startIndex, endIndex);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2283,65 +2336,12 @@ status_t FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> p
 
 status_t FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t len, uint32_t* startIndex, uint32_t* endIndex)
 {
-    status_t error = -EIO;
-    size_t required_entries;
-    uint8_t  hash;
-    bool last_entry;
-    int loops = 0;
-
-    // Short name cannot be any of the DOS/Win device names (list from wikipedia).
-    const char *device_names[] = {
-        "CON        ",
-        "PRN        ",
-        "AUX        ",
-        "CLOCK$     ",
-        "NUL        ",
-        "COM1       ",
-        "COM2       ",
-        "COM3       ",
-        "COM4       ",
-        "LPT1       ",
-        "LPT2       ",
-        "LPT3       ",
-        "LPT4       ", // Only in some versions of DR-DOS,
-        "LST        ", // Only in 86-DOS and DOS 1.xx.
-        "KEYBD$     ", // Only in multitasking MS-DOS 4.0.
-        "SCREEN$    ", // Only in multitasking MS-DOS 4.0.
-        "$IDLE$     ", // Only in Concurrent DOS 386, Multiuser DOS and DR DOS 5.0 and higher.
-        "CONFIG$    ", // Only in MS-DOS 7.0-8.0.
-        nullptr
-    };
-
-    static std::set<String> deviceNames = {
-        "CON        ",
-        "PRN        ",
-        "AUX        ",
-        "CLOCK$     ",
-        "NUL        ",
-        "COM1       ",
-        "COM2       ",
-        "COM3       ",
-        "COM4       ",
-        "LPT1       ",
-        "LPT2       ",
-        "LPT3       ",
-        "LPT4       ", // Only in some versions of DR-DOS,
-        "LST        ", // Only in 86-DOS and DOS 1.xx.
-        "KEYBD$     ", // Only in multitasking MS-DOS 4.0.
-        "SCREEN$    ", // Only in multitasking MS-DOS 4.0.
-        "$IDLE$     ", // Only in Concurrent DOS 386, Multiuser DOS and DR DOS 5.0 and higher.
-        "CONFIG$    "  // Only in MS-DOS 7.0-8.0.
-    };
-
-    // check short name against device names
-    for (int i = 0; device_names[i]; ++i)
-    {
-        if (memcmp(shortName, device_names[i], 11) == 0) {
-            set_last_error(EPERM);
-            return -1;
-        }            
+    status_t    error = -EIO;
+    
+    if (g_DOSDeviceNames.count(String(shortName, 11)) != 0) {
+        set_last_error(EPERM);
+        return -1;
     }
-
     if ((info->cluster != 0) && !vol->IsDataCluster(info->cluster)) {
         kernel_log(LOGC_DIR, KLogSeverity::CRITICAL, "FATFilesystem::DoCreateDirectoryEntry(): for bad cluster (%lx)\n", info->cluster);
         set_last_error(EINVAL);
@@ -2349,13 +2349,14 @@ status_t FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode>
     }
 
     /* convert byte length of unicode name to directory entries */
-    required_entries = (len + 12) / 13 + 1;
+    size_t required_entries = (len + 12) / 13 + 1;
 
     // find a place to put the entries
     *startIndex = 0;
-    last_entry = true;
+    bool last_entry = true;
     {
         FATDirectoryIterator diri(vol, dir->m_StartCluster, 0);
+        int         loops = 0;
         while (diri.GetCurrentEntry() != nullptr)
         {
             FATDirectoryEntryInfo info;
@@ -2385,7 +2386,7 @@ status_t FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode>
             }
         }
     }
-    // if at end of directory, last_entry flag will be true as it should be
+    // If at end of directory, last_entry flag will be true as it should be
 
     if (error < 0 && (get_last_error() != ENOENT)) return -1;
 
@@ -2421,7 +2422,7 @@ status_t FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode>
     // starting blitting entries
     FATDirectoryIterator diri(vol,dir->m_StartCluster, *startIndex);
     FATDirectoryEntryCombo* buffer = diri.GetCurrentEntry();
-    hash = FATDirectoryIterator::HashMSDOSName(shortName);
+    uint8_t hash = FATDirectoryIterator::HashMSDOSName(shortName);
 
     // write lfn entries
     for (size_t i = 1; i < required_entries && buffer != nullptr; ++i, buffer = diri.GetNextRawEntry())
@@ -2480,8 +2481,6 @@ status_t FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode>
 // really large directory that consumes all available space!
 status_t FATFilesystem::CompactDirectory(Ptr<FATVolume> vol, Ptr<FATINode> dir)
 {
-    uint32_t last = 0;
-    int loops=0;
     kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATFilesystem::CompactDirectory(): compacting directory with inode ID %" PRIx64 "\n", dir->m_INodeID);
 
     // root directory can't shrink in fat12 and fat16
@@ -2489,8 +2488,11 @@ status_t FATFilesystem::CompactDirectory(Ptr<FATVolume> vol, Ptr<FATINode> dir)
         return 0;
     }
 
-    status_t error = -1;
-    FATDirectoryIterator diri(vol, dir->m_StartCluster, 0);
+    status_t                error = -1;
+    FATDirectoryIterator    diri(vol, dir->m_StartCluster, 0);
+    int                     loops = 0;
+    uint32_t                last = 0;
+
     while (diri.GetCurrentEntry() != nullptr)
     {
         FATDirectoryEntryInfo info;

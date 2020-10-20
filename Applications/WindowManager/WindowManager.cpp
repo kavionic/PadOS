@@ -17,15 +17,17 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 09.04.2018 22:56:33
 
-#include "System/Platform.h"
+#include <System/Platform.h>
 
 #include "WindowManager.h"
-#include "GUI/View.h"
-#include "GUI/LayoutNode.h"
-#include "ApplicationServer/ApplicationServer.h"
-#include "GUI/Button.h"
-#include "GUI/ViewFactory.h"
 #include "VirtualKeyboardView.h"
+
+#include <GUI/View.h>
+#include <GUI/LayoutNode.h>
+#include <GUI/Button.h>
+#include <GUI/ViewFactory.h>
+#include <ApplicationServer/ApplicationServer.h>
+#include <Storage/StandardPaths.h>
 
 using namespace os;
 
@@ -94,7 +96,7 @@ WindowManager::WindowManager() : Application("window_manager"), m_KeyboardAnimat
     RSWindowManagerEnableVKeyboard.Connect(this, &WindowManager::SlotEnableVKeyboard);
     RSWindowManagerDisableVKeyboard.Connect(this, &WindowManager::SlotDisableVKeyboard);
 
-    m_TopView = ViewFactory::GetInstance().LoadView(nullptr, "/sdcard/Rainbow3D/System/WindowManagerLayout.xml");
+    m_TopView = ViewFactory::GetInstance().LoadView(nullptr, StandardPaths::GetPath(StandardPath::System, "WindowManagerLayout.xml"));
     if (m_TopView != nullptr)
     {
         m_TopView->SetFrame(ApplicationServer::GetScreenFrame());

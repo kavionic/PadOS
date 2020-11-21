@@ -21,6 +21,7 @@
 #include <assert.h>
 
 #include <Storage/Path.h>
+#include <Storage/Directory.h>
 #include <Kernel/VFS/KFilesystem.h>
 
 using namespace os;
@@ -170,6 +171,24 @@ String Path::GetDir() const
     } else {
         return String(m_Path.begin(), m_Path.begin() + m_NameStart);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool Path::CreateFolders(bool includeLeaf, Directory* outLeafDirectory, int accessMode)
+{
+    if (m_Path.empty())
+    {
+        set_last_error(EINVAL);
+        return false;
+    }
+    Directory directory("/");
+    if (!directory.IsValid()) {
+        return false;
+    }
+    return directory.CreatePath(String(m_Path.begin() + 1, m_Path.end()), includeLeaf, outLeafDirectory, accessMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

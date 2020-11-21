@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 #include <limits.h>
 #include <Storage/Directory.h>
 #include <Storage/FileReference.h>
@@ -274,6 +275,62 @@ bool Directory::CreateDirectory(const String& name, Directory& outDirectory, int
         return false;
     }
     return outDirectory.SetTo(*this, name, O_RDONLY);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool Directory::CreatePath(const String& path, bool includeLeaf, Directory* outLeafDirectory, int accessMode)
+{
+    if (path.empty() || path[0] == '/')
+    {
+        set_last_error(EINVAL);
+        return false;
+    }
+    const char* nameStart = path.c_str();
+
+    Directory parent = *this;
+    for (;;)
+    {
+        const char* nameEnd = strchr(nameStart, '/');
+        String name;
+        if (nameEnd != nullptr)
+        {
+            name.assign(nameStart, nameEnd);
+            nameStart = nameEnd + 1;
+            while (*nameStart == '/') nameStart++;
+        }
+        else
+        {
+            name = nameStart;
+        }
+        if (!includeLeaf && nameEnd == nullptr)
+        {
+            if (outLeafDirectory != nullptr) {
+                *outLeafDirectory = std::move(parent);
+            }
+            return true;
+        }
+        Directory directory(parent, name);
+        if (!directory.IsValid())
+        {
+            if (errno != ENOENT) {
+                return false;
+            }
+            if (!parent.CreateDirectory(name, directory, accessMode)) {
+                return false;
+            }
+        }
+        if (nameEnd == nullptr)
+        {
+            if (outLeafDirectory != nullptr) {
+                *outLeafDirectory = std::move(directory);
+            }
+            return true;
+        }
+        parent = std::move(directory);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

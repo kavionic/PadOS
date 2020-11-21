@@ -19,12 +19,14 @@
 #pragma once
 
 #include <sys/types.h>
-
+#include <fcntl.h>
 #include <string>
+
 #include <Utils/String.h>
 
 namespace os
 {
+class Directory;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \ingroup storage
@@ -55,6 +57,8 @@ public:
     String          GetLeaf() const;
     const String&   GetPath() const;
     String          GetDir() const;
+
+    bool    CreateFolders(bool includeLeaf = true, Directory* outLeafDirectory = nullptr, int accessMode = S_IRWXU);
 
     operator String() const;
 

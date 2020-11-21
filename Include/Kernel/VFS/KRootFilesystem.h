@@ -42,6 +42,7 @@ class KRootFSINode : public KINode
     KRootFSINode* m_Parent = nullptr;
 
     std::map<os::String, Ptr<KINode>> m_Children;
+    TimeValMicros                     m_CreateTime;
 };
 
 struct KRootFSDirectoryNode : public KDirectoryNode
@@ -69,6 +70,9 @@ public:
 
     virtual Ptr<KINode>         LoadInode(Ptr<KFSVolume> volume, ino_t inode) override;
     virtual int                 CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission) override;
+
+    virtual int                 ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* outStats) override;
+    virtual int                 WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, const struct stat* stats, uint32_t mask) override;
 
 //    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length) override;
 //    virtual ssize_t Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length) override;

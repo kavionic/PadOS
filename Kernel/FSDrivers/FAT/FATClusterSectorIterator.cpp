@@ -131,12 +131,12 @@ status_t FATClusterSectorIterator::Increment(int sectors)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KCacheBlockDesc FATClusterSectorIterator::GetBlock()
+KCacheBlockDesc FATClusterSectorIterator::GetBlock(bool doLoad)
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
         return KCacheBlockDesc();
     }
-    return m_Volume->m_BCache.GetBlock(GetBlockSector());
+    return m_Volume->m_BCache.GetBlock(GetBlockSector(), doLoad);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

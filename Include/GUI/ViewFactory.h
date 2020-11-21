@@ -21,8 +21,9 @@
 
 #include <pugixml/src/pugixml.hpp>
 
-#include "Utils/XMLFactory.h"
-#include "ViewFactoryContext.h"
+#include <Utils/XMLFactory.h>
+#include <GUI/ViewFactoryContext.h>
+#include <Storage/File.h>
 
 
 namespace os
@@ -37,6 +38,20 @@ public:
     XMLDocument() { m_Parser = new pugi::xml_document(); }
     ~XMLDocument() { delete m_Parser; }
 
+    bool Load(const String& path)
+    {
+        m_Buffer.clear();
+        {
+            File file(path);
+            if (!file.IsValid()) {
+                return false;
+            }
+            if (!file.Read(m_Buffer)) {
+                return false;
+            }
+        }
+        return m_Parser->load_buffer_inplace(&m_Buffer[0], m_Buffer.size());
+    }
     bool Parse(String&& data)
     {
         m_Buffer = std::move(data);

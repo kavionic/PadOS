@@ -29,6 +29,7 @@
 #include <Storage/StandardPaths.h>
 #include <Storage/Directory.h>
 #include <Storage/File.h>
+#include <Storage/Path.h>
 #include <Utils/Utils.h>
 
 using namespace pugi;
@@ -172,6 +173,10 @@ KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags)
         m_KeysBitmap->UnlockRaster();
     }
 
+    String selectedKeyboard = "English";
+
+    LoadConfig(selectedKeyboard);
+
     Directory   keyboardDir(StandardPaths::GetPath(StandardPath::Keyboards));
     String      fileName;
     while(keyboardDir.GetNextEntry(fileName))
@@ -182,6 +187,10 @@ KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags)
         if (fileName.size() > 4 && strcmp(&fileName[fileName.size() - 4], ".xml") == 0)
         {
             fileName.resize(fileName.size() - 4);
+
+            if (fileName.compare_nocase(selectedKeyboard) == 0) {
+                m_SelectedKeyboard = m_Keyboards.size();
+            }
             m_Keyboards.push_back(fileName);
         }
     }
@@ -774,6 +783,56 @@ void KeyboardView::SlotRepeatTimer()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void KeyboardView::LoadConfig(String& outSelectedKeyboard)
+{
+    XMLDocument document;
+    if (document.Load(StandardPaths::GetPath(StandardPath::Settings, "Settings.xml")))
+    {
+        pugi::xml_node root = document.GetDocumentElement();
+        pugi::xml_node keyboardLayout = root.child("keyboard_layout");
+        if (keyboardLayout)
+        {
+            outSelectedKeyboard = keyboardLayout.value();
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KeyboardView::SaveConfig(const String& selectedKeyboard)
+{
+    XMLDocument document;
+
+    String path = StandardPaths::GetPath(StandardPath::Settings, "Settings.xml");
+
+    Path(path).CreateFolders(false);
+
+    pugi::xml_node root;
+    if (document.Load(path)) {
+        root = document.GetDocumentElement();
+    } else {
+        root = document.m_Parser->append_child("Settings");
+    }
+    pugi::xml_node keyboardLayout = root.child("keyboard_layout");
+    if (!keyboardLayout)
+    {
+        keyboardLayout = root.append_child("keyboard_layout");
+        keyboardLayout.append_child(pugi::node_pcdata).set_value(selectedKeyboard.c_str());
+    }
+    else
+    {
+        keyboardLayout.first_child().set_value(selectedKeyboard.c_str());
+    }
+
+    document.m_Parser->save_file(path.c_str());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void KeyboardView::SlotLayoutSelected(Ptr<MenuItem> item)
 {
     if (item != nullptr)
@@ -782,6 +841,7 @@ void KeyboardView::SlotLayoutSelected(Ptr<MenuItem> item)
         if (m_SelectedKeyboard >= m_Keyboards.size()) m_SelectedKeyboard = 0;
         LoadKeyboard(m_Keyboards[m_SelectedKeyboard]);
         Invalidate();
+        SaveConfig(m_Keyboards[m_SelectedKeyboard]);
     }
     m_LayoutSelectMenu = nullptr;
 }

@@ -31,7 +31,7 @@ struct FATClusterSectorIterator
     status_t Set(uint32_t cluster, uint32_t sector);
     
     off64_t         GetBlockSector();
-    KCacheBlockDesc GetBlock();
+    KCacheBlockDesc GetBlock(bool doLoad);
     
     status_t        Increment(int sectors);
 

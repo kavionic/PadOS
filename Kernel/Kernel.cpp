@@ -165,7 +165,7 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Kernel::Initialize(uint32_t coreFrequency, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch)
+void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch)
 {
     ITM_SendChar('a');
     ITM_SendChar('a');
@@ -182,12 +182,12 @@ void Kernel::Initialize(uint32_t coreFrequency, MCU_Timer16_t* powerSwitchTimerC
 
 	REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_General,    KLogSeverity::INFO_HIGH_VOL);
 	REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_VFS,        KLogSeverity::INFO_HIGH_VOL);
-	REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL);
+	REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache, KLogSeverity::INFO_LOW_VOL);
 	REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler,  KLogSeverity::INFO_HIGH_VOL);
 
 //    FileIO::Initialze();
 //    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
-    kernel::start_scheduler(coreFrequency);
+    kernel::start_scheduler(coreFrequency, mainThreadStackSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

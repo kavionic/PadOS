@@ -238,6 +238,11 @@ bool File::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer)
 
 bool File::FillBuffer(off64_t position)
 {
+    if (!IsValid()) {
+        set_last_error(EINVAL);
+        return false;
+    }
+
     if (m_Dirty)
     {
         if (!Flush()) {
@@ -246,9 +251,10 @@ bool File::FillBuffer(off64_t position)
     }
     m_BufferPosition = position;
 
+    const int fileDescriptor = GetFileDescriptor();
     for(;;)
     {
-        ssize_t nLen = FileIO::Read(GetFileDescriptor(), position, m_Buffer, m_BufferSize);
+        ssize_t nLen = FileIO::Read(fileDescriptor, position, m_Buffer, m_BufferSize);
         if (nLen < 0)
         {
             if (errno == EINTR) {
@@ -370,13 +376,19 @@ size_t File::GetBufferSize() const
 
 bool File::Flush()
 {
+    if (!IsValid()) {
+        set_last_error(EINVAL);
+        return false;
+    }
     if (m_Dirty)
     {
-        ssize_t size = m_ValidBufferSize;
-        size_t  offset = 0;
+        ssize_t     size = m_ValidBufferSize;
+        size_t      offset = 0;
+        const int   fileDescriptor = GetFileDescriptor();
+
         while (size > 0)
         {
-            ssize_t bytesWritten = FileIO::Write(GetFileDescriptor(), m_BufferPosition + offset, m_Buffer + offset, size);
+            ssize_t bytesWritten = FileIO::Write(fileDescriptor, m_BufferPosition + offset, m_Buffer + offset, size);
             if (bytesWritten < 0)
             {
                 if (errno == EINTR) {
@@ -412,6 +424,10 @@ ssize_t File::Read(void* buffer, ssize_t size)
 
 bool File::Read(String& buffer, ssize_t size)
 {
+    if (size < 0 || !IsValid()) {
+        set_last_error(EINVAL);
+        return false;
+    }
     try
     {
         buffer.resize(size);
@@ -464,6 +480,10 @@ ssize_t File::Write(const void* buffer, ssize_t size)
 
 bool File::Write(const String& buffer, ssize_t size)
 {
+    if (size < 0 || !IsValid()) {
+        set_last_error(EINVAL);
+        return false;
+    }
     return Write(buffer.c_str(), size) == size;
 }
 
@@ -482,8 +502,15 @@ bool File::Write(const String& buffer)
 
 ssize_t File::ReadPos(off64_t position, void* buffer, ssize_t size)
 {
+    if (!IsValid()) {
+        set_last_error(EINVAL);
+        return -1;
+    }
+    const int fileDescriptor = GetFileDescriptor();
+
+    if (fileDescriptor == -1) 
     if (m_BufferSize == 0) {
-        return FileIO::Read(GetFileDescriptor(), position, buffer, size);
+        return FileIO::Read(fileDescriptor, position, buffer, size);
     }
     if (m_Buffer == nullptr)
     {
@@ -502,7 +529,7 @@ ssize_t File::ReadPos(off64_t position, void* buffer, ssize_t size)
         ssize_t preSize = size - m_BufferSize;
         if (m_ValidBufferSize == 0 || position + preSize <= m_BufferPosition || position > m_BufferPosition + m_ValidBufferSize)
         {
-            ssize_t currentBytesRead = FileIO::Read(GetFileDescriptor(), position, buffer, preSize);
+            ssize_t currentBytesRead = FileIO::Read(fileDescriptor, position, buffer, preSize);
             if (currentBytesRead < 0) {
                 return currentBytesRead;
             }
@@ -543,8 +570,14 @@ ssize_t File::ReadPos(off64_t position, void* buffer, ssize_t size)
 
 ssize_t File::WritePos(off64_t position, const void* buffer, ssize_t size)
 {
+    if (!IsValid()) {
+        set_last_error(EINVAL);
+        return -1;
+    }
+    const int fileDescriptor = GetFileDescriptor();
+
     if (m_BufferSize == 0) {
-        return FileIO::Write(GetFileDescriptor(), position, buffer, size);
+        return FileIO::Write(fileDescriptor, position, buffer, size);
     }
     if (m_Buffer == nullptr)
     {
@@ -563,7 +596,7 @@ ssize_t File::WritePos(off64_t position, const void* buffer, ssize_t size)
         ssize_t preSize = size - m_BufferSize;
         if (m_ValidBufferSize == 0 || position + preSize <= m_BufferPosition || position > m_BufferPosition + m_ValidBufferSize)
         {
-            ssize_t currentBytesWritten = FileIO::Write(GetFileDescriptor(), position, buffer, preSize);
+            ssize_t currentBytesWritten = FileIO::Write(fileDescriptor, position, buffer, preSize);
             if (currentBytesWritten < 0) {
                 return currentBytesWritten;
             }

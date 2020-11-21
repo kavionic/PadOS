@@ -89,15 +89,42 @@ template<typename T> ReverseRangedWrapperConst<T> reverse_ranged(const T& list) 
 class ProfileTimer
 {
     public:
-    ProfileTimer(const String& title) : m_Title(title) { m_StartTime = get_system_time_hires(); }
+    ProfileTimer(const String& title, TimeValMicros minimumTime = 0.0) : m_Title(title), m_MinimumTime(minimumTime) { m_StartTime = get_system_time_hires(); }
     ~ProfileTimer()
     {
-        TimeValNanos time = get_system_time_hires();
-        printf("Prof: %s (%.3f)\n", m_Title.c_str(), double((time - m_StartTime).AsNanoSeconds()) / 1000000.0);
+        Terminate();
     }
     
+    bool Terminate()
+    {
+        if (m_StartTime.AsNative() != 0)
+        {
+            TimeValNanos time = get_system_time_hires() - m_StartTime;
+            m_StartTime = 0.0;
+            if (time >= m_MinimumTime)
+            {
+                printf("Prof: %s (%.3f)\n", m_Title.c_str(), time.AsSeconds() * 1000.0);
+                return true;
+            }
+        }
+        return false;
+    }
+    bool Lap(const char* text)
+    {
+        if (m_StartTime.AsNative() != 0)
+        {
+            TimeValNanos time = get_system_time_hires() - m_StartTime;
+            if (time >= m_MinimumTime)
+            {
+                printf("Prof: %s (%s) (%.3f)\n", m_Title.c_str(), text, time.AsSeconds() * 1000.0);
+                return true;
+            }
+        }
+        return false;
+    }
     String    m_Title;
     TimeValNanos m_StartTime;
+    TimeValNanos m_MinimumTime;
 };
 
 struct DebugCallTracker

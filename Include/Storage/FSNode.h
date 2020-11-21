@@ -64,6 +64,7 @@ public:
     FSNode(const FileReference& reference, int openFlags = O_RDONLY);
     FSNode(int fileDescriptor, bool takeOwnership);
     FSNode(const FSNode& node);
+    FSNode(FSNode&& node);
     virtual ~FSNode();
 
     virtual bool FDChanged(int newFileDescriptor, const struct ::stat& statBuffer);
@@ -73,6 +74,7 @@ public:
     virtual bool    SetTo(const FileReference& reference, int openFlags = O_RDONLY);
     virtual bool    SetTo(int fileDescriptor, bool takeOwnership);
     virtual bool    SetTo(const FSNode& node);
+    virtual bool    SetTo(FSNode&& node);
     virtual void    Unset();
     
     virtual bool    IsValid() const;
@@ -104,6 +106,8 @@ public:
 
     virtual int GetFileDescriptor() const;
     
+    FSNode& operator=(const FSNode& rhs);
+    FSNode& operator=(FSNode&& rhs);
 private:
     friend class Directory;
     

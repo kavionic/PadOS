@@ -142,6 +142,17 @@ FSNode::FSNode(const FSNode& node)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+///
+///////////////////////////////////////////////////////////////////////////////
+
+FSNode::FSNode(FSNode&& node)
+{
+    m_FileDescriptor = node.m_FileDescriptor;
+    m_StatCache = node.m_StatCache;
+    node.m_FileDescriptor = -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 /// Destructor
 /// \par Description:
 ///     Will close the file descriptor and release other resources may
@@ -475,6 +486,11 @@ bool FSNode::SetTo(int fileDescriptor, bool takeOwnership)
 
 bool FSNode::SetTo(const FSNode& node)
 {
+    if (!node.IsValid())
+    {
+        Unset();
+        return true;
+    }
     int newFileDescriptor = FileIO::CopyFD(node.m_FileDescriptor);
     if (newFileDescriptor < 0) {
         return false;
@@ -491,6 +507,30 @@ bool FSNode::SetTo(const FSNode& node)
     }
     m_StatCache = node.m_StatCache;
     m_FileDescriptor = newFileDescriptor;
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///
+///////////////////////////////////////////////////////////////////////////////
+
+bool FSNode::SetTo(FSNode&& node)
+{
+    if (!node.IsValid())
+    {
+        Unset();
+        return true;
+    }
+    if (!FDChanged(node.m_FileDescriptor, node.m_StatCache)) {
+        return false;
+    }
+    if (m_FileDescriptor >= 0) {
+        FileIO::Close(m_FileDescriptor);
+    }
+    m_StatCache             = node.m_StatCache;
+    m_FileDescriptor        = node.m_FileDescriptor;
+    node.m_FileDescriptor   = -1;
+
     return true;
 }
 
@@ -913,4 +953,26 @@ time_t FSNode::GetATime(bool updateCache) const
 int FSNode::GetFileDescriptor() const
 {
     return m_FileDescriptor;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+FSNode& FSNode::operator=(const FSNode& rhs)
+{
+    Unset();
+    SetTo(rhs);
+    return *this;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+FSNode& FSNode::operator=(FSNode&& rhs)
+{
+    Unset();
+    SetTo(std::forward<FSNode&&>(rhs));
+    return *this;
 }

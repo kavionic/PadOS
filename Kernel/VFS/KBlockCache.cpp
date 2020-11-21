@@ -27,6 +27,7 @@
 #include "Kernel/VFS/KBlockCache.h"
 #include "Kernel/VFS/FileIO.h"
 #include "Kernel/VFS/KVFSManager.h"
+#include <Utils/Utils.h>
 
 using namespace kernel;
 using namespace os;
@@ -161,6 +162,7 @@ void KBlockCache::Initialize()
 
 KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
 {
+//    ProfileTimer pt("GetBlock", 2.0e-3);
     CRITICAL_SCOPE(s_Mutex);
     
     
@@ -188,14 +190,16 @@ KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
             }
             else if (s_MRUList.m_First != nullptr)
             {
-                for (block = s_MRUList.m_First; block != nullptr && block->m_UseCount == 0 && block->IsFlushing(); block = block->m_Next) /*EMPTY*/;
+                for (block = s_MRUList.m_First; block != nullptr && (block->m_UseCount != 0 || block->IsFlushing()); block = block->m_Next) /*EMPTY*/;
                 if (block == nullptr) {
                     s_FlushingConditionVar.Wait(s_Mutex);
                     continue;
                 }
-                block = s_MRUList.m_Last;
+                //block = s_MRUList.m_Last;
                 s_MRUList.Remove(block);
-                FlushBuffer(block->m_Device, block->m_bufferNumber, true);
+                {
+                    FlushBuffer(block->m_Device, block->m_bufferNumber, true);
+                }
             }
             else
             {
@@ -204,7 +208,8 @@ KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
             }
             if (block != nullptr)
             {
-                if (doLoad) {
+                if (doLoad)
+                {
                     if (FileIO::Read(m_Device, bufferNum * BUFFER_BLOCK_SIZE, block->m_Buffer, BUFFER_BLOCK_SIZE) < 0) {
                         printf("ERROR: KBlockCache::GetBlock() failed to read block %" PRIu64 " from disk: %s\n", bufferNum * BUFFER_BLOCK_SIZE, strerror(get_last_error()));
                         s_FreeList.Append(block);
@@ -281,12 +286,15 @@ int KBlockCache::CachedWrite(off64_t blockNum, const void* buffer, size_t blockC
 //        KCacheBlockDesc block = GetBlock(blockNum + i, false);
         KCacheBlockDesc block = GetBlock(blockNum + i, true); // FIXME: Don't load the buffer if it's all going to be overwritten.
 
-        if (block.m_Buffer != nullptr) {
-            kprintf("Block %" PRIu64 " written\n", blockNum + i);
+        if (block.m_Buffer != nullptr)
+        {
+//            kprintf("Block %" PRIu64 " written\n", blockNum + i);
             memcpy(block.m_Buffer, reinterpret_cast<const uint8_t*>(buffer) + i * m_BlockSize, m_BlockSize);
             CRITICAL_SCOPE(s_Mutex);
             block.m_Block->SetDirty(true);
-        } else {
+        }
+        else
+        {
             printf("KBlockCache::CachedWrite() failed to find block %d / %" PRIu64 "\n", m_Device, blockNum + i);
             return -1;
         }
@@ -368,6 +376,9 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
         if ((m_Flags & BCF_DIRTY) == 0) {
             m_Flags |= BCF_DIRTY;
             KBlockCache::s_DirtyBlockCount++;
+            if (KBlockCache::s_DirtyBlockCount == 1) {
+                kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_LOW_VOL, "Cache dirty\n");
+            }
         }
         kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "Block %" PRIu64 " from device %d dirty\n", m_bufferNumber, m_Device);
     }
@@ -376,6 +387,9 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
         if (m_Flags & BCF_DIRTY) {
             m_Flags &= ~BCF_DIRTY;
             KBlockCache::s_DirtyBlockCount--;
+            if (KBlockCache::s_DirtyBlockCount == 0) {
+                kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_LOW_VOL, "Cache clean\n");
+            }
         }
     }
 }
@@ -387,13 +401,16 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
 bool KCacheBlockHeader::Flush(KMutex& mutex)
 {
     kassert(mutex.IsLocked());
-    
+
+//    ProfileTimer pt("Flush", 2.0e-3);
+
     if (IsDirty())
     {
         SetIsFlushing(true);
-        mutex.Unlock();   
-        
-        kprintf("Block %" PRIu64 " flushed\n", m_bufferNumber);
+        mutex.Unlock();
+
+//        kprintf("Block %" PRIu64 " flushed\n", m_bufferNumber);
+        kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "KCacheBlockHeader::Flush writing block %" PRId64 " from device %d\n", m_bufferNumber, m_Device);
 
         bool result = FileIO::Write(m_Device, m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, m_Buffer, KBlockCache::BUFFER_BLOCK_SIZE) >= 0;
         mutex.Lock();

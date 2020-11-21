@@ -127,6 +127,9 @@ public:
 
     Signal<void, KeyCodes, const String&, KeyboardView*> SignalKeyPressed;
 private:
+    void    LoadConfig(String& outSelectedKeyboard);
+    void    SaveConfig(const String& selectedKeyboard);
+
     void    SetLayout(KeyboardLayout* layout);
     String  GetKeyText(KeyCodes keyCode) const;
     void    DrawButton(const KeyButton& button, bool pressed);

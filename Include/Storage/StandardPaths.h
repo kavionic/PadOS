@@ -34,6 +34,7 @@ using StandardPathID = uint32_t;
 namespace StandardPath
 {
 DEFINE_STANDARD_PATH_ID(System);
+DEFINE_STANDARD_PATH_ID(Settings);
 DEFINE_STANDARD_PATH_ID(Keyboards);
 DEFINE_STANDARD_PATH_ID(GUI);
 }

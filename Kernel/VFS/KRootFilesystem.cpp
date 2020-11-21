@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <fcntl.h>
+#include <atomic>
 
 #include "Kernel/VFS/KRootFilesystem.h"
 #include "Kernel/VFS/KFSVolume.h"
@@ -41,6 +42,7 @@ KRootFSINode::KRootFSINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, K
     , m_Parent(parent)
 {
     m_INodeID = KRootFilesystem::AllocINodeNumber();
+    m_CreateTime = get_system_time();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -222,10 +224,11 @@ int KRootFilesystem::CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> d
 
 int KRootFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize)
 {
+    CRITICAL_SCOPE(m_Mutex);
+
     Ptr<KRootFSDirectoryNode> dirNode  = ptr_static_cast<KRootFSDirectoryNode>(directory);
     Ptr<KRootFSINode>         dirInode = ptr_static_cast<KRootFSINode>(directory->GetINode());
 
-    CRITICAL_SCOPE(m_Mutex);
 
     if (dirNode->m_CurrentIndex < dirInode->m_Children.size())
     {
@@ -264,6 +267,8 @@ int KRootFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> di
 
 int KRootFilesystem::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory)
 {
+    CRITICAL_SCOPE(m_Mutex);
+
     Ptr<KRootFSDirectoryNode> dirNode = ptr_static_cast<KRootFSDirectoryNode>(directory);
     dirNode->m_CurrentIndex = 0;
     
@@ -302,9 +307,18 @@ int KRootFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parentBa
 {
     try
     {
+        CRITICAL_SCOPE(m_Mutex);
+
         Ptr<KRootFSINode> parent = ptr_static_cast<KRootFSINode>(parentBase);
-        Ptr<KRootFSINode> dir = ptr_new<KRootFSINode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(parent), this, true);
-        parent->m_Children[String(name, nameLength)] = dir;
+        Ptr<KRootFSINode> dir    = ptr_new<KRootFSINode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(parent), this, true);
+
+        String nodeName(name, nameLength);
+        if (parent->m_Children.find(nodeName) != parent->m_Children.end())
+        {
+            set_last_error(EEXIST);
+            return -1;
+        }
+        parent->m_Children[nodeName] = dir;
         return 0;
     }
     catch (const std::bad_alloc&)
@@ -313,6 +327,46 @@ int KRootFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parentBa
         return -1;
     }
     return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KRootFilesystem::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* outStats)
+{
+    Ptr<KRootFSINode>  node = ptr_static_cast<KRootFSINode>(inode);
+
+    CRITICAL_SCOPE(m_Mutex);
+
+    outStats->st_dev    = dev_t(volume->m_VolumeID);
+    outStats->st_ino    = node->m_INodeID;
+    outStats->st_mode   = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
+    if (node->IsDirectory()) {
+        outStats->st_mode |= S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH;
+    } else {
+        outStats->st_mode |= S_IFREG;
+    }
+    if (volume->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+        outStats->st_mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
+    }
+    outStats->st_nlink      = 1;
+    outStats->st_uid        = 0;
+    outStats->st_gid        = 0;
+    outStats->st_size       = 0;
+    outStats->st_blksize    = 512;
+    outStats->st_atime = outStats->st_mtime = outStats->st_ctime = node->m_CreateTime.AsSecondsI();
+
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KRootFilesystem::WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* stats, uint32_t mask)
+{
+    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -408,6 +462,6 @@ int KRootFilesystem::RemoveDevice(int handle)
 
 int KRootFilesystem::AllocINodeNumber()
 {
-    static int nextID = 1;
+    static std::atomic_int32_t nextID = 1;
     return nextID++;
 }

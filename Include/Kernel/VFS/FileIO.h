@@ -73,8 +73,8 @@ public:
     static int     ReadDirectory(int handle, kernel::dir_entry* entry, size_t bufSize);
     static int     RewindDirectory(int handle);
 
-    static int     CreateDirectory(const char* name, int permission) { return CreateDirectory(-1, name, permission); }
-    static int     CreateDirectory(int baseFolderFD, const char* name, int permission);
+    static int     CreateDirectory(const char* name, int permission = S_IRWXU) { return CreateDirectory(-1, name, permission); }
+    static int     CreateDirectory(int baseFolderFD, const char* name, int permission = S_IRWXU);
 
     static int     Symlink(const char* target, const char* linkPath) { return Symlink(-1, target, linkPath); }
     static int     Symlink(int baseFolderFD, const char* target, const char* linkPath);

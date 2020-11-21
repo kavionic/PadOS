@@ -132,7 +132,7 @@ public:
     static void ResetWatchdog() { /*IWDG1->KR = 0xaaaa;*/ }
 #endif
     static void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
-    static void Initialize(uint32_t coreFrequency, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch);
+    static void Initialize(uint32_t coreFrequency, size_t mainThreadStackSize, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch);
     static int RegisterDevice(const char* path, Ptr<KINode> deviceNode);
     static int RenameDevice(int handle, const char* newPath);
     static int RemoveDevice(int handle);

@@ -73,7 +73,7 @@ void add_thread_to_ready_list(KThreadCB* thread);
 bool wakeup_wait_queue(KThreadWaitList* queue, int returnCode, int maxCount);
 
 
-void start_scheduler(uint32_t coreFrequency);
+void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize);
 
 enum class IRQEnableState
 {

@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <fcntl.h>
+
 #include <Storage/FSNode.h>
 #include <Storage/DirIterator.h>
 
@@ -51,6 +53,7 @@ public:
     Directory(const FSNode& node);
     Directory(int fileDescriptor, bool takeOwnership);
     Directory(const Directory& directory);
+    Directory(Directory&& directory) = default;
     virtual ~Directory();
 
     virtual bool FDChanged(int newFileDescriptor, const struct ::stat& statBuffer) override;
@@ -61,9 +64,13 @@ public:
 
     bool CreateFile(const String& name, File& outFile, int accessMode = S_IRWXU);
     bool CreateDirectory(const String& name, Directory& outDirectory, int accessMode = S_IRWXU);
+    bool CreatePath(const String& path, bool includeLeaf = true, Directory* outLeafDirectory = nullptr, int accessMode = S_IRWXU);
     bool CreateSymlink(const String& name, const String& destination, SymLink& outLink);
     bool Unlink(const String& name);
     bool GetPath(String& outPath) const;
+
+    Directory& operator=(const Directory& rhs) = default;
+    Directory& operator=(Directory&& rhs) = default;
 };
 
 } // namespace os

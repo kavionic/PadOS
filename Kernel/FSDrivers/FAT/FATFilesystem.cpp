@@ -1052,51 +1052,55 @@ int FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, co
     uint32_t i;
     String name;
 
-    if (!vol->CheckMagic(__func__) || !dir->CheckMagic(__func__)) {
+    if (!vol->CheckMagic(__func__) || !dir->CheckMagic(__func__))
+    {
         set_last_error(EINVAL);
         return -1;
     }
-
-    if (dir->IsDeleted()) {
+    if (dir->IsDeleted())
+    {
         kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory() called in removed directory.\n");
         set_last_error(EPERM);
         return -1;
     }
-
-    if (nameLength > 255) {
-	set_last_error(ENAMETOOLONG);
+    if (nameLength > 255)
+    {
+        set_last_error(ENAMETOOLONG);
         return -1;
     }
     name.assign(_name, nameLength);
-	
+
     CRITICAL_SCOPE(vol->m_Mutex);
 
     kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::CreateDirectory() called: %" PRIx64 "/%s (perm %o)\n", dir->m_INodeID, name.c_str(), perms);
 
-    if ((dir->m_DOSAttribs & FAT_SUBDIR) == 0) {
-	kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): inode ID %" PRIx64 " is not a directory\n", dir->m_INodeID);
-	set_last_error(EINVAL);
+    if ((dir->m_DOSAttribs & FAT_SUBDIR) == 0)
+    {
+        kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): inode ID %" PRIx64 " is not a directory\n", dir->m_INodeID);
+        set_last_error(EINVAL);
         return -1;
     }
 
-      // S_IFDIR is never set in perms, so we patch it
+    // S_IFDIR is never set in perms, so we patch it
     perms &= ~S_IFMT;
     perms |= S_IFDIR;
 
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
-	kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory() called on read-only volume\n");
-	set_last_error(EROFS);
+    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY))
+    {
+        kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory() called on read-only volume\n");
+        set_last_error(EROFS);
         return -1;
     }
 
     std::vector<uint8_t> buffer;
     try {
         buffer.resize(vol->m_BytesPerSector);
-    } catch(std::bad_alloc&) {        
-	    set_last_error(ENOMEM);
-	    return -1;
     }
-      /* only used to create directory entry */
+    catch (std::bad_alloc&) {
+        set_last_error(ENOMEM);
+        return -1;
+    }
+    /* only used to create directory entry */
     NoPtr<FATINode> dummyObj(ptr_tmp_cast(this), vol, true); /* used only to create directory entry */
     Ptr<FATINode> dummy(dummyObj);
     dummy->m_ParentINodeID = dir->m_INodeID;
@@ -1105,21 +1109,20 @@ int FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, co
         dummy->m_EndCluster = dummy->m_StartCluster;
         dummy->m_DOSAttribs = FAT_SUBDIR;
         if (!(perms & (S_IWUSR | S_IWGRP | S_IWGRP))) {
-	    dummy->m_DOSAttribs |= FAT_READ_ONLY;
+            dummy->m_DOSAttribs |= FAT_READ_ONLY;
         }
-        dummy->m_Size = vol->m_BytesPerSector*vol->m_SectorsPerCluster;
+        dummy->m_Size = vol->m_BytesPerSector * vol->m_SectorsPerCluster;
         dummy->m_Time = get_real_time().AsSecondsI();
 
         dummy->m_INodeID = GENERATE_DIR_CLUSTER_INODEID(dummy->m_ParentINodeID, dummy->m_StartCluster);
         kassert(!vol->HasINodeIDToLocationIDMapping(dummy->m_INodeID));
         kassert(!vol->HasLocationIDToINodeIDMapping(dummy->m_INodeID));
-    
+
         if (vol->AddDirectoryMapping(dummy->m_INodeID))
         {
             if (CreateDirectoryEntry(vol, dir, dummy, name, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex) >= 0)
             {
-                  // create '.' and '..' entries and then end of directories
-            //    memset(buffer, 0, vol->bytes_per_sector);
+                // create '.' and '..' entries and then end of directories
                 memset(&buffer[0], ' ', 11);
                 memset(&buffer[0x20], ' ', 11);
                 buffer[0] = buffer[0x20] = buffer[0x21] = '.';
@@ -1136,52 +1139,61 @@ int FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, co
                 buffer[0x39] = uint8_t((i >> 24) & 0xff);
                 buffer[0x1a] = dummy->m_StartCluster & 0xff;
                 buffer[0x1b] = (dummy->m_StartCluster >> 8) & 0xff;
-                if (vol->m_FATBits == 32) {
-	            buffer[0x14] = (dummy->m_StartCluster >> 16) & 0xff;
-	            buffer[0x15] = (dummy->m_StartCluster >> 24) & 0xff;
+                if (vol->m_FATBits == 32)
+                {
+                    buffer[0x14] = (dummy->m_StartCluster >> 16) & 0xff;
+                    buffer[0x15] = (dummy->m_StartCluster >> 24) & 0xff;
                 }
-                  // root directory is always denoted by cluster 0, even for fat32 (!)
+                // root directory is always denoted by cluster 0, even for fat32 (!)
                 if (dir->m_INodeID != vol->m_RootINode->m_INodeID)
                 {
-	            buffer[0x3a] = dir->m_StartCluster & 0xff;
-	            buffer[0x3b] = (dir->m_StartCluster >> 8) & 0xff;
-	            if (vol->m_FATBits == 32) {
-	                buffer[0x34] = (dir->m_StartCluster >> 16) & 0xff;
-	                buffer[0x35] = (dir->m_StartCluster >> 24) & 0xff;
-	            }
+                    buffer[0x3a] = dir->m_StartCluster & 0xff;
+                    buffer[0x3b] = (dir->m_StartCluster >> 8) & 0xff;
+                    if (vol->m_FATBits == 32)
+                    {
+                        buffer[0x34] = (dir->m_StartCluster >> 16) & 0xff;
+                        buffer[0x35] = (dir->m_StartCluster >> 24) & 0xff;
+                    }
                 }
 
                 FATClusterSectorIterator csi(vol, dummy->m_StartCluster, 0);
                 csi.WriteBlock(buffer.data());
 
-                  // clear out rest of cluster to keep scandisk happy
+                // clear out rest of cluster to keep scandisk happy
                 memset(buffer.data(), 0, buffer.size());
+
                 for (i = 1; i < vol->m_SectorsPerCluster; ++i)
                 {
-	            if (csi.Increment(1) != 0) {
-	                kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): error writing directory cluster\n");
-	                break;
-	            }
-	            csi.WriteBlock(buffer.data());
+                    if (csi.Increment(1) != 0)
+                    {
+                        kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): error writing directory cluster\n");
+                        break;
+                    }
+                    KCacheBlockDesc blockDesc = csi.GetBlock(false);
+                    if (blockDesc.m_Buffer != nullptr)
+                    {
+                        memset(blockDesc.m_Buffer, 0, vol->m_BytesPerSector);
+                        blockDesc.MarkDirty();
+                    }
                 }
                 return 0;
             }
             else
-            {        
-	        kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): error creating directory entry for %s (%s))\n", name.c_str(), strerror(get_last_error()));
+            {
+                kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): error creating directory entry for %s (%s))\n", name.c_str(), strerror(get_last_error()));
             }
             vol->RemoveDirectoryMapping(dummy->m_INodeID);
         }
         else
-        { 
+        {
             kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): error adding directory %s to dlist (%s)\n", name.c_str(), strerror(get_last_error()));
         }
         vol->GetFATTable()->ClearFATChain(dummy->m_StartCluster);
     }
     else
-    {    
-	kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): error allocating space for %s (%s))\n", name.c_str(), strerror(get_last_error()));
-	return -1;
+    {
+        kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): error allocating space for %s (%s))\n", name.c_str(), strerror(get_last_error()));
+        return -1;
     }
     kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory() failed: '%s'\n", strerror(get_last_error()));
     return -1;
@@ -1448,7 +1460,7 @@ ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t 
     {
         // read in partial first sector if necessary
         size_t amt;
-        KCacheBlockDesc buffer = iter.GetBlock();
+        KCacheBlockDesc buffer = iter.GetBlock(true);
         if (buffer.m_Buffer == nullptr) {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Read(): error reading cluster %lx, sector %lx\n", iter.m_CurrentCluster, iter.m_CurrentSector);
             set_last_error(EIO);
@@ -1490,7 +1502,7 @@ ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t 
     if (bytes_read < len) {
         size_t amt;
 
-        KCacheBlockDesc buffer = iter.GetBlock();
+        KCacheBlockDesc buffer = iter.GetBlock(true);
         if (buffer.m_Buffer == nullptr)
         {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Read(): error reading cluster %lx, sector %lx\n", iter.m_CurrentCluster, iter.m_CurrentSector);
@@ -1617,15 +1629,14 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
     // Write partial first sector if necessary
     if ((pos % vol->m_BytesPerSector) != 0)
     {
-        size_t amt;
-        KCacheBlockDesc buffer = iter.GetBlock();
+        KCacheBlockDesc buffer = iter.GetBlock(true);
         if (buffer.m_Buffer == nullptr)
         {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): error writing cluster %lx, sector %lx\n", iter.m_CurrentCluster, iter.m_CurrentSector);
             set_last_error(EIO);
             return -1;
         }
-        amt = size_t(vol->m_BytesPerSector - (pos % vol->m_BytesPerSector));
+        size_t amt = size_t(vol->m_BytesPerSector - (pos % vol->m_BytesPerSector));
         if (amt > len) amt = len;
         memcpy(static_cast<uint8_t*>(buffer.m_Buffer) + (pos % vol->m_BytesPerSector), buf, amt);
         iter.MarkBlockDirty();
@@ -1664,7 +1675,7 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
     {
 	size_t amt;
 
-	KCacheBlockDesc buffer = iter.GetBlock();
+	KCacheBlockDesc buffer = iter.GetBlock(true);
 	if (buffer.m_Buffer == nullptr) {
 	    kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): error writing cluster %lx, sector %lx\n", iter.m_CurrentCluster, iter.m_CurrentSector);
             set_last_error(EIO);
@@ -2338,11 +2349,13 @@ status_t FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode>
 {
     status_t    error = -EIO;
     
-    if (g_DOSDeviceNames.count(String(shortName, 11)) != 0) {
+    if (g_DOSDeviceNames.count(String(shortName, 11)) != 0)
+    {
         set_last_error(EPERM);
         return -1;
     }
-    if ((info->cluster != 0) && !vol->IsDataCluster(info->cluster)) {
+    if ((info->cluster != 0) && !vol->IsDataCluster(info->cluster))
+    {
         kernel_log(LOGC_DIR, KLogSeverity::CRITICAL, "FATFilesystem::DoCreateDirectoryEntry(): for bad cluster (%lx)\n", info->cluster);
         set_last_error(EINVAL);
         return -1;

@@ -758,8 +758,9 @@ static void init_thread_entry(void* arguments)
     // stack. To make the idle-thread do it's job when all other threads go
     // to sleep, we must initialize it's stack properly before that happens.
     
+    size_t mainThreadStackSize = size_t(arguments);
     gk_IdleThread->InitializeStack(idle_thread_entry, nullptr);
-    spawn_thread("main_thread", InitThreadMain, 0, nullptr, false);
+    spawn_thread("main_thread", InitThreadMain, 0, nullptr, false, mainThreadStackSize);
 
     for(;;)
     {
@@ -793,7 +794,7 @@ static void init_thread_entry(void* arguments)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::start_scheduler(uint32_t coreFrequency)
+void kernel::start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
 {
     NVIC_SetPriority(PendSV_IRQn, KIRQ_PRI_KERNEL);
     NVIC_SetPriority(SysTick_IRQn, KIRQ_PRI_KERNEL);
@@ -814,7 +815,7 @@ void kernel::start_scheduler(uint32_t coreFrequency)
     gk_CurrentThread = gk_IdleThread;
     gk_ThreadTable.Set(gk_ThreadTable.AllocHandle(), idleThread);
 
-    thread_id initThreadHandle = spawn_thread("init", init_thread_entry, 0, nullptr, false, 0);
+    thread_id initThreadHandle = spawn_thread("init", init_thread_entry, 0, (void*)mainThreadStackSize, false, 0);
 
     gk_InitThread = ptr_raw_pointer_cast(get_thread(initThreadHandle));
 

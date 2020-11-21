@@ -638,6 +638,9 @@ int FileIO::GetDirectoryPath(int handle, char* buffer, size_t bufferSize)
 
 Ptr<KINode> FileIO::LocateInodeByName(Ptr<KINode> parent, const char* name, int nameLength, bool crossMount)
 {
+    if (nameLength == 0) {
+        return parent;
+    }
     if (nameLength == 2 && name[0] == '.' && name[1] == '.' && parent == parent->m_Volume->m_RootNode)
     {
         if (parent != s_RootVolume->m_RootNode) {

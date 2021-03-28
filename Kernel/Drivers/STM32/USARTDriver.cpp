@@ -37,53 +37,64 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USARTDriverINode::USARTDriverINode(USART_TypeDef* port, DMAMUX1_REQUEST dmaRequestRX, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency, KFilesystemFileOps* fileOps)
-	: KINode(nullptr, nullptr, fileOps, false)
-	, m_MutexRead("USARTDriverINodeRead")
-	, m_MutexWrite("USARTDriverINodeWrite")
-	, m_ReceiveCondition("USARTDriverINodeReceive")
-	, m_TransmitCondition("USARTDriverINodeTransmit")
-	, m_DMARequestRX(dmaRequestRX)
-	, m_DMARequestTX(dmaRequestTX)
+USARTDriverINode::USARTDriverINode( USART_TypeDef*      port,
+                                    const PinMuxTarget& pinRX,
+                                    const PinMuxTarget& pinTX,
+                                    DMAMUX1_REQUEST     dmaRequestRX,
+                                    DMAMUX1_REQUEST     dmaRequestTX,
+                                    uint32_t            clockFrequency,
+                                    KFilesystemFileOps* fileOps)
+    : KINode(nullptr, nullptr, fileOps, false)
+    , m_MutexRead("USARTDriverINodeRead")
+    , m_MutexWrite("USARTDriverINodeWrite")
+    , m_ReceiveCondition("USARTDriverINodeReceive")
+    , m_TransmitCondition("USARTDriverINodeTransmit")
+    , m_PinRX(pinRX)
+    , m_PinTX(pinTX)
+    , m_DMARequestRX(dmaRequestRX)
+    , m_DMARequestTX(dmaRequestTX)
 
 {
-	m_Port = port;
+    m_Port = port;
 
-	m_Port->CR1 = USART_CR1_RE | USART_CR1_FIFOEN;
-	m_Port->CR3 = USART_CR3_DMAR | USART_CR3_DMAT;
+    DigitalPin::ActivatePeripheralMux(m_PinRX);
+    DigitalPin::ActivatePeripheralMux(m_PinTX);
+    
+    m_Port->CR1 = USART_CR1_RE | USART_CR1_FIFOEN;
+    m_Port->CR3 = USART_CR3_DMAR | USART_CR3_DMAT;
 
-	m_Baudrate = 921600;
-	m_Port->BRR = clockFrequency / m_Baudrate;
+    m_ClockFrequency = clockFrequency;
+    SetBaudrate(921600);
 
-	m_Port->CR1 |= USART_CR1_UE | USART_CR1_RE | USART_CR1_TE;
+    m_Port->CR1 |= USART_CR1_UE | USART_CR1_RE | USART_CR1_TE;
 
-	m_ReceiveDMAChannel = dma_allocate_channel();
-	m_SendDMAChannel = dma_allocate_channel();
+    m_ReceiveDMAChannel = dma_allocate_channel();
+    m_SendDMAChannel = dma_allocate_channel();
 
-	if (m_ReceiveDMAChannel != -1)
-	{
-		m_ReceiveBuffer = reinterpret_cast<uint8_t*>(memalign(DCACHE_LINE_SIZE, m_ReceiveBufferSize));
+    if (m_ReceiveDMAChannel != -1)
+    {
+        m_ReceiveBuffer = reinterpret_cast<uint8_t*>(memalign(DCACHE_LINE_SIZE, m_ReceiveBufferSize));
 
-		auto irq = dma_get_channel_irq(m_ReceiveDMAChannel);
-		NVIC_ClearPendingIRQ(irq);
-		kernel::register_irq_handler(irq, IRQCallbackReceive, this);
+        auto irq = dma_get_channel_irq(m_ReceiveDMAChannel);
+        NVIC_ClearPendingIRQ(irq);
+        kernel::register_irq_handler(irq, IRQCallbackReceive, this);
 
-		dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
-		dma_start(m_ReceiveDMAChannel);
-	}
-	if (m_SendDMAChannel != -1)
-	{
-		auto irq = dma_get_channel_irq(m_SendDMAChannel);
-		NVIC_ClearPendingIRQ(irq);
-		kernel::register_irq_handler(irq, IRQCallbackSend, this);
-	}
+        dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
+        dma_start(m_ReceiveDMAChannel);
+    }
+    if (m_SendDMAChannel != -1)
+    {
+        auto irq = dma_get_channel_irq(m_SendDMAChannel);
+        NVIC_ClearPendingIRQ(irq);
+        kernel::register_irq_handler(irq, IRQCallbackSend, this);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length)
+ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length)
 {
     CRITICAL_SCOPE(m_MutexRead);
 
@@ -92,64 +103,71 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length)
 
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-	dma_stop(m_ReceiveDMAChannel);
-	dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
+        dma_stop(m_ReceiveDMAChannel);
+        dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
     } CRITICAL_END;
 
-    if (m_Port->ISR & USART_ISR_ORE) {
-	m_Port->ICR = USART_ICR_ORECF;
-	set_last_error(EIO);
-	return -1;
+    if (m_Port->ISR & USART_ISR_ORE)
+    {
+        m_Port->ICR = USART_ICR_ORECF;
+        set_last_error(EIO);
+        return -1;
     }
 
     int32_t bytesReceived = m_ReceiveBufferSize - dma_get_transfer_count(m_ReceiveDMAChannel);
 
     if (bytesReceived >= length)
     {
-	SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((bytesReceived + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
-	memcpy(currentTarget, m_ReceiveBuffer, length);
+        SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((bytesReceived + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
+        memcpy(currentTarget, m_ReceiveBuffer, length);
 
-	if (length == bytesReceived)
-	{
-	    m_ReceiveBufferInPos = 0;
-	    dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
-	}
-	else
-	{
-	    memmove(m_ReceiveBuffer, m_ReceiveBuffer + length, bytesReceived - length);
-	    m_ReceiveBufferInPos = bytesReceived - length;
-	    dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer + m_ReceiveBufferInPos, m_ReceiveBufferSize - m_ReceiveBufferInPos);
-	}
-	dma_start(m_ReceiveDMAChannel);
-	return length;
+        if (length == bytesReceived)
+        {
+            m_ReceiveBufferInPos = 0;
+            dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
+        }
+        else
+        {
+            memmove(m_ReceiveBuffer, m_ReceiveBuffer + length, bytesReceived - length);
+            m_ReceiveBufferInPos = bytesReceived - length;
+            dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer + m_ReceiveBufferInPos, m_ReceiveBufferSize - m_ReceiveBufferInPos);
+        }
+        dma_start(m_ReceiveDMAChannel);
+        return length;
     }
     else
     {
-	if (bytesReceived > 0)
-	{
-	    SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((bytesReceived + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
-	    memcpy(currentTarget, m_ReceiveBuffer, bytesReceived);
-	    remainingLen -= bytesReceived;
-	    currentTarget += bytesReceived;
-	}
-	for (size_t currentLen = std::min<size_t>(m_ReceiveBufferSize, remainingLen); remainingLen > 0; )
-	{
-	    dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, currentLen);
-	    CRITICAL_BEGIN(CRITICAL_IRQ)
-	    {
-		dma_start(m_ReceiveDMAChannel);
-		while (!m_ReceiveCondition.IRQWait() && get_last_error() == EINTR);
-	    } CRITICAL_END;
-	    SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((currentLen + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
-	    memcpy(currentTarget, m_ReceiveBuffer, currentLen);
+        if (bytesReceived > 0)
+        {
+            SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((bytesReceived + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
+            memcpy(currentTarget, m_ReceiveBuffer, bytesReceived);
+            remainingLen -= bytesReceived;
+            currentTarget += bytesReceived;
+        }
+        for (size_t currentLen = std::min<size_t>(m_ReceiveBufferSize, remainingLen); remainingLen > 0; )
+        {
+            dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, currentLen);
+            CRITICAL_BEGIN(CRITICAL_IRQ)
+            {
+                dma_start(m_ReceiveDMAChannel);
+                for (;;)
+                {
+                    if (m_ReceiveCondition.IRQWaitTimeout(m_ReadTimeout)) break;
+                    if (get_last_error() != EINTR) {
+                        return length - remainingLen;
+                    }
+                }
+            } CRITICAL_END;
+            SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((currentLen + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
+            memcpy(currentTarget, m_ReceiveBuffer, currentLen);
 
-	    remainingLen -= currentLen;
-	    currentTarget += currentLen;
-	    currentLen = std::min<size_t>(m_ReceiveBufferSize, remainingLen);
-	}
-	m_ReceiveBufferInPos = 0;
-	dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
-	dma_start(m_ReceiveDMAChannel);
+            remainingLen -= currentLen;
+            currentTarget += currentLen;
+            currentLen = std::min<size_t>(m_ReceiveBufferSize, remainingLen);
+        }
+        m_ReceiveBufferInPos = 0;
+        dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
+        dma_start(m_ReceiveDMAChannel);
     }
     return length;
 }
@@ -160,28 +178,286 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length)
 
 ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length)
 {
-	SCB_CleanInvalidateDCache();
-	CRITICAL_SCOPE(m_MutexWrite);
+    SCB_CleanInvalidateDCache();
+    CRITICAL_SCOPE(m_MutexWrite);
 
-	const uint8_t* currentTarget = reinterpret_cast<const uint8_t*>(buffer);
-	ssize_t remainingLen = length;
+    const uint8_t* currentTarget = reinterpret_cast<const uint8_t*>(buffer);
+    ssize_t remainingLen = length;
 
-	for (size_t currentLen = std::min(ssize_t(DMA_MAX_TRANSFER_LENGTH), remainingLen); remainingLen > 0; remainingLen -= currentLen, currentTarget += currentLen)
-	{
-		m_Port->ICR = USART_ICR_TCCF;
+    for (size_t currentLen = std::min(ssize_t(DMA_MAX_TRANSFER_LENGTH), remainingLen); remainingLen > 0; remainingLen -= currentLen, currentTarget += currentLen)
+    {
+        m_Port->ICR = USART_ICR_TCCF;
 
-		dma_stop(m_SendDMAChannel);
-		dma_setup(m_SendDMAChannel, DMAMode::MemToPeriph, m_DMARequestTX, &m_Port->TDR, currentTarget, currentLen);
-		CRITICAL_BEGIN(CRITICAL_IRQ)
-		{
-			dma_start(m_SendDMAChannel);
+        dma_stop(m_SendDMAChannel);
+        dma_setup(m_SendDMAChannel, DMAMode::MemToPeriph, m_DMARequestTX, &m_Port->TDR, currentTarget, currentLen);
+        CRITICAL_BEGIN(CRITICAL_IRQ)
+        {
+            dma_start(m_SendDMAChannel);
             if (!m_TransmitCondition.IRQWaitTimeout(TimeValMicros::FromMicroseconds(bigtime_t(currentLen) * 10 * 2 * TimeValMicros::TicksPerSecond / m_Baudrate) + TimeValMicros::FromMilliseconds(100)))
-			{
-				return -1;
-			}
-		} CRITICAL_END;
-	}
-	return length;
+            {
+                return -1;
+            }
+        } CRITICAL_END;
+    }
+    return length;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+{
+    CRITICAL_SCOPE(m_MutexRead);
+    CRITICAL_SCOPE(m_MutexWrite);
+
+    switch (request)
+    {
+        case USARTIOCTL_SET_BAUDRATE:
+            if (inDataLength == sizeof(int)) {
+                int baudrate = *((const int*)inData);
+                SetBaudrate(baudrate);
+                return 0;
+            } else {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_GET_BAUDRATE:
+            if (outDataLength == sizeof(int)) {
+                int* baudrate = (int*)outData;
+                *baudrate = m_Baudrate;
+                return 0;
+            } else {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_SET_READ_TIMEOUT:
+            if (inDataLength == sizeof(bigtime_t)) {
+                bigtime_t micros = *((const bigtime_t*)inData);
+                m_ReadTimeout = TimeValMicros::FromMicroseconds(micros);
+                return 0;
+            } else {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_GET_READ_TIMEOUT:
+            if (outDataLength == sizeof(bigtime_t)) {
+                bigtime_t* micros = (bigtime_t*)outData;
+                *micros = m_ReadTimeout.AsMicroSeconds();
+                return 0;
+            } else {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_SET_IOCTRL:
+            if (inDataLength == sizeof(uint32_t)) {
+                uint32_t flags = *((const uint32_t*)inData);
+                SetIOControl(flags);
+                return 0;
+            } else {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_GET_IOCTRL:
+            if (outDataLength == sizeof(uint32_t)) {
+                uint32_t* flags = (uint32_t*)outData;
+                *flags = m_IOControl;
+                return 0;
+            } else {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_SET_PINMODE:
+            if (inDataLength == sizeof(int))
+            {
+                int arg = *((const int*)inData);
+                USARTPin     pin  = USARTPin(arg >> 16);
+                USARTPinMode mode = USARTPinMode(arg & 0xffff);
+
+                switch (pin)
+                {
+                    case USARTPin::RX:
+                        if (SetPinMode(m_PinRX, mode)) {
+                            m_PinModeRX = mode;
+                            return 0;
+                        } else {
+                            set_last_error(EINVAL);
+                            return -1;
+                        }
+                    case USARTPin::TX:
+                        if (SetPinMode(m_PinTX, mode)) {
+                            m_PinModeTX = mode;
+                            return 0;
+                        } else {
+                            set_last_error(EINVAL);
+                            return -1;
+                        }
+                    default:
+                        set_last_error(EINVAL);
+                        return -1;
+                }
+            }
+            else
+            {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_GET_PINMODE:
+            if (inDataLength == sizeof(int) && outDataLength == sizeof(int))
+            {
+                int arg = *((const int*)inData);
+                USARTPin     pin = USARTPin(arg);
+
+                int* result = (int*)outData;
+
+                switch (pin)
+                {
+                    case USARTPin::RX:
+                        *result = int(m_PinModeRX);
+                        return 0;
+                    case USARTPin::TX:
+                        *result = int(m_PinModeTX);
+                        return 0;
+                    default:
+                        set_last_error(EINVAL);
+                        return -1;
+                }
+            }
+            else
+            {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_SET_SWAPRXTX:
+            if (inDataLength == sizeof(int)) {
+                int arg = *((const int*)inData);
+                SetSwapRXTX(arg != 0);
+                return 0;
+            } else {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_GET_SWAPRXTX:
+            if (outDataLength == sizeof(int)) {
+                int* result = (int*)outData;
+                *result = GetSwapRXTX();
+                return 0;
+            } else {
+                set_last_error(EINVAL);
+                return -1;
+            }
+
+        default:
+            set_last_error(EINVAL);
+            return -1;
+    }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverINode::SetBaudrate(int baudrate)
+{
+    if (baudrate != m_Baudrate)
+    {
+        m_Baudrate = baudrate;
+        m_Port->BRR = m_ClockFrequency / m_Baudrate;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverINode::SetIOControl(uint32_t flags)
+{
+    if (flags != m_IOControl)
+    {
+        m_IOControl = flags;
+
+        uint32_t cr1 = m_Port->CR1;
+
+        if (m_IOControl & USART_DISABLE_RX) {
+            cr1 &= ~USART_CR1_RE;
+        } else {
+            cr1 |= USART_CR1_RE;
+        }
+        if (m_IOControl & USART_DISABLE_TX) {
+            cr1 &= ~USART_CR1_TE;
+        } else {
+            cr1 |= USART_CR1_TE;
+        }
+        m_Port->CR1 = cr1;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USARTDriverINode::SetPinMode(const PinMuxTarget& pin, USARTPinMode mode)
+{
+    while ((m_Port->ISR & USART_ISR_TC) == 0);
+    if (mode == USARTPinMode::Normal)
+    {
+        DigitalPin::ActivatePeripheralMux(pin);
+        return true;
+    }
+    else
+    {
+        DigitalPin ioPin(pin.PINID);
+        switch (mode)
+        {
+            case USARTPinMode::Off:
+                ioPin.SetPeripheralMux(DigitalPinPeripheralID::None);
+                ioPin.SetDirection(DigitalPinDirection_e::Analog);
+                return true;
+            case USARTPinMode::Low:
+                ioPin = false;
+                ioPin.SetPeripheralMux(DigitalPinPeripheralID::None);
+                ioPin.SetDirection(DigitalPinDirection_e::Out);
+                return true;
+            case USARTPinMode::High:
+                ioPin = true;
+                ioPin.SetPeripheralMux(DigitalPinPeripheralID::None);
+                ioPin.SetDirection(DigitalPinDirection_e::Out);
+                return true;
+            default:
+                set_last_error(EINVAL);
+                return false;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverINode::SetSwapRXTX(bool doSwap)
+{
+    if (doSwap != GetSwapRXTX())
+    {
+        uint32_t cr1 = m_Port->CR1;
+
+        dma_stop(m_ReceiveDMAChannel);
+        dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
+
+        m_Port->CR1 &= ~(USART_CR1_TE | USART_CR1_RE);
+        while ((m_Port->ISR & USART_ISR_TC) == 0);
+        m_Port->CR1 &= ~USART_CR1_UE;
+
+        if (doSwap) {
+            m_Port->CR2 |= USART_CR2_SWAP;
+        } else {
+            m_Port->CR2 &= ~USART_CR2_SWAP;
+        }
+        m_Port->CR1 = cr1;
+        m_ReceiveBufferInPos = 0;
+        dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
+        dma_start(m_ReceiveDMAChannel);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -190,13 +466,13 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
 
 IRQResult USARTDriverINode::HandleIRQReceive()
 {
-	if (dma_get_interrupt_flags(m_ReceiveDMAChannel) & DMA_LISR_TCIF0)
-	{
-		dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
-		m_ReceiveCondition.Wakeup(1);
-		KSWITCH_CONTEXT();
-	}
-	return IRQResult::HANDLED;
+    if (dma_get_interrupt_flags(m_ReceiveDMAChannel) & DMA_LISR_TCIF0)
+    {
+        dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
+        m_ReceiveCondition.Wakeup(1);
+        KSWITCH_CONTEXT();
+    }
+    return IRQResult::HANDLED;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -205,12 +481,12 @@ IRQResult USARTDriverINode::HandleIRQReceive()
 
 IRQResult USARTDriverINode::HandleIRQSend()
 {
-	if (dma_get_interrupt_flags(m_SendDMAChannel) & DMA_LISR_TCIF0)
-	{
-		dma_clear_interrupt_flags(m_SendDMAChannel, DMA_LIFCR_CTCIF0);
-		m_TransmitCondition.Wakeup(1);
-	}
-	return IRQResult::HANDLED;
+    if (dma_get_interrupt_flags(m_SendDMAChannel) & DMA_LISR_TCIF0)
+    {
+        dma_clear_interrupt_flags(m_SendDMAChannel, DMA_LIFCR_CTCIF0);
+        m_TransmitCondition.Wakeup(1);
+    }
+    return IRQResult::HANDLED;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -233,9 +509,15 @@ USARTDriver::~USARTDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USARTDriver::Setup(const char* devicePath, USART_TypeDef* port, DMAMUX1_REQUEST dmaRequestRX, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency)
+void USARTDriver::Setup(const char*         devicePath,
+                        USART_TypeDef*      port,
+                        const PinMuxTarget& pinRX,
+                        const PinMuxTarget& pinTX,
+                        DMAMUX1_REQUEST     dmaRequestRX,
+                        DMAMUX1_REQUEST     dmaRequestTX,
+                        uint32_t            clockFrequency)
 {
-    Ptr<USARTDriverINode> node = ptr_new<USARTDriverINode>(port, dmaRequestRX, dmaRequestTX, clockFrequency, this);
+    Ptr<USARTDriverINode> node = ptr_new<USARTDriverINode>(port, pinRX, pinTX, dmaRequestRX, dmaRequestTX, clockFrequency, this);
     Kernel::RegisterDevice(devicePath, node);
 }
 
@@ -246,7 +528,7 @@ void USARTDriver::Setup(const char* devicePath, USART_TypeDef* port, DMAMUX1_REQ
 ssize_t USARTDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
 {
     Ptr<USARTDriverINode> node = ptr_static_cast<USARTDriverINode>(file->GetINode());
-	return node->Read(file, buffer, length);
+    return node->Read(file, buffer, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -256,7 +538,7 @@ ssize_t USARTDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, s
 ssize_t USARTDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
 {
     Ptr<USARTDriverINode> node = ptr_static_cast<USARTDriverINode>(file->GetINode());
-	return node->Write(file, buffer, length);
+    return node->Write(file, buffer, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -265,7 +547,8 @@ ssize_t USARTDriver::Write(Ptr<KFileNode> file, off64_t position, const void* bu
 
 int USARTDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
-	return -1;
+    Ptr<USARTDriverINode> node = ptr_static_cast<USARTDriverINode>(file->GetINode());
+    return node->DeviceControl(request, inData, inDataLength, outData, outDataLength);
 }
 
 

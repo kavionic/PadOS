@@ -45,7 +45,30 @@ static const uint32_t g_Poly8Lookup[256] =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void HashCalculator::AddData(const void* data, size_t length)
+void HashCalculator<HashAlgorithm::CRC8>::AddData(const void* data, size_t length)
+{
+    const uint8_t* ptr = reinterpret_cast<const uint8_t*>(data);
+    for (size_t i = 0; i < length; ++i)
+    {
+        uint8_t currentByte = ptr[i];
+        for (int j = 0; j < 8; ++j)
+        {
+            if ((m_CRC >> 7) ^ (currentByte & 0x01)) {
+                m_CRC = uint8_t(m_CRC << 1) ^ 0x07;
+            }
+            else {
+                m_CRC = uint8_t(m_CRC << 1);
+            }
+            currentByte = uint8_t(currentByte >> 1);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void HashCalculator<HashAlgorithm::CRC32>::AddData(const void* data, size_t length)
 {
     const uint8_t* ptr = reinterpret_cast<const uint8_t*>(data);
     while (length--) m_CRC = g_Poly8Lookup[((uint8_t)m_CRC ^ *(ptr++))] ^ (m_CRC >> 8);

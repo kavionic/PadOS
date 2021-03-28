@@ -6,5 +6,6 @@ target_sources(PadOS PRIVATE
 	INA3221.h
 	SDCARD.h
 	TLV493D.h
+	USART.h
 	WS2812B.h
 )

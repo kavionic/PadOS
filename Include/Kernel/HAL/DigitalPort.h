@@ -20,6 +20,7 @@
 
 enum class DigitalPinDirection_e
 {
+    Analog,
     In,
     Out,
     OpenCollector

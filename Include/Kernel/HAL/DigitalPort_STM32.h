@@ -40,7 +40,7 @@ enum DigitalPortID
 };
 
 #define MAKE_DIGITAL_PIN_ID(port, pin) (uint32_t(port) << 4 | uint32_t(pin))
-#define DIGITAL_PIN_ID_PORT(pinID) DigitalPortID(uint32_t(pinID) >> 4)
+#define DIGITAL_PIN_ID_PORT(pinID) (((pinID) != DigitalPinID::None) ? DigitalPortID(uint32_t(pinID) >> 4) : e_DigitalPortID_None)
 #define DIGITAL_PIN_ID_PIN(pinID) (uint32_t(pinID) & 0x0f)
 
 enum class DigitalPinID : uint32_t
@@ -638,13 +638,21 @@ struct DigitalPort
     	GPIO_Port_t* port = GetPortRegs(portID);
         switch(direction)
         {
-            case DigitalPinDirection_e::In:
+            case DigitalPinDirection_e::Analog:
             	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
             	{
             		if (j & pins) {
-            			port->MODER = (port->MODER & ~(3<<i)); // Mode 0: input
+            			port->MODER = port->MODER | (3 << i); // Mode 3: analog
             		}
             	}
+                break;
+            case DigitalPinDirection_e::In:
+                for (uint32_t i = 0, j = 0x0001; j != 0; j <<= 1, i += 2)
+                {
+                    if (j & pins) {
+                        port->MODER = (port->MODER & ~(3 << i)); // Mode 0: input
+                    }
+                }
                 break;
             case DigitalPinDirection_e::Out:
             	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
@@ -781,11 +789,18 @@ class DigitalPin
 {
 public:
     DigitalPin() : m_PinID(DigitalPinID::None), m_Port(e_DigitalPortID_None), m_PinMask(0) { }
-	DigitalPin(DigitalPinID pinID) : m_PinID(pinID), m_Port(DIGITAL_PIN_ID_PORT(pinID)), m_PinMask(BIT32(DIGITAL_PIN_ID_PIN(pinID), 1)) { }
+	DigitalPin(DigitalPinID pinID) : m_PinID(pinID), m_Port(DIGITAL_PIN_ID_PORT(pinID)), m_PinMask((pinID != DigitalPinID::None) ? BIT32(DIGITAL_PIN_ID_PIN(pinID), 1) : 0) { }
 	DigitalPin(DigitalPortID port, int pin) : m_PinID(DigitalPinID(MAKE_DIGITAL_PIN_ID(port, pin))), m_Port(port), m_PinMask(BIT32(pin, 1)) { }
     
     void Set(DigitalPortID port, int pin)  { m_Port = port; m_PinMask = BIT32(pin, 1); }
-	void Set(DigitalPinID pinID) { m_PinID = pinID; m_Port = DIGITAL_PIN_ID_PORT(pinID); m_PinMask = BIT32(DIGITAL_PIN_ID_PIN(pinID), 1); }
+	void Set(DigitalPinID pinID)
+    {
+        m_PinID = pinID;
+        m_Port = DIGITAL_PIN_ID_PORT(pinID);
+        m_PinMask = (pinID != DigitalPinID::None) ? BIT32(DIGITAL_PIN_ID_PIN(pinID), 1) : 0;
+    }
+
+    DigitalPinID GetID() const { return m_PinID; }
 
     void SetDirection(DigitalPinDirection_e dir) { m_Port.SetDirection(dir, m_PinMask); }
     void SetDriveStrength(DigitalPinDriveStrength_e strength) { m_Port.SetDriveStrength(strength, m_PinMask); }

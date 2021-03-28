@@ -27,22 +27,40 @@ namespace os
 
 enum class HashAlgorithm
 {
+    CRC8,
 //    CRC16,
     CRC32
 };
 
+template<HashAlgorithm ALGORITHM>
 class HashCalculator
 {
-public:
-    HashCalculator() {}
-    HashCalculator(HashAlgorithm algorithm) { m_CRC = 0xffffffff; }
 
-    void Start(HashAlgorithm algorithm) { m_CRC = 0xffffffff; }
+};
+
+template<>
+class HashCalculator<HashAlgorithm::CRC8>
+{
+public:
+    void    Start() { m_CRC = 0; }
+    void    AddData(const void* data, size_t length);
+    uint8_t Finalize() { return m_CRC; }
+
+private:
+    uint8_t m_CRC = 0;
+
+};
+
+template<>
+class HashCalculator<HashAlgorithm::CRC32>
+{
+public:
+    void Start() { m_CRC = 0xffffffff; }
     void AddData(const void* data, size_t length);
     uint32_t Finalize() { return ~m_CRC; }
 
 private:
-    uint32_t m_CRC = 0;
+    uint32_t m_CRC = 0xffffffff;
 
 };
 

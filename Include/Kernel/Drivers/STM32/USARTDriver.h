@@ -26,6 +26,8 @@
 #include "Kernel/VFS/KINode.h"
 #include "Kernel/VFS/KFilesystem.h"
 #include "Kernel/HAL/STM32/DMARequestID.h"
+#include "Kernel/HAL/DigitalPort.h"
+#include "DeviceControl/USART.h"
 
 namespace kernel
 {
@@ -33,12 +35,26 @@ namespace kernel
 class USARTDriverINode : public KINode
 {
 public:
-	USARTDriverINode(USART_TypeDef* port, DMAMUX1_REQUEST dmaRequestRX, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency, KFilesystemFileOps* fileOps);
+	USARTDriverINode(   USART_TypeDef*      port,
+                        const PinMuxTarget& pinRX,
+                        const PinMuxTarget& pinTX,
+                        DMAMUX1_REQUEST     dmaRequestRX,
+                        DMAMUX1_REQUEST     dmaRequestTX,
+                        uint32_t            clockFrequency,
+                        KFilesystemFileOps* fileOps);
 
     ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
 	ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
+    int     DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
 private:
+    void SetBaudrate(int baudrate);
+    void SetIOControl(uint32_t flags);
+
+    bool SetPinMode(const PinMuxTarget& pin, USARTPinMode mode);
+
+    void SetSwapRXTX(bool doSwap);
+    bool GetSwapRXTX() const { return (m_Port->CR2 & USART_CR2_SWAP) != 0; }
 
 	static IRQResult IRQCallbackReceive(IRQn_Type irq, void* userData) { return static_cast<USARTDriverINode*>(userData)->HandleIRQReceive(); }
 	IRQResult HandleIRQReceive();
@@ -52,17 +68,24 @@ private:
 	KConditionVariable m_TransmitCondition;
 
 
-	USART_TypeDef* m_Port;
+	USART_TypeDef*  m_Port;
+    PinMuxTarget    m_PinRX;
+    PinMuxTarget    m_PinTX;
 	DMAMUX1_REQUEST	m_DMARequestRX;
 	DMAMUX1_REQUEST	m_DMARequestTX;
 
+    int             m_ClockFrequency = 0;
 	int				m_Baudrate = 0;
-	int            m_ReceiveDMAChannel = -1;
-	int            m_SendDMAChannel = -1;
-	int32_t        m_ReceiveBufferSize = 1024 * 2;
-	int32_t        m_ReceiveBufferOutPos = 0;
-	int32_t        m_ReceiveBufferInPos = 0;
-	uint8_t*       m_ReceiveBuffer;
+    USARTPinMode    m_PinModeRX = USARTPinMode::Normal;
+    USARTPinMode    m_PinModeTX = USARTPinMode::Normal;
+    uint32_t        m_IOControl = 0;
+    TimeValMicros   m_ReadTimeout = TimeValMicros::infinit;
+	int             m_ReceiveDMAChannel = -1;
+	int             m_SendDMAChannel = -1;
+	int32_t         m_ReceiveBufferSize = 1024 * 2;
+	int32_t         m_ReceiveBufferOutPos = 0;
+	int32_t         m_ReceiveBufferInPos = 0;
+	uint8_t*        m_ReceiveBuffer;
 };
 
 
@@ -72,7 +95,13 @@ public:
 	USARTDriver();
 	~USARTDriver();
 
-    void Setup(const char* devicePath, USART_TypeDef* port, DMAMUX1_REQUEST dmaRequestRX, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency);
+    void Setup( const char*         devicePath,
+                USART_TypeDef*      port,
+                const PinMuxTarget& pinRX,
+                const PinMuxTarget& pinTX,
+                DMAMUX1_REQUEST     dmaRequestRX,
+                DMAMUX1_REQUEST     dmaRequestTX,
+                uint32_t            clockFrequency);
 
     virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
     virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;

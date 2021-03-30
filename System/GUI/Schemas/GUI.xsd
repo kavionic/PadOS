@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+	<xs:simpleType name="Alignment">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="left"/>
+			<xs:enumeration value="right"/>
+			<xs:enumeration value="top"/>
+			<xs:enumeration value="bottom"/>
+			<xs:enumeration value="center"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="Layout">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="stacked"/>
+			<xs:enumeration value="horizontal"/>
+			<xs:enumeration value="vertical"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="Orientation">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="horizontal"/>
+			<xs:enumeration value="vertical"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="Point">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="Point\([ \t]*[0-9]+\.?[0-9]*[ \t]*,[ \t]*[0-9]+\.?[0-9]*[ \t]*\)"></xs:pattern>
+		</xs:restriction>
+	</xs:simpleType>
+	
+	<xs:simpleType name="Rect">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="Rect\([ \t]*[0-9]+\.?[0-9]*[ \t]*,[ \t]*[0-9]+\.?[0-9]*[ \t]*,[ \t]*[0-9]+\.?[0-9]*[ \t]*,[ \t]*[0-9]+\.?[0-9]*[ \t]*\)"></xs:pattern>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:complexType name="View">
+		<xs:attribute name="name"		type="xs:string"	use="optional" />
+		<xs:attribute name="flags"		type="xs:string"	use="optional" />
+
+		<xs:attribute name="h_alignment"	type="Alignment"	use="optional" />
+		<xs:attribute name="v_alignment"	type="Alignment"	use="optional" />
+		
+		<xs:attribute name="size"		type="Point"		use="optional" />
+		<xs:attribute name="size_limit"		type="Point"		use="optional" />
+		<xs:attribute name="size_extend"	type="Point"		use="optional" />
+
+		<xs:attribute name="width"		type="xs:float"		use="optional" />
+		<xs:attribute name="width_limit"	type="xs:float"		use="optional" />
+		<xs:attribute name="width_extend"	type="xs:float"		use="optional" />
+
+		<xs:attribute name="height"		type="xs:float"		use="optional" />
+		<xs:attribute name="height_limit"	type="xs:float"		use="optional" />
+		<xs:attribute name="height_extend"	type="xs:float"		use="optional" />
+
+		<xs:attribute name="min_size"		type="Point"		use="optional" />
+		<xs:attribute name="min_size_limit"	type="Point"		use="optional" />
+		<xs:attribute name="min_size_extend"	type="Point"		use="optional" />
+
+		<xs:attribute name="min_width"		type="xs:float"		use="optional" />
+		<xs:attribute name="min_width_limit"	type="xs:float"		use="optional" />
+		<xs:attribute name="min_width_extend"	type="xs:float"		use="optional" />
+
+		<xs:attribute name="min_height"		type="xs:float"		use="optional" />
+		<xs:attribute name="min_height_limit"	type="xs:float"		use="optional" />
+		<xs:attribute name="min_height_extend"	type="xs:float"		use="optional" />
+
+		<xs:attribute name="max_size"		type="Point"		use="optional" />
+		<xs:attribute name="max_size_limit"	type="Point"		use="optional" />
+		<xs:attribute name="max_size_extend"	type="Point"		use="optional" />
+
+		<xs:attribute name="max_width"		type="xs:float"		use="optional" />
+		<xs:attribute name="max_width_limit"	type="xs:float"		use="optional" />
+		<xs:attribute name="max_width_extend"	type="xs:float"		use="optional" />
+
+		<xs:attribute name="max_height"		type="xs:float"		use="optional" />
+		<xs:attribute name="max_height_limit"	type="xs:float"		use="optional" />
+		<xs:attribute name="max_height_extend"	type="xs:float"		use="optional" />
+
+		<xs:attribute name="layout"		type="Layout"		use="optional" />
+		<xs:attribute name="layout_borders"	type="Rect"		use="optional" />
+
+		<xs:attribute name="width_group"	type="xs:string"	use="optional" />
+		<xs:attribute name="height_group"	type="xs:string"	use="optional" />
+	</xs:complexType>
+	
+	<xs:element name="View">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="View">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:complexType name="Control" abstract="true">
+		<xs:complexContent>
+			<xs:extension base="View">
+				<xs:attribute name="label"		type="xs:string"	use="optional" />
+				<xs:attribute name="label_alignment"	type="Alignment"	use="optional" />
+				<xs:attribute name="enabled"		type="xs:boolean"	use="optional" />
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+
+	<xs:complexType name="ButtonBase" abstract="true">
+		<xs:complexContent>
+			<xs:extension base="Control">
+				<xs:attribute name="group" type="xs:string" use="optional" />
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+
+	<xs:element name="Button">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="ButtonBase">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="CheckBox">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="ButtonBase">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="GroupView">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="View">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+					<xs:attribute name="label" type="xs:string" use="optional" />
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="ListView">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="View">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="RadioButton">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="ButtonBase">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="ScrollView">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="View">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+					<xs:attribute name="orientation" type="Orientation" use="optional" />
+					<xs:attribute name="num_ticks" type="xs:integer" use="optional" />
+					<xs:attribute name="min_label" type="xs:string" use="optional" />
+					<xs:attribute name="max_label" type="xs:string" use="optional" />
+					<xs:attribute name="min" type="xs:float" use="optional" />
+					<xs:attribute name="max" type="xs:float" use="optional" />
+					<xs:attribute name="value" type="xs:float" use="optional" />
+					<xs:attribute name="value_format" type="xs:string" use="optional" />
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="Slider">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="Control">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="TextBox">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="Control">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+					<xs:attribute name="text" type="xs:string" use="optional" />
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="TextEditView">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="Control">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+					<xs:attribute name="text" type="xs:string" use="optional" />
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="TextView">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="View">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+					<xs:attribute name="text" type="xs:string" use="optional" />
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+</xs:schema>

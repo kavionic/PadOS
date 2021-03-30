@@ -50,8 +50,8 @@ TextBox::TextBox(const String& name, const String& text, Ptr<View> parent, uint3
 
 TextBox::TextBox(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
 {
-    MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, TextBoxFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
     Initialize(context->GetAttribute(xmlData, "text", String::zero));
+    MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, TextBoxFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

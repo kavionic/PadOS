@@ -27,7 +27,7 @@
 #include <pugixml/src/pugixml.hpp>
 
 #include <GUI/View.h>
-#include <GUI/ScrollBar.h>
+#include <GUI/Widgets/ScrollBar.h>
 #include <GUI/Bitmap.h>
 #include <GUI/NamedColors.h>
 #include <App/Application.h>

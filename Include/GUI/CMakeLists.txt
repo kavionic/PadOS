@@ -1,38 +1,18 @@
 target_sources(PadOS PRIVATE
 	Bitmap.h
-	Button.h
-	ButtonBase.h
-	ButtonGroup.h
-	CheckBox.h
 	Color.h
-	Control.h
 	Desktop.h
-	DropdownMenu.h
 	Font.h
-	GroupView.h
 	GUIDefines.h
 	GUIEvent.h
 	KeyboardView.h
 	LayoutNode.h
-	ListView.h
-	ListViewRow.h
-	ListViewStringRow.h
-	Menu.h
-	MenuItem.h
-	MenuSeparator.h
-	ProgressBar.h
-	RadioButton.h
 	Region.h
-	ScrollBar.h
-	ScrollView.h
-	Slider.h
-	TabView.h
-	TextBox.h
-	TextEditView.h
-	TextView.h
 	View.h
 	ViewBase.h
 	ViewFactory.h
 	ViewFactoryContext.h
 	ViewScroller.h
 )
+
+add_subdirectory(Widgets)

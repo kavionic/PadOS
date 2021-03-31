@@ -186,14 +186,6 @@
 					<xs:sequence>
 						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
 					</xs:sequence>
-					<xs:attribute name="orientation" type="Orientation" use="optional" />
-					<xs:attribute name="num_ticks" type="xs:integer" use="optional" />
-					<xs:attribute name="min_label" type="xs:string" use="optional" />
-					<xs:attribute name="max_label" type="xs:string" use="optional" />
-					<xs:attribute name="min" type="xs:float" use="optional" />
-					<xs:attribute name="max" type="xs:float" use="optional" />
-					<xs:attribute name="value" type="xs:float" use="optional" />
-					<xs:attribute name="value_format" type="xs:string" use="optional" />
 				</xs:extension>
 			</xs:complexContent>
 		</xs:complexType>
@@ -206,6 +198,14 @@
 					<xs:sequence>
 						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
 					</xs:sequence>
+					<xs:attribute name="orientation" type="Orientation" use="optional" />
+					<xs:attribute name="num_ticks" type="xs:integer" use="optional" />
+					<xs:attribute name="min_label" type="xs:string" use="optional" />
+					<xs:attribute name="max_label" type="xs:string" use="optional" />
+					<xs:attribute name="min" type="xs:float" use="optional" />
+					<xs:attribute name="max" type="xs:float" use="optional" />
+					<xs:attribute name="value" type="xs:float" use="optional" />
+					<xs:attribute name="value_format" type="xs:string" use="optional" />
 				</xs:extension>
 			</xs:complexContent>
 		</xs:complexType>

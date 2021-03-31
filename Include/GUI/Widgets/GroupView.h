@@ -15,22 +15,26 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 30.06.2020 17:49
+// Created: 14.06.2020 16:30:00
 
-#include <GUI/ViewFactoryContext.h>
-#include <GUI/Widgets/ButtonGroup.h>
+#pragma once
 
-using namespace os;
+#include <GUI/View.h>
 
-Ptr<ButtonGroup> ViewFactoryContext::GetButtonGroup(const String& name)
+namespace os
 {
-	Ptr<ButtonGroup> group;
-	auto i = m_ButtonGroups.find(name);
-	if (i != m_ButtonGroups.end()) {
-		group = i->second;
-	} else {
-		group = ptr_new<ButtonGroup>(name);
-		m_ButtonGroups[name] = group;
-	}
-	return group;
+
+class GroupView : public View
+{
+public:
+    GroupView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    GroupView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+
+    // From View:
+    virtual void Paint(const Rect& updateRect) override;
+
+private:
+    String  m_Label;
+};
+
 }

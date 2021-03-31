@@ -23,16 +23,16 @@
 
 #include <GUI/ViewFactory.h>
 #include <GUI/View.h>
-#include <GUI/Button.h>
-#include <GUI/ButtonGroup.h>
-#include <GUI/Checkbox.h>
-#include <GUI/ListView.h>
-#include <GUI/RadioButton.h>
-#include <GUI/ScrollView.h>
-#include <GUI/Slider.h>
-#include <GUI/TextBox.h>
-#include <GUI/TextView.h>
-#include <GUI/GroupView.h>
+#include <GUI/Widgets/Button.h>
+#include <GUI/Widgets/ButtonGroup.h>
+#include <GUI/Widgets/Checkbox.h>
+#include <GUI/Widgets/ListView.h>
+#include <GUI/Widgets/RadioButton.h>
+#include <GUI/Widgets/ScrollView.h>
+#include <GUI/Widgets/Slider.h>
+#include <GUI/Widgets/TextBox.h>
+#include <GUI/Widgets/TextView.h>
+#include <GUI/Widgets/GroupView.h>
 #include <Utils/XMLObjectParser.h>
 #include <Storage/StandardPaths.h>
 #include <Storage/File.h>

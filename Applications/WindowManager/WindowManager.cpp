@@ -24,7 +24,7 @@
 
 #include <GUI/View.h>
 #include <GUI/LayoutNode.h>
-#include <GUI/Button.h>
+#include <GUI/Widgets/Button.h>
 #include <GUI/ViewFactory.h>
 #include <ApplicationServer/ApplicationServer.h>
 #include <Storage/StandardPaths.h>

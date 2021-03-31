@@ -1,45 +1,15 @@
 target_sources(PadOS PRIVATE
 	Application.cpp
 	Bitmap.cpp
-	Button.cpp
-	ButtonBase.cpp
-	ButtonGroup.cpp
-	CheckBox.cpp
 	Color.cpp
-	Control.cpp
-	DropdownMenu.cpp
-	DropdownMenuPopupView.cpp
-	DropdownMenuPopupView.h
 	Font.cpp
-	GroupView.cpp
 	KeyboardView.cpp
 	LayoutNode.cpp
- 	ListView.cpp
-	ListViewColumnView.h
-	ListViewColumnView.cpp
-	ListViewHeaderView.h
-	ListViewHeaderView.cpp
-	ListViewRow.cpp
-	ListViewScrolledView.h
-	ListViewScrolledView.cpp
-	ListViewStringRow.cpp
-	Menu.cpp
-	MenuItem.cpp
-	MenuRenderView.cpp
-	MenuRenderView.h
-	MenuSeparator.cpp
-	ProgressBar.cpp
-	RadioButton.cpp
 	Region.cpp
-	ScrollBar.cpp
-	ScrollView.cpp
-	Slider.cpp
-	TabView.cpp
-	TextBox.cpp
-	TextEditView.cpp
-	TextView.cpp
 	View.cpp
 	ViewFactory.cpp
 	ViewFactoryContext.cpp
 	ViewScroller.cpp
 )
+
+add_subdirectory(Widgets)

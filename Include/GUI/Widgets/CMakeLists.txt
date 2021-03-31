@@ -1,0 +1,24 @@
+target_sources(PadOS PRIVATE
+	Button.h
+	ButtonBase.h
+	ButtonGroup.h
+	CheckBox.h
+	Control.h
+	DropdownMenu.h
+	GroupView.h
+	ListView.h
+	ListViewRow.h
+	ListViewStringRow.h
+	Menu.h
+	MenuItem.h
+	MenuSeparator.h
+	ProgressBar.h
+	RadioButton.h
+	ScrollBar.h
+	ScrollView.h
+	Slider.h
+	TabView.h
+	TextBox.h
+	TextEditView.h
+	TextView.h
+)

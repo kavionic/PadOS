@@ -23,8 +23,8 @@
 #include <GUI/Bitmap.h>
 #include <GUI/ViewFactory.h>
 #include <GUI/KeyboardView.h>
-#include <GUI/Menu.h>
-#include <GUI/MenuItem.h>
+#include <GUI/Widgets/Menu.h>
+#include <GUI/Widgets/MenuItem.h>
 #include <GUI/Desktop.h>
 #include <Storage/StandardPaths.h>
 #include <Storage/Directory.h>

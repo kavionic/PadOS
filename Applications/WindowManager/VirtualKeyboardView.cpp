@@ -18,7 +18,7 @@
 // Created: 05.09.2020 22:15
 
 
-#include <GUI/TextBox.h>
+#include <GUI/Widgets/TextBox.h>
 #include <GUI/KeyboardView.h>
 
 #include "VirtualKeyboardView.h"

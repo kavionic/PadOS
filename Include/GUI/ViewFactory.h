@@ -78,5 +78,6 @@ private:
     bool Parse(ViewFactoryContext* context, Ptr<View> parentView, const pugi::xml_node& xmlNode);
 };
 
+#define VIEW_FACTORY_REGISTER_CLASS(CLASS) struct FactoryRegistrationHelper##CLASS { FactoryRegistrationHelper##CLASS() { ViewFactory::GetInstance().RegisterClass(#CLASS, [](ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) { return ptr_new<CLASS>(context, parent, xmlData); }); } } g_FactoryRegistrationHelper##CLASS
 
 } // namespace

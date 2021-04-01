@@ -41,23 +41,22 @@
 using namespace os;
 using namespace pugi;
 
+VIEW_FACTORY_REGISTER_CLASS(Button);
+VIEW_FACTORY_REGISTER_CLASS(CheckBox);
+VIEW_FACTORY_REGISTER_CLASS(GroupView);
+VIEW_FACTORY_REGISTER_CLASS(ListView);
+VIEW_FACTORY_REGISTER_CLASS(RadioButton);
+VIEW_FACTORY_REGISTER_CLASS(Slider);
+VIEW_FACTORY_REGISTER_CLASS(TextBox);
+VIEW_FACTORY_REGISTER_CLASS(TextView);
+VIEW_FACTORY_REGISTER_CLASS(View);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-#define VIEW_FACTORY_REGISTER_CLASS(CLASS) RegisterClass(#CLASS, [](ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) { return ptr_new<CLASS>(context, parent, xmlData); });
 ViewFactory::ViewFactory()
 {
-    VIEW_FACTORY_REGISTER_CLASS(Button);
-    VIEW_FACTORY_REGISTER_CLASS(CheckBox);
-    VIEW_FACTORY_REGISTER_CLASS(GroupView);
-    VIEW_FACTORY_REGISTER_CLASS(ListView);
-    VIEW_FACTORY_REGISTER_CLASS(RadioButton);
-    VIEW_FACTORY_REGISTER_CLASS(Slider);
-    VIEW_FACTORY_REGISTER_CLASS(TextBox);
-    VIEW_FACTORY_REGISTER_CLASS(TextView);
-    VIEW_FACTORY_REGISTER_CLASS(View);
 
     RegisterClass("ScrollView", [](ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData)
         {

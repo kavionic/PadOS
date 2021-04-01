@@ -49,6 +49,7 @@ public:
         {
             return ptr_dynamic_cast<T>(i->second(args...));
         }
+        printf("ERROR: XMLFactory no class called '%s' is registered\n", name.c_str());
         return nullptr;
     }
 private:

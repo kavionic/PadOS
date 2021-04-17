@@ -336,7 +336,7 @@ void KeyboardView::OnFlagsChanged(uint32_t changedFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void KeyboardView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     Point size(11.0f * 40.0f, (m_KeyHeight + KEY_SPACING.y) * std::max(5.0f, float(m_CurrentLayout->m_KeyRows)) + KEY_SPACING.y);
 

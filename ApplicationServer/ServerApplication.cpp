@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -146,7 +146,6 @@ void ServerApplication::UpdateRegions()
 {
     if (m_LowestInvalidView != nullptr)
     {
-//        m_Server->GetTopView()->UpdateRegions(false);
         m_LowestInvalidView->UpdateRegions(false);
         //HandleMouseTransaction();
         m_LowestInvalidView = nullptr;
@@ -176,6 +175,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
                                        handler_id           replyTarget,
                                        handler_id           parentHandle,
                                        ViewDockType         dockType,
+                                       size_t               index,
                                        const String&        name,
                                        const Rect&          frame,
                                        const Point&         scrollOffset,
@@ -187,7 +187,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
                                        Color                bgColor,
                                        Color                fgColor)
 {
-    Ptr<ServerView> parent; // = (parentHandle == -1) ? m_Server->GetTopView() : m_Server->FindView(parentHandle);
+    Ptr<ServerView> parent;
     
     if (dockType == ViewDockType::RootLevelView)
     {
@@ -210,7 +210,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
     Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hideCount, focusKeyboardMode, drawingMode, eraseColor, bgColor, fgColor);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
-        parent->AddChild(view);
+        parent->AddChild(view, index);
     } else {
         view->SetIsWindowManagerControlled(true);
         ASWindowManagerRegisterView::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, view->GetHandle(), dockType, view->GetName(), frame);
@@ -227,10 +227,9 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
     {
         IRect modifiedFrame = view->GetFrame();
         Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
-        //opacParent->MarkModified(modifiedFrame);
-        //UpdateLowestInvalidView(opacParent);
-        opacParent->UpdateRegions(true);
-    }        
+        opacParent->MarkModified(modifiedFrame);
+        UpdateLowestInvalidView(opacParent);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -367,7 +366,7 @@ void ServerApplication::SlotViewInvalidate(handler_id clientHandle, const IRect&
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotViewAddChild(handler_id viewHandle, handler_id childHandle, handler_id managerHandle)
+void ServerApplication::SlotViewAddChild(size_t index, handler_id viewHandle, handler_id childHandle, handler_id managerHandle)
 {
     Ptr<ServerView> view = m_Server->FindView(viewHandle);
     if (view != nullptr)
@@ -376,8 +375,41 @@ void ServerApplication::SlotViewAddChild(handler_id viewHandle, handler_id child
         if (child != nullptr)
         {
             child->SetManagerHandle(managerHandle);
-            view->AddChild(child);
-            ServerView::GetOpacParent(view, nullptr)->UpdateRegions(true);
+            view->AddChild(child, index);
+
+            IRect modifiedFrame = view->GetIFrame();
+            Ptr<ServerView> opacParent = ServerView::GetOpacParent(view->GetParent(), &modifiedFrame);
+            if (opacParent != nullptr) {
+                opacParent->MarkModified(modifiedFrame);
+                UpdateLowestInvalidView(opacParent);
+            }
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotViewShow(handler_id viewHandle, bool show)
+{
+    Ptr<ServerView> view = m_Server->FindView(viewHandle);
+    if (view != nullptr)
+    {
+        bool wasVisible = view->IsVisible();
+        view->Show(show);
+        if (view->IsVisible() != wasVisible)
+        {
+            IRect modifiedFrame = view->GetIFrame();
+            Ptr<ServerView> opacParent = ServerView::GetOpacParent(view->GetParent(), &modifiedFrame);
+            if (opacParent != nullptr) {
+                opacParent->MarkModified(modifiedFrame);
+                UpdateLowestInvalidView(opacParent);
+            }
+        }
+    }
+    else
+    {
+        printf("ERROR: ServerApplication::SlotViewShow() no view with ID %d\n", viewHandle);
     }
 }

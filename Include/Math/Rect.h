@@ -61,6 +61,7 @@ public:
     constexpr Point TopRight() const { return Point(right, top); }
     constexpr Point BottomLeft() const { return Point(left, bottom); }
     constexpr Point BottomRight() const { return Point(right, bottom); }
+    constexpr Point Center() const { return Point(right * 0.5f, bottom * 0.5f); }
     constexpr Rect  Bounds() const { return Rect(0.0f, 0.0f, right - left, bottom - top); }
 
     Rect& Round() { left = round(left); right = round(right); top = round(top); bottom = round(bottom); return *this; }

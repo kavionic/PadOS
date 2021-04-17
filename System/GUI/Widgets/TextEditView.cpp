@@ -94,7 +94,7 @@ void TextEditView::OnFlagsChanged(uint32_t changedFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextEditView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void TextEditView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     Point size = GetSizeForString(m_Text, includeWidth, includeHeight);
     *minSize = size;
@@ -288,7 +288,7 @@ void TextEditView::OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent&
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextEditView::SetText(const String& text)
+void TextEditView::SetText(const String& text, bool sendEvent)
 {
     m_Text = text;
 
@@ -296,14 +296,16 @@ void TextEditView::SetText(const String& text)
     ContentSizeChanged();
     Invalidate();
 
-    SignalTextChanged(m_Text, true, this);
+    if (sendEvent) {
+        SignalTextChanged(m_Text, true, this);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextEditView::InsertText(const String& text)
+void TextEditView::InsertText(const String& text, bool sendEvent)
 {
     Rect damageRect = GetBounds();
     damageRect.left = m_CursorViewPos.x;
@@ -316,7 +318,9 @@ void TextEditView::InsertText(const String& text)
     if (damageRect.IsValid()) {
         Invalidate(damageRect);
     }
-    SignalTextChanged(m_Text, true, this);
+    if (sendEvent) {
+        SignalTextChanged(m_Text, true, this);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

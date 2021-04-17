@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2017-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2017-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -28,6 +28,26 @@
 #include <ApplicationServer/DisplayDriver.h>
 
 using namespace os;
+
+Application* Application::s_DefaultApplication = nullptr;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Application* Application::GetDefaultApplication()
+{
+    return s_DefaultApplication;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Application::SetDefaultApplication(Application* application)
+{
+    s_DefaultApplication = application;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -84,14 +104,7 @@ bool Application::HandleMessage(handler_id targetHandler, int32_t code, const vo
 
 void Application::Idle()
 {
-    while(!m_ViewsNeedingLayout.empty())
-    {
-        std::set<Ptr<View>> list = std::move(m_ViewsNeedingLayout);
-        for (Ptr<View> view : list)
-        {
-            view->UpdateLayout();
-        }
-    }
+    LayoutViews();
     Flush();
 }
 
@@ -108,77 +121,40 @@ IRect Application::GetScreenIFrame()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Application::AddView(Ptr<View> view, ViewDockType dockType)
+bool Application::AddView(Ptr<View> view, ViewDockType dockType, size_t index)
 {
-    Ptr<View> parent = view->GetParent();
-    handler_id parentHandle = INVALID_HANDLE;
-    for (Ptr<View> i = parent; i != nullptr; i = i->GetParent())
-    {
-        handler_id curParentHandle = i->GetServerHandle();
-        if (curParentHandle != INVALID_HANDLE /*i->HasFlags(ViewFlags::WillDraw)*/)
-        {
-            parentHandle = curParentHandle; // i->GetServerHandle();
-            break;
-        }
+    if (dockType == ViewDockType::ChildView) {
+        printf("Application::AddView() attempt to add top-level view as 'ViewDockType::ChildView'\n");
+        return false;
     }
-    if (dockType != ViewDockType::ChildView || view->HasFlags(ViewFlags::WillDraw))
-    {
-        AddHandler(view);
-        Post<ASCreateView>(GetPortID()
-                            , m_ReplyPort.GetHandle()
-                            , view->GetHandle()
-                            , parentHandle
-                            , dockType
-                            , view->GetName()
-                            , view->m_Frame + view->m_PositionOffset
-                            , view->m_ScrollOffset
-                            , view->m_Flags
-                            , view->m_HideCount
-                            , view->m_FocusKeyboardMode
-                            , view->m_DrawingMode
-                            , view->m_EraseColor
-                            , view->m_BgColor
-                            , view->m_FgColor
-                            );
-        Flush();
-    
-        for (;;)
-        {
-            MsgCreateViewReply reply;
-            int32_t            code;
-            if (m_ReplyPort.ReceiveMessage(nullptr, &code, &reply, sizeof(reply)))
-            {
-                if (code == AppserverProtocol::CREATE_VIEW_REPLY) {
-                    view->SetServerHandle(reply.m_ViewHandle);
-                    break;
-                } else {
-                    printf("ERROR: Application::AddView() received invalid reply: %" PRId32 "\n", code);
-                }
-            }
-            else if (get_last_error() != EINTR)
-            {
-                printf("ERROR: Application::AddView() receive failed: %s\n", strerror(get_last_error()));
-                break;
-            }
-        }
-    }
-    else // Client only.
-    {
-        if (parent == nullptr) {
-            printf("ERROR: Application::AddView() attempt to add client-only view '%s' to viewport.\n", view->GetName().c_str());
-            return false;
-        }
-    }
-    view->MergeFlags(ViewFlags::IsAttachedToScreen);
-    view->AttachedToScreen();
+    view->HandlePreAttachToScreen(this);
+
+    Ptr<View>   parent       = view->GetParent();
+    handler_id  parentHandle = view->GetParentServerHandle();
+
+    CreateServerView(view, parentHandle, dockType, index);
+
     for (Ptr<View> child : view->m_ChildrenList) {
-        AddView(ptr_static_cast<View>(child), ViewDockType::ChildView);
+        AddChildView(view, ptr_static_cast<View>(child));
     }
-    view->AllAttachedToScreen();
-	view->PreferredSizeChanged();
-    view->m_IsLayoutValid = false;
-    if (parent == nullptr) {
-        RegisterViewForLayout(view);
+    view->HandleAttachedToScreen(this);
+    LayoutViews();
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool Application::AddChildView(Ptr<View> parent, Ptr<View> view, size_t index)
+{
+    handler_id parentHandle = view->GetParentServerHandle();
+
+    if (view->HasFlags(ViewFlags::WillDraw)) {
+        CreateServerView(view, parentHandle, ViewDockType::ChildView, index);
+    }
+    for (Ptr<View> child : view->m_ChildrenList) {
+        AddChildView(view, ptr_static_cast<View>(child));
     }
     return true;
 }
@@ -202,7 +178,7 @@ bool Application::RemoveView(Ptr<View> view)
     for (Ptr<View> child : *view) {
         RemoveView(child);
     }
-	view->ClearFlags(ViewFlags::IsAttachedToScreen);
+    view->ClearFlags(ViewFlags::IsAttachedToScreen);
     return true;
 }
 
@@ -445,9 +421,66 @@ void* Application::AllocMessageBuffer(int32_t messageID, size_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::RegisterViewForLayout(Ptr<View> view)
+bool Application::CreateServerView(Ptr<View> view, handler_id parentHandle, ViewDockType dockType, size_t index)
 {
-    m_ViewsNeedingLayout.insert(view);
+    Post<ASCreateView>(GetPortID()
+        , m_ReplyPort.GetHandle()
+        , view->GetHandle()
+        , parentHandle
+        , dockType
+        , index
+        , view->GetName()
+        , view->m_Frame + view->m_PositionOffset
+        , view->m_ScrollOffset
+        , view->m_Flags
+        , view->m_HideCount
+        , view->m_FocusKeyboardMode
+        , view->m_DrawingMode
+        , view->m_EraseColor
+        , view->m_BgColor
+        , view->m_FgColor
+        );
+    Flush();
+
+    for (;;)
+    {
+        MsgCreateViewReply reply;
+        int32_t            code;
+        if (m_ReplyPort.ReceiveMessage(nullptr, &code, &reply, sizeof(reply)))
+        {
+            if (code == AppserverProtocol::CREATE_VIEW_REPLY) {
+                view->SetServerHandle(reply.m_ViewHandle);
+                break;
+            } else {
+                printf("ERROR: Application::AddView() received invalid reply: %" PRId32 "\n", code);
+            }
+        }
+        else if (get_last_error() != EINTR)
+        {
+            printf("ERROR: Application::AddView() receive failed: %s\n", strerror(get_last_error()));
+            return false;
+        }
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Application::RegisterViewForLayout(Ptr<View> view, bool recursive)
+{
+    if (!view->m_IsLayoutValid && !view->m_IsLayoutPending) {
+        view->m_IsLayoutPending = true;
+        m_ViewsNeedingLayout.insert(view);
+    }
+    if (recursive)
+    {
+        for (Ptr<View> child : view->GetChildList())
+        {
+            RegisterViewForLayout(child, true);
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -489,6 +522,23 @@ Ptr<View> Application::GetMouseDownView(MouseButton_e button) const
         return ptr_tmp_cast(iterator->second);
     }
     return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Application::LayoutViews()
+{
+    for (int i = 0; i < 100 && !m_ViewsNeedingLayout.empty(); ++i)
+    {
+        std::set<Ptr<View>> list = std::move(m_ViewsNeedingLayout);
+        for (Ptr<View> view : list)
+        {
+            view->m_IsLayoutPending = false;
+            view->UpdateLayout();
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

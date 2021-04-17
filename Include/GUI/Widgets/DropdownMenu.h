@@ -60,12 +60,13 @@ class DropdownMenu : public Control
 {
 public:
     DropdownMenu(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    DropdownMenu(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~DropdownMenu();
 
     // From View:
     virtual void    OnFlagsChanged(uint32_t changedFlags) override;
     virtual void    DetachedFromScreen() override;
-    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void    FrameSized(const Point& cDelta) override;
     virtual void    ScreenFrameMoved(const Point& delta) override;
     virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
@@ -93,6 +94,7 @@ public:
     Signal<void, size_t, bool, DropdownMenu*>        SignalSelectionChanged;
     Signal<void, const String&, bool, DropdownMenu*> SignalTextChanged;
 private:
+    void    Initialize();
     void    OpenMenu();
     void    CloseMenu();
     void    LayoutMenuWindow();

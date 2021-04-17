@@ -57,7 +57,7 @@ public:
 
     // From View:
     virtual void    OnFlagsChanged(uint32_t changedFlags) override;
-    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void    FrameSized(const Point& delta) override;
     virtual void    Paint(const Rect& updateRect) override;
 
@@ -66,7 +66,7 @@ public:
     virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
 
     // From TextBox:
-    void            SetText(const String& text) { m_Editor->SetText(text); }
+    void            SetText(const String& text, bool sendEvent = true) { m_Editor->SetText(text, sendEvent); }
     const String&   GetText() const { return m_Editor->GetText(); }
 
     Point           GetSizeForString(const String& text, bool includeWidth = true, bool includeHeight = true) const;
@@ -74,9 +74,11 @@ public:
     Ptr<const TextBoxStyle> GetStyle() const { return m_Editor->GetStyle(); }
     void                    SetStyle(Ptr<const TextBoxStyle> style) { m_Editor->SetStyle(style); }
 
-    Signal<void, const String&, bool, TextBox*> SignalTextChanged;
+    Signal<void, const String&, bool, TextBox*> SignalTextChanged; //(const String& newText, bool finalUpdate, TextBox* source)
 private:
     void Initialize(const String& text);
+
+    void SlotTextChanged(const String& text, bool finalUpdate);
 
     static NoPtr<TextBoxStyle> s_DefaultStyle;
 

@@ -197,7 +197,7 @@ Ptr<View> ScrollBar::GetScrollTarget()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollBar::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void os::ScrollBar::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     const float w = 16.0f;
 

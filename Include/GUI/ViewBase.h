@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -66,24 +66,44 @@ public:
     typename ChildList_t::reverse_iterator          GetChildRIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
     typename ChildList_t::const_reverse_iterator    GetChildRIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
 
-    template<typename T = View>
-    Ptr<T> FindChild(const String& name, bool recursive = true)
+    template<typename T = View, typename DELEGATE>
+    Ptr<T> FindChildIf(DELEGATE compareDelegate, bool recursive = true) const
     {
-	    return ptr_dynamic_cast<T>(FindChildInternal(name, recursive));
+        return ptr_dynamic_cast<T>(FindChildInternal(compareDelegate, recursive));
     }
 
-    
-    Ptr<ViewType> FindChildInternal(const String& name, bool recursive = true)
+    template<typename T = View, typename DELEGATE>
+    bool FindChildIf(DELEGATE compareDelegate, Ptr<T>& outResult, bool recursive = true) const
+    {
+        outResult = FindChildIf<T>(compareDelegate, recursive);
+        return outResult != nullptr;
+    }
+
+    template<typename T = View>
+    Ptr<T> FindChild(const String& name, bool recursive = true) const
+    {
+        return ptr_dynamic_cast<T>(FindChildInternal([&name](Ptr<ViewType> child) { return child->GetName() == name; }, recursive));
+    }
+
+    template<typename T = View>
+    bool FindChild(const String& name, Ptr<T>& outResult, bool recursive = true) const
+    {
+        outResult = FindChild<T>(name, recursive);
+        return outResult != nullptr;
+    }
+
+    template<typename DELEGATE>
+    Ptr<ViewType> FindChildInternal(DELEGATE compareDelegate, bool recursive = true) const
     {
         for (const Ptr<ViewType>& child : m_ChildrenList)
         {
-            if (child->GetName() == name) return child;
+            if (compareDelegate(child)) return child;
         }
         if (recursive)
         {
             for (const Ptr<ViewType>& child : m_ChildrenList)
             {
-                Ptr<ViewType> view = child->FindChildInternal(name, true);
+                Ptr<ViewType> view = child->FindChildInternal(compareDelegate, true);
                 if (view != nullptr) return view;
             }
         }
@@ -145,7 +165,7 @@ public:
     Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
     void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
     
-    static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, IRect* frame)
+    static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, IRect* frame = nullptr)
     {
         while(view != nullptr && view->HasFlags(ViewFlags::Transparent))
         {
@@ -162,7 +182,7 @@ protected:
     friend class ApplicationServer;
     friend class ServerApplication;
 
-    void            LinkChild(Ptr<ViewType> child, bool topmost);
+    void            LinkChild(Ptr<ViewType> child, size_t index);
     Ptr<ViewType>   UnlinkChild(typename  ChildList_t::iterator iterator);
     void            UnlinkChild(Ptr<ViewType> child);
     
@@ -207,18 +227,18 @@ protected:
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename ViewType>
-void ViewBase<ViewType>::LinkChild(Ptr<ViewType> child, bool topmost)
+void ViewBase<ViewType>::LinkChild(Ptr<ViewType> child, size_t index)
 {
 	if (child->m_Parent.Lock() == nullptr)
 	{
 		child->m_Parent = ptr_tmp_cast(static_cast<ViewType*>(this));
-		if (topmost) {
+		if (index == INVALID_INDEX) {
 			m_ChildrenList.push_back(child);
 		} else {
-			m_ChildrenList.insert(m_ChildrenList.begin(), child);
+			m_ChildrenList.insert(m_ChildrenList.begin() + index, child);
 		}
 		child->Added(this, m_Level + 1);
-		child->HandleAddedToParent(ptr_tmp_cast(static_cast<ViewType*>(this)));
+		child->HandleAddedToParent(ptr_tmp_cast(static_cast<ViewType*>(this)), index);
 	}
     else
 	{

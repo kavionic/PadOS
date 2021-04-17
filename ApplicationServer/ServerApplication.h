@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -51,6 +51,7 @@ private:
                         handler_id replyTarget,
                         handler_id parentHandle,
                         ViewDockType dockType,
+                        size_t index,
                         const String& name,
                         const Rect& frame,
                         const Point& scrollOffset,
@@ -68,12 +69,12 @@ private:
     void SlotDeleteBitmap(handle_id bitmapHandle);
     void SlotViewSetFrame(handler_id clientHandle, const Rect& frame, handler_id requestingClient);
     void SlotViewInvalidate(handler_id clientHandle, const IRect& frame);
-    void SlotViewAddChild(handler_id viewHandle, handler_id childHandle, handler_id managerHandle);
+    void SlotViewAddChild(size_t index, handler_id viewHandle, handler_id childHandle, handler_id managerHandle);
     void SlotSync(port_id replyPort)                                                        { ASSyncReply::Sender::Emit(MessagePort(replyPort), -1, TimeValMicros::zero); }
     void SlotViewToggleDepth(handler_id viewHandle)                                         { ForwardToView(viewHandle, &ServerView::ToggleDepth); }
     void SlotViewBeginUpdate(handler_id viewHandle)                                         { ForwardToView(viewHandle, &ServerView::BeginUpdate); }
     void SlotViewEndUpdate(handler_id viewHandle)                                           { ForwardToView(viewHandle, &ServerView::EndUpdate); }
-    void SlotViewShow(handler_id viewHandle, bool show)                                     { ForwardToView(viewHandle, &ServerView::Show, show); }
+    void SlotViewShow(handler_id viewHandle, bool show);
     void SlotViewSetFgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetFgColor, color); }
     void SlotViewSetBgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetBgColor, color); }
     void SlotViewSetEraseColor(handler_id viewHandle, Color color)                          { ForwardToView(viewHandle, &ServerView::SetEraseColor, color); }
@@ -102,10 +103,8 @@ private:
         }
     }
 
-    ApplicationServer* m_Server;
-
-    port_id m_ClientPort;
-    
+    ApplicationServer*  m_Server;
+    port_id             m_ClientPort;
     
     Ptr<ServerView> m_LowestInvalidView;
     int             m_LowestInvalidLevel = std::numeric_limits<int>::max();

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,35 +15,45 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 29.08.2020 00:30
+// Created: 04.04.2021 15:40
 
-#pragma once
 
 #include <GUI/View.h>
-#include <GUI/ViewScroller.h>
 
 namespace os
 {
 
-class ScrollView : public View, public ViewScroller
+class Window : public View
 {
 public:
-    ScrollView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    ScrollView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    Window(const String& title);
 
     // From View:
-    virtual void    FrameSized(const Point& delta) override;
-    virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual void Paint(const Rect& updateRect) override;
+    virtual void FrameSized(const Point& delta) override;
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
 
-    // From ViewScroller:
-    virtual Ptr<View>   SetScrolledView(Ptr<View> view) override;
+    virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+
+    // From Window:
+    void SetClient(Ptr<View> client);
+    Ptr<View> GetClient();
+
+    void Open(Application* application = nullptr);
+    void Close();
 
 private:
-    MouseButton_e   m_HitButton = MouseButton_e::None;
+    void SlotClientPreferredSizeChanged();
+    Ptr<View> m_ClientView;
 
+    Rect    m_ClientBorders;
+
+    String  m_Title;
+
+    MouseButton_e   m_DragHitButton = MouseButton_e::None;
+    Point           m_DragHitPos;
 };
 
 } // namespace os

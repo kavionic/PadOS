@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -42,6 +42,9 @@ public:
 
     int compare_nocase(const std::string& rhs) const;
     int compare_nocase(const char* rhs) const;
+
+    bool ends_with(const char* token, size_t length = INVALID_INDEX) const;
+    bool ends_with_nocase(const char* token, size_t length = INVALID_INDEX) const;
 
     size_t  count_chars() const;
     String& strip();

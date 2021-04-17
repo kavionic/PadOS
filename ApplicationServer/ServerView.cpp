@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -64,7 +64,7 @@ ServerView::~ServerView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::HandleAddedToParent(Ptr<ServerView> parent)
+void ServerView::HandleAddedToParent(Ptr<ServerView> parent, size_t index)
 {
     if (!parent->IsVisible()) {
         Show(false);
@@ -168,9 +168,10 @@ bool ServerView::HandleMouseMove(MouseButton_e button, const Point& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::AddChild(Ptr<ServerView> child, bool topmost)
+void ServerView::AddChild(Ptr<ServerView> child, size_t index)
 {
-    LinkChild(child, topmost);
+    if (index != INVALID_INDEX && index > m_ChildrenList.size()) index = m_ChildrenList.size();
+    LinkChild(child, index);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -262,11 +263,11 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
         }            
     }
     
-    if (requestingClient != -1)
+    if (requestingClient != INVALID_HANDLE)
     {
         if (requestingClient == m_ClientHandle)
         {
-            if (m_ManagerHandle != -1)
+            if (m_ManagerHandle != INVALID_HANDLE)
             {
                 ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
                 if (server !=  nullptr) {
@@ -718,23 +719,20 @@ void ServerView::UpdateRegions(bool bForce, bool bRoot)
     InvalidateNewAreas();
 
     ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
-    if (server !=  nullptr)
+    if (m_HasInvalidRegs && server != nullptr && server->GetTopView() == this /*m_pcBitmap != nullptr*/ && m_DamageReg != nullptr)
     {
-        if (m_HasInvalidRegs && server->GetTopView() == this /*m_pcBitmap != nullptr*/ && m_DamageReg != nullptr)
+        if ( m_Bitmap == ApplicationServer::GetScreenBitmap())
         {
-            if ( m_Bitmap == ApplicationServer::GetScreenBitmap())
-            {
-                Region cDrawReg(*m_VisibleReg);
-                cDrawReg.Intersect(*m_DamageReg);
+            Region cDrawReg(*m_VisibleReg);
+            cDrawReg.Intersect(*m_DamageReg);
         
-                IPoint screenPos(m_ScreenPos);
-                for (const IRect& clip : cDrawReg.m_Rects) {
-                    m_Bitmap->m_Driver->FillRect(m_Bitmap, clip + screenPos, m_EraseColor);
-                }
+            IPoint screenPos(m_ScreenPos);
+            for (const IRect& clip : cDrawReg.m_Rects) {
+                m_Bitmap->m_Driver->FillRect(m_Bitmap, clip + screenPos, m_EraseColor);
             }
-            m_DamageReg = nullptr;
         }
-    }        
+        m_DamageReg = nullptr;
+    }
     UpdateIfNeeded(false);
     ClearDirtyRegFlags();
 }
@@ -815,12 +813,12 @@ void ServerView::ToggleDepth()
         if (parent->m_ChildrenList[parent->m_ChildrenList.size()-1] == self)
         {
             parent->RemoveChild(self, false);
-            parent->AddChild(self, false);
+            parent->AddChild(self, 0);
         }
         else
         {
             parent->RemoveChild(self, false);
-            parent->AddChild(self, true);
+            parent->AddChild(self, INVALID_INDEX);
         }
 
         Ptr<ServerView> opacParent = GetOpacParent(parent, nullptr);
@@ -897,15 +895,12 @@ void ServerView::UpdateIfNeeded(bool force)
     //      return;
     //    }
     
-    if (m_DamageReg != nullptr)
+    if (m_DamageReg != nullptr && m_ActiveDamageReg == nullptr)
     {
-        if (m_ActiveDamageReg == nullptr)
-        {
-            m_ActiveDamageReg = m_DamageReg;
-            m_DamageReg = nullptr;
-            m_ActiveDamageReg->Optimize();
-            Paint( static_cast<Rect>(m_ActiveDamageReg->GetBounds()));
-        }
+        m_ActiveDamageReg = m_DamageReg;
+        m_DamageReg = nullptr;
+        m_ActiveDamageReg->Optimize();
+        Paint( static_cast<Rect>(m_ActiveDamageReg->GetBounds()));
     }
     for (Ptr<ServerView> child : m_ChildrenList) {
         child->UpdateIfNeeded(force);
@@ -948,10 +943,6 @@ void ServerView::SetDirtyRegFlags()
 
 void ServerView::Show(bool doShow)
 {
-    //    if ( m_pcParent == nullptr || m_pcWindow == nullptr ) {
-    //      dbprintf( "Error: Layer::Show() attempt to hide root layer\n" );
-    //      return;
-    //    }
     const bool wasVisible = IsVisible();
 
     if ( doShow ) {
@@ -986,6 +977,7 @@ void ServerView::Show(bool doShow)
         for (auto child = m_ChildrenList.rbegin(); child != m_ChildrenList.rend(); ++child) {
             (*child)->Show(isVisible);
         }
+        Invalidate(true);
     }
 }
 
@@ -1048,13 +1040,14 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
         
         IRect screenFrame = ApplicationServer::GetScreenIFrame();
 
-        if (!Region::ClipLine(screenFrame, &fromPntScr, &toPntScr)) return;
-        
-        for (const IRect& clip : region->m_Rects)
+        if (Region::ClipLine(screenFrame, &fromPntScr, &toPntScr))
         {
-            if (clip.DoIntersect(boundingBox))
+            for (const IRect& clip : region->m_Rects)
             {
-                m_Bitmap->m_Driver->DrawLine(m_Bitmap, clip + screenPos, fromPntScr, toPntScr, m_FgColor, m_DrawingMode);
+                if (clip.DoIntersect(boundingBox))
+                {
+                    m_Bitmap->m_Driver->DrawLine(m_Bitmap, clip + screenPos, fromPntScr, toPntScr, m_FgColor, m_DrawingMode);
+                }
             }
         }
     }

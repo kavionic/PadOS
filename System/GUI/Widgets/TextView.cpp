@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -28,14 +28,16 @@ using namespace os;
 const std::map<String, uint32_t> TextViewFlags::FlagMap
 {
     DEFINE_FLAG_MAP_ENTRY(TextViewFlags, IncludeLineGap),
+    DEFINE_FLAG_MAP_ENTRY(TextViewFlags, MultiLine),
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextView::TextView(const String& name, const String& text, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw), m_Text(text)
+TextView::TextView(const String& name, const String& text, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
 {
+    SetText(text);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -45,7 +47,8 @@ TextView::TextView(const String& name, const String& text, Ptr<View> parent, uin
 TextView::TextView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
 {
     MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, TextViewFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw);
-	m_Text = context->GetAttribute(xmlData, "text", String::zero);
+
+    SetText(context->GetAttribute(xmlData, "text", String::zero));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -65,6 +68,13 @@ void TextView::SetText(const String& text)
     DEBUG_TRACK_FUNCTION();
 //    ProfileTimer timer("TextView::SetText()");    
     m_Text = text;
+
+    m_TextWidth = GetStringWidth(m_Text);
+
+    if (HasFlags(TextViewFlags::MultiLine))
+    {
+        m_IsWordWrappingValid = false;
+    }
     PreferredSizeChanged();
     Invalidate();
 }
@@ -73,21 +83,70 @@ void TextView::SetText(const String& text)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void TextView::FrameSized(const Point& delta)
 {
-    Point size;
-    if (includeWidth) {
-        size.x = GetStringWidth(m_Text);
+    View::FrameSized(delta);
+
+    if (delta.x != 0.0f && HasFlags(TextViewFlags::MultiLine))
+    {
+        m_IsWordWrappingValid = false;
+        PreferredSizeChanged();
     }
-    if (includeHeight) {
-        FontHeight fontHeight = GetFontHeight();
-        size.y = fontHeight.descender - fontHeight.ascender;
-	if (HasFlags(TextViewFlags::IncludeLineGap)) {
-	    size.y += fontHeight.line_gap;
-	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void os::TextView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+{
+    FontHeight fontHeight = GetFontHeight();
+    if (HasFlags(TextViewFlags::MultiLine))
+    {
+        if (includeWidth)
+        {
+            if (m_AspectRatio != 0.0f)
+            {
+                const FontHeight fontHeight = GetFontHeight();
+
+                const float textArea = m_TextWidth * (fontHeight.descender - fontHeight.ascender + fontHeight.line_gap);
+
+                minSize->x = ceilf(sqrtf(textArea) * sqrtf(m_AspectRatio));
+                maxSize->x = minSize->x;
+            }
+            else
+            {
+                minSize->x = 0.0f;
+                maxSize->x = COORD_MAX;
+            }
+        }
+        if (includeHeight)
+        {
+            UpdateWordWrapping();
+
+            minSize->y = std::max(1.0f, float(m_LineWraps.size())) * (fontHeight.descender - fontHeight.ascender + fontHeight.line_gap);
+            if (!HasFlags(TextViewFlags::IncludeLineGap)) {
+                minSize->y -= fontHeight.line_gap;
+            }
+            maxSize->y = minSize->y;
+        }
     }
-    *minSize = size;
-    *maxSize = size;
+    else
+    {
+        Point size;
+        if (includeWidth) {
+            size.x = m_TextWidth;
+        }
+        if (includeHeight)
+        {
+            size.y = fontHeight.descender - fontHeight.ascender;
+            if (HasFlags(TextViewFlags::IncludeLineGap)) {
+                size.y += fontHeight.line_gap;
+            }
+        }
+        *minSize = size;
+        *maxSize = size;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -96,13 +155,107 @@ void TextView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool inclu
 
 void TextView::Paint(const Rect& updateRect)
 {
+    if (UpdateWordWrapping()) {
+        PreferredSizeChanged();
+    }
+
     SetEraseColor(GetBgColor());
     Rect bounds = GetBounds();
     EraseRect(bounds);
 
     MovePenTo(0.0f, 0.0f);
-    DrawString(m_Text);
 
-//    DrawRect(bounds);    
-//    DebugDraw(Color(255, 0, 0), ViewDebugDrawFlags::ViewFrame);
+    if (!m_LineWraps.empty())
+    {
+        const FontHeight fontHeight = GetFontHeight();
+        const float lineHeight = fontHeight.descender - fontHeight.ascender + fontHeight.line_gap;
+
+        const char* lineStart = m_Text.c_str();
+        for (size_t nextLineStart : m_LineWraps)
+        {
+            const char* nextLine = m_Text.c_str() + nextLineStart;
+            size_t lineLength = nextLine - lineStart;
+            DrawString(String(lineStart, lineLength));
+            lineStart = nextLine;
+            MovePenBy(0.0f, lineHeight);
+        }
+    }
+    else
+    {
+        DrawString(m_Text);
+    }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool TextView::UpdateWordWrapping()
+{
+    if (m_IsWordWrappingValid) {
+        return false;
+    }
+    m_IsWordWrappingValid = true;
+    if (!HasFlags(TextViewFlags::MultiLine))
+    {
+        const bool wasEmpty = m_LineWraps.empty();
+        m_LineWraps.clear();
+        return !wasEmpty;
+    }
+    Ptr<Font> font = GetFont();
+
+    if (font == nullptr)
+    {
+        m_LineWraps.clear();
+        return false;
+    }
+    size_t oldLineCount = m_LineWraps.size();
+    float wrapWidth;
+    wrapWidth = GetBounds().Width();
+
+    size_t line = 0;
+
+    if (wrapWidth > 0.0f)
+    {
+        const char* currentLineStart = m_Text.c_str();
+        size_t      remainingChars = m_Text.size();
+        for (; remainingChars != 0; ++line)
+        {
+            int lineLength = font->GetStringLength(currentLineStart, remainingChars, wrapWidth);
+            if (lineLength < 1) lineLength = 1;
+
+            for (size_t i = 0; i < lineLength; ++i)
+            {
+                if (currentLineStart[i] == '\n')
+                {
+                    lineLength = i;
+                    break;
+                }
+            }
+
+            if (lineLength != remainingChars)
+            {
+                int lastWordEnd = lineLength;
+                while (lastWordEnd > 0 && !isspace(currentLineStart[lastWordEnd])) lastWordEnd--;
+                if (lastWordEnd != 0) {
+                    lineLength = lastWordEnd;
+                }
+            }
+
+            // Make the next line start after any trailing white-spaces.
+            while (lineLength < remainingChars && isspace(currentLineStart[lineLength])) lineLength++;
+            const size_t nextLineStart = (currentLineStart - m_Text.c_str()) + lineLength;
+            if (line < m_LineWraps.size()) {
+                m_LineWraps[line] = nextLineStart;
+            } else {
+                m_LineWraps.push_back(nextLineStart);
+            }
+            remainingChars -= lineLength;
+            currentLineStart += lineLength;
+        }
+    }
+    m_LineWraps.resize(line);
+
+    return line != oldLineCount;
+}
+

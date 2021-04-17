@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -43,14 +43,14 @@ public:
 
     void SetManagerHandle(handler_id handle)              { m_ManagerHandle = handle; }
 
-    void HandleAddedToParent(Ptr<ServerView> parent);
+    void HandleAddedToParent(Ptr<ServerView> parent, size_t index);
     void HandleRemovedFromParent(Ptr<ServerView> parent);
 
     bool        HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
     bool        HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
     bool        HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event);
 
-    void        AddChild(Ptr<ServerView> child, bool topmost = true);
+    void        AddChild(Ptr<ServerView> child, size_t index);
     void        RemoveChild(Ptr<ServerView> child, bool removeAsHandler);
     void        RemoveThis(bool removeAsHandler);
 

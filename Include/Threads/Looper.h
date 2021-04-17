@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -70,6 +70,8 @@ public:
     virtual int Run() override;
     
     bool ProcessEvents();
+    bool Tick();
+
 private:
     void ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgLength);
     void RunTimers();

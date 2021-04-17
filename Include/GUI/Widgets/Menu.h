@@ -70,7 +70,7 @@ public:
 //  From View:
 //    void        WindowActivated( bool bIsActive );
 
-    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
 
     virtual void    OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event) override;
 

@@ -55,7 +55,7 @@ Button::~Button()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Button::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void os::Button::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     Point size(m_LabelSize.x + 16.0f, m_LabelSize.y + 8.0f);
     *minSize = size;
@@ -69,9 +69,15 @@ void Button::CalculatePreferredSize(Point* minSize, Point* maxSize, bool include
 void Button::Paint(const Rect& updateRect)
 {
     const bool isPressed = GetPressedState();
+    const bool isEnabled = IsEnabled();
     Rect bounds = GetBounds();
-    SetEraseColor(get_standard_color(StandardColorID::DefaultBackground));
-    DrawFrame(bounds, isPressed ? FRAME_RECESSED : FRAME_RAISED);
+    SetEraseColor(StandardColorID::ButtonBackground);
+
+    if (isEnabled) {
+        DrawFrame(bounds, isPressed ? FRAME_RECESSED : FRAME_RAISED);
+    } else {
+        DrawFrame(bounds, FRAME_DISABLED);
+    }
     Point labelPos(round((bounds.Width() - m_LabelSize.x) * 0.5f), round((bounds.Height() - m_LabelSize.y) * 0.5f));
     
     if (isPressed) {
@@ -79,8 +85,8 @@ void Button::Paint(const Rect& updateRect)
     }
 
     MovePenTo(labelPos);
-    SetFgColor(get_standard_color(StandardColorID::MenuText));
-    SetBgColor(get_standard_color(StandardColorID::DefaultBackground));
+    SetFgColor(IsEnabled() ? StandardColorID::ButtonLabelNormal : StandardColorID::ButtonLabelDisabled);
+    SetBgColor(StandardColorID::ButtonBackground);
     DrawString(GetLabel());
 }
 

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2017-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2017-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -36,6 +36,9 @@ public:
     Application(const String& name);
     ~Application();
 
+    static Application* GetDefaultApplication();
+    static void SetDefaultApplication(Application* application);
+
     static Application* GetCurrentApplication() { return dynamic_cast<Application*>(GetCurrentThread()); }
 
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
@@ -43,7 +46,8 @@ public:
     static IRect    GetScreenIFrame();
     static Rect     GetScreenFrame() { return Rect(GetScreenIFrame()); }
     
-    bool AddView(Ptr<View> view, ViewDockType dockType);
+    bool AddView(Ptr<View> view, ViewDockType dockType, size_t index = INVALID_INDEX);
+    bool AddChildView(Ptr<View> parent, Ptr<View> view, size_t index = INVALID_INDEX);
     bool RemoveView(Ptr<View> view);
     
     Ptr<View> FindView(handler_id handle);
@@ -73,13 +77,17 @@ private:
     
     void* AllocMessageBuffer(int32_t messageID, size_t size);
 
-    void RegisterViewForLayout(Ptr<View> view);
+    bool CreateServerView(Ptr<View> view, handler_id parentHandle, ViewDockType dockType, size_t index);
+    void RegisterViewForLayout(Ptr<View> view, bool recursive = false);
 
     void      SetMouseDownView(MouseButton_e button, Ptr<View> view, const MotionEvent& motionEvent);
     Ptr<View> GetMouseDownView(MouseButton_e button) const;
 
+    void LayoutViews();
+
     void SlotLongPressTimer();
 
+    static Application* s_DefaultApplication;
     MessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
 

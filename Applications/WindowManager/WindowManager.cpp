@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -162,8 +162,8 @@ void WindowManager::SlotRegisterView(handler_id viewHandle, ViewDockType dockTyp
     {
         Ptr<View> view = ptr_new<View>(m_ClientsView, viewHandle, name, frame);
 
-        Post<ASViewAddChild>(m_ClientsView->GetServerHandle(), viewHandle, view->GetHandle());
-        AddHandler(view);
+        Post<ASViewAddChild>(INVALID_INDEX, m_ClientsView->GetServerHandle(), viewHandle, view->GetHandle());
+
         if (dockType == ViewDockType::DockedWindow)
         {
             if (m_SidebarView != nullptr)

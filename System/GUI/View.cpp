@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -63,6 +63,9 @@ static Color g_DefaultColors[] =
     [int(StandardColorID::Shadow)]                  = Color(NamedColors::black),
     [int(StandardColorID::WindowBorderActive)]      = Color(NamedColors::steelblue),
     [int(StandardColorID::WindowBorderInactive)]    = Color(NamedColors::slategray),
+    [int(StandardColorID::ButtonBackground)]        = Color(NamedColors::darkgray),
+    [int(StandardColorID::ButtonLabelNormal)]       = Color(NamedColors::black),
+    [int(StandardColorID::ButtonLabelDisabled)]     = Color(NamedColors::gray),
     [int(StandardColorID::MenuText)]                = Color(NamedColors::black),
     [int(StandardColorID::MenuTextSelected)]        = Color(NamedColors::black),
     [int(StandardColorID::MenuBackground)]          = Color(NamedColors::silver),
@@ -224,7 +227,7 @@ View::View(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& 
 	}
 	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "max_width"), context->GetAttribute(xmlData, "max_width_limit"), context->GetAttribute(xmlData, "max_width_extend"), value);
 	if (overrideType != SizeOverride::None) {
-		sizeGreatestOverride.y = value;
+		sizeGreatestOverride.x = value;
 		overrideTypeGreatestH = overrideType;
 	}
 	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "max_height"), context->GetAttribute(xmlData, "max_height_limit"), context->GetAttribute(xmlData, "max_height_extend"), value);
@@ -376,6 +379,22 @@ Application* View::GetApplication() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+handler_id View::GetParentServerHandle() const
+{
+    for (Ptr<const View> i = GetParent(); i != nullptr; i = i->GetParent())
+    {
+        handler_id curParentHandle = i->GetServerHandle();
+        if (curParentHandle != INVALID_HANDLE) {
+            return curParentHandle;
+        }
+    }
+    return INVALID_HANDLE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<LayoutNode> View::GetLayoutNode() const
 {
     return m_LayoutNode;
@@ -397,6 +416,8 @@ void View::SetLayoutNode(Ptr<LayoutNode> node)
     if (m_LayoutNode != nullptr) {
         m_LayoutNode->AttachedToView(this);
     }
+    PreferredSizeChanged();
+    InvalidateLayout();
 }    
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -603,25 +624,11 @@ void View::InvalidateLayout()
 {
     if (m_IsLayoutValid)
     {
-        Application* app = GetApplication();
-    
-        if (app != nullptr)
-        {
-            Ptr<View> i = ptr_tmp_cast(this);
-            for (;;)
-            {
-                if (!i->m_IsLayoutValid) {
-                    break;
-                }
-                Ptr<View> parent = i->GetParent();
-                if (parent == nullptr) {
-                    app->RegisterViewForLayout(i);
-                    break;
-                }
-                i = parent;
-            }
-        }
         m_IsLayoutValid = false;
+        Application* app = GetApplication();
+        if (app != nullptr) {
+            app->RegisterViewForLayout(ptr_tmp_cast(this));
+        }
     }
 }
 
@@ -633,15 +640,12 @@ void View::UpdateLayout()
 {
     if (!m_IsLayoutValid)
     {
+        m_IsLayoutValid = true;
         if (m_LayoutNode != nullptr)
         {
             m_LayoutNode->Layout();
         }
-        m_IsLayoutValid = true;
     }    
-    for (Ptr<View> child : *this) {
-        child->UpdateLayout();
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -745,7 +749,7 @@ void View::FontChanged(Ptr<Font> newFont)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void os::View::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     if (m_LayoutNode != nullptr) {
         m_LayoutNode->CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
@@ -808,6 +812,9 @@ void View::PreferredSizeChanged()
         if (sizes[i].y > LAYOUT_MAX_SIZE) sizes[i].y = LAYOUT_MAX_SIZE;
     }
     
+    if (sizes[int(PrefSizeType::Greatest)].x < sizes[int(PrefSizeType::Smallest)].x) sizes[int(PrefSizeType::Greatest)].x = sizes[int(PrefSizeType::Smallest)].x;
+    if (sizes[int(PrefSizeType::Greatest)].y < sizes[int(PrefSizeType::Smallest)].y) sizes[int(PrefSizeType::Greatest)].y = sizes[int(PrefSizeType::Smallest)].y;
+
     if (sizes[int(PrefSizeType::Smallest)] != m_LocalPrefSize[int(PrefSizeType::Smallest)] || sizes[int(PrefSizeType::Greatest)] != m_LocalPrefSize[int(PrefSizeType::Greatest)])
     {
         m_LocalPrefSize[int(PrefSizeType::Smallest)] = sizes[int(PrefSizeType::Smallest)];
@@ -833,7 +840,16 @@ void View::ContentSizeChanged()
 
 void View::AddChild(Ptr<View> child)
 {
-    LinkChild(child, true);
+    LinkChild(child, INVALID_INDEX);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::InsertChild(Ptr<View> child, size_t index)
+{
+    LinkChild(child, index);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1458,7 +1474,7 @@ void View::Sync()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::HandleAddedToParent(Ptr<View> parent)
+void View::HandleAddedToParent(Ptr<View> parent, size_t index)
 {
     UpdatePosition(View::UpdatePositionNotifyServer::IfChanged);
     if (!parent->IsVisible()) {
@@ -1466,12 +1482,15 @@ void View::HandleAddedToParent(Ptr<View> parent)
     }
     if (parent->HasFlags(ViewFlags::IsAttachedToScreen))
     {
+        Application* app = parent->GetApplication();
+        HandlePreAttachToScreen(app);
+
         if (!HasFlags(ViewFlags::Eavesdropper)) {
-            parent->GetApplication()->AddView(ptr_tmp_cast(this), ViewDockType::ChildView);
+            app->AddChildView(parent, ptr_tmp_cast(this), index);
         }
+        HandleAttachedToScreen(app);
+        app->LayoutViews();
     }
-    PreferredSizeChanged();
-    parent->InvalidateLayout();
     OnAttachedToParent(parent);
 }
 
@@ -1487,10 +1506,43 @@ void View::HandleRemovedFromParent(Ptr<View> parent)
         Show(true);
     }
     OnDetachedFromParent(parent);
-    if (m_ServerHandle != -1 && !HasFlags(ViewFlags::Eavesdropper)) {
+    if (!HasFlags(ViewFlags::Eavesdropper))
+    {
         GetApplication()->RemoveView(ptr_tmp_cast(this));
         UpdatePosition(View::UpdatePositionNotifyServer::IfChanged);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::HandlePreAttachToScreen(Application* app)
+{
+    MergeFlags(ViewFlags::IsAttachedToScreen);
+    app->AddHandler(ptr_tmp_cast(this));
+    AttachedToScreen();
+
+    PreferredSizeChanged();
+
+    for (Ptr<View> child : m_ChildrenList) {
+        child->HandlePreAttachToScreen(app);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::HandleAttachedToScreen(Application* app)
+{
+    for (Ptr<View> child : m_ChildrenList) {
+        child->HandleAttachedToScreen(app);
+    }
+    if (!m_IsLayoutValid) {
+        app->RegisterViewForLayout(ptr_tmp_cast(this));
+    }
+    AllAttachedToScreen();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1540,6 +1592,8 @@ void View::UpdateRingSize()
         {
             m_PreferredSizes[int(PrefSizeType::Smallest)] = m_LocalPrefSize[int(PrefSizeType::Smallest)];
             m_PreferredSizes[int(PrefSizeType::Greatest)] = m_LocalPrefSize[int(PrefSizeType::Greatest)];
+
+            SignalPreferredSizeChanged(ptr_tmp_cast(this));
             Ptr<View> parent = GetParent();
             if (parent != nullptr)
             {
@@ -1590,64 +1644,95 @@ void View::UpdateRingSize()
             } while (member != this);
         }
 
-        if (ringSizes[int(PrefSizeType::Smallest)] != m_PreferredSizes[int(PrefSizeType::Smallest)] || ringSizes[int(PrefSizeType::Greatest)] != m_PreferredSizes[int(PrefSizeType::Greatest)])
-        {
-            //// Update members of width ring. ////
-            if (m_WidthRing != nullptr)
-            {
-                View* member = this;
-                do
-                {
-                    member->m_PreferredSizes[int(PrefSizeType::Smallest)] = ringSizes[int(PrefSizeType::Smallest)];
-                    member->m_PreferredSizes[int(PrefSizeType::Greatest)] = ringSizes[int(PrefSizeType::Greatest)];
-                    member = member->m_WidthRing;
-                } while (member != this);
-            }
-            //// Update members of height ring. ////
-            if (m_HeightRing != nullptr)
-            {
-                View* member = this;
-                do
-                {
-                    member->m_PreferredSizes[int(PrefSizeType::Smallest)] = ringSizes[int(PrefSizeType::Smallest)];
-                    member->m_PreferredSizes[int(PrefSizeType::Greatest)] = ringSizes[int(PrefSizeType::Greatest)];
-                    member = member->m_HeightRing;
-                } while (member != this);
-            }
-            std::set<View*> notifiedParents;
+        std::set<Ptr<View>> modifiedViews;
 
-            //// Notify parents of with ring members. ////
-            if (m_WidthRing != nullptr)
+        if (m_WidthRing != nullptr)
+        {
+            View* member = this;
+            do
             {
-                View* member = this;
-                do
+                bool modified = false;
+                for (int i = 0; i < int(PrefSizeType::Count); ++i)
                 {
-                    Ptr<View> parent = member->GetParent();
-                    if (parent != nullptr && notifiedParents.count(ptr_raw_pointer_cast(parent)) == 0)
+                    if (ringSizes[i].x != member->m_PreferredSizes[i].x)
                     {
-                        notifiedParents.insert(ptr_raw_pointer_cast(parent));
-                        parent->PreferredSizeChanged();
-                        parent->InvalidateLayout();
+                        modified = true;
+                        member->m_PreferredSizes[i].x = ringSizes[i].x;
                     }
-                    member = member->m_WidthRing;
-                } while (member != this);
-            }
-            //// Notify parents of height ring members. ////
-            if (m_HeightRing != nullptr)
+                }
+                if (modified) {
+                    modifiedViews.insert(ptr_tmp_cast(member));
+                }
+                member = member->m_WidthRing;
+            } while (member != this);
+        }
+        else
+        {
+            bool modified = false;
+            for (int i = 0; i < int(PrefSizeType::Count); ++i)
             {
-                View* member = this;
-                do
+                if (m_LocalPrefSize[i].x != m_PreferredSizes[i].x)
                 {
-                    Ptr<View> parent = member->GetParent();
-                    if (parent != nullptr && notifiedParents.count(ptr_raw_pointer_cast(parent)) == 0)
-                    {
-                        notifiedParents.insert(ptr_raw_pointer_cast(parent));
-                        parent->PreferredSizeChanged();
-                        parent->InvalidateLayout();
-                    }
-                    member = member->m_HeightRing;
-                } while (member != this);
+                    modified = true;
+                    m_PreferredSizes[i].x = m_LocalPrefSize[i].x;
+                }
             }
+            if (modified) {
+                modifiedViews.insert(ptr_tmp_cast(this));
+            }
+        }
+
+        if (m_HeightRing != nullptr)
+        {
+            View* member = this;
+            do
+            {
+                bool modified = false;
+                for (int i = 0; i < int(PrefSizeType::Count); ++i)
+                {
+                    if (ringSizes[i].y != member->m_PreferredSizes[i].y)
+                    {
+                        modified = true;
+                        member->m_PreferredSizes[i].y = ringSizes[i].y;
+                    }
+                }
+                if (modified) {
+                    modifiedViews.insert(ptr_tmp_cast(member));
+                }
+                member = member->m_HeightRing;
+            } while (member != this);
+        }
+        else
+        {
+            bool modified = false;
+            for (int i = 0; i < int(PrefSizeType::Count); ++i)
+            {
+                if (m_LocalPrefSize[i].y != m_PreferredSizes[i].y)
+                {
+                    modified = true;
+                    m_PreferredSizes[i].y = m_LocalPrefSize[i].y;
+                }
+            }
+            if (modified) {
+                modifiedViews.insert(ptr_tmp_cast(this));
+            }
+        }
+
+        std::set<Ptr<View>> notifiedParents;
+        for (Ptr<View> modifiedView : modifiedViews)
+        {
+            modifiedView->SignalPreferredSizeChanged(modifiedView);
+            Ptr<View> parent = modifiedView->GetParent();
+            if (parent != nullptr) {
+                notifiedParents.insert(parent);
+            }
+        }
+        modifiedViews.clear();
+
+        for (Ptr<View> modifiedParent : notifiedParents)
+        {
+            modifiedParent->PreferredSizeChanged();
+            modifiedParent->InvalidateLayout();
         }
     }
 }

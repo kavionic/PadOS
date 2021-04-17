@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -27,7 +27,8 @@ namespace os
 
 namespace TextViewFlags
 {
-static constexpr uint32_t IncludeLineGap = 0x01 << ViewFlags::FirstUserBit;
+static constexpr uint32_t IncludeLineGap    = 0x01 << ViewFlags::FirstUserBit;
+static constexpr uint32_t MultiLine         = 0x02 << ViewFlags::FirstUserBit;
 extern const std::map<String, uint32_t> FlagMap;
 }
 
@@ -40,13 +41,20 @@ public:
     
     void SetText(const String& text);
     const String& GetText() const { return m_Text; }
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+
+    virtual void FrameSized(const Point& delta) override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
 
     virtual void Paint(const Rect& updateRect) override;
         
 private:
-    String m_Text;
-    
+    bool UpdateWordWrapping();
+
+    String  m_Text;
+    float   m_AspectRatio = 3.0f;
+    float   m_TextWidth = 0.0f;
+    bool    m_IsWordWrappingValid = true;
+    std::vector<size_t> m_LineWraps;
     TextView(const TextView&) = delete;
     TextView& operator=(const TextView&) = delete;
 };

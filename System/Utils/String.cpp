@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 // Created: 15.04.2018 16:58:13
 
 #include <strings.h>
+#include <string.h>
 
 #include "Utils/String.h"
 #include "Utils/UTF8Utils.h"
@@ -93,6 +94,34 @@ int String::compare_nocase(const std::string& rhs) const
 int String::compare_nocase(const char* rhs) const
 {
     return strcasecmp(c_str(), rhs);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool String::ends_with(const char* token, size_t length) const
+{
+    if (length == INVALID_INDEX) length = strlen(token);
+    if (length <= size()) {
+        return strncmp(c_str() + size() - length, token, length) == 0;
+    } else {
+        return false;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool String::ends_with_nocase(const char* token, size_t length) const
+{
+    if (length == INVALID_INDEX) length = strlen(token);
+    if (length <= size()) {
+        return strncasecmp(c_str() + size() - length, token, length) == 0;
+    } else {
+        return false;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

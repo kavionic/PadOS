@@ -26,6 +26,7 @@
 #include <GUI/Widgets/Button.h>
 #include <GUI/Widgets/ButtonGroup.h>
 #include <GUI/Widgets/Checkbox.h>
+#include <GUI/Widgets/DropdownMenu.h>
 #include <GUI/Widgets/ListView.h>
 #include <GUI/Widgets/RadioButton.h>
 #include <GUI/Widgets/ScrollView.h>
@@ -43,6 +44,7 @@ using namespace pugi;
 
 VIEW_FACTORY_REGISTER_CLASS(Button);
 VIEW_FACTORY_REGISTER_CLASS(CheckBox);
+VIEW_FACTORY_REGISTER_CLASS(DropdownMenu);
 VIEW_FACTORY_REGISTER_CLASS(GroupView);
 VIEW_FACTORY_REGISTER_CLASS(ListView);
 VIEW_FACTORY_REGISTER_CLASS(RadioButton);
@@ -101,11 +103,12 @@ Ptr<View> ViewFactory::CreateView(Ptr<View> parentView, String&& XML)
     }
 
     ViewFactoryContext context;
-    Parse(&context, parentView, rootNode);
 
     parentView->MergeFlags(xml_object_parser::parse_flags_attribute<uint32_t>(rootNode, ViewFlags::FlagMap, "flags", 0));
     parentView->SetLayoutNode(xml_object_parser::parse_attribute(rootNode, "layout", parentView->GetLayoutNode()));
     parentView->SetBorders(xml_object_parser::parse_attribute(rootNode, "layout_borders", parentView->GetBorders()));
+
+    Parse(&context, parentView, rootNode);
 
     return parentView;
 }

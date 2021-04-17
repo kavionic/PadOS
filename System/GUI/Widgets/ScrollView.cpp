@@ -105,7 +105,7 @@ bool ScrollView::OnTouchMove(MouseButton_e pointID, const Point& position, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void os::ScrollView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     Ptr<View> clientView = GetScrolledView();
     if (clientView != nullptr)

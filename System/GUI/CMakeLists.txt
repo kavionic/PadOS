@@ -10,6 +10,8 @@ target_sources(PadOS PRIVATE
 	ViewFactory.cpp
 	ViewFactoryContext.cpp
 	ViewScroller.cpp
+	Window.cpp
 )
 
+add_subdirectory(Dialogs)
 add_subdirectory(Widgets)

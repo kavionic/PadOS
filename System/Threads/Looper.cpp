@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -288,8 +288,13 @@ int Looper::Run()
 
 bool Looper::ProcessEvents()
 {
+    while (Tick());
+    return false;
+}
 
-    while (m_DoRun)
+bool Looper::Tick()
+{
+    if (m_DoRun)
     {
         m_WaitGroup.WaitDeadline(m_Mutex, m_NextEventTime);
         RunTimers();
@@ -307,7 +312,7 @@ bool Looper::ProcessEvents()
             }
         }
     }
-    return false;
+    return m_DoRun;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

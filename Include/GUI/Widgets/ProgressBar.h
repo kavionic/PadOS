@@ -39,7 +39,7 @@ public:
     // From View:
     virtual void Paint(const Rect& updateRect) override;
     virtual void FrameSized(const Point& delta) override;
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
 
     // From ProgressBar:
     void    SetProgress(float value);

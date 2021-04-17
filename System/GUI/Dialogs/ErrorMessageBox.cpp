@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,38 +15,38 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
+// Created: 15.04.2021 23:40
 
-#pragma once
-
-#include <GUI/Widgets/ButtonBase.h>
+#include <GUI/Dialogs/ErrorMessageBox.h>
 
 namespace os
 {
 
 ///////////////////////////////////////////////////////////////////////////////
-/// 2-state check box.
-/// \ingroup gui
-/// \par Description:
-///
-/// \sa
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class RadioButton : public ButtonBase
+ErrorMessageBox::ErrorMessageBox(const String& title, const String& text, DialogButtonSets buttonSet) : MessageBox(title, String::format_string(text.c_str(), strerror(errno)), buttonSet)
 {
-public:
-    RadioButton(const String& name, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
-    RadioButton(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
-    ~RadioButton();
-
-      // From View:
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual void Paint(const Rect& updateRect) override;
-
-    // From Control:
-    virtual void OnEnableStatusChanged(bool isEnabled) override;
-
-private:
-};
-
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<ErrorMessageBox> ErrorMessageBox::ShowMessage(const String& title, const String& text, DialogButtonSets buttonSet)
+{
+    try
+    {
+        Ptr<ErrorMessageBox> dlg = ptr_new<ErrorMessageBox>(title, text, buttonSet);
+        dlg->Open();
+        return dlg;
+    }
+    catch (const std::bad_alloc& error)
+    {
+        set_last_error(ENOMEM);
+        return nullptr;
+    }
+}
+
+} //namespace os

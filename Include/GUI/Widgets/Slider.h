@@ -64,6 +64,9 @@ public:
     // From View:
     virtual void OnFlagsChanged(uint32_t changedFlags) override { Control::OnFlagsChanged(changedFlags); PreferredSizeChanged(); Invalidate(); }
 
+    // From Control:
+    virtual void OnLabelChanged(const String& label) override;
+
     // From Slider:
     virtual void RenderLabels();
     virtual void RenderSlider();
@@ -101,7 +104,7 @@ public:
     
     virtual void    SetSteps(float small, float big)         { m_SmallStep = small; m_BigStep = big; }
     virtual void    GetSteps(float* small, float* big) const { *small = m_SmallStep; *big = m_BigStep; }
-
+    void            SetDragScale(float scale) { m_DragScale = scale; }
     virtual void    SetMinMax(float min, float max ) { m_Min = min; m_Max = max; }
     
     void            SetShadowKnobsCount(size_t count);
@@ -119,12 +122,12 @@ public:
     virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual void FrameSized(const Point& delta) override;
     virtual void Paint(const Rect& updateRect) override;
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
 
 
-    Signal<void, float, Ptr<Slider>, MouseButton_e> SignalBeginDrag;
-    Signal<void, float, Ptr<Slider>, MouseButton_e> SignalEndDrag;
-    Signal<void, float, bool, Ptr<Slider>>          SignalValueChanged;
+    Signal<void, float, Slider*, MouseButton_e> SignalBeginDrag;
+    Signal<void, float, Slider*, MouseButton_e> SignalEndDrag;
+    Signal<void, float, bool, Slider*>          SignalValueChanged;//(float value, bool finalUpdate, os::Slider* slider)
 private:
     void UpdateValueView();
     void LayoutValueView();
@@ -146,6 +149,8 @@ private:
     float           m_Max = 1.0f;
     float           m_SmallStep = 0.05f;
     float           m_BigStep = 0.1f;
+    float           m_DragScale = 1.0f;
+    float           m_DragScaleRange = 100.0f;
     Orientation     m_Orientation;
     float           m_Value = 0.0f;
     
@@ -154,6 +159,8 @@ private:
     bool            m_Changed = false;
     MouseButton_e   m_HitButton = MouseButton_e::None;
     Point           m_HitPos;
+    float           m_HitValue = 0.0f;
+    Point           m_SmoothedPos;
 };
 
 }

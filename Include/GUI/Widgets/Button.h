@@ -33,7 +33,7 @@ public:
 
     // From View:
     virtual void AllAttachedToScreen() override { Invalidate(); }
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void Paint(const Rect& updateRect) override;
 
 	// From Control:

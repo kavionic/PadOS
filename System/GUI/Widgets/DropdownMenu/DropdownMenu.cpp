@@ -22,6 +22,8 @@
 #include <GUI/Widgets/TextBox.h>
 #include <GUI/Bitmap.h>
 #include <Utils/Utils.h>
+#include <Utils/XMLFactory.h>
+#include <Utils/XMLObjectParser.h>
 
 #include "DropdownMenuPopupView.h"
 
@@ -68,6 +70,25 @@ const std::map<String, uint32_t> DropdownMenuFlags::FlagMap
 DropdownMenu::DropdownMenu(const String& name, Ptr<View> parent, uint32_t flags) :
     Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
+    Initialize();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+DropdownMenu::DropdownMenu(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
+{
+    MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, DropdownMenuFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
+    Initialize();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void DropdownMenu::Initialize()
+{
     m_EditBox = ptr_new<TextBox>("text_view", String::zero, ptr_tmp_cast(this), HasFlags(DropdownMenuFlags::ReadOnly) ? (TextBoxFlags::ReadOnly | TextBoxFlags::RaisedFrame) : 0);
     FrameSized(Point(0, 0));
 
@@ -94,7 +115,7 @@ DropdownMenu::~DropdownMenu()
 void DropdownMenu::OnFlagsChanged(uint32_t changedFlags)
 {
     Control::OnFlagsChanged(changedFlags);
-    if (changedFlags & DropdownMenuFlags::ReadOnly)
+    if ((changedFlags & DropdownMenuFlags::ReadOnly) && m_EditBox != nullptr)
     {
         if (HasFlags(DropdownMenuFlags::ReadOnly)) {
             m_EditBox->MergeFlags(TextBoxFlags::ReadOnly | TextBoxFlags::RaisedFrame);
@@ -117,7 +138,7 @@ void DropdownMenu::DetachedFromScreen()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void DropdownMenu::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     Point size = (m_StringList.empty()) ? m_EditBox->GetPreferredSize(PrefSizeType::Smallest) : m_EditBox->GetSizeForString(m_StringList[0]);
 

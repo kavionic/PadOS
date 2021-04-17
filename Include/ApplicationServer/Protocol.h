@@ -151,6 +151,7 @@ using ASCreateView = RemoteSignal<AppserverProtocol::CREATE_VIEW
     , handler_id        // replyTarget
     , handler_id        // parent
     , ViewDockType      // dockType
+    , size_t            // index
     , const String&     // name
     , const Rect&       // frame
     , const Point&      // scrollOffset
@@ -204,8 +205,9 @@ using ASViewInvalidate = RemoteSignal<AppserverProtocol::VIEW_INVALIDATE
 >;
                                         
 using ASViewAddChild = RemoteSignal<AppserverProtocol::VIEW_ADD_CHILD
+    , size_t     // index
     , handler_id // viewHandle
-    , handler_id //childHandle
+    , handler_id // childHandle
     , handler_id // managerHandle
 >;
 

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -54,10 +54,10 @@ public:
     Point&  Round()            { x = roundf(x); y = roundf(y); return *this; }
 
     Point        operator-(void) const { return(Point(-x, -y)); }
-    Point        operator+(const Point& cPoint) const { return(Point(x + cPoint.x, y + cPoint.y)); }
-    Point        operator-(const Point& cPoint) const { return(Point(x - cPoint.x, y - cPoint.y)); }
-    Point&       operator+=(const Point& cPoint) { x += cPoint.x; y += cPoint.y; return *this; }
-    Point&       operator-=(const Point& cPoint) { x -= cPoint.x; y -= cPoint.y; return *this; }
+    Point        operator+(const Point& rhs) const { return(Point(x + rhs.x, y + rhs.y)); }
+    Point        operator-(const Point& rhs) const { return(Point(x - rhs.x, y - rhs.y)); }
+    Point&       operator+=(const Point& rhs) { x += rhs.x; y += rhs.y; return *this; }
+    Point&       operator-=(const Point& rhs) { x -= rhs.x; y -= rhs.y; return *this; }
 
     Point        operator*(const Point& rhs) const  { return Point(x * rhs.x, y * rhs.y);   }
     Point        operator*(float rhs) const         { return Point(x * rhs, y * rhs);       }
@@ -71,10 +71,10 @@ public:
     Point&       operator/=(const Point& rhs) { x /= rhs.x; y /= rhs.y; return *this; }
     Point&       operator/=(float rhs)        { x /= rhs; y /= rhs; return *this; }
 
-    bool         operator<(const Point& cPoint) const { return(y < cPoint.y || (y == cPoint.y && x < cPoint.x)); }
-    bool         operator>(const Point& cPoint) const { return(y > cPoint.y || (y == cPoint.y && x > cPoint.x)); }
-    bool         operator==(const Point& cPoint) const { return(y == cPoint.y && x == cPoint.x); }
-    bool         operator!=(const Point& cPoint) const { return(y != cPoint.y || x != cPoint.x); }
+    bool         operator<(const Point& rhs) const { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
+    bool         operator>(const Point& rhs) const { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
+    bool         operator==(const Point& rhs) const { return(y == rhs.y && x == rhs.x); }
+    bool         operator!=(const Point& rhs) const { return(y != rhs.y || x != rhs.x); }
 };
 
 /**
@@ -98,14 +98,14 @@ public:
     constexpr IPoint(int X, int Y) : x(X), y(Y) {}
 
     IPoint        operator-(void) const { return(IPoint(-x, -y)); }
-    IPoint        operator+(const IPoint& cPoint) const { return(IPoint(x + cPoint.x, y + cPoint.y)); }
-    IPoint        operator-(const IPoint& cPoint) const { return(IPoint(x - cPoint.x, y - cPoint.y)); }
-    const IPoint& operator+=(const IPoint& cPoint) { x += cPoint.x; y += cPoint.y; return(*this); }
-    const IPoint& operator-=(const IPoint& cPoint) { x -= cPoint.x; y -= cPoint.y; return(*this); }
-    bool          operator<(const IPoint& cPoint) const { return(y < cPoint.y || (y == cPoint.y && x < cPoint.x)); }
-    bool          operator>(const IPoint& cPoint) const { return(y > cPoint.y || (y == cPoint.y && x > cPoint.x)); }
-    bool          operator==(const IPoint& cPoint) const { return(y == cPoint.y && x == cPoint.x); }
-    bool          operator!=(const IPoint& cPoint) const { return(y != cPoint.y || x != cPoint.x); }
+    IPoint        operator+(const IPoint& rhs) const { return(IPoint(x + rhs.x, y + rhs.y)); }
+    IPoint        operator-(const IPoint& rhs) const { return(IPoint(x - rhs.x, y - rhs.y)); }
+    const IPoint& operator+=(const IPoint& rhs) { x += rhs.x; y += rhs.y; return(*this); }
+    const IPoint& operator-=(const IPoint& rhs) { x -= rhs.x; y -= rhs.y; return(*this); }
+    bool          operator<(const IPoint& rhs) const { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
+    bool          operator>(const IPoint& rhs) const { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
+    bool          operator==(const IPoint& rhs) const { return(y == rhs.y && x == rhs.x); }
+    bool          operator!=(const IPoint& rhs) const { return(y != rhs.y || x != rhs.x); }
 };
 
 

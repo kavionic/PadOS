@@ -37,7 +37,7 @@ public:
     // From View:
     virtual void    OnKeyboardFocusChanged(bool hasFocus) override;
     virtual void    OnFlagsChanged(uint32_t changedFlags) override;
-    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
     virtual Point   GetContentSize() const override;
     virtual void    Paint(const Rect& updateRect) override;
 
@@ -48,8 +48,8 @@ public:
     virtual void OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& event) override;
 
     // From TextEditView:
-    void                    SetText(const String& text);
-    void                    InsertText(const String& text);
+    void                    SetText(const String& text, bool sendEvent = true);
+    void                    InsertText(const String& text, bool sendEvent = true);
     void                    Delete();
 
     const String&           GetText() const { return m_Text; }
@@ -63,7 +63,7 @@ public:
     Ptr<const TextBoxStyle> GetStyle() const;
     void                    SetStyle(Ptr<const TextBoxStyle> style);
 
-    Signal<void, const String&, bool, TextEditView*> SignalTextChanged;
+    Signal<void, const String&, bool, TextEditView*> SignalTextChanged; //(const String& newText, bool finalEdit, TextEditView* source)
 private:
     void Initialize();
     Rect GetCursorFrame();

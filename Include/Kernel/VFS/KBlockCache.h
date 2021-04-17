@@ -102,6 +102,8 @@ public:
     KBlockCache();
     ~KBlockCache();
 
+    static int GetDirtyBlockCount() { return s_DirtyBlockCount; }
+
     static KBlockCache* GetDeviceCache(int device);
     bool SetDevice(int device, off64_t blockCount, size_t blockSize);
     

@@ -824,7 +824,7 @@ Ptr<MenuItem> Menu::GetSuperItem()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void Menu::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     *minSize = m_ContentSize + Point(4.0f, 4.0f);
     *maxSize = *minSize;

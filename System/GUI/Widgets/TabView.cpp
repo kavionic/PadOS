@@ -527,7 +527,7 @@ void TabView::OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& ev
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void os::TabView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     minSize->x = m_TotalWidth;
     minSize->y = 0.0f;

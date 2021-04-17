@@ -35,7 +35,7 @@ public:
     // From View:
     virtual void Paint(const Rect& updateRect) override;
     virtual void FrameSized(const Point& delta) override;
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
 
     void MakeSelectionVisible();
 
@@ -62,7 +62,7 @@ public:
     virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual void    Activated(bool isActive);
 
-    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
     virtual Point   GetContentSize() const override { return m_ContentSize; }
 
     void MakeSelectionVisible();

@@ -65,6 +65,17 @@ void TextBox::Initialize(const String& text)
 
     SetMaxOverscroll(40.0f, 0.0f);
     SetScrolledView(m_Editor);
+
+    m_Editor->SignalTextChanged.Connect(this, &TextBox::SlotTextChanged);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void TextBox::SlotTextChanged(const String& text, bool finalUpdate)
+{
+    SignalTextChanged(text, finalUpdate, this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -81,7 +92,7 @@ void TextBox::OnFlagsChanged(uint32_t changedFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextBox::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void TextBox::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     Point size = m_Editor->GetPreferredSize(PrefSizeType::Smallest);
     Rect borders = m_Editor->GetBorders();

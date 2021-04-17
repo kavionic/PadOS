@@ -90,6 +90,11 @@ Ptr<ButtonGroup> ButtonBase::FindButtonGroup(Ptr<View> root, const String& name)
 bool ButtonBase::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
 	//    printf("Button: Mouse down %d, %.1f/%.1f\n", int(button), position.x, position.y);
+
+    if (!IsEnabled()) {
+        return false;
+    }
+
 	if (m_HitButton == MouseButton_e::None)
 	{
 		m_HitButton = button;
@@ -113,7 +118,10 @@ bool ButtonBase::OnMouseDown(MouseButton_e button, const Point& position, const 
 
 bool ButtonBase::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-	//    printf("Button: Mouse up %d, %.1f/%.1f\n", int(button), position.x, position.y);
+    if (!IsEnabled()) {
+        return false;
+    }
+    //    printf("Button: Mouse up %d, %.1f/%.1f\n", int(button), position.x, position.y);
 	if (button == m_HitButton)
 	{
 		m_HitButton = MouseButton_e::None;
@@ -153,7 +161,7 @@ void ButtonBase::SetChecked(bool isChecked)
 	{
 		m_IsChecked = isChecked;
 		OnCheckedStateChanged(m_IsChecked);
-		SignalToggled(isChecked, ptr_tmp_cast(this));
+		SignalToggled(isChecked, this);
 	}
 }
 
@@ -168,6 +176,23 @@ void ButtonBase::SetPressedState(bool isPressed)
 		m_IsPressed = isPressed;
 		OnPressedStateChanged(m_IsPressed);
 	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ButtonBase::OnEnableStatusChanged(bool isEnabled)
+{
+    if (!isEnabled)
+    {
+        m_HitButton = MouseButton_e::None;
+        if (m_IsPressed)
+        {
+            SetPressedState(false);
+        }
+    }
+    Control::OnEnableStatusChanged(isEnabled);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

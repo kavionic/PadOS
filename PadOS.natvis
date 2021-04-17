@@ -141,6 +141,7 @@
   <Type Name="os::View">
 	<DisplayString Condition="this != 0">View: {m_Name} : {m_ChildrenList._M_impl._M_finish - m_ChildrenList._M_impl._M_start}</DisplayString>
 	<DisplayString Condition="this == 0">View: nullptr</DisplayString>
+	<!--
 	<Expand>
 		<Item Name="m_Name">m_Name</Item>
 		<Item Name="m_Handle">m_Handle</Item>
@@ -183,6 +184,9 @@
 		<Item Name="m_pcVScrollBar">m_pcVScrollBar</Item>
 		<Item Name="m_Font">m_Font</Item>
 	</Expand>
+
+	-->
+
   </Type>
 		
 

@@ -77,6 +77,7 @@ public:
 
     Application* GetApplication() const;
     handler_id   GetServerHandle() const { return m_ServerHandle; }
+    handler_id   GetParentServerHandle() const;
 
     virtual void OnAttachedToParent(Ptr<View> parent) {}
     virtual void OnDetachedFromParent(Ptr<View> parent) {}
@@ -136,7 +137,7 @@ public:
     virtual void  ViewScrolled(const Point& delta);
     virtual void  FontChanged(Ptr<Font> newFont);
     
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight);
     
     Point GetPreferredSize(PrefSizeType sizeType) const;
     virtual Point GetContentSize() const;
@@ -148,6 +149,7 @@ public:
 //    virtual void WheelMoved( const Point& cDelta );
 
     void        AddChild(Ptr<View> child);
+    void        InsertChild(Ptr<View> child, size_t index);
     void        RemoveChild(Ptr<View> child);
     Ptr<View>   RemoveChild(ChildList_t::iterator iterator);
     bool        RemoveThis();
@@ -303,15 +305,20 @@ private:
     template<typename SIGNAL, typename... ARGS>
     void Post(ARGS&&... args)
     {
-        Application* app = GetApplication();
-        if (app != nullptr) {
-            SIGNAL::Sender::Emit(app, &Application::AllocMessageBuffer, m_ServerHandle, args...);
+        if (m_ServerHandle != INVALID_HANDLE)
+        {
+            Application* app = GetApplication();
+            if (app != nullptr) {
+                SIGNAL::Sender::Emit(app, &Application::AllocMessageBuffer, m_ServerHandle, args...);
+            }
         }
     }        
 
-    void HandleAddedToParent(Ptr<View> parent);
+    void HandleAddedToParent(Ptr<View> parent, size_t index);
     void HandleRemovedFromParent(Ptr<View> parent);
 
+    void HandlePreAttachToScreen(Application* app);
+    void HandleAttachedToScreen(Application* app);
     void HandleDetachedFromScreen();
 
     void HandlePaint(const Rect& updateRect);
@@ -352,6 +359,7 @@ private:
     FocusKeyboardMode   m_FocusKeyboardMode = FocusKeyboardMode::None;
     bool                m_IsPrefSizeValid = false;
     bool                m_IsLayoutValid   = true;
+    bool                m_IsLayoutPending = false;
     bool                m_DidScrollRect   = false;
     
     View*               m_WidthRing  = nullptr;

@@ -51,7 +51,7 @@ public:
     virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual void    OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event) override;
 
-    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void    Paint(const Rect& updateRect) override;
 
     Signal<void, size_t, Ptr<View>, TabView*> SignalSelectionChanged;

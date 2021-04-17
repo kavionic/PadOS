@@ -124,7 +124,7 @@ void ProgressBar::FrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ProgressBar::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void os::ProgressBar::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     minSize->x = 50.0f;
     minSize->y = 24.0f;

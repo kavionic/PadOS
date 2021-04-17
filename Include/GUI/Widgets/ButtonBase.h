@@ -29,50 +29,54 @@ class ButtonGroup;
 class ButtonBase : public Control
 {
 public:
-	ButtonBase(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
-	ButtonBase(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment);
-	~ButtonBase();
+    ButtonBase(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    ButtonBase(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment);
+    ~ButtonBase();
 
-	static Ptr<ButtonGroup> FindButtonGroup(Ptr<View> root, const String& name);
+    static Ptr<ButtonGroup> FindButtonGroup(Ptr<View> root, const String& name);
 
-	virtual void AllAttachedToScreen() override { Invalidate(); }
+    virtual void AllAttachedToScreen() override { Invalidate(); }
 
-	virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-	virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-	virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
 
-	void SetCheckable(bool value) { m_CanBeCheked = value; }
-	bool IsCheckable() const { return m_CanBeCheked; }
+    void SetCheckable(bool value) { m_CanBeCheked = value; }
+    bool IsCheckable() const { return m_CanBeCheked; }
 
-	void SetChecked(bool isChecked);
-	bool IsChecked() const { return m_IsChecked; }
+    void SetChecked(bool isChecked);
+    bool IsChecked() const { return m_IsChecked; }
 
-	virtual void OnPressedStateChanged(bool isPressed) { Invalidate(); Flush(); }
-	virtual void OnCheckedStateChanged(bool isChecked) { Invalidate(); Flush(); }
+    // From Control:
+    virtual void OnEnableStatusChanged(bool isEnabled) override;
 
-	Ptr<ButtonGroup> GetButtonGroup() const;
+    // From ButtonBase:
+    virtual void OnPressedStateChanged(bool isPressed) { Invalidate(); Flush(); }
+    virtual void OnCheckedStateChanged(bool isChecked) { Invalidate(); Flush(); }
 
-	Signal<void, MouseButton_e, ButtonBase*>	SignalActivated;
-	Signal<void, bool, Ptr<ButtonBase>>			SignalToggled;
+    Ptr<ButtonGroup> GetButtonGroup() const;
+
+    Signal<void, MouseButton_e, ButtonBase*>    SignalActivated;
+    Signal<void, bool, ButtonBase*>             SignalToggled;
 
 protected:
-	void SetPressedState(bool isPressed);
-	bool GetPressedState() const { return m_IsPressed; }
+    void SetPressedState(bool isPressed);
+    bool GetPressedState() const { return m_IsPressed; }
 
 
 private:
-	friend class ButtonGroup;
+    friend class ButtonGroup;
 
-	void SetButtonGroup(Ptr<ButtonGroup> group);
-	MouseButton_e			m_HitButton = MouseButton_e::None;
-	Ptr<ButtonGroup>		m_ButtonGroup;
-	bool					m_CanBeCheked = false;
-	bool					m_IsPressed = false;
-	bool					m_IsChecked = false;
+    void SetButtonGroup(Ptr<ButtonGroup> group);
+    MouseButton_e           m_HitButton = MouseButton_e::None;
+    Ptr<ButtonGroup>        m_ButtonGroup;
+    bool                    m_CanBeCheked = false;
+    bool                    m_IsPressed = false;
+    bool                    m_IsChecked = false;
 
 
-	ButtonBase(const ButtonBase&) = delete;
-	ButtonBase& operator=(const ButtonBase&) = delete;
+    ButtonBase(const ButtonBase&) = delete;
+    ButtonBase& operator=(const ButtonBase&) = delete;
 };
 
 

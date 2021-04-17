@@ -76,6 +76,9 @@ Slider::Slider(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_no
     m_Max   = context->GetAttribute(xmlData, "max", 1.0f);
     m_Value = context->GetAttribute(xmlData, "value", m_Min);
 
+    m_DragScale = context->GetAttribute(xmlData, "drag_scale", 1.0f);
+    m_DragScaleRange = context->GetAttribute(xmlData, "drag_scale_range", 100.0f);
+
     m_SliderColor1  = get_standard_color(StandardColorID::ScrollBarBackground);;
     m_SliderColor2  = m_SliderColor1;
 
@@ -113,7 +116,7 @@ void Slider::FrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void os::Slider::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     Rect frame;
     float minLength;
@@ -232,26 +235,7 @@ void Slider::SetValueStringFormat(const String& format, float scale)
 {
     m_ValueFormat = format;
     m_ValueScale = scale;
-
-    if (m_Orientation == Orientation::Horizontal && !m_ValueFormat.empty())
-    {
-        if (m_ValueView == nullptr)
-        {
-            m_ValueView = ptr_new<TextView>("value", String::zero, ptr_tmp_cast(this), ViewFlags::IgnoreMouse);
-            m_ValueView->SignalPreferredSizeChanged.Connect(this, &Slider::LayoutValueView);
-        }
-        UpdateValueView();
-        LayoutValueView();
-    }
-    else
-    {
-        if (m_ValueView != nullptr)
-        {
-            RemoveChild(m_ValueView);
-            m_ValueView = nullptr;
-        }
-    }
-    PreferredSizeChanged();
+    OnLabelChanged(GetLabel());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -292,7 +276,7 @@ void Slider::SetValue(float value, bool sendEvent)
         UpdateValueView();
         Sync();
         if (sendEvent) {
-            SignalValueChanged(m_Value, m_HitButton == MouseButton_e::None, ptr_tmp_cast(this));
+            SignalValueChanged(m_Value, m_HitButton == MouseButton_e::None, this);
         }
     }
 }
@@ -454,7 +438,7 @@ void Slider::OnEnableStatusChanged(bool isEnabled)
         m_HitButton = MouseButton_e::None;
         if (m_Changed)
         {
-            SignalValueChanged(m_Value, true, ptr_tmp_cast(this));
+            SignalValueChanged(m_Value, true, this);
             m_Changed = false;
         }
     }
@@ -471,12 +455,14 @@ bool Slider::OnMouseDown(MouseButton_e button, const Point& position, const Moti
     if (m_HitButton == MouseButton_e::None)
     {
         m_HitButton = button;
-        m_HitPos = position - ValToPos(GetValue());;
+        m_HitValue = GetValue();
+        m_HitPos = position; // (position - ValToPos(m_HitValue));
+        m_SmoothedPos = position;
         m_Changed = false;
         MakeFocus(button, true);
         Invalidate(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value));
 
-        SignalBeginDrag(m_Value, ptr_tmp_cast(this), button);
+        SignalBeginDrag(m_Value, this, button);
     }
     return true;
 }
@@ -494,12 +480,12 @@ bool Slider::OnMouseUp(MouseButton_e button, const Point& position, const Motion
         m_HitButton = MouseButton_e::None;
         if (m_Changed)
         {
-            SignalValueChanged(m_Value, true, ptr_tmp_cast(this));
+            SignalValueChanged(m_Value, true, this);
             m_Changed = false;
         }
         Invalidate(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value));
 
-        SignalEndDrag(m_Value, ptr_tmp_cast(this), button);
+        SignalEndDrag(m_Value, this, button);
     }
     return true;
 }
@@ -511,8 +497,36 @@ bool Slider::OnMouseUp(MouseButton_e button, const Point& position, const Motion
 bool Slider::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (!IsEnabled()) return false;
-    if (button == m_HitButton) {
-        SetValue(PosToVal(position - m_HitPos));
+    if (button == m_HitButton)
+    {
+        Point distance(fabsf(m_SmoothedPos.x - position.x), fabsf(m_SmoothedPos.y - position.y));
+        Point scale = distance * 0.1f;  // Divide by smoothing range.
+        scale = scale * scale * 0.5f;   // Exponential growth from 0 -> 0.5
+
+        if (distance.x > 10.0f) {
+            m_SmoothedPos.x = position.x;
+        } else {
+            m_SmoothedPos.x += (position.x - m_SmoothedPos.x) * scale.x;
+        }
+        if (distance.y > 10.0f) {
+            m_SmoothedPos.y = position.y;
+        } else {
+            m_SmoothedPos.y += (position.y - m_SmoothedPos.y) * scale.y;
+        }
+
+        Point scaledPos = (m_SmoothedPos - m_HitPos).GetRounded();
+
+        float proportion = std::min(1.0f, fabsf(scaledPos.x) / m_DragScaleRange);   // Grows from 0->1 over m_DragScaleRange.
+        proportion *= proportion;                                                   // Exponential growth.
+        float interpolatedScale = m_DragScale + (1.0f - m_DragScale) * proportion;  // Grows from m_DragScale -> 1 as proportion go from 0 -> 1.
+        scaledPos.x *= interpolatedScale;
+
+        proportion = std::min(1.0f, fabsf(scaledPos.y) / m_DragScaleRange);     // Grows from 0->1 over m_DragScaleRange.
+        proportion *= proportion;                                               // Exponential growth.
+        interpolatedScale = m_DragScale + (1.0f - m_DragScale) * proportion;    // Grows from m_DragScale -> 1 as proportion go from 0 -> 1.
+        scaledPos.y *= interpolatedScale;
+
+        SetValue(PosToVal(scaledPos + ValToPos(m_HitValue)));
     }
     return true;
 }
@@ -521,8 +535,37 @@ bool Slider::OnMouseMove(MouseButton_e button, const Point& position, const Moti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void Slider::OnLabelChanged(const String& label)
+{
+    if (m_Orientation == Orientation::Horizontal && (!m_ValueFormat.empty() || !label.empty()))
+    {
+        if (m_ValueView == nullptr)
+        {
+            m_ValueView = ptr_new<TextView>("value", String::zero, ptr_tmp_cast(this), ViewFlags::IgnoreMouse);
+            m_ValueView->SignalPreferredSizeChanged.Connect(this, &Slider::LayoutValueView);
+        }
+        UpdateValueView();
+        LayoutValueView();
+    }
+    else
+    {
+        if (m_ValueView != nullptr)
+        {
+            RemoveChild(m_ValueView);
+            m_ValueView = nullptr;
+        }
+    }
+    PreferredSizeChanged();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void Slider::RenderSlider()
 {
+    SetEraseColor(StandardColorID::SliderTrackNormal);
+
     Rect bounds = GetNormalizedBounds();
 
     Rect sliderFrame = GetSliderFrame();
@@ -1121,8 +1164,8 @@ void Slider::UpdateValueView()
 {
     if (m_ValueView != nullptr)
     {
-        m_ValueView->SetBgColor(GetEraseColor());
-        m_ValueView->SetText(GetValueString());
+        m_ValueView->SetBgColor(StandardColorID::SliderTrackNormal);
+        m_ValueView->SetText(GetLabel() + GetValueString());
     }
 }
 

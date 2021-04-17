@@ -33,10 +33,12 @@ DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<String>& item
 {
     m_ContentView = ptr_new<DropdownMenuPopupView>(itemList, selection, SignalSelectionChanged);
     m_ContentView->SetBorders(2.0f, 4.0f, 2.0f, 4.0f);
+    m_ContentView->SignalPreferredSizeChanged.Connect(this, &View::PreferredSizeChanged);
     SetScrolledView(m_ContentView);
 
     AddChild(m_ContentView);
     FrameSized(Point());
+    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -65,7 +67,7 @@ void DropdownMenuPopupWindow::FrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupWindow::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void DropdownMenuPopupWindow::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     *minSize = m_ContentView->GetPreferredSize(PrefSizeType::Smallest);
     *maxSize = m_ContentView->GetPreferredSize(PrefSizeType::Greatest);
@@ -110,6 +112,8 @@ DropdownMenuPopupView::DropdownMenuPopupView(const std::vector<String>& itemList
         }
     }
     m_ContentSize.x += 4.0f;
+
+    PreferredSizeChanged();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -179,7 +183,7 @@ void DropdownMenuPopupView::Activated(bool isActive)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const
+void DropdownMenuPopupView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     *minSize = m_ContentSize;
     *maxSize = m_ContentSize;

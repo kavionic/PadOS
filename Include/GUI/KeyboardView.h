@@ -113,7 +113,7 @@ public:
     virtual void OnFlagsChanged(uint32_t changedFlags) override;
 
     // From View:
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) const override;
+    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void FrameSized(const Point& delta) override;
     virtual void Paint(const Rect& updateRect) override;
 

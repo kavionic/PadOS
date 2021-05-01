@@ -796,6 +796,8 @@ static void init_thread_entry(void* arguments)
 
 void kernel::start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
 {
+    __disable_irq();
+
     NVIC_SetPriority(PendSV_IRQn, KIRQ_PRI_KERNEL);
     NVIC_SetPriority(SysTick_IRQn, KIRQ_PRI_KERNEL);
 
@@ -820,7 +822,6 @@ void kernel::start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
     gk_InitThread = ptr_raw_pointer_cast(get_thread(initThreadHandle));
 
 
-    __disable_irq();
     __set_BASEPRI(0);
     __DSB();
     __ISB();

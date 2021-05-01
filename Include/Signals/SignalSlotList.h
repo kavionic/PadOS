@@ -155,6 +155,20 @@ public:
     ///
     /////////////////////////////////////////////////////////////////////////////
 
+    template <typename ...fARGS>
+    void ConnectOrDisconnect(bool doConnect, fARGS&& ...args) const
+    {
+        if (doConnect) {
+            Connect(std::move(args)...);
+        } else {
+            Disconnect(std::move(args)...);
+        }
+    }
+
+    /////////////////////////////////////////////////////////////////////////////
+    ///
+    /////////////////////////////////////////////////////////////////////////////
+
     template <typename fR, typename fC,typename T, typename ...fARGS> bool IsSlotConnected(const T* obj, fR (fC::*callback)(fARGS...)) const
     {
         return FindSlot(static_cast<const fC*>(obj), callback) != nullptr;

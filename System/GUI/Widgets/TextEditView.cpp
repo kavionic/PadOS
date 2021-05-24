@@ -20,7 +20,7 @@
 #include <GUI/Widgets/TextEditView.h>
 #include <GUI/Widgets/TextBox.h>
 #include <Utils/UTF8Utils.h>
-#include <Utils/Utils.h>
+#include <Math/Misc.h>
 
 namespace os
 {

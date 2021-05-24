@@ -263,6 +263,7 @@ TimeValNanos    get_system_time_hires();
 TimeValNanos    get_idle_time();
 uint64_t        get_core_clock_cycles();
 
+void            set_real_time(TimeValMicros time);
 TimeValMicros   get_real_time();
 
 namespace unit_test

@@ -1,0 +1,53 @@
+// This file is part of PadOS.
+//
+// Copyright (C) 2021 Kurt Skauen <http://kavionic.com/>
+//
+// PadOS is free software : you can redistribute it and / or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PadOS is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with PadOS. If not, see <http://www.gnu.org/licenses/>.
+///////////////////////////////////////////////////////////////////////////////
+// Created: 16.05.2021 15:15
+
+#include <Math/Geometry.h>
+
+namespace os
+{
+
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Point LineLineIntersection(const LineSegment& line1, const LineSegment& line2)
+{
+    const float deltaYL1 = line1.p2.y - line1.p1.y;
+    const float deltaXL1 = line1.p1.x - line1.p2.x;
+
+    const float deltaYL2 = line2.p2.y - line2.p1.y;
+    const float deltaXL2 = line2.p1.x - line2.p2.x;
+
+    const float determinant = deltaYL1 * deltaXL2 - deltaYL2 * deltaXL1;
+
+    if (determinant == 0.0f) { // Lines are parallel.
+        return Point(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+    }
+
+    const float c1 = deltaYL1 * line1.p1.x + deltaXL1 * line1.p1.y;
+    const float c2 = deltaYL2 * line2.p1.x + deltaXL2 * line2.p1.y;
+
+    Point result;
+    result.x = (deltaXL2 * c1 - deltaXL1 * c2) / determinant;
+    result.y = (deltaYL1 * c2 - deltaYL2 * c1) / determinant;
+    return result;
+}
+
+} // namespace os

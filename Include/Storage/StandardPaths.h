@@ -29,15 +29,7 @@ class Mutex;
 using StandardPathID = uint32_t;
 
 
-#define DEFINE_STANDARD_PATH_ID(ID)   static constexpr StandardPathID ID = os::String::hash_string_literal(#ID, sizeof(#ID) - 1);
-
-namespace StandardPath
-{
-DEFINE_STANDARD_PATH_ID(System);
-DEFINE_STANDARD_PATH_ID(Settings);
-DEFINE_STANDARD_PATH_ID(Keyboards);
-DEFINE_STANDARD_PATH_ID(GUI);
-}
+#define DEFINE_STANDARD_PATH_ID(ID)   static constexpr os::StandardPathID ID = os::String::hash_string_literal(#ID, sizeof(#ID) - 1);
 
 class StandardPaths
 {
@@ -54,3 +46,11 @@ private:
 };
 
 } // namespace os
+
+namespace StandardPath
+{
+DEFINE_STANDARD_PATH_ID(System);
+DEFINE_STANDARD_PATH_ID(Settings);
+DEFINE_STANDARD_PATH_ID(Keyboards);
+DEFINE_STANDARD_PATH_ID(GUI);
+}

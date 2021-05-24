@@ -86,6 +86,7 @@ private:
     ListView*                               m_ListView;
 
     MouseButton_e                           m_HitButton = MouseButton_e::None;
+    Point                                   m_HitPos;
     InertialScroller                        m_InertialScroller;
     Rect                                    m_SelectRect;
     bool                                    m_IsSelecting       = false;

@@ -33,10 +33,37 @@ static constexpr float ARROW_SPACE = 16.0f;
 
 TabView::TabView(const String& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
 {
-    m_FontHeight    = GetFontHeight();
-    m_GlyphHeight   = m_FontHeight.ascender + m_FontHeight.descender + m_FontHeight.line_gap;
-    m_TabHeight     = round(m_GlyphHeight * 1.2f + 6.0f);
-    m_TotalWidth    = 4.0f;
+    Initialize();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TabView::TabView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+{
+    MergeFlags(ViewFlags::WillDraw);
+    Initialize();
+
+    for (pugi::xml_node childNode = xmlData.first_child(); childNode; childNode = childNode.next_sibling())
+    {
+        if (strcmp(childNode.name(), "TabViewTab") == 0)
+        {
+            AppendTab(childNode.attribute("name").value());
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void TabView::Initialize()
+{
+    m_FontHeight = GetFontHeight();
+    m_GlyphHeight = m_FontHeight.ascender + m_FontHeight.descender + m_FontHeight.line_gap;
+    m_TabHeight = round(m_GlyphHeight * 1.2f + 6.0f);
+    m_TotalWidth = 4.0f;
 
     m_TopView = ptr_new<TopView>(this);
 }

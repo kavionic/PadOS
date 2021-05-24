@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <Math/Misc.h>
+
 namespace os
 {
 

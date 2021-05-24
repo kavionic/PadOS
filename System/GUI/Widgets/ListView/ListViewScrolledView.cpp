@@ -20,6 +20,7 @@
 #include "ListViewColumnView.h"
 #include <GUI/Widgets/ListView.h>
 #include <GUI/Widgets/ListViewRow.h>
+#include <Math/Misc.h>
 
 using namespace os;
 
@@ -134,6 +135,7 @@ bool ListViewScrolledView::OnTouchDown(MouseButton_e pointID, const Point& posit
         return true;
     }
     m_HitButton = pointID;
+    m_HitPos = position;
 
     const Rect bounds = GetBounds();
     if (m_ContentHeight > bounds.Height())
@@ -159,6 +161,19 @@ bool ListViewScrolledView::OnTouchUp(MouseButton_e pointID, const Point& positio
 
     m_InertialScroller.EndDrag();
 
+    if (!m_MouseMoved)
+    {
+        size_t rowIndex = GetRowIndex(position.y);
+        if (rowIndex != INVALID_INDEX)
+        {
+            if (m_ListView->IsSelected(rowIndex)) {
+                m_ListView->Select(rowIndex, false, false);
+            } else {
+                m_ListView->Select(rowIndex, false, true);
+            }
+        }
+    }
+
     return true;
 }
 
@@ -169,6 +184,9 @@ bool ListViewScrolledView::OnTouchUp(MouseButton_e pointID, const Point& positio
 bool ListViewScrolledView::OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event)
 {
     if (pointID != m_HitButton) {
+        return true;
+    }
+    if (!m_MouseMoved && (position - m_HitPos).LengthSqr() < square(20.0f)) {
         return true;
     }
     m_MouseMoved = true;

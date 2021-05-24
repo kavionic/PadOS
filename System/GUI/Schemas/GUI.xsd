@@ -228,6 +228,22 @@
 		</xs:complexType>
 	</xs:element>
 
+	<xs:element name="TabView">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="View">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:complexType name="TabViewTab">
+		<xs:attribute name="label" type="xs:string"/>
+	</xs:complexType>
+
 	<xs:element name="TextBox">
 		<xs:complexType>
 			<xs:complexContent>

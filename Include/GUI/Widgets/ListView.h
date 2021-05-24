@@ -126,7 +126,7 @@ public:
     const_iterator begin() const;
     const_iterator end() const;
 
-    Signal<void, size_t, size_t, Ptr<ListView>> SignalSelectionChanged;
+    Signal<void, size_t, size_t, Ptr<ListView>> SignalSelectionChanged;//(size_t firstRow, size_t lastRow, Ptr<ListView> source)
     Signal<void, size_t, size_t, Ptr<ListView>> SignalItemClicked;
 
 private:

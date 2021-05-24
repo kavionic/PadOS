@@ -136,6 +136,14 @@ void __retarget_lock_release_recursive (_LOCK_T lock)
     if (g_MutexesInitialized && lock != nullptr) lock->Unlock();
 }
 
+int _gettimeofday(struct timeval* time, void* unused)
+{
+    bigtime_t timeUs = get_real_time().AsMicroSeconds();
+    time->tv_sec  = time_t(timeUs / 1000000);
+    time->tv_usec = suseconds_t(timeUs % 1000000);
+    return 0;
+}
+
 int _open_r(_reent* reent, const char* path, int flags)
 {
     return FileIO::Open(path, flags);

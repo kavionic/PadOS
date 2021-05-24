@@ -37,9 +37,10 @@
 using namespace kernel;
 using namespace os;
 
-uint32_t                      Kernel::s_FrequencyCore;
-uint32_t                      Kernel::s_FrequencyPeripheral;
-volatile bigtime_t            Kernel::s_SystemTime = 0;
+uint32_t            Kernel::s_FrequencyCore;
+uint32_t            Kernel::s_FrequencyPeripheral;
+volatile bigtime_t  Kernel::s_SystemTime = 0;
+TimeValMicros       Kernel::s_RealTime;
 
 static KMutex												gk_KernelLogMutex("kernel_log", false);
 static std::map<int, std::pair<KLogSeverity, os::String>>	gk_KernelLogLevels;

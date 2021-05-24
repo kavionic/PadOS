@@ -31,6 +31,7 @@
 #include <Storage/File.h>
 #include <Storage/Path.h>
 #include <Utils/Utils.h>
+#include <Math/Misc.h>
 
 using namespace pugi;
 

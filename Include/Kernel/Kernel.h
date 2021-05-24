@@ -31,6 +31,7 @@
 #include "Ptr/PtrTarget.h"
 #include "Ptr/Ptr.h"
 #include "Utils/String.h"
+#include "System/SysTime.h"
 
 
 #define DCACHE_LINE_SIZE 32 // Cortex-M7 size of cache line is fixed to 8 words (32 bytes)
@@ -142,6 +143,7 @@ public:
     static uint32_t s_FrequencyCore;
     static uint32_t s_FrequencyPeripheral;
     static volatile bigtime_t   s_SystemTime;
+    static TimeValMicros   s_RealTime;
 };
 
 } // namespace

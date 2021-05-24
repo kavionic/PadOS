@@ -31,6 +31,7 @@
 #include <GUI/Widgets/RadioButton.h>
 #include <GUI/Widgets/ScrollView.h>
 #include <GUI/Widgets/Slider.h>
+#include <GUI/Widgets/TabView.h>
 #include <GUI/Widgets/TextBox.h>
 #include <GUI/Widgets/TextView.h>
 #include <GUI/Widgets/GroupView.h>
@@ -49,6 +50,7 @@ VIEW_FACTORY_REGISTER_CLASS(GroupView);
 VIEW_FACTORY_REGISTER_CLASS(ListView);
 VIEW_FACTORY_REGISTER_CLASS(RadioButton);
 VIEW_FACTORY_REGISTER_CLASS(Slider);
+VIEW_FACTORY_REGISTER_CLASS(TabView);
 VIEW_FACTORY_REGISTER_CLASS(TextBox);
 VIEW_FACTORY_REGISTER_CLASS(TextView);
 VIEW_FACTORY_REGISTER_CLASS(View);

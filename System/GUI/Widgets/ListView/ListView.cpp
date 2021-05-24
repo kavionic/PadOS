@@ -99,7 +99,7 @@ ListView::ListView(const String& name, Ptr<View> parent, uint32_t flags) :
 
 ListView::ListView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
 {
-    MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, ListViewFlags::FlagMap, "flags", ListViewFlags::MultiSelect | ListViewFlags::RenderBorder) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
+    MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, ListViewFlags::FlagMap, "flags", ListViewFlags::RenderBorder) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
 
     Construct();
 }

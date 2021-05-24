@@ -32,6 +32,7 @@ class TabView : public View
 {
 public:
     TabView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    TabView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     int         AppendTab( const String& title, Ptr<View> view = nullptr );
     int         InsertTab(size_t index, const String& title, Ptr<View> view = nullptr );
@@ -54,8 +55,9 @@ public:
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void    Paint(const Rect& updateRect) override;
 
-    Signal<void, size_t, Ptr<View>, TabView*> SignalSelectionChanged;
+    Signal<void, size_t, Ptr<View>, TabView*> SignalSelectionChanged;//(size_t index, Ptr<View> tabView, TabView* source)
 private:
+    void Initialize();
     struct Tab
     {
         Tab(const String& title, Ptr<View> view) : m_Title(title) { m_View = view; }

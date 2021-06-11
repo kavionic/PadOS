@@ -33,6 +33,8 @@ namespace kernel
 class FATVolume;
 class FATINode;
 
+//#define FAT_VERIFY_FAT_CHAINS
+
 
 struct FATNewDirEntryInfo
 {

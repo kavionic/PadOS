@@ -158,6 +158,59 @@ String Path::GetLeaf() const
     return name;
 }
 
+size_t Path::GetExtensionLength() const
+{
+    for (ssize_t i = m_Path.size(); i >= m_NameStart; --i)
+    {
+        if (m_Path[i] == '.') {
+            return m_Path.size() - i - 1;
+        }
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+String Path::GetExtension() const
+{
+    size_t extensionLength = GetExtensionLength();
+
+    return String(m_Path.end() - extensionLength, m_Path.end());
+    for (ssize_t i = m_Path.size(); i >= m_NameStart; --i)
+    {
+        if (m_Path[i] == '.') {
+            return String(m_Path.begin() + i + 1, m_Path.end());
+        }
+    }
+    return String::zero;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool Path::SetExtension(const String& extension)
+{
+    if (m_Path.empty()) {
+        return false;
+    }
+    size_t extensionLength = GetExtensionLength();
+    size_t extensionStart = m_Path.size() - extensionLength;
+
+    if (m_Path[extensionStart-1] == '.')
+    {
+        m_Path.erase(m_Path.begin() + extensionStart, m_Path.end());
+    }
+    else
+    {
+        m_Path += ".";
+    }
+    m_Path += extension;
+    return true;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////

@@ -42,22 +42,22 @@ ViewScrollerSignalTarget::ViewScrollerSignalTarget()
 
 Ptr<View> ViewScrollerSignalTarget::SetScrolledView(Ptr<View> view)
 {
-    if (m_ScrolledView != nullptr)
+    Ptr<View> prevView = m_ScrolledView.Lock();
+    if (prevView != nullptr)
     {
-        m_ScrolledView->SignalContentSizeChanged.Disconnect(this, &ViewScrollerSignalTarget::UpdateScroller);
-        m_ScrolledView->SignalFrameSized.Disconnect(this, &ViewScrollerSignalTarget::UpdateScroller);
-        m_ScrolledView->RemoveThis();
-        m_ScrolledView->ScrollTo(0.0f, 0.0f);
+        prevView->SignalContentSizeChanged.Disconnect(this, &ViewScrollerSignalTarget::UpdateScroller);
+        prevView->SignalFrameSized.Disconnect(this, &ViewScrollerSignalTarget::UpdateScroller);
+        prevView->RemoveThis();
+        prevView->ScrollTo(0.0f, 0.0f);
     }
-    Ptr<View> prevClient = m_ScrolledView;
     m_ScrolledView = view;
-    if (m_ScrolledView != nullptr)
+    if (view != nullptr)
     {
-        m_ScrolledView->SignalContentSizeChanged.Connect(this, &ViewScrollerSignalTarget::UpdateScroller);
-        m_ScrolledView->SignalFrameSized.Connect(this, &ViewScrollerSignalTarget::UpdateScroller);
+        view->SignalContentSizeChanged.Connect(this, &ViewScrollerSignalTarget::UpdateScroller);
+        view->SignalFrameSized.Connect(this, &ViewScrollerSignalTarget::UpdateScroller);
         UpdateScroller();
     }
-    return prevClient;
+    return prevView;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -66,13 +66,14 @@ Ptr<View> ViewScrollerSignalTarget::SetScrolledView(Ptr<View> view)
 
 void ViewScrollerSignalTarget::BeginSwipe(const Point& position)
 {
-    if (m_ScrolledView != nullptr)
+    Ptr<View> view = m_ScrolledView.Lock();
+    if (view != nullptr)
     {
-        const Rect bounds = m_ScrolledView->GetBounds();
-        const Point contentSize = m_ScrolledView->GetContentSize();
+        const Rect bounds = view->GetBounds();
+        const Point contentSize = view->GetContentSize();
         if (contentSize.x > bounds.Width() || contentSize.y > bounds.Height())
         {
-            m_InertialScroller.BeginDrag(m_ScrolledView->GetScrollOffset(), position);
+            m_InertialScroller.BeginDrag(view->GetScrollOffset(), position);
         }
     }
 }
@@ -101,8 +102,9 @@ void ViewScrollerSignalTarget::EndSwipe()
 
 void ViewScrollerSignalTarget::SlotInertialScrollUpdate(const Point& position)
 {
-    if (m_ScrolledView != nullptr) {
-        m_ScrolledView->ScrollTo(position);
+    Ptr<View> view = m_ScrolledView.Lock();
+    if (view != nullptr) {
+        view->ScrollTo(position);
     }
 }
 
@@ -112,18 +114,19 @@ void ViewScrollerSignalTarget::SlotInertialScrollUpdate(const Point& position)
 
 void ViewScrollerSignalTarget::UpdateScroller()
 {
-    if (m_ScrolledView != nullptr)
+    Ptr<View> view = m_ScrolledView.Lock();
+    if (view != nullptr)
     {
-        const Rect  frame       = m_ScrolledView->GetFrame();
-        const Point contentSize = m_ScrolledView->GetContentSize();
+        const Rect  frame       = view->GetFrame();
+        const Point contentSize = view->GetContentSize();
 
         m_InertialScroller.SetScrollHBounds(std::min(0.0f, frame.Width()  - contentSize.x), 0.0f);
         m_InertialScroller.SetScrollVBounds(std::min(0.0f, frame.Height() - contentSize.y), 0.0f);
 
         if (m_InertialScroller.GetState() == InertialScroller::State::Idle)
         {
-            Point maxScroll    = m_ScrolledView->GetBounds().Size() - m_ScrolledView->GetContentSize();
-            Point scrollOffset = m_ScrolledView->GetScrollOffset();
+            Point maxScroll    = view->GetBounds().Size() - view->GetContentSize();
+            Point scrollOffset = view->GetScrollOffset();
 
             maxScroll.x = std::min(0.0f, maxScroll.x);
             maxScroll.y = std::min(0.0f, maxScroll.y);
@@ -131,7 +134,7 @@ void ViewScrollerSignalTarget::UpdateScroller()
             scrollOffset.x = std::clamp(scrollOffset.x, maxScroll.x, 0.0f);
             scrollOffset.y = std::clamp(scrollOffset.y, maxScroll.y, 0.0f);
 
-            m_ScrolledView->ScrollTo(scrollOffset);
+            view->ScrollTo(scrollOffset);
         }
     }
 }

@@ -48,7 +48,9 @@ public:
     bool GetEntry(uint32_t cluster, uint32_t* value);
     bool SetEntry(uint32_t cluster, uint32_t value);
     bool GetChainEntry(uint32_t chainStart, uint32_t index, uint32_t* value);
+#ifdef FAT_VERIFY_FAT_CHAINS
     bool ValidateChainEntry(uint32_t chainStart, uint32_t index, uint32_t expectedValue);
+#endif // FAT_VERIFY_FAT_CHAINS
 
     bool CountFreeClusters(uint32_t* result);
     bool GetChainLength(uint32_t cluster, size_t* outCount);

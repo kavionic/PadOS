@@ -109,7 +109,7 @@ bool FileReference::SetTo(const String& pathString, bool followLinks)
         return false;
     }
 
-    if (!m_Directory.SetTo(path.GetDir(), O_RDONLY)) {
+    if (!m_Directory.Open(path.GetDir(), O_RDONLY)) {
         return false;
     }
     return true;
@@ -145,7 +145,7 @@ bool FileReference::SetTo(const Directory& directory, const String& name, bool f
 
 void FileReference::Unset()
 {
-    m_Directory.Unset();
+    m_Directory.Close();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

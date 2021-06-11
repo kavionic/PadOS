@@ -30,6 +30,24 @@
 #include "Kernel/Kernel.h"
 #include "System/System.h"
 
+namespace os
+{
+struct IOSegment;
+
+static constexpr uint32_t WSTAT_MODE    = 0x0001;
+static constexpr uint32_t WSTAT_UID     = 0x0002;
+static constexpr uint32_t WSTAT_GID     = 0x0004;
+static constexpr uint32_t WSTAT_SIZE    = 0x0008;
+static constexpr uint32_t WSTAT_ATIME   = 0x0010;
+static constexpr uint32_t WSTAT_MTIME   = 0x0020;
+static constexpr uint32_t WSTAT_CTIME   = 0x0040;
+static constexpr uint32_t WSTAT_MASK    = 0x007f;
+
+static constexpr uint32_t WFSSTAT_NAME = 0x0001;
+
+static constexpr uint32_t  FSINFO_VERSION = 1;
+}
+
 namespace kernel
 {
 
@@ -51,18 +69,6 @@ enum class FSVolumeFlags : uint32_t
     FS_IS_BLOCKBASED = 0x00000010, // Set if the FS use a regular block-device (or loopback from a single file) to store its data.
     FS_CAN_MOUNT     = 0x00000020  // Set by probe() if the FS can mount the given device.
 };
-
-#define WSTAT_MODE   0x0001
-#define	WSTAT_UID    0x0002
-#define	WSTAT_GID    0x0004
-#define	WSTAT_SIZE   0x0008
-#define	WSTAT_ATIME  0x0010
-#define	WSTAT_MTIME  0x0020
-#define	WSTAT_CTIME  0x0040
-
-#define	WFSSTAT_NAME 0x0001
-
-#define FSINFO_VERSION	1
 
 typedef struct
 {
@@ -112,13 +118,18 @@ class KFilesystemFileOps
 {
 public:
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int openFlags);
-    virtual int              CloseFile(Ptr<KFSVolume> volume, KFileNode* file);
+    virtual int            CloseFile(Ptr<KFSVolume> volume, KFileNode* file);
 
     virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node);
     virtual int                 CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory);
 
+protected:
     virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length);
     virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length);
+public:
+    virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, const os::IOSegment* segments, size_t segmentCount);
+    virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const os::IOSegment* segments, size_t segmentCount);
+
     virtual int     ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize);
     virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
@@ -135,32 +146,25 @@ public:
 class KFilesystem : public PtrTarget
 {
 public:
-    virtual int              Probe(const char* devicePath, fs_info* fsInfo);
-    virtual Ptr<KFSVolume>   Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength);
-    virtual int              Unmount(Ptr<KFSVolume> volume);
+    virtual int             Probe(const char* devicePath, fs_info* fsInfo);
+    virtual Ptr<KFSVolume>  Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength);
+    virtual int             Unmount(Ptr<KFSVolume> volume);
     
-    virtual int              Sync(Ptr<KFSVolume> volume);
+    virtual int             Sync(Ptr<KFSVolume> volume);
     
-    virtual int              ReadFSStat(Ptr<KFSVolume> volume, fs_info* fsinfo);
-    virtual int              WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint32_t mask);
-    virtual Ptr<KINode>      LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* path, int pathLength);
-    virtual bool             ReleaseInode(KINode* inode);
-//    virtual Ptr<KFileHandle> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags);
-    virtual Ptr<KFileNode> CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int openFlags, int permission);
-//    virtual int              CloseFile(Ptr<KFileHandle> file);
+    virtual int             ReadFSStat(Ptr<KFSVolume> volume, fs_info* fsinfo);
+    virtual int             WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint32_t mask);
+    virtual Ptr<KINode>     LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* path, int pathLength);
+    virtual bool            ReleaseInode(KINode* inode);
+    virtual Ptr<KFileNode>  CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int openFlags, int permission);
 
-    virtual Ptr<KINode>      LoadInode(Ptr<KFSVolume> volume, ino_t inode);
+    virtual Ptr<KINode>     LoadInode(Ptr<KFSVolume> volume, ino_t inode);
 
-    virtual int              CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission);
+    virtual int             CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission);
 
-    virtual int              Rename(Ptr<KFSVolume> volume, Ptr<KINode> oldParent, const char* oldName, int oldNameLen, Ptr<KINode> newParent, const char* newName, int newNameLen, bool mustBeDir);
-    virtual int              Unlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength);
-    virtual int              RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength);
-
-//    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length);
-//    virtual ssize_t Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length);
-//    virtual int     DeviceControl(Ptr<KFileHandle> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
-
+    virtual int             Rename(Ptr<KFSVolume> volume, Ptr<KINode> oldParent, const char* oldName, int oldNameLen, Ptr<KINode> newParent, const char* newName, int newNameLen, bool mustBeDir);
+    virtual int             Unlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength);
+    virtual int             RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength);
 
 
 };

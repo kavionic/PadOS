@@ -258,10 +258,14 @@ int SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inD
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, const os::IOSegment* segments, size_t segmentCount)
 {
     Ptr<SDMMCINode> inode = (file != nullptr) ? ptr_static_cast<SDMMCINode>(file->GetINode()) : nullptr;
-    
+
+    size_t length = 0;
+
+    for (size_t i = 0; i < segmentCount; ++i) length += segments[i].Length;
+
     bool needLocking = false;
     if (inode != nullptr)
     {
@@ -283,8 +287,8 @@ ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, s
         return -1;
     }
     
-    uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
-    uint32_t blockCount = length / BLOCK_SIZE;
+    const uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
+    const uint32_t blockCount = length / BLOCK_SIZE;
     
     int error;
     for (int retry = 0; retry < 10; ++retry)
@@ -313,7 +317,7 @@ ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, s
             start *= BLOCK_SIZE;
         }
 
-        if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, buffer)) {
+        if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount)) {
             error = EIO;
             continue;
         }
@@ -343,10 +347,14 @@ ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
+ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const os::IOSegment* segments, size_t segmentCount)
 {
     Ptr<SDMMCINode> inode = (file != nullptr) ? ptr_static_cast<SDMMCINode>(file->GetINode()) : nullptr;
-    
+
+    size_t length = 0;
+
+    for (size_t i = 0; i < segmentCount; ++i) length += segments[i].Length;
+
     bool needLocking = false;
     if (inode != nullptr)
     {
@@ -361,6 +369,7 @@ ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const void* bu
         }
         position += inode->bi_nStart;
     }
+
 
     if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0) {
         set_last_error(EINVAL);
@@ -392,7 +401,7 @@ ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const void* bu
             start *= BLOCK_SIZE;
         }
 
-        if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, buffer)) {
+        if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount)) {
             error = EIO;
             continue;
         }
@@ -565,7 +574,10 @@ bool SDMMCDriver::InitializeCard()
 
 size_t SDMMCDriver::ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size)
 {
-    return static_cast<SDMMCDriver*>(userData)->Read(nullptr, position, buffer, size );
+    IOSegment segment;
+    segment.Buffer = buffer;
+    segment.Length = size;
+    return static_cast<SDMMCDriver*>(userData)->Read(nullptr, position, &segment, 1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1154,6 +1166,7 @@ bool SDMMCDriver::SetHighSpeed_sd()
 
 	uint8_t* switch_status = reinterpret_cast<uint8_t*>(m_CacheAlignedBuffer);
 
+    IOSegment segment(switch_status, SD_SW_STATUS_SIZE_BYTES);
     if (!StartAddressedDataTransCmd(SD_CMD6_SWITCH_FUNC,
                                     SD_CMD6_MODE_SWITCH
                                   | SD_CMD6_GRP6_NO_INFLUENCE
@@ -1162,7 +1175,7 @@ bool SDMMCDriver::SetHighSpeed_sd()
                                   | SD_CMD6_GRP3_NO_INFLUENCE
                                   | SD_CMD6_GRP2_DEFAULT
                                   | SD_CMD6_GRP1_HIGH_SPEED,
-									get_first_bit_index(SD_SW_STATUS_SIZE_BYTES), 1, switch_status)) {
+									get_first_bit_index(SD_SW_STATUS_SIZE_BYTES), 1, &segment, 1)) {
         return false;
     }
 
@@ -1412,7 +1425,8 @@ bool SDMMCDriver::Cmd8_mmc(bool* authorizeHighSpeed)
 	uint32_t* buffer = reinterpret_cast<uint32_t*>(m_CacheAlignedBuffer);
 
 	// Read and decode Extended Card Specific Data.
-	if (!StartAddressedDataTransCmd(MMC_CMD8_SEND_EXT_CSD, 0, get_first_bit_index(EXT_CSD_SIZE_BYTES), 1, buffer)) {
+    IOSegment segment(buffer, EXT_CSD_SIZE_BYTES);
+    if (!StartAddressedDataTransCmd(MMC_CMD8_SEND_EXT_CSD, 0, get_first_bit_index(EXT_CSD_SIZE_BYTES), 1, &segment, 1)) {
 		return false;
 	}
     *authorizeHighSpeed = ((buffer[EXT_CSD_CARD_TYPE_INDEX / 4] >> ((EXT_CSD_CARD_TYPE_INDEX % 4) * 8)) & MMC_CTYPE_52MHZ) != 0;
@@ -1492,7 +1506,8 @@ bool SDMMCDriver::ACmd51_sd()
 		if (!SendCmd(SDMMC_CMD55_APP_CMD, uint32_t(m_RCA) << 16)) {
 			return false;
 		}
-        if (StartAddressedDataTransCmd(SD_ACMD51_SEND_SCR, 0, get_first_bit_index(SD_SCR_REG_SIZE_BYTES), 1, scr)) {
+        IOSegment segment(scr, SD_SCR_REG_SIZE_BYTES);
+        if (StartAddressedDataTransCmd(SD_ACMD51_SEND_SCR, 0, get_first_bit_index(SD_SCR_REG_SIZE_BYTES), 1, &segment, 1)) {
             break;
         } else if (++retries > 5) {
             return false;
@@ -1572,5 +1587,6 @@ bool SDMMCDriver::Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t re
                      | ((uint32_t)rwFlag << SDIO_CMD53_RW_FLAG);
 
 
-    return StartAddressedDataTransCmd((rwFlag == SDIO_CMD53_READ_FLAG) ? SDIO_CMD53_IO_R_BYTE_EXTENDED : SDIO_CMD53_IO_W_BYTE_EXTENDED, cmdArgs, get_first_bit_index(1), size, buffer);
+    IOSegment segment(const_cast<void*>(buffer), size);
+    return StartAddressedDataTransCmd((rwFlag == SDIO_CMD53_READ_FLAG) ? SDIO_CMD53_IO_R_BYTE_EXTENDED : SDIO_CMD53_IO_W_BYTE_EXTENDED, cmdArgs, get_first_bit_index(1), size, &segment, 1);
 }

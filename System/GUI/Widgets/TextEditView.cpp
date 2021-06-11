@@ -220,7 +220,7 @@ bool TextEditView::OnTouchMove(MouseButton_e pointID, const Point& position, con
 
     if (HasKeyboardFocus())
     {
-        if (!m_IsDraggingCursor && (position - m_HitPos).LengthSqr() > square(20.0f)) {
+        if (!m_IsDraggingCursor && (position - m_HitPos).LengthSqr() > square(BEGIN_DRAG_OFFSET)) {
             m_IsDraggingCursor = true;
             m_HitPos.x -= m_CursorViewPos.x;
         }
@@ -230,7 +230,7 @@ bool TextEditView::OnTouchMove(MouseButton_e pointID, const Point& position, con
     }
     else if (!m_IsScrolling)
     {
-        if ((position - m_HitPos).LengthSqr() > square(20.0f))
+        if ((position - m_HitPos).LengthSqr() > square(BEGIN_DRAG_OFFSET))
         {
             m_IsScrolling = true;
             ViewScroller* scroller = ViewScroller::GetViewScroller(this);

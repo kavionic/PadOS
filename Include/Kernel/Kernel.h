@@ -107,6 +107,7 @@ void kassert_function(const char* file, int line, const char* func, const char* 
     os::String message;
     message.format("KASSERT %s / %s:%d: %s -> ", func, file, line, expression);
     message += os::String::format_string(fmt, args...);
+    printf("%s\n", message.c_str());
     panic(message.c_str());
 }
 

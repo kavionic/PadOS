@@ -24,6 +24,7 @@
 #include <Storage/Directory.h>
 #include <Storage/Path.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KFilesystem.h>
 
 using namespace os;
 
@@ -32,8 +33,8 @@ using namespace os;
 /// Default constructor.
 /// \par Description:
 ///     Initiate the FSNode to a known but "invalid" state.
-///     The node must be initialize with one of the SetTo()
-///     members before any other members can be called.
+///     The node must be initialize with one of the Open() or SetTo()
+///     methods before any other methods can be called.
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -44,7 +45,7 @@ FSNode::FSNode()
 ///////////////////////////////////////////////////////////////////////////////
 /// Construct a FSNode from a file path.
 /// \par Description:
-///     See: SetTo(const String& path, int openFlags)
+///     See: Open(const String& path, int openFlags)
 /// \par Note:
 ///     Since constructors can't return error codes it will throw an
 ///     os::errno_exception in the case of failure. The error code can
@@ -55,13 +56,13 @@ FSNode::FSNode()
 
 FSNode::FSNode(const String& path, int openFlags)
 {
-    SetTo(path, openFlags);
+    Open(path, openFlags);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Construct a FSNode from directory and a name inside that directory.
 /// \par Description:
-///     See: SetTo( const Directory& directory, const String& path, int openFlags )
+///     See: Open( const Directory& directory, const String& path, int openFlags )
 /// \par Note:
 ///     Since constructors can't return error codes it will throw an
 ///     os::errno_exception in the case of failure. The error code can
@@ -72,13 +73,13 @@ FSNode::FSNode(const String& path, int openFlags)
 
 FSNode::FSNode(const Directory& directory, const String& path, int openFlags)
 {
-    SetTo(directory, path, openFlags);
+    Open(directory, path, openFlags);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Construct a FSNode from a file reference.
 /// \par Description:
-///  See: SetTo( const FileReference& reference, int openFlags )
+///  See: Open( const FileReference& reference, int openFlags )
 /// \par Note:
 ///  Since constructors can't return error codes it will throw an
 ///  os::errno_exception in the case of failure. The error code can
@@ -89,13 +90,13 @@ FSNode::FSNode(const Directory& directory, const String& path, int openFlags)
 
 FSNode::FSNode(const FileReference& reference, int openFlags)
 {
-    SetTo(reference, openFlags);
+    Open(reference, openFlags);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 ///* Construct a FSNode from a file descriptor.
 /// \par Description:
-///     See: SetTo(int fileDescriptor)
+///     See: Open(int fileDescriptor)
 /// \par Note:
 ///     Since constructors can't return error codes it will throw an
 ///     os::errno_exception in the case of failure. The error code can
@@ -177,7 +178,7 @@ FSNode::~FSNode()
 ///     a real FS node. All other access functions will fail
 ///     if the object is not fully initialized either through
 ///     one of the non-default constructors or with one of the
-///     SetTo() members.
+///     Open() or SetTo() members.
 ///
 /// \return
 ///     True if the object is fully initialized false otherwise.
@@ -236,7 +237,7 @@ bool FSNode::IsValid() const
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::SetTo(const String& path, int openFlags)
+bool FSNode::Open(const String& path, int openFlags)
 {
     int newFileDescriptor = -1;
     if (path.size() > 1 && path[0] == '~' && path[1] == '/')
@@ -304,14 +305,14 @@ bool FSNode::SetTo(const String& path, int openFlags)
 ///     The path can either be absolute (\p directory will then be
 ///     ignored) or it can be relative to \p directory. This have much the
 ///     same semantics as setting the current working directory to \p
-///     directory and then open the node by calling SetTo( const
+///     directory and then open the node by calling Open( const
 ///     String& path, int openFlags ) with the path. The main
 ///     advantage with this function is that it is thread-safe. You
 ///     don't get any races while temporarily changing the current
 ///     working directory.
 ///
 ///     For a more detailed description look at:
-///     SetTo( const String& path, int openFlags )
+///     Open( const String& path, int openFlags )
 ///
 /// \note
 ///     If this call fail the old state of the FSNode will remain
@@ -324,7 +325,7 @@ bool FSNode::SetTo(const String& path, int openFlags)
 ///     be relative to \p directory.
 /// \param openFlags
 ///     Flags controlling how to open the node. See
-///     SetTo( const String& path, int openFlags )
+///     Open( const String& path, int openFlags )
 ///     for a full description of the various flags.
 ///
 /// \return
@@ -337,7 +338,7 @@ bool FSNode::SetTo(const String& path, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::SetTo(const Directory& directory, const String& path, int openFlags)
+bool FSNode::Open(const Directory& directory, const String& path, int openFlags)
 {
     if (!directory.IsValid())
     {
@@ -375,7 +376,7 @@ bool FSNode::SetTo(const Directory& directory, const String& path, int openFlags
 ///////////////////////////////////////////////////////////////////////////////
 /// Open the node referred to by the given os::FileReference.
 /// \par Description:
-///     Same semantics SetTo( const String& path, int openFlags )
+///     Same semantics Open( const String& path, int openFlags )
 ///     except that the node to open is targeted by a file reference
 ///     rather than a regular path.
 /// \par Note:
@@ -386,11 +387,11 @@ bool FSNode::SetTo(const Directory& directory, const String& path, int openFlags
 ///     error code is assigned to the global variable "errno".
 ///     The error code can be any of the errors returned by
 ///     the open() POSIX function.
-/// \sa SetTo( const String& path, int openFlags )
+/// \sa Open( const String& path, int openFlags )
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::SetTo(const FileReference& reference, int openFlags)
+bool FSNode::Open(const FileReference& reference, int openFlags)
 {
     if (!reference.IsValid())
     {
@@ -436,7 +437,7 @@ bool FSNode::SetTo(const FileReference& reference, int openFlags)
 ///     error code is assigned to the global variable "errno".
 ///     The error code can be any of the errors returned by
 ///     the open() POSIX function.
-/// \sa SetTo(const String& path, int openFlags)
+/// \sa Open(const String& path, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -488,7 +489,7 @@ bool FSNode::SetTo(const FSNode& node)
 {
     if (!node.IsValid())
     {
-        Unset();
+        Close();
         return true;
     }
     int newFileDescriptor = FileIO::CopyFD(node.m_FileDescriptor);
@@ -518,7 +519,7 @@ bool FSNode::SetTo(FSNode&& node)
 {
     if (!node.IsValid())
     {
-        Unset();
+        Close();
         return true;
     }
     if (!FDChanged(node.m_FileDescriptor, node.m_StatCache)) {
@@ -539,13 +540,13 @@ bool FSNode::SetTo(FSNode&& node)
 /// \par Description:
 ///     Will close the file descriptor and other resources may
 ///     consumed by the FSNode. The IsValid() member will return false
-///     until the node is reinitialized with one of the SetTo()
-///     members.
+///     until the node is reinitialized with one of the Open() or SetTo()
+///     methods.
 ///
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-void FSNode::Unset()
+void FSNode::Close()
 {
 //    if (m_hAttrDir != nullptr) {
 //        close_attrdir(m_hAttrDir);
@@ -585,6 +586,40 @@ bool FSNode::GetStat(struct ::stat* statBuffer, bool updateCache) const
     }
     if (statBuffer != nullptr) {
         *statBuffer = m_StatCache;
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool FSNode::SetStats(const struct stat& statBuffer, uint32_t mask) const
+{
+    if (m_FileDescriptor < 0) {
+        errno = EINVAL;
+        return false;
+    }
+    status_t result = FileIO::WriteStats(m_FileDescriptor, statBuffer, mask);
+    if (result < 0) {
+        return false;
+    }
+    if (mask & WSTAT_MODE)  m_StatCache.st_mode  = statBuffer.st_mode;
+    if (mask & WSTAT_UID)   m_StatCache.st_uid   = statBuffer.st_uid;
+    if (mask & WSTAT_GID)   m_StatCache.st_gid   = statBuffer.st_gid;
+    if (mask & WSTAT_SIZE)  m_StatCache.st_size  = statBuffer.st_size;
+    if (mask & WSTAT_ATIME) m_StatCache.st_atime = statBuffer.st_atime;
+    if (mask & WSTAT_MTIME) m_StatCache.st_mtime = statBuffer.st_mtime;
+    if (mask & WSTAT_CTIME) m_StatCache.st_ctime = statBuffer.st_ctime;
+
+    if (mask & ~(WSTAT_MODE  |
+                 WSTAT_UID   |
+                 WSTAT_GID   |
+                 WSTAT_SIZE  |
+                 WSTAT_ATIME |
+                 WSTAT_MTIME |
+                 WSTAT_CTIME)) {
+        printf("ERROR: FSNode::SetStats() called with unknown mask bits: %08lx\n", mask);
     }
     return true;
 }
@@ -650,6 +685,21 @@ off64_t FSNode::GetSize(bool updateCache) const
         }
     }
     return m_StatCache.st_size;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool FSNode::SetSize(off64_t size) const
+{
+    if (m_FileDescriptor < 0) {
+        errno = EINVAL;
+        return false;
+    }
+    struct stat stats;
+    stats.st_size = off_t(size);
+    return SetStats(stats, WSTAT_SIZE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -961,7 +1011,7 @@ int FSNode::GetFileDescriptor() const
 
 FSNode& FSNode::operator=(const FSNode& rhs)
 {
-    Unset();
+    Close();
     SetTo(rhs);
     return *this;
 }
@@ -972,7 +1022,7 @@ FSNode& FSNode::operator=(const FSNode& rhs)
 
 FSNode& FSNode::operator=(FSNode&& rhs)
 {
-    Unset();
+    Close();
     SetTo(std::forward<FSNode&&>(rhs));
     return *this;
 }

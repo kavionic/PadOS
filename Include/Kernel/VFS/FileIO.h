@@ -29,7 +29,6 @@
 #include "Ptr/Ptr.h"
 #include "Utils/String.h"
 
-
 namespace kernel
 {
     class KFilesystem;
@@ -46,7 +45,13 @@ namespace kernel
 namespace os
 {
 
-    
+struct IOSegment
+{
+    IOSegment(void* inBuffer = nullptr, size_t inLength = 0) : Buffer(inBuffer), Length(inLength) {}
+    void* Buffer;
+    size_t  Length;
+};
+
 class FileIO
 {
 public:
@@ -63,11 +68,18 @@ public:
     static int     Dupe(int oldHandle, int newHandle = -1);
     static int     Close(int handle);
     
-    
     static ssize_t Read(int handle, void* buffer, size_t length);
     static ssize_t Write(int handle, const void* buffer, size_t length);
-    static ssize_t Write(int handle, off64_t position, const void* buffer, size_t length);
+
+    static ssize_t Read(int handle, const IOSegment* segments, size_t segmentCount);
+    static ssize_t Write(int handle, const IOSegment* segments, size_t segmentCount);
+
     static ssize_t Read(int handle, off64_t position, void* buffer, size_t length);
+    static ssize_t Write(int handle, off64_t position, const void* buffer, size_t length);
+
+    static ssize_t Read(int handle, off64_t position, const IOSegment* segments, size_t segmentCount);
+    static ssize_t Write(int handle, off64_t position, const IOSegment* segments, size_t segmentCount);
+
     static int     DeviceControl(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
     static int     ReadDirectory(int handle, kernel::dir_entry* entry, size_t bufSize);
@@ -80,6 +92,7 @@ public:
     static int     Symlink(int baseFolderFD, const char* target, const char* linkPath);
 
     static int	   ReadStats(int handle, struct stat* outStats);
+    static int	   WriteStats(int handle, const struct stat& value, uint32_t mask);
 
     static int     Rename(const char* oldPath, const char* newPath);
     static int     Unlink(const char* path) { return Unlink(-1, path); }

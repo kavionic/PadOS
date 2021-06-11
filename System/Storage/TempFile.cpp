@@ -38,7 +38,7 @@ TempFile::TempFile(const String& prefix, const String& path, int access) : File(
         }
         m_Path = tempName;
         free(tempName);
-        if (!SetTo(m_Path, O_RDWR | O_CREAT | O_EXCL))
+        if (!Open(m_Path, O_RDWR | O_CREAT | O_EXCL))
         {
             if (errno == EEXIST) {
                 continue;

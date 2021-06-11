@@ -218,7 +218,7 @@ bool FATTableIterator::Update()
     
     if (m_LoadedSector1 != m_CurrentSector)
     {
-        if (m_Block2.m_Buffer != nullptr && m_LoadedSector2 == (m_CurrentSector + 1)) {
+        if (m_Block2.m_Buffer != nullptr && m_LoadedSector2 == m_CurrentSector) {
             m_Block1 = std::move(m_Block2);
         } else {
             m_Block1 = m_Volume->m_BCache.GetBlock(m_CurrentSector, true);

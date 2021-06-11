@@ -38,7 +38,7 @@ public:
     void SetViewScroller(ViewScroller* viewScroller) { m_ViewScroller = viewScroller; }
 
     Ptr<View>   SetScrolledView(Ptr<View> view);
-    Ptr<View>   GetScrolledView() const { return m_ScrolledView; }
+    Ptr<View>   GetScrolledView() const { return m_ScrolledView.Lock(); }
 
     void BeginSwipe(const Point& position);
     void SwipeMove(const Point& position);
@@ -54,7 +54,7 @@ private:
 
     ViewScroller* m_ViewScroller;
 
-    Ptr<View> m_ScrolledView;
+    WeakPtr<View> m_ScrolledView;
 };
 
 } // namespace osi

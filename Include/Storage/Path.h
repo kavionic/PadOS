@@ -58,6 +58,10 @@ public:
     const String&   GetPath() const;
     String          GetDir() const;
 
+    size_t          GetExtensionLength() const;
+    String          GetExtension() const;
+    bool            SetExtension(const String& extension);
+
     const char* c_str() const { return m_Path.c_str(); }
 
     bool    CreateFolders(bool includeLeaf = true, Directory* outLeafDirectory = nullptr, int accessMode = S_IRWXU);

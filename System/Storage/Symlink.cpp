@@ -43,7 +43,7 @@ SymLink::SymLink(const String& path, int openFlags) : FSNode(path, openFlags | O
 {
     if (!IsLink()) {
         errno = EINVAL;
-        Unset();
+        Close();
     }
 }
 
@@ -55,7 +55,7 @@ SymLink::SymLink(const Directory& directory, const String& name, int openFlags) 
 {
     if (!IsLink()) {
         errno = EINVAL;
-        Unset();
+        Close();
     }
 }
 
@@ -67,7 +67,7 @@ SymLink::SymLink(const FileReference& reference, int openFlags) : FSNode(referen
 {
     if (!IsLink()) {
         errno = EINVAL;
-        Unset();
+        Close();
     }
 }
 
@@ -79,7 +79,7 @@ SymLink::SymLink(const FSNode& node) : FSNode(node)
 {
     if (!IsLink()) {
         errno = EINVAL;
-        Unset();
+        Close();
     }
 }
 
@@ -103,7 +103,7 @@ SymLink::~SymLink()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::SetTo(const String& path, int openFlags)
+bool SymLink::Open(const String& path, int openFlags)
 {
     return SetTo(FSNode(path, openFlags | O_NOFOLLOW));
 }
@@ -112,7 +112,7 @@ bool SymLink::SetTo(const String& path, int openFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::SetTo(const Directory& directory, const String& path, int openFlags)
+bool SymLink::Open(const Directory& directory, const String& path, int openFlags)
 {
     return SetTo(FSNode(directory, path, openFlags | O_NOFOLLOW));
 }
@@ -121,7 +121,7 @@ bool SymLink::SetTo(const Directory& directory, const String& path, int openFlag
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::SetTo(const FileReference& reference, int openFlags)
+bool SymLink::Open(const FileReference& reference, int openFlags)
 {
     return SetTo(FSNode(reference, openFlags | O_NOFOLLOW));
 }

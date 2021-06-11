@@ -130,7 +130,7 @@ Ptr<View> ViewFactory::LoadView(Ptr<View> parentView, const String& path)
     if (!file.Read(buffer)) {
         return nullptr;
     }
-    file.Unset();
+    file.Close();
     return CreateView(parentView, std::move(buffer));
 }
 

@@ -25,9 +25,11 @@
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KINode.h"
 #include "Kernel/VFS/KFileHandle.h"
+#include "Kernel/VFS/FileIO.h"
 #include "System/System.h"
 
 using namespace kernel;
+using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -233,6 +235,52 @@ ssize_t KFilesystemFileOps::Write(Ptr<KFileNode> file, off64_t position, const v
 {
     set_last_error(ENOSYS);
     return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t KFilesystemFileOps::Read(Ptr<KFileNode> file, off64_t position, const IOSegment* segments, size_t segmentCount)
+{
+    ssize_t bytesRead = 0;
+    for (size_t i = 0; i < segmentCount; ++i)
+    {
+        const IOSegment& segment = segments[i];
+        ssize_t result = Read(file, position, segment.Buffer, segment.Length);
+        if (result < 0) {
+            return result;
+        }
+        bytesRead += result;
+        position += result;
+        if (result != segment.Length) {
+            break;
+        }
+    }
+    return bytesRead;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t KFilesystemFileOps::Write(Ptr<KFileNode> file, off64_t position, const IOSegment* segments, size_t segmentCount)
+{
+    ssize_t bytesWritten = 0;
+    for (size_t i = 0; i < segmentCount; ++i)
+    {
+        const IOSegment& segment = segments[i];
+        ssize_t result = Write(file, position, segment.Buffer, segment.Length);
+        if (result < 0) {
+            return result;
+        }
+        bytesWritten += result;
+        position += result;
+        if (result != segment.Length) {
+            break;
+        }
+    }
+    return bytesWritten;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

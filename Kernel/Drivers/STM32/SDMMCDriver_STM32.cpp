@@ -20,8 +20,9 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "Kernel/Drivers/STM32/SDMMCDriver_STM32.h"
-#include "Kernel/SpinTimer.h"
+#include <Kernel/Drivers/STM32/SDMMCDriver_STM32.h>
+#include <Kernel/SpinTimer.h>
+#include <Kernel/VFS/FileIO.h>
 
 using namespace kernel;
 using namespace os;
@@ -195,37 +196,77 @@ void SDMMCDriver_STM32::GetResponse128(uint8_t* response)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const void* buffer)
+bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const os::IOSegment* segments, size_t segmentCount)
 {
     const uint32_t blockSize = 1 << blockSizePower;
     const uint32_t byteLength = blockSize * blockCount;
 
-    void* dmaTarget = const_cast<void*>(buffer);
+    void* dmaTarget = nullptr;
 
     uint32_t dataControl = (blockSizePower << SDMMC_DCTRL_DBLOCKSIZE_Pos);
-    if (cmd & SDMMC_CMD_WRITE)
+    if ((cmd & SDMMC_CMD_WRITE) == 0) {
+        dataControl |= SDMMC_DCTRL_DTDIR; // From card to host (Read).
+    }
+    m_TransferSegments  = segments;
+    m_SegmentCount      = segmentCount;
+    m_CurrentSegment    = 0;
+
+    if (segmentCount == 1)
     {
-        uint32_t* cacheStart = reinterpret_cast<uint32_t*>(intptr_t(dmaTarget) & ~DCACHE_LINE_SIZE_MASK);
-        uint32_t  cacheLength = byteLength + intptr_t(dmaTarget) - intptr_t(cacheStart);
-        cacheLength = ((cacheLength + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE;
-        SCB_CleanDCache_by_Addr(cacheStart, cacheLength);
+        const void* buffer = segments[0].Buffer;
+        dmaTarget = const_cast<void*>(buffer);
+        if (cmd & SDMMC_CMD_WRITE)
+        {
+            uint32_t* cacheStart = reinterpret_cast<uint32_t*>(intptr_t(dmaTarget) & ~DCACHE_LINE_SIZE_MASK);
+            uint32_t  cacheLength = byteLength + intptr_t(dmaTarget) - intptr_t(cacheStart);
+            cacheLength = ((cacheLength + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE;
+            SCB_CleanDCache_by_Addr(cacheStart, cacheLength);
+        }
+        else
+        {
+            if ((intptr_t(buffer) & DCACHE_LINE_SIZE_MASK) || (byteLength & DCACHE_LINE_SIZE_MASK))
+            {
+                if (byteLength <= BLOCK_SIZE)
+                {
+                    dmaTarget = m_CacheAlignedBuffer;
+                }
+                else
+                {
+                    kprintf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() called with unaligned buffer or size larger than 512 bytes.\n");
+                    set_last_error(EINVAL);
+                    return false;
+                }
+            }
+        }
     }
     else
     {
-        if ((intptr_t(buffer) & DCACHE_LINE_SIZE_MASK) || (byteLength & DCACHE_LINE_SIZE_MASK))
+        if (cmd & SDMMC_CMD_WRITE)
         {
-            if (byteLength <= BLOCK_SIZE)
+            for (size_t i = 0; i < segmentCount; ++i)
             {
-                dmaTarget = m_CacheAlignedBuffer;
-            }
-            else
-            {
-                kprintf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() called with unaligned buffer or size larger than 512 bytes.\n");
-                set_last_error(EINVAL);
-                return false;
+                if ((intptr_t(segments[i].Buffer) & DCACHE_LINE_SIZE_MASK) != 0)
+                {
+                    kprintf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment write with unaligned buffer.\n");
+                    set_last_error(EINVAL);
+                    return false;
+                }
+                SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(segments[i].Buffer), segments[i].Length);
             }
         }
-        dataControl |= SDMMC_DCTRL_DTDIR; // From card to host (Read).
+        else
+        {
+            for (size_t i = 0; i < segmentCount; ++i)
+            {
+                if ((intptr_t(segments[i].Buffer) & DCACHE_LINE_SIZE_MASK) != 0)
+                {
+                    kprintf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment write with unaligned buffer.\n");
+                    set_last_error(EINVAL);
+                    return false;
+                }
+            }
+
+        }
     }
     if (cmd & SDMMC_CMD_SDIO_BYTE)
     {
@@ -240,17 +281,32 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
         } else if (cmd & SDMMC_CMD_SINGLE_BLOCK) {
             dataControl |= 0 << SDMMC_DCTRL_DTMODE_Pos; // Block data transfer ending on block count.
         } else if (cmd & SDMMC_CMD_MULTI_BLOCK) {
-            //          dataControl |= 3 << SDMMC_DCTRL_DTMODE_Pos; // Block data transfer ending with STOP_TRANSMISSION command (not to be used with DTEN initiated data transfers).
-            dataControl |= 0 << SDMMC_DCTRL_DTMODE_Pos; // Block data transfer ending with STOP_TRANSMISSION command (not to be used with DTEN initiated data transfers).
+            dataControl |= 3 << SDMMC_DCTRL_DTMODE_Pos; // Block data transfer ending with STOP_TRANSMISSION command (not to be used with DTEN initiated data transfers).
+            //dataControl |= 0 << SDMMC_DCTRL_DTMODE_Pos; // Block data transfer ending with STOP_TRANSMISSION command (not to be used with DTEN initiated data transfers).
         } else {
             kprintf("ERROR: StartAddressedDataTransCmd() invalid command flags: %lx\n", cmd);
             return false;
         }
     }
     m_SDMMC->DTIMER = 0xffffffff;
-    m_SDMMC->CLKCR |= SDMMC_CLKCR_HWFC_EN; // Hardware flow-control enabled.
-    m_SDMMC->IDMABASE0 = intptr_t(dmaTarget);
-    m_SDMMC->IDMACTRL = SDMMC_IDMA_IDMAEN;
+//    m_SDMMC->CLKCR |= SDMMC_CLKCR_HWFC_EN; // Hardware flow-control enabled.
+
+    if (dmaTarget == nullptr && m_SegmentCount > 1)
+    {
+        m_SDMMC->IDMABASE0 = intptr_t(m_TransferSegments[0].Buffer);
+        m_SDMMC->IDMABASE1 = intptr_t(m_TransferSegments[1].Buffer);
+
+        m_SDMMC->IDMABSIZE = ((blockSize / 32) << SDMMC_IDMABSIZE_IDMABNDT_Pos) & SDMMC_IDMABSIZE_IDMABNDT_Msk;
+        m_SDMMC->IDMACTRL = SDMMC_IDMA_IDMAEN | SDMMC_IDMA_IDMABMODE;
+        m_CurrentSegment = 2;
+    }
+    else
+    {
+        m_SDMMC->IDMABASE0 = (dmaTarget != nullptr) ? intptr_t(dmaTarget) : intptr_t(m_TransferSegments[0].Buffer);
+
+        m_SDMMC->IDMACTRL = SDMMC_IDMA_IDMAEN;
+        m_CurrentSegment = 1;
+    }
     m_SDMMC->DLEN = byteLength;
     m_SDMMC->DCTRL = dataControl;
 
@@ -261,16 +317,34 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
         result = WaitIRQ(SDMMC_MASK_DATAENDIE | SDMMC_MASK_IDMABTCIE | SDMMC_MASK_DABORTIE | SDMMC_MASK_DTIMEOUTIE | SDMMC_MASK_DCRCFAILIE);
     }
     m_SDMMC->IDMACTRL = 0;
-    m_SDMMC->CLKCR &= ~SDMMC_CLKCR_HWFC_EN; // Hardware flow-control disabled.
+//    m_SDMMC->CLKCR &= ~SDMMC_CLKCR_HWFC_EN; // Hardware flow-control disabled.
+
+    if (m_CurrentSegment != m_SegmentCount) {
+        printf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() Only %u of %u blocks where transfered at %lu (%d)\n", m_CurrentSegment, m_SegmentCount, arg, int(m_WakeupReason));
+        result = false;
+    }
 
     if (result)
     {
         if ((cmd & SDMMC_CMD_WRITE) == 0)
         {
-            SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(dmaTarget), ((byteLength + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
-
-            if (dmaTarget != buffer) {
-                memcpy(const_cast<void*>(buffer), dmaTarget, byteLength);
+            if (dmaTarget != nullptr)
+            {
+                SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(dmaTarget), ((byteLength + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
+                memcpy(segments[0].Buffer, dmaTarget, segments[0].Length);
+            }
+            else
+            {
+                for (size_t i = 0; i < segmentCount; ++i)
+                {
+                    if ((intptr_t(segments[i].Buffer) & DCACHE_LINE_SIZE_MASK) != 0)
+                    {
+                        kprintf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment read with unaligned buffer.\n");
+                        set_last_error(EINVAL);
+                        return false;
+                    }
+                    SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(segments[i].Buffer), segments[i].Length);
+                }
             }
         }
     }
@@ -331,14 +405,36 @@ IRQResult SDMMCDriver_STM32::HandleIRQ()
     {
         m_SDMMC->MASK = 0;
         m_IOError = status & errorFlags;
+        m_WakeupReason = WakeupReason::Error;
         m_IOCondition.Wakeup(0);
-        return IRQResult::HANDLED;
     }
-    if (status & SDMMC_EVENT_FLAGS)
+    else if (status & SDMMC_MASK_DATAENDIE)
+    {
+        m_SDMMC->ICR = SDMMC_ICR_DATAENDC;
+        m_SDMMC->MASK = 0;
+        m_SDMMC->CMD &= ~SDMMC_CMD_CMDTRANS;
+        m_IOError = 0;
+        m_WakeupReason = WakeupReason::DataComplete;
+        m_IOCondition.Wakeup(0);
+    }
+    else if (status & (SDMMC_EVENT_FLAGS & ~SDMMC_MASK_IDMABTCIE))
     {
         m_SDMMC->MASK = 0;
         m_IOError = 0;
+        m_WakeupReason = WakeupReason::Event;
         m_IOCondition.Wakeup(0);
+    }
+    else if (status & SDMMC_MASK_IDMABTCIE)
+    {
+        m_SDMMC->ICR = SDMMC_ICR_IDMABTCC;
+        if (m_CurrentSegment < m_SegmentCount)
+        {
+            if (m_SDMMC->IDMACTRL & SDMMC_IDMA_IDMABACT) {
+                m_SDMMC->IDMABASE0 = intptr_t(m_TransferSegments[m_CurrentSegment++].Buffer);
+            } else {
+                m_SDMMC->IDMABASE1 = intptr_t(m_TransferSegments[m_CurrentSegment++].Buffer);
+            }
+        }
     }
     return IRQResult::HANDLED;
 }
@@ -350,7 +446,7 @@ IRQResult SDMMCDriver_STM32::HandleIRQ()
 bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
 {
     static constexpr uint32_t errorFlags = ~SDMMC_EVENT_FLAGS;
-    uint32_t status = m_SDMMC->STA & flags;
+    uint32_t status = m_SDMMC->STA & (flags & ~SDMMC_STA_IDMABTC);
 
     if (status & errorFlags)
     {
@@ -361,6 +457,7 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
         return true;
     }
 
+    m_WakeupReason = WakeupReason::None;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         m_SDMMC->MASK = flags;
@@ -383,52 +480,13 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
                 kprintf("SDMMC: ERROR SDMMC_STA_CTIMEOUT\n");
             }
             if (m_IOError & SDMMC_STA_DTIMEOUT) {
-                kprintf("SDMMC: ERROR SDMMC_STA_SDMMC_STA_DTIMEOUT\n");
+                kprintf("SDMMC: ERROR SDMMC_STA_DTIMEOUT\n");
             }
             if (m_IOError & SDMMC_STA_CCRCFAIL) {
                 kprintf("SDMMC: ERROR SDMMC_STA_CCRCFAIL\n");
             }
             set_last_error(EIO);
         }
-        return false;
-    }
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags, TimeValMicros timeout)
-{
-    static constexpr uint32_t errorFlags = ~SDMMC_EVENT_FLAGS;
-    uint32_t status = m_SDMMC->STA & flags;
-
-    if (status & errorFlags)
-    {
-        set_last_error(EIO);
-        return false;
-    }
-    if (status & flags) {
-        return true;
-    }
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        m_SDMMC->MASK = flags;
-        while (!m_IOCondition.IRQWaitTimeout(timeout))
-        {
-            if (get_last_error() != EINTR)
-            {
-                m_SDMMC->MASK = 0;
-                m_IOError = get_last_error();
-                break;
-            }
-        }
-    } CRITICAL_END;
-    if (m_IOError != 0)
-    {
-        //      Reset();
-        set_last_error(m_IOError);
         return false;
     }
     return true;

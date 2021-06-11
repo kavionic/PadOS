@@ -459,9 +459,22 @@ int I2CDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t I2CDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+ssize_t I2CDriver::Read(Ptr<KFileNode> file, off64_t position, const IOSegment* segments, size_t segmentCount)
 {
-    return ptr_static_cast<I2CDriverINode>(file->GetINode())->Read(file, position, buffer, length);    
+    ssize_t bytesRead = 0;
+    for (size_t i = 0; i < segmentCount; ++i)
+    {
+        const IOSegment& segment = segments[i];
+        ssize_t result = ptr_static_cast<I2CDriverINode>(file->GetINode())->Read(file, position, buffer, length);
+        if (result < 0) {
+            return result;
+        }
+        bytesRead += result;
+        if (result != segment.Size) {
+            break;
+        }
+    }
+    return bytesRead;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

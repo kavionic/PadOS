@@ -293,27 +293,10 @@ int FileIO::Close(int handle)
 
 ssize_t FileIO::Read(int handle, void* buffer, size_t length)
 {
-    Ptr<KFileNode> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
-        return -1;
-    }
-    Ptr<KINode> inode = file->GetINode();
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-
-    if (inode->m_FileOps == nullptr) {
-        set_last_error(ENOSYS);
-        return -1;
-    }
-
-    ssize_t result = inode->m_FileOps->Read(file, file->m_Position, buffer, length);
-    if (result < 0)
-    {
-        return result;
-    }
-    file->m_Position += result;
-    return result;
+    IOSegment segment;
+    segment.Buffer = buffer;
+    segment.Length = length;
+    return Read(handle, &segment, 1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -321,6 +304,18 @@ ssize_t FileIO::Read(int handle, void* buffer, size_t length)
 ///////////////////////////////////////////////////////////////////////////////
 
 ssize_t FileIO::Write(int handle, const void* buffer, size_t length)
+{
+    IOSegment segment;
+    segment.Buffer = const_cast<void*>(buffer);
+    segment.Length = length;
+    return Write(handle, &segment, 1);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t FileIO::Read(int handle, const IOSegment* segments, size_t segmentCount)
 {
     Ptr<KFileNode> file = GetFile(handle);
     if (file == nullptr)
@@ -336,7 +331,36 @@ ssize_t FileIO::Write(int handle, const void* buffer, size_t length)
         return -1;
     }
 
-    ssize_t result = inode->m_FileOps->Write(file, file->m_Position, buffer, length);
+    ssize_t result = inode->m_FileOps->Read(file, file->m_Position, segments, segmentCount);
+    if (result < 0)
+    {
+        return result;
+    }
+    file->m_Position += result;
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t FileIO::Write(int handle, const IOSegment* segments, size_t segmentCount)
+{
+    Ptr<KFileNode> file = GetFile(handle);
+    if (file == nullptr)
+    {
+        set_last_error(EBADF);
+        return -1;
+    }
+    Ptr<KINode> inode = file->GetINode();
+    assert(inode != nullptr && inode->m_Filesystem != nullptr);
+
+    if (inode->m_FileOps == nullptr) {
+        set_last_error(ENOSYS);
+        return -1;
+    }
+
+    ssize_t result = inode->m_FileOps->Write(file, file->m_Position, segments, segmentCount);
     if (result < 0)
     {
         return result;
@@ -351,6 +375,30 @@ ssize_t FileIO::Write(int handle, const void* buffer, size_t length)
 
 ssize_t FileIO::Read(int handle, off64_t position, void* buffer, size_t length)
 {
+    IOSegment segment;
+    segment.Buffer = buffer;
+    segment.Length = length;
+    return Read(handle, position, &segment, 1);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t FileIO::Write(int handle, off64_t position, const void* buffer, size_t length)
+{
+    IOSegment segment;
+    segment.Buffer = const_cast<void*>(buffer);
+    segment.Length = length;
+    return Write(handle, position, &segment, 1);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t FileIO::Read(int handle, off64_t position, const IOSegment* segments, size_t segmentCount)
+{
     Ptr<KFileNode> file = GetFile(handle);
     if (file == nullptr)
     {
@@ -366,14 +414,14 @@ ssize_t FileIO::Read(int handle, off64_t position, void* buffer, size_t length)
         return -1;
     }
 
-    return inode->m_FileOps->Read(file, position, buffer, length);
+    return inode->m_FileOps->Read(file, position, segments, segmentCount);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t FileIO::Write(int handle, off64_t position, const void* buffer, size_t length)
+ssize_t FileIO::Write(int handle, off64_t position, const IOSegment* segments, size_t segmentCount)
 {
     Ptr<KFileNode> file = GetFile(handle);
     if (file == nullptr)
@@ -389,7 +437,7 @@ ssize_t FileIO::Write(int handle, off64_t position, const void* buffer, size_t l
         return -1;
     }
 
-    return inode->m_FileOps->Write(file, position, buffer, length);
+    return inode->m_FileOps->Write(file, position, segments, segmentCount);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -499,6 +547,25 @@ int FileIO::ReadStats(int handle, struct stat* outStats)
         return -1;
     }
     return inode->m_FileOps->ReadStat(inode->m_Volume, inode, outStats);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int FileIO::WriteStats(int handle, const struct stat& value, uint32_t mask)
+{
+    Ptr<KFileTableNode> node = GetFileNode(handle);
+    if (node == nullptr) {
+        set_last_error(EBADF);
+        return -1;
+    }
+    Ptr<KINode> inode = node->GetINode();
+    if (inode == nullptr || inode->m_FileOps == nullptr) {
+        set_last_error(ENOSYS);
+        return -1;
+    }
+    return inode->m_FileOps->WriteStat(inode->m_Volume, inode, &value, mask);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

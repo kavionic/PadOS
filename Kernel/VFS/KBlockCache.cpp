@@ -32,18 +32,22 @@
 using namespace kernel;
 using namespace os;
 
-static const int KBLOCK_CACHE_BLOCK_COUNT = 32;
-static const int BC_FLUSH_COUNT = 4;
+static constexpr TimeValMicros FLUSH_PERIODE = TimeValMicros::FromMilliseconds(1000);
+static constexpr int KBLOCK_CACHE_BLOCK_COUNT = 64;
+static constexpr int BC_FLUSH_COUNT         = 64;
+static constexpr int BC_MIN_WAKEUP_COUNT    = 32;
+static constexpr int BC_MIN_FLUSH_COUNT = 48;
 
 static uint8_t* gk_BCacheBuffer;
 static KCacheBlockHeader gk_BCacheHeaders[KBLOCK_CACHE_BLOCK_COUNT];
 
-std::map<int, KBlockCache*>                  KBlockCache::s_DeviceMap;
-IntrusiveList<KCacheBlockHeader>             KBlockCache::s_FreeList;
-IntrusiveList<KCacheBlockHeader>             KBlockCache::s_MRUList;
-KMutex                                       KBlockCache::s_Mutex("bcache_mutex", false);
-KConditionVariable                           KBlockCache::s_FlushingConditionVar("bcache_flush_cond");
-std::atomic_int                              KBlockCache::s_DirtyBlockCount;
+std::map<int, KBlockCache*>         KBlockCache::s_DeviceMap;
+IntrusiveList<KCacheBlockHeader>    KBlockCache::s_FreeList;
+IntrusiveList<KCacheBlockHeader>    KBlockCache::s_MRUList;
+KMutex                              KBlockCache::s_Mutex("bcache_mutex", false);
+KConditionVariable                  KBlockCache::s_FlushingRequestConditionVar("bcache_flush_req");
+KConditionVariable                  KBlockCache::s_FlushingDoneConditionVar("bcache_flush_done");
+std::atomic_int                     KBlockCache::s_DirtyBlockCount;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -153,7 +157,7 @@ void KBlockCache::Initialize()
         buffer += BUFFER_BLOCK_SIZE;
         s_FreeList.Append(&gk_BCacheHeaders[i]);
     }
-    spawn_thread("disk_cache_flusher", DiskCacheFlusher, 1024);
+    spawn_thread("disk_cache_flusher", DiskCacheFlusher, 0, nullptr, false, 4096);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -190,15 +194,28 @@ KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
             }
             else if (s_MRUList.m_First != nullptr)
             {
-                for (block = s_MRUList.m_First; block != nullptr && (block->m_UseCount != 0 || block->IsFlushing()); block = block->m_Next) /*EMPTY*/;
+                for (block = s_MRUList.m_First; block != nullptr && (block->m_UseCount != 0 /*|| block->IsFlushing() || block->IsDirty()*/); block = block->m_Next) /*EMPTY*/;
                 if (block == nullptr) {
-                    s_FlushingConditionVar.Wait(s_Mutex);
+                    s_FlushingRequestConditionVar.WakeupAll();
+                    s_FlushingDoneConditionVar.Wait(s_Mutex);
                     continue;
                 }
-                //block = s_MRUList.m_Last;
-                s_MRUList.Remove(block);
+                if (block->IsFlushing())
                 {
-                    FlushBuffer(block->m_Device, block->m_bufferNumber, true);
+                    s_FlushingDoneConditionVar.Wait(s_Mutex);
+                    continue;
+                }
+                if (block->IsDirty())
+                {
+                    block->SetFlushRequested(true);
+                    s_FlushingRequestConditionVar.WakeupAll();
+                    s_FlushingDoneConditionVar.Wait(s_Mutex);
+                    continue;
+                }
+                s_MRUList.Remove(block);
+                auto i = m_BlockMap.find(block->m_bufferNumber);
+                if (i != m_BlockMap.end()) {
+                    m_BlockMap.erase(i);
                 }
             }
             else
@@ -283,8 +300,8 @@ int KBlockCache::CachedWrite(off64_t blockNum, const void* buffer, size_t blockC
 {
     for (size_t i = 0 ; i < blockCount ; ++i)
     {
-//        KCacheBlockDesc block = GetBlock(blockNum + i, false);
-        KCacheBlockDesc block = GetBlock(blockNum + i, true); // FIXME: Don't load the buffer if it's all going to be overwritten.
+        KCacheBlockDesc block = GetBlock(blockNum + i, false);
+//        KCacheBlockDesc block = GetBlock(blockNum + i, true);
 
         if (block.m_Buffer != nullptr)
         {
@@ -306,39 +323,50 @@ int KBlockCache::CachedWrite(off64_t blockNum, const void* buffer, size_t blockC
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KBlockCache::FlushBuffer(int device, off64_t bufferNum, bool removeAfter)
+bool KBlockCache::FlushInternal()
 {
     kassert(s_Mutex.IsLocked());
-    KBlockCache* cache = GetDeviceCache(device);
-    if (cache != nullptr)
+
+    if (s_DirtyBlockCount != 0)
     {
-        return cache->FlushBuffer(bufferNum, removeAfter);
+        for (KCacheBlockHeader* block = s_MRUList.m_First; block != nullptr; block = block->m_Next)
+        {
+            if (block->IsDirty() /*&& !block->IsFlushing()*/) {
+                block->SetFlushRequested(true);
+            }
+        }
+        s_FlushingRequestConditionVar.WakeupAll();
     }
-    return false;
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
-    
-bool KBlockCache::FlushBuffer(off64_t bufferNum, bool removeAfter)
+
+bool KBlockCache::Flush()
 {
-    kassert(s_Mutex.IsLocked());
-    auto i = m_BlockMap.find(bufferNum);
-    if (i != m_BlockMap.end())
-    {
-        KCacheBlockHeader* block = i->second;
-        if (block->IsDirty())
-        {
-            block->Flush(s_Mutex);
-        }
-        if (removeAfter) {
-//            kprintf("Block %" PRIu64 " removed\n", bufferNum);
-            m_BlockMap.erase(i);
-        }
-        return true;
+    CRITICAL_SCOPE(KBlockCache::s_Mutex);
+
+    return FlushInternal();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KBlockCache::Sync()
+{
+    CRITICAL_SCOPE(KBlockCache::s_Mutex);
+
+    if (!FlushInternal()) {
+        return false;
     }
-    return false;
+
+    if (s_DirtyBlockCount != 0) {
+        s_FlushingDoneConditionVar.Wait(s_Mutex);
+    }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -360,7 +388,7 @@ void KCacheBlockHeader::RemoveRef()
     kassert(KBlockCache::s_Mutex.IsLocked());
     m_UseCount--;
     if (m_UseCount == 0) {
-        KBlockCache::s_FlushingConditionVar.Wakeup(0);
+        KBlockCache::s_FlushingDoneConditionVar.WakeupAll();
     }
 }
 
@@ -373,56 +401,36 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
     kassert(KBlockCache::s_Mutex.IsLocked());
     if (isDirty)
     {
-        if ((m_Flags & BCF_DIRTY) == 0) {
+        if ((m_Flags & BCF_DIRTY) == 0)
+        {
             m_Flags |= BCF_DIRTY;
             KBlockCache::s_DirtyBlockCount++;
+
+            m_DirtyTime = get_system_time();
             if (KBlockCache::s_DirtyBlockCount == 1) {
-                kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_LOW_VOL, "Cache dirty\n");
+                kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "Cache dirty\n");
             }
         }
+        else
+        {
+            m_Flags |= BCF_DIRTY_PENDING;
+        }
         kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "Block %" PRIu64 " from device %d dirty\n", m_bufferNumber, m_Device);
+        if (KBlockCache::s_DirtyBlockCount >= BC_MIN_WAKEUP_COUNT) {
+            KBlockCache::s_FlushingRequestConditionVar.WakeupAll();
+        }
     }
     else
     {
-        if (m_Flags & BCF_DIRTY) {
+        if (m_Flags & BCF_DIRTY)
+        {
             m_Flags &= ~BCF_DIRTY;
             KBlockCache::s_DirtyBlockCount--;
             if (KBlockCache::s_DirtyBlockCount == 0) {
-                kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_LOW_VOL, "Cache clean\n");
+                kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "Cache clean\n");
             }
         }
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool KCacheBlockHeader::Flush(KMutex& mutex)
-{
-    kassert(mutex.IsLocked());
-
-//    ProfileTimer pt("Flush", 2.0e-3);
-
-    if (IsDirty())
-    {
-        SetIsFlushing(true);
-        mutex.Unlock();
-
-//        kprintf("Block %" PRIu64 " flushed\n", m_bufferNumber);
-        kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "KCacheBlockHeader::Flush writing block %" PRId64 " from device %d\n", m_bufferNumber, m_Device);
-
-        bool result = FileIO::Write(m_Device, m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, m_Buffer, KBlockCache::BUFFER_BLOCK_SIZE) >= 0;
-        mutex.Lock();
-        SetIsFlushing(false);
-        SetDirty(false);
-        KBlockCache::s_FlushingConditionVar.Wakeup(0);
-        if (!result) {
-            printf("ERROR: KCacheBlockHeader::Flush() failed to write block to disk: %s\n", strerror(get_last_error()));
-        }
-        return result;
-    }
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -487,19 +495,83 @@ void KCacheBlockDesc::Reset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCount)
+bool KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCount)
 {
     kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() flushing %d blocks.\n", blockCount);
-    for (size_t i = 0; i < blockCount; ++i)
+
+    std::sort(blockList, blockList + blockCount, [](const KCacheBlockHeader* lhs, const KCacheBlockHeader* rhs) { return std::tie(lhs->m_Device, lhs->m_bufferNumber) < std::tie(rhs->m_Device, rhs->m_bufferNumber); });
+
+    static IOSegment segments[BC_FLUSH_COUNT];
+
+//    printf("Flush %d blocks\n", blockCount);
+
+    TimeValMicros curTime = get_system_time();
+
+    size_t start = 0;
+    bool    requiredSegment = false;
+    bool    hasTimedOutBlocks = false;
+
+    bool anythingFlushed = false;
+    for (size_t i = 0; i <= blockCount; ++i)
     {
-        KCacheBlockHeader* block = blockList[i];
-        
-        kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() writing block %" PRId64 " from device %d\n", block->m_bufferNumber, block->m_Device);
-        
-        if (FileIO::Write(block->m_Device, block->m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, block->m_Buffer, KBlockCache::BUFFER_BLOCK_SIZE) < 0) {
-            kernel_log(LogCatKernel_BlockCache, KLogSeverity::CRITICAL, "Failed to flush block %" PRId64 " from device %d\n", block->m_bufferNumber, block->m_Device);
+//        if (i < blockCount)
+//        {
+//            printf("    %" PRId64 "\n", blockList[i]->m_bufferNumber);
+//        }
+
+        if (i < blockCount)
+        {
+            if (!requiredSegment && blockList[i]->IsFlushRequested()) {
+                requiredSegment = true;
+            }
+            if (!requiredSegment && (curTime - blockList[i]->m_DirtyTime) >= FLUSH_PERIODE) {
+                hasTimedOutBlocks = true;
+            }
+        }
+        if (i == blockCount || (i > start && (blockList[i-1]->m_Device != blockList[i]->m_Device || (blockList[i-1]->m_bufferNumber + 1) != blockList[i]->m_bufferNumber)))
+        {
+            size_t segmentCount = i - start;
+            if (requiredSegment || hasTimedOutBlocks || segmentCount >= BC_MIN_FLUSH_COUNT)
+            {
+                for (size_t j = start; j < i; ++j) {
+                    blockList[j]->ClearDirtyPending();
+                }
+
+//                printf("  %" PRId64 ":%d\n", blockList[start]->m_bufferNumber, segmentCount);
+
+                s_Mutex.Unlock();
+                if (FileIO::Write(blockList[start]->m_Device, blockList[start]->m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, segments, segmentCount) < 0) {
+                    kernel_log(LogCatKernel_BlockCache, KLogSeverity::CRITICAL, "Failed to flush block %" PRId64 ":%d from device %d\n", blockList[start]->m_bufferNumber, segmentCount, blockList[start]->m_Device);
+                }
+                anythingFlushed = true;
+                s_Mutex.Lock();
+
+                for (size_t j = start; j < i; ++j)
+                {
+                    if (!blockList[j]->IsDirtyPending())
+                    {
+                        blockList[j]->SetDirty(false);
+                        blockList[j]->SetFlushRequested(false);
+                        blockList[j]->SetIsFlushing(false);
+                    }
+                }
+
+                if (requiredSegment)
+                {
+                    s_FlushingDoneConditionVar.WakeupAll();
+                }
+            }
+            start = i;
+            requiredSegment = false;
+            hasTimedOutBlocks = false;
+        }
+        if (i < blockCount)
+        {
+            segments[i - start].Buffer = blockList[i]->m_Buffer;
+            segments[i - start].Length = KBlockCache::BUFFER_BLOCK_SIZE;
         }
     }
+    return anythingFlushed;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -510,17 +582,12 @@ void KBlockCache::DiskCacheFlusher(void* arg)
 {
     for (;;)
     {
-        if (s_DirtyBlockCount > 0) {
-			snooze_ms(250);
-        } else {
-            snooze_s(5);
-        }
         KVFSManager::FlushInodes();
         CRITICAL_BEGIN(s_Mutex)
         {
-            KCacheBlockHeader* blockList[BC_FLUSH_COUNT];
             if (s_DirtyBlockCount > 0)
             {
+                static KCacheBlockHeader* blockList[BC_FLUSH_COUNT];
                 int blocksFlushed = 0;
                 int deviceID = -1;
                 for (KCacheBlockHeader* block = s_MRUList.m_First; block != nullptr && blocksFlushed < BC_FLUSH_COUNT && s_DirtyBlockCount > 0; block = block->m_Next)
@@ -528,23 +595,30 @@ void KBlockCache::DiskCacheFlusher(void* arg)
                     if (block->IsDirty() && !block->IsFlushing())
                     {
                         if (deviceID == -1) deviceID = block->m_Device;
-                        if (block->m_Device == deviceID) {
+                        if (block->m_Device == deviceID)
+                        {
                             block->SetIsFlushing(true);
                             blockList[blocksFlushed++] = block;
                         }
                     }
                 }
-                s_Mutex.Unlock();
-                FlushBlockList(blockList, blocksFlushed);
-                s_Mutex.Lock();
+                bool anythingFlushed = FlushBlockList(blockList, blocksFlushed);
                 for (size_t i = 0; i < blocksFlushed; ++i)
                 {
                     KCacheBlockHeader* block = blockList[i];
-                    block->SetDirty(false);
                     block->SetIsFlushing(false);
                 }
-                s_FlushingConditionVar.Wakeup(0);
+                if (anythingFlushed) {
+                    s_FlushingDoneConditionVar.WakeupAll();
+                } else {
+                    s_FlushingRequestConditionVar.WaitTimeout(s_Mutex, FLUSH_PERIODE);
+                }
+            }
+            else
+            {
+                s_FlushingRequestConditionVar.WaitTimeout(s_Mutex, FLUSH_PERIODE);
             }
         } CRITICAL_END;
     }
 }
+

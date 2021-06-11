@@ -19,6 +19,7 @@
 
 #include "FATClusterSectorIterator.h"
 #include "FATVolume.h"
+#include "Kernel/FSDrivers/FAT/FATFilesystem.h"
 
 namespace kernel
 {
@@ -109,7 +110,10 @@ status_t FATClusterSectorIterator::Increment(int sectors)
         if (m_CurrentSector < m_Volume->m_SectorsPerCluster) {
             return 0;
         }            
-        m_Volume->GetFATTable()->GetChainEntry(m_CurrentCluster, m_CurrentSector / m_Volume->m_SectorsPerCluster, &m_CurrentCluster);
+        if (!m_Volume->GetFATTable()->GetChainEntry(m_CurrentCluster, m_CurrentSector / m_Volume->m_SectorsPerCluster, &m_CurrentCluster)) {
+            kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATClusterSectorIterator::Increment(%d): GetChainEntry() failed. Failed to get current cluster.\n", sectors);
+            return -1;
+        }
 
         if (int32_t(m_CurrentCluster) < 0) {
             m_CurrentSector = 0xffff;

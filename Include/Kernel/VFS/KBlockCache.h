@@ -33,8 +33,10 @@ namespace kernel
 
 enum
 {
-    BCF_DIRTY       = 0x01,
-    BCF_IS_FLUSHING = 0x02
+    BCF_DIRTY           = 0x01,
+    BCF_DIRTY_PENDING   = 0x02,
+    BCF_FLUSH_REQUESTED = 0x04,
+    BCF_IS_FLUSHING     = 0x08
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -48,11 +50,15 @@ struct KCacheBlockHeader
     
     bool IsDirty() const { return (m_Flags & BCF_DIRTY) != 0; }
     void SetDirty(bool isDirty);
-    
+
+    bool IsDirtyPending() const { return (m_Flags & BCF_DIRTY_PENDING) != 0; }
+    void ClearDirtyPending() { m_Flags &= ~BCF_DIRTY_PENDING; }
+
+    bool IsFlushRequested() const { return (m_Flags & BCF_FLUSH_REQUESTED) != 0; }
+    void SetFlushRequested(bool isRequesting) { m_Flags = (isRequesting) ? (m_Flags | BCF_FLUSH_REQUESTED) : (m_Flags & ~BCF_FLUSH_REQUESTED); }
+
     bool IsFlushing() const { return (m_Flags & BCF_IS_FLUSHING) != 0; }
     void SetIsFlushing(bool isFlushing) { m_Flags = (isFlushing) ? (m_Flags | BCF_IS_FLUSHING) : (m_Flags & ~BCF_IS_FLUSHING); }
-
-    bool Flush(KMutex& mutex);
 
     KCacheBlockHeader*                m_Next         = nullptr;
     KCacheBlockHeader*                m_Prev         = nullptr;
@@ -61,6 +67,7 @@ struct KCacheBlockHeader
     off64_t                           m_bufferNumber = 0;
     uint32_t                          m_UseCount     = 0;
     void*                             m_Buffer       = nullptr;
+    TimeValMicros                     m_DirtyTime;
     uint32_t                          m_Flags        = 0;
 };
 
@@ -115,33 +122,34 @@ public:
     int  CachedRead(off64_t blockNum, void* buffer, size_t blockCount);
     int  CachedWrite(off64_t blockNum, const void* buffer, size_t blockCount);
 
-    bool Flush() {return true;}
-    bool Shutdown(bool flush) { if (flush) return Flush(); return true; }
+    bool Flush();
+    bool Sync();
+    bool Shutdown(bool flush) { if (flush) return Sync(); return true; }
         
 private:
     friend struct KCacheBlockHeader;
     friend struct KCacheBlockDesc;
 
-    static bool     FlushBuffer(int device, off64_t bufferNum, bool removeAfter);
-    bool            FlushBuffer(off64_t bufferNum, bool removeAfter);
-    
-    static void  FlushBlockList(KCacheBlockHeader** blockList, size_t blockCount);
+    bool FlushInternal();
+
+    static bool  FlushBlockList(KCacheBlockHeader** blockList, size_t blockCount);
     static void  DiskCacheFlusher(void* arg);
     
-    static std::map<int, KBlockCache*>                  s_DeviceMap;
-    static IntrusiveList<KCacheBlockHeader>             s_FreeList;
-    static IntrusiveList<KCacheBlockHeader>             s_MRUList;
-    static KMutex                                       s_Mutex;
-    static KConditionVariable                           s_FlushingConditionVar;
-    static std::atomic_int s_DirtyBlockCount;
+    static std::map<int, KBlockCache*>      s_DeviceMap;
+    static IntrusiveList<KCacheBlockHeader> s_FreeList;
+    static IntrusiveList<KCacheBlockHeader> s_MRUList;
+    static KMutex                           s_Mutex;
+    static KConditionVariable               s_FlushingRequestConditionVar;
+    static KConditionVariable               s_FlushingDoneConditionVar;
+    static std::atomic_int                  s_DirtyBlockCount;
     
-    int     m_Device;
-    size_t  m_BlockSize;
-    off64_t m_BlockCount;
-    int     m_BlocksPerBuffer;
-    int     m_BlockToBufferShift;
-    uint32_t m_BufferOffsetMask;
-    std::map<off64_t, KCacheBlockHeader*> m_BlockMap;
+    int                                     m_Device;
+    size_t                                  m_BlockSize;
+    off64_t                                 m_BlockCount;
+    int                                     m_BlocksPerBuffer;
+    int                                     m_BlockToBufferShift;
+    uint32_t                                m_BufferOffsetMask;
+    std::map<off64_t, KCacheBlockHeader*>   m_BlockMap;
     
     KBlockCache(const KBlockCache&) = delete;
     KBlockCache& operator=(const KBlockCache&) = delete;

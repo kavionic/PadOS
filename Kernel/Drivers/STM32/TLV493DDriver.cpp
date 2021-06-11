@@ -93,7 +93,7 @@ void TLV493DDriver::ResetSensor()
 {
 	for (;;)
 	{
-		printf("Resetting TLV493D.\n");
+//		printf("Resetting TLV493D.\n");
 
 		m_PowerPin = false;
 		snooze_ms(100);
@@ -122,7 +122,7 @@ void TLV493DDriver::ResetSensor()
 			printf("Error: Failed to read initial TLV493D registers!\n");
 			snooze_ms(10);
 		}
-		printf("TLV493DDriver: initial registers read.\n");
+//		printf("TLV493DDriver: initial registers read.\n");
 
 		m_WriteRegisters.Reserved1 = 0;
 		m_WriteRegisters.Mode1 = m_ReadRegisters.DefaultCfg1;
@@ -141,11 +141,11 @@ void TLV493DDriver::ResetSensor()
 			printf("Error: Failed to write TLV493D config registers!\n");
 			snooze_s(1);
 			continue;
-		} else if (errorCount > 0) {
+		}/* else if (errorCount > 0) {
 			printf("TLV493DDriver: config written (%d retries).\n", errorCount);
 		} else {
 			printf("TLV493DDriver: config written.\n");
-		}
+		}*/
 
 		FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters)); // Trigger first conversion
 		break;
@@ -178,7 +178,7 @@ int TLV493DDriver::Run()
 		m_NewConfigCondition.WaitDeadline(m_Mutex, m_LastUpdateTime + m_PeriodTime);
 
 		if (errorCount >= 3) {
-			printf("Error: TLV493D to many errors. Reset sensor.\n");
+//			printf("Error: TLV493D to many errors. Reset sensor.\n");
 			ResetSensor();
 			errorCount = 0;
 		}
@@ -203,9 +203,9 @@ int TLV493DDriver::Run()
 		}
 		if ((m_ReadRegisters.TempHFrmCh & TLV493D_FRAME) == lastFrame) {
 			errorCount++;
-			if (errorCount > 1) {
-				printf("Error: TLV493D frame counter didn't advance %d.\n", errorCount);
-			}
+//			if (errorCount > 1) {
+//				printf("Error: TLV493D frame counter didn't advance %d.\n", errorCount);
+//			}
 			continue;
 		}
 		errorCount = 0;

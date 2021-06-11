@@ -76,7 +76,7 @@ File::File(const String& path, int openFlags) : FSNode(path, openFlags & ~O_NOFO
 {
     if (IsDir())
     {
-        Unset();
+        Close();
         errno = EINVAL;
     }
 }
@@ -105,7 +105,7 @@ File::File(const Directory& directory, const String& path, int openFlags) : FSNo
 {
     if (IsDir())
     {
-        Unset();
+        Close();
         errno = EINVAL;
     }
 }
@@ -131,7 +131,7 @@ File::File(const FileReference& reference, int openFlags) : FSNode(reference, op
 {
     if (IsDir())
     {
-        Unset();
+        Close();
         errno = EINVAL;
     }
 }
@@ -154,7 +154,7 @@ File::File(const FSNode& node) : FSNode(node)
 {
     if (IsDir())
     {
-        Unset();
+        Close();
         errno = EINVAL;
     }
 }
@@ -177,7 +177,7 @@ File::File(int fileDescriptor, bool takeOwnership) : FSNode(fileDescriptor, take
 {
     if (IsDir())
     {
-        Unset();
+        Close();
         errno = EINVAL;
     }
 }

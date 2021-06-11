@@ -25,6 +25,7 @@
 
 #include <Utils/String.h>
 #include <System/Types.h>
+#include <Storage/Path.h>
 
 namespace os
 {
@@ -69,21 +70,26 @@ public:
 
     virtual bool FDChanged(int newFileDescriptor, const struct ::stat& statBuffer);
     
-    virtual bool    SetTo(const String& path, int openFlags = O_RDONLY);
-    virtual bool    SetTo(const Directory& directory, const String& path, int openFlags = O_RDONLY);
-    virtual bool    SetTo(const FileReference& reference, int openFlags = O_RDONLY);
+    bool            Open(const Path& path, int openFlags = O_RDONLY) { return Open(path.GetPath(), openFlags); }
+    virtual bool    Open(const String& path, int openFlags = O_RDONLY);
+    virtual bool    Open(const Directory& directory, const String& path, int openFlags = O_RDONLY);
+    virtual bool    Open(const FileReference& reference, int openFlags = O_RDONLY);
     virtual bool    SetTo(int fileDescriptor, bool takeOwnership);
     virtual bool    SetTo(const FSNode& node);
     virtual bool    SetTo(FSNode&& node);
-    virtual void    Unset();
+    virtual void    Close();
     
     virtual bool    IsValid() const;
     
     virtual bool    GetStat(struct ::stat* statBuffer, bool updateCache = true) const;
+    virtual bool    SetStats(const struct stat& value, uint32_t mask) const;
+
     virtual ino_t   GetInode() const;
     virtual dev_t   GetDev() const;
     virtual int     GetMode(bool updateCache = false) const;
     virtual off64_t GetSize(bool updateCache = true) const;
+    virtual bool    SetSize(off64_t size) const;
+
     virtual time_t  GetCTime(bool updateCache = true) const;
     virtual time_t  GetMTime(bool updateCache = true) const;
     virtual time_t  GetATime(bool updateCache = true) const;

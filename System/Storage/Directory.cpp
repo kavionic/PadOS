@@ -35,7 +35,7 @@ using namespace os;
 /// \par Description:
 ///     Initiate the instance to a know but invalid state.
 ///     The instance must be successfully initialized with one
-///     of the SetTo() members before it can be used.
+///     of the Open() or SetTo() members before it can be used.
 ///
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
@@ -47,7 +47,7 @@ Directory::Directory()
 ///////////////////////////////////////////////////////////////////////////////
 /// Construct a directory from a path.
 /// \par Description:
-///     See: SetTo( const String& path, int openFlags )
+///     See: Open( const String& path, int openFlags )
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -55,7 +55,7 @@ Directory::Directory(const String& path, int openFlags) : FSNode(path, openFlags
 {
     if (IsValid() && !IsDir())
     {
-        Unset();
+        Close();
         errno = ENOTDIR;
     }
 }
@@ -63,7 +63,7 @@ Directory::Directory(const String& path, int openFlags) : FSNode(path, openFlags
 ///////////////////////////////////////////////////////////////////////////////
 /// Construct a directory from a path.
 /// \par Description:
-///     See: SetTo( const Directory& directory, const String& path, int openFlags )
+///     See: Open( const Directory& directory, const String& path, int openFlags )
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -71,7 +71,7 @@ Directory::Directory(const Directory& directory, const String& path, int openFla
 {
     if (IsValid() && !IsDir())
     {
-        Unset();
+        Close();
         errno = ENOTDIR;
     }
 }
@@ -79,7 +79,7 @@ Directory::Directory(const Directory& directory, const String& path, int openFla
 ///////////////////////////////////////////////////////////////////////////////
 /// Construct a directory from a path
 /// \par Description:
-///     See: SetTo( const FileReference& fileReference, int openFlags )
+///     See: Open( const FileReference& fileReference, int openFlags )
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -87,7 +87,7 @@ Directory::Directory(const FileReference& fileReference, int openFlags) : FSNode
 {
     if (IsValid() && !IsDir())
     {
-        Unset();
+        Close();
         errno = ENOTDIR;
     }
 }
@@ -103,7 +103,7 @@ Directory::Directory(const FSNode& node) : FSNode(node)
 {
     if (IsValid() && !IsDir())
     {
-        Unset();
+        Close();
         errno = ENOTDIR;
     }
 }
@@ -141,7 +141,7 @@ Directory::Directory(int fileDescriptor, bool takeOwnership) : FSNode(fileDescri
 {
     if (IsValid() && !IsDir())
     {
-        Unset();
+        Close();
         errno = ENOTDIR;
     }
 }
@@ -170,7 +170,7 @@ bool Directory::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Open a directory using a path.
-/// \f status_t Directory::SetTo( const String& path, int openFlags = O_RDONLY )
+/// \f status_t Directory::Open( const String& path, int openFlags = O_RDONLY )
 /// \par Description:
 ///     Open the directory pointed to by \p path. The path must
 ///     be valid and it must point to a directory.
@@ -274,7 +274,7 @@ bool Directory::CreateDirectory(const String& name, Directory& outDirectory, int
     if (FileIO::CreateDirectory(GetFileDescriptor(), name.c_str(), accessMode) < 0) {
         return false;
     }
-    return outDirectory.SetTo(*this, name, O_RDONLY);
+    return outDirectory.Open(*this, name, O_RDONLY);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -342,7 +342,7 @@ bool Directory::CreateSymlink(const String& name, const String& destinationPath,
     if (FileIO::Symlink(GetFileDescriptor(), destinationPath.c_str(), name.c_str()) < 0) {
         return false;
     }
-    return outLink.SetTo(*this, name, O_RDONLY);
+    return outLink.Open(*this, name, O_RDONLY);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

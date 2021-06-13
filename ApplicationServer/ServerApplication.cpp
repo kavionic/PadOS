@@ -183,6 +183,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
                                        int32_t              hideCount,
                                        FocusKeyboardMode    focusKeyboardMode,
                                        DrawingMode          drawingMode,
+                                       Font_e               fontID,
                                        Color                eraseColor,
                                        Color                bgColor,
                                        Color                fgColor)
@@ -207,7 +208,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
         }
     }
     
-    Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hideCount, focusKeyboardMode, drawingMode, eraseColor, bgColor, fgColor);
+    Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hideCount, focusKeyboardMode, drawingMode, fontID, eraseColor, bgColor, fgColor);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
         parent->AddChild(view, index);

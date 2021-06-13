@@ -23,7 +23,8 @@
 #include "Utils/String.h"
 #include "Utils/UTF8Utils.h"
 
-using namespace os;
+namespace os
+{
 
 String String::zero;
 
@@ -74,7 +75,7 @@ String& String::append(uint32_t unicode)
 {
     char utf8Buf[8];
     size_t utf8Length = unicode_to_utf8(utf8Buf, unicode);
-    insert(end(), utf8Buf, utf8Buf + utf8Length);    
+    insert(end(), utf8Buf, utf8Buf + utf8Length);
     return *this;
 }
 
@@ -131,7 +132,7 @@ bool String::ends_with_nocase(const char* token, size_t length) const
 size_t String::count_chars() const
 {
     size_t numChars = 0;
-    for (size_t i = 0 ; i < size() ; i += utf8_char_length((*this)[i])) {
+    for (size_t i = 0; i < size(); i += utf8_char_length((*this)[i])) {
         numChars++;
     }
     return numChars;
@@ -155,8 +156,8 @@ String& String::strip()
 String& String::lstrip()
 {
     std::string::iterator i;
-    
-    for ( i = begin() ; i != end() ; ++i)
+
+    for (i = begin(); i != end(); ++i)
     {
         if (!isspace(*i)) {
             break;
@@ -173,14 +174,14 @@ String& String::lstrip()
 String& String::rstrip()
 {
     size_t spaces = 0;
-    for (ssize_t i = size() - 1 ; i >= 0 ; --i)
+    for (ssize_t i = size() - 1; i >= 0; --i)
     {
         if (!isspace((*this)[i])) {
             break;
         }
         spaces++;
     }
-    resize(size() - spaces );
+    resize(size() - spaces);
     return *this;
 }
 
@@ -190,7 +191,7 @@ String& String::rstrip()
 
 String& String::lower()
 {
-    for (size_t i = 0 ; i < size() ; ++i) {
+    for (size_t i = 0; i < size(); ++i) {
         (*this)[i] = char(tolower((*this)[i]));
     }
     return *this;
@@ -207,3 +208,100 @@ String& String::upper()
     }
     return *this;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+String String::format_file_size(off64_t size)
+{
+    if (size < 1024LL) {
+        return format_string("%u", uint32_t(size));
+    } else if (size < 1024LL * 1024LL) {
+        return format_string("%uKB", uint32_t(size / 1024LL));
+    } else if (size < 1024LL * 1024LL * 1024LL) {
+        return format_string("%uMB", uint32_t(size / (1024LL * 1024LL)));
+    } else if (size < 1024LL * 1024LL * 1024LL * 1024LL) {
+        return format_string("%uGB", uint32_t(size / (1024LL * 1024LL * 1024LL)));
+    } else if (size < 1024LL * 1024LL * 1024LL * 1024LL * 1024LL) {
+        return format_string("%uTB", uint32_t(size / (1024LL * 1024LL * 1024LL * 1024LL)));
+    } else {
+        return format_string("%uPB", uint32_t(size / (1024LL * 1024LL * 1024LL * 1024LL * 1024LL)));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+String String::format_time_period(const TimeValMicros& timeVal, bool includeUnits, size_t maxCharacters)
+{
+    if (maxCharacters == 0) maxCharacters = std::numeric_limits<size_t>::max();
+
+    bigtime_t seconds = timeVal.AsSecondsI();
+
+    char secondStr[6] = { 0 };
+    char minuteStr[4] = { 0 };
+    char hourStr[4] = { 0 };
+    char dayStr[5] = { 0 };
+    char yearStr[8] = { 0 }; // Max years in a TimeValMicros: 584942
+
+    if (seconds < 60)
+    {
+        sprintf(secondStr, "%.1f", timeVal.AsSecondsF());
+        if (includeUnits) strcat(secondStr, "s");
+    }
+    else
+    {
+        sprintf(secondStr, "%02lu", uint32_t(seconds) % 60);
+        if (includeUnits) strcat(secondStr, "s");
+        if (seconds >= 60LL)
+        {
+            sprintf(minuteStr, "%02lu", uint32_t(seconds) / 60 % 60);
+            if (includeUnits) strcat(minuteStr, "m");
+            if (seconds >= 60LL * 60LL)
+            {
+                sprintf(hourStr, "%02lu", uint32_t(seconds) / 60 / 60 % 24);
+                if (includeUnits) strcat(hourStr, "h");
+                if (seconds >= 60LL * 60LL * 24LL)
+                {
+                    sprintf(dayStr, "%lu", uint32_t(seconds) / 60 / 60 / 24 % 365);
+                    if (includeUnits) strcat(dayStr, "d");
+                    if (seconds >= 60LL * 60LL * 24LL * 365LL)
+                    {
+                        sprintf(yearStr, "%" PRIu64, seconds / 60 / 60 / 24 / 365);
+                        if (includeUnits) strcat(yearStr, "y");
+                    }
+                }
+            }
+        }
+    }
+    String result;
+    if (yearStr[0] != '\0') {
+        result += yearStr;
+    }
+    if (dayStr[0] != '\0')
+    {
+        if (result.size() + 1 + strlen(dayStr) > maxCharacters) return result;
+        if (!result.empty()) result += ":";
+        result += dayStr;
+    }
+    if (hourStr[0] != '\0')
+    {
+        if (result.size() + 1 + strlen(hourStr) > maxCharacters) return result;
+        if (!result.empty()) result += ":";
+        result += hourStr;
+    }
+    if (minuteStr[0] != '\0')
+    {
+        if (result.size() + 1 + strlen(minuteStr) > maxCharacters) return result;
+        if (!result.empty()) result += ":";
+        result += minuteStr;
+    }
+    if (!result.empty() && (result.size() + 1 + strlen(secondStr) > maxCharacters)) return result;
+    if (!result.empty()) result += ":";
+    result += secondStr;
+    return result;
+}
+
+} //namespace os

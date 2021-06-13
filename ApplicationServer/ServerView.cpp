@@ -37,13 +37,14 @@ static int g_ServerViewCount = 0;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ServerView::ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, ViewDockType dockType, uint32_t flags, int32_t hideCount, FocusKeyboardMode focusKeyboardMode, DrawingMode drawingMode, Color eraseColor, Color bgColor, Color fgColor)
+ServerView::ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, ViewDockType dockType, uint32_t flags, int32_t hideCount, FocusKeyboardMode focusKeyboardMode, DrawingMode drawingMode, Font_e fontID, Color eraseColor, Color bgColor, Color fgColor)
     : ViewBase(name, frame, scrollOffset, flags, hideCount, eraseColor, bgColor, fgColor)
     , m_Bitmap(bitmap)
     , m_DockType(dockType)
     , m_FocusKeyboardMode(focusKeyboardMode)
     , m_DrawingMode(drawingMode)
 {
+    m_Font->Set(fontID);
     g_ServerViewCount++;
 }
 

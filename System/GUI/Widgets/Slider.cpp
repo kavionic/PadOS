@@ -66,6 +66,8 @@ Slider::Slider(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_no
 {
     MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, SliderFlags::FlagMap, "flags", SliderFlags::TicksBelow | SliderFlags::KnobPointDown) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
 
+    SetFont(ptr_new<Font>(Font_e::e_FontSmall));
+
     m_Orientation   = context->GetAttribute(xmlData, "orientation", Orientation::Horizontal);
     m_NumTicks      = context->GetAttribute(xmlData, "num_ticks", 10);
 

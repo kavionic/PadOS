@@ -22,7 +22,8 @@
 #include <string>
 #include <vector>
 #include <stdarg.h>
-#include "System/Types.h"
+#include <System/Types.h>
+#include <System/SysTime.h>
 
 namespace os
 {
@@ -99,22 +100,8 @@ public:
         return result;
     }
 
-    static String format_file_size(off64_t size)
-    {
-        if (size < 1024LL) {
-            return format_string("%u", uint32_t(size));
-        } else if (size < 1024LL  * 1024LL) {
-            return format_string("%uKB", uint32_t(size / 1024LL));
-        } else if (size < 1024LL * 1024LL * 1024LL) {
-            return format_string("%uMB", uint32_t(size / (1024LL * 1024LL)));
-        } else if (size < 1024LL * 1024LL * 1024LL * 1024LL) {
-            return format_string("%uGB", uint32_t(size / (1024LL * 1024LL * 1024LL)));
-        } else if (size < 1024LL * 1024LL * 1024LL * 1024LL * 1024LL) {
-            return format_string("%uTB", uint32_t(size / (1024LL * 1024LL * 1024LL * 1024LL)));
-        } else {
-            return format_string("%uPB", uint32_t(size / (1024LL * 1024LL * 1024LL * 1024LL * 1024LL)));
-        }
-    }
+    static String format_file_size(off64_t size);
+    static String format_time_period(const TimeValMicros& timeVal, bool includeUnits, size_t maxCharacters = 0);
 
     // FNV-1a 32bit hashing algorithm.
     inline static constexpr uint32_t hash_string_literal(char const* s, size_t count)

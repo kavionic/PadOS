@@ -59,6 +59,7 @@ private:
                         int32_t hideCount,
                         FocusKeyboardMode focusKeyboardMode,
                         DrawingMode drawingMode,
+                        Font_e      fontID,
                         Color eraseColor,
                         Color bgColor,
                         Color fgColor);

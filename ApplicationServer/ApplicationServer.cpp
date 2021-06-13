@@ -64,7 +64,7 @@ ApplicationServer::ApplicationServer(Ptr<os::DisplayDriver> displayDriver)
     s_DisplayDriver = displayDriver;
     s_DisplayDriver->Open();
     s_ScreenBitmap = s_DisplayDriver->GetScreenBitmap();
-    m_TopView = ptr_new<ServerView>(ptr_raw_pointer_cast(s_ScreenBitmap), "::topview::", GetScreenFrame(), Point(0.0f, 0.0f), ViewDockType::TopLevelView, 0, 0, FocusKeyboardMode::None, DrawingMode::Copy, Color(0xffffffff), Color(0xffffffff), Color(0));
+    m_TopView = ptr_new<ServerView>(ptr_raw_pointer_cast(s_ScreenBitmap), "::topview::", GetScreenFrame(), Point(0.0f, 0.0f), ViewDockType::TopLevelView, 0, 0, FocusKeyboardMode::None, DrawingMode::Copy, Font_e::e_FontLarge, Color(0xffffffff), Color(0xffffffff), Color(0));
 
     AddHandler(m_TopView);
 

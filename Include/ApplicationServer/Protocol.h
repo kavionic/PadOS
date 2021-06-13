@@ -31,6 +31,7 @@
 namespace os
 {
 class Rect;
+enum class Font_e : uint8_t;
 
 port_id get_appserver_port();
 port_id get_window_manager_port();
@@ -159,6 +160,7 @@ using ASCreateView = RemoteSignal<AppserverProtocol::CREATE_VIEW
     , int32_t           // hideCount
     , FocusKeyboardMode // focusKeyboardMode
     , DrawingMode       // drawingMode
+    , Font_e            // fontID
     , Color             // eraseColor
     , Color             // bgColor
     , Color             // fgColor

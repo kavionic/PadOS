@@ -30,7 +30,7 @@ class SrvBitmap;
 class ServerView : public ViewBase<ServerView>
 {
 public:
-    ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, ViewDockType dockType, uint32_t flags, int32_t hideCount, FocusKeyboardMode focusKeyboardMode, DrawingMode drawingMode, Color eraseColor, Color bgColor, Color fgColor);
+    ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, ViewDockType dockType, uint32_t flags, int32_t hideCount, FocusKeyboardMode focusKeyboardMode, DrawingMode drawingMode, Font_e fontID, Color eraseColor, Color bgColor, Color fgColor);
     virtual ~ServerView();
     void        SetClientHandle(port_id port, handler_id handle) { m_ClientPort = port; m_ClientHandle = handle; }
     port_id     GetClientPort() const   { return m_ClientPort; }

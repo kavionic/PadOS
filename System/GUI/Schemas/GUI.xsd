@@ -182,6 +182,19 @@
 		</xs:complexType>
 	</xs:element>
 
+	<xs:element name="ProgressBar">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="View">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+					<xs:attribute name="orientation"	type="Orientation"	use="optional" />
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+	
 	<xs:element name="RadioButton">
 		<xs:complexType>
 			<xs:complexContent>
@@ -223,6 +236,7 @@
 					<xs:attribute name="drag_scale_range"	type="xs:float"		use="optional" />
 					<xs:attribute name="value"		type="xs:float"		use="optional" />
 					<xs:attribute name="value_format"	type="xs:string"	use="optional" />
+					<xs:attribute name="value_scale"	type="xs:float"		use="optional" />
 				</xs:extension>
 			</xs:complexContent>
 		</xs:complexType>

@@ -30,8 +30,17 @@ using namespace os;
 ProgressBar::ProgressBar(const std::string& name, Ptr<View> parent, Orientation orientation, uint32_t flags)
     : View(name, parent, flags | ViewFlags::WillDraw | ViewFlags::ClearBackground)
 {
-    m_Progress = 0.0f;
     m_Orientation = orientation;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ProgressBar::ProgressBar(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+{
+    MergeFlags(ViewFlags::WillDraw | ViewFlags::ClearBackground);
+    m_Orientation = context->GetAttribute(xmlData, "orientation", Orientation::Horizontal);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

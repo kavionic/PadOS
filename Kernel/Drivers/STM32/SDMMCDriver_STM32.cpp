@@ -314,7 +314,20 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
 
     if (result)
     {
-        result = WaitIRQ(SDMMC_MASK_DATAENDIE | SDMMC_MASK_IDMABTCIE | SDMMC_MASK_DABORTIE | SDMMC_MASK_DTIMEOUTIE | SDMMC_MASK_DCRCFAILIE);
+        TimeValMicros startTime = get_system_time();
+        do
+        {
+            result = WaitIRQ(SDMMC_MASK_DATAENDIE | SDMMC_MASK_IDMABTCIE | SDMMC_MASK_DABORTIE | SDMMC_MASK_DTIMEOUTIE | SDMMC_MASK_DCRCFAILIE);
+            if (!result) break;
+            if (get_system_time() - startTime > TimeValMicros::FromMilliseconds(500))
+            {
+                result = false;
+                printf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() could only read %u of %u blocks.\n", m_CurrentSegment, m_SegmentCount);
+                break;
+            }
+        } while (m_CurrentSegment != m_SegmentCount);
+    } else {
+        printf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() Failed to start cmd %lu:%u (%d)\n", arg, m_SegmentCount, int(m_WakeupReason));
     }
     m_SDMMC->IDMACTRL = 0;
 //    m_SDMMC->CLKCR &= ~SDMMC_CLKCR_HWFC_EN; // Hardware flow-control disabled.

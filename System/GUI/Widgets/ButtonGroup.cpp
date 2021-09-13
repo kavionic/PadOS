@@ -106,7 +106,7 @@ Ptr<ButtonBase> ButtonGroup::RemoveButtonAt(size_t index)
 Ptr<ButtonBase>	ButtonGroup::SetSelectedIndex(size_t index, bool sendEvent)
 {
 	Ptr<ButtonBase> button = GetButton(index);
-	SelectButton(button);
+	SelectButton(button, sendEvent);
 
 	return button;
 }

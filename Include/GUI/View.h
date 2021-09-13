@@ -143,7 +143,7 @@ public:
     virtual Point GetContentSize() const;
 
     void PreferredSizeChanged();
-    void ContentSizeChanged();
+    virtual void ContentSizeChanged();
 
 
 //    virtual void WheelMoved( const Point& cDelta );

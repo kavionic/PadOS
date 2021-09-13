@@ -116,3 +116,20 @@ bool Acceleration::CalculateMaxCruiseSpeed(float distance, float startSpeed, flo
     }
 }
 
+float Acceleration::CalcTravelTime(float distance, float startSpeed, float cruiseSpeed, float endSpeed, float acceleration)
+{
+    float accDist;
+    float decDist;
+    float maxCruiseSpeed;
+    float maxEndSpeed;
+
+    CalculateMaxCruiseSpeed(distance, startSpeed, cruiseSpeed, endSpeed, acceleration, accDist, decDist, maxCruiseSpeed, maxEndSpeed);
+
+    const float accTime = fabsf(maxCruiseSpeed - startSpeed) / acceleration;
+    const float decTime = fabsf(endSpeed - maxCruiseSpeed) / acceleration;
+    const float cruiseDist = distance - accDist - decDist;
+    const float cruiseTime = (maxCruiseSpeed != 0.0f) ? cruiseDist / maxCruiseSpeed : 0.0f;
+
+    return accTime + cruiseTime + decTime;
+}
+

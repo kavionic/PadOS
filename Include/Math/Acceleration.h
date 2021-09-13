@@ -29,7 +29,7 @@ float CalculateAccelerationSpeed(float distance, float startSpeed, float acceler
 float CalcAccelerationDistance(float startSpeed, float resultSpeed, float acceleration);
 float CalcMaxSpeedPermittingStop(float distance, float startSpeed, float endSpeed, float acceleration);
 bool  CalculateMaxCruiseSpeed(float distance, float startSpeed, float cruiseSpeed, float endSpeed, float acceleration, float& outAccDist, float& outDecDist, float& outMaxCruiseSpeed, float& outMaxEndSpeed);
-
+float CalcTravelTime(float distance, float startSpeed, float cruiseSpeed, float endSpeed, float acceleration);
 
 } // namespace Acceleration
 

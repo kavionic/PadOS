@@ -40,6 +40,7 @@
 class DigitalPin;
 
 size_t get_heap_size();
+size_t get_max_heap_size();
 
 namespace kernel
 {
@@ -49,7 +50,7 @@ class KFileNode;
 class KFSVolume;
 class KRootFilesystem;
 
-void handle_panic(const char* message); // To be implemented by user code.
+void handle_panic(const char* message) __attribute__((__noreturn__)); // To be implemented by user code.
 
 
 static constexpr uint32_t SYS_TICKS_PER_SEC = 1000;
@@ -86,7 +87,7 @@ template<typename ...ARGS>
 void kernel_log(uint32_t category, KLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel_log_is_category_active(category, severity)) kprintf(fmt, args...); }
 
 
-void panic(const char* message);
+void panic(const char* message) __attribute__((__noreturn__));
 
 template<typename FIRSTARG, typename... ARGS>
 void panic(const char* fmt, FIRSTARG&& firstArg, ARGS&&... args)

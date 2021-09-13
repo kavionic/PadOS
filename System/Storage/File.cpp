@@ -236,7 +236,7 @@ bool File::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::FillBuffer(off64_t position)
+bool File::FillBuffer(off64_t position) const
 {
     if (!IsValid()) {
         set_last_error(EINVAL);
@@ -254,8 +254,8 @@ bool File::FillBuffer(off64_t position)
     const int fileDescriptor = GetFileDescriptor();
     for(;;)
     {
-        ssize_t nLen = FileIO::Read(fileDescriptor, position, m_Buffer, m_BufferSize);
-        if (nLen < 0)
+        ssize_t length = FileIO::Read(fileDescriptor, position, m_Buffer, m_BufferSize);
+        if (length < 0)
         {
             if (errno == EINTR) {
                 continue;
@@ -263,7 +263,7 @@ bool File::FillBuffer(off64_t position)
                 return false;
             }
         }
-        m_ValidBufferSize = nLen;
+        m_ValidBufferSize = length;
         return true;
     }
 }
@@ -374,7 +374,7 @@ size_t File::GetBufferSize() const
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::Flush()
+bool File::Flush() const
 {
     if (!IsValid()) {
         set_last_error(EINVAL);
@@ -500,7 +500,7 @@ bool File::Write(const String& buffer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t File::ReadPos(off64_t position, void* buffer, ssize_t size)
+ssize_t File::ReadPos(off64_t position, void* buffer, ssize_t size) const
 {
     if (!IsValid()) {
         set_last_error(EINVAL);

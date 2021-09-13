@@ -249,3 +249,8 @@ size_t get_heap_size()
 {
     return g_HeapSize;
 }
+
+size_t get_max_heap_size()
+{
+    return HEAP_END - HEAP_START;
+}

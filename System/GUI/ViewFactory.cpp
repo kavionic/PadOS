@@ -28,6 +28,7 @@
 #include <GUI/Widgets/Checkbox.h>
 #include <GUI/Widgets/DropdownMenu.h>
 #include <GUI/Widgets/ListView.h>
+#include <GUI/Widgets/ProgressBar.h>
 #include <GUI/Widgets/RadioButton.h>
 #include <GUI/Widgets/ScrollView.h>
 #include <GUI/Widgets/Slider.h>
@@ -48,6 +49,7 @@ VIEW_FACTORY_REGISTER_CLASS(CheckBox);
 VIEW_FACTORY_REGISTER_CLASS(DropdownMenu);
 VIEW_FACTORY_REGISTER_CLASS(GroupView);
 VIEW_FACTORY_REGISTER_CLASS(ListView);
+VIEW_FACTORY_REGISTER_CLASS(ProgressBar);
 VIEW_FACTORY_REGISTER_CLASS(RadioButton);
 VIEW_FACTORY_REGISTER_CLASS(Slider);
 VIEW_FACTORY_REGISTER_CLASS(TabView);

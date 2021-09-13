@@ -21,6 +21,7 @@
 
 #include "System/HandleObject.h"
 #include "Threads.h"
+#include "Mutex.h"
 
 namespace os
 {

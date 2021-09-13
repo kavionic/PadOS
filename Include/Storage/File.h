@@ -58,7 +58,7 @@ public:
     bool            Write(const String& buffer);
 
       // From seekableIO
-    virtual ssize_t ReadPos(off64_t position, void* buffer, ssize_t size) override;
+    virtual ssize_t ReadPos(off64_t position, void* buffer, ssize_t size) const override;
     virtual ssize_t WritePos(off64_t position, const void* buffer, ssize_t size) override;
 
     virtual off64_t Seek(off64_t position, int mode) override;
@@ -66,17 +66,17 @@ public:
       // From File
     bool    SetBufferSize(size_t size);
     size_t  GetBufferSize() const;
-    bool    Flush();
+    bool    Flush() const;
     
 private:
-    bool FillBuffer(off64_t nPos);
+    bool FillBuffer(off64_t nPos) const;
 
-    uint8_t*    m_Buffer = nullptr;
-    size_t      m_BufferSize = DEFAULT_BUFFER_SIZE;
-    size_t      m_ValidBufferSize = 0;
-    off64_t     m_Position = 0;
-    off64_t     m_BufferPosition = 0;
-    bool        m_Dirty = false;
+    mutable uint8_t*    m_Buffer = nullptr;
+    size_t              m_BufferSize = DEFAULT_BUFFER_SIZE;
+    mutable size_t      m_ValidBufferSize = 0;
+    off64_t             m_Position = 0;
+    mutable off64_t     m_BufferPosition = 0;
+    mutable bool        m_Dirty = false;
 };
 
 

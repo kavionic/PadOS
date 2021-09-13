@@ -40,12 +40,14 @@ protected:
 
     struct EmitGuard
     {
-        EmitGuard( const SignalBase* targetSignal, SlotBase* slotIterator ) : m_SlotIterator(slotIterator) {
+        EmitGuard( const SignalBase* targetSignal, SlotBase* slotIterator ) : m_SlotIterator(slotIterator)
+        {
             m_Signal = targetSignal;
             m_Next = s_LocalEmitGuard.Get();
             s_LocalEmitGuard.Set(this);
         }
-        ~EmitGuard() {
+        ~EmitGuard()
+        {
             assert(s_LocalEmitGuard.Get() == this);
             s_LocalEmitGuard.Set(m_Next);
         }

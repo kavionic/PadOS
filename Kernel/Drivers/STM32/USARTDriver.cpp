@@ -211,6 +211,8 @@ int USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDa
     CRITICAL_SCOPE(m_MutexRead);
     CRITICAL_SCOPE(m_MutexWrite);
 
+    while((m_Port->ISR & USART_ISR_TC) == 0);
+
     switch (request)
     {
         case USARTIOCTL_SET_BAUDRATE:
@@ -279,6 +281,7 @@ int USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDa
                     case USARTPin::RX:
                         if (SetPinMode(m_PinRX, mode)) {
                             m_PinModeRX = mode;
+                            m_Port->RQR = USART_RQR_RXFRQ;  // Flush receive buffer
                             return 0;
                         } else {
                             set_last_error(EINVAL);
@@ -287,6 +290,7 @@ int USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDa
                     case USARTPin::TX:
                         if (SetPinMode(m_PinTX, mode)) {
                             m_PinModeTX = mode;
+                            m_Port->RQR = USART_RQR_RXFRQ;  // Flush receive buffer
                             return 0;
                         } else {
                             set_last_error(EINVAL);
@@ -454,6 +458,9 @@ void USARTDriverINode::SetSwapRXTX(bool doSwap)
             m_Port->CR2 &= ~USART_CR2_SWAP;
         }
         m_Port->CR1 = cr1;
+
+        m_Port->RQR = USART_RQR_RXFRQ;  // Flush receive buffer
+
         m_ReceiveBufferInPos = 0;
         dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
         dma_start(m_ReceiveDMAChannel);

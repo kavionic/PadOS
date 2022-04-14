@@ -12,7 +12,7 @@ include_directories(. Include ExternalLibs)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_compile_definitions(STM32H743xx __FPU_PRESENT ARM_MATH_CM7=true __machine_ino_t_defined __ino_t=int64_t)
+add_compile_definitions(STM32H7 STM32H753xx ARM_MATH_CM7=true __machine_ino_t_defined __ino_t=int64_t)
 
 set(PADOS_C_CXX_FLAGS "-Wall -Wextra -Wconversion -Wno-unused-parameter -Wno-multichar -Wno-sign-compare")
 set(PADOS_C_CXX_FLAGS "${PADOS_C_CXX_FLAGS} -Wno-psabi") # Supress STL warnings

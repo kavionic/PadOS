@@ -3,8 +3,10 @@
 namespace kernel
 {
 
-enum class DMAMUX1_REQUEST : int
+enum class DMAMUX_REQUEST : int
 {
+    MUX1_FIRST_ID = 0,
+
 	REQ_MEM2MEM        =  0,  // memory to memory transfer
 	REQ_GENERATOR0     =  1,  // DMAMUX1 request generator 0
 	REQ_GENERATOR1     =  2,  // DMAMUX1 request generator 1
@@ -119,29 +121,30 @@ enum class DMAMUX1_REQUEST : int
 	REQ_TIM17_UP       = 112, // DMAMUX1 TIM17 UP request
 	REQ_SAI3_A         = 113, // DMAMUX1 SAI3 A request
 	REQ_SAI3_B         = 114, // DMAMUX1 SAI3 B request
-	REQ_ADC3           = 115  // DMAMUX1 ADC3 request
-};
+	REQ_ADC3           = 115, // DMAMUX1 ADC3 request
 
-enum class DMAMUX2_REQUEST : int
-{
-	BDMA_REQ_MEM2MEM    =  0, // memory to memory transfer
-	BDMA_REQ_GENERATOR0 =  1, // DMAMUX2 request generator 0
-	BDMA_REQ_GENERATOR1 =  2, // DMAMUX2 request generator 1
-	BDMA_REQ_GENERATOR2 =  3, // DMAMUX2 request generator 2
-	BDMA_REQ_GENERATOR3 =  4, // DMAMUX2 request generator 3
-	BDMA_REQ_GENERATOR4 =  5, // DMAMUX2 request generator 4
-	BDMA_REQ_GENERATOR5 =  6, // DMAMUX2 request generator 5
-	BDMA_REQ_GENERATOR6 =  7, // DMAMUX2 request generator 6
-	BDMA_REQ_GENERATOR7 =  8, // DMAMUX2 request generator 7
-	BDMA_REQ_LPUART1_RX =  9, // DMAMUX2 LP_UART1_RX request
-	BDMA_REQ_LPUART1_TX = 10, // DMAMUX2 LP_UART1_TX request
-	BDMA_REQ_SPI6_RX    = 11, // DMAMUX2 SPI6 RX request
-	BDMA_REQ_SPI6_TX    = 12, // DMAMUX2 SPI6 TX request
-	BDMA_REQ_I2C4_RX    = 13, // DMAMUX2 I2C4 RX request
-	BDMA_REQ_I2C4_TX    = 14, // DMAMUX2 I2C4 TX request
-	BDMA_REQ_SAI4_A     = 15, // DMAMUX2 SAI4 A request
-	BDMA_REQ_SAI4_B     = 16, // DMAMUX2 SAI4 B request
-	BDMA_REQ_ADC3       = 17  // DMAMUX2 ADC3 request
+    MUX2_FIRST_ID = 256,
+
+    BDMA_REQ_MEM2MEM    = MUX2_FIRST_ID + 0, // memory to memory transfer
+    BDMA_REQ_GENERATOR0 = MUX2_FIRST_ID + 1, // DMAMUX2 request generator 0
+    BDMA_REQ_GENERATOR1 = MUX2_FIRST_ID + 2, // DMAMUX2 request generator 1
+    BDMA_REQ_GENERATOR2 = MUX2_FIRST_ID + 3, // DMAMUX2 request generator 2
+    BDMA_REQ_GENERATOR3 = MUX2_FIRST_ID + 4, // DMAMUX2 request generator 3
+    BDMA_REQ_GENERATOR4 = MUX2_FIRST_ID + 5, // DMAMUX2 request generator 4
+    BDMA_REQ_GENERATOR5 = MUX2_FIRST_ID + 6, // DMAMUX2 request generator 5
+    BDMA_REQ_GENERATOR6 = MUX2_FIRST_ID + 7, // DMAMUX2 request generator 6
+    BDMA_REQ_GENERATOR7 = MUX2_FIRST_ID + 8, // DMAMUX2 request generator 7
+    BDMA_REQ_LPUART1_RX = MUX2_FIRST_ID + 9, // DMAMUX2 LP_UART1_RX request
+    BDMA_REQ_LPUART1_TX = MUX2_FIRST_ID + 10, // DMAMUX2 LP_UART1_TX request
+    BDMA_REQ_SPI6_RX    = MUX2_FIRST_ID + 11, // DMAMUX2 SPI6 RX request
+    BDMA_REQ_SPI6_TX    = MUX2_FIRST_ID + 12, // DMAMUX2 SPI6 TX request
+    BDMA_REQ_I2C4_RX    = MUX2_FIRST_ID + 13, // DMAMUX2 I2C4 RX request
+    BDMA_REQ_I2C4_TX    = MUX2_FIRST_ID + 14, // DMAMUX2 I2C4 TX request
+    BDMA_REQ_SAI4_A     = MUX2_FIRST_ID + 15, // DMAMUX2 SAI4 A request
+    BDMA_REQ_SAI4_B     = MUX2_FIRST_ID + 16, // DMAMUX2 SAI4 B request
+    BDMA_REQ_ADC3       = MUX2_FIRST_ID + 17  // DMAMUX2 ADC3 request
+
+
 };
 
 } // namespace

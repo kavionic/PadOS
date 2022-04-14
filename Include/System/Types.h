@@ -36,7 +36,5 @@ typedef int64_t  ssize64_t;
 
 typedef uint16_t wchar16_t;
 
-#define O_NOFOLLOW 0x100000
-
 constexpr handler_id	INVALID_HANDLE = -1;
 constexpr size_t		INVALID_INDEX = size_t(-1);

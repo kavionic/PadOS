@@ -27,6 +27,7 @@
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/HAL/DMA.h"
+#include "Kernel/HAL/PeripheralMapping.h"
 #include "DeviceControl/WS2812B.h"
 #include "Utils/Utils.h"
 #include "GUI/Color.h"
@@ -40,14 +41,16 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-WS2812BDriverINode::WS2812BDriverINode(SPI_TypeDef* port, bool swapIOPins, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency, KFilesystemFileOps* fileOps)
+WS2812BDriverINode::WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t clockFrequency, KFilesystemFileOps* fileOps)
 	: KINode(nullptr, nullptr, fileOps, false)
 	, m_Mutex("WS2812BDriverINodeWrite")
 	, m_TransmitCondition("WS2812BDriverINodeTransmit")
-	, m_DMARequestTX(dmaRequestTX)
-
 {
-	m_Port = port;
+	m_Port = get_spi_from_id(portID);
+
+    DMAMUX_REQUEST dmaRequestRX;
+
+    get_spi_dma_requests(portID, dmaRequestRX, m_DMARequestTX);
 
 //	const uint32_t bitRate = 800000 * 3;
 	uint32_t divider = get_first_bit_index(64) - 1;
@@ -295,9 +298,9 @@ WS2812BDriver::~WS2812BDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void WS2812BDriver::Setup(const char* devicePath, bool swapIOPins, SPI_TypeDef* port, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency)
+void WS2812BDriver::Setup(const char* devicePath, bool swapIOPins, SPIID portID, uint32_t clockFrequency)
 {
-    Ptr<WS2812BDriverINode> node = ptr_new<WS2812BDriverINode>(port, swapIOPins, dmaRequestTX, clockFrequency, this);
+    Ptr<WS2812BDriverINode> node = ptr_new<WS2812BDriverINode>(portID, swapIOPins, clockFrequency, this);
     Kernel::RegisterDevice(devicePath, node);
 }
 

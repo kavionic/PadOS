@@ -739,7 +739,7 @@ static void idle_thread_entry(void* arguments)
 {
     for(;;)
     {
-        __WFI();
+//        __WFI();
     }
 }
 

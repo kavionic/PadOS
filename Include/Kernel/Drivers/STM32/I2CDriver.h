@@ -32,67 +32,69 @@
 
 namespace kernel
 {
-
+class I2CDriver;
 class KSemaphore;
+enum class I2CID : int;
+enum class SPIID : int;
 
 enum class I2CSpeed : int
 {
-	Standard,
-	Fast,
-	FastPlus
+    Standard,
+    Fast,
+    FastPlus
 };
 
 struct I2CSpec
 {
-	uint32_t Baudrate;
-	uint32_t BaudrateMin;
-	double ClockLowMin;
-	double ClockHighMin;
-	double DataHoldTimeMin;
-	double DataValidTimeMax;
-	double DataSetupTimeMin;
-	double FallTimeMax;
-	double RiseTimeMax;
+    uint32_t Baudrate;
+    uint32_t BaudrateMin;
+    double ClockLowMin;
+    double ClockHighMin;
+    double DataHoldTimeMin;
+    double DataValidTimeMax;
+    double DataSetupTimeMin;
+    double FallTimeMax;
+    double RiseTimeMax;
 };
 
 constexpr I2CSpec I2CSpecs[] =
 {
-	[int(I2CSpeed::Standard)] =
-	{
-		.Baudrate = 100000,
-		.BaudrateMin = 80000,
-		.ClockLowMin = 4700.0e-9,
-		.ClockHighMin = 4000.0e-9,
-		.DataHoldTimeMin = 0.0,
-		.DataValidTimeMax = 3450.0e-9,
-		.DataSetupTimeMin = 250.0e-9,
-		.FallTimeMax = 300.0e-9,
-		.RiseTimeMax = 1000.0e-9,
-	},
-	[int(I2CSpeed::Fast)] =
-	{
-		.Baudrate = 400000,
-		.BaudrateMin = 320000,
-		.ClockLowMin = 1300.0e-9,
-		.ClockHighMin = 600.0e-9,
-		.DataHoldTimeMin = 0.0,
-		.DataValidTimeMax = 900.0e-9,
-		.DataSetupTimeMin = 100.0e-9,
-		.FallTimeMax = 300.0e-9,
-		.RiseTimeMax = 300.0e-9,
-	},
-	[int(I2CSpeed::FastPlus)] =
-	{
-		.Baudrate = 1000000,
-		.BaudrateMin = 800000,
-		.ClockLowMin = 500.0e-9,
-		.ClockHighMin = 260.0e-9,
-		.DataHoldTimeMin = 0.0,
-		.DataValidTimeMax = 450.0e-9,
-		.DataSetupTimeMin = 50.0e-9,
-		.FallTimeMax = 100.0e-9,
-		.RiseTimeMax = 120.0e-9,
-	},
+    [int(I2CSpeed::Standard)] =
+    {
+        .Baudrate = 100000,
+        .BaudrateMin = 80000,
+        .ClockLowMin = 4700.0e-9,
+        .ClockHighMin = 4000.0e-9,
+        .DataHoldTimeMin = 0.0,
+        .DataValidTimeMax = 3450.0e-9,
+        .DataSetupTimeMin = 250.0e-9,
+        .FallTimeMax = 300.0e-9,
+        .RiseTimeMax = 1000.0e-9,
+    },
+    [int(I2CSpeed::Fast)] =
+    {
+        .Baudrate = 400000,
+        .BaudrateMin = 320000,
+        .ClockLowMin = 1300.0e-9,
+        .ClockHighMin = 600.0e-9,
+        .DataHoldTimeMin = 0.0,
+        .DataValidTimeMax = 900.0e-9,
+        .DataSetupTimeMin = 100.0e-9,
+        .FallTimeMax = 300.0e-9,
+        .RiseTimeMax = 300.0e-9,
+    },
+    [int(I2CSpeed::FastPlus)] =
+    {
+        .Baudrate = 1000000,
+        .BaudrateMin = 800000,
+        .ClockLowMin = 500.0e-9,
+        .ClockHighMin = 260.0e-9,
+        .DataHoldTimeMin = 0.0,
+        .DataValidTimeMax = 450.0e-9,
+        .DataSetupTimeMin = 50.0e-9,
+        .FallTimeMax = 100.0e-9,
+        .RiseTimeMax = 120.0e-9,
+    },
 };
 
 class I2CFile : public KFileNode
@@ -100,17 +102,17 @@ class I2CFile : public KFileNode
 public:
     I2CFile(int openFlags) : KFileNode(openFlags) {}
 
-	I2C_ADDR_LEN	m_SlaveAddressLength = I2C_ADDR_LEN_7BIT;
-    uint8_t			m_SlaveAddress = 0;
-    int8_t			m_InternalAddressLength = 0;
-	TimeValMicros	m_Timeout = TimeValMicros::infinit; // Timeout for any IO operations.
+    I2C_ADDR_LEN    m_SlaveAddressLength = I2C_ADDR_LEN_7BIT;
+    uint8_t         m_SlaveAddress = 0;
+    int8_t          m_InternalAddressLength = 0;
+    TimeValMicros   m_Timeout = TimeValMicros::infinit; // Timeout for any IO operations.
 };
 
 
 class I2CDriverINode : public KINode
 {
 public:
-	I2CDriverINode(KFilesystemFileOps* fileOps, I2C_TypeDef* port, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, IRQn_Type eventIRQ, IRQn_Type errorIRQ, uint32_t clockFrequency, double fallTime, double riseTime);
+    I2CDriverINode(I2CDriver* driver, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
     virtual ~I2CDriverINode() override;
 
 
@@ -121,58 +123,70 @@ public:
     ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length);
 
 private:
-	void ResetPeripheral();
+    void ResetPeripheral();
     void ClearBus();
-	int SetSpeed(I2CSpeed speed);
-	int GetBaudrate() const;
+    int SetSpeed(I2CSpeed speed);
+    int GetBaudrate() const;
 
     I2CDriverINode(const I2CDriverINode&) = delete;
     I2CDriverINode& operator=(const I2CDriverINode&) = delete;
 
-	enum class State_e
-	{
-		Idle,
-		SendReadAddress,
-		SendWriteAddress,
+    enum class State_e
+    {
+        Idle,
+        SendReadAddress,
+        SendWriteAddress,
         Reading,
         Writing
     };
     
-	void UpdateTransactionLength(uint32_t& CR2);
+    void UpdateTransactionLength(uint32_t& CR2);
 
-	static IRQResult IRQCallbackEvent(IRQn_Type irq, void* userData) { return static_cast<I2CDriverINode*>(userData)->HandleEventIRQ(); }
-	IRQResult HandleEventIRQ();
+    static IRQResult IRQCallbackEvent(IRQn_Type irq, void* userData) { return static_cast<I2CDriverINode*>(userData)->HandleEventIRQ(); }
+    IRQResult HandleEventIRQ();
 
-	static IRQResult IRQCallbackError(IRQn_Type irq, void* userData) { return static_cast<I2CDriverINode*>(userData)->HandleErrorIRQ(); }
-	IRQResult HandleErrorIRQ();
+    static IRQResult IRQCallbackError(IRQn_Type irq, void* userData) { return static_cast<I2CDriverINode*>(userData)->HandleErrorIRQ(); }
+    IRQResult HandleErrorIRQ();
 
-	KMutex m_Mutex;
+    KMutex m_Mutex;
+    KConditionVariable      m_RequestCondition;
+    Ptr<I2CDriver>          m_Driver;
+    I2C_TypeDef*            m_Port;
+    PinMuxTarget            m_ClockPin;
+    PinMuxTarget            m_DataPin;
+    uint32_t                m_ClockFrequency;
+    double                  m_FallTime;
+    double                  m_RiseTime;
 
-	KConditionVariable		m_RequestCondition;
-	I2C_TypeDef*			m_Port;
-	PinMuxTarget			m_ClockPin;
-	PinMuxTarget			m_DataPin;
-	uint32_t				m_ClockFrequency;
-	double					m_FallTime;
-	double					m_RiseTime;
+    std::atomic<State_e>    m_State;
+    bool                    m_AnalogFilterEnabled = true;
+    int                     m_DigitalFilterCount = 0;
+    uint32_t                m_Baudrate = 400000;
 
-    std::atomic<State_e>	m_State;
-	bool					m_AnalogFilterEnabled = true;
-	int						m_DigitalFilterCount = 0;
-    uint32_t				m_Baudrate = 400000;
+    uint8_t                 m_RegisterAddress[4];
+    int8_t                  m_RegisterAddressLength = 0;
+    int8_t                  m_RegisterAddressPos = 0;
+    uint8_t*                m_Buffer = nullptr;
+    int32_t                 m_Length = 0;
+    volatile int32_t        m_CurPos = 0;
+};
 
-	uint8_t					m_RegisterAddress[4];
-	int8_t					m_RegisterAddressLength = 0;
-	int8_t					m_RegisterAddressPos = 0;
-	uint8_t*				m_Buffer = nullptr;
-    int32_t					m_Length = 0;
-    volatile int32_t		m_CurPos = 0;
+struct I2CDriverSetup
+{
+    os::String      DevicePath;
+    I2CID           PortID;
+    PinMuxTarget    ClockPin;
+    PinMuxTarget    DataPin;
+    uint32_t        ClockFrequency;
+    double          FallTime;
+    double          RiseTime;
 };
 
 class I2CDriver : public PtrTarget, public KFilesystemFileOps
 {
 public:
-    void Setup(const char* devicePath, I2C_TypeDef* port, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, IRQn_Type eventIRQ, IRQn_Type errorIRQ, uint32_t clockFrequency, double fallTime, double riseTime);
+    void Setup(const char* devicePath, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
+    void Setup(const I2CDriverSetup& setup);
 
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
     virtual int              CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;

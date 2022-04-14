@@ -18,6 +18,7 @@
 // Created: 04.09.2020 22:30
 
 #include <sys/fcntl.h>
+#include <cwctype>
 #include <pugixml/src/pugixml.hpp>
 
 #include <GUI/Bitmap.h>

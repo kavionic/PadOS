@@ -19,7 +19,7 @@
 
 #pragma once
 
-#if defined(STM32H743xx)
+#if defined(STM32H7)
 #include "STM32/Peripherals_STM32H7.h"
 #else
 #error Unknown platform

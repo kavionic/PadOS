@@ -93,6 +93,11 @@ Slider::Slider(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_no
 
 Slider::~Slider()
 {
+    if (m_ValueView != nullptr)
+    {
+        RemoveChild(m_ValueView);
+        m_ValueView = nullptr;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

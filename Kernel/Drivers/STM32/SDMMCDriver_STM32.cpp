@@ -464,6 +464,7 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
     if (status & errorFlags)
     {
         set_last_error(EIO);
+        kprintf("SDMMC: ERROR already flagged: %x\n", status);
         return false;
     }
     if (status & flags) {

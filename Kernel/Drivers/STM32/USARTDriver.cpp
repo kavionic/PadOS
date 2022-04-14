@@ -28,6 +28,7 @@
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/HAL/DMA.h"
+#include "Kernel/HAL/PeripheralMapping.h"
 
 namespace kernel
 {
@@ -37,25 +38,23 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USARTDriverINode::USARTDriverINode( USART_TypeDef*      port,
+USARTDriverINode::USARTDriverINode( USARTID      portID,
                                     const PinMuxTarget& pinRX,
                                     const PinMuxTarget& pinTX,
-                                    DMAMUX1_REQUEST     dmaRequestRX,
-                                    DMAMUX1_REQUEST     dmaRequestTX,
                                     uint32_t            clockFrequency,
-                                    KFilesystemFileOps* fileOps)
-    : KINode(nullptr, nullptr, fileOps, false)
+                                    USARTDriver*        driver)
+    : KINode(nullptr, nullptr, driver, false)
     , m_MutexRead("USARTDriverINodeRead")
     , m_MutexWrite("USARTDriverINodeWrite")
     , m_ReceiveCondition("USARTDriverINodeReceive")
     , m_TransmitCondition("USARTDriverINodeTransmit")
     , m_PinRX(pinRX)
     , m_PinTX(pinTX)
-    , m_DMARequestRX(dmaRequestRX)
-    , m_DMARequestTX(dmaRequestTX)
-
 {
-    m_Port = port;
+    m_Driver = ptr_tmp_cast(driver);
+    m_Port = get_usart_from_id(portID);
+
+    get_usart_dma_requests(portID, m_DMARequestRX, m_DMARequestTX);
 
     DigitalPin::ActivatePeripheralMux(m_PinRX);
     DigitalPin::ActivatePeripheralMux(m_PinTX);
@@ -517,15 +516,23 @@ USARTDriver::~USARTDriver()
 ///////////////////////////////////////////////////////////////////////////////
 
 void USARTDriver::Setup(const char*         devicePath,
-                        USART_TypeDef*      port,
+                        USARTID             portID,
                         const PinMuxTarget& pinRX,
                         const PinMuxTarget& pinTX,
-                        DMAMUX1_REQUEST     dmaRequestRX,
-                        DMAMUX1_REQUEST     dmaRequestTX,
                         uint32_t            clockFrequency)
 {
-    Ptr<USARTDriverINode> node = ptr_new<USARTDriverINode>(port, pinRX, pinTX, dmaRequestRX, dmaRequestTX, clockFrequency, this);
+    Ptr<USARTDriverINode> node = ptr_new<USARTDriverINode>(portID, pinRX, pinTX, clockFrequency, this);
     Kernel::RegisterDevice(devicePath, node);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriver::Setup(const USARTDriverSetup& setup)
+{
+    Ptr<USARTDriverINode> node = ptr_new<USARTDriverINode>(setup.PortID, setup.PinRX, setup.PinTX, setup.ClockFrequency, this);
+    Kernel::RegisterDevice(setup.DevicePath.c_str(), node);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

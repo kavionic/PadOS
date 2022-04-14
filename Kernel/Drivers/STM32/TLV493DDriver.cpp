@@ -34,6 +34,8 @@
 using namespace kernel;
 using namespace os;
 
+DEFINE_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver);
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -59,20 +61,24 @@ TLV493DDriver::~TLV493DDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, const DigitalPin& powerPin)
+bool TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin)
 {
-	m_PowerPin = powerPin;
+    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver, KLogSeverity::ERROR);
+
+    m_PowerPin = powerPin;
 	m_I2CDevice = FileIO::Open(i2cPath, O_RDWR);
 
 	ConfigChanged();
 
 	if (m_I2CDevice >= 0)
     {
-		m_PowerPin.SetDirection(DigitalPinDirection_e::Out);
-		m_PowerPin.SetDriveStrength(DigitalPinDriveStrength_e::Low);
-		m_PowerPin = true;
-		m_PowerPin.SetDriveStrength(DigitalPinDriveStrength_e::VeryHigh);
-
+        if (m_PowerPin.IsValid())
+        {
+            m_PowerPin.SetDirection(DigitalPinDirection_e::Out);
+            m_PowerPin.SetDriveStrength(DigitalPinDriveStrength_e::Low);
+            m_PowerPin = true;
+            m_PowerPin.SetDriveStrength(DigitalPinDriveStrength_e::VeryHigh);
+        }
 		snooze_ms(5);
 
 		Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
@@ -95,11 +101,13 @@ void TLV493DDriver::ResetSensor()
 	{
 //		printf("Resetting TLV493D.\n");
 
-		m_PowerPin = false;
-		snooze_ms(100);
-		m_PowerPin = true;
-		snooze_ms(100);
-
+        if (m_PowerPin.IsValid())
+        {
+            m_PowerPin = false;
+            snooze_ms(100);
+            m_PowerPin = true;
+            snooze_ms(100);
+        }
 		I2CIOCTL_ClearBus(m_I2CDevice);
 
 		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0);
@@ -119,7 +127,7 @@ void TLV493DDriver::ResetSensor()
 
 		errorCount = 0;
 		while (FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters)) != sizeof(m_ReadRegisters) && errorCount++ < 5) {
-			printf("Error: Failed to read initial TLV493D registers!\n");
+            kernel::kernel_log(LogCategoryTLV493DDriver, kernel::KLogSeverity::CRITICAL, "Error: Failed to read initial TLV493D registers!\n");
 			snooze_ms(10);
 		}
 //		printf("TLV493DDriver: initial registers read.\n");
@@ -138,7 +146,7 @@ void TLV493DDriver::ResetSensor()
 		while (FileIO::Write(m_I2CDevice, 0, &m_WriteRegisters, sizeof(m_WriteRegisters)) != sizeof(m_WriteRegisters) && ++errorCount < 5) {
 			snooze_ms(10);
 		} if (errorCount == 5) {
-			printf("Error: Failed to write TLV493D config registers!\n");
+            kernel::kernel_log(LogCategoryTLV493DDriver, kernel::KLogSeverity::CRITICAL, "Error: Failed to write TLV493D config registers!\n");
 			snooze_s(1);
 			continue;
 		}/* else if (errorCount > 0) {

@@ -89,7 +89,7 @@ public:
 	TLV493DDriver();
     ~TLV493DDriver();
 
-    bool Setup(const char* devicePath, const char* i2cPath, const DigitalPin& powerPin);
+    bool Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin);
 
     virtual int Run() override;
 

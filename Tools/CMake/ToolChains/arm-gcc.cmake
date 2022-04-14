@@ -20,8 +20,8 @@ set(CMAKE_C_COMPILER_FORCED TRUE)
 set(CMAKE_CXX_COMPILER_FORCED TRUE)
 
 include_directories(
-	C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.9.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include
-	C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.9.0/Drivers/CMSIS/Core/Include
+	C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.10.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include
+	C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.10.0/Drivers/CMSIS/Core/Include
 )
 
 set(PADOS_SYSTEM_C_CXX_FLAGS "-mcpu=cortex-m7 -ffunction-sections -fdata-sections -fstack-usage -mthumb -ffast-math -mfpu=fpv5-d16 -mfloat-abi=hard -mtp=cp15 -mtls-dialect=gnu2")

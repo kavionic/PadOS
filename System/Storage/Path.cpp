@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
+#include <sys/syslimits.h>
 
 #include <Storage/Path.h>
 #include <Storage/Directory.h>

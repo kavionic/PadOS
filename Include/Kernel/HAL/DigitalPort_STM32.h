@@ -39,6 +39,7 @@ enum DigitalPortID
     e_DigitalPortID_None
 };
 
+
 #define MAKE_DIGITAL_PIN_ID(port, pin) (uint32_t(port) << 4 | uint32_t(pin))
 #define DIGITAL_PIN_ID_PORT(pinID) (((pinID) != DigitalPinID::None) ? DigitalPortID(uint32_t(pinID) >> 4) : e_DigitalPortID_None)
 #define DIGITAL_PIN_ID_PIN(pinID) (uint32_t(pinID) & 0x0f)
@@ -267,9 +268,13 @@ enum class DigitalPinPeripheralID : int
 
 struct PinMuxTarget
 {
-	const DigitalPinID           PINID;
-	const DigitalPinPeripheralID MUX;
+	DigitalPinID           PINID;
+	DigitalPinPeripheralID MUX;
 };
+
+constexpr PinMuxTarget	PINMUX_NONE = { DigitalPinID::None, DigitalPinPeripheralID::None };
+
+constexpr PinMuxTarget	PINMUX_TIM1_CH1_A8 = { DigitalPinID::A8, DigitalPinPeripheralID::AF1 };
 
 constexpr PinMuxTarget	PINMUX_TIM2_CH1_A0  = { DigitalPinID::A0, DigitalPinPeripheralID::AF1 };
 constexpr PinMuxTarget	PINMUX_TIM2_CH1_A5  = { DigitalPinID::A5, DigitalPinPeripheralID::AF1 };
@@ -307,6 +312,11 @@ constexpr PinMuxTarget	PINMUX_USART2_RX_PA3 = { DigitalPinID::A3, DigitalPinPeri
 
 constexpr PinMuxTarget	PINMUX_USART2_TX_PD5 = { DigitalPinID::D5, DigitalPinPeripheralID::AF7 };
 constexpr PinMuxTarget	PINMUX_USART2_TX_PA2 = { DigitalPinID::A2, DigitalPinPeripheralID::AF7 };
+
+constexpr PinMuxTarget	PINMUX_I2C1_SCL_PB6 = { DigitalPinID::B6, DigitalPinPeripheralID::AF4 };
+constexpr PinMuxTarget	PINMUX_I2C1_SCL_PB8 = { DigitalPinID::B8, DigitalPinPeripheralID::AF4 };
+
+constexpr PinMuxTarget	PINMUX_I2C1_SDA_PB7 = { DigitalPinID::B7, DigitalPinPeripheralID::AF4 };
 
 constexpr PinMuxTarget	PINMUX_I2C2_SCL_PB10 = { DigitalPinID::B10, DigitalPinPeripheralID::AF4 };
 constexpr PinMuxTarget	PINMUX_I2C2_SCL_PF1  = { DigitalPinID::F1,  DigitalPinPeripheralID::AF4 };
@@ -620,6 +630,9 @@ constexpr PinMuxTarget	PINMUX_SPI6_MISO_PG12	= { DigitalPinID::G12,		DigitalPinP
 constexpr PinMuxTarget	PINMUX_SPI6_SCK_PG13	= { DigitalPinID::G13,		DigitalPinPeripheralID::AF5 };
 constexpr PinMuxTarget	PINMUX_SPI6_MOSI_PG14	= { DigitalPinID::G14,		DigitalPinPeripheralID::AF5 };
 
+constexpr PinMuxTarget	PINMUX_OTG_FS_ID_PA10 = { DigitalPinID::A10,		DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_OTG_FS_DM_PA11 = { DigitalPinID::A11,		DigitalPinPeripheralID::AF10 };
+constexpr PinMuxTarget	PINMUX_OTG_FS_DP_PA12 = { DigitalPinID::A12,		DigitalPinPeripheralID::AF10 };
 
 
 struct DigitalPort
@@ -801,6 +814,8 @@ public:
     }
 
     DigitalPinID GetID() const { return m_PinID; }
+
+    bool IsValid() const { return m_PinID != DigitalPinID::None; }
 
     void SetDirection(DigitalPinDirection_e dir) { m_Port.SetDirection(dir, m_PinMask); }
     void SetDriveStrength(DigitalPinDriveStrength_e strength) { m_Port.SetDriveStrength(strength, m_PinMask); }

@@ -22,7 +22,7 @@ void dma_free_channel(int channel);
 
 IRQn_Type dma_get_channel_irq(int channel);
 
-void    dma_setup(int channel, DMAMode mode, DMAMUX1_REQUEST requestID, volatile const void* registerAddr, const void* memAddr, int32_t length);
+void    dma_setup(int channel, DMAMode mode, DMAMUX_REQUEST requestID, volatile const void* registerAddr, const void* memAddr, int32_t length);
 
 uint32_t dma_get_interrupt_flags(int channel);
 void     dma_clear_interrupt_flags(int channel, uint32_t flags);

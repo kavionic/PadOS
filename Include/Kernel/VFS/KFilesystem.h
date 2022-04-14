@@ -102,7 +102,6 @@ enum class dir_entry_type : uint32_t
 };
 
 #define NAME_MAX 255
-#define PATH_MAX 4096
 
 struct dir_entry
 {

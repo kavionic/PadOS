@@ -18,7 +18,7 @@
 
 #pragma once
 
-#if defined(STM32H743xx)
+#if defined(STM32H7)
 #include "STM32/DMA_STM32.h"
 #else
 #error Unknown platform

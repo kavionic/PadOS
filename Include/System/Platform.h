@@ -31,7 +31,7 @@ typedef TcChannel MCU_Timer16_t;
 typedef Pio		  GPIO_Port_t
 
 //#include "Kernel/HAL/SAME70System.h"
-#elif defined(STM32H743xx)
+#elif defined(STM32H7)
 
 #define IRQ_COUNT 150 // (WAKEUP_PIN_IRQn + 1)
 

@@ -71,6 +71,8 @@ struct Color
     Color(NamedColors colorID);
     Color(const String& name);
 
+    Color& operator=(const Color&) = default;
+
     void Set16(uint16_t color)                                     { SetRGBA(uint8_t(((color >> 11) & 0x1f) * 255 / 31), uint8_t(((color >> 5) & 0x3f) * 255 / 63), uint8_t((color & 0x1f) * 255 / 31), 255); }
     void Set32(uint32_t color)                                     { m_Color = color; }
     void SetRGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) { m_Color = (r << 16) | (g << 8) | b | (a << 24); }

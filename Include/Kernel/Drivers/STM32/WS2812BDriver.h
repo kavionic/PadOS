@@ -30,11 +30,12 @@
 
 namespace kernel
 {
+enum class SPIID : int;
 
 class WS2812BDriverINode : public KINode
 {
 public:
-	WS2812BDriverINode(SPI_TypeDef* port, bool swapIOPins, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency, KFilesystemFileOps* fileOps);
+	WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t clockFrequency, KFilesystemFileOps* fileOps);
 
 	int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 	ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length);
@@ -65,7 +66,7 @@ private:
 	volatile State m_State = State::Idle;
 
 	SPI_TypeDef*	m_Port;
-	DMAMUX1_REQUEST	m_DMARequestTX;
+	DMAMUX_REQUEST	m_DMARequestTX;
 
 	int		m_SendDMAChannel = -1;
 	int32_t		m_ReceiveBufferSize = 1024;
@@ -84,7 +85,7 @@ public:
 	WS2812BDriver();
 	~WS2812BDriver();
 
-    void Setup(const char* devicePath, bool swapIOPins, SPI_TypeDef* port, DMAMUX1_REQUEST dmaRequestTX, uint32_t clockFrequency);
+    void Setup(const char* devicePath, bool swapIOPins, SPIID portID, uint32_t clockFrequency);
 
     virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
     virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;

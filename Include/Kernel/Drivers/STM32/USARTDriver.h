@@ -32,16 +32,17 @@
 namespace kernel
 {
 
+class USARTDriver;
+enum class USARTID : int;
+
 class USARTDriverINode : public KINode
 {
 public:
-	USARTDriverINode(   USART_TypeDef*      port,
+	USARTDriverINode(   USARTID             portID,
                         const PinMuxTarget& pinRX,
                         const PinMuxTarget& pinTX,
-                        DMAMUX1_REQUEST     dmaRequestRX,
-                        DMAMUX1_REQUEST     dmaRequestTX,
                         uint32_t            clockFrequency,
-                        KFilesystemFileOps* fileOps);
+                        USARTDriver*        driver);
 
     ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
 	ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
@@ -61,6 +62,8 @@ private:
 	static IRQResult IRQCallbackSend(IRQn_Type irq, void* userData) { return static_cast<USARTDriverINode*>(userData)->HandleIRQSend(); }
 	IRQResult HandleIRQSend();
 
+    Ptr<USARTDriver> m_Driver;
+
 	KMutex m_MutexRead;
 	KMutex m_MutexWrite;
 
@@ -71,8 +74,8 @@ private:
 	USART_TypeDef*  m_Port;
     PinMuxTarget    m_PinRX;
     PinMuxTarget    m_PinTX;
-	DMAMUX1_REQUEST	m_DMARequestRX;
-	DMAMUX1_REQUEST	m_DMARequestTX;
+	DMAMUX_REQUEST	m_DMARequestRX;
+	DMAMUX_REQUEST	m_DMARequestTX;
 
     int             m_ClockFrequency = 0;
 	int				m_Baudrate = 0;
@@ -88,6 +91,14 @@ private:
 	uint8_t*        m_ReceiveBuffer;
 };
 
+struct USARTDriverSetup
+{
+    os::String      DevicePath;
+    USARTID         PortID;
+    PinMuxTarget    PinRX;
+    PinMuxTarget    PinTX;
+    uint32_t        ClockFrequency;
+};
 
 class USARTDriver : public PtrTarget, public KFilesystemFileOps
 {
@@ -96,12 +107,12 @@ public:
 	~USARTDriver();
 
     void Setup( const char*         devicePath,
-                USART_TypeDef*      port,
+                USARTID             portID,
                 const PinMuxTarget& pinRX,
                 const PinMuxTarget& pinTX,
-                DMAMUX1_REQUEST     dmaRequestRX,
-                DMAMUX1_REQUEST     dmaRequestTX,
                 uint32_t            clockFrequency);
+
+    void Setup(const USARTDriverSetup& setup);
 
     virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
     virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;

@@ -45,18 +45,22 @@ RA8875Driver::RA8875Driver(LCDRegisters* registers, DigitalPinID pinLCDReset, Di
 
 bool RA8875Driver::Open()
 {
-    m_PinLCDReset = true;
+    if (m_PinLCDReset.IsValid())
+    {
+        m_PinLCDReset = true;
+        m_PinLCDReset.SetDirection(DigitalPinDirection_e::Out);
+    }
     m_PinBacklightControl = true;
-
-    m_PinLCDReset.SetDirection(DigitalPinDirection_e::Out);
     m_PinBacklightControl.SetDirection(DigitalPinDirection_e::Out);
 
-    snooze_ms(1);
-    m_PinLCDReset = false;
-    snooze_ms(10);
-    m_PinLCDReset = true;
-    snooze_ms(100);
-
+    if (m_PinLCDReset.IsValid())
+    {
+        snooze_ms(1);
+        m_PinLCDReset = false;
+        snooze_ms(10);
+        m_PinLCDReset = true;
+        snooze_ms(100);
+    }
     PLL_ini();
 
     WriteCommand(RA8875_SYSR); // SYSR   bit[4:3] color  bit[2:1]=  MPU interface

@@ -23,7 +23,8 @@
 
 #include "Kernel/Drivers/STM32/I2CDriver.h"
 #include "Kernel/HAL/DigitalPort.h"
-#include "Kernel/HAL/SAME70System.h"
+//#include "Kernel/HAL/SAME70System.h"
+#include "Kernel/HAL/PeripheralMapping.h"
 #include "System/System.h"
 #include "Kernel/Scheduler.h"
 #include "Kernel/KSemaphore.h"
@@ -38,26 +39,29 @@ DEFINE_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver);
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-I2CDriverINode::I2CDriverINode(KFilesystemFileOps* fileOps
-								, I2C_TypeDef* port
-								, const PinMuxTarget& clockPinCfg
-								, const PinMuxTarget& dataPinCfg
-								, IRQn_Type eventIRQ
-								, IRQn_Type errorIRQ
-								, uint32_t clockFrequency
-								, double fallTime
-								, double riseTime)
-	: KINode(nullptr, nullptr, fileOps, false)
+I2CDriverINode::I2CDriverINode(I2CDriver* driver
+                             , I2CID portID
+                             , const PinMuxTarget& clockPinCfg
+                             , const PinMuxTarget& dataPinCfg
+                             , uint32_t clockFrequency
+                             , double fallTime
+                             , double riseTime)
+	: KINode(nullptr, nullptr, driver, false)
 	, m_Mutex("I2CDriverINode")
 	, m_RequestCondition("I2CDriverINodeRequest")
-	, m_Port(port)
 	, m_ClockPin(clockPinCfg)
 	, m_DataPin(dataPinCfg)
 	, m_ClockFrequency(clockFrequency)
 	, m_FallTime(fallTime)
 	, m_RiseTime(riseTime)
 {
+    m_Driver = ptr_tmp_cast(driver);
     m_State = State_e::Idle;
+
+    m_Port = get_i2c_from_id(portID);
+
+    IRQn_Type eventIRQ = get_i2c_irq(portID, I2CIRQType::Event);
+    IRQn_Type errorIRQ = get_i2c_irq(portID, I2CIRQType::Error);
 
 	DigitalPin clockPin(m_ClockPin.PINID);
 	DigitalPin dataPin(m_DataPin.PINID);
@@ -614,12 +618,21 @@ IRQResult I2CDriverINode::HandleErrorIRQ()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriver::Setup(const char* devicePath, I2C_TypeDef* port, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, IRQn_Type eventIRQ, IRQn_Type errorIRQ, uint32_t clockFrequency, double fallTime, double riseTime)
+void I2CDriver::Setup(const char* devicePath, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime)
 {
 	REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, KLogSeverity::WARNING);
 
-    Ptr<I2CDriverINode> node = ptr_new<I2CDriverINode>(this, port, clockPin, dataPin, eventIRQ, errorIRQ, clockFrequency, fallTime, riseTime);
+    Ptr<I2CDriverINode> node = ptr_new<I2CDriverINode>(this, portID, clockPin, dataPin, clockFrequency, fallTime, riseTime);
     Kernel::RegisterDevice(devicePath, node);    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void I2CDriver::Setup(const I2CDriverSetup& setup)
+{
+    Setup(setup.DevicePath.c_str(), setup.PortID, setup.ClockPin, setup.DataPin, setup.ClockFrequency, setup.FallTime, setup.RiseTime);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

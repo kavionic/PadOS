@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2016-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,53 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
+// Created: 02.04.2022 20:25
 
 #pragma once
 
-enum class DigitalPinDirection_e
-{
-    Analog,
-    In,
-    Out,
-    OpenCollector
-};
-
-enum class PinPullMode_e
-{
-    None,
-    Up,
-    Down
-};
-
-enum class DigitalPinDriveStrength_e
-{
-    Low,
 #if defined(STM32H7)
-	Medium,
-#endif
-    High,
-#if defined(STM32H7)
-	VeryHigh
-#endif
-};
-
-enum class PinInterruptMode_e
-{
-	  None
-    , BothEdges
-    , FallingEdge
-    , RisingEdge
-#if defined(__SAME70Q21__)
-	, LowLevel,
-    , HighLevel
-#endif // defined(__SAME70Q21__)
-
-};
-
-#if defined(__SAME70Q21__)
-#include "DigitalPort_ATSAM.h"
-#elif defined(STM32H7)
-#include "DigitalPort_STM32.h"
+#include "STM32/PeripheralMapping_STM32.h"
 #else
 #error Unknown platform
 #endif

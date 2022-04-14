@@ -18,7 +18,7 @@
 // Created: 07.06.2020 14:25:38
 
 #pragma once
-#include <stm32h743xx.h>
+#include <stm32h7xx.h>
 #include "Kernel/HAL/DigitalPort.h"
 
 static constexpr IRQn_Type INVALID_IRQ = IRQn_Type(255);

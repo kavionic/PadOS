@@ -50,7 +50,7 @@ class KFileNode;
 class KFSVolume;
 class KRootFilesystem;
 
-void handle_panic(const char* message) __attribute__((__noreturn__)); // To be implemented by user code.
+void handle_panic(const char* message); // __attribute__((__noreturn__)); // To be implemented by user code.
 
 
 static constexpr uint32_t SYS_TICKS_PER_SEC = 1000;
@@ -87,7 +87,7 @@ template<typename ...ARGS>
 void kernel_log(uint32_t category, KLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel_log_is_category_active(category, severity)) kprintf(fmt, args...); }
 
 
-void panic(const char* message) __attribute__((__noreturn__));
+void panic(const char* message); // __attribute__((__noreturn__));
 
 template<typename FIRSTARG, typename... ARGS>
 void panic(const char* fmt, FIRSTARG&& firstArg, ARGS&&... args)
@@ -131,11 +131,11 @@ public:
 
 #if defined(__SAME70Q21__)
     static void ResetWatchdog() { WDT->WDT_CR = WDT_CR_KEY_PASSWD | WDT_CR_WDRSTT_Msk; }
-#elif defined(STM32H743xx)
+#elif defined(STM32H7)
     static void ResetWatchdog() { /*IWDG1->KR = 0xaaaa;*/ }
 #endif
     static void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
-    static void Initialize(uint32_t coreFrequency, size_t mainThreadStackSize, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch);
+    static void Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/);
     static int RegisterDevice(const char* path, Ptr<KINode> deviceNode);
     static int RenameDevice(int handle, const char* newPath);
     static int RemoveDevice(int handle);

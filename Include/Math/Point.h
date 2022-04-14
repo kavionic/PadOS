@@ -53,6 +53,8 @@ public:
     Point   GetRounded() const { return Point(roundf(x), roundf(y)); }
     Point&  Round()            { x = roundf(x); y = roundf(y); return *this; }
 
+    Point& operator=(const Point& rhs) = default;
+
     Point        operator-(void) const { return(Point(-x, -y)); }
     Point        operator+(const Point& rhs) const { return(Point(x + rhs.x, y + rhs.y)); }
     Point        operator-(const Point& rhs) const { return(Point(x - rhs.x, y - rhs.y)); }
@@ -96,6 +98,8 @@ public:
     constexpr explicit inline IPoint(const Point& other);
     constexpr explicit IPoint(int value) : x(value), y(value) {}
     constexpr IPoint(int X, int Y) : x(X), y(Y) {}
+
+    IPoint& operator=(const IPoint&) = default;
 
     IPoint        operator-(void) const { return(IPoint(-x, -y)); }
     IPoint        operator+(const IPoint& rhs) const { return(IPoint(x + rhs.x, y + rhs.y)); }

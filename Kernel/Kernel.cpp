@@ -139,7 +139,7 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
     SUPC->SUPC_WUIR = SUPC_WUIR_WKUPEN9_Msk;
     
     WDT->WDT_MR = WDT_MR_WDDIS;
-#elif defined(STM32H743xx)
+#elif defined(STM32H7)
 #else
 #error Unknown platform
 #endif
@@ -156,7 +156,7 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
     SCB_EnableICache();
 #if defined(__SAME70Q21__)
     SAME70System::SetupClock(frequencyCrystal, frequencyCore, frequencyPeripheral);
-#elif defined(STM32H743xx)
+#elif defined(STM32H7)
 #else
 #error Unknown platform
 #endif
@@ -166,7 +166,7 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch)
+void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/)
 {
     ITM_SendChar('a');
     ITM_SendChar('a');

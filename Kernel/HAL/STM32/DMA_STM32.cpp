@@ -23,13 +23,13 @@
 
 namespace kernel
 {
-#define IS_DMA_UART_USART_REQUEST_BASE(__REQUEST__) ((((__REQUEST__) >= DMAMUX1_REQUEST::REQ_USART1_RX)  &&  ((__REQUEST__) <= DMAMUX1_REQUEST::REQ_USART3_TX)) || \
-                                                    (((__REQUEST__) >= DMAMUX1_REQUEST::REQ_UART4_RX)  &&  ((__REQUEST__) <= DMAMUX1_REQUEST::REQ_UART5_TX )) || \
-                                                    (((__REQUEST__) >= DMAMUX1_REQUEST::REQ_USART6_RX) &&  ((__REQUEST__) <= DMAMUX1_REQUEST::REQ_USART6_TX)) || \
-                                                    (((__REQUEST__) >= DMAMUX1_REQUEST::REQ_UART7_RX)  &&  ((__REQUEST__) <= DMAMUX1_REQUEST::REQ_UART8_TX )))
+#define IS_DMA_UART_USART_REQUEST_BASE(__REQUEST__) ((((__REQUEST__) >= DMAMUX_REQUEST::REQ_USART1_RX)  &&  ((__REQUEST__) <= DMAMUX_REQUEST::REQ_USART3_TX)) || \
+                                                    (((__REQUEST__) >= DMAMUX_REQUEST::REQ_UART4_RX)  &&  ((__REQUEST__) <= DMAMUX_REQUEST::REQ_UART5_TX )) || \
+                                                    (((__REQUEST__) >= DMAMUX_REQUEST::REQ_USART6_RX) &&  ((__REQUEST__) <= DMAMUX_REQUEST::REQ_USART6_TX)) || \
+                                                    (((__REQUEST__) >= DMAMUX_REQUEST::REQ_UART7_RX)  &&  ((__REQUEST__) <= DMAMUX_REQUEST::REQ_UART8_TX )))
 
 #if defined(UART9)
-#define IS_DMA_UART_USART_REQUEST(__REQUEST__) (IS_DMA_UART_USART_REQUEST_BASE(__REQUEST__) || ((__REQUEST__) >= DMAMUX1_REQUEST::REQ_UART9_RX)  &&  ((__REQUEST__) <= DMAMUX1_REQUEST::REQ_USART10_TX )))
+#define IS_DMA_UART_USART_REQUEST(__REQUEST__) (IS_DMA_UART_USART_REQUEST_BASE(__REQUEST__) || ((__REQUEST__) >= DMAMUX_REQUEST::REQ_UART9_RX)  &&  ((__REQUEST__) <= DMAMUX_REQUEST::REQ_USART10_TX )))
 #else
 #define IS_DMA_UART_USART_REQUEST(__REQUEST__) IS_DMA_UART_USART_REQUEST_BASE(__REQUEST__)
 #endif
@@ -93,7 +93,7 @@ IRQn_Type dma_get_channel_irq(int channel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void dma_setup(int channel, DMAMode mode, DMAMUX1_REQUEST requestID, volatile const void* registerAddr, const void* memAddr, int32_t length)
+void dma_setup(int channel, DMAMode mode, DMAMUX_REQUEST requestID, volatile const void* registerAddr, const void* memAddr, int32_t length)
 {
 	int localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);
 	auto dmaStream   = (channel < DMA_CHANNELS_PER_UNIT) ? (DMA1_Stream0 + localChannel) : (DMA2_Stream0 + localChannel);

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2022 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -263,7 +263,7 @@ TimeValNanos    get_system_time_hires();
 TimeValNanos    get_idle_time();
 uint64_t        get_core_clock_cycles();
 
-void            set_real_time(TimeValMicros time);
+void            set_real_time(TimeValMicros time, bool updateRTC);
 TimeValMicros   get_real_time();
 
 namespace unit_test

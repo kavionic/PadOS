@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2022 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #include <Threads/Threads.h>
 #include <Kernel/Kernel.h>
 #include <Kernel/Scheduler.h>
+#include <Kernel/HAL/STM32/RealtimeClock.h>
 #include <Utils/Utils.h>
 
 using namespace kernel;
@@ -45,9 +46,14 @@ TimeValMicros get_system_time()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void set_real_time(TimeValMicros time)
+void set_real_time(TimeValMicros time, bool updateRTC)
 {
     Kernel::s_RealTime = time - get_system_time();
+
+    if (updateRTC)
+    {
+        RealtimeClock::SetClock(time);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

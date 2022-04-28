@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <Utils/Utils.h>
+
 
 enum class RCC_ClockID : int
 {
@@ -383,15 +385,39 @@ enum class RCC_ClockMux_RTCSEL : uint32_t
     HSE
 };
 
+struct ClockMuxInfo
+{
+    ClockMuxInfo(__IO uint32_t* InRegister, uint32_t InValueMask, uint32_t InValuePosition)
+        : Register(InRegister)
+        , ValueMask(InValueMask)
+        , ValuePosition(InValuePosition)
+    {}
+
+    __IO uint32_t*  Register;
+    uint32_t        ValueMask;
+    uint32_t        ValuePosition;
+};
+
+template<typename T> ClockMuxInfo GetClockMuxInfo();
+
+
 class ResetAndClockControl
 {
 public:
+    static void SetHSEFrequency(uint32_t freq);
+
     static void EnableClock(RCC_ClockID clock, bool enable, bool waitForStartup = true);
     static bool IsClockEnabled(RCC_ClockID clock);
     static void WaitForClockStartup(RCC_ClockID clock);
 
-    static void SetPLLSource(RCC_PLLSource source);
-    static void SetPLLDivider(RCC_PLLID pll, RCC_PLLDivider divider, uint32_t value);
+    static uint32_t GetHSIFrequency();
+
+    static void             SetPLLSource(RCC_PLLSource source);
+    static RCC_PLLSource    GetPLLSource();
+    static void             SetPLLDivider(RCC_PLLID pll, RCC_PLLDivider divider, uint32_t value);
+    static uint32_t         GetPLLDivider(RCC_PLLID pll, RCC_PLLDivider divider);
+
+    static uint32_t         GetPLLOutFrequency(RCC_PLLID pll, RCC_PLLDivider divider);
 
     static void SetPLLOscillatorRange(RCC_PLLID pll, RCC_PLL_OscRange range);
     static void SetPLLInputRange(RCC_PLLID pll, RCC_PLL_InputRange range);
@@ -411,36 +437,20 @@ public:
 
     static void SelectSysClock(RCC_SysClockSource clock);
 
+    template<typename T> static void SetClockMux(T source)
+    {
+        ClockMuxInfo muxInfo = GetClockMuxInfo<T>();
+        set_bit_group(*muxInfo.Register, muxInfo.ValueMask, uint32_t(source) << muxInfo.ValuePosition);
+    }
 
-    static void SetClockMux(RCC_ClockMux_FMCSEL source);
-    static void SetClockMux(RCC_ClockMux_QSPISEL source);
-    static void SetClockMux(RCC_ClockMux_SDMMCSEL source);
-    static void SetClockMux(RCC_ClockMux_CKPERSEL source);
-    static void SetClockMux(RCC_ClockMux_SAI1SEL source);
-    static void SetClockMux(RCC_ClockMux_SAI23SEL source);
-    static void SetClockMux(RCC_ClockMux_SPI123SEL source);
-    static void SetClockMux(RCC_ClockMux_SPI45SEL source);
-    static void SetClockMux(RCC_ClockMux_SPDIFSEL source);
-    static void SetClockMux(RCC_ClockMux_DFSDM1SEL source);
-    static void SetClockMux(RCC_ClockMux_FDCANSEL source);
-    static void SetClockMux(RCC_ClockMux_SWPSEL source);
-    static void SetClockMux(RCC_ClockMux_USART16SEL source);
-    static void SetClockMux(RCC_ClockMux_USART28SEL source);
-    static void SetClockMux(RCC_ClockMux_RNGSEL source);
-    static void SetClockMux(RCC_ClockMux_I2C123SEL source);
-    static void SetClockMux(RCC_ClockMux_USBSEL source);
-    static void SetClockMux(RCC_ClockMux_CECSEL source);
-    static void SetClockMux(RCC_ClockMux_LPTIM1SEL source);
-    static void SetClockMux(RCC_ClockMux_LPUART1SEL source);
-    static void SetClockMux(RCC_ClockMux_I2C4SEL source);
-    static void SetClockMux(RCC_ClockMux_LPTIM2SEL source);
-    static void SetClockMux(RCC_ClockMux_LPTIM345SEL source);
-    static void SetClockMux(RCC_ClockMux_SAI4ASEL source);
-    static void SetClockMux(RCC_ClockMux_SAI4BSEL source);
-    static void SetClockMux(RCC_ClockMux_ADCSEL source);
-    static void SetClockMux(RCC_ClockMux_SPI6SEL source);
-    static void SetClockMux(RCC_ClockMux_RTCSEL source);
+    template<typename T> static T GetClockMux()
+    {
+        ClockMuxInfo muxInfo = GetClockMuxInfo<T>();
+        return T(((*muxInfo.Register) & muxInfo.ValueMask) >> muxInfo.ValuePosition);
+    }
 
+private:
+    static uint32_t s_HSEFrequency;
 };
 
 

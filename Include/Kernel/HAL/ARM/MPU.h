@@ -174,14 +174,6 @@
 #define EXT_EBI_START_ADDRESS                0x60000000UL
 #define EXT_EBI_END_ADDRESS                  0x6FFFFFFFUL
 
-/******* Ext-SRAM memory macros ***************************/
-#define SDRAM_START_ADDRESS                  0x70000000UL
-#define SDRAM_END_ADDRESS                    0x7FFFFFFFUL
-
-/******* QSPI macros ***************************/
-#define QSPI_START_ADDRESS                   0x80000000UL
-#define QSPI_END_ADDRESS                     0x9FFFFFFFUL
-
 /************** USBHS_RAM region macros ******************/
 #define USBHSRAM_START_ADDRESS               0xA0100000UL
 #define USBHSRAM_END_ADDRESS                 0xA01FFFFFUL

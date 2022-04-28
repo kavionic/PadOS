@@ -5,7 +5,6 @@ target_sources(PadOS PRIVATE
 	DMA.h
 	Peripherals.h
 	SAME70System.h
-	STM32H7System.h
 )
 
 add_subdirectory(ARM)

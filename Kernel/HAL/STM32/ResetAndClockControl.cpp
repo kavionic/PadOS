@@ -22,6 +22,18 @@
 #include "Kernel/HAL/STM32/ResetAndClockControl.h"
 #include "Utils/Utils.h"
 
+uint32_t ResetAndClockControl::s_HSEFrequency = 0;
+
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ResetAndClockControl::SetHSEFrequency(uint32_t freq)
+{
+    s_HSEFrequency = freq;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -100,9 +112,34 @@ void ResetAndClockControl::WaitForClockStartup(RCC_ClockID clock)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+uint32_t ResetAndClockControl::GetHSIFrequency()
+{
+    switch (RCC->CR & RCC_CR_HSIDIV_Msk)
+    {
+        case RCC_CR_HSIDIV_1:   return 64000000;
+        case RCC_CR_HSIDIV_2:   return 32000000;
+        case RCC_CR_HSIDIV_4:   return 16000000;
+        case RCC_CR_HSIDIV_8:   return 8000000;
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ResetAndClockControl::SetPLLSource(RCC_PLLSource source)
 {
     set_bit_group(RCC->PLLCKSELR, RCC_PLLCKSELR_PLLSRC_Msk, uint32_t(source) << RCC_PLLCKSELR_PLLSRC_Pos);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+RCC_PLLSource ResetAndClockControl::GetPLLSource()
+{
+    return RCC_PLLSource((RCC->PLLCKSELR & RCC_PLLCKSELR_PLLSRC_Msk) >> RCC_PLLCKSELR_PLLSRC_Pos);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,6 +181,66 @@ void ResetAndClockControl::SetPLLDivider(RCC_PLLID pll, RCC_PLLDivider divider, 
             }
             break;
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t ResetAndClockControl::GetPLLDivider(RCC_PLLID pll, RCC_PLLDivider divider)
+{
+    switch (pll)
+    {
+        case RCC_PLLID::PLL1:
+            switch (divider)
+            {
+                case RCC_PLLDivider::DIVM:  return ((RCC->PLLCKSELR & RCC_PLLCKSELR_DIVM1_Msk) >> RCC_PLLCKSELR_DIVM1_Pos);
+                case RCC_PLLDivider::DIVN:  return ((RCC->PLL1DIVR & RCC_PLL1DIVR_N1_Msk) >> RCC_PLL1DIVR_N1_Pos) + 1;
+                case RCC_PLLDivider::DIVP:  return ((RCC->PLL1DIVR & RCC_PLL1DIVR_P1_Msk) >> RCC_PLL1DIVR_P1_Pos) + 1;
+                case RCC_PLLDivider::DIVQ:  return ((RCC->PLL1DIVR & RCC_PLL1DIVR_Q1_Msk) >> RCC_PLL1DIVR_Q1_Pos) + 1;
+                case RCC_PLLDivider::DIVR:  return ((RCC->PLL1DIVR & RCC_PLL1DIVR_R1_Msk) >> RCC_PLL1DIVR_R1_Pos) + 1;
+            }
+            break;
+        case RCC_PLLID::PLL2:
+            switch (divider)
+            {
+                case RCC_PLLDivider::DIVM:  return ((RCC->PLLCKSELR & RCC_PLLCKSELR_DIVM2_Msk) >> RCC_PLLCKSELR_DIVM2_Pos);
+                case RCC_PLLDivider::DIVN:  return ((RCC->PLL2DIVR & RCC_PLL2DIVR_N2_Msk) >> RCC_PLL2DIVR_N2_Pos) + 1;
+                case RCC_PLLDivider::DIVP:  return ((RCC->PLL2DIVR & RCC_PLL2DIVR_P2_Msk) >> RCC_PLL2DIVR_P2_Pos) + 1;
+                case RCC_PLLDivider::DIVQ:  return ((RCC->PLL2DIVR & RCC_PLL2DIVR_Q2_Msk) >> RCC_PLL2DIVR_Q2_Pos) + 1;
+                case RCC_PLLDivider::DIVR:  return ((RCC->PLL2DIVR & RCC_PLL2DIVR_R2_Msk) >> RCC_PLL2DIVR_R2_Pos) + 1;
+            }
+            break;
+        case RCC_PLLID::PLL3:
+            switch (divider)
+            {
+                case RCC_PLLDivider::DIVM:  return ((RCC->PLLCKSELR & RCC_PLLCKSELR_DIVM3_Msk) >> RCC_PLLCKSELR_DIVM3_Pos);
+                case RCC_PLLDivider::DIVN:  return ((RCC->PLL3DIVR & RCC_PLL3DIVR_N3_Msk) >> RCC_PLL3DIVR_N3_Pos) + 1;
+                case RCC_PLLDivider::DIVP:  return ((RCC->PLL3DIVR & RCC_PLL3DIVR_P3_Msk) >> RCC_PLL3DIVR_P3_Pos) + 1;
+                case RCC_PLLDivider::DIVQ:  return ((RCC->PLL3DIVR & RCC_PLL3DIVR_Q3_Msk) >> RCC_PLL3DIVR_Q3_Pos) + 1;
+                case RCC_PLLDivider::DIVR:  return ((RCC->PLL3DIVR & RCC_PLL3DIVR_R3_Msk) >> RCC_PLL3DIVR_R3_Pos) + 1;
+            }
+            break;
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t ResetAndClockControl::GetPLLOutFrequency(RCC_PLLID pll, RCC_PLLDivider divider)
+{
+    uint32_t frequency = 0;
+
+    switch (GetPLLSource())
+    {
+        case RCC_PLLSource::HSI:    frequency = GetHSIFrequency();  break;
+        case RCC_PLLSource::CSI:    frequency = 4000000;            break;
+        case RCC_PLLSource::HSE:    frequency = s_HSEFrequency;     break;
+        case RCC_PLLSource::None:   frequency = 0;                  break;
+    }
+    return uint32_t(double(frequency) / double(GetPLLDivider(pll, RCC_PLLDivider::DIVM)) * double(GetPLLDivider(pll, RCC_PLLDivider::DIVN)) / double(GetPLLDivider(pll, divider)));   
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -369,257 +466,38 @@ void ResetAndClockControl::SelectSysClock(RCC_SysClockSource source)
     set_bit_group(RCC->CFGR, RCC_CFGR_SW_Msk, uint32_t(source));
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_FMCSEL source)
-{
-    set_bit_group(RCC->D1CCIPR, RCC_D1CCIPR_FMCSEL_Msk, uint32_t(source) << RCC_D1CCIPR_FMCSEL_Pos);
-}
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_QSPISEL source)
-{
-    set_bit_group(RCC->D1CCIPR, RCC_D1CCIPR_QSPISEL_Msk, uint32_t(source) << RCC_D1CCIPR_QSPISEL_Pos);
-}
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_SDMMCSEL source)
-{
-    set_bit_group(RCC->D1CCIPR, RCC_D1CCIPR_SDMMCSEL_Msk, uint32_t(source) << RCC_D1CCIPR_SDMMCSEL_Pos);
-}
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_CKPERSEL source)
-{
-    set_bit_group(RCC->D1CCIPR, RCC_D1CCIPR_CKPERSEL_Msk, uint32_t(source) << RCC_D1CCIPR_CKPERSEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_SAI1SEL source)
-{
-    set_bit_group(RCC->D2CCIP1R, RCC_D2CCIP1R_SAI1SEL_Msk, uint32_t(source) << RCC_D2CCIP1R_SAI1SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_SAI23SEL source)
-{
-    set_bit_group(RCC->D2CCIP1R, RCC_D2CCIP1R_SAI23SEL_Msk, uint32_t(source) << RCC_D2CCIP1R_SAI23SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_SPI123SEL source)
-{
-    set_bit_group(RCC->D2CCIP1R, RCC_D2CCIP1R_SPI123SEL_Msk, uint32_t(source) << RCC_D2CCIP1R_SPI123SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_SPI45SEL source)
-{
-    set_bit_group(RCC->D2CCIP1R, RCC_D2CCIP1R_SPI45SEL_Msk, uint32_t(source) << RCC_D2CCIP1R_SPI45SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_SPDIFSEL source)
-{
-    set_bit_group(RCC->D2CCIP1R, RCC_D2CCIP1R_SPDIFSEL_Msk, uint32_t(source) << RCC_D2CCIP1R_SPDIFSEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_DFSDM1SEL source)
-{
-    set_bit_group(RCC->D2CCIP1R, RCC_D2CCIP1R_DFSDM1SEL_Msk, uint32_t(source) << RCC_D2CCIP1R_DFSDM1SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_FDCANSEL source)
-{
-    set_bit_group(RCC->D2CCIP1R, RCC_D2CCIP1R_FDCANSEL_Msk, uint32_t(source) << RCC_D2CCIP1R_FDCANSEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_SWPSEL source)
-{
-    set_bit_group(RCC->D2CCIP1R, RCC_D2CCIP1R_SWPSEL_Msk, uint32_t(source) << RCC_D2CCIP1R_SWPSEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_USART16SEL source)
-{
-    set_bit_group(RCC->D2CCIP2R, RCC_D2CCIP2R_USART16SEL_Msk, uint32_t(source) << RCC_D2CCIP2R_USART16SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_USART28SEL source)
-{
-    set_bit_group(RCC->D2CCIP2R, RCC_D2CCIP2R_USART28SEL_Msk, uint32_t(source) << RCC_D2CCIP2R_USART28SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_RNGSEL source)
-{
-    set_bit_group(RCC->D2CCIP2R, RCC_D2CCIP2R_RNGSEL_Msk, uint32_t(source) << RCC_D2CCIP2R_RNGSEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_I2C123SEL source)
-{
-    set_bit_group(RCC->D2CCIP2R, RCC_D2CCIP2R_I2C123SEL_Msk, uint32_t(source) << RCC_D2CCIP2R_I2C123SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_USBSEL source)
-{
-    set_bit_group(RCC->D2CCIP2R, RCC_D2CCIP2R_USBSEL_Msk, uint32_t(source) << RCC_D2CCIP2R_USBSEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_CECSEL source)
-{
-    set_bit_group(RCC->D2CCIP2R, RCC_D2CCIP2R_CECSEL_Msk, uint32_t(source) << RCC_D2CCIP2R_CECSEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_LPTIM1SEL source)
-{
-    set_bit_group(RCC->D2CCIP2R, RCC_D2CCIP2R_LPTIM1SEL_Msk, uint32_t(source) << RCC_D2CCIP2R_LPTIM1SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_LPUART1SEL source)
-{
-    set_bit_group(RCC->D3CCIPR, RCC_D3CCIPR_LPUART1SEL_Msk, uint32_t(source) << RCC_D3CCIPR_LPUART1SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_I2C4SEL source)
-{
-    set_bit_group(RCC->D3CCIPR, RCC_D3CCIPR_I2C4SEL_Msk, uint32_t(source) << RCC_D3CCIPR_I2C4SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_LPTIM2SEL source)
-{
-    set_bit_group(RCC->D3CCIPR, RCC_D3CCIPR_LPTIM2SEL_Msk, uint32_t(source) << RCC_D3CCIPR_LPTIM2SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_LPTIM345SEL source)
-{
-    set_bit_group(RCC->D3CCIPR, RCC_D3CCIPR_LPTIM345SEL_Msk, uint32_t(source) << RCC_D3CCIPR_LPTIM345SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_SAI4ASEL source)
-{
-    set_bit_group(RCC->D3CCIPR, RCC_D3CCIPR_SAI4ASEL_Msk, uint32_t(source) << RCC_D3CCIPR_SAI4ASEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_SAI4BSEL source)
-{
-    set_bit_group(RCC->D3CCIPR, RCC_D3CCIPR_SAI4BSEL_Msk, uint32_t(source) << RCC_D3CCIPR_SAI4BSEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_ADCSEL source)
-{
-    set_bit_group(RCC->D3CCIPR, RCC_D3CCIPR_ADCSEL_Msk, uint32_t(source) << RCC_D3CCIPR_ADCSEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_SPI6SEL source)
-{
-    set_bit_group(RCC->D3CCIPR, RCC_D3CCIPR_SPI6SEL_Msk, uint32_t(source) << RCC_D3CCIPR_SPI6SEL_Pos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ResetAndClockControl::SetClockMux(RCC_ClockMux_RTCSEL source)
-{
-    PWR->CR1 |= PWR_CR1_DBP; // Disable Back-up domain protection.
-    set_bit_group(RCC->BDCR, RCC_BDCR_RTCSEL_Msk, uint32_t(source) << RCC_BDCR_RTCSEL_Pos);
-    PWR->CR1 &= ~PWR_CR1_DBP; // Enable Back-up domain protection.
-}
-
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_FMCSEL>()      { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_FMCSEL_Msk,         RCC_D1CCIPR_FMCSEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_QSPISEL>()     { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_QSPISEL_Msk,        RCC_D1CCIPR_QSPISEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SDMMCSEL>()    { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_SDMMCSEL_Msk,       RCC_D1CCIPR_SDMMCSEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_CKPERSEL>()    { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_CKPERSEL_Msk,       RCC_D1CCIPR_CKPERSEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI1SEL>()     { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SAI1SEL_Msk,       RCC_D2CCIP1R_SAI1SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI23SEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SAI23SEL_Msk,      RCC_D2CCIP1R_SAI23SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI123SEL>()   { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPI123SEL_Msk,     RCC_D2CCIP1R_SPI123SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI45SEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPI45SEL_Msk,      RCC_D2CCIP1R_SPI45SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPDIFSEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPDIFSEL_Msk,      RCC_D2CCIP1R_SPDIFSEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_DFSDM1SEL>()   { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_DFSDM1SEL_Msk,     RCC_D2CCIP1R_DFSDM1SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_FDCANSEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_FDCANSEL_Msk,      RCC_D2CCIP1R_FDCANSEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SWPSEL>()      { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SWPSEL_Msk,        RCC_D2CCIP1R_SWPSEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USART16SEL>()  { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USART16SEL_Msk,    RCC_D2CCIP2R_USART16SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USART28SEL>()  { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USART28SEL_Msk,    RCC_D2CCIP2R_USART28SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_RNGSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_RNGSEL_Msk,        RCC_D2CCIP2R_RNGSEL_Pos);}
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_I2C123SEL>()   { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_I2C123SEL_Msk,     RCC_D2CCIP2R_I2C123SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USBSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USBSEL_Msk,        RCC_D2CCIP2R_USBSEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_CECSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_CECSEL_Msk,        RCC_D2CCIP2R_CECSEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM1SEL>()   { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_LPTIM1SEL_Msk,     RCC_D2CCIP2R_LPTIM1SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPUART1SEL>()  { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPUART1SEL_Msk,     RCC_D3CCIPR_LPUART1SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_I2C4SEL>()     { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_I2C4SEL_Msk,        RCC_D3CCIPR_I2C4SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM2SEL>()   { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPTIM2SEL_Msk,      RCC_D3CCIPR_LPTIM2SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM345SEL>() { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPTIM345SEL_Msk,    RCC_D3CCIPR_LPTIM345SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI4ASEL>()    { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SAI4ASEL_Msk,       RCC_D3CCIPR_SAI4ASEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI4BSEL>()    { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SAI4BSEL_Msk,       RCC_D3CCIPR_SAI4BSEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_ADCSEL>()      { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_ADCSEL_Msk,         RCC_D3CCIPR_ADCSEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI6SEL>()     { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SPI6SEL_Msk,        RCC_D3CCIPR_SPI6SEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_RTCSEL>()      { return ClockMuxInfo(&RCC->BDCR,       RCC_BDCR_RTCSEL_Msk,            RCC_BDCR_RTCSEL_Pos); }

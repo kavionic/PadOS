@@ -26,6 +26,8 @@ add_library(PadOS)
 target_sources(PadOS PRIVATE
 	SDCard/System/WindowManagerLayout.xml
 	Init.cpp
+	MemTest.cpp
+	MemTest.h
 	PadOS.natvis
 	posix.cpp
 )

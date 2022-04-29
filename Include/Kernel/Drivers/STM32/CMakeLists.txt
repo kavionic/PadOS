@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE
+target_sources(PadOS_Kernel PRIVATE
 	I2CDriver.h
 	SDMMCDriver_STM32.h
 	TLV493DDriver.h

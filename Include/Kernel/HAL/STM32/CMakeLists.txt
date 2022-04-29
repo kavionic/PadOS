@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE
+target_sources(PadOS_Kernel PRIVATE
 	DMA_STM32.h
 	DMARequestID.h
 	QSPI_STM32.h

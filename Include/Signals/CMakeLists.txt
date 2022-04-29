@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE
+target_sources(PadOS_Signals PRIVATE
 	RemoteSignal.h
 	Signal.h
 	SignalBase.h

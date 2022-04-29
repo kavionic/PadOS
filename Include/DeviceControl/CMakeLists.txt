@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE
+target_sources(PadOS_Kernel PRIVATE
 	BME280.h
 	DeviceControl.h
 	HID.h

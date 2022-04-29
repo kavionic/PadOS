@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE
+target_sources(PadOS_IO PRIVATE
 	"Directory.cpp"
 	"File.cpp"
 	"FileReference.cpp"

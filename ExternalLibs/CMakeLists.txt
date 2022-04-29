@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE
+target_sources(PadOS_ExternalLibs PRIVATE
 	tinyusb/src/class/audio/audio_device.c
 	tinyusb/src/class/bth/bth_device.c
 	tinyusb/src/class/cdc/cdc_device.c

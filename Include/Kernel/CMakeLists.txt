@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE 
+target_sources(PadOS_Kernel PRIVATE 
 	IRQDispatcher.h
 	KConditionVariable.h
 	Kernel.h

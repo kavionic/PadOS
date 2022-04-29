@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE
+target_sources(PadOS_Ptr PRIVATE
 	NoPtr.h
 	Ptr.h
 	Ptr.inl.h

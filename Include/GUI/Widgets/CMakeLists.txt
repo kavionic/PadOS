@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE
+target_sources(PadOS_GUI PRIVATE
 	Button.h
 	ButtonBase.h
 	ButtonGroup.h

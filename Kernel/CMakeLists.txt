@@ -3,7 +3,7 @@ add_subdirectory(FSDrivers)
 add_subdirectory(HAL)
 add_subdirectory(VFS)
 
-target_sources(PadOS PRIVATE
+target_sources(PadOS_Kernel PRIVATE
 	IRQDispatcher.cpp
 	KConditionVariable.cpp
 	Kernel.cpp

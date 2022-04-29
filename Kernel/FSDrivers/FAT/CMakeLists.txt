@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE
+target_sources(PadOS_FATFS PRIVATE
 	FATClusterSectorIterator.cpp
 	FATClusterSectorIterator.h
 	FATDirectoryIterator.cpp

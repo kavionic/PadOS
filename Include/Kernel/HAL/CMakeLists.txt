@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE 
+target_sources(PadOS_Kernel PRIVATE 
 	DigitalPort.h
 	DigitalPort_ATSAM.h
 	DigitalPort_STM32.h

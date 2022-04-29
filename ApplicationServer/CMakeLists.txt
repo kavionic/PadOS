@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE
+target_sources(PadOS_ApplicationServer PRIVATE
 	ApplicationServer.cpp
 	DisplayDriver.cpp
 	DisplayDriverLineRender.cpp

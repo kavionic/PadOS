@@ -1,1 +1,1 @@
-target_sources(PadOS PRIVATE Application.h)
+target_sources(PadOS_System PRIVATE Application.h)

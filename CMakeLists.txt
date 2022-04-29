@@ -21,9 +21,19 @@ set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${PADOS_C_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PADOS_C_CXX_FLAGS} -Wsuggest-override -Wnoexcept")
 
 # add the library
-add_library(PadOS)
+add_library(PadOS_Kernel)
+add_library(PadOS_FATFS)
+add_library(PadOS_System)
+add_library(PadOS_Ptr)
+add_library(PadOS_Signals)
+add_library(PadOS_IO)
+add_library(PadOS_GUI)
+add_library(PadOS_ApplicationServer)
+add_library(PadOS_WindowManager)
+add_library(PadOS_ExternalLibs)
 
-target_sources(PadOS PRIVATE
+
+target_sources(PadOS_Kernel PRIVATE
 	SDCard/System/WindowManagerLayout.xml
 	Init.cpp
 	MemTest.cpp

@@ -1,4 +1,4 @@
-target_sources(PadOS PRIVATE
+target_sources(PadOS_Kernel PRIVATE
 #	BME280Driver.cpp
 	FT5x0xDriver.cpp
 	GSLx680Driver.cpp

@@ -18,9 +18,6 @@
 
 #pragma once
 
-#include "SplicerDefines.h"
-#include "SplicerConfig.h"
-
 namespace SerialProtocol
 {
 

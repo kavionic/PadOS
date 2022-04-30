@@ -46,9 +46,8 @@ target_sources(PadOS_Kernel PRIVATE
 add_subdirectory(Applications)
 add_subdirectory(ApplicationServer)
 add_subdirectory(Kernel)
+add_subdirectory(SerialConsole)
 add_subdirectory(System)
-
 add_subdirectory(Include)
-
 add_subdirectory(ExternalLibs)
 

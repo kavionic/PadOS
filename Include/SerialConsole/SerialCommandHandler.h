@@ -87,6 +87,7 @@ public:
     static SerialCommandHandler& GetInstance();
 
 	virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, int file);
+    virtual void PropeRequestReceived(SerialProtocol::ProbeDeviceType expectedMode) {}
 
 	void Execute();
 

@@ -94,6 +94,7 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
     else
     {
         kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "ERROR: failed to open directory '%s'\n", packet.m_Path);
+        m_CommandHandler->SendMessage<SerialProtocol::GetDirectoryReply>(0);
     }
 }
 

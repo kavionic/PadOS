@@ -102,7 +102,9 @@ struct ProbeDevice : PacketHeader
 {
     static constexpr Commands::Value COMMAND = Commands::ProbeDevice;
 
-    static void InitMsg(ProbeDevice& msg) { InitHeader(msg); }
+    static void InitMsg(ProbeDevice& msg, ProbeDeviceType deviceType) { InitHeader(msg); msg.DeviceType = deviceType; }
+
+    ProbeDeviceType DeviceType = ProbeDeviceType::Bootloader;
 };
 
 struct ProbeDeviceReply : PacketHeader

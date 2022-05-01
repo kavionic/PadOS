@@ -25,12 +25,17 @@
 
 #include <SerialConsole/SerialCommandHandler.h>
 #include <SerialConsole/SerialProtocol.h>
+#include <SerialConsole/CommandHandlerFilesystem.h>
 
 #include <Kernel/VFS/FileIO.h>
 #include <Utils/HashCalculator.h>
 
 
+
 using namespace os;
+
+CommandHandlerFilesystem        g_FilesystemHandler;
+
 
 SerialCommandHandler* SerialCommandHandler::s_Instance;
 
@@ -64,13 +69,17 @@ SerialCommandHandler& SerialCommandHandler::GetInstance()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SerialCommandHandler::Setup(int file)
+void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, int file)
 {
     m_SerialPort = file;
+    m_DeviceType = deviceType;
 
     REGISTER_KERNEL_LOG_CATEGORY(LogCategorySerialHandler, kernel::KLogSeverity::WARNING);
 
+    RegisterPacketHandler<SerialProtocol::ProbeDevice>(SerialProtocol::Commands::ProbeDevice, this, &SerialCommandHandler::HandleProbeDevice);
     RegisterPacketHandler<SerialProtocol::SetSystemTime>(SerialProtocol::Commands::SetSystemTime, this, &SerialCommandHandler::HandleSetSystemTime);
+
+    g_FilesystemHandler.Setup(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -237,6 +246,15 @@ bool SerialCommandHandler::GetRetransmitFlag(SerialProtocol::ReplyTokens::Value 
 {
     CRITICAL_SCOPE(m_SendMutex);
     return m_RetransmitFlags & (1 << (uint16_t(replyToken) - 1));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SerialCommandHandler::HandleProbeDevice(const SerialProtocol::ProbeDevice& packet)
+{
+    SendMessage<SerialProtocol::ProbeDeviceReply>(m_DeviceType);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

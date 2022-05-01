@@ -86,7 +86,7 @@ public:
 
     static SerialCommandHandler& GetInstance();
 
-	virtual void Setup(int file);
+	virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, int file);
 
 	void Execute();
 
@@ -143,6 +143,7 @@ public:
 private:
     void SetRetransmitFlag(SerialProtocol::ReplyTokens::Value replyToken, bool value);
 
+    void HandleProbeDevice(const SerialProtocol::ProbeDevice& packet);
     void HandleSetSystemTime(const SerialProtocol::SetSystemTime& packet);
 
     static SerialCommandHandler* s_Instance;
@@ -150,6 +151,8 @@ private:
 	mutable kernel::KMutex	m_SendMutex;
 
 	int               m_SerialPort = -1;
+
+    SerialProtocol::ProbeDeviceType m_DeviceType = SerialProtocol::ProbeDeviceType::Bootloader;
 
     std::map<SerialProtocol::Commands::Value, const PacketHandlerBase*> m_CommandHandlerMap;
     size_t                                                       m_LargestCommandPacket = 0;

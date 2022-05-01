@@ -21,18 +21,40 @@
 namespace SerialProtocol
 {
 
+enum class ProbeDeviceType : uint32_t
+{
+    Bootloader,
+    Application
+};
+
 namespace Commands
 {
     using Value = uint32_t;
 
-    static constexpr uint32_t MessageReply      = 1;
-    static constexpr uint32_t LogMessage        = 2;
+    static constexpr uint32_t MessageReply      = 10;
+    static constexpr uint32_t ProbeDevice       = 20;
+    static constexpr uint32_t ProbeDeviceReply  = 30;
+    static constexpr uint32_t LogMessage        = 40;
 
     // Misc messages:
-    static constexpr uint32_t SetSystemTime     = 3;
-    static constexpr uint32_t RequestSystemTime = 4;
+    static constexpr uint32_t SetSystemTime     = 1000;
+    static constexpr uint32_t RequestSystemTime = 1010;
 
-    static constexpr uint32_t SysCmdCount       = 100;
+    // Filesystem messages:
+    static constexpr uint32_t GetDirectory      = 2000;
+    static constexpr uint32_t GetDirectoryReply = 2010;
+    static constexpr uint32_t CreateFile        = 2020;
+    static constexpr uint32_t CreateDirectory   = 2030;
+    static constexpr uint32_t OpenFile          = 2040;
+    static constexpr uint32_t CloseFile         = 2050;
+    static constexpr uint32_t OpenFileReply     = 2060;
+    static constexpr uint32_t WriteFile         = 2070;
+    static constexpr uint32_t WriteFileReply    = 2080;
+    static constexpr uint32_t ReadFile          = 2090;
+    static constexpr uint32_t ReadFileReply     = 2100;
+    static constexpr uint32_t DeleteFile        = 2110;
+
+    static constexpr uint32_t SysCmdCount       = 10000;
 }
 
 
@@ -74,6 +96,22 @@ struct MessageReply : PacketHeader
     static constexpr Commands::Value COMMAND = Commands::MessageReply;
 
     static void InitMsg(MessageReply& msg, uint16_t token) { InitHeader(msg); msg.Token = token; }
+};
+
+struct ProbeDevice : PacketHeader
+{
+    static constexpr Commands::Value COMMAND = Commands::ProbeDevice;
+
+    static void InitMsg(ProbeDevice& msg) { InitHeader(msg); }
+};
+
+struct ProbeDeviceReply : PacketHeader
+{
+    static constexpr Commands::Value COMMAND = Commands::ProbeDeviceReply;
+
+    static void InitMsg(ProbeDeviceReply& msg, ProbeDeviceType deviceType) { InitHeader(msg); msg.DeviceType = deviceType; }
+
+    ProbeDeviceType DeviceType = ProbeDeviceType::Bootloader;
 };
 
 struct LogMessage : PacketHeader

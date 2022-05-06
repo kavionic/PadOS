@@ -39,12 +39,12 @@ void CommandHandlerFilesystem::Setup(SerialCommandHandler* commandHandler)
 {
     m_CommandHandler = commandHandler;
 
-    commandHandler->RegisterPacketHandler<SerialProtocol::GetDirectory>(this, &CommandHandlerFilesystem::HandleGetDirectory, false);
-    commandHandler->RegisterPacketHandler<SerialProtocol::CreateFile>(this, &CommandHandlerFilesystem::HandleCreateFile, false);
+    commandHandler->RegisterPacketHandler<SerialProtocol::GetDirectory>(this, &CommandHandlerFilesystem::HandleGetDirectory);
+    commandHandler->RegisterPacketHandler<SerialProtocol::CreateFile>(this, &CommandHandlerFilesystem::HandleCreateFile);
     commandHandler->RegisterPacketHandler<SerialProtocol::CreateDirectory>(this, &CommandHandlerFilesystem::HandleCreateDirectory);
-    commandHandler->RegisterPacketHandler<SerialProtocol::OpenFile>(this, &CommandHandlerFilesystem::HandleOpenFile, false);
-    commandHandler->RegisterPacketHandler<SerialProtocol::WriteFile>(this, &CommandHandlerFilesystem::HandleWriteFile, false);
-    commandHandler->RegisterPacketHandler<SerialProtocol::ReadFile>(this, &CommandHandlerFilesystem::HandleReadFile, false);
+    commandHandler->RegisterPacketHandler<SerialProtocol::OpenFile>(this, &CommandHandlerFilesystem::HandleOpenFile);
+    commandHandler->RegisterPacketHandler<SerialProtocol::WriteFile>(this, &CommandHandlerFilesystem::HandleWriteFile);
+    commandHandler->RegisterPacketHandler<SerialProtocol::ReadFile>(this, &CommandHandlerFilesystem::HandleReadFile);
     commandHandler->RegisterPacketHandler<SerialProtocol::CloseFile>(this, &CommandHandlerFilesystem::HandleCloseFile);
     commandHandler->RegisterPacketHandler<SerialProtocol::DeleteFile>(this, &CommandHandlerFilesystem::HandleDeleteFile);
 }

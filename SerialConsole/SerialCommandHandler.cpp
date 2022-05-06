@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <cstring>
 
+#include <DeviceControl/USART.h>
 #include <SerialConsole/SerialCommandHandler.h>
 #include <SerialConsole/SerialProtocol.h>
 #include <SerialConsole/CommandHandlerFilesystem.h>
@@ -30,12 +31,11 @@
 #include <Kernel/VFS/FileIO.h>
 #include <Utils/HashCalculator.h>
 
-
-
 using namespace os;
 
-CommandHandlerFilesystem        g_FilesystemHandler;
+static constexpr size_t MAX_MESSAGE_QUEUE_SIZE = 1024 * 64;
 
+CommandHandlerFilesystem        g_FilesystemHandler;
 
 SerialCommandHandler* SerialCommandHandler::s_Instance;
 
@@ -43,7 +43,7 @@ SerialCommandHandler* SerialCommandHandler::s_Instance;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SerialCommandHandler::SerialCommandHandler() : m_SendMutex("SerHandlerSend"/*, false*/)
+SerialCommandHandler::SerialCommandHandler() : Thread("SerialHandler"), m_Mutex("SerialHandler", false), m_ReplyCondition("sch_reply_cond"), m_QueueCondition("sch_queue_cond")
 {
     s_Instance = this;
 }
@@ -63,6 +63,49 @@ SerialCommandHandler::~SerialCommandHandler()
 SerialCommandHandler& SerialCommandHandler::GetInstance()
 {
     return *s_Instance;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int SerialCommandHandler::Run()
+{
+    SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(new uint8_t[m_LargestCommandPacket]);
+    for (;;)
+    {
+        if (!ReadPacket(packetBuffer, m_LargestCommandPacket, false)) {
+            continue;
+        }
+
+        CRITICAL_SCOPE(m_Mutex);
+
+        if (packetBuffer->Command == SerialProtocol::Commands::MessageReply)
+        {
+            if (m_WaitingForReply)
+            {
+                m_ReplyReceived = true;
+                m_ReplyCondition.WakeupAll();
+            }
+        }
+        else
+        {
+            if ((m_TotalMessageQueueSize + packetBuffer->PackageLength) > MAX_MESSAGE_QUEUE_SIZE)
+            {
+                continue;
+            }
+            if ((packetBuffer->Command & SerialProtocol::Commands::NoReply) == 0) {
+                SendMessage<SerialProtocol::MessageReply>(packetBuffer->Token);
+            }
+
+            std::vector<uint8_t> buffer;
+            buffer.resize(packetBuffer->PackageLength);
+            memcpy(buffer.data(), packetBuffer, packetBuffer->PackageLength);
+            m_MessageQueue.push(std::move(buffer));
+            m_TotalMessageQueueSize += packetBuffer->PackageLength;
+            m_QueueCondition.WakeupAll();
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -90,108 +133,35 @@ void SerialCommandHandler::Execute()
 {
     kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Starting serial command handler\n");
 
-    SendMessage<SerialProtocol::RequestSystemTime>();
-
-    SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(new uint8_t[m_LargestCommandPacket]);
+    m_ThreadID = get_thread_id();
 
     printf("Largest packet size: %u\n", m_LargestCommandPacket);
 
+    Start();
+
     for (;;)
     {
-        memset(packetBuffer, 0x11, m_LargestCommandPacket);
-        size_t size = sizeof(SerialProtocol::PacketHeader::Magic);
-
-        uint8_t magicNumber;
-        // Read and validate magic number.
-        if (read(m_SerialPort, &magicNumber, 1) != 1)
+        std::vector<uint8_t> buffer;
         {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Failed to read serial packet magic number 1\n");
-            continue;
-        }
-        else if (magicNumber != SerialProtocol::PacketHeader::MAGIC1)
-        {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_HIGH_VOL, "Recevied packet with invalid magic number 1 %02x\n", magicNumber);
-            continue;
-        }
-        if (read(m_SerialPort, &magicNumber, 1) != 1)
-        {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Failed to read serial packet magic number 2\n");
-            continue;
-        }
-        else if (magicNumber != SerialProtocol::PacketHeader::MAGIC2)
-        {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Received packet with invalid magic number 2 %02x\n", magicNumber);
-            continue;
-        }
-        packetBuffer->Magic = SerialProtocol::PacketHeader::MAGIC;
-        // Read rest of header.
-        size = sizeof(SerialProtocol::PacketHeader) - sizeof(SerialProtocol::PacketHeader::Magic);
+            CRITICAL_SCOPE(m_Mutex);
 
-        if (read(m_SerialPort, reinterpret_cast<uint8_t*>(packetBuffer) + sizeof(SerialProtocol::PacketHeader::Magic), size) != size)
-        {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Failed to read serial packet header\n");
-            continue;
-        }
-
-        // Validate message size.
-        if (packetBuffer->PackageLength > m_LargestCommandPacket) {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Packet to large. Cmd=%d, Size=%d\n", int(packetBuffer->Command), int(int(packetBuffer->PackageLength)));
-            continue;
-        }
-
-        // Read message body.
-        size_t bodyLength = packetBuffer->PackageLength - sizeof(SerialProtocol::PacketHeader);
-        if (read(m_SerialPort, packetBuffer + 1, bodyLength) != bodyLength)
-        {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Failed to read serial packet body\n");
-            continue;
-        }
-
-        HashCalculator<HashAlgorithm::CRC32> crcCalc;
-
-        uint32_t receivedCRC = packetBuffer->Checksum;
-        packetBuffer->Checksum = 0;
-        crcCalc.AddData(packetBuffer, packetBuffer->PackageLength);
-        uint32_t calculatedCRC = crcCalc.Finalize();
-
-        if (calculatedCRC != receivedCRC) {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Invalid CRC32. Got %08x, expected %08x\n", receivedCRC, calculatedCRC);
-            continue;
-        }
-
-        kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_HIGH_VOL, "Received command %d\n", int(packetBuffer->Command));
-
-        if (packetBuffer->Command == SerialProtocol::Commands::MessageReply)
-        {
-            SetRetransmitFlag(packetBuffer->Token, false);
-            continue;
-        }
-
-        if (m_RetransmitFlags != 0)
-        {
-            TimeValMicros curTime = get_system_time();
-            for (uint32_t i = 0; i < SerialProtocol::ReplyTokens::StaticTokenCount; ++i)
+            while (m_MessageQueue.empty())
             {
-                if ((m_RetransmitFlags & (1 << i)) != 0 && curTime >= m_RetransmitTimes[i] && m_RetransmitHandlers[i])
-                {
-                    SerialProtocol::ReplyTokens::Value replyToken = SerialProtocol::ReplyTokens::Value(i + 1);
-                    SetRetransmitFlag(replyToken, false);
-                    printf("Retransmit %d\n", int(replyToken));
-                    m_RetransmitHandlers[i](replyToken);
-                }
+                m_QueueCondition.Wait(m_Mutex);
             }
+            buffer = std::move(m_MessageQueue.front());
+            m_MessageQueue.pop();
         }
 
-        // Decode message.
+        const SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<const SerialProtocol::PacketHeader*>(buffer.data());
+
+        m_TotalMessageQueueSize -= packetBuffer->PackageLength;
 
         auto handler = m_CommandHandlerMap.find(packetBuffer->Command);
 
         if (handler != m_CommandHandlerMap.end())
         {
             handler->second->HandleMessage(packetBuffer);
-            if (handler->second->m_AutoReply) {
-                SendMessage<SerialProtocol::MessageReply>(packetBuffer->Token);
-            }
         }
         else
         {
@@ -204,48 +174,100 @@ void SerialCommandHandler::Execute()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SerialCommandHandler::RegisterRetransmitHandler(SerialProtocol::ReplyTokens::Value replyToken, std::function<void(SerialProtocol::ReplyTokens::Value)>&& callback)
+bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength, bool repliesOnly)
 {
-    CRITICAL_SCOPE(m_SendMutex);
-    uint32_t index = uint32_t(uint32_t(replyToken) - 1);
-    if (index < SerialProtocol::ReplyTokens::StaticTokenCount)
+    for (;;)
     {
-        m_RetransmitHandlers[index] = std::move(callback);
-    }
-}
+        memset(packetBuffer, 0x11, maxLength);
+        size_t size = sizeof(SerialProtocol::PacketHeader::Magic);
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void SerialCommandHandler::SetRetransmitFlag(SerialProtocol::ReplyTokens::Value replyToken, bool value)
-{
-    uint32_t index = uint32_t(uint32_t(replyToken) - 1);
-    if (index < SerialProtocol::ReplyTokens::StaticTokenCount)
-    {
-        if (value)
+        uint8_t magicNumber;
+        // Read and validate magic number.
+        if (read(m_SerialPort, &magicNumber, 1) != 1)
         {
-            if ((m_RetransmitFlags & (1 << index)) == 0)
+            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Failed to read serial packet magic number 1\n");
+            return false;
+        }
+        else if (magicNumber != SerialProtocol::PacketHeader::MAGIC1)
+        {
+            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_HIGH_VOL, "Recevied packet with invalid magic number 1 %02x\n", magicNumber);
+            return false;
+        }
+        if (read(m_SerialPort, &magicNumber, 1) != 1)
+        {
+            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Failed to read serial packet magic number 2\n");
+            return false;
+        }
+        else if (magicNumber != SerialProtocol::PacketHeader::MAGIC2)
+        {
+            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Received packet with invalid magic number 2 %02x\n", magicNumber);
+            return false;
+        }
+        packetBuffer->Magic = SerialProtocol::PacketHeader::MAGIC;
+        // Read rest of header.
+        size = sizeof(SerialProtocol::PacketHeader) - sizeof(SerialProtocol::PacketHeader::Magic);
+
+        if (read(m_SerialPort, reinterpret_cast<uint8_t*>(packetBuffer) + sizeof(SerialProtocol::PacketHeader::Magic), size) != size)
+        {
+            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Failed to read serial packet header\n");
+            return false;
+        }
+
+        if (packetBuffer->PackageLength > m_LargestCommandPacket)
+        {
+            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Packet to large. Cmd=%d, Size=%d\n", int(packetBuffer->Command), int(int(packetBuffer->PackageLength)));
+            return false;
+        }
+
+        if (repliesOnly && packetBuffer->Command != SerialProtocol::Commands::MessageReply)
+        {
+            size_t remainingBytes = packetBuffer->PackageLength - sizeof(SerialProtocol::PacketHeader);
+            while (remainingBytes != 0)
             {
-                m_RetransmitFlags |= 1 << index;
-                m_RetransmitTimes[index] = get_system_time() + TimeValMicros(1.0);
+                size_t curLength = std::min(remainingBytes, maxLength);
+                remainingBytes -= curLength;
+                if (read(m_SerialPort, packetBuffer, curLength) != curLength)
+                {
+                    kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Failed to purge non-reply packet\n");
+                    return false;
+                }
             }
+            printf("Skipped non reply packet.\n");
+            continue;
         }
-        else
+
+        // Validate message size.
+        if (packetBuffer->PackageLength > maxLength)
         {
-            m_RetransmitFlags &= ~(1 << index);
+            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Packet to large. Cmd=%d, Size=%d\n", int(packetBuffer->Command), int(int(packetBuffer->PackageLength)));
+            return false;
         }
+
+        // Read message body.
+        size_t bodyLength = packetBuffer->PackageLength - sizeof(SerialProtocol::PacketHeader);
+        if (read(m_SerialPort, packetBuffer + 1, bodyLength) != bodyLength)
+        {
+            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Failed to read serial packet body\n");
+            return false;
+        }
+
+        HashCalculator<HashAlgorithm::CRC32> crcCalc;
+
+        uint32_t receivedCRC = packetBuffer->Checksum;
+        packetBuffer->Checksum = 0;
+        crcCalc.AddData(packetBuffer, packetBuffer->PackageLength);
+        uint32_t calculatedCRC = crcCalc.Finalize();
+
+        if (calculatedCRC != receivedCRC)
+        {
+            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Invalid CRC32. Got %08x, expected %08x\n", receivedCRC, calculatedCRC);
+            return false;
+        }
+
+        kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_HIGH_VOL, "Received command %d\n", int(packetBuffer->Command));
+
+        return true;
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool SerialCommandHandler::GetRetransmitFlag(SerialProtocol::ReplyTokens::Value replyToken) const
-{
-    CRITICAL_SCOPE(m_SendMutex);
-    return m_RetransmitFlags & (1 << (uint16_t(replyToken) - 1));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -255,6 +277,7 @@ bool SerialCommandHandler::GetRetransmitFlag(SerialProtocol::ReplyTokens::Value 
 void SerialCommandHandler::HandleProbeDevice(const SerialProtocol::ProbeDevice& packet)
 {
     SendMessage<SerialProtocol::ProbeDeviceReply>(m_DeviceType);
+    ProbeRequestReceived(packet.DeviceType);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -270,7 +293,7 @@ void SerialCommandHandler::HandleSetSystemTime(const SerialProtocol::SetSystemTi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize)
+bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize)
 {
     HashCalculator<HashAlgorithm::CRC32> crcCalc;
 
@@ -279,17 +302,37 @@ int SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, s
     crcCalc.AddData(data, dataSize);
     header->Checksum = crcCalc.Finalize();
 
-    CRITICAL_SCOPE(m_SendMutex);
+    const bool recursing = get_thread_id() == GetThreadID();
 
-    int result = os::FileIO::Write(m_SerialPort, header, headerSize);
-    if (result != headerSize) return result;
-    if (dataSize > 0) {
-        result = os::FileIO::Write(m_SerialPort, data, dataSize);
+    CRITICAL_SCOPE(m_Mutex, !recursing);
+
+    if (header->Command != SerialProtocol::Commands::MessageReply)
+    {
+        while (m_WaitingForReply) {
+            m_ReplyCondition.Wait(m_Mutex);
+        }
     }
-    if (SerialProtocol::IsStaticReplyToken(header->Token)) {
-        SetRetransmitFlag(header->Token, true);
+    for (int i = 0; i < 10; ++i)
+    {
+        int result = os::FileIO::Write(m_SerialPort, header, headerSize);
+        if (result != headerSize) return result;
+        if (dataSize > 0) {
+            result = os::FileIO::Write(m_SerialPort, data, dataSize);
+        }
+        if (header->Command & SerialProtocol::Commands::NoReply) {
+            return true;
+        }
+
+        m_ReplyReceived = false;
+        m_WaitingForReply = true;
+        m_ReplyCondition.WaitTimeout(m_Mutex, TimeValMicros::FromSeconds(5.0));
+        m_WaitingForReply = false;
+        if (m_ReplyReceived) {
+            return true;
+        }
     }
-    return result;
+    printf("ERROR: transmitting %ld failed.\n", header->Command);
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -298,17 +341,7 @@ int SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, s
 
 void SerialCommandHandler::SendSerialPacket(SerialProtocol::PacketHeader* msg)
 {
-    HashCalculator<HashAlgorithm::CRC32> crcCalc;
-
-    msg->Checksum = 0;
-    crcCalc.AddData(msg, msg->PackageLength);
-    msg->Checksum = crcCalc.Finalize();
-
-    CRITICAL_SCOPE(m_SendMutex);
-    os::FileIO::Write(m_SerialPort, msg, msg->PackageLength);
-    if (SerialProtocol::IsStaticReplyToken(msg->Token)) {
-        SetRetransmitFlag(msg->Token, true);
-    }
+    SendSerialData(msg, msg->PackageLength, nullptr, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -323,7 +356,7 @@ int SerialCommandHandler::WriteLogMessage(const char* buffer, int length)
 
     header.PackageLength = sizeof(header) + length;
 
-    CRITICAL_SCOPE(m_SendMutex);
+    CRITICAL_SCOPE(m_Mutex, get_thread_id() != GetThreadID());
 
     write(m_SerialPort, &header, sizeof(header));
     write(m_SerialPort, buffer, length);

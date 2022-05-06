@@ -85,7 +85,7 @@ private:
     TimeValMicros   m_ReadTimeout = TimeValMicros::infinit;
 	int             m_ReceiveDMAChannel = -1;
 	int             m_SendDMAChannel = -1;
-	int32_t         m_ReceiveBufferSize = 1024 * 2;
+	int32_t         m_ReceiveBufferSize = 1024 * 8;
 	int32_t         m_ReceiveBufferOutPos = 0;
 	int32_t         m_ReceiveBufferInPos = 0;
 	uint8_t*        m_ReceiveBuffer;

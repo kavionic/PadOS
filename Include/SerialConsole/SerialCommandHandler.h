@@ -21,10 +21,13 @@
 
 #include <algorithm>
 #include <functional>
+#include <queue>
 
 #include <Signals/SignalTarget.h>
+#include <Threads/Thread.h>
 #include <Threads/Mutex.h>
 #include <Kernel/KMutex.h>
+#include <Kernel/KConditionVariable.h>
 #include <Kernel/VFS/KINode.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/Kernel.h>
@@ -59,16 +62,14 @@ DEFINE_KERNEL_LOG_CATEGORY(LogCategorySerialHandler);
 class PacketHandlerBase
 {
 public:
-    PacketHandlerBase(bool autoReply) : m_AutoReply(autoReply) {}
     virtual void HandleMessage(const SerialProtocol::PacketHeader* packet) const = 0;
-    bool    m_AutoReply = false;
 };
 
 template<typename PacketType, typename CallbackType>
 class PacketHandler : public PacketHandlerBase
 {
 public:
-    PacketHandler(CallbackType&& callback, bool autoReply) : PacketHandlerBase(autoReply),  m_Callback(std::move(callback)) {}
+    PacketHandler(CallbackType&& callback) : m_Callback(std::move(callback)) {}
 
     virtual void HandleMessage(const SerialProtocol::PacketHeader* packet) const override { m_Callback(*static_cast<const PacketType*>(packet)); }
 
@@ -78,90 +79,86 @@ private:
 
 
 
-class SerialCommandHandler : public SignalTarget
+class SerialCommandHandler : public SignalTarget, public os::Thread
 {
 public:
-	SerialCommandHandler();
-	~SerialCommandHandler();
+    SerialCommandHandler();
+    ~SerialCommandHandler();
 
     static SerialCommandHandler& GetInstance();
 
-	virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, int file);
-    virtual void PropeRequestReceived(SerialProtocol::ProbeDeviceType expectedMode) {}
+    virtual int Run() override;
 
-	void Execute();
+
+    virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, int file);
+    virtual void ProbeRequestReceived(SerialProtocol::ProbeDeviceType expectedMode) {}
+
+    void Execute();
 
     template<typename PacketType, typename CallbackType>
-    void RegisterPacketHandler(SerialProtocol::Commands::Value commandID, CallbackType&& callback, bool autoReply)
+    void RegisterPacketHandler(SerialProtocol::Commands::Value commandID, CallbackType&& callback)
     {
-        PacketHandler<PacketType, CallbackType>* handler = new PacketHandler<PacketType, CallbackType>(std::move(callback), autoReply);
+        PacketHandler<PacketType, CallbackType>* handler = new PacketHandler<PacketType, CallbackType>(std::move(callback));
         m_CommandHandlerMap[commandID] = handler;
 
         m_LargestCommandPacket = std::max(m_LargestCommandPacket, sizeof(PacketType));
     }
     template<typename PacketType, typename CallbackType>
-    void RegisterPacketHandler(CallbackType&& callback, bool autoReply)
+    void RegisterPacketHandler(CallbackType&& callback)
     {
-        RegisterPacketHandler<PacketType>(PacketType::COMMAND, std::move(callback), autoReply);
+        RegisterPacketHandler<PacketType>(PacketType::COMMAND, std::move(callback));
     }
 
     template<typename PacketType, typename ObjectType, typename CallbackType>
-    void RegisterPacketHandler(ObjectType* object, CallbackType callback, bool autoReply = true)
+    void RegisterPacketHandler(ObjectType* object, CallbackType callback)
     {
-        RegisterPacketHandler<PacketType>(std::bind(callback, object, std::placeholders::_1), autoReply);
+        RegisterPacketHandler<PacketType>(std::bind(callback, object, std::placeholders::_1));
     }
 
     template<typename PacketType, typename ObjectType, typename CallbackType>
-    void RegisterPacketHandler(SerialProtocol::Commands::Value commandID, ObjectType* object, CallbackType callback, bool autoReply = true)
+    void RegisterPacketHandler(SerialProtocol::Commands::Value commandID, ObjectType* object, CallbackType callback)
     {
-        RegisterPacketHandler<PacketType>(commandID, std::bind(callback, object, std::placeholders::_1), autoReply);
+        RegisterPacketHandler<PacketType>(commandID, std::bind(callback, object, std::placeholders::_1));
     }
 
-    void RegisterRetransmitHandler(SerialProtocol::ReplyTokens::Value replyToken, std::function<void(SerialProtocol::ReplyTokens::Value)>&& callback);
+    bool SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize);
+    void SendSerialPacket(SerialProtocol::PacketHeader* msg);
 
-    template<typename ObjectType, typename CallbackType>
-    void RegisterRetransmitHandler(SerialProtocol::ReplyTokens::Value replyToken, ObjectType* object, CallbackType callback)
+    template<typename MSG_TYPE, typename... ARGS>
+    void SendMessage(ARGS&&... args)
     {
-        RegisterRetransmitHandler(replyToken, std::bind(callback, object, std::placeholders::_1));
+        MSG_TYPE msg;
+        MSG_TYPE::InitMsg(msg, std::forward<ARGS>(args)...);
+        SendSerialPacket(&msg);
     }
 
-    bool GetRetransmitFlag(SerialProtocol::ReplyTokens::Value replyToken) const;
-
-    int  SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize);
-	void SendSerialPacket(SerialProtocol::PacketHeader* msg);
-
-
-	template<typename MSG_TYPE, typename... ARGS>
-	void SendMessage(ARGS&&... args)
-	{
-		MSG_TYPE msg;
-		MSG_TYPE::InitMsg(msg, std::forward<ARGS>(args)...);
-		SendSerialPacket(&msg);
-	}
-
-	int WriteLogMessage(const char* buffer, int length);
+    int WriteLogMessage(const char* buffer, int length);
 
 private:
-    void SetRetransmitFlag(SerialProtocol::ReplyTokens::Value replyToken, bool value);
+    bool ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength, bool repliesOnly);
 
     void HandleProbeDevice(const SerialProtocol::ProbeDevice& packet);
     void HandleSetSystemTime(const SerialProtocol::SetSystemTime& packet);
 
     static SerialCommandHandler* s_Instance;
 
-	mutable kernel::KMutex	m_SendMutex;
+    thread_id                   m_ThreadID = 0;
+    mutable kernel::KMutex      m_Mutex;
+    kernel::KConditionVariable  m_ReplyCondition;
+    kernel::KConditionVariable  m_QueueCondition;
+    volatile bool               m_WaitingForReply = false;
+    volatile bool               m_ReplyReceived = false;
 
-	int               m_SerialPort = -1;
+    int               m_SerialPort = -1;
 
     SerialProtocol::ProbeDeviceType m_DeviceType = SerialProtocol::ProbeDeviceType::Bootloader;
 
     std::map<SerialProtocol::Commands::Value, const PacketHandlerBase*> m_CommandHandlerMap;
-    size_t                                                       m_LargestCommandPacket = 0;
+    size_t                                                              m_LargestCommandPacket = 0;
 
-    std::function<void(SerialProtocol::ReplyTokens::Value)> m_RetransmitHandlers[SerialProtocol::ReplyTokens::StaticTokenCount];
-    uint32_t                                         m_RetransmitFlags;
-    TimeValMicros                                    m_RetransmitTimes[SerialProtocol::ReplyTokens::StaticTokenCount];
+    std::queue<std::vector<uint8_t>>    m_MessageQueue;
+    size_t                              m_TotalMessageQueueSize = 0;
 
-	SerialCommandHandler(const SerialCommandHandler &other) = delete;
-	SerialCommandHandler& operator=(const SerialCommandHandler &other) = delete;
+    SerialCommandHandler(const SerialCommandHandler &other) = delete;
+    SerialCommandHandler& operator=(const SerialCommandHandler &other) = delete;
 };

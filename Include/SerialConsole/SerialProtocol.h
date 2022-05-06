@@ -23,6 +23,7 @@ namespace SerialProtocol
 
 enum class ProbeDeviceType : uint32_t
 {
+    None,
     Bootloader,
     Application
 };
@@ -31,10 +32,13 @@ namespace Commands
 {
     using Value = uint32_t;
 
-    static constexpr uint32_t MessageReply      = 10;
-    static constexpr uint32_t ProbeDevice       = 20;
-    static constexpr uint32_t ProbeDeviceReply  = 30;
-    static constexpr uint32_t LogMessage        = 40;
+    static constexpr uint32_t NoReply = 0x80000000;
+
+
+    static constexpr uint32_t MessageReply      = 10 | NoReply;
+    static constexpr uint32_t ProbeDevice       = 20 | NoReply;
+    static constexpr uint32_t ProbeDeviceReply  = 30 | NoReply;
+    static constexpr uint32_t LogMessage        = 40 | NoReply;
 
     // Misc messages:
     static constexpr uint32_t SetSystemTime     = 1000;

@@ -32,13 +32,10 @@ namespace Commands
 {
     using Value = uint32_t;
 
-    static constexpr uint32_t NoReply = 0x80000000;
-
-
-    static constexpr uint32_t MessageReply      = 10 | NoReply;
-    static constexpr uint32_t ProbeDevice       = 20 | NoReply;
-    static constexpr uint32_t ProbeDeviceReply  = 30 | NoReply;
-    static constexpr uint32_t LogMessage        = 40 | NoReply;
+    static constexpr uint32_t MessageReply      = 10;
+    static constexpr uint32_t ProbeDevice       = 20;
+    static constexpr uint32_t ProbeDeviceReply  = 30;
+    static constexpr uint32_t LogMessage        = 40;
 
     // Misc messages:
     static constexpr uint32_t SetSystemTime     = 1000;
@@ -61,35 +58,26 @@ namespace Commands
     static constexpr uint32_t SysCmdCount       = 10000;
 }
 
-
-namespace ReplyTokens
-{
-    using Value = uint16_t;
-    static constexpr uint16_t None = 0;
-    static constexpr uint16_t StaticTokenCount = 32;
-}
-
-
-static constexpr bool IsStaticReplyToken(ReplyTokens::Value token) { return token != ReplyTokens::None && token <= ReplyTokens::StaticTokenCount; }
-
 struct PacketHeader
 {
     static const uint8_t MAGIC1 = 0x42;
     static const uint8_t MAGIC2 = 0x13;
     static const uint16_t MAGIC = MAGIC1 | (uint16_t(MAGIC2) << 8);
 
+    static const uint16_t FLAG_NO_REPLY = 0x0001;
+
     template<typename T>
-    static void InitHeader(T& msg, uint16_t replyToken = 0)
+    static void InitHeader(T& msg, uint16_t flags = 0)
     {
         msg.Magic = MAGIC;
-        msg.Token = replyToken;
+        msg.Flags = flags;
         msg.Checksum = 0;
         msg.PackageLength = sizeof(msg);
         msg.Command = T::COMMAND;
     }
 
     uint16_t        Magic;
-    uint16_t        Token;
+    uint16_t        Flags;
     uint32_t        Checksum;
     uint32_t        PackageLength;
     Commands::Value Command;
@@ -99,14 +87,14 @@ struct MessageReply : PacketHeader
 {
     static constexpr Commands::Value COMMAND = Commands::MessageReply;
 
-    static void InitMsg(MessageReply& msg, uint16_t token) { InitHeader(msg); msg.Token = token; }
+    static void InitMsg(MessageReply& msg) { InitHeader(msg, FLAG_NO_REPLY); }
 };
 
 struct ProbeDevice : PacketHeader
 {
     static constexpr Commands::Value COMMAND = Commands::ProbeDevice;
 
-    static void InitMsg(ProbeDevice& msg, ProbeDeviceType deviceType) { InitHeader(msg); msg.DeviceType = deviceType; }
+    static void InitMsg(ProbeDevice& msg, ProbeDeviceType deviceType) { InitHeader(msg, FLAG_NO_REPLY); msg.DeviceType = deviceType; }
 
     ProbeDeviceType DeviceType = ProbeDeviceType::Bootloader;
 };
@@ -115,7 +103,7 @@ struct ProbeDeviceReply : PacketHeader
 {
     static constexpr Commands::Value COMMAND = Commands::ProbeDeviceReply;
 
-    static void InitMsg(ProbeDeviceReply& msg, ProbeDeviceType deviceType) { InitHeader(msg); msg.DeviceType = deviceType; }
+    static void InitMsg(ProbeDeviceReply& msg, ProbeDeviceType deviceType) { InitHeader(msg, FLAG_NO_REPLY); msg.DeviceType = deviceType; }
 
     ProbeDeviceType DeviceType = ProbeDeviceType::Bootloader;
 };
@@ -124,7 +112,7 @@ struct LogMessage : PacketHeader
 {
     static constexpr Commands::Value COMMAND = Commands::LogMessage;
 
-    static void InitMsg(LogMessage& msg) { InitHeader(msg); }
+    static void InitMsg(LogMessage& msg) { InitHeader(msg, FLAG_NO_REPLY); }
 };
 
 struct SetSystemTime : PacketHeader

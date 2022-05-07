@@ -105,7 +105,7 @@ struct CloseFile : PacketHeader
 struct OpenFileReply : PacketHeader
 {
     static constexpr Commands::Value COMMAND = Commands::OpenFileReply;
-    static void InitMsg(OpenFileReply& msg, uint16_t replyToken, int32_t file) { InitHeader(msg, replyToken); msg.m_File = file; }
+    static void InitMsg(OpenFileReply& msg, int32_t file) { InitHeader(msg); msg.m_File = file; }
 
     int32_t m_File;
 };
@@ -132,7 +132,7 @@ struct WriteFile : PacketHeader
 struct WriteFileReply : PacketHeader
 {
     static constexpr Commands::Value COMMAND = Commands::WriteFileReply;
-    static void InitMsg(WriteFileReply& msg, uint16_t replyToken, int32_t file, int32_t bytesWritten) { InitHeader(msg, replyToken); msg.m_File = file; msg.m_BytesWritten = bytesWritten; }
+    static void InitMsg(WriteFileReply& msg, int32_t file, int32_t bytesWritten) { InitHeader(msg); msg.m_File = file; msg.m_BytesWritten = bytesWritten; }
 
     int32_t m_BytesWritten;
     int32_t m_File;
@@ -158,9 +158,9 @@ struct ReadFile : PacketHeader
 struct ReadFileReply : PacketHeader
 {
     static constexpr Commands::Value COMMAND = Commands::ReadFileReply;
-    static void InitMsg(ReadFileReply& msg, uint16_t replyToken, int32_t file, int32_t startPos, int32_t size)
+    static void InitMsg(ReadFileReply& msg, int32_t file, int32_t startPos, int32_t size)
     {
-        InitHeader(msg, replyToken);
+        InitHeader(msg);
         assert(size <= sizeof(m_Buffer));
 
         msg.m_File = file;

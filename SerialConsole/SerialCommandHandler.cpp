@@ -77,33 +77,34 @@ int SerialCommandHandler::Run()
         if (!ReadPacket(packetBuffer, m_LargestCommandPacket, false)) {
             continue;
         }
-
-        CRITICAL_SCOPE(m_Mutex);
-
-        if (packetBuffer->Command == SerialProtocol::Commands::MessageReply)
         {
-            if (m_WaitingForReply)
-            {
-                m_ReplyReceived = true;
-                m_ReplyCondition.WakeupAll();
-            }
-        }
-        else
-        {
-            if ((m_TotalMessageQueueSize + packetBuffer->PackageLength) > MAX_MESSAGE_QUEUE_SIZE)
-            {
-                continue;
-            }
-            if ((packetBuffer->Command & SerialProtocol::Commands::NoReply) == 0) {
-                SendMessage<SerialProtocol::MessageReply>(packetBuffer->Token);
-            }
+            CRITICAL_SCOPE(m_Mutex);
 
-            std::vector<uint8_t> buffer;
-            buffer.resize(packetBuffer->PackageLength);
-            memcpy(buffer.data(), packetBuffer, packetBuffer->PackageLength);
-            m_MessageQueue.push(std::move(buffer));
-            m_TotalMessageQueueSize += packetBuffer->PackageLength;
-            m_QueueCondition.WakeupAll();
+            if (packetBuffer->Command == SerialProtocol::Commands::MessageReply)
+            {
+                if (m_WaitingForReply)
+                {
+                    m_ReplyReceived = true;
+                    m_ReplyCondition.WakeupAll();
+                }
+            }
+            else
+            {
+                if ((m_TotalMessageQueueSize + packetBuffer->PackageLength) > MAX_MESSAGE_QUEUE_SIZE)
+                {
+                    continue;
+                }
+                if ((packetBuffer->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) == 0) {
+                    SendMessage<SerialProtocol::MessageReply>();
+                }
+
+                std::vector<uint8_t> buffer;
+                buffer.resize(packetBuffer->PackageLength);
+                memcpy(buffer.data(), packetBuffer, packetBuffer->PackageLength);
+                m_MessageQueue.push(std::move(buffer));
+                m_TotalMessageQueueSize += packetBuffer->PackageLength;
+                m_QueueCondition.WakeupAll();
+            }
         }
     }
 }
@@ -112,7 +113,7 @@ int SerialCommandHandler::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, int file)
+void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, int file, int readThreadPriority)
 {
     m_SerialPort = file;
     m_DeviceType = deviceType;
@@ -123,6 +124,8 @@ void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, int
     RegisterPacketHandler<SerialProtocol::SetSystemTime>(SerialProtocol::Commands::SetSystemTime, this, &SerialCommandHandler::HandleSetSystemTime);
 
     g_FilesystemHandler.Setup(this);
+
+    Start(false, readThreadPriority);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -133,11 +136,7 @@ void SerialCommandHandler::Execute()
 {
     kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Starting serial command handler\n");
 
-    m_ThreadID = get_thread_id();
-
     printf("Largest packet size: %u\n", m_LargestCommandPacket);
-
-    Start();
 
     for (;;)
     {
@@ -295,6 +294,10 @@ void SerialCommandHandler::HandleSetSystemTime(const SerialProtocol::SetSystemTi
 
 bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize)
 {
+    if (GetThreadID() == -1)
+    {
+        return false;
+    }
     HashCalculator<HashAlgorithm::CRC32> crcCalc;
 
     header->Checksum = 0;
@@ -319,14 +322,15 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
         if (dataSize > 0) {
             result = os::FileIO::Write(m_SerialPort, data, dataSize);
         }
-        if (header->Command & SerialProtocol::Commands::NoReply) {
+        if (header->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) {
             return true;
         }
 
         m_ReplyReceived = false;
         m_WaitingForReply = true;
-        m_ReplyCondition.WaitTimeout(m_Mutex, TimeValMicros::FromSeconds(5.0));
+        m_ReplyCondition.WaitTimeout(m_Mutex, TimeValMicros::FromMilliseconds(100));
         m_WaitingForReply = false;
+        m_ReplyCondition.WakeupAll();
         if (m_ReplyReceived) {
             return true;
         }

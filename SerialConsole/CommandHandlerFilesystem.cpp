@@ -86,7 +86,6 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
         SerialProtocol::GetDirectoryReply::InitMsg(msg, entryList.size());
         msg.Command = SerialProtocol::GetDirectoryReply::COMMAND;
         msg.Magic = SerialProtocol::PacketHeader::MAGIC;
-        msg.Token = packet.Token;
         msg.PackageLength = sizeof(msg) + entryList.size() * sizeof(SerialProtocol::GetDirectoryReplyDirEnt);
 
         m_CommandHandler->SendSerialData(&msg, sizeof(msg), entryList.data(), entryList.size() * sizeof(SerialProtocol::GetDirectoryReplyDirEnt));
@@ -108,7 +107,7 @@ void CommandHandlerFilesystem::HandleCreateFile(const SerialProtocol::CreateFile
         FileIO::Close(m_CurrentExternalFile);
     }
     m_CurrentExternalFile = FileIO::Open(msg.m_Path, O_WRONLY | O_CREAT | O_TRUNC);
-    m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(msg.Token, m_CurrentExternalFile);
+    m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(m_CurrentExternalFile);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -130,7 +129,7 @@ void CommandHandlerFilesystem::HandleOpenFile(const SerialProtocol::OpenFile& ms
         FileIO::Close(m_CurrentExternalFile);
     }
     m_CurrentExternalFile = FileIO::Open(msg.m_Path, O_RDONLY);
-    m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(msg.Token, m_CurrentExternalFile);
+    m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(m_CurrentExternalFile);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -143,7 +142,7 @@ void CommandHandlerFilesystem::HandleWriteFile(const SerialProtocol::WriteFile& 
         return;
     }
     ssize_t result = FileIO::Write(m_CurrentExternalFile, msg.m_StartPos, msg.m_Buffer, msg.m_Size);
-    m_CommandHandler->SendMessage<SerialProtocol::WriteFileReply>(msg.Token, m_CurrentExternalFile, (result == msg.m_Size) ? (msg.m_StartPos + result) : -1);
+    m_CommandHandler->SendMessage<SerialProtocol::WriteFileReply>(m_CurrentExternalFile, (result == msg.m_Size) ? (msg.m_StartPos + result) : -1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -157,7 +156,7 @@ void CommandHandlerFilesystem::HandleReadFile(const SerialProtocol::ReadFile& ms
     }
     SerialProtocol::ReadFileReply reply;
     ssize_t result = FileIO::Read(m_CurrentExternalFile, msg.m_StartPos, reply.m_Buffer, msg.m_Size);
-    SerialProtocol::ReadFileReply::InitMsg(reply, msg.Token, m_CurrentExternalFile, msg.m_StartPos, result);
+    SerialProtocol::ReadFileReply::InitMsg(reply, m_CurrentExternalFile, msg.m_StartPos, result);
 
     m_CommandHandler->SendSerialPacket(&reply);
 }

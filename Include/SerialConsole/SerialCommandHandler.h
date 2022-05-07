@@ -90,7 +90,7 @@ public:
     virtual int Run() override;
 
 
-    virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, int file);
+    virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, int file, int readThreadPriority);
     virtual void ProbeRequestReceived(SerialProtocol::ProbeDeviceType expectedMode) {}
 
     void Execute();
@@ -142,8 +142,8 @@ private:
 
     static SerialCommandHandler* s_Instance;
 
-    thread_id                   m_ThreadID = 0;
     mutable kernel::KMutex      m_Mutex;
+//    mutable kernel::KMutex      m_SendMutex;
     kernel::KConditionVariable  m_ReplyCondition;
     kernel::KConditionVariable  m_QueueCondition;
     volatile bool               m_WaitingForReply = false;

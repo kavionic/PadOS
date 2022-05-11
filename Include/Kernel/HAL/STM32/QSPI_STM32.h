@@ -83,24 +83,18 @@ static constexpr uint32_t QSPI_SECTOR_SIZE = 4096;
 class QSPI_STM32
 {
 public:
-    virtual bool Setup(uint32_t spiFrequency, uint32_t addressBits, PinMuxTarget pinD0, PinMuxTarget pinD1, PinMuxTarget pinD2, PinMuxTarget pinD3, PinMuxTarget pinCLK, PinMuxTarget pinNCS);
+    IFLASHC virtual bool Setup(uint32_t spiFrequency, uint32_t addressBits, PinMuxTarget pinD0, PinMuxTarget pinD1, PinMuxTarget pinD2, PinMuxTarget pinD3, PinMuxTarget pinCLK, PinMuxTarget pinNCS);
 
-    bool SetSPIFrequency(uint32_t spiFrequency);
+    IFLASHC bool SetSPIFrequency(uint32_t spiFrequency);
 
-    void SetDDRMode(bool enableDDR);
-    void SetDDRHold(bool hold);
-    void SetSendInstrOnlyOnce(bool onlyOnce);
-    void SetAddressLen(QSPI_AddressLength addressLen);
+    IFLASHC void SetDDRMode(bool enableDDR);
+    IFLASHC void SetDDRHold(bool hold);
+    IFLASHC void SetSendInstrOnlyOnce(bool onlyOnce);
+    IFLASHC void SetAddressLen(QSPI_AddressLength addressLen);
 
-    virtual void EnableMemoryMapping(bool useContinousRead) = 0;
+    IFLASHC virtual void EnableMemoryMapping(bool useContinousRead) = 0;
 
-    virtual void Erase(uint32_t address, uint32_t length) = 0;
-    virtual void Read(void* data, uint32_t address, uint32_t length) = 0;
-    virtual void Write(const void* data, uint32_t address, uint32_t length) = 0;
-    virtual void WaitWriteInProgress() = 0;
-
-
-    void SendCommand(
+    IFLASHC void SendCommand(
         uint8_t             cmd,
         QSPI_FunctionalMode functionalMode,
         QSPI_InstrMode      instrMode,
@@ -110,22 +104,22 @@ public:
         QSPI_AltBytesLength altBytesLen = QSPI_AltBytesLength::AB8,
         uint32_t            dummyCycles = 0
     ) const;
-    void SetDataLength(uint32_t length) const;
+    IFLASHC void SetDataLength(uint32_t length) const;
 
-    void Write8(uint8_t data) { *reinterpret_cast<__IO uint8_t*>(&QUADSPI->DR) = data; }
-    void Write16(uint16_t data) { *reinterpret_cast<__IO uint16_t*>(&QUADSPI->DR) = data; }
-    void Write32(uint32_t data) { QUADSPI->DR = data; }
+    IFLASHC void Write8(uint8_t data) { *reinterpret_cast<__IO uint8_t*>(&QUADSPI->DR) = data; }
+    IFLASHC void Write16(uint16_t data) { *reinterpret_cast<__IO uint16_t*>(&QUADSPI->DR) = data; }
+    IFLASHC void Write32(uint32_t data) { QUADSPI->DR = data; }
 
-    uint8_t     Read8() const  { return *reinterpret_cast<__IO uint8_t*>(&QUADSPI->DR); }
-    uint16_t    Read16() const { return *reinterpret_cast<__IO uint16_t*>(&QUADSPI->DR); }
-    uint32_t    Read32() const { return QUADSPI->DR; }
+    IFLASHC uint8_t     Read8() const  { return *reinterpret_cast<__IO uint8_t*>(&QUADSPI->DR); }
+    IFLASHC uint16_t    Read16() const { return *reinterpret_cast<__IO uint16_t*>(&QUADSPI->DR); }
+    IFLASHC uint32_t    Read32() const { return QUADSPI->DR; }
 
-    void WaitBusy() const;
-    void WaitFIFOThreshold() const { while ((QUADSPI->SR & (QUADSPI_SR_FTF | QUADSPI_SR_TCF)) == 0) {} }
-    void WaitTransferComplete() const { while ((QUADSPI->SR & QUADSPI_SR_TCF) == 0) {} }
+    IFLASHC void WaitBusy() const;
+    IFLASHC void WaitFIFOThreshold() const { while ((QUADSPI->SR & (QUADSPI_SR_FTF | QUADSPI_SR_TCF)) == 0) {} }
+    IFLASHC void WaitTransferComplete() const { while ((QUADSPI->SR & QUADSPI_SR_TCF) == 0) {} }
 
 private:
-    void SendIO3Reset(DigitalPinID pinIO3);
-    void SendJEDECReset(DigitalPinID pinD0, DigitalPinID pinCLK, DigitalPinID pinNCS);
+    IFLASHC void SendIO3Reset(DigitalPinID pinIO3);
+    IFLASHC void SendJEDECReset(DigitalPinID pinD0, DigitalPinID pinCLK, DigitalPinID pinNCS);
 };
 

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2022 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -38,57 +38,64 @@ enum class USARTID : int;
 class USARTDriverINode : public KINode
 {
 public:
-	USARTDriverINode(   USARTID             portID,
-                        const PinMuxTarget& pinRX,
-                        const PinMuxTarget& pinTX,
-                        uint32_t            clockFrequency,
-                        USARTDriver*        driver);
+    IFLASHC USARTDriverINode(USARTID             portID,
+                             const PinMuxTarget& pinRX,
+                             const PinMuxTarget& pinTX,
+                             uint32_t            clockFrequency,
+                             USARTDriver*        driver);
 
-    ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
-	ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
-    int     DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    IFLASHC ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
+    IFLASHC ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
+    IFLASHC int     DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
 private:
-    void SetBaudrate(int baudrate);
-    void SetIOControl(uint32_t flags);
+    IFLASHC void SetBaudrate(int baudrate);
+    IFLASHC void SetIOControl(uint32_t flags);
 
-    bool SetPinMode(const PinMuxTarget& pin, USARTPinMode mode);
+    IFLASHC bool SetPinMode(const PinMuxTarget& pin, USARTPinMode mode);
 
-    void SetSwapRXTX(bool doSwap);
-    bool GetSwapRXTX() const { return (m_Port->CR2 & USART_CR2_SWAP) != 0; }
+    IFLASHC void SetSwapRXTX(bool doSwap);
+    IFLASHC bool GetSwapRXTX() const { return (m_Port->CR2 & USART_CR2_SWAP) != 0; }
 
-	static IRQResult IRQCallbackReceive(IRQn_Type irq, void* userData) { return static_cast<USARTDriverINode*>(userData)->HandleIRQReceive(); }
-	IRQResult HandleIRQReceive();
-	static IRQResult IRQCallbackSend(IRQn_Type irq, void* userData) { return static_cast<USARTDriverINode*>(userData)->HandleIRQSend(); }
-	IRQResult HandleIRQSend();
+    IFLASHC bool    RestartReceiveDMA(size_t maxLength);
+    IFLASHC ssize_t ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length);
+
+    static IFLASHC IRQResult IRQCallbackReceive(IRQn_Type irq, void* userData);
+    IFLASHC IRQResult HandleIRQReceive();
+    static IFLASHC IRQResult IRQCallbackSend(IRQn_Type irq, void* userData);
+    IFLASHC IRQResult HandleIRQSend();
 
     Ptr<USARTDriver> m_Driver;
 
-	KMutex m_MutexRead;
-	KMutex m_MutexWrite;
+    KMutex m_MutexRead;
+    KMutex m_MutexWrite;
 
-	KConditionVariable m_ReceiveCondition;
-	KConditionVariable m_TransmitCondition;
+    KConditionVariable m_ReceiveCondition;
+    KConditionVariable m_TransmitCondition;
 
 
-	USART_TypeDef*  m_Port;
+    USART_TypeDef*  m_Port;
     PinMuxTarget    m_PinRX;
     PinMuxTarget    m_PinTX;
-	DMAMUX_REQUEST	m_DMARequestRX;
-	DMAMUX_REQUEST	m_DMARequestTX;
+    DMAMUX_REQUEST  m_DMARequestRX;
+    DMAMUX_REQUEST  m_DMARequestTX;
 
     int             m_ClockFrequency = 0;
-	int				m_Baudrate = 0;
+    int             m_Baudrate = 0;
     USARTPinMode    m_PinModeRX = USARTPinMode::Normal;
     USARTPinMode    m_PinModeTX = USARTPinMode::Normal;
     uint32_t        m_IOControl = 0;
     TimeValMicros   m_ReadTimeout = TimeValMicros::infinit;
-	int             m_ReceiveDMAChannel = -1;
-	int             m_SendDMAChannel = -1;
-	int32_t         m_ReceiveBufferSize = 1024 * 8;
-	int32_t         m_ReceiveBufferOutPos = 0;
-	int32_t         m_ReceiveBufferInPos = 0;
-	uint8_t*        m_ReceiveBuffer;
+    int             m_ReceiveDMAChannel = -1;
+    int             m_SendDMAChannel = -1;
+    int32_t         m_ReceiveBufferSize = 1024 * 8;
+    int32_t         m_ReceiveBufferOutPos = 0;
+    volatile int32_t         m_ReceiveBufferInPos = 0;
+    volatile int32_t         m_PendingReceiveBytes = 0;
+    volatile std::atomic_int32_t         m_ReceiveBytesInBuffer = 0;
+    uint8_t* m_ReceiveBuffer;
+
+    volatile bool m_ReceiveTransactionActive = false;
 };
 
 struct USARTDriverSetup
@@ -103,24 +110,23 @@ struct USARTDriverSetup
 class USARTDriver : public PtrTarget, public KFilesystemFileOps
 {
 public:
-	USARTDriver();
-	~USARTDriver();
+    IFLASHC USARTDriver();
 
-    void Setup( const char*         devicePath,
+    IFLASHC void Setup( const char*         devicePath,
                 USARTID             portID,
                 const PinMuxTarget& pinRX,
                 const PinMuxTarget& pinTX,
                 uint32_t            clockFrequency);
 
-    void Setup(const USARTDriverSetup& setup);
+    IFLASHC void Setup(const USARTDriverSetup& setup);
 
-    virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
-    virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
-    virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
+    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
-	USARTDriver(const USARTDriver &other) = delete;
-	USARTDriver& operator=(const USARTDriver &other) = delete;
+    USARTDriver(const USARTDriver &other) = delete;
+    USARTDriver& operator=(const USARTDriver &other) = delete;
 };
 
 } // namespace

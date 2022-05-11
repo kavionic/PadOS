@@ -18,7 +18,9 @@
 
 #pragma once
 
-#include "System/Platform.h"
+#include <stdint.h>
+#include <System/Platform.h>
+#include <System/Sections.h>
 
 
 namespace kernel
@@ -28,9 +30,9 @@ namespace kernel
 class SpinTimer
 {
 public:
-    static void Initialize();
+    static IFLASHC void Initialize();
 
-    static void SleepuS(uint32_t delay)
+    static IFLASHC void SleepuS(uint32_t delay)
     {
         int32_t delayCycles = delay * s_TicksPerMicroSec;
 
@@ -49,7 +51,7 @@ public:
         }
     }
 
-    static void SleepMS(uint32_t delay)
+    static IFLASHC void SleepMS(uint32_t delay)
     {
         SleepuS(delay * 1000);
     }

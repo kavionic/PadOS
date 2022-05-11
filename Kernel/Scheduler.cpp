@@ -54,7 +54,7 @@ static void wakeup_sleeping_threads();
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int kernel::get_remaining_stack()
+IFLASHC int kernel::get_remaining_stack()
 {
     return __get_PSP() - intptr_t(gk_CurrentThread->GetStackTop());
 }
@@ -63,7 +63,7 @@ int kernel::get_remaining_stack()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::check_stack_overflow()
+IFLASHC void kernel::check_stack_overflow()
 {
     if (get_remaining_stack() < 100) panic("Stackoverflow!\n");
 }
@@ -72,7 +72,7 @@ void kernel::check_stack_overflow()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" void SysTick_Handler()
+extern "C" IFLASHC void SysTick_Handler()
 {
     disable_interrupts();
 	Kernel::s_SystemTime++;
@@ -85,7 +85,7 @@ extern "C" void SysTick_Handler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::add_thread_to_ready_list(KThreadCB* thread)
+IFLASHC void kernel::add_thread_to_ready_list(KThreadCB* thread)
 {
     thread->m_State = ThreadState::Ready;
     gk_ReadyThreadLists[thread->m_PriorityLevel].Append(thread);
@@ -97,7 +97,7 @@ void kernel::add_thread_to_ready_list(KThreadCB* thread)
 
 namespace
 {
-extern "C" uint32_t* select_thread(uint32_t* currentStack)
+extern "C" IFLASHC uint32_t* select_thread(uint32_t* currentStack)
 {
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
@@ -154,7 +154,7 @@ extern "C" uint32_t* select_thread(uint32_t* currentStack)
     return gk_CurrentThread->m_CurrentStack;
 }
 
-extern "C" void switch_context()
+extern "C" IFLASHC void switch_context()
 {
     KSWITCH_CONTEXT();
 }
@@ -188,7 +188,7 @@ void SVCHandler_main(unsigned int * svc_args)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" void SVCall_Handler( void )
+extern "C" IFLASHC void SVCall_Handler(void)
 {
 }
 
@@ -196,7 +196,7 @@ extern "C" void SVCall_Handler( void )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void start_first_thread()
+static IFLASHC void start_first_thread()
 {
     static uint32_t* SCB_VTOR_addr = (uint32_t*)&SCB->VTOR;
     void* dummyStack = gk_CurrentThread->m_CurrentStack;
@@ -220,7 +220,7 @@ static void start_first_thread()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" void PendSV_Handler( void )
+extern "C" IFLASHC void PendSV_Handler(void)
 {
     __asm volatile
     (
@@ -251,7 +251,7 @@ extern "C" void PendSV_Handler( void )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool kernel::wakeup_wait_queue(KThreadWaitList* queue, int returnCode, int maxCount)
+bool IFLASHC kernel::wakeup_wait_queue(KThreadWaitList* queue, int returnCode, int maxCount)
 {
     int ourPriLevel = gk_CurrentThread->m_PriorityLevel;
     bool needSchedule = false;
@@ -276,7 +276,7 @@ bool kernel::wakeup_wait_queue(KThreadWaitList* queue, int returnCode, int maxCo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void wakeup_sleeping_threads()
+static IFLASHC void wakeup_sleeping_threads()
 {
     TimeValMicros curTime = TimeValMicros::FromNative(Kernel::s_SystemTime * SYS_TICKS_PER_SEC);
 
@@ -295,7 +295,7 @@ static void wakeup_sleeping_threads()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KThreadCB> kernel::get_thread(thread_id handle)
+Ptr<KThreadCB> IFLASHC kernel::get_thread(thread_id handle)
 {
     Ptr<KThreadCB> thread = gk_ThreadTable.Get(handle);
     return (thread != nullptr && thread->m_State != ThreadState::Deleted) ? thread : nullptr;
@@ -305,7 +305,7 @@ Ptr<KThreadCB> kernel::get_thread(thread_id handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KProcess*  kernel::get_current_process()
+KProcess* IFLASHC kernel::get_current_process()
 {
     return gk_CurrentProcess;
 }
@@ -314,7 +314,7 @@ KProcess*  kernel::get_current_process()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KThreadCB* kernel::get_current_thread()
+KThreadCB* IFLASHC kernel::get_current_thread()
 {
     return gk_CurrentThread;
 }
@@ -323,7 +323,7 @@ KThreadCB* kernel::get_current_thread()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KIOContext* kernel::get_current_iocxt(bool forKernel)
+KIOContext* IFLASHC kernel::get_current_iocxt(bool forKernel)
 {
     return gk_CurrentProcess->GetIOContext();
 }
@@ -332,7 +332,7 @@ KIOContext* kernel::get_current_iocxt(bool forKernel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-thread_id spawn_thread(const char* name, ThreadEntryPoint_t entryPoint, int priority, void* arguments, bool joinable, int stackSize)
+thread_id IFLASHC spawn_thread(const char* name, ThreadEntryPoint_t entryPoint, int priority, void* arguments, bool joinable, int stackSize)
 {
     Ptr<KThreadCB> thread;
     int handle;
@@ -369,7 +369,7 @@ thread_id spawn_thread(const char* name, ThreadEntryPoint_t entryPoint, int prio
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int exit_thread(int returnCode)
+int IFLASHC exit_thread(int returnCode)
 {
     KProcess*  process = gk_CurrentProcess;
     KThreadCB* thread = gk_CurrentThread;
@@ -389,7 +389,7 @@ int exit_thread(int returnCode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int wait_thread(thread_id handle)
+int IFLASHC wait_thread(thread_id handle)
 {
     KThreadCB* thread = gk_CurrentThread;
 
@@ -449,7 +449,7 @@ int wait_thread(thread_id handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t wakeup_thread(thread_id handle)
+status_t IFLASHC wakeup_thread(thread_id handle)
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
 
@@ -468,7 +468,7 @@ status_t wakeup_thread(thread_id handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
+static IFLASHC void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
 {
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
@@ -495,7 +495,7 @@ static void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int get_thread_info(handle_id handle, ThreadInfo* info)
+IFLASHC int get_thread_info(handle_id handle, ThreadInfo* info)
 {
     Ptr<KThreadCB> thread;
     if (handle != INVALID_HANDLE)
@@ -522,7 +522,7 @@ int get_thread_info(handle_id handle, ThreadInfo* info)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int get_next_thread_info(ThreadInfo* info)
+IFLASHC int get_next_thread_info(ThreadInfo* info)
 {
     Ptr<KThreadCB> thread = gk_ThreadTable.GetNext(info->ThreadID, [](Ptr<KThreadCB> thread) { return thread->m_State != ThreadState::Deleted; });
 
@@ -539,7 +539,7 @@ int get_next_thread_info(ThreadInfo* info)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-thread_id get_thread_id()
+IFLASHC thread_id get_thread_id()
 {
     return gk_CurrentThread->GetHandle();
 }
@@ -548,7 +548,7 @@ thread_id get_thread_id()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int thread_yield()
+IFLASHC int thread_yield()
 {
     KSWITCH_CONTEXT();
     return 0;
@@ -558,7 +558,7 @@ int thread_yield()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::add_to_sleep_list(KThreadWaitNode* waitNode)
+IFLASHC void kernel::add_to_sleep_list(KThreadWaitNode* waitNode)
 {
     for (KThreadWaitNode* i = gk_SleepingThreads.m_First; i != nullptr; i = i->m_Next)
     {
@@ -576,7 +576,7 @@ void kernel::add_to_sleep_list(KThreadWaitNode* waitNode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::remove_from_sleep_list(KThreadWaitNode* waitNode)
+IFLASHC void kernel::remove_from_sleep_list(KThreadWaitNode* waitNode)
 {
     gk_SleepingThreads.Remove(waitNode);
 }
@@ -585,7 +585,7 @@ void kernel::remove_from_sleep_list(KThreadWaitNode* waitNode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t snooze_until(TimeValMicros resumeTime)
+IFLASHC status_t snooze_until(TimeValMicros resumeTime)
 {
     KThreadCB* thread = gk_CurrentThread;
 
@@ -624,7 +624,7 @@ status_t snooze_until(TimeValMicros resumeTime)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t snooze(TimeValMicros delay)
+IFLASHC status_t snooze(TimeValMicros delay)
 {
     return snooze_until(get_system_time() + delay);
 }
@@ -633,7 +633,7 @@ status_t snooze(TimeValMicros delay)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t snooze_us(bigtime_t micros)
+IFLASHC status_t snooze_us(bigtime_t micros)
 {
 	return snooze_until(get_system_time() + TimeValMicros::FromMicroseconds(micros));
 }
@@ -642,7 +642,7 @@ status_t snooze_us(bigtime_t micros)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t snooze_ms(bigtime_t millis)
+IFLASHC status_t snooze_ms(bigtime_t millis)
 {
     return snooze_until(get_system_time() + TimeValMicros::FromMilliseconds(millis));
 }
@@ -651,7 +651,7 @@ status_t snooze_ms(bigtime_t millis)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t snooze_s(bigtime_t seconds)
+IFLASHC status_t snooze_s(bigtime_t seconds)
 {
     return snooze_until(get_system_time() + TimeValMicros::FromSeconds(seconds));
 }
@@ -660,7 +660,7 @@ status_t snooze_s(bigtime_t seconds)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQEnableState kernel::get_interrupt_enabled_state()
+IFLASHC IRQEnableState kernel::get_interrupt_enabled_state()
 {
     uint32_t basePri = __get_BASEPRI();
     if (basePri == 0) {
@@ -676,7 +676,7 @@ IRQEnableState kernel::get_interrupt_enabled_state()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::set_interrupt_enabled_state(IRQEnableState state)
+IFLASHC void kernel::set_interrupt_enabled_state(IRQEnableState state)
 {
     __disable_irq();
     switch(state)
@@ -694,7 +694,7 @@ void kernel::set_interrupt_enabled_state(IRQEnableState state)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t kernel::disable_interrupts()
+IFLASHC uint32_t kernel::disable_interrupts()
 {
     uint32_t oldState = __get_BASEPRI();
     __disable_irq();
@@ -709,7 +709,7 @@ uint32_t kernel::disable_interrupts()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t kernel::KDisableLowLatenctInterrupts()
+IFLASHC uint32_t kernel::KDisableLowLatenctInterrupts()
 {
     uint32_t oldState = __get_BASEPRI();
     __disable_irq();
@@ -724,7 +724,7 @@ uint32_t kernel::KDisableLowLatenctInterrupts()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::restore_interrupts(uint32_t state)
+IFLASHC void kernel::restore_interrupts(uint32_t state)
 {
     __disable_irq();
     __set_BASEPRI(state);
@@ -735,7 +735,7 @@ void kernel::restore_interrupts(uint32_t state)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void idle_thread_entry(void* arguments)
+static IFLASHC void idle_thread_entry(void* arguments)
 {
     for(;;)
     {
@@ -747,7 +747,7 @@ static void idle_thread_entry(void* arguments)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void init_thread_entry(void* arguments)
+static IFLASHC void init_thread_entry(void* arguments)
 {
     KThreadCB* thread = gk_CurrentThread;
 
@@ -794,7 +794,7 @@ static void init_thread_entry(void* arguments)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
+IFLASHC void kernel::start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
 {
     __disable_irq();
 

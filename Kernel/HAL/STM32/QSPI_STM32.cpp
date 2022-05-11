@@ -246,4 +246,3 @@ void QSPI_STM32::SendJEDECReset(DigitalPinID pinD0, DigitalPinID pinCLK, Digital
     DigitalPin(pinCLK).SetDirection(DigitalPinDirection_e::Analog);
     DigitalPin(pinD0).SetDirection(DigitalPinDirection_e::Analog);
 }
-

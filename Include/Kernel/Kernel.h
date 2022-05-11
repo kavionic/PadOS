@@ -125,20 +125,20 @@ void kassure(bool expression, const char* fmt, ARGS&&... args)
 class Kernel
 {
 public:
-    static void     SetupFrequencies(uint32_t frequencyCore, uint32_t frequencyPeripheral);
-    static uint32_t GetFrequencyCore();
-    static uint32_t GetFrequencyPeripheral();
+    static IFLASHC void     SetupFrequencies(uint32_t frequencyCore, uint32_t frequencyPeripheral);
+    static IFLASHC uint32_t GetFrequencyCore();
+    static IFLASHC uint32_t GetFrequencyPeripheral();
 
 #if defined(__SAME70Q21__)
     static void ResetWatchdog() { WDT->WDT_CR = WDT_CR_KEY_PASSWD | WDT_CR_WDRSTT_Msk; }
 #elif defined(STM32H7)
-    static void ResetWatchdog() { /*IWDG1->KR = 0xaaaa;*/ }
+    static IFLASHC void ResetWatchdog() { /*IWDG1->KR = 0xaaaa;*/ }
 #endif
-    static void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
-    static void Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/);
-    static int RegisterDevice(const char* path, Ptr<KINode> deviceNode);
-    static int RenameDevice(int handle, const char* newPath);
-    static int RemoveDevice(int handle);
+    static IFLASHC void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
+    static IFLASHC void Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/);
+    static IFLASHC int RegisterDevice(const char* path, Ptr<KINode> deviceNode);
+    static IFLASHC int RenameDevice(int handle, const char* newPath);
+    static IFLASHC int RemoveDevice(int handle);
 
 //private:
 

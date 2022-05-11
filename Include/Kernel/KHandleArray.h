@@ -40,7 +40,7 @@ struct KHandleArrayBlock : public PtrTarget
 
 struct KHandleArrayEmptyBlock : KHandleArrayBlock
 {
-    static Ptr<KHandleArrayEmptyBlock> GetInstance();
+    static IFLASHC Ptr<KHandleArrayEmptyBlock> GetInstance();
     KHandleArrayEmptyBlock() : KHandleArrayBlock(false) {
         for (int i = 0; i < KHANDLER_ARRAY_BLOCK_SIZE; ++i) {
             m_Array[i] = ptr_tmp_cast(this);
@@ -59,13 +59,13 @@ public:
 ///
 ///////////////////////////////////////////////////////////////////////////////
 
-    int GetHandleCount() const { return m_TopLevel.m_UsedIndexes; }
+    IFLASHC int GetHandleCount() const { return m_TopLevel.m_UsedIndexes; }
 
 ///////////////////////////////////////////////////////////////////////////////
 ///
 ///////////////////////////////////////////////////////////////////////////////
 
-    int AllocHandle()
+    IFLASHC int AllocHandle()
     {
         bool allocBuffersFailed = false;
         for (;;)

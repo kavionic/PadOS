@@ -41,7 +41,7 @@ using namespace os;
 
 extern "C" {
 
-void _exit(int status)
+IFLASHC void _exit(int status)
 {
     for(;;);
 }
@@ -62,7 +62,7 @@ struct __lock __lock___dd_hash_mutex;
 struct __lock __lock___arc4random_mutex;
 
 static bool g_MutexesInitialized = false;
-void InitializeNewLibMutexes()
+IFLASHC void InitializeNewLibMutexes()
 {
     g_MutexesInitialized = true;
 /*    __lock___malloc_recursive_mutex.m_Mutex   = create_mutex("newlib_sinit", true);
@@ -76,7 +76,7 @@ void InitializeNewLibMutexes()
     __lock___arc4random_mutex.m_Mutex       = create_mutex("newlib_sinit", true);*/
 }
 
-void __retarget_lock_init (_LOCK_T *lock)
+IFLASHC void __retarget_lock_init (_LOCK_T *lock)
 {
     try {
         *lock = new __lock;
@@ -85,7 +85,7 @@ void __retarget_lock_init (_LOCK_T *lock)
     }
 }
 
-void __retarget_lock_init_recursive(_LOCK_T *lock)
+IFLASHC void __retarget_lock_init_recursive(_LOCK_T *lock)
 {
     try {
         *lock = new __lock;
@@ -94,49 +94,49 @@ void __retarget_lock_init_recursive(_LOCK_T *lock)
     }
 }
 
-void __retarget_lock_close(_LOCK_T lock)
+IFLASHC void __retarget_lock_close(_LOCK_T lock)
 {
     delete lock;
 }
 
-void __retarget_lock_close_recursive(_LOCK_T lock)
+IFLASHC void __retarget_lock_close_recursive(_LOCK_T lock)
 {
     delete lock;
 }
 
-void __retarget_lock_acquire (_LOCK_T lock)
+IFLASHC void __retarget_lock_acquire (_LOCK_T lock)
 {
     if (g_MutexesInitialized && lock != nullptr) lock->Lock();
 }
 
-void __retarget_lock_acquire_recursive (_LOCK_T lock)
+IFLASHC void __retarget_lock_acquire_recursive (_LOCK_T lock)
 {
     if (g_MutexesInitialized && lock != nullptr) lock->Lock();
 }
 
-int __retarget_lock_try_acquire(_LOCK_T lock)
+IFLASHC int __retarget_lock_try_acquire(_LOCK_T lock)
 {
     if (g_MutexesInitialized && lock != nullptr) return (lock->TryLock()) ? 0 : -1;
     return -1;
 }
 
-int __retarget_lock_try_acquire_recursive(_LOCK_T lock)
+IFLASHC int __retarget_lock_try_acquire_recursive(_LOCK_T lock)
 {
     if (g_MutexesInitialized && lock != nullptr) return (lock->TryLock()) ? 0 : -1;
     return -1;
 }
 
-void __retarget_lock_release (_LOCK_T lock)
+IFLASHC void __retarget_lock_release (_LOCK_T lock)
 {
     if (g_MutexesInitialized && lock != nullptr) lock->Unlock();
 }
 
-void __retarget_lock_release_recursive (_LOCK_T lock)
+IFLASHC void __retarget_lock_release_recursive (_LOCK_T lock)
 {
     if (g_MutexesInitialized && lock != nullptr) lock->Unlock();
 }
 
-int _gettimeofday(struct timeval* time, void* unused)
+IFLASHC int _gettimeofday(struct timeval* time, void* unused)
 {
     bigtime_t timeUs = get_real_time().AsMicroSeconds();
     time->tv_sec  = time_t(timeUs / 1000000);
@@ -144,28 +144,28 @@ int _gettimeofday(struct timeval* time, void* unused)
     return 0;
 }
 
-int _open_r(_reent* reent, const char* path, int flags)
+IFLASHC int _open_r(_reent* reent, const char* path, int flags)
 {
     return FileIO::Open(path, flags);
 }
 
-int _dup_r(_reent* reent, int oldFile)
+IFLASHC int _dup_r(_reent* reent, int oldFile)
 {
     return FileIO::Dupe(oldFile, -1);
 }
 
 //int dup2(int oldFile, int newFile) { return FileIO::DupeFile(oldFile, newFile); }
-int _close_r(_reent* reent, int file)
+IFLASHC int _close_r(_reent* reent, int file)
 {
     return FileIO::Close(file);
 }
 
-int _fstat(int file, struct stat *buf)
+IFLASHC int _fstat(int file, struct stat *buf)
 {
     return FileIO::ReadStats(file, buf);
 }
 
-int _stat(const char* path, struct stat *buf)
+IFLASHC int _stat(const char* path, struct stat *buf)
 {
     int file = FileIO::Open(path, O_RDONLY);
     if (file != -1)
@@ -177,39 +177,39 @@ int _stat(const char* path, struct stat *buf)
     return -1;
 }
 
-int _isatty(int file)
+IFLASHC int _isatty(int file)
 {
     return -1;
 }
 
-off_t _lseek(int file, off_t offset, int whence)
+IFLASHC off_t _lseek(int file, off_t offset, int whence)
 {
     return 0;
 }
 
-ssize_t _read_r(_reent* reent, int file, void *buffer, size_t length)
+IFLASHC ssize_t _read_r(_reent* reent, int file, void *buffer, size_t length)
 {
     return FileIO::Read(file, buffer, length);
 }
 
-int _kill(pid_t pid, int sig)
+IFLASHC int _kill(pid_t pid, int sig)
 {
     return -1;
 }
 
-pid_t _getpid(void)
+IFLASHC pid_t _getpid(void)
 {
     return get_thread_id();
 }
 
-ssize_t _write_r(_reent* reent, int file, const void *buffer, size_t length)
+IFLASHC ssize_t _write_r(_reent* reent, int file, const void *buffer, size_t length)
 {
     return FileIO::Write(file, buffer, length);
 }
 
 uint32_t g_HeapSize = 0;
 
-caddr_t _sbrk_r(_reent* reent, ptrdiff_t size)
+IFLASHC caddr_t _sbrk_r(_reent* reent, ptrdiff_t size)
 {
     static uint8_t* heap = nullptr;
     uint8_t* prev_heap;
@@ -233,7 +233,7 @@ caddr_t _sbrk_r(_reent* reent, ptrdiff_t size)
     return caddr_t(prev_heap);
 }
 
-char* getcwd(char* path, size_t bufferSize)
+IFLASHC char* getcwd(char* path, size_t bufferSize)
 {
     if (bufferSize < 2) {
         errno = ERANGE;
@@ -245,12 +245,12 @@ char* getcwd(char* path, size_t bufferSize)
 
 }
 
-size_t get_heap_size()
+IFLASHC size_t get_heap_size()
 {
     return g_HeapSize;
 }
 
-size_t get_max_heap_size()
+IFLASHC size_t get_max_heap_size()
 {
     return HEAP_END - HEAP_START;
 }

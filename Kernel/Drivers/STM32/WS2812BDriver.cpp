@@ -213,6 +213,15 @@ ssize_t WS2812BDriverINode::Write(Ptr<KFileNode> file, off64_t position, const v
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+IFLASHC IRQResult WS2812BDriverINode::IRQCallbackSend(IRQn_Type irq, void* userData)
+{
+    return static_cast<WS2812BDriverINode*>(userData)->HandleIRQ();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 IRQResult WS2812BDriverINode::HandleIRQ()
 {
 	if (dma_get_interrupt_flags(m_SendDMAChannel) & DMA_LISR_TCIF0)

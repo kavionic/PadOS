@@ -58,17 +58,17 @@ public:
     KVFSManager();
     ~KVFSManager();
 
-    static void RegisterFilesystem(Ptr<KFilesystem> filesystem);
+    static IFLASHC void RegisterFilesystem(Ptr<KFilesystem> filesystem);
 
-    static int DecodeDiskPartitions(void* blockBuffer, size_t bufferSize, const device_geometry& diskGeom, std::vector<disk_partition_desc>* partitions, disk_read_op* readCallback, void* userData);
+    static IFLASHC int DecodeDiskPartitions(void* blockBuffer, size_t bufferSize, const device_geometry& diskGeom, std::vector<disk_partition_desc>* partitions, disk_read_op* readCallback, void* userData);
 
-    static bool           RegisterVolume(Ptr<KFSVolume> volume);
-    static Ptr<KFSVolume> GetVolume(fs_id volumeID);
-    static Ptr<KINode>    GetINode(fs_id volumeID, ino_t inodeID, bool crossMount);
-    static void           InodeReleased(KINode* inode);
-    static void           FlushInodes();
+    static IFLASHC bool           RegisterVolume(Ptr<KFSVolume> volume);
+    static IFLASHC Ptr<KFSVolume> GetVolume(fs_id volumeID);
+    static IFLASHC Ptr<KINode>    GetINode(fs_id volumeID, ino_t inodeID, bool crossMount);
+    static IFLASHC void           InodeReleased(KINode* inode);
+    static IFLASHC void           FlushInodes();
 private:
-    static void DiscardInode(KINode* inode);
+    static IFLASHC void DiscardInode(KINode* inode);
     
     static const int     MAX_INODE_CACHE_COUNT = 5;
     static KINode* const PENDING_INODE;

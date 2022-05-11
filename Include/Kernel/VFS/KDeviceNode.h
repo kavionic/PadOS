@@ -33,12 +33,12 @@ class KDeviceNode : public PtrTarget
 {
 public:
     KDeviceNode();
-    virtual ~KDeviceNode();
+    IFLASHC virtual ~KDeviceNode();
 
     virtual void Tick() {}
 
-    virtual Ptr<KFileNode> Open(int flags);
-    virtual status_t         Close(Ptr<KFileNode> file);
+    IFLASHC virtual Ptr<KFileNode> Open(int flags);
+    IFLASHC virtual status_t         Close(Ptr<KFileNode> file);
 
     virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) { set_last_error(ENOSYS); return -1; }
 

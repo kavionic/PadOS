@@ -408,6 +408,15 @@ void SDMMCDriver_STM32::ApplySpeedAndBusWidth()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+IRQResult SDMMCDriver_STM32::IRQCallback(IRQn_Type irq, void* userData)
+{
+    return static_cast<SDMMCDriver_STM32*>(userData)->HandleIRQ();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 IRQResult SDMMCDriver_STM32::HandleIRQ()
 {
     uint32_t status = m_SDMMC->STA & m_SDMMC->MASK;
@@ -553,3 +562,4 @@ void SDMMCDriver_STM32::SendClock()
 
     m_SDMMC->CLKCR = CLKCR; // Restore power-save.
 }
+

@@ -35,65 +35,65 @@ enum class SPIID : int;
 class WS2812BDriverINode : public KINode
 {
 public:
-	WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t clockFrequency, KFilesystemFileOps* fileOps);
+    IFLASHC WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t clockFrequency, KFilesystemFileOps* fileOps);
 
-	int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
-	ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length);
-	ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length);
+    IFLASHC int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    IFLASHC ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length);
+    IFLASHC ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length);
 
 private:
-	enum class State
-	{
-		Idle,
-		Sending
-	};
+    enum class State
+    {
+        Idle,
+        Sending
+    };
 
-	static constexpr size_t RESET_BYTE_COUNT = 20;
-	static IRQResult IRQCallbackSend(IRQn_Type irq, void* userData) { return static_cast<WS2812BDriverINode*>(userData)->HandleIRQ(); }
-	IRQResult HandleIRQ();
+    static IFLASHC constexpr size_t RESET_BYTE_COUNT = 20;
+    static IFLASHC IRQResult IRQCallbackSend(IRQn_Type irq, void* userData);
+    IFLASHC IRQResult HandleIRQ();
 
-	bool WaitForIdle();
+    IFLASHC bool WaitForIdle();
 
-	bool SetLEDCount(size_t count);
-	size_t GetLEDCount() const { return m_LEDCount; }
+    IFLASHC bool SetLEDCount(size_t count);
+    IFLASHC size_t GetLEDCount() const { return m_LEDCount; }
 
-	void SetExponential(bool exponential) { m_Exponential = exponential; }
-	bool GetExponential() const { return m_Exponential; }
+    IFLASHC void SetExponential(bool exponential) { m_Exponential = exponential; }
+    IFLASHC bool GetExponential() const { return m_Exponential; }
 
-	KMutex				m_Mutex;
-	KConditionVariable	m_TransmitCondition;
+    KMutex              m_Mutex;
+    KConditionVariable  m_TransmitCondition;
 
-	volatile State m_State = State::Idle;
+    volatile State m_State = State::Idle;
 
-	SPI_TypeDef*	m_Port;
-	DMAMUX_REQUEST	m_DMARequestTX;
+    SPI_TypeDef*    m_Port;
+    DMAMUX_REQUEST  m_DMARequestTX;
 
-	int		m_SendDMAChannel = -1;
-	int32_t		m_ReceiveBufferSize = 1024;
-	int32_t		m_ReceiveBufferOutPos = 0;
-	int32_t		m_ReceiveBufferInPos = 0;
-	size_t		m_LEDCount = 0;
-	size_t		m_TransmitBufferSize = 0;
-	uint8_t*	m_TransmitBuffer = nullptr;
-	bool		m_Exponential = false;
+    int     m_SendDMAChannel = -1;
+    int32_t     m_ReceiveBufferSize = 1024;
+    int32_t     m_ReceiveBufferOutPos = 0;
+    int32_t     m_ReceiveBufferInPos = 0;
+    size_t      m_LEDCount = 0;
+    size_t      m_TransmitBufferSize = 0;
+    uint8_t*    m_TransmitBuffer = nullptr;
+    bool        m_Exponential = false;
 };
 
 
 class WS2812BDriver : public PtrTarget, public KFilesystemFileOps
 {
 public:
-	WS2812BDriver();
-	~WS2812BDriver();
+    IFLASHC WS2812BDriver();
+    IFLASHC ~WS2812BDriver();
 
-    void Setup(const char* devicePath, bool swapIOPins, SPIID portID, uint32_t clockFrequency);
+    IFLASHC void Setup(const char* devicePath, bool swapIOPins, SPIID portID, uint32_t clockFrequency);
 
-    virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
-    virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
-    virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
+    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
-	WS2812BDriver(const WS2812BDriver &other) = delete;
-	WS2812BDriver& operator=(const WS2812BDriver &other) = delete;
+    WS2812BDriver(const WS2812BDriver &other) = delete;
+    WS2812BDriver& operator=(const WS2812BDriver &other) = delete;
 };
 
 } // namespace

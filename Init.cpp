@@ -37,18 +37,17 @@
 #include "Kernel/Scheduler.h"
 #include "Kernel/VFS/KBlockCache.h"
 
-extern "C" void InitializeNewLibMutexes();
+extern "C" IFLASHC void InitializeNewLibMutexes();
 
-
-extern "C" void NonMaskableInt_Handler()
+extern "C" IFLASHC void NonMaskableInt_Handler()
 {
     kernel::panic("NMI\n");
 }
-extern "C" void HardFault_Handler()
+extern "C" IFLASHC void HardFault_Handler()
 {
     kernel::panic("HardFault\n");
 }
-extern "C" void MemoryManagement_Handler()
+extern "C" IFLASHC void MemoryManagement_Handler()
 {
     volatile uint32_t   faultAddress = 0xff00ffff;
     volatile bool       fpuLazyStatePreservation = false;
@@ -82,7 +81,7 @@ extern "C" void MemoryManagement_Handler()
 	(void)instrAccessError;
 	kernel::panic("MemManage\n");
 }
-extern "C" void BusFault_Handler()
+extern "C" IFLASHC void BusFault_Handler()
 {
 	volatile uint32_t   faultAddress = 0xff00ffff;
 	volatile bool       fpuLazyStatePreservation = false;
@@ -124,11 +123,11 @@ extern "C" void BusFault_Handler()
 
 	kernel::panic("BusFault\n");
 }
-extern "C" void UsageFault_Handler()
+extern "C" IFLASHC void UsageFault_Handler()
 {
     kernel::panic("UsageFault\n");
 }
-extern "C" void DebugMonitor_Handler()
+extern "C" IFLASHC void DebugMonitor_Handler()
 {   
 }
 
@@ -138,7 +137,7 @@ extern "C" void DebugMonitor_Handler()
  * \param cpuCoreFreqHz CPU core clock frequency in Hz
  */
 #if 0
-void SWO_Init(uint32_t portBits, uint32_t cpuCoreFreqHz)
+void IFLASHC SWO_Init(uint32_t portBits, uint32_t cpuCoreFreqHz)
 {
   uint32_t SWOSpeed = 2000000; /* default 64k baud rate */
   uint32_t SWOPrescaler = (cpuCoreFreqHz / SWOSpeed) - 1; /* SWOSpeed in Hz, note that cpuCoreFreqHz is expected to be match the CPU core clock */
@@ -169,7 +168,7 @@ void SWO_Init(uint32_t portBits, uint32_t cpuCoreFreqHz)
 #endif
 }
 
-void SWO_PrintChar(char c, uint8_t portNo)
+void IFLASHC SWO_PrintChar(char c, uint8_t portNo)
 {
   volatile int timeout;
  
@@ -194,7 +193,7 @@ void SWO_PrintChar(char c, uint8_t portNo)
 #endif
 
 void ApplicationMain();
-void kernel::InitThreadMain(void* argument)
+void IFLASHC kernel::InitThreadMain(void* argument)
 {
     InitializeNewLibMutexes();
     kernel::KBlockCache::Initialize();

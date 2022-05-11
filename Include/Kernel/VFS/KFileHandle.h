@@ -38,10 +38,10 @@ class KFileTableNode : public PtrTarget
 public:
     KFileTableNode(bool isDirectory, int openFlags) : m_IsDirectory(isDirectory), m_OpenFlags(openFlags & ~O_CREAT) {}
 
-    void        SetINode(Ptr<KINode> inode) { m_INode = inode; }        
-    Ptr<KINode> GetINode()                  { return m_INode; }
-    bool        IsDirectory() const         { return m_IsDirectory; }
-    int         GetOpenFlags() const        { return m_OpenFlags; }
+    inline void        SetINode(Ptr<KINode> inode) { m_INode = inode; }
+    inline Ptr<KINode> GetINode()                  { return m_INode; }
+    inline bool        IsDirectory() const         { return m_IsDirectory; }
+    inline int         GetOpenFlags() const        { return m_OpenFlags; }
 
 private:
     Ptr<KINode> m_INode;
@@ -52,9 +52,9 @@ private:
 class KFileNode : public KFileTableNode
 {
 public:
-    KFileNode(int openFlags) : KFileTableNode(false, openFlags) {}
+    inline KFileNode(int openFlags) : KFileTableNode(false, openFlags) {}
         
-    virtual bool LastReferenceGone() override;
+    IFLASHC virtual bool LastReferenceGone() override;
 
     off64_t     m_Position = 0;
 };
@@ -62,12 +62,12 @@ public:
 class KDirectoryNode : public KFileTableNode
 {
 public:
-    KDirectoryNode(int openFlags) : KFileTableNode(true, openFlags) {}
+    inline KDirectoryNode(int openFlags) : KFileTableNode(true, openFlags) {}
 
-    virtual bool LastReferenceGone() override;
+    IFLASHC virtual bool LastReferenceGone() override;
         
-    int ReadDirectory(dir_entry* entry, size_t bufSize);
-    int RewindDirectory();
+    IFLASHC int ReadDirectory(dir_entry* entry, size_t bufSize);
+    IFLASHC int RewindDirectory();
 };
 
 

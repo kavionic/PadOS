@@ -120,6 +120,8 @@ void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, int
 
     REGISTER_KERNEL_LOG_CATEGORY(LogCategorySerialHandler, kernel::KLogSeverity::WARNING);
 
+//    kernel::kernel_log_set_category_log_level(LogCategorySerialHandler, kernel::KLogSeverity::INFO_HIGH_VOL);
+
     RegisterPacketHandler<SerialProtocol::ProbeDevice>(SerialProtocol::Commands::ProbeDevice, this, &SerialCommandHandler::HandleProbeDevice);
     RegisterPacketHandler<SerialProtocol::SetSystemTime>(SerialProtocol::Commands::SetSystemTime, this, &SerialCommandHandler::HandleSetSystemTime);
 
@@ -306,33 +308,34 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
     header->Checksum = crcCalc.Finalize();
 
     const bool recursing = get_thread_id() == GetThreadID();
-
-    CRITICAL_SCOPE(m_Mutex, !recursing);
-
-    if (header->Command != SerialProtocol::Commands::MessageReply)
     {
-        while (m_WaitingForReply) {
-            m_ReplyCondition.Wait(m_Mutex);
-        }
-    }
-    for (int i = 0; i < 10; ++i)
-    {
-        int result = os::FileIO::Write(m_SerialPort, header, headerSize);
-        if (result != headerSize) return result;
-        if (dataSize > 0) {
-            result = os::FileIO::Write(m_SerialPort, data, dataSize);
-        }
-        if (header->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) {
-            return true;
-        }
+        CRITICAL_SCOPE(m_Mutex, !recursing);
 
-        m_ReplyReceived = false;
-        m_WaitingForReply = true;
-        m_ReplyCondition.WaitTimeout(m_Mutex, TimeValMicros::FromMilliseconds(100));
-        m_WaitingForReply = false;
-        m_ReplyCondition.WakeupAll();
-        if (m_ReplyReceived) {
-            return true;
+        if (header->Command != SerialProtocol::Commands::MessageReply)
+        {
+            while (m_WaitingForReply) {
+                m_ReplyCondition.Wait(m_Mutex);
+            }
+        }
+        for (int i = 0; i < 10; ++i)
+        {
+            int result = os::FileIO::Write(m_SerialPort, header, headerSize);
+            if (result != headerSize) return result;
+            if (dataSize > 0) {
+                result = os::FileIO::Write(m_SerialPort, data, dataSize);
+            }
+            if (header->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) {
+                return true;
+            }
+
+            m_ReplyReceived = false;
+            m_WaitingForReply = true;
+            m_ReplyCondition.WaitTimeout(m_Mutex, TimeValMicros::FromMilliseconds(100));
+            m_WaitingForReply = false;
+            m_ReplyCondition.WakeupAll();
+            if (m_ReplyReceived) {
+                return true;
+            }
         }
     }
     printf("ERROR: transmitting %ld failed.\n", header->Command);

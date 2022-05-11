@@ -70,7 +70,7 @@ TimeValMicros get_real_time()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValNanos get_system_time_hires()
+IFLASHC TimeValNanos get_system_time_hires()
 {
     const uint32_t    coreFrequency = Kernel::GetFrequencyCore();
     bigtime_t   time;
@@ -97,7 +97,7 @@ TimeValNanos get_system_time_hires()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValNanos get_idle_time()
+IFLASHC TimeValNanos get_idle_time()
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
     return gk_IdleThread->m_RunTime;
@@ -108,7 +108,7 @@ TimeValNanos get_idle_time()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint64_t get_core_clock_cycles()
+IFLASHC uint64_t get_core_clock_cycles()
 {
     uint32_t timerLoadVal = SysTick->LOAD;
 
@@ -120,7 +120,7 @@ uint64_t get_core_clock_cycles()
 namespace unit_test
 {
 
-void TestTimeValue()
+IFLASHC void TestTimeValue()
 {
     TimeValMillis millis = TimeValMillis::FromNative(1000);
     TimeValMicros micros = TimeValMicros::FromNative(1000000);

@@ -25,7 +25,6 @@
 #include "System/System.h"
 #include "Threads/Threads.h"
 
-
 namespace kernel
 {
 
@@ -36,7 +35,7 @@ static TimeValNanos gk_TotalIRQTime;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int register_irq_handler(IRQn_Type irqNum, KIRQHandler* handler, void* userData)
+IFLASHC int register_irq_handler(IRQn_Type irqNum, KIRQHandler* handler, void* userData)
 {
     if (irqNum < 0 || irqNum >= IRQ_COUNT || handler == nullptr)
     {
@@ -74,7 +73,7 @@ int register_irq_handler(IRQn_Type irqNum, KIRQHandler* handler, void* userData)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int unregister_irq_handler(IRQn_Type irqNum, int handle)
+IFLASHC int unregister_irq_handler(IRQn_Type irqNum, int handle)
 {
     if (irqNum < 0 || irqNum >= IRQ_COUNT)
     {
@@ -107,12 +106,11 @@ int unregister_irq_handler(IRQn_Type irqNum, int handle)
 
 } // namespace
 
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValNanos get_total_irq_time()
+IFLASHC TimeValNanos get_total_irq_time()
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
     return kernel::gk_TotalIRQTime;
@@ -122,7 +120,8 @@ TimeValNanos get_total_irq_time()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" void KernelHandleIRQ()
+
+extern "C" IFLASHC void KernelHandleIRQ()
 {
     TimeValNanos start = get_system_time_hires();
     volatile int vector = SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk;

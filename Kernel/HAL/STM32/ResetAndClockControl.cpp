@@ -24,7 +24,6 @@
 
 uint32_t ResetAndClockControl::s_HSEFrequency = 0;
 
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -468,36 +467,31 @@ void ResetAndClockControl::SelectSysClock(RCC_SysClockSource source)
 
 
 
-
-
-
-
-
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_FMCSEL>()      { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_FMCSEL_Msk,         RCC_D1CCIPR_FMCSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_QSPISEL>()     { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_QSPISEL_Msk,        RCC_D1CCIPR_QSPISEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SDMMCSEL>()    { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_SDMMCSEL_Msk,       RCC_D1CCIPR_SDMMCSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_CKPERSEL>()    { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_CKPERSEL_Msk,       RCC_D1CCIPR_CKPERSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI1SEL>()     { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SAI1SEL_Msk,       RCC_D2CCIP1R_SAI1SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI23SEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SAI23SEL_Msk,      RCC_D2CCIP1R_SAI23SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI123SEL>()   { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPI123SEL_Msk,     RCC_D2CCIP1R_SPI123SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI45SEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPI45SEL_Msk,      RCC_D2CCIP1R_SPI45SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPDIFSEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPDIFSEL_Msk,      RCC_D2CCIP1R_SPDIFSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_DFSDM1SEL>()   { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_DFSDM1SEL_Msk,     RCC_D2CCIP1R_DFSDM1SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_FDCANSEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_FDCANSEL_Msk,      RCC_D2CCIP1R_FDCANSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SWPSEL>()      { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SWPSEL_Msk,        RCC_D2CCIP1R_SWPSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USART16SEL>()  { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USART16SEL_Msk,    RCC_D2CCIP2R_USART16SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USART28SEL>()  { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USART28SEL_Msk,    RCC_D2CCIP2R_USART28SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_RNGSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_RNGSEL_Msk,        RCC_D2CCIP2R_RNGSEL_Pos);}
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_I2C123SEL>()   { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_I2C123SEL_Msk,     RCC_D2CCIP2R_I2C123SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USBSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USBSEL_Msk,        RCC_D2CCIP2R_USBSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_CECSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_CECSEL_Msk,        RCC_D2CCIP2R_CECSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM1SEL>()   { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_LPTIM1SEL_Msk,     RCC_D2CCIP2R_LPTIM1SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPUART1SEL>()  { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPUART1SEL_Msk,     RCC_D3CCIPR_LPUART1SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_I2C4SEL>()     { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_I2C4SEL_Msk,        RCC_D3CCIPR_I2C4SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM2SEL>()   { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPTIM2SEL_Msk,      RCC_D3CCIPR_LPTIM2SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM345SEL>() { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPTIM345SEL_Msk,    RCC_D3CCIPR_LPTIM345SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI4ASEL>()    { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SAI4ASEL_Msk,       RCC_D3CCIPR_SAI4ASEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI4BSEL>()    { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SAI4BSEL_Msk,       RCC_D3CCIPR_SAI4BSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_ADCSEL>()      { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_ADCSEL_Msk,         RCC_D3CCIPR_ADCSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI6SEL>()     { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SPI6SEL_Msk,        RCC_D3CCIPR_SPI6SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_RTCSEL>()      { return ClockMuxInfo(&RCC->BDCR,       RCC_BDCR_RTCSEL_Msk,            RCC_BDCR_RTCSEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_FMCSEL>()      { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_FMCSEL_Msk,         RCC_D1CCIPR_FMCSEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_QSPISEL>()     { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_QSPISEL_Msk,        RCC_D1CCIPR_QSPISEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SDMMCSEL>()    { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_SDMMCSEL_Msk,       RCC_D1CCIPR_SDMMCSEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_CKPERSEL>()    { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_CKPERSEL_Msk,       RCC_D1CCIPR_CKPERSEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI1SEL>()     { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SAI1SEL_Msk,       RCC_D2CCIP1R_SAI1SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI23SEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SAI23SEL_Msk,      RCC_D2CCIP1R_SAI23SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI123SEL>()   { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPI123SEL_Msk,     RCC_D2CCIP1R_SPI123SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI45SEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPI45SEL_Msk,      RCC_D2CCIP1R_SPI45SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPDIFSEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPDIFSEL_Msk,      RCC_D2CCIP1R_SPDIFSEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_DFSDM1SEL>()   { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_DFSDM1SEL_Msk,     RCC_D2CCIP1R_DFSDM1SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_FDCANSEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_FDCANSEL_Msk,      RCC_D2CCIP1R_FDCANSEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SWPSEL>()      { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SWPSEL_Msk,        RCC_D2CCIP1R_SWPSEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USART16SEL>()  { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USART16SEL_Msk,    RCC_D2CCIP2R_USART16SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USART28SEL>()  { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USART28SEL_Msk,    RCC_D2CCIP2R_USART28SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_RNGSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_RNGSEL_Msk,        RCC_D2CCIP2R_RNGSEL_Pos);}
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_I2C123SEL>()   { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_I2C123SEL_Msk,     RCC_D2CCIP2R_I2C123SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USBSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USBSEL_Msk,        RCC_D2CCIP2R_USBSEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_CECSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_CECSEL_Msk,        RCC_D2CCIP2R_CECSEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM1SEL>()   { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_LPTIM1SEL_Msk,     RCC_D2CCIP2R_LPTIM1SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPUART1SEL>()  { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPUART1SEL_Msk,     RCC_D3CCIPR_LPUART1SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_I2C4SEL>()     { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_I2C4SEL_Msk,        RCC_D3CCIPR_I2C4SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM2SEL>()   { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPTIM2SEL_Msk,      RCC_D3CCIPR_LPTIM2SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM345SEL>() { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPTIM345SEL_Msk,    RCC_D3CCIPR_LPTIM345SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI4ASEL>()    { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SAI4ASEL_Msk,       RCC_D3CCIPR_SAI4ASEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI4BSEL>()    { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SAI4BSEL_Msk,       RCC_D3CCIPR_SAI4BSEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_ADCSEL>()      { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_ADCSEL_Msk,         RCC_D3CCIPR_ADCSEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI6SEL>()     { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SPI6SEL_Msk,        RCC_D3CCIPR_SPI6SEL_Pos); }
+template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_RTCSEL>()      { return ClockMuxInfo(&RCC->BDCR,       RCC_BDCR_RTCSEL_Msk,            RCC_BDCR_RTCSEL_Pos); }

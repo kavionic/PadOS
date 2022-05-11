@@ -112,21 +112,21 @@ public:
 class I2CDriverINode : public KINode
 {
 public:
-    I2CDriverINode(I2CDriver* driver, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
-    virtual ~I2CDriverINode() override;
+    IFLASHC I2CDriverINode(I2CDriver* driver, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
+    IFLASHC virtual ~I2CDriverINode() override;
 
 
-    Ptr<KFileNode> Open(int flags);
+    IFLASHC Ptr<KFileNode> Open(int flags);
 
-    int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
-    ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length);
-    ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length);
+    IFLASHC int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    IFLASHC ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length);
+    IFLASHC ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length);
 
 private:
-    void ResetPeripheral();
-    void ClearBus();
-    int SetSpeed(I2CSpeed speed);
-    int GetBaudrate() const;
+    IFLASHC void ResetPeripheral();
+    IFLASHC void ClearBus();
+    IFLASHC int SetSpeed(I2CSpeed speed);
+    IFLASHC int GetBaudrate() const;
 
     I2CDriverINode(const I2CDriverINode&) = delete;
     I2CDriverINode& operator=(const I2CDriverINode&) = delete;
@@ -140,13 +140,13 @@ private:
         Writing
     };
     
-    void UpdateTransactionLength(uint32_t& CR2);
+    IFLASHC void UpdateTransactionLength(uint32_t& CR2);
 
-    static IRQResult IRQCallbackEvent(IRQn_Type irq, void* userData) { return static_cast<I2CDriverINode*>(userData)->HandleEventIRQ(); }
-    IRQResult HandleEventIRQ();
+    static IFLASHC IRQResult IRQCallbackEvent(IRQn_Type irq, void* userData);
+    IFLASHC IRQResult HandleEventIRQ();
 
-    static IRQResult IRQCallbackError(IRQn_Type irq, void* userData) { return static_cast<I2CDriverINode*>(userData)->HandleErrorIRQ(); }
-    IRQResult HandleErrorIRQ();
+    static IFLASHC IRQResult IRQCallbackError(IRQn_Type irq, void* userData);
+    IFLASHC IRQResult HandleErrorIRQ();
 
     KMutex m_Mutex;
     KConditionVariable      m_RequestCondition;
@@ -185,15 +185,15 @@ struct I2CDriverSetup
 class I2CDriver : public PtrTarget, public KFilesystemFileOps
 {
 public:
-    void Setup(const char* devicePath, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
-    void Setup(const I2CDriverSetup& setup);
+    IFLASHC void Setup(const char* devicePath, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
+    IFLASHC void Setup(const I2CDriverSetup& setup);
 
-    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
-    virtual int              CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
+    IFLASHC virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
+    IFLASHC virtual int              CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
 
-    virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
-    virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
-    virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
+    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 };
     

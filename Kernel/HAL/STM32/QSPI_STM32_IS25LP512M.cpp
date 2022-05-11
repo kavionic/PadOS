@@ -21,14 +21,13 @@
 #include <Kernel/HAL/STM32/QSPI_STM32_IS25LP512M.h>
 #include <Kernel/SpinTimer.h>
 
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 bool QSPI_STM32_IS25LP512M::Setup(uint32_t spiFrequency, uint32_t addressBits, PinMuxTarget pinD0, PinMuxTarget pinD1, PinMuxTarget pinD2, PinMuxTarget pinD3, PinMuxTarget pinCLK, PinMuxTarget pinNCS)
 {
-    if (!QSPI_STM32::Setup(std::min(50000000UL, spiFrequency), addressBits, pinD0, pinD1, pinD2, pinD3, pinCLK, pinNCS)) {
+    if (!QSPI_STM32::Setup((spiFrequency > 50000000UL) ? 50000000UL : spiFrequency, addressBits, pinD0, pinD1, pinD2, pinD3, pinCLK, pinNCS)) {
         return false;
     }
     for (;;)

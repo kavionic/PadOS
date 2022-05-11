@@ -41,11 +41,11 @@ enum
 class KFSVolume : public PtrTarget
 {
 public:
-    KFSVolume(fs_id volumeID, const os::String& devicePath);
+    IFLASHC KFSVolume(fs_id volumeID, const os::String& devicePath);
     
-    void     SetFlags(uint32_t flags) { m_Flags = flags; }
-    uint32_t GetFlags() const         { return m_Flags; }
-    bool     HasFlag(FSVolumeFlags flag) const { return m_Flags & uint32_t(flag); }
+    inline void     SetFlags(uint32_t flags) { m_Flags = flags; }
+    inline uint32_t GetFlags() const         { return m_Flags; }
+    inline bool     HasFlag(FSVolumeFlags flag) const { return m_Flags & uint32_t(flag); }
     
     fs_id            m_VolumeID;
     uint32_t         m_Flags;

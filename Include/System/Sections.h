@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2017-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,33 +15,11 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 18/06/19 23:44:30
+// Created: 10.05.2022 18:30
 
 #pragma once
 
-#include <map>
+#define IFLASHC __attribute__((section(".itext")))
+#define IFLASHD __attribute__((section(".irodata")))
 
-#include <System/Sections.h>
-#include <Ptr/Ptr.h>
 
-class KNodeMonitorNode;
-
-namespace kernel
-{
-
-class KIOContext
-{
-public:
-    IFLASHC KIOContext();
-    IFLASHC ~KIOContext();
-    
-    IFLASHC bool AddNodeMonitor(Ptr<KNodeMonitorNode> node);
-
-private:
-//    std::map<int, Ptr<KNodeMonitorNode>> m_NodeMonitorMap;
-    
-    KIOContext(const KIOContext&) = delete;
-    KIOContext& operator=(const KIOContext&) = delete;
-};
-
-} // namespace

@@ -69,9 +69,9 @@ template<typename PacketType, typename CallbackType>
 class PacketHandler : public PacketHandlerBase
 {
 public:
-    PacketHandler(CallbackType&& callback) : m_Callback(std::move(callback)) {}
+    IFLASHC PacketHandler(CallbackType&& callback) : m_Callback(std::move(callback)) {}
 
-    virtual void HandleMessage(const SerialProtocol::PacketHeader* packet) const override { m_Callback(*static_cast<const PacketType*>(packet)); }
+    IFLASHC virtual void HandleMessage(const SerialProtocol::PacketHeader* packet) const override { m_Callback(*static_cast<const PacketType*>(packet)); }
 
 private:
     CallbackType m_Callback;
@@ -82,21 +82,21 @@ private:
 class SerialCommandHandler : public SignalTarget, public os::Thread
 {
 public:
-    SerialCommandHandler();
-    ~SerialCommandHandler();
+    IFLASHC SerialCommandHandler();
+    IFLASHC ~SerialCommandHandler();
 
-    static SerialCommandHandler& GetInstance();
+    static IFLASHC SerialCommandHandler& GetInstance();
 
-    virtual int Run() override;
+    IFLASHC virtual int Run() override;
 
 
-    virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, int file, int readThreadPriority);
+    IFLASHC virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, int file, int readThreadPriority);
     virtual void ProbeRequestReceived(SerialProtocol::ProbeDeviceType expectedMode) {}
 
-    void Execute();
+    IFLASHC void Execute();
 
     template<typename PacketType, typename CallbackType>
-    void RegisterPacketHandler(SerialProtocol::Commands::Value commandID, CallbackType&& callback)
+    IFLASHC void RegisterPacketHandler(SerialProtocol::Commands::Value commandID, CallbackType&& callback)
     {
         PacketHandler<PacketType, CallbackType>* handler = new PacketHandler<PacketType, CallbackType>(std::move(callback));
         m_CommandHandlerMap[commandID] = handler;
@@ -104,41 +104,41 @@ public:
         m_LargestCommandPacket = std::max(m_LargestCommandPacket, sizeof(PacketType));
     }
     template<typename PacketType, typename CallbackType>
-    void RegisterPacketHandler(CallbackType&& callback)
+    IFLASHC void RegisterPacketHandler(CallbackType&& callback)
     {
         RegisterPacketHandler<PacketType>(PacketType::COMMAND, std::move(callback));
     }
 
     template<typename PacketType, typename ObjectType, typename CallbackType>
-    void RegisterPacketHandler(ObjectType* object, CallbackType callback)
+    IFLASHC void RegisterPacketHandler(ObjectType* object, CallbackType callback)
     {
         RegisterPacketHandler<PacketType>(std::bind(callback, object, std::placeholders::_1));
     }
 
     template<typename PacketType, typename ObjectType, typename CallbackType>
-    void RegisterPacketHandler(SerialProtocol::Commands::Value commandID, ObjectType* object, CallbackType callback)
+    IFLASHC void RegisterPacketHandler(SerialProtocol::Commands::Value commandID, ObjectType* object, CallbackType callback)
     {
         RegisterPacketHandler<PacketType>(commandID, std::bind(callback, object, std::placeholders::_1));
     }
 
-    bool SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize);
-    void SendSerialPacket(SerialProtocol::PacketHeader* msg);
+    IFLASHC bool SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize);
+    IFLASHC void SendSerialPacket(SerialProtocol::PacketHeader* msg);
 
     template<typename MSG_TYPE, typename... ARGS>
-    void SendMessage(ARGS&&... args)
+    IFLASHC void SendMessage(ARGS&&... args)
     {
         MSG_TYPE msg;
         MSG_TYPE::InitMsg(msg, std::forward<ARGS>(args)...);
         SendSerialPacket(&msg);
     }
 
-    int WriteLogMessage(const char* buffer, int length);
+    IFLASHC int WriteLogMessage(const char* buffer, int length);
 
 private:
-    bool ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength, bool repliesOnly);
+    IFLASHC bool ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength, bool repliesOnly);
 
-    void HandleProbeDevice(const SerialProtocol::ProbeDevice& packet);
-    void HandleSetSystemTime(const SerialProtocol::SetSystemTime& packet);
+    IFLASHC void HandleProbeDevice(const SerialProtocol::ProbeDevice& packet);
+    IFLASHC void HandleSetSystemTime(const SerialProtocol::SetSystemTime& packet);
 
     static SerialCommandHandler* s_Instance;
 

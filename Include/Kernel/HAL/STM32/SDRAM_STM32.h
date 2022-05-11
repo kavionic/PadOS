@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <System/Sections.h>
 
 enum class FMC_SDRAM_CommandMode
 {
@@ -79,7 +80,7 @@ struct FMC_SDRAM_Timing
 class FMCSDRAM
 {
 public:
-    static bool Setup(const FMC_SDRAM_Init& params, const FMC_SDRAM_Timing& timing);
-    static void SetRefreshRate(uint32_t refreshRate);
-    static void SendCommand(FMC_SDRAM_CommandMode commandMode, FMC_SDRAM_CommandTarget commandTarget, uint32_t autoRefreshNumber, uint32_t modeRegisterDefinition);
+    static IFLASHC bool Setup(const FMC_SDRAM_Init& params, const FMC_SDRAM_Timing& timing);
+    static IFLASHC void SetRefreshRate(uint32_t refreshRate);
+    static IFLASHC void SendCommand(FMC_SDRAM_CommandMode commandMode, FMC_SDRAM_CommandTarget commandTarget, uint32_t autoRefreshNumber, uint32_t modeRegisterDefinition);
 };

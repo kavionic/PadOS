@@ -50,7 +50,7 @@ static port_id                                              gk_InputEventPort = 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool kernel::kernel_log_register_category(uint32_t categoryHash, const char* categoryName, KLogSeverity initialLogLevel)
+IFLASHC bool kernel::kernel_log_register_category(uint32_t categoryHash, const char* categoryName, KLogSeverity initialLogLevel)
 {
 	CRITICAL_SCOPE(gk_KernelLogMutex, gk_CurrentThread != nullptr);
 	gk_KernelLogLevels[categoryHash] = std::make_pair(initialLogLevel, os::String(categoryName));
@@ -61,7 +61,7 @@ bool kernel::kernel_log_register_category(uint32_t categoryHash, const char* cat
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::kernel_log_set_category_log_level(uint32_t categoryHash, KLogSeverity logLevel)
+IFLASHC void kernel::kernel_log_set_category_log_level(uint32_t categoryHash, KLogSeverity logLevel)
 {
 	CRITICAL_SCOPE(gk_KernelLogMutex);
 	auto i = gk_KernelLogLevels.find(categoryHash);
@@ -76,7 +76,7 @@ void kernel::kernel_log_set_category_log_level(uint32_t categoryHash, KLogSeveri
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool kernel::kernel_log_is_category_active(uint32_t categoryHash, KLogSeverity logLevel)
+IFLASHC bool kernel::kernel_log_is_category_active(uint32_t categoryHash, KLogSeverity logLevel)
 {
 	CRITICAL_SCOPE(gk_KernelLogMutex);
 	
@@ -93,7 +93,7 @@ bool kernel::kernel_log_is_category_active(uint32_t categoryHash, KLogSeverity l
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::panic(const char* message)
+IFLASHC void kernel::panic(const char* message)
 {
     handle_panic(message);
 }
@@ -222,7 +222,7 @@ int Kernel::RemoveDevice(int handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int get_last_error()
+IFLASHC int get_last_error()
 {
     return gk_CurrentThread->m_NewLibreent._errno;
 }
@@ -231,7 +231,7 @@ int get_last_error()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void set_last_error(int error)
+IFLASHC void set_last_error(int error)
 {
     gk_CurrentThread->m_NewLibreent._errno = error;
 }
@@ -240,7 +240,7 @@ void set_last_error(int error)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t set_input_event_port(port_id port)
+IFLASHC status_t set_input_event_port(port_id port)
 {
     gk_InputEventPort = port;
     return 0;
@@ -250,7 +250,7 @@ status_t set_input_event_port(port_id port)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-port_id  get_input_event_port()
+IFLASHC port_id get_input_event_port()
 {
     return gk_InputEventPort;
 }

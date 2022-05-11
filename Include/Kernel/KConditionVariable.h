@@ -29,21 +29,21 @@ class KMutex;
 class KConditionVariable : public KNamedObject
 {
 public:
-    static constexpr KNamedObjectType ObjectType = KNamedObjectType::ConditionVariable;
+    static IFLASHC constexpr KNamedObjectType ObjectType = KNamedObjectType::ConditionVariable;
     
-    KConditionVariable(const char* name);
-    ~KConditionVariable();
+    IFLASHC KConditionVariable(const char* name);
+    IFLASHC ~KConditionVariable();
     
-    bool Wait(KMutex& lock);
-    bool WaitTimeout(KMutex& lock, TimeValMicros timeout);
-    bool WaitDeadline(KMutex& lock, TimeValMicros deadline);
+    IFLASHC bool Wait(KMutex& lock);
+    IFLASHC bool WaitTimeout(KMutex& lock, TimeValMicros timeout);
+    IFLASHC bool WaitDeadline(KMutex& lock, TimeValMicros deadline);
 
-    bool IRQWait();
-    bool IRQWaitTimeout(TimeValMicros timeout);
-    bool IRQWaitDeadline(TimeValMicros deadline);
+    IFLASHC bool IRQWait();
+    IFLASHC bool IRQWaitTimeout(TimeValMicros timeout);
+    IFLASHC bool IRQWaitDeadline(TimeValMicros deadline);
     
-    void Wakeup(int threadCount);
-    void WakeupAll() { Wakeup(0); }
+    IFLASHC void Wakeup(int threadCount);
+    inline void WakeupAll() { Wakeup(0); }
 
 private:
     KConditionVariable(const KConditionVariable&) = delete;

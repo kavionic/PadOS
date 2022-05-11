@@ -37,30 +37,30 @@ enum class WakeupReason : int
 class SDMMCDriver_STM32 : public SDMMCDriver
 {
 public:
-    SDMMCDriver_STM32();
-    ~SDMMCDriver_STM32();
+    IFLASHC SDMMCDriver_STM32();
+    IFLASHC ~SDMMCDriver_STM32();
 
-    bool Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, uint32_t clockCap, DigitalPinID pinCD, IRQn_Type irqNum);
+    IFLASHC bool Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, uint32_t clockCap, DigitalPinID pinCD, IRQn_Type irqNum);
 
 
-	virtual void     Reset() override;
-    virtual void     SetClockFrequency(uint32_t frequency) override;
-    virtual void     SendClock() override;
+	IFLASHC virtual void     Reset() override;
+    IFLASHC virtual void     SetClockFrequency(uint32_t frequency) override;
+    IFLASHC virtual void     SendClock() override;
 
-    bool ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32_t arg);
+    IFLASHC bool ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32_t arg);
 
-    virtual bool	SendCmd(uint32_t cmd, uint32_t arg) override;
-    virtual uint32_t	GetResponse() override;
-    virtual void	GetResponse128(uint8_t* response) override;
-    virtual bool	StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const os::IOSegment* segments, size_t segmentCount) override;
-    virtual bool	StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg) override;
-    virtual void	ApplySpeedAndBusWidth() override;
+    IFLASHC virtual bool	SendCmd(uint32_t cmd, uint32_t arg) override;
+    IFLASHC virtual uint32_t	GetResponse() override;
+    IFLASHC virtual void	GetResponse128(uint8_t* response) override;
+    IFLASHC virtual bool	StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const os::IOSegment* segments, size_t segmentCount) override;
+    IFLASHC virtual bool	StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg) override;
+    IFLASHC virtual void	ApplySpeedAndBusWidth() override;
 
 private:
-    static IRQResult IRQCallback(IRQn_Type irq, void* userData) { return static_cast<SDMMCDriver_STM32*>(userData)->HandleIRQ(); }
-    IRQResult        HandleIRQ();
+    static IFLASHC IRQResult IRQCallback(IRQn_Type irq, void* userData);
+    IFLASHC IRQResult        HandleIRQ();
 
-    bool     WaitIRQ(uint32_t flags);
+    IFLASHC bool     WaitIRQ(uint32_t flags);
 
     SDMMC_TypeDef*  m_SDMMC;
     uint32_t	    m_PeripheralClockFrequency = 0;

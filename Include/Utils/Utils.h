@@ -41,6 +41,13 @@ template<typename T> inline T wrap(const T& bottom, const T& top, const T& value
 }
 
 template<typename T>
+constexpr T align_up(T value, T alignment) { return (value + alignment - 1) & ~(alignment - 1); }
+
+template<typename T>
+constexpr T align_down(T value, T alignment) { return value & ~(alignment - 1); }
+
+
+template<typename T>
 T* add_bytes_to_pointer(T* pointer, ssize_t adder) { return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(pointer) + adder); }
 template<typename T>
 const T* add_bytes_to_pointer(const T* pointer, ssize_t adder) { return reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(pointer) + adder); }

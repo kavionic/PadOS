@@ -132,7 +132,7 @@ void QSPI_STM32_IS25LP512M::Erase(uint32_t address, uint32_t length)
         SendCommand(QSPI_CMD_WREN, QSPI_FunctionalMode::IndirectWrite, QSPI_InstrMode::Instr4Lines);
         SendCommand(QSPI_CMD_4SER, QSPI_FunctionalMode::IndirectWrite, QSPI_InstrMode::Instr4Lines, QSPI_AddressMode::Addr4Lines);
         QUADSPI->AR = address;
-        WaitWriteInProgress();
+        WaitWriteInProgress(QSPI_STATUS_QE | QSPI_STATUS_WEL | QSPI_STATUS_WIP, QSPI_STATUS_QE);
         length -= QSPI_SECTOR_SIZE;
     }
 }
@@ -148,8 +148,8 @@ void QSPI_STM32_IS25LP512M::Read(void* data, uint32_t address, uint32_t length)
     SetDataLength(length);
     SendCommand(QSPI_CMD_4FRQIO, QSPI_FunctionalMode::IndirectRead, QSPI_InstrMode::Instr4Lines, QSPI_AddressMode::Addr4Lines, QSPI_DataMode::Data4Lines, QSPI_AltBytesMode::Alt4Lines, QSPI_AltBytesLength::AB8, QSPI_READ_DUMMY_CYCLES - 2);
     QUADSPI->AR = address;
-    
-    for (int i = 0; i < 4; ++i)
+
+    for (int i = 0; i < length; ++i)
     {
         WaitFIFOThreshold();
         *ptr++ = Read8();
@@ -183,7 +183,7 @@ void QSPI_STM32_IS25LP512M::Write(const void* data, uint32_t address, uint32_t l
             Write8(*ptr++);
         }
         WaitTransferComplete();
-        WaitWriteInProgress();
+        WaitWriteInProgress(QSPI_STATUS_QE | QSPI_STATUS_WEL | QSPI_STATUS_WIP, QSPI_STATUS_QE);
     }
 }
 
@@ -191,22 +191,19 @@ void QSPI_STM32_IS25LP512M::Write(const void* data, uint32_t address, uint32_t l
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void QSPI_STM32_IS25LP512M::WaitWriteInProgress()
+void QSPI_STM32_IS25LP512M::WaitWriteInProgress(uint8_t mask, uint8_t match)
 {
     WaitBusy();
 
-    QUADSPI->FCR = QUADSPI_FCR_CSMF;
-    QUADSPI->PSMKR = QSPI_STATUS_WIP;
-    QUADSPI->PSMAR = 0;
-    QUADSPI->PIR = 100;
+    QUADSPI->PSMKR = mask;
+    QUADSPI->PSMAR = match;
+    QUADSPI->PIR = 10;
+
     SetDataLength(1);
-
-    SendCommand(QSPI_CMD_RDSR, QSPI_FunctionalMode::AutomaticPolling, QSPI_InstrMode::Instr4Lines, QSPI_AddressMode::NoAddr, QSPI_DataMode::Data4Lines);
-
-    while ((QUADSPI->SR & QUADSPI_SR_SMF) == 0) {}
-
-    uint8_t flags = Read8();
-    (void)flags;
+    // Not sure why, but it must insert 2 dummy cycles (to ignore the first byte read) in order to make it work. Without that, it trigger a false match instantly.
+    SendCommand(QSPI_CMD_RDSR, QSPI_FunctionalMode::AutomaticPolling, QSPI_InstrMode::Instr4Lines, QSPI_AddressMode::NoAddr, QSPI_DataMode::Data4Lines, QSPI_AltBytesMode::NoData, QSPI_AltBytesLength::AB8, 2);
+    WaitBusy();
+    QUADSPI->FCR = QUADSPI_FCR_CSMF;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

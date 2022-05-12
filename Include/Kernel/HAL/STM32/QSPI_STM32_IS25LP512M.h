@@ -145,7 +145,7 @@ public:
     IFLASHC void Erase(uint32_t address, uint32_t length);
     IFLASHC void Read(void* data, uint32_t address, uint32_t length);
     IFLASHC void Write(const void* data, uint32_t address, uint32_t length);
-    IFLASHC void WaitWriteInProgress();
+    IFLASHC void WaitWriteInProgress(uint8_t mask, uint8_t match);
 
     IFLASHC uint8_t ReadFunctionRegister(bool quadMode = true) const;
 

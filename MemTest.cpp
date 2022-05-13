@@ -16,6 +16,7 @@
 
 
 #include "memtest.h"
+#include <System/Sections.h>
 
 
 /**********************************************************************
@@ -33,7 +34,7 @@
  *              A non-zero result is the first pattern that failed.
  *
  **********************************************************************/
-datum
+IFLASHC datum
 memTestDataBus(volatile datum * address)
 {
     datum pattern;
@@ -88,7 +89,7 @@ memTestDataBus(volatile datum * address)
  *              additional information about the problem.
  *
  **********************************************************************/
-datum * 
+IFLASHC datum *
 memTestAddressBus(volatile datum * baseAddress, unsigned long nBytes)
 {
     unsigned long addressMask = (nBytes/sizeof(datum) - 1);
@@ -172,7 +173,7 @@ memTestAddressBus(volatile datum * baseAddress, unsigned long nBytes)
  *              additional information about the problem.
  *
  **********************************************************************/
-datum* memTestDevice(volatile datum* baseAddress, unsigned long nBytes)
+IFLASHC datum* memTestDevice(volatile datum* baseAddress, unsigned long nBytes)
 {
     unsigned long offset;
     unsigned long nWords = nBytes / sizeof(datum);

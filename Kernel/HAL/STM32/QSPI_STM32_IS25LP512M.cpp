@@ -125,15 +125,67 @@ void QSPI_STM32_IS25LP512M::EnableMemoryMapping(bool useContinousRead)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void QSPI_STM32_IS25LP512M::ExecuteErase(uint8_t cmd, uint32_t address)
+{
+    SendCommand(QSPI_CMD_WREN, QSPI_FunctionalMode::IndirectWrite, QSPI_InstrMode::Instr4Lines);
+    SendCommand(cmd, QSPI_FunctionalMode::IndirectWrite, QSPI_InstrMode::Instr4Lines, QSPI_AddressMode::Addr4Lines);
+    QUADSPI->AR = address;
+    WaitWriteInProgress(QSPI_STATUS_QE | QSPI_STATUS_WEL | QSPI_STATUS_WIP, QSPI_STATUS_QE);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void QSPI_STM32_IS25LP512M::EraseSector(uint32_t address)
+{
+    ExecuteErase(QSPI_CMD_4SER, address);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void QSPI_STM32_IS25LP512M::EraseBlock32(uint32_t address)
+{
+    ExecuteErase(QSPI_CMD_4BER32, address);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void QSPI_STM32_IS25LP512M::EraseBlock64(uint32_t address)
+{
+    ExecuteErase(QSPI_CMD_4BER64, address);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void QSPI_STM32_IS25LP512M::Erase(uint32_t address, uint32_t length)
 {
     while (length >= QSPI_SECTOR_SIZE)
     {
-        SendCommand(QSPI_CMD_WREN, QSPI_FunctionalMode::IndirectWrite, QSPI_InstrMode::Instr4Lines);
-        SendCommand(QSPI_CMD_4SER, QSPI_FunctionalMode::IndirectWrite, QSPI_InstrMode::Instr4Lines, QSPI_AddressMode::Addr4Lines);
-        QUADSPI->AR = address;
-        WaitWriteInProgress(QSPI_STATUS_QE | QSPI_STATUS_WEL | QSPI_STATUS_WIP, QSPI_STATUS_QE);
-        length -= QSPI_SECTOR_SIZE;
+        uint32_t curLength = 0;
+        if ((address & 0xffff) == 0 && (length >> 16) != 0)
+        {
+            EraseBlock64(address);
+            curLength = QSPI_BLOCK64_SIZE;
+        }
+        else if ((address & 0x7fff) == 0 && (length >> 15) != 0)
+        {
+            EraseBlock32(address);
+            curLength = QSPI_BLOCK32_SIZE;
+        }
+        else
+        {
+            EraseSector(address);
+            curLength = QSPI_SECTOR_SIZE;
+        }
+        address += curLength;
+        length -= curLength;
     }
 }
 

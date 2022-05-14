@@ -81,6 +81,12 @@ static constexpr uint8_t QSPI_CMD_4FRQDTR   = 0xEE; // Fast Read Quad IO DTR Mod
 static constexpr uint8_t QSPI_CMD_SER       = 0x20; // Sector Erase (3/4 byte address).
 static constexpr uint8_t QSPI_CMD_4SER      = 0x21; // Sector Erase (4 byte address).
 
+
+static constexpr uint8_t QSPI_CMD_BER32     = 0x52; // Block Erase 32KB (3/4 byte address).
+static constexpr uint8_t QSPI_CMD_4BER32    = 0x5C; // Block Erase 32KB (4 byte address).
+static constexpr uint8_t QSPI_CMD_BER64     = 0xD8; // Block Erase 64KB (3/4 byte address).
+static constexpr uint8_t QSPI_CMD_4BER64    = 0xDC; // Block Erase 64KB (4 byte address).
+
 static constexpr uint8_t QSPI_CMD_PP        = 0x02; // Page Program (3/4 byte address).
 static constexpr uint8_t QSPI_CMD_4PP       = 0x12; // Page Program (4 byte address).
 
@@ -142,6 +148,10 @@ public:
 
     IFLASHC virtual void EnableMemoryMapping(bool useContinousRead) override;
 
+    IFLASHC void ExecuteErase(uint8_t cmd, uint32_t address);
+    IFLASHC void EraseSector(uint32_t address);
+    IFLASHC void EraseBlock32(uint32_t address);
+    IFLASHC void EraseBlock64(uint32_t address);
     IFLASHC void Erase(uint32_t address, uint32_t length);
     IFLASHC void Read(void* data, uint32_t address, uint32_t length);
     IFLASHC void Write(const void* data, uint32_t address, uint32_t length);

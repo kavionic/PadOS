@@ -74,7 +74,7 @@ int SerialCommandHandler::Run()
     SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(new uint8_t[m_LargestCommandPacket]);
     for (;;)
     {
-        if (!ReadPacket(packetBuffer, m_LargestCommandPacket, false)) {
+        if (!ReadPacket(packetBuffer, m_LargestCommandPacket)) {
             continue;
         }
         {
@@ -137,8 +137,7 @@ void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, int
 void SerialCommandHandler::Execute()
 {
     kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Starting serial command handler\n");
-
-    printf("Largest packet size: %u\n", m_LargestCommandPacket);
+    kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Largest packet size: %u\n", m_LargestCommandPacket);
 
     for (;;)
     {
@@ -175,7 +174,7 @@ void SerialCommandHandler::Execute()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength, bool repliesOnly)
+bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength)
 {
     for (;;)
     {
@@ -218,23 +217,6 @@ bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer
         {
             kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Packet to large. Cmd=%d, Size=%d\n", int(packetBuffer->Command), int(int(packetBuffer->PackageLength)));
             return false;
-        }
-
-        if (repliesOnly && packetBuffer->Command != SerialProtocol::Commands::MessageReply)
-        {
-            size_t remainingBytes = packetBuffer->PackageLength - sizeof(SerialProtocol::PacketHeader);
-            while (remainingBytes != 0)
-            {
-                size_t curLength = std::min(remainingBytes, maxLength);
-                remainingBytes -= curLength;
-                if (read(m_SerialPort, packetBuffer, curLength) != curLength)
-                {
-                    kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Failed to purge non-reply packet\n");
-                    return false;
-                }
-            }
-            printf("Skipped non reply packet.\n");
-            continue;
         }
 
         // Validate message size.
@@ -338,7 +320,7 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
             }
         }
     }
-    printf("ERROR: transmitting %ld failed.\n", header->Command);
+    kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "ERROR: transmitting %ld failed.\n", header->Command);
     return false;
 }
 

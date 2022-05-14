@@ -79,6 +79,8 @@ enum class QSPI_AddressLength : uint32_t
 
 static constexpr uint32_t QSPI_PAGE_SIZE = 256;
 static constexpr uint32_t QSPI_SECTOR_SIZE = 4096;
+static constexpr uint32_t QSPI_BLOCK32_SIZE = 32 * 1024;
+static constexpr uint32_t QSPI_BLOCK64_SIZE = 64 * 1024;
 
 class QSPI_STM32
 {

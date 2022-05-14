@@ -135,7 +135,7 @@ public:
     IFLASHC int WriteLogMessage(const char* buffer, int length);
 
 private:
-    IFLASHC bool ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength, bool repliesOnly);
+    IFLASHC bool ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength);
 
     IFLASHC void HandleProbeDevice(const SerialProtocol::ProbeDevice& packet);
     IFLASHC void HandleSetSystemTime(const SerialProtocol::SetSystemTime& packet);

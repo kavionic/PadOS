@@ -15,40 +15,37 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
+// Created: 14.05.2022 23:00
 
-#pragma once
+#include <Kernel/Misc.h>
+#include <Kernel/HAL/STM32/PiezoBuzzer_STM32.h>
 
-#include "System/Platform.h"
-#include "DMARequestID.h"
-
-namespace kernel
+namespace os
 {
 
-static const int32_t DMA_CHANNEL_COUNT = 16;
-static const int32_t DMA_CHANNELS_PER_UNIT = 8;
-static const int32_t DMA_MAX_TRANSFER_LENGTH = 65535;
+static kernel::PiezoBuzzer_STM32 g_BuzzerDriver;
 
-enum class DMAMode
+bool setup_beeper(kernel::HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin)
 {
-	PeriphToMem = 0,
-	MemToPeriph = 1,
-	MemToMem	= 2,
-};
+    return g_BuzzerDriver.Setup(timerID, timerClkFrequency, beeperPin);
+}
 
-int dma_allocate_channel();
-void dma_free_channel(int channel);
+void beep(float duration)
+{
+    g_BuzzerDriver.Beep(duration);
+}
 
-IRQn_Type dma_get_channel_irq(int channel);
+void beep(BeepLength length)
+{
+    float duration = 0.1f;
+    switch (length)
+    {
+        case BeepLength::Short:     duration = 0.02f;  break;
+        case BeepLength::Medium:    duration = 0.2f;   break;
+        case BeepLength::Long:      duration = 1.0f;   break;
+        case BeepLength::VeryLong:  duration = 3.0f;   break;
+    }
+    g_BuzzerDriver.Beep(duration);
+}
 
-void    dma_setup(int channel, DMAMode mode, DMAMUX_REQUEST requestID, volatile const void* registerAddr, const void* memAddr, int32_t length);
-
-uint32_t dma_get_interrupt_flags(int channel);
-void     dma_clear_interrupt_flags(int channel, uint32_t flags);
-
-int32_t dma_get_transfer_count(int channel);
-
-void dma_start(int channel);
-void dma_stop(int channel);
-
-
-} // namespace
+} // namespace os

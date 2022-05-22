@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,16 +15,34 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 16.05.2021 15:15
+// Created: 14.05.2022 16:30
 
 #pragma once
 
-#include <cmath>
-
-namespace os
+namespace kernel
 {
 
-template<typename T> T square(T value) { return value * value; }
+enum class HWTimerID : int32_t;
+enum class IRQResult : int;
 
-template<typename T> bool is_almost_zero(T value, T tolerance = T(0.0000001)) { return fabs(value) <= tolerance; }
-} // namespace os
+class PiezoBuzzer_STM32
+{
+public:
+    bool Setup(HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin);
+
+    void Beep(float time);
+
+private:
+    IFLASHC static IRQResult IRQCallback(IRQn_Type irq, void* userData);
+    IFLASHC IRQResult HandleIRQ();
+
+    MCU_Timer16_t* m_Timer = nullptr;
+    DigitalPin      m_BeeperPin;
+    PinMuxTarget    m_BeeperPinMux;
+    uint32_t        m_TimerFrequency = 0;
+    uint32_t        m_BeepFrequency = 2000;
+    int32_t         m_RemainingCycles = 0;
+    bool            m_IsInitialized = false;
+};
+
+} //namespace kernel

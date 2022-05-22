@@ -300,6 +300,9 @@ static IFLASHD constexpr PinMuxTarget	PINMUX_TIM8_CH1_J8  = { DigitalPinID::J8, 
 
 static IFLASHD constexpr PinMuxTarget	PINMUX_TIM8_CH1N_A7  = { DigitalPinID::A7, DigitalPinPeripheralID::AF3 };
 
+static IFLASHD constexpr PinMuxTarget	PINMUX_TIM15_CH1_E5 = { DigitalPinID::E5, DigitalPinPeripheralID::AF4 };
+static IFLASHD constexpr PinMuxTarget	PINMUX_TIM17_CH1_B9 = { DigitalPinID::B9, DigitalPinPeripheralID::AF1 };
+
 static IFLASHD constexpr PinMuxTarget	PINMUX_USART1_RX_PA10 = { DigitalPinID::A10, DigitalPinPeripheralID::AF7 };
 static IFLASHD constexpr PinMuxTarget	PINMUX_USART1_RX_PB7  = { DigitalPinID::B7, DigitalPinPeripheralID::AF7 };
 static IFLASHD constexpr PinMuxTarget	PINMUX_USART1_RX_PB15 = { DigitalPinID::B15, DigitalPinPeripheralID::AF4 };

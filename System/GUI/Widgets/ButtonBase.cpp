@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2022 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #include <GUI/Widgets/ButtonBase.h>
 #include <GUI/Widgets/ButtonGroup.h>
 #include <Utils/XMLObjectParser.h>
+#include <Kernel/Misc.h>
 
 using namespace os;
 
@@ -37,15 +38,15 @@ ButtonBase::ButtonBase(const String& name, Ptr<View> parent, uint32_t flags) : C
 
 ButtonBase::ButtonBase(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment) : Control(context, parent, xmlData, defaultLabelAlignment)
 {
-	String groupName = context->GetAttribute(xmlData, "group", String::zero);
+    String groupName = context->GetAttribute(xmlData, "group", String::zero);
 
-	if (!groupName.empty())
-	{
-		Ptr<ButtonGroup> group = context->GetButtonGroup(groupName);
-		if (group != nullptr) {
-			group->AddButton(ptr_tmp_cast(this));
-		}
-	}
+    if (!groupName.empty())
+    {
+        Ptr<ButtonGroup> group = context->GetButtonGroup(groupName);
+        if (group != nullptr) {
+            group->AddButton(ptr_tmp_cast(this));
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -62,25 +63,25 @@ ButtonBase::~ButtonBase()
 
 Ptr<ButtonGroup> ButtonBase::FindButtonGroup(Ptr<View> root, const String& name)
 {
-	for (const Ptr<View>& child : root->GetChildList())
-	{
-		Ptr<ButtonBase> button = ptr_dynamic_cast<ButtonBase>(child);
-		if (button != nullptr)
-		{
-			Ptr<ButtonGroup> group = button->GetButtonGroup();
-			if (group != nullptr && group->GetName() == name) {
-				return group;
-			}
-		}
-	}
-	for (const Ptr<View>& child : root->GetChildList())
-	{
-		Ptr<ButtonGroup> group = FindButtonGroup(child, name);
-		if (group != nullptr) {
-			return group;
-		}
-	}
-	return nullptr;
+    for (const Ptr<View>& child : root->GetChildList())
+    {
+        Ptr<ButtonBase> button = ptr_dynamic_cast<ButtonBase>(child);
+        if (button != nullptr)
+        {
+            Ptr<ButtonGroup> group = button->GetButtonGroup();
+            if (group != nullptr && group->GetName() == name) {
+                return group;
+            }
+        }
+    }
+    for (const Ptr<View>& child : root->GetChildList())
+    {
+        Ptr<ButtonGroup> group = FindButtonGroup(child, name);
+        if (group != nullptr) {
+            return group;
+        }
+    }
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -89,27 +90,28 @@ Ptr<ButtonGroup> ButtonBase::FindButtonGroup(Ptr<View> root, const String& name)
 
 bool ButtonBase::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-	//    printf("Button: Mouse down %d, %.1f/%.1f\n", int(button), position.x, position.y);
+    //    printf("Button: Mouse down %d, %.1f/%.1f\n", int(button), position.x, position.y);
 
     if (!IsEnabled()) {
         return false;
     }
 
-	if (m_HitButton == MouseButton_e::None)
-	{
-		m_HitButton = button;
-		SetPressedState(true);
-		if (m_CanBeCheked)
-		{
-			if (m_ButtonGroup != nullptr) {
-				m_ButtonGroup->SelectButton(ptr_tmp_cast(this));
-			} else {
-				SetChecked(!m_IsChecked);
-			}
-		}
-		return true;
-	}
-	return false;
+    if (m_HitButton == MouseButton_e::None)
+    {
+        m_HitButton = button;
+        SetPressedState(true);
+        beep(BeepLength::Short);
+        if (m_CanBeCheked)
+        {
+            if (m_ButtonGroup != nullptr) {
+                m_ButtonGroup->SelectButton(ptr_tmp_cast(this));
+            } else {
+                SetChecked(!m_IsChecked);
+            }
+        }
+        return true;
+    }
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -122,19 +124,19 @@ bool ButtonBase::OnMouseUp(MouseButton_e button, const Point& position, const Mo
         return false;
     }
     //    printf("Button: Mouse up %d, %.1f/%.1f\n", int(button), position.x, position.y);
-	if (button == m_HitButton)
-	{
-		m_HitButton = MouseButton_e::None;
-		if (m_IsPressed)
-		{
-			SetPressedState(false);
-			if (!m_CanBeCheked) {
-				SignalActivated(button, this);
-			}
-		}
-		return true;
-	}
-	return false;
+    if (button == m_HitButton)
+    {
+        m_HitButton = MouseButton_e::None;
+        if (m_IsPressed)
+        {
+            SetPressedState(false);
+            if (!m_CanBeCheked) {
+                SignalActivated(button, this);
+            }
+        }
+        return true;
+    }
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -143,12 +145,12 @@ bool ButtonBase::OnMouseUp(MouseButton_e button, const Point& position, const Mo
 
 bool ButtonBase::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-	if (button == m_HitButton)
-	{
-		//        printf("Button: Mouse move %d, %.1f/%.1f\n", int(button), position.x, position.y);
-		SetPressedState(GetBounds().DoIntersect(position));
-	}
-	return true;
+    if (button == m_HitButton)
+    {
+        //        printf("Button: Mouse move %d, %.1f/%.1f\n", int(button), position.x, position.y);
+        SetPressedState(GetBounds().DoIntersect(position));
+    }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -157,12 +159,12 @@ bool ButtonBase::OnMouseMove(MouseButton_e button, const Point& position, const 
 
 void ButtonBase::SetChecked(bool isChecked)
 {
-	if (isChecked != m_IsChecked)
-	{
-		m_IsChecked = isChecked;
-		OnCheckedStateChanged(m_IsChecked);
-		SignalToggled(isChecked, this);
-	}
+    if (isChecked != m_IsChecked)
+    {
+        m_IsChecked = isChecked;
+        OnCheckedStateChanged(m_IsChecked);
+        SignalToggled(isChecked, this);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -171,11 +173,11 @@ void ButtonBase::SetChecked(bool isChecked)
 
 void ButtonBase::SetPressedState(bool isPressed)
 {
-	if (isPressed != m_IsPressed)
-	{
-		m_IsPressed = isPressed;
-		OnPressedStateChanged(m_IsPressed);
-	}
+    if (isPressed != m_IsPressed)
+    {
+        m_IsPressed = isPressed;
+        OnPressedStateChanged(m_IsPressed);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -201,7 +203,7 @@ void ButtonBase::OnEnableStatusChanged(bool isEnabled)
 
 Ptr<ButtonGroup> ButtonBase::GetButtonGroup() const
 {
-	return m_ButtonGroup;
+    return m_ButtonGroup;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -210,5 +212,5 @@ Ptr<ButtonGroup> ButtonBase::GetButtonGroup() const
 
 void ButtonBase::SetButtonGroup(Ptr<ButtonGroup> group)
 {
-	m_ButtonGroup = group;
+    m_ButtonGroup = group;
 }

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,16 +15,33 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 16.05.2021 15:15
+// Created: 14.05.2022 23:00
 
 #pragma once
 
-#include <cmath>
+#include <stdint.h>
+#include <Kernel/HAL/DigitalPort.h>
+
+namespace kernel
+{
+enum class HWTimerID : int32_t;
+}
 
 namespace os
 {
 
-template<typename T> T square(T value) { return value * value; }
+enum class BeepLength : uint32_t
+{
+    Short,
+    Medium,
+    Long,
+    VeryLong
+};
 
-template<typename T> bool is_almost_zero(T value, T tolerance = T(0.0000001)) { return fabs(value) <= tolerance; }
+bool setup_beeper(kernel::HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin);
+
+void beep(BeepLength length);
+void beep(float duration);
+
+
 } // namespace os

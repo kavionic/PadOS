@@ -705,4 +705,23 @@ bool get_spi_dma_requests(SPIID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx)
     }
 }
 
+USB_OTG_GlobalTypeDef* get_usb_from_id(USB_OTG_ID id)
+{
+    switch (id)
+    {
+        case kernel::USB_OTG_ID::USB1_HS:   return USB1_OTG_HS;
+        case kernel::USB_OTG_ID::USB2_FS:   return USB2_OTG_FS;
+        default: return nullptr;
+    }
+}
+IRQn_Type get_usb_irq(USB_OTG_ID id)
+{
+    switch (id)
+    {
+        case kernel::USB_OTG_ID::USB1_HS:   return OTG_HS_IRQn;
+        case kernel::USB_OTG_ID::USB2_FS:   return OTG_FS_IRQn;
+        default: return IRQn_Type(IRQ_COUNT);
+    }
+}
+
 } // namespace kernel

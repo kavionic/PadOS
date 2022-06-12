@@ -52,6 +52,22 @@ T* add_bytes_to_pointer(T* pointer, ssize_t adder) { return reinterpret_cast<T*>
 template<typename T>
 const T* add_bytes_to_pointer(const T* pointer, ssize_t adder) { return reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(pointer) + adder); }
 
+
+template<typename T>
+T unaligned_read(const void* ptr)
+{
+    struct Container { T value; } __attribute__ ((packed)); // Use a packed struct to prevent the compiler from making assumptions about alignment.
+    return reinterpret_cast<const Container*>(ptr)->value;
+}
+
+template<typename T>
+void unaligned_write(void* ptr, T value)
+{
+    struct Container { T value; } __attribute__((packed));
+    reinterpret_cast<Container*>(ptr)->value = value;
+}
+
+
 template<typename T1, typename T2, typename T3> inline void set_bit_group(T1& target, T2 mask, T3 value) { target = (target & ~mask) | (value & mask); }
 
 inline uint32_t nanoseconds_to_cycles_floor(uint32_t clockFrequency, uint32_t nanoSeconds)

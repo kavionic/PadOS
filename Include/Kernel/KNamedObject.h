@@ -40,6 +40,7 @@ class KThreadCB;
 
 enum class KNamedObjectType
 {
+    Generic,
     Thread,
     Semaphore,
     Mutex,

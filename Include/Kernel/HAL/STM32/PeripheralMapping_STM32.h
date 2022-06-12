@@ -79,6 +79,12 @@ enum class SPIID : int
     SPI_6 = 6
 };
 
+enum class USB_OTG_ID : int
+{
+    USB1_HS,
+    USB2_FS
+};
+
 PinMuxTarget pinmux_target_from_name(const char* name);
 DigitalPinID pin_id_from_name(const char* name);
 
@@ -100,6 +106,8 @@ SPI_TypeDef* get_spi_from_id(SPIID id);
 IRQn_Type get_spi_irq(SPIID id);
 bool get_spi_dma_requests(SPIID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx);
 
+USB_OTG_GlobalTypeDef*  get_usb_from_id(USB_OTG_ID id);
+IRQn_Type               get_usb_irq(USB_OTG_ID id);
 
 } // namespace kernel
 

@@ -43,8 +43,13 @@ volatile bigtime_t  Kernel::s_SystemTime = 0;
 TimeValMicros       Kernel::s_RealTime;
 
 static KMutex												gk_KernelLogMutex("kernel_log", false);
-static std::map<int, std::pair<KLogSeverity, os::String>>	gk_KernelLogLevels;
 static port_id                                              gk_InputEventPort = INVALID_HANDLE;
+
+static std::map<int, std::pair<KLogSeverity, os::String>>& get_kernel_log_levels_map()
+{
+    static std::map<int, std::pair<KLogSeverity, os::String>>	kernelLogLevels;
+    return kernelLogLevels;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -53,7 +58,7 @@ static port_id                                              gk_InputEventPort = 
 IFLASHC bool kernel::kernel_log_register_category(uint32_t categoryHash, const char* categoryName, KLogSeverity initialLogLevel)
 {
 	CRITICAL_SCOPE(gk_KernelLogMutex, gk_CurrentThread != nullptr);
-	gk_KernelLogLevels[categoryHash] = std::make_pair(initialLogLevel, os::String(categoryName));
+    get_kernel_log_levels_map()[categoryHash] = std::make_pair(initialLogLevel, os::String(categoryName));
 	return true;
 }
 
@@ -64,8 +69,8 @@ IFLASHC bool kernel::kernel_log_register_category(uint32_t categoryHash, const c
 IFLASHC void kernel::kernel_log_set_category_log_level(uint32_t categoryHash, KLogSeverity logLevel)
 {
 	CRITICAL_SCOPE(gk_KernelLogMutex);
-	auto i = gk_KernelLogLevels.find(categoryHash);
-	if (i != gk_KernelLogLevels.end()) {
+	auto i = get_kernel_log_levels_map().find(categoryHash);
+	if (i != get_kernel_log_levels_map().end()) {
         i->second.first = logLevel;
     } else {
 		kprintf("ERROR: kernel_log_set_category_log_level() called with unknown categoryHash %08x\n", categoryHash);
@@ -80,8 +85,8 @@ IFLASHC bool kernel::kernel_log_is_category_active(uint32_t categoryHash, KLogSe
 {
 	CRITICAL_SCOPE(gk_KernelLogMutex);
 	
-	auto i = gk_KernelLogLevels.find(categoryHash);
-    if (i != gk_KernelLogLevels.end()) {
+	auto i = get_kernel_log_levels_map().find(categoryHash);
+    if (i != get_kernel_log_levels_map().end()) {
         return logLevel >= i->second.first;
 	} else {
 		kprintf("ERROR: kernel_log_is_category_active() called with unknown categoryHash %08x\n", categoryHash);

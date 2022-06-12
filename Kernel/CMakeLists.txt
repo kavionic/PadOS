@@ -1,6 +1,7 @@
 add_subdirectory(Drivers)
 add_subdirectory(FSDrivers)
 add_subdirectory(HAL)
+add_subdirectory(USB)
 add_subdirectory(VFS)
 
 target_sources(PadOS_Kernel PRIVATE

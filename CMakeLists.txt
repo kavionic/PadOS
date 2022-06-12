@@ -30,7 +30,6 @@ add_library(PadOS_IO)
 add_library(PadOS_GUI)
 add_library(PadOS_ApplicationServer)
 add_library(PadOS_WindowManager)
-add_library(PadOS_ExternalLibs)
 
 
 target_sources(PadOS_Kernel PRIVATE

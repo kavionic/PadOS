@@ -30,11 +30,11 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USBCDCChannel::USBCDCChannel(USBDevice* deviceHandler, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize)
-    : KNamedObject("usbcdc", KNamedObjectType::Generic)
+USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize)
+    : KNamedObject("usbdcdc", KNamedObjectType::Generic)
     , m_DeviceHandler(deviceHandler)
-    , m_ReceiveCondition("usbcdc_receive")
-    , m_TransmitCondition("usbcdc_transmit")
+    , m_ReceiveCondition("usbdcdc_receive")
+    , m_TransmitCondition("usbdcdc_transmit")
     , m_EndpointNotifications(endpointNotification)
     , m_EndpointOut(endpointOut)
     , m_EndpointIn(endpointIn)
@@ -54,7 +54,7 @@ USBCDCChannel::USBCDCChannel(USBDevice* deviceHandler, uint8_t endpointNotificat
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBCDCChannel::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
+bool USBClientCDCChannel::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
 {
     if (m_DeviceHandler != nullptr)
     {
@@ -92,7 +92,7 @@ bool USBCDCChannel::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBCDCChannel::Close()
+void USBClientCDCChannel::Close()
 {
     m_DeviceHandler = nullptr;
     m_ReceiveCondition.WakeupAll();
@@ -103,7 +103,7 @@ void USBCDCChannel::Close()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBCDCChannel::GetReadBytesAvailable() const
+ssize_t USBClientCDCChannel::GetReadBytesAvailable() const
 {
     if (m_DeviceHandler != nullptr)
     {
@@ -119,7 +119,7 @@ ssize_t USBCDCChannel::GetReadBytesAvailable() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBCDCChannel::Read(void* buffer, size_t length)
+ssize_t USBClientCDCChannel::Read(void* buffer, size_t length)
 {
     if (m_DeviceHandler != nullptr)
     {
@@ -143,7 +143,7 @@ ssize_t USBCDCChannel::Read(void* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBCDCChannel::Write(void const* buffer, size_t length)
+ssize_t USBClientCDCChannel::Write(void const* buffer, size_t length)
 {
     if (m_DeviceHandler != nullptr)
     {
@@ -171,7 +171,7 @@ ssize_t USBCDCChannel::Write(void const* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBCDCChannel::Flush()
+ssize_t USBClientCDCChannel::Flush()
 {
     if (m_DeviceHandler != nullptr)
     {
@@ -187,7 +187,7 @@ ssize_t USBCDCChannel::Flush()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBCDCChannel::GetWriteBytesAvailable() const
+ssize_t USBClientCDCChannel::GetWriteBytesAvailable() const
 {
     if (m_DeviceHandler != nullptr) {
         kassert(!m_DeviceHandler->GetMutex().IsLocked());
@@ -202,14 +202,14 @@ ssize_t USBCDCChannel::GetWriteBytesAvailable() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBCDCChannel::HandleControlTransfer(USB_ControlStage stage, const USB_ControlRequest& request)
+bool USBClientCDCChannel::HandleControlTransfer(USB_ControlStage stage, const USB_ControlRequest& request)
 {
     switch (USB_CDC_ManagementRequest(request.bRequest))
     {
         case USB_CDC_ManagementRequest::SET_LINE_CODING:
             if (stage == USB_ControlStage::SETUP)
             {
-                kernel_log(LogCategoryUSB, KLogSeverity::INFO_LOW_VOL, "USB: CDC set line coding.\n");
+                kernel_log(LogCategoryUSBDevice, KLogSeverity::INFO_LOW_VOL, "USBD: CDC set line coding.\n");
                 return m_DeviceHandler->GetControlEndpointHandler().SendControlDataReply(request, &m_LineCoding, sizeof(m_LineCoding));
             }
             else if (stage == USB_ControlStage::ACK)
@@ -221,7 +221,7 @@ bool USBCDCChannel::HandleControlTransfer(USB_ControlStage stage, const USB_Cont
         case USB_CDC_ManagementRequest::GET_LINE_CODING:
             if (stage == USB_ControlStage::SETUP)
             {
-                kernel_log(LogCategoryUSB, KLogSeverity::INFO_HIGH_VOL, "USB: CDC get line coding.\n");
+                kernel_log(LogCategoryUSBDevice, KLogSeverity::INFO_HIGH_VOL, "USBD: CDC get line coding.\n");
                 return m_DeviceHandler->GetControlEndpointHandler().SendControlDataReply(request, &m_LineCoding, sizeof(m_LineCoding));
             }
             break;
@@ -236,7 +236,7 @@ bool USBCDCChannel::HandleControlTransfer(USB_ControlStage stage, const USB_Cont
                 m_DTR = (request.wValue & USB_DTE_LINE_CONTROL_STATE_DTE_PRESENT) != 0;
                 m_RTS = (request.wValue & USB_DTE_LINE_CONTROL_STATE_CARRIER_ACTIVE) != 0;
 
-                kernel_log(LogCategoryUSB, KLogSeverity::INFO_HIGH_VOL, "USB: CDC Set control line state: DTR = %d, RTS = %d.\n", m_DTR, m_RTS);
+                kernel_log(LogCategoryUSBDevice, KLogSeverity::INFO_HIGH_VOL, "USBD: CDC Set control line state: DTR = %d, RTS = %d.\n", m_DTR, m_RTS);
 
                 SignalControlLineStateChanged(m_DTR, m_RTS);
             }
@@ -248,7 +248,7 @@ bool USBCDCChannel::HandleControlTransfer(USB_ControlStage stage, const USB_Cont
             }
             else if (stage == USB_ControlStage::ACK)
             {
-                kernel_log(LogCategoryUSB, KLogSeverity::INFO_LOW_VOL, "USB: CDC Send break.\n");
+                kernel_log(LogCategoryUSBDevice, KLogSeverity::INFO_LOW_VOL, "USBD: CDC Send break.\n");
                 if (request.wValue != 0xffff) {
                     SignalBreak(TimeValMicros::FromMilliseconds(request.wValue));
                 }
@@ -268,7 +268,7 @@ bool USBCDCChannel::HandleControlTransfer(USB_ControlStage stage, const USB_Cont
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBCDCChannel::HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult result, uint32_t length)
+bool USBClientCDCChannel::HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult result, uint32_t length)
 {
     kassert(m_DeviceHandler->GetMutex().IsLocked());
 
@@ -300,7 +300,7 @@ bool USBCDCChannel::HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t USBCDCChannel::FlushInternal()
+uint32_t USBClientCDCChannel::FlushInternal()
 {
     kassert(m_DeviceHandler->GetMutex().IsLocked());
 
@@ -331,7 +331,7 @@ uint32_t USBCDCChannel::FlushInternal()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBCDCChannel::StartOutTransaction()
+bool USBClientCDCChannel::StartOutTransaction()
 {
     kassert(m_DeviceHandler->GetMutex().IsLocked());
 

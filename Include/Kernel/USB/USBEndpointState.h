@@ -15,35 +15,40 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 28.05.2022 15:00
+// Created: 14.06.2022 18:00
 
 #pragma once
 
-#include <stdint.h>
-#include <Kernel/Kernel.h>
-
-enum class USB_Speed : uint8_t;
-
-
 namespace kernel
 {
-DEFINE_KERNEL_LOG_CATEGORY(LogCategoryUSB);
-DEFINE_KERNEL_LOG_CATEGORY(LogCategoryUSBDevice);
-DEFINE_KERNEL_LOG_CATEGORY(LogCategoryUSBHost);
 
-enum class USB_ControlStage : int
+struct USBEndpointState
 {
-    IDLE,
-    SETUP,
-    DATA,
-    ACK
+    bool Claim()
+    {
+        if (Busy || Claimed) {
+            return false;
+        }
+        Claimed = true;
+        return true;
+    }
+    bool Release()
+    {
+        if (Busy || !Claimed) {
+            return false;
+        }
+        Claimed = false;
+        return true;
+    }
+    void Reset()
+    {
+        Busy    = false;
+        Stalled = false;
+        Claimed = false;
+    }
+    bool    Busy = false;
+    bool    Stalled = false;
+    bool    Claimed = false;
 };
-
-using USB_PipeIndex = int32_t;
-static constexpr USB_PipeIndex USB_INVALID_PIPE = -1;
-static constexpr uint8_t USB_INVALID_ENDPOINT = 0xff;
-
-void        USB_Initialize();
-const char* USB_GetSpeedName(USB_Speed speed);
 
 } // namespace kernel

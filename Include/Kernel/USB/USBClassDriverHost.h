@@ -22,35 +22,33 @@
 #include <stdint.h>
 #include <Ptr/PtrTarget.h>
 
-struct USB_DescriptorHeader;
-struct USB_DescInterface;
-struct USB_ControlRequest;
+enum class USB_ClassCode : uint8_t;
 
 namespace kernel
 {
 
-class USBDevice;
+class USBHost;
 
-enum class USB_TransferResult : uint8_t;
-enum class USB_ControlStage : int;
-
-class USBClassDriverDevice : public PtrTarget
+class USBClassDriverHost : public PtrTarget
 {
 public:
+    virtual USB_ClassCode               GetClassCode() const = 0;
     virtual const char*                 GetName() const = 0;
-    virtual uint32_t                    GetInterfaceCount() = 0;
-    virtual void                        Init(USBDevice* deviceHandler) { m_DeviceHandler = deviceHandler; }
-    virtual void                        Shutdown() { m_DeviceHandler = nullptr; }
-    virtual void                        Reset() = 0;
-    virtual const USB_DescriptorHeader* Open(USB_DescInterface const* desc_intf, const void* endDesc) = 0;
-    virtual bool                        HandleControlTransfer(USB_ControlStage stage, const USB_ControlRequest& request) = 0;
-    virtual bool                        HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult result, uint32_t length) = 0;
-    virtual void                        StartOfFrame() {}
+    virtual bool                        Init(USBHost* host) { m_HostHandler = host; return true; }
+    virtual void                        Shutdown() { m_HostHandler = nullptr; }
+    virtual const USB_DescriptorHeader* Open(uint8_t deviceAddress, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc) = 0;
+    virtual void                        Close() = 0;
+    virtual void                        Startup() = 0;
+    virtual void                        StartOfFrame() = 0;
+
+    bool IsActive() const { return m_IsActive; }
 
 protected:
-    USBDevice* m_DeviceHandler = nullptr;
-};
+    friend class USBHost;
+    USBHost*    m_HostHandler = nullptr;
+    bool        m_IsActive = false;
 
+};
 
 
 } // namespace kernel

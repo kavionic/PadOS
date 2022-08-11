@@ -31,7 +31,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USBClassCDC::USBClassCDC()
+USBClientClassCDC::USBClientClassCDC()
 {
 }
 
@@ -39,9 +39,9 @@ USBClassCDC::USBClassCDC()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBClassCDC::Reset()
+void USBClientClassCDC::Reset()
 {
-    for (Ptr<USBCDCChannel> channel : m_Channels) {
+    for (Ptr<USBClientCDCChannel> channel : m_Channels) {
         channel->Close();
         SignalChannelRemoved(channel);
     }
@@ -52,7 +52,7 @@ void USBClassCDC::Reset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const USB_DescriptorHeader* USBClassCDC::Open(const USB_DescInterface* interfaceDesc, const void* endDesc)
+const USB_DescriptorHeader* USBClientClassCDC::Open(const USB_DescInterface* interfaceDesc, const void* endDesc)
 {
     if (interfaceDesc->bInterfaceClass != USB_ClassCode::CDC || USB_CDC_CommSubclassType(interfaceDesc->bInterfaceSubClass) != USB_CDC_CommSubclassType::ABSTRACT_CONTROL_MODEL) {
         return nullptr;
@@ -88,7 +88,7 @@ const USB_DescriptorHeader* USBClassCDC::Open(const USB_DescInterface* interface
             return nullptr;
         }
     }
-    Ptr<USBCDCChannel> channel = ptr_new<USBCDCChannel>(m_DeviceHandler, endpointAddrNotifications, endpointOutAddr, endpointInAddr, endpointOutSize, endpointInSize);
+    Ptr<USBClientCDCChannel> channel = ptr_new<USBClientCDCChannel>(m_DeviceHandler, endpointAddrNotifications, endpointOutAddr, endpointInAddr, endpointOutSize, endpointInSize);
     m_Channels.push_back(channel);
 
     m_InterfaceToChannelMap[interfaceDesc->bInterfaceNumber] = channel;
@@ -104,7 +104,7 @@ const USB_DescriptorHeader* USBClassCDC::Open(const USB_DescInterface* interface
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBClassCDC::HandleControlTransfer(USB_ControlStage stage, const USB_ControlRequest& request)
+bool USBClientClassCDC::HandleControlTransfer(USB_ControlStage stage, const USB_ControlRequest& request)
 {
     const USB_RequestType requestType = USB_RequestType((request.bmRequestType & USB_ControlRequest::REQUESTTYPE_TYPE_Msk) >> USB_ControlRequest::REQUESTTYPE_TYPE_Pos);
 
@@ -120,7 +120,7 @@ bool USBClassCDC::HandleControlTransfer(USB_ControlStage stage, const USB_Contro
     }
     else
     {
-        kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: USBClassCDC::HandleControlTransfer() unknown interface %u.\n", interfaceNum);
+        kernel_log(LogCategoryUSBDevice, KLogSeverity::ERROR, "USBD: USBClientClassCDC::HandleControlTransfer() unknown interface %u.\n", interfaceNum);
         return false;
     }
 }
@@ -129,7 +129,7 @@ bool USBClassCDC::HandleControlTransfer(USB_ControlStage stage, const USB_Contro
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBClassCDC::HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult result, uint32_t length)
+bool USBClientClassCDC::HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult result, uint32_t length)
 {
     auto channelItr = m_EndpointToChannelMap.find(endpointAddr);
     if (channelItr != m_EndpointToChannelMap.end())
@@ -138,7 +138,7 @@ bool USBClassCDC::HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult re
     }
     else
     {
-        kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: USBClassCDC::HandleDataTransfer() unknown endpoint %02x.\n", endpointAddr);
+        kernel_log(LogCategoryUSBDevice, KLogSeverity::ERROR, "USBD: USBClientClassCDC::HandleDataTransfer() unknown endpoint %02x.\n", endpointAddr);
         return false;
     }
 }
@@ -147,7 +147,7 @@ bool USBClassCDC::HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult re
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<USBCDCChannel> USBClassCDC::GetChannel(uint32_t channelIndex)
+Ptr<USBClientCDCChannel> USBClientClassCDC::GetChannel(uint32_t channelIndex)
 {
     CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
     if (channelIndex < m_Channels.size()) {

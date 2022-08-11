@@ -4,6 +4,10 @@ target_sources(PadOS_Kernel PRIVATE
 	USBControlTransferHandler.h
 	USBDevice.h
 	USBDriver.h
+	USBEndpointState.h
+	USBHost.h
+	USBHostControl.h
+	USBHostEnumerator.h
 	USBProtocol.h
 	USBProtocolCDC.h
 )

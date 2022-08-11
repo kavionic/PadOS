@@ -28,7 +28,7 @@ namespace kernel
 {
 class USBDevice;
 class USBDriver;
-class USBClassDriver;
+class USBClassDriverDevice;
 enum class USB_ControlStage : int;
 enum class USB_TransferResult : uint8_t;
 
@@ -39,14 +39,14 @@ enum class ControlTransferHandler : int
     VendorSpecific
 };
 
-class USBControlTransferHandler
+class USBClientControl
 {
 public:
-    ~USBControlTransferHandler();
+    ~USBClientControl();
     void Setup(USBDevice* deviceHandler, USBDriver* driver, uint32_t controlEndpointSize);
     void Reset();
     void SetRequest(const USB_ControlRequest& request, void* buffer, uint32_t length);
-    void SetControlTransferHandler(ControlTransferHandler handlerType, Ptr<USBClassDriver> classDriver = nullptr);
+    void SetControlTransferHandler(ControlTransferHandler handlerType, Ptr<USBClassDriverDevice> classDriver = nullptr);
     bool ControlTransferComplete(uint8_t endpointAddr, USB_TransferResult result, uint32_t length);
     bool InvokeControlTransferHandler(USB_ControlStage stage);
     bool SendControlStatusReply(const USB_ControlRequest& request);
@@ -65,7 +65,7 @@ private:
     uint32_t                m_TransferBytesSent = 0;
 
     ControlTransferHandler  m_TransferHandlerType = ControlTransferHandler::None;
-    Ptr<USBClassDriver>     m_TransferHandlerDriver;
+    Ptr<USBClassDriverDevice>     m_TransferHandlerDriver;
 
     std::vector<uint8_t>    m_ControlEndpointBuffer;
 };

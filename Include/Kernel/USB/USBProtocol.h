@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include <System/Endian.h>
 #include <System/Platform.h>
- 
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Address Field
@@ -142,6 +142,13 @@ enum class USB_TestModeSelector : uint8_t
     TEST_VENDOR_LAST    = 0xff 
 };
 
+enum class USB_RequestRecipient : uint8_t
+{
+    DEVICE = 0,
+    INTERFACE = 1,
+    ENDPOINT = 2,
+    OTHER = 3
+};
 
 enum class USB_RequestType : uint8_t
 {
@@ -151,13 +158,12 @@ enum class USB_RequestType : uint8_t
     INVALID   = 3
 };
 
-enum class USB_RequestRecipient : uint8_t
+enum class USB_RequestDirection : uint8_t
 {
-  DEVICE    = 0,
-  INTERFACE = 1,
-  ENDPOINT  = 2,
-  OTHER     = 3
+    HOST_TO_DEVICE = 0,
+    DEVICE_TO_HOST = 1
 };
+
 
 enum class USB_ClassCode : uint8_t
 {
@@ -252,12 +258,31 @@ struct USB_ControlRequest
     static constexpr uint8_t REQUESTTYPE_DIR_Pos        = 7;
     static constexpr uint8_t REQUESTTYPE_DIR            = 0x01 << REQUESTTYPE_DIR_Pos;  // 0: Host-to-device, 1: Device-to-host
     static constexpr uint8_t REQUESTTYPE_DIR_IN         = 0x01 << REQUESTTYPE_DIR_Pos;
+    static constexpr uint8_t REQUESTTYPE_DIR_OUT        = 0x00 << REQUESTTYPE_DIR_Pos;
 
-    uint8_t     bmRequestType;
-    uint8_t     bRequest;   // Specific request.
-    uint16_t    wValue;     // Word-sized field that varies according to request.
-    uint16_t    wIndex;     // Word-sized field that varies according to request; typically used to pass an index or offset.
-    uint16_t    wLength;    // Number of bytes to transfer if there is a Data stage.
+    USB_ControlRequest() {}
+    USB_ControlRequest(
+        USB_RequestRecipient    recipient,
+        USB_RequestType         type,
+        USB_RequestDirection    direction,
+        uint8_t                 request,
+        uint16_t                value,
+        uint16_t                index,
+        uint16_t                length
+    )
+        : bmRequestType(uint8_t((uint8_t(recipient) << REQUESTTYPE_RECIPIENT_Pos) | (uint8_t(type) << REQUESTTYPE_TYPE_Pos) | (uint8_t(direction) << REQUESTTYPE_DIR_Pos)))
+        , bRequest(request)
+        , wValue(value)
+        , wIndex(index)
+        , wLength(length)
+    {}
+    static uint8_t ComposeType(USB_RequestRecipient recipient, USB_RequestType type, USB_RequestDirection direction) { return uint8_t((uint8_t(recipient) << REQUESTTYPE_RECIPIENT_Pos) | (uint8_t(type) << REQUESTTYPE_TYPE_Pos) | (uint8_t(direction) << REQUESTTYPE_DIR_Pos)); }
+
+    uint8_t     bmRequestType = 0;
+    uint8_t     bRequest = 0;   // Specific request.
+    uint16_t    wValue = 0;     // Word-sized field that varies according to request.
+    uint16_t    wIndex = 0;     // Word-sized field that varies according to request; typically used to pass an index or offset.
+    uint16_t    wLength = 0;    // Number of bytes to transfer if there is a Data stage.
 } ATTR_PACKED;
 
 static_assert(sizeof(USB_ControlRequest) == 8);
@@ -280,9 +305,9 @@ static_assert(sizeof(USB_DescriptorHeader) == 2);
 ///////////////////////////////////////////////////////////////////////////////
 /// Standard Device Descriptor
 
-struct USB_DescDevice : USB_DescriptorHeader
+struct USB_DescDeviceHeader : USB_DescriptorHeader
 {
-    USB_DescDevice() : USB_DescriptorHeader(sizeof(*this), USB_DescriptorType::DEVICE) {}
+    USB_DescDeviceHeader(uint8_t length = sizeof(USB_DescDeviceHeader)) : USB_DescriptorHeader(length, USB_DescriptorType::DEVICE) {}
 
     uint16_t        bcdUSB = 0;             // BUSB Specification Release Number in Binary-Coded Decimal (i.e., 2.10 is 210H). This field identifies the release of the USB Specification with which the device and its descriptors are compliant.
 
@@ -290,6 +315,13 @@ struct USB_DescDevice : USB_DescriptorHeader
     uint8_t         bDeviceSubClass = 0;    // Subclass code (assigned by the USB-IF). These codes are qualified by the value of the bDeviceClass field. If the bDeviceClass field is reset to zero, this field must also be reset to zero. If the bDeviceClass field is not set to FFH, all values are reserved for assignment by the USB-IF.
     uint8_t         bDeviceProtocol = 0;    // Protocol code (assigned by the USB-IF). These codes are qualified by the value of the bDeviceClass and the bDeviceSubClass fields. If a device supports class-specific protocols on a device basis as opposed to an interface basis, this code identifies the protocols that the device uses as defined by the specification of the device class. If this field is reset to zero, the device does not use class-specific protocols on a device basis. However, it may use class-specific protocols on an interface basis. If this field is set to FFH, the device uses a vendor-specific protocol on a device basis.
     uint8_t         bMaxPacketSize0 = 0;    // Maximum packet size for endpoint zero (only 8, 16, 32, or 64 are valid). For HS devices is fixed to 64.
+};
+
+static_assert(sizeof(USB_DescDeviceHeader) == 8);
+
+struct USB_DescDevice : USB_DescDeviceHeader
+{
+    USB_DescDevice() : USB_DescDeviceHeader(sizeof(*this)) {}
 
     uint16_t        idVendor        = 0;    // Vendor ID (assigned by the USB-IF).
     uint16_t        idProduct       = 0;    // Product ID (assigned by the manufacturer).
@@ -357,6 +389,7 @@ struct USB_DescConfiguration : USB_DescriptorHeader
     static constexpr uint8_t ATTRIBUTES_RESERVED_HIGH_Pos   = 7;
     static constexpr uint8_t ATTRIBUTES_RESERVED_HIGH       = 1 << ATTRIBUTES_RESERVED_HIGH_Pos;
 
+    USB_DescConfiguration() {}
     USB_DescConfiguration(
         uint16_t totalLength,
         uint8_t  numInterfaces,
@@ -404,6 +437,7 @@ static_assert(sizeof(USB_DescOtherSpeed) == 9);
 
 struct USB_DescInterface : USB_DescriptorHeader
 {
+    USB_DescInterface() {}
     USB_DescInterface(
         uint8_t         interfaceNumber,
         uint8_t         alternateSetting,
@@ -486,6 +520,7 @@ struct USB_DescEndpoint : USB_DescriptorHeader
     static constexpr uint16_t MAX_PACKET_SIZE_EXTRA_TRANSACTIONS_Pos    = 11;    // Maximum allowed extra transactions per micro frame.
     static constexpr uint16_t MAX_PACKET_SIZE_EXTRA_TRANSACTIONS_Msk    = 0x03 << MAX_PACKET_SIZE_EXTRA_TRANSACTIONS_Pos;
 
+    USB_DescEndpoint() {}
     USB_DescEndpoint(
         uint8_t                 endpointAddress,
         USB_TransferType        transferType,

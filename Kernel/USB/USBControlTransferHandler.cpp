@@ -34,7 +34,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USBControlTransferHandler::~USBControlTransferHandler()
+USBClientControl::~USBClientControl()
 {
 }
 
@@ -42,7 +42,7 @@ USBControlTransferHandler::~USBControlTransferHandler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBControlTransferHandler::Setup(USBDevice* deviceHandler, USBDriver* driver, uint32_t controlEndpointSize)
+void USBClientControl::Setup(USBDevice* deviceHandler, USBDriver* driver, uint32_t controlEndpointSize)
 {
     m_DeviceHandler = deviceHandler;
     m_Driver        = driver;
@@ -54,7 +54,7 @@ void USBControlTransferHandler::Setup(USBDevice* deviceHandler, USBDriver* drive
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBControlTransferHandler::Reset()
+void USBClientControl::Reset()
 {
     m_TransferBuffer        = nullptr;
     m_TransferLength        = 0;
@@ -67,7 +67,7 @@ void USBControlTransferHandler::Reset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBControlTransferHandler::SetRequest(const USB_ControlRequest& request, void* buffer, uint32_t length)
+void USBClientControl::SetRequest(const USB_ControlRequest& request, void* buffer, uint32_t length)
 {
     m_Request           = request;
     m_TransferBuffer    = reinterpret_cast<uint8_t*>(buffer);
@@ -79,7 +79,7 @@ void USBControlTransferHandler::SetRequest(const USB_ControlRequest& request, vo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBControlTransferHandler::SetControlTransferHandler(ControlTransferHandler handlerType, Ptr<USBClassDriver> classDriver)
+void USBClientControl::SetControlTransferHandler(ControlTransferHandler handlerType, Ptr<USBClassDriverDevice> classDriver)
 {
     m_TransferHandlerType   = handlerType;
     m_TransferHandlerDriver = classDriver;
@@ -89,7 +89,7 @@ void USBControlTransferHandler::SetControlTransferHandler(ControlTransferHandler
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBControlTransferHandler::ControlTransferComplete(uint8_t endpointAddr, USB_TransferResult result, uint32_t length)
+bool USBClientControl::ControlTransferComplete(uint8_t endpointAddr, USB_TransferResult result, uint32_t length)
 {
     // If request and endpoint direction is opposite this Status stage is complete.
     const bool requestDirIn = (m_Request.bmRequestType & USB_ControlRequest::REQUESTTYPE_DIR_IN) != 0;
@@ -109,7 +109,7 @@ bool USBControlTransferHandler::ControlTransferComplete(uint8_t endpointAddr, US
         }
         if (length > m_ControlEndpointBuffer.size())
         {
-            kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: USBControlTransferHandler::ControlTransferComplete(%02x) invalid transfer length: &lu.\n", endpointAddr, length);
+            kernel_log(LogCategoryUSBDevice, KLogSeverity::ERROR, "USBD: USBClientControl::ControlTransferComplete(%02x) invalid transfer length: &lu.\n", endpointAddr, length);
             return false;
         }
         memcpy(m_TransferBuffer, m_ControlEndpointBuffer.data(), length);
@@ -143,7 +143,7 @@ bool USBControlTransferHandler::ControlTransferComplete(uint8_t endpointAddr, US
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBControlTransferHandler::InvokeControlTransferHandler(USB_ControlStage stage)
+bool USBClientControl::InvokeControlTransferHandler(USB_ControlStage stage)
 {
     switch (m_TransferHandlerType)
     {
@@ -167,7 +167,7 @@ bool USBControlTransferHandler::InvokeControlTransferHandler(USB_ControlStage st
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBControlTransferHandler::SendControlStatusReply(const USB_ControlRequest& request)
+bool USBClientControl::SendControlStatusReply(const USB_ControlRequest& request)
 {
     SetRequest(request, nullptr, 0);
     return StartControlStatusTransfer(request);
@@ -179,7 +179,7 @@ bool USBControlTransferHandler::SendControlStatusReply(const USB_ControlRequest&
 /// is 0, a status packet is sent.
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBControlTransferHandler::SendControlDataReply(const USB_ControlRequest& request, void* buffer, uint32_t length)
+bool USBClientControl::SendControlDataReply(const USB_ControlRequest& request, void* buffer, uint32_t length)
 {
     SetRequest(request, buffer, length);
 
@@ -202,7 +202,7 @@ bool USBControlTransferHandler::SendControlDataReply(const USB_ControlRequest& r
 /// Start zero length status transfer.
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBControlTransferHandler::StartControlStatusTransfer(const USB_ControlRequest& request)
+bool USBClientControl::StartControlStatusTransfer(const USB_ControlRequest& request)
 {
     // Opposite to endpoint in data phase.
     const uint8_t endpointAddr = (request.bmRequestType & USB_ControlRequest::REQUESTTYPE_DIR_IN) ? USB_MK_OUT_ADDRESS(0) : USB_MK_IN_ADDRESS(0);
@@ -213,7 +213,7 @@ bool USBControlTransferHandler::StartControlStatusTransfer(const USB_ControlRequ
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBControlTransferHandler::StartControlDataTransfer()
+bool USBClientControl::StartControlDataTransfer()
 {
     const size_t  length = std::min(m_TransferLength - m_TransferBytesSent, uint32_t(m_ControlEndpointBuffer.size()));
     const uint8_t endpointAddr = (m_Request.bmRequestType & USB_ControlRequest::REQUESTTYPE_DIR_IN) ? USB_MK_IN_ADDRESS(0) : USB_MK_OUT_ADDRESS(0);

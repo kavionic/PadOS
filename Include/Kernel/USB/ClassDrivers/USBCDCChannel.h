@@ -32,10 +32,10 @@ class USBDevice;
 enum class USB_ControlStage : int;
 enum class USB_TransferResult : uint8_t;
 
-class USBCDCChannel : public KNamedObject
+class USBClientCDCChannel : public KNamedObject
 {
 public:
-    USBCDCChannel(USBDevice* deviceHandler, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize);
+    USBClientCDCChannel(USBDevice* deviceHandler, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize);
 
     // From KNamedObject:
     virtual bool AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;

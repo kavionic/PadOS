@@ -25,11 +25,11 @@
 #include <Kernel/USB/USBDriver.h>
 #include <Kernel/USB/USBCommon.h>
 #include <Kernel/USB/USBProtocol.h>
+#include <Kernel/HAL/STM32/USBDevice_STM32.h>
+#include <Kernel/HAL/STM32/USBHost_STM32.h>
 
 namespace kernel
 {
-
-enum class IRQResult : int;
 enum class USB_OTG_ID : int;
 
 static constexpr uint32_t USB_PKTSTS_NAK            = 1; // Global OUT NAK (triggers an interrupt).
@@ -38,11 +38,23 @@ static constexpr uint32_t USB_PKTSTS_OUT_XFR_DONE   = 3; // OUT transfer complet
 static constexpr uint32_t USB_PKTSTS_SETUP_XFR_DONE = 4; // SETUP transaction completed (triggers an interrupt).
 static constexpr uint32_t USB_PKTSTS_SETUP_DATA_RCV = 6; // SETUP data packet received.
 
-enum class USB_Mode : int
+static constexpr uint32_t USB_PKTSTS_HOST_IN_DATA_RCV       = 2; // IN data packet received
+static constexpr uint32_t USB_PKTSTS_HOST_IN_XFR_DONE       = 3; // IN transfer completed(triggers an interrupt)
+static constexpr uint32_t USB_PKTSTS_HOST_DATA_TOGGLE_ERR   = 5; // Data toggle error(triggers an interrupt)
+static constexpr uint32_t USB_PKTSTS_HOST_CHANNEL_HALTED    = 7; // Channel halted(triggers an interrupt)
+
+
+enum class USB_Mode : uint8_t
 {
     Device,
     Host,
     Dual
+};
+
+enum class USB_OTG_Phy : uint8_t
+{
+    ULPI,
+    Embedded
 };
 
 class USB_STM32 : public USBDriver
@@ -51,86 +63,64 @@ public:
     USB_STM32();
     ~USB_STM32();
 
-    bool Setup(USB_OTG_ID portID, USB_Mode mode, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF = false);
+    bool Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG_Phy phyInterface, bool enableDMA, bool useExternalVBus, bool batteryChargingEnabled, const PinMuxTarget& pinDM, const PinMuxTarget& pinDP, const PinMuxTarget& pinID, DigitalPinID pinVBus, bool useSOF = false);
+    void Shutdown();
 
-    virtual void EndpointStall(uint8_t endpointAddr) override;
-    virtual void EndpointClearStall(uint8_t endpointAddr) override;
-    virtual bool EndpointOpen(const USB_DescEndpoint& endpointDescriptor) override;
-    virtual void EndpointClose(uint8_t endpointAddr) override;
-    virtual void EndpointCloseAll() override;
-    virtual bool EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t totalLength) override;
-    virtual bool SetAddress(uint8_t deviceAddr) override;
+    USB_OTG_Phy         GetPhyInterface() const { return m_PhyInterface; }
+    bool                UseDMA() const { return m_UseDMA; }
+    USB_Speed           GetConfigSpeed() const { return m_ConfigSpeed; }
 
+    IFLASHC bool        SetUSBMode(USB_Mode mode);
+    IFLASHC USB_Mode    GetUSBMode() const;
+
+    // Device interface:
+    virtual USB_Speed   HostGetSpeed() const override                                       { return m_HostDriver.HostGetSpeed(); }
+    virtual USB_Speed   DeviceGetSpeed() const override                                     { return m_DeviceDriver.DeviceGetSpeed(); }
+    virtual void        EndpointStall(uint8_t endpointAddr) override                        { m_DeviceDriver.EndpointStall(endpointAddr); }
+    virtual void        EndpointClearStall(uint8_t endpointAddr) override                   { m_DeviceDriver.EndpointClearStall(endpointAddr);  }
+    virtual bool        EndpointOpen(const USB_DescEndpoint& endpointDescriptor) override   { return m_DeviceDriver.EndpointOpen(endpointDescriptor); }
+    virtual void        EndpointClose(uint8_t endpointAddr) override                        { m_DeviceDriver.EndpointClose(endpointAddr); }
+    virtual void        EndpointCloseAll() override                                         { m_DeviceDriver.EndpointCloseAll(); }
+    virtual bool        EndpointTransfer(uint8_t endpointAddr, void* buffer, size_t totalLength) override { return m_DeviceDriver.EndpointTransfer(endpointAddr, buffer, totalLength); }
+    virtual bool        SetAddress(uint8_t deviceAddr) override                             { return m_DeviceDriver.SetAddress(deviceAddr); }
+
+    // Host interface:
+    virtual uint32_t    GetMaxPipeCount() const override { return m_HostDriver.GetMaxPipeCount(); }
+    virtual bool        StartHost() override { return m_HostDriver.StartHost(); }
+    virtual bool        StopHost() override { return m_HostDriver.StopHost(); }
+    virtual bool        ResetPort() override { return m_HostDriver.ResetPort(); }
+    virtual uint32_t    GetCurrentHostFrame() override { return m_HostDriver.GetCurrentFrame(); }
+
+    virtual bool        SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize) override { return m_HostDriver.SetupPipe(pipeIndex, endpointAddr, deviceAddr, speed, endpointType, maxPacketSize); }
+    virtual bool        HaltChannel(USB_PipeIndex pipeIndex) override { return m_HostDriver.HaltChannel(pipeIndex); }
+    virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing) override { return m_HostDriver.SubmitRequest(pipeIndex, direction, endpointType, initialPID, buffer, length, doPing); }
+    virtual bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle) override { return m_HostDriver.SetDataToggle(pipeIndex, toggle); }
+    virtual bool        GetDataToggle(USB_PipeIndex pipeIndex) const override { return m_HostDriver.GetDataToggle(pipeIndex); }
+
+    IFLASHC void        ReadFromFIFO(void* buffer, size_t length);
+    IFLASHC void        WriteToFIFO(uint32_t fifoIndex, const void* buffer, size_t length);
+
+    IFLASHC bool        FlushTxFifo(uint32_t count);
+    IFLASHC bool        FlushRxFifo();
+
+    IFLASHC virtual void EnableIRQ(bool enable) override;
 private:
-    static constexpr uint32_t ENDPOINT_COUNT = 9;
+    IFLASHC bool                SetupCore(bool useExternalVBus, bool batteryChargingEnabled);
+    IFLASHC bool                CoreReset();
+    IFLASHC bool                WaitForAHBIdle();
+    IFLASHC volatile uint32_t*  GetFIFOBase(uint32_t endpoint) { return m_FIFOBase + endpoint * USB_OTG_FIFO_SIZE / 4; }
 
-    volatile uint32_t* GetFIFOBase(uint32_t endpoint) { return m_FIFOBase + endpoint * USB_OTG_FIFO_SIZE / 4; }
-    uint32_t    CalculateRXFIFOSize(uint32_t maxEndpointSize) const;
-    void        Connect();
-    void        Disconnect();
-    void        ResetReceived();
-    void        UpdateGRXFSIZ();
-    void        SetSpeed(USB_Speed speed);
-    USB_Speed   GetSpeed() const;
-    void        SetTurnaround(USB_Speed speed);
 
-    void        ReadFromFIFO(void* buffer, size_t length);
-    void        WriteToFIFO(uint32_t fifoIndex, const void* buffer, size_t length);
-    void        EndpointDisable(uint8_t endpointAddr, bool stall);
-    void        EndpointSchedulePackets(uint8_t endpointAddr, uint32_t packetCount, uint32_t totalLength);
+    USB_OTG_GlobalTypeDef*  m_Port = nullptr;
 
-    IFLASHC static IRQResult IRQCallback(IRQn_Type irq, void* userData);
-    IFLASHC IRQResult HandleIRQ();
+    volatile uint32_t*      m_FIFOBase = nullptr;
 
-    IFLASHC void HandleRXFIFOLevelIRQ();
-    IFLASHC void HandleOutEndpointIRQ();
-    IFLASHC void HandleInEndpointIRQ();
+    USBDevice_STM32         m_DeviceDriver;
+    USBHost_STM32           m_HostDriver;
 
-    USB_OTG_GlobalTypeDef* m_Port = nullptr;
-    USB_OTG_DeviceTypeDef* m_Device = nullptr;
-
-    USB_OTG_OUTEndpointTypeDef* m_OutEndpoints = nullptr;
-    USB_OTG_INEndpointTypeDef*  m_InEndpoints = nullptr;
-
-    volatile uint32_t* m_PCGCCTL = nullptr;
-    volatile uint32_t* m_FIFOBase = nullptr;
-
-    struct EndpointTransferState
-    {
-        void Reset()
-        {
-            Buffer = nullptr;
-            TotalLength = 0;
-            EndpointMaxSize = 0;
-            Interval = 0;
-        }
-
-        uint8_t*    Buffer;
-        uint32_t    TotalLength;
-        uint32_t    EndpointMaxSize;
-        uint8_t     Interval;
-    };
-
-    EndpointTransferState* GetEndpointTranferState(uint8_t endpointAddr)
-    {
-        const uint8_t epnum = USB_ADDRESS_EPNUM(endpointAddr);
-
-        if (epnum < ENDPOINT_COUNT) {
-            return (endpointAddr & USB_ADDRESS_DIR_IN) ? &m_TransferStatusIn[epnum] : &m_TransferStatusOut[epnum];
-        }
-        return nullptr;
-    }
-
-    EndpointTransferState  m_TransferStatusIn[ENDPOINT_COUNT];
-    EndpointTransferState  m_TransferStatusOut[ENDPOINT_COUNT];
-
-    uint32_t    m_Enpoint0InPending = 0;
-    uint32_t    m_Enpoint0OutPending = 0;
-
-    uint32_t    m_AllocatedTXFIFOWords = 0; // TX FIFO size in words (IN endpoints).
-    bool        m_UpdateRXFIFOSize = false; // Flag set if RX FIFO size needs an update.
-    bool        m_SupportHighSpeed = false;
-    USB_ControlRequest  m_ControlRequestPackage;
+    USB_OTG_Phy             m_PhyInterface = USB_OTG_Phy::Embedded;
+    bool                    m_UseDMA = false;
+    USB_Speed               m_ConfigSpeed = USB_Speed::FULL;
 };
 
 

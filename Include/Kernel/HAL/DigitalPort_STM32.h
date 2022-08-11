@@ -638,10 +638,13 @@ static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_MISO_PG12	= { DigitalPinID::G1
 static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_SCK_PG13	= { DigitalPinID::G13,		DigitalPinPeripheralID::AF5 };
 static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_MOSI_PG14	= { DigitalPinID::G14,		DigitalPinPeripheralID::AF5 };
 
-static IFLASHD constexpr PinMuxTarget	PINMUX_OTG_FS_ID_PA10 = { DigitalPinID::A10,		DigitalPinPeripheralID::AF10 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_OTG_FS_DM_PA11 = { DigitalPinID::A11,		DigitalPinPeripheralID::AF10 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_OTG_FS_DP_PA12 = { DigitalPinID::A12,		DigitalPinPeripheralID::AF10 };
+static IFLASHD constexpr PinMuxTarget	PINMUX_OTG_FS_ID_PA10   = { DigitalPinID::A10,		DigitalPinPeripheralID::AF10 };
+static IFLASHD constexpr PinMuxTarget	PINMUX_OTG_FS_DM_PA11   = { DigitalPinID::A11,		DigitalPinPeripheralID::AF10 };
+static IFLASHD constexpr PinMuxTarget	PINMUX_OTG_FS_DP_PA12   = { DigitalPinID::A12,		DigitalPinPeripheralID::AF10 };
 
+static IFLASHD constexpr PinMuxTarget	PINMUX_OTG1_HS_ID_PB12  = { DigitalPinID::B12,		DigitalPinPeripheralID::AF12 };
+static IFLASHD constexpr PinMuxTarget	PINMUX_OTG1_HS_DM_PB14  = { DigitalPinID::B14,		DigitalPinPeripheralID::AF12 };
+static IFLASHD constexpr PinMuxTarget	PINMUX_OTG1_HS_DP_PB15  = { DigitalPinID::B15,		DigitalPinPeripheralID::AF12 };
 
 struct DigitalPort
 {

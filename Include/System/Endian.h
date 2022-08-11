@@ -19,22 +19,41 @@
 
 #include <stdint.h>
 
+#pragma once
+
 namespace os
 {
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
-inline uint16_t HostToNetwork(uint16_t value) { return __builtin_bswap16(value); }
-inline uint32_t HostToNetwork(uint32_t value) { return __builtin_bswap32(value); }
+template<typename T> constexpr T HostToNetwork(T value)
+{
+    if constexpr (sizeof(T) == 1) {
+        return value;
+    } else if constexpr (sizeof(T) == 2) {
+        return __builtin_bswap16(value);
+    } else if constexpr (sizeof(T) == 4) {
+        return __builtin_bswap32(value);
+    } else if constexpr (sizeof(T) == 8) {
+        return __builtin_bswap64(value);
+    }
+}
 
-inline uint16_t NetworkToHost(uint16_t value) { return __builtin_bswap16(value); }
-inline uint32_t NetworkToHost(uint32_t value) { return __builtin_bswap32(value); }
+template<typename T> T NetworkToHost(T value)
+{
+    if constexpr (sizeof(T) == 1) {
+        return value;
+    } else if constexpr (sizeof(T) == 2) {
+        return __builtin_bswap16(value);
+    } else if constexpr (sizeof(T) == 4) {
+        return __builtin_bswap32(value);
+    } else if constexpr (sizeof(T) == 8) {
+        return __builtin_bswap64(value);
+    }
+}
 
-inline uint16_t HostToLittleEndian(uint16_t value) { return value; }
-inline uint32_t HostToLittleEndian(uint32_t value) { return value; }
-
-inline uint16_t LittleEndianToHost(uint16_t value) { return value; }
-inline uint32_t LittleEndianToHost(uint32_t value) { return value; }
+template<typename T> T HostToLittleEndian(T value) { return value; }
+template<typename T> T LittleEndianToHost(T value) { return value; }
 
 #else
 

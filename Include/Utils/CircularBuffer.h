@@ -43,7 +43,7 @@ public:
     }
     size_t GetLength() const
     {
-        return (m_QueueInPos - m_QueueOutPos) & QUEUE_SIZE_MASK;
+        return m_QueueInPos - m_QueueOutPos;
     }
     size_t GetRemainingSpace() const
     {
@@ -66,24 +66,23 @@ public:
 
         if (length > freeSpace)
         {
-            m_QueueOutPos = (m_QueueOutPos + length - freeSpace) & QUEUE_SIZE_MASK;
+            m_QueueOutPos += length - freeSpace;
             freeSpace = length;
         }
 
-        m_QueueInPos &= QUEUE_SIZE_MASK;
-        const size_t postSpace = QUEUE_SIZE - m_QueueInPos;
+        size_t maskedInPos = m_QueueInPos & QUEUE_SIZE_MASK;
+        const size_t postSpace = QUEUE_SIZE - maskedInPos;
         if (postSpace >= length)
         {
-            WriteElements(&m_Queue[m_QueueInPos], curSrc, length);
-            m_QueueInPos += length;
+            WriteElements(&m_Queue[maskedInPos], curSrc, length);
         }
         else
         {
             const size_t preSpace = length - postSpace;
-            WriteElements(&m_Queue[m_QueueInPos], curSrc, postSpace);
+            WriteElements(&m_Queue[maskedInPos], curSrc, postSpace);
             WriteElements(&m_Queue[0], curSrc + postSpace, preSpace);
-            m_QueueInPos = preSpace;
         }
+        m_QueueInPos += length;
         return length;
     }
 
@@ -96,23 +95,23 @@ public:
             length = curLength;
         }
         T* curDst = reinterpret_cast<T*>(data);
-        const size_t postSpace = QUEUE_SIZE - m_QueueOutPos;
+        size_t maskedOutPos = m_QueueOutPos & QUEUE_SIZE_MASK;
+        const size_t postSpace = QUEUE_SIZE - maskedOutPos;
         if (postSpace >= length)
         {
-            WriteElements(curDst, &m_Queue[m_QueueOutPos], length);
-            m_QueueOutPos = (m_QueueOutPos + length) & QUEUE_SIZE_MASK;
+            WriteElements(curDst, &m_Queue[maskedOutPos], length);
         }
         else
         {
             const size_t preSpace = length - postSpace;
-            WriteElements(curDst, &m_Queue[m_QueueOutPos], postSpace);
+            WriteElements(curDst, &m_Queue[maskedOutPos], postSpace);
             WriteElements(curDst + postSpace, &m_Queue[0], preSpace);
-            m_QueueOutPos = preSpace & QUEUE_SIZE_MASK;
         }
+        m_QueueOutPos += length;
         return length;
     }
 
-    const T*    GetReadPointer() const { return &m_Queue[m_QueueOutPos]; }
+    const T*    GetReadPointer() const { return &m_Queue[m_QueueOutPos & QUEUE_SIZE_MASK]; }
     T*          GetWritePointer() { return &m_Queue[m_QueueInPos & QUEUE_SIZE_MASK]; }
 
 private:

@@ -10,4 +10,6 @@ target_sources(PadOS_Kernel PRIVATE
 	ResetAndClockControl.h
 	SDRAM_STM32.h
 	USB_STM32.h
+	USBDevice_STM32.h
+	USBHost_STM32.h
 )

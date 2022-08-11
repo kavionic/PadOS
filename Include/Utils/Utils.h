@@ -107,6 +107,8 @@ struct ReverseRangedWrapperConst
 template<typename T> ReverseRangedWrapper<T>      reverse_ranged(T& list) { return ReverseRangedWrapper<T>(list); }
 template<typename T> ReverseRangedWrapperConst<T> reverse_ranged(const T& list) { return ReverseRangedWrapper<T>(list); }
 
+template <typename O, typename F> auto bind_method(O* obj, F&& f) { return [=](auto&&... args) { return (obj->*f)(std::forward<decltype(args)>(args)...); }; }
+
 class ProfileTimer
 {
     public:

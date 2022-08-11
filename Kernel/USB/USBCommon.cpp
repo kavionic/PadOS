@@ -18,6 +18,10 @@
 // Created: 28.05.2022 15:00
 
 #include <Kernel/USB/USBCommon.h>
+#include <Kernel/USB/USBProtocol.h>
+
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -26,5 +30,25 @@
 void USB_Initialize()
 {
     REGISTER_KERNEL_LOG_CATEGORY(kernel::LogCategoryUSB, kernel::KLogSeverity::INFO_LOW_VOL);
-
+    REGISTER_KERNEL_LOG_CATEGORY(kernel::LogCategoryUSBDevice, kernel::KLogSeverity::INFO_LOW_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(kernel::LogCategoryUSBHost, kernel::KLogSeverity::INFO_LOW_VOL);
 }
+
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const char* USB_GetSpeedName(USB_Speed speed)
+{
+    switch (speed)
+    {
+        case USB_Speed::FULL:   return "FULL";
+        case USB_Speed::LOW:    return "LOW";
+        case USB_Speed::HIGH:   return "HIGH";
+        default:                return "INVALID";
+    }
+}
+
+
+} // namespace kernel

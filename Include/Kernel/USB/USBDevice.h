@@ -30,19 +30,12 @@
 #include <Utils/CircularBuffer.h>
 
 #include <Kernel/USB/USBControlTransferHandler.h>
+#include <Kernel/USB/USBEndpointState.h>
 #include <Kernel/USB/USBLanguages.h>
 
 namespace kernel
 {
 class USBDriver;
-
-enum class USB_ControlStage : int
-{
-    IDLE,
-    SETUP,
-    DATA,
-    ACK
-};
 
 enum class USBDeviceEventID : int
 {
@@ -83,36 +76,6 @@ struct USBDeviceEvent
     };
 };
 
-struct USBEndpointState
-{
-    bool Claim()
-    {
-        if (Busy || Claimed) {
-            return false;
-        }
-        Claimed = true;
-        return true;
-    }
-    bool Release()
-    {
-        if (Busy || !Claimed) {
-            return false;
-        }
-        Claimed = false;
-        return true;
-    }
-    void Reset()
-    {
-        Busy    = false;
-        Stalled = false;
-        Claimed = false;
-    }
-    bool    Busy = false;
-    bool    Stalled = false;
-    bool    Claimed = false;
-};
-
-
 class USBDevice : public os::Thread, public SignalTarget
 {
 public:
@@ -122,13 +85,11 @@ public:
     // From Thread:
     virtual int Run() override;
 
-    static const char* GetSpeedName(USB_Speed speed);
-
     KMutex& GetMutex() { return m_Mutex; }
 
     bool Setup(USBDriver* driver, uint32_t endpoint0Size);
-    void AddClassDriver(Ptr<USBClassDriver> driver);
-    void RemoveClassDriver(Ptr<USBClassDriver> driver);
+    void AddClassDriver(Ptr<USBClassDriverDevice> driver);
+    void RemoveClassDriver(Ptr<USBClassDriverDevice> driver);
 
     void SetDeviceDescriptor(const USB_DescDevice& descriptor);
     void SetDeviceQualifier(const USB_DescDeviceQualifier& qualifier);
@@ -146,13 +107,13 @@ public:
     const USB_DescConfiguration* GetOtherConfigDescriptor(uint32_t index) const;
     const USB_DescBOS*           GetBOSDescriptor() const;
 
-    Ptr<USBClassDriver> GetInterfaceDriver(uint8_t interfaceNum);
-    Ptr<USBClassDriver> GetEndpointDriver(uint8_t endpointAddress);
+    Ptr<USBClassDriverDevice> GetInterfaceDriver(uint8_t interfaceNum);
+    Ptr<USBClassDriverDevice> GetEndpointDriver(uint8_t endpointAddress);
 
     USBEndpointState&       GetEndpoint(uint8_t endpointAddr);
     const USBEndpointState& GetEndpoint(uint8_t endpointAddr) const { return const_cast<USBDevice*>(this)->GetEndpoint(endpointAddr); }
 
-    USBControlTransferHandler& GetControlEndpointHandler() { return m_ControlTransfer; }
+    USBClientControl& GetControlEndpointHandler() { return m_ControlTransfer; }
 
     bool IsReady() const     { return IsMounted() && !IsSuspended(); }
     bool IsConnected() const { return m_IsConnected; }
@@ -191,7 +152,7 @@ private:
 
     bool HandleSelectConfiguration(uint8_t configNum);
     bool HandleGetDescriptor(const USB_ControlRequest& request);
-    bool InvokeClassDriverControlTransfer(Ptr<USBClassDriver> driver, const USB_ControlRequest& request);
+    bool InvokeClassDriverControlTransfer(Ptr<USBClassDriverDevice> driver, const USB_ControlRequest& request);
 
     bool PopEvent(USBDeviceEvent& event);
     void PushEvent(const USBDeviceEvent& event);
@@ -211,9 +172,9 @@ private:
     USBDriver*          m_Driver = nullptr;
 
     CircularBuffer<USBDeviceEvent, 32>      m_EventQueue;
-    std::vector<Ptr<USBClassDriver>>        m_ClassDrivers;
-    std::map<uint8_t, Ptr<USBClassDriver>>  m_InterfaceToDriverMap;
-    std::map<uint8_t, Ptr<USBClassDriver>>  m_EndpointToDriverMap;
+    std::vector<Ptr<USBClassDriverDevice>>        m_ClassDrivers;
+    std::map<uint8_t, Ptr<USBClassDriverDevice>>  m_InterfaceToDriverMap;
+    std::map<uint8_t, Ptr<USBClassDriverDevice>>  m_EndpointToDriverMap;
 
     USB_DescDevice                                      m_DeviceDescriptor;
     USB_DescDeviceQualifier                             m_DeviceQualifier;
@@ -235,8 +196,8 @@ private:
     bool        m_SelfPowered         = false;
     USB_Speed   m_SelectedSpeed       = USB_Speed::LOW;
 
-    USBControlTransferHandler   m_ControlTransfer;
-    USBEndpointState            m_EndpointStates[USB_ADDRESS_MAX_EP_COUNT * 2];
+    USBClientControl    m_ControlTransfer;
+    USBEndpointState    m_EndpointStates[USB_ADDRESS_MAX_EP_COUNT * 2];
 };
 
 } // namespace kernel

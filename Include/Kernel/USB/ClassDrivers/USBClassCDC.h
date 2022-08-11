@@ -29,12 +29,12 @@
 
 namespace kernel
 {
-class USBCDCChannel;
+class USBClientCDCChannel;
 
-class USBClassCDC : public USBClassDriver
+class USBClientClassCDC : public USBClassDriverDevice
 {
 public:
-    USBClassCDC();
+    USBClientClassCDC();
 
     virtual const char*                 GetName() const override { return "CDC"; }
     virtual uint32_t                    GetInterfaceCount() override { return 2; }
@@ -44,15 +44,15 @@ public:
     virtual bool                        HandleDataTransfer(uint8_t endpointAddr, USB_TransferResult result, uint32_t length) override;
 
     uint32_t            GetChannelCount() const { return m_Channels.size(); }
-    Ptr<USBCDCChannel>  GetChannel(uint32_t channelIndex);
+    Ptr<USBClientCDCChannel>  GetChannel(uint32_t channelIndex);
 
-    Signal<void, Ptr<USBCDCChannel>> SignalChannelAdded;
-    Signal<void, Ptr<USBCDCChannel>> SignalChannelRemoved;
+    Signal<void, Ptr<USBClientCDCChannel>> SignalChannelAdded;
+    Signal<void, Ptr<USBClientCDCChannel>> SignalChannelRemoved;
 
 private:
-    std::vector<Ptr<USBCDCChannel>>         m_Channels;
-    std::map<uint16_t, Ptr<USBCDCChannel>>  m_InterfaceToChannelMap;
-    std::map<uint8_t, Ptr<USBCDCChannel>>   m_EndpointToChannelMap;
+    std::vector<Ptr<USBClientCDCChannel>>         m_Channels;
+    std::map<uint16_t, Ptr<USBClientCDCChannel>>  m_InterfaceToChannelMap;
+    std::map<uint8_t, Ptr<USBClientCDCChannel>>   m_EndpointToChannelMap;
 };
 
 

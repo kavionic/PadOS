@@ -1,6 +1,6 @@
 target_sources(PadOS_Kernel PRIVATE
+	USBClientControl.cpp
 	USBCommon.cpp
-	USBControlTransferHandler.cpp
 	USBDevice.cpp
 	USBHost.cpp
 	USBHostControl.cpp

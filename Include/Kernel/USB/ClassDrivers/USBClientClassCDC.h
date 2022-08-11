@@ -24,7 +24,7 @@
 #include <System/Platform.h>
 #include <Ptr/PtrTarget.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
-#include <Kernel/USB/USBClassDriver.h>
+#include <Kernel/USB/USBClassDriverDevice.h>
 #include <Kernel/USB/USBProtocolCDC.h>
 
 namespace kernel

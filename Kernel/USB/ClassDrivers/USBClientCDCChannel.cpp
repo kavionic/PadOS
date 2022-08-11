@@ -18,9 +18,9 @@
 // Created: 08.06.2022 22:00
 
 
-#include <Kernel/USB/ClassDrivers/USBCDCChannel.h>
+#include <Kernel/USB/ClassDrivers/USBClientCDCChannel.h>
 #include <Kernel/USB/USBCommon.h>
-#include <Kernel/USB/USBClassDriver.h>
+#include <Kernel/USB/USBClassDriverDevice.h>
 #include <Kernel/USB/USBDevice.h>
 
 namespace kernel

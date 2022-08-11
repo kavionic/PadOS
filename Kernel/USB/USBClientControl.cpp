@@ -19,8 +19,8 @@
 
 #include <string.h>
 #include <algorithm>
-#include <Kernel/USB/USBControlTransferHandler.h>
-#include <Kernel/USB/USBClassDriver.h>
+#include <Kernel/USB/USBClientControl.h>
+#include <Kernel/USB/USBClassDriverDevice.h>
 #include <Kernel/USB/USBDevice.h>
 #include <Kernel/USB/USBDriver.h>
 #include <Kernel/USB/USBCommon.h>

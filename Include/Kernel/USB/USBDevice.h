@@ -29,7 +29,7 @@
 #include <Signals/VFConnector.h>
 #include <Utils/CircularBuffer.h>
 
-#include <Kernel/USB/USBControlTransferHandler.h>
+#include <Kernel/USB/USBClientControl.h>
 #include <Kernel/USB/USBEndpointState.h>
 #include <Kernel/USB/USBLanguages.h>
 

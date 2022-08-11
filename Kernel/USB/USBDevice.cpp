@@ -21,7 +21,7 @@
 #include <Kernel/USB/USBCommon.h>
 #include <Kernel/USB/USBDevice.h>
 #include <Kernel/USB/USBDriver.h>
-#include <Kernel/USB/USBClassDriver.h>
+#include <Kernel/USB/USBClassDriverDevice.h>
 #include <Kernel/USB/USBProtocol.h>
 #include <Kernel/USB/USBLanguages.h>
 #include <Utils/Utils.h>

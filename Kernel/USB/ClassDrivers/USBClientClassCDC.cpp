@@ -19,8 +19,8 @@
 
 #include <string.h>
 #include <Utils/Utils.h>
-#include <Kernel/USB/ClassDrivers/USBClassCDC.h>
-#include <Kernel/USB/ClassDrivers/USBCDCChannel.h>
+#include <Kernel/USB/ClassDrivers/USBClientClassCDC.h>
+#include <Kernel/USB/ClassDrivers/USBClientCDCChannel.h>
 #include <Kernel/USB/USBDevice.h>
 #include <Kernel/USB/USBProtocol.h>
 

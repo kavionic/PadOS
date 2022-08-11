@@ -1,6 +1,6 @@
 target_sources(PadOS_Kernel PRIVATE
-	USBCDCChannel.cpp
-	USBClassCDC.cpp
+	USBClientCDCChannel.cpp
+	USBClientClassCDC.cpp
 	USBHostCDCChannel.cpp
 	USBHostClassCDC.cpp
 )

@@ -1,7 +1,8 @@
 target_sources(PadOS_Kernel PRIVATE
-	USBClassDriver.h
+	USBClassDriverDevice.h
+	USBClassDriverHost.h
+	USBClientControl.h
 	USBCommon.h
-	USBControlTransferHandler.h
 	USBDevice.h
 	USBDriver.h
 	USBEndpointState.h

@@ -18,9 +18,12 @@
 // Created: 10.08.2022 19:30
 
 
+#include <DeviceControl/USART.h>
 #include <Utils/Utils.h>
 #include <Kernel/USB/USBHost.h>
 #include <Kernel/USB/ClassDrivers/USBHostCDCChannel.h>
+#include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KFileHandle.h>
 
 using namespace os;
 
@@ -32,8 +35,15 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USBHostCDCChannel::USBHostCDCChannel(USBHost* hostHandler, USBHostClassCDC* classDriver) : KNamedObject("usbhcdc", KNamedObjectType::Generic), m_HostHandler(hostHandler), m_ClassDriver(classDriver), m_ReceiveCondition("usbhcdc_receive"), m_TransmitCondition("usbhcdc_transmit")
+USBHostCDCChannel::USBHostCDCChannel(USBHost* hostHandler, USBHostClassCDC* classDriver)
+    : KINode(nullptr, nullptr, this, false)
+    , m_HostHandler(hostHandler)
+    , m_ClassDriver(classDriver)
+    , m_ReceiveCondition("usbhcdc_receive")
+    , m_TransmitCondition("usbhcdc_transmit")
 {
+    m_CreateTime = get_real_time();
+
     m_LineCoding.dwDTERate   = 9600;
     m_LineCoding.bCharFormat = USB_CDC_LineCodingStopBits::StopBits1;
     m_LineCoding.bParityType = USB_CDC_LineCodingParity::None;
@@ -85,7 +95,7 @@ bool USBHostCDCChannel::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc)
+const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int channelIndex, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc)
 {
     m_NotificationPipe          = USB_INVALID_PIPE;
     m_NotificationEndpoint      = USB_INVALID_ENDPOINT;
@@ -200,6 +210,11 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, const US
     m_OutEndpointBuffer.resize(m_DataEndpointOutSize);
     m_InEndpointBuffer.resize(m_DataEndpointInSize);
 
+    if (m_DevNodeHandle != -1 ) {
+        Kernel::RemoveDevice(m_DevNodeHandle);
+    }
+    m_DevNodeHandle = Kernel::RegisterDevice(String::format_string("com/uhp%u", channelIndex).c_str(), ptr_tmp_cast(this));
+
     return desc;
 }
 
@@ -234,6 +249,11 @@ void USBHostCDCChannel::Close()
 
     m_IsStarted = false;
 
+    if (m_DevNodeHandle != -1) {
+        Kernel::RemoveDevice(m_DevNodeHandle);
+        m_DevNodeHandle = -1;
+    }
+
     m_ReceiveCondition.WakeupAll();
     m_TransmitCondition.WakeupAll();
 }
@@ -248,11 +268,7 @@ void USBHostCDCChannel::Startup()
     const size_t maxLength = std::min(m_ReceiveFIFO.GetRemainingSpace(), m_InEndpointBuffer.size());
     m_HostHandler->BulkReceiveData(m_DataPipeIn, m_InEndpointBuffer.data(), maxLength, bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback));
 
-    if (m_LineCodingChanged) {
-        ReqSetLineCoding(&m_LineCoding);
-    } else {
-        ReqGetLineCoding(&m_LineCoding);
-    }
+    ReqSetLineCoding(&m_LineCoding);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -275,15 +291,25 @@ ssize_t USBHostCDCChannel::GetReadBytesAvailable() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBHostCDCChannel::Read(void* buffer, size_t length)
+ssize_t USBHostCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
 {
     if (m_IsStarted)
     {
         kassert(!m_HostHandler->GetMutex().IsLocked());
         CRITICAL_SCOPE(m_HostHandler->GetMutex());
 
-        while (m_ReceiveFIFO.GetLength() == 0) {
-            m_ReceiveCondition.Wait(m_HostHandler->GetMutex());
+        if (m_ReceiveFIFO.GetLength() == 0)
+        {
+            if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
+            {
+                while (m_ReceiveFIFO.GetLength() == 0) {
+                    m_ReceiveCondition.Wait(m_HostHandler->GetMutex());
+                }
+            }
+            else
+            {
+                return 0;
+            }
         }
         const ssize_t result = m_ReceiveFIFO.Read(buffer, length);
         if (result != 0)
@@ -306,22 +332,32 @@ ssize_t USBHostCDCChannel::Read(void* buffer, size_t length)
 ///// \author Kurt Skauen
 /////////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBHostCDCChannel::Write(const void* buffer, size_t length)
+ssize_t USBHostCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
 {
     if (m_IsStarted)
     {
         kassert(!m_HostHandler->GetMutex().IsLocked());
         CRITICAL_SCOPE(m_HostHandler->GetMutex());
 
-        while (m_TransmitFIFO.GetRemainingSpace() == 0)
+        if (m_TransmitFIFO.GetRemainingSpace() == 0)
         {
-            if (!m_TransmitCondition.Wait(m_HostHandler->GetMutex()) && get_last_error() != EAGAIN) {
-                return -1;
+            if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
+            {
+                while (m_TransmitFIFO.GetRemainingSpace() == 0)
+                {
+                    if (!m_TransmitCondition.Wait(m_HostHandler->GetMutex()) && get_last_error() != EAGAIN) {
+                        return -1;
+                    }
+                }
+            }
+            else
+            {
+                return 0;
             }
         }
         const size_t result = m_TransmitFIFO.Write(buffer, length);
 
-        if (m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
+        if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT)) || m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
             FlushInternal();
         }
         return result;
@@ -334,7 +370,71 @@ ssize_t USBHostCDCChannel::Write(const void* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBHostCDCChannel::Flush()
+int USBHostCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* outStats)
+{
+    outStats->st_dev = dev_t(volume->m_VolumeID);
+    outStats->st_ino = node->m_INodeID;
+    outStats->st_mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
+    outStats->st_mode |= S_IFREG;
+
+    if (volume->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+        outStats->st_mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
+    }
+    outStats->st_nlink = 1;
+    outStats->st_uid = 0;
+    outStats->st_gid = 0;
+    outStats->st_size = 0;
+    outStats->st_blksize = 1;
+    outStats->st_atime = outStats->st_mtime = outStats->st_ctime = m_CreateTime.AsSecondsI();
+
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int USBHostCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+{
+    switch (request)
+    {
+        case USARTIOCTL_SET_BAUDRATE:
+            if (inDataLength == sizeof(int))
+            {
+                const int baudrate = *((const int*)inData);
+                USB_CDC_LineCoding linecoding = m_LineCoding;
+                linecoding.dwDTERate = baudrate;
+                SetLineCoding(linecoding);
+                return 0;
+            }
+            else
+            {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_GET_BAUDRATE:
+            if (outDataLength == sizeof(int))
+            {
+                int* baudrate = (int*)outData;
+                *baudrate = m_LineCoding.dwDTERate;
+                return 0;
+            }
+            else
+            {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        default:
+            set_last_error(EINVAL);
+            return -1;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+ssize_t USBHostCDCChannel::Sync(Ptr<KFileNode> file)
 {
     if (m_IsStarted)
     {
@@ -422,8 +522,6 @@ bool USBHostCDCChannel::SetLineCoding(const USB_CDC_LineCoding& lineCoding)
 
     if (m_IsStarted) {
         ReqSetLineCoding(&m_LineCoding);
-    } else {
-        m_LineCodingChanged = true;
     }
     return true;
 }

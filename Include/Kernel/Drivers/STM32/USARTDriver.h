@@ -46,6 +46,7 @@ public:
 
     IFLASHC ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
     IFLASHC ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
+    IFLASHC virtual bool    AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
     IFLASHC int     DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
 private:

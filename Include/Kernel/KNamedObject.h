@@ -25,18 +25,12 @@
 #include "Ptr/PtrTarget.h"
 #include "Ptr/Ptr.h"
 #include "System/System.h"
-#include "Utils/IntrusiveList.h"
-
-enum class ObjectWaitMode : uint8_t
-{
-    Read,
-    Write,
-    ReadWrite
-};
+#include <Kernel/KWaitableObject.h>
 
 namespace kernel
 {
 class KThreadCB;
+class KObjectWaitGroup;
 
 enum class KNamedObjectType
 {
@@ -50,30 +44,8 @@ enum class KNamedObjectType
 };
 
 
-struct KThreadWaitNode
-{
-    bool Detatch()
-    {
-        if (m_List != nullptr) {
-            m_List->Remove(this);
-            return true;
-        } else {
-            return false;
-        }
-    }
 
-    TimeValMicros                   m_ResumeTime;
-    KThreadCB*                      m_Thread = nullptr;
-    int                             m_ReturnCode = 0;
-    bool                            m_TargetDeleted = false;
-    KThreadWaitNode*                m_Next = nullptr;
-    KThreadWaitNode*                m_Prev = nullptr;
-    IntrusiveList<KThreadWaitNode>* m_List = nullptr;
-};
-
-typedef IntrusiveList<KThreadWaitNode> KThreadWaitList;
-
-class KNamedObject : public PtrTarget
+class KNamedObject : public PtrTarget, public KWaitableObject
 {
 public:
     static void InitializeStatics();
@@ -85,7 +57,7 @@ public:
     KNamedObjectType GetType() const           { return m_Type; }
     const char*      GetName() const           { return m_Name; }
 
-    void             SetHandle(int32_t handle) { m_Handle = handle; }
+    virtual void     SetHandle(int32_t handle) { m_Handle = handle; }
     int32_t          GetHandle() const         { return m_Handle; }
 
     static int32_t           RegisterObject(Ptr<KNamedObject> object);
@@ -96,11 +68,6 @@ public:
     template<typename T>
     static Ptr<T>            GetObject(int32_t handle) { return ptr_static_cast<T>(GetObject(handle, T::ObjectType)); }
 	static Ptr<KNamedObject> GetAnyObject(int32_t handle);
-
-    KThreadWaitList& GetWaitQueue() { return m_WaitQueue; }
-
-    // If access would block, add to wait-list and return true. If not, don't add to any list and return false.
-    virtual bool AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode);
 
     template<typename T, typename CALLBACK, typename... ARGS>
     static status_t ForwardToHandle(int handle, CALLBACK callback, ARGS&&... args)
@@ -132,9 +99,6 @@ public:
     {
         return ForwardToHandle<T>(handle, callback, args...) ? 0 : -1;
     }
-
-protected:
-    KThreadWaitList m_WaitQueue;
 
 private:
     static const uint32_t MAGIC = 0x1ee3babe;

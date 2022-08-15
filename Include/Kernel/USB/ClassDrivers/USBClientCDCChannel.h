@@ -24,6 +24,8 @@
 #include <Kernel/KNamedObject.h>
 #include <Kernel/KConditionVariable.h>
 #include <Kernel/USB/USBProtocolCDC.h>
+#include <Kernel/VFS/KFilesystem.h>
+#include <Kernel/VFS/KINode.h>
 
 namespace kernel
 {
@@ -32,10 +34,10 @@ class USBDevice;
 enum class USB_ControlStage : int;
 enum class USB_TransferResult : uint8_t;
 
-class USBClientCDCChannel : public KNamedObject
+class USBClientCDCChannel : public KINode, public KFilesystemFileOps
 {
 public:
-    USBClientCDCChannel(USBDevice* deviceHandler, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize);
+    USBClientCDCChannel(USBDevice* deviceHandler, int channelIndex, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize);
 
     // From KNamedObject:
     virtual bool AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
@@ -43,9 +45,10 @@ public:
     void Close();
 
     ssize_t  GetReadBytesAvailable() const;
-    ssize_t  Read(void* buffer, size_t length);
-    ssize_t  Write(void const* buffer, size_t length);
-    ssize_t  Flush();
+    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
+    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    IFLASHC virtual int     Sync(Ptr<KFileNode> file) override;
+    IFLASHC virtual int     ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
     ssize_t  GetWriteBytesAvailable() const;
 
     uint8_t  GetEndpointNotifications() const { return m_EndpointNotifications; }
@@ -68,6 +71,9 @@ private:
     KConditionVariable  m_ReceiveCondition;
     KConditionVariable  m_TransmitCondition;
 
+    TimeValMicros       m_CreateTime;
+
+    int                 m_DevNodeHandle = -1; // Handle for out node in the "/dev/" filesystem.
     uint8_t             m_EndpointNotifications = 0;
     uint8_t             m_EndpointOut = 0;
     uint8_t             m_EndpointIn  = 0;

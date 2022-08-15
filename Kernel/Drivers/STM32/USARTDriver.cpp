@@ -97,33 +97,36 @@ USARTDriverINode::USARTDriverINode( USARTID      portID,
 
 ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length)
 {
+    if (length == 0) {
+        return 0;
+    }
     CRITICAL_SCOPE(m_MutexRead);
 
     uint8_t* currentTarget = reinterpret_cast<uint8_t*>(buffer);
-    ssize_t remainingLen = length;
 
-    while (remainingLen > 0)
+    for (;;)
     {
-        ssize_t curLen = ReadReceiveBuffer(file, currentTarget, remainingLen);
-        remainingLen  -= curLen;
-        currentTarget += curLen;
-        if (remainingLen > 0 && curLen == 0)
+        ssize_t curLen = ReadReceiveBuffer(file, currentTarget, length);
+        if (curLen > 0 || (file->GetOpenFlags() & O_NONBLOCK)) {
+            return curLen;
+        }
+        CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            CRITICAL_BEGIN(CRITICAL_IRQ)
+            dma_stop(m_ReceiveDMAChannel);
+            dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
+            RestartReceiveDMA(1);
+
+            if (m_ReceiveBytesInBuffer == 0)
             {
-                if (m_ReceiveBytesInBuffer == 0)
+                if (!m_ReceiveCondition.IRQWaitTimeout(m_ReadTimeout))
                 {
-                    if (!m_ReceiveCondition.IRQWaitTimeout(m_ReadTimeout))
-                    {
-                        if (get_last_error() != EINTR) {
-                            return length - remainingLen;
-                        }
+                    if (get_last_error() != EINTR) {
+                        return -1;
                     }
                 }
-            } CRITICAL_END;
-        }
+            }
+        } CRITICAL_END;
     }
-    return length;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -154,6 +157,42 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
         } CRITICAL_END;
     }
     return length;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USARTDriverINode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
+{
+    kassert(!m_MutexRead.IsLocked());
+    CRITICAL_SCOPE(m_MutexRead);
+
+    switch (mode)
+    {
+        case ObjectWaitMode::Read:
+        case ObjectWaitMode::ReadWrite:
+            CRITICAL_BEGIN(CRITICAL_IRQ)
+            {
+                if (m_ReceiveBytesInBuffer == 0)
+                {
+                    dma_stop(m_ReceiveDMAChannel);
+                    dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
+                    RestartReceiveDMA(1);
+                }
+
+                if (m_ReceiveBytesInBuffer == 0) {
+                    return m_ReceiveCondition.AddListener(waitNode, ObjectWaitMode::Read);
+                } else {
+                    return false; // Will not block.
+                }
+            } CRITICAL_END;
+        case ObjectWaitMode::Write:
+            return false;
+        default:
+            return false;
+    }
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -469,22 +508,25 @@ ssize_t USARTDriverINode::ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, c
         {
             dma_stop(m_ReceiveDMAChannel);
             dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
-            RestartReceiveDMA(length);
+            RestartReceiveDMA(0);
         } CRITICAL_END;
     }
 
     const int32_t bytesToRead = std::min<int32_t>(length, m_ReceiveBytesInBuffer);
-    SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((m_ReceiveBufferSize + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
-
-    const int32_t postLength = std::min(bytesToRead, m_ReceiveBufferSize - m_ReceiveBufferOutPos);
-    memcpy(currentTarget, m_ReceiveBuffer + m_ReceiveBufferOutPos, postLength);
-    if (postLength < bytesToRead)
+    if (bytesToRead > 0)
     {
-        const int32_t preLength = bytesToRead - postLength;
-        memcpy(currentTarget + postLength, m_ReceiveBuffer, preLength);
+        SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), ((m_ReceiveBufferSize + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
+
+        const int32_t postLength = std::min(bytesToRead, m_ReceiveBufferSize - m_ReceiveBufferOutPos);
+        memcpy(currentTarget, m_ReceiveBuffer + m_ReceiveBufferOutPos, postLength);
+        if (postLength < bytesToRead)
+        {
+            const int32_t preLength = bytesToRead - postLength;
+            memcpy(currentTarget + postLength, m_ReceiveBuffer, preLength);
+        }
+        m_ReceiveBufferOutPos = (m_ReceiveBufferOutPos + bytesToRead) % m_ReceiveBufferSize;
+        m_ReceiveBytesInBuffer -= bytesToRead;
     }
-    m_ReceiveBufferOutPos = (m_ReceiveBufferOutPos + bytesToRead) % m_ReceiveBufferSize;
-    m_ReceiveBytesInBuffer -= bytesToRead;
     return bytesToRead;
 }
 

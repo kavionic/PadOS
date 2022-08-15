@@ -23,6 +23,7 @@
 #include "KNamedObject.h"
 #include "KMutex.h"
 #include "Ptr/Ptr.h"
+#include <Kernel/KConditionVariable.h>
 
 namespace kernel
 {
@@ -33,13 +34,20 @@ class KObjectWaitGroup : public KNamedObject
 public:
 	static constexpr KNamedObjectType ObjectType = KNamedObjectType::ObjectWaitGroup;
 
-	KObjectWaitGroup(const char* name);
+    IFLASHC KObjectWaitGroup(const char* name);
 
-	bool AddObject(Ptr<KNamedObject> object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-	bool SetObjects(const std::vector<Ptr<KNamedObject>>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-	bool AppendObjects(const std::vector<Ptr<KNamedObject>>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-	bool RemoveObject(Ptr<KNamedObject> object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-	void Clear();
+    IFLASHC bool AddObject(KWaitableObject* object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+    template<typename T> bool AddObject(Ptr<T> object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return AddObject(ptr_raw_pointer_cast(object), waitMode); }
+
+	IFLASHC bool SetObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+	IFLASHC bool AppendObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+	IFLASHC bool RemoveObject(KWaitableObject* object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+    template<typename T> bool RemoveObject(Ptr<T> object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return RemoveObject(ptr_raw_pointer_cast(object), waitMode); }
+
+    IFLASHC bool AddFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+    IFLASHC bool RemoveFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+
+    IFLASHC void Clear();
 
 	bool Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
 	bool WaitTimeout(TimeValMicros timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
@@ -50,13 +58,20 @@ public:
 	bool WaitDeadline(KMutex& lock, TimeValMicros deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, deadline, readyFlagsBuffer, readyFlagsSize); }
 
 private:
-	bool Wait(KMutex* lock, TimeValMicros deadline, void* readyFlagsBuffer, size_t readyFlagsSize);
+    IFLASHC bool AddObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
+    IFLASHC bool RemoveObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
+    IFLASHC void ClearInternal();
+    IFLASHC bool WaitForBlockedThread(TimeValMicros deadline = TimeValMicros::infinit);
+    IFLASHC bool Wait(KMutex* lock, TimeValMicros deadline, void* readyFlagsBuffer, size_t readyFlagsSize);
 
 	KMutex m_Mutex;
 
-	std::vector<std::pair<Ptr<KNamedObject>, ObjectWaitMode>> m_Objects;
-	std::vector<KThreadWaitNode>   m_WaitNodes;
-	KThreadWaitNode				   m_SleepNode;
+	std::vector<std::pair<KWaitableObject*, ObjectWaitMode>> m_Objects;
+	std::vector<KThreadWaitNode>    m_WaitNodes;
+	KThreadWaitNode				    m_SleepNode;
+    KConditionVariable              m_BlockedThreadCondition;
+    KThreadCB* volatile             m_BlockedThread = nullptr;
+    std::atomic_int32_t             m_ObjListModsPending = 0;
 };
 
 

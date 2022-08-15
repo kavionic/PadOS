@@ -80,7 +80,8 @@ void USBHostClassCDC::Shutdown()
 const USB_DescriptorHeader* USBHostClassCDC::Open(uint8_t deviceAddr, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc)
 {
     Ptr<USBHostCDCChannel> channel = ptr_new<USBHostCDCChannel>(m_HostHandler, this);
-    const USB_DescriptorHeader* result = channel->Open(deviceAddr, interfaceDesc, interfaceAssociationDesc, endDesc);
+    const int channelIndex = m_Channels.size();
+    const USB_DescriptorHeader* result = channel->Open(deviceAddr, channelIndex, interfaceDesc, interfaceAssociationDesc, endDesc);
     if (result != nullptr)
     {
         m_Channels.push_back(channel);

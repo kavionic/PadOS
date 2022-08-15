@@ -147,6 +147,73 @@ int FileIO::Mount(const char* devicePath, const char* directoryPath, const char*
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+Ptr<KFileTableNode> FileIO::GetFileNode(int handle, bool forKernel)
+{
+    if (handle >= 0 && handle < int(s_FileTable.size()) && s_FileTable[handle] != nullptr && s_FileTable[handle]->GetINode() != nullptr) {
+        return s_FileTable[handle];
+    }
+    set_last_error(EBADF);
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileNode> FileIO::GetFile(int handle)
+{
+    Ptr<KFileTableNode> node = GetFileNode(handle);
+    if (node != nullptr)
+    {
+        if (!node->IsDirectory()) {
+            return ptr_static_cast<KFileNode>(node);
+        } else {
+            set_last_error(EISDIR);
+        }
+    }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileNode> FileIO::GetFile(int handle, Ptr<KINode>& outInode)
+{
+    Ptr<KFileNode> file = GetFile(handle);
+    if (file == nullptr)
+    {
+        return nullptr;
+    }
+    outInode = file->GetINode();
+    assert(outInode != nullptr && outInode->m_Filesystem != nullptr);
+
+    if (outInode->m_FileOps == nullptr)
+    {
+        set_last_error(ENOSYS);
+        return nullptr;
+    }
+    return file;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KDirectoryNode> FileIO::GetDirectory(int handle)
+{
+    Ptr<KFileTableNode> node = GetFileNode(handle);
+    if (node != nullptr && node->IsDirectory()) {
+        return ptr_static_cast<KDirectoryNode>(node);
+    }
+    set_last_error(EBADF);
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 int FileIO::Open(int baseFolderFD, const char* path, int openFlags, int permissions)
 {
     int handle = AllocateFileHandle();
@@ -166,7 +233,6 @@ int FileIO::Open(int baseFolderFD, const char* path, int openFlags, int permissi
         Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
         if (baseFolderFile == nullptr)
         {
-            set_last_error(EBADF);
             return -1;
         }
         baseInode = baseFolderFile->GetINode();
@@ -291,6 +357,33 @@ int FileIO::Close(int handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+int FileIO::GetFileFlags(int handle)
+{
+    Ptr<KFileNode> file = GetFile(handle);
+    if (file == nullptr) {
+        return -1;
+    }
+    return file->GetOpenFlags();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int FileIO::SetFileFlags(int handle, int flags)
+{
+    Ptr<KFileNode> file = GetFile(handle);
+    if (file == nullptr) {
+        return -1;
+    }
+    file->SetOpenFlags(flags);
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 ssize_t FileIO::Read(int handle, void* buffer, size_t length)
 {
     IOSegment segment;
@@ -317,23 +410,13 @@ ssize_t FileIO::Write(int handle, const void* buffer, size_t length)
 
 ssize_t FileIO::Read(int handle, const IOSegment* segments, size_t segmentCount)
 {
-    Ptr<KFileNode> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file = GetFile(handle, inode);
+    if (file == nullptr) {
         return -1;
     }
-    Ptr<KINode> inode = file->GetINode();
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-
-    if (inode->m_FileOps == nullptr) {
-        set_last_error(ENOSYS);
-        return -1;
-    }
-
     ssize_t result = inode->m_FileOps->Read(file, file->m_Position, segments, segmentCount);
-    if (result < 0)
-    {
+    if (result < 0) {
         return result;
     }
     file->m_Position += result;
@@ -346,23 +429,13 @@ ssize_t FileIO::Read(int handle, const IOSegment* segments, size_t segmentCount)
 
 ssize_t FileIO::Write(int handle, const IOSegment* segments, size_t segmentCount)
 {
-    Ptr<KFileNode> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file = GetFile(handle, inode);
+    if (file == nullptr) {
         return -1;
     }
-    Ptr<KINode> inode = file->GetINode();
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-
-    if (inode->m_FileOps == nullptr) {
-        set_last_error(ENOSYS);
-        return -1;
-    }
-
     ssize_t result = inode->m_FileOps->Write(file, file->m_Position, segments, segmentCount);
-    if (result < 0)
-    {
+    if (result < 0) {
         return result;
     }
     file->m_Position += result;
@@ -399,21 +472,11 @@ ssize_t FileIO::Write(int handle, off64_t position, const void* buffer, size_t l
 
 ssize_t FileIO::Read(int handle, off64_t position, const IOSegment* segments, size_t segmentCount)
 {
-    Ptr<KFileNode> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file = GetFile(handle, inode);
+    if (file == nullptr) {
         return -1;
     }
-
-    Ptr<KINode> inode = file->GetINode();
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-
-    if (inode->m_FileOps == nullptr) {
-        set_last_error(ENOSYS);
-        return -1;
-    }
-
     return inode->m_FileOps->Read(file, position, segments, segmentCount);
 }
 
@@ -423,21 +486,26 @@ ssize_t FileIO::Read(int handle, off64_t position, const IOSegment* segments, si
 
 ssize_t FileIO::Write(int handle, off64_t position, const IOSegment* segments, size_t segmentCount)
 {
-    Ptr<KFileNode> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file = GetFile(handle, inode);
+    if (file == nullptr) {
         return -1;
     }
-    Ptr<KINode> inode = file->GetINode();
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-
-    if (inode->m_FileOps == nullptr) {
-        set_last_error(ENOSYS);
-        return -1;
-    }
-
     return inode->m_FileOps->Write(file, position, segments, segmentCount);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int FileIO::FSync(int handle)
+{
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file = GetFile(handle, inode);
+    if (file == nullptr) {
+        return -1;
+    }
+    return inode->m_FileOps->Sync(file);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -446,20 +514,11 @@ ssize_t FileIO::Write(int handle, off64_t position, const IOSegment* segments, s
 
 int FileIO::DeviceControl(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
-    Ptr<KFileNode> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        set_last_error(EBADF);
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file = GetFile(handle, inode);
+    if (file == nullptr) {
         return -1;
     }
-    Ptr<KINode> inode = file->GetINode();
-    assert(inode != nullptr && inode->m_Filesystem != nullptr);
-
-    if (inode->m_FileOps == nullptr) {
-        set_last_error(ENOSYS);
-        return -1;
-    }
-
     return inode->m_FileOps->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);
 }
 
@@ -471,7 +530,6 @@ int FileIO::ReadDirectory(int handle, dir_entry* entry, size_t bufSize)
 {
     Ptr<KDirectoryNode> dir = GetDirectory(handle);
     if (dir == nullptr) {
-        set_last_error(EBADF);
         return -1;
     }
     return dir->ReadDirectory(entry, bufSize);
@@ -485,7 +543,6 @@ int FileIO::RewindDirectory(int handle)
 {
     Ptr<KDirectoryNode> dir = GetDirectory(handle);
     if (dir == nullptr) {
-        set_last_error(EBADF);
         return -1;
     }
     return dir->RewindDirectory();
@@ -507,7 +564,6 @@ int FileIO::CreateDirectory(int baseFolderFD, const char* path, int permission)
         Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
         if (baseFolderFile == nullptr)
         {
-            set_last_error(EBADF);
             return -1;
         }
         baseInode = baseFolderFile->GetINode();
@@ -632,7 +688,6 @@ int FileIO::Unlink(int baseFolderFD, const char* inPath)
         Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
         if (baseFolderFile == nullptr)
         {
-            set_last_error(EBADF);
             return -1;
         }
         baseInode = baseFolderFile->GetINode();
@@ -669,7 +724,6 @@ int FileIO::RemoveDirectory(int baseFolderFD, const char* inPath)
         Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
         if (baseFolderFile == nullptr)
         {
-            set_last_error(EBADF);
             return -1;
         }
         baseInode = baseFolderFile->GetINode();
@@ -691,7 +745,6 @@ int FileIO::GetDirectoryPath(int handle, char* buffer, size_t bufferSize)
     Ptr<KDirectoryNode> directory = GetDirectory(handle);
     if (directory == nullptr)
     {
-        set_last_error(EBADF);
         return -1;
     }
     Ptr<KINode> inode = directory->GetINode();
@@ -937,47 +990,6 @@ int FileIO::OpenInode(bool kernelFile, Ptr<KINode> inode, int openFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileTableNode> FileIO::GetFileNode(int handle, bool forKernel)
-{
-    if (handle >= 0 && handle < int(s_FileTable.size()) && s_FileTable[handle] != nullptr && s_FileTable[handle]->GetINode() != nullptr)
-    {
-        return s_FileTable[handle];
-    }
-    return nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<kernel::KFileNode> FileIO::GetFile(int handle)
-{
-    Ptr<KFileTableNode> node = GetFileNode(handle);
-    if (node != nullptr && !node->IsDirectory()) {
-        return ptr_static_cast<KFileNode>(node);
-    } else {
-        return nullptr;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<kernel::KDirectoryNode> FileIO::GetDirectory(int handle)
-{
-    Ptr<KFileTableNode> node = GetFileNode(handle);
-    if (node != nullptr && node->IsDirectory()) {
-        return ptr_static_cast<KDirectoryNode>(node);
-    } else {
-        return nullptr;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void FileIO::SetFile(int handle, Ptr<KFileTableNode> file)
 {
     if (handle >= 0 && handle < int(s_FileTable.size()))
@@ -985,3 +997,5 @@ void FileIO::SetFile(int handle, Ptr<KFileTableNode> file)
         s_FileTable[handle] = file;
     }
 }
+
+

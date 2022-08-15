@@ -27,6 +27,8 @@
 #include <Kernel/KConditionVariable.h>
 #include <Kernel/USB/USBProtocolCDC.h>
 #include <Kernel/USB/USBCommon.h>
+#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KFilesystem.h>
 
 struct USB_DescriptorHeader;
 struct USB_DescInterface;
@@ -41,7 +43,7 @@ class USBHostClassCDC;
 enum class USB_URBState : uint8_t;
 
 
-class USBHostCDCChannel : public KNamedObject
+class USBHostCDCChannel : public KINode, public KFilesystemFileOps
 {
 public:
     IFLASHC USBHostCDCChannel(USBHost* hostHandler, USBHostClassCDC* classDriver);
@@ -49,15 +51,17 @@ public:
     // From KNamedObject:
     virtual bool AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
 
-    IFLASHC const USB_DescriptorHeader* Open(uint8_t deviceAddr, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc);
+    IFLASHC const USB_DescriptorHeader* Open(uint8_t deviceAddr, int channelIndex, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc);
     IFLASHC void Close();
     IFLASHC void Startup();
 
 
     IFLASHC ssize_t GetReadBytesAvailable() const;
-    IFLASHC ssize_t Read(void* buffer, size_t length);
-    IFLASHC ssize_t Write(const void* buffer, size_t length);
-    IFLASHC ssize_t Flush();
+    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
+    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    IFLASHC virtual int     Sync(Ptr<KFileNode> file) override;
+    IFLASHC virtual int     ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
+    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
     IFLASHC bool SetLineCoding(const USB_CDC_LineCoding& lineCoding);
     IFLASHC const USB_CDC_LineCoding& GetLineCoding() const;
@@ -79,9 +83,11 @@ private:
     USBHost*            m_HostHandler = nullptr;
     USBHostClassCDC*    m_ClassDriver = nullptr;
 
+    int                 m_DevNodeHandle = -1;
+    TimeValMicros       m_CreateTime;
+
     uint8_t             m_DeviceAddress     = 0;
     bool                m_IsStarted         = false;
-    bool                m_LineCodingChanged = false;
     USB_CDC_LineCoding  m_LineCoding;
 
     USB_PipeIndex       m_NotificationPipe  = USB_INVALID_PIPE;

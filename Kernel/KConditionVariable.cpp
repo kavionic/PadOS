@@ -59,9 +59,11 @@ bool KConditionVariable::Wait(KMutex& lock)
             thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
             lock.Unlock();
+            thread->m_BlockingObject = this;
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.
+        thread->m_BlockingObject = nullptr;
         lock.Lock();
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
@@ -177,9 +179,13 @@ bool KConditionVariable::IRQWait()
         thread->m_State = ThreadState::Waiting;
         m_WaitQueue.Append(&waitNode);
 
+        thread->m_BlockingObject = this;
+
         KSWITCH_CONTEXT();
         set_interrupt_enabled_state(IRQEnableState::Enabled); // Enable interrupts and allow the scheduled context switch to happen.
         set_interrupt_enabled_state(irqState); // Disable interrupts again when we wake up.
+
+        thread->m_BlockingObject = nullptr;
 
         if (waitNode.m_TargetDeleted) {
             set_last_error(EINVAL);
@@ -247,10 +253,13 @@ bool KConditionVariable::IRQWaitDeadline(TimeValMicros deadline)
             return false;
         }
         
+        thread->m_BlockingObject = this;
         KSWITCH_CONTEXT();
         set_interrupt_enabled_state(IRQEnableState::Enabled); // Enable interrupts and allow the scheduled context switch to happen.
         set_interrupt_enabled_state(irqState); // Disable interrupts again when we wake up.
-        
+
+        thread->m_BlockingObject = nullptr;
+
         sleepNode.Detatch();
         if (waitNode.m_TargetDeleted) {
             set_last_error(EINVAL);

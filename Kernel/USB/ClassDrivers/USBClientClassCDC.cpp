@@ -18,11 +18,14 @@
 // Created: 25.05.2022 22:00
 
 #include <string.h>
+#include <Utils/String.h>
 #include <Utils/Utils.h>
 #include <Kernel/USB/ClassDrivers/USBClientClassCDC.h>
 #include <Kernel/USB/ClassDrivers/USBClientCDCChannel.h>
 #include <Kernel/USB/USBDevice.h>
 #include <Kernel/USB/USBProtocol.h>
+
+using namespace os;
 
 namespace kernel
 {
@@ -88,7 +91,9 @@ const USB_DescriptorHeader* USBClientClassCDC::Open(const USB_DescInterface* int
             return nullptr;
         }
     }
-    Ptr<USBClientCDCChannel> channel = ptr_new<USBClientCDCChannel>(m_DeviceHandler, endpointAddrNotifications, endpointOutAddr, endpointInAddr, endpointOutSize, endpointInSize);
+
+    const uint32_t channelIndex = m_Channels.size();
+    Ptr<USBClientCDCChannel> channel = ptr_new<USBClientCDCChannel>(m_DeviceHandler, channelIndex, endpointAddrNotifications, endpointOutAddr, endpointInAddr, endpointOutSize, endpointInSize);
     m_Channels.push_back(channel);
 
     m_InterfaceToChannelMap[interfaceDesc->bInterfaceNumber] = channel;

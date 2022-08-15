@@ -24,10 +24,13 @@
 #include <queue>
 
 #include <Signals/SignalTarget.h>
+#include <Utils/String.h>
+#include <Utils/CircularBuffer.h>
 #include <Threads/Thread.h>
 #include <Threads/Mutex.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/KConditionVariable.h>
+#include <Kernel/KObjectWaitGroup.h>
 #include <Kernel/VFS/KINode.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/Kernel.h>
@@ -90,7 +93,7 @@ public:
     IFLASHC virtual int Run() override;
 
 
-    IFLASHC virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, int file, int readThreadPriority);
+    IFLASHC virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, std::vector<os::String>&& serialPortPaths, int baudrate, int readThreadPriority);
     virtual void ProbeRequestReceived(SerialProtocol::ProbeDeviceType expectedMode) {}
 
     IFLASHC void Execute();
@@ -132,24 +135,31 @@ public:
         SendSerialPacket(&msg);
     }
 
-    IFLASHC int WriteLogMessage(const char* buffer, int length);
+    IFLASHC ssize_t WriteLogMessage(const void* buffer, size_t length);
 
 private:
+    IFLASHC ssize_t SerialRead(void* buffer, size_t length);
+    IFLASHC ssize_t SerialWrite(const void* buffer, size_t length);
     IFLASHC bool ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength);
 
+    IFLASHC bool FlushLogBuffer();
     IFLASHC void HandleProbeDevice(const SerialProtocol::ProbeDevice& packet);
     IFLASHC void HandleSetSystemTime(const SerialProtocol::SetSystemTime& packet);
 
     static SerialCommandHandler* s_Instance;
 
     mutable kernel::KMutex      m_Mutex;
-//    mutable kernel::KMutex      m_SendMutex;
     kernel::KConditionVariable  m_ReplyCondition;
     kernel::KConditionVariable  m_QueueCondition;
     volatile bool               m_WaitingForReply = false;
     volatile bool               m_ReplyReceived = false;
 
-    int               m_SerialPort = -1;
+    std::vector<os::String>     m_SerialPortPaths;
+    std::vector<int>            m_SerialPortFiles;
+    int                         m_Baudrate = 0;
+    int                         m_SerialPort = -1;
+    ssize_t                     m_ActiveSerialPortIndex = -1;
+    kernel::KObjectWaitGroup    m_SerialPortGroup;
 
     SerialProtocol::ProbeDeviceType m_DeviceType = SerialProtocol::ProbeDeviceType::Bootloader;
 
@@ -158,6 +168,8 @@ private:
 
     std::queue<std::vector<uint8_t>>    m_MessageQueue;
     size_t                              m_TotalMessageQueueSize = 0;
+
+    CircularBuffer<uint8_t, 2048>   m_LogBuffer;
 
     SerialCommandHandler(const SerialCommandHandler &other) = delete;
     SerialCommandHandler& operator=(const SerialCommandHandler &other) = delete;

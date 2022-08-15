@@ -25,6 +25,7 @@
 #include <Ptr/PtrTarget.h>
 #include <Ptr/Ptr.h>
 #include <Utils/IntrusiveList.h>
+#include <Kernel/KWaitableObject.h>
 
 namespace os
 {
@@ -39,7 +40,7 @@ class KFilesystemFileOps;
 class KFSVolume;
 class KINode;
 
-class KINode : public PtrTarget, public IntrusiveListNode<KINode>
+class KINode : public PtrTarget, public KWaitableObject, public IntrusiveListNode<KINode>
 {
 public:
     IFLASHC KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, bool isDirectory);

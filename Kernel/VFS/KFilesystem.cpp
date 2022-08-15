@@ -352,3 +352,12 @@ int KFilesystemFileOps::WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const
     set_last_error(ENOSYS);
     return -1;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KFilesystemFileOps::Sync(Ptr<KFileNode> file)
+{
+    return 0;
+}

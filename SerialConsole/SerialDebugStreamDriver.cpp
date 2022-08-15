@@ -50,7 +50,7 @@ ssize_t SerialDebugStreamINode::Read(Ptr<kernel::KFileNode> file, void* buffer, 
 ssize_t SerialDebugStreamINode::Write(Ptr<kernel::KFileNode> file, const void* buffer, size_t length)
 {
 
-    return SerialCommandHandler::GetInstance().WriteLogMessage((const char*)buffer, length);
+    return SerialCommandHandler::GetInstance().WriteLogMessage(buffer, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

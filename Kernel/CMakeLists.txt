@@ -17,6 +17,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KProcess.cpp
 	KSemaphore.cpp
 	KThreadCB.cpp
+	KWaitableObject.cpp
 	Misc.cpp
 	Scheduler.cpp
 	SpinTimer.cpp

@@ -19,9 +19,12 @@
 
 #include <string.h>
 
-#include "Kernel/KObjectWaitGroup.h"
-#include "Kernel/KMutex.h"
-#include "Kernel/Scheduler.h"
+#include <Kernel/KObjectWaitGroup.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/Scheduler.h>
+#include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KFileHandle.h>
 
 using namespace kernel;
 using namespace os;
@@ -30,7 +33,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KObjectWaitGroup::KObjectWaitGroup(const char* name) : KNamedObject(name, KNamedObjectType::ObjectWaitGroup), m_Mutex(name)
+KObjectWaitGroup::KObjectWaitGroup(const char* name) : KNamedObject(name, KNamedObjectType::ObjectWaitGroup), m_Mutex(name), m_BlockedThreadCondition(name)
 {
 }
 
@@ -38,28 +41,26 @@ KObjectWaitGroup::KObjectWaitGroup(const char* name) : KNamedObject(name, KNamed
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::AddObject(Ptr<KNamedObject> object, ObjectWaitMode waitMode)
+bool KObjectWaitGroup::AddObject(KWaitableObject* object, ObjectWaitMode waitMode)
 {
-	try {
-		m_Objects.emplace_back(object, waitMode);
-		return true;
-	} catch (const std::bad_alloc&) {
-        set_last_error(ENOMEM);
-        return false;
-    }
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+    return AddObjectInternal(object, waitMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::SetObjects(const std::vector<Ptr<KNamedObject>>& objects, ObjectWaitMode waitMode)
+bool KObjectWaitGroup::SetObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode)
 {
-	try {
-        m_Objects.erase(m_Objects.begin(), m_Objects.end());
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+    try {
+        ClearInternal();
 		m_Objects.reserve(objects.size());
-		for (const Ptr<KNamedObject>& object : objects) {
-			m_Objects.emplace_back(object, waitMode);
+		for (KWaitableObject* object : objects) {
+            AddObjectInternal(object, waitMode);
 		}
 		return true;
 	} catch (const std::bad_alloc&) {
@@ -72,12 +73,14 @@ bool KObjectWaitGroup::SetObjects(const std::vector<Ptr<KNamedObject>>& objects,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::AppendObjects(const std::vector<Ptr<KNamedObject>>& objects, ObjectWaitMode waitMode)
+bool KObjectWaitGroup::AppendObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode)
 {
-	try {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+    try {
 		m_Objects.reserve(m_Objects.size() + objects.size());
-        for (const Ptr<KNamedObject>& object : objects) {
-            m_Objects.emplace_back(object, waitMode);
+        for (KWaitableObject* object : objects) {
+            AddObjectInternal(object, waitMode);
         }
 		return true;
 	} catch (const std::bad_alloc&) {
@@ -90,11 +93,60 @@ bool KObjectWaitGroup::AppendObjects(const std::vector<Ptr<KNamedObject>>& objec
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::RemoveObject(Ptr<KNamedObject> object, ObjectWaitMode waitMode)
+bool KObjectWaitGroup::RemoveObject(KWaitableObject* object, ObjectWaitMode waitMode)
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+    return RemoveObjectInternal(object, waitMode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KObjectWaitGroup::Clear()
+{
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+    ClearInternal();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KObjectWaitGroup::AddObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode)
+{
+    kassert(m_Mutex.IsLocked());
+
+    try {
+        m_Objects.emplace_back(object, waitMode);
+        object->m_WaitGroups.emplace_back(this, waitMode);
+        return true;
+    }
+    catch (const std::bad_alloc&) {
+        set_last_error(ENOMEM);
+        return false;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KObjectWaitGroup::RemoveObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode)
+{
+    kassert(m_Mutex.IsLocked());
+
+    WaitForBlockedThread();
+
     auto i = std::find(m_Objects.begin(), m_Objects.end(), std::make_pair(object, waitMode));
     if (i != m_Objects.end())
     {
+        auto j = std::find_if(i->first->m_WaitGroups.begin(), i->first->m_WaitGroups.end(), [this, waitMode](const std::pair<KObjectWaitGroup*, ObjectWaitMode>& node) {return node.first == this && node.second == waitMode; });
+        if (j != i->first->m_WaitGroups.end()) {
+            i->first->m_WaitGroups.erase(j);
+        }
         m_Objects.erase(i);
         return true;
     }
@@ -105,9 +157,39 @@ bool KObjectWaitGroup::RemoveObject(Ptr<KNamedObject> object, ObjectWaitMode wai
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KObjectWaitGroup::Clear()
+void KObjectWaitGroup::ClearInternal()
 {
-	m_Objects.clear();
+    kassert(m_Mutex.IsLocked());
+    WaitForBlockedThread();
+
+    while (!m_Objects.empty())
+    {
+        RemoveObjectInternal(m_Objects.back().first, m_Objects.back().second);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KObjectWaitGroup::WaitForBlockedThread(TimeValMicros deadline)
+{
+    while (m_BlockedThread != nullptr)
+    {
+        add_thread_to_ready_list(m_BlockedThread);
+
+        ++m_ObjListModsPending;
+        const bool result = m_BlockedThreadCondition.Wait(m_Mutex);
+        --m_ObjListModsPending;
+        m_BlockedThreadCondition.WakeupAll();
+        if (!result)
+        {
+            if (get_last_error() != EAGAIN) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -116,7 +198,13 @@ void KObjectWaitGroup::Clear()
 
 bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
 {
+    kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
+
+    if (!WaitForBlockedThread(deadline)) {
+        return false;
+    }
+
     KThreadCB* thread = gk_CurrentThread;
 
     try {
@@ -180,12 +268,16 @@ bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFla
                 thread->m_State = ThreadState::Waiting;
             }
             thread->m_BlockingObject = this;
+            m_BlockedThread = thread;
             if (lock != nullptr) lock->Unlock();
             KSWITCH_CONTEXT(); // Make sure we are suspended the moment we re-enable interrupts
         }
     } CRITICAL_END;
 
     if (!isReady && lock != nullptr) lock->Lock();
+
+    m_BlockedThread = nullptr;
+    m_BlockedThreadCondition.WakeupAll();
 
     bool didTimeout = false;
     CRITICAL_BEGIN(CRITICAL_IRQ)
@@ -207,10 +299,47 @@ bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFla
         }
         thread->m_BlockingObject = nullptr;
     } CRITICAL_END;
-    if (!isReady && didTimeout) {
-        set_last_error(ETIME);
+
+    if (!didTimeout && m_ObjListModsPending != 0)
+    {
+        // Give the threads attempting to add/remove objects a chance to work before locking them out again.
+        if (!m_BlockedThreadCondition.WaitDeadline(m_Mutex, deadline)) {
+            return false;
+        }
+    }
+
+    if (!isReady) {
+        set_last_error((didTimeout) ? ETIME : EAGAIN);
     }
     return isReady;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KObjectWaitGroup::AddFile(int fileHandle, ObjectWaitMode waitMode)
+{
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file = FileIO::GetFile(fileHandle, inode);
+    if (file == nullptr) {
+        return false;
+    }
+    return AddObject(inode, waitMode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KObjectWaitGroup::RemoveFile(int fileHandle, ObjectWaitMode waitMode)
+{
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file = FileIO::GetFile(fileHandle, inode);
+    if (file == nullptr) {
+        return false;
+    }
+    return RemoveObject(inode, waitMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -239,7 +368,7 @@ status_t  object_wait_group_add_object(handle_id handle, handle_id objectHandle,
         set_last_error(EINVAL);
         return -1;
     }
-    return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, &KObjectWaitGroup::AddObject, object, waitMode);
+    return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(KWaitableObject*, ObjectWaitMode)>(&KObjectWaitGroup::AddObject), ptr_raw_pointer_cast(object), waitMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -253,7 +382,7 @@ status_t  object_wait_group_remove_object(handle_id handle, handle_id objectHand
         set_last_error(EINVAL);
         return -1;
     }
-    return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, &KObjectWaitGroup::RemoveObject, object, waitMode);
+    return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(KWaitableObject*, ObjectWaitMode)>(&KObjectWaitGroup::RemoveObject), ptr_raw_pointer_cast(object), waitMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

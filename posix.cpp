@@ -197,6 +197,11 @@ IFLASHC int _kill(pid_t pid, int sig)
     return -1;
 }
 
+IFLASHC int fsync(int file)
+{
+    return FileIO::FSync(file);
+}
+
 IFLASHC pid_t _getpid(void)
 {
     return get_thread_id();

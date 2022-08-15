@@ -139,7 +139,9 @@ public:
 
     IFLASHC virtual int     ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result);
     IFLASHC virtual int     WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* value, uint32_t mask);
-    
+
+    IFLASHC virtual int     Sync(Ptr<KFileNode> file);
+
 };
 
 class KFilesystem : public PtrTarget

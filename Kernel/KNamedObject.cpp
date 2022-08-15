@@ -21,8 +21,9 @@
 
 #include <string.h>
 
-#include "Kernel/KNamedObject.h"
-#include "Kernel/KHandleArray.h"
+#include <Kernel/KNamedObject.h>
+#include <Kernel/KObjectWaitGroup.h>
+#include <Kernel/KHandleArray.h>
 
 using namespace kernel;
 using namespace os;
@@ -181,9 +182,4 @@ Ptr<KNamedObject> KNamedObject::GetAnyObject(int32_t handle)
 	}
 }
 
-bool KNamedObject::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
-{
-    CRITICAL_SCOPE(CRITICAL_IRQ);
-    m_WaitQueue.Append(waitNode);
-    return true;
-}
+

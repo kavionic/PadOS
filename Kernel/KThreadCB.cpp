@@ -20,6 +20,7 @@
 #include "System/Platform.h"
 
 #include <algorithm>
+#include <map>
 #include <stdint.h>
 #include <string.h>
 
@@ -29,6 +30,8 @@
 
 using namespace kernel;
 using namespace os;
+
+std::map<handle_id, KThreadCB*> g_DebugThreadList;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -75,6 +78,35 @@ KThreadCB::~KThreadCB()
 #undef CLEAR_IF_STDF
     _reclaim_reent(&m_NewLibreent);
     delete [] m_StackBuffer;
+
+    if (GetHandle() != -1)
+    {
+        auto i = g_DebugThreadList.find(GetHandle());
+        if (i != g_DebugThreadList.end())
+        {
+            g_DebugThreadList.erase(i);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KThreadCB::SetHandle(int32_t handle)
+{
+    if (GetHandle() != -1)
+    {
+        auto i = g_DebugThreadList.find(GetHandle());
+        if (i != g_DebugThreadList.end())
+        {
+            g_DebugThreadList.erase(i);
+        }
+    }
+    KNamedObject::SetHandle(handle);
+    if (handle != -1) {
+        g_DebugThreadList[handle] = this;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -117,3 +149,4 @@ int KThreadCB::LevelToPri(int level)
 {
     return level + KTHREAD_PRIORITY_MIN;
 }
+

@@ -18,10 +18,15 @@
 // Created: 08.06.2022 22:00
 
 
+#include <Utils/String.h>
 #include <Kernel/USB/ClassDrivers/USBClientCDCChannel.h>
 #include <Kernel/USB/USBCommon.h>
 #include <Kernel/USB/USBClassDriverDevice.h>
 #include <Kernel/USB/USBDevice.h>
+#include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KFileHandle.h>
+
+using namespace os;
 
 namespace kernel
 {
@@ -30,8 +35,8 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize)
-    : KNamedObject("usbdcdc", KNamedObjectType::Generic)
+USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, int channelIndex, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize)
+    : KINode(nullptr, nullptr, this, false)
     , m_DeviceHandler(deviceHandler)
     , m_ReceiveCondition("usbdcdc_receive")
     , m_TransmitCondition("usbdcdc_transmit")
@@ -39,6 +44,8 @@ USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, uint8_t endpo
     , m_EndpointOut(endpointOut)
     , m_EndpointIn(endpointIn)
 {
+    m_CreateTime = get_real_time();
+
     m_LineCoding.dwDTERate   = 115200;
     m_LineCoding.bCharFormat = USB_CDC_LineCodingStopBits::StopBits1;
     m_LineCoding.bParityType = USB_CDC_LineCodingParity::None;
@@ -46,6 +53,8 @@ USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, uint8_t endpo
 
     m_OutEndpointBuffer.resize(endpointOutMaxSize);
     m_InEndpointBuffer.resize(endpointInMaxSize);
+
+    m_DevNodeHandle = Kernel::RegisterDevice(String::format_string("com/udp%u", channelIndex).c_str(), ptr_tmp_cast(this));
 
     StartOutTransaction();
 }
@@ -94,6 +103,11 @@ bool USBClientCDCChannel::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode 
 
 void USBClientCDCChannel::Close()
 {
+    if (m_DevNodeHandle != -1)
+    {
+        Kernel::RemoveDevice(m_DevNodeHandle);
+        m_DevNodeHandle = -1;
+    }
     m_DeviceHandler = nullptr;
     m_ReceiveCondition.WakeupAll();
     m_TransmitCondition.WakeupAll();
@@ -119,15 +133,25 @@ ssize_t USBClientCDCChannel::GetReadBytesAvailable() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBClientCDCChannel::Read(void* buffer, size_t length)
+ssize_t USBClientCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
 {
     if (m_DeviceHandler != nullptr)
     {
         kassert(!m_DeviceHandler->GetMutex().IsLocked());
         CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
 
-        while (m_ReceiveFIFO.GetLength() == 0) {
-            m_ReceiveCondition.Wait(m_DeviceHandler->GetMutex());
+        if (m_ReceiveFIFO.GetLength() == 0)
+        {
+            if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
+            {
+                while (m_ReceiveFIFO.GetLength() == 0) {
+                    m_ReceiveCondition.Wait(m_DeviceHandler->GetMutex());
+                }
+            }
+            else
+            {
+                return 0;
+            }
         }
         const ssize_t result = m_ReceiveFIFO.Read(buffer, length);
         if (result != 0) {
@@ -143,25 +167,48 @@ ssize_t USBClientCDCChannel::Read(void* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBClientCDCChannel::Write(void const* buffer, size_t length)
+ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
 {
     if (m_DeviceHandler != nullptr)
     {
         kassert(!m_DeviceHandler->GetMutex().IsLocked());
         CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
 
-        while (m_TransmitFIFO.GetRemainingSpace() == 0)
+        if (m_TransmitFIFO.GetRemainingSpace() == 0)
         {
-            if (!m_TransmitCondition.Wait(m_DeviceHandler->GetMutex()) && get_last_error() != EAGAIN) {
-                return -1;
+            if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
+            {
+                while (m_TransmitFIFO.GetRemainingSpace() == 0)
+                {
+                    if (!m_TransmitCondition.Wait(m_DeviceHandler->GetMutex()) && get_last_error() != EAGAIN) {
+                        return -1;
+                    }
+                }
+            }
+            else
+            {
+                return 0;
             }
         }
         const size_t result = m_TransmitFIFO.Write(buffer, length);
 
-        if (m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
+        if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT)) || m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
             FlushInternal();
         }
         return result;
+    }
+    set_last_error(EPIPE);
+    return -1;
+}
+
+int USBClientCDCChannel::Sync(Ptr<KFileNode> file)
+{
+    if (m_DeviceHandler != nullptr)
+    {
+        kassert(!m_DeviceHandler->GetMutex().IsLocked());
+        CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
+        FlushInternal();
+        return 0;
     }
     set_last_error(EPIPE);
     return -1;
@@ -171,16 +218,24 @@ ssize_t USBClientCDCChannel::Write(void const* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBClientCDCChannel::Flush()
+int USBClientCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* outStats)
 {
-    if (m_DeviceHandler != nullptr)
-    {
-        kassert(!m_DeviceHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
-        return FlushInternal();
+    outStats->st_dev = dev_t(volume->m_VolumeID);
+    outStats->st_ino = node->m_INodeID;
+    outStats->st_mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
+    outStats->st_mode |= S_IFREG;
+
+    if (volume->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+        outStats->st_mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
     }
-    set_last_error(EPIPE);
-    return -1;
+    outStats->st_nlink = 1;
+    outStats->st_uid = 0;
+    outStats->st_gid = 0;
+    outStats->st_size = 0;
+    outStats->st_blksize = 1;
+    outStats->st_atime = outStats->st_mtime = outStats->st_ctime = m_CreateTime.AsSecondsI();
+
+    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

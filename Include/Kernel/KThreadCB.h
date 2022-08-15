@@ -53,6 +53,8 @@ public:
     KThreadCB(const char* name, int priority, bool joinable, int stackSize);
     ~KThreadCB();
 
+    virtual void SetHandle(int32_t handle) override;
+
     void InitializeStack(ThreadEntryPoint_t entryPoint, void* arguments);
 
     uint8_t* GetStackTop() const { return m_StackBuffer + THREAD_TLS_SLOTS_BUFFER_SIZE; }

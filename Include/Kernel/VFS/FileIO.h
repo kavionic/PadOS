@@ -61,13 +61,21 @@ public:
     static IFLASHC Ptr<kernel::KFilesystem> FindFilesystem(const char* name);
     
     static IFLASHC int     Mount(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength);
-    
+
+    static IFLASHC Ptr<kernel::KFileTableNode>  GetFileNode(int handle, bool forKernel = false);
+    static IFLASHC Ptr<kernel::KFileNode>       GetFile(int handle);
+    static IFLASHC Ptr<kernel::KFileNode>       GetFile(int handle, Ptr<kernel::KINode>& outInode);
+    static IFLASHC Ptr<kernel::KDirectoryNode>  GetDirectory(int handle);
+
     static IFLASHC int     Open(const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) { return Open(-1, path, openFlags, permissions); }
     static IFLASHC int     Open(int baseFolderFD, const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
     static IFLASHC int     CopyFD(int oldHandle);
     static IFLASHC int     Dupe(int oldHandle, int newHandle = -1);
     static IFLASHC int     Close(int handle);
-    
+
+    static IFLASHC int     GetFileFlags(int handle);
+    static IFLASHC int     SetFileFlags(int handle, int flags);
+
     static IFLASHC ssize_t Read(int handle, void* buffer, size_t length);
     static IFLASHC ssize_t Write(int handle, const void* buffer, size_t length);
 
@@ -79,6 +87,8 @@ public:
 
     static IFLASHC ssize_t Read(int handle, off64_t position, const IOSegment* segments, size_t segmentCount);
     static IFLASHC ssize_t Write(int handle, off64_t position, const IOSegment* segments, size_t segmentCount);
+
+    static IFLASHC int     FSync(int handle);
 
     static IFLASHC int     DeviceControl(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
@@ -112,9 +122,6 @@ private:
     static IFLASHC int                          AllocateFileHandle();
     static IFLASHC void                         FreeFileHandle(int handle);
     static IFLASHC int                          OpenInode(bool kernelFile, Ptr<kernel::KINode> inode, int openFlags);
-    static IFLASHC Ptr<kernel::KFileTableNode>  GetFileNode(int handle, bool forKernel = false);
-    static IFLASHC Ptr<kernel::KFileNode>       GetFile(int handle);
-    static IFLASHC Ptr<kernel::KDirectoryNode>  GetDirectory(int handle);
     static IFLASHC void                         SetFile(int handle, Ptr<kernel::KFileTableNode> file);
 
     static std::map<os::String, Ptr<kernel::KFilesystem>> s_FilesystemDrivers;

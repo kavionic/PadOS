@@ -151,6 +151,8 @@ private:
     mutable kernel::KMutex      m_Mutex;
     kernel::KConditionVariable  m_ReplyCondition;
     kernel::KConditionVariable  m_QueueCondition;
+    kernel::KConditionVariable  m_LogCondition;
+
     volatile bool               m_WaitingForReply = false;
     volatile bool               m_ReplyReceived = false;
 
@@ -169,7 +171,7 @@ private:
     std::queue<std::vector<uint8_t>>    m_MessageQueue;
     size_t                              m_TotalMessageQueueSize = 0;
 
-    CircularBuffer<uint8_t, 2048>   m_LogBuffer;
+    CircularBuffer<uint8_t, 32768>   m_LogBuffer;
 
     SerialCommandHandler(const SerialCommandHandler &other) = delete;
     SerialCommandHandler& operator=(const SerialCommandHandler &other) = delete;

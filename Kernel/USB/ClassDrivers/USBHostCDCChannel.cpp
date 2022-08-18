@@ -355,7 +355,7 @@ ssize_t USBHostCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const vo
                 return 0;
             }
         }
-        const size_t result = m_TransmitFIFO.Write(buffer, length);
+        const size_t result = m_TransmitFIFO.Write(buffer, std::min(m_TransmitFIFO.GetRemainingSpace(), length));
 
         if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT)) || m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
             FlushInternal();

@@ -28,6 +28,9 @@ enum class ProbeDeviceType : uint32_t
     Application
 };
 
+static constexpr uint32_t PING_PERIOD_MS_DEVICE = 100;
+static constexpr uint32_t PING_PERIOD_MS_PC     = 250;
+
 namespace Commands
 {
     using Value = uint32_t;

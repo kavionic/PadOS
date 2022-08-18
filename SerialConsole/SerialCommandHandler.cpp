@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 20.01.2020
 
+#include <algorithm>
 #include <stdio.h>
 #include <sys/unistd.h>
 #include <sys/fcntl.h>
@@ -70,70 +71,75 @@ SerialCommandHandler& SerialCommandHandler::GetInstance()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool SerialCommandHandler::OpenSerialPort()
+{
+    if (m_SerialPort == -1)
+    {
+        m_SerialPort = FileIO::Open(m_SerialPortPath.c_str(), O_RDWR | O_DIRECT);
+        if (m_SerialPort != -1)
+        {
+            USARTIOCTL_SetBaudrate(m_SerialPort, m_Baudrate);
+            m_SerialPortGroup.AddFile(m_SerialPort);
+            return true;
+        }
+        return false;
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SerialCommandHandler::CloseSerialPort()
+{
+    if (m_SerialPort != -1)
+    {
+        m_SerialPortGroup.RemoveFile(m_SerialPort);
+        FileIO::Close(m_SerialPort);
+        m_SerialPort = -1;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 int SerialCommandHandler::Run()
 {
     SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(new uint8_t[m_LargestCommandPacket]);
     for (;;)
     {
-        bool haveValidPort = false;
-        for (size_t i = 0; i < m_SerialPortFiles.size(); ++i)
+        if (m_SerialPort == -1)
         {
-            if (m_SerialPortFiles[i] == -1)
+            if (!OpenSerialPort())
             {
-                m_SerialPortFiles[i] = FileIO::Open(m_SerialPortPaths[i].c_str(), O_RDWR | O_DIRECT);
-                if (m_SerialPortFiles[i] != -1)
-                {
-                    USARTIOCTL_SetBaudrate(m_SerialPortFiles[i], m_Baudrate);
-                    m_SerialPortGroup.AddFile(m_SerialPortFiles[i]);
-                }
+                snooze_ms(100);
+                continue;
             }
-            haveValidPort |= m_SerialPortFiles[i] != -1;
         }
-        if (haveValidPort)
+        m_SerialPortGroup.WaitDeadline(m_NextPingTime);
+
+        FlushLogBuffer();
+        if (ReadPacket(packetBuffer, m_LargestCommandPacket))
         {
-            m_SerialPortGroup.Wait();
+            m_NextPingTime = get_system_time() + TimeValMicros::FromMilliseconds(SerialProtocol::PING_PERIOD_MS_DEVICE);
         }
         else
         {
-            snooze_ms(100);
+            const TimeValMicros curTime = get_system_time();
+            if (curTime >= m_NextPingTime)
+            {
+                CRITICAL_BEGIN(m_Mutex)
+                {
+                    m_NextPingTime = curTime + TimeValMicros::FromMilliseconds(SerialProtocol::PING_PERIOD_MS_DEVICE);
+                    SendMessage<SerialProtocol::ProbeDeviceReply>(m_DeviceType);
+                } CRITICAL_END;
+            }
             continue;
         }
-        FlushLogBuffer();
-        for (size_t i = 0; i < m_SerialPortFiles.size(); ++i)
+        CRITICAL_BEGIN(m_Mutex)
         {
-            if (m_SerialPortFiles[i] != -1)
-            {
-                m_SerialPort = m_SerialPortFiles[i];
-                if (ReadPacket(packetBuffer, m_LargestCommandPacket))
-                {
-                    m_ActiveSerialPortIndex = i;
-                    break;
-                }
-                if (m_SerialPort == -1)
-                {
-                    m_SerialPortGroup.RemoveFile(m_SerialPortFiles[i]);
-                    FileIO::Close(m_SerialPortFiles[i]);
-                    m_SerialPortFiles[i] = -1;
-                }
-                m_SerialPort = -1;
-            }
-        }
-        if (m_SerialPort == -1)
-        {
-            for (size_t i = 0; i < m_SerialPortFiles.size(); ++i)
-            {
-                if (m_SerialPortFiles[i] != -1)
-                {
-                    m_SerialPort = m_SerialPortFiles[i];
-                    break;
-                }
-            }
-            snooze_ms(100);
-            continue;
-        }
-        {
-            CRITICAL_SCOPE(m_Mutex);
-
             if (packetBuffer->Command == SerialProtocol::Commands::MessageReply)
             {
                 if (m_WaitingForReply)
@@ -159,7 +165,7 @@ int SerialCommandHandler::Run()
                 m_TotalMessageQueueSize += packetBuffer->PackageLength;
                 m_QueueCondition.WakeupAll();
             }
-        }
+        } CRITICAL_END;
     }
 }
 
@@ -167,15 +173,11 @@ int SerialCommandHandler::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, std::vector<String>&& serialPortPaths, int baudrate, int readThreadPriority)
+void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, String&& serialPortPath, int baudrate, int readThreadPriority)
 {
-    m_SerialPortPaths = std::move(serialPortPaths);
+    m_SerialPortPath = std::move(serialPortPath);
     m_Baudrate = baudrate;
 
-    m_SerialPortFiles.reserve(m_SerialPortPaths.size());
-    for (size_t i = 0; i < m_SerialPortPaths.size(); ++i) {
-        m_SerialPortFiles.push_back(-1);
-    }
     m_DeviceType = deviceType;
 
     REGISTER_KERNEL_LOG_CATEGORY(LogCategorySerialHandler, kernel::KLogSeverity::WARNING);
@@ -243,7 +245,7 @@ ssize_t SerialCommandHandler::SerialRead(void* buffer, size_t length)
         const ssize_t result = FileIO::Read(m_SerialPort, dst, length - bytesRead);
         if (result <= 0 && get_last_error() != EAGAIN)
         {
-            m_SerialPort = -1;
+            CloseSerialPort();
             return result;
         }
         bytesRead += result;
@@ -265,7 +267,7 @@ ssize_t SerialCommandHandler::SerialWrite(const void* buffer, size_t length)
         const ssize_t result = FileIO::Write(m_SerialPort, src, length - bytesWritten);
         if (result <= 0 && get_last_error() != EAGAIN)
         {
-            m_SerialPort = -1;
+            CloseSerialPort();
             return result;
         }
         bytesWritten += result;
@@ -288,8 +290,13 @@ bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer
         uint8_t magicNumber;
         // Read and validate magic number.
         FileIO::SetFileFlags(m_SerialPort, O_RDWR | O_DIRECT | O_NONBLOCK);
-        if (FileIO::Read(m_SerialPort, &magicNumber, 1) != 1)
+        ssize_t length = FileIO::Read(m_SerialPort, &magicNumber, 1);
+        FileIO::SetFileFlags(m_SerialPort, O_RDWR | O_DIRECT);
+        if (length != 1)
         {
+            if (length != 0) {
+                CloseSerialPort();
+            }
             kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Failed to read serial packet magic number 1\n");
             return false;
         }
@@ -298,7 +305,6 @@ bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer
             kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_HIGH_VOL, "Recevied packet with invalid magic number 1 %02x\n", magicNumber);
             return false;
         }
-        FileIO::SetFileFlags(m_SerialPort, O_RDWR | O_DIRECT);
         if (SerialRead(&magicNumber, 1) != 1)
         {
             kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Failed to read serial packet magic number 2\n");
@@ -418,7 +424,7 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
 
             m_ReplyReceived = false;
             m_WaitingForReply = true;
-            m_ReplyCondition.WaitTimeout(m_Mutex, TimeValMicros::FromMilliseconds(100));
+            m_ReplyCondition.WaitTimeout(m_Mutex, TimeValMicros::FromMilliseconds(500));
             m_WaitingForReply = false;
             m_ReplyCondition.WakeupAll();
             if (m_ReplyReceived) {
@@ -448,24 +454,11 @@ ssize_t SerialCommandHandler::WriteLogMessage(const void* buffer, size_t length)
     const uint8_t* src = static_cast<const uint8_t*>(buffer);
 
     size_t bytesWritten = 0;
-    while (bytesWritten < length)
+    CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        CRITICAL_BEGIN(CRITICAL_IRQ)
-        {
-            ssize_t curLength = std::min(length - bytesWritten, m_LogBuffer.GetRemainingSpace());
-            if (curLength > 0)
-            {
-                m_LogBuffer.Write(src, curLength);
-                bytesWritten += curLength;
-                src += curLength;
-            }
-        } CRITICAL_END;
+        bytesWritten = m_LogBuffer.Write(src, length);
+    } CRITICAL_END;
 
-        if (m_LogBuffer.GetRemainingSpace() == 0)
-        {
-            return bytesWritten;
-        }
-    }
     if (bytesWritten > 0) {
         m_LogCondition.WakeupAll();
     }
@@ -478,23 +471,11 @@ ssize_t SerialCommandHandler::WriteLogMessage(const void* buffer, size_t length)
 
 bool SerialCommandHandler::FlushLogBuffer()
 {
+    if (m_LogBuffer.GetLength() == 0) {
+        return false;
+    }
     CRITICAL_SCOPE(m_Mutex);
-    if (m_ActiveSerialPortIndex >= 0 && m_ActiveSerialPortIndex < m_SerialPortFiles.size() && m_SerialPortFiles[m_ActiveSerialPortIndex] != -1)
-    {
-        m_SerialPort = m_SerialPortFiles[m_ActiveSerialPortIndex];
-    }
-    else
-    {
-        for (size_t i = 0; i < m_SerialPortFiles.size(); ++i)
-        {
-            if (m_SerialPortFiles[i] != -1)
-            {
-                m_ActiveSerialPortIndex = i;
-                m_SerialPort = m_SerialPortFiles[i];
-                break;
-            }
-        }
-    }
+
     if (m_SerialPort == -1) {
         return false;
     }
@@ -502,19 +483,23 @@ bool SerialCommandHandler::FlushLogBuffer()
 
     header.InitMsg(header);
 
-    header.PackageLength = sizeof(header) + m_LogBuffer.GetLength();
+    size_t length = 0;
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        length = m_LogBuffer.GetLength();
+    } CRITICAL_END;
+
+    header.PackageLength = sizeof(header) + length;
 
     SerialWrite(&header, sizeof(header));
-    for (;;)
+    while (length > 0)
     {
         uint8_t buffer[128];
         ssize_t curLength = 0;
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (m_LogBuffer.GetLength() == 0) {
-                break;
-            }
-            curLength = m_LogBuffer.Read(buffer, sizeof(buffer));
+            curLength = m_LogBuffer.Read(buffer, std::min(length, sizeof(buffer)));
+            length -= curLength;
         } CRITICAL_END;
         SerialWrite(buffer, curLength);
     }

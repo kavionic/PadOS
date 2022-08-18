@@ -93,7 +93,7 @@ public:
     IFLASHC virtual int Run() override;
 
 
-    IFLASHC virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, std::vector<os::String>&& serialPortPaths, int baudrate, int readThreadPriority);
+    IFLASHC virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, os::String&& serialPortPath, int baudrate, int readThreadPriority);
     virtual void ProbeRequestReceived(SerialProtocol::ProbeDeviceType expectedMode) {}
 
     IFLASHC void Execute();
@@ -138,6 +138,8 @@ public:
     IFLASHC ssize_t WriteLogMessage(const void* buffer, size_t length);
 
 private:
+    bool OpenSerialPort();
+    void CloseSerialPort();
     IFLASHC ssize_t SerialRead(void* buffer, size_t length);
     IFLASHC ssize_t SerialWrite(const void* buffer, size_t length);
     IFLASHC bool ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength);
@@ -153,14 +155,14 @@ private:
     kernel::KConditionVariable  m_QueueCondition;
     kernel::KConditionVariable  m_LogCondition;
 
+    TimeValMicros               m_NextPingTime;
+
     volatile bool               m_WaitingForReply = false;
     volatile bool               m_ReplyReceived = false;
 
-    std::vector<os::String>     m_SerialPortPaths;
-    std::vector<int>            m_SerialPortFiles;
+    os::String                  m_SerialPortPath;
     int                         m_Baudrate = 0;
     int                         m_SerialPort = -1;
-    ssize_t                     m_ActiveSerialPortIndex = -1;
     kernel::KObjectWaitGroup    m_SerialPortGroup;
 
     SerialProtocol::ProbeDeviceType m_DeviceType = SerialProtocol::ProbeDeviceType::Bootloader;

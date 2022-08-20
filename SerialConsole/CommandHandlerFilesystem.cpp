@@ -60,6 +60,8 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
     int dir = FileIO::Open(packet.m_Path, O_RDONLY);
     if (dir >= 0)
     {
+        constexpr size_t maxEntriesPerPackage = (4096 - sizeof(SerialProtocol::GetDirectoryReply)) / sizeof(SerialProtocol::GetDirectoryReplyDirEnt);
+        static_assert(maxEntriesPerPackage >= 5);
         kernel::dir_entry dirEntry;
         for (int i = 0; FileIO::ReadDirectory(dir, &dirEntry, sizeof(dirEntry)) == 1; ++i)
         {
@@ -80,15 +82,16 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
             replyEntry.m_IsDirectory = dirEntry.d_type == kernel::dir_entry_type::DT_DIRECTORY;
             memcpy(replyEntry.m_Name, dirEntry.d_name, dirEntry.d_namelength);
             replyEntry.m_Name[dirEntry.d_namelength] = '\0';
-        }
-        kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Returning %d entries\n", entryList.size());
-        SerialProtocol::GetDirectoryReply msg;
-        SerialProtocol::GetDirectoryReply::InitMsg(msg, entryList.size());
-        msg.Command = SerialProtocol::GetDirectoryReply::COMMAND;
-        msg.Magic = SerialProtocol::PacketHeader::MAGIC;
-        msg.PackageLength = sizeof(msg) + entryList.size() * sizeof(SerialProtocol::GetDirectoryReplyDirEnt);
 
-        m_CommandHandler->SendSerialData(&msg, sizeof(msg), entryList.data(), entryList.size() * sizeof(SerialProtocol::GetDirectoryReplyDirEnt));
+            if (entryList.size() >= maxEntriesPerPackage)
+            {
+                SendDirectoryEntries(entryList);
+                entryList.erase(entryList.begin(), entryList.end());
+            }
+        }
+        if (!entryList.empty()) {
+            SendDirectoryEntries(entryList);
+        }
     }
     else
     {
@@ -196,4 +199,20 @@ void CommandHandlerFilesystem::HandleDeleteFile(const SerialProtocol::DeleteFile
             FileIO::Unlink(msg.m_Path);
         }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool CommandHandlerFilesystem::SendDirectoryEntries(const std::vector<SerialProtocol::GetDirectoryReplyDirEnt>& entryList)
+{
+    kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Returning %d entries\n", entryList.size());
+    SerialProtocol::GetDirectoryReply msg;
+    SerialProtocol::GetDirectoryReply::InitMsg(msg, entryList.size());
+    msg.Command = SerialProtocol::GetDirectoryReply::COMMAND;
+    msg.Magic = SerialProtocol::PacketHeader::MAGIC;
+    msg.PackageLength = sizeof(msg) + entryList.size() * sizeof(SerialProtocol::GetDirectoryReplyDirEnt);
+
+    return m_CommandHandler->SendSerialData(&msg, sizeof(msg), entryList.data(), entryList.size() * sizeof(SerialProtocol::GetDirectoryReplyDirEnt));
 }

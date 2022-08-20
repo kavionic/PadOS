@@ -390,7 +390,7 @@ void SerialCommandHandler::HandleSetSystemTime(const SerialProtocol::SetSystemTi
 
 bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize)
 {
-    if (GetThreadID() == -1)
+    if (GetThreadID() == -1 || m_SerialPort == -1)
     {
         return false;
     }

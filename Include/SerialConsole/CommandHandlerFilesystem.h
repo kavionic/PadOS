@@ -31,6 +31,7 @@ struct WriteFile;
 struct ReadFile;
 struct CloseFile;
 struct DeleteFile;
+struct GetDirectoryReplyDirEnt;
 }
 
 
@@ -48,6 +49,8 @@ private:
     void HandleReadFile(const SerialProtocol::ReadFile& msg);
     void HandleCloseFile(const SerialProtocol::CloseFile& msg);
     void HandleDeleteFile(const SerialProtocol::DeleteFile& msg);
+
+    bool SendDirectoryEntries(const std::vector<SerialProtocol::GetDirectoryReplyDirEnt>& entryList);
 
     SerialCommandHandler*   m_CommandHandler = nullptr;
     int                     m_CurrentExternalFile = -1;

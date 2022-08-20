@@ -87,7 +87,7 @@ public:
 
     KMutex& GetMutex() { return m_Mutex; }
 
-    bool Setup(USBDriver* driver, uint32_t endpoint0Size);
+    bool Setup(USBDriver* driver, uint32_t endpoint0Size, int threadPriority);
     void AddClassDriver(Ptr<USBClassDriverDevice> driver);
     void RemoveClassDriver(Ptr<USBClassDriverDevice> driver);
 

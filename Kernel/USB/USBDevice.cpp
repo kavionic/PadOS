@@ -168,7 +168,7 @@ int USBDevice::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBDevice::Setup(USBDriver* driver, uint32_t endpoint0Size)
+bool USBDevice::Setup(USBDriver* driver, uint32_t endpoint0Size, int threadPriority)
 {
     m_Driver = driver;
     m_Endpoint0Size = endpoint0Size;
@@ -185,7 +185,7 @@ bool USBDevice::Setup(USBDriver* driver, uint32_t endpoint0Size)
     m_Driver->IRQTransferComplete        = std::bind(&USBDevice::IRQTransferComplete, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
     SetDeleteOnExit(false);
-    Start(true);
+    Start(true, threadPriority);
 
     m_Driver->EnableIRQ(true);
 

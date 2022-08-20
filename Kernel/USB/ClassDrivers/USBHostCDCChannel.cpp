@@ -56,7 +56,7 @@ USBHostCDCChannel::USBHostCDCChannel(USBHost* hostHandler, USBHostClassCDC* clas
 
 bool USBHostCDCChannel::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
 {
-    if (m_IsStarted)
+    if (m_IsActive)
     {
         kassert(!m_HostHandler->GetMutex().IsLocked());
         CRITICAL_SCOPE(m_HostHandler->GetMutex());
@@ -247,7 +247,7 @@ void USBHostCDCChannel::Close()
     m_OutEndpointBuffer.clear();
     m_InEndpointBuffer.clear();
 
-    m_IsStarted = false;
+    m_IsActive = false;
 
     if (m_DevNodeHandle != -1) {
         Kernel::RemoveDevice(m_DevNodeHandle);
@@ -264,7 +264,7 @@ void USBHostCDCChannel::Close()
 
 void USBHostCDCChannel::Startup()
 {
-    m_IsStarted = true;
+    m_IsActive = true;
     const size_t maxLength = std::min(m_ReceiveFIFO.GetRemainingSpace(), m_InEndpointBuffer.size());
     m_HostHandler->BulkReceiveData(m_DataPipeIn, m_InEndpointBuffer.data(), maxLength, bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback));
 
@@ -277,7 +277,7 @@ void USBHostCDCChannel::Startup()
 
 ssize_t USBHostCDCChannel::GetReadBytesAvailable() const
 {
-    if (m_IsStarted)
+    if (m_IsActive)
     {
         kassert(!m_HostHandler->GetMutex().IsLocked());
         CRITICAL_SCOPE(m_HostHandler->GetMutex());
@@ -293,7 +293,7 @@ ssize_t USBHostCDCChannel::GetReadBytesAvailable() const
 
 ssize_t USBHostCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
 {
-    if (m_IsStarted)
+    if (m_IsActive)
     {
         kassert(!m_HostHandler->GetMutex().IsLocked());
         CRITICAL_SCOPE(m_HostHandler->GetMutex());
@@ -334,7 +334,7 @@ ssize_t USBHostCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* buf
 
 ssize_t USBHostCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
 {
-    if (m_IsStarted)
+    if (m_IsActive)
     {
         kassert(!m_HostHandler->GetMutex().IsLocked());
         CRITICAL_SCOPE(m_HostHandler->GetMutex());
@@ -346,6 +346,11 @@ ssize_t USBHostCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const vo
                 while (m_TransmitFIFO.GetRemainingSpace() == 0)
                 {
                     if (!m_TransmitCondition.Wait(m_HostHandler->GetMutex()) && get_last_error() != EAGAIN) {
+                        return -1;
+                    }
+                    if (!m_IsActive)
+                    {
+                        set_last_error(EPIPE);
                         return -1;
                     }
                 }
@@ -436,7 +441,7 @@ int USBHostCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const voi
 
 ssize_t USBHostCDCChannel::Sync(Ptr<KFileNode> file)
 {
-    if (m_IsStarted)
+    if (m_IsActive)
     {
         kassert(!m_HostHandler->GetMutex().IsLocked());
         CRITICAL_SCOPE(m_HostHandler->GetMutex());
@@ -520,7 +525,7 @@ bool USBHostCDCChannel::SetLineCoding(const USB_CDC_LineCoding& lineCoding)
 
     m_LineCoding = lineCoding;
 
-    if (m_IsStarted) {
+    if (m_IsActive) {
         ReqSetLineCoding(&m_LineCoding);
     }
     return true;

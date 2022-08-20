@@ -65,11 +65,10 @@ USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, int channelIn
 
 bool USBClientCDCChannel::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
 {
-    if (m_DeviceHandler != nullptr)
+    kassert(!m_DeviceHandler->GetMutex().IsLocked());
+    CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
+    if (m_IsActive)
     {
-        kassert(!m_DeviceHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
-
         switch (mode)
         {
             case ObjectWaitMode::Read:
@@ -108,7 +107,7 @@ void USBClientCDCChannel::Close()
         Kernel::RemoveDevice(m_DevNodeHandle);
         m_DevNodeHandle = -1;
     }
-    m_DeviceHandler = nullptr;
+    m_IsActive = false;
     m_ReceiveCondition.WakeupAll();
     m_TransmitCondition.WakeupAll();
 }
@@ -119,10 +118,10 @@ void USBClientCDCChannel::Close()
 
 ssize_t USBClientCDCChannel::GetReadBytesAvailable() const
 {
-    if (m_DeviceHandler != nullptr)
+    kassert(!m_DeviceHandler->GetMutex().IsLocked());
+    CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
+    if (m_IsActive)
     {
-        kassert(!m_DeviceHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
         return m_ReceiveFIFO.GetLength();
     }
     set_last_error(EPIPE);
@@ -135,17 +134,23 @@ ssize_t USBClientCDCChannel::GetReadBytesAvailable() const
 
 ssize_t USBClientCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
 {
-    if (m_DeviceHandler != nullptr)
-    {
-        kassert(!m_DeviceHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
+    kassert(!m_DeviceHandler->GetMutex().IsLocked());
+    CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
 
+    if (m_IsActive)
+    {
         if (m_ReceiveFIFO.GetLength() == 0)
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
-                while (m_ReceiveFIFO.GetLength() == 0) {
+                while (m_ReceiveFIFO.GetLength() == 0)
+                {
                     m_ReceiveCondition.Wait(m_DeviceHandler->GetMutex());
+                    if (!m_IsActive)
+                    {
+                        set_last_error(EPIPE);
+                        return -1;
+                    }
                 }
             }
             else
@@ -169,11 +174,11 @@ ssize_t USBClientCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* b
 
 ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
 {
-    if (m_DeviceHandler != nullptr)
-    {
-        kassert(!m_DeviceHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
+    kassert(!m_DeviceHandler->GetMutex().IsLocked());
+    CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
 
+    if (m_IsActive)
+    {
         if (m_TransmitFIFO.GetRemainingSpace() == 0)
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
@@ -181,6 +186,11 @@ ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const 
                 while (m_TransmitFIFO.GetRemainingSpace() == 0)
                 {
                     if (!m_TransmitCondition.Wait(m_DeviceHandler->GetMutex()) && get_last_error() != EAGAIN) {
+                        return -1;
+                    }
+                    if (!m_IsActive)
+                    {
+                        set_last_error(EPIPE);
                         return -1;
                     }
                 }
@@ -203,10 +213,10 @@ ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const 
 
 int USBClientCDCChannel::Sync(Ptr<KFileNode> file)
 {
-    if (m_DeviceHandler != nullptr)
+    kassert(!m_DeviceHandler->GetMutex().IsLocked());
+    CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
+    if (m_IsActive)
     {
-        kassert(!m_DeviceHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
         FlushInternal();
         return 0;
     }
@@ -244,9 +254,9 @@ int USBClientCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struc
 
 ssize_t USBClientCDCChannel::GetWriteBytesAvailable() const
 {
-    if (m_DeviceHandler != nullptr) {
-        kassert(!m_DeviceHandler->GetMutex().IsLocked());
-        CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
+    kassert(!m_DeviceHandler->GetMutex().IsLocked());
+    CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
+    if (m_IsActive) {
         return m_TransmitFIFO.GetRemainingSpace();
     }
     set_last_error(EPIPE);

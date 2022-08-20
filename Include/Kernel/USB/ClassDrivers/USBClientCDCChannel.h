@@ -78,6 +78,7 @@ private:
     uint8_t             m_EndpointOut = 0;
     uint8_t             m_EndpointIn  = 0;
 
+    volatile bool       m_IsActive = true;
     bool                m_DTR = false;
     bool                m_RTS = false;
 

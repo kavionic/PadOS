@@ -86,8 +86,8 @@ private:
     int                 m_DevNodeHandle = -1;
     TimeValMicros       m_CreateTime;
 
-    uint8_t             m_DeviceAddress     = 0;
-    bool                m_IsStarted         = false;
+    uint8_t             m_DeviceAddress = 0;
+    volatile bool       m_IsActive      = false;
     USB_CDC_LineCoding  m_LineCoding;
 
     USB_PipeIndex       m_NotificationPipe  = USB_INVALID_PIPE;

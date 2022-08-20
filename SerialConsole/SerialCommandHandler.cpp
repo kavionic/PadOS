@@ -411,7 +411,7 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
                 m_ReplyCondition.Wait(m_Mutex);
             }
         }
-        for (int i = 0; i < 10; ++i)
+        for (int i = 0; i < 3; ++i)
         {
             int result = SerialWrite(header, headerSize);
             if (result != headerSize) return result;

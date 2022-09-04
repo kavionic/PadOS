@@ -65,6 +65,7 @@ public:
     Ptr<ServerView> GetKeyboardFocus() const;
     void            UpdateViewFocusMode(ServerView* view);
 
+    void            PowerLost(bool hasPower);
 private:
     
     

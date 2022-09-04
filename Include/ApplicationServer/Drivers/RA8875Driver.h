@@ -46,6 +46,7 @@ public:
 
     virtual bool            Open() override;
     virtual void            Close() override;
+    virtual void            PowerLost(bool hasPower) override;
 
     virtual Ptr<SrvBitmap>  GetScreenBitmap() override;
 

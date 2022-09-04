@@ -115,6 +115,15 @@ void RA8875Driver::Close()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void RA8875Driver::PowerLost(bool hasPower)
+{
+    m_PinBacklightControl = hasPower;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<os::SrvBitmap> RA8875Driver::GetScreenBitmap()
 {
     return m_ScreenBitmap;
@@ -700,3 +709,4 @@ void RA8875Driver::SetWindow(int x1, int y1, int x2, int y2)
     WriteCommand(RA8875_VSAW0, RA8875_VSAW1, uint16_t(y1));
     WriteCommand(RA8875_VEAW0, RA8875_VEAW1, uint16_t(y2 - 1));
 }
+

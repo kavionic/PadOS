@@ -185,7 +185,8 @@ ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const 
             {
                 while (m_TransmitFIFO.GetRemainingSpace() == 0)
                 {
-                    if (!m_TransmitCondition.Wait(m_DeviceHandler->GetMutex()) && get_last_error() != EAGAIN) {
+                    FlushInternal();
+                    if (!m_TransmitCondition.WaitTimeout(m_DeviceHandler->GetMutex(), TimeValMicros::FromMilliseconds(100)) && get_last_error() != ETIME && get_last_error() != EAGAIN) {
                         return -1;
                     }
                     if (!m_IsActive)

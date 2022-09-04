@@ -724,4 +724,37 @@ IRQn_Type get_usb_irq(USB_OTG_ID id)
     }
 }
 
+ADC_TypeDef* get_adc_from_id(ADC_ID id)
+{
+    switch (id)
+    {
+        case ADC_ID::ADC_1:  return ADC1;
+        case ADC_ID::ADC_2:  return ADC2;
+        case ADC_ID::ADC_3:  return ADC3;
+    }
+    return nullptr;
+}
+
+ADC_Common_TypeDef* get_adc_common_from_id(ADC_ID id)
+{
+    switch (id)
+    {
+        case ADC_ID::ADC_1:  return ADC12_COMMON;
+        case ADC_ID::ADC_2:  return ADC12_COMMON;
+        case ADC_ID::ADC_3:  return ADC3_COMMON;
+    }
+    return nullptr;
+}
+
+IRQn_Type get_adc_irq(ADC_ID id)
+{
+    switch (id)
+    {
+        case ADC_ID::ADC_1:  return ADC_IRQn;
+        case ADC_ID::ADC_2:  return ADC_IRQn;
+        case ADC_ID::ADC_3:  return ADC3_IRQn;
+    }
+    return IRQn_Type(IRQ_COUNT);
+}
+
 } // namespace kernel

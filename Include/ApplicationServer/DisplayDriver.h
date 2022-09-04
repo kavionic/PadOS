@@ -58,7 +58,7 @@ public:
 
     virtual bool            Open() = 0;
     virtual void            Close() = 0;
-
+    virtual void            PowerLost(bool hasPower) = 0;
     virtual Ptr<SrvBitmap>  GetScreenBitmap() = 0;
 
     virtual int             GetScreenModeCount() = 0;

@@ -25,9 +25,10 @@
 #include <vector>
 #include <map>
 
-#include "System/Types.h"
-#include "Ptr/Ptr.h"
-#include "Utils/String.h"
+#include <System/Types.h>
+#include <Ptr/Ptr.h>
+#include <Utils/String.h>
+#include <Kernel/KMutex.h>
 
 namespace kernel
 {
@@ -126,6 +127,7 @@ private:
 
     static std::map<os::String, Ptr<kernel::KFilesystem>> s_FilesystemDrivers;
 
+    static kernel::KMutex                           s_TableMutex;
     static Ptr<kernel::KFileTableNode>              s_PlaceholderFile;
     static Ptr<kernel::KRootFilesystem>             s_RootFilesystem;
     static Ptr<kernel::KFSVolume>                   s_RootVolume;

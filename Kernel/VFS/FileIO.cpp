@@ -69,6 +69,7 @@ static bool RemoveTrailingSlashes(String* name)
 }
 
 
+KMutex                                         FileIO::s_TableMutex("vfs_tables");
 std::map<os::String, Ptr<kernel::KFilesystem>> FileIO::s_FilesystemDrivers;
 Ptr<KFileTableNode>                            FileIO::s_PlaceholderFile;
 Ptr<KRootFilesystem>                           FileIO::s_RootFilesystem;
@@ -94,6 +95,7 @@ void FileIO::Initialze()
 bool FileIO::RegisterFilesystem(const char* name, Ptr<KFilesystem> filesystem)
 {
     try {
+        CRITICAL_SCOPE(s_TableMutex);
         s_FilesystemDrivers[name] = filesystem;
         return true;
     }
@@ -109,6 +111,7 @@ bool FileIO::RegisterFilesystem(const char* name, Ptr<KFilesystem> filesystem)
 
 Ptr<KFilesystem> FileIO::FindFilesystem(const char* name)
 {
+    CRITICAL_SCOPE(s_TableMutex);
     auto i = s_FilesystemDrivers.find(name);
     if (i != s_FilesystemDrivers.end()) {
         return i->second;
@@ -149,6 +152,7 @@ int FileIO::Mount(const char* devicePath, const char* directoryPath, const char*
 
 Ptr<KFileTableNode> FileIO::GetFileNode(int handle, bool forKernel)
 {
+    CRITICAL_SCOPE(s_TableMutex);
     if (handle >= 0 && handle < int(s_FileTable.size()) && s_FileTable[handle] != nullptr && s_FileTable[handle]->GetINode() != nullptr) {
         return s_FileTable[handle];
     }
@@ -325,6 +329,7 @@ int FileIO::Dupe(int oldHandle, int newHandle)
     else
     {
         Close(newHandle);
+        CRITICAL_SCOPE(s_TableMutex);
         if (newHandle >= int(s_FileTable.size())) {
             s_FileTable.resize(newHandle + 1);
         }
@@ -920,6 +925,7 @@ int FileIO::GetDirectoryName(Ptr<KINode> inode, char* path, size_t bufferSize)
 
 int FileIO::AllocateFileHandle()
 {
+    CRITICAL_SCOPE(s_TableMutex);
     auto i = std::find(s_FileTable.begin(), s_FileTable.end(), nullptr);
     if (i != s_FileTable.end())
     {
@@ -942,6 +948,7 @@ int FileIO::AllocateFileHandle()
 
 void FileIO::FreeFileHandle(int handle)
 {
+    CRITICAL_SCOPE(s_TableMutex);
     if (handle >= 0 && handle < int(s_FileTable.size())) {
         s_FileTable[handle] = nullptr;
     }
@@ -992,6 +999,7 @@ int FileIO::OpenInode(bool kernelFile, Ptr<KINode> inode, int openFlags)
 
 void FileIO::SetFile(int handle, Ptr<KFileTableNode> file)
 {
+    CRITICAL_SCOPE(s_TableMutex);
     if (handle >= 0 && handle < int(s_FileTable.size()))
     {
         s_FileTable[handle] = file;

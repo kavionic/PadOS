@@ -109,6 +109,17 @@ template<typename T> ReverseRangedWrapperConst<T> reverse_ranged(const T& list) 
 
 template <typename O, typename F> auto bind_method(O* obj, F&& f) { return [=](auto&&... args) { return (obj->*f)(std::forward<decltype(args)>(args)...); }; }
 
+
+class TimeoutTracker
+{
+public:
+    TimeoutTracker(TimeValMicros timeout) : m_Deadline(get_system_time() + timeout) {}
+    TimeoutTracker(bigtime_t timeoutMilliseconds) : m_Deadline(get_system_time() + TimeValMicros::FromMilliseconds(timeoutMilliseconds)) {}
+    operator bool() const { return get_system_time() < m_Deadline; }
+private:
+    TimeValMicros m_Deadline;
+};
+
 class ProfileTimer
 {
     public:

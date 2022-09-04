@@ -1,4 +1,5 @@
 target_sources(PadOS_Kernel PRIVATE
+	ADC_STM32.cpp
 	DigitalPort_STM32.cpp
 	DMA_STM32.cpp
 	PeripheralMapping_STM32.cpp

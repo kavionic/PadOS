@@ -596,9 +596,7 @@ IRQResult USBDevice_STM32::HandleIRQ()
     if (intStatus & USB_OTG_GINTSTS_SOF)
     {
         m_Port->GINTSTS = USB_OTG_GINTSTS_SOF;
-        if (m_Driver->IRQStartOfFrame) {
-            m_Driver->IRQStartOfFrame();
-        }
+        m_Driver->IRQStartOfFrame();
     }
     // RxFIFO non-empty interrupt handling.
     if (intStatus & USB_OTG_GINTSTS_RXFLVL)
@@ -710,8 +708,7 @@ void USBDevice_STM32::HandleOutEndpointIRQ()
                 if ((epNum == 0) && m_Enpoint0OutPending != 0) {
                     // Schedule another packet to be received.
                     EndpointSchedulePackets(USB_MK_OUT_ADDRESS(epNum), 1, m_Enpoint0OutPending);
-                }
-                else {
+                } else {
                     m_Driver->IRQTransferComplete(epNum, xfer.TotalLength, USB_TransferResult::Success);
                 }
             }
@@ -739,8 +736,7 @@ void USBDevice_STM32::HandleInEndpointIRQ()
                 // Enpoint0 can only handle one packet.
                 if (epNum == 0 && m_Enpoint0InPending != 0) {
                     EndpointSchedulePackets(USB_MK_IN_ADDRESS(epNum), 1, m_Enpoint0InPending); // Schedule another packet to be transmitted.
-                }
-                else {
+                } else {
                     m_Driver->IRQTransferComplete(epNum | USB_ADDRESS_DIR_IN, xfer.TotalLength, USB_TransferResult::Success);
                 }
             }

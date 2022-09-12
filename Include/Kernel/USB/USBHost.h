@@ -25,6 +25,7 @@
 #include <Threads/Thread.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/KConditionVariable.h>
+#include <Signals/SignalTarget.h>
 #include <Utils/CircularBuffer.h>
 
 #include <Kernel/USB/USBEndpointState.h>
@@ -109,7 +110,7 @@ struct USBHostEvent
 };
 
 
-class USBHost : public os::Thread
+class USBHost : public os::Thread, public SignalTarget
 {
 public:
     USBHost();

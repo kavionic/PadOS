@@ -34,9 +34,13 @@ public:
     IFLASHC KConditionVariable(const char* name);
     IFLASHC ~KConditionVariable();
     
-    IFLASHC bool Wait(KMutex& lock);
-    IFLASHC bool WaitTimeout(KMutex& lock, TimeValMicros timeout);
-    IFLASHC bool WaitDeadline(KMutex& lock, TimeValMicros deadline);
+    bool Wait() { return WaitInternal(nullptr); }
+    bool WaitTimeout(TimeValMicros timeout) { return WaitTimeoutInternal(nullptr, timeout); }
+    bool WaitDeadline(TimeValMicros deadline) { return WaitDeadlineInternal(nullptr, deadline); }
+
+    bool Wait(KMutex& lock) { return WaitInternal(&lock); }
+    bool WaitTimeout(KMutex& lock, TimeValMicros timeout) { return WaitTimeoutInternal(&lock, timeout); }
+    bool WaitDeadline(KMutex& lock, TimeValMicros deadline) { return WaitDeadlineInternal(&lock, deadline); }
 
     IFLASHC bool IRQWait();
     IFLASHC bool IRQWaitTimeout(TimeValMicros timeout);
@@ -46,6 +50,10 @@ public:
     inline void WakeupAll() { Wakeup(0); }
 
 private:
+    IFLASHC bool WaitInternal(KMutex* lock);
+    IFLASHC bool WaitTimeoutInternal(KMutex* lock, TimeValMicros timeout);
+    IFLASHC bool WaitDeadlineInternal(KMutex* lock, TimeValMicros deadline);
+
     KConditionVariable(const KConditionVariable&) = delete;
     KConditionVariable& operator=(const KConditionVariable&) = delete;
 };

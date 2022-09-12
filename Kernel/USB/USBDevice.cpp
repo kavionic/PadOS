@@ -175,14 +175,14 @@ bool USBDevice::Setup(USBDriver* driver, uint32_t endpoint0Size, int threadPrior
 
     m_ControlTransfer.Setup(this, driver, m_Endpoint0Size);
 
-    m_Driver->IRQBusReset        = std::bind(&USBDevice::IRQBusReset, this, std::placeholders::_1);
-    m_Driver->IRQSuspend         = std::bind(&USBDevice::IRQSuspend, this);
-    m_Driver->IRQResume          = std::bind(&USBDevice::IRQResume, this);
-    m_Driver->IRQSessionEnded    = std::bind(&USBDevice::IRQSessionEnded, this);
-    m_Driver->IRQStartOfFrame    = std::bind(&USBDevice::IRQStartOfFrame, this);
+    m_Driver->IRQBusReset.Connect(this, &USBDevice::IRQBusReset);
+    m_Driver->IRQSuspend.Connect(this, &USBDevice::IRQSuspend);
+    m_Driver->IRQResume.Connect(this, &USBDevice::IRQResume);
+    m_Driver->IRQSessionEnded.Connect(this, &USBDevice::IRQSessionEnded);
+    m_Driver->IRQStartOfFrame.Connect(this, &USBDevice::IRQStartOfFrame);
 
-    m_Driver->IRQControlRequestReceived  = std::bind(&USBDevice::IRQControlRequestReceived, this, std::placeholders::_1);
-    m_Driver->IRQTransferComplete        = std::bind(&USBDevice::IRQTransferComplete, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+    m_Driver->IRQControlRequestReceived.Connect(this, &USBDevice::IRQControlRequestReceived);
+    m_Driver->IRQTransferComplete.Connect(this, &USBDevice::IRQTransferComplete);
 
     SetDeleteOnExit(false);
     Start(true, threadPriority);

@@ -39,6 +39,7 @@ namespace Commands
     static constexpr uint32_t ProbeDevice       = 20;
     static constexpr uint32_t ProbeDeviceReply  = 30;
     static constexpr uint32_t LogMessage        = 40;
+    static constexpr uint32_t TestMessage       = 100;
 
     // Misc messages:
     static constexpr uint32_t SetSystemTime     = 1000;
@@ -116,6 +117,22 @@ struct LogMessage : PacketHeader
     static constexpr Commands::Value COMMAND = Commands::LogMessage;
 
     static void InitMsg(LogMessage& msg) { InitHeader(msg, FLAG_NO_REPLY); }
+};
+
+struct TestMessage : PacketHeader
+{
+    static constexpr Commands::Value COMMAND = Commands::TestMessage;
+
+    static void InitMsg(TestMessage& msg)
+    {
+        InitHeader(msg, FLAG_NO_REPLY);
+        for (size_t i = 0; i < sizeof(msg.Data) / sizeof(msg.Data[0]); ++i)
+        {
+            msg.Data[i] = uint16_t(i);
+        }
+    }
+
+    uint16_t Data[512 + 40];
 };
 
 struct SetSystemTime : PacketHeader

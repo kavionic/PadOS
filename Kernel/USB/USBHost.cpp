@@ -62,11 +62,11 @@ bool USBHost::Setup(USBDriver* driver)
     m_ControlHandler.Setup(this);
     m_Enumerator.Setup(this);
 
-    m_Driver->IRQStartOfFrame           = std::bind(&USBHost::IRQStartOfFrame, this);
-    m_Driver->IRQDeviceConnected        = std::bind(&USBHost::IRQDeviceConnected, this);
-    m_Driver->IRQDeviceDisconnected     = std::bind(&USBHost::IRQDeviceDisconnected, this);
-    m_Driver->IRQPortEnableChange       = std::bind(&USBHost::IRQPortEnableChange, this, std::placeholders::_1);
-    m_Driver->IRQPipeURBStateChanged    = std::bind(&USBHost::IRQPipeURBStateChanged, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+    m_Driver->IRQStartOfFrame.Connect(this, &USBHost::IRQStartOfFrame);
+    m_Driver->IRQDeviceConnected.Connect(this, &USBHost::IRQDeviceConnected);
+    m_Driver->IRQDeviceDisconnected.Connect(this, &USBHost::IRQDeviceDisconnected);
+    m_Driver->IRQPortEnableChange.Connect(this, &USBHost::IRQPortEnableChange);
+    m_Driver->IRQPipeURBStateChanged.Connect(this, &USBHost::IRQPipeURBStateChanged);
 
     Reset();
 

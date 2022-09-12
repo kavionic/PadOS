@@ -33,6 +33,7 @@
 #include <Utils/HashCalculator.h>
 
 using namespace os;
+using namespace kernel;
 
 static constexpr size_t MAX_MESSAGE_QUEUE_SIZE = 1024 * 64;
 
@@ -44,9 +45,13 @@ SerialCommandHandler* SerialCommandHandler::s_Instance;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SerialCommandHandler::SerialCommandHandler() : Thread("SerialHandler"), m_Mutex("SerialHandler", false), m_ReplyCondition("sch_reply_cond"), m_QueueCondition("sch_queue_cond"), m_LogCondition("sch_log_cond"), m_SerialPortGroup("SerialHandler")
+SerialCommandHandler::SerialCommandHandler()
+    : Thread("SerialHandler")
+    , m_TransmitMutex("sch_xmt_mutex", false)
+    , m_QueueMutex("sch_queue_mutex", false)
+    , m_ReplyCondition("sch_reply_cond")
+    , m_QueueCondition("sch_queue_cond")
 {
-    m_SerialPortGroup.AddObject(&m_LogCondition);
     s_Instance = this;
 }
 
@@ -79,7 +84,6 @@ bool SerialCommandHandler::OpenSerialPort()
         if (m_SerialPort != -1)
         {
             USARTIOCTL_SetBaudrate(m_SerialPort, m_Baudrate);
-            m_SerialPortGroup.AddFile(m_SerialPort);
             return true;
         }
         return false;
@@ -95,7 +99,6 @@ void SerialCommandHandler::CloseSerialPort()
 {
     if (m_SerialPort != -1)
     {
-        m_SerialPortGroup.RemoveFile(m_SerialPort);
         FileIO::Close(m_SerialPort);
         m_SerialPort = -1;
     }
@@ -118,46 +121,21 @@ int SerialCommandHandler::Run()
                 continue;
             }
         }
-        m_SerialPortGroup.WaitDeadline(m_NextPingTime);
-
-        FlushLogBuffer();
-        if (ReadPacket(packetBuffer, m_LargestCommandPacket))
-        {
-            m_NextPingTime = get_system_time() + TimeValMicros::FromMilliseconds(SerialProtocol::PING_PERIOD_MS_DEVICE);
-        }
-        else
-        {
-            const TimeValMicros curTime = get_system_time();
-            if (curTime >= m_NextPingTime)
-            {
-                CRITICAL_BEGIN(m_Mutex)
-                {
-                    m_NextPingTime = curTime + TimeValMicros::FromMilliseconds(SerialProtocol::PING_PERIOD_MS_DEVICE);
-                    SendMessage<SerialProtocol::ProbeDeviceReply>(m_DeviceType);
-                } CRITICAL_END;
-            }
+        if (!ReadPacket(packetBuffer, m_LargestCommandPacket)) {
             continue;
         }
-        CRITICAL_BEGIN(m_Mutex)
+        CRITICAL_BEGIN(m_QueueMutex)
         {
             if (packetBuffer->Command == SerialProtocol::Commands::MessageReply)
             {
-                if (m_WaitingForReply)
-                {
-                    m_ReplyReceived = true;
-                    m_ReplyCondition.WakeupAll();
-                }
+                m_ReplyReceived = true;
+                m_ReplyCondition.WakeupAll();
             }
             else
             {
-                if ((m_TotalMessageQueueSize + packetBuffer->PackageLength) > MAX_MESSAGE_QUEUE_SIZE)
-                {
+                if ((m_TotalMessageQueueSize + packetBuffer->PackageLength) > MAX_MESSAGE_QUEUE_SIZE) {
                     continue;
                 }
-                if ((packetBuffer->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) == 0) {
-                    SendMessage<SerialProtocol::MessageReply>();
-                }
-
                 std::vector<uint8_t> buffer;
                 buffer.resize(packetBuffer->PackageLength);
                 memcpy(buffer.data(), packetBuffer, packetBuffer->PackageLength);
@@ -204,30 +182,41 @@ void SerialCommandHandler::Execute()
     for (;;)
     {
         std::vector<uint8_t> buffer;
-        {
-            CRITICAL_SCOPE(m_Mutex);
+        const SerialProtocol::PacketHeader* packetBuffer = nullptr;
 
-            while (m_MessageQueue.empty())
-            {
-                m_QueueCondition.Wait(m_Mutex);
+        CRITICAL_BEGIN(m_QueueMutex);
+        {
+            if (m_MessageQueue.empty()) {
+                m_QueueCondition.WaitTimeout(m_QueueMutex, TimeValMicros::FromMilliseconds(SerialProtocol::PING_PERIOD_MS_DEVICE));
             }
-            buffer = std::move(m_MessageQueue.front());
-            m_MessageQueue.pop();
-        }
+            if (!m_MessageQueue.empty())
+            {
+                buffer = std::move(m_MessageQueue.front());
+                m_MessageQueue.pop();
+                packetBuffer = reinterpret_cast<const SerialProtocol::PacketHeader*>(buffer.data());
+                m_TotalMessageQueueSize -= packetBuffer->PackageLength;
+            }
+        } CRITICAL_END;
 
-        const SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<const SerialProtocol::PacketHeader*>(buffer.data());
-
-        m_TotalMessageQueueSize -= packetBuffer->PackageLength;
-
-        auto handler = m_CommandHandlerMap.find(packetBuffer->Command);
-
-        if (handler != m_CommandHandlerMap.end())
+        if (packetBuffer != nullptr)
         {
-            handler->second->HandleMessage(packetBuffer);
+            auto handler = m_CommandHandlerMap.find(packetBuffer->Command);
+            if (handler != m_CommandHandlerMap.end())
+            {
+                if ((packetBuffer->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) == 0) {
+                    SendMessage<SerialProtocol::MessageReply>();
+                }
+                handler->second->HandleMessage(packetBuffer);
+            }
+            else
+            {
+                kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Unknown serial command %d\n", int(packetBuffer->Command));
+            }
         }
         else
         {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Unknown serial command %d\n", int(packetBuffer->Command));
+            FlushLogBuffer();
+            SendMessage<SerialProtocol::ProbeDeviceReply>(m_DeviceType);
         }
     }
 }
@@ -243,7 +232,7 @@ ssize_t SerialCommandHandler::SerialRead(void* buffer, size_t length)
     while (bytesRead < length)
     {
         const ssize_t result = FileIO::Read(m_SerialPort, dst, length - bytesRead);
-        if (result <= 0 && get_last_error() != EAGAIN)
+        if (result <= 0 && get_last_error() != EINTR)
         {
             CloseSerialPort();
             return result;
@@ -260,12 +249,14 @@ ssize_t SerialCommandHandler::SerialRead(void* buffer, size_t length)
 
 ssize_t SerialCommandHandler::SerialWrite(const void* buffer, size_t length)
 {
+    kassert(m_TransmitMutex.IsLocked());
+
     const uint8_t* src = static_cast<const uint8_t*>(buffer);
     ssize_t bytesWritten = 0;
     while (bytesWritten < length)
     {
         const ssize_t result = FileIO::Write(m_SerialPort, src, length - bytesWritten);
-        if (result <= 0 && get_last_error() != EAGAIN)
+        if (result <= 0 && get_last_error() != EINTR)
         {
             CloseSerialPort();
             return result;
@@ -289,9 +280,7 @@ bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer
 
         uint8_t magicNumber;
         // Read and validate magic number.
-        FileIO::SetFileFlags(m_SerialPort, O_RDWR | O_DIRECT | O_NONBLOCK);
         ssize_t length = FileIO::Read(m_SerialPort, &magicNumber, 1);
-        FileIO::SetFileFlags(m_SerialPort, O_RDWR | O_DIRECT);
         if (length != 1)
         {
             if (length != 0) {
@@ -302,7 +291,7 @@ bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer
         }
         else if (magicNumber != SerialProtocol::PacketHeader::MAGIC1)
         {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_HIGH_VOL, "Recevied packet with invalid magic number 1 %02x\n", magicNumber);
+            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_HIGH_VOL, "Received packet with invalid magic number 1 %02x\n", magicNumber);
             return false;
         }
         if (SerialRead(&magicNumber, 1) != 1)
@@ -401,35 +390,30 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
     crcCalc.AddData(data, dataSize);
     header->Checksum = crcCalc.Finalize();
 
-    const bool recursing = get_thread_id() == GetThreadID();
-    {
-        CRITICAL_SCOPE(m_Mutex, !recursing);
+    kassert(!m_TransmitMutex.IsLocked());
+    CRITICAL_SCOPE(m_TransmitMutex);
 
-        if (header->Command != SerialProtocol::Commands::MessageReply)
+    for (int i = 0; i < 3; ++i)
+    {
+        m_ReplyReceived = false;
+
+        int result = SerialWrite(header, headerSize);
+        if (result != headerSize) {
+            return false;
+        }
+        if (dataSize > 0)
         {
-            while (m_WaitingForReply) {
-                m_ReplyCondition.Wait(m_Mutex);
+            result = SerialWrite(data, dataSize);
+            if (result != dataSize) {
+                return false;
             }
         }
-        for (int i = 0; i < 3; ++i)
-        {
-            int result = SerialWrite(header, headerSize);
-            if (result != headerSize) return result;
-            if (dataSize > 0) {
-                result = SerialWrite(data, dataSize);
-            }
-            if (header->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) {
-                return true;
-            }
-
-            m_ReplyReceived = false;
-            m_WaitingForReply = true;
-            m_ReplyCondition.WaitTimeout(m_Mutex, TimeValMicros::FromMilliseconds(500));
-            m_WaitingForReply = false;
-            m_ReplyCondition.WakeupAll();
-            if (m_ReplyReceived) {
-                return true;
-            }
+        if (header->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) {
+            return true;
+        }
+        m_ReplyCondition.WaitTimeout(TimeValMicros::FromMilliseconds(500));
+        if (m_ReplyReceived) {
+            return true;
         }
     }
     kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "ERROR: transmitting %ld failed.\n", header->Command);
@@ -459,8 +443,8 @@ ssize_t SerialCommandHandler::WriteLogMessage(const void* buffer, size_t length)
         bytesWritten = m_LogBuffer.Write(src, length);
     } CRITICAL_END;
 
-    if (bytesWritten > 0) {
-        m_LogCondition.WakeupAll();
+    if (m_LogBuffer.GetLength() > 0) {
+        m_QueueCondition.WakeupAll();
     }
     return bytesWritten;
 }
@@ -474,8 +458,6 @@ bool SerialCommandHandler::FlushLogBuffer()
     if (m_LogBuffer.GetLength() == 0) {
         return false;
     }
-    CRITICAL_SCOPE(m_Mutex);
-
     if (m_SerialPort == -1) {
         return false;
     }
@@ -491,6 +473,8 @@ bool SerialCommandHandler::FlushLogBuffer()
 
     header.PackageLength = sizeof(header) + length;
 
+    kassert(!m_TransmitMutex.IsLocked());
+    CRITICAL_SCOPE(m_TransmitMutex);
     SerialWrite(&header, sizeof(header));
     while (length > 0)
     {

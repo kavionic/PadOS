@@ -45,7 +45,7 @@ KConditionVariable::~KConditionVariable()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::Wait(KMutex& lock)
+bool KConditionVariable::WaitInternal(KMutex* lock)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -58,13 +58,13 @@ bool KConditionVariable::Wait(KMutex& lock)
             waitNode.m_Thread = thread;
             thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
-            lock.Unlock();
+            if (lock != nullptr) lock->Unlock();
             thread->m_BlockingObject = this;
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.
         thread->m_BlockingObject = nullptr;
-        lock.Lock();
+        if (lock != nullptr) lock->Lock();
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             if (waitNode.m_TargetDeleted) {
@@ -89,7 +89,7 @@ bool KConditionVariable::Wait(KMutex& lock)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::WaitDeadline(KMutex& lock, TimeValMicros deadline)
+bool KConditionVariable::WaitDeadlineInternal(KMutex* lock, TimeValMicros deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -127,11 +127,11 @@ bool KConditionVariable::WaitDeadline(KMutex& lock, TimeValMicros deadline)
                 set_last_error(ETIME);
                 return false;
             }
-            lock.Unlock();
+            if (lock != nullptr) lock->Unlock();
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.
-        lock.Lock();
+        if (lock != nullptr) lock->Lock();
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
         	thread->m_BlockingObject = nullptr;
@@ -149,9 +149,9 @@ bool KConditionVariable::WaitDeadline(KMutex& lock, TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::WaitTimeout(KMutex& lock, TimeValMicros timeout)
+bool KConditionVariable::WaitTimeoutInternal(KMutex* lock, TimeValMicros timeout)
 {
-    return WaitDeadline(lock, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
+    return WaitDeadlineInternal(lock, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -322,7 +322,7 @@ status_t  condition_var_wait(handle_id handle, handle_id mutexHandle)
     set_last_error(EINVAL);
     return -1;
   }
-  return KNamedObject::ForwardToHandleBoolToInt<KConditionVariable>(handle, &KConditionVariable::Wait, *mutex);
+  return KNamedObject::ForwardToHandleBoolToInt<KConditionVariable>(handle, static_cast<bool(KConditionVariable::*)(KMutex&)>(&KConditionVariable::Wait), *mutex);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -345,7 +345,7 @@ status_t  condition_var_wait_deadline(handle_id handle, handle_id mutexHandle, b
     set_last_error(EINVAL);
     return -1;
   }
-  return KNamedObject::ForwardToHandleBoolToInt<KConditionVariable>(handle, &KConditionVariable::WaitDeadline, *mutex, TimeValMicros::FromMicroseconds(deadline));
+  return KNamedObject::ForwardToHandleBoolToInt<KConditionVariable>(handle, static_cast<bool(KConditionVariable::*)(KMutex&, TimeValMicros)>(&KConditionVariable::WaitDeadline), *mutex, TimeValMicros::FromMicroseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

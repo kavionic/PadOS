@@ -23,7 +23,7 @@
 #include <stdint.h>
 #include <System/Sections.h>
 #include <Kernel/HAL/PeripheralMapping.h>
-
+#include <Signals/SignalUnguarded.h>
 
 namespace kernel
 {
@@ -165,9 +165,10 @@ public:
     IFLASHC bool EnableWatchdog(ADC_WatchdogID watchdogID, bool enable, bool clearAlarm = true);
     IFLASHC bool IsWatchdogEnabled(ADC_WatchdogID watchdogID) const;
 
-    std::function<void(int channel, int32_t value)>                 DelegateChannelUpdated;
-    std::function<void(int channel, int32_t value)>                 DelegateInjectedChannelUpdated;
-    std::function<void(ADC_WatchdogID watchdogID, uint32_t value)>  DelegateWatchdogTriggered;
+    SignalUnguarded<void, int/*channel*/, int32_t/*value*/>                 SignalChannelUpdated;
+    SignalUnguarded<void, int/*channel*/, int32_t/*value*/>                 SignalInjectedChannelUpdated;
+    SignalUnguarded<void, ADC_WatchdogID/*watchdogID*/, uint32_t/*value*/>  SignalWatchdogTriggered;
+
 private:
     static constexpr uint32_t CHANNEL_COUNT = 20;
 

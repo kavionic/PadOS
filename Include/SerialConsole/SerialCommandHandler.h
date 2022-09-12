@@ -150,20 +150,16 @@ private:
 
     static SerialCommandHandler* s_Instance;
 
-    mutable kernel::KMutex      m_Mutex;
+    mutable kernel::KMutex      m_TransmitMutex;
+    mutable kernel::KMutex      m_QueueMutex;
     kernel::KConditionVariable  m_ReplyCondition;
     kernel::KConditionVariable  m_QueueCondition;
-    kernel::KConditionVariable  m_LogCondition;
 
-    TimeValMicros               m_NextPingTime;
-
-    volatile bool               m_WaitingForReply = false;
-    volatile bool               m_ReplyReceived = false;
+    volatile std::atomic_bool     m_ReplyReceived = false;
 
     os::String                  m_SerialPortPath;
     int                         m_Baudrate = 0;
     int                         m_SerialPort = -1;
-    kernel::KObjectWaitGroup    m_SerialPortGroup;
 
     SerialProtocol::ProbeDeviceType m_DeviceType = SerialProtocol::ProbeDeviceType::Bootloader;
 

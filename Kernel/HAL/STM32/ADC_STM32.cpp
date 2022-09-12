@@ -621,7 +621,7 @@ IRQResult ADC_STM32::HandleIRQ()
         if (channel >= 0 && channel < CHANNEL_COUNT)
         {
             m_ChannelValues[channel] = value;
-            if (DelegateChannelUpdated) DelegateChannelUpdated(channel, value);
+            SignalChannelUpdated(channel, value);
         }
         result = IRQResult::HANDLED;
     }
@@ -640,7 +640,7 @@ IRQResult ADC_STM32::HandleIRQ()
             const uint32_t  value   = (&m_ADC->JDR1)[m_CurrentInjectedSeqIndex];
             const int       channel = GetInjectedSequenceSlot(m_CurrentInjectedSeqIndex++);
             m_ChannelValues[channel] = value;
-            if (DelegateInjectedChannelUpdated) DelegateInjectedChannelUpdated(channel, value);
+            SignalInjectedChannelUpdated(channel, value);
         }
     }
     const int32_t value = m_ADC->DR;
@@ -652,17 +652,17 @@ IRQResult ADC_STM32::HandleIRQ()
     if (interrupts & ADC_ISR_AWD1)
     {
         m_ADC->ISR |= ADC_ISR_AWD1;
-        DelegateWatchdogTriggered(ADC_WatchdogID::WD1, value);
+        SignalWatchdogTriggered(ADC_WatchdogID::WD1, value);
     }
     if (interrupts & ADC_ISR_AWD2)
     {
         m_ADC->ISR |= ADC_ISR_AWD2;
-        DelegateWatchdogTriggered(ADC_WatchdogID::WD2, value);
+        SignalWatchdogTriggered(ADC_WatchdogID::WD2, value);
     }
     if (interrupts & ADC_ISR_AWD3)
     {
         m_ADC->ISR |= ADC_ISR_AWD3;
-        DelegateWatchdogTriggered(ADC_WatchdogID::WD3, value);
+        SignalWatchdogTriggered(ADC_WatchdogID::WD3, value);
     }
     return result;
 }

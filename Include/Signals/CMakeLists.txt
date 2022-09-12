@@ -5,7 +5,9 @@ target_sources(PadOS_Signals PRIVATE
 	SignalSlotList.h
 	SignalSystem.h
 	SignalTarget.h
+	SignalUnguarded.h
 	Slot.h
 	SlotBase.h
 	VFConnector.h
+	VFConnectorUnguarded.h
 )

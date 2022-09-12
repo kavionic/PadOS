@@ -22,6 +22,7 @@
 
 #include <map>
 #include <System/Platform.h>
+#include <Signals/Signal.h>
 #include <Ptr/PtrTarget.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
 #include <Kernel/USB/USBClassDriverDevice.h>

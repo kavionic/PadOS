@@ -186,7 +186,7 @@ ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const 
                 while (m_TransmitFIFO.GetRemainingSpace() == 0)
                 {
                     FlushInternal();
-                    if (!m_TransmitCondition.WaitTimeout(m_DeviceHandler->GetMutex(), TimeValMicros::FromMilliseconds(100)) && get_last_error() != ETIME && get_last_error() != EAGAIN) {
+                    if (!m_TransmitCondition.WaitTimeout(m_DeviceHandler->GetMutex(), TimeValMicros::FromMilliseconds(100)) && get_last_error() != ETIME && get_last_error() != EINTR) {
                         return -1;
                     }
                     if (!m_IsActive)
@@ -201,7 +201,8 @@ ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const 
                 return 0;
             }
         }
-        const size_t result = m_TransmitFIFO.Write(buffer, std::min(m_TransmitFIFO.GetRemainingSpace(), length));
+        const size_t result = std::min(m_TransmitFIFO.GetRemainingSpace(), length);
+        m_TransmitFIFO.Write(buffer, result);
 
         if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT)) || m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
             FlushInternal();

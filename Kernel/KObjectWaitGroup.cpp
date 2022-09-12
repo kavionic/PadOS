@@ -184,7 +184,7 @@ bool KObjectWaitGroup::WaitForBlockedThread(TimeValMicros deadline)
         m_BlockedThreadCondition.WakeupAll();
         if (!result)
         {
-            if (get_last_error() != EAGAIN) {
+            if (get_last_error() != EINTR) {
                 return false;
             }
         }
@@ -309,7 +309,7 @@ bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFla
     }
 
     if (!isReady) {
-        set_last_error((didTimeout) ? ETIME : EAGAIN);
+        set_last_error((didTimeout) ? ETIME : EINTR);
     }
     return isReady;
 }

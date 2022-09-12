@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include <functional>
 #include <System/Platform.h>
-#include <Signals/Signal.h>
+#include <Signals/SignalUnguarded.h>
 #include <Kernel/USB/USBCommon.h>
 
 struct USB_ControlRequest;
@@ -77,20 +77,20 @@ public:
 
     virtual void        EnableIRQ(bool enable) = 0;
 
-    std::function<void()>                                                           IRQSuspend;
-    std::function<void()>                                                           IRQResume;
-    std::function<void()>                                                           IRQDebounceDone;
-    std::function<void()>                                                           IRQSessionEnded;
-    std::function<void()>                                                           IRQDeviceConnected;     // Host mode only.
-    std::function<void()>                                                           IRQDeviceDisconnected;  // Host & device mode.
-    std::function<void()>                                                           IRQStartOfFrame;        // Host & device mode.
-    std::function<void(USB_Speed)>                                                  IRQBusReset;
-    std::function<void(const USB_ControlRequest&)>                                  IRQControlRequestReceived;
-    std::function<void(uint8_t endpointAddr, uint32_t length , USB_TransferResult)> IRQTransferComplete;
-    std::function<void()>                                                           IRQIncompleteIsochronousINTransfer;
+    SignalUnguarded<void>                                                                   IRQSuspend;
+    SignalUnguarded<void>                                                                   IRQResume;
+    SignalUnguarded<void>                                                                   IRQDebounceDone;
+    SignalUnguarded<void>                                                                   IRQSessionEnded;
+    SignalUnguarded<void>                                                                   IRQDeviceConnected;     // Host mode only.
+    SignalUnguarded<void>                                                                   IRQDeviceDisconnected;  // Host & device mode.
+    SignalUnguarded<void>                                                                   IRQStartOfFrame;        // Host & device mode.
+    SignalUnguarded<void, USB_Speed>                                                        IRQBusReset;
+    SignalUnguarded<void, const USB_ControlRequest&>                                        IRQControlRequestReceived;
+    SignalUnguarded<void, uint8_t/*endpointAddr*/, uint32_t/*length*/, USB_TransferResult>  IRQTransferComplete;
+    SignalUnguarded<void>                                                                   IRQIncompleteIsochronousINTransfer;
 
-    std::function<void(bool isEnabled)>                                                 IRQPortEnableChange;
-    std::function<void(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t length)>  IRQPipeURBStateChanged;
+    SignalUnguarded<void, bool/*isEnabled*/>                                                        IRQPortEnableChange;
+    SignalUnguarded<void, USB_PipeIndex/*pipeIndex*/, USB_URBState/*urbState*/, size_t/*length*/>   IRQPipeURBStateChanged;
 };
 
 

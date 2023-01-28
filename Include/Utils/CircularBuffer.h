@@ -41,6 +41,10 @@ public:
         m_QueueInPos = 0;
         m_QueueOutPos = 0;
     }
+    bool IsEmpty() const
+    {
+        return m_QueueInPos == m_QueueOutPos;
+    }
     size_t GetLength() const
     {
         return m_QueueInPos - m_QueueOutPos;

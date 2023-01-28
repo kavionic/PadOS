@@ -21,6 +21,8 @@
 namespace SerialProtocol
 {
 
+static constexpr size_t MAX_MESSAGE_SIZE = 1024 * 32;
+
 enum class ProbeDeviceType : uint32_t
 {
     None,

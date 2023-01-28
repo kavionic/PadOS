@@ -59,6 +59,12 @@ struct Color
     static constexpr Color FromRGB16(uint16_t color) { return Color(Expand5to8(uint8_t(color >> 11) & 0x1f), Expand6to8(uint8_t(color >> 5) & 0x3f), Expand5to8(uint8_t(color) & 0x1f), 255); }
     static constexpr Color FromRGB32A(uint32_t color) { return Color(color); }
     static constexpr Color FromRGB32A(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255) { return Color(red, green, blue, alpha); }
+    static constexpr Color FromRGB32AFloat(float red, float green, float blue, float alpha = 1.0f) { return Color(
+        uint8_t(std::clamp(int(red * 255.0f), 0, 255)),
+        uint8_t(std::clamp(int(green * 255.0f), 0, 255)),
+        uint8_t(std::clamp(int(blue * 255.0f), 0, 255)),
+        uint8_t(std::clamp(int(alpha * 255.0f), 0, 255)));
+    }
     static           Color FromColorID(NamedColors colorID);
     static           Color FromColorName(const char* name)   { return FromColorID(NamedColors(String::hash_string_literal_nocase(name))); }
     static           Color FromColorName(const String& name) { return FromColorName(name.c_str()); }
@@ -72,6 +78,8 @@ struct Color
     Color(const String& name);
 
     Color& operator=(const Color&) = default;
+    Color& operator*=(float rhs);
+    Color operator*(float rhs) const;
 
     void Set16(uint16_t color)                                     { SetRGBA(uint8_t(((color >> 11) & 0x1f) * 255 / 31), uint8_t(((color >> 5) & 0x3f) * 255 / 63), uint8_t((color & 0x1f) * 255 / 31), 255); }
     void Set32(uint32_t color)                                     { m_Color = color; }
@@ -81,6 +89,11 @@ struct Color
     uint8_t GetGreen() const { return uint8_t((m_Color >> 8) & 0xff); }
     uint8_t GetBlue() const { return uint8_t(m_Color & 0xff); }
     uint8_t GetAlpha() const { return uint8_t((m_Color >> 24) & 0xff); }
+
+    float GetRedFloat() const { return float(GetRed()) / 255.0f; }
+    float GetGreenFloat() const { return float(GetGreen()) / 255.0f; }
+    float GetBlueFloat() const { return float(GetBlue()) / 255.0f; }
+    float GetAlphaFloat() const { return float(GetAlpha()) / 255.0f; }
 
     Color GetNorimalized() const { return GetNorimalized(GetAlpha()); }
     Color GetNorimalized(uint8_t alpha) const { return Color(uint8_t((uint32_t(GetRed()) * alpha + 127) / 255), uint8_t((uint32_t(GetGreen()) * alpha + 127) / 255), uint8_t((uint32_t(GetBlue()) * alpha + 127) / 255)); }

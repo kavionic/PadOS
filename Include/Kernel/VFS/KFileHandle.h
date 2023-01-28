@@ -38,12 +38,13 @@ class KFileTableNode : public PtrTarget
 public:
     KFileTableNode(bool isDirectory, int openFlags) : m_IsDirectory(isDirectory), m_OpenFlags(openFlags & ~O_CREAT) {}
 
-    inline void        SetINode(Ptr<KINode> inode) { m_INode = inode; }
-    inline Ptr<KINode> GetINode()                  { return m_INode; }
-    inline bool        IsDirectory() const         { return m_IsDirectory; }
-    inline void        SetOpenFlags(int flags)     { m_OpenFlags = flags; }
-    inline int         GetOpenFlags() const        { return m_OpenFlags; }
-
+    inline void         SetINode(Ptr<KINode> inode) { m_INode = inode; }
+    inline Ptr<KINode>  GetINode()                  { return m_INode; }
+    inline bool         IsDirectory() const         { return m_IsDirectory; }
+    inline void         SetOpenFlags(int flags)     { m_OpenFlags = flags; }
+    inline int          GetOpenFlags() const        { return m_OpenFlags; }
+    inline bool         HasReadAccess() const       { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDWR; }
+    inline bool         HasWriteAccess() const      { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDWR; }
 private:
     Ptr<KINode> m_INode;
     bool        m_IsDirectory;

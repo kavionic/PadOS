@@ -225,6 +225,37 @@ Color::Color(const String& name)
     m_Color = FromColorName(name).m_Color;
 }
 
+Color& Color::operator*=(float rhs)
+{
+    *this *= rhs;
+    return *this;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Color Color::operator*(float rhs) const
+{
+    float components[] = { GetRedFloat() * rhs, GetGreenFloat() * rhs, GetBlueFloat() * rhs };
+    float brightest = 0.0f;
+    for (int i = 0; i < 3; ++i )
+    {
+        if (components[i] > brightest) {
+            brightest = components[i];
+        }
+    }
+    if (brightest > 1.0f)
+    {
+        const float scale = 1.0f / brightest;
+        for (int i = 0; i < 3; ++i)
+        {
+            components[i] *= scale;
+        }
+    }
+    return FromRGB32AFloat(components[0], components[1], components[2]);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////

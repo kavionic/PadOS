@@ -47,7 +47,7 @@ static KThreadList               gk_ReadyThreadLists[KTHREAD_PRIORITY_LEVELS];
 static KThreadWaitList           gk_SleepingThreads;
 static KThreadList               gk_ZombieThreadLists;
 static KHandleArray<KThreadCB>   gk_ThreadTable;
-
+static thread_id                 gk_DebugWakeupThread = 0;
 static void wakeup_sleeping_threads();
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -740,6 +740,12 @@ static IFLASHC void idle_thread_entry(void* arguments)
     for(;;)
     {
 //        __WFI();
+        if (gk_DebugWakeupThread != 0)
+        {
+            thread_id threadID = gk_DebugWakeupThread;
+            gk_DebugWakeupThread = 0;
+            wakeup_thread(threadID);
+        }
     }
 }
 

@@ -48,7 +48,7 @@ private:
         Sending
     };
 
-    static IFLASHC constexpr size_t RESET_BYTE_COUNT = 20;
+    static IFLASHC constexpr size_t RESET_BYTE_COUNT = 900; // 280e-6/(1/(200e6/64)) = 875
     static IFLASHC IRQResult IRQCallbackSend(IRQn_Type irq, void* userData);
     IFLASHC IRQResult HandleIRQ();
 
@@ -75,7 +75,7 @@ private:
     size_t      m_LEDCount = 0;
     size_t      m_TransmitBufferSize = 0;
     uint8_t*    m_TransmitBuffer = nullptr;
-    bool        m_Exponential = false;
+    bool        m_Exponential = true;
 };
 
 

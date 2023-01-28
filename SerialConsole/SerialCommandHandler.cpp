@@ -83,6 +83,7 @@ bool SerialCommandHandler::OpenSerialPort()
         m_SerialPort = FileIO::Open(m_SerialPortPath.c_str(), O_RDWR | O_DIRECT);
         if (m_SerialPort != -1)
         {
+            USARTIOCTL_SetWriteTimeout(m_SerialPort, TimeValMicros::FromMilliseconds(100));
             USARTIOCTL_SetBaudrate(m_SerialPort, m_Baudrate);
             return true;
         }
@@ -110,7 +111,7 @@ void SerialCommandHandler::CloseSerialPort()
 
 int SerialCommandHandler::Run()
 {
-    SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(new uint8_t[m_LargestCommandPacket]);
+    SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer);
     for (;;)
     {
         if (m_SerialPort == -1)
@@ -121,7 +122,7 @@ int SerialCommandHandler::Run()
                 continue;
             }
         }
-        if (!ReadPacket(packetBuffer, m_LargestCommandPacket)) {
+        if (!ReadPacket(packetBuffer, SerialProtocol::MAX_MESSAGE_SIZE)) {
             continue;
         }
         CRITICAL_BEGIN(m_QueueMutex)
@@ -133,14 +134,10 @@ int SerialCommandHandler::Run()
             }
             else
             {
-                if ((m_TotalMessageQueueSize + packetBuffer->PackageLength) > MAX_MESSAGE_QUEUE_SIZE) {
+                if (packetBuffer->PackageLength > m_MessageQueue.GetRemainingSpace()) {
                     continue;
                 }
-                std::vector<uint8_t> buffer;
-                buffer.resize(packetBuffer->PackageLength);
-                memcpy(buffer.data(), packetBuffer, packetBuffer->PackageLength);
-                m_MessageQueue.push(std::move(buffer));
-                m_TotalMessageQueueSize += packetBuffer->PackageLength;
+                m_MessageQueue.Write(packetBuffer, packetBuffer->PackageLength);
                 m_QueueCondition.WakeupAll();
             }
         } CRITICAL_END;
@@ -181,20 +178,18 @@ void SerialCommandHandler::Execute()
 
     for (;;)
     {
-        std::vector<uint8_t> buffer;
         const SerialProtocol::PacketHeader* packetBuffer = nullptr;
 
         CRITICAL_BEGIN(m_QueueMutex);
         {
-            if (m_MessageQueue.empty()) {
+            if (m_MessageQueue.IsEmpty()) {
                 m_QueueCondition.WaitTimeout(m_QueueMutex, TimeValMicros::FromMilliseconds(SerialProtocol::PING_PERIOD_MS_DEVICE));
             }
-            if (!m_MessageQueue.empty())
+            if (!m_MessageQueue.IsEmpty())
             {
-                buffer = std::move(m_MessageQueue.front());
-                m_MessageQueue.pop();
-                packetBuffer = reinterpret_cast<const SerialProtocol::PacketHeader*>(buffer.data());
-                m_TotalMessageQueueSize -= packetBuffer->PackageLength;
+                m_MessageQueue.Read(m_OutMessageBuffer, sizeof(SerialProtocol::PacketHeader));
+                packetBuffer = reinterpret_cast<const SerialProtocol::PacketHeader*>(m_OutMessageBuffer);
+                m_MessageQueue.Read(&m_OutMessageBuffer[sizeof(SerialProtocol::PacketHeader)], packetBuffer->PackageLength - sizeof(SerialProtocol::PacketHeader));
             }
         } CRITICAL_END;
 
@@ -256,8 +251,11 @@ ssize_t SerialCommandHandler::SerialWrite(const void* buffer, size_t length)
     while (bytesWritten < length)
     {
         const ssize_t result = FileIO::Write(m_SerialPort, src, length - bytesWritten);
-        if (result <= 0 && get_last_error() != EINTR)
+        if (result <= 0)
         {
+            if (get_last_error() == EINTR) {
+                continue;
+            }
             CloseSerialPort();
             return result;
         }
@@ -275,7 +273,6 @@ bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer
 {
     for (;;)
     {
-        memset(packetBuffer, 0x11, maxLength);
         size_t size = sizeof(SerialProtocol::PacketHeader::Magic);
 
         uint8_t magicNumber;
@@ -285,6 +282,7 @@ bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer
         {
             if (length != 0) {
                 CloseSerialPort();
+                snooze_ms(100);
             }
             kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Failed to read serial packet magic number 1\n");
             return false;
@@ -314,7 +312,7 @@ bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer
             return false;
         }
 
-        if (packetBuffer->PackageLength > m_LargestCommandPacket)
+        if (packetBuffer->PackageLength > SerialProtocol::MAX_MESSAGE_SIZE)
         {
             kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Packet to large. Cmd=%d, Size=%d\n", int(packetBuffer->Command), int(int(packetBuffer->PackageLength)));
             return false;

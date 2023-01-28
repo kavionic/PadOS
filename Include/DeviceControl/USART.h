@@ -28,6 +28,8 @@ enum USARTIOCTL
     USARTIOCTL_GET_BAUDRATE,
     USARTIOCTL_SET_READ_TIMEOUT,
     USARTIOCTL_GET_READ_TIMEOUT,
+    USARTIOCTL_SET_WRITE_TIMEOUT,
+    USARTIOCTL_GET_WRITE_TIMEOUT,
     USARTIOCTL_SET_IOCTRL,
     USARTIOCTL_GET_IOCTRL,
     USARTIOCTL_SET_PINMODE,
@@ -75,6 +77,20 @@ inline int USARTIOCTL_GetReadTimeout(int device, TimeValMicros& outTimeout)
 {
     bigtime_t micros;
     if (os::FileIO::DeviceControl(device, USARTIOCTL_GET_READ_TIMEOUT, nullptr, 0, &micros, sizeof(micros)) < 0) return -1;
+    outTimeout = TimeValMicros::FromMicroseconds(micros);
+    return 0;
+}
+
+inline int USARTIOCTL_SetWriteTimeout(int device, TimeValMicros timeout)
+{
+    bigtime_t micros = timeout.AsMicroSeconds();
+    return os::FileIO::DeviceControl(device, USARTIOCTL_SET_WRITE_TIMEOUT, &micros, sizeof(micros), nullptr, 0);
+}
+
+inline int USARTIOCTL_GetWriteTimeout(int device, TimeValMicros& outTimeout)
+{
+    bigtime_t micros;
+    if (os::FileIO::DeviceControl(device, USARTIOCTL_GET_WRITE_TIMEOUT, nullptr, 0, &micros, sizeof(micros)) < 0) return -1;
     outTimeout = TimeValMicros::FromMicroseconds(micros);
     return 0;
 }

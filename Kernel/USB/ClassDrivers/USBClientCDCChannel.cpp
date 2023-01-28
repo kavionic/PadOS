@@ -25,6 +25,7 @@
 #include <Kernel/USB/USBDevice.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
+#include "../../../Include/DeviceControl/USART.h"
 
 using namespace os;
 
@@ -132,23 +133,50 @@ ssize_t USBClientCDCChannel::GetReadBytesAvailable() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+int USBClientCDCChannel::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
+{
+    KFilesystemFileOps::CloseFile(volume, file);
+    file->SetOpenFlags(0);
+    m_ReceiveCondition.WakeupAll();
+    m_TransmitCondition.WakeupAll();
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 ssize_t USBClientCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
 {
     kassert(!m_DeviceHandler->GetMutex().IsLocked());
     CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
 
+    if (!file->HasReadAccess())
+    {
+        set_last_error(EACCES);
+        return -1;
+    }
     if (m_IsActive)
     {
         if (m_ReceiveFIFO.GetLength() == 0)
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
+                TimeValMicros deadline = m_WriteTimeout.IsInfinit() ? TimeValMicros::infinit : (get_system_time() + m_WriteTimeout);
+
                 while (m_ReceiveFIFO.GetLength() == 0)
                 {
-                    m_ReceiveCondition.Wait(m_DeviceHandler->GetMutex());
+                    if (!m_ReceiveCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline) && get_last_error() != EINTR) {
+                        return -1;
+                    }
                     if (!m_IsActive)
                     {
                         set_last_error(EPIPE);
+                        return -1;
+                    }
+                    if (!file->HasReadAccess())
+                    {
+                        set_last_error(EACCES);
                         return -1;
                     }
                 }
@@ -177,21 +205,33 @@ ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const 
     kassert(!m_DeviceHandler->GetMutex().IsLocked());
     CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
 
+    if (!file->HasWriteAccess())
+    {
+        set_last_error(EACCES);
+        return -1;
+    }
     if (m_IsActive)
     {
         if (m_TransmitFIFO.GetRemainingSpace() == 0)
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
+                TimeValMicros deadline = m_WriteTimeout.IsInfinit() ? TimeValMicros::infinit : (get_system_time() + m_WriteTimeout);
+
                 while (m_TransmitFIFO.GetRemainingSpace() == 0)
                 {
                     FlushInternal();
-                    if (!m_TransmitCondition.WaitTimeout(m_DeviceHandler->GetMutex(), TimeValMicros::FromMilliseconds(100)) && get_last_error() != ETIME && get_last_error() != EINTR) {
+                    if (!m_TransmitCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline) && get_last_error() != EINTR) {
                         return -1;
                     }
                     if (!m_IsActive)
                     {
                         set_last_error(EPIPE);
+                        return -1;
+                    }
+                    if (!file->HasWriteAccess())
+                    {
+                        set_last_error(EACCES);
                         return -1;
                     }
                 }
@@ -254,6 +294,68 @@ int USBClientCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+int USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+{
+    switch (request)
+    {
+        case USARTIOCTL_SET_READ_TIMEOUT:
+            if (inDataLength == sizeof(bigtime_t))
+            {
+                bigtime_t micros = *((const bigtime_t*)inData);
+                m_ReadTimeout = TimeValMicros::FromMicroseconds(micros);
+                return 0;
+            }
+            else
+            {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_GET_READ_TIMEOUT:
+            if (outDataLength == sizeof(bigtime_t))
+            {
+                bigtime_t* micros = (bigtime_t*)outData;
+                *micros = m_ReadTimeout.AsMicroSeconds();
+                return 0;
+            }
+            else
+            {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_SET_WRITE_TIMEOUT:
+            if (inDataLength == sizeof(bigtime_t))
+            {
+                bigtime_t micros = *((const bigtime_t*)inData);
+                m_WriteTimeout = TimeValMicros::FromMicroseconds(micros);
+                return 0;
+            }
+            else
+            {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        case USARTIOCTL_GET_WRITE_TIMEOUT:
+            if (outDataLength == sizeof(bigtime_t))
+            {
+                bigtime_t* micros = (bigtime_t*)outData;
+                *micros = m_WriteTimeout.AsMicroSeconds();
+                return 0;
+            }
+            else
+            {
+                set_last_error(EINVAL);
+                return -1;
+            }
+        default:
+            set_last_error(EINVAL);
+            return -1;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 ssize_t USBClientCDCChannel::GetWriteBytesAvailable() const
 {
     kassert(!m_DeviceHandler->GetMutex().IsLocked());
@@ -296,16 +398,13 @@ bool USBClientCDCChannel::HandleControlTransfer(USB_ControlStage stage, const US
         case USB_CDC_ManagementRequest::SET_CONTROL_LINE_STATE:
             if (stage == USB_ControlStage::SETUP)
             {
-                return m_DeviceHandler->GetControlEndpointHandler().SendControlStatusReply(request);
-            }
-            else if (stage == USB_ControlStage::ACK)
-            {
                 m_DTR = (request.wValue & USB_DTE_LINE_CONTROL_STATE_DTE_PRESENT) != 0;
                 m_RTS = (request.wValue & USB_DTE_LINE_CONTROL_STATE_CARRIER_ACTIVE) != 0;
 
                 kernel_log(LogCategoryUSBDevice, KLogSeverity::INFO_HIGH_VOL, "USBD: CDC Set control line state: DTR = %d, RTS = %d.\n", m_DTR, m_RTS);
 
                 SignalControlLineStateChanged(m_DTR, m_RTS);
+                return m_DeviceHandler->GetControlEndpointHandler().SendControlStatusReply(request);
             }
             break;
         case USB_CDC_ManagementRequest::SEND_BREAK:

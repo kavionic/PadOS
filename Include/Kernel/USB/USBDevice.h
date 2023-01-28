@@ -171,7 +171,7 @@ private:
 
     USBDriver*          m_Driver = nullptr;
 
-    CircularBuffer<USBDeviceEvent, 32>      m_EventQueue;
+    CircularBuffer<USBDeviceEvent, 128>      m_EventQueue;
     std::vector<Ptr<USBClassDriverDevice>>        m_ClassDrivers;
     std::map<uint8_t, Ptr<USBClassDriverDevice>>  m_InterfaceToDriverMap;
     std::map<uint8_t, Ptr<USBClassDriverDevice>>  m_EndpointToDriverMap;

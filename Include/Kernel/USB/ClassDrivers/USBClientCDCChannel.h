@@ -45,10 +45,12 @@ public:
     void Close();
 
     ssize_t  GetReadBytesAvailable() const;
+    IFLASHC virtual int     CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
     IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
     IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
     IFLASHC virtual int     Sync(Ptr<KFileNode> file) override;
     IFLASHC virtual int     ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
+    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
     ssize_t  GetWriteBytesAvailable() const;
 
     uint8_t  GetEndpointNotifications() const { return m_EndpointNotifications; }
@@ -84,6 +86,8 @@ private:
 
     USB_CDC_LineCoding  m_LineCoding;
 
+    TimeValMicros   m_ReadTimeout = TimeValMicros::infinit;
+    TimeValMicros   m_WriteTimeout = TimeValMicros::infinit;
 
     CircularBuffer<uint8_t, 1024, void> m_ReceiveFIFO;
     CircularBuffer<uint8_t, 1024, void> m_TransmitFIFO;

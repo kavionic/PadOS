@@ -157,7 +157,9 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
     __DSB();
     __ISB();
        
+    SCB_InvalidateDCache();
     SCB_EnableDCache();
+    SCB_InvalidateICache();
     SCB_EnableICache();
 #if defined(__SAME70Q21__)
     SAME70System::SetupClock(frequencyCrystal, frequencyCore, frequencyPeripheral);

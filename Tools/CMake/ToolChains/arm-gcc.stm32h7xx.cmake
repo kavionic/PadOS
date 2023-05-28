@@ -19,6 +19,8 @@ set(CMAKE_CXX_COMPILER ${PADOS_CXX_COMPILER} CACHE FILEPATH "C++ compiler")
 set(CMAKE_C_COMPILER_FORCED TRUE)
 set(CMAKE_CXX_COMPILER_FORCED TRUE)
 
+add_compile_definitions(STM32H7 STM32H753xx DEBUG ARM_MATH_CM7=true __machine_ino_t_defined __ino_t=int64_t)
+
 include_directories(
 	C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.10.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include
 	C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.10.0/Drivers/CMSIS/Core/Include

@@ -16,6 +16,7 @@ target_sources(PadOS_Kernel PRIVATE
 	Misc.h
 	Scheduler.h
 	SpinTimer.h
+	ThreadSyncDebugTracker.h
 )
 
 add_subdirectory(Drivers)

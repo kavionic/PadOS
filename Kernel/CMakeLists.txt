@@ -22,4 +22,5 @@ target_sources(PadOS_Kernel PRIVATE
 	Scheduler.cpp
 	SpinTimer.cpp
 	SysTime.cpp
+	ThreadSyncDebugTracker.cpp
 )

@@ -1,2 +1,10 @@
+option(PNG_SHARED "Build shared lib" OFF)
+option(PNG_STATIC "Build static lib" ON)
+option(PNG_EXECUTABLES "Build libpng executables" OFF)
+option(PNG_TESTS "Build libpng tests" OFF)
+set(PNG_BUILD_ZLIB ON CACHE BOOL "" FORCE)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
 
 add_subdirectory(pugixml)
+add_subdirectory(zlib)
+add_subdirectory(libpng)

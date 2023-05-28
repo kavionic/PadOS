@@ -65,6 +65,9 @@ public:
     static int PriToLevel(int priority);
     static int LevelToPri(int level);
 
+    void                SetBlockingObject(const KNamedObject* WaitObject);
+    const KNamedObject* GetBlockingObject() const { return m_BlockingObject; }
+
     uint32_t*                 m_CurrentStack;
     os::ThreadState           m_State;
     int                       m_PriorityLevel;
@@ -79,7 +82,7 @@ public:
     KThreadCB*                m_Prev = nullptr;
     KThreadCB*                m_Next = nullptr;
     IntrusiveList<KThreadCB>* m_List = nullptr;
-    KNamedObject*             m_BlockingObject = nullptr;
+    const KNamedObject*       m_BlockingObject = nullptr;
     os::DebugCallTracker*     m_FirstDebugCallTracker = nullptr;
 };
 

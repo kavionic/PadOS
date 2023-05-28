@@ -1,3 +1,9 @@
 [submodule "ExternalLibs/tinyusb"]
 	path = ExternalLibs/tinyusb
 	url = https://github.com/hathach/tinyusb.git
+[submodule "ExternalLibs/zlib"]
+	path = ExternalLibs/zlib
+	url = https://github.com/madler/zlib.git
+[submodule "ExternalLibs/libpng"]
+	path = ExternalLibs/libpng
+	url = https://github.com/glennrp/libpng.git

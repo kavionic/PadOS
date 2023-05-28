@@ -24,13 +24,14 @@
 #include <vector>
 #include <map>
 
-#include "Kernel/Scheduler.h"
-#include "Kernel/HAL/DigitalPort.h"
-#include "Kernel/KProcess.h"
-#include "Kernel/KSemaphore.h"
-#include "Kernel/Kernel.h"
-#include "Kernel/KHandleArray.h"
-#include "Kernel/VFS/FileIO.h"
+#include <Kernel/Scheduler.h>
+#include <Kernel/HAL/DigitalPort.h>
+#include <Kernel/KProcess.h>
+#include <Kernel/KSemaphore.h>
+#include <Kernel/Kernel.h>
+#include <Kernel/KHandleArray.h>
+#include <Kernel/VFS/FileIO.h>
+#include <Kernel/ThreadSyncDebugTracker.h>
 
 using namespace kernel;
 using namespace os;
@@ -473,7 +474,8 @@ static IFLASHC void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         strncpy(info->ThreadName, thread->GetName(), OS_NAME_LENGTH);
-        info->BlockingObject = (thread->m_BlockingObject != nullptr) ? thread->m_BlockingObject->GetHandle() : INVALID_HANDLE;
+        const KNamedObject* blockingObject = thread->GetBlockingObject();
+        info->BlockingObject = (blockingObject != nullptr) ? blockingObject->GetHandle() : INVALID_HANDLE;
     } CRITICAL_END;
     info->ProcessName[0] = '\0';
 
@@ -600,6 +602,7 @@ IFLASHC status_t snooze_until(TimeValMicros resumeTime)
         {
             add_to_sleep_list(&waitNode);
             thread->m_State = ThreadState::Sleeping;
+            ThreadSyncDebugTracker::GetInstance().AddThread(thread, nullptr);
         } CRITICAL_END;
 
         KSWITCH_CONTEXT();
@@ -607,6 +610,7 @@ IFLASHC status_t snooze_until(TimeValMicros resumeTime)
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             waitNode.Detatch();
+            ThreadSyncDebugTracker::GetInstance().RemoveThread(thread);
         } CRITICAL_END;
         if (get_system_time() >= waitNode.m_ResumeTime)
         {
@@ -842,4 +846,3 @@ IFLASHC void kernel::start_scheduler(uint32_t coreFrequency, size_t mainThreadSt
     // Should never get here!
     panic("Failed to launch first thread!\n");
 }
-

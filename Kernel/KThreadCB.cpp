@@ -24,9 +24,10 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "Kernel/KThreadCB.h"
-#include "Kernel/Scheduler.h"
-#include "Utils/Utils.h"
+#include <Kernel/KThreadCB.h>
+#include <Kernel/Scheduler.h>
+#include <Kernel/ThreadSyncDebugTracker.h>
+#include <Utils/Utils.h>
 
 using namespace kernel;
 using namespace os;
@@ -148,5 +149,22 @@ int KThreadCB::PriToLevel(int priority)
 int KThreadCB::LevelToPri(int level)
 {
     return level + KTHREAD_PRIORITY_MIN;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KThreadCB::SetBlockingObject(const KNamedObject* waitObject)
+{
+    if (m_BlockingObject != nullptr)
+    {
+        ThreadSyncDebugTracker::GetInstance().RemoveThread(this);
+    }
+    m_BlockingObject = waitObject;
+    if (m_BlockingObject != nullptr)
+    {
+        ThreadSyncDebugTracker::GetInstance().AddThread(this, m_BlockingObject);
+    }
 }
 

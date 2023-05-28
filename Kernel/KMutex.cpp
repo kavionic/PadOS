@@ -70,14 +70,14 @@ bool KMutex::Lock()
             waitNode.m_Thread = thread;
             thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
-            thread->m_BlockingObject = this;
+            thread->SetBlockingObject(this);
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.        
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             waitNode.Detatch();
-            thread->m_BlockingObject = nullptr;
+            thread->SetBlockingObject(nullptr);
             
             if (waitNode.m_TargetDeleted) {
                 set_last_error(EINVAL);
@@ -231,14 +231,14 @@ bool KMutex::LockShared()
             waitNode.m_Thread = thread;
             thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
-            thread->m_BlockingObject = this;
+            thread->SetBlockingObject(this);
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.        
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             waitNode.Detatch();
-            thread->m_BlockingObject = nullptr;
+            thread->SetBlockingObject(nullptr);
 
             if (waitNode.m_TargetDeleted) {
                 set_last_error(EINVAL);

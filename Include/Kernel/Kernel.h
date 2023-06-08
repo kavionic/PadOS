@@ -131,7 +131,7 @@ public:
 
 #if defined(__SAME70Q21__)
     static void ResetWatchdog() { WDT->WDT_CR = WDT_CR_KEY_PASSWD | WDT_CR_WDRSTT_Msk; }
-#elif defined(STM32H7)
+#elif defined(STM32H7) || defined(STM32G0)
     static IFLASHC void ResetWatchdog() { /*IWDG1->KR = 0xaaaa;*/ }
 #endif
     static IFLASHC void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);

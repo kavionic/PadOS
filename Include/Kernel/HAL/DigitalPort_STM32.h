@@ -25,16 +25,36 @@
 enum DigitalPortID
 {
     e_DigitalPortID_A,
+#ifdef GPIOB
     e_DigitalPortID_B,
+#endif
+#ifdef GPIOC
     e_DigitalPortID_C,
+#endif
+#ifdef GPIOD
     e_DigitalPortID_D,
+#endif
+#ifdef GPIOE
     e_DigitalPortID_E,
+#endif
+#ifdef GPIOF
     e_DigitalPortID_F,
+#endif
+#ifdef GPIOG
     e_DigitalPortID_G,
+#endif
+#ifdef GPIOH
     e_DigitalPortID_H,
+#endif
+#ifdef GPIOI
     e_DigitalPortID_I,
+#endif
+#ifdef GPIOJ
     e_DigitalPortID_J,
+#endif
+#ifdef GPIOK
     e_DigitalPortID_K,
+#endif
     e_DigitalPortID_Count,
     e_DigitalPortID_None
 };
@@ -46,200 +66,231 @@ enum DigitalPortID
 
 enum class DigitalPinID : uint32_t
 {
-	None = uint32_t(-1),
-	A0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 0),
-	A1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 1),
-	A2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 2),
-	A3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 3),
-	A4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 4),
-	A5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 5),
-	A6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 6),
-	A7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 7),
-	A8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 8),
-	A9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 9),
-	A10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 10),
-	A11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 11),
-	A12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 12),
-	A13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 13),
-	A14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 14),
-	A15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 15),
+    None = uint32_t(-1),
+    A0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 0),
+    A1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 1),
+    A2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 2),
+    A3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 3),
+    A4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 4),
+    A5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 5),
+    A6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 6),
+    A7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 7),
+    A8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 8),
+    A9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 9),
+    A10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 10),
+    A11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 11),
+    A12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 12),
+    A13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 13),
+    A14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 14),
+    A15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_A, 15),
 
-	B0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 0),
-	B1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 1),
-	B2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 2),
-	B3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 3),
-	B4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 4),
-	B5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 5),
-	B6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 6),
-	B7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 7),
-	B8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 8),
-	B9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 9),
-	B10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 10),
-	B11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 11),
-	B12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 12),
-	B13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 13),
-	B14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 14),
-	B15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 15),
-
-	C0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 0),
-	C1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 1),
-	C2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 2),
-	C3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 3),
-	C4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 4),
-	C5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 5),
-	C6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 6),
-	C7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 7),
-	C8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 8),
-	C9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 9),
-	C10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 10),
-	C11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 11),
-	C12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 12),
-	C13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 13),
-	C14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 14),
-	C15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 15),
-
-	D0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 0),
-	D1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 1),
-	D2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 2),
-	D3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 3),
-	D4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 4),
-	D5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 5),
-	D6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 6),
-	D7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 7),
-	D8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 8),
-	D9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 9),
-	D10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 10),
-	D11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 11),
-	D12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 12),
-	D13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 13),
-	D14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 14),
-	D15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 15),
-
-	E0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 0),
-	E1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 1),
-	E2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 2),
-	E3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 3),
-	E4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 4),
-	E5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 5),
-	E6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 6),
-	E7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 7),
-	E8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 8),
-	E9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 9),
-	E10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 10),
-	E11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 11),
-	E12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 12),
-	E13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 13),
-	E14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 14),
-	E15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 15),
-
-	F0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 0),
-	F1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 1),
-	F2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 2),
-	F3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 3),
-	F4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 4),
-	F5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 5),
-	F6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 6),
-	F7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 7),
-	F8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 8),
-	F9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 9),
-	F10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 10),
-	F11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 11),
-	F12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 12),
-	F13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 13),
-	F14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 14),
-	F15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 15),
-
-	G0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 0),
-	G1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 1),
-	G2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 2),
-	G3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 3),
-	G4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 4),
-	G5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 5),
-	G6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 6),
-	G7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 7),
-	G8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 8),
-	G9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 9),
-	G10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 10),
-	G11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 11),
-	G12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 12),
-	G13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 13),
-	G14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 14),
-	G15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 15),
-
-	H0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 0),
-	H1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 1),
-	H2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 2),
-	H3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 3),
-	H4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 4),
-	H5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 5),
-	H6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 6),
-	H7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 7),
-	H8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 8),
-	H9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 9),
-	H10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 10),
-	H11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 11),
-	H12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 12),
-	H13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 13),
-	H14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 14),
-	H15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 15),
-
-	I0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 0),
-	I1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 1),
-	I2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 2),
-	I3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 3),
-	I4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 4),
-	I5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 5),
-	I6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 6),
-	I7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 7),
-	I8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 8),
-	I9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 9),
-	I10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 10),
-	I11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 11),
-	I12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 12),
-	I13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 13),
-	I14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 14),
-	I15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 15),
-
-	J0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 0),
-	J1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 1),
-	J2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 2),
-	J3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 3),
-	J4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 4),
-	J5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 5),
-	J6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 6),
-	J7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 7),
-	J8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 8),
-	J9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 9),
-	J10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 10),
-	J11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 11),
-	J12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 12),
-	J13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 13),
-	J14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 14),
-	J15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 15),
-
-	K0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 0),
-	K1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 1),
-	K2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 2),
-	K3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 3),
-	K4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 4),
-	K5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 5),
-	K6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 6),
-	K7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 7)
+#ifdef GPIOB
+    B0 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 0),
+    B1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 1),
+    B2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 2),
+    B3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 3),
+    B4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 4),
+    B5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 5),
+    B6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 6),
+    B7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 7),
+    B8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 8),
+    B9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 9),
+    B10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 10),
+    B11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 11),
+    B12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 12),
+    B13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 13),
+    B14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 14),
+    B15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_B, 15),
+#endif
+#ifdef GPIOC
+    C0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 0),
+    C1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 1),
+    C2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 2),
+    C3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 3),
+    C4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 4),
+    C5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 5),
+    C6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 6),
+    C7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 7),
+    C8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 8),
+    C9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 9),
+    C10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 10),
+    C11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 11),
+    C12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 12),
+    C13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 13),
+    C14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 14),
+    C15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_C, 15),
+#endif
+#ifdef GPIOD
+    D0 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 0),
+    D1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 1),
+    D2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 2),
+    D3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 3),
+    D4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 4),
+    D5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 5),
+    D6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 6),
+    D7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 7),
+    D8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 8),
+    D9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 9),
+    D10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 10),
+    D11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 11),
+    D12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 12),
+    D13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 13),
+    D14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 14),
+    D15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_D, 15),
+#endif
+#ifdef GPIOE
+    E0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 0),
+    E1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 1),
+    E2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 2),
+    E3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 3),
+    E4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 4),
+    E5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 5),
+    E6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 6),
+    E7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 7),
+    E8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 8),
+    E9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 9),
+    E10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 10),
+    E11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 11),
+    E12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 12),
+    E13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 13),
+    E14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 14),
+    E15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_E, 15),
+#endif
+#ifdef GPIOF
+    F0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 0),
+    F1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 1),
+    F2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 2),
+    F3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 3),
+    F4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 4),
+    F5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 5),
+    F6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 6),
+    F7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 7),
+    F8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 8),
+    F9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 9),
+    F10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 10),
+    F11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 11),
+    F12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 12),
+    F13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 13),
+    F14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 14),
+    F15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_F, 15),
+#endif
+#ifdef GPIOG
+    G0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 0),
+    G1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 1),
+    G2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 2),
+    G3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 3),
+    G4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 4),
+    G5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 5),
+    G6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 6),
+    G7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 7),
+    G8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 8),
+    G9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 9),
+    G10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 10),
+    G11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 11),
+    G12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 12),
+    G13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 13),
+    G14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 14),
+    G15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_G, 15),
+#endif
+#ifdef GPIOH
+    H0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 0),
+    H1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 1),
+    H2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 2),
+    H3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 3),
+    H4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 4),
+    H5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 5),
+    H6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 6),
+    H7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 7),
+    H8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 8),
+    H9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 9),
+    H10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 10),
+    H11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 11),
+    H12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 12),
+    H13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 13),
+    H14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 14),
+    H15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_H, 15),
+#endif
+#ifdef GPIOI
+    I0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 0),
+    I1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 1),
+    I2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 2),
+    I3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 3),
+    I4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 4),
+    I5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 5),
+    I6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 6),
+    I7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 7),
+    I8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 8),
+    I9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 9),
+    I10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 10),
+    I11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 11),
+    I12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 12),
+    I13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 13),
+    I14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 14),
+    I15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_I, 15),
+#endif
+#ifdef GPIOJ
+    J0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 0),
+    J1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 1),
+    J2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 2),
+    J3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 3),
+    J4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 4),
+    J5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 5),
+    J6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 6),
+    J7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 7),
+    J8  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 8),
+    J9  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 9),
+    J10 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 10),
+    J11 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 11),
+    J12 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 12),
+    J13 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 13),
+    J14 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 14),
+    J15 = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_J, 15),
+#endif
+#ifdef GPIOK
+    K0  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 0),
+    K1  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 1),
+    K2  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 2),
+    K3  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 3),
+    K4  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 4),
+    K5  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 5),
+    K6  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 6),
+    K7  = MAKE_DIGITAL_PIN_ID(e_DigitalPortID_K, 7)
+#endif
 };
 
 static IFLASHD constexpr GPIO_Port_t* DigitalPortsRegisters[] =
 {
-	GPIOA,
-	GPIOB,
-	GPIOC,
-	GPIOD,
-	GPIOE,
-	GPIOF,
-	GPIOG,
-	GPIOH,
-	GPIOI,
-	GPIOJ,
-	GPIOK
+    GPIOA
+#ifdef GPIOB
+    ,GPIOB
+#endif
+#ifdef GPIOC
+    ,GPIOC
+#endif
+#ifdef GPIOD
+    ,GPIOD
+#endif
+#ifdef GPIOE
+    ,GPIOE
+#endif
+#ifdef GPIOF
+    ,GPIOF
+#endif
+#ifdef GPIOG
+    ,GPIOG
+#endif
+#ifdef GPIOH
+    ,GPIOH
+#endif
+#ifdef GPIOI
+    ,GPIOI
+#endif
+#ifdef GPIOJ
+    ,GPIOJ
+#endif
+#ifdef GPIOK
+    ,GPIOK
+#endif
 };
 
 
@@ -251,400 +302,27 @@ enum class DigitalPinPeripheralID : int
     AF1  = 1,
     AF2  = 2,
     AF3  = 3,
-	AF4  = 4,
-	AF5  = 5,
-	AF6  = 6,
-	AF7  = 7,
-	AF8  = 8,
-	AF9  = 9,
-	AF10 = 10,
-	AF11 = 11,
-	AF12 = 12,
-	AF13 = 13,
-	AF14 = 14,
-	AF15 = 15
+    AF4  = 4,
+    AF5  = 5,
+    AF6  = 6,
+    AF7  = 7,
+    AF8  = 8,
+    AF9  = 9,
+    AF10 = 10,
+    AF11 = 11,
+    AF12 = 12,
+    AF13 = 13,
+    AF14 = 14,
+    AF15 = 15
 };
 
 
 struct PinMuxTarget
 {
-	DigitalPinID           PINID;
-	DigitalPinPeripheralID MUX;
+    DigitalPinID           PINID;
+    DigitalPinPeripheralID MUX;
 };
 
-static IFLASHD constexpr PinMuxTarget	PINMUX_NONE = { DigitalPinID::None, DigitalPinPeripheralID::None };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM1_CH1_A8 = { DigitalPinID::A8, DigitalPinPeripheralID::AF1 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM2_CH1_A0  = { DigitalPinID::A0, DigitalPinPeripheralID::AF1 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM2_CH1_A5  = { DigitalPinID::A5, DigitalPinPeripheralID::AF1 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM2_CH1_A15 = { DigitalPinID::A15, DigitalPinPeripheralID::AF1 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM2_ETR_A0  = { DigitalPinID::A0, DigitalPinPeripheralID::AF1 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM2_ETR_A5  = { DigitalPinID::A5, DigitalPinPeripheralID::AF1 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM2_ETR_A15 = { DigitalPinID::A15, DigitalPinPeripheralID::AF1 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM3_CH1_A6  = { DigitalPinID::A6, DigitalPinPeripheralID::AF2 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM3_CH1_B4  = { DigitalPinID::B4, DigitalPinPeripheralID::AF2 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM3_CH1_C6  = { DigitalPinID::C6, DigitalPinPeripheralID::AF2 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM4_CH1_B6  = { DigitalPinID::B6, DigitalPinPeripheralID::AF2 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM4_CH1_D12 = { DigitalPinID::D12, DigitalPinPeripheralID::AF2 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM5_CH1_A0  = { DigitalPinID::A0, DigitalPinPeripheralID::AF2 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM5_CH1_H10 = { DigitalPinID::H10, DigitalPinPeripheralID::AF2 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM8_CH1_C6  = { DigitalPinID::C6, DigitalPinPeripheralID::AF3 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM8_CH1_I5  = { DigitalPinID::I5, DigitalPinPeripheralID::AF3 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM8_CH1_J8  = { DigitalPinID::J8, DigitalPinPeripheralID::AF3 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM8_CH1N_A7  = { DigitalPinID::A7, DigitalPinPeripheralID::AF3 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM15_CH1_E5 = { DigitalPinID::E5, DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_TIM17_CH1_B9 = { DigitalPinID::B9, DigitalPinPeripheralID::AF1 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_USART1_RX_PA10 = { DigitalPinID::A10, DigitalPinPeripheralID::AF7 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_USART1_RX_PB7  = { DigitalPinID::B7, DigitalPinPeripheralID::AF7 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_USART1_RX_PB15 = { DigitalPinID::B15, DigitalPinPeripheralID::AF4 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_USART1_TX_PA9 = { DigitalPinID::A9, DigitalPinPeripheralID::AF7 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_USART1_TX_PB6 = { DigitalPinID::B6, DigitalPinPeripheralID::AF7 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_USART2_RX_PD6 = { DigitalPinID::D6, DigitalPinPeripheralID::AF7 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_USART2_RX_PA3 = { DigitalPinID::A3, DigitalPinPeripheralID::AF7 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_USART2_TX_PD5 = { DigitalPinID::D5, DigitalPinPeripheralID::AF7 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_USART2_TX_PA2 = { DigitalPinID::A2, DigitalPinPeripheralID::AF7 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C1_SCL_PB6 = { DigitalPinID::B6, DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C1_SCL_PB8 = { DigitalPinID::B8, DigitalPinPeripheralID::AF4 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C1_SDA_PB7 = { DigitalPinID::B7, DigitalPinPeripheralID::AF4 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C2_SCL_PB10 = { DigitalPinID::B10, DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C2_SCL_PF1  = { DigitalPinID::F1,  DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C2_SCL_PH4  = { DigitalPinID::H4,  DigitalPinPeripheralID::AF4 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C2_SDA_PB11 = { DigitalPinID::B11, DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C2_SDA_PF0  = { DigitalPinID::F0,  DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C2_SDA_PH5  = { DigitalPinID::H5,  DigitalPinPeripheralID::AF4 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C2_SMBA_PB12 = { DigitalPinID::B12, DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C2_SMBA_PF2  = { DigitalPinID::F2,  DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C2_SMBA_PH6  = { DigitalPinID::H6,  DigitalPinPeripheralID::AF4 };
-
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SCL_PB6 = { DigitalPinID::B6, DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SCL_PB8 = { DigitalPinID::B8,  DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SCL_PD12 = { DigitalPinID::D12,  DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SCL_PF14 = { DigitalPinID::F14,  DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SCL_PH11 = { DigitalPinID::H11,  DigitalPinPeripheralID::AF4 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SDA_PB7 = { DigitalPinID::B7, DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SDA_PB9 = { DigitalPinID::B9,  DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SDA_PD13 = { DigitalPinID::D13,  DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SDA_PF15 = { DigitalPinID::F15,  DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SDA_PH12 = { DigitalPinID::H12,  DigitalPinPeripheralID::AF4 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SMBA_PB5 = { DigitalPinID::B5, DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SMBA_PD11 = { DigitalPinID::D11,  DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SMBA_PF13 = { DigitalPinID::F13,  DigitalPinPeripheralID::AF4 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2C4_SMBA_PH10 = { DigitalPinID::H10,  DigitalPinPeripheralID::AF4 };
-
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDNWE_PA7	= { DigitalPinID::A7,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDCKE1_PB5	= { DigitalPinID::B5,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDNE1_PB6	= { DigitalPinID::B6,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NL_PB7		= { DigitalPinID::B7,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDNWE_PC0	= { DigitalPinID::C0,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDNE0_PC2	= { DigitalPinID::C2,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDCKE0_PC3		= { DigitalPinID::C3,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDNE0_PC4	= { DigitalPinID::C4,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDCKE0_PC5	= { DigitalPinID::C5,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NWAIT_PC6	= { DigitalPinID::C6,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NE1_PC7		= { DigitalPinID::C7,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NE2_PC8		= { DigitalPinID::C8,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D2_PD0		= { DigitalPinID::D0,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D3_PD1		= { DigitalPinID::D1,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_CLK_PD3		= { DigitalPinID::D3,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NOE_PD4		= { DigitalPinID::D4,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NWE_PD5		= { DigitalPinID::D5,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NWAIT_PD6	= { DigitalPinID::D6,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NE1_PD7		= { DigitalPinID::D7,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D13_PD8		= { DigitalPinID::D8,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D14_PD9		= { DigitalPinID::D9,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D15_PD10		= { DigitalPinID::D10,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A16_PD11		= { DigitalPinID::D11,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A17_PD12		= { DigitalPinID::D12,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A18_PD13		= { DigitalPinID::D13,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D0_PD14		= { DigitalPinID::D14,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D1_PD15		= { DigitalPinID::D15,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NBL0_PE0		= { DigitalPinID::E0,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NBL1_PE1		= { DigitalPinID::E1,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A23_PE2		= { DigitalPinID::E2,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A19_PE3		= { DigitalPinID::E3,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A20_PE4		= { DigitalPinID::E4,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A21_PE5		= { DigitalPinID::E5,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A22_PE6		= { DigitalPinID::E6,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D4_PE7		= { DigitalPinID::E7,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D5_PE8		= { DigitalPinID::E8,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D6_PE9		= { DigitalPinID::E9,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D7_PE10		= { DigitalPinID::E10,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D8_PE11		= { DigitalPinID::E11,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D9_PE12		= { DigitalPinID::E12,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D10_PE13		= { DigitalPinID::E13,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D11_PE14		= { DigitalPinID::E14,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D12_PE15		= { DigitalPinID::E15,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A0_PF0		= { DigitalPinID::F0,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A1_PF1		= { DigitalPinID::F1,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A2_PF2		= { DigitalPinID::F2,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A3_PF3		= { DigitalPinID::F3,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A4_PF4		= { DigitalPinID::F4,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A5_PF5		= { DigitalPinID::F5,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDNRAS_PF11	= { DigitalPinID::F11,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A6_PF12		= { DigitalPinID::F12,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A7_PF13		= { DigitalPinID::F13,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A8_PF14		= { DigitalPinID::F14,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A9_PF15		= { DigitalPinID::F15,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A10_PG0		= { DigitalPinID::G0,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A11_PG1		= { DigitalPinID::G1,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A12_PG2		= { DigitalPinID::G2,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A13_PG3		= { DigitalPinID::G3,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A14_BA0_PG4	= { DigitalPinID::G4,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A15_BA1_PG5	= { DigitalPinID::G5,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NE3_PG6		= { DigitalPinID::G6,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_INT_PG7		= { DigitalPinID::G7,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDCLK_PG8	= { DigitalPinID::G8,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NE2_PG9		= { DigitalPinID::G9,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NE3_PG10		= { DigitalPinID::G10,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NE4_PG12		= { DigitalPinID::G12,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A24_PG13		= { DigitalPinID::G13,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_A25_PG14		= { DigitalPinID::G14,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDNCAS_PG15	= { DigitalPinID::G15,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDCKE0_PH2	= { DigitalPinID::H2,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDNE0_PH3	= { DigitalPinID::H3,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDNWE_PH5	= { DigitalPinID::H5,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDNE1_PH6	= { DigitalPinID::H6,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_SDCKE1_PH7	= { DigitalPinID::H7,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D16_PH8		= { DigitalPinID::H8,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D17_PH9		= { DigitalPinID::H9,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D18_PH10		= { DigitalPinID::H10,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D19_PH11		= { DigitalPinID::H11,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D20_PH12		= { DigitalPinID::H12,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D21_PH13		= { DigitalPinID::H13,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D22_PH14		= { DigitalPinID::H14,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D23_PH15		= { DigitalPinID::H15,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D24_PI0		= { DigitalPinID::I0,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D25_PI1		= { DigitalPinID::I1,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D26_PI2		= { DigitalPinID::I2,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D27_PI3		= { DigitalPinID::I3,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NBL2_PI4		= { DigitalPinID::I4,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_NBL3_PI5		= { DigitalPinID::I5,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D28_PI6		= { DigitalPinID::I6,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D29_PI7		= { DigitalPinID::I7,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D30_PI9		= { DigitalPinID::I9,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_FMC_D31_PI10		= { DigitalPinID::I10,	DigitalPinPeripheralID::AF12 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_D0_PC8	= { DigitalPinID::C8,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_D1_PC9	= { DigitalPinID::C9,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_D2_PC10	= { DigitalPinID::C10,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_D3_PC11	= { DigitalPinID::C11,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_D4_PB8	= { DigitalPinID::B8,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_D5_PB9	= { DigitalPinID::B9,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_D6_PC6	= { DigitalPinID::C6,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_D7_PC7	= { DigitalPinID::C7,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_CMD_PD2	= { DigitalPinID::D2,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_CK_PC12	= { DigitalPinID::C12,	DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_CKIN_PB8	= { DigitalPinID::B8,	DigitalPinPeripheralID::AF7 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_CDIR_PB9	= { DigitalPinID::B9,	DigitalPinPeripheralID::AF7 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_D0DIR_PC6	= { DigitalPinID::C6,	DigitalPinPeripheralID::AF8 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC1_D123DIR_PC7 = { DigitalPinID::C7,	DigitalPinPeripheralID::AF8 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_D0_PB14	= { DigitalPinID::B14,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_D1_PB15	= { DigitalPinID::B15,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_D2_PB3	= { DigitalPinID::B3,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_D2_PG11	= { DigitalPinID::G11,	DigitalPinPeripheralID::AF10 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_D3_PB4	= { DigitalPinID::B4,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_D4_PB8	= { DigitalPinID::B8,	DigitalPinPeripheralID::AF10 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_D5_PB9	= { DigitalPinID::B9,	DigitalPinPeripheralID::AF10 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_D6_PC6	= { DigitalPinID::C6,	DigitalPinPeripheralID::AF10 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_D7_PC7	= { DigitalPinID::C7,	DigitalPinPeripheralID::AF10 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_CMD_PA0	= { DigitalPinID::A0,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_CMD_PD7	= { DigitalPinID::D7,	DigitalPinPeripheralID::AF11 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_CK_PC1	= { DigitalPinID::C1,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SDMMC2_CK_PD6	= { DigitalPinID::D6,	DigitalPinPeripheralID::AF11 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_QUADSPI_BK1_D0_PF8   = { DigitalPinID::F8,	DigitalPinPeripheralID::AF10 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_QUADSPI_BK1_D1_PF9   = { DigitalPinID::F9,	DigitalPinPeripheralID::AF10 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_QUADSPI_BK1_D2_PF7   = { DigitalPinID::F7,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_QUADSPI_BK1_D3_PF6   = { DigitalPinID::F6,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_QUADSPI_BK1_CLK_PF10 = { DigitalPinID::F10,	DigitalPinPeripheralID::AF9 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_QUADSPI_BK1_NCS_PG6  = { DigitalPinID::G6,	DigitalPinPeripheralID::AF10 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_NSS_PA4		= { DigitalPinID::A4,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_WS_PA4		= { DigitalPinID::A4,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_SCK_PA5		= { DigitalPinID::A5,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_CK_PA5		= { DigitalPinID::A5,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_MISO_PA6	= { DigitalPinID::A6,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_SDI_PA6		= { DigitalPinID::A6,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_MOSI_PA7	= { DigitalPinID::A7,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_SDO_PA7		= { DigitalPinID::A7,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_NSS_PA15	= { DigitalPinID::A15,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_WS_PA15		= { DigitalPinID::A15,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_SCK_PB3		= { DigitalPinID::B3,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_CK_PB3		= { DigitalPinID::B3,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_MISO_PB4	= { DigitalPinID::B4,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_SDI_PB4		= { DigitalPinID::B4,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_MOSI_PB5	= { DigitalPinID::B5,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_SDO_PB5		= { DigitalPinID::B5,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_MOSI_PD7	= { DigitalPinID::D7,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_SDO_PD7		= { DigitalPinID::D7,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_MISO_PG9	= { DigitalPinID::G9,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_SDI_PG9		= { DigitalPinID::G9,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_NSS_PG10	= { DigitalPinID::G10,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_WS_PG10		= { DigitalPinID::G10,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI1_SCK_PG11	= { DigitalPinID::G11,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S1_CK_PG11		= { DigitalPinID::G11,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_SCK_PA9		= { DigitalPinID::A9,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_CK_PA9		= { DigitalPinID::A9,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_NSS_PA11	= { DigitalPinID::A11,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_WS_PA11		= { DigitalPinID::A11,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_SCK_PA12	= { DigitalPinID::A12,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_CK_PA12		= { DigitalPinID::A12,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_NSS_PB4		= { DigitalPinID::B4,		DigitalPinPeripheralID::AF7 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_WS_PB4		= { DigitalPinID::B4,		DigitalPinPeripheralID::AF7 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_NSS_PB9		= { DigitalPinID::B9,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_WS_PB9		= { DigitalPinID::B9,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_SCK_PB10	= { DigitalPinID::B10,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_CK_PB10		= { DigitalPinID::B10,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_NSS_PB12	= { DigitalPinID::B12,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_WS_PB12		= { DigitalPinID::B12,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_SCK_PB13	= { DigitalPinID::B13,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_CK_PB13		= { DigitalPinID::B13,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_MISO_PB14	= { DigitalPinID::B14,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_SDI_PB14	= { DigitalPinID::B14,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_MOSI_PB15	= { DigitalPinID::B15,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_SDO_PB15	= { DigitalPinID::B15,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_MOSI_PC1	= { DigitalPinID::C1,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_SDO_PC1		= { DigitalPinID::C1,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_MISO_PC2	= { DigitalPinID::C2,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_SDI_PC2		= { DigitalPinID::C2,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_MOSI_PC3	= { DigitalPinID::C3,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_SDO_PC3		= { DigitalPinID::C3,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_SCK_PD3		= { DigitalPinID::D3,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_CK_PD3		= { DigitalPinID::D3,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_NSS_PI0		= { DigitalPinID::I0,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_WS_PI0		={ DigitalPinID::I0,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_SCK_PI1		= { DigitalPinID::I1,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_CK_PI1		= { DigitalPinID::I1,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_MISO_PI2	= { DigitalPinID::I2,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_SDI_PI2		= { DigitalPinID::I2,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI2_MOSI_PI3	= { DigitalPinID::I3,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S2_SDO_PI3		= { DigitalPinID::I3,		DigitalPinPeripheralID::AF5 };
-
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI3_NSS_PA4		= { DigitalPinID::A4,		DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S3_WS_PA4		= { DigitalPinID::A4,		DigitalPinPeripheralID::AF6 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI3_NSS_PA15	= { DigitalPinID::A15,		DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S3_WS_PA15		= { DigitalPinID::A15,		DigitalPinPeripheralID::AF6 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI3_MOSI_PB2	= { DigitalPinID::B2,		DigitalPinPeripheralID::AF7 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S3_SDO_PB2		= { DigitalPinID::B2,		DigitalPinPeripheralID::AF7 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI3_SCK_PB3		= { DigitalPinID::B3,		DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S3_CK_PB3		= { DigitalPinID::B3,		DigitalPinPeripheralID::AF6 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI3_MISO_PB4	= { DigitalPinID::B4,		DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S3_SDI_PB4		= { DigitalPinID::B4,		DigitalPinPeripheralID::AF6 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI3_MOSI_PB5	= { DigitalPinID::B5,		DigitalPinPeripheralID::AF7 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S3_SDO_PB5		= { DigitalPinID::B5,		DigitalPinPeripheralID::AF7 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI3_SCK_PC10	= { DigitalPinID::C10,		DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S3_CK_PC10		= { DigitalPinID::C10,		DigitalPinPeripheralID::AF6 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI3_MISO_PC11	= { DigitalPinID::C11,		DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S3_SDI_PC11	= { DigitalPinID::C11,		DigitalPinPeripheralID::AF6 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI3_MOSI_PC12	= { DigitalPinID::C12,		DigitalPinPeripheralID::AF6 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S3_SDO_PC12	= { DigitalPinID::C12,		DigitalPinPeripheralID::AF6 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI3_MOSI_PD6	= { DigitalPinID::D6,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_I2S3_SDO_PD6		= { DigitalPinID::D6,		DigitalPinPeripheralID::AF5 };
-
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI4_SCK_PE2		= { DigitalPinID::E2,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI4_NSS_PE4		= { DigitalPinID::E4,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI4_MISO_PE5	= { DigitalPinID::E5,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI4_MOSI_PE6	= { DigitalPinID::E6,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI4_NSS_PE11	= { DigitalPinID::E11,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI4_SCK_PE12	= { DigitalPinID::E12,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI4_MISO_PE13	= { DigitalPinID::E13,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI4_MOSI_PE14	= { DigitalPinID::E14,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_NSS_PF6		= { DigitalPinID::F6,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_SCK_PF7		= { DigitalPinID::F7,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_MISO_PF8	= { DigitalPinID::F8,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_MOSI_PF9	= { DigitalPinID::F9,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_MOSI_PF11	= { DigitalPinID::F11,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_NSS_PH5		= { DigitalPinID::H5,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_SCK_PH6		= { DigitalPinID::H6,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_MISO_PH7	= { DigitalPinID::H7,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_MOSI_PJ10	= { DigitalPinID::J10,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_MISO_PJ11	= { DigitalPinID::J11,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_SCK_PK0		= { DigitalPinID::K0,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI5_NSS_PK1		= { DigitalPinID::K1,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_NSS_PA4		= { DigitalPinID::A4,		DigitalPinPeripheralID::AF8 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_SCK_PA5		= { DigitalPinID::A5,		DigitalPinPeripheralID::AF8 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_MISO_PA6	= { DigitalPinID::A6,		DigitalPinPeripheralID::AF8 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_MOSI_PA7	= { DigitalPinID::A7,		DigitalPinPeripheralID::AF8 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_NSS_PA15	= { DigitalPinID::A15,		DigitalPinPeripheralID::AF7 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_SCK_PB3		= { DigitalPinID::B3,		DigitalPinPeripheralID::AF8 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_MISO_PB4	= { DigitalPinID::B4,		DigitalPinPeripheralID::AF8 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_MOSI_PB5	= { DigitalPinID::B5,		DigitalPinPeripheralID::AF8 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_NSS_PG8		= { DigitalPinID::G8,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_MISO_PG12	= { DigitalPinID::G12,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_SCK_PG13	= { DigitalPinID::G13,		DigitalPinPeripheralID::AF5 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_SPI6_MOSI_PG14	= { DigitalPinID::G14,		DigitalPinPeripheralID::AF5 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_OTG_FS_ID_PA10   = { DigitalPinID::A10,		DigitalPinPeripheralID::AF10 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_OTG_FS_DM_PA11   = { DigitalPinID::A11,		DigitalPinPeripheralID::AF10 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_OTG_FS_DP_PA12   = { DigitalPinID::A12,		DigitalPinPeripheralID::AF10 };
-
-static IFLASHD constexpr PinMuxTarget	PINMUX_OTG1_HS_ID_PB12  = { DigitalPinID::B12,		DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_OTG1_HS_DM_PB14  = { DigitalPinID::B14,		DigitalPinPeripheralID::AF12 };
-static IFLASHD constexpr PinMuxTarget	PINMUX_OTG1_HS_DP_PB15  = { DigitalPinID::B15,		DigitalPinPeripheralID::AF12 };
 
 struct DigitalPort
 {
@@ -659,16 +337,16 @@ struct DigitalPort
 
     static inline void SetDirection(DigitalPortID portID, DigitalPinDirection_e direction, PortData_t pins)
     {
-    	GPIO_Port_t* port = GetPortRegs(portID);
+        GPIO_Port_t* port = GetPortRegs(portID);
         switch(direction)
         {
             case DigitalPinDirection_e::Analog:
-            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
-            	{
-            		if (j & pins) {
-            			port->MODER = port->MODER | (3 << i); // Mode 3: analog
-            		}
-            	}
+                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
+                {
+                    if (j & pins) {
+                        port->MODER = port->MODER | (3 << i); // Mode 3: analog
+                    }
+                }
                 break;
             case DigitalPinDirection_e::In:
                 for (uint32_t i = 0, j = 0x0001; j != 0; j <<= 1, i += 2)
@@ -679,21 +357,21 @@ struct DigitalPort
                 }
                 break;
             case DigitalPinDirection_e::Out:
-            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
-            	{
-            		if (j & pins) {
-            			port->MODER = (port->MODER & ~(3<<i)) | (1<<i); // Mode 1: output
-            		}
-            	}
+                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
+                {
+                    if (j & pins) {
+                        port->MODER = (port->MODER & ~(3<<i)) | (1<<i); // Mode 1: output
+                    }
+                }
                 port->OTYPER &= ~pins; // 0: push-pull
                 break;
             case DigitalPinDirection_e::OpenCollector:
-            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
-            	{
-            		if (j & pins) {
-            			port->MODER = (port->MODER & ~(3<<i)) | (1<<i); // Mode 1: output
-            		}
-            	}
+                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
+                {
+                    if (j & pins) {
+                        port->MODER = (port->MODER & ~(3<<i)) | (1<<i); // Mode 1: output
+                    }
+                }
                 port->OTYPER |= pins; // 1: open collector
                 break;
         }
@@ -701,12 +379,12 @@ struct DigitalPort
 
     static inline void SetDriveStrength(DigitalPortID portID, DigitalPinDriveStrength_e strength, PortData_t pins)
     {
-    	GPIO_Port_t* port = GetPortRegs(portID);
-    	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
-    		if (j & pins) {
-    			port->OSPEEDR = (port->OSPEEDR & ~(3<<i)) | (uint32_t(strength)<<i);
-    		}
-    	}
+        GPIO_Port_t* port = GetPortRegs(portID);
+        for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
+            if (j & pins) {
+                port->OSPEEDR = (port->OSPEEDR & ~(3<<i)) | (uint32_t(strength)<<i);
+            }
+        }
     }
 
     static inline void Set(DigitalPortID portID, PortData_t pins) { DigitalPortsRegisters[portID]->ODR = pins; }
@@ -719,72 +397,72 @@ struct DigitalPort
 
     static inline void SetPullMode(DigitalPortID portID, PinPullMode_e mode, PortData_t pins)
     {
-    	GPIO_Port_t* port = GetPortRegs(portID);
+        GPIO_Port_t* port = GetPortRegs(portID);
         switch(mode)
         {
             case PinPullMode_e::None:
-            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
-            		if (j & pins) {
-            			port->PUPDR = (port->PUPDR & ~(3<<i)) | (0<<i); // 0: no pull
-            		}
-            	}
+                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
+                    if (j & pins) {
+                        port->PUPDR = (port->PUPDR & ~(3<<i)) | (0<<i); // 0: no pull
+                    }
+                }
                 break;
             case PinPullMode_e::Down:
-            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
-            		if (j & pins) {
-            			port->PUPDR = (port->PUPDR & ~(3<<i)) | (2<<i); // 2: pull down
-            		}
-            	}
+                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
+                    if (j & pins) {
+                        port->PUPDR = (port->PUPDR & ~(3<<i)) | (2<<i); // 2: pull down
+                    }
+                }
                 break;
             case PinPullMode_e::Up:
-            	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
-            		if (j & pins) {
-            			port->PUPDR = (port->PUPDR & ~(3<<i)) | (1<<i); // 1: pull up
-            		}
-            	}
+                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
+                    if (j & pins) {
+                        port->PUPDR = (port->PUPDR & ~(3<<i)) | (1<<i); // 1: pull up
+                    }
+                }
                 break;
         }
     }
 
     static inline void SetPeripheralMux(DigitalPortID portID, PortData_t pins, DigitalPinPeripheralID peripheral)
     {
-    	GPIO_Port_t* port = GetPortRegs(portID);
+        GPIO_Port_t* port = GetPortRegs(portID);
         if (peripheral == DigitalPinPeripheralID::None)
         {
-        	for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
-			{
-        		if (j & pins) {
-        			port->MODER = (port->MODER & ~(3<<i)) | (3<<i); // Mode 3: analog (reset state)
-        		}
-        	}
+            for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
+            {
+                if (j & pins) {
+                    port->MODER = (port->MODER & ~(3<<i)) | (3<<i); // Mode 3: analog (reset state)
+                }
+            }
         }
         else
         {
-        	uint32_t value = uint32_t(peripheral) & 0xf;
-        	uint32_t valueMask = 0xf;
+            uint32_t value = uint32_t(peripheral) & 0xf;
+            uint32_t valueMask = 0xf;
 
-        	int modeBitPos = 0;
-        	for (uint32_t pinsL = pins & 0xff; pinsL != 0; pinsL >>= 1, value <<= 4, valueMask <<= 4)
-        	{
-        		if (pinsL & 0x01)
-        		{
-        			set_bit_group(port->AFR[0], valueMask, value);
-        			set_bit_group(port->MODER, 3<<modeBitPos, 2<<modeBitPos); // Mode 2: alternate function
-        		}
-        		modeBitPos += 2;
-        	}
-        	modeBitPos = 2*8;
-        	value = uint32_t(peripheral) & 0xf;
-        	valueMask = 0xf;
-        	for (uint32_t pinsH = (pins >> 8) & 0xff; pinsH != 0; pinsH >>= 1, value <<= 4, valueMask <<= 4)
-        	{
-        		if (pinsH & 0x01)
-        		{
-        			set_bit_group(port->AFR[1], valueMask, value);
-        			set_bit_group(port->MODER, 3<<modeBitPos, 2<<modeBitPos); // Mode 2: alternate function
-        		}
-        		modeBitPos += 2;
-        	}
+            int modeBitPos = 0;
+            for (uint32_t pinsL = pins & 0xff; pinsL != 0; pinsL >>= 1, value <<= 4, valueMask <<= 4)
+            {
+                if (pinsL & 0x01)
+                {
+                    set_bit_group(port->AFR[0], valueMask, value);
+                    set_bit_group(port->MODER, 3<<modeBitPos, 2<<modeBitPos); // Mode 2: alternate function
+                }
+                modeBitPos += 2;
+            }
+            modeBitPos = 2*8;
+            value = uint32_t(peripheral) & 0xf;
+            valueMask = 0xf;
+            for (uint32_t pinsH = (pins >> 8) & 0xff; pinsH != 0; pinsH >>= 1, value <<= 4, valueMask <<= 4)
+            {
+                if (pinsH & 0x01)
+                {
+                    set_bit_group(port->AFR[1], valueMask, value);
+                    set_bit_group(port->MODER, 3<<modeBitPos, 2<<modeBitPos); // Mode 2: alternate function
+                }
+                modeBitPos += 2;
+            }
         }
     }
     IFLASHC void inline SetPeripheralMux(PortData_t pins, DigitalPinPeripheralID peripheral) { SetPeripheralMux(m_Port, pins, peripheral); }
@@ -813,8 +491,8 @@ class DigitalPin
 {
 public:
     inline DigitalPin() : m_PinID(DigitalPinID::None), m_Port(e_DigitalPortID_None), m_PinMask(0) { }
-	inline DigitalPin(DigitalPinID pinID) : m_PinID(pinID), m_Port(DIGITAL_PIN_ID_PORT(pinID)), m_PinMask((pinID != DigitalPinID::None) ? BIT32(DIGITAL_PIN_ID_PIN(pinID), 1) : 0) { }
-	inline DigitalPin(DigitalPortID port, int pin) : m_PinID(DigitalPinID(MAKE_DIGITAL_PIN_ID(port, pin))), m_Port(port), m_PinMask(BIT32(pin, 1)) { }
+    inline DigitalPin(DigitalPinID pinID) : m_PinID(pinID), m_Port(DIGITAL_PIN_ID_PORT(pinID)), m_PinMask((pinID != DigitalPinID::None) ? BIT32(DIGITAL_PIN_ID_PIN(pinID), 1) : 0) { }
+    inline DigitalPin(DigitalPortID port, int pin) : m_PinID(DigitalPinID(MAKE_DIGITAL_PIN_ID(port, pin))), m_Port(port), m_PinMask(BIT32(pin, 1)) { }
     
     inline void Set(DigitalPortID port, int pin)  { m_Port = port; m_PinMask = BIT32(pin, 1); }
     inline void Set(DigitalPinID pinID)
@@ -838,34 +516,74 @@ public:
     inline void EnableInterrupts() { EXTI->IMR1 |= m_PinMask; }
     inline void DisableInterrupts() { EXTI->IMR1 &= ~m_PinMask; }
     inline void SetInterruptMode(PinInterruptMode_e mode)
-	{
-		int pinIndex = DIGITAL_PIN_ID_PIN(m_PinID);
+    {
+        int pinIndex = DIGITAL_PIN_ID_PIN(m_PinID);
 
-		if (mode == PinInterruptMode_e::FallingEdge || mode == PinInterruptMode_e::BothEdges) {
-			EXTI->FTSR1 |= m_PinMask; // EXTI1 falling edge enabled.
-		} else {
-			EXTI->FTSR1 &= ~m_PinMask; // EXTI1 falling edge enabled.
-		}
-		if (mode == PinInterruptMode_e::RisingEdge || mode == PinInterruptMode_e::BothEdges) {
-			EXTI->RTSR1 |= m_PinMask; // EXTI1 rising edge enabled.
-		} else {
-			EXTI->RTSR1 &= ~m_PinMask; // EXTI1 rising edge enabled.
-		}
-		if (mode != PinInterruptMode_e::None)
-		{
-			int portIndex = DIGITAL_PIN_ID_PORT(m_PinID);
-			uint32_t regIndex = pinIndex >> 2;
-			uint32_t groupPos = (pinIndex & 0x03) * 4;
-			uint32_t mask = 0x000f << groupPos;
-			SYSCFG->EXTICR[regIndex] = (SYSCFG->EXTICR[regIndex] & ~mask) | (portIndex << groupPos); // Route signals from this port to EXTI.
-		}
-	}
+        if (mode == PinInterruptMode_e::FallingEdge || mode == PinInterruptMode_e::BothEdges) {
+            EXTI->FTSR1 |= m_PinMask; // EXTI1 falling edge enabled.
+        } else {
+            EXTI->FTSR1 &= ~m_PinMask; // EXTI1 falling edge enabled.
+        }
+        if (mode == PinInterruptMode_e::RisingEdge || mode == PinInterruptMode_e::BothEdges) {
+            EXTI->RTSR1 |= m_PinMask; // EXTI1 rising edge enabled.
+        } else {
+            EXTI->RTSR1 &= ~m_PinMask; // EXTI1 rising edge enabled.
+        }
+        if (mode != PinInterruptMode_e::None)
+        {
+            int portIndex = DIGITAL_PIN_ID_PORT(m_PinID);
+            uint32_t regIndex = pinIndex >> 2;
+            uint32_t groupPos = (pinIndex & 0x03) * 4;
+            uint32_t mask = 0x000f << groupPos;
+#if defined(STM32H7)
+            SYSCFG->EXTICR[regIndex] = (SYSCFG->EXTICR[regIndex] & ~mask) | (portIndex << groupPos); // Route signals from this port to EXTI.
+#elif defined(STM32G0)
+            EXTI->EXTICR[regIndex] = (EXTI->EXTICR[regIndex] & ~mask) | (portIndex << groupPos); // Route signals from this port to EXTI.
+#else
+#error Unknown platform.
+#endif
+        }
+    }
+#if defined(STM32H7)
     inline bool GetAndClearInterruptStatus()
-	{
-		bool flag = (EXTI->PR1 & m_PinMask) != 0;
-		EXTI->PR1 = m_PinMask;
-		return flag;
-	}
+    {
+        bool flag = (EXTI->PR1 & m_PinMask) != 0;
+        EXTI->PR1 = m_PinMask;
+        return flag;
+    }
+#elif defined(STM32G0)
+    inline bool GetAndClearInterruptStatus(PinInterruptMode_e mode)
+    {
+        switch (mode)
+        {
+            case PinInterruptMode_e::None:
+                return false;
+                break;
+            case PinInterruptMode_e::BothEdges:
+            {
+                const bool flag = ((EXTI->RPR1 | EXTI->FPR1) & m_PinMask) != 0;
+                EXTI->RPR1 = m_PinMask;
+                EXTI->FPR1 = m_PinMask;
+                return flag;
+            }
+            case PinInterruptMode_e::FallingEdge:
+            {
+                const bool flag = (EXTI->FPR1 & m_PinMask) != 0;
+                EXTI->FPR1 = m_PinMask;
+                return flag;
+            }
+            case PinInterruptMode_e::RisingEdge:
+            {
+                const bool flag = (EXTI->RPR1 & m_PinMask) != 0;
+                EXTI->RPR1 = m_PinMask;
+                return flag;
+            }
+        }
+        return false;
+    }
+#else
+#error Unknown platform.
+#endif
 
     inline void Write(bool value) {if (value) m_Port.SetHigh(m_PinMask); else m_Port.SetLow(m_PinMask); }
     inline bool Read() const { return (m_Port.Get() & m_PinMask) != 0; }
@@ -876,7 +594,7 @@ public:
     inline DigitalPin& operator=(bool value) { Write(value); return *this; }
 
 private:
-	DigitalPinID	m_PinID;
-	DigitalPort		m_Port;
-    uint32_t		m_PinMask;
+    DigitalPinID    m_PinID;
+    DigitalPort     m_Port;
+    uint32_t        m_PinMask;
 };

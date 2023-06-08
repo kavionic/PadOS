@@ -16,6 +16,8 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef STM32H7
+
 #include "Kernel/HAL/STM32/DMA_STM32.h"
 
 #include "Kernel/KMutex.h"
@@ -205,3 +207,5 @@ IFLASHC void dma_stop(int channel)
 
 
 } // namespace
+
+#endif // STM32H7

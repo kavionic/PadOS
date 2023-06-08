@@ -60,9 +60,6 @@ I2CDriverINode::I2CDriverINode(I2CDriver* driver
 
     m_Port = get_i2c_from_id(portID);
 
-    IRQn_Type eventIRQ = get_i2c_irq(portID, I2CIRQType::Event);
-    IRQn_Type errorIRQ = get_i2c_irq(portID, I2CIRQType::Error);
-
 	DigitalPin clockPin(m_ClockPin.PINID);
 	DigitalPin dataPin(m_DataPin.PINID);
 
@@ -75,8 +72,18 @@ I2CDriverINode::I2CDriverINode(I2CDriver* driver
 	clockPin.SetPullMode(PinPullMode_e::Up);
 	dataPin.SetPullMode(PinPullMode_e::Up);
 
+#if defined(STM32H7)
+    const IRQn_Type eventIRQ = get_i2c_irq(portID, I2CIRQType::Event);
+    const IRQn_Type errorIRQ = get_i2c_irq(portID, I2CIRQType::Error);
+
 	kernel::register_irq_handler(eventIRQ, IRQCallbackEvent, this);
 	kernel::register_irq_handler(errorIRQ, IRQCallbackError, this);
+#elif defined(STM32G0)
+    const IRQn_Type portIRQ = get_i2c_irq(portID);
+    kernel::register_irq_handler(portIRQ, IRQCallbackEvent, this);
+#else
+#error Unknown platform.
+#endif
 
 	SetSpeed(I2CSpeed::Fast);
 

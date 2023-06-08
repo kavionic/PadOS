@@ -221,6 +221,7 @@ static IFLASHC void start_first_thread()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+#if defined(STM32H7)
 extern "C" IFLASHC void PendSV_Handler(void)
 {
     __asm volatile
@@ -247,6 +248,29 @@ extern "C" IFLASHC void PendSV_Handler(void)
     "    bx lr\n"
     );
 }
+#elif defined(STM32G030xx)
+
+extern "C" IFLASHC void PendSV_Handler(void)
+{
+    __asm volatile
+    (
+        "    mrs r0, psp\n"
+        "    isb\n"                     // Flush instruction pipeline.
+        ""
+        "    stmea r0!, {r4-r7}\n" // Push high core registers.
+        ""
+        "    bl select_thread\n"        // Ask the scheduler to find the next thread to run and update gk_CurrentThread.
+        ""
+        "    ldmia r0!, {r4-r7}\n" // Pop high core registers.
+        ""
+        "    msr psp, r0\n"
+        "    isb\n"                     // Flush instruction pipeline.
+        "    bx lr\n"
+        );
+}
+#else
+#error Unknown platform.
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -666,6 +690,7 @@ IFLASHC status_t snooze_s(bigtime_t seconds)
 
 IFLASHC IRQEnableState kernel::get_interrupt_enabled_state()
 {
+#if defined(STM32H7)
     uint32_t basePri = __get_BASEPRI();
     if (basePri == 0) {
         return IRQEnableState::Enabled;
@@ -673,7 +698,12 @@ IFLASHC IRQEnableState kernel::get_interrupt_enabled_state()
         return IRQEnableState::NormalLatencyDisabled;
     } else {
         return IRQEnableState::LowLatencyDisabled;
-    }        
+    }
+#elif defined(STM32G030xx)
+    return __get_PRIMASK() ? IRQEnableState::Disabled : IRQEnableState::Enabled;
+#else
+#error Unknown platform.
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -683,12 +713,18 @@ IFLASHC IRQEnableState kernel::get_interrupt_enabled_state()
 IFLASHC void kernel::set_interrupt_enabled_state(IRQEnableState state)
 {
     __disable_irq();
+#if defined(STM32H7)
     switch(state)
     {
         case IRQEnableState::Enabled:               __set_BASEPRI(0); break;
         case IRQEnableState::NormalLatencyDisabled: __set_BASEPRI(KIRQ_PRI_NORMAL_LATENCY_MAX << (8-__NVIC_PRIO_BITS)); break;
         case IRQEnableState::LowLatencyDisabled:    __set_BASEPRI(KIRQ_PRI_LOW_LATENCY_MAX << (8-__NVIC_PRIO_BITS)); break;
     }
+#elif defined(STM32G030xx)
+    __set_PRIMASK((state == IRQEnableState::Enabled) ? 0 : 1);
+#else
+#error Unknown platform.
+#endif
     __DSB();
     __ISB();
     __enable_irq();    
@@ -700,19 +736,30 @@ IFLASHC void kernel::set_interrupt_enabled_state(IRQEnableState state)
 
 IFLASHC uint32_t kernel::disable_interrupts()
 {
-    uint32_t oldState = __get_BASEPRI();
+#if defined(STM32H7)
     __disable_irq();
+    uint32_t oldState = __get_BASEPRI();
     __set_BASEPRI(KIRQ_PRI_NORMAL_LATENCY_MAX << (8-__NVIC_PRIO_BITS));
     __DSB();
     __ISB();
     __enable_irq();
     return oldState;
+#elif defined(STM32G030xx)
+    __disable_irq();
+    const uint32_t oldState = __get_PRIMASK();
+    __set_PRIMASK(1);
+    __enable_irq();
+    return oldState;
+#else
+#error Unknown platform.
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+#if defined(STM32H7)
 IFLASHC uint32_t kernel::KDisableLowLatenctInterrupts()
 {
     uint32_t oldState = __get_BASEPRI();
@@ -723,6 +770,7 @@ IFLASHC uint32_t kernel::KDisableLowLatenctInterrupts()
     __enable_irq();
     return oldState;
 }
+#endif // defined(STM32H7)
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -731,7 +779,13 @@ IFLASHC uint32_t kernel::KDisableLowLatenctInterrupts()
 IFLASHC void kernel::restore_interrupts(uint32_t state)
 {
     __disable_irq();
+#if defined(STM32H7)
     __set_BASEPRI(state);
+#elif defined(STM32G030xx)
+#else
+    __set_PRIMASK(state);
+#error Unknown platform.
+#endif
     __enable_irq();
 }
 
@@ -832,7 +886,13 @@ IFLASHC void kernel::start_scheduler(uint32_t coreFrequency, size_t mainThreadSt
     gk_InitThread = ptr_raw_pointer_cast(get_thread(initThreadHandle));
 
 
+#if defined(STM32H7)
     __set_BASEPRI(0);
+#elif defined(STM32G030xx)
+    __set_PRIMASK(0);
+#else
+#error Unknown platform.
+#endif
     __DSB();
     __ISB();
 

@@ -19,6 +19,8 @@
 
 #pragma once
 
+#ifdef STM32H7
+
 #include <Utils/Utils.h>
 
 
@@ -455,3 +457,4 @@ private:
 };
 
 
+#endif // STM32H7

@@ -78,15 +78,23 @@ void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize);
 enum class IRQEnableState
 {
     Enabled,
+#if defined(STM32H7)
     NormalLatencyDisabled,
     LowLatencyDisabled,
+#elif defined(STM32G0)
+    Disabled
+#else
+#error Unknown platform.
+#endif
 };
 
 IRQEnableState get_interrupt_enabled_state();
 void           set_interrupt_enabled_state(IRQEnableState state);
 
 uint32_t disable_interrupts();
+#if defined(STM32H7)
 uint32_t KDisableLowLatenctInterrupts();
+#endif // defined(STM32H7)
 
 void restore_interrupts(uint32_t state);
 

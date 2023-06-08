@@ -1,4 +1,4 @@
-target_sources(PadOS_Kernel PRIVATE
+target_sources(PadOS_Drivers_USB PRIVATE
 	USBClientControl.cpp
 	USBCommon.cpp
 	USBDevice.cpp

@@ -1,3 +1,3 @@
-target_sources(PadOS_Kernel PRIVATE
+target_sources(PadOS_Drivers_SDMMC PRIVATE
 	SDMMCDriver.cpp
 )

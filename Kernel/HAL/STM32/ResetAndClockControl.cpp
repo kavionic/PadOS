@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 14.04.2022 15:30
 
+#ifdef STM32H7
+
 #include <stm32h7xx.h>
 
 #include "Kernel/HAL/STM32/ResetAndClockControl.h"
@@ -495,3 +497,5 @@ template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI4BSEL>()    { re
 template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_ADCSEL>()      { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_ADCSEL_Msk,         RCC_D3CCIPR_ADCSEL_Pos); }
 template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI6SEL>()     { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SPI6SEL_Msk,        RCC_D3CCIPR_SPI6SEL_Pos); }
 template<> IFLASHC ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_RTCSEL>()      { return ClockMuxInfo(&RCC->BDCR,       RCC_BDCR_RTCSEL_Msk,            RCC_BDCR_RTCSEL_Pos); }
+
+#endif // STM32H7

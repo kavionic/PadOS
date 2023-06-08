@@ -21,7 +21,7 @@
 
 #if defined(__SAME70Q21__)
 #include "component/supc.h"
-#elif defined(STM32H7)
+#elif defined(STM32H7) || defined(STM32G0)
 #else
 #error Unknown platform
 #endif
@@ -88,7 +88,7 @@ void KPowerManager::Initialize(MCU_Timer16_t* timerChannel, const DigitalPin& pi
 
 //    SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_POWER_SW_TIMER].TC_CCR = TC_CCR_CLKEN_Msk;
 //    SYSTEM_TIMER->TC_CHANNEL[SYSTEM_TIMER_POWER_SW_TIMER].TC_CCR = TC_CCR_SWTRG_Msk;
-#elif defined(STM32H7)
+#elif defined(STM32H7) || defined(STM32G0)
 #else
 #error Unknown platform
 #endif
@@ -113,7 +113,7 @@ void KPowerManager::Shutdown()
     SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
     SUPC->SUPC_CR = SUPC_CR_KEY_PASSWD | SUPC_CR_VROFF_Msk;
     __WFE();
-#elif defined(STM32H7)
+#elif defined(STM32H7) || defined(STM32G0)
 #else
 #error Unknown platform
 #endif
@@ -231,7 +231,7 @@ IRQResult KPowerManager::HandleTimerIRQ()
 	return IRQResult::HANDLED;
 }
 
-#elif defined(STM32H7)
+#elif defined(STM32H7) || defined(STM32G0)
 #else
 #error Unknown platform
 #endif

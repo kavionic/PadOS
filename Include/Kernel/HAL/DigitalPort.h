@@ -36,11 +36,11 @@ enum class PinPullMode_e
 enum class DigitalPinDriveStrength_e
 {
     Low,
-#if defined(STM32H7)
+#if defined(STM32H7) || defined(STM32G0)
 	Medium,
 #endif
     High,
-#if defined(STM32H7)
+#if defined(STM32H7) || defined(STM32G0)
 	VeryHigh
 #endif
 };
@@ -60,7 +60,7 @@ enum class PinInterruptMode_e
 
 #if defined(__SAME70Q21__)
 #include "DigitalPort_ATSAM.h"
-#elif defined(STM32H7)
+#elif defined(STM32H7) || defined(STM32G0)
 #include "DigitalPort_STM32.h"
 #else
 #error Unknown platform

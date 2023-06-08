@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Kernel/HAL/DigitalPort.h"
+#include <stdint.h>
+#include <Kernel/HAL/DigitalPort.h>
 
 namespace kernel
 {
@@ -36,7 +37,6 @@ enum class HWTimerIRQType : int
     Trigger,
     Commutation,
     CaptureCompare
-
 };
 
 enum class USARTID : int

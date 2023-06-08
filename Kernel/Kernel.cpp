@@ -144,26 +144,31 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
     SUPC->SUPC_WUIR = SUPC_WUIR_WKUPEN9_Msk;
     
     WDT->WDT_MR = WDT_MR_WDDIS;
-#elif defined(STM32H7)
+#elif defined(STM32H7) || defined(STM32G0)
 #else
 #error Unknown platform
 #endif
 
+#if defined(STM32H7)
     // FPU:
     __DSB();
     SCB->CPACR |= 0xF << 20; // Full access to CP10 & CP 11
     FPU->FPCCR |= FPU_FPCCR_ASPEN_Msk | // Enable CONTROL.FPCA setting on execution of a floating-point instruction.
                   FPU_FPCCR_LSPEN_Msk;  // Enable automatic lazy state preservation for floating-point context.
+#endif // defined(STM32H7)
     __DSB();
     __ISB();
        
+#if defined(STM32H7)
     SCB_InvalidateDCache();
     SCB_EnableDCache();
     SCB_InvalidateICache();
     SCB_EnableICache();
+#endif // defined(STM32H7)
+
 #if defined(__SAME70Q21__)
     SAME70System::SetupClock(frequencyCrystal, frequencyCore, frequencyPeripheral);
-#elif defined(STM32H7)
+#elif defined(STM32H7) || defined(STM32G0)
 #else
 #error Unknown platform
 #endif
@@ -175,17 +180,6 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
 
 void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/)
 {
-    ITM_SendChar('a');
-    ITM_SendChar('a');
-    ITM_SendChar('a');
-    ITM_SendChar('a');
-    ITM_SendChar('\n');
-    ITM_SendChar(0);
-  
-//    RGBLED_R.Write(false);
-//    RGBLED_G.Write(false);
-//    RGBLED_B.Write(false);
-    
     ResetWatchdog();
 
 	REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_General,    KLogSeverity::INFO_HIGH_VOL);

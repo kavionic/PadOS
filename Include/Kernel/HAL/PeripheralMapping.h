@@ -20,7 +20,9 @@
 #pragma once
 
 #if defined(STM32H7)
-#include "STM32/PeripheralMapping_STM32.h"
+#include "STM32/PeripheralMapping_STM32H7.h"
+#elif defined(STM32G0)
+#include "STM32/PeripheralMapping_STM32G030xx.h"
 #else
-#error Unknown platform
+#error Unknown platform.
 #endif

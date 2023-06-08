@@ -18,6 +18,8 @@
 // Created: 14.05.2022 16:30
 
 #pragma once
+#include <stdint.h>
+#include <Kernel/HAL/DigitalPort.h>
 
 namespace kernel
 {

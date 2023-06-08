@@ -17,11 +17,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 02.04.2022 20:25
 
+#ifdef STM32H7
+
 #include <string.h>
 
-#include "Kernel/HAL/DigitalPort.h"
-#include "Kernel/HAL/PeripheralMapping.h"
-#include "../../../Include/Kernel/HAL/STM32/DMARequestID.h"
+#include <Kernel/HAL/DigitalPort.h>
+#include <Kernel/HAL/PeripheralMapping.h>
+#include <Kernel/HAL/STM32/DMARequestID.h>
 
 namespace kernel
 {
@@ -758,3 +760,5 @@ IRQn_Type get_adc_irq(ADC_ID id)
 }
 
 } // namespace kernel
+
+#endif // STM32H7

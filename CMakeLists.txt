@@ -12,8 +12,6 @@ include_directories(. Include ExternalLibs)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_compile_definitions(STM32H7 STM32H753xx ARM_MATH_CM7=true __machine_ino_t_defined __ino_t=int64_t)
-
 set(PADOS_C_CXX_FLAGS "-Wall -Wextra -Wconversion -Wno-unused-parameter -Wno-multichar -Wno-sign-compare")
 set(PADOS_C_CXX_FLAGS "${PADOS_C_CXX_FLAGS} -Wno-psabi") # Supress STL warnings
 
@@ -30,6 +28,21 @@ add_library(PadOS_IO)
 add_library(PadOS_GUI)
 add_library(PadOS_ApplicationServer)
 add_library(PadOS_WindowManager)
+
+add_library(PadOS_Drivers_SDMMC EXCLUDE_FROM_ALL)
+add_library(PadOS_Drivers_FT5x0x EXCLUDE_FROM_ALL)
+add_library(PadOS_Drivers_GSLx680 EXCLUDE_FROM_ALL)
+add_library(PadOS_Drivers_ADC EXCLUDE_FROM_ALL)
+add_library(PadOS_Drivers_QSPI EXCLUDE_FROM_ALL)
+add_library(PadOS_Drivers_SDRAM EXCLUDE_FROM_ALL)
+add_library(PadOS_Drivers_USB EXCLUDE_FROM_ALL)
+add_library(PadOS_Drivers_RealtimeClock EXCLUDE_FROM_ALL)
+add_library(PadOS_Drivers_I2C EXCLUDE_FROM_ALL)
+
+add_library(PadOS_Drivers_TLV493 EXCLUDE_FROM_ALL)
+add_library(PadOS_Drivers_USART EXCLUDE_FROM_ALL)
+add_library(PadOS_Drivers_WS2812B EXCLUDE_FROM_ALL)
+
 
 
 target_sources(PadOS_Kernel PRIVATE

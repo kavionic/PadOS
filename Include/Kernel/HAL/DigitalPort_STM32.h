@@ -19,8 +19,8 @@
 #pragma once
 
 #include <atomic>
-
-#include "Utils/Utils.h"
+#include <System/Platform.h>
+#include <Utils/Utils.h>
 
 enum DigitalPortID
 {

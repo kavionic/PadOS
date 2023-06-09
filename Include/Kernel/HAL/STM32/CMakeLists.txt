@@ -5,6 +5,9 @@ target_sources(PadOS_Kernel PRIVATE
 	PeripheralMapping_STM32H7.h
 	Peripherals_STM32H7.h
 	PiezoBuzzer_STM32.h
+	PinMuxTarget_STM32.h
+	PinMuxTarget_STM32G030xx.h
+	PinMuxTarget_STM32H7.h
 	RealtimeClock.h
 	ResetAndClockControl.h
 )

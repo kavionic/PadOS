@@ -19,9 +19,9 @@
 #pragma once
 
 #if defined(STM32H7)
-#include <PinMuxTarget_STM32H7.h>
+#include <Kernel/HAL/STM32/PinMuxTarget_STM32H7.h>
 #elif defined(STM32G0)
-#include <PinMuxTarget_STM32G030xx.h>
+#include <Kernel/HAL/STM32/PinMuxTarget_STM32G030xx.h>
 #else
 #error Unknown platform.
 #endif

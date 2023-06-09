@@ -49,10 +49,11 @@ typedef Pio		  GPIO_Port_t
 
 #include <cmsis_compiler.h>
 
-typedef TIM_TypeDef MCU_Timer16_t;
-typedef GPIO_TypeDef GPIO_Port_t;
 #else
 #error Unknown platform
 #endif
+
+typedef TIM_TypeDef MCU_Timer16_t;
+typedef GPIO_TypeDef GPIO_Port_t;
 
 #define ATTR_PACKED __attribute__ ((packed))

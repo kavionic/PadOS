@@ -219,7 +219,7 @@ ssize_t WS2812BDriverINode::Write(Ptr<KFileNode> file, off64_t position, const v
     m_State = State::Sending;
 
     const uint32_t bytesToSend = (m_LEDCount * 3 * 3 + RESET_BYTE_COUNT + 3) & ~3;
-    dma_setup(m_SendDMAChannel, DMAMode::MemToPeriph, m_DMARequestTX, &m_Port->TXDR, m_TransmitBuffer, bytesToSend);
+    dma_setup(m_SendDMAChannel, DMADirection::MemToPeriph, m_DMARequestTX, &m_Port->TXDR, m_TransmitBuffer, bytesToSend);
     dma_start(m_SendDMAChannel);
     m_Port->CR1 |= SPI_CR1_CSTART;
 

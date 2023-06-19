@@ -30,6 +30,7 @@ add_library(PadOS_ApplicationServer)
 add_library(PadOS_WindowManager)
 
 add_library(PadOS_Drivers_SDMMC EXCLUDE_FROM_ALL)
+add_library(PadOS_Drivers_SPI EXCLUDE_FROM_ALL)
 add_library(PadOS_Drivers_FT5x0x EXCLUDE_FROM_ALL)
 add_library(PadOS_Drivers_GSLx680 EXCLUDE_FROM_ALL)
 add_library(PadOS_Drivers_ADC EXCLUDE_FROM_ALL)

@@ -6,6 +6,10 @@ target_sources(PadOS_Drivers_SDMMC PRIVATE
 	SDMMCDriver_STM32.cpp
 )
 
+target_sources(PadOS_Drivers_SPI PRIVATE
+	SPIDriver.cpp
+)
+
 target_sources(PadOS_Drivers_TLV493 PRIVATE
 	TLV493DDriver.cpp
 )

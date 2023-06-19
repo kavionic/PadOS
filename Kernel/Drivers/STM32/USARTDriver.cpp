@@ -80,7 +80,7 @@ USARTDriverINode::USARTDriverINode( USARTID      portID,
         kernel::register_irq_handler(irq, IRQCallbackReceive, this);
 
         m_PendingReceiveBytes = m_ReceiveBufferSize;
-        dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
+        dma_setup(m_ReceiveDMAChannel, DMADirection::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
         dma_start(m_ReceiveDMAChannel);
     }
     if (m_SendDMAChannel != -1)
@@ -146,7 +146,7 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
         m_Port->ICR = USART_ICR_TCCF;
 
         dma_stop(m_SendDMAChannel);
-        dma_setup(m_SendDMAChannel, DMAMode::MemToPeriph, m_DMARequestTX, &m_Port->TDR, currentTarget, currentLen);
+        dma_setup(m_SendDMAChannel, DMADirection::MemToPeriph, m_DMARequestTX, &m_Port->TDR, currentTarget, currentLen);
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             dma_start(m_SendDMAChannel);
@@ -460,7 +460,7 @@ void USARTDriverINode::SetSwapRXTX(bool doSwap)
             m_ReceiveBufferOutPos = 0;
             m_ReceiveBytesInBuffer = 0;
             m_PendingReceiveBytes = m_ReceiveBufferSize;
-            dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
+            dma_setup(m_ReceiveDMAChannel, DMADirection::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
             dma_start(m_ReceiveDMAChannel);
         } CRITICAL_END;
 
@@ -487,7 +487,7 @@ bool USARTDriverINode::RestartReceiveDMA(size_t maxLength)
 
     if (m_PendingReceiveBytes > 0)
     {
-        dma_setup(m_ReceiveDMAChannel, DMAMode::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer + m_ReceiveBufferInPos, m_PendingReceiveBytes);
+        dma_setup(m_ReceiveDMAChannel, DMADirection::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer + m_ReceiveBufferInPos, m_PendingReceiveBytes);
         dma_start(m_ReceiveDMAChannel);
         return true;
     }

@@ -43,7 +43,7 @@ struct SPIDriverSetup
     PinMuxTarget                PinCLK;
     PinMuxTarget                PinMOSI;
     PinMuxTarget                PinMISO;
-    DigitalPinDriveStrength_e   PinDriveStrength    = DigitalPinDriveStrength_e::VeryHigh;
+    DigitalPinDriveStrength_e   PinDriveStrength    = DigitalPinDriveStrength_e::Low;
     SPIBaudRateDivider          BaudRateDivider     = SPIBaudRateDivider::DIV2;
     SPIRole                     Role                = SPIRole::Master;
     SPIComMode                  ComMode             = SPIComMode::FullDuplex;

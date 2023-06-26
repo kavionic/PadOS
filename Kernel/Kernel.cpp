@@ -158,14 +158,6 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
 #endif // defined(STM32H7)
     __DSB();
     __ISB();
-       
-#if defined(STM32H7)
-    SCB_InvalidateDCache();
-    SCB_EnableDCache();
-    SCB_InvalidateICache();
-    SCB_EnableICache();
-#endif // defined(STM32H7)
-
 #if defined(__SAME70Q21__)
     SAME70System::SetupClock(frequencyCrystal, frequencyCore, frequencyPeripheral);
 #elif defined(STM32H7) || defined(STM32G0)

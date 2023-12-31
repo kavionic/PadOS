@@ -22,9 +22,11 @@
 #include <map>
 #include <stdint.h>
 #include <Utils/String.h>
+#include <Kernel/Kernel.h>
 
 namespace os
 {
+DEFINE_KERNEL_LOG_CATEGORY(LogCategoryGUITK);
 
 
 ///////////////////////////////////////////////////////////////////////////////

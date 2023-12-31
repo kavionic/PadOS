@@ -67,11 +67,10 @@ public:
     void        InvalidateNewAreas();
     
     void        MoveChilds();
-    void        SwapRegions(bool bForce);
-    void        RebuildRegion(bool bForce);
+    void        RebuildRegion();
     bool        ExcludeFromRegion(Ptr<Region> region, const IPoint& offset);
     void        ClearDirtyRegFlags();
-    void        UpdateRegions(bool force = true, bool root = true);
+    void        UpdateRegions();
     void        DeleteRegions();
     Ptr<Region> GetRegion();
     
@@ -80,7 +79,7 @@ public:
     void        EndUpdate();
     void        Paint(const IRect& updateRect);
     
-    void        UpdateIfNeeded(bool force);
+    void        RequestPaintIfNeeded();
     void        MarkModified(const IRect& rect);
     void        SetDirtyRegFlags();
 

@@ -51,7 +51,7 @@ class TextBox : public Control, public ViewScroller
 {
 public:
     TextBox(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    TextBox(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    TextBox(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     static Ptr<TextBoxStyle> GetDefaultStyle() { return s_DefaultStyle; }
 

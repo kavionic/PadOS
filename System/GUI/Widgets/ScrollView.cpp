@@ -33,7 +33,7 @@ ScrollView::ScrollView(const String& name, Ptr<View> parent, uint32_t flags) : V
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ScrollView::ScrollView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+ScrollView::ScrollView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
 {
     MergeFlags(ViewFlags::WillDraw);
 }

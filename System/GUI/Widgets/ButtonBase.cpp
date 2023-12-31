@@ -36,13 +36,13 @@ ButtonBase::ButtonBase(const String& name, Ptr<View> parent, uint32_t flags) : C
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ButtonBase::ButtonBase(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment) : Control(context, parent, xmlData, defaultLabelAlignment)
+ButtonBase::ButtonBase(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment) : Control(context, parent, xmlData, defaultLabelAlignment)
 {
-    String groupName = context->GetAttribute(xmlData, "group", String::zero);
+    String groupName = context.GetAttribute(xmlData, "group", String::zero);
 
     if (!groupName.empty())
     {
-        Ptr<ButtonGroup> group = context->GetButtonGroup(groupName);
+        Ptr<ButtonGroup> group = context.GetButtonGroup(groupName);
         if (group != nullptr) {
             group->AddButton(ptr_tmp_cast(this));
         }

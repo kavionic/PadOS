@@ -71,6 +71,7 @@ bool KMutex::Lock()
             thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->SetBlockingObject(this);
+            __DMB();
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.        
@@ -147,6 +148,7 @@ bool KMutex::LockDeadline(TimeValMicros deadline)
                 set_last_error(ETIME);
                 return false;
             }
+            __DMB();
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.
@@ -232,6 +234,7 @@ bool KMutex::LockShared()
             thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->SetBlockingObject(this);
+            __DMB();
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.        
@@ -306,6 +309,7 @@ bool KMutex::LockSharedDeadline(TimeValMicros deadline)
                 set_last_error(ETIME);
                 return false;
             }
+            __DMB();
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.

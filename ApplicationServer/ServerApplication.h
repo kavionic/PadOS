@@ -107,9 +107,10 @@ private:
     ApplicationServer*  m_Server;
     port_id             m_ClientPort;
     
-    Ptr<ServerView> m_LowestInvalidView;
-    int             m_LowestInvalidLevel = std::numeric_limits<int>::max();
-    
+//    Ptr<ServerView> m_LowestInvalidView;
+//    int             m_LowestInvalidLevel = std::numeric_limits<int>::max();
+    bool            m_HaveInvalidRegions = false;
+
     handle_id                           m_NextBitmapHandle = 1;
     std::map<handle_id, Ptr<SrvBitmap>> m_BitmapMap;
 

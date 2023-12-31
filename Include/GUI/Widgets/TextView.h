@@ -36,7 +36,7 @@ class TextView : public View
 {
 public:
     TextView(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
-	TextView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+	TextView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~TextView();
     
     void SetText(const String& text);

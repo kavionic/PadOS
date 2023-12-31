@@ -537,7 +537,7 @@ void Application::LayoutViews()
         for (Ptr<View> view : list)
         {
             view->m_IsLayoutPending = false;
-            view->UpdateLayout();
+            view->HandleUpdateLayout();
         }
     }
 }

@@ -35,8 +35,8 @@ public:
   ConditionVariable(const char* name = "") : HandleObject(create_condition_var(name)) {}
 
   bool Wait(Mutex& lock) { return condition_var_wait(m_Handle, lock.GetHandle()) >= 0; }
-  bool WaitTimeout(Mutex& lock, bigtime_t timeout) { return condition_var_wait_timeout(m_Handle, lock.GetHandle(), timeout) >= 0; }
-  bool WaitDeadline(Mutex& lock, bigtime_t deadline) { return condition_var_wait_deadline(m_Handle, lock.GetHandle(), deadline) >= 0; }
+  bool WaitTimeout(Mutex& lock, const TimeValMicros& timeout) { return condition_var_wait_timeout(m_Handle, lock.GetHandle(), timeout.AsMicroSeconds()) >= 0; }
+  bool WaitDeadline(Mutex& lock, const TimeValMicros& deadline) { return condition_var_wait_deadline(m_Handle, lock.GetHandle(), deadline.AsMicroSeconds()) >= 0; }
 
   void Wakeup(int threadCount) { condition_var_wakeup(m_Handle, threadCount); }
   void WakeupAll() { condition_var_wakeup_all(m_Handle); }

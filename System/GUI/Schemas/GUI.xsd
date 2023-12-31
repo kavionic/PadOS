@@ -234,6 +234,7 @@
 					<xs:attribute name="max"		type="xs:float"		use="optional" />
 					<xs:attribute name="drag_scale"		type="xs:float"		use="optional" />
 					<xs:attribute name="drag_scale_range"	type="xs:float"		use="optional" />
+					<xs:attribute name="resolution"		type="xs:float"		use="optional" />
 					<xs:attribute name="value"		type="xs:float"		use="optional" />
 					<xs:attribute name="value_format"	type="xs:string"	use="optional" />
 					<xs:attribute name="value_scale"	type="xs:float"		use="optional" />
@@ -254,7 +255,7 @@
 		</xs:complexType>
 	</xs:element>
 
-	<xs:complexType name="TabViewTab">
+	<xs:complexType name="_TabViewTab">
 		<xs:attribute name="label" type="xs:string"/>
 	</xs:complexType>
 

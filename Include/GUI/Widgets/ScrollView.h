@@ -29,7 +29,7 @@ class ScrollView : public View, public ViewScroller
 {
 public:
     ScrollView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    ScrollView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    ScrollView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     // From View:
     virtual void    FrameSized(const Point& delta) override;

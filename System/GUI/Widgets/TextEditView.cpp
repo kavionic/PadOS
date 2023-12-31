@@ -38,10 +38,10 @@ TextEditView::TextEditView(const String& name, const String& text, Ptr<View> par
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextEditView::TextEditView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
+TextEditView::TextEditView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
 {
-    MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, TextBoxFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
-    m_Text = context->GetAttribute(xmlData, "text", String::zero);
+    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, TextBoxFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
+    m_Text = context.GetAttribute(xmlData, "text", String::zero);
 
     Initialize();
 }

@@ -97,6 +97,7 @@ DigitalPinID pin_id_from_name(const char* name);
 
 HWTimerID timer_id_from_name(const char* name);
 TIM_TypeDef* get_timer_from_id(HWTimerID timerID);
+volatile uint32_t* get_timer_dbg_clk_flag(HWTimerID timerID, uint32_t& outFlagMask);
 IRQn_Type get_timer_irq(HWTimerID timerID, HWTimerIRQType irqType);
 
 USARTID usart_id_from_name(const char* name);

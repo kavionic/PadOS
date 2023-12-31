@@ -55,7 +55,7 @@ bool RA8875Driver::Open()
 
     if (m_PinLCDReset.IsValid())
     {
-        snooze_ms(1);
+        snooze_ms(2);
         m_PinLCDReset = false;
         snooze_ms(10);
         m_PinLCDReset = true;
@@ -68,7 +68,7 @@ bool RA8875Driver::Open()
 
     WriteCommand(RA8875_PCSR); // PCLK
     WriteData(0x81);
-    snooze_ms(1);
+    snooze_ms(2);
 
     //Horizontal set
     WriteCommand(RA8875_HDWR, 100 - 1); //Horizontal display width(pixels) = (HDWR + 1)*8
@@ -89,7 +89,6 @@ bool RA8875Driver::Open()
     SetWindow(screenFrame);
     FillRect(nullptr, screenFrame, Color::FromRGB32A(0));
 
-
     //    WriteCommand(RA8875_P1CR, 0x00);  // PWM setting
     //    WriteCommand(RA8875_P2CR, 0x00);  // open PWM
     /*
@@ -99,7 +98,7 @@ bool RA8875Driver::Open()
         WriteCommand(RA8875_P2DCR, 0xff); // Brightness parameter 0xff-0x00
         */
     WriteCommand(RA8875_PWRR, RA8875_PWRR_DISPLAY_ON_bm);
-
+    
     return true;
 }
 
@@ -638,11 +637,13 @@ uint32_t RA8875Driver::WriteString(SrvBitmap* bitmap, const IPoint& position, co
 void RA8875Driver::PLL_ini()
 {
     WriteCommand(RA8875_PLLC1);
-    WriteData(0x0a);
-    snooze_ms(1);
+    snooze_ms(2);
+    WriteData(0x0b);
+    snooze_ms(2);
     WriteCommand(RA8875_PLLC2);
+    snooze_ms(2);
     WriteData(0x02);
-    snooze_ms(1);
+    snooze_ms(2);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

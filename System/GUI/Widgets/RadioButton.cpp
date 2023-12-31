@@ -40,7 +40,7 @@ RadioButton::RadioButton(const String& name, Ptr<View> parent, uint32_t flags) :
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-RadioButton::RadioButton(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : ButtonBase(context, parent, xmlData, Alignment::Right)
+RadioButton::RadioButton(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : ButtonBase(context, parent, xmlData, Alignment::Right)
 {
     MergeFlags(ViewFlags::WillDraw);
 	SetCheckable(true);

@@ -248,3 +248,41 @@ void InertialScroller::SlotTick()
         m_Timer.Stop();
     }
 }
+
+void InertialScroller::ScrollTo(const Point& scrollOffset, const Point& velocity, Looper* looper)
+{
+    const Point prevPosition = m_CurrentPosition;
+
+    m_TargetPosition = scrollOffset;
+    if (velocity.x == 0.0f) {
+        m_CurrentPosition.x = m_TargetPosition.x;
+    }
+    if (velocity.y == 0.0f) {
+        m_CurrentPosition.y = m_TargetPosition.y;
+    }
+    if (m_CurrentPosition != m_TargetPosition)
+    {
+        m_Velocity.x = copysign(fabs(velocity.x), m_TargetPosition.x - m_CurrentPosition.x);
+        m_Velocity.y = copysign(fabs(velocity.y), m_TargetPosition.y - m_CurrentPosition.y);
+
+        if (m_State == InertialScroller::State::Idle)
+        {
+            m_LastTickTime = get_system_time();
+            m_Timer.Start(false, looper);
+        }
+        m_State = InertialScroller::State::Coasting;
+    }
+    else
+    {
+        m_Velocity = Point(0.0f, 0.0f);
+        m_State = InertialScroller::State::Idle;
+        m_Timer.Stop();
+        if (m_CurrentPosition != prevPosition)
+        {
+            Point scrollOffset;
+            scrollOffset.x = std::clamp(m_CurrentPosition.x, m_ScrollBounds.left, m_ScrollBounds.right);
+            scrollOffset.y = std::clamp(m_CurrentPosition.y, m_ScrollBounds.top, m_ScrollBounds.bottom);
+            SignalUpdate(Point(round(scrollOffset.x), round(scrollOffset.y)), this);
+        }
+    }
+}

@@ -403,7 +403,7 @@ int IFLASHC exit_thread(int returnCode)
 
     thread->m_State = ThreadState::Zombie;
     thread->m_NewLibreent._errno = returnCode;
-
+    __DMB();
     KSWITCH_CONTEXT();
 
     panic("exit_thread() survived a context switch!\n");
@@ -441,6 +441,7 @@ int IFLASHC wait_thread(thread_id handle)
             {
                 thread->m_State = ThreadState::Waiting;
                 child->GetWaitQueue().Append(&waitNode);
+                __DMB();
                 KSWITCH_CONTEXT();
             }
         } CRITICAL_END;
@@ -627,6 +628,7 @@ IFLASHC status_t snooze_until(TimeValMicros resumeTime)
             add_to_sleep_list(&waitNode);
             thread->m_State = ThreadState::Sleeping;
             ThreadSyncDebugTracker::GetInstance().AddThread(thread, nullptr);
+            __DMB();
         } CRITICAL_END;
 
         KSWITCH_CONTEXT();
@@ -848,6 +850,7 @@ static IFLASHC void init_thread_entry(void* arguments)
             if (threadsToDelete.m_First == nullptr)
             {
                 thread->m_State = ThreadState::Waiting;
+                __DMB();
                 KSWITCH_CONTEXT();
             }
         } CRITICAL_END;

@@ -39,7 +39,7 @@ public:
     static constexpr int32_t INVALID_ID = -1;
 
     Control(const String& name, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
-    Control(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment = Alignment::Center);
+    Control(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment = Alignment::Center);
     ~Control();
 
       // From Control:

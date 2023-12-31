@@ -57,7 +57,7 @@ class Slider : public Control
 public:
     Slider(const String& name, Ptr<View> parent = nullptr, uint32_t flags = SliderFlags::TicksBelow,
            int tickCount = 10, Orientation orientation = Orientation::Horizontal);
-    Slider(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    Slider(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     ~Slider();
 
@@ -106,7 +106,8 @@ public:
     virtual void    GetSteps(float* small, float* big) const { *small = m_SmallStep; *big = m_BigStep; }
     void            SetDragScale(float scale) { m_DragScale = scale; }
     virtual void    SetMinMax(float min, float max ) { m_Min = min; m_Max = max; }
-    
+    void            SetResolution(float resolution);
+
     void            SetShadowKnobsCount(size_t count);
     size_t          GetShadowKnobsCount() const;
     void            SetShadowKnobValue(size_t index, float value);
@@ -147,6 +148,7 @@ private:
     int             m_NumTicks;
     float           m_Min = 0.0f;
     float           m_Max = 1.0f;
+    float           m_Resolution = 0.0f;
     float           m_SmallStep = 0.05f;
     float           m_BigStep = 0.1f;
     float           m_DragScale = 1.0f;

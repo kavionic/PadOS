@@ -79,6 +79,7 @@ bool KSemaphore::Acquire()
             thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->SetBlockingObject(this);
+            __DMB();
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.        
@@ -153,6 +154,7 @@ bool KSemaphore::AcquireDeadline(TimeValMicros deadline)
                 set_last_error(ETIME);
                 return false;
             }
+            __DMB();
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.

@@ -52,7 +52,6 @@ namespace AppserverProtocol
         SYNC,
         CREATE_VIEW,
         DELETE_VIEW,
-        SHOW_VIEW,
         FOCUS_VIEW,
         SET_KEYBOARD_FOCUS,
         CREATE_BITMAP,

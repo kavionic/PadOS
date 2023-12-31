@@ -163,11 +163,11 @@ static SizeOverride GetSizeOverride(pugi::xml_attribute absoluteAttr, pugi::xml_
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData)
+View::View(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData)
     : ViewBase(xmlData.attribute("name").value(),
                Rect(),
                Point(),
-               context->GetFlagsAttribute<uint32_t>(xmlData, ViewFlags::FlagMap, "flags", 0),
+               context.GetFlagsAttribute<uint32_t>(xmlData, ViewFlags::FlagMap, "flags", 0),
                0,
                get_standard_color(StandardColorID::DefaultBackground),
                get_standard_color(StandardColorID::DefaultBackground),
@@ -175,8 +175,8 @@ View::View(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& 
 {
     Initialize();
 
-    SetHAlignment(context->GetAttribute(xmlData, "h_alignment", Alignment::Center));
-    SetVAlignment(context->GetAttribute(xmlData, "v_alignment", Alignment::Center));
+    SetHAlignment(context.GetAttribute(xmlData, "h_alignment", Alignment::Center));
+    SetVAlignment(context.GetAttribute(xmlData, "v_alignment", Alignment::Center));
 
 	Point sizeOverride;
 	Point sizeSmallestOverride;
@@ -187,50 +187,50 @@ View::View(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& 
 	SizeOverride overrideTypeSmallestV;
 	SizeOverride overrideTypeGreatestV;
 
-    overrideType = GetSizeOverride(context->GetAttribute(xmlData, "size"), context->GetAttribute(xmlData, "size_limit"), context->GetAttribute(xmlData, "size_extend"), sizeOverride);
+    overrideType = GetSizeOverride(context.GetAttribute(xmlData, "size"), context.GetAttribute(xmlData, "size_limit"), context.GetAttribute(xmlData, "size_extend"), sizeOverride);
     overrideTypeSmallestH = overrideTypeGreatestH = overrideTypeSmallestV = overrideTypeGreatestV = overrideType;
     sizeSmallestOverride = sizeGreatestOverride = sizeOverride;
 
     float value;
-	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "width"), context->GetAttribute(xmlData, "width_limit"), context->GetAttribute(xmlData, "width_extend"), value);
+	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "width"), context.GetAttribute(xmlData, "width_limit"), context.GetAttribute(xmlData, "width_extend"), value);
     if (overrideType != SizeOverride::None) {
         sizeSmallestOverride.x = sizeGreatestOverride.x = value;
         overrideTypeSmallestH = overrideTypeGreatestH = overrideType;
     }
-	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "height"), context->GetAttribute(xmlData, "height_limit"), context->GetAttribute(xmlData, "height_extend"), value);
+	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "height"), context.GetAttribute(xmlData, "height_limit"), context.GetAttribute(xmlData, "height_extend"), value);
 	if (overrideType != SizeOverride::None) {
 		sizeSmallestOverride.y = sizeGreatestOverride.y = value;
 		overrideTypeSmallestV = overrideTypeGreatestV = overrideType;
 	}
 
-	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "min_size"), context->GetAttribute(xmlData, "min_size_limit"), context->GetAttribute(xmlData, "min_size_extend"), sizeOverride);
+	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "min_size"), context.GetAttribute(xmlData, "min_size_limit"), context.GetAttribute(xmlData, "min_size_extend"), sizeOverride);
     if (overrideType != SizeOverride::None) {
         overrideTypeSmallestH = overrideTypeSmallestV = overrideType;
         sizeSmallestOverride = sizeOverride;
     }
-	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "min_width"), context->GetAttribute(xmlData, "min_width_limit"), context->GetAttribute(xmlData, "min_width_extend"), value);
+	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "min_width"), context.GetAttribute(xmlData, "min_width_limit"), context.GetAttribute(xmlData, "min_width_extend"), value);
 	if (overrideType != SizeOverride::None) {
 		sizeSmallestOverride.y = value;
 		overrideTypeSmallestH = overrideType;
 	}
-	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "min_height"), context->GetAttribute(xmlData, "min_height_limit"), context->GetAttribute(xmlData, "min_height_extend"), value);
+	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "min_height"), context.GetAttribute(xmlData, "min_height_limit"), context.GetAttribute(xmlData, "min_height_extend"), value);
 	if (overrideType != SizeOverride::None) {
 		sizeSmallestOverride.y = value;
 		overrideTypeSmallestV = overrideType;
 	}
 
 
-	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "max_size"), context->GetAttribute(xmlData, "max_size_limit"), context->GetAttribute(xmlData, "max_size_extend"), sizeOverride);
+	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "max_size"), context.GetAttribute(xmlData, "max_size_limit"), context.GetAttribute(xmlData, "max_size_extend"), sizeOverride);
 	if (overrideType != SizeOverride::None) {
 		overrideTypeGreatestH = overrideTypeGreatestV = overrideType;
 		sizeGreatestOverride = sizeOverride;
 	}
-	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "max_width"), context->GetAttribute(xmlData, "max_width_limit"), context->GetAttribute(xmlData, "max_width_extend"), value);
+	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "max_width"), context.GetAttribute(xmlData, "max_width_limit"), context.GetAttribute(xmlData, "max_width_extend"), value);
 	if (overrideType != SizeOverride::None) {
 		sizeGreatestOverride.x = value;
 		overrideTypeGreatestH = overrideType;
 	}
-	overrideType = GetSizeOverride(context->GetAttribute(xmlData, "max_height"), context->GetAttribute(xmlData, "max_height_limit"), context->GetAttribute(xmlData, "max_height_extend"), value);
+	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "max_height"), context.GetAttribute(xmlData, "max_height_limit"), context.GetAttribute(xmlData, "max_height_extend"), value);
 	if (overrideType != SizeOverride::None) {
 		sizeGreatestOverride.y = value;
 		overrideTypeGreatestV = overrideType;
@@ -249,29 +249,29 @@ View::View(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& 
 		SetHeightOverride(PrefSizeType::Greatest, overrideTypeGreatestV, sizeGreatestOverride.y);
 	}
 
-    SetLayoutNode(context->GetAttribute(xmlData, "layout", Ptr<LayoutNode>()));
-    m_Borders = context->GetAttribute(xmlData, "layout_borders", Rect(0.0f));
+    SetLayoutNode(context.GetAttribute(xmlData, "layout", Ptr<LayoutNode>()));
+    m_Borders = context.GetAttribute(xmlData, "layout_borders", Rect(0.0f));
 
-    String widthGroupName = context->GetAttribute(xmlData, "width_group", String::zero);
-	String heightGroupName = context->GetAttribute(xmlData, "height_group", String::zero);
+    String widthGroupName = context.GetAttribute(xmlData, "width_group", String::zero);
+	String heightGroupName = context.GetAttribute(xmlData, "height_group", String::zero);
 
     if (!widthGroupName.empty())
     {
-		auto i = context->m_WidthRings.find(widthGroupName);
-		if (i != context->m_WidthRings.end()) {
+		auto i = context.m_WidthRings.find(widthGroupName);
+		if (i != context.m_WidthRings.end()) {
 			AddToWidthRing(i->second);
 		} else {
-            context->m_WidthRings[widthGroupName] = ptr_tmp_cast(this);
+            context.m_WidthRings[widthGroupName] = ptr_tmp_cast(this);
 		}
     }
 
 	if (!heightGroupName.empty())
 	{
-		auto i = context->m_HeightRings.find(heightGroupName);
-		if (i != context->m_HeightRings.end()) {
+		auto i = context.m_HeightRings.find(heightGroupName);
+		if (i != context.m_HeightRings.end()) {
 			AddToHeightRing(i->second);
 		} else {
-			context->m_HeightRings[heightGroupName] = ptr_tmp_cast(this);
+            context.m_HeightRings[heightGroupName] = ptr_tmp_cast(this);
 		}
 	}
 
@@ -636,22 +636,6 @@ void View::InvalidateLayout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::UpdateLayout()
-{
-    if (!m_IsLayoutValid)
-    {
-        m_IsLayoutValid = true;
-        if (m_LayoutNode != nullptr)
-        {
-            m_LayoutNode->Layout();
-        }
-    }    
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 bool View::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
     if (!VFMouseDown.Empty()) {
@@ -700,6 +684,18 @@ void View::OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event
 
 void View::OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& event)
 {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::LayoutChanged()
+{
+    if (m_LayoutNode != nullptr)
+    {
+        m_LayoutNode->Layout();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1083,10 +1079,15 @@ void View::ResizeTo(float w, float h)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::Invalidate(const Rect& rect, bool recurse)
+void View::Invalidate(const Rect& rect)
 {
-    if (m_ServerHandle != INVALID_HANDLE) {
+    if (m_ServerHandle != INVALID_HANDLE)
+    {
         Post<ASViewInvalidate>(IRect(rect));
+    }
+    else if (!HasFlags(ViewFlags::WillDraw))
+    {
+        kernel_log(LogCategoryGUITK, KLogSeverity::ERROR, "%s: Called on client-only view %s[%s].\n", __PRETTY_FUNCTION__, typeid(*this).name(), GetName().c_str());
     }
 }
 
@@ -1094,7 +1095,7 @@ void View::Invalidate(const Rect& rect, bool recurse)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::Invalidate(bool recurse)
+void View::Invalidate()
 {
     Invalidate(GetBounds());
 }
@@ -1559,6 +1560,19 @@ void View::HandleDetachedFromScreen()
     }
     AllDetachedFromScreen();
 }    
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void View::HandleUpdateLayout()
+{
+    if (!m_IsLayoutValid)
+    {
+        m_IsLayoutValid = true;
+        LayoutChanged();
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

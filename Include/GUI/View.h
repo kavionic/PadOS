@@ -48,7 +48,6 @@ class xml_node;
 
 namespace os
 {
-
 class ButtonGroup;
 class ScrollBar;
 class Bitmap;
@@ -68,7 +67,7 @@ class View : public ViewBase<View>
 {
 public:
     View(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    View(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    View(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame);
     virtual ~View();
 
@@ -112,7 +111,6 @@ public:
     void            RemoveFromHeightRing();
         
     void            InvalidateLayout();
-    void            UpdateLayout();
 
 //    virtual void Activated(bool isActive);
     //    virtual void WindowActivated( bool bIsActive );
@@ -131,11 +129,12 @@ public:
     virtual void OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event);
     virtual void OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& event);
 
-    virtual void  FrameMoved(const Point& delta);
-    virtual void  FrameSized(const Point& delta);
-    virtual void  ScreenFrameMoved(const Point& delta);
-    virtual void  ViewScrolled(const Point& delta);
-    virtual void  FontChanged(Ptr<Font> newFont);
+    virtual void LayoutChanged();
+    virtual void FrameMoved(const Point& delta);
+    virtual void FrameSized(const Point& delta);
+    virtual void ScreenFrameMoved(const Point& delta);
+    virtual void ViewScrolled(const Point& delta);
+    virtual void FontChanged(Ptr<Font> newFont);
     
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight);
     
@@ -144,7 +143,6 @@ public:
 
     void PreferredSizeChanged();
     virtual void ContentSizeChanged();
-
 
 //    virtual void WheelMoved( const Point& cDelta );
 
@@ -193,8 +191,8 @@ public:
     
     virtual void ToggleDepth() { Post<ASViewToggleDepth>(); }
 
-    void                Invalidate(const Rect& rect, bool recurse = false);
-    void                Invalidate(bool recurse = false);
+    void                Invalidate(const Rect& rect);
+    void                Invalidate();
 
     void                SetFocusKeyboardMode(FocusKeyboardMode mode);
     FocusKeyboardMode   GetFocusKeyboardMode() const { return m_FocusKeyboardMode; }
@@ -320,6 +318,8 @@ private:
     void HandlePreAttachToScreen(Application* app);
     void HandleAttachedToScreen(Application* app);
     void HandleDetachedFromScreen();
+
+    void HandleUpdateLayout();
 
     void HandlePaint(const Rect& updateRect);
     

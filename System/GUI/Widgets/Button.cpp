@@ -37,7 +37,7 @@ Button::Button(const String& name, const String& label, Ptr<View> parent, uint32
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Button::Button(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : ButtonBase(context, parent, xmlData, Alignment::Center)
+Button::Button(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : ButtonBase(context, parent, xmlData, Alignment::Center)
 {
     MergeFlags(ViewFlags::WillDraw);
 	UpdateLabelSize();

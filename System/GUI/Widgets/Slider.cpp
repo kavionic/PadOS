@@ -62,29 +62,30 @@ Slider::Slider(const String& name, Ptr<View> parent, uint32_t flags, int tickCou
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Slider::Slider(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
+Slider::Slider(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
 {
-    MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, SliderFlags::FlagMap, "flags", SliderFlags::TicksBelow | SliderFlags::KnobPointDown) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
+    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, SliderFlags::FlagMap, "flags", SliderFlags::TicksBelow | SliderFlags::KnobPointDown) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
 
     SetFont(ptr_new<Font>(Font_e::e_FontSmall));
 
-    m_Orientation   = context->GetAttribute(xmlData, "orientation", Orientation::Horizontal);
-    m_NumTicks      = context->GetAttribute(xmlData, "num_ticks", 10);
+    m_Orientation   = context.GetAttribute(xmlData, "orientation", Orientation::Horizontal);
+    m_NumTicks      = context.GetAttribute(xmlData, "num_ticks", 10);
 
-    m_MinLabel = context->GetAttribute(xmlData, "min_label", String::zero);
-    m_MaxLabel = context->GetAttribute(xmlData, "max_label", String::zero);
+    m_MinLabel = context.GetAttribute(xmlData, "min_label", String::zero);
+    m_MaxLabel = context.GetAttribute(xmlData, "max_label", String::zero);
 
-    m_Min   = context->GetAttribute(xmlData, "min", 0.0f);
-    m_Max   = context->GetAttribute(xmlData, "max", 1.0f);
-    m_Value = context->GetAttribute(xmlData, "value", m_Min);
+    m_Min           = context.GetAttribute(xmlData, "min", 0.0f);
+    m_Max           = context.GetAttribute(xmlData, "max", 1.0f);
+    m_Resolution    = context.GetAttribute(xmlData, "resolution", m_Resolution);
+    m_Value         = context.GetAttribute(xmlData, "value", m_Min);
 
-    m_DragScale = context->GetAttribute(xmlData, "drag_scale", 1.0f);
-    m_DragScaleRange = context->GetAttribute(xmlData, "drag_scale_range", 100.0f);
+    m_DragScale = context.GetAttribute(xmlData, "drag_scale", 1.0f);
+    m_DragScaleRange = context.GetAttribute(xmlData, "drag_scale_range", 100.0f);
 
     m_SliderColor1  = get_standard_color(StandardColorID::ScrollBarBackground);;
     m_SliderColor2  = m_SliderColor1;
 
-    SetValueStringFormat(context->GetAttribute(xmlData, "value_format", String::zero), context->GetAttribute(xmlData, "value_scale", 1.0f));
+    SetValueStringFormat(context.GetAttribute(xmlData, "value_format", String::zero), context.GetAttribute(xmlData, "value_scale", 1.0f));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -273,6 +274,10 @@ String Slider::GetValueString() const
 
 void Slider::SetValue(float value, bool sendEvent)
 {
+    if (m_Resolution != 0.0f)
+    {
+        value = round(value / m_Resolution) * m_Resolution;
+    }
     if (value != m_Value)
     {
         m_Changed = true;
@@ -396,6 +401,22 @@ void Slider::GetLimitLabels(String* minLabel, String* maxLabel)
     }
     if (maxLabel != nullptr) {
         *maxLabel = m_MaxLabel;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void Slider::SetResolution(float resolution)
+{
+    if (resolution != m_Resolution)
+    {
+        m_Resolution = resolution;
+        if (m_Resolution != 0.0f)
+        {
+            SetValue(GetValue());
+        }
     }
 }
 

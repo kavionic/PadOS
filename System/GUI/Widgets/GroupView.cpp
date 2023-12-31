@@ -36,10 +36,10 @@ GroupView::GroupView(const String& name, Ptr<View> parent, uint32_t flags) : Vie
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-GroupView::GroupView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+GroupView::GroupView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
 {
     MergeFlags(ViewFlags::WillDraw);
-	m_Label = context->GetAttribute(xmlData, "label", String::zero);
+	m_Label = context.GetAttribute(xmlData, "label", String::zero);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

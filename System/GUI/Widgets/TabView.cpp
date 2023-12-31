@@ -20,6 +20,7 @@
 #include <stdio.h>
 
 #include <GUI/Widgets/Tabview.h>
+#include <GUI/ViewFactory.h>
 
 
 using namespace os;
@@ -40,16 +41,48 @@ TabView::TabView(const String& name, Ptr<View> parent, uint32_t flags) : View(na
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TabView::TabView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+TabView::TabView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
 {
     MergeFlags(ViewFlags::WillDraw);
     Initialize();
 
     for (pugi::xml_node childNode = xmlData.first_child(); childNode; childNode = childNode.next_sibling())
     {
-        if (strcmp(childNode.name(), "TabViewTab") == 0)
+        if (strcmp(childNode.name(), "_TabViewTab") == 0)
         {
-            AppendTab(childNode.attribute("name").value());
+            const char* tabName = childNode.attribute("name").value();
+            Ptr<View> tabContentView;
+            if (childNode.first_child())
+            {
+                tabContentView = ViewFactory::GetInstance().CreateView(context, nullptr, childNode);
+                if (tabContentView != nullptr)
+                {
+                    if (tabContentView->GetLayoutNode() == nullptr) {
+                        tabContentView->SetLayoutNode(ptr_new<LayoutNode>());
+                    }
+                    tabContentView->SetName(tabName);
+                    tabContentView->MergeFlags(ViewFlags::WillDraw);
+                }
+            }
+            AppendTab(tabName, tabContentView);
+        }
+        else if (strcmp(childNode.name(), "_TopBarClientView") == 0)
+        {
+            const char* viewName = childNode.attribute("name").value();
+            Ptr<View> topBarClientView;
+            if (childNode.first_child())
+            {
+                topBarClientView = ViewFactory::GetInstance().CreateView(context, nullptr, childNode);
+                if (topBarClientView != nullptr)
+                {
+                    if (topBarClientView->GetLayoutNode() == nullptr) {
+                        topBarClientView->SetLayoutNode(ptr_new<LayoutNode>());
+                    }
+                    topBarClientView->SetName(viewName);
+                    topBarClientView->MergeFlags(ViewFlags::WillDraw);
+                }
+            }
+            SetTopBarClientView(topBarClientView);
         }
     }
 }
@@ -63,99 +96,9 @@ void TabView::Initialize()
     m_FontHeight = GetFontHeight();
     m_GlyphHeight = m_FontHeight.ascender + m_FontHeight.descender + m_FontHeight.line_gap;
     m_TabHeight = round(m_GlyphHeight * 1.2f + 6.0f);
-    m_TotalWidth = 4.0f;
+    m_TotalTabsWidth = 4.0f;
 
     m_TopView = ptr_new<TopView>(this);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void TabView::FrameSized(const Point& delta)
-{
-    const Rect bounds = GetBounds();
-    bool needFlush = false;
-
-    if (m_SelectedTab != INVALID_INDEX && m_SelectedTab < m_TabList.size())
-    {
-        Ptr<View> view = m_TabList[m_SelectedTab].m_View;
-        if (view != nullptr)
-        {
-            Rect clientBounds = bounds;
-            clientBounds.Resize(2.0f, m_TabHeight, -2.0f, -2.0f);
-            view->SetFrame(clientBounds);
-        }
-    }
-    if (delta.x != 0.0f)
-    {
-        Rect damage = bounds;
-
-        damage.left = damage.right - std::max(3.0f, delta.x + 9.0f);
-        Invalidate(damage);
-        needFlush = true;
-    }
-    if (delta.y != 0.0f)
-    {
-        Rect damage = bounds;
-
-        damage.top = damage.bottom - std::max(3.0f, delta.y + 2.0f);
-        Invalidate(damage);
-        needFlush = true;
-    }
-
-    float width = bounds.Width();
-
-    const float oldOffset = m_ScrollOffset;
-    if (width < m_TotalWidth)
-    {
-        m_TopView->SetFrame(Rect(bounds.left + ARROW_SPACE, bounds.top, bounds.right - ARROW_SPACE, m_TabHeight - 2.0f));
-        width -= ARROW_SPACE * 2.0f;
-        if (m_ScrollOffset > 0.0f) {
-            m_ScrollOffset = 0.0f;
-        }
-        if (m_TotalWidth + m_ScrollOffset < width) {
-            m_ScrollOffset = width - m_TotalWidth;
-        }
-        if (width + ARROW_SPACE * 2.0f - delta.x >= m_TotalWidth)
-        {
-            m_TopView->Invalidate();
-            Rect damage(bounds);
-            damage.bottom = damage.top + m_TabHeight;
-            Invalidate(damage);
-            needFlush = true;
-        }
-    }
-    else
-    {
-        m_TopView->SetFrame(Rect(bounds.left + 2.0f, bounds.top, bounds.right - 2.0f, m_TabHeight - 2.0f));
-        if (m_ScrollOffset > width - m_TotalWidth) {
-            m_ScrollOffset = width - m_TotalWidth;
-        }
-        if (m_ScrollOffset < 0.0f) {
-            m_ScrollOffset = 0.0f;
-        }
-        if (width - delta.x < m_TotalWidth)
-        {
-            m_TopView->Invalidate();
-            Rect damage(bounds);
-            damage.bottom = damage.top + m_TabHeight;
-            Invalidate(damage);
-            needFlush = true;
-        }
-    }
-    if (m_ScrollOffset != oldOffset)
-    {
-        m_TopView->ScrollBy(m_ScrollOffset - oldOffset, 0.0f);
-        m_TopView->Invalidate();
-        Rect damage(bounds);
-        damage.bottom = damage.top + m_TabHeight;
-        Invalidate(damage);
-        needFlush = true;
-    }
-    if (needFlush) {
-        Flush();
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -221,9 +164,7 @@ int TabView::InsertTab(size_t index, const String& title, Ptr<View> view)
     if (view != nullptr && view->GetParent() != this)
     {
         AddChild(view);
-        Rect bounds = GetNormalizedBounds();
-        bounds.Resize(2, m_TabHeight, -2, -2);
-        view->SetFrame(bounds);
+        view->SetFrame(GetClientFrame());
         if (m_SelectedTab == INVALID_INDEX) {
             m_SelectedTab = index;
         } else {
@@ -231,7 +172,7 @@ int TabView::InsertTab(size_t index, const String& title, Ptr<View> view)
         }
     }
     m_TabList[index].m_Width = round(GetStringWidth(title) * 1.1f) + 4.0f;
-    m_TotalWidth += m_TabList[index].m_Width;
+    m_TotalTabsWidth += m_TabList[index].m_Width;
     m_TopView->Invalidate();
     m_TopView->Flush();
     return index;
@@ -269,7 +210,7 @@ Ptr<View> TabView::DeleteTab(size_t index)
     if (index < m_SelectedTab || m_SelectedTab == (m_TabList.size() - 1)) {
         m_SelectedTab--;
     }
-    m_TotalWidth -= m_TabList[index].m_Width;
+    m_TotalTabsWidth -= m_TabList[index].m_Width;
 
     m_TabList.erase(m_TabList.begin() + index);
 
@@ -299,9 +240,7 @@ Ptr<View> TabView::DeleteTab(size_t index)
             if (m_TabList[m_SelectedTab].m_View != nullptr)
             {
                 Ptr<View> newView = m_TabList[m_SelectedTab].m_View;
-                Rect clientBounds = GetNormalizedBounds();
-                clientBounds.Resize(2.0f, m_TabHeight, -2.0f, -2.0f);
-                newView->SetFrame(clientBounds);
+                newView->SetFrame(GetClientFrame());
                 newView->Show(true);
             }
         }
@@ -327,6 +266,37 @@ Ptr<View> TabView::GetTabView(size_t index) const
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// Get number of tabs currently added to the view.
+/// \return Tab count
+/// \sa AppendTab(), InsertTab(), DeleteTab()
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int TabView::GetTabCount() const
+{
+    return m_TabList.size();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int TabView::SetTabTitle(size_t index, const String& title)
+{
+    m_TabList[index].m_Title = title;
+
+    float vOldWidth = m_TabList[index].m_Width;
+    m_TabList[index].m_Width = round(GetStringWidth(title) * 1.1f) + 4.0f;
+    m_TotalTabsWidth += m_TabList[index].m_Width - vOldWidth;
+
+    Invalidate();
+    m_TopView->Invalidate();
+    m_TopView->Flush();
+
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 /// Get the title of a given tab.
 /// \param index - The zero based index of the tab.
 /// \return const reference to a STL string containing the title.
@@ -343,31 +313,24 @@ const std::string& TabView::GetTabTitle(size_t index) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int TabView::SetTabTitle(size_t index, const String& title)
+Ptr<View> TabView::SetTopBarClientView(Ptr<View> view)
 {
-    m_TabList[index].m_Title = title;
-
-    float vOldWidth = m_TabList[index].m_Width;
-    m_TabList[index].m_Width = round(GetStringWidth(title) * 1.1f) + 4.0f;
-    m_TotalWidth += m_TabList[index].m_Width - vOldWidth;
-
-    Invalidate();
-    m_TopView->Invalidate();
-    m_TopView->Flush();
-
-    return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// Get number of tabs currently added to the view.
-/// \return Tab count
-/// \sa AppendTab(), InsertTab(), DeleteTab()
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int TabView::GetTabCount() const
-{
-    return m_TabList.size();
+    if (view != m_TopBarClientView)
+    {
+        Ptr<View> prevView = m_TopBarClientView;
+        m_TopBarClientView = view;
+        if (prevView != nullptr)
+        {
+            prevView->RemoveThis();
+        }
+        if (view != nullptr)
+        {
+            AddChild(view);
+        }
+        Layout(Point(0.0f, 0.0f));
+        return prevView;
+    }
+    return m_TopBarClientView;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -410,9 +373,7 @@ void TabView::SetSelection(size_t index, bool notify)
         if (m_TabList[m_SelectedTab].m_View != nullptr)
         {
             Ptr<View> view = m_TabList[m_SelectedTab].m_View;
-            Rect clientBounds = GetNormalizedBounds();
-            clientBounds.Resize(2.0f, m_TabHeight, -2.0f, -2.0f);
-            view->SetFrame(clientBounds);
+            view->SetFrame(GetClientFrame());
             view->Show(true);
 //            view->MakeFocus(true);
         }
@@ -422,6 +383,127 @@ void TabView::SetSelection(size_t index, bool notify)
 
         SignalSelectionChanged(m_SelectedTab, m_TabList[m_SelectedTab].m_View, this);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Rect TabView::GetClientFrame() const
+{
+    Rect frame = GetNormalizedBounds();
+    frame.Resize(2.0f, m_TabHeight, -2.0f, -2.0f);
+    return frame;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void TabView::Layout(const Point& delta)
+{
+    const Rect bounds = GetBounds();
+    bool needFlush = false;
+
+    if (m_SelectedTab != INVALID_INDEX && m_SelectedTab < m_TabList.size())
+    {
+        Ptr<View> view = m_TabList[m_SelectedTab].m_View;
+        if (view != nullptr)
+        {
+            view->SetFrame(GetClientFrame());
+        }
+    }
+    if (delta.x != 0.0f)
+    {
+        Rect damage = bounds;
+
+        damage.left = damage.right - std::max(3.0f, delta.x + 9.0f);
+        Invalidate(damage);
+        needFlush = true;
+    }
+    if (delta.y != 0.0f)
+    {
+        Rect damage = bounds;
+
+        damage.top = damage.bottom - std::max(3.0f, delta.y + 2.0f);
+        Invalidate(damage);
+        needFlush = true;
+    }
+
+    float width = bounds.Width();
+
+    if (m_TopBarClientView != nullptr) {
+        width -= m_TopBarClientView->GetPreferredSize(PrefSizeType::Smallest).x;
+    }
+
+    const float oldOffset = m_ScrollOffset;
+    if (width < m_TotalTabsWidth)
+    {
+        m_TopView->SetFrame(Rect(bounds.left + ARROW_SPACE, bounds.top, bounds.right - ARROW_SPACE, m_TabHeight - 2.0f));
+        width -= ARROW_SPACE * 2.0f;
+        if (m_ScrollOffset > 0.0f) {
+            m_ScrollOffset = 0.0f;
+        }
+        if (m_TotalTabsWidth + m_ScrollOffset < width) {
+            m_ScrollOffset = width - m_TotalTabsWidth;
+        }
+        if (width + ARROW_SPACE * 2.0f - delta.x >= m_TotalTabsWidth)
+        {
+            m_TopView->Invalidate();
+            Rect damage(bounds);
+            damage.bottom = damage.top + m_TabHeight;
+            Invalidate(damage);
+            needFlush = true;
+        }
+    }
+    else
+    {
+        m_TopView->SetFrame(Rect(bounds.left + 2.0f, bounds.top, bounds.right - 2.0f, m_TabHeight - 2.0f));
+        if (m_ScrollOffset > width - m_TotalTabsWidth) {
+            m_ScrollOffset = width - m_TotalTabsWidth;
+        }
+        if (m_ScrollOffset < 0.0f) {
+            m_ScrollOffset = 0.0f;
+        }
+        if (width - delta.x < m_TotalTabsWidth)
+        {
+            m_TopView->Invalidate();
+            Rect damage(bounds);
+            damage.bottom = damage.top + m_TabHeight;
+            Invalidate(damage);
+            needFlush = true;
+        }
+    }
+    if (m_TopBarClientView != nullptr)
+    {
+        Rect topBarClientViewFrame = m_TopView->GetFrame();
+        topBarClientViewFrame.left = m_TotalTabsWidth + 2.0f;
+        topBarClientViewFrame.right = bounds.right - 2.0f;
+        float maxWidth = m_TopBarClientView->GetPreferredSize(PrefSizeType::Greatest).x;
+        if (topBarClientViewFrame.Width() > maxWidth) topBarClientViewFrame.left = topBarClientViewFrame.right - maxWidth;
+        m_TopBarClientView->SetFrame(topBarClientViewFrame);
+    }
+    if (m_ScrollOffset != oldOffset)
+    {
+        m_TopView->ScrollBy(m_ScrollOffset - oldOffset, 0.0f);
+        m_TopView->Invalidate();
+        Rect damage(bounds);
+        damage.bottom = damage.top + m_TabHeight;
+        Invalidate(damage);
+        needFlush = true;
+    }
+    if (needFlush) {
+        Flush();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void TabView::FrameSized(const Point& delta)
+{
+    Layout(delta);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -477,16 +559,16 @@ bool TabView::OnMouseMove(MouseButton_e button, const Point& position, const Mot
 
         float width = Width();
 
-        if (m_TotalWidth <= width /*&& (GetQualifiers() & QUAL_SHIFT) == 0*/) {
+        if (m_TotalTabsWidth <= width /*&& (GetQualifiers() & QUAL_SHIFT) == 0*/) {
             return false;
         }
 
         m_ScrollOffset += position.x - m_HitPos.x;
 
-        if (m_TotalWidth <= width)
+        if (m_TotalTabsWidth <= width)
         {
-            if (m_ScrollOffset > width - m_TotalWidth) {
-                m_ScrollOffset = width - m_TotalWidth;
+            if (m_ScrollOffset > width - m_TotalTabsWidth) {
+                m_ScrollOffset = width - m_TotalTabsWidth;
             }
             if (m_ScrollOffset < 0.0f) {
                 m_ScrollOffset = 0.0f;
@@ -498,14 +580,14 @@ bool TabView::OnMouseMove(MouseButton_e button, const Point& position, const Mot
             if (m_ScrollOffset > 0.0f) {
                 m_ScrollOffset = 0.0f;
             }
-            if (m_TotalWidth + m_ScrollOffset < width) {
-                m_ScrollOffset = width - m_TotalWidth;
+            if (m_TotalTabsWidth + m_ScrollOffset < width) {
+                m_ScrollOffset = width - m_TotalTabsWidth;
             }
         }
         if (m_ScrollOffset != oldOffset)
         {
             m_HitPos = position;
-            if (m_TotalWidth <= width)
+            if (m_TotalTabsWidth <= width)
             {
                 Invalidate();
             }
@@ -556,7 +638,7 @@ void TabView::OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& ev
 
 void os::TabView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
-    minSize->x = m_TotalWidth;
+    minSize->x = m_TotalTabsWidth;
     minSize->y = 0.0f;
     *maxSize = *minSize;
 
@@ -577,6 +659,17 @@ void os::TabView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool in
 
     maxSize->y += m_TabHeight + 3.0f;
     maxSize->x += 5.0f;
+}
+
+
+float TabView::GetAvailableTabsWidth() const
+{
+    float width = Width();
+
+    if (m_TopBarClientView != nullptr) {
+        width -= m_TopBarClientView->GetPreferredSize(PrefSizeType::Smallest).x;
+    }
+    return width;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -607,7 +700,7 @@ void TabView::TopView::Paint(const Rect& updateRect)
 
     float x;
 
-    if (m_TabView->m_TotalWidth > m_TabView->Width()) {
+    if (m_TabView->m_TotalTabsWidth > m_TabView->Width()) {
         x = 0.0f;
     } else {
         x = -2.0f;
@@ -708,10 +801,10 @@ void TabView::Paint(const Rect& updateRect)
 
     float x = m_ScrollOffset;
 
-    if (m_TotalWidth > viewWidth) {
+    if (m_TotalTabsWidth > viewWidth) {
         x += ARROW_SPACE;
     }
-    if (m_TotalWidth <= viewWidth)
+    if (m_TotalTabsWidth <= viewWidth)
     {
         SetFgColor(StandardColorID::DefaultBackground);
         FillRect(Rect(0.0f, 0.0f, 2.0f, m_TabHeight - 2.0f));
@@ -727,7 +820,7 @@ void TabView::Paint(const Rect& updateRect)
             tabFrame.Resize(-2.0f, -2.0f, 2.0f, 0.0f);
         }
 
-        if (m_TotalWidth <= viewWidth)
+        if (m_TotalTabsWidth <= viewWidth)
         {
             if (i != m_SelectedTab + 1)
             {
@@ -751,7 +844,7 @@ void TabView::Paint(const Rect& updateRect)
             float x1 = x + 2.0f;
             float x2 = x + width + 2.0f;
 
-            if (m_TotalWidth > viewWidth)
+            if (m_TotalTabsWidth > viewWidth)
             {
                 if (x1 < ARROW_SPACE) {
                     x1 = ARROW_SPACE;
@@ -779,7 +872,7 @@ void TabView::Paint(const Rect& updateRect)
         x += width;
     }
 
-    if (m_TotalWidth > viewWidth)
+    if (m_TotalTabsWidth > viewWidth)
     {
         SetFgColor(StandardColorID::DefaultBackground);
         FillRect(Rect(0.0f, 0.0f, ARROW_SPACE, m_TabHeight - 2.0f));

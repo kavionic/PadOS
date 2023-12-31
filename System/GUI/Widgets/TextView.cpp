@@ -44,11 +44,11 @@ TextView::TextView(const String& name, const String& text, Ptr<View> parent, uin
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextView::TextView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+TextView::TextView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
 {
-    MergeFlags(context->GetFlagsAttribute<uint32_t>(xmlData, TextViewFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw);
+    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, TextViewFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw);
 
-    SetText(context->GetAttribute(xmlData, "text", String::zero));
+    SetText(context.GetAttribute(xmlData, "text", String::zero));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -37,11 +37,11 @@ Control::Control(const String& name, Ptr<View> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Control::Control(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment) : View(context, parent, xmlData)
+Control::Control(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment) : View(context, parent, xmlData)
 {
-    m_Label             = context->GetAttribute(xmlData, "label", String::zero);
-    m_LabelAlignment    = context->GetAttribute(xmlData, "label_alignment", defaultLabelAlignment);
-    m_IsEnabled         = context->GetAttribute<bool>(xmlData, "enabled", true);
+    m_Label             = context.GetAttribute(xmlData, "label", String::zero);
+    m_LabelAlignment    = context.GetAttribute(xmlData, "label_alignment", defaultLabelAlignment);
+    m_IsEnabled         = context.GetAttribute<bool>(xmlData, "enabled", true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

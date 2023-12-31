@@ -28,7 +28,7 @@ class Button : public ButtonBase
 {
 public:
     Button(const String& name, const String& label, Ptr<View> parent = nullptr, uint32_t flags = 0);
-	Button(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+	Button(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~Button();
 
     // From View:

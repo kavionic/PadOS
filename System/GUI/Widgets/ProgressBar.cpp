@@ -37,10 +37,10 @@ ProgressBar::ProgressBar(const std::string& name, Ptr<View> parent, Orientation 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ProgressBar::ProgressBar(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+ProgressBar::ProgressBar(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
 {
     MergeFlags(ViewFlags::WillDraw | ViewFlags::ClearBackground);
-    m_Orientation = context->GetAttribute(xmlData, "orientation", Orientation::Horizontal);
+    m_Orientation = context.GetAttribute(xmlData, "orientation", Orientation::Horizontal);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

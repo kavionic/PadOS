@@ -298,7 +298,7 @@ void ServerView::SetDrawRegion(Ptr<Region> region)
     m_DrawConstrainReg = region;
 
     if (m_HideCount == 0) {
-        m_HasInvalidRegs = true;
+        SetDirtyRegFlags();
     }
     m_DrawReg = nullptr;
 }
@@ -366,6 +366,7 @@ void ServerView::Invalidate(bool reqursive)
     if (m_HideCount == 0)
     {
         m_DamageReg = ptr_new<Region>(static_cast<IRect>(GetNormalizedBounds()));
+
         if (reqursive)
         {
             for (Ptr<ServerView> child : m_ChildrenList) {
@@ -381,7 +382,7 @@ void ServerView::Invalidate(bool reqursive)
 
 void ServerView::InvalidateNewAreas()
 {
-    if ( m_HideCount > 0 ) {
+    if (m_HideCount > 0) {
         return;
     }
     /*
@@ -404,7 +405,7 @@ void ServerView::InvalidateNewAreas()
                     Ptr<Region> region = ptr_new<Region>(*m_VisibleReg);
     
                     if (m_PrevVisibleReg != nullptr) {
-                        region->Exclude( *m_PrevVisibleReg );
+                        region->Exclude(*m_PrevVisibleReg);
                     }
                     if (m_DamageReg == nullptr)
                     {
@@ -476,7 +477,7 @@ void ServerView::MoveChilds()
         return;
     }*/
   
-    if ( m_HasInvalidRegs )
+    if (m_HasInvalidRegs)
     {
         IRect bounds(GetNormalizedBounds());
         IPoint screenPos(m_ScreenPos);
@@ -556,31 +557,10 @@ void ServerView::MoveChilds()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/// DESC:
-///     Stores the previous visible region in m_PrevVisibleReg and then
-///     rebuilds m_VisibleReg, starting with whatever is left of our parent
-///     and then removing areas covered by siblings.
-/// NOTE:
-///     Areas covered by children are not removed.
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::SwapRegions( bool bForce )
-{
-    if ( bForce ) {
-        m_HasInvalidRegs = true;
-    }
-  
-    for (Ptr<ServerView> child : m_ChildrenList) {
-        child->SwapRegions( bForce );
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void ServerView::RebuildRegion(bool bForce)
+void ServerView::RebuildRegion()
 {
     if (m_HideCount > 0)
     {
@@ -589,11 +569,6 @@ void ServerView::RebuildRegion(bool bForce)
         }
         return;
     }
-
-    if (bForce) {
-        m_HasInvalidRegs = true;
-    }
-
     if (m_HasInvalidRegs)
     {
         m_DrawReg = nullptr;
@@ -659,7 +634,7 @@ void ServerView::RebuildRegion(bool bForce)
         }
     }
     for (Ptr<ServerView> child : m_ChildrenList) {
-        child->RebuildRegion(bForce);
+        child->RebuildRegion();
     }
 }
 
@@ -713,16 +688,16 @@ void ServerView::ClearDirtyRegFlags()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::UpdateRegions(bool bForce, bool bRoot)
+void ServerView::UpdateRegions()
 {
-    RebuildRegion( bForce );
+    RebuildRegion();
     MoveChilds();
     InvalidateNewAreas();
 
     ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
-    if (m_HasInvalidRegs && server != nullptr && server->GetTopView() == this /*m_pcBitmap != nullptr*/ && m_DamageReg != nullptr)
+    if (server != nullptr && server->GetTopView() == this /*m_pcBitmap != nullptr*/ && m_DamageReg != nullptr)
     {
-        if ( m_Bitmap == ApplicationServer::GetScreenBitmap())
+        if (m_Bitmap == ApplicationServer::GetScreenBitmap())
         {
             Region cDrawReg(*m_VisibleReg);
             cDrawReg.Intersect(*m_DamageReg);
@@ -734,7 +709,7 @@ void ServerView::UpdateRegions(bool bForce, bool bRoot)
         }
         m_DamageReg = nullptr;
     }
-    UpdateIfNeeded(false);
+    RequestPaintIfNeeded();
     ClearDirtyRegFlags();
 }
 
@@ -834,7 +809,7 @@ void ServerView::ToggleDepth()
                 sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
             }
         }
-        opacParent->UpdateRegions(false);
+        opacParent->UpdateRegions();
     }
 }
 
@@ -886,7 +861,7 @@ void ServerView::Paint(const IRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::UpdateIfNeeded(bool force)
+void ServerView::RequestPaintIfNeeded()
 {
     if ( m_HideCount > 0) {
         return;
@@ -904,7 +879,7 @@ void ServerView::UpdateIfNeeded(bool force)
         Paint( static_cast<Rect>(m_ActiveDamageReg->GetBounds()));
     }
     for (Ptr<ServerView> child : m_ChildrenList) {
-        child->UpdateIfNeeded(force);
+        child->RequestPaintIfNeeded();
     }
 }
 
@@ -1196,7 +1171,7 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     if (bltList.empty())
     {
         Invalidate(dstRect);
-        UpdateIfNeeded(true);
+        RequestPaintIfNeeded();
         return;
     }
 
@@ -1249,7 +1224,7 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     if (m_ActiveDamageReg != nullptr) {
         m_ActiveDamageReg->Optimize();
     }
-    UpdateIfNeeded(true);
+    RequestPaintIfNeeded();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1353,6 +1328,7 @@ void ServerView::ScrollBy(const Point& offset)
         return;
     }
 
+    SetDirtyRegFlags();
     UpdateRegions();
     //SrvWindow::HandleMouseTransaction();
     
@@ -1388,7 +1364,7 @@ void ServerView::ScrollBy(const Point& offset)
     if (bltList.empty())
     {
         Invalidate(bounds);
-        UpdateIfNeeded(true);
+        RequestPaintIfNeeded();
         return;
     }
 
@@ -1425,7 +1401,7 @@ void ServerView::ScrollBy(const Point& offset)
     for (const IRect& dstClip : damage.m_Rects) {
         Invalidate(dstClip);
     }
-    UpdateIfNeeded(true);
+    RequestPaintIfNeeded();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -270,6 +270,7 @@ bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFla
             thread->SetBlockingObject(this);
             m_BlockedThread = thread;
             if (lock != nullptr) lock->Unlock();
+            __DMB();
             KSWITCH_CONTEXT(); // Make sure we are suspended the moment we re-enable interrupts
         }
     } CRITICAL_END;

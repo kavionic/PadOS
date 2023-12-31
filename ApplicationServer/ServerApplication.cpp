@@ -110,13 +110,13 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
 
 void ServerApplication::ProcessMessage(int32_t code, const void* data, size_t length)
 {
-    if (m_LowestInvalidView != nullptr && (code != AppserverProtocol::VIEW_SET_FRAME  ||
-                                           code != AppserverProtocol::SHOW_VIEW       ||
-                                           code != AppserverProtocol::VIEW_SET_DRAW_REGION ||
-                                           code != AppserverProtocol::VIEW_SET_SHAPE_REGION))
-    {
-        UpdateRegions();
-    }    
+//    if (m_HaveInvalidRegions && (
+//                                 //code != AppserverProtocol::SHOW_VIEW       ||
+//                                 code != AppserverProtocol::VIEW_SET_DRAW_REGION ||
+//                                 code != AppserverProtocol::VIEW_SET_SHAPE_REGION))
+//    {
+//        UpdateRegions();
+//    }    
     
     RemoteSignalRXBase* handler = GetSignalForMessage(code);
     if (handler != nullptr) {
@@ -144,13 +144,16 @@ Ptr<SrvBitmap> ServerApplication::GetBitmap(handle_id bitmapHandle) const
 
 void ServerApplication::UpdateRegions()
 {
-    if (m_LowestInvalidView != nullptr)
-    {
-        m_LowestInvalidView->UpdateRegions(false);
-        //HandleMouseTransaction();
-        m_LowestInvalidView = nullptr;
-        m_LowestInvalidLevel = std::numeric_limits<int>::max();
-    }
+    m_Server->GetTopView()->UpdateRegions();
+    m_HaveInvalidRegions = false;
+
+//    if (m_LowestInvalidView != nullptr)
+//    {
+//        m_LowestInvalidView->UpdateRegions();
+//        //HandleMouseTransaction();
+//        m_LowestInvalidView = nullptr;
+//        m_LowestInvalidLevel = std::numeric_limits<int>::max();
+//    }
     
 }
 
@@ -160,10 +163,11 @@ void ServerApplication::UpdateRegions()
 
 void ServerApplication::UpdateLowestInvalidView(Ptr<ServerView> view)
 {
-    if (view->m_Level < m_LowestInvalidLevel) {
-        m_LowestInvalidLevel = view->m_Level;
-        m_LowestInvalidView = view;
-    }    
+    m_HaveInvalidRegions = true;
+//    if (view->m_Level < m_LowestInvalidLevel) {
+//        m_LowestInvalidLevel = view->m_Level;
+//        m_LowestInvalidView = view;
+//    }    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -333,6 +337,10 @@ void ServerApplication::SlotViewSetFrame(handler_id clientHandle, const Rect& fr
     Ptr<ServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr)
     {
+//        if (m_HaveInvalidRegions)
+//        {
+//            UpdateRegions();
+//        }
         IRect modifiedFrame = view->GetIFrame();
         view->SetFrame(frame, requestingClient);
         modifiedFrame |= view->GetIFrame();
@@ -397,13 +405,18 @@ void ServerApplication::SlotViewShow(handler_id viewHandle, bool show)
     Ptr<ServerView> view = m_Server->FindView(viewHandle);
     if (view != nullptr)
     {
+        if (m_HaveInvalidRegions)
+        {
+            UpdateRegions();
+        }
         bool wasVisible = view->IsVisible();
         view->Show(show);
         if (view->IsVisible() != wasVisible)
         {
             IRect modifiedFrame = view->GetIFrame();
             Ptr<ServerView> opacParent = ServerView::GetOpacParent(view->GetParent(), &modifiedFrame);
-            if (opacParent != nullptr) {
+            if (opacParent != nullptr)
+            {
                 opacParent->MarkModified(modifiedFrame);
                 UpdateLowestInvalidView(opacParent);
             }

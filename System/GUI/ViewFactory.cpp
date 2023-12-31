@@ -64,7 +64,7 @@ VIEW_FACTORY_REGISTER_CLASS(View);
 ViewFactory::ViewFactory()
 {
 
-    RegisterClass("ScrollView", [](ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData)
+    RegisterClass("ScrollView", [](ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData)
         {
             Ptr<ScrollView> view = ptr_new<ScrollView>(context, parent, xmlData);
             Ptr<View> client = view->GetScrolledView();
@@ -101,18 +101,29 @@ Ptr<View> ViewFactory::CreateView(Ptr<View> parentView, String&& XML)
     if (!rootNode) {
         return nullptr;
     }
+    ViewFactoryContext context;
+    return CreateView(context, parentView, rootNode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<View> ViewFactory::CreateView(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode)
+{
+    if (!xmlNode) {
+        return nullptr;
+    }
 
     if (parentView == nullptr) {
         parentView = ptr_new<View>(String::zero);
     }
 
-    ViewFactoryContext context;
+    parentView->MergeFlags(xml_object_parser::parse_flags_attribute<uint32_t>(xmlNode, ViewFlags::FlagMap, "flags", 0));
+    parentView->SetLayoutNode(xml_object_parser::parse_attribute(xmlNode, "layout", parentView->GetLayoutNode()));
+    parentView->SetBorders(xml_object_parser::parse_attribute(xmlNode, "layout_borders", parentView->GetBorders()));
 
-    parentView->MergeFlags(xml_object_parser::parse_flags_attribute<uint32_t>(rootNode, ViewFlags::FlagMap, "flags", 0));
-    parentView->SetLayoutNode(xml_object_parser::parse_attribute(rootNode, "layout", parentView->GetLayoutNode()));
-    parentView->SetBorders(xml_object_parser::parse_attribute(rootNode, "layout_borders", parentView->GetBorders()));
-
-    Parse(&context, parentView, rootNode);
+    Parse(context, parentView, xmlNode);
 
     return parentView;
 }
@@ -140,16 +151,19 @@ Ptr<View> ViewFactory::LoadView(Ptr<View> parentView, const String& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ViewFactory::Parse(ViewFactoryContext* context, Ptr<View> parentView, const pugi::xml_node& xmlNode)
+bool ViewFactory::Parse(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode)
 {
     std::vector< std::map<String, pugi::xml_node>::iterator> localTemplates;
     for (xml_node childNode = xmlNode.first_child(); childNode; childNode = childNode.next_sibling())
     {
         if (strcmp(childNode.name(), "Template") != 0)
         {
-            Ptr<View> childView = CreateInstance<View>(childNode.name(), context, parentView, childNode);
-            if (childNode.first_child()) {
-                Parse(context, childView, childNode);
+            if (*childNode.name() != '_')
+            {
+                Ptr<View> childView = CreateInstance<View>(childNode.name(), context, parentView, childNode);
+                if (childView != nullptr && childNode.first_child()) {
+                    Parse(context, childView, childNode);
+                }
             }
         }
         else
@@ -157,20 +171,20 @@ bool ViewFactory::Parse(ViewFactoryContext* context, Ptr<View> parentView, const
             xml_attribute name = childNode.attribute("name");
             if (name)
             {
-                localTemplates.push_back(context->m_Templates.emplace(name.value(), childNode));
+                localTemplates.push_back(context.m_Templates.emplace(name.value(), childNode));
             }
         }
     }
     for (auto i : localTemplates) {
-        context->m_Templates.erase(i);
+        context.m_Templates.erase(i);
     }
     localTemplates.clear();
 
     Ptr<LayoutNode> layoutNode = parentView->GetLayoutNode();
     if (layoutNode != nullptr)
     {
-        Rect innerBorders = context->GetAttribute(xmlNode, "inner_borders", Rect());
-        float spacing = context->GetAttribute(xmlNode, "spacing", 0.0f);
+        Rect innerBorders = context.GetAttribute(xmlNode, "inner_borders", Rect());
+        float spacing = context.GetAttribute(xmlNode, "spacing", 0.0f);
 
         if (spacing != 0.0f || innerBorders.left != 0.0f || innerBorders.top != 0.0f || innerBorders.right != 0.0f || innerBorders.bottom != 0.0f) {
             layoutNode->ApplyInnerBorders(innerBorders, spacing);

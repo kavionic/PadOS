@@ -35,7 +35,7 @@ class ProgressBar : public View
 {
 public:
     ProgressBar(const std::string& name, Ptr<View> parent = nullptr, Orientation orientation = Orientation::Horizontal, uint32_t flags = 0);
-    ProgressBar(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    ProgressBar(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     // From View:
     virtual void Paint(const Rect& updateRect) override;

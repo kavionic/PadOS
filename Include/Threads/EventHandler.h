@@ -38,6 +38,7 @@ public:
     virtual ~EventHandler();
 
     const String& GetName() const { return m_Name; }
+    void SetName(const String& name) { m_Name = name; }
 
     handler_id GetHandle() const { return m_Handle; }
 

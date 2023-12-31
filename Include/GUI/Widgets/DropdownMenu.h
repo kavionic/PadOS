@@ -60,7 +60,7 @@ class DropdownMenu : public Control
 {
 public:
     DropdownMenu(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    DropdownMenu(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    DropdownMenu(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~DropdownMenu();
 
     // From View:

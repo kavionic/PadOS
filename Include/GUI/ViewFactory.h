@@ -65,19 +65,20 @@ public:
 };
 
 
-class ViewFactory : public XMLFactory<ViewFactoryContext*, Ptr<View>, const pugi::xml_node&>
+class ViewFactory : public XMLFactory<ViewFactoryContext&, Ptr<View>, const pugi::xml_node&>
 {
 public:
     ViewFactory();
     static ViewFactory& GetInstance();
 
     Ptr<View> CreateView(Ptr<View> parentView, String&& XML);
+    Ptr<View> CreateView(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode);
     Ptr<View> LoadView(Ptr<View> parentView, const String& path);
 
 private:
-    bool Parse(ViewFactoryContext* context, Ptr<View> parentView, const pugi::xml_node& xmlNode);
+    bool Parse(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode);
 };
 
-#define VIEW_FACTORY_REGISTER_CLASS(CLASS) struct FactoryRegistrationHelper##CLASS { FactoryRegistrationHelper##CLASS() { ViewFactory::GetInstance().RegisterClass(#CLASS, [](ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) { return ptr_new<CLASS>(context, parent, xmlData); }); } } g_FactoryRegistrationHelper##CLASS
+#define VIEW_FACTORY_REGISTER_CLASS(CLASS) struct FactoryRegistrationHelper##CLASS { FactoryRegistrationHelper##CLASS() { ViewFactory::GetInstance().RegisterClass(#CLASS, [](ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) { return ptr_new<CLASS>(context, parent, xmlData); }); } } g_FactoryRegistrationHelper##CLASS
 
 } // namespace

@@ -448,8 +448,63 @@ TIM_TypeDef* get_timer_from_id(HWTimerID timerID)
         case HWTimerID::Timer16:    return TIM16;
         case HWTimerID::Timer17:    return TIM17;
         default:
-            printf("ERROR: get_timer_from_id() unknown timer '%d'\n", int(timerID));
+            printf("ERROR: %s unknown timer '%d'\n", __PRETTY_FUNCTION__, int(timerID));
             return nullptr;
+    }
+}
+
+volatile uint32_t* get_timer_dbg_clk_flag(HWTimerID timerID, uint32_t& outFlagMask)
+{
+    switch (timerID)
+    {
+        case HWTimerID::Timer1:
+            outFlagMask = DBGMCU_APB2FZ1_DBG_TIM1;
+            return &DBGMCU->APB2FZ1;
+        case HWTimerID::Timer2:
+            outFlagMask = DBGMCU_APB1LFZ1_DBG_TIM2;
+            return &DBGMCU->APB1LFZ1;
+        case HWTimerID::Timer3:
+            outFlagMask = DBGMCU_APB1LFZ1_DBG_TIM3;
+            return &DBGMCU->APB1LFZ1;
+        case HWTimerID::Timer4:
+            outFlagMask = DBGMCU_APB1LFZ1_DBG_TIM4;
+            return &DBGMCU->APB1LFZ1;
+        case HWTimerID::Timer5:
+            outFlagMask = DBGMCU_APB1LFZ1_DBG_TIM5;
+            return &DBGMCU->APB1LFZ1;
+        case HWTimerID::Timer6:
+            outFlagMask = DBGMCU_APB1LFZ1_DBG_TIM6;
+            return &DBGMCU->APB1LFZ1;
+        case HWTimerID::Timer7:
+            outFlagMask = DBGMCU_APB1LFZ1_DBG_TIM7;
+            return &DBGMCU->APB1LFZ1;
+        case HWTimerID::Timer8:
+            outFlagMask = DBGMCU_APB2FZ1_DBG_TIM8;
+            return &DBGMCU->APB2FZ1;
+        case HWTimerID::Timer12:
+            outFlagMask = DBGMCU_APB1LFZ1_DBG_TIM12;
+            return &DBGMCU->APB1LFZ1;
+        case HWTimerID::Timer13:
+            outFlagMask = DBGMCU_APB1LFZ1_DBG_TIM13;
+            return &DBGMCU->APB1LFZ1;
+        case HWTimerID::Timer14:
+            outFlagMask = DBGMCU_APB1LFZ1_DBG_TIM14;
+            return &DBGMCU->APB1LFZ1;
+        case HWTimerID::Timer15:
+            outFlagMask = DBGMCU_APB2FZ1_DBG_TIM15;
+            return &DBGMCU->APB2FZ1;
+        case HWTimerID::Timer16:
+            outFlagMask = DBGMCU_APB2FZ1_DBG_TIM16;
+            return &DBGMCU->APB2FZ1;
+        case HWTimerID::Timer17:
+            outFlagMask = DBGMCU_APB2FZ1_DBG_TIM17;
+            return &DBGMCU->APB2FZ1;
+        default:
+        {
+            outFlagMask = 0;
+            printf("ERROR: %s unknown timer '%d'\n", __PRETTY_FUNCTION__, int(timerID));
+            return nullptr;
+        }
     }
 }
 

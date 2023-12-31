@@ -32,7 +32,7 @@ class TabView : public View
 {
 public:
     TabView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    TabView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    TabView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     int         AppendTab( const String& title, Ptr<View> view = nullptr );
     int         InsertTab(size_t index, const String& title, Ptr<View> view = nullptr );
@@ -43,9 +43,15 @@ public:
     int         SetTabTitle(size_t index, const String& title );
     const std::string&  GetTabTitle(size_t index ) const;
 
+    Ptr<View> SetTopBarClientView(Ptr<View> view);
+
+
     size_t      GetSelection();
     void        SetSelection(size_t index, bool notify = true );
 
+    Rect GetClientFrame() const;
+
+    virtual void    Layout(const Point& delta);
     virtual void    FrameSized(const Point& delta) override;
     virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
@@ -58,6 +64,8 @@ public:
     Signal<void, size_t, Ptr<View>, TabView*> SignalSelectionChanged;//(size_t index, Ptr<View> tabView, TabView* source)
 private:
     void Initialize();
+    float GetAvailableTabsWidth() const;
+
     struct Tab
     {
         Tab(const String& title, Ptr<View> view) : m_Title(title) { m_View = view; }
@@ -87,9 +95,10 @@ private:
     float               m_TabHeight;
     float               m_GlyphHeight;
     FontHeight          m_FontHeight;
-    float               m_TotalWidth;
+    float               m_TotalTabsWidth;
     std::vector<Tab>    m_TabList;
     Ptr<TopView>        m_TopView;
+    Ptr<View>           m_TopBarClientView;
 };
 
 

@@ -28,7 +28,7 @@ class GroupView : public View
 {
 public:
     GroupView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    GroupView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    GroupView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     // From View:
     virtual void Paint(const Rect& updateRect) override;

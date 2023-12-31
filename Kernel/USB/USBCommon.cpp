@@ -30,7 +30,7 @@ namespace kernel
 void USB_Initialize()
 {
     REGISTER_KERNEL_LOG_CATEGORY(kernel::LogCategoryUSB, kernel::KLogSeverity::INFO_LOW_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(kernel::LogCategoryUSBDevice, kernel::KLogSeverity::INFO_LOW_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(kernel::LogCategoryUSBDevice, kernel::KLogSeverity::WARNING);
     REGISTER_KERNEL_LOG_CATEGORY(kernel::LogCategoryUSBHost, kernel::KLogSeverity::INFO_LOW_VOL);
 }
 

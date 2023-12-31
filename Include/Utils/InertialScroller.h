@@ -72,6 +72,8 @@ public:
     Point GetVelocity() const;
     Point GetClosestIndention(const Point& position) const;
 
+    void ScrollTo(const Point& scrollOffset, const Point& velocity, Looper* looper = nullptr);
+
     Signal<void, const Point&, InertialScroller*> SignalUpdate;
 
 private:

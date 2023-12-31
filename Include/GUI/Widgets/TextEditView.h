@@ -31,7 +31,7 @@ class TextEditView : public Control
 {
 public:
     TextEditView(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    TextEditView(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    TextEditView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~TextEditView();
 
     // From View:

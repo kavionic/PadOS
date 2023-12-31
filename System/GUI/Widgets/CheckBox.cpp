@@ -39,10 +39,11 @@ CheckBox::CheckBox(const String& name, Ptr<View> parent, uint32_t flags) : Butto
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-CheckBox::CheckBox(ViewFactoryContext* context, Ptr<View> parent, const pugi::xml_node& xmlData) : ButtonBase(context, parent, xmlData, Alignment::Right)
+CheckBox::CheckBox(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : ButtonBase(context, parent, xmlData, Alignment::Right)
 {
     MergeFlags(ViewFlags::WillDraw);
 	SetCheckable(true);
+    SetChecked(context.GetAttribute<bool>(xmlData, "value", false));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

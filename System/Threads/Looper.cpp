@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ std::vector<Looper*> Looper::s_LooperList;
 
 static Mutex& GetLooperListMutex()
 {
-    static Mutex mutex("LooperList");
+    static Mutex mutex("LooperList", EMutexRecursionMode::RaiseError);
     return mutex;
 }
 #endif // DEBUG_LOOPER_LIST
@@ -44,7 +44,7 @@ int32_t Looper::s_NextReplyToken;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Looper::Looper(const String& name, int portSize, size_t receiveBufferSize) : Thread(name), m_Mutex("looper"), m_Port("looper", portSize), m_DoRun(true)
+Looper::Looper(const String& name, int portSize, size_t receiveBufferSize) : Thread(name), m_Mutex("looper", EMutexRecursionMode::RaiseError), m_Port("looper", portSize), m_DoRun(true)
 {
 #if DEBUG_LOOPER_LIST
     CRITICAL_BEGIN(GetLooperListMutex()) {
@@ -150,10 +150,9 @@ bool Looper::WaitForReply(handler_id replyHandler, int32_t replyCode)
 
 bool Looper::AddHandler(Ptr<EventHandler> handler)
 {
+    assert(!IsRunning() || m_Mutex.IsLocked());
     try
     {
-        CRITICAL_SCOPE(m_Mutex);
-
         if (handler->m_Looper != nullptr)
         {
             printf("ERROR: Looper::AddHandler() attempt to add handler %s(%d) already owned by looper %s(%d)\n", handler->GetName().c_str(), handler->GetHandle(), handler->m_Looper->GetName().c_str(), handler->m_Looper->GetThreadID());
@@ -175,7 +174,7 @@ bool Looper::AddHandler(Ptr<EventHandler> handler)
 
 bool Looper::RemoveHandler(Ptr<EventHandler> handler)
 {
-    CRITICAL_SCOPE(m_Mutex);
+    assert(!IsRunning() || m_Mutex.IsLocked());
     if (handler->m_Looper != this) {
         printf("ERROR: Looper::RemoveHandler() attempt to remove handler %s(%d) from unrelated looper %s(%d)\n", handler->GetName().c_str(), handler->GetHandle(), GetName().c_str(), GetThreadID());
         return false;
@@ -197,10 +196,10 @@ bool Looper::RemoveHandler(Ptr<EventHandler> handler)
 
 bool Looper::AddTimer(EventTimer* timer, bool singleshot)
 {
+    assert(!IsRunning() || m_Mutex.IsLocked());
     try
     {
         TimeValMicros expireTime = get_system_time();
-        CRITICAL_SCOPE(m_Mutex);
 
         if (timer->m_Looper != nullptr)
         {
@@ -235,8 +234,8 @@ bool Looper::AddTimer(EventTimer* timer, bool singleshot)
 
 bool Looper::RemoveTimer(EventTimer* timer)
 {
-    CRITICAL_SCOPE(m_Mutex);
-    
+    assert(!IsRunning() || m_Mutex.IsLocked());
+
     if (timer->m_Looper == this)
     {
         timer->m_Looper = nullptr;
@@ -291,6 +290,10 @@ bool Looper::ProcessEvents()
     while (Tick());
     return false;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 bool Looper::Tick()
 {

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -60,7 +60,7 @@ bool KConditionVariable::WaitInternal(KMutex* lock)
             m_WaitQueue.Append(&waitNode);
             if (lock != nullptr) lock->Unlock();
             thread->SetBlockingObject(this);
-            __DMB();
+
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.
@@ -129,7 +129,7 @@ bool KConditionVariable::WaitDeadlineInternal(KMutex* lock, TimeValMicros deadli
                 return false;
             }
             if (lock != nullptr) lock->Unlock();
-            __DMB();
+
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.
@@ -183,7 +183,6 @@ bool KConditionVariable::IRQWait()
 
         thread->SetBlockingObject(this);
 
-        __DMB();
         KSWITCH_CONTEXT();
         set_interrupt_enabled_state(IRQEnableState::Enabled); // Enable interrupts and allow the scheduled context switch to happen.
         set_interrupt_enabled_state(irqState); // Disable interrupts again when we wake up.
@@ -257,7 +256,7 @@ bool KConditionVariable::IRQWaitDeadline(TimeValMicros deadline)
         }
         
         thread->SetBlockingObject(this);
-        __DMB();
+
         KSWITCH_CONTEXT();
         set_interrupt_enabled_state(IRQEnableState::Enabled); // Enable interrupts and allow the scheduled context switch to happen.
         set_interrupt_enabled_state(irqState); // Disable interrupts again when we wake up.

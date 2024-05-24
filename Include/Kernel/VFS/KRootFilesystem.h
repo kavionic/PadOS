@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -55,7 +55,7 @@ struct KRootFSDirectoryNode : public KDirectoryNode
 class KRootFilesystem : public KFilesystem, public KFilesystemFileOps
 {
 public:
-    inline KRootFilesystem() : m_Mutex("root_fs_mutex") {}
+    inline KRootFilesystem() : m_Mutex("root_fs_mutex", EMutexRecursionMode::RaiseError) {}
     IFLASHC virtual Ptr<KFSVolume>      Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength) override;
     IFLASHC virtual Ptr<KINode>         LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
 //    virtual Ptr<KFileHandle> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;

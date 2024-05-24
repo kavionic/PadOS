@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@ class KMutex : public KNamedObject
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::Mutex;
 
-    KMutex(const char* name, bool recursive = true);
+    KMutex(const char* name, EMutexRecursionMode recursionMode);
     ~KMutex();
 
     bool Lock();
@@ -56,9 +56,9 @@ public:
     
     bool IsLocked() const;
 private:
-    int             m_Count;
-    bool            m_Recursive;
-    thread_id       m_Holder = -1; // Thread currently holding the mutex.
+    int                 m_Count;
+    EMutexRecursionMode m_RecursionMode;
+    thread_id           m_Holder = INVALID_HANDLE; // Thread currently holding the mutex.
 
     KMutex(const KMutex &) = delete;
     KMutex& operator=(const KMutex &) = delete;

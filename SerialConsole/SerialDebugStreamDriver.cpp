@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2021-2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2021-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@
 
 SerialDebugStreamINode::SerialDebugStreamINode(kernel::KFilesystemFileOps* fileOps)
     : KINode(nullptr, nullptr, fileOps, false)
-    , m_Mutex("SerDebugStream")
+    , m_Mutex("SerDebugStream", EMutexRecursionMode::RaiseError)
 {
 
 }

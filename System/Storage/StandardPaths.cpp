@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -98,7 +98,7 @@ String StandardPaths::GetPath(StandardPathID pathID, const String& file)
 
 Mutex& StandardPaths::GetMutex()
 {
-    static Mutex mutex("std_path_mutex");
+    static Mutex mutex("std_path_mutex", EMutexRecursionMode::RaiseError);
     return mutex;
 }
 

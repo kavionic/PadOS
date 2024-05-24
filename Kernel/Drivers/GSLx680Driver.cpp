@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-GSLx680Driver::GSLx680Driver() : Thread("GSLx680_driver"), m_Mutex("GSLx680_mutex", true), m_EventCondition("GSLx680_events")
+GSLx680Driver::GSLx680Driver() : Thread("GSLx680_driver"), m_Mutex("GSLx680_mutex", EMutexRecursionMode::RaiseError), m_EventCondition("GSLx680_events")
 {
     SetDeleteOnExit(false);
 }
@@ -174,16 +174,12 @@ int GSLx680Driver::Run()
 				mouseEvent.Position     = Point(m_TouchPositions[i]);
 
 				// printf("Mouse event %d: %d/%d\n", eventID - MessageID::MOUSE_DOWN, m_TouchPositions[i].x, m_TouchPositions[i].y);
-				CRITICAL_BEGIN(m_Mutex)
+				for (auto file : m_OpenFiles)
 				{
-					for (auto file : m_OpenFiles)
-					{
-						if (file->m_TargetPort != -1) {
-							send_message(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
-						}
+					if (file->m_TargetPort != -1) {
+						send_message(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
 					}
-				} CRITICAL_END;
-
+				}
 			}
 
 		}

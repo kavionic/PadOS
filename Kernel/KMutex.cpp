@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -31,10 +31,10 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KMutex::KMutex(const char* name, bool recursive) : KNamedObject(name, KNamedObjectType::Mutex)
+KMutex::KMutex(const char* name, EMutexRecursionMode recursionMode) : KNamedObject(name, KNamedObjectType::Mutex)
 {
     m_Count = 0;
-    m_Recursive = recursive;
+    m_RecursionMode = recursionMode;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -61,17 +61,21 @@ bool KMutex::Lock()
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (m_Count == 0 || (m_Recursive && m_Holder == thread->GetHandle()))
+            if (m_Count == 0 || (m_RecursionMode == EMutexRecursionMode::Recurse && m_Holder == thread->GetHandle()))
             {
                 m_Count--;
                 m_Holder = thread->GetHandle();
                 return true;
             }
+            else
+            {
+                kassert(!(m_RecursionMode == EMutexRecursionMode::RaiseError && m_Holder == thread->GetHandle()));
+            }
             waitNode.m_Thread = thread;
             thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->SetBlockingObject(this);
-            __DMB();
+
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.        
@@ -116,11 +120,15 @@ bool KMutex::LockDeadline(TimeValMicros deadline)
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (m_Count == 0 || (m_Recursive && m_Holder == thread->GetHandle()))
+            if (m_Count == 0 || (m_RecursionMode == EMutexRecursionMode::Recurse && m_Holder == thread->GetHandle()))
             {
                 m_Count--;
                 m_Holder = thread->GetHandle();
                 return true;
+            }
+            else
+            {
+                kassert(!(m_RecursionMode == EMutexRecursionMode::RaiseError && m_Holder == thread->GetHandle()));
             }
             if (deadline.IsInfinit() || get_system_time() < deadline)
             {
@@ -148,7 +156,7 @@ bool KMutex::LockDeadline(TimeValMicros deadline)
                 set_last_error(ETIME);
                 return false;
             }
-            __DMB();
+
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.
@@ -184,7 +192,7 @@ bool KMutex::TryLock()
 
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        if (m_Count == 0 || (m_Recursive && m_Holder == thread->GetHandle()))
+        if (m_Count == 0 || (m_RecursionMode == EMutexRecursionMode::Recurse && m_Holder == thread->GetHandle()))
         {
             m_Count--;
             m_Holder = thread->GetHandle();
@@ -234,7 +242,7 @@ bool KMutex::LockShared()
             thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->SetBlockingObject(this);
-            __DMB();
+
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.        
@@ -309,7 +317,7 @@ bool KMutex::LockSharedDeadline(TimeValMicros deadline)
                 set_last_error(ETIME);
                 return false;
             }
-            __DMB();
+
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.
@@ -384,10 +392,10 @@ bool KMutex::IsLocked() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-sem_id create_mutex(const char* name, bool recursive)
+sem_id create_mutex(const char* name, EMutexRecursionMode recursionMode)
 {
     try {
-        return KNamedObject::RegisterObject(ptr_new<KMutex>(name, recursive));
+        return KNamedObject::RegisterObject(ptr_new<KMutex>(name, recursionMode));
     } catch(const std::bad_alloc& error) {
         set_last_error(ENOMEM);
         return -1;
@@ -509,4 +517,13 @@ status_t try_lock_mutex_shared(sem_id handle)
 status_t unlock_mutex_shared(sem_id handle)
 {
     return KNamedObject::ForwardToHandleVoid<KMutex>(handle, &KMutex::UnlockShared);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+status_t islocked_mutex(sem_id handle)
+{
+    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::IsLocked);
 }

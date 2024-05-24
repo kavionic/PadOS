@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KObjectWaitGroup::KObjectWaitGroup(const char* name) : KNamedObject(name, KNamedObjectType::ObjectWaitGroup), m_Mutex(name), m_BlockedThreadCondition(name)
+KObjectWaitGroup::KObjectWaitGroup(const char* name) : KNamedObject(name, KNamedObjectType::ObjectWaitGroup), m_Mutex(name, EMutexRecursionMode::RaiseError), m_BlockedThreadCondition(name)
 {
 }
 
@@ -270,7 +270,7 @@ bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFla
             thread->SetBlockingObject(this);
             m_BlockedThread = thread;
             if (lock != nullptr) lock->Unlock();
-            __DMB();
+
             KSWITCH_CONTEXT(); // Make sure we are suspended the moment we re-enable interrupts
         }
     } CRITICAL_END;

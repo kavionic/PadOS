@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ static bool RemoveTrailingSlashes(String* name)
 }
 
 
-KMutex                                         FileIO::s_TableMutex("vfs_tables");
+KMutex                                         FileIO::s_TableMutex("vfs_tables", EMutexRecursionMode::RaiseError);
 std::map<os::String, Ptr<kernel::KFilesystem>> FileIO::s_FilesystemDrivers;
 Ptr<KFileTableNode>                            FileIO::s_PlaceholderFile;
 Ptr<KRootFilesystem>                           FileIO::s_RootFilesystem;

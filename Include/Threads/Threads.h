@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -66,6 +66,9 @@ static constexpr uint8_t THREAD_STACK_FILLER = 0x5f;
 typedef void (*ThreadEntryPoint_t)( void * );
 typedef void (*TLSDestructor_t)(void *);
 
+enum class EMutexRecursionMode { Block, Recurse, RaiseError };
+
+
 thread_id spawn_thread(const char* name, ThreadEntryPoint_t entryPoint, int priority, void* arguments = nullptr, bool joinable = false, int stackSize = 0 );
 int       exit_thread(int returnCode);
 int       wait_thread(thread_id handle);
@@ -93,7 +96,7 @@ status_t acquire_semaphore_deadline(sem_id handle, bigtime_t deadline);
 status_t try_acquire_semaphore(sem_id handle);
 status_t release_semaphore(sem_id handle);
 
-sem_id   create_mutex(const char* name, bool recursive);
+sem_id   create_mutex(const char* name, EMutexRecursionMode recursionMode);
 sem_id   duplicate_mutex(sem_id handle);
 status_t delete_mutex(sem_id handle);
 status_t lock_mutex(sem_id handle);
@@ -107,6 +110,7 @@ status_t lock_mutex_shared_timeout(sem_id handle, bigtime_t timeout);
 status_t lock_mutex_shared_deadline(sem_id handle, bigtime_t deadline);
 status_t try_lock_mutex_shared(sem_id handle);
 status_t unlock_mutex_shared(sem_id handle);
+status_t islocked_mutex(sem_id handle);
 
 handle_id create_condition_var(const char* name);
 status_t  condition_var_wait(handle_id handle, handle_id mutexHandle);

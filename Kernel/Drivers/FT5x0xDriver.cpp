@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FT5x0xDriver::FT5x0xDriver() : Thread("ft5x0x_driver"), m_Mutex("ft5x0x_mutex", true), m_EventSemaphore("ft5x0x_events", 0)
+FT5x0xDriver::FT5x0xDriver() : Thread("ft5x0x_driver"), m_Mutex("ft5x0x_mutex", EMutexRecursionMode::RaiseError), m_EventSemaphore("ft5x0x_events", 0)
 {
     SetDeleteOnExit(false);
 }

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ namespace kernel
 
 USBDevice::USBDevice()
     : Thread("usb_device")
-    , m_Mutex("usb_device")
+    , m_Mutex("usb_device", EMutexRecursionMode::RaiseError)
     , m_EventQueueCondition("usb_device_queue")
     , m_DeviceQualifier(0, USB_ClassCode::UNSPECIFIED, 0, 0, 0, 0)
 {

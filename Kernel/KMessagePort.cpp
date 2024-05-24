@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -95,7 +95,7 @@ static void free_message(KMessagePortMessage* message)
 ///////////////////////////////////////////////////////////////////////////////
 
 KMessagePort::KMessagePort(const char* name, size_t maxCount) : KNamedObject(name, ObjectType)
-                                                              , m_Mutex("message_port_mutex", false)
+                                                              , m_Mutex("message_port_mutex", EMutexRecursionMode::RaiseError)
                                                               , m_SendCondition("message_port_send")
                                                               , m_ReceiveCondition("message_port_receive")
                                                               , m_MaxCount(maxCount)

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020-2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -47,8 +47,8 @@ SerialCommandHandler* SerialCommandHandler::s_Instance;
 
 SerialCommandHandler::SerialCommandHandler()
     : Thread("SerialHandler")
-    , m_TransmitMutex("sch_xmt_mutex", false)
-    , m_QueueMutex("sch_queue_mutex", false)
+    , m_TransmitMutex("sch_xmt_mutex", EMutexRecursionMode::RaiseError)
+    , m_QueueMutex("sch_queue_mutex", EMutexRecursionMode::RaiseError)
     , m_ReplyCondition("sch_reply_cond")
     , m_QueueCondition("sch_queue_cond")
 {

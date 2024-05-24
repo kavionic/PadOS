@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020-2023 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ namespace kernel
 
 static uint32_t g_UsedChannels = 0;
 
-KMutex g_DMAMutex("kernel_dma");
+KMutex g_DMAMutex("kernel_dma", EMutexRecursionMode::RaiseError);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

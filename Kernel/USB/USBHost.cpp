@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USBHost::USBHost() : Thread("usb_host"), m_Mutex("usb_host"), m_EventQueueCondition("usbh_event_queue")
+USBHost::USBHost() : Thread("usb_host"), m_Mutex("usb_host", EMutexRecursionMode::RaiseError), m_EventQueueCondition("usbh_event_queue")
 {
 }
 

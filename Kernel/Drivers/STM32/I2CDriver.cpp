@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ I2CDriverINode::I2CDriverINode(I2CDriver* driver
                              , double fallTime
                              , double riseTime)
 	: KINode(nullptr, nullptr, driver, false)
-	, m_Mutex("I2CDriverINode")
+	, m_Mutex("I2CDriverINode", EMutexRecursionMode::RaiseError)
 	, m_RequestCondition("I2CDriverINodeRequest")
 	, m_ClockPin(clockPinCfg)
 	, m_DataPin(dataPinCfg)

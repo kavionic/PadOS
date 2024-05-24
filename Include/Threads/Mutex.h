@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -32,13 +32,14 @@ public:
 
     explicit Mutex(NoInit) : HandleObject(INVALID_HANDLE) {}
 
-    Mutex(const char* name, bool recursive = true) : HandleObject(create_mutex(name, recursive)) {}
+    Mutex(const char* name, EMutexRecursionMode recursionMode) : HandleObject(create_mutex(name, recursionMode)) {}
 
     bool Lock() { return lock_mutex(m_Handle) >= 0; }
     bool LockTimeout(bigtime_t timeout) { return lock_mutex_timeout(m_Handle, timeout) >= 0; }
     bool LockDeadline(bigtime_t deadline) { return lock_mutex_deadline(m_Handle, deadline) >= 0; }
     bool TryLock() { return try_lock_mutex(m_Handle) >= 0; }
     bool Unlock() { return unlock_mutex(m_Handle) >= 0; }
+    bool IsLocked() { return islocked_mutex(m_Handle) >= 0; }
 
     Mutex(Mutex&& other) = default;
     Mutex(const Mutex& other) = default;

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2017-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2017-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -62,7 +62,7 @@ SDMMCINode::SDMMCINode(KFilesystemFileOps* fileOps) : KINode(nullptr, nullptr, f
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCDriver::SDMMCDriver() : Thread("hsmci_driver"), m_Mutex("hsmci_driver_mutex", false), m_CardDetectCondition("hsmci_driver_cd"), m_CardStateCondition("hsmci_driver_cstate"), m_IOCondition("hsmci_driver_io"), m_DeviceSemaphore("hsmci_driver_dev_sema", 1)
+SDMMCDriver::SDMMCDriver() : Thread("hsmci_driver"), m_Mutex("hsmci_driver_mutex", EMutexRecursionMode::RaiseError), m_CardDetectCondition("hsmci_driver_cd"), m_CardStateCondition("hsmci_driver_cstate"), m_IOCondition("hsmci_driver_io"), m_DeviceSemaphore("hsmci_driver_dev_sema", 1)
 {
     m_CardType = 0;
     m_CardState = CardState::Initializing;

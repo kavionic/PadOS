@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -63,7 +63,7 @@ static const uint8_t g_GammaTable[] =
 
 WS2812BDriverINode::WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t clockFrequency, KFilesystemFileOps* fileOps)
 	: KINode(nullptr, nullptr, fileOps, false)
-	, m_Mutex("WS2812BDriverINodeWrite")
+	, m_Mutex("WS2812BDriverINodeWrite", EMutexRecursionMode::RaiseError)
 	, m_TransmitCondition("WS2812BDriverINodeTransmit")
 {
 	m_Port = get_spi_from_id(portID);

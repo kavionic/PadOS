@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -93,7 +93,15 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
             for (size_t i = 0; i < length;)
             {
                 const AppserverMessage* message = reinterpret_cast<const AppserverMessage*>(reinterpret_cast<const uint8_t*>(data) + i);
+
+                if (message->m_Length <= 0 || (i + message->m_Length) > length)
+                {
+                    kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: Message %d has invalid length %d (%d)\n", __PRETTY_FUNCTION__, message->m_Code, message->m_Length, length);
+                    break;
+                }
+
                 ProcessMessage(message->m_Code, message + 1, message->m_Length - sizeof(AppserverMessage));
+
                 i += message->m_Length;
             }
             wasHandled = true;

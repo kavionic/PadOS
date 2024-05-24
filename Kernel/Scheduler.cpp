@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -403,7 +403,7 @@ int IFLASHC exit_thread(int returnCode)
 
     thread->m_State = ThreadState::Zombie;
     thread->m_NewLibreent._errno = returnCode;
-    __DMB();
+
     KSWITCH_CONTEXT();
 
     panic("exit_thread() survived a context switch!\n");
@@ -441,7 +441,7 @@ int IFLASHC wait_thread(thread_id handle)
             {
                 thread->m_State = ThreadState::Waiting;
                 child->GetWaitQueue().Append(&waitNode);
-                __DMB();
+
                 KSWITCH_CONTEXT();
             }
         } CRITICAL_END;
@@ -628,7 +628,6 @@ IFLASHC status_t snooze_until(TimeValMicros resumeTime)
             add_to_sleep_list(&waitNode);
             thread->m_State = ThreadState::Sleeping;
             ThreadSyncDebugTracker::GetInstance().AddThread(thread, nullptr);
-            __DMB();
         } CRITICAL_END;
 
         KSWITCH_CONTEXT();
@@ -781,6 +780,7 @@ IFLASHC uint32_t kernel::KDisableLowLatenctInterrupts()
 IFLASHC void kernel::restore_interrupts(uint32_t state)
 {
     __disable_irq();
+    __DMB();
 #if defined(STM32H7)
     __set_BASEPRI(state);
 #elif defined(STM32G030xx)
@@ -850,7 +850,7 @@ static IFLASHC void init_thread_entry(void* arguments)
             if (threadsToDelete.m_First == nullptr)
             {
                 thread->m_State = ThreadState::Waiting;
-                __DMB();
+
                 KSWITCH_CONTEXT();
             }
         } CRITICAL_END;

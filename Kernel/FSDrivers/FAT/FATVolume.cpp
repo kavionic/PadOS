@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ namespace kernel
 ///////////////////////////////////////////////////////////////////////////////
 
 FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const os::String& devicePath)
-    : KFSVolume(volumeID, devicePath), m_Mutex("fatfs_vol_mutex", false), m_INodeIDMapMutex("fatfs_inodemap_mutex", false)
+    : KFSVolume(volumeID, devicePath), m_Mutex("fatfs_vol_mutex", EMutexRecursionMode::RaiseError), m_INodeIDMapMutex("fatfs_inodemap_mutex", EMutexRecursionMode::RaiseError)
 {
     m_Magic = MAGIC;
 

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -79,7 +79,7 @@ bool KSemaphore::Acquire()
             thread->m_State = ThreadState::Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->SetBlockingObject(this);
-            __DMB();
+
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.        
@@ -154,7 +154,7 @@ bool KSemaphore::AcquireDeadline(TimeValMicros deadline)
                 set_last_error(ETIME);
                 return false;
             }
-            __DMB();
+
             KSWITCH_CONTEXT();
         } CRITICAL_END;
         // If we ran KSWITCH_CONTEXT() we should be suspended here.

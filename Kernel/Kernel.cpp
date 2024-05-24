@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@ uint32_t            Kernel::s_FrequencyPeripheral;
 volatile bigtime_t  Kernel::s_SystemTime = 0;
 TimeValMicros       Kernel::s_RealTime;
 
-static KMutex												gk_KernelLogMutex("kernel_log", false);
+static KMutex												gk_KernelLogMutex("kernel_log", EMutexRecursionMode::RaiseError);
 static port_id                                              gk_InputEventPort = INVALID_HANDLE;
 
 static std::map<int, std::pair<KLogSeverity, os::String>>& get_kernel_log_levels_map()

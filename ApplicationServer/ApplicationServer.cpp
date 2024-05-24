@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -59,6 +59,8 @@ ApplicationServer::ApplicationServer(Ptr<os::DisplayDriver> displayDriver)
     : Looper("Appserver", 10, APPSERVER_MSG_BUFFER_SIZE)
     , m_ReplyPort("appserver_reply", 100)
 {
+    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryAppServer, kernel::KLogSeverity::INFO_HIGH_VOL);
+    
     set_input_event_port(GetPortID());
 
     s_DisplayDriver = displayDriver;

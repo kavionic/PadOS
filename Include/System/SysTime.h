@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020-2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -187,8 +187,11 @@ struct TimeValue
     inline TimeValue& operator+=(double rhs) { m_Value += FromSeconds(rhs).AsNative(); return *this; }
     inline TimeValue& operator-=(double rhs) { m_Value -= FromSeconds(rhs).AsNative(); return *this; }
 
-    inline TimeValue operator*(float multiplier) const { return TimeValue(m_Value * multiplier); }
-    inline TimeValue& operator*=(float multiplier) { m_Value *= multiplier; return *this; }
+    inline TimeValue operator*(float multiplier) const { return TimeValue::FromSeconds(AsSecondsF() * multiplier); }
+    inline TimeValue& operator*=(float multiplier) { *this = (*this) * multiplier; return *this; }
+
+    inline TimeValue operator*(double multiplier) const { return TimeValue::FromSeconds(AsSeconds() * multiplier); }
+    inline TimeValue& operator*=(double multiplier) { *this = (*this) * multiplier; return *this; }
 
     inline TimeValue operator*(T multiplier) const { return TimeValue(m_Value * multiplier); }
     inline TimeValue& operator*=(T multiplier) { m_Value *= multiplier; return *this; }

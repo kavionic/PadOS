@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@
 using namespace kernel;
 
 KINode* const                              KVFSManager::PENDING_INODE = (KINode*)(1);
-KMutex                                     KVFSManager::s_INodeMapMutex("inode_map_mutex");
+KMutex                                     KVFSManager::s_INodeMapMutex("inode_map_mutex", EMutexRecursionMode::RaiseError);
 std::map<std::pair<fs_id, ino_t>, KINode*> KVFSManager::s_INodeMap;
 IntrusiveList<KINode>                      KVFSManager::s_InodeMRUList;
 int                                        KVFSManager::s_UnusedInodeCount = 0;

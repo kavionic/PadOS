@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -306,7 +306,9 @@ private:
         if (m_ServerHandle != INVALID_HANDLE)
         {
             Application* app = GetApplication();
-            if (app != nullptr) {
+            if (app != nullptr)
+            {
+                assert(!app->IsRunning() || app->GetMutex().IsLocked());
                 SIGNAL::Sender::Emit(app, &Application::AllocMessageBuffer, m_ServerHandle, args...);
             }
         }

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2023 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2023-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -41,7 +41,7 @@ static constexpr int SPI_MAX_WORD_LENGTH(SPIID spiID) { return (spiID <= SPIID::
 
 SPIDriverINode::SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver)
     : KINode(nullptr, nullptr, driver, false)
-    , m_Mutex("SPIDriverINodeMutex")
+    , m_Mutex("SPIDriverINodeMutex", EMutexRecursionMode::RaiseError)
     , m_TransactionCondition("SPIDriverINodeTransC")
     , m_PinCLK(setup.PinCLK)
     , m_PinMOSI(setup.PinMOSI)

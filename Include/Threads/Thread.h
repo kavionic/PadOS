@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -44,6 +44,7 @@ public:
     thread_id Start(bool joinable = false, int priority = 0, int stackSize = 0);
     int       Wait(TimeValMicros timeout = TimeValMicros::infinit);
 
+    bool IsRunning() const { return m_ThreadHandle != INVALID_HANDLE; }
     thread_id GetThreadID() const { return m_ThreadHandle; }
 
     virtual int Run();
@@ -56,7 +57,7 @@ private:
     static int GetThreadObjTLSSlot();
 
     String      m_Name;
-    thread_id   m_ThreadHandle = -1;
+    thread_id   m_ThreadHandle = INVALID_HANDLE;
     bool        m_IsJoinable = false;
     bool        m_DeleteOnExit = true;
 

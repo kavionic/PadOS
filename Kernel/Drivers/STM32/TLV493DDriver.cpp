@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ DEFINE_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver);
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TLV493DDriver::TLV493DDriver() : Thread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex"), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
+TLV493DDriver::TLV493DDriver() : Thread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex", EMutexRecursionMode::RaiseError), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
 {
 	m_Config.frame_rate = 10;
 	m_Config.temparature_scale = 1.0f;

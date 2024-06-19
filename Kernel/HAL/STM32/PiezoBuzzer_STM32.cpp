@@ -64,6 +64,13 @@ bool PiezoBuzzer_STM32::Setup(HWTimerID timerID, uint32_t timerClkFrequency, Pin
     m_Timer->CCR1   = (m_TimerFrequency / m_BeepFrequency) / 2;
     m_Timer->DIER  |= TIM_DIER_UIE;
 
+    uint32_t dbgFlagMask = 0;
+    volatile uint32_t* dbgReg = get_timer_dbg_clk_flag(timerID, dbgFlagMask);
+    if (dbgReg != nullptr)
+    {
+        *dbgReg |= dbgFlagMask;
+    }
+
     NVIC_ClearPendingIRQ(irq);
     register_irq_handler(irq, IRQCallback, this);
     return true;

@@ -154,6 +154,12 @@ extern "C" IFLASHC uint32_t* select_thread(uint32_t* currentStack)
     if (intptr_t(gk_CurrentThread->m_CurrentStack) <= intptr_t(gk_CurrentThread->GetStackTop())) {
         panic("Stack overflow!\n");
     }
+    if (gk_DebugWakeupThread != 0 && gk_CurrentThread->GetHandle() == gk_DebugWakeupThread)
+    {
+        gk_DebugWakeupThread = 0;
+        __BKPT(0);
+    }
+
     return gk_CurrentThread->m_CurrentStack;
 }
 
@@ -796,9 +802,7 @@ static IFLASHC void idle_thread_entry(void* arguments)
 //        __WFI();
         if (gk_DebugWakeupThread != 0)
         {
-            thread_id threadID = gk_DebugWakeupThread;
-            gk_DebugWakeupThread = 0;
-            wakeup_thread(threadID);
+            wakeup_thread(gk_DebugWakeupThread);
         }
     }
 }

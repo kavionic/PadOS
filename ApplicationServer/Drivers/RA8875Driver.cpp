@@ -87,7 +87,7 @@ bool RA8875Driver::Open()
     IRect screenFrame(IPoint(0, 0), GetResolution());
 
     SetWindow(screenFrame);
-    FillRect(nullptr, screenFrame, Color::FromRGB32A(0));
+    FillRect(ptr_raw_pointer_cast(m_ScreenBitmap), screenFrame, Color::FromRGB32A(0));
 
     //    WriteCommand(RA8875_P1CR, 0x00);  // PWM setting
     //    WriteCommand(RA8875_P2CR, 0x00);  // open PWM

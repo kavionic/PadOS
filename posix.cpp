@@ -48,18 +48,18 @@ IFLASHC void _exit(int status)
 
 struct __lock : public KMutex
 {
-    __lock() : KMutex("newlib", EMutexRecursionMode::Recurse) {}
+    __lock(EMutexRecursionMode recursionMode) : KMutex("newlib", recursionMode) {}
 };
 
-struct __lock __lock___sinit_recursive_mutex;
-struct __lock __lock___sfp_recursive_mutex;
-struct __lock __lock___atexit_recursive_mutex;
-struct __lock __lock___at_quick_exit_mutex;
-struct __lock __lock___malloc_recursive_mutex;
-struct __lock __lock___env_recursive_mutex;
-struct __lock __lock___tz_mutex;
-struct __lock __lock___dd_hash_mutex;
-struct __lock __lock___arc4random_mutex;
+struct __lock __lock___sinit_recursive_mutex(EMutexRecursionMode::Recurse);
+struct __lock __lock___sfp_recursive_mutex(EMutexRecursionMode::Recurse);
+struct __lock __lock___atexit_recursive_mutex(EMutexRecursionMode::Recurse);
+struct __lock __lock___at_quick_exit_mutex(EMutexRecursionMode::RaiseError);
+struct __lock __lock___malloc_recursive_mutex(EMutexRecursionMode::Recurse);
+struct __lock __lock___env_recursive_mutex(EMutexRecursionMode::Recurse);
+struct __lock __lock___tz_mutex(EMutexRecursionMode::RaiseError);
+struct __lock __lock___dd_hash_mutex(EMutexRecursionMode::RaiseError);
+struct __lock __lock___arc4random_mutex(EMutexRecursionMode::RaiseError);
 
 static bool g_MutexesInitialized = false;
 IFLASHC void InitializeNewLibMutexes()
@@ -79,7 +79,7 @@ IFLASHC void InitializeNewLibMutexes()
 IFLASHC void __retarget_lock_init (_LOCK_T *lock)
 {
     try {
-        *lock = new __lock;
+        *lock = new __lock(EMutexRecursionMode::RaiseError);
     } catch(const std::bad_alloc& error) {
         *lock = nullptr;
     }
@@ -88,7 +88,7 @@ IFLASHC void __retarget_lock_init (_LOCK_T *lock)
 IFLASHC void __retarget_lock_init_recursive(_LOCK_T *lock)
 {
     try {
-        *lock = new __lock;
+        *lock = new __lock(EMutexRecursionMode::Recurse);
     } catch(const std::bad_alloc& error) {
         *lock = nullptr;
     }

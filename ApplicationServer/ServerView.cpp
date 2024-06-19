@@ -140,7 +140,7 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position, co
 
 bool ServerView::HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-    if (m_ClientHandle != -1 )
+    if (m_ClientHandle != INVALID_HANDLE)
     {
         if (!ASHandleMouseUp::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position, event)) {
             printf("ERROR: ServerView::HandleMouseUp() failed to send message: %s\n", strerror(get_last_error()));
@@ -156,7 +156,8 @@ bool ServerView::HandleMouseUp(MouseButton_e button, const Point& position, cons
 
 bool ServerView::HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
 {
-    if (m_ClientHandle != -1 ) {
+    if (m_ClientHandle != INVALID_HANDLE)
+    {
         if (!ASHandleMouseMove::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position, event)) {
             printf("ERROR: ServerView::HandleMouseMove() failed to send message: %s\n", strerror(get_last_error()));
         }
@@ -185,7 +186,7 @@ void ServerView::RemoveChild(Ptr<ServerView> child, bool removeAsHandler)
 
     if (removeAsHandler)
     {
-        Looper* looper = child->GetLooper();
+        Looper* const looper = child->GetLooper();
         if (looper != nullptr) {
             looper->RemoveHandler(child);
         }
@@ -198,7 +199,7 @@ void ServerView::RemoveChild(Ptr<ServerView> child, bool removeAsHandler)
 
 void ServerView::RemoveThis(bool removeAsHandler)
 {
-    Ptr<ServerView> parent = m_Parent.Lock();
+    const Ptr<ServerView> parent = m_Parent.Lock();
     if (parent != nullptr)
     {
         parent->RemoveChild(ptr_tmp_cast(this), removeAsHandler);
@@ -220,9 +221,9 @@ bool ServerView::IsVisible() const
 
 void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
 {
-    IRect intFrame(rect);
+    const IRect intFrame(rect);
+    const IRect prevIFrame = GetIFrame();
 
-    IRect prevIFrame = GetIFrame();
     m_Frame = rect;
     UpdateScreenPos();
 
@@ -230,7 +231,7 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
         return;
     }
 
-    Ptr<ServerView> parent = m_Parent.Lock();
+    const Ptr<ServerView> parent = m_Parent.Lock();
 
     if (m_HideCount == 0)
     {
@@ -252,7 +253,7 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
             {
                 for (++i; i != parent->m_ChildrenList.rend(); ++i)
                 {
-                    Ptr<ServerView> sibling = *i;
+                    const Ptr<ServerView> sibling = *i;
                     IRect siblingIFrame = sibling->GetIFrame();
                     if (siblingIFrame.DoIntersect(prevIFrame) || siblingIFrame.DoIntersect(intFrame))
                     {
@@ -270,7 +271,7 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
         {
             if (m_ManagerHandle != INVALID_HANDLE)
             {
-                ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+                ApplicationServer* const server = static_cast<ApplicationServer*>(GetLooper());
                 if (server !=  nullptr) {
                     ASViewFrameChanged::Sender::Emit(get_window_manager_port(), m_ManagerHandle, TimeValMicros::infinit, m_Frame);
                 }                    
@@ -313,12 +314,13 @@ void ServerView::SetShapeRegion(Ptr<Region> region)
 
     if (m_HideCount == 0)
     {
-        Ptr<ServerView> parent = m_Parent.Lock();
-        if ( parent != nullptr )
+        const Ptr<ServerView> parent = m_Parent.Lock();
+        if (parent != nullptr)
         {
             for (Ptr<ServerView> i = parent; i != nullptr; i = i->GetParent())
             {
-                if ((i->m_Flags & ViewFlags::Transparent) == 0) {
+                if ((i->m_Flags & ViewFlags::Transparent) == 0)
+                {
                     i->SetDirtyRegFlags();
                     break;
                 }                    
@@ -327,11 +329,11 @@ void ServerView::SetShapeRegion(Ptr<Region> region)
             auto i = parent->GetChildRIterator(ptr_tmp_cast(this));
             if (i != parent->m_ChildrenList.rend())
             {
-                IRect intFrame = GetIFrame();
+                const IRect intFrame = GetIFrame();
                 for (++i; i != parent->m_ChildrenList.rend(); ++i)
                 {
-                    Ptr<ServerView> sibling = *i;
-                    IRect siblingIFrame = sibling->GetIFrame();
+                    const Ptr<ServerView> sibling = *i;
+                    const IRect siblingIFrame = sibling->GetIFrame();
                     if ( siblingIFrame.DoIntersect(intFrame) ) {
                         sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
                     }
@@ -425,8 +427,8 @@ void ServerView::InvalidateNewAreas()
         }
         m_PrevVisibleReg = nullptr;
 
-        m_DeltaSize = IPoint( 0, 0 );
-        m_DeltaMove = IPoint( 0, 0 );
+        m_DeltaSize = IPoint(0, 0);
+        m_DeltaMove = IPoint(0, 0);
     }
   
     for (Ptr<ServerView> child : m_ChildrenList) {
@@ -479,8 +481,8 @@ void ServerView::MoveChilds()
   
     if (m_HasInvalidRegs)
     {
-        IRect bounds(GetNormalizedBounds());
-        IPoint screenPos(m_ScreenPos);
+        const IRect bounds(GetNormalizedBounds());
+        const IPoint screenPos(m_ScreenPos);
         for (Ptr<ServerView> child : m_ChildrenList)
         {
             if (child->m_DeltaMove.x == 0 && child->m_DeltaMove.y == 0) {
@@ -490,15 +492,15 @@ void ServerView::MoveChilds()
                 continue;
             }
 
-            Ptr<Region> region = ptr_new<Region>(*child->m_PrevFullReg);
+            const Ptr<Region> region = ptr_new<Region>(*child->m_PrevFullReg);
             region->Intersect(*child->m_FullReg);
 
             if (region->IsEmpty()) {
                 continue;
             }
 
-            IPoint cChildOffset = IPoint(child->m_ScreenPos);
-            IPoint cChildMove(child->m_DeltaMove);
+            const IPoint cChildOffset = IPoint(child->m_ScreenPos);
+            const IPoint cChildMove(child->m_DeltaMove);
             for (IRect& clip : region->m_Rects)
             {
                 // Transform into parents coordinate system
@@ -528,20 +530,19 @@ void ServerView::MoveChilds()
             if (parent->m_DeltaSize.x < 0)
             {
                 IRect rect = bounds;
-
-                IRect parentIFrame = parent->GetIFrame();
+                const IRect parentIFrame = parent->GetIFrame();
 
                 rect.left = rect.right + int(parent->m_DeltaSize.x + parentIFrame.right - parentIFrame.left - GetIFrame().right);
 
                 if (rect.IsValid()) {
-                    Invalidate( rect );
+                    Invalidate(rect);
                 }
             }
             if (parent->m_DeltaSize.y < 0)
             {
                 IRect rect = bounds;
+                const IRect parentIFrame = parent->GetIFrame();
 
-                IRect parentIFrame = parent->GetIFrame();
                 rect.top = rect.bottom + int(parent->m_DeltaSize.y + parentIFrame.bottom - parentIFrame.top - GetIFrame().bottom);
 
                 if (rect.IsValid()) {
@@ -579,9 +580,9 @@ void ServerView::RebuildRegion()
         m_PrevVisibleReg = m_VisibleReg;
         m_PrevFullReg = m_FullReg;
 
-        IPoint scrollOffset(m_ScrollOffset);
+        const IPoint scrollOffset(m_ScrollOffset);
 
-        Ptr<ServerView> parent = m_Parent.Lock();
+        const Ptr<ServerView> parent = m_Parent.Lock();
         if (parent == nullptr)
         {
             m_FullReg = ptr_new<Region>(GetIFrame());
@@ -598,7 +599,7 @@ void ServerView::RebuildRegion()
             if (m_ShapeConstrainReg != nullptr) {
                 m_FullReg->Intersect(*m_ShapeConstrainReg);
             }
-            IPoint topLeft(intFrame.TopLeft());
+            const IPoint topLeft(intFrame.TopLeft());
             auto i = parent->GetChildIterator(ptr_tmp_cast(this));
             if (i != parent->m_ChildrenList.end())
             {
@@ -658,8 +659,8 @@ bool ServerView::ExcludeFromRegion(Ptr<Region> region, const IPoint& offset)
         else
         {
             bool wasModified = false;
-            IPoint framePos = GetITopLeft();
-            IPoint scrollOffset(m_ScrollOffset);
+            const IPoint framePos = GetITopLeft();
+            const IPoint scrollOffset(m_ScrollOffset);
             for (Ptr<ServerView> child : m_ChildrenList)
             {
                 if (child->ExcludeFromRegion(region, offset + framePos + scrollOffset)) {
@@ -694,7 +695,7 @@ void ServerView::UpdateRegions()
     MoveChilds();
     InvalidateNewAreas();
 
-    ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
+    ApplicationServer* const server = static_cast<ApplicationServer*>(GetLooper());
     if (server != nullptr && server->GetTopView() == this /*m_pcBitmap != nullptr*/ && m_DamageReg != nullptr)
     {
         if (m_Bitmap == ApplicationServer::GetScreenBitmap())
@@ -702,7 +703,7 @@ void ServerView::UpdateRegions()
             Region cDrawReg(*m_VisibleReg);
             cDrawReg.Intersect(*m_DamageReg);
         
-            IPoint screenPos(m_ScreenPos);
+            const IPoint screenPos(m_ScreenPos);
             for (const IRect& clip : cDrawReg.m_Rects) {
                 m_Bitmap->m_Driver->FillRect(m_Bitmap, clip + screenPos, m_EraseColor);
             }
@@ -782,9 +783,9 @@ Ptr<Region> ServerView::GetRegion()
 
 void ServerView::ToggleDepth()
 {
-    Ptr<ServerView> self = ptr_tmp_cast(this);
-    Ptr<ServerView> parent = GetParent();
-    if ( parent != NULL )
+    const Ptr<ServerView> self = ptr_tmp_cast(this);
+    const Ptr<ServerView> parent = GetParent();
+    if (parent != nullptr)
     {
         if (parent->m_ChildrenList[parent->m_ChildrenList.size()-1] == self)
         {
@@ -797,14 +798,14 @@ void ServerView::ToggleDepth()
             parent->AddChild(self, INVALID_INDEX);
         }
 
-        Ptr<ServerView> opacParent = GetOpacParent(parent, nullptr);
-        
+        const Ptr<ServerView> opacParent = GetOpacParent(parent, nullptr);
+        kassert(opacParent != nullptr);
         opacParent->SetDirtyRegFlags();
     
-        IRect intFrame = GetIFrame();
+        const IRect intFrame = GetIFrame();
         for (Ptr<ServerView> sibling : *parent)
         {
-            IRect siblingIFrame = sibling->GetIFrame();
+            const IRect siblingIFrame = sibling->GetIFrame();
             if (siblingIFrame.DoIntersect(intFrame)) {
                 sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
             }
@@ -892,7 +893,7 @@ void ServerView::MarkModified(const IRect& rect)
     if (GetNormalizedBounds().DoIntersect(rect))
     {
         m_HasInvalidRegs = true;
-        IPoint scrollOffset(m_ScrollOffset);
+        const IPoint scrollOffset(m_ScrollOffset);
         
         for (Ptr<ServerView> child : m_ChildrenList) {
             child->MarkModified(rect - child->GetITopLeft() - scrollOffset);
@@ -931,20 +932,21 @@ void ServerView::Show(bool doShow)
     if (isVisible != wasVisible)
     {
 
-        Ptr<ServerView> parent = m_Parent.Lock();
+        const Ptr<ServerView> parent = m_Parent.Lock();
         if (parent != nullptr)
         {
             for (Ptr<ServerView> i = parent; i != nullptr; i = i->GetParent())
             {
-                if ((i->m_Flags & ViewFlags::Transparent) == 0) {
+                if ((i->m_Flags & ViewFlags::Transparent) == 0)
+                {
                     i->SetDirtyRegFlags();
                     break;
                 }
             }
-            IRect intFrame = GetIFrame();
+            const IRect intFrame = GetIFrame();
             for (Ptr<ServerView> sibling : parent->m_ChildrenList)
             {
-                IRect siblingIFrame = sibling->GetIFrame();
+                const IRect siblingIFrame = sibling->GetIFrame();
                 if (siblingIFrame.DoIntersect(intFrame)) {
                     sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
                 }
@@ -992,7 +994,7 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
     Ptr<const Region> region = GetRegion();
     if (region != nullptr)
     {
-        IPoint screenPos(m_ScreenPos);
+        const IPoint screenPos(m_ScreenPos);
         IPoint fromPntScr(fromPnt + m_ScrollOffset);
         IPoint toPntScr(toPnt + m_ScrollOffset);
 
@@ -1014,7 +1016,7 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
         fromPntScr += screenPos;
         toPntScr   += screenPos;
         
-        IRect screenFrame = ApplicationServer::GetScreenIFrame();
+        const IRect screenFrame = ApplicationServer::GetScreenIFrame();
 
         if (Region::ClipLine(screenFrame, &fromPntScr, &toPntScr))
         {
@@ -1048,11 +1050,11 @@ void ServerView::DrawRect(const Rect& frame)
 
 void ServerView::FillRect(const Rect& rect, Color color)
 {
-    Ptr<const Region> region = GetRegion();
+    const Ptr<const Region> region = GetRegion();
     if (region != nullptr)
     {
-        IPoint screenPos(m_ScreenPos);
-        IRect  rectScr(rect + m_ScrollOffset);
+        const IPoint screenPos(m_ScreenPos);
+        const IRect  rectScr(rect + m_ScrollOffset);
         
         for (const IRect& clip : region->m_Rects)
         {
@@ -1071,19 +1073,19 @@ void ServerView::FillRect(const Rect& rect, Color color)
 
 void ServerView::FillCircle(const Point& position, float radius)
 {
-    Ptr<const Region> region = GetRegion();
+    const Ptr<const Region> region = GetRegion();
     if (region != nullptr)
     {
-        IPoint screenPos(m_ScreenPos);
+        const IPoint screenPos(m_ScreenPos);
         IPoint positionScr(position + m_ScrollOffset);
-        int    radiusRounded = int(radius + 0.5f);
+        const int    radiusRounded = int(radius + 0.5f);
         
         positionScr += screenPos;
         
-        IRect boundingBox(positionScr.x - radiusRounded - 2, positionScr.y - radiusRounded - 2, positionScr.x + radiusRounded + 2, positionScr.y + radiusRounded + 2);
+        const IRect boundingBox(positionScr.x - radiusRounded - 2, positionScr.y - radiusRounded - 2, positionScr.x + radiusRounded + 2, positionScr.y + radiusRounded + 2);
         for (const IRect& clip : region->m_Rects)
         {
-            IRect clipRect = clip + screenPos;
+            const IRect clipRect = clip + screenPos;
             if (!boundingBox.DoIntersect(clipRect)) {
                 continue;
             }
@@ -1098,15 +1100,15 @@ void ServerView::FillCircle(const Point& position, float radius)
 
 void ServerView::DrawString(const String& string)
 {
-    Ptr<const Region> region = GetRegion();
+    const Ptr<const Region> region = GetRegion();
     if (region != nullptr)
     {
-        IPoint screenPos(m_ScreenPos);
+        const IPoint screenPos(m_ScreenPos);
         IPoint penPos = IPoint(m_PenPosition + m_ScrollOffset);
         
-        DisplayDriver* driver = m_Bitmap->m_Driver;
+        DisplayDriver* const driver = m_Bitmap->m_Driver;
 
-        IRect boundingBox(penPos.x, penPos.y, penPos.x + int(driver->GetStringWidth(m_Font->Get(), string.c_str(), string.size())), penPos.y + int(driver->GetFontHeight(m_Font->Get())));
+        const IRect boundingBox(penPos.x, penPos.y, penPos.x + int(driver->GetStringWidth(m_Font->Get(), string.c_str(), string.size())), penPos.y + int(driver->GetFontHeight(m_Font->Get())));
 
         penPos += screenPos;
         
@@ -1132,17 +1134,17 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     }
 
     IRect  intSrcRect(srcRect);
-    IPoint delta   = IPoint(dstPos) - intSrcRect.TopLeft();
+    const IPoint delta   = IPoint(dstPos) - intSrcRect.TopLeft();
 
     if (delta.x == 0 && delta.y == 0) {
         return;
     }
 
     intSrcRect += IPoint(m_ScrollOffset);
-    IRect  dstRect = intSrcRect + delta;
+    const IRect  dstRect = intSrcRect + delta;
 
     std::vector<IRect> bltList;
-    Region       damage(*m_VisibleReg, intSrcRect, false);
+    Region             damage(*m_VisibleReg, intSrcRect, false);
 
     for (const IRect& srcClip : m_VisibleReg->m_Rects)
     {
@@ -1157,7 +1159,7 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
 
         for(const IRect& dstClip : m_VisibleReg->m_Rects)
         {
-            IRect dRect = sRect & dstClip;
+            const IRect dRect = sRect & dstClip;
 
             if (!dRect.IsValid()) {
                 continue;
@@ -1183,7 +1185,7 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     }
     std::sort(clipList.begin(), clipList.end(), BlitSortCompare(delta));
 
-    IPoint screenPos(m_ScreenPos);
+    const IPoint screenPos(m_ScreenPos);
     for (IRect* clip : clipList)
     {
         *clip += screenPos; // Convert into screen space
@@ -1191,7 +1193,7 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     }
     if (m_DamageReg != nullptr)
     {
-        Region region(*m_DamageReg, intSrcRect, false);
+        const Region region(*m_DamageReg, intSrcRect, false);
         for (const IRect& dmgClip : region.m_Rects)
         {
             m_DamageReg->Include((dmgClip + delta)  & dstRect);
@@ -1202,7 +1204,7 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     }
     if (m_ActiveDamageReg != nullptr)
     {
-        Region region(*m_ActiveDamageReg, intSrcRect, false);
+        const Region region(*m_ActiveDamageReg, intSrcRect, false);
         if (!region.IsEmpty())
         {
             if ( m_DamageReg == nullptr ) {
@@ -1242,25 +1244,25 @@ void ServerView::DrawBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Po
         return;
     }
 
-    IPoint screenPos(m_ScreenPos);
+    const IPoint screenPos(m_ScreenPos);
 
-    IRect  intSrcRect(srcRect);
+    const IRect  intSrcRect(srcRect);
     IPoint intDstPos(dstPos + m_ScrollOffset);
 
-    IRect clippedSrcRect = intSrcRect & IRect(IPoint(0, 0), bitmap->m_Size);
+    const IRect clippedSrcRect = intSrcRect & IRect(IPoint(0, 0), bitmap->m_Size);
     intDstPos += clippedSrcRect.TopLeft() - intSrcRect.TopLeft();
 
-    IRect  dstRect = clippedSrcRect.Bounds() + intDstPos;
-    IPoint srcPos(clippedSrcRect.TopLeft());
+    const IRect  dstRect = clippedSrcRect.Bounds() + intDstPos;
+    const IPoint srcPos(clippedSrcRect.TopLeft());
 
     for (const IRect& clipRect : region->m_Rects)
     {
-        IRect rect = dstRect & clipRect;
+        const IRect rect = dstRect & clipRect;
 
         if (rect.IsValid())
         {
-            IPoint cDst = rect.TopLeft() + screenPos;
-            IRect  cSrc = rect - intDstPos + srcPos;
+            const IPoint cDst = rect.TopLeft() + screenPos;
+            const IRect  cSrc = rect - intDstPos + srcPos;
 
             m_Bitmap->m_Driver->CopyRect(m_Bitmap, ptr_raw_pointer_cast(bitmap), m_BgColor, m_FgColor, cSrc, cDst, m_DrawingMode);
         }
@@ -1273,7 +1275,7 @@ void ServerView::DrawBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Po
 
 void ServerView::DebugDraw(Color color, uint32_t drawFlags)
 {
-    IPoint screenPos(m_ScreenPos);
+    const IPoint screenPos(m_ScreenPos);
     
     if (drawFlags & ViewDebugDrawFlags::ViewFrame)
     {
@@ -1291,7 +1293,7 @@ void ServerView::DebugDraw(Color color, uint32_t drawFlags)
     }        
     if (drawFlags & ViewDebugDrawFlags::DamageRegion)
     {
-        Ptr<Region> region = GetRegion();
+        const Ptr<Region> region = GetRegion();
         if (region != nullptr)
         {
             for (const IRect& clip : region->m_Rects)
@@ -1308,21 +1310,21 @@ void ServerView::DebugDraw(Color color, uint32_t drawFlags)
 
 void ServerView::ScrollBy(const Point& offset)
 {
-    Ptr<ServerView> parent = m_Parent.Lock();
+    const Ptr<ServerView> parent = m_Parent.Lock();
     if ( parent == nullptr ) {
         return;
     }
-    IPoint screenPos(m_ScreenPos);
+    const IPoint screenPos(m_ScreenPos);
 
-    IPoint oldOffset(m_ScrollOffset);
+    const IPoint oldOffset(m_ScrollOffset);
     m_ScrollOffset += offset;
-    IPoint newOffset(m_ScrollOffset);
+    const IPoint newOffset(m_ScrollOffset);
     
     if (newOffset == oldOffset) {
         return;
     }
     UpdateScreenPos();
-    IPoint intOffset(newOffset - oldOffset);
+    const IPoint intOffset(newOffset - oldOffset);
     
     if ( m_HideCount > 0 ) {
         return;
@@ -1336,7 +1338,7 @@ void ServerView::ScrollBy(const Point& offset)
         return;
     }
 
-    IRect        bounds(GetNormalizedBounds());
+    const IRect        bounds(GetNormalizedBounds());
     std::vector<IRect> bltList;
     Region       damage(*m_VisibleReg);
 
@@ -1353,8 +1355,9 @@ void ServerView::ScrollBy(const Point& offset)
 
         for(const IRect& dstClip : m_FullReg->m_Rects)
         {
-            IRect dRect = sRect & dstClip;
-            if (dRect.IsValid()) {
+            const IRect dRect = sRect & dstClip;
+            if (dRect.IsValid())
+            {
                 damage.Exclude(dRect);
                 bltList.push_back(dRect);
             }                
@@ -1378,7 +1381,7 @@ void ServerView::ScrollBy(const Point& offset)
 
     for (size_t i = 0 ; i < clipList.size() ; ++i)
     {
-        IRect* clip = clipList[i];
+        IRect* const clip = clipList[i];
 
         *clip += screenPos; // Convert into screen space
 
@@ -1410,11 +1413,10 @@ void ServerView::ScrollBy(const Point& offset)
 
 void ServerView::UpdateScreenPos()
 {
-    Ptr<ServerView> parent = m_Parent.Lock();
+    const Ptr<ServerView> parent = m_Parent.Lock();
     if (parent == nullptr) {
         m_ScreenPos = m_Frame.TopLeft();
-    }
-    else {
+    } else {
         m_ScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
     }
     for (Ptr<ServerView> child : m_ChildrenList) {
@@ -1428,10 +1430,10 @@ void ServerView::UpdateScreenPos()
 
 void ServerView::DebugDrawRect(const IRect& frame, Color color)
 {
-    IPoint p1(frame.left, frame.top);
-    IPoint p2(frame.right - 1, frame.top);
-    IPoint p3(frame.right - 1, frame.bottom - 1);
-    IPoint p4(frame.left, frame.bottom - 1);
+    const IPoint p1(frame.left, frame.top);
+    const IPoint p2(frame.right - 1, frame.top);
+    const IPoint p3(frame.right - 1, frame.bottom - 1);
+    const IPoint p4(frame.left, frame.bottom - 1);
 
     m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p1, p2, color, DrawingMode::Copy);
     m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p2, p3, color, DrawingMode::Copy);

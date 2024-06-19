@@ -61,7 +61,7 @@ Region::Region(const Region& reg) : PtrTarget()
 
 Region::Region(const Region& region, const IRect& rectangle, bool normalize)
 {
-    IPoint topLeft = rectangle.TopLeft();
+    const IPoint topLeft = rectangle.TopLeft();
     for (const Rect& oldClip : region.m_Rects)
     {
         IRect rect = oldClip & rectangle;
@@ -160,15 +160,14 @@ void Region::Exclude(const IRect& rect)
 {
     try
     {
-        size_t prevClipCount = m_Rects.size();
+        const size_t prevClipCount = m_Rects.size();
     
         size_t nextFree = 0;
     
         for (size_t i = 0; i < prevClipCount; ++i)
         {
-            IRect oldFrame = m_Rects[i];
-        
-            IRect hide = rect & oldFrame;
+            const IRect oldFrame = m_Rects[i];
+            const IRect hide = rect & oldFrame;
 
             if (!hide.IsValid()) {
                 continue;
@@ -231,7 +230,7 @@ void Region::Intersect(const Region& region)
         {
             for (const IRect& srcRect : region.m_Rects)
             {
-                IRect rect = dstRect & srcRect;
+                const IRect rect = dstRect & srcRect;
                 if (rect.IsValid()) {
                     newList.push_back(rect);
                 }
@@ -255,7 +254,7 @@ void Region::Intersect(const Region& region, const IPoint& offset)
         {
             for (const IRect& srcRect : region.m_Rects)
             {
-                IRect rect = dstRect & (srcRect + offset);
+                const IRect rect = dstRect & (srcRect + offset);
                 if (rect.IsValid()) {
                     newList.push_back(rect);
                 }
@@ -353,8 +352,8 @@ void Region::Optimize()
 bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 {
     // Check if each end point is visible or invisible
-    bool point1Inside = rect.DoIntersect(*point1);
-    bool point2Inside = rect.DoIntersect(*point2);
+    const bool point1Inside = rect.DoIntersect(*point1);
+    const bool point2Inside = rect.DoIntersect(*point2);
 
     // test endpoints
     if (point1Inside && point2Inside) {
@@ -506,8 +505,8 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with right edge
             if (dx!=0) {
-                int hDelta = rect.right - 1 - point2->x;
-                int rounding = dx / 2;
+                const int hDelta = rect.right - 1 - point2->x;
+                const int rounding = dx / 2;
                 yi = (dy * hDelta + rounding) / dx + point2->y;
             } else {
                 yi = -1;  // invalidate intersection
@@ -519,8 +518,8 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with left edge
             if (dx!=0) {
-                int hDelta = rect.left - point2->x;
-                int rounding = dx / 2;
+                const int hDelta = rect.left - point2->x;
+                const int rounding = dx / 2;
                 yi = (dy * hDelta + rounding) / dx + point2->y;
             } else {
                 yi = -1;  // invalidate intersection
@@ -534,8 +533,8 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with right edge
             if (dy!=0) {
-                int vDelta = rect.bottom - 1 - point2->y;
-                int rounding = dy / 2;
+                const int vDelta = rect.bottom - 1 - point2->y;
+                const int rounding = dy / 2;
                 xi = (dx * vDelta + rounding) / dy + point2->x;
             } else {
                 xi = -1;  // invalidate intersection
@@ -547,8 +546,8 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 
             // compute intersection with top edge
             if (dy!=0) {
-                int vDelta = rect.top - point2->y;
-                int rounding = dy / 2;
+                const int vDelta = rect.top - point2->y;
+                const int rounding = dy / 2;
                 xi = (dx * vDelta + rounding) / dy + point2->x;
             } else {
                 xi = -1;  // invalidate intersection
@@ -608,9 +607,9 @@ void Region::Validate()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Region::FindUnusedClip(int prevUnused, int lastToCheck)
+size_t Region::FindUnusedClip(size_t prevUnused, size_t lastToCheck)
 {
-    if (prevUnused != -1)
+    if (prevUnused != INVALID_INDEX)
     {
         for (int i = prevUnused; i <= lastToCheck; ++i)
         {
@@ -619,22 +618,25 @@ int Region::FindUnusedClip(int prevUnused, int lastToCheck)
             }
         }
     }    
-    return -1;
+    return INVALID_INDEX;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Region::AddOrReuseClip(int prevUnused, int lastToCheck, const IRect& frame)
+size_t Region::AddOrReuseClip(size_t prevUnused, size_t lastToCheck, const IRect& frame)
 {
     try
     {
-        int freeSlot = FindUnusedClip(prevUnused, lastToCheck);
-        if (freeSlot == -1) {
+        const size_t freeSlot = FindUnusedClip(prevUnused, lastToCheck);
+        if (freeSlot == INVALID_INDEX)
+        {
             m_Rects.push_back(frame);
             return lastToCheck + 1;
-        } else {
+        }
+        else
+        {
             m_Rects[freeSlot] = frame;
             return freeSlot + 1;
         }
@@ -658,15 +660,14 @@ void Region::RemoveUnusedClips(size_t firstToCheck, size_t lastToCheck)
         {
             if (m_Rects[i].left == m_Rects[i].right)
             {
+                newClipCount--;
+
                 if (i == m_Rects.size() - 1)
                 {
-                    m_Rects.erase(m_Rects.begin() + i); // Last clip. Just delete it.
                     lastToCheck--;
-                    newClipCount--;
                 }
                 else
                 {
-                    newClipCount--;
                     m_Rects[i] = m_Rects[newClipCount]; // Erase by swapping in the last entry.
                     if (newClipCount < lastToCheck) {
                         --lastToCheck;

@@ -58,20 +58,6 @@
 #define PRIVILEGE_MODE 0
 #define USER_MODE      1
 
-#define MPU_DEFAULT_ITCM_REGION                 ( 1 )
-#define MPU_DEFAULT_IFLASH_REGION               ( 2 )
-#define MPU_DEFAULT_DTCM_REGION                 ( 3 )
-#define MPU_DEFAULT_SRAM_REGION_1               ( 4 )
-#define MPU_DEFAULT_SRAM_REGION_2               ( 5 )
-#define MPU_PERIPHERALS_REGION                  ( 6 )
-#define MPU_EXT_EBI_REGION                      ( 7 )
-#define MPU_DEFAULT_SDRAM_REGION                ( 8 )
-#define MPU_QSPIMEM_REGION                      ( 9 )
-#define MPU_USBHSRAM_REGION                     ( 10 )
-#if defined MPU_HAS_NOCACHE_REGION
-#define MPU_NOCACHE_SRAM_REGION                 ( 11 )
-#endif
-
 #define MPU_REGION_VALID                        ( 0x10 )
 #define MPU_REGION_ENABLE                       ( 0x01 )
 #define MPU_REGION_DISABLE                      ( 0x0 )

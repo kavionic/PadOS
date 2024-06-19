@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -30,91 +30,94 @@
 namespace os
 {
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
-template<typename T>
-struct RemoteSignalPacker
+namespace remote_signal_utils
 {
-    static size_t GetSize(T value) { return sizeof(T); }
-    static void   Write(T value, void* data ) { *reinterpret_cast<T*>(data) = value; }
-    static size_t Read(const void* data, T* value)       { *value = *reinterpret_cast<const T*>(data); return sizeof(T); }
-};
-/*
-template<>
-struct RemoteSignalPacker<int>
-{
-    static size_t GetSize(int value) { return sizeof(int); }
-    static void   Write(int value, void* data ) { *reinterpret_cast<int*>(data) = value; }
-    static size_t Read(const void* data, int* value)       { *value = *reinterpret_cast<const int*>(data); return sizeof(*value); }
-};
+    constexpr size_t align_argument_size(size_t length) { return (length + 3) & ~3; }
 
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
 
-template<>
-struct RemoteSignalPacker<float>
-{
-    static size_t GetSize(float value)           { return sizeof(float); }
-    static void   Write(float value, void* data ) { *reinterpret_cast<float*>(data) = value; }
-    static size_t Read(const void* data, float* value)       { *value = *reinterpret_cast<const float*>(data); return sizeof(*value); }
-};
-
-template<>
-struct RemoteSignalPacker<Rect>
-{
-    static size_t GetSize(const Rect& value)           { return sizeof(Rect); }
-    static void   Write(const Rect& value, void* data ) { *reinterpret_cast<Rect*>(data) = value; }
-    static size_t Read(const void* data, Rect* value)       { *value = *reinterpret_cast<const Rect*>(data); return sizeof(*value); }
-};
-*/
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-template<>
-struct RemoteSignalPacker<std::string>
-{
-    static size_t GetSize(const std::string& value) { return sizeof(uint32_t) + value.size(); }
-    static void   Write(const std::string& value, void* data)
+    template<typename T>
+    struct ArgumentPacker
     {
-        *reinterpret_cast<uint32_t*>(data) = value.size();
-        data = reinterpret_cast<uint32_t*>(data) + 1;
-        value.copy(reinterpret_cast<char*>(data), value.size());
-    }
-    static size_t Read(const void* data, std::string* value)
-    {
-        uint32_t length = *reinterpret_cast<const uint32_t*>(data);
-        data = reinterpret_cast<const uint32_t*>(data) + 1;
-        value->assign(reinterpret_cast<const char*>(data), length);
-        return sizeof(uint32_t) + length;
-    }
-};
+        static size_t   GetSize(T value) { return sizeof(T); }
+        static ssize_t  Write(T value, void* data, size_t length)
+        {
+            if (length >= sizeof(value))
+            {
+                *reinterpret_cast<T*>(data) = value;
+                return sizeof(value);
+            }
+            printf("ERROR: %s: not enough data %zd/%zd.", __PRETTY_FUNCTION__, length, sizeof(T));
+            return -1;
+        }
+        static ssize_t Read(const void* data, size_t length, T* value)
+        {
+            if (length >= sizeof(T))
+            {
+                *value = *reinterpret_cast<const T*>(data);
+                return sizeof(T);
+            }
+            printf("ERROR: %s: not enough data %zd/%zd.", __PRETTY_FUNCTION__, length, sizeof(T));
+            return -1;
+        }
+    };
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
 
-template<>
-struct RemoteSignalPacker<String>
-{
-    static size_t GetSize(const String& value) { return sizeof(uint32_t) + value.size(); }
-    static void   Write(const String& value, void* data)
+    template<>
+    struct ArgumentPacker<std::string>
     {
-        *reinterpret_cast<uint32_t*>(data) = value.size();
-        data = reinterpret_cast<uint32_t*>(data) + 1;
-        value.copy(reinterpret_cast<char*>(data), value.size());
-    }
-    static size_t Read(const void* data, String* value)
-    {
-        uint32_t length = *reinterpret_cast<const uint32_t*>(data);
-        data = reinterpret_cast<const uint32_t*>(data) + 1;
-        value->assign(reinterpret_cast<const char*>(data), length);
-        return sizeof(uint32_t) + length;
-    }
-};
+        static size_t   GetSize(const std::string& value) { return sizeof(uint32_t) + value.size(); }
+        static ssize_t  Write(const std::string& value, void* data, size_t length)
+        {
+            if (length >= (sizeof(uint32_t) + value.size()))
+            {
+                *reinterpret_cast<uint32_t*>(data) = value.size();
+                data = reinterpret_cast<uint32_t*>(data) + 1;
+                value.copy(reinterpret_cast<char*>(data), value.size());
+                return sizeof(uint32_t) + value.size();
+            }
+            return -1;
+        }
+        static ssize_t Read(const void* data, size_t length, std::string* value)
+        {
+            if (length < sizeof(uint32_t))
+            {
+                printf("ERROR: %s: not enough data %zd.", __PRETTY_FUNCTION__, length);
+                return -1;
+            }
+            const uint32_t strLength = *reinterpret_cast<const uint32_t*>(data);
 
-///////////////////////////////////////////////////////////////////////////////
+            if (length < (sizeof(uint32_t) + strLength))
+            {
+                printf("ERROR: %s: not enough data %zd / %" PRIu32 ".", __PRETTY_FUNCTION__, length, strLength);
+                return -1;
+            }
+
+            data = reinterpret_cast<const uint32_t*>(data) + 1;
+            value->assign(reinterpret_cast<const char*>(data), strLength);
+
+            return sizeof(uint32_t) + strLength;
+        }
+    };
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
+    template<>
+    struct ArgumentPacker<String> : public ArgumentPacker<std::string>
+    {
+    };
+} // namespace remote_signal_utils
+
+  
+  ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -126,42 +129,52 @@ public:
     static size_t AccumulateSize() { return 0; }
         
     template<typename FIRST>
-    static size_t AccumulateSize(FIRST&& first) { return ((first + 3) & ~3); }
+    static size_t AccumulateSize(FIRST&& first) { return remote_signal_utils::align_argument_size(first); }
         
     template<typename FIRST, typename... REST>
-    static size_t AccumulateSize(FIRST&& first, REST&&... rest) { return ((first + 3) & ~3) + AccumulateSize<REST...>(std::forward<REST>(rest)...); }
+    static size_t AccumulateSize(FIRST&& first, REST&&... rest) { return remote_signal_utils::align_argument_size(first) + AccumulateSize<REST...>(std::forward<REST>(rest)...); }
 
-    static void WriteArg(void* buffer) {}
+    static ssize_t WriteArg(void* buffer, size_t length) { return 0; }
     
     template<typename FIRST>
-    static void WriteArg(void* buffer, FIRST&& first)
+    static ssize_t WriteArg(void* buffer, size_t length, FIRST&& first)
     {
-        RemoteSignalPacker<std::decay_t<FIRST>>::Write(std::forward<FIRST>(first), buffer);
+        ssize_t result = remote_signal_utils::ArgumentPacker<std::decay_t<FIRST>>::Write(std::forward<FIRST>(first), buffer, length);
+        if (result >= 0) {
+            return remote_signal_utils::align_argument_size(result);
+        }
+        return -1;
     }
     template<typename FIRST, typename... REST>
-    static void WriteArg(void* buffer, FIRST&& first, REST&&... rest)
+    static ssize_t WriteArg(void* buffer, size_t length, FIRST&& first, REST&&... rest)
     {
-        RemoteSignalPacker<std::decay_t<FIRST>>::Write(std::forward<FIRST>(first), buffer);
-        WriteArg(reinterpret_cast<uint8_t*>(buffer) + ((RemoteSignalPacker<std::decay_t<FIRST>>::GetSize(std::forward<FIRST>(first)) + 3) & ~3), std::forward<REST>(rest)...);
+        ssize_t result = remote_signal_utils::ArgumentPacker<std::decay_t<FIRST>>::Write(std::forward<FIRST>(first), buffer, length);
+        if (result >= 0)
+        {
+            const size_t consumed = remote_signal_utils::align_argument_size(result);
+            result = WriteArg(reinterpret_cast<uint8_t*>(buffer) + consumed, length - consumed, std::forward<REST>(rest)...);
+            return (result >= 0) ? (result + consumed) : -1;
+        }
+        return -1;
     }
     
-    static size_t GetSize(ARGS... args) { return AccumulateSize(RemoteSignalPacker<std::decay_t<ARGS>>::GetSize(args)...); }
+    static size_t GetSize(ARGS... args) { return AccumulateSize(remote_signal_utils::ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...); }
 
-    void operator()(void* buffer, ARGS... args)
+    void operator()(void* buffer, size_t length, ARGS... args)
     {
-        WriteArg(buffer, args...);
+        WriteArg(buffer, length, args...);
     }
     
     template<typename CB_OBJ>
     static bool Emit(CB_OBJ* callbackObj, void* (CB_OBJ::*callback)(int32_t, size_t), ARGS... args)
     {
-        size_t size = AccumulateSize(RemoteSignalPacker<std::decay_t<ARGS>>::GetSize(args)...);
+        size_t size = AccumulateSize(remote_signal_utils::ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...);
         
         void* buffer = (callbackObj->*callback)(ID, size);
         if (buffer == nullptr) {
             return false;
         }
-        WriteArg(buffer, args...);
+        WriteArg(buffer, size, args...);
         return true;
     }
 
@@ -169,18 +182,21 @@ public:
     {
         static const size_t MAX_STACK_BUFFER_SIZE = 128;
         
-        size_t size = AccumulateSize(RemoteSignalPacker<std::decay_t<ARGS>>::GetSize(args)...);
+        size_t size = AccumulateSize(remote_signal_utils::ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...);
         
         void* buffer;
-        if (size <= MAX_STACK_BUFFER_SIZE) {
+        if (size <= MAX_STACK_BUFFER_SIZE)
+        {
             buffer = alloca(size);
-        } else {
+        }
+        else
+        {
             buffer = malloc(size);
             if (buffer == nullptr) {
                 return false;
             }
         }
-        WriteArg(buffer, args...);
+        WriteArg(buffer, size, args...);
         bool result = send_message(port, targetHandler, ID, buffer, size, timeout.AsMicroSeconds()) >= 0;
         
         if (size > MAX_STACK_BUFFER_SIZE) {
@@ -243,7 +259,7 @@ public:
     {
         static const size_t MAX_STACK_BUFFER_SIZE = 128;
         
-        size_t size = this->AccumulateSize(RemoteSignalPacker<std::decay_t<ARGS>>::GetSize(args)...);
+        size_t size = this->AccumulateSize(remote_signal_utils::ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...);
         
         void* buffer;
         if (size <= MAX_STACK_BUFFER_SIZE) {
@@ -254,7 +270,7 @@ public:
                 return false;
             }
         }
-        this->WriteArg(buffer, args...);
+        this->WriteArg(buffer, size, args...);
         bool result = m_TransmitSlot->Call(ID, buffer, size);
         
         if (size > MAX_STACK_BUFFER_SIZE) {
@@ -295,27 +311,38 @@ public:
     virtual bool Dispatch(const void* data, size_t length) override
     {
         using Indices = std::make_index_sequence<std::tuple_size<std::decay_t<ArgTuple_t>>::value>;
-        SendSignal(data, Indices());
+        SendSignal(data, length, Indices());
         return true;
     }
         
 private:
     template<int I>
-    void UnpackArgs(ArgTuple_t& tuple, const void* data) {}
+    ssize_t UnpackArgs(ArgTuple_t& tuple, const void* data, size_t length) { return 0; }
     
     template<int I, typename FIRST, typename... REST>
-    void UnpackArgs(ArgTuple_t& tuple, const void* data)
+    ssize_t UnpackArgs(ArgTuple_t& tuple, const void* data, size_t length)
     {
-        data = reinterpret_cast<const uint8_t*>(data) + ((RemoteSignalPacker<FIRST>::Read(data, &std::get<I>(tuple)) + 3) & ~3);
-        UnpackArgs<I+1, REST...>(tuple, data);
+        ssize_t result = remote_signal_utils::ArgumentPacker<FIRST>::Read(data, length, &std::get<I>(tuple));
+        if (result >= 0)
+        {
+            const size_t consumed = remote_signal_utils::align_argument_size(result);
+            data = reinterpret_cast<const uint8_t*>(data) + consumed;
+            result = UnpackArgs<I + 1, REST...>(tuple, data, length - consumed);
+            if (result >= 0)
+            {
+                return result + consumed;
+            }
+        }
+        return -1;
     }
 
     template<std::size_t... I>
-    void SendSignal(const void* data, std::index_sequence<I...>)
+    void SendSignal(const void* data, size_t length, std::index_sequence<I...>)
     {
         ArgTuple_t argPack;
-        UnpackArgs<0, std::decay_t<ARGS>...>(argPack, data);
-        (*this)(std::get<I>(argPack)...);
+        if (UnpackArgs<0, std::decay_t<ARGS>...>(argPack, data, length) >= 0) {
+            (*this)(std::get<I>(argPack)...);
+        }
     }
 };
 

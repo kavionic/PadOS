@@ -68,8 +68,8 @@ public:
     std::vector<IRect> m_Rects;
 
 private:
-    int FindUnusedClip(int prevUnused, int lastToCheck);
-    int AddOrReuseClip(int prevUnused, int lastToCheck, const IRect& frame);
+    size_t FindUnusedClip(size_t prevUnused, size_t lastToCheck);
+    size_t AddOrReuseClip(size_t prevUnused, size_t lastToCheck, const IRect& frame);
     void RemoveUnusedClips(size_t firstToCheck, size_t lastToCheck);
   
 };

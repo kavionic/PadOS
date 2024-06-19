@@ -425,16 +425,17 @@ void Ptr<T>::Set(T* obj)
 #ifndef NDEBUG
         assert(m_Object != (T*)PTR_DELETED_MAGIC);
 #endif // NDEBUG
+        if (obj != nullptr) {
+            obj->AddPtrRef();
+        }
 
-        if (m_Object != nullptr) {
+        if (m_Object != nullptr)
+        {
             T* tmp = m_Object;
             m_Object = nullptr;
             tmp->ReleasePtrRef();
         }
-        if (obj != nullptr) {
-            m_Object = obj;
-            m_Object->AddPtrRef();
-        }
+        m_Object = obj;
     }
 }
 

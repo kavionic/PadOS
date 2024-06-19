@@ -92,9 +92,9 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
         {
             for (size_t i = 0; i < length;)
             {
-                const AppserverMessage* message = reinterpret_cast<const AppserverMessage*>(reinterpret_cast<const uint8_t*>(data) + i);
+                const AppserverMessage* const message = reinterpret_cast<const AppserverMessage*>(reinterpret_cast<const uint8_t*>(data) + i);
 
-                if (message->m_Length <= 0 || (i + message->m_Length) > length)
+                if (message->m_Length < sizeof(AppserverMessage) || (i + message->m_Length) > length)
                 {
                     kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: Message %d has invalid length %d (%d)\n", __PRETTY_FUNCTION__, message->m_Code, message->m_Length, length);
                     break;
@@ -126,7 +126,7 @@ void ServerApplication::ProcessMessage(int32_t code, const void* data, size_t le
 //        UpdateRegions();
 //    }    
     
-    RemoteSignalRXBase* handler = GetSignalForMessage(code);
+    RemoteSignalRXBase* const handler = GetSignalForMessage(code);
     if (handler != nullptr) {
         handler->Dispatch(data, length);
     }
@@ -214,7 +214,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
             MsgCreateViewReply reply;
             reply.m_ViewHandle = -1;
             if (send_message(replyPort, -1, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0) < 0) {
-                printf("ERROR: ServerApplication::SlotCreateView() failed to send message: %s\n", strerror(get_last_error()));
+                kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(get_last_error()));
             }
             return;
         }
@@ -226,20 +226,20 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
         parent->AddChild(view, index);
     } else {
         view->SetIsWindowManagerControlled(true);
-        ASWindowManagerRegisterView::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, view->GetHandle(), dockType, view->GetName(), frame);
+        ASWindowManagerRegisterView::Sender::Emit(get_window_manager_port(), INVALID_HANDLE, TimeValMicros::infinit, view->GetHandle(), dockType, view->GetName(), frame);
     }
     view->SetClientHandle(clientPort, replyTarget);
         
     MsgCreateViewReply reply;
     reply.m_ViewHandle = view->GetHandle();
-    if (send_message(replyPort, -1, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0) < 0) {
-        printf("ERROR: ServerApplication::SlotCreateView() failed to send message: %s\n", strerror(get_last_error()));
+    if (send_message(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0) < 0) {
+        kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(get_last_error()));
     }
     view->Invalidate(true);
     if (parent != nullptr)
     {
         IRect modifiedFrame = view->GetFrame();
-        Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
+        const Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
         opacParent->MarkModified(modifiedFrame);
         UpdateLowestInvalidView(opacParent);
     }
@@ -251,17 +251,17 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
 
 void ServerApplication::SlotDeleteView(handler_id clientHandle)
 {
-    Ptr<ServerView> view = m_Server->FindView(clientHandle);
+    const Ptr<ServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr)
     {
-        Ptr<ServerView> parent = view->GetParent();
+        const Ptr<ServerView> parent = view->GetParent();
         
         
         IRect modifiedFrame = view->GetIFrame();
-        Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
+        const Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
 
         if (view->IsWindowManagerControlled()) {
-            ASWindowManagerUnregisterView::Sender::Emit(get_window_manager_port(), -1, TimeValMicros::infinit, view->GetHandle());
+            ASWindowManagerUnregisterView::Sender::Emit(get_window_manager_port(), INVALID_HANDLE, TimeValMicros::infinit, view->GetHandle());
         }
         view->RemoveThis(true);
         
@@ -270,7 +270,7 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
     }
     else
     {
-        printf("ERROR: ServerApplication::SlotDeleteView() no view with ID %d\n", clientHandle);
+        kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: no view with ID %d\n", __PRETTY_FUNCTION__, clientHandle);
     }
 }
 
@@ -280,7 +280,7 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
 
 void ServerApplication::SlotFocusView(handler_id clientHandle, MouseButton_e button, bool focus)
 {
-    Ptr<ServerView> view = m_Server->FindView(clientHandle);
+    const Ptr<ServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr)
     {
         m_Server->SetFocusView(button, view, focus);
@@ -293,7 +293,7 @@ void ServerApplication::SlotFocusView(handler_id clientHandle, MouseButton_e but
 
 void ServerApplication::SlotSetKeyboardFocus(handler_id clientHandle, bool focus)
 {
-    Ptr<ServerView> view = m_Server->FindView(clientHandle);
+    const Ptr<ServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr)
     {
         m_Server->SetKeyboardFocus(view, focus);
@@ -306,9 +306,9 @@ void ServerApplication::SlotSetKeyboardFocus(handler_id clientHandle, bool focus
 
 void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int height, ColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags)
 {
-    Ptr<SrvBitmap> bitmap = ptr_new<SrvBitmap>(IPoint(width, height), colorSpace, static_cast<uint8_t*>(raster), bytesPerRow);
+    const Ptr<SrvBitmap> bitmap = ptr_new<SrvBitmap>(IPoint(width, height), colorSpace, static_cast<uint8_t*>(raster), bytesPerRow);
 
-    handle_id handle = m_NextBitmapHandle++;
+    const handle_id handle = m_NextBitmapHandle++;
 
     m_BitmapMap[handle] = bitmap;
 
@@ -317,8 +317,8 @@ void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int heigh
     reply.m_Framebuffer  = bitmap->m_Raster;
     reply.m_BytesPerRow  = bitmap->m_BytesPerLine;
 
-    if (send_message(replyPort, -1, AppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), 0) < 0) {
-        printf("ERROR: ServerApplication::SlotCreateBitmap() failed to send message: %s\n", strerror(get_last_error()));
+    if (send_message(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), 0) < 0) {
+        kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(get_last_error()));
     }
 }
 
@@ -332,7 +332,7 @@ void ServerApplication::SlotDeleteBitmap(handle_id bitmapHandle)
     if (i != m_BitmapMap.end()) {
         m_BitmapMap.erase(i);
     } else {
-        printf("ERROR: ServerApplication::SlotDeleteBitmap() invalid handle: %d\n", bitmapHandle);
+        kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: invalid handle: %d\n", __PRETTY_FUNCTION__, bitmapHandle);
     }
 }
 
@@ -342,7 +342,7 @@ void ServerApplication::SlotDeleteBitmap(handle_id bitmapHandle)
 
 void ServerApplication::SlotViewSetFrame(handler_id clientHandle, const Rect& frame, handler_id requestingClient)
 {
-    Ptr<ServerView> view = m_Server->FindView(clientHandle);
+    const Ptr<ServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr)
     {
 //        if (m_HaveInvalidRegions)
@@ -352,13 +352,14 @@ void ServerApplication::SlotViewSetFrame(handler_id clientHandle, const Rect& fr
         IRect modifiedFrame = view->GetIFrame();
         view->SetFrame(frame, requestingClient);
         modifiedFrame |= view->GetIFrame();
-        Ptr<ServerView> opacParent = ServerView::GetOpacParent(view->GetParent(), &modifiedFrame);
+        const Ptr<ServerView> opacParent = ServerView::GetOpacParent(view->GetParent(), &modifiedFrame);
+        kassert(opacParent != nullptr);
         opacParent->MarkModified(modifiedFrame);
         UpdateLowestInvalidView(opacParent);
     }
     else
     {
-        printf("ERROR: ServerApplication::SlotViewSetFrame() no view with ID %d\n", clientHandle);
+        kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: no view with ID %d\n", __PRETTY_FUNCTION__, clientHandle);
     }    
 }
 
@@ -369,13 +370,17 @@ void ServerApplication::SlotViewSetFrame(handler_id clientHandle, const Rect& fr
 void ServerApplication::SlotViewInvalidate(handler_id clientHandle, const IRect& frame)
 {
     Ptr<ServerView> view = m_Server->FindView(clientHandle);
-    if (view != nullptr) {
+    if (view != nullptr)
+    {
         IRect invalidFrame = frame + IPoint(view->GetScrollOffset());
         view = ServerView::GetOpacParent(view, &invalidFrame);
+        kassert(view != nullptr);
         view->Invalidate(invalidFrame);
         UpdateLowestInvalidView(view);
-    } else {
-        printf("ERROR: ServerApplication::SlotViewInvalidate() no view with ID %d\n", clientHandle);
+    }
+    else
+    {
+        kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: no view with ID %d\n", __PRETTY_FUNCTION__, clientHandle);
     }    
 }
 
@@ -385,7 +390,7 @@ void ServerApplication::SlotViewInvalidate(handler_id clientHandle, const IRect&
 
 void ServerApplication::SlotViewAddChild(size_t index, handler_id viewHandle, handler_id childHandle, handler_id managerHandle)
 {
-    Ptr<ServerView> view = m_Server->FindView(viewHandle);
+    const Ptr<ServerView> view = m_Server->FindView(viewHandle);
     if (view != nullptr)
     {
         Ptr<ServerView> child = m_Server->FindView(childHandle);
@@ -396,7 +401,8 @@ void ServerApplication::SlotViewAddChild(size_t index, handler_id viewHandle, ha
 
             IRect modifiedFrame = view->GetIFrame();
             Ptr<ServerView> opacParent = ServerView::GetOpacParent(view->GetParent(), &modifiedFrame);
-            if (opacParent != nullptr) {
+            if (opacParent != nullptr)
+            {
                 opacParent->MarkModified(modifiedFrame);
                 UpdateLowestInvalidView(opacParent);
             }
@@ -410,19 +416,19 @@ void ServerApplication::SlotViewAddChild(size_t index, handler_id viewHandle, ha
 
 void ServerApplication::SlotViewShow(handler_id viewHandle, bool show)
 {
-    Ptr<ServerView> view = m_Server->FindView(viewHandle);
+    const Ptr<ServerView> view = m_Server->FindView(viewHandle);
     if (view != nullptr)
     {
         if (m_HaveInvalidRegions)
         {
             UpdateRegions();
         }
-        bool wasVisible = view->IsVisible();
+        const bool wasVisible = view->IsVisible();
         view->Show(show);
         if (view->IsVisible() != wasVisible)
         {
             IRect modifiedFrame = view->GetIFrame();
-            Ptr<ServerView> opacParent = ServerView::GetOpacParent(view->GetParent(), &modifiedFrame);
+            const Ptr<ServerView> opacParent = ServerView::GetOpacParent(view->GetParent(), &modifiedFrame);
             if (opacParent != nullptr)
             {
                 opacParent->MarkModified(modifiedFrame);
@@ -432,6 +438,6 @@ void ServerApplication::SlotViewShow(handler_id viewHandle, bool show)
     }
     else
     {
-        printf("ERROR: ServerApplication::SlotViewShow() no view with ID %d\n", viewHandle);
+        kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: no view with ID %d\n", __PRETTY_FUNCTION__, viewHandle);
     }
 }

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -266,15 +266,18 @@ template <class T>
 template <class Y> inline
 void WeakPtr<T>::Set(Y* obj)
 {
-    if ( m_Notifier != nullptr ) {
-        m_Notifier->Release();
+    if (obj != m_Object)
+    {
+        if (m_Notifier != nullptr) {
+            m_Notifier->Release();
+        }
+        if (obj != nullptr) {
+            m_Notifier = obj->GetNotifier();
+        } else {
+            m_Notifier = nullptr;
+        }
+        m_Object = obj;
     }
-    if (obj != nullptr) {
-        m_Notifier = obj->GetNotifier();
-    } else {
-        m_Notifier = nullptr;
-    }
-    m_Object = obj;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

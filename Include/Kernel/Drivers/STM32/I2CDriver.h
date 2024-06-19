@@ -169,6 +169,7 @@ private:
     uint8_t*                m_Buffer = nullptr;
     int32_t                 m_Length = 0;
     volatile int32_t        m_CurPos = 0;
+    volatile int            m_TransactionError = 0;
 };
 
 struct I2CDriverSetup

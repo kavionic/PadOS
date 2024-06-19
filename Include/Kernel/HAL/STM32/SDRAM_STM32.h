@@ -84,3 +84,22 @@ public:
     static IFLASHC void SetRefreshRate(uint32_t refreshRate);
     static IFLASHC void SendCommand(FMC_SDRAM_CommandMode commandMode, FMC_SDRAM_CommandTarget commandTarget, uint32_t autoRefreshNumber, uint32_t modeRegisterDefinition);
 };
+
+static constexpr uint32_t SDRAM_MODE_REG_BURST_LENGTH_Pos           = 0;
+static constexpr uint32_t SDRAM_MODE_REG_BURST_LENGTH_Msk           = 0x07 << SDRAM_MODE_REG_BURST_LENGTH_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_BURST_LENGTH_1_Msk         = 0 << SDRAM_MODE_REG_BURST_LENGTH_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_BURST_LENGTH_2_Msk         = 1 << SDRAM_MODE_REG_BURST_LENGTH_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_BURST_LENGTH_4_Msk         = 2 << SDRAM_MODE_REG_BURST_LENGTH_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_BURST_LENGTH_8_Msk         = 3 << SDRAM_MODE_REG_BURST_LENGTH_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_BURST_TYPE_Pos             = 3;
+static constexpr uint32_t SDRAM_MODE_REG_BURST_TYPE_SEQUENTIAL_Msk  = 0 << SDRAM_MODE_REG_BURST_TYPE_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_BURST_TYPE_INTERLEAVE_Msk  = 1 << SDRAM_MODE_REG_BURST_TYPE_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_CAS_LATENCY_Pos            = 4;
+static constexpr uint32_t SDRAM_MODE_REG_CAS_LATENCY_Msk            = 0x07 << SDRAM_MODE_REG_CAS_LATENCY_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_CAS_LATENCY_2_Msk          = 2 << SDRAM_MODE_REG_CAS_LATENCY_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_CAS_LATENCY_3_Msk          = 3 << SDRAM_MODE_REG_CAS_LATENCY_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_TEST_MODE_Pos              = 7;
+static constexpr uint32_t SDRAM_MODE_REG_TEST_MODE_Msk              = 0x03 << SDRAM_MODE_REG_TEST_MODE_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_WBURST_LENGTH_Pos          = 9;
+static constexpr uint32_t SDRAM_MODE_REG_WBURST_LENGTH_BURST_Msk    = 0 << SDRAM_MODE_REG_WBURST_LENGTH_Pos;
+static constexpr uint32_t SDRAM_MODE_REG_WBURST_LENGTH_SINGLE_Msk   = 1 << SDRAM_MODE_REG_WBURST_LENGTH_Pos;

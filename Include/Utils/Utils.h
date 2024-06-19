@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <cmath>
 #include "System/Types.h"
 #include "System/System.h"
 #include "Utils/String.h"
@@ -70,14 +71,24 @@ void unaligned_write(void* ptr, T value)
 
 template<typename T1, typename T2, typename T3> inline void set_bit_group(T1& target, T2 mask, T3 value) { target = (target & ~mask) | (value & mask); }
 
-inline uint32_t nanoseconds_to_cycles_floor(uint32_t clockFrequency, uint32_t nanoSeconds)
+static constexpr uint32_t nanoseconds_to_cycles_floor(uint32_t clockFrequency, uint32_t nanoSeconds)
 {
 	return uint32_t((uint64_t(clockFrequency) * uint64_t(nanoSeconds)) / TimeValNanos::TicksPerSecond);
 }
 
-inline uint32_t nanoseconds_to_cycles_ceil(uint32_t clockFrequency, uint32_t nanoSeconds)
+static constexpr uint32_t nanoseconds_to_cycles_ceil(uint32_t clockFrequency, uint32_t nanoSeconds)
 {
 	return uint32_t((uint64_t(clockFrequency) * uint64_t(nanoSeconds) + TimeValNanos::TicksPerSecond - 1) / TimeValNanos::TicksPerSecond);
+}
+
+static constexpr uint32_t time_to_cycles_floor(double clockFrequency, double timeValue)
+{
+    return uint32_t(std::floor(clockFrequency * timeValue));
+}
+
+static constexpr uint32_t time_to_cycles_ceil(double clockFrequency, double timeValue)
+{
+    return uint32_t(std::ceil(clockFrequency * timeValue));
 }
 
 namespace os

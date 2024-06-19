@@ -98,6 +98,7 @@ IFLASHC void kernel::add_thread_to_ready_list(KThreadCB* thread)
 
 namespace
 {
+
 extern "C" IFLASHC uint32_t* select_thread(uint32_t* currentStack)
 {
     CRITICAL_BEGIN(CRITICAL_IRQ)
@@ -107,7 +108,8 @@ extern "C" IFLASHC uint32_t* select_thread(uint32_t* currentStack)
             return currentStack;
         }
         prevThread->m_CurrentStack = currentStack;
-        if (intptr_t(prevThread->m_CurrentStack) <= intptr_t(prevThread->GetStackTop())) {
+        if (intptr_t(prevThread->m_CurrentStack) <= intptr_t(prevThread->GetStackTop()))
+        {
             panic("Stack overflow!\n");
             return currentStack;
         }
@@ -701,7 +703,7 @@ IFLASHC IRQEnableState kernel::get_interrupt_enabled_state()
         return IRQEnableState::LowLatencyDisabled;
     }
 #elif defined(STM32G030xx)
-    return __get_PRIMASK() ? IRQEnableState::Disabled : IRQEnableState::Enabled;
+    return (__get_PRIMASK() & 0x01) ? IRQEnableState::Disabled : IRQEnableState::Enabled;
 #else
 #error Unknown platform.
 #endif
@@ -713,7 +715,6 @@ IFLASHC IRQEnableState kernel::get_interrupt_enabled_state()
 
 IFLASHC void kernel::set_interrupt_enabled_state(IRQEnableState state)
 {
-    __disable_irq();
 #if defined(STM32H7)
     switch(state)
     {
@@ -728,7 +729,6 @@ IFLASHC void kernel::set_interrupt_enabled_state(IRQEnableState state)
 #endif
     __DSB();
     __ISB();
-    __enable_irq();    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -738,22 +738,17 @@ IFLASHC void kernel::set_interrupt_enabled_state(IRQEnableState state)
 IFLASHC uint32_t kernel::disable_interrupts()
 {
 #if defined(STM32H7)
-    __disable_irq();
-    uint32_t oldState = __get_BASEPRI();
+    const uint32_t oldState = __get_BASEPRI();
     __set_BASEPRI(KIRQ_PRI_NORMAL_LATENCY_MAX << (8-__NVIC_PRIO_BITS));
-    __DSB();
-    __ISB();
-    __enable_irq();
-    return oldState;
 #elif defined(STM32G030xx)
-    __disable_irq();
     const uint32_t oldState = __get_PRIMASK();
-    __set_PRIMASK(1);
-    __enable_irq();
-    return oldState;
+    __disable_irq();
 #else
 #error Unknown platform.
 #endif
+    __DSB();
+    __ISB();
+    return oldState;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -763,12 +758,10 @@ IFLASHC uint32_t kernel::disable_interrupts()
 #if defined(STM32H7)
 IFLASHC uint32_t kernel::KDisableLowLatenctInterrupts()
 {
-    uint32_t oldState = __get_BASEPRI();
-    __disable_irq();
+    const uint32_t oldState = __get_BASEPRI();
     __set_BASEPRI(KIRQ_PRI_LOW_LATENCY_MAX << (8-__NVIC_PRIO_BITS));
     __DSB();
     __ISB();
-    __enable_irq();
     return oldState;
 }
 #endif // defined(STM32H7)
@@ -779,16 +772,17 @@ IFLASHC uint32_t kernel::KDisableLowLatenctInterrupts()
 
 IFLASHC void kernel::restore_interrupts(uint32_t state)
 {
-    __disable_irq();
-    __DMB();
+    __DSB();
 #if defined(STM32H7)
     __set_BASEPRI(state);
 #elif defined(STM32G030xx)
+    if ((state & 0x01) == 0)
+    {
+        __enable_irq();
+    }
 #else
-    __set_PRIMASK(state);
 #error Unknown platform.
 #endif
-    __enable_irq();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

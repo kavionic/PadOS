@@ -170,6 +170,9 @@ int USBDevice::Run()
 
 bool USBDevice::Setup(USBDriver* driver, uint32_t endpoint0Size, int threadPriority)
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
     m_Driver = driver;
     m_Endpoint0Size = endpoint0Size;
 
@@ -198,6 +201,9 @@ bool USBDevice::Setup(USBDriver* driver, uint32_t endpoint0Size, int threadPrior
 
 void USBDevice::AddClassDriver(Ptr<USBClassDriverDevice> driver)
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
     driver->Init(this);
     m_ClassDrivers.push_back(driver);
 }
@@ -208,6 +214,9 @@ void USBDevice::AddClassDriver(Ptr<USBClassDriverDevice> driver)
 
 void USBDevice::RemoveClassDriver(Ptr<USBClassDriverDevice> driver)
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
     auto i = std::find(m_ClassDrivers.begin(), m_ClassDrivers.end(), driver);
     if (i != m_ClassDrivers.end())
     {
@@ -222,6 +231,9 @@ void USBDevice::RemoveClassDriver(Ptr<USBClassDriverDevice> driver)
 
 void USBDevice::SetDeviceDescriptor(const USB_DescDevice& descriptor)
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
     m_DeviceDescriptor = descriptor;
 }
 
@@ -231,6 +243,9 @@ void USBDevice::SetDeviceDescriptor(const USB_DescDevice& descriptor)
 
 void USBDevice::SetDeviceQualifier(const USB_DescDeviceQualifier& qualifier)
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
     m_DeviceQualifier = qualifier;
 }
 
@@ -240,6 +255,9 @@ void USBDevice::SetDeviceQualifier(const USB_DescDeviceQualifier& qualifier)
 
 void USBDevice::AddConfigDescriptor(uint32_t index, const void* data, size_t length)
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
     std::vector<uint8_t>& buffer = m_ConfigDescriptors[index];
     buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(data), reinterpret_cast<const uint8_t*>(data) + length);
 }
@@ -250,6 +268,9 @@ void USBDevice::AddConfigDescriptor(uint32_t index, const void* data, size_t len
 
 void USBDevice::AddOtherConfigDescriptor(uint32_t index, const void* data, size_t length)
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
     std::vector<uint8_t>& buffer = m_OtherConfigDescriptors[index];
     buffer.insert(buffer.end(), reinterpret_cast<const uint8_t*>(data), reinterpret_cast<const uint8_t*>(data) + length);
 }
@@ -260,6 +281,9 @@ void USBDevice::AddOtherConfigDescriptor(uint32_t index, const void* data, size_
 
 void USBDevice::AddBOSDescriptor(const void* data, size_t length)
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
     m_BOSDescriptors.insert(m_BOSDescriptors.end(), reinterpret_cast<const uint8_t*>(data), reinterpret_cast<const uint8_t*>(data) + length);
 }
 
@@ -269,6 +293,9 @@ void USBDevice::AddBOSDescriptor(const void* data, size_t length)
 
 void USBDevice::SetStringDescriptor(USB_LanguageID languageID, uint32_t index, const os::String& string)
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
     USB_DescString desc;
     static_assert(sizeof(desc) == sizeof(wchar16_t));
 
@@ -292,6 +319,8 @@ void USBDevice::SetStringDescriptor(USB_LanguageID languageID, uint32_t index, c
 
 const USB_DescConfiguration* USBDevice::GetConfigDescriptor(uint32_t index) const
 {
+    kassert(m_Mutex.IsLocked());
+
     auto buffer = m_ConfigDescriptors.find(index);
     if (buffer != m_ConfigDescriptors.end() && buffer->second.size() >= sizeof(USB_DescConfiguration))
     {
@@ -308,6 +337,8 @@ const USB_DescConfiguration* USBDevice::GetConfigDescriptor(uint32_t index) cons
 
 const USB_DescConfiguration* USBDevice::GetOtherConfigDescriptor(uint32_t index) const
 {
+    kassert(m_Mutex.IsLocked());
+
     auto buffer = m_OtherConfigDescriptors.find(index);
     if (buffer != m_OtherConfigDescriptors.end() && buffer->second.size() >= sizeof(USB_DescConfiguration))
     {
@@ -324,6 +355,8 @@ const USB_DescConfiguration* USBDevice::GetOtherConfigDescriptor(uint32_t index)
 
 const USB_DescBOS* USBDevice::GetBOSDescriptor() const
 {
+    kassert(m_Mutex.IsLocked());
+
     if (m_BOSDescriptors.size() >= sizeof(USB_DescBOS))
     {
         USB_DescBOS* desc = reinterpret_cast<USB_DescBOS*>(m_BOSDescriptors.data());
@@ -339,6 +372,8 @@ const USB_DescBOS* USBDevice::GetBOSDescriptor() const
 
 Ptr<USBClassDriverDevice> USBDevice::GetInterfaceDriver(uint8_t interfaceNum)
 {
+    kassert(m_Mutex.IsLocked());
+
     auto i = m_InterfaceToDriverMap.find(interfaceNum);
     if (i != m_InterfaceToDriverMap.end()) {
         return i->second;
@@ -352,6 +387,8 @@ Ptr<USBClassDriverDevice> USBDevice::GetInterfaceDriver(uint8_t interfaceNum)
 
 Ptr<USBClassDriverDevice> USBDevice::GetEndpointDriver(uint8_t endpointAddress)
 {
+    kassert(m_Mutex.IsLocked());
+
     auto i = m_EndpointToDriverMap.find(endpointAddress);
     if (i != m_EndpointToDriverMap.end()) {
         return i->second;
@@ -365,6 +402,8 @@ Ptr<USBClassDriverDevice> USBDevice::GetEndpointDriver(uint8_t endpointAddress)
 
 USBEndpointState& USBDevice::GetEndpoint(uint8_t endpointAddr)
 {
+    kassert(m_Mutex.IsLocked());
+
     uint32_t index = endpointAddr & USB_ADDRESS_EPNUM_Msk;
     if (endpointAddr & USB_ADDRESS_DIR_IN) {
         index += USB_ADDRESS_MAX_EP_COUNT;
@@ -378,6 +417,8 @@ USBEndpointState& USBDevice::GetEndpoint(uint8_t endpointAddr)
 
 bool USBDevice::OpenEndpoint(const USB_DescEndpoint& endpointDescriptor)
 {
+    kassert(m_Mutex.IsLocked());
+
     if (!endpointDescriptor.Validate(m_SelectedSpeed)) {
         return false;
     }
@@ -392,6 +433,8 @@ bool USBDevice::OpenEndpoint(const USB_DescEndpoint& endpointDescriptor)
 
 const USB_DescriptorHeader* USBDevice::OpenEndpointPair(const USB_DescriptorHeader* desc, USB_TransferType transferType, uint8_t& endpointOut, uint8_t& endpointIn, uint16_t& endpointOutMaxSize, uint16_t& endpointInMaxSize)
 {
+    kassert(m_Mutex.IsLocked());
+
     bool endpointOutFound = false;
     bool endpointInFound  = false;
 
@@ -441,6 +484,8 @@ const USB_DescriptorHeader* USBDevice::OpenEndpointPair(const USB_DescriptorHead
 
 void USBDevice::CloseEndpoint(uint8_t endpointAddr)
 {
+    kassert(m_Mutex.IsLocked());
+
     m_Driver->EndpointClose(endpointAddr);
 
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
@@ -456,6 +501,8 @@ void USBDevice::CloseEndpoint(uint8_t endpointAddr)
 
 bool USBDevice::ClaimEndpoint(uint8_t endpointAddr)
 {
+    kassert(m_Mutex.IsLocked());
+
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
     return endpoint.Claim();
 }
@@ -466,6 +513,8 @@ bool USBDevice::ClaimEndpoint(uint8_t endpointAddr)
 
 bool USBDevice::ReleaseEndpoint(uint8_t endpointAddr)
 {
+    kassert(m_Mutex.IsLocked());
+
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
     return endpoint.Release();
 }
@@ -476,6 +525,8 @@ bool USBDevice::ReleaseEndpoint(uint8_t endpointAddr)
 
 bool USBDevice::IsEndpointBusy(uint8_t endpointAddr)
 {
+    kassert(m_Mutex.IsLocked());
+
     const USBEndpointState& endpoint = GetEndpoint(endpointAddr);
     return endpoint.Busy;
 }
@@ -486,6 +537,8 @@ bool USBDevice::IsEndpointBusy(uint8_t endpointAddr)
 
 void USBDevice::EndpointSetStall(uint8_t endpointAddr)
 {
+    kassert(m_Mutex.IsLocked());
+
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
     if (!endpoint.Stalled)
     {
@@ -502,6 +555,8 @@ void USBDevice::EndpointSetStall(uint8_t endpointAddr)
 
 void USBDevice::EndpointClearStall(uint8_t endpointAddr)
 {
+    kassert(m_Mutex.IsLocked());
+
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
 
     if (endpoint.Stalled)
@@ -519,6 +574,8 @@ void USBDevice::EndpointClearStall(uint8_t endpointAddr)
 
 bool USBDevice::IsEndpointStalled(uint8_t endpointAddr)
 {
+    kassert(m_Mutex.IsLocked());
+
     const USBEndpointState& endpoint = GetEndpoint(endpointAddr);
     return endpoint.Stalled;
 }
@@ -529,6 +586,8 @@ bool USBDevice::IsEndpointStalled(uint8_t endpointAddr)
 
 bool USBDevice::EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t length)
 {
+    kassert(m_Mutex.IsLocked());
+
     kernel_log(LogCategoryUSBDevice, KLogSeverity::INFO_HIGH_VOL, "USBD: USBDevice::EndpointTransfer() transfer %u bytes on endpoint %02x.\n", length, endpointAddr);
 
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
@@ -558,6 +617,8 @@ bool USBDevice::EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t l
 
 void USBDevice::SetIsConnected(bool connected)
 {
+    kassert(m_Mutex.IsLocked());
+
     if (connected != m_IsConnected)
     {
         m_IsConnected = connected;
@@ -571,6 +632,8 @@ void USBDevice::SetIsConnected(bool connected)
 
 void USBDevice::SetIsSuspended(bool suspended)
 {
+    kassert(m_Mutex.IsLocked());
+
     if (suspended != m_IsSuspended)
     {
         m_IsSuspended = suspended;
@@ -588,6 +651,8 @@ void USBDevice::SetIsSuspended(bool suspended)
 
 void USBDevice::BusReset()
 {
+    kassert(m_Mutex.IsLocked());
+
     UnsetConfiguration();
     m_SelectedSpeed = USB_Speed::LOW;
     m_ControlTransfer.Reset();
@@ -599,6 +664,8 @@ void USBDevice::BusReset()
 
 void USBDevice::UnsetConfiguration()
 {
+    kassert(m_Mutex.IsLocked());
+
     for (Ptr<USBClassDriverDevice> driver : m_ClassDrivers)
     {
         driver->Reset();
@@ -630,6 +697,8 @@ void USBDevice::UnsetConfiguration()
 
 bool USBDevice::HandleControlRequest(const USB_ControlRequest& request)
 {
+    kassert(m_Mutex.IsLocked());
+
     m_ControlTransfer.SetControlTransferHandler(ControlTransferHandler::None);
 
     USB_RequestType requestType = USB_RequestType((request.bmRequestType & USB_ControlRequest::REQUESTTYPE_TYPE_Msk) >> USB_ControlRequest::REQUESTTYPE_TYPE_Pos);
@@ -670,6 +739,8 @@ bool USBDevice::HandleControlRequest(const USB_ControlRequest& request)
 
 bool USBDevice::HandleDeviceControlRequests(const USB_ControlRequest& request)
 {
+    kassert(m_Mutex.IsLocked());
+
     const USB_RequestType requestType = USB_RequestType((request.bmRequestType & USB_ControlRequest::REQUESTTYPE_TYPE_Msk) >> USB_ControlRequest::REQUESTTYPE_TYPE_Pos);
 
     if (requestType == USB_RequestType::CLASS)
@@ -783,6 +854,8 @@ bool USBDevice::HandleDeviceControlRequests(const USB_ControlRequest& request)
 
 bool USBDevice::HandleInterfaceControlRequest(const USB_ControlRequest& request)
 {
+    kassert(m_Mutex.IsLocked());
+
     const USB_RequestCode requestCode  = USB_RequestCode(request.bRequest);
     const uint8_t         interfaceNum = uint8_t(request.wIndex & 0xff);
 
@@ -831,6 +904,8 @@ bool USBDevice::HandleInterfaceControlRequest(const USB_ControlRequest& request)
 
 bool USBDevice::HandleEndpointControlRequest(const USB_ControlRequest& request)
 {
+    kassert(m_Mutex.IsLocked());
+
     const USB_RequestCode requestCode  = USB_RequestCode(request.bRequest);
     const USB_RequestType requestType  = USB_RequestType((request.bmRequestType & USB_ControlRequest::REQUESTTYPE_TYPE_Msk) >> USB_ControlRequest::REQUESTTYPE_TYPE_Pos);
     const uint8_t         endpointAddr = uint8_t(request.wIndex & 0xff);
@@ -894,6 +969,8 @@ bool USBDevice::HandleEndpointControlRequest(const USB_ControlRequest& request)
 
 bool USBDevice::HandleSelectConfiguration(uint8_t configNum)
 {
+    kassert(m_Mutex.IsLocked());
+
     const uint32_t descriptorIndex = configNum - 1;
     const USB_DescConfiguration* configDesc = GetConfigDescriptor(descriptorIndex);
 
@@ -991,6 +1068,8 @@ bool USBDevice::HandleSelectConfiguration(uint8_t configNum)
 
 bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
 {
+    kassert(m_Mutex.IsLocked());
+
     const USB_DescriptorType    descType  = USB_DescriptorType(request.wValue >> 8);
     const size_t                descIndex = request.wValue & 0xff;
 
@@ -1091,6 +1170,8 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
 
 bool USBDevice::InvokeClassDriverControlTransfer(Ptr<USBClassDriverDevice> driver, const USB_ControlRequest& request)
 {
+    kassert(m_Mutex.IsLocked());
+
     m_ControlTransfer.SetControlTransferHandler(ControlTransferHandler::ClassDriver, driver);
     kernel_log(LogCategoryUSBDevice, KLogSeverity::INFO_LOW_VOL, "USBD: Class %s handle control transfer setup.\n", driver->GetName());
     if (!driver->HandleControlTransfer(USB_ControlStage::SETUP, request))
@@ -1107,12 +1188,22 @@ bool USBDevice::InvokeClassDriverControlTransfer(Ptr<USBClassDriverDevice> drive
 
 bool USBDevice::PopEvent(USBDeviceEvent& event)
 {
-    while (m_EventQueue.GetLength() == 0)
+    kassert(m_Mutex.IsLocked());
+    m_Mutex.Unlock();
+
+    bool result;
+    CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        m_EventQueueCondition.Wait(m_Mutex);
-    }
-    CRITICAL_SCOPE(CRITICAL_IRQ);
-    return m_EventQueue.Read(&event, 1) == 1;
+        while (m_EventQueue.GetLength() == 0)
+        {
+            m_EventQueueCondition.IRQWait();
+        }
+        result = m_EventQueue.Read(&event, 1) == 1;
+    } CRITICAL_END;
+
+    m_Mutex.Lock();
+
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

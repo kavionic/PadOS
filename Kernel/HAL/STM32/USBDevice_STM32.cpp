@@ -239,6 +239,8 @@ bool USBDevice_STM32::EndpointTransfer(uint8_t endpointAddr, void* buffer, size_
     }
 
     xfer->Buffer = static_cast<uint8_t*>(buffer);
+    xfer->BufferSize = totalLength;
+    xfer->BytesTransferred = 0;
     xfer->TotalLength = totalLength;
 
     // Endpoint0 can only handle a single packet.
@@ -652,9 +654,10 @@ void USBDevice_STM32::HandleRxFIFONotEmptyIRQ()
         {
             EndpointTransferState& xfer = m_TransferStatusOut[epNum];
 
-            m_Driver->ReadFromFIFO(xfer.Buffer, packetLength);
+            kassert(xfer.BytesTransferred + packetLength <= xfer.BufferSize);
+            m_Driver->ReadFromFIFO(xfer.Buffer + xfer.BytesTransferred, packetLength);
 
-            xfer.Buffer += packetLength;
+            xfer.BytesTransferred += packetLength;
 
             if (packetLength < xfer.EndpointMaxSize)
             {
@@ -755,8 +758,9 @@ void USBDevice_STM32::HandleInEndpointIRQ()
                     if (packetSize > (m_InEndpoints[epNum].DTXFSTS & USB_OTG_DTXFSTS_INEPTFSAV_Msk) * 4) {
                         break;
                     }
-                    m_Driver->WriteToFIFO(epNum, xfer.Buffer, packetSize);
-                    xfer.Buffer += packetSize;
+                    kassert(xfer.BytesTransferred + packetSize <= xfer.BufferSize);
+                    m_Driver->WriteToFIFO(epNum, xfer.Buffer + xfer.BytesTransferred, packetSize);
+                    xfer.BytesTransferred += packetSize;
                 }
                 // Turn off TXFE when all bytes are written.
                 if (((m_InEndpoints[epNum].DIEPTSIZ & USB_OTG_DIEPTSIZ_XFRSIZ_Msk) >> USB_OTG_DIEPTSIZ_XFRSIZ_Pos) == 0)

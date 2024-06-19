@@ -539,17 +539,23 @@ bool USBHost::PushEvent(const USBHostEvent& event)
 bool USBHost::PopEvent(USBHostEvent& event)
 {
     kassert(m_Mutex.IsLocked());
-    CRITICAL_SCOPE(CRITICAL_IRQ);
     m_Mutex.Unlock();
-    if (m_EventQueue.GetLength() == 0) {
-        m_EventQueueCondition.IRQWaitDeadline(m_DeviceAttachDeadline);
-    }
+
+    bool result;
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        if (m_EventQueue.GetLength() == 0) {
+            m_EventQueueCondition.IRQWaitDeadline(m_DeviceAttachDeadline);
+        }
+        if (m_EventQueue.GetLength() == 0) {
+            result = false;
+        } else {
+            m_EventQueue.Read(&event, 1);
+            result = true;
+        }
+    } CRITICAL_END;
     m_Mutex.Lock();
-    if (m_EventQueue.GetLength() == 0) {
-        return false;
-    }
-    m_EventQueue.Read(&event, 1);
-    return true;
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

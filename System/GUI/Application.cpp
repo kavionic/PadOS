@@ -123,7 +123,7 @@ IRect Application::GetScreenIFrame()
 
 bool Application::AddView(Ptr<View> view, ViewDockType dockType, size_t index)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     if (dockType == ViewDockType::ChildView) {
         printf("Application::AddView() attempt to add top-level view as 'ViewDockType::ChildView'\n");
@@ -150,7 +150,7 @@ bool Application::AddView(Ptr<View> view, ViewDockType dockType, size_t index)
 
 bool Application::AddChildView(Ptr<View> parent, Ptr<View> view, size_t index)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     handler_id parentHandle = view->GetParentServerHandle();
 
@@ -169,7 +169,7 @@ bool Application::AddChildView(Ptr<View> parent, Ptr<View> view, size_t index)
 
 bool Application::RemoveView(Ptr<View> view)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     if (view->m_ServerHandle != INVALID_HANDLE)
     {
@@ -194,7 +194,7 @@ bool Application::RemoveView(Ptr<View> view)
 
 Ptr<View> Application::FindView(handler_id handle)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     return ptr_static_cast<View>(FindHandler(handle));
 }
@@ -205,7 +205,7 @@ Ptr<View> Application::FindView(handler_id handle)
 
 void Application::SetFocusView(MouseButton_e button, Ptr<View> view, bool focus)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
 
@@ -248,7 +248,7 @@ void Application::SetFocusView(MouseButton_e button, Ptr<View> view, bool focus)
 
 Ptr<View> Application::GetFocusView(MouseButton_e button) const
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
 
@@ -265,7 +265,7 @@ Ptr<View> Application::GetFocusView(MouseButton_e button) const
 
 void Application::SetKeyboardFocus(Ptr<View> view, bool focus, bool notifyServer)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     if (!focus && view != m_KeyboardFocusView) {
         return;
@@ -296,7 +296,7 @@ void Application::SetKeyboardFocus(Ptr<View> view, bool focus, bool notifyServer
 
 Ptr<View> Application::GetKeyboardFocus() const
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     return ptr_tmp_cast(m_KeyboardFocusView);
 }
@@ -307,7 +307,7 @@ Ptr<View> Application::GetKeyboardFocus() const
 
 bool Application::CreateBitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     Post<ASCreateBitmap>(m_ReplyPort.GetHandle(), width, height, colorSpace, (flags & Bitmap::CUSTOM_FRAMEBUFFER) ? inOutFramebuffer : nullptr, (flags & Bitmap::CUSTOM_FRAMEBUFFER) ? inOutBytesPerRow : 0, flags);
     Flush();
@@ -347,7 +347,7 @@ bool Application::CreateBitmap(int width, int height, ColorSpace colorSpace, uin
 
 void Application::DeleteBitmap(handle_id bitmapHandle)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     Post<ASDeleteBitmap>(bitmapHandle);
 }
@@ -358,7 +358,7 @@ void Application::DeleteBitmap(handle_id bitmapHandle)
 
 void Application::Flush()
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     if (m_UsedSendBufferSize > 0) {
         send_message(get_appserver_port(), m_ServerHandle, AppserverProtocol::MESSAGE_BUNDLE, m_SendBuffer, m_UsedSendBufferSize);
@@ -372,7 +372,7 @@ void Application::Flush()
 
 void Application::Sync()
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     Post<ASSync>(m_ReplyPort.GetHandle());
     Flush();
@@ -395,7 +395,7 @@ void Application::Sync()
 
 void Application::DetachView(Ptr<View> view)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     for (auto i = m_MouseFocusMap.begin(); i != m_MouseFocusMap.end(); )
     {
@@ -430,8 +430,8 @@ void Application::DetachView(Ptr<View> view)
 
 void* Application::AllocMessageBuffer(int32_t messageID, size_t size)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
-    assert(size > 0);
+    kassert(!IsRunning() || GetMutex().IsLocked());
+    kassert(size > 0);
 
     size += sizeof(AppserverMessage);
     if (size > sizeof(m_SendBuffer)) return nullptr;
@@ -452,7 +452,7 @@ void* Application::AllocMessageBuffer(int32_t messageID, size_t size)
 
 bool Application::CreateServerView(Ptr<View> view, handler_id parentHandle, ViewDockType dockType, size_t index)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     Post<ASCreateView>(GetPortID()
         , m_ReplyPort.GetHandle()
@@ -502,7 +502,7 @@ bool Application::CreateServerView(Ptr<View> view, handler_id parentHandle, View
 
 void Application::RegisterViewForLayout(Ptr<View> view, bool recursive)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     if (!view->m_IsLayoutValid && !view->m_IsLayoutPending) {
         view->m_IsLayoutPending = true;
@@ -523,7 +523,7 @@ void Application::RegisterViewForLayout(Ptr<View> view, bool recursive)
 
 void Application::SetMouseDownView(MouseButton_e button, Ptr<View> view, const MotionEvent& motionEvent)
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
 
@@ -551,7 +551,7 @@ void Application::SetMouseDownView(MouseButton_e button, Ptr<View> view, const M
 
 Ptr<View> Application::GetMouseDownView(MouseButton_e button) const
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
 
@@ -568,7 +568,7 @@ Ptr<View> Application::GetMouseDownView(MouseButton_e button) const
 
 void Application::LayoutViews()
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     for (int i = 0; i < 100 && !m_ViewsNeedingLayout.empty(); ++i)
     {
@@ -587,7 +587,7 @@ void Application::LayoutViews()
 
 void Application::SlotLongPressTimer()
 {
-    assert(!IsRunning() || GetMutex().IsLocked());
+    kassert(!IsRunning() || GetMutex().IsLocked());
 
     Ptr<View> lastPressedView = GetMouseDownView(m_LastClickEvent.ButtonID);
     if (lastPressedView != nullptr) {

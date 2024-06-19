@@ -42,6 +42,7 @@ class DigitalPin;
 size_t get_heap_size();
 size_t get_max_heap_size();
 
+
 namespace kernel
 {
 
@@ -95,32 +96,6 @@ void panic(const char* fmt, FIRSTARG&& firstArg, ARGS&&... args)
     panic(os::String::format_string(fmt, firstArg, args...).c_str());
 }
 
-inline void kassert_function(const char* file, int line, const char* func, const char* expression)
-{
-    os::String message;
-    message.format("KASSERT %s / %s:%d: %s -> ", func, file, line, expression);
-    panic(message.c_str());
-}
-
-template<typename... ARGS>
-void kassert_function(const char* file, int line, const char* func, const char* expression, const char* fmt, ARGS&&... args)
-{
-    os::String message;
-    message.format("KASSERT %s / %s:%d: %s -> ", func, file, line, expression);
-    message += os::String::format_string(fmt, args...);
-    printf("%s\n", message.c_str());
-    panic(message.c_str());
-}
-
-#define kassert(expression, ...) if (!(expression)) kassert_function(__FILE__, __LINE__, __func__, #expression __VA_ARGS__)
-
-template<typename ...ARGS>
-void kassure(bool expression, const char* fmt, ARGS&&... args)
-{
-    if (!expression) kprintf(fmt, args...);
-}
-
-
 
 class Kernel
 {
@@ -149,3 +124,28 @@ public:
 };
 
 } // namespace
+
+inline void kassert_function(const char* file, int line, const char* func, const char* expression)
+{
+    os::String message;
+    message.format("KASSERT %s / %s:%d: %s -> ", func, file, line, expression);
+    kernel::panic(message.c_str());
+}
+
+template<typename... ARGS>
+void kassert_function(const char* file, int line, const char* func, const char* expression, const char* fmt, ARGS&&... args)
+{
+    os::String message;
+    message.format("KASSERT %s / %s:%d: %s -> ", func, file, line, expression);
+    message += os::String::format_string(fmt, args...);
+    printf("%s\n", message.c_str());
+    kernel::panic(message.c_str());
+}
+
+#define kassert(expression, ...) if (!(expression)) kassert_function(__FILE__, __LINE__, __func__, #expression __VA_ARGS__)
+
+template<typename ...ARGS>
+void kassure(bool expression, const char* fmt, ARGS&&... args)
+{
+    if (!expression) kernel::kprintf(fmt, args...);
+}

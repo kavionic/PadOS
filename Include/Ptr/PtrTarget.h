@@ -220,7 +220,7 @@ private:
 
     mutable std::atomic_int   m_ReferenceCount;
     mutable PtrTargetMonitor* m_FirstMonitor;
-
+    
     PtrTarget(const PtrTarget&) = delete;
     PtrTarget& operator=(const PtrTarget&) = delete;
 };

@@ -80,6 +80,7 @@ Looper::~Looper()
 
 ssize_t Looper::SetReceiveBufferSize(size_t size)
 {
+    kassert(!IsRunning() || m_Mutex.IsLocked());
     try {
         ssize_t oldSize = m_ReceiveBuffer.size();
         m_ReceiveBuffer.resize(size);
@@ -95,7 +96,8 @@ ssize_t Looper::SetReceiveBufferSize(size_t size)
 
 size_t   Looper::GetReceiveBufferSize() const
 {
-    return m_ReceiveBuffer.size();    
+    kassert(!IsRunning() || m_Mutex.IsLocked());
+    return m_ReceiveBuffer.size();
 }
 
 /*int32_t Looper::AllocReplyToken()
@@ -109,6 +111,7 @@ size_t   Looper::GetReceiveBufferSize() const
 
 bool Looper::WaitForReply(handler_id replyHandler, int32_t replyCode)
 {
+    kassert(!IsRunning() || m_Mutex.IsLocked());
     int32_t replyToken = s_NextReplyToken++;
     m_WaitingCodes.push_back(std::make_pair(replyCode, replyToken));
     bool stillWaiting = true;
@@ -150,7 +153,7 @@ bool Looper::WaitForReply(handler_id replyHandler, int32_t replyCode)
 
 bool Looper::AddHandler(Ptr<EventHandler> handler)
 {
-    assert(!IsRunning() || m_Mutex.IsLocked());
+    kassert(!IsRunning() || m_Mutex.IsLocked());
     try
     {
         if (handler->m_Looper != nullptr)
@@ -174,7 +177,7 @@ bool Looper::AddHandler(Ptr<EventHandler> handler)
 
 bool Looper::RemoveHandler(Ptr<EventHandler> handler)
 {
-    assert(!IsRunning() || m_Mutex.IsLocked());
+    kassert(!IsRunning() || m_Mutex.IsLocked());
     if (handler->m_Looper != this) {
         printf("ERROR: Looper::RemoveHandler() attempt to remove handler %s(%d) from unrelated looper %s(%d)\n", handler->GetName().c_str(), handler->GetHandle(), GetName().c_str(), GetThreadID());
         return false;
@@ -196,7 +199,7 @@ bool Looper::RemoveHandler(Ptr<EventHandler> handler)
 
 bool Looper::AddTimer(EventTimer* timer, bool singleshot)
 {
-    assert(!IsRunning() || m_Mutex.IsLocked());
+    kassert(!IsRunning() || m_Mutex.IsLocked());
     try
     {
         TimeValMicros expireTime = get_system_time();
@@ -234,7 +237,7 @@ bool Looper::AddTimer(EventTimer* timer, bool singleshot)
 
 bool Looper::RemoveTimer(EventTimer* timer)
 {
-    assert(!IsRunning() || m_Mutex.IsLocked());
+    kassert(!IsRunning() || m_Mutex.IsLocked());
 
     if (timer->m_Looper == this)
     {
@@ -257,6 +260,7 @@ bool Looper::RemoveTimer(EventTimer* timer)
 
 Ptr<EventHandler> Looper::FindHandler(handler_id handle) const
 {
+    kassert(!IsRunning() || m_Mutex.IsLocked());
     auto i = m_HandlerMap.find(handle);
     if (i != m_HandlerMap.end()) {
         return i->second;
@@ -287,6 +291,7 @@ int Looper::Run()
 
 bool Looper::ProcessEvents()
 {
+    kassert(!IsRunning() || m_Mutex.IsLocked());
     while (Tick());
     return false;
 }
@@ -299,18 +304,25 @@ bool Looper::Tick()
 {
     if (m_DoRun)
     {
+        kassert(m_Mutex.IsLocked());
         m_WaitGroup.WaitDeadline(m_Mutex, m_NextEventTime);
+        kassert(m_Mutex.IsLocked());
         RunTimers();
         for (;;)
         {
             handler_id targetHandler;
             int32_t    code;
 
+            kassert(m_Mutex.IsLocked());
             ssize_t msgLength = m_Port.ReceiveMessageTimeout(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), TimeValMicros::zero);
+            kassert(m_Mutex.IsLocked());
             if (msgLength >= 0) {
                 ProcessMessage(targetHandler, code, msgLength);
+                kassert(m_Mutex.IsLocked());
             } else {
+                kassert(m_Mutex.IsLocked());
                 Idle();
+                kassert(m_Mutex.IsLocked());
                 break;
             }
         }
@@ -324,6 +336,7 @@ bool Looper::Tick()
 
 void Looper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgLength)
 {
+    kassert(!IsRunning() || m_Mutex.IsLocked());
     if (MessageID(code) == MessageID::QUIT) {
         Stop();
     }
@@ -345,6 +358,7 @@ void Looper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgL
 
 void Looper::RunTimers()
 {
+    kassert(!IsRunning() || m_Mutex.IsLocked());
     TimeValMicros curTime = get_system_time();
 
     while (!m_TimerMap.empty())

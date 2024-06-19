@@ -360,11 +360,14 @@ bool View::HandleMessage(int32_t code, const void* data, size_t length)
 
 Application* View::GetApplication() const
 {
-    Looper* looper = GetLooper();
-    if (looper != nullptr) {
+    Looper* const looper = GetLooper();
+    if (looper != nullptr)
+    {
         return static_cast<Application*>(looper);
-    } else {
-        Ptr<const View> parent = GetParent();
+    }
+    else
+    {
+        const Ptr<const View> parent = GetParent();
         if (parent != nullptr) {
             return parent->GetApplication();
         } else {
@@ -372,7 +375,7 @@ Application* View::GetApplication() const
         }
     }
 
-    return static_cast<Application*>(GetLooper());
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1484,13 +1487,16 @@ void View::HandleAddedToParent(Ptr<View> parent, size_t index)
     if (parent->HasFlags(ViewFlags::IsAttachedToScreen))
     {
         Application* app = parent->GetApplication();
-        HandlePreAttachToScreen(app);
+        if (app != nullptr)
+        {
+            HandlePreAttachToScreen(app);
 
-        if (!HasFlags(ViewFlags::Eavesdropper)) {
-            app->AddChildView(parent, ptr_tmp_cast(this), index);
+            if (!HasFlags(ViewFlags::Eavesdropper)) {
+                app->AddChildView(parent, ptr_tmp_cast(this), index);
+            }
+            HandleAttachedToScreen(app);
+            app->LayoutViews();
         }
-        HandleAttachedToScreen(app);
-        app->LayoutViews();
     }
     OnAttachedToParent(parent);
 }
@@ -1509,7 +1515,10 @@ void View::HandleRemovedFromParent(Ptr<View> parent)
     OnDetachedFromParent(parent);
     if (!HasFlags(ViewFlags::Eavesdropper))
     {
-        GetApplication()->RemoveView(ptr_tmp_cast(this));
+        Application* const app = GetApplication();
+        if (app != nullptr) {
+            app->RemoveView(ptr_tmp_cast(this));
+        }
         UpdatePosition(View::UpdatePositionNotifyServer::IfChanged);
     }
 }

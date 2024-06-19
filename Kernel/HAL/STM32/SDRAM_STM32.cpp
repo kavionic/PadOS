@@ -58,7 +58,7 @@ bool FMCSDRAM::Setup(const FMC_SDRAM_Init& params, const FMC_SDRAM_Timing& timin
 
 void FMCSDRAM::SetRefreshRate(uint32_t refreshRate)
 {
-    set_bit_group(FMC_Bank5_6_R->SDRTR, FMC_SDRTR_COUNT_Msk, refreshRate << FMC_SDRTR_COUNT_Pos);
+    set_bit_group(FMC_Bank5_6_R->SDRTR, FMC_SDRTR_COUNT_Msk, (refreshRate - 1) << FMC_SDRTR_COUNT_Pos);
 
 }
 

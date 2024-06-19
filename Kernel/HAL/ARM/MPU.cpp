@@ -140,7 +140,8 @@ IFLASHC uint32_t mpu_cal_mpu_region_size(uint32_t dw_actual_size_in_bytes)
     uint32_t dwRegionSize = 32;
     uint32_t dwReturnValue = 4;
 
-    while( dwReturnValue < 31 ) {
+    while(dwReturnValue < 31)
+    {
         if( dw_actual_size_in_bytes <= dwRegionSize ) {
             break;
         } else {
@@ -149,7 +150,7 @@ IFLASHC uint32_t mpu_cal_mpu_region_size(uint32_t dw_actual_size_in_bytes)
         dwRegionSize <<= 1;
     }
 
-    return ( dwReturnValue << 1 );
+    return dwReturnValue << MPU_RASR_SIZE_Pos;
 }
 
 

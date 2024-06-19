@@ -46,38 +46,38 @@ I2CDriverINode::I2CDriverINode(I2CDriver* driver
                              , uint32_t clockFrequency
                              , double fallTime
                              , double riseTime)
-	: KINode(nullptr, nullptr, driver, false)
-	, m_Mutex("I2CDriverINode", EMutexRecursionMode::RaiseError)
-	, m_RequestCondition("I2CDriverINodeRequest")
-	, m_ClockPin(clockPinCfg)
-	, m_DataPin(dataPinCfg)
-	, m_ClockFrequency(clockFrequency)
-	, m_FallTime(fallTime)
-	, m_RiseTime(riseTime)
+    : KINode(nullptr, nullptr, driver, false)
+    , m_Mutex("I2CDriverINode", EMutexRecursionMode::RaiseError)
+    , m_RequestCondition("I2CDriverINodeRequest")
+    , m_ClockPin(clockPinCfg)
+    , m_DataPin(dataPinCfg)
+    , m_ClockFrequency(clockFrequency)
+    , m_FallTime(fallTime)
+    , m_RiseTime(riseTime)
 {
     m_Driver = ptr_tmp_cast(driver);
     m_State = State_e::Idle;
 
     m_Port = get_i2c_from_id(portID);
 
-	DigitalPin clockPin(m_ClockPin.PINID);
-	DigitalPin dataPin(m_DataPin.PINID);
+    DigitalPin clockPin(m_ClockPin.PINID);
+    DigitalPin dataPin(m_DataPin.PINID);
 
-	clockPin.SetDirection(DigitalPinDirection_e::OpenCollector);
-	dataPin.SetDirection(DigitalPinDirection_e::OpenCollector);
+    clockPin.SetDirection(DigitalPinDirection_e::OpenCollector);
+    dataPin.SetDirection(DigitalPinDirection_e::OpenCollector);
 
-	clockPin.SetPeripheralMux(m_ClockPin.MUX);
-	dataPin.SetPeripheralMux(m_DataPin.MUX);
+    clockPin.SetPeripheralMux(m_ClockPin.MUX);
+    dataPin.SetPeripheralMux(m_DataPin.MUX);
 
-	clockPin.SetPullMode(PinPullMode_e::Up);
-	dataPin.SetPullMode(PinPullMode_e::Up);
+    clockPin.SetPullMode(PinPullMode_e::Up);
+    dataPin.SetPullMode(PinPullMode_e::Up);
 
 #if defined(STM32H7)
     const IRQn_Type eventIRQ = get_i2c_irq(portID, I2CIRQType::Event);
     const IRQn_Type errorIRQ = get_i2c_irq(portID, I2CIRQType::Error);
 
-	kernel::register_irq_handler(eventIRQ, IRQCallbackEvent, this);
-	kernel::register_irq_handler(errorIRQ, IRQCallbackError, this);
+    kernel::register_irq_handler(eventIRQ, IRQCallbackEvent, this);
+    kernel::register_irq_handler(errorIRQ, IRQCallbackError, this);
 #elif defined(STM32G0)
     const IRQn_Type portIRQ = get_i2c_irq(portID);
     kernel::register_irq_handler(portIRQ, IRQCallbackEvent, this);
@@ -85,10 +85,10 @@ I2CDriverINode::I2CDriverINode(I2CDriver* driver
 #error Unknown platform.
 #endif
 
-	SetSpeed(I2CSpeed::Fast);
+    SetSpeed(I2CSpeed::Fast);
 
-	ClearBus();
-	ResetPeripheral();
+    ClearBus();
+    ResetPeripheral();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -147,18 +147,18 @@ int I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void*
             if (outArg == nullptr || outDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
             *outArg = GetBaudrate();
             break;
-		case I2CIOCTL_SET_TIMEOUT:
-			if (inData == nullptr || inDataLength != sizeof(bigtime_t)) { set_last_error(EINVAL); return -1; }
+        case I2CIOCTL_SET_TIMEOUT:
+            if (inData == nullptr || inDataLength != sizeof(bigtime_t)) { set_last_error(EINVAL); return -1; }
             i2cfile->m_Timeout = TimeValMicros::FromMicroseconds(*reinterpret_cast<const bigtime_t*>(inData));
-			break;
-		case I2CIOCTL_GET_TIMEOUT:
-			if (outData == nullptr || outDataLength != sizeof(bigtime_t)) { set_last_error(EINVAL); return -1; }
-			*reinterpret_cast<bigtime_t*>(outData) = i2cfile->m_Timeout.AsMicroSeconds();
-			break;
-		case I2CIOCTL_CLEAR_BUS:
-			ClearBus();
-			break;
-		default: set_last_error(EINVAL); return -1;
+            break;
+        case I2CIOCTL_GET_TIMEOUT:
+            if (outData == nullptr || outDataLength != sizeof(bigtime_t)) { set_last_error(EINVAL); return -1; }
+            *reinterpret_cast<bigtime_t*>(outData) = i2cfile->m_Timeout.AsMicroSeconds();
+            break;
+        case I2CIOCTL_CLEAR_BUS:
+            ClearBus();
+            break;
+        default: set_last_error(EINVAL); return -1;
     }
     return 0;
 }
@@ -173,65 +173,66 @@ ssize_t I2CDriverINode::Read(Ptr<KFileNode> file, off64_t position, void* buffer
         return 0;
     }
     CRITICAL_SCOPE(m_Mutex);
-	
-	if (m_Port->ISR & I2C_ISR_BUSY) {
-		ResetPeripheral();
-	}
+    
+    if (m_Port->ISR & I2C_ISR_BUSY) {
+        ResetPeripheral();
+    }
    
     Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
 
-	m_Buffer = reinterpret_cast<uint8_t*>(buffer);
-	m_Length = length;
-	m_RegisterAddressPos = 0;
-	m_CurPos = 0;
+    m_Buffer = reinterpret_cast<uint8_t*>(buffer);
+    m_Length = length;
+    m_RegisterAddressPos = 0;
+    m_CurPos = 0;
+    m_TransactionError = 0;
 
-	uint32_t CR2 = I2C_CR2_START | ((i2cfile->m_SlaveAddress << I2C_CR2_SADD_Pos) & I2C_CR2_SADD_Msk) | ((i2cfile->m_SlaveAddressLength == I2C_ADDR_LEN_10BIT) ? I2C_CR2_ADD10 : 0);
+    uint32_t CR2 = I2C_CR2_START | ((i2cfile->m_SlaveAddress << I2C_CR2_SADD_Pos) & I2C_CR2_SADD_Msk) | ((i2cfile->m_SlaveAddressLength == I2C_ADDR_LEN_10BIT) ? I2C_CR2_ADD10 : 0);
 
-	m_RegisterAddressLength = i2cfile->m_InternalAddressLength;
-	if (m_RegisterAddressLength > 0)
-	{
-		m_State = State_e::SendReadAddress;
-		
-		for (int i = 0; i < m_RegisterAddressLength; ++i) m_RegisterAddress[i] = uint8_t((position >> ((m_RegisterAddressLength - i - 1) * 8)) & 0xff);
-
-		CR2 |= uint32_t(m_RegisterAddressLength) << I2C_CR2_NBYTES_Pos;
-		if (m_Port->ISR & I2C_ISR_TXE)
-		{
-			m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
-		}
-	}
-	else
-	{
-		m_State = State_e::Reading;
-
-		if (m_Length <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
-			CR2 |= m_Length << I2C_CR2_NBYTES_Pos;
-		} else {
-			CR2 |= I2C_CR2_NBYTES | I2C_CR2_RELOAD;
-		}
-		CR2 |= I2C_CR2_RD_WRN | I2C_CR2_AUTOEND;
-	}
-
-	CRITICAL_BEGIN(CRITICAL_IRQ)
-	{
-		const uint32_t interruptFlags = I2C_CR1_RXIE | I2C_CR1_STOPIE | I2C_CR1_NACKIE | I2C_CR1_TCIE | I2C_CR1_ERRIE;
-		m_Port->ICR = I2C_ICR_ADDRCF | I2C_ICR_NACKCF | I2C_ICR_STOPCF | I2C_ICR_BERRCF | I2C_ICR_ARLOCF | I2C_ICR_OVRCF | I2C_ICR_PECCF | I2C_ICR_TIMOUTCF | I2C_ICR_ALERTCF;
-		m_Port->CR1 |= interruptFlags;
-		m_Port->CR2 = CR2;
-
-		if (!m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout))
-		{
-			m_State = State_e::Idle;
-			ResetPeripheral();
-			m_CurPos = -ETIME;
-		}
-		m_Port->CR1 &= ~interruptFlags;
-	} CRITICAL_END;
-    if (m_CurPos < 0)
+    m_RegisterAddressLength = i2cfile->m_InternalAddressLength;
+    if (m_RegisterAddressLength > 0)
     {
-		ResetPeripheral();
-        set_last_error(-m_CurPos);
-		kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::INFO_LOW_VOL, "I2CDriver::Read() request failed: %s\n", strerror(get_last_error()));
+        m_State = State_e::SendReadAddress;
+
+        for (int i = 0; i < m_RegisterAddressLength; ++i) m_RegisterAddress[i] = uint8_t((position >> ((m_RegisterAddressLength - i - 1) * 8)) & 0xff);
+
+        CR2 |= uint32_t(m_RegisterAddressLength) << I2C_CR2_NBYTES_Pos;
+        if (m_Port->ISR & I2C_ISR_TXE)
+        {
+            m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
+        }
+    }
+    else
+    {
+        m_State = State_e::Reading;
+
+        if (m_Length <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
+            CR2 |= m_Length << I2C_CR2_NBYTES_Pos;
+        } else {
+            CR2 |= I2C_CR2_NBYTES | I2C_CR2_RELOAD;
+        }
+        CR2 |= I2C_CR2_RD_WRN | I2C_CR2_AUTOEND;
+    }
+
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        const uint32_t interruptFlags = I2C_CR1_RXIE | I2C_CR1_STOPIE | I2C_CR1_NACKIE | I2C_CR1_TCIE | I2C_CR1_ERRIE;
+        m_Port->ICR = I2C_ICR_ADDRCF | I2C_ICR_NACKCF | I2C_ICR_STOPCF | I2C_ICR_BERRCF | I2C_ICR_ARLOCF | I2C_ICR_OVRCF | I2C_ICR_PECCF | I2C_ICR_TIMOUTCF | I2C_ICR_ALERTCF;
+        m_Port->CR1 |= interruptFlags;
+        m_Port->CR2 = CR2;
+
+        if (!m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout))
+        {
+            m_State = State_e::Idle;
+            ResetPeripheral();
+            m_TransactionError = ETIME;
+        }
+        m_Port->CR1 &= ~interruptFlags;
+    } CRITICAL_END;
+    if (m_TransactionError != 0)
+    {
+        ResetPeripheral();
+        set_last_error(m_TransactionError);
+        kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::INFO_LOW_VOL, "I2CDriver::Read() request failed: %s\n", strerror(get_last_error()));
         return -1;
     }
     return m_CurPos;    
@@ -243,83 +244,85 @@ ssize_t I2CDriverINode::Read(Ptr<KFileNode> file, off64_t position, void* buffer
 
 ssize_t I2CDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
 {
-	if (length == 0) {
-		return 0;
-	}
-	CRITICAL_SCOPE(m_Mutex);
+    if (length == 0) {
+        return 0;
+    }
+    CRITICAL_SCOPE(m_Mutex);
 
-	if (m_Port->ISR & I2C_ISR_BUSY) {
-		ResetPeripheral();
-	}
+    if (m_Port->ISR & I2C_ISR_BUSY) {
+        ResetPeripheral();
+    }
 
-	Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
+    Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
 
-	m_Buffer = reinterpret_cast<uint8_t*>(const_cast<void*>(buffer));
-	m_Length = length;
-	m_RegisterAddressPos = 0;
-	m_CurPos = 0;
+    m_Buffer = reinterpret_cast<uint8_t*>(const_cast<void*>(buffer));
+    m_Length = length;
+    m_RegisterAddressPos = 0;
+    m_CurPos = 0;
+    m_TransactionError = 0;
 
-	uint32_t CR2 = I2C_CR2_START | ((i2cfile->m_SlaveAddress << I2C_CR2_SADD_Pos) & I2C_CR2_SADD_Msk) | ((i2cfile->m_SlaveAddressLength == I2C_ADDR_LEN_10BIT) ? I2C_CR2_ADD10 : 0);
+    uint32_t CR2 = I2C_CR2_START | ((i2cfile->m_SlaveAddress << I2C_CR2_SADD_Pos) & I2C_CR2_SADD_Msk) | ((i2cfile->m_SlaveAddressLength == I2C_ADDR_LEN_10BIT) ? I2C_CR2_ADD10 : 0);
 
-	m_RegisterAddressLength = i2cfile->m_InternalAddressLength;
-	if (m_RegisterAddressLength > 0)
-	{
-		m_State = State_e::SendWriteAddress;
-		
-		for (int i = 0; i < m_RegisterAddressLength; ++i) m_RegisterAddress[i] = uint8_t((position >> ((m_RegisterAddressLength - i - 1) * 8)) & 0xff);
+    m_RegisterAddressLength = i2cfile->m_InternalAddressLength;
+    if (m_RegisterAddressLength > 0)
+    {
+        m_State = State_e::SendWriteAddress;
 
-		int32_t totalLength = m_Length + m_RegisterAddressLength;
-		if (totalLength <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
-			CR2 |= (totalLength << I2C_CR2_NBYTES_Pos) | I2C_CR2_AUTOEND;
-		} else {
-			CR2 |= I2C_CR2_NBYTES | I2C_CR2_RELOAD;
-		}
-		if (m_Port->ISR & I2C_ISR_TXE)
-		{
-			m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
-			if (m_RegisterAddressLength == 1) {
-				m_State = State_e::Writing;
-			}
-		}
-	}
-	else
-	{
-		m_State = State_e::Writing;
+        for (int i = 0; i < m_RegisterAddressLength; ++i) m_RegisterAddress[i] = uint8_t((position >> ((m_RegisterAddressLength - i - 1) * 8)) & 0xff);
 
-		if (m_Length <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
-			CR2 |= (m_Length << I2C_CR2_NBYTES_Pos) | I2C_CR2_AUTOEND;
-		} else {
-			CR2 |= I2C_CR2_NBYTES | I2C_CR2_RELOAD;
-		}
-		if (m_Port->ISR & I2C_ISR_TXE)
-		{
-			m_Port->TXDR = m_Buffer[m_CurPos++];
-		}
-	}
+        int32_t totalLength = m_Length + m_RegisterAddressLength;
+        if (totalLength <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
+            CR2 |= (totalLength << I2C_CR2_NBYTES_Pos) | I2C_CR2_AUTOEND;
+        } else {
+            CR2 |= I2C_CR2_NBYTES | I2C_CR2_RELOAD;
+        }
+        if (m_Port->ISR & I2C_ISR_TXE)
+        {
+            m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
+            if (m_RegisterAddressLength == 1) {
+                m_State = State_e::Writing;
+            }
+        }
+    }
+    else
+    {
+        m_State = State_e::Writing;
 
-	CRITICAL_BEGIN(CRITICAL_IRQ)
-	{
-		const uint32_t interruptFlags = I2C_CR1_TXIE | I2C_CR1_STOPIE | I2C_CR1_NACKIE | I2C_CR1_TCIE | I2C_CR1_ERRIE;
+        if (m_Length <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
+            CR2 |= (m_Length << I2C_CR2_NBYTES_Pos) | I2C_CR2_AUTOEND;
+        } else {
+            CR2 |= I2C_CR2_NBYTES | I2C_CR2_RELOAD;
+        }
+        if (m_Port->ISR & I2C_ISR_TXE)
+        {
+            kassert(m_CurPos >= 0);
+            m_Port->TXDR = m_Buffer[m_CurPos++];
+        }
+    }
 
-		m_Port->ICR = I2C_ICR_ADDRCF | I2C_ICR_NACKCF | I2C_ICR_STOPCF | I2C_ICR_BERRCF | I2C_ICR_ARLOCF | I2C_ICR_OVRCF | I2C_ICR_PECCF | I2C_ICR_TIMOUTCF | I2C_ICR_ALERTCF;
-		m_Port->CR1 |= interruptFlags;
-		m_Port->CR2 = CR2;
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        const uint32_t interruptFlags = I2C_CR1_TXIE | I2C_CR1_STOPIE | I2C_CR1_NACKIE | I2C_CR1_TCIE | I2C_CR1_ERRIE;
 
-		if (!m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout))
-		{
-			m_State = State_e::Idle;
-			ResetPeripheral();
-			m_CurPos = -ETIME;
-		}
-		m_Port->CR1 &= ~interruptFlags;
-	} CRITICAL_END;
-	if (m_CurPos < 0)
-	{
-		set_last_error(-m_CurPos);
-		kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::INFO_LOW_VOL, "I2CDriver::Write() request failed: %s\n", strerror(get_last_error()));
-		return -1;
-	}
-	return m_CurPos;
+        m_Port->ICR = I2C_ICR_ADDRCF | I2C_ICR_NACKCF | I2C_ICR_STOPCF | I2C_ICR_BERRCF | I2C_ICR_ARLOCF | I2C_ICR_OVRCF | I2C_ICR_PECCF | I2C_ICR_TIMOUTCF | I2C_ICR_ALERTCF;
+        m_Port->CR1 |= interruptFlags;
+        m_Port->CR2 = CR2;
+
+        if (!m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout))
+        {
+            m_State = State_e::Idle;
+            ResetPeripheral();
+            m_TransactionError = ETIME;
+        }
+        m_Port->CR1 &= ~interruptFlags;
+    } CRITICAL_END;
+    if (m_TransactionError != 0)
+    {
+        set_last_error(m_TransactionError);
+        kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::INFO_LOW_VOL, "I2CDriver::Write() request failed: %s\n", strerror(get_last_error()));
+        return -1;
+    }
+    return m_CurPos;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -328,10 +331,10 @@ ssize_t I2CDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void*
 
 void I2CDriverINode::ResetPeripheral()
 {
-	m_Port->CR1 = 0;
-	m_Port->CR1 = I2C_CR1_PE
-				| ((m_DigitalFilterCount << I2C_CR1_DNF_Pos) & I2C_CR1_DNF_Msk)
-				| ((m_AnalogFilterEnabled) ? 0 : I2C_CR1_ANFOFF);
+    m_Port->CR1 = 0;
+    m_Port->CR1 = I2C_CR1_PE
+                | ((m_DigitalFilterCount << I2C_CR1_DNF_Pos) & I2C_CR1_DNF_Msk)
+                | ((m_AnalogFilterEnabled) ? 0 : I2C_CR1_ANFOFF);
 
 }
 
@@ -341,34 +344,34 @@ void I2CDriverINode::ResetPeripheral()
 
 void I2CDriverINode::ClearBus()
 {
-	DigitalPin clockPin(m_ClockPin.PINID);
-	DigitalPin dataPin(m_DataPin.PINID);
+    DigitalPin clockPin(m_ClockPin.PINID);
+    DigitalPin dataPin(m_DataPin.PINID);
 
 
-	clockPin.SetPeripheralMux(DigitalPinPeripheralID::None);
-	dataPin.SetPeripheralMux(DigitalPinPeripheralID::None);
+    clockPin.SetPeripheralMux(DigitalPinPeripheralID::None);
+    dataPin.SetPeripheralMux(DigitalPinPeripheralID::None);
 
-	clockPin.SetDirection(DigitalPinDirection_e::OpenCollector);
-	dataPin.SetDirection(DigitalPinDirection_e::OpenCollector);
+    clockPin.SetDirection(DigitalPinDirection_e::OpenCollector);
+    dataPin.SetDirection(DigitalPinDirection_e::OpenCollector);
 
-	dataPin = true;
-	clockPin = true;
+    dataPin = true;
+    clockPin = true;
     for (int i = 0; i < 16; ++i)
     {
         // Clear at ~50kHz
-		clockPin = false;
+        clockPin = false;
         if (i == 15) {
-			dataPin = false;
+            dataPin = false;
         }
         SpinTimer::SleepuS(10);
-		clockPin = true;
+        clockPin = true;
         SpinTimer::SleepuS(10);
     }
-	dataPin = true; // Send STOP
+    dataPin = true; // Send STOP
     SpinTimer::SleepuS(10);
 
-	clockPin.SetPeripheralMux(m_ClockPin.MUX);
-	dataPin.SetPeripheralMux(m_DataPin.MUX);
+    clockPin.SetPeripheralMux(m_ClockPin.MUX);
+    dataPin.SetPeripheralMux(m_DataPin.MUX);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -377,7 +380,7 @@ void I2CDriverINode::ClearBus()
 
 int I2CDriverINode::SetSpeed(I2CSpeed speed)
 {
-	int speedIndex = int(speed);
+    int speedIndex = int(speed);
     if (speedIndex < 0 || speedIndex > int(I2CSpeed::FastPlus)) {
         set_last_error(EINVAL);
         return -1;
@@ -385,107 +388,109 @@ int I2CDriverINode::SetSpeed(I2CSpeed speed)
 
     CRITICAL_SCOPE(m_Mutex);
 
-	const I2CSpec& spec = I2CSpecs[speedIndex];
-	
-	constexpr int32_t PRESC_MAX		= I2C_TIMINGR_PRESC_Msk >> I2C_TIMINGR_PRESC_Pos;
-	constexpr int32_t SCLL_MAX		= I2C_TIMINGR_SCLL_Msk >> I2C_TIMINGR_SCLL_Pos;
-	constexpr int32_t SCLH_MAX		= I2C_TIMINGR_SCLH_Msk >> I2C_TIMINGR_SCLH_Pos;
-	constexpr int32_t SDADEL_MAX	= I2C_TIMINGR_SDADEL_Msk >> I2C_TIMINGR_SDADEL_Pos;
-	constexpr int32_t SCLDEL_MAX	= I2C_TIMINGR_SCLDEL_Msk >> I2C_TIMINGR_SCLDEL_Pos;
+    const I2CSpec& spec = I2CSpecs[speedIndex];
 
-	uint32_t minError = std::numeric_limits<uint32_t>::max();
+    constexpr int32_t PRESC_MAX     = I2C_TIMINGR_PRESC_Msk >> I2C_TIMINGR_PRESC_Pos;
+    constexpr int32_t SCLL_MAX      = I2C_TIMINGR_SCLL_Msk >> I2C_TIMINGR_SCLL_Pos;
+    constexpr int32_t SCLH_MAX      = I2C_TIMINGR_SCLH_Msk >> I2C_TIMINGR_SCLH_Pos;
+    constexpr int32_t SDADEL_MAX    = I2C_TIMINGR_SDADEL_Msk >> I2C_TIMINGR_SDADEL_Pos;
+    constexpr int32_t SCLDEL_MAX    = I2C_TIMINGR_SCLDEL_Msk >> I2C_TIMINGR_SCLDEL_Pos;
 
-	int32_t bestPRESC  = 0;
-	int32_t bestSDADEL = 0;
-	int32_t bestSCLDEL = 0;
-	int32_t bestSCLL   = 0;
-	int32_t bestSCLH   = 0;
+    uint32_t minError = std::numeric_limits<uint32_t>::max();
 
-	for (int prescale = 0; prescale <= PRESC_MAX; ++prescale)
-	{
-		uint32_t scaledClock = m_ClockFrequency / (prescale + 1);
-		double clockCycleTime = double(1) / double(scaledClock);
+    int32_t bestPRESC  = 0;
+    int32_t bestSDADEL = 0;
+    int32_t bestSCLDEL = 0;
+    int32_t bestSCLL   = 0;
+    int32_t bestSCLH   = 0;
 
-		double filterDelayMin = m_AnalogFilterEnabled ? 50.0e-9 : 0.0;
-		double filterDelayMax = 260.0e-9;
+    for (int prescale = 0; prescale <= PRESC_MAX; ++prescale)
+    {
+        uint32_t scaledClock = m_ClockFrequency / (prescale + 1);
+        double clockCycleTime = double(1) / double(scaledClock);
 
-		filterDelayMin += double(m_DigitalFilterCount + 2) * clockCycleTime;
-		filterDelayMax += double(m_DigitalFilterCount + 3) * clockCycleTime;
+        double filterDelayMin = m_AnalogFilterEnabled ? 50.0e-9 : 0.0;
+        double filterDelayMax = 260.0e-9;
 
-		double tsync1 = filterDelayMin + m_FallTime;
-		double tsync2 = filterDelayMin + m_RiseTime;
+        filterDelayMin += double(m_DigitalFilterCount + 2) * clockCycleTime;
+        filterDelayMax += double(m_DigitalFilterCount + 3) * clockCycleTime;
 
-		int32_t SCLL = std::max(0, int(ceil((spec.ClockLowMin - tsync1) / clockCycleTime)) - 1);
-		if (SCLL > SCLL_MAX) continue;
+        double tsync1 = filterDelayMin + m_FallTime;
+        double tsync2 = filterDelayMin + m_RiseTime;
 
-		int32_t SCLH = std::max(0, int(ceil((spec.ClockHighMin - tsync2) / clockCycleTime)) - 1);
-		if (SCLH > SCLH_MAX) continue;
+        int32_t SCLL = std::max(0, int(ceil((spec.ClockLowMin - tsync1) / clockCycleTime)) - 1);
+        if (SCLL > SCLL_MAX) continue;
 
-		int32_t totalCycleTime = std::max(0, int(ceil((1.0 / double(spec.Baudrate) - tsync1 - tsync2) / clockCycleTime)) - 2);
+        int32_t SCLH = std::max(0, int(ceil((spec.ClockHighMin - tsync2) / clockCycleTime)) - 1);
+        if (SCLH > SCLH_MAX) continue;
 
-		int32_t extraTime = totalCycleTime - SCLL - SCLH;
-		int32_t extraTimeH = extraTime / 2;
-		int32_t extraTimeL = extraTime - extraTimeH;
+        int32_t totalCycleTime = std::max(0, int(ceil((1.0 / double(spec.Baudrate) - tsync1 - tsync2) / clockCycleTime)) - 2);
 
-		SCLL += extraTimeL;
-		if (SCLL > SCLL_MAX) {
-			extraTimeH += SCLL - SCLL_MAX;
-			SCLL = SCLL_MAX;
-		}
-		SCLH += extraTimeH;
-		if (SCLH > SCLH_MAX) {
-			SCLL += SCLH - SCLH_MAX;
-			SCLH = SCLH_MAX;
-		}
-		if (SCLL > SCLL_MAX) {
-			continue;
-		}
+        int32_t extraTime = totalCycleTime - SCLL - SCLH;
+        int32_t extraTimeH = extraTime / 2;
+        int32_t extraTimeL = extraTime - extraTimeH;
 
-		double holdTimeMin = spec.DataHoldTimeMin + m_FallTime - filterDelayMin;
-		double validTimeMax = spec.DataValidTimeMax - m_RiseTime - filterDelayMax;
+        SCLL += extraTimeL;
+        if (SCLL > SCLL_MAX)
+        {
+            extraTimeH += SCLL - SCLL_MAX;
+            SCLL = SCLL_MAX;
+        }
+        SCLH += extraTimeH;
+        if (SCLH > SCLH_MAX)
+        {
+            SCLL += SCLH - SCLH_MAX;
+            SCLH = SCLH_MAX;
+        }
+        if (SCLL > SCLL_MAX) {
+            continue;
+        }
 
-		int32_t validClocksMax = std::max(0, int(ceil(validTimeMax / clockCycleTime)) - 1);
-		if (validClocksMax > SDADEL_MAX) validClocksMax = SDADEL_MAX;
+        double holdTimeMin = spec.DataHoldTimeMin + m_FallTime - filterDelayMin;
+        double validTimeMax = spec.DataValidTimeMax - m_RiseTime - filterDelayMax;
 
-		int32_t SDADEL = std::max(0, int(ceil(holdTimeMin / clockCycleTime)) - 1);
-		if (SDADEL > validClocksMax) {
-			continue;
-		}
+        int32_t validClocksMax = std::max(0, int(ceil(validTimeMax / clockCycleTime)) - 1);
+        if (validClocksMax > SDADEL_MAX) validClocksMax = SDADEL_MAX;
 
-		int32_t SCLDEL = std::max(0, int(ceil(spec.DataSetupTimeMin / clockCycleTime)) - 1);
-		if (SDADEL > SCLDEL_MAX) {
-			continue;
-		}
-		double clockPeriod = double(SCLL + SCLH + 2) * clockCycleTime + tsync1 + tsync2;
+        int32_t SDADEL = std::max(0, int(ceil(holdTimeMin / clockCycleTime)) - 1);
+        if (SDADEL > validClocksMax) {
+            continue;
+        }
 
-		uint32_t rate = uint32_t(1.0 / clockPeriod);
-		if (rate < spec.BaudrateMin || rate > spec.Baudrate) {
-			continue;
-		}
+        int32_t SCLDEL = std::max(0, int(ceil(spec.DataSetupTimeMin / clockCycleTime)) - 1);
+        if (SDADEL > SCLDEL_MAX) {
+            continue;
+        }
+        double clockPeriod = double(SCLL + SCLH + 2) * clockCycleTime + tsync1 + tsync2;
 
-		uint32_t error = abs(rate - spec.Baudrate);
-		if (error < minError)
-		{
-			minError = error;
+        uint32_t rate = uint32_t(1.0 / clockPeriod);
+        if (rate < spec.BaudrateMin || rate > spec.Baudrate) {
+            continue;
+        }
 
-			bestPRESC = prescale;
-			bestSDADEL = SDADEL;
-			bestSCLDEL = SCLDEL;
-			bestSCLL = SCLL;
-			bestSCLH = SCLH;
-			m_Baudrate = rate;
-		}
-	}
-	if (minError == std::numeric_limits<uint32_t>::max()) {
-		kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::CRITICAL, "ERROR: I2C failed to set baudrate!\n");
-		return -1;
-	}
-//	m_Port->TIMINGR = 0x00b03fdb;
-	m_Port->TIMINGR = (bestPRESC  << I2C_TIMINGR_PRESC_Pos)
-					| (bestSDADEL << I2C_TIMINGR_SDADEL_Pos)
-					| (bestSCLDEL << I2C_TIMINGR_SCLDEL_Pos)
-					| (bestSCLL   << I2C_TIMINGR_SCLL_Pos)
-					| (bestSCLH   << I2C_TIMINGR_SCLH_Pos);
+        uint32_t error = abs(rate - spec.Baudrate);
+        if (error < minError)
+        {
+            minError = error;
+
+            bestPRESC = prescale;
+            bestSDADEL = SDADEL;
+            bestSCLDEL = SCLDEL;
+            bestSCLL = SCLL;
+            bestSCLH = SCLH;
+            m_Baudrate = rate;
+        }
+    }
+    if (minError == std::numeric_limits<uint32_t>::max()) {
+        kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::CRITICAL, "ERROR: I2C failed to set baudrate!\n");
+        return -1;
+    }
+//  m_Port->TIMINGR = 0x00b03fdb;
+    m_Port->TIMINGR = (bestPRESC  << I2C_TIMINGR_PRESC_Pos)
+                    | (bestSDADEL << I2C_TIMINGR_SDADEL_Pos)
+                    | (bestSCLDEL << I2C_TIMINGR_SCLDEL_Pos)
+                    | (bestSCLL   << I2C_TIMINGR_SCLL_Pos)
+                    | (bestSCLH   << I2C_TIMINGR_SCLH_Pos);
 
     return 0;
 }
@@ -505,14 +510,14 @@ int I2CDriverINode::GetBaudrate() const
 
 void kernel::I2CDriverINode::UpdateTransactionLength(uint32_t& CR2)
 {
-	CR2 &= ~(I2C_CR2_NBYTES_Msk | I2C_CR2_RELOAD);
+    CR2 &= ~(I2C_CR2_NBYTES_Msk | I2C_CR2_RELOAD);
 
-	int32_t remainingLength = m_Length - m_CurPos;
-	if (remainingLength <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
-		CR2 |= (remainingLength << I2C_CR2_NBYTES_Pos) | I2C_CR2_AUTOEND;
-	} else {
-		CR2 |= I2C_CR2_NBYTES_Msk | I2C_CR2_RELOAD;
-	}
+    int32_t remainingLength = m_Length - m_CurPos;
+    if (remainingLength <= (I2C_CR2_NBYTES_Msk >> I2C_CR2_NBYTES_Pos)) {
+        CR2 |= (remainingLength << I2C_CR2_NBYTES_Pos) | I2C_CR2_AUTOEND;
+    } else {
+        CR2 |= I2C_CR2_NBYTES_Msk | I2C_CR2_RELOAD;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -530,91 +535,93 @@ IRQResult I2CDriverINode::IRQCallbackEvent(IRQn_Type irq, void* userData)
 
 IRQResult I2CDriverINode::HandleEventIRQ()
 {
-	if (m_Port->ISR & I2C_ISR_NACKF)
-	{
-		m_CurPos = -ECONNREFUSED;
-		m_Port->ICR = I2C_ICR_NACKCF;
-		m_Port->CR1 &= ~I2C_CR1_TXIE;
+    if (m_Port->ISR & I2C_ISR_NACKF)
+    {
+        m_TransactionError = ECONNREFUSED;
+        m_Port->ICR = I2C_ICR_NACKCF;
+        m_Port->CR1 &= ~I2C_CR1_TXIE;
 
-		m_State = State_e::Idle;
-		m_RequestCondition.Wakeup(1);
-		return IRQResult::HANDLED;
-	}
+        m_State = State_e::Idle;
+        m_RequestCondition.Wakeup(1);
+        return IRQResult::HANDLED;
+    }
 
-	switch (m_State)
-	{
-	case State_e::SendReadAddress:
-		while (m_RegisterAddressPos != m_RegisterAddressLength && (m_Port->ISR & I2C_ISR_TXE))
-		{
-			m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
-		}
-		if (m_Port->ISR & I2C_ISR_STOPF) // Transfer complete.
-		{
-			m_Port->ICR = I2C_ICR_STOPCF;
-			uint32_t CR2 = m_Port->CR2;
-			UpdateTransactionLength(CR2);
-			CR2 |= I2C_CR2_START | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND;
-			m_Port->CR2 = CR2;
-			m_State = State_e::Reading;
-		}
-		else if (m_Port->ISR & I2C_ISR_TC) // Transfer complete.
-		{
-			uint32_t CR2 = m_Port->CR2;
-			UpdateTransactionLength(CR2);
-			CR2 |= I2C_CR2_START | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND;
-			m_Port->CR2 = CR2;
-			m_State = State_e::Reading;
-		}
-		break;
-	case State_e::SendWriteAddress:
-		while (m_RegisterAddressPos != m_RegisterAddressLength && (m_Port->ISR & I2C_ISR_TXE))
-		{
-			m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
-		}
-		if (m_RegisterAddressPos == m_RegisterAddressLength) {
-			m_State = State_e::Writing;
-		}
-		break;
-	default:
-		break;
-	}
-	if (m_Port->ISR & I2C_ISR_TCR) // Transfer complete reload.
-	{
-		uint32_t CR2 = m_Port->CR2;
-		UpdateTransactionLength(CR2);
-		m_Port->CR2 = CR2;
-	}
-	switch (m_State)
-	{
-	case State_e::Reading:
-		while ((m_Port->ISR & I2C_ISR_RXNE) && m_CurPos != m_Length)
-		{
-			m_Buffer[m_CurPos++] = uint8_t(m_Port->RXDR);
-		}
-		break;
-	case State_e::Writing:
-		while ((m_Port->ISR & I2C_ISR_TXE) && m_CurPos != m_Length)
-		{
-			m_Port->TXDR = m_Buffer[m_CurPos++];
-		}
-		break;
-	default:
-		break;
-	}
-	if (m_Port->ISR & I2C_ISR_STOPF) // Transfer complete.
-	{
-		m_Port->ICR = I2C_ICR_STOPCF;
-		m_Port->CR1 &= ~I2C_CR1_TXIE;
-		m_State = State_e::Idle;
-		m_RequestCondition.Wakeup(1);
-	}
-	if (m_Port->ISR & I2C_ISR_TC) // Transfer complete.
-	{
-		m_Port->CR1 &= ~I2C_CR1_TXIE;
-		m_State = State_e::Idle;
-		m_RequestCondition.Wakeup(1);
-	}
-	return IRQResult::HANDLED;
+    switch (m_State)
+    {
+    case State_e::SendReadAddress:
+        while (m_RegisterAddressPos != m_RegisterAddressLength && (m_Port->ISR & I2C_ISR_TXE))
+        {
+            m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
+        }
+        if (m_Port->ISR & I2C_ISR_STOPF) // Transfer complete.
+        {
+            m_Port->ICR = I2C_ICR_STOPCF;
+            uint32_t CR2 = m_Port->CR2;
+            UpdateTransactionLength(CR2);
+            CR2 |= I2C_CR2_START | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND;
+            m_Port->CR2 = CR2;
+            m_State = State_e::Reading;
+        }
+        else if (m_Port->ISR & I2C_ISR_TC) // Transfer complete.
+        {
+            uint32_t CR2 = m_Port->CR2;
+            UpdateTransactionLength(CR2);
+            CR2 |= I2C_CR2_START | I2C_CR2_RD_WRN | I2C_CR2_AUTOEND;
+            m_Port->CR2 = CR2;
+            m_State = State_e::Reading;
+        }
+        break;
+    case State_e::SendWriteAddress:
+        while (m_RegisterAddressPos != m_RegisterAddressLength && (m_Port->ISR & I2C_ISR_TXE))
+        {
+            m_Port->TXDR = m_RegisterAddress[m_RegisterAddressPos++];
+        }
+        if (m_RegisterAddressPos == m_RegisterAddressLength) {
+            m_State = State_e::Writing;
+        }
+        break;
+    default:
+        break;
+    }
+    if (m_Port->ISR & I2C_ISR_TCR) // Transfer complete reload.
+    {
+        uint32_t CR2 = m_Port->CR2;
+        UpdateTransactionLength(CR2);
+        m_Port->CR2 = CR2;
+    }
+    switch (m_State)
+    {
+    case State_e::Reading:
+        kassert(m_CurPos >= 0);
+        while ((m_Port->ISR & I2C_ISR_RXNE) && m_CurPos != m_Length)
+        {
+            m_Buffer[m_CurPos++] = uint8_t(m_Port->RXDR);
+        }
+        break;
+    case State_e::Writing:
+        kassert(m_CurPos >= 0);
+        while ((m_Port->ISR & I2C_ISR_TXE) && m_CurPos != m_Length)
+        {
+            m_Port->TXDR = m_Buffer[m_CurPos++];
+        }
+        break;
+    default:
+        break;
+    }
+    if (m_Port->ISR & I2C_ISR_STOPF) // Transfer complete.
+    {
+        m_Port->ICR = I2C_ICR_STOPCF;
+        m_Port->CR1 &= ~I2C_CR1_TXIE;
+        m_State = State_e::Idle;
+        m_RequestCondition.Wakeup(1);
+    }
+    if (m_Port->ISR & I2C_ISR_TC) // Transfer complete.
+    {
+        m_Port->CR1 &= ~I2C_CR1_TXIE;
+        m_State = State_e::Idle;
+        m_RequestCondition.Wakeup(1);
+    }
+    return IRQResult::HANDLED;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -632,11 +639,11 @@ IRQResult I2CDriverINode::IRQCallbackError(IRQn_Type irq, void* userData)
 
 IRQResult I2CDriverINode::HandleErrorIRQ()
 {
-	m_Port->CR1 &= ~I2C_CR1_ERRIE;
-	m_CurPos = -EIO;
-	m_RequestCondition.Wakeup(1);
+    m_Port->CR1 &= ~I2C_CR1_ERRIE;
+    m_TransactionError = EIO;
+    m_RequestCondition.Wakeup(1);
 
-	return IRQResult::HANDLED;
+    return IRQResult::HANDLED;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -645,7 +652,7 @@ IRQResult I2CDriverINode::HandleErrorIRQ()
 
 void I2CDriver::Setup(const char* devicePath, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime)
 {
-	REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, KLogSeverity::WARNING);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, KLogSeverity::WARNING);
 
     Ptr<I2CDriverINode> node = ptr_new<I2CDriverINode>(this, portID, clockPin, dataPin, clockFrequency, fallTime, riseTime);
     Kernel::RegisterDevice(devicePath, node);    

@@ -90,13 +90,17 @@ private:
         void Reset()
         {
             Buffer = nullptr;
+            BufferSize = 0;
             TotalLength = 0;
+            BytesTransferred = 0;
             EndpointMaxSize = 0;
             Interval = 0;
         }
 
-        uint8_t* Buffer;
+        uint8_t*    Buffer;
+        uint32_t    BufferSize;
         uint32_t    TotalLength;
+        uint32_t    BytesTransferred;
         uint32_t    EndpointMaxSize;
         uint8_t     Interval;
     };

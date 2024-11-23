@@ -6,6 +6,7 @@ target_sources(PadOS_System PRIVATE
 	InertialScroller.h
 	IntrusiveList.h
 	MessagePort.h
+	PIDController.h
 	String.h
 	UTF8Utils.h
 	Utils.h

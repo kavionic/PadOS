@@ -195,6 +195,7 @@ struct DebugCallTracker
 
 #define DEBUG_TRACK_FUNCTION() DebugCallTracker debugCallTracker__(__func__)
 
+template<typename T> constexpr auto to_underlying(T e) { return static_cast<std::underlying_type_t<T>>(e); }
 
 } // namespace
 

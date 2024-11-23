@@ -3,6 +3,7 @@ target_sources(PadOS_System PRIVATE
 	InertialScroller.cpp
 	IntrusiveList.cpp
 	MessagePort.cpp
+	PIDController.cpp
 	String.cpp
 	Utils.cpp
 	XMLFactory.cpp

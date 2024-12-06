@@ -23,10 +23,11 @@
 #include <vector>
 #include <stdarg.h>
 #include <System/Types.h>
-#include <System/SysTime.h>
+#include <System/TimeValue.h>
 
 namespace os
 {
+
 
 class String : public std::string
 {
@@ -56,13 +57,16 @@ public:
 
     String& format(const char* fmt, va_list pArgs)
     {
-        int maxLen = 128;
+        int maxLen;
         int length;
         {
-            char buffer[maxLen];
-            length = vsnprintf(buffer, maxLen, fmt, pArgs);
+            char buffer[128];
+            maxLen = sizeof(buffer);
 
-            if (length < maxLen) {
+            length = vsnprintf(buffer, sizeof(buffer), fmt, pArgs);
+
+            if (length < sizeof(buffer))
+            {
                 assign(buffer);
                 return *this;
             }

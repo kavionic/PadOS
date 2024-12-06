@@ -19,7 +19,11 @@
 
 #pragma once
 
+#ifndef IFLASHC
 #define IFLASHC __attribute__((section(".itext")))
-#define IFLASHD __attribute__((section(".irodata")))
+#endif
 
+#ifndef IFLASHD
+#define IFLASHD __attribute__((section(".irodata")))
+#endif
 

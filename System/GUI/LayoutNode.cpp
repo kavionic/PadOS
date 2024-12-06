@@ -81,6 +81,9 @@ void LayoutNode::CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bo
     {
         for (Ptr<View> child : *m_View)
         {
+            if (child->HasFlags(ViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
+                continue;
+            }
             const Rect borders = child->GetBorders();
             const Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
             const Point currentMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
@@ -156,6 +159,12 @@ static float SpaceOut(uint32_t count, float totalSize, float totalMinSize, float
             if (doneFlags[i]) {
                 continue;
             }
+            if (wheights[i] == 0.0f)
+            {
+                finalSizes[i] = 0.0f;
+                doneFlags[i] = true;
+                continue;
+            }
             float vWeight = wheights[i] / totalWheight;
 
             finalSizes[i] = minSizes[i] + extraSpace * vWeight;
@@ -199,6 +208,9 @@ void HLayoutNode::CalculatePreferredSize(Point* minSize, Point* maxSize, bool in
     {
         for (Ptr<View> child : *m_View)
         {
+            if (child->HasFlags(ViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
+                continue;
+            }
             Rect borders = child->GetBorders();
             Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
             Point childMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
@@ -281,14 +293,21 @@ void HLayoutNode::Layout()
         {
             Ptr<View> child = childList[i];
   
-            Rect borders = child->GetBorders();
-            Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
-            
-            Point minSize = child->GetPreferredSize(PrefSizeType::Smallest);
-            Point maxSize = child->GetPreferredSize(PrefSizeType::Greatest);
+            if (child->HasFlags(ViewFlags::IgnoreWhenHidden) && !child->IsVisible())
+            {
+                wheights[i] = 0.0f;
+                maxHeights[i] = 0.0f;
+                minWidths[i] = 0.0f;
+                maxWidths[i] = 0.0f;
+                continue;
+            }
 
-            minSize += borderSize;
-            maxSize += borderSize;
+            const Rect borders = child->GetBorders();
+            const Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            
+            const Point minSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
+            const Point maxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+
             
             wheights[i]   = child->GetWheight();
 
@@ -302,10 +321,8 @@ void HLayoutNode::Layout()
     //    if ( vMinWidth > bounds.Width() + 1.0f ) {
     //      printf( "Error: HLayoutNode::Layout() Width=%.2f, Required width=%.2f\n", bounds.Width() + 1.0f, vMinWidth  );
     //    }
-        float unusedWidth = SpaceOut(childList.size(), bounds.Width(), vMinWidth, totalWheight, minWidths, maxWidths, wheights, finalHeights);
+        const float unusedWidth = SpaceOut(childList.size(), bounds.Width(), vMinWidth, totalWheight, minWidths, maxWidths, wheights, finalHeights) / float(childList.size());
 
-//        printf("HLayout: Unused space: %f (%f)\n", unusedWidth, bounds.Width());
-        unusedWidth /= float(childList.size());
         float x = bounds.left + unusedWidth * 0.5f;
     
         for (size_t i = 0 ; i < childList.size() ; ++i)
@@ -359,11 +376,15 @@ void VLayoutNode::CalculatePreferredSize(Point* minSize, Point* maxSize, bool in
     {
         for (Ptr<View> child : *m_View)
         {
-            Rect  borders = child->GetBorders();
-            Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            if (child->HasFlags(ViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
+                continue;
+            }
 
-            Point childMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
-            Point childMaxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+            const Rect  borders = child->GetBorders();
+            const Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+
+            const Point childMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
+            const Point childMaxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
             
             if (includeWidth) {
                 if (childMinSize.x > minSize->x) minSize->x = childMinSize.x;
@@ -402,14 +423,21 @@ void VLayoutNode::Layout()
         {
             Ptr<View> child = childList[i];
             
-            Rect borders = child->GetBorders();
-            Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
-            
-            Point minSize = child->GetPreferredSize(PrefSizeType::Smallest);
-            Point maxSize = child->GetPreferredSize(PrefSizeType::Greatest);
+            if (child->HasFlags(ViewFlags::IgnoreWhenHidden) && !child->IsVisible())
+            {
+                wheights[i] = 0.0f;
+                maxWidths[i] = 0.0f;
+                minHeights[i] = 0.0f;
+                maxHeights[i] = 0.0f;
+                continue;
+            }
 
-            minSize += borderSize;
-            maxSize += borderSize;
+            const Rect borders = child->GetBorders();
+            const Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            
+            const Point minSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
+            const Point maxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+
 
             wheights[i]   = child->GetWheight();
             maxWidths[i]  = maxSize.x;
@@ -423,9 +451,8 @@ void VLayoutNode::Layout()
     //    if ( vMinHeight > bounds.Height() + 1.0f ) {
     //      printf( "Error: HLayoutNode::Layout() Width=%.2f, Required width=%.2f\n", bounds.Height() + 1.0f, vMinHeight  );
     //    }
-        float vUnusedHeight = SpaceOut(childList.size(), bounds.Height(),  vMinHeight, totalWheight, minHeights, maxHeights, wheights, finalHeights);
+        const float vUnusedHeight = SpaceOut(childList.size(), bounds.Height(),  vMinHeight, totalWheight, minHeights, maxHeights, wheights, finalHeights) / float(childList.size());
 
-        vUnusedHeight /= float(childList.size());
         float y = bounds.top + vUnusedHeight * 0.5f;
         for (size_t i = 0 ; i < childList.size() ; ++i)
         {

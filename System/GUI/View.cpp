@@ -46,6 +46,7 @@ const std::map<String, uint32_t> ViewFlags::FlagMap
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResizeH),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResizeV),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResize),
+    DEFINE_FLAG_MAP_ENTRY(ViewFlags, IgnoreWhenHidden),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, WillDraw),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, Transparent),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, ClearBackground),
@@ -951,6 +952,14 @@ void View::Show(bool visible)
         }
         for (Ptr<View> child : *this) {
             child->Show(isVisible);
+        }
+        if (HasFlags(ViewFlags::IgnoreWhenHidden))
+        {
+            Ptr<View> parent = GetParent();
+            if (parent != nullptr) {
+                parent->PreferredSizeChanged();
+                parent->InvalidateLayout();
+            }
         }
     }
 }

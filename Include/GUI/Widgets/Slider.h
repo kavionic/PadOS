@@ -105,6 +105,7 @@ public:
     virtual void    SetSteps(float small, float big)         { m_SmallStep = small; m_BigStep = big; }
     virtual void    GetSteps(float* small, float* big) const { *small = m_SmallStep; *big = m_BigStep; }
     void            SetDragScale(float scale) { m_DragScale = scale; }
+    void            SetDragScaleRange(float range) { m_DragScaleRange = range; }
     virtual void    SetMinMax(float min, float max ) { m_Min = min; m_Max = max; }
     void            SetResolution(float resolution);
 

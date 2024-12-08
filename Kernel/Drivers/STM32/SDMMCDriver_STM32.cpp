@@ -122,13 +122,18 @@ bool SDMMCDriver_STM32::ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32
     if (cmd & SDMMC_RESP_PRESENT)
     {
         m_SDMMC->DTIMER = 0xffffffff;
-        if (cmd & SDMMC_RESP_136) {
+        if (cmd & SDMMC_RESP_136)
+        {
             response = 3; // Long response, expect CMDREND or CCRCFAIL flag
             interrupts |= SDMMC_MASK_CCRCFAILIE;
-        } else if (cmd & SDMMC_RESP_CRC) {
+        }
+        else if (cmd & SDMMC_RESP_CRC)
+        {
             response = 1; // Short response, expect CMDREND or CCRCFAIL flag
             interrupts |= SDMMC_MASK_CCRCFAILIE;
-        } else {
+        }
+        else
+        {
             response = 2; // Short response, expect CMDREND flag (No CRC)
         }
         interrupts |= SDMMC_MASK_CMDRENDIE; // ACKFAILIE | ACKTIMEOUTIE
@@ -146,11 +151,18 @@ bool SDMMCDriver_STM32::ExecuteCmd(uint32_t extraCmdRFlags, uint32_t cmd, uint32
 
     if (!WaitIRQ(interrupts))
     {
+        if (m_SDMMC->STA && SDMMC_STA_CTIMEOUT) {
+            RestartCard();
+        }
         return false;
     }
     if ((cmd & SDMMC_RESP_BUSY) && (m_SDMMC->STA & SDMMC_STA_BUSYD0))
     {
-        if (!WaitIRQ(SDMMC_MASK_BUSYD0ENDIE | SDMMC_MASK_CTIMEOUTIE)) {
+        if (!WaitIRQ(SDMMC_MASK_BUSYD0ENDIE | SDMMC_MASK_CTIMEOUTIE))
+        {
+            if (m_SDMMC->STA && SDMMC_STA_CTIMEOUT) {
+                RestartCard();
+            }
             return false;
         }
     }
@@ -289,7 +301,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
         }
     }
     m_SDMMC->DTIMER = 0xffffffff;
-//    m_SDMMC->CLKCR |= SDMMC_CLKCR_HWFC_EN; // Hardware flow-control enabled.
+    m_SDMMC->CLKCR |= SDMMC_CLKCR_HWFC_EN; // Hardware flow-control enabled.
 
     if (dmaTarget == nullptr && m_SegmentCount > 1)
     {
@@ -484,7 +496,7 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         m_SDMMC->MASK = flags;
-        while (!m_IOCondition.IRQWait())
+        while (!m_IOCondition.IRQWaitTimeout(TimeValMicros::FromMilliseconds(500)))
         {
             if (get_last_error() != EINTR)
             {

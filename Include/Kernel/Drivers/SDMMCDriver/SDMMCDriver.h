@@ -105,6 +105,8 @@ protected:
 	static IRQResult IRQHandler(IRQn_Type irq, void* userData) { return static_cast<SDMMCDriver*>(userData)->HandleIRQ(); }
 	IRQResult HandleIRQ();
 
+    bool RestartCard();
+
     bool InitializeCard();
     bool InitializeMMCCard();
 

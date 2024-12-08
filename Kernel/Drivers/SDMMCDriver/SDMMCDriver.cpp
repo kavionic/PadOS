@@ -133,35 +133,27 @@ int SDMMCDriver::Run()
 			CRITICAL_SCOPE(m_Mutex);
 
 			m_CardInserted = hasCard;
-            if (m_CardInserted)
-            {
-                m_CardState = CardState::Initializing;
-                // Set 1-bit bus width and low clock for initialization
-                m_Clock = SDMMC_CLOCK_INIT;
-                m_BusWidth = 1;
-                m_HighSpeed = false;
+            m_CardState = CardState::NoCard;
 
-                Reset();
-                ApplySpeedAndBusWidth();
-            
-                // Initialization of the card requested
-                if (InitializeCard())
-                {
-                    kprintf("SD/MMC card ready: %" PRIu64 "\n", m_SectorCount * BLOCK_SIZE);
-                    SetState(CardState::Ready);
-                    DecodePartitions(true);
-                }
-                else
-                {
-                    kprintf("SD/MMC card initialization failed\n");
-                    SetState(CardState::Unusable);
-					snooze_ms(500);
-                }
-            }
-            else
+            RestartCard();
+
+            switch(m_CardState)
             {
-                SetState(CardState::NoCard);
-                DecodePartitions(true);
+                case CardState::NoCard:
+                    DecodePartitions(true);
+                    break;
+                case CardState::Ready:
+                    kprintf("SD/MMC card ready: %" PRIu64 "\n", m_SectorCount * BLOCK_SIZE);
+                    DecodePartitions(true);
+                    break;
+                case CardState::Initializing:
+                    kprintf("SD/MMC RestartCard() failed\n");
+                    break;
+                case CardState::Unusable:
+                    kprintf("SD/MMC card initialization failed\n");
+                    snooze_ms(500);
+                    break;
+
             }
         }
     }
@@ -440,6 +432,44 @@ IRQResult SDMMCDriver::HandleIRQ()
 		return IRQResult::HANDLED;
 	}
 	return IRQResult::UNHANDLED;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SDMMCDriver::RestartCard()
+{
+    if (m_CardState == CardState::Initializing) {
+        return true;
+    }
+    if (m_CardInserted)
+    {
+        m_CardState = CardState::Initializing;
+        // Set 1-bit bus width and low clock for initialization
+        m_Clock = SDMMC_CLOCK_INIT;
+        m_BusWidth = 1;
+        m_HighSpeed = false;
+
+        Reset();
+        ApplySpeedAndBusWidth();
+
+        // Initialization of the card requested
+        if (InitializeCard())
+        {
+            SetState(CardState::Ready);
+            return true;
+        }
+        else
+        {
+            SetState(CardState::Unusable);
+        }
+    }
+    else
+    {
+        SetState(CardState::NoCard);
+    }
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -35,7 +35,7 @@ namespace os
 class RadioButton : public ButtonBase
 {
 public:
-    RadioButton(const String& name, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
+    RadioButton(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
     RadioButton(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~RadioButton();
 

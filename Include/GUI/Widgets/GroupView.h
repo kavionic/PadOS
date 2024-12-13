@@ -27,7 +27,7 @@ namespace os
 class GroupView : public View
 {
 public:
-    GroupView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    GroupView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     GroupView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     // From View:

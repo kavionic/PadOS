@@ -65,7 +65,7 @@ public:
     using const_iterator = std::vector<Ptr<ListViewRow>>::const_iterator;
     using ColumnMap = std::vector<size_t>;
 
-    ListView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = ListViewFlags::MultiSelect | ListViewFlags::RenderBorder);
+    ListView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = ListViewFlags::MultiSelect | ListViewFlags::RenderBorder);
     ListView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     ~ListView();

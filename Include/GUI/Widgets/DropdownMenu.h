@@ -59,7 +59,7 @@ extern const std::map<String, uint32_t> FlagMap;
 class DropdownMenu : public Control
 {
 public:
-    DropdownMenu(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    DropdownMenu(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     DropdownMenu(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~DropdownMenu();
 

@@ -35,7 +35,7 @@ enum	{ SB_MINSIZE = 12 };
 class ScrollBar : public Control
 {
 public:
-    ScrollBar(const String& name, Ptr<View> parent = nullptr, float min = 0.0f, float max = std::numeric_limits<float>::max(), Orientation orientation = Orientation::Vertical, uint32_t flags = 0);
+    ScrollBar(const String& name = String::zero, Ptr<View> parent = nullptr, float min = 0.0f, float max = std::numeric_limits<float>::max(), Orientation orientation = Orientation::Vertical, uint32_t flags = 0);
     ~ScrollBar();
 
     void  SetScrollTarget(Ptr<View> target);

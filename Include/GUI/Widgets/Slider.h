@@ -55,7 +55,7 @@ extern const std::map<String, uint32_t> FlagMap;
 class Slider : public Control
 {
 public:
-    Slider(const String& name, Ptr<View> parent = nullptr, uint32_t flags = SliderFlags::TicksBelow,
+    Slider(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = SliderFlags::TicksBelow,
            int tickCount = 10, Orientation orientation = Orientation::Horizontal);
     Slider(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 

@@ -31,7 +31,7 @@ namespace os
 class TabView : public View
 {
 public:
-    TabView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    TabView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     TabView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     int         AppendTab( const String& title, Ptr<View> view = nullptr );

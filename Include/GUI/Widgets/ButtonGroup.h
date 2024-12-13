@@ -34,7 +34,7 @@ class ButtonBase;
 class ButtonGroup : public PtrTarget, public SignalTarget
 {
 public:
-	ButtonGroup(const String& name, size_t reserveCount = 0);
+	ButtonGroup(const String& name = String::zero, size_t reserveCount = 0);
 	virtual ~ButtonGroup() override;
 
 	const String& GetName() const { return m_Name; }

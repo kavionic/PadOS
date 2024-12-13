@@ -29,7 +29,7 @@ class ButtonGroup;
 class ButtonBase : public Control
 {
 public:
-    ButtonBase(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    ButtonBase(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     ButtonBase(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment);
     ~ButtonBase();
 

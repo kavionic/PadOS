@@ -18,6 +18,7 @@
 // Created: 17.11.2024 22:30
 
 #include <algorithm>
+#include <sys/types.h>
 #include <Math/PIDController.h>
 
 using namespace os;
@@ -26,10 +27,21 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PIDController::PIDController()
+{
+    m_IntegralErrors.resize(150);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PIDController::Reset()
 {
     m_PrevError = 0.0f;
-    m_IntegralError = 0.0f;
+    
+    for (float& i : m_IntegralErrors) i = 0.0f;
+
     m_CurrentControlValue = m_ControlMin;
 }
 
@@ -39,6 +51,8 @@ void PIDController::Reset()
 
 float PIDController::Update(float deltaTime, float measuredValue)
 {
+    float& integralError = m_IntegralErrors[m_CurrentSetpointWindow];
+
     const float error = m_TargetValue - measuredValue;
 
     if (deltaTime <= 0.0f)
@@ -53,16 +67,16 @@ float PIDController::Update(float deltaTime, float measuredValue)
 
     if (m_PGain > 0.0f)
     {
-        if ((m_IntegralError + error) * m_PGain > m_ControlMin && (m_IntegralError + error) * m_PGain < m_ControlMax) {
-            m_IntegralError = std::clamp(m_IntegralError + error * deltaTime * m_IGain, m_ControlMin / m_PGain, m_ControlMax / m_PGain);
+        if ((integralError + error) * m_PGain > m_ControlMin && (integralError + error) * m_PGain < m_ControlMax) {
+            integralError = std::clamp(integralError + error * deltaTime * m_IGain, m_ControlMin / m_PGain, m_ControlMax / m_PGain);
         }
     }
     else
     {
-        m_IntegralError = 0.0f;
+        integralError = 0.0f;
     }
 
-    const float NewControlValue = (error + m_IntegralError) * m_PGain + derivative * m_DGain;
+    const float NewControlValue = (error + integralError) * m_PGain + derivative * m_DGain;
     const float smoothFraction = deltaTime * m_ControlSmoothingInverseTimeConstant;
     if (smoothFraction < 1.0f) {
         m_CurrentControlValue += (NewControlValue - m_CurrentControlValue) * smoothFraction;
@@ -73,6 +87,16 @@ float PIDController::Update(float deltaTime, float measuredValue)
     m_CurrentControlValue = std::clamp(m_CurrentControlValue, m_ControlMin, m_ControlMax);
 
     return m_CurrentControlValue;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PIDController::SetTargetValue(float targetValue)
+{
+    m_TargetValue = targetValue;
+    m_CurrentSetpointWindow = std::clamp<size_t>(ssize_t(m_TargetValue * m_SetpointWindowSpacing), 0, m_IntegralErrors.size() - 1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -100,3 +124,4 @@ float PIDController::GetControlSmoothingTimeConstant() const
         return std::numeric_limits<float>::max();
     }
 }
+

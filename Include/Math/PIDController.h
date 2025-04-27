@@ -27,10 +27,12 @@ namespace os
 class PIDController
 {
 public:
+    PIDController();
+
     void    Reset();
     float   Update(float deltaTime, float measuredValue);
 
-    void    SetTargetValue(float targetValue) { m_TargetValue = targetValue; }
+    void    SetTargetValue(float targetValue);
 
     void    SetPGain(float gain) { m_PGain = gain; }
     float   GetPGain() const { return m_PGain; }
@@ -55,14 +57,16 @@ private:
 
     float m_ControlSmoothingInverseTimeConstant = 1.0f;
 
+    float m_SetpointWindowSpacing = 1.0f / 2.0f;
     float m_ControlMin = 0.0f;
     float m_ControlMax = 1.0f;
 
     float m_TargetValue = 0.0f;
 
-    float           m_PrevError = 0.0f;
-    float           m_IntegralError = 0.0f;
-    float           m_CurrentControlValue = 0.0f;
+    float               m_PrevError = 0.0f;
+    float               m_CurrentControlValue = 0.0f;
+    size_t              m_CurrentSetpointWindow = 0;
+    std::vector<float>  m_IntegralErrors;
 };
 
 

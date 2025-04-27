@@ -96,7 +96,7 @@ WindowManager::WindowManager() : Application("window_manager"), m_KeyboardAnimat
     RSWindowManagerEnableVKeyboard.Connect(this, &WindowManager::SlotEnableVKeyboard);
     RSWindowManagerDisableVKeyboard.Connect(this, &WindowManager::SlotDisableVKeyboard);
 
-    m_TopView = ViewFactory::GetInstance().LoadView(nullptr, StandardPaths::GetPath(StandardPath::System, "WindowManagerLayout.xml"));
+    m_TopView = ViewFactory::Get().LoadView(nullptr, StandardPaths::GetPath(StandardPath::System, "WindowManagerLayout.xml"));
     if (m_TopView != nullptr)
     {
         m_TopView->SetFrame(ApplicationServer::GetScreenFrame());

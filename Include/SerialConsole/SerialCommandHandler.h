@@ -88,7 +88,7 @@ public:
     IFLASHC SerialCommandHandler();
     IFLASHC ~SerialCommandHandler();
 
-    static IFLASHC SerialCommandHandler& GetInstance();
+    static IFLASHC SerialCommandHandler& Get();
 
     IFLASHC virtual int Run() override;
 
@@ -152,6 +152,7 @@ private:
 
     mutable kernel::KMutex      m_TransmitMutex;
     mutable kernel::KMutex      m_QueueMutex;
+    mutable kernel::KMutex      m_LogMutex;
     kernel::KConditionVariable  m_ReplyCondition;
     kernel::KConditionVariable  m_QueueCondition;
 

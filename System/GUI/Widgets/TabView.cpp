@@ -54,7 +54,7 @@ TabView::TabView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_
             Ptr<View> tabContentView;
             if (childNode.first_child())
             {
-                tabContentView = ViewFactory::GetInstance().CreateView(context, nullptr, childNode);
+                tabContentView = ViewFactory::Get().CreateView(context, nullptr, childNode);
                 if (tabContentView != nullptr)
                 {
                     if (tabContentView->GetLayoutNode() == nullptr) {
@@ -72,7 +72,7 @@ TabView::TabView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_
             Ptr<View> topBarClientView;
             if (childNode.first_child())
             {
-                topBarClientView = ViewFactory::GetInstance().CreateView(context, nullptr, childNode);
+                topBarClientView = ViewFactory::Get().CreateView(context, nullptr, childNode);
                 if (topBarClientView != nullptr)
                 {
                     if (topBarClientView->GetLayoutNode() == nullptr) {

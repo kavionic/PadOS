@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -78,7 +78,7 @@ ViewFactory::ViewFactory()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ViewFactory& ViewFactory::GetInstance()
+ViewFactory& ViewFactory::Get()
 {
     static ViewFactory factory;
     return factory;

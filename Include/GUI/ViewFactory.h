@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ class ViewFactory : public XMLFactory<ViewFactoryContext&, Ptr<View>, const pugi
 {
 public:
     ViewFactory();
-    static ViewFactory& GetInstance();
+    static ViewFactory& Get();
 
     Ptr<View> CreateView(Ptr<View> parentView, String&& XML);
     Ptr<View> CreateView(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode);
@@ -79,6 +79,6 @@ private:
     bool Parse(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode);
 };
 
-#define VIEW_FACTORY_REGISTER_CLASS(CLASS) struct FactoryRegistrationHelper##CLASS { FactoryRegistrationHelper##CLASS() { ViewFactory::GetInstance().RegisterClass(#CLASS, [](ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) { return ptr_new<CLASS>(context, parent, xmlData); }); } } g_FactoryRegistrationHelper##CLASS
+#define VIEW_FACTORY_REGISTER_CLASS(CLASS) struct FactoryRegistrationHelper##CLASS { FactoryRegistrationHelper##CLASS() { ViewFactory::Get().RegisterClass(#CLASS, [](ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) { return ptr_new<CLASS>(context, parent, xmlData); }); } } g_FactoryRegistrationHelper##CLASS
 
 } // namespace

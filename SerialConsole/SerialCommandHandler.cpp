@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@
 #include <SerialConsole/CommandHandlerFilesystem.h>
 
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/IRQDispatcher.h>
 #include <Utils/HashCalculator.h>
 
 using namespace os;
@@ -49,6 +50,7 @@ SerialCommandHandler::SerialCommandHandler()
     : Thread("SerialHandler")
     , m_TransmitMutex("sch_xmt_mutex", EMutexRecursionMode::RaiseError)
     , m_QueueMutex("sch_queue_mutex", EMutexRecursionMode::RaiseError)
+    , m_LogMutex("sch_log_mutes", EMutexRecursionMode::RaiseError)
     , m_ReplyCondition("sch_reply_cond")
     , m_QueueCondition("sch_queue_cond")
 {
@@ -67,7 +69,7 @@ SerialCommandHandler::~SerialCommandHandler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SerialCommandHandler& SerialCommandHandler::GetInstance()
+SerialCommandHandler& SerialCommandHandler::Get()
 {
     return *s_Instance;
 }
@@ -433,13 +435,16 @@ void SerialCommandHandler::SendSerialPacket(SerialProtocol::PacketHeader* msg)
 
 ssize_t SerialCommandHandler::WriteLogMessage(const void* buffer, size_t length)
 {
+    kassert(!is_in_isr());
+
+    kassert(!m_TransmitMutex.IsLocked());
+    kassert(!m_LogMutex.IsLocked());
+    CRITICAL_SCOPE(m_LogMutex);
+
     const uint8_t* src = static_cast<const uint8_t*>(buffer);
 
     size_t bytesWritten = 0;
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        bytesWritten = m_LogBuffer.Write(src, length);
-    } CRITICAL_END;
+    bytesWritten = m_LogBuffer.Write(src, length);
 
     if (m_LogBuffer.GetLength() > 0) {
         m_QueueCondition.WakeupAll();
@@ -453,21 +458,20 @@ ssize_t SerialCommandHandler::WriteLogMessage(const void* buffer, size_t length)
 
 bool SerialCommandHandler::FlushLogBuffer()
 {
+    kassert(!m_LogMutex.IsLocked());
+    CRITICAL_SCOPE(m_LogMutex);
+  
+    SerialProtocol::LogMessage header;
+    header.InitMsg(header);
+
     if (m_LogBuffer.GetLength() == 0) {
         return false;
     }
     if (m_SerialPort == -1) {
         return false;
     }
-    SerialProtocol::LogMessage header;
 
-    header.InitMsg(header);
-
-    size_t length = 0;
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        length = m_LogBuffer.GetLength();
-    } CRITICAL_END;
+    size_t length = m_LogBuffer.GetLength();
 
     header.PackageLength = sizeof(header) + length;
 
@@ -478,11 +482,10 @@ bool SerialCommandHandler::FlushLogBuffer()
     {
         uint8_t buffer[128];
         ssize_t curLength = 0;
-        CRITICAL_BEGIN(CRITICAL_IRQ)
-        {
-            curLength = m_LogBuffer.Read(buffer, std::min(length, sizeof(buffer)));
-            length -= curLength;
-        } CRITICAL_END;
+
+        curLength = m_LogBuffer.Read(buffer, std::min(length, sizeof(buffer)));
+        length -= curLength;
+
         SerialWrite(buffer, curLength);
     }
     return true;

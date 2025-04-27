@@ -390,6 +390,24 @@ status_t  object_wait_group_remove_object(handle_id handle, handle_id objectHand
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+status_t object_wait_group_add_file(handle_id handle, int fileHandle, ObjectWaitMode waitMode /*= ObjectWaitMode::Read*/)
+{
+    return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, &KObjectWaitGroup::AddFile, fileHandle, waitMode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+status_t object_wait_group_remove_file(handle_id handle, int fileHandle, ObjectWaitMode waitMode /*= ObjectWaitMode::Read*/)
+{
+    return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, &KObjectWaitGroup::RemoveFile, fileHandle, waitMode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 status_t  object_wait_group_clear(handle_id handle)
 {
     return KNamedObject::ForwardToHandleVoid<KObjectWaitGroup>(handle, &KObjectWaitGroup::Clear);

@@ -32,6 +32,10 @@ public:
 
 	bool AddObject(const HandleObject& object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return object_wait_group_add_object(m_Handle, object.GetHandle(), waitMode) >= 0; }
 	bool RemoveObject(const HandleObject& object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return object_wait_group_remove_object(m_Handle, object.GetHandle(), waitMode) >= 0; }
+
+    bool AddFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return object_wait_group_add_file(m_Handle, fileHandle, waitMode) >= 0; }
+    bool RemoveFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return object_wait_group_remove_file(m_Handle, fileHandle, waitMode) >= 0; }
+
 	void Clear() { object_wait_group_clear(m_Handle); }
 
 	bool Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)								{ return object_wait_group_wait(m_Handle, INVALID_HANDLE, readyFlagsBuffer, readyFlagsSize) >= 0; }

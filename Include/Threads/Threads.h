@@ -123,6 +123,8 @@ handle_id create_object_wait_group(const char* name);
 
 status_t  object_wait_group_add_object(handle_id handle, handle_id objectHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
 status_t  object_wait_group_remove_object(handle_id handle, handle_id objectHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+status_t  object_wait_group_add_file(handle_id handle, int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+status_t  object_wait_group_remove_file(handle_id handle, int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
 status_t  object_wait_group_clear(handle_id handle);
 
 status_t  object_wait_group_wait(handle_id handle, handle_id mutexHandle, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);

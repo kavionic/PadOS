@@ -128,7 +128,8 @@ public:
 inline void kassert_function(const char* file, int line, const char* func, const char* expression)
 {
     os::String message;
-    message.format("KASSERT %s / %s:%d: %s -> ", func, file, line, expression);
+    message.format("KASSERT %s / %s:%d: %s", func, file, line, expression);
+    printf("%s\n", message.c_str());
     kernel::panic(message.c_str());
 }
 

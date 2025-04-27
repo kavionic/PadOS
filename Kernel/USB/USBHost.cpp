@@ -32,7 +32,6 @@ using namespace os;
 namespace kernel
 {
 
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -524,10 +523,14 @@ bool USBHost::PushEvent(USBHostEventID eventID)
 bool USBHost::PushEvent(const USBHostEvent& event)
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
-    if (m_EventQueue.GetRemainingSpace() == 0) {
-        return false;
-    }
+
+    static volatile uint32_t maxEvents = 0;
+
     m_EventQueue.Write(&event, 1);
+    if (m_EventQueue.GetLength() > maxEvents) {
+        maxEvents = m_EventQueue.GetLength();
+    }
+
     m_EventQueueCondition.WakeupAll();
     return true;
 }
@@ -544,15 +547,16 @@ bool USBHost::PopEvent(USBHostEvent& event)
     bool result;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        if (m_EventQueue.GetLength() == 0) {
-            m_EventQueueCondition.IRQWaitDeadline(m_DeviceAttachDeadline);
+        while (m_EventQueue.GetLength() == 0)
+        {
+            if (!m_EventQueueCondition.IRQWaitDeadline(m_DeviceAttachDeadline))
+            {
+                if (get_last_error() == ETIME) {
+                    break;
+                }
+            }
         }
-        if (m_EventQueue.GetLength() == 0) {
-            result = false;
-        } else {
-            m_EventQueue.Read(&event, 1);
-            result = true;
-        }
+        result = m_EventQueue.Read(&event, 1) == 1;
     } CRITICAL_END;
     m_Mutex.Lock();
     return result;

@@ -45,8 +45,14 @@ public:
     int compare_nocase(const std::string& rhs) const;
     int compare_nocase(const char* rhs) const;
 
+    bool starts_with(const char* token, size_t length = INVALID_INDEX) const;
+    bool starts_with_nocase(const char* token, size_t length = INVALID_INDEX) const;
+
     bool ends_with(const char* token, size_t length = INVALID_INDEX) const;
     bool ends_with_nocase(const char* token, size_t length = INVALID_INDEX) const;
+
+    bool containes(const char* token, size_t length = INVALID_INDEX) const;
+    bool containes_nocase(const char* token, size_t length = INVALID_INDEX) const;
 
     size_t  count_chars() const;
     String& strip();

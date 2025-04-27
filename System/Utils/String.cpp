@@ -101,6 +101,35 @@ int String::compare_nocase(const char* rhs) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool String::starts_with(const char* token, size_t length /*= INVALID_INDEX*/) const
+{
+    if (length == INVALID_INDEX) length = strlen(token);
+    if (length <= size()) {
+        return strncmp(c_str(), token, length) == 0;
+    } else {
+        return false;
+    }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool String::starts_with_nocase(const char* token, size_t length /*= INVALID_INDEX*/) const
+{
+    if (length == INVALID_INDEX) length = strlen(token);
+    if (length <= size()) {
+        return strncasecmp(c_str(), token, length) == 0;
+    } else {
+        return false;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool String::ends_with(const char* token, size_t length) const
 {
     if (length == INVALID_INDEX) length = strlen(token);
@@ -282,24 +311,28 @@ String String::format_time_period(const TimeValMicros& timeVal, bool includeUnit
     }
     if (dayStr[0] != '\0')
     {
-        if (result.size() + 1 + strlen(dayStr) > maxCharacters) return result;
-        if (!result.empty()) result += ":";
+        bool addColon = !includeUnits && !result.empty();
+        if (result.size() + strlen(dayStr) + (addColon ? 1 : 0) > maxCharacters) return result;
+        if (addColon) result += ":";
         result += dayStr;
     }
     if (hourStr[0] != '\0')
     {
-        if (result.size() + 1 + strlen(hourStr) > maxCharacters) return result;
-        if (!result.empty()) result += ":";
+        bool addColon = !includeUnits && !result.empty();
+        if (result.size() + strlen(hourStr) + (addColon ? 1 : 0) > maxCharacters) return result;
+        if (addColon) result += ":";
         result += hourStr;
     }
     if (minuteStr[0] != '\0')
     {
-        if (result.size() + 1 + strlen(minuteStr) > maxCharacters) return result;
-        if (!result.empty()) result += ":";
+        bool addColon = !includeUnits && !result.empty();
+        if (result.size() + strlen(minuteStr) + (addColon ? 1 : 0) > maxCharacters) return result;
+        if (addColon) result += ":";
         result += minuteStr;
     }
-    if (!result.empty() && (result.size() + 1 + strlen(secondStr) > maxCharacters)) return result;
-    if (!result.empty()) result += ":";
+    bool addColon = !includeUnits && !result.empty();
+    if (!result.empty() && (result.size() + strlen(secondStr) + (addColon ? 1 : 0) > maxCharacters)) return result;
+    if (addColon) result += ":";
     result += secondStr;
     return result;
 }

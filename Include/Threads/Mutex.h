@@ -39,7 +39,7 @@ public:
     bool LockDeadline(bigtime_t deadline) { return lock_mutex_deadline(m_Handle, deadline) >= 0; }
     bool TryLock() { return try_lock_mutex(m_Handle) >= 0; }
     bool Unlock() { return unlock_mutex(m_Handle) >= 0; }
-    bool IsLocked() { return islocked_mutex(m_Handle) >= 0; }
+    bool IsLocked() const { return islocked_mutex(m_Handle) >= 0; }
 
     Mutex(Mutex&& other) = default;
     Mutex(const Mutex& other) = default;

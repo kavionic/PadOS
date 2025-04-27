@@ -326,6 +326,18 @@ int SPIDriverINode::DeviceControl(int request, const void* inData, size_t inData
                 set_last_error(EINVAL);
                 return -1;
             }
+        case SPIIOCTL_GET_LAST_ERROR:
+            if (outDataLength == sizeof(SPIError))
+            {
+                SPIError* result = reinterpret_cast<SPIError*>(outData);
+                *result = m_TransactionError;
+                return 0;
+            }
+            else
+            {
+                set_last_error(EINVAL);
+                return -1;
+            }
         default:
             set_last_error(EINVAL);
             return -1;
@@ -465,7 +477,7 @@ IFLASHC ssize_t SPIDriverINode::StartTransaction(const SPITransaction& transacti
         m_Port->IFCR = errorFlags;
 
         if (!result) return -1;
-        if (m_TransactionError == 0)
+        if (m_TransactionError == SPIError::None)
         {
             if (transaction.ReceiveBuffer != nullptr)
             {
@@ -476,7 +488,7 @@ IFLASHC ssize_t SPIDriverINode::StartTransaction(const SPITransaction& transacti
         }
         else
         {
-            set_last_error(m_TransactionError);
+            set_last_error(EIO);
             return -1;
         }
     } CRITICAL_END;
@@ -501,9 +513,15 @@ IRQResult SPIDriverINode::HandleSPIIRQ()
         return IRQResult::UNHANDLED;
     }
     if ((m_Port->SR & m_Port->IER) == SPI_SR_EOT) {
-        m_TransactionError = 0;
+        m_TransactionError = SPIError::None;
+    } else if (m_Port->SR & SPI_SR_CRCE) {
+        m_TransactionError = SPIError::CRCError;
+    } else if (m_Port->SR & SPI_SR_TIFRE) {
+        m_TransactionError = SPIError::TIFrameError;
+    } else if (m_Port->SR & SPI_SR_MODF) {
+        m_TransactionError = SPIError::ModeFault;
     } else {
-        m_TransactionError = EIO;
+        m_TransactionError = SPIError::Unknown;
     }
     m_Port->IFCR = m_Port->IER;
     m_TransactionCondition.WakeupAll();

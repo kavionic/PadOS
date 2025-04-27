@@ -34,7 +34,17 @@ enum SPIIOCTL
     SPIIOCTL_GET_PINMODE,
     SPIIOCTL_SET_SWAP_MOSI_MISO,
     SPIIOCTL_GET_SWAP_MOSI_MISO,
-    SPIIOCTL_START_TRANSACTION
+    SPIIOCTL_START_TRANSACTION,
+    SPIIOCTL_GET_LAST_ERROR
+};
+
+enum class SPIError : int
+{
+    None,
+    CRCError,
+    TIFrameError,
+    ModeFault,
+    Unknown
 };
 
 enum class SPIRole : int
@@ -203,3 +213,7 @@ inline ssize_t SPIIOCTL_StartTransaction(int device, const SPITransaction& trans
     }
 }
 
+inline int SPIIOCTL_GetLastError(int device, SPIError& outError)
+{
+    return os::FileIO::DeviceControl(device, SPIIOCTL_GET_LAST_ERROR, nullptr, 0, &outError, sizeof(outError));
+}

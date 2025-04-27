@@ -106,7 +106,7 @@ private:
     DMAChannel      m_SendDMAChannel;
     int32_t         m_ReceiveBufferSize = 0;
     uint8_t*        m_ReceiveBuffer = nullptr;
-    volatile int    m_TransactionError = 0;
+    volatile SPIError   m_TransactionError = SPIError::None;
 };
 
 class SPIDriver : public PtrTarget, public KFilesystemFileOps

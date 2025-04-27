@@ -29,7 +29,7 @@
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-Ptr<T>::Ptr()
+Ptr<T>::Ptr() noexcept
 {
     Initialize(nullptr);
 }
@@ -44,7 +44,7 @@ Ptr<T>::Ptr()
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-  Ptr<T>::Ptr(std::nullptr_t)
+  Ptr<T>::Ptr(std::nullptr_t) noexcept
 {
     Initialize(nullptr);
 }
@@ -58,7 +58,7 @@ template <class T> inline
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-Ptr<T>::Ptr(const Ptr& ptr)
+Ptr<T>::Ptr(const Ptr& ptr) noexcept
 {
     Initialize(ptr.m_Object);
 }
@@ -71,7 +71,7 @@ Ptr<T>::Ptr(const Ptr& ptr)
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-Ptr<T>::Ptr(Ptr&& ptr)
+Ptr<T>::Ptr(Ptr&& ptr) noexcept
 {
     m_Object = ptr.m_Object;
     ptr.m_Object = nullptr;
@@ -87,7 +87,7 @@ Ptr<T>::Ptr(Ptr&& ptr)
   
 template <class T>
 template <class Y> inline
-Ptr<T>::Ptr(const Ptr<Y>& ptr)
+Ptr<T>::Ptr(const Ptr<Y>& ptr) noexcept
 {
     Initialize(ptr.m_Object);
 }
@@ -103,7 +103,7 @@ Ptr<T>::Ptr(const Ptr<Y>& ptr)
 
 template <class T>
 template <class Y> inline
-Ptr<T>::Ptr(const WeakPtr<Y>& ptr)
+Ptr<T>::Ptr(const WeakPtr<Y>& ptr) noexcept
 {
     Initialize(nullptr);
 
@@ -129,7 +129,7 @@ Ptr<T>::Ptr(const WeakPtr<Y>& ptr)
 
 template <class T>
 template <class Y> inline
-Ptr<T>::Ptr(const SigWeakPtr<Y>& ptr)
+Ptr<T>::Ptr(const SigWeakPtr<Y>& ptr) noexcept
 {
     Initialize(ptr.m_Object);
 }
@@ -145,7 +145,7 @@ Ptr<T>::Ptr(const SigWeakPtr<Y>& ptr)
 
 template <class T>
 template <class Y> inline
-Ptr<T>::Ptr(NoPtr<Y>& ptr)
+Ptr<T>::Ptr(NoPtr<Y>& ptr) noexcept
 {
     Initialize(&ptr);
 }
@@ -159,7 +159,7 @@ Ptr<T>::Ptr(NoPtr<Y>& ptr)
 ///////////////////////////////////////////////////////////////////////////////
 
 template <class T> inline
-Ptr<T>::~Ptr()
+Ptr<T>::~Ptr() noexcept
 {
     Set(nullptr);
 #ifndef NDEBUG
@@ -177,7 +177,7 @@ Ptr<T>::~Ptr()
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-void Ptr<T>::Reset()
+void Ptr<T>::Reset() noexcept
 {
     Set(nullptr);
 }
@@ -192,7 +192,7 @@ void Ptr<T>::Reset()
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-T* Ptr<T>::operator->() const
+T* Ptr<T>::operator->() const noexcept
 {
     return m_Object;
 }
@@ -204,7 +204,7 @@ T* Ptr<T>::operator->() const
 ///////////////////////////////////////////////////////////////////////////////
 
 template <class T> inline
-T& Ptr<T>::operator*() const
+T& Ptr<T>::operator*() const noexcept
 {
     return *m_Object;
 }
@@ -214,7 +214,7 @@ T& Ptr<T>::operator*() const
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-Ptr<T>& Ptr<T>::operator=(const Ptr& ptr)
+Ptr<T>& Ptr<T>::operator=(const Ptr& ptr) noexcept
 {
     if (this != &ptr) {
         Set(ptr.m_Object);
@@ -227,7 +227,7 @@ Ptr<T>& Ptr<T>::operator=(const Ptr& ptr)
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-Ptr<T>& Ptr<T>::operator=(Ptr&& ptr)
+Ptr<T>& Ptr<T>::operator=(Ptr&& ptr) noexcept
 {
     if (this != &ptr) {
         Set( nullptr );
@@ -242,7 +242,7 @@ Ptr<T>& Ptr<T>::operator=(Ptr&& ptr)
   
 template <class T>
 template <class Y> inline
-Ptr<T>& Ptr<T>::operator=(const Ptr<Y>& ptr)
+Ptr<T>& Ptr<T>::operator=(const Ptr<Y>& ptr) noexcept
 {
     Set(ptr.m_Object);
     return *this;
@@ -254,7 +254,7 @@ Ptr<T>& Ptr<T>::operator=(const Ptr<Y>& ptr)
 
 template <class T>
 template <class Y> inline
-Ptr<T>& Ptr<T>::operator=(const WeakPtr<Y>& ptr)
+Ptr<T>& Ptr<T>::operator=(const WeakPtr<Y>& ptr) noexcept
 {
     *this = ptr.Lock();
     return *this;
@@ -266,7 +266,7 @@ Ptr<T>& Ptr<T>::operator=(const WeakPtr<Y>& ptr)
 
 template <class T>
 template <class Y> inline
-Ptr<T>& Ptr<T>::operator=(const SigWeakPtr<Y>& ptr)
+Ptr<T>& Ptr<T>::operator=(const SigWeakPtr<Y>& ptr) noexcept
 {
     Set(ptr.Get());
 }
@@ -277,7 +277,7 @@ Ptr<T>& Ptr<T>::operator=(const SigWeakPtr<Y>& ptr)
   
 template <class T>
 template <class Y> inline
-bool Ptr<T>::operator==(const Ptr<Y>& ptr) const
+bool Ptr<T>::operator==(const Ptr<Y>& ptr) const noexcept
 {
     return m_Object == ptr.m_Object;
 }
@@ -288,7 +288,7 @@ bool Ptr<T>::operator==(const Ptr<Y>& ptr) const
   
 template <class T>
 template <class Y> inline
-bool Ptr<T>::operator!=(const Ptr<Y>& ptr) const
+bool Ptr<T>::operator!=(const Ptr<Y>& ptr) const noexcept
 {
     return m_Object != ptr.m_Object;
 }
@@ -299,7 +299,7 @@ bool Ptr<T>::operator!=(const Ptr<Y>& ptr) const
   
 template <class T>
 template <class Y> inline
-bool Ptr<T>::operator< (const Ptr<Y>& ptr) const
+bool Ptr<T>::operator< (const Ptr<Y>& ptr) const noexcept
 {
     return m_Object < ptr.m_Object;
 }
@@ -310,7 +310,7 @@ bool Ptr<T>::operator< (const Ptr<Y>& ptr) const
 
 template <class T>
 template <class Y> inline
-bool Ptr<T>::operator==(const WeakPtr<Y>& ptr) const
+bool Ptr<T>::operator==(const WeakPtr<Y>& ptr) const noexcept
 {
     return Get() == ptr.Get();
 }
@@ -321,7 +321,7 @@ bool Ptr<T>::operator==(const WeakPtr<Y>& ptr) const
 
 template <class T>
 template <class Y> inline
-bool Ptr<T>::operator==(const SigWeakPtr<Y>& ptr) const
+bool Ptr<T>::operator==(const SigWeakPtr<Y>& ptr) const noexcept
 {
     return Get() == ptr.Get();
 }
@@ -332,7 +332,7 @@ bool Ptr<T>::operator==(const SigWeakPtr<Y>& ptr) const
 
 template <class T>
 template <class Y> inline
-bool Ptr<T>::operator!=(const WeakPtr<Y>& ptr) const
+bool Ptr<T>::operator!=(const WeakPtr<Y>& ptr) const noexcept
 {
     return Get() != ptr.Get();
 }
@@ -343,7 +343,7 @@ bool Ptr<T>::operator!=(const WeakPtr<Y>& ptr) const
 
 template <class T>
 template <class Y> inline
-bool Ptr<T>::operator!=(const SigWeakPtr<Y>& ptr) const
+bool Ptr<T>::operator!=(const SigWeakPtr<Y>& ptr) const noexcept
 {
     return Get() != ptr.Get();
 }
@@ -354,7 +354,7 @@ bool Ptr<T>::operator!=(const SigWeakPtr<Y>& ptr) const
 
 template <class T>
 template <class Y> inline
-bool Ptr<T>::operator<(const WeakPtr<Y>& ptr) const
+bool Ptr<T>::operator<(const WeakPtr<Y>& ptr) const noexcept
 {
     return Get() < ptr.Get();
 }
@@ -365,7 +365,7 @@ bool Ptr<T>::operator<(const WeakPtr<Y>& ptr) const
 
 template <class T>
 template <class Y> inline
-bool Ptr<T>::operator<(const SigWeakPtr<Y>& ptr) const
+bool Ptr<T>::operator<(const SigWeakPtr<Y>& ptr) const noexcept
 {
     return Get() < ptr.Get();
 }
@@ -375,7 +375,7 @@ bool Ptr<T>::operator<(const SigWeakPtr<Y>& ptr) const
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-bool Ptr<T>::operator==(const T* obj) const
+bool Ptr<T>::operator==(const T* obj) const noexcept
 {
     return m_Object == obj;
 }
@@ -385,7 +385,7 @@ bool Ptr<T>::operator==(const T* obj) const
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-bool Ptr<T>::operator!=(const T* obj) const
+bool Ptr<T>::operator!=(const T* obj) const noexcept
 {
     return m_Object != obj;
 }
@@ -395,7 +395,7 @@ bool Ptr<T>::operator!=(const T* obj) const
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-bool Ptr<T>::operator< (const T* obj) const
+bool Ptr<T>::operator< (const T* obj) const noexcept
 {
     return m_Object < obj;
 }
@@ -405,7 +405,7 @@ bool Ptr<T>::operator< (const T* obj) const
 ///////////////////////////////////////////////////////////////////////////////
 
 template <class T> inline
-void Ptr<T>::Initialize(T* obj)
+void Ptr<T>::Initialize(T* obj) noexcept
 {
     m_Object = nullptr;
     if ( obj != nullptr ) {
@@ -418,7 +418,7 @@ void Ptr<T>::Initialize(T* obj)
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-void Ptr<T>::Set(T* obj)
+void Ptr<T>::Set(T* obj) noexcept
 {
     if (m_Object != obj)
     {
@@ -444,7 +444,7 @@ void Ptr<T>::Set(T* obj)
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-T* Ptr<T>::Get() const
+T* Ptr<T>::Get() const noexcept
 {
     return m_Object;
 }

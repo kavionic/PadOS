@@ -32,46 +32,46 @@ template <class T> class Ptr
 public:
     typedef T element_type; 
 
-    inline Ptr();
-    inline Ptr(std::nullptr_t value);
-    inline Ptr(const Ptr& value);
-    inline Ptr(Ptr&& value);
+    inline Ptr() noexcept;
+    inline Ptr(std::nullptr_t value) noexcept;
+    inline Ptr(const Ptr& value) noexcept;
+    inline Ptr(Ptr&& value) noexcept;
 
-    template <class Y> inline Ptr(const Ptr<Y>& ptr);
-    template <class Y> inline explicit Ptr(const SigWeakPtr<Y>& ptr);
-    template <class Y> inline Ptr(NoPtr<Y>& value);
+    template <class Y> inline Ptr(const Ptr<Y>& ptr) noexcept;
+    template <class Y> inline explicit Ptr(const SigWeakPtr<Y>& ptr) noexcept;
+    template <class Y> inline Ptr(NoPtr<Y>& value) noexcept;
 
-    ~Ptr();
+    ~Ptr() noexcept;
     
-    void Reset();
+    void Reset() noexcept;
     
-    T* operator->() const;
-    T& operator*() const;
+    T* operator->() const noexcept;
+    T& operator*() const noexcept;
     
-    Ptr& operator=(const Ptr& ptr);
-    Ptr& operator=(Ptr&& ptr);
-    template <class Y> Ptr& operator=(const Ptr<Y>& ptr);
-    template <class Y> inline Ptr<T>& operator=(const WeakPtr<Y>& ptr);
-    template <class Y> inline Ptr<T>& operator=(const SigWeakPtr<Y>& ptr);
+    Ptr& operator=(const Ptr& ptr) noexcept;
+    Ptr& operator=(Ptr&& ptr) noexcept;
+    template <class Y> Ptr& operator=(const Ptr<Y>& ptr) noexcept;
+    template <class Y> inline Ptr<T>& operator=(const WeakPtr<Y>& ptr) noexcept;
+    template <class Y> inline Ptr<T>& operator=(const SigWeakPtr<Y>& ptr) noexcept;
 
-    template <class Y> bool operator==(const Ptr<Y>& ptr) const;
-    template <class Y> bool operator!=(const Ptr<Y>& ptr) const;
-    template <class Y> bool operator< (const Ptr<Y>& ptr) const;
+    template <class Y> bool operator==(const Ptr<Y>& ptr) const noexcept;
+    template <class Y> bool operator!=(const Ptr<Y>& ptr) const noexcept;
+    template <class Y> bool operator< (const Ptr<Y>& ptr) const noexcept;
 
-    template <class Y> inline bool operator==(const WeakPtr<Y>& ptr) const;
-    template <class Y> inline bool operator!=(const WeakPtr<Y>& ptr) const;
-    template <class Y> inline bool operator<(const WeakPtr<Y>& ptr) const;
+    template <class Y> inline bool operator==(const WeakPtr<Y>& ptr) const noexcept;
+    template <class Y> inline bool operator!=(const WeakPtr<Y>& ptr) const noexcept;
+    template <class Y> inline bool operator<(const WeakPtr<Y>& ptr) const noexcept;
 
-    template <class Y> inline bool operator==(const SigWeakPtr<Y>& ptr) const;
-    template <class Y> inline bool operator!=(const SigWeakPtr<Y>& ptr) const;
-    template <class Y> inline bool operator<(const SigWeakPtr<Y>& ptr) const;
+    template <class Y> inline bool operator==(const SigWeakPtr<Y>& ptr) const noexcept;
+    template <class Y> inline bool operator!=(const SigWeakPtr<Y>& ptr) const noexcept;
+    template <class Y> inline bool operator<(const SigWeakPtr<Y>& ptr) const noexcept;
 
-    bool operator==(const T* obj) const;
-    bool operator!=(const T* obj) const;
-    bool operator< (const T* obj) const;
+    bool operator==(const T* obj) const noexcept;
+    bool operator!=(const T* obj) const noexcept;
+    bool operator< (const T* obj) const noexcept;
 
 private:
-    template <class Y> inline Ptr(const WeakPtr<Y>& ptr);
+    template <class Y> inline Ptr(const WeakPtr<Y>& ptr) noexcept;
 
     template<class Y> friend class Ptr;
     template<class Y> friend class WeakPtr;
@@ -81,7 +81,7 @@ private:
     template<class Y> friend Ptr<Y> ptr_new_cast(Y*);
     template<class Y> friend Ptr<Y> ptr_tmp_cast(Y*);
 
-    template<class Y> friend Y* ptr_raw_pointer_cast (const Ptr<Y>&);
+    template<class Y> friend Y* ptr_raw_pointer_cast(const Ptr<Y>&);
     template<class Y,class X> friend Y* ptr_raw_pointer_static_cast(const Ptr<X>& src);
     template<class Y,class X> friend Y* ptr_raw_pointer_dynamic_cast(const Ptr<X>& src);
 
@@ -89,10 +89,11 @@ private:
     template<class Y,class X> friend Ptr<Y> ptr_const_cast(const Ptr<X>& src);
     template<class Y,class X> friend Ptr<Y> ptr_dynamic_cast(const Ptr<X>& src);
 
-    void Initialize(T* obj);
+    void Initialize(T* obj) noexcept;
 
-    void Set(T* obj);
-    T*   Get() const;
+    void Set(T* obj) noexcept;
+    T*   Get() const noexcept;
+
     T*   m_Object;
 };
 

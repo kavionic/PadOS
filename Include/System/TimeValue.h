@@ -49,7 +49,7 @@ struct TimeValue
             return TimeValue(value / (1000000 / TicksPerSecond));
         }
     }
-    static TimeValue FromNanoseconds(T value)
+    static constexpr TimeValue FromNanoseconds(T value)
     {
         if constexpr (TicksPerNanosecond > 0) {
             return TimeValue(value * TicksPerNanosecond);
@@ -79,7 +79,7 @@ struct TimeValue
 
     // Compare operators:
     template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
-    bool operator==(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    constexpr bool operator==(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
     {
         if (IsInfinit() || rhs.IsInfinit()) {
             return IsInfinit() == rhs.IsInfinit();
@@ -91,7 +91,7 @@ struct TimeValue
         }
     }
     template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
-    bool operator!=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    constexpr bool operator!=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
     {
         if (IsInfinit() || rhs.IsInfinit()) {
             return IsInfinit() != rhs.IsInfinit();
@@ -103,7 +103,7 @@ struct TimeValue
         }
     }
     template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
-    bool operator>(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    constexpr bool operator>(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
     {
         if (IsInfinit() || rhs.IsInfinit()) {
             return IsInfinit() > rhs.IsInfinit();
@@ -115,7 +115,7 @@ struct TimeValue
         }
     }
     template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
-    bool operator<(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    constexpr bool operator<(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
     {
         if (IsInfinit() || rhs.IsInfinit()) {
             return IsInfinit() < rhs.IsInfinit();
@@ -127,7 +127,7 @@ struct TimeValue
         }
     }
     template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
-    bool operator>=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    constexpr bool operator>=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
     {
         if (IsInfinit() || rhs.IsInfinit()) {
             return IsInfinit() >= rhs.IsInfinit();
@@ -139,7 +139,7 @@ struct TimeValue
         }
     }
     template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
-    bool operator<=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
+    constexpr bool operator<=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs) const
     {
         if (IsInfinit() || rhs.IsInfinit()) {
             return IsInfinit() <= rhs.IsInfinit();
@@ -175,28 +175,28 @@ struct TimeValue
         return *this;
     }
 
-    inline TimeValue operator+(float rhs) const { return TimeValue(m_Value + FromSeconds(rhs).AsNative()); }
-    inline TimeValue operator-(float rhs) const { return TimeValue(m_Value - FromSeconds(rhs).AsNative()); }
+    constexpr inline TimeValue operator+(float rhs) const { return TimeValue(m_Value + FromSeconds(rhs).AsNative()); }
+    constexpr inline TimeValue operator-(float rhs) const { return TimeValue(m_Value - FromSeconds(rhs).AsNative()); }
     inline TimeValue& operator+=(float rhs) { m_Value += FromSeconds(rhs).AsNative(); return *this; }
     inline TimeValue& operator-=(float rhs) { m_Value -= FromSeconds(rhs).AsNative(); return *this; }
 
-    inline TimeValue operator+(double rhs) const { return TimeValue(m_Value + FromSeconds(rhs).AsNative()); }
-    inline TimeValue operator-(double rhs) const { return TimeValue(m_Value - FromSeconds(rhs).AsNative()); }
+    constexpr inline TimeValue operator+(double rhs) const { return TimeValue(m_Value + FromSeconds(rhs).AsNative()); }
+    constexpr inline TimeValue operator-(double rhs) const { return TimeValue(m_Value - FromSeconds(rhs).AsNative()); }
     inline TimeValue& operator+=(double rhs) { m_Value += FromSeconds(rhs).AsNative(); return *this; }
     inline TimeValue& operator-=(double rhs) { m_Value -= FromSeconds(rhs).AsNative(); return *this; }
 
-    inline TimeValue operator*(float multiplier) const { return TimeValue::FromSeconds(AsSecondsF() * multiplier); }
+    constexpr inline TimeValue operator*(float multiplier) const { return TimeValue::FromSeconds(AsSecondsF() * multiplier); }
     inline TimeValue& operator*=(float multiplier) { *this = (*this) * multiplier; return *this; }
 
-    inline TimeValue operator*(double multiplier) const { return TimeValue::FromSeconds(AsSeconds() * multiplier); }
+    constexpr inline TimeValue operator*(double multiplier) const { return TimeValue::FromSeconds(AsSeconds() * multiplier); }
     inline TimeValue& operator*=(double multiplier) { *this = (*this) * multiplier; return *this; }
 
-    inline TimeValue operator*(T multiplier) const { return TimeValue(m_Value * multiplier); }
+    constexpr inline TimeValue operator*(T multiplier) const { return TimeValue(m_Value * multiplier); }
     inline TimeValue& operator*=(T multiplier) { m_Value *= multiplier; return *this; }
 
     // Getters for the different time domains:
-    inline T AsMilliSeconds() const { return m_Value / (TicksPerSecond / 1000); }
-    inline T AsMicroSeconds() const
+    constexpr inline T AsMilliSeconds() const { return m_Value / (TicksPerSecond / 1000); }
+    constexpr inline T AsMicroSeconds() const
     {
         if constexpr (TicksPerSecond >= 1000000) {
             return m_Value / (TicksPerSecond / 1000000);
@@ -204,7 +204,7 @@ struct TimeValue
             return m_Value * (1000000 / TicksPerSecond);
         }
     }
-    inline T AsNanoSeconds() const
+    constexpr inline T AsNanoSeconds() const
     {
         if constexpr (TicksPerSecond >= 1000000000) {
             return m_Value / (TicksPerSecond / 1000000000);
@@ -212,15 +212,15 @@ struct TimeValue
             return m_Value * (1000000000 / TicksPerSecond);
         }
     }
-    inline double      AsSeconds() const { return double(m_Value) / double(TicksPerSecond); }
-    inline float       AsSecondsF() const { return float(AsSeconds()); }
-    inline bigtime_t   AsSecondsI() const { return m_Value / TicksPerSecond; }
+    constexpr inline double      AsSeconds() const { return double(m_Value) / double(TicksPerSecond); }
+    constexpr inline float       AsSecondsF() const { return float(AsSeconds()); }
+    constexpr inline bigtime_t   AsSecondsI() const { return m_Value / TicksPerSecond; }
 
-    inline T AsNative() const { return m_Value; }
+    constexpr inline T AsNative() const { return m_Value; }
 
     // Misc:
-    inline bool IsZero() const { return m_Value == 0; }
-    inline bool IsInfinit() const { return m_Value == infinit.m_Value; }
+    constexpr inline bool IsZero() const { return m_Value == 0; }
+    constexpr inline bool IsInfinit() const { return m_Value == infinit.m_Value; }
 
 private:
     explicit constexpr TimeValue(T value) : m_Value(value) {}

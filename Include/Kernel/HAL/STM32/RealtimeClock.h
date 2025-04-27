@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -26,6 +26,9 @@ class RealtimeClock
 public:
     static void SetClock(TimeValMicros time);
     static TimeValMicros GetClock();
+
+    static void     WriteBackupRegister(uint32_t registerIndex, uint32_t value);
+    static uint32_t ReadBackupRegister(uint32_t registerIndex);
 };
 
 

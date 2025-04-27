@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -120,4 +120,34 @@ TimeValMicros RealtimeClock::GetClock()
     return TimeValMicros::zero;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RealtimeClock::WriteBackupRegister(uint32_t registerIndex, uint32_t value)
+{
+    const uint32_t registerCount = &RTC->BKP31R - &RTC->BKP0R + 1;
+    if (registerIndex < registerCount)
+    {
+        volatile uint32_t* backupRegisters = &RTC->BKP0R;
+        PWR->CR1 |= PWR_CR1_DBP; // Disable Back-up domain protection.
+        backupRegisters[registerIndex] = value;
+        PWR->CR1 &= ~PWR_CR1_DBP; // Enable Back-up domain protection.
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t RealtimeClock::ReadBackupRegister(uint32_t registerIndex)
+{
+    const uint32_t registerCount = &RTC->BKP31R - &RTC->BKP0R + 1;
+    if (registerIndex < registerCount)
+    {
+        volatile uint32_t* backupRegisters = &RTC->BKP0R;
+        return backupRegisters[registerIndex];
+    }
+    return 0;
+}
 

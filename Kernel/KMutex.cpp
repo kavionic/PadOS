@@ -385,7 +385,7 @@ void KMutex::UnlockShared()
 
 bool KMutex::IsLocked() const
 {
-    return m_Count <= 0 && m_Holder == gk_CurrentThread->GetHandle();
+    return !(m_Count == 0 || m_Holder != gk_CurrentThread->GetHandle());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

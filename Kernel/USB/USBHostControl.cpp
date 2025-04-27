@@ -99,8 +99,17 @@ bool USBHostControl::SendControlRequest(uint8_t deviceAddr, const USB_ControlReq
     m_ErrorCount            = 0;
     m_RequestCallback       = std::move(callback);
 
-    while (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle) snooze_ms(1); // FIXME: Implement proper blocking for state-change waiting.
-
+    TimeValMicros deadline = get_system_time() + TimeValMicros::FromSeconds(2.0);
+    while (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle && get_system_time() < deadline) snooze_ms(1); // FIXME: Implement proper blocking for state-change waiting.
+    if (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle)
+    {
+        m_ErrorCount = 0;
+        kernel_log(LogCategoryUSBHost, KLogSeverity::ERROR, "USBH: Control request error. Pipe not idle.\n");
+        FreePipes();
+        m_HostHandler->RestartDeviceInitialization();
+        HandleRequestCompletion(false);
+        return false;
+    }
     return m_HostHandler->ControlSendSetup(m_PipeOut, &m_Setup, bind_method(this, &USBHostControl::ControlSentCallback));
 }
 

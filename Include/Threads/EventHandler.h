@@ -49,8 +49,8 @@ public:
     template<typename SIGNAL, typename CALLBACK>
     void RegisterRemoteSignal(SIGNAL* signal, CALLBACK callback)
     {
-        m_RemoteSignalMap[signal->GetID()] = signal;
-        signal->Connect(this, callback);
+        m_RemoteSignalMap[SIGNAL::GetID()] = &signal->ReceiverObj;
+        signal->ReceiverObj.Connect(this, callback);
     }
     RemoteSignalRXBase* GetSignalForMessage(int32_t code) {
         auto i = m_RemoteSignalMap.find(code);
@@ -59,7 +59,7 @@ public:
         }
         return nullptr;            
     }
-//    Signal<void, int, const void*> SignalMessageReceived;
+
 private:
     friend class Looper;
 

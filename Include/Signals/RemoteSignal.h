@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -121,11 +121,10 @@ namespace remote_signal_utils
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-template<int ID, typename R, typename... ARGS>
+template<typename R, typename... ARGS>
 class RemoteSignalTX : public SignalBase
 {
 public:
-    static int GetID() { return ID; }
     static size_t AccumulateSize() { return 0; }
         
     template<typename FIRST>
@@ -166,11 +165,11 @@ public:
     }
     
     template<typename CB_OBJ>
-    static bool Emit(CB_OBJ* callbackObj, void* (CB_OBJ::*callback)(int32_t, size_t), ARGS... args)
+    static bool Emit(CB_OBJ* callbackObj, void* (CB_OBJ::*callback)(int32_t, size_t), int32_t messageID, ARGS... args)
     {
         size_t size = AccumulateSize(remote_signal_utils::ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...);
         
-        void* buffer = (callbackObj->*callback)(ID, size);
+        void* buffer = (callbackObj->*callback)(messageID, size);
         if (buffer == nullptr) {
             return false;
         }
@@ -178,7 +177,7 @@ public:
         return true;
     }
 
-    static bool Emit(port_id port, handler_id targetHandler, TimeValMicros timeout, ARGS... args)
+    static bool Emit(port_id port, handler_id targetHandler, int32_t messageID, const TimeValMicros& timeout, ARGS... args)
     {
         static const size_t MAX_STACK_BUFFER_SIZE = 128;
         
@@ -197,7 +196,7 @@ public:
             }
         }
         WriteArg(buffer, size, args...);
-        bool result = send_message(port, targetHandler, ID, buffer, size, timeout.AsMicroSeconds()) >= 0;
+        bool result = send_message(port, targetHandler, messageID, buffer, size, timeout.AsMicroSeconds()) >= 0;
         
         if (size > MAX_STACK_BUFFER_SIZE) {
             free(buffer);
@@ -205,9 +204,9 @@ public:
         return result;
     }
 
-    static bool Emit(const MessagePort& port, handler_id targetHandler, TimeValMicros timeout, ARGS... args)
+    static bool Emit(const MessagePort& port, handler_id targetHandler, int32_t messageID, const TimeValMicros& timeout, ARGS... args)
     {
-        return Emit(port.GetHandle(), targetHandler, timeout, args...);
+        return Emit(port.GetHandle(), targetHandler, messageID, timeout, args...);
     }
 private:
 };
@@ -216,8 +215,8 @@ private:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-template<int ID, typename R, typename... ARGS>
-class RemoteSignalTXLinked : public RemoteSignalTX<ID, R, ARGS...>
+template<typename R, typename... ARGS>
+class RemoteSignalTXLinked : public RemoteSignalTX<R, ARGS...>
 {
 public:
     RemoteSignalTXLinked() {}
@@ -255,7 +254,7 @@ public:
         }
     }
 
-    bool operator()(ARGS... args)
+    bool operator()(int32_t messageID, ARGS... args)
     {
         static const size_t MAX_STACK_BUFFER_SIZE = 128;
         
@@ -271,7 +270,7 @@ public:
             }
         }
         this->WriteArg(buffer, size, args...);
-        bool result = m_TransmitSlot->Call(ID, buffer, size);
+        bool result = m_TransmitSlot->Call(messageID, buffer, size);
         
         if (size > MAX_STACK_BUFFER_SIZE) {
             free(buffer);
@@ -291,22 +290,18 @@ class RemoteSignalRXBase
 {
 public:
     virtual bool Dispatch(const void* data, size_t length) = 0;
-    
-    virtual int GetID() const = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-template<int ID, typename R, typename... ARGS>
+template<typename R, typename... ARGS>
 class RemoteSignalRX : public RemoteSignalRXBase, public Signal<R, ARGS...>
 {
 public:
     typedef std::tuple<std::decay_t<ARGS>...> ArgTuple_t;
     RemoteSignalRX() {}
-    
-    virtual int GetID() const override { return ID; }
     
     virtual bool Dispatch(const void* data, size_t length) override
     {
@@ -350,12 +345,63 @@ private:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-template<int ID, typename... ARGS>
-class RemoteSignal
+template<int MSGID, typename... ARGS>
+class RemoteSignal : public SignalTarget
 {
 public:
-    typedef RemoteSignalRX<ID, void, ARGS...> Receiver;    
-    typedef RemoteSignalTX<ID, void, ARGS...> Sender;
+    static int GetID() { return MSGID; }
+
+    typedef RemoteSignalRX<void, ARGS...> Receiver;
+    typedef RemoteSignalTX<void, ARGS...> Sender;
+
+    template <typename ...fARGS>
+    void Connect(const Signal<void, fARGS...>& srcSignal)
+    {
+        srcSignal.Connect(this, &RemoteSignal::SlotSignalReceived);
+    }
+
+    template <typename fR, typename fC, typename T, typename ...fARGS>
+    void Connect(const T* object, fR(fC::* callback)(fARGS...)) const
+    {
+        ReceiverObj.Connect(object, callback);
+    }
+
+    void SetRemoteTarget(port_id targetPort, handle_id targetHandler)
+    {
+        m_TargetPort = targetPort;
+        m_TargetHandler = targetHandler;
+    }
+
+    Receiver    ReceiverObj;
+    Sender      SenderObj;
+
+private:
+    void SlotSignalReceived(ARGS ...args)
+    {
+        SenderObj.Emit(m_TargetPort, m_TargetHandler, MSGID, m_EmitTimeout, args...);
+    }
+
+    port_id         m_TargetPort = INVALID_HANDLE;
+    handle_id       m_TargetHandler = INVALID_HANDLE;
+    TimeValMicros   m_EmitTimeout = TimeValMicros::infinit;
 };
+
+template<typename SIGNAL, typename CB_OBJ, typename... ARGS>
+bool post_to_remotesignal(CB_OBJ* callbackObj, void* (CB_OBJ::* callback)(int32_t, size_t), ARGS&&... args)
+{
+    return SIGNAL::Sender::Emit(callbackObj, callback, SIGNAL::GetID(), args...);
+}
+
+template<typename SIGNAL, typename... ARGS>
+bool post_to_remotesignal(port_id port, handler_id targetHandler, const TimeValMicros& timeout, ARGS&&... args)
+{
+    return SIGNAL::Sender::Emit(port, targetHandler, SIGNAL::GetID(), timeout, args...);
+}
+
+template<typename SIGNAL, typename... ARGS>
+bool post_to_remotesignal(const MessagePort& port, handler_id targetHandler, const TimeValMicros& timeout, ARGS&&... args)
+{
+    return SIGNAL::Sender::Emit(port, targetHandler, SIGNAL::GetID(), timeout, args...);
+}
 
 } // namespace

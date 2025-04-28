@@ -45,7 +45,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const String& na
     RegisterRemoteSignal(&RSCreateBitmap,       &ServerApplication::SlotCreateBitmap);
     RegisterRemoteSignal(&RSDeleteBitmap,       &ServerApplication::SlotDeleteBitmap);
     RegisterRemoteSignal(&RSViewSetFrame,       &ServerApplication::SlotViewSetFrame);
-    RegisterRemoteSignal(&RSViewInvalidate,     &ServerApplication::SlotViewInvalidate);    
+    RegisterRemoteSignal(&RSViewInvalidate,     &ServerApplication::SlotViewInvalidate);
     RegisterRemoteSignal(&RSViewAddChild,       &ServerApplication::SlotViewAddChild);
     RegisterRemoteSignal(&RSViewToggleDepth,    &ServerApplication::SlotViewToggleDepth);
     RegisterRemoteSignal(&RSViewBeginUpdate,    &ServerApplication::SlotViewBeginUpdate);
@@ -226,7 +226,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
         parent->AddChild(view, index);
     } else {
         view->SetIsWindowManagerControlled(true);
-        ASWindowManagerRegisterView::Sender::Emit(get_window_manager_port(), INVALID_HANDLE, TimeValMicros::infinit, view->GetHandle(), dockType, view->GetName(), frame);
+        post_to_window_manager<ASWindowManagerRegisterView>(INVALID_HANDLE, view->GetHandle(), dockType, view->GetName(), frame);
     }
     view->SetClientHandle(clientPort, replyTarget);
         
@@ -261,7 +261,7 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
         const Ptr<ServerView> opacParent = ServerView::GetOpacParent(parent, &modifiedFrame);
 
         if (view->IsWindowManagerControlled()) {
-            ASWindowManagerUnregisterView::Sender::Emit(get_window_manager_port(), INVALID_HANDLE, TimeValMicros::infinit, view->GetHandle());
+            post_to_window_manager<ASWindowManagerUnregisterView>(INVALID_HANDLE, view->GetHandle());
         }
         view->RemoveThis(true);
         
@@ -353,7 +353,7 @@ void ServerApplication::SlotViewSetFrame(handler_id clientHandle, const Rect& fr
         view->SetFrame(frame, requestingClient);
         modifiedFrame |= view->GetIFrame();
         const Ptr<ServerView> opacParent = ServerView::GetOpacParent(view->GetParent(), &modifiedFrame);
-        kassert(opacParent != nullptr);
+        assert(opacParent != nullptr);
         opacParent->MarkModified(modifiedFrame);
         UpdateLowestInvalidView(opacParent);
     }
@@ -374,7 +374,7 @@ void ServerApplication::SlotViewInvalidate(handler_id clientHandle, const IRect&
     {
         IRect invalidFrame = frame + IPoint(view->GetScrollOffset());
         view = ServerView::GetOpacParent(view, &invalidFrame);
-        kassert(view != nullptr);
+        assert(view != nullptr);
         view->Invalidate(invalidFrame);
         UpdateLowestInvalidView(view);
     }

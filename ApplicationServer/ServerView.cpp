@@ -102,14 +102,14 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position, co
     {
         if (m_ManagerHandle != INVALID_HANDLE)
         {
-            if (!ASHandleMouseDown::Sender::Emit(get_window_manager_port(), m_ManagerHandle, TimeValMicros::infinit, button, position, event))
+            if (!post_to_window_manager<ASHandleMouseDown>(m_ManagerHandle, button, position, event))
             {
                 printf("ERROR: ServerView::HandleMouseDown() failed to send message: %s\n", strerror(get_last_error()));
                 return false;
             }            
         }
                     
-        if (!ASHandleMouseDown::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position, event)) {
+        if (!post_to_remotesignal<ASHandleMouseDown>(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position, event)) {
             printf("ERROR: ServerView::HandleMouseDown() failed to send message: %s\n", strerror(get_last_error()));
             return false;
         }
@@ -142,7 +142,7 @@ bool ServerView::HandleMouseUp(MouseButton_e button, const Point& position, cons
 {
     if (m_ClientHandle != INVALID_HANDLE)
     {
-        if (!ASHandleMouseUp::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position, event)) {
+        if (!post_to_remotesignal<ASHandleMouseUp>(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position, event)) {
             printf("ERROR: ServerView::HandleMouseUp() failed to send message: %s\n", strerror(get_last_error()));
         }
         return true;
@@ -158,7 +158,7 @@ bool ServerView::HandleMouseMove(MouseButton_e button, const Point& position, co
 {
     if (m_ClientHandle != INVALID_HANDLE)
     {
-        if (!ASHandleMouseMove::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position, event)) {
+        if (!post_to_remotesignal<ASHandleMouseMove>(m_ClientPort, m_ClientHandle, TimeValMicros::zero, button, position, event)) {
             printf("ERROR: ServerView::HandleMouseMove() failed to send message: %s\n", strerror(get_last_error()));
         }
         return true;
@@ -273,13 +273,13 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
             {
                 ApplicationServer* const server = static_cast<ApplicationServer*>(GetLooper());
                 if (server !=  nullptr) {
-                    ASViewFrameChanged::Sender::Emit(get_window_manager_port(), m_ManagerHandle, TimeValMicros::infinit, m_Frame);
+                    post_to_window_manager<ASViewFrameChanged>(m_ManagerHandle, m_Frame);
                 }                    
             }
         }
         else
         {
-            if (!ASViewFrameChanged::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, m_Frame)) {
+            if (!post_to_remotesignal<ASViewFrameChanged>(m_ClientPort, m_ClientHandle, TimeValMicros::zero, m_Frame)) {
                 printf("ERROR: ServerView::SetFrame() failed to send message: %s\n", strerror(get_last_error()));
             }            
         }
@@ -799,7 +799,7 @@ void ServerView::ToggleDepth()
         }
 
         const Ptr<ServerView> opacParent = GetOpacParent(parent, nullptr);
-        kassert(opacParent != nullptr);
+        assert(opacParent != nullptr);
         opacParent->SetDirtyRegFlags();
     
         const IRect intFrame = GetIFrame();
@@ -853,7 +853,7 @@ void ServerView::Paint(const IRect& updateRect)
     if ( m_HideCount > 0 || m_IsUpdating == true || m_ClientHandle == INVALID_HANDLE) {
         return;
     }
-    if (!ASPaintView::Sender::Emit(m_ClientPort, m_ClientHandle, TimeValMicros::zero, updateRect - IPoint(m_ScrollOffset))) {
+    if (!post_to_remotesignal<ASPaintView>(m_ClientPort, m_ClientHandle, TimeValMicros::zero, updateRect - IPoint(m_ScrollOffset))) {
         printf("ERROR: ServerView::Paint() failed to send message: %s\n", strerror(get_last_error()));        
     }
 }

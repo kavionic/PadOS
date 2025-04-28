@@ -30,52 +30,13 @@ class SignalTarget
 {
 public:
     SignalTarget();
-    SignalTarget( const SignalTarget& );
+    SignalTarget(const SignalTarget&);
     virtual ~SignalTarget();
 
     SignalTarget& operator=(const SignalTarget&);
 
     void DisconnectAllSignals();
-/*
-    template <typename R, typename fC, typename ...fARGS>
-    void DisconnectAllSignals(R (fC::*callback)(fARGS...)) const
-    {
-        for ( SlotBase* i = m_FirstSlot ; i != nullptr ;  )
-        {
-            if (i->GetCallbackAddress() == (this->*callback))
-            {
-                SlotBase j = i;
-                i = i->m_NextInTarget;
-                delete j;
-            }
-            else
-            {
-                i = i->m_NextInTarget;
-            }            
-//            typedef R (fC::*Signature_t)(fARGS...);
-//            typedef SlotFull<sizeof...(fARGS), fC, R, Signature_t, ARGS...> SlotType;
-//            SlotType* tmp = dynamic_cast<SlotType*>(i);
-//            SlotFull<fC, e_SlotMethod, R, fARGS...>* tmp = dynamic_cast<SlotFull<fC, e_SlotMethod, R, fARGS...>*>(i);
-//            i = i->m_NextInTarget;
-//            if (tmp != nullptr && tmp->m_Callback == callback) {
-//                delete tmp;
-//            }
-        }
-    }
 
-    template <typename R, typename fC, typename ...fARGS>
-    void DisconnectAllSignals(R (fC::*callback)(fARGS...) const) const
-    {
-        for ( SlotBase* i = m_FirstSlot ; i != nullptr ;  )
-        {
-            SlotFull<fC, e_SlotConstMethod, R, fARGS...>* tmp = dynamic_cast<SlotFull<fC, e_SlotConstMethod, R, fARGS...>*>(i);
-            i = i->m_NextInTarget;
-            if (tmp != nullptr && tmp->m_Callback == callback) {
-                delete tmp;
-            }
-        }
-    }
-  */  
 private:
     friend class SlotBase;
 

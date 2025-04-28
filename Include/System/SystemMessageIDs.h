@@ -25,6 +25,7 @@ namespace os
 enum class MessageID : uint32_t
 {
     NONE = 0,
+    FIRST_SIGNAL_ID = std::numeric_limits<int32_t>::max() - 200000,
     FIRST_SYSTEM_ID = std::numeric_limits<int32_t>::max() - 100000,
     MOUSE_DOWN,
     MOUSE_UP,

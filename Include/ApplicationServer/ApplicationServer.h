@@ -69,8 +69,6 @@ public:
 
     void            PowerLost(bool hasPower);
 private:
-    
-    
     void HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
     void HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
     void HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event);

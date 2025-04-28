@@ -309,7 +309,7 @@ private:
             if (app != nullptr)
             {
                 assert(!app->IsRunning() || app->GetMutex().IsLocked());
-                SIGNAL::Sender::Emit(app, &Application::AllocMessageBuffer, m_ServerHandle, args...);
+                SIGNAL::Sender::Emit(app, &Application::AllocMessageBuffer, SIGNAL::GetID(), m_ServerHandle, args...);
             }
         }
     }        
@@ -375,13 +375,13 @@ private:
 
     Ptr<Font>           m_Font = ptr_new<Font>(Font_e::e_FontLarge);
     
-    ASPaintView::Receiver        RSPaintView;
-    ASViewFrameChanged::Receiver RSViewFrameChanged;
-    ASViewFocusChanged::Receiver RSViewFocusChanged;
+    ASPaintView         RSPaintView;
+    ASViewFrameChanged  RSViewFrameChanged;
+    ASViewFocusChanged  RSViewFocusChanged;
 
-    ASHandleMouseDown::Receiver  RSHandleMouseDown;
-    ASHandleMouseUp::Receiver    RSHandleMouseUp;
-    ASHandleMouseMove::Receiver  RSHandleMouseMove;
+    ASHandleMouseDown   RSHandleMouseDown;
+    ASHandleMouseUp     RSHandleMouseUp;
+    ASHandleMouseMove   RSHandleMouseMove;
 };
 
 } // namespace

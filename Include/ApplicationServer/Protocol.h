@@ -40,6 +40,12 @@ typedef int32_t app_handle;
 enum class ViewDockType : int32_t;
 enum class FocusKeyboardMode : uint8_t;
 
+template<typename SIGNAL, typename... ARGS>
+bool post_to_window_manager(handler_id targetHandler, ARGS&&... args)
+{
+    return post_to_remotesignal<SIGNAL>(get_window_manager_port(), targetHandler, TimeValMicros::infinit, args...);
+}
+
 namespace AppserverProtocol
 {
     enum Type

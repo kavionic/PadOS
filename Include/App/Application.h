@@ -63,7 +63,7 @@ public:
     void DeleteBitmap(handle_id bitmapHandle);
 
     template<typename SIGNAL, typename... ARGS>
-    void Post(ARGS&&... args) { SIGNAL::Sender::Emit(this, &Application::AllocMessageBuffer, args...); }
+    void Post(ARGS&&... args) { SIGNAL::Sender::Emit(this, &Application::AllocMessageBuffer, SIGNAL::GetID(), args...); }
      
     void Flush();
     void Sync();

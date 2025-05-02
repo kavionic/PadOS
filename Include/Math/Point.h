@@ -38,11 +38,11 @@ public:
     float x;
     float y;
 
-    constexpr Point() : x(0.0f), y(0.0f) {}
-    constexpr Point(const Point& other) : x(other.x), y(other.y) {}
-    constexpr explicit inline Point(const IPoint& other);
-    constexpr explicit Point(float value) : x(value), y(value) {}
-    constexpr Point(float X, float Y) : x(X), y(Y) {}
+    constexpr Point() noexcept : x(0.0f), y(0.0f) {}
+    constexpr Point(const Point& other) noexcept : x(other.x), y(other.y) {}
+    constexpr explicit inline Point(const IPoint& other) noexcept;
+    constexpr explicit Point(float value) noexcept : x(value), y(value) {}
+    constexpr Point(float X, float Y) noexcept : x(X), y(Y) {}
 
     float LengthSqr() const { return x * x + y * y; }
     float Length() const { return sqrtf(LengthSqr()); }
@@ -94,10 +94,10 @@ public:
     int y;
 
     constexpr IPoint() : x(0), y(0) {}
-    constexpr IPoint(const IPoint& other) : x(other.x), y(other.y) {}
-    constexpr explicit inline IPoint(const Point& other);
-    constexpr explicit IPoint(int value) : x(value), y(value) {}
-    constexpr IPoint(int X, int Y) : x(X), y(Y) {}
+    constexpr IPoint(const IPoint& other) noexcept : x(other.x), y(other.y) {}
+    constexpr explicit inline IPoint(const Point& other) noexcept;
+    constexpr explicit IPoint(int value) noexcept : x(value), y(value) {}
+    constexpr IPoint(int X, int Y) noexcept : x(X), y(Y) {}
 
     IPoint& operator=(const IPoint&) = default;
 
@@ -113,7 +113,7 @@ public:
 };
 
 
-constexpr Point::Point(const IPoint& other) : x(float(other.x)), y(float(other.y)) {}
-constexpr IPoint::IPoint(const Point& other) : x(int(other.x)), y(int(other.y)) {}
+constexpr Point::Point(const IPoint& other) noexcept : x(float(other.x)), y(float(other.y)) {}
+constexpr IPoint::IPoint(const Point& other) noexcept : x(int(other.x)), y(int(other.y)) {}
 
 } // namespace os

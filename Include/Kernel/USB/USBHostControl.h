@@ -19,7 +19,9 @@
 
 #pragma once
 
+#include <functional>
 #include <stdint.h>
+
 #include <System/Sections.h>
 #include <Utils/String.h>
 #include <Kernel/USB/USBProtocol.h>

@@ -328,194 +328,74 @@ struct DigitalPort
 {
     typedef uint32_t PortData_t;
     typedef std::atomic_uint_fast32_t IntMaskAcc;
-    inline DigitalPort(DigitalPortID port) : m_Port(port) {}
+    IFLASHC DigitalPort(DigitalPortID port);
 
-    static inline GPIO_Port_t* GetPortRegs(DigitalPortID portID) { return DigitalPortsRegisters[portID]; }
+    static IFLASHC inline GPIO_Port_t* GetPortRegs(DigitalPortID portID) { return DigitalPortsRegisters[portID]; }
 
 //    static inline void SetAsInput(DigitalPortID portID, PortData_t pins)   { GetPortRegs(portID)->PIO_ODR = pins; }
 //    static inline void SetAsOutput(DigitalPortID portID, PortData_t pins)  { GetPortRegs(portID)->PIO_OER = pins; }
 
-    static inline void SetDirection(DigitalPortID portID, DigitalPinDirection_e direction, PortData_t pins)
-    {
-        GPIO_Port_t* port = GetPortRegs(portID);
-        switch(direction)
-        {
-            case DigitalPinDirection_e::Analog:
-                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
-                {
-                    if (j & pins) {
-                        port->MODER = port->MODER | (3 << i); // Mode 3: analog
-                    }
-                }
-                break;
-            case DigitalPinDirection_e::In:
-                for (uint32_t i = 0, j = 0x0001; j != 0; j <<= 1, i += 2)
-                {
-                    if (j & pins) {
-                        port->MODER = (port->MODER & ~(3 << i)); // Mode 0: input
-                    }
-                }
-                break;
-            case DigitalPinDirection_e::Out:
-                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
-                {
-                    if (j & pins) {
-                        port->MODER = (port->MODER & ~(3<<i)) | (1<<i); // Mode 1: output
-                    }
-                }
-                port->OTYPER &= ~pins; // 0: push-pull
-                break;
-            case DigitalPinDirection_e::OpenCollector:
-                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
-                {
-                    if (j & pins) {
-                        port->MODER = (port->MODER & ~(3<<i)) | (1<<i); // Mode 1: output
-                    }
-                }
-                port->OTYPER |= pins; // 1: open collector
-                break;
-        }
-    }
+    static IFLASHC void SetDirection(DigitalPortID portID, DigitalPinDirection_e direction, PortData_t pins);
 
-    static inline void SetDriveStrength(DigitalPortID portID, DigitalPinDriveStrength_e strength, PortData_t pins)
-    {
-        GPIO_Port_t* port = GetPortRegs(portID);
-        for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
-            if (j & pins) {
-                port->OSPEEDR = (port->OSPEEDR & ~(3<<i)) | (uint32_t(strength)<<i);
-            }
-        }
-    }
+    static IFLASHC void SetDriveStrength(DigitalPortID portID, DigitalPinDriveStrength_e strength, PortData_t pins);
 
-    static inline void Set(DigitalPortID portID, PortData_t pins) { DigitalPortsRegisters[portID]->ODR = pins; }
+    static IFLASHC inline void Set(DigitalPortID portID, PortData_t pins) { DigitalPortsRegisters[portID]->ODR = pins; }
 //    static inline void SetSome(DigitalPortID portID, PortData_t mask, PortData_t pins) { DigitalPortsRegisters[portID]->PIO_OWER = mask; DigitalPortsRegisters[portID]->PIO_ODSR = pins; }
-    static inline void SetHigh(DigitalPortID portID, PortData_t pins)                { DigitalPortsRegisters[portID]->BSRR = pins; }
-    static inline void SetLow(DigitalPortID portID, PortData_t pins)                 { DigitalPortsRegisters[portID]->BSRR = pins << 16; }
-    static inline PortData_t Get(DigitalPortID portID)                               { return DigitalPortsRegisters[portID]->IDR; }
+    static IFLASHC inline void SetHigh(DigitalPortID portID, PortData_t pins)                { DigitalPortsRegisters[portID]->BSRR = pins; }
+    static IFLASHC inline void SetLow(DigitalPortID portID, PortData_t pins)                 { DigitalPortsRegisters[portID]->BSRR = pins << 16; }
+    static IFLASHC inline PortData_t Get(DigitalPortID portID)                               { return DigitalPortsRegisters[portID]->IDR; }
 
 //    static IFLASHC void EnablePullup(DigitalPortID portID, PortData_t pins);
 
-    static inline void SetPullMode(DigitalPortID portID, PinPullMode_e mode, PortData_t pins)
-    {
-        GPIO_Port_t* port = GetPortRegs(portID);
-        switch(mode)
-        {
-            case PinPullMode_e::None:
-                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
-                    if (j & pins) {
-                        port->PUPDR = (port->PUPDR & ~(3<<i)) | (0<<i); // 0: no pull
-                    }
-                }
-                break;
-            case PinPullMode_e::Down:
-                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
-                    if (j & pins) {
-                        port->PUPDR = (port->PUPDR & ~(3<<i)) | (2<<i); // 2: pull down
-                    }
-                }
-                break;
-            case PinPullMode_e::Up:
-                for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2) {
-                    if (j & pins) {
-                        port->PUPDR = (port->PUPDR & ~(3<<i)) | (1<<i); // 1: pull up
-                    }
-                }
-                break;
-        }
-    }
+    static IFLASHC void SetPullMode(DigitalPortID portID, PinPullMode_e mode, PortData_t pins);
 
-    static inline void SetPeripheralMux(DigitalPortID portID, PortData_t pins, DigitalPinPeripheralID peripheral)
-    {
-        GPIO_Port_t* port = GetPortRegs(portID);
-        if (peripheral == DigitalPinPeripheralID::None)
-        {
-            for (uint32_t i = 0, j = 0x0001; j != 0; j<<=1, i+=2)
-            {
-                if (j & pins) {
-                    port->MODER = (port->MODER & ~(3<<i)) | (3<<i); // Mode 3: analog (reset state)
-                }
-            }
-        }
-        else
-        {
-            uint32_t value = uint32_t(peripheral) & 0xf;
-            uint32_t valueMask = 0xf;
-
-            int modeBitPos = 0;
-            for (uint32_t pinsL = pins & 0xff; pinsL != 0; pinsL >>= 1, value <<= 4, valueMask <<= 4)
-            {
-                if (pinsL & 0x01)
-                {
-                    set_bit_group(port->AFR[0], valueMask, value);
-                    set_bit_group(port->MODER, 3<<modeBitPos, 2<<modeBitPos); // Mode 2: alternate function
-                }
-                modeBitPos += 2;
-            }
-            modeBitPos = 2*8;
-            value = uint32_t(peripheral) & 0xf;
-            valueMask = 0xf;
-            for (uint32_t pinsH = (pins >> 8) & 0xff; pinsH != 0; pinsH >>= 1, value <<= 4, valueMask <<= 4)
-            {
-                if (pinsH & 0x01)
-                {
-                    set_bit_group(port->AFR[1], valueMask, value);
-                    set_bit_group(port->MODER, 3<<modeBitPos, 2<<modeBitPos); // Mode 2: alternate function
-                }
-                modeBitPos += 2;
-            }
-        }
-    }
+    static IFLASHC void SetPeripheralMux(DigitalPortID portID, PortData_t pins, DigitalPinPeripheralID peripheral);
     IFLASHC void inline SetPeripheralMux(PortData_t pins, DigitalPinPeripheralID peripheral) { SetPeripheralMux(m_Port, pins, peripheral); }
 
-    inline void SetDirection(DigitalPinDirection_e direction, PortData_t pins) { SetDirection(m_Port, direction, pins); }
-    inline void SetDriveStrength(DigitalPinDriveStrength_e strength, PortData_t pins) { SetDriveStrength(m_Port, strength, pins); }
+    IFLASHC inline void SetDirection(DigitalPinDirection_e direction, PortData_t pins) { SetDirection(m_Port, direction, pins); }
+    IFLASHC inline void SetDriveStrength(DigitalPinDriveStrength_e strength, PortData_t pins) { SetDriveStrength(m_Port, strength, pins); }
 //    inline void SetAsInput(PortData_t pins)   { SetAsInput(m_Port, pins); }
 //    inline void SetAsOutput(PortData_t pins)  { SetAsOutput(m_Port, pins); }
 
     
 //    inline void EnablePullup(PortData_t pins)          { EnablePullup(m_Port, pins); }
-    inline void SetPullMode(PinPullMode_e mode, PortData_t pins) { SetPullMode(m_Port, mode, pins); }
+    IFLASHC inline void SetPullMode(PinPullMode_e mode, PortData_t pins) { SetPullMode(m_Port, mode, pins); }
 
-    inline void Set(PortData_t pins)                   { Set(m_Port, pins); }
+    IFLASHC inline void Set(PortData_t pins)                   { Set(m_Port, pins); }
 //    inline void SetSome(PortData_t mask, PortData_t pins) { SetSome(m_Port, mask, pins); }
-    inline void SetHigh(PortData_t pins)               { SetHigh(m_Port, pins); }
-    inline void SetLow(PortData_t pins)                { SetLow(m_Port, pins); }
-    inline PortData_t Get()  const                     { return Get(m_Port); }
+    IFLASHC inline void SetHigh(PortData_t pins)               { SetHigh(m_Port, pins); }
+    IFLASHC inline void SetLow(PortData_t pins)                { SetLow(m_Port, pins); }
+    IFLASHC inline PortData_t Get()  const                     { return Get(m_Port); }
 
 private:
-    static IntMaskAcc s_IntMaskAccumulators[e_DigitalPortID_Count];
+    static IFLASHC IntMaskAcc s_IntMaskAccumulators[e_DigitalPortID_Count];
     DigitalPortID    m_Port;
 };
 
 class DigitalPin
 {
 public:
-    inline DigitalPin() : m_PinID(DigitalPinID::None), m_Port(e_DigitalPortID_None), m_PinMask(0) { }
-    inline DigitalPin(DigitalPinID pinID) : m_PinID(pinID), m_Port(DIGITAL_PIN_ID_PORT(pinID)), m_PinMask((pinID != DigitalPinID::None) ? BIT32(DIGITAL_PIN_ID_PIN(pinID), 1) : 0) { }
-    inline DigitalPin(DigitalPortID port, int pin) : m_PinID(DigitalPinID(MAKE_DIGITAL_PIN_ID(port, pin))), m_Port(port), m_PinMask(BIT32(pin, 1)) { }
+    IFLASHC DigitalPin();
+    IFLASHC DigitalPin(DigitalPinID pinID);
+    IFLASHC DigitalPin(DigitalPortID port, int pin);
     
-    inline void Set(DigitalPortID port, int pin)  { m_Port = port; m_PinMask = BIT32(pin, 1); }
-    inline void Set(DigitalPinID pinID)
-    {
-        m_PinID = pinID;
-        m_Port = DIGITAL_PIN_ID_PORT(pinID);
-        m_PinMask = (pinID != DigitalPinID::None) ? BIT32(DIGITAL_PIN_ID_PIN(pinID), 1) : 0;
-    }
+    IFLASHC void Set(DigitalPortID port, int pin)  { m_Port = port; m_PinMask = BIT32(pin, 1); }
+    IFLASHC void Set(DigitalPinID pinID);
 
-    inline DigitalPinID GetID() const { return m_PinID; }
+    IFLASHC inline DigitalPinID GetID() const { return m_PinID; }
 
-    inline bool IsValid() const { return m_PinID != DigitalPinID::None; }
+    IFLASHC inline bool IsValid() const { return m_PinID != DigitalPinID::None; }
 
-    inline void SetDirection(DigitalPinDirection_e dir) { m_Port.SetDirection(dir, m_PinMask); }
-    inline void SetDriveStrength(DigitalPinDriveStrength_e strength) { m_Port.SetDriveStrength(strength, m_PinMask); }
+    IFLASHC inline void SetDirection(DigitalPinDirection_e dir) { m_Port.SetDirection(dir, m_PinMask); }
+    IFLASHC inline void SetDriveStrength(DigitalPinDriveStrength_e strength) { m_Port.SetDriveStrength(strength, m_PinMask); }
 
-    inline void SetPullMode(PinPullMode_e mode) { m_Port.SetPullMode(mode, m_PinMask); }
+    IFLASHC inline void SetPullMode(PinPullMode_e mode) { m_Port.SetPullMode(mode, m_PinMask); }
     IFLASHC inline void SetPeripheralMux(DigitalPinPeripheralID peripheral) { m_Port.SetPeripheralMux(m_PinMask, peripheral); }
     static IFLASHC void ActivatePeripheralMux(const PinMuxTarget& PinMux);
 
-    inline void EnableInterrupts() { EXTI->IMR1 |= m_PinMask; }
-    inline void DisableInterrupts() { EXTI->IMR1 &= ~m_PinMask; }
-    inline void SetInterruptMode(PinInterruptMode_e mode)
+    IFLASHC inline void EnableInterrupts() { EXTI->IMR1 |= m_PinMask; }
+    IFLASHC inline void DisableInterrupts() { EXTI->IMR1 &= ~m_PinMask; }
+    IFLASHC inline void SetInterruptMode(PinInterruptMode_e mode)
     {
         int pinIndex = DIGITAL_PIN_ID_PIN(m_PinID);
 
@@ -545,7 +425,7 @@ public:
         }
     }
 #if defined(STM32H7)
-    inline bool GetAndClearInterruptStatus()
+    IFLASHC inline bool GetAndClearInterruptStatus()
     {
         bool flag = (EXTI->PR1 & m_PinMask) != 0;
         EXTI->PR1 = m_PinMask;
@@ -585,13 +465,13 @@ public:
 #error Unknown platform.
 #endif
 
-    inline void Write(bool value) {if (value) m_Port.SetHigh(m_PinMask); else m_Port.SetLow(m_PinMask); }
-    inline bool Read() const { return (m_Port.Get() & m_PinMask) != 0; }
+    IFLASHC void Write(bool value);
+    IFLASHC bool Read() const;
     
 
-    inline operator bool () { return Read(); }
-    inline DigitalPin& operator=(DigitalPinID pinID) { Set(pinID); return *this; }
-    inline DigitalPin& operator=(bool value) { Write(value); return *this; }
+    IFLASHC inline operator bool () { return Read(); }
+    IFLASHC inline DigitalPin& operator=(DigitalPinID pinID) { Set(pinID); return *this; }
+    IFLASHC inline DigitalPin& operator=(bool value) { Write(value); return *this; }
 
 private:
     DigitalPinID    m_PinID;

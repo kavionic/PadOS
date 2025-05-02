@@ -225,9 +225,13 @@ Color::Color(const String& name)
     m_Color = FromColorName(name).m_Color;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Color& Color::operator*=(float rhs)
 {
-    *this *= rhs;
+    *this = (*this) * rhs;
     return *this;
 }
 

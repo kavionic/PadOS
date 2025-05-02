@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include <System/SysTime.h>
 
 namespace os

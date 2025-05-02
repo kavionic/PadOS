@@ -184,7 +184,12 @@ public:
         size_t size = AccumulateSize(remote_signal_utils::ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...);
         
         void* buffer;
-        if (size <= MAX_STACK_BUFFER_SIZE)
+
+        if (size == 0)
+        {
+            buffer = nullptr;
+        }
+        else if (size <= MAX_STACK_BUFFER_SIZE)
         {
             buffer = alloca(size);
         }

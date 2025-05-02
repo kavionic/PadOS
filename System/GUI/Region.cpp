@@ -62,7 +62,7 @@ Region::Region(const Region& reg) : PtrTarget()
 Region::Region(const Region& region, const IRect& rectangle, bool normalize)
 {
     const IPoint topLeft = rectangle.TopLeft();
-    for (const Rect& oldClip : region.m_Rects)
+    for (const IRect& oldClip : region.m_Rects)
     {
         IRect rect = oldClip & rectangle;
             

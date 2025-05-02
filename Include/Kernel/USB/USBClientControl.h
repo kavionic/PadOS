@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include <Ptr/Ptr.h>
 #include <Kernel/USB/USBProtocol.h>
 

@@ -32,24 +32,7 @@ class SpinTimer
 public:
     static IFLASHC void Initialize();
 
-    static IFLASHC void SleepuS(uint32_t delay)
-    {
-        int32_t delayCycles = delay * s_TicksPerMicroSec;
-
-		uint32_t prev = SysTick->VAL;
-		uint32_t range = SysTick->LOAD;
-
-        while(delayCycles > 0)
-        {
-			uint32_t current = SysTick->VAL;
-			if (current <= prev) {
-                delayCycles -= prev - current;
-			} else {
-                delayCycles -= prev + (range - current);
-        	}
-			prev = current;
-        }
-    }
+    static IFLASHC void SleepuS(uint32_t delay);
 
     static IFLASHC void SleepMS(uint32_t delay)
     {

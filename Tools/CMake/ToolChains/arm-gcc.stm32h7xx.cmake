@@ -5,11 +5,15 @@ set(CMAKE_SYSTEM_PROCESSOR arm)
 find_program(PADOS_C_COMPILER arm-none-eabi-gcc   PATHS $ENV{PADOS_TOOLCHAIN_PATH} PATH_SUFFIXES bin NO_DEFAULT_PATH)
 find_program(PADOS_CXX_COMPILER arm-none-eabi-g++ PATHS $ENV{PADOS_TOOLCHAIN_PATH} PATH_SUFFIXES bin NO_DEFAULT_PATH)
 
-if("$PADOS_C_COMPILER}" STREQUAL "${PADOS_C_COMPILER}-NOTFOUND")
+if("${PADOS_C_COMPILER}" STREQUAL "${PADOS_C_COMPILER}-NOTFOUND")
         message(FATAL_ERROR "C Compiler not found, please specify a search path with \"PADOS_TOOLCHAIN_PATH\".")
 endif()
-if("$PADOS_CXX_COMPILER}" STREQUAL "${PADOS_C_COMPILER}-NOTFOUND")
+if("${PADOS_CXX_COMPILER}" STREQUAL "${PADOS_C_COMPILER}-NOTFOUND")
         message(FATAL_ERROR "C++ Compiler not found, please specify a search path with \"PADOS_TOOLCHAIN_PATH\".")
+endif()
+
+if("$ENV{PADOS_STM32_TOOLKIT}-NOTFOUND" STREQUAL "-NOTFOUND")
+        message(FATAL_ERROR "PADOS_STM32_TOOLKIT not set.")
 endif()
 
 set(CMAKE_C_COMPILER   ${PADOS_C_COMPILER}   CACHE FILEPATH "C compiler")
@@ -22,8 +26,8 @@ set(CMAKE_CXX_COMPILER_FORCED TRUE)
 add_compile_definitions(STM32H7 STM32H753xx DEBUG ARM_MATH_CM7=true __machine_ino_t_defined __ino_t=int64_t)
 
 include_directories(
-	C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.10.0/Drivers/CMSIS/Device/ST/STM32H7xx/Include
-	C:/Users/kurts/STM32Cube/Repository/STM32Cube_FW_H7_V1.10.0/Drivers/CMSIS/Core/Include
+	"$ENV{PADOS_STM32_TOOLKIT}/Drivers/CMSIS/Device/ST/STM32H7xx/Include"
+	"$ENV{PADOS_STM32_TOOLKIT}/Drivers/CMSIS/Core/Include"
 )
 
 set(PADOS_SYSTEM_C_CXX_FLAGS "-mcpu=cortex-m7 -ffunction-sections -fdata-sections -fstack-usage -mthumb -ffast-math -mfpu=fpv5-d16 -mfloat-abi=hard -mtp=cp15 -mtls-dialect=gnu2")

@@ -389,11 +389,7 @@ enum class RCC_ClockMux_RTCSEL : uint32_t
 
 struct ClockMuxInfo
 {
-    ClockMuxInfo(__IO uint32_t* InRegister, uint32_t InValueMask, uint32_t InValuePosition)
-        : Register(InRegister)
-        , ValueMask(InValueMask)
-        , ValuePosition(InValuePosition)
-    {}
+    IFLASHC ClockMuxInfo(__IO uint32_t* InRegister, uint32_t InValueMask, uint32_t InValuePosition);
 
     __IO uint32_t*  Register;
     uint32_t        ValueMask;
@@ -439,7 +435,7 @@ public:
 
     static IFLASHC void SelectSysClock(RCC_SysClockSource clock);
 
-    template<typename T> static IFLASHC void SetClockMux(T source)
+    template<typename T> IFLASHC static void SetClockMux(T source)
     {
         ClockMuxInfo muxInfo = GetClockMuxInfo<T>();
 //        set_bit_group(*muxInfo.Register, muxInfo.ValueMask, uint32_t(source) << muxInfo.ValuePosition);

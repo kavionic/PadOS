@@ -7,6 +7,7 @@ target_sources(PadOS_System PRIVATE
 	IntrusiveList.h
 	MessagePort.h
 	String.h
+	TypeTraits.h
 	UTF8Utils.h
 	Utils.h
 	ValueAnimator.h

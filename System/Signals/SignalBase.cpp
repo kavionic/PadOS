@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -134,4 +134,19 @@ void SignalBase::DisconnectInternal(SlotBase* slot, bool deleteSlot) const
     if (deleteSlot) {
         delete slot;
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SlotBase* SignalBase::FindSlotByHandle(signal_slot_handle_t handle) const
+{
+    for (SlotBase* slot = m_FirstSlot; slot != nullptr; slot = slot->GetNextInSignal())
+    {
+        if (slot == handle.SlotPtr) {
+            return slot;
+        }
+    }
+    return nullptr;
 }

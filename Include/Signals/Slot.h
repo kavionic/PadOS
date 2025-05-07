@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,24 +18,24 @@
 
 #pragma once
 
-#include <forward_list>
-#include "SlotBase.h"
-
-
+#include <functional>
 #include <utility>
 #include <tuple>
+#include <forward_list>
+
+#include "SlotBase.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Second level of the slot class. Defines return type and arguments.
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-template<typename R, typename... ARGS_FULL>
+template<typename TReturnType, typename... TSignalArgs>
 class Slot : public SlotBase
 {
 public:
     Slot(SignalBase* targetSignal, SignalTarget* obj) : SlotBase(targetSignal, obj) {}
-    virtual R Call(ARGS_FULL... args) const = 0;
+    virtual TReturnType Call(TSignalArgs... args) const = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,47 +44,58 @@ public:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-template<int USED_ARGS, typename fT, typename R, typename SIGNATURE, typename... ARGS_FULL>
-class SlotFull : public Slot<R, ARGS_FULL...>
+// Specialization for class methods.
+template<int TUsedArgsCount, typename TSignalTarget, typename TReturnType, typename TSignature, typename... TSignalArgs>
+class SlotFull : public Slot<TReturnType, TSignalArgs...>
 {
 public:
-    SlotFull(SignalBase* targetSignal, fT* obj, SIGNATURE callback) : Slot<R, ARGS_FULL...>(targetSignal, obj), m_Callback(callback) {}
+    SlotFull(SignalBase* targetSignal, TSignalTarget* obj, TSignature callback) : Slot<TReturnType, TSignalArgs...>(targetSignal, obj), m_Callback(callback) {}
     
-    SIGNATURE GetCallback() const { return m_Callback; }
+    const TSignature& GetCallback() const { return m_Callback; }
 
-    template<typename OBJ_TYPE, typename ARGS, std::size_t... I>
-    R DoInvoke(OBJ_TYPE*, ARGS&& args, std::index_sequence<I...>) const {
-        return (static_cast<fT*>(this->m_Object)->*m_Callback)(std::forward<decltype(std::get<I>(args))>(std::get<I>(args))...);
+    template<typename TObjectType, typename TFunctionArgs, std::size_t... I>
+    TReturnType DoInvoke(TObjectType*, TFunctionArgs&& args, std::index_sequence<I...>) const {
+        return (static_cast<TSignalTarget*>(this->m_Object)->*m_Callback)(std::forward<decltype(std::get<I>(args))>(std::get<I>(args))...);
     }
     
-    // Specialization for non-member functions. SignalTarget does not have any slots itself, so we use that as a key to trigger this overload.
-    template<typename ARGS, std::size_t... I>
-    R DoInvoke(SignalTarget*, ARGS&& args, std::index_sequence<I...>) const {
-        return m_Callback(std::forward<std::decay_t<decltype(std::get<I>(args))>>(std::get<I>(args))...);
-    }
-
-/*    template<typename OBJ_TYPE>
-    void* DoGetCallpackAddress(OBJ_TYPE*) const {
-        return (void*)*(static_cast<fT*>(this->m_Object)->*m_Callback);
-    }
-    //template<>
-    void* DoGetCallpackAddress(SignalTarget*) const {
-        return (void*)m_Callback;
-    }
-
-    virtual void* GetCallbackAddress() const override { return DoGetCallpackAddress((fT*)nullptr); }
-*/
     virtual SlotBase* Clone(SignalBase* owningSignal) override
     {
-        return new SlotFull(owningSignal, static_cast<fT*>(this->m_Object), m_Callback);
+        return new SlotFull(owningSignal, static_cast<TSignalTarget*>(this->m_Object), m_Callback);
     }
     
-    virtual R Call(ARGS_FULL... args) const override
+    virtual TReturnType Call(TSignalArgs... args) const override
     {
-        return DoInvoke((fT*)nullptr, std::tuple<ARGS_FULL...>(/*std::forward<ARGS_FULL>(*/args/*)*/...), std::make_index_sequence<USED_ARGS>());
+        return DoInvoke((TSignalTarget*)nullptr, std::tuple<TSignalArgs...>(args...), std::make_index_sequence<TUsedArgsCount>());
     }
     
 private:
-    SIGNATURE m_Callback;
+    TSignature m_Callback;
 };
 
+// Specialization for function pointers, functors and lambdas.
+template<int TUsedArgsCount, typename TReturnType, typename TSignature, typename... TSignalArgs>
+class SlotFull<TUsedArgsCount, void, TReturnType, TSignature, TSignalArgs...> : public Slot<TReturnType, TSignalArgs...>
+{
+public:
+    SlotFull(SignalBase* targetSignal, SignalTarget* signalTarget, TSignature&& callback) : Slot<TReturnType, TSignalArgs...>(targetSignal, signalTarget), m_Callback(std::move(callback)) {}
+
+    const TSignature& GetCallback() const { return m_Callback; }
+
+    template<typename TFunctionArgs, std::size_t... I>
+    TReturnType DoInvoke(TFunctionArgs&& args, std::index_sequence<I...>) const {
+        return m_Callback(std::forward<std::decay_t<decltype(std::get<I>(args))>>(std::get<I>(args))...);
+    }
+
+    virtual SlotBase* Clone(SignalBase* owningSignal) override
+    {
+        return new SlotFull(owningSignal, this->m_Object, TSignature(m_Callback));
+    }
+
+    virtual TReturnType Call(TSignalArgs... args) const override
+    {
+        return DoInvoke(std::tuple<TSignalArgs...>(args...), std::make_index_sequence<TUsedArgsCount>());
+    }
+
+private:
+    TSignature m_Callback;
+};

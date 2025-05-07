@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -37,6 +37,8 @@ protected:
 
     void ConnectInternal(SlotBase* slot) const;
     void DisconnectInternal(SlotBase* slot, bool deleteSlot = true) const;
+
+    SlotBase* FindSlotByHandle(signal_slot_handle_t handle) const;
 
     struct EmitGuard
     {

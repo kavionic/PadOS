@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -27,8 +27,8 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-template<typename R, typename ...ARGS>
-class VFConnector : public SignalSlotList<R, ARGS...>
+template<typename TSignalReturnType, typename ...TSignalArgs>
+class VFConnector : public SignalSlotList<TSignalReturnType, TSignalArgs...>
 {
 public:
     VFConnector() {}
@@ -42,24 +42,27 @@ public:
         return *this;
     }
 
-    R operator() (ARGS... args) const
+    TSignalReturnType operator() (TSignalArgs... args) const
     {
         if ( this->m_FirstSlot != nullptr )
         {
             SignalBase::EmitGuard guard( this, this->m_FirstSlot );
-            return static_cast<Slot<R, ARGS...>*>(this->m_FirstSlot)->Call(args...);
+            return static_cast<Slot<TSignalReturnType, TSignalArgs...>*>(this->m_FirstSlot)->Call(args...);
         }
-        return VFCDefaultValue<R>::GetDefault();
+        return VFCDefaultValue<TSignalReturnType>::GetDefault();
     }
-    static R CallBase(ARGS... args)
+    static TSignalReturnType CallBase(TSignalArgs... args)
     {
         SignalBase::EmitGuard* emitGuardPtr = SignalBase::s_LocalEmitGuard.Get();
         SignalBase::PrevSlotGuard cGuard( emitGuardPtr );
         if ( emitGuardPtr->m_SlotIterator == nullptr) {
             assert(!"Call to a VFConnector with a null SlotIterator");
-            return VFCDefaultValue<R>::GetDefault();
+            return VFCDefaultValue<TSignalReturnType>::GetDefault();
         }
         SlotBase* slot = emitGuardPtr->m_SlotIterator;
-        return static_cast<Slot<R, ARGS...>*>(slot)->Call(args...);
+        return static_cast<Slot<TSignalReturnType, TSignalArgs...>*>(slot)->Call(args...);
     }
 };
+
+template<typename TSignalReturnType, typename... TSignalArgs>
+class VFConnector<TSignalReturnType (TSignalArgs...)> : public VFConnector<TSignalReturnType, TSignalArgs...> {};

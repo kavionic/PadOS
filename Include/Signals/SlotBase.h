@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -29,7 +29,6 @@ public:
     SlotBase(SignalBase* targetSignal, SignalTarget* object);
     virtual ~SlotBase();
 
-//    virtual void* GetCallbackAddress() const = 0;
     virtual SlotBase* Clone(SignalBase* targetSignal) = 0;
     
     SignalTarget* GetSignalTarget() const { return m_Object; }
@@ -53,4 +52,19 @@ protected:
 private:
     SlotBase(const SlotBase&) = delete;
     SlotBase& operator=(const SlotBase&) = delete;
+};
+
+struct signal_slot_handle_t
+{
+    signal_slot_handle_t() = default;
+    explicit constexpr signal_slot_handle_t(const SlotBase* slot) : SlotPtr(slot) {}
+
+    constexpr bool operator==(const signal_slot_handle_t& rhs) { return SlotPtr == rhs.SlotPtr; }
+
+    constexpr bool operator<(const signal_slot_handle_t& rhs) { return SlotPtr < rhs.SlotPtr; }
+
+private:
+    friend class SignalBase;
+
+    const SlotBase* SlotPtr = nullptr; // Only use for lookup. Could be stale.
 };

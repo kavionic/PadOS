@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,12 +23,12 @@
 #include "SignalTarget.h"
 #include "SignalSlotList.h"
 
-template <typename R, typename ...ARGS>
-class Signal : public SignalSlotList<R, ARGS...>
+template <typename TSignalReturnType, typename ...TSignalArgs>
+class Signal : public SignalSlotList<TSignalReturnType, TSignalArgs...>
 {
 public:
-    template <typename OBJ_CLASS,typename CALLBACK_TYPE>
-    void ReConnect( const OBJ_CLASS* obj, CALLBACK_TYPE callback) const
+    template <typename TObject,typename TMethod>
+    void ReConnect( const TObject* obj, TMethod callback) const
     {
         if ( !IsSlotConnected( obj, callback ) )
         {
@@ -36,8 +36,8 @@ public:
         }
     }
 
-    template <typename CALLBACK_TYPE>
-    void ReConnect( CALLBACK_TYPE callback ) const
+    template <typename TCallback>
+    void ReConnect(TCallback callback ) const
     {
         if ( !IsSlotConnected( callback ) )
         {
@@ -45,7 +45,7 @@ public:
         }
     }
 
-    bool operator() (ARGS... args) const
+    bool operator() (TSignalArgs... args) const
     {
         /// Since the slot functions we call might delete either the signal object
         /// itself (our this pointer) or disconnect some of the slots in our slot list
@@ -69,7 +69,7 @@ public:
                 SlotBase* slot = guard.m_SlotIterator;
                 guard.m_SlotIterator = guard.m_SlotIterator->GetNextInSignal();
 
-                static_cast<Slot<R, ARGS...>*>(slot)->Call(args...);
+                static_cast<Slot<TSignalReturnType, TSignalArgs...>*>(slot)->Call(args...);
                 if (guard.m_Signal == nullptr)
                 {
                     return false; // Set by the destructor if the signal object was deleted by the slot function.
@@ -80,3 +80,5 @@ public:
     }
 };
 
+template<typename TSignalReturnType, typename... TSignalArgs>
+class Signal<TSignalReturnType (TSignalArgs...)> : public Signal<TSignalReturnType, TSignalArgs...> {};

@@ -33,7 +33,7 @@ const std::map<String, uint32_t> MVCListViewFlags::FlagMap
 ///////////////////////////////////////////////////////////////////////////////
 
 MVCListView::MVCListView(const String& name, Ptr<View> parent, uint32_t flags)
-    : Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+    : Control(name, parent, flags | ViewFlags::WillDraw)
 {
     Construct();
 }
@@ -45,6 +45,7 @@ MVCListView::MVCListView(const String& name, Ptr<View> parent, uint32_t flags)
 MVCListView::MVCListView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData)
     : Control(context, parent, xmlData)
 {
+    MergeFlags(ViewFlags::WillDraw);
     Construct();
 }
 

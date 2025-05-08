@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@ ScrollView::ScrollView(ViewFactoryContext& context, Ptr<View> parent, const pugi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollView::FrameSized(const Point& delta)
+void ScrollView::OnFrameSized(const Point& delta)
 {
     Ptr<View> clientView = GetScrolledView();
     if (clientView != nullptr)

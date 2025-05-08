@@ -19,6 +19,18 @@
 		</xs:restriction>
 	</xs:simpleType>
 
+	<xs:element name="MVCListView">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="Control">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
 	<xs:simpleType name="Orientation">
 		<xs:restriction base="xs:string">
 			<xs:enumeration value="horizontal"/>
@@ -81,6 +93,8 @@
 		<xs:attribute name="max_height_limit"	type="xs:float"		use="optional" />
 		<xs:attribute name="max_height_extend"	type="xs:float"		use="optional" />
 
+		<xs:attribute name="layout_weight"	type="xs:float"		use="optional" />
+		
 		<xs:attribute name="layout"		type="Layout"		use="optional" />
 		<xs:attribute name="layout_borders"	type="Rect"		use="optional" />
 		<xs:attribute name="inner_borders"	type="Rect"		use="optional" />

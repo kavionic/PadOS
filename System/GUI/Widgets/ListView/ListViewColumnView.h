@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ public:
     ListViewColumnView(Ptr<ListViewScrolledView> parent, const String& title);
     ~ListViewColumnView();
 
-    virtual void Paint(const Rect& updateRect) override;
+    virtual void OnPaint(const Rect& updateRect) override;
     void         Refresh(const Rect& updateRect);
 private:
     friend class ListViewHeaderView;

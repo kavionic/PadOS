@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point MenuRenderView::GetContentSize() const
+Point MenuRenderView::CalculateContentSize() const
 {
     return m_Menu->m_ContentSize;
 }
@@ -36,7 +36,7 @@ Point MenuRenderView::GetContentSize() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MenuRenderView::Paint(const Rect& updateRect)
+void MenuRenderView::OnPaint(const Rect& updateRect)
 {
     SetFgColor(StandardColorID::MenuBackground);
     FillRect(GetBounds());

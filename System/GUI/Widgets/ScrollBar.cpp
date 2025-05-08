@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ ScrollBar::ScrollBar(const String& name, Ptr<View> parent, float min, float max,
     m_Orientation  = orientation;
     m_Min          = min;
     m_Max          = max;
-    FrameSized(Point(0.0f, 0.0f));
+    OnFrameSized(Point(0.0f, 0.0f));
 
     m_RepeatTimer.SignalTrigged.Connect(this, &ScrollBar::SlotTimerTick);
 }
@@ -425,7 +425,7 @@ bool ScrollBar::OnMouseMove(MouseButton_e button, const Point& position, const M
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollBar::Paint(const Rect& cUpdateRect)
+void ScrollBar::OnPaint(const Rect& cUpdateRect)
 {
 	Rect cBounds = GetBounds();
 	Rect cKnobFrame = GetKnobFrame();
@@ -571,7 +571,7 @@ float ScrollBar::PosToVal(Point pos) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollBar::FrameSized(const Point& delta)
+void ScrollBar::OnFrameSized(const Point& delta)
 {
 	const Rect bounds = GetBounds();
 	Rect arrowRect = bounds;

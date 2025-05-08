@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -90,7 +90,7 @@ DropdownMenu::DropdownMenu(ViewFactoryContext& context, Ptr<View> parent, const 
 void DropdownMenu::Initialize()
 {
     m_EditBox = ptr_new<TextBox>("text_view", String::zero, ptr_tmp_cast(this), HasFlags(DropdownMenuFlags::ReadOnly) ? (TextBoxFlags::ReadOnly | TextBoxFlags::RaisedFrame) : 0);
-    FrameSized(Point(0, 0));
+    OnFrameSized(Point(0, 0));
 
     m_EditBox->SignalTextChanged.Connect(this, &DropdownMenu::SlotTextChanged);
 
@@ -163,7 +163,7 @@ void DropdownMenu::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::FrameSized(const Point& cDelta)
+void DropdownMenu::OnFrameSized(const Point& cDelta)
 {
     Rect editFrame = GetBounds();
 
@@ -177,7 +177,7 @@ void DropdownMenu::FrameSized(const Point& cDelta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::ScreenFrameMoved(const Point& delta)
+void DropdownMenu::OnScreenFrameMoved(const Point& delta)
 {
     LayoutMenuWindow();
 }
@@ -208,7 +208,7 @@ bool DropdownMenu::OnMouseDown(MouseButton_e button, const Point& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::Paint(const Rect& cUpdateRect)
+void DropdownMenu::OnPaint(const Rect& cUpdateRect)
 {
     SetEraseColor(StandardColorID::DefaultBackground);
     DrawFrame(m_ArrowFrame, (m_MenuWindow != nullptr) ? FRAME_RECESSED : FRAME_RAISED);

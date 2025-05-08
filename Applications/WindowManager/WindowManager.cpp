@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -57,7 +57,7 @@ public:
         SetHeightOverride(PrefSizeType::Greatest, SizeOverride::Always, LAYOUT_MAX_SIZE);
     }
     
-    virtual void Paint(const Rect& updateRect) override
+    virtual void OnPaint(const Rect& updateRect) override
     {
         SetFgColor(100, 100, 100);
         FillRect(GetBounds());

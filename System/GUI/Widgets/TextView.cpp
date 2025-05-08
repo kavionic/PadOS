@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -83,9 +83,9 @@ void TextView::SetText(const String& text)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextView::FrameSized(const Point& delta)
+void TextView::OnFrameSized(const Point& delta)
 {
-    View::FrameSized(delta);
+    View::OnFrameSized(delta);
 
     if (delta.x != 0.0f && HasFlags(TextViewFlags::MultiLine))
     {
@@ -153,7 +153,7 @@ void os::TextView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextView::Paint(const Rect& updateRect)
+void TextView::OnPaint(const Rect& updateRect)
 {
     if (UpdateWordWrapping()) {
         PreferredSizeChanged();

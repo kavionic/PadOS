@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -115,7 +115,7 @@ void Slider::AttachedToScreen()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::FrameSized(const Point& delta)
+void Slider::OnFrameSized(const Point& delta)
 {
     LayoutValueView();
 }
@@ -1179,7 +1179,7 @@ Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::Paint(const Rect& updateRect)
+void Slider::OnPaint(const Rect& updateRect)
 {
     RenderSlider();
 }

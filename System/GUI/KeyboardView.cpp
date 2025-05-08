@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -351,7 +351,7 @@ void KeyboardView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::FrameSized(const Point& delta)
+void KeyboardView::OnFrameSized(const Point& delta)
 {
     const Rect bounds = GetBounds();
     m_CurrentLayout->Layout(bounds, KEY_SPACING, m_KeyHeight + KEY_SPACING.y);
@@ -361,7 +361,7 @@ void KeyboardView::FrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::Paint(const Rect& updateRect)
+void KeyboardView::OnPaint(const Rect& updateRect)
 {
     Region clearRegion(updateRect);
     for (const auto& button : m_CurrentLayout->m_KeyButtons)

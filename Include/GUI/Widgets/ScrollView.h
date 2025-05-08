@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ public:
     ScrollView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     // From View:
-    virtual void    FrameSized(const Point& delta) override;
+    virtual void    OnFrameSized(const Point& delta) override;
     virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
     virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
     virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -35,17 +35,17 @@ extern const std::map<String, uint32_t> FlagMap;
 class TextView : public View
 {
 public:
-    TextView(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    TextView(const String& name = String::zero, const String& text = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
 	TextView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~TextView();
     
     void SetText(const String& text);
     const String& GetText() const { return m_Text; }
 
-    virtual void FrameSized(const Point& delta) override;
+    virtual void OnFrameSized(const Point& delta) override;
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
 
-    virtual void Paint(const Rect& updateRect) override;
+    virtual void OnPaint(const Rect& updateRect) override;
         
 private:
     bool UpdateWordWrapping();

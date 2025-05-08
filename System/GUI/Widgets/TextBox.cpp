@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -107,7 +107,7 @@ void TextBox::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includ
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextBox::FrameSized(const Point& delta)
+void TextBox::OnFrameSized(const Point& delta)
 {
     Rect frame = GetBounds();
     Rect borders = m_Editor->GetBorders();
@@ -119,7 +119,7 @@ void TextBox::FrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextBox::Paint(const Rect& updateRect)
+void TextBox::OnPaint(const Rect& updateRect)
 {
     Ptr<const TextBoxStyle> style = GetStyle();
     if (!IsEnabled()) {

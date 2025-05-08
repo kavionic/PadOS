@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -29,9 +29,9 @@ class MenuRenderView : public View
 public:
     MenuRenderView(Menu* menu) : View("menu_content", ptr_tmp_cast(menu), ViewFlags::WillDraw), m_Menu(menu) {}
 
-    virtual Point   GetContentSize() const override;
+    virtual Point   CalculateContentSize() const override;
 
-    virtual void    Paint(const Rect& updateRect) override;
+    virtual void    OnPaint(const Rect& updateRect) override;
 
     virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
     virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -107,7 +107,7 @@ MenuLayout Menu::GetLayout() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::FrameSized(const Point& delta)
+void Menu::OnFrameSized(const Point& delta)
 {
     Rect contentFrame = GetBounds();
     contentFrame.Resize(2.0f, 2.0f, -2.0f, -2.0f);
@@ -550,7 +550,7 @@ void Menu::OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::Paint(const Rect& updateRect)
+void Menu::OnPaint(const Rect& updateRect)
 {
     SetFgColor(StandardColorID::MenuBackground);
     FillRect(GetBounds());

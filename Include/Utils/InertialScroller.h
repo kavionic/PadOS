@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@ public:
     enum class State : uint8_t
     {
         Idle,
+        WaitForThreshold,
         Dragging,
         Coasting
     };
@@ -57,6 +58,9 @@ public:
 
     void  SetMaxOverscroll(float horizontal, float vertical)    { m_MaxHOverscroll = horizontal; m_MaxVOverscroll = vertical; }
 
+    void    SetStartScrollThreshold(float threshold) { m_StartScrollThreshold = threshold; }
+    float   GetStartScrollThreshold() const { return m_StartScrollThreshold; }
+
     void SetDetentSpacing(const Point& spacing) { m_DetentSpacing = spacing; }
     void SetDetentSpacing(float horizontal, float vertical) { SetDetentSpacing(Point(horizontal, vertical)); }
     Point GetDetentSpacing() const              { return m_DetentSpacing; }
@@ -66,7 +70,7 @@ public:
 
     void BeginDrag(const Point& scrollOffset, const Point& dragPosition, Looper* looper = nullptr);
     void EndDrag();
-    void AddUpdate(const Point& value);
+    void AddUpdate(const Point& value, Looper* looper = nullptr);
 
     Point GetValue() const;
     Point GetVelocity() const;
@@ -90,6 +94,8 @@ private:
     float           m_MaxVOverscroll = 40.0f;
     float           m_MaxHOverscroll = 0.0f;
     Rect            m_ScrollBounds = Rect(-COORD_MAX, -COORD_MAX, COORD_MAX, COORD_MAX);
+
+    float           m_StartScrollThreshold = 0.0f;
 
     EventTimer      m_Timer;
     TimeValMicros   m_BeginDragTime;

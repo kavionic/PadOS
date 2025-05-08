@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2017-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2017-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -576,7 +576,7 @@ void Application::LayoutViews()
         for (Ptr<View> view : list)
         {
             view->m_IsLayoutPending = false;
-            view->HandleUpdateLayout();
+            view->RefreshLayout();
         }
     }
 }
@@ -591,6 +591,6 @@ void Application::SlotLongPressTimer()
 
     Ptr<View> lastPressedView = GetMouseDownView(m_LastClickEvent.ButtonID);
     if (lastPressedView != nullptr) {
-        lastPressedView->OnLongPress(m_LastClickEvent.ButtonID, lastPressedView->ConvertFromScreen(m_LastClickEvent.Position), m_LastClickEvent);
+        lastPressedView->DispatchLongPress(m_LastClickEvent.ButtonID, lastPressedView->ConvertFromScreen(m_LastClickEvent.Position), m_LastClickEvent);
     }
 }

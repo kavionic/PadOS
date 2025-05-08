@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -425,7 +425,7 @@ void ListView::Layout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::FrameSized(const Point& delta)
+void ListView::OnFrameSized(const Point& delta)
 {
     if (m_ScrolledContainerView->m_ColumnMap.empty() == false)
     {
@@ -770,7 +770,7 @@ void ListView::Clear()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::Paint(const Rect& updateRect)
+void ListView::OnPaint(const Rect& updateRect)
 {
     if (m_VScrollBar != nullptr && m_HScrollBar != nullptr)
     {

@@ -7,6 +7,7 @@ target_sources(PadOS_GUI PRIVATE
 	DropdownMenu.h
 	GroupView.h
 	ListView.h
+	MVCListView.h
 	ListViewRow.h
 	ListViewStringRow.h
 	Menu.h

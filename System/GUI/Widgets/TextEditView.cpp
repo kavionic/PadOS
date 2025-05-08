@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -105,7 +105,7 @@ void TextEditView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point TextEditView::GetContentSize() const
+Point TextEditView::CalculateContentSize() const
 {
     Point size = GetSizeForString(m_Text, true, true);
     if (!HasFlags(TextBoxFlags::ReadOnly) && HasKeyboardFocus()) {
@@ -118,7 +118,7 @@ Point TextEditView::GetContentSize() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextEditView::Paint(const Rect& updateRect)
+void TextEditView::OnPaint(const Rect& updateRect)
 {
     if (!IsEnabled())
     {

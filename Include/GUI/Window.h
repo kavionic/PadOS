@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2021-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -29,8 +29,8 @@ public:
     Window(const String& title);
 
     // From View:
-    virtual void Paint(const Rect& updateRect) override;
-    virtual void FrameSized(const Point& delta) override;
+    virtual void OnPaint(const Rect& updateRect) override;
+    virtual void OnFrameSized(const Point& delta) override;
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
 
     virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2021-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ Window::Window(const String& title) : View("Window", nullptr, ViewFlags::WillDra
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Window::Paint(const Rect& updateRect)
+void Window::OnPaint(const Rect& updateRect)
 {
     Rect outerFrame = GetBounds();
     Rect innerFrame = outerFrame;
@@ -70,7 +70,7 @@ void Window::Paint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Window::FrameSized(const Point& delta)
+void Window::OnFrameSized(const Point& delta)
 {
     if (m_ClientView != nullptr)
     {

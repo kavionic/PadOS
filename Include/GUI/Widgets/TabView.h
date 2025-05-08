@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -52,14 +52,14 @@ public:
     Rect GetClientFrame() const;
 
     virtual void    Layout(const Point& delta);
-    virtual void    FrameSized(const Point& delta) override;
+    virtual void    OnFrameSized(const Point& delta) override;
     virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual void    OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event) override;
 
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual void    Paint(const Rect& updateRect) override;
+    virtual void    OnPaint(const Rect& updateRect) override;
 
     Signal<void, size_t, Ptr<View>, TabView*> SignalSelectionChanged;//(size_t index, Ptr<View> tabView, TabView* source)
 private:
@@ -81,7 +81,7 @@ private:
             m_TabView = parent;
         }
     
-        virtual void Paint(const Rect& updateRect) override;
+        virtual void OnPaint(const Rect& updateRect) override;
     private:
         TabView* m_TabView;
     };

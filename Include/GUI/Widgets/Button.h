@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@ public:
     // From View:
     virtual void AllAttachedToScreen() override { Invalidate(); }
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual void Paint(const Rect& updateRect) override;
+    virtual void OnPaint(const Rect& updateRect) override;
 
 	// From Control:
     virtual void OnEnableStatusChanged(bool bIsEnabled) override { Invalidate(); Flush(); }

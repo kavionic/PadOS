@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -67,10 +67,10 @@ public:
     virtual void    OnFlagsChanged(uint32_t changedFlags) override;
     virtual void    DetachedFromScreen() override;
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual void    FrameSized(const Point& cDelta) override;
-    virtual void    ScreenFrameMoved(const Point& delta) override;
+    virtual void    OnFrameSized(const Point& cDelta) override;
+    virtual void    OnScreenFrameMoved(const Point& delta) override;
     virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual void    Paint(const Rect& cUpdateRect) override;
+    virtual void    OnPaint(const Rect& cUpdateRect) override;
 
     // From Control:
     virtual void    OnEnableStatusChanged(bool isEnabled) override;
@@ -91,8 +91,8 @@ public:
     const String&   GetCurrentString() const;
     void            SetCurrentString(const String& string);
 
-    Signal<void, size_t, bool, DropdownMenu*>        SignalSelectionChanged;
-    Signal<void, const String&, bool, DropdownMenu*> SignalTextChanged;
+    Signal<void (size_t index, bool finalUpdate, DropdownMenu* sourceMenu)>         SignalSelectionChanged;
+    Signal<void (const String& text, bool finalUpdate, DropdownMenu* sourceMenu)>   SignalTextChanged;
 private:
     void    Initialize();
     void    OpenMenu();

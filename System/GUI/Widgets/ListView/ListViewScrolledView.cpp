@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -438,7 +438,7 @@ size_t ListViewScrolledView::GetRowIndex(Ptr<const ListViewRow> row) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewScrolledView::FrameSized(const Point& delta)
+void ListViewScrolledView::OnFrameSized(const Point& delta)
 {
     LayoutColumns();
 }
@@ -961,7 +961,7 @@ void ListViewScrolledView::Clear()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewScrolledView::Paint(const Rect& updateRect)
+void ListViewScrolledView::OnPaint(const Rect& updateRect)
 {
     Rect frame = GetBounds();
     frame.top    = 0.0f;

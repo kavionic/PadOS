@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<String>& item
     SetScrolledView(m_ContentView);
 
     AddChild(m_ContentView);
-    FrameSized(Point());
+    OnFrameSized(Point());
     PreferredSizeChanged();
 }
 
@@ -45,7 +45,7 @@ DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<String>& item
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupWindow::Paint(const Rect& updateRect)
+void DropdownMenuPopupWindow::OnPaint(const Rect& updateRect)
 {
     SetEraseColor(255, 255, 255);
     DrawFrame(GetBounds(), FRAME_RECESSED);
@@ -55,7 +55,7 @@ void DropdownMenuPopupWindow::Paint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupWindow::FrameSized(const Point& delta)
+void DropdownMenuPopupWindow::OnFrameSized(const Point& delta)
 {
     Rect contentFrame = GetBounds();
     Rect contentBorders = m_ContentView->GetBorders();
@@ -120,7 +120,7 @@ DropdownMenuPopupView::DropdownMenuPopupView(const std::vector<String>& itemList
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupView::Paint(const Rect& updateRect)
+void DropdownMenuPopupView::OnPaint(const Rect& updateRect)
 {
     SetEraseColor(255, 255, 255);
     EraseRect(GetBounds());

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -66,7 +66,7 @@ void os::Button::CalculatePreferredSize(Point* minSize, Point* maxSize, bool inc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Button::Paint(const Rect& updateRect)
+void Button::OnPaint(const Rect& updateRect)
 {
     const bool isPressed = GetPressedState();
     const bool isEnabled = IsEnabled();

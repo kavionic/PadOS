@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ private:
     void                StartScroll(ScrollDirection direction, bool select);
     void                StopScroll();
 
-    virtual void    FrameSized(const Point& delta) override;
+    virtual void    OnFrameSized(const Point& delta) override;
 
     virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
     virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
@@ -63,7 +63,7 @@ private:
     virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     //    virtual void  WheelMoved(const Point& cDelta);
-    virtual void    Paint(const Rect& updateRect) override;
+    virtual void    OnPaint(const Rect& updateRect) override;
     //    virtual void  TimerTick( int nID );
     virtual void    DetachedFromWindow();
     virtual bool    HasFocus(MouseButton_e button) const override;

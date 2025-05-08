@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -107,7 +107,7 @@ void ListViewColumnView::Refresh(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewColumnView::Paint(const Rect& updateRect)
+void ListViewColumnView::OnPaint(const Rect& updateRect)
 {
     if (!updateRect.IsValid()) {
         return; // FIXME: Workaround for appserver bug. Fix appserver.

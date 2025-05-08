@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -37,13 +37,13 @@ public:
 
 private:
     void  DrawButton(const char* title, const Rect& frame, Ptr<Font> font, FontHeight* fontHeight);
-    virtual void    Paint(const Rect& updateRect) override;
+    virtual void    OnPaint(const Rect& updateRect) override;
 
     virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual void    FrameSized(const Point& deltaSize) override;
-    virtual void    ViewScrolled(const Point& delta) override;
+    virtual void    OnFrameSized(const Point& deltaSize) override;
+    virtual void    OnViewScrolled(const Point& delta) override;
 
     virtual bool    HasFocus(MouseButton_e button) const override;
 

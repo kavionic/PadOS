@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -111,38 +111,40 @@ public:
     void            RemoveFromHeightRing();
         
     void            InvalidateLayout();
+    bool            RefreshLayout(int32_t maxIterations = 1);
 
 //    virtual void Activated(bool isActive);
     //    virtual void WindowActivated( bool bIsActive );
 
-    virtual void Paint(const Rect& updateRect) { EraseRect(updateRect); }
+    virtual void OnPaint(const Rect& updateRect) { EraseRect(updateRect); }
 
-    virtual bool OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event)  { return OnMouseDown(pointID, position, event); }
-    virtual bool OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event)    { return OnMouseUp(pointID, position, event);   }
-    virtual bool OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event)  { return OnMouseMove(pointID, position, event); }
-    virtual bool OnLongPress(MouseButton_e pointID, const Point& position, const MotionEvent& event) { return false; }
+    virtual bool OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)  { return DispatchMouseDown(pointID, position, motionEvent); }
+    virtual bool OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)    { return DispatchMouseUp(pointID, position, motionEvent);   }
+    virtual bool OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)  { return DispatchMouseMove(pointID, position, motionEvent); }
+    virtual bool OnLongPress(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent) { return false; }
 
-    virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
-    virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
-    virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event);
+    virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& motionEvent);
+    virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& motionEvent);
+    virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& motionEvent);
 
-    virtual void OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event);
-    virtual void OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& event);
+    virtual void OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& keyEvent);
+    virtual void OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& keyEvent);
 
-    virtual void LayoutChanged();
-    virtual void FrameMoved(const Point& delta);
-    virtual void FrameSized(const Point& delta);
-    virtual void ScreenFrameMoved(const Point& delta);
-    virtual void ViewScrolled(const Point& delta);
-    virtual void FontChanged(Ptr<Font> newFont);
+    virtual void OnLayoutChanged();
+    virtual void OnFrameMoved(const Point& delta);
+    virtual void OnFrameSized(const Point& delta);
+    virtual void OnScreenFrameMoved(const Point& delta);
+    virtual void OnViewScrolled(const Point& delta);
+    virtual void OnFontChanged(Ptr<Font> newFont);
     
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight);
-    
+    virtual Point CalculateContentSize() const;
+
     Point GetPreferredSize(PrefSizeType sizeType) const;
-    virtual Point GetContentSize() const;
+    Point GetContentSize() const;
 
     void PreferredSizeChanged();
-    virtual void ContentSizeChanged();
+    void ContentSizeChanged();
 
 //    virtual void WheelMoved( const Point& cDelta );
 
@@ -153,7 +155,10 @@ public:
     bool        RemoveThis();
     
     Ptr<View>   GetChildAt(const Point& pos);
+    template<typename T> Ptr<T> GetChildAt(const Point& pos) { return ptr_dynamic_cast<T>(GetChildAt(pos)); }
+
     Ptr<View>   GetChildAt(size_t index);
+    template<typename T> Ptr<T> GetChildAt(size_t index) { return ptr_dynamic_cast<T>(GetChildAt(index)); }
 
     Ptr<ScrollBar> GetVScrollBar() const;
     Ptr<ScrollBar> GetHScrollBar() const;
@@ -202,11 +207,11 @@ public:
     void                SetFont(Ptr<Font> font);
     Ptr<Font>           GetFont() const;
 
-    bool            SlotHandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
+    bool            SlotHandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& motionEvent);
 
-    bool            HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
-    void            HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
-    void            HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event);
+    bool            HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& motionEvent);
+    void            HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& motionEvent);
+    void            HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& motionEvent);
     
     void            SetFgColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)   { SetFgColor(Color(red, green, blue, alpha)); }
     void            SetFgColor(Color color)                                                     { m_FgColor = color; Post<ASViewSetFgColor>(color); }
@@ -284,15 +289,25 @@ public:
     Rect        ConvertFromScreen(const Rect& rect) const   { return rect - m_ScreenPos - m_ScrollOffset; }
     void        ConvertFromScreen(Rect* rect) const         { *rect -= m_ScreenPos + m_ScrollOffset; }
 
-    VFConnector<bool, MouseButton_e, const Point&, const MotionEvent&> VFMouseDown;
-    VFConnector<bool, MouseButton_e, const Point&, const MotionEvent&> VFMouseUp;
-    VFConnector<bool, const Point&, const MotionEvent&>                VFMouseMoved;
-    
-    Signal<void, Ptr<View>>               SignalPreferredSizeChanged;
-    Signal<void, View*>                   SignalContentSizeChanged;
-    Signal<void, const Point&, Ptr<View>> SignalFrameSized;
-    Signal<void, const Point&, Ptr<View>> SignalFrameMoved;
-    Signal<void, const Point&, Ptr<View>> SignalViewScrolled;
+    VFConnector<bool (View* view, MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)> VFTouchDown;
+    VFConnector<bool (View* view, MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)> VFTouchUp;
+    VFConnector<bool (View* view, MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)> VFTouchMove;
+    VFConnector<bool (View* view, MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)> VFLongPress;
+    VFConnector<bool (View* view, MouseButton_e button , const Point& position, const MotionEvent& motionEvent)> VFMouseDown;
+    VFConnector<bool (View* view, MouseButton_e button , const Point& position, const MotionEvent& motionEvent)> VFMouseUp;
+    VFConnector<bool (View* view, MouseButton_e button , const Point& position, const MotionEvent& motionEvent)> VFMouseMove;
+
+    VFConnector<void (View* view, KeyCodes keyCode, const String& text, const KeyEvent& keyEvent)>               VFKeyDown;
+    VFConnector<void (View* view, KeyCodes keyCode, const String& text, const KeyEvent& keyEvent)>               VFKeyUp;
+
+    VFConnector<Point ()> VFCalculateContentSize;
+
+    Signal<void (Ptr<View> view)>                         SignalPreferredSizeChanged;
+    Signal<void (View* view)>                             SignalContentSizeChanged;
+    Signal<void (const Point& deltaSize, Ptr<View> view)> SignalFrameSized;
+    Signal<void (const Point& deltaPos,  Ptr<View> view)> SignalFrameMoved;
+    Signal<void (const Point& offset,    Ptr<View> view)> SignalViewScrolled;
+
 private:
     friend class Application;
     friend class ViewBase<View>;
@@ -321,8 +336,6 @@ private:
     void HandleAttachedToScreen(Application* app);
     void HandleDetachedFromScreen();
 
-    void HandleUpdateLayout();
-
     void HandlePaint(const Rect& updateRect);
     
     void SetServerHandle(handler_id handle) { m_ServerHandle = handle; }
@@ -336,6 +349,17 @@ private:
 
     enum class UpdatePositionNotifyServer { Never, Always, IfChanged };
     void UpdatePosition(UpdatePositionNotifyServer notifyMode);
+
+    bool DispatchTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent);
+    bool DispatchTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent);
+    bool DispatchTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent);
+    bool DispatchLongPress(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent);
+    bool DispatchMouseDown(MouseButton_e buttonID, const Point& position, const MotionEvent& motionEvent);
+    bool DispatchMouseUp(MouseButton_e buttonID, const Point& position, const MotionEvent& motionEvent);
+    bool DispatchMouseMove(MouseButton_e buttonID, const Point& position, const MotionEvent& motionEvent);
+    void DispatchKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& motionEvent);
+    void DispatchKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& motionEvent);
+
 
     void SlotFrameChanged(const Rect& frame);
     void SlotKeyboardFocusChanged(bool hasFocus);

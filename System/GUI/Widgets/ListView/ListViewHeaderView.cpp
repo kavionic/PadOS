@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -69,7 +69,7 @@ void ListViewHeaderView::DrawButton(const char* title, const Rect& frame, Ptr<Fo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewHeaderView::Paint(const Rect& cUpdateRect)
+void ListViewHeaderView::OnPaint(const Rect& cUpdateRect)
 {
     Ptr<Font> pcFont = GetFont();
     if (pcFont == nullptr) {
@@ -143,7 +143,7 @@ bool ListViewHeaderView::OnMouseMove(MouseButton_e button, const Point& position
 
     m_ScrolledContainerView->LayoutColumns();
     listView->AdjustScrollBars(false);
-    Paint(GetBounds());
+    OnPaint(GetBounds());
     Flush();
     m_HitPos = position;
 
@@ -154,7 +154,7 @@ bool ListViewHeaderView::OnMouseMove(MouseButton_e button, const Point& position
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewHeaderView::ViewScrolled(const Point& delta)
+void ListViewHeaderView::OnViewScrolled(const Point& delta)
 {
     if (m_ScrolledContainerView->m_ColumnMap.empty()) {
         return;
@@ -275,7 +275,7 @@ bool ListViewHeaderView::OnMouseUp(MouseButton_e button, const Point& position, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewHeaderView::FrameSized(const Point& deltaSize)
+void ListViewHeaderView::OnFrameSized(const Point& deltaSize)
 {
     Rect bounds = GetBounds();
     bool needFlush = false;

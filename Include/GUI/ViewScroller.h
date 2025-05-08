@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -66,6 +66,8 @@ public:
 
     static ViewScroller* GetViewScroller(View* view);
 
+    InertialScroller::State GetInertialScrollerState() const { return m_Handler.m_InertialScroller.GetState(); }
+
     void  SetMaxHOverscroll(float value)    { m_Handler.m_InertialScroller.SetMaxHOverscroll(value); }
     float GetMaxHOverscroll() const         { return m_Handler.m_InertialScroller.GetMaxHOverscroll(); }
 
@@ -73,6 +75,9 @@ public:
     float GetMaxVOverscroll() const         { return m_Handler.m_InertialScroller.GetMaxVOverscroll(); }
 
     void  SetMaxOverscroll(float horizontal, float vertical) { m_Handler.m_InertialScroller.SetMaxOverscroll(horizontal, vertical); }
+
+    void    SetStartScrollThreshold(float threshold) { m_Handler.m_InertialScroller.SetStartScrollThreshold(threshold); }
+    float   GetStartScrollThreshold() const { return m_Handler.m_InertialScroller.GetStartScrollThreshold(); }
 
     void BeginSwipe(const Point& position)  { m_Handler.BeginSwipe(position); }
     void SwipeMove(const Point& position)   { m_Handler.SwipeMove(position); }

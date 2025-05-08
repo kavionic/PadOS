@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ ProgressBar::ProgressBar(ViewFactoryContext& context, Ptr<View> parent, const pu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ProgressBar::Paint(const Rect& updateRect)
+void ProgressBar::OnPaint(const Rect& updateRect)
 {
     Rect bounds = GetNormalizedBounds();
     bounds.Floor();
@@ -97,7 +97,7 @@ void ProgressBar::Paint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ProgressBar::FrameSized(const Point& delta)
+void ProgressBar::OnFrameSized(const Point& delta)
 {
     Rect bounds(GetBounds());
     bool needFlush = false;

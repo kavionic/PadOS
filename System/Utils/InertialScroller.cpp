@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,7 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 06.08.2020 18:37
 
-#include "Utils/InertialScroller.h"
+#include <Math/Misc.h>
+#include <Utils/InertialScroller.h>
 
 using namespace os;
 
@@ -57,10 +58,21 @@ void InertialScroller::BeginDrag(const Point& scrollOffset, const Point& dragPos
 
     if (m_State == InertialScroller::State::Idle)
     {
-        m_LastTickTime = m_BeginDragTime;
-        m_Timer.Start(false, looper);
+        if (m_StartScrollThreshold == 0.0f)
+        {
+            m_LastTickTime = m_BeginDragTime;
+            m_Timer.Start(false, looper);
+            m_State = InertialScroller::State::Dragging;
+        }
+        else
+        {
+            m_State = InertialScroller::State::WaitForThreshold;
+        }
     }
-    m_State = InertialScroller::State::Dragging;
+    else
+    {
+        m_State = InertialScroller::State::Dragging;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -69,6 +81,12 @@ void InertialScroller::BeginDrag(const Point& scrollOffset, const Point& dragPos
 
 void InertialScroller::EndDrag()
 {
+    if (m_State == State::WaitForThreshold)
+    {
+        m_State = State::Idle;
+        return;
+    }
+
     const float deltaTime = (get_system_time() - m_BeginDragTime).AsSecondsF();
     if (deltaTime > 0.0f && deltaTime < 0.2f) {
         m_Velocity = (m_TargetPosition - m_BeginDragPosition) / deltaTime;
@@ -107,9 +125,18 @@ void InertialScroller::EndDrag()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void InertialScroller::AddUpdate(const Point& value)
+void InertialScroller::AddUpdate(const Point& value, Looper* looper)
 {
     m_TargetPosition = value - m_StaticOffset;
+    if (m_State == State::WaitForThreshold)
+    {
+        if ((value - (m_StaticOffset + m_BeginDragPosition)).LengthSqr() >= square(m_StartScrollThreshold))
+        {
+            m_LastTickTime = m_BeginDragTime;
+            m_Timer.Start(false, looper);
+            m_State = State::Dragging;
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

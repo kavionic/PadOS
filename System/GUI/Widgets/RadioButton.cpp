@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -102,7 +102,7 @@ void os::RadioButton::CalculatePreferredSize(Point* minSize, Point* maxSize, boo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RadioButton::Paint(const Rect& updateRect)
+void RadioButton::OnPaint(const Rect& updateRect)
 {
     Rect bounds = GetBounds();
     Rect buttonFrame = bounds;

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -501,7 +501,7 @@ void TabView::Layout(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::FrameSized(const Point& delta)
+void TabView::OnFrameSized(const Point& delta)
 {
     Layout(delta);
 }
@@ -689,7 +689,7 @@ static Color Tint(const Color& color, float tint)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::TopView::Paint(const Rect& updateRect)
+void TabView::TopView::OnPaint(const Rect& updateRect)
 {
     const Rect bounds = GetBounds();
 
@@ -768,7 +768,7 @@ void TabView::TopView::Paint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::Paint(const Rect& updateRect)
+void TabView::OnPaint(const Rect& updateRect)
 {
     Rect bounds = GetBounds();
 

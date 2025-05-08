@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -116,8 +116,8 @@ public:
     void                Sort();
     size_t              GetFirstSelected() const;
     size_t              GetLastSelected() const;
-    virtual void        Paint(const Rect& updateRect) override;
-    virtual void        FrameSized(const Point& delta) override;
+    virtual void        OnPaint(const Rect& updateRect) override;
+    virtual void        OnFrameSized(const Point& delta) override;
     //    virtual void      KeyDown( const char* pzString, const char* pzRawString, uint32_t nQualifiers );
     //    virtual void      AllAttachedToScreen() override;
     virtual bool        HasFocus(MouseButton_e button) const override;

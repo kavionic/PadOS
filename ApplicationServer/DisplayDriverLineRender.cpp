@@ -540,13 +540,13 @@ void DisplayDriver::DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPo
         default:
             switch (bitmap->m_ColorSpace)
             {
-                case ColorSpace::RGB15:
+                case EColorSpace::RGB15:
                     draw_line16(bitmap, clipRect, point1, point2, color.GetColor15());
                     break;
-                case ColorSpace::RGB16:
+                case EColorSpace::RGB16:
                     draw_line16(bitmap, clipRect, point1, point2, color.GetColor16());
                     break;
-                case ColorSpace::RGB32:
+                case EColorSpace::RGB32:
                     draw_line32(bitmap, clipRect, point1, point2, color.GetColor32());
                     break;
                 default:
@@ -556,13 +556,13 @@ void DisplayDriver::DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPo
         case DrawingMode::Invert:
             switch (bitmap->m_ColorSpace)
             {
-                case ColorSpace::RGB15:
+                case EColorSpace::RGB15:
                     invert_line15(bitmap, clipRect, point1, point2);
                     break;
-                case ColorSpace::RGB16:
+                case EColorSpace::RGB16:
                     invert_line16(bitmap, clipRect, point1, point2);
                     break;
-                case ColorSpace::RGB32:
+                case EColorSpace::RGB32:
                     invert_line32(bitmap, clipRect, point1, point2);
                     break;
                 default:

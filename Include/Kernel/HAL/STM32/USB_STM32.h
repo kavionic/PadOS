@@ -108,7 +108,7 @@ private:
     IFLASHC bool                SetupCore(bool useExternalVBus, bool batteryChargingEnabled);
     IFLASHC bool                CoreReset();
     IFLASHC bool                WaitForAHBIdle();
-    IFLASHC volatile uint32_t*  GetFIFOBase(uint32_t endpoint) { return m_FIFOBase + endpoint * USB_OTG_FIFO_SIZE / 4; }
+    IFLASHC volatile uint32_t*  GetFIFOBase(uint32_t endpoint);
 
 
     USB_OTG_GlobalTypeDef*  m_Port = nullptr;

@@ -59,7 +59,7 @@ public:
     void SetKeyboardFocus(Ptr<View> view, bool focus, bool notifyServer);
     Ptr<View> GetKeyboardFocus() const;
 
-    bool CreateBitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow);
+    bool CreateBitmap(int width, int height, EColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow);
     void DeleteBitmap(handle_id bitmapHandle);
 
     template<typename SIGNAL, typename... ARGS>

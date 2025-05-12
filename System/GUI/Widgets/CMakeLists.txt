@@ -1,4 +1,5 @@
 target_sources(PadOS_GUI PRIVATE
+	BitmapView.cpp
 	Button.cpp
 	ButtonBase.cpp
 	ButtonGroup.cpp

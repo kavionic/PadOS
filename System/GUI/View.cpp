@@ -744,12 +744,19 @@ void View::OnFontChanged(Ptr<Font> newFont)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::RefreshLayout(int32_t maxIterations)
+bool View::RefreshLayout(int32_t maxIterations, bool recursive)
 {
     while (!m_IsLayoutValid && maxIterations-- > 0)
     {
         m_IsLayoutValid = true;
         OnLayoutChanged();
+
+        if (recursive)
+        {
+            for (Ptr<View> child : *this) {
+                child->RefreshLayout(maxIterations, true);
+            }
+        }
     }
     return m_IsLayoutValid;
 }

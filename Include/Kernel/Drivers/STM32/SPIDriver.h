@@ -75,7 +75,7 @@ private:
     IFLASHC bool    SetPinMode(const PinMuxTarget& pin, SPIPinMode mode);
 
     IFLASHC void    SetSwapMOSIMISO(bool doSwap);
-    IFLASHC bool    GetSwapMOSIMISO() const { return (m_Port->CFG2 & SPI_CFG2_IOSWP) != 0; }
+    IFLASHC bool    GetSwapMOSIMISO() const;
 
     IFLASHC ssize_t StartTransaction(const SPITransaction& transaction);
 

@@ -111,7 +111,7 @@ public:
     void            RemoveFromHeightRing();
         
     void            InvalidateLayout();
-    bool            RefreshLayout(int32_t maxIterations = 1);
+    bool            RefreshLayout(int32_t maxIterations = 1, bool recursive = false);
 
 //    virtual void Activated(bool isActive);
     //    virtual void WindowActivated( bool bIsActive );

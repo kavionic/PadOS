@@ -271,9 +271,9 @@ String String::format_time_period(const TimeValMicros& timeVal, bool includeUnit
 
     char secondStr[6] = { 0 };
     char minuteStr[4] = { 0 };
-    char hourStr[4] = { 0 };
-    char dayStr[5] = { 0 };
-    char yearStr[8] = { 0 }; // Max years in a TimeValMicros: 584942
+    char hourStr[4]   = { 0 };
+    char dayStr[5]    = { 0 };
+    char yearStr[16]  = { 0 }; // Max years in a TimeValMicros: 584942
 
     if (seconds < 60)
     {

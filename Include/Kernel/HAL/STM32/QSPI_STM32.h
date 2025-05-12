@@ -108,17 +108,17 @@ public:
     ) const;
     IFLASHC void SetDataLength(uint32_t length) const;
 
-    IFLASHC void Write8(uint8_t data) { *reinterpret_cast<__IO uint8_t*>(&QUADSPI->DR) = data; }
-    IFLASHC void Write16(uint16_t data) { *reinterpret_cast<__IO uint16_t*>(&QUADSPI->DR) = data; }
-    IFLASHC void Write32(uint32_t data) { QUADSPI->DR = data; }
+    IFLASHC void Write8(uint8_t data);
+    IFLASHC void Write16(uint16_t data);
+    IFLASHC void Write32(uint32_t data);
 
-    IFLASHC uint8_t     Read8() const  { return *reinterpret_cast<__IO uint8_t*>(&QUADSPI->DR); }
-    IFLASHC uint16_t    Read16() const { return *reinterpret_cast<__IO uint16_t*>(&QUADSPI->DR); }
-    IFLASHC uint32_t    Read32() const { return QUADSPI->DR; }
+    IFLASHC uint8_t     Read8() const;
+    IFLASHC uint16_t    Read16() const;
+    IFLASHC uint32_t    Read32() const;
 
     IFLASHC void WaitBusy() const;
-    IFLASHC void WaitFIFOThreshold() const { while ((QUADSPI->SR & (QUADSPI_SR_FTF | QUADSPI_SR_TCF)) == 0) {} }
-    IFLASHC void WaitTransferComplete() const { while ((QUADSPI->SR & QUADSPI_SR_TCF) == 0) {} }
+    IFLASHC void WaitFIFOThreshold() const;
+    IFLASHC void WaitTransferComplete() const;
 
 private:
     IFLASHC void SendIO3Reset(DigitalPinID pinIO3);

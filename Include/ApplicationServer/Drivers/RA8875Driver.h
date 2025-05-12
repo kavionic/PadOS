@@ -52,11 +52,11 @@ public:
 
     virtual int             GetScreenModeCount() override;
     virtual bool            GetScreenModeDesc(size_t index, ScreenMode& outMode) override;
-    virtual bool            SetScreenMode(const IPoint& resolution, ColorSpace colorSpace, float refreshRate) override;
+    virtual bool            SetScreenMode(const IPoint& resolution, EColorSpace colorSpace, float refreshRate) override;
 
     virtual IPoint          GetResolution() override;
     virtual int             GetBytesPerLine() override;
-    virtual ColorSpace      GetColorSpace() override;
+    virtual EColorSpace      GetColorSpace() override;
     virtual void            SetColor(size_t index, const Color& color) override;
 
     virtual void            WritePixel(SrvBitmap* bitmap, const IPoint& pos, Color color) override;

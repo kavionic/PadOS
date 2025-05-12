@@ -23,6 +23,7 @@
 
 #include <GUI/ViewFactory.h>
 #include <GUI/View.h>
+#include <GUI/Widgets/BitmapView.h>
 #include <GUI/Widgets/Button.h>
 #include <GUI/Widgets/ButtonGroup.h>
 #include <GUI/Widgets/Checkbox.h>
@@ -45,6 +46,7 @@
 using namespace os;
 using namespace pugi;
 
+VIEW_FACTORY_REGISTER_CLASS(BitmapView);
 VIEW_FACTORY_REGISTER_CLASS(Button);
 VIEW_FACTORY_REGISTER_CLASS(CheckBox);
 VIEW_FACTORY_REGISTER_CLASS(DropdownMenu);

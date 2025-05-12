@@ -304,7 +304,7 @@ void ServerApplication::SlotSetKeyboardFocus(handler_id clientHandle, bool focus
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int height, ColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags)
+void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int height, EColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags)
 {
     const Ptr<SrvBitmap> bitmap = ptr_new<SrvBitmap>(IPoint(width, height), colorSpace, static_cast<uint8_t*>(raster), bytesPerRow);
 

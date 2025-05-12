@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,46 +15,34 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
+// Created: 11.05.2025 16:00
 
-#include <GUI/Bitmap.h>
-#include <ApplicationServer/ServerBitmap.h>
-
-using namespace os;
+#include <Utils/FactoryAutoRegistrator.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SrvBitmap::SrvBitmap(const os::IPoint& size, os::EColorSpace colorSpace, uint8_t* raster, size_t bytesPerLine)
-    : m_ColorSpace(colorSpace)
-    , m_Size(size)
-    , m_BytesPerLine(bytesPerLine)
+FactoryAutoRegistratorBase* FactoryAutoRegistratorBase::s_FirstRegistrator = nullptr;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+FactoryAutoRegistratorBase::FactoryAutoRegistratorBase()
 {
-    if (m_BytesPerLine == 0)
-    {
-        int bitsPerPixel = BitsPerPixel(colorSpace);
-        m_BytesPerLine = (size.x * bitsPerPixel + 7) / 8;
-        m_BytesPerLine = (m_BytesPerLine + 3) & ~3; // Keep each line 32-bit aligned.
-    }
-    if (m_Size.x == 0 || raster != nullptr)
-    {
-        m_FreeRaster = false;
-        m_Raster     = raster;
-    }
-    else
-    {
-        m_FreeRaster = true;
-        m_Raster     = new uint8_t[m_Size.y * m_BytesPerLine];
-    }
+    m_NextRegistrator = s_FirstRegistrator; s_FirstRegistrator = this;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SrvBitmap::~SrvBitmap()
+void FactoryAutoRegistratorBase::InvokeAll()
 {
-    if (m_FreeRaster) {
-        delete[] m_Raster;
+    while (s_FirstRegistrator != nullptr)
+    {
+        s_FirstRegistrator->Invoke();
+        s_FirstRegistrator = s_FirstRegistrator->m_NextRegistrator;
     }
 }

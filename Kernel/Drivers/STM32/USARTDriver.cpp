@@ -471,6 +471,15 @@ void USARTDriverINode::SetSwapRXTX(bool doSwap)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool USARTDriverINode::GetSwapRXTX() const
+{
+    return (m_Port->CR2 & USART_CR2_SWAP) != 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool USARTDriverINode::RestartReceiveDMA(size_t maxLength)
 {
     const int32_t bytesReceived = m_PendingReceiveBytes - dma_get_transfer_count(m_ReceiveDMAChannel);

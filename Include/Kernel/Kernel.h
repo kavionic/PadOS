@@ -105,9 +105,9 @@ public:
     static IFLASHC uint32_t GetFrequencyPeripheral();
 
 #if defined(__SAME70Q21__)
-    static void ResetWatchdog() { WDT->WDT_CR = WDT_CR_KEY_PASSWD | WDT_CR_WDRSTT_Msk; }
+    static void ResetWatchdog();
 #elif defined(STM32H7) || defined(STM32G0)
-    static IFLASHC void ResetWatchdog() { /*IWDG1->KR = 0xaaaa;*/ }
+    static IFLASHC void ResetWatchdog();
 #endif
     static IFLASHC void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
     static IFLASHC void Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/);

@@ -28,6 +28,7 @@ add_library(PadOS_IO)
 add_library(PadOS_GUI)
 add_library(PadOS_ApplicationServer)
 add_library(PadOS_WindowManager)
+add_library(PadOS_DataTranslators)
 
 add_library(PadOS_Drivers_SDMMC EXCLUDE_FROM_ALL)
 add_library(PadOS_Drivers_SPI EXCLUDE_FROM_ALL)
@@ -44,8 +45,6 @@ add_library(PadOS_Drivers_TLV493 EXCLUDE_FROM_ALL)
 add_library(PadOS_Drivers_USART EXCLUDE_FROM_ALL)
 add_library(PadOS_Drivers_WS2812B EXCLUDE_FROM_ALL)
 
-
-
 target_sources(PadOS_Kernel PRIVATE
 	SDCard/System/WindowManagerLayout.xml
 	Init.cpp
@@ -58,9 +57,10 @@ target_sources(PadOS_Kernel PRIVATE
 
 add_subdirectory(Applications)
 add_subdirectory(ApplicationServer)
+add_subdirectory(DataTranslation)
+add_subdirectory(DataTranslators)
 add_subdirectory(Kernel)
 add_subdirectory(SerialConsole)
 add_subdirectory(System)
 add_subdirectory(Include)
 add_subdirectory(ExternalLibs)
-

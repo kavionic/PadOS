@@ -25,7 +25,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Bitmap::Bitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, Application* application)
+Bitmap::Bitmap(int width, int height, EColorSpace colorSpace, uint32_t flags, Application* application)
 {
     Initialize(width, height, colorSpace, nullptr, 0, flags, application);
 }
@@ -34,7 +34,7 @@ Bitmap::Bitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, App
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Bitmap::Bitmap(int width, int height, ColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags, Application* application)
+Bitmap::Bitmap(int width, int height, EColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags, Application* application)
 {
     Initialize(width, height, colorSpace, static_cast<uint8_t*>(raster), bytesPerRow, flags | CUSTOM_FRAMEBUFFER, application);
 }
@@ -43,7 +43,7 @@ Bitmap::Bitmap(int width, int height, ColorSpace colorSpace, void* raster, size_
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Bitmap::Bitmap(int width, int height, ColorSpace colorSpace, const void* raster, size_t bytesPerRow, uint32_t flags, Application* application)
+Bitmap::Bitmap(int width, int height, EColorSpace colorSpace, const void* raster, size_t bytesPerRow, uint32_t flags, Application* application)
 {
     Initialize(width, height, colorSpace, static_cast<uint8_t*>(const_cast<void*>(raster)), bytesPerRow, flags | CUSTOM_FRAMEBUFFER | READ_ONLY, application);
 }
@@ -52,7 +52,7 @@ Bitmap::Bitmap(int width, int height, ColorSpace colorSpace, const void* raster,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Bitmap::Initialize(int width, int height, ColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, Application* application)
+void Bitmap::Initialize(int width, int height, EColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, Application* application)
 {
     m_Bounds = IRect(0, 0, width, height);
 
@@ -93,7 +93,7 @@ Bitmap::~Bitmap()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ColorSpace Bitmap::GetColorSpace() const
+EColorSpace Bitmap::GetColorSpace() const
 {
     return m_ColorSpace;
 }

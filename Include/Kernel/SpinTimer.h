@@ -34,10 +34,7 @@ public:
 
     static IFLASHC void SleepuS(uint32_t delay);
 
-    static IFLASHC void SleepMS(uint32_t delay)
-    {
-        SleepuS(delay * 1000);
-    }
+    static IFLASHC void SleepMS(uint32_t delay);
 private:
     static uint32_t   s_TicksPerMicroSec;
 };

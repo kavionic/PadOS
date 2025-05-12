@@ -35,10 +35,6 @@
 
 using namespace os;
 
-#define RAS_OFFSET8( ptr, x, y, bpl )  (((uint8_t*)(ptr)) + (x) + (y) * (bpl))
-#define RAS_OFFSET16( ptr, x, y, bpl ) ((uint16_t*)(((uint8_t*)(ptr)) + (x*2) + (y) * (bpl)))
-#define RAS_OFFSET32( ptr, x, y, bpl ) ((uint32_t*)(((uint8_t*)(ptr)) + (x*4) + (y) * (bpl)))
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -250,13 +246,13 @@ void DisplayDriver::WritePixel(SrvBitmap* bitmap, const IPoint& pos, Color color
 {
     switch (bitmap->m_ColorSpace)
     {
-        case ColorSpace::RGB15:
+        case EColorSpace::RGB15:
             *reinterpret_cast<uint16_t*>(&bitmap->m_Raster[pos.x * 2 + pos.y * bitmap->m_BytesPerLine]) = color.GetColor15();
             break;
-        case ColorSpace::RGB16:
+        case EColorSpace::RGB16:
             *reinterpret_cast<uint16_t*>(&bitmap->m_Raster[pos.x * 2 + pos.y * bitmap->m_BytesPerLine]) = color.GetColor16();
             break;
-        case ColorSpace::RGB32:
+        case EColorSpace::RGB32:
             *reinterpret_cast<uint32_t*>(&bitmap->m_Raster[pos.x * 4 + pos.y * bitmap->m_BytesPerLine]) = color.GetColor32();
             break;
         default:
@@ -284,16 +280,16 @@ void DisplayDriver::FillRect(SrvBitmap* pcBitmap, const IRect& cRect, const Colo
         //      FillBlit8( pcBitmap->m_Raster + ((BltY * pcBitmap->m_BytesPerLine) + BltX),
         //       pcBitmap->m_BytesPerLine - BltW, BltW, BltH, nColor );
         //      break;
-        case ColorSpace::RGB15:
+        case EColorSpace::RGB15:
             FillBlit16((uint16_t*)&pcBitmap->m_Raster[BltY * pcBitmap->m_BytesPerLine + BltX * 2], pcBitmap->m_BytesPerLine / 2 - BltW, BltW, BltH, sColor.GetColor15());
             break;
-        case ColorSpace::RGB16:
+        case EColorSpace::RGB16:
             FillBlit16((uint16_t*)&pcBitmap->m_Raster[BltY * pcBitmap->m_BytesPerLine + BltX * 2], pcBitmap->m_BytesPerLine / 2 - BltW, BltW, BltH, sColor.GetColor16());
             break;
-        case ColorSpace::RGB24:
+        case EColorSpace::RGB24:
             FillBlit24( &pcBitmap->m_Raster[ BltY * pcBitmap->m_BytesPerLine + BltX * 3 ], pcBitmap->m_BytesPerLine - BltW * 3, BltW, BltH, sColor.GetColor32() );
             break;
-        case ColorSpace::RGB32:
+        case EColorSpace::RGB32:
             FillBlit32((uint32_t*)&pcBitmap->m_Raster[BltY * pcBitmap->m_BytesPerLine + BltX * 4], pcBitmap->m_BytesPerLine / 4 - BltW, BltW, BltH, sColor.GetColor32());
             break;
         default:
@@ -448,7 +444,7 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
 {
     switch (pcSrc->m_ColorSpace)
     {
-        case ColorSpace::CMAP8:
+        case EColorSpace::CMAP8:
         {
             uint8_t* pSrc = RAS_OFFSET8(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
 
@@ -456,8 +452,8 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
 
             switch (pcDst->m_ColorSpace)
             {
-                case ColorSpace::RGB15:
-                case ColorSpace::RGBA15:
+                case EColorSpace::RGB15:
+                case EColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -473,7 +469,7 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case ColorSpace::RGB16:
+                case EColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -489,8 +485,8 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case ColorSpace::RGB32:
-                case ColorSpace::RGBA32:
+                case EColorSpace::RGB32:
+                case EColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -510,15 +506,15 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case ColorSpace::RGB15:
-        case ColorSpace::RGBA15:
+        case EColorSpace::RGB15:
+        case EColorSpace::RGBA15:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
             switch (pcDst->m_ColorSpace)
             {
-                case ColorSpace::RGB16:
+                case EColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -533,8 +529,8 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case ColorSpace::RGB32:
-                case ColorSpace::RGBA32:
+                case EColorSpace::RGB32:
+                case EColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -554,15 +550,15 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case ColorSpace::RGB16:
+        case EColorSpace::RGB16:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
             switch (pcDst->m_ColorSpace)
             {
-                case ColorSpace::RGB15:
-                case ColorSpace::RGBA15:
+                case EColorSpace::RGB15:
+                case EColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -577,8 +573,8 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case ColorSpace::RGB32:
-                case ColorSpace::RGBA32:
+                case EColorSpace::RGB32:
+                case EColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -598,15 +594,15 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case ColorSpace::RGB32:
-        case ColorSpace::RGBA32:
+        case EColorSpace::RGB32:
+        case EColorSpace::RGBA32:
         {
             uint32_t* pSrc = RAS_OFFSET32(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 4;
 
             switch (pcDst->m_ColorSpace)
             {
-                case ColorSpace::RGB16:
+                case EColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -621,7 +617,7 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case ColorSpace::RGB15:
+                case EColorSpace::RGB15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -655,7 +651,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
 {
     switch (pcSrc->m_ColorSpace)
     {
-        case ColorSpace::CMAP8:
+        case EColorSpace::CMAP8:
         {
             uint8_t* pSrc = RAS_OFFSET8(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
 
@@ -663,8 +659,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
 
             switch (pcDst->m_ColorSpace)
             {
-                case ColorSpace::RGB15:
-                case ColorSpace::RGBA15:
+                case EColorSpace::RGB15:
+                case EColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -685,7 +681,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case ColorSpace::RGB16:
+                case EColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -705,8 +701,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case ColorSpace::RGB32:
-                case ColorSpace::RGBA32:
+                case EColorSpace::RGB32:
+                case EColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -732,15 +728,15 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case ColorSpace::RGB15:
-        case ColorSpace::RGBA15:
+        case EColorSpace::RGB15:
+        case EColorSpace::RGBA15:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
             switch (pcDst->m_ColorSpace)
             {
-                case ColorSpace::RGB16:
+                case EColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -755,8 +751,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case ColorSpace::RGB32:
-                case ColorSpace::RGBA32:
+                case EColorSpace::RGB32:
+                case EColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -777,15 +773,15 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case ColorSpace::RGB16:
+        case EColorSpace::RGB16:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
             switch (pcDst->m_ColorSpace)
             {
-                case ColorSpace::RGB15:
-                case ColorSpace::RGBA15:
+                case EColorSpace::RGB15:
+                case EColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -800,8 +796,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case ColorSpace::RGB32:
-                case ColorSpace::RGBA32:
+                case EColorSpace::RGB32:
+                case EColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -821,15 +817,15 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case ColorSpace::RGB32:
-        case ColorSpace::RGBA32:
+        case EColorSpace::RGB32:
+        case EColorSpace::RGBA32:
         {
             uint32_t* pSrc = RAS_OFFSET32(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 4;
 
             switch (pcDst->m_ColorSpace)
             {
-                case ColorSpace::RGB16:
+                case EColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -849,7 +845,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case ColorSpace::RGB15:
+                case EColorSpace::RGB15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -869,7 +865,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case ColorSpace::RGB32:
+                case EColorSpace::RGB32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -911,7 +907,7 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
 
     switch (pcDst->m_ColorSpace)
     {
-        case ColorSpace::RGB16:
+        case EColorSpace::RGB16:
         {
             uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
             int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -939,7 +935,7 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
             }
             break;
         }
-        case ColorSpace::RGB15:
+        case EColorSpace::RGB15:
         {
             uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
             int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -967,7 +963,7 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
             }
             break;
         }
-        case ColorSpace::RGB32:
+        case EColorSpace::RGB32:
         {
             uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
             int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -1029,7 +1025,7 @@ void DisplayDriver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color b
             blit_convert_over(dstBitmap, srcBitmap, srcRect, dstPos);
             break;
         case DrawingMode::Blend:
-            if (srcBitmap->m_ColorSpace == ColorSpace::RGB32) {
+            if (srcBitmap->m_ColorSpace == EColorSpace::RGB32) {
                 blit_convert_alpha(dstBitmap, srcBitmap, srcRect, dstPos);
             } else {
                 blit_convert_over(dstBitmap, srcBitmap, srcRect, dstPos);

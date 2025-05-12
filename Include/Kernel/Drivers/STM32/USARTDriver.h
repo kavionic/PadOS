@@ -56,7 +56,7 @@ private:
     IFLASHC bool SetPinMode(const PinMuxTarget& pin, USARTPinMode mode);
 
     IFLASHC void SetSwapRXTX(bool doSwap);
-    IFLASHC bool GetSwapRXTX() const { return (m_Port->CR2 & USART_CR2_SWAP) != 0; }
+    IFLASHC bool GetSwapRXTX() const;
 
     IFLASHC bool    RestartReceiveDMA(size_t maxLength);
     IFLASHC ssize_t ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length);

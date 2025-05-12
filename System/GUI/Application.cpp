@@ -305,7 +305,7 @@ Ptr<View> Application::GetKeyboardFocus() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Application::CreateBitmap(int width, int height, ColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow)
+bool Application::CreateBitmap(int width, int height, EColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 

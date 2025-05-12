@@ -48,3 +48,8 @@ IFLASHC void SpinTimer::SleepuS(uint32_t delay)
         prev = current;
     }
 }
+
+IFLASHC void SpinTimer::SleepMS(uint32_t delay)
+{
+    SleepuS(delay * 1000);
+}

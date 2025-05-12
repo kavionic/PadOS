@@ -96,7 +96,7 @@ void DropdownMenu::Initialize()
 
     if (g_ArrowBitmap == nullptr)
     {
-        g_ArrowBitmap = ptr_new<Bitmap>(ARROW_WIDTH, ARROW_HEIGHT, ColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
+        g_ArrowBitmap = ptr_new<Bitmap>(ARROW_WIDTH, ARROW_HEIGHT, EColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
     }
 }
 

@@ -34,7 +34,7 @@ RA8875Driver::RA8875Driver(LCDRegisters* registers, DigitalPinID pinLCDReset, Di
     , m_PinTouchpadReset(pinTouchpadReset)
     , m_PinBacklightControl(pinBacklightControl)
 {
-    m_ScreenBitmap = ptr_new<SrvBitmap>(IPoint(0, 0), ColorSpace::RGB16);
+    m_ScreenBitmap = ptr_new<SrvBitmap>(IPoint(0, 0), EColorSpace::RGB16);
     m_ScreenBitmap->m_VideoMem = true;
     m_ScreenBitmap->m_Driver = this;
 }
@@ -145,7 +145,7 @@ bool RA8875Driver::GetScreenModeDesc(size_t index, ScreenMode& outMode)
 {
     if (index == 0)
     {
-        outMode = ScreenMode(IPoint(800, 480), 800 * 2, ColorSpace::RGB16);
+        outMode = ScreenMode(IPoint(800, 480), 800 * 2, EColorSpace::RGB16);
         return true;
     }
     return false;
@@ -155,7 +155,7 @@ bool RA8875Driver::GetScreenModeDesc(size_t index, ScreenMode& outMode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool RA8875Driver::SetScreenMode(const IPoint& resolution, ColorSpace colorSpace, float refreshRate)
+bool RA8875Driver::SetScreenMode(const IPoint& resolution, EColorSpace colorSpace, float refreshRate)
 {
     return true;
 }
@@ -182,9 +182,9 @@ int RA8875Driver::GetBytesPerLine()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ColorSpace RA8875Driver::GetColorSpace()
+EColorSpace RA8875Driver::GetColorSpace()
 {
-    return ColorSpace::RGB16;
+    return EColorSpace::RGB16;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -352,7 +352,7 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
         }
         if (colorKeyed)
         {
-            if (srcBitmap->m_ColorSpace != ColorSpace::MONO1) {
+            if (srcBitmap->m_ColorSpace != EColorSpace::MONO1) {
                 SetFgColor(TransparentColors::RGB16);
             } else {
                 SetFgColor(uint16_t(~fgColor.GetColor16()));
@@ -362,12 +362,12 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
 
         switch (srcBitmap->m_ColorSpace)
         {
-            case ColorSpace::MONO1:
+            case EColorSpace::MONO1:
             {
                 const uint32_t* src = reinterpret_cast<const uint32_t*>(srcBitmap->m_Raster + srcRect.top * srcBitmap->m_BytesPerLine);
 
-                uint16_t bgColor16 = (colorKeyed) ? uint16_t(~fgColor.GetColor16()) : bgColor.GetColor16();
-                uint16_t fgColor16 = fgColor.GetColor16();
+                const uint16_t bgColor16 = (colorKeyed) ? uint16_t(~fgColor.GetColor16()) : bgColor.GetColor16();
+                const uint16_t fgColor16 = fgColor.GetColor16();
 
                 BeginWriteData();
                 for (int y = srcRect.top; y < srcRect.bottom; ++y)
@@ -385,7 +385,7 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
                 }
                 break;
             }
-            case ColorSpace::CMAP8:
+            case EColorSpace::CMAP8:
             {
                 const uint8_t* src = srcBitmap->m_Raster + srcRect.top * srcBitmap->m_BytesPerLine;
 
@@ -398,6 +398,28 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
                         WriteData(GetPaletteEntry(src[x]).GetColor16());
                     }
                     src += srcBitmap->m_BytesPerLine;
+                }
+                break;
+            }
+            case EColorSpace::RGB32:
+            case EColorSpace::RGBA32:
+            {
+                const int srcModulo = (srcBitmap->m_BytesPerLine - srcRect.Width() * 4) / 4;
+                const uint32_t* src = RAS_OFFSET32(srcBitmap->m_Raster, srcRect.left, srcRect.top, srcBitmap->m_BytesPerLine);
+                const uint16_t bgColor16 = bgColor.GetColor16();
+
+                BeginWriteData();
+                for (int y = srcRect.top; y < srcRect.bottom; ++y)
+                {
+                    for (int x = srcRect.left; x < srcRect.right; ++x)
+                    {
+                        const Color pixel32 = Color::FromRGB32A(*src++);
+//                        const uint16_t pixel16 = (pixel32.GetAlpha() != 0) ? pixel32.GetColor16() : TransparentColors::RGB16;
+                        const uint16_t pixel16 = (pixel32.GetAlpha() != 0) ? pixel32.GetColor16() : bgColor16;
+                        WaitMemory();
+                        WriteData(pixel16);
+                    }
+                    src += srcModulo;
                 }
                 break;
             }

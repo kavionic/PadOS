@@ -32,6 +32,10 @@ class   Glyph;
 class   MousePtr;
 class   SrvSprite;
 
+#define RAS_OFFSET8( ptr, x, y, bpl )  (((uint8_t*)(ptr)) + (x) + (y) * (bpl))
+#define RAS_OFFSET16( ptr, x, y, bpl ) ((uint16_t*)(((uint8_t*)(ptr)) + (x*2) + (y) * (bpl)))
+#define RAS_OFFSET32( ptr, x, y, bpl ) ((uint32_t*)(((uint8_t*)(ptr)) + (x*4) + (y) * (bpl)))
+
 namespace os
 {
 class Color;
@@ -41,10 +45,10 @@ class SrvBitmap;
 struct ScreenMode
 {
     ScreenMode() {}
-    ScreenMode(const IPoint& resolution, int bytesPerLine, ColorSpace colorSpace) : m_Resolution(resolution), m_BytesPerLine(bytesPerLine), m_ColorSpace(colorSpace) {}
+    ScreenMode(const IPoint& resolution, int bytesPerLine, EColorSpace colorSpace) : m_Resolution(resolution), m_BytesPerLine(bytesPerLine), m_ColorSpace(colorSpace) {}
     IPoint      m_Resolution;
     int         m_BytesPerLine = 0;
-    ColorSpace m_ColorSpace = ColorSpace::NO_COLOR_SPACE;
+    EColorSpace m_ColorSpace = EColorSpace::NO_COLOR_SPACE;
 };
 
 
@@ -63,12 +67,12 @@ public:
 
     virtual int             GetScreenModeCount() = 0;
     virtual bool            GetScreenModeDesc(size_t index, ScreenMode& outMode) = 0;
-    virtual bool            SetScreenMode(const IPoint& resolution, ColorSpace colorSpace, float refreshRate) = 0;
+    virtual bool            SetScreenMode(const IPoint& resolution, EColorSpace colorSpace, float refreshRate) = 0;
 
     virtual IPoint          GetResolution() = 0;
     virtual int             GetBytesPerLine() = 0;
     virtual int             GetFramebufferOffset();
-    virtual ColorSpace     GetColorSpace() = 0;
+    virtual EColorSpace     GetColorSpace() = 0;
     virtual void            SetColor(size_t index, const Color& color) = 0;
 
     //    virtual void  SetCursorBitmap(mouse_ptr_mode eMode, const IPoint& cHotSpot, const void* pRaster, int nWidth, int nHeight );

@@ -147,7 +147,7 @@ KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags)
     const FontHeight fontHeight = m_Style->LargeFont->GetHeight();
     m_KeyHeight = fontHeight.descender - fontHeight.ascender + 11.0f;
 
-    m_KeysBitmap = ptr_new<Bitmap>(KEYS_BITMAP_SIZE.x, KEYS_BITMAP_SIZE.y, ColorSpace::MONO1, Bitmap::SHARE_FRAMEBUFFER);
+    m_KeysBitmap = ptr_new<Bitmap>(KEYS_BITMAP_SIZE.x, KEYS_BITMAP_SIZE.y, EColorSpace::MONO1, Bitmap::SHARE_FRAMEBUFFER);
 
     uint8_t* raster = m_KeysBitmap->LockRaster();
     if (raster != nullptr)

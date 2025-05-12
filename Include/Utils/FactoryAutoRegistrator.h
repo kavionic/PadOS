@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,31 +15,35 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
+// Created: 11.05.2025 16:00
 
 #pragma once
 
-#include <GUI/GUIDefines.h>
-#include <Ptr/PtrTarget.h>
+#include <functional>
 
-namespace os
-{
-
-class DisplayDriver;
-
-class SrvBitmap : public PtrTarget
+class FactoryAutoRegistratorBase
 {
 public:
-    SrvBitmap(const os::IPoint& size, os::EColorSpace colorSpace, uint8_t* raster = nullptr, size_t bytesPerLine = 0);
+    FactoryAutoRegistratorBase();
 
-    EColorSpace     m_ColorSpace    = EColorSpace::NO_COLOR_SPACE;
-    IPoint          m_Size;
-    size_t          m_BytesPerLine  = 0;
-    uint8_t*        m_Raster        = nullptr;  // Frame buffer address.
-    DisplayDriver*  m_Driver        = nullptr;
-    bool            m_FreeRaster    = false;    // true if the raster memory is allocated by the constructor
-    bool            m_VideoMem      = false;
-protected:
-    ~SrvBitmap();
+    static void InvokeAll();
+
+    virtual void Invoke() = 0;
+private:
+    static FactoryAutoRegistratorBase* s_FirstRegistrator;
+
+    FactoryAutoRegistratorBase* m_NextRegistrator = nullptr;
 };
 
-} // namespace os
+template<typename T>
+class FactoryAutoRegistrator : public FactoryAutoRegistratorBase
+{
+public:
+    template<typename TCallback>
+    FactoryAutoRegistrator(TCallback&& callback) : m_Callback(std::move(callback)) {}
+
+    virtual void Invoke() override { if (m_Callback) m_Callback(); m_Callback = {}; }
+
+private:
+    std::function<void()> m_Callback;
+};

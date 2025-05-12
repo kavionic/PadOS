@@ -891,7 +891,7 @@ void Menu::InvalidateItem(MenuItem* item)
 Ptr<Bitmap> Menu::GetArrowRightBitmap()
 {
     if (m_ArrowRightBitmap == nullptr) {
-        m_ArrowRightBitmap = ptr_new<Bitmap>(LEFT_ARROW_WIDTH, LEFT_ARROW_HEIGHT, ColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
+        m_ArrowRightBitmap = ptr_new<Bitmap>(LEFT_ARROW_WIDTH, LEFT_ARROW_HEIGHT, EColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
     }
     return m_ArrowRightBitmap;
 }

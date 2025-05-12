@@ -22,6 +22,7 @@
 #include <pugixml/src/pugixml.hpp>
 
 #include <Utils/XMLFactory.h>
+#include <Utils/FactoryAutoRegistrator.h>
 #include <GUI/ViewFactoryContext.h>
 #include <Storage/File.h>
 
@@ -79,6 +80,11 @@ private:
     bool Parse(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode);
 };
 
-#define VIEW_FACTORY_REGISTER_CLASS(CLASS) struct FactoryRegistrationHelper##CLASS { FactoryRegistrationHelper##CLASS() { ViewFactory::Get().RegisterClass(#CLASS, [](ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) { return ptr_new<CLASS>(context, parent, xmlData); }); } } g_FactoryRegistrationHelper##CLASS
+#define VIEW_FACTORY_REGISTER_CLASS(CLASS) FactoryAutoRegistrator<CLASS> \
+    g_ViewFactoryRegistrationHelper___##CLASS([] { \
+            ViewFactory::Get().RegisterClass(#CLASS, [](ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) { \
+                    return ptr_new<CLASS>(context, parent, xmlData); \
+                }); \
+        });
 
 } // namespace

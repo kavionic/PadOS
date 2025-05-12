@@ -59,15 +59,15 @@ class Bitmap : public PtrTarget
 {
 public:
     enum { ACCEPT_VIEWS = 0x0001, SHARE_FRAMEBUFFER = 0x0002, CUSTOM_FRAMEBUFFER = 0x0004, READ_ONLY = 0x0008 };
-    Bitmap(int width, int height, ColorSpace colorSpace, uint32_t flags = SHARE_FRAMEBUFFER, Application* application = nullptr);
-    Bitmap(int width, int height, ColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags = 0, Application* application = nullptr);
-    Bitmap(int width, int height, ColorSpace colorSpace, const void* raster, size_t bytesPerRow, uint32_t flags = 0, Application* application = nullptr);
+    Bitmap(int width, int height, EColorSpace colorSpace, uint32_t flags = SHARE_FRAMEBUFFER, Application* application = nullptr);
+    Bitmap(int width, int height, EColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags = 0, Application* application = nullptr);
+    Bitmap(int width, int height, EColorSpace colorSpace, const void* raster, size_t bytesPerRow, uint32_t flags = 0, Application* application = nullptr);
 
     virtual ~Bitmap();
 
     bool            IsValid() const;
 
-    ColorSpace      GetColorSpace() const;
+    EColorSpace     GetColorSpace() const;
     IRect           GetBounds() const;
     int             GetBytesPerRow() const;
     virtual void    AddChild(View* view);
@@ -81,7 +81,7 @@ public:
     void            UnlockRaster() {}
 
 private:
-    void Initialize(int width, int height, ColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, Application* application);
+    void Initialize(int width, int height, EColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, Application* application);
 
     friend class View;
     friend class Window;
@@ -90,7 +90,7 @@ private:
     Application*    m_Application   = nullptr;
     Window*         m_Window        = nullptr;
     handle_id       m_Handle        = INVALID_HANDLE;
-    ColorSpace      m_ColorSpace    = ColorSpace::NO_COLOR_SPACE;
+    EColorSpace     m_ColorSpace    = EColorSpace::NO_COLOR_SPACE;
     size_t          m_BytesPerRow   = 0;
     IRect           m_Bounds;
     uint8_t*        m_Raster        = nullptr;
@@ -98,23 +98,23 @@ private:
 
 
 
-inline int BitsPerPixel(ColorSpace colorSpace)
+inline int BitsPerPixel(EColorSpace colorSpace)
 {
     switch(colorSpace)
     {
-    case ColorSpace::RGB32:
-    case ColorSpace::RGBA32:
+    case EColorSpace::RGB32:
+    case EColorSpace::RGBA32:
         return 32;
-    case ColorSpace::RGB24:
+    case EColorSpace::RGB24:
         return 24;
-    case ColorSpace::RGB16:
-    case ColorSpace::RGB15:
-    case ColorSpace::RGBA15:
+    case EColorSpace::RGB16:
+    case EColorSpace::RGB15:
+    case EColorSpace::RGBA15:
         return 16;
-    case ColorSpace::CMAP8:
-    case ColorSpace::GRAY8:
+    case EColorSpace::CMAP8:
+    case EColorSpace::GRAY8:
         return 8;
-    case ColorSpace::MONO1:
+    case EColorSpace::MONO1:
         return 1;
     default:
         printf( "BitsPerPixel() invalid color space %d\n", int(colorSpace));

@@ -68,7 +68,7 @@ public:
     static IFLASHC Ptr<kernel::KFileNode>       GetFile(int handle, Ptr<kernel::KINode>& outInode);
     static IFLASHC Ptr<kernel::KDirectoryNode>  GetDirectory(int handle);
 
-    static IFLASHC int     Open(const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) { return Open(-1, path, openFlags, permissions); }
+    static IFLASHC int     Open(const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
     static IFLASHC int     Open(int baseFolderFD, const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
     static IFLASHC int     CopyFD(int oldHandle);
     static IFLASHC int     Dupe(int oldHandle, int newHandle = -1);
@@ -96,19 +96,19 @@ public:
     static IFLASHC int     ReadDirectory(int handle, kernel::dir_entry* entry, size_t bufSize);
     static IFLASHC int     RewindDirectory(int handle);
 
-    static IFLASHC int     CreateDirectory(const char* name, int permission = S_IRWXU) { return CreateDirectory(-1, name, permission); }
+    static IFLASHC int     CreateDirectory(const char* name, int permission = S_IRWXU);
     static IFLASHC int     CreateDirectory(int baseFolderFD, const char* name, int permission = S_IRWXU);
 
-    static IFLASHC int     Symlink(const char* target, const char* linkPath) { return Symlink(-1, target, linkPath); }
+    static IFLASHC int     Symlink(const char* target, const char* linkPath);
     static IFLASHC int     Symlink(int baseFolderFD, const char* target, const char* linkPath);
 
     static IFLASHC int	   ReadStats(int handle, struct stat* outStats);
     static IFLASHC int	   WriteStats(int handle, const struct stat& value, uint32_t mask);
 
     static IFLASHC int     Rename(const char* oldPath, const char* newPath);
-    static IFLASHC int     Unlink(const char* path) { return Unlink(-1, path); }
+    static IFLASHC int     Unlink(const char* path);
     static IFLASHC int     Unlink(int baseFolderFD, const char* path);
-    static IFLASHC int     RemoveDirectory(const char* path) { return RemoveDirectory(-1, path); }
+    static IFLASHC int     RemoveDirectory(const char* path);
     static IFLASHC int     RemoveDirectory(int baseFolderFD, const char* path);
 
     static IFLASHC int     GetDirectoryPath(int handle, char* buffer, size_t bufferSize);

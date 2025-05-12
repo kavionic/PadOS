@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
+// Created: 01.05.2025 17:30
 
 #include <algorithm>
 #include <GUI/Widgets/MVCListView.h>
@@ -211,7 +212,7 @@ float MVCListView::GetItemHeight(Ptr<const PtrTarget> item, uint32_t widgetClass
 
         if (!VFUpdateItemWidget.Empty()) VFUpdateItemWidget(itemWidget, item, false);
 
-        itemWidget->RefreshLayout(3);
+        itemWidget->RefreshLayout(3, true);
 
         const float height = itemWidget->GetPreferredSize(PrefSizeType::Smallest).y;
         CacheItemWidget(itemWidget, widgetClassID);

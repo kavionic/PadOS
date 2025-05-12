@@ -132,6 +132,18 @@ uint32_t Kernel::GetFrequencyPeripheral()
     return s_FrequencyPeripheral;
 }
 
+#if defined(__SAME70Q21__)
+void Kernel::ResetWatchdog()
+{
+    WDT->WDT_CR = WDT_CR_KEY_PASSWD | WDT_CR_WDRSTT_Msk;
+}
+#elif defined(STM32H7) || defined(STM32G0)
+void Kernel::ResetWatchdog()
+{
+    /*IWDG1->KR = 0xaaaa;*/
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////

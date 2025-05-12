@@ -122,7 +122,7 @@ public:
     IFLASHC bool Setup(USBDriver* driver);
     IFLASHC void Shutdown();
 
-    IFLASHC USBHostControl& GetControlHandler() { return m_ControlHandler; }
+    IFLASHC USBHostControl& GetControlHandler();
     IFLASHC USBDeviceNode*  CreateDeviceNode();
     IFLASHC USBDeviceNode*  GetDevice(uint8_t deviceAddr);
 

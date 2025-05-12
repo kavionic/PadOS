@@ -190,7 +190,7 @@ using ASCreateBitmap = RemoteSignal<AppserverProtocol::CREATE_BITMAP
     , port_id       // replyPort
     , int           // width
     , int           // height
-    , ColorSpace    // colorSpace
+    , EColorSpace   // colorSpace
     , void*         // raster
     , size_t        // bytesPerRow
     , uint32_t      // flags

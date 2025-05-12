@@ -270,7 +270,7 @@ enum
     QUAL_REPEAT = 0x40                      //!< Set if the key-down event was caused by key repeating.
 };
 
-enum class ColorSpace : uint32_t
+enum class EColorSpace : uint32_t
 {
     NO_COLOR_SPACE,
 

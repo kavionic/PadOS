@@ -55,10 +55,10 @@ private:
     IFLASHC bool WaitForIdle();
 
     IFLASHC bool SetLEDCount(size_t count);
-    IFLASHC size_t GetLEDCount() const { return m_LEDCount; }
+    IFLASHC size_t GetLEDCount() const;
 
-    IFLASHC void SetExponential(bool exponential) { m_Exponential = exponential; }
-    IFLASHC bool GetExponential() const { return m_Exponential; }
+    IFLASHC void SetExponential(bool exponential);
+    IFLASHC bool GetExponential() const;
 
     KMutex              m_Mutex;
     KConditionVariable  m_TransmitCondition;

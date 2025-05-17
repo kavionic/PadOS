@@ -1,4 +1,5 @@
 target_sources(PadOS_System PRIVATE
+	Base64Codec.h
 	CircularBuffer.h
 	combsort.h
 	EasingCurve.h

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -148,7 +148,8 @@ enum class Alignment : uint8_t
     Right,
     Top,
     Bottom,
-    Center
+    Center,
+    Stretch
 };
 
 enum class Orientation : uint8_t

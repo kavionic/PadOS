@@ -19,7 +19,7 @@
 
 #include <GUI/Widgets/BitmapView.h>
 #include <GUI/Bitmap.h>
-#include <Storage/File.h>
+#include <Storage/StreamableIO.h>
 #include <DataTranslation/DataTranslator.h>
 
 namespace os
@@ -78,7 +78,7 @@ void BitmapView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool inc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool BitmapView::LoadBitmap(File& file)
+bool BitmapView::LoadBitmap(StreamableIO& file)
 {
     m_Bitmap = nullptr;
 
@@ -136,12 +136,31 @@ bool BitmapView::LoadBitmap(File& file)
             else
             {
                 translator = nullptr;
-                PreferredSizeChanged();
                 Invalidate();
                 return true;
             }
         }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void BitmapView::SetBitmap(Ptr<Bitmap> bitmap)
+{
+    m_Bitmap = bitmap;
+    PreferredSizeChanged();
+    Invalidate();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<Bitmap> BitmapView::GetBitmap() const
+{
+    return m_Bitmap;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -160,6 +179,10 @@ bool BitmapView::SlotImageDataReady(const void* data, size_t length, bool isFina
 
         m_Bitmap = ptr_new<Bitmap>(bmHeader.Bounds.Width(), bmHeader.Bounds.Height(), bmHeader.ColorSpace);
         memset(m_Bitmap->LockRaster(), -1, m_Bitmap->GetBytesPerRow() * m_Bitmap->GetBounds().Height());
+
+        PreferredSizeChanged();
+
+        m_CurrentFrameByteSize = -1;
     }
     else if (m_CurrentFrameByteSize < 0)
     {

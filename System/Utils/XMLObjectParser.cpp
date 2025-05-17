@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -134,12 +134,16 @@ bool parse(const char* text, Alignment& value)
 		} else if (strcmp(text, "center") == 0) {
 			value = Alignment::Center;
 			return true;
-		} else {
+        } else if (strcmp(text, "stretch") == 0) {
+            value = Alignment::Stretch;
+            return true;
+        } else {
 			printf("ERROR: View - invalid layout mode '%s'\n", text);
 			value = Alignment::Left;
 			return false;
 		}
-	} else
+	}
+    else
 	{
 		value = Alignment::Left;
 		return true;

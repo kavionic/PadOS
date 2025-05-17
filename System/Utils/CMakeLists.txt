@@ -1,4 +1,5 @@
 target_sources(PadOS_System PRIVATE
+	Base64Codec.cpp
 	FactoryAutoRegistrator.cpp
 	HashCalculator.cpp
 	InertialScroller.cpp

@@ -25,7 +25,7 @@
 namespace os
 {
 
-class File;
+class StreamableIO;
 class Bitmap;
 
 class BitmapView : public View
@@ -37,8 +37,10 @@ public:
     virtual void OnPaint(const Rect& updateRect) override;
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
 
-    bool LoadBitmap(File& file);
+    bool LoadBitmap(StreamableIO& file);
 
+    void SetBitmap(Ptr<Bitmap> bitmap);
+    Ptr<Bitmap> GetBitmap() const;
 private:
     bool SlotImageDataReady(const void* data, size_t length, bool isFinal);
 

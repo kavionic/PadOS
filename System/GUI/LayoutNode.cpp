@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -58,11 +58,58 @@ void LayoutNode::Layout()
     {
         Rect frame   = m_View->GetNormalizedBounds();
     
-        for (Ptr<View> child : *m_View) {
+        for (Ptr<View> child : *m_View)
+        {
             Rect borders = child->GetBorders();
             Rect childFrame = frame;
             childFrame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
-            child->SetFrame(childFrame);
+            if (child->GetHAlignment() == Alignment::Stretch && child->GetVAlignment() == Alignment::Stretch)
+            {
+                child->SetFrame(childFrame);
+            }
+            else
+            {
+                const Point maxPrefferredSize = child->GetPreferredSize(PrefSizeType::Greatest);
+                Point offset(0.0f, 0.0f);
+
+                const Point preferredSize = std::min(childFrame.Size(), maxPrefferredSize);
+
+                switch(child->GetHAlignment())
+                {
+                    case Alignment::Left:
+                        offset.x = 0.0f;
+                        childFrame.right = childFrame.left + preferredSize.x;
+                        break;
+                    case Alignment::Center:
+                        offset.x = roundf((childFrame.Width() - preferredSize.x) * 0.5f);
+                        childFrame.right = childFrame.left + preferredSize.x;
+                        break;
+                    case Alignment::Right:
+                        offset.x = childFrame.Width() - preferredSize.x;
+                        childFrame.right = childFrame.left + preferredSize.x;
+                        break;
+                    default:
+                        break;
+                }
+                switch (child->GetVAlignment())
+                {
+                    case Alignment::Top:
+                        offset.y = 0.0f;
+                        childFrame.bottom = childFrame.top + preferredSize.y;
+                        break;
+                    case Alignment::Center:
+                        offset.y = roundf((childFrame.Height() - preferredSize.y) * 0.5f);
+                        childFrame.bottom = childFrame.top + preferredSize.y;
+                        break;
+                    case Alignment::Right:
+                        offset.y = childFrame.Height() - preferredSize.y;
+                        childFrame.bottom = childFrame.top + preferredSize.y;
+                        break;
+                    default:
+                        break;
+                }
+                child->SetFrame(childFrame + offset);
+            }
         }            
     }
     
@@ -328,7 +375,7 @@ void HLayoutNode::Layout()
         for (size_t i = 0 ; i < childList.size() ; ++i)
         {
             Rect frame(0.0f, 0.0f, finalHeights[i], bounds.bottom);
-            if (frame.Height() > maxHeights[i]) {
+            if (childList[i]->GetVAlignment() != Alignment::Stretch && frame.Height() > maxHeights[i]) {
                 frame.bottom = maxHeights[i];
             }
             float y = 0.0f;
@@ -339,6 +386,7 @@ void HLayoutNode::Layout()
                 default:           printf( "Error: HLayoutNode::Layout() node '%s' has invalid v-alignment %d\n", m_View->GetName().c_str(), int(childList[i]->GetVAlignment()) );
                 [[fallthrough]];
                 case Alignment::Center: y = bounds.top + (bounds.Height() - frame.Height()) * 0.5f; break;
+                case Alignment::Stretch: x = 0.0f; break;
             }
             
             frame += Point(x, y);
@@ -456,8 +504,8 @@ void VLayoutNode::Layout()
         float y = bounds.top + vUnusedHeight * 0.5f;
         for (size_t i = 0 ; i < childList.size() ; ++i)
         {
-            Rect frame( 0.0f, 0.0f, bounds.right, finalHeights[i]);
-            if (frame.Width() > maxWidths[i]) {
+            Rect frame(0.0f, 0.0f, bounds.right, finalHeights[i]);
+            if (childList[i]->GetHAlignment() != Alignment::Stretch && frame.Width() > maxWidths[i]) {
                 frame.right = maxWidths[i];
             }
             float x;
@@ -468,6 +516,7 @@ void VLayoutNode::Layout()
                 default:           printf( "Error: VLayoutNode::Layout() node '%s' has invalid h-alignment %d\n", m_View->GetName().c_str(), int(childList[i]->GetHAlignment()) );
                 [[fallthrough]];
                 case Alignment::Center: x = bounds.left + (bounds.Width() - frame.Width()) * 0.5f; break;
+                case Alignment::Stretch: x = 0.0f; break;
             }
             frame += Point(x, y);
             

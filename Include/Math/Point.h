@@ -44,39 +44,39 @@ public:
     constexpr explicit Point(float value) noexcept : x(value), y(value) {}
     constexpr Point(float X, float Y) noexcept : x(X), y(Y) {}
 
-    float LengthSqr() const { return x * x + y * y; }
-    float Length() const { return sqrtf(LengthSqr()); }
+    constexpr float LengthSqr() const { return x * x + y * y; }
+    constexpr float Length() const { return sqrtf(LengthSqr()); }
 
-    Point GetNormalized() const { return *this * (1.0f / Length()); }
+    constexpr Point GetNormalized() const { return *this * (1.0f / Length()); }
     Point& Normalize() { return *this *= (1.0f / Length()); }
 
-    Point   GetRounded() const { return Point(roundf(x), roundf(y)); }
+    constexpr Point   GetRounded() const { return Point(roundf(x), roundf(y)); }
     Point&  Round()            { x = roundf(x); y = roundf(y); return *this; }
 
     Point& operator=(const Point& rhs) = default;
 
-    Point        operator-(void) const { return(Point(-x, -y)); }
-    Point        operator+(const Point& rhs) const { return(Point(x + rhs.x, y + rhs.y)); }
-    Point        operator-(const Point& rhs) const { return(Point(x - rhs.x, y - rhs.y)); }
-    Point&       operator+=(const Point& rhs) { x += rhs.x; y += rhs.y; return *this; }
-    Point&       operator-=(const Point& rhs) { x -= rhs.x; y -= rhs.y; return *this; }
+    constexpr Point operator-(void) const { return Point(-x, -y); }
+    constexpr Point operator+(const Point& rhs) const { return Point(x + rhs.x, y + rhs.y); }
+    constexpr Point operator-(const Point& rhs) const { return Point(x - rhs.x, y - rhs.y); }
+    Point&          operator+=(const Point& rhs) { x += rhs.x; y += rhs.y; return *this; }
+    Point&          operator-=(const Point& rhs) { x -= rhs.x; y -= rhs.y; return *this; }
 
-    Point        operator*(const Point& rhs) const  { return Point(x * rhs.x, y * rhs.y);   }
-    Point        operator*(float rhs) const         { return Point(x * rhs, y * rhs);       }
+    constexpr Point operator*(const Point& rhs) const  { return Point(x * rhs.x, y * rhs.y);   }
+    constexpr Point operator*(float rhs) const         { return Point(x * rhs, y * rhs);       }
     
-    Point        operator/(const Point& rhs) const  { return Point(x / rhs.x, y / rhs.y);   }
-    Point        operator/(float rhs) const         { return Point(x / rhs, y / rhs);       }
+    constexpr Point operator/(const Point& rhs) const  { return Point(x / rhs.x, y / rhs.y);   }
+    constexpr Point operator/(float rhs) const         { return Point(x / rhs, y / rhs);       }
 
-    Point&       operator*=(const Point& rhs) { x *= rhs.x; y *= rhs.y; return *this; }
-    Point&       operator*=(float rhs)        { x *= rhs; y *= rhs; return *this; }
+    Point&          operator*=(const Point& rhs) { x *= rhs.x; y *= rhs.y; return *this; }
+    Point&          operator*=(float rhs)        { x *= rhs; y *= rhs; return *this; }
 
-    Point&       operator/=(const Point& rhs) { x /= rhs.x; y /= rhs.y; return *this; }
-    Point&       operator/=(float rhs)        { x /= rhs; y /= rhs; return *this; }
+    Point&          operator/=(const Point& rhs) { x /= rhs.x; y /= rhs.y; return *this; }
+    Point&          operator/=(float rhs)        { x /= rhs; y /= rhs; return *this; }
 
-    bool         operator<(const Point& rhs) const { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
-    bool         operator>(const Point& rhs) const { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
-    bool         operator==(const Point& rhs) const { return(y == rhs.y && x == rhs.x); }
-    bool         operator!=(const Point& rhs) const { return(y != rhs.y || x != rhs.x); }
+    constexpr bool  operator<(const Point& rhs) const { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
+    constexpr bool  operator>(const Point& rhs) const { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
+    constexpr bool  operator==(const Point& rhs) const { return(y == rhs.y && x == rhs.x); }
+    constexpr bool  operator!=(const Point& rhs) const { return(y != rhs.y || x != rhs.x); }
 };
 
 /**

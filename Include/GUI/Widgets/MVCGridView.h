@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 01.05.2025 17:30
+// Created: 17.05.2025 22:00
 
 #pragma once
 
@@ -24,15 +24,11 @@
 namespace os
 {
 
-struct MVCListViewItemNode : MVCBaseViewItemNode
+struct MVCGridViewItemNode : MVCBaseViewItemNode
 {
-    MVCListViewItemNode() = default;
-    MVCListViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<View>& itemWidget, uint32_t widgetClassID, bool isSelected, float height, float positionY)
-        : MVCBaseViewItemNode(itemData, itemWidget, widgetClassID, isSelected)
-        , Height(height), PositionY(positionY) {}
-
-    float           Height;
-    float           PositionY;
+    MVCGridViewItemNode() = default;
+    MVCGridViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<View>& itemWidget, uint32_t widgetClassID, bool isSelected)
+        : MVCBaseViewItemNode(itemData, itemWidget, widgetClassID, isSelected) {}
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -41,15 +37,17 @@ struct MVCListViewItemNode : MVCBaseViewItemNode
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class MVCListView : public MVCBaseView
+class MVCGridView : public MVCBaseView
 {
 public:
-    MVCListView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    MVCListView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    MVCGridView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    MVCGridView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
-    virtual void OnFrameSized(const Point& delta) override;
     virtual void OnLayoutChanged() override;
     virtual Point CalculateContentSize() const override;
+
+    void SetGridSize(const Point& gridSize);
+    Point GetGridSize() const { return m_GridSize; }
 
     void AddItem(Ptr<PtrTarget> item);
 
@@ -61,24 +59,24 @@ public:
     template<typename CompareDelegate>
     void Sort(CompareDelegate&& compareDelegate) { SortList(m_Items, std::move(compareDelegate)); }
 
-    float GetItemHeight(Ptr<const PtrTarget> item, uint32_t widgetClassID, float width) const;
-
-    VFConnector<float (Ptr<const PtrTarget> itemData, float width)> VFGetItemHeight;
-
 protected:
+    virtual void OnContentViewFrameSized(const Point& delta) override;
+
     virtual MVCBaseViewItemNode& GetItemNode(size_t index) override { return m_Items[index]; }
 
     virtual void UpdateWidgets() override;
-    virtual void OnItemsReordered() override;
 
 private:
     void UpdateItemHeights();
 
     void SlotContentScrolled() { InvalidateLayout(); }
 
-    std::vector<MVCListViewItemNode>    m_Items;
-    float                               m_ItemSpacing = 5.0f;
-};
+    std::vector<MVCGridViewItemNode>    m_Items;
 
+    Point   m_GridSize = Point(100.0f, 100.0f);
+    int32_t m_RowCount = 0;
+    int32_t m_ColumnCount = 0;
+    float   m_LeftMargin = 0.0f;
+};
 
 } // namespace os

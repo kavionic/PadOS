@@ -41,6 +41,8 @@ public:
 
     void SetBitmap(Ptr<Bitmap> bitmap);
     Ptr<Bitmap> GetBitmap() const;
+
+    void ClearBitmap();
 private:
     bool SlotImageDataReady(const void* data, size_t length, bool isFinal);
 

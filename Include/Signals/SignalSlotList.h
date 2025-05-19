@@ -111,7 +111,7 @@ public:
     signal_slot_handle_t Connect(const TOwner* object, TMethodReturnType (TMethodClass::*callback)(TMethodArgs...) const) const
     {
         typedef TMethodReturnType (TMethodClass::*Signature)(TMethodArgs...) const;
-        auto slot = new SlotFull<sizeof...(TMethodArgs), TMethodClass, TMethodReturnType, Signature, TSignalArgs...>(const_cast<SignalBase*>(static_cast<const SignalBase*>(this)), object, callback);
+        auto slot = new SlotFull<sizeof...(TMethodArgs), TMethodClass, TMethodReturnType, Signature, TSignalArgs...>(const_cast<SignalBase*>(static_cast<const SignalBase*>(this)), const_cast<TOwner*>(object), callback);
         ConnectInternal(slot);
 
         return signal_slot_handle_t(slot);

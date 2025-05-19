@@ -68,32 +68,35 @@ public:
     Rect& Floor() { left = floor(left); right = floor(right); top = floor(top); bottom = floor(bottom); return *this; }
     Rect& Ceil() { left = ceil(left); right = ceil(right); top = ceil(top); bottom = ceil(bottom); return *this; }
 
-    Rect GetRounded() const { return Rect(round(left), round(top), round(right), round(bottom)); }
-    Rect GetFloored() const { return Rect(floor(left), floor(top), floor(right), floor(bottom)); }
-    Rect GetCeiled() const  { return Rect(ceil(left), ceil(top), ceil(right), ceil(bottom)); }
+    constexpr Rect GetRounded() const { return Rect(round(left), round(top), round(right), round(bottom)); }
+    constexpr Rect GetFloored() const { return Rect(floor(left), floor(top), floor(right), floor(bottom)); }
+    constexpr Rect GetCeiled() const  { return Rect(ceil(left), ceil(top), ceil(right), ceil(bottom)); }
 
     Rect& Resize(float inLeft, float inTop, float inRight, float inBottom) { left += inLeft; top += inTop; right += inRight; bottom += inBottom; return *this; }
 
-    Rect operator+(const Point& point) const { return Rect(left + point.x, top + point.y, right + point.x, bottom + point.y); }
-    Rect operator-(const Point& point) const { return Rect(left - point.x, top - point.y, right - point.x, bottom - point.y); }
+    constexpr Rect  operator+(const Point& point) const { return Rect(left + point.x, top + point.y, right + point.x, bottom + point.y); }
+    constexpr Rect  operator-(const Point& point) const { return Rect(left - point.x, top - point.y, right - point.x, bottom - point.y); }
 
-    Point operator+(const Rect& rect) const { return Point(left + rect.left, top + rect.top); }
-    Point operator-(const Rect& rect) const { return Point(left - rect.left, top - rect.top); }
+    constexpr Point operator+(const Rect& rect) const { return Point(left + rect.left, top + rect.top); }
+    constexpr Point operator-(const Rect& rect) const { return Point(left - rect.left, top - rect.top); }
 
-    Rect operator&(const Rect& rect) const { return Rect(std::max(left, rect.left), std::max(top, rect.top), std::min(right, rect.right), std::min(bottom, rect.bottom)); }
-    void operator&=(const Rect& rect) { left = std::max(left, rect.left); top = std::max(top, rect.top); right = std::min(right, rect.right); bottom = std::min(bottom, rect.bottom); }
-    Rect operator|(const Rect& rect) const { return Rect(std::min(left, rect.left), std::min(top, rect.top), std::max(right, rect.right), std::max(bottom, rect.bottom)); }
-    void operator|=(const Rect& rect) { left = std::min(left, rect.left); top = std::min(top, rect.top); right = std::max(right, rect.right); bottom = std::max(bottom, rect.bottom); }
-    Rect operator|(const Point& point) const { return Rect(std::min(left, point.x), std::min(top, point.y), std::max(right, point.x), std::max(bottom, point.y)); }
-    void operator|=(const Point& point) { left = std::min(left, point.x); top = std::min(top, point.y); right = std::max(right, point.x); bottom = std::max(bottom, point.y); }
+    constexpr Rect  operator&(const Rect& rect) const { return Rect(std::max(left, rect.left), std::max(top, rect.top), std::min(right, rect.right), std::min(bottom, rect.bottom)); }
+    void            operator&=(const Rect& rect) { left = std::max(left, rect.left); top = std::max(top, rect.top); right = std::min(right, rect.right); bottom = std::min(bottom, rect.bottom); }
+    constexpr Rect  operator|(const Rect& rect) const { return Rect(std::min(left, rect.left), std::min(top, rect.top), std::max(right, rect.right), std::max(bottom, rect.bottom)); }
+    void            operator|=(const Rect& rect) { left = std::min(left, rect.left); top = std::min(top, rect.top); right = std::max(right, rect.right); bottom = std::max(bottom, rect.bottom); }
+    constexpr Rect  operator|(const Point& point) const { return Rect(std::min(left, point.x), std::min(top, point.y), std::max(right, point.x), std::max(bottom, point.y)); }
+    void            operator|=(const Point& point) { left = std::min(left, point.x); top = std::min(top, point.y); right = std::max(right, point.x); bottom = std::max(bottom, point.y); }
+
+    void            operator+=(const Point& point) { left += point.x; top += point.y; right += point.x; bottom += point.y; }
+    void            operator-=(const Point& point) { left -= point.x; top -= point.y; right -= point.x; bottom -= point.y; }
+
+    constexpr bool  operator==(const Rect& rect) const { return left == rect.left && top == rect.top && right == rect.right && bottom == rect.bottom; }
+
+    constexpr bool  operator!=(const Rect& rect) const { return left != rect.left || top != rect.top || right != rect.right || bottom != rect.bottom; }
 
 
-    void operator+=(const Point& point) { left += point.x; top += point.y; right += point.x; bottom += point.y; }
-    void operator-=(const Point& point) { left -= point.x; top -= point.y; right -= point.x; bottom -= point.y; }
-
-    bool operator==(const Rect& rect) const { return left == rect.left && top == rect.top && right == rect.right && bottom == rect.bottom; }
-
-    bool operator!=(const Rect& rect) const { return left != rect.left || top != rect.top || right != rect.right || bottom != rect.bottom; }
+    static constexpr Rect FromSize(const Point& size) { return Rect(Point(0.0f, 0.0f), size); }
+    static constexpr Rect Centered(const Point& center, const Point& size) { return FromSize(size) - size * 0.5f + center; }
 };
 
 ///////////////////////////////////////////////////////////////////////////////

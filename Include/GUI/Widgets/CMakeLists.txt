@@ -7,6 +7,7 @@ target_sources(PadOS_GUI PRIVATE
 	Control.h
 	DropdownMenu.h
 	GroupView.h
+	IconView.h
 	ListView.h
 	MVCBaseView.h
 	MVCGridView.h

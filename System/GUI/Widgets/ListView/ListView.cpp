@@ -256,9 +256,11 @@ void ListView::AdjustScrollBars(bool okToHScroll)
     if (m_ScrolledContainerView->m_Rows.empty())
     {
         if (m_VScrollBar != nullptr) {
+            m_VScrollBar->SetScrollTarget(nullptr);
             RemoveChild(m_VScrollBar);
         }
         if (m_HScrollBar != nullptr) {
+            m_HScrollBar->SetScrollTarget(nullptr);
             RemoveChild(m_HScrollBar);
         }
         if (m_VScrollBar != nullptr || m_HScrollBar != nullptr)
@@ -286,8 +288,9 @@ void ListView::AdjustScrollBars(bool okToHScroll)
         {
             if (m_VScrollBar == nullptr)
             {
-                m_VScrollBar = ptr_new<ScrollBar>("v_scroll", ptr_tmp_cast(this), 0.0f, 1000.0f, Orientation::Vertical);
+                m_VScrollBar = ptr_new<ScrollBar>("v_scroll", nullptr, 0.0f, 1000.0f, Orientation::Vertical);
                 m_VScrollBar->SetScrollTarget(m_ScrolledContainerView);
+                AddChild(m_VScrollBar);
                 Layout();
             }
             else
@@ -301,6 +304,7 @@ void ListView::AdjustScrollBars(bool okToHScroll)
         {
             if (m_VScrollBar != nullptr)
             {
+                m_VScrollBar->SetScrollTarget(nullptr);
                 RemoveChild(m_VScrollBar);
                 m_VScrollBar = nullptr;
                 m_ScrolledContainerView->ScrollTo(0, 0);
@@ -322,8 +326,9 @@ void ListView::AdjustScrollBars(bool okToHScroll)
         {
             if (m_HScrollBar == nullptr)
             {
-                m_HScrollBar = ptr_new<ScrollBar>("h_scroll", ptr_tmp_cast(this), 0.0f, 1000.0f, Orientation::Horizontal);
+                m_HScrollBar = ptr_new<ScrollBar>("h_scroll", nullptr, 0.0f, 1000.0f, Orientation::Horizontal);
                 m_HScrollBar->SetScrollTarget(m_HeaderView);
+                AddChild(m_HScrollBar);
                 Layout();
             }
             else
@@ -337,6 +342,7 @@ void ListView::AdjustScrollBars(bool okToHScroll)
         {
             if (m_HScrollBar != nullptr)
             {
+                m_HScrollBar->SetScrollTarget(nullptr);
                 RemoveChild(m_HScrollBar);
                 m_HScrollBar = nullptr;
                 m_HeaderView->ScrollTo(0.0f, 0.0f);

@@ -1524,6 +1524,8 @@ void View::HandleAddedToParent(Ptr<View> parent, size_t index)
     }
     if (parent->HasFlags(ViewFlags::IsAttachedToScreen))
     {
+        parent->InvalidateLayout();
+
         Application* app = parent->GetApplication();
         if (app != nullptr)
         {

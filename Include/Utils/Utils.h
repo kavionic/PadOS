@@ -134,7 +134,7 @@ private:
 class ProfileTimer
 {
     public:
-    ProfileTimer(const String& title, TimeValMicros minimumTime = 0.0) : m_Title(title), m_MinimumTime(minimumTime) { m_StartTime = get_system_time_hires(); }
+        ProfileTimer(const String& title, TimeValMicros minimumTime = 0.0) : m_Title(title), m_MinimumTime(minimumTime) { m_StartTime = get_system_time_hires(); m_PrevLapTime = m_StartTime; }
     ~ProfileTimer()
     {
         Terminate();
@@ -144,11 +144,20 @@ class ProfileTimer
     {
         if (m_StartTime.AsNative() != 0)
         {
-            TimeValNanos time = get_system_time_hires() - m_StartTime;
+            const TimeValNanos curTime = get_system_time_hires();
+            const TimeValNanos time = curTime - m_StartTime;
+            const TimeValNanos lapTime = curTime - m_PrevLapTime;
             m_StartTime = 0.0;
             if (time >= m_MinimumTime)
             {
-                printf("Prof: %s (%.3f)\n", m_Title.c_str(), time.AsSeconds() * 1000.0);
+                if (m_PrevLapTime == m_StartTime)
+                {
+                    printf("Prof: %s (%.3f)\n", m_Title.c_str(), time.AsSeconds() * 1000.0);
+                }
+                else
+                {
+                    printf("Prof: %s (%.3f / %.3f)\n", m_Title.c_str(), lapTime.AsSeconds() * 1000.0, time.AsSeconds() * 1000.0);
+                }
                 return true;
             }
         }
@@ -158,10 +167,13 @@ class ProfileTimer
     {
         if (m_StartTime.AsNative() != 0)
         {
-            TimeValNanos time = get_system_time_hires() - m_StartTime;
+            const TimeValNanos curTime = get_system_time_hires();
+            const TimeValNanos time = curTime - m_StartTime;
             if (time >= m_MinimumTime)
             {
-                printf("Prof: %s (%s) (%.3f)\n", m_Title.c_str(), text, time.AsSeconds() * 1000.0);
+                const TimeValNanos lapTime = curTime - m_PrevLapTime;
+                m_PrevLapTime = curTime;
+                printf("Prof: %s (%s) (%.3f / %.3f)\n", m_Title.c_str(), text, lapTime.AsSeconds() * 1000.0, time.AsSeconds() * 1000.0);
                 return true;
             }
         }
@@ -169,6 +181,7 @@ class ProfileTimer
     }
     String    m_Title;
     TimeValNanos m_StartTime;
+    TimeValNanos m_PrevLapTime;
     TimeValNanos m_MinimumTime;
 };
 

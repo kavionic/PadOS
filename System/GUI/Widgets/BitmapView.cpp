@@ -20,6 +20,8 @@
 #include <GUI/Widgets/BitmapView.h>
 #include <GUI/Bitmap.h>
 #include <Storage/StreamableIO.h>
+#include <Storage/File.h>
+#include <Storage/Path.h>
 #include <DataTranslation/DataTranslator.h>
 
 namespace os
@@ -80,6 +82,7 @@ void BitmapView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool inc
 
 bool BitmapView::LoadBitmap(StreamableIO& file)
 {
+    constexpr size_t BUFFER_SIZE = 4096;
     m_Bitmap = nullptr;
 
     std::vector<uint8_t> buffer;
@@ -90,11 +93,11 @@ bool BitmapView::LoadBitmap(StreamableIO& file)
 
     for (;;)
     {
-        if (positionIn + 1024 > 32768) {
+        if (positionIn + BUFFER_SIZE > 32768) {
             return false; // Failed to identify file type.
         }
 
-        buffer.resize(positionIn + 1024);
+        buffer.resize(positionIn + BUFFER_SIZE);
 
         const size_t  bytesToRead = buffer.size() - positionIn;
         const ssize_t bytesRead = file.Read(buffer.data() + positionIn, bytesToRead);
@@ -124,7 +127,7 @@ bool BitmapView::LoadBitmap(StreamableIO& file)
             translator->VFDataReady.Connect(this, &BitmapView::SlotImageDataReady);
         }
         translator->AddData(buffer.data(), bytesRead, finalRead);
-        buffer.resize(1024);
+        buffer.resize(BUFFER_SIZE);
         positionIn = 0;
 
         if (finalRead)
@@ -140,6 +143,20 @@ bool BitmapView::LoadBitmap(StreamableIO& file)
                 return true;
             }
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool BitmapView::LoadBitmap(const Path& path)
+{
+    File file(path);
+    if (file.IsValid()) {
+        return LoadBitmap(file);
+    } else {
+        return false;
     }
 }
 
@@ -215,7 +232,8 @@ bool BitmapView::SlotImageDataReady(const void* data, size_t length, bool isFina
             memcpy(dstRaster + m_BytesAddedToFrame + m_BytesAddedToRow, data, rowBytes);
             m_BytesAddedToRow += rowBytes;
             bytesInBuffer -= rowBytes;
-            if (m_BytesAddedToRow == m_CurrentFrame.BytesPerRow) {
+            if (m_BytesAddedToRow == m_CurrentFrame.BytesPerRow)
+            {
                 m_BytesAddedToFrame += m_BytesAddedToRow;
                 m_BytesAddedToRow = 0;
             }

@@ -91,14 +91,18 @@ void MVCBaseView::SetHighlightedItem(size_t index)
         if (prevHighlighted < GetItemCount() && !VFUpdateItemWidgetSelection.Empty())
         {
             const MVCBaseViewItemNode& itemNode = GetItemNode(prevHighlighted);
-            VFUpdateItemWidgetSelection(itemNode.ItemWidget, itemNode.IsSelected, false, itemNode.ItemData);
+            if (itemNode.ItemWidget != nullptr) {
+                VFUpdateItemWidgetSelection(itemNode.ItemWidget, itemNode.IsSelected, false, itemNode.ItemData);
+            }
             SignalItemReleased(prevHighlighted, this);
         }
 
         if (m_HighlightedItem < GetItemCount() && !VFUpdateItemWidgetSelection.Empty())
         {
             const MVCBaseViewItemNode& itemNode = GetItemNode(m_HighlightedItem);
-            VFUpdateItemWidgetSelection(itemNode.ItemWidget, itemNode.IsSelected, true, itemNode.ItemData);
+            if (itemNode.ItemWidget != nullptr) {
+                VFUpdateItemWidgetSelection(itemNode.ItemWidget, itemNode.IsSelected, true, itemNode.ItemData);
+            }
             SignalItemPressed(m_HighlightedItem, this);
         }
     }

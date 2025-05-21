@@ -6,6 +6,7 @@ target_sources(PadOS_GUI PRIVATE
 	CheckBox.cpp
 	Control.cpp
 	GroupView.cpp
+	IconView.cpp
 	MVCBaseView.cpp
 	MVCGridView.cpp
 	MVCListView.cpp

@@ -48,7 +48,7 @@ extern const std::map<String, uint32_t> FlagMap;
 
 struct MVCBaseViewItemNode
 {
-    MVCBaseViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<View>& itemWidget, uint32_t widgetClassID, bool isSelected)
+    MVCBaseViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<View>& itemWidget, uint32_t widgetClassID, bool isSelected) noexcept
         : ItemData(itemData), ItemWidget(itemWidget), WidgetClassID(widgetClassID), IsSelected(isSelected) {}
 
     Ptr<PtrTarget>  ItemData;

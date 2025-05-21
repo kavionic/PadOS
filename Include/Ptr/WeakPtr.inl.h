@@ -24,7 +24,7 @@
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-WeakPtr<T>::WeakPtr()
+WeakPtr<T>::WeakPtr() noexcept
 {
     m_Notifier = nullptr;
     m_Object   = nullptr;
@@ -35,7 +35,7 @@ WeakPtr<T>::WeakPtr()
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-WeakPtr<T>::WeakPtr(std::nullptr_t)
+WeakPtr<T>::WeakPtr(std::nullptr_t) noexcept
 {
     m_Notifier = nullptr;
     m_Object   = nullptr;
@@ -46,7 +46,7 @@ WeakPtr<T>::WeakPtr(std::nullptr_t)
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-WeakPtr<T>::WeakPtr(const WeakPtr& ptr)
+WeakPtr<T>::WeakPtr(const WeakPtr& ptr) noexcept
 {
     if ( ptr.m_Notifier != nullptr && ptr.m_Notifier->IsValid() ) {
         m_Notifier = ptr.m_Notifier;
@@ -62,7 +62,7 @@ WeakPtr<T>::WeakPtr(const WeakPtr& ptr)
 ///////////////////////////////////////////////////////////////////////////////
 
 template <class T> inline
-WeakPtr<T>::WeakPtr(WeakPtr&& ptr) : m_Notifier(ptr.m_Notifier), m_Object(ptr.m_Object)
+WeakPtr<T>::WeakPtr(WeakPtr&& ptr) noexcept : m_Notifier(ptr.m_Notifier), m_Object(ptr.m_Object)
 {
     ptr.m_Object   = nullptr;
     ptr.m_Notifier = nullptr;
@@ -74,7 +74,7 @@ WeakPtr<T>::WeakPtr(WeakPtr&& ptr) : m_Notifier(ptr.m_Notifier), m_Object(ptr.m_
   
 template <class T>
 template <class Y> inline
-WeakPtr<T>::WeakPtr(const WeakPtr<Y>& ptr)
+WeakPtr<T>::WeakPtr(const WeakPtr<Y>& ptr) noexcept
 {
     if (ptr.m_Notifier != nullptr && ptr.m_Notifier->IsValid()) {
         m_Notifier = ptr.m_Notifier;
@@ -91,7 +91,7 @@ WeakPtr<T>::WeakPtr(const WeakPtr<Y>& ptr)
   
 template <class T>
 template <class Y> inline
-WeakPtr<T>::WeakPtr(const Ptr<Y>& ptr)
+WeakPtr<T>::WeakPtr(const Ptr<Y>& ptr) noexcept
 {
     if (ptr.m_Object != nullptr) {
         m_Notifier = ptr.m_Object->GetNotifier();
@@ -106,7 +106,7 @@ WeakPtr<T>::WeakPtr(const Ptr<Y>& ptr)
 ///////////////////////////////////////////////////////////////////////////////
 
 template <class T> inline
-WeakPtr<T>::~WeakPtr()
+WeakPtr<T>::~WeakPtr() noexcept
 {
     if (m_Notifier != nullptr) {
         m_Notifier->Release();
@@ -118,7 +118,7 @@ WeakPtr<T>::~WeakPtr()
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-void WeakPtr<T>::Reset()
+void WeakPtr<T>::Reset() noexcept
 {
     if (m_Notifier != nullptr)
     {
@@ -133,7 +133,7 @@ void WeakPtr<T>::Reset()
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-WeakPtr<T>& WeakPtr<T>::operator=(const WeakPtr& ptr)
+WeakPtr<T>& WeakPtr<T>::operator=(const WeakPtr& ptr) noexcept
 {
     if (this != &ptr)
     {
@@ -161,7 +161,7 @@ WeakPtr<T>& WeakPtr<T>::operator=(const WeakPtr& ptr)
   
 template <class T>
 template <class Y> inline
-WeakPtr<T>& WeakPtr<T>::operator=(const WeakPtr<Y>& ptr)
+WeakPtr<T>& WeakPtr<T>::operator=(const WeakPtr<Y>& ptr) noexcept
 {
     if ( m_Notifier != nullptr ) {
         m_Notifier->Release();
@@ -198,7 +198,7 @@ WeakPtr<T>& WeakPtr<T>::operator=(const Ptr<Y>& ptr)
 
 template <class T>
 template <class Y> inline
-bool WeakPtr<T>::operator==( const WeakPtr<Y>& p ) const
+bool WeakPtr<T>::operator==( const WeakPtr<Y>& p ) const noexcept
 {
     return m_Notifier == p.m_Notifier;
 }
@@ -209,7 +209,7 @@ bool WeakPtr<T>::operator==( const WeakPtr<Y>& p ) const
 
 template <class T>
 template <class Y> inline
-bool WeakPtr<T>::operator!=( const WeakPtr<Y>& p ) const
+bool WeakPtr<T>::operator!=( const WeakPtr<Y>& p ) const noexcept
 {
     return m_Notifier != p.m_Notifier;
 }
@@ -220,7 +220,7 @@ bool WeakPtr<T>::operator!=( const WeakPtr<Y>& p ) const
 
 template <class T>
 template <class Y> inline
-bool WeakPtr<T>::operator<( const WeakPtr<Y>& p ) const
+bool WeakPtr<T>::operator<( const WeakPtr<Y>& p ) const noexcept
 {
     return m_Notifier < p.m_Notifier;
 }
@@ -231,7 +231,7 @@ bool WeakPtr<T>::operator<( const WeakPtr<Y>& p ) const
 
 template <class T>
 template <class Y> inline
-bool WeakPtr<T>::operator==( const Ptr<Y>& p ) const
+bool WeakPtr<T>::operator==( const Ptr<Y>& p ) const noexcept
 {
     return Get() == p.Get();
 }
@@ -242,7 +242,7 @@ bool WeakPtr<T>::operator==( const Ptr<Y>& p ) const
 
 template <class T>
 template <class Y> inline
-bool WeakPtr<T>::operator!=( const Ptr<Y>& p ) const
+bool WeakPtr<T>::operator!=( const Ptr<Y>& p ) const noexcept
 {
     return Get() != p.Get();
 }
@@ -253,7 +253,7 @@ bool WeakPtr<T>::operator!=( const Ptr<Y>& p ) const
 
 template <class T>
 template <class Y> inline
-bool WeakPtr<T>::operator<( const Ptr<Y>& p ) const
+bool WeakPtr<T>::operator<( const Ptr<Y>& p ) const noexcept
 {
     return Get() < p.Get();
 }
@@ -285,7 +285,7 @@ void WeakPtr<T>::Set(Y* obj)
 ///////////////////////////////////////////////////////////////////////////////
   
 template <class T> inline
-T* WeakPtr<T>::Get() const
+T* WeakPtr<T>::Get() const noexcept
 {
     if ( m_Notifier != nullptr && m_Notifier->IsValid() ) {
         return m_Object;

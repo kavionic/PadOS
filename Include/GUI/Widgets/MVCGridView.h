@@ -26,8 +26,8 @@ namespace os
 
 struct MVCGridViewItemNode : MVCBaseViewItemNode
 {
-    MVCGridViewItemNode() = default;
-    MVCGridViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<View>& itemWidget, uint32_t widgetClassID, bool isSelected)
+    MVCGridViewItemNode() noexcept = default;
+    MVCGridViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<View>& itemWidget, uint32_t widgetClassID, bool isSelected) noexcept
         : MVCBaseViewItemNode(itemData, itemWidget, widgetClassID, isSelected) {}
 };
 

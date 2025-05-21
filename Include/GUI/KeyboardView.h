@@ -50,7 +50,7 @@ struct KeyboardViewStyle : public PtrTarget
 
 struct KeyButton
 {
-    KeyButton(const Point& relativePos, float relativeWidth, float relativeHeight, KeyCodes normalKeyCode, KeyCodes lowerKeyCode, KeyCodes extraKeyCode, KeyCodes symbolKeyCode)
+    KeyButton(const Point& relativePos, float relativeWidth, float relativeHeight, KeyCodes normalKeyCode, KeyCodes lowerKeyCode, KeyCodes extraKeyCode, KeyCodes symbolKeyCode) noexcept
         : m_Width(relativeWidth), m_Height(relativeHeight), m_RelativePos(relativePos), m_NormalKeyCode(normalKeyCode), m_LowerKeyCode(lowerKeyCode), m_ExtraKeyCode(extraKeyCode), m_SymbolKeyCode(symbolKeyCode) {}
 
     Rect        m_Frame;

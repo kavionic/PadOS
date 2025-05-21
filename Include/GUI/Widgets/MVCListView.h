@@ -26,8 +26,8 @@ namespace os
 
 struct MVCListViewItemNode : MVCBaseViewItemNode
 {
-    MVCListViewItemNode() = default;
-    MVCListViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<View>& itemWidget, uint32_t widgetClassID, bool isSelected, float height, float positionY)
+    MVCListViewItemNode() noexcept = default;
+    MVCListViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<View>& itemWidget, uint32_t widgetClassID, bool isSelected, float height, float positionY) noexcept
         : MVCBaseViewItemNode(itemData, itemWidget, widgetClassID, isSelected)
         , Height(height), PositionY(positionY) {}
 

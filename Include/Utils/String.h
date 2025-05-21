@@ -20,6 +20,7 @@
 #pragma once
 
 #include <string>
+#include <format>
 #include <vector>
 #include <stdarg.h>
 #include <System/Types.h>
@@ -155,4 +156,10 @@ private:
 };
 
 
+} // namespace os
+
+namespace std
+{
+template<>
+struct formatter<os::String> : formatter<basic_string<os::String::value_type, os::String::traits_type, os::String::allocator_type>, os::String::value_type> {};
 }

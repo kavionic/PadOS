@@ -44,39 +44,39 @@ public:
     constexpr explicit Point(float value) noexcept : x(value), y(value) {}
     constexpr Point(float X, float Y) noexcept : x(X), y(Y) {}
 
-    constexpr float LengthSqr() const { return x * x + y * y; }
-    constexpr float Length() const { return sqrtf(LengthSqr()); }
+    constexpr float LengthSqr() const noexcept { return x * x + y * y; }
+    constexpr float Length() const noexcept { return sqrtf(LengthSqr()); }
 
     constexpr Point GetNormalized() const { return *this * (1.0f / Length()); }
     Point& Normalize() { return *this *= (1.0f / Length()); }
 
-    constexpr Point   GetRounded() const { return Point(roundf(x), roundf(y)); }
-    Point&  Round()            { x = roundf(x); y = roundf(y); return *this; }
+    constexpr Point GetRounded() const noexcept { return Point(roundf(x), roundf(y)); }
+    Point&          Round() noexcept { x = roundf(x); y = roundf(y); return *this; }
 
-    Point& operator=(const Point& rhs) = default;
+    Point& operator=(const Point& rhs) noexcept = default;
 
-    constexpr Point operator-(void) const { return Point(-x, -y); }
-    constexpr Point operator+(const Point& rhs) const { return Point(x + rhs.x, y + rhs.y); }
-    constexpr Point operator-(const Point& rhs) const { return Point(x - rhs.x, y - rhs.y); }
-    Point&          operator+=(const Point& rhs) { x += rhs.x; y += rhs.y; return *this; }
-    Point&          operator-=(const Point& rhs) { x -= rhs.x; y -= rhs.y; return *this; }
+    constexpr Point operator-(void) const noexcept { return Point(-x, -y); }
+    constexpr Point operator+(const Point& rhs) const noexcept { return Point(x + rhs.x, y + rhs.y); }
+    constexpr Point operator-(const Point& rhs) const noexcept { return Point(x - rhs.x, y - rhs.y); }
+    Point&          operator+=(const Point& rhs) noexcept { x += rhs.x; y += rhs.y; return *this; }
+    Point&          operator-=(const Point& rhs) noexcept { x -= rhs.x; y -= rhs.y; return *this; }
 
-    constexpr Point operator*(const Point& rhs) const  { return Point(x * rhs.x, y * rhs.y);   }
-    constexpr Point operator*(float rhs) const         { return Point(x * rhs, y * rhs);       }
+    constexpr Point operator*(const Point& rhs) const noexcept  { return Point(x * rhs.x, y * rhs.y);   }
+    constexpr Point operator*(float rhs) const noexcept         { return Point(x * rhs, y * rhs);       }
     
     constexpr Point operator/(const Point& rhs) const  { return Point(x / rhs.x, y / rhs.y);   }
     constexpr Point operator/(float rhs) const         { return Point(x / rhs, y / rhs);       }
 
-    Point&          operator*=(const Point& rhs) { x *= rhs.x; y *= rhs.y; return *this; }
-    Point&          operator*=(float rhs)        { x *= rhs; y *= rhs; return *this; }
+    Point&          operator*=(const Point& rhs) noexcept   { x *= rhs.x; y *= rhs.y; return *this; }
+    Point&          operator*=(float rhs) noexcept          { x *= rhs; y *= rhs; return *this; }
 
     Point&          operator/=(const Point& rhs) { x /= rhs.x; y /= rhs.y; return *this; }
     Point&          operator/=(float rhs)        { x /= rhs; y /= rhs; return *this; }
 
-    constexpr bool  operator<(const Point& rhs) const { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
-    constexpr bool  operator>(const Point& rhs) const { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
-    constexpr bool  operator==(const Point& rhs) const { return(y == rhs.y && x == rhs.x); }
-    constexpr bool  operator!=(const Point& rhs) const { return(y != rhs.y || x != rhs.x); }
+    constexpr bool  operator<(const Point& rhs) const noexcept  { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
+    constexpr bool  operator>(const Point& rhs) const noexcept  { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
+    constexpr bool  operator==(const Point& rhs) const noexcept { return(y == rhs.y && x == rhs.x); }
+    constexpr bool  operator!=(const Point& rhs) const noexcept { return(y != rhs.y || x != rhs.x); }
 };
 
 /**
@@ -93,7 +93,7 @@ public:
     int x;
     int y;
 
-    constexpr IPoint() : x(0), y(0) {}
+    constexpr IPoint() noexcept : x(0), y(0) {}
     constexpr IPoint(const IPoint& other) noexcept : x(other.x), y(other.y) {}
     constexpr explicit inline IPoint(const Point& other) noexcept;
     constexpr explicit IPoint(int value) noexcept : x(value), y(value) {}
@@ -101,15 +101,15 @@ public:
 
     IPoint& operator=(const IPoint&) = default;
 
-    IPoint        operator-(void) const { return(IPoint(-x, -y)); }
-    IPoint        operator+(const IPoint& rhs) const { return(IPoint(x + rhs.x, y + rhs.y)); }
-    IPoint        operator-(const IPoint& rhs) const { return(IPoint(x - rhs.x, y - rhs.y)); }
-    const IPoint& operator+=(const IPoint& rhs) { x += rhs.x; y += rhs.y; return(*this); }
-    const IPoint& operator-=(const IPoint& rhs) { x -= rhs.x; y -= rhs.y; return(*this); }
-    bool          operator<(const IPoint& rhs) const { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
-    bool          operator>(const IPoint& rhs) const { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
-    bool          operator==(const IPoint& rhs) const { return(y == rhs.y && x == rhs.x); }
-    bool          operator!=(const IPoint& rhs) const { return(y != rhs.y || x != rhs.x); }
+    IPoint        operator-(void) const noexcept                { return(IPoint(-x, -y)); }
+    IPoint        operator+(const IPoint& rhs) const noexcept   { return(IPoint(x + rhs.x, y + rhs.y)); }
+    IPoint        operator-(const IPoint& rhs) const noexcept   { return(IPoint(x - rhs.x, y - rhs.y)); }
+    const IPoint& operator+=(const IPoint& rhs) noexcept        { x += rhs.x; y += rhs.y; return(*this); }
+    const IPoint& operator-=(const IPoint& rhs) noexcept        { x -= rhs.x; y -= rhs.y; return(*this); }
+    bool          operator<(const IPoint& rhs) const noexcept   { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
+    bool          operator>(const IPoint& rhs) const noexcept   { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
+    bool          operator==(const IPoint& rhs) const noexcept  { return(y == rhs.y && x == rhs.x); }
+    bool          operator!=(const IPoint& rhs) const noexcept  { return(y != rhs.y || x != rhs.x); }
 };
 
 

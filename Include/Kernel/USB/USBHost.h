@@ -69,7 +69,7 @@ enum class USBHostEventID : uint8_t
 
 struct USBHostPipeData
 {
-    USBHostPipeData(uint8_t endpointAddr = 0, bool allocated = false) : EndpointAddr(endpointAddr), Claimed(allocated) {}
+    USBHostPipeData(uint8_t endpointAddr = 0, bool allocated = false) noexcept : EndpointAddr(endpointAddr), Claimed(allocated) {}
 
     USB_TransactionCallback TransactionCallback;
     uint8_t                 EndpointAddr = 0;

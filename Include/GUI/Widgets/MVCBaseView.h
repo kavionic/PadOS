@@ -69,6 +69,8 @@ public:
     MVCBaseView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     MVCBaseView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
+    virtual void OnLayoutChanged() override;
+
     virtual void Clear() = 0;
 
     virtual size_t GetItemIndexAtPosition(const Point& position) const = 0;

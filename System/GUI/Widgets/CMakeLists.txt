@@ -12,6 +12,7 @@ target_sources(PadOS_GUI PRIVATE
 	MVCListView.cpp
 	ProgressBar.cpp
 	RadioButton.cpp
+	ScrollableView.cpp
 	ScrollBar.cpp
 	ScrollView.cpp
 	Slider.cpp

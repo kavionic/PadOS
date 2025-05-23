@@ -18,8 +18,12 @@
 // Created: 29.08.2020 00:30
 
 #include <GUI/Widgets/ScrollView.h>
+#include <GUI/Widgets/ScrollableView.h>
+#include <GUI/ViewFactory.h>
 
-using namespace os;
+namespace os
+{
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -36,19 +40,48 @@ ScrollView::ScrollView(const String& name, Ptr<View> parent, uint32_t flags) : V
 ScrollView::ScrollView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
 {
     MergeFlags(ViewFlags::WillDraw);
+
+    for (pugi::xml_node childNode = xmlData.first_child(); childNode; childNode = childNode.next_sibling())
+    {
+        if (strcmp(childNode.name(), "_ScrollContent") == 0)
+        {
+            Ptr<View> contentView;
+            if (childNode.first_child())
+            {
+                contentView = ViewFactory::Get().CreateView(context, nullptr, childNode);
+                if (contentView != nullptr)
+                {
+                    Ptr<ScrollableView> scrollableView = ptr_new<ScrollableView>();
+
+                    scrollableView->SetHAlignment(Alignment::Stretch);
+                    scrollableView->SetVAlignment(Alignment::Stretch);
+
+                    if (contentView->GetLayoutNode() == nullptr) {
+                        contentView->SetLayoutNode(ptr_new<LayoutNode>());
+                    }
+                    scrollableView->MergeFlags(ViewFlags::WillDraw);
+                    contentView->MergeFlags(ViewFlags::WillDraw);
+
+                    scrollableView->SetContentView(contentView);
+                    SetScrolledView(scrollableView);
+                    break;
+                }
+            }
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollView::OnFrameSized(const Point& delta)
+void ScrollView::OnLayoutChanged()
 {
     Ptr<View> clientView = GetScrolledView();
     if (clientView != nullptr)
     {
-        Rect clientFrame = GetBounds();
-        Rect clientBorders = clientView->GetBorders();
+        Rect       clientFrame = GetBounds();
+        const Rect clientBorders = clientView->GetBorders();
         clientFrame.Resize(clientBorders.left, clientBorders.top, clientBorders.right, clientBorders.bottom);
         clientView->SetFrame(clientFrame);
     }
@@ -105,15 +138,15 @@ bool ScrollView::OnTouchMove(MouseButton_e pointID, const Point& position, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void os::ScrollView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void ScrollView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
 {
     Ptr<View> clientView = GetScrolledView();
     if (clientView != nullptr)
     {
         *minSize = clientView->GetPreferredSize(PrefSizeType::Smallest);
         *maxSize = clientView->GetPreferredSize(PrefSizeType::Greatest);
-        Rect  clientBorders = clientView->GetBorders();
-        Point borderSize(clientBorders.left + clientBorders.right, clientBorders.top + clientBorders.bottom);
+        const Rect  clientBorders = clientView->GetBorders();
+        const Point borderSize(clientBorders.left + clientBorders.right, clientBorders.top + clientBorders.bottom);
 
         *minSize += borderSize;
         *maxSize += borderSize;
@@ -134,13 +167,14 @@ Ptr<View> ScrollView::SetScrolledView(Ptr<View> view)
     if (prevClient == view) {
         return prevClient;
     }
-    if (prevClient != nullptr)
-    {
+    if (prevClient != nullptr) {
         RemoveChild(prevClient);
     }
-    if (view != nullptr)
-    {
+    if (view != nullptr) {
         AddChild(view);
     }
+    InvalidateLayout();
     return prevClient;
 }
+
+} // namespace os

@@ -19,18 +19,6 @@
 		</xs:restriction>
 	</xs:simpleType>
 
-	<xs:element name="MVCListView">
-		<xs:complexType>
-			<xs:complexContent>
-				<xs:extension base="Control">
-					<xs:sequence>
-						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
-					</xs:sequence>
-				</xs:extension>
-			</xs:complexContent>
-		</xs:complexType>
-	</xs:element>
-
 	<xs:simpleType name="Orientation">
 		<xs:restriction base="xs:string">
 			<xs:enumeration value="horizontal"/>
@@ -188,6 +176,42 @@
 		<xs:complexType>
 			<xs:complexContent>
 				<xs:extension base="View">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="MVCBaseView">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="Control">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="MVCGridView">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="MVCBaseView">
+					<xs:sequence>
+						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
+					</xs:sequence>
+				</xs:extension>
+			</xs:complexContent>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="MVCListView">
+		<xs:complexType>
+			<xs:complexContent>
+				<xs:extension base="MVCBaseView">
 					<xs:sequence>
 						<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##local"/>
 					</xs:sequence>

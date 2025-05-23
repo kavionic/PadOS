@@ -19,6 +19,7 @@ target_sources(PadOS_GUI PRIVATE
 	MenuSeparator.h
 	ProgressBar.h
 	RadioButton.h
+	ScrollableView.h
 	ScrollBar.h
 	ScrollView.h
 	Slider.h

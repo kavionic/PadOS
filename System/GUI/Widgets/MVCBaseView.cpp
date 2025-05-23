@@ -54,6 +54,17 @@ MVCBaseView::MVCBaseView(ViewFactoryContext& context, Ptr<View> parent, const pu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void MVCBaseView::OnLayoutChanged()
+{
+    Control::OnLayoutChanged();
+
+    m_ScrollView->RefreshLayout();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<PtrTarget> MVCBaseView::GetItemAtPosition(const Point& position) const
 {
     const size_t index = GetItemIndexAtPosition(position);

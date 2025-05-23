@@ -211,7 +211,7 @@ View::View(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& 
     }
 	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "min_width"), context.GetAttribute(xmlData, "min_width_limit"), context.GetAttribute(xmlData, "min_width_extend"), value);
 	if (overrideType != SizeOverride::None) {
-		sizeSmallestOverride.y = value;
+		sizeSmallestOverride.x = value;
 		overrideTypeSmallestH = overrideType;
 	}
 	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "min_height"), context.GetAttribute(xmlData, "min_height_limit"), context.GetAttribute(xmlData, "min_height_extend"), value);
@@ -711,9 +711,7 @@ void View::OnFrameMoved(const Point& delta)
 
 void View::OnFrameSized(const Point& delta)
 {
-    if (m_LayoutNode != nullptr) {
-        InvalidateLayout();
-    }    
+    InvalidateLayout();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

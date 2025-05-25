@@ -52,9 +52,16 @@ BitmapView::BitmapView(ViewFactoryContext& context, Ptr<View> parent, const pugi
 
 void BitmapView::OnPaint(const Rect& updateRect)
 {
-    if (m_Bitmap != nullptr) {
-        DrawBitmap(m_Bitmap, GetNormalizedBounds(), Point(0.0f, 0.0f));
-    } else {
+    if (m_Bitmap != nullptr)
+    {
+        if (m_IsScaled) {
+            DrawBitmap(m_Bitmap, m_Bitmap->GetBounds(), GetNormalizedBounds());
+        } else {
+            DrawBitmap(m_Bitmap, m_Bitmap->GetBounds(), Point(0.0f, 0.0f));
+        }
+    }
+    else
+    {
         EraseRect(updateRect);
     }
 }
@@ -67,13 +74,23 @@ void BitmapView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool inc
 {
     if (m_Bitmap != nullptr)
     {
-        *minSize = Point(m_Bitmap->GetBounds().Size());
+        *minSize = Point(m_Bitmap->GetBounds().Size()) * m_Scale;
         *maxSize = *minSize;
     }
     else
     {
         View::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void BitmapView::OnFrameSized(const Point& delta)
+{
+    View::OnFrameSized(delta);
+    UpdateIsScaled();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -167,6 +184,7 @@ bool BitmapView::LoadBitmap(const Path& path)
 void BitmapView::SetBitmap(Ptr<Bitmap> bitmap)
 {
     m_Bitmap = bitmap;
+    UpdateIsScaled();
     PreferredSizeChanged();
     Invalidate();
 }
@@ -193,6 +211,30 @@ void BitmapView::ClearBitmap()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void BitmapView::SetScale(const Point& scale)
+{
+    if (scale != m_Scale)
+    {
+        m_Scale = scale;
+        if (m_Bitmap != nullptr) {
+            PreferredSizeChanged();
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void BitmapView::UpdateIsScaled()
+{
+    m_IsScaled = m_Bitmap != nullptr && IRect(m_Bitmap->GetBounds()).Size() != IRect(GetBounds()).Size();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool BitmapView::SlotImageDataReady(const void* data, size_t length, bool isFinal)
 {
     if (m_Bitmap == nullptr)
@@ -206,6 +248,7 @@ bool BitmapView::SlotImageDataReady(const void* data, size_t length, bool isFina
         m_Bitmap = ptr_new<Bitmap>(bmHeader.Bounds.Width(), bmHeader.Bounds.Height(), bmHeader.ColorSpace);
         memset(m_Bitmap->LockRaster(), -1, m_Bitmap->GetBytesPerRow() * m_Bitmap->GetBounds().Height());
 
+        UpdateIsScaled();
         PreferredSizeChanged();
 
         m_CurrentFrameByteSize = -1;

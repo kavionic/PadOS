@@ -37,6 +37,7 @@ public:
 
     virtual void OnPaint(const Rect& updateRect) override;
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void OnFrameSized(const Point& delta) override;
 
     bool LoadBitmap(const Path& path);
     bool LoadBitmap(StreamableIO& file);
@@ -45,13 +46,21 @@ public:
     Ptr<Bitmap> GetBitmap() const;
 
     void ClearBitmap();
+
+    void SetScale(const Point& scale);
+    Point GetScale() const { return m_Scale; }
+
 private:
+    void UpdateIsScaled();
     bool SlotImageDataReady(const void* data, size_t length, bool isFinal);
 
     os::BitmapFrameHeader m_CurrentFrame;
     ssize_t     m_CurrentFrameByteSize = -1;
     size_t      m_BytesAddedToRow = 0;
     size_t      m_BytesAddedToFrame = 0;
+
+    Point m_Scale = Point(1.0f, 1.0f);
+    bool  m_IsScaled = false;
 
     Ptr<Bitmap> m_Bitmap;
 };

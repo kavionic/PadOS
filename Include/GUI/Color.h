@@ -57,6 +57,7 @@ struct Color
 
     static constexpr Color FromRGB15(uint16_t color) { return Color(uint8_t(((color >> 10) & 0x1f) * 255 / 31), uint8_t(((color >> 5) & 0x1f) * 255 / 31), uint8_t((color & 0x1f) * 255 / 31), 255); }
     static constexpr Color FromRGB16(uint16_t color) { return Color(Expand5to8(uint8_t(color >> 11) & 0x1f), Expand6to8(uint8_t(color >> 5) & 0x3f), Expand5to8(uint8_t(color) & 0x1f), 255); }
+    static constexpr Color FromRGB32(uint32_t color) { return Color(color | 0xff000000); }
     static constexpr Color FromRGB32A(uint32_t color) { return Color(color); }
     static constexpr Color FromRGB32A(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255) { return Color(red, green, blue, alpha); }
     static constexpr Color FromRGB32AFloat(float red, float green, float blue, float alpha = 1.0f) { return Color(

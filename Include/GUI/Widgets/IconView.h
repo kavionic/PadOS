@@ -18,6 +18,12 @@ public:
     IconView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     IconView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
+    Ptr<BitmapView>         GetIconView();
+    Ptr<const BitmapView>   GetIconView() const;
+
+    Ptr<TextView>       GetLabelView();
+    Ptr<const TextView> GetLabelView() const;
+
     bool LoadBitmap(const Path& path);
     bool LoadBitmap(StreamableIO& file);
 

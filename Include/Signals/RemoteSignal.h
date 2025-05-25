@@ -391,6 +391,10 @@ private:
     TimeValMicros   m_EmitTimeout = TimeValMicros::infinit;
 };
 
+template<int MSGID, typename R, typename... ARGS>
+class RemoteSignal<MSGID, R (ARGS...)> : public RemoteSignal<MSGID, ARGS...> {};
+
+
 template<typename SIGNAL, typename CB_OBJ, typename... ARGS>
 bool post_to_remotesignal(CB_OBJ* callbackObj, void* (CB_OBJ::* callback)(int32_t, size_t), ARGS&&... args)
 {

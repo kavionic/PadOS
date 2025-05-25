@@ -90,7 +90,8 @@ private:
     void SlotViewDrawString(handler_id viewHandle, const String& string)                    { ForwardToView(viewHandle, &ServerView::DrawString, string); }
     void SlotViewScrollBy(handler_id viewHandle, const Point& delta)                        { ForwardToView(viewHandle, &ServerView::ScrollBy, delta); }
     void SlotViewCopyRect(handler_id viewHandle, const Rect& srcRect, const Point& dstPos)  { ForwardToView(viewHandle, &ServerView::CopyRect, srcRect, dstPos); }
-    void SlotViewDrawBitmap(handler_id viewHandle, handle_id bitmapHandle, const Rect& srcRect, const Point& dstPos) { ForwardToView(viewHandle, &ServerView::DrawBitmap, GetBitmap(bitmapHandle), srcRect, dstPos); }
+    void SlotViewDrawBitmap(handler_id viewHandle, handle_id bitmapHandle, const Rect& srcRect, const Point& dstPos)        { ForwardToView(viewHandle, &ServerView::DrawBitmap, GetBitmap(bitmapHandle), srcRect, dstPos); }
+    void SlotViewDrawScaledBitmap(handler_id viewHandle, handle_id bitmapHandle, const Rect& srcRect, const Rect& dstRect)  { ForwardToView(viewHandle, &ServerView::DrawScaledBitmap, GetBitmap(bitmapHandle), srcRect, dstRect); }
     void SlotViewDebugDraw(handler_id viewHandle, Color color, uint32_t drawFlags)          { ForwardToView(viewHandle, &ServerView::DebugDraw, color, drawFlags); }
 
     template<typename CB, typename... ARGS>
@@ -143,6 +144,7 @@ private:
     ASViewScrollBy              RSViewScrollBy;
     ASViewCopyRect              RSViewCopyRect;
     ASViewDrawBitmap            RSViewDrawBitmap;
+    ASViewDrawScaledBitmap      RSViewDrawScaledBitmap;
     ASViewDebugDraw             RSViewDebugDraw;
     
     ServerApplication(const ServerApplication&) = delete;

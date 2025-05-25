@@ -1273,6 +1273,60 @@ void ServerView::DrawBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Po
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void ServerView::DrawScaledBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Rect& inDstRect)
+{
+    if (bitmap == nullptr || m_VisibleReg == nullptr) {
+        return;
+    }
+    Ptr<const Region> region = GetRegion();
+
+    if (region == nullptr) {
+        return;
+    }
+    const IPoint screenPos(m_ScreenPos);
+
+    const Rect snappedSrcRect = srcRect.GetFloored();
+    const Rect snappedDstRect = inDstRect.GetFloored();
+
+    const float scaleX = (snappedSrcRect.Width()  - 1.0f) / snappedDstRect.Width();
+    const float scaleY = (snappedSrcRect.Height() - 1.0f) / snappedDstRect.Height();
+
+    const float scaleXinv = 1.0f / scaleX;
+    const float scaleYinv = 1.0f / scaleY;
+
+    const Rect clippedSrcRect = snappedSrcRect & Rect::FromSize(Point(bitmap->m_Size));
+
+    const Rect clippedDstRect(
+        snappedDstRect.left   + (clippedSrcRect.left   - snappedSrcRect.left)   * scaleXinv,
+        snappedDstRect.top    + (clippedSrcRect.top    - snappedSrcRect.top)    * scaleYinv,
+        snappedDstRect.right  + (clippedSrcRect.right  - snappedSrcRect.right)  * scaleXinv,
+        snappedDstRect.bottom + (clippedSrcRect.bottom - snappedSrcRect.bottom) * scaleYinv
+    );
+
+    for (const IRect& clipRect : region->m_Rects)
+    {
+        const Rect rectDst = clippedDstRect & clipRect;
+
+        if (rectDst.IsValid())
+        {
+            const Rect rectSrc(
+                clippedSrcRect.left +   (rectDst.left   - clippedDstRect.left)   * scaleX,
+                clippedSrcRect.top +    (rectDst.top    - clippedDstRect.top)    * scaleY,
+                clippedSrcRect.right +  (rectDst.right  - clippedDstRect.right)  * scaleX,
+                clippedSrcRect.bottom + (rectDst.bottom - clippedDstRect.bottom) * scaleY
+            );
+
+            const IRect cDst((rectDst + m_ScreenPos).GetRounded());
+
+            m_Bitmap->m_Driver->ScaleRect(m_Bitmap, ptr_raw_pointer_cast(bitmap), m_BgColor, m_FgColor, clippedSrcRect, clippedDstRect, rectSrc, cDst, m_DrawingMode);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void ServerView::DebugDraw(Color color, uint32_t drawFlags)
 {
     const IPoint screenPos(m_ScreenPos);

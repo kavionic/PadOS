@@ -1358,6 +1358,15 @@ void View::DrawBitmap(Ptr<const Bitmap> bitmap, const Rect& srcRect, const Point
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void View::DrawBitmap(Ptr<const Bitmap> bitmap, const Rect& srcRect, const Rect& dstRect)
+{
+    Post<ASViewDrawScaledBitmap>(bitmap->m_Handle, srcRect, dstRect);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
 {
     Rect frame(rect);

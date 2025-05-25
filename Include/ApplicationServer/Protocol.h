@@ -89,6 +89,7 @@ namespace AppserverProtocol
         VIEW_SCROLL_BY,
         VIEW_COPY_RECT,
         VIEW_DRAW_BITMAP,
+        VIEW_DRAW_SCALED_BITMAP,
         VIEW_DEBUG_DRAW,
         
         // Appserver -> view reply messages:
@@ -315,6 +316,9 @@ using ASViewDrawBitmap = RemoteSignal<AppserverProtocol::VIEW_DRAW_BITMAP
     , const Rect&   // srcRect
     , const Point&  // dstPos
 >;
+
+using ASViewDrawScaledBitmap = RemoteSignal<AppserverProtocol::VIEW_DRAW_SCALED_BITMAP
+    , void (handler_id viewHandle, handle_id bitmapHandle, const Rect& srcRect, const Rect& dstRect)>;
 
 using  ASViewDebugDraw = RemoteSignal<AppserverProtocol::VIEW_DEBUG_DRAW
     , handler_id   // viewHandle

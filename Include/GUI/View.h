@@ -262,6 +262,7 @@ public:
     void            DebugDraw(Color color, uint32_t drawFlags)         { Post<ASViewDebugDraw>(color, drawFlags); }
     
     void            DrawBitmap(Ptr<const Bitmap> bitmap, const Rect& srcRect, const Point& dstPos);
+    void            DrawBitmap(Ptr<const Bitmap> bitmap, const Rect& srcRect, const Rect& dstRect);
     void            DrawFrame(const Rect& rect, uint32_t styleFlags);
         
     FontHeight      GetFontHeight() const;

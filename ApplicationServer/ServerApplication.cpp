@@ -67,6 +67,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const String& na
     RegisterRemoteSignal(&RSViewScrollBy,               &ServerApplication::SlotViewScrollBy);
     RegisterRemoteSignal(&RSViewCopyRect,               &ServerApplication::SlotViewCopyRect);
     RegisterRemoteSignal(&RSViewDrawBitmap,             &ServerApplication::SlotViewDrawBitmap);
+    RegisterRemoteSignal(&RSViewDrawScaledBitmap,       &ServerApplication::SlotViewDrawScaledBitmap);
     RegisterRemoteSignal(&RSViewDebugDraw,              &ServerApplication::SlotViewDebugDraw);
 }
 

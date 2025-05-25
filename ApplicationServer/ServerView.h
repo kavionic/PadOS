@@ -104,6 +104,7 @@ public:
     void        DrawString(const String& string);
     void        CopyRect(const Rect& srcRect, const Point& dstPos);
     void        DrawBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Point& dstPos);
+    void        DrawScaledBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Rect& dstRect);
     void        DebugDraw(Color color, uint32_t drawFlags);
     void        ScrollBy( const Point& cDelta );
 

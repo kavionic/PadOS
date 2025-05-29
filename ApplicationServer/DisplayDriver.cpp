@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -1189,30 +1189,32 @@ void DisplayDriver::BltBitmapMask(SrvBitmap* pcDstBitMap, SrvBitmap* pcSrcBitMap
 
 void DisplayDriver::FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, DrawingMode mode)
 {
-    IRect frame(-radius, -radius, radius, radius);
+    const float radiusSqr = float(radius * radius);
 
-    int radiusSqr = radius * radius;
-    for (int y1 = frame.top; y1 <= 0; ++y1)
+    for (int32_t y = radius; y > 0; --y)
     {
-        for (int x1 = frame.left; x1 <= 0; ++x1)
-        {
-            if (x1 * x1 + y1 * y1 <= radiusSqr)
-            {
-                IRect topRect(center.x + x1, center.y + y1, center.x - x1, center.y + y1 + 1);
-                IRect bottomRect(center.x + x1, center.y - y1, center.x - x1, center.y - y1 + 1);
+        const float fy = float(y) + 0.5f;
+        const int32_t deltaX = int32_t(std::round(std::sqrt(std::max(0.0f, radiusSqr - fy * fy))));
 
-                topRect &= clipRect;
-                bottomRect &= clipRect;
+        IRect topRect(center.x - deltaX, center.y - y, center.x + deltaX + 1, center.y - y + 1);
+        topRect &= clipRect;
 
-                if (topRect.IsValid()) {
-                    FillRect(bitmap, topRect, color);
-                }
-                if (bottomRect.IsValid()) {
-                    FillRect(bitmap, bottomRect, color);
-                }
-                break;
-            }
+        if (topRect.IsValid()) {
+            FillRect(bitmap, topRect, color);
         }
+
+        IRect bottomRect(center.x - deltaX, center.y + y, center.x + deltaX + 1, center.y + y + 1);
+        bottomRect &= clipRect;
+
+        if (bottomRect.IsValid()) {
+            FillRect(bitmap, bottomRect, color);
+        }
+    }
+    IRect midRect(center.x - radius, center.y, center.x + radius + 1, center.y + 1);
+    midRect &= clipRect;
+
+    if (midRect.IsValid()) {
+        FillRect(bitmap, midRect, color);
     }
 }
 

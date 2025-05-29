@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -233,31 +233,6 @@ Color& Color::operator*=(float rhs)
 {
     *this = (*this) * rhs;
     return *this;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Color Color::operator*(float rhs) const
-{
-    float components[] = { GetRedFloat() * rhs, GetGreenFloat() * rhs, GetBlueFloat() * rhs };
-    float brightest = 0.0f;
-    for (int i = 0; i < 3; ++i )
-    {
-        if (components[i] > brightest) {
-            brightest = components[i];
-        }
-    }
-    if (brightest > 1.0f)
-    {
-        const float scale = 1.0f / brightest;
-        for (int i = 0; i < 3; ++i)
-        {
-            components[i] *= scale;
-        }
-    }
-    return FromRGB32AFloat(components[0], components[1], components[2]);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

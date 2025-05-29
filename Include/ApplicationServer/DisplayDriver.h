@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -29,12 +29,11 @@
 
 
 class   Glyph;
-class   MousePtr;
 class   SrvSprite;
 
-#define RAS_OFFSET8( ptr, x, y, bpl )  (((uint8_t*)(ptr)) + (x) + (y) * (bpl))
-#define RAS_OFFSET16( ptr, x, y, bpl ) ((uint16_t*)(((uint8_t*)(ptr)) + (x*2) + (y) * (bpl)))
-#define RAS_OFFSET32( ptr, x, y, bpl ) ((uint32_t*)(((uint8_t*)(ptr)) + (x*4) + (y) * (bpl)))
+#define RAS_OFFSET8( ptr, x, y, bpl) (((uint8_t*)(ptr)) + (x) + (y) * (bpl))
+#define RAS_OFFSET16(ptr, x, y, bpl) ((uint16_t*)(((uint8_t*)(ptr)) + (x*2) + (y) * (bpl)))
+#define RAS_OFFSET32(ptr, x, y, bpl) ((uint32_t*)(((uint8_t*)(ptr)) + (x*4) + (y) * (bpl)))
 
 namespace os
 {
@@ -47,7 +46,7 @@ struct ScreenMode
     ScreenMode() {}
     ScreenMode(const IPoint& resolution, int bytesPerLine, EColorSpace colorSpace) : m_Resolution(resolution), m_BytesPerLine(bytesPerLine), m_ColorSpace(colorSpace) {}
     IPoint      m_Resolution;
-    int         m_BytesPerLine = 0;
+    size_t      m_BytesPerLine = 0;
     EColorSpace m_ColorSpace = EColorSpace::NO_COLOR_SPACE;
 };
 
@@ -73,7 +72,7 @@ public:
     virtual int             GetBytesPerLine() = 0;
     virtual int             GetFramebufferOffset();
     virtual EColorSpace     GetColorSpace() = 0;
-    virtual void            SetColor(size_t index, const Color& color) = 0;
+    virtual void            SetColor(size_t index, Color color) = 0;
 
     //    virtual void  SetCursorBitmap(mouse_ptr_mode eMode, const IPoint& cHotSpot, const void* pRaster, int nWidth, int nHeight );
 

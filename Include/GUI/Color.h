@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -28,8 +28,8 @@ namespace os
 
 struct Color
 {
-    static constexpr uint8_t Expand5to8(uint8_t src) { return uint8_t((src << 3) | (src >> 2)); }
-    static constexpr uint8_t Expand6to8(uint8_t src) { return uint8_t((src << 2) | (src >> 4)); }
+    static constexpr uint8_t Expand5to8(uint8_t src) PALWAYS_INLINE { return uint8_t((src << 3) | (src >> 2)); }
+    static constexpr uint8_t Expand6to8(uint8_t src) PALWAYS_INLINE { return uint8_t((src << 2) | (src >> 4)); }
 
     static constexpr Color FromCMAP8(uint8_t colorIndex)
     {
@@ -55,56 +55,160 @@ struct Color
         }
     }
 
-    static constexpr Color FromRGB15(uint16_t color) { return Color(uint8_t(((color >> 10) & 0x1f) * 255 / 31), uint8_t(((color >> 5) & 0x1f) * 255 / 31), uint8_t((color & 0x1f) * 255 / 31), 255); }
-    static constexpr Color FromRGB16(uint16_t color) { return Color(Expand5to8(uint8_t(color >> 11) & 0x1f), Expand6to8(uint8_t(color >> 5) & 0x3f), Expand5to8(uint8_t(color) & 0x1f), 255); }
-    static constexpr Color FromRGB32(uint32_t color) { return Color(color | 0xff000000); }
-    static constexpr Color FromRGB32A(uint32_t color) { return Color(color); }
-    static constexpr Color FromRGB32A(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255) { return Color(red, green, blue, alpha); }
-    static constexpr Color FromRGB32AFloat(float red, float green, float blue, float alpha = 1.0f) { return Color(
-        uint8_t(std::clamp(int(red * 255.0f), 0, 255)),
-        uint8_t(std::clamp(int(green * 255.0f), 0, 255)),
-        uint8_t(std::clamp(int(blue * 255.0f), 0, 255)),
-        uint8_t(std::clamp(int(alpha * 255.0f), 0, 255)));
+    static constexpr Color FromRGB15(uint16_t color) PALWAYS_INLINE
+    {
+        return Color(uint8_t(((color >> 10) & 0x1f) * 255 / 31),
+                     uint8_t(((color >> 5) & 0x1f)  * 255 / 31),
+                     uint8_t( (color & 0x1f)        * 255 / 31));
     }
+    static constexpr Color FromRGB16(uint16_t color) PALWAYS_INLINE
+    {
+        return Color(Expand5to8(uint8_t(color >> 11) & 0x1f),
+                     Expand6to8(uint8_t(color >> 5)  & 0x3f),
+                     Expand5to8(uint8_t(color)       & 0x1f));
+    }
+    static constexpr Color FromRGB32(uint32_t color) PALWAYS_INLINE  { return Color(color | 0xff000000); }
+    static constexpr Color FromRGB32A(uint32_t color) PALWAYS_INLINE  { return Color(color); }
+    static constexpr Color FromRGB32A(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255) PALWAYS_INLINE  { return Color(red, green, blue, alpha); }
+    static constexpr Color FromRGB32AFloat(float red, float green, float blue, float alpha = 1.0f) PALWAYS_INLINE
+    {
+        return Color(uint8_t(red   * 255.0f),
+                     uint8_t(green * 255.0f),
+                     uint8_t(blue  * 255.0f),
+                     uint8_t(alpha * 255.0f));
+    }
+    static constexpr Color FromRGB32AFloatClamped(float red, float green, float blue, float alpha = 1.0f) PALWAYS_INLINE
+    {
+        return Color(uint8_t(std::clamp(int32_t(red   * 255.0f), 0l, 255l)),
+                     uint8_t(std::clamp(int32_t(green * 255.0f), 0l, 255l)),
+                     uint8_t(std::clamp(int32_t(blue  * 255.0f), 0l, 255l)),
+                     uint8_t(std::clamp(int32_t(alpha * 255.0f), 0l, 255l)));
+    }
+
+    static constexpr Color Blend(Color srcColor, Color dstColor) PALWAYS_INLINE
+    {
+        if (srcColor.GetAlpha() == 255)
+        {
+            return srcColor;
+        }
+        else if (srcColor.GetAlpha() == 0)
+        {
+            return dstColor;
+        }
+        else
+        {
+            const float alpha    = srcColor.GetAlphaFloat();
+            const float alphaInv = 1.0f - alpha;
+            return Color::FromRGB32A(uint8_t(float(srcColor.GetRed())   * alpha + float(dstColor.GetRed())   * alphaInv),
+                                     uint8_t(float(srcColor.GetGreen()) * alpha + float(dstColor.GetGreen()) * alphaInv),
+                                     uint8_t(float(srcColor.GetBlue())  * alpha + float(dstColor.GetBlue())  * alphaInv)
+            );
+        }
+    }
+
+    static constexpr uint16_t Blend15(Color srcColor, Color dstColor) PALWAYS_INLINE
+    {
+        if (srcColor.GetAlpha() == 255)
+        {
+            return srcColor.GetColor15();
+        }
+        else if (srcColor.GetAlpha() == 0)
+        {
+            return dstColor.GetColor15();
+        }
+        else
+        {
+            const float alpha    = srcColor.GetAlphaFloat();
+            const float alphaInv = 1.0f - alpha;
+            return Color::FromRGB32A(uint8_t(float(srcColor.GetRed())   * alpha + float(dstColor.GetRed())   * alphaInv),
+                                     uint8_t(float(srcColor.GetGreen()) * alpha + float(dstColor.GetGreen()) * alphaInv),
+                                     uint8_t(float(srcColor.GetBlue())  * alpha + float(dstColor.GetBlue())  * alphaInv)).GetColor15();
+        }
+    }
+
+    static constexpr uint16_t Blend16(Color srcColor, Color dstColor) PALWAYS_INLINE
+    {
+        if (srcColor.GetAlpha() == 255)
+        {
+            return srcColor.GetColor16();
+        }
+        else if (srcColor.GetAlpha() == 0)
+        {
+            return dstColor.GetColor16();
+        }
+        else
+        {
+            const float alpha    = srcColor.GetAlphaFloat();
+            const float alphaInv = 1.0f - alpha;
+            return Color::FromRGB32A(uint8_t(float(srcColor.GetRed())   * alpha + float(dstColor.GetRed())   * alphaInv),
+                                     uint8_t(float(srcColor.GetGreen()) * alpha + float(dstColor.GetGreen()) * alphaInv),
+                                     uint8_t(float(srcColor.GetBlue())  * alpha + float(dstColor.GetBlue())  * alphaInv)).GetColor16();
+        }
+    }
+
     static           Color FromColorID(NamedColors colorID);
     static           Color FromColorName(const char* name)   { return FromColorID(NamedColors(String::hash_string_literal_nocase(name))); }
     static           Color FromColorName(const String& name) { return FromColorName(name.c_str()); }
 
-    constexpr Color() : m_Color(0) {}
-    constexpr Color(const Color& color) : m_Color(color.m_Color) {}
-    explicit constexpr Color(uint32_t color32) : m_Color(color32) {}
-    constexpr Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : m_Color((r << 16) | (g << 8) | b | (a << 24)) {}
+    constexpr inline Color() PALWAYS_INLINE : m_Color(0) {}
+    constexpr inline Color(const Color& color) PALWAYS_INLINE  : m_Color(color.m_Color) {}
+    explicit constexpr inline Color(uint32_t color32) PALWAYS_INLINE : m_Color(color32) {}
+    constexpr inline Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) PALWAYS_INLINE : m_Color((r << 16) | (g << 8) | b | (a << 24)) {}
     
     Color(NamedColors colorID);
     Color(const String& name);
 
     Color& operator=(const Color&) = default;
     Color& operator*=(float rhs);
-    Color operator*(float rhs) const;
+    constexpr Color operator*(float rhs) const
+    {
+        float components[] = { GetRedFloat() * rhs, GetGreenFloat() * rhs, GetBlueFloat() * rhs };
+        float brightest = 0.0f;
+        for (int i = 0; i < 3; ++i)
+        {
+            if (components[i] > brightest) {
+                brightest = components[i];
+            }
+        }
+        if (brightest > 1.0f)
+        {
+            const float scale = 1.0f / brightest;
+            for (int i = 0; i < 3; ++i)
+            {
+                components[i] *= scale;
+            }
+        }
+        return FromRGB32AFloat(components[0], components[1], components[2]);
+    }
 
-    void Set16(uint16_t color)                                     { SetRGBA(uint8_t(((color >> 11) & 0x1f) * 255 / 31), uint8_t(((color >> 5) & 0x3f) * 255 / 63), uint8_t((color & 0x1f) * 255 / 31), 255); }
-    void Set32(uint32_t color)                                     { m_Color = color; }
-    void SetRGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) { m_Color = (r << 16) | (g << 8) | b | (a << 24); }
+    void Set16(uint16_t color) PALWAYS_INLINE
+    {
+        SetRGBA(uint8_t(((color >> 11) & 0x1f) * 255 / 31),
+                uint8_t(((color >> 5) & 0x3f) * 255 / 63),
+                uint8_t((color & 0x1f) * 255 / 31));
+    }
+    void Set32(uint32_t color) PALWAYS_INLINE                                     { m_Color = color; }
+    void SetRGBA(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) PALWAYS_INLINE { m_Color = (r << 16) | (g << 8) | b | (a << 24); }
     
-    uint8_t GetRed() const { return uint8_t((m_Color >> 16) & 0xff); }
-    uint8_t GetGreen() const { return uint8_t((m_Color >> 8) & 0xff); }
-    uint8_t GetBlue() const { return uint8_t(m_Color & 0xff); }
-    uint8_t GetAlpha() const { return uint8_t((m_Color >> 24) & 0xff); }
+    constexpr uint8_t GetRed() const PALWAYS_INLINE   { return uint8_t(m_Color >> 16); }
+    constexpr uint8_t GetGreen() const PALWAYS_INLINE { return uint8_t(m_Color >> 8); }
+    constexpr uint8_t GetBlue() const PALWAYS_INLINE  { return uint8_t(m_Color); }
+    constexpr uint8_t GetAlpha() const PALWAYS_INLINE { return uint8_t(m_Color >> 24); }
 
-    float GetRedFloat() const { return float(GetRed()) / 255.0f; }
-    float GetGreenFloat() const { return float(GetGreen()) / 255.0f; }
-    float GetBlueFloat() const { return float(GetBlue()) / 255.0f; }
-    float GetAlphaFloat() const { return float(GetAlpha()) / 255.0f; }
+    constexpr float GetRedFloat() const PALWAYS_INLINE   { return float(GetRed())   * (1.0f / 255.0f); }
+    constexpr float GetGreenFloat() const PALWAYS_INLINE { return float(GetGreen()) * (1.0f / 255.0f); }
+    constexpr float GetBlueFloat() const PALWAYS_INLINE  { return float(GetBlue())  * (1.0f / 255.0f); }
+    constexpr float GetAlphaFloat() const PALWAYS_INLINE { return float(GetAlpha()) * (1.0f / 255.0f); }
 
-    Color GetNorimalized() const { return GetNorimalized(GetAlpha()); }
-    Color GetNorimalized(uint8_t alpha) const { return Color(uint8_t((uint32_t(GetRed()) * alpha + 127) / 255), uint8_t((uint32_t(GetGreen()) * alpha + 127) / 255), uint8_t((uint32_t(GetBlue()) * alpha + 127) / 255)); }
+    constexpr Color GetNorimalized() const PALWAYS_INLINE { return GetNorimalized(GetAlpha()); }
+    constexpr Color GetNorimalized(uint8_t alpha) const PALWAYS_INLINE { return Color(uint8_t((uint32_t(GetRed()) * alpha + 127) / 255), uint8_t((uint32_t(GetGreen()) * alpha + 127) / 255), uint8_t((uint32_t(GetBlue()) * alpha + 127) / 255)); }
 
-    uint16_t GetColor15() const { return uint16_t(((GetRed() & 0xf8) << 7) | ((GetGreen() & 0xf8) << 2) | ((GetBlue() & 0xf8) >> 3)); }
-    uint16_t GetColor16() const { return uint16_t(((GetRed() & 0xf8) << 8) | ((GetGreen() & 0xfc) << 3) | ((GetBlue() & 0xf8) >> 3)); }
-    uint32_t GetColor32() const { return m_Color; }
+    constexpr uint16_t GetColor15() const PALWAYS_INLINE { return uint16_t(((GetRed() & 0xf8) << 7) | ((GetGreen() & 0xf8) << 2) | ((GetBlue() & 0xf8) >> 3)); }
+    constexpr uint16_t GetColor16() const PALWAYS_INLINE { return uint16_t(((GetRed() & 0xf8) << 8) | ((GetGreen() & 0xfc) << 3) | ((GetBlue() & 0xf8) >> 3)); }
+    constexpr uint32_t GetColor32() const PALWAYS_INLINE { return m_Color; }
 
-    Color GetInverted() const { return Color(uint8_t(255 - GetRed()), uint8_t(255 - GetGreen()), uint8_t(255 - GetBlue()), GetAlpha()); }
-    void  Invert() { SetRGBA(uint8_t(255 - GetRed()), uint8_t(255 - GetGreen()), uint8_t(255 - GetBlue()), GetAlpha()); }
+    constexpr Color GetInverted() const PALWAYS_INLINE { return Color(uint8_t(255 - GetRed()), uint8_t(255 - GetGreen()), uint8_t(255 - GetBlue()), GetAlpha()); }
+    void  Invert() PALWAYS_INLINE { SetRGBA(uint8_t(255 - GetRed()), uint8_t(255 - GetGreen()), uint8_t(255 - GetBlue()), GetAlpha()); }
 
     uint32_t m_Color;
 };
@@ -122,9 +226,6 @@ public:
     DynamicColor(const String& name) : Color(name) {}
 
     DynamicColor(StandardColorID colorID);
-
-private:
-//    StandardColorID m_StandardColorID = StandardColorID::None;
 };
 
 } // namespace

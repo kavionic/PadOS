@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2014-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2014-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -193,7 +193,7 @@ EColorSpace RA8875Driver::GetColorSpace()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::SetColor(size_t index, const Color& color)
+void RA8875Driver::SetColor(size_t index, Color color)
 {
 }
 
@@ -362,7 +362,7 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
         }
         WriteCommand(RA8875_BECR0, RA8875_BECR0_SRC_BLOCK | RA8875_BECR0_DST_BLOCK | RA8875_BECR0_ENABLE_bm);
 
-        auto writePixel16 = [this](uint16_t pixel16)
+        auto writePixel16 = [this](uint16_t pixel16) PALWAYS_INLINE
         {
             WaitMemory();
             WriteData(pixel16);
@@ -379,8 +379,8 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
                 const uint16_t fgColor16 = fgColor.GetColor16();
 
                 int32_t x = srcRect.left;
-                auto readPixel = [&x, &src]() { int32_t curX = x++; return (src[curX / 32] & (1 << (31 - (curX & 31)))) != 0; };
-                auto writePixel = [this, bgColor16, fgColor16](bool pixel)
+                auto readPixel = [&x, &src]() PALWAYS_INLINE{ int32_t curX = x++; return (src[curX / 32] & (1 << (31 - (curX & 31)))) != 0; };
+                auto writePixel = [this, bgColor16, fgColor16](bool pixel) PALWAYS_INLINE
                     {
                         WaitMemory();
                         if (pixel) {
@@ -389,7 +389,7 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
                             WriteData(bgColor16);
                         }
                     };
-                auto nextLine = [&x, &src, left = srcRect.left, wordsPerLine]() { src += wordsPerLine; x = left; };
+                auto nextLine = [&x, &src, left = srcRect.left, wordsPerLine]() PALWAYS_INLINE { src += wordsPerLine; x = left; };
                 BeginWriteData();
 
                 BlitterUtils::CopyBitmap(readPixel, writePixel, nextLine, srcRect);
@@ -400,8 +400,8 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
                 const int32_t srcModulo = srcBitmap->m_BytesPerLine - srcRect.Width();
                 const uint8_t* src = srcBitmap->m_Raster + srcRect.top * srcBitmap->m_BytesPerLine;
 
-                auto readPixel = [this, &src]() { return GetPaletteEntry(*src++).GetColor16(); };
-                auto nextLine = [&src, srcModulo]() { src += srcModulo; };
+                auto readPixel = [this, &src]() PALWAYS_INLINE{ return GetPaletteEntry(*src++).GetColor16(); };
+                auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
 
                 BeginWriteData();
                 BlitterUtils::CopyBitmap(readPixel, writePixel16, nextLine, srcRect);
@@ -412,8 +412,8 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
                 const int32_t srcModulo = srcBitmap->m_BytesPerLine / 2 - srcRect.Width();
                 const uint16_t* src = RAS_OFFSET16(srcBitmap->m_Raster, srcRect.left, srcRect.top, srcBitmap->m_BytesPerLine);
 
-                auto readPixel = [&src]() { return Color::FromRGB15(*src++).GetColor16(); };
-                auto nextLine = [&src, srcModulo]() { src += srcModulo; };
+                auto readPixel = [&src]() PALWAYS_INLINE { return Color::FromRGB15(*src++).GetColor16(); };
+                auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
 
                 BeginWriteData();
                 BlitterUtils::CopyBitmap(readPixel, writePixel16, nextLine, srcRect);
@@ -424,8 +424,8 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
                 const int32_t srcModulo = srcBitmap->m_BytesPerLine / 2 - srcRect.Width();
                 const uint16_t* src = RAS_OFFSET16(srcBitmap->m_Raster, srcRect.left, srcRect.top, srcBitmap->m_BytesPerLine);
 
-                auto readPixel = [&src]() { return *src++; };
-                auto nextLine = [&src, srcModulo]() { src += srcModulo; };
+                auto readPixel = [&src]() PALWAYS_INLINE { return *src++; };
+                auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
 
                 BeginWriteData();
                 BlitterUtils::CopyBitmap(readPixel, writePixel16, nextLine, srcRect);
@@ -437,13 +437,13 @@ void RA8875Driver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bg
                 const int32_t srcModulo = srcBitmap->m_BytesPerLine / 4 - srcRect.Width();
                 const uint32_t* src = RAS_OFFSET32(srcBitmap->m_Raster, srcRect.left, srcRect.top, srcBitmap->m_BytesPerLine);
 
-                auto readPixelRGB = [&src]() { return Color::FromRGB32(*src++).GetColor16(); };
-                auto readPixelRGBA = [&src, bgColor16 = bgColor.GetColor16()]()
+                auto readPixelRGB = [&src]() PALWAYS_INLINE { return Color::FromRGB32(*src++).GetColor16(); };
+                auto readPixelRGBA = [&src, bgColor]() PALWAYS_INLINE
                     {
                         const Color pixel32 = Color::FromRGB32A(*src++);
-                        return (pixel32.GetAlpha() != 0) ? pixel32.GetColor16() : bgColor16;
+                        return Color::Blend16(pixel32, bgColor);
                     };
-                auto nextLine = [&src, srcModulo]() { src += srcModulo; };
+                auto nextLine = [&src, srcModulo]() PALWAYS_INLINE { src += srcModulo; };
 
                 BeginWriteData();
                 if (srcBitmap->m_ColorSpace == EColorSpace::RGB32) {
@@ -527,15 +527,16 @@ void RA8875Driver::ScaleRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color b
             case EColorSpace::RGB32:
             case EColorSpace::RGBA32:
             {
-                const uint32_t* const src = (const uint32_t*)srcBitmap->m_Raster;
-                const uint16_t bgColor16 = bgColor.GetColor16();
+                const uint32_t* const src = reinterpret_cast<const uint32_t*>(srcBitmap->m_Raster);
                 const uint32_t wordsPerLine = srcBitmap->m_BytesPerLine / 4;
+
                 BeginWriteData();
 
-                auto readPixel = [src, wordsPerLine](int32_t x, int32_t y) { return Color::FromRGB32A(src[y * wordsPerLine + x]); };
-                auto writePixel = [this, bgColor16, src, wordsPerLine](int32_t x, int32_t y, const Color& pixel)
+                auto readPixel = [src, wordsPerLine](int32_t x, int32_t y) PALWAYS_INLINE { return Color::FromRGB32A(src[y * wordsPerLine + x]); };
+                auto writePixel = [this, bgColor, src, wordsPerLine](int32_t x, int32_t y, const Color& pixel) PALWAYS_INLINE
                     {
-                        const uint16_t pixel16 = (pixel.GetAlpha() >= 128) ? pixel.GetColor16() : bgColor16;
+                        const uint16_t pixel16 = Color::Blend16(pixel, bgColor);
+
                         WaitMemory();
                         WriteData(pixel16);
                     };

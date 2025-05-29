@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2019-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2019-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -57,3 +57,4 @@ typedef TIM_TypeDef MCU_Timer16_t;
 typedef GPIO_TypeDef GPIO_Port_t;
 
 #define ATTR_PACKED __attribute__ ((packed))
+#define PALWAYS_INLINE __attribute__ ((always_inline))

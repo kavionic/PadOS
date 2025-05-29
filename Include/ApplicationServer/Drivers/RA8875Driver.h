@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2014-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2014-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -56,8 +56,8 @@ public:
 
     virtual IPoint          GetResolution() override;
     virtual int             GetBytesPerLine() override;
-    virtual EColorSpace      GetColorSpace() override;
-    virtual void            SetColor(size_t index, const Color& color) override;
+    virtual EColorSpace     GetColorSpace() override;
+    virtual void            SetColor(size_t index, Color color) override;
 
     virtual void            WritePixel(SrvBitmap* bitmap, const IPoint& pos, Color color) override;
     virtual void            DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2, const Color& color, DrawingMode mode) override;
@@ -90,7 +90,8 @@ private:
             } else {
                 WriteCommand(RA8875_MWCR0, RA8875_MWCR0_TD_LR_bg); // Top -> Down then Left -> Right
             }
-        } else
+        }
+        else
         {
             if (m_Orientation == e_Landscape) {
                 WriteCommand(RA8875_MWCR0, RA8875_MWCR0_TD_LR_bg); // Top -> Down then Left -> Right
@@ -100,7 +101,7 @@ private:
         }
     }
 
-    void MemoryWrite_Position(int X, int Y)
+    void MemoryWrite_Position(int32_t X, int32_t Y)
     {
         WriteCommand(RA8875_CURH0, RA8875_CURH1, uint16_t(X));
         WriteCommand(RA8875_CURV0, RA8875_CURV1, uint16_t(Y));

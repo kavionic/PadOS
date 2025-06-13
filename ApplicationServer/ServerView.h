@@ -30,7 +30,23 @@ class SrvBitmap;
 class ServerView : public ViewBase<ServerView>
 {
 public:
-    ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, ViewDockType dockType, uint32_t flags, int32_t hideCount, FocusKeyboardMode focusKeyboardMode, DrawingMode drawingMode, Font_e fontID, Color eraseColor, Color bgColor, Color fgColor);
+    ServerView(
+        SrvBitmap*          bitmap,
+        const String&       name,
+        const Rect&         frame,
+        const Point&        scrollOffset,
+        ViewDockType        dockType,
+        uint32_t            flags,
+        int32_t             hideCount,
+        FocusKeyboardMode   focusKeyboardMode,
+        DrawingMode         drawingMode,
+        float               penWidth,
+        Font_e              fontID,
+        Color               eraseColor,
+        Color               bgColor,
+        Color               fgColor
+    );
+
     virtual ~ServerView();
     void        SetClientHandle(port_id port, handler_id handle) { m_ClientPort = port; m_ClientHandle = handle; }
     port_id     GetClientPort() const   { return m_ClientPort; }
@@ -92,11 +108,13 @@ public:
     void        SetFgColor(Color color)    { m_FgColor = color; }
 
     void        SetFont(int fontHandle) { m_Font->Set(Font_e(fontHandle)); }
+    void        SetPenWidth(float width) { m_PenWidth = width; }
 
     void        MovePenTo(const Point& pos) { m_PenPosition = pos; }
 
     void        DrawLineTo(const Point& toPoint);
     void        DrawLine(const Point& fromPnt, const Point& toPnt);
+    void        DrawThinLine(const Point& fromPnt, const Point& toPnt);
     void        DrawRect(const Rect& frame);        
     
     void        FillRect(const Rect& rect, Color color);

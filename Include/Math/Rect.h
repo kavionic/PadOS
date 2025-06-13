@@ -73,6 +73,7 @@ public:
     constexpr Rect GetCeiled() const noexcept   { return Rect(ceil(left), ceil(top), ceil(right), ceil(bottom)); }
 
     Rect& Resize(float inLeft, float inTop, float inRight, float inBottom) noexcept { left += inLeft; top += inTop; right += inRight; bottom += inBottom; return *this; }
+    Rect  GetResized(float inLeft, float inTop, float inRight, float inBottom) const noexcept { Rect result = *this; result.Resize(inLeft, inTop, inRight, inBottom); return result; }
 
     constexpr Rect  operator+(const Point& point) const noexcept { return Rect(left + point.x, top + point.y, right + point.x, bottom + point.y); }
     constexpr Rect  operator-(const Point& point) const noexcept { return Rect(left - point.x, top - point.y, right - point.x, bottom - point.y); }
@@ -96,6 +97,7 @@ public:
 
 
     static constexpr Rect FromSize(const Point& size) noexcept { return Rect(Point(0.0f, 0.0f), size); }
+    static constexpr Rect FromSize(float x, float y) noexcept  { return Rect(0.0f, 0.0f, x, y); }
     static constexpr Rect Centered(const Point& center, const Point& size) noexcept { return FromSize(size) - size * 0.5f + center; }
 };
 

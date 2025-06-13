@@ -37,8 +37,23 @@ static int g_ServerViewCount = 0;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ServerView::ServerView(SrvBitmap* bitmap, const String& name, const Rect& frame, const Point& scrollOffset, ViewDockType dockType, uint32_t flags, int32_t hideCount, FocusKeyboardMode focusKeyboardMode, DrawingMode drawingMode, Font_e fontID, Color eraseColor, Color bgColor, Color fgColor)
-    : ViewBase(name, frame, scrollOffset, flags, hideCount, eraseColor, bgColor, fgColor)
+ServerView::ServerView(
+    SrvBitmap*          bitmap,
+    const String&       name,
+    const Rect&         frame,
+    const Point&        scrollOffset,
+    ViewDockType        dockType,
+    uint32_t            flags,
+    int32_t             hideCount,
+    FocusKeyboardMode   focusKeyboardMode,
+    DrawingMode         drawingMode,
+    float               penWidth,
+    Font_e              fontID,
+    Color               eraseColor,
+    Color               bgColor,
+    Color               fgColor
+)
+    : ViewBase(name, frame, scrollOffset, flags, hideCount, penWidth, eraseColor, bgColor, fgColor)
     , m_Bitmap(bitmap)
     , m_DockType(dockType)
     , m_FocusKeyboardMode(focusKeyboardMode)
@@ -989,7 +1004,49 @@ void ServerView::DrawLineTo(const Point& toPoint)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt )
+void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt)
+{
+    if (m_PenWidth < 2.0f)
+    {
+        DrawThinLine(fromPnt, toPnt);
+    }
+    else
+    {
+        const Point start = fromPnt.GetRounded();
+        const Point end = toPnt.GetRounded();
+        const float halfThickness = m_PenWidth * 0.5f;
+
+        const Point delta = end - start;
+        const Point normal = Point(-delta.y, delta.x).GetNormalized();
+
+        Point prevOffset = (normal * -halfThickness).GetRounded();
+        DrawThinLine(start + prevOffset, end + prevOffset);
+
+        for (int32_t i = 1; i < int32_t(std::round(m_PenWidth)); ++i)
+        {
+            Point offset = normal * (float(i) - halfThickness);
+            const Point offsetDelta = offset - prevOffset;
+            if (std::abs(offsetDelta.x) > std::abs(offsetDelta.y))
+            {
+                offset.x = (offsetDelta.x < 0.0f) ? (prevOffset.x - 1.0f) : (prevOffset.x + 1.0f);
+                offset.y = prevOffset.y;
+            }
+            else
+            {
+                offset.x = prevOffset.x;
+                offset.y = (offsetDelta.y < 0.0f) ? (prevOffset.y - 1.0f) : (prevOffset.y + 1.0f);
+            }
+            prevOffset = offset;
+            DrawThinLine(start + offset, end + offset);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerView::DrawThinLine(const Point& fromPnt, const Point& toPnt )
 {
     Ptr<const Region> region = GetRegion();
     if (region != nullptr)

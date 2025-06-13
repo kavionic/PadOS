@@ -138,7 +138,7 @@ static Color Tint(const Color& color, float tint)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name, Rect(), Point(), flags, 0, get_standard_color(StandardColorID::DefaultBackground), get_standard_color(StandardColorID::DefaultBackground), Color(0))
+View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name, Rect(), Point(), flags, 0, 1.0f, get_standard_color(StandardColorID::DefaultBackground), get_standard_color(StandardColorID::DefaultBackground), Color(0))
 {
     Initialize();
     if (parent != nullptr) {
@@ -170,6 +170,7 @@ View::View(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& 
                Point(),
                context.GetFlagsAttribute<uint32_t>(xmlData, ViewFlags::FlagMap, "flags", 0),
                0,
+               1.0f,
                get_standard_color(StandardColorID::DefaultBackground),
                get_standard_color(StandardColorID::DefaultBackground),
                Color(0))
@@ -285,7 +286,7 @@ View::View(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame) : ViewBase(name, frame, Point(), ViewFlags::Eavesdropper | ViewFlags::WillDraw, 0, Color(0xffffffff), Color(0xffffffff), Color(0))
+View::View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame) : ViewBase(name, frame, Point(), ViewFlags::Eavesdropper | ViewFlags::WillDraw, 0, 1.0f, Color(0xffffffff), Color(0xffffffff), Color(0))
 {
     Initialize();
     m_ServerHandle = serverHandle;

@@ -467,6 +467,7 @@ bool Application::CreateServerView(Ptr<View> view, handler_id parentHandle, View
         , view->m_HideCount
         , view->m_FocusKeyboardMode
         , view->m_DrawingMode
+        , view->m_PenWidth
         , (view->m_Font != nullptr) ? view->m_Font->Get() : Font_e::e_FontLarge
         , view->m_EraseColor
         , view->m_BgColor

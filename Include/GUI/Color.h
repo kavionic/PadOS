@@ -21,6 +21,7 @@
 
 #include <GUI/NamedColors.h>
 #include <GUI/GUIDefines.h>
+#include <Math/Misc.h>
 
 
 namespace os
@@ -158,6 +159,8 @@ struct Color
     Color(NamedColors colorID);
     Color(const String& name);
 
+    int operator<=>(const Color& rhs) const = default;
+
     Color& operator=(const Color&) = default;
     Color& operator*=(float rhs);
     constexpr Color operator*(float rhs) const
@@ -209,6 +212,31 @@ struct Color
 
     constexpr Color GetInverted() const PALWAYS_INLINE { return Color(uint8_t(255 - GetRed()), uint8_t(255 - GetGreen()), uint8_t(255 - GetBlue()), GetAlpha()); }
     void  Invert() PALWAYS_INLINE { SetRGBA(uint8_t(255 - GetRed()), uint8_t(255 - GetGreen()), uint8_t(255 - GetBlue()), GetAlpha()); }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// Calculate the perceptual "red-mean" distance between two colors.
+    /// 
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
+    constexpr float GetColorDistance(const Color& other) const
+    {
+        const float r1 = GetRedFloat();
+        const float r2 = other.GetRedFloat();
+
+        const float deltaR = r1 - r2;
+        const float deltaG = GetGreenFloat() - other.GetGreenFloat();
+        const float deltaB = GetBlueFloat()  - other.GetBlueFloat();
+
+        const float redMean = (r1 + r2) * 0.5f;
+
+        // Calculate scale weights.
+        const float weightR = 2.0f + redMean;   // ≈ 2 … 3
+        const float weightG = 4.0f;             // constant
+        const float weightB = 3.0f - redMean;   // ≈ 2 … 3
+
+        return weightR * square(deltaR) + weightG * square(deltaG) + weightB * square(deltaB);
+    }
 
     uint32_t m_Color;
 };

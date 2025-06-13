@@ -58,6 +58,7 @@ ServerApplication::ServerApplication(ApplicationServer* server, const String& na
     RegisterRemoteSignal(&RSViewSetFocusKeyboardMode,   &ServerApplication::SlotViewSetFocusKeyboardMode);
     RegisterRemoteSignal(&RSViewSetDrawingMode,         &ServerApplication::SlotViewSetDrawingMode);
     RegisterRemoteSignal(&RSViewSetFont,                &ServerApplication::SlotViewSetFont);
+    RegisterRemoteSignal(&RSViewSetPenWidth,            &ServerApplication::SlotViewSetPenWidth);
     RegisterRemoteSignal(&RSViewMovePenTo,              &ServerApplication::SlotViewMovePenTo);
     RegisterRemoteSignal(&RSViewDrawLine1,              &ServerApplication::SlotViewDrawLine1);
     RegisterRemoteSignal(&RSViewDrawLine2,              &ServerApplication::SlotViewDrawLine2);
@@ -196,6 +197,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
                                        int32_t              hideCount,
                                        FocusKeyboardMode    focusKeyboardMode,
                                        DrawingMode          drawingMode,
+                                       float                penWidth,
                                        Font_e               fontID,
                                        Color                eraseColor,
                                        Color                bgColor,
@@ -221,7 +223,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
         }
     }
     
-    Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hideCount, focusKeyboardMode, drawingMode, fontID, eraseColor, bgColor, fgColor);
+    Ptr<ServerView> view = ptr_new<ServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hideCount, focusKeyboardMode, drawingMode, penWidth, fontID, eraseColor, bgColor, fgColor);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
         parent->AddChild(view, index);

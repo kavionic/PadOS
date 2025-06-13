@@ -55,35 +55,7 @@ bool RA8875Driver::Open()
     m_PinBacklightControl = true;
     m_PinBacklightControl.SetDirection(DigitalPinDirection_e::Out);
 
-    if (m_PinLCDReset.IsValid())
-    {
-        snooze_ms(2);
-        m_PinLCDReset = false;
-        snooze_ms(10);
-        m_PinLCDReset = true;
-        snooze_ms(100);
-    }
-    PLL_ini();
-
-    WriteCommand(RA8875_SYSR); // SYSR   bit[4:3] color  bit[2:1]=  MPU interface
-    WriteData(0x0f);           // 16 BIT     65K
-
-    WriteCommand(RA8875_PCSR); // PCLK
-    WriteData(0x81);
-    snooze_ms(2);
-
-    //Horizontal set
-    WriteCommand(RA8875_HDWR, 100 - 1); //Horizontal display width(pixels) = (HDWR + 1)*8
-    WriteCommand(RA8875_HNDFTR, 0x00);  //Horizontal Non-Display Period Fine Tuning(HNDFT) [3:0]
-    WriteCommand(RA8875_HNDR, 0x03);    //Horizontal Non-Display Period (pixels) = (HNDR + 1)*8
-    WriteCommand(RA8875_HSTR, 0x03);    //HSYNC Start Position(PCLK) = (HSTR + 1)*8
-    WriteCommand(RA8875_HPWR, 0x0B);    //HSYNC Width [4:0]   HSYNC Pulse width(PCLK) = (HPWR + 1)*8
-    //Vertical set
-    WriteCommand(RA8875_VDHR0, RA8875_VDHR1, 480 - 1); // Vertical pixels = VDHR + 1
-    WriteCommand(RA8875_VNDR0, RA8875_VNDR1, 0x20);    // Vertical Non-Display area = (VNDR + 1)
-    WriteCommand(RA8875_VSTR0, RA8875_VSTR1, 0x16);    // VSYNC Start Position(PCLK) = (VSTR + 1)
-    WriteCommand(RA8875_VPWR, 0x01); // VSYNC Pulse Width(PCLK) = (VPWR + 1)
-
+    Reset();
     m_ScreenBitmap->m_Size = GetResolution();
 
     IRect screenFrame(IPoint(0, 0), GetResolution());
@@ -767,6 +739,43 @@ uint32_t RA8875Driver::WriteString(SrvBitmap* bitmap, const IPoint& position, co
 //    }
 //    return 0;
 //}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875Driver::Reset()
+{
+    if (m_PinLCDReset.IsValid())
+    {
+        snooze_ms(2);
+        m_PinLCDReset = false;
+        snooze_ms(10);
+        m_PinLCDReset = true;
+        snooze_ms(100);
+    }
+
+    PLL_ini();
+
+    WriteCommand(RA8875_SYSR); // SYSR   bit[4:3] color  bit[2:1]=  MPU interface
+    WriteData(0x0f);           // 16 BIT     65K
+
+    WriteCommand(RA8875_PCSR); // PCLK
+    WriteData(0x81);
+    snooze_ms(2);
+
+    //Horizontal set
+    WriteCommand(RA8875_HDWR, 100 - 1); //Horizontal display width(pixels) = (HDWR + 1)*8
+    WriteCommand(RA8875_HNDFTR, 0x00);  //Horizontal Non-Display Period Fine Tuning(HNDFT) [3:0]
+    WriteCommand(RA8875_HNDR, 0x03);    //Horizontal Non-Display Period (pixels) = (HNDR + 1)*8
+    WriteCommand(RA8875_HSTR, 0x03);    //HSYNC Start Position(PCLK) = (HSTR + 1)*8
+    WriteCommand(RA8875_HPWR, 0x0B);    //HSYNC Width [4:0]   HSYNC Pulse width(PCLK) = (HPWR + 1)*8
+    //Vertical set
+    WriteCommand(RA8875_VDHR0, RA8875_VDHR1, 480 - 1); // Vertical pixels = VDHR + 1
+    WriteCommand(RA8875_VNDR0, RA8875_VNDR1, 0x20);    // Vertical Non-Display area = (VNDR + 1)
+    WriteCommand(RA8875_VSTR0, RA8875_VSTR1, 0x16);    // VSYNC Start Position(PCLK) = (VSTR + 1)
+    WriteCommand(RA8875_VPWR, 0x01); // VSYNC Pulse Width(PCLK) = (VPWR + 1)
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

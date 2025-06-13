@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <sys/cdefs.h>
+
 #if defined(__SAME70N21__) || defined(__SAME70Q21__)
 
 #include "compiler.h"
@@ -58,3 +60,6 @@ typedef GPIO_TypeDef GPIO_Port_t;
 
 #define ATTR_PACKED __attribute__ ((packed))
 #define PALWAYS_INLINE __attribute__ ((always_inline))
+
+#define PSET_OPTIMIZATION(level)  _Pragma("GCC push_options") _Pragma(__XSTRING( GCC optimize (#level) ))
+#define PRESET_OPTIMIZATION() _Pragma("GCC pop_options")

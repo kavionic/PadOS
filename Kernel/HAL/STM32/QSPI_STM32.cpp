@@ -193,7 +193,8 @@ void QSPI_STM32::SetDataLength(uint32_t length) const
 
 void QSPI_STM32::Write8(uint8_t data)
 {
-    *reinterpret_cast<__IO uint8_t*>(&QUADSPI->DR) = data;
+    using uint8_mayalias = uint8_t __attribute__((__may_alias__));
+    *reinterpret_cast<__IO uint8_mayalias*>(&QUADSPI->DR) = data;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -202,7 +203,8 @@ void QSPI_STM32::Write8(uint8_t data)
 
 void QSPI_STM32::Write16(uint16_t data)
 {
-    *reinterpret_cast<__IO uint16_t*>(&QUADSPI->DR) = data;
+    using uint16_mayalias = uint16_t __attribute__((__may_alias__));
+    *reinterpret_cast<__IO uint16_mayalias*>(&QUADSPI->DR) = data;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -220,7 +222,8 @@ void QSPI_STM32::Write32(uint32_t data)
 
 uint8_t QSPI_STM32::Read8() const
 {
-    return *reinterpret_cast<__IO uint8_t*>(&QUADSPI->DR);
+    using uint8_mayalias = uint8_t __attribute__((__may_alias__));
+    return *reinterpret_cast<__IO uint8_mayalias*>(&QUADSPI->DR);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -229,7 +232,8 @@ uint8_t QSPI_STM32::Read8() const
 
 uint16_t QSPI_STM32::Read16() const
 {
-    return *reinterpret_cast<__IO uint16_t*>(&QUADSPI->DR);
+    using uint16_mayalias = uint16_t __attribute__((__may_alias__));
+    return *reinterpret_cast<__IO uint16_mayalias*>(&QUADSPI->DR);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 16.05.2021 15:15
 
+#include <algorithm>
+
 #include <Math/Geometry.h>
 
 namespace os
@@ -48,6 +50,39 @@ Point LineLineIntersection(const LineSegment& line1, const LineSegment& line2)
     result.x = (deltaXL2 * c1 - deltaXL1 * c2) / determinant;
     result.y = (deltaYL1 * c2 - deltaYL2 * c1) / determinant;
     return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float PointToSegmentDistance(const LineSegment& line, const Point& point)
+{
+    return std::sqrt(PointToSegmentDistanceSqr(line, point));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float PointToSegmentDistanceSqr(const LineSegment& line, const Point& point)
+{
+    const Point lineDirection = line.p2 - line.p1;
+    const Point pointDirection = point - line.p1;
+
+    const float lineLengthSqr = lineDirection.LengthSqr();
+
+    if (lineLengthSqr == 0.0f) {
+        return (point - line.p1).LengthSqr();
+    }
+
+    // Project pointDirection onto lineDirection, calculate normalized position along line.
+    const float distFromLineStart = std::clamp((pointDirection.x * lineDirection.x + pointDirection.y * lineDirection.y) / lineLengthSqr, 0.0f, 1.0f);
+
+    // Calculate closest point along line
+    const Point closest = line.p1 + lineDirection * distFromLineStart;
+
+    return (point - closest).LengthSqr();
 }
 
 } // namespace os

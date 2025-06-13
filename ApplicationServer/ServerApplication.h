@@ -59,6 +59,7 @@ private:
                         int32_t hideCount,
                         FocusKeyboardMode focusKeyboardMode,
                         DrawingMode drawingMode,
+                        float       penWidth,
                         Font_e      fontID,
                         Color eraseColor,
                         Color bgColor,
@@ -82,6 +83,7 @@ private:
     void SlotViewSetFocusKeyboardMode(handler_id viewHandle, FocusKeyboardMode mode)        { ForwardToView(viewHandle, &ServerView::SetFocusKeyboardMode, mode); }
     void SlotViewSetDrawingMode(handler_id viewHandle, DrawingMode mode)                    { ForwardToView(viewHandle, &ServerView::SetDrawingMode, mode); }
     void SlotViewSetFont(handler_id viewHandle, int fontHandle)                             { ForwardToView(viewHandle, &ServerView::SetFont, fontHandle); }
+    void SlotViewSetPenWidth(handler_id viewHandle, float width)                            { ForwardToView(viewHandle, &ServerView::SetPenWidth, width); }
     void SlotViewMovePenTo(handler_id viewHandle, const Point& pos)                         { ForwardToView(viewHandle, &ServerView::MovePenTo, pos); }
     void SlotViewDrawLine1(handler_id viewHandle, const Point& toPoint)                     { ForwardToView(viewHandle, &ServerView::DrawLineTo, toPoint); }
     void SlotViewDrawLine2(handler_id viewHandle, const Point& fromPnt, const Point& toPnt) { ForwardToView(viewHandle, &ServerView::DrawLine, fromPnt, toPnt); }
@@ -135,6 +137,7 @@ private:
     ASViewSetFocusKeyboardMode  RSViewSetFocusKeyboardMode;
     ASViewSetDrawingMode        RSViewSetDrawingMode;
     ASViewSetFont               RSViewSetFont;
+    ASViewSetPenWidth           RSViewSetPenWidth;
     ASViewMovePenTo             RSViewMovePenTo;
     ASViewDrawLine1             RSViewDrawLine1;
     ASViewDrawLine2             RSViewDrawLine2;

@@ -71,6 +71,7 @@ public:
     //    virtual uint8_t     WriteStringTransparent(SrvBitmap* bitmap, const char* string, uint8_t strLength, int16_t maxWidth, Font_e fontID);
 
 private:
+    void Reset();
     void PLL_ini();
 
     void SetFgColor(uint16_t color);
@@ -111,7 +112,27 @@ private:
     void        WaitMemory() { while (ReadCommand() & RA8875_STATUS_MEMORY_BUSY_bm); }
     void        WaitBTE() { while (ReadCommand() & RA8875_STATUS_BTE_BUSY_bm); }
     void        WaitROM() { while (ReadCommand() & RA8875_STATUS_ROM_BUSY_bm); }
-    void        WaitBlitter() { while (ReadCommand() & (RA8875_STATUS_MEMORY_BUSY_bm | RA8875_STATUS_BTE_BUSY_bm)); }
+    void        WaitBlitter()
+    {
+        size_t spinCount = 0;
+        while (ReadCommand() & (RA8875_STATUS_MEMORY_BUSY_bm | RA8875_STATUS_BTE_BUSY_bm))
+        {
+            if (spinCount++ > 10000000)
+            {
+                Reset();
+                spinCount = 0;
+
+                printf("Resetting video chip\n");
+            }
+        }
+
+        static size_t maxSpinCount = 0;
+        if (spinCount > maxSpinCount)
+        {
+            maxSpinCount = spinCount;
+            printf("SC: %u\n", maxSpinCount);
+        }
+    }
 
     uint16_t    ReadCommand() { return m_Registers->CMD; }
     void        WriteCommand(uint8_t cmd) { m_Registers->CMD = cmd; }

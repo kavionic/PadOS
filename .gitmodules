@@ -7,3 +7,6 @@
 [submodule "ExternalLibs/libpng"]
 	path = ExternalLibs/libpng
 	url = https://github.com/glennrp/libpng.git
+[submodule "ExternalLibs/eigen"]
+	path = ExternalLibs/eigen
+	url = https://gitlab.com/libeigen/eigen.git

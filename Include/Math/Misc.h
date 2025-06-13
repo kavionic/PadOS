@@ -24,7 +24,7 @@
 namespace os
 {
 
-template<typename T> T square(T value) { return value * value; }
+template<typename T> constexpr T square(T value) { return value * value; }
 
-template<typename T> bool is_almost_zero(T value, T tolerance = T(0.0000001)) { return fabs(value) <= tolerance; }
+template<typename T> constexpr bool is_almost_zero(T value, T tolerance = T(0.0000001)) { return fabs(value) <= tolerance; }
 } // namespace os

@@ -25,5 +25,7 @@ namespace os
 {
 
 Point LineLineIntersection(const LineSegment& line1, const LineSegment& line2);
+float PointToSegmentDistance(const LineSegment& line, const Point& point);
+float PointToSegmentDistanceSqr(const LineSegment& line, const Point& point);
 
 } // namespace os

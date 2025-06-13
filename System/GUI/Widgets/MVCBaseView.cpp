@@ -388,7 +388,7 @@ void MVCBaseView::Construct()
     m_ContentView->SignalViewScrolled.Connect(this, &MVCBaseView::SlotContentScrolled);
 
     m_ScrollView->SetScrolledView(m_ContentView);
-    m_ScrollView->SetStartScrollThreshold(20.0f);
+    m_ScrollView->SetStartScrollThreshold(BEGIN_DRAG_OFFSET);
 
     m_ScrollView->VFTouchDown.Connect(this, &MVCBaseView::SlotScrollViewTouchDown);
     m_ScrollView->VFTouchUp.Connect(this, &MVCBaseView::SlotScrollViewTouchUp);

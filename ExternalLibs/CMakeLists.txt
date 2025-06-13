@@ -22,3 +22,4 @@ option(PNG_TESTS "Build libpng tests" OFF)
 set(SKIP_INSTALL_ALL TRUE)
 
 add_subdirectory(libpng EXCLUDE_FROM_ALL)
+add_subdirectory(eigen EXCLUDE_FROM_ALL)

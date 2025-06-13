@@ -30,11 +30,12 @@ class ViewBase : public EventHandler, public SignalTarget
 public:
     typedef std::vector<Ptr<ViewType>> ChildList_t;
 
-    ViewBase(const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, Color eraseColor, Color bgColor, Color fgColor)
+    ViewBase(const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, float penWidth, Color eraseColor, Color bgColor, Color fgColor)
         : EventHandler(name)
         , m_Frame(frame)
         , m_ScrollOffset(scrollOffset)
         , m_Flags(flags)
+        , m_PenWidth(penWidth)
         , m_HideCount(hideCount)
         , m_EraseColor(eraseColor)
         , m_BgColor(bgColor)
@@ -209,6 +210,7 @@ protected:
     std::vector<Ptr<ViewType>>  m_ChildrenList;
     
     Point       m_PenPosition;
+    float       m_PenWidth = 1.0f;
 
     int         m_HideCount = 0;
     int         m_Level = 0;

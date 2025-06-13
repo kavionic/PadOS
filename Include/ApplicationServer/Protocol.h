@@ -81,6 +81,7 @@ namespace AppserverProtocol
         VIEW_SET_ERASE_COLOR,
         VIEW_SET_FONT,
         VIEW_MOVE_PEN_TO,
+        VIEW_SET_PEN_WIDTH,
         VIEW_DRAW_LINE1,
         VIEW_DRAW_LINE2,
         VIEW_FILL_RECT,
@@ -142,241 +143,96 @@ struct MsgCreateBitmapReply
 
 class String;
 
-using ASRegisterApplication = RemoteSignal<AppserverProtocol::REGISTER_APPLICATION
-    , port_id       // replyPort
-    , port_id       // clientPort
-    , const String& // name
->;
+using ASRegisterApplication = RemoteSignal<AppserverProtocol::REGISTER_APPLICATION, void(port_id replyPort, port_id clientPort, const String& name)>;
+using ASSync                = RemoteSignal<AppserverProtocol::SYNC,                 void(port_id replyPort)>;
 
-using ASSync = RemoteSignal<AppserverProtocol::SYNC
-    ,port_id // replyPort
->;
-
-using ASCreateView = RemoteSignal<AppserverProtocol::CREATE_VIEW
-    , port_id           // clientPort
-    , port_id           // replyPort
-    , handler_id        // replyTarget
-    , handler_id        // parent
-    , ViewDockType      // dockType
-    , size_t            // index
-    , const String&     // name
-    , const Rect&       // frame
-    , const Point&      // scrollOffset
-    , uint32_t          // flags
-    , int32_t           // hideCount
-    , FocusKeyboardMode // focusKeyboardMode
-    , DrawingMode       // drawingMode
-    , Font_e            // fontID
-    , Color             // eraseColor
-    , Color             // bgColor
-    , Color             // fgColor
+using ASCreateView = RemoteSignal<AppserverProtocol::CREATE_VIEW,
+    void(
+        port_id           clientPort,
+        port_id           replyPort,
+        handler_id        replyTarget,
+        handler_id        parent,
+        ViewDockType      dockType,
+        size_t            index,
+        const String&     name,
+        const Rect&       frame,
+        const Point&      scrollOffset,
+        uint32_t          flags,
+        int32_t           hideCount,
+        FocusKeyboardMode focusKeyboardMode,
+        DrawingMode       drawingMode,
+        float             penWidth,
+        Font_e            fontID,
+        Color             eraseColor,
+        Color             bgColor,
+        Color             fgColor
+    )
 >;
                                                                
-using ASDeleteView = RemoteSignal<AppserverProtocol::DELETE_VIEW
-    , handler_id // viewHandle
+using ASDeleteView = RemoteSignal<AppserverProtocol::DELETE_VIEW, void(handler_id viewHandle)>;
+
+using ASFocusView = RemoteSignal<AppserverProtocol::FOCUS_VIEW , void(handler_id viewHandle, MouseButton_e button, bool)>; // 'true' for set, 'false' for clear focus.
+
+using ASSetKeyboardFocus = RemoteSignal<AppserverProtocol::SET_KEYBOARD_FOCUS,
+    void(
+        handler_id viewHandle,
+        bool focus // 'true' for set, 'false' for clear focus.
+        )
+>; 
+
+using ASCreateBitmap = RemoteSignal<AppserverProtocol::CREATE_BITMAP,
+    void(
+        port_id     replyPort,
+        int32_t     width,
+        int32_t     height,
+        EColorSpace colorSpace,
+        void*       raster,
+        size_t      bytesPerRow,
+        uint32_t    flags
+        )
 >;
 
-using ASFocusView = RemoteSignal<AppserverProtocol::FOCUS_VIEW
-    , handler_id    // viewHandle
-    , MouseButton_e // button
-    , bool          // 'true' for set, 'false' for clear focus.
->;
+using ASDeleteBitmap        = RemoteSignal<AppserverProtocol::DELETE_BITMAP,        void(handler_id handle)>;
+using ASViewSetFrame        = RemoteSignal<AppserverProtocol::VIEW_SET_FRAME,       void(handler_id viewHandle, const Rect& frame, handler_id requestingClient)>;
+using ASViewInvalidate      = RemoteSignal<AppserverProtocol::VIEW_INVALIDATE,      void(handler_id viewHandle, const IRect& frame)>;
+using ASViewAddChild        = RemoteSignal<AppserverProtocol::VIEW_ADD_CHILD,       void(size_t index, handler_id viewHandle, handler_id childHandle, handler_id managerHandle)>;
+using ASViewToggleDepth     = RemoteSignal<AppserverProtocol::VIEW_TOGGLE_DEPTH,    void(handler_id viewHandle)>;
+using ASViewBeginUpdate     = RemoteSignal<AppserverProtocol::VIEW_BEGIN_UPDATE,    void(handler_id viewHandle)>;
+using ASViewEndUpdate       = RemoteSignal<AppserverProtocol::VIEW_END_UPDATE,      void(handler_id viewHandle)>;
+using ASViewShow            = RemoteSignal<AppserverProtocol::VIEW_SHOW,            void(handler_id viewHandle, bool show)>;
+using ASViewSetFocusKeyboardMode= RemoteSignal<AppserverProtocol::VIEW_SET_FOCUS_KEYBOARD_MODE, void(handler_id viewHandle, FocusKeyboardMode mode)>;
+using ASViewSetDrawingMode  = RemoteSignal<AppserverProtocol::VIEW_SET_DRAWING_MODE,    void(handler_id viewHandle, DrawingMode Mode)>;
+using ASViewSetFgColor      = RemoteSignal<AppserverProtocol::VIEW_SET_FG_COLOR,        void(handler_id viewHandle, Color color)>;
+using ASViewSetBgColor      = RemoteSignal<AppserverProtocol::VIEW_SET_BG_COLOR,        void(handler_id viewHandle, Color color)>;
+using ASViewSetEraseColor   = RemoteSignal<AppserverProtocol::VIEW_SET_ERASE_COLOR,     void(handler_id viewHandle, Color color)>;
+using ASViewSetFont         = RemoteSignal<AppserverProtocol::VIEW_SET_FONT,            void(handler_id viewHandle, int fontHandle)>;
+using ASViewMovePenTo       = RemoteSignal<AppserverProtocol::VIEW_MOVE_PEN_TO,         void(handler_id viewHandle, const Point pos)>;
+using ASViewSetPenWidth     = RemoteSignal<AppserverProtocol::VIEW_SET_PEN_WIDTH,       void(handler_id viewHandle, float width)>;
 
-using ASSetKeyboardFocus = RemoteSignal<AppserverProtocol::SET_KEYBOARD_FOCUS
-    , handler_id    // viewHandle
-    , bool          // 'true' for set, 'false' for clear focus.
->;
+using ASViewDrawLine1       = RemoteSignal<AppserverProtocol::VIEW_DRAW_LINE1,          void(handler_id viewHandle, const Point& position)>;
+using ASViewDrawLine2       = RemoteSignal<AppserverProtocol::VIEW_DRAW_LINE2,          void(handler_id viewHandle, const Point& pos1, const Point& pos2)>;
+using ASViewFillRect        = RemoteSignal<AppserverProtocol::VIEW_FILL_RECT,           void(handler_id viewHandle, const Rect& rect, Color color)>;
+using ASViewFillCircle      = RemoteSignal<AppserverProtocol::VIEW_FILL_CIRCLE,         void(handler_id viewHandle, const Point& position, float radius)>;
+using ASViewDrawString      = RemoteSignal<AppserverProtocol::VIEW_DRAW_STRING,         void(handler_id viewHandle, const String& string)>;
+using ASViewScrollBy        = RemoteSignal<AppserverProtocol::VIEW_SCROLL_BY,           void(handler_id viewHandle, const Point& delta)>;
+using ASViewCopyRect        = RemoteSignal<AppserverProtocol::VIEW_COPY_RECT,           void(handler_id viewHandle, const Rect& srcRect, const Point& dstPos)>;
+using ASViewDrawBitmap      = RemoteSignal<AppserverProtocol::VIEW_DRAW_BITMAP,         void(handler_id viewHandle, handle_id bitmapHandle, const Rect& srcRect, const Point& dstPos)>;
+using ASViewDrawScaledBitmap= RemoteSignal<AppserverProtocol::VIEW_DRAW_SCALED_BITMAP,  void (handler_id viewHandle, handle_id bitmapHandle, const Rect& srcRect, const Rect& dstRect)>;
+using ASViewDebugDraw       = RemoteSignal<AppserverProtocol::VIEW_DEBUG_DRAW,          void(handler_id viewHandle, Color renderColor, uint32_t drawFlags)>;
+using ASPaintView           = RemoteSignal<AppserverProtocol::PAINT_VIEW,               void(const Rect& frame)>;
+using ASViewFrameChanged    = RemoteSignal<AppserverProtocol::VIEW_FRAME_CHANGED,       void(const Rect& frame)>;
+using ASViewFocusChanged    = RemoteSignal<AppserverProtocol::VIEW_FOCUS_CHANGED,       void(bool hasFocus)>;
 
-using ASCreateBitmap = RemoteSignal<AppserverProtocol::CREATE_BITMAP
-    , port_id       // replyPort
-    , int           // width
-    , int           // height
-    , EColorSpace   // colorSpace
-    , void*         // raster
-    , size_t        // bytesPerRow
-    , uint32_t      // flags
->;
 
-using ASDeleteBitmap = RemoteSignal<AppserverProtocol::DELETE_BITMAP
-    , handler_id    // handle
->;
-
-using ASViewSetFrame = RemoteSignal<AppserverProtocol::VIEW_SET_FRAME
-    , handler_id  // viewHandle
-    , const Rect& // frame
-    , handler_id  // requestingClient
->;
-                                        
-using ASViewInvalidate = RemoteSignal<AppserverProtocol::VIEW_INVALIDATE
-    , handler_id   // viewHandle
-    , const IRect& // frame
->;
-                                        
-using ASViewAddChild = RemoteSignal<AppserverProtocol::VIEW_ADD_CHILD
-    , size_t     // index
-    , handler_id // viewHandle
-    , handler_id // childHandle
-    , handler_id // managerHandle
->;
-
-using ASViewToggleDepth = RemoteSignal<AppserverProtocol::VIEW_TOGGLE_DEPTH
-    , handler_id // viewHandle
->;
-                                        
-using ASViewBeginUpdate = RemoteSignal<AppserverProtocol::VIEW_BEGIN_UPDATE
-    , handler_id // viewHandle
->;
-                                        
-using ASViewEndUpdate = RemoteSignal<AppserverProtocol::VIEW_END_UPDATE
-    , handler_id // viewHandle
->;
-
-using ASViewShow = RemoteSignal<AppserverProtocol::VIEW_SHOW
-    , handler_id // viewHandle
-    , bool       // show
->;
-
-using ASViewSetFocusKeyboardMode = RemoteSignal<AppserverProtocol::VIEW_SET_FOCUS_KEYBOARD_MODE
-    , handler_id        // viewHandle
-    , FocusKeyboardMode // Mode
->;
-
-using ASViewSetDrawingMode = RemoteSignal<AppserverProtocol::VIEW_SET_DRAWING_MODE
-    , handler_id    // viewHandle
-    , DrawingMode  // Mode
->;
-
-using ASViewSetFgColor = RemoteSignal<AppserverProtocol::VIEW_SET_FG_COLOR
-    , handler_id // viewHandle
-    , Color      // color
->;
-
-using ASViewSetBgColor = RemoteSignal<AppserverProtocol::VIEW_SET_BG_COLOR
-    , handler_id // viewHandle
-    , Color      // color
->;
-                                        
-using ASViewSetEraseColor = RemoteSignal<AppserverProtocol::VIEW_SET_ERASE_COLOR
-    , handler_id // viewHandle
-    , Color      // color
->;
-                                        
-using ASViewSetFont = RemoteSignal<AppserverProtocol::VIEW_SET_FONT
-    , handler_id // viewHandle
-    , int        // fontHandle
->;
-                                        
-using ASViewMovePenTo = RemoteSignal<AppserverProtocol::VIEW_MOVE_PEN_TO
-    , handler_id  // viewHandle
-    , const Point // pos
->;
-                                        
-using ASViewDrawLine1 = RemoteSignal<AppserverProtocol::VIEW_DRAW_LINE1
-    , handler_id   // viewHandle
-    , const Point& // position
->;
-                                        
-using ASViewDrawLine2 = RemoteSignal<AppserverProtocol::VIEW_DRAW_LINE2
-    , handler_id   // viewHandle
-    , const Point& // pos1
-    , const Point& // pos2
->;
-                                        
-using ASViewFillRect = RemoteSignal<AppserverProtocol::VIEW_FILL_RECT
-    , handler_id  // viewHandle
-    , const Rect& // rect
-    , Color       // color
->;
-
-using ASViewFillCircle = RemoteSignal<AppserverProtocol::VIEW_FILL_CIRCLE
-    , handler_id   // viewHandle
-    , const Point& // position
-    , float        // radius
->;
-                                        
-using ASViewDrawString = RemoteSignal<AppserverProtocol::VIEW_DRAW_STRING
-    , handler_id    // viewHandle
-    , const String& // string
->;
-                                        
-using ASViewScrollBy = RemoteSignal<AppserverProtocol::VIEW_SCROLL_BY
-    , handler_id // viewHandle
-    , const Point& // delta
->;
-
-using ASViewCopyRect = RemoteSignal<AppserverProtocol::VIEW_COPY_RECT
-    , handler_id   // viewHandle
-    , const Rect&  // srcRect
-    , const Point& // dstPos
->;
-
-using ASViewDrawBitmap = RemoteSignal<AppserverProtocol::VIEW_DRAW_BITMAP
-    , handler_id    // viewHandle
-    , handle_id     // bitmapHandle
-    , const Rect&   // srcRect
-    , const Point&  // dstPos
->;
-
-using ASViewDrawScaledBitmap = RemoteSignal<AppserverProtocol::VIEW_DRAW_SCALED_BITMAP
-    , void (handler_id viewHandle, handle_id bitmapHandle, const Rect& srcRect, const Rect& dstRect)>;
-
-using  ASViewDebugDraw = RemoteSignal<AppserverProtocol::VIEW_DEBUG_DRAW
-    , handler_id   // viewHandle
-    , Color        // renderColor
-    , uint32_t     // drawFlags
->;
-
-using ASPaintView = RemoteSignal<AppserverProtocol::PAINT_VIEW
-    , const Rect& // frame
->;
-
-using  ASViewFrameChanged = RemoteSignal<AppserverProtocol::VIEW_FRAME_CHANGED
-    , const Rect& // frame
->;
-
-using  ASViewFocusChanged = RemoteSignal<AppserverProtocol::VIEW_FOCUS_CHANGED
-    , bool // hasFocus
->;
-
-using ASWindowManagerRegisterView = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_REGISTER_VIEW
-    , handler_id    // viewHandle
-    , ViewDockType  // dockType
-    , const String& // name
-    , const Rect&   // frame
->;
-
-using ASWindowManagerUnregisterView = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_UNREGISTER_VIEW
-    , handler_id // viewHandle
->;
-
-using ASWindowManagerEnableVKeyboard = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_ENABLE_VKEYBOARD
-    , const Rect&   // focusViewEditArea
-    , bool          // numerical
->;
-
-using ASWindowManagerDisableVKeyboard = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_DISABLE_VKEYBOARD
->;
+using ASWindowManagerRegisterView       = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_REGISTER_VIEW,     void(handler_id viewHandle, ViewDockType dockType, const String& name, const Rect& frame)>;
+using ASWindowManagerUnregisterView     = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_UNREGISTER_VIEW,   void(handler_id viewHandle)>;
+using ASWindowManagerEnableVKeyboard    = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_ENABLE_VKEYBOARD,  void(const Rect& focusViewEditArea, bool numerical)>;
+using ASWindowManagerDisableVKeyboard   = RemoteSignal<AppserverProtocol::WINDOW_MANAGER_DISABLE_VKEYBOARD>;
 
 using ASSyncReply = RemoteSignal<AppserverProtocol::SYNC_REPLY>;
                                         
-using ASHandleMouseDown = RemoteSignal<AppserverProtocol::HANDLE_MOUSE_DOWN
-    , MouseButton_e         // button
-    , const Point&          // position
-    , const MotionEvent&    // event
->;
+using ASHandleMouseDown = RemoteSignal<AppserverProtocol::HANDLE_MOUSE_DOWN,    void(MouseButton_e button, const Point& position, const MotionEvent& mouseEvent)>;
+using ASHandleMouseUp   = RemoteSignal<AppserverProtocol::HANDLE_MOUSE_UP,      void(MouseButton_e button, const Point& position, const MotionEvent& mouseEvent)>;
+using ASHandleMouseMove = RemoteSignal<AppserverProtocol::HANDLE_MOUSE_MOVE,    void(MouseButton_e button, const Point& position, const MotionEvent& mouseEvent)>;
                                         
-using ASHandleMouseUp = RemoteSignal<AppserverProtocol::HANDLE_MOUSE_UP
-    , MouseButton_e         // button
-    , const Point&          // position
-    , const MotionEvent&    // event
->;
-                                        
-using ASHandleMouseMove = RemoteSignal<AppserverProtocol::HANDLE_MOUSE_MOVE
-    , MouseButton_e         // button
-    , const Point&          // position
-    , const MotionEvent&    // event
->;
-                                        
-
-
-}
+} // namespace os

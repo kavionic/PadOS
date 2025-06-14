@@ -131,6 +131,7 @@ public:
     virtual void OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& keyEvent);
 
     virtual void OnLayoutChanged();
+    virtual void OnLayoutUpdated() {}
     virtual void OnFrameMoved(const Point& delta);
     virtual void OnFrameSized(const Point& delta);
     virtual void OnScreenFrameMoved(const Point& delta);

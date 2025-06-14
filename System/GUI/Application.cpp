@@ -571,6 +571,7 @@ void Application::LayoutViews()
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
+    std::set<Ptr<View>> updatedViews;
     for (int i = 0; i < 100 && !m_ViewsNeedingLayout.empty(); ++i)
     {
         std::set<Ptr<View>> list = std::move(m_ViewsNeedingLayout);
@@ -579,6 +580,10 @@ void Application::LayoutViews()
             view->m_IsLayoutPending = false;
             view->RefreshLayout();
         }
+        updatedViews.merge(list);
+    }
+    for (Ptr<View> view : updatedViews) {
+        view->OnLayoutUpdated();
     }
 }
 

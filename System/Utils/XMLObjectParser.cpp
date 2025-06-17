@@ -69,7 +69,12 @@ bool parse(const char* text, String& value)
 
 bool parse(const char* text, Point& value)
 {
-    return sscanf(text, "Point( %f , %f )", &value.x, &value.y) == 2;
+    if (std::optional<Point> point = Point::FromString(text))
+    {
+        value = *point;
+        return true;
+    }
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

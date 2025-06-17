@@ -18,6 +18,7 @@
 
 #pragma once
 #include <cmath>
+#include <Utils/String.h>
 
 namespace os
 {
@@ -44,6 +45,15 @@ public:
     constexpr explicit Point(float value) noexcept : x(value), y(value) {}
     constexpr Point(float X, float Y) noexcept : x(X), y(Y) {}
 
+    String ToString() const { return std::format("Point({}, {})", x, y); }
+    static std::optional<Point> FromString(const char* string)
+    {
+        Point value;
+        if (sscanf(string, "Point( %f , %f )", &value.x, &value.y) == 2) {
+            return value;
+        }
+        return std::nullopt;
+    }
     constexpr float LengthSqr() const noexcept { return x * x + y * y; }
     constexpr float Length() const noexcept { return sqrtf(LengthSqr()); }
 

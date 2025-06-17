@@ -143,6 +143,19 @@ bool SymLink::SetTo(const FSNode& node)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool SymLink::SetTo(FSNode&& node)
+{
+    if (node.IsValid() && !node.IsLink()) {
+        errno = EINVAL;
+        return false;
+    }
+    return FSNode::SetTo(node);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool SymLink::SetTo(const SymLink& link)
 {
     return FSNode::SetTo(link);

@@ -64,25 +64,25 @@ bool parse(const char* text, os::KeyCodes& value);
 template<typename T>
 bool parse_flags(const char* text, const std::map<os::String, T>& flagDefinitions, T& value)
 {
-	T flags = 0;
-	const char* start = text;
+    T flags = 0;
+    const char* start = text;
 
-	for (;;)
-	{
-		while (*start != '\0' && (*start == '|' || isspace(*start))) ++start;
-		if (*start == '\0') break;
-		const char* end = strchr(start, '|');
-		if (end == nullptr) end = start + strlen(start);
-		while (isspace(end[-1])) --end;
+    for (;;)
+    {
+        while (*start != '\0' && (*start == '|' || isspace(*start))) ++start;
+        if (*start == '\0') break;
+        const char* end = strchr(start, '|');
+        if (end == nullptr) end = start + strlen(start);
+        while (isspace(end[-1])) --end;
 
-		auto i = flagDefinitions.find(os::String(start, end));
-		if (i != flagDefinitions.end()) {
-			flags |= i->second;
-		}
-		start = end;
-	}
-	value = flags;
-	return true;
+        auto i = flagDefinitions.find(os::String(start, end));
+        if (i != flagDefinitions.end()) {
+            flags |= i->second;
+        }
+        start = end;
+    }
+    value = flags;
+    return true;
 }
 
 template<typename T>
@@ -91,10 +91,10 @@ T parse_attribute(const pugi::xml_node& xmlNode, const char* name, const T& defa
     pugi::xml_attribute attribute = xmlNode.attribute(name);
     if (!attribute.empty())
     {
-	T value;
-	if (parse(attribute.value(), value)) {
-	    return value;
-	}
+        T value;
+        if (parse(attribute.value(), value)) {
+            return value;
+        }
     }
     return defaultValue;
 }
@@ -105,10 +105,10 @@ T parse_flags_attribute(const pugi::xml_node& xmlNode, const std::map<os::String
     pugi::xml_attribute attribute = xmlNode.attribute(name);
     if (!attribute.empty())
     {
-	T value;
-	if (parse_flags(attribute.value(), flagDefinitions, value)) {
-	    return value;
-	}
+        T value;
+        if (parse_flags(attribute.value(), flagDefinitions, value)) {
+            return value;
+        }
     }
     return defaultValue;
 }

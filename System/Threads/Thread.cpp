@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 #include "System/System.h"
 
 using namespace os;
+using namespace kernel;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -109,8 +110,22 @@ void Thread::Exit(int returnCode)
 
 void Thread::ThreadEntry(void* data)
 {
-    set_thread_local(GetThreadObjTLSSlot(), data);
-    static_cast<Thread*>(data)->Exit(static_cast<Thread*>(data)->Run());
+    Thread* self = static_cast<Thread*>(data);
+    try
+    {
+        set_thread_local(GetThreadObjTLSSlot(), data);
+        self->Exit(self->Run());
+    }
+    catch(const std::exception& e)
+    {
+        kernel_log(LogCatKernel_Scheduler, KLogSeverity::FATAL, "Uncaught exception in thread %s: %s", self->GetName().c_str(), e.what());
+        self->Exit(ENOTRECOVERABLE);
+    }
+    catch (...)
+    {
+        kernel_log(LogCatKernel_Scheduler, KLogSeverity::FATAL, "Uncaught exception in thread %s: unknown", self->GetName().c_str());
+        self->Exit(ENOTRECOVERABLE);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

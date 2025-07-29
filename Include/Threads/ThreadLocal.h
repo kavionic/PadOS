@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -34,10 +34,13 @@ public:
     void Set(const T& object )
     {
         T* buffer = static_cast<T*>(get_thread_local(m_Slot));
-        if (buffer != nullptr) {
+        if (buffer == nullptr)
+        {
             buffer = new T(object);
             set_thread_local(m_Slot, buffer);
-        } else {
+        }
+        else
+        {
             *buffer = object;
         }
     }

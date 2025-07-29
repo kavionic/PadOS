@@ -202,15 +202,11 @@ String& String::lstrip()
 
 String& String::rstrip()
 {
-    size_t spaces = 0;
-    for (ssize_t i = size() - 1; i >= 0; --i)
-    {
-        if (!isspace((*this)[i])) {
-            break;
-        }
-        spaces++;
+    size_t newLength = size();
+    while (newLength > 0 && isspace((*this)[newLength - 1])) {
+        --newLength;
     }
-    resize(size() - spaces);
+    resize(newLength);
     return *this;
 }
 

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -26,6 +26,18 @@
 #include "Utils/IntrusiveList.h"
 #include "Threads/Threads.h"
 #include "System/SysTime.h"
+
+extern "C" {
+
+    struct __cxa_exception;
+
+    struct __cxa_eh_globals
+    {
+        __cxa_exception* caughtExceptions;
+        unsigned int uncaughtExceptions;
+    };
+
+}
 
 namespace os
 {
@@ -74,6 +86,7 @@ public:
     TimeValNanos              m_StartTime;
     TimeValNanos              m_RunTime;
     _reent                    m_NewLibreent;
+    __cxa_eh_globals          m_CPPExceptionGlobals;
     bool                      m_IsJoinable;
     bool                      m_RestartSyscalls = true;
     uint8_t*                  m_StackBuffer;

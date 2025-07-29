@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -31,10 +31,8 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KMutex::KMutex(const char* name, EMutexRecursionMode recursionMode) : KNamedObject(name, KNamedObjectType::Mutex)
+KMutex::KMutex(const char* name, EMutexRecursionMode recursionMode) : KNamedObject(name, KNamedObjectType::Mutex), m_RecursionMode(recursionMode)
 {
-    m_Count = 0;
-    m_RecursionMode = recursionMode;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

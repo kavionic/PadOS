@@ -27,6 +27,7 @@ typedef int      thread_id;
 typedef int      sem_id;
 typedef int      port_id;
 typedef int      handler_id;
+typedef int      tls_id;
 typedef int      fs_id;
 typedef int64_t  bigtime_t;
 typedef int      status_t;

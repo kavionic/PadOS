@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -197,7 +197,7 @@ public:
 ///
 ///////////////////////////////////////////////////////////////////////////////
 
-    Ptr<T> Get(int handle)
+    Ptr<T> Get(int handle) const
     {
         if (handle >= 0)
         {
@@ -217,7 +217,7 @@ public:
     }
 
     template<typename DELEGATE>
-    Ptr<T> GetNext(int handle, DELEGATE delegate)
+    Ptr<T> GetNext(int handle, DELEGATE delegate) const
     {
         for (int i = (handle != INVALID_HANDLE) ? (handle + 1) : 0; i <= 0xffffff; ++i)
         {

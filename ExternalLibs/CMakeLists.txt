@@ -23,3 +23,4 @@ set(SKIP_INSTALL_ALL TRUE)
 
 add_subdirectory(libpng EXCLUDE_FROM_ALL)
 add_subdirectory(eigen EXCLUDE_FROM_ALL)
+add_subdirectory(json EXCLUDE_FROM_ALL)

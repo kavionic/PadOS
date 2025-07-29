@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -26,7 +26,10 @@ namespace kernel
 {
 
 class KProcess;
+class KThreadCB;
 class KIOContext;
+
+template<typename T> class KHandleArray;
 
 extern void InitThreadMain(void* argument);
 
@@ -98,6 +101,8 @@ uint32_t KDisableLowLatenctInterrupts();
 
 void restore_interrupts(uint32_t state);
 
+
+const KHandleArray<KThreadCB>& get_thread_table();
 int  get_remaining_stack();
 void check_stack_overflow();
 

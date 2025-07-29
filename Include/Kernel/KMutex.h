@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -56,8 +56,8 @@ public:
     
     bool IsLocked() const;
 private:
-    int                 m_Count;
-    EMutexRecursionMode m_RecursionMode;
+    int                 m_Count = 0;
+    EMutexRecursionMode m_RecursionMode = EMutexRecursionMode::Recurse;
     thread_id           m_Holder = INVALID_HANDLE; // Thread currently holding the mutex.
 
     KMutex(const KMutex &) = delete;

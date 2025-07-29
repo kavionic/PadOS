@@ -134,10 +134,10 @@ status_t  object_wait_group_wait_deadline(handle_id handle, handle_id mutexHandl
 sem_id   duplicate_handle(sem_id handle);
 status_t delete_handle(sem_id handle);
 
-int   alloc_thread_local_storage(TLSDestructor_t destructor);
-int   delete_thread_local_storage(int slot);
-int   set_thread_local(int slot, void* value);
-void* get_thread_local(int slot);
+tls_id  alloc_thread_local_storage(TLSDestructor_t destructor);
+int     delete_thread_local_storage(int tls_id);
+int     set_thread_local(tls_id slot, void* value);
+void*   get_thread_local(tls_id slot);
 
 class SemaphoreGuard
 {

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,9 +20,10 @@
 #pragma once
 
 #include "Ptr/PtrTarget.h"
-#include "Threads/Threads.h"
-#include "KThreadCB.h"
-#include "VFS/KIOContext.h"
+#include <Kernel/KThreadCB.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/VFS/KIOContext.h>
+#include <Threads/Threads.h>
 
 namespace kernel
 {
@@ -40,12 +41,13 @@ public:
 
     void ThreadQuit(KThreadCB* thread);
 
-    int  AllocTLSSlot(TLSDestructor_t destructor);
-    bool FreeTLSSlot(int slot);
+    tls_id  AllocTLSSlot(TLSDestructor_t destructor);
+    bool FreeTLSSlot(tls_id slot);
 
     KIOContext* GetIOContext() { return &m_IOContext; }
 
 private:
+    KMutex          m_TLSMutex;
     TLSDestructor_t m_TLSDestructors[THREAD_MAX_TLS_SLOTS];
     uint32_t        m_TLSAllocationMap[(THREAD_MAX_TLS_SLOTS + 31) / 32];
 

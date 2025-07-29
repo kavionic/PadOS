@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -43,4 +43,8 @@ class NoPtr : public T
 public:
     template<typename ...ARGS>
     NoPtr(ARGS&&... args) : T(args...) { static_cast<T*>(this)->DisableReferenceCounting(); }
+
+    T* operator->() const noexcept { return const_cast<NoPtr<T>*>(this); }
+    T& operator*() const noexcept { return *const_cast<NoPtr<T>*>(this); }
+
 };

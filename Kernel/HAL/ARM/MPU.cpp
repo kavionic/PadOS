@@ -137,22 +137,9 @@ IFLASHC void mpu_set_region(uint32_t dw_region_base_addr, uint32_t dw_region_att
  */
 IFLASHC uint32_t mpu_cal_mpu_region_size(uint32_t dw_actual_size_in_bytes)
 {
-    uint32_t dwRegionSize = 32;
-    uint32_t dwReturnValue = 4;
-
-    while(dwReturnValue < 31)
-    {
-        if( dw_actual_size_in_bytes <= dwRegionSize ) {
-            break;
-        } else {
-            dwReturnValue++;
-        }
-        dwRegionSize <<= 1;
-    }
-
+    const uint32_t dwReturnValue = std::max(4, std::bit_width(dw_actual_size_in_bytes - 1) - 1);
     return dwReturnValue << MPU_RASR_SIZE_Pos;
 }
-
 
 /**
  *  \brief Update MPU regions.

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,24 +17,27 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 11.03.2018 01:23:12
 
-#include "System/Platform.h"
+#include <System/Platform.h>
 
 #include <string.h>
 #include <sys/errno.h>
 
-#include "Kernel/KProcess.h"
-#include "Kernel/KThreadCB.h"
-#include "Kernel/Kernel.h"
-#include "Kernel/Scheduler.h"
-#include "Utils/Utils.h"
+#include <Kernel/KHandleArray.h>
+#include <Kernel/KProcess.h>
+#include <Kernel/KThreadCB.h>
+#include <Kernel/Kernel.h>
+#include <Kernel/Scheduler.h>
+#include <Threads/Threads.h>
+#include <Utils/Utils.h>
 
+using namespace os;
 using namespace kernel;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KProcess::KProcess()
+KProcess::KProcess() : m_TLSMutex("process_tls_mutex", EMutexRecursionMode::RaiseError)
 {
     memset(m_TLSDestructors, 0, sizeof(m_TLSDestructors));
     memset(m_TLSAllocationMap, 0, sizeof(m_TLSAllocationMap));
@@ -54,23 +57,38 @@ KProcess::~KProcess()
 
 void KProcess::ThreadQuit(KThreadCB* thread)
 {
-    for (uint32_t i = 0; i < ARRAY_COUNT(m_TLSAllocationMap); ++i)
+    std::vector<std::pair<TLSDestructor_t, void*>> destructors;
+
+    CRITICAL_BEGIN(m_TLSMutex)
     {
-        if (m_TLSAllocationMap[i] != 0)
+        for (uint32_t i = 0; i < ARRAY_COUNT(m_TLSAllocationMap); ++i)
         {
-            for (uint32_t j = 0, mask = 1; j < 32; ++j, mask <<= 1)
+            if (m_TLSAllocationMap[i] != 0)
             {
-                if (m_TLSAllocationMap[i] & mask)
+                for (uint32_t j = 0, mask = 1; j < 32; ++j, mask <<= 1)
                 {
-                    int index = i * 32 + j;
-                    if (index < THREAD_MAX_TLS_SLOTS && m_TLSDestructors[index] != nullptr) {
-                        m_TLSDestructors[index](((void**)thread->m_StackBuffer)[index]);
-                    } else {
-                        break;
+                    if (m_TLSAllocationMap[i] & mask)
+                    {
+                        int index = i * 32 + j;
+                        if (index < THREAD_MAX_TLS_SLOTS)
+                        {
+                            if (m_TLSDestructors[index] != nullptr) {
+                                destructors.emplace_back(m_TLSDestructors[index], ((void**)thread->m_StackBuffer)[index]);
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
                     }
                 }
             }
         }
+    } CRITICAL_END;
+
+    for (const auto& i : destructors)
+    {
+        i.first(i.second);
     }
 }
 
@@ -78,8 +96,11 @@ void KProcess::ThreadQuit(KThreadCB* thread)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KProcess::AllocTLSSlot(TLSDestructor_t destructor)
+tls_id KProcess::AllocTLSSlot(TLSDestructor_t destructor)
 {
+    kassert(!m_TLSMutex.IsLocked());
+    CRITICAL_SCOPE(m_TLSMutex);
+
     for (uint32_t i = 0; i < ARRAY_COUNT(m_TLSAllocationMap); ++i)
     {
         if (m_TLSAllocationMap[i] != ~uint32_t(0))
@@ -88,33 +109,49 @@ int KProcess::AllocTLSSlot(TLSDestructor_t destructor)
             {
                 if ((m_TLSAllocationMap[i] & mask) == 0)
                 {
-                    int index = i * 32 + j;
-                    if (index < THREAD_MAX_TLS_SLOTS) {
+                    const size_t index = i * 32 + j;
+                    if (index < THREAD_MAX_TLS_SLOTS)
+                    {
                         m_TLSAllocationMap[i] |= mask;
                         m_TLSDestructors[index] = destructor;
+
+                        for (Ptr<const KThreadCB> thread = kernel::get_thread_table().GetNext(INVALID_HANDLE, [](Ptr<const KThreadCB> thread) { return thread->m_State != ThreadState::Deleted; });
+                            thread != nullptr;
+                            thread = kernel::get_thread_table().GetNext(thread->GetHandle(), [](Ptr<const KThreadCB> thread) { return thread->m_State != ThreadState::Deleted; }))
+                        {
+                            ((void**)thread->m_StackBuffer)[index] = nullptr;
+                        }
                         return index;
-                    } else {
+                    }
+                    else
+                    {
                         set_last_error(EAGAIN);
-                        return -1;
+                        return INVALID_HANDLE;
                     }
                 }
             }
         }
     }
     set_last_error(EAGAIN);
-    return -1;
+    return INVALID_HANDLE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KProcess::FreeTLSSlot(int slot)
+bool KProcess::FreeTLSSlot(tls_id slot)
 {
-    if (slot >= 0 && slot < THREAD_MAX_TLS_SLOTS) {
+    kassert(!m_TLSMutex.IsLocked());
+    CRITICAL_SCOPE(m_TLSMutex);
+
+    if (slot >= 0 && slot < THREAD_MAX_TLS_SLOTS)
+    {
         m_TLSAllocationMap[slot/32] &= ~(1<<(slot % 32));
         return true;
-    } else {
+    }
+    else
+    {
         set_last_error(EINVAL);
         return false;
     }
@@ -124,7 +161,7 @@ bool KProcess::FreeTLSSlot(int slot)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int alloc_thread_local_storage(TLSDestructor_t destructor)
+tls_id alloc_thread_local_storage(TLSDestructor_t destructor)
 {
     return gk_CurrentProcess->AllocTLSSlot(destructor);
 }
@@ -133,7 +170,7 @@ int alloc_thread_local_storage(TLSDestructor_t destructor)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int delete_thread_local_storage(int slot)
+int delete_thread_local_storage(tls_id slot)
 {
     return gk_CurrentProcess->FreeTLSSlot(slot) ? 0 : -1;
 }
@@ -142,7 +179,7 @@ int delete_thread_local_storage(int slot)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int set_thread_local(int slot, void* value)
+int set_thread_local(tls_id slot, void* value)
 {
     if (slot >= 0 && slot < THREAD_MAX_TLS_SLOTS) {
         KThreadCB* thread = gk_CurrentThread;
@@ -158,7 +195,7 @@ int set_thread_local(int slot, void* value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void* get_thread_local(int slot)
+void* get_thread_local(tls_id slot)
 {
     if (slot >= 0 && slot < THREAD_MAX_TLS_SLOTS) {
         KThreadCB* thread = gk_CurrentThread;
@@ -167,4 +204,14 @@ void* get_thread_local(int slot)
         set_last_error(EINVAL);
         return nullptr;
     }
+}
+
+extern "C" void* __wrap___cxa_get_globals()
+{
+    return &gk_CurrentThread->m_CPPExceptionGlobals;
+}
+
+extern "C" void* __wrap___cxa_get_globals_fast()
+{
+    return &gk_CurrentThread->m_CPPExceptionGlobals;
 }

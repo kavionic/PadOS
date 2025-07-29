@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -32,15 +32,24 @@
 #include <Kernel/KHandleArray.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/ThreadSyncDebugTracker.h>
+#include "Ptr/NoPtr.h"
 
 using namespace kernel;
 using namespace os;
 
 static KProcess gk_FirstProcess;
-KProcess*  volatile kernel::gk_CurrentProcess = &gk_FirstProcess;
-KThreadCB* volatile kernel::gk_CurrentThread = nullptr;
+NoPtr<KThreadCB> gk_IdleThreadInstance("idle", KTHREAD_PRIORITY_MIN, false, 256);
 
-KThreadCB*          kernel::gk_IdleThread = nullptr;
+KProcess*  volatile kernel::gk_CurrentProcess = &gk_FirstProcess;
+
+// Set the idle thread as the current thread, so that when the init thread is
+// scheduled the initial context is dumped on the idle thread's task. The init
+// thread will then overwrite that context with the real context needed to enter
+// idle_thread_entry() when no other threads want's the CPU.
+
+KThreadCB* volatile kernel::gk_CurrentThread = &gk_IdleThreadInstance;
+
+KThreadCB*          kernel::gk_IdleThread = gk_CurrentThread;
 
 static KThreadCB*                gk_InitThread = nullptr;
 
@@ -50,6 +59,15 @@ static KThreadList               gk_ZombieThreadLists;
 static KHandleArray<KThreadCB>   gk_ThreadTable;
 static thread_id                 gk_DebugWakeupThread = 0;
 static void wakeup_sleeping_threads();
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const KHandleArray<KThreadCB>& kernel::get_thread_table()
+{
+    return gk_ThreadTable;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -868,19 +886,10 @@ IFLASHC void kernel::start_scheduler(uint32_t coreFrequency, size_t mainThreadSt
 
     //gk_CurrentProcess = new KProcess();
 
-    Ptr<KThreadCB> idleThread = ptr_new<KThreadCB>("idle", KTHREAD_PRIORITY_MIN, false, 256);
-    idleThread->SetHandle(0);
-    idleThread->m_State = ThreadState::Running;
+    gk_IdleThread->SetHandle(0);
+    gk_IdleThread->m_State = ThreadState::Running;
 
-    gk_IdleThread = ptr_raw_pointer_cast(idleThread);
-
-    // Set the idle thread as the current thread, so that when the init thread is
-    // scheduled the initial context is dumped on the idle thread's task. The init
-    // thread will then overwrite that context with the real context needed to enter
-    // idle_thread_entry() when no other threads want's the CPU.
-
-    gk_CurrentThread = gk_IdleThread;
-    gk_ThreadTable.Set(gk_ThreadTable.AllocHandle(), idleThread);
+    gk_ThreadTable.Set(gk_ThreadTable.AllocHandle(), gk_IdleThreadInstance);
 
     thread_id initThreadHandle = spawn_thread("init", init_thread_entry, 0, (void*)mainThreadStackSize, false, 0);
 

@@ -38,7 +38,7 @@ namespace kernel
 
 static uint32_t g_UsedChannels = 0;
 
-KMutex g_DMAMutex("kernel_dma", EMutexRecursionMode::RaiseError);
+KMutex g_DMAMutex("kernel_dma", PEMutexRecursionMode_RaiseError);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

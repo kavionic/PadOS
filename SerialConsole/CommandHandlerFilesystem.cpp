@@ -62,7 +62,7 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
     {
         constexpr size_t maxEntriesPerPackage = (4096 - sizeof(SerialProtocol::GetDirectoryReply)) / sizeof(SerialProtocol::GetDirectoryReplyDirEnt);
         static_assert(maxEntriesPerPackage >= 5);
-        kernel::dir_entry dirEntry;
+        dirent_t dirEntry;
         for (int i = 0; FileIO::ReadDirectory(dir, &dirEntry, sizeof(dirEntry)) == 1; ++i)
         {
             String path = packet.m_Path;
@@ -72,16 +72,16 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
             if (stat(path.c_str(), &statResult) < 0) {
                 continue;
             }
-            if (dirEntry.d_namelength >= sizeof(SerialProtocol::GetDirectoryReplyDirEnt::m_Name)) {
+            if (dirEntry.d_namlen >= sizeof(SerialProtocol::GetDirectoryReplyDirEnt::m_Name)) {
                 continue;
             }
 
             SerialProtocol::GetDirectoryReplyDirEnt& replyEntry = entryList.emplace_back();
             replyEntry.m_Size = statResult.st_size;
-            replyEntry.m_ModTime = statResult.st_mtime;
-            replyEntry.m_IsDirectory = dirEntry.d_type == kernel::dir_entry_type::DT_DIRECTORY;
-            memcpy(replyEntry.m_Name, dirEntry.d_name, dirEntry.d_namelength);
-            replyEntry.m_Name[dirEntry.d_namelength] = '\0';
+            replyEntry.m_ModTime = statResult.st_mtim.tv_sec;
+            replyEntry.m_IsDirectory = dirEntry.d_type == DT_DIR;
+            memcpy(replyEntry.m_Name, dirEntry.d_name, dirEntry.d_namlen);
+            replyEntry.m_Name[dirEntry.d_namlen] = '\0';
 
             if (entryList.size() >= maxEntriesPerPackage)
             {

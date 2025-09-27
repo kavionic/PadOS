@@ -18,8 +18,11 @@
 // Created: 25.04.2018 20:52:53
 
 #pragma once
-#include "Threads/Threads.h"
-#include "System/HandleObject.h"
+
+#include <sys/pados_syscalls.h>
+
+#include <Threads/Threads.h>
+#include <System/HandleObject.h>
 
 namespace os
 {
@@ -32,20 +35,60 @@ public:
 
     explicit Mutex(NoInit) : HandleObject(INVALID_HANDLE) {}
 
-    Mutex(const char* name, EMutexRecursionMode recursionMode) : HandleObject(create_mutex(name, recursionMode)) {}
-
-    bool Lock() { return lock_mutex(m_Handle) >= 0; }
-    bool LockTimeout(bigtime_t timeout) { return lock_mutex_timeout(m_Handle, timeout) >= 0; }
-    bool LockDeadline(bigtime_t deadline) { return lock_mutex_deadline(m_Handle, deadline) >= 0; }
-    bool TryLock() { return try_lock_mutex(m_Handle) >= 0; }
-    bool Unlock() { return unlock_mutex(m_Handle) >= 0; }
-    bool IsLocked() const { return islocked_mutex(m_Handle) >= 0; }
+    Mutex(const char* name, PEMutexRecursionMode recursionMode, clockid_t clockID = CLOCK_MONOTONIC)
+    {
+        handle_id handle;
+        if (sys_mutex_create(&handle, name, recursionMode, clockID) == PErrorCode::Success) {
+            SetHandle(handle);
+        }
+    }
+    ~Mutex() { sys_mutex_delete(m_Handle); }
+    bool Lock()
+    {
+        return ParseResult(sys_mutex_lock(m_Handle));
+    }
+    bool LockTimeout(bigtime_t timeout)
+    {
+        return ParseResult(sys_mutex_lock_timeout(m_Handle, timeout));
+    }
+    bool LockDeadline(bigtime_t deadline) { return ParseResult(sys_mutex_lock_deadline(m_Handle, deadline)); }
+    bool TryLock() { return ParseResult(sys_mutex_try_lock(m_Handle)); }
+    bool Unlock() { return ParseResult(sys_mutex_unlock(m_Handle)); }
+    bool IsLocked() const
+    {
+        const PErrorCode result = sys_mutex_islocked(m_Handle);
+        if (result == PErrorCode::Busy)
+        {
+            return true;
+        }
+        else if (result == PErrorCode::Success)
+        {
+            return false;
+        }
+        else
+        {
+            set_last_error(result);
+            return false;
+        }
+    }
 
     Mutex(Mutex&& other) = default;
     Mutex(const Mutex& other) = default;
     Mutex& operator=(const Mutex& other) = default;
 
 private:
+    bool ParseResult(PErrorCode result) const
+    {
+        if (result == PErrorCode::Success)
+        {
+            return true;
+        }
+        else
+        {
+            set_last_error(result);
+            return false;
+        }
+    }
 };
 
 class MutexObjGuard

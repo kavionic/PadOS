@@ -19,6 +19,7 @@
 
 #include "System/Platform.h"
 
+#include <sys/pados_syscalls.h>
 #include <malloc.h>
 #include <string.h>
 
@@ -44,7 +45,7 @@ static KCacheBlockHeader gk_BCacheHeaders[KBLOCK_CACHE_BLOCK_COUNT];
 std::map<int, KBlockCache*>         KBlockCache::s_DeviceMap;
 IntrusiveList<KCacheBlockHeader>    KBlockCache::s_FreeList;
 IntrusiveList<KCacheBlockHeader>    KBlockCache::s_MRUList;
-KMutex                              KBlockCache::s_Mutex("bcache_mutex", EMutexRecursionMode::RaiseError);
+KMutex                              KBlockCache::s_Mutex("bcache_mutex", PEMutexRecursionMode_RaiseError);
 KConditionVariable                  KBlockCache::s_FlushingRequestConditionVar("bcache_flush_req");
 KConditionVariable                  KBlockCache::s_FlushingDoneConditionVar("bcache_flush_done");
 std::atomic_int                     KBlockCache::s_DirtyBlockCount;
@@ -157,7 +158,8 @@ void KBlockCache::Initialize()
         buffer += BUFFER_BLOCK_SIZE;
         s_FreeList.Append(&gk_BCacheHeaders[i]);
     }
-    spawn_thread("disk_cache_flusher", DiskCacheFlusher, 0, nullptr, false, 4096);
+    PThreadAttribs attrs("disk_cache_flusher", 0, PThreadDetachState_Detached, 4096);
+    sys_thread_spawn(nullptr, &attrs, DiskCacheFlusher, nullptr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -578,7 +580,7 @@ bool KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCoun
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KBlockCache::DiskCacheFlusher(void* arg)
+void* KBlockCache::DiskCacheFlusher(void* arg)
 {
     for (;;)
     {

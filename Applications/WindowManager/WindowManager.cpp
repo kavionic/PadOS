@@ -283,10 +283,10 @@ void WindowManager::SlotDisableVKeyboard()
 
 void WindowManager::SlotKeyboardAnimTimer()
 {
-    Rect frame = m_KeyboardView->GetBounds() + Point(0.0f, round(m_KeyboardAnimator.GetValue()));
+    Rect frame = m_KeyboardView->GetBounds() + Point(0.0f, std::round(m_KeyboardAnimator.GetValue()));
     m_KeyboardView->SetFrame(frame);
 
-    m_TopView->ScrollTo(Point(0.0f, round(m_TargetAnimator.GetValue())));
+    m_TopView->ScrollTo(Point(0.0f, std::round(m_TargetAnimator.GetValue())));
 
     if (!m_KeyboardAnimator.IsRunning())
     {

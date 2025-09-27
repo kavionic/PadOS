@@ -69,7 +69,7 @@ static bool RemoveTrailingSlashes(String* name)
 }
 
 
-KMutex                                         FileIO::s_TableMutex("vfs_tables", EMutexRecursionMode::RaiseError);
+KMutex                                         FileIO::s_TableMutex("vfs_tables", PEMutexRecursionMode_RaiseError);
 std::map<os::String, Ptr<kernel::KFilesystem>> FileIO::s_FilesystemDrivers;
 Ptr<KFileTableNode>                            FileIO::s_PlaceholderFile;
 Ptr<KRootFilesystem>                           FileIO::s_RootFilesystem;
@@ -232,7 +232,7 @@ int FileIO::Open(int baseFolderFD, const char* path, int openFlags, int permissi
     } handleGuard(handle);
 
     Ptr<KINode> baseInode;
-    if (baseFolderFD != -1)
+    if (baseFolderFD != AT_FDCWD)
     {
         Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
         if (baseFolderFile == nullptr)
@@ -296,7 +296,7 @@ int FileIO::Open(int baseFolderFD, const char* path, int openFlags, int permissi
 
 int FileIO::Open(const char* path, int openFlags, int permissions)
 {
-    return Open(-1, path, openFlags, permissions);
+    return Open(AT_FDCWD, path, openFlags, permissions);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -357,6 +357,11 @@ int FileIO::Dupe(int oldHandle, int newHandle)
 
 int FileIO::Close(int handle)
 {
+    if (handle >= 0 && handle <=2)
+    {
+        set_last_error(EBADF);
+        return -1;
+    }
     Ptr<KFileTableNode> file = GetFileNode(handle);
     if (file == nullptr)
     {
@@ -512,6 +517,53 @@ ssize_t FileIO::Write(int handle, off64_t position, const IOSegment* segments, s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+off64_t FileIO::Seek(int handle, off64_t offset, int mode)
+{
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file = GetFile(handle, inode);
+    if (file == nullptr) {
+        return -1;
+    }
+    switch (mode)
+    {
+        case SEEK_SET:
+            if (offset < 0) {
+                errno = EINVAL;
+                return -1;
+            }
+            file->m_Position = offset;
+            return file->m_Position;
+        case SEEK_CUR:
+            if (file->m_Position + offset < 0) {
+                errno = EINVAL;
+                return -1;
+            }
+            file->m_Position += offset;
+            return file->m_Position;
+        case SEEK_END:
+        {
+            struct stat fileStats;
+            if (inode->m_FileOps->ReadStat(inode->m_Volume, inode, &fileStats) < 0) {
+                return -1;
+            }
+            off64_t size = fileStats.st_size;
+            if (size + offset < 0) {
+                errno = EINVAL;
+                return -1;
+            }
+            file->m_Position = size + offset;
+            return file->m_Position;
+        }
+        default:
+            errno = EINVAL;
+            return -1;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 int FileIO::FSync(int handle)
 {
     Ptr<KINode> inode;
@@ -540,7 +592,7 @@ int FileIO::DeviceControl(int handle, int request, const void* inData, size_t in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FileIO::ReadDirectory(int handle, dir_entry* entry, size_t bufSize)
+int FileIO::ReadDirectory(int handle, dirent_t* entry, size_t bufSize)
 {
     Ptr<KDirectoryNode> dir = GetDirectory(handle);
     if (dir == nullptr) {
@@ -573,7 +625,7 @@ int FileIO::CreateDirectory(int baseFolderFD, const char* path, int permission)
     size_t      nameLength;
 
     Ptr<KINode> baseInode;
-    if (baseFolderFD != -1)
+    if (baseFolderFD != AT_FDCWD)
     {
         Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
         if (baseFolderFile == nullptr)
@@ -596,26 +648,34 @@ int FileIO::CreateDirectory(int baseFolderFD, const char* path, int permission)
 
 int FileIO::CreateDirectory(const char* name, int permission)
 {
-    return CreateDirectory(-1, name, permission);
+    return CreateDirectory(AT_FDCWD, name, permission);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FileIO::Symlink(int baseFolderFD, const char* target, const char* linkPath)
+PErrorCode FileIO::Symlink(const char* target, int baseFolderFD, const char* linkPath)
 {
-    set_last_error(ENOSYS);
-    return -1;
+    return PErrorCode::NotImplemented;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FileIO::Symlink(const char* target, const char* linkPath)
+PErrorCode FileIO::Symlink(const char* target, const char* linkPath)
 {
-    return Symlink(-1, target, linkPath);
+    return Symlink(target, AT_FDCWD, linkPath);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode FileIO::ReadLink(int baseFolderFD, const char* path, char* buffer, size_t bufferSize, size_t* outResultLength)
+{
+    return PErrorCode::NotImplemented;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -715,7 +775,7 @@ int FileIO::Unlink(int baseFolderFD, const char* inPath)
     String path(inPath);
 
     Ptr<KINode> baseInode;
-    if (baseFolderFD != -1)
+    if (baseFolderFD != AT_FDCWD)
     {
         Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
         if (baseFolderFile == nullptr)
@@ -741,7 +801,7 @@ int FileIO::Unlink(int baseFolderFD, const char* inPath)
 
 int FileIO::Unlink(const char* path)
 {
-    return Unlink(-1, path);
+    return Unlink(AT_FDCWD, path);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -760,7 +820,7 @@ int FileIO::RemoveDirectory(int baseFolderFD, const char* inPath)
     size_t      nameLength;
 
     Ptr<KINode> baseInode;
-    if (baseFolderFD != -1)
+    if (baseFolderFD != AT_FDCWD)
     {
         Ptr<KFileTableNode> baseFolderFile = GetDirectory(baseFolderFD);
         if (baseFolderFile == nullptr)
@@ -783,7 +843,7 @@ int FileIO::RemoveDirectory(int baseFolderFD, const char* inPath)
 
 int FileIO::RemoveDirectory(const char* path)
 {
-    return RemoveDirectory(-1, path);
+    return RemoveDirectory(AT_FDCWD, path);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -896,7 +956,7 @@ int FileIO::GetDirectoryName(Ptr<KINode> inode, char* path, size_t bufferSize)
 
     while (error == 0)
     {
-        dir_entry   dirEntry;
+        dirent_t    dirEntry;
         int         directoryHandle;
 
         Ptr<KINode> parent = LocateInodeByName(inode, "..", 2, true);
@@ -917,7 +977,7 @@ int FileIO::GetDirectoryName(Ptr<KINode> inode, char* path, size_t bufferSize)
             }
             if (isMountPoint)
             {
-                Ptr<KINode> entryInode = LocateInodeByName(parent, dirEntry.d_name, dirEntry.d_namelength, false);
+                Ptr<KINode> entryInode = LocateInodeByName(parent, dirEntry.d_name, dirEntry.d_namlen, false);
                 if (entryInode == nullptr)
                 {
                     error = get_last_error();
@@ -926,22 +986,22 @@ int FileIO::GetDirectoryName(Ptr<KINode> inode, char* path, size_t bufferSize)
                 }
                 if (entryInode->m_MountRoot == inode)
                 {
-                    if (pathLength + dirEntry.d_namelength + 1 > bufferSize) {
+                    if (pathLength + dirEntry.d_namlen + 1 > bufferSize) {
                         error = ENAMETOOLONG;
                         break;
                     }
-                    pathLength = PrependNameToPath(path, pathLength, dirEntry.d_name, dirEntry.d_namelength);
+                    pathLength = PrependNameToPath(path, pathLength, dirEntry.d_name, dirEntry.d_namlen);
                     error = 0;
                     break;
                 }
             }
-            else if (dirEntry.d_inode == inode->m_INodeID)
+            else if (dirEntry.d_ino == inode->m_INodeID)
             {
-                if (pathLength + dirEntry.d_namelength + 1 > bufferSize) {
+                if (pathLength + dirEntry.d_namlen + 1 > bufferSize) {
                     error = ENAMETOOLONG;
                     break;
                 }
-                pathLength = PrependNameToPath(path, pathLength, dirEntry.d_name, dirEntry.d_namelength);
+                pathLength = PrependNameToPath(path, pathLength, dirEntry.d_name, dirEntry.d_namlen);
                 error = 0;
                 break;
             }
@@ -1050,5 +1110,3 @@ void FileIO::SetFile(int handle, Ptr<KFileTableNode> file)
         s_FileTable[handle] = file;
     }
 }
-
-

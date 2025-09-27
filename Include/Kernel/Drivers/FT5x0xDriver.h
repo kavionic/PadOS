@@ -143,7 +143,7 @@ public:
 
     void Setup(const char* devicePath, const DigitalPin& pinWAKE, const DigitalPin& pinRESET, const DigitalPin& pinINT, IRQn_Type irqNum, const char* i2cPath);
 
-    virtual int Run() override;
+    virtual void* Run() override;
 
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags) override;
     virtual status_t         CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;

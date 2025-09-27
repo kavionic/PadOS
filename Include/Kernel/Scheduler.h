@@ -31,7 +31,7 @@ class KIOContext;
 
 template<typename T> class KHandleArray;
 
-extern void InitThreadMain(void* argument);
+void initialize_scheduler_statics();
 
 
 #define KSTACK_ALIGNMENT 8
@@ -58,9 +58,11 @@ enum KIRQPriorityLevels
 
 
 
-extern KProcess*  volatile gk_CurrentProcess;
-extern KThreadCB* volatile gk_CurrentThread;
-extern KThreadCB* gk_IdleThread;
+extern KProcess*  volatile      gk_CurrentProcess;
+extern KThreadCB* volatile      gk_CurrentThread;
+extern KThreadCB*               gk_IdleThread;
+extern thread_id                gk_MainThreadID;
+extern KHandleArray<KThreadCB>& gk_ThreadTable;
 
 Ptr<KThreadCB> get_thread(thread_id handle);
 
@@ -72,8 +74,9 @@ void add_to_sleep_list(KThreadWaitNode* waitNode);
 void remove_from_sleep_list(KThreadWaitNode* waitNode);
 
 void add_thread_to_ready_list(KThreadCB* thread);
+void add_thread_to_zombie_list(KThreadCB* thread);
 
-bool wakeup_wait_queue(KThreadWaitList* queue, int returnCode, int maxCount);
+bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount);
 
 
 void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize);

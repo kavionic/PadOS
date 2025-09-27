@@ -39,8 +39,8 @@
 
 class DigitalPin;
 
-size_t get_heap_size();
-size_t get_max_heap_size();
+extern "C" size_t get_heap_size();
+extern "C" size_t get_max_heap_size();
 
 
 namespace kernel

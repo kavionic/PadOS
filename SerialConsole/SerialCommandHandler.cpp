@@ -48,11 +48,12 @@ SerialCommandHandler* SerialCommandHandler::s_Instance;
 
 SerialCommandHandler::SerialCommandHandler()
     : Thread("SerialHandler")
-    , m_TransmitMutex("sch_xmt_mutex", EMutexRecursionMode::RaiseError)
-    , m_QueueMutex("sch_queue_mutex", EMutexRecursionMode::RaiseError)
-    , m_LogMutex("sch_log_mutes", EMutexRecursionMode::RaiseError)
+    , m_TransmitMutex("sch_xmt_mutex", PEMutexRecursionMode_RaiseError)
+    , m_QueueMutex("sch_queue_mutex", PEMutexRecursionMode_RaiseError)
+    , m_LogMutex("sch_log_mutes", PEMutexRecursionMode_RaiseError)
     , m_ReplyCondition("sch_reply_cond")
     , m_QueueCondition("sch_queue_cond")
+    , m_MessageQueue(*new CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * 16, void>)
 {
     s_Instance = this;
 }
@@ -111,7 +112,7 @@ void SerialCommandHandler::CloseSerialPort()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int SerialCommandHandler::Run()
+void* SerialCommandHandler::Run()
 {
     SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer);
     for (;;)
@@ -144,6 +145,7 @@ int SerialCommandHandler::Run()
             }
         } CRITICAL_END;
     }
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -166,7 +168,7 @@ void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, Str
 
     g_FilesystemHandler.Setup(this);
 
-    Start(false, readThreadPriority);
+    Start(PThreadDetachState_Detached, readThreadPriority);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -416,7 +418,7 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
             return true;
         }
     }
-    kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "ERROR: transmitting %ld failed.\n", header->Command);
+//    kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "ERROR: transmitting %ld failed.\n", header->Command);
     return false;
 }
 
@@ -478,7 +480,7 @@ bool SerialCommandHandler::FlushLogBuffer()
     kassert(!m_TransmitMutex.IsLocked());
     CRITICAL_SCOPE(m_TransmitMutex);
     SerialWrite(&header, sizeof(header));
-    while (length > 0)
+    while (length > 0 && m_SerialPort != -1)
     {
         uint8_t buffer[128];
         ssize_t curLength = 0;

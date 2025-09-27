@@ -44,7 +44,7 @@ public:
     static void Shutdown();
     void SetState(sys_power_state newState);
 
-    virtual int Run() override;
+    virtual void* Run() override;
 
 private:
     static kernel::IRQResult IRQCallback(IRQn_Type irq, void* userData) { return static_cast<KPowerManager*>(userData)->HandleIRQ(); }

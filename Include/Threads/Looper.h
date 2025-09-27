@@ -67,7 +67,7 @@ public:
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) { return false; }
     virtual void Idle() {}
         
-    virtual int Run() override;
+    virtual void* Run() override;
     
     bool ProcessEvents();
     bool Tick();

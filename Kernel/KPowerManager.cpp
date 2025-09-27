@@ -94,7 +94,7 @@ void KPowerManager::Initialize(MCU_Timer16_t* timerChannel, const DigitalPin& pi
 #endif
 
     SetState(sys_power_state::running);
-    Start(false);
+    Start(PThreadDetachState_Detached);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -143,7 +143,7 @@ void KPowerManager::SetState(sys_power_state newState)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KPowerManager::Run()
+void* KPowerManager::Run()
 {
     for (;;)
     {
@@ -153,7 +153,7 @@ int KPowerManager::Run()
             RGBLED_B.Write(true);            
         }            */
     }
-    return 0;
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

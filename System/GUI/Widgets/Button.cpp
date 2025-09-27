@@ -78,7 +78,7 @@ void Button::OnPaint(const Rect& updateRect)
     } else {
         DrawFrame(bounds, FRAME_DISABLED);
     }
-    Point labelPos(round((bounds.Width() - m_LabelSize.x) * 0.5f), round((bounds.Height() - m_LabelSize.y) * 0.5f));
+    Point labelPos(std::round((bounds.Width() - m_LabelSize.x) * 0.5f), std::round((bounds.Height() - m_LabelSize.y) * 0.5f));
     
     if (isPressed) {
         labelPos += Point(1.0f, 1.0f);

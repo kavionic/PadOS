@@ -21,8 +21,11 @@
 
 #include <algorithm>
 #include <map>
+#include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <malloc.h>
+#include <sys/pados_syscalls.h>
 
 #include <Kernel/KThreadCB.h>
 #include <Kernel/Scheduler.h>
@@ -32,7 +35,35 @@
 using namespace kernel;
 using namespace os;
 
+extern uint32_t __tdata_start;
+extern uint32_t __tdata_end;
+extern uint32_t __tbss_start;
+extern uint32_t __tbss_end;
+
+extern uint8_t __tdata_size;
+extern uint8_t __tbss_size;
+extern uint8_t __tls_align;
+
+
 std::map<handle_id, KThreadCB*> g_DebugThreadList;
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void thread_entry_point(void* (*threadEntry)(void*), void* arguments)
+{
+    try
+    {
+        void* const result = threadEntry(arguments);
+        sys_thread_exit(result);
+    }
+    catch(...)
+    {
+        panic("Uncaught exception from thread.\n");
+        sys_thread_exit(nullptr);
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -48,21 +79,41 @@ static void invalid_return_handler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KThreadCB::KThreadCB(const char* name, int priority, bool joinable, int stackSize) : KNamedObject(name, KNamedObjectType::Thread)
+KThreadCB::KThreadCB(const PThreadAttribs* attribs) : KNamedObject((attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "", KNamedObjectType::Thread)
 {
-    if (stackSize == 0) stackSize = THREAD_DEFAULT_STACK_SIZE;
-    stackSize += THREAD_TLS_SLOTS_BUFFER_SIZE;
+    const int priority = (attribs != nullptr) ? attribs->Priority : 0;
+    m_DetachState = (attribs != nullptr) ? attribs->DetachState : PThreadDetachState_Detached;
+    m_StackSize = (attribs != nullptr && attribs->StackSize != 0) ? (attribs->StackSize & ~(KSTACK_ALIGNMENT - 1)) : THREAD_DEFAULT_STACK_SIZE;
+    void* stackAddress = (attribs != nullptr) ? attribs->StackAddress : nullptr;
 
-    m_IsJoinable = joinable;
+    if (stackAddress == nullptr)
+    {
+        m_StackBuffer = new uint8_t[m_StackSize + KSTACK_ALIGNMENT];
+        memset(m_StackBuffer, THREAD_STACK_FILLER, m_StackSize + KSTACK_ALIGNMENT);
+        m_FreeStackOnExit = true;
+    }
+    else
+    {
+        m_StackBuffer = reinterpret_cast<uint8_t*>(stackAddress);
+        memset(m_StackBuffer, THREAD_STACK_FILLER, m_StackSize);
+        m_FreeStackOnExit = false;
+    }
 
-    m_StackSize = stackSize & ~3;
-    m_StackBuffer = new uint8_t[m_StackSize + KSTACK_ALIGNMENT];
-    memset(m_StackBuffer, 0, THREAD_TLS_SLOTS_BUFFER_SIZE);
-    memset(m_StackBuffer + THREAD_TLS_SLOTS_BUFFER_SIZE, THREAD_STACK_FILLER, m_StackSize + KSTACK_ALIGNMENT - THREAD_TLS_SLOTS_BUFFER_SIZE);
     m_CurrentStack  = (uint32_t*) ((intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1));
-    m_State         = ThreadState::Ready;
+    m_State         = ThreadState_Ready;
     m_PriorityLevel = PriToLevel(priority);
-    _REENT_INIT_PTR(&m_NewLibreent);
+
+    try
+    {
+        SetupTLS(attribs);
+    }
+    catch(...)
+    {
+        if (m_FreeStackOnExit) {
+            delete[] m_StackBuffer;
+        }
+        throw;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -71,15 +122,10 @@ KThreadCB::KThreadCB(const char* name, int priority, bool joinable, int stackSiz
 
 KThreadCB::~KThreadCB()
 {
-    // Hack to prevent _reclaim_reent from closing std in/out/err:
-#define CLEAR_IF_STDF(f) if ((f) == 0 || (f) == 1 || (f) == 2) { (f) = -1; }
-    CLEAR_IF_STDF(m_NewLibreent._stdin->_file);
-    CLEAR_IF_STDF(m_NewLibreent._stdout->_file);
-    CLEAR_IF_STDF(m_NewLibreent._stderr->_file);
-#undef CLEAR_IF_STDF
-    _reclaim_reent(&m_NewLibreent);
     delete [] m_StackBuffer;
-
+    if (m_ThreadLocalBuffer != nullptr) {
+        free(m_ThreadLocalBuffer);
+    }
     if (GetHandle() != -1)
     {
         auto i = g_DebugThreadList.find(GetHandle());
@@ -94,7 +140,7 @@ KThreadCB::~KThreadCB()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KThreadCB::SetHandle(int32_t handle)
+void KThreadCB::SetHandle(int32_t handle) noexcept
 {
     if (GetHandle() != -1)
     {
@@ -123,9 +169,10 @@ void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, void* arguments)
 
     memset(stackFrame, 0, sizeof(*stackFrame));
     stackFrame->m_EXEC_RETURN = 0xfffffffd; // Return to Thread mode, exception return uses non-floating-point state from the PSP and execution uses PSP after return
-    stackFrame->m_R0 = uint32_t(arguments);
+    stackFrame->m_R0 = uint32_t(entryPoint);
+    stackFrame->m_R1 = uint32_t(arguments);
     stackFrame->m_LR = uint32_t(invalid_return_handler) & ~1; // Clear the thump flag from the function pointer.
-    stackFrame->m_PC = uint32_t(entryPoint) & ~1; // Clear the thump flag from the function pointer.
+    stackFrame->m_PC = uint32_t(thread_entry_point) & ~1; // Clear the thumb flag from the function pointer.
     stackFrame->m_xPSR = xPSR_T_Msk; // Always in Thumb state.
 
     m_CurrentStack = reinterpret_cast<uint32_t*>(stackFrame);
@@ -168,3 +215,56 @@ void KThreadCB::SetBlockingObject(const KNamedObject* waitObject)
     }
 }
 
+void KThreadCB::SetupTLS(const PThreadAttribs* attribs)
+{
+    constexpr size_t EABI_TCB_SIZE = 8;
+    const size_t dataSize   = size_t(&__tdata_size);
+    const size_t bssSize    = size_t(&__tbss_size);
+    const size_t tlsAlign   = size_t(&__tls_align);
+    const size_t totalDataBssSize = dataSize + bssSize;
+    const size_t totalBufferSize = totalDataBssSize + EABI_TCB_SIZE + THREAD_TLS_SLOTS_BUFFER_SIZE;
+
+    if (totalBufferSize > 0)
+    {
+        const size_t bufferSize = (attribs != nullptr && attribs->ThreadLocalStorageSize != 0) ? attribs->ThreadLocalStorageSize : THREAD_DEFAULT_STACK_SIZE;
+        void* const bufferAddress = (attribs != nullptr) ? attribs->ThreadLocalStorageAddress : nullptr;
+
+        if (bufferSize < totalBufferSize) {
+            throw std::invalid_argument("TLS buffer too small");
+        }
+        if (bufferAddress == nullptr)
+        {
+            m_ThreadLocalBuffer = reinterpret_cast<uint8_t*>(malloc(totalBufferSize + tlsAlign - 1));
+            if (m_ThreadLocalBuffer == nullptr) {
+                throw std::bad_alloc();
+            }
+            m_ThreadLocalDataSegment = reinterpret_cast<uint8_t*>(uintptr_t(m_ThreadLocalBuffer + EABI_TCB_SIZE + tlsAlign - 1) & ~(tlsAlign - 1));
+            m_FreeTLSOnExit = true;
+        }
+        else
+        {
+            m_ThreadLocalBuffer = reinterpret_cast<uint8_t*>(bufferAddress);
+            m_ThreadLocalDataSegment = reinterpret_cast<uint8_t*>(uintptr_t(m_ThreadLocalBuffer + EABI_TCB_SIZE));
+            m_FreeTLSOnExit = false;
+        }
+        if (uintptr_t(m_ThreadLocalDataSegment) & uintptr_t(tlsAlign - 1)) {
+            throw std::invalid_argument("Invalid TLS buffer alignment");
+        }
+        m_ThreadLocalTCB = m_ThreadLocalDataSegment - EABI_TCB_SIZE;
+        m_ThreadLocalSlots = reinterpret_cast<void**>(m_ThreadLocalDataSegment + totalDataBssSize);
+
+        assert(m_ThreadLocalTCB >= m_ThreadLocalBuffer);
+        assert(m_ThreadLocalDataSegment == m_ThreadLocalTCB + EABI_TCB_SIZE);
+        assert(m_ThreadLocalSlots == reinterpret_cast<void**>(m_ThreadLocalDataSegment + totalDataBssSize));
+
+        memcpy(m_ThreadLocalDataSegment, &__tdata_start, dataSize);
+        memset(m_ThreadLocalDataSegment + dataSize, 0, bssSize);
+        memset(m_ThreadLocalSlots, 0, THREAD_TLS_SLOTS_BUFFER_SIZE);
+    }
+
+}
+
+pid_t KThreadCB::GetProcessID() const
+{
+    return gk_MainThreadID;
+}

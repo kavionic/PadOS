@@ -19,25 +19,25 @@
 
 #pragma once
 
-
-#include "Threads/Threads.h"
+#include <sys/pados_syscalls.h>
+#include <Threads/Threads.h>
 
 template<typename T>
 class ThreadLocal
 {
 public:
     ThreadLocal() {
-        m_Slot = alloc_thread_local_storage(TLSDestructor);
+        m_Slot = sys_thread_local_create_key(TLSDestructor);
     }
-    ~ThreadLocal() { delete_thread_local_storage(m_Slot); }
+    ~ThreadLocal() { sys_thread_local_delete_key(m_Slot); }
 
     void Set(const T& object )
     {
-        T* buffer = static_cast<T*>(get_thread_local(m_Slot));
+        T* buffer = static_cast<T*>(sys_thread_local_get(m_Slot));
         if (buffer == nullptr)
         {
             buffer = new T(object);
-            set_thread_local(m_Slot, buffer);
+            sys_thread_local_set(m_Slot, buffer);
         }
         else
         {
@@ -45,7 +45,7 @@ public:
         }
     }
     T& Get() {
-        T* buffer = static_cast<T*>(get_thread_local(m_Slot));
+        T* buffer = static_cast<T*>(sys_thread_local_get(m_Slot));
         if (buffer != nullptr) {
             return *static_cast<T*>(buffer);
         } else {
@@ -69,15 +69,15 @@ class ThreadLocal<T*>
 {
 public:
     ThreadLocal() {
-        m_Slot = alloc_thread_local_storage(nullptr);
+        m_Slot = sys_thread_local_create_key(nullptr);
     }
-    ~ThreadLocal() { delete_thread_local_storage(m_Slot); }
+    ~ThreadLocal() { sys_thread_local_delete_key(m_Slot); }
 
     void Set(T* object ) {
-        set_thread_local(m_Slot, object);
+        sys_thread_local_set(m_Slot, object);
     }
     T* Get() {
-        return static_cast<T*>(get_thread_local(m_Slot));
+        return static_cast<T*>(sys_thread_local_get(m_Slot));
     }
 
 private:

@@ -94,12 +94,12 @@ void InertialScroller::EndDrag()
     m_TargetPosition = m_CurrentPosition;
 
     // Calculate stop time based on current velocity and default friction.
-    const Point speed(fabs(m_Velocity.x), fabs(m_Velocity.y));
+    const Point speed(std::abs(m_Velocity.x), std::abs(m_Velocity.y));
     const Point stopTime(std::max(s_MinSpeed, speed.x - s_MinSpeed) / s_DefaultFriction, std::max(s_MinSpeed, speed.y - s_MinSpeed) / s_DefaultFriction);
 
     // Calculate stopping distance based on current velocity and default friction.
-    m_TargetPosition.x += copysign(fabs(m_Velocity.x) * stopTime.x - s_DefaultFriction * stopTime.x * stopTime.x * 0.5f, m_Velocity.x);
-    m_TargetPosition.y += copysign(fabs(m_Velocity.y) * stopTime.y - s_DefaultFriction * stopTime.y * stopTime.y * 0.5f, m_Velocity.y);
+    m_TargetPosition.x += std::copysign(std::abs(m_Velocity.x) * stopTime.x - s_DefaultFriction * stopTime.x * stopTime.x * 0.5f, m_Velocity.x);
+    m_TargetPosition.y += std::copysign(std::abs(m_Velocity.y) * stopTime.y - s_DefaultFriction * stopTime.y * stopTime.y * 0.5f, m_Velocity.y);
 
     // Calculate distance between natural stopping point and nearest detention.
     m_TargetPosition = GetClosestIndention(m_TargetPosition);
@@ -107,13 +107,13 @@ void InertialScroller::EndDrag()
 
     // Calculate friction needed to stop at the selected detention.
     if (targetDistance.x != 0.0f) {
-        m_Friction.x = (m_Velocity.x * m_Velocity.x - s_MinSpeed * s_MinSpeed) / (fabs(targetDistance.x) * 2.0f);
+        m_Friction.x = (m_Velocity.x * m_Velocity.x - s_MinSpeed * s_MinSpeed) / (std::abs(targetDistance.x) * 2.0f);
     } else {
         m_Friction.x = s_DefaultFriction;
         m_Velocity.x = 0.0f;
     }
     if (targetDistance.y != 0.0f) {
-        m_Friction.y = (m_Velocity.y * m_Velocity.y - s_MinSpeed * s_MinSpeed) / (fabs(targetDistance.y) * 2.0f);
+        m_Friction.y = (m_Velocity.y * m_Velocity.y - s_MinSpeed * s_MinSpeed) / (std::abs(targetDistance.y) * 2.0f);
     } else {
         m_Friction.y = s_DefaultFriction;
         m_Velocity.y = 0.0f;
@@ -165,8 +165,8 @@ Point InertialScroller::GetClosestIndention(const Point& position) const
 {
     Point nearest;
 
-    nearest.x = (m_DetentSpacing.x > 1.0f) ? round(position.x / m_DetentSpacing.x) * m_DetentSpacing.x : position.x;
-    nearest.y = (m_DetentSpacing.y > 1.0f) ? round(position.y / m_DetentSpacing.y) * m_DetentSpacing.y : position.y;
+    nearest.x = (m_DetentSpacing.x > 1.0f) ? std::round(position.x / m_DetentSpacing.x) * m_DetentSpacing.x : position.x;
+    nearest.y = (m_DetentSpacing.y > 1.0f) ? std::round(position.y / m_DetentSpacing.y) * m_DetentSpacing.y : position.y;
 
     return nearest;
 }
@@ -269,7 +269,7 @@ void InertialScroller::SlotTick()
             scrollOffset.y = std::clamp(m_CurrentPosition.y, m_ScrollBounds.top, m_ScrollBounds.bottom);
         }
 
-        SignalUpdate(Point(round(scrollOffset.x), round(scrollOffset.y)), this);
+        SignalUpdate(Point(std::round(scrollOffset.x), std::round(scrollOffset.y)), this);
     }
     if (m_State == InertialScroller::State::Idle) {
         m_Timer.Stop();
@@ -289,8 +289,8 @@ void InertialScroller::ScrollTo(const Point& scrollOffset, const Point& velocity
     }
     if (m_CurrentPosition != m_TargetPosition)
     {
-        m_Velocity.x = copysign(fabs(velocity.x), m_TargetPosition.x - m_CurrentPosition.x);
-        m_Velocity.y = copysign(fabs(velocity.y), m_TargetPosition.y - m_CurrentPosition.y);
+        m_Velocity.x = std::copysign(std::abs(velocity.x), m_TargetPosition.x - m_CurrentPosition.x);
+        m_Velocity.y = std::copysign(std::abs(velocity.y), m_TargetPosition.y - m_CurrentPosition.y);
 
         if (m_State == InertialScroller::State::Idle)
         {
@@ -309,7 +309,7 @@ void InertialScroller::ScrollTo(const Point& scrollOffset, const Point& velocity
             Point scrollOffset;
             scrollOffset.x = std::clamp(m_CurrentPosition.x, m_ScrollBounds.left, m_ScrollBounds.right);
             scrollOffset.y = std::clamp(m_CurrentPosition.y, m_ScrollBounds.top, m_ScrollBounds.bottom);
-            SignalUpdate(Point(round(scrollOffset.x), round(scrollOffset.y)), this);
+            SignalUpdate(Point(std::round(scrollOffset.x), std::round(scrollOffset.y)), this);
         }
     }
 }

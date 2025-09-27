@@ -46,86 +46,89 @@ Thread::~Thread()
 
 Thread* Thread::GetCurrentThread()
 {
-    return static_cast<Thread*>(get_thread_local(GetThreadObjTLSSlot()));
+    return static_cast<Thread*>(sys_thread_local_get(GetThreadObjTLSSlot()));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-thread_id Thread::Start(bool joinable, int priority, int stackSize)
+PErrorCode Thread::Start(PThreadDetachState detachState, int priority, int stackSize)
 {
-    if (m_ThreadHandle == -1) {
-        m_IsJoinable = joinable;
-        m_ThreadHandle = spawn_thread(m_Name.c_str(), ThreadEntry, priority, this, joinable, stackSize);
-    }
-    return m_ThreadHandle;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int Thread::Wait(TimeValMicros timeout)
-{
-    if (m_IsJoinable)
+    if (m_ThreadHandle == INVALID_HANDLE)
     {
-        int result = wait_thread(m_ThreadHandle);
-        if (result >= 0 && m_DeleteOnExit) {
+        m_DetachState = detachState;
+        PThreadAttribs attrs(m_Name.c_str(), priority, detachState, stackSize);
+        return sys_thread_spawn(&m_ThreadHandle , &attrs, ThreadEntry, this);
+    }
+    return PErrorCode::Busy;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int Thread::Join(void** outReturnValue, TimeValMicros deadline)
+{
+    int result = EINVAL;
+    if (m_DetachState == PThreadDetachState_Joinable)
+    {
+        result = sys_thread_join(m_ThreadHandle, outReturnValue);
+        if (result == 0 && m_DeleteOnExit) {
             delete this;
         }
         return result;
     }
-    set_last_error(EINVAL);
-    return -1;
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Thread::Run()
+void* Thread::Run()
 {
     if (!VFRun.Empty()) {
         return VFRun(this);
     }
-    return 0;
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
     
-void Thread::Exit(int returnCode)
+void Thread::Exit(void* returnValue)
 {
-    if (!m_IsJoinable && m_DeleteOnExit) {
+    if (m_DetachState == PThreadDetachState_Detached && m_DeleteOnExit) {
         delete this;
     }
-    exit_thread(returnCode);
+    sys_thread_exit(returnValue);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Thread::ThreadEntry(void* data)
+void* Thread::ThreadEntry(void* data)
 {
     Thread* self = static_cast<Thread*>(data);
     try
     {
-        set_thread_local(GetThreadObjTLSSlot(), data);
+        sys_thread_local_set(GetThreadObjTLSSlot(), data);
         self->Exit(self->Run());
     }
     catch(const std::exception& e)
     {
         kernel_log(LogCatKernel_Scheduler, KLogSeverity::FATAL, "Uncaught exception in thread %s: %s", self->GetName().c_str(), e.what());
-        self->Exit(ENOTRECOVERABLE);
+        self->Exit(nullptr);
     }
     catch (...)
     {
         kernel_log(LogCatKernel_Scheduler, KLogSeverity::FATAL, "Uncaught exception in thread %s: unknown", self->GetName().c_str());
-        self->Exit(ENOTRECOVERABLE);
+        self->Exit(nullptr);
     }
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -134,6 +137,6 @@ void Thread::ThreadEntry(void* data)
 
 int Thread::GetThreadObjTLSSlot()
 {
-    static int slot = alloc_thread_local_storage(nullptr);
+    static int slot = sys_thread_local_create_key(nullptr);
     return slot;
 }

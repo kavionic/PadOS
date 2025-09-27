@@ -96,7 +96,7 @@ public:
 
     void Setup(const char* devicePath, int threadPriority, DigitalPinID pinShutdown, DigitalPinID pinIRQ, const char* i2cPath);
 
-    virtual int Run() override;
+    virtual void* Run() override;
 
     virtual Ptr<KFileNode>	OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags) override;
     virtual status_t		CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;

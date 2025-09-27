@@ -63,7 +63,7 @@ static const uint8_t g_GammaTable[] =
 
 WS2812BDriverINode::WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t clockFrequency, KFilesystemFileOps* fileOps)
 	: KINode(nullptr, nullptr, fileOps, false)
-	, m_Mutex("WS2812BDriverINodeWrite", EMutexRecursionMode::RaiseError)
+	, m_Mutex("WS2812BDriverINodeWrite", PEMutexRecursionMode_RaiseError)
 	, m_TransmitCondition("WS2812BDriverINodeTransmit")
 {
 	m_Port = get_spi_from_id(portID);
@@ -260,9 +260,12 @@ bool WS2812BDriverINode::WaitForIdle()
 	{
 		while (m_State != State::Idle)
 		{
-            if (!m_TransmitCondition.IRQWaitTimeout(TimeValMicros::FromMilliseconds(100))) // Timeout in 100mS. Max transmit time is about 27mS (>7000LEDs)
+            const PErrorCode result = m_TransmitCondition.IRQWaitTimeout(TimeValMicros::FromMilliseconds(100));
+            if (result != PErrorCode::Success) // Timeout in 100mS. Max transmit time is about 27mS (>7000LEDs)
 			{
-				if (get_last_error() != EINTR) {
+				if (result != PErrorCode::Interrupted)
+                {
+                    set_last_error(result);
 					return false;
 				}
 			}

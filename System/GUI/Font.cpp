@@ -36,7 +36,7 @@ FontHeight Font::GetHeight() const
     FontHeight height;
     height.ascender = 0.0f;
     height.descender = driver->GetFontHeight(m_Font);
-    height.line_gap = ceil((height.descender - height.ascender) / 10.0f);
+    height.line_gap = std::ceil((height.descender - height.ascender) / 10.0f);
     return height;
 }
 

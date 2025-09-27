@@ -133,7 +133,7 @@ private:
     IFLASHC bool FlushInternal();
 
     static IFLASHC bool  FlushBlockList(KCacheBlockHeader** blockList, size_t blockCount);
-    static IFLASHC void  DiskCacheFlusher(void* arg);
+    static IFLASHC void* DiskCacheFlusher(void* arg);
     
     static std::map<int, KBlockCache*>      s_DeviceMap;
     static IntrusiveList<KCacheBlockHeader> s_FreeList;

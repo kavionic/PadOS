@@ -95,7 +95,7 @@ static void free_message(KMessagePortMessage* message)
 ///////////////////////////////////////////////////////////////////////////////
 
 KMessagePort::KMessagePort(const char* name, size_t maxCount) : KNamedObject(name, ObjectType)
-                                                              , m_Mutex("message_port_mutex", EMutexRecursionMode::RaiseError)
+                                                              , m_Mutex("message_port_mutex", PEMutexRecursionMode_RaiseError)
                                                               , m_SendCondition("message_port_send")
                                                               , m_ReceiveCondition("message_port_receive")
                                                               , m_MaxCount(maxCount)
@@ -154,11 +154,11 @@ bool KMessagePort::SendMessage(handler_id targetHandler, int32_t code, const voi
 
     while (m_MessageCount >= m_MaxCount)
     {
-        if (!m_SendCondition.WaitDeadline(m_Mutex, deadline)) {
-            if (get_last_error() != EINTR)
-            {
-                return false;
-            }
+        const PErrorCode result = m_SendCondition.WaitDeadline(m_Mutex, deadline);
+        if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
+        {
+            set_last_error(result);
+            return false;
         }
     }
 
@@ -194,11 +194,11 @@ ssize_t KMessagePort::ReceiveMessage(handler_id* targetHandler, int32_t* code, v
 
     while (m_MessageCount == 0)
     {
-        if (!m_ReceiveCondition.Wait(m_Mutex))
+        const PErrorCode result = m_ReceiveCondition.Wait(m_Mutex);
+        if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
         {
-            if (get_last_error() != EINTR) {
-                return -1;
-            }
+            set_last_error(result);
+            return -1;
         }
     }
     return DetachMessage(targetHandler, code, buffer, bufferSize);
@@ -223,12 +223,11 @@ ssize_t KMessagePort::ReceiveMessageDeadline(handler_id* targetHandler, int32_t*
 
 	while (m_MessageCount == 0)
 	{
-		if (!m_ReceiveCondition.WaitDeadline(m_Mutex, deadline))
+        const PErrorCode result = m_ReceiveCondition.WaitDeadline(m_Mutex, deadline);
+		if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
 		{
-			if (get_last_error() != EINTR)
-			{
-				return -1;
-			}
+            set_last_error(result);
+			return -1;
 		}
 	}
     return DetachMessage(targetHandler, code, buffer, bufferSize);
@@ -270,13 +269,12 @@ ssize_t KMessagePort::DetachMessage(handler_id* targetHandler, int32_t* code, vo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-port_id create_message_port(const char* name, int maxCount)
+PErrorCode create_message_port(port_id& outHandle, const char* name, int maxCount)
 {
     try {
-        return KNamedObject::RegisterObject(ptr_new<KMessagePort>(name, maxCount));
+        return KNamedObject::RegisterObject(outHandle, ptr_new<KMessagePort>(name, maxCount));
     } catch(const std::bad_alloc& error) {
-        set_last_error(ENOMEM);
-        return -1;
+        return PErrorCode::NoMemory;
     }
 }
 
@@ -284,14 +282,13 @@ port_id create_message_port(const char* name, int maxCount)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-port_id  duplicate_message_port(port_id handle)
+PErrorCode duplicate_message_port(port_id& ouNewtHandle, port_id handle)
 {
     Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
     if (port != nullptr) {
-        return KNamedObject::RegisterObject(port);
+        return KNamedObject::RegisterObject(ouNewtHandle, port);
     } else {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
 }
 

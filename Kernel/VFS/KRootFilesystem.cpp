@@ -222,7 +222,7 @@ int KRootFilesystem::CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> d
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize)
+int KRootFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -233,7 +233,7 @@ int KRootFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> di
     if (dirNode->m_CurrentIndex < dirInode->m_Children.size())
     {
         entry->d_volumeid = volume->m_VolumeID;
-        entry->d_reclength = sizeof(*entry);
+        entry->d_reclen   = sizeof(*entry);
 
         int index = 0;
         for (auto i : dirInode->m_Children)
@@ -245,9 +245,9 @@ int KRootFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> di
 
                 dirNode->m_CurrentIndex++;
 
-                entry->d_inode = inode->m_INodeID;
-                entry->d_type = (inode->IsDirectory()) ? dir_entry_type::DT_DIRECTORY : dir_entry_type::DT_FILE;
-                entry->d_namelength = name.size();
+                entry->d_ino    = inode->m_INodeID;
+                entry->d_type   = (inode->IsDirectory()) ? DT_DIR : DT_REG;
+                entry->d_namlen = static_cast<decltype(entry->d_namlen)>(name.size());
                 name.copy(entry->d_name, name.size());
                 entry->d_name[name.size()] = '\0';
                 return 1;
@@ -355,7 +355,7 @@ int KRootFilesystem::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct s
     outStats->st_gid        = 0;
     outStats->st_size       = 0;
     outStats->st_blksize    = 512;
-    outStats->st_atime = outStats->st_mtime = outStats->st_ctime = node->m_CreateTime.AsSecondsI();
+    outStats->st_atim = outStats->st_mtim = outStats->st_ctim = node->m_CreateTime.AsTimespec();
 
     return 0;
 }

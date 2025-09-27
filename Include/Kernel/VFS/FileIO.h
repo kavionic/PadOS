@@ -21,11 +21,12 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/dirent.h>
+#include <sys/pados_types.h>
 
 #include <vector>
 #include <map>
 
-#include <System/Types.h>
 #include <Ptr/Ptr.h>
 #include <Utils/String.h>
 #include <Kernel/KMutex.h>
@@ -40,7 +41,6 @@ namespace kernel
     class KDirectoryNode;
     class KRootFilesystem;
     class Kernel;
-    struct dir_entry;
 }
 
 namespace os
@@ -89,18 +89,22 @@ public:
     static IFLASHC ssize_t Read(int handle, off64_t position, const IOSegment* segments, size_t segmentCount);
     static IFLASHC ssize_t Write(int handle, off64_t position, const IOSegment* segments, size_t segmentCount);
 
+    static IFLASHC off64_t Seek(int handle, off64_t offset, int mode);
+
     static IFLASHC int     FSync(int handle);
 
     static IFLASHC int     DeviceControl(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
-    static IFLASHC int     ReadDirectory(int handle, kernel::dir_entry* entry, size_t bufSize);
+    static IFLASHC int     ReadDirectory(int handle, dirent_t* entry, size_t bufSize);
     static IFLASHC int     RewindDirectory(int handle);
 
     static IFLASHC int     CreateDirectory(const char* name, int permission = S_IRWXU);
     static IFLASHC int     CreateDirectory(int baseFolderFD, const char* name, int permission = S_IRWXU);
 
-    static IFLASHC int     Symlink(const char* target, const char* linkPath);
-    static IFLASHC int     Symlink(int baseFolderFD, const char* target, const char* linkPath);
+    static IFLASHC PErrorCode   Symlink(const char* target, const char* linkPath);
+    static IFLASHC PErrorCode   Symlink(const char* target, int baseFolderFD, const char* linkPath);
+
+    static IFLASHC PErrorCode   ReadLink(int dirfd, const char* path, char* buffer, size_t bufferSize, size_t* outResultLength);
 
     static IFLASHC int	   ReadStats(int handle, struct stat* outStats);
     static IFLASHC int	   WriteStats(int handle, const struct stat& value, uint32_t mask);

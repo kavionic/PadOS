@@ -608,9 +608,9 @@ bool FSNode::SetStats(const struct stat& statBuffer, uint32_t mask) const
     if (mask & WSTAT_UID)   m_StatCache.st_uid   = statBuffer.st_uid;
     if (mask & WSTAT_GID)   m_StatCache.st_gid   = statBuffer.st_gid;
     if (mask & WSTAT_SIZE)  m_StatCache.st_size  = statBuffer.st_size;
-    if (mask & WSTAT_ATIME) m_StatCache.st_atime = statBuffer.st_atime;
-    if (mask & WSTAT_MTIME) m_StatCache.st_mtime = statBuffer.st_mtime;
-    if (mask & WSTAT_CTIME) m_StatCache.st_ctime = statBuffer.st_ctime;
+    if (mask & WSTAT_ATIME) m_StatCache.st_atim  = statBuffer.st_atim;
+    if (mask & WSTAT_MTIME) m_StatCache.st_mtim  = statBuffer.st_mtim;
+    if (mask & WSTAT_CTIME) m_StatCache.st_ctim  = statBuffer.st_ctim;
 
     if (mask & ~(WSTAT_MODE  |
                  WSTAT_UID   |
@@ -706,54 +706,84 @@ bool FSNode::SetSize(off64_t size) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-time_t FSNode::GetCTime(bool updateCache) const
+PErrorCode FSNode::GetCTime(TimeValMicros& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
-        errno = EINVAL;
-        return -1;
+        return PErrorCode::InvalidArg;
     }
     if (updateCache) {
         if (FileIO::ReadStats(m_FileDescriptor, &m_StatCache) < 0) {
-            return -1;
+            return PErrorCode(errno);
         }
     }
-    return m_StatCache.st_ctime;
+    outTime = TimeValMicros::FromTimespec(m_StatCache.st_ctim);
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-time_t FSNode::GetMTime(bool updateCache) const
+PErrorCode FSNode::GetMTime(TimeValMicros& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
-        errno = EINVAL;
-        return -1;
+        return PErrorCode::InvalidArg;
     }
     if (updateCache) {
         if (FileIO::ReadStats(m_FileDescriptor, &m_StatCache) < 0) {
-            return -1;
+            return PErrorCode(errno);
         }
     }
-    return m_StatCache.st_mtime;
+    outTime = TimeValMicros::FromTimespec(m_StatCache.st_mtim);
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-time_t FSNode::GetATime(bool updateCache) const
+PErrorCode FSNode::GetATime(TimeValMicros& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
-        errno = EINVAL;
-        return -1;
+        return PErrorCode::InvalidArg;
     }
     if (updateCache) {
         if (FileIO::ReadStats(m_FileDescriptor, &m_StatCache) < 0) {
-            return -1;
+            return PErrorCode(errno);
         }
     }
-    return m_StatCache.st_atime;
+    outTime = TimeValMicros::FromTimespec(m_StatCache.st_atim);
+    return PErrorCode::Success;
+}
+
+PErrorCode FSNode::GetCTime(time_t& outTime, bool updateCache) const
+{
+    TimeValMicros fileTime;
+    PErrorCode result = GetCTime(fileTime, updateCache);
+    if (result == PErrorCode::Success) {
+        outTime = fileTime.AsSecondsI();
+    }
+    return result;
+}
+
+PErrorCode FSNode::GetMTime(time_t& outTime, bool updateCache /*= true*/) const
+{
+    TimeValMicros fileTime;
+    PErrorCode result = GetMTime(fileTime, updateCache);
+    if (result == PErrorCode::Success) {
+        outTime = fileTime.AsSecondsI();
+    }
+    return result;
+}
+
+PErrorCode FSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
+{
+    TimeValMicros fileTime;
+    PErrorCode result = GetATime(fileTime, updateCache);
+    if (result == PErrorCode::Success) {
+        outTime = fileTime.AsSecondsI();
+    }
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

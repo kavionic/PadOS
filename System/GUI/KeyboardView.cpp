@@ -563,7 +563,7 @@ bool KeyboardView::OnTouchMove(MouseButton_e pointID, const Point& position, con
 
     if (m_IsDraggingCursor)
     {
-        int cursorPos = int(round((position.x - m_HitPos.x) / 20.0f));
+        int cursorPos = int(std::round((position.x - m_HitPos.x) / 20.0f));
         while (cursorPos < m_PrevCursorPos)
         {
             m_PrevCursorPos--;
@@ -583,7 +583,7 @@ bool KeyboardView::OnTouchMove(MouseButton_e pointID, const Point& position, con
             if (button.m_NormalKeyCode == KeyCodes::SPACE)
             {
                 m_IsDraggingCursor = true;
-                m_PrevCursorPos = int(round((position.x - m_HitPos.x) / 20.0f));
+                m_PrevCursorPos = int(std::round((position.x - m_HitPos.x) / 20.0f));
             }
             SetPressedButton(INVALID_INDEX);
         }
@@ -683,7 +683,7 @@ void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
     if (bitmapFrame.Width() > 0.0f)
     {
         SetDrawingMode(DrawingMode::Overlay);
-        DrawBitmap(m_KeysBitmap, bitmapFrame, button.m_Frame.TopLeft() + Point(round((button.m_Frame.Width() - bitmapFrame.Width()) * 0.5f), round((button.m_Frame.Height() - bitmapFrame.Height()) * 0.5f)));
+        DrawBitmap(m_KeysBitmap, bitmapFrame, button.m_Frame.TopLeft() + Point(std::round((button.m_Frame.Width() - bitmapFrame.Width()) * 0.5f), std::round((button.m_Frame.Height() - bitmapFrame.Height()) * 0.5f)));
         SetDrawingMode(DrawingMode::Copy);
     }
     else
@@ -706,7 +706,7 @@ void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
         const float labelWidth = GetStringWidth(label);
         const float labelHeight = fontHeight.descender - fontHeight.ascender;
 
-        Point labelPos = button.m_Frame.TopLeft() + Point(round((button.m_Frame.Width() - labelWidth) * 0.5f), ceilf((button.m_Frame.Height() - labelHeight) * 0.5f));
+        Point labelPos = button.m_Frame.TopLeft() + Point(std::round((button.m_Frame.Width() - labelWidth) * 0.5f), ceilf((button.m_Frame.Height() - labelHeight) * 0.5f));
 
         if (!smallLabel.empty()) {
             labelPos.y += 2.0f;

@@ -36,33 +36,33 @@ public:
 
     IFLASHC KObjectWaitGroup(const char* name);
 
-    IFLASHC bool AddObject(KWaitableObject* object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-    template<typename T> bool AddObject(Ptr<T> object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return AddObject(ptr_raw_pointer_cast(object), waitMode); }
+    IFLASHC PErrorCode AddObject(KWaitableObject* object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+    template<typename T> PErrorCode AddObject(Ptr<T> object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return AddObject(ptr_raw_pointer_cast(object), waitMode); }
 
-	IFLASHC bool SetObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-	IFLASHC bool AppendObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-	IFLASHC bool RemoveObject(KWaitableObject* object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-    template<typename T> bool RemoveObject(Ptr<T> object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return RemoveObject(ptr_raw_pointer_cast(object), waitMode); }
+	IFLASHC PErrorCode SetObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+	IFLASHC PErrorCode AppendObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+	IFLASHC PErrorCode RemoveObject(KWaitableObject* object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+    template<typename T> PErrorCode RemoveObject(Ptr<T> object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return RemoveObject(ptr_raw_pointer_cast(object), waitMode); }
 
-    IFLASHC bool AddFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-    IFLASHC bool RemoveFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+    IFLASHC PErrorCode AddFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+    IFLASHC PErrorCode RemoveFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
 
-    IFLASHC void Clear();
+    IFLASHC PErrorCode Clear();
 
-	bool Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
-	bool WaitTimeout(TimeValMicros timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
-	bool WaitDeadline(TimeValMicros deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, deadline, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode WaitTimeout(TimeValMicros timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode WaitDeadline(TimeValMicros deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, deadline, readyFlagsBuffer, readyFlagsSize); }
 
-	bool Wait(KMutex& lock, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
-	bool WaitTimeout(KMutex& lock, TimeValMicros timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
-	bool WaitDeadline(KMutex& lock, TimeValMicros deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, deadline, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode Wait(KMutex& lock, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode WaitTimeout(KMutex& lock, TimeValMicros timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode WaitDeadline(KMutex& lock, TimeValMicros deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, deadline, readyFlagsBuffer, readyFlagsSize); }
 
 private:
-    IFLASHC bool AddObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
-    IFLASHC bool RemoveObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
-    IFLASHC void ClearInternal();
-    IFLASHC bool WaitForBlockedThread(TimeValMicros deadline = TimeValMicros::infinit);
-    IFLASHC bool Wait(KMutex* lock, TimeValMicros deadline, void* readyFlagsBuffer, size_t readyFlagsSize);
+    IFLASHC PErrorCode  AddObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
+    IFLASHC PErrorCode  RemoveObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
+    IFLASHC void        ClearInternal();
+    IFLASHC PErrorCode  WaitForBlockedThread(TimeValMicros deadline = TimeValMicros::infinit);
+    IFLASHC PErrorCode  Wait(KMutex* lock, TimeValMicros deadline, void* readyFlagsBuffer, size_t readyFlagsSize);
 
 	KMutex m_Mutex;
 

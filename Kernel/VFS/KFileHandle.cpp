@@ -38,7 +38,7 @@ bool kernel::KDirectoryNode::LastReferenceGone()
     return KFileTableNode::LastReferenceGone();
 }
 
-int kernel::KDirectoryNode::ReadDirectory(dir_entry* entry, size_t bufSize)
+int kernel::KDirectoryNode::ReadDirectory(dirent_t* entry, size_t bufSize)
 {
     Ptr<KINode> inode = GetINode();
     if (inode != nullptr && inode->m_FileOps != nullptr) {

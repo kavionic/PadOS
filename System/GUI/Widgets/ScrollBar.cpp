@@ -89,9 +89,9 @@ void ScrollBar::SetValue(float value)
         Point pos = m_Target->GetScrollOffset();
 
         if (m_Orientation == Orientation::Horizontal) {
-            pos.x = -floor(value);
+            pos.x = -std::floor(value);
         } else {
-            pos.y = -floor(value);
+            pos.y = -std::floor(value);
         }
         m_Target->ScrollTo(pos);
         m_Target->Flush();
@@ -579,7 +579,7 @@ void ScrollBar::OnFrameSized(const Point& delta)
 	m_KnobArea = bounds;
 	if (m_Orientation == Orientation::Horizontal)
 	{
-		arrowRect.right = ceil(arrowRect.Height() * 0.7f);
+		arrowRect.right = std::ceil(arrowRect.Height() * 0.7f);
 		const float width = arrowRect.Width();
 
 		m_ArrowRects[0] = arrowRect;
@@ -589,7 +589,7 @@ void ScrollBar::OnFrameSized(const Point& delta)
 
 		if (m_ArrowRects[0].right > m_ArrowRects[3].left)
         {
-			m_ArrowRects[0].right = floor(bounds.Width() * 0.5f);
+			m_ArrowRects[0].right = std::floor(bounds.Width() * 0.5f);
 			m_ArrowRects[3].left  = m_ArrowRects[0].right;
 			m_ArrowRects[1].left  = m_ArrowRects[0].right;
 			m_ArrowRects[1].right = m_ArrowRects[1].left;
@@ -608,7 +608,7 @@ void ScrollBar::OnFrameSized(const Point& delta)
 	}
     else
     {
-		arrowRect.bottom = ceil(arrowRect.Width() * 0.7f);
+		arrowRect.bottom = std::ceil(arrowRect.Width() * 0.7f);
 
 		const float height = arrowRect.Height();
 
@@ -618,7 +618,7 @@ void ScrollBar::OnFrameSized(const Point& delta)
 		m_ArrowRects[3] = arrowRect + Point(0.0f, bounds.Height() - height);
 
 		if (m_ArrowRects[0].bottom > m_ArrowRects[3].top) {
-			m_ArrowRects[0].bottom = floor(bounds.Width() * 0.5f);
+			m_ArrowRects[0].bottom = std::floor(bounds.Width() * 0.5f);
 			m_ArrowRects[3].top = m_ArrowRects[0].bottom;
 			m_ArrowRects[1].top = m_ArrowRects[0].bottom;
 			m_ArrowRects[1].bottom = m_ArrowRects[1].top;

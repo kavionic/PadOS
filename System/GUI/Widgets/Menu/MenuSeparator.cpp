@@ -86,7 +86,7 @@ void MenuSeparator::Draw(Ptr<View> targetView)
 
     if (menu->GetLayout() == MenuLayout::Horizontal)
     {
-        float x = floor(frame.left + (frame.Width() + 1.0f) * 0.5f);
+        float x = std::floor(frame.left + (frame.Width() + 1.0f) * 0.5f);
         targetView->SetFgColor(StandardColorID::Shadow);
         targetView->DrawLine(Point(x, frame.top + 2.0f), Point(x, frame.bottom - 2.0f));
         x += 1.0f;
@@ -95,7 +95,7 @@ void MenuSeparator::Draw(Ptr<View> targetView)
     }
     else
     {
-        float y = floor(frame.top + (frame.Height() + 1.0f) * 0.5f);
+        float y = std::floor(frame.top + (frame.Height() + 1.0f) * 0.5f);
         targetView->SetFgColor(StandardColorID::Shadow);
         targetView->DrawLine(Point(frame.left + 4.0f, y), Point(frame.right - 4.0f, y));
         y += 1.0f;

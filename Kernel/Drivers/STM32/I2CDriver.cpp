@@ -47,7 +47,7 @@ I2CDriverINode::I2CDriverINode(I2CDriver* driver
                              , double fallTime
                              , double riseTime)
     : KINode(nullptr, nullptr, driver, false)
-    , m_Mutex("I2CDriverINode", EMutexRecursionMode::RaiseError)
+    , m_Mutex("I2CDriverINode", PEMutexRecursionMode_RaiseError)
     , m_RequestCondition("I2CDriverINodeRequest")
     , m_ClockPin(clockPinCfg)
     , m_DataPin(dataPinCfg)
@@ -220,11 +220,12 @@ ssize_t I2CDriverINode::Read(Ptr<KFileNode> file, off64_t position, void* buffer
         m_Port->CR1 |= interruptFlags;
         m_Port->CR2 = CR2;
 
-        if (!m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout))
+        if (m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout) != PErrorCode::Success)
         {
+            set_last_error(PErrorCode::Timeout);
             m_State = State_e::Idle;
             ResetPeripheral();
-            m_TransactionError = ETIME;
+            m_TransactionError = ETIMEDOUT;
         }
         m_Port->CR1 &= ~interruptFlags;
     } CRITICAL_END;
@@ -308,11 +309,12 @@ ssize_t I2CDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void*
         m_Port->CR1 |= interruptFlags;
         m_Port->CR2 = CR2;
 
-        if (!m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout))
+        if (m_RequestCondition.IRQWaitTimeout(i2cfile->m_Timeout) != PErrorCode::Success)
         {
+            set_last_error(PErrorCode::Timeout);
             m_State = State_e::Idle;
             ResetPeripheral();
-            m_TransactionError = ETIME;
+            m_TransactionError = ETIMEDOUT;
         }
         m_Port->CR1 &= ~interruptFlags;
     } CRITICAL_END;

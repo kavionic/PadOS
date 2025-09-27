@@ -18,20 +18,26 @@
 // Created: 04.03.2018 22:38:38
 
 #include <string.h>
+#include <limits.h>
+#include <sys/fcntl.h>
 
-#include "Kernel/KSemaphore.h"
-#include "Kernel/KHandleArray.h"
-#include "Kernel/Scheduler.h"
-#include "System/System.h"
+#include <Kernel/KSemaphore.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/KHandleArray.h>
+#include <Kernel/Scheduler.h>
+#include <System/System.h>
 
 using namespace kernel;
 using namespace os;
+
+static KMutex gk_PublicSemaphoresMutex("global_sema_mutex", PEMutexRecursionMode_RaiseError);
+static std::map<String, Ptr<KSemaphore>> gk_PublicSemaphores;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KSemaphore::KSemaphore(const char* name, int count) : KNamedObject(name, KNamedObjectType::Semaphore)
+KSemaphore::KSemaphore(const char* name, clockid_t clockID, int count) : KNamedObject(name, KNamedObjectType::Semaphore), m_ClockID(clockID)
 {
     m_Count = count;
 }
@@ -51,16 +57,7 @@ KSemaphore::~KSemaphore()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KSemaphore> KGetSemaphore(sem_id handle)
-{
-    return ptr_static_cast<KSemaphore>(KNamedObject::GetObject(handle, KNamedObjectType::Semaphore));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool KSemaphore::Acquire()
+PErrorCode KSemaphore::Acquire()
 {
     KThreadCB* thread = gk_CurrentThread;
     for (;;)
@@ -73,10 +70,10 @@ bool KSemaphore::Acquire()
             {
                 m_Count--;
                 m_Holder = thread->GetHandle();
-                return true;
+                return PErrorCode::Success;
             }
             waitNode.m_Thread = thread;
-            thread->m_State = ThreadState::Waiting;
+            thread->m_State = ThreadState_Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->SetBlockingObject(this);
 
@@ -88,21 +85,14 @@ bool KSemaphore::Acquire()
         	thread->SetBlockingObject(nullptr);
             waitNode.Detatch();
             if (waitNode.m_TargetDeleted) {
-                set_last_error(EINVAL);
-                return false;
+                return PErrorCode::InvalidArg;
             }
             if (m_Count > 0)
             {
                 m_Count--;
                 m_Holder = thread->GetHandle();
-                return true;
+                return PErrorCode::Success;
             }
-            else if (thread->m_RestartSyscalls)
-            {
-                continue;
-            }
-            set_last_error(EINTR);
-            return false;
         } CRITICAL_END;
     }
 }
@@ -111,11 +101,20 @@ bool KSemaphore::Acquire()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KSemaphore::AcquireDeadline(TimeValMicros deadline)
+PErrorCode KSemaphore::AcquireDeadline(TimeValMicros deadline)
+{
+    return AcquireClock(m_ClockID, deadline);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KSemaphore::AcquireClock(clockid_t clockID, TimeValMicros deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
-    for (bool first = true; ; first = false)
+    for (;;)
     {
         KThreadWaitNode waitNode;
         KThreadWaitNode sleepNode;
@@ -126,33 +125,29 @@ bool KSemaphore::AcquireDeadline(TimeValMicros deadline)
             {
                 m_Count--;
                 m_Holder = thread->GetHandle();
-                return true;
+                return PErrorCode::Success;
             }
-            if (deadline.IsInfinit() || get_system_time() < deadline)
+            if (deadline.IsInfinit() || get_clock_time(clockID) < deadline)
             {
-                if (!first) {
-                    set_last_error(EINTR);
-                    return false;
-                }
                 waitNode.m_Thread      = thread;
 
                 m_WaitQueue.Append(&waitNode);
                 if (!deadline.IsInfinit())
                 {
-                    thread->m_State = ThreadState::Sleeping;
+                    thread->m_State = ThreadState_Sleeping;
                     sleepNode.m_Thread = thread;
-                    sleepNode.m_ResumeTime = deadline;
+                    sleepNode.m_ResumeTime = deadline - get_clock_time_offset(clockID);
                     add_to_sleep_list(&sleepNode);
                 }
                 else
                 {
-                    thread->m_State = ThreadState::Waiting;
+                    thread->m_State = ThreadState_Waiting;
                 }
+                thread->SetBlockingObject(this);
             }
             else
             {
-                set_last_error(ETIME);
-                return false;
+                return PErrorCode::Timeout;
             }
 
             KSWITCH_CONTEXT();
@@ -160,26 +155,30 @@ bool KSemaphore::AcquireDeadline(TimeValMicros deadline)
         // If we ran KSWITCH_CONTEXT() we should be suspended here.
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
+            thread->SetBlockingObject(nullptr);
             waitNode.Detatch();
             sleepNode.Detatch();
             if (waitNode.m_TargetDeleted) {
-                set_last_error(EINVAL);
-                return false;
+                return PErrorCode::InvalidArg;
             }
         } CRITICAL_END;
     }
-}
-
-bool KSemaphore::AcquireTimeout(TimeValMicros timeout)
-{
-    return AcquireDeadline((!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KSemaphore::TryAcquire()
+PErrorCode KSemaphore::AcquireTimeout(TimeValMicros timeout)
+{
+    return AcquireClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_clock_time(CLOCK_MONOTONIC_COARSE) + timeout) : TimeValMicros::infinit);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KSemaphore::TryAcquire()
 {
     KThreadCB* thread = gk_CurrentThread;
 
@@ -189,21 +188,23 @@ bool KSemaphore::TryAcquire()
         {
             m_Count--;
             m_Holder = thread->GetHandle();
-            return true;
+            return PErrorCode::Success;
         }
     } CRITICAL_END;
-    set_last_error(EWOULDBLOCK);
-    return false;
+    return PErrorCode::TryAgain;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KSemaphore::Release()
+PErrorCode KSemaphore::Release()
 {
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
+        if (m_Count == SEM_VALUE_MAX) {
+            return PErrorCode::Overflow;
+        }
         m_Count++;
 
         if (m_Count > 0) {
@@ -211,106 +212,21 @@ void KSemaphore::Release()
             if (wakeup_wait_queue(&m_WaitQueue, 0, m_Count)) KSWITCH_CONTEXT();
         }
     } CRITICAL_END;
+
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-sem_id create_semaphore(const char* name, int count)
-{
-    try {
-        return KNamedObject::RegisterObject(ptr_new<KSemaphore>(name, count));
-    } catch(const std::bad_alloc& error) {
-        set_last_error(ENOMEM);
-        return -1;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-sem_id duplicate_semaphore(sem_id handle)
-{
-    Ptr<KSemaphore> sema = KGetSemaphore(handle);
-    if (sema != nullptr) {
-        return KNamedObject::RegisterObject(sema);
-    }
-    set_last_error(EINVAL);
-    return -1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t delete_semaphore(sem_id handle)
-{
-    if (KNamedObject::FreeHandle(handle, KNamedObjectType::Semaphore)) {
-        return 0;
-    }
-    set_last_error(EINVAL);
-    return -1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t acquire_semaphore(sem_id handle)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::Acquire);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t acquire_semaphore_timeout(sem_id handle, bigtime_t timeout)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::AcquireTimeout, TimeValMicros::FromMicroseconds(timeout));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t acquire_semaphore_deadline(sem_id handle, bigtime_t deadline)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::AcquireDeadline, TimeValMicros::FromMicroseconds(deadline));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t try_acquire_semaphore(sem_id handle)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KSemaphore>(handle, &KSemaphore::TryAcquire);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t release_semaphore(sem_id handle)
-{
-    return KNamedObject::ForwardToHandleVoid<KSemaphore>(handle, &KSemaphore::Release);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-sem_id duplicate_handle(handle_id handle)
+PErrorCode duplicate_handle(handle_id& outNewHandle, handle_id handle)
 {
     Ptr<KNamedObject> object = KNamedObject::GetAnyObject(handle);
     if (object != nullptr) {
-        return KNamedObject::RegisterObject(object);
+        return KNamedObject::RegisterObject(outNewHandle, object);
     }
-    set_last_error(EINVAL);
-    return -1;
+    return PErrorCode::InvalidArg;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

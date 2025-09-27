@@ -83,7 +83,7 @@ public:
     
     virtual ssize_t             Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
     virtual ssize_t             Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
-    virtual int                 ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize) override;
+    virtual int                 ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize) override;
     virtual int                 RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode) override;
     virtual int                 ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize) override;
 

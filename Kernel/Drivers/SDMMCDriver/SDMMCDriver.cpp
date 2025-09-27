@@ -62,7 +62,7 @@ SDMMCINode::SDMMCINode(KFilesystemFileOps* fileOps) : KINode(nullptr, nullptr, f
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCDriver::SDMMCDriver() : Thread("hsmci_driver"), m_Mutex("hsmci_driver_mutex", EMutexRecursionMode::RaiseError), m_CardDetectCondition("hsmci_driver_cd"), m_CardStateCondition("hsmci_driver_cstate"), m_IOCondition("hsmci_driver_io"), m_DeviceSemaphore("hsmci_driver_dev_sema", 1)
+SDMMCDriver::SDMMCDriver() : Thread("hsmci_driver"), m_Mutex("hsmci_driver_mutex", PEMutexRecursionMode_RaiseError), m_CardDetectCondition("hsmci_driver_cd"), m_CardStateCondition("hsmci_driver_cstate"), m_IOCondition("hsmci_driver_io"), m_DeviceSemaphore("hsmci_driver_dev_sema", CLOCK_MONOTONIC_COARSE, 1)
 {
     m_CardType = 0;
     m_CardState = CardState::Initializing;
@@ -96,7 +96,7 @@ bool SDMMCDriver::SetupBase(const String& devicePath, DigitalPinID pinCD)
     m_RawINode = ptr_new<SDMMCINode>(this);
     m_RawINode->bi_nNodeHandle = Kernel::RegisterDevice((devicePath + "raw").c_str(), m_RawINode);
 
-    Start(true);
+    Start(PThreadDetachState_Detached);
 
     kernel::register_irq_handler(get_peripheral_irq(pinCD), IRQHandler, this);
 
@@ -108,7 +108,7 @@ bool SDMMCDriver::SetupBase(const String& devicePath, DigitalPinID pinCD)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int SDMMCDriver::Run()
+void* SDMMCDriver::Run()
 {
 	m_CardState = CardState::NoCard;
 	for (;;)

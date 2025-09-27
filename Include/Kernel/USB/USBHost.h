@@ -117,7 +117,7 @@ public:
     ~USBHost();
 
     // From Thread:
-    IFLASHC virtual int Run() override;
+    IFLASHC virtual void* Run() override;
 
     IFLASHC bool Setup(USBDriver* driver);
     IFLASHC void Shutdown();

@@ -19,25 +19,12 @@
 
 #pragma once
 
-
-#include <sys/reent.h>
+#include <sys/pados_threads.h>
 
 #include "KNamedObject.h"
 #include "Utils/IntrusiveList.h"
 #include "Threads/Threads.h"
 #include "System/SysTime.h"
-
-extern "C" {
-
-    struct __cxa_exception;
-
-    struct __cxa_eh_globals
-    {
-        __cxa_exception* caughtExceptions;
-        unsigned int uncaughtExceptions;
-    };
-
-}
 
 namespace os
 {
@@ -56,23 +43,24 @@ static const int KTHREAD_PRIORITY_MIN = -16;
 static const int KTHREAD_PRIORITY_MAX = 15;
 static const int KTHREAD_PRIORITY_LEVELS = KTHREAD_PRIORITY_MAX - KTHREAD_PRIORITY_MIN + 1;
 
-
 class KThreadCB : public KNamedObject
 {
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::Thread;
 
-    KThreadCB(const char* name, int priority, bool joinable, int stackSize);
+    KThreadCB(const PThreadAttribs* attribs);
     ~KThreadCB();
 
-    virtual void SetHandle(int32_t handle) override;
-
+    virtual void SetHandle(int32_t handle) noexcept override;
+    pid_t GetProcessID() const;
     void InitializeStack(ThreadEntryPoint_t entryPoint, void* arguments);
 
-    uint8_t* GetStackTop() const { return m_StackBuffer + THREAD_TLS_SLOTS_BUFFER_SIZE; }
+    uint8_t* GetStackTop() const { return m_StackBuffer; }
     uint8_t* GetStackBottom() const { return m_StackBuffer + m_StackSize - 4; }
 
+    int SetPriority(int priority) { m_PriorityLevel = PriToLevel(priority); return 0; }
     int GetPriority() const { return LevelToPri(m_PriorityLevel);  }
+    int GetPriorityLevel() const { return m_PriorityLevel; }
 
     static int PriToLevel(int priority);
     static int LevelToPri(int level);
@@ -80,17 +68,24 @@ public:
     void                SetBlockingObject(const KNamedObject* WaitObject);
     const KNamedObject* GetBlockingObject() const { return m_BlockingObject; }
 
+    void SetupTLS(const PThreadAttribs* attribs);
+
     uint32_t*                 m_CurrentStack;
-    os::ThreadState           m_State;
+    ThreadState               m_State;
     int                       m_PriorityLevel;
     TimeValNanos              m_StartTime;
     TimeValNanos              m_RunTime;
-    _reent                    m_NewLibreent;
-    __cxa_eh_globals          m_CPPExceptionGlobals;
-    bool                      m_IsJoinable;
-    bool                      m_RestartSyscalls = true;
+    void*                     m_ReturnValue = nullptr;
+    PThreadDetachState        m_DetachState = PThreadDetachState_Detached;
+    bool                      m_FreeStackOnExit = true;
+    bool                      m_FreeTLSOnExit = true;
     uint8_t*                  m_StackBuffer;
     int                       m_StackSize;
+
+    uint8_t*                  m_ThreadLocalBuffer = nullptr;
+    uint8_t*                  m_ThreadLocalTCB = nullptr;
+    uint8_t*                  m_ThreadLocalDataSegment = nullptr;
+    void**                    m_ThreadLocalSlots = nullptr;
 
     KThreadCB*                m_Prev = nullptr;
     KThreadCB*                m_Next = nullptr;

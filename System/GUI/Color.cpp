@@ -260,13 +260,13 @@ void TestNamedColors()
             printf("Bad named color table sorting! %d:0x%08lx > %d:0x%08lx\n", i - 1, uint32_t(os::g_StandardColors[i - 1].NameID), i, uint32_t(os::g_StandardColors[i].NameID));
         }
     }
-    EXPECT_TRUE(os::Color::FromColorID(os::NamedColors::aliceblue).GetColor32()    == 0xfff0f8ff);
-    EXPECT_TRUE(os::Color::FromColorID(os::NamedColors::antiquewhite).GetColor32() == 0xfffaebd7);
-    EXPECT_TRUE(os::Color::FromColorID(os::NamedColors::yellow).GetColor32()       == 0xffffff00);
-    EXPECT_TRUE(os::Color::FromColorID(os::NamedColors::yellowgreen).GetColor32()  == 0xff9acd32);
+    _EXPECT_TRUE(os::Color::FromColorID(os::NamedColors::aliceblue).GetColor32()    == 0xfff0f8ff);
+    _EXPECT_TRUE(os::Color::FromColorID(os::NamedColors::antiquewhite).GetColor32() == 0xfffaebd7);
+    _EXPECT_TRUE(os::Color::FromColorID(os::NamedColors::yellow).GetColor32()       == 0xffffff00);
+    _EXPECT_TRUE(os::Color::FromColorID(os::NamedColors::yellowgreen).GetColor32()  == 0xff9acd32);
 
-    EXPECT_TRUE(os::Color::FromColorName("aliceblue").GetColor32()       == 0xfff0f8ff);
-    EXPECT_TRUE(os::Color::FromColorName("YellowGreen").GetColor32()     == 0xff9acd32);
+    _EXPECT_TRUE(os::Color::FromColorName("aliceblue").GetColor32()       == 0xfff0f8ff);
+    _EXPECT_TRUE(os::Color::FromColorName("YellowGreen").GetColor32()     == 0xff9acd32);
 }
 
 } //namespace unit_test

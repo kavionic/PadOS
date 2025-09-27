@@ -30,6 +30,7 @@
 #include <Kernel/KSemaphore.h>
 #include <Kernel/Kernel.h>
 #include <Kernel/KHandleArray.h>
+#include <Kernel/VFS/KBlockCache.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/ThreadSyncDebugTracker.h>
 #include "Ptr/NoPtr.h"
@@ -37,8 +38,14 @@
 using namespace kernel;
 using namespace os;
 
-static KProcess gk_FirstProcess;
-NoPtr<KThreadCB> gk_IdleThreadInstance("idle", KTHREAD_PRIORITY_MIN, false, 256);
+int main();
+
+
+static uint8_t gk_FirstProcessBuffer[sizeof(KProcess)];
+static KProcess& gk_FirstProcess = *reinterpret_cast<KProcess*>(gk_FirstProcessBuffer);
+
+static uint8_t gk_IdleThreadBuffer[sizeof(NoPtr<KThreadCB>)];
+static NoPtr<KThreadCB>& gk_IdleThreadInstance = *reinterpret_cast<NoPtr<KThreadCB>*>(gk_IdleThreadBuffer);
 
 KProcess*  volatile kernel::gk_CurrentProcess = &gk_FirstProcess;
 
@@ -47,18 +54,74 @@ KProcess*  volatile kernel::gk_CurrentProcess = &gk_FirstProcess;
 // thread will then overwrite that context with the real context needed to enter
 // idle_thread_entry() when no other threads want's the CPU.
 
-KThreadCB* volatile kernel::gk_CurrentThread = &gk_IdleThreadInstance;
-
-KThreadCB*          kernel::gk_IdleThread = gk_CurrentThread;
+KThreadCB* volatile kernel::gk_CurrentThread;
+KThreadCB*          kernel::gk_IdleThread;
+thread_id           kernel::gk_MainThreadID;
 
 static KThreadCB*                gk_InitThread = nullptr;
 
 static KThreadList               gk_ReadyThreadLists[KTHREAD_PRIORITY_LEVELS];
 static KThreadWaitList           gk_SleepingThreads;
 static KThreadList               gk_ZombieThreadLists;
-static KHandleArray<KThreadCB>   gk_ThreadTable;
-static thread_id                 gk_DebugWakeupThread = 0;
+static uint8_t                   gk_ThreadTableBuffer[sizeof(KHandleArray<KThreadCB>)];
+KHandleArray<KThreadCB>& kernel::gk_ThreadTable = *reinterpret_cast<KHandleArray<KThreadCB>*>(gk_ThreadTableBuffer);;
+static volatile thread_id         gk_DebugWakeupThread = 0;
+
+
+void* gk_CurrentTLS = nullptr;
+
+
 static void wakeup_sleeping_threads();
+
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static uint8_t gk_IdleThreadStack[256] __attribute__((aligned(8)));
+extern uint8_t _idle_tls_start;
+extern uint8_t _idle_tls_end;
+
+void kernel::initialize_scheduler_statics()
+{
+    try
+    {
+        PThreadAttribs idleAttrs("idle", KTHREAD_PRIORITY_MIN, PThreadDetachState_Detached, sizeof(gk_IdleThreadStack));
+        idleAttrs.StackAddress = gk_IdleThreadStack;
+        idleAttrs.ThreadLocalStorageAddress = &_idle_tls_start;
+        idleAttrs.ThreadLocalStorageSize = &_idle_tls_end - &_idle_tls_start;
+
+        new((void*)gk_FirstProcessBuffer) KProcess();
+        new((void*)gk_ThreadTableBuffer) KHandleArray<KThreadCB>();
+        new((void*)gk_IdleThreadBuffer) NoPtr<KThreadCB>(&idleAttrs);
+
+        gk_IdleThread = &gk_IdleThreadInstance;
+        gk_CurrentThread = gk_IdleThread;
+
+        gk_CurrentTLS = gk_CurrentThread->m_ThreadLocalBuffer;
+    }
+    catch(std::exception& exc)
+    {
+        panic(exc.what());
+    }
+    catch (...)
+    {
+        panic("Unknown C++ exception");
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+extern "C" __attribute__((naked)) void* __aeabi_read_tp(void)
+{
+    __asm__ volatile(
+        "ldr   r0, =gk_CurrentTLS \n"
+        "ldr   r0, [r0]           \n"
+        "bx    lr                 \n"
+        );
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -104,10 +167,42 @@ extern "C" IFLASHC void SysTick_Handler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC void kernel::add_thread_to_ready_list(KThreadCB* thread)
+void kernel::add_thread_to_ready_list(KThreadCB* thread)
 {
-    thread->m_State = ThreadState::Ready;
+    thread->m_State = ThreadState_Ready;
     gk_ReadyThreadLists[thread->m_PriorityLevel].Append(thread);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kernel::add_thread_to_zombie_list(KThreadCB* thread)
+{
+    gk_ZombieThreadLists.Append(thread);
+    if (gk_InitThread->m_State == ThreadState_Waiting) {
+        add_thread_to_ready_list(gk_InitThread);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+status_t wakeup_thread(thread_id handle)
+{
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+
+    Ptr<KThreadCB> thread = get_thread(handle);
+    if (thread == nullptr || thread->m_State == ThreadState_Zombie)
+    {
+        set_last_error(EINVAL);
+        return -1;
+    }
+    if (thread->m_State == ThreadState_Sleeping || thread->m_State == ThreadState_Waiting) {
+        add_thread_to_ready_list(ptr_raw_pointer_cast(thread));
+    }
+    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -136,32 +231,27 @@ extern "C" IFLASHC uint32_t* select_thread(uint32_t* currentStack)
             KThreadCB* nextThread = gk_ReadyThreadLists[i].m_First;
             if (nextThread != nullptr)
             {
-                if (prevThread->m_State != ThreadState::Running || i >= prevThread->m_PriorityLevel)
+                if (prevThread->m_State != ThreadState_Running || i >= prevThread->m_PriorityLevel)
                 {
                     gk_ReadyThreadLists[i].Remove(nextThread);
-                    if (prevThread->m_State == ThreadState::Running) {
+                    if (prevThread->m_State == ThreadState_Running) {
                         add_thread_to_ready_list(prevThread);
                     }
-                    nextThread->m_State = ThreadState::Running;
-                    _impure_ptr = &nextThread->m_NewLibreent;
+                    nextThread->m_State = ThreadState_Running;
+//                    _impure_ptr = &nextThread->m_NewLibreent;
                     gk_CurrentThread = nextThread;
+                    gk_CurrentTLS = nextThread->m_ThreadLocalBuffer;
                     nextThread->DebugValidate();
                     break;
                 }
             }
         }
-        if (prevThread->m_State == ThreadState::Zombie)
+        if (prevThread->m_State == ThreadState_Zombie)
         {
-            if (!prevThread->m_IsJoinable)
-            {
-                gk_ZombieThreadLists.Append(prevThread);
-                if (gk_InitThread->m_State == ThreadState::Waiting) {
-                    add_thread_to_ready_list(gk_InitThread);
-                }
-            }
-            else
-            {
-                wakeup_wait_queue(&prevThread->GetWaitQueue(), prevThread->m_NewLibreent._errno, 0);
+            if (prevThread->m_DetachState == PThreadDetachState_Detached) {
+                add_thread_to_zombie_list(prevThread);
+            } else {
+                wakeup_wait_queue(&prevThread->GetWaitQueue(), prevThread->m_ReturnValue, 0);
             }
         }
         TimeValNanos curTime = get_system_time_hires();
@@ -302,7 +392,7 @@ extern "C" IFLASHC void PendSV_Handler(void)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool IFLASHC kernel::wakeup_wait_queue(KThreadWaitList* queue, int returnCode, int maxCount)
+bool IFLASHC kernel::wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount)
 {
     int ourPriLevel = gk_CurrentThread->m_PriorityLevel;
     bool needSchedule = false;
@@ -313,7 +403,7 @@ bool IFLASHC kernel::wakeup_wait_queue(KThreadWaitList* queue, int returnCode, i
         for (KThreadWaitNode* waitNode = queue->m_First; waitNode != nullptr && maxCount != 0; waitNode = queue->m_First, --maxCount)
         {
             KThreadCB* thread = waitNode->m_Thread;
-            if (thread != nullptr && (thread->m_State == ThreadState::Sleeping || thread->m_State == ThreadState::Waiting)) {
+            if (thread != nullptr && (thread->m_State == ThreadState_Sleeping || thread->m_State == ThreadState_Waiting)) {
                 if (thread->m_PriorityLevel > ourPriLevel) needSchedule = true;
                 add_thread_to_ready_list(thread);
             }
@@ -334,7 +424,7 @@ static IFLASHC void wakeup_sleeping_threads()
     for (KThreadWaitNode* waitNode = gk_SleepingThreads.m_First; waitNode != nullptr && waitNode->m_ResumeTime <= curTime; waitNode = gk_SleepingThreads.m_First)
     {
         KThreadCB* thread = waitNode->m_Thread;
-        if (thread != nullptr && thread->m_State == ThreadState::Sleeping) {
+        if (thread != nullptr && thread->m_State == ThreadState_Sleeping) {
             add_thread_to_ready_list(thread);
         }
         gk_SleepingThreads.Remove(waitNode);
@@ -349,7 +439,7 @@ static IFLASHC void wakeup_sleeping_threads()
 Ptr<KThreadCB> IFLASHC kernel::get_thread(thread_id handle)
 {
     Ptr<KThreadCB> thread = gk_ThreadTable.Get(handle);
-    return (thread != nullptr && thread->m_State != ThreadState::Deleted) ? thread : nullptr;
+    return (thread != nullptr && thread->m_State != ThreadState_Deleted) ? thread : nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -377,234 +467,6 @@ KThreadCB* IFLASHC kernel::get_current_thread()
 KIOContext* IFLASHC kernel::get_current_iocxt(bool forKernel)
 {
     return gk_CurrentProcess->GetIOContext();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-thread_id IFLASHC spawn_thread(const char* name, ThreadEntryPoint_t entryPoint, int priority, void* arguments, bool joinable, int stackSize)
-{
-    Ptr<KThreadCB> thread;
-    int handle;
-
-    try
-    {
-        thread = ptr_new<KThreadCB>(name, priority, joinable, stackSize);
-    }
-    catch (const std::bad_alloc& error)
-    {
-        set_last_error(ENOMEM);
-        return -1;
-    }
-    thread->InitializeStack(entryPoint, arguments);
-
-    handle = gk_ThreadTable.AllocHandle();
-    if (handle != -1)
-    {
-        thread->SetHandle(handle);
-        gk_ThreadTable.Set(handle, thread);
-    }
-    else
-    {
-        return -1;
-    }
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        add_thread_to_ready_list(ptr_raw_pointer_cast(thread));
-    } CRITICAL_END;
-    return handle;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int IFLASHC exit_thread(int returnCode)
-{
-    KProcess*  process = gk_CurrentProcess;
-    KThreadCB* thread = gk_CurrentThread;
-
-    process->ThreadQuit(thread);
-
-    thread->m_State = ThreadState::Zombie;
-    thread->m_NewLibreent._errno = returnCode;
-
-    KSWITCH_CONTEXT();
-
-    panic("exit_thread() survived a context switch!\n");
-    for(;;);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int IFLASHC wait_thread(thread_id handle)
-{
-    KThreadCB* thread = gk_CurrentThread;
-
-    for (;;)
-    {
-        Ptr<KThreadCB> child = gk_ThreadTable.Get(handle);
-
-        if (child == nullptr) {
-            set_last_error(EINVAL);
-            return -1;
-        }
-
-        KThreadWaitNode waitNode;
-        waitNode.m_Thread = thread;
-
-        CRITICAL_BEGIN(CRITICAL_IRQ)
-        {
-            if (child->m_State == ThreadState::Deleted)
-            {
-                set_last_error(EINVAL); // Someone just beat us
-                return -1;
-            }
-            if (child->m_State != ThreadState::Zombie)
-            {
-                thread->m_State = ThreadState::Waiting;
-                child->GetWaitQueue().Append(&waitNode);
-
-                KSWITCH_CONTEXT();
-            }
-        } CRITICAL_END;
-        // If we ran KSWITCH_CONTEXT() we should be suspended here.
-        CRITICAL_BEGIN(CRITICAL_IRQ)
-        {
-            waitNode.Detatch();
-            
-            if (child->m_State == ThreadState::Deleted) {
-                set_last_error(EINVAL); // Someone beat us
-                return -1;
-            }
-            
-            if (child->m_State != ThreadState::Zombie) // We got interrupted
-            {
-                if (thread->m_RestartSyscalls) {
-                    continue;
-                } else {
-                    set_last_error(EINTR);
-                    return -1;
-                }
-            }
-        } CRITICAL_END;
-        int returnCode = child->m_NewLibreent._errno;
-        gk_ThreadTable.FreeHandle(handle);
-        return returnCode;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t IFLASHC wakeup_thread(thread_id handle)
-{
-    CRITICAL_SCOPE(CRITICAL_IRQ);
-
-    Ptr<KThreadCB> thread = get_thread(handle);
-    if (thread == nullptr || thread->m_State == ThreadState::Zombie) {
-        set_last_error(EINVAL);
-        return -1;
-    }
-    if (thread->m_State == ThreadState::Sleeping || thread->m_State == ThreadState::Waiting) {
-        add_thread_to_ready_list(ptr_raw_pointer_cast(thread));
-    }
-    return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static IFLASHC void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
-{
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        strncpy(info->ThreadName, thread->GetName(), OS_NAME_LENGTH);
-        const KNamedObject* blockingObject = thread->GetBlockingObject();
-        info->BlockingObject = (blockingObject != nullptr) ? blockingObject->GetHandle() : INVALID_HANDLE;
-    } CRITICAL_END;
-    info->ProcessName[0] = '\0';
-
-    info->ThreadID      = thread->GetHandle();
-    info->ProcessID     = INVALID_HANDLE;
-    info->State         = thread->m_State;
-    info->Flags         = 0; // thread->m_Flags;
-    info->Priority      = thread->GetPriority();
-    info->DynamicPri    = info->Priority;
-    info->SysTime       = TimeValNanos::zero;   // We don't track system time yet (system calls are included in RunTime, IRQ's are not).
-    info->RealTime      = thread->m_RunTime;
-    info->UserTime      = info->RealTime - info->SysTime;
-    info->Quantum       = TimeValNanos::FromNanoseconds(TimeValNanos::TicksPerSecond / SYS_TICKS_PER_SEC);
-    info->Stack         = thread->GetStackTop();
-    info->StackSize     = thread->m_StackSize - THREAD_TLS_SLOTS_BUFFER_SIZE;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-IFLASHC int get_thread_info(handle_id handle, ThreadInfo* info)
-{
-    Ptr<KThreadCB> thread;
-    if (handle != INVALID_HANDLE)
-    {
-        thread = get_thread(handle);
-        if (thread == nullptr) {
-            set_last_error(EINVAL);
-            return -1;
-        }
-    }
-    else
-    {
-        thread = gk_ThreadTable.GetNext(INVALID_HANDLE, [](Ptr<KThreadCB> thread) { return thread->m_State != ThreadState::Deleted; });
-        if (thread == nullptr) {
-            set_last_error(ENOENT);
-            return -1;
-        }
-    }
-    get_thread_info(thread, info);
-    return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-IFLASHC int get_next_thread_info(ThreadInfo* info)
-{
-    Ptr<KThreadCB> thread = gk_ThreadTable.GetNext(info->ThreadID, [](Ptr<KThreadCB> thread) { return thread->m_State != ThreadState::Deleted; });
-
-    if (thread == nullptr) {
-        set_last_error(ENOENT);
-        return -1;
-    }
-
-    get_thread_info(thread, info);
-    return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-IFLASHC thread_id get_thread_id()
-{
-    return gk_CurrentThread->GetHandle();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-IFLASHC int thread_yield()
-{
-    KSWITCH_CONTEXT();
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -645,14 +507,14 @@ IFLASHC status_t snooze_until(TimeValMicros resumeTime)
     KThreadWaitNode waitNode;
 
     waitNode.m_Thread = thread;
-    waitNode.m_ResumeTime = resumeTime;
+    waitNode.m_ResumeTime = resumeTime + TimeValMicros::FromMilliseconds(1); // Add 1 tick-time to ensure we always round up.
 
     for (;;)
     {
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             add_to_sleep_list(&waitNode);
-            thread->m_State = ThreadState::Sleeping;
+            thread->m_State = ThreadState_Sleeping;
             ThreadSyncDebugTracker::GetInstance().AddThread(thread, nullptr);
         } CRITICAL_END;
 
@@ -813,7 +675,7 @@ IFLASHC void kernel::restore_interrupts(uint32_t state)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static IFLASHC void idle_thread_entry(void* arguments)
+static IFLASHC void* idle_thread_entry(void* arguments)
 {
     for(;;)
     {
@@ -829,7 +691,18 @@ static IFLASHC void idle_thread_entry(void* arguments)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static IFLASHC void init_thread_entry(void* arguments)
+void* main_thread_entry(void* argument)
+{
+    KBlockCache::Initialize();
+    main();
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static IFLASHC void* init_thread_entry(void* arguments)
 {
     KThreadCB* thread = gk_CurrentThread;
 
@@ -842,7 +715,9 @@ static IFLASHC void init_thread_entry(void* arguments)
     
     size_t mainThreadStackSize = size_t(arguments);
     gk_IdleThread->InitializeStack(idle_thread_entry, nullptr);
-    spawn_thread("main_thread", InitThreadMain, 0, nullptr, false, mainThreadStackSize);
+
+    PThreadAttribs attrs("main_thread", 0, PThreadDetachState_Detached, mainThreadStackSize);
+    sys_thread_spawn(&gk_MainThreadID, &attrs, main_thread_entry, nullptr);
 
     for(;;)
     {
@@ -858,14 +733,14 @@ static IFLASHC void init_thread_entry(void* arguments)
         for (KThreadCB* zombie = threadsToDelete.m_First; zombie != nullptr; zombie = threadsToDelete.m_First)
         {
             threadsToDelete.Remove(zombie);
-            zombie->m_State = ThreadState::Deleted;
+            zombie->m_State = ThreadState_Deleted;
             gk_ThreadTable.FreeHandle(zombie->GetHandle());
         }
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (threadsToDelete.m_First == nullptr)
+            if (gk_ZombieThreadLists.m_First == nullptr)
             {
-                thread->m_State = ThreadState::Waiting;
+                thread->m_State = ThreadState_Waiting;
 
                 KSWITCH_CONTEXT();
             }
@@ -879,19 +754,18 @@ static IFLASHC void init_thread_entry(void* arguments)
 
 IFLASHC void kernel::start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
 {
-    __disable_irq();
-
     NVIC_SetPriority(PendSV_IRQn, KIRQ_PRI_KERNEL);
     NVIC_SetPriority(SysTick_IRQn, KIRQ_PRI_KERNEL);
 
-    //gk_CurrentProcess = new KProcess();
-
     gk_IdleThread->SetHandle(0);
-    gk_IdleThread->m_State = ThreadState::Running;
+    gk_IdleThread->m_State = ThreadState_Running;
 
-    gk_ThreadTable.Set(gk_ThreadTable.AllocHandle(), gk_IdleThreadInstance);
-
-    thread_id initThreadHandle = spawn_thread("init", init_thread_entry, 0, (void*)mainThreadStackSize, false, 0);
+    thread_id idleThreadID = INVALID_HANDLE;
+    gk_ThreadTable.AllocHandle(idleThreadID);
+    gk_ThreadTable.Set(idleThreadID, gk_IdleThreadInstance);
+    PThreadAttribs attrs("init", 0, PThreadDetachState_Detached);
+    thread_id initThreadHandle = INVALID_HANDLE;
+    sys_thread_spawn(&initThreadHandle, &attrs, init_thread_entry, (void*)mainThreadStackSize);
 
     gk_InitThread = ptr_raw_pointer_cast(get_thread(initThreadHandle));
 
@@ -912,7 +786,6 @@ IFLASHC void kernel::start_scheduler(uint32_t coreFrequency, size_t mainThreadSt
 
     start_first_thread();
 
-    for(;;);
-    // Should never get here!
     panic("Failed to launch first thread!\n");
+    for (;;);
 }

@@ -100,7 +100,7 @@ DropdownMenuPopupView::DropdownMenuPopupView(const std::vector<String>& itemList
     m_OldSelection = m_CurSelection;
 
     m_FontHeight = GetFontHeight();
-    m_GlyphHeight = round(m_FontHeight.descender + m_FontHeight.ascender + m_FontHeight.line_gap);
+    m_GlyphHeight = std::round(m_FontHeight.descender + m_FontHeight.ascender + m_FontHeight.line_gap);
 
     m_ContentSize.y = float(m_ItemList.size()) * m_GlyphHeight;
 
@@ -155,7 +155,7 @@ void DropdownMenuPopupView::OnPaint(const Rect& updateRect)
                 SetBgColor(0, 0, 200);
             }
         }
-        MovePenTo(2.0f, round(y + m_FontHeight.ascender + m_FontHeight.line_gap * 0.5f));
+        MovePenTo(2.0f, std::round(y + m_FontHeight.ascender + m_FontHeight.line_gap * 0.5f));
         DrawString(m_ItemList[i]);
         y += m_GlyphHeight;
 
@@ -360,7 +360,7 @@ void DropdownMenuPopupView::MakeSelectionVisible()
     const float maxScroll = bounds.Height() - GetContentSize().y;
     if (maxScroll < 0.0f)
     {
-        const float offset = round((bounds.Height() + itemTop - itemBottom) * 0.5f - itemTop);
+        const float offset = std::round((bounds.Height() + itemTop - itemBottom) * 0.5f - itemTop);
         ScrollTo(0.0f, std::clamp(offset, maxScroll, 0.0f));
     }
 }

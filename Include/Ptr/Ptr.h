@@ -32,8 +32,25 @@ template <class T> class Ptr
 public:
     typedef T element_type; 
 
-    inline Ptr() noexcept;
-    inline Ptr(std::nullptr_t value) noexcept;
+    ///////////////////////////////////////////////////////////////////////////////
+    /// Default constructor.
+    /// \par Description:
+    ///      Initialize the pointer with the nullptr value.
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
+    constexpr Ptr() noexcept = default;
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// nullptr constructor
+    /// \par Description:
+    ///      This constructor exists to make it possible to use nullptr as a null
+    ///      pointer rather than always having to give a full declaration
+    ///      (like Ptr<ClassName>()).
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
+    constexpr Ptr(std::nullptr_t value) noexcept {}
     inline Ptr(const Ptr& value) noexcept;
     inline Ptr(Ptr&& value) noexcept;
 
@@ -89,12 +106,10 @@ private:
     template<class Y,class X> friend Ptr<Y> ptr_const_cast(const Ptr<X>& src);
     template<class Y,class X> friend Ptr<Y> ptr_dynamic_cast(const Ptr<X>& src);
 
-    void Initialize(T* obj) noexcept;
-
     void Set(T* obj) noexcept;
     T*   Get() const noexcept;
 
-    T*   m_Object;
+    T*   m_Object = nullptr;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

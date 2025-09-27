@@ -20,7 +20,7 @@
 #pragma once
 
 
-#include "System/Types.h"
+#include <sys/pados_types.h>
 #include "Signals/VFConnector.h"
 #include "System/System.h"
 #include "Utils/String.h"
@@ -41,25 +41,25 @@ public:
     void SetDeleteOnExit(bool doDelete) { m_DeleteOnExit = doDelete; }
     bool GetDeleteOnExit() const { return m_DeleteOnExit; }
 
-    thread_id Start(bool joinable = false, int priority = 0, int stackSize = 0);
-    int       Wait(TimeValMicros timeout = TimeValMicros::infinit);
+    PErrorCode  Start(PThreadDetachState detachState = PThreadDetachState_Detached, int priority = 0, int stackSize = 0);
+    int         Join(void** outReturnValue, TimeValMicros deadline = TimeValMicros::infinit);
 
     bool IsRunning() const { return m_ThreadHandle != INVALID_HANDLE; }
     thread_id GetThreadID() const { return m_ThreadHandle; }
 
-    virtual int Run();
+    virtual void* Run();
     
-    void Exit(int returnCode);
+    void Exit(void* returnValue);
 
-    VFConnector<int, Thread*> VFRun;
+    VFConnector<void*, Thread*> VFRun;
 private:
-    static void ThreadEntry(void* data);
+    static void* ThreadEntry(void* data);
     static int GetThreadObjTLSSlot();
 
-    String      m_Name;
-    thread_id   m_ThreadHandle = INVALID_HANDLE;
-    bool        m_IsJoinable = false;
-    bool        m_DeleteOnExit = true;
+    String              m_Name;
+    thread_id           m_ThreadHandle = INVALID_HANDLE;
+    PThreadDetachState  m_DetachState = PThreadDetachState_Detached;
+    bool                m_DeleteOnExit = true;
 
     Thread(const Thread &) = delete;
     Thread& operator=(const Thread &) = delete;

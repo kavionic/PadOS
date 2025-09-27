@@ -17,7 +17,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.02.2018 01:41:28
 
+#include <utility>
+
 #include <assert.h>
+#include <errno.h>
 #include <string.h>
 
 #include "Kernel/Kernel.h"
@@ -42,7 +45,7 @@ uint32_t            Kernel::s_FrequencyPeripheral;
 volatile bigtime_t  Kernel::s_SystemTime = 0;
 TimeValMicros       Kernel::s_RealTime;
 
-static KMutex												gk_KernelLogMutex("kernel_log", EMutexRecursionMode::RaiseError);
+static KMutex												gk_KernelLogMutex("kernel_log", PEMutexRecursionMode_RaiseError);
 static port_id                                              gk_InputEventPort = INVALID_HANDLE;
 
 static std::map<int, std::pair<KLogSeverity, os::String>>& get_kernel_log_levels_map()
@@ -191,7 +194,6 @@ void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MC
     REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache, KLogSeverity::INFO_LOW_VOL);
     REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler,  KLogSeverity::INFO_HIGH_VOL);
 
-//    FileIO::Initialze();
 //    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
     kernel::start_scheduler(coreFrequency, mainThreadStackSize);
 }
@@ -223,13 +225,23 @@ int Kernel::RemoveDevice(int handle)
     return FileIO::s_RootFilesystem->RemoveDevice(handle);
 }
 
+extern "C"
+{
+
+void launch_pados(uint32_t coreFrequency, size_t mainThreadStackSize)
+{
+    kernel::Kernel::Initialize(coreFrequency, mainThreadStackSize);
+}
+
+} // extern "C"
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 IFLASHC int get_last_error()
 {
-    return gk_CurrentThread->m_NewLibreent._errno;
+//    return gk_CurrentThread->m_NewLibreent._errno;
+    return errno;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -238,7 +250,17 @@ IFLASHC int get_last_error()
 
 IFLASHC void set_last_error(int error)
 {
-    gk_CurrentThread->m_NewLibreent._errno = error;
+//    gk_CurrentThread->m_NewLibreent._errno = error;
+    errno = error;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void set_last_error(PErrorCode error)
+{
+    errno = std::to_underlying(error);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -24,7 +24,9 @@
 //#include <dirent.h>
 
 #include <Utils/String.h>
+#include <System/System.h>
 #include <System/Types.h>
+#include <System/ErrorCodes.h>
 #include <Storage/Path.h>
 
 namespace os
@@ -90,9 +92,13 @@ public:
     virtual off64_t GetSize(bool updateCache = true) const;
     virtual bool    SetSize(off64_t size) const;
 
-    virtual time_t  GetCTime(bool updateCache = true) const;
-    virtual time_t  GetMTime(bool updateCache = true) const;
-    virtual time_t  GetATime(bool updateCache = true) const;
+    virtual PErrorCode GetCTime(TimeValMicros& outTime, bool updateCache = true) const;
+    virtual PErrorCode GetMTime(TimeValMicros& outTime, bool updateCache = true) const;
+    virtual PErrorCode GetATime(TimeValMicros& outTime, bool updateCache = true) const;
+
+    PErrorCode GetCTime(time_t& outTime, bool updateCache = true) const;
+    PErrorCode GetMTime(time_t& outTime, bool updateCache = true) const;
+    PErrorCode GetATime(time_t& outTime, bool updateCache = true) const;
 
     bool    IsDir() const       { return S_ISDIR(GetMode()); }
     bool    IsLink() const      { return S_ISLNK(GetMode()); }
@@ -114,6 +120,21 @@ public:
     
     FSNode& operator=(const FSNode& rhs);
     FSNode& operator=(FSNode&& rhs);
+
+protected:
+    bool ParseResult(PErrorCode result) const
+    {
+        if (result == PErrorCode::Success)
+        {
+            return true;
+        }
+        else
+        {
+            set_last_error(result);
+            return false;
+        }
+    }
+
 private:
     friend class Directory;
     

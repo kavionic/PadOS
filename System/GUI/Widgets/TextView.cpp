@@ -65,7 +65,6 @@ TextView::~TextView()
 
 void TextView::SetText(const String& text)
 {
-    DEBUG_TRACK_FUNCTION();
 //    ProfileTimer timer("TextView::SetText()");    
     m_Text = text;
 

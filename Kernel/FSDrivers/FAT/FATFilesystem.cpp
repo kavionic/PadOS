@@ -1743,7 +1743,7 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize)
+int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize)
 {
     Ptr<FATVolume>        vol = ptr_static_cast<FATVolume>(volume);
     Ptr<FATDirectoryNode> dirNode = ptr_static_cast<FATDirectoryNode>(directory);
@@ -1758,7 +1758,7 @@ int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dire
 
     kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATFilesystem::ReadDirectory(): inode ID %" PRIx64 ", index %lx\n", dir->m_INodeID, dirNode->m_CurrentIndex);
 
-    entry->d_reclength = sizeof(*entry);
+    entry->d_reclen = sizeof(*entry);
     // simulate '.' and '..' entries for root directory
     if (dir->m_INodeID == vol->m_RootINode->m_INodeID)
     {
@@ -1771,15 +1771,15 @@ int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dire
             if (dirNode->m_CurrentIndex++ == 0)
             {
                 strcpy(entry->d_name, ".");
-                entry->d_namelength = 1;
+                entry->d_namlen = 1;
             }
             else
             {
                 strcpy(entry->d_name, "..");
-                entry->d_namelength = 2;
+                entry->d_namlen = 2;
             }
-            entry->d_type = dir_entry_type::DT_DIRECTORY;
-            entry->d_inode = vol->m_RootINode->m_INodeID;
+            entry->d_type = DT_DIR;
+            entry->d_ino = vol->m_RootINode->m_INodeID;
             entry->d_volumeid = vol->m_VolumeID;
             return 1;
         }
@@ -1789,7 +1789,7 @@ int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dire
     String fileName;
     uint32_t dosAttributes = 0;
 
-    int result = diri.GetNextDirectoryEntry(dir, &entry->d_inode, &fileName, &dosAttributes);
+    int result = diri.GetNextDirectoryEntry(dir, &entry->d_ino, &fileName, &dosAttributes);
     if (result >= 0)
     {
         kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::ReadDirectory(): found file '%s' / %" PRId32 "\n", fileName.c_str(), fileName.size());
@@ -1797,7 +1797,7 @@ int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dire
         {
             fileName.copy(entry->d_name, fileName.size());
             entry->d_name[fileName.size()] = 0;
-            entry->d_type = (dosAttributes & FAT_SUBDIR) ? dir_entry_type::DT_DIRECTORY : dir_entry_type::DT_FILE;
+            entry->d_type = (dosAttributes & FAT_SUBDIR) ? DT_DIR : DT_REG;
 
         }
         else
@@ -1815,7 +1815,7 @@ int FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dire
     if (result >= 0)
     {
         entry->d_volumeid = vol->m_VolumeID;
-        entry->d_namelength = strlen(entry->d_name);
+        entry->d_namlen   = static_cast<decltype(entry->d_namlen)>(strlen(entry->d_name));
         kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATFilesystem::ReadDirectory(): found file %s\n", entry->d_name);
         return 1;
     }
@@ -1935,7 +1935,7 @@ int FATFilesystem::ReadStat(Ptr<KFSVolume> _vol, Ptr<KINode> _node, struct stat*
     st->st_gid = 0;
     st->st_size = off_t(node->m_Size);
     st->st_blksize = 0x10000; /* this value was chosen arbitrarily */
-    st->st_atime = st->st_mtime = st->st_ctime = node->m_Time;
+    st->st_atim = st->st_mtim = st->st_ctim = { .tv_sec = node->m_Time, .tv_nsec = 0 };
 
     return 0;
 }
@@ -1991,12 +1991,12 @@ int FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KINode> _node, const struc
 			set_last_error(E2BIG);
 			return -1;
 		}
-        uint32_t clusters = (st->st_size + vol->m_BytesPerSector*vol->m_SectorsPerCluster - 1) / vol->m_BytesPerSector / vol->m_SectorsPerCluster;
+        uint32_t clusters = (uint32_t(st->st_size) + vol->m_BytesPerSector*vol->m_SectorsPerCluster - 1) / vol->m_BytesPerSector / vol->m_SectorsPerCluster;
         kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::WriteStat(): setting FAT chain length to %lx clusters\n", clusters);
         if (vol->GetFATTable()->SetChainLength(node, clusters, true))
         {
             node->m_Size = st->st_size;
-
+            // TODO: clear new section if file was extended.
 #ifdef FAT_VERIFY_FAT_CHAINS
             kassert(node->m_Size == 0 || vol->GetFATTable()->ValidateChainEntry(node->m_StartCluster, uint32_t((node->m_Size-1) / (vol->m_BytesPerSector * vol->m_SectorsPerCluster)), node->m_EndCluster));
 #endif // FAT_VERIFY_FAT_CHAINS
@@ -2012,7 +2012,7 @@ int FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KINode> _node, const struc
     if (mask & WSTAT_MTIME)
     {
         kernel_log(LOGC_FILE, KLogSeverity::INFO_HIGH_VOL, "FATFilesystem::WriteStat(): setting modification time\n");
-        node->m_Time = st->st_mtime;
+        node->m_Time = st->st_mtim.tv_sec;
         dirty = true;
     }
 

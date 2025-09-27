@@ -16,8 +16,10 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Ptr/PtrTarget.h"
-#include "Threads/Threads.h"
+#include <sys/pados_syscalls.h>
+
+#include <Ptr/PtrTarget.h>
+#include <Threads/Threads.h>
 
 #include <assert.h>
 
@@ -28,14 +30,14 @@
 
 void PtrTargetNotifier::Lock()
 {
-    thread_id thread = get_thread_id();
+    thread_id thread = sys_get_thread_id();
     
     if ( thread != m_LockerThread )
     {
         int expected = 0;
         while (!m_SpinLock.compare_exchange_weak(expected, 1))
         {
-            thread_yield();
+            sys_yield();
             expected = 0;
         }
         m_LockerThread = thread;

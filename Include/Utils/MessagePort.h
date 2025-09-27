@@ -30,8 +30,27 @@ namespace os
 class MessagePort : public HandleObject
 {
 public:
-    MessagePort(const char* name, int maxCount) : HandleObject(create_message_port(name, maxCount)) {}
-    MessagePort(port_id port, bool doClone = false) : HandleObject((doClone) ? duplicate_message_port(port) : port) {
+    MessagePort(const char* name, int maxCount)
+    {
+        port_id handle;
+        if (create_message_port(handle, name, maxCount) == PErrorCode::Success) {
+            SetHandle(handle);
+        }
+    }
+    MessagePort(port_id port, bool doClone = false) : HandleObject()
+    {
+        if (doClone)
+        {
+            port_id newHandle;
+
+            if (duplicate_message_port(newHandle, port) == PErrorCode::Success) {
+                SetHandle(newHandle);
+            }
+        }
+        else
+        {
+            SetHandle(port);
+        }
         m_DontDeletePort = !doClone;
     }
     ~MessagePort() {

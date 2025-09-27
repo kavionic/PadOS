@@ -1,0 +1,178 @@
+// This file is part of PadOS.
+//
+// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+//
+// PadOS is free software : you can redistribute it and / or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PadOS is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with PadOS. If not, see <http://www.gnu.org/licenses/>.
+///////////////////////////////////////////////////////////////////////////////
+// Created: 30.08.2025 15:00
+
+#include <sys/pados_syscalls.h>
+
+#include <Kernel/KNamedObject.h>
+#include <Kernel/KMutex.h>
+
+using namespace os;
+using namespace kernel;
+
+extern "C"
+{
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_create(sem_id* outHandle, const char* name, PEMutexRecursionMode recursionMode, clockid_t clockID)
+{
+    try {
+        return KNamedObject::RegisterObject(*outHandle, ptr_new<KMutex>(name, recursionMode, clockID));
+    }
+    catch (const std::bad_alloc& error) {
+        return PErrorCode::NoMemory;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_duplicate(sem_id* outNewHandle, sem_id handle)
+{
+    Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(handle, KMutex::ObjectType));;
+    if (mutex != nullptr) {
+        return KNamedObject::RegisterObject(*outNewHandle, mutex);
+    }
+    return PErrorCode::InvalidArg;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_delete(sem_id handle)
+{
+    if (KNamedObject::FreeHandle(handle, KMutex::ObjectType)) {
+        return PErrorCode::Success;
+    }
+    return PErrorCode::InvalidArg;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_lock(sem_id handle)
+{
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::Lock);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_lock_timeout(sem_id handle, bigtime_t timeout)
+{
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockTimeout, TimeValMicros::FromMicroseconds(timeout));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_lock_deadline(sem_id handle, bigtime_t deadline)
+{
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockDeadline, TimeValMicros::FromMicroseconds(deadline));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_lock_clock(sem_id handle, clockid_t clockID, bigtime_t deadline)
+{
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockClock, clockID, TimeValMicros::FromMicroseconds(deadline));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_try_lock(sem_id handle)
+{
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::TryLock);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_unlock(sem_id handle)
+{
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::Unlock);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_lock_shared(sem_id handle)
+{
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockShared);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_lock_shared_timeout(sem_id handle, bigtime_t timeout)
+{
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedTimeout, TimeValMicros::FromMicroseconds(timeout));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_lock_shared_deadline(sem_id handle, bigtime_t deadline)
+{
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedDeadline, TimeValMicros::FromMicroseconds(deadline));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_lock_shared_clock(sem_id handle, clockid_t clockID, bigtime_t deadline)
+{
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedClock, clockID, TimeValMicros::FromMicroseconds(deadline));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_try_lock_shared(sem_id handle)
+{
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::TryLockShared);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_mutex_islocked(sem_id handle)
+{
+    return KNamedObject::ForwardToHandleBool<KMutex>(handle, PErrorCode::Success, PErrorCode::Busy, &KMutex::IsLocked);
+}
+
+} // extern "C"

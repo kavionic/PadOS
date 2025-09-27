@@ -152,7 +152,7 @@ void DropdownMenu::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
                 size.x = curSize.x;
             }
         }
-        size.x += 10.0f + round(size.y * ARROW_BUTTON_ASPECT_RATIO);
+        size.x += 10.0f + std::round(size.y * ARROW_BUTTON_ASPECT_RATIO);
     }
 
     *minSize = size;
@@ -167,7 +167,7 @@ void DropdownMenu::OnFrameSized(const Point& cDelta)
 {
     Rect editFrame = GetBounds();
 
-    m_ArrowFrame = Rect(editFrame.right - round(editFrame.Height() * ARROW_BUTTON_ASPECT_RATIO), 0.0f, editFrame.right, editFrame.bottom);
+    m_ArrowFrame = Rect(editFrame.right - std::round(editFrame.Height() * ARROW_BUTTON_ASPECT_RATIO), 0.0f, editFrame.right, editFrame.bottom);
 
     editFrame.right = m_ArrowFrame.left;
     m_EditBox->SetFrame(editFrame);

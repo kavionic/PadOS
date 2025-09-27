@@ -19,10 +19,10 @@
 #pragma once
 
 #include <cmath>
-#include "System/Types.h"
-#include "System/System.h"
-#include "Utils/String.h"
-#include "Kernel/Scheduler.h"
+#include <System/Types.h>
+#include <System/System.h>
+#include <Utils/String.h>
+#include <Kernel/Scheduler.h>
 
 template<typename T>
 constexpr int get_first_bit_index(T value) { return (value & 0x01) ? 0 : get_first_bit_index(value >> 1) + 1; }
@@ -185,31 +185,6 @@ class ProfileTimer
     TimeValNanos m_MinimumTime;
 };
 
-struct DebugCallTracker
-{
-    DebugCallTracker(const char* currentFunction)
-    {
-        m_PrevTracker  = kernel::gk_CurrentThread->m_FirstDebugCallTracker;
-        m_Function = currentFunction;
-        kernel::gk_CurrentThread->m_FirstDebugCallTracker = this;
-    }
-    ~DebugCallTracker()
-    {
-        kernel::gk_CurrentThread->m_FirstDebugCallTracker  = m_PrevTracker;
-    }
-    
-//    static const char*       s_CurrentFunction;
-//    static DebugCallTracker* s_CurrentTracker;
-    
-    DebugCallTracker* m_PrevTracker;
-//    const char*       m_PrevFunction;
-    const char*       m_Function;
-};
-
-#define DEBUG_TRACK_FUNCTION() DebugCallTracker debugCallTracker__(__func__)
-
-template<typename T> constexpr auto to_underlying(T e) { return static_cast<std::underlying_type_t<T>>(e); }
-
 } // namespace
 
 #define I8(value) static_cast<int8_t>(value)
@@ -309,6 +284,6 @@ template<typename T> constexpr auto to_underlying(T e) { return static_cast<std:
 #define PIN31_bm BIT32(PIN31_bp, 1)
 #endif // PIN0_bm
 
-#define EXPECT_TRUE(expr) if (!(expr)) { printf("TEST FAILED: %s\n", #expr);}
-#define EXPECT_FALSE(expr) if ((expr)) { printf("TEST FAILED: %s\n", #expr);}
-#define EXPECT_NEAR(expr1, expr2, abs_error) if (fabs((expr1) - (expr2)) > abs_error) { printf("TEST FAILED: %s != %s\n", #expr1, #expr2); }
+#define _EXPECT_TRUE(expr) if (!(expr)) { printf("TEST FAILED: %s\n", #expr);}
+#define _EXPECT_FALSE(expr) if ((expr)) { printf("TEST FAILED: %s\n", #expr);}
+#define _EXPECT_NEAR(expr1, expr2, abs_error) if (fabs((expr1) - (expr2)) > abs_error) { printf("TEST FAILED: %s != %s\n", #expr1, #expr2); }

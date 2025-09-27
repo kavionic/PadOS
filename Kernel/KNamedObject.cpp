@@ -92,7 +92,7 @@ KNamedObject::~KNamedObject()
         {
             waitNode->m_TargetDeleted = true;
             KThreadCB* thread = waitNode->m_Thread;
-            if (thread != nullptr && (thread->m_State == ThreadState::Sleeping || thread->m_State == ThreadState::Waiting)) {
+            if (thread != nullptr && (thread->m_State == ThreadState_Sleeping || thread->m_State == ThreadState_Waiting)) {
                 if (thread->m_PriorityLevel > ourPriLevel) needSchedule = true;
                 add_thread_to_ready_list(thread);
             }
@@ -117,15 +117,15 @@ bool kernel::KNamedObject::DebugValidate() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int32_t KNamedObject::RegisterObject(Ptr<KNamedObject> object)
+PErrorCode KNamedObject::RegisterObject(handle_id& outHandle, Ptr<KNamedObject> object)
 {
-    int32_t handle = gk_NamedObjectsTable.AllocHandle();
-    if (handle == -1) {
-        return -1;
+    const PErrorCode result = gk_NamedObjectsTable.AllocHandle(outHandle);
+    if (result != PErrorCode::Success) {
+        return result;
     }
-    object->SetHandle(handle);
-    gk_NamedObjectsTable.Set(handle, object);
-    return handle;
+    object->SetHandle(outHandle);
+    gk_NamedObjectsTable.Set(outHandle, object);
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

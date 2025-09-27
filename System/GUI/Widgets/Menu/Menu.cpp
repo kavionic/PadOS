@@ -314,11 +314,11 @@ void Menu::Open(const Point& screenPosition, MenuLocation relativeLocation)
             frame += screenPosition;
             if (size.y < screenPosition.y - 20.0f || screenPosition.y > resolution.y * 0.5f)
             {
-                frame += Point(-round(size.x * 0.5f), -size.y - 20.0f);
+                frame += Point(-std::round(size.x * 0.5f), -size.y - 20.0f);
             }
             else
             {
-                frame += Point(-round(size.x * 0.5f), 20.0f);
+                frame += Point(-std::round(size.x * 0.5f), 20.0f);
             }
             break;
         case os::MenuLocation::Center:

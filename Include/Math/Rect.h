@@ -64,13 +64,13 @@ public:
     constexpr Point Center() const noexcept { return Point(right * 0.5f, bottom * 0.5f); }
     constexpr Rect  Bounds() const noexcept { return Rect(0.0f, 0.0f, right - left, bottom - top); }
 
-    Rect& Round() noexcept { left = round(left); right = round(right); top = round(top); bottom = round(bottom); return *this; }
-    Rect& Floor() noexcept { left = floor(left); right = floor(right); top = floor(top); bottom = floor(bottom); return *this; }
-    Rect& Ceil() noexcept { left = ceil(left); right = ceil(right); top = ceil(top); bottom = ceil(bottom); return *this; }
+    Rect& Round() noexcept { left = std::round(left); right = std::round(right); top = std::round(top); bottom = std::round(bottom); return *this; }
+    Rect& Floor() noexcept { left = std::floor(left); right = std::floor(right); top = std::floor(top); bottom = std::floor(bottom); return *this; }
+    Rect& Ceil() noexcept { left = std::ceil(left); right = std::ceil(right); top = std::ceil(top); bottom = std::ceil(bottom); return *this; }
 
-    constexpr Rect GetRounded() const noexcept  { return Rect(round(left), round(top), round(right), round(bottom)); }
-    constexpr Rect GetFloored() const noexcept  { return Rect(floor(left), floor(top), floor(right), floor(bottom)); }
-    constexpr Rect GetCeiled() const noexcept   { return Rect(ceil(left), ceil(top), ceil(right), ceil(bottom)); }
+    constexpr Rect GetRounded() const noexcept  { return Rect(std::round(left), std::round(top), std::round(right), std::round(bottom)); }
+    constexpr Rect GetFloored() const noexcept  { return Rect(std::floor(left), std::floor(top), std::floor(right), std::floor(bottom)); }
+    constexpr Rect GetCeiled() const noexcept   { return Rect(std::ceil(left),  std::ceil(top),  std::ceil(right),  std::ceil(bottom)); }
 
     Rect& Resize(float inLeft, float inTop, float inRight, float inBottom) noexcept { left += inLeft; top += inTop; right += inRight; bottom += inBottom; return *this; }
     Rect  GetResized(float inLeft, float inTop, float inRight, float inBottom) const noexcept { Rect result = *this; result.Resize(inLeft, inTop, inRight, inBottom); return result; }

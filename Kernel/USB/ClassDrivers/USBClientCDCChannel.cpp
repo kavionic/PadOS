@@ -162,11 +162,14 @@ ssize_t USBClientCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* b
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
-                TimeValMicros deadline = m_WriteTimeout.IsInfinit() ? TimeValMicros::infinit : (get_system_time() + m_WriteTimeout);
+                TimeValMicros deadline = m_ReadTimeout.IsInfinit() ? TimeValMicros::infinit : (get_system_time() + m_ReadTimeout);
 
                 while (m_ReceiveFIFO.GetLength() == 0)
                 {
-                    if (!m_ReceiveCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline) && get_last_error() != EINTR) {
+                    const PErrorCode result = m_ReceiveCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline);
+                    if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
+                    {
+                        set_last_error(result);
                         return -1;
                     }
                     if (!m_IsActive)
@@ -221,7 +224,10 @@ ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const 
                 while (m_TransmitFIFO.GetRemainingSpace() == 0)
                 {
                     FlushInternal();
-                    if (!m_TransmitCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline) && get_last_error() != EINTR) {
+                    const PErrorCode result = m_TransmitCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline);
+                    if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
+                    {
+                        set_last_error(result);
                         return -1;
                     }
                     if (!m_IsActive)
@@ -285,7 +291,7 @@ int USBClientCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struc
     outStats->st_gid = 0;
     outStats->st_size = 0;
     outStats->st_blksize = 1;
-    outStats->st_atime = outStats->st_mtime = outStats->st_ctime = m_CreateTime.AsSecondsI();
+    outStats->st_atim = outStats->st_mtim = outStats->st_ctim = m_CreateTime.AsTimespec();
 
     return 0;
 }

@@ -95,7 +95,7 @@ void TabView::Initialize()
 {
     m_FontHeight = GetFontHeight();
     m_GlyphHeight = m_FontHeight.ascender + m_FontHeight.descender + m_FontHeight.line_gap;
-    m_TabHeight = round(m_GlyphHeight * 1.2f + 6.0f);
+    m_TabHeight = std::round(m_GlyphHeight * 1.2f + 6.0f);
     m_TotalTabsWidth = 4.0f;
 
     m_TopView = ptr_new<TopView>(this);
@@ -171,7 +171,7 @@ int TabView::InsertTab(size_t index, const String& title, Ptr<View> view)
             view->Show(false);
         }
     }
-    m_TabList[index].m_Width = round(GetStringWidth(title) * 1.1f) + 4.0f;
+    m_TabList[index].m_Width = std::round(GetStringWidth(title) * 1.1f) + 4.0f;
     m_TotalTabsWidth += m_TabList[index].m_Width;
     m_TopView->Invalidate();
     m_TopView->Flush();
@@ -286,7 +286,7 @@ int TabView::SetTabTitle(size_t index, const String& title)
     m_TabList[index].m_Title = title;
 
     float vOldWidth = m_TabList[index].m_Width;
-    m_TabList[index].m_Width = round(GetStringWidth(title) * 1.1f) + 4.0f;
+    m_TabList[index].m_Width = std::round(GetStringWidth(title) * 1.1f) + 4.0f;
     m_TotalTabsWidth += m_TabList[index].m_Width - vOldWidth;
 
     Invalidate();
@@ -757,7 +757,7 @@ void TabView::TopView::OnPaint(const Rect& updateRect)
         }
         SetFgColor(0, 0, 0);
 
-        MovePenTo(round(x + (width - 4.0f) * 5.0f / 100.0f + 4.0f), round(tabFrame.top + tabHeight * 0.5f + fontHeight.ascender - fontHeight.line_gap * 0.5f - glyphHeight * 0.5f + 2.0f));
+        MovePenTo(std::round(x + (width - 4.0f) * 5.0f / 100.0f + 4.0f), std::round(tabFrame.top + tabHeight * 0.5f + fontHeight.ascender - fontHeight.line_gap * 0.5f - glyphHeight * 0.5f + 2.0f));
 
         DrawString(m_TabView->m_TabList[i].m_Title.c_str());
         x += width;

@@ -166,7 +166,7 @@ void MenuItem::Draw(Ptr<View> targetView)
     }
 
     float vCharHeight = fontHeight.ascender + fontHeight.descender + fontHeight.line_gap;
-    float y = round(frame.top + (frame.Height() - vCharHeight) * 0.5f + fontHeight.ascender /*+ fontHeight.line_gap * 0.5f*/);
+    float y = std::round(frame.top + (frame.Height() - vCharHeight) * 0.5f + fontHeight.ascender /*+ fontHeight.line_gap * 0.5f*/);
 
     targetView->DrawString(m_Label, Point(frame.left + 2.0f, y));
 
@@ -177,7 +177,7 @@ void MenuItem::Draw(Ptr<View> targetView)
         Rect arrowBounds = bitmap->GetBounds();
 
         targetView->SetDrawingMode(DrawingMode::Overlay);
-        targetView->DrawBitmap(bitmap, arrowBounds, Point(frame.right - arrowBounds.Width() - 5.0f, round(frame.top + (frame.Height() - arrowBounds.Height()) * 0.5f)));
+        targetView->DrawBitmap(bitmap, arrowBounds, Point(frame.right - arrowBounds.Width() - 5.0f, std::round(frame.top + (frame.Height() - arrowBounds.Height()) * 0.5f)));
         targetView->SetDrawingMode(DrawingMode::Copy);
     }
 }

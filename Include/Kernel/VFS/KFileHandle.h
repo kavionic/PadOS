@@ -21,6 +21,7 @@
 
 
 #include <sys/types.h>
+#include <sys/dirent.h>
 #include <stddef.h>
 #include <fcntl.h>
 
@@ -30,8 +31,6 @@
 
 namespace kernel
 {
-
-struct dir_entry;
 
 class KFileTableNode : public PtrTarget
 {
@@ -68,7 +67,7 @@ public:
 
     IFLASHC virtual bool LastReferenceGone() override;
         
-    IFLASHC int ReadDirectory(dir_entry* entry, size_t bufSize);
+    IFLASHC int ReadDirectory(dirent_t* entry, size_t bufSize);
     IFLASHC int RewindDirectory();
 };
 

@@ -307,7 +307,7 @@ int KFilesystemFileOps::DeviceControl(Ptr<KFileNode> file, int request, const vo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KFilesystemFileOps::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize)
+int KFilesystemFileOps::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize)
 {
     set_last_error(ENOSYS);
     return -1;

@@ -24,6 +24,9 @@
 
 using namespace kernel;
 
+uint8_t g_KHandleArrayEmptyBlockBuffer[sizeof(KHandleArrayEmptyBlock)];
+Ptr<KHandleArrayEmptyBlock> KHandleArrayEmptyBlock::g_KHandleArrayEmptyBlock;
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -31,8 +34,22 @@ using namespace kernel;
 Ptr<KHandleArrayEmptyBlock> KHandleArrayEmptyBlock::GetInstance()
 {
 //    static KHandleArrayEmptyBlock instance;
-    static NoPtr<KHandleArrayEmptyBlock> instancePtr; // = ptr_new_cast(&instance);
-    return instancePtr;
+//    static NoPtr<KHandleArrayEmptyBlock> instancePtr; // = ptr_new_cast(&instance);
+//    return instancePtr;
+
+    if (__builtin_expect(g_KHandleArrayEmptyBlock == nullptr, 0))
+    {
+        g_KHandleArrayEmptyBlock = ptr_new_cast(new ((void*)&g_KHandleArrayEmptyBlockBuffer) KHandleArrayEmptyBlock());
+    }
+
+    return g_KHandleArrayEmptyBlock;
+}
+
+KHandleArrayEmptyBlock::KHandleArrayEmptyBlock() : KHandleArrayBlock(false)
+{
+    for (int i = 0; i < KHANDLER_ARRAY_BLOCK_SIZE; ++i) {
+        m_Array[i] = ptr_tmp_cast(this);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

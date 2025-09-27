@@ -41,7 +41,7 @@ struct GetDirectory : PacketHeader
 
 struct GetDirectoryReplyDirEnt
 {
-    int32_t m_Size;
+    int64_t m_Size;
     int64_t m_ModTime;
     bool    m_IsDirectory;
     char    m_Name[256 + 7];

@@ -1,6 +1,8 @@
 add_subdirectory(Drivers)
 add_subdirectory(FSDrivers)
 add_subdirectory(HAL)
+add_subdirectory(Interrupts)
+add_subdirectory(Syscalls)
 add_subdirectory(USB)
 add_subdirectory(VFS)
 

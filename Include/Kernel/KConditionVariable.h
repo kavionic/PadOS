@@ -31,28 +31,33 @@ class KConditionVariable : public KNamedObject
 public:
     static IFLASHC constexpr KNamedObjectType ObjectType = KNamedObjectType::ConditionVariable;
     
-    IFLASHC KConditionVariable(const char* name);
+    IFLASHC KConditionVariable(const char* name, clockid_t clockID = CLOCK_MONOTONIC);
     IFLASHC ~KConditionVariable();
     
-    bool Wait() { return WaitInternal(nullptr); }
-    bool WaitTimeout(TimeValMicros timeout) { return WaitTimeoutInternal(nullptr, timeout); }
-    bool WaitDeadline(TimeValMicros deadline) { return WaitDeadlineInternal(nullptr, deadline); }
+    PErrorCode Wait() { return WaitInternal(nullptr); }
+    PErrorCode WaitTimeout(TimeValMicros timeout) { return WaitTimeoutInternal(nullptr, m_ClockID, timeout); }
+    PErrorCode WaitDeadline(TimeValMicros deadline) { return WaitDeadlineInternal(nullptr, m_ClockID, deadline); }
+    PErrorCode WaitClock(clockid_t clockID, TimeValMicros deadline) { return WaitDeadlineInternal(nullptr, clockID, deadline); }
 
-    bool Wait(KMutex& lock) { return WaitInternal(&lock); }
-    bool WaitTimeout(KMutex& lock, TimeValMicros timeout) { return WaitTimeoutInternal(&lock, timeout); }
-    bool WaitDeadline(KMutex& lock, TimeValMicros deadline) { return WaitDeadlineInternal(&lock, deadline); }
+    PErrorCode Wait(KMutex& lock) { return WaitInternal(&lock); }
+    PErrorCode WaitTimeout(KMutex& lock, TimeValMicros timeout) { return WaitTimeoutInternal(&lock, m_ClockID, timeout); }
+    PErrorCode WaitDeadline(KMutex& lock, TimeValMicros deadline) { return WaitDeadlineInternal(&lock, m_ClockID, deadline); }
+    PErrorCode WaitClock(KMutex& lock, clockid_t clockID, TimeValMicros deadline) { return WaitDeadlineInternal(&lock, clockID, deadline); }
 
-    IFLASHC bool IRQWait();
-    IFLASHC bool IRQWaitTimeout(TimeValMicros timeout);
-    IFLASHC bool IRQWaitDeadline(TimeValMicros deadline);
-    
-    IFLASHC void Wakeup(int threadCount);
-    inline void WakeupAll() { Wakeup(0); }
+    IFLASHC PErrorCode IRQWait();
+    IFLASHC PErrorCode IRQWaitTimeout(TimeValMicros timeout);
+    IFLASHC PErrorCode IRQWaitDeadline(TimeValMicros deadline);
+    IFLASHC PErrorCode IRQWaitClock(clockid_t clockID, TimeValMicros deadline);
+
+    IFLASHC PErrorCode Wakeup(int threadCount);
+    inline PErrorCode WakeupAll() { return Wakeup(0); }
 
 private:
-    IFLASHC bool WaitInternal(KMutex* lock);
-    IFLASHC bool WaitTimeoutInternal(KMutex* lock, TimeValMicros timeout);
-    IFLASHC bool WaitDeadlineInternal(KMutex* lock, TimeValMicros deadline);
+    IFLASHC PErrorCode WaitInternal(KMutex* lock);
+    IFLASHC PErrorCode WaitTimeoutInternal(KMutex* lock, clockid_t clockID, TimeValMicros timeout);
+    IFLASHC PErrorCode WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValMicros deadline);
+
+    clockid_t m_ClockID = CLOCK_MONOTONIC;
 
     KConditionVariable(const KConditionVariable&) = delete;
     KConditionVariable& operator=(const KConditionVariable&) = delete;

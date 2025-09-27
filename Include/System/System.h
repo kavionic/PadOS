@@ -19,23 +19,26 @@
 
 #pragma once
 
-#include <sys/types.h>
-
 #include <limits>
 
-#include "System/Types.h"
-#include "SysTime.h"
+#include <sys/types.h>
+
+#include <System/Types.h>
+#include <System/ErrorCodes.h>
+#include <System/SysTime.h>
 
 static constexpr TimeValMicros INFINIT_TIMEOUT = TimeValMicros::FromMicroseconds(std::numeric_limits<bigtime_t>::max());
-static constexpr int OS_NAME_LENGTH = 32;
+
+extern "C" void launch_pados(uint32_t coreFrequency, size_t mainThreadStackSize);
 
 
 int get_last_error();
 void set_last_error(int error);
+void set_last_error(PErrorCode error);
 
 
-port_id  create_message_port(const char* name, int maxCount);
-port_id  duplicate_message_port(port_id handle);
+PErrorCode  create_message_port(port_id& outHandle, const char* name, int maxCount);
+PErrorCode  duplicate_message_port(port_id& outNewHandle, port_id handle);
 status_t delete_message_port(port_id handle);
 status_t send_message(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout = TimeValMicros::infinit.AsMicroSeconds());
 ssize_t  receive_message(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);

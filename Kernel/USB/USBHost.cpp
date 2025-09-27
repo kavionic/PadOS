@@ -36,7 +36,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USBHost::USBHost() : Thread("usb_host"), m_Mutex("usb_host", EMutexRecursionMode::RaiseError), m_EventQueueCondition("usbh_event_queue")
+USBHost::USBHost() : Thread("usb_host"), m_Mutex("usb_host", PEMutexRecursionMode_RaiseError), m_EventQueueCondition("usbh_event_queue")
 {
 }
 
@@ -74,7 +74,7 @@ bool USBHost::Setup(USBDriver* driver)
         return false;
     }
     SetDeleteOnExit(false);
-    Start(true);
+    Start(PThreadDetachState_Detached);
 
     return true;
 }
@@ -137,7 +137,7 @@ USBDeviceNode* USBHost::GetDevice(uint8_t deviceAddr)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int USBHost::Run()
+void* USBHost::Run()
 {
     CRITICAL_SCOPE(m_Mutex);
     for (;;)
@@ -558,9 +558,12 @@ bool USBHost::PopEvent(USBHostEvent& event)
     {
         while (m_EventQueue.GetLength() == 0)
         {
-            if (!m_EventQueueCondition.IRQWaitDeadline(m_DeviceAttachDeadline))
+            const PErrorCode waitResult = m_EventQueueCondition.IRQWaitDeadline(m_DeviceAttachDeadline);
+            if (waitResult != PErrorCode::Success)
             {
-                if (get_last_error() == ETIME) {
+                if (waitResult == PErrorCode::Timeout)
+                {
+                    set_last_error(waitResult);
                     break;
                 }
             }

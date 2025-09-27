@@ -72,9 +72,9 @@ template<typename PacketType, typename CallbackType>
 class PacketHandler : public PacketHandlerBase
 {
 public:
-    IFLASHC PacketHandler(CallbackType&& callback) : m_Callback(std::move(callback)) {}
+    PacketHandler(CallbackType&& callback) : m_Callback(std::move(callback)) {}
 
-    IFLASHC virtual void HandleMessage(const SerialProtocol::PacketHeader* packet) const override { m_Callback(*static_cast<const PacketType*>(packet)); }
+    virtual void HandleMessage(const SerialProtocol::PacketHeader* packet) const override { m_Callback(*static_cast<const PacketType*>(packet)); }
 
 private:
     CallbackType m_Callback;
@@ -90,7 +90,7 @@ public:
 
     static IFLASHC SerialCommandHandler& Get();
 
-    IFLASHC virtual int Run() override;
+    IFLASHC virtual void* Run() override;
 
 
     IFLASHC virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, os::String&& serialPortPath, int baudrate, int readThreadPriority);
@@ -167,11 +167,11 @@ private:
     std::map<SerialProtocol::Commands::Value, const PacketHandlerBase*> m_CommandHandlerMap;
     size_t                                                              m_LargestCommandPacket = 0;
 
-    CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * 4, void>   m_MessageQueue;
+    CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * 16, void>&   m_MessageQueue;
     uint8_t m_InMessageBuffer[SerialProtocol::MAX_MESSAGE_SIZE];
     uint8_t m_OutMessageBuffer[SerialProtocol::MAX_MESSAGE_SIZE];
 
-    CircularBuffer<uint8_t, 32768>   m_LogBuffer;
+    CircularBuffer<uint8_t, 1024*128>   m_LogBuffer;
 
     SerialCommandHandler(const SerialCommandHandler &other) = delete;
     SerialCommandHandler& operator=(const SerialCommandHandler &other) = delete;

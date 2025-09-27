@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <sys/errno.h>
+#include <System/ErrorCodes.h>
 
 #include "Ptr/PtrTarget.h"
 #include "Ptr/Ptr.h"
@@ -31,6 +31,7 @@ namespace kernel
 
 static const int KHANDLER_ARRAY_BLOCK_SIZE = 256;
 
+
 struct KHandleArrayBlock : public PtrTarget
 {
     KHandleArrayBlock(bool doInit = true);
@@ -40,12 +41,10 @@ struct KHandleArrayBlock : public PtrTarget
 
 struct KHandleArrayEmptyBlock : KHandleArrayBlock
 {
-    static IFLASHC Ptr<KHandleArrayEmptyBlock> GetInstance();
-    KHandleArrayEmptyBlock() : KHandleArrayBlock(false) {
-        for (int i = 0; i < KHANDLER_ARRAY_BLOCK_SIZE; ++i) {
-            m_Array[i] = ptr_tmp_cast(this);
-        }
-    }
+    static Ptr<KHandleArrayEmptyBlock> GetInstance();
+    KHandleArrayEmptyBlock();
+
+    static Ptr<KHandleArrayEmptyBlock> g_KHandleArrayEmptyBlock;
 };
 
 
@@ -59,13 +58,13 @@ public:
 ///
 ///////////////////////////////////////////////////////////////////////////////
 
-    IFLASHC int GetHandleCount() const { return m_TopLevel.m_UsedIndexes; }
+    int GetHandleCount() const { return m_TopLevel.m_UsedIndexes; }
 
 ///////////////////////////////////////////////////////////////////////////////
 ///
 ///////////////////////////////////////////////////////////////////////////////
 
-    IFLASHC int AllocHandle()
+    PErrorCode AllocHandle(handle_id& outHandle)
     {
         bool allocBuffersFailed = false;
         for (;;)
@@ -90,8 +89,7 @@ public:
                     if (block2 == nullptr)
                     {
                         if (allocBuffersFailed) {
-                            set_last_error(ENOMEM);
-                            return -1;
+                            return PErrorCode::NoMemory;
                         } else {
                             m_NextHandle--;
                             continue;
@@ -110,8 +108,7 @@ public:
                             CacheBlock(block2);
                         }
                         if (allocBuffersFailed) {
-                            set_last_error(ENOMEM);
-                            return -1;
+                            return PErrorCode::NoMemory;
                         } else {
                             m_NextHandle--;
                             continue;
@@ -124,7 +121,8 @@ public:
                 block3->m_Array[index3] = nullptr;
                 block3->m_UsedIndexes++;
                 m_TopLevel.m_UsedIndexes++; // Toplevel block counts total number of used handles.
-                return handle;
+                outHandle = handle;
+                return PErrorCode::Success;
             } CRITICAL_END;
         }
     }
@@ -324,8 +322,8 @@ private:
 
     int                    m_NextHandle = 0;
 
-    KHandleArray( const KHandleArray &c );
-    KHandleArray& operator=( const KHandleArray &c );
+    KHandleArray(const KHandleArray &c) = delete;
+    KHandleArray& operator=(const KHandleArray &c) = delete;
 
 };
 

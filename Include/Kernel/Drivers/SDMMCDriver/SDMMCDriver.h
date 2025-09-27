@@ -82,7 +82,7 @@ public:
 
     bool SetupBase(const os::String& devicePath, DigitalPinID pinCD);
     
-    virtual int Run() override;
+    virtual void* Run() override;
     
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
 

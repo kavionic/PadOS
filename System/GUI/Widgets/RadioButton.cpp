@@ -118,20 +118,20 @@ void RadioButton::OnPaint(const Rect& updateRect)
         if (labelAlignment == Alignment::Top || labelAlignment == Alignment::Bottom)
         {
             if (labelAlignment == Alignment::Top) {
-                MovePenTo(floor((bounds.Width() - labelWidth) * 0.5f), fontHeight.ascender);
+                MovePenTo(std::floor((bounds.Width() - labelWidth) * 0.5f), fontHeight.ascender);
                 buttonFrame.top += fontHeight.ascender + fontHeight.descender + RB_LABEL_V_SPACING;
             } else {
-				MovePenTo(floor((bounds.Width() - labelWidth) * 0.5f), RB_SIZE + RB_LABEL_V_SPACING + fontHeight.ascender);
+				MovePenTo(std::floor((bounds.Width() - labelWidth) * 0.5f), RB_SIZE + RB_LABEL_V_SPACING + fontHeight.ascender);
 				buttonFrame.bottom -= fontHeight.ascender + fontHeight.descender + RB_LABEL_V_SPACING;
             }
         }
         else
         {
             if (labelAlignment == Alignment::Left) {
-				MovePenTo(0.0f, floor(bounds.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender));
+				MovePenTo(0.0f, std::floor(bounds.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender));
                 buttonFrame.left += labelWidth + RB_LABEL_H_SPACING;
             } else {
-                MovePenTo(RB_SIZE + RB_LABEL_H_SPACING, floor(bounds.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender));
+                MovePenTo(RB_SIZE + RB_LABEL_H_SPACING, std::floor(bounds.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender));
 				buttonFrame.right -= labelWidth + RB_LABEL_H_SPACING;
             }
         }
@@ -145,8 +145,8 @@ void RadioButton::OnPaint(const Rect& updateRect)
     SetFgColor(StandardColorID::Shadow);
 
 
-    float radius = floor(RB_SIZE * 0.5f);
-    Point center(floor(buttonFrame.left + buttonFrame.Width() * 0.5f), floor(buttonFrame.top + buttonFrame.Height() * 0.5f));
+    float radius = std::floor(RB_SIZE * 0.5f);
+    Point center(std::floor(buttonFrame.left + buttonFrame.Width() * 0.5f), std::floor(buttonFrame.top + buttonFrame.Height() * 0.5f));
 
     radius -= 1.0f;
     FillCircle(center, radius);

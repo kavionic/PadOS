@@ -40,7 +40,7 @@ DEFINE_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver);
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TLV493DDriver::TLV493DDriver() : Thread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex", EMutexRecursionMode::RaiseError), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
+TLV493DDriver::TLV493DDriver() : Thread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex", PEMutexRecursionMode_RaiseError), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
 {
 	m_Config.frame_rate = 10;
 	m_Config.temparature_scale = 1.0f;
@@ -84,7 +84,7 @@ bool TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, DigitalPi
 		Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
 		Kernel::RegisterDevice(devicePath, inode);
 		
-		Start(true);
+        Start(PThreadDetachState_Detached);
 
         return true;
     }
@@ -164,7 +164,7 @@ void TLV493DDriver::ResetSensor()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int TLV493DDriver::Run()
+void* TLV493DDriver::Run()
 {
 	printf("TLV493DDriver: Resetting sensor.");
 
@@ -245,7 +245,7 @@ int TLV493DDriver::Run()
 			}
 		}
 	}
-    return 0;
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

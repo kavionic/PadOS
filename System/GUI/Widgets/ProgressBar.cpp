@@ -55,7 +55,7 @@ void ProgressBar::OnPaint(const Rect& updateRect)
     DrawFrame(bounds, FRAME_RECESSED | FRAME_TRANSPARENT);
 
     float barLength = (m_Orientation == Orientation::Horizontal) ? bounds.Width() : bounds.Height();
-    barLength = ceil((barLength - 4.0f) * m_Progress);
+    barLength = std::ceil((barLength - 4.0f) * m_Progress);
 
     Rect barFrame = bounds;
     barFrame.Resize(2.0f, 2.0f, -2.0f, -2.0f);

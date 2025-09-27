@@ -56,7 +56,7 @@ void EventTimer::Set(TimeValMicros timeout, bool singleshot)
     
     if (m_Looper != nullptr)
     {
-        assert(m_Looper->GetThreadID() == get_thread_id());
+        assert(m_Looper->GetThreadID() == sys_get_thread_id());
         m_Looper->AddTimer(this, singleshot);
     }
 }

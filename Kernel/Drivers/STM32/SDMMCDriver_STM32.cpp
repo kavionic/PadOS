@@ -496,10 +496,12 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         m_SDMMC->MASK = flags;
-        while (!m_IOCondition.IRQWaitTimeout(TimeValMicros::FromMilliseconds(500)))
+        const PErrorCode result = m_IOCondition.IRQWaitTimeout(TimeValMicros::FromMilliseconds(500));
+        while (result != PErrorCode::Success)
         {
-            if (get_last_error() != EINTR)
+            if (result != PErrorCode::Interrupted)
             {
+                set_last_error(result);
                 m_SDMMC->MASK = 0;
                 m_IOError = ~0L; // get_last_error();
                 break;

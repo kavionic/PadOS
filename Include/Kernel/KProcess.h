@@ -19,7 +19,9 @@
 
 #pragma once
 
-#include "Ptr/PtrTarget.h"
+#include <sys/pados_syscalls.h>
+
+#include <Ptr/PtrTarget.h>
 #include <Kernel/KThreadCB.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/VFS/KIOContext.h>

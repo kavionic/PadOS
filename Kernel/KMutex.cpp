@@ -31,7 +31,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KMutex::KMutex(const char* name, EMutexRecursionMode recursionMode) : KNamedObject(name, KNamedObjectType::Mutex), m_RecursionMode(recursionMode)
+KMutex::KMutex(const char* name, PEMutexRecursionMode recursionMode, int clockID) : KNamedObject(name, KNamedObjectType::Mutex), m_RecursionMode(recursionMode), m_ClockID(clockID)
 {
 }
 
@@ -50,7 +50,7 @@ KMutex::~KMutex()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::Lock()
+PErrorCode KMutex::Lock()
 {
     KThreadCB* thread = gk_CurrentThread;
     for (;;)
@@ -59,18 +59,21 @@ bool KMutex::Lock()
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (m_Count == 0 || (m_RecursionMode == EMutexRecursionMode::Recurse && m_Holder == thread->GetHandle()))
+            if (m_Count == 0 || (m_RecursionMode == PEMutexRecursionMode_Recurse && m_Holder == thread->GetHandle()))
             {
                 m_Count--;
                 m_Holder = thread->GetHandle();
-                return true;
+                return PErrorCode::Success;
             }
             else
             {
-                kassert(!(m_RecursionMode == EMutexRecursionMode::RaiseError && m_Holder == thread->GetHandle()));
+                kassert(!(m_RecursionMode == PEMutexRecursionMode_RaiseError && m_Holder == thread->GetHandle()));
+                if (m_RecursionMode == PEMutexRecursionMode_RaiseError && m_Holder == thread->GetHandle()) {
+                    return PErrorCode::Deadlock;
+                }
             }
             waitNode.m_Thread = thread;
-            thread->m_State = ThreadState::Waiting;
+            thread->m_State = ThreadState_Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->SetBlockingObject(this);
 
@@ -83,22 +86,15 @@ bool KMutex::Lock()
             thread->SetBlockingObject(nullptr);
             
             if (waitNode.m_TargetDeleted) {
-                set_last_error(EINVAL);
-                return false;
+                return PErrorCode::InvalidArg;
             }
             
             if (m_Count == 0)
             {
                 m_Count--;
                 m_Holder = thread->GetHandle();
-                return true;
+                return PErrorCode::Success;
             }
-            else if (thread->m_RestartSyscalls)
-            {
-                continue;
-            }
-            set_last_error(EINTR);
-            return false;
         } CRITICAL_END;
     }
 }
@@ -107,7 +103,16 @@ bool KMutex::Lock()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::LockDeadline(TimeValMicros deadline)
+PErrorCode KMutex::LockDeadline(TimeValMicros deadline)
+{
+    return LockClock(m_ClockID, deadline);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KMutex::LockClock(int clockID, TimeValMicros deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -118,41 +123,42 @@ bool KMutex::LockDeadline(TimeValMicros deadline)
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (m_Count == 0 || (m_RecursionMode == EMutexRecursionMode::Recurse && m_Holder == thread->GetHandle()))
+            if (m_Count == 0 || (m_RecursionMode == PEMutexRecursionMode_Recurse && m_Holder == thread->GetHandle()))
             {
                 m_Count--;
                 m_Holder = thread->GetHandle();
-                return true;
+                return PErrorCode::Success;
             }
             else
             {
-                kassert(!(m_RecursionMode == EMutexRecursionMode::RaiseError && m_Holder == thread->GetHandle()));
+                kassert(!(m_RecursionMode == PEMutexRecursionMode_RaiseError && m_Holder == thread->GetHandle()));
+                if (m_RecursionMode == PEMutexRecursionMode_RaiseError && m_Holder == thread->GetHandle()) {
+                    return PErrorCode::Deadlock;
+                }
             }
-            if (deadline.IsInfinit() || get_system_time() < deadline)
+            if (deadline.IsInfinit() || get_clock_time(clockID) < deadline)
             {
                 if (!first) {
-                    set_last_error(EINTR);
-                    return false;
+                    return PErrorCode::Interrupted;
                 }
-                waitNode.m_Thread      = thread;
+                waitNode.m_Thread = thread;
 
                 m_WaitQueue.Append(&waitNode);
                 if (!deadline.IsInfinit())
                 {
-                    thread->m_State = ThreadState::Sleeping;
+                    thread->m_State = ThreadState_Sleeping;
                     sleepNode.m_Thread = thread;
-                    sleepNode.m_ResumeTime = deadline;
+                    sleepNode.m_ResumeTime = deadline - get_clock_time_offset(clockID);
                     add_to_sleep_list(&sleepNode);
                 }
                 else
                 {
-                    thread->m_State = ThreadState::Waiting;
+                    thread->m_State = ThreadState_Waiting;
                 }
             }
             else
             {
-                set_last_error(ETIME);
-                return false;
+                return PErrorCode::Timeout;
             }
 
             KSWITCH_CONTEXT();
@@ -164,8 +170,7 @@ bool KMutex::LockDeadline(TimeValMicros deadline)
             sleepNode.Detatch();
             
             if (waitNode.m_TargetDeleted) {
-                set_last_error(EINVAL);
-                return false;
+                return PErrorCode::InvalidArg;
             }            
         } CRITICAL_END;
     }
@@ -175,54 +180,60 @@ bool KMutex::LockDeadline(TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::LockTimeout(TimeValMicros timeout)
+PErrorCode KMutex::LockTimeout(TimeValMicros timeout)
 {
-    return LockDeadline((!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
+    return LockClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::TryLock()
+PErrorCode KMutex::TryLock()
 {
     KThreadCB* thread = gk_CurrentThread;
 
-    CRITICAL_BEGIN(CRITICAL_IRQ)
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+
+    if (m_Count == 0 || (m_RecursionMode == PEMutexRecursionMode_Recurse && m_Holder == thread->GetHandle()))
     {
-        if (m_Count == 0 || (m_RecursionMode == EMutexRecursionMode::Recurse && m_Holder == thread->GetHandle()))
-        {
-            m_Count--;
-            m_Holder = thread->GetHandle();
-            return true;
-        }
-    } CRITICAL_END;
-    set_last_error(EWOULDBLOCK);
-    return false;
+        m_Count--;
+        m_Holder = thread->GetHandle();
+        return PErrorCode::Success;
+    }
+
+    return PErrorCode::Busy;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KMutex::Unlock()
+PErrorCode KMutex::Unlock()
 {
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        m_Count++;
+    CRITICAL_SCOPE(CRITICAL_IRQ);
 
-        if (m_Count == 0) {
-            m_Holder = -1;
-            if (wakeup_wait_queue(&m_WaitQueue, 0, 1)) KSWITCH_CONTEXT();
-        }
-    } CRITICAL_END;
+    if (m_Count < 0) {
+        m_Count++;
+    } else if (m_Count > 0) {
+        m_Count--;
+    } else {
+        return PErrorCode::InvalidArg;
+    }
+
+    if (m_Count == 0) {
+        m_Holder = -1;
+        if (wakeup_wait_queue(&m_WaitQueue, 0, 0)) KSWITCH_CONTEXT();
+    }
+
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::LockShared()
+PErrorCode KMutex::LockShared()
 {
     KThreadCB* thread = gk_CurrentThread;
     for (;;)
@@ -234,10 +245,10 @@ bool KMutex::LockShared()
             if (m_Count >= 0)
             {
                 m_Count++;
-                return true;
+                return PErrorCode::Success;
             }
             waitNode.m_Thread = thread;
-            thread->m_State = ThreadState::Waiting;
+            thread->m_State = ThreadState_Waiting;
             m_WaitQueue.Append(&waitNode);
             thread->SetBlockingObject(this);
 
@@ -250,21 +261,14 @@ bool KMutex::LockShared()
             thread->SetBlockingObject(nullptr);
 
             if (waitNode.m_TargetDeleted) {
-                set_last_error(EINVAL);
-                return false;
+                return PErrorCode::InvalidArg;
             }
             
             if (m_Count >= 0)
             {
                 m_Count++;
-                return true;
+                return PErrorCode::Success;
             }
-            else if (thread->m_RestartSyscalls)
-            {
-                continue;
-            }
-            set_last_error(EINTR);
-            return false;
         } CRITICAL_END;
     }
 }
@@ -273,7 +277,16 @@ bool KMutex::LockShared()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::LockSharedDeadline(TimeValMicros deadline)
+PErrorCode KMutex::LockSharedDeadline(TimeValMicros deadline)
+{
+    return LockSharedClock(m_ClockID, deadline);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValMicros deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -287,33 +300,31 @@ bool KMutex::LockSharedDeadline(TimeValMicros deadline)
             if (m_Count >= 0)
             {
                 m_Count++;
-                return true;
+                return PErrorCode::Success;
             }
-            if (deadline.IsInfinit() || get_system_time() < deadline)
+            if (deadline.IsInfinit() || get_clock_time(clockID) < deadline)
             {
                 if (!first) {
-                    set_last_error(EINTR);
-                    return false;
+                    return PErrorCode::Interrupted;
                 }
                 waitNode.m_Thread      = thread;
 
                 m_WaitQueue.Append(&waitNode);
                 if (!deadline.IsInfinit())
                 {
-                    thread->m_State = ThreadState::Sleeping;
+                    thread->m_State = ThreadState_Sleeping;
                     sleepNode.m_Thread = thread;
-                    sleepNode.m_ResumeTime = deadline;
+                    sleepNode.m_ResumeTime = deadline - get_clock_time_offset(clockID);
                     add_to_sleep_list(&sleepNode);
                 }
                 else
                 {
-                    thread->m_State = ThreadState::Waiting;
+                    thread->m_State = ThreadState_Waiting;
                 }
             }
             else
             {
-                set_last_error(ETIME);
-                return false;
+                return PErrorCode::Timeout;
             }
 
             KSWITCH_CONTEXT();
@@ -325,8 +336,7 @@ bool KMutex::LockSharedDeadline(TimeValMicros deadline)
             sleepNode.Detatch();
 
             if (waitNode.m_TargetDeleted) {
-                set_last_error(EINVAL);
-                return false;
+                return PErrorCode::InvalidArg;
             }
             
             if (wakeup_wait_queue(&m_WaitQueue, 0, 0)) KSWITCH_CONTEXT();
@@ -338,43 +348,26 @@ bool KMutex::LockSharedDeadline(TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::LockSharedTimeout(TimeValMicros timeout)
+PErrorCode KMutex::LockSharedTimeout(TimeValMicros timeout)
 {
-    return LockSharedDeadline((!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
+    return LockSharedClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMutex::TryLockShared()
+PErrorCode KMutex::TryLockShared()
 {
-    CRITICAL_BEGIN(CRITICAL_IRQ)
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+
+    if (m_Count >= 0)
     {
-        if (m_Count >= 0)
-        {
-            m_Count++;
-            return true;
-        }
-    } CRITICAL_END;
-    set_last_error(EWOULDBLOCK);
-    return false;
-}
+        m_Count++;
+        return PErrorCode::Success;
+    }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KMutex::UnlockShared()
-{
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        m_Count--;
-
-        if (m_Count == 0) {
-            if (wakeup_wait_queue(&m_WaitQueue, 0, 1)) KSWITCH_CONTEXT();
-        }
-    } CRITICAL_END;
+    return PErrorCode::Busy;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -386,142 +379,3 @@ bool KMutex::IsLocked() const
     return !(m_Count == 0 || m_Holder != gk_CurrentThread->GetHandle());
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-sem_id create_mutex(const char* name, EMutexRecursionMode recursionMode)
-{
-    try {
-        return KNamedObject::RegisterObject(ptr_new<KMutex>(name, recursionMode));
-    } catch(const std::bad_alloc& error) {
-        set_last_error(ENOMEM);
-        return -1;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-sem_id duplicate_mutex(sem_id handle)
-{
-    Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(handle, KMutex::ObjectType));;
-    if (mutex != nullptr) {
-        return KNamedObject::RegisterObject(mutex);
-    }
-    set_last_error(EINVAL);
-    return -1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t delete_mutex(sem_id handle)
-{
-    if (KNamedObject::FreeHandle(handle, KMutex::ObjectType)) {
-        return 0;
-    }
-    set_last_error(EINVAL);
-    return -1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t lock_mutex(sem_id handle)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::Lock);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t lock_mutex_timeout(sem_id handle, bigtime_t timeout)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockTimeout, TimeValMicros::FromMicroseconds(timeout));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t lock_mutex_deadline(sem_id handle, bigtime_t deadline)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockDeadline, TimeValMicros::FromMicroseconds(deadline));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t try_lock_mutex(sem_id handle)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::TryLock);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t unlock_mutex(sem_id handle)
-{
-    return KNamedObject::ForwardToHandleVoid<KMutex>(handle, &KMutex::Unlock);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t lock_mutex_shared(sem_id handle)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockShared);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t lock_mutex_shared_timeout(sem_id handle, bigtime_t timeout)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockSharedTimeout, TimeValMicros::FromMicroseconds(timeout));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t lock_mutex_shared_deadline(sem_id handle, bigtime_t deadline)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::LockSharedDeadline, TimeValMicros::FromMicroseconds(deadline));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t try_lock_mutex_shared(sem_id handle)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::TryLockShared);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t unlock_mutex_shared(sem_id handle)
-{
-    return KNamedObject::ForwardToHandleVoid<KMutex>(handle, &KMutex::UnlockShared);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t islocked_mutex(sem_id handle)
-{
-    return KNamedObject::ForwardToHandleBoolToInt<KMutex>(handle, &KMutex::IsLocked);
-}

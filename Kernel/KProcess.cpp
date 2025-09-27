@@ -37,7 +37,7 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KProcess::KProcess() : m_TLSMutex("process_tls_mutex", EMutexRecursionMode::RaiseError)
+KProcess::KProcess() : m_TLSMutex("process_tls_mutex", PEMutexRecursionMode_RaiseError)
 {
     memset(m_TLSDestructors, 0, sizeof(m_TLSDestructors));
     memset(m_TLSAllocationMap, 0, sizeof(m_TLSAllocationMap));
@@ -73,7 +73,7 @@ void KProcess::ThreadQuit(KThreadCB* thread)
                         if (index < THREAD_MAX_TLS_SLOTS)
                         {
                             if (m_TLSDestructors[index] != nullptr) {
-                                destructors.emplace_back(m_TLSDestructors[index], ((void**)thread->m_StackBuffer)[index]);
+                                destructors.emplace_back(m_TLSDestructors[index], thread->m_ThreadLocalSlots[index]);
                             }
                         }
                         else
@@ -115,11 +115,11 @@ tls_id KProcess::AllocTLSSlot(TLSDestructor_t destructor)
                         m_TLSAllocationMap[i] |= mask;
                         m_TLSDestructors[index] = destructor;
 
-                        for (Ptr<const KThreadCB> thread = kernel::get_thread_table().GetNext(INVALID_HANDLE, [](Ptr<const KThreadCB> thread) { return thread->m_State != ThreadState::Deleted; });
+                        for (Ptr<const KThreadCB> thread = kernel::get_thread_table().GetNext(INVALID_HANDLE, [](Ptr<const KThreadCB> thread) { return thread->m_State != ThreadState_Deleted; });
                             thread != nullptr;
-                            thread = kernel::get_thread_table().GetNext(thread->GetHandle(), [](Ptr<const KThreadCB> thread) { return thread->m_State != ThreadState::Deleted; }))
+                            thread = kernel::get_thread_table().GetNext(thread->GetHandle(), [](Ptr<const KThreadCB> thread) { return thread->m_State != ThreadState_Deleted; }))
                         {
-                            ((void**)thread->m_StackBuffer)[index] = nullptr;
+                            thread->m_ThreadLocalSlots[index] = nullptr;
                         }
                         return index;
                     }
@@ -155,63 +155,4 @@ bool KProcess::FreeTLSSlot(tls_id slot)
         set_last_error(EINVAL);
         return false;
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-tls_id alloc_thread_local_storage(TLSDestructor_t destructor)
-{
-    return gk_CurrentProcess->AllocTLSSlot(destructor);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int delete_thread_local_storage(tls_id slot)
-{
-    return gk_CurrentProcess->FreeTLSSlot(slot) ? 0 : -1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int set_thread_local(tls_id slot, void* value)
-{
-    if (slot >= 0 && slot < THREAD_MAX_TLS_SLOTS) {
-        KThreadCB* thread = gk_CurrentThread;
-        ((void**)thread->m_StackBuffer)[slot] = value;
-        return 0;
-    } else {
-        set_last_error(EINVAL);
-        return -1;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void* get_thread_local(tls_id slot)
-{
-    if (slot >= 0 && slot < THREAD_MAX_TLS_SLOTS) {
-        KThreadCB* thread = gk_CurrentThread;
-        return ((void**)thread->m_StackBuffer)[slot];
-    } else {
-        set_last_error(EINVAL);
-        return nullptr;
-    }
-}
-
-extern "C" void* __wrap___cxa_get_globals()
-{
-    return &gk_CurrentThread->m_CPPExceptionGlobals;
-}
-
-extern "C" void* __wrap___cxa_get_globals_fast()
-{
-    return &gk_CurrentThread->m_CPPExceptionGlobals;
 }

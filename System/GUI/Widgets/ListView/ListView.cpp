@@ -295,7 +295,7 @@ void ListView::AdjustScrollBars(bool okToHScroll)
             }
             else
             {
-                m_VScrollBar->SetSteps(ceil(contentHeight / float(m_ScrolledContainerView->m_Rows.size())), ceil(viewHeight * 0.8f));
+                m_VScrollBar->SetSteps(std::ceil(contentHeight / float(m_ScrolledContainerView->m_Rows.size())), std::ceil(viewHeight * 0.8f));
                 m_VScrollBar->SetProportion(proportion);
                 m_VScrollBar->SetMinMax(0, std::max(contentHeight - viewHeight, 0.0f));
             }
@@ -333,7 +333,7 @@ void ListView::AdjustScrollBars(bool okToHScroll)
             }
             else
             {
-                m_HScrollBar->SetSteps(15.0f, ceil(viewWidth * 0.8f));
+                m_HScrollBar->SetSteps(15.0f, std::ceil(viewWidth * 0.8f));
                 m_HScrollBar->SetProportion(proportion);
                 m_HScrollBar->SetMinMax(0.0f, m_ScrolledContainerView->m_TotalWidth - viewWidth);
             }
@@ -412,7 +412,7 @@ void ListView::Layout()
     if (m_HScrollBar != nullptr)
     {
         Rect scrollBarFrame(frame);
-        headerFrame.bottom = floor(headerFrame.bottom);
+        headerFrame.bottom = std::floor(headerFrame.bottom);
         if (m_VScrollBar != nullptr) {
             scrollBarFrame.right -= 16.0f;
         }

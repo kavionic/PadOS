@@ -32,7 +32,7 @@ std::vector<Looper*> Looper::s_LooperList;
 
 static Mutex& GetLooperListMutex()
 {
-    static Mutex mutex("LooperList", EMutexRecursionMode::RaiseError);
+    static Mutex mutex("LooperList", PEMutexRecursionMode_RaiseError);
     return mutex;
 }
 #endif // DEBUG_LOOPER_LIST
@@ -44,7 +44,7 @@ int32_t Looper::s_NextReplyToken;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Looper::Looper(const String& name, int portSize, size_t receiveBufferSize) : Thread(name), m_Mutex("looper", EMutexRecursionMode::RaiseError), m_Port("looper", portSize), m_DoRun(true)
+Looper::Looper(const String& name, int portSize, size_t receiveBufferSize) : Thread(name), m_Mutex("looper", PEMutexRecursionMode_RaiseError), m_Port("looper", portSize), m_DoRun(true)
 {
 #if DEBUG_LOOPER_LIST
     CRITICAL_BEGIN(GetLooperListMutex()) {
@@ -272,7 +272,7 @@ Ptr<EventHandler> Looper::FindHandler(handler_id handle) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Looper::Run()
+void* Looper::Run()
 {
     m_Thread = kernel::get_current_thread();
     CRITICAL_SCOPE(m_Mutex);
@@ -282,7 +282,7 @@ int Looper::Run()
     {
         ProcessEvents();
     }
-    return 0;
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -38,7 +38,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FT5x0xDriver::FT5x0xDriver() : Thread("ft5x0x_driver"), m_Mutex("ft5x0x_mutex", EMutexRecursionMode::RaiseError), m_EventSemaphore("ft5x0x_events", 0)
+FT5x0xDriver::FT5x0xDriver() : Thread("ft5x0x_driver"), m_Mutex("ft5x0x_mutex", PEMutexRecursionMode_RaiseError), m_EventSemaphore("ft5x0x_events", CLOCK_MONOTONIC_COARSE, 0)
 {
     SetDeleteOnExit(false);
 }
@@ -104,7 +104,7 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
         PrintChipStatus();
 //        FileIO::Write(m_I2CDevice, )
 
-        Start(true, 10);
+        Start(PThreadDetachState_Detached, 10);
         
         Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
         Kernel::RegisterDevice(devicePath, inode);
@@ -161,7 +161,7 @@ void FT5x0xDriver::PrintChipStatus()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FT5x0xDriver::Run()
+void* FT5x0xDriver::Run()
 {
     for(;;)
     {
@@ -226,7 +226,7 @@ int FT5x0xDriver::Run()
             m_EventSemaphore.SetCount(1);
         }        
     }
-    return 0; 
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -29,7 +29,7 @@
 
 SerialDebugStreamINode::SerialDebugStreamINode(kernel::KFilesystemFileOps* fileOps)
     : KINode(nullptr, nullptr, fileOps, false)
-    , m_Mutex("SerDebugStream", EMutexRecursionMode::RaiseError)
+    , m_Mutex("SerDebugStream", PEMutexRecursionMode_RaiseError)
 {
 
 }

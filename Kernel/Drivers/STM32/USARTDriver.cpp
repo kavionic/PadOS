@@ -45,8 +45,8 @@ USARTDriverINode::USARTDriverINode( USARTID      portID,
                                     uint32_t            clockFrequency,
                                     USARTDriver*        driver)
     : KINode(nullptr, nullptr, driver, false)
-    , m_MutexRead("USARTDriverINodeRead", EMutexRecursionMode::RaiseError)
-    , m_MutexWrite("USARTDriverINodeWrite", EMutexRecursionMode::RaiseError)
+    , m_MutexRead("USARTDriverINodeRead", PEMutexRecursionMode_RaiseError)
+    , m_MutexWrite("USARTDriverINodeWrite", PEMutexRecursionMode_RaiseError)
     , m_ReceiveCondition("USARTDriverINodeReceive")
     , m_TransmitCondition("USARTDriverINodeTransmit")
     , m_PinRX(pinRX)
@@ -118,9 +118,12 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t l
 
             if (m_ReceiveBytesInBuffer == 0)
             {
-                if (!m_ReceiveCondition.IRQWaitTimeout(m_ReadTimeout))
+                const PErrorCode result = m_ReceiveCondition.IRQWaitTimeout(m_ReadTimeout);
+                if (result != PErrorCode::Success)
                 {
-                    if (get_last_error() != EINTR) {
+                    if (result != PErrorCode::Interrupted)
+                    {
+                        set_last_error(result);
                         return -1;
                     }
                 }
@@ -150,8 +153,10 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             dma_start(m_SendDMAChannel);
-            if (!m_TransmitCondition.IRQWaitTimeout(TimeValMicros::FromMicroseconds(bigtime_t(currentLen) * 10 * 2 * TimeValMicros::TicksPerSecond / m_Baudrate) + TimeValMicros::FromMilliseconds(100)))
+            const PErrorCode result = m_TransmitCondition.IRQWaitTimeout(TimeValMicros::FromMicroseconds(bigtime_t(currentLen) * 10 * 2 * TimeValMicros::TicksPerSecond / m_Baudrate) + TimeValMicros::FromMilliseconds(100));
+            if (result != PErrorCode::Success)
             {
+                set_last_error(result);
                 return -1;
             }
         } CRITICAL_END;

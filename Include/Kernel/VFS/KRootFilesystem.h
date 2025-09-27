@@ -55,7 +55,7 @@ struct KRootFSDirectoryNode : public KDirectoryNode
 class KRootFilesystem : public KFilesystem, public KFilesystemFileOps
 {
 public:
-    inline KRootFilesystem() : m_Mutex("root_fs_mutex", EMutexRecursionMode::RaiseError) {}
+    inline KRootFilesystem() : m_Mutex("root_fs_mutex", PEMutexRecursionMode_RaiseError) {}
     IFLASHC virtual Ptr<KFSVolume>      Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength) override;
     IFLASHC virtual Ptr<KINode>         LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
 //    virtual Ptr<KFileHandle> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
@@ -63,7 +63,7 @@ public:
     IFLASHC virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node) override;
     IFLASHC virtual int                 CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory) override;
 
-    IFLASHC virtual int                 ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize) override;
+    IFLASHC virtual int                 ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize) override;
     IFLASHC virtual int                 RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode) override;
 
     IFLASHC virtual Ptr<KFileNode>      CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission) override;

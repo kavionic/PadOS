@@ -18,7 +18,7 @@
 // Created: 11.07.2020 13:00
 
 #pragma once
-#include "Types.h"
+#include <System/Types.h>
 
 namespace os
 {
@@ -27,20 +27,20 @@ namespace os
 class HandleObject
 {
 public:
-  enum class NoInit {};
-  
-  HandleObject(handler_id handle) : m_Handle(handle) {}
-  virtual ~HandleObject();
+    HandleObject() : m_Handle(INVALID_HANDLE) {}
+    HandleObject(handler_id handle) : m_Handle(handle) {}
+    virtual ~HandleObject();
 
-  handle_id GetHandle() const { return m_Handle; }
+    void SetHandle(handle_id handle) { m_Handle = handle; }
+    handle_id GetHandle() const { return m_Handle; }
+    
+    HandleObject(HandleObject&& other) : m_Handle(other.m_Handle) { other.m_Handle = INVALID_HANDLE; }
 
-  HandleObject(HandleObject&& other) : m_Handle(other.m_Handle) { other.m_Handle = INVALID_HANDLE; }
-
-  HandleObject(const HandleObject& other);
-  HandleObject& operator=(const HandleObject& other);
+    HandleObject(const HandleObject& other);
+    HandleObject& operator=(const HandleObject& other);
 
 protected:
-  handle_id m_Handle;
+    handle_id m_Handle;
 };
 
 } // namespace

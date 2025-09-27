@@ -91,7 +91,7 @@ public:
 
     IFLASHC bool Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin);
 
-    IFLASHC virtual int Run() override;
+    IFLASHC virtual void* Run() override;
 
     IFLASHC virtual int DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
     IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;

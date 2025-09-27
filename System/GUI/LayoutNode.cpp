@@ -146,12 +146,12 @@ void LayoutNode::CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bo
             }                
         }
         if (includeWidth) {
-            minSizeOut->x = ceil(minSize.x);
-            maxSizeOut->x = floor(maxSize.x);
+            minSizeOut->x = std::ceil(minSize.x);
+            maxSizeOut->x = std::floor(maxSize.x);
         }            
         if (includeHeight) {
-            minSizeOut->y = ceil(minSize.y);
-            maxSizeOut->y = floor(maxSize.y);
+            minSizeOut->y = std::ceil(minSize.y);
+            maxSizeOut->y = std::floor(maxSize.y);
         }            
     }
 }

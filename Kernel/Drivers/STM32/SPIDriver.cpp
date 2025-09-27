@@ -41,7 +41,7 @@ static constexpr int SPI_MAX_WORD_LENGTH(SPIID spiID) { return (spiID <= SPIID::
 
 SPIDriverINode::SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver)
     : KINode(nullptr, nullptr, driver, false)
-    , m_Mutex("SPIDriverINodeMutex", EMutexRecursionMode::RaiseError)
+    , m_Mutex("SPIDriverINodeMutex", PEMutexRecursionMode_RaiseError)
     , m_TransactionCondition("SPIDriverINodeTransC")
     , m_PinCLK(setup.PinCLK)
     , m_PinMOSI(setup.PinMOSI)
@@ -472,7 +472,7 @@ IFLASHC ssize_t SPIDriverINode::StartTransaction(const SPITransaction& transacti
         m_Port->CR1 |= SPI_CR1_SPE;
         m_Port->CR1 |= SPI_CR1_CSTART;
 
-        const bool result = m_TransactionCondition.IRQWait();
+        const PErrorCode result = m_TransactionCondition.IRQWait();
         m_Port->IER = 0;
 
         m_SendDMAChannel.Stop();
@@ -485,7 +485,11 @@ IFLASHC ssize_t SPIDriverINode::StartTransaction(const SPITransaction& transacti
 
         m_Port->IFCR = errorFlags;
 
-        if (!result) return -1;
+        if (result != PErrorCode::Success)
+        {
+            set_last_error(result);
+            return -1;
+        }
         if (m_TransactionError == SPIError::None)
         {
             if (transaction.ReceiveBuffer != nullptr)

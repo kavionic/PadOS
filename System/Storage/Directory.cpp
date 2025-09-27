@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <limits.h>
+#include <sys/syslimits.h>
 #include <Storage/Directory.h>
 #include <Storage/FileReference.h>
 #include <Storage/File.h>
@@ -222,7 +223,7 @@ bool Directory::GetPath(String& outPath) const
 
 bool Directory::GetNextEntry(String& outName)
 {
-    kernel::dir_entry entry;
+    dirent_t entry;
     if (FileIO::ReadDirectory(GetFileDescriptor(), &entry, sizeof(entry)) != 1) {
         return false;
     }
@@ -339,7 +340,9 @@ bool Directory::CreatePath(const String& path, bool includeLeaf, Directory* outL
 
 bool Directory::CreateSymlink(const String& name, const String& destinationPath, SymLink& outLink)
 {
-    if (FileIO::Symlink(GetFileDescriptor(), destinationPath.c_str(), name.c_str()) < 0) {
+    PErrorCode result = FileIO::Symlink(destinationPath.c_str(), GetFileDescriptor(), name.c_str());
+    if (result != PErrorCode::Success) {
+        set_last_error(result);
         return false;
     }
     return outLink.Open(*this, name, O_RDONLY);

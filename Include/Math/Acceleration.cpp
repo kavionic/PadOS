@@ -53,7 +53,7 @@ float Acceleration::CalcAccelerationDistance(float startSpeed, float resultSpeed
 
 float Acceleration::CalcMaxSpeedPermittingStop(float distance, float startSpeed, float endSpeed, float acceleration)
 {
-    return (sqrt(fabsf((-(square(startSpeed))) + 2.0f * square(endSpeed) - square(endSpeed) + 4.0f * acceleration * distance)) + startSpeed + endSpeed) * 0.5f;
+    return (std::sqrt(fabsf((-(square(startSpeed))) + 2.0f * square(endSpeed) - square(endSpeed) + 4.0f * acceleration * distance)) + startSpeed + endSpeed) * 0.5f;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

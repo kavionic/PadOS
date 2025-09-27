@@ -25,6 +25,7 @@
 #include <map>
 
 #include <sys/types.h>
+#include <sys/pados_mutex.h>
 
 #include "Kernel.h"
 #include "KNamedObject.h"
@@ -39,26 +40,28 @@ class KMutex : public KNamedObject
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::Mutex;
 
-    KMutex(const char* name, EMutexRecursionMode recursionMode);
+    KMutex(const char* name, PEMutexRecursionMode recursionMode, clockid_t clockID = CLOCK_MONOTONIC);
     ~KMutex();
 
-    bool Lock();
-    bool LockTimeout(TimeValMicros timeout);
-    bool LockDeadline(TimeValMicros deadline);
-    bool TryLock();
-    void Unlock();
+    PErrorCode Lock();
+    PErrorCode LockTimeout(TimeValMicros timeout);
+    PErrorCode LockDeadline(TimeValMicros deadline);
+    PErrorCode LockClock(clockid_t clockID, TimeValMicros deadline);
+    PErrorCode TryLock();
+    PErrorCode Unlock();
     
-    bool LockShared();
-    bool LockSharedTimeout(TimeValMicros timeout);
-    bool LockSharedDeadline(TimeValMicros deadline);
-    bool TryLockShared();
-    void UnlockShared();
+    PErrorCode LockShared();
+    PErrorCode LockSharedTimeout(TimeValMicros timeout);
+    PErrorCode LockSharedDeadline(TimeValMicros deadline);
+    PErrorCode LockSharedClock(clockid_t clockID, TimeValMicros deadline);
+    PErrorCode TryLockShared();
     
     bool IsLocked() const;
 private:
-    int                 m_Count = 0;
-    EMutexRecursionMode m_RecursionMode = EMutexRecursionMode::Recurse;
-    thread_id           m_Holder = INVALID_HANDLE; // Thread currently holding the mutex.
+    int                  m_Count = 0;
+    PEMutexRecursionMode m_RecursionMode = PEMutexRecursionMode_Recurse;
+    clockid_t            m_ClockID = CLOCK_MONOTONIC;
+    thread_id            m_Holder = INVALID_HANDLE; // Thread currently holding the mutex.
 
     KMutex(const KMutex &) = delete;
     KMutex& operator=(const KMutex &) = delete;
@@ -139,7 +142,7 @@ class KMutexSharedGuard
 {
 public:
     KMutexSharedGuard(KMutex& mutex, bool doLock) : m_Mutex(&mutex), m_IsLocked(doLock) { if (doLock) m_Mutex->LockShared(); }
-    ~KMutexSharedGuard() { if (m_IsLocked && m_Mutex != nullptr) m_Mutex->UnlockShared(); }
+    ~KMutexSharedGuard() { if (m_IsLocked && m_Mutex != nullptr) m_Mutex->Unlock(); }
 
     void LockShared()
     {
@@ -151,13 +154,13 @@ public:
             }                
         }
     }
-    void UnlockShared()
+    void Unlock()
     {
         if (m_IsLocked)
         {
             m_IsLocked = false;
             if (m_Mutex != nullptr) {
-                m_Mutex->UnlockShared();
+                m_Mutex->Unlock();
             }
         }
     }

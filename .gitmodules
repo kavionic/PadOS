@@ -13,3 +13,12 @@
 [submodule "ExternalLibs/json"]
 	path = ExternalLibs/json
 	url = https://github.com/nlohmann/json.git
+[submodule "ExternalLibs/googletest"]
+	path = ExternalLibs/googletest
+	url = https://github.com/google/googletest.git
+[submodule "ExternalLibs/STM32/cmsis-core"]
+	path = ExternalLibs/STM32/cmsis-core
+	url = https://github.com/STMicroelectronics/cmsis-core.git
+[submodule "ExternalLibs/STM32/cmsis-device-h7"]
+	path = ExternalLibs/STM32/cmsis-device-h7
+	url = https://github.com/STMicroelectronics/cmsis-device-h7.git

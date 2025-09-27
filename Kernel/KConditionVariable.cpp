@@ -29,7 +29,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KConditionVariable::KConditionVariable(const char* name) : KNamedObject(name, KNamedObjectType::ConditionVariable)
+KConditionVariable::KConditionVariable(const char* name, clockid_t clockID) : KNamedObject(name, KNamedObjectType::ConditionVariable), m_ClockID(clockID)
 {
 }
 
@@ -45,7 +45,7 @@ KConditionVariable::~KConditionVariable()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::WaitInternal(KMutex* lock)
+PErrorCode KConditionVariable::WaitInternal(KMutex* lock)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -56,7 +56,7 @@ bool KConditionVariable::WaitInternal(KMutex* lock)
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             waitNode.m_Thread = thread;
-            thread->m_State = ThreadState::Waiting;
+            thread->m_State = ThreadState_Waiting;
             m_WaitQueue.Append(&waitNode);
             if (lock != nullptr) lock->Unlock();
             thread->SetBlockingObject(this);
@@ -69,19 +69,12 @@ bool KConditionVariable::WaitInternal(KMutex* lock)
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             if (waitNode.m_TargetDeleted) {
-                set_last_error(EINVAL);
-                return false;
+                return PErrorCode::InvalidArg;
             }
             if (!waitNode.Detatch())
             {
-                return true;
+                return PErrorCode::Success;
             }                
-            else if (thread->m_RestartSyscalls)
-            {
-                continue;
-            }
-            set_last_error(EINTR);
-            return false;
         } CRITICAL_END;
     }        
 }
@@ -90,43 +83,38 @@ bool KConditionVariable::WaitInternal(KMutex* lock)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::WaitDeadlineInternal(KMutex* lock, TimeValMicros deadline)
+PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValMicros deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
-    for (bool first = true; ; first = false)
+    for (;;)
     {
         KThreadWaitNode waitNode;
         KThreadWaitNode sleepNode;
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (deadline.IsInfinit() || get_system_time() < deadline)
+            if (deadline.IsInfinit() || get_clock_time(clockID) < deadline)
             {
-                if (!first) {
-                    set_last_error(EINTR);
-                    return false;
-                }
-                waitNode.m_Thread      = thread;
+                waitNode.m_Thread = thread;
 
                 m_WaitQueue.Append(&waitNode);
                 if (!deadline.IsInfinit())
                 {
-                    thread->m_State = ThreadState::Sleeping;
+                    thread->m_State = ThreadState_Sleeping;
                     sleepNode.m_Thread = thread;
-                    sleepNode.m_ResumeTime = deadline;
+                    sleepNode.m_ResumeTime = deadline - get_clock_time_offset(clockID);
                     add_to_sleep_list(&sleepNode);
                 }
                 else
                 {
-                    thread->m_State = ThreadState::Waiting;
+                    thread->m_State = ThreadState_Waiting;
                 }
                 thread->SetBlockingObject(this);
             }
             else
             {
-                set_last_error(ETIME);
-                return false;
+                return PErrorCode::Timeout;
             }
             if (lock != nullptr) lock->Unlock();
 
@@ -139,10 +127,12 @@ bool KConditionVariable::WaitDeadlineInternal(KMutex* lock, TimeValMicros deadli
         	thread->SetBlockingObject(nullptr);
             sleepNode.Detatch();
             if (waitNode.m_TargetDeleted) {
-                set_last_error(EINVAL);
-                return false;
+                return PErrorCode::InvalidArg;
             }
-            waitNode.Detatch();
+            if (!waitNode.Detatch())
+            {
+                return PErrorCode::Success;
+            }
         } CRITICAL_END;
     }
 }
@@ -151,24 +141,23 @@ bool KConditionVariable::WaitDeadlineInternal(KMutex* lock, TimeValMicros deadli
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::WaitTimeoutInternal(KMutex* lock, TimeValMicros timeout)
+PErrorCode KConditionVariable::WaitTimeoutInternal(KMutex* lock, clockid_t clockID, TimeValMicros timeout)
 {
-    return WaitDeadlineInternal(lock, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
+    return WaitDeadlineInternal(lock, clockID, (!timeout.IsInfinit()) ? (get_clock_time(clockID) + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::IRQWait()
+PErrorCode KConditionVariable::IRQWait()
 {
     IRQEnableState irqState = get_interrupt_enabled_state();
     
     if (irqState == IRQEnableState::Enabled)
     {
         printf("ERROR: KConditionVariable::IRQWait() called with interrupts enabled!\n");
-        set_last_error(EINVAL);
-        return false;
+        return PErrorCode::InvalidArg;
     }
     
     KThreadCB* thread = gk_CurrentThread;
@@ -178,7 +167,7 @@ bool KConditionVariable::IRQWait()
         KThreadWaitNode waitNode;
 
         waitNode.m_Thread = thread;
-        thread->m_State = ThreadState::Waiting;
+        thread->m_State = ThreadState_Waiting;
         m_WaitQueue.Append(&waitNode);
 
         thread->SetBlockingObject(this);
@@ -190,19 +179,12 @@ bool KConditionVariable::IRQWait()
         thread->SetBlockingObject(nullptr);
 
         if (waitNode.m_TargetDeleted) {
-            set_last_error(EINVAL);
-            return false;
+            return PErrorCode::InvalidArg;
         }
         if (!waitNode.Detatch())
         {
-            return true;
+            return PErrorCode::Success;
         }                
-        else if (thread->m_RestartSyscalls)
-        {
-            continue;
-        }
-        set_last_error(EINTR);
-        return false;
     }
 }
 
@@ -210,49 +192,52 @@ bool KConditionVariable::IRQWait()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::IRQWaitDeadline(TimeValMicros deadline)
+PErrorCode KConditionVariable::IRQWaitDeadline(TimeValMicros deadline)
+{
+    return IRQWaitClock(m_ClockID, deadline);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValMicros deadline)
 {
     IRQEnableState irqState = get_interrupt_enabled_state();
     
     if (irqState == IRQEnableState::Enabled)
     {
         printf("ERROR: KConditionVariable::IRQWaitDeadline() called with interrupts enabled!\n");
-        set_last_error(EINVAL);
-        return false;
+        return PErrorCode::InvalidArg;
     }
     
     KThreadCB* thread = gk_CurrentThread;
     
-    for (bool first = true; ; first = false)
+    for (;;)
     {
         KThreadWaitNode waitNode;
         KThreadWaitNode sleepNode;
 
-        if (deadline.IsInfinit() || get_system_time() < deadline)
+        if (deadline.IsInfinit() || get_clock_time(clockID) < deadline)
         {
-            if (!first) {
-                set_last_error(EINTR);
-                return false;
-            }
             waitNode.m_Thread      = thread;
 
             m_WaitQueue.Append(&waitNode);
             if (!deadline.IsInfinit())
             {
-                thread->m_State = ThreadState::Sleeping;
+                thread->m_State = ThreadState_Sleeping;
                 sleepNode.m_Thread = thread;
-                sleepNode.m_ResumeTime = deadline;
+                sleepNode.m_ResumeTime = deadline - get_clock_time_offset(clockID);
                 add_to_sleep_list(&sleepNode);
             }
             else
             {
-                thread->m_State = ThreadState::Waiting;
+                thread->m_State = ThreadState_Waiting;
             }
         }
         else
         {
-            set_last_error(ETIME);
-            return false;
+            return PErrorCode::Timeout;
         }
         
         thread->SetBlockingObject(this);
@@ -265,12 +250,11 @@ bool KConditionVariable::IRQWaitDeadline(TimeValMicros deadline)
 
         sleepNode.Detatch();
         if (waitNode.m_TargetDeleted) {
-            set_last_error(EINVAL);
-            return false;
+            return PErrorCode::InvalidArg;
         }
         if (!waitNode.Detatch())
         {
-            return true;
+            return PErrorCode::Success;
         }                
     }
 }
@@ -279,9 +263,9 @@ bool KConditionVariable::IRQWaitDeadline(TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KConditionVariable::IRQWaitTimeout(TimeValMicros timeout)
+PErrorCode KConditionVariable::IRQWaitTimeout(TimeValMicros timeout)
 {
-    return IRQWaitDeadline((!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
+    return IRQWaitClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_clock_time(CLOCK_MONOTONIC_COARSE) + timeout) : TimeValMicros::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -291,81 +275,11 @@ bool KConditionVariable::IRQWaitTimeout(TimeValMicros timeout)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KConditionVariable::Wakeup(int threadCount)
+PErrorCode KConditionVariable::Wakeup(int threadCount)
 {
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         if (wakeup_wait_queue(&m_WaitQueue, 0, threadCount)) KSWITCH_CONTEXT();
     } CRITICAL_END;    
+    return PErrorCode::Success;
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-handle_id create_condition_var(const char* name)
-{
-  try {
-    return KNamedObject::RegisterObject(ptr_new<KConditionVariable>(name));
-  }
-  catch (const std::bad_alloc& error) {
-    set_last_error(ENOMEM);
-    return -1;
-  }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t  condition_var_wait(handle_id handle, handle_id mutexHandle)
-{
-  Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(mutexHandle, KNamedObjectType::Mutex));
-  if (mutex == nullptr) {
-    set_last_error(EINVAL);
-    return -1;
-  }
-  return KNamedObject::ForwardToHandleBoolToInt<KConditionVariable>(handle, static_cast<bool(KConditionVariable::*)(KMutex&)>(&KConditionVariable::Wait), *mutex);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t  condition_var_wait_timeout(handle_id handle, handle_id mutexHandle, bigtime_t timeout)
-{
-    return condition_var_wait_deadline(handle, mutexHandle, (timeout != TimeValMicros::infinit.AsMicroSeconds()) ? (get_system_time().AsMicroSeconds() + timeout) : TimeValMicros::infinit.AsMicroSeconds());
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t  condition_var_wait_deadline(handle_id handle, handle_id mutexHandle, bigtime_t deadline)
-{
-  Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(mutexHandle, KNamedObjectType::Mutex));
-  if (mutex == nullptr) {
-    set_last_error(EINVAL);
-    return -1;
-  }
-  return KNamedObject::ForwardToHandleBoolToInt<KConditionVariable>(handle, static_cast<bool(KConditionVariable::*)(KMutex&, TimeValMicros)>(&KConditionVariable::WaitDeadline), *mutex, TimeValMicros::FromMicroseconds(deadline));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t condition_var_wakeup(handle_id handle, int threadCount)
-{
-  return KNamedObject::ForwardToHandleVoid<KConditionVariable>(handle, &KConditionVariable::Wakeup, threadCount);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t condition_var_wakeup_all(handle_id handle)
-{
-  return KNamedObject::ForwardToHandleVoid<KConditionVariable>(handle, &KConditionVariable::WakeupAll);
-}
-

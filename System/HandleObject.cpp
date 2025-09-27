@@ -28,7 +28,9 @@ using namespace os;
 
 HandleObject::HandleObject(const HandleObject& other)
 {
-    m_Handle = duplicate_handle(other.m_Handle);
+    if (duplicate_handle(m_Handle, other.m_Handle) != PErrorCode::Success) {
+        m_Handle = INVALID_HANDLE;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -51,7 +53,9 @@ HandleObject& HandleObject::operator=(const HandleObject& other)
     if (m_Handle != INVALID_HANDLE) {
         delete_handle(m_Handle);
     }
-    m_Handle = duplicate_handle(other.m_Handle);
+    if (duplicate_handle(m_Handle, other.m_Handle) != PErrorCode::Success) {
+        m_Handle = INVALID_HANDLE;
+    }
     return *this;
 }
 

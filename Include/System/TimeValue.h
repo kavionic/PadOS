@@ -20,8 +20,9 @@
 #pragma once
 
 #include <limits>
+#include <time.h>
+#include <sys/pados_types.h>
 #include <System/Sections.h>
-#include <System/Types.h>
 
 template<typename T, uint64_t TICKS_PER_SECOND>
 struct TimeValue
@@ -31,8 +32,6 @@ struct TimeValue
     static constexpr T TicksPerMillisecond = TicksPerSecond / 1000;
     static constexpr T TicksPerMicrosecond = TicksPerMillisecond / 1000;
     static constexpr T TicksPerNanosecond = TicksPerMicrosecond / 1000;
-    static constexpr TimeValue zero = TimeValue::FromNative(0);
-    static constexpr TimeValue infinit = TimeValue::FromNative(std::numeric_limits<T>::max());
 
     // Conversions from misc time domains to TimeValue:
     static constexpr TimeValue FromNative(T value) { return TimeValue(value); }
@@ -57,7 +56,10 @@ struct TimeValue
             return TimeValue(value / (1000000000 / TicksPerSecond));
         }
     }
-
+    static constexpr TimeValue FromTimespec(const timespec& time)
+    {
+        return FromSeconds(time.tv_sec) + FromNanoseconds(time.tv_nsec);
+    }
     // Constructors:
     constexpr TimeValue() : m_Value(0) {}
     constexpr TimeValue(float value) : m_Value(T(value * double(TicksPerSecond))) {}
@@ -184,6 +186,8 @@ struct TimeValue
     constexpr inline TimeValue operator-(double rhs) const { return TimeValue(m_Value - FromSeconds(rhs).AsNative()); }
     inline TimeValue& operator+=(double rhs) { m_Value += FromSeconds(rhs).AsNative(); return *this; }
     inline TimeValue& operator-=(double rhs) { m_Value -= FromSeconds(rhs).AsNative(); return *this; }
+    
+    inline TimeValue operator-() const { return TimeValue::FromNative(-m_Value); }
 
     constexpr inline TimeValue operator*(float multiplier) const { return TimeValue::FromSeconds(AsSecondsF() * multiplier); }
     inline TimeValue& operator*=(float multiplier) { *this = (*this) * multiplier; return *this; }
@@ -215,12 +219,16 @@ struct TimeValue
     constexpr inline double      AsSeconds() const { return double(m_Value) / double(TicksPerSecond); }
     constexpr inline float       AsSecondsF() const { return float(AsSeconds()); }
     constexpr inline bigtime_t   AsSecondsI() const { return m_Value / TicksPerSecond; }
+    constexpr inline timespec    AsTimespec() const { return { .tv_sec = m_Value / TicksPerSecond, .tv_nsec = long(AsNanoSeconds() % 1000000000) }; }
 
     constexpr inline T AsNative() const { return m_Value; }
 
     // Misc:
     constexpr inline bool IsZero() const { return m_Value == 0; }
     constexpr inline bool IsInfinit() const { return m_Value == infinit.m_Value; }
+
+    static constexpr TimeValue zero = FromNative(0);
+    static constexpr TimeValue infinit = FromNative(std::numeric_limits<T>::max());
 
 private:
     explicit constexpr TimeValue(T value) : m_Value(value) {}

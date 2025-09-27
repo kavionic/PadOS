@@ -21,33 +21,6 @@
 
 #define PTR_DELETED_MAGIC 0xdeaddead
 
-///////////////////////////////////////////////////////////////////////////////
-/// Default constructor.
-/// \par Description:
-///      Initialize the pointer with the nullptr value.
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-  
-template <class T> inline
-Ptr<T>::Ptr() noexcept
-{
-    Initialize(nullptr);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// nullptr constructor
-/// \par Description:
-///      This constructor exists to make it possible to use nullptr as a null
-///      pointer rather than always having to give a full declaration
-///      (like Ptr<ClassName>()).
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-  
-template <class T> inline
-  Ptr<T>::Ptr(std::nullptr_t) noexcept
-{
-    Initialize(nullptr);
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Copy constructor.
@@ -60,7 +33,7 @@ template <class T> inline
 template <class T> inline
 Ptr<T>::Ptr(const Ptr& ptr) noexcept
 {
-    Initialize(ptr.m_Object);
+    Set(ptr.m_Object);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -89,7 +62,7 @@ template <class T>
 template <class Y> inline
 Ptr<T>::Ptr(const Ptr<Y>& ptr) noexcept
 {
-    Initialize(ptr.m_Object);
+    Set(ptr.m_Object);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -105,8 +78,6 @@ template <class T>
 template <class Y> inline
 Ptr<T>::Ptr(const WeakPtr<Y>& ptr) noexcept
 {
-    Initialize(nullptr);
-
     if (ptr.m_Notifier != nullptr)
     {
         ptr.m_Notifier->Lock();
@@ -131,7 +102,7 @@ template <class T>
 template <class Y> inline
 Ptr<T>::Ptr(const SigWeakPtr<Y>& ptr) noexcept
 {
-    Initialize(ptr.m_Object);
+    Set(ptr.m_Object);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -147,7 +118,7 @@ template <class T>
 template <class Y> inline
 Ptr<T>::Ptr(NoPtr<Y>& ptr) noexcept
 {
-    Initialize(&ptr);
+    Set(&ptr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -398,19 +369,6 @@ template <class T> inline
 bool Ptr<T>::operator< (const T* obj) const noexcept
 {
     return m_Object < obj;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-template <class T> inline
-void Ptr<T>::Initialize(T* obj) noexcept
-{
-    m_Object = nullptr;
-    if ( obj != nullptr ) {
-        Set(obj);
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

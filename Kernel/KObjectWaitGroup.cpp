@@ -33,7 +33,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KObjectWaitGroup::KObjectWaitGroup(const char* name) : KNamedObject(name, KNamedObjectType::ObjectWaitGroup), m_Mutex(name, EMutexRecursionMode::RaiseError), m_BlockedThreadCondition(name)
+KObjectWaitGroup::KObjectWaitGroup(const char* name) : KNamedObject(name, KNamedObjectType::ObjectWaitGroup), m_Mutex(name, PEMutexRecursionMode_RaiseError), m_BlockedThreadCondition(name)
 {
 }
 
@@ -41,7 +41,7 @@ KObjectWaitGroup::KObjectWaitGroup(const char* name) : KNamedObject(name, KNamed
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::AddObject(KWaitableObject* object, ObjectWaitMode waitMode)
+PErrorCode KObjectWaitGroup::AddObject(KWaitableObject* object, ObjectWaitMode waitMode)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
@@ -52,7 +52,7 @@ bool KObjectWaitGroup::AddObject(KWaitableObject* object, ObjectWaitMode waitMod
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::SetObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode)
+PErrorCode KObjectWaitGroup::SetObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
@@ -62,10 +62,9 @@ bool KObjectWaitGroup::SetObjects(const std::vector<KWaitableObject*>& objects, 
 		for (KWaitableObject* object : objects) {
             AddObjectInternal(object, waitMode);
 		}
-		return true;
+		return PErrorCode::Success;
 	} catch (const std::bad_alloc&) {
-        set_last_error(ENOMEM);
-        return false;
+        return PErrorCode::NoMemory;
     }
 }
 
@@ -73,7 +72,7 @@ bool KObjectWaitGroup::SetObjects(const std::vector<KWaitableObject*>& objects, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::AppendObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode)
+PErrorCode KObjectWaitGroup::AppendObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
@@ -82,10 +81,9 @@ bool KObjectWaitGroup::AppendObjects(const std::vector<KWaitableObject*>& object
         for (KWaitableObject* object : objects) {
             AddObjectInternal(object, waitMode);
         }
-		return true;
+		return PErrorCode::Success;
 	} catch (const std::bad_alloc&) {
-        set_last_error(ENOMEM);
-        return false;
+        return PErrorCode::NoMemory;
     }
 }
 
@@ -93,7 +91,7 @@ bool KObjectWaitGroup::AppendObjects(const std::vector<KWaitableObject*>& object
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::RemoveObject(KWaitableObject* object, ObjectWaitMode waitMode)
+PErrorCode KObjectWaitGroup::RemoveObject(KWaitableObject* object, ObjectWaitMode waitMode)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
@@ -104,29 +102,29 @@ bool KObjectWaitGroup::RemoveObject(KWaitableObject* object, ObjectWaitMode wait
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KObjectWaitGroup::Clear()
+PErrorCode KObjectWaitGroup::Clear()
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
     ClearInternal();
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::AddObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode)
+PErrorCode KObjectWaitGroup::AddObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode)
 {
     kassert(m_Mutex.IsLocked());
 
     try {
         m_Objects.emplace_back(object, waitMode);
         object->m_WaitGroups.emplace_back(this, waitMode);
-        return true;
+        return PErrorCode::Success;
     }
     catch (const std::bad_alloc&) {
-        set_last_error(ENOMEM);
-        return false;
+        return PErrorCode::NoMemory;
     }
 }
 
@@ -134,7 +132,7 @@ bool KObjectWaitGroup::AddObjectInternal(KWaitableObject* object, ObjectWaitMode
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::RemoveObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode)
+PErrorCode KObjectWaitGroup::RemoveObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode)
 {
     kassert(m_Mutex.IsLocked());
 
@@ -148,9 +146,9 @@ bool KObjectWaitGroup::RemoveObjectInternal(KWaitableObject* object, ObjectWaitM
             i->first->m_WaitGroups.erase(j);
         }
         m_Objects.erase(i);
-        return true;
+        return PErrorCode::Success;
     }
-    return false;
+    return PErrorCode::InvalidArg;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -172,37 +170,36 @@ void KObjectWaitGroup::ClearInternal()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::WaitForBlockedThread(TimeValMicros deadline)
+PErrorCode KObjectWaitGroup::WaitForBlockedThread(TimeValMicros deadline)
 {
     while (m_BlockedThread != nullptr)
     {
         add_thread_to_ready_list(m_BlockedThread);
 
         ++m_ObjListModsPending;
-        const bool result = m_BlockedThreadCondition.Wait(m_Mutex);
+        const PErrorCode result = m_BlockedThreadCondition.Wait(m_Mutex);
         --m_ObjListModsPending;
         m_BlockedThreadCondition.WakeupAll();
-        if (!result)
+        if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
         {
-            if (get_last_error() != EINTR) {
-                return false;
-            }
+            return result;
         }
     }
-    return true;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
+PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
 
-    if (!WaitForBlockedThread(deadline)) {
-        return false;
+    PErrorCode result = WaitForBlockedThread(deadline);
+    if (result != PErrorCode::Success) {
+        return result;
     }
 
     KThreadCB* thread = gk_CurrentThread;
@@ -210,8 +207,7 @@ bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFla
     try {
         m_WaitNodes.resize(m_Objects.size());
     } catch (const std::bad_alloc&) {
-        set_last_error(ENOMEM);
-        return false;
+        return PErrorCode::NoMemory;
     }
 
     size_t maxFlagIndex = (readyFlagsBuffer != nullptr) ? std::min(m_WaitNodes.size(), readyFlagsSize * 8) : 0;
@@ -236,12 +232,12 @@ bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFla
                 for (int j = i - 1; j >= 0; --j) {
                     m_WaitNodes[j].Detatch();
                 }
-                return true;
+                return PErrorCode::Success;
             }
         }
     }
     if (isReady) {
-        return true;
+        return PErrorCode::Success;
     }
 
     CRITICAL_BEGIN(CRITICAL_IRQ)
@@ -257,7 +253,7 @@ bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFla
         {
             if (!deadline.IsInfinit())
             {
-                thread->m_State = ThreadState::Sleeping;
+                thread->m_State = ThreadState_Sleeping;
 
                 m_SleepNode.m_Thread = thread;
                 m_SleepNode.m_ResumeTime = deadline;
@@ -265,7 +261,7 @@ bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFla
             }
             else
             {
-                thread->m_State = ThreadState::Waiting;
+                thread->m_State = ThreadState_Waiting;
             }
             thread->SetBlockingObject(this);
             m_BlockedThread = thread;
@@ -304,27 +300,28 @@ bool KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFla
     if (!didTimeout && m_ObjListModsPending != 0)
     {
         // Give the threads attempting to add/remove objects a chance to work before locking them out again.
-        if (!m_BlockedThreadCondition.WaitDeadline(m_Mutex, deadline)) {
-            return false;
+        const PErrorCode result = m_BlockedThreadCondition.WaitDeadline(m_Mutex, deadline);
+        if (result != PErrorCode::Success) {
+            return result;
         }
     }
 
     if (!isReady) {
-        set_last_error((didTimeout) ? ETIME : EINTR);
+        return didTimeout ? PErrorCode::Timeout : PErrorCode::Interrupted;
     }
-    return isReady;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::AddFile(int fileHandle, ObjectWaitMode waitMode)
+PErrorCode KObjectWaitGroup::AddFile(int fileHandle, ObjectWaitMode waitMode)
 {
     Ptr<KINode> inode;
     Ptr<KFileNode> file = FileIO::GetFile(fileHandle, inode);
     if (file == nullptr) {
-        return false;
+        return PErrorCode::InvalidArg;
     }
     return AddObject(inode, waitMode);
 }
@@ -333,12 +330,12 @@ bool KObjectWaitGroup::AddFile(int fileHandle, ObjectWaitMode waitMode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KObjectWaitGroup::RemoveFile(int fileHandle, ObjectWaitMode waitMode)
+PErrorCode KObjectWaitGroup::RemoveFile(int fileHandle, ObjectWaitMode waitMode)
 {
     Ptr<KINode> inode;
     Ptr<KFileNode> file = FileIO::GetFile(fileHandle, inode);
     if (file == nullptr) {
-        return false;
+        return PErrorCode::InvalidArg;
     }
     return RemoveObject(inode, waitMode);
 }
@@ -347,14 +344,13 @@ bool KObjectWaitGroup::RemoveFile(int fileHandle, ObjectWaitMode waitMode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-handle_id create_object_wait_group(const char* name)
+PErrorCode create_object_wait_group(handle_id& outHandle, const char* name)
 {
     try {
-        return KNamedObject::RegisterObject(ptr_new<KObjectWaitGroup>(name));
+        return KNamedObject::RegisterObject(outHandle, ptr_new<KObjectWaitGroup>(name));
     }
     catch (const std::bad_alloc& error) {
-        set_last_error(ENOMEM);
-        return -1;
+        return PErrorCode::NoMemory;
     }
 }
 
@@ -362,76 +358,73 @@ handle_id create_object_wait_group(const char* name)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t  object_wait_group_add_object(handle_id handle, handle_id objectHandle, ObjectWaitMode waitMode)
+PErrorCode object_wait_group_add_object(handle_id handle, handle_id objectHandle, ObjectWaitMode waitMode)
 {
     Ptr<KNamedObject> object = KNamedObject::GetAnyObject(objectHandle);
     if (object == nullptr) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
-    return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(KWaitableObject*, ObjectWaitMode)>(&KObjectWaitGroup::AddObject), ptr_raw_pointer_cast(object), waitMode);
+    return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KObjectWaitGroup::*)(KWaitableObject*, ObjectWaitMode)>(&KObjectWaitGroup::AddObject), ptr_raw_pointer_cast(object), waitMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t  object_wait_group_remove_object(handle_id handle, handle_id objectHandle, ObjectWaitMode waitMode)
+PErrorCode object_wait_group_remove_object(handle_id handle, handle_id objectHandle, ObjectWaitMode waitMode)
 {
     Ptr<KNamedObject> object = KNamedObject::GetAnyObject(objectHandle);
     if (object == nullptr) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
-    return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(KWaitableObject*, ObjectWaitMode)>(&KObjectWaitGroup::RemoveObject), ptr_raw_pointer_cast(object), waitMode);
+    return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KObjectWaitGroup::*)(KWaitableObject*, ObjectWaitMode)>(&KObjectWaitGroup::RemoveObject), ptr_raw_pointer_cast(object), waitMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t object_wait_group_add_file(handle_id handle, int fileHandle, ObjectWaitMode waitMode /*= ObjectWaitMode::Read*/)
+PErrorCode object_wait_group_add_file(handle_id handle, int fileHandle, ObjectWaitMode waitMode /*= ObjectWaitMode::Read*/)
 {
-    return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, &KObjectWaitGroup::AddFile, fileHandle, waitMode);
+    return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, &KObjectWaitGroup::AddFile, fileHandle, waitMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t object_wait_group_remove_file(handle_id handle, int fileHandle, ObjectWaitMode waitMode /*= ObjectWaitMode::Read*/)
+PErrorCode object_wait_group_remove_file(handle_id handle, int fileHandle, ObjectWaitMode waitMode /*= ObjectWaitMode::Read*/)
 {
-    return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, &KObjectWaitGroup::RemoveFile, fileHandle, waitMode);
+    return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, &KObjectWaitGroup::RemoveFile, fileHandle, waitMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t  object_wait_group_clear(handle_id handle)
+PErrorCode object_wait_group_clear(handle_id handle)
 {
-    return KNamedObject::ForwardToHandleVoid<KObjectWaitGroup>(handle, &KObjectWaitGroup::Clear);
+    return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, &KObjectWaitGroup::Clear);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t object_wait_group_wait(handle_id handle, handle_id mutexHandle, void* readyFlagsBuffer, size_t readyFlagsSize)
+PErrorCode object_wait_group_wait(handle_id handle, handle_id mutexHandle, void* readyFlagsBuffer, size_t readyFlagsSize)
 {
     Ptr<KMutex> mutex;
     if (mutexHandle != INVALID_HANDLE)
     {
         mutex = KNamedObject::GetObject<KMutex>(mutexHandle);
         if (mutex == nullptr) {
-            set_last_error(EINVAL);
-            return -1;
+            return PErrorCode::InvalidArg;
         }
     }
     if (mutex != nullptr) {
-        return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(KMutex&, void*, size_t)>(&KObjectWaitGroup::Wait), *mutex, readyFlagsBuffer, readyFlagsSize);
+        return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KObjectWaitGroup::*)(KMutex&, void*, size_t)>(&KObjectWaitGroup::Wait), *mutex, readyFlagsBuffer, readyFlagsSize);
     } else {
-        return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(void*, size_t)>(&KObjectWaitGroup::Wait), readyFlagsBuffer, readyFlagsSize);
+        return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KObjectWaitGroup::*)(void*, size_t)>(&KObjectWaitGroup::Wait), readyFlagsBuffer, readyFlagsSize);
     }
 }
 
@@ -439,7 +432,7 @@ status_t object_wait_group_wait(handle_id handle, handle_id mutexHandle, void* r
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t object_wait_group_wait_timeout(handle_id handle, handle_id mutexHandle, bigtime_t timeout, void* readyFlagsBuffer, size_t readyFlagsSize)
+PErrorCode object_wait_group_wait_timeout(handle_id handle, handle_id mutexHandle, bigtime_t timeout, void* readyFlagsBuffer, size_t readyFlagsSize)
 {
     return object_wait_group_wait_deadline(handle, mutexHandle, (timeout != TimeValMicros::infinit.AsMicroSeconds()) ? (get_system_time().AsMicroSeconds() + timeout) : TimeValMicros::infinit.AsMicroSeconds(), readyFlagsBuffer, readyFlagsSize);
 }
@@ -448,20 +441,19 @@ status_t object_wait_group_wait_timeout(handle_id handle, handle_id mutexHandle,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t object_wait_group_wait_deadline(handle_id handle, handle_id mutexHandle, bigtime_t deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
+PErrorCode object_wait_group_wait_deadline(handle_id handle, handle_id mutexHandle, bigtime_t deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
 {
     Ptr<KMutex> mutex;
     if (mutexHandle != INVALID_HANDLE)
     {
         mutex = KNamedObject::GetObject<KMutex>(mutexHandle);
         if (mutex == nullptr) {
-            set_last_error(EINVAL);
-            return -1;
+            return PErrorCode::InvalidArg;
         }
     }
     if (mutex != nullptr) {
-        return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(KMutex&, TimeValMicros, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), *mutex, TimeValMicros::FromMicroseconds(deadline), readyFlagsBuffer, readyFlagsSize);
+        return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KObjectWaitGroup::*)(KMutex&, TimeValMicros, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), *mutex, TimeValMicros::FromMicroseconds(deadline), readyFlagsBuffer, readyFlagsSize);
     } else {
-        return KNamedObject::ForwardToHandleBoolToInt<KObjectWaitGroup>(handle, static_cast<bool(KObjectWaitGroup::*)(TimeValMicros, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), TimeValMicros::FromMicroseconds(deadline), readyFlagsBuffer, readyFlagsSize);
+        return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KObjectWaitGroup::*)(TimeValMicros, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), TimeValMicros::FromMicroseconds(deadline), readyFlagsBuffer, readyFlagsSize);
     }
 }

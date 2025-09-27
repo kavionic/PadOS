@@ -98,7 +98,7 @@ String StandardPaths::GetPath(StandardPathID pathID, const String& file)
 
 Mutex& StandardPaths::GetMutex()
 {
-    static Mutex mutex("std_path_mutex", EMutexRecursionMode::RaiseError);
+    static Mutex mutex("std_path_mutex", PEMutexRecursionMode_RaiseError);
     return mutex;
 }
 

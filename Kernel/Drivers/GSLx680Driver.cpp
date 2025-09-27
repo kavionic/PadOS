@@ -38,7 +38,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-GSLx680Driver::GSLx680Driver() : Thread("GSLx680_driver"), m_Mutex("GSLx680_mutex", EMutexRecursionMode::RaiseError), m_EventCondition("GSLx680_events")
+GSLx680Driver::GSLx680Driver() : Thread("GSLx680_driver"), m_Mutex("GSLx680_mutex", PEMutexRecursionMode_RaiseError), m_EventCondition("GSLx680_events")
 {
     SetDeleteOnExit(false);
 }
@@ -81,7 +81,7 @@ void GSLx680Driver::Setup(const char* devicePath, int threadPriority, DigitalPin
 		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x80);
 		I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
-		Start(true, threadPriority);
+        Start(PThreadDetachState_Detached, threadPriority);
 	}
 	Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
 	Kernel::RegisterDevice(devicePath, inode);
@@ -91,7 +91,7 @@ void GSLx680Driver::Setup(const char* devicePath, int threadPriority, DigitalPin
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int GSLx680Driver::Run()
+void* GSLx680Driver::Run()
 {
 	CRITICAL_SCOPE(m_Mutex);
 	
@@ -185,7 +185,7 @@ int GSLx680Driver::Run()
 		}
 		m_PointFlags = pointFlags;
     }
-    return 0; 
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

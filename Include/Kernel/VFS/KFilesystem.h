@@ -22,6 +22,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/dirent.h>
 #include <errno.h>
 #include <stddef.h>
 
@@ -34,18 +35,6 @@ namespace os
 {
 struct IOSegment;
 
-static constexpr uint32_t WSTAT_MODE    = 0x0001;
-static constexpr uint32_t WSTAT_UID     = 0x0002;
-static constexpr uint32_t WSTAT_GID     = 0x0004;
-static constexpr uint32_t WSTAT_SIZE    = 0x0008;
-static constexpr uint32_t WSTAT_ATIME   = 0x0010;
-static constexpr uint32_t WSTAT_MTIME   = 0x0020;
-static constexpr uint32_t WSTAT_CTIME   = 0x0040;
-static constexpr uint32_t WSTAT_MASK    = 0x007f;
-
-static constexpr uint32_t WFSSTAT_NAME = 0x0001;
-
-static constexpr uint32_t  FSINFO_VERSION = 1;
 }
 
 namespace kernel
@@ -72,46 +61,22 @@ enum class FSVolumeFlags : uint32_t
 
 typedef struct
 {
-    dev_t    fi_dev;			/* Device ID */
-    ino_t    fi_root;			/* Root inode number */
-    uint32_t fi_flags;			/* Filesystem flags (defined above) */
-    int	     fi_block_size;		/* Fundamental block size */
-    int	     fi_io_size;			/* Optimal IO size */
-    off_t    fi_total_blocks;		/* Total number of blocks in FS */
-    off_t    fi_free_blocks;		/* Number of free blocks in FS */
-    off_t    fi_free_user_blocks;		/* Number of blocks available for non-root users */
-    off_t    fi_total_inodes;		/* Total number of inodes (-1 if inodes are allocated dynamically) */
-    off_t    fi_free_inodes;		/* Number of free inodes (-1 if inodes are allocated dynamically) */
-    char     fi_device_path[1024];	/* Device backing the FS (might not be a real
-					 * device unless the FS_IS_BLOCKBASED is set) */
-    char     fi_mount_args[1024];		/* Arguments given to FS when mounted */
-    char     fi_volume_name[256];		/* Volume name */
-    char     fi_driver_name[OS_NAME_LENGTH];	/* Name of filesystem driver */
+    dev_t    fi_dev;                /* Device ID */
+    ino_t    fi_root;               /* Root inode number */
+    uint32_t fi_flags;              /* Filesystem flags (defined above) */
+    int      fi_block_size;         /* Fundamental block size */
+    int      fi_io_size;            /* Optimal IO size */
+    off_t    fi_total_blocks;       /* Total number of blocks in FS */
+    off_t    fi_free_blocks;        /* Number of free blocks in FS */
+    off_t    fi_free_user_blocks;   /* Number of blocks available for non-root users */
+    off_t    fi_total_inodes;       /* Total number of inodes (-1 if inodes are allocated dynamically) */
+    off_t    fi_free_inodes;        /* Number of free inodes (-1 if inodes are allocated dynamically) */
+    char     fi_device_path[1024];  /* Device backing the FS (might not be a real
+                                     * device unless the FS_IS_BLOCKBASED is set) */
+    char     fi_mount_args[1024];   /* Arguments given to FS when mounted */
+    char     fi_volume_name[256];   /* Volume name */
+    char     fi_driver_name[OS_NAME_LENGTH]; /* Name of filesystem driver */
 } fs_info;
-
-enum class dir_entry_type : uint32_t
-{
-    DT_UNKNOWN,
-    DT_DIRECTORY,
-    DT_FILE,
-    DT_BLOCK_DEV,
-    DT_CHARACTER_DEV,
-    DT_FIFO,
-    DT_SYMLINK,
-    DT_SOCKET
-};
-
-#define NAME_MAX 255
-
-struct dir_entry
-{
-    ino_t          d_inode;
-    dir_entry_type d_type;
-    fs_id          d_volumeid;
-    size_t         d_reclength;
-    size_t         d_namelength;
-    char           d_name[NAME_MAX + 1];
-};
 
 class KFilesystemFileOps
 {
@@ -132,7 +97,7 @@ public:
     IFLASHC virtual int     ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize);
     IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
-    IFLASHC virtual int     ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dir_entry* entry, size_t bufSize);
+    IFLASHC virtual int     ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize);
     IFLASHC virtual int     RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode);
 
     IFLASHC virtual int     CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, int mode);

@@ -19,9 +19,11 @@
 
 #pragma once
 
-#include "System/HandleObject.h"
-#include "Threads.h"
-#include "Mutex.h"
+#include <sys/pados_syscalls.h>
+
+#include <System/HandleObject.h>
+#include <Threads/Threads.h>
+#include <Threads/Mutex.h>
 
 namespace os
 {
@@ -32,20 +34,39 @@ public:
   enum class NoInit {};
 
   explicit ConditionVariable(NoInit) : HandleObject(INVALID_HANDLE) {}
-  ConditionVariable(const char* name = "") : HandleObject(create_condition_var(name)) {}
+  ConditionVariable(const char* name = "", int clockID = CLOCK_MONOTONIC)
+  {
+      handle_id handle;
+      if (sys_condition_var_create(&handle, name, clockID) == PErrorCode::Success) {
+          SetHandle(handle);
+      }
+  }
+  ~ConditionVariable() { sys_condition_var_delete(m_Handle); }
 
-  bool Wait(Mutex& lock) { return condition_var_wait(m_Handle, lock.GetHandle()) >= 0; }
-  bool WaitTimeout(Mutex& lock, const TimeValMicros& timeout) { return condition_var_wait_timeout(m_Handle, lock.GetHandle(), timeout.AsMicroSeconds()) >= 0; }
-  bool WaitDeadline(Mutex& lock, const TimeValMicros& deadline) { return condition_var_wait_deadline(m_Handle, lock.GetHandle(), deadline.AsMicroSeconds()) >= 0; }
+  bool Wait(Mutex& lock) { return ParseResult(sys_condition_var_wait(m_Handle, lock.GetHandle())); }
+  bool WaitTimeout(Mutex& lock, const TimeValMicros& timeout) { return ParseResult(sys_condition_var_wait_timeout(m_Handle, lock.GetHandle(), timeout.AsMicroSeconds())); }
+  bool WaitDeadline(Mutex& lock, const TimeValMicros& deadline) { return ParseResult(sys_condition_var_wait_deadline(m_Handle, lock.GetHandle(), deadline.AsMicroSeconds())); }
 
-  void Wakeup(int threadCount) { condition_var_wakeup(m_Handle, threadCount); }
-  void WakeupAll() { condition_var_wakeup_all(m_Handle); }
+  bool Wakeup(int threadCount) { return ParseResult(sys_condition_var_wakeup(m_Handle, threadCount)); }
+  bool WakeupAll() { return ParseResult(sys_condition_var_wakeup_all(m_Handle)); }
 
   ConditionVariable(ConditionVariable&& other) = default;
   ConditionVariable(const ConditionVariable& other) = default;
   ConditionVariable& operator=(const ConditionVariable&) = default;
 
 private:
+    bool ParseResult(PErrorCode result) const
+    {
+        if (result == PErrorCode::Success)
+        {
+            return true;
+        }
+        else
+        {
+            set_last_error(result);
+            return false;
+        }
+    }
 };
 
 

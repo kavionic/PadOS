@@ -345,7 +345,10 @@ ssize_t USBHostCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const vo
             {
                 while (m_TransmitFIFO.GetRemainingSpace() == 0)
                 {
-                    if (!m_TransmitCondition.Wait(m_HostHandler->GetMutex()) && get_last_error() != EINTR) {
+                    const PErrorCode result = m_TransmitCondition.Wait(m_HostHandler->GetMutex());
+                    if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
+                    {
+                        set_last_error(result);
                         return -1;
                     }
                     if (!m_IsActive)
@@ -390,7 +393,7 @@ int USBHostCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct 
     outStats->st_gid = 0;
     outStats->st_size = 0;
     outStats->st_blksize = 1;
-    outStats->st_atime = outStats->st_mtime = outStats->st_ctime = m_CreateTime.AsSecondsI();
+    outStats->st_atim = outStats->st_mtim = outStats->st_ctim = m_CreateTime.AsTimespec();
 
     return 0;
 }

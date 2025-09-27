@@ -24,10 +24,10 @@
 #include <Threads/Threads.h>
 #include <Kernel/Scheduler.h>
 
-template<typename T, int QUEUE_SIZE, typename Y = T> class CircularBuffer
+template<typename T, size_t QUEUE_SIZE, typename Y = T> class CircularBuffer
 {
 public:
-    static const uint32_t QUEUE_SIZE_MASK = QUEUE_SIZE - 1;
+    static const size_t QUEUE_SIZE_MASK = QUEUE_SIZE - 1;
     static_assert((QUEUE_SIZE & QUEUE_SIZE_MASK) == 0, "QUEUE_SIZE must be a power of 2.");
 
     CircularBuffer()
@@ -115,8 +115,8 @@ public:
         return length;
     }
 
-    const T*    GetReadPointer() const { return &m_Queue[m_QueueOutPos & QUEUE_SIZE_MASK]; }
-    T*          GetWritePointer() { return &m_Queue[m_QueueInPos & QUEUE_SIZE_MASK]; }
+//    const T*    GetReadPointer() const { return &m_Queue[m_QueueOutPos & QUEUE_SIZE_MASK]; }
+//    T*          GetWritePointer() { return &m_Queue[m_QueueInPos & QUEUE_SIZE_MASK]; }
 
 private:
     void WriteElements(T* dst, const T* src, size_t count)

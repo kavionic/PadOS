@@ -66,7 +66,7 @@ void GroupView::OnPaint(const Rect& updateRect)
     }
 
     Rect bound = GetNormalizedBounds();
-    bound.Resize(0.0f, floor(labelHeight * 0.5f), -1.0f, -1.0f);
+    bound.Resize(0.0f, std::floor(labelHeight * 0.5f), -1.0f, -1.0f);
 
     for (int i = 0; i < 2; ++i)
     {

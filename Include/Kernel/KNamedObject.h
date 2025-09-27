@@ -19,12 +19,11 @@
 
 #pragma once
 
-#include <sys/errno.h>
-
-#include "Kernel.h"
-#include "Ptr/PtrTarget.h"
-#include "Ptr/Ptr.h"
-#include "System/System.h"
+#include <Kernel/Kernel.h>
+#include <Ptr/PtrTarget.h>
+#include <Ptr/Ptr.h>
+#include <System/System.h>
+#include <System/ErrorCodes.h>
 #include <Kernel/KWaitableObject.h>
 
 namespace kernel
@@ -54,13 +53,13 @@ public:
 
     bool DebugValidate() const;
 
-    KNamedObjectType GetType() const           { return m_Type; }
-    const char*      GetName() const           { return m_Name; }
+    KNamedObjectType GetType() const noexcept { return m_Type; }
+    const char*      GetName() const noexcept { return m_Name; }
 
-    virtual void     SetHandle(int32_t handle) { m_Handle = handle; }
-    int32_t          GetHandle() const         { return m_Handle; }
+    virtual void     SetHandle(int32_t handle) noexcept { m_Handle = handle; }
+    int32_t          GetHandle() const noexcept         { return m_Handle; }
 
-    static int32_t           RegisterObject(Ptr<KNamedObject> object);
+    static PErrorCode        RegisterObject(handle_id& outHandle, Ptr<KNamedObject> object);
     static bool              FreeHandle(int32_t handle);
 	static bool              FreeHandle(int32_t handle, KNamedObjectType type);
 
@@ -69,35 +68,37 @@ public:
     static Ptr<T>            GetObject(int32_t handle) { return ptr_static_cast<T>(GetObject(handle, T::ObjectType)); }
 	static Ptr<KNamedObject> GetAnyObject(int32_t handle);
 
-    template<typename T, typename CALLBACK, typename... ARGS>
-    static status_t ForwardToHandle(int handle, CALLBACK callback, ARGS&&... args)
+    template<typename TObjectType, typename TReturnType, typename CALLBACK, typename... ARGS>
+    static TReturnType ForwardToHandle(int handle, const TReturnType& invalidHandleReturnValue, CALLBACK callback, ARGS&&... args)
     {
-        Ptr<T> object = ptr_static_cast<T>(GetObject(handle, T::ObjectType));
+        Ptr<TObjectType> object = GetObject<TObjectType>(handle);
         if (object != nullptr) {
             return (ptr_raw_pointer_cast(object)->*callback)(args...);
         } else {
-            set_last_error(EINVAL);
-            return -1;
+            return invalidHandleReturnValue;
         }
     }
 
     template<typename T, typename CALLBACK, typename... ARGS>
     static status_t ForwardToHandleVoid(int handle, CALLBACK callback, ARGS&&... args)
     {
-        Ptr<T> object = ptr_static_cast<T>(GetObject(handle, T::ObjectType));
-        if (object != nullptr) {
+        Ptr<T> object = GetObject<T>(handle);
+        if (object != nullptr)
+        {
             (ptr_raw_pointer_cast(object)->*callback)(args...);
             return 0;
-        } else {
+        }
+        else
+        {
             set_last_error(EINVAL);
             return -1;
         }
     }
 
-    template<typename T, typename CALLBACK, typename... ARGS>
-    static status_t ForwardToHandleBoolToInt(int handle, CALLBACK callback, ARGS&&... args)
+    template<typename T, typename RETURN_TYPE, typename CALLBACK, typename... ARGS>
+    static RETURN_TYPE ForwardToHandleBool(int handle, RETURN_TYPE falseValue, RETURN_TYPE trueValue, CALLBACK callback, ARGS&&... args)
     {
-        return ForwardToHandle<T>(handle, callback, args...) ? 0 : -1;
+        return ForwardToHandle<T>(handle, false, callback, args...) ? trueValue : falseValue;
     }
 
 private:

@@ -175,7 +175,7 @@ IFLASHC void TestBase64Codec()
         String encodedData = Base64Codec::Encode(binaryData.data(), binaryData.size());
         std::vector<uint8_t> decodedData = Base64Codec::Decode(encodedData.data(), encodedData.size());
 
-        EXPECT_TRUE(binaryData == decodedData);
+        _EXPECT_TRUE(binaryData == decodedData);
     }
 }
 

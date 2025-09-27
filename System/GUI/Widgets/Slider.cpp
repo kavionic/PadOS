@@ -276,7 +276,7 @@ void Slider::SetValue(float value, bool sendEvent)
 {
     if (m_Resolution != 0.0f)
     {
-        value = round(value / m_Resolution) * m_Resolution;
+        value = std::round(value / m_Resolution) * m_Resolution;
     }
     if (value != m_Value)
     {
@@ -739,7 +739,7 @@ void Slider::RenderKnob(StandardColorID knobColor, float value)
 
         if (m_Orientation == Orientation::Horizontal)
         {
-            const float center = floor(knobFrame.left + (knobFrame.right - knobFrame.left) * 0.5f);
+            const float center = std::floor(knobFrame.left + (knobFrame.right - knobFrame.left) * 0.5f);
 
             SetFgColor(knobColor);
             float offset = 0.0f;
@@ -784,7 +784,7 @@ void Slider::RenderKnob(StandardColorID knobColor, float value)
         }
         else
         {
-            const float center = floor(knobFrame.top + (knobFrame.bottom - knobFrame.top) * 0.5f);
+            const float center = std::floor(knobFrame.top + (knobFrame.bottom - knobFrame.top) * 0.5f);
 
             SetFgColor(knobColor);
             float offset = 0.0f;
@@ -855,7 +855,7 @@ void Slider::RenderLabels()
     }
     else
     {
-        const float offset = ceil(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame).Height() * 0.5f) + VLABEL_SPACING;
+        const float offset = std::ceil(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame).Height() * 0.5f) + VLABEL_SPACING;
         if (!m_MaxLabel.empty())
         {
             MovePenTo(center.x - GetStringWidth(m_MaxLabel) * 0.5f, sliderFrame.top - fontHeight.descender - offset);
@@ -881,17 +881,17 @@ void Slider::RenderTicks()
 
         if (m_Orientation == Orientation::Horizontal)
         {
-            const float width = floor(sliderFrame.Width() - 2.0f);
+            const float width = std::floor(sliderFrame.Width() - 2.0f);
 
-            const float y1 = floor(sliderFrame.top - TICK_SPACING);
+            const float y1 = std::floor(sliderFrame.top - TICK_SPACING);
             const float y2 = y1 - TICK_LENGTH;
-            const float y4 = floor(sliderFrame.bottom + TICK_SPACING);
+            const float y4 = std::floor(sliderFrame.bottom + TICK_SPACING);
             const float y3 = y4 + TICK_LENGTH;
 
             SetFgColor(get_standard_color(StandardColorID::Shadow));
             for (int i = 0; i < m_NumTicks; ++i)
             {
-                const float x = floor(sliderFrame.left + width * float(i) * scale);
+                const float x = std::floor(sliderFrame.left + width * float(i) * scale);
                 if (HasFlags(SliderFlags::TicksAbove)) {
                     DrawLine(Point(x, y1), Point(x, y2));
                 }
@@ -902,7 +902,7 @@ void Slider::RenderTicks()
             SetFgColor(get_standard_color(StandardColorID::Shine));
             for (int i = 0; i < m_NumTicks; ++i)
             {
-                const float x = floor(sliderFrame.left + width * float(i) * scale) + 1.0f;
+                const float x = std::floor(sliderFrame.left + width * float(i) * scale) + 1.0f;
                 if (HasFlags(SliderFlags::TicksAbove)) {
                     DrawLine(Point(x, y1), Point(x, y2));
                 }
@@ -915,15 +915,15 @@ void Slider::RenderTicks()
         {
             const float height = sliderFrame.Height() - 2.0f;
 
-            const float x1 = floor(sliderFrame.left - TICK_SPACING);
+            const float x1 = std::floor(sliderFrame.left - TICK_SPACING);
             const float x2 = x1 - TICK_LENGTH;
-            const float x4 = floor(sliderFrame.right + TICK_SPACING - 1.0f);
+            const float x4 = std::floor(sliderFrame.right + TICK_SPACING - 1.0f);
             const float x3 = x4 + TICK_LENGTH;
 
             SetFgColor(get_standard_color(StandardColorID::Shadow));
             for (int i = 0; i < m_NumTicks; ++i)
             {
-                const float y = floor(sliderFrame.top + height * float(i) * scale);
+                const float y = std::floor(sliderFrame.top + height * float(i) * scale);
                 if (HasFlags(SliderFlags::TicksLeft)) {
                     DrawLine(Point(x1, y), Point(x2, y));
                 }
@@ -934,7 +934,7 @@ void Slider::RenderTicks()
             SetFgColor(get_standard_color(StandardColorID::Shine));
             for (int i = 0; i < m_NumTicks; ++i)
             {
-                const float y = floor(sliderFrame.top + height * float(i) * scale) + 1.0f;
+                const float y = std::floor(sliderFrame.top + height * float(i) * scale) + 1.0f;
                 if (HasFlags(SliderFlags::TicksLeft)) {
                     DrawLine(Point(x1, y), Point(x2, y));
                 }
@@ -961,7 +961,7 @@ float Slider::PosToVal(const Point& position) const
     {
         if (m_NumSteps > 1) {
             float vAlign = sliderFrame.Width() / float(m_NumSteps - 1);
-            trackPosition.x = floor((trackPosition.x + vAlign * 0.5f) / vAlign) * vAlign;
+            trackPosition.x = std::floor((trackPosition.x + vAlign * 0.5f) / vAlign) * vAlign;
         }
         value = m_Min + (trackPosition.x / sliderFrame.Width()) * (m_Max - m_Min);
     }
@@ -969,7 +969,7 @@ float Slider::PosToVal(const Point& position) const
     {
         if (m_NumSteps > 1) {
             float vAlign = sliderFrame.Height() / float(m_NumSteps - 1);
-            trackPosition.y = floor((trackPosition.y + vAlign * 0.5f) / vAlign) * vAlign;
+            trackPosition.y = std::floor((trackPosition.y + vAlign * 0.5f) / vAlign) * vAlign;
         }
         value = m_Max + (trackPosition.y / sliderFrame.Height()) * (m_Min - m_Max);
     }
@@ -987,9 +987,9 @@ Point Slider::ValToPos(float value) const
     const float position = (value - m_Min) / (m_Max - m_Min);
 
     if (m_Orientation == Orientation::Horizontal) {
-        return Point(round(sliderFrame.left + (sliderFrame.Width()) * position), round(bounds.top + bounds.Height() * 0.5f));
+        return Point(std::round(sliderFrame.left + (sliderFrame.Width()) * position), std::round(bounds.top + bounds.Height() * 0.5f));
     } else {
-        return Point(round(bounds.left + bounds.Width() * 0.5f), round(sliderFrame.top + sliderFrame.Height() * (1.0f-position)));
+        return Point(std::round(bounds.left + bounds.Width() * 0.5f), std::round(sliderFrame.top + sliderFrame.Height() * (1.0f-position)));
     }
 }
 
@@ -1039,7 +1039,7 @@ Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
     const Rect  bounds(GetNormalizedBounds());
     Rect  knobFrame = GetKnobFrame(Orientation::Horizontal, GetKnobFrameMode::FullFrame);
 
-    float center = ceil(GetSliderSize() * 0.5f);
+    float center = std::ceil(GetSliderSize() * 0.5f);
     Rect sliderFrame(0.0f, -center, 0.0f, GetSliderSize() - center);
     Rect totalFrame = sliderFrame;
 
@@ -1073,7 +1073,7 @@ Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
             const FontHeight    fontHeight = GetFontHeight();
             totalFrame.bottom += fontHeight.ascender + fontHeight.descender;
         }
-        const float knobCenter = ceil(knobFrame.Width() * 0.5f);
+        const float knobCenter = std::ceil(knobFrame.Width() * 0.5f);
         sliderFrame.left = knobCenter;
         sliderFrame.right = bounds.right - knobCenter;
         totalFrame.left = bounds.left;
@@ -1092,12 +1092,12 @@ Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
         const float maxLabelWidth = GetStringWidth(m_MaxLabel);
         const float maxLabelFontHeight = (m_MaxLabel.empty()) ? 0.0f : (fontHeight.ascender + fontHeight.descender + VLABEL_SPACING);
 
-        const float labelCenter = ceil(std::max(minLabelWidth, maxLabelWidth) * 0.5f);
+        const float labelCenter = std::ceil(std::max(minLabelWidth, maxLabelWidth) * 0.5f);
 
         if (-labelCenter < totalFrame.left) totalFrame.left = -labelCenter;
         if (labelCenter > totalFrame.right) totalFrame.right = labelCenter;
 
-        const float knobCenter = ceil(knobFrame.Height() * 0.5f);
+        const float knobCenter = std::ceil(knobFrame.Height() * 0.5f);
         sliderFrame.top     = knobCenter;
         sliderFrame.bottom  = bounds.bottom - knobCenter;
 
@@ -1122,9 +1122,9 @@ Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
 
     Point centerOffset;
     if (m_Orientation == Orientation::Horizontal) {
-        centerOffset.y = floor((bounds.Height() - totalFrame.Height()) * 0.5f);
+        centerOffset.y = std::floor((bounds.Height() - totalFrame.Height()) * 0.5f);
     } else {
-        centerOffset.x = floor((bounds.Width() - totalFrame.Width()) * 0.5f);
+        centerOffset.x = std::floor((bounds.Width() - totalFrame.Width()) * 0.5f);
     }
     sliderFrame += centerOffset;
     totalFrame += centerOffset;
@@ -1133,13 +1133,13 @@ Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
     }
     return sliderFrame;
 
-//  const float size = ceil(GetSliderSize() * 0.5f);
+//  const float size = std::ceil(GetSliderSize() * 0.5f);
 //
 //  if (m_Orientation == Orientation::Horizontal)
 //  {
-//      sliderBounds.left = ceil(knobFrame.Width() * 0.5f);
-//      sliderBounds.right = bounds.right - ceil(knobFrame.Width() * 0.5f);
-//      sliderBounds.top = -ceil(GetSliderSize() * 0.5f);
+//      sliderBounds.left = std::ceil(knobFrame.Width() * 0.5f);
+//      sliderBounds.right = bounds.right - std::ceil(knobFrame.Width() * 0.5f);
+//      sliderBounds.top = -std::ceil(GetSliderSize() * 0.5f);
 //
 //      if (knobFrame.top < sliderBounds.top) sliderBounds.top = knobFrame.top;
 //
@@ -1164,7 +1164,7 @@ Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
 //  {
 //      const Point         center(bounds.Width() * 0.5f, bounds.Height() * 0.5f);
 //      const FontHeight    fontHeight = GetFontHeight();
-//      const float         knobHeight = ceil((knobFrame.Height() + 1.0f) * 0.5f);
+//      const float         knobHeight = std::ceil((knobFrame.Height() + 1.0f) * 0.5f);
 //
 //      const float minLabelFontHeight = (m_MinLabel.empty()) ? 0.0f : (fontHeight.ascender + fontHeight.descender + VLABEL_SPACING);
 //      const float maxLabelFontHeight = (m_MaxLabel.empty()) ? 0.0f : (fontHeight.ascender + fontHeight.descender + VLABEL_SPACING);
@@ -1216,7 +1216,7 @@ void Slider::LayoutValueView()
             const Rect  bounds = GetBounds();
             const Point size = m_ValueView->GetPreferredSize(PrefSizeType::Smallest);
             const Rect  frame(0.0f, 0.0f, size.x, size.y);
-            m_ValueView->SetFrame(frame + Point(bounds.Width() - size.x, round((bounds.Height() - size.y) * 0.5f)));
+            m_ValueView->SetFrame(frame + Point(bounds.Width() - size.x, std::round((bounds.Height() - size.y) * 0.5f)));
         }
     }
 }

@@ -19,7 +19,7 @@
 #pragma once
 
 #include <atomic>
-#include "System/Types.h"
+#include <System/Types.h>
 
 class PtrTargetNotifier;
 

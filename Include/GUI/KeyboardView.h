@@ -79,8 +79,8 @@ struct KeyboardLayout
 
         for (auto& button : m_KeyButtons)
         {
-            Point position(round(button.m_RelativePos.x * viewWidth) + keySpacing.x, round(button.m_RelativePos.y * viewHeight) + keySpacing.y);
-            button.m_Frame = Rect(position.x, position.y, position.x + floorf(viewWidth * button.m_Width - keySpacing.x), position.y + floorf(viewHeight * button.m_Height - keySpacing.y));
+            Point position(std::round(button.m_RelativePos.x * viewWidth) + keySpacing.x, std::round(button.m_RelativePos.y * viewHeight) + keySpacing.y);
+            button.m_Frame = Rect(position.x, position.y, position.x + std::floor(viewWidth * button.m_Width - keySpacing.x), position.y + std::floor(viewHeight * button.m_Height - keySpacing.y));
         }
     }
     void Clear() { m_KeyButtons.clear(); m_KeyRows = 0; }

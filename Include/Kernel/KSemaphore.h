@@ -39,19 +39,20 @@ class KSemaphore : public KNamedObject
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::Semaphore;
 
-    KSemaphore(const char* name, int count);
+    KSemaphore(const char* name, clockid_t clockID, int count);
     ~KSemaphore();
 
-    bool Acquire();
-    bool AcquireTimeout(TimeValMicros timeout);
-    bool AcquireDeadline(TimeValMicros deadline);
-    bool TryAcquire();
-    void Release();
-    void SetCount(int count) { m_Count = count; }
+    PErrorCode Acquire();
+    PErrorCode AcquireTimeout(TimeValMicros timeout);
+    PErrorCode AcquireDeadline(TimeValMicros deadline);
+    PErrorCode AcquireClock(clockid_t clockID, TimeValMicros deadline);
+    PErrorCode TryAcquire();
+    PErrorCode Release();
+    PErrorCode SetCount(int count) { m_Count = count; return PErrorCode::Success; }
     int  GetCount() const { return m_Count; }
 private:
     int             m_Count;
-    bool            m_Recursive;
+    clockid_t       m_ClockID = CLOCK_MONOTONIC_COARSE;
     thread_id       m_Holder = -1; // Thread currently holding the semaphore.
 
     KSemaphore(const KSemaphore &) = delete;

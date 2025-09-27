@@ -83,7 +83,7 @@ public:
     virtual ~USBDevice();
 
     // From Thread:
-    virtual int Run() override;
+    virtual void* Run() override;
 
     KMutex& GetMutex() { return m_Mutex; }
 

@@ -215,8 +215,9 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
         {
             MsgCreateViewReply reply;
             reply.m_ViewHandle = -1;
-            if (send_message(replyPort, -1, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0) < 0) {
-                kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(get_last_error()));
+            const PErrorCode result = send_message_timeout_ns(replyPort, -1, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0);
+            if (result != PErrorCode::Success) {
+                kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
             }
             return;
         }
@@ -234,8 +235,9 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
         
     MsgCreateViewReply reply;
     reply.m_ViewHandle = view->GetHandle();
-    if (send_message(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0) < 0) {
-        kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(get_last_error()));
+    const PErrorCode result = send_message_timeout_ns(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0);
+    if (result != PErrorCode::Success) {
+        kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
     }
     view->Invalidate(true);
     if (parent != nullptr)
@@ -319,8 +321,9 @@ void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int heigh
     reply.m_Framebuffer  = bitmap->m_Raster;
     reply.m_BytesPerRow  = bitmap->m_BytesPerLine;
 
-    if (send_message(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), 0) < 0) {
-        kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(get_last_error()));
+    const PErrorCode result = send_message_timeout_ns(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), 0);
+    if (result != PErrorCode::Success) {
+        kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
     }
 }
 

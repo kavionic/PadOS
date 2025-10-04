@@ -83,7 +83,7 @@ PErrorCode KConditionVariable::WaitInternal(KMutex* lock)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValMicros deadline)
+PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValNanos deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -141,9 +141,9 @@ PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t cloc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KConditionVariable::WaitTimeoutInternal(KMutex* lock, clockid_t clockID, TimeValMicros timeout)
+PErrorCode KConditionVariable::WaitTimeoutInternal(KMutex* lock, clockid_t clockID, TimeValNanos timeout)
 {
-    return WaitDeadlineInternal(lock, clockID, (!timeout.IsInfinit()) ? (get_clock_time(clockID) + timeout) : TimeValMicros::infinit);
+    return WaitDeadlineInternal(lock, clockID, (!timeout.IsInfinit()) ? (get_clock_time(clockID) + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -192,7 +192,7 @@ PErrorCode KConditionVariable::IRQWait()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KConditionVariable::IRQWaitDeadline(TimeValMicros deadline)
+PErrorCode KConditionVariable::IRQWaitDeadline(TimeValNanos deadline)
 {
     return IRQWaitClock(m_ClockID, deadline);
 }
@@ -201,7 +201,7 @@ PErrorCode KConditionVariable::IRQWaitDeadline(TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValMicros deadline)
+PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos deadline)
 {
     IRQEnableState irqState = get_interrupt_enabled_state();
     
@@ -263,9 +263,9 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValMicros dea
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KConditionVariable::IRQWaitTimeout(TimeValMicros timeout)
+PErrorCode KConditionVariable::IRQWaitTimeout(TimeValNanos timeout)
 {
-    return IRQWaitClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_clock_time(CLOCK_MONOTONIC_COARSE) + timeout) : TimeValMicros::infinit);
+    return IRQWaitClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_clock_time(CLOCK_MONOTONIC_COARSE) + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

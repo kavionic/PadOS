@@ -22,6 +22,9 @@
 #include "Kernel.h"
 #include "KThreadCB.h"
 
+extern kernel::KThreadCB* volatile gk_CurrentThread;
+extern void* gk_CurrentTLS;
+
 namespace kernel
 {
 
@@ -49,7 +52,7 @@ enum KIRQPriorityLevels
     KIRQ_PRI_NORMAL_LATENCY2,
 #if	__NVIC_PRIO_BITS == 3
 #elif __NVIC_PRIO_BITS == 4
-	KIRQP_PRI_unused1,KIRQP_PRI_unused2,KIRQP_PRI_unused3,KIRQP_PRI_unused4,KIRQP_PRI_unused5,KIRQP_PRI_unused6,KIRQP_PRI_unused7,KIRQP_PRI_unused8,
+    KIRQP_PRI_unused1, KIRQP_PRI_unused2, KIRQP_PRI_unused3, KIRQP_PRI_unused4, KIRQP_PRI_unused5, KIRQP_PRI_unused6, KIRQP_PRI_unused7, KIRQP_PRI_unused8,
 #else
 #endif
     KIRQ_PRI_NORMAL_LATENCY1,
@@ -58,17 +61,16 @@ enum KIRQPriorityLevels
 
 
 
-extern KProcess*  volatile      gk_CurrentProcess;
-extern KThreadCB* volatile      gk_CurrentThread;
-extern KThreadCB*               gk_IdleThread;
+extern KProcess* volatile      gk_CurrentProcess;
+extern KThreadCB* gk_IdleThread;
 extern thread_id                gk_MainThreadID;
 extern KHandleArray<KThreadCB>& gk_ThreadTable;
 
 Ptr<KThreadCB> get_thread(thread_id handle);
 
-KProcess*      get_current_process();
-KThreadCB*     get_current_thread();
-KIOContext*    get_current_iocxt(bool forKernel);
+KProcess* get_current_process();
+KThreadCB* get_current_thread();
+KIOContext* get_current_iocxt(bool forKernel);
 
 void add_to_sleep_list(KThreadWaitNode* waitNode);
 void remove_from_sleep_list(KThreadWaitNode* waitNode);
@@ -125,8 +127,8 @@ private:
     uint32_t m_PrevState;
     int32_t  m_LockCount = 0;
 
-    IRQDisabler( const IRQDisabler &c ) = delete;
-    IRQDisabler& operator=( const IRQDisabler &c ) = delete;
+    IRQDisabler(const IRQDisabler& c) = delete;
+    IRQDisabler& operator=(const IRQDisabler& c) = delete;
 
 };
 
@@ -134,98 +136,98 @@ private:
 inline IRQDisabler&& critical_create_guard(IRQDisabler&& lock) { return std::move(lock); }
 
 
-struct IRQDisablerWithIterator : public IRQDisabler
+struct KExceptionStackFrame
 {
-    IRQDisablerWithIterator(int i) : iterator(i) {}
-    int iterator = 0;
+    uint32_t R0;
+    uint32_t R1;
+    uint32_t R2;
+    uint32_t R3;
+    uint32_t R12;
+    uint32_t LR;   // LR/R14
+    uint32_t PC;
+    uint32_t xPSR;
 };
 
-//#define KCRITICAL_SECTION() for (IRQDisablerWithIterator i(1); i.iterator != 0; --i.iterator)
+struct KExceptionStackFrameFPU
+{
+    uint32_t R0;
+    uint32_t R1;
+    uint32_t R2;
+    uint32_t R3;
+    uint32_t R12;
+    uint32_t LR;
+    uint32_t PC;
+    uint32_t xPSR;
+    uint32_t S0;
+    uint32_t S1;
+    uint32_t S2;
+    uint32_t S3;
+    uint32_t S4;
+    uint32_t S5;
+    uint32_t S6;
+    uint32_t S7;
+    uint32_t S8;
+    uint32_t S9;
+    uint32_t S10;
+    uint32_t S11;
+    uint32_t S12;
+    uint32_t S13;
+    uint32_t S14;
+    uint32_t S15;
+    uint32_t FPSCR;
+};
 
-//#define KNOIRQ_BEGIN() { IRQDisabler irqDisableGuard##__LINE();
-//#define KNOIRQ_END }
-#define DEBUG_DISABLE_IRQ() //IRQDisabler debugIRQGuard__
+struct KCtxSwitchKernelStackFrame
+{
+    uint32_t R11;
+    uint32_t R10;
+    uint32_t R9;
+    uint32_t R8;
+    uint32_t R7;
+    uint32_t R6;
+    uint32_t R5;
+    uint32_t R4;
+    uint32_t EXEC_RETURN;
+};
 
-
+struct KCtxSwitchKernelStackFrameFPU
+{
+    uint32_t R11;
+    uint32_t R10;
+    uint32_t R9;
+    uint32_t R8;
+    uint32_t R7;
+    uint32_t R6;
+    uint32_t R5;
+    uint32_t R4;
+    uint32_t EXEC_RETURN;
+    uint32_t S31;
+    uint32_t S30;
+    uint32_t S29;
+    uint32_t S28;
+    uint32_t S27;
+    uint32_t S26;
+    uint32_t S25;
+    uint32_t S24;
+    uint32_t S23;
+    uint32_t S22;
+    uint32_t S21;
+    uint32_t S20;
+    uint32_t S19;
+    uint32_t S18;
+    uint32_t S17;
+    uint32_t S16;
+};
 struct KCtxSwitchStackFrame
 {
-    // Kernel frame:
-    uint32_t m_R11;
-    uint32_t m_R10;
-    uint32_t m_R9;
-    uint32_t m_R8;
-    uint32_t m_R7;
-    uint32_t m_R6;
-    uint32_t m_R5;
-    uint32_t m_R4;
-    uint32_t m_EXEC_RETURN;
-    // Default frame:
-    uint32_t m_R0;
-    uint32_t m_R1;
-    uint32_t m_R2;
-    uint32_t m_R3;
-    uint32_t m_R12;
-    uint32_t m_LR;
-    uint32_t m_PC;
-    uint32_t m_xPSR;
-//    uint32_t m_padding; // Ensure 8-byte alingnment
+    KCtxSwitchKernelStackFrame  KernelFrame;
+    KExceptionStackFrame        ExceptionFrame;
 };
 
 struct KCtxSwitchStackFrameFPU
 {
-    // Kernel frame:
-    uint32_t m_R11;
-    uint32_t m_R10;
-    uint32_t m_R9;
-    uint32_t m_R8;
-    uint32_t m_R7;
-    uint32_t m_R6;
-    uint32_t m_R5;
-    uint32_t m_R4;
-    uint32_t m_EXEC_RETURN;
-    uint32_t m_S31;
-    uint32_t m_S30;
-    uint32_t m_S29;
-    uint32_t m_S28;
-    uint32_t m_S27;
-    uint32_t m_S26;
-    uint32_t m_S25;
-    uint32_t m_S24;
-    uint32_t m_S23;
-    uint32_t m_S22;
-    uint32_t m_S21;
-    uint32_t m_S20;
-    uint32_t m_S19;
-    uint32_t m_S18;
-    uint32_t m_S17;
-    uint32_t m_S16;
-    // Default frame:
-    uint32_t m_R0;
-    uint32_t m_R1;
-    uint32_t m_R2;
-    uint32_t m_R3;
-    uint32_t m_R12;
-    uint32_t m_LR;
-    uint32_t m_PC;
-    uint32_t m_xPSR;
-    uint32_t m_S0;
-    uint32_t m_S1;
-    uint32_t m_S2;
-    uint32_t m_S3;
-    uint32_t m_S4;
-    uint32_t m_S5;
-    uint32_t m_S6;
-    uint32_t m_S7;
-    uint32_t m_S8;
-    uint32_t m_S9;
-    uint32_t m_S10;
-    uint32_t m_S11;
-    uint32_t m_S12;
-    uint32_t m_S13;
-    uint32_t m_S14;
-    uint32_t m_S15;
-    uint32_t m_FPSCR;
-    uint32_t m_padding; // Ensure 8-byte alingnment
+    KCtxSwitchKernelStackFrameFPU   KernelFrame;
+    KExceptionStackFrameFPU         ExceptionFrame;
 };
 
 } // namespace

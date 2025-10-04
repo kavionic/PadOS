@@ -27,7 +27,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RealtimeClock::SetClock(TimeValMicros time)
+void RealtimeClock::SetClock(TimeValNanos time)
 {
     time_t unixTime = time.AsSecondsI();
 
@@ -82,7 +82,7 @@ void RealtimeClock::SetClock(TimeValMicros time)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValMicros RealtimeClock::GetClock()
+TimeValNanos RealtimeClock::GetClock()
 {
     if (RTC->ISR & RTC_ISR_INITS)
     {
@@ -112,12 +112,12 @@ TimeValMicros RealtimeClock::GetClock()
         const time_t unixTime = mktime(&timeInfo);
         const uint32_t SyncPreDiv = (RTC->PRER & RTC_PRER_PREDIV_S_Msk) >> RTC_PRER_PREDIV_S_Pos;
 
-        TimeValMicros currentTime = TimeValMicros::FromSeconds(unixTime);
-        currentTime += TimeValMicros::FromSeconds(double(SyncPreDiv - subSecond) / double(SyncPreDiv + 1));
+        TimeValNanos currentTime = TimeValNanos::FromSeconds(unixTime);
+        currentTime += TimeValNanos::FromSeconds(double(SyncPreDiv - subSecond) / double(SyncPreDiv + 1));
         
         return currentTime;
     }
-    return TimeValMicros::zero;
+    return TimeValNanos::zero;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

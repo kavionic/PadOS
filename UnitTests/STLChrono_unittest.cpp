@@ -225,11 +225,6 @@ TEST(ChronoCxx20Clocks, CompareClocks)
 
     EXPECT_TRUE(std::chrono::abs(nativeSteady.time_since_epoch() - nativeSteadyHires.time_since_epoch()) < milliseconds(10));
     EXPECT_TRUE(std::chrono::abs(nativeSteady.time_since_epoch() - chronoSteady.time_since_epoch()) < milliseconds(10));
-
-    auto nativeRealTime = get_realtime_clock();
-    auto chronoRealTime = system_clock::now();
-
-    EXPECT_TRUE(std::chrono::abs(nativeRealTime.time_since_epoch() - chronoRealTime.time_since_epoch()) < milliseconds(10));
 }
 
 TEST(ChronoCxx20Clocks, NativeSteadyClock)
@@ -249,23 +244,6 @@ TEST(ChronoCxx20Clocks, NativeSteadyClock)
     EXPECT_TRUE(sawNoStep);
 }
 
-TEST(ChronoCxx20Clocks, NativeSteadyClockChrono)
-{
-    bool sawNoStep = false;
-    auto prevTime = get_realtime_clock();
-    for (int i = 0; i < 10; ++i)
-    {
-        const auto curTime = get_realtime_clock();
-        if (curTime == prevTime) sawNoStep = true;
-        prevTime = curTime;
-    }
-    for (int i = 0; i < 100000; ++i)
-    {
-        get_realtime_clock();
-    }
-    EXPECT_TRUE(sawNoStep);
-}
-
 TEST(ChronoCxx20Clocks, NativeHighresSteadyClock)
 {
     bool sawNoStep = false;
@@ -279,23 +257,6 @@ TEST(ChronoCxx20Clocks, NativeHighresSteadyClock)
     for (int i = 0; i < 100000; ++i)
     {
         get_real_time_hires();
-    }
-    EXPECT_FALSE(sawNoStep);
-}
-
-TEST(ChronoCxx20Clocks, NativeHighresSteadyClockChrono)
-{
-    bool sawNoStep = false;
-    auto prevTime = get_realtime_clock_hires();
-    for (int i = 0; i < 10; ++i)
-    {
-        const auto curTime = get_realtime_clock_hires();
-        if (curTime == prevTime) sawNoStep = true;
-        prevTime = curTime;
-    }
-    for (int i = 0; i < 100000; ++i)
-    {
-        get_realtime_clock_hires();
     }
     EXPECT_FALSE(sawNoStep);
 }

@@ -259,7 +259,7 @@ String String::format_file_size(off64_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String String::format_time_period(const TimeValMicros& timeVal, bool includeUnits, size_t maxCharacters)
+String String::format_time_period(const TimeValNanos& timeVal, bool includeUnits, size_t maxCharacters)
 {
     if (maxCharacters == 0) maxCharacters = std::numeric_limits<size_t>::max();
 
@@ -269,11 +269,11 @@ String String::format_time_period(const TimeValMicros& timeVal, bool includeUnit
     char minuteStr[4] = { 0 };
     char hourStr[4]   = { 0 };
     char dayStr[5]    = { 0 };
-    char yearStr[16]  = { 0 }; // Max years in a TimeValMicros: 584942
+    char yearStr[16]  = { 0 }; // Max years in a TimeValNanos: 292
 
-    if (seconds < 60)
+    if (seconds > -60 && seconds < 60)
     {
-        sprintf(secondStr, "%.1f", timeVal.AsSecondsF());
+        sprintf(secondStr, "%2.1f", timeVal.AsSecondsF());
         if (includeUnits) strcat(secondStr, "s");
     }
     else

@@ -19,11 +19,12 @@
 
 #include <sys/errno.h>
 
-#include "Kernel/IRQDispatcher.h"
-#include "Kernel/Scheduler.h"
-#include "System/Platform.h"
-#include "System/System.h"
-#include "Threads/Threads.h"
+#include <Kernel/IRQDispatcher.h>
+#include <Kernel/Scheduler.h>
+#include <Kernel/Syscalls.h>
+#include <System/Platform.h>
+#include <System/System.h>
+#include <Threads/Threads.h>
 
 namespace kernel
 {
@@ -129,10 +130,9 @@ IFLASHC TimeValNanos get_total_irq_time()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-
 extern "C" IFLASHC void KernelHandleIRQ()
 {
-    TimeValNanos start = get_system_time_hires();
+    TimeValNanos start = kget_system_time_hires();
     volatile int vector = SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk;
 
 
@@ -146,7 +146,7 @@ extern "C" IFLASHC void KernelHandleIRQ()
             for (kernel::KIRQAction* action = kernel::gk_IRQHandlers[irqNum]; action != nullptr; action = action->m_Next)
             {
                 kernel::IRQResult result = action->m_Handler(irqNum, action->m_UserData);
-                TimeValNanos curTime = get_system_time_hires();
+                TimeValNanos curTime = kget_system_time_hires();
                 TimeValNanos delta = curTime - handlerStart;
                 handlerStart = curTime;
                 action->m_RunTime += delta;
@@ -159,9 +159,9 @@ extern "C" IFLASHC void KernelHandleIRQ()
     {
         kernel::panic("Unhandled exception.");
     }
-    TimeValNanos end = get_system_time_hires();
-    TimeValNanos delta = end - start;
+    const TimeValNanos end = kget_system_time_hires();
+    const TimeValNanos delta = end - start;
 
-    kernel::gk_CurrentThread->m_StartTime += delta; // Don't blame the current thread for the time spent handling interrupts.
+    gk_CurrentThread->m_StartTime += delta; // Don't blame the current thread for the time spent handling interrupts.
     kernel::gk_TotalIRQTime += delta;
 }

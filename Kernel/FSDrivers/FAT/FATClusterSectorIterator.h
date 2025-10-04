@@ -33,11 +33,11 @@ struct FATClusterSectorIterator
     off64_t         GetBlockSector();
     KCacheBlockDesc GetBlock(bool doLoad);
     
-    status_t        Increment(int sectors);
+    PErrorCode        Increment(int sectors);
 
-    status_t        MarkBlockDirty();
-    status_t        ReadBlock(uint8_t* buffer);
-    status_t        WriteBlock(const uint8_t* buffer);
+    PErrorCode        MarkBlockDirty();
+    PErrorCode        ReadBlock(uint8_t* buffer);
+    PErrorCode        WriteBlock(const uint8_t* buffer);
     
     Ptr<FATVolume> m_Volume;
     uint32_t       m_CurrentCluster;

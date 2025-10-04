@@ -77,7 +77,7 @@ void GSLx680Driver::Setup(const char* devicePath, int threadPriority, DigitalPin
 
 	if (m_I2CDevice != -1)
 	{
-		I2CIOCTL_SetTimeout(m_I2CDevice, TimeValMicros::FromMilliseconds(1000));
+		I2CIOCTL_SetTimeout(m_I2CDevice, TimeValNanos::FromMilliseconds(1000));
 		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x80);
 		I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
@@ -251,7 +251,7 @@ bool GSLx680Driver::WriteData(int address, const void* data, size_t length)
 {
 	int result = -1;
 	for (int i = 0; i < 10 && result != length; ++i) {
-		result = FileIO::Write(m_I2CDevice, address, data, length);
+		result = FileIO::Write(m_I2CDevice, data, length, off_t(address));
 		if (result != length) {
 			printf("Error %d writing reg %02x:%d. %d / %d\n", i, address, length, result, errno);
 		}
@@ -285,7 +285,7 @@ bool GSLx680Driver::ReadData(int address, void* data, size_t length)
 {
 	int result = -1;
 	for (int i = 0; i < 10 && result != length; ++i) {
-		result = FileIO::Read(m_I2CDevice, address, data, length);
+		result = FileIO::Read(m_I2CDevice, data, length, off_t(address));
 		if (result != length && i > 0) {
 			printf("Error %d reading reg %02x:%d. %d / %d\n", i, address, length, result, errno);
 		}

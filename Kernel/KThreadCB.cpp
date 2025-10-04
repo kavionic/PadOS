@@ -45,8 +45,6 @@ extern uint8_t __tbss_size;
 extern uint8_t __tls_align;
 
 
-std::map<handle_id, KThreadCB*> g_DebugThreadList;
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -56,12 +54,12 @@ static void thread_entry_point(void* (*threadEntry)(void*), void* arguments)
     try
     {
         void* const result = threadEntry(arguments);
-        sys_thread_exit(result);
+        __thread_exit(result);
     }
     catch(...)
     {
         panic("Uncaught exception from thread.\n");
-        sys_thread_exit(nullptr);
+        __thread_exit(nullptr);
     }
 }
 
@@ -99,7 +97,7 @@ KThreadCB::KThreadCB(const PThreadAttribs* attribs) : KNamedObject((attribs != n
         m_FreeStackOnExit = false;
     }
 
-    m_CurrentStack  = (uint32_t*) ((intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1));
+    m_CurrentStackAndPrivilege  = (intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1);
     m_State         = ThreadState_Ready;
     m_PriorityLevel = PriToLevel(priority);
 
@@ -126,14 +124,6 @@ KThreadCB::~KThreadCB()
     if (m_ThreadLocalBuffer != nullptr) {
         free(m_ThreadLocalBuffer);
     }
-    if (GetHandle() != -1)
-    {
-        auto i = g_DebugThreadList.find(GetHandle());
-        if (i != g_DebugThreadList.end())
-        {
-            g_DebugThreadList.erase(i);
-        }
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -142,18 +132,7 @@ KThreadCB::~KThreadCB()
 
 void KThreadCB::SetHandle(int32_t handle) noexcept
 {
-    if (GetHandle() != -1)
-    {
-        auto i = g_DebugThreadList.find(GetHandle());
-        if (i != g_DebugThreadList.end())
-        {
-            g_DebugThreadList.erase(i);
-        }
-    }
     KNamedObject::SetHandle(handle);
-    if (handle != -1) {
-        g_DebugThreadList[handle] = this;
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -163,19 +142,19 @@ void KThreadCB::SetHandle(int32_t handle) noexcept
 
 void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, void* arguments)
 {
-    m_CurrentStack = (uint32_t*) ((intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1));
+    uint32_t currentStack = ((intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1));
 
-    KCtxSwitchStackFrame* stackFrame = reinterpret_cast<KCtxSwitchStackFrame*>(m_CurrentStack) - 1;
+    KCtxSwitchStackFrame* stackFrame = reinterpret_cast<KCtxSwitchStackFrame*>(currentStack) - 1;
 
     memset(stackFrame, 0, sizeof(*stackFrame));
-    stackFrame->m_EXEC_RETURN = 0xfffffffd; // Return to Thread mode, exception return uses non-floating-point state from the PSP and execution uses PSP after return
-    stackFrame->m_R0 = uint32_t(entryPoint);
-    stackFrame->m_R1 = uint32_t(arguments);
-    stackFrame->m_LR = uint32_t(invalid_return_handler) & ~1; // Clear the thump flag from the function pointer.
-    stackFrame->m_PC = uint32_t(thread_entry_point) & ~1; // Clear the thumb flag from the function pointer.
-    stackFrame->m_xPSR = xPSR_T_Msk; // Always in Thumb state.
+    stackFrame->KernelFrame.EXEC_RETURN = 0xfffffffd; // Return to Thread mode, exception return uses non-floating-point state from the PSP and execution uses PSP after return
+    stackFrame->ExceptionFrame.R0 = uint32_t(entryPoint);
+    stackFrame->ExceptionFrame.R1 = uint32_t(arguments);
+    stackFrame->ExceptionFrame.LR = uint32_t(invalid_return_handler) & ~1; // Clear the thump flag from the function pointer.
+    stackFrame->ExceptionFrame.PC = uint32_t(thread_entry_point) & ~1; // Clear the thumb flag from the function pointer.
+    stackFrame->ExceptionFrame.xPSR = xPSR_T_Msk; // Always in Thumb state.
 
-    m_CurrentStack = reinterpret_cast<uint32_t*>(stackFrame);
+    m_CurrentStackAndPrivilege = reinterpret_cast<intptr_t>(stackFrame);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

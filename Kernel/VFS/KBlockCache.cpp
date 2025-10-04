@@ -19,6 +19,7 @@
 
 #include "System/Platform.h"
 
+#include <sys/uio.h>
 #include <sys/pados_syscalls.h>
 #include <malloc.h>
 #include <string.h>
@@ -33,7 +34,7 @@
 using namespace kernel;
 using namespace os;
 
-static constexpr TimeValMicros FLUSH_PERIODE = TimeValMicros::FromMilliseconds(1000);
+static constexpr TimeValNanos FLUSH_PERIODE = TimeValNanos::FromMilliseconds(1000);
 static constexpr int KBLOCK_CACHE_BLOCK_COUNT = 64;
 static constexpr int BC_FLUSH_COUNT         = 64;
 static constexpr int BC_MIN_WAKEUP_COUNT    = 32;
@@ -159,7 +160,7 @@ void KBlockCache::Initialize()
         s_FreeList.Append(&gk_BCacheHeaders[i]);
     }
     PThreadAttribs attrs("disk_cache_flusher", 0, PThreadDetachState_Detached, 4096);
-    sys_thread_spawn(nullptr, &attrs, DiskCacheFlusher, nullptr);
+    __thread_spawn(nullptr, &attrs, DiskCacheFlusher, nullptr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -229,7 +230,8 @@ KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
             {
                 if (doLoad)
                 {
-                    if (FileIO::Read(m_Device, bufferNum * BUFFER_BLOCK_SIZE, block->m_Buffer, BUFFER_BLOCK_SIZE) < 0) {
+                    ssize_t bytesRead;
+                    if (FileIO::Read(m_Device, block->m_Buffer, BUFFER_BLOCK_SIZE, bufferNum * BUFFER_BLOCK_SIZE, bytesRead) != PErrorCode::Success) {
                         printf("ERROR: KBlockCache::GetBlock() failed to read block %" PRIu64 " from disk: %s\n", bufferNum * BUFFER_BLOCK_SIZE, strerror(get_last_error()));
                         s_FreeList.Append(block);
                         return KCacheBlockDesc();
@@ -278,7 +280,7 @@ bool KBlockCache::MarkBlockDirty(off64_t blockNum)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int  KBlockCache::CachedRead(off64_t blockNum, void* buffer, size_t blockCount)
+PErrorCode KBlockCache::CachedRead(off64_t blockNum, void* buffer, size_t blockCount)
 {
     for (size_t i = 0 ; i < blockCount ; ++i)
     {
@@ -288,17 +290,17 @@ int  KBlockCache::CachedRead(off64_t blockNum, void* buffer, size_t blockCount)
             memcpy(reinterpret_cast<uint8_t*>(buffer) + i * m_BlockSize, block.m_Buffer, m_BlockSize);
         } else {
             printf( "KBlockCache::CachedRead() failed to find block %d / %" PRIu64 "\n", m_Device, blockNum + i);
-            return -1;
+            return PErrorCode::IOError;
         }
     }
-    return 0;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KBlockCache::CachedWrite(off64_t blockNum, const void* buffer, size_t blockCount)
+PErrorCode KBlockCache::CachedWrite(off64_t blockNum, const void* buffer, size_t blockCount)
 {
     for (size_t i = 0 ; i < blockCount ; ++i)
     {
@@ -315,10 +317,10 @@ int KBlockCache::CachedWrite(off64_t blockNum, const void* buffer, size_t blockC
         else
         {
             printf("KBlockCache::CachedWrite() failed to find block %d / %" PRIu64 "\n", m_Device, blockNum + i);
-            return -1;
+            return PErrorCode::IOError;
         }
     }
-    return 0;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -503,11 +505,11 @@ bool KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCoun
 
     std::sort(blockList, blockList + blockCount, [](const KCacheBlockHeader* lhs, const KCacheBlockHeader* rhs) { return std::tie(lhs->m_Device, lhs->m_bufferNumber) < std::tie(rhs->m_Device, rhs->m_bufferNumber); });
 
-    static IOSegment segments[BC_FLUSH_COUNT];
+    static iovec_t segments[BC_FLUSH_COUNT];
 
 //    printf("Flush %d blocks\n", blockCount);
 
-    TimeValMicros curTime = get_system_time();
+    TimeValNanos curTime = kget_system_time();
 
     size_t start = 0;
     bool    requiredSegment = false;
@@ -542,7 +544,8 @@ bool KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCoun
 //                printf("  %" PRId64 ":%d\n", blockList[start]->m_bufferNumber, segmentCount);
 
                 s_Mutex.Unlock();
-                if (FileIO::Write(blockList[start]->m_Device, blockList[start]->m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, segments, segmentCount) < 0) {
+                ssize_t bytesWritten;
+                if (FileIO::Write(blockList[start]->m_Device, segments, segmentCount, blockList[start]->m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, bytesWritten) != PErrorCode::Success) {
                     kernel_log(LogCatKernel_BlockCache, KLogSeverity::CRITICAL, "Failed to flush block %" PRId64 ":%d from device %d\n", blockList[start]->m_bufferNumber, segmentCount, blockList[start]->m_Device);
                 }
                 anythingFlushed = true;
@@ -569,8 +572,8 @@ bool KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCoun
         }
         if (i < blockCount)
         {
-            segments[i - start].Buffer = blockList[i]->m_Buffer;
-            segments[i - start].Length = KBlockCache::BUFFER_BLOCK_SIZE;
+            segments[i - start].iov_base = blockList[i]->m_Buffer;
+            segments[i - start].iov_len = KBlockCache::BUFFER_BLOCK_SIZE;
         }
     }
     return anythingFlushed;

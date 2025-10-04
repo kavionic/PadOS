@@ -164,10 +164,11 @@ int I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void*
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t I2CDriverINode::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+PErrorCode I2CDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     if (length == 0) {
-        return 0;
+        outLength = 0;
+        return PErrorCode::Success;
     }
     CRITICAL_SCOPE(m_Mutex);
 
@@ -207,17 +208,17 @@ ssize_t I2CDriverINode::Read(Ptr<KFileNode> file, off64_t position, void* buffer
     m_Port->TWIHS_IDR = ~0;
     m_State = State_e::Idle;
     if (m_CurPos < 0) {
-        set_last_error(-m_CurPos);
-        return -1;
+        return PErrorCode(-m_CurPos);
     }
-    return m_CurPos;    
+    outLength = m_CurPos;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t I2CDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
+PErrorCode I2CDriverINode::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
@@ -258,7 +259,8 @@ ssize_t I2CDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void*
     }
     bigtime_t startTime = get_system_time();
     while((m_Port->TWIHS_SR & TWIHS_SR_TXCOMP_Msk) == 0 && (get_system_time() - startTime) < 2000000);
-    return length;
+    outLength = length;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -459,12 +461,12 @@ int I2CDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t I2CDriver::Read(Ptr<KFileNode> file, off64_t position, const IOSegment* segments, size_t segmentCount)
+ssize_t I2CDriver::Read(Ptr<KFileNode> file, off64_t position, const iovec_t* segments, size_t segmentCount)
 {
     ssize_t bytesRead = 0;
     for (size_t i = 0; i < segmentCount; ++i)
     {
-        const IOSegment& segment = segments[i];
+        const iovec_t& segment = segments[i];
         ssize_t result = ptr_static_cast<I2CDriverINode>(file->GetINode())->Read(file, position, buffer, length);
         if (result < 0) {
             return result;

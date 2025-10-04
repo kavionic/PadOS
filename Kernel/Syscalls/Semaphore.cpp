@@ -147,27 +147,27 @@ PErrorCode sys_semaphore_acquire(sem_id handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_semaphore_acquire_timeout(sem_id handle, bigtime_t timeout)
+PErrorCode sys_semaphore_acquire_timeout_ns(sem_id handle, bigtime_t timeout)
 {
-    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::AcquireTimeout, TimeValMicros::FromMicroseconds(timeout));
+    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::AcquireTimeout, TimeValNanos::FromNanoseconds(timeout));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_semaphore_acquire_deadline(sem_id handle, bigtime_t deadline)
+PErrorCode sys_semaphore_acquire_deadline_ns(sem_id handle, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::AcquireDeadline, TimeValMicros::FromMicroseconds(deadline));
+    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::AcquireDeadline, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_semaphore_acquire_clock(sem_id handle, clockid_t clockID, bigtime_t deadline)
+PErrorCode sys_semaphore_acquire_clock_ns(sem_id handle, clockid_t clockID, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::AcquireClock, clockID, TimeValMicros::FromMicroseconds(deadline));
+    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::AcquireClock, clockID, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

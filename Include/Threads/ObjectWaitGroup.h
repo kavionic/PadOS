@@ -28,7 +28,7 @@ class KMutex;
 class ObjectWaitGroup : public HandleObject
 {
 public:
-	ObjectWaitGroup(const char* name = "")
+    ObjectWaitGroup(const char* name = "")
     {
         handle_id handle;
         if (create_object_wait_group(handle, name) == PErrorCode::Success) {
@@ -37,20 +37,20 @@ public:
     }
 
     bool AddObject(const HandleObject& object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return ParseResult(object_wait_group_add_object(m_Handle, object.GetHandle(), waitMode)); }
-	bool RemoveObject(const HandleObject& object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return ParseResult(object_wait_group_remove_object(m_Handle, object.GetHandle(), waitMode)); }
+    bool RemoveObject(const HandleObject& object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return ParseResult(object_wait_group_remove_object(m_Handle, object.GetHandle(), waitMode)); }
 
     bool AddFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return ParseResult(object_wait_group_add_file(m_Handle, fileHandle, waitMode)); }
     bool RemoveFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return ParseResult(object_wait_group_remove_file(m_Handle, fileHandle, waitMode)); }
 
-	void Clear() { object_wait_group_clear(m_Handle); }
+    void Clear() { object_wait_group_clear(m_Handle); }
 
-	bool Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)								    { return ParseResult(object_wait_group_wait(m_Handle, INVALID_HANDLE, readyFlagsBuffer, readyFlagsSize)); }
-    bool WaitTimeout(TimeValMicros timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)    { return ParseResult(object_wait_group_wait_timeout(m_Handle, INVALID_HANDLE, timeout.AsMicroSeconds(), readyFlagsBuffer, readyFlagsSize)); }
-	bool WaitDeadline(TimeValMicros deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)	{ return ParseResult(object_wait_group_wait_deadline(m_Handle, INVALID_HANDLE, deadline.AsMicroSeconds(), readyFlagsBuffer, readyFlagsSize)); }
+    bool Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)                                  { return ParseResult(object_wait_group_wait(m_Handle, INVALID_HANDLE, readyFlagsBuffer, readyFlagsSize)); }
+    bool WaitTimeout(TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)     { return ParseResult(object_wait_group_wait_timeout_ns(m_Handle, INVALID_HANDLE, timeout.AsNanoseconds(), readyFlagsBuffer, readyFlagsSize)); }
+    bool WaitDeadline(TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)   { return ParseResult(object_wait_group_wait_deadline_ns(m_Handle, INVALID_HANDLE, deadline.AsNanoseconds(), readyFlagsBuffer, readyFlagsSize)); }
 
-	bool Wait(Mutex& lock, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)								    { return ParseResult(object_wait_group_wait(m_Handle, lock.GetHandle(), readyFlagsBuffer, readyFlagsSize)); }
-	bool WaitTimeout(Mutex& lock, TimeValMicros timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)	{ return ParseResult(object_wait_group_wait_timeout(m_Handle, lock.GetHandle(), timeout.AsMicroSeconds(), readyFlagsBuffer, readyFlagsSize)); }
-	bool WaitDeadline(Mutex& lock, TimeValMicros deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return ParseResult(object_wait_group_wait_deadline(m_Handle, lock.GetHandle(), deadline.AsMicroSeconds(), readyFlagsBuffer, readyFlagsSize)); }
+    bool Wait(Mutex& lock, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)                                 { return ParseResult(object_wait_group_wait(m_Handle, lock.GetHandle(), readyFlagsBuffer, readyFlagsSize)); }
+    bool WaitTimeout(Mutex& lock, TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)    { return ParseResult(object_wait_group_wait_timeout_ns(m_Handle, lock.GetHandle(), timeout.AsNanoseconds(), readyFlagsBuffer, readyFlagsSize)); }
+    bool WaitDeadline(Mutex& lock, TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0)  { return ParseResult(object_wait_group_wait_deadline_ns(m_Handle, lock.GetHandle(), deadline.AsNanoseconds(), readyFlagsBuffer, readyFlagsSize)); }
 
 private:
     bool ParseResult(PErrorCode result) const

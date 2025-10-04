@@ -120,7 +120,7 @@ public:
     static uint32_t s_FrequencyCore;
     static uint32_t s_FrequencyPeripheral;
     static volatile bigtime_t   s_SystemTime;
-    static TimeValMicros   s_RealTime;
+    static TimeValNanos         s_RealTime;
 };
 
 } // namespace

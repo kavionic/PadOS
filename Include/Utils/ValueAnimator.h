@@ -32,13 +32,13 @@ public:
     void            Start() { m_StartTime = get_system_time(); }
     void            Reverse()
     {
-        TimeValMicros curTime = get_system_time();
+        TimeValNanos curTime = get_system_time();
 
         std::swap(m_StartValue, m_EndValue);
 
         if (m_StartTime.AsNative() != 0)
         {
-            TimeValMicros currentRuntime = curTime - m_StartTime;
+            TimeValNanos currentRuntime = curTime - m_StartTime;
             if (currentRuntime < m_Period) {
                 m_StartTime = curTime - m_Period + currentRuntime;
             }
@@ -48,8 +48,8 @@ public:
         }
     }
     bool            IsRunning() { return m_StartTime.AsNative() != 0 && (get_system_time() - m_StartTime) < m_Period; }
-    void            SetPeriod(TimeValMicros period) { m_Period = period; }
-    TimeValMicros   GetPeriod() const { return m_Period; }
+    void            SetPeriod(TimeValNanos period) { m_Period = period; }
+    TimeValNanos    GetPeriod() const { return m_Period; }
 
     void        SetRange(const VALUE_TYPE& startValue, const VALUE_TYPE& endValue) { m_StartValue = startValue; m_EndValue = endValue; }
 
@@ -67,7 +67,7 @@ public:
         }
         else
         {
-            TimeValMicros curTime = get_system_time();
+            TimeValNanos curTime = get_system_time();
             if ((curTime - m_StartTime) < m_Period) {
                 return (curTime - m_StartTime).AsSecondsF() / m_Period.AsSecondsF();
             }
@@ -92,8 +92,8 @@ private:
     VALUE_TYPE      m_StartValue;
     VALUE_TYPE      m_EndValue;
 
-    TimeValMicros   m_StartTime;
-    TimeValMicros   m_Period;
+    TimeValNanos    m_StartTime;
+    TimeValNanos    m_Period;
 };
 
 } // namespace os

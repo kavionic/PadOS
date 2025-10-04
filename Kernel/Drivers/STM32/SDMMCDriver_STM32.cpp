@@ -19,6 +19,7 @@
 
 #include <malloc.h>
 #include <string.h>
+#include <sys/uio.h>
 
 #include <Kernel/Drivers/STM32/SDMMCDriver_STM32.h>
 #include <Kernel/SpinTimer.h>
@@ -208,7 +209,7 @@ void SDMMCDriver_STM32::GetResponse128(uint8_t* response)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const os::IOSegment* segments, size_t segmentCount)
+bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const iovec_t* segments, size_t segmentCount)
 {
     const uint32_t blockSize = 1 << blockSizePower;
     const uint32_t byteLength = blockSize * blockCount;
@@ -225,7 +226,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
 
     if (segmentCount == 1)
     {
-        const void* buffer = segments[0].Buffer;
+        const void* buffer = segments[0].iov_base;
         dmaTarget = const_cast<void*>(buffer);
         if (cmd & SDMMC_CMD_WRITE)
         {
@@ -257,20 +258,20 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
         {
             for (size_t i = 0; i < segmentCount; ++i)
             {
-                if ((intptr_t(segments[i].Buffer) & DCACHE_LINE_SIZE_MASK) != 0)
+                if ((intptr_t(segments[i].iov_base) & DCACHE_LINE_SIZE_MASK) != 0)
                 {
                     kprintf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment write with unaligned buffer.\n");
                     set_last_error(EINVAL);
                     return false;
                 }
-                SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(segments[i].Buffer), segments[i].Length);
+                SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(segments[i].iov_base), segments[i].iov_len);
             }
         }
         else
         {
             for (size_t i = 0; i < segmentCount; ++i)
             {
-                if ((intptr_t(segments[i].Buffer) & DCACHE_LINE_SIZE_MASK) != 0)
+                if ((intptr_t(segments[i].iov_base) & DCACHE_LINE_SIZE_MASK) != 0)
                 {
                     kprintf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment write with unaligned buffer.\n");
                     set_last_error(EINVAL);
@@ -305,8 +306,8 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
 
     if (dmaTarget == nullptr && m_SegmentCount > 1)
     {
-        m_SDMMC->IDMABASE0 = intptr_t(m_TransferSegments[0].Buffer);
-        m_SDMMC->IDMABASE1 = intptr_t(m_TransferSegments[1].Buffer);
+        m_SDMMC->IDMABASE0 = intptr_t(m_TransferSegments[0].iov_base);
+        m_SDMMC->IDMABASE1 = intptr_t(m_TransferSegments[1].iov_base);
 
         m_SDMMC->IDMABSIZE = ((blockSize / 32) << SDMMC_IDMABSIZE_IDMABNDT_Pos) & SDMMC_IDMABSIZE_IDMABNDT_Msk;
         m_SDMMC->IDMACTRL = SDMMC_IDMA_IDMAEN | SDMMC_IDMA_IDMABMODE;
@@ -314,7 +315,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
     }
     else
     {
-        m_SDMMC->IDMABASE0 = (dmaTarget != nullptr) ? intptr_t(dmaTarget) : intptr_t(m_TransferSegments[0].Buffer);
+        m_SDMMC->IDMABASE0 = (dmaTarget != nullptr) ? intptr_t(dmaTarget) : intptr_t(m_TransferSegments[0].iov_base);
 
         m_SDMMC->IDMACTRL = SDMMC_IDMA_IDMAEN;
         m_CurrentSegment = 1;
@@ -326,12 +327,12 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
 
     if (result)
     {
-        TimeValMicros startTime = get_system_time();
+        TimeValNanos startTime = kget_system_time();
         do
         {
             result = WaitIRQ(SDMMC_MASK_DATAENDIE | SDMMC_MASK_IDMABTCIE | SDMMC_MASK_DABORTIE | SDMMC_MASK_DTIMEOUTIE | SDMMC_MASK_DCRCFAILIE);
             if (!result) break;
-            if (get_system_time() - startTime > TimeValMicros::FromMilliseconds(500))
+            if (kget_system_time() - startTime > TimeValNanos::FromMilliseconds(500))
             {
                 result = false;
                 printf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() could only read %u of %u blocks.\n", m_CurrentSegment, m_SegmentCount);
@@ -356,19 +357,19 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
             if (dmaTarget != nullptr)
             {
                 SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(dmaTarget), ((byteLength + DCACHE_LINE_SIZE - 1) / DCACHE_LINE_SIZE) * DCACHE_LINE_SIZE);
-                memcpy(segments[0].Buffer, dmaTarget, segments[0].Length);
+                memcpy(segments[0].iov_base, dmaTarget, segments[0].iov_len);
             }
             else
             {
                 for (size_t i = 0; i < segmentCount; ++i)
                 {
-                    if ((intptr_t(segments[i].Buffer) & DCACHE_LINE_SIZE_MASK) != 0)
+                    if ((intptr_t(segments[i].iov_base) & DCACHE_LINE_SIZE_MASK) != 0)
                     {
                         kprintf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment read with unaligned buffer.\n");
                         set_last_error(EINVAL);
                         return false;
                     }
-                    SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(segments[i].Buffer), segments[i].Length);
+                    SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(segments[i].iov_base), segments[i].iov_len);
                 }
             }
         }
@@ -464,9 +465,9 @@ IRQResult SDMMCDriver_STM32::HandleIRQ()
         if (m_CurrentSegment < m_SegmentCount)
         {
             if (m_SDMMC->IDMACTRL & SDMMC_IDMA_IDMABACT) {
-                m_SDMMC->IDMABASE0 = intptr_t(m_TransferSegments[m_CurrentSegment++].Buffer);
+                m_SDMMC->IDMABASE0 = intptr_t(m_TransferSegments[m_CurrentSegment++].iov_base);
             } else {
-                m_SDMMC->IDMABASE1 = intptr_t(m_TransferSegments[m_CurrentSegment++].Buffer);
+                m_SDMMC->IDMABASE1 = intptr_t(m_TransferSegments[m_CurrentSegment++].iov_base);
             }
         }
     }
@@ -496,7 +497,7 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         m_SDMMC->MASK = flags;
-        const PErrorCode result = m_IOCondition.IRQWaitTimeout(TimeValMicros::FromMilliseconds(500));
+        const PErrorCode result = m_IOCondition.IRQWaitTimeout(TimeValNanos::FromMilliseconds(500));
         while (result != PErrorCode::Success)
         {
             if (result != PErrorCode::Interrupted)
@@ -572,7 +573,7 @@ void SDMMCDriver_STM32::SendClock()
     m_SDMMC->CLKCR &= ~SDMMC_CLKCR_PWRSAV;  // Disable power-save to make sure the clock is running.
     TimeValMicros delay = TimeValMicros::FromMicroseconds((TimeValMicros::TicksPerSecond * 74 + m_Clock - 1) / m_Clock);    // Sleep for at least 74 SDMMC clock cycles.
     if (delay < TimeValMicros::zero) delay = TimeValMicros::FromMicroseconds(1);
-    SpinTimer::SleepuS(uint32_t(delay.AsMicroSeconds()));
+    SpinTimer::SleepuS(uint32_t(delay.AsMicroseconds()));
 
     m_SDMMC->CLKCR = CLKCR; // Restore power-save.
 }

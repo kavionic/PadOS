@@ -98,8 +98,8 @@ private:
     float           m_StartScrollThreshold = 0.0f;
 
     EventTimer      m_Timer;
-    TimeValMicros   m_BeginDragTime;
-    TimeValMicros   m_LastTickTime;
+    TimeValNanos    m_BeginDragTime;
+    TimeValNanos    m_LastTickTime;
 
     int             m_TicksPerUpdate = 2;
     int             m_TicksSinceUpdate = 0;

@@ -36,8 +36,8 @@ struct TimeValue
     // Conversions from misc time domains to TimeValue:
     static constexpr TimeValue FromNative(T value) { return TimeValue(value); }
 
-    static constexpr TimeValue FromSeconds(T value) { return TimeValue(value * TicksPerSecond); }
-    static constexpr TimeValue FromSeconds(float value) { return TimeValue(T(value * double(TicksPerSecond))); }
+    static constexpr TimeValue FromSeconds(time_t value) { return TimeValue(value * TicksPerSecond); }
+    static constexpr TimeValue FromSeconds(float value)  { return TimeValue(T(value * double(TicksPerSecond))); }
     static constexpr TimeValue FromSeconds(double value) { return TimeValue(T(value * double(TicksPerSecond))); }
     static constexpr TimeValue FromMilliseconds(T value) { return TimeValue(value * TicksPerMillisecond); }
     static constexpr TimeValue FromMicroseconds(T value)
@@ -199,8 +199,8 @@ struct TimeValue
     inline TimeValue& operator*=(T multiplier) { m_Value *= multiplier; return *this; }
 
     // Getters for the different time domains:
-    constexpr inline T AsMilliSeconds() const { return m_Value / (TicksPerSecond / 1000); }
-    constexpr inline T AsMicroSeconds() const
+    constexpr inline T AsMilliseconds() const { return m_Value / (TicksPerSecond / 1000); }
+    constexpr inline T AsMicroseconds() const
     {
         if constexpr (TicksPerSecond >= 1000000) {
             return m_Value / (TicksPerSecond / 1000000);
@@ -208,7 +208,7 @@ struct TimeValue
             return m_Value * (1000000 / TicksPerSecond);
         }
     }
-    constexpr inline T AsNanoSeconds() const
+    constexpr inline T AsNanoseconds() const
     {
         if constexpr (TicksPerSecond >= 1000000000) {
             return m_Value / (TicksPerSecond / 1000000000);
@@ -219,7 +219,7 @@ struct TimeValue
     constexpr inline double      AsSeconds() const { return double(m_Value) / double(TicksPerSecond); }
     constexpr inline float       AsSecondsF() const { return float(AsSeconds()); }
     constexpr inline bigtime_t   AsSecondsI() const { return m_Value / TicksPerSecond; }
-    constexpr inline timespec    AsTimespec() const { return { .tv_sec = m_Value / TicksPerSecond, .tv_nsec = long(AsNanoSeconds() % 1000000000) }; }
+    constexpr inline timespec    AsTimespec() const { return { .tv_sec = m_Value / TicksPerSecond, .tv_nsec = long(AsNanoseconds() % 1000000000) }; }
 
     constexpr inline T AsNative() const { return m_Value; }
 

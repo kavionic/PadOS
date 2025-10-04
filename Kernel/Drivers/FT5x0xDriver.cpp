@@ -67,7 +67,7 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
 
     if (m_I2CDevice >= 0)
     {
-        I2CIOCTL_SetTimeout(m_I2CDevice, TimeValMicros::FromMilliseconds(100));
+        I2CIOCTL_SetTimeout(m_I2CDevice, TimeValNanos::FromMilliseconds(100));
 		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x38);
         I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
@@ -91,7 +91,7 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
         kernel::register_irq_handler(irqNum, IRQHandler, this);
 
         uint8_t reg = 0;
-        FileIO::Write(m_I2CDevice, 0, &reg, 1);
+        FileIO::Write(m_I2CDevice, &reg, 1, 0);
 //        reg = 3;
 //        FileIO::Write(m_I2CDevice, FT5x0x_REG_G_PERIODE_ACTIVE, &reg, 1);
 /*        for (;;)
@@ -123,7 +123,7 @@ void FT5x0xDriver::PrintChipStatus()
 #define PRINT_REG(NAME) \
         /*reg = FT5x0x_REG_##NAME;*/ \
         /*FileIO::Write(m_I2CDevice, 0, &reg, 1);*/ \
-        if (FileIO::Read(m_I2CDevice, FT5x0x_REG_##NAME, &reg, 1) == 1) { \
+        if (FileIO::Read(m_I2CDevice, &reg, 1, FT5x0x_REG_##NAME) == 1) { \
             printf(#NAME ": %d\n", reg); \
         } else { \
             printf(#NAME ": failed (%s)\n", strerror(get_last_error())); \
@@ -147,7 +147,7 @@ void FT5x0xDriver::PrintChipStatus()
             for ( int i = reg; i > 0; --i) {
 //                reg = FT5x0x_REG_LOG_CUR_CHAR;
 //                FileIO::Write(m_I2CDevice, 0, &reg, 1);
-                if (FileIO::Read(m_I2CDevice, FT5x0x_REG_LOG_CUR_CHAR, &reg, 1) == 1) {
+                if (FileIO::Read(m_I2CDevice, &reg, 1, FT5x0x_REG_LOG_CUR_CHAR) == 1) {
                     printf("%c", reg);
                 } else {
                     printf(".");
@@ -169,7 +169,7 @@ void* FT5x0xDriver::Run()
         
         FT5x0xOMRegisters registers;
 
-        ssize_t length = FileIO::Read(m_I2CDevice, 0, &registers, sizeof(FT5x0xOMRegisters) - 2);
+        ssize_t length = FileIO::Read(m_I2CDevice, &registers, sizeof(FT5x0xOMRegisters) - 2, 0);
         
         if (length == (sizeof(FT5x0xOMRegisters) - 2))
         {

@@ -29,24 +29,24 @@ public:
 
     Semaphore(const char* name, int count = 1)
     {
-        if (sys_semaphore_create(&m_Handle, name, CLOCK_MONOTONIC_COARSE, count) != PErrorCode::Success) {
+        if (__semaphore_create(&m_Handle, name, CLOCK_MONOTONIC_COARSE, count) != PErrorCode::Success) {
             m_Handle = INVALID_HANDLE;
         }
     }
     ~Semaphore() {
-        if (m_Handle != INVALID_HANDLE) sys_semaphore_delete(m_Handle);
+        if (m_Handle != INVALID_HANDLE) __semaphore_delete(m_Handle);
     }
 
-    bool Acquire()                           { return ParseResult(sys_semaphore_acquire(m_Handle)); }
-    bool AcquireTimeout(bigtime_t timeout)   { return ParseResult(sys_semaphore_acquire_timeout(m_Handle, timeout)); }
-    bool AcquireDeadline(bigtime_t deadline) { return ParseResult(sys_semaphore_acquire_deadline(m_Handle, deadline)); }
-    bool TryAcquire()                        { return ParseResult(sys_semaphore_try_acquire(m_Handle)); }
-    bool Release()                           { return ParseResult(sys_semaphore_release(m_Handle)); }
+    bool Acquire()                              { return ParseResult(__semaphore_acquire(m_Handle)); }
+    bool AcquireTimeout(TimeValNanos timeout)   { return ParseResult(__semaphore_acquire_timeout_ns(m_Handle, timeout.AsNanoseconds())); }
+    bool AcquireDeadline(TimeValNanos deadline) { return ParseResult(__semaphore_acquire_deadline_ns(m_Handle, deadline.AsNanoseconds())); }
+    bool TryAcquire()                           { return ParseResult(__semaphore_try_acquire(m_Handle)); }
+    bool Release()                              { return ParseResult(__semaphore_release(m_Handle)); }
 
     Semaphore(Semaphore&& other) : m_Handle(other.m_Handle) { other.m_Handle = INVALID_HANDLE; }
 
-    Semaphore(const Semaphore& other) { m_Handle = INVALID_HANDLE; sys_semaphore_duplicate(&m_Handle, other.m_Handle); }
-    Semaphore& operator=(const Semaphore& other) { m_Handle = INVALID_HANDLE; sys_semaphore_duplicate(&m_Handle, other.m_Handle); return *this; }
+    Semaphore(const Semaphore& other) { m_Handle = INVALID_HANDLE; __semaphore_duplicate(&m_Handle, other.m_Handle); }
+    Semaphore& operator=(const Semaphore& other) { m_Handle = INVALID_HANDLE; __semaphore_duplicate(&m_Handle, other.m_Handle); return *this; }
 
 private:
     bool ParseResult(PErrorCode result) const

@@ -232,9 +232,9 @@ bool ListViewScrolledView::OnMouseDown(MouseButton_e button, const Point& positi
 
     Ptr<ListViewRow> hitRow = m_Rows[hitRowIndex];
 
-    TimeValMicros curTime = get_system_time();
+    TimeValNanos curTime = get_system_time();
     bool  doubleClick = false;
-    if (hitRowIndex == m_LastHitRow && curTime - m_MouseDownTime < TimeValMicros::FromMilliseconds(500)) {
+    if (hitRowIndex == m_LastHitRow && curTime - m_MouseDownTime < TimeValNanos::FromMilliseconds(500)) {
         doubleClick = true;
     }
     m_MouseDownTime = curTime;
@@ -952,7 +952,7 @@ void ListViewScrolledView::Clear()
     m_FirstSel         = INVALID_INDEX;
     m_LastSel          = INVALID_INDEX;
 
-    m_MouseDownTime    = TimeValMicros::zero;
+    m_MouseDownTime    = TimeValNanos::zero;
     m_LastHitRow       = INVALID_INDEX;
     ScrollTo(0.0f, 0.0f);
 }

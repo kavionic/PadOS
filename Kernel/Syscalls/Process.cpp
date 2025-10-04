@@ -25,6 +25,7 @@
 #include <System/ErrorCodes.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcess.h>
+#include "SystemSettings.h"
 
 
 using namespace os;
@@ -287,5 +288,14 @@ PErrorCode sys_sysconf(int name, long* outValue)
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_reboot(BootMode bootMode)
+{
+    SystemSettings::WriteBackupRegister(BackupRegisterID::BootMode, std::to_underlying(bootMode));
+    NVIC_SystemReset();
+}
 
 } // extern "C"

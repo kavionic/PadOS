@@ -65,12 +65,12 @@ inline int I2CIOCTL_GetBaudrate(int device)
     return baudrate;
 }
 
-inline int I2CIOCTL_SetTimeout(int device, TimeValMicros timeout)
+inline int I2CIOCTL_SetTimeout(int device, TimeValNanos timeout)
 {
-    bigtime_t timeoutLL = timeout.AsMicroSeconds();
+    bigtime_t timeoutLL = timeout.AsNanoseconds();
     return os::FileIO::DeviceControl(device, I2CIOCTL_SET_TIMEOUT, &timeoutLL, sizeof(timeoutLL), nullptr, 0);
 }
-inline int I2CIOCTL_GetTimeout(int device, TimeValMicros* timeout)
+inline int I2CIOCTL_GetTimeout(int device, TimeValNanos* timeout)
 {
     if (timeout == nullptr) {
         set_last_error(EINVAL);
@@ -79,7 +79,7 @@ inline int I2CIOCTL_GetTimeout(int device, TimeValMicros* timeout)
     bigtime_t timeoutLL;
     const int result = os::FileIO::DeviceControl(device, I2CIOCTL_GET_TIMEOUT, nullptr, 0, &timeoutLL, sizeof(timeoutLL));
     if (result >= 0) {
-        *timeout = TimeValMicros::FromMicroseconds(timeoutLL);
+        *timeout = TimeValNanos::FromNanoseconds(timeoutLL);
     }
     return result;
 }

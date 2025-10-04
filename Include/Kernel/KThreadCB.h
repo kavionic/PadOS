@@ -70,7 +70,14 @@ public:
 
     void SetupTLS(const PThreadAttribs* attribs);
 
-    uint32_t*                 m_CurrentStack;
+    // For suspended threads, this holds upper 31 bits of current stack
+    // frame address in bit 31:1 and current CONTROL.nPRIV value in bit 0.
+    uint32_t                  m_CurrentStackAndPrivilege = 0;
+
+    // For threads currently executing a syscall, this hold the return
+    // address with the thumb flag replaced by CONTROL.nPRIV.
+    uint32_t                  m_SyscallReturn = 0;
+
     ThreadState               m_State;
     int                       m_PriorityLevel;
     TimeValNanos              m_StartTime;

@@ -19,17 +19,19 @@
 
  #include "System/Platform.h"
 
+#include <utility>
 #include <assert.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
 
-#include "Kernel/Drivers/STM32/TLV493DDriver.h"
-#include "Kernel/Drivers/STM32/I2CDriver.h"
-#include "DeviceControl/I2C.h"
-#include "System/System.h"
-#include "Kernel/VFS/FileIO.h"
-#include "Kernel/VFS/KFSVolume.h"
+#include <Kernel/Drivers/STM32/TLV493DDriver.h>
+#include <Kernel/Drivers/STM32/I2CDriver.h>
+#include <DeviceControl/I2C.h>
+#include <System/System.h>
+#include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/Syscalls.h>
 
 using namespace kernel;
 using namespace os;
@@ -122,11 +124,12 @@ void TLV493DDriver::ResetSensor()
 		// code since the data-byte is being transmitted while the sensor is resetting, and will not
 		// be ack'd.
 
-		FileIO::Write(m_I2CDevice, 0, &cfg, 1);
+		FileIO::Write(m_I2CDevice, &cfg, 1, 0);
 		I2CIOCTL_SetSlaveAddress(m_I2CDevice, m_DeviceAddress);
 
 		errorCount = 0;
-		while (FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters)) != sizeof(m_ReadRegisters) && errorCount++ < 5) {
+        ssize_t bytesRead;
+		while ((FileIO::Read(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters), 0, bytesRead) != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters)) && errorCount++ < 5) {
             kernel::kernel_log(LogCategoryTLV493DDriver, kernel::KLogSeverity::CRITICAL, "Error: Failed to read initial TLV493D registers!\n");
 			snooze_ms(10);
 		}
@@ -143,11 +146,14 @@ void TLV493DDriver::ResetSensor()
 		UpdateParity();
 
 		errorCount = 0;
-		while (FileIO::Write(m_I2CDevice, 0, &m_WriteRegisters, sizeof(m_WriteRegisters)) != sizeof(m_WriteRegisters) && ++errorCount < 5) {
+        ssize_t bytesWritten;
+		while ((FileIO::Write(m_I2CDevice, &m_WriteRegisters, sizeof(m_WriteRegisters), 0, bytesWritten) != PErrorCode::Success || bytesWritten != sizeof(m_WriteRegisters)) && ++errorCount < 5) {
 			snooze_ms(10);
-		} if (errorCount == 5) {
+		}
+        if (errorCount == 5)
+        {
             kernel::kernel_log(LogCategoryTLV493DDriver, kernel::KLogSeverity::CRITICAL, "Error: Failed to write TLV493D config registers!\n");
-			snooze_s(1);
+            snooze(TimeValNanos::FromSeconds(1.0));
 			continue;
 		}/* else if (errorCount > 0) {
 			printf("TLV493DDriver: config written (%d retries).\n", errorCount);
@@ -155,7 +161,7 @@ void TLV493DDriver::ResetSensor()
 			printf("TLV493DDriver: config written.\n");
 		}*/
 
-		FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters)); // Trigger first conversion
+		FileIO::Read(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters), 0, bytesRead); // Trigger first conversion
 		break;
 	}
 }
@@ -172,14 +178,15 @@ void* TLV493DDriver::Run()
 
 	ResetSensor();
 
-	int result = FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters) - 3);
-	if (result != sizeof(m_ReadRegisters) - 3) {
-		printf("Error: Failed to read initial TLV493D registers! %d (%s)\n", result, strerror(errno));
+    ssize_t bytesRead;
+	const PErrorCode result = FileIO::Read(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters) - 3, 0, bytesRead);
+	if (result != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters) - 3) {
+        printf("Error: Failed to read initial TLV493D registers! %d (%s)\n", std::to_underlying(result), strerror(std::to_underlying(result)));
 	}
 
 	int errorCount = 0;
 	int sampleCount = 0;
-	m_LastUpdateTime = get_system_time();
+	m_LastUpdateTime = kget_system_time();
 	for (;;)
 	{
 		CRITICAL_SCOPE(m_Mutex);
@@ -191,8 +198,8 @@ void* TLV493DDriver::Run()
 			errorCount = 0;
 		}
 
-		TimeValMicros currentTime = get_system_time();
-		TimeValMicros timeSinceLastUpdate = currentTime - m_LastUpdateTime;
+        TimeValNanos currentTime = kget_system_time();
+        TimeValNanos timeSinceLastUpdate = currentTime - m_LastUpdateTime;
 
 		if (timeSinceLastUpdate < m_PeriodTime) continue;
 
@@ -203,10 +210,11 @@ void* TLV493DDriver::Run()
 		}
 
 		uint8_t	lastFrame = m_ReadRegisters.TempHFrmCh & TLV493D_FRAME;
-		int result = FileIO::Read(m_I2CDevice, 0, &m_ReadRegisters, sizeof(m_ReadRegisters) - 3);
-		if (result != sizeof(m_ReadRegisters) - 3) {
+        ssize_t bytesRead;
+		PErrorCode result = FileIO::Read(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters) - 3, 0, bytesRead);
+		if (result != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters) - 3) {
 			errorCount++;
-			printf("Error: Failed to read TLV493D registers! %d (%s)\n", result, strerror(errno));
+			printf("Error: Failed to read TLV493D registers! %d (%s)\n", std::to_underlying(result), strerror(std::to_underlying(result)));
 			continue;
 		}
 		if ((m_ReadRegisters.TempHFrmCh & TLV493D_FRAME) == lastFrame) {
@@ -256,14 +264,14 @@ void TLV493DDriver::ConfigChanged()
 {
 	if (m_Config.frame_rate > 0)
 	{
-        m_PeriodTime = TimeValMicros::FromMicroseconds(TimeValMicros::TicksPerSecond / m_Config.frame_rate);
+        m_PeriodTime = TimeValNanos::FromNanoseconds(TimeValNanos::TicksPerSecond / m_Config.frame_rate);
 		if (m_PeriodTime < TLV493D_CONVERSION_TIME) m_PeriodTime = TLV493D_CONVERSION_TIME;
 		I2CIOCTL_SetTimeout(m_I2CDevice, m_PeriodTime * 2LL);
 	}
 	else
 	{
-		m_PeriodTime = TimeValMicros::infinit;
-		I2CIOCTL_SetTimeout(m_I2CDevice, TimeValMicros::FromSeconds(1LL));
+		m_PeriodTime = TimeValNanos::infinit;
+		I2CIOCTL_SetTimeout(m_I2CDevice, TimeValNanos::FromSeconds(1LL));
 	}
 	m_AveragingScale = 1.0f / float(m_Config.oversampling);
 	m_NewFrameCondition.Wakeup(0);
@@ -338,7 +346,8 @@ int TLV493DDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t TLV493DDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+PErrorCode TLV493DDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
-    return 0;
+    outLength = 0;
+    return PErrorCode::Success;
 }

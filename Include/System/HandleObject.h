@@ -18,7 +18,10 @@
 // Created: 11.07.2020 13:00
 
 #pragma once
+
+#include <sys/pados_error_codes.h>
 #include <System/Types.h>
+#include <System/System.h>
 
 namespace os
 {
@@ -40,6 +43,19 @@ public:
     HandleObject& operator=(const HandleObject& other);
 
 protected:
+    bool ParseResult(PErrorCode result) const
+    {
+        if (result == PErrorCode::Success)
+        {
+            return true;
+        }
+        else
+        {
+            set_last_error(result);
+            return false;
+        }
+    }
+
     handle_id m_Handle;
 };
 

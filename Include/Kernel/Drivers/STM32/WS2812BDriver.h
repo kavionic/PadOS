@@ -38,8 +38,8 @@ public:
     IFLASHC WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t clockFrequency, KFilesystemFileOps* fileOps);
 
     IFLASHC int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
-    IFLASHC ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length);
-    IFLASHC ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length);
+    IFLASHC PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength);
+    IFLASHC PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength);
 
 private:
     enum class State
@@ -52,9 +52,9 @@ private:
     static IFLASHC IRQResult IRQCallbackSend(IRQn_Type irq, void* userData);
     IFLASHC IRQResult HandleIRQ();
 
-    IFLASHC bool WaitForIdle();
+    IFLASHC PErrorCode WaitForIdle();
 
-    IFLASHC bool SetLEDCount(size_t count);
+    IFLASHC PErrorCode SetLEDCount(size_t count);
     IFLASHC size_t GetLEDCount() const;
 
     IFLASHC void SetExponential(bool exponential);
@@ -87,8 +87,8 @@ public:
 
     IFLASHC void Setup(const char* devicePath, bool swapIOPins, SPIID portID, uint32_t clockFrequency);
 
-    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
-    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
+    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
     IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:

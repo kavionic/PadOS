@@ -30,14 +30,14 @@
 
 void PtrTargetNotifier::Lock()
 {
-    thread_id thread = sys_get_thread_id();
+    thread_id thread = __get_thread_id();
     
     if ( thread != m_LockerThread )
     {
         int expected = 0;
         while (!m_SpinLock.compare_exchange_weak(expected, 1))
         {
-            sys_yield();
+            __yield();
             expected = 0;
         }
         m_LockerThread = thread;

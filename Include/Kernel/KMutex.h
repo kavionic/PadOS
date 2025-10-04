@@ -44,16 +44,16 @@ public:
     ~KMutex();
 
     PErrorCode Lock();
-    PErrorCode LockTimeout(TimeValMicros timeout);
-    PErrorCode LockDeadline(TimeValMicros deadline);
-    PErrorCode LockClock(clockid_t clockID, TimeValMicros deadline);
+    PErrorCode LockTimeout(TimeValNanos timeout);
+    PErrorCode LockDeadline(TimeValNanos deadline);
+    PErrorCode LockClock(clockid_t clockID, TimeValNanos deadline);
     PErrorCode TryLock();
     PErrorCode Unlock();
     
     PErrorCode LockShared();
-    PErrorCode LockSharedTimeout(TimeValMicros timeout);
-    PErrorCode LockSharedDeadline(TimeValMicros deadline);
-    PErrorCode LockSharedClock(clockid_t clockID, TimeValMicros deadline);
+    PErrorCode LockSharedTimeout(TimeValNanos timeout);
+    PErrorCode LockSharedDeadline(TimeValNanos deadline);
+    PErrorCode LockSharedClock(clockid_t clockID, TimeValNanos deadline);
     PErrorCode TryLockShared();
     
     bool IsLocked() const;

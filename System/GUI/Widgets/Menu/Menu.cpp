@@ -136,7 +136,7 @@ void Menu::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::StartOpenTimer(TimeValMicros delay)
+void Menu::StartOpenTimer(TimeValNanos delay)
 {
     if (!m_OpenTimer.IsRunning())
     {

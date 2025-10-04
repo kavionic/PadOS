@@ -124,17 +124,17 @@ template <typename O, typename F> auto bind_method(O* obj, F&& f) { return [=](a
 class TimeoutTracker
 {
 public:
-    TimeoutTracker(TimeValMicros timeout) : m_Deadline(get_system_time() + timeout) {}
-    TimeoutTracker(bigtime_t timeoutMilliseconds) : m_Deadline(get_system_time() + TimeValMicros::FromMilliseconds(timeoutMilliseconds)) {}
+    TimeoutTracker(TimeValNanos timeout) : m_Deadline(get_system_time() + timeout) {}
+    TimeoutTracker(bigtime_t timeoutMilliseconds) : m_Deadline(get_system_time() + TimeValNanos::FromMilliseconds(timeoutMilliseconds)) {}
     operator bool() const { return get_system_time() < m_Deadline; }
 private:
-    TimeValMicros m_Deadline;
+    TimeValNanos m_Deadline;
 };
 
 class ProfileTimer
 {
     public:
-        ProfileTimer(const String& title, TimeValMicros minimumTime = 0.0) : m_Title(title), m_MinimumTime(minimumTime) { m_StartTime = get_system_time_hires(); m_PrevLapTime = m_StartTime; }
+        ProfileTimer(const String& title, TimeValNanos minimumTime = 0.0) : m_Title(title), m_MinimumTime(minimumTime) { m_StartTime = get_system_time_hires(); m_PrevLapTime = m_StartTime; }
     ~ProfileTimer()
     {
         Terminate();

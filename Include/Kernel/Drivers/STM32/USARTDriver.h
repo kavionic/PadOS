@@ -44,8 +44,8 @@ public:
                              uint32_t            clockFrequency,
                              USARTDriver*        driver);
 
-    IFLASHC ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
-    IFLASHC ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
+    IFLASHC PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, ssize_t& outLength);
+    IFLASHC PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, ssize_t& outLength);
     IFLASHC virtual bool    AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
     IFLASHC int     DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
@@ -86,7 +86,7 @@ private:
     USARTPinMode    m_PinModeRX = USARTPinMode::Normal;
     USARTPinMode    m_PinModeTX = USARTPinMode::Normal;
     uint32_t        m_IOControl = 0;
-    TimeValMicros   m_ReadTimeout = TimeValMicros::infinit;
+    TimeValNanos    m_ReadTimeout = TimeValNanos::infinit;
     int             m_ReceiveDMAChannel = -1;
     int             m_SendDMAChannel = -1;
     int32_t         m_ReceiveBufferSize = 1024 * 8;
@@ -121,8 +121,8 @@ public:
 
     IFLASHC void Setup(const USARTDriverSetup& setup);
 
-    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
-    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
+    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
     IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:

@@ -35,27 +35,27 @@ public:
     IFLASHC ~KConditionVariable();
     
     PErrorCode Wait() { return WaitInternal(nullptr); }
-    PErrorCode WaitTimeout(TimeValMicros timeout) { return WaitTimeoutInternal(nullptr, m_ClockID, timeout); }
-    PErrorCode WaitDeadline(TimeValMicros deadline) { return WaitDeadlineInternal(nullptr, m_ClockID, deadline); }
-    PErrorCode WaitClock(clockid_t clockID, TimeValMicros deadline) { return WaitDeadlineInternal(nullptr, clockID, deadline); }
+    PErrorCode WaitTimeout(TimeValNanos timeout) { return WaitTimeoutInternal(nullptr, m_ClockID, timeout); }
+    PErrorCode WaitDeadline(TimeValNanos deadline) { return WaitDeadlineInternal(nullptr, m_ClockID, deadline); }
+    PErrorCode WaitClock(clockid_t clockID, TimeValNanos deadline) { return WaitDeadlineInternal(nullptr, clockID, deadline); }
 
     PErrorCode Wait(KMutex& lock) { return WaitInternal(&lock); }
-    PErrorCode WaitTimeout(KMutex& lock, TimeValMicros timeout) { return WaitTimeoutInternal(&lock, m_ClockID, timeout); }
-    PErrorCode WaitDeadline(KMutex& lock, TimeValMicros deadline) { return WaitDeadlineInternal(&lock, m_ClockID, deadline); }
-    PErrorCode WaitClock(KMutex& lock, clockid_t clockID, TimeValMicros deadline) { return WaitDeadlineInternal(&lock, clockID, deadline); }
+    PErrorCode WaitTimeout(KMutex& lock, TimeValNanos timeout) { return WaitTimeoutInternal(&lock, m_ClockID, timeout); }
+    PErrorCode WaitDeadline(KMutex& lock, TimeValNanos deadline) { return WaitDeadlineInternal(&lock, m_ClockID, deadline); }
+    PErrorCode WaitClock(KMutex& lock, clockid_t clockID, TimeValNanos deadline) { return WaitDeadlineInternal(&lock, clockID, deadline); }
 
     IFLASHC PErrorCode IRQWait();
-    IFLASHC PErrorCode IRQWaitTimeout(TimeValMicros timeout);
-    IFLASHC PErrorCode IRQWaitDeadline(TimeValMicros deadline);
-    IFLASHC PErrorCode IRQWaitClock(clockid_t clockID, TimeValMicros deadline);
+    IFLASHC PErrorCode IRQWaitTimeout(TimeValNanos timeout);
+    IFLASHC PErrorCode IRQWaitDeadline(TimeValNanos deadline);
+    IFLASHC PErrorCode IRQWaitClock(clockid_t clockID, TimeValNanos deadline);
 
     IFLASHC PErrorCode Wakeup(int threadCount);
     inline PErrorCode WakeupAll() { return Wakeup(0); }
 
 private:
     IFLASHC PErrorCode WaitInternal(KMutex* lock);
-    IFLASHC PErrorCode WaitTimeoutInternal(KMutex* lock, clockid_t clockID, TimeValMicros timeout);
-    IFLASHC PErrorCode WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValMicros deadline);
+    IFLASHC PErrorCode WaitTimeoutInternal(KMutex* lock, clockid_t clockID, TimeValNanos timeout);
+    IFLASHC PErrorCode WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValNanos deadline);
 
     clockid_t m_ClockID = CLOCK_MONOTONIC;
 

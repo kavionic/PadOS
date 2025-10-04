@@ -22,17 +22,14 @@
 #include <algorithm>
 #include <functional>
 #include <queue>
+#include <map>
 
 #include <Signals/SignalTarget.h>
 #include <Utils/String.h>
 #include <Utils/CircularBuffer.h>
 #include <Threads/Thread.h>
 #include <Threads/Mutex.h>
-#include <Kernel/KMutex.h>
-#include <Kernel/KConditionVariable.h>
-#include <Kernel/KObjectWaitGroup.h>
-#include <Kernel/VFS/KINode.h>
-#include <Kernel/VFS/KFilesystem.h>
+#include <Threads/ConditionVariable.h>
 #include <Kernel/Kernel.h>
 #include <SerialConsole/SerialProtocol.h>
 
@@ -150,11 +147,11 @@ private:
 
     static SerialCommandHandler* s_Instance;
 
-    mutable kernel::KMutex      m_TransmitMutex;
-    mutable kernel::KMutex      m_QueueMutex;
-    mutable kernel::KMutex      m_LogMutex;
-    kernel::KConditionVariable  m_ReplyCondition;
-    kernel::KConditionVariable  m_QueueCondition;
+    mutable os::Mutex      m_TransmitMutex;
+    mutable os::Mutex      m_QueueMutex;
+    mutable os::Mutex      m_LogMutex;
+    os::ConditionVariable  m_ReplyCondition;
+    os::ConditionVariable  m_QueueCondition;
 
     volatile std::atomic_bool     m_ReplyReceived = false;
 

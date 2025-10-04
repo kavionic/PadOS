@@ -21,6 +21,7 @@
 #include <sys/unistd.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
+#include <sys/dirent.h>
 
 #include <Kernel/VFS/FileIO.h>
 #include <Storage/FSNode.h>
@@ -57,13 +58,13 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
 {
     kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Directory '%s' requested\n", packet.m_Path);
     std::vector<SerialProtocol::GetDirectoryReplyDirEnt> entryList;
-    int dir = FileIO::Open(packet.m_Path, O_RDONLY);
+    int dir = open(packet.m_Path, O_RDONLY);
     if (dir >= 0)
     {
         constexpr size_t maxEntriesPerPackage = (4096 - sizeof(SerialProtocol::GetDirectoryReply)) / sizeof(SerialProtocol::GetDirectoryReplyDirEnt);
         static_assert(maxEntriesPerPackage >= 5);
         dirent_t dirEntry;
-        for (int i = 0; FileIO::ReadDirectory(dir, &dirEntry, sizeof(dirEntry)) == 1; ++i)
+        for (int i = 0; __read_directory(dir, &dirEntry, sizeof(dirEntry)) == 1; ++i)
         {
             String path = packet.m_Path;
             path += "/";
@@ -107,9 +108,9 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
 void CommandHandlerFilesystem::HandleCreateFile(const SerialProtocol::CreateFile& msg)
 {
     if (m_CurrentExternalFile != -1) {
-        FileIO::Close(m_CurrentExternalFile);
+        close(m_CurrentExternalFile);
     }
-    m_CurrentExternalFile = FileIO::Open(msg.m_Path, O_WRONLY | O_CREAT | O_TRUNC);
+    m_CurrentExternalFile = open(msg.m_Path, O_WRONLY | O_CREAT | O_TRUNC, 0777);
     m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(m_CurrentExternalFile);
 }
 
@@ -119,7 +120,7 @@ void CommandHandlerFilesystem::HandleCreateFile(const SerialProtocol::CreateFile
 
 void CommandHandlerFilesystem::HandleCreateDirectory(const SerialProtocol::CreateDirectory& msg)
 {
-    FileIO::CreateDirectory(msg.m_Path);
+    mkdir(msg.m_Path, 0777);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -129,9 +130,9 @@ void CommandHandlerFilesystem::HandleCreateDirectory(const SerialProtocol::Creat
 void CommandHandlerFilesystem::HandleOpenFile(const SerialProtocol::OpenFile& msg)
 {
     if (m_CurrentExternalFile != -1) {
-        FileIO::Close(m_CurrentExternalFile);
+        close(m_CurrentExternalFile);
     }
-    m_CurrentExternalFile = FileIO::Open(msg.m_Path, O_RDONLY);
+    m_CurrentExternalFile = open(msg.m_Path, O_RDONLY);
     m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(m_CurrentExternalFile);
 }
 
@@ -144,7 +145,7 @@ void CommandHandlerFilesystem::HandleWriteFile(const SerialProtocol::WriteFile& 
     if (m_CurrentExternalFile == -1 || msg.m_File != m_CurrentExternalFile) {
         return;
     }
-    ssize_t result = FileIO::Write(m_CurrentExternalFile, msg.m_StartPos, msg.m_Buffer, msg.m_Size);
+    ssize_t result = FileIO::Write(m_CurrentExternalFile, msg.m_Buffer, msg.m_Size, msg.m_StartPos);
     m_CommandHandler->SendMessage<SerialProtocol::WriteFileReply>(m_CurrentExternalFile, (result == msg.m_Size) ? (msg.m_StartPos + result) : -1);
 }
 
@@ -158,7 +159,7 @@ void CommandHandlerFilesystem::HandleReadFile(const SerialProtocol::ReadFile& ms
         return;
     }
     SerialProtocol::ReadFileReply reply;
-    ssize_t result = FileIO::Read(m_CurrentExternalFile, msg.m_StartPos, reply.m_Buffer, msg.m_Size);
+    ssize_t result = FileIO::Read(m_CurrentExternalFile, reply.m_Buffer, msg.m_Size, msg.m_StartPos);
     SerialProtocol::ReadFileReply::InitMsg(reply, m_CurrentExternalFile, msg.m_StartPos, result);
 
     m_CommandHandler->SendSerialPacket(&reply);
@@ -173,7 +174,7 @@ void CommandHandlerFilesystem::HandleCloseFile(const SerialProtocol::CloseFile& 
     if (m_CurrentExternalFile == -1 || msg.m_File != m_CurrentExternalFile) {
         return;
     }
-    FileIO::Close(m_CurrentExternalFile);
+    close(m_CurrentExternalFile);
     m_CurrentExternalFile = -1;
 }
 
@@ -184,7 +185,7 @@ void CommandHandlerFilesystem::HandleCloseFile(const SerialProtocol::CloseFile& 
 void CommandHandlerFilesystem::HandleDeleteFile(const SerialProtocol::DeleteFile& msg)
 {
     if (m_CurrentExternalFile != -1) {
-        FileIO::Close(m_CurrentExternalFile);
+        close(m_CurrentExternalFile);
     }
 
     FSNode file(msg.m_Path);
@@ -193,10 +194,10 @@ void CommandHandlerFilesystem::HandleDeleteFile(const SerialProtocol::DeleteFile
         bool isDirectory = file.IsDir();
         file.Close();
         if (isDirectory) {
-            FileIO::RemoveDirectory(msg.m_Path);
+            __remove_directory(AT_FDCWD, msg.m_Path);
         }
         else {
-            FileIO::Unlink(msg.m_Path);
+            unlink(msg.m_Path);
         }
     }
 }

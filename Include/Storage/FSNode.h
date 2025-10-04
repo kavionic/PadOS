@@ -92,9 +92,9 @@ public:
     virtual off64_t GetSize(bool updateCache = true) const;
     virtual bool    SetSize(off64_t size) const;
 
-    virtual PErrorCode GetCTime(TimeValMicros& outTime, bool updateCache = true) const;
-    virtual PErrorCode GetMTime(TimeValMicros& outTime, bool updateCache = true) const;
-    virtual PErrorCode GetATime(TimeValMicros& outTime, bool updateCache = true) const;
+    virtual PErrorCode GetCTime(TimeValNanos& outTime, bool updateCache = true) const;
+    virtual PErrorCode GetMTime(TimeValNanos& outTime, bool updateCache = true) const;
+    virtual PErrorCode GetATime(TimeValNanos& outTime, bool updateCache = true) const;
 
     PErrorCode GetCTime(time_t& outTime, bool updateCache = true) const;
     PErrorCode GetMTime(time_t& outTime, bool updateCache = true) const;

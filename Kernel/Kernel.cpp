@@ -23,19 +23,20 @@
 #include <errno.h>
 #include <string.h>
 
-#include "Kernel/Kernel.h"
-#include "Kernel/Scheduler.h"
-#include "Kernel/KPowerManager.h"
-#include "Kernel/VFS/KDeviceNode.h"
-#include "Kernel/VFS/KRootFilesystem.h"
-#include "Kernel/VFS/KFSVolume.h"
-#include "Kernel/VFS/KFileHandle.h"
-#include "Utils/Utils.h"
-#include "Kernel/HAL/SAME70System.h"
-#include "Kernel/VFS/FileIO.h"
-#include "Kernel/HAL/ATSAM/SAME70TimerDefines.h"
-#include "Kernel/SpinTimer.h"
-#include "System/SysTime.h"
+#include <Kernel/Kernel.h>
+#include <Kernel/Scheduler.h>
+#include <Kernel/KPowerManager.h>
+#include <Kernel/VFS/KDeviceNode.h>
+#include <Kernel/VFS/KRootFilesystem.h>
+#include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KFileHandle.h>
+#include <Utils/Utils.h>
+#include <Kernel/HAL/SAME70System.h>
+#include <Kernel/VFS/FileIO.h>
+#include <Kernel/HAL/ATSAM/SAME70TimerDefines.h>
+#include <Kernel/SpinTimer.h>
+#include <System/SysTime.h>
+#include <Threads/Mutex.h>
 
 using namespace kernel;
 using namespace os;
@@ -43,9 +44,9 @@ using namespace os;
 uint32_t            Kernel::s_FrequencyCore;
 uint32_t            Kernel::s_FrequencyPeripheral;
 volatile bigtime_t  Kernel::s_SystemTime = 0;
-TimeValMicros       Kernel::s_RealTime;
+TimeValNanos        Kernel::s_RealTime;
 
-static KMutex												gk_KernelLogMutex("kernel_log", PEMutexRecursionMode_RaiseError);
+static Mutex												gk_KernelLogMutex("kernel_log", PEMutexRecursionMode_RaiseError);
 static port_id                                              gk_InputEventPort = INVALID_HANDLE;
 
 static std::map<int, std::pair<KLogSeverity, os::String>>& get_kernel_log_levels_map()
@@ -60,7 +61,7 @@ static std::map<int, std::pair<KLogSeverity, os::String>>& get_kernel_log_levels
 
 IFLASHC bool kernel::kernel_log_register_category(uint32_t categoryHash, const char* categoryName, KLogSeverity initialLogLevel)
 {
-	CRITICAL_SCOPE(gk_KernelLogMutex, gk_CurrentThread != nullptr);
+	CRITICAL_SCOPE(gk_KernelLogMutex);
     get_kernel_log_levels_map()[categoryHash] = std::make_pair(initialLogLevel, os::String(categoryName));
 	return true;
 }
@@ -189,10 +190,7 @@ void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MC
 {
     ResetWatchdog();
 
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_General,    KLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_VFS,        KLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache, KLogSeverity::INFO_LOW_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler,  KLogSeverity::INFO_HIGH_VOL);
+    SCB->CCR |= SCB_CCR_STKALIGN_Msk;
 
 //    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
     kernel::start_scheduler(coreFrequency, mainThreadStackSize);

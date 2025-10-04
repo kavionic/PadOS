@@ -86,9 +86,9 @@ private:
     ObjectWaitGroup                         m_WaitGroup;
 
     std::vector<uint8_t>                        m_ReceiveBuffer;
-    TimeValMicros                               m_NextEventTime = TimeValMicros::infinit;
+    TimeValNanos                                m_NextEventTime = TimeValNanos::infinit;
     volatile std::atomic_bool                   m_DoRun;
-    std::multimap<TimeValMicros, EventTimer*>   m_TimerMap;
+    std::multimap<TimeValNanos, EventTimer*>    m_TimerMap;
     std::map<handler_id, Ptr<EventHandler>>     m_HandlerMap;
     std::vector<std::pair<int32_t,int32_t>>     m_WaitingCodes;
     static int32_t                              s_NextReplyToken;

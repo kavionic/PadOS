@@ -30,7 +30,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-EventTimer::EventTimer(TimeValMicros timeout, bool singleshot, int32_t id) : m_ID(id), m_Timeout(timeout)
+EventTimer::EventTimer(TimeValNanos timeout, bool singleshot, int32_t id) : m_ID(id), m_Timeout(timeout)
 {
 }
 
@@ -47,16 +47,16 @@ EventTimer::~EventTimer()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void EventTimer::Set(TimeValMicros timeout, bool singleshot)
+void EventTimer::Set(TimeValNanos timeout, bool singleshot)
 {
-    if ( timeout <= TimeValMicros::zero ) {
-        timeout = TimeValMicros::FromMicroseconds(1);
+    if ( timeout <= TimeValNanos::zero ) {
+        timeout = TimeValNanos::FromNanoseconds(1);
     }
     m_Timeout = timeout;
     
     if (m_Looper != nullptr)
     {
-        assert(m_Looper->GetThreadID() == sys_get_thread_id());
+        assert(m_Looper->GetThreadID() == __get_thread_id());
         m_Looper->AddTimer(this, singleshot);
     }
 }
@@ -119,10 +119,10 @@ int32_t EventTimer::GetID() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValMicros EventTimer::GetRemainingTime() const
+TimeValNanos EventTimer::GetRemainingTime() const
 {  
     if (m_Looper == nullptr) {
-        return TimeValMicros::zero;
+        return TimeValNanos::zero;
     } else {
         return m_TimerMapIterator->first - get_system_time();
     }

@@ -147,9 +147,27 @@ bool KMessagePort::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KMessagePort::SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValMicros timeout)
+PErrorCode KMessagePort::SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length)
 {
-    TimeValMicros deadline = (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit;
+    return SendMessageDeadline(targetHandler, code, data, length, TimeValNanos::infinit);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KMessagePort::SendMessageTimeout(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValNanos timeout)
+{
+    TimeValNanos deadline = (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit;
+    return SendMessageDeadline(targetHandler, code, data, length, deadline);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode KMessagePort::SendMessageDeadline(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValNanos deadline)
+{
     CRITICAL_SCOPE(m_Mutex);
 
     while (m_MessageCount >= m_MaxCount)
@@ -157,14 +175,13 @@ bool KMessagePort::SendMessage(handler_id targetHandler, int32_t code, const voi
         const PErrorCode result = m_SendCondition.WaitDeadline(m_Mutex, deadline);
         if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
         {
-            set_last_error(result);
-            return false;
+            return result;
         }
     }
 
     KMessagePortMessage* message = alloc_message(length);
     if (message == nullptr) {
-        return false;
+        return PErrorCode::NoMemory;
     }
     message->m_TargetHandler = targetHandler;
     message->m_Code = code;
@@ -181,7 +198,7 @@ bool KMessagePort::SendMessage(handler_id targetHandler, int32_t code, const voi
     m_LastMsg = message;
     m_MessageCount++;
     m_ReceiveCondition.WakeupAll();
-    return true;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -208,16 +225,16 @@ ssize_t KMessagePort::ReceiveMessage(handler_id* targetHandler, int32_t* code, v
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KMessagePort::ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValMicros timeout)
+ssize_t KMessagePort::ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValNanos timeout)
 {
-    return ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
+    return ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KMessagePort::ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValMicros deadline)
+ssize_t KMessagePort::ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValNanos deadline)
 {
 	CRITICAL_SCOPE(m_Mutex);
 
@@ -296,27 +313,53 @@ PErrorCode duplicate_message_port(port_id& ouNewtHandle, port_id handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t delete_message_port(port_id handle)
+PErrorCode delete_message_port(port_id handle)
 {
     if (KNamedObject::FreeHandle(handle, KNamedObjectType::MessagePort)) {
-        return 0;
+        return PErrorCode::Success;
     }
-    set_last_error(EINVAL);
-    return -1;
+    return PErrorCode::InvalidArg;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t send_message(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout)
+PErrorCode send_message(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length)
 {
     Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
     if (port != nullptr) {
-        return port->SendMessage(targetHandler, code, data, length, TimeValMicros::FromMicroseconds(timeout)) ? 0 : -1;
+        return port->SendMessage(targetHandler, code, data, length);
     } else {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode send_message_timeout_ns(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout)
+{
+    Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
+    if (port != nullptr) {
+        return port->SendMessageTimeout(targetHandler, code, data, length, TimeValNanos::FromNanoseconds(timeout));
+    } else {
+        return PErrorCode::InvalidArg;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode  send_message_deadline_ns(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t deadline)
+{
+    Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
+    if (port != nullptr) {
+        return port->SendMessageDeadline(targetHandler, code, data, length, TimeValNanos::FromNanoseconds(deadline));
+    } else {
+        return PErrorCode::InvalidArg;
     }
 }
 
@@ -339,11 +382,11 @@ ssize_t receive_message(port_id handle, handler_id* targetHandler, int32_t* code
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t receive_message_timeout(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout)
+ssize_t receive_message_timeout_ns(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout)
 {
     Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
     if (port != nullptr) {
-        return port->ReceiveMessageTimeout(targetHandler, code, buffer, bufferSize, TimeValMicros::FromMicroseconds(timeout));
+        return port->ReceiveMessageTimeout(targetHandler, code, buffer, bufferSize, TimeValNanos::FromNanoseconds(timeout));
     } else {
         set_last_error(EINVAL);
         return -1;
@@ -354,11 +397,11 @@ ssize_t receive_message_timeout(port_id handle, handler_id* targetHandler, int32
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t receive_message_deadline(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline)
+ssize_t receive_message_deadline_ns(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline)
 {
     Ptr<KMessagePort> port = KNamedObject::GetObject<KMessagePort>(handle);
     if (port != nullptr) {
-        return port->ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, TimeValMicros::FromMicroseconds(deadline));
+        return port->ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, TimeValNanos::FromNanoseconds(deadline));
     } else {
         set_last_error(EINVAL);
         return -1;

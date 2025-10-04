@@ -22,6 +22,7 @@
 #include <Kernel/KObjectWaitGroup.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/Scheduler.h>
+#include <Kernel/Syscalls.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KINode.h>
 #include <Kernel/VFS/KFileHandle.h>
@@ -170,7 +171,7 @@ void KObjectWaitGroup::ClearInternal()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KObjectWaitGroup::WaitForBlockedThread(TimeValMicros deadline)
+PErrorCode KObjectWaitGroup::WaitForBlockedThread(TimeValNanos deadline)
 {
     while (m_BlockedThread != nullptr)
     {
@@ -192,7 +193,7 @@ PErrorCode KObjectWaitGroup::WaitForBlockedThread(TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
+PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
@@ -319,9 +320,10 @@ PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValMicros deadline, void* re
 PErrorCode KObjectWaitGroup::AddFile(int fileHandle, ObjectWaitMode waitMode)
 {
     Ptr<KINode> inode;
-    Ptr<KFileNode> file = FileIO::GetFile(fileHandle, inode);
-    if (file == nullptr) {
-        return PErrorCode::InvalidArg;
+    Ptr<KFileNode> file;
+    PErrorCode result = FileIO::GetFile(fileHandle, file, inode);
+    if (result != PErrorCode::Success) {
+        return result;
     }
     return AddObject(inode, waitMode);
 }
@@ -333,9 +335,10 @@ PErrorCode KObjectWaitGroup::AddFile(int fileHandle, ObjectWaitMode waitMode)
 PErrorCode KObjectWaitGroup::RemoveFile(int fileHandle, ObjectWaitMode waitMode)
 {
     Ptr<KINode> inode;
-    Ptr<KFileNode> file = FileIO::GetFile(fileHandle, inode);
-    if (file == nullptr) {
-        return PErrorCode::InvalidArg;
+    Ptr<KFileNode> file;
+    PErrorCode result = FileIO::GetFile(fileHandle, file, inode);
+    if (result != PErrorCode::Success) {
+        return result;
     }
     return RemoveObject(inode, waitMode);
 }
@@ -432,16 +435,16 @@ PErrorCode object_wait_group_wait(handle_id handle, handle_id mutexHandle, void*
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode object_wait_group_wait_timeout(handle_id handle, handle_id mutexHandle, bigtime_t timeout, void* readyFlagsBuffer, size_t readyFlagsSize)
+PErrorCode object_wait_group_wait_timeout_ns(handle_id handle, handle_id mutexHandle, bigtime_t timeout, void* readyFlagsBuffer, size_t readyFlagsSize)
 {
-    return object_wait_group_wait_deadline(handle, mutexHandle, (timeout != TimeValMicros::infinit.AsMicroSeconds()) ? (get_system_time().AsMicroSeconds() + timeout) : TimeValMicros::infinit.AsMicroSeconds(), readyFlagsBuffer, readyFlagsSize);
+    return object_wait_group_wait_deadline_ns(handle, mutexHandle, (timeout != TimeValNanos::infinit.AsNanoseconds()) ? (sys_get_system_time() + timeout) : TimeValNanos::infinit.AsNanoseconds(), readyFlagsBuffer, readyFlagsSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode object_wait_group_wait_deadline(handle_id handle, handle_id mutexHandle, bigtime_t deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
+PErrorCode object_wait_group_wait_deadline_ns(handle_id handle, handle_id mutexHandle, bigtime_t deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
 {
     Ptr<KMutex> mutex;
     if (mutexHandle != INVALID_HANDLE)
@@ -452,8 +455,8 @@ PErrorCode object_wait_group_wait_deadline(handle_id handle, handle_id mutexHand
         }
     }
     if (mutex != nullptr) {
-        return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KObjectWaitGroup::*)(KMutex&, TimeValMicros, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), *mutex, TimeValMicros::FromMicroseconds(deadline), readyFlagsBuffer, readyFlagsSize);
+        return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KObjectWaitGroup::*)(KMutex&, TimeValNanos, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), *mutex, TimeValNanos::FromNanoseconds(deadline), readyFlagsBuffer, readyFlagsSize);
     } else {
-        return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KObjectWaitGroup::*)(TimeValMicros, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), TimeValMicros::FromMicroseconds(deadline), readyFlagsBuffer, readyFlagsSize);
+        return KNamedObject::ForwardToHandle<KObjectWaitGroup>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KObjectWaitGroup::*)(TimeValNanos, void*, size_t)>(&KObjectWaitGroup::WaitDeadline), TimeValNanos::FromNanoseconds(deadline), readyFlagsBuffer, readyFlagsSize);
     }
 }

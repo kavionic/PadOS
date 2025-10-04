@@ -116,7 +116,7 @@ public:
     Ptr<FATTable> GetFATTable() { return m_FATTable; }
     
     ino_t AllocUniqueINodeID();
-    bool  SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID);
+    PErrorCode  SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID);
     bool  RemoveINodeIDToLocationIDMapping(ino_t inodeID);
     bool  GetINodeIDToLocationIDMapping(ino_t inodeID, ino_t* locationID) const;
     bool  GetLocationIDToINodeIDMapping(ino_t locationID, ino_t* inodeID) const;

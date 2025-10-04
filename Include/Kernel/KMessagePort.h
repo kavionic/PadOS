@@ -43,11 +43,13 @@ public:
 
     bool    SetReplyPort(port_id port);
 
-    bool    SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValMicros timeout = TimeValMicros::infinit);
-    
+    PErrorCode  SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length);
+    PErrorCode  SendMessageTimeout(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValNanos timeout);
+    PErrorCode  SendMessageDeadline(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValNanos deadline);
+
     ssize_t ReceiveMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
-    ssize_t ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValMicros timeout);
-    ssize_t ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValMicros deadline);
+    ssize_t ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValNanos timeout);
+    ssize_t ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValNanos deadline);
     
 private:
     ssize_t DetachMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);

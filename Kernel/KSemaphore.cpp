@@ -101,7 +101,7 @@ PErrorCode KSemaphore::Acquire()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KSemaphore::AcquireDeadline(TimeValMicros deadline)
+PErrorCode KSemaphore::AcquireDeadline(TimeValNanos deadline)
 {
     return AcquireClock(m_ClockID, deadline);
 }
@@ -110,7 +110,7 @@ PErrorCode KSemaphore::AcquireDeadline(TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KSemaphore::AcquireClock(clockid_t clockID, TimeValMicros deadline)
+PErrorCode KSemaphore::AcquireClock(clockid_t clockID, TimeValNanos deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -169,9 +169,9 @@ PErrorCode KSemaphore::AcquireClock(clockid_t clockID, TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KSemaphore::AcquireTimeout(TimeValMicros timeout)
+PErrorCode KSemaphore::AcquireTimeout(TimeValNanos timeout)
 {
-    return AcquireClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_clock_time(CLOCK_MONOTONIC_COARSE) + timeout) : TimeValMicros::infinit);
+    return AcquireClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_clock_time(CLOCK_MONOTONIC_COARSE) + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

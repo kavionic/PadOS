@@ -38,25 +38,25 @@ public:
     Mutex(const char* name, PEMutexRecursionMode recursionMode, clockid_t clockID = CLOCK_MONOTONIC)
     {
         handle_id handle;
-        if (sys_mutex_create(&handle, name, recursionMode, clockID) == PErrorCode::Success) {
+        if (__mutex_create(&handle, name, recursionMode, clockID) == PErrorCode::Success) {
             SetHandle(handle);
         }
     }
-    ~Mutex() { sys_mutex_delete(m_Handle); }
+    ~Mutex() { __mutex_delete(m_Handle); }
     bool Lock()
     {
-        return ParseResult(sys_mutex_lock(m_Handle));
+        return ParseResult(__mutex_lock(m_Handle));
     }
-    bool LockTimeout(bigtime_t timeout)
+    bool LockTimeout(TimeValNanos timeout)
     {
-        return ParseResult(sys_mutex_lock_timeout(m_Handle, timeout));
+        return ParseResult(__mutex_lock_timeout_ns(m_Handle, timeout.AsNanoseconds()));
     }
-    bool LockDeadline(bigtime_t deadline) { return ParseResult(sys_mutex_lock_deadline(m_Handle, deadline)); }
-    bool TryLock() { return ParseResult(sys_mutex_try_lock(m_Handle)); }
-    bool Unlock() { return ParseResult(sys_mutex_unlock(m_Handle)); }
+    bool LockDeadline(TimeValNanos deadline) { return ParseResult(__mutex_lock_deadline_ns(m_Handle, deadline.AsNanoseconds())); }
+    bool TryLock() { return ParseResult(__mutex_try_lock(m_Handle)); }
+    bool Unlock() { return ParseResult(__mutex_unlock(m_Handle)); }
     bool IsLocked() const
     {
-        const PErrorCode result = sys_mutex_islocked(m_Handle);
+        const PErrorCode result = __mutex_islocked(m_Handle);
         if (result == PErrorCode::Busy)
         {
             return true;
@@ -77,18 +77,6 @@ public:
     Mutex& operator=(const Mutex& other) = default;
 
 private:
-    bool ParseResult(PErrorCode result) const
-    {
-        if (result == PErrorCode::Success)
-        {
-            return true;
-        }
-        else
-        {
-            set_last_error(result);
-            return false;
-        }
-    }
 };
 
 class MutexObjGuard

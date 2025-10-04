@@ -80,27 +80,27 @@ PErrorCode sys_mutex_lock(sem_id handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_mutex_lock_timeout(sem_id handle, bigtime_t timeout)
+PErrorCode sys_mutex_lock_timeout_ns(sem_id handle, bigtime_t timeout)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockTimeout, TimeValMicros::FromMicroseconds(timeout));
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockTimeout, TimeValNanos::FromNanoseconds(timeout));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_mutex_lock_deadline(sem_id handle, bigtime_t deadline)
+PErrorCode sys_mutex_lock_deadline_ns(sem_id handle, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockDeadline, TimeValMicros::FromMicroseconds(deadline));
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockDeadline, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_mutex_lock_clock(sem_id handle, clockid_t clockID, bigtime_t deadline)
+PErrorCode sys_mutex_lock_clock_ns(sem_id handle, clockid_t clockID, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockClock, clockID, TimeValMicros::FromMicroseconds(deadline));
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockClock, clockID, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -134,27 +134,27 @@ PErrorCode sys_mutex_lock_shared(sem_id handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_mutex_lock_shared_timeout(sem_id handle, bigtime_t timeout)
+PErrorCode sys_mutex_lock_shared_timeout_ns(sem_id handle, bigtime_t timeout)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedTimeout, TimeValMicros::FromMicroseconds(timeout));
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedTimeout, TimeValNanos::FromNanoseconds(timeout));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_mutex_lock_shared_deadline(sem_id handle, bigtime_t deadline)
+PErrorCode sys_mutex_lock_shared_deadline_ns(sem_id handle, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedDeadline, TimeValMicros::FromMicroseconds(deadline));
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedDeadline, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_mutex_lock_shared_clock(sem_id handle, clockid_t clockID, bigtime_t deadline)
+PErrorCode sys_mutex_lock_shared_clock_ns(sem_id handle, clockid_t clockID, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedClock, clockID, TimeValMicros::FromMicroseconds(deadline));
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedClock, clockID, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

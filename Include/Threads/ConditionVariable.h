@@ -37,18 +37,18 @@ public:
   ConditionVariable(const char* name = "", int clockID = CLOCK_MONOTONIC)
   {
       handle_id handle;
-      if (sys_condition_var_create(&handle, name, clockID) == PErrorCode::Success) {
+      if (__condition_var_create(&handle, name, clockID) == PErrorCode::Success) {
           SetHandle(handle);
       }
   }
-  ~ConditionVariable() { sys_condition_var_delete(m_Handle); }
+  ~ConditionVariable() { __condition_var_delete(m_Handle); }
 
-  bool Wait(Mutex& lock) { return ParseResult(sys_condition_var_wait(m_Handle, lock.GetHandle())); }
-  bool WaitTimeout(Mutex& lock, const TimeValMicros& timeout) { return ParseResult(sys_condition_var_wait_timeout(m_Handle, lock.GetHandle(), timeout.AsMicroSeconds())); }
-  bool WaitDeadline(Mutex& lock, const TimeValMicros& deadline) { return ParseResult(sys_condition_var_wait_deadline(m_Handle, lock.GetHandle(), deadline.AsMicroSeconds())); }
+  bool Wait(Mutex& lock) { return ParseResult(__condition_var_wait(m_Handle, lock.GetHandle())); }
+  bool WaitTimeout(Mutex& lock, const TimeValNanos& timeout) { return ParseResult(__condition_var_wait_timeout_ns(m_Handle, lock.GetHandle(), timeout.AsNanoseconds())); }
+  bool WaitDeadline(Mutex& lock, const TimeValNanos& deadline) { return ParseResult(__condition_var_wait_deadline_ns(m_Handle, lock.GetHandle(), deadline.AsNanoseconds())); }
 
-  bool Wakeup(int threadCount) { return ParseResult(sys_condition_var_wakeup(m_Handle, threadCount)); }
-  bool WakeupAll() { return ParseResult(sys_condition_var_wakeup_all(m_Handle)); }
+  bool Wakeup(int threadCount) { return ParseResult(__condition_var_wakeup(m_Handle, threadCount)); }
+  bool WakeupAll() { return ParseResult(__condition_var_wakeup_all(m_Handle)); }
 
   ConditionVariable(ConditionVariable&& other) = default;
   ConditionVariable(const ConditionVariable& other) = default;

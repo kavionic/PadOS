@@ -105,7 +105,7 @@ public:
     I2C_ADDR_LEN    m_SlaveAddressLength = I2C_ADDR_LEN_7BIT;
     uint8_t         m_SlaveAddress = 0;
     int8_t          m_InternalAddressLength = 0;
-    TimeValMicros   m_Timeout = TimeValMicros::infinit; // Timeout for any IO operations.
+    TimeValNanos   m_Timeout = TimeValNanos::infinit; // Timeout for any IO operations.
 };
 
 
@@ -119,8 +119,8 @@ public:
     IFLASHC Ptr<KFileNode> Open(int flags);
 
     IFLASHC int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
-    IFLASHC ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length);
-    IFLASHC ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length);
+    IFLASHC PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength);
+    IFLASHC PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength);
 
 private:
     IFLASHC void ResetPeripheral();
@@ -169,7 +169,7 @@ private:
     uint8_t*                m_Buffer = nullptr;
     int32_t                 m_Length = 0;
     volatile int32_t        m_CurPos = 0;
-    volatile int            m_TransactionError = 0;
+    volatile PErrorCode     m_TransactionError = PErrorCode::Success;
 };
 
 struct I2CDriverSetup
@@ -192,8 +192,8 @@ public:
     IFLASHC virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
     IFLASHC virtual int              CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
 
-    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
-    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
+    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
     IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 };

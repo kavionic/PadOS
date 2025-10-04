@@ -121,7 +121,7 @@ bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, co
             Ptr<ServerView> focusView = GetKeyboardFocus();
             if (focusView != nullptr)
             {
-                send_message(focusView->GetClientPort(), focusView->GetClientHandle(), code, data, length, TimeValMicros::FromMilliseconds(500).AsMicroSeconds());
+                send_message_timeout_ns(focusView->GetClientPort(), focusView->GetClientHandle(), code, data, length, TimeValNanos::FromMilliseconds(500).AsNanoseconds());
             }
             return true;
         }
@@ -256,8 +256,9 @@ void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clien
     MsgRegisterApplicationReply reply;
     reply.m_ServerHandle = app->GetHandle();
     
-    if (send_message(replyPort, -1, AppserverProtocol::REGISTER_APPLICATION_REPLY, &reply, sizeof(reply), 0) < 0) {
-        printf("ERROR: ApplicationServer::SlotRegisterApplication() failed to send message: %s\n", strerror(get_last_error()));
+    const PErrorCode result = send_message_timeout_ns(replyPort, -1, AppserverProtocol::REGISTER_APPLICATION_REPLY, &reply, sizeof(reply), 0);
+    if (result != PErrorCode::Success) {
+        printf("ERROR: ApplicationServer::SlotRegisterApplication() failed to send message: %s\n", strerror(std::to_underlying(result)));
     }
 }
 

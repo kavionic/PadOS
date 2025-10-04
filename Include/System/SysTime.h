@@ -24,23 +24,32 @@
 #include <System/ErrorCodes.h>
 
 
-TimeValMicros   get_system_time();
+TimeValNanos    get_system_time();
 TimeValNanos    get_system_time_hires();
 TimeValNanos    get_idle_time();
-uint64_t        get_core_clock_cycles();
 
-PErrorCode      set_real_time(TimeValMicros time, bool updateRTC);
-TimeValMicros   get_real_time();
+PErrorCode      set_real_time(TimeValNanos time, bool updateRTC);
+TimeValNanos    get_real_time();
 TimeValNanos    get_real_time_hires();
-TimeValMicros   get_clock_time_offset(int clockID);
-TimeValMicros   get_clock_time(int clockID);
+TimeValNanos    get_clock_time_offset(int clockID);
+TimeValNanos    get_clock_time(int clockID);
 TimeValNanos    get_clock_time_hires(int clockID);
+
+
+TimeValNanos    kget_system_time();
+TimeValNanos    kget_system_time_hires();
+TimeValNanos    kget_idle_time();
+
+PErrorCode      kset_real_time(TimeValNanos time, bool updateRTC);
+TimeValNanos    kget_real_time();
+TimeValNanos    kget_real_time_hires();
+TimeValNanos    kget_clock_time_offset(int clockID);
+TimeValNanos    kget_clock_time(int clockID);
+TimeValNanos    kget_clock_time_hires(int clockID);
+
 
 std::chrono::steady_clock::time_point get_monotonic_clock();
 std::chrono::steady_clock::time_point get_monotonic_clock_hires();
-
-std::chrono::system_clock::time_point get_realtime_clock();
-std::chrono::system_clock::time_point get_realtime_clock_hires();
 
 namespace unit_test
 {

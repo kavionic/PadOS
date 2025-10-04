@@ -22,7 +22,6 @@
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcess.h>
 
-PSET_OPTIMIZATION(O1)
 
 using namespace os;
 using namespace kernel;
@@ -93,4 +92,3 @@ void* sys_thread_local_get(tls_id slot)
 
 
 } // extern "C"
-PRESET_OPTIMIZATION();

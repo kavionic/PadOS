@@ -95,10 +95,10 @@ USARTDriverINode::USARTDriverINode( USARTID      portID,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length)
+PErrorCode USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length, ssize_t& outLength)
 {
     if (length == 0) {
-        return 0;
+        return PErrorCode::Success;
     }
     CRITICAL_SCOPE(m_MutexRead);
 
@@ -108,7 +108,8 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t l
     {
         ssize_t curLen = ReadReceiveBuffer(file, currentTarget, length);
         if (curLen > 0 || (file->GetOpenFlags() & O_NONBLOCK)) {
-            return curLen;
+            outLength = curLen;
+            return PErrorCode::Success;
         }
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
@@ -123,8 +124,7 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t l
                 {
                     if (result != PErrorCode::Interrupted)
                     {
-                        set_last_error(result);
-                        return -1;
+                        return result;
                     }
                 }
             }
@@ -136,7 +136,7 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t l
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length)
+PErrorCode USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length, ssize_t& outLength)
 {
     SCB_CleanInvalidateDCache();
     CRITICAL_SCOPE(m_MutexWrite);
@@ -153,15 +153,15 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             dma_start(m_SendDMAChannel);
-            const PErrorCode result = m_TransmitCondition.IRQWaitTimeout(TimeValMicros::FromMicroseconds(bigtime_t(currentLen) * 10 * 2 * TimeValMicros::TicksPerSecond / m_Baudrate) + TimeValMicros::FromMilliseconds(100));
+            const PErrorCode result = m_TransmitCondition.IRQWaitTimeout(TimeValNanos::FromNanoseconds(bigtime_t(currentLen) * 10 * 2 * TimeValNanos::TicksPerSecond / m_Baudrate) + TimeValNanos::FromMilliseconds(100));
             if (result != PErrorCode::Success)
             {
-                set_last_error(result);
-                return -1;
+                return result;
             }
         } CRITICAL_END;
     }
-    return length;
+    outLength = length;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -233,8 +233,8 @@ int USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDa
             }
         case USARTIOCTL_SET_READ_TIMEOUT:
             if (inDataLength == sizeof(bigtime_t)) {
-                bigtime_t micros = *((const bigtime_t*)inData);
-                m_ReadTimeout = TimeValMicros::FromMicroseconds(micros);
+                bigtime_t nanos = *((const bigtime_t*)inData);
+                m_ReadTimeout = TimeValNanos::FromNanoseconds(nanos);
                 return 0;
             } else {
                 set_last_error(EINVAL);
@@ -242,8 +242,8 @@ int USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDa
             }
         case USARTIOCTL_GET_READ_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t)) {
-                bigtime_t* micros = (bigtime_t*)outData;
-                *micros = m_ReadTimeout.AsMicroSeconds();
+                bigtime_t* nanos = (bigtime_t*)outData;
+                *nanos = m_ReadTimeout.AsNanoseconds();
                 return 0;
             } else {
                 set_last_error(EINVAL);
@@ -629,20 +629,20 @@ void USARTDriver::Setup(const USARTDriverSetup& setup)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USARTDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+PErrorCode USARTDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     Ptr<USARTDriverINode> node = ptr_static_cast<USARTDriverINode>(file->GetINode());
-    return node->Read(file, buffer, length);
+    return node->Read(file, buffer, length, outLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USARTDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
+PErrorCode USARTDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     Ptr<USARTDriverINode> node = ptr_static_cast<USARTDriverINode>(file->GetINode());
-    return node->Write(file, buffer, length);
+    return node->Write(file, buffer, length, outLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

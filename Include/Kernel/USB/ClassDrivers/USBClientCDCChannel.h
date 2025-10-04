@@ -46,8 +46,8 @@ public:
 
     ssize_t  GetReadBytesAvailable() const;
     IFLASHC virtual int     CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
-    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
-    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    IFLASHC virtual PErrorCode  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
+    IFLASHC virtual PErrorCode  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
     IFLASHC virtual int     Sync(Ptr<KFileNode> file) override;
     IFLASHC virtual int     ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
     IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
@@ -63,7 +63,7 @@ public:
 
     Signal<void, const USB_CDC_LineCoding&/*lineCoding*/>   SignalLineCodingChanged;
     Signal<void, bool/*DTR*/, bool/*RTS*/>                  SignalControlLineStateChanged;
-    Signal<void, TimeValMicros/*duration*/>                 SignalBreak;
+    Signal<void, TimeValNanos/*duration*/>                  SignalBreak;
 
 private:
     uint32_t    FlushInternal();
@@ -73,7 +73,7 @@ private:
     KConditionVariable  m_ReceiveCondition;
     KConditionVariable  m_TransmitCondition;
 
-    TimeValMicros       m_CreateTime;
+    TimeValNanos        m_CreateTime;
 
     int                 m_DevNodeHandle = -1; // Handle for out node in the "/dev/" filesystem.
     uint8_t             m_EndpointNotifications = 0;
@@ -86,8 +86,8 @@ private:
 
     USB_CDC_LineCoding  m_LineCoding;
 
-    TimeValMicros   m_ReadTimeout = TimeValMicros::infinit;
-    TimeValMicros   m_WriteTimeout = TimeValMicros::infinit;
+    TimeValNanos    m_ReadTimeout = TimeValNanos::infinit;
+    TimeValNanos    m_WriteTimeout = TimeValNanos::infinit;
 
     CircularBuffer<uint8_t, 1024, void> m_ReceiveFIFO;
     CircularBuffer<uint8_t, 1024, void> m_TransmitFIFO;

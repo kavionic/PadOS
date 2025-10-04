@@ -19,6 +19,7 @@
 
 #include "System/Platform.h"
 
+#include <sys/uio.h>
 #include <sys/types.h>
 
 #include "Kernel/VFS/KFilesystem.h"
@@ -221,66 +222,69 @@ int KFilesystemFileOps::CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KFilesystemFileOps::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+PErrorCode KFilesystemFileOps::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
-    set_last_error(ENOSYS);
-    return -1;
+    return PErrorCode::NotImplemented;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KFilesystemFileOps::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
+PErrorCode KFilesystemFileOps::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
-    set_last_error(ENOSYS);
-    return -1;
+    return PErrorCode::NotImplemented;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KFilesystemFileOps::Read(Ptr<KFileNode> file, off64_t position, const IOSegment* segments, size_t segmentCount)
+PErrorCode KFilesystemFileOps::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength)
 {
-    ssize_t bytesRead = 0;
+    ssize_t totalBytesRead = 0;
     for (size_t i = 0; i < segmentCount; ++i)
     {
-        const IOSegment& segment = segments[i];
-        ssize_t result = Read(file, position, segment.Buffer, segment.Length);
-        if (result < 0) {
+        const iovec_t& segment = segments[i];
+
+        ssize_t bytesRead = 0;
+        const PErrorCode result = Read(file, segment.iov_base, segment.iov_len, position, bytesRead);
+        if (result != PErrorCode::Success) {
             return result;
         }
-        bytesRead += result;
-        position += result;
-        if (result != segment.Length) {
+        totalBytesRead += bytesRead;
+        position += bytesRead;
+        if (bytesRead != segment.iov_len) {
             break;
         }
     }
-    return bytesRead;
+    outLength = totalBytesRead;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t KFilesystemFileOps::Write(Ptr<KFileNode> file, off64_t position, const IOSegment* segments, size_t segmentCount)
+PErrorCode KFilesystemFileOps::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength)
 {
-    ssize_t bytesWritten = 0;
+    ssize_t totalBytesWritten = 0;
     for (size_t i = 0; i < segmentCount; ++i)
     {
-        const IOSegment& segment = segments[i];
-        ssize_t result = Write(file, position, segment.Buffer, segment.Length);
-        if (result < 0) {
+        const iovec_t& segment = segments[i];
+        ssize_t bytesWritten = 0;
+        const PErrorCode result = Write(file, segment.iov_base, segment.iov_len, position, bytesWritten);
+        if (result != PErrorCode::Success) {
             return result;
         }
-        bytesWritten += result;
-        position += result;
-        if (result != segment.Length) {
+        totalBytesWritten += bytesWritten;
+        position += bytesWritten;
+        if (bytesWritten != segment.iov_len) {
             break;
         }
     }
-    return bytesWritten;
+    outLength = totalBytesWritten;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -24,8 +24,8 @@
 class RealtimeClock
 {
 public:
-    static void SetClock(TimeValMicros time);
-    static TimeValMicros GetClock();
+    static void SetClock(TimeValNanos time);
+    static TimeValNanos GetClock();
 
     static void     WriteBackupRegister(uint32_t registerIndex, uint32_t value);
     static uint32_t ReadBackupRegister(uint32_t registerIndex);

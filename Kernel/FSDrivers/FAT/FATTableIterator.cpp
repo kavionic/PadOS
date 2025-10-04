@@ -95,10 +95,11 @@ void FATTableIterator::Increment()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
     
-bool FATTableIterator::SetEntry(uint32_t value)
+PErrorCode FATTableIterator::SetEntry(uint32_t value)
 {
-    if (!Update()) {
-        return false;
+    const PErrorCode result = Update();
+    if (result != PErrorCode::Success) {
+        return result;
     }
     uint8_t* block1 = static_cast<uint8_t*>(m_Block1.m_Buffer);
     uint8_t* block2 = static_cast<uint8_t*>(m_Block2.m_Buffer);
@@ -130,14 +131,14 @@ bool FATTableIterator::SetEntry(uint32_t value)
         }
         m_Volume->GetFATTable()->MirrorFAT(uint32_t(m_LoadedSector1), block1);
         m_Block1.MarkDirty();
-        return true;
+        return PErrorCode::Success;
     }
     else if (m_Volume->m_FATBits == 16)
     {
         block1[m_OffsetInSector] = value & 0xff;
         block1[m_OffsetInSector + 1] = (value >> 8) & 0xff;
         m_Block1.MarkDirty();
-        return true;
+        return PErrorCode::Success;
     }
     else if (m_Volume->m_FATBits == 32)
     {
@@ -148,23 +149,24 @@ bool FATTableIterator::SetEntry(uint32_t value)
         block1[m_OffsetInSector + 3] = (value >> 24) & 0x0f;
         kassert(value == (block1[m_OffsetInSector] + 0x100*block1[m_OffsetInSector + 1] + 0x10000*block1[m_OffsetInSector + 2] + 0x1000000*block1[m_OffsetInSector + 3]));
         m_Block1.MarkDirty();
-        return true;
+        return PErrorCode::Success;
     }
     else
     {
         kassert(false);
     }
-    return false;
+    return PErrorCode::IOError;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATTableIterator::GetEntry(uint32_t* value)
+PErrorCode FATTableIterator::GetEntry(uint32_t* value)
 {
-    if (!Update()) {
-        return false;
+    const PErrorCode result = Update();
+    if (result != PErrorCode::Success) {
+        return result;
     }
     const uint8_t* block1 = static_cast<const uint8_t*>(m_Block1.m_Buffer);
     const uint8_t* block2 = static_cast<const uint8_t*>(m_Block2.m_Buffer);
@@ -186,32 +188,32 @@ bool FATTableIterator::GetEntry(uint32_t* value)
         if (val > 0xff0) val |= 0x0ffff000;
         
         *value = val;
-        return true;
+        return PErrorCode::Success;
     }
     else if (m_Volume->m_FATBits == 16)
     {
         uint32_t val = block1[m_OffsetInSector] + 0x100*block1[m_OffsetInSector+1];
         if (val > 0xfff0) val |= 0x0fff0000;
         *value = val;
-        return true;
+        return PErrorCode::Success;
     }
     else if (m_Volume->m_FATBits == 32)
     {
         *value = block1[m_OffsetInSector] + 0x100*block1[m_OffsetInSector + 1] + 0x10000*block1[m_OffsetInSector + 2] + 0x1000000*(block1[m_OffsetInSector + 3]&0x0f);
-        return true;
+        return PErrorCode::Success;
     }
     else
     {
         kassert(false);
     }
-    return false;
+    return PErrorCode::IOError;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATTableIterator::Update()
+PErrorCode FATTableIterator::Update()
 {
     kassert(m_Volume->IsDataCluster(m_CurrentCluster));
     kassert(m_OffsetInSector == ((m_CurrentCluster * m_Volume->m_FATBits / 8) % m_Volume->m_BytesPerSector));
@@ -228,7 +230,7 @@ bool FATTableIterator::Update()
         m_LoadedSector2 = -1;
         
         if (m_Block1.m_Buffer == nullptr) {
-            return false;
+            return PErrorCode::IOError;
         }
         m_LoadedSector1 = m_CurrentSector;
         if (m_OffsetInSector == m_Volume->m_BytesPerSector - 1)
@@ -237,13 +239,13 @@ bool FATTableIterator::Update()
             if (m_Block2.m_Buffer == nullptr) {
                 m_Block1.Reset();
                 m_LoadedSector1 = -1;
-                return false;
+                return PErrorCode::IOError;
             }
             m_LoadedSector2 = m_CurrentSector + 1;
         }
-        return m_Block1.m_Buffer != nullptr;
+        return (m_Block1.m_Buffer != nullptr) ? PErrorCode::Success : PErrorCode::IOError;
     }
-    return true;
+    return PErrorCode::Success;
 }
 
 } // namespace

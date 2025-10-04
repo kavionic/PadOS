@@ -344,7 +344,7 @@ FATDirectoryIterator::FATDirectoryIterator(Ptr<FATVolume> vol, uint32_t cluster,
     m_CurrentIndex    = index;
     if (index >= m_EntriesPerSector)
     {
-        if (m_SectorIterator.Increment(m_CurrentIndex / m_EntriesPerSector) != 0) {
+        if (m_SectorIterator.Increment(m_CurrentIndex / m_EntriesPerSector) != PErrorCode::Success) {
             return;
         }            
     }
@@ -380,7 +380,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::Set(uint32_t cluster, uint32_t ind
     m_CurrentIndex    = index;
     if (index >= m_EntriesPerSector)
     {
-        if (m_SectorIterator.Increment(m_CurrentIndex / m_EntriesPerSector) != 0) {
+        if (m_SectorIterator.Increment(m_CurrentIndex / m_EntriesPerSector) != PErrorCode::Success) {
             return nullptr;
         }
     }
@@ -417,7 +417,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
     if ((++m_CurrentIndex % m_EntriesPerSector) == 0)
     {
         ReleaseCurrentBlock();
-        if (m_SectorIterator.Increment(1) < 0) {
+        if (m_SectorIterator.Increment(1) != PErrorCode::Success) {
             return nullptr;
         }            
         m_CurrentBlock = m_SectorIterator.GetBlock(true);
@@ -647,7 +647,9 @@ status_t FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, in
                     // if one does, create a random one to prevent a collision
                     *outInodeID = m_SectorIterator.m_Volume->AllocUniqueINodeID();
                     // and add it to the inode cache
-                    if (!m_SectorIterator.m_Volume->SetINodeIDToLocationIDMapping(*outInodeID, loc)) {
+                    const PErrorCode result = m_SectorIterator.m_Volume->SetINodeIDToLocationIDMapping(*outInodeID, loc);
+                    if (result != PErrorCode::Success) {
+                        set_last_error(result);
                         return -1;
                     }
                 }

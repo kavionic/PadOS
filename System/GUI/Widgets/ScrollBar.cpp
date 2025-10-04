@@ -230,7 +230,7 @@ void ScrollBar::SlotTimerTick()
 	SetValue(value);
 
 	if (m_RepeatTimer.IsSingleshot()) {
-        m_RepeatTimer.Set(TimeValMicros::FromMilliseconds(30));
+        m_RepeatTimer.Set(TimeValNanos::FromMilliseconds(30));
 		GetLooper()->AddTimer(&m_RepeatTimer, false);
 	}
 }
@@ -254,7 +254,7 @@ bool ScrollBar::OnMouseDown(MouseButton_e button, const Point& position, const M
 			m_HitState = HIT_ARROW;
 			Invalidate(m_ArrowRects[i]);
 			Flush();
-            m_RepeatTimer.Set(TimeValMicros::FromMilliseconds(300));
+            m_RepeatTimer.Set(TimeValNanos::FromMilliseconds(300));
             GetLooper()->AddTimer(&m_RepeatTimer, true);
 			return true;
 		}
@@ -382,7 +382,7 @@ bool ScrollBar::OnMouseMove(MouseButton_e button, const Point& position, const M
 			{
 				if (!m_RepeatTimer.IsRunning())
 				{
-					m_RepeatTimer.Set(TimeValMicros::FromMilliseconds(300));
+					m_RepeatTimer.Set(TimeValNanos::FromMilliseconds(300));
 					GetLooper()->AddTimer(&m_RepeatTimer, true);
 				}
 			}

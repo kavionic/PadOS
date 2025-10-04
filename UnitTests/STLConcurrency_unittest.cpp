@@ -38,6 +38,7 @@
 #if __has_include(<stop_token>)
 #include <stop_token>
 #include <thread> // jthread also lives here
+#include "System/Platform.h"
 #endif
 
 // Feature-test convenience (guard newer headers on older libstdc++)

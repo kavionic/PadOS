@@ -31,12 +31,20 @@ extern "C"
 {
 status_t  wakeup_thread(thread_id handle);
 
-status_t snooze_until(TimeValMicros resumeTime);
-status_t snooze(TimeValMicros delay);
+inline PErrorCode snooze_until(TimeValNanos resumeTime) { return __snooze_until(resumeTime.AsNanoseconds()); }
+inline PErrorCode snooze(TimeValNanos delay) { return __snooze_ns(delay.AsNanoseconds()); }
 
-status_t snooze_us(bigtime_t micros);
-status_t snooze_ms(bigtime_t millis);
-status_t snooze_s(bigtime_t seconds);
+//status_t snooze_us(bigtime_t micros);
+inline PErrorCode snooze_ms(bigtime_t millis) { return snooze(TimeValNanos::FromMilliseconds(millis)); }
+//status_t snooze_s(bigtime_t seconds);
+
+PErrorCode ksnooze_until(TimeValNanos resumeTime);
+PErrorCode ksnooze(TimeValNanos delay);
+inline PErrorCode ksnooze_ms(bigtime_t millis) { return ksnooze(TimeValNanos::FromMilliseconds(millis)); }
+
+//status_t ksnooze_us(bigtime_t micros);
+//status_t ksnooze_ms(bigtime_t millis);
+//status_t ksnooze_s(bigtime_t seconds);
 
 PErrorCode create_object_wait_group(handle_id& outHandle, const char* name);
 
@@ -47,8 +55,8 @@ PErrorCode  object_wait_group_remove_file(handle_id handle, int fileHandle, Obje
 PErrorCode  object_wait_group_clear(handle_id handle);
 
 PErrorCode  object_wait_group_wait(handle_id handle, handle_id mutexHandle, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);
-PErrorCode  object_wait_group_wait_timeout(handle_id handle, handle_id mutexHandle, bigtime_t timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);
-PErrorCode  object_wait_group_wait_deadline(handle_id handle, handle_id mutexHandle, bigtime_t deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);
+PErrorCode  object_wait_group_wait_timeout_ns(handle_id handle, handle_id mutexHandle, bigtime_t timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);
+PErrorCode  object_wait_group_wait_deadline_ns(handle_id handle, handle_id mutexHandle, bigtime_t deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);
 
 PErrorCode  duplicate_handle(handle_id& outNewHandle, sem_id handle);
 status_t    delete_handle(sem_id handle);
@@ -58,8 +66,8 @@ status_t    delete_handle(sem_id handle);
 class SemaphoreGuard
 {
 public:
-    SemaphoreGuard(sem_id sema) : m_Semaphore(sema) { sys_semaphore_acquire(m_Semaphore); }
-    ~SemaphoreGuard() { if (m_Semaphore != -1) sys_semaphore_release(m_Semaphore); }
+    SemaphoreGuard(sem_id sema) : m_Semaphore(sema) { __semaphore_acquire(m_Semaphore); }
+    ~SemaphoreGuard() { if (m_Semaphore != -1) __semaphore_release(m_Semaphore); }
 
     SemaphoreGuard(SemaphoreGuard&& other) : m_Semaphore(other.m_Semaphore) { m_Semaphore = -1; }
 

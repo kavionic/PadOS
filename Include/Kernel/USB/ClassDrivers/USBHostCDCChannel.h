@@ -57,8 +57,8 @@ public:
 
 
     IFLASHC ssize_t GetReadBytesAvailable() const;
-    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
-    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
+    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
     IFLASHC virtual int     Sync(Ptr<KFileNode> file) override;
     IFLASHC virtual int     ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
     IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
@@ -84,7 +84,7 @@ private:
     USBHostClassCDC*    m_ClassDriver = nullptr;
 
     int                 m_DevNodeHandle = -1;
-    TimeValMicros       m_CreateTime;
+    TimeValNanos        m_CreateTime;
 
     uint8_t             m_DeviceAddress = 0;
     volatile bool       m_IsActive      = false;

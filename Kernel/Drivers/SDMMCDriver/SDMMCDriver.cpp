@@ -22,6 +22,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <malloc.h>
+#include <sys/uio.h>
 
 #include "Kernel/Drivers/SDMMCDriver/SDMMCDriver.h"
 #include "Kernel/SpinTimer.h"
@@ -250,13 +251,13 @@ int SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inD
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, const os::IOSegment* segments, size_t segmentCount)
+PErrorCode SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength)
 {
     Ptr<SDMMCINode> inode = (file != nullptr) ? ptr_static_cast<SDMMCINode>(file->GetINode()) : nullptr;
 
     size_t length = 0;
 
-    for (size_t i = 0; i < segmentCount; ++i) length += segments[i].Length;
+    for (size_t i = 0; i < segmentCount; ++i) length += segments[i].iov_len;
 
     bool needLocking = false;
     if (inode != nullptr)
@@ -265,7 +266,8 @@ ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, const os::IOSeg
         if (position + length > inode->bi_nSize)
         {
             if (position >= inode->bi_nSize) {
-                return 0;
+                outLength = 0;
+                return PErrorCode::Success;
             } else {
                 length = size_t(inode->bi_nSize - position);
             }
@@ -275,28 +277,26 @@ ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, const os::IOSeg
     
     if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0)
     {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
     
     const uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
     const uint32_t blockCount = length / BLOCK_SIZE;
     
-    int error;
+    PErrorCode error;
     for (int retry = 0; retry < 10; ++retry)
     {
         CRITICAL_SCOPE(m_DeviceSemaphore);
         
-        error = 0;
+        error = PErrorCode::Success;
         CRITICAL_SCOPE(m_Mutex, needLocking);
 
         if (!IsReady()) {
-            set_last_error(ENODEV);
-            return -1;
+            return PErrorCode::NoDevice;
         }
     
         if (!Cmd13_sdmmc()) {
-            error = EIO;
+            error = PErrorCode::IOError;
             continue;
         }
 
@@ -310,14 +310,14 @@ ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, const os::IOSeg
         }
 
         if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount)) {
-            error = EIO;
+            error = PErrorCode::IOError;
             continue;
         }
         uint32_t response = GetResponse();
         if (response & CARD_STATUS_ERR_RD_WR)
         {
             kprintf("ERROR: SDMMCDriver::Read() Read %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
-            error = EIO;
+            error = PErrorCode::IOError;
             continue;
         }
 
@@ -327,25 +327,24 @@ ssize_t SDMMCDriver::Read(Ptr<KFileNode> file, off64_t position, const os::IOSeg
         }
         break;
     }
-    if (error == 0) {
-        return length;
-    } else {        
-        set_last_error(error);
-        return -1;
+    if (error == PErrorCode::Success)
+    {
+        outLength = length;
     }
+    return error;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const os::IOSegment* segments, size_t segmentCount)
+PErrorCode SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength)
 {
     Ptr<SDMMCINode> inode = (file != nullptr) ? ptr_static_cast<SDMMCINode>(file->GetINode()) : nullptr;
 
     size_t length = 0;
 
-    for (size_t i = 0; i < segmentCount; ++i) length += segments[i].Length;
+    for (size_t i = 0; i < segmentCount; ++i) length += segments[i].iov_len;
 
     bool needLocking = false;
     if (inode != nullptr)
@@ -354,7 +353,7 @@ ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const os::IOSe
         if (position + length > inode->bi_nSize)
         {
             if (position >= inode->bi_nSize) {
-                return 0;
+                return PErrorCode::Success;
             } else {
                 length = size_t(inode->bi_nSize - position);
             }
@@ -364,24 +363,22 @@ ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const os::IOSe
 
 
     if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
 
     uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
     uint32_t blockCount = length / BLOCK_SIZE;
 
-    int error;
+    PErrorCode error;
     for (int retry = 0; retry < 10; ++retry)
     {
         CRITICAL_SCOPE(m_DeviceSemaphore);
         
-        error = 0;
+        error = PErrorCode::Success;
         CRITICAL_SCOPE(m_Mutex, needLocking);
 
         if (!IsReady()) {
-            set_last_error(ENODEV);
-            return -1;
+            return PErrorCode::NoDevice;
         }
 
         uint32_t cmd = (blockCount > 1) ? SDMMC_CMD25_WRITE_MULTIPLE_BLOCK : SDMMC_CMD24_WRITE_BLOCK;
@@ -394,30 +391,28 @@ ssize_t SDMMCDriver::Write(Ptr<KFileNode> file, off64_t position, const os::IOSe
         }
 
         if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount)) {
-            error = EIO;
+            error = PErrorCode::IOError;
             continue;
         }
         uint32_t response = GetResponse();
         if (response & CARD_STATUS_ERR_RD_WR)
         {
             kprintf("ERROR: SDMMCDriver::Write() Write %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
-            error = EIO;
+            error = PErrorCode::IOError;
             continue;
         }
 
 		// SPI multi-block writes terminate using a special token, not a STOP_TRANSMISSION request.
         if (blockCount > 1 && !StopAddressedDataTransCmd(SDMMC_CMD12_STOP_TRANSMISSION, 0)) {
-            error = EIO;
+            error = PErrorCode::IOError;
             continue;
         }
         break;
     }
-    if (error == 0) {
-        return length;
-    } else {        
-        set_last_error(error);
-        return -1;
+    if (error == PErrorCode::Success) {
+        outLength = length;
     }
+    return error;
 }    
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -604,10 +599,17 @@ bool SDMMCDriver::InitializeCard()
 
 size_t SDMMCDriver::ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size)
 {
-    IOSegment segment;
-    segment.Buffer = buffer;
-    segment.Length = size;
-    return static_cast<SDMMCDriver*>(userData)->Read(nullptr, position, &segment, 1);
+    iovec_t segment;
+    segment.iov_base = buffer;
+    segment.iov_len = size;
+    ssize_t bytesRead;
+    const PErrorCode result = static_cast<SDMMCDriver*>(userData)->Read(nullptr, &segment, 1, position, bytesRead);
+    if (result != PErrorCode::Success)
+    {
+        set_last_error(result);
+        return -1;
+    }
+    return bytesRead;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -921,7 +923,7 @@ ssize_t SDMMCDriver::SDIOWriteExtended(uint8_t functionNumber, uint32_t addr, ui
 
 bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
 {
-    TimeValMicros deadline = get_system_time() + 1.0;
+    TimeValNanos deadline = kget_system_time() + 1.0;
     for(;;)
     {
         // CMD55 - Tell the card that the next command is an application specific command.
@@ -948,7 +950,7 @@ bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
             }
             break;
         }
-        if (get_system_time() > deadline) {
+        if (kget_system_time() > deadline) {
             kprintf("ERROR: OperationalConditionMCI_sd(): Timeout (0x%08lx)\n", response);
             return false;
         }
@@ -967,7 +969,7 @@ bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
 
 bool SDMMCDriver::OperationalConditionMCI_mmc()
 {
-    TimeValMicros deadline = get_system_time() + 1.0;
+    TimeValNanos deadline = kget_system_time() + 1.0;
     for(;;)
     {
         if (!SendCmd(MMC_MCI_CMD1_SEND_OP_COND, SD_MMC_VOLTAGE_SUPPORT | OCR_ACCESS_MODE_SECTOR))
@@ -985,7 +987,7 @@ bool SDMMCDriver::OperationalConditionMCI_mmc()
             }
             break;
         }
-        if (get_system_time() > deadline) {
+        if (kget_system_time() > deadline) {
             kprintf("ERROR: OperationalConditionMCI_mmc(): Timeout (0x%08lx)\n", response);
             return false;
         }
@@ -1016,7 +1018,7 @@ bool SDMMCDriver::OperationalCondition_sdio()
         return true; // No error but card type not updated
     }
 
-    TimeValMicros deadline = get_system_time() + 1.0;
+    TimeValNanos deadline = kget_system_time() + 1.0;
     for (;;)
     {
         // CMD5 - SDIO send operation condition (OCR) command.
@@ -1028,7 +1030,7 @@ bool SDMMCDriver::OperationalCondition_sdio()
         if ((response & OCR_POWER_UP_BUSY) == OCR_POWER_UP_BUSY) {
             break;
         }
-        if (get_system_time() > deadline) {
+        if (kget_system_time() > deadline) {
             kprintf("ERROR: OperationalCondition_sdio(): Timeout (0x%08lx)\n", response);
             return false;
         }
@@ -1196,7 +1198,7 @@ bool SDMMCDriver::SetHighSpeed_sd()
 
 	uint8_t* switch_status = reinterpret_cast<uint8_t*>(m_CacheAlignedBuffer);
 
-    IOSegment segment(switch_status, SD_SW_STATUS_SIZE_BYTES);
+    iovec_t segment = { .iov_base = switch_status, .iov_len = SD_SW_STATUS_SIZE_BYTES };
     if (!StartAddressedDataTransCmd(SD_CMD6_SWITCH_FUNC,
                                     SD_CMD6_MODE_SWITCH
                                   | SD_CMD6_GRP6_NO_INFLUENCE
@@ -1455,7 +1457,7 @@ bool SDMMCDriver::Cmd8_mmc(bool* authorizeHighSpeed)
 	uint32_t* buffer = reinterpret_cast<uint32_t*>(m_CacheAlignedBuffer);
 
 	// Read and decode Extended Card Specific Data.
-    IOSegment segment(buffer, EXT_CSD_SIZE_BYTES);
+    iovec_t segment = { .iov_base = buffer, .iov_len = EXT_CSD_SIZE_BYTES };
     if (!StartAddressedDataTransCmd(MMC_CMD8_SEND_EXT_CSD, 0, get_first_bit_index(EXT_CSD_SIZE_BYTES), 1, &segment, 1)) {
 		return false;
 	}
@@ -1496,7 +1498,7 @@ bool SDMMCDriver::Cmd9MCI_sdmmc()
 
 bool SDMMCDriver::Cmd13_sdmmc()
 {
-    TimeValMicros deadline = get_system_time() + 1.0;
+    TimeValNanos deadline = kget_system_time() + 1.0;
     for(;;)
     {
         if (!SendCmd(SDMMC_MCI_CMD13_SEND_STATUS, (uint32_t)m_RCA << 16)) {
@@ -1505,7 +1507,7 @@ bool SDMMCDriver::Cmd13_sdmmc()
         if (GetResponse() & CARD_STATUS_READY_FOR_DATA) {
             return true;
         }
-        if (get_system_time() > deadline) {
+        if (kget_system_time() > deadline) {
             kprintf("ERROR: Cmd13_sdmmc() timeout\n");
             return false;
         }
@@ -1536,7 +1538,7 @@ bool SDMMCDriver::ACmd51_sd()
 		if (!SendCmd(SDMMC_CMD55_APP_CMD, uint32_t(m_RCA) << 16)) {
 			return false;
 		}
-        IOSegment segment(scr, SD_SCR_REG_SIZE_BYTES);
+        iovec_t segment(scr, SD_SCR_REG_SIZE_BYTES);
         if (StartAddressedDataTransCmd(SD_ACMD51_SEND_SCR, 0, get_first_bit_index(SD_SCR_REG_SIZE_BYTES), 1, &segment, 1)) {
             break;
         } else if (++retries > 5) {
@@ -1617,6 +1619,6 @@ bool SDMMCDriver::Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t re
                      | ((uint32_t)rwFlag << SDIO_CMD53_RW_FLAG);
 
 
-    IOSegment segment(const_cast<void*>(buffer), size);
+    iovec_t segment(const_cast<void*>(buffer), size);
     return StartAddressedDataTransCmd((rwFlag == SDIO_CMD53_READ_FLAG) ? SDIO_CMD53_IO_R_BYTE_EXTENDED : SDIO_CMD53_IO_W_BYTE_EXTENDED, cmdArgs, get_first_bit_index(1), size, &segment, 1);
 }

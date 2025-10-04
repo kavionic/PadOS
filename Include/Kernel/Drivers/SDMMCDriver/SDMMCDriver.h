@@ -87,8 +87,8 @@ public:
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
 
     virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, const os::IOSegment* segments, size_t segmentCount) override;
-    virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const os::IOSegment* segments, size_t segmentCount) override;
+    virtual PErrorCode Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength) override;
+    virtual PErrorCode Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength) override;
 
 protected:
     static constexpr uint32_t BLOCK_SIZE = 512;
@@ -144,7 +144,7 @@ protected:
     virtual bool		SendCmd(uint32_t cmd, uint32_t arg) = 0;
 	virtual uint32_t	GetResponse() = 0;
     virtual void		GetResponse128(uint8_t* response) = 0;
-    virtual bool		StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const os::IOSegment* segments, size_t segmentCount) = 0;
+    virtual bool		StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const iovec_t* segments, size_t segmentCount) = 0;
     virtual bool		StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg) = 0;
     
     bool     OperationalConditionMCI_sd(bool v2);

@@ -31,11 +31,8 @@
 #include "Kernel/Kernel.h"
 #include "System/System.h"
 
-namespace os
-{
-struct IOSegment;
 
-}
+typedef struct iovec iovec_t;
 
 namespace kernel
 {
@@ -88,11 +85,11 @@ public:
     IFLASHC virtual int                 CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory);
 
 protected:
-    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length);
-    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length);
+    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength);
+    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength);
 public:
-    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, const os::IOSegment* segments, size_t segmentCount);
-    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const os::IOSegment* segments, size_t segmentCount);
+    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength);
+    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength);
 
     IFLASHC virtual int     ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize);
     IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);

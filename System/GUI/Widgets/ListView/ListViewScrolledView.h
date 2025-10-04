@@ -94,7 +94,7 @@ private:
     bool                                    m_DragIfMoved       = false;
     size_t                                  m_BeginSel          = INVALID_INDEX;
     size_t                                  m_EndSel            = INVALID_INDEX;
-    TimeValMicros                           m_MouseDownTime;
+    TimeValNanos                            m_MouseDownTime;
     size_t                                  m_LastHitRow        = INVALID_INDEX;
     size_t                                  m_FirstSel          = INVALID_INDEX;
     size_t                                  m_LastSel           = INVALID_INDEX;

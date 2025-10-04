@@ -115,7 +115,7 @@ private:
     friend class MenuItem;
     friend class MenuRenderView;
 
-    void        StartOpenTimer(TimeValMicros delay);
+    void        StartOpenTimer(TimeValNanos delay);
     void        OpenSelection();
     void        SelectItem(Ptr<MenuItem> item);
     void        SelectPrev();

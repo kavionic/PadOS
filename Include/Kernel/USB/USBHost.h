@@ -195,7 +195,7 @@ private:
 
     std::vector<Ptr<USBClassDriverHost>>    m_ClassDrivers;
     std::vector<USBHostPipeData>            m_Pipes;
-    TimeValMicros                           m_DeviceAttachDeadline  = TimeValMicros::infinit;
+    TimeValNanos                            m_DeviceAttachDeadline  = TimeValNanos::infinit;
     uint8_t                                 m_ResetErrorCount       = 0;
     uint8_t                                 m_EnumErrorCount        = 0;
     bool                                    m_PortEnabled           = false;

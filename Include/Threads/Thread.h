@@ -42,7 +42,7 @@ public:
     bool GetDeleteOnExit() const { return m_DeleteOnExit; }
 
     PErrorCode  Start(PThreadDetachState detachState = PThreadDetachState_Detached, int priority = 0, int stackSize = 0);
-    int         Join(void** outReturnValue, TimeValMicros deadline = TimeValMicros::infinit);
+    int         Join(void** outReturnValue, TimeValNanos deadline = TimeValNanos::infinit);
 
     bool IsRunning() const { return m_ThreadHandle != INVALID_HANDLE; }
     thread_id GetThreadID() const { return m_ThreadHandle; }

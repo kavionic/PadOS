@@ -42,16 +42,9 @@ namespace kernel
     class KRootFilesystem;
     class Kernel;
 }
-
+typedef struct iovec iovec_t;
 namespace os
 {
-
-struct IOSegment
-{
-    IOSegment(void* inBuffer = nullptr, size_t inLength = 0) : Buffer(inBuffer), Length(inLength) {}
-    void* Buffer;
-    size_t  Length;
-};
 
 class FileIO
 {
@@ -64,8 +57,8 @@ public:
     static IFLASHC int     Mount(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength);
 
     static IFLASHC Ptr<kernel::KFileTableNode>  GetFileNode(int handle, bool forKernel = false);
-    static IFLASHC Ptr<kernel::KFileNode>       GetFile(int handle);
-    static IFLASHC Ptr<kernel::KFileNode>       GetFile(int handle, Ptr<kernel::KINode>& outInode);
+    static IFLASHC PErrorCode                   GetFile(int handle, Ptr<kernel::KFileNode>& outFileNode);
+    static IFLASHC PErrorCode                   GetFile(int handle, Ptr<kernel::KFileNode>& outFileNode, Ptr<kernel::KINode>& outInode);
     static IFLASHC Ptr<kernel::KDirectoryNode>  GetDirectory(int handle);
 
     static IFLASHC int     Open(const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
@@ -77,17 +70,21 @@ public:
     static IFLASHC int     GetFileFlags(int handle);
     static IFLASHC int     SetFileFlags(int handle, int flags);
 
+    static IFLASHC PErrorCode Read(int handle, void* buffer, size_t length, ssize_t& outLength);
+    static IFLASHC PErrorCode Read(int handle, void* buffer, size_t length, off64_t position, ssize_t& outLength);
+    static IFLASHC PErrorCode Read(int handle, const iovec_t* segments, size_t segmentCount, ssize_t& outLength);
+    static IFLASHC PErrorCode Read(int handle, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength);
+
     static IFLASHC ssize_t Read(int handle, void* buffer, size_t length);
+    static IFLASHC ssize_t Read(int handle, void* buffer, size_t length, off64_t position);
+
+    static IFLASHC PErrorCode Write(int handle, const void* buffer, size_t length, ssize_t& outLength);
+    static IFLASHC PErrorCode Write(int handle, const iovec_t* segments, size_t segmentCount, ssize_t& outLength);
+    static IFLASHC PErrorCode Write(int handle, const void* buffer, size_t length, off64_t position, ssize_t& outLength);
+    static IFLASHC PErrorCode Write(int handle, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength);
+
     static IFLASHC ssize_t Write(int handle, const void* buffer, size_t length);
-
-    static IFLASHC ssize_t Read(int handle, const IOSegment* segments, size_t segmentCount);
-    static IFLASHC ssize_t Write(int handle, const IOSegment* segments, size_t segmentCount);
-
-    static IFLASHC ssize_t Read(int handle, off64_t position, void* buffer, size_t length);
-    static IFLASHC ssize_t Write(int handle, off64_t position, const void* buffer, size_t length);
-
-    static IFLASHC ssize_t Read(int handle, off64_t position, const IOSegment* segments, size_t segmentCount);
-    static IFLASHC ssize_t Write(int handle, off64_t position, const IOSegment* segments, size_t segmentCount);
+    static IFLASHC ssize_t Write(int handle, const void* buffer, size_t length, off64_t position);
 
     static IFLASHC off64_t Seek(int handle, off64_t offset, int mode);
 

@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <fcntl.h>
+#include <sys/uio.h>
 
 #include "Kernel/VFS/FileIO.h"
 #include "Kernel/VFS/KFileHandle.h"
@@ -164,40 +165,43 @@ Ptr<KFileTableNode> FileIO::GetFileNode(int handle, bool forKernel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> FileIO::GetFile(int handle)
+PErrorCode FileIO::GetFile(int handle, Ptr<KFileNode>& outFileNode)
 {
     Ptr<KFileTableNode> node = GetFileNode(handle);
     if (node != nullptr)
     {
         if (!node->IsDirectory()) {
-            return ptr_static_cast<KFileNode>(node);
+            outFileNode = ptr_static_cast<KFileNode>(node);
+            return PErrorCode::Success;
         } else {
-            set_last_error(EISDIR);
+            return PErrorCode::IsDirectory;
         }
     }
-    return nullptr;
+    return PErrorCode::BadFile;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> FileIO::GetFile(int handle, Ptr<KINode>& outInode)
+PErrorCode FileIO::GetFile(int handle, Ptr<KFileNode>& outFileNode, Ptr<KINode>& outInode)
 {
-    Ptr<KFileNode> file = GetFile(handle);
-    if (file == nullptr)
-    {
-        return nullptr;
+    Ptr<KFileNode> file;
+    
+    PErrorCode result = GetFile(handle, file);
+    if (result != PErrorCode::Success) {
+        return result;
     }
-    outInode = file->GetINode();
-    assert(outInode != nullptr && outInode->m_Filesystem != nullptr);
+    Ptr<KINode> inode = file->GetINode();
+    assert(inode != nullptr && inode->m_Filesystem != nullptr);
 
-    if (outInode->m_FileOps == nullptr)
+    if (inode->m_FileOps == nullptr)
     {
-        set_last_error(ENOSYS);
-        return nullptr;
+        return PErrorCode::NotImplemented;
     }
-    return file;
+    outFileNode = file;
+    outInode = inode;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -325,10 +329,11 @@ int FileIO::Dupe(int oldHandle, int newHandle)
         set_last_error(EINVAL);
         return -1;
     }
-    Ptr<KFileTableNode> file = GetFile(oldHandle);
-    if (file == nullptr)
+    Ptr<KFileNode> file;
+    PErrorCode result = GetFile(oldHandle, file);
+    if (result != PErrorCode::Success)
     {
-        set_last_error(EBADF);
+        set_last_error(result);
         return -1;
     }
     if (newHandle == -1)
@@ -378,8 +383,9 @@ int FileIO::Close(int handle)
 
 int FileIO::GetFileFlags(int handle)
 {
-    Ptr<KFileNode> file = GetFile(handle);
-    if (file == nullptr) {
+    Ptr<KFileNode> file;
+    PErrorCode result = GetFile(handle, file);
+    if (result != PErrorCode::Success) {
         return -1;
     }
     return file->GetOpenFlags();
@@ -391,8 +397,9 @@ int FileIO::GetFileFlags(int handle)
 
 int FileIO::SetFileFlags(int handle, int flags)
 {
-    Ptr<KFileNode> file = GetFile(handle);
-    if (file == nullptr) {
+    Ptr<KFileNode> file;
+    PErrorCode result = GetFile(handle, file);
+    if (result != PErrorCode::Success) {
         return -1;
     }
     file->SetOpenFlags(flags);
@@ -403,12 +410,149 @@ int FileIO::SetFileFlags(int handle, int flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PErrorCode FileIO::Read(int handle, void* buffer, size_t length, ssize_t& outLength)
+{
+    iovec_t segment;
+    segment.iov_base = buffer;
+    segment.iov_len = length;
+    return Read(handle, &segment, 1, outLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode FileIO::Read(int handle, void* buffer, size_t length, off64_t position, ssize_t& outLength)
+{
+    iovec_t segment;
+    segment.iov_base = buffer;
+    segment.iov_len = length;
+    return Read(handle, &segment, 1, position, outLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode FileIO::Read(int handle, const struct iovec* segments, size_t segmentCount, ssize_t& outLength)
+{
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file;
+    PErrorCode result = GetFile(handle, file, inode);
+    if (result != PErrorCode::Success) {
+        return result;
+    }
+    ssize_t bytesRead;
+    result = inode->m_FileOps->Read(file, segments, segmentCount, file->m_Position, bytesRead);
+    if (result != PErrorCode::Success) {
+        return result;
+    }
+    file->m_Position += bytesRead;
+    outLength = bytesRead;
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode FileIO::Read(int handle, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength)
+{
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file;
+    PErrorCode result = GetFile(handle, file, inode);
+    if (result != PErrorCode::Success) {
+        return result;
+    }
+    return inode->m_FileOps->Read(file, segments, segmentCount, position, outLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 ssize_t FileIO::Read(int handle, void* buffer, size_t length)
 {
-    IOSegment segment;
-    segment.Buffer = buffer;
-    segment.Length = length;
-    return Read(handle, &segment, 1);
+    ssize_t bytesRead;
+    const PErrorCode result = Read(handle, buffer, length, bytesRead);
+    if (result != PErrorCode::Success)
+    {
+        set_last_error(result);
+        return -1;
+    }
+    return bytesRead;
+}
+
+ssize_t FileIO::Read(int handle, void* buffer, size_t length, off64_t position)
+{
+    ssize_t bytesRead;
+    const PErrorCode result = Read(handle, buffer, length, position, bytesRead);
+    if (result != PErrorCode::Success) {
+        set_last_error(result);
+        return -1;
+    }
+    return bytesRead;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode FileIO::Write(int handle, const void* buffer, size_t length, ssize_t& outLength)
+{
+    iovec_t segment;
+    segment.iov_base = const_cast<void*>(buffer);
+    segment.iov_len = length;
+    return Write(handle, &segment, 1, outLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode FileIO::Write(int handle, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
+{
+    iovec_t segment;
+    segment.iov_base = const_cast<void*>(buffer);
+    segment.iov_len = length;
+    return Write(handle, &segment, 1, position, outLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode FileIO::Write(int handle, const iovec_t* segments, size_t segmentCount, ssize_t& outLength)
+{
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file;
+    PErrorCode result = GetFile(handle, file, inode);
+    if (result != PErrorCode::Success) {
+        return result;
+    }
+    ssize_t bytesWritten;
+    result = inode->m_FileOps->Write(file, segments, segmentCount, file->m_Position, bytesWritten);
+    if (result != PErrorCode::Success) {
+        return result;
+    }
+    file->m_Position += bytesWritten;
+    outLength = bytesWritten;
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode FileIO::Write(int handle, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength)
+{
+    Ptr<KINode> inode;
+    Ptr<KFileNode> file;
+    PErrorCode result = GetFile(handle, file, inode);
+    if (result != PErrorCode::Success) {
+        return result;
+    }
+    return inode->m_FileOps->Write(file, segments, segmentCount, position, outLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -417,100 +561,30 @@ ssize_t FileIO::Read(int handle, void* buffer, size_t length)
 
 ssize_t FileIO::Write(int handle, const void* buffer, size_t length)
 {
-    IOSegment segment;
-    segment.Buffer = const_cast<void*>(buffer);
-    segment.Length = length;
-    return Write(handle, &segment, 1);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t FileIO::Read(int handle, const IOSegment* segments, size_t segmentCount)
-{
-    Ptr<KINode> inode;
-    Ptr<KFileNode> file = GetFile(handle, inode);
-    if (file == nullptr) {
+    iovec_t segment;
+    segment.iov_base = const_cast<void*>(buffer);
+    segment.iov_len = length;
+    ssize_t bytesWritten;
+    const PErrorCode result = Write(handle, &segment, 1, bytesWritten);
+    if (result != PErrorCode::Success)
+    {
+        set_last_error(result);
         return -1;
     }
-    ssize_t result = inode->m_FileOps->Read(file, file->m_Position, segments, segmentCount);
-    if (result < 0) {
-        return result;
-    }
-    file->m_Position += result;
-    return result;
+    return bytesWritten;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
-ssize_t FileIO::Write(int handle, const IOSegment* segments, size_t segmentCount)
+ssize_t FileIO::Write(int handle, const void* buffer, size_t length, off64_t position)
 {
-    Ptr<KINode> inode;
-    Ptr<KFileNode> file = GetFile(handle, inode);
-    if (file == nullptr) {
+    ssize_t bytesWritten;
+    const PErrorCode result = Write(handle, buffer, length, position, bytesWritten);
+    if (result != PErrorCode::Success)
+    {
+        set_last_error(result);
         return -1;
     }
-    ssize_t result = inode->m_FileOps->Write(file, file->m_Position, segments, segmentCount);
-    if (result < 0) {
-        return result;
-    }
-    file->m_Position += result;
-    return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t FileIO::Read(int handle, off64_t position, void* buffer, size_t length)
-{
-    IOSegment segment;
-    segment.Buffer = buffer;
-    segment.Length = length;
-    return Read(handle, position, &segment, 1);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t FileIO::Write(int handle, off64_t position, const void* buffer, size_t length)
-{
-    IOSegment segment;
-    segment.Buffer = const_cast<void*>(buffer);
-    segment.Length = length;
-    return Write(handle, position, &segment, 1);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t FileIO::Read(int handle, off64_t position, const IOSegment* segments, size_t segmentCount)
-{
-    Ptr<KINode> inode;
-    Ptr<KFileNode> file = GetFile(handle, inode);
-    if (file == nullptr) {
-        return -1;
-    }
-    return inode->m_FileOps->Read(file, position, segments, segmentCount);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t FileIO::Write(int handle, off64_t position, const IOSegment* segments, size_t segmentCount)
-{
-    Ptr<KINode> inode;
-    Ptr<KFileNode> file = GetFile(handle, inode);
-    if (file == nullptr) {
-        return -1;
-    }
-    return inode->m_FileOps->Write(file, position, segments, segmentCount);
+    return bytesWritten;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -520,8 +594,10 @@ ssize_t FileIO::Write(int handle, off64_t position, const IOSegment* segments, s
 off64_t FileIO::Seek(int handle, off64_t offset, int mode)
 {
     Ptr<KINode> inode;
-    Ptr<KFileNode> file = GetFile(handle, inode);
-    if (file == nullptr) {
+    Ptr<KFileNode> file;
+    const PErrorCode result = GetFile(handle, file, inode);
+    if (result != PErrorCode::Success) {
+        set_last_error(result);
         return -1;
     }
     switch (mode)
@@ -567,8 +643,10 @@ off64_t FileIO::Seek(int handle, off64_t offset, int mode)
 int FileIO::FSync(int handle)
 {
     Ptr<KINode> inode;
-    Ptr<KFileNode> file = GetFile(handle, inode);
-    if (file == nullptr) {
+    Ptr<KFileNode> file;
+    const PErrorCode result = GetFile(handle, file, inode);
+    if (result != PErrorCode::Success) {
+        set_last_error(result);
         return -1;
     }
     return inode->m_FileOps->Sync(file);
@@ -581,8 +659,10 @@ int FileIO::FSync(int handle)
 int FileIO::DeviceControl(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     Ptr<KINode> inode;
-    Ptr<KFileNode> file = GetFile(handle, inode);
-    if (file == nullptr) {
+    Ptr<KFileNode> file;
+    const PErrorCode result = GetFile(handle, file, inode);
+    if (result != PErrorCode::Success) {
+        set_last_error(result);
         return -1;
     }
     return inode->m_FileOps->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);

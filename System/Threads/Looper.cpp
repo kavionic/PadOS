@@ -202,7 +202,7 @@ bool Looper::AddTimer(EventTimer* timer, bool singleshot)
     assert(!IsRunning() || m_Mutex.IsLocked());
     try
     {
-        TimeValMicros expireTime = get_system_time();
+        TimeValNanos expireTime = get_system_time();
 
         if (timer->m_Looper != nullptr)
         {
@@ -243,7 +243,7 @@ bool Looper::RemoveTimer(EventTimer* timer)
     {
         timer->m_Looper = nullptr;
         m_TimerMap.erase(timer->m_TimerMapIterator);
-        m_NextEventTime = (m_TimerMap.empty()) ? TimeValMicros::infinit : m_TimerMap.begin()->first;
+        m_NextEventTime = (m_TimerMap.empty()) ? TimeValNanos::infinit : m_TimerMap.begin()->first;
         return true;
     }
     else
@@ -312,7 +312,7 @@ bool Looper::Tick()
             handler_id targetHandler;
             int32_t    code;
 
-            ssize_t msgLength = m_Port.ReceiveMessageTimeout(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), TimeValMicros::zero);
+            ssize_t msgLength = m_Port.ReceiveMessageTimeout(&targetHandler, &code, m_ReceiveBuffer.data(), m_ReceiveBuffer.size(), TimeValNanos::zero);
             if (msgLength >= 0)
             {
                 ProcessMessage(targetHandler, code, msgLength);
@@ -356,13 +356,13 @@ void Looper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgL
 void Looper::RunTimers()
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
-    TimeValMicros curTime = get_system_time();
+    TimeValNanos curTime = get_system_time();
 
     while (!m_TimerMap.empty())
     {
         auto i = m_TimerMap.begin();
 
-        TimeValMicros timeout = (*i).first;
+        TimeValNanos timeout = (*i).first;
 
         if ( timeout > curTime ) {
             m_NextEventTime = timeout;
@@ -380,9 +380,9 @@ void Looper::RunTimers()
         else
         {
             timeout += timer->m_Timeout;
-            timer->m_TimerMapIterator = m_TimerMap.insert(std::make_pair(std::max(curTime + TimeValMicros::FromMicroseconds(1),timeout), timer));
+            timer->m_TimerMapIterator = m_TimerMap.insert(std::make_pair(std::max(curTime + TimeValNanos::FromNanoseconds(1),timeout), timer));
         }
         timer->SignalTrigged(timer);
     }
-    m_NextEventTime = TimeValMicros::infinit;
+    m_NextEventTime = TimeValNanos::infinit;
 }

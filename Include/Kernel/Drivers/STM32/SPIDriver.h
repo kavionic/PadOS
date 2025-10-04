@@ -65,8 +65,8 @@ class SPIDriverINode : public KINode
 public:
     IFLASHC SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver);
 
-    IFLASHC ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
-    IFLASHC ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
+    IFLASHC PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, ssize_t& outLength);
+    IFLASHC PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, ssize_t& outLength);
     IFLASHC int     DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
 private:
@@ -101,7 +101,7 @@ private:
     SPIPinMode      m_PinModeCLK = SPIPinMode::Normal;
     SPIPinMode      m_PinModeMOSI = SPIPinMode::Normal;
     SPIPinMode      m_PinModeMISO = SPIPinMode::Normal;
-    TimeValMicros   m_ReadTimeout = TimeValMicros::infinit;
+    TimeValNanos    m_ReadTimeout = TimeValNanos::infinit;
     DMAChannel      m_ReceiveDMAChannel;
     DMAChannel      m_SendDMAChannel;
     int32_t         m_ReceiveBufferSize = 0;
@@ -116,8 +116,8 @@ public:
 
     IFLASHC void Setup(const SPIDriverSetup& setup);
 
-    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
-    IFLASHC virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
+    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
     IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:

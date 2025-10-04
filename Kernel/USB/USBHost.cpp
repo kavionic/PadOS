@@ -160,10 +160,10 @@ void* USBHost::Run()
                     m_Driver->ResetPort();
 
                     m_Device0.m_Address = 0;
-                    m_DeviceAttachDeadline = get_system_time() + TimeValMicros::FromSeconds(DEVICE_RESET_TIMEOUT);
+                    m_DeviceAttachDeadline = kget_system_time() + TimeValNanos::FromSeconds(DEVICE_RESET_TIMEOUT);
                     break;
                 case USBHostEventID::DeviceAttached:
-                    m_DeviceAttachDeadline = TimeValMicros::infinit;
+                    m_DeviceAttachDeadline = TimeValNanos::infinit;
                     m_PortEnabled = true;
                     kernel_log(LogCategoryUSBHost, KLogSeverity::INFO_LOW_VOL, "USBH: Device reset Completed.\n");
                     m_ResetErrorCount = 0;
@@ -203,7 +203,7 @@ void* USBHost::Run()
         }
         else if (!m_DeviceAttachDeadline.IsInfinit() && get_system_time() > m_DeviceAttachDeadline)
         {
-            m_DeviceAttachDeadline = TimeValMicros::infinit;
+            m_DeviceAttachDeadline = TimeValNanos::infinit;
             if (++m_ResetErrorCount > 3) {
                 kernel_log(LogCategoryUSBHost, KLogSeverity::WARNING, "USBH: Device reset failed.\n");
             } else {

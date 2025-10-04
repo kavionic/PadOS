@@ -21,6 +21,7 @@
 
 #include <Kernel/KConditionVariable.h>
 #include <Kernel/KMutex.h>
+#include <Kernel/Syscalls.h>
 
 using namespace os;
 using namespace kernel;
@@ -70,35 +71,35 @@ PErrorCode sys_condition_var_wait(handle_id handle, handle_id mutexHandle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_condition_var_wait_timeout(handle_id handle, handle_id mutexHandle, bigtime_t timeout)
+PErrorCode sys_condition_var_wait_timeout_ns(handle_id handle, handle_id mutexHandle, bigtime_t timeout)
 {
-    return sys_condition_var_wait_deadline(handle, mutexHandle, (timeout != TimeValMicros::infinit.AsMicroSeconds()) ? (get_system_time().AsMicroSeconds() + timeout) : TimeValMicros::infinit.AsMicroSeconds());
+    return sys_condition_var_wait_deadline_ns(handle, mutexHandle, (timeout != TimeValNanos::infinit.AsNanoseconds()) ? (sys_get_system_time() + timeout) : TimeValNanos::infinit.AsNanoseconds());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_condition_var_wait_deadline(handle_id handle, handle_id mutexHandle, bigtime_t deadline)
+PErrorCode sys_condition_var_wait_deadline_ns(handle_id handle, handle_id mutexHandle, bigtime_t deadline)
 {
     Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(mutexHandle, KNamedObjectType::Mutex));
     if (mutex == nullptr) {
         return PErrorCode::InvalidArg;
     }
-    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, TimeValMicros)>(&KConditionVariable::WaitDeadline), *mutex, TimeValMicros::FromMicroseconds(deadline));
+    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, TimeValNanos)>(&KConditionVariable::WaitDeadline), *mutex, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_condition_var_wait_clock(handle_id handle, handle_id mutexHandle, clockid_t clockID, bigtime_t deadline)
+PErrorCode sys_condition_var_wait_clock_ns(handle_id handle, handle_id mutexHandle, clockid_t clockID, bigtime_t deadline)
 {
     Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(mutexHandle, KNamedObjectType::Mutex));
     if (mutex == nullptr) {
         return PErrorCode::InvalidArg;
     }
-    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, clockid_t, TimeValMicros)>(&KConditionVariable::WaitClock), *mutex, clockID, TimeValMicros::FromMicroseconds(deadline));
+    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, clockid_t, TimeValNanos)>(&KConditionVariable::WaitClock), *mutex, clockID, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -291,7 +291,7 @@ ssize_t USBHostCDCChannel::GetReadBytesAvailable() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBHostCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+PErrorCode USBHostCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     if (m_IsActive)
     {
@@ -308,7 +308,8 @@ ssize_t USBHostCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* buf
             }
             else
             {
-                return 0;
+                outLength = 0;
+                return PErrorCode::Success;
             }
         }
         const ssize_t result = m_ReceiveFIFO.Read(buffer, length);
@@ -322,17 +323,17 @@ ssize_t USBHostCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* buf
                 }
             }
         }
-        return result;
+        outLength = result;
+        return PErrorCode::Success;
     }
-    set_last_error(EPIPE);
-    return -1;
+    return PErrorCode::BrokenPipe;
 }
 
 /////////////////////////////////////////////////////////////////////////////////
 ///// \author Kurt Skauen
 /////////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBHostCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
+PErrorCode USBHostCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     if (m_IsActive)
     {
@@ -348,19 +349,18 @@ ssize_t USBHostCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const vo
                     const PErrorCode result = m_TransmitCondition.Wait(m_HostHandler->GetMutex());
                     if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
                     {
-                        set_last_error(result);
-                        return -1;
+                        return result;
                     }
                     if (!m_IsActive)
                     {
-                        set_last_error(EPIPE);
-                        return -1;
+                        return PErrorCode::BrokenPipe;
                     }
                 }
             }
             else
             {
-                return 0;
+                outLength = 0;
+                return PErrorCode::Success;
             }
         }
         const size_t result = m_TransmitFIFO.Write(buffer, std::min(m_TransmitFIFO.GetRemainingSpace(), length));
@@ -368,10 +368,10 @@ ssize_t USBHostCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const vo
         if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT)) || m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
             FlushInternal();
         }
-        return result;
+        outLength = result;
+        return PErrorCode::Success;
     }
-    set_last_error(EPIPE);
-    return -1;
+    return PErrorCode::BrokenPipe;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

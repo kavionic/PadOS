@@ -43,9 +43,9 @@ public:
     ~KSemaphore();
 
     PErrorCode Acquire();
-    PErrorCode AcquireTimeout(TimeValMicros timeout);
-    PErrorCode AcquireDeadline(TimeValMicros deadline);
-    PErrorCode AcquireClock(clockid_t clockID, TimeValMicros deadline);
+    PErrorCode AcquireTimeout(TimeValNanos timeout);
+    PErrorCode AcquireDeadline(TimeValNanos deadline);
+    PErrorCode AcquireClock(clockid_t clockID, TimeValNanos deadline);
     PErrorCode TryAcquire();
     PErrorCode Release();
     PErrorCode SetCount(int count) { m_Count = count; return PErrorCode::Success; }

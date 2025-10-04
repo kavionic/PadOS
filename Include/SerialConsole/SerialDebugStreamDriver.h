@@ -28,8 +28,8 @@ class SerialDebugStreamINode : public kernel::KINode
 public:
 	SerialDebugStreamINode(kernel::KFilesystemFileOps* fileOps);
 
-    ssize_t Read(Ptr<kernel::KFileNode> file, void* buffer, size_t length);
-	ssize_t Write(Ptr<kernel::KFileNode> file, const void* buffer, size_t length);
+    PErrorCode Read(Ptr<kernel::KFileNode> file, void* buffer, size_t length, ssize_t& outLength);
+    PErrorCode Write(Ptr<kernel::KFileNode> file, const void* buffer, size_t length, ssize_t& outLength);
 
 private:
 	kernel::KMutex m_Mutex;
@@ -43,8 +43,8 @@ public:
 
     void Setup(const char* devicePath);
 
-    virtual ssize_t Read(Ptr<kernel::KFileNode> file, off64_t position, void* buffer, size_t length) override;
-    virtual ssize_t Write(Ptr<kernel::KFileNode> file, off64_t position, const void* buffer, size_t length) override;
+    virtual PErrorCode Read(Ptr<kernel::KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
+    virtual PErrorCode Write(Ptr<kernel::KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
     virtual int     DeviceControl(Ptr<kernel::KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:

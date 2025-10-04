@@ -148,18 +148,60 @@ off64_t sys_lseek(int file, off64_t offset, int whence)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t sys_read(int file, void* buffer, size_t length)
+PErrorCode sys_read(int file, void* buffer, size_t length, ssize_t* outLength)
 {
-    return FileIO::Read(file, buffer, length);
+    return FileIO::Read(file, buffer, length, *outLength);
+}
+
+PErrorCode sys_read_pos(int file, void* buffer, size_t length, off_t position, ssize_t* outLength)
+{
+    return FileIO::Read(file, buffer, length, position, *outLength);
+}
+
+PErrorCode sys_readv(int file, const struct iovec* segments, size_t segmentCount, ssize_t* outLength)
+{
+    return FileIO::Read(file, segments, segmentCount, *outLength);
+}
+
+PErrorCode sys_readv_pos(int file, const struct iovec* segments, size_t segmentCount, off_t position, ssize_t* outLength)
+{
+    return FileIO::Read(file, segments, segmentCount, position, *outLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t sys_write(int file, const void* buffer, size_t length)
+PErrorCode sys_write(int file, const void* buffer, size_t length, ssize_t* outLength)
 {
-    return FileIO::Write(file, buffer, length);
+    return FileIO::Write(file, buffer, length, *outLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_write_pos(int file, const void* buffer, size_t length, off_t position, ssize_t* outLength)
+{
+    return FileIO::Write(file, buffer, length, position, *outLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_writev(int file, const struct iovec* segments, size_t segmentCount, ssize_t* outLength)
+{
+    return FileIO::Write(file, segments, segmentCount, *outLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_writev_pos(int file, const struct iovec* segments, size_t segmentCount, off_t position, ssize_t* outLength)
+{
+    return FileIO::Write(file, segments, segmentCount, position, *outLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -81,7 +81,7 @@ static const uint8_t TLV493D_MODE1_IICADDR2 = 0x40;
 static const uint8_t TLV493D_MODE1_PARITY   = 0x80;
 
 constexpr int32_t   TLV493D_MAX_FRAMERATE = 2475; // 3.3kHz - 25%
-constexpr TimeValMicros TLV493D_CONVERSION_TIME = TimeValMicros::FromMicroseconds(TimeValMicros::TicksPerSecond / TLV493D_MAX_FRAMERATE);
+constexpr TimeValNanos  TLV493D_CONVERSION_TIME = TimeValNanos::FromNanoseconds(TimeValNanos::TicksPerSecond / TLV493D_MAX_FRAMERATE);
 
 class TLV493DDriver : public PtrTarget, public os::Thread, public SignalTarget, public KFilesystemFileOps
 {
@@ -94,7 +94,7 @@ public:
     IFLASHC virtual void* Run() override;
 
     IFLASHC virtual int DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    IFLASHC virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
+    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
 
 private:
     enum class State_e
@@ -117,8 +117,8 @@ private:
     KConditionVariable m_NewConfigCondition;
 
     State_e         m_State = State_e::Initializing;
-    TimeValMicros   m_LastUpdateTime;
-    TimeValMicros   m_PeriodTime;
+    TimeValNanos    m_LastUpdateTime;
+    TimeValNanos    m_PeriodTime;
     float           m_AveragingScale = 1.0f;
     DigitalPin      m_PowerPin;
     int             m_I2CDevice = -1;

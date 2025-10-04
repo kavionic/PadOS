@@ -74,8 +74,8 @@ public:
     Ptr<KFileNode> Open(int flags);
 
     int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
-    ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length);
-    ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length);
+    PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength);
+    PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength);
 
 private:
     void Reset();

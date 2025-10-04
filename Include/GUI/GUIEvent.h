@@ -58,7 +58,7 @@ static constexpr MotionToolType GetMotionToolType(MouseButton_e button) { return
 
 struct InputEvent
 {
-    TimeValMicros   Timestamp;
+    TimeValNanos    Timestamp;
     MessageID       EventID;
 
 };

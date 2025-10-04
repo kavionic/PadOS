@@ -103,7 +103,7 @@ PErrorCode KMutex::Lock()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockDeadline(TimeValMicros deadline)
+PErrorCode KMutex::LockDeadline(TimeValNanos deadline)
 {
     return LockClock(m_ClockID, deadline);
 }
@@ -112,7 +112,7 @@ PErrorCode KMutex::LockDeadline(TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockClock(int clockID, TimeValMicros deadline)
+PErrorCode KMutex::LockClock(int clockID, TimeValNanos deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -180,9 +180,9 @@ PErrorCode KMutex::LockClock(int clockID, TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockTimeout(TimeValMicros timeout)
+PErrorCode KMutex::LockTimeout(TimeValNanos timeout)
 {
-    return LockClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
+    return LockClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -277,7 +277,7 @@ PErrorCode KMutex::LockShared()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockSharedDeadline(TimeValMicros deadline)
+PErrorCode KMutex::LockSharedDeadline(TimeValNanos deadline)
 {
     return LockSharedClock(m_ClockID, deadline);
 }
@@ -286,7 +286,7 @@ PErrorCode KMutex::LockSharedDeadline(TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValMicros deadline)
+PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos deadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -348,9 +348,9 @@ PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValMicros deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockSharedTimeout(TimeValMicros timeout)
+PErrorCode KMutex::LockSharedTimeout(TimeValNanos timeout)
 {
-    return LockSharedClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit);
+    return LockSharedClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -49,20 +49,20 @@ public:
 
     IFLASHC PErrorCode Clear();
 
-	PErrorCode Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
-	PErrorCode WaitTimeout(TimeValMicros timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
-	PErrorCode WaitDeadline(TimeValMicros deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, deadline, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode WaitTimeout(TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode WaitDeadline(TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, deadline, readyFlagsBuffer, readyFlagsSize); }
 
-	PErrorCode Wait(KMutex& lock, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
-	PErrorCode WaitTimeout(KMutex& lock, TimeValMicros timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValMicros::infinit, readyFlagsBuffer, readyFlagsSize); }
-	PErrorCode WaitDeadline(KMutex& lock, TimeValMicros deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, deadline, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode Wait(KMutex& lock, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode WaitTimeout(KMutex& lock, TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode WaitDeadline(KMutex& lock, TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, deadline, readyFlagsBuffer, readyFlagsSize); }
 
 private:
     IFLASHC PErrorCode  AddObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
     IFLASHC PErrorCode  RemoveObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
     IFLASHC void        ClearInternal();
-    IFLASHC PErrorCode  WaitForBlockedThread(TimeValMicros deadline = TimeValMicros::infinit);
-    IFLASHC PErrorCode  Wait(KMutex* lock, TimeValMicros deadline, void* readyFlagsBuffer, size_t readyFlagsSize);
+    IFLASHC PErrorCode  WaitForBlockedThread(TimeValNanos deadline = TimeValNanos::infinit);
+    IFLASHC PErrorCode  Wait(KMutex* lock, TimeValNanos deadline, void* readyFlagsBuffer, size_t readyFlagsSize);
 
 	KMutex m_Mutex;
 

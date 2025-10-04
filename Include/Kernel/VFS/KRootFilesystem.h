@@ -42,7 +42,7 @@ public:
     KRootFSINode* m_Parent = nullptr;
 
     std::map<os::String, Ptr<KINode>> m_Children;
-    TimeValMicros                     m_CreateTime;
+    TimeValNanos                      m_CreateTime;
 };
 
 struct KRootFSDirectoryNode : public KDirectoryNode

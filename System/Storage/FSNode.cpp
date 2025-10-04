@@ -706,7 +706,7 @@ bool FSNode::SetSize(off64_t size) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode FSNode::GetCTime(TimeValMicros& outTime, bool updateCache) const
+PErrorCode FSNode::GetCTime(TimeValNanos& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
         return PErrorCode::InvalidArg;
@@ -716,7 +716,7 @@ PErrorCode FSNode::GetCTime(TimeValMicros& outTime, bool updateCache) const
             return PErrorCode(errno);
         }
     }
-    outTime = TimeValMicros::FromTimespec(m_StatCache.st_ctim);
+    outTime = TimeValNanos::FromTimespec(m_StatCache.st_ctim);
     return PErrorCode::Success;
 }
 
@@ -724,7 +724,7 @@ PErrorCode FSNode::GetCTime(TimeValMicros& outTime, bool updateCache) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode FSNode::GetMTime(TimeValMicros& outTime, bool updateCache) const
+PErrorCode FSNode::GetMTime(TimeValNanos& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
         return PErrorCode::InvalidArg;
@@ -734,7 +734,7 @@ PErrorCode FSNode::GetMTime(TimeValMicros& outTime, bool updateCache) const
             return PErrorCode(errno);
         }
     }
-    outTime = TimeValMicros::FromTimespec(m_StatCache.st_mtim);
+    outTime = TimeValNanos::FromTimespec(m_StatCache.st_mtim);
     return PErrorCode::Success;
 }
 
@@ -742,7 +742,7 @@ PErrorCode FSNode::GetMTime(TimeValMicros& outTime, bool updateCache) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode FSNode::GetATime(TimeValMicros& outTime, bool updateCache) const
+PErrorCode FSNode::GetATime(TimeValNanos& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
         return PErrorCode::InvalidArg;
@@ -752,13 +752,13 @@ PErrorCode FSNode::GetATime(TimeValMicros& outTime, bool updateCache) const
             return PErrorCode(errno);
         }
     }
-    outTime = TimeValMicros::FromTimespec(m_StatCache.st_atim);
+    outTime = TimeValNanos::FromTimespec(m_StatCache.st_atim);
     return PErrorCode::Success;
 }
 
 PErrorCode FSNode::GetCTime(time_t& outTime, bool updateCache) const
 {
-    TimeValMicros fileTime;
+    TimeValNanos fileTime;
     PErrorCode result = GetCTime(fileTime, updateCache);
     if (result == PErrorCode::Success) {
         outTime = fileTime.AsSecondsI();
@@ -768,7 +768,7 @@ PErrorCode FSNode::GetCTime(time_t& outTime, bool updateCache) const
 
 PErrorCode FSNode::GetMTime(time_t& outTime, bool updateCache /*= true*/) const
 {
-    TimeValMicros fileTime;
+    TimeValNanos fileTime;
     PErrorCode result = GetMTime(fileTime, updateCache);
     if (result == PErrorCode::Success) {
         outTime = fileTime.AsSecondsI();
@@ -778,7 +778,7 @@ PErrorCode FSNode::GetMTime(time_t& outTime, bool updateCache /*= true*/) const
 
 PErrorCode FSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
 {
-    TimeValMicros fileTime;
+    TimeValNanos fileTime;
     PErrorCode result = GetATime(fileTime, updateCache);
     if (result == PErrorCode::Success) {
         outTime = fileTime.AsSecondsI();

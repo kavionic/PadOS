@@ -81,9 +81,11 @@ bool FATVolume::ReadSuperBlock(int deviceFile)
     FATSuperBlock* superBlock = reinterpret_cast<FATSuperBlock*>(buffer.data());
     
       // read in the boot sector
-    if (FileIO::Read(deviceFile, 0, buffer.data(), buffer.size()) != buffer.size()) {
-	kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::ERROR, "FATFilesystem::Mount(): error reading boot sector\n");
-	return false;
+    ssize_t bytesRead;
+    const PErrorCode result = FileIO::Read(deviceFile, buffer.data(), buffer.size(), 0, bytesRead);
+    if (result != PErrorCode::Success || bytesRead != buffer.size()) {
+	    kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::ERROR, "FATFilesystem::Mount(): error reading boot sector\n");
+	    return false;
     }
     
     m_MediaDescriptor = superBlock->m_Media;
@@ -244,7 +246,7 @@ ino_t FATVolume::AllocUniqueINodeID()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATVolume::SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
+PErrorCode FATVolume::SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
 {
     CRITICAL_SCOPE(m_INodeIDMapMutex);
 
@@ -267,8 +269,7 @@ bool FATVolume::SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
                     m_LocationToINodeMap[locationID] = &entry;
                 } catch(const std::bad_alloc&) {
                     m_INodeToLocationMap.erase(inodeItr);
-                    set_last_error(ENOMEM);
-                    return false;
+                    return PErrorCode::NoMemory;
                 }
             }
             else
@@ -285,8 +286,7 @@ bool FATVolume::SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
             entry->m_INodeID = inodeID;
             entry->m_LocationID = locationID;
         } catch(const std::bad_alloc&) {
-            set_last_error(ENOMEM);
-            return false;
+            return PErrorCode::NoMemory;
         }
         try {
             m_LocationToINodeMap[locationID] = entry;
@@ -296,11 +296,10 @@ bool FATVolume::SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
             if (i != m_INodeToLocationMap.end()) {
                 m_INodeToLocationMap.erase(i);
             }
-            set_last_error(ENOMEM);
-            return false;
+            return PErrorCode::NoMemory;
         }
     }
-    return true;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

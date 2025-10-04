@@ -162,20 +162,18 @@ SPIDriverINode::SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t SPIDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length)
+PErrorCode SPIDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length, ssize_t& outLength)
 {
-    set_last_error(ENOSYS);
-    return -1;
+    return PErrorCode::NotImplemented;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t SPIDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length)
+PErrorCode SPIDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length, ssize_t& outLength)
 {
-    set_last_error(ENOSYS);
-    return -1;
+    return PErrorCode::NotImplemented;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -208,8 +206,8 @@ int SPIDriverINode::DeviceControl(int request, const void* inData, size_t inData
             }
         case SPIIOCTL_SET_READ_TIMEOUT:
             if (inDataLength == sizeof(bigtime_t)) {
-                bigtime_t micros = *((const bigtime_t*)inData);
-                m_ReadTimeout = TimeValMicros::FromMicroseconds(micros);
+                bigtime_t nanos = *((const bigtime_t*)inData);
+                m_ReadTimeout = TimeValNanos::FromNanoseconds(nanos);
                 return 0;
             } else {
                 set_last_error(EINVAL);
@@ -217,8 +215,8 @@ int SPIDriverINode::DeviceControl(int request, const void* inData, size_t inData
             }
         case SPIIOCTL_GET_READ_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t)) {
-                bigtime_t* micros = (bigtime_t*)outData;
-                *micros = m_ReadTimeout.AsMicroSeconds();
+                bigtime_t* nanos = (bigtime_t*)outData;
+                *nanos = m_ReadTimeout.AsNanoseconds();
                 return 0;
             } else {
                 set_last_error(EINVAL);
@@ -565,20 +563,20 @@ void SPIDriver::Setup(const SPIDriverSetup& setup)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t SPIDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+PErrorCode SPIDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     Ptr<SPIDriverINode> node = ptr_static_cast<SPIDriverINode>(file->GetINode());
-    return node->Read(file, buffer, length);
+    return node->Read(file, buffer, length, outLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t SPIDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
+PErrorCode SPIDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     Ptr<SPIDriverINode> node = ptr_static_cast<SPIDriverINode>(file->GetINode());
-    return node->Write(file, buffer, length);
+    return node->Write(file, buffer, length, outLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

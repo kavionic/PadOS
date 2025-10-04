@@ -19,9 +19,11 @@
 
 #include <utility>
 
-#include <sys/pados_syscalls.h>
+#include <Kernel/Syscalls.h>
 #include <System/SysTime.h>
 #include <Kernel/Kernel.h>
+#include <Kernel/Scheduler.h>
+#include <Kernel/HAL/STM32/RealtimeClock.h>
 
 using namespace os;
 using namespace kernel;
@@ -35,7 +37,12 @@ extern "C"
 
 bigtime_t sys_get_system_time()
 {
-    return get_system_time().AsMicroSeconds();
+    bigtime_t time;
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        time = Kernel::s_SystemTime;
+    } CRITICAL_END;
+    return time * 1000000;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,7 +51,24 @@ bigtime_t sys_get_system_time()
 
 bigtime_t sys_get_system_time_hires()
 {
-    return get_system_time_hires().AsNanoSeconds();
+    const uint32_t coreFrequency = Kernel::GetFrequencyCore();
+    bigtime_t   time;
+    uint32_t    ticks;
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        ticks = SysTick->VAL;
+        time = Kernel::s_SystemTime;
+        if ((SCB->ICSR & SCB_ICSR_PENDSTSET_Msk) || SysTick->VAL > ticks)
+        {
+            // If the SysTick exception is pending, or the timer wrapped around after reading
+            // Kernel::s_SystemTime we need to add another tick and re-read the timer.
+            ticks = SysTick->VAL;
+            time++;
+        }
+    } CRITICAL_END;
+    ticks = SysTick->LOAD - ticks;
+    time *= 1000000; // Convert system time from mS to nS.
+    return time + bigtime_t(ticks) * TimeValNanos::TicksPerSecond / coreFrequency;  // Convert clock-cycles to nS and add to the time.
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -53,16 +77,22 @@ bigtime_t sys_get_system_time_hires()
 
 bigtime_t sys_get_real_time()
 {
-    return get_real_time().AsMicroSeconds();
+    return sys_get_system_time() + Kernel::s_RealTime.AsNanoseconds();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t sys_set_real_time(bigtime_t time, bool updateRTC)
+PErrorCode sys_set_real_time(bigtime_t time, bool updateRTC)
 {
-    return std::to_underlying(set_real_time(TimeValMicros::FromMicroseconds(time), updateRTC));
+    Kernel::s_RealTime = TimeValNanos::FromNanoseconds(time - sys_get_system_time());
+
+    if (updateRTC)
+    {
+        RealtimeClock::SetClock(TimeValNanos::FromNanoseconds(time));
+    }
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -71,7 +101,24 @@ status_t sys_set_real_time(bigtime_t time, bool updateRTC)
 
 bigtime_t sys_get_clock_time_offset(clockid_t clockID)
 {
-    return get_clock_time_offset(clockID).AsMicroSeconds();
+    switch (clockID)
+    {
+        case CLOCK_REALTIME_COARSE:
+        case CLOCK_REALTIME:
+        case CLOCK_REALTIME_ALARM:
+            return Kernel::s_RealTime.AsNanoseconds();
+        case CLOCK_PROCESS_CPUTIME_ID:
+            return -sys_get_idle_time();
+        case CLOCK_THREAD_CPUTIME_ID:
+            return gk_CurrentThread->m_RunTime.AsNanoseconds() - sys_get_system_time();
+        case CLOCK_MONOTONIC:
+        case CLOCK_MONOTONIC_RAW:
+        case CLOCK_MONOTONIC_COARSE:
+        case CLOCK_BOOTTIME:
+        case CLOCK_BOOTTIME_ALARM:
+            return 0;
+    }
+    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -80,7 +127,7 @@ bigtime_t sys_get_clock_time_offset(clockid_t clockID)
 
 bigtime_t sys_get_clock_time(clockid_t clockID)
 {
-    return get_clock_time(clockID).AsMicroSeconds();
+    return sys_get_system_time() + sys_get_clock_time_offset(clockID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -89,7 +136,17 @@ bigtime_t sys_get_clock_time(clockid_t clockID)
 
 bigtime_t sys_get_clock_time_hires(clockid_t clockID)
 {
-    return get_clock_time_hires(clockID).AsNanoSeconds();
+    return sys_get_system_time_hires() + sys_get_clock_time_offset(clockID);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bigtime_t sys_get_idle_time()
+{
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+    return gk_IdleThread->m_RunTime.AsNanoseconds();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -100,13 +157,13 @@ status_t sys_get_clock_resolution(clockid_t clockID, bigtime_t* outResolutionNan
 {
     if (clockID == CLOCK_MONOTONIC_COARSE || clockID == CLOCK_REALTIME_COARSE)
     {
-        *outResolutionNanos = TimeValNanos::FromMilliseconds(1).AsNanoSeconds();
+        *outResolutionNanos = TimeValNanos::FromMilliseconds(1).AsNanoseconds();
         return 0;
     }
     else
     {
         const uint32_t coreFrequency = Kernel::GetFrequencyCore();
-        *outResolutionNanos = TimeValNanos::FromNanoseconds((TimeValNanos::TicksPerSecond + coreFrequency - 1) / coreFrequency).AsNanoSeconds();
+        *outResolutionNanos = TimeValNanos::FromNanoseconds((TimeValNanos::TicksPerSecond + coreFrequency - 1) / coreFrequency).AsNanoseconds();
         return 0;
     }
 }

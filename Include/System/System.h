@@ -27,7 +27,7 @@
 #include <System/ErrorCodes.h>
 #include <System/SysTime.h>
 
-static constexpr TimeValMicros INFINIT_TIMEOUT = TimeValMicros::FromMicroseconds(std::numeric_limits<bigtime_t>::max());
+static constexpr TimeValNanos INFINIT_TIMEOUT = TimeValNanos::FromNanoseconds(std::numeric_limits<bigtime_t>::max());
 
 extern "C" void launch_pados(uint32_t coreFrequency, size_t mainThreadStackSize);
 
@@ -39,11 +39,13 @@ void set_last_error(PErrorCode error);
 
 PErrorCode  create_message_port(port_id& outHandle, const char* name, int maxCount);
 PErrorCode  duplicate_message_port(port_id& outNewHandle, port_id handle);
-status_t delete_message_port(port_id handle);
-status_t send_message(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout = TimeValMicros::infinit.AsMicroSeconds());
-ssize_t  receive_message(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
-ssize_t  receive_message_timeout(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout);
-ssize_t  receive_message_deadline(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline);
+PErrorCode  delete_message_port(port_id handle);
+PErrorCode  send_message(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length);
+PErrorCode  send_message_timeout_ns(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout);
+PErrorCode  send_message_deadline_ns(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t deadline);
+ssize_t     receive_message(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
+ssize_t     receive_message_timeout_ns(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout);
+ssize_t     receive_message_deadline_ns(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline);
 
 status_t set_input_event_port(port_id port);
 port_id  get_input_event_port();

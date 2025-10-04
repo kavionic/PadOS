@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18/05/25 23:04:14
 
+#include <utility>
 #include <string.h>
 
 #include "FATTable.h"
@@ -48,35 +49,36 @@ FATTable::~FATTable()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATTable::GetEntry(uint32_t cluster, uint32_t* outValue)
+PErrorCode FATTable::GetEntry(uint32_t cluster, uint32_t* outValue)
 {
     uint32_t value;
     m_TableIterator.SetCluster(cluster);
-    if (m_TableIterator.GetEntry(&value))
+    const PErrorCode result = m_TableIterator.GetEntry(&value);
+    if (result == PErrorCode::Success)
     {
         if (value == 0 || m_Volume->IsDataCluster(value)) {
             *outValue = value;
-            return true;
+            return PErrorCode::Success;
         }
         if (value >= END_FAT_ENTRY) {
             *outValue = END_FAT_ENTRY;
-            return true;
+            return PErrorCode::Success;
         }	
         if (value >= BAD_FAT_ENTRY) {
             *outValue = BAD_FAT_ENTRY;
-            return true;
+            return PErrorCode::Success;
         }
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::GetEntry(): invalid FAT entry %lx for cluster %ld\n", value, cluster);
-        return false;
+        return PErrorCode::IOError;
     }
-    return false;
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATTable::SetEntry(uint32_t cluster, uint32_t value)
+PErrorCode FATTable::SetEntry(uint32_t cluster, uint32_t value)
 {
     m_TableIterator.SetCluster(cluster);
     return m_TableIterator.SetEntry(value);
@@ -86,11 +88,10 @@ bool FATTable::SetEntry(uint32_t cluster, uint32_t value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATTable::GetChainEntry(uint32_t chainStart, uint32_t index, uint32_t* value)
+PErrorCode FATTable::GetChainEntry(uint32_t chainStart, uint32_t index, uint32_t* value)
 {
     if (!m_Volume->CheckMagic(__func__)) {
-        set_last_error(EINVAL);
-        return false;
+        return PErrorCode::InvalidArg;
     }        
 
     kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::INFO_HIGH_VOL, "FATTable::GetChainEntry(%lu, %lu)\n", chainStart, index);
@@ -98,8 +99,9 @@ bool FATTable::GetChainEntry(uint32_t chainStart, uint32_t index, uint32_t* valu
     while(index--)
     {
         uint32_t prevCluster = cluster;
-        if (!GetEntry(prevCluster, &cluster)) {
-            return false;
+        const PErrorCode result = GetEntry(prevCluster, &cluster);
+        if (result != PErrorCode::Success) {
+            return result;
         }
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::INFO_HIGH_VOL, "  %lu -> %lu\n", prevCluster, cluster);
         if (!m_Volume->IsDataCluster(cluster)) {
@@ -109,11 +111,10 @@ bool FATTable::GetChainEntry(uint32_t chainStart, uint32_t index, uint32_t* valu
     if (cluster == 0)
     {
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::GetChainEntry(%ld, %ld) failed!\n", chainStart, index);
-        set_last_error(EINVAL);
-        return false;
+        return PErrorCode::InvalidArg;
     }
     *value = cluster;
-    return true;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,42 +145,42 @@ bool FATTable::ValidateChainEntry(uint32_t chainStart, uint32_t index, uint32_t 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATTable::CountFreeClusters(uint32_t* result)
+PErrorCode FATTable::CountFreeClusters(uint32_t* result)
 {
     m_TableIterator.SetCluster(FATTable::FIRST_DATA_CLUSTER);
     uint32_t count = 0;
     for (uint32_t i = 0; i < m_Volume->m_TotalClusters; ++i, m_TableIterator.Increment())
     {
         uint32_t value;
-        if (!m_TableIterator.GetEntry(&value)) {
-            return false;
+        const PErrorCode result = m_TableIterator.GetEntry(&value);
+        if (result != PErrorCode::Success) {
+            return result;
         }
         if (value == 0) {
             count++;
         }
     }
     *result = count;
-    return true;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATTable::GetChainLength(uint32_t cluster, size_t* outCount)
+PErrorCode FATTable::GetChainLength(uint32_t cluster, size_t* outCount)
 {
     size_t count = 0;
 
     kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::INFO_HIGH_VOL, "FATTable::GetChainLength() %lx\n", cluster);
         
     if (!m_Volume->CheckMagic(__func__)) {
-        return false;
+        return PErrorCode::IOError;
     }
     // not intended for use on root directory
     if (!m_Volume->IsDataCluster(cluster)) {
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::CRITICAL, "FATTable::GetChainLength() called on invalid cluster (%lx)\n", cluster);
-        set_last_error(EINVAL);
-        return false;
+        return PErrorCode::InvalidArg;
     }
 
     while (m_Volume->IsDataCluster(cluster))
@@ -189,11 +190,11 @@ bool FATTable::GetChainLength(uint32_t cluster, size_t* outCount)
         if (count == m_Volume->m_TotalClusters)
         {
             kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::CRITICAL, "FATTable::GetChainLength() circular FAT chain detected\n");
-            set_last_error(EINVAL);
-            return false; // Circular FAT chain.
+            return PErrorCode::InvalidArg; // Circular FAT chain.
         }
-        if (!GetEntry(cluster, &cluster)) {
-            return false;
+        const PErrorCode result = GetEntry(cluster, &cluster);
+        if (result != PErrorCode::Success) {
+            return result;
         }
     }
 
@@ -201,38 +202,37 @@ bool FATTable::GetChainLength(uint32_t cluster, size_t* outCount)
 
     if (cluster == END_FAT_ENTRY) {
         *outCount = count;
-        return true;
+        return PErrorCode::Success;
     }
     kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::CRITICAL, "FATTable::GetChainLength() invalid chain. End cluster: %lx\n", cluster);
-    return false;
+    return PErrorCode::IOError;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool updateICache)
+PErrorCode FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool updateICache)
 {
     kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::INFO_LOW_VOL, "FATTable::SetChainLength(): %" PRIx64 " to %lx clusters (%lx)\n", node->m_INodeID, clusters, node->m_StartCluster);
     
     if (IS_FIXED_ROOT(node->m_StartCluster) || (!m_Volume->IsDataCluster(node->m_StartCluster) && (node->m_StartCluster != 0))) {
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::CRITICAL, "FATTable::SetChainLength(): called on invalid cluster (%lx)\n", node->m_StartCluster);
-        set_last_error(EINVAL);
-        return false;
+        return PErrorCode::InvalidArg;
     }
 
     if (clusters == 0)
     {
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::INFO_LOW_VOL, "FATTable::SetChainLength(): truncating node to zero bytes\n");
         if (node->m_StartCluster == 0) {
-            return true;
+            return PErrorCode::Success;
         }
         // truncate to zero bytes
         uint32_t c = node->m_StartCluster;
         node->m_StartCluster = 0;
         node->m_EndCluster = 0;
-        bool result = ClearFATChain(c);
-        if (updateICache && result) {
+        PErrorCode result = ClearFATChain(c);
+        if (updateICache && result == PErrorCode::Success) {
             result = m_Volume->SetINodeIDToLocationIDMapping(node->m_INodeID, GENERATE_DIR_INDEX_INODEID(node->m_ParentINodeID, node->m_DirStartIndex));
         }
         // Write to disk so that get_next_dirent doesn't barf
@@ -247,16 +247,16 @@ bool FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool update
 
         uint32_t    newChainStart;
 
-        if (!AllocateClusters(clusters, &newChainStart)) {
+        PErrorCode result = AllocateClusters(clusters, &newChainStart);
+        if (result != PErrorCode::Success) {
             kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::CRITICAL, "FATTable::SetChainLength(): failed to allocate %ld clusters\n", clusters);
-            return false;
+            return result;
         }
         node->m_StartCluster = newChainStart;
-        if (!GetChainEntry(newChainStart, clusters - 1, &node->m_EndCluster)) {
+        if (GetChainEntry(newChainStart, clusters - 1, &node->m_EndCluster) != PErrorCode::Success) {
             kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::SetChainLength(): GetChainEntry() failed. Failed to expand from 0 to %ld clusters\n", clusters);
         }
 
-        bool result = true;
         if (updateICache) {
             result = m_Volume->SetINodeIDToLocationIDMapping(node->m_INodeID, GENERATE_DIR_CLUSTER_INODEID(node->m_ParentINodeID, node->m_StartCluster));
         }
@@ -267,7 +267,7 @@ bool FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool update
     }
 
     uint32_t currentClusterCount = uint32_t((node->m_Size + m_Volume->m_BytesPerSector * m_Volume->m_SectorsPerCluster - 1) / m_Volume->m_BytesPerSector / m_Volume->m_SectorsPerCluster);
-    if (currentClusterCount == clusters) return true;
+    if (currentClusterCount == clusters) return PErrorCode::Success;
 
     if (clusters > currentClusterCount)
     {
@@ -275,16 +275,18 @@ bool FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool update
 
         // From some clusters to more clusters.
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::INFO_LOW_VOL, "FATTable::SetChainLength(): adding %lx new fat entries\n", clusters - currentClusterCount);
-        if (!AllocateClusters(clusters - currentClusterCount, &newChainStart)) {
+        PErrorCode result = AllocateClusters(clusters - currentClusterCount, &newChainStart);
+        if (result != PErrorCode::Success) {
             kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::CRITICAL, "FATTable::SetChainLength(): failed to allocate %ld (%ld -> %ld) clusters\n", clusters, currentClusterCount, clusters);
-            return false;
+            return result;
         }
         kassert(m_Volume->IsDataCluster(newChainStart));
 
         uint32_t prevEndCluster = node->m_EndCluster;
-        if (!GetChainEntry(newChainStart, clusters - currentClusterCount - 1, &node->m_EndCluster)) {
+        result = GetChainEntry(newChainStart, clusters - currentClusterCount - 1, &node->m_EndCluster);
+        if (result != PErrorCode::Success) {
             kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::SetChainLength(): GetChainEntry() failed. Failed to expand from %lx to %lx clusters\n", currentClusterCount, clusters);
-            return false;
+            return result;
         }
 
         return SetEntry(prevEndCluster, newChainStart);
@@ -294,8 +296,9 @@ bool FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool update
     // traverse fat chain
     uint32_t    newChainEnd;
     uint32_t c = node->m_StartCluster;
-    if (!GetEntry(c, &newChainEnd)) {
-        return false;
+    PErrorCode result = GetEntry(c, &newChainEnd);
+    if (result != PErrorCode::Success) {
+        return result;
     }
     uint32_t newEndIndex;
     for (newEndIndex = 1; newEndIndex < clusters; ++newEndIndex)
@@ -304,25 +307,26 @@ bool FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool update
             break;
         }
         c = newChainEnd;
-        if (!m_Volume->GetFATTable()->GetEntry(c, &newChainEnd)) {
-            return false;
+        result = m_Volume->GetFATTable()->GetEntry(c, &newChainEnd);
+        if (result != PErrorCode::Success) {
+            return result;
         }
     }
 
     kassert(newEndIndex == clusters);
     kassert(newChainEnd != END_FAT_ENTRY);
-    if (newEndIndex == clusters && newChainEnd == END_FAT_ENTRY) return true;
+    if (newEndIndex == clusters && newChainEnd == END_FAT_ENTRY) return PErrorCode::Success;
 
     //	if (n < 0) return n;
     if (newChainEnd != END_FAT_ENTRY && !m_Volume->IsDataCluster(newChainEnd)) {
-        set_last_error(EINVAL);
-        return false;
+        return PErrorCode::InvalidArg;
     }
 
     // clear trailing fat entries
     kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::INFO_LOW_VOL, "FATTable::SetChainLength(): clearing trailing fat entries\n");
-    if (!SetEntry(c, END_FAT_ENTRY)) {
-        return false;
+    result = SetEntry(c, END_FAT_ENTRY);
+    if (result != PErrorCode::Success) {
+        return result;
     }
     node->m_EndCluster = c;
     return ClearFATChain(newChainEnd);
@@ -332,9 +336,9 @@ bool FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool update
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATTable::AllocateClusters(size_t count, uint32_t* firstCluster)
+PErrorCode FATTable::AllocateClusters(size_t count, uint32_t* firstCluster)
 {
-    bool result = true;
+    PErrorCode result = PErrorCode::Success;
     uint32_t first = 0, last = 0;
     int32_t clustersFound = 0;
 
@@ -343,8 +347,7 @@ bool FATTable::AllocateClusters(size_t count, uint32_t* firstCluster)
     uint32_t value = 0x0fffffff;
 
     if (!m_Volume->CheckMagic(__func__)) {
-        set_last_error(EINVAL);
-        return false;
+        return PErrorCode::InvalidArg;
     }
     kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::INFO_LOW_VOL, "FATTable::AllocateClusters(): %lx\n", count);
 
@@ -353,17 +356,17 @@ bool FATTable::AllocateClusters(size_t count, uint32_t* firstCluster)
     for (uint32_t i = 0; i < m_Volume->m_TotalClusters; ++i)
     {
         uint32_t val;
-        if (!tableIterator.GetEntry(&val)) {
+        result = tableIterator.GetEntry(&val);
+        if (result != PErrorCode::Success) {
             kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::CRITICAL, "FATTable::AllocateClusters(): failed to read table entry\n");
-            result = false;
             break;
         }
 
         if (val == 0)
         {
-            if (!tableIterator.SetEntry(value)) {
+            result = tableIterator.SetEntry(value);
+            if (result != PErrorCode::Success) {
                 kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::CRITICAL, "FATTable::AllocateClusters(): failed to write table entry\n");
-                result = false;
                 break;
             }
             m_Volume->m_FreeClusters--;
@@ -378,8 +381,8 @@ bool FATTable::AllocateClusters(size_t count, uint32_t* firstCluster)
                 kassert(m_Volume->IsDataCluster(last));
                 
                 // Set previous last cluster to point to us
-                if (!SetEntry(last, tableIterator.GetCurrentCluster())) {
-                    result = false;
+                result = SetEntry(last, tableIterator.GetCurrentCluster());
+                if (result != PErrorCode::Success) {
                     kassert(false);
                     break;
                 }
@@ -394,18 +397,17 @@ bool FATTable::AllocateClusters(size_t count, uint32_t* firstCluster)
         tableIterator.Increment();
     }
     m_Volume->UpdateFSInfo();
-    if (!result)
+    if (result != PErrorCode::Success)
     {
-        kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::AllocateClusters(): Failed to allocate %ld clusters. Clearing chain (%lx): %s\n", count, first, strerror(result));
+        kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::AllocateClusters(): Failed to allocate %ld clusters. Clearing chain (%lx): %s\n", count, first, strerror(std::to_underlying(result)));
         if (first != 0) ClearFATChain(first);
-        return false;
+        return result;
     }
     else if (clustersFound != count)
     {
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::WARNING, "FATTable::AllocateClusters(): Failed to allocate %ld clusters. Not enough free entries (%ld found)\n", count, clustersFound);
         if (first != 0) ClearFATChain(first);
-        set_last_error(ENOSPC);
-        return false;
+        return PErrorCode::NoSpace;
     }
     else
     {
@@ -415,7 +417,7 @@ bool FATTable::AllocateClusters(size_t count, uint32_t* firstCluster)
         kassert(GetChainLength(first, &chainLength) && chainLength == count);
 #endif // FAT_VERIFY_FAT_CHAINS
         *firstCluster = first;
-        return true;
+        return PErrorCode::Success;
     }
 }
 
@@ -423,12 +425,11 @@ bool FATTable::AllocateClusters(size_t count, uint32_t* firstCluster)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATTable::ClearFATChain(uint32_t cluster)
+PErrorCode FATTable::ClearFATChain(uint32_t cluster)
 {
     if (!m_Volume->IsDataCluster(cluster)) {
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::CRITICAL, "FATTable::ClearFATChain() called on invalid cluster (%lx)\n", cluster);
-        set_last_error(EINVAL);
-        return false;
+        return PErrorCode::InvalidArg;
     }
 
 //    ASSERT(count_clusters(vol, cluster) != 0);
@@ -437,13 +438,15 @@ bool FATTable::ClearFATChain(uint32_t cluster)
     while (m_Volume->IsDataCluster(cluster))
     {
         uint32_t nextCluster;
-        if (!GetEntry(cluster, &nextCluster)) {
-            kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::ClearFATChain(): failed clearing fat entry for cluster %lx (%s)\n", cluster, strerror(get_last_error()));
-            return false;
+        PErrorCode result = GetEntry(cluster, &nextCluster);
+        if (result != PErrorCode::Success) {
+            kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::ClearFATChain(): failed clearing fat entry for cluster %lx (%s)\n", cluster, strerror(std::to_underlying(result)));
+            return result;
         }
-        if (!SetEntry(cluster, 0)) {
-            kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::ClearFATChain(): failed clearing fat entry for cluster %lx (%s)\n", cluster, strerror(get_last_error()));
-            return false;
+        result = SetEntry(cluster, 0);
+        if (result != PErrorCode::Success) {
+            kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::ClearFATChain(): failed clearing fat entry for cluster %lx (%s)\n", cluster, strerror(std::to_underlying(result)));
+            return result;
         }
         m_Volume->m_FreeClusters++;
         cluster = nextCluster;
@@ -454,7 +457,7 @@ bool FATTable::ClearFATChain(uint32_t cluster)
         kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::CRITICAL, "FATTable::ClearFATChain(): fat chain terminated improperly with %lx\n", cluster);
     }
     m_Volume->UpdateFSInfo();
-    return true;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -490,7 +493,7 @@ void FATTable::DumpChain(uint32_t startCluster)
     
     while (m_Volume->IsDataCluster(cluster))
     {
-        if (!GetEntry(cluster, &cluster))
+        if (GetEntry(cluster, &cluster) != PErrorCode::Success)
         {
             kprintf("\n");
             kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATTable::DumpChain() failed to get FAT table entry for %lx\n", cluster);

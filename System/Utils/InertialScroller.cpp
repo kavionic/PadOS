@@ -38,7 +38,7 @@ InertialScroller::InertialScroller(const Point& initialValue, float frameRate, i
 {
     m_LastTickTime = get_system_time();
 
-    m_Timer.Set(TimeValMicros::FromSeconds(1.0f / frameRate));
+    m_Timer.Set(TimeValNanos::FromSeconds(1.0f / frameRate));
     m_Timer.SignalTrigged.Connect(this, &InertialScroller::SlotTick);
 }
 
@@ -177,7 +177,7 @@ Point InertialScroller::GetClosestIndention(const Point& position) const
 
 void InertialScroller::SlotTick()
 {
-    const TimeValMicros curTime = get_system_time();
+    const TimeValNanos curTime = get_system_time();
     if (curTime == m_LastTickTime) {
         return;
     }

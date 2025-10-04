@@ -32,10 +32,10 @@ class Looper;
 class EventTimer
 {
 public:
-    EventTimer(TimeValMicros timeout = TimeValMicros::zero, bool singleshot = false, int32_t id = 0);
+    EventTimer(TimeValNanos timeout = TimeValNanos::zero, bool singleshot = false, int32_t id = 0);
     ~EventTimer();
     
-    void      Set(TimeValMicros timeout, bool singleshot = false);
+    void      Set(TimeValNanos timeout, bool singleshot = false);
 
     bool      Start(bool singleShot = false, Looper* looper = nullptr);
     void      Stop();
@@ -45,8 +45,8 @@ public:
     void      SetID(int32_t ID);
     int32_t   GetID() const;
 
-    TimeValMicros GetTimeout() const { return m_Timeout; }
-    TimeValMicros GetRemainingTime() const;
+    TimeValNanos GetTimeout() const { return m_Timeout; }
+    TimeValNanos GetRemainingTime() const;
 
     Signal<void, EventTimer*> SignalTrigged;
 
@@ -55,9 +55,9 @@ private:
 
     Looper* m_Looper = nullptr;
     int32_t                                             m_ID;
-    TimeValMicros                                       m_Timeout;
+    TimeValNanos                                        m_Timeout;
     bool                                                m_IsSingleshot = false;
-    std::multimap<TimeValMicros, EventTimer*>::iterator m_TimerMapIterator;
+    std::multimap<TimeValNanos, EventTimer*>::iterator  m_TimerMapIterator;
 
     EventTimer( const EventTimer &c );
     EventTimer& operator=( const EventTimer &c );

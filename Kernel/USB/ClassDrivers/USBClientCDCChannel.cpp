@@ -146,15 +146,14 @@ int USBClientCDCChannel::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBClientCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+PErrorCode USBClientCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     kassert(!m_DeviceHandler->GetMutex().IsLocked());
     CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
 
     if (!file->HasReadAccess())
     {
-        set_last_error(EACCES);
-        return -1;
+        return PErrorCode::NoAccess;
     }
     if (m_IsActive)
     {
@@ -162,56 +161,53 @@ ssize_t USBClientCDCChannel::Read(Ptr<KFileNode> file, off64_t position, void* b
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
-                TimeValMicros deadline = m_ReadTimeout.IsInfinit() ? TimeValMicros::infinit : (get_system_time() + m_ReadTimeout);
+                TimeValNanos deadline = m_ReadTimeout.IsInfinit() ? TimeValNanos::infinit : (kget_system_time() + m_ReadTimeout);
 
                 while (m_ReceiveFIFO.GetLength() == 0)
                 {
                     const PErrorCode result = m_ReceiveCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline);
                     if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
                     {
-                        set_last_error(result);
-                        return -1;
+                        return result;
                     }
                     if (!m_IsActive)
                     {
-                        set_last_error(EPIPE);
-                        return -1;
+                        return PErrorCode::BrokenPipe;
                     }
                     if (!file->HasReadAccess())
                     {
-                        set_last_error(EACCES);
-                        return -1;
+                        return PErrorCode::NoAccess;
                     }
                 }
             }
             else
             {
-                return 0;
+                outLength = 0;
+                return PErrorCode::Success;
             }
         }
         const ssize_t result = m_ReceiveFIFO.Read(buffer, length);
         if (result != 0) {
             StartOutTransaction();
         }
-        return result;
+        outLength = result;
+        return PErrorCode::Success;
     }
-    set_last_error(EPIPE);
-    return -1;
+    return PErrorCode::BrokenPipe;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
+PErrorCode USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     kassert(!m_DeviceHandler->GetMutex().IsLocked());
     CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
 
     if (!file->HasWriteAccess())
     {
-        set_last_error(EACCES);
-        return -1;
+        return PErrorCode::NoAccess;
     }
     if (m_IsActive)
     {
@@ -219,7 +215,7 @@ ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const 
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
-                TimeValMicros deadline = m_WriteTimeout.IsInfinit() ? TimeValMicros::infinit : (get_system_time() + m_WriteTimeout);
+                TimeValNanos deadline = m_WriteTimeout.IsInfinit() ? TimeValNanos::infinit : (kget_system_time() + m_WriteTimeout);
 
                 while (m_TransmitFIFO.GetRemainingSpace() == 0)
                 {
@@ -227,24 +223,22 @@ ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const 
                     const PErrorCode result = m_TransmitCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline);
                     if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
                     {
-                        set_last_error(result);
-                        return -1;
+                        return result;
                     }
                     if (!m_IsActive)
                     {
-                        set_last_error(EPIPE);
-                        return -1;
+                        return PErrorCode::BrokenPipe;
                     }
                     if (!file->HasWriteAccess())
                     {
-                        set_last_error(EACCES);
-                        return -1;
+                        return PErrorCode::NoAccess;
                     }
                 }
             }
             else
             {
-                return 0;
+                outLength = 0;
+                return PErrorCode::Success;
             }
         }
         const size_t result = std::min(m_TransmitFIFO.GetRemainingSpace(), length);
@@ -253,10 +247,10 @@ ssize_t USBClientCDCChannel::Write(Ptr<KFileNode> file, off64_t position, const 
         if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT)) || m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
             FlushInternal();
         }
-        return result;
+        outLength = result;
+        return PErrorCode::Success;
     }
-    set_last_error(EPIPE);
-    return -1;
+    return PErrorCode::BrokenPipe;
 }
 
 int USBClientCDCChannel::Sync(Ptr<KFileNode> file)
@@ -307,8 +301,8 @@ int USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const v
         case USARTIOCTL_SET_READ_TIMEOUT:
             if (inDataLength == sizeof(bigtime_t))
             {
-                bigtime_t micros = *((const bigtime_t*)inData);
-                m_ReadTimeout = TimeValMicros::FromMicroseconds(micros);
+                bigtime_t nanos = *((const bigtime_t*)inData);
+                m_ReadTimeout = TimeValNanos::FromNanoseconds(nanos);
                 return 0;
             }
             else
@@ -319,8 +313,8 @@ int USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const v
         case USARTIOCTL_GET_READ_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t))
             {
-                bigtime_t* micros = (bigtime_t*)outData;
-                *micros = m_ReadTimeout.AsMicroSeconds();
+                bigtime_t* nanos = (bigtime_t*)outData;
+                *nanos = m_ReadTimeout.AsNanoseconds();
                 return 0;
             }
             else
@@ -331,8 +325,8 @@ int USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const v
         case USARTIOCTL_SET_WRITE_TIMEOUT:
             if (inDataLength == sizeof(bigtime_t))
             {
-                bigtime_t micros = *((const bigtime_t*)inData);
-                m_WriteTimeout = TimeValMicros::FromMicroseconds(micros);
+                bigtime_t nanos = *((const bigtime_t*)inData);
+                m_WriteTimeout = TimeValNanos::FromNanoseconds(nanos);
                 return 0;
             }
             else
@@ -343,8 +337,8 @@ int USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const v
         case USARTIOCTL_GET_WRITE_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t))
             {
-                bigtime_t* micros = (bigtime_t*)outData;
-                *micros = m_WriteTimeout.AsMicroSeconds();
+                bigtime_t* nanos = (bigtime_t*)outData;
+                *nanos = m_WriteTimeout.AsNanoseconds();
                 return 0;
             }
             else
@@ -422,10 +416,10 @@ bool USBClientCDCChannel::HandleControlTransfer(USB_ControlStage stage, const US
             {
                 kernel_log(LogCategoryUSBDevice, KLogSeverity::INFO_LOW_VOL, "USBD: CDC Send break.\n");
                 if (request.wValue != 0xffff) {
-                    SignalBreak(TimeValMicros::FromMilliseconds(request.wValue));
+                    SignalBreak(TimeValNanos::FromMilliseconds(request.wValue));
                 }
                 else {
-                    SignalBreak(TimeValMicros::infinit);
+                    SignalBreak(TimeValNanos::infinit);
                 }
             }
             break;

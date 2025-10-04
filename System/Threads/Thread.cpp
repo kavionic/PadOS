@@ -46,7 +46,7 @@ Thread::~Thread()
 
 Thread* Thread::GetCurrentThread()
 {
-    return static_cast<Thread*>(sys_thread_local_get(GetThreadObjTLSSlot()));
+    return static_cast<Thread*>(__thread_local_get(GetThreadObjTLSSlot()));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -59,7 +59,7 @@ PErrorCode Thread::Start(PThreadDetachState detachState, int priority, int stack
     {
         m_DetachState = detachState;
         PThreadAttribs attrs(m_Name.c_str(), priority, detachState, stackSize);
-        return sys_thread_spawn(&m_ThreadHandle , &attrs, ThreadEntry, this);
+        return __thread_spawn(&m_ThreadHandle , &attrs, ThreadEntry, this);
     }
     return PErrorCode::Busy;
 }
@@ -68,12 +68,12 @@ PErrorCode Thread::Start(PThreadDetachState detachState, int priority, int stack
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Thread::Join(void** outReturnValue, TimeValMicros deadline)
+int Thread::Join(void** outReturnValue, TimeValNanos deadline)
 {
     int result = EINVAL;
     if (m_DetachState == PThreadDetachState_Joinable)
     {
-        result = sys_thread_join(m_ThreadHandle, outReturnValue);
+        result = __thread_join(m_ThreadHandle, outReturnValue);
         if (result == 0 && m_DeleteOnExit) {
             delete this;
         }
@@ -103,7 +103,7 @@ void Thread::Exit(void* returnValue)
     if (m_DetachState == PThreadDetachState_Detached && m_DeleteOnExit) {
         delete this;
     }
-    sys_thread_exit(returnValue);
+    __thread_exit(returnValue);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -115,7 +115,7 @@ void* Thread::ThreadEntry(void* data)
     Thread* self = static_cast<Thread*>(data);
     try
     {
-        sys_thread_local_set(GetThreadObjTLSSlot(), data);
+        __thread_local_set(GetThreadObjTLSSlot(), data);
         self->Exit(self->Run());
     }
     catch(const std::exception& e)
@@ -137,6 +137,6 @@ void* Thread::ThreadEntry(void* data)
 
 int Thread::GetThreadObjTLSSlot()
 {
-    static int slot = sys_thread_local_create_key(nullptr);
+    static int slot = __thread_local_create_key(nullptr);
     return slot;
 }

@@ -27,17 +27,17 @@ class ThreadLocal
 {
 public:
     ThreadLocal() {
-        m_Slot = sys_thread_local_create_key(TLSDestructor);
+        m_Slot = __thread_local_create_key(TLSDestructor);
     }
-    ~ThreadLocal() { sys_thread_local_delete_key(m_Slot); }
+    ~ThreadLocal() { __thread_local_delete_key(m_Slot); }
 
     void Set(const T& object )
     {
-        T* buffer = static_cast<T*>(sys_thread_local_get(m_Slot));
+        T* buffer = static_cast<T*>(__thread_local_get(m_Slot));
         if (buffer == nullptr)
         {
             buffer = new T(object);
-            sys_thread_local_set(m_Slot, buffer);
+            __thread_local_set(m_Slot, buffer);
         }
         else
         {
@@ -45,7 +45,7 @@ public:
         }
     }
     T& Get() {
-        T* buffer = static_cast<T*>(sys_thread_local_get(m_Slot));
+        T* buffer = static_cast<T*>(__thread_local_get(m_Slot));
         if (buffer != nullptr) {
             return *static_cast<T*>(buffer);
         } else {
@@ -69,15 +69,15 @@ class ThreadLocal<T*>
 {
 public:
     ThreadLocal() {
-        m_Slot = sys_thread_local_create_key(nullptr);
+        m_Slot = __thread_local_create_key(nullptr);
     }
-    ~ThreadLocal() { sys_thread_local_delete_key(m_Slot); }
+    ~ThreadLocal() { __thread_local_delete_key(m_Slot); }
 
     void Set(T* object ) {
-        sys_thread_local_set(m_Slot, object);
+        __thread_local_set(m_Slot, object);
     }
     T* Get() {
-        return static_cast<T*>(sys_thread_local_get(m_Slot));
+        return static_cast<T*>(__thread_local_get(m_Slot));
     }
 
 private:

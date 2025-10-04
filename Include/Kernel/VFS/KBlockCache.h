@@ -67,7 +67,7 @@ struct KCacheBlockHeader
     off64_t                           m_bufferNumber = 0;
     uint32_t                          m_UseCount     = 0;
     void*                             m_Buffer       = nullptr;
-    TimeValMicros                     m_DirtyTime;
+    TimeValNanos                      m_DirtyTime;
     uint32_t                          m_Flags        = 0;
 };
 
@@ -119,8 +119,8 @@ public:
     IFLASHC KCacheBlockDesc GetBlock(off64_t blockNum, bool doLoad = true);
     IFLASHC bool            MarkBlockDirty(off64_t blockNum);
     
-    IFLASHC int  CachedRead(off64_t blockNum, void* buffer, size_t blockCount);
-    IFLASHC int  CachedWrite(off64_t blockNum, const void* buffer, size_t blockCount);
+    IFLASHC PErrorCode CachedRead(off64_t blockNum, void* buffer, size_t blockCount);
+    IFLASHC PErrorCode CachedWrite(off64_t blockNum, const void* buffer, size_t blockCount);
 
     IFLASHC bool Flush();
     IFLASHC bool Sync();

@@ -112,7 +112,7 @@ public:
     }
 
     static String format_file_size(off64_t size);
-    static String format_time_period(const TimeValMicros& timeVal, bool includeUnits, size_t maxCharacters = 0);
+    static String format_time_period(const TimeValNanos& timeVal, bool includeUnits, size_t maxCharacters = 0);
 
     // FNV-1a 32bit hashing algorithm.
     inline static constexpr uint32_t hash_string_literal(char const* s, size_t count)

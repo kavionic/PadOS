@@ -167,7 +167,7 @@ bool USBHost_STM32::StopHost()
     for (size_t i = 0; i < CHANNEL_COUNT; ++i)
     {
         set_bit_group(m_HostChannels[i].HCCHAR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS | USB_OTG_HCCHAR_EPDIR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS);
-        for (TimeValMicros endTime = get_system_time() + TimeValMicros::FromMilliseconds(100); get_system_time() < endTime && (m_HostChannels[i].HCCHAR & USB_OTG_HCCHAR_CHENA); ) {}
+        for (TimeValNanos endTime = kget_system_time() + TimeValNanos::FromMilliseconds(100); kget_system_time() < endTime && (m_HostChannels[i].HCCHAR & USB_OTG_HCCHAR_CHENA); ) {}
     }
 
     // Clear any pending host interrupts.

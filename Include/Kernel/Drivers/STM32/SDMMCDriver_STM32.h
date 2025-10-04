@@ -52,7 +52,7 @@ public:
     IFLASHC virtual bool	SendCmd(uint32_t cmd, uint32_t arg) override;
     IFLASHC virtual uint32_t	GetResponse() override;
     IFLASHC virtual void	GetResponse128(uint8_t* response) override;
-    IFLASHC virtual bool	StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const os::IOSegment* segments, size_t segmentCount) override;
+    IFLASHC virtual bool	StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, uint32_t blockSizePower, uint32_t blockCount, const iovec_t* segments, size_t segmentCount) override;
     IFLASHC virtual bool	StopAddressedDataTransCmd(uint32_t cmd, uint32_t arg) override;
     IFLASHC virtual void	ApplySpeedAndBusWidth() override;
 
@@ -66,10 +66,10 @@ private:
     uint32_t	    m_PeripheralClockFrequency = 0;
     uint32_t	    m_ClockCap = 0;
 
-    const os::IOSegment*    m_TransferSegments = nullptr;
-    size_t                      m_SegmentCount = 0;
-    volatile size_t             m_CurrentSegment = 0;
-    volatile WakeupReason       m_WakeupReason = WakeupReason::None;
+    const iovec_t*          m_TransferSegments = nullptr;
+    size_t                  m_SegmentCount = 0;
+    volatile size_t         m_CurrentSegment = 0;
+    volatile WakeupReason   m_WakeupReason = WakeupReason::None;
 };
 
 } // namespace

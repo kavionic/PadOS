@@ -84,51 +84,50 @@ status_t FATClusterSectorIterator::Set(uint32_t cluster, uint32_t sector)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FATClusterSectorIterator::Increment(int sectors)
+PErrorCode FATClusterSectorIterator::Increment(int sectors)
 {
     if (m_CurrentSector == 0xffff) { // check if already at end of chain
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
     if (sectors < 0) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }    
     if (sectors == 0) {
-        return 0;
+        return PErrorCode::Success;
     }    
     if (IS_FIXED_ROOT(m_CurrentCluster))
     {
         m_CurrentSector += sectors;
         if (m_CurrentSector < m_Volume->m_RootSectorCount) {
-            return 0;
+            return PErrorCode::Success;
         }            
     }
     else
     {
         m_CurrentSector += sectors;
         if (m_CurrentSector < m_Volume->m_SectorsPerCluster) {
-            return 0;
-        }            
-        if (!m_Volume->GetFATTable()->GetChainEntry(m_CurrentCluster, m_CurrentSector / m_Volume->m_SectorsPerCluster, &m_CurrentCluster)) {
+            return PErrorCode::Success;
+        }    
+        const PErrorCode result = m_Volume->GetFATTable()->GetChainEntry(m_CurrentCluster, m_CurrentSector / m_Volume->m_SectorsPerCluster, &m_CurrentCluster);
+        if (result != PErrorCode::Success) {
             kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATClusterSectorIterator::Increment(%d): GetChainEntry() failed. Failed to get current cluster.\n", sectors);
-            return -1;
+            return result;
         }
 
         if (int32_t(m_CurrentCluster) < 0) {
             m_CurrentSector = 0xffff;
-            return m_CurrentCluster;
+            return PErrorCode::Success;
         }
 
         if (m_Volume->IsDataCluster(m_CurrentCluster)) {
             m_CurrentSector %= m_Volume->m_SectorsPerCluster;
-            return 0;
+            return PErrorCode::Success;
         }
     }
 
     m_CurrentSector = 0xffff;
     
-    return -1;
+    return PErrorCode::IOError;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -147,24 +146,22 @@ KCacheBlockDesc FATClusterSectorIterator::GetBlock(bool doLoad)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FATClusterSectorIterator::MarkBlockDirty()
+PErrorCode FATClusterSectorIterator::MarkBlockDirty()
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
-    return m_Volume->m_BCache.MarkBlockDirty(GetBlockSector());
+    return m_Volume->m_BCache.MarkBlockDirty(GetBlockSector()) ? PErrorCode::Success : PErrorCode::NoEntry;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FATClusterSectorIterator::ReadBlock(uint8_t* buffer)
+PErrorCode FATClusterSectorIterator::ReadBlock(uint8_t* buffer)
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
     return m_Volume->m_BCache.CachedRead(GetBlockSector(), buffer, 1);
 }
@@ -173,11 +170,10 @@ status_t FATClusterSectorIterator::ReadBlock(uint8_t* buffer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FATClusterSectorIterator::WriteBlock(const uint8_t* buffer)
+PErrorCode FATClusterSectorIterator::WriteBlock(const uint8_t* buffer)
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
     return m_Volume->m_BCache.CachedWrite(GetBlockSector(), buffer, 1);
 }

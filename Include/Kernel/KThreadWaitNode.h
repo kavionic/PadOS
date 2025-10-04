@@ -38,7 +38,7 @@ struct KThreadWaitNode
         }
     }
 
-    TimeValMicros                   m_ResumeTime;
+    TimeValNanos                    m_ResumeTime;
     KThreadCB*                      m_Thread = nullptr;
     int                             m_ReturnCode = 0;
     bool                            m_TargetDeleted = false;

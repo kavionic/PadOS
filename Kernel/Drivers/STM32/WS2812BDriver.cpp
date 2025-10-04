@@ -118,7 +118,7 @@ int WS2812BDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const vo
 	{
 		case WS2812BIOCTL_SET_LED_COUNT:
 		    if (inArg == nullptr || inDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
-		    return SetLEDCount(*inArg) ? 0 : -1;
+		    return (SetLEDCount(*inArg) == PErrorCode::Success) ? 0 : -1;
 		case WS2812BIOCTL_GET_LED_COUNT:
 		    if (outArg == nullptr || outDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
 		    *outArg = GetLEDCount();
@@ -139,34 +139,33 @@ int WS2812BDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const vo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t WS2812BDriverINode::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+PErrorCode WS2812BDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
-	set_last_error(ENOSYS);
-	return -1;
+	return PErrorCode::NotImplemented;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t WS2812BDriverINode::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, const size_t length)
+PErrorCode WS2812BDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length, off64_t position, ssize_t& outLength)
 {
     if (position < 0 || (position & 3) || (length & 3)) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
     CRITICAL_SCOPE(m_Mutex);
 
     size_t firstLED = size_t(position / 4);
     size_t lastLED = std::min(m_LEDCount, firstLED + length / 4);
     if (lastLED < firstLED) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
     const uint32_t* values = reinterpret_cast<const uint32_t*>(buffer);
 
-    if (!WaitForIdle()) {
-        return false;
+    const PErrorCode result = WaitForIdle();
+
+    if (result != PErrorCode::Success) {
+        return result;
     }
 
     // Expand the color bit patterns. Each source bit becomes 3 destination bits.
@@ -223,7 +222,8 @@ ssize_t WS2812BDriverINode::Write(Ptr<KFileNode> file, off64_t position, const v
     dma_start(m_SendDMAChannel);
     m_Port->CR1 |= SPI_CR1_CSTART;
 
-    return length;
+    outLength = length;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -254,38 +254,38 @@ IRQResult WS2812BDriverINode::HandleIRQ()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool WS2812BDriverINode::WaitForIdle()
+PErrorCode WS2812BDriverINode::WaitForIdle()
 {
 	CRITICAL_BEGIN(CRITICAL_IRQ)
 	{
 		while (m_State != State::Idle)
 		{
-            const PErrorCode result = m_TransmitCondition.IRQWaitTimeout(TimeValMicros::FromMilliseconds(100));
+            const PErrorCode result = m_TransmitCondition.IRQWaitTimeout(TimeValNanos::FromMilliseconds(100));
             if (result != PErrorCode::Success) // Timeout in 100mS. Max transmit time is about 27mS (>7000LEDs)
 			{
 				if (result != PErrorCode::Interrupted)
                 {
-                    set_last_error(result);
-					return false;
+					return result;
 				}
 			}
 		}
 	} CRITICAL_END;
-	return true;
+	return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool WS2812BDriverINode::SetLEDCount(size_t count)
+PErrorCode WS2812BDriverINode::SetLEDCount(size_t count)
 {
 	if (count == m_LEDCount) {
-		return true;
+		return PErrorCode::Success;
 	}
 
-	if (!WaitForIdle()) {
-		return false;
+    const PErrorCode result = WaitForIdle();
+	if (result != PErrorCode::Success) {
+		return result;
 	}
 
 	const size_t bufferSize = (count * 3 * 3 + RESET_BYTE_COUNT + DCACHE_LINE_SIZE - 1) & ~DCACHE_LINE_SIZE_MASK;
@@ -295,15 +295,18 @@ bool WS2812BDriverINode::SetLEDCount(size_t count)
 	}
 	m_TransmitBuffer = reinterpret_cast<uint8_t*>(memalign(DCACHE_LINE_SIZE, bufferSize));
 
-	if (m_TransmitBuffer != nullptr) {
+	if (m_TransmitBuffer != nullptr)
+    {
 		memset(m_TransmitBuffer, 0, bufferSize);
 		m_TransmitBufferSize = bufferSize;
 		m_LEDCount = count;
-		return true;
-	} else {
+		return PErrorCode::Success;
+	}
+    else
+    {
 		m_TransmitBufferSize = 0;
 		m_LEDCount = 0;
-		return false;
+		return PErrorCode::NoMemory;
 	}
 }
 
@@ -364,20 +367,20 @@ void WS2812BDriver::Setup(const char* devicePath, bool swapIOPins, SPIID portID,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t WS2812BDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length)
+PErrorCode WS2812BDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     Ptr<WS2812BDriverINode> node = ptr_static_cast<WS2812BDriverINode>(file->GetINode());
-	return node->Read(file, position, buffer, length);
+	return node->Read(file, buffer, length, position, outLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t WS2812BDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
+PErrorCode WS2812BDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
 {
     Ptr<WS2812BDriverINode> node = ptr_static_cast<WS2812BDriverINode>(file->GetINode());
-	return node->Write(file, position, buffer, length);
+	return node->Write(file, buffer, length, position, outLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

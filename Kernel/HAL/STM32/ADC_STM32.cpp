@@ -121,7 +121,7 @@ bool ADC_STM32::SetLinearCalibrationWord(int index, uint32_t value)
 
     set_bit_group(m_ADC->CALFACT2, ADC_CALFACT2_LINCALFACT_Msk, value << ADC_CALFACT2_LINCALFACT_Pos);
     m_ADC->CR |= mask;
-    for (TimeValMicros endTime = get_system_time() + TimeValMicros::FromMilliseconds(10); (m_ADC->CR & mask) == 0 && get_system_time() < endTime;) {}
+    for (TimeValNanos endTime = get_system_time() + TimeValNanos::FromMilliseconds(10); (m_ADC->CR & mask) == 0 && get_system_time() < endTime;) {}
 
     return (m_ADC->CR & mask) != 0;
 }

@@ -83,10 +83,10 @@ bool SerialCommandHandler::OpenSerialPort()
 {
     if (m_SerialPort == -1)
     {
-        m_SerialPort = FileIO::Open(m_SerialPortPath.c_str(), O_RDWR | O_DIRECT);
+        m_SerialPort = open(m_SerialPortPath.c_str(), O_RDWR | O_DIRECT);
         if (m_SerialPort != -1)
         {
-            USARTIOCTL_SetWriteTimeout(m_SerialPort, TimeValMicros::FromMilliseconds(100));
+            USARTIOCTL_SetWriteTimeout(m_SerialPort, TimeValNanos::FromMilliseconds(100));
             USARTIOCTL_SetBaudrate(m_SerialPort, m_Baudrate);
             return true;
         }
@@ -103,7 +103,7 @@ void SerialCommandHandler::CloseSerialPort()
 {
     if (m_SerialPort != -1)
     {
-        FileIO::Close(m_SerialPort);
+        close(m_SerialPort);
         m_SerialPort = -1;
     }
 }
@@ -187,7 +187,7 @@ void SerialCommandHandler::Execute()
         CRITICAL_BEGIN(m_QueueMutex);
         {
             if (m_MessageQueue.IsEmpty()) {
-                m_QueueCondition.WaitTimeout(m_QueueMutex, TimeValMicros::FromMilliseconds(SerialProtocol::PING_PERIOD_MS_DEVICE));
+                m_QueueCondition.WaitTimeout(m_QueueMutex, TimeValNanos::FromMilliseconds(SerialProtocol::PING_PERIOD_MS_DEVICE));
             }
             if (!m_MessageQueue.IsEmpty())
             {
@@ -230,7 +230,7 @@ ssize_t SerialCommandHandler::SerialRead(void* buffer, size_t length)
     ssize_t bytesRead = 0;
     while (bytesRead < length)
     {
-        const ssize_t result = FileIO::Read(m_SerialPort, dst, length - bytesRead);
+        const ssize_t result = read(m_SerialPort, dst, length - bytesRead);
         if (result <= 0 && get_last_error() != EINTR)
         {
             CloseSerialPort();
@@ -254,7 +254,7 @@ ssize_t SerialCommandHandler::SerialWrite(const void* buffer, size_t length)
     ssize_t bytesWritten = 0;
     while (bytesWritten < length)
     {
-        const ssize_t result = FileIO::Write(m_SerialPort, src, length - bytesWritten);
+        const ssize_t result = write(m_SerialPort, src, length - bytesWritten);
         if (result <= 0)
         {
             if (get_last_error() == EINTR) {
@@ -281,7 +281,7 @@ bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer
 
         uint8_t magicNumber;
         // Read and validate magic number.
-        ssize_t length = FileIO::Read(m_SerialPort, &magicNumber, 1);
+        ssize_t length = read(m_SerialPort, &magicNumber, 1);
         if (length != 1)
         {
             if (length != 0) {
@@ -372,7 +372,7 @@ void SerialCommandHandler::HandleProbeDevice(const SerialProtocol::ProbeDevice& 
 
 void SerialCommandHandler::HandleSetSystemTime(const SerialProtocol::SetSystemTime& packet)
 {
-    set_real_time(TimeValMicros::FromMicroseconds(packet.UnixTime), true);
+    set_real_time(TimeValNanos::FromMicroseconds(packet.UnixTime), true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -413,7 +413,7 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
         if (header->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) {
             return true;
         }
-        m_ReplyCondition.WaitTimeout(TimeValMicros::FromMilliseconds(500));
+        m_ReplyCondition.WaitTimeout(m_TransmitMutex, TimeValNanos::FromMilliseconds(500));
         if (m_ReplyReceived) {
             return true;
         }

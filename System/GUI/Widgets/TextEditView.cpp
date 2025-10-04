@@ -53,7 +53,7 @@ TextEditView::TextEditView(ViewFactoryContext& context, Ptr<View> parent, const 
 void TextEditView::Initialize()
 {
     m_Style = TextBox::GetDefaultStyle();
-    m_CursorTimer.Set(TimeValMicros::FromSeconds(0.8));
+    m_CursorTimer.Set(TimeValNanos::FromSeconds(0.8));
     m_CursorTimer.SignalTrigged.Connect(this, &TextEditView::SlotCursorTimer);
 
     SetFocusKeyboardMode(FocusKeyboardMode::Alphanumeric);

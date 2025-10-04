@@ -177,7 +177,7 @@ public:
         return true;
     }
 
-    static bool Emit(port_id port, handler_id targetHandler, int32_t messageID, const TimeValMicros& timeout, ARGS... args)
+    static bool Emit(port_id port, handler_id targetHandler, int32_t messageID, const TimeValNanos& timeout, ARGS... args)
     {
         static const size_t MAX_STACK_BUFFER_SIZE = 128;
         
@@ -201,15 +201,19 @@ public:
             }
         }
         WriteArg(buffer, size, args...);
-        bool result = send_message(port, targetHandler, messageID, buffer, size, timeout.AsMicroSeconds()) >= 0;
+        const PErrorCode result = send_message_timeout_ns(port, targetHandler, messageID, buffer, size, timeout.AsNanoseconds());
+
+        if (result != PErrorCode::Success) {
+            set_last_error(result);
+        }
         
         if (size > MAX_STACK_BUFFER_SIZE) {
             free(buffer);
         }
-        return result;
+        return result == PErrorCode::Success;
     }
 
-    static bool Emit(const MessagePort& port, handler_id targetHandler, int32_t messageID, const TimeValMicros& timeout, ARGS... args)
+    static bool Emit(const MessagePort& port, handler_id targetHandler, int32_t messageID, const TimeValNanos& timeout, ARGS... args)
     {
         return Emit(port.GetHandle(), targetHandler, messageID, timeout, args...);
     }
@@ -388,7 +392,7 @@ private:
 
     port_id         m_TargetPort = INVALID_HANDLE;
     handle_id       m_TargetHandler = INVALID_HANDLE;
-    TimeValMicros   m_EmitTimeout = TimeValMicros::infinit;
+    TimeValNanos    m_EmitTimeout = TimeValNanos::infinit;
 };
 
 template<int MSGID, typename R, typename... ARGS>
@@ -402,13 +406,13 @@ bool post_to_remotesignal(CB_OBJ* callbackObj, void* (CB_OBJ::* callback)(int32_
 }
 
 template<typename SIGNAL, typename... ARGS>
-bool post_to_remotesignal(port_id port, handler_id targetHandler, const TimeValMicros& timeout, ARGS&&... args)
+bool post_to_remotesignal(port_id port, handler_id targetHandler, const TimeValNanos& timeout, ARGS&&... args)
 {
     return SIGNAL::Sender::Emit(port, targetHandler, SIGNAL::GetID(), timeout, args...);
 }
 
 template<typename SIGNAL, typename... ARGS>
-bool post_to_remotesignal(const MessagePort& port, handler_id targetHandler, const TimeValMicros& timeout, ARGS&&... args)
+bool post_to_remotesignal(const MessagePort& port, handler_id targetHandler, const TimeValNanos& timeout, ARGS&&... args)
 {
     return SIGNAL::Sender::Emit(port, targetHandler, SIGNAL::GetID(), timeout, args...);
 }

@@ -24,6 +24,7 @@
 #include <Threads/Threads.h>
 #include <Kernel/Kernel.h>
 #include <Kernel/Scheduler.h>
+#include <Kernel/Syscalls.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 #include <Utils/Utils.h>
 
@@ -33,38 +34,27 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValMicros get_system_time()
+TimeValNanos get_system_time()
 {
-    bigtime_t time;
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        time = Kernel::s_SystemTime;
-    } CRITICAL_END;
-    return TimeValMicros::FromMilliseconds(time);
+    return TimeValNanos::FromNanoseconds(__get_system_time());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode set_real_time(TimeValMicros time, bool updateRTC)
+PErrorCode set_real_time(TimeValNanos time, bool updateRTC)
 {
-    Kernel::s_RealTime = time - get_system_time();
-
-    if (updateRTC)
-    {
-        RealtimeClock::SetClock(time);
-    }
-    return PErrorCode::Success;
+    return __set_real_time(time.AsNanoseconds(), updateRTC);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValMicros get_real_time()
+TimeValNanos get_real_time()
 {
-    return get_system_time() + Kernel::s_RealTime;
+    return TimeValNanos::FromNanoseconds(__get_real_time());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,7 +63,7 @@ TimeValMicros get_real_time()
 
 TimeValNanos get_real_time_hires()
 {
-    return get_system_time_hires() + Kernel::s_RealTime;
+    return TimeValNanos::FromNanoseconds(__get_system_time_hires());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -83,125 +73,38 @@ TimeValNanos get_real_time_hires()
 
 IFLASHC TimeValNanos get_system_time_hires()
 {
-    const uint32_t    coreFrequency = Kernel::GetFrequencyCore();
-    bigtime_t   time;
-    uint32_t    ticks;
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        ticks = SysTick->VAL;
-        time = Kernel::s_SystemTime;
-        if ((SCB->ICSR & SCB_ICSR_PENDSTSET_Msk) || SysTick->VAL > ticks)
-        {
-            // If the SysTick exception is pending, or the timer wrapped around after reading
-            // Kernel::s_SystemTime we need to add another tick and re-read the timer.
-            ticks = SysTick->VAL;
-            time++;
-        }
-    } CRITICAL_END;
-    ticks = SysTick->LOAD - ticks;
-    time *= 1000000; // Convert system time from mS to nS.
-    return TimeValNanos::FromNanoseconds(time + bigtime_t(ticks) * TimeValNanos::TicksPerSecond / coreFrequency);  // Convert clock-cycles to nS and add to the time.
+    return TimeValNanos::FromNanoseconds(__get_system_time_hires());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValMicros get_clock_time_offset(int clockID)
+TimeValNanos get_clock_time_offset(int clockID)
 {
-    switch (clockID)
-    {
-        case CLOCK_REALTIME_COARSE:
-        case CLOCK_REALTIME:
-        case CLOCK_REALTIME_ALARM:
-            return Kernel::s_RealTime;
-        case CLOCK_PROCESS_CPUTIME_ID:
-            return -get_idle_time();
-        case CLOCK_THREAD_CPUTIME_ID:
-            return gk_CurrentThread->m_RunTime - get_system_time();
-        case CLOCK_MONOTONIC:
-        case CLOCK_MONOTONIC_RAW:
-        case CLOCK_MONOTONIC_COARSE:
-        case CLOCK_BOOTTIME:
-        case CLOCK_BOOTTIME_ALARM:
-            return TimeValMicros::zero;
-    }
-    return TimeValMicros::zero;
+    return TimeValNanos::FromNanoseconds(__get_clock_time_offset(clockID));
 }
 
-
-template<typename T>
-T get_clock_time_internal(int clockID)
+TimeValNanos get_clock_time(int clockID)
 {
-    switch(clockID)
-    {
-        case CLOCK_REALTIME_COARSE:     return get_real_time();
-        case CLOCK_REALTIME:            return get_system_time_hires();
-        case CLOCK_PROCESS_CPUTIME_ID:  return get_system_time_hires() - get_idle_time();
-        case CLOCK_THREAD_CPUTIME_ID:   return gk_CurrentThread->m_RunTime;
-        case CLOCK_MONOTONIC:           return get_system_time_hires();
-        case CLOCK_MONOTONIC_RAW:       return get_system_time_hires();
-        case CLOCK_MONOTONIC_COARSE:    return get_system_time();
-        case CLOCK_BOOTTIME:            return get_system_time_hires();
-        case CLOCK_REALTIME_ALARM:      return get_system_time_hires();
-        case CLOCK_BOOTTIME_ALARM:      return get_system_time_hires();
-    }
-    return T::zero;
-}
-
-TimeValMicros get_clock_time(int clockID)
-{
-    return get_system_time() + get_clock_time_offset(clockID);
-//    return get_clock_time_internal<TimeValMicros>(clockID);
+    return TimeValNanos::FromNanoseconds(__get_clock_time(clockID));
 }
 
 TimeValNanos get_clock_time_hires(int clockID)
 {
-    return get_system_time_hires() + get_clock_time_offset(clockID);
-//    return get_clock_time_internal<TimeValNanos>(clockID);
+    return TimeValNanos::FromNanoseconds(__get_clock_time_hires(clockID));
 }
 
 std::chrono::steady_clock::time_point get_monotonic_clock()
 {
-    bigtime_t time;
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        time = Kernel::s_SystemTime;
-    } CRITICAL_END;
-    return std::chrono::steady_clock::time_point(std::chrono::milliseconds(time));
+    const bigtime_t time = __get_system_time();
+    return std::chrono::steady_clock::time_point(std::chrono::nanoseconds(time));
 }
 
 std::chrono::steady_clock::time_point get_monotonic_clock_hires()
 {
-    const uint32_t    coreFrequency = Kernel::GetFrequencyCore();
-    bigtime_t   time;
-    uint32_t    ticks;
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        ticks = SysTick->VAL;
-        time = Kernel::s_SystemTime;
-        if ((SCB->ICSR & SCB_ICSR_PENDSTSET_Msk) || SysTick->VAL > ticks)
-        {
-            // If the SysTick exception is pending, or the timer wrapped around after reading
-            // Kernel::s_SystemTime we need to add another tick and re-read the timer.
-            ticks = SysTick->VAL;
-            time++;
-        }
-    } CRITICAL_END;
-    ticks = SysTick->LOAD - ticks;
-//    time *= 1000000; // Convert system time from mS to nS.
-    return std::chrono::steady_clock::time_point(std::chrono::milliseconds(time) + std::chrono::nanoseconds(bigtime_t(ticks) * TimeValNanos::TicksPerSecond / coreFrequency));
-//    return TimeValNanos::FromNanoseconds(time + bigtime_t(ticks) * TimeValNanos::TicksPerSecond / coreFrequency);  // Convert clock-cycles to nS and add to the time.
-}
-
-std::chrono::system_clock::time_point get_realtime_clock()
-{
-    return std::chrono::system_clock::time_point(get_monotonic_clock().time_since_epoch() + std::chrono::microseconds(Kernel::s_RealTime.AsMicroSeconds()));
-}
-
-std::chrono::system_clock::time_point get_realtime_clock_hires()
-{
-    return std::chrono::system_clock::time_point(get_monotonic_clock_hires().time_since_epoch() + std::chrono::microseconds(Kernel::s_RealTime.AsMicroSeconds()));
+    const bigtime_t time = __get_system_time_hires();
+    return std::chrono::steady_clock::time_point(std::chrono::nanoseconds(time));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -211,25 +114,84 @@ std::chrono::system_clock::time_point get_realtime_clock_hires()
 
 IFLASHC TimeValNanos get_idle_time()
 {
-    CRITICAL_SCOPE(CRITICAL_IRQ);
-    return gk_IdleThread->m_RunTime;
+    return TimeValNanos::FromNanoseconds(__get_idle_time());
 }
 
+
 ///////////////////////////////////////////////////////////////////////////////
-/// Return number of core clock cycles since last wrap. Wraps every ms.
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC uint64_t get_core_clock_cycles()
+TimeValNanos kget_system_time()
 {
-    uint32_t timerLoadVal = SysTick->LOAD;
-
-    CRITICAL_SCOPE(CRITICAL_IRQ);
-    uint32_t ticks = SysTick->VAL;
-    return timerLoadVal - ticks;
+    return TimeValNanos::FromNanoseconds(sys_get_system_time());
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
+PErrorCode kset_real_time(TimeValNanos time, bool updateRTC)
+{
+    return sys_set_real_time(time.AsNanoseconds(), updateRTC);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TimeValNanos kget_real_time()
+{
+    return TimeValNanos::FromNanoseconds(sys_get_real_time());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TimeValNanos kget_real_time_hires()
+{
+    return TimeValNanos::FromNanoseconds(sys_get_system_time_hires());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Return system time in nano seconds with the resolution of the core clock.
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+IFLASHC TimeValNanos kget_system_time_hires()
+{
+    return TimeValNanos::FromNanoseconds(sys_get_system_time_hires());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TimeValNanos kget_clock_time_offset(int clockID)
+{
+    return TimeValNanos::FromNanoseconds(sys_get_clock_time_offset(clockID));
+}
+
+TimeValNanos kget_clock_time(int clockID)
+{
+    return TimeValNanos::FromNanoseconds(sys_get_clock_time(clockID));
+}
+
+TimeValNanos kget_clock_time_hires(int clockID)
+{
+    return TimeValNanos::FromNanoseconds(sys_get_clock_time_hires(clockID));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Return time in nano seconds where no threads or IRQ's have been executing.
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TimeValNanos kget_idle_time()
+{
+    return TimeValNanos::FromNanoseconds(sys_get_idle_time());
+}
 
 namespace unit_test
 {
@@ -315,33 +277,33 @@ IFLASHC void TestTimeValue()
     _EXPECT_NEAR(sum1.AsSeconds(), 2.0, 0.0000001);
     _EXPECT_NEAR(sum3.AsSeconds(), 2.0, 0.0000001);
 
-    _EXPECT_TRUE(millis.AsMilliSeconds() == 1000LL);
-    _EXPECT_TRUE(millis.AsMicroSeconds() == 1000000LL);
-    _EXPECT_TRUE(millis.AsNanoSeconds() == 1000000000LL);
+    _EXPECT_TRUE(millis.AsMilliseconds() == 1000LL);
+    _EXPECT_TRUE(millis.AsMicroseconds() == 1000000LL);
+    _EXPECT_TRUE(millis.AsNanoseconds() == 1000000000LL);
 
-    _EXPECT_TRUE(micros.AsMilliSeconds() == 1000LL);
-    _EXPECT_TRUE(micros.AsMicroSeconds() == 1000000LL);
-    _EXPECT_TRUE(micros.AsNanoSeconds() == 1000000000LL);
+    _EXPECT_TRUE(micros.AsMilliseconds() == 1000LL);
+    _EXPECT_TRUE(micros.AsMicroseconds() == 1000000LL);
+    _EXPECT_TRUE(micros.AsNanoseconds() == 1000000000LL);
 
-    _EXPECT_TRUE(nanos.AsMilliSeconds() == 1000LL);
-    _EXPECT_TRUE(nanos.AsMicroSeconds() == 1000000LL);
-    _EXPECT_TRUE(nanos.AsNanoSeconds() == 1000000000LL);
+    _EXPECT_TRUE(nanos.AsMilliseconds() == 1000LL);
+    _EXPECT_TRUE(nanos.AsMicroseconds() == 1000000LL);
+    _EXPECT_TRUE(nanos.AsNanoseconds() == 1000000000LL);
 
     millis += 1.0;
     micros += 1.0;
     nanos += 1.0;
 
-    _EXPECT_TRUE(millis.AsMilliSeconds() == 2000LL);
-    _EXPECT_TRUE(millis.AsMicroSeconds() == 2000000LL);
-    _EXPECT_TRUE(millis.AsNanoSeconds() == 2000000000LL);
+    _EXPECT_TRUE(millis.AsMilliseconds() == 2000LL);
+    _EXPECT_TRUE(millis.AsMicroseconds() == 2000000LL);
+    _EXPECT_TRUE(millis.AsNanoseconds() == 2000000000LL);
 
-    _EXPECT_TRUE(micros.AsMilliSeconds() == 2000LL);
-    _EXPECT_TRUE(micros.AsMicroSeconds() == 2000000LL);
-    _EXPECT_TRUE(micros.AsNanoSeconds() == 2000000000LL);
+    _EXPECT_TRUE(micros.AsMilliseconds() == 2000LL);
+    _EXPECT_TRUE(micros.AsMicroseconds() == 2000000LL);
+    _EXPECT_TRUE(micros.AsNanoseconds() == 2000000000LL);
 
-    _EXPECT_TRUE(nanos.AsMilliSeconds() == 2000LL);
-    _EXPECT_TRUE(nanos.AsMicroSeconds() == 2000000LL);
-    _EXPECT_TRUE(nanos.AsNanoSeconds() == 2000000000LL);
+    _EXPECT_TRUE(nanos.AsMilliseconds() == 2000LL);
+    _EXPECT_TRUE(nanos.AsMicroseconds() == 2000000LL);
+    _EXPECT_TRUE(nanos.AsNanoseconds() == 2000000000LL);
 
     _EXPECT_TRUE(TimeValMillis::FromSeconds(1LL).AsNative() == 1000);
     _EXPECT_TRUE(TimeValMillis::FromMilliseconds(1000LL).AsNative() == 1000);

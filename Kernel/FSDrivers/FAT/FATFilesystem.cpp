@@ -19,6 +19,7 @@
 
 #include "System/Platform.h"
 
+#include <utility>
 #include <string.h>
 #include <fcntl.h>
 #include <set>
@@ -231,7 +232,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
     }
 
     // the media descriptor in active FAT should match the one in the BPB
-    if (FileIO::Read(deviceFile, vol->m_BytesPerSector * (vol->m_ReservedSectors + vol->m_ActiveFAT * vol->m_SectorsPerFAT), buffer.data(), buffer.size()) != buffer.size()) {
+    if (FileIO::Read(deviceFile, buffer.data(), buffer.size(), vol->m_BytesPerSector * (vol->m_ReservedSectors + vol->m_ActiveFAT * vol->m_SectorsPerFAT)) != buffer.size()) {
         kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::ERROR, "FATFilesystem::Mount(): error reading FAT\n");
         return nullptr;
     }
@@ -258,7 +259,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
             {
                 kernel_log(LOGC_FS, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::Mount(): checking fat #%ld\n", i);
                 buffer2[0] = uint8_t(~buffer[0]);
-                if (FileIO::Read(deviceFile, vol->m_BytesPerSector * (vol->m_ReservedSectors + vol->m_SectorsPerFAT * i), buffer2.data(), buffer2.size()) != buffer2.size()) {
+                if (FileIO::Read(deviceFile, buffer2.data(), buffer2.size(), vol->m_BytesPerSector * (vol->m_ReservedSectors + vol->m_SectorsPerFAT * i)) != buffer2.size()) {
                     kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::ERROR, "FATFilesystem::Mount(): error reading FAT %ld\n", i);
                     return nullptr;
                 }
@@ -324,7 +325,7 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
         }
         if (!isFreeClustersValid)
         {
-            isFreeClustersValid = vol->GetFATTable()->CountFreeClusters(&vol->m_FreeClusters);
+            isFreeClustersValid = vol->GetFATTable()->CountFreeClusters(&vol->m_FreeClusters) == PErrorCode::Success;
             if (!isFreeClustersValid) {
                 kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::ERROR, "FATFilesystem::Mount(): error counting free clusters (%s)\n", strerror(get_last_error()));
             }
@@ -720,7 +721,7 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> _node,
     if (openFlags & O_TRUNC)
     {
         kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::OpenFile() called with O_TRUNC set.\n");
-        if (!vol->GetFATTable()->SetChainLength(node, 0, true)) {
+        if (vol->GetFATTable()->SetChainLength(node, 0, true) != PErrorCode::Success) {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::OpenFile(): error truncating file.\n");
             return nullptr;
         }
@@ -851,7 +852,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
         if (vol->HasINodeIDToLocationIDMapping(dummy->m_INodeID))
         {
             dummy->m_INodeID = vol->AllocUniqueINodeID();
-            if (!vol->SetINodeIDToLocationIDMapping(dummy->m_INodeID, GENERATE_DIR_INDEX_INODEID(dummy->m_ParentINodeID, dummy->m_DirStartIndex))) {
+            if (vol->SetINodeIDToLocationIDMapping(dummy->m_INodeID, GENERATE_DIR_INDEX_INODEID(dummy->m_ParentINodeID, dummy->m_DirStartIndex)) != PErrorCode::Success) {
                 return nullptr;
             }
         }
@@ -990,14 +991,14 @@ Ptr<KINode> FATFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inodeID)
     entry->m_Size = info.m_Size;
     if (info.m_DOSAttribs & FAT_SUBDIR) {
         size_t chainLength;
-        if (!vol->GetFATTable()->GetChainLength(entry->m_StartCluster, &chainLength)) {
+        if (vol->GetFATTable()->GetChainLength(entry->m_StartCluster, &chainLength) != PErrorCode::Success) {
             return nullptr;
         }
         entry->m_Size = chainLength * vol->m_SectorsPerCluster * vol->m_BytesPerSector;
     }
     if (entry->m_StartCluster != 0)
     {
-        if (!vol->GetFATTable()->GetChainEntry(info.m_StartCluster, uint32_t((entry->m_Size + vol->m_BytesPerSector * vol->m_SectorsPerCluster - 1) / vol->m_BytesPerSector / vol->m_SectorsPerCluster - 1), &entry->m_EndCluster)) {
+        if (vol->GetFATTable()->GetChainEntry(info.m_StartCluster, uint32_t((entry->m_Size + vol->m_BytesPerSector * vol->m_SectorsPerCluster - 1) / vol->m_BytesPerSector / vol->m_SectorsPerCluster - 1), &entry->m_EndCluster) != PErrorCode::Success) {
             kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::CRITICAL, "FATFilesystem::LoadInode(%" PRIx64 "): GetChainEntry() failed.\n", inodeID);
         }
     }                                               
@@ -1110,7 +1111,8 @@ int FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, co
     NoPtr<FATINode> dummyObj(ptr_tmp_cast(this), vol, true); /* used only to create directory entry */
     Ptr<FATINode> dummy(dummyObj);
     dummy->m_ParentINodeID = dir->m_INodeID;
-    if (vol->GetFATTable()->AllocateClusters(1, &dummy->m_StartCluster))
+    PErrorCode result = vol->GetFATTable()->AllocateClusters(1, &dummy->m_StartCluster);
+    if (result == PErrorCode::Success)
     {
         dummy->m_EndCluster = dummy->m_StartCluster;
         dummy->m_DOSAttribs = FAT_SUBDIR;
@@ -1180,7 +1182,7 @@ int FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, co
 
                 for (i = 1; i < vol->m_SectorsPerCluster; ++i)
                 {
-                    if (csi.Increment(1) != 0)
+                    if (csi.Increment(1) != PErrorCode::Success)
                     {
                         kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): error writing directory cluster\n");
                         break;
@@ -1208,10 +1210,10 @@ int FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, co
     }
     else
     {
-        kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): error allocating space for %s (%s))\n", name.c_str(), strerror(get_last_error()));
+        kernel_log(LOGC_DIR, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory(): error allocating space for %s (%s))\n", name.c_str(), strerror(std::to_underlying(result)));
         return -1;
     }
-    kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory() failed: '%s'\n", strerror(get_last_error()));
+    kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::CreateDirectory() failed: '%s'\n", strerror(std::to_underlying(result)));
     return -1;
 }
 
@@ -1411,7 +1413,7 @@ int FATFilesystem::RemoveDirectory(Ptr<KFSVolume> vol, Ptr<KINode> dir, const ch
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t len)
+PErrorCode FATFilesystem::Read(Ptr<KFileNode> file, void* buf, size_t len, off64_t pos, ssize_t& outLength)
 {
     Ptr<FATINode>    node = ptr_static_cast<FATINode>(file->GetINode());
     Ptr<FATVolume>   vol = ptr_static_cast<FATVolume>(node->m_Volume);
@@ -1423,14 +1425,12 @@ ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t 
     CRITICAL_SCOPE(vol->m_Mutex);
 
     if (!vol->CheckMagic(__func__) || !node->CheckMagic(__func__) || !fileNode->CheckMagic(__func__)) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
 
     if (node->m_DOSAttribs & FAT_SUBDIR) {
         kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Read() called on directory %" PRIx64 "\n", node->m_INodeID);
-        set_last_error(EISDIR);
-        return -1;
+        return PErrorCode::IsDirectory;
     }
 
     kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::Read() called %d bytes at %" PRId64 " (inode ID %" PRIx64 ")\n", len, pos, node->m_INodeID);
@@ -1438,7 +1438,8 @@ ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t 
     if (pos < 0) pos = 0;
 
     if ((node->m_Size == 0) || (len == 0) || (pos >= node->m_Size)) {
-        return 0;
+        outLength = 0;
+        return PErrorCode::Success;
     }
 
     // truncate bytes to read to file size
@@ -1450,8 +1451,7 @@ ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t 
         if (!vol->IsDataCluster(fileNode->m_CachedCluster))
         {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Read() invalid m_CachedCluster %ld on inode %" PRIx64 "\n", fileNode->m_CachedCluster, node->m_INodeID);
-            set_last_error(EINVAL);
-            return -1;
+            return PErrorCode::InvalidArg;
         }
 #ifdef FAT_VERIFY_FAT_CHAINS
         kassert(vol->GetFATTable()->ValidateChainEntry(node->m_StartCluster, fileNode->m_FATChainIndex, fileNode->m_CachedCluster));
@@ -1469,11 +1469,10 @@ ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t 
 
     FATClusterSectorIterator iter(vol, cluster1, 0);
 
-    if (diff && iter.Increment(int(diff)) < 0)
+    if (diff && iter.Increment(int(diff)) != PErrorCode::Success)
     {
         kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Read(): end of file reached (init)\n");
-        set_last_error(EIO);
-        return -1;
+        return PErrorCode::IOError;;
     }
 
 #ifdef FAT_VERIFY_FAT_CHAINS
@@ -1487,8 +1486,7 @@ ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t 
         KCacheBlockDesc buffer = iter.GetBlock(true);
         if (buffer.m_Buffer == nullptr) {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Read(): error reading cluster %lx, sector %lx\n", iter.m_CurrentCluster, iter.m_CurrentSector);
-            set_last_error(EIO);
-            return -1;
+            return PErrorCode::IOError;
         }
         amt = size_t(vol->m_BytesPerSector - (pos % vol->m_BytesPerSector));
         if (amt > len) amt = len;
@@ -1497,11 +1495,10 @@ ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t 
 
         if (bytes_read < len)
         {
-            if (iter.Increment(1) < 0)
+            if (iter.Increment(1) != PErrorCode::Success)
             {
                 kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Read(): end of file reached.\n");
-                set_last_error(EIO);
-                return -1;
+                return PErrorCode::IOError;
             }
         }
     }
@@ -1514,10 +1511,9 @@ ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t 
 
         if (bytes_read < len)
         {
-            if (iter.Increment(1) < 0) {
+            if (iter.Increment(1) != PErrorCode::Success) {
                 kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Read(): end of file reached.\n");
-                set_last_error(EIO);
-                return -1;
+                return PErrorCode::IOError;
             }
         }
     }
@@ -1530,8 +1526,7 @@ ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t 
         if (buffer.m_Buffer == nullptr)
         {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Read(): error reading cluster %lx, sector %lx\n", iter.m_CurrentCluster, iter.m_CurrentSector);
-            set_last_error(EIO);
-            return -1;
+            return PErrorCode::IOError;
         }
         amt = len - bytes_read;
         memcpy((uint8_t*)buf + bytes_read, buffer.m_Buffer, amt);
@@ -1547,42 +1542,40 @@ ssize_t FATFilesystem::Read(Ptr<KFileNode> file, off64_t pos, void* buf, size_t 
         kassert(vol->GetFATTable()->ValidateChainEntry(node->m_StartCluster, fileNode->m_FATChainIndex, fileNode->m_CachedCluster));
 #endif // FAT_VERIFY_FAT_CHAINS
     }
-    return bytes_read;
+    outLength = bytes_read;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, size_t len)
+PErrorCode FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, off64_t pos, ssize_t& outLength)
 {
     Ptr<FATINode>    node = ptr_static_cast<FATINode>(file->GetINode());
     Ptr<FATVolume>   vol = ptr_static_cast<FATVolume>(node->m_Volume);
     Ptr<FATFileNode> fileNode = ptr_static_cast<FATFileNode>(file);
 
-    ssize_t  result = 0;
+    PErrorCode  result = PErrorCode::Success;
     size_t   bytesWritten = 0;
     off64_t  diff;
 
     CRITICAL_SCOPE(vol->m_Mutex);
 
     if (!vol->CheckMagic(__func__) || !node->CheckMagic(__func__) || !fileNode->CheckMagic(__func__)) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
 
     if (node->m_DOSAttribs & FAT_SUBDIR) {
         kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write() called on directory %" PRIx64 "\n", node->m_INodeID);
-        set_last_error(EISDIR);
-        return -1;
+        return PErrorCode::IsDirectory;
     }
 
     kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::Write() called %d bytes at %" PRId64 " from buffer at %lx (inode ID %" PRIx64 ")\n", len, pos, (uint32_t)buf, node->m_INodeID);
 
     if ((fileNode->GetOpenFlags() & O_ACCMODE) == O_RDONLY) {
         kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): called on file opened as read-only.\n");
-        set_last_error(EPERM);
-        return -1;
+        return PErrorCode::NoPermission;
     }
 
     if (pos < 0) pos = 0;
@@ -1594,8 +1587,7 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
     if (pos >= FAT_MAX_FILE_SIZE)
     {
         kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): write position exceeds fat limits.\n");
-        set_last_error(E2BIG);
-        return -1;
+        return PErrorCode::FileTooLarge;
     }
 
     if (pos + len >= FAT_MAX_FILE_SIZE) {
@@ -1609,8 +1601,7 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
         if (!vol->IsDataCluster(fileNode->m_CachedCluster))
         {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write() invalid m_CachedCluster %ld on inode %" PRIx64 "\n", fileNode->m_CachedCluster, node->m_INodeID);
-            set_last_error(EINVAL);
-            return -1;
+            return PErrorCode::InvalidArg;
         }
 
 #ifdef FAT_VERIFY_FAT_CHAINS
@@ -1632,8 +1623,9 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
         const uint32_t clusters = uint32_t((pos + len + bytesPerCluster - 1) / bytesPerCluster);
         if (node->m_Size <= (clusters - 1) * bytesPerCluster)
         {
-            if (!vol->GetFATTable()->SetChainLength(node, clusters, true)) {
-                return -1;
+            result = vol->GetFATTable()->SetChainLength(node, clusters, true);
+            if (result != PErrorCode::Success) {
+                return result;
             }
             node->m_Iteration++;
         }
@@ -1653,11 +1645,10 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
 
     FATClusterSectorIterator iter(vol, cluster1, 0);
 
-    if (diff != 0 && ((result = iter.Increment(int(diff))) != 0))
+    if (diff != 0 && ((result = iter.Increment(int(diff))) != PErrorCode::Success))
     {
         kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): end of file reached (init).\n");
-        set_last_error(EIO);
-        return -1;
+        return PErrorCode::IOError;
     }
 
 #ifdef FAT_VERIFY_FAT_CHAINS
@@ -1671,8 +1662,7 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
         if (buffer.m_Buffer == nullptr)
         {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): error writing cluster %lx, sector %lx\n", iter.m_CurrentCluster, iter.m_CurrentSector);
-            set_last_error(EIO);
-            return -1;
+            return PErrorCode::IOError;
         }
         size_t amt = size_t(vol->m_BytesPerSector - (pos % vol->m_BytesPerSector));
         if (amt > len) amt = len;
@@ -1682,11 +1672,10 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
 
         if (bytesWritten < len)
         {
-            if ((result = iter.Increment(1)) != 0)
+            if ((result = iter.Increment(1)) != PErrorCode::Success)
             {
                 kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): end of file reached (start)\n");
-                set_last_error(EIO);
-                return -1;
+                return result;
             }
         }
     }
@@ -1699,11 +1688,10 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
 
         if (bytesWritten < len)
         {
-            if ((result = iter.Increment(1)) != 0)
+            if ((result = iter.Increment(1)) != PErrorCode::Success)
             {
                 kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): end of file reached (middle)\n");
-                set_last_error(EIO);
-                return -1;
+                return PErrorCode::IOError;
             }
         }
     }
@@ -1716,8 +1704,7 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
         KCacheBlockDesc buffer = iter.GetBlock(true);
         if (buffer.m_Buffer == nullptr) {
             kernel_log(LOGC_FILE, KLogSeverity::ERROR, "FATFilesystem::Write(): error writing cluster %lx, sector %lx\n", iter.m_CurrentCluster, iter.m_CurrentSector);
-            set_last_error(EIO);
-            return -1;
+            return PErrorCode::IOError;
         }
         amt = len - bytesWritten;
         memcpy(buffer.m_Buffer, (uint8_t*)buf + bytesWritten, amt);
@@ -1735,8 +1722,8 @@ ssize_t FATFilesystem::Write(Ptr<KFileNode> file, off64_t pos, const void* buf, 
         kassert(vol->GetFATTable()->ValidateChainEntry(node->m_StartCluster, fileNode->m_FATChainIndex, fileNode->m_CachedCluster));
 #endif // FAT_VERIFY_FAT_CHAINS
     }
-
-    return bytesWritten;
+    outLength = bytesWritten;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1993,7 +1980,7 @@ int FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KINode> _node, const struc
 		}
         uint32_t clusters = (uint32_t(st->st_size) + vol->m_BytesPerSector*vol->m_SectorsPerCluster - 1) / vol->m_BytesPerSector / vol->m_SectorsPerCluster;
         kernel_log(LOGC_FILE, KLogSeverity::INFO_LOW_VOL, "FATFilesystem::WriteStat(): setting FAT chain length to %lx clusters\n", clusters);
-        if (vol->GetFATTable()->SetChainLength(node, clusters, true))
+        if (vol->GetFATTable()->SetChainLength(node, clusters, true) == PErrorCode::Success)
         {
             node->m_Size = st->st_size;
             // TODO: clear new section if file was extended.
@@ -2351,7 +2338,7 @@ status_t FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> p
                 memcpy(shortName, tempName, 11);
                 kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATFilesystem::CreateDirectoryEntry(): trying short name %11.11s\n", shortName);
                 
-                int value = (uint32_t(get_system_time().AsMicroSeconds() / 1024)) % 99999 + 1;
+                int value = (uint32_t(kget_system_time().AsMicroseconds() / 1024)) % 99999 + 1;
 
                 FATDirectoryIterator::MungeShortName(shortName, value);
                 if (FindShortName(vol, parent, shortName) < 0)
@@ -2467,7 +2454,9 @@ status_t FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode>
         clusters_needed = ((*endIndex + 1) * sizeof(FATDirectoryEntry) + vol->m_BytesPerSector * vol->m_SectorsPerCluster - 1) / vol->m_BytesPerSector / vol->m_SectorsPerCluster;
 
         kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATFilesystem::DoCreateDirectoryEntry(): expanding directory from %Lx to %lx clusters\n", dir->m_Size/vol->m_BytesPerSector/vol->m_SectorsPerCluster, clusters_needed);
-        if (!vol->GetFATTable()->SetChainLength(dir, clusters_needed, true)) {
+        PErrorCode result = vol->GetFATTable()->SetChainLength(dir, clusters_needed, true);
+        if (result != PErrorCode::Success) {
+            set_last_error(result);
             return -1;
         }
         dir->m_Size = vol->m_BytesPerSector * vol->m_SectorsPerCluster * clusters_needed;
@@ -2578,7 +2567,7 @@ status_t FATFilesystem::CompactDirectory(Ptr<FATVolume> vol, Ptr<FATINode> dir)
             if (clusters * vol->m_BytesPerSector * vol->m_SectorsPerCluster < dir->m_Size)
             {
                 kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATFilesystem::CompactDirectory(): shrinking directory to %lx clusters\n", clusters);
-                error = vol->GetFATTable()->SetChainLength(dir, clusters, true) ? 0 : -1;
+                error = (vol->GetFATTable()->SetChainLength(dir, clusters, true) == PErrorCode::Success) ? 0 : -1;
                 dir->m_Size = clusters*vol->m_BytesPerSector*vol->m_SectorsPerCluster;
                 dir->m_Iteration++;
             }

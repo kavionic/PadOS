@@ -140,31 +140,31 @@ inline int SPIIOCTL_GetBaudrateDivider(int device, SPIBaudRateDivider& divider)
     return os::FileIO::DeviceControl(device, SPIIOCTL_GET_BAUDRATE_DIVIDER, nullptr, 0, &divider, sizeof(divider));
 }
 
-inline int SPIIOCTL_SetReadTimeout(int device, TimeValMicros timeout)
+inline int SPIIOCTL_SetReadTimeout(int device, TimeValNanos timeout)
 {
-    bigtime_t micros = timeout.AsMicroSeconds();
-    return os::FileIO::DeviceControl(device, SPIIOCTL_SET_READ_TIMEOUT, &micros, sizeof(micros), nullptr, 0);
+    bigtime_t nanos = timeout.AsNanoseconds();
+    return os::FileIO::DeviceControl(device, SPIIOCTL_SET_READ_TIMEOUT, &nanos, sizeof(nanos), nullptr, 0);
 }
 
-inline int SPIIOCTL_GetReadTimeout(int device, TimeValMicros& outTimeout)
+inline int SPIIOCTL_GetReadTimeout(int device, TimeValNanos& outTimeout)
 {
-    bigtime_t micros;
-    if (os::FileIO::DeviceControl(device, SPIIOCTL_GET_READ_TIMEOUT, nullptr, 0, &micros, sizeof(micros)) < 0) return -1;
-    outTimeout = TimeValMicros::FromMicroseconds(micros);
+    bigtime_t nanos;
+    if (os::FileIO::DeviceControl(device, SPIIOCTL_GET_READ_TIMEOUT, nullptr, 0, &nanos, sizeof(nanos)) < 0) return -1;
+    outTimeout = TimeValNanos::FromNanoseconds(nanos);
     return 0;
 }
 
-inline int SPIIOCTL_SetWriteTimeout(int device, TimeValMicros timeout)
+inline int SPIIOCTL_SetWriteTimeout(int device, TimeValNanos timeout)
 {
-    bigtime_t micros = timeout.AsMicroSeconds();
-    return os::FileIO::DeviceControl(device, SPIIOCTL_SET_WRITE_TIMEOUT, &micros, sizeof(micros), nullptr, 0);
+    bigtime_t nanos = timeout.AsNanoseconds();
+    return os::FileIO::DeviceControl(device, SPIIOCTL_SET_WRITE_TIMEOUT, &nanos, sizeof(nanos), nullptr, 0);
 }
 
-inline int SPIIOCTL_GetWriteTimeout(int device, TimeValMicros& outTimeout)
+inline int SPIIOCTL_GetWriteTimeout(int device, TimeValNanos& outTimeout)
 {
-    bigtime_t micros;
-    if (os::FileIO::DeviceControl(device, SPIIOCTL_GET_WRITE_TIMEOUT, nullptr, 0, &micros, sizeof(micros)) < 0) return -1;
-    outTimeout = TimeValMicros::FromMicroseconds(micros);
+    bigtime_t nanos;
+    if (os::FileIO::DeviceControl(device, SPIIOCTL_GET_WRITE_TIMEOUT, nullptr, 0, &nanos, sizeof(nanos)) < 0) return -1;
+    outTimeout = TimeValNanos::FromNanoseconds(nanos);
     return 0;
 }
 

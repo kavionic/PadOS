@@ -25,6 +25,7 @@
 #include <Kernel/KThreadCB.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KHandleArray.h>
+#include <Kernel/Syscalls.h>
 
 using namespace os;
 using namespace kernel;
@@ -267,7 +268,7 @@ static void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
     info->Priority      = thread->GetPriority();
     info->DynamicPri    = info->Priority;
     info->SysTimeNano   = 0;   // We don't track system time yet (system calls are included in RunTime, IRQ's are not).
-    info->RealTimeNano  = thread->m_RunTime.AsNanoSeconds();
+    info->RealTimeNano  = thread->m_RunTime.AsNanoseconds();
     info->UserTimeNano  = info->RealTimeNano - info->SysTimeNano;
     info->QuantumNano   = TimeValNanos::TicksPerSecond / SYS_TICKS_PER_SEC;
     info->Stack         = thread->GetStackTop();
@@ -318,9 +319,50 @@ int sys_get_next_thread_info(ThreadInfo* info)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t sys_snooze_us(bigtime_t micros)
+PErrorCode sys_snooze_until(bigtime_t resumeTimeNanos)
 {
-    return snooze_until(get_system_time() + TimeValMicros::FromMicroseconds(micros));
+    const TimeValNanos resumeTime = TimeValNanos::FromNanoseconds(resumeTimeNanos);
+    KThreadCB* thread = gk_CurrentThread;
+
+    KThreadWaitNode waitNode;
+
+    waitNode.m_Thread = thread;
+    waitNode.m_ResumeTime = resumeTime + TimeValNanos::FromMilliseconds(1); // Add 1 tick-time to ensure we always round up.
+
+    for (;;)
+    {
+        CRITICAL_BEGIN(CRITICAL_IRQ)
+        {
+            add_to_sleep_list(&waitNode);
+            thread->m_State = ThreadState_Sleeping;
+//            ThreadSyncDebugTracker::GetInstance().AddThread(thread, nullptr);
+        } CRITICAL_END;
+
+        KSWITCH_CONTEXT();
+
+        CRITICAL_BEGIN(CRITICAL_IRQ)
+        {
+            waitNode.Detatch();
+//            ThreadSyncDebugTracker::GetInstance().RemoveThread(thread);
+        } CRITICAL_END;
+        if (kget_system_time() >= waitNode.m_ResumeTime)
+        {
+            return PErrorCode::Success;
+        }
+        else
+        {
+            return PErrorCode::Interrupted;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_snooze_ns(bigtime_t delayNanos)
+{
+    return sys_snooze_until(sys_get_system_time() + delayNanos);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -336,6 +378,24 @@ PErrorCode sys_thread_kill(pid_t pid, int sig)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PErrorCode ksnooze_until(TimeValNanos resumeTime)
+{
+    return sys_snooze_until(resumeTime.AsNanoseconds());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode ksnooze(TimeValNanos delay)
+{
+    return sys_snooze_ns(delay.AsNanoseconds());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 int sys_yield()
 {
     KSWITCH_CONTEXT();
@@ -343,3 +403,4 @@ int sys_yield()
 }
 
 } // extern "C"
+

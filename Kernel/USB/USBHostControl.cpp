@@ -99,8 +99,8 @@ bool USBHostControl::SendControlRequest(uint8_t deviceAddr, const USB_ControlReq
     m_ErrorCount            = 0;
     m_RequestCallback       = std::move(callback);
 
-    TimeValMicros deadline = get_system_time() + TimeValMicros::FromSeconds(2.0);
-    while (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle && get_system_time() < deadline) snooze_ms(1); // FIXME: Implement proper blocking for state-change waiting.
+    TimeValNanos deadline = kget_system_time() + TimeValNanos::FromSeconds(2.0);
+    while (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle && kget_system_time() < deadline) ksnooze_ms(1); // FIXME: Implement proper blocking for state-change waiting.
     if (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle)
     {
         m_ErrorCount = 0;

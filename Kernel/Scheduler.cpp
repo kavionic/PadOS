@@ -615,6 +615,7 @@ void* main_thread_entry(void* argument)
 
 static void* init_thread_entry(void* arguments)
 {
+    // Run global constructors.
     __libc_init_array();
 
     KThreadCB* thread = gk_CurrentThread;

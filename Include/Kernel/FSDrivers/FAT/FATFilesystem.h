@@ -56,54 +56,54 @@ public:
 public:
     FATFilesystem();
     
-    virtual int                 Probe(const char* devicePath, fs_info* fsInfo) override;
+    virtual PErrorCode          Probe(const char* devicePath, fs_info* fsInfo) override;
     virtual Ptr<KFSVolume>      Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength) override;
-    virtual int                 Unmount(Ptr<KFSVolume> volume) override;
+    virtual void                Unmount(Ptr<KFSVolume> volume) override;
 
-    virtual int                 Sync(Ptr<KFSVolume> volume) override;
+    virtual void                Sync(Ptr<KFSVolume> volume) override;
 
-    virtual int                 ReadFSStat(Ptr<KFSVolume> volume, fs_info* fsinfo) override;
-    virtual int                 WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint32_t mask) override;
+    virtual void                ReadFSStat(Ptr<KFSVolume> volume, fs_info* fsinfo) override;
+    virtual void                WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint32_t mask) override;
     
     virtual Ptr<KINode>         LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
-    virtual bool                ReleaseInode(KINode* inode) override;
+    virtual void                ReleaseInode(KINode* inode) override;
     virtual Ptr<KFileNode>      OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int openFlags) override;
     virtual Ptr<KFileNode>      CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int openFlags, int permission) override;
-    virtual int                 CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
+    virtual void                CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
 
     virtual Ptr<KINode>         LoadInode(Ptr<KFSVolume> volume, ino_t inode) override;
 
     virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node) override;
-    virtual int                 CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission) override;
-    virtual int                 CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory) override;
+    virtual void                CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission) override;
+    virtual void                CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory) override;
 
-    virtual int                 Rename(Ptr<KFSVolume> volume, Ptr<KINode> oldParent, const char* oldName, int oldNameLen, Ptr<KINode> newParent, const char* newName, int newNameLen, bool mustBeDir) override;
-    virtual int                 Unlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
-    virtual int                 RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
+    virtual void                Rename(Ptr<KFSVolume> volume, Ptr<KINode> oldParent, const char* oldName, int oldNameLen, Ptr<KINode> newParent, const char* newName, int newNameLen, bool mustBeDir) override;
+    virtual void                Unlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
+    virtual void                RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
     
-    virtual PErrorCode          Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    virtual PErrorCode          Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    virtual int                 ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize) override;
-    virtual int                 RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode) override;
-    virtual int                 ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize) override;
+    virtual size_t              Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    virtual size_t              Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    virtual size_t              ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize) override;
+    virtual void                RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode) override;
+    virtual size_t              ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize) override;
 
-    virtual int                 CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, int mode) override;
+    virtual void                CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, int mode) override;
 
-    virtual int                 ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* stat) override;
-    virtual int                 WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* stat, uint32_t mask) override;
+    virtual void                ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* stat) override;
+    virtual void                WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* stat, uint32_t mask) override;
 
-    virtual int                 DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual void                DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
-    status_t CreateVolumeLabel(Ptr<FATVolume> vol, const char* name, uint32_t* index);
-    status_t FindShortName(Ptr<FATVolume> vol, Ptr<FATINode> parent, const char* rawShortName);
-    status_t DoLocateINode(Ptr<FATVolume> vol, Ptr<FATINode> dir, const os::String& fileName, Ptr<FATINode>* node);
-    status_t IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATINode> dir);
-    status_t CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> parent, Ptr<FATINode> node, const os::String& name, uint32_t* startIndex, uint32_t* endIndex);
-    status_t DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t len, uint32_t* startIndex, uint32_t* endIndex);
-    status_t CompactDirectory(Ptr<FATVolume> vol, Ptr<FATINode> dir);
-    status_t EraseDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> node);
-    int      DoUnlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const os::String& name, bool removeFile);
+    uint32_t CreateVolumeLabel(Ptr<FATVolume> vol, const char* name);
+    bool FindShortName(Ptr<FATVolume> vol, Ptr<FATINode> parent, const char* rawShortName);
+    Ptr<FATINode> DoLocateINode(Ptr<FATVolume> vol, Ptr<FATINode> dir, const os::String& fileName);
+    bool IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATINode> dir);
+    void CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> parent, Ptr<FATINode> node, const os::String& name, uint32_t* startIndex, uint32_t* endIndex);
+    void DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t len, uint32_t* startIndex, uint32_t* endIndex);
+    void CompactDirectory(Ptr<FATVolume> vol, Ptr<FATINode> dir);
+    void EraseDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> node);
+    void DoUnlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const os::String& name, bool removeFile);
 
 };
 

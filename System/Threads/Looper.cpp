@@ -19,11 +19,12 @@
 
 #include "System/Platform.h"
 
-#include "Threads/Looper.h"
-#include "Threads/EventHandler.h"
-#include "Threads/EventTimer.h"
-#include "System/SystemMessageIDs.h"
-#include "Kernel/Scheduler.h"
+#include <PadOS/Time.h>
+#include <Threads/Looper.h>
+#include <Threads/EventHandler.h>
+#include <Threads/EventTimer.h>
+#include <System/SystemMessageIDs.h>
+#include <Kernel/Scheduler.h>
 
 using namespace os;
 
@@ -202,7 +203,7 @@ bool Looper::AddTimer(EventTimer* timer, bool singleshot)
     assert(!IsRunning() || m_Mutex.IsLocked());
     try
     {
-        TimeValNanos expireTime = get_system_time();
+        TimeValNanos expireTime = get_monotonic_time();
 
         if (timer->m_Looper != nullptr)
         {
@@ -356,7 +357,7 @@ void Looper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgL
 void Looper::RunTimers()
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
-    TimeValNanos curTime = get_system_time();
+    TimeValNanos curTime = get_monotonic_time();
 
     while (!m_TimerMap.empty())
     {

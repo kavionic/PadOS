@@ -18,9 +18,13 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <dirent.h>
 #include <string.h>
 #include <limits.h>
 #include <sys/syslimits.h>
+#include <PadOS/Filesystem.h>
+
+#include <System/ExceptionHandling.h>
 #include <Storage/Directory.h>
 #include <Storage/FileReference.h>
 #include <Storage/File.h>
@@ -202,19 +206,21 @@ bool Directory::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer
 
 bool Directory::GetPath(String& outPath) const
 {
-    std::vector<char> buffer;
-    buffer.resize(PATH_MAX);
+    try
+    {
+        std::vector<char> buffer;
+        buffer.resize(PATH_MAX);
 
-    int pathLength = FileIO::GetDirectoryPath(GetFileDescriptor(), buffer.data(), buffer.size());
-    if (pathLength == PATH_MAX) {
-        errno = ENAMETOOLONG;
-        return false;
+        const PErrorCode result = get_directory_path(GetFileDescriptor(), buffer.data(), buffer.size());
+        if (result != PErrorCode::Success)
+        {
+            set_last_error(result);
+            return false;
+        }
+        outPath = buffer.data();
+        return true;
     }
-    if (pathLength < 0) {
-        return(pathLength);
-    }
-    outPath.assign(buffer.data(), pathLength);
-    return true;
+    PERROR_CATCH_SET_ERRNO(false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -224,7 +230,7 @@ bool Directory::GetPath(String& outPath) const
 bool Directory::GetNextEntry(String& outName)
 {
     dirent_t entry;
-    if (FileIO::ReadDirectory(GetFileDescriptor(), &entry, sizeof(entry)) != 1) {
+    if (posix_getdents(GetFileDescriptor(), &entry, sizeof(entry), 0) != 1) {
         return false;
     }
     outName = entry.d_name;
@@ -250,7 +256,7 @@ bool Directory::GetNextEntry(FileReference& outReference)
 
 bool Directory::Rewind()
 {
-    return FileIO::RewindDirectory(GetFileDescriptor()) != -1;
+    return rewind_directory(GetFileDescriptor()) == PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -259,7 +265,7 @@ bool Directory::Rewind()
 
 bool Directory::CreateFile(const String& name, File& outFile, int accessMode)
 {
-    int file = FileIO::Open(GetFileDescriptor(), name.c_str(), O_WRONLY | O_CREAT, accessMode);
+    int file = openat(GetFileDescriptor(), name.c_str(), O_WRONLY | O_CREAT, accessMode);
     if (file < 0) {
         return false;
     }
@@ -272,7 +278,7 @@ bool Directory::CreateFile(const String& name, File& outFile, int accessMode)
 
 bool Directory::CreateDirectory(const String& name, Directory& outDirectory, int accessMode)
 {
-    if (FileIO::CreateDirectory(GetFileDescriptor(), name.c_str(), accessMode) < 0) {
+    if (mkdirat(GetFileDescriptor(), name.c_str(), accessMode) < 0) {
         return false;
     }
     return outDirectory.Open(*this, name, O_RDONLY);
@@ -340,9 +346,8 @@ bool Directory::CreatePath(const String& path, bool includeLeaf, Directory* outL
 
 bool Directory::CreateSymlink(const String& name, const String& destinationPath, SymLink& outLink)
 {
-    PErrorCode result = FileIO::Symlink(destinationPath.c_str(), GetFileDescriptor(), name.c_str());
-    if (result != PErrorCode::Success) {
-        set_last_error(result);
+    status_t result = symlinkat(destinationPath.c_str(), GetFileDescriptor(), name.c_str());
+    if (result != 0) {
         return false;
     }
     return outLink.Open(*this, name, O_RDONLY);
@@ -354,5 +359,5 @@ bool Directory::CreateSymlink(const String& name, const String& destinationPath,
 
 bool Directory::Unlink(const String& name)
 {
-    return FileIO::Unlink(GetFileDescriptor(), name.c_str()) != -1;
+    return unlinkat(GetFileDescriptor(), name.c_str(), 0) != -1;
 }

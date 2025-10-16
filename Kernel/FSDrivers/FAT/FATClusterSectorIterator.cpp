@@ -17,9 +17,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18/06/01 0:45:02
 
+#include <System/ExceptionHandling.h>
+#include <Kernel/FSDrivers/FAT/FATFilesystem.h>
+
 #include "FATClusterSectorIterator.h"
 #include "FATVolume.h"
-#include "Kernel/FSDrivers/FAT/FATFilesystem.h"
 
 namespace kernel
 {
@@ -72,74 +74,70 @@ FATClusterSectorIterator::FATClusterSectorIterator(Ptr<FATVolume> volume, uint32
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FATClusterSectorIterator::Set(uint32_t cluster, uint32_t sector)
+void FATClusterSectorIterator::Set(uint32_t cluster, uint32_t sector)
 {
-    if (!IsValidClusterSector(m_Volume, cluster, sector)) return -1;
+    if (!IsValidClusterSector(m_Volume, cluster, sector)) PERROR_THROW_CODE(PErrorCode::IOError);
+ 
     m_CurrentCluster = cluster;
     m_CurrentSector  = sector;
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode FATClusterSectorIterator::Increment(int sectors)
+void FATClusterSectorIterator::Increment(int sectors)
 {
     if (m_CurrentSector == 0xffff) { // check if already at end of chain
-        return PErrorCode::InvalidArg;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
     if (sectors < 0) {
-        return PErrorCode::InvalidArg;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }    
     if (sectors == 0) {
-        return PErrorCode::Success;
+        return;
     }    
     if (IS_FIXED_ROOT(m_CurrentCluster))
     {
         m_CurrentSector += sectors;
         if (m_CurrentSector < m_Volume->m_RootSectorCount) {
-            return PErrorCode::Success;
+            return;
         }            
     }
     else
     {
         m_CurrentSector += sectors;
         if (m_CurrentSector < m_Volume->m_SectorsPerCluster) {
-            return PErrorCode::Success;
+            return;
         }    
-        const PErrorCode result = m_Volume->GetFATTable()->GetChainEntry(m_CurrentCluster, m_CurrentSector / m_Volume->m_SectorsPerCluster, &m_CurrentCluster);
-        if (result != PErrorCode::Success) {
-            kernel_log(FATFilesystem::LOGC_FATTABLE, KLogSeverity::ERROR, "FATClusterSectorIterator::Increment(%d): GetChainEntry() failed. Failed to get current cluster.\n", sectors);
-            return result;
-        }
+        m_CurrentCluster = m_Volume->GetFATTable()->GetChainEntry(m_CurrentCluster, m_CurrentSector / m_Volume->m_SectorsPerCluster);
 
         if (int32_t(m_CurrentCluster) < 0) {
             m_CurrentSector = 0xffff;
-            return PErrorCode::Success;
+            return;
         }
 
         if (m_Volume->IsDataCluster(m_CurrentCluster)) {
             m_CurrentSector %= m_Volume->m_SectorsPerCluster;
-            return PErrorCode::Success;
+            return;
         }
     }
 
     m_CurrentSector = 0xffff;
     
-    return PErrorCode::IOError;
+    PERROR_THROW_CODE(PErrorCode::IOError);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KCacheBlockDesc FATClusterSectorIterator::GetBlock(bool doLoad)
+KCacheBlockDesc FATClusterSectorIterator::GetBlock_(bool doLoad)
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
-        return KCacheBlockDesc();
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
-    return m_Volume->m_BCache.GetBlock(GetBlockSector(), doLoad);
+    return m_Volume->m_BCache.GetBlock_trw(GetBlockSector(), doLoad);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -158,24 +156,24 @@ PErrorCode FATClusterSectorIterator::MarkBlockDirty()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode FATClusterSectorIterator::ReadBlock(uint8_t* buffer)
+void FATClusterSectorIterator::ReadBlock(uint8_t* buffer)
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
-        return PErrorCode::InvalidArg;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
-    return m_Volume->m_BCache.CachedRead(GetBlockSector(), buffer, 1);
+    m_Volume->m_BCache.CachedRead_trw(GetBlockSector(), buffer, 1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode FATClusterSectorIterator::WriteBlock(const uint8_t* buffer)
+void FATClusterSectorIterator::WriteBlock(const uint8_t* buffer)
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
-        return PErrorCode::InvalidArg;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
-    return m_Volume->m_BCache.CachedWrite(GetBlockSector(), buffer, 1);
+    m_Volume->m_BCache.CachedWrite_trw(GetBlockSector(), buffer, 1);
 }
 
 } // namespace

@@ -43,8 +43,8 @@ public:
 
     void ThreadQuit(KThreadCB* thread);
 
-    tls_id  AllocTLSSlot(TLSDestructor_t destructor);
-    bool FreeTLSSlot(tls_id slot);
+    PErrorCode AllocTLSSlot(tls_id& outKey, TLSDestructor_t destructor);
+    PErrorCode FreeTLSSlot(tls_id slot);
 
     KIOContext* GetIOContext() { return &m_IOContext; }
 

@@ -25,6 +25,7 @@
 #include <Kernel/Drivers/STM32/SPIDriver.h>
 
 #include <Ptr/Ptr.h>
+#include <System/ExceptionHandling.h>
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
@@ -162,25 +163,25 @@ SPIDriverINode::SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode SPIDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length, ssize_t& outLength)
+size_t SPIDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length)
 {
-    return PErrorCode::NotImplemented;
+    PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode SPIDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length, ssize_t& outLength)
+size_t SPIDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length)
 {
-    return PErrorCode::NotImplemented;
+    PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int SPIDriverINode::DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void SPIDriverINode::DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -190,37 +191,33 @@ int SPIDriverINode::DeviceControl(int request, const void* inData, size_t inData
             if (inDataLength == sizeof(SPIBaudRateDivider)) {
                 const SPIBaudRateDivider divider = *((const SPIBaudRateDivider*)inData);
                 SetBaudrateDivider(divider);
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_GET_BAUDRATE_DIVIDER:
             if (outDataLength == sizeof(SPIBaudRateDivider)) {
                 SPIBaudRateDivider* divider = (SPIBaudRateDivider*)outData;
                 *divider = SPIBaudRateDivider((m_Port->CFG1 & SPI_CFG1_MBR_Msk) >> SPI_CFG1_MBR_Pos);
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_SET_READ_TIMEOUT:
             if (inDataLength == sizeof(bigtime_t)) {
                 bigtime_t nanos = *((const bigtime_t*)inData);
                 m_ReadTimeout = TimeValNanos::FromNanoseconds(nanos);
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_GET_READ_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t)) {
                 bigtime_t* nanos = (bigtime_t*)outData;
                 *nanos = m_ReadTimeout.AsNanoseconds();
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_SET_PINMODE:
             if (inDataLength == sizeof(int))
@@ -234,36 +231,31 @@ int SPIDriverINode::DeviceControl(int request, const void* inData, size_t inData
                     case SPIPin::CLK:
                         if (SetPinMode(m_PinCLK, mode)) {
                             m_PinModeCLK = mode;
-                            return 0;
+                            return;
                         } else {
-                            set_last_error(EINVAL);
-                            return -1;
+                            PERROR_THROW_CODE(PErrorCode::InvalidArg);
                         }
                     case SPIPin::MOSI:
                         if (SetPinMode(m_PinMOSI, mode)) {
                             m_PinModeMOSI = mode;
-                            return 0;
+                            return;
                         } else {
-                            set_last_error(EINVAL);
-                            return -1;
+                            PERROR_THROW_CODE(PErrorCode::InvalidArg);
                         }
                     case SPIPin::MISO:
                         if (SetPinMode(m_PinMISO, mode)) {
                             m_PinModeMISO = mode;
-                            return 0;
+                            return;
                         } else {
-                            set_last_error(EINVAL);
-                            return -1;
+                            PERROR_THROW_CODE(PErrorCode::InvalidArg);
                         }
                     default:
-                        set_last_error(EINVAL);
-                        return -1;
+                        PERROR_THROW_CODE(PErrorCode::InvalidArg);
                 }
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_GET_PINMODE:
             if (inDataLength == sizeof(int) && outDataLength == sizeof(int))
@@ -277,68 +269,60 @@ int SPIDriverINode::DeviceControl(int request, const void* inData, size_t inData
                 {
                     case SPIPin::CLK:
                         *result = int(m_PinModeCLK);
-                        return 0;
+                        return;
                     case SPIPin::MOSI:
                         *result = int(m_PinModeMOSI);
-                        return 0;
+                        return;
                     case SPIPin::MISO:
                         *result = int(m_PinModeMISO);
-                        return 0;
+                        return;
                     default:
-                        set_last_error(EINVAL);
-                        return -1;
+                        PERROR_THROW_CODE(PErrorCode::InvalidArg);
                 }
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_SET_SWAP_MOSI_MISO:
             if (inDataLength == sizeof(int)) {
                 int arg = *((const int*)inData);
                 SetSwapMOSIMISO(arg != 0);
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_GET_SWAP_MOSI_MISO:
             if (outDataLength == sizeof(int)) {
                 int* result = (int*)outData;
                 *result = GetSwapMOSIMISO();
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_START_TRANSACTION:
-            if (inDataLength == sizeof(SPITransaction) && outDataLength == sizeof(ssize_t))
+            if (inDataLength == sizeof(SPITransaction))
             {
-                const ssize_t result = StartTransaction(*reinterpret_cast<const SPITransaction*>(inData));
-                *reinterpret_cast<ssize_t*>(outData) = result;
-                return (result < 0) ? -1 : 0;
+                StartTransaction(*reinterpret_cast<const SPITransaction*>(inData));
+                return;
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_GET_LAST_ERROR:
             if (outDataLength == sizeof(SPIError))
             {
                 SPIError* result = reinterpret_cast<SPIError*>(outData);
                 *result = m_TransactionError;
-                return 0;
+                return;
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         default:
-            set_last_error(EINVAL);
-            return -1;
+            PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 }
 
@@ -418,14 +402,13 @@ bool SPIDriverINode::GetSwapMOSIMISO() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC ssize_t SPIDriverINode::StartTransaction(const SPITransaction& transaction)
+void SPIDriverINode::StartTransaction(const SPITransaction& transaction)
 {
     kassert(m_Mutex.IsLocked());
 
     if (transaction.ReceiveBuffer != nullptr && transaction.Length > m_ReceiveBufferSize)
     {
-        set_last_error(EINVAL);
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
     SCB_CleanInvalidateDCache();
@@ -457,52 +440,55 @@ IFLASHC ssize_t SPIDriverINode::StartTransaction(const SPITransaction& transacti
         m_Port->CFG1 |= SPI_CFG1_TXDMAEN;
     }
 
+    PErrorCode result;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        m_Port->IFCR = SPI_IER_EOTIE | errorFlags;
-
-        uint32_t CR2 = 0;
-        set_bit_group(CR2, SPI_CR2_TSIZE_Msk, wordCount << SPI_CR2_TSIZE_Pos);
-        m_Port->CR2 = CR2;
-
-        m_Port->IER = SPI_IER_EOTIE | errorFlags;
-
-        m_Port->CR1 |= SPI_CR1_SPE;
-        m_Port->CR1 |= SPI_CR1_CSTART;
-
-        const PErrorCode result = m_TransactionCondition.IRQWait();
-        m_Port->IER = 0;
-
-        m_SendDMAChannel.Stop();
-        m_ReceiveDMAChannel.Stop();
-
-        m_Port->IFCR = SPI_IFCR_EOTC | SPI_IFCR_TXTFC;
-
-        m_Port->CR1 &= ~SPI_CR1_SPE;
-        m_Port->CFG1 &= ~(SPI_CFG1_RXDMAEN | SPI_CFG1_TXDMAEN);
-
-        m_Port->IFCR = errorFlags;
-
-        if (result != PErrorCode::Success)
+        do
         {
-            set_last_error(result);
-            return -1;
-        }
-        if (m_TransactionError == SPIError::None)
-        {
-            if (transaction.ReceiveBuffer != nullptr)
+            m_Port->IFCR = SPI_IER_EOTIE | errorFlags;
+
+            uint32_t CR2 = 0;
+            set_bit_group(CR2, SPI_CR2_TSIZE_Msk, wordCount << SPI_CR2_TSIZE_Pos);
+            m_Port->CR2 = CR2;
+
+            m_Port->IER = SPI_IER_EOTIE | errorFlags;
+
+            m_Port->CR1 |= SPI_CR1_SPE;
+            m_Port->CR1 |= SPI_CR1_CSTART;
+
+            result = m_TransactionCondition.IRQWait();
+            m_Port->IER = 0;
+
+            m_SendDMAChannel.Stop();
+            m_ReceiveDMAChannel.Stop();
+
+            m_Port->IFCR = SPI_IFCR_EOTC | SPI_IFCR_TXTFC;
+
+            m_Port->CR1 &= ~SPI_CR1_SPE;
+            m_Port->CFG1 &= ~(SPI_CFG1_RXDMAEN | SPI_CFG1_TXDMAEN);
+
+            m_Port->IFCR = errorFlags;
+
+            if (result != PErrorCode::Success)
             {
-//                SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), (transaction.Length + DCACHE_LINE_SIZE - 1) & ~(DCACHE_LINE_SIZE - 1));
-                memcpy(transaction.ReceiveBuffer, m_ReceiveBuffer, transaction.Length);
+                break;
             }
-            return transaction.Length;
-        }
-        else
-        {
-            set_last_error(EIO);
-            return -1;
-        }
+            if (m_TransactionError == SPIError::None)
+            {
+                if (transaction.ReceiveBuffer != nullptr)
+                {
+                    //                SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), (transaction.Length + DCACHE_LINE_SIZE - 1) & ~(DCACHE_LINE_SIZE - 1));
+                    memcpy(transaction.ReceiveBuffer, m_ReceiveBuffer, transaction.Length);
+                }
+                return;
+            }
+            else
+            {
+                result = PErrorCode::IOError;
+            }
+        } while (false);
     } CRITICAL_END;
+    PERROR_THROW_CODE(result);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -556,37 +542,37 @@ SPIDriver::SPIDriver()
 void SPIDriver::Setup(const SPIDriverSetup& setup)
 {
     Ptr<SPIDriverINode> node = ptr_new<SPIDriverINode>(setup, this);
-    Kernel::RegisterDevice(setup.DevicePath.c_str(), node);
+    Kernel::RegisterDevice_trw(setup.DevicePath.c_str(), node);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode SPIDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t SPIDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
     Ptr<SPIDriverINode> node = ptr_static_cast<SPIDriverINode>(file->GetINode());
-    return node->Read(file, buffer, length, outLength);
+    return node->Read(file, buffer, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode SPIDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t SPIDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
     Ptr<SPIDriverINode> node = ptr_static_cast<SPIDriverINode>(file->GetINode());
-    return node->Write(file, buffer, length, outLength);
+    return node->Write(file, buffer, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int SPIDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void SPIDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     Ptr<SPIDriverINode> node = ptr_static_cast<SPIDriverINode>(file->GetINode());
-    return node->DeviceControl(request, inData, inDataLength, outData, outDataLength);
+    node->DeviceControl(request, inData, inDataLength, outData, outDataLength);
 }
 
 

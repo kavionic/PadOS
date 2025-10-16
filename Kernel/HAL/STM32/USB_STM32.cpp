@@ -18,12 +18,13 @@
 // Created: 22.05.2022 17:00
 
 #include <string.h>
+#include <Kernel/KTime.h>
 #include <Kernel/HAL/PeripheralMapping.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
 #include <Kernel/USB/USBProtocol.h>
 #include <Kernel/USB/USBHost.h>
 #include <Utils/Utils.h>
-#include <System/SysTime.h>
+#include <System/TimeValue.h>
 
 using namespace os;
 
@@ -173,8 +174,8 @@ bool USB_STM32::SetupCore(bool useExternalVBus, bool batteryChargingEnabled)
 
 bool USB_STM32::WaitForAHBIdle()
 {
-    for (TimeValNanos endTime = kget_system_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_AHBIDL) == 0; ) {
-        if (kget_system_time() > endTime) return false;
+    for (TimeValNanos endTime = kget_monotonic_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_AHBIDL) == 0; ) {
+        if (kget_monotonic_time() > endTime) return false;
     }
     return true;
 }
@@ -199,15 +200,15 @@ bool USB_STM32::CoreReset()
         kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: CoreReset() Timeout while waiting for AHB to become idle.\n");
         return false;
     }
-    for (TimeValNanos endTime = kget_system_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_AHBIDL) == 0; ) {
-        if (kget_system_time() > endTime) return false;
+    for (TimeValNanos endTime = kget_monotonic_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_AHBIDL) == 0; ) {
+        if (kget_monotonic_time() > endTime) return false;
     }
 
     // Core soft reset.
     m_Port->GRSTCTL |= USB_OTG_GRSTCTL_CSRST;
 
-    for (TimeValNanos endTime = kget_system_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_CSRST); ) {
-        if (kget_system_time() > endTime) return false;
+    for (TimeValNanos endTime = kget_monotonic_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_CSRST); ) {
+        if (kget_monotonic_time() > endTime) return false;
     }
     return true;
 }
@@ -225,8 +226,8 @@ bool USB_STM32::FlushTxFifo(uint32_t count)
     }
     m_Port->GRSTCTL = (USB_OTG_GRSTCTL_TXFFLSH | (count << USB_OTG_GRSTCTL_TXFNUM_Pos));
 
-    for (TimeValNanos endTime = kget_system_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_TXFFLSH); ) {
-        if (kget_system_time() > endTime) return false;
+    for (TimeValNanos endTime = kget_monotonic_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_TXFFLSH); ) {
+        if (kget_monotonic_time() > endTime) return false;
     }
     return true;
 }
@@ -244,8 +245,8 @@ bool USB_STM32::FlushRxFifo()
     }
     m_Port->GRSTCTL = USB_OTG_GRSTCTL_RXFFLSH;
 
-    for (TimeValNanos endTime = kget_system_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_RXFFLSH); ) {
-        if (kget_system_time() > endTime) return false;
+    for (TimeValNanos endTime = kget_monotonic_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_RXFFLSH); ) {
+        if (kget_monotonic_time() > endTime) return false;
     }
     return true;
 }
@@ -266,9 +267,9 @@ bool USB_STM32::SetUSBMode(USB_Mode mode)
         return false;
     }
 
-    for (TimeValNanos endTime = kget_system_time() + TimeValNanos::FromMilliseconds(50); GetUSBMode() != mode; )
+    for (TimeValNanos endTime = kget_monotonic_time() + TimeValNanos::FromMilliseconds(50); GetUSBMode() != mode; )
     {
-        if (kget_system_time() > endTime) return false;
+        if (kget_monotonic_time() > endTime) return false;
         snooze_ms(1);
     }
     return true;

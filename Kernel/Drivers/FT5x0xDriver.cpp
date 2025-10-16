@@ -22,13 +22,16 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "Kernel/Drivers/FT5x0xDriver.h"
-#include "DeviceControl/I2C.h"
-#include "DeviceControl/HID.h"
-#include "Threads/Threads.h"
-#include "System/SystemMessageIDs.h"
-#include "GUI/GUIEvent.h"
-#include "Kernel/VFS/KFSVolume.h"
+#include <Kernel/KTime.h>
+#include <Kernel/Drivers/FT5x0xDriver.h>
+#include <Kernel/VFS/FileIO.h>
+#include <DeviceControl/I2C.h>
+#include <DeviceControl/HID.h>
+#include <Threads/Threads.h>
+#include <System/ExceptionHandling.h>
+#include <System/SystemMessageIDs.h>
+#include <GUI/GUIEvent.h>
+#include <Kernel/VFS/KFSVolume.h>
 
 using namespace kernel;
 using namespace os;
@@ -63,53 +66,49 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
     
 	m_PinINT.SetDirection(DigitalPinDirection_e::In);
 
-    m_I2CDevice = FileIO::Open(i2cPath, O_RDWR);
+    m_I2CDevice = kopen_trw(i2cPath, O_RDWR);
 
-    if (m_I2CDevice >= 0)
-    {
-        I2CIOCTL_SetTimeout(m_I2CDevice, TimeValNanos::FromMilliseconds(100));
-		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x38);
-        I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
+    I2CIOCTL_SetTimeout(m_I2CDevice, TimeValNanos::FromMilliseconds(100));
+	I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x38);
+    I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
-        m_PinWAKE.Write(true);
-        m_PinRESET.SetDirection(DigitalPinDirection_e::Out);
-        m_PinRESET.Write(false);
-        m_PinWAKE.SetDirection(DigitalPinDirection_e::Out);
+    m_PinWAKE.Write(true);
+    m_PinRESET.SetDirection(DigitalPinDirection_e::Out);
+    m_PinRESET.Write(false);
+    m_PinWAKE.SetDirection(DigitalPinDirection_e::Out);
     
-        snooze_ms(200);
-        m_PinRESET.Write(true);
-		snooze_ms(300);
-        m_PinWAKE.Write(false);
-		snooze_ms(200);
-        m_PinWAKE.Write(true);
-		snooze_ms(200);
+    snooze_ms(200);
+    m_PinRESET.Write(true);
+	snooze_ms(300);
+    m_PinWAKE.Write(false);
+	snooze_ms(200);
+    m_PinWAKE.Write(true);
+	snooze_ms(200);
 
-		m_PinINT.SetInterruptMode(PinInterruptMode_e::FallingEdge);
-        m_PinINT.GetAndClearInterruptStatus(); // Clear any pending interrupts.
-        m_PinINT.EnableInterrupts();
+	m_PinINT.SetInterruptMode(PinInterruptMode_e::FallingEdge);
+    m_PinINT.GetAndClearInterruptStatus(); // Clear any pending interrupts.
+    m_PinINT.EnableInterrupts();
         
-        kernel::register_irq_handler(irqNum, IRQHandler, this);
+    kernel::register_irq_handler(irqNum, IRQHandler, this);
 
-        uint8_t reg = 0;
-        FileIO::Write(m_I2CDevice, &reg, 1, 0);
+    uint8_t reg = 0;
+    kpwrite(m_I2CDevice, &reg, 1, 0);
 //        reg = 3;
-//        FileIO::Write(m_I2CDevice, FT5x0x_REG_G_PERIODE_ACTIVE, &reg, 1);
+//        kwrite(m_I2CDevice, FT5x0x_REG_G_PERIODE_ACTIVE, &reg, 1);
 /*        for (;;)
-        {
-            if (FileIO::Read(m_I2CDevice, FT5x0x_REG_G_PERIODE_ACTIVE, &reg, 1) != 1) {
-                snooze(bigtime_from_s(5));
-            }
-            snooze_ms(100);
-        }*/
-        PrintChipStatus();
-//        FileIO::Write(m_I2CDevice, )
+    {
+        if (kpread(m_I2CDevice, FT5x0x_REG_G_PERIODE_ACTIVE, &reg, 1) != 1) {
+            snooze(bigtime_from_s(5));
+        }
+        snooze_ms(100);
+    }*/
+    PrintChipStatus();
+//        kwrite(m_I2CDevice, )
 
-        Start(PThreadDetachState_Detached, 10);
+    Start(PThreadDetachState_Detached, 10);
         
-        Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
-        Kernel::RegisterDevice(devicePath, inode);
-    }
-    
+    Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
+    Kernel::RegisterDevice_trw(devicePath, inode);    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -122,11 +121,11 @@ void FT5x0xDriver::PrintChipStatus()
 
 #define PRINT_REG(NAME) \
         /*reg = FT5x0x_REG_##NAME;*/ \
-        /*FileIO::Write(m_I2CDevice, 0, &reg, 1);*/ \
-        if (FileIO::Read(m_I2CDevice, &reg, 1, FT5x0x_REG_##NAME) == 1) { \
-            printf(#NAME ": %d\n", reg); \
+        /*kwrite(m_I2CDevice, 0, &reg, 1);*/ \
+        if (const PErrorCode result = kpread(m_I2CDevice, &reg, 1, FT5x0x_REG_##NAME); result != PErrorCode::Success) { \
+            printf(#NAME ": failed (%s)\n", strerror(std::to_underlying(result))); \
         } else { \
-            printf(#NAME ": failed (%s)\n", strerror(get_last_error())); \
+            printf(#NAME ": %d\n", reg); \
         }
         
         PRINT_REG(G_ERR);
@@ -146,8 +145,8 @@ void FT5x0xDriver::PrintChipStatus()
             printf("Log: '");
             for ( int i = reg; i > 0; --i) {
 //                reg = FT5x0x_REG_LOG_CUR_CHAR;
-//                FileIO::Write(m_I2CDevice, 0, &reg, 1);
-                if (FileIO::Read(m_I2CDevice, &reg, 1, FT5x0x_REG_LOG_CUR_CHAR) == 1) {
+//                kwrite(m_I2CDevice, 0, &reg, 1);
+                if (kpread(m_I2CDevice, &reg, 1, FT5x0x_REG_LOG_CUR_CHAR) == PErrorCode::Success) {
                     printf("%c", reg);
                 } else {
                     printf(".");
@@ -169,9 +168,9 @@ void* FT5x0xDriver::Run()
         
         FT5x0xOMRegisters registers;
 
-        ssize_t length = FileIO::Read(m_I2CDevice, &registers, sizeof(FT5x0xOMRegisters) - 2, 0);
+        const PErrorCode result = kpread(m_I2CDevice, &registers, sizeof(FT5x0xOMRegisters) - 2, 0);
         
-        if (length == (sizeof(FT5x0xOMRegisters) - 2))
+        if (result == PErrorCode::Success)
         {
             for (int i = 0; i < FT5x0x_TP_REGISTER_COUNT; ++i)
             {
@@ -195,7 +194,7 @@ void* FT5x0xDriver::Run()
                         m_TouchPositions[touchID] = position;
                         
                         MotionEvent mouseEvent;
-                        mouseEvent.Timestamp = get_system_time();
+                        mouseEvent.Timestamp = kget_monotonic_time();
                         mouseEvent.EventID   = eventID;
                         mouseEvent.ToolType  = MotionToolType::Finger;
                         mouseEvent.ButtonID  = MouseButton_e(int(MouseButton_e::FirstTouchID) + touchID);
@@ -245,7 +244,7 @@ Ptr<KFileNode> FT5x0xDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FT5x0xDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
+void FT5x0xDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
     CRITICAL_SCOPE(m_Mutex);
     auto i = std::find(m_OpenFiles.begin(), m_OpenFiles.end(), file);
@@ -253,14 +252,13 @@ status_t FT5x0xDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
     {
         m_OpenFiles.erase(i);
     }
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FT5x0xDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void FT5x0xDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<FT5x0xFile> ftFile = ptr_static_cast<FT5x0xFile>(file);
@@ -271,16 +269,15 @@ int FT5x0xDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
     switch(request)
     {
         case HIDIOCTL_SET_TARGET_PORT:
-            if (inArg == nullptr || inDataLength != sizeof(port_id)) { set_last_error(EINVAL); return -1; }
+            if (inArg == nullptr || inDataLength != sizeof(port_id)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
             ftFile->m_TargetPort = *inArg;
-            return 0;
+            return;
         case HIDIOCTL_GET_TARGET_PORT:
-            if (outArg == nullptr || outDataLength != sizeof(port_id)) { set_last_error(EINVAL); return -1; }
+            if (outArg == nullptr || outDataLength != sizeof(port_id)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
             *outArg = ftFile->m_TargetPort;
-            return 0;
+            return;
         default:
-            set_last_error(EINVAL);
-            return -1;
+            PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 }
 

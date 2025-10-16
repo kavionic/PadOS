@@ -22,11 +22,12 @@
 #include <string.h>
 #include <algorithm>
 
-#include "Utils/Utils.h"
+#include <System/ExceptionHandling.h>
+#include <Utils/Utils.h>
+#include <Kernel/FSDrivers/FAT/FATFilesystem.h>
 
 #include "FATDirectoryIterator.h"
 #include "FATVolume.h"
-#include "Kernel/FSDrivers/FAT/FATFilesystem.h"
 
 using namespace os;
 
@@ -151,30 +152,21 @@ static bool FilteredUTF16ToCP437(uint16_t utf16, uint8_t* result)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static status_t FATRawShortNameToUTF8(const char* src, String* dst)
+static void FATRawShortNameToUTF8(const char* src, String* dst)
 {
     kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATRawShortNameToUTF8().\n");
 
-    try
-    {
-        for (int i = 0; i < 8 && src[i] != ' '; ++i) {
-            dst->append(CP437ToUTF16((i == 0 && src[i] == 5) ? 0xe5 : uint8_t(src[i])));
-        }
-
-        if (src[8] != ' ')
-        {
-            *dst += ".";
-            for (int i = 8; i < 11 && src[i] != ' '; ++i) {
-                if (src[i] == ' ') break;
-                dst->append(CP437ToUTF16(uint8_t(src[i])));
-            }
-        }
-        return 0;
+    for (int i = 0; i < 8 && src[i] != ' '; ++i) {
+        dst->append(CP437ToUTF16((i == 0 && src[i] == 5) ? 0xe5 : uint8_t(src[i])));
     }
-    catch (const std::bad_alloc&)
+
+    if (src[8] != ' ')
     {
-        set_last_error(ENOMEM);
-        return -1;
+        *dst += ".";
+        for (int i = 8; i < 11 && src[i] != ' '; ++i) {
+            if (src[i] == ' ') break;
+            dst->append(CP437ToUTF16(uint8_t(src[i])));
+        }
     }
 }
 
@@ -216,7 +208,7 @@ bool FATDirectoryIterator::RequiresLongName(const wchar16_t* longName, size_t lo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FATDirectoryIterator::MungeShortName(char* shortName, uint32_t value)
+void FATDirectoryIterator::MungeShortName(char* shortName, uint32_t value)
 {
     char buffer[8];
 
@@ -233,8 +225,6 @@ status_t FATDirectoryIterator::MungeShortName(char* shortName, uint32_t value)
     i++;
 
     memcpy(shortName + i, buffer, len);
-
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -247,7 +237,7 @@ status_t FATDirectoryIterator::MungeShortName(char* shortName, uint32_t value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FATDirectoryIterator::GenerateShortName(const wchar16_t* longName, size_t longNameLength, char* shortName)
+void FATDirectoryIterator::GenerateShortName(const wchar16_t* longName, size_t longNameLength, char* shortName)
 {
     kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GenerateShortName().\n");
 
@@ -259,7 +249,7 @@ status_t FATDirectoryIterator::GenerateShortName(const wchar16_t* longName, size
     {
         if (longName[srcPos] == 0) {
             if (dstPos == 0) shortName[0] = '_';
-            return 0;
+            return;
         }            
         if (longName[srcPos] == '.')
         {
@@ -270,8 +260,7 @@ status_t FATDirectoryIterator::GenerateShortName(const wchar16_t* longName, size
             }
         }
 		if (!IsCharacterValid(longName[srcPos])) {
-			set_last_error(EINVAL);
-			return -1;
+            PERROR_THROW_CODE(PErrorCode::InvalidArg);
 		}
         uint8_t c;
         if (FilteredUTF16ToCP437(longName[srcPos], &c))
@@ -288,17 +277,16 @@ status_t FATDirectoryIterator::GenerateShortName(const wchar16_t* longName, size
             break;
         }                    
     }
-    if (srcPos < 0) return 0;
+    if (srcPos < 0) return;
 
     srcPos++;
 
     for (size_t dstPos = 8; dstPos < 11 && srcPos < longNameLength; ++srcPos)
     {
-        if (longName[srcPos] == 0) return 0;
+        if (longName[srcPos] == 0) return;
 
 		if (!IsCharacterValid(longName[srcPos])) {
-			set_last_error(EINVAL);
-			return -1;
+            PERROR_THROW_CODE(PErrorCode::InvalidArg);
 		}
         uint8_t c;
         if (FilteredUTF16ToCP437(longName[srcPos], &c))
@@ -306,7 +294,6 @@ status_t FATDirectoryIterator::GenerateShortName(const wchar16_t* longName, size
 			shortName[dstPos++] = c;
         }        
     }
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -344,11 +331,9 @@ FATDirectoryIterator::FATDirectoryIterator(Ptr<FATVolume> vol, uint32_t cluster,
     m_CurrentIndex    = index;
     if (index >= m_EntriesPerSector)
     {
-        if (m_SectorIterator.Increment(m_CurrentIndex / m_EntriesPerSector) != PErrorCode::Success) {
-            return;
-        }            
+        m_SectorIterator.Increment(m_CurrentIndex / m_EntriesPerSector);
     }
-    m_CurrentBlock = m_SectorIterator.GetBlock(true);
+    m_CurrentBlock = m_SectorIterator.GetBlock_(true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -369,26 +354,23 @@ FATDirectoryEntryCombo* FATDirectoryIterator::Set(uint32_t cluster, uint32_t ind
     m_CurrentBlock.Reset();;
 
     if (cluster >= m_SectorIterator.m_Volume->m_TotalClusters + 2) {
-        return nullptr;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
     ;
-    if (m_SectorIterator.Set(cluster, 0) < 0) {
-        return nullptr;
-    }
+    m_SectorIterator.Set(cluster, 0);
+
     m_IsDirty = false;
     m_StartingCluster = cluster;
     m_CurrentIndex    = index;
     if (index >= m_EntriesPerSector)
     {
-        if (m_SectorIterator.Increment(m_CurrentIndex / m_EntriesPerSector) != PErrorCode::Success) {
-            return nullptr;
-        }
+        m_SectorIterator.Increment(m_CurrentIndex / m_EntriesPerSector);
     }
 
-    m_CurrentBlock = m_SectorIterator.GetBlock(true);
+    m_CurrentBlock = m_SectorIterator.GetBlock_(true);
 
     if (m_CurrentBlock.m_Buffer == nullptr) {
-        return nullptr;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
     return static_cast<FATDirectoryEntryCombo*>(m_CurrentBlock.m_Buffer) + (m_CurrentIndex % m_EntriesPerSector);
 }
@@ -417,10 +399,8 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
     if ((++m_CurrentIndex % m_EntriesPerSector) == 0)
     {
         ReleaseCurrentBlock();
-        if (m_SectorIterator.Increment(1) != PErrorCode::Success) {
-            return nullptr;
-        }            
-        m_CurrentBlock = m_SectorIterator.GetBlock(true);
+        m_SectorIterator.Increment(1);
+        m_CurrentBlock = m_SectorIterator.GetBlock_(true);
         if (m_CurrentBlock.m_Buffer == nullptr) {
             return nullptr;
         }            
@@ -432,7 +412,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, String* filename)
+bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, String* filename)
 {
     uint8_t            hash = 0;
     std::vector<wchar16_t> utf16Buffer;
@@ -456,8 +436,7 @@ status_t FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, S
             if (startIndex != 0xffff) {
                 kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): LFN entry (%s) with no alias.\n", (filename != nullptr) ? filename->c_str() : "*none*");
             }
-            set_last_error(ENOENT);
-            return -1;
+            return false;
         }
         
         if (buffer->m_LFN.m_SequenceNumber == 0xe5) // skip erased entries
@@ -546,8 +525,7 @@ status_t FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, S
 
     // Hit end of directory with no luck
     if (buffer == nullptr) {
-        set_last_error(ENOENT);
-        return -1;
+        return false;
     }        
 
     // Process long name
@@ -595,32 +573,32 @@ status_t FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, S
 
     GetNextRawEntry();
 
-    return 0;
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, String* outFilename, uint32_t* outDosAttribs)
+bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, String* outFilename, uint32_t* outDosAttribs)
 {
     FATDirectoryEntryInfo info;
-    status_t result;
 
     if (!m_SectorIterator.m_Volume->CheckMagic(__func__)) {
-        set_last_error(EINVAL);
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
 
-    do {
+    do
+    {
         outFilename->clear();
-        result = GetNextLFNEntry(&info, outFilename);
-        if (result < 0) return result;
+        if (!GetNextLFNEntry(&info, outFilename)) {
+            return false;
+        }
         // Only hide volume label entries in the root directory.
     } while ((info.m_DOSAttribs & FAT_VOLUME) && (directory->m_INodeID == m_SectorIterator.m_Volume->m_RootINode->m_INodeID));
     
     if (outDosAttribs != nullptr) {
-	*outDosAttribs = info.m_DOSAttribs;
+	    *outDosAttribs = info.m_DOSAttribs;
     }
     if (*outFilename == ".")
     {
@@ -647,11 +625,7 @@ status_t FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, in
                     // if one does, create a random one to prevent a collision
                     *outInodeID = m_SectorIterator.m_Volume->AllocUniqueINodeID();
                     // and add it to the inode cache
-                    const PErrorCode result = m_SectorIterator.m_Volume->SetINodeIDToLocationIDMapping(*outInodeID, loc);
-                    if (result != PErrorCode::Success) {
-                        set_last_error(result);
-                        return -1;
-                    }
+                    m_SectorIterator.m_Volume->SetINodeIDToLocationIDMapping(*outInodeID, loc);
                 }
                 else
                 {
@@ -662,15 +636,13 @@ status_t FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, in
             if (info.m_DOSAttribs & FAT_SUBDIR)
             {
                 if (m_SectorIterator.m_Volume->GetDirectoryMapping(info.m_StartCluster) == -1) {
-                    if (!m_SectorIterator.m_Volume->AddDirectoryMapping(*outInodeID)) {
-                        return -1;
-                    }
+                    m_SectorIterator.m_Volume->AddDirectoryMapping(*outInodeID);
                 }
             }
         }
     }
     kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GetNextDirectoryEntry(): found %s (inode ID %" PRIx64 ").\n", outFilename->c_str(), *outInodeID);
-    return 0;
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -684,10 +656,8 @@ FATDirectoryEntryCombo* FATDirectoryIterator::Rewind()
         if (m_CurrentBlock.m_Buffer != nullptr) {
             ReleaseCurrentBlock();
         }            
-        if (m_SectorIterator.Set(m_StartingCluster, 0) < 0) {
-            return nullptr;
-        }            
-        m_CurrentBlock = m_SectorIterator.GetBlock(true);
+        m_SectorIterator.Set(m_StartingCluster, 0);
+        m_CurrentBlock = m_SectorIterator.GetBlock_(true);
     }
     m_CurrentIndex = 0;
     return static_cast<FATDirectoryEntryCombo*>(m_CurrentBlock.m_Buffer);

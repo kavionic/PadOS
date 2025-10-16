@@ -19,6 +19,7 @@
 
 #include <sys/pados_syscalls.h>
 
+#include <Kernel/KTime.h>
 #include <Kernel/KConditionVariable.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/Syscalls.h>
@@ -73,7 +74,7 @@ PErrorCode sys_condition_var_wait(handle_id handle, handle_id mutexHandle)
 
 PErrorCode sys_condition_var_wait_timeout_ns(handle_id handle, handle_id mutexHandle, bigtime_t timeout)
 {
-    return sys_condition_var_wait_deadline_ns(handle, mutexHandle, (timeout != TimeValNanos::infinit.AsNanoseconds()) ? (sys_get_system_time() + timeout) : TimeValNanos::infinit.AsNanoseconds());
+    return sys_condition_var_wait_deadline_ns(handle, mutexHandle, (timeout != TimeValNanos::infinit.AsNanoseconds()) ? (kget_monotonic_time_ns() + timeout) : TimeValNanos::infinit.AsNanoseconds());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

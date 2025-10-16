@@ -17,22 +17,23 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 07.12.2017 23:50:32
 
-#include "System/Platform.h"
+#include <System/Platform.h>
 
 #include <string.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <sys/uio.h>
 
-#include "Kernel/Drivers/SDMMCDriver/SDMMCDriver.h"
-#include "Kernel/SpinTimer.h"
-#include "Kernel/HAL/STM32/Peripherals_STM32H7.h"
-#include "Kernel/VFS/KVFSManager.h"
-#include "Kernel/VFS/KFileHandle.h"
-#include "Kernel/VFS/KFSVolume.h"
-#include "Utils/String.h"
-#include "DeviceControl/DeviceControl.h"
-#include "DeviceControl/SDCARD.h"
+#include <Kernel/KTime.h>
+#include <Kernel/Drivers/SDMMCDriver/SDMMCDriver.h>
+#include <Kernel/SpinTimer.h>
+#include <Kernel/HAL/STM32/Peripherals_STM32H7.h>
+#include <Kernel/VFS/KVFSManager.h>
+#include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/VFS/KFSVolume.h>
+#include <System/ExceptionHandling.h>
+#include <Utils/String.h>
+#include <DeviceControl/SDCARD.h>
 
 using namespace kernel;
 using namespace os;
@@ -84,7 +85,7 @@ SDMMCDriver::~SDMMCDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver::SetupBase(const String& devicePath, DigitalPinID pinCD)
+void SDMMCDriver::SetupBase(const String& devicePath, DigitalPinID pinCD)
 {
 	m_PinCD = pinCD;
 	m_PinCD.SetDirection(DigitalPinDirection_e::In);
@@ -95,13 +96,11 @@ bool SDMMCDriver::SetupBase(const String& devicePath, DigitalPinID pinCD)
     m_DevicePathBase = devicePath;
 
     m_RawINode = ptr_new<SDMMCINode>(this);
-    m_RawINode->bi_nNodeHandle = Kernel::RegisterDevice((devicePath + "raw").c_str(), m_RawINode);
+    m_RawINode->bi_nNodeHandle = Kernel::RegisterDevice_trw((devicePath + "raw").c_str(), m_RawINode);
 
     Start(PThreadDetachState_Detached);
 
     kernel::register_irq_handler(get_peripheral_irq(pinCD), IRQHandler, this);
-
-    return true;    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -141,11 +140,15 @@ void* SDMMCDriver::Run()
             switch(m_CardState)
             {
                 case CardState::NoCard:
-                    DecodePartitions(true);
+                    try {
+                        DecodePartitions(true);
+                    } catch(...) {}
                     break;
                 case CardState::Ready:
                     kprintf("SD/MMC card ready: %" PRIu64 "\n", m_SectorCount * BLOCK_SIZE);
-                    DecodePartitions(true);
+                    try {
+                        DecodePartitions(true);
+                    } catch(...) {}
                     break;
                 case CardState::Initializing:
                     kprintf("SD/MMC RestartCard() failed\n");
@@ -169,8 +172,7 @@ Ptr<KFileNode> SDMMCDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, in
     CRITICAL_SCOPE(m_Mutex);
 
     if (!IsReady()) {
-        set_last_error(ENODEV);
-        return nullptr;
+        PERROR_THROW_CODE(PErrorCode::NoDevice);
     }
     return KFilesystemFileOps::OpenFile(volume, node, flags);
 }
@@ -179,13 +181,12 @@ Ptr<KFileNode> SDMMCDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
 
     if (!IsReady()) {
-        set_last_error(ENODEV);
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::NoDevice);
     }
 
     switch(request)
@@ -193,65 +194,63 @@ int SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inD
         case DEVCTL_GET_DEVICE_GEOMETRY:
         {
             if (outData == nullptr || outDataLength < sizeof(device_geometry)) {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
             device_geometry* geometry = static_cast<device_geometry*>(outData);
             geometry->bytes_per_sector  = BLOCK_SIZE;
             geometry->sector_count = m_SectorCount;
             geometry->read_only    = false;
             geometry->removable   = true;
-            return 0;
+            return;
         }
         case DEVCTL_REREAD_PARTITION_TABLE:
-            return DecodePartitions(false);
-            
+            DecodePartitions(false);
+            return;
         case SDCDEVCTL_SDIO_READ_DIRECT:
         {
             if (inData == nullptr || outData == nullptr || inDataLength < sizeof(SDCDEVCTL_SDIOReadDirectArgs) || outDataLength != sizeof(uint8_t)) {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
             const SDCDEVCTL_SDIOReadDirectArgs* args = static_cast<const SDCDEVCTL_SDIOReadDirectArgs*>(inData);
-            return SDIOReadDirect(args->FunctionNumber, args->Address, static_cast<uint8_t*>(outData));
+            SDIOReadDirect(args->FunctionNumber, args->Address, static_cast<uint8_t*>(outData));
+            return;
         }
         case SDCDEVCTL_SDIO_WRITE_DIRECT:
         {
             if (inData == nullptr || inDataLength < sizeof(SDCDEVCTL_SDIOWriteDirectArgs)) {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
             const SDCDEVCTL_SDIOWriteDirectArgs* args = static_cast<const SDCDEVCTL_SDIOWriteDirectArgs*>(inData);
-            return SDIOWriteDirect(args->FunctionNumber, args->Address, args->Data);
+            SDIOWriteDirect(args->FunctionNumber, args->Address, args->Data);
+            return;
         }
         case SDCDEVCTL_SDIO_READ_EXTENDED:
         {
             if (inData == nullptr || outData == nullptr || inDataLength < sizeof(SDCDEVCTL_SDIOReadExtendedArgs)) {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
             const SDCDEVCTL_SDIOReadExtendedArgs* args = static_cast<const SDCDEVCTL_SDIOReadExtendedArgs*>(inData);
-            return SDIOReadExtended(args->FunctionNumber, args->Address, args->IncrementAddr, outData, outDataLength);
+            SDIOReadExtended(args->FunctionNumber, args->Address, args->IncrementAddr, outData, outDataLength);
+            return;
         }
         case SDCDEVCTL_SDIO_WRITE_EXTENDED:        
         {
             if (inData == nullptr || inDataLength < sizeof(SDCDEVCTL_SDIOWriteExtendedArgs)) {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
             const SDCDEVCTL_SDIOWriteExtendedArgs* args = static_cast<const SDCDEVCTL_SDIOWriteExtendedArgs*>(inData);
-            return SDIOWriteExtended(args->FunctionNumber, args->Address, args->IncrementAddr, args->Buffer, args->Size);
+            SDIOWriteExtended(args->FunctionNumber, args->Address, args->IncrementAddr, args->Buffer, args->Size);
+            return;
         }
     }
-    set_last_error(ENOSYS);
-    return -1;
+    PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength)
+size_t SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position)
 {
     Ptr<SDMMCINode> inode = (file != nullptr) ? ptr_static_cast<SDMMCINode>(file->GetINode()) : nullptr;
 
@@ -266,8 +265,7 @@ PErrorCode SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_
         if (position + length > inode->bi_nSize)
         {
             if (position >= inode->bi_nSize) {
-                outLength = 0;
-                return PErrorCode::Success;
+                return 0;
             } else {
                 length = size_t(inode->bi_nSize - position);
             }
@@ -275,9 +273,8 @@ PErrorCode SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_
         position += inode->bi_nStart;
     }
     
-    if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0)
-    {
-        return PErrorCode::InvalidArg;
+    if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
     
     const uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
@@ -292,7 +289,7 @@ PErrorCode SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_
         CRITICAL_SCOPE(m_Mutex, needLocking);
 
         if (!IsReady()) {
-            return PErrorCode::NoDevice;
+            PERROR_THROW_CODE(PErrorCode::NoDevice);
         }
     
         if (!Cmd13_sdmmc()) {
@@ -327,18 +324,18 @@ PErrorCode SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_
         }
         break;
     }
-    if (error == PErrorCode::Success)
+    if (error != PErrorCode::Success)
     {
-        outLength = length;
+        PERROR_THROW_CODE(error);
     }
-    return error;
+    return length;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength)
+size_t SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position)
 {
     Ptr<SDMMCINode> inode = (file != nullptr) ? ptr_static_cast<SDMMCINode>(file->GetINode()) : nullptr;
 
@@ -353,7 +350,7 @@ PErrorCode SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size
         if (position + length > inode->bi_nSize)
         {
             if (position >= inode->bi_nSize) {
-                return PErrorCode::Success;
+                return 0;
             } else {
                 length = size_t(inode->bi_nSize - position);
             }
@@ -363,7 +360,7 @@ PErrorCode SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size
 
 
     if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0) {
-        return PErrorCode::InvalidArg;
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
     uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
@@ -378,7 +375,7 @@ PErrorCode SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size
         CRITICAL_SCOPE(m_Mutex, needLocking);
 
         if (!IsReady()) {
-            return PErrorCode::NoDevice;
+            PERROR_THROW_CODE(PErrorCode::NoDevice);
         }
 
         uint32_t cmd = (blockCount > 1) ? SDMMC_CMD25_WRITE_MULTIPLE_BLOCK : SDMMC_CMD24_WRITE_BLOCK;
@@ -409,10 +406,10 @@ PErrorCode SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size
         }
         break;
     }
-    if (error == PErrorCode::Success) {
-        outLength = length;
+    if (error != PErrorCode::Success) {
+        PERROR_THROW_CODE(error);
     }
-    return error;
+    return length;
 }    
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -599,154 +596,141 @@ bool SDMMCDriver::InitializeCard()
 
 size_t SDMMCDriver::ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size)
 {
-    iovec_t segment;
-    segment.iov_base = buffer;
-    segment.iov_len = size;
-    ssize_t bytesRead;
-    const PErrorCode result = static_cast<SDMMCDriver*>(userData)->Read(nullptr, &segment, 1, position, bytesRead);
-    if (result != PErrorCode::Success)
+    try
     {
-        set_last_error(result);
-        return -1;
+        iovec_t segment;
+        segment.iov_base = buffer;
+        segment.iov_len = size;
+        return static_cast<SDMMCDriver*>(userData)->Read(nullptr, &segment, 1, position);
     }
-    return bytesRead;
+    PERROR_CATCH_SET_ERRNO(-1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int SDMMCDriver::DecodePartitions(bool force)
+void SDMMCDriver::DecodePartitions(bool force)
 {
-    try
-    {
-        device_geometry diskGeom;
-        std::vector<disk_partition_desc> partitions;
+    device_geometry diskGeom;
+    std::vector<disk_partition_desc> partitions;
 
-        m_RawINode->bi_nSize = m_SectorCount * BLOCK_SIZE;
+    m_RawINode->bi_nSize = m_SectorCount * BLOCK_SIZE;
 
-        memset(&diskGeom, 0, sizeof(diskGeom));
-        diskGeom.sector_count     = m_SectorCount;
-        diskGeom.bytes_per_sector = BLOCK_SIZE;
-        diskGeom.read_only 	  = false;
-        diskGeom.removable 	  = true;
+    memset(&diskGeom, 0, sizeof(diskGeom));
+    diskGeom.sector_count     = m_SectorCount;
+    diskGeom.bytes_per_sector = BLOCK_SIZE;
+    diskGeom.read_only 	  = false;
+    diskGeom.removable 	  = true;
 
-        kprintf("SDMMCDriver::DecodePartitions(): Decoding partition table\n");
+    kprintf("SDMMCDriver::DecodePartitions(): Decoding partition table\n");
 
-        if (KVFSManager::DecodeDiskPartitions(m_CacheAlignedBuffer, BLOCK_SIZE, diskGeom, &partitions, &ReadPartitionData, this) < 0) {
+    if (KVFSManager::DecodeDiskPartitions(m_CacheAlignedBuffer, BLOCK_SIZE, diskGeom, &partitions, &ReadPartitionData, this) < 0) {
 	    kprintf( "   Invalid partition table\n" );
-	    return -1;
-        }
-        for (size_t i = 0 ; i < partitions.size() ; ++i)
-        {
-	    if ( partitions[i].p_type != 0 && partitions[i].p_size != 0 )
-            {
-	        kprintf( "   Partition %" PRIu32 " : %10" PRIu64 " -> %10" PRIu64 " %02x (%" PRIu64 ")\n", uint32_t(i), partitions[i].p_start,
-		         partitions[i].p_start + partitions[i].p_size - 1LL, partitions[i].p_type,
-		         partitions[i].p_size);
-	    }
-        }
-
-        for (Ptr<SDMMCINode> partition : m_PartitionINodes)
-        {
-	    bool found = false;
-	    for (size_t i = 0 ; i < partitions.size() ; ++i)
-            {
-	        if ( partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize ) {
-		    found = true;
-		    break;
-	        }
-	    }
-	    if (!force && !found && partition->bi_nOpenCount > 0) {
-	        kprintf("ERROR: SDMMCDriver::DecodePartitions() Open partition has changed.\n");
-	        set_last_error(EBUSY);
-	        return -1;
-	    }
-        }
-    
-        std::vector<Ptr<SDMMCINode>> unusedPartitionINodes; // = std::move(m_PartitionINodes);
-          // Remove deleted partitions from /dev/
-        for (auto i = m_PartitionINodes.begin(); i != m_PartitionINodes.end(); )
-        {
-            Ptr<SDMMCINode> partition = *i;
-	    bool found = false;
-	    for (size_t i = 0 ; i < partitions.size() ; ++i)
-            {
-	        if (partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize )
-                {
-		    partitions[i].p_size = 0;
-		    partition->bi_nPartitionType = partitions[i].p_type;
-		    found = true;
-		    break;
-	        }
-	    }
-	    if (!found)
-            {
-	        Kernel::RemoveDevice(partition->bi_nNodeHandle);
-                partition->bi_nNodeHandle = -1;
-                i = m_PartitionINodes.erase(i);
-                if (partition->bi_nOpenCount == 0) {
-                    unusedPartitionINodes.push_back(partition);
-                }                    
-	    }
-            else
-            {
-                ++i;
-            }
-        }
-
-          // Create nodes for any new partitions.
-        for (size_t i = 0 ; i < partitions.size() ; ++i)
-        {
-	    if ( partitions[i].p_type == 0 || partitions[i].p_size == 0 ) {
-	        continue;
-	    }
-            Ptr<SDMMCINode> partition;
-            if (!unusedPartitionINodes.empty()) {
-                partition = unusedPartitionINodes.back();
-                unusedPartitionINodes.pop_back();
-            } else {
-                partition = ptr_new<SDMMCINode>(this);
-            }
-            m_PartitionINodes.push_back(partition);
-	    partition->bi_nStart = partitions[i].p_start;
-	    partition->bi_nSize  = partitions[i].p_size;
-        }
-        
-        std::sort(m_PartitionINodes.begin(), m_PartitionINodes.end(), [](Ptr<SDMMCINode> lhs, Ptr<SDMMCINode> rhs) { return lhs->bi_nStart < rhs->bi_nStart; });
-
-          // We now have to rename nodes that might have moved around in the table and
-          // got new names. To avoid name-clashes while renaming we first give all
-          // nodes a unique temporary name before looping over again giving them their
-          // final names
-
-        for (size_t i = 0; i < m_PartitionINodes.size(); ++i)    
-        {
-            Ptr<SDMMCINode> partition = m_PartitionINodes[i];
-            if (partition->bi_nNodeHandle != -1)
-            {
-                String path = m_DevicePathBase + String::format_string("%lu_new", i);
-	        Kernel::RenameDevice(partition->bi_nNodeHandle, path.c_str());
-            }            
-        }
-        for (size_t i = 0; i < m_PartitionINodes.size(); ++i)
-        {
-            String path = m_DevicePathBase + String::format_string("%lu", i);
-        
-            Ptr<SDMMCINode> partition = m_PartitionINodes[i];
-            if (partition->bi_nNodeHandle != -1) {
-                Kernel::RenameDevice(partition->bi_nNodeHandle, path.c_str());
-            } else {
-                Kernel::RegisterDevice(path.c_str(), partition);
-            }
-        }
-        return 0;
+        PERROR_THROW_CODE(PErrorCode(get_last_error()));
     }
-    catch (const std::bad_alloc&) {
-	kprintf( "Error: bdd_decode_partitions() no memory for partition inode\n" );
-        set_last_error(ENOMEM);
-        return -1;            
-    }        
+    for (size_t i = 0 ; i < partitions.size() ; ++i)
+    {
+	if ( partitions[i].p_type != 0 && partitions[i].p_size != 0 )
+        {
+	    kprintf( "   Partition %" PRIu32 " : %10" PRIu64 " -> %10" PRIu64 " %02x (%" PRIu64 ")\n", uint32_t(i), partitions[i].p_start,
+		        partitions[i].p_start + partitions[i].p_size - 1LL, partitions[i].p_type,
+		        partitions[i].p_size);
+	}
+    }
+
+    for (Ptr<SDMMCINode> partition : m_PartitionINodes)
+    {
+	bool found = false;
+	for (size_t i = 0 ; i < partitions.size() ; ++i)
+        {
+	    if ( partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize ) {
+		found = true;
+		break;
+	    }
+	}
+	if (!force && !found && partition->bi_nOpenCount > 0) {
+	    kprintf("ERROR: SDMMCDriver::DecodePartitions() Open partition has changed.\n");
+        PERROR_THROW_CODE(PErrorCode::Busy);
+	}
+    }
+    
+    std::vector<Ptr<SDMMCINode>> unusedPartitionINodes; // = std::move(m_PartitionINodes);
+        // Remove deleted partitions from /dev/
+    for (auto i = m_PartitionINodes.begin(); i != m_PartitionINodes.end(); )
+    {
+        Ptr<SDMMCINode> partition = *i;
+        bool found = false;
+        for (size_t i = 0; i < partitions.size(); ++i)
+        {
+            if (partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize)
+            {
+                partitions[i].p_size = 0;
+                partition->bi_nPartitionType = partitions[i].p_type;
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            Kernel::RemoveDevice_trw(partition->bi_nNodeHandle);
+            partition->bi_nNodeHandle = -1;
+            i = m_PartitionINodes.erase(i);
+            if (partition->bi_nOpenCount == 0) {
+                unusedPartitionINodes.push_back(partition);
+            }
+        }
+        else
+        {
+            ++i;
+        }
+    }
+
+        // Create nodes for any new partitions.
+    for (size_t i = 0 ; i < partitions.size() ; ++i)
+    {
+	if ( partitions[i].p_type == 0 || partitions[i].p_size == 0 ) {
+	    continue;
+	}
+        Ptr<SDMMCINode> partition;
+        if (!unusedPartitionINodes.empty()) {
+            partition = unusedPartitionINodes.back();
+            unusedPartitionINodes.pop_back();
+        } else {
+            partition = ptr_new<SDMMCINode>(this);
+        }
+        m_PartitionINodes.push_back(partition);
+	partition->bi_nStart = partitions[i].p_start;
+	partition->bi_nSize  = partitions[i].p_size;
+    }
+        
+    std::sort(m_PartitionINodes.begin(), m_PartitionINodes.end(), [](Ptr<SDMMCINode> lhs, Ptr<SDMMCINode> rhs) { return lhs->bi_nStart < rhs->bi_nStart; });
+
+        // We now have to rename nodes that might have moved around in the table and
+        // got new names. To avoid name-clashes while renaming we first give all
+        // nodes a unique temporary name before looping over again giving them their
+        // final names
+
+    for (size_t i = 0; i < m_PartitionINodes.size(); ++i)
+    {
+        Ptr<SDMMCINode> partition = m_PartitionINodes[i];
+        if (partition->bi_nNodeHandle != -1)
+        {
+            String path = m_DevicePathBase + String::format_string("%lu_new", i);
+            Kernel::RenameDevice_trw(partition->bi_nNodeHandle, path.c_str());
+        }
+    }
+    for (size_t i = 0; i < m_PartitionINodes.size(); ++i)
+    {
+        String path = m_DevicePathBase + String::format_string("%lu", i);
+        
+        Ptr<SDMMCINode> partition = m_PartitionINodes[i];
+        if (partition->bi_nNodeHandle != -1) {
+            Kernel::RenameDevice_trw(partition->bi_nNodeHandle, path.c_str());
+        } else {
+            Kernel::RegisterDevice_trw(path.c_str(), partition);
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -848,30 +832,25 @@ void SDMMCDriver::SetState(CardState state)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t SDMMCDriver::SDIOReadDirect(uint8_t functionNumber, uint32_t addr, uint8_t *dest)
+void SDMMCDriver::SDIOReadDirect(uint8_t functionNumber, uint32_t addr, uint8_t *dest)
 {
     if (dest == nullptr) {
-        set_last_error(EINVAL);
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
     if (!Cmd52_sdio(SDIO_CMD52_READ_FLAG, functionNumber, addr, 0, dest)) {
-        set_last_error(EIO);
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t SDMMCDriver::SDIOWriteDirect(uint8_t functionNumber, uint32_t addr, uint8_t data)
+void SDMMCDriver::SDIOWriteDirect(uint8_t functionNumber, uint32_t addr, uint8_t data)
 {
     if (!Cmd52_sdio(SDIO_CMD52_WRITE_FLAG, functionNumber, addr, 0, &data)) {
-        set_last_error(EIO);
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -881,15 +860,13 @@ status_t SDMMCDriver::SDIOWriteDirect(uint8_t functionNumber, uint32_t addr, uin
 ssize_t SDMMCDriver::SDIOReadExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, void* buffer, size_t size)
 {
     if ((size == 0) || (size > BLOCK_SIZE)) {
-        set_last_error(EINVAL);
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
 	if (Cmd53_sdio(SDIO_CMD53_READ_FLAG, functionNumber, addr, incrementAddr, size, buffer)) {
 		return size;
 	} else {
-        set_last_error(EIO);
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
 }
 
@@ -900,12 +877,10 @@ ssize_t SDMMCDriver::SDIOReadExtended(uint8_t functionNumber, uint32_t addr, uin
 ssize_t SDMMCDriver::SDIOWriteExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, const void* buffer, size_t size)
 {
     if ((size == 0) || (size > BLOCK_SIZE)) {
-        set_last_error(EINVAL);
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
     if (!Cmd53_sdio(SDIO_CMD53_WRITE_FLAG, functionNumber, addr, incrementAddr, size, buffer)) {
-        set_last_error(EIO);
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
     return size;
 }
@@ -923,7 +898,7 @@ ssize_t SDMMCDriver::SDIOWriteExtended(uint8_t functionNumber, uint32_t addr, ui
 
 bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
 {
-    TimeValNanos deadline = kget_system_time() + 1.0;
+    TimeValNanos deadline = kget_monotonic_time() + 1.0;
     for(;;)
     {
         // CMD55 - Tell the card that the next command is an application specific command.
@@ -950,7 +925,7 @@ bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
             }
             break;
         }
-        if (kget_system_time() > deadline) {
+        if (kget_monotonic_time() > deadline) {
             kprintf("ERROR: OperationalConditionMCI_sd(): Timeout (0x%08lx)\n", response);
             return false;
         }
@@ -969,7 +944,7 @@ bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
 
 bool SDMMCDriver::OperationalConditionMCI_mmc()
 {
-    TimeValNanos deadline = kget_system_time() + 1.0;
+    TimeValNanos deadline = kget_monotonic_time() + 1.0;
     for(;;)
     {
         if (!SendCmd(MMC_MCI_CMD1_SEND_OP_COND, SD_MMC_VOLTAGE_SUPPORT | OCR_ACCESS_MODE_SECTOR))
@@ -987,7 +962,7 @@ bool SDMMCDriver::OperationalConditionMCI_mmc()
             }
             break;
         }
-        if (kget_system_time() > deadline) {
+        if (kget_monotonic_time() > deadline) {
             kprintf("ERROR: OperationalConditionMCI_mmc(): Timeout (0x%08lx)\n", response);
             return false;
         }
@@ -1018,7 +993,7 @@ bool SDMMCDriver::OperationalCondition_sdio()
         return true; // No error but card type not updated
     }
 
-    TimeValNanos deadline = kget_system_time() + 1.0;
+    TimeValNanos deadline = kget_monotonic_time() + 1.0;
     for (;;)
     {
         // CMD5 - SDIO send operation condition (OCR) command.
@@ -1030,7 +1005,7 @@ bool SDMMCDriver::OperationalCondition_sdio()
         if ((response & OCR_POWER_UP_BUSY) == OCR_POWER_UP_BUSY) {
             break;
         }
-        if (kget_system_time() > deadline) {
+        if (kget_monotonic_time() > deadline) {
             kprintf("ERROR: OperationalCondition_sdio(): Timeout (0x%08lx)\n", response);
             return false;
         }
@@ -1498,7 +1473,7 @@ bool SDMMCDriver::Cmd9MCI_sdmmc()
 
 bool SDMMCDriver::Cmd13_sdmmc()
 {
-    TimeValNanos deadline = kget_system_time() + 1.0;
+    TimeValNanos deadline = kget_monotonic_time() + 1.0;
     for(;;)
     {
         if (!SendCmd(SDMMC_MCI_CMD13_SEND_STATUS, (uint32_t)m_RCA << 16)) {
@@ -1507,7 +1482,7 @@ bool SDMMCDriver::Cmd13_sdmmc()
         if (GetResponse() & CARD_STATUS_READY_FOR_DATA) {
             return true;
         }
-        if (kget_system_time() > deadline) {
+        if (kget_monotonic_time() > deadline) {
             kprintf("ERROR: Cmd13_sdmmc() timeout\n");
             return false;
         }

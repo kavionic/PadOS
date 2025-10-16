@@ -18,6 +18,7 @@
 // Created: 23.07.2022 20:00
 
 #include <Utils/Utils.h>
+#include <Kernel/KTime.h>
 #include <Kernel/USB/USBHostControl.h>
 #include <Kernel/USB/USBHost.h>
 #include <Kernel/USB/USBLanguages.h>
@@ -99,8 +100,8 @@ bool USBHostControl::SendControlRequest(uint8_t deviceAddr, const USB_ControlReq
     m_ErrorCount            = 0;
     m_RequestCallback       = std::move(callback);
 
-    TimeValNanos deadline = kget_system_time() + TimeValNanos::FromSeconds(2.0);
-    while (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle && kget_system_time() < deadline) ksnooze_ms(1); // FIXME: Implement proper blocking for state-change waiting.
+    TimeValNanos deadline = kget_monotonic_time() + TimeValNanos::FromSeconds(2.0);
+    while (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle && kget_monotonic_time() < deadline) ksnooze_ms(1); // FIXME: Implement proper blocking for state-change waiting.
     if (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle)
     {
         m_ErrorCount = 0;

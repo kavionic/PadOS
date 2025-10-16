@@ -19,7 +19,8 @@
 
 #pragma once
 
-#include "Kernel/VFS/FileIO.h"
+#include <PadOS/Filesystem.h>
+#include <PadOS/DeviceControl.h>
 
 
 enum WS2812BIOCTL
@@ -31,27 +32,28 @@ enum WS2812BIOCTL
 };
 
 
-inline int WS2812BIOCTL_SetLEDCount(int device, int count)
+inline PErrorCode WS2812BIOCTL_SetLEDCount(int device, int count)
 {
-    return os::FileIO::DeviceControl(device, WS2812BIOCTL_SET_LED_COUNT, &count, sizeof(count), nullptr, 0);
+    return device_control(device, WS2812BIOCTL_SET_LED_COUNT, &count, sizeof(count), nullptr, 0);
 }
 
-inline int WS2812BIOCTL_GetLEDCount(int device)
+inline PErrorCode WS2812BIOCTL_GetLEDCount(int device, int& outCount)
 {
-    int count;
-    if (os::FileIO::DeviceControl(device, WS2812BIOCTL_GET_LED_COUNT, nullptr, 0, &count, sizeof(count)) < 0) return -1;
-    return count;
+    return device_control(device, WS2812BIOCTL_GET_LED_COUNT, nullptr, 0, &outCount, sizeof(outCount));
 }
 
-inline int WS2812BIOCTL_SetExponential(int device, bool exponential)
+inline PErrorCode WS2812BIOCTL_SetExponential(int device, bool exponential)
 {
     int value = int(exponential);
-    return os::FileIO::DeviceControl(device, WS2812BIOCTL_SET_EXPONENTIAL, &value, sizeof(value), nullptr, 0);
+    return device_control(device, WS2812BIOCTL_SET_EXPONENTIAL, &value, sizeof(value), nullptr, 0);
 }
 
-inline int WS2812BIOCTL_GetExponential(int device)
+inline PErrorCode WS2812BIOCTL_GetExponential(int device, bool& outValue)
 {
     int value;
-    if (os::FileIO::DeviceControl(device, WS2812BIOCTL_GET_EXPONENTIAL, nullptr, 0, &value, sizeof(value)) < 0) return -1;
-    return value;
+    const PErrorCode result = device_control(device, WS2812BIOCTL_GET_EXPONENTIAL, nullptr, 0, &value, sizeof(value));
+    if (result == PErrorCode::Success) {
+        outValue = value != 0;
+    }
+    return result;
 }

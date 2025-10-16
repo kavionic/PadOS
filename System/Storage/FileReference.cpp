@@ -24,7 +24,6 @@
 #include <Storage/FileReference.h>
 #include <Storage/Symlink.h>
 #include <Storage/Path.h>
-#include <Kernel/VFS/FileIO.h>
 
 using namespace os;
 
@@ -203,7 +202,7 @@ bool FileReference::Rename(const String& newName)
     else {
         newPath += newName;
     }
-    status_t result = FileIO::Rename(oldPath.c_str(), newPath.c_str());
+    status_t result = rename(oldPath.c_str(), newPath.c_str());
     if (result < 0)
     {
         return false;
@@ -230,7 +229,7 @@ bool FileReference::Delete()
     if (!GetPath(path)) {
         return false;
     }
-    return FileIO::Unlink(path.c_str()) != -1;
+    return unlink(path.c_str()) != -1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -239,12 +238,12 @@ bool FileReference::Delete()
 
 bool FileReference::GetStat(struct ::stat* statBuffer) const
 {
-    int file = FileIO::Open(m_Directory.GetFileDescriptor(), m_Name.c_str(), O_RDONLY);
+    int file = openat(m_Directory.GetFileDescriptor(), m_Name.c_str(), O_RDONLY);
     if (file < 0) {
         return false;
     }
-    status_t result = FileIO::ReadStats(file, statBuffer);
-    FileIO::Close(file);
+    status_t result = fstat(file, statBuffer);
+    close(file);
     return result != -1;
 }
 

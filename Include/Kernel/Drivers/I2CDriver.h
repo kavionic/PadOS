@@ -127,7 +127,7 @@ public:
     void Setup(const char* devicePath, I2CDriverINode::Channels channel);
 
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
-    virtual int              CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
+    virtual void           CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
 
     virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;
     virtual ssize_t Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length) override;

@@ -18,6 +18,7 @@
 // Created: 05.09.2020 22:15
 
 
+#include <PadOS/Time.h>
 #include <GUI/Widgets/TextBox.h>
 #include <GUI/KeyboardView.h>
 
@@ -61,7 +62,7 @@ void VirtualKeyboardView::SlotKeyPressed(KeyCodes keyCode, const String& text)
 {
     KeyEvent event;
 
-    event.Timestamp = get_system_time();
+    event.Timestamp = get_monotonic_time();
     event.EventID = MessageID::KEY_UP;
     event.m_KeyCode = keyCode;
     strncpy(event.m_Text, text.c_str(), KeyEvent::MAX_TEXT_LENGTH);

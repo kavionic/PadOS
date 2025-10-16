@@ -18,14 +18,17 @@
 // Created: 08.06.2022 22:00
 
 
+#include <PadOS/Time.h>
 #include <Utils/String.h>
+#include <Kernel/KTime.h>
 #include <Kernel/USB/ClassDrivers/USBClientCDCChannel.h>
 #include <Kernel/USB/USBCommon.h>
 #include <Kernel/USB/USBClassDriverDevice.h>
 #include <Kernel/USB/USBDevice.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
-#include "../../../Include/DeviceControl/USART.h"
+#include <System/ExceptionHandling.h>
+#include <DeviceControl/USART.h>
 
 using namespace os;
 
@@ -55,7 +58,7 @@ USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, int channelIn
     m_OutEndpointBuffer.resize(endpointOutMaxSize);
     m_InEndpointBuffer.resize(endpointInMaxSize);
 
-    m_DevNodeHandle = Kernel::RegisterDevice(String::format_string("com/udp%u", channelIndex).c_str(), ptr_tmp_cast(this));
+    m_DevNodeHandle = Kernel::RegisterDevice_trw(String::format_string("com/udp%u", channelIndex).c_str(), ptr_tmp_cast(this));
 
     StartOutTransaction();
 }
@@ -105,7 +108,7 @@ void USBClientCDCChannel::Close()
 {
     if (m_DevNodeHandle != -1)
     {
-        Kernel::RemoveDevice(m_DevNodeHandle);
+        Kernel::RemoveDevice_trw(m_DevNodeHandle);
         m_DevNodeHandle = -1;
     }
     m_IsActive = false;
@@ -133,27 +136,26 @@ ssize_t USBClientCDCChannel::GetReadBytesAvailable() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int USBClientCDCChannel::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
+void USBClientCDCChannel::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
-    KFilesystemFileOps::CloseFile(volume, file);
     file->SetOpenFlags(0);
     m_ReceiveCondition.WakeupAll();
     m_TransmitCondition.WakeupAll();
-    return 0;
+    KFilesystemFileOps::CloseFile(volume, file);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode USBClientCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t USBClientCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
     kassert(!m_DeviceHandler->GetMutex().IsLocked());
     CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
 
     if (!file->HasReadAccess())
     {
-        return PErrorCode::NoAccess;
+        PERROR_THROW_CODE(PErrorCode::NoAccess);
     }
     if (m_IsActive)
     {
@@ -161,53 +163,51 @@ PErrorCode USBClientCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t l
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
-                TimeValNanos deadline = m_ReadTimeout.IsInfinit() ? TimeValNanos::infinit : (kget_system_time() + m_ReadTimeout);
+                TimeValNanos deadline = m_ReadTimeout.IsInfinit() ? TimeValNanos::infinit : (kget_monotonic_time() + m_ReadTimeout);
 
                 while (m_ReceiveFIFO.GetLength() == 0)
                 {
                     const PErrorCode result = m_ReceiveCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline);
                     if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
                     {
-                        return result;
+                        PERROR_THROW_CODE(result);
                     }
                     if (!m_IsActive)
                     {
-                        return PErrorCode::BrokenPipe;
+                        PERROR_THROW_CODE(PErrorCode::BrokenPipe);
                     }
                     if (!file->HasReadAccess())
                     {
-                        return PErrorCode::NoAccess;
+                        PERROR_THROW_CODE(PErrorCode::NoAccess);
                     }
                 }
             }
             else
             {
-                outLength = 0;
-                return PErrorCode::Success;
+                return 0;
             }
         }
-        const ssize_t result = m_ReceiveFIFO.Read(buffer, length);
+        const size_t result = m_ReceiveFIFO.Read(buffer, length);
         if (result != 0) {
             StartOutTransaction();
         }
-        outLength = result;
-        return PErrorCode::Success;
+        return result;
     }
-    return PErrorCode::BrokenPipe;
+    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
     kassert(!m_DeviceHandler->GetMutex().IsLocked());
     CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
 
     if (!file->HasWriteAccess())
     {
-        return PErrorCode::NoAccess;
+        PERROR_THROW_CODE(PErrorCode::NoAccess);
     }
     if (m_IsActive)
     {
@@ -215,7 +215,7 @@ PErrorCode USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, s
         {
             if ((file->GetOpenFlags() & O_NONBLOCK) == 0)
             {
-                TimeValNanos deadline = m_WriteTimeout.IsInfinit() ? TimeValNanos::infinit : (kget_system_time() + m_WriteTimeout);
+                TimeValNanos deadline = m_WriteTimeout.IsInfinit() ? TimeValNanos::infinit : (kget_monotonic_time() + m_WriteTimeout);
 
                 while (m_TransmitFIFO.GetRemainingSpace() == 0)
                 {
@@ -223,22 +223,21 @@ PErrorCode USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, s
                     const PErrorCode result = m_TransmitCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline);
                     if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
                     {
-                        return result;
+                        PERROR_THROW_CODE(result);
                     }
                     if (!m_IsActive)
                     {
-                        return PErrorCode::BrokenPipe;
+                        PERROR_THROW_CODE(PErrorCode::BrokenPipe);
                     }
                     if (!file->HasWriteAccess())
                     {
-                        return PErrorCode::NoAccess;
+                        PERROR_THROW_CODE(PErrorCode::NoAccess);
                     }
                 }
             }
             else
             {
-                outLength = 0;
-                return PErrorCode::Success;
+                return 0;
             }
         }
         const size_t result = std::min(m_TransmitFIFO.GetRemainingSpace(), length);
@@ -247,30 +246,28 @@ PErrorCode USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, s
         if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT)) || m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
             FlushInternal();
         }
-        outLength = result;
-        return PErrorCode::Success;
+        return result;
     }
-    return PErrorCode::BrokenPipe;
+    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
 }
 
-int USBClientCDCChannel::Sync(Ptr<KFileNode> file)
+void USBClientCDCChannel::Sync(Ptr<KFileNode> file)
 {
     kassert(!m_DeviceHandler->GetMutex().IsLocked());
     CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
     if (m_IsActive)
     {
         FlushInternal();
-        return 0;
+        return;
     }
-    set_last_error(EPIPE);
-    return -1;
+    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int USBClientCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* outStats)
+void USBClientCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* outStats)
 {
     outStats->st_dev = dev_t(volume->m_VolumeID);
     outStats->st_ino = node->m_INodeID;
@@ -286,15 +283,13 @@ int USBClientCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struc
     outStats->st_size = 0;
     outStats->st_blksize = 1;
     outStats->st_atim = outStats->st_mtim = outStats->st_ctim = m_CreateTime.AsTimespec();
-
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     switch (request)
     {
@@ -303,52 +298,47 @@ int USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const v
             {
                 bigtime_t nanos = *((const bigtime_t*)inData);
                 m_ReadTimeout = TimeValNanos::FromNanoseconds(nanos);
-                return 0;
+                return;
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_READ_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t))
             {
                 bigtime_t* nanos = (bigtime_t*)outData;
                 *nanos = m_ReadTimeout.AsNanoseconds();
-                return 0;
+                return;
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_SET_WRITE_TIMEOUT:
             if (inDataLength == sizeof(bigtime_t))
             {
                 bigtime_t nanos = *((const bigtime_t*)inData);
                 m_WriteTimeout = TimeValNanos::FromNanoseconds(nanos);
-                return 0;
+                return;
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_WRITE_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t))
             {
                 bigtime_t* nanos = (bigtime_t*)outData;
                 *nanos = m_WriteTimeout.AsNanoseconds();
-                return 0;
+                return;
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         default:
-            set_last_error(EINVAL);
-            return -1;
+            PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 }
 

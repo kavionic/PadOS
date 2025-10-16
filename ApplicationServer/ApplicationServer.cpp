@@ -72,7 +72,7 @@ ApplicationServer::ApplicationServer(Ptr<os::DisplayDriver> displayDriver)
 
     RSRegisterApplication.Connect(this, &ApplicationServer::SlotRegisterApplication); 
     
-    m_TouchInputDevice = FileIO::Open("/dev/touchscreen/0", O_RDWR);
+    m_TouchInputDevice = open("/dev/touchscreen/0", O_RDWR);
     if (m_TouchInputDevice != -1)
     {
         HIDIOCTL_SetTargetPort(m_TouchInputDevice, GetPortID());

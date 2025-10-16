@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.07.2022 20:30
 
+#include <Kernel/KTime.h>
 #include <Kernel/HAL/STM32/USBHost_STM32.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
 #include <Kernel/USB/USBHost.h>
@@ -167,7 +168,7 @@ bool USBHost_STM32::StopHost()
     for (size_t i = 0; i < CHANNEL_COUNT; ++i)
     {
         set_bit_group(m_HostChannels[i].HCCHAR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS | USB_OTG_HCCHAR_EPDIR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS);
-        for (TimeValNanos endTime = kget_system_time() + TimeValNanos::FromMilliseconds(100); kget_system_time() < endTime && (m_HostChannels[i].HCCHAR & USB_OTG_HCCHAR_CHENA); ) {}
+        for (TimeValNanos endTime = kget_monotonic_time() + TimeValNanos::FromMilliseconds(100); kget_monotonic_time() < endTime && (m_HostChannels[i].HCCHAR & USB_OTG_HCCHAR_CHENA); ) {}
     }
 
     // Clear any pending host interrupts.

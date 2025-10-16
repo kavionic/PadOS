@@ -19,10 +19,12 @@
 
 #include <utility>
 
+#include <Kernel/KTime.h>
 #include <Kernel/Syscalls.h>
-#include <System/SysTime.h>
+#include <System/TimeValue.h>
 #include <Kernel/Kernel.h>
 #include <Kernel/Scheduler.h>
+#include <Kernel/KAddressValidation.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 
 using namespace os;
@@ -35,136 +37,148 @@ extern "C"
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bigtime_t sys_get_system_time()
+
+PErrorCode sys_get_monotonic_time_ns(bigtime_t* outTime)
 {
-    bigtime_t time;
-    CRITICAL_BEGIN(CRITICAL_IRQ)
+    try
     {
-        time = Kernel::s_SystemTime;
-    } CRITICAL_END;
-    return time * 1000000;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bigtime_t sys_get_system_time_hires()
-{
-    const uint32_t coreFrequency = Kernel::GetFrequencyCore();
-    bigtime_t   time;
-    uint32_t    ticks;
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        ticks = SysTick->VAL;
-        time = Kernel::s_SystemTime;
-        if ((SCB->ICSR & SCB_ICSR_PENDSTSET_Msk) || SysTick->VAL > ticks)
-        {
-            // If the SysTick exception is pending, or the timer wrapped around after reading
-            // Kernel::s_SystemTime we need to add another tick and re-read the timer.
-            ticks = SysTick->VAL;
-            time++;
-        }
-    } CRITICAL_END;
-    ticks = SysTick->LOAD - ticks;
-    time *= 1000000; // Convert system time from mS to nS.
-    return time + bigtime_t(ticks) * TimeValNanos::TicksPerSecond / coreFrequency;  // Convert clock-cycles to nS and add to the time.
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bigtime_t sys_get_real_time()
-{
-    return sys_get_system_time() + Kernel::s_RealTime.AsNanoseconds();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode sys_set_real_time(bigtime_t time, bool updateRTC)
-{
-    Kernel::s_RealTime = TimeValNanos::FromNanoseconds(time - sys_get_system_time());
-
-    if (updateRTC)
-    {
-        RealtimeClock::SetClock(TimeValNanos::FromNanoseconds(time));
+        validate_user_write_pointer_trw(outTime);
+        *outTime = kget_monotonic_time_ns();
+        return PErrorCode::Success;
     }
-    return PErrorCode::Success;
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bigtime_t sys_get_clock_time_offset(clockid_t clockID)
+PErrorCode sys_get_monotonic_time_hires_ns(bigtime_t* outTime)
 {
-    switch (clockID)
+    try
     {
-        case CLOCK_REALTIME_COARSE:
-        case CLOCK_REALTIME:
-        case CLOCK_REALTIME_ALARM:
-            return Kernel::s_RealTime.AsNanoseconds();
-        case CLOCK_PROCESS_CPUTIME_ID:
-            return -sys_get_idle_time();
-        case CLOCK_THREAD_CPUTIME_ID:
-            return gk_CurrentThread->m_RunTime.AsNanoseconds() - sys_get_system_time();
-        case CLOCK_MONOTONIC:
-        case CLOCK_MONOTONIC_RAW:
-        case CLOCK_MONOTONIC_COARSE:
-        case CLOCK_BOOTTIME:
-        case CLOCK_BOOTTIME_ALARM:
-            return 0;
+        validate_user_write_pointer_trw(outTime);
+        *outTime = kget_monotonic_time_hires_ns();
+        return PErrorCode::Success;
     }
-    return 0;
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bigtime_t sys_get_clock_time(clockid_t clockID)
+PErrorCode sys_get_real_time_ns(bigtime_t* outTime)
 {
-    return sys_get_system_time() + sys_get_clock_time_offset(clockID);
+    try
+    {
+        validate_user_write_pointer_trw(outTime);
+        *outTime = kget_real_time_ns();
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bigtime_t sys_get_clock_time_hires(clockid_t clockID)
+PErrorCode sys_get_real_time_hires_ns(bigtime_t* outTime)
 {
-    return sys_get_system_time_hires() + sys_get_clock_time_offset(clockID);
+    try
+    {
+        validate_user_write_pointer_trw(outTime);
+        *outTime = kget_real_time_hires_ns();
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bigtime_t sys_get_idle_time()
+PErrorCode sys_set_real_time_ns(bigtime_t time, bool updateRTC)
 {
-    CRITICAL_SCOPE(CRITICAL_IRQ);
-    return gk_IdleThread->m_RunTime.AsNanoseconds();
+    return kset_real_time(TimeValNanos::FromNanoseconds(time), updateRTC);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t sys_get_clock_resolution(clockid_t clockID, bigtime_t* outResolutionNanos)
+PErrorCode sys_get_clock_time_offset_ns(clockid_t clockID, bigtime_t* outTime)
+{
+    try
+    {
+        validate_user_write_pointer_trw(outTime);
+        *outTime = kget_clock_time_offset_ns_trw(clockID);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_get_clock_time_ns(clockid_t clockID, bigtime_t* outTime)
+{
+    try
+    {
+        validate_user_write_pointer_trw(outTime);
+        *outTime = kget_clock_time_ns_trw(clockID);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_get_clock_time_hires_ns(clockid_t clockID, bigtime_t* outTime)
+{
+    try
+    {
+        validate_user_write_pointer_trw(outTime);
+        *outTime = kget_clock_time_hires_ns_trw(clockID);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_get_idle_time_ns(bigtime_t* outTime)
+{
+    try
+    {
+        validate_user_write_pointer_trw(outTime);
+        *outTime = kget_idle_time_ns();
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_get_clock_resolution_ns(clockid_t clockID, bigtime_t* outResolutionNanos)
 {
     if (clockID == CLOCK_MONOTONIC_COARSE || clockID == CLOCK_REALTIME_COARSE)
     {
         *outResolutionNanos = TimeValNanos::FromMilliseconds(1).AsNanoseconds();
-        return 0;
+        return PErrorCode::Success;
     }
     else
     {
         const uint32_t coreFrequency = Kernel::GetFrequencyCore();
         *outResolutionNanos = TimeValNanos::FromNanoseconds((TimeValNanos::TicksPerSecond + coreFrequency - 1) / coreFrequency).AsNanoseconds();
-        return 0;
+        return PErrorCode::Success;
     }
 }
 
@@ -172,13 +186,13 @@ status_t sys_get_clock_resolution(clockid_t clockID, bigtime_t* outResolutionNan
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t sys_set_clock_resolution(clockid_t clockID, bigtime_t resolutionNanos)
+PErrorCode sys_set_clock_resolution_ns(clockid_t clockID, bigtime_t resolutionNanos)
 {
     if (clockID != CLOCK_REALTIME)
     {
-        return EINVAL;
+        return PErrorCode::InvalidArg;
     }
-    return 0;
+    return PErrorCode::Success;
 }
 
 } // extern "C"

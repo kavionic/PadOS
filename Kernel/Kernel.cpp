@@ -35,7 +35,7 @@
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/HAL/ATSAM/SAME70TimerDefines.h>
 #include <Kernel/SpinTimer.h>
-#include <System/SysTime.h>
+#include <System/TimeValue.h>
 #include <Threads/Mutex.h>
 
 using namespace kernel;
@@ -190,8 +190,6 @@ void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MC
 {
     ResetWatchdog();
 
-    SCB->CCR |= SCB_CCR_STKALIGN_Msk;
-
 //    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
     kernel::start_scheduler(coreFrequency, mainThreadStackSize);
 }
@@ -200,27 +198,27 @@ void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MC
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Kernel::RegisterDevice(const char* path, Ptr<KINode> deviceNode)
+int Kernel::RegisterDevice_trw(const char* path, Ptr<KINode> deviceNode)
 {
-    return FileIO::s_RootFilesystem->RegisterDevice(path, deviceNode);
+    return kget_rootfs_trw()->RegisterDevice(path, deviceNode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Kernel::RenameDevice(int handle, const char* newPath)
+void Kernel::RenameDevice_trw(int handle, const char* newPath)
 {
-    return FileIO::s_RootFilesystem->RenameDevice(handle, newPath);
+    kget_rootfs_trw()->RenameDevice(handle, newPath);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Kernel::RemoveDevice(int handle)
+void Kernel::RemoveDevice_trw(int handle)
 {
-    return FileIO::s_RootFilesystem->RemoveDevice(handle);
+    kget_rootfs_trw()->RemoveDevice(handle);
 }
 
 extern "C"

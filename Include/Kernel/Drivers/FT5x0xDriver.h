@@ -145,9 +145,9 @@ public:
 
     virtual void* Run() override;
 
-    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags) override;
-    virtual status_t         CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
-    virtual int              DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual Ptr<KFileNode>  OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags) override;
+    virtual void            CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
+    virtual void            DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
     void PrintChipStatus();

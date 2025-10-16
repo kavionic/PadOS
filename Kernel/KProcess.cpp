@@ -70,10 +70,10 @@ void KProcess::ThreadQuit(KThreadCB* thread)
                     if (m_TLSAllocationMap[i] & mask)
                     {
                         int index = i * 32 + j;
-                        if (index < THREAD_MAX_TLS_SLOTS)
+                        if (index < thread->m_ControlBlock->TLSSlotCount)
                         {
                             if (m_TLSDestructors[index] != nullptr) {
-                                destructors.emplace_back(m_TLSDestructors[index], thread->m_ThreadLocalSlots[index]);
+                                destructors.emplace_back(m_TLSDestructors[index], thread->m_ControlBlock->TLSSlots[index]);
                             }
                         }
                         else
@@ -96,7 +96,7 @@ void KProcess::ThreadQuit(KThreadCB* thread)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-tls_id KProcess::AllocTLSSlot(TLSDestructor_t destructor)
+PErrorCode KProcess::AllocTLSSlot(tls_id& outKey, TLSDestructor_t destructor)
 {
     kassert(!m_TLSMutex.IsLocked());
     CRITICAL_SCOPE(m_TLSMutex);
@@ -119,28 +119,27 @@ tls_id KProcess::AllocTLSSlot(TLSDestructor_t destructor)
                             thread != nullptr;
                             thread = kernel::get_thread_table().GetNext(thread->GetHandle(), [](Ptr<const KThreadCB> thread) { return thread->m_State != ThreadState_Deleted; }))
                         {
-                            thread->m_ThreadLocalSlots[index] = nullptr;
+                            thread->m_ControlBlock->TLSSlots[index] = nullptr;
                         }
-                        return index;
+                        outKey = index;
+                        return PErrorCode::Success;
                     }
                     else
                     {
-                        set_last_error(EAGAIN);
-                        return INVALID_HANDLE;
+                        return PErrorCode::TryAgain;
                     }
                 }
             }
         }
     }
-    set_last_error(EAGAIN);
-    return INVALID_HANDLE;
+    return PErrorCode::TryAgain;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KProcess::FreeTLSSlot(tls_id slot)
+PErrorCode KProcess::FreeTLSSlot(tls_id slot)
 {
     kassert(!m_TLSMutex.IsLocked());
     CRITICAL_SCOPE(m_TLSMutex);
@@ -148,11 +147,10 @@ bool KProcess::FreeTLSSlot(tls_id slot)
     if (slot >= 0 && slot < THREAD_MAX_TLS_SLOTS)
     {
         m_TLSAllocationMap[slot/32] &= ~(1<<(slot % 32));
-        return true;
+        return PErrorCode::Success;
     }
     else
     {
-        set_last_error(EINVAL);
-        return false;
+        return PErrorCode::InvalidArg;
     }
 }

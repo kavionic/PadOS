@@ -19,7 +19,8 @@
 
 #pragma once
 
-#include "Kernel/VFS/FileIO.h"
+#include <PadOS/Filesystem.h>
+#include <PadOS/DeviceControl.h>
 
 
 constexpr float TLV493D_LSB_FLUX = 0.098e-3f;	// LSB = 0.098mT
@@ -50,6 +51,6 @@ enum TLV493DIOCTL
 	TLV493DIOCTL_GET_VALUES_SYNC
 };
 
-inline int TLV493DIOCTL_SetConfig(int device, const tlv493d_config* values) { return os::FileIO::DeviceControl(device, TLV493DIOCTL_SET_CONFIG, values, sizeof(*values), nullptr, 0); }
-inline int TLV493DIOCTL_GetValues(int device, tlv493d_data* values) { return os::FileIO::DeviceControl(device, TLV493DIOCTL_GET_VALUES, nullptr, 0, values, sizeof(*values)); }
-inline int TLV493DIOCTL_GetValuesSync(int device, tlv493d_data* values) { return os::FileIO::DeviceControl(device, TLV493DIOCTL_GET_VALUES_SYNC, nullptr, 0, values, sizeof(*values)); }
+inline PErrorCode TLV493DIOCTL_SetConfig(int device, const tlv493d_config* values) { return device_control(device, TLV493DIOCTL_SET_CONFIG, values, sizeof(*values), nullptr, 0); }
+inline PErrorCode TLV493DIOCTL_GetValues(int device, tlv493d_data* values) { return device_control(device, TLV493DIOCTL_GET_VALUES, nullptr, 0, values, sizeof(*values)); }
+inline PErrorCode TLV493DIOCTL_GetValuesSync(int device, tlv493d_data* values) { return device_control(device, TLV493DIOCTL_GET_VALUES_SYNC, nullptr, 0, values, sizeof(*values)); }

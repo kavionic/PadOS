@@ -44,7 +44,6 @@ extern uint8_t __tdata_size;
 extern uint8_t __tbss_size;
 extern uint8_t __tls_align;
 
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -165,7 +164,6 @@ int KThreadCB::PriToLevel(int priority)
 {
     int level = priority - KTHREAD_PRIORITY_MIN;
     return std::clamp(level, 0, KTHREAD_PRIORITY_LEVELS - 1);
-//    return clamp(0, KTHREAD_PRIORITY_LEVELS - 1, level);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -196,7 +194,9 @@ void KThreadCB::SetBlockingObject(const KNamedObject* waitObject)
 
 void KThreadCB::SetupTLS(const PThreadAttribs* attribs)
 {
-    constexpr size_t EABI_TCB_SIZE = 8;
+    static_assert(sizeof(PThreadControlBlock) == 8);
+    constexpr size_t EABI_TCB_SIZE = sizeof(PThreadControlBlock);
+
     const size_t dataSize   = size_t(&__tdata_size);
     const size_t bssSize    = size_t(&__tbss_size);
     const size_t tlsAlign   = size_t(&__tls_align);
@@ -205,6 +205,8 @@ void KThreadCB::SetupTLS(const PThreadAttribs* attribs)
 
     if (totalBufferSize > 0)
     {
+        uint8_t* threadLocalDataSegment = nullptr;
+
         const size_t bufferSize = (attribs != nullptr && attribs->ThreadLocalStorageSize != 0) ? attribs->ThreadLocalStorageSize : THREAD_DEFAULT_STACK_SIZE;
         void* const bufferAddress = (attribs != nullptr) ? attribs->ThreadLocalStorageAddress : nullptr;
 
@@ -217,28 +219,29 @@ void KThreadCB::SetupTLS(const PThreadAttribs* attribs)
             if (m_ThreadLocalBuffer == nullptr) {
                 throw std::bad_alloc();
             }
-            m_ThreadLocalDataSegment = reinterpret_cast<uint8_t*>(uintptr_t(m_ThreadLocalBuffer + EABI_TCB_SIZE + tlsAlign - 1) & ~(tlsAlign - 1));
+            threadLocalDataSegment = reinterpret_cast<uint8_t*>(uintptr_t(m_ThreadLocalBuffer + EABI_TCB_SIZE + tlsAlign - 1) & ~(tlsAlign - 1));
             m_FreeTLSOnExit = true;
         }
         else
         {
             m_ThreadLocalBuffer = reinterpret_cast<uint8_t*>(bufferAddress);
-            m_ThreadLocalDataSegment = reinterpret_cast<uint8_t*>(uintptr_t(m_ThreadLocalBuffer + EABI_TCB_SIZE));
+            threadLocalDataSegment = reinterpret_cast<uint8_t*>(uintptr_t(m_ThreadLocalBuffer + EABI_TCB_SIZE));
             m_FreeTLSOnExit = false;
         }
-        if (uintptr_t(m_ThreadLocalDataSegment) & uintptr_t(tlsAlign - 1)) {
+        if (uintptr_t(threadLocalDataSegment) & uintptr_t(tlsAlign - 1)) {
             throw std::invalid_argument("Invalid TLS buffer alignment");
         }
-        m_ThreadLocalTCB = m_ThreadLocalDataSegment - EABI_TCB_SIZE;
-        m_ThreadLocalSlots = reinterpret_cast<void**>(m_ThreadLocalDataSegment + totalDataBssSize);
+        m_ControlBlock = reinterpret_cast<PThreadControlBlock*>(threadLocalDataSegment - EABI_TCB_SIZE);
+        m_ControlBlock->TLSSlotCount = THREAD_MAX_TLS_SLOTS;
+        m_ControlBlock->TLSSlots = reinterpret_cast<void**>(threadLocalDataSegment + totalDataBssSize);
 
-        assert(m_ThreadLocalTCB >= m_ThreadLocalBuffer);
-        assert(m_ThreadLocalDataSegment == m_ThreadLocalTCB + EABI_TCB_SIZE);
-        assert(m_ThreadLocalSlots == reinterpret_cast<void**>(m_ThreadLocalDataSegment + totalDataBssSize));
+        assert(reinterpret_cast<uint8_t*>(m_ControlBlock) >= m_ThreadLocalBuffer);
+        assert(threadLocalDataSegment == reinterpret_cast<uint8_t*>(m_ControlBlock) + EABI_TCB_SIZE);
+        assert(m_ControlBlock->TLSSlots == reinterpret_cast<void**>(threadLocalDataSegment + totalDataBssSize));
 
-        memcpy(m_ThreadLocalDataSegment, &__tdata_start, dataSize);
-        memset(m_ThreadLocalDataSegment + dataSize, 0, bssSize);
-        memset(m_ThreadLocalSlots, 0, THREAD_TLS_SLOTS_BUFFER_SIZE);
+        memcpy(threadLocalDataSegment, &__tdata_start, dataSize);
+        memset(threadLocalDataSegment + dataSize, 0, bssSize);
+        memset(m_ControlBlock->TLSSlots, 0, THREAD_TLS_SLOTS_BUFFER_SIZE);
     }
 
 }

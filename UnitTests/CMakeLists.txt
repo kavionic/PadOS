@@ -7,4 +7,5 @@ target_sources(PadOS_UnitTests PRIVATE
 	STLChronoCalendar_unittest.cpp
 	STLChrono_unittest.cpp
 	STLConcurrency_unittest.cpp
+	TimeValue_unittest.cpp
 )

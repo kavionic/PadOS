@@ -50,6 +50,7 @@ public:
     virtual bool Open(const String& path, int openFlags = O_RDONLY) override;
     virtual bool Open(const Directory& directory, const String& path, int openFlags = O_RDONLY) override;
     virtual bool Open(const FileReference& reference, int openFlags = O_RDONLY) override;
+    virtual bool SetTo(int fileDescriptor, bool takeOwnership) override { return FSNode::SetTo(fileDescriptor, takeOwnership); }
     virtual bool SetTo(const FSNode& node) override;
     virtual bool SetTo(FSNode&& node) override;
     virtual bool SetTo(const SymLink& link);

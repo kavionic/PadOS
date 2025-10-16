@@ -26,10 +26,12 @@
 
 #include <map>
 
-#include "Kernel/VFS/KBlockCache.h"
-#include "Kernel/VFS/FileIO.h"
-#include "Kernel/VFS/KVFSManager.h"
+#include <Kernel/KTime.h>
+#include <Kernel/VFS/KBlockCache.h>
+#include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KVFSManager.h>
 #include <Utils/Utils.h>
+#include <System/ExceptionHandling.h>
 
 using namespace kernel;
 using namespace os;
@@ -167,7 +169,7 @@ void KBlockCache::Initialize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
+KCacheBlockDesc KBlockCache::GetBlock_trw(off64_t blockNum, bool doLoad)
 {
 //    ProfileTimer pt("GetBlock", 2.0e-3);
     CRITICAL_SCOPE(s_Mutex);
@@ -187,72 +189,70 @@ KCacheBlockDesc KBlockCache::GetBlock(off64_t blockNum, bool doLoad)
             block->AddRef();
             return KCacheBlockDesc(block, blockOffset);
         }
+
+        KCacheBlockHeader* block = nullptr;
+
+        if (s_FreeList.m_Last != nullptr)
+        {
+            block = s_FreeList.m_Last;
+            s_FreeList.Remove(block);
+        }
+        else if (s_MRUList.m_First != nullptr)
+        {
+            for (block = s_MRUList.m_First; block != nullptr && (block->m_UseCount != 0 /*|| block->IsFlushing() || block->IsDirty()*/); block = block->m_Next) /*EMPTY*/;
+            if (block == nullptr) {
+                s_FlushingRequestConditionVar.WakeupAll();
+                s_FlushingDoneConditionVar.Wait(s_Mutex);
+                continue;
+            }
+            if (block->IsFlushing())
+            {
+                s_FlushingDoneConditionVar.Wait(s_Mutex);
+                continue;
+            }
+            if (block->IsDirty())
+            {
+                block->SetFlushRequested(true);
+                s_FlushingRequestConditionVar.WakeupAll();
+                s_FlushingDoneConditionVar.Wait(s_Mutex);
+                continue;
+            }
+            s_MRUList.Remove(block);
+            auto i = m_BlockMap.find(block->m_bufferNumber);
+            if (i != m_BlockMap.end()) {
+                m_BlockMap.erase(i);
+            }
+        }
         else
         {
-            KCacheBlockHeader* block = nullptr;
-            if (s_FreeList.m_Last != nullptr)
-            {
-                block = s_FreeList.m_Last;
-                s_FreeList.Remove(block);
+            printf("ERROR: KBlockCache::GetBlock() all cache blocks locked!\n");
+            PERROR_THROW_CODE(PErrorCode::TryAgain);
+        }
+        kassert(block != nullptr);
+        if (block == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::TryAgain);
+        }
+        PScopeFail contextCleanup([&block]() { s_FreeList.Append(block); });
+        if (doLoad)
+        {
+            const ssize_t bytesRead = kpread_trw(m_Device, block->m_Buffer, BUFFER_BLOCK_SIZE, bufferNum * BUFFER_BLOCK_SIZE);
+            if (bytesRead != BUFFER_BLOCK_SIZE) {
+                PERROR_THROW_CODE(PErrorCode::IOError);
             }
-            else if (s_MRUList.m_First != nullptr)
-            {
-                for (block = s_MRUList.m_First; block != nullptr && (block->m_UseCount != 0 /*|| block->IsFlushing() || block->IsDirty()*/); block = block->m_Next) /*EMPTY*/;
-                if (block == nullptr) {
-                    s_FlushingRequestConditionVar.WakeupAll();
-                    s_FlushingDoneConditionVar.Wait(s_Mutex);
-                    continue;
-                }
-                if (block->IsFlushing())
-                {
-                    s_FlushingDoneConditionVar.Wait(s_Mutex);
-                    continue;
-                }
-                if (block->IsDirty())
-                {
-                    block->SetFlushRequested(true);
-                    s_FlushingRequestConditionVar.WakeupAll();
-                    s_FlushingDoneConditionVar.Wait(s_Mutex);
-                    continue;
-                }
-                s_MRUList.Remove(block);
-                auto i = m_BlockMap.find(block->m_bufferNumber);
-                if (i != m_BlockMap.end()) {
-                    m_BlockMap.erase(i);
-                }
-            }
-            else
-            {
-                printf("ERROR: KBlockCache::GetBlock() all cache blocks locked!\n");
-                return KCacheBlockDesc();
-            }
-            if (block != nullptr)
-            {
-                if (doLoad)
-                {
-                    ssize_t bytesRead;
-                    if (FileIO::Read(m_Device, block->m_Buffer, BUFFER_BLOCK_SIZE, bufferNum * BUFFER_BLOCK_SIZE, bytesRead) != PErrorCode::Success) {
-                        printf("ERROR: KBlockCache::GetBlock() failed to read block %" PRIu64 " from disk: %s\n", bufferNum * BUFFER_BLOCK_SIZE, strerror(get_last_error()));
-                        s_FreeList.Append(block);
-                        return KCacheBlockDesc();
-                    }
-                }
-                s_MRUList.Append(block);
-                block->m_UseCount     = 1;
-                block->m_Flags        = 0;
-                block->m_Device       = m_Device;
-                block->m_bufferNumber = bufferNum;
-                m_BlockMap[bufferNum] = block;
+        }
+        s_MRUList.Append(block);
+        block->m_UseCount     = 1;
+        block->m_Flags        = 0;
+        block->m_Device       = m_Device;
+        block->m_bufferNumber = bufferNum;
+        m_BlockMap[bufferNum] = block;
                 
 //                kprintf("Block %" PRIu64 " read\n", bufferNum);
                 
-                return KCacheBlockDesc(block, blockOffset);
-            }
-            return KCacheBlockDesc();
-        }
+        return KCacheBlockDesc(block, blockOffset);
     }
     printf("ERROR: KBlockCache::GetBlock() to many retries. All blocks stuck in busy state.\n");
-    return KCacheBlockDesc();
+    PERROR_THROW_CODE(PErrorCode::TryAgain);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -280,47 +280,29 @@ bool KBlockCache::MarkBlockDirty(off64_t blockNum)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KBlockCache::CachedRead(off64_t blockNum, void* buffer, size_t blockCount)
+void KBlockCache::CachedRead_trw(off64_t blockNum, void* buffer, size_t blockCount)
 {
     for (size_t i = 0 ; i < blockCount ; ++i)
     {
-        KCacheBlockDesc block = GetBlock(blockNum + i, true);
-
-        if (block.m_Buffer != nullptr) {
-            memcpy(reinterpret_cast<uint8_t*>(buffer) + i * m_BlockSize, block.m_Buffer, m_BlockSize);
-        } else {
-            printf( "KBlockCache::CachedRead() failed to find block %d / %" PRIu64 "\n", m_Device, blockNum + i);
-            return PErrorCode::IOError;
-        }
+        KCacheBlockDesc block = GetBlock_trw(blockNum + i, true);
+        memcpy(reinterpret_cast<uint8_t*>(buffer) + i * m_BlockSize, block.m_Buffer, m_BlockSize);
     }
-    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KBlockCache::CachedWrite(off64_t blockNum, const void* buffer, size_t blockCount)
+void KBlockCache::CachedWrite_trw(off64_t blockNum, const void* buffer, size_t blockCount)
 {
     for (size_t i = 0 ; i < blockCount ; ++i)
     {
-        KCacheBlockDesc block = GetBlock(blockNum + i, false);
-//        KCacheBlockDesc block = GetBlock(blockNum + i, true);
-
-        if (block.m_Buffer != nullptr)
-        {
+        KCacheBlockDesc block = GetBlock_trw(blockNum + i, false);
 //            kprintf("Block %" PRIu64 " written\n", blockNum + i);
-            memcpy(block.m_Buffer, reinterpret_cast<const uint8_t*>(buffer) + i * m_BlockSize, m_BlockSize);
-            CRITICAL_SCOPE(s_Mutex);
-            block.m_Block->SetDirty(true);
-        }
-        else
-        {
-            printf("KBlockCache::CachedWrite() failed to find block %d / %" PRIu64 "\n", m_Device, blockNum + i);
-            return PErrorCode::IOError;
-        }
+        memcpy(block.m_Buffer, reinterpret_cast<const uint8_t*>(buffer) + i * m_BlockSize, m_BlockSize);
+        CRITICAL_SCOPE(s_Mutex);
+        block.m_Block->SetDirty(true);
     }
-    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -410,7 +392,7 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
             m_Flags |= BCF_DIRTY;
             KBlockCache::s_DirtyBlockCount++;
 
-            m_DirtyTime = get_system_time();
+            m_DirtyTime = kget_monotonic_time();
             if (KBlockCache::s_DirtyBlockCount == 1) {
                 kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "Cache dirty\n");
             }
@@ -499,7 +481,7 @@ void KCacheBlockDesc::Reset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCount)
+bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t blockCount)
 {
     kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() flushing %d blocks.\n", blockCount);
 
@@ -509,7 +491,7 @@ bool KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCoun
 
 //    printf("Flush %d blocks\n", blockCount);
 
-    TimeValNanos curTime = kget_system_time();
+    TimeValNanos curTime = kget_monotonic_time();
 
     size_t start = 0;
     bool    requiredSegment = false;
@@ -544,11 +526,16 @@ bool KBlockCache::FlushBlockList(KCacheBlockHeader** blockList, size_t blockCoun
 //                printf("  %" PRId64 ":%d\n", blockList[start]->m_bufferNumber, segmentCount);
 
                 s_Mutex.Unlock();
-                ssize_t bytesWritten;
-                if (FileIO::Write(blockList[start]->m_Device, segments, segmentCount, blockList[start]->m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE, bytesWritten) != PErrorCode::Success) {
-                    kernel_log(LogCatKernel_BlockCache, KLogSeverity::CRITICAL, "Failed to flush block %" PRId64 ":%d from device %d\n", blockList[start]->m_bufferNumber, segmentCount, blockList[start]->m_Device);
+                try
+                {
+                    kpwritev_trw(blockList[start]->m_Device, segments, segmentCount, blockList[start]->m_bufferNumber * KBlockCache::BUFFER_BLOCK_SIZE);
+                    anythingFlushed = true;
                 }
-                anythingFlushed = true;
+                PERROR_CATCH(([&blockList, &start, &segmentCount](PErrorCode error)
+                    {
+                        kernel_log(LogCatKernel_BlockCache, KLogSeverity::CRITICAL, "Failed to flush block %" PRId64 ":%d from device %d\n", blockList[start]->m_bufferNumber, segmentCount, blockList[start]->m_Device);
+                    }
+                ));
                 s_Mutex.Lock();
 
                 for (size_t j = start; j < i; ++j)
@@ -590,39 +577,43 @@ void* KBlockCache::DiskCacheFlusher(void* arg)
         KVFSManager::FlushInodes();
         CRITICAL_BEGIN(s_Mutex)
         {
-            if (s_DirtyBlockCount > 0)
+            try
             {
-                static KCacheBlockHeader* blockList[BC_FLUSH_COUNT];
-                int blocksFlushed = 0;
-                int deviceID = -1;
-                for (KCacheBlockHeader* block = s_MRUList.m_First; block != nullptr && blocksFlushed < BC_FLUSH_COUNT && s_DirtyBlockCount > 0; block = block->m_Next)
+                if (s_DirtyBlockCount > 0)
                 {
-                    if (block->IsDirty() && !block->IsFlushing())
+                    static KCacheBlockHeader* blockList[BC_FLUSH_COUNT];
+                    int blocksFlushed = 0;
+                    int deviceID = -1;
+                    for (KCacheBlockHeader* block = s_MRUList.m_First; block != nullptr && blocksFlushed < BC_FLUSH_COUNT && s_DirtyBlockCount > 0; block = block->m_Next)
                     {
-                        if (deviceID == -1) deviceID = block->m_Device;
-                        if (block->m_Device == deviceID)
+                        if (block->IsDirty() && !block->IsFlushing())
                         {
-                            block->SetIsFlushing(true);
-                            blockList[blocksFlushed++] = block;
+                            if (deviceID == -1) deviceID = block->m_Device;
+                            if (block->m_Device == deviceID)
+                            {
+                                block->SetIsFlushing(true);
+                                blockList[blocksFlushed++] = block;
+                            }
                         }
                     }
+                    const bool anythingFlushed = FlushBlockList_trw(blockList, blocksFlushed);
+                    for (size_t i = 0; i < blocksFlushed; ++i)
+                    {
+                        KCacheBlockHeader* block = blockList[i];
+                        block->SetIsFlushing(false);
+                    }
+                    if (anythingFlushed) {
+                        s_FlushingDoneConditionVar.WakeupAll();
+                    } else {
+                        s_FlushingRequestConditionVar.WaitTimeout(s_Mutex, FLUSH_PERIODE);
+                    }
                 }
-                bool anythingFlushed = FlushBlockList(blockList, blocksFlushed);
-                for (size_t i = 0; i < blocksFlushed; ++i)
+                else
                 {
-                    KCacheBlockHeader* block = blockList[i];
-                    block->SetIsFlushing(false);
-                }
-                if (anythingFlushed) {
-                    s_FlushingDoneConditionVar.WakeupAll();
-                } else {
                     s_FlushingRequestConditionVar.WaitTimeout(s_Mutex, FLUSH_PERIODE);
                 }
             }
-            else
-            {
-                s_FlushingRequestConditionVar.WaitTimeout(s_Mutex, FLUSH_PERIODE);
-            }
+            PERROR_CATCH(([](PErrorCode error) { kernel_log(LogCatKernel_BlockCache, KLogSeverity::CRITICAL, "Exception caught during disk cache flushing.\n"); }));
         } CRITICAL_END;
     }
 }

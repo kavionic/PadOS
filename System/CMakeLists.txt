@@ -1,6 +1,7 @@
 target_sources(PadOS_System PRIVATE
   HandleObject.cpp
   NewlibRetargetLocking.cpp
+  Time.cpp
 )
 
 add_subdirectory(GUI)

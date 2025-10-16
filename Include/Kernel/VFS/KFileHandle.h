@@ -25,8 +25,9 @@
 #include <stddef.h>
 #include <fcntl.h>
 
-#include "Ptr/PtrTarget.h"
-#include "Ptr/Ptr.h"
+#include <Kernel/Kernel.h>
+#include <Ptr/PtrTarget.h>
+#include <Ptr/Ptr.h>
 #include "KINode.h"
 
 namespace kernel
@@ -37,13 +38,13 @@ class KFileTableNode : public PtrTarget
 public:
     KFileTableNode(bool isDirectory, int openFlags) : m_IsDirectory(isDirectory), m_OpenFlags(openFlags & ~O_CREAT) {}
 
-    inline void         SetINode(Ptr<KINode> inode) { m_INode = inode; }
-    inline Ptr<KINode>  GetINode()                  { return m_INode; }
-    inline bool         IsDirectory() const         { return m_IsDirectory; }
-    inline void         SetOpenFlags(int flags)     { m_OpenFlags = flags; }
-    inline int          GetOpenFlags() const        { return m_OpenFlags; }
-    inline bool         HasReadAccess() const       { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDWR; }
-    inline bool         HasWriteAccess() const      { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDWR; }
+    inline void         SetINode(Ptr<KINode> inode) noexcept    { m_INode = inode; }
+    inline Ptr<KINode>  GetINode() noexcept                     { kassert(m_INode != nullptr); return m_INode; }
+    inline bool         IsDirectory() const noexcept            { return m_IsDirectory; }
+    inline void         SetOpenFlags(int flags) noexcept        { m_OpenFlags = flags; }
+    inline int          GetOpenFlags() const noexcept           { return m_OpenFlags; }
+    inline bool         HasReadAccess() const noexcept          { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDWR; }
+    inline bool         HasWriteAccess() const noexcept         { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDWR; }
 private:
     Ptr<KINode> m_INode;
     bool        m_IsDirectory;
@@ -55,7 +56,7 @@ class KFileNode : public KFileTableNode
 public:
     inline KFileNode(int openFlags) : KFileTableNode(false, openFlags) {}
         
-    IFLASHC virtual bool LastReferenceGone() override;
+    virtual bool LastReferenceGone() override;
 
     off64_t     m_Position = 0;
 };
@@ -65,10 +66,10 @@ class KDirectoryNode : public KFileTableNode
 public:
     inline KDirectoryNode(int openFlags) : KFileTableNode(true, openFlags) {}
 
-    IFLASHC virtual bool LastReferenceGone() override;
-        
-    IFLASHC int ReadDirectory(dirent_t* entry, size_t bufSize);
-    IFLASHC int RewindDirectory();
+    virtual bool LastReferenceGone() override;
+    
+    size_t ReadDirectory(dirent_t* entry, size_t bufSize);
+    void RewindDirectory();
 };
 
 

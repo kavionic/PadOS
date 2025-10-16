@@ -26,6 +26,7 @@
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KINode.h>
 #include <Kernel/VFS/KFileHandle.h>
+#include <System/ExceptionHandling.h>
 
 using namespace kernel;
 using namespace os;
@@ -319,13 +320,20 @@ PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* rea
 
 PErrorCode KObjectWaitGroup::AddFile(int fileHandle, ObjectWaitMode waitMode)
 {
-    Ptr<KINode> inode;
-    Ptr<KFileNode> file;
-    PErrorCode result = FileIO::GetFile(fileHandle, file, inode);
-    if (result != PErrorCode::Success) {
-        return result;
+    try
+    {
+        Ptr<KINode> inode;
+        Ptr<KFileNode> file = kget_file_node_trw(fileHandle, inode);
+        return AddObject(inode, waitMode);
     }
-    return AddObject(inode, waitMode);
+    catch (const std::system_error& error)
+    {
+        return PErrorCode(error.code().value());
+    }
+    catch (const std::bad_alloc& error)
+    {
+        return PErrorCode::NoMemory;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -334,13 +342,13 @@ PErrorCode KObjectWaitGroup::AddFile(int fileHandle, ObjectWaitMode waitMode)
 
 PErrorCode KObjectWaitGroup::RemoveFile(int fileHandle, ObjectWaitMode waitMode)
 {
-    Ptr<KINode> inode;
-    Ptr<KFileNode> file;
-    PErrorCode result = FileIO::GetFile(fileHandle, file, inode);
-    if (result != PErrorCode::Success) {
-        return result;
+    try
+    {
+        Ptr<KINode> inode;
+        Ptr<KFileNode> file = kget_file_node_trw(fileHandle, inode);
+        return RemoveObject(inode, waitMode);
     }
-    return RemoveObject(inode, waitMode);
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -352,9 +360,7 @@ PErrorCode create_object_wait_group(handle_id& outHandle, const char* name)
     try {
         return KNamedObject::RegisterObject(outHandle, ptr_new<KObjectWaitGroup>(name));
     }
-    catch (const std::bad_alloc& error) {
-        return PErrorCode::NoMemory;
-    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -437,7 +443,7 @@ PErrorCode object_wait_group_wait(handle_id handle, handle_id mutexHandle, void*
 
 PErrorCode object_wait_group_wait_timeout_ns(handle_id handle, handle_id mutexHandle, bigtime_t timeout, void* readyFlagsBuffer, size_t readyFlagsSize)
 {
-    return object_wait_group_wait_deadline_ns(handle, mutexHandle, (timeout != TimeValNanos::infinit.AsNanoseconds()) ? (sys_get_system_time() + timeout) : TimeValNanos::infinit.AsNanoseconds(), readyFlagsBuffer, readyFlagsSize);
+    return object_wait_group_wait_deadline_ns(handle, mutexHandle, (timeout != TimeValNanos::infinit.AsNanoseconds()) ? (kget_monotonic_time_ns() + timeout) : TimeValNanos::infinit.AsNanoseconds(), readyFlagsBuffer, readyFlagsSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

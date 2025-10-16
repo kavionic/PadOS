@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 #include <sys/fcntl.h>
 #include <limits.h>
@@ -27,7 +28,6 @@
 #include <Storage/FileReference.h>
 #include <Storage/Path.h>
 #include <System/System.h>
-#include <Kernel/VFS/FileIO.h>
 
 using namespace os;
 
@@ -254,7 +254,7 @@ bool File::FillBuffer(off64_t position) const
     const int fileDescriptor = GetFileDescriptor();
     for(;;)
     {
-        ssize_t length = FileIO::Read(fileDescriptor, m_Buffer, m_BufferSize, position);
+        ssize_t length = pread(fileDescriptor, m_Buffer, m_BufferSize, position);
         if (length < 0)
         {
             if (errno == EINTR) {
@@ -388,7 +388,7 @@ bool File::Flush() const
 
         while (size > 0)
         {
-            ssize_t bytesWritten = FileIO::Write(fileDescriptor, m_Buffer + offset, size, m_BufferPosition + offset);
+            ssize_t bytesWritten = pwrite(fileDescriptor, m_Buffer + offset, size, m_BufferPosition + offset);
             if (bytesWritten < 0)
             {
                 if (errno == EINTR) {
@@ -510,7 +510,7 @@ ssize_t File::ReadPos(off64_t position, void* buffer, ssize_t size) const
 
     if (fileDescriptor == -1) 
     if (m_BufferSize == 0) {
-        return FileIO::Read(fileDescriptor, buffer, size, position);
+        return pread(fileDescriptor, buffer, size, position);
     }
     if (m_Buffer == nullptr)
     {
@@ -529,7 +529,7 @@ ssize_t File::ReadPos(off64_t position, void* buffer, ssize_t size) const
         ssize_t preSize = size - m_BufferSize;
         if (m_ValidBufferSize == 0 || position + preSize <= m_BufferPosition || position > m_BufferPosition + m_ValidBufferSize)
         {
-            ssize_t currentBytesRead = FileIO::Read(fileDescriptor, buffer, preSize, position);
+            ssize_t currentBytesRead = pread(fileDescriptor, buffer, preSize, position);
             if (currentBytesRead < 0) {
                 return currentBytesRead;
             }
@@ -577,7 +577,7 @@ ssize_t File::WritePos(off64_t position, const void* buffer, ssize_t size)
     const int fileDescriptor = GetFileDescriptor();
 
     if (m_BufferSize == 0) {
-        return FileIO::Write(fileDescriptor, buffer, size, position);
+        return pwrite(fileDescriptor, buffer, size, position);
     }
     if (m_Buffer == nullptr)
     {
@@ -596,7 +596,7 @@ ssize_t File::WritePos(off64_t position, const void* buffer, ssize_t size)
         ssize_t preSize = size - m_BufferSize;
         if (m_ValidBufferSize == 0 || position + preSize <= m_BufferPosition || position > m_BufferPosition + m_ValidBufferSize)
         {
-            ssize_t currentBytesWritten = FileIO::Write(fileDescriptor, buffer, preSize, position);
+            ssize_t currentBytesWritten = pwrite(fileDescriptor, buffer, preSize, position);
             if (currentBytesWritten < 0) {
                 return currentBytesWritten;
             }

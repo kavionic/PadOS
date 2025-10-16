@@ -25,7 +25,7 @@
 
 #include <System/Types.h>
 #include <System/ErrorCodes.h>
-#include <System/SysTime.h>
+#include <System/TimeValue.h>
 
 static constexpr TimeValNanos INFINIT_TIMEOUT = TimeValNanos::FromNanoseconds(std::numeric_limits<bigtime_t>::max());
 

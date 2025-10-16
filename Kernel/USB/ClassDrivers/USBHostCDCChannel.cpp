@@ -20,6 +20,7 @@
 
 #include <DeviceControl/USART.h>
 #include <Utils/Utils.h>
+#include <System/ExceptionHandling.h>
 #include <Kernel/USB/USBHost.h>
 #include <Kernel/USB/ClassDrivers/USBHostCDCChannel.h>
 #include <Kernel/VFS/KFSVolume.h>
@@ -113,12 +114,12 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     m_DeviceAddress = deviceAddr;
 
     if (interfaceDesc->bInterfaceClass != USB_ClassCode::CDC || USB_CDC_CommSubclassType(interfaceDesc->bInterfaceSubClass) != USB_CDC_CommSubclassType::ABSTRACT_CONTROL_MODEL) {
-        return nullptr;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
 
     USBDeviceNode* device = m_HostHandler->GetDevice(deviceAddr);
     if (device == nullptr) {
-        return nullptr;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
 
     const USB_DescriptorHeader* desc = interfaceDesc->GetNext();
@@ -137,7 +138,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
         }
         const USB_DescEndpoint* endpointDesc = static_cast<const USB_DescEndpoint*>(desc);
         if (!endpointDesc->Validate(device->m_Speed)) {
-            return nullptr;
+            PERROR_THROW_CODE(PErrorCode::IOError);
         }
         if (endpointDesc->bEndpointAddress & USB_ADDRESS_DIR_IN)
         {
@@ -148,7 +149,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     }
     if (m_NotificationEndpoint == USB_INVALID_ENDPOINT)
     {
-        return nullptr;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
 
     for (; desc < endDesc; desc = desc->GetNext())
@@ -161,7 +162,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     interfaceDesc = static_cast<const USB_DescInterface*>(desc);
     if (desc >= endDesc || interfaceDesc->bInterfaceClass != USB_ClassCode::CDC_DATA) {
         kernel_log(LogCategoryUSBHost, KLogSeverity::WARNING, "USBH: CDC cannot find the interface for data interface.\n");
-        return nullptr; // No data interface;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
 
     for (desc = desc->GetNext(); desc < endDesc; desc = desc->GetNext())
@@ -173,7 +174,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
         }
         const USB_DescEndpoint* endpointDesc = static_cast<const USB_DescEndpoint*>(desc);
         if (!endpointDesc->Validate(device->m_Speed)) {
-            return nullptr;
+            PERROR_THROW_CODE(PErrorCode::IOError);
         }
         if (endpointDesc->bEndpointAddress & USB_ADDRESS_DIR_IN)
         {
@@ -192,7 +193,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     if (m_DataEndpointIn == USB_INVALID_ENDPOINT || m_DataEndpointOut == USB_INVALID_ENDPOINT)
     {
         kernel_log(LogCategoryUSBHost, KLogSeverity::WARNING, "USBH: CDC cannot find the endpoints for data interface.\n");
-        return nullptr;
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
 
     m_NotificationPipe  = m_HostHandler->AllocPipe(m_NotificationEndpoint);
@@ -211,9 +212,9 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     m_InEndpointBuffer.resize(m_DataEndpointInSize);
 
     if (m_DevNodeHandle != -1 ) {
-        Kernel::RemoveDevice(m_DevNodeHandle);
+        Kernel::RemoveDevice_trw(m_DevNodeHandle);
     }
-    m_DevNodeHandle = Kernel::RegisterDevice(String::format_string("com/uhp%u", channelIndex).c_str(), ptr_tmp_cast(this));
+    m_DevNodeHandle = Kernel::RegisterDevice_trw(String::format_string("com/uhp%u", channelIndex).c_str(), ptr_tmp_cast(this));
 
     return desc;
 }
@@ -250,7 +251,7 @@ void USBHostCDCChannel::Close()
     m_IsActive = false;
 
     if (m_DevNodeHandle != -1) {
-        Kernel::RemoveDevice(m_DevNodeHandle);
+        Kernel::RemoveDevice_trw(m_DevNodeHandle);
         m_DevNodeHandle = -1;
     }
 
@@ -291,7 +292,7 @@ ssize_t USBHostCDCChannel::GetReadBytesAvailable() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode USBHostCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t USBHostCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
     if (m_IsActive)
     {
@@ -308,11 +309,10 @@ PErrorCode USBHostCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t len
             }
             else
             {
-                outLength = 0;
-                return PErrorCode::Success;
+                return 0;
             }
         }
-        const ssize_t result = m_ReceiveFIFO.Read(buffer, length);
+        const size_t result = m_ReceiveFIFO.Read(buffer, length);
         if (result != 0)
         {
             if (m_HostHandler->GetURBState(m_DataPipeIn) == USB_URBState::Idle)
@@ -323,17 +323,16 @@ PErrorCode USBHostCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t len
                 }
             }
         }
-        outLength = result;
-        return PErrorCode::Success;
+        return result;
     }
-    return PErrorCode::BrokenPipe;
+    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
 }
 
 /////////////////////////////////////////////////////////////////////////////////
 ///// \author Kurt Skauen
 /////////////////////////////////////////////////////////////////////////////////
 
-PErrorCode USBHostCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t USBHostCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
     if (m_IsActive)
     {
@@ -349,18 +348,17 @@ PErrorCode USBHostCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, siz
                     const PErrorCode result = m_TransmitCondition.Wait(m_HostHandler->GetMutex());
                     if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
                     {
-                        return result;
+                        PERROR_THROW_CODE(result);
                     }
                     if (!m_IsActive)
                     {
-                        return PErrorCode::BrokenPipe;
+                        PERROR_THROW_CODE(PErrorCode::BrokenPipe);
                     }
                 }
             }
             else
             {
-                outLength = 0;
-                return PErrorCode::Success;
+                return 0;
             }
         }
         const size_t result = m_TransmitFIFO.Write(buffer, std::min(m_TransmitFIFO.GetRemainingSpace(), length));
@@ -368,17 +366,16 @@ PErrorCode USBHostCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, siz
         if ((file->GetOpenFlags() & (O_SYNC | O_DIRECT)) || m_TransmitFIFO.GetLength() >= m_InEndpointBuffer.size()) {
             FlushInternal();
         }
-        outLength = result;
-        return PErrorCode::Success;
+        return result;
     }
-    return PErrorCode::BrokenPipe;
+    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int USBHostCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* outStats)
+void USBHostCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* outStats)
 {
     outStats->st_dev = dev_t(volume->m_VolumeID);
     outStats->st_ino = node->m_INodeID;
@@ -394,15 +391,13 @@ int USBHostCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct 
     outStats->st_size = 0;
     outStats->st_blksize = 1;
     outStats->st_atim = outStats->st_mtim = outStats->st_ctim = m_CreateTime.AsTimespec();
-
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int USBHostCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void USBHostCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     switch (request)
     {
@@ -413,28 +408,25 @@ int USBHostCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const voi
                 USB_CDC_LineCoding linecoding = m_LineCoding;
                 linecoding.dwDTERate = baudrate;
                 SetLineCoding(linecoding);
-                return 0;
+                return;
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_BAUDRATE:
             if (outDataLength == sizeof(int))
             {
                 int* baudrate = (int*)outData;
                 *baudrate = m_LineCoding.dwDTERate;
-                return 0;
+                return;
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         default:
-            set_last_error(EINVAL);
-            return -1;
+            PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 }
 
@@ -442,16 +434,16 @@ int USBHostCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const voi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBHostCDCChannel::Sync(Ptr<KFileNode> file)
+void USBHostCDCChannel::Sync(Ptr<KFileNode> file)
 {
     if (m_IsActive)
     {
         kassert(!m_HostHandler->GetMutex().IsLocked());
         CRITICAL_SCOPE(m_HostHandler->GetMutex());
-        return FlushInternal();
+        FlushInternal();
+        return;
     }
-    set_last_error(EPIPE);
-    return -1;
+    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -494,7 +486,7 @@ void USBHostCDCChannel::ReqSetLineCoding(USB_CDC_LineCoding* linecoding)
 ///// \author Kurt Skauen
 /////////////////////////////////////////////////////////////////////////////////
 
-ssize_t USBHostCDCChannel::FlushInternal()
+void USBHostCDCChannel::FlushInternal()
 {
     kassert(m_HostHandler->GetMutex().IsLocked());
 
@@ -513,9 +505,7 @@ ssize_t USBHostCDCChannel::FlushInternal()
                 m_HostHandler->BulkSendData(m_DataPipeOut, m_OutEndpointBuffer.data(), m_CurrentTxTransactionLength, true, bind_method(this, &USBHostCDCChannel::SendTransactionCallback));
             }
         }
-        return length;
     }
-    return 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////////

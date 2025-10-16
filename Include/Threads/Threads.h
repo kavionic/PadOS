@@ -22,8 +22,8 @@
 #include <sys/pados_types.h>
 #include <sys/pados_mutex.h>
 #include <sys/pados_syscalls.h>
-#include "System/SysTime.h"
-#include "Kernel/KNamedObject.h"
+#include <System/TimeValue.h>
+#include <Kernel/KNamedObject.h>
 
 
 static constexpr uint8_t THREAD_STACK_FILLER = 0x5f;
@@ -34,17 +34,11 @@ status_t  wakeup_thread(thread_id handle);
 inline PErrorCode snooze_until(TimeValNanos resumeTime) { return __snooze_until(resumeTime.AsNanoseconds()); }
 inline PErrorCode snooze(TimeValNanos delay) { return __snooze_ns(delay.AsNanoseconds()); }
 
-//status_t snooze_us(bigtime_t micros);
 inline PErrorCode snooze_ms(bigtime_t millis) { return snooze(TimeValNanos::FromMilliseconds(millis)); }
-//status_t snooze_s(bigtime_t seconds);
 
 PErrorCode ksnooze_until(TimeValNanos resumeTime);
 PErrorCode ksnooze(TimeValNanos delay);
 inline PErrorCode ksnooze_ms(bigtime_t millis) { return ksnooze(TimeValNanos::FromMilliseconds(millis)); }
-
-//status_t ksnooze_us(bigtime_t micros);
-//status_t ksnooze_ms(bigtime_t millis);
-//status_t ksnooze_s(bigtime_t seconds);
 
 PErrorCode create_object_wait_group(handle_id& outHandle, const char* name);
 

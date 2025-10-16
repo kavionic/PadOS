@@ -29,10 +29,10 @@ public:
     template<typename... EASE_ARGS>
     ValueAnimator(EASE_ARGS&& ...easeArgs) : m_EasingCurve(std::forward<EASE_ARGS>(easeArgs)...) {}
 
-    void            Start() { m_StartTime = get_system_time(); }
+    void            Start() { m_StartTime = get_monotonic_time(); }
     void            Reverse()
     {
-        TimeValNanos curTime = get_system_time();
+        TimeValNanos curTime = get_monotonic_time();
 
         std::swap(m_StartValue, m_EndValue);
 
@@ -47,7 +47,7 @@ public:
             }
         }
     }
-    bool            IsRunning() { return m_StartTime.AsNative() != 0 && (get_system_time() - m_StartTime) < m_Period; }
+    bool            IsRunning() { return m_StartTime.AsNative() != 0 && (get_monotonic_time() - m_StartTime) < m_Period; }
     void            SetPeriod(TimeValNanos period) { m_Period = period; }
     TimeValNanos    GetPeriod() const { return m_Period; }
 
@@ -67,7 +67,7 @@ public:
         }
         else
         {
-            TimeValNanos curTime = get_system_time();
+            TimeValNanos curTime = get_monotonic_time();
             if ((curTime - m_StartTime) < m_Period) {
                 return (curTime - m_StartTime).AsSecondsF() / m_Period.AsSecondsF();
             }

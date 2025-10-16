@@ -40,7 +40,7 @@ public:
     IFLASHC SDMMCDriver_STM32();
     IFLASHC ~SDMMCDriver_STM32();
 
-    IFLASHC bool Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, uint32_t clockCap, DigitalPinID pinCD, IRQn_Type irqNum);
+    IFLASHC void Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, uint32_t clockCap, DigitalPinID pinCD, IRQn_Type irqNum);
 
 
 	IFLASHC virtual void     Reset() override;

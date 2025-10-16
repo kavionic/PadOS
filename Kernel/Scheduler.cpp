@@ -24,6 +24,7 @@
 #include <vector>
 #include <map>
 
+#include <Kernel/KTime.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/HAL/DigitalPort.h>
 #include <Kernel/KProcess.h>
@@ -48,19 +49,18 @@ extern uint8_t _idle_tls_end;
 
 
 kernel::KThreadCB* volatile gk_CurrentThread;
-void* gk_CurrentTLS = nullptr;
 
 namespace kernel
 {
-static uint8_t gk_InitialBlocksBuffer[2][sizeof(KHandleArrayBlock)];
-static Ptr<KHandleArrayBlock> gk_InitialBlocks[2];
+static uint8_t gk_InitialBlocksBuffer[2][sizeof(KHandleArrayBlock)] __attribute__((aligned(8)));
+static Ptr<KHandleArrayBlock> gk_InitialBlocks[2] __attribute__((aligned(8)));
 
-static uint8_t gk_FirstProcessBuffer[sizeof(KProcess)];
+static uint8_t gk_FirstProcessBuffer[sizeof(KProcess)] __attribute__((aligned(8)));
 static KProcess& gk_FirstProcess = *reinterpret_cast<KProcess*>(gk_FirstProcessBuffer);
 
-static uint8_t gk_IdleThreadBuffer[sizeof(NoPtr<KThreadCB>)];
+static uint8_t gk_IdleThreadBuffer[sizeof(NoPtr<KThreadCB>)] __attribute__((aligned(8)));
 static NoPtr<KThreadCB>& gk_IdleThreadInstance = *reinterpret_cast<NoPtr<KThreadCB>*>(gk_IdleThreadBuffer);
-static uint8_t gk_InitThreadBuffer[sizeof(KThreadCB)];
+static uint8_t gk_InitThreadBuffer[sizeof(KThreadCB)] __attribute__((aligned(8)));
 
 KProcess* volatile gk_CurrentProcess = &gk_FirstProcess;
 
@@ -72,7 +72,7 @@ static KThreadCB* gk_InitThread = nullptr;
 static KThreadList          gk_ReadyThreadLists[KTHREAD_PRIORITY_LEVELS];
 static KThreadWaitList      gk_SleepingThreads;
 static KThreadList          gk_ZombieThreadLists;
-static uint8_t              gk_ThreadTableBuffer[sizeof(KHandleArray<KThreadCB>)];
+static uint8_t              gk_ThreadTableBuffer[sizeof(KHandleArray<KThreadCB>)] __attribute__((aligned(8)));
 KHandleArray<KThreadCB>&    gk_ThreadTable = *reinterpret_cast<KHandleArray<KThreadCB>*>(gk_ThreadTableBuffer);;
 static volatile thread_id   gk_DebugWakeupThread = 0;
 
@@ -105,7 +105,7 @@ void initialize_scheduler_statics()
         gk_IdleThread = &gk_IdleThreadInstance;
         gk_CurrentThread = gk_IdleThread;
 
-        gk_CurrentTLS = gk_CurrentThread->m_ThreadLocalBuffer;
+        current_thread_control_block = gk_CurrentThread->m_ControlBlock;
 
         for (size_t i = 0; i < ARRAY_COUNT(gk_InitialBlocksBuffer); ++i)
         {
@@ -130,7 +130,7 @@ void initialize_scheduler_statics()
 extern "C" __attribute__((naked)) void* __aeabi_read_tp(void)
 {
     __asm__ volatile(
-        "ldr   r0, =gk_CurrentTLS \n"
+        "ldr   r0, =current_thread_control_block \n"
         "ldr   r0, [r0]           \n"
         "bx    lr                 \n"
         );
@@ -231,7 +231,7 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
         KThreadCB* const prevThread = gk_CurrentThread;
         const uint32_t stackAddrInt = intptr_t(currentStack);
         prevThread->m_CurrentStackAndPrivilege = stackAddrInt | (controlReg & 0x01); // Store nPRIV in bit 0 of stack address.
-        if (stackAddrInt <= intptr_t(prevThread->GetStackTop()))
+        if (stackAddrInt <= intptr_t(prevThread->GetStackTop())) [[unlikely]]
         {
             panic("Stack overflow!\n");
             return prevThread->m_CurrentStackAndPrivilege;
@@ -249,13 +249,13 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
                     }
                     nextThread->m_State = ThreadState_Running;
                     gk_CurrentThread = nextThread;
-                    gk_CurrentTLS = nextThread->m_ThreadLocalBuffer;
+                    current_thread_control_block = nextThread->m_ControlBlock;
                     nextThread->DebugValidate();
                     break;
                 }
             }
         }
-        if (prevThread->m_State == ThreadState_Zombie)
+        if (prevThread->m_State == ThreadState_Zombie) [[unlikely]]
         {
             if (prevThread->m_DetachState == PThreadDetachState_Detached) {
                 add_thread_to_zombie_list(prevThread);
@@ -264,12 +264,12 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
                 wakeup_wait_queue(&prevThread->GetWaitQueue(), prevThread->m_ReturnValue, 0);
             }
         }
-        const TimeValNanos curTime = TimeValNanos::FromNanoseconds(sys_get_system_time_hires());
+        const TimeValNanos curTime = kget_monotonic_time_hires();
         prevThread->m_RunTime += curTime - prevThread->m_StartTime;
         gk_CurrentThread->m_StartTime = curTime;
     } CRITICAL_END;
 
-    if (__builtin_expect(gk_DebugWakeupThread != 0, 0) && gk_CurrentThread->GetHandle() == gk_DebugWakeupThread)
+    if (gk_DebugWakeupThread != 0 && gk_CurrentThread->GetHandle() == gk_DebugWakeupThread) [[unlikely]]
     {
         gk_DebugWakeupThread = 0;
         __BKPT(0);
@@ -625,7 +625,7 @@ static void* init_thread_entry(void* arguments)
     REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache, KLogSeverity::INFO_LOW_VOL);
     REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler, KLogSeverity::INFO_HIGH_VOL);
 
-    FileIO::Initialze();
+    ksetup_rootfs_trw();
 
     // To avoid any special cases in the first context switch we allow the
     // context switch routine to dump the initial context on the idle-thread's

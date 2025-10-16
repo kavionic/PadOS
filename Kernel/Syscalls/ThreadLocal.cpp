@@ -21,10 +21,11 @@
 
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcess.h>
-
+#include <Kernel/Syscalls.h>
 
 using namespace os;
 using namespace kernel;
+
 
 extern "C"
 {
@@ -33,61 +34,18 @@ extern "C"
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-tls_id sys_thread_local_create_key(TLSDestructor_t destructor)
+PErrorCode sys_thread_local_create_key(tls_id* outKey, TLSDestructor_t destructor)
 {
-    return gk_CurrentProcess->AllocTLSSlot(destructor);
+    return gk_CurrentProcess->AllocTLSSlot(*outKey, destructor);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_thread_local_delete_key(tls_id slot)
+PErrorCode sys_thread_local_delete_key(tls_id key)
 {
-    return gk_CurrentProcess->FreeTLSSlot(slot) ? 0 : -1;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int sys_thread_local_set(tls_id slot, const void* value)
-{
-    if (slot >= 0 && slot < THREAD_MAX_TLS_SLOTS)
-    {
-        KThreadCB* thread = gk_CurrentThread;
-        thread->m_ThreadLocalSlots[slot] = const_cast<void*>(value);
-        return 0;
-    }
-    else
-    {
-        set_last_error(EINVAL);
-        return -1;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-volatile void* p0;
-volatile void* p1;
-volatile void* p2;
-volatile int i0;
-volatile int i1;
-
-void* sys_thread_local_get(tls_id slot)
-{
-    if (slot >= 0 && slot < THREAD_MAX_TLS_SLOTS)
-    {
-        KThreadCB* thread = gk_CurrentThread;
-        return thread->m_ThreadLocalSlots[slot];
-    }
-    else
-    {
-        set_last_error(EINVAL);
-        return nullptr;
-    }
+    return gk_CurrentProcess->FreeTLSSlot(key);
 }
 
 

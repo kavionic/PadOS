@@ -21,6 +21,7 @@
 
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/Scheduler.h>
+#include <Kernel/KTime.h>
 #include <Kernel/Syscalls.h>
 #include <System/Platform.h>
 #include <System/System.h>
@@ -116,6 +117,8 @@ IFLASHC bool is_in_isr()
 
 } // namespace
 
+using namespace kernel;
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -123,7 +126,7 @@ IFLASHC bool is_in_isr()
 IFLASHC TimeValNanos get_total_irq_time()
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
-    return kernel::gk_TotalIRQTime;
+    return gk_TotalIRQTime;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -132,36 +135,34 @@ IFLASHC TimeValNanos get_total_irq_time()
 
 extern "C" IFLASHC void KernelHandleIRQ()
 {
-    TimeValNanos start = kget_system_time_hires();
-    volatile int vector = SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk;
+    const TimeValNanos start = kget_monotonic_time_hires();
+    const int vector = SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk;
 
-
-    if (vector >= 16)
+    TimeValNanos handlerStart = start;
+    if (vector >= 16) [[likely]]
     {
-        IRQn_Type irqNum = IRQn_Type(vector - 16);
+        const IRQn_Type irqNum = IRQn_Type(vector - 16);
 
-        if (irqNum < IRQ_COUNT)
+        if (irqNum < IRQ_COUNT) [[likely]]
         {
-            TimeValNanos handlerStart = start;
-            for (kernel::KIRQAction* action = kernel::gk_IRQHandlers[irqNum]; action != nullptr; action = action->m_Next)
+            for (KIRQAction* action = gk_IRQHandlers[irqNum]; action != nullptr; action = action->m_Next)
             {
-                kernel::IRQResult result = action->m_Handler(irqNum, action->m_UserData);
-                TimeValNanos curTime = kget_system_time_hires();
-                TimeValNanos delta = curTime - handlerStart;
+                const IRQResult     result = action->m_Handler(irqNum, action->m_UserData);
+                const TimeValNanos  curTime = kget_monotonic_time_hires();
+                const TimeValNanos  delta = curTime - handlerStart;
                 handlerStart = curTime;
                 action->m_RunTime += delta;
-                if (result == kernel::IRQResult::HANDLED) break;
+                if (result == IRQResult::HANDLED) break;
             }
         }
 
     }
     else
     {
-        kernel::panic("Unhandled exception.");
+        panic("Unhandled exception.");
     }
-    const TimeValNanos end = kget_system_time_hires();
-    const TimeValNanos delta = end - start;
+    const TimeValNanos delta = handlerStart - start;
 
     gk_CurrentThread->m_StartTime += delta; // Don't blame the current thread for the time spent handling interrupts.
-    kernel::gk_TotalIRQTime += delta;
+    gk_TotalIRQTime += delta;
 }

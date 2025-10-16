@@ -25,9 +25,10 @@
 
 #include <new>
 
-#include "Kernel/KMessagePort.h"
-#include "Kernel/Kernel.h"
-#include "Threads/Threads.h"
+#include <Kernel/KTime.h>
+#include <Kernel/Kernel.h>
+#include <Threads/Threads.h>
+#include <Kernel/KMessagePort.h>
 
 using namespace kernel;
 
@@ -158,7 +159,7 @@ PErrorCode KMessagePort::SendMessage(handler_id targetHandler, int32_t code, con
 
 PErrorCode KMessagePort::SendMessageTimeout(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValNanos timeout)
 {
-    TimeValNanos deadline = (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit;
+    TimeValNanos deadline = (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit;
     return SendMessageDeadline(targetHandler, code, data, length, deadline);
 }
 
@@ -227,7 +228,7 @@ ssize_t KMessagePort::ReceiveMessage(handler_id* targetHandler, int32_t* code, v
 
 ssize_t KMessagePort::ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValNanos timeout)
 {
-    return ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit);
+    return ReceiveMessageDeadline(targetHandler, code, buffer, bufferSize, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

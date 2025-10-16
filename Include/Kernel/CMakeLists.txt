@@ -12,6 +12,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KSemaphore.h
 	KThreadCB.h
 	KThreadWaitNode.h
+	KTime.h
 	KWaitableObject.h
 	Misc.h
 	Scheduler.h

@@ -44,10 +44,10 @@ public:
                              uint32_t            clockFrequency,
                              USARTDriver*        driver);
 
-    IFLASHC PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, ssize_t& outLength);
-    IFLASHC PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, ssize_t& outLength);
+    IFLASHC ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
+    IFLASHC ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
     IFLASHC virtual bool    AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
-    IFLASHC int     DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    IFLASHC void            DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
 private:
     IFLASHC void SetBaudrate(int baudrate);
@@ -113,17 +113,17 @@ class USARTDriver : public PtrTarget, public KFilesystemFileOps
 public:
     IFLASHC USARTDriver();
 
-    IFLASHC void Setup( const char*         devicePath,
-                USARTID             portID,
-                const PinMuxTarget& pinRX,
-                const PinMuxTarget& pinTX,
-                uint32_t            clockFrequency);
+    IFLASHC void Setup(const char*         devicePath,
+                          USARTID             portID,
+                          const PinMuxTarget& pinRX,
+                          const PinMuxTarget& pinTX,
+                          uint32_t            clockFrequency);
 
     IFLASHC void Setup(const USARTDriverSetup& setup);
 
-    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    IFLASHC virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    IFLASHC virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    IFLASHC virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
     USARTDriver(const USARTDriver &other) = delete;

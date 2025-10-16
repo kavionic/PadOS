@@ -25,10 +25,12 @@
 #include <fcntl.h>
 #include <string.h>
 
+#include <Kernel/KTime.h>
 #include <Kernel/Drivers/STM32/TLV493DDriver.h>
 #include <Kernel/Drivers/STM32/I2CDriver.h>
 #include <DeviceControl/I2C.h>
 #include <System/System.h>
+#include <System/ExceptionHandling.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/Syscalls.h>
@@ -44,9 +46,9 @@ DEFINE_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver);
 
 TLV493DDriver::TLV493DDriver() : Thread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex", PEMutexRecursionMode_RaiseError), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
 {
-	m_Config.frame_rate = 10;
-	m_Config.temparature_scale = 1.0f;
-	m_Config.temperature_offset = 0.0f;
+    m_Config.frame_rate = 10;
+    m_Config.temparature_scale = 1.0f;
+    m_Config.temperature_offset = 0.0f;
 
     SetDeleteOnExit(false);
 }
@@ -63,34 +65,28 @@ TLV493DDriver::~TLV493DDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin)
+void TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin)
 {
     REGISTER_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver, KLogSeverity::ERROR);
 
     m_PowerPin = powerPin;
-	m_I2CDevice = FileIO::Open(i2cPath, O_RDWR);
+    m_I2CDevice = kopen_trw(i2cPath, O_RDWR);
 
-	ConfigChanged();
+    ConfigChanged();
 
-	if (m_I2CDevice >= 0)
+    if (m_PowerPin.IsValid())
     {
-        if (m_PowerPin.IsValid())
-        {
-            m_PowerPin.SetDirection(DigitalPinDirection_e::Out);
-            m_PowerPin.SetDriveStrength(DigitalPinDriveStrength_e::Low);
-            m_PowerPin = true;
-            m_PowerPin.SetDriveStrength(DigitalPinDriveStrength_e::VeryHigh);
-        }
-		snooze_ms(5);
-
-		Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
-		Kernel::RegisterDevice(devicePath, inode);
-		
-        Start(PThreadDetachState_Detached);
-
-        return true;
+        m_PowerPin.SetDirection(DigitalPinDirection_e::Out);
+        m_PowerPin.SetDriveStrength(DigitalPinDriveStrength_e::Low);
+        m_PowerPin = true;
+        m_PowerPin.SetDriveStrength(DigitalPinDriveStrength_e::VeryHigh);
     }
-    return false;
+    snooze_ms(5);
+
+    Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
+    Kernel::RegisterDevice_trw(devicePath, inode);
+
+    Start(PThreadDetachState_Detached);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -99,9 +95,9 @@ bool TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, DigitalPi
 
 void TLV493DDriver::ResetSensor()
 {
-	for (;;)
-	{
-//		printf("Resetting TLV493D.\n");
+    for (;;)
+    {
+//      printf("Resetting TLV493D.\n");
 
         if (m_PowerPin.IsValid())
         {
@@ -110,60 +106,60 @@ void TLV493DDriver::ResetSensor()
             m_PowerPin = true;
             snooze_ms(100);
         }
-		I2CIOCTL_ClearBus(m_I2CDevice);
+        I2CIOCTL_ClearBus(m_I2CDevice);
 
-		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0);
+        I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0);
 
-		int errorCount = 0;
+        int errorCount = 0;
 
-		uint8_t cfg = 0xff;
+        uint8_t cfg = 0xff;
 
-		// Write to slave-address zero to reset the sensor. After the address the sensor read the SDA
-		// to set it's slave-address to one of two values. So writing 0x00 will make it read a '0'
-		// and writing 0xff will make it read a '1'. The actual write operation will return an error
-		// code since the data-byte is being transmitted while the sensor is resetting, and will not
-		// be ack'd.
+        // Write to slave-address zero to reset the sensor. After the address the sensor read the SDA
+        // to set it's slave-address to one of two values. So writing 0x00 will make it read a '0'
+        // and writing 0xff will make it read a '1'. The actual write operation will return an error
+        // code since the data-byte is being transmitted while the sensor is resetting, and will not
+        // be ack'd.
 
-		FileIO::Write(m_I2CDevice, &cfg, 1, 0);
-		I2CIOCTL_SetSlaveAddress(m_I2CDevice, m_DeviceAddress);
+        kpwrite(m_I2CDevice, &cfg, 1, 0);
+        I2CIOCTL_SetSlaveAddress(m_I2CDevice, m_DeviceAddress);
 
-		errorCount = 0;
-        ssize_t bytesRead;
-		while ((FileIO::Read(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters), 0, bytesRead) != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters)) && errorCount++ < 5) {
+        errorCount = 0;
+        size_t bytesRead;
+        while ((kpread(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters), 0, bytesRead) != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters)) && errorCount++ < 5) {
             kernel::kernel_log(LogCategoryTLV493DDriver, kernel::KLogSeverity::CRITICAL, "Error: Failed to read initial TLV493D registers!\n");
-			snooze_ms(10);
-		}
-//		printf("TLV493DDriver: initial registers read.\n");
+            snooze_ms(10);
+        }
+//      printf("TLV493DDriver: initial registers read.\n");
 
-		m_WriteRegisters.Reserved1 = 0;
-		m_WriteRegisters.Mode1 = m_ReadRegisters.DefaultCfg1;
-		m_WriteRegisters.Reserved2 = m_ReadRegisters.DefaultCfg2;
-		m_WriteRegisters.Mode2 = m_ReadRegisters.DefaultCfg3;
+        m_WriteRegisters.Reserved1 = 0;
+        m_WriteRegisters.Mode1 = m_ReadRegisters.DefaultCfg1;
+        m_WriteRegisters.Reserved2 = m_ReadRegisters.DefaultCfg2;
+        m_WriteRegisters.Mode2 = m_ReadRegisters.DefaultCfg3;
 
-		m_WriteRegisters.Mode1 |= TLV493D_MODE1_LOW;
-		m_WriteRegisters.Mode1 |= TLV493D_MODE1_FAST;
-		m_WriteRegisters.Mode1 &= uint8_t(~TLV493D_MODE1_INT);
-		UpdateParity();
+        m_WriteRegisters.Mode1 |= TLV493D_MODE1_LOW;
+        m_WriteRegisters.Mode1 |= TLV493D_MODE1_FAST;
+        m_WriteRegisters.Mode1 &= uint8_t(~TLV493D_MODE1_INT);
+        UpdateParity();
 
-		errorCount = 0;
-        ssize_t bytesWritten;
-		while ((FileIO::Write(m_I2CDevice, &m_WriteRegisters, sizeof(m_WriteRegisters), 0, bytesWritten) != PErrorCode::Success || bytesWritten != sizeof(m_WriteRegisters)) && ++errorCount < 5) {
-			snooze_ms(10);
-		}
+        errorCount = 0;
+        size_t bytesWritten;
+        while ((kpwrite(m_I2CDevice, &m_WriteRegisters, sizeof(m_WriteRegisters), 0, bytesWritten) != PErrorCode::Success || bytesWritten != sizeof(m_WriteRegisters)) && ++errorCount < 5) {
+            snooze_ms(10);
+        }
         if (errorCount == 5)
         {
             kernel::kernel_log(LogCategoryTLV493DDriver, kernel::KLogSeverity::CRITICAL, "Error: Failed to write TLV493D config registers!\n");
             snooze(TimeValNanos::FromSeconds(1.0));
-			continue;
-		}/* else if (errorCount > 0) {
-			printf("TLV493DDriver: config written (%d retries).\n", errorCount);
-		} else {
-			printf("TLV493DDriver: config written.\n");
-		}*/
+            continue;
+        }/* else if (errorCount > 0) {
+            printf("TLV493DDriver: config written (%d retries).\n", errorCount);
+        } else {
+            printf("TLV493DDriver: config written.\n");
+        }*/
 
-		FileIO::Read(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters), 0, bytesRead); // Trigger first conversion
-		break;
-	}
+        kpread(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters), 0, bytesRead); // Trigger first conversion
+        break;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -172,87 +168,87 @@ void TLV493DDriver::ResetSensor()
 
 void* TLV493DDriver::Run()
 {
-	printf("TLV493DDriver: Resetting sensor.");
+    printf("TLV493DDriver: Resetting sensor.");
 
     I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 0);
 
-	ResetSensor();
+    ResetSensor();
 
-    ssize_t bytesRead;
-	const PErrorCode result = FileIO::Read(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters) - 3, 0, bytesRead);
-	if (result != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters) - 3) {
+    size_t bytesRead;
+    const PErrorCode result = kpread(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters) - 3, 0, bytesRead);
+    if (result != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters) - 3) {
         printf("Error: Failed to read initial TLV493D registers! %d (%s)\n", std::to_underlying(result), strerror(std::to_underlying(result)));
-	}
+    }
 
-	int errorCount = 0;
-	int sampleCount = 0;
-	m_LastUpdateTime = kget_system_time();
-	for (;;)
-	{
-		CRITICAL_SCOPE(m_Mutex);
-		m_NewConfigCondition.WaitDeadline(m_Mutex, m_LastUpdateTime + m_PeriodTime);
+    int errorCount = 0;
+    int sampleCount = 0;
+    m_LastUpdateTime = kget_monotonic_time();
+    for (;;)
+    {
+        CRITICAL_SCOPE(m_Mutex);
+        m_NewConfigCondition.WaitDeadline(m_Mutex, m_LastUpdateTime + m_PeriodTime);
 
-		if (errorCount >= 3) {
-//			printf("Error: TLV493D to many errors. Reset sensor.\n");
-			ResetSensor();
-			errorCount = 0;
-		}
+        if (errorCount >= 3) {
+//          printf("Error: TLV493D to many errors. Reset sensor.\n");
+            ResetSensor();
+            errorCount = 0;
+        }
 
-        TimeValNanos currentTime = kget_system_time();
+        TimeValNanos currentTime = kget_monotonic_time();
         TimeValNanos timeSinceLastUpdate = currentTime - m_LastUpdateTime;
 
-		if (timeSinceLastUpdate < m_PeriodTime) continue;
+        if (timeSinceLastUpdate < m_PeriodTime) continue;
 
-		if (timeSinceLastUpdate < m_PeriodTime * 2LL) {
-			m_LastUpdateTime += m_PeriodTime;
-		} else {
-			m_LastUpdateTime = currentTime;	// Catch-up if we are falling too far behind.
-		}
+        if (timeSinceLastUpdate < m_PeriodTime * 2LL) {
+            m_LastUpdateTime += m_PeriodTime;
+        } else {
+            m_LastUpdateTime = currentTime; // Catch-up if we are falling too far behind.
+        }
 
-		uint8_t	lastFrame = m_ReadRegisters.TempHFrmCh & TLV493D_FRAME;
-        ssize_t bytesRead;
-		PErrorCode result = FileIO::Read(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters) - 3, 0, bytesRead);
-		if (result != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters) - 3) {
-			errorCount++;
-			printf("Error: Failed to read TLV493D registers! %d (%s)\n", std::to_underlying(result), strerror(std::to_underlying(result)));
-			continue;
-		}
-		if ((m_ReadRegisters.TempHFrmCh & TLV493D_FRAME) == lastFrame) {
-			errorCount++;
-//			if (errorCount > 1) {
-//				printf("Error: TLV493D frame counter didn't advance %d.\n", errorCount);
-//			}
-			continue;
-		}
-		errorCount = 0;
+        uint8_t lastFrame = m_ReadRegisters.TempHFrmCh & TLV493D_FRAME;
+        size_t bytesRead;
+        PErrorCode result = kpread(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters) - 3, 0, bytesRead);
+        if (result != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters) - 3) {
+            errorCount++;
+            printf("Error: Failed to read TLV493D registers! %d (%s)\n", std::to_underlying(result), strerror(std::to_underlying(result)));
+            continue;
+        }
+        if ((m_ReadRegisters.TempHFrmCh & TLV493D_FRAME) == lastFrame) {
+            errorCount++;
+//          if (errorCount > 1) {
+//              printf("Error: TLV493D frame counter didn't advance %d.\n", errorCount);
+//          }
+            continue;
+        }
+        errorCount = 0;
 
-		int16_t x = int16_t((m_ReadRegisters.BXH << 8) | ((m_ReadRegisters.BXYL >> 4) << 4)) / 16;
-		int16_t y = int16_t((m_ReadRegisters.BYH << 8) | ((m_ReadRegisters.BXYL & 0xf) << 4)) / 16;
-		int16_t z = int16_t((m_ReadRegisters.BZH << 8) | ((m_ReadRegisters.FlagsBZL & 0xf) << 4)) / 16;
+        int16_t x = int16_t((m_ReadRegisters.BXH << 8) | ((m_ReadRegisters.BXYL >> 4) << 4)) / 16;
+        int16_t y = int16_t((m_ReadRegisters.BYH << 8) | ((m_ReadRegisters.BXYL & 0xf) << 4)) / 16;
+        int16_t z = int16_t((m_ReadRegisters.BZH << 8) | ((m_ReadRegisters.FlagsBZL & 0xf) << 4)) / 16;
 
-		float fluxX = float(x) * TLV493D_LSB_FLUX;
-		float fluxY = float(y) * TLV493D_LSB_FLUX;
-		float fluxZ = float(z) * TLV493D_LSB_FLUX;
+        float fluxX = float(x) * TLV493D_LSB_FLUX;
+        float fluxY = float(y) * TLV493D_LSB_FLUX;
+        float fluxZ = float(z) * TLV493D_LSB_FLUX;
 
-		if (m_Config.oversampling < 1)
-		{
-			m_CurrentValues.x = fluxX;
-			m_CurrentValues.y = fluxY;
-			m_CurrentValues.z = fluxZ;
-			m_NewFrameCondition.Wakeup(0);
-		}
-		else
-		{
-			m_CurrentValues.x += (fluxX - m_CurrentValues.x) * m_AveragingScale;
-			m_CurrentValues.y += (fluxY - m_CurrentValues.y) * m_AveragingScale;
-			m_CurrentValues.z += (fluxZ - m_CurrentValues.z) * m_AveragingScale;
-			sampleCount++;
-			if (sampleCount >= m_Config.oversampling) {
-				m_NewFrameCondition.Wakeup(0);
-				sampleCount = 0;
-			}
-		}
-	}
+        if (m_Config.oversampling < 1)
+        {
+            m_CurrentValues.x = fluxX;
+            m_CurrentValues.y = fluxY;
+            m_CurrentValues.z = fluxZ;
+            m_NewFrameCondition.Wakeup(0);
+        }
+        else
+        {
+            m_CurrentValues.x += (fluxX - m_CurrentValues.x) * m_AveragingScale;
+            m_CurrentValues.y += (fluxY - m_CurrentValues.y) * m_AveragingScale;
+            m_CurrentValues.z += (fluxZ - m_CurrentValues.z) * m_AveragingScale;
+            sampleCount++;
+            if (sampleCount >= m_Config.oversampling) {
+                m_NewFrameCondition.Wakeup(0);
+                sampleCount = 0;
+            }
+        }
+    }
     return nullptr;
 }
 
@@ -262,19 +258,19 @@ void* TLV493DDriver::Run()
 
 void TLV493DDriver::ConfigChanged()
 {
-	if (m_Config.frame_rate > 0)
-	{
+    if (m_Config.frame_rate > 0)
+    {
         m_PeriodTime = TimeValNanos::FromNanoseconds(TimeValNanos::TicksPerSecond / m_Config.frame_rate);
-		if (m_PeriodTime < TLV493D_CONVERSION_TIME) m_PeriodTime = TLV493D_CONVERSION_TIME;
-		I2CIOCTL_SetTimeout(m_I2CDevice, m_PeriodTime * 2LL);
-	}
-	else
-	{
-		m_PeriodTime = TimeValNanos::infinit;
-		I2CIOCTL_SetTimeout(m_I2CDevice, TimeValNanos::FromSeconds(1LL));
-	}
-	m_AveragingScale = 1.0f / float(m_Config.oversampling);
-	m_NewFrameCondition.Wakeup(0);
+        if (m_PeriodTime < TLV493D_CONVERSION_TIME) m_PeriodTime = TLV493D_CONVERSION_TIME;
+        I2CIOCTL_SetTimeout(m_I2CDevice, m_PeriodTime * 2LL);
+    }
+    else
+    {
+        m_PeriodTime = TimeValNanos::infinit;
+        I2CIOCTL_SetTimeout(m_I2CDevice, TimeValNanos::FromSeconds(1LL));
+    }
+    m_AveragingScale = 1.0f / float(m_Config.oversampling);
+    m_NewFrameCondition.Wakeup(0);
 
 }
 
@@ -284,70 +280,67 @@ void TLV493DDriver::ConfigChanged()
 
 void TLV493DDriver::UpdateParity()
 {
-	uint8_t value = 0x00;
-	// set parity bit to 1. Algorithm will calculate an even parity and replace this bit so parity becomes odd.
+    uint8_t value = 0x00;
+    // set parity bit to 1. Algorithm will calculate an even parity and replace this bit so parity becomes odd.
 
-	m_WriteRegisters.Mode1 |= TLV493D_MODE1_PARITY;
+    m_WriteRegisters.Mode1 |= TLV493D_MODE1_PARITY;
 
-	// Combine array to one byte first
+    // Combine array to one byte first
 
-	const uint8_t* data = reinterpret_cast<const uint8_t*>(&m_WriteRegisters);
-	for(int i = 0; i < sizeof(m_WriteRegisters); ++i)
-	{
-		value ^= data[i];
-	}
-	// Combine all bits of this byte
-	value = uint8_t(value ^ (value >> 1));
-	value = uint8_t(value ^ (value >> 2));
-	value = uint8_t(value ^ (value >> 4));
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(&m_WriteRegisters);
+    for(int i = 0; i < sizeof(m_WriteRegisters); ++i)
+    {
+        value ^= data[i];
+    }
+    // Combine all bits of this byte
+    value = uint8_t(value ^ (value >> 1));
+    value = uint8_t(value ^ (value >> 2));
+    value = uint8_t(value ^ (value >> 4));
 
-	// Parity is in the LSB of 'value'.
-	if ((value & 0x01) == 0) {
-		m_WriteRegisters.Mode1 &= uint8_t(~TLV493D_MODE1_PARITY);
-	}
+    // Parity is in the LSB of 'value'.
+    if ((value & 0x01) == 0) {
+        m_WriteRegisters.Mode1 &= uint8_t(~TLV493D_MODE1_PARITY);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int TLV493DDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void TLV493DDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
     switch(request)
     {
-		case TLV493DIOCTL_SET_CONFIG:
-			if (inData == nullptr) {
-				set_last_error(EINVAL);
-				return -1;
-			}
-			memcpy(&m_Config, inData, std::min(sizeof(m_CurrentValues), inDataLength));
-			ConfigChanged();
-			return sizeof(tlv493d_config);
-		case TLV493DIOCTL_GET_VALUES_SYNC:
-			if (inData == nullptr || inDataLength < sizeof(tlv493d_data) || reinterpret_cast<const tlv493d_data*>(inData)->frame_number != m_CurrentValues.frame_number) {
-				m_NewFrameCondition.Wait(m_Mutex);
-			}
-			// FALLTHROUGH
-		case TLV493DIOCTL_GET_VALUES:
+        case TLV493DIOCTL_SET_CONFIG:
+            if (inData == nullptr) {
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            }
+            memcpy(&m_Config, inData, std::min(sizeof(m_CurrentValues), inDataLength));
+            ConfigChanged();
+            return;
+        case TLV493DIOCTL_GET_VALUES_SYNC:
+            if (inData == nullptr || inDataLength < sizeof(tlv493d_data) || reinterpret_cast<const tlv493d_data*>(inData)->frame_number != m_CurrentValues.frame_number) {
+                m_NewFrameCondition.Wait(m_Mutex);
+            }
+            // FALLTHROUGH
+        case TLV493DIOCTL_GET_VALUES:
             if (outData == nullptr || outDataLength < sizeof(tlv493d_data)) {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
             memcpy(outData, &m_CurrentValues, outDataLength);
-            return sizeof(tlv493d_data);
+            return;
         default:
-            return -1;
+            PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
-    return -1;
+    PERROR_THROW_CODE(PErrorCode::InvalidArg);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode TLV493DDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t TLV493DDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
-    outLength = 0;
-    return PErrorCode::Success;
+    return 0;
 }

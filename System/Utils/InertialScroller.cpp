@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 06.08.2020 18:37
 
+#include <PadOS/Time.h>
 #include <Math/Misc.h>
 #include <Utils/InertialScroller.h>
 
@@ -36,7 +37,7 @@ InertialScroller::InertialScroller(const Point& initialValue, float frameRate, i
     , m_TargetPosition(initialValue)
     , m_CurrentPosition(initialValue)
 {
-    m_LastTickTime = get_system_time();
+    m_LastTickTime = get_monotonic_time();
 
     m_Timer.Set(TimeValNanos::FromSeconds(1.0f / frameRate));
     m_Timer.SignalTrigged.Connect(this, &InertialScroller::SlotTick);
@@ -48,7 +49,7 @@ InertialScroller::InertialScroller(const Point& initialValue, float frameRate, i
 
 void InertialScroller::BeginDrag(const Point& scrollOffset, const Point& dragPosition, Looper* looper)
 {
-    m_BeginDragTime     = get_system_time();
+    m_BeginDragTime     = get_monotonic_time();
     
     m_BeginDragPosition      = scrollOffset;
     m_CurrentPosition     = scrollOffset;
@@ -87,7 +88,7 @@ void InertialScroller::EndDrag()
         return;
     }
 
-    const float deltaTime = (get_system_time() - m_BeginDragTime).AsSecondsF();
+    const float deltaTime = (get_monotonic_time() - m_BeginDragTime).AsSecondsF();
     if (deltaTime > 0.0f && deltaTime < 0.2f) {
         m_Velocity = (m_TargetPosition - m_BeginDragPosition) / deltaTime;
     }
@@ -177,7 +178,7 @@ Point InertialScroller::GetClosestIndention(const Point& position) const
 
 void InertialScroller::SlotTick()
 {
-    const TimeValNanos curTime = get_system_time();
+    const TimeValNanos curTime = get_monotonic_time();
     if (curTime == m_LastTickTime) {
         return;
     }
@@ -294,7 +295,7 @@ void InertialScroller::ScrollTo(const Point& scrollOffset, const Point& velocity
 
         if (m_State == InertialScroller::State::Idle)
         {
-            m_LastTickTime = get_system_time();
+            m_LastTickTime = get_monotonic_time();
             m_Timer.Start(false, looper);
         }
         m_State = InertialScroller::State::Coasting;

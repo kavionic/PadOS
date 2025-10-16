@@ -17,18 +17,20 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.02.2018 01:49:14
 
-#include "System/Platform.h"
+#include <System/Platform.h>
 
 #include <string.h>
 #include <fcntl.h>
 #include <atomic>
 
-#include "Kernel/VFS/KRootFilesystem.h"
-#include "Kernel/VFS/KFSVolume.h"
-#include "Kernel/VFS/KFileHandle.h"
-#include "Kernel/VFS/KDeviceNode.h"
-#include "System/System.h"
-#include "Utils/String.h"
+#include <Kernel/KTime.h>
+#include <Kernel/VFS/KRootFilesystem.h>
+#include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/VFS/KDeviceNode.h>
+#include <System/System.h>
+#include <System/ExceptionHandling.h>
+#include <Utils/String.h>
 
 using namespace kernel;
 using namespace os;
@@ -42,7 +44,7 @@ KRootFSINode::KRootFSINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, K
     , m_Parent(parent)
 {
     m_INodeID = KRootFilesystem::AllocINodeNumber();
-    m_CreateTime = get_system_time();
+    m_CreateTime = kget_monotonic_time();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -52,24 +54,18 @@ KRootFSINode::KRootFSINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, K
 Ptr<KFSVolume> KRootFilesystem::Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength)
 {
     CRITICAL_SCOPE(m_Mutex);
-    Ptr<KRootFSINode> rootNode;
-    try {
-        Ptr<KFSVolume>    volume   = ptr_new<KFSVolume>(volumeID, devicePath);
-        Ptr<KRootFSINode> rootNode = ptr_new<KRootFSINode>(ptr_tmp_cast(this), volume, nullptr, this, true);
-        Ptr<KRootFSINode> devRoot  = ptr_new<KRootFSINode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(rootNode), this, true);
-        
-        volume->m_RootNode = rootNode;
-        rootNode->m_Children["dev"] = devRoot;
-        
-        m_Volume = volume;
-        m_DevRoot = devRoot;
-        return m_Volume;
-    } catch (const std::bad_alloc&) {
-        set_last_error(ENOMEM);
-        return nullptr;
-    }        
 
-    return nullptr;
+    Ptr<KFSVolume>    volume   = ptr_new<KFSVolume>(volumeID, devicePath);
+    Ptr<KRootFSINode> rootNode = ptr_new<KRootFSINode>(ptr_tmp_cast(this), volume, nullptr, this, true);
+    Ptr<KRootFSINode> devRoot  = ptr_new<KRootFSINode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(rootNode), this, true);
+        
+    rootNode->m_Children["dev"] = devRoot;
+    volume->m_RootNode = rootNode;
+        
+    m_Volume = volume;
+    m_DevRoot = devRoot;
+
+    return m_Volume;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -95,13 +91,10 @@ Ptr<KINode> KRootFilesystem::FindINode(Ptr<KRootFSINode> parent, ino_t inodeNum,
         }
         if (child->IsDirectory())
         {
-            Ptr<KINode> node = FindINode(ptr_static_cast<KRootFSINode>(child), inodeNum, remove, parentNode);
-            if (node != nullptr) {
-                return node;
-            }                
+            return FindINode(ptr_static_cast<KRootFSINode>(child), inodeNum, remove, parentNode);
         }
     }
-    return nullptr;
+    PERROR_THROW_CODE(PErrorCode::IOError);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -140,19 +133,18 @@ Ptr<KRootFSINode> KRootFilesystem::LocateParentInode(Ptr<KRootFSINode> parent, c
                 {
                     Ptr<KRootFSINode> folder = ptr_new<KRootFSINode>(ptr_tmp_cast(this), m_Volume, ptr_raw_pointer_cast(current), this, true);
 
-                    if (folder == nullptr) return nullptr;
                     current->m_Children[name] = folder;
                     current = folder;
                 }
                 else
                 {
-                    return nullptr;
+                    break;
                 }
             }
             nameStart = i + 1;
         }
     }
-    return nullptr;
+    PERROR_THROW_CODE(PErrorCode::NoEntry);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -164,30 +156,29 @@ Ptr<KINode> KRootFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> pare
     CRITICAL_SCOPE(m_Mutex);
     Ptr<KRootFSINode> current = ptr_static_cast<KRootFSINode>(parent);
 
-    if (current == nullptr || nameLength == 0)
-    {
-        set_last_error(ENOENT);
-        return nullptr;
+    if (current == nullptr || nameLength == 0) {
+        PERROR_THROW_CODE(PErrorCode::NoEntry);
     }
-//    int nameStart = 0;
 
     if (name[0] == '.')
     {
-        if (nameLength == 1) {
+        if (nameLength == 1)
+        {
             return current;
-        } else if (nameLength == 2 && name[1] == '.') {
+        }
+        else if (nameLength == 2 && name[1] == '.')
+        {
+            if (current->m_Parent == nullptr) {
+                PERROR_THROW_CODE(PErrorCode::NoEntry);
+            }
             return ptr_tmp_cast(current->m_Parent);
         }
     }
     auto nodeIterator = current->m_Children.find(String(name, nameLength));
-    if (nodeIterator != current->m_Children.end())
-    {
+    if (nodeIterator != current->m_Children.end()) {
         return nodeIterator->second;
-    }
-    else
-    {
-        set_last_error(ENOENT);
-        return nullptr;
+    } else {
+        PERROR_THROW_CODE(PErrorCode::NoEntry);
     }
 }
 
@@ -197,32 +188,23 @@ Ptr<KINode> KRootFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> pare
 
 Ptr<KDirectoryNode> KRootFilesystem::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node)
 {
-    try
-    {
-        Ptr<KRootFSDirectoryNode> dirNode = ptr_new<KRootFSDirectoryNode>(O_RDONLY);
-        return dirNode;
-    }
-    catch (const std::bad_alloc&)
-    {
-        set_last_error(ENOMEM);
-        return nullptr;
-    }
+    Ptr<KRootFSDirectoryNode> dirNode = ptr_new<KRootFSDirectoryNode>(O_RDONLY);
+    return dirNode;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory)
+void KRootFilesystem::CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory)
 {
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize)
+size_t KRootFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -265,14 +247,12 @@ int KRootFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> di
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory)
+void KRootFilesystem::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory)
 {
     CRITICAL_SCOPE(m_Mutex);
 
     Ptr<KRootFSDirectoryNode> dirNode = ptr_static_cast<KRootFSDirectoryNode>(directory);
     dirNode->m_CurrentIndex = 0;
-    
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -281,8 +261,7 @@ int KRootFilesystem::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> 
 
 Ptr<KFileNode> KRootFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission)
 {
-    set_last_error(ENOSYS);
-    return nullptr;
+    PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -303,37 +282,26 @@ Ptr<KINode> KRootFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parentBase, const char* name, int nameLength, int permission)
+void KRootFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parentBase, const char* name, int nameLength, int permission)
 {
-    try
-    {
-        CRITICAL_SCOPE(m_Mutex);
+    CRITICAL_SCOPE(m_Mutex);
 
-        Ptr<KRootFSINode> parent = ptr_static_cast<KRootFSINode>(parentBase);
-        Ptr<KRootFSINode> dir    = ptr_new<KRootFSINode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(parent), this, true);
+    Ptr<KRootFSINode> parent = ptr_static_cast<KRootFSINode>(parentBase);
+    Ptr<KRootFSINode> dir    = ptr_new<KRootFSINode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(parent), this, true);
 
-        String nodeName(name, nameLength);
-        if (parent->m_Children.find(nodeName) != parent->m_Children.end())
-        {
-            set_last_error(EEXIST);
-            return -1;
-        }
-        parent->m_Children[nodeName] = dir;
-        return 0;
-    }
-    catch (const std::bad_alloc&)
+    String nodeName(name, nameLength);
+    if (parent->m_Children.find(nodeName) != parent->m_Children.end())
     {
-        set_last_error(ENOMEM);
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::Exist);
     }
-    return -1;
+    parent->m_Children[nodeName] = dir;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* outStats)
+void KRootFilesystem::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* outStats)
 {
     Ptr<KRootFSINode>  node = ptr_static_cast<KRootFSINode>(inode);
 
@@ -356,17 +324,14 @@ int KRootFilesystem::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct s
     outStats->st_size       = 0;
     outStats->st_blksize    = 512;
     outStats->st_atim = outStats->st_mtim = outStats->st_ctim = node->m_CreateTime.AsTimespec();
-
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* stats, uint32_t mask)
+void KRootFilesystem::WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* stats, uint32_t mask)
 {
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -382,9 +347,9 @@ int KRootFilesystem::RegisterDevice(const char* path, Ptr<KINode> deviceNode)
     Ptr<KRootFSINode> parent = LocateParentInode(m_DevRoot, path, pathLength, true, &nameStart);
 
     int nameLength = pathLength - nameStart;
-    if (parent == nullptr || nameLength == 0)
+    if (nameLength == 0)
     {
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 //    Ptr<KRootFSINode> deviceInode = ptr_new<KRootFSINode>(ptr_tmp_cast(this), m_Volume, this, false);
 //    deviceInode->m_DeviceNode = device;
@@ -402,16 +367,12 @@ int KRootFilesystem::RegisterDevice(const char* path, Ptr<KINode> deviceNode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::RenameDevice(int handle, const char* newPath)
+void KRootFilesystem::RenameDevice(int handle, const char* newPath)
 {
     CRITICAL_SCOPE(m_Mutex);
     
     Ptr<KRootFSINode> prevParent;
     Ptr<KINode> node = FindINode(m_DevRoot, handle, true, &prevParent);
-    if (node == nullptr) {
-        set_last_error(EINVAL);
-        return -1;
-    }
 
     int pathLength = strlen(newPath);
 
@@ -419,41 +380,30 @@ int KRootFilesystem::RenameDevice(int handle, const char* newPath)
     Ptr<KRootFSINode> newParent = LocateParentInode(m_DevRoot, newPath, pathLength, true, &nameStart);
 
     int nameLength = pathLength - nameStart;
-    if (newParent == nullptr || nameLength == 0)
+    if (nameLength == 0)
     {
-        return -1;
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
-    try {    
-        newParent->m_Children[newPath + nameStart] = node;
-        kprintf("Rename device %ld at '/dev/%s'\n", handle, newPath);
-    } catch(const std::bad_alloc&) {
-        set_last_error(ENOMEM);
-        return -1;
-    }        
-    return 0;
+    newParent->m_Children[newPath + nameStart] = node;
+    kprintf("Rename device %ld at '/dev/%s'\n", handle, newPath);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::RemoveDevice(int handle)
+void KRootFilesystem::RemoveDevice(int handle)
 {
     CRITICAL_SCOPE(m_Mutex);
 
     Ptr<KRootFSINode> prevParent;
     Ptr<KINode> node = FindINode(m_DevRoot, handle, true, &prevParent);
-    if (node == nullptr) {
-        set_last_error(EINVAL);
-        return -1;
-    }
     kprintf("Remove device %ld\n", handle);
     // Remove empty folders
     while(prevParent != m_DevRoot && prevParent->m_Children.empty())
     {
         FindINode(m_DevRoot, prevParent->m_INodeID, true, &prevParent);
     }
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

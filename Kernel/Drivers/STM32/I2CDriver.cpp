@@ -21,15 +21,15 @@
 #include <string.h>
 #include <cmath>
 
-#include "Kernel/Drivers/STM32/I2CDriver.h"
-#include "Kernel/HAL/DigitalPort.h"
-//#include "Kernel/HAL/SAME70System.h"
-#include "Kernel/HAL/PeripheralMapping.h"
-#include "System/System.h"
-#include "Kernel/Scheduler.h"
-#include "Kernel/KSemaphore.h"
-#include "Kernel/SpinTimer.h"
-#include "Kernel/VFS/KFSVolume.h"
+#include <Kernel/Drivers/STM32/I2CDriver.h>
+#include <Kernel/HAL/DigitalPort.h>
+#include <Kernel/HAL/PeripheralMapping.h>
+#include <System/System.h>
+#include <System/ExceptionHandling.h>
+#include <Kernel/Scheduler.h>
+#include <Kernel/KSemaphore.h>
+#include <Kernel/SpinTimer.h>
+#include <Kernel/VFS/KFSVolume.h>
 
 using namespace kernel;
 
@@ -113,7 +113,7 @@ Ptr<KFileNode> I2CDriverINode::Open(int flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
@@ -124,54 +124,52 @@ int I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void*
     switch(request)
     {
         case I2CIOCTL_SET_SLAVE_ADDRESS:
-            if (inArg == nullptr || inDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
+            if (inArg == nullptr || inDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
             i2cfile->m_SlaveAddress = uint8_t(*inArg);
             break;
         case I2CIOCTL_GET_SLAVE_ADDRESS:
-            if (outArg == nullptr || outDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
+            if (outArg == nullptr || outDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
             *outArg = i2cfile->m_SlaveAddress;
             break;
         case I2CIOCTL_SET_INTERNAL_ADDR_LEN:
-            if (inArg == nullptr || inDataLength != sizeof(int) || *inArg < 0 || *inArg > sizeof(m_RegisterAddress)) { set_last_error(EINVAL); return -1; }
+            if (inArg == nullptr || inDataLength != sizeof(int) || *inArg < 0 || *inArg > sizeof(m_RegisterAddress)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
             i2cfile->m_InternalAddressLength = uint8_t(*inArg);
             break;
         case I2CIOCTL_GET_INTERNAL_ADDR_LEN:
-            if (outArg == nullptr || outDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
+            if (outArg == nullptr || outDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
             *outArg = i2cfile->m_InternalAddressLength;
             break;
         case I2CIOCTL_SET_BAUDRATE:
-            if (inArg == nullptr || inDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
+            if (inArg == nullptr || inDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
 //            SetBaudrate(*inArg);
             break;
         case I2CIOCTL_GET_BAUDRATE:
-            if (outArg == nullptr || outDataLength != sizeof(int)) { set_last_error(EINVAL); return -1; }
+            if (outArg == nullptr || outDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
             *outArg = GetBaudrate();
             break;
         case I2CIOCTL_SET_TIMEOUT:
-            if (inData == nullptr || inDataLength != sizeof(bigtime_t)) { set_last_error(EINVAL); return -1; }
+            if (inData == nullptr || inDataLength != sizeof(bigtime_t)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
             i2cfile->m_Timeout = TimeValNanos::FromNanoseconds(*reinterpret_cast<const bigtime_t*>(inData));
             break;
         case I2CIOCTL_GET_TIMEOUT:
-            if (outData == nullptr || outDataLength != sizeof(bigtime_t)) { set_last_error(EINVAL); return -1; }
+            if (outData == nullptr || outDataLength != sizeof(bigtime_t)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
             *reinterpret_cast<bigtime_t*>(outData) = i2cfile->m_Timeout.AsNanoseconds();
             break;
         case I2CIOCTL_CLEAR_BUS:
             ClearBus();
             break;
-        default: set_last_error(EINVAL); return -1;
+        default: PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode I2CDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t I2CDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
     if (length == 0) {
-        outLength = 0;
-        return PErrorCode::Success;
+        return 0;
     }
     CRITICAL_SCOPE(m_Mutex);
     
@@ -234,21 +232,19 @@ PErrorCode I2CDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length
     {
         ResetPeripheral();
         kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::INFO_LOW_VOL, "I2CDriver::Read() request failed: %s\n", strerror(get_last_error()));
-        return m_TransactionError;
+        PERROR_THROW_CODE(m_TransactionError);
     }
-    outLength = m_CurPos;
-    return PErrorCode::Success;
+    return m_CurPos;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode I2CDriverINode::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t I2CDriverINode::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
     if (length == 0) {
-        outLength = 0;
-        return PErrorCode::Success;
+        return 0;
     }
     CRITICAL_SCOPE(m_Mutex);
 
@@ -323,10 +319,9 @@ PErrorCode I2CDriverINode::Write(Ptr<KFileNode> file, const void* buffer, size_t
     if (m_TransactionError != PErrorCode::Success)
     {
         kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::INFO_LOW_VOL, "I2CDriver::Write() request failed: %s\n", strerror(get_last_error()));
-        return m_TransactionError;
+        PERROR_THROW_CODE(m_TransactionError);
     }
-    outLength = m_CurPos;
-    return PErrorCode::Success;
+    return m_CurPos;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -659,7 +654,7 @@ void I2CDriver::Setup(const char* devicePath, I2CID portID, const PinMuxTarget& 
     REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, KLogSeverity::WARNING);
 
     Ptr<I2CDriverINode> node = ptr_new<I2CDriverINode>(this, portID, clockPin, dataPin, clockFrequency, fallTime, riseTime);
-    Kernel::RegisterDevice(devicePath, node);    
+    Kernel::RegisterDevice_trw(devicePath, node);    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -684,34 +679,33 @@ Ptr<KFileNode> I2CDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int I2CDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
+void I2CDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode I2CDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t I2CDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
-    return ptr_static_cast<I2CDriverINode>(file->GetINode())->Read(file, buffer, length, position, outLength);
+    return ptr_static_cast<I2CDriverINode>(file->GetINode())->Read(file, buffer, length, position);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode I2CDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t I2CDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
-    return ptr_static_cast<I2CDriverINode>(file->GetINode())->Write(file, buffer, length, position, outLength);
+    return ptr_static_cast<I2CDriverINode>(file->GetINode())->Write(file, buffer, length, position);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int I2CDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void I2CDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
-    return ptr_static_cast<I2CDriverINode>(file->GetINode())->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);
+    ptr_static_cast<I2CDriverINode>(file->GetINode())->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);
 }

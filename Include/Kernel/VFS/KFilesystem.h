@@ -78,56 +78,56 @@ typedef struct
 class KFilesystemFileOps
 {
 public:
-    IFLASHC virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int openFlags);
-    IFLASHC virtual int            CloseFile(Ptr<KFSVolume> volume, KFileNode* file);
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int openFlags);
+    virtual void           CloseFile(Ptr<KFSVolume> volume, KFileNode* file);
 
-    IFLASHC virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node);
-    IFLASHC virtual int                 CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory);
+    virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node);
+    virtual void                CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory);
 
 protected:
-    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength);
-    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength);
+    virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position);
+    virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position);
 public:
-    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength);
-    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength);
+    virtual size_t  Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position);
+    virtual size_t  Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position);
 
-    IFLASHC virtual int     ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize);
-    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    virtual size_t  ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize);
+    virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
-    IFLASHC virtual int     ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize);
-    IFLASHC virtual int     RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode);
+    virtual size_t  ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize);
+    virtual void    RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode);
 
-    IFLASHC virtual int     CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, int mode);
+    virtual void    CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, int mode);
 
-    IFLASHC virtual int     ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result);
-    IFLASHC virtual int     WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* value, uint32_t mask);
+    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result);
+    virtual void    WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* value, uint32_t mask);
 
-    IFLASHC virtual int     Sync(Ptr<KFileNode> file);
+    virtual void    Sync(Ptr<KFileNode> file);
 
 };
 
 class KFilesystem : public PtrTarget
 {
 public:
-    IFLASHC virtual int             Probe(const char* devicePath, fs_info* fsInfo);
-    IFLASHC virtual Ptr<KFSVolume>  Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength);
-    IFLASHC virtual int             Unmount(Ptr<KFSVolume> volume);
+    virtual PErrorCode      Probe(const char* devicePath, fs_info* fsInfo);
+    virtual Ptr<KFSVolume>  Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength);
+    virtual void            Unmount(Ptr<KFSVolume> volume);
     
-    IFLASHC virtual int             Sync(Ptr<KFSVolume> volume);
+    virtual void            Sync(Ptr<KFSVolume> volume);
     
-    IFLASHC virtual int             ReadFSStat(Ptr<KFSVolume> volume, fs_info* fsinfo);
-    IFLASHC virtual int             WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint32_t mask);
-    IFLASHC virtual Ptr<KINode>     LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* path, int pathLength);
-    IFLASHC virtual bool            ReleaseInode(KINode* inode);
-    IFLASHC virtual Ptr<KFileNode>  CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int openFlags, int permission);
+    virtual void            ReadFSStat(Ptr<KFSVolume> volume, fs_info* fsinfo);
+    virtual void            WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint32_t mask);
+    virtual Ptr<KINode>     LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* path, int pathLength);
+    virtual void            ReleaseInode(KINode* inode);
+    virtual Ptr<KFileNode>  CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int openFlags, int permission);
 
-    IFLASHC virtual Ptr<KINode>     LoadInode(Ptr<KFSVolume> volume, ino_t inode);
+    virtual Ptr<KINode>     LoadInode(Ptr<KFSVolume> volume, ino_t inode);
 
-    IFLASHC virtual int             CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission);
+    virtual void            CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission);
 
-    IFLASHC virtual int             Rename(Ptr<KFSVolume> volume, Ptr<KINode> oldParent, const char* oldName, int oldNameLen, Ptr<KINode> newParent, const char* newName, int newNameLen, bool mustBeDir);
-    IFLASHC virtual int             Unlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength);
-    IFLASHC virtual int             RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength);
+    virtual void            Rename(Ptr<KFSVolume> volume, Ptr<KINode> oldParent, const char* oldName, int oldNameLen, Ptr<KINode> newParent, const char* newName, int newNameLen, bool mustBeDir);
+    virtual void            Unlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength);
+    virtual void            RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength);
 };
 
 } // namespace

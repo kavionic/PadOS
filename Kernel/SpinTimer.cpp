@@ -18,7 +18,7 @@
 
 #include "Kernel/SpinTimer.h"
 #include "Kernel/Kernel.h"
-#include "System/SysTime.h"
+#include <System/TimeValue.h>
 
 using namespace kernel;
 

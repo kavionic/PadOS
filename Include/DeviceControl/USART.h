@@ -19,8 +19,9 @@
 
 #pragma once
 
-#include <Kernel/VFS/FileIO.h>
-#include <System/SysTime.h>
+#include <PadOS/Filesystem.h>
+#include <PadOS/DeviceControl.h>
+#include <System/TimeValue.h>
 
 enum USARTIOCTL
 {
@@ -55,89 +56,91 @@ enum class USARTPinMode : int
 static constexpr uint32_t USART_DISABLE_RX      = 0x01;
 static constexpr uint32_t USART_DISABLE_TX      = 0x02;
 
-inline int USARTIOCTL_SetBaudrate(int device, int baudrate)
+inline PErrorCode USARTIOCTL_SetBaudrate(int device, int baudrate)
 {
-    return os::FileIO::DeviceControl(device, USARTIOCTL_SET_BAUDRATE, &baudrate, sizeof(baudrate), nullptr, 0);
+    return device_control(device, USARTIOCTL_SET_BAUDRATE, &baudrate, sizeof(baudrate), nullptr, 0);
 }
 
-inline int USARTIOCTL_GetBaudrate(int device)
+inline PErrorCode USARTIOCTL_GetBaudrate(int device, int& outBaudrate)
 {
-    int baudrate = -1;
-    if (os::FileIO::DeviceControl(device, USARTIOCTL_GET_BAUDRATE, nullptr, 0, &baudrate, sizeof(baudrate)) < 0) return -1;
-    return baudrate;
+    return device_control(device, USARTIOCTL_GET_BAUDRATE, nullptr, 0, &outBaudrate, sizeof(outBaudrate));
 }
 
-inline int USARTIOCTL_SetReadTimeout(int device, TimeValNanos timeout)
+inline PErrorCode USARTIOCTL_SetReadTimeout(int device, TimeValNanos timeout)
 {
     bigtime_t nanos = timeout.AsNanoseconds();
-    return os::FileIO::DeviceControl(device, USARTIOCTL_SET_READ_TIMEOUT, &nanos, sizeof(nanos), nullptr, 0);
+    return device_control(device, USARTIOCTL_SET_READ_TIMEOUT, &nanos, sizeof(nanos), nullptr, 0);
 }
 
-inline int USARTIOCTL_GetReadTimeout(int device, TimeValNanos& outTimeout)
+inline PErrorCode USARTIOCTL_GetReadTimeout(int device, TimeValNanos& outTimeout)
 {
     bigtime_t nanos;
-    if (os::FileIO::DeviceControl(device, USARTIOCTL_GET_READ_TIMEOUT, nullptr, 0, &nanos, sizeof(nanos)) < 0) return -1;
+    const PErrorCode result = device_control(device, USARTIOCTL_GET_READ_TIMEOUT, nullptr, 0, &nanos, sizeof(nanos));
+    if (result != PErrorCode::Success) {
+        return result;
+    }
     outTimeout = TimeValNanos::FromNanoseconds(nanos);
-    return 0;
+    return PErrorCode::Success;
 }
 
-inline int USARTIOCTL_SetWriteTimeout(int device, TimeValNanos timeout)
+inline PErrorCode USARTIOCTL_SetWriteTimeout(int device, TimeValNanos timeout)
 {
     bigtime_t nanos = timeout.AsNanoseconds();
-    return os::FileIO::DeviceControl(device, USARTIOCTL_SET_WRITE_TIMEOUT, &nanos, sizeof(nanos), nullptr, 0);
+    return device_control(device, USARTIOCTL_SET_WRITE_TIMEOUT, &nanos, sizeof(nanos), nullptr, 0);
 }
 
-inline int USARTIOCTL_GetWriteTimeout(int device, TimeValNanos& outTimeout)
+inline PErrorCode USARTIOCTL_GetWriteTimeout(int device, TimeValNanos& outTimeout)
 {
     bigtime_t nanos;
-    if (os::FileIO::DeviceControl(device, USARTIOCTL_GET_WRITE_TIMEOUT, nullptr, 0, &nanos, sizeof(nanos)) < 0) return -1;
+    const PErrorCode result = device_control(device, USARTIOCTL_GET_WRITE_TIMEOUT, nullptr, 0, &nanos, sizeof(nanos));
+    if (result != PErrorCode::Success) {
+        return result;
+    }
     outTimeout = TimeValNanos::FromNanoseconds(nanos);
-    return 0;
+    return PErrorCode::Success;
 }
 
-inline int USARTIOCTL_SetIOCtrl(int device, uint32_t flags)
+inline PErrorCode USARTIOCTL_SetIOCtrl(int device, uint32_t flags)
 {
-    return os::FileIO::DeviceControl(device, USARTIOCTL_SET_IOCTRL, &flags, sizeof(flags), nullptr, 0);
+    return device_control(device, USARTIOCTL_SET_IOCTRL, &flags, sizeof(flags), nullptr, 0);
 }
 
-inline int USARTIOCTL_GetIOCtrl(int device)
+inline PErrorCode USARTIOCTL_GetIOCtrl(int device, int& outFlags)
 {
-    int flags = -1;
-    if (os::FileIO::DeviceControl(device, USARTIOCTL_GET_IOCTRL, nullptr, 0, &flags, sizeof(flags)) < 0) return -1;
-    return flags;
+    return device_control(device, USARTIOCTL_GET_IOCTRL, nullptr, 0, &outFlags, sizeof(outFlags));
 }
 
-inline int USARTIOCTL_SetPinMode(int device, USARTPin pin, USARTPinMode mode)
+inline PErrorCode USARTIOCTL_SetPinMode(int device, USARTPin pin, USARTPinMode mode)
 {
     int arg = (int(pin) << 16) | int(mode);
-    return os::FileIO::DeviceControl(device, USARTIOCTL_SET_PINMODE, &arg, sizeof(arg), nullptr, 0);
+    return device_control(device, USARTIOCTL_SET_PINMODE, &arg, sizeof(arg), nullptr, 0);
 }
 
-inline int USARTIOCTL_GetPinMode(int device, USARTPin pin, USARTPinMode& outMode)
+inline PErrorCode USARTIOCTL_GetPinMode(int device, USARTPin pin, USARTPinMode& outMode)
 {
     int arg = int(pin);
-    int result = 0;
-    if (os::FileIO::DeviceControl(device, USARTIOCTL_GET_PINMODE, &arg, sizeof(arg), &result, sizeof(result)) < 0) {
-        return -1;
-    } else {
-        outMode = USARTPinMode(result);
-        return 0;
+    int mode = 0;
+    const PErrorCode result = device_control(device, USARTIOCTL_GET_PINMODE, &arg, sizeof(arg), &mode, sizeof(mode));
+    if (result != PErrorCode::Success) {
+        return result;
     }
+    outMode = USARTPinMode(mode);
+    return PErrorCode::Success;
 }
 
-inline int USARTIOCTL_SetSwapRXTX(int device, bool doSwap)
+inline PErrorCode USARTIOCTL_SetSwapRXTX(int device, bool doSwap)
 {
     int arg = doSwap;
-    return os::FileIO::DeviceControl(device, USARTIOCTL_SET_SWAPRXTX, &arg, sizeof(arg), nullptr, 0);
+    return device_control(device, USARTIOCTL_SET_SWAPRXTX, &arg, sizeof(arg), nullptr, 0);
 }
 
-inline int USARTIOCTL_GetSwapRXTX(int device, bool& outIsSwapped)
+inline PErrorCode USARTIOCTL_GetSwapRXTX(int device, bool& outIsSwapped)
 {
-    int result = 0;
-    if (os::FileIO::DeviceControl(device, USARTIOCTL_GET_SWAPRXTX, nullptr, 0, &result, sizeof(result)) < 0) {
-        return -1;
-    } else {
-        outIsSwapped = result != 0;
-        return 0;
+    int value = 0;
+    const PErrorCode result = device_control(device, USARTIOCTL_GET_SWAPRXTX, nullptr, 0, &value, sizeof(value));
+    if (result != PErrorCode::Success) {
+        return result;
     }
+    outIsSwapped = value != 0;
+    return PErrorCode::Success;
 }

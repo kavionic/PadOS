@@ -28,10 +28,10 @@
 #include <atomic>
 #include <cstdint>
 
-#include "Ptr/PtrTarget.h"
-#include "Ptr/Ptr.h"
-#include "Utils/String.h"
-#include "System/SysTime.h"
+#include <Ptr/PtrTarget.h>
+#include <Ptr/Ptr.h>
+#include <Utils/String.h>
+#include <System/TimeValue.h>
 
 
 #define DCACHE_LINE_SIZE 32 // Cortex-M7 size of cache line is fixed to 8 words (32 bytes)
@@ -111,9 +111,9 @@ public:
 #endif
     static IFLASHC void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
     static IFLASHC void Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/);
-    static IFLASHC int RegisterDevice(const char* path, Ptr<KINode> deviceNode);
-    static IFLASHC int RenameDevice(int handle, const char* newPath);
-    static IFLASHC int RemoveDevice(int handle);
+    static IFLASHC int  RegisterDevice_trw(const char* path, Ptr<KINode> deviceNode);
+    static IFLASHC void RenameDevice_trw(int handle, const char* newPath);
+    static IFLASHC void RemoveDevice_trw(int handle);
 
 //private:
 

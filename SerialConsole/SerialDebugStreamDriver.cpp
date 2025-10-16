@@ -19,6 +19,7 @@
 
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KFSVolume.h>
+#include <System/ExceptionHandling.h>
 #include <SerialConsole/SerialCommandHandler.h>
 #include <SerialConsole/SerialDebugStreamDriver.h>
 
@@ -38,19 +39,18 @@ SerialDebugStreamINode::SerialDebugStreamINode(kernel::KFilesystemFileOps* fileO
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode SerialDebugStreamINode::Read(Ptr<kernel::KFileNode> file, void* buffer, size_t length, ssize_t& outLength)
+size_t SerialDebugStreamINode::Read(Ptr<kernel::KFileNode> file, void* buffer, size_t length)
 {
-    return PErrorCode::NotImplemented;
+    PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode SerialDebugStreamINode::Write(Ptr<kernel::KFileNode> file, const void* buffer, size_t length, ssize_t& outLength)
+size_t SerialDebugStreamINode::Write(Ptr<kernel::KFileNode> file, const void* buffer, size_t length)
 {
-    outLength = SerialCommandHandler::Get().WriteLogMessage(buffer, length);
-    return PErrorCode::Success;
+    return SerialCommandHandler::Get().WriteLogMessage(buffer, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -60,36 +60,36 @@ PErrorCode SerialDebugStreamINode::Write(Ptr<kernel::KFileNode> file, const void
 void SerialDebugStreamDriver::Setup(const char* devicePath)
 {
     Ptr<SerialDebugStreamINode> node = ptr_new<SerialDebugStreamINode>(this);
-    kernel::Kernel::RegisterDevice(devicePath, node);
+    kernel::Kernel::RegisterDevice_trw(devicePath, node);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode SerialDebugStreamDriver::Read(Ptr<kernel::KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t SerialDebugStreamDriver::Read(Ptr<kernel::KFileNode> file, void* buffer, size_t length, off64_t position)
 {
     Ptr<SerialDebugStreamINode> node = ptr_static_cast<SerialDebugStreamINode>(file->GetINode());
-    return node->Read(file, buffer, length, outLength);
+    return node->Read(file, buffer, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode SerialDebugStreamDriver::Write(Ptr<kernel::KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t SerialDebugStreamDriver::Write(Ptr<kernel::KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
     Ptr<SerialDebugStreamINode> node = ptr_static_cast<SerialDebugStreamINode>(file->GetINode());
-    return node->Write(file, buffer, length, outLength);
+    return node->Write(file, buffer, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int SerialDebugStreamDriver::DeviceControl(Ptr<kernel::KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void SerialDebugStreamDriver::DeviceControl(Ptr<kernel::KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
-    return -1;
+    PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
 
 

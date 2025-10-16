@@ -16,11 +16,13 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "ListViewScrolledView.h"
-#include "ListViewColumnView.h"
+#include <PadOS/Time.h>
 #include <GUI/Widgets/ListView.h>
 #include <GUI/Widgets/ListViewRow.h>
 #include <Math/Misc.h>
+
+#include "ListViewScrolledView.h"
+#include "ListViewColumnView.h"
 
 using namespace os;
 
@@ -232,7 +234,7 @@ bool ListViewScrolledView::OnMouseDown(MouseButton_e button, const Point& positi
 
     Ptr<ListViewRow> hitRow = m_Rows[hitRowIndex];
 
-    TimeValNanos curTime = get_system_time();
+    TimeValNanos curTime = get_monotonic_time();
     bool  doubleClick = false;
     if (hitRowIndex == m_LastHitRow && curTime - m_MouseDownTime < TimeValNanos::FromMilliseconds(500)) {
         doubleClick = true;

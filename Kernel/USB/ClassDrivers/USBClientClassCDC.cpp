@@ -18,6 +18,7 @@
 // Created: 25.05.2022 22:00
 
 #include <string.h>
+#include <System/ExceptionHandling.h>
 #include <Utils/String.h>
 #include <Utils/Utils.h>
 #include <Kernel/USB/ClassDrivers/USBClientClassCDC.h>
@@ -44,8 +45,14 @@ USBClientClassCDC::USBClientClassCDC()
 
 void USBClientClassCDC::Reset()
 {
-    for (Ptr<USBClientCDCChannel> channel : m_Channels) {
-        channel->Close();
+    for (Ptr<USBClientCDCChannel> channel : m_Channels)
+    {
+        try
+        {
+            channel->Close();
+        }
+        PERROR_CATCH([](PErrorCode error) { kernel_log(LogCategoryUSBHost, KLogSeverity::ERROR, "USBH: Failed to close channel.\n"); });
+
         SignalChannelRemoved(channel);
     }
     m_Channels.clear();

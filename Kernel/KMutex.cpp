@@ -19,6 +19,7 @@
 
 #include <string.h>
 
+#include <Kernel/KTime.h>
 #include "Kernel/KMutex.h"
 #include "Kernel/KHandleArray.h"
 #include "Kernel/Scheduler.h"
@@ -112,10 +113,16 @@ PErrorCode KMutex::LockDeadline(TimeValNanos deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockClock(int clockID, TimeValNanos deadline)
+PErrorCode KMutex::LockClock(int clockID, TimeValNanos clockDeadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
+    TimeValNanos deadline;
+    const PErrorCode result = kconvert_clock_to_monotonic(clockID, clockDeadline, deadline);
+    if (result != PErrorCode::Success) {
+        return result;
+    }
+
     for (bool first = true; ; first = false)
     {
         KThreadWaitNode waitNode;
@@ -136,7 +143,7 @@ PErrorCode KMutex::LockClock(int clockID, TimeValNanos deadline)
                     return PErrorCode::Deadlock;
                 }
             }
-            if (deadline.IsInfinit() || get_clock_time(clockID) < deadline)
+            if (deadline.IsInfinit() || get_monotonic_time() < deadline)
             {
                 if (!first) {
                     return PErrorCode::Interrupted;
@@ -148,7 +155,7 @@ PErrorCode KMutex::LockClock(int clockID, TimeValNanos deadline)
                 {
                     thread->m_State = ThreadState_Sleeping;
                     sleepNode.m_Thread = thread;
-                    sleepNode.m_ResumeTime = deadline - get_clock_time_offset(clockID);
+                    sleepNode.m_ResumeTime = deadline;
                     add_to_sleep_list(&sleepNode);
                 }
                 else
@@ -182,7 +189,7 @@ PErrorCode KMutex::LockClock(int clockID, TimeValNanos deadline)
 
 PErrorCode KMutex::LockTimeout(TimeValNanos timeout)
 {
-    return LockClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit);
+    return LockClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -286,10 +293,16 @@ PErrorCode KMutex::LockSharedDeadline(TimeValNanos deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos deadline)
+PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos clockDeadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
+    TimeValNanos deadline;
+    const PErrorCode result = kconvert_clock_to_monotonic(clockID, clockDeadline, deadline);
+    if (result != PErrorCode::Success) {
+        return result;
+    }
+
     for (bool first = true; ; first = false)
     {
         KThreadWaitNode waitNode;
@@ -302,7 +315,7 @@ PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos deadline)
                 m_Count++;
                 return PErrorCode::Success;
             }
-            if (deadline.IsInfinit() || get_clock_time(clockID) < deadline)
+            if (deadline.IsInfinit() || kget_monotonic_time() < deadline)
             {
                 if (!first) {
                     return PErrorCode::Interrupted;
@@ -314,7 +327,7 @@ PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos deadline)
                 {
                     thread->m_State = ThreadState_Sleeping;
                     sleepNode.m_Thread = thread;
-                    sleepNode.m_ResumeTime = deadline - get_clock_time_offset(clockID);
+                    sleepNode.m_ResumeTime = deadline;
                     add_to_sleep_list(&sleepNode);
                 }
                 else
@@ -350,7 +363,7 @@ PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos deadline)
 
 PErrorCode KMutex::LockSharedTimeout(TimeValNanos timeout)
 {
-    return LockSharedClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit);
+    return LockSharedClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

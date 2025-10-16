@@ -25,6 +25,7 @@
 #include <Kernel/Drivers/STM32/USARTDriver.h>
 
 #include <Ptr/Ptr.h>
+#include <System/ExceptionHandling.h>
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
@@ -95,10 +96,10 @@ USARTDriverINode::USARTDriverINode( USARTID      portID,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length, ssize_t& outLength)
+ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length)
 {
     if (length == 0) {
-        return PErrorCode::Success;
+        return 0;
     }
     CRITICAL_SCOPE(m_MutexRead);
 
@@ -108,8 +109,7 @@ PErrorCode USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_
     {
         ssize_t curLen = ReadReceiveBuffer(file, currentTarget, length);
         if (curLen > 0 || (file->GetOpenFlags() & O_NONBLOCK)) {
-            outLength = curLen;
-            return PErrorCode::Success;
+            return curLen;
         }
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
@@ -124,7 +124,7 @@ PErrorCode USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_
                 {
                     if (result != PErrorCode::Interrupted)
                     {
-                        return result;
+                        PERROR_THROW_CODE(result);
                     }
                 }
             }
@@ -136,7 +136,7 @@ PErrorCode USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length, ssize_t& outLength)
+ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length)
 {
     SCB_CleanInvalidateDCache();
     CRITICAL_SCOPE(m_MutexWrite);
@@ -156,12 +156,11 @@ PErrorCode USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, cons
             const PErrorCode result = m_TransmitCondition.IRQWaitTimeout(TimeValNanos::FromNanoseconds(bigtime_t(currentLen) * 10 * 2 * TimeValNanos::TicksPerSecond / m_Baudrate) + TimeValNanos::FromMilliseconds(100));
             if (result != PErrorCode::Success)
             {
-                return result;
+                PERROR_THROW_CODE(result);
             }
         } CRITICAL_END;
     }
-    outLength = length;
-    return PErrorCode::Success;
+    return length;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -204,7 +203,7 @@ bool USARTDriverINode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mod
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_MutexRead);
     CRITICAL_SCOPE(m_MutexWrite);
@@ -217,55 +216,49 @@ int USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDa
             if (inDataLength == sizeof(int)) {
                 int baudrate = *((const int*)inData);
                 SetBaudrate(baudrate);
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_BAUDRATE:
             if (outDataLength == sizeof(int)) {
                 int* baudrate = (int*)outData;
                 *baudrate = m_Baudrate;
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_SET_READ_TIMEOUT:
             if (inDataLength == sizeof(bigtime_t)) {
                 bigtime_t nanos = *((const bigtime_t*)inData);
                 m_ReadTimeout = TimeValNanos::FromNanoseconds(nanos);
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_READ_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t)) {
                 bigtime_t* nanos = (bigtime_t*)outData;
                 *nanos = m_ReadTimeout.AsNanoseconds();
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_SET_IOCTRL:
             if (inDataLength == sizeof(uint32_t)) {
                 uint32_t flags = *((const uint32_t*)inData);
                 SetIOControl(flags);
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_IOCTRL:
             if (outDataLength == sizeof(uint32_t)) {
                 uint32_t* flags = (uint32_t*)outData;
                 *flags = m_IOControl;
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_SET_PINMODE:
             if (inDataLength == sizeof(int))
@@ -280,29 +273,25 @@ int USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDa
                         if (SetPinMode(m_PinRX, mode)) {
                             m_PinModeRX = mode;
                             m_Port->RQR = USART_RQR_RXFRQ;  // Flush receive buffer
-                            return 0;
+                            return;
                         } else {
-                            set_last_error(EINVAL);
-                            return -1;
+                            PERROR_THROW_CODE(PErrorCode::InvalidArg);
                         }
                     case USARTPin::TX:
                         if (SetPinMode(m_PinTX, mode)) {
                             m_PinModeTX = mode;
                             m_Port->RQR = USART_RQR_RXFRQ;  // Flush receive buffer
-                            return 0;
+                            return;
                         } else {
-                            set_last_error(EINVAL);
-                            return -1;
+                            PERROR_THROW_CODE(PErrorCode::InvalidArg);
                         }
                     default:
-                        set_last_error(EINVAL);
-                        return -1;
+                        PERROR_THROW_CODE(PErrorCode::InvalidArg);
                 }
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_PINMODE:
             if (inDataLength == sizeof(int) && outDataLength == sizeof(int))
@@ -316,42 +305,37 @@ int USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDa
                 {
                     case USARTPin::RX:
                         *result = int(m_PinModeRX);
-                        return 0;
+                        return;
                     case USARTPin::TX:
                         *result = int(m_PinModeTX);
-                        return 0;
+                        return;
                     default:
-                        set_last_error(EINVAL);
-                        return -1;
+                        PERROR_THROW_CODE(PErrorCode::InvalidArg);
                 }
             }
             else
             {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_SET_SWAPRXTX:
             if (inDataLength == sizeof(int)) {
                 int arg = *((const int*)inData);
                 SetSwapRXTX(arg != 0);
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_SWAPRXTX:
             if (outDataLength == sizeof(int)) {
                 int* result = (int*)outData;
                 *result = GetSwapRXTX();
-                return 0;
+                return;
             } else {
-                set_last_error(EINVAL);
-                return -1;
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
 
         default:
-            set_last_error(EINVAL);
-            return -1;
+            PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
 }
@@ -606,13 +590,13 @@ USARTDriver::USARTDriver()
 ///////////////////////////////////////////////////////////////////////////////
 
 void USARTDriver::Setup(const char*         devicePath,
-                        USARTID             portID,
-                        const PinMuxTarget& pinRX,
-                        const PinMuxTarget& pinTX,
-                        uint32_t            clockFrequency)
+                           USARTID             portID,
+                           const PinMuxTarget& pinRX,
+                           const PinMuxTarget& pinTX,
+                           uint32_t            clockFrequency)
 {
     Ptr<USARTDriverINode> node = ptr_new<USARTDriverINode>(portID, pinRX, pinTX, clockFrequency, this);
-    Kernel::RegisterDevice(devicePath, node);
+    Kernel::RegisterDevice_trw(devicePath, node);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -622,37 +606,37 @@ void USARTDriver::Setup(const char*         devicePath,
 void USARTDriver::Setup(const USARTDriverSetup& setup)
 {
     Ptr<USARTDriverINode> node = ptr_new<USARTDriverINode>(setup.PortID, setup.PinRX, setup.PinTX, setup.ClockFrequency, this);
-    Kernel::RegisterDevice(setup.DevicePath.c_str(), node);
+    Kernel::RegisterDevice_trw(setup.DevicePath.c_str(), node);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode USARTDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t USARTDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
     Ptr<USARTDriverINode> node = ptr_static_cast<USARTDriverINode>(file->GetINode());
-    return node->Read(file, buffer, length, outLength);
+    return node->Read(file, buffer, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode USARTDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength)
+size_t USARTDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
     Ptr<USARTDriverINode> node = ptr_static_cast<USARTDriverINode>(file->GetINode());
-    return node->Write(file, buffer, length, outLength);
+    return node->Write(file, buffer, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int USARTDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void USARTDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     Ptr<USARTDriverINode> node = ptr_static_cast<USARTDriverINode>(file->GetINode());
-    return node->DeviceControl(request, inData, inDataLength, outData, outDataLength);
+    node->DeviceControl(request, inData, inDataLength, outData, outDataLength);
 }
 
 

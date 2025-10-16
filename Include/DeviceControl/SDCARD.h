@@ -19,7 +19,8 @@
 
 #pragma once
 
-#include "Kernel/VFS/FileIO.h"
+#include <PadOS/Filesystem.h>
+#include <PadOS/DeviceControl.h>
 
 enum SDCardDeviceControl
 {
@@ -58,33 +59,33 @@ struct SDCDEVCTL_SDIOWriteExtendedArgs
     size_t      Size;
 };
 
-inline status_t SDCDEVCTL_SDIOReadDirect(int device, uint8_t functionNumber, uint32_t addr, uint8_t *dest)
+inline PErrorCode SDCDEVCTL_SDIOReadDirect(int device, uint8_t functionNumber, uint32_t addr, uint8_t *dest)
 {
     SDCDEVCTL_SDIOReadDirectArgs args;
     args.Address = addr;
     args.FunctionNumber = functionNumber;
-    return os::FileIO::DeviceControl(device, SDCDEVCTL_SDIO_READ_DIRECT, &args, sizeof(args), dest, sizeof(*dest));
+    return device_control(device, SDCDEVCTL_SDIO_READ_DIRECT, &args, sizeof(args), dest, sizeof(*dest));
 }
 
-inline status_t SDCDEVCTL_SDIOWriteDirect(int device, uint8_t functionNumber, uint32_t addr, uint8_t data)
+inline PErrorCode SDCDEVCTL_SDIOWriteDirect(int device, uint8_t functionNumber, uint32_t addr, uint8_t data)
 {
     SDCDEVCTL_SDIOWriteDirectArgs args;
     args.Address = addr;
     args.FunctionNumber = functionNumber;
     args.Data = data;
-    return os::FileIO::DeviceControl(device, SDCDEVCTL_SDIO_WRITE_DIRECT, &args, sizeof(args), nullptr, 0);
+    return device_control(device, SDCDEVCTL_SDIO_WRITE_DIRECT, &args, sizeof(args), nullptr, 0);
 }
 
-inline ssize_t  SDCDEVCTL_SDIOReadExtended(int device, uint8_t functionNumber, uint32_t addr, bool incrementAddr, void* buffer, size_t size)
+inline PErrorCode  SDCDEVCTL_SDIOReadExtended(int device, uint8_t functionNumber, uint32_t addr, bool incrementAddr, void* buffer, size_t size)
 {
     SDCDEVCTL_SDIOReadExtendedArgs args;
     args.Address = addr;
     args.FunctionNumber = functionNumber;
     args.IncrementAddr = incrementAddr;
-    return os::FileIO::DeviceControl(device, SDCDEVCTL_SDIO_READ_EXTENDED, &args, sizeof(args), buffer, size);
+    return device_control(device, SDCDEVCTL_SDIO_READ_EXTENDED, &args, sizeof(args), buffer, size);
 }
 
-inline ssize_t  SDCDEVCTL_SDIOWriteExtended(int device, uint8_t functionNumber, uint32_t addr, bool incrementAddr, const void* buffer, size_t size)
+inline PErrorCode  SDCDEVCTL_SDIOWriteExtended(int device, uint8_t functionNumber, uint32_t addr, bool incrementAddr, const void* buffer, size_t size)
 {
     SDCDEVCTL_SDIOWriteExtendedArgs args;
     args.Address = addr;
@@ -92,6 +93,6 @@ inline ssize_t  SDCDEVCTL_SDIOWriteExtended(int device, uint8_t functionNumber, 
     args.IncrementAddr = incrementAddr;
     args.Buffer        = buffer;
     args.Size          = size;
-    return os::FileIO::DeviceControl(device, SDCDEVCTL_SDIO_WRITE_EXTENDED, &args, sizeof(args), nullptr, 0);
+    return device_control(device, SDCDEVCTL_SDIO_WRITE_EXTENDED, &args, sizeof(args), nullptr, 0);
 }
 

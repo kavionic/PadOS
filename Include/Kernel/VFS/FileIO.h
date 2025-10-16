@@ -43,96 +43,124 @@ namespace kernel
     class Kernel;
 }
 typedef struct iovec iovec_t;
-namespace os
-{
 
-class FileIO
-{
-public:
-    static IFLASHC void    Initialze();
-    
-    static IFLASHC bool    RegisterFilesystem(const char* name, Ptr<kernel::KFilesystem> filesystem);
-    static IFLASHC Ptr<kernel::KFilesystem> FindFilesystem(const char* name);
-    
-    static IFLASHC int     Mount(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength);
+void                            ksetup_rootfs_trw();
+Ptr<kernel::KRootFilesystem>    kget_rootfs_trw();
+Ptr<kernel::KRootFilesystem>    kget_rootfs() noexcept;
 
-    static IFLASHC Ptr<kernel::KFileTableNode>  GetFileNode(int handle, bool forKernel = false);
-    static IFLASHC PErrorCode                   GetFile(int handle, Ptr<kernel::KFileNode>& outFileNode);
-    static IFLASHC PErrorCode                   GetFile(int handle, Ptr<kernel::KFileNode>& outFileNode, Ptr<kernel::KINode>& outInode);
-    static IFLASHC Ptr<kernel::KDirectoryNode>  GetDirectory(int handle);
+void                        kregister_filesystem_trw(const char* name, Ptr<kernel::KFilesystem> filesystem);
+Ptr<kernel::KFilesystem>    kfind_filesystem_trw(const char* name);
 
-    static IFLASHC int     Open(const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-    static IFLASHC int     Open(int baseFolderFD, const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-    static IFLASHC int     CopyFD(int oldHandle);
-    static IFLASHC int     Dupe(int oldHandle, int newHandle = -1);
-    static IFLASHC int     Close(int handle);
+void                        kmount_trw(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength);
 
-    static IFLASHC int     GetFileFlags(int handle);
-    static IFLASHC int     SetFileFlags(int handle, int flags);
+Ptr<kernel::KFileTableNode> kget_file_table_node_trw(int handle, bool forKernel = false);
+Ptr<kernel::KFileNode>      kget_file_node_trw(int handle);
+Ptr<kernel::KFileNode>      kget_file_node_trw(int handle, Ptr<kernel::KINode>& outInode);
+Ptr<kernel::KDirectoryNode> kget_directory_node_trw(int handle);
 
-    static IFLASHC PErrorCode Read(int handle, void* buffer, size_t length, ssize_t& outLength);
-    static IFLASHC PErrorCode Read(int handle, void* buffer, size_t length, off64_t position, ssize_t& outLength);
-    static IFLASHC PErrorCode Read(int handle, const iovec_t* segments, size_t segmentCount, ssize_t& outLength);
-    static IFLASHC PErrorCode Read(int handle, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength);
+int         kopen_trw(const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+int         kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+int         kreopen_file_trw(int oldHandle, int openFlags);
+int         kdupe_trw(int oldHandle, int newHandle = -1);
+PErrorCode  kclose(int handle) noexcept;
 
-    static IFLASHC ssize_t Read(int handle, void* buffer, size_t length);
-    static IFLASHC ssize_t Read(int handle, void* buffer, size_t length, off64_t position);
+int         kget_file_flags_trw(int handle);
+int         kset_file_flags_trw(int handle, int flags);
 
-    static IFLASHC PErrorCode Write(int handle, const void* buffer, size_t length, ssize_t& outLength);
-    static IFLASHC PErrorCode Write(int handle, const iovec_t* segments, size_t segmentCount, ssize_t& outLength);
-    static IFLASHC PErrorCode Write(int handle, const void* buffer, size_t length, off64_t position, ssize_t& outLength);
-    static IFLASHC PErrorCode Write(int handle, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength);
 
-    static IFLASHC ssize_t Write(int handle, const void* buffer, size_t length);
-    static IFLASHC ssize_t Write(int handle, const void* buffer, size_t length, off64_t position);
+size_t kread_trw(int handle, void* buffer, size_t length);
+size_t kpread_trw(int handle, void* buffer, size_t length, off_t position);
+size_t kreadv_trw(int handle, const iovec_t* segments, size_t segmentCount);
+size_t kpreadv_trw(int handle, const iovec_t* segments, size_t segmentCount, off_t position);
 
-    static IFLASHC off64_t Seek(int handle, off64_t offset, int mode);
+PErrorCode kread(int handle, void* buffer, size_t length);
+PErrorCode kpread(int handle, void* buffer, size_t length, off_t position);
 
-    static IFLASHC int     FSync(int handle);
+PErrorCode kread(int handle, void* buffer, size_t length, size_t& outLength);
+PErrorCode kpread(int handle, void* buffer, size_t length, off_t position, size_t& outLength);
 
-    static IFLASHC int     DeviceControl(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+size_t kwrite_trw(int handle, const void* buffer, size_t length);
+size_t kpwrite_trw(int handle, const void* buffer, size_t length, off_t position);
+size_t kwritev_trw(int handle, const iovec_t* segments, size_t segmentCount);
+size_t kpwritev_trw(int handle, const iovec_t* segments, size_t segmentCount, off_t position);
 
-    static IFLASHC int     ReadDirectory(int handle, dirent_t* entry, size_t bufSize);
-    static IFLASHC int     RewindDirectory(int handle);
+PErrorCode kwrite(int handle, const void* buffer, size_t length);
+PErrorCode kpwrite(int handle, const void* buffer, size_t length, off_t position);
 
-    static IFLASHC int     CreateDirectory(const char* name, int permission = S_IRWXU);
-    static IFLASHC int     CreateDirectory(int baseFolderFD, const char* name, int permission = S_IRWXU);
+PErrorCode kwrite(int handle, const void* buffer, size_t length, size_t& outLength);
+PErrorCode kpwrite(int handle, const void* buffer, size_t length, off_t position, size_t& outLength);
 
-    static IFLASHC PErrorCode   Symlink(const char* target, const char* linkPath);
-    static IFLASHC PErrorCode   Symlink(const char* target, int baseFolderFD, const char* linkPath);
 
-    static IFLASHC PErrorCode   ReadLink(int dirfd, const char* path, char* buffer, size_t bufferSize, size_t* outResultLength);
+off_t klseek_trw(int handle, off_t offset, int mode);
 
-    static IFLASHC int	   ReadStats(int handle, struct stat* outStats);
-    static IFLASHC int	   WriteStats(int handle, const struct stat& value, uint32_t mask);
+void    kfsync_trw(int handle);
 
-    static IFLASHC int     Rename(const char* oldPath, const char* newPath);
-    static IFLASHC int     Unlink(const char* path);
-    static IFLASHC int     Unlink(int baseFolderFD, const char* path);
-    static IFLASHC int     RemoveDirectory(const char* path);
-    static IFLASHC int     RemoveDirectory(int baseFolderFD, const char* path);
+void    kdevice_control_trw(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
-    static IFLASHC int     GetDirectoryPath(int handle, char* buffer, size_t bufferSize);
+size_t  kread_directory_trw(int handle, dirent_t* entry, size_t bufSize);
+void    krewind_directory_trw(int handle);
 
-private:
-    friend class kernel::Kernel;
+void    kcreate_directory_trw(const char* name, int permission = S_IRWXU);
+void    kcreate_directory_trw(int baseFolderFD, const char* name, int permission = S_IRWXU);
 
-    static IFLASHC Ptr<kernel::KINode>          LocateInodeByName(Ptr<kernel::KINode> parent, const char* name, int nameLength, bool crossMount);
-    static IFLASHC Ptr<kernel::KINode>          LocateInodeByPath(Ptr<kernel::KINode> parent, const char* path, int pathLength);
-    static IFLASHC Ptr<kernel::KINode>          LocateParentInode(Ptr<kernel::KINode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength);
-    static IFLASHC int                          GetDirectoryName(Ptr<kernel::KINode> inode, char* path, size_t bufferSize);
-    static IFLASHC int                          AllocateFileHandle();
-    static IFLASHC void                         FreeFileHandle(int handle);
-    static IFLASHC int                          OpenInode(bool kernelFile, Ptr<kernel::KINode> inode, int openFlags);
-    static IFLASHC void                         SetFile(int handle, Ptr<kernel::KFileTableNode> file);
+void    ksymlink_trw(const char* target, const char* linkPath);
+void    ksymlink_trw(const char* target, int baseFolderFD, const char* linkPath);
 
-    static std::map<os::String, Ptr<kernel::KFilesystem>> s_FilesystemDrivers;
+size_t  kreadlink_trw(int dirfd, const char* path, char* buffer, size_t bufferSize);
 
-    static kernel::KMutex                           s_TableMutex;
-    static Ptr<kernel::KFileTableNode>              s_PlaceholderFile;
-    static Ptr<kernel::KRootFilesystem>             s_RootFilesystem;
-    static Ptr<kernel::KFSVolume>                   s_RootVolume;
-    static std::vector<Ptr<kernel::KFileTableNode>> s_FileTable;
-};
+void	   kread_stat_trw(int handle, struct stat* outStats);
+void	   kwrite_stat_trw(int handle, const struct stat& value, uint32_t mask);
 
-} // namespace
+void    krename_trw(const char* oldPath, const char* newPath);
+void    kunlink_trw(const char* path);
+void    kunlink_trw(int baseFolderFD, const char* path);
+void    kremove_directory_trw(const char* path);
+void    kremove_directory_trw(int baseFolderFD, const char* path);
+
+void    kget_directory_path_trw(int handle, char* buffer, size_t bufferSize);
+
+
+
+
+
+
+
+
+
+Ptr<kernel::KINode> klocate_inode_by_name_trw(Ptr<kernel::KINode> parent, const char* name, int nameLength, bool crossMount);
+Ptr<kernel::KINode> klocate_inode_by_path_trw(Ptr<kernel::KINode> parent, const char* path, int pathLength);
+Ptr<kernel::KINode> klocate_parent_inode_trw(Ptr<kernel::KINode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength);
+void                kget_directory_name_trw(Ptr<kernel::KINode> inode, char* path, size_t bufferSize);
+int                 kallocate_filehandle_trw();
+void                kfree_filehandle(int handle) noexcept;
+int                 kopen_from_inode_trw(bool kernelFile, Ptr<kernel::KINode> inode, int openFlags);
+void                kset_filehandle(int handle, Ptr<kernel::KFileTableNode> file) noexcept;
+
+
+
+off_t       klseek(int handle, off_t offset, int mode) noexcept;
+
+int         kfsync(int handle) noexcept;
+
+PErrorCode  kdevice_control(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) noexcept;
+
+ssize_t     kread_directory(int handle, dirent_t* entry, size_t bufSize) noexcept;
+PErrorCode  krewind_directory(int handle) noexcept;
+
+int         kcreate_directory(const char* name, int permission = S_IRWXU) noexcept;
+int         kcreate_directory(int baseFolderFD, const char* name, int permission = S_IRWXU) noexcept;
+
+PErrorCode  ksymlink(const char* target, const char* linkPath) noexcept;
+PErrorCode  ksymlink(const char* target, int baseFolderFD, const char* linkPath) noexcept;
+
+PErrorCode  kreadlink(int dirfd, const char* path, char* buffer, size_t bufferSize, size_t* outResultLength) noexcept;
+
+PErrorCode  kread_stat(int handle, struct stat* outStats) noexcept;
+PErrorCode  kwrite_stat(int handle, const struct stat& value, uint32_t mask) noexcept;
+
+int         krename(const char* oldPath, const char* newPath) noexcept;
+int         kunlink(const char* path) noexcept;
+int         kunlink(int baseFolderFD, const char* path) noexcept;
+
+int         kremove_directory(const char* path) noexcept;
+int         kremove_directory(int baseFolderFD, const char* path) noexcept;

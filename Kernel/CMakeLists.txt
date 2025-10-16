@@ -19,11 +19,11 @@ target_sources(PadOS_Kernel PRIVATE
 	KProcess.cpp
 	KSemaphore.cpp
 	KThreadCB.cpp
+	KTime.cpp
 	KWaitableObject.cpp
 	Misc.cpp
 	Scheduler.cpp
 	SpinTimer.cpp
 	Syscalls.cpp
-	SysTime.cpp
 	ThreadSyncDebugTracker.cpp
 )

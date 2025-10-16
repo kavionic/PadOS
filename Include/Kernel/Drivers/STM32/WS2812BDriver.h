@@ -37,9 +37,9 @@ class WS2812BDriverINode : public KINode
 public:
     IFLASHC WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t clockFrequency, KFilesystemFileOps* fileOps);
 
-    IFLASHC int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
-    IFLASHC PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength);
-    IFLASHC PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength);
+    IFLASHC void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    IFLASHC size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position);
+    IFLASHC size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position);
 
 private:
     enum class State
@@ -54,7 +54,7 @@ private:
 
     IFLASHC PErrorCode WaitForIdle();
 
-    IFLASHC PErrorCode SetLEDCount(size_t count);
+    IFLASHC void SetLEDCount(size_t count);
     IFLASHC size_t GetLEDCount() const;
 
     IFLASHC void SetExponential(bool exponential);
@@ -87,9 +87,9 @@ public:
 
     IFLASHC void Setup(const char* devicePath, bool swapIOPins, SPIID portID, uint32_t clockFrequency);
 
-    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    IFLASHC virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    IFLASHC virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    IFLASHC virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
     WS2812BDriver(const WS2812BDriver &other) = delete;

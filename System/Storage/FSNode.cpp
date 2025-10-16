@@ -18,13 +18,13 @@
 
 #include <unistd.h>
 #include <assert.h>
+#include <sys/pados_syscalls.h>
 
 #include <Storage/FSNode.h>
 #include <Storage/FileReference.h>
 #include <Storage/Directory.h>
 #include <Storage/Path.h>
-#include <Kernel/VFS/FileIO.h>
-#include <Kernel/VFS/KFilesystem.h>
+//#include <Kernel/VFS/KFilesystem.h>
 
 using namespace os;
 
@@ -107,13 +107,13 @@ FSNode::FSNode(const FileReference& reference, int openFlags)
 FSNode::FSNode(int fileDescriptor, bool takeOwnership)
 {
     if (!takeOwnership && fileDescriptor != -1) {
-        fileDescriptor = FileIO::CopyFD(fileDescriptor);
+        fileDescriptor = dup(fileDescriptor);
     }
     m_FileDescriptor = fileDescriptor;
 
-    if (FileIO::ReadStats(m_FileDescriptor, &m_StatCache) < 0)
+    if (fstat(m_FileDescriptor, &m_StatCache) < 0)
     {
-        FileIO::Close(m_FileDescriptor);
+        close(m_FileDescriptor);
         m_FileDescriptor = -1;
     }
 }
@@ -138,7 +138,7 @@ FSNode::FSNode(int fileDescriptor, bool takeOwnership)
 
 FSNode::FSNode(const FSNode& node)
 {
-    m_FileDescriptor = FileIO::CopyFD(node.m_FileDescriptor);
+    m_FileDescriptor = dup(node.m_FileDescriptor);
     m_StatCache = node.m_StatCache;
 }
 
@@ -167,7 +167,7 @@ FSNode::~FSNode()
 //        close_attrdir(m_hAttrDir);
 //    }
     if (m_FileDescriptor != -1) {
-        FileIO::Close(m_FileDescriptor);
+        close(m_FileDescriptor);
     }
 }
 
@@ -250,7 +250,7 @@ bool FSNode::Open(const String& path, int openFlags)
         }
         String realPath = home;
         realPath.insert(realPath.end(), path.begin() + 1, path.end());
-        newFileDescriptor = FileIO::Open(realPath.c_str(), openFlags);
+        newFileDescriptor = open(realPath.c_str(), openFlags);
     }
     /*else if (path.size() > 1 && path[0] == '^' && path[1] == '/')
     {
@@ -267,29 +267,29 @@ bool FSNode::Open(const String& path, int openFlags)
     }*/
     else
     {
-        newFileDescriptor = FileIO::Open(path.c_str(), openFlags);
+        newFileDescriptor = open(path.c_str(), openFlags);
     }
 
     if (newFileDescriptor < 0) {
         return false;
     }
     struct ::stat sStat;
-    if (FileIO::ReadStats(newFileDescriptor, &sStat) < 0)
+    if (fstat(newFileDescriptor, &sStat) < 0)
     {
         int savedErrno = errno;
-        FileIO::Close(newFileDescriptor);
+        close(newFileDescriptor);
         errno = savedErrno;
         return false;
     }
     if (!FDChanged(newFileDescriptor, sStat))
     {
         int savedErrno = errno;
-        FileIO::Close(newFileDescriptor);
+        close(newFileDescriptor);
         errno = savedErrno;
         return false;
     }
     if (m_FileDescriptor >= 0) {
-        FileIO::Close(m_FileDescriptor);
+        close(m_FileDescriptor);
     }
     m_StatCache = sStat;
     m_FileDescriptor = newFileDescriptor;
@@ -345,15 +345,15 @@ bool FSNode::Open(const Directory& directory, const String& path, int openFlags)
         errno = EINVAL;
         return false;
     }
-    int newFileDescriptor = FileIO::Open(directory.GetFileDescriptor(), path.c_str(), openFlags);
+    int newFileDescriptor = openat(directory.GetFileDescriptor(), path.c_str(), openFlags);
     if (newFileDescriptor < 0) {
         return false;
     }
     struct ::stat statBuffer;
-    if (FileIO::ReadStats(newFileDescriptor, &statBuffer) < 0)
+    if (fstat(newFileDescriptor, &statBuffer) < 0)
     {
         int savedErrno = errno;
-        FileIO::Close(newFileDescriptor);
+        close(newFileDescriptor);
         errno = savedErrno;
         return false;
     }
@@ -361,12 +361,12 @@ bool FSNode::Open(const Directory& directory, const String& path, int openFlags)
     if (!FDChanged(newFileDescriptor, statBuffer))
     {
         int savedErrno = errno;
-        FileIO::Close(newFileDescriptor);
+        close(newFileDescriptor);
         errno = savedErrno;
         return false;
     }
     if (m_FileDescriptor >= 0) {
-        FileIO::Close(m_FileDescriptor);
+        close(m_FileDescriptor);
     }
     m_StatCache = statBuffer;
     m_FileDescriptor = newFileDescriptor;
@@ -398,27 +398,27 @@ bool FSNode::Open(const FileReference& reference, int openFlags)
         errno = EINVAL;
         return false;
     }
-    int newFileDescriptor = FileIO::Open(reference.GetDirectory().GetFileDescriptor(), reference.GetName().c_str(), openFlags);
+    int newFileDescriptor = openat(reference.GetDirectory().GetFileDescriptor(), reference.GetName().c_str(), openFlags);
     if (newFileDescriptor < 0) {
         return false;
     }
     struct ::stat statBuffer;
-    if (FileIO::ReadStats(newFileDescriptor, &statBuffer) < 0)
+    if (fstat(newFileDescriptor, &statBuffer) < 0)
     {
         int savedErrno = errno;
-        FileIO::Close(newFileDescriptor);
+        close(newFileDescriptor);
         errno = savedErrno;
         return false;
     }
     if (!FDChanged(newFileDescriptor, statBuffer))
     {
         int savedErrno = errno;
-        FileIO::Close(newFileDescriptor);
+        close(newFileDescriptor);
         errno = savedErrno;
         return false;
     }
     if (m_FileDescriptor >= 0) {
-        FileIO::Close(m_FileDescriptor);
+        close(m_FileDescriptor);
     }
     m_StatCache = statBuffer;
     m_FileDescriptor = newFileDescriptor;
@@ -444,22 +444,22 @@ bool FSNode::Open(const FileReference& reference, int openFlags)
 bool FSNode::SetTo(int fileDescriptor, bool takeOwnership)
 {
     struct ::stat statBuffer;
-    if (FileIO::ReadStats(fileDescriptor, &statBuffer) < 0)
+    if (fstat(fileDescriptor, &statBuffer) < 0)
     {
         int savedErrno = errno;
-        FileIO::Close(fileDescriptor);
+        close(fileDescriptor);
         errno = savedErrno;
         return false;
     }
     if (!FDChanged(fileDescriptor, statBuffer))
     {
         int savedErrno = errno;
-        FileIO::Close(fileDescriptor);
+        close(fileDescriptor);
         errno = savedErrno;
         return false;
     }
     if (m_FileDescriptor >= 0) {
-        FileIO::Close(m_FileDescriptor);
+        close(m_FileDescriptor);
     }
     m_StatCache = statBuffer;
     m_FileDescriptor = fileDescriptor;
@@ -492,19 +492,19 @@ bool FSNode::SetTo(const FSNode& node)
         Close();
         return true;
     }
-    int newFileDescriptor = FileIO::CopyFD(node.m_FileDescriptor);
+    int newFileDescriptor = dup(node.m_FileDescriptor);
     if (newFileDescriptor < 0) {
         return false;
     }
     if (!FDChanged(newFileDescriptor, node.m_StatCache))
     {
         int savedErrno = errno;
-        FileIO::Close(newFileDescriptor);
+        close(newFileDescriptor);
         errno = savedErrno;
         return false;
     }
     if (m_FileDescriptor >= 0) {
-        FileIO::Close(m_FileDescriptor);
+        close(m_FileDescriptor);
     }
     m_StatCache = node.m_StatCache;
     m_FileDescriptor = newFileDescriptor;
@@ -526,7 +526,7 @@ bool FSNode::SetTo(FSNode&& node)
         return false;
     }
     if (m_FileDescriptor >= 0) {
-        FileIO::Close(m_FileDescriptor);
+        close(m_FileDescriptor);
     }
     m_StatCache             = node.m_StatCache;
     m_FileDescriptor        = node.m_FileDescriptor;
@@ -554,7 +554,7 @@ void FSNode::Close()
 //    }
     FDChanged(-1, m_StatCache);
     if (m_FileDescriptor != -1) {
-        FileIO::Close(m_FileDescriptor);
+        close(m_FileDescriptor);
         m_FileDescriptor = -1;
     }
 }
@@ -579,7 +579,7 @@ bool FSNode::GetStat(struct ::stat* statBuffer, bool updateCache) const
         return false;
     }
     if (updateCache) {
-        status_t nError = FileIO::ReadStats(m_FileDescriptor, &m_StatCache);
+        status_t nError = fstat(m_FileDescriptor, &m_StatCache);
         if (nError < 0) {
             return false;
         }
@@ -600,8 +600,10 @@ bool FSNode::SetStats(const struct stat& statBuffer, uint32_t mask) const
         errno = EINVAL;
         return false;
     }
-    status_t result = FileIO::WriteStats(m_FileDescriptor, statBuffer, mask);
-    if (result < 0) {
+    const PErrorCode result = __write_stat(m_FileDescriptor, &statBuffer, mask);
+    if (result != PErrorCode::Success)
+    {
+        set_last_error(result);
         return false;
     }
     if (mask & WSTAT_MODE)  m_StatCache.st_mode  = statBuffer.st_mode;
@@ -662,7 +664,7 @@ int FSNode::GetMode(bool updateCache) const
     }
     if (updateCache)
     {
-        if (FileIO::ReadStats(m_FileDescriptor, &m_StatCache) < 0) {
+        if (fstat(m_FileDescriptor, &m_StatCache) < 0) {
             return -1;
         }
     }
@@ -680,7 +682,7 @@ off64_t FSNode::GetSize(bool updateCache) const
         return -1;
     }
     if (updateCache) {
-        if (FileIO::ReadStats(m_FileDescriptor, &m_StatCache) < 0) {
+        if (fstat(m_FileDescriptor, &m_StatCache) < 0) {
             return -1;
         }
     }
@@ -712,7 +714,7 @@ PErrorCode FSNode::GetCTime(TimeValNanos& outTime, bool updateCache) const
         return PErrorCode::InvalidArg;
     }
     if (updateCache) {
-        if (FileIO::ReadStats(m_FileDescriptor, &m_StatCache) < 0) {
+        if (fstat(m_FileDescriptor, &m_StatCache) < 0) {
             return PErrorCode(errno);
         }
     }
@@ -730,7 +732,7 @@ PErrorCode FSNode::GetMTime(TimeValNanos& outTime, bool updateCache) const
         return PErrorCode::InvalidArg;
     }
     if (updateCache) {
-        if (FileIO::ReadStats(m_FileDescriptor, &m_StatCache) < 0) {
+        if (fstat(m_FileDescriptor, &m_StatCache) < 0) {
             return PErrorCode(errno);
         }
     }
@@ -748,7 +750,7 @@ PErrorCode FSNode::GetATime(TimeValNanos& outTime, bool updateCache) const
         return PErrorCode::InvalidArg;
     }
     if (updateCache) {
-        if (FileIO::ReadStats(m_FileDescriptor, &m_StatCache) < 0) {
+        if (fstat(m_FileDescriptor, &m_StatCache) < 0) {
             return PErrorCode(errno);
         }
     }

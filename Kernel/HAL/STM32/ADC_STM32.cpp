@@ -18,6 +18,7 @@
 // Created: 29.08.2022 20:00
 
 #include <string.h>
+#include <Kernel/KTime.h>
 #include <Kernel/HAL/STM32/ADC_STM32.h>
 #include <Kernel/IRQDispatcher.h>
 #include <Utils/Utils.h>
@@ -121,7 +122,7 @@ bool ADC_STM32::SetLinearCalibrationWord(int index, uint32_t value)
 
     set_bit_group(m_ADC->CALFACT2, ADC_CALFACT2_LINCALFACT_Msk, value << ADC_CALFACT2_LINCALFACT_Pos);
     m_ADC->CR |= mask;
-    for (TimeValNanos endTime = get_system_time() + TimeValNanos::FromMilliseconds(10); (m_ADC->CR & mask) == 0 && get_system_time() < endTime;) {}
+    for (TimeValNanos endTime = kget_monotonic_time() + TimeValNanos::FromMilliseconds(10); (m_ADC->CR & mask) == 0 && kget_monotonic_time() < endTime;) {}
 
     return (m_ADC->CR & mask) != 0;
 }

@@ -21,6 +21,7 @@
 #include <string.h>
 #include <sys/uio.h>
 
+#include <Kernel/KTime.h>
 #include <Kernel/Drivers/STM32/SDMMCDriver_STM32.h>
 #include <Kernel/SpinTimer.h>
 #include <Kernel/VFS/FileIO.h>
@@ -87,7 +88,7 @@ SDMMCDriver_STM32::~SDMMCDriver_STM32()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SDMMCDriver_STM32::Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, uint32_t clockCap, DigitalPinID pinCD, IRQn_Type irqNum)
+void SDMMCDriver_STM32::Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, uint32_t clockCap, DigitalPinID pinCD, IRQn_Type irqNum)
 {
     m_PeripheralClockFrequency = peripheralClockFrequency;
     m_ClockCap = clockCap;
@@ -96,9 +97,8 @@ bool SDMMCDriver_STM32::Setup(const os::String& devicePath, SDMMC_TypeDef* port,
     SetClockFrequency(SDMMC_CLOCK_INIT);
     m_SDMMC->POWER = 3 << SDMMC_POWER_PWRCTRL_Pos;
 
-    if (!SetupBase(devicePath, pinCD)) return false;
+    SetupBase(devicePath, pinCD);
     kernel::register_irq_handler(irqNum, IRQCallback, this);
-    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -327,12 +327,12 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
 
     if (result)
     {
-        TimeValNanos startTime = kget_system_time();
+        TimeValNanos startTime = kget_monotonic_time();
         do
         {
             result = WaitIRQ(SDMMC_MASK_DATAENDIE | SDMMC_MASK_IDMABTCIE | SDMMC_MASK_DABORTIE | SDMMC_MASK_DTIMEOUTIE | SDMMC_MASK_DCRCFAILIE);
             if (!result) break;
-            if (kget_system_time() - startTime > TimeValNanos::FromMilliseconds(500))
+            if (kget_monotonic_time() - startTime > TimeValNanos::FromMilliseconds(500))
             {
                 result = false;
                 printf("ERROR: SDMMCDriver_STM32::StartAddressedDataTransCmd() could only read %u of %u blocks.\n", m_CurrentSegment, m_SegmentCount);

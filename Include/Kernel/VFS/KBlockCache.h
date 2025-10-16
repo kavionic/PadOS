@@ -116,11 +116,11 @@ public:
     
     static IFLASHC void Initialize();
         
-    IFLASHC KCacheBlockDesc GetBlock(off64_t blockNum, bool doLoad = true);
+    IFLASHC KCacheBlockDesc GetBlock_trw(off64_t blockNum, bool doLoad = true);
     IFLASHC bool            MarkBlockDirty(off64_t blockNum);
     
-    IFLASHC PErrorCode CachedRead(off64_t blockNum, void* buffer, size_t blockCount);
-    IFLASHC PErrorCode CachedWrite(off64_t blockNum, const void* buffer, size_t blockCount);
+    IFLASHC void CachedRead_trw(off64_t blockNum, void* buffer, size_t blockCount);
+    IFLASHC void CachedWrite_trw(off64_t blockNum, const void* buffer, size_t blockCount);
 
     IFLASHC bool Flush();
     IFLASHC bool Sync();
@@ -132,7 +132,7 @@ private:
 
     IFLASHC bool FlushInternal();
 
-    static IFLASHC bool  FlushBlockList(KCacheBlockHeader** blockList, size_t blockCount);
+    static IFLASHC bool  FlushBlockList_trw(KCacheBlockHeader** blockList, size_t blockCount);
     static IFLASHC void* DiskCacheFlusher(void* arg);
     
     static std::map<int, KBlockCache*>      s_DeviceMap;

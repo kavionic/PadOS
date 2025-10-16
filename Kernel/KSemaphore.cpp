@@ -25,6 +25,7 @@
 #include <Kernel/KMutex.h>
 #include <Kernel/KHandleArray.h>
 #include <Kernel/Scheduler.h>
+#include <Kernel/KTime.h>
 #include <System/System.h>
 
 using namespace kernel;
@@ -110,10 +111,15 @@ PErrorCode KSemaphore::AcquireDeadline(TimeValNanos deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KSemaphore::AcquireClock(clockid_t clockID, TimeValNanos deadline)
+PErrorCode KSemaphore::AcquireClock(clockid_t clockID, TimeValNanos clockDeadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
+    TimeValNanos deadline;
+    const PErrorCode result = kconvert_clock_to_monotonic(clockID, clockDeadline, deadline);
+    if (result != PErrorCode::Success) {
+        return result;
+    }
     for (;;)
     {
         KThreadWaitNode waitNode;
@@ -127,16 +133,16 @@ PErrorCode KSemaphore::AcquireClock(clockid_t clockID, TimeValNanos deadline)
                 m_Holder = thread->GetHandle();
                 return PErrorCode::Success;
             }
-            if (deadline.IsInfinit() || get_clock_time(clockID) < deadline)
+            if (deadline.IsInfinit() || get_monotonic_time() < deadline)
             {
-                waitNode.m_Thread      = thread;
+                waitNode.m_Thread = thread;
 
                 m_WaitQueue.Append(&waitNode);
                 if (!deadline.IsInfinit())
                 {
                     thread->m_State = ThreadState_Sleeping;
                     sleepNode.m_Thread = thread;
-                    sleepNode.m_ResumeTime = deadline - get_clock_time_offset(clockID);
+                    sleepNode.m_ResumeTime = deadline;
                     add_to_sleep_list(&sleepNode);
                 }
                 else
@@ -171,7 +177,7 @@ PErrorCode KSemaphore::AcquireClock(clockid_t clockID, TimeValNanos deadline)
 
 PErrorCode KSemaphore::AcquireTimeout(TimeValNanos timeout)
 {
-    return AcquireClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_clock_time(CLOCK_MONOTONIC_COARSE) + timeout) : TimeValNanos::infinit);
+    return AcquireClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

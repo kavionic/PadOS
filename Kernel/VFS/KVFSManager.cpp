@@ -22,11 +22,14 @@
 #include <string.h>
 #include <assert.h>
 
-#include "Kernel/VFS/KVFSManager.h"
-#include "Kernel/VFS/KDeviceNode.h"
-#include "Kernel/VFS/KFSVolume.h"
-#include "Kernel/VFS/KINode.h"
-#include "DeviceControl/DeviceControl.h"
+#include <PadOS/DeviceControl.h>
+
+#include <System/ExceptionHandling.h>
+#include <Kernel/KTime.h>
+#include <Kernel/VFS/KVFSManager.h>
+#include <Kernel/VFS/KDeviceNode.h>
+#include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KINode.h>
 
 using namespace kernel;
 
@@ -227,20 +230,16 @@ int KVFSManager::DecodeDiskPartitions(void* blockBuffer, size_t bufferSize, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KVFSManager::RegisterVolume(Ptr<KFSVolume> volume)
+void KVFSManager::RegisterVolume_trw(Ptr<KFSVolume> volume)
 {
-    if (volume == nullptr || s_VolumeMap.find(volume->m_VolumeID) != s_VolumeMap.end()) {
+    if (volume == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    }
+    if (s_VolumeMap.find(volume->m_VolumeID) != s_VolumeMap.end()) {
         kprintf("ERROR: KVFSManager::RegisterVolume() failed to register volume %p\n", ptr_raw_pointer_cast(volume));
-        return false;
+        PERROR_THROW_CODE(PErrorCode::Exist);
     }
-    try {
-        s_VolumeMap[volume->m_VolumeID] = volume;
-        return true;
-    } catch(std::bad_alloc&) {
-        kprintf("ERROR: KVFSManager::RegisterVolume() not enough memory to register volume %p\n", ptr_raw_pointer_cast(volume));
-        set_last_error(ENOMEM);
-        return false;
-    }
+    s_VolumeMap[volume->m_VolumeID] = volume;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -261,7 +260,7 @@ Ptr<KFSVolume> KVFSManager::GetVolume(fs_id volumeID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> KVFSManager::GetINode(fs_id volumeID, ino_t inodeID, bool crossMount)
+Ptr<KINode> KVFSManager::GetINode_trw(fs_id volumeID, ino_t inodeID, bool crossMount)
 {
     for (;;)
     {
@@ -309,7 +308,7 @@ Ptr<KINode> KVFSManager::GetINode(fs_id volumeID, ino_t inodeID, bool crossMount
             }
         }
     }        
-    return nullptr;
+    PERROR_THROW_CODE(PErrorCode::IOError);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -340,7 +339,7 @@ void KVFSManager::FlushInodes()
     {
         CRITICAL_SCOPE(s_INodeMapMutex);
 
-        time_t curTime = get_system_time().AsSecondsI();
+        time_t curTime = kget_monotonic_time().AsSecondsI();
         while(s_InodeMRUList.m_First != nullptr && curTime > (s_InodeMRUList.m_First->m_LastUseTime + 1))
         {
             DiscardInode(s_InodeMRUList.m_First);
@@ -366,7 +365,12 @@ void KVFSManager::DiscardInode(KINode* inode)
     i->second = PENDING_INODE;
 
     s_INodeMapMutex.Unlock();
-    inode->m_Filesystem->ReleaseInode(inode);
+    try
+    {
+        inode->m_Filesystem->ReleaseInode(inode);
+    }
+    PERROR_CATCH([](PErrorCode error) { kernel_log(LogCatKernel_VFS, KLogSeverity::ERROR, "ERROR: Failed to release inode\n"); });
+
     delete inode;
     s_INodeMapMutex.Lock();
     

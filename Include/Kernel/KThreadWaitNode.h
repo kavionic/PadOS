@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <System/SysTime.h>
+#include <System/TimeValue.h>
 #include "Utils/IntrusiveList.h"
 
 namespace kernel

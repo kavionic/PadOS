@@ -28,16 +28,16 @@ class FATVolume;
 struct FATClusterSectorIterator
 {
     FATClusterSectorIterator(Ptr<FATVolume> volume, uint32_t cluster, uint32_t sector);
-    status_t Set(uint32_t cluster, uint32_t sector);
+    void Set(uint32_t cluster, uint32_t sector);
     
     off64_t         GetBlockSector();
-    KCacheBlockDesc GetBlock(bool doLoad);
+    KCacheBlockDesc GetBlock_(bool doLoad);
     
-    PErrorCode        Increment(int sectors);
+    void        Increment(int sectors);
 
     PErrorCode        MarkBlockDirty();
-    PErrorCode        ReadBlock(uint8_t* buffer);
-    PErrorCode        WriteBlock(const uint8_t* buffer);
+    void        ReadBlock(uint8_t* buffer);
+    void        WriteBlock(const uint8_t* buffer);
     
     Ptr<FATVolume> m_Volume;
     uint32_t       m_CurrentCluster;

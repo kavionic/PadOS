@@ -104,7 +104,7 @@ public:
     ~FATVolume();
     
     
-    bool ReadSuperBlock(int deviceFile);
+    void ReadSuperBlock(int deviceFile);
     void UpdateFSInfo();
 
     void Shutdown();
@@ -116,7 +116,7 @@ public:
     Ptr<FATTable> GetFATTable() { return m_FATTable; }
     
     ino_t AllocUniqueINodeID();
-    PErrorCode  SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID);
+    void  SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID);
     bool  RemoveINodeIDToLocationIDMapping(ino_t inodeID);
     bool  GetINodeIDToLocationIDMapping(ino_t inodeID, ino_t* locationID) const;
     bool  GetLocationIDToINodeIDMapping(ino_t locationID, ino_t* inodeID) const;
@@ -126,7 +126,7 @@ public:
 
     void  DumpINodeIDMap();
     
-    bool  AddDirectoryMapping(ino_t inodeID);
+    void  AddDirectoryMapping(ino_t inodeID);
     bool  RemoveDirectoryMapping(ino_t inodeID);
     ino_t GetDirectoryMapping(uint32_t startCluster) const;
     void  DumpDirectoryMap();

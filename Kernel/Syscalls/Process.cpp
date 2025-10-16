@@ -21,10 +21,12 @@
 #include <sys/unistd.h>
 #include <string.h>
 #include <sys/pados_syscalls.h>
+#include <PadOS/SyscallReturns.h>
 
 #include <System/ErrorCodes.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcess.h>
+#include <Kernel/Syscalls.h>
 #include "SystemSettings.h"
 
 
@@ -60,9 +62,9 @@ void sys_exit(int exitCode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-pid_t sys_getpid(void)
+PSysRetPair sys_getpid(void)
 {
-    return gk_CurrentThread->GetProcessID();
+    return PMakeSysRetSuccess(gk_CurrentThread->GetProcessID());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -78,7 +80,7 @@ PErrorCode sys_kill(pid_t pid, int sig)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-caddr_t sys_sbrk(ptrdiff_t size)
+PSysRetPair sys_sbrk(ptrdiff_t size)
 {
     static uint8_t* heap = nullptr;
     uint8_t* prev_heap;
@@ -91,15 +93,14 @@ caddr_t sys_sbrk(ptrdiff_t size)
 
     if ((heap + size) > HEAP_END)
     {
-        set_last_error(ENOMEM);
-        return caddr_t(-1);
+        return PMakeSysRetFail(PErrorCode::NoMemory);
     }
     g_HeapSize += size;
     heap += size;
     if (size > 0) {
         memset(prev_heap, 0, size);
     }
-    return caddr_t(prev_heap);
+    return PMakeSysRetSuccess(intptr_t(prev_heap));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

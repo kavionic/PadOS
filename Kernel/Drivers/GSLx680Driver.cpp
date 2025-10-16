@@ -22,14 +22,17 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include "Kernel/Drivers/GSLx680Driver.h"
-#include "DeviceControl/I2C.h"
-#include "DeviceControl/HID.h"
-#include "Threads/Threads.h"
-#include "System/SystemMessageIDs.h"
-#include "GUI/GUIEvent.h"
-#include "Kernel/VFS/KFSVolume.h"
-#include "Kernel/HAL/Peripherals.h"
+#include <Kernel/KTime.h>
+#include <Kernel/VFS/FileIO.h>
+#include <Kernel/Drivers/GSLx680Driver.h>
+#include <DeviceControl/I2C.h>
+#include <DeviceControl/HID.h>
+#include <Threads/Threads.h>
+#include <System/SystemMessageIDs.h>
+#include <System/ExceptionHandling.h>
+#include <GUI/GUIEvent.h>
+#include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/HAL/Peripherals.h>
 
 using namespace kernel;
 using namespace os;
@@ -73,18 +76,16 @@ void GSLx680Driver::Setup(const char* devicePath, int threadPriority, DigitalPin
 
 	kernel::register_irq_handler(get_peripheral_irq(pinIRQ), IRQHandler, this);
 
-	m_I2CDevice = FileIO::Open(i2cPath, O_RDWR);
+	m_I2CDevice = kopen_trw(i2cPath, O_RDWR);
 
-	if (m_I2CDevice != -1)
-	{
-		I2CIOCTL_SetTimeout(m_I2CDevice, TimeValNanos::FromMilliseconds(1000));
-		I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x80);
-		I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
+	I2CIOCTL_SetTimeout(m_I2CDevice, TimeValNanos::FromMilliseconds(1000));
+	I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x80);
+	I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
-        Start(PThreadDetachState_Detached, threadPriority);
-	}
+    Start(PThreadDetachState_Detached, threadPriority);
+
 	Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
-	Kernel::RegisterDevice(devicePath, inode);
+	Kernel::RegisterDevice_trw(devicePath, inode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -167,7 +168,7 @@ void* GSLx680Driver::Run()
 			if (eventID != MessageID::MOUSE_MOVE || (moveFlags & mask))
 			{
                 MotionEvent mouseEvent;
-				mouseEvent.Timestamp    = get_system_time();
+				mouseEvent.Timestamp    = kget_monotonic_time();
 				mouseEvent.EventID      = eventID;
                 mouseEvent.ToolType     = MotionToolType::Finger;
 				mouseEvent.ButtonID     = MouseButton_e(int(MouseButton_e::FirstTouchID) + i);
@@ -204,7 +205,7 @@ Ptr<KFileNode> GSLx680Driver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t GSLx680Driver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
+void GSLx680Driver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
     CRITICAL_SCOPE(m_Mutex);
     auto i = std::find(m_OpenFiles.begin(), m_OpenFiles.end(), file);
@@ -212,14 +213,13 @@ status_t GSLx680Driver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
     {
         m_OpenFiles.erase(i);
     }
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int GSLx680Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void GSLx680Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<GSLx680File> ftFile = ptr_static_cast<GSLx680File>(file);
@@ -230,16 +230,15 @@ int GSLx680Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* i
     switch(request)
     {
         case HIDIOCTL_SET_TARGET_PORT:
-            if (inArg == nullptr || inDataLength != sizeof(port_id)) { set_last_error(EINVAL); return -1; }
+            if (inArg == nullptr || inDataLength != sizeof(port_id)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
             ftFile->m_TargetPort = *inArg;
-            return 0;
+            return;
         case HIDIOCTL_GET_TARGET_PORT:
-            if (outArg == nullptr || outDataLength != sizeof(port_id)) { set_last_error(EINVAL); return -1; }
+            if (outArg == nullptr || outDataLength != sizeof(port_id)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
             *outArg = ftFile->m_TargetPort;
-            return 0;
+            return;
         default:
-            set_last_error(EINVAL);
-            return -1;
+            PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 }
 
@@ -249,14 +248,15 @@ int GSLx680Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* i
 
 bool GSLx680Driver::WriteData(int address, const void* data, size_t length)
 {
-	int result = -1;
-	for (int i = 0; i < 10 && result != length; ++i) {
-		result = FileIO::Write(m_I2CDevice, data, length, off_t(address));
-		if (result != length) {
-			printf("Error %d writing reg %02x:%d. %d / %d\n", i, address, length, result, errno);
+	PErrorCode result = PErrorCode::IOError;
+	for (int i = 0; i < 10 && result != PErrorCode::Success; ++i)
+    {
+		result = kpwrite(m_I2CDevice, data, length, address);
+		if (result != PErrorCode::Success) {
+			printf("Error %d writing reg %02x:%d: %s\n", i, address, length, strerror(std::to_underlying(result)));
 		}
 	}
-	return result == length;
+	return result == PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -283,14 +283,14 @@ bool GSLx680Driver::WriteRegister32(int address, uint32_t value)
 
 bool GSLx680Driver::ReadData(int address, void* data, size_t length)
 {
-	int result = -1;
-	for (int i = 0; i < 10 && result != length; ++i) {
-		result = FileIO::Read(m_I2CDevice, data, length, off_t(address));
-		if (result != length && i > 0) {
-			printf("Error %d reading reg %02x:%d. %d / %d\n", i, address, length, result, errno);
+	PErrorCode result = PErrorCode::IOError;
+	for (int i = 0; i < 10 && result != PErrorCode::Success; ++i) {
+		result = kpread(m_I2CDevice, data, length, address);
+		if (result != PErrorCode::Success && i > 0) {
+			printf("Error %d reading reg %02x:%d: %s\n", i, address, length, strerror(std::to_underlying(result)));
 		}
 	}
-	return result == length;
+	return result == PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

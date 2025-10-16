@@ -20,7 +20,7 @@
 #pragma once
 
 #include "System/Platform.h"
-#include "System/SysTime.h"
+#include <System/TimeValue.h>
 
 namespace kernel
 {

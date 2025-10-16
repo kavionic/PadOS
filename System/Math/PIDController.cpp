@@ -17,8 +17,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 17.11.2024 22:30
 
+#include <limits>
 #include <algorithm>
 #include <sys/types.h>
+
 #include <Math/PIDController.h>
 
 using namespace os;

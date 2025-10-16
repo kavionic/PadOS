@@ -35,12 +35,12 @@ public:
     IFLASHC ~KConditionVariable();
     
     PErrorCode Wait() { return WaitInternal(nullptr); }
-    PErrorCode WaitTimeout(TimeValNanos timeout) { return WaitTimeoutInternal(nullptr, m_ClockID, timeout); }
+    PErrorCode WaitTimeout(TimeValNanos timeout) { return WaitTimeoutInternal(nullptr, timeout); }
     PErrorCode WaitDeadline(TimeValNanos deadline) { return WaitDeadlineInternal(nullptr, m_ClockID, deadline); }
     PErrorCode WaitClock(clockid_t clockID, TimeValNanos deadline) { return WaitDeadlineInternal(nullptr, clockID, deadline); }
 
     PErrorCode Wait(KMutex& lock) { return WaitInternal(&lock); }
-    PErrorCode WaitTimeout(KMutex& lock, TimeValNanos timeout) { return WaitTimeoutInternal(&lock, m_ClockID, timeout); }
+    PErrorCode WaitTimeout(KMutex& lock, TimeValNanos timeout) { return WaitTimeoutInternal(&lock, timeout); }
     PErrorCode WaitDeadline(KMutex& lock, TimeValNanos deadline) { return WaitDeadlineInternal(&lock, m_ClockID, deadline); }
     PErrorCode WaitClock(KMutex& lock, clockid_t clockID, TimeValNanos deadline) { return WaitDeadlineInternal(&lock, clockID, deadline); }
 
@@ -54,7 +54,7 @@ public:
 
 private:
     IFLASHC PErrorCode WaitInternal(KMutex* lock);
-    IFLASHC PErrorCode WaitTimeoutInternal(KMutex* lock, clockid_t clockID, TimeValNanos timeout);
+    IFLASHC PErrorCode WaitTimeoutInternal(KMutex* lock, TimeValNanos timeout);
     IFLASHC PErrorCode WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValNanos deadline);
 
     clockid_t m_ClockID = CLOCK_MONOTONIC;

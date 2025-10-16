@@ -20,11 +20,11 @@
 #pragma once
 
 #include <sys/pados_threads.h>
-
-#include "KNamedObject.h"
-#include "Utils/IntrusiveList.h"
-#include "Threads/Threads.h"
-#include "System/SysTime.h"
+#include <PadOS/Threads.h>
+#include <System/TimeValue.h>
+#include <Utils/IntrusiveList.h>
+#include <Threads/Threads.h>
+#include <Kernel/KNamedObject.h>
 
 namespace os
 {
@@ -90,9 +90,7 @@ public:
     int                       m_StackSize;
 
     uint8_t*                  m_ThreadLocalBuffer = nullptr;
-    uint8_t*                  m_ThreadLocalTCB = nullptr;
-    uint8_t*                  m_ThreadLocalDataSegment = nullptr;
-    void**                    m_ThreadLocalSlots = nullptr;
+    PThreadControlBlock*      m_ControlBlock = nullptr;
 
     KThreadCB*                m_Prev = nullptr;
     KThreadCB*                m_Next = nullptr;

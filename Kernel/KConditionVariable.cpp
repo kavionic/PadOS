@@ -18,9 +18,11 @@
 // Created: 27.04.2018 22:30:54
 
 
-#include "Kernel/KConditionVariable.h"
-#include "Kernel/Scheduler.h"
-#include "Kernel/KMutex.h"
+#include <PadOS/Time.h>
+#include <Kernel/KConditionVariable.h>
+#include <Kernel/Scheduler.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/KTime.h>
 
 using namespace kernel;
 using namespace os;
@@ -83,10 +85,16 @@ PErrorCode KConditionVariable::WaitInternal(KMutex* lock)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValNanos deadline)
+PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValNanos clockDeadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
+    TimeValNanos deadline;
+    const PErrorCode result = kconvert_clock_to_monotonic(clockID, clockDeadline, deadline);
+    if (result != PErrorCode::Success) {
+        return result;
+    }
+
     for (;;)
     {
         KThreadWaitNode waitNode;
@@ -94,7 +102,7 @@ PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t cloc
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (deadline.IsInfinit() || get_clock_time(clockID) < deadline)
+            if (deadline.IsInfinit() || kget_monotonic_time() < deadline)
             {
                 waitNode.m_Thread = thread;
 
@@ -103,7 +111,7 @@ PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t cloc
                 {
                     thread->m_State = ThreadState_Sleeping;
                     sleepNode.m_Thread = thread;
-                    sleepNode.m_ResumeTime = deadline - get_clock_time_offset(clockID);
+                    sleepNode.m_ResumeTime = deadline;
                     add_to_sleep_list(&sleepNode);
                 }
                 else
@@ -141,9 +149,9 @@ PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t cloc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KConditionVariable::WaitTimeoutInternal(KMutex* lock, clockid_t clockID, TimeValNanos timeout)
+PErrorCode KConditionVariable::WaitTimeoutInternal(KMutex* lock, TimeValNanos timeout)
 {
-    return WaitDeadlineInternal(lock, clockID, (!timeout.IsInfinit()) ? (get_clock_time(clockID) + timeout) : TimeValNanos::infinit);
+    return WaitDeadlineInternal(lock, CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -201,7 +209,7 @@ PErrorCode KConditionVariable::IRQWaitDeadline(TimeValNanos deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos deadline)
+PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos clockDeadline)
 {
     IRQEnableState irqState = get_interrupt_enabled_state();
     
@@ -211,6 +219,12 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos dead
         return PErrorCode::InvalidArg;
     }
     
+    TimeValNanos deadline;
+    const PErrorCode result = kconvert_clock_to_monotonic(clockID, clockDeadline, deadline);
+    if (result != PErrorCode::Success) {
+        return result;
+    }
+
     KThreadCB* thread = gk_CurrentThread;
     
     for (;;)
@@ -218,7 +232,7 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos dead
         KThreadWaitNode waitNode;
         KThreadWaitNode sleepNode;
 
-        if (deadline.IsInfinit() || get_clock_time(clockID) < deadline)
+        if (deadline.IsInfinit() || get_monotonic_time() < deadline)
         {
             waitNode.m_Thread      = thread;
 
@@ -227,7 +241,7 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos dead
             {
                 thread->m_State = ThreadState_Sleeping;
                 sleepNode.m_Thread = thread;
-                sleepNode.m_ResumeTime = deadline - get_clock_time_offset(clockID);
+                sleepNode.m_ResumeTime = deadline;
                 add_to_sleep_list(&sleepNode);
             }
             else
@@ -265,7 +279,7 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos dead
 
 PErrorCode KConditionVariable::IRQWaitTimeout(TimeValNanos timeout)
 {
-    return IRQWaitClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (get_clock_time(CLOCK_MONOTONIC_COARSE) + timeout) : TimeValNanos::infinit);
+    return IRQWaitClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

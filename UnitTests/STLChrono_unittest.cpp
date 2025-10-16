@@ -18,8 +18,8 @@
 #include <ctime>
 #include <mutex>
 #include <condition_variable>
+#include <PadOS/Time.h>
 #include <System/TimeValue.h>
-#include <System/SysTime.h>
 
 using namespace std::chrono;
 // ---------- Tunables ----------
@@ -215,16 +215,6 @@ TEST(ChronoCxx20Clocks, FileClockRoundTripWithResolution)
     auto sys_now_rounded = time_point_cast<file_clock::duration>(sys_now);
     auto sys_back_rounded = time_point_cast<file_clock::duration>(sys_back);
     EXPECT_EQ(sys_back_rounded.time_since_epoch(), sys_now_rounded.time_since_epoch());
-}
-
-TEST(ChronoCxx20Clocks, CompareClocks)
-{
-    auto nativeSteady = get_monotonic_clock();
-    auto nativeSteadyHires = get_monotonic_clock_hires();
-    auto chronoSteady = steady_clock::now();
-
-    EXPECT_TRUE(std::chrono::abs(nativeSteady.time_since_epoch() - nativeSteadyHires.time_since_epoch()) < milliseconds(10));
-    EXPECT_TRUE(std::chrono::abs(nativeSteady.time_since_epoch() - chronoSteady.time_since_epoch()) < milliseconds(10));
 }
 
 TEST(ChronoCxx20Clocks, NativeSteadyClock)

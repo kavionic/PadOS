@@ -45,12 +45,12 @@ public:
     void Close();
 
     ssize_t  GetReadBytesAvailable() const;
-    IFLASHC virtual int     CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
-    IFLASHC virtual PErrorCode  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual PErrorCode  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual int     Sync(Ptr<KFileNode> file) override;
-    IFLASHC virtual int     ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
-    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual void    CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
+    virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    virtual void    Sync(Ptr<KFileNode> file) override;
+    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
+    virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
     ssize_t  GetWriteBytesAvailable() const;
 
     uint8_t  GetEndpointNotifications() const { return m_EndpointNotifications; }

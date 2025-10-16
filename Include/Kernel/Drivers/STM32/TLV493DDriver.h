@@ -89,12 +89,12 @@ public:
     IFLASHC TLV493DDriver();
     IFLASHC ~TLV493DDriver();
 
-    IFLASHC bool Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin);
+    IFLASHC void Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin);
 
     IFLASHC virtual void* Run() override;
 
-    IFLASHC virtual int DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
+    IFLASHC virtual void DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    IFLASHC virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
 
 private:
     enum class State_e

@@ -62,9 +62,9 @@ public:
 
     static IFLASHC int DecodeDiskPartitions(void* blockBuffer, size_t bufferSize, const device_geometry& diskGeom, std::vector<disk_partition_desc>* partitions, disk_read_op* readCallback, void* userData);
 
-    static IFLASHC bool           RegisterVolume(Ptr<KFSVolume> volume);
+    static IFLASHC void           RegisterVolume_trw(Ptr<KFSVolume> volume);
     static IFLASHC Ptr<KFSVolume> GetVolume(fs_id volumeID);
-    static IFLASHC Ptr<KINode>    GetINode(fs_id volumeID, ino_t inodeID, bool crossMount);
+    static IFLASHC Ptr<KINode>    GetINode_trw(fs_id volumeID, ino_t inodeID, bool crossMount);
     static IFLASHC void           InodeReleased(KINode* inode);
     static IFLASHC void           FlushInodes();
 private:

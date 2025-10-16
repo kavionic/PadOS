@@ -19,7 +19,8 @@
 
 #pragma once
 
-#include "Kernel/VFS/FileIO.h"
+#include <PadOS/Filesystem.h>
+#include <PadOS/DeviceControl.h>
 
 
 enum I2CIOCTL
@@ -41,47 +42,40 @@ enum I2C_ADDR_LEN
 	I2C_ADDR_LEN_10BIT = 2
 };
 
-inline int I2CIOCTL_SetSlaveAddress(int device, int address) { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_SLAVE_ADDRESS, &address, sizeof(address), nullptr, 0); }
-inline int I2CIOCTL_GetSlaveAddress(int device)
+inline PErrorCode I2CIOCTL_SetSlaveAddress(int device, int address) { return device_control(device, I2CIOCTL_SET_SLAVE_ADDRESS, &address, sizeof(address), nullptr, 0); }
+inline PErrorCode I2CIOCTL_GetSlaveAddress(int device, int& outAddress)
 {
-    int address;
-    if (os::FileIO::DeviceControl(device, I2CIOCTL_GET_SLAVE_ADDRESS, nullptr, 0, &address, sizeof(address)) < 0) return -1;
-    return address;
+    return device_control(device, I2CIOCTL_GET_SLAVE_ADDRESS, nullptr, 0, &outAddress, sizeof(outAddress));
 }
 
-inline int I2CIOCTL_SetInternalAddrLen(int device, int length) { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_INTERNAL_ADDR_LEN, &length, sizeof(length), nullptr, 0); }
-inline int I2CIOCTL_GetInternalAddrLen(int device)
+inline PErrorCode I2CIOCTL_SetInternalAddrLen(int device, int length) { return device_control(device, I2CIOCTL_SET_INTERNAL_ADDR_LEN, &length, sizeof(length), nullptr, 0); }
+inline PErrorCode I2CIOCTL_GetInternalAddrLen(int device, int& outLength)
 {
-    int length;
-    if (os::FileIO::DeviceControl(device, I2CIOCTL_GET_INTERNAL_ADDR_LEN, nullptr, 0, &length, sizeof(length)) < 0) return -1;
-    return length;
+    return device_control(device, I2CIOCTL_GET_INTERNAL_ADDR_LEN, nullptr, 0, &outLength, sizeof(outLength));
 }
 
-inline int I2CIOCTL_SetBaudrate(int device, int baudrate) { return os::FileIO::DeviceControl(device, I2CIOCTL_SET_BAUDRATE, &baudrate, sizeof(baudrate), nullptr, 0); }
-inline int I2CIOCTL_GetBaudrate(int device)
+inline PErrorCode I2CIOCTL_SetBaudrate(int device, int baudrate) { return device_control(device, I2CIOCTL_SET_BAUDRATE, &baudrate, sizeof(baudrate), nullptr, 0); }
+inline PErrorCode I2CIOCTL_GetBaudrate(int device, int& outBaudrate)
 {
-    int baudrate;
-    if (os::FileIO::DeviceControl(device, I2CIOCTL_GET_BAUDRATE, nullptr, 0, &baudrate, sizeof(baudrate)) < 0) return -1;
-    return baudrate;
+    return device_control(device, I2CIOCTL_GET_BAUDRATE, nullptr, 0, &outBaudrate, sizeof(outBaudrate));
 }
 
-inline int I2CIOCTL_SetTimeout(int device, TimeValNanos timeout)
+inline PErrorCode I2CIOCTL_SetTimeout(int device, TimeValNanos timeout)
 {
     bigtime_t timeoutLL = timeout.AsNanoseconds();
-    return os::FileIO::DeviceControl(device, I2CIOCTL_SET_TIMEOUT, &timeoutLL, sizeof(timeoutLL), nullptr, 0);
+    return device_control(device, I2CIOCTL_SET_TIMEOUT, &timeoutLL, sizeof(timeoutLL), nullptr, 0);
 }
-inline int I2CIOCTL_GetTimeout(int device, TimeValNanos* timeout)
+inline PErrorCode I2CIOCTL_GetTimeout(int device, TimeValNanos* timeout)
 {
     if (timeout == nullptr) {
-        set_last_error(EINVAL);
-        return -1;
+        return PErrorCode::InvalidArg;
     }
     bigtime_t timeoutLL;
-    const int result = os::FileIO::DeviceControl(device, I2CIOCTL_GET_TIMEOUT, nullptr, 0, &timeoutLL, sizeof(timeoutLL));
-    if (result >= 0) {
+    const PErrorCode result = device_control(device, I2CIOCTL_GET_TIMEOUT, nullptr, 0, &timeoutLL, sizeof(timeoutLL));
+    if (result == PErrorCode::Success) {
         *timeout = TimeValNanos::FromNanoseconds(timeoutLL);
     }
     return result;
 }
 
-inline int I2CIOCTL_ClearBus(int device) { return os::FileIO::DeviceControl(device, I2CIOCTL_CLEAR_BUS, nullptr, 0, nullptr, 0); }
+inline PErrorCode I2CIOCTL_ClearBus(int device) { return device_control(device, I2CIOCTL_CLEAR_BUS, nullptr, 0, nullptr, 0); }

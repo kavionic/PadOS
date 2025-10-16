@@ -19,7 +19,8 @@
 
 #pragma once
 
-#include "Kernel/VFS/FileIO.h"
+#include <PadOS/Filesystem.h>
+#include <PadOS/DeviceControl.h>
 
 
 enum HIDIOCTL
@@ -28,12 +29,10 @@ enum HIDIOCTL
 	HIDIOCTL_GET_TARGET_PORT
 };
 
-inline int HIDIOCTL_SetTargetPort(int device, port_id port) { return os::FileIO::DeviceControl(device, HIDIOCTL_SET_TARGET_PORT, &port, sizeof(port), nullptr, 0); }
-inline int HIDIOCTL_GetTargetPort(int device)
+inline PErrorCode HIDIOCTL_SetTargetPort(int device, port_id port) { return device_control(device, HIDIOCTL_SET_TARGET_PORT, &port, sizeof(port), nullptr, 0); }
+inline PErrorCode HIDIOCTL_GetTargetPort(int device, port_id& outPort)
 {
-    port_id port;
-    if (os::FileIO::DeviceControl(device, HIDIOCTL_GET_TARGET_PORT, nullptr, 0, &port, sizeof(port)) < 0) return -1;
-    return port;
+    return device_control(device, HIDIOCTL_GET_TARGET_PORT, nullptr, 0, &outPort, sizeof(outPort));
 }
 
 

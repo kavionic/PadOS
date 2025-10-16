@@ -23,7 +23,6 @@
 #include "KThreadCB.h"
 
 extern kernel::KThreadCB* volatile gk_CurrentThread;
-extern void* gk_CurrentTLS;
 
 namespace kernel
 {
@@ -114,22 +113,18 @@ void check_stack_overflow();
 class IRQDisabler
 {
 public:
-    IRQDisabler() { Acquire(); }
-    ~IRQDisabler() { Release(); }
+    IRQDisabler() : m_IsLocked(true) { m_PrevState = disable_interrupts(); }
+    ~IRQDisabler() { if (m_IsLocked) restore_interrupts(m_PrevState); }
 
-    void Acquire() { if (m_LockCount++ == 0) m_PrevState = disable_interrupts(); }
-    void Release() { if (--m_LockCount == 0) restore_interrupts(m_PrevState); }
-
-    IRQDisabler(IRQDisabler&& other) : m_PrevState(other.m_PrevState), m_LockCount(other.m_LockCount) {
-        other.m_LockCount = -1;
+    IRQDisabler(IRQDisabler&& other) : m_PrevState(other.m_PrevState), m_IsLocked(other.m_IsLocked) {
+        other.m_IsLocked = false;
     }
 private:
-    uint32_t m_PrevState;
-    int32_t  m_LockCount = 0;
+    uint32_t    m_PrevState;
+    bool        m_IsLocked;
 
     IRQDisabler(const IRQDisabler& c) = delete;
     IRQDisabler& operator=(const IRQDisabler& c) = delete;
-
 };
 
 #define CRITICAL_IRQ kernel::IRQDisabler()
@@ -143,8 +138,8 @@ struct KExceptionStackFrame
     uint32_t R2;
     uint32_t R3;
     uint32_t R12;
-    uint32_t LR;   // LR/R14
-    uint32_t PC;
+    uint32_t LR;    // LR/R14
+    uint32_t PC;    // PC/R15
     uint32_t xPSR;
 };
 

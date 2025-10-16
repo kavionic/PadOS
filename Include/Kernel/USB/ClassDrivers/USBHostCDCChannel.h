@@ -57,11 +57,11 @@ public:
 
 
     IFLASHC ssize_t GetReadBytesAvailable() const;
-    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual int     Sync(Ptr<KFileNode> file) override;
-    IFLASHC virtual int     ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
-    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    IFLASHC virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    IFLASHC virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    IFLASHC virtual void    Sync(Ptr<KFileNode> file) override;
+    IFLASHC virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
+    IFLASHC virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
     IFLASHC bool SetLineCoding(const USB_CDC_LineCoding& lineCoding);
     IFLASHC const USB_CDC_LineCoding& GetLineCoding() const;
@@ -71,7 +71,7 @@ public:
 private:
     IFLASHC void    ReqGetLineCoding(USB_CDC_LineCoding* linecoding);
     IFLASHC void    ReqSetLineCoding(USB_CDC_LineCoding* linecoding);
-    IFLASHC ssize_t FlushInternal();
+    IFLASHC void    FlushInternal();
 
     IFLASHC void    HandleSetLineCodingResult(bool result, uint8_t deviceAddr);
     IFLASHC void    HandleEndpointHaltResult(bool result, uint8_t deviceAddr);

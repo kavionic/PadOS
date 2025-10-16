@@ -23,6 +23,7 @@
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <cstring>
+#include <PadOS/Time.h>
 
 #include <DeviceControl/USART.h>
 #include <SerialConsole/SerialCommandHandler.h>

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,120 +15,89 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 11.03.2018 13:10:28
+// Created: 12.10.2025 15:00
 
-#include "Threads/Thread.h"
-#include "Threads/Threads.h"
-#include "System/System.h"
-
-using namespace os;
-using namespace kernel;
-
-thread_local Thread* Thread::st_CurrentThread = nullptr;
+#include <sys/pados_syscalls.h>
+#include <PadOS/Time.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Thread::Thread(const String& name) : m_Name(name)
+TimeValNanos get_monotonic_time()
 {
+    return TimeValNanos::FromNanoseconds(get_monotonic_time_ns());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Thread::~Thread()
+TimeValNanos get_monotonic_time_hires()
 {
+    return TimeValNanos::FromNanoseconds(get_monotonic_time_hires_ns());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Thread* Thread::GetCurrentThread()
+TimeValNanos get_real_time()
 {
-    return st_CurrentThread;
+    return TimeValNanos::FromNanoseconds(get_real_time_ns());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode Thread::Start(PThreadDetachState detachState, int priority, int stackSize)
+TimeValNanos get_real_time_hires()
 {
-    if (m_ThreadHandle == INVALID_HANDLE)
-    {
-        m_DetachState = detachState;
-        PThreadAttribs attrs(m_Name.c_str(), priority, detachState, stackSize);
-        return __thread_spawn(&m_ThreadHandle , &attrs, ThreadEntry, this);
-    }
-    return PErrorCode::Busy;
+    return TimeValNanos::FromNanoseconds(get_real_time_hires_ns());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode Thread::Join(void** outReturnValue, TimeValNanos deadline)
+PErrorCode set_real_time(TimeValNanos time, bool updateRTC)
 {
-    PErrorCode result = PErrorCode::InvalidArg;
-    if (m_DetachState == PThreadDetachState_Joinable)
-    {
-        result = __thread_join(m_ThreadHandle, outReturnValue);
-        if (result == PErrorCode::Success && m_DeleteOnExit) {
-            delete this;
-        }
-        return result;
-    }
-    return result;
+    return __set_real_time_ns(time.AsNanoseconds(), updateRTC);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Return time in nano seconds where no threads or IRQ's have been executing.
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+IFLASHC TimeValNanos get_idle_time()
+{
+    return TimeValNanos::FromNanoseconds(get_idle_time_ns());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void* Thread::Run()
+TimeValNanos get_clock_time(int clockID)
 {
-    if (!VFRun.Empty()) {
-        return VFRun(this);
-    }
-    return nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-    
-void Thread::Exit(void* returnValue)
-{
-    if (m_DetachState == PThreadDetachState_Detached && m_DeleteOnExit) {
-        delete this;
-    }
-    __thread_exit(returnValue);
+    return TimeValNanos::FromNanoseconds(get_clock_time_ns(clockID));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void* Thread::ThreadEntry(void* data)
+TimeValNanos get_clock_time_hires(int clockID)
 {
-    Thread* self = static_cast<Thread*>(data);
-    try
-    {
-        st_CurrentThread = self;
-        self->Exit(self->Run());
-    }
-    catch(const std::exception& e)
-    {
-        kernel_log(LogCatKernel_Scheduler, KLogSeverity::FATAL, "Uncaught exception in thread %s: %s", self->GetName().c_str(), e.what());
-        self->Exit(nullptr);
-    }
-    catch (...)
-    {
-        kernel_log(LogCatKernel_Scheduler, KLogSeverity::FATAL, "Uncaught exception in thread %s: unknown", self->GetName().c_str());
-        self->Exit(nullptr);
-    }
-    return nullptr;
+    return TimeValNanos::FromNanoseconds(get_clock_time_hires_ns(clockID));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TimeValNanos get_clock_time_offset(int clockID)
+{
+    return TimeValNanos::FromNanoseconds(get_clock_time_offset_ns(clockID));
 }

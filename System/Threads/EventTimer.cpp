@@ -19,10 +19,10 @@
 
 #include "System/Platform.h"
 
-#include "Threads/EventTimer.h"
-#include "System/System.h"
-#include "Threads/Looper.h"
-#include "System/SysTime.h"
+#include <PadOS/Time.h>
+#include <Threads/EventTimer.h>
+#include <System/System.h>
+#include <Threads/Looper.h>
 
 using namespace os;
 
@@ -124,7 +124,7 @@ TimeValNanos EventTimer::GetRemainingTime() const
     if (m_Looper == nullptr) {
         return TimeValNanos::zero;
     } else {
-        return m_TimerMapIterator->first - get_system_time();
+        return m_TimerMapIterator->first - get_monotonic_time();
     }
 }
 

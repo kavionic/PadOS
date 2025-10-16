@@ -36,11 +36,11 @@ public:
     void Increment();
     uint32_t GetCurrentCluster() const { return m_CurrentCluster; }
     
-    PErrorCode SetEntry(uint32_t value);
-    PErrorCode GetEntry(uint32_t* value);
+    void SetEntry(uint32_t value);
+    uint32_t GetEntry();
     
 private:
-    PErrorCode Update();
+    void Update();
     
     Ptr<FATVolume>  m_Volume;
     uint32_t        m_CurrentCluster;

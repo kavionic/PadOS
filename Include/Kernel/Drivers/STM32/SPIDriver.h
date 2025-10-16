@@ -65,9 +65,9 @@ class SPIDriverINode : public KINode
 public:
     IFLASHC SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver);
 
-    IFLASHC PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, ssize_t& outLength);
-    IFLASHC PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, ssize_t& outLength);
-    IFLASHC int     DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    IFLASHC size_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
+    IFLASHC size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
+    IFLASHC void   DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
 private:
     IFLASHC void    SetBaudrateDivider(SPIBaudRateDivider baudRateDivider);
@@ -77,7 +77,7 @@ private:
     IFLASHC void    SetSwapMOSIMISO(bool doSwap);
     IFLASHC bool    GetSwapMOSIMISO() const;
 
-    IFLASHC ssize_t StartTransaction(const SPITransaction& transaction);
+    IFLASHC void    StartTransaction(const SPITransaction& transaction);
 
     static IFLASHC IRQResult    SPIIRQCallback(IRQn_Type irq, void* userData);
     IFLASHC IRQResult           HandleSPIIRQ();
@@ -116,9 +116,9 @@ public:
 
     IFLASHC void Setup(const SPIDriverSetup& setup);
 
-    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    IFLASHC virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    IFLASHC virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    IFLASHC virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
     SPIDriver(const SPIDriver&other) = delete;

@@ -19,6 +19,7 @@
 
 #include "System/Platform.h"
 
+#include <Kernel/KTime.h>
 #include "Kernel/VFS/KINode.h"
 #include "Kernel/VFS/KFilesystem.h"
 #include "Kernel/VFS/KFSVolume.h"
@@ -49,7 +50,7 @@ KINode::~KINode()
 
 bool KINode::LastReferenceGone()
 {
-    m_LastUseTime = get_system_time().AsSecondsI();
+    m_LastUseTime = kget_monotonic_time().AsSecondsI();
     KVFSManager::InodeReleased(this);
     return true;
 }

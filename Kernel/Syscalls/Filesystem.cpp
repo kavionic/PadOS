@@ -19,12 +19,17 @@
 
 #include <string.h>
 #include <fcntl.h>
-#include <sys/pados_syscalls.h>
+#include <sys/uio.h>
+#include <PadOS/SyscallReturns.h>
 
+#include <System/ExceptionHandling.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/KAddressValidation.h>
+#include <Kernel/Syscalls.h>
 
 using namespace os;
 using namespace kernel;
+
 
 extern "C"
 {
@@ -33,18 +38,41 @@ extern "C"
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_open(const char* path, int flags, mode_t mode)
+PSysRetPair sys_open(const char* path, int flags, mode_t mode)
 {
-    return FileIO::Open(path, flags, mode);
+    try
+    {
+        validate_user_read_string_trw(path, PATH_MAX);
+        return PMakeSysRetSuccess(kopen_trw(path, flags, mode));
+    }
+    PERROR_CATCH_RET_SYSRET;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_openat(int dirfd, const char* path, int flags, mode_t mode)
+PSysRetPair sys_openat(int dirfd, const char* path, int flags, mode_t mode)
 {
-    return FileIO::Open(dirfd, path, flags, mode);
+    try
+    {
+        validate_user_read_string_trw(path, PATH_MAX);
+        return PMakeSysRetSuccess(kopen_trw(dirfd, path, flags, mode));
+    }
+    PERROR_CATCH_RET_SYSRET;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PSysRetPair sys_reopen_file(int oldHandle, int openFlags)
+{
+    try
+    {
+        return PMakeSysRetSuccess(kreopen_file_trw(oldHandle, openFlags));
+    }
+    PERROR_CATCH_RET_SYSRET;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -60,211 +88,348 @@ PErrorCode sys_fcntl(int file, int cmd, int arg, int* outResult)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_dup(int oldFile)
+PSysRetPair sys_dup(int oldFile)
 {
-    return FileIO::Dupe(oldFile, -1);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int sys_dup2(int oldFile, int newFile)
-{
-    return FileIO::Dupe(oldFile, newFile);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int sys_close(int file)
-{
-    return FileIO::Close(file);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int sys_rename(const char* oldPath, const char* newPath)
-{
-    return FileIO::Rename(oldPath, newPath);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int sys_fstat(int file, struct stat* buf)
-{
-    return FileIO::ReadStats(file, buf);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int sys_stat(const char* path, struct stat* buf)
-{
-    int file = FileIO::Open(path, O_RDONLY);
-    if (file != -1)
+    try
     {
-        int result = FileIO::ReadStats(file, buf);
-        FileIO::Close(file);
-        return result;
+        return PMakeSysRetSuccess(kdupe_trw(oldFile, -1));
     }
-    return -1;
+    PERROR_CATCH_RET_SYSRET;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_write_stat(int file, const struct stat* value, uint32_t mask)
+PSysRetPair sys_dup2(int oldFile, int newFile)
 {
-    return FileIO::WriteStats(file, *value, mask);
+    try
+    {
+        return PMakeSysRetSuccess(kdupe_trw(oldFile, newFile));
+    }
+    PERROR_CATCH_RET_SYSRET;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_isatty(int file)
+PErrorCode sys_close(int file)
 {
-    return -1;
+    return kclose(file);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-off64_t sys_lseek(int file, off64_t offset, int whence)
+PErrorCode sys_rename(const char* oldPath, const char* newPath)
 {
-    return FileIO::Seek(file, offset, whence);
+    try
+    {
+        validate_user_read_string_trw(oldPath, PATH_MAX);
+        validate_user_read_string_trw(newPath, PATH_MAX);
+        krename_trw(oldPath, newPath);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_read(int file, void* buffer, size_t length, ssize_t* outLength)
+PErrorCode sys_fstat(int file, struct stat* buf)
 {
-    return FileIO::Read(file, buffer, length, *outLength);
-}
-
-PErrorCode sys_read_pos(int file, void* buffer, size_t length, off_t position, ssize_t* outLength)
-{
-    return FileIO::Read(file, buffer, length, position, *outLength);
-}
-
-PErrorCode sys_readv(int file, const struct iovec* segments, size_t segmentCount, ssize_t* outLength)
-{
-    return FileIO::Read(file, segments, segmentCount, *outLength);
-}
-
-PErrorCode sys_readv_pos(int file, const struct iovec* segments, size_t segmentCount, off_t position, ssize_t* outLength)
-{
-    return FileIO::Read(file, segments, segmentCount, position, *outLength);
+    try
+    {
+        kread_stat_trw(file, buf);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_write(int file, const void* buffer, size_t length, ssize_t* outLength)
+PErrorCode sys_stat(const char* path, struct stat* buf)
 {
-    return FileIO::Write(file, buffer, length, *outLength);
+    try
+    {
+        validate_user_read_string_trw(path, PATH_MAX);
+        validate_user_write_pointer_trw(buf);
+
+        const int file = kopen_trw(path, O_RDONLY);
+
+        PScopeExit cleanup([file]() { kclose(file); });
+
+        kread_stat_trw(file, buf);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_write_pos(int file, const void* buffer, size_t length, off_t position, ssize_t* outLength)
+PErrorCode sys_write_stat(int file, const struct stat* value, uint32_t mask)
 {
-    return FileIO::Write(file, buffer, length, position, *outLength);
+    try
+    {
+        validate_user_read_pointer_trw(value);
+        kwrite_stat_trw(file, *value, mask);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_writev(int file, const struct iovec* segments, size_t segmentCount, ssize_t* outLength)
+PErrorCode sys_isatty(int file)
 {
-    return FileIO::Write(file, segments, segmentCount, *outLength);
+    return PErrorCode::NotImplemented;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_writev_pos(int file, const struct iovec* segments, size_t segmentCount, off_t position, ssize_t* outLength)
+PErrorCode sys_seek(int file, off64_t* ioOffset, int whence)
 {
-    return FileIO::Write(file, segments, segmentCount, position, *outLength);
+    try
+    {
+        validate_user_write_pointer_trw(ioOffset);
+        *ioOffset = klseek_trw(file, *ioOffset, whence);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int fsync(int file)
+PSysRetPair sys_read(int file, void* buffer, size_t length)
 {
-    return FileIO::FSync(file);
+    try
+    {
+        validate_user_write_pointer_trw(buffer, length);
+        return PMakeSysRetSuccess(kread_trw(file, buffer, length));
+    }
+    PERROR_CATCH_RET_SYSRET;
+}
+
+PSysRetPair sys_read_pos(int file, void* buffer, size_t length, off_t position)
+{
+    try
+    {
+        validate_user_write_pointer_trw(buffer, length);
+        return PMakeSysRetSuccess(kpread_trw(file, buffer, length, position));
+    }
+    PERROR_CATCH_RET_SYSRET;
+}
+
+PSysRetPair sys_readv(int file, const struct iovec* segments, size_t segmentCount)
+{
+    try
+    {
+        validate_user_read_pointer_trw(segments, sizeof(struct iovec) * segmentCount);
+        for (size_t i = 0; i < segmentCount; ++i) {
+            validate_user_write_pointer_trw(segments[i].iov_base, segments[i].iov_len);
+        }
+        return PMakeSysRetSuccess(kreadv_trw(file, segments, segmentCount));
+    }
+    PERROR_CATCH_RET_SYSRET;
+}
+
+PSysRetPair sys_readv_pos(int file, const struct iovec* segments, size_t segmentCount, off_t position)
+{
+    try
+    {
+        validate_user_read_pointer_trw(segments, sizeof(struct iovec) * segmentCount);
+        for (size_t i = 0; i < segmentCount; ++i) {
+            validate_user_write_pointer_trw(segments[i].iov_base, segments[i].iov_len);
+        }
+        return PMakeSysRetSuccess(kpreadv_trw(file, segments, segmentCount, position));
+    }
+    PERROR_CATCH_RET_SYSRET;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_create_directory(const char* name, mode_t permission)
+PSysRetPair sys_write(int file, const void* buffer, size_t length)
 {
-    return FileIO::CreateDirectory(name, permission);
+    try
+    {
+        validate_user_read_pointer_trw(buffer, length);
+        return PMakeSysRetSuccess(kwrite_trw(file, buffer, length));
+    }
+    PERROR_CATCH_RET_SYSRET;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_create_directory_base(int baseFolderFD, const char* name, int permission)
+PSysRetPair sys_write_pos(int file, const void* buffer, size_t length, off_t position)
 {
-    return FileIO::CreateDirectory(baseFolderFD, name, permission);
+    try
+    {
+        validate_user_read_pointer_trw(buffer, length);
+        return PMakeSysRetSuccess(kpwrite_trw(file, buffer, length, position));
+    }
+    PERROR_CATCH_RET_SYSRET;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_read_directory(int handle, dirent_t* entry, size_t bufSize)
+PSysRetPair sys_writev(int file, const struct iovec* segments, size_t segmentCount)
 {
-    return FileIO::ReadDirectory(handle, entry, bufSize);
+    try
+    {
+        validate_user_read_pointer_trw(segments, sizeof(struct iovec) * segmentCount);
+        for (size_t i = 0; i < segmentCount; ++i) {
+            validate_user_read_pointer_trw(segments[i].iov_base, segments[i].iov_len);
+        }
+        return PMakeSysRetSuccess(kwrite_trw(file, segments, segmentCount));
+    }
+    PERROR_CATCH_RET_SYSRET;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_unlink_file(int dirfd, const char* path)
+PSysRetPair sys_writev_pos(int file, const struct iovec* segments, size_t segmentCount, off_t position)
 {
-    return FileIO::Unlink(dirfd, path);
+    try
+    {
+        validate_user_read_pointer_trw(segments, sizeof(struct iovec) * segmentCount);
+        for (size_t i = 0; i < segmentCount; ++i) {
+            validate_user_read_pointer_trw(segments[i].iov_base, segments[i].iov_len);
+        }
+        return PMakeSysRetSuccess(kpwritev_trw(file, segments, segmentCount, position));
+    }
+    PERROR_CATCH_RET_SYSRET;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_remove_directory(int dirfd, const char* path)
+PErrorCode sys_device_control(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
-    return FileIO::RemoveDirectory(dirfd, path);
+    try
+    {
+        validate_user_read_pointer_trw(inData, inDataLength);
+        validate_user_write_pointer_trw(outData, outDataLength);
+        kdevice_control_trw(handle, request, inData, inDataLength, outData, outDataLength);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_readlink(int dirfd, const char* path, char* buffer, size_t bufferSize, size_t* outResultLength)
+PErrorCode sys_fsync(int file)
 {
-    return FileIO::ReadLink(dirfd, path, buffer, bufferSize, outResultLength);
+    try
+    {
+        kfsync_trw(file);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_create_directory(int dirfd, const char* name, mode_t permission)
+{
+    try
+    {
+        validate_user_read_string_trw(name, PATH_MAX);
+        kcreate_directory_trw(dirfd, name, permission);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PSysRetPair sys_read_directory(int handle, dirent_t* entry, size_t bufSize)
+{
+    try
+    {
+        return PMakeSysRetSuccess(kread_directory_trw(handle, entry, bufSize));
+    }
+    PERROR_CATCH_RET_SYSRET;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_rewind_directory(int handle)
+{
+    return krewind_directory(handle);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_unlink_file(int dirfd, const char* path)
+{
+    try
+    {
+        validate_user_read_string_trw(path, PATH_MAX);
+        kunlink_trw(dirfd, path);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_remove_directory(int dirfd, const char* path)
+{
+    try
+    {
+        validate_user_read_string_trw(path, PATH_MAX);
+        kremove_directory_trw(dirfd, path);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PSysRetPair sys_readlink(int dirfd, const char* path, char* buffer, size_t bufferSize)
+{
+    try
+    {
+        validate_user_read_string_trw(path, PATH_MAX);
+        return PMakeSysRetSuccess(kreadlink_trw(dirfd, path, buffer, bufferSize));
+    }
+    PERROR_CATCH_RET_SYSRET;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -273,31 +438,65 @@ PErrorCode sys_readlink(int dirfd, const char* path, char* buffer, size_t buffer
 
 PErrorCode sys_symlink(const char* targetPath, int dirfd, const char* symlinkPath)
 {
-    return FileIO::Symlink(targetPath, dirfd, symlinkPath);
+    try
+    {
+        validate_user_read_string_trw(targetPath, PATH_MAX);
+        validate_user_read_string_trw(symlinkPath, PATH_MAX);
+        ksymlink_trw(targetPath, dirfd, symlinkPath);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int sys_chdir(const char* path)
+PErrorCode sys_get_directory_path(int handle, char* buffer, size_t bufferSize)
 {
-    errno = ENOSYS;
-    return -1;
+    try
+    {
+        validate_user_write_pointer_trw(buffer, bufferSize);
+        kget_directory_path_trw(handle, buffer, bufferSize);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-char* sys_getcwd(char* pathBuffer, size_t bufferSize)
+PErrorCode sys_chdir(const char* path)
+{
+    validate_user_read_string_trw(path, PATH_MAX);
+    return PErrorCode::NotImplemented;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_getcwd(char* pathBuffer, size_t bufferSize)
 {
     if (bufferSize < 2) {
-        errno = ERANGE;
-        return nullptr;
+        return PErrorCode::Range;
     }
     strncpy(pathBuffer, "/", bufferSize);
-    return pathBuffer;
+    return PErrorCode::Success;
+}
+
+PErrorCode sys_mount(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength)
+{
+    try
+    {
+        validate_user_read_string_trw(devicePath, PATH_MAX);
+        validate_user_read_string_trw(directoryPath, PATH_MAX);
+        validate_user_read_pointer_trw(args, argLength);
+        kmount_trw(devicePath, directoryPath, filesystemName, flags, args, argLength);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 } // extern "C"

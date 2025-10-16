@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <Storage/TempFile.h>
-#include <Kernel/VFS/FileIO.h>
 
 using namespace os;
 
@@ -60,7 +59,7 @@ TempFile::TempFile(const String& prefix, const String& path, int access) : File(
 TempFile::~TempFile()
 {
     if (m_DeleteFile) {
-        FileIO::Unlink(m_Path.c_str());
+        unlink(m_Path.c_str());
     }
 }
 
@@ -82,7 +81,7 @@ bool TempFile::Unlink()
     if (m_DeleteFile)
     {
         m_DeleteFile = false;
-        return FileIO::Unlink(m_Path.c_str()) != -1;
+        return unlink(m_Path.c_str()) != -1;
     }
     else
     {

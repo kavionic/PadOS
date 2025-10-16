@@ -17,43 +17,50 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.02.2018 01:47:38
 
-#include "Kernel/VFS/KFileHandle.h"
-#include "Kernel/VFS/KFSVolume.h"
-#include "Kernel/VFS/KINode.h"
-#include "Kernel/VFS/KFilesystem.h"
+#include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KFilesystem.h>
+#include <System/ExceptionHandling.h>
 
 bool kernel::KFileNode::LastReferenceGone()
 {
-    Ptr<KINode> inode = GetINode();
-    inode->m_FileOps->CloseFile(inode->m_Volume, this);
+    try
+    {
+        Ptr<KINode> inode = GetINode();
+        inode->m_FileOps->CloseFile(inode->m_Volume, this);
+    }
+    catch (const std::exception&) {}
     return KFileTableNode::LastReferenceGone();
 }
 
 bool kernel::KDirectoryNode::LastReferenceGone()
 {
-    Ptr<KINode> inode = GetINode();
-    if (inode->m_FileOps != nullptr) {
-        inode->m_FileOps->CloseDirectory(inode->m_Volume, ptr_tmp_cast(this));
+    try
+    {
+        Ptr<KINode> inode = GetINode();
+        if (inode->m_FileOps != nullptr) {
+            inode->m_FileOps->CloseDirectory(inode->m_Volume, ptr_tmp_cast(this));
+        }
     }
+    catch (const std::exception&) {}
     return KFileTableNode::LastReferenceGone();
 }
 
-int kernel::KDirectoryNode::ReadDirectory(dirent_t* entry, size_t bufSize)
+size_t kernel::KDirectoryNode::ReadDirectory(dirent_t* entry, size_t bufSize)
 {
     Ptr<KINode> inode = GetINode();
-    if (inode != nullptr && inode->m_FileOps != nullptr) {
-        return inode->m_FileOps->ReadDirectory(inode->m_Volume, ptr_tmp_cast(this), entry, bufSize);
+    if (inode->m_FileOps == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
-    set_last_error(EINVAL);
-    return -1;
+    return inode->m_FileOps->ReadDirectory(inode->m_Volume, ptr_tmp_cast(this), entry, bufSize);
 }
 
-int kernel::KDirectoryNode::RewindDirectory()
+void kernel::KDirectoryNode::RewindDirectory()
 {
     Ptr<KINode> inode = GetINode();
-    if (inode != nullptr && inode->m_FileOps != nullptr) {
-        return inode->m_FileOps->RewindDirectory(inode->m_Volume, ptr_tmp_cast(this));
+    if (inode->m_FileOps == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
-    set_last_error(EINVAL);
-    return -1;
+    inode->m_FileOps->RewindDirectory(inode->m_Volume, ptr_tmp_cast(this));
 }

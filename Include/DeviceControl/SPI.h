@@ -19,8 +19,8 @@
 
 #pragma once
 
-#include <Kernel/VFS/FileIO.h>
-#include <System/SysTime.h>
+#include <PadOS/Filesystem.h>
+#include <PadOS/DeviceControl.h>
 
 enum SPIIOCTL
 {
@@ -130,90 +130,87 @@ struct SPITransaction
     const void* TransmitBuffer = nullptr;
 };
 
-inline int SPIIOCTL_SetBaudrateDivider(int device, SPIBaudRateDivider divider)
+inline PErrorCode SPIIOCTL_SetBaudrateDivider(int device, SPIBaudRateDivider divider)
 {
-    return os::FileIO::DeviceControl(device, SPIIOCTL_SET_BAUDRATE_DIVIDER, &divider, sizeof(divider), nullptr, 0);
+    return device_control(device, SPIIOCTL_SET_BAUDRATE_DIVIDER, &divider, sizeof(divider), nullptr, 0);
 }
 
-inline int SPIIOCTL_GetBaudrateDivider(int device, SPIBaudRateDivider& divider)
+inline PErrorCode SPIIOCTL_GetBaudrateDivider(int device, SPIBaudRateDivider& divider)
 {
-    return os::FileIO::DeviceControl(device, SPIIOCTL_GET_BAUDRATE_DIVIDER, nullptr, 0, &divider, sizeof(divider));
+    return device_control(device, SPIIOCTL_GET_BAUDRATE_DIVIDER, nullptr, 0, &divider, sizeof(divider));
 }
 
-inline int SPIIOCTL_SetReadTimeout(int device, TimeValNanos timeout)
-{
-    bigtime_t nanos = timeout.AsNanoseconds();
-    return os::FileIO::DeviceControl(device, SPIIOCTL_SET_READ_TIMEOUT, &nanos, sizeof(nanos), nullptr, 0);
-}
-
-inline int SPIIOCTL_GetReadTimeout(int device, TimeValNanos& outTimeout)
-{
-    bigtime_t nanos;
-    if (os::FileIO::DeviceControl(device, SPIIOCTL_GET_READ_TIMEOUT, nullptr, 0, &nanos, sizeof(nanos)) < 0) return -1;
-    outTimeout = TimeValNanos::FromNanoseconds(nanos);
-    return 0;
-}
-
-inline int SPIIOCTL_SetWriteTimeout(int device, TimeValNanos timeout)
+inline PErrorCode SPIIOCTL_SetReadTimeout(int device, TimeValNanos timeout)
 {
     bigtime_t nanos = timeout.AsNanoseconds();
-    return os::FileIO::DeviceControl(device, SPIIOCTL_SET_WRITE_TIMEOUT, &nanos, sizeof(nanos), nullptr, 0);
+    return device_control(device, SPIIOCTL_SET_READ_TIMEOUT, &nanos, sizeof(nanos), nullptr, 0);
 }
 
-inline int SPIIOCTL_GetWriteTimeout(int device, TimeValNanos& outTimeout)
+inline PErrorCode SPIIOCTL_GetReadTimeout(int device, TimeValNanos& outTimeout)
 {
     bigtime_t nanos;
-    if (os::FileIO::DeviceControl(device, SPIIOCTL_GET_WRITE_TIMEOUT, nullptr, 0, &nanos, sizeof(nanos)) < 0) return -1;
-    outTimeout = TimeValNanos::FromNanoseconds(nanos);
-    return 0;
+    const PErrorCode result = device_control(device, SPIIOCTL_GET_READ_TIMEOUT, nullptr, 0, &nanos, sizeof(nanos));
+    if (result == PErrorCode::Success) {
+        outTimeout = TimeValNanos::FromNanoseconds(nanos);
+    }
+    return result;
 }
 
-inline int SPIIOCTL_SetPinMode(int device, SPIPin pin, SPIPinMode mode)
+inline PErrorCode SPIIOCTL_SetWriteTimeout(int device, TimeValNanos timeout)
+{
+    bigtime_t nanos = timeout.AsNanoseconds();
+    return device_control(device, SPIIOCTL_SET_WRITE_TIMEOUT, &nanos, sizeof(nanos), nullptr, 0);
+}
+
+inline PErrorCode SPIIOCTL_GetWriteTimeout(int device, TimeValNanos& outTimeout)
+{
+    bigtime_t nanos;
+    const PErrorCode result = device_control(device, SPIIOCTL_GET_WRITE_TIMEOUT, nullptr, 0, &nanos, sizeof(nanos));
+    if (result == PErrorCode::Success) {
+        outTimeout = TimeValNanos::FromNanoseconds(nanos);
+    }
+    return result;
+}
+
+inline PErrorCode SPIIOCTL_SetPinMode(int device, SPIPin pin, SPIPinMode mode)
 {
     int arg = (int(pin) << 16) | int(mode);
-    return os::FileIO::DeviceControl(device, SPIIOCTL_SET_PINMODE, &arg, sizeof(arg), nullptr, 0);
+    return device_control(device, SPIIOCTL_SET_PINMODE, &arg, sizeof(arg), nullptr, 0);
 }
 
-inline int SPIIOCTL_GetPinMode(int device, SPIPin pin, SPIPinMode& outMode)
+inline PErrorCode SPIIOCTL_GetPinMode(int device, SPIPin pin, SPIPinMode& outMode)
 {
     int arg = int(pin);
-    int result = 0;
-    if (os::FileIO::DeviceControl(device, SPIIOCTL_GET_PINMODE, &arg, sizeof(arg), &result, sizeof(result)) < 0) {
-        return -1;
-    } else {
-        outMode = SPIPinMode(result);
-        return 0;
+    int mode = 0;
+    const PErrorCode result = device_control(device, SPIIOCTL_GET_PINMODE, &arg, sizeof(arg), &mode, sizeof(mode));
+    if (result == PErrorCode::Success) {
+        outMode = SPIPinMode(mode);
     }
+    return result;
 }
 
-inline int SPIIOCTL_SetSwap_MOSI_MISO(int device, bool doSwap)
+inline PErrorCode SPIIOCTL_SetSwap_MOSI_MISO(int device, bool doSwap)
 {
     int arg = doSwap;
-    return os::FileIO::DeviceControl(device, SPIIOCTL_SET_SWAP_MOSI_MISO, &arg, sizeof(arg), nullptr, 0);
+    return device_control(device, SPIIOCTL_SET_SWAP_MOSI_MISO, &arg, sizeof(arg), nullptr, 0);
 }
 
-inline int SPIIOCTL_GetSwap_MOSI_MISO(int device, bool& outIsSwapped)
+inline PErrorCode SPIIOCTL_GetSwap_MOSI_MISO(int device, bool& outIsSwapped)
 {
-    int result = 0;
-    if (os::FileIO::DeviceControl(device, SPIIOCTL_GET_SWAP_MOSI_MISO, nullptr, 0, &result, sizeof(result)) < 0) {
-        return -1;
-    } else {
-        outIsSwapped = result != 0;
-        return 0;
+    int isSwapped = 0;
+    const PErrorCode result = device_control(device, SPIIOCTL_GET_SWAP_MOSI_MISO, nullptr, 0, &isSwapped, sizeof(isSwapped));
+    if (result == PErrorCode::Success) {
+        outIsSwapped = isSwapped != 0;
     }
+    return result;
 }
 
-inline ssize_t SPIIOCTL_StartTransaction(int device, const SPITransaction& transaction)
+inline PErrorCode SPIIOCTL_StartTransaction(int device, const SPITransaction& transaction)
 {
-    ssize_t result = -1;
-    if (os::FileIO::DeviceControl(device, SPIIOCTL_START_TRANSACTION, &transaction, sizeof(transaction), &result, sizeof(result)) >= 0) {
-        return result;
-    } else {
-        return -1;
-    }
+    return device_control(device, SPIIOCTL_START_TRANSACTION, &transaction, sizeof(transaction), nullptr, 0);
 }
 
-inline int SPIIOCTL_GetLastError(int device, SPIError& outError)
+inline PErrorCode SPIIOCTL_GetLastError(int device, SPIError& outError)
 {
-    return os::FileIO::DeviceControl(device, SPIIOCTL_GET_LAST_ERROR, nullptr, 0, &outError, sizeof(outError));
+    return device_control(device, SPIIOCTL_GET_LAST_ERROR, nullptr, 0, &outError, sizeof(outError));
 }

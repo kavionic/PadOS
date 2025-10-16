@@ -118,9 +118,9 @@ public:
 
     IFLASHC Ptr<KFileNode> Open(int flags);
 
-    IFLASHC int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
-    IFLASHC PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength);
-    IFLASHC PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength);
+    IFLASHC void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    IFLASHC size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position);
+    IFLASHC size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position);
 
 private:
     IFLASHC void ResetPeripheral();
@@ -190,11 +190,11 @@ public:
     IFLASHC void Setup(const I2CDriverSetup& setup);
 
     IFLASHC virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
-    IFLASHC virtual int              CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
+    IFLASHC virtual void           CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
 
-    IFLASHC virtual PErrorCode Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual PErrorCode Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position, ssize_t& outLength) override;
-    IFLASHC virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    IFLASHC virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    IFLASHC virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    IFLASHC virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 };
     

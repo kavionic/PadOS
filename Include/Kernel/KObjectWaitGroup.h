@@ -23,6 +23,7 @@
 #include "KNamedObject.h"
 #include "KMutex.h"
 #include "Ptr/Ptr.h"
+#include <Kernel/KTime.h>
 #include <Kernel/KConditionVariable.h>
 
 namespace kernel
@@ -50,11 +51,11 @@ public:
     IFLASHC PErrorCode Clear();
 
 	PErrorCode Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
-	PErrorCode WaitTimeout(TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode WaitTimeout(TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
 	PErrorCode WaitDeadline(TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, deadline, readyFlagsBuffer, readyFlagsSize); }
 
 	PErrorCode Wait(KMutex& lock, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
-	PErrorCode WaitTimeout(KMutex& lock, TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, (!timeout.IsInfinit()) ? (get_system_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
+	PErrorCode WaitTimeout(KMutex& lock, TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
 	PErrorCode WaitDeadline(KMutex& lock, TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, deadline, readyFlagsBuffer, readyFlagsSize); }
 
 private:

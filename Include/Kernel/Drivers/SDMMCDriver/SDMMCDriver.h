@@ -80,15 +80,15 @@ public:
     SDMMCDriver();
 	virtual ~SDMMCDriver();
 
-    bool SetupBase(const os::String& devicePath, DigitalPinID pinCD);
+    void SetupBase(const os::String& devicePath, DigitalPinID pinCD);
     
     virtual void* Run() override;
     
     virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
 
-    virtual int     DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    virtual PErrorCode Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength) override;
-    virtual PErrorCode Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position, ssize_t& outLength) override;
+    virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual size_t Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position) override;
+    virtual size_t Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position) override;
 
 protected:
     static constexpr uint32_t BLOCK_SIZE = 512;
@@ -112,7 +112,7 @@ protected:
 
     static size_t ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size);
 
-    int  DecodePartitions(bool force);
+    void DecodePartitions(bool force);
 
     void SetState(CardState state);
     
@@ -131,10 +131,10 @@ protected:
     }
     
     
-    status_t SDIOReadDirect(uint8_t functionNumber, uint32_t addr, uint8_t *dest);
-    status_t SDIOWriteDirect(uint8_t functionNumber, uint32_t addr, uint8_t data);
-    ssize_t  SDIOReadExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, void* buffer, size_t size);
-    ssize_t  SDIOWriteExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, const void* buffer, size_t size);
+    void    SDIOReadDirect(uint8_t functionNumber, uint32_t addr, uint8_t *dest);
+    void    SDIOWriteDirect(uint8_t functionNumber, uint32_t addr, uint8_t data);
+    ssize_t SDIOReadExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, void* buffer, size_t size);
+    ssize_t SDIOWriteExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, const void* buffer, size_t size);
 
 	virtual void     Reset() = 0;
 

@@ -90,15 +90,15 @@ public:
     FATDirectoryEntryCombo* GetCurrentEntry();
     FATDirectoryEntryCombo* GetNextRawEntry();
 
-    status_t                GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, os::String* outFilename);
-    status_t                GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, os::String* outFilename, uint32_t* outDosAttribs);
+    bool                    GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, os::String* outFilename);
+    bool                    GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, os::String* outFilename, uint32_t* outDosAttribs);
 
     FATDirectoryEntryCombo* Rewind();
     void                    MarkDirty() { m_IsDirty = true; }  
 
-    static bool     RequiresLongName(const wchar16_t* longName, size_t longNameLength);
-    static status_t MungeShortName(char* shortName, uint32_t iteration);
-    static status_t GenerateShortName(const wchar16_t* longName, size_t longNameLength, char* shortName);
+    static bool RequiresLongName(const wchar16_t* longName, size_t longNameLength);
+    static void MungeShortName(char* shortName, uint32_t iteration);
+    static void GenerateShortName(const wchar16_t* longName, size_t longNameLength, char* shortName);
 
     static uint8_t  HashMSDOSName(const char *name);
 

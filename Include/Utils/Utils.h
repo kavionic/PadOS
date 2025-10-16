@@ -19,6 +19,7 @@
 #pragma once
 
 #include <cmath>
+#include <PadOS/Time.h>
 #include <System/Types.h>
 #include <System/System.h>
 #include <Utils/String.h>
@@ -124,9 +125,9 @@ template <typename O, typename F> auto bind_method(O* obj, F&& f) { return [=](a
 class TimeoutTracker
 {
 public:
-    TimeoutTracker(TimeValNanos timeout) : m_Deadline(get_system_time() + timeout) {}
-    TimeoutTracker(bigtime_t timeoutMilliseconds) : m_Deadline(get_system_time() + TimeValNanos::FromMilliseconds(timeoutMilliseconds)) {}
-    operator bool() const { return get_system_time() < m_Deadline; }
+    TimeoutTracker(TimeValNanos timeout) : m_Deadline(get_monotonic_time() + timeout) {}
+    TimeoutTracker(bigtime_t timeoutMilliseconds) : m_Deadline(get_monotonic_time() + TimeValNanos::FromMilliseconds(timeoutMilliseconds)) {}
+    operator bool() const { return get_monotonic_time() < m_Deadline; }
 private:
     TimeValNanos m_Deadline;
 };
@@ -134,7 +135,7 @@ private:
 class ProfileTimer
 {
     public:
-        ProfileTimer(const String& title, TimeValNanos minimumTime = 0.0) : m_Title(title), m_MinimumTime(minimumTime) { m_StartTime = get_system_time_hires(); m_PrevLapTime = m_StartTime; }
+        ProfileTimer(const String& title, TimeValNanos minimumTime = 0.0) : m_Title(title), m_MinimumTime(minimumTime) { m_StartTime = get_monotonic_time_hires(); m_PrevLapTime = m_StartTime; }
     ~ProfileTimer()
     {
         Terminate();
@@ -144,7 +145,7 @@ class ProfileTimer
     {
         if (m_StartTime.AsNative() != 0)
         {
-            const TimeValNanos curTime = get_system_time_hires();
+            const TimeValNanos curTime = get_monotonic_time_hires();
             const TimeValNanos time = curTime - m_StartTime;
             const TimeValNanos lapTime = curTime - m_PrevLapTime;
             m_StartTime = 0.0;
@@ -167,7 +168,7 @@ class ProfileTimer
     {
         if (m_StartTime.AsNative() != 0)
         {
-            const TimeValNanos curTime = get_system_time_hires();
+            const TimeValNanos curTime = get_monotonic_time_hires();
             const TimeValNanos time = curTime - m_StartTime;
             if (time >= m_MinimumTime)
             {

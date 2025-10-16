@@ -54,7 +54,7 @@ include_directories(
 	.
 )
 
-set(PADOS_SYSTEM_C_CXX_FLAGS "-mcpu=cortex-m7 -ffunction-sections -fdata-sections -fstack-usage -mthumb -ffast-math -mfpu=fpv5-d16 -mfloat-abi=hard -fexceptions -funwind-tables")
+set(PADOS_SYSTEM_C_CXX_FLAGS "-mcpu=cortex-m7 -ffunction-sections -fdata-sections -fstack-usage -mthumb -mno-unaligned-access -ffast-math -mfpu=fpv5-d16 -mfloat-abi=hard -fexceptions -funwind-tables")
 
 set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${PADOS_SYSTEM_C_CXX_FLAGS} -D_DEFAULT_SOURCE")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PADOS_SYSTEM_C_CXX_FLAGS} -D_DEFAULT_SOURCE --std=gnu++23")

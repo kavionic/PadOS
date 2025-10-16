@@ -19,7 +19,9 @@
 
 #include <string.h>
 
+#include <System/ExceptionHandling.h>
 #include <Utils/Utils.h>
+#include <Kernel/KTime.h>
 #include <Kernel/USB/USBHost.h>
 #include <Kernel/USB/USBClassDriverHost.h>
 #include <Kernel/USB/USBDriver.h>
@@ -160,7 +162,7 @@ void* USBHost::Run()
                     m_Driver->ResetPort();
 
                     m_Device0.m_Address = 0;
-                    m_DeviceAttachDeadline = kget_system_time() + TimeValNanos::FromSeconds(DEVICE_RESET_TIMEOUT);
+                    m_DeviceAttachDeadline = kget_monotonic_time() + TimeValNanos::FromSeconds(DEVICE_RESET_TIMEOUT);
                     break;
                 case USBHostEventID::DeviceAttached:
                     m_DeviceAttachDeadline = TimeValNanos::infinit;
@@ -186,7 +188,11 @@ void* USBHost::Run()
                     for (const Ptr<USBClassDriverHost>& driver : m_ClassDrivers)
                     {
                         if (driver->IsActive()) {
-                            driver->Close();
+                            try
+                            {
+                                driver->Close();
+                            }
+                            PERROR_CATCH([](PErrorCode error) { kernel_log(LogCategoryUSBHost, KLogSeverity::ERROR, "USBH: Failed to close channel.\n"); });
                         }
                     }
                     SignalConnectionChanged(false);
@@ -201,7 +207,7 @@ void* USBHost::Run()
                     break;
             }
         }
-        else if (!m_DeviceAttachDeadline.IsInfinit() && get_system_time() > m_DeviceAttachDeadline)
+        else if (!m_DeviceAttachDeadline.IsInfinit() && kget_monotonic_time() > m_DeviceAttachDeadline)
         {
             m_DeviceAttachDeadline = TimeValNanos::infinit;
             if (++m_ResetErrorCount > 3) {
@@ -486,9 +492,9 @@ bool USBHost::ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t d
         bool driverFound = false;
         for (const Ptr<USBClassDriverHost>& driver : m_ClassDrivers)
         {
-            const USB_DescriptorHeader* nextDesc = driver->Open(deviceAddr, interfaceDesc, desc_iad, endDesc);
-            if (nextDesc != nullptr)
+            try
             {
+                const USB_DescriptorHeader* nextDesc = driver->Open(deviceAddr, interfaceDesc, desc_iad, endDesc);
                 driver->m_IsActive = true;
 
                 kernel_log(LogCategoryUSB, KLogSeverity::INFO_LOW_VOL, "USBH: %s opened\n", driver->GetName());
@@ -498,6 +504,7 @@ bool USBHost::ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t d
                 driverFound = true;
                 break;
             }
+            PERROR_CATCH([](PErrorCode error) { kernel_log(LogCategoryUSBHost, KLogSeverity::ERROR, "USBH: Failed to open channel.\n"); });
         }
         if (!driverFound)
         {

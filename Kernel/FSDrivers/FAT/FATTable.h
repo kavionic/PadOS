@@ -45,20 +45,20 @@ public:
     FATTable(Ptr<FATVolume> volume);
     ~FATTable();
     
-    PErrorCode GetEntry(uint32_t cluster, uint32_t* value);
-    PErrorCode SetEntry(uint32_t cluster, uint32_t value);
-    PErrorCode GetChainEntry(uint32_t chainStart, uint32_t index, uint32_t* value);
+    uint32_t GetEntry(uint32_t cluster);
+    void SetEntry(uint32_t cluster, uint32_t value);
+    uint32_t GetChainEntry(uint32_t chainStart, uint32_t index);
 #ifdef FAT_VERIFY_FAT_CHAINS
     bool ValidateChainEntry(uint32_t chainStart, uint32_t index, uint32_t expectedValue);
 #endif // FAT_VERIFY_FAT_CHAINS
 
-    PErrorCode CountFreeClusters(uint32_t* result);
-    PErrorCode GetChainLength(uint32_t cluster, size_t* outCount);
-    PErrorCode SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool updateICache);
-    PErrorCode AllocateClusters(size_t count, uint32_t* firstCluster);
-    PErrorCode ClearFATChain(uint32_t cluster);
+    uint32_t    CountFreeClusters();
+    size_t      GetChainLength(uint32_t cluster);
+    void        SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool updateICache);
+    uint32_t    AllocateClusters(size_t count);
+    void        ClearFATChain(uint32_t cluster);
 
-    bool MirrorFAT(uint32_t sector, const uint8_t* buffer);
+    void MirrorFAT(uint32_t sector, const uint8_t* buffer);
 
     void DumpChain(uint32_t startCluster);
     

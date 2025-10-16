@@ -18,12 +18,11 @@
 // Created: 18.04.2021 23:30
 
 #include <stdio.h>
+#include <dirent.h>
 #include <sys/unistd.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
-#include <sys/dirent.h>
 
-#include <Kernel/VFS/FileIO.h>
 #include <Storage/FSNode.h>
 #include <Utils/HashCalculator.h>
 #include <SerialConsole/SerialCommandHandler.h>
@@ -64,7 +63,7 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
         constexpr size_t maxEntriesPerPackage = (4096 - sizeof(SerialProtocol::GetDirectoryReply)) / sizeof(SerialProtocol::GetDirectoryReplyDirEnt);
         static_assert(maxEntriesPerPackage >= 5);
         dirent_t dirEntry;
-        for (int i = 0; __read_directory(dir, &dirEntry, sizeof(dirEntry)) == 1; ++i)
+        for (int i = 0; posix_getdents(dir, &dirEntry, sizeof(dirEntry), 0) == sizeof(dirEntry); ++i)
         {
             String path = packet.m_Path;
             path += "/";
@@ -145,7 +144,7 @@ void CommandHandlerFilesystem::HandleWriteFile(const SerialProtocol::WriteFile& 
     if (m_CurrentExternalFile == -1 || msg.m_File != m_CurrentExternalFile) {
         return;
     }
-    ssize_t result = FileIO::Write(m_CurrentExternalFile, msg.m_Buffer, msg.m_Size, msg.m_StartPos);
+    ssize_t result = pwrite(m_CurrentExternalFile, msg.m_Buffer, msg.m_Size, msg.m_StartPos);
     m_CommandHandler->SendMessage<SerialProtocol::WriteFileReply>(m_CurrentExternalFile, (result == msg.m_Size) ? (msg.m_StartPos + result) : -1);
 }
 
@@ -159,7 +158,7 @@ void CommandHandlerFilesystem::HandleReadFile(const SerialProtocol::ReadFile& ms
         return;
     }
     SerialProtocol::ReadFileReply reply;
-    ssize_t result = FileIO::Read(m_CurrentExternalFile, reply.m_Buffer, msg.m_Size, msg.m_StartPos);
+    ssize_t result = pread(m_CurrentExternalFile, reply.m_Buffer, msg.m_Size, msg.m_StartPos);
     SerialProtocol::ReadFileReply::InitMsg(reply, m_CurrentExternalFile, msg.m_StartPos, result);
 
     m_CommandHandler->SendSerialPacket(&reply);

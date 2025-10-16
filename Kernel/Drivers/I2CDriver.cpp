@@ -257,8 +257,8 @@ PErrorCode I2CDriverINode::Write(Ptr<KFileNode> file, const void* buffer, size_t
             }
         }
     }
-    bigtime_t startTime = get_system_time();
-    while((m_Port->TWIHS_SR & TWIHS_SR_TXCOMP_Msk) == 0 && (get_system_time() - startTime) < 2000000);
+    bigtime_t startTime = kget_monotonic_time();
+    while((m_Port->TWIHS_SR & TWIHS_SR_TXCOMP_Msk) == 0 && (kget_monotonic_time() - startTime) < 2000000);
     outLength = length;
     return PErrorCode::Success;
 }
@@ -451,10 +451,8 @@ Ptr<KFileNode> I2CDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int I2CDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
+void I2CDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
-//    return ptr_static_cast<I2CDriverINode>(inode)->Open(flags);
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

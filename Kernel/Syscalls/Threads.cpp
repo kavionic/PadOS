@@ -56,7 +56,7 @@ PErrorCode sys_thread_spawn(thread_id* outThreadHandle, const PThreadAttribs* at
     try
     {
         thread = ptr_new<KThreadCB>(attribs);
-        thread->InitializeStack(entryPoint, arguments);
+        thread->InitializeStack(entryPoint, /*skipEntryTrampoline*/ false, arguments);
 
         thread_id handle;
         PErrorCode result = gk_ThreadTable.AllocHandle(handle);

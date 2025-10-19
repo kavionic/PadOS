@@ -110,7 +110,7 @@ protected:
     bool InitializeCard();
     bool InitializeMMCCard();
 
-    static size_t ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size);
+    static void ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size);
 
     void DecodePartitions(bool force);
 

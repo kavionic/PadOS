@@ -57,7 +57,7 @@ struct SPIDriverSetup
     int32_t                     CRCPolynomial       = 7;
     int32_t                     WordSize            = 8;
     uint32_t                    InterWordIdleCycles = 0;
-    uint32_t                    ReceiveBufferSize   = 0;
+    size_t                      ReceiveBufferSize   = 0;
 };
 
 class SPIDriverINode : public KINode

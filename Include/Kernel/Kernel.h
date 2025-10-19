@@ -34,8 +34,8 @@
 #include <System/TimeValue.h>
 
 
-#define DCACHE_LINE_SIZE 32 // Cortex-M7 size of cache line is fixed to 8 words (32 bytes)
-#define DCACHE_LINE_SIZE_MASK (DCACHE_LINE_SIZE - 1)
+#define DCACHE_LINE_SIZE __SCB_DCACHE_LINE_SIZE
+#define DCACHE_LINE_SIZE_MASK (DCACHE_LINE_SIZE - 1U)
 
 class DigitalPin;
 

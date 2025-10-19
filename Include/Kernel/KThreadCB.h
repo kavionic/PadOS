@@ -53,7 +53,7 @@ public:
 
     virtual void SetHandle(int32_t handle) noexcept override;
     pid_t GetProcessID() const;
-    void InitializeStack(ThreadEntryPoint_t entryPoint, void* arguments);
+    void InitializeStack(ThreadEntryPoint_t entryPoint, bool skipEntryTrampoline, void* arguments);
 
     uint8_t* GetStackTop() const { return m_StackBuffer; }
     uint8_t* GetStackBottom() const { return m_StackBuffer + m_StackSize - 4; }

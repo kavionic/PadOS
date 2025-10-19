@@ -594,16 +594,15 @@ bool SDMMCDriver::InitializeCard()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t SDMMCDriver::ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size)
+void SDMMCDriver::ReadPartitionData(void* userData, off64_t position, void* buffer, size_t size)
 {
-    try
+    iovec_t segment;
+    segment.iov_base = buffer;
+    segment.iov_len = size;
+    if (static_cast<SDMMCDriver*>(userData)->Read(nullptr, &segment, 1, position) != size)
     {
-        iovec_t segment;
-        segment.iov_base = buffer;
-        segment.iov_len = size;
-        return static_cast<SDMMCDriver*>(userData)->Read(nullptr, &segment, 1, position);
+        PERROR_THROW_CODE(PErrorCode::IOError);
     }
-    PERROR_CATCH_SET_ERRNO(-1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -613,46 +612,45 @@ size_t SDMMCDriver::ReadPartitionData(void* userData, off64_t position, void* bu
 void SDMMCDriver::DecodePartitions(bool force)
 {
     device_geometry diskGeom;
-    std::vector<disk_partition_desc> partitions;
 
     m_RawINode->bi_nSize = m_SectorCount * BLOCK_SIZE;
 
     memset(&diskGeom, 0, sizeof(diskGeom));
     diskGeom.sector_count     = m_SectorCount;
     diskGeom.bytes_per_sector = BLOCK_SIZE;
-    diskGeom.read_only 	  = false;
-    diskGeom.removable 	  = true;
+    diskGeom.read_only 	      = false;
+    diskGeom.removable 	      = true;
 
     kprintf("SDMMCDriver::DecodePartitions(): Decoding partition table\n");
 
-    if (KVFSManager::DecodeDiskPartitions(m_CacheAlignedBuffer, BLOCK_SIZE, diskGeom, &partitions, &ReadPartitionData, this) < 0) {
-	    kprintf( "   Invalid partition table\n" );
-        PERROR_THROW_CODE(PErrorCode(get_last_error()));
-    }
+    std::vector<disk_partition_desc> partitions = KVFSManager::DecodeDiskPartitions_trw(m_CacheAlignedBuffer, BLOCK_SIZE, diskGeom, &ReadPartitionData, this);
+
     for (size_t i = 0 ; i < partitions.size() ; ++i)
     {
-	if ( partitions[i].p_type != 0 && partitions[i].p_size != 0 )
+	    if (partitions[i].p_type != 0 && partitions[i].p_size != 0)
         {
-	    kprintf( "   Partition %" PRIu32 " : %10" PRIu64 " -> %10" PRIu64 " %02x (%" PRIu64 ")\n", uint32_t(i), partitions[i].p_start,
-		        partitions[i].p_start + partitions[i].p_size - 1LL, partitions[i].p_type,
-		        partitions[i].p_size);
-	}
+	        kprintf( "   Partition %" PRIu32 " : %10" PRIu64 " -> %10" PRIu64 " %02x (%" PRIu64 ")\n", uint32_t(i), partitions[i].p_start,
+		            partitions[i].p_start + partitions[i].p_size - 1LL, partitions[i].p_type,
+		            partitions[i].p_size);
+	    }
     }
 
     for (Ptr<SDMMCINode> partition : m_PartitionINodes)
     {
-	bool found = false;
-	for (size_t i = 0 ; i < partitions.size() ; ++i)
+	    bool found = false;
+	    for (size_t i = 0 ; i < partitions.size() ; ++i)
         {
-	    if ( partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize ) {
-		found = true;
-		break;
+	        if (partitions[i].p_start == partition->bi_nStart && partitions[i].p_size == partition->bi_nSize)
+            {
+    		    found = true;
+	    	    break;
+	        }
 	    }
-	}
-	if (!force && !found && partition->bi_nOpenCount > 0) {
-	    kprintf("ERROR: SDMMCDriver::DecodePartitions() Open partition has changed.\n");
-        PERROR_THROW_CODE(PErrorCode::Busy);
-	}
+	    if (!force && !found && partition->bi_nOpenCount > 0)
+        {
+	        kprintf("ERROR: SDMMCDriver::DecodePartitions() Open partition has changed.\n");
+            PERROR_THROW_CODE(PErrorCode::Busy);
+	    }
     }
     
     std::vector<Ptr<SDMMCINode>> unusedPartitionINodes; // = std::move(m_PartitionINodes);
@@ -689,9 +687,9 @@ void SDMMCDriver::DecodePartitions(bool force)
         // Create nodes for any new partitions.
     for (size_t i = 0 ; i < partitions.size() ; ++i)
     {
-	if ( partitions[i].p_type == 0 || partitions[i].p_size == 0 ) {
-	    continue;
-	}
+	    if (partitions[i].p_type == 0 || partitions[i].p_size == 0) {
+	        continue;
+	    }
         Ptr<SDMMCINode> partition;
         if (!unusedPartitionINodes.empty()) {
             partition = unusedPartitionINodes.back();
@@ -700,8 +698,8 @@ void SDMMCDriver::DecodePartitions(bool force)
             partition = ptr_new<SDMMCINode>(this);
         }
         m_PartitionINodes.push_back(partition);
-	partition->bi_nStart = partitions[i].p_start;
-	partition->bi_nSize  = partitions[i].p_size;
+	    partition->bi_nStart = partitions[i].p_start;
+	    partition->bi_nSize  = partitions[i].p_size;
     }
         
     std::sort(m_PartitionINodes.begin(), m_PartitionINodes.end(), [](Ptr<SDMMCINode> lhs, Ptr<SDMMCINode> rhs) { return lhs->bi_nStart < rhs->bi_nStart; });

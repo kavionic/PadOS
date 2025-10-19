@@ -230,11 +230,11 @@ void GSLx680Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* 
     switch(request)
     {
         case HIDIOCTL_SET_TARGET_PORT:
-            if (inArg == nullptr || inDataLength != sizeof(port_id)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+            if (inArg == nullptr || inDataLength != sizeof(port_id)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
             ftFile->m_TargetPort = *inArg;
             return;
         case HIDIOCTL_GET_TARGET_PORT:
-            if (outArg == nullptr || outDataLength != sizeof(port_id)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+            if (outArg == nullptr || outDataLength != sizeof(port_id)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
             *outArg = ftFile->m_TargetPort;
             return;
         default:

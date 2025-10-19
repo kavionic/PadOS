@@ -33,7 +33,7 @@ namespace os
 
 namespace remote_signal_utils
 {
-    constexpr size_t align_argument_size(size_t length) { return (length + 3) & ~3; }
+    constexpr size_t align_argument_size(size_t length) noexcept { return (length + 3) & ~3; }
 
     ///////////////////////////////////////////////////////////////////////////////
     /// \author Kurt Skauen
@@ -42,7 +42,8 @@ namespace remote_signal_utils
     template<typename T>
     struct ArgumentPacker
     {
-        static size_t   GetSize(T value) { return sizeof(T); }
+        static constexpr size_t GetSize(T value) noexcept { return sizeof(T); }
+
         static ssize_t  Write(T value, void* data, size_t length)
         {
             if (length >= sizeof(value))
@@ -72,8 +73,8 @@ namespace remote_signal_utils
     template<>
     struct ArgumentPacker<std::string>
     {
-        static size_t   GetSize(const std::string& value) { return sizeof(uint32_t) + value.size(); }
-        static ssize_t  Write(const std::string& value, void* data, size_t length)
+        static size_t   GetSize(const std::string& value) noexcept { return sizeof(uint32_t) + value.size(); }
+        static ssize_t  Write(const std::string& value, void* data, size_t length) noexcept
         {
             if (length >= (sizeof(uint32_t) + value.size()))
             {
@@ -125,15 +126,15 @@ template<typename R, typename... ARGS>
 class RemoteSignalTX : public SignalBase
 {
 public:
-    static size_t AccumulateSize() { return 0; }
+    static constexpr size_t AccumulateSize() noexcept { return 0; }
         
     template<typename FIRST>
-    static size_t AccumulateSize(FIRST&& first) { return remote_signal_utils::align_argument_size(first); }
+    static constexpr size_t AccumulateSize(FIRST&& first) noexcept { return remote_signal_utils::align_argument_size(first); }
         
     template<typename FIRST, typename... REST>
-    static size_t AccumulateSize(FIRST&& first, REST&&... rest) { return remote_signal_utils::align_argument_size(first) + AccumulateSize<REST...>(std::forward<REST>(rest)...); }
+    static constexpr size_t AccumulateSize(FIRST&& first, REST&&... rest) noexcept { return remote_signal_utils::align_argument_size(first) + AccumulateSize<REST...>(std::forward<REST>(rest)...); }
 
-    static ssize_t WriteArg(void* buffer, size_t length) { return 0; }
+    static constexpr ssize_t WriteArg(void* buffer, size_t length) noexcept { return 0; }
     
     template<typename FIRST>
     static ssize_t WriteArg(void* buffer, size_t length, FIRST&& first)
@@ -157,7 +158,7 @@ public:
         return -1;
     }
     
-    static size_t GetSize(ARGS... args) { return AccumulateSize(remote_signal_utils::ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...); }
+    static constexpr size_t GetSize(ARGS... args) noexcept { return AccumulateSize(remote_signal_utils::ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...); }
 
     void operator()(void* buffer, size_t length, ARGS... args)
     {

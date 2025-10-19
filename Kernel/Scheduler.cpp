@@ -521,7 +521,6 @@ void set_interrupt_enabled_state(IRQEnableState state)
 #else
 #error Unknown platform.
 #endif
-    __DSB();
     __ISB();
 }
 
@@ -541,7 +540,6 @@ uint32_t disable_interrupts()
 #else
 #error Unknown platform.
 #endif
-    __DSB();
     __ISB();
     return oldState;
 }
@@ -555,7 +553,6 @@ uint32_t KDisableLowLatenctInterrupts()
 {
     const uint32_t oldState = __get_BASEPRI();
     __set_BASEPRI(KIRQ_PRI_LOW_LATENCY_MAX << (8 - __NVIC_PRIO_BITS));
-    __DSB();
     __ISB();
     assert(__get_BASEPRI() == (KIRQ_PRI_LOW_LATENCY_MAX << (8 - __NVIC_PRIO_BITS)));
     return oldState;
@@ -568,7 +565,6 @@ uint32_t KDisableLowLatenctInterrupts()
 
 void restore_interrupts(uint32_t state)
 {
-    __DSB();
 #if defined(STM32H7)
     __set_BASEPRI(state);
     assert(__get_BASEPRI() == state);
@@ -633,7 +629,7 @@ static void* init_thread_entry(void* arguments)
     // to sleep, we must initialize it's stack properly before that happens.
 
     size_t mainThreadStackSize = size_t(arguments);
-    gk_IdleThread->InitializeStack(idle_thread_entry, nullptr);
+    gk_IdleThread->InitializeStack(idle_thread_entry, /*skipEntryTrampoline*/ true, nullptr);
 
     PThreadAttribs attrs("main_thread", 0, PThreadDetachState_Detached, mainThreadStackSize);
     sys_thread_spawn(&gk_MainThreadID, &attrs, main_thread_entry, nullptr);
@@ -694,7 +690,7 @@ void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
     gk_InitThread = new((void*)gk_InitThreadBuffer)KThreadCB(&attrs);
     Ptr<KThreadCB> initThread = ptr_new_cast(gk_InitThread);
 
-    gk_InitThread->InitializeStack(init_thread_entry, (void*)mainThreadStackSize);
+    gk_InitThread->InitializeStack(init_thread_entry, /*skipEntryTrampoline*/ false, (void*)mainThreadStackSize);
 
     gk_ThreadTable.AllocHandle(initThreadHandle);
     gk_InitThread->SetHandle(initThreadHandle);
@@ -708,7 +704,6 @@ void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
 #else
 #error Unknown platform.
 #endif
-    __DSB();
     __ISB();
 
     SysTick->LOAD = coreFrequency / 1000 - 1;

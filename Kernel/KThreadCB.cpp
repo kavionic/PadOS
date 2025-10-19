@@ -55,6 +55,12 @@ static void thread_entry_point(void* (*threadEntry)(void*), void* arguments)
         void* const result = threadEntry(arguments);
         __thread_exit(result);
     }
+    catch (const std::exception& e)
+    {
+        const String error = std::format("Uncaught exception in thread '{}': {}", gk_CurrentThread->GetName(), e.what());
+        panic(error.c_str());
+        __thread_exit(nullptr);
+    }
     catch(...)
     {
         panic("Uncaught exception from thread.\n");
@@ -139,7 +145,7 @@ void KThreadCB::SetHandle(int32_t handle) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, void* arguments)
+void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, bool skipEntryTrampoline, void* arguments)
 {
     uint32_t currentStack = ((intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1));
 
@@ -147,10 +153,18 @@ void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, void* arguments)
 
     memset(stackFrame, 0, sizeof(*stackFrame));
     stackFrame->KernelFrame.EXEC_RETURN = 0xfffffffd; // Return to Thread mode, exception return uses non-floating-point state from the PSP and execution uses PSP after return
-    stackFrame->ExceptionFrame.R0 = uint32_t(entryPoint);
-    stackFrame->ExceptionFrame.R1 = uint32_t(arguments);
-    stackFrame->ExceptionFrame.LR = uint32_t(invalid_return_handler) & ~1; // Clear the thump flag from the function pointer.
-    stackFrame->ExceptionFrame.PC = uint32_t(thread_entry_point) & ~1; // Clear the thumb flag from the function pointer.
+    if (!skipEntryTrampoline) [[likely]]
+    {
+        stackFrame->ExceptionFrame.R0 = uint32_t(entryPoint);
+        stackFrame->ExceptionFrame.R1 = uint32_t(arguments);
+        stackFrame->ExceptionFrame.PC = uint32_t(thread_entry_point) & ~1; // Clear the thumb flag from the function pointer.
+    }
+    else
+    {
+        stackFrame->ExceptionFrame.R0 = uint32_t(arguments);
+        stackFrame->ExceptionFrame.PC = uint32_t(entryPoint) & ~1; // Clear the thumb flag from the function pointer.
+    }
+    stackFrame->ExceptionFrame.LR = uint32_t(invalid_return_handler) & ~1; // Clear the thumb flag from the function pointer.
     stackFrame->ExceptionFrame.xPSR = xPSR_T_Msk; // Always in Thumb state.
 
     m_CurrentStackAndPrivilege = reinterpret_cast<intptr_t>(stackFrame);

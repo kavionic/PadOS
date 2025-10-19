@@ -124,35 +124,35 @@ void I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void
     switch(request)
     {
         case I2CIOCTL_SET_SLAVE_ADDRESS:
-            if (inArg == nullptr || inDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+            if (inArg == nullptr || inDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
             i2cfile->m_SlaveAddress = uint8_t(*inArg);
             break;
         case I2CIOCTL_GET_SLAVE_ADDRESS:
-            if (outArg == nullptr || outDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+            if (outArg == nullptr || outDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
             *outArg = i2cfile->m_SlaveAddress;
             break;
         case I2CIOCTL_SET_INTERNAL_ADDR_LEN:
-            if (inArg == nullptr || inDataLength != sizeof(int) || *inArg < 0 || *inArg > sizeof(m_RegisterAddress)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+            if (inArg == nullptr || inDataLength != sizeof(int) || *inArg < 0 || *inArg > sizeof(m_RegisterAddress)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
             i2cfile->m_InternalAddressLength = uint8_t(*inArg);
             break;
         case I2CIOCTL_GET_INTERNAL_ADDR_LEN:
-            if (outArg == nullptr || outDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+            if (outArg == nullptr || outDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
             *outArg = i2cfile->m_InternalAddressLength;
             break;
         case I2CIOCTL_SET_BAUDRATE:
-            if (inArg == nullptr || inDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+            if (inArg == nullptr || inDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
 //            SetBaudrate(*inArg);
             break;
         case I2CIOCTL_GET_BAUDRATE:
-            if (outArg == nullptr || outDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+            if (outArg == nullptr || outDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
             *outArg = GetBaudrate();
             break;
         case I2CIOCTL_SET_TIMEOUT:
-            if (inData == nullptr || inDataLength != sizeof(bigtime_t)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+            if (inData == nullptr || inDataLength != sizeof(bigtime_t)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
             i2cfile->m_Timeout = TimeValNanos::FromNanoseconds(*reinterpret_cast<const bigtime_t*>(inData));
             break;
         case I2CIOCTL_GET_TIMEOUT:
-            if (outData == nullptr || outDataLength != sizeof(bigtime_t)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+            if (outData == nullptr || outDataLength != sizeof(bigtime_t)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
             *reinterpret_cast<bigtime_t*>(outData) = i2cfile->m_Timeout.AsNanoseconds();
             break;
         case I2CIOCTL_CLEAR_BUS:

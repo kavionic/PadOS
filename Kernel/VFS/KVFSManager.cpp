@@ -113,9 +113,9 @@ KVFSManager::~KVFSManager()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KVFSManager::DecodeDiskPartitions(void* blockBuffer, size_t bufferSize, const device_geometry& diskGeom, std::vector<disk_partition_desc>* partitions, disk_read_op* readCallback, void* userData)
+std::vector<disk_partition_desc> KVFSManager::DecodeDiskPartitions_trw(void* blockBuffer, size_t bufferSize, const device_geometry& diskGeom, disk_read_op* readCallback, void* userData)
 {
-	uint8_t* buffer = reinterpret_cast<uint8_t*>(blockBuffer);
+    uint8_t* buffer = reinterpret_cast<uint8_t*>(blockBuffer);
     PartitionRecord* recordTable = reinterpret_cast<PartitionRecord*>(&buffer[0x1be]);
     off64_t diskSize = diskGeom.sector_count * diskGeom.bytes_per_sector;
     off64_t tablePos = 0;
@@ -126,104 +126,103 @@ int KVFSManager::DecodeDiskPartitions(void* blockBuffer, size_t bufferSize, cons
 
     static const size_t MAX_PARTITIONS = 64; // Just a sanity check in case there is some kind of circular loop with the extended partition
 
-    for (;partitions->size() < MAX_PARTITIONS ;)
+    std::vector<disk_partition_desc> partitions;
+
+    while (partitions.size() < MAX_PARTITIONS)
     {
-        if (readCallback( userData, tablePos, buffer, bufferSize) != bufferSize) {
-	    kprintf( "ERROR: KVFSManager::DecodeDiskPartitions() failed to read MBR\n" );
-	    return 0;
-        }
-        if (*reinterpret_cast<uint16_t*>(&buffer[0x1fe]) != 0xaa55) {
-	    kprintf( "ERROR: KVFSManager::DecodeDiskPartitions() Invalid partition table signature %04x\n", *reinterpret_cast<uint16_t*>(&buffer[0x1fe]));
-	    return 0;
+        readCallback(userData, tablePos, buffer, bufferSize);
+        if (*reinterpret_cast<uint16_t*>(&buffer[0x1fe]) != 0xaa55)
+        {
+            kprintf("ERROR: KVFSManager::DecodeDiskPartitions() Invalid partition table signature %04x\n", *reinterpret_cast<uint16_t*>(&buffer[0x1fe]));
+            PERROR_THROW_CODE(PErrorCode::InvalidFileType);
         }
 
-        numActive   = 0;
+        numActive = 0;
         numExtended = 0;
-    
-        for (int i = 0 ; i < 4 ; ++i)
+
+        for (int i = 0; i < 4; ++i)
         {
-	    if ( recordTable[i].m_Status & 0x80 ) {
-	        numActive++;
-	    }
-	    if ( recordTable[i].m_Type == 0x05 || recordTable[i].m_Type == 0x0f || recordTable[i].m_Type == 0x85 ) {
-	        numExtended++;
-	    }
-	    if ( numActive > 1 ) {
-	        kprintf( "WARNING: KVFSManager::DecodeDiskPartitions() more than one active partitions\n" );
-	    }
-	    if ( numExtended > 1 ) {
-	        kprintf( "ERROR: KVFSManager::DecodeDiskPartitions() more than one extended partitions\n" );
-	        set_last_error(EINVAL);
-	        return -1;
-	    }
+            if (recordTable[i].m_Status & 0x80) {
+                numActive++;
+            }
+            if (recordTable[i].m_Type == 0x05 || recordTable[i].m_Type == 0x0f || recordTable[i].m_Type == 0x85) {
+                numExtended++;
+            }
+            if (numActive > 1) {
+                kprintf("WARNING: KVFSManager::DecodeDiskPartitions() more than one active partitions\n");
+            }
+            if (numExtended > 1)
+            {
+                kprintf("ERROR: KVFSManager::DecodeDiskPartitions() more than one extended partitions\n");
+                PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+            }
         }
-        for (int i = 0 ; i < 4 && partitions->size() < MAX_PARTITIONS; ++i)
+        for (int i = 0; i < 4 && partitions.size() < MAX_PARTITIONS; ++i)
         {
-	    if (recordTable[i].m_Type == 0) {
-	        continue;
-	    }
+            if (recordTable[i].m_Type == 0) {
+                continue;
+            }
             disk_partition_desc partitionDesc;
             memset(&partitionDesc, 0, sizeof(partitionDesc));
-            
-	    if (recordTable[i].m_Type == 0x05 || recordTable[i].m_Type == 0x0f || recordTable[i].m_Type == 0x85)
-            {
-	        extStart = uint64_t(recordTable[i].m_StartLBA) * uint64_t(diskGeom.bytes_per_sector); // + nTablePos;
-	        if (firstExtended == 0) {
-                    partitions->push_back(partitionDesc);
-	        }
-	        continue;
-	    }
-	    partitionDesc.p_type   = recordTable[i].m_Type;
-	    partitionDesc.p_status = recordTable[i].m_Status;
-	    partitionDesc.p_start  = uint64_t(recordTable[i].m_StartLBA) * uint64_t(diskGeom.bytes_per_sector) + tablePos;
-	    partitionDesc.p_size   = uint64_t(recordTable[i].m_Size) * uint64_t(diskGeom.bytes_per_sector);
 
-	    if ( partitionDesc.p_start + partitionDesc.p_size > diskSize )
+            if (recordTable[i].m_Type == 0x05 || recordTable[i].m_Type == 0x0f || recordTable[i].m_Type == 0x85)
             {
-	        kprintf("ERROR: Partition %d extend outside the disk/extended partition\n", partitions->size());
-	        set_last_error(EINVAL);
-	        return -1;
-	    }
-	
-	    for (size_t j = 0 ; j < partitions->size() ; ++j)
+                extStart = uint64_t(recordTable[i].m_StartLBA) * uint64_t(diskGeom.bytes_per_sector); // + nTablePos;
+                if (firstExtended == 0) {
+                    partitions.push_back(partitionDesc);
+                }
+                continue;
+            }
+            partitionDesc.p_type = recordTable[i].m_Type;
+            partitionDesc.p_status = recordTable[i].m_Status;
+            partitionDesc.p_start = uint64_t(recordTable[i].m_StartLBA) * uint64_t(diskGeom.bytes_per_sector) + tablePos;
+            partitionDesc.p_size = uint64_t(recordTable[i].m_Size) * uint64_t(diskGeom.bytes_per_sector);
+
+            if (partitionDesc.p_start + partitionDesc.p_size > diskSize)
             {
-                const disk_partition_desc& curPartition = (*partitions)[j];
-	        if ( partitionDesc.p_type == 0 ) {
-		    continue;
-	        }
-	        if (curPartition.p_start + curPartition.p_size > partitionDesc.p_start &&
-		     curPartition.p_start <  partitionDesc.p_start + partitionDesc.p_size ) {
-		    kprintf("ERROR: KVFSManager::DecodeDiskPartitions() partition %d overlap partition %d\n", j, partitions->size());
-		    set_last_error(EINVAL);
-		    return -1;
-	        }
-	        if ( (partitionDesc.p_status & 0x80) != 0 && (curPartition.p_status & 0x80) != 0 ) {
-		    kprintf( "ERROR: KVFSManager::DecodeDiskPartitions() more than one active partitions\n" );
-		    set_last_error(EINVAL);
-		    return -1;
-	        }
-	        if ( partitionDesc.p_type == 0x05 && curPartition.p_type == 0x05 ) {
-		    kprintf( "ERROR: KVFSManager::DecodeDiskPartitions() more than one extended partitions\n" );
-		    set_last_error(EINVAL);
-		    return -1;
-	        }
-	    }
-            partitions->push_back(partitionDesc);
+                kprintf("ERROR: Partition %d extend outside the disk/extended partition\n", partitions.size());
+                PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+            }
+
+            for (size_t j = 0; j < partitions.size(); ++j)
+            {
+                const disk_partition_desc& curPartition = partitions[j];
+                if (partitionDesc.p_type == 0) {
+                    continue;
+                }
+                if (curPartition.p_start + curPartition.p_size > partitionDesc.p_start &&
+                    curPartition.p_start < partitionDesc.p_start + partitionDesc.p_size)
+                {
+                    kprintf("ERROR: KVFSManager::DecodeDiskPartitions() partition %d overlap partition %d\n", j, partitions.size());
+                    PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+                }
+                if ((partitionDesc.p_status & 0x80) != 0 && (curPartition.p_status & 0x80) != 0)
+                {
+                    kprintf("ERROR: KVFSManager::DecodeDiskPartitions() more than one active partitions\n");
+                    PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+                }
+                if (partitionDesc.p_type == 0x05 && curPartition.p_type == 0x05)
+                {
+                    kprintf("ERROR: KVFSManager::DecodeDiskPartitions() more than one extended partitions\n");
+                    PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+                }
+            }
+            partitions.push_back(partitionDesc);
         }
         if (extStart != 0)
         {
-	    tablePos = firstExtended + extStart;
-	    if ( firstExtended == 0 ) {
-	        firstExtended = extStart;
-	    }
-	    extStart = 0;
+            tablePos = firstExtended + extStart;
+            if (firstExtended == 0) {
+                firstExtended = extStart;
+            }
+            extStart = 0;
         }
         else
         {
             break;
         }
     }
-    return partitions->size();
+    return partitions;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

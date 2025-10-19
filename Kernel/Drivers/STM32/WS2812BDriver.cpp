@@ -118,19 +118,19 @@ void WS2812BDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const v
 	switch (request)
 	{
 		case WS2812BIOCTL_SET_LED_COUNT:
-            if (inArg == nullptr || inDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+            if (inArg == nullptr || inDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
             SetLEDCount(*inArg);
             return;
 		case WS2812BIOCTL_GET_LED_COUNT:
-		    if (outArg == nullptr || outDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+		    if (outArg == nullptr || outDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
 		    *outArg = GetLEDCount();
 		    return;
 		case WS2812BIOCTL_SET_EXPONENTIAL:
-		    if (inArg == nullptr || inDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+		    if (inArg == nullptr || inDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
 		    SetExponential(*inArg != 0);
 		    return;
 		case WS2812BIOCTL_GET_EXPONENTIAL:
-		    if (outArg == nullptr || outDataLength != sizeof(int)) { PERROR_THROW_CODE(PErrorCode::InvalidArg); }
+		    if (outArg == nullptr || outDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
 		    *outArg = GetExponential() ? 1 : 0;
 		    return;
 		default: PERROR_THROW_CODE(PErrorCode::InvalidArg);

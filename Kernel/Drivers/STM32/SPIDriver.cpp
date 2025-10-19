@@ -31,10 +31,15 @@
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/HAL/PeripheralMapping.h>
 
+
+#include "SystemSetup.h"
+
 namespace kernel
 {
 
 static constexpr int SPI_MAX_WORD_LENGTH(SPIID spiID) { return (spiID <= SPIID::SPI_3) ? 32 : 16; }
+
+const uint32_t IFCR_ALL = SPI_IFCR_EOTC | SPI_IFCR_TXTFC | SPI_IFCR_UDRC | SPI_IFCR_OVRC | SPI_IFCR_MODFC | SPI_IFCR_TIFREC | SPI_IFCR_CRCEC;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -150,7 +155,7 @@ SPIDriverINode::SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver)
     m_SendDMAChannel.SetMemoryWordSize(dmaWordSize);
     m_SendDMAChannel.SetRegisterWordSize(dmaWordSize);
 
-    m_ReceiveBufferSize = (setup.ReceiveBufferSize + DCACHE_LINE_SIZE - 1) & ~(DCACHE_LINE_SIZE - 1);
+    m_ReceiveBufferSize = align_up(setup.ReceiveBufferSize, DCACHE_LINE_SIZE);
     if (m_ReceiveBufferSize > 0) {
         m_ReceiveBuffer = reinterpret_cast<uint8_t*>(memalign(DCACHE_LINE_SIZE, m_ReceiveBufferSize));
     }
@@ -188,35 +193,47 @@ void SPIDriverINode::DeviceControl(int request, const void* inData, size_t inDat
     switch (request)
     {
         case SPIIOCTL_SET_BAUDRATE_DIVIDER:
-            if (inDataLength == sizeof(SPIBaudRateDivider)) {
+            if (inDataLength == sizeof(SPIBaudRateDivider))
+            {
                 const SPIBaudRateDivider divider = *((const SPIBaudRateDivider*)inData);
                 SetBaudrateDivider(divider);
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_GET_BAUDRATE_DIVIDER:
-            if (outDataLength == sizeof(SPIBaudRateDivider)) {
+            if (outDataLength == sizeof(SPIBaudRateDivider))
+            {
                 SPIBaudRateDivider* divider = (SPIBaudRateDivider*)outData;
                 *divider = SPIBaudRateDivider((m_Port->CFG1 & SPI_CFG1_MBR_Msk) >> SPI_CFG1_MBR_Pos);
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_SET_READ_TIMEOUT:
-            if (inDataLength == sizeof(bigtime_t)) {
+            if (inDataLength == sizeof(bigtime_t))
+            {
                 bigtime_t nanos = *((const bigtime_t*)inData);
                 m_ReadTimeout = TimeValNanos::FromNanoseconds(nanos);
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_GET_READ_TIMEOUT:
-            if (outDataLength == sizeof(bigtime_t)) {
+            if (outDataLength == sizeof(bigtime_t))
+            {
                 bigtime_t* nanos = (bigtime_t*)outData;
                 *nanos = m_ReadTimeout.AsNanoseconds();
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case SPIIOCTL_SET_PINMODE:
@@ -229,24 +246,33 @@ void SPIDriverINode::DeviceControl(int request, const void* inData, size_t inDat
                 switch (pin)
                 {
                     case SPIPin::CLK:
-                        if (SetPinMode(m_PinCLK, mode)) {
+                        if (SetPinMode(m_PinCLK, mode))
+                        {
                             m_PinModeCLK = mode;
                             return;
-                        } else {
+                        }
+                        else
+                        {
                             PERROR_THROW_CODE(PErrorCode::InvalidArg);
                         }
                     case SPIPin::MOSI:
-                        if (SetPinMode(m_PinMOSI, mode)) {
+                        if (SetPinMode(m_PinMOSI, mode))
+                        {
                             m_PinModeMOSI = mode;
                             return;
-                        } else {
+                        }
+                        else
+                        {
                             PERROR_THROW_CODE(PErrorCode::InvalidArg);
                         }
                     case SPIPin::MISO:
-                        if (SetPinMode(m_PinMISO, mode)) {
+                        if (SetPinMode(m_PinMISO, mode))
+                        {
                             m_PinModeMISO = mode;
                             return;
-                        } else {
+                        }
+                        else
+                        {
                             PERROR_THROW_CODE(PErrorCode::InvalidArg);
                         }
                     default:
@@ -406,12 +432,16 @@ void SPIDriverINode::StartTransaction(const SPITransaction& transaction)
 {
     kassert(m_Mutex.IsLocked());
 
-    if (transaction.ReceiveBuffer != nullptr && transaction.Length > m_ReceiveBufferSize)
-    {
+    if (transaction.ReceiveBuffer != nullptr && transaction.Length > m_ReceiveBufferSize) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
-    SCB_CleanInvalidateDCache();
+    if (transaction.TransmitBuffer != nullptr)
+    {
+        const intptr_t startAddr = align_down<intptr_t>(intptr_t(transaction.TransmitBuffer), DCACHE_LINE_SIZE);
+        const intptr_t endAddr   = align_up<intptr_t>(intptr_t(transaction.TransmitBuffer) + transaction.Length, DCACHE_LINE_SIZE);
+        SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(startAddr), endAddr - startAddr);
+    }
 
     uint32_t errorFlags = SPI_SR_UDR | SPI_SR_OVR | SPI_SR_MODF | SPI_SR_TIFRE;
     if (m_Port->CFG1 & SPI_CFG1_CRCEN) {
@@ -421,8 +451,6 @@ void SPIDriverINode::StartTransaction(const SPITransaction& transaction)
 
     if (transaction.ReceiveBuffer != nullptr)
     {
-//        SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), (transaction.Length + DCACHE_LINE_SIZE - 1) & ~(DCACHE_LINE_SIZE - 1));
-
         m_ReceiveDMAChannel.SetMemoryAddress(m_ReceiveBuffer);
         m_ReceiveDMAChannel.SetTransferLength(wordCount);
         m_ReceiveDMAChannel.Start();
@@ -430,65 +458,49 @@ void SPIDriverINode::StartTransaction(const SPITransaction& transaction)
     }
     if (transaction.TransmitBuffer != nullptr)
     {
-//        uint32_t startAddr = uint32_t(transaction.TransmitBuffer) & ~(DCACHE_LINE_SIZE - 1);
-//        uint32_t endAddr = (uint32_t(transaction.TransmitBuffer) + transaction.Length + DCACHE_LINE_SIZE - 1) & ~(DCACHE_LINE_SIZE - 1);
-//        SCB_CleanDCache_by_Addr(reinterpret_cast<uint32_t*>(startAddr), endAddr - startAddr);
-
         m_SendDMAChannel.SetMemoryAddress(transaction.TransmitBuffer);
         m_SendDMAChannel.SetTransferLength(wordCount);
         m_SendDMAChannel.Start();
         m_Port->CFG1 |= SPI_CFG1_TXDMAEN;
     }
 
+    m_Port->IFCR = IFCR_ALL;
+
+    uint32_t CR2 = 0;
+    set_bit_group(CR2, SPI_CR2_TSIZE_Msk, wordCount << SPI_CR2_TSIZE_Pos);
+    m_Port->CR2 = CR2;
+
     PErrorCode result;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        do
-        {
-            m_Port->IFCR = SPI_IER_EOTIE | errorFlags;
+        m_Port->IER = SPI_IER_EOTIE | errorFlags;
 
-            uint32_t CR2 = 0;
-            set_bit_group(CR2, SPI_CR2_TSIZE_Msk, wordCount << SPI_CR2_TSIZE_Pos);
-            m_Port->CR2 = CR2;
+        m_Port->CR1 |= SPI_CR1_SPE;
+        m_Port->CR1 |= SPI_CR1_CSTART;
 
-            m_Port->IER = SPI_IER_EOTIE | errorFlags;
-
-            m_Port->CR1 |= SPI_CR1_SPE;
-            m_Port->CR1 |= SPI_CR1_CSTART;
-
-            result = m_TransactionCondition.IRQWait();
-            m_Port->IER = 0;
-
-            m_SendDMAChannel.Stop();
-            m_ReceiveDMAChannel.Stop();
-
-            m_Port->IFCR = SPI_IFCR_EOTC | SPI_IFCR_TXTFC;
-
-            m_Port->CR1 &= ~SPI_CR1_SPE;
-            m_Port->CFG1 &= ~(SPI_CFG1_RXDMAEN | SPI_CFG1_TXDMAEN);
-
-            m_Port->IFCR = errorFlags;
-
-            if (result != PErrorCode::Success)
-            {
-                break;
-            }
-            if (m_TransactionError == SPIError::None)
-            {
-                if (transaction.ReceiveBuffer != nullptr)
-                {
-                    //                SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), (transaction.Length + DCACHE_LINE_SIZE - 1) & ~(DCACHE_LINE_SIZE - 1));
-                    memcpy(transaction.ReceiveBuffer, m_ReceiveBuffer, transaction.Length);
-                }
-                return;
-            }
-            else
-            {
-                result = PErrorCode::IOError;
-            }
-        } while (false);
+        result = m_TransactionCondition.IRQWait();
+        m_Port->IER = 0;
     } CRITICAL_END;
-    PERROR_THROW_CODE(result);
+
+    m_SendDMAChannel.Stop();
+    m_ReceiveDMAChannel.Stop();
+
+    m_Port->CR1  &= ~SPI_CR1_SPE;
+    m_Port->CFG1 &= ~(SPI_CFG1_RXDMAEN | SPI_CFG1_TXDMAEN);
+
+    m_Port->IFCR = IFCR_ALL;
+
+    if (result != PErrorCode::Success) {
+        PERROR_THROW_CODE(result);
+    }
+    if (m_TransactionError != SPIError::None) {
+        PERROR_THROW_CODE(PErrorCode::IOError);
+    }
+    if (transaction.ReceiveBuffer != nullptr)
+    {
+        SCB_InvalidateDCache_by_Addr(reinterpret_cast<uint32_t*>(m_ReceiveBuffer), align_up(transaction.Length, DCACHE_LINE_SIZE));
+        memcpy(transaction.ReceiveBuffer, m_ReceiveBuffer, transaction.Length);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -520,7 +532,7 @@ IRQResult SPIDriverINode::HandleSPIIRQ()
     } else {
         m_TransactionError = SPIError::Unknown;
     }
-    m_Port->IFCR = m_Port->IER;
+    m_Port->IFCR = IFCR_ALL;
     m_TransactionCondition.WakeupAll();
     KSWITCH_CONTEXT();
 

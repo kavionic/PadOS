@@ -111,6 +111,7 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t l
         if (curLen > 0 || (file->GetOpenFlags() & O_NONBLOCK)) {
             return curLen;
         }
+        PErrorCode result = PErrorCode::Success;
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             dma_stop(m_ReceiveDMAChannel);
@@ -119,16 +120,15 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t l
 
             if (m_ReceiveBytesInBuffer == 0)
             {
-                const PErrorCode result = m_ReceiveCondition.IRQWaitTimeout(m_ReadTimeout);
-                if (result != PErrorCode::Success)
-                {
-                    if (result != PErrorCode::Interrupted)
-                    {
-                        PERROR_THROW_CODE(result);
-                    }
-                }
+                result = m_ReceiveCondition.IRQWaitTimeout(m_ReadTimeout);
             }
         } CRITICAL_END;
+        if (result != PErrorCode::Success)
+        {
+            if (result != PErrorCode::Interrupted) {
+                PERROR_THROW_CODE(result);
+            }
+        }
     }
 }
 
@@ -138,7 +138,10 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t l
 
 ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length)
 {
-    SCB_CleanInvalidateDCache();
+    const intptr_t startAddr = align_down<intptr_t>(intptr_t(buffer), DCACHE_LINE_SIZE);
+    const intptr_t endAddr   = align_up<intptr_t>(intptr_t(buffer) + length, DCACHE_LINE_SIZE);
+    SCB_CleanDCache_by_Addr(reinterpret_cast<intptr_t*>(startAddr), endAddr - startAddr);
+
     CRITICAL_SCOPE(m_MutexWrite);
 
     const uint8_t* currentTarget = reinterpret_cast<const uint8_t*>(buffer);
@@ -150,15 +153,16 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
 
         dma_stop(m_SendDMAChannel);
         dma_setup(m_SendDMAChannel, DMADirection::MemToPeriph, m_DMARequestTX, &m_Port->TDR, currentTarget, currentLen);
+
+        PErrorCode result;
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             dma_start(m_SendDMAChannel);
-            const PErrorCode result = m_TransmitCondition.IRQWaitTimeout(TimeValNanos::FromNanoseconds(bigtime_t(currentLen) * 10 * 2 * TimeValNanos::TicksPerSecond / m_Baudrate) + TimeValNanos::FromMilliseconds(100));
-            if (result != PErrorCode::Success)
-            {
-                PERROR_THROW_CODE(result);
-            }
+            result = m_TransmitCondition.IRQWaitTimeout(TimeValNanos::FromNanoseconds(bigtime_t(currentLen) * 10 * 2 * TimeValNanos::TicksPerSecond / m_Baudrate) + TimeValNanos::FromMilliseconds(100));
         } CRITICAL_END;
+        if (result != PErrorCode::Success) {
+            PERROR_THROW_CODE(result);
+        }
     }
     return length;
 }
@@ -213,51 +217,69 @@ void USARTDriverINode::DeviceControl(int request, const void* inData, size_t inD
     switch (request)
     {
         case USARTIOCTL_SET_BAUDRATE:
-            if (inDataLength == sizeof(int)) {
+            if (inDataLength == sizeof(int))
+            {
                 int baudrate = *((const int*)inData);
                 SetBaudrate(baudrate);
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_BAUDRATE:
-            if (outDataLength == sizeof(int)) {
+            if (outDataLength == sizeof(int))
+            {
                 int* baudrate = (int*)outData;
                 *baudrate = m_Baudrate;
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_SET_READ_TIMEOUT:
-            if (inDataLength == sizeof(bigtime_t)) {
+            if (inDataLength == sizeof(bigtime_t))
+            {
                 bigtime_t nanos = *((const bigtime_t*)inData);
                 m_ReadTimeout = TimeValNanos::FromNanoseconds(nanos);
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_READ_TIMEOUT:
-            if (outDataLength == sizeof(bigtime_t)) {
+            if (outDataLength == sizeof(bigtime_t))
+            {
                 bigtime_t* nanos = (bigtime_t*)outData;
                 *nanos = m_ReadTimeout.AsNanoseconds();
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_SET_IOCTRL:
-            if (inDataLength == sizeof(uint32_t)) {
+            if (inDataLength == sizeof(uint32_t))
+            {
                 uint32_t flags = *((const uint32_t*)inData);
                 SetIOControl(flags);
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_IOCTRL:
-            if (outDataLength == sizeof(uint32_t)) {
+            if (outDataLength == sizeof(uint32_t))
+            {
                 uint32_t* flags = (uint32_t*)outData;
                 *flags = m_IOControl;
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_SET_PINMODE:
@@ -270,19 +292,25 @@ void USARTDriverINode::DeviceControl(int request, const void* inData, size_t inD
                 switch (pin)
                 {
                     case USARTPin::RX:
-                        if (SetPinMode(m_PinRX, mode)) {
+                        if (SetPinMode(m_PinRX, mode))
+                        {
                             m_PinModeRX = mode;
                             m_Port->RQR = USART_RQR_RXFRQ;  // Flush receive buffer
                             return;
-                        } else {
+                        }
+                        else
+                        {
                             PERROR_THROW_CODE(PErrorCode::InvalidArg);
                         }
                     case USARTPin::TX:
-                        if (SetPinMode(m_PinTX, mode)) {
+                        if (SetPinMode(m_PinTX, mode))
+                        {
                             m_PinModeTX = mode;
                             m_Port->RQR = USART_RQR_RXFRQ;  // Flush receive buffer
                             return;
-                        } else {
+                        }
+                        else
+                        {
                             PERROR_THROW_CODE(PErrorCode::InvalidArg);
                         }
                     default:
@@ -318,19 +346,25 @@ void USARTDriverINode::DeviceControl(int request, const void* inData, size_t inD
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_SET_SWAPRXTX:
-            if (inDataLength == sizeof(int)) {
+            if (inDataLength == sizeof(int))
+            {
                 int arg = *((const int*)inData);
                 SetSwapRXTX(arg != 0);
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
         case USARTIOCTL_GET_SWAPRXTX:
-            if (outDataLength == sizeof(int)) {
+            if (outDataLength == sizeof(int))
+            {
                 int* result = (int*)outData;
                 *result = GetSwapRXTX();
                 return;
-            } else {
+            }
+            else
+            {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
 

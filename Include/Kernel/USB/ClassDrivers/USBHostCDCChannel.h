@@ -46,38 +46,38 @@ enum class USB_URBState : uint8_t;
 class USBHostCDCChannel : public KINode, public KFilesystemFileOps
 {
 public:
-    IFLASHC USBHostCDCChannel(USBHost* hostHandler, USBHostClassCDC* classDriver);
+    USBHostCDCChannel(USBHost* hostHandler, USBHostClassCDC* classDriver);
 
     // From KNamedObject:
     virtual bool AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
 
-    IFLASHC const USB_DescriptorHeader* Open(uint8_t deviceAddr, int channelIndex, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc);
-    IFLASHC void Close();
-    IFLASHC void Startup();
+    const USB_DescriptorHeader* Open(uint8_t deviceAddr, int channelIndex, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc);
+    void Close();
+    void Startup();
 
 
-    IFLASHC ssize_t GetReadBytesAvailable() const;
-    IFLASHC virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
-    IFLASHC virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    IFLASHC virtual void    Sync(Ptr<KFileNode> file) override;
-    IFLASHC virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
-    IFLASHC virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    ssize_t GetReadBytesAvailable() const;
+    virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    virtual void    Sync(Ptr<KFileNode> file) override;
+    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
+    virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
-    IFLASHC bool SetLineCoding(const USB_CDC_LineCoding& lineCoding);
-    IFLASHC const USB_CDC_LineCoding& GetLineCoding() const;
+    bool SetLineCoding(const USB_CDC_LineCoding& lineCoding);
+    const USB_CDC_LineCoding& GetLineCoding() const;
 
     Signal<void, USBHostClassCDC*, const USB_CDC_LineCoding&>  SignalLineCodingChanged;
 
 private:
-    IFLASHC void    ReqGetLineCoding(USB_CDC_LineCoding* linecoding);
-    IFLASHC void    ReqSetLineCoding(USB_CDC_LineCoding* linecoding);
-    IFLASHC void    FlushInternal();
+    void    ReqGetLineCoding(USB_CDC_LineCoding* linecoding);
+    void    ReqSetLineCoding(USB_CDC_LineCoding* linecoding);
+    void    FlushInternal();
 
-    IFLASHC void    HandleSetLineCodingResult(bool result, uint8_t deviceAddr);
-    IFLASHC void    HandleEndpointHaltResult(bool result, uint8_t deviceAddr);
+    void    HandleSetLineCodingResult(bool result, uint8_t deviceAddr);
+    void    HandleEndpointHaltResult(bool result, uint8_t deviceAddr);
 
-    IFLASHC void    SendTransactionCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
-    IFLASHC void    ReceiveTransactionCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
+    void    SendTransactionCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
+    void    ReceiveTransactionCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
 
 
     USBHost*            m_HostHandler = nullptr;

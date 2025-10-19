@@ -30,11 +30,10 @@ namespace kernel
 class SpinTimer
 {
 public:
-    static IFLASHC void Initialize();
+    static void Initialize();
 
-    static IFLASHC void SleepuS(uint32_t delay);
-
-    static IFLASHC void SleepMS(uint32_t delay);
+    static void SleepuS(uint32_t delay);
+    static void SleepMS(uint32_t delay);
 private:
     static uint32_t   s_TicksPerMicroSec;
 };

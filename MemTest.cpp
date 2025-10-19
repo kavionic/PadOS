@@ -34,7 +34,7 @@
  *              A non-zero result is the first pattern that failed.
  *
  **********************************************************************/
-IFLASHC datum
+datum
 memTestDataBus(volatile datum * address)
 {
     datum pattern;
@@ -89,7 +89,7 @@ memTestDataBus(volatile datum * address)
  *              additional information about the problem.
  *
  **********************************************************************/
-IFLASHC datum *
+datum *
 memTestAddressBus(volatile datum * baseAddress, unsigned long nBytes)
 {
     unsigned long addressMask = (nBytes/sizeof(datum) - 1);
@@ -173,7 +173,7 @@ memTestAddressBus(volatile datum * baseAddress, unsigned long nBytes)
  *              additional information about the problem.
  *
  **********************************************************************/
-IFLASHC datum* memTestDevice(volatile datum* baseAddress, unsigned long nBytes)
+datum* memTestDevice(volatile datum* baseAddress, unsigned long nBytes)
 {
     unsigned long offset;
     unsigned long nWords = nBytes / sizeof(datum);

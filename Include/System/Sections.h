@@ -20,8 +20,7 @@
 #pragma once
 
 #ifndef IFLASHC
-//#define IFLASHC __attribute__((section(".itext")))
-#define IFLASHC
+#define IFLASHC __attribute__((section(".itext")))
 #endif
 
 #ifndef IFLASHD

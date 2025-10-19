@@ -45,11 +45,11 @@ enum
 
 struct KCacheBlockHeader
 {
-    IFLASHC void AddRef();
-    IFLASHC void RemoveRef();
+    void AddRef();
+    void RemoveRef();
     
     inline bool IsDirty() const { return (m_Flags & BCF_DIRTY) != 0; }
-    IFLASHC void SetDirty(bool isDirty);
+    void SetDirty(bool isDirty);
 
     inline bool IsDirtyPending() const { return (m_Flags & BCF_DIRTY_PENDING) != 0; }
     inline void ClearDirtyPending() { m_Flags &= ~BCF_DIRTY_PENDING; }
@@ -79,17 +79,17 @@ struct KCacheBlockDesc
 {
     inline KCacheBlockDesc() : m_Block(nullptr), m_Buffer(nullptr) {}
     inline KCacheBlockDesc(KCacheBlockHeader* block, size_t blockOffset) : m_Block(block), m_Buffer(static_cast<uint8_t*>(block->m_Buffer) + blockOffset) {}
-    IFLASHC ~KCacheBlockDesc();
+    ~KCacheBlockDesc();
 
-    IFLASHC void MarkDirty();
+    void MarkDirty();
 
-    IFLASHC void Reset();
+    void Reset();
         
     KCacheBlockHeader* m_Block;
     void*              m_Buffer;
 
     inline KCacheBlockDesc(KCacheBlockDesc&& src) : m_Block(src.m_Block), m_Buffer(src.m_Buffer) { src.m_Block = nullptr; src.m_Buffer = nullptr; }
-    IFLASHC KCacheBlockDesc& operator=(KCacheBlockDesc&& src);
+    KCacheBlockDesc& operator=(KCacheBlockDesc&& src);
     
     KCacheBlockDesc(const KCacheBlockDesc&) = delete;
     KCacheBlockDesc& operator=(const KCacheBlockDesc&) = delete;
@@ -106,34 +106,34 @@ public:
     static const size_t MIN_BLOCK_SIZE    = 512;
     static const size_t MAX_BLOCK_SIZE    = BUFFER_BLOCK_SIZE;
     
-    IFLASHC KBlockCache();
-    IFLASHC ~KBlockCache();
+    KBlockCache();
+    ~KBlockCache();
 
     static inline int GetDirtyBlockCount() { return s_DirtyBlockCount; }
 
-    static IFLASHC KBlockCache* GetDeviceCache(int device);
-    bool IFLASHC SetDevice(int device, off64_t blockCount, size_t blockSize);
+    static KBlockCache* GetDeviceCache(int device);
+    bool SetDevice(int device, off64_t blockCount, size_t blockSize);
     
-    static IFLASHC void Initialize();
+    static void Initialize();
         
-    IFLASHC KCacheBlockDesc GetBlock_trw(off64_t blockNum, bool doLoad = true);
-    IFLASHC bool            MarkBlockDirty(off64_t blockNum);
+    KCacheBlockDesc GetBlock_trw(off64_t blockNum, bool doLoad = true);
+    bool            MarkBlockDirty(off64_t blockNum);
     
-    IFLASHC void CachedRead_trw(off64_t blockNum, void* buffer, size_t blockCount);
-    IFLASHC void CachedWrite_trw(off64_t blockNum, const void* buffer, size_t blockCount);
+    void CachedRead_trw(off64_t blockNum, void* buffer, size_t blockCount);
+    void CachedWrite_trw(off64_t blockNum, const void* buffer, size_t blockCount);
 
-    IFLASHC bool Flush();
-    IFLASHC bool Sync();
+    bool Flush();
+    bool Sync();
     inline bool Shutdown(bool flush) { if (flush) return Sync(); return true; }
         
 private:
     friend struct KCacheBlockHeader;
     friend struct KCacheBlockDesc;
 
-    IFLASHC bool FlushInternal();
+    bool FlushInternal();
 
-    static IFLASHC bool  FlushBlockList_trw(KCacheBlockHeader** blockList, size_t blockCount);
-    static IFLASHC void* DiskCacheFlusher(void* arg);
+    static bool  FlushBlockList_trw(KCacheBlockHeader** blockList, size_t blockCount);
+    static void* DiskCacheFlusher(void* arg);
     
     static std::map<int, KBlockCache*>      s_DeviceMap;
     static IntrusiveList<KCacheBlockHeader> s_FreeList;

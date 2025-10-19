@@ -231,7 +231,7 @@ size_t WS2812BDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC IRQResult WS2812BDriverINode::IRQCallbackSend(IRQn_Type irq, void* userData)
+IRQResult WS2812BDriverINode::IRQCallbackSend(IRQn_Type irq, void* userData)
 {
     return static_cast<WS2812BDriverINode*>(userData)->HandleIRQ();
 }

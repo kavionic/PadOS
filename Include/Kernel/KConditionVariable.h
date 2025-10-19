@@ -29,10 +29,10 @@ class KMutex;
 class KConditionVariable : public KNamedObject
 {
 public:
-    static IFLASHC constexpr KNamedObjectType ObjectType = KNamedObjectType::ConditionVariable;
+    static constexpr KNamedObjectType ObjectType = KNamedObjectType::ConditionVariable;
     
-    IFLASHC KConditionVariable(const char* name, clockid_t clockID = CLOCK_MONOTONIC);
-    IFLASHC ~KConditionVariable();
+    KConditionVariable(const char* name, clockid_t clockID = CLOCK_MONOTONIC);
+    ~KConditionVariable();
     
     PErrorCode Wait() { return WaitInternal(nullptr); }
     PErrorCode WaitTimeout(TimeValNanos timeout) { return WaitTimeoutInternal(nullptr, timeout); }
@@ -44,18 +44,18 @@ public:
     PErrorCode WaitDeadline(KMutex& lock, TimeValNanos deadline) { return WaitDeadlineInternal(&lock, m_ClockID, deadline); }
     PErrorCode WaitClock(KMutex& lock, clockid_t clockID, TimeValNanos deadline) { return WaitDeadlineInternal(&lock, clockID, deadline); }
 
-    IFLASHC PErrorCode IRQWait();
-    IFLASHC PErrorCode IRQWaitTimeout(TimeValNanos timeout);
-    IFLASHC PErrorCode IRQWaitDeadline(TimeValNanos deadline);
-    IFLASHC PErrorCode IRQWaitClock(clockid_t clockID, TimeValNanos deadline);
+    PErrorCode IRQWait();
+    PErrorCode IRQWaitTimeout(TimeValNanos timeout);
+    PErrorCode IRQWaitDeadline(TimeValNanos deadline);
+    PErrorCode IRQWaitClock(clockid_t clockID, TimeValNanos deadline);
 
-    IFLASHC PErrorCode Wakeup(int threadCount);
+    PErrorCode Wakeup(int threadCount);
     inline PErrorCode WakeupAll() { return Wakeup(0); }
 
 private:
-    IFLASHC PErrorCode WaitInternal(KMutex* lock);
-    IFLASHC PErrorCode WaitTimeoutInternal(KMutex* lock, TimeValNanos timeout);
-    IFLASHC PErrorCode WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValNanos deadline);
+    PErrorCode WaitInternal(KMutex* lock);
+    PErrorCode WaitTimeoutInternal(KMutex* lock, TimeValNanos timeout);
+    PErrorCode WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValNanos deadline);
 
     clockid_t m_ClockID = CLOCK_MONOTONIC;
 

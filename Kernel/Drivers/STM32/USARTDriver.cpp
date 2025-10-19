@@ -566,7 +566,7 @@ ssize_t USARTDriverINode::ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, c
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC IRQResult USARTDriverINode::IRQCallbackReceive(IRQn_Type irq, void* userData)
+IRQResult USARTDriverINode::IRQCallbackReceive(IRQn_Type irq, void* userData)
 {
     return static_cast<USARTDriverINode*>(userData)->HandleIRQReceive();
 }
@@ -592,7 +592,7 @@ IRQResult USARTDriverINode::HandleIRQReceive()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC IRQResult USARTDriverINode::IRQCallbackSend(IRQn_Type irq, void* userData)
+IRQResult USARTDriverINode::IRQCallbackSend(IRQn_Type irq, void* userData)
 {
     return static_cast<USARTDriverINode*>(userData)->HandleIRQSend();
 }

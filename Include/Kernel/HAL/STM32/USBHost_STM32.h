@@ -90,36 +90,36 @@ public:
     USB_Speed   HostGetSpeed() const;
     int32_t     GetMaxPipeCount() const { return CHANNEL_COUNT; }
 
-    IFLASHC bool        StartHost();
-    IFLASHC bool        StopHost();
-    IFLASHC bool        ResetPort();
-    IFLASHC uint32_t    GetCurrentFrame();
-    IFLASHC bool        SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize);
-    IFLASHC bool        HaltChannel(USB_PipeIndex pipeIndex);
-    IFLASHC bool        SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing);
+    bool        StartHost();
+    bool        StopHost();
+    bool        ResetPort();
+    uint32_t    GetCurrentFrame();
+    bool        SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize);
+    bool        HaltChannel(USB_PipeIndex pipeIndex);
+    bool        SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing);
 
 
-    IFLASHC bool SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
-    IFLASHC bool GetDataToggle(USB_PipeIndex pipeIndex) const;
+    bool SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
+    bool GetDataToggle(USB_PipeIndex pipeIndex) const;
 
 private:
-    IFLASHC void SetChannelURBState(USB_PipeIndex pipeIndex, USB_URBState state);
+    void SetChannelURBState(USB_PipeIndex pipeIndex, USB_URBState state);
 
     void DriveVBus(bool state);
 
-    IFLASHC bool SelectPhyClock(uint32_t clock);
+    bool SelectPhyClock(uint32_t clock);
   
-    IFLASHC bool StartTransfer(USB_PipeIndex pipeIndex, bool dma);
-    IFLASHC bool DoPing(USB_PipeIndex pipeIndex);
+    bool StartTransfer(USB_PipeIndex pipeIndex, bool dma);
+    bool DoPing(USB_PipeIndex pipeIndex);
 
 
-    IFLASHC static IRQResult IRQCallback(IRQn_Type irq, void* userData);
+    static IRQResult IRQCallback(IRQn_Type irq, void* userData);
 
-    IFLASHC IRQResult HandleIRQ();
-    IFLASHC void HandleChannelInIRQ(USB_PipeIndex pipeIndex);
-    IFLASHC void HandleChannelOutIRQ(USB_PipeIndex pipeIndex);
-    IFLASHC void HandleRxFIFONotEmptyIRQ();
-    IFLASHC void HandlePortIRQ();
+    IRQResult HandleIRQ();
+    void HandleChannelInIRQ(USB_PipeIndex pipeIndex);
+    void HandleChannelOutIRQ(USB_PipeIndex pipeIndex);
+    void HandleRxFIFONotEmptyIRQ();
+    void HandlePortIRQ();
 
 
     USB_STM32*                  m_Driver = nullptr;

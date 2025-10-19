@@ -32,10 +32,10 @@ namespace kernel
 class KIOContext
 {
 public:
-    IFLASHC KIOContext();
-    IFLASHC ~KIOContext();
+    KIOContext();
+    ~KIOContext();
     
-    IFLASHC bool AddNodeMonitor(Ptr<KNodeMonitorNode> node);
+    bool AddNodeMonitor(Ptr<KNodeMonitorNode> node);
 
 private:
 //    std::map<int, Ptr<KNodeMonitorNode>> m_NodeMonitorMap;

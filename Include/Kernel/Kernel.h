@@ -100,20 +100,20 @@ void panic(const char* fmt, FIRSTARG&& firstArg, ARGS&&... args)
 class Kernel
 {
 public:
-    static IFLASHC void     SetupFrequencies(uint32_t frequencyCore, uint32_t frequencyPeripheral);
-    static IFLASHC uint32_t GetFrequencyCore();
-    static IFLASHC uint32_t GetFrequencyPeripheral();
+    static void     SetupFrequencies(uint32_t frequencyCore, uint32_t frequencyPeripheral);
+    static uint32_t GetFrequencyCore();
+    static uint32_t GetFrequencyPeripheral();
 
 #if defined(__SAME70Q21__)
     static void ResetWatchdog();
 #elif defined(STM32H7) || defined(STM32G0)
-    static IFLASHC void ResetWatchdog();
+    static void ResetWatchdog();
 #endif
-    static IFLASHC void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
-    static IFLASHC void Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/);
-    static IFLASHC int  RegisterDevice_trw(const char* path, Ptr<KINode> deviceNode);
-    static IFLASHC void RenameDevice_trw(int handle, const char* newPath);
-    static IFLASHC void RemoveDevice_trw(int handle);
+    static void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
+    static void Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/);
+    static int  RegisterDevice_trw(const char* path, Ptr<KINode> deviceNode);
+    static void RenameDevice_trw(int handle, const char* newPath);
+    static void RemoveDevice_trw(int handle);
 
 //private:
 

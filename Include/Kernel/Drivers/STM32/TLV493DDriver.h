@@ -86,15 +86,15 @@ constexpr TimeValNanos  TLV493D_CONVERSION_TIME = TimeValNanos::FromNanoseconds(
 class TLV493DDriver : public PtrTarget, public os::Thread, public SignalTarget, public KFilesystemFileOps
 {
 public:
-    IFLASHC TLV493DDriver();
-    IFLASHC ~TLV493DDriver();
+    TLV493DDriver();
+    ~TLV493DDriver();
 
-    IFLASHC void Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin);
+    void Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin);
 
-    IFLASHC virtual void* Run() override;
+    virtual void* Run() override;
 
-    IFLASHC virtual void DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    IFLASHC virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    virtual void DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
 
 private:
     enum class State_e
@@ -107,10 +107,10 @@ private:
         ProcessingRegister
     };
 
-    IFLASHC void ResetSensor();
+    void ResetSensor();
 
-    IFLASHC void ConfigChanged();
-    IFLASHC void UpdateParity();
+    void ConfigChanged();
+    void UpdateParity();
 
     KMutex  m_Mutex;
     KConditionVariable m_NewFrameCondition;

@@ -35,20 +35,20 @@ class KObjectWaitGroup : public KNamedObject
 public:
 	static constexpr KNamedObjectType ObjectType = KNamedObjectType::ObjectWaitGroup;
 
-    IFLASHC KObjectWaitGroup(const char* name);
+    KObjectWaitGroup(const char* name);
 
-    IFLASHC PErrorCode AddObject(KWaitableObject* object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+    PErrorCode AddObject(KWaitableObject* object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
     template<typename T> PErrorCode AddObject(Ptr<T> object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return AddObject(ptr_raw_pointer_cast(object), waitMode); }
 
-	IFLASHC PErrorCode SetObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-	IFLASHC PErrorCode AppendObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-	IFLASHC PErrorCode RemoveObject(KWaitableObject* object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+	PErrorCode SetObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+	PErrorCode AppendObjects(const std::vector<KWaitableObject*>& objects, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+	PErrorCode RemoveObject(KWaitableObject* object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
     template<typename T> PErrorCode RemoveObject(Ptr<T> object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return RemoveObject(ptr_raw_pointer_cast(object), waitMode); }
 
-    IFLASHC PErrorCode AddFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-    IFLASHC PErrorCode RemoveFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+    PErrorCode AddFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
+    PErrorCode RemoveFile(int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
 
-    IFLASHC PErrorCode Clear();
+    PErrorCode Clear();
 
 	PErrorCode Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
 	PErrorCode WaitTimeout(TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
@@ -59,11 +59,11 @@ public:
 	PErrorCode WaitDeadline(KMutex& lock, TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, deadline, readyFlagsBuffer, readyFlagsSize); }
 
 private:
-    IFLASHC PErrorCode  AddObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
-    IFLASHC PErrorCode  RemoveObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
-    IFLASHC void        ClearInternal();
-    IFLASHC PErrorCode  WaitForBlockedThread(TimeValNanos deadline = TimeValNanos::infinit);
-    IFLASHC PErrorCode  Wait(KMutex* lock, TimeValNanos deadline, void* readyFlagsBuffer, size_t readyFlagsSize);
+    PErrorCode  AddObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
+    PErrorCode  RemoveObjectInternal(KWaitableObject* object, ObjectWaitMode waitMode);
+    void        ClearInternal();
+    PErrorCode  WaitForBlockedThread(TimeValNanos deadline = TimeValNanos::infinit);
+    PErrorCode  Wait(KMutex* lock, TimeValNanos deadline, void* readyFlagsBuffer, size_t readyFlagsSize);
 
 	KMutex m_Mutex;
 

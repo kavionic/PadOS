@@ -33,19 +33,19 @@ class USBHostEnumerator
 public:
     void Setup(USBHost* host) { m_HostHandler = host; }
 
-    IFLASHC void Reset();
-    IFLASHC bool Enumerate(USBHostControlRequestCallback&& callback);
+    void Reset();
+    bool Enumerate(USBHostControlRequestCallback&& callback);
 
 private:
-    IFLASHC void SendResult(bool result, uint8_t deviceAddr);
+    void SendResult(bool result, uint8_t deviceAddr);
 
-    IFLASHC void HandleConfigurationHeaderResult(bool result, uint8_t deviceAddr);
-    IFLASHC void HandleConfigurationFullResult(bool result, uint8_t deviceAddr);
-    IFLASHC void HandleSetAddressResult(bool result, uint8_t deviceAddr);
-    IFLASHC void GetStringDescriptors(uint8_t deviceAddr);
-    IFLASHC void HandleGetManufacturerStringResult(bool result, uint8_t deviceAddr);
-    IFLASHC void HandleGetProductStringResult(bool result, uint8_t deviceAddr);
-    IFLASHC void HandleGetSerialNumberResult(bool result, uint8_t deviceAddr);
+    void HandleConfigurationHeaderResult(bool result, uint8_t deviceAddr);
+    void HandleConfigurationFullResult(bool result, uint8_t deviceAddr);
+    void HandleSetAddressResult(bool result, uint8_t deviceAddr);
+    void GetStringDescriptors(uint8_t deviceAddr);
+    void HandleGetManufacturerStringResult(bool result, uint8_t deviceAddr);
+    void HandleGetProductStringResult(bool result, uint8_t deviceAddr);
+    void HandleGetSerialNumberResult(bool result, uint8_t deviceAddr);
 
 
     USBHost* m_HostHandler = nullptr;

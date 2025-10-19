@@ -36,14 +36,14 @@ class USBHostClassCDC : public USBClassDriverHost
 public:
     USBHostClassCDC();
 
-    virtual IFLASHC USB_ClassCode               GetClassCode() const override;
-    virtual IFLASHC const char*                 GetName() const override;
-    virtual IFLASHC bool                        Init(USBHost* host) override;
-    virtual IFLASHC void                        Shutdown() override;
-    virtual IFLASHC const USB_DescriptorHeader* Open(uint8_t deviceAddr, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc) override;
-    virtual IFLASHC void                        Close() override;
-    virtual IFLASHC void                        Startup() override;
-    virtual IFLASHC void                        StartOfFrame() override;
+    virtual USB_ClassCode               GetClassCode() const override;
+    virtual const char*                 GetName() const override;
+    virtual bool                        Init(USBHost* host) override;
+    virtual void                        Shutdown() override;
+    virtual const USB_DescriptorHeader* Open(uint8_t deviceAddr, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc) override;
+    virtual void                        Close() override;
+    virtual void                        Startup() override;
+    virtual void                        StartOfFrame() override;
 
     uint32_t                GetChannelCount() const { return m_Channels.size(); }
     Ptr<USBHostCDCChannel>  GetChannel(uint32_t channelIndex);

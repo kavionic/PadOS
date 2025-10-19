@@ -11,7 +11,7 @@ GPIO_Port_t* DigitalPort::GetPortRegs(DigitalPortID portID)
     return DigitalPortsRegisters[portID];
 }
 
-IFLASHC void DigitalPort::SetPeripheralMux(DigitalPortID portID, PortData_t pins, DigitalPinPeripheralID peripheral)
+void DigitalPort::SetPeripheralMux(DigitalPortID portID, PortData_t pins, DigitalPinPeripheralID peripheral)
 {
     GPIO_Port_t* port = GetPortRegs(portID);
     if (peripheral == DigitalPinPeripheralID::None)
@@ -53,12 +53,12 @@ IFLASHC void DigitalPort::SetPeripheralMux(DigitalPortID portID, PortData_t pins
     }
 }
 
-IFLASHC void DigitalPort::SetPeripheralMux(PortData_t pins, DigitalPinPeripheralID peripheral)
+void DigitalPort::SetPeripheralMux(PortData_t pins, DigitalPinPeripheralID peripheral)
 {
     SetPeripheralMux(m_Port, pins, peripheral);
 }
 
-IFLASHC void DigitalPort::SetDirection(DigitalPortID portID, DigitalPinDirection_e direction, PortData_t pins)
+void DigitalPort::SetDirection(DigitalPortID portID, DigitalPinDirection_e direction, PortData_t pins)
 {
     GPIO_Port_t* port = GetPortRegs(portID);
     switch (direction)
@@ -100,12 +100,12 @@ IFLASHC void DigitalPort::SetDirection(DigitalPortID portID, DigitalPinDirection
     }
 }
 
-IFLASHC void DigitalPort::SetDirection(DigitalPinDirection_e direction, PortData_t pins)
+void DigitalPort::SetDirection(DigitalPinDirection_e direction, PortData_t pins)
 {
     SetDirection(m_Port, direction, pins);
 }
 
-IFLASHC void DigitalPort::SetDriveStrength(DigitalPortID portID, DigitalPinDriveStrength_e strength, PortData_t pins)
+void DigitalPort::SetDriveStrength(DigitalPortID portID, DigitalPinDriveStrength_e strength, PortData_t pins)
 {
     GPIO_Port_t* port = GetPortRegs(portID);
     for (uint32_t i = 0, j = 0x0001; j != 0; j <<= 1, i += 2) {
@@ -115,12 +115,12 @@ IFLASHC void DigitalPort::SetDriveStrength(DigitalPortID portID, DigitalPinDrive
     }
 }
 
-IFLASHC void DigitalPort::SetDriveStrength(DigitalPinDriveStrength_e strength, PortData_t pins)
+void DigitalPort::SetDriveStrength(DigitalPinDriveStrength_e strength, PortData_t pins)
 {
     SetDriveStrength(m_Port, strength, pins);
 }
 
-IFLASHC void DigitalPort::SetPullMode(DigitalPortID portID, PinPullMode_e mode, PortData_t pins)
+void DigitalPort::SetPullMode(DigitalPortID portID, PinPullMode_e mode, PortData_t pins)
 {
     GPIO_Port_t* port = GetPortRegs(portID);
     switch (mode)
@@ -226,27 +226,27 @@ DigitalPinID DigitalPin::GetID() const
     return m_PinID;
 }
 
-IFLASHC bool DigitalPin::IsValid() const
+bool DigitalPin::IsValid() const
 {
     return m_PinID != DigitalPinID::None;
 }
 
-IFLASHC void DigitalPin::SetDirection(DigitalPinDirection_e dir)
+void DigitalPin::SetDirection(DigitalPinDirection_e dir)
 {
     m_Port.SetDirection(dir, m_PinMask);
 }
 
-IFLASHC void DigitalPin::SetDriveStrength(DigitalPinDriveStrength_e strength)
+void DigitalPin::SetDriveStrength(DigitalPinDriveStrength_e strength)
 {
     m_Port.SetDriveStrength(strength, m_PinMask);
 }
 
-IFLASHC void DigitalPin::SetPullMode(PinPullMode_e mode)
+void DigitalPin::SetPullMode(PinPullMode_e mode)
 {
     m_Port.SetPullMode(mode, m_PinMask);
 }
 
-IFLASHC void DigitalPin::SetPeripheralMux(DigitalPinPeripheralID peripheral)
+void DigitalPin::SetPeripheralMux(DigitalPinPeripheralID peripheral)
 {
     m_Port.SetPeripheralMux(m_PinMask, peripheral);
 }
@@ -256,17 +256,17 @@ void DigitalPin::ActivatePeripheralMux(const PinMuxTarget& PinMux)
     DigitalPin(PinMux.PINID).SetPeripheralMux(PinMux.MUX);
 }
 
-IFLASHC void DigitalPin::EnableInterrupts()
+void DigitalPin::EnableInterrupts()
 {
     EXTI->IMR1 |= m_PinMask;
 }
 
-IFLASHC void DigitalPin::DisableInterrupts()
+void DigitalPin::DisableInterrupts()
 {
     EXTI->IMR1 &= ~m_PinMask;
 }
 
-IFLASHC void DigitalPin::SetInterruptMode(PinInterruptMode_e mode)
+void DigitalPin::SetInterruptMode(PinInterruptMode_e mode)
 {
     int pinIndex = DIGITAL_PIN_ID_PIN(m_PinID);
 
@@ -298,27 +298,27 @@ IFLASHC void DigitalPin::SetInterruptMode(PinInterruptMode_e mode)
     }
 }
 
-IFLASHC void DigitalPin::Write(bool value)
+void DigitalPin::Write(bool value)
 {
     if (value) m_Port.SetHigh(m_PinMask); else m_Port.SetLow(m_PinMask);
 }
 
-IFLASHC bool DigitalPin::Read() const
+bool DigitalPin::Read() const
 {
     return (m_Port.Get() & m_PinMask) != 0;
 }
 
-IFLASHC DigitalPin::operator bool()
+DigitalPin::operator bool()
 {
     return Read();
 }
 
-IFLASHC DigitalPin& DigitalPin::operator=(bool value)
+DigitalPin& DigitalPin::operator=(bool value)
 {
     Write(value); return *this;
 }
 
-IFLASHC DigitalPin& DigitalPin::operator=(DigitalPinID pinID)
+DigitalPin& DigitalPin::operator=(DigitalPinID pinID)
 {
     Set(pinID); return *this;
 }

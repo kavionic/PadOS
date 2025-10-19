@@ -116,7 +116,7 @@ size_t get_heap_size()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC size_t get_max_heap_size()
+size_t get_max_heap_size()
 {
     return HEAP_END - HEAP_START;
 }

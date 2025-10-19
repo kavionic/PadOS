@@ -154,7 +154,7 @@ struct TimeValue
     }
 
     // Arithmetic operators:
-    IFLASHC TimeValue& operator=(const TimeValue& value) = default;
+    TimeValue& operator=(const TimeValue& value) = default;
 
     template<typename VALUE_T, uint64_t VALUE_TICKS_PER_SECOND>
     TimeValue& operator+=(const TimeValue<VALUE_T, VALUE_TICKS_PER_SECOND>& rhs)

@@ -35,8 +35,8 @@ public:
     void Beep(float time);
 
 private:
-    IFLASHC static IRQResult IRQCallback(IRQn_Type irq, void* userData);
-    IFLASHC IRQResult HandleIRQ();
+    static IRQResult IRQCallback(IRQn_Type irq, void* userData);
+    IRQResult HandleIRQ();
 
     MCU_Timer16_t* m_Timer = nullptr;
     DigitalPin      m_BeeperPin;

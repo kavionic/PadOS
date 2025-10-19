@@ -96,7 +96,7 @@
  *
  * \param dwMPUEnable  Enable/Disable the memory region.
  */
-IFLASHC void mpu_enable(uint32_t dw_mpu_enable)
+void mpu_enable(uint32_t dw_mpu_enable)
 {
     MPU->CTRL = dw_mpu_enable ;
 }
@@ -106,7 +106,7 @@ IFLASHC void mpu_enable(uint32_t dw_mpu_enable)
  *
  * \param dwRegionNum  The memory region to be active.
  */
-IFLASHC void mpu_set_region_num(uint32_t dw_region_num)
+void mpu_set_region_num(uint32_t dw_region_num)
 {
     MPU->RNR = dw_region_num;
 }
@@ -114,7 +114,7 @@ IFLASHC void mpu_set_region_num(uint32_t dw_region_num)
 /**
  * \brief Disable the current active region.
  */
-IFLASHC void mpu_disable_region(void)
+void mpu_disable_region(void)
 {
     MPU->RASR &= 0xfffffffe;
 }
@@ -125,7 +125,7 @@ IFLASHC void mpu_disable_region(void)
  * \param dwRegionBaseAddr  Memory region base address.
  * \param dwRegionAttr  Memory region attributes.
  */
-IFLASHC void mpu_set_region(uint32_t dw_region_base_addr, uint32_t dw_region_attr)
+void mpu_set_region(uint32_t dw_region_base_addr, uint32_t dw_region_attr)
 {
     MPU->RBAR = dw_region_base_addr;
     MPU->RASR = dw_region_attr;
@@ -135,7 +135,7 @@ IFLASHC void mpu_set_region(uint32_t dw_region_base_addr, uint32_t dw_region_att
 /**
  * \brief Calculate region size for the RASR.
  */
-IFLASHC uint32_t mpu_cal_mpu_region_size(uint32_t dw_actual_size_in_bytes)
+uint32_t mpu_cal_mpu_region_size(uint32_t dw_actual_size_in_bytes)
 {
     const uint32_t dwReturnValue = std::max(4, std::bit_width(dw_actual_size_in_bytes - 1) - 1);
     return dwReturnValue << MPU_RASR_SIZE_Pos;
@@ -146,7 +146,7 @@ IFLASHC uint32_t mpu_cal_mpu_region_size(uint32_t dw_actual_size_in_bytes)
  *
  *  \return Unused (ANSI-C compatibility).
  */
-IFLASHC void mpu_update_regions(uint32_t dw_region_num, uint32_t dw_region_base_addr, uint32_t dw_region_attr)
+void mpu_update_regions(uint32_t dw_region_num, uint32_t dw_region_base_addr, uint32_t dw_region_attr)
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
     /* Clean up data and instruction buffer */

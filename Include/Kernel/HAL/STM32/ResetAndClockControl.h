@@ -389,60 +389,60 @@ enum class RCC_ClockMux_RTCSEL : uint32_t
 
 struct ClockMuxInfo
 {
-    IFLASHC ClockMuxInfo(__IO uint32_t* InRegister, uint32_t InValueMask, uint32_t InValuePosition);
+    ClockMuxInfo(__IO uint32_t* InRegister, uint32_t InValueMask, uint32_t InValuePosition);
 
     __IO uint32_t*  Register;
     uint32_t        ValueMask;
     uint32_t        ValuePosition;
 };
 
-template<typename T> IFLASHC ClockMuxInfo GetClockMuxInfo();
+template<typename T> ClockMuxInfo GetClockMuxInfo();
 
 
 class ResetAndClockControl
 {
 public:
-    static IFLASHC void SetHSEFrequency(uint32_t freq);
+    static void SetHSEFrequency(uint32_t freq);
 
-    static IFLASHC void EnableClock(RCC_ClockID clock, bool enable, bool waitForStartup = true);
-    static IFLASHC bool IsClockEnabled(RCC_ClockID clock);
-    static IFLASHC void WaitForClockStartup(RCC_ClockID clock);
+    static void EnableClock(RCC_ClockID clock, bool enable, bool waitForStartup = true);
+    static bool IsClockEnabled(RCC_ClockID clock);
+    static void WaitForClockStartup(RCC_ClockID clock);
 
-    static IFLASHC uint32_t GetHSIFrequency();
+    static uint32_t GetHSIFrequency();
 
-    static IFLASHC void             SetPLLSource(RCC_PLLSource source);
-    static IFLASHC RCC_PLLSource    GetPLLSource();
-    static IFLASHC void             SetPLLDivider(RCC_PLLID pll, RCC_PLLDivider divider, uint32_t value);
-    static IFLASHC uint32_t         GetPLLDivider(RCC_PLLID pll, RCC_PLLDivider divider);
+    static void             SetPLLSource(RCC_PLLSource source);
+    static RCC_PLLSource    GetPLLSource();
+    static void             SetPLLDivider(RCC_PLLID pll, RCC_PLLDivider divider, uint32_t value);
+    static uint32_t         GetPLLDivider(RCC_PLLID pll, RCC_PLLDivider divider);
 
-    static IFLASHC uint32_t         GetPLLOutFrequency(RCC_PLLID pll, RCC_PLLDivider divider);
+    static uint32_t         GetPLLOutFrequency(RCC_PLLID pll, RCC_PLLDivider divider);
 
-    static IFLASHC void SetPLLOscillatorRange(RCC_PLLID pll, RCC_PLL_OscRange range);
-    static IFLASHC void SetPLLInputRange(RCC_PLLID pll, RCC_PLL_InputRange range);
+    static void SetPLLOscillatorRange(RCC_PLLID pll, RCC_PLL_OscRange range);
+    static void SetPLLInputRange(RCC_PLLID pll, RCC_PLL_InputRange range);
 
-    static IFLASHC void EnablePLLOutput(RCC_PLLID pll, RCC_PLLDivider divider, bool enable);
+    static void EnablePLLOutput(RCC_PLLID pll, RCC_PLLDivider divider, bool enable);
 
-    static IFLASHC void EnablePLL(RCC_PLLID pll, bool enable, bool wait = true);
-    static IFLASHC bool IsPLLEnabled(RCC_PLLID pll);
-    static IFLASHC void WaitForPLLStartup(RCC_PLLID pll);
+    static void EnablePLL(RCC_PLLID pll, bool enable, bool wait = true);
+    static bool IsPLLEnabled(RCC_PLLID pll);
+    static void WaitForPLLStartup(RCC_PLLID pll);
 
-    static IFLASHC void SetPrescaleHPRE(RCC_PrescaleHPRE scale);
-    static IFLASHC void SetPrescaleD1PPRE(RCC_PrescaleD1PPRE scale);
-    static IFLASHC void SetPrescaleD1CPRE(RCC_PrescaleD1CPRE scale);
-    static IFLASHC void SetPrescaleD2PPRE1(RCC_PrescaleD2PPRE1 scale);
-    static IFLASHC void SetPrescaleD2PPRE2(RCC_PrescaleD2PPRE2 scale);
-    static IFLASHC void SetPrescaleD3PPRE(RCC_PrescaleD3PPRE scale);
+    static void SetPrescaleHPRE(RCC_PrescaleHPRE scale);
+    static void SetPrescaleD1PPRE(RCC_PrescaleD1PPRE scale);
+    static void SetPrescaleD1CPRE(RCC_PrescaleD1CPRE scale);
+    static void SetPrescaleD2PPRE1(RCC_PrescaleD2PPRE1 scale);
+    static void SetPrescaleD2PPRE2(RCC_PrescaleD2PPRE2 scale);
+    static void SetPrescaleD3PPRE(RCC_PrescaleD3PPRE scale);
 
-    static IFLASHC void SelectSysClock(RCC_SysClockSource clock);
+    static void SelectSysClock(RCC_SysClockSource clock);
 
-    template<typename T> IFLASHC static void SetClockMux(T source)
+    template<typename T> static void SetClockMux(T source)
     {
         ClockMuxInfo muxInfo = GetClockMuxInfo<T>();
 //        set_bit_group(*muxInfo.Register, muxInfo.ValueMask, uint32_t(source) << muxInfo.ValuePosition);
         *muxInfo.Register = (*muxInfo.Register & ~muxInfo.ValueMask) | ((uint32_t(source) << muxInfo.ValuePosition) & muxInfo.ValueMask);
     }
 
-    template<typename T> static IFLASHC T GetClockMux()
+    template<typename T> static T GetClockMux()
     {
         ClockMuxInfo muxInfo = GetClockMuxInfo<T>();
         return T(((*muxInfo.Register) & muxInfo.ValueMask) >> muxInfo.ValuePosition);

@@ -69,12 +69,12 @@ private:
     void        EndpointDisable(uint8_t endpointAddr, bool stall);
     void        EndpointSchedulePackets(uint8_t endpointAddr, uint32_t packetCount, uint32_t totalLength);
 
-    IFLASHC static IRQResult IRQCallback(IRQn_Type irq, void* userData);
-    IFLASHC IRQResult HandleIRQ();
+    static IRQResult IRQCallback(IRQn_Type irq, void* userData);
+    IRQResult HandleIRQ();
 
-    IFLASHC void HandleRxFIFONotEmptyIRQ();
-    IFLASHC void HandleOutEndpointIRQ();
-    IFLASHC void HandleInEndpointIRQ();
+    void HandleRxFIFONotEmptyIRQ();
+    void HandleOutEndpointIRQ();
+    void HandleInEndpointIRQ();
 
 
     USB_STM32* m_Driver;

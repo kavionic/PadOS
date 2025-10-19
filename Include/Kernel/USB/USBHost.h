@@ -117,40 +117,40 @@ public:
     ~USBHost();
 
     // From Thread:
-    IFLASHC virtual void* Run() override;
+    virtual void* Run() override;
 
-    IFLASHC bool Setup(USBDriver* driver);
-    IFLASHC void Shutdown();
+    bool Setup(USBDriver* driver);
+    void Shutdown();
 
-    IFLASHC USBHostControl& GetControlHandler();
-    IFLASHC USBDeviceNode*  CreateDeviceNode();
-    IFLASHC USBDeviceNode*  GetDevice(uint8_t deviceAddr);
+    USBHostControl& GetControlHandler();
+    USBDeviceNode*  CreateDeviceNode();
+    USBDeviceNode*  GetDevice(uint8_t deviceAddr);
 
-    IFLASHC void            RestartDeviceInitialization();
+    void            RestartDeviceInitialization();
 
-    IFLASHC bool            AddClassDriver(Ptr<USBClassDriverHost> pclass);
-    IFLASHC bool            ReEnumerate();
+    bool            AddClassDriver(Ptr<USBClassDriverHost> pclass);
+    bool            ReEnumerate();
 
-    IFLASHC bool            IsPortEnabled();
-    IFLASHC bool            OpenPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize);
-    IFLASHC bool            ClosePipe(USB_PipeIndex pipeIndex);
-    IFLASHC USB_URBState    GetURBState(USB_PipeIndex pipeIndex);
-    IFLASHC bool            SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
-    IFLASHC bool            GetDataToggle(USB_PipeIndex pipeIndex);
-    IFLASHC bool            SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType enpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
-    IFLASHC bool            ControlSendSetup(USB_PipeIndex pipeIndex, USB_ControlRequest* request, USB_TransactionCallback&& callback);
-    IFLASHC bool            ControlSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
-    IFLASHC bool            ControlReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
-    IFLASHC bool            BulkSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
-    IFLASHC bool            BulkReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
-    IFLASHC bool            InterruptReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
-    IFLASHC bool            InterruptSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
-    IFLASHC bool            IsochronousReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
-    IFLASHC bool            IsochronousSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
-    IFLASHC USB_PipeIndex   AllocPipe(uint8_t endpointAddr);
-    IFLASHC void            FreePipe(USB_PipeIndex pipeIndex);
+    bool            IsPortEnabled();
+    bool            OpenPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize);
+    bool            ClosePipe(USB_PipeIndex pipeIndex);
+    USB_URBState    GetURBState(USB_PipeIndex pipeIndex);
+    bool            SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
+    bool            GetDataToggle(USB_PipeIndex pipeIndex);
+    bool            SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType enpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
+    bool            ControlSendSetup(USB_PipeIndex pipeIndex, USB_ControlRequest* request, USB_TransactionCallback&& callback);
+    bool            ControlSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
+    bool            ControlReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
+    bool            BulkSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
+    bool            BulkReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
+    bool            InterruptReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
+    bool            InterruptSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
+    bool            IsochronousReceiveData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
+    bool            IsochronousSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, USB_TransactionCallback&& callback);
+    USB_PipeIndex   AllocPipe(uint8_t endpointAddr);
+    void            FreePipe(USB_PipeIndex pipeIndex);
 
-    IFLASHC bool ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t deviceAddr);
+    bool ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t deviceAddr);
 
     KMutex& GetMutex() { return m_Mutex; }
 
@@ -160,27 +160,27 @@ public:
 private:
     static constexpr float DEVICE_RESET_TIMEOUT = 1.0f;
 
-    IFLASHC bool                PushEvent(USBHostEventID eventID);
-    IFLASHC bool                PushEvent(const USBHostEvent& event);
-    IFLASHC bool                PopEvent(USBHostEvent& event);
+    bool                PushEvent(USBHostEventID eventID);
+    bool                PushEvent(const USBHostEvent& event);
+    bool                PopEvent(USBHostEvent& event);
 
-    IFLASHC void                Reset();
-    IFLASHC bool                Stop();
+    void                Reset();
+    bool                Stop();
 
-    IFLASHC USBHostPipeData*    GetPipeData(USB_PipeIndex pipeIndex);
+    USBHostPipeData*    GetPipeData(USB_PipeIndex pipeIndex);
 
-    IFLASHC void SetupClassDrivers();
+    void SetupClassDrivers();
 
-    IFLASHC void HandleEnumerationDone(bool result, uint8_t deviceAddr);
-    IFLASHC void HandleSetConfigurationResult(bool result, uint8_t deviceAddr);
-    IFLASHC void HandleSetWakeupFeatureResult(bool result, uint8_t deviceAddr);
-    IFLASHC void HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transferLength);
+    void HandleEnumerationDone(bool result, uint8_t deviceAddr);
+    void HandleSetConfigurationResult(bool result, uint8_t deviceAddr);
+    void HandleSetWakeupFeatureResult(bool result, uint8_t deviceAddr);
+    void HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transferLength);
 
-    IFLASHC bool IRQDeviceConnected();
-    IFLASHC void IRQDeviceDisconnected();
-    IFLASHC void IRQPortEnableChange(bool isEnabled);
-    IFLASHC void IRQStartOfFrame();
-    IFLASHC void IRQPipeURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t length);
+    bool IRQDeviceConnected();
+    void IRQDeviceDisconnected();
+    void IRQPortEnableChange(bool isEnabled);
+    void IRQStartOfFrame();
+    void IRQPipeURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t length);
 
     USBHostControl                          m_ControlHandler;
     USBHostEnumerator                       m_Enumerator;

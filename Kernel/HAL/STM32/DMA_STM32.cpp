@@ -44,7 +44,7 @@ KMutex g_DMAMutex("kernel_dma", PEMutexRecursionMode_RaiseError);
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC int dma_allocate_channel()
+int dma_allocate_channel()
 {
 	CRITICAL_SCOPE(g_DMAMutex);
 
@@ -65,7 +65,7 @@ IFLASHC int dma_allocate_channel()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC void dma_free_channel(int channel)
+void dma_free_channel(int channel)
 {
 	CRITICAL_SCOPE(g_DMAMutex);
 
@@ -76,7 +76,7 @@ IFLASHC void dma_free_channel(int channel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC IRQn_Type dma_get_channel_irq(int channel)
+IRQn_Type dma_get_channel_irq(int channel)
 {
 	static IRQn_Type table[] =
 	{
@@ -95,7 +95,7 @@ IFLASHC IRQn_Type dma_get_channel_irq(int channel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC void dma_setup(int channel, DMADirection mode, DMAMUX_REQUEST requestID, volatile const void* registerAddr, const void* memAddr, int32_t length)
+void dma_setup(int channel, DMADirection mode, DMAMUX_REQUEST requestID, volatile const void* registerAddr, const void* memAddr, int32_t length)
 {
 	int localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);
 	auto dmaStream   = (channel < DMA_CHANNELS_PER_UNIT) ? (DMA1_Stream0 + localChannel) : (DMA2_Stream0 + localChannel);
@@ -125,7 +125,7 @@ IFLASHC void dma_setup(int channel, DMADirection mode, DMAMUX_REQUEST requestID,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC uint32_t dma_get_interrupt_flags(int channel)
+uint32_t dma_get_interrupt_flags(int channel)
 {
 	int localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);
 	auto dma         = (channel < DMA_CHANNELS_PER_UNIT) ? DMA1 : DMA2;
@@ -149,7 +149,7 @@ IFLASHC uint32_t dma_get_interrupt_flags(int channel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC void dma_clear_interrupt_flags(int channel, uint32_t flags)
+void dma_clear_interrupt_flags(int channel, uint32_t flags)
 {
 	int  localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);
 	auto dma          = (channel < DMA_CHANNELS_PER_UNIT) ? DMA1 : DMA2;
@@ -171,7 +171,7 @@ IFLASHC void dma_clear_interrupt_flags(int channel, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC int32_t dma_get_transfer_count(int channel)
+int32_t dma_get_transfer_count(int channel)
 {
 	int localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);
 	auto dmaStream   = (channel < DMA_CHANNELS_PER_UNIT) ? (DMA1_Stream0 + localChannel) : (DMA2_Stream0 + localChannel);
@@ -183,7 +183,7 @@ IFLASHC int32_t dma_get_transfer_count(int channel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC void dma_start(int channel)
+void dma_start(int channel)
 {
 	int localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);
 	auto dmaStream   = (channel < DMA_CHANNELS_PER_UNIT) ? (DMA1_Stream0 + localChannel) : (DMA2_Stream0 + localChannel);
@@ -195,7 +195,7 @@ IFLASHC void dma_start(int channel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC void dma_stop(int channel)
+void dma_stop(int channel)
 {
 	int localChannel = (channel < DMA_CHANNELS_PER_UNIT) ? channel : (channel - DMA_CHANNELS_PER_UNIT);
 	auto dmaStream   = (channel < DMA_CHANNELS_PER_UNIT) ? (DMA1_Stream0 + localChannel) : (DMA2_Stream0 + localChannel);

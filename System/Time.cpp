@@ -70,7 +70,7 @@ PErrorCode set_real_time(TimeValNanos time, bool updateRTC)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC TimeValNanos get_idle_time()
+TimeValNanos get_idle_time()
 {
     return TimeValNanos::FromNanoseconds(get_idle_time_ns());
 }

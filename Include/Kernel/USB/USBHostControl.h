@@ -39,33 +39,33 @@ class USBHostControl
 public:
     void Setup(USBHost* host);
 
-    IFLASHC void Reset();
+    void Reset();
 
-    IFLASHC bool AllocPipes(uint8_t deviceAddr, USB_Speed speed, size_t pipeSize);
-    IFLASHC void FreePipes();
+    bool AllocPipes(uint8_t deviceAddr, USB_Speed speed, size_t pipeSize);
+    void FreePipes();
 
-    IFLASHC bool UpdatePipes(uint8_t deviceAddr, USB_Speed speed, size_t pipeSize);
+    bool UpdatePipes(uint8_t deviceAddr, USB_Speed speed, size_t pipeSize);
 
-    IFLASHC bool SendControlRequest(uint8_t deviceAddr, const USB_ControlRequest& request, void* buff, USBHostControlRequestCallback&& callback);
+    bool SendControlRequest(uint8_t deviceAddr, const USB_ControlRequest& request, void* buff, USBHostControlRequestCallback&& callback);
 
-    IFLASHC bool ReqGetDescriptor(uint8_t deviceAddr, USB_RequestRecipient recipient, USB_RequestType type, USB_DescriptorType descType, uint16_t descIndex, uint16_t index, void* buffer, size_t length, USBHostControlRequestCallback&& callback);
-    IFLASHC bool ReqGetStringDescriptor(uint8_t deviceAddr, uint8_t stringIndex, os::String& outString, USBHostControlRequestCallback&& callback);
-    IFLASHC bool ReqSetAddress(uint8_t deviceAddr, USBHostControlRequestCallback&& callback);
-    IFLASHC bool ReqSetConfiguration(uint8_t deviceAddr, uint16_t configIndex, USBHostControlRequestCallback&& callback);
+    bool ReqGetDescriptor(uint8_t deviceAddr, USB_RequestRecipient recipient, USB_RequestType type, USB_DescriptorType descType, uint16_t descIndex, uint16_t index, void* buffer, size_t length, USBHostControlRequestCallback&& callback);
+    bool ReqGetStringDescriptor(uint8_t deviceAddr, uint8_t stringIndex, os::String& outString, USBHostControlRequestCallback&& callback);
+    bool ReqSetAddress(uint8_t deviceAddr, USBHostControlRequestCallback&& callback);
+    bool ReqSetConfiguration(uint8_t deviceAddr, uint16_t configIndex, USBHostControlRequestCallback&& callback);
 
     uint8_t* GetCtrlDataBuffer() { return m_CtrlDataBuffer; }
 
 private:
-    IFLASHC void HandleRequestError();
-    IFLASHC void HandleRequestCompletion(bool status);
+    void HandleRequestError();
+    void HandleRequestCompletion(bool status);
 
-    IFLASHC os::String ParseStringDescriptor(const USB_DescString* stringDesc);
+    os::String ParseStringDescriptor(const USB_DescString* stringDesc);
 
-    IFLASHC void ControlSentCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
-    IFLASHC void ControlDataReceivedCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
-    IFLASHC void ControlDataSentCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
-    IFLASHC void ControlStatusSentCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
-    IFLASHC void ControlStatusReceivedCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
+    void ControlSentCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
+    void ControlDataReceivedCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
+    void ControlDataSentCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
+    void ControlStatusSentCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
+    void ControlStatusReceivedCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
 
     USBHost* m_HostHandler = nullptr;
 

@@ -136,34 +136,34 @@ public:
     void SetClockMode(ADC_ClockMode mode);
     void SetAsyncClockPrescale(ADC_AsyncClockPrescale prescale);
 
-    IFLASHC void EnableADC(bool enable);
+    void EnableADC(bool enable);
 
-    IFLASHC void SetSequenceLength(size_t length);
-    IFLASHC bool SetSequenceSlot(size_t index, int channel);
-    IFLASHC int  GetSequenceSlot(size_t index) const;
+    void SetSequenceLength(size_t length);
+    bool SetSequenceSlot(size_t index, int channel);
+    int  GetSequenceSlot(size_t index) const;
 
-    IFLASHC void SetInjectedSequenceLength(size_t length);
-    IFLASHC bool SetInjectedSequenceSlot(size_t index, int channel);
-    IFLASHC int  GetInjectedSequenceSlot(size_t index) const;
+    void SetInjectedSequenceLength(size_t length);
+    bool SetInjectedSequenceSlot(size_t index, int channel);
+    int  GetInjectedSequenceSlot(size_t index) const;
 
-    IFLASHC int32_t GetCurrentChannelValue(int channel) const { return (channel >= 0 && channel < CHANNEL_COUNT) ? m_ChannelValues[channel] : 0; }
+    int32_t GetCurrentChannelValue(int channel) const { return (channel >= 0 && channel < CHANNEL_COUNT) ? m_ChannelValues[channel] : 0; }
 
-    IFLASHC void StartRegular();
-    IFLASHC void StartInjected();
+    void StartRegular();
+    void StartInjected();
 
-    IFLASHC void EnableRegularUpdateIRQ(bool enable);
-    IFLASHC void EnableInjectedUpdateIRQ(bool enable);
+    void EnableRegularUpdateIRQ(bool enable);
+    void EnableInjectedUpdateIRQ(bool enable);
 
-    IFLASHC void EnableVBat(bool enable);
-    IFLASHC void EnableTempSens(bool enable);
-    IFLASHC void EnableVRef(bool enable);
+    void EnableVBat(bool enable);
+    void EnableTempSens(bool enable);
+    void EnableVRef(bool enable);
 
-    IFLASHC bool ConfigureWatchdog1(bool monitorRegularChannels, bool monitorInjectedChannels, int channel = -1);
-    IFLASHC bool ConfigureWatchdog23(ADC_WatchdogID watchdogID, uint32_t channelMask);
-    IFLASHC bool SetWatchdogThreshold(ADC_WatchdogID watchdogID, uint32_t lowThreshold, uint32_t highThreshold, bool clearAlarm = true);
+    bool ConfigureWatchdog1(bool monitorRegularChannels, bool monitorInjectedChannels, int channel = -1);
+    bool ConfigureWatchdog23(ADC_WatchdogID watchdogID, uint32_t channelMask);
+    bool SetWatchdogThreshold(ADC_WatchdogID watchdogID, uint32_t lowThreshold, uint32_t highThreshold, bool clearAlarm = true);
 
-    IFLASHC bool EnableWatchdog(ADC_WatchdogID watchdogID, bool enable, bool clearAlarm = true);
-    IFLASHC bool IsWatchdogEnabled(ADC_WatchdogID watchdogID) const;
+    bool EnableWatchdog(ADC_WatchdogID watchdogID, bool enable, bool clearAlarm = true);
+    bool IsWatchdogEnabled(ADC_WatchdogID watchdogID) const;
 
     SignalUnguarded<void, int/*channel*/, int32_t/*value*/>                 SignalChannelUpdated;
     SignalUnguarded<void, int/*channel*/, int32_t/*value*/>                 SignalInjectedChannelUpdated;
@@ -172,8 +172,8 @@ public:
 private:
     static constexpr uint32_t CHANNEL_COUNT = 20;
 
-    IFLASHC static kernel::IRQResult IRQCallback(IRQn_Type irq, void* userData);
-    IFLASHC kernel::IRQResult HandleIRQ();
+    static kernel::IRQResult IRQCallback(IRQn_Type irq, void* userData);
+    kernel::IRQResult HandleIRQ();
 
     ADC_ID              m_ADCID;
     ADC_TypeDef*        m_ADC = nullptr;

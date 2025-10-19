@@ -63,24 +63,24 @@ struct SPIDriverSetup
 class SPIDriverINode : public KINode
 {
 public:
-    IFLASHC SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver);
+    SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver);
 
-    IFLASHC size_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
-    IFLASHC size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
-    IFLASHC void   DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    size_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
+    size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
+    void   DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
 private:
-    IFLASHC void    SetBaudrateDivider(SPIBaudRateDivider baudRateDivider);
+    void    SetBaudrateDivider(SPIBaudRateDivider baudRateDivider);
 
-    IFLASHC bool    SetPinMode(const PinMuxTarget& pin, SPIPinMode mode);
+    bool    SetPinMode(const PinMuxTarget& pin, SPIPinMode mode);
 
-    IFLASHC void    SetSwapMOSIMISO(bool doSwap);
-    IFLASHC bool    GetSwapMOSIMISO() const;
+    void    SetSwapMOSIMISO(bool doSwap);
+    bool    GetSwapMOSIMISO() const;
 
-    IFLASHC void    StartTransaction(const SPITransaction& transaction);
+    void    StartTransaction(const SPITransaction& transaction);
 
-    static IFLASHC IRQResult    SPIIRQCallback(IRQn_Type irq, void* userData);
-    IFLASHC IRQResult           HandleSPIIRQ();
+    static IRQResult    SPIIRQCallback(IRQn_Type irq, void* userData);
+    IRQResult           HandleSPIIRQ();
 
     Ptr<SPIDriver>      m_Driver;
 
@@ -112,13 +112,13 @@ private:
 class SPIDriver : public PtrTarget, public KFilesystemFileOps
 {
 public:
-    IFLASHC SPIDriver();
+    SPIDriver();
 
-    IFLASHC void Setup(const SPIDriverSetup& setup);
+    void Setup(const SPIDriverSetup& setup);
 
-    IFLASHC virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
-    IFLASHC virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    IFLASHC virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
     SPIDriver(const SPIDriver&other) = delete;

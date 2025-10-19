@@ -35,7 +35,7 @@ class KDeviceNode;
 class KRootFSINode : public KINode
 {
 public:
-    IFLASHC KRootFSINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KRootFSINode* parent, KFilesystemFileOps* fileOps, bool isDirectory);
+    KRootFSINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KRootFSINode* parent, KFilesystemFileOps* fileOps, bool isDirectory);
 
     Ptr<KDeviceNode> m_DeviceNode;
 
@@ -56,23 +56,23 @@ class KRootFilesystem : public KFilesystem, public KFilesystemFileOps
 {
 public:
     inline KRootFilesystem() : m_Mutex("root_fs_mutex", PEMutexRecursionMode_RaiseError) {}
-    IFLASHC virtual Ptr<KFSVolume>      Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength) override;
-    IFLASHC virtual Ptr<KINode>         LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
+    virtual Ptr<KFSVolume>      Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength) override;
+    virtual Ptr<KINode>         LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength) override;
 //    virtual Ptr<KFileHandle> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
 
-    IFLASHC virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node) override;
-    IFLASHC virtual void                CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory) override;
+    virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node) override;
+    virtual void                CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory) override;
 
-    IFLASHC virtual size_t              ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize) override;
-    IFLASHC virtual void                RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode) override;
+    virtual size_t              ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize) override;
+    virtual void                RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode) override;
 
-    IFLASHC virtual Ptr<KFileNode>      CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission) override;
+    virtual Ptr<KFileNode>      CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission) override;
 
-    IFLASHC virtual Ptr<KINode>         LoadInode(Ptr<KFSVolume> volume, ino_t inode) override;
-    IFLASHC virtual void                CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission) override;
+    virtual Ptr<KINode>         LoadInode(Ptr<KFSVolume> volume, ino_t inode) override;
+    virtual void                CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission) override;
 
-    IFLASHC virtual void                ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* outStats) override;
-    IFLASHC virtual void                WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, const struct stat* stats, uint32_t mask) override;
+    virtual void                ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* outStats) override;
+    virtual void                WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, const struct stat* stats, uint32_t mask) override;
 
 //    virtual ssize_t Read(Ptr<KFileHandle> file, off64_t position, void* buffer, size_t length) override;
 //    virtual ssize_t Write(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length) override;
@@ -82,14 +82,14 @@ public:
 //    virtual int WriteAsync(Ptr<KFileHandle> file, off64_t position, const void* buffer, size_t length, void* userObject, AsyncIOResultCallback* callback) override;
 //    virtual int CancelAsyncRequest(Ptr<KFileHandle> file, int handle) override;
 
-    IFLASHC int  RegisterDevice(const char* path, Ptr<KINode> deviceNode);
-    IFLASHC void RenameDevice(int handle, const char* newPath);
-    IFLASHC void RemoveDevice(int handle);
+    int  RegisterDevice(const char* path, Ptr<KINode> deviceNode);
+    void RenameDevice(int handle, const char* newPath);
+    void RemoveDevice(int handle);
 
-    static IFLASHC int AllocINodeNumber();
+    static int AllocINodeNumber();
 private:
-    IFLASHC Ptr<KINode>       FindINode(Ptr<KRootFSINode> parent, ino_t inodeNum, bool remove, Ptr<KRootFSINode>* parentNode);
-    IFLASHC Ptr<KRootFSINode> LocateParentInode(Ptr<KRootFSINode> parent, const char* path, int pathLength, bool createParents, int* nameStart);
+    Ptr<KINode>       FindINode(Ptr<KRootFSINode> parent, ino_t inodeNum, bool remove, Ptr<KRootFSINode>* parentNode);
+    Ptr<KRootFSINode> LocateParentInode(Ptr<KRootFSINode> parent, const char* path, int pathLength, bool createParents, int* nameStart);
 
     KMutex            m_Mutex;
     Ptr<KFSVolume>    m_Volume;

@@ -29,7 +29,7 @@ void SpinTimer::Initialize()
     s_TicksPerMicroSec = Kernel::GetFrequencyCore() / TimeValMicros::TicksPerSecond;
 }
 
-IFLASHC void SpinTimer::SleepuS(uint32_t delay)
+void SpinTimer::SleepuS(uint32_t delay)
 {
     int32_t delayCycles = delay * s_TicksPerMicroSec;
 
@@ -49,7 +49,7 @@ IFLASHC void SpinTimer::SleepuS(uint32_t delay)
     }
 }
 
-IFLASHC void SpinTimer::SleepMS(uint32_t delay)
+void SpinTimer::SleepMS(uint32_t delay)
 {
     SleepuS(delay * 1000);
 }

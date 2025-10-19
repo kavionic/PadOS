@@ -144,23 +144,23 @@ static constexpr uint8_t QSPI_READ_BURST_LEN = QSPI_READR_BurstLength_32;
 class QSPI_STM32_IS25LP512M : public QSPI_STM32
 {
 public:
-    IFLASHC virtual bool Setup(uint32_t spiFrequency, uint32_t addressBits, PinMuxTarget pinD0, PinMuxTarget pinD1, PinMuxTarget pinD2, PinMuxTarget pinD3, PinMuxTarget pinCLK, PinMuxTarget pinNCS) override;
+    virtual bool Setup(uint32_t spiFrequency, uint32_t addressBits, PinMuxTarget pinD0, PinMuxTarget pinD1, PinMuxTarget pinD2, PinMuxTarget pinD3, PinMuxTarget pinCLK, PinMuxTarget pinNCS) override;
 
-    IFLASHC virtual void EnableMemoryMapping(bool useContinousRead) override;
+    virtual void EnableMemoryMapping(bool useContinousRead) override;
 
-    IFLASHC void ExecuteErase(uint8_t cmd, uint32_t address);
-    IFLASHC void EraseSector(uint32_t address);
-    IFLASHC void EraseBlock32(uint32_t address);
-    IFLASHC void EraseBlock64(uint32_t address);
-    IFLASHC void Erase(uint32_t address, uint32_t length);
-    IFLASHC void Read(void* data, uint32_t address, uint32_t length);
-    IFLASHC void Write(const void* data, uint32_t address, uint32_t length);
-    IFLASHC void WaitWriteInProgress(uint8_t mask, uint8_t match);
+    void ExecuteErase(uint8_t cmd, uint32_t address);
+    void EraseSector(uint32_t address);
+    void EraseBlock32(uint32_t address);
+    void EraseBlock64(uint32_t address);
+    void Erase(uint32_t address, uint32_t length);
+    void Read(void* data, uint32_t address, uint32_t length);
+    void Write(const void* data, uint32_t address, uint32_t length);
+    void WaitWriteInProgress(uint8_t mask, uint8_t match);
 
-    IFLASHC uint8_t ReadFunctionRegister(bool quadMode = true) const;
+    uint8_t ReadFunctionRegister(bool quadMode = true) const;
 
-    IFLASHC void ReadProductID(uint8_t& manufacturerID, uint8_t& memoryType, uint8_t& capacity, bool quadMode = true);
-    IFLASHC uint32_t ReadProductID(bool quadMode = true);
+    void ReadProductID(uint8_t& manufacturerID, uint8_t& memoryType, uint8_t& capacity, bool quadMode = true);
+    uint32_t ReadProductID(bool quadMode = true);
 };
 
 

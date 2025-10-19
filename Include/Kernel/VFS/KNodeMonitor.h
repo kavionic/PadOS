@@ -96,10 +96,10 @@ public:
 class KNodeMonitor
 {
 public:
-    IFLASHC KNodeMonitor();
-    IFLASHC ~KNodeMonitor();
+    KNodeMonitor();
+    ~KNodeMonitor();
 
-    static IFLASHC status_t notify_node_monitors(int nEvent, dev_t nDevice, ino_t nOldDir, ino_t nNewDir, ino_t nNode, const char* pzName, int nNameLen);
+    static status_t notify_node_monitors(int nEvent, dev_t nDevice, ino_t nOldDir, ino_t nNewDir, ino_t nNode, const char* pzName, int nNameLen);
 
 private:
     static KMutex s_Mutex;

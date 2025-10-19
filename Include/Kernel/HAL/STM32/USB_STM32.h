@@ -70,8 +70,8 @@ public:
     bool                UseDMA() const { return m_UseDMA; }
     USB_Speed           GetConfigSpeed() const { return m_ConfigSpeed; }
 
-    IFLASHC bool        SetUSBMode(USB_Mode mode);
-    IFLASHC USB_Mode    GetUSBMode() const;
+    bool        SetUSBMode(USB_Mode mode);
+    USB_Mode    GetUSBMode() const;
 
     // Device interface:
     virtual USB_Speed   HostGetSpeed() const override                                       { return m_HostDriver.HostGetSpeed(); }
@@ -97,18 +97,18 @@ public:
     virtual bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle) override { return m_HostDriver.SetDataToggle(pipeIndex, toggle); }
     virtual bool        GetDataToggle(USB_PipeIndex pipeIndex) const override { return m_HostDriver.GetDataToggle(pipeIndex); }
 
-    IFLASHC void        ReadFromFIFO(void* buffer, size_t length);
-    IFLASHC void        WriteToFIFO(uint32_t fifoIndex, const void* buffer, size_t length);
+    void        ReadFromFIFO(void* buffer, size_t length);
+    void        WriteToFIFO(uint32_t fifoIndex, const void* buffer, size_t length);
 
-    IFLASHC bool        FlushTxFifo(uint32_t count);
-    IFLASHC bool        FlushRxFifo();
+    bool        FlushTxFifo(uint32_t count);
+    bool        FlushRxFifo();
 
-    IFLASHC virtual void EnableIRQ(bool enable) override;
+    virtual void EnableIRQ(bool enable) override;
 private:
-    IFLASHC bool                SetupCore(bool useExternalVBus, bool batteryChargingEnabled);
-    IFLASHC bool                CoreReset();
-    IFLASHC bool                WaitForAHBIdle();
-    IFLASHC volatile uint32_t*  GetFIFOBase(uint32_t endpoint);
+    bool                SetupCore(bool useExternalVBus, bool batteryChargingEnabled);
+    bool                CoreReset();
+    bool                WaitForAHBIdle();
+    volatile uint32_t*  GetFIFOBase(uint32_t endpoint);
 
 
     USB_OTG_GlobalTypeDef*  m_Port = nullptr;

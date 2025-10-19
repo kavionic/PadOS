@@ -43,16 +43,16 @@ class KINode;
 class KINode : public PtrTarget, public KWaitableObject, public IntrusiveListNode<KINode>
 {
 public:
-    IFLASHC KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, bool isDirectory);
-    IFLASHC virtual ~KINode();
+    KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, bool isDirectory);
+    virtual ~KINode();
     
-    IFLASHC virtual bool LastReferenceGone() override;
+    virtual bool LastReferenceGone() override;
     
     inline void SetDeletedFlag(bool isDeleted) { m_IsDeleted = isDeleted; }
     inline bool IsDeleted() { return m_IsDeleted; }
     inline bool IsDirectory() const { return m_IsDirectory; }
     
-    IFLASHC int     GetDirectoryPath(os::String* path);
+    int     GetDirectoryPath(os::String* path);
     
     Ptr<KFilesystem>    m_Filesystem;
     Ptr<KFSVolume>      m_Volume; // The volume this i-node came from.

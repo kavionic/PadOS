@@ -70,7 +70,7 @@ void unaligned_write(void* ptr, T value)
 }
 
 
-template<typename T1, typename T2, typename T3> IFLASHC constexpr void set_bit_group(T1& target, T2 mask, T3 value) { target = (target & ~mask) | (value & mask); }
+template<typename T1, typename T2, typename T3> constexpr void set_bit_group(T1& target, T2 mask, T3 value) { target = (target & ~mask) | (value & mask); }
 
 static constexpr uint32_t nanoseconds_to_cycles_floor(uint32_t clockFrequency, uint32_t nanoSeconds)
 {

@@ -38,33 +38,33 @@ enum class USARTID : int;
 class USARTDriverINode : public KINode
 {
 public:
-    IFLASHC USARTDriverINode(USARTID             portID,
-                             const PinMuxTarget& pinRX,
-                             const PinMuxTarget& pinTX,
-                             uint32_t            clockFrequency,
-                             USARTDriver*        driver);
+    USARTDriverINode(USARTID             portID,
+                     const PinMuxTarget& pinRX,
+                     const PinMuxTarget& pinTX,
+                     uint32_t            clockFrequency,
+                     USARTDriver*        driver);
 
-    IFLASHC ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
-    IFLASHC ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
-    IFLASHC virtual bool    AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
-    IFLASHC void            DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
+    ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
+    virtual bool    AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
+    void            DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
 private:
-    IFLASHC void SetBaudrate(int baudrate);
-    IFLASHC void SetIOControl(uint32_t flags);
+    void SetBaudrate(int baudrate);
+    void SetIOControl(uint32_t flags);
 
-    IFLASHC bool SetPinMode(const PinMuxTarget& pin, USARTPinMode mode);
+    bool SetPinMode(const PinMuxTarget& pin, USARTPinMode mode);
 
-    IFLASHC void SetSwapRXTX(bool doSwap);
-    IFLASHC bool GetSwapRXTX() const;
+    void SetSwapRXTX(bool doSwap);
+    bool GetSwapRXTX() const;
 
-    IFLASHC bool    RestartReceiveDMA(size_t maxLength);
-    IFLASHC ssize_t ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length);
+    bool    RestartReceiveDMA(size_t maxLength);
+    ssize_t ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length);
 
-    static IFLASHC IRQResult IRQCallbackReceive(IRQn_Type irq, void* userData);
-    IFLASHC IRQResult HandleIRQReceive();
-    static IFLASHC IRQResult IRQCallbackSend(IRQn_Type irq, void* userData);
-    IFLASHC IRQResult HandleIRQSend();
+    static IRQResult IRQCallbackReceive(IRQn_Type irq, void* userData);
+    IRQResult HandleIRQReceive();
+    static IRQResult IRQCallbackSend(IRQn_Type irq, void* userData);
+    IRQResult HandleIRQSend();
 
     Ptr<USARTDriver> m_Driver;
 
@@ -111,19 +111,19 @@ struct USARTDriverSetup
 class USARTDriver : public PtrTarget, public KFilesystemFileOps
 {
 public:
-    IFLASHC USARTDriver();
+    USARTDriver();
 
-    IFLASHC void Setup(const char*         devicePath,
-                          USARTID             portID,
-                          const PinMuxTarget& pinRX,
-                          const PinMuxTarget& pinTX,
-                          uint32_t            clockFrequency);
+    void Setup(const char*         devicePath,
+                  USARTID             portID,
+                  const PinMuxTarget& pinRX,
+                  const PinMuxTarget& pinTX,
+                  uint32_t            clockFrequency);
 
-    IFLASHC void Setup(const USARTDriverSetup& setup);
+    void Setup(const USARTDriverSetup& setup);
 
-    IFLASHC virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
-    IFLASHC virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    IFLASHC virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
     USARTDriver(const USARTDriver &other) = delete;

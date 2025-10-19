@@ -112,21 +112,21 @@ public:
 class I2CDriverINode : public KINode
 {
 public:
-    IFLASHC I2CDriverINode(I2CDriver* driver, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
-    IFLASHC virtual ~I2CDriverINode() override;
+    I2CDriverINode(I2CDriver* driver, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
+    virtual ~I2CDriverINode() override;
 
 
-    IFLASHC Ptr<KFileNode> Open(int flags);
+    Ptr<KFileNode> Open(int flags);
 
-    IFLASHC void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
-    IFLASHC size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position);
-    IFLASHC size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position);
+    void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position);
+    size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position);
 
 private:
-    IFLASHC void ResetPeripheral();
-    IFLASHC void ClearBus();
-    IFLASHC int SetSpeed(I2CSpeed speed);
-    IFLASHC int GetBaudrate() const;
+    void ResetPeripheral();
+    void ClearBus();
+    int SetSpeed(I2CSpeed speed);
+    int GetBaudrate() const;
 
     I2CDriverINode(const I2CDriverINode&) = delete;
     I2CDriverINode& operator=(const I2CDriverINode&) = delete;
@@ -140,13 +140,13 @@ private:
         Writing
     };
     
-    IFLASHC void UpdateTransactionLength(uint32_t& CR2);
+    void UpdateTransactionLength(uint32_t& CR2);
 
-    static IFLASHC IRQResult IRQCallbackEvent(IRQn_Type irq, void* userData);
-    IFLASHC IRQResult HandleEventIRQ();
+    static IRQResult IRQCallbackEvent(IRQn_Type irq, void* userData);
+    IRQResult HandleEventIRQ();
 
-    static IFLASHC IRQResult IRQCallbackError(IRQn_Type irq, void* userData);
-    IFLASHC IRQResult HandleErrorIRQ();
+    static IRQResult IRQCallbackError(IRQn_Type irq, void* userData);
+    IRQResult HandleErrorIRQ();
 
     KMutex m_Mutex;
     KConditionVariable      m_RequestCondition;
@@ -186,15 +186,15 @@ struct I2CDriverSetup
 class I2CDriver : public PtrTarget, public KFilesystemFileOps
 {
 public:
-    IFLASHC void Setup(const char* devicePath, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
-    IFLASHC void Setup(const I2CDriverSetup& setup);
+    void Setup(const char* devicePath, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
+    void Setup(const I2CDriverSetup& setup);
 
-    IFLASHC virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
-    IFLASHC virtual void           CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
+    virtual void           CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
 
-    IFLASHC virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
-    IFLASHC virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    IFLASHC virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 };
     

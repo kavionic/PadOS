@@ -37,7 +37,7 @@ static TimeValNanos gk_TotalIRQTime;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC int register_irq_handler(IRQn_Type irqNum, KIRQHandler* handler, void* userData)
+int register_irq_handler(IRQn_Type irqNum, KIRQHandler* handler, void* userData)
 {
     if (irqNum < 0 || irqNum >= IRQ_COUNT || handler == nullptr)
     {
@@ -75,7 +75,7 @@ IFLASHC int register_irq_handler(IRQn_Type irqNum, KIRQHandler* handler, void* u
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC int unregister_irq_handler(IRQn_Type irqNum, int handle)
+int unregister_irq_handler(IRQn_Type irqNum, int handle)
 {
     if (irqNum < 0 || irqNum >= IRQ_COUNT)
     {
@@ -110,7 +110,7 @@ IFLASHC int unregister_irq_handler(IRQn_Type irqNum, int handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC bool is_in_isr()
+bool is_in_isr()
 {
     return (SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk) != 0;
 }
@@ -123,7 +123,7 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IFLASHC TimeValNanos get_total_irq_time()
+TimeValNanos get_total_irq_time()
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
     return gk_TotalIRQTime;
@@ -133,7 +133,7 @@ IFLASHC TimeValNanos get_total_irq_time()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" IFLASHC void KernelHandleIRQ()
+extern "C" void KernelHandleIRQ()
 {
     const TimeValNanos start = kget_monotonic_time_hires();
     const int vector = SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk;

@@ -85,18 +85,18 @@ static constexpr uint32_t QSPI_BLOCK64_SIZE = 64 * 1024;
 class QSPI_STM32
 {
 public:
-    IFLASHC virtual bool Setup(uint32_t spiFrequency, uint32_t addressBits, PinMuxTarget pinD0, PinMuxTarget pinD1, PinMuxTarget pinD2, PinMuxTarget pinD3, PinMuxTarget pinCLK, PinMuxTarget pinNCS);
+    virtual bool Setup(uint32_t spiFrequency, uint32_t addressBits, PinMuxTarget pinD0, PinMuxTarget pinD1, PinMuxTarget pinD2, PinMuxTarget pinD3, PinMuxTarget pinCLK, PinMuxTarget pinNCS);
 
-    IFLASHC bool SetSPIFrequency(uint32_t spiFrequency);
+    bool SetSPIFrequency(uint32_t spiFrequency);
 
-    IFLASHC void SetDDRMode(bool enableDDR);
-    IFLASHC void SetDDRHold(bool hold);
-    IFLASHC void SetSendInstrOnlyOnce(bool onlyOnce);
-    IFLASHC void SetAddressLen(QSPI_AddressLength addressLen);
+    void SetDDRMode(bool enableDDR);
+    void SetDDRHold(bool hold);
+    void SetSendInstrOnlyOnce(bool onlyOnce);
+    void SetAddressLen(QSPI_AddressLength addressLen);
 
-    IFLASHC virtual void EnableMemoryMapping(bool useContinousRead) = 0;
+    virtual void EnableMemoryMapping(bool useContinousRead) = 0;
 
-    IFLASHC void SendCommand(
+    void SendCommand(
         uint8_t             cmd,
         QSPI_FunctionalMode functionalMode,
         QSPI_InstrMode      instrMode,
@@ -106,22 +106,22 @@ public:
         QSPI_AltBytesLength altBytesLen = QSPI_AltBytesLength::AB8,
         uint32_t            dummyCycles = 0
     ) const;
-    IFLASHC void SetDataLength(uint32_t length) const;
+    void SetDataLength(uint32_t length) const;
 
-    IFLASHC void Write8(uint8_t data);
-    IFLASHC void Write16(uint16_t data);
-    IFLASHC void Write32(uint32_t data);
+    void Write8(uint8_t data);
+    void Write16(uint16_t data);
+    void Write32(uint32_t data);
 
-    IFLASHC uint8_t     Read8() const;
-    IFLASHC uint16_t    Read16() const;
-    IFLASHC uint32_t    Read32() const;
+    uint8_t     Read8() const;
+    uint16_t    Read16() const;
+    uint32_t    Read32() const;
 
-    IFLASHC void WaitBusy() const;
-    IFLASHC void WaitFIFOThreshold() const;
-    IFLASHC void WaitTransferComplete() const;
+    void WaitBusy() const;
+    void WaitFIFOThreshold() const;
+    void WaitTransferComplete() const;
 
 private:
-    IFLASHC void SendIO3Reset(DigitalPinID pinIO3);
-    IFLASHC void SendJEDECReset(DigitalPinID pinD0, DigitalPinID pinCLK, DigitalPinID pinNCS);
+    void SendIO3Reset(DigitalPinID pinIO3);
+    void SendJEDECReset(DigitalPinID pinD0, DigitalPinID pinCLK, DigitalPinID pinNCS);
 };
 

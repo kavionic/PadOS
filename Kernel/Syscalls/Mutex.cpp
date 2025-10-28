@@ -19,6 +19,7 @@
 
 #include <sys/pados_syscalls.h>
 
+#include <System/ExceptionHandling.h>
 #include <Kernel/KNamedObject.h>
 #include <Kernel/KMutex.h>
 
@@ -34,12 +35,12 @@ extern "C"
 
 PErrorCode sys_mutex_create(sem_id* outHandle, const char* name, PEMutexRecursionMode recursionMode, clockid_t clockID)
 {
-    try {
-        return KNamedObject::RegisterObject(*outHandle, ptr_new<KMutex>(name, recursionMode, clockID));
+    try
+    {
+        *outHandle = KNamedObject::RegisterObject_trw(ptr_new<KMutex>(name, recursionMode, clockID));
+        return PErrorCode::Success;
     }
-    catch (const std::bad_alloc& error) {
-        return PErrorCode::NoMemory;
-    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -48,11 +49,13 @@ PErrorCode sys_mutex_create(sem_id* outHandle, const char* name, PEMutexRecursio
 
 PErrorCode sys_mutex_duplicate(sem_id* outNewHandle, sem_id handle)
 {
-    Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(handle, KMutex::ObjectType));;
-    if (mutex != nullptr) {
-        return KNamedObject::RegisterObject(*outNewHandle, mutex);
+    try
+    {
+        Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject_trw(handle, KMutex::ObjectType));;
+        *outNewHandle = KNamedObject::RegisterObject_trw(mutex);
+        return PErrorCode::Success;
     }
-    return PErrorCode::InvalidArg;
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -61,10 +64,12 @@ PErrorCode sys_mutex_duplicate(sem_id* outNewHandle, sem_id handle)
 
 PErrorCode sys_mutex_delete(sem_id handle)
 {
-    if (KNamedObject::FreeHandle(handle, KMutex::ObjectType)) {
+    try
+    {
+        KNamedObject::FreeHandle_trw(handle, KMutex::ObjectType);
         return PErrorCode::Success;
     }
-    return PErrorCode::InvalidArg;
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -29,11 +29,6 @@
 #include "Kernel/HAL/DigitalPort.h"
 #include "DeviceControl/I2C.h"
 
-
-namespace kernel
-{
-class I2CDriver;
-class KSemaphore;
 enum class I2CID : int;
 enum class SPIID : int;
 
@@ -43,6 +38,22 @@ enum class I2CSpeed : int
     Fast,
     FastPlus
 };
+
+struct I2CDriverSetup
+{
+    os::String      DevicePath;
+    I2CID           PortID;
+    PinMuxTarget    ClockPin;
+    PinMuxTarget    DataPin;
+    uint32_t        ClockFrequency;
+    double          FallTime;
+    double          RiseTime;
+};
+
+namespace kernel
+{
+class I2CDriver;
+class KSemaphore;
 
 struct I2CSpec
 {
@@ -170,17 +181,6 @@ private:
     int32_t                 m_Length = 0;
     volatile int32_t        m_CurPos = 0;
     volatile PErrorCode     m_TransactionError = PErrorCode::Success;
-};
-
-struct I2CDriverSetup
-{
-    os::String      DevicePath;
-    I2CID           PortID;
-    PinMuxTarget    ClockPin;
-    PinMuxTarget    DataPin;
-    uint32_t        ClockFrequency;
-    double          FallTime;
-    double          RiseTime;
 };
 
 class I2CDriver : public PtrTarget, public KFilesystemFileOps

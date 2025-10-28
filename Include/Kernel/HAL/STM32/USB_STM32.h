@@ -28,21 +28,7 @@
 #include <Kernel/HAL/STM32/USBDevice_STM32.h>
 #include <Kernel/HAL/STM32/USBHost_STM32.h>
 
-namespace kernel
-{
 enum class USB_OTG_ID : int;
-
-static constexpr uint32_t USB_PKTSTS_NAK            = 1; // Global OUT NAK (triggers an interrupt).
-static constexpr uint32_t USB_PKTSTS_OUT_DATA_RCV   = 2; // OUT data packet received.
-static constexpr uint32_t USB_PKTSTS_OUT_XFR_DONE   = 3; // OUT transfer completed (triggers an interrupt).
-static constexpr uint32_t USB_PKTSTS_SETUP_XFR_DONE = 4; // SETUP transaction completed (triggers an interrupt).
-static constexpr uint32_t USB_PKTSTS_SETUP_DATA_RCV = 6; // SETUP data packet received.
-
-static constexpr uint32_t USB_PKTSTS_HOST_IN_DATA_RCV       = 2; // IN data packet received
-static constexpr uint32_t USB_PKTSTS_HOST_IN_XFR_DONE       = 3; // IN transfer completed(triggers an interrupt)
-static constexpr uint32_t USB_PKTSTS_HOST_DATA_TOGGLE_ERR   = 5; // Data toggle error(triggers an interrupt)
-static constexpr uint32_t USB_PKTSTS_HOST_CHANNEL_HALTED    = 7; // Channel halted(triggers an interrupt)
-
 
 enum class USB_Mode : uint8_t
 {
@@ -56,6 +42,20 @@ enum class USB_OTG_Phy : uint8_t
     ULPI,
     Embedded
 };
+
+namespace kernel
+{
+
+static constexpr uint32_t USB_PKTSTS_NAK            = 1; // Global OUT NAK (triggers an interrupt).
+static constexpr uint32_t USB_PKTSTS_OUT_DATA_RCV   = 2; // OUT data packet received.
+static constexpr uint32_t USB_PKTSTS_OUT_XFR_DONE   = 3; // OUT transfer completed (triggers an interrupt).
+static constexpr uint32_t USB_PKTSTS_SETUP_XFR_DONE = 4; // SETUP transaction completed (triggers an interrupt).
+static constexpr uint32_t USB_PKTSTS_SETUP_DATA_RCV = 6; // SETUP data packet received.
+
+static constexpr uint32_t USB_PKTSTS_HOST_IN_DATA_RCV       = 2; // IN data packet received
+static constexpr uint32_t USB_PKTSTS_HOST_IN_XFR_DONE       = 3; // IN transfer completed(triggers an interrupt)
+static constexpr uint32_t USB_PKTSTS_HOST_DATA_TOGGLE_ERR   = 5; // Data toggle error(triggers an interrupt)
+static constexpr uint32_t USB_PKTSTS_HOST_CHANNEL_HALTED    = 7; // Channel halted(triggers an interrupt)
 
 class USB_STM32 : public USBDriver
 {

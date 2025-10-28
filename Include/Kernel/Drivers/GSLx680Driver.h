@@ -19,14 +19,14 @@
 
 
 #pragma once
-#include "Kernel/HAL/DigitalPort.h"
-#include "Kernel/VFS/KDeviceNode.h"
-#include "Kernel/VFS/KFileHandle.h"
-#include "Kernel/KConditionVariable.h"
-#include "Kernel/KMutex.h"
-#include "Threads/Thread.h"
-#include "Math/Point.h"
-#include "Kernel/IRQDispatcher.h"
+#include <Kernel/HAL/DigitalPort.h>
+#include <Kernel/VFS/KDeviceNode.h>
+#include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/KThread.h>
+#include <Kernel/KConditionVariable.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/IRQDispatcher.h>
+#include <Math/Point.h>
 
 namespace kernel
 {
@@ -88,7 +88,7 @@ public:
 };
 
 
-class GSLx680Driver : public PtrTarget, public os::Thread, public KFilesystemFileOps
+class GSLx680Driver : public PtrTarget, public KThread, public KFilesystemFileOps
 {
 public:
 	GSLx680Driver();

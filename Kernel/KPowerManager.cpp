@@ -28,11 +28,14 @@
 
 
 
-#include "Kernel/KPowerManager.h"
-#include "Kernel/Kernel.h"
-#include "Kernel/HAL/ATSAM/SDRAM.h"
-#include "Kernel/HAL/SAME70System.h"
-#include "Kernel/HAL/ATSAM/SAME70TimerDefines.h"
+#include <Kernel/KPowerManager.h>
+#include <Kernel/Kernel.h>
+#include <Kernel/HAL/ATSAM/SDRAM.h>
+#include <Kernel/HAL/SAME70System.h>
+#include <Kernel/HAL/ATSAM/SAME70TimerDefines.h>
+
+namespace kernel
+{
 
 static int POWER_BUTTON_PRESSED_THRESHOLD; // = CLOCK_PERIF_FREQUENCY / 65536 / 10; // ~100mS
 static int POWER_BUTTON_RESET_THRESHOLD; //   = 2 * CLOCK_PERIF_FREQUENCY / 65536; // ~2S
@@ -41,7 +44,7 @@ static int POWER_BUTTON_RESET_THRESHOLD; //   = 2 * CLOCK_PERIF_FREQUENCY / 6553
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KPowerManager::KPowerManager() : Thread("sys_power_manager")
+KPowerManager::KPowerManager() : KThread("sys_power_manager")
 {
     POWER_BUTTON_PRESSED_THRESHOLD = kernel::Kernel::GetFrequencyPeripheral() / 65536 / 10; // ~100mS
     POWER_BUTTON_RESET_THRESHOLD   = 2 * kernel::Kernel::GetFrequencyPeripheral() / 65536; // ~2S
@@ -94,7 +97,7 @@ void KPowerManager::Initialize(MCU_Timer16_t* timerChannel, const DigitalPin& pi
 #endif
 
     SetState(sys_power_state::running);
-    Start(PThreadDetachState_Detached);
+    Start_trw(PThreadDetachState_Detached);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -235,3 +238,5 @@ IRQResult KPowerManager::HandleTimerIRQ()
 #else
 #error Unknown platform
 #endif
+
+} // namespace kernel

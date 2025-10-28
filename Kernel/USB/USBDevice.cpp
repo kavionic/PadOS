@@ -36,7 +36,7 @@ namespace kernel
 ///////////////////////////////////////////////////////////////////////////////
 
 USBDevice::USBDevice()
-    : Thread("usb_device")
+    : KThread("usb_device")
     , m_Mutex("usb_device", PEMutexRecursionMode_RaiseError)
     , m_EventQueueCondition("usb_device_queue")
     , m_DeviceQualifier(0, USB_ClassCode::UNSPECIFIED, 0, 0, 0, 0)
@@ -188,7 +188,7 @@ bool USBDevice::Setup(USBDriver* driver, uint32_t endpoint0Size, int threadPrior
     m_Driver->IRQTransferComplete.Connect(this, &USBDevice::IRQTransferComplete);
 
     SetDeleteOnExit(false);
-    Start(PThreadDetachState_Detached, threadPriority);
+    Start_trw(PThreadDetachState_Detached, threadPriority);
 
     m_Driver->EnableIRQ(true);
 

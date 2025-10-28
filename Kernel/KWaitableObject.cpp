@@ -26,9 +26,16 @@ namespace kernel
 
 KWaitableObject::~KWaitableObject()
 {
-    while (!m_WaitGroups.empty())
+    try
     {
-        m_WaitGroups.back().first->RemoveObject(this, m_WaitGroups.back().second);
+        while (!m_WaitGroups.empty())
+        {
+            m_WaitGroups.back().first->RemoveObject_trw(this, m_WaitGroups.back().second);
+        }
+    }
+    catch(...)
+    {
+        return;
     }
 }
 

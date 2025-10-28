@@ -36,16 +36,5 @@ int get_last_error();
 void set_last_error(int error);
 void set_last_error(PErrorCode error);
 
-
-PErrorCode  create_message_port(port_id& outHandle, const char* name, int maxCount);
-PErrorCode  duplicate_message_port(port_id& outNewHandle, port_id handle);
-PErrorCode  delete_message_port(port_id handle);
-PErrorCode  send_message(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length);
-PErrorCode  send_message_timeout_ns(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout);
-PErrorCode  send_message_deadline_ns(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t deadline);
-ssize_t     receive_message(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
-ssize_t     receive_message_timeout_ns(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout);
-ssize_t     receive_message_deadline_ns(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline);
-
 status_t set_input_event_port(port_id port);
 port_id  get_input_event_port();

@@ -158,6 +158,8 @@ private:
 
 } // namespace os
 
+using PString = os::String;
+
 namespace std
 {
 template<>

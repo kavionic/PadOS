@@ -36,7 +36,7 @@ extern "C" {
 
 typedef void (*TLSDestructor_t)(void*);
 
-#define PEXPAND_SYSCALL(RETTYPE, FNAME, SIGNATURE) RETTYPE sys_##FNAME SIGNATURE;
+#define PEXPAND_SYSCALL(RETTYPE, FPREFIX, FNAME, SIGNATURE) RETTYPE sys_##FNAME SIGNATURE;
 
 #include <PadOS/SyscallDefinitions.h>
 

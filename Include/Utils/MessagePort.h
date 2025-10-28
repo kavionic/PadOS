@@ -20,6 +20,7 @@
 #pragma once
 
 
+#include <PadOS/MessagePort.h>
 #include "System/Types.h"
 #include "System/System.h"
 #include "System/HandleObject.h"
@@ -33,7 +34,7 @@ public:
     MessagePort(const char* name, int maxCount)
     {
         port_id handle;
-        if (create_message_port(handle, name, maxCount) == PErrorCode::Success) {
+        if (message_port_create(&handle, name, maxCount) == PErrorCode::Success) {
             SetHandle(handle);
         }
     }
@@ -43,7 +44,7 @@ public:
         {
             port_id newHandle;
 
-            if (duplicate_message_port(newHandle, port) == PErrorCode::Success) {
+            if (message_port_duplicate(&newHandle, port) == PErrorCode::Success) {
                 SetHandle(newHandle);
             }
         }
@@ -61,13 +62,13 @@ public:
     bool    SendMessageTimeout(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValNanos timeout) const;
     bool    SendMessageDeadline(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValNanos deadline) const;
     ssize_t ReceiveMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize) const {
-        return receive_message(m_Handle, targetHandler, code, buffer, bufferSize);
+        return message_port_receive(m_Handle, targetHandler, code, buffer, bufferSize);
     }
     ssize_t ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValNanos timeout) const {
-        return receive_message_timeout_ns(m_Handle, targetHandler, code, buffer, bufferSize, timeout.AsNanoseconds());
+        return message_port_receive_timeout_ns(m_Handle, targetHandler, code, buffer, bufferSize, timeout.AsNanoseconds());
     }
     ssize_t ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValNanos deadline) const {
-        return receive_message_deadline_ns(m_Handle, targetHandler, code, buffer, bufferSize, deadline.AsNanoseconds());
+        return message_port_receive_deadline_ns(m_Handle, targetHandler, code, buffer, bufferSize, deadline.AsNanoseconds());
     }
 
     MessagePort(MessagePort&& other) = default;

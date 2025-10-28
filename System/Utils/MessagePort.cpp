@@ -24,17 +24,17 @@ namespace os
 
 bool MessagePort::SendMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) const
 {
-    return ParseResult(send_message(m_Handle, targetHandler, code, data, length));
+    return ParseResult(message_port_send(m_Handle, targetHandler, code, data, length));
 }
 
 bool MessagePort::SendMessageTimeout(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValNanos timeout) const
 {
-    return ParseResult(send_message_timeout_ns(m_Handle, targetHandler, code, data, length, timeout.AsNanoseconds()));
+    return ParseResult(message_port_send_timeout_ns(m_Handle, targetHandler, code, data, length, timeout.AsNanoseconds()));
 }
 
 bool MessagePort::SendMessageDeadline(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValNanos deadline) const
 {
-    return ParseResult(send_message_deadline_ns(m_Handle, targetHandler, code, data, length, deadline.AsNanoseconds()));
+    return ParseResult(message_port_send_deadline_ns(m_Handle, targetHandler, code, data, length, deadline.AsNanoseconds()));
 }
 
 } // namespace os

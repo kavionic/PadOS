@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,8 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 07.03.2018 16:00:14
 
-#include "System/Platform.h"
 
+#include <System/ExceptionHandling.h>
 #include "Kernel/KHandleArray.h"
 #include "Ptr/NoPtr.h"
 
@@ -143,7 +143,18 @@ PErrorCode KHandleArrayBase::AllocHandle(handle_id& outHandle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KHandleArrayBase::FreeHandle(int handle)
+handle_id KHandleArrayBase::AllocHandle_trw()
+{
+    handle_id handle;
+    PERROR_ERRORCODE_THROW_ON_FAIL(AllocHandle(handle));
+    return handle;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KHandleArrayBase::FreeHandle_trw(int handle)
 {
     int index1 = (handle >> 16) & 0xff;
     int index2 = (handle >> 8) & 0xff;
@@ -178,10 +189,10 @@ bool KHandleArrayBase::FreeHandle(int handle)
                     m_TopLevel.m_Array[index1] = KHandleArrayEmptyBlock::GetInstance();
                 }
             }
-            return true;
+            return;
         }
     } CRITICAL_END;
-    return false;
+    PERROR_THROW_CODE(PErrorCode::InvalidArg);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

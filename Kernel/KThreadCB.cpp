@@ -28,11 +28,11 @@
 #include <sys/pados_syscalls.h>
 
 #include <Kernel/KThreadCB.h>
+#include <Kernel/KHandleArray.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/ThreadSyncDebugTracker.h>
 #include <Utils/Utils.h>
 
-using namespace kernel;
 using namespace os;
 
 extern uint32_t __tdata_start;
@@ -44,6 +44,9 @@ extern uint8_t __tdata_size;
 extern uint8_t __tbss_size;
 extern uint8_t __tls_align;
 
+namespace kernel
+{
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -53,18 +56,18 @@ static void thread_entry_point(void* (*threadEntry)(void*), void* arguments)
     try
     {
         void* const result = threadEntry(arguments);
-        __thread_exit(result);
+        thread_exit(result);
     }
     catch (const std::exception& e)
     {
         const String error = std::format("Uncaught exception in thread '{}': {}", gk_CurrentThread->GetName(), e.what());
         panic(error.c_str());
-        __thread_exit(nullptr);
+        thread_exit(nullptr);
     }
-    catch(...)
+    catch (...)
     {
         panic("Uncaught exception from thread.\n");
-        __thread_exit(nullptr);
+        thread_exit(nullptr);
     }
 }
 
@@ -102,15 +105,15 @@ KThreadCB::KThreadCB(const PThreadAttribs* attribs) : KNamedObject((attribs != n
         m_FreeStackOnExit = false;
     }
 
-    m_CurrentStackAndPrivilege  = (intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1);
-    m_State         = ThreadState_Ready;
+    m_CurrentStackAndPrivilege = (intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1);
+    m_State = ThreadState_Ready;
     m_PriorityLevel = PriToLevel(priority);
 
     try
     {
         SetupTLS(attribs);
     }
-    catch(...)
+    catch (...)
     {
         if (m_FreeStackOnExit) {
             delete[] m_StackBuffer;
@@ -125,7 +128,7 @@ KThreadCB::KThreadCB(const PThreadAttribs* attribs) : KNamedObject((attribs != n
 
 KThreadCB::~KThreadCB()
 {
-    delete [] m_StackBuffer;
+    delete[] m_StackBuffer;
     if (m_ThreadLocalBuffer != nullptr) {
         free(m_ThreadLocalBuffer);
     }
@@ -145,7 +148,7 @@ void KThreadCB::SetHandle(int32_t handle) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, bool skipEntryTrampoline, void* arguments)
+void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, bool privileged, bool skipEntryTrampoline, void* arguments)
 {
     uint32_t currentStack = ((intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1));
 
@@ -168,6 +171,9 @@ void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, bool skipEntryTra
     stackFrame->ExceptionFrame.xPSR = xPSR_T_Msk; // Always in Thumb state.
 
     m_CurrentStackAndPrivilege = reinterpret_cast<intptr_t>(stackFrame);
+    if (!privileged) {
+        m_CurrentStackAndPrivilege |= 0x01;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -206,14 +212,18 @@ void KThreadCB::SetBlockingObject(const KNamedObject* waitObject)
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void KThreadCB::SetupTLS(const PThreadAttribs* attribs)
 {
     static_assert(sizeof(PThreadControlBlock) == 8);
     constexpr size_t EABI_TCB_SIZE = sizeof(PThreadControlBlock);
 
-    const size_t dataSize   = size_t(&__tdata_size);
-    const size_t bssSize    = size_t(&__tbss_size);
-    const size_t tlsAlign   = size_t(&__tls_align);
+    const size_t dataSize = size_t(&__tdata_size);
+    const size_t bssSize = size_t(&__tbss_size);
+    const size_t tlsAlign = size_t(&__tls_align);
     const size_t totalDataBssSize = dataSize + bssSize;
     const size_t totalBufferSize = totalDataBssSize + EABI_TCB_SIZE + THREAD_TLS_SLOTS_BUFFER_SIZE;
 
@@ -260,7 +270,15 @@ void KThreadCB::SetupTLS(const PThreadAttribs* attribs)
 
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 pid_t KThreadCB::GetProcessID() const
 {
     return gk_MainThreadID;
 }
+
+
+
+} // namespace kernel

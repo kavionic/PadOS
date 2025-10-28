@@ -1,0 +1,596 @@
+// This file is part of PadOS.
+//
+// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+//
+// PadOS is free software : you can redistribute it and / or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PadOS is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with PadOS. If not, see <http://www.gnu.org/licenses/>.
+///////////////////////////////////////////////////////////////////////////////
+// Created: 21.10.2025 20:00
+
+#include <DeviceControl/MultiMotor.h>
+
+#include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/KObjectWaitGroup.h>
+#include <Kernel/Drivers/MultiMotorController/MultiMotorINode.h>
+#include <Kernel/Drivers/MultiMotorController/MultiMotorController.h>
+#include <Kernel/Drivers/MultiMotorController/TMC2209IODriver.h>
+
+namespace kernel
+{
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+MultiMotorINode::MultiMotorINode(const char* controlPortPath, uint32_t baudrate, MultiMotorDriver* driver) : KINode(nullptr, nullptr, driver, false)
+{
+    m_ControlPort = ptr_new<TMC2209IODriver>();
+    m_ControlPort->Setup(controlPortPath, baudrate);
+
+#define MMI_REGISTER_HANDLER(NAME) m_DeviceControlDispatcher.AddHandler(&PMultiMotor::NAME, this, &MultiMotorINode::NAME)
+    MMI_REGISTER_HANDLER(CreateMotor);
+    MMI_REGISTER_HANDLER(DeleteMotor);
+    MMI_REGISTER_HANDLER(SetJerk);
+    MMI_REGISTER_HANDLER(SetReverse);
+    MMI_REGISTER_HANDLER(GetReverse);
+    MMI_REGISTER_HANDLER(SetStepsPerMillimeter);
+    MMI_REGISTER_HANDLER(GetStepsPerMillimeter);
+    MMI_REGISTER_HANDLER(SetWakeupOnFullStep);
+    MMI_REGISTER_HANDLER(GetWakeupOnFullStep);
+    MMI_REGISTER_HANDLER(SetSpeed);
+    MMI_REGISTER_HANDLER(StopAtPos);
+    MMI_REGISTER_HANDLER(SyncMove);
+    MMI_REGISTER_HANDLER(QueueMotion);
+    MMI_REGISTER_HANDLER(StepForward);
+    MMI_REGISTER_HANDLER(StepBackward);
+    MMI_REGISTER_HANDLER(EnableMotor);
+    MMI_REGISTER_HANDLER(IsMotorEnabled);
+    MMI_REGISTER_HANDLER(Wait);
+    MMI_REGISTER_HANDLER(GetCurrentStopDistance);
+    MMI_REGISTER_HANDLER(IsRunning);
+    MMI_REGISTER_HANDLER(StartStopTimer);
+    MMI_REGISTER_HANDLER(ClearMotion);
+    MMI_REGISTER_HANDLER(GetStepPosition);
+    MMI_REGISTER_HANDLER(GetPosition);
+    MMI_REGISTER_HANDLER(ResetPosition);
+    MMI_REGISTER_HANDLER(GetCurrentSpeed);
+    MMI_REGISTER_HANDLER(GetCurrentDirection);
+    MMI_REGISTER_HANDLER(SetCurrent);
+    MMI_REGISTER_HANDLER(GetRunCurrent);
+    MMI_REGISTER_HANDLER(SetRunCurrent);
+    MMI_REGISTER_HANDLER(SetHoldCurrent);
+    MMI_REGISTER_HANDLER(GetHoldCurrent);
+    MMI_REGISTER_HANDLER(GetCurrentFadeTime);
+    MMI_REGISTER_HANDLER(SetCurrentFadeTime);
+    MMI_REGISTER_HANDLER(SetPowerDownTime);
+    MMI_REGISTER_HANDLER(SetMicrosteps);
+    MMI_REGISTER_HANDLER(GetStepTicks);
+    MMI_REGISTER_HANDLER(GetStepTime);
+    MMI_REGISTER_HANDLER(SetMaxStealthChopSpeed);
+    MMI_REGISTER_HANDLER(SetMinStallGuardSpeed);
+    MMI_REGISTER_HANDLER(SetStallGuardThreshold);
+    MMI_REGISTER_HANDLER(GetStallGuardResult);
+    MMI_REGISTER_HANDLER(SetHaltOnStall);
+    MMI_REGISTER_HANDLER(ClearHaltedFlag);
+    MMI_REGISTER_HANDLER(HasHalted);
+    MMI_REGISTER_HANDLER(StartMultipleMotors);
+    MMI_REGISTER_HANDLER(SyncStartMultipleMotors);
+    MMI_REGISTER_HANDLER(WaitMultipleMotors);
+    MMI_REGISTER_HANDLER(AddMotorToWaitGroup);
+#undef MMI_REGISTER_HANDLER
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+{
+    m_DeviceControlDispatcher.Dispatch(request, inData, inDataLength, outData, outDataLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+handle_id MultiMotorINode::CreateMotor(handle_id motorID, const TMC2209IOSetup& setup)
+{
+    m_Motors[motorID].Setup_trw(m_ControlPort, setup);
+    return motorID;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::DeleteMotor(handle_id motorID)
+{
+    auto motor = m_Motors.find(motorID);
+    if (motor == m_Motors.end()) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    }
+    motor->second.Shutdown();
+    m_Motors.erase(motor);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetJerk(handle_id motorID, float jerk)
+{
+    GetMotor(motorID).SetJerk(jerk);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetReverse(handle_id motorID, bool reverse)
+{
+    GetMotor(motorID).SetReverse(reverse);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool MultiMotorINode::GetReverse(handle_id motorID)
+{
+    return GetMotor(motorID).GetReverse();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void  MultiMotorINode::SetStepsPerMillimeter(handle_id motorID, float steps)
+{
+    GetMotor(motorID).SetStepsPerMillimeter(steps);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float MultiMotorINode::GetStepsPerMillimeter(handle_id motorID)
+{
+    return GetMotor(motorID).GetStepsPerMillimeter();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void  MultiMotorINode::SetWakeupOnFullStep(handle_id motorID, bool value)
+{
+    GetMotor(motorID).SetWakeupOnFullStep(value);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool  MultiMotorINode::GetWakeupOnFullStep(handle_id motorID)
+{
+    return GetMotor(motorID).GetWakeupOnFullStep();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetSpeed(handle_id motorID, float speedMMS, float accelerationMMS)
+{
+    GetMotor(motorID).SetSpeed(speedMMS, accelerationMMS);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::StopAtPos(handle_id motorID, float position, float speed, float acceleration)
+{
+    GetMotor(motorID).StopAtPos(position, speed, acceleration);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SyncMove(handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS)
+{
+    GetMotor(motorID).SyncMove(distanceMM, speedMMS, accelerationMMS);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::QueueMotion(handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS)
+{
+    GetMotor(motorID).QueueMotion(distanceMM, speedMMS, accelerationMMS);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::StepForward(handle_id motorID)
+{
+    GetMotor(motorID).StepForward();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::StepBackward(handle_id motorID)
+{
+    GetMotor(motorID).StepBackward();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::EnableMotor(handle_id motorID, bool enable)
+{
+    GetMotor(motorID).EnableMotor(enable);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool MultiMotorINode::IsMotorEnabled(handle_id motorID)
+{
+    return GetMotor(motorID).IsMotorEnabled();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::Wait(handle_id motorID)
+{
+    GetMotor(motorID).Wait();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float MultiMotorINode::GetCurrentStopDistance(handle_id motorID, float acceleration)
+{
+    return GetMotor(motorID).GetCurrentStopDistance(acceleration);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool MultiMotorINode::IsRunning(handle_id motorID)
+{
+    return GetMotor(motorID).IsRunning();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::StartStopTimer(handle_id motorID, bool doRun)
+{
+    GetMotor(motorID).StartStopTimer(doRun);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::ClearMotion(handle_id motorID)
+{
+    GetMotor(motorID).ClearMotion();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int32_t MultiMotorINode::GetStepPosition(handle_id motorID)
+{
+    return GetMotor(motorID).GetStepPosition();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float MultiMotorINode::GetPosition(handle_id motorID)
+{
+    return GetMotor(motorID).GetPosition();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::ResetPosition(handle_id motorID, float position)
+{
+    GetMotor(motorID).ResetPosition(position);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float MultiMotorINode::GetCurrentSpeed(handle_id motorID)
+{
+    return GetMotor(motorID).GetCurrentSpeed();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool MultiMotorINode::GetCurrentDirection(handle_id motorID)
+{
+    return GetMotor(motorID).GetCurrentDirection();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetCurrent(handle_id motorID, float holdCurrent, float runCurrent, TimeValMillis fadeTime)
+{
+    GetMotor(motorID).SetCurrent_trw(holdCurrent, runCurrent, fadeTime);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float MultiMotorINode::GetRunCurrent(handle_id motorID)
+{
+    return GetMotor(motorID).GetRunCurrent();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetRunCurrent(handle_id motorID, float current)
+{
+    GetMotor(motorID).SetRunCurrent_trw(current);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetHoldCurrent(handle_id motorID, float current)
+{
+    GetMotor(motorID).SetHoldCurrent_trw(current);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float MultiMotorINode::GetHoldCurrent(handle_id motorID)
+{
+    return GetMotor(motorID).GetHoldCurrent();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TimeValMillis MultiMotorINode::GetCurrentFadeTime(handle_id motorID)
+{
+    return GetMotor(motorID).GetCurrentFadeTime();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetCurrentFadeTime(handle_id motorID, TimeValMillis fadeTime)
+{
+    GetMotor(motorID).SetCurrentFadeTime_trw(fadeTime);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetPowerDownTime(handle_id motorID, TimeValMillis time)
+{
+    GetMotor(motorID).SetPowerDownTime_trw(time);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetMicrosteps(handle_id motorID, int32_t steps)
+{
+    GetMotor(motorID).SetMicrosteps_trw(steps);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t MultiMotorINode::GetStepTicks(handle_id motorID)
+{
+    return GetMotor(motorID).GetStepTicks_trw();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float MultiMotorINode::GetStepTime(handle_id motorID)
+{
+    return GetMotor(motorID).GetStepTime_trw();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetMaxStealthChopSpeed(handle_id motorID, float maxSpeed)
+{
+    GetMotor(motorID).SetMaxStealthChopSpeed_trw(maxSpeed);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetMinStallGuardSpeed(handle_id motorID, float minSpeed)
+{
+    GetMotor(motorID).SetMinStallGuardSpeed_trw(minSpeed);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetStallGuardThreshold(handle_id motorID, float threshold)
+{
+    GetMotor(motorID).SetStallGuardThreshold_trw(threshold);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+float MultiMotorINode::GetStallGuardResult(handle_id motorID)
+{
+    return GetMotor(motorID).GetStallGuardResult_trw();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SetHaltOnStall(handle_id motorID, bool doHalt)
+{
+    GetMotor(motorID).SetHaltOnStall(doHalt);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::ClearHaltedFlag(handle_id motorID)
+{
+    GetMotor(motorID).ClearHaltedFlag();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool MultiMotorINode::HasHalted(handle_id motorID)
+{
+    return GetMotor(motorID).HasHalted();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::StartMultipleMotors(uint32_t motorIDMask)
+{
+    const std::vector<TMC2209Driver*> motors = GetMotorsFromMask(motorIDMask);
+    for (TMC2209Driver* motor : motors) {
+        motor->StartStopTimer(true);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::SyncStartMultipleMotors(bool doWait, uint32_t motorIDMask)
+{
+    const std::vector<TMC2209Driver*> motors = GetMotorsFromMask(motorIDMask);
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        for (TMC2209Driver* motor : motors) {
+            motor->StartStopTimer(true);
+        }
+    } CRITICAL_END;
+    if (doWait) {
+        for (TMC2209Driver* motor : motors) {
+            motor->Wait();
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::WaitMultipleMotors(uint32_t motorIDMask)
+{
+    const std::vector<TMC2209Driver*> motors = GetMotorsFromMask(motorIDMask);
+    for (TMC2209Driver* motor : motors) {
+        motor->Wait();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::AddMotorToWaitGroup(handle_id motorID, handle_id waitGroupHandle)
+{
+    Ptr<KObjectWaitGroup> waitGroup = KNamedObject::GetObject_trw<KObjectWaitGroup>(waitGroupHandle);
+    waitGroup->AddObject_trw(&GetMotor(motorID).GetRunningCondition());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TMC2209Driver& MultiMotorINode::GetMotor(handle_id motorID)
+{
+    auto motor = m_Motors.find(motorID);
+    if (motor == m_Motors.end()) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    }
+    return motor->second;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+std::vector<TMC2209Driver*> MultiMotorINode::GetMotorsFromMask(uint32_t motorIDMask)
+{
+    std::vector<TMC2209Driver*> motors;
+    for (uint32_t index = 0, mask = 1; mask != 0; ++index, mask >>= 1)
+    {
+        if (mask & motorIDMask) {
+            motors.push_back(&GetMotor(index));
+        }
+    }
+    return motors;
+}
+
+} // namespace kernel

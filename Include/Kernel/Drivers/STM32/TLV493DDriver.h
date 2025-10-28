@@ -21,13 +21,13 @@
 
 #include <cmath>
 
-#include "Kernel/HAL/DigitalPort.h"
-#include "Kernel/VFS/KDeviceNode.h"
-#include "Kernel/KMutex.h"
-#include "Kernel/KConditionVariable.h"
-#include "DeviceControl/TLV493D.h"
-#include "Utils/Utils.h"
-#include "Threads/Thread.h"
+#include <Kernel/HAL/DigitalPort.h>
+#include <Kernel/VFS/KDeviceNode.h>
+#include <Kernel/KThread.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/KConditionVariable.h>
+#include <DeviceControl/TLV493D.h>
+#include <Utils/Utils.h>
 
 namespace kernel
 {
@@ -83,7 +83,7 @@ static const uint8_t TLV493D_MODE1_PARITY   = 0x80;
 constexpr int32_t   TLV493D_MAX_FRAMERATE = 2475; // 3.3kHz - 25%
 constexpr TimeValNanos  TLV493D_CONVERSION_TIME = TimeValNanos::FromNanoseconds(TimeValNanos::TicksPerSecond / TLV493D_MAX_FRAMERATE);
 
-class TLV493DDriver : public PtrTarget, public os::Thread, public SignalTarget, public KFilesystemFileOps
+class TLV493DDriver : public PtrTarget, public KThread, public SignalTarget, public KFilesystemFileOps
 {
 public:
     TLV493DDriver();

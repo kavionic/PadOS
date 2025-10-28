@@ -25,7 +25,7 @@ namespace os
 
 static kernel::PiezoBuzzer_STM32 g_BuzzerDriver;
 
-bool setup_beeper(kernel::HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin)
+bool setup_beeper(HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin)
 {
     return g_BuzzerDriver.Setup(timerID, timerClkFrequency, beeperPin);
 }

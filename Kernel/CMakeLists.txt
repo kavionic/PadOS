@@ -18,6 +18,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KPowerManager.cpp
 	KProcess.cpp
 	KSemaphore.cpp
+	KThread.cpp
 	KThreadCB.cpp
 	KTime.cpp
 	KWaitableObject.cpp

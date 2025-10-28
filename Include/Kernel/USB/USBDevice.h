@@ -21,7 +21,7 @@
 
 #include <map>
 #include <vector>
-#include <Threads/Thread.h>
+#include <Kernel/KThread.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/KConditionVariable.h>
 #include <Signals/SignalTarget.h>
@@ -76,7 +76,7 @@ struct USBDeviceEvent
     };
 };
 
-class USBDevice : public os::Thread, public SignalTarget
+class USBDevice : public KThread, public SignalTarget
 {
 public:
     USBDevice();

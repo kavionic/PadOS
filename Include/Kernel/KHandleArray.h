@@ -56,7 +56,8 @@ public:
     int GetHandleCount() const { return m_TopLevel.m_UsedIndexes; }
 
     PErrorCode AllocHandle(handle_id& outHandle);
-    bool FreeHandle(int handle);
+    handle_id AllocHandle_trw();
+    void FreeHandle_trw(int handle);
     void CacheBlock(Ptr<KHandleArrayBlock> block);
 
 protected:
@@ -82,7 +83,7 @@ public:
 ///
 ///////////////////////////////////////////////////////////////////////////////
 
-    void Set(int handle, Ptr<T> object)
+    void Set(int handle, Ptr<T> object) noexcept
     {
         int index1 = (handle >> 16) & 0xff;
         int index2 = (handle >> 8) & 0xff;

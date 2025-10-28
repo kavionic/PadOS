@@ -21,11 +21,12 @@
 #include <stdint.h>
 #include <Kernel/HAL/DigitalPort.h>
 
+enum class HWTimerID : int32_t;
+
 namespace kernel
 {
-
-enum class HWTimerID : int32_t;
 enum class IRQResult : int;
+
 
 class PiezoBuzzer_STM32
 {

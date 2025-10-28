@@ -61,7 +61,7 @@ PErrorCode Thread::Start(PThreadDetachState detachState, int priority, int stack
     {
         m_DetachState = detachState;
         PThreadAttribs attrs(m_Name.c_str(), priority, detachState, stackSize);
-        return __thread_spawn(&m_ThreadHandle , &attrs, ThreadEntry, this);
+        return thread_spawn(&m_ThreadHandle, &attrs, ThreadEntry, this);
     }
     return PErrorCode::Busy;
 }
@@ -75,7 +75,7 @@ PErrorCode Thread::Join(void** outReturnValue, TimeValNanos deadline)
     PErrorCode result = PErrorCode::InvalidArg;
     if (m_DetachState == PThreadDetachState_Joinable)
     {
-        result = __thread_join(m_ThreadHandle, outReturnValue);
+        result = thread_join(m_ThreadHandle, outReturnValue);
         if (result == PErrorCode::Success && m_DeleteOnExit) {
             delete this;
         }
@@ -105,7 +105,7 @@ void Thread::Exit(void* returnValue)
     if (m_DetachState == PThreadDetachState_Detached && m_DeleteOnExit) {
         delete this;
     }
-    __thread_exit(returnValue);
+    thread_exit(returnValue);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -115,6 +115,7 @@ void Thread::Exit(void* returnValue)
 void* Thread::ThreadEntry(void* data)
 {
     Thread* self = static_cast<Thread*>(data);
+
     try
     {
         st_CurrentThread = self;

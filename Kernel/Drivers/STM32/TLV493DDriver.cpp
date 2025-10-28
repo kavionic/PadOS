@@ -44,7 +44,7 @@ DEFINE_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver);
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TLV493DDriver::TLV493DDriver() : Thread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex", PEMutexRecursionMode_RaiseError), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
+TLV493DDriver::TLV493DDriver() : KThread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex", PEMutexRecursionMode_RaiseError), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
 {
     m_Config.frame_rate = 10;
     m_Config.temparature_scale = 1.0f;
@@ -86,7 +86,7 @@ void TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, DigitalPi
     Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
     Kernel::RegisterDevice_trw(devicePath, inode);
 
-    Start(PThreadDetachState_Detached);
+    Start_trw(PThreadDetachState_Detached);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

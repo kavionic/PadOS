@@ -3,8 +3,6 @@
 #include <stdint.h>
 #include <Kernel/HAL/DigitalPort.h>
 
-namespace kernel
-{
 enum class DMAMUX_REQUEST : int;
 
 
@@ -95,32 +93,40 @@ enum class ADC_ID : int
 PinMuxTarget pinmux_target_from_name(const char* name);
 DigitalPinID pin_id_from_name(const char* name);
 
-HWTimerID timer_id_from_name(const char* name);
+HWTimerID   timer_id_from_name(const char* name);
+IRQn_Type   get_timer_irq(HWTimerID timerID, HWTimerIRQType irqType);
+
+USARTID     usart_id_from_name(const char* name);
+IRQn_Type   get_usart_irq(USARTID id);
+bool        get_usart_dma_requests(USARTID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx);
+
+I2CID       i2c_id_from_name(const char* name);
+IRQn_Type   get_i2c_irq(I2CID id, I2CIRQType type);
+
+SPIID       spi_id_from_name(const char* name);
+IRQn_Type   get_spi_irq(SPIID id);
+bool        get_spi_dma_requests(SPIID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx);
+
+IRQn_Type   get_usb_irq(USB_OTG_ID id);
+IRQn_Type   get_adc_irq(ADC_ID id);
+
+namespace kernel
+{
+
 TIM_TypeDef* get_timer_from_id(HWTimerID timerID);
 volatile uint32_t* get_timer_dbg_clk_flag(HWTimerID timerID, uint32_t& outFlagMask);
-IRQn_Type get_timer_irq(HWTimerID timerID, HWTimerIRQType irqType);
 
-USARTID usart_id_from_name(const char* name);
 USART_TypeDef* get_usart_from_id(USARTID id);
-IRQn_Type get_usart_irq(USARTID id);
-bool get_usart_dma_requests(USARTID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx);
 
-I2CID i2c_id_from_name(const char* name);
 I2C_TypeDef* get_i2c_from_id(I2CID id);
-IRQn_Type get_i2c_irq(I2CID id, I2CIRQType type);
 
-SPIID spi_id_from_name(const char* name);
 SPI_TypeDef* get_spi_from_id(SPIID id);
-IRQn_Type get_spi_irq(SPIID id);
-bool get_spi_dma_requests(SPIID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx);
 
 USB_OTG_GlobalTypeDef*  get_usb_from_id(USB_OTG_ID id);
-IRQn_Type               get_usb_irq(USB_OTG_ID id);
 
 ADC_TypeDef*        get_adc_from_id(ADC_ID id);
 ADC_Common_TypeDef* get_adc_common_from_id(ADC_ID id);
 
-IRQn_Type get_adc_irq(ADC_ID id);
 
 } // namespace kernel
 

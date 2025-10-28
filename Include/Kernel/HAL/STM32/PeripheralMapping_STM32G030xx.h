@@ -3,8 +3,6 @@
 #include <stdint.h>
 #include <Kernel/HAL/DigitalPort.h>
 
-namespace kernel
-{
 enum class DMAMUX_REQUEST : int;
 
 enum class HWTimerID : int32_t
@@ -52,6 +50,9 @@ enum class SPIID : int
     SPI_1 = 1,
     SPI_2 = 2
 };
+
+namespace kernel
+{
 
 HWTimerID timer_id_from_name(const char* name);
 TIM_TypeDef* get_timer_from_id(HWTimerID timerID);

@@ -29,11 +29,21 @@
 #include "Kernel/HAL/DigitalPort.h"
 #include "DeviceControl/USART.h"
 
+enum class USARTID : int;
+
+struct USARTDriverSetup
+{
+    os::String      DevicePath;
+    USARTID         PortID;
+    PinMuxTarget    PinRX;
+    PinMuxTarget    PinTX;
+    uint32_t        ClockFrequency;
+};
+
 namespace kernel
 {
 
 class USARTDriver;
-enum class USARTID : int;
 
 class USARTDriverINode : public KINode
 {
@@ -97,15 +107,6 @@ private:
     uint8_t* m_ReceiveBuffer;
 
     volatile bool m_ReceiveTransactionActive = false;
-};
-
-struct USARTDriverSetup
-{
-    os::String      DevicePath;
-    USARTID         PortID;
-    PinMuxTarget    PinRX;
-    PinMuxTarget    PinTX;
-    uint32_t        ClockFrequency;
 };
 
 class USARTDriver : public PtrTarget, public KFilesystemFileOps

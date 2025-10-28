@@ -19,6 +19,7 @@
 
 #include <sys/pados_syscalls.h>
 
+#include <System/ExceptionHandling.h>
 #include <Kernel/KTime.h>
 #include <Kernel/KConditionVariable.h>
 #include <Kernel/KMutex.h>
@@ -35,12 +36,12 @@ extern "C"
 
 PErrorCode sys_condition_var_create(handle_id* outHandle, const char* name, clockid_t clockID)
 {
-    try {
-        return KNamedObject::RegisterObject(*outHandle, ptr_new<KConditionVariable>(name, clockID));
+    try
+    {
+        *outHandle = KNamedObject::RegisterObject_trw(ptr_new<KConditionVariable>(name, clockID));
+        return PErrorCode::Success;
     }
-    catch (const std::bad_alloc& error) {
-        return PErrorCode::NoMemory;
-    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -49,10 +50,12 @@ PErrorCode sys_condition_var_create(handle_id* outHandle, const char* name, cloc
 
 PErrorCode sys_condition_var_delete(handle_id handle)
 {
-    if (KNamedObject::FreeHandle(handle, KConditionVariable::ObjectType)) {
+    try
+    {
+        KNamedObject::FreeHandle_trw(handle, KConditionVariable::ObjectType);
         return PErrorCode::Success;
     }
-    return PErrorCode::InvalidArg;
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

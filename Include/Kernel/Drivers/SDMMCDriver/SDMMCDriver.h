@@ -22,17 +22,17 @@
 
 #include <stdint.h>
 
-#include "Kernel/HAL/DigitalPort.h"
-#include "Kernel/VFS/KDeviceNode.h"
+#include <Ptr/Ptr.h>
+#include <Kernel/HAL/DigitalPort.h>
+#include <Kernel/VFS/KDeviceNode.h>
+#include <Kernel/KThread.h>
+#include <Kernel/IRQDispatcher.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/KConditionVariable.h>
+#include <Kernel/KSemaphore.h>
+#include <Kernel/VFS/KINode.h>
 
 #include "SDMMCProtocol.h"
-#include "Ptr/Ptr.h"
-#include "Threads/Thread.h"
-#include "Kernel/IRQDispatcher.h"
-#include "Kernel/KMutex.h"
-#include "Kernel/KConditionVariable.h"
-#include "Kernel/KSemaphore.h"
-#include "Kernel/VFS/KINode.h"
 
 namespace kernel
 {
@@ -74,7 +74,7 @@ public:
     off64_t	bi_nSize = 0;    
 };
 
-class SDMMCDriver : public PtrTarget, public KFilesystemFileOps, public os::Thread
+class SDMMCDriver : public PtrTarget, public KFilesystemFileOps, public KThread
 {
 public:
     SDMMCDriver();

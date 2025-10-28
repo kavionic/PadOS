@@ -221,29 +221,3 @@ PErrorCode KSemaphore::Release()
 
     return PErrorCode::Success;
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode duplicate_handle(handle_id& outNewHandle, handle_id handle)
-{
-    Ptr<KNamedObject> object = KNamedObject::GetAnyObject(handle);
-    if (object != nullptr) {
-        return KNamedObject::RegisterObject(outNewHandle, object);
-    }
-    return PErrorCode::InvalidArg;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t delete_handle(handle_id handle)
-{
-	if (KNamedObject::FreeHandle(handle)) {
-		return 0;
-	}
-	set_last_error(EINVAL);
-	return -1;
-}

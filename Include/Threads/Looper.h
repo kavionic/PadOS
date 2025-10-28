@@ -48,7 +48,7 @@ public:
 
     Mutex& GetMutex() const { return m_Mutex; }
 
-    MessagePort GetPort() const { return m_Port; }
+    const MessagePort& GetPort() const { return m_Port; }
     port_id GetPortID() const { return m_Port.GetHandle(); }
 
     status_t SetReceiveBufferSize(size_t size);

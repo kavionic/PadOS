@@ -31,37 +31,19 @@ extern "C"
 {
 status_t  wakeup_thread(thread_id handle);
 
-inline PErrorCode snooze_until(TimeValNanos resumeTime) { return __snooze_until(resumeTime.AsNanoseconds()); }
-inline PErrorCode snooze(TimeValNanos delay) { return __snooze_ns(delay.AsNanoseconds()); }
+inline PErrorCode snooze_until(TimeValNanos resumeTime) { return snooze_until_ns(resumeTime.AsNanoseconds()); }
+inline PErrorCode snooze(TimeValNanos delay) { return snooze_ns(delay.AsNanoseconds()); }
 
 inline PErrorCode snooze_ms(bigtime_t millis) { return snooze(TimeValNanos::FromMilliseconds(millis)); }
 
-PErrorCode ksnooze_until(TimeValNanos resumeTime);
-PErrorCode ksnooze(TimeValNanos delay);
-inline PErrorCode ksnooze_ms(bigtime_t millis) { return ksnooze(TimeValNanos::FromMilliseconds(millis)); }
-
-PErrorCode create_object_wait_group(handle_id& outHandle, const char* name);
-
-PErrorCode  object_wait_group_add_object(handle_id handle, handle_id objectHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-PErrorCode  object_wait_group_remove_object(handle_id handle, handle_id objectHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-PErrorCode  object_wait_group_add_file(handle_id handle, int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-PErrorCode  object_wait_group_remove_file(handle_id handle, int fileHandle, ObjectWaitMode waitMode = ObjectWaitMode::Read);
-PErrorCode  object_wait_group_clear(handle_id handle);
-
-PErrorCode  object_wait_group_wait(handle_id handle, handle_id mutexHandle, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);
-PErrorCode  object_wait_group_wait_timeout_ns(handle_id handle, handle_id mutexHandle, bigtime_t timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);
-PErrorCode  object_wait_group_wait_deadline_ns(handle_id handle, handle_id mutexHandle, bigtime_t deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0);
-
-PErrorCode  duplicate_handle(handle_id& outNewHandle, sem_id handle);
-status_t    delete_handle(sem_id handle);
 
 }; // extern "C"
 
 class SemaphoreGuard
 {
 public:
-    SemaphoreGuard(sem_id sema) : m_Semaphore(sema) { __semaphore_acquire(m_Semaphore); }
-    ~SemaphoreGuard() { if (m_Semaphore != -1) __semaphore_release(m_Semaphore); }
+    SemaphoreGuard(sem_id sema) : m_Semaphore(sema) { semaphore_acquire(m_Semaphore); }
+    ~SemaphoreGuard() { if (m_Semaphore != -1) semaphore_release(m_Semaphore); }
 
     SemaphoreGuard(SemaphoreGuard&& other) : m_Semaphore(other.m_Semaphore) { m_Semaphore = -1; }
 

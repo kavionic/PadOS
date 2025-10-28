@@ -16,5 +16,6 @@ target_sources(PadOS_Kernel PRIVATE
 )
 
 #add_subdirectory(ATSAM)
+add_subdirectory(MultiMotorController)
 add_subdirectory(SDMMCDriver)
 add_subdirectory(STM32)

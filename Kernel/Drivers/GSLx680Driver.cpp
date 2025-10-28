@@ -22,17 +22,17 @@
 #include <string.h>
 #include <fcntl.h>
 
-#include <Kernel/KTime.h>
+#include <Kernel/HAL/Peripherals.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/Drivers/GSLx680Driver.h>
+#include <Kernel/KTime.h>
+#include <Kernel/KMessagePort.h>
 #include <DeviceControl/I2C.h>
 #include <DeviceControl/HID.h>
-#include <Threads/Threads.h>
 #include <System/SystemMessageIDs.h>
 #include <System/ExceptionHandling.h>
 #include <GUI/GUIEvent.h>
-#include <Kernel/VFS/KFSVolume.h>
-#include <Kernel/HAL/Peripherals.h>
 
 using namespace kernel;
 using namespace os;
@@ -41,7 +41,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-GSLx680Driver::GSLx680Driver() : Thread("GSLx680_driver"), m_Mutex("GSLx680_mutex", PEMutexRecursionMode_RaiseError), m_EventCondition("GSLx680_events")
+GSLx680Driver::GSLx680Driver() : KThread("GSLx680_driver"), m_Mutex("GSLx680_mutex", PEMutexRecursionMode_RaiseError), m_EventCondition("GSLx680_events")
 {
     SetDeleteOnExit(false);
 }
@@ -82,7 +82,7 @@ void GSLx680Driver::Setup(const char* devicePath, int threadPriority, DigitalPin
 	I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x80);
 	I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
-    Start(PThreadDetachState_Detached, threadPriority);
+    Start_trw(PThreadDetachState_Detached, threadPriority);
 
 	Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
 	Kernel::RegisterDevice_trw(devicePath, inode);
@@ -178,8 +178,12 @@ void* GSLx680Driver::Run()
 				for (auto file : m_OpenFiles)
 				{
 					if (file->m_TargetPort != -1) {
-						send_message(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
-					}
+                        try {
+						    kmessage_port_send_trw(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
+                        } catch (const std::exception& exc) {
+                            printf("GSLx680Driver: failed to send event: %s\n", exc.what());
+                        }
+                    }
 				}
 			}
 

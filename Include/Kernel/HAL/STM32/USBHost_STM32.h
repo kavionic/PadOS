@@ -27,12 +27,12 @@
 #include <Kernel/USB/USBCommon.h>
 
 enum class USB_Speed : uint8_t;
+enum class USB_OTG_ID : int;
 
 namespace kernel
 {
 class USB_STM32;
 enum class IRQResult : int;
-enum class USB_OTG_ID : int;
 enum class USBH_InitialTransactionPID : uint8_t;
 enum class USB_URBState : uint8_t;
 

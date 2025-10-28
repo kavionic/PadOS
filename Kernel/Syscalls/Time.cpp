@@ -24,6 +24,7 @@
 #include <System/TimeValue.h>
 #include <Kernel/Kernel.h>
 #include <Kernel/Scheduler.h>
+#include <Kernel/IRQDispatcher.h>
 #include <Kernel/KAddressValidation.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 
@@ -158,6 +159,21 @@ PErrorCode sys_get_idle_time_ns(bigtime_t* outTime)
     {
         validate_user_write_pointer_trw(outTime);
         *outTime = kget_idle_time_ns();
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_get_total_irq_time_ns(bigtime_t* outTime)
+{
+    try
+    {
+        validate_user_write_pointer_trw(outTime);
+        *outTime = kget_total_irq_time().AsNanoseconds();
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;

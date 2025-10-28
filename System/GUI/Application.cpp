@@ -361,7 +361,7 @@ void Application::Flush()
     assert(!IsRunning() || GetMutex().IsLocked());
 
     if (m_UsedSendBufferSize > 0) {
-        send_message(get_appserver_port(), m_ServerHandle, AppserverProtocol::MESSAGE_BUNDLE, m_SendBuffer, m_UsedSendBufferSize);
+        message_port_send(get_appserver_port(), m_ServerHandle, AppserverProtocol::MESSAGE_BUNDLE, m_SendBuffer, m_UsedSendBufferSize);
         m_UsedSendBufferSize = 0;
     }    
 }

@@ -25,13 +25,13 @@
 #include <Kernel/KTime.h>
 #include <Kernel/Drivers/FT5x0xDriver.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/KMessagePort.h>
 #include <DeviceControl/I2C.h>
 #include <DeviceControl/HID.h>
-#include <Threads/Threads.h>
 #include <System/ExceptionHandling.h>
 #include <System/SystemMessageIDs.h>
 #include <GUI/GUIEvent.h>
-#include <Kernel/VFS/KFSVolume.h>
 
 using namespace kernel;
 using namespace os;
@@ -41,7 +41,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FT5x0xDriver::FT5x0xDriver() : Thread("ft5x0x_driver"), m_Mutex("ft5x0x_mutex", PEMutexRecursionMode_RaiseError), m_EventSemaphore("ft5x0x_events", CLOCK_MONOTONIC_COARSE, 0)
+FT5x0xDriver::FT5x0xDriver() : KThread("ft5x0x_driver"), m_Mutex("ft5x0x_mutex", PEMutexRecursionMode_RaiseError), m_EventSemaphore("ft5x0x_events", CLOCK_MONOTONIC_COARSE, 0)
 {
     SetDeleteOnExit(false);
 }
@@ -105,7 +105,7 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
     PrintChipStatus();
 //        kwrite(m_I2CDevice, )
 
-    Start(PThreadDetachState_Detached, 10);
+    Start_trw(PThreadDetachState_Detached, 10);
         
     Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
     Kernel::RegisterDevice_trw(devicePath, inode);    
@@ -205,8 +205,14 @@ void* FT5x0xDriver::Run()
                         {
                             for (auto file : m_OpenFiles)
                             {
-                                if (file->m_TargetPort != -1) {
-                                    send_message(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
+                                if (file->m_TargetPort != -1)
+                                {
+                                    try {
+                                        kmessage_port_send_trw(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
+                                    }
+                                    catch (const std::exception& exc) {
+                                        printf("FT5x0xDriver: failed to send event: %s\n", exc.what());
+                                    }
                                 }
                             }
                         } CRITICAL_END;                            

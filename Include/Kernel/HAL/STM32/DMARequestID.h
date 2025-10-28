@@ -1,8 +1,5 @@
 #pragma once
 
-namespace kernel
-{
-
 enum class DMAMUX_REQUEST : int
 {
     MUX1_FIRST_ID = 0,
@@ -146,5 +143,3 @@ enum class DMAMUX_REQUEST : int
 
 
 };
-
-} // namespace

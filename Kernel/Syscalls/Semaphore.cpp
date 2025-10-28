@@ -20,6 +20,7 @@
 #include <string.h>
 #include <sys/fcntl.h>
 
+#include <System/ExceptionHandling.h>
 #include <Kernel/KSemaphore.h>
 #include <Kernel/KMutex.h>
 
@@ -65,10 +66,12 @@ PErrorCode sys_semaphore_duplicate(sem_id* outNewHandle, sem_id handle)
 
 PErrorCode sys_semaphore_delete(sem_id handle)
 {
-    if (KNamedObject::FreeHandle(handle, KNamedObjectType::Semaphore)) {
+    try
+    {
+        KNamedObject::FreeHandle_trw(handle, KNamedObjectType::Semaphore);
         return PErrorCode::Success;
     }
-    return PErrorCode::InvalidArg;
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

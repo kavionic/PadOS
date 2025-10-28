@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <sys/pados_syscalls.h>
 #include "System/HandleObject.h"
 
 namespace os
@@ -31,10 +32,11 @@ public:
     ObjectWaitGroup(const char* name = "")
     {
         handle_id handle;
-        if (create_object_wait_group(handle, name) == PErrorCode::Success) {
+        if (object_wait_group_create(&handle, name) == PErrorCode::Success) {
             SetHandle(handle);
         }
     }
+    ~ObjectWaitGroup() { object_wait_group_delete(m_Handle); SetHandle(INVALID_HANDLE); }
 
     bool AddObject(const HandleObject& object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return ParseResult(object_wait_group_add_object(m_Handle, object.GetHandle(), waitMode)); }
     bool RemoveObject(const HandleObject& object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { return ParseResult(object_wait_group_remove_object(m_Handle, object.GetHandle(), waitMode)); }

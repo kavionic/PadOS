@@ -27,10 +27,10 @@
 #include "Kernel/VFS/KFilesystem.h"
 #include "Kernel/HAL/STM32/DMARequestID.h"
 
+enum class SPIID : int;
 
 namespace kernel
 {
-enum class SPIID : int;
 
 class WS2812BDriverINode : public KINode
 {

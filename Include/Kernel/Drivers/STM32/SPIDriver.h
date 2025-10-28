@@ -30,10 +30,6 @@
 #include <Kernel/HAL/DMA.h>
 #include <DeviceControl/SPI.h>
 
-namespace kernel
-{
-
-class SPIDriver;
 enum class SPIID : int;
 
 struct SPIDriverSetup
@@ -43,22 +39,28 @@ struct SPIDriverSetup
     PinMuxTarget                PinCLK;
     PinMuxTarget                PinMOSI;
     PinMuxTarget                PinMISO;
-    DigitalPinDriveStrength_e   PinDriveStrength    = DigitalPinDriveStrength_e::Low;
-    SPIBaudRateDivider          BaudRateDivider     = SPIBaudRateDivider::DIV2;
-    SPIRole                     Role                = SPIRole::Master;
-    SPIComMode                  ComMode             = SPIComMode::FullDuplex;
-    SPIProtocol                 Protocol            = SPIProtocol::Motorola;
-    SPIEndian                   Endian              = SPIEndian::MSB;
-    SPICLkPolarity              ClockPolarity       = SPICLkPolarity::Low;
-    SPICLkPhase                 ClockPhase          = SPICLkPhase::FirstEdge;
-    SPISlaveUnderrunMode        SlaveUnderrunMode   = SPISlaveUnderrunMode::ConstantPattern;
-    int32_t                     FIFOThreshold       = 1;
-    int32_t                     CRCSize             = 0;
-    int32_t                     CRCPolynomial       = 7;
-    int32_t                     WordSize            = 8;
+    DigitalPinDriveStrength_e   PinDriveStrength = DigitalPinDriveStrength_e::Low;
+    SPIBaudRateDivider          BaudRateDivider = SPIBaudRateDivider::DIV2;
+    SPIRole                     Role = SPIRole::Master;
+    SPIComMode                  ComMode = SPIComMode::FullDuplex;
+    SPIProtocol                 Protocol = SPIProtocol::Motorola;
+    SPIEndian                   Endian = SPIEndian::MSB;
+    SPICLkPolarity              ClockPolarity = SPICLkPolarity::Low;
+    SPICLkPhase                 ClockPhase = SPICLkPhase::FirstEdge;
+    SPISlaveUnderrunMode        SlaveUnderrunMode = SPISlaveUnderrunMode::ConstantPattern;
+    int32_t                     FIFOThreshold = 1;
+    int32_t                     CRCSize = 0;
+    int32_t                     CRCPolynomial = 7;
+    int32_t                     WordSize = 8;
     uint32_t                    InterWordIdleCycles = 0;
-    size_t                      ReceiveBufferSize   = 0;
+    size_t                      ReceiveBufferSize = 0;
 };
+
+namespace kernel
+{
+
+class SPIDriver;
+
 
 class SPIDriverINode : public KINode
 {

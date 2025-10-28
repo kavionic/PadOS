@@ -30,6 +30,7 @@
 #include <Kernel/VFS/KBlockCache.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KVFSManager.h>
+#include <Kernel/KThread.h>
 #include <Utils/Utils.h>
 #include <System/ExceptionHandling.h>
 
@@ -162,7 +163,7 @@ void KBlockCache::Initialize()
         s_FreeList.Append(&gk_BCacheHeaders[i]);
     }
     PThreadAttribs attrs("disk_cache_flusher", 0, PThreadDetachState_Detached, 4096);
-    __thread_spawn(nullptr, &attrs, DiskCacheFlusher, nullptr);
+    kthread_spawn_trw(&attrs, /*privileged*/ true, DiskCacheFlusher, nullptr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

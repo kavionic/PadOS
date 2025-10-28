@@ -262,7 +262,7 @@ struct bme280_settings {
 };
 
 
-class BME280Driver : public PtrTarget, public os::Thread, public SignalTarget, public KFilesystemFileOps
+class BME280Driver : public PtrTarget, public KThread, public SignalTarget, public KFilesystemFileOps
 {
 public:
     BME280Driver();

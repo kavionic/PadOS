@@ -27,12 +27,12 @@
 #include <Kernel/USB/USBProtocol.h>
 
 enum class USB_Speed : uint8_t;
+enum class USB_OTG_ID : int;
 
 namespace kernel
 {
 class USB_STM32;
 enum class IRQResult : int;
-enum class USB_OTG_ID : int;
 
 
 static constexpr uint32_t USB_OTG_ENUMERATED_SPEED_HIGH                 = 0; // High-speed mode

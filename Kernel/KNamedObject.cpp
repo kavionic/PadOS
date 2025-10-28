@@ -21,12 +21,15 @@
 
 #include <string.h>
 
+#include <System/ExceptionHandling.h>
 #include <Kernel/KNamedObject.h>
 #include <Kernel/KObjectWaitGroup.h>
 #include <Kernel/KHandleArray.h>
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 static uint8_t gk_NamedObjectsTableBuffer[sizeof(KHandleArray<KNamedObject>)];
 static KHandleArray<KNamedObject>& gk_NamedObjectsTable = *reinterpret_cast<KHandleArray<KNamedObject>*>(gk_NamedObjectsTableBuffer);
@@ -108,7 +111,7 @@ KNamedObject::~KNamedObject()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool kernel::KNamedObject::DebugValidate() const
+bool KNamedObject::DebugValidate() const
 {
     if (m_Magic != MAGIC) { panic("KnamedObject has been overwritten!\n"); return false; } return true;
 }
@@ -132,24 +135,30 @@ PErrorCode KNamedObject::RegisterObject(handle_id& outHandle, Ptr<KNamedObject> 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KNamedObject::FreeHandle(int32_t handle)
+handle_id KNamedObject::RegisterObject_trw(Ptr<KNamedObject> object)
 {
-    if (GetAnyObject(handle) != nullptr) {
-        return gk_NamedObjectsTable.FreeHandle(handle);
-    }
-    return false;
+    const handle_id handle = gk_NamedObjectsTable.AllocHandle_trw();
+    object->SetHandle(handle);
+    gk_NamedObjectsTable.Set(handle, object);
+    return handle;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KNamedObject::FreeHandle(int32_t handle, KNamedObjectType type)
+void KNamedObject::FreeHandle_trw(int32_t handle)
 {
-	if (GetObject(handle, type) != nullptr) {
-		return gk_NamedObjectsTable.FreeHandle(handle);
-	}
-	return false;
+    gk_NamedObjectsTable.FreeHandle_trw(handle);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KNamedObject::FreeHandle_trw(int32_t handle, KNamedObjectType type)
+{
+	gk_NamedObjectsTable.FreeHandle_trw(handle);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -171,6 +180,20 @@ Ptr<KNamedObject> KNamedObject::GetObject(int32_t handle, KNamedObjectType type)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+Ptr<KNamedObject> KNamedObject::GetObject_trw(int32_t handle, KNamedObjectType type)
+{
+    Ptr<KNamedObject> object = gk_NamedObjectsTable.Get(handle);
+
+    if (object == nullptr || object->GetType() != type) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    }
+    return object;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<KNamedObject> KNamedObject::GetAnyObject(int32_t handle)
 {
 	Ptr<KNamedObject> object = gk_NamedObjectsTable.Get(handle);
@@ -182,4 +205,37 @@ Ptr<KNamedObject> KNamedObject::GetAnyObject(int32_t handle)
 	}
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
+Ptr<KNamedObject> KNamedObject::GetAnyObject_trw(int32_t handle)
+{
+    Ptr<KNamedObject> object = gk_NamedObjectsTable.Get(handle);
+
+    if (object == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    }
+    return object;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+handle_id kduplicate_handle_trw(handle_id handle)
+{
+    Ptr<KNamedObject> object = KNamedObject::GetAnyObject_trw(handle);
+    return KNamedObject::RegisterObject_trw(object);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kdelete_handle_trw(handle_id handle)
+{
+    KNamedObject::FreeHandle_trw(handle);
+}
+
+} // namespace

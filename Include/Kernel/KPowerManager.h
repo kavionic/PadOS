@@ -18,9 +18,9 @@
 // Created: 18/08/25 0:24:37
 
 #pragma once
-#include "Threads/Thread.h"
-#include "HAL/DigitalPort.h"
-#include "Kernel/IRQDispatcher.h"
+#include <Kernel/HAL/DigitalPort.h>
+#include <Kernel/KThread.h>
+#include <Kernel/IRQDispatcher.h>
 
 enum class sys_power_state
 {
@@ -30,7 +30,10 @@ enum class sys_power_state
     running
 };
 
-class KPowerManager : public os::Thread
+namespace kernel
+{
+
+class KPowerManager : public KThread
 {
 public:
     KPowerManager();
@@ -52,7 +55,7 @@ private:
     kernel::IRQResult        HandleIRQ();
     kernel::IRQResult        HandleTimerIRQ();
 
-    MCU_Timer16_t*  m_TimerChannel = nullptr;
+    MCU_Timer16_t* m_TimerChannel = nullptr;
     DigitalPin      m_PinPowerSwitch;
     sys_power_state m_State = sys_power_state::uninitialized;
     bool            m_PowerButtonState = false;
@@ -60,3 +63,5 @@ private:
     KPowerManager(const KPowerManager&) = delete;
     KPowerManager& operator=(const KPowerManager&) = delete;
 };
+
+} // namespace kernel

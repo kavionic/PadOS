@@ -123,7 +123,7 @@ using namespace kernel;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValNanos get_total_irq_time()
+TimeValNanos kget_total_irq_time()
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
     return gk_TotalIRQTime;

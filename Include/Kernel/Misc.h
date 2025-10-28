@@ -22,10 +22,7 @@
 #include <stdint.h>
 #include <Kernel/HAL/DigitalPort.h>
 
-namespace kernel
-{
 enum class HWTimerID : int32_t;
-}
 
 namespace os
 {
@@ -38,7 +35,7 @@ enum class BeepLength : uint32_t
     VeryLong
 };
 
-bool setup_beeper(kernel::HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin);
+bool setup_beeper(HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin);
 
 void beep(BeepLength length);
 void beep(float duration);

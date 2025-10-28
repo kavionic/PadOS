@@ -22,7 +22,7 @@
 
 #include <stdint.h>
 
-#include <Threads/Thread.h>
+#include <Kernel/KThread.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/KConditionVariable.h>
 #include <Signals/SignalTarget.h>
@@ -110,7 +110,7 @@ struct USBHostEvent
 };
 
 
-class USBHost : public os::Thread, public SignalTarget
+class USBHost : public KThread, public SignalTarget
 {
 public:
     USBHost();

@@ -25,6 +25,7 @@
 #include <Kernel/KTime.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KThreadCB.h>
+#include <Kernel/KThread.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KHandleArray.h>
 #include <Kernel/Syscalls.h>
@@ -41,8 +42,7 @@ extern "C"
 
 PErrorCode sys_thread_attribs_init(PThreadAttribs* attribs)
 {
-    *attribs = PThreadAttribs(nullptr);
-    return PErrorCode::Success;
+    return kthread_attribs_init(*attribs);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -55,31 +55,13 @@ PErrorCode sys_thread_spawn(thread_id* outThreadHandle, const PThreadAttribs* at
 
     try
     {
-        thread = ptr_new<KThreadCB>(attribs);
-        thread->InitializeStack(entryPoint, /*skipEntryTrampoline*/ false, arguments);
-
-        thread_id handle;
-        PErrorCode result = gk_ThreadTable.AllocHandle(handle);
-        if (result == PErrorCode::Success)
-        {
-            thread->SetHandle(handle);
-            gk_ThreadTable.Set(handle, thread);
-            if (outThreadHandle != nullptr) {
-                *outThreadHandle = handle;
-            }
+        const thread_id handle = kthread_spawn_trw(attribs, /*privileged*/ false, entryPoint, arguments);
+        if (outThreadHandle != nullptr) {
+            *outThreadHandle = handle;
         }
-        else
-        {
-            return result;
-        }
+        return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
-
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        add_thread_to_ready_list(ptr_raw_pointer_cast(thread));
-    } CRITICAL_END;
-    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -88,25 +70,7 @@ PErrorCode sys_thread_spawn(thread_id* outThreadHandle, const PThreadAttribs* at
 
 void sys_thread_exit(void* returnValue)
 {
-    KProcess* process = gk_CurrentProcess;
-    KThreadCB* thread = gk_CurrentThread;
-
-    process->ThreadQuit(thread);
-
-    thread->m_State = ThreadState_Zombie;
-    thread->m_ReturnValue = returnValue;
-
-//#define CLEAR_IF_STDF(f) if ((f) == 0 || (f) == 1 || (f) == 2) { (f) = -1; }
-//    CLEAR_IF_STDF(stdin->_file);
-//    CLEAR_IF_STDF(stdout->_file);
-//    CLEAR_IF_STDF(stderr->_file);
-//#undef CLEAR_IF_STDF
-    _reclaim_reent(nullptr);
-
-    KSWITCH_CONTEXT();
-
-    panic("exit_thread() survived a context switch!\n");
-    for (;;);
+    kthread_exit(returnValue);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -115,23 +79,7 @@ void sys_thread_exit(void* returnValue)
 
 PErrorCode sys_thread_detach(thread_id handle)
 {
-    Ptr<KThreadCB> thread = gk_ThreadTable.Get(handle);
-
-    if (thread == nullptr) {
-        return PErrorCode::InvalidArg;
-    }
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        if (thread->m_DetachState != PThreadDetachState_Joinable || thread->m_State == ThreadState_Deleted) {
-            return PErrorCode::InvalidArg;
-        }
-        thread->m_DetachState = PThreadDetachState_Detached;
-        if (thread->m_State == ThreadState_Zombie) {
-            add_thread_to_zombie_list(ptr_raw_pointer_cast(thread));
-        }
-    } CRITICAL_END;
-
-    return PErrorCode::Success;
+    return kthread_detach(handle);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -140,53 +88,16 @@ PErrorCode sys_thread_detach(thread_id handle)
 
 PErrorCode sys_thread_join(thread_id handle, void** outReturnValue)
 {
-    KThreadCB* const thread = gk_CurrentThread;
-
-    for (;;)
+    try
     {
-        Ptr<KThreadCB> child = gk_ThreadTable.Get(handle);
-
-        if (child == nullptr) {
-            return PErrorCode::InvalidArg;
-        }
-
-        KThreadWaitNode waitNode;
-        waitNode.m_Thread = thread;
-
-        CRITICAL_BEGIN(CRITICAL_IRQ)
-        {
-            if (child->m_State == ThreadState_Deleted)
-            {
-                return PErrorCode::InvalidArg;
-            }
-            if (child->m_State != ThreadState_Zombie)
-            {
-                thread->m_State = ThreadState_Waiting;
-                child->GetWaitQueue().Append(&waitNode);
-
-                KSWITCH_CONTEXT();
-            }
-        } CRITICAL_END;
-        // If we ran KSWITCH_CONTEXT() we should be suspended here.
-        CRITICAL_BEGIN(CRITICAL_IRQ)
-        {
-            waitNode.Detatch();
-
-            if (child->m_State == ThreadState_Deleted) {
-                return PErrorCode::InvalidArg;
-            }
-
-            if (child->m_State != ThreadState_Zombie) // We got interrupted
-            {
-                continue;
-            }
-        } CRITICAL_END;
         if (outReturnValue != nullptr) {
-            *outReturnValue = child->m_ReturnValue;
+            *outReturnValue = kthread_join_trw(handle);
+        } else {
+            kthread_join_trw(handle);
         }
-        gk_ThreadTable.FreeHandle(handle);
         return PErrorCode::Success;
     }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -195,7 +106,7 @@ PErrorCode sys_thread_join(thread_id handle, void** outReturnValue)
 
 thread_id sys_get_thread_id()
 {
-    return gk_CurrentThread->GetHandle();
+    return kget_thread_id();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -204,25 +115,12 @@ thread_id sys_get_thread_id()
 
 PErrorCode sys_thread_set_priority(thread_id handle, int priority)
 {
-    Ptr<KThreadCB> thread = gk_ThreadTable.Get(handle);
-
-    if (thread == nullptr) {
-        return PErrorCode::InvalidArg;
-    }
-    CRITICAL_BEGIN(CRITICAL_IRQ)
+    try
     {
-        if (thread->m_State == ThreadState_Deleted) {
-            return PErrorCode::InvalidArg;
-        }
-        const int prevPriorityLevel = thread->GetPriorityLevel();
-        thread->SetPriority(priority);
-        if (thread->GetPriorityLevel() > prevPriorityLevel)
-        {
-            KSWITCH_CONTEXT();
-        }
-    } CRITICAL_END;
-
-    return PErrorCode::Success;
+        kthread_set_priority_trw(handle, priority);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -231,48 +129,12 @@ PErrorCode sys_thread_set_priority(thread_id handle, int priority)
 
 PErrorCode sys_thread_get_priority(thread_id handle, int* outPriority)
 {
-    Ptr<KThreadCB> thread = gk_ThreadTable.Get(handle);
-
-    if (thread == nullptr) {
-        return PErrorCode::InvalidArg;
+    try
+    {
+        *outPriority = kthread_get_priority_trw(handle);
+        return PErrorCode::Success;
     }
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        if (thread->m_State == ThreadState_Deleted) {
-            return PErrorCode::InvalidArg;
-        }
-        *outPriority = thread->GetPriority();
-    } CRITICAL_END;
-
-    return PErrorCode::Success;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
-{
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        strncpy(info->ThreadName, thread->GetName(), OS_NAME_LENGTH);
-        const KNamedObject* blockingObject = thread->GetBlockingObject();
-        info->BlockingObject = (blockingObject != nullptr) ? blockingObject->GetHandle() : INVALID_HANDLE;
-    } CRITICAL_END;
-    info->ProcessName[0] = '\0';
-
-    info->ThreadID      = thread->GetHandle();
-    info->ProcessID     = thread->GetProcessID();
-    info->State         = thread->m_State;
-    info->Flags         = 0; // thread->m_Flags;
-    info->Priority      = thread->GetPriority();
-    info->DynamicPri    = info->Priority;
-    info->SysTimeNano   = 0;   // We don't track system time yet (system calls are included in RunTime, IRQ's are not).
-    info->RealTimeNano  = thread->m_RunTime.AsNanoseconds();
-    info->UserTimeNano  = info->RealTimeNano - info->SysTimeNano;
-    info->QuantumNano   = TimeValNanos::TicksPerSecond / SYS_TICKS_PER_SEC;
-    info->Stack         = thread->GetStackTop();
-    info->StackSize     = thread->m_StackSize;
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -281,23 +143,7 @@ static void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
 
 PErrorCode sys_get_thread_info(handle_id handle, ThreadInfo* info)
 {
-    Ptr<KThreadCB> thread;
-    if (handle != INVALID_HANDLE)
-    {
-        thread = get_thread(handle);
-        if (thread == nullptr) {
-            return PErrorCode::InvalidArg;
-        }
-    }
-    else
-    {
-        thread = gk_ThreadTable.GetNext(INVALID_HANDLE, [](Ptr<KThreadCB> thread) { return thread->m_State != ThreadState_Deleted; });
-        if (thread == nullptr) {
-            return PErrorCode::NoEntry;
-        }
-    }
-    get_thread_info(thread, info);
-    return PErrorCode::Success;
+    return kget_thread_info(handle, info);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -306,54 +152,16 @@ PErrorCode sys_get_thread_info(handle_id handle, ThreadInfo* info)
 
 PErrorCode sys_get_next_thread_info(ThreadInfo* info)
 {
-    Ptr<KThreadCB> thread = gk_ThreadTable.GetNext(info->ThreadID, [](Ptr<KThreadCB> thread) { return thread->m_State != ThreadState_Deleted; });
-
-    if (thread == nullptr) {
-        return PErrorCode::NoEntry;
-    }
-    get_thread_info(thread, info);
-    return PErrorCode::Success;
+    return kget_next_thread_info(info);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_snooze_until(bigtime_t resumeTimeNanos)
+PErrorCode sys_snooze_until_ns(bigtime_t resumeTimeNanos)
 {
-    const TimeValNanos resumeTime = TimeValNanos::FromNanoseconds(resumeTimeNanos);
-    KThreadCB* thread = gk_CurrentThread;
-
-    KThreadWaitNode waitNode;
-
-    waitNode.m_Thread = thread;
-    waitNode.m_ResumeTime = resumeTime + TimeValNanos::FromMilliseconds(1); // Add 1 tick-time to ensure we always round up.
-
-    for (;;)
-    {
-        CRITICAL_BEGIN(CRITICAL_IRQ)
-        {
-            add_to_sleep_list(&waitNode);
-            thread->m_State = ThreadState_Sleeping;
-//            ThreadSyncDebugTracker::GetInstance().AddThread(thread, nullptr);
-        } CRITICAL_END;
-
-        KSWITCH_CONTEXT();
-
-        CRITICAL_BEGIN(CRITICAL_IRQ)
-        {
-            waitNode.Detatch();
-//            ThreadSyncDebugTracker::GetInstance().RemoveThread(thread);
-        } CRITICAL_END;
-        if (kget_monotonic_time() >= waitNode.m_ResumeTime)
-        {
-            return PErrorCode::Success;
-        }
-        else
-        {
-            return PErrorCode::Interrupted;
-        }
-    }
+    return ksnooze_until_ns(resumeTimeNanos);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -362,7 +170,7 @@ PErrorCode sys_snooze_until(bigtime_t resumeTimeNanos)
 
 PErrorCode sys_snooze_ns(bigtime_t delayNanos)
 {
-    return sys_snooze_until(kget_monotonic_time_ns() + delayNanos);
+    return ksnooze_ns(delayNanos);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -371,25 +179,7 @@ PErrorCode sys_snooze_ns(bigtime_t delayNanos)
 
 PErrorCode sys_thread_kill(pid_t pid, int sig)
 {
-    return PErrorCode::NotImplemented;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode ksnooze_until(TimeValNanos resumeTime)
-{
-    return sys_snooze_until(resumeTime.AsNanoseconds());
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode ksnooze(TimeValNanos delay)
-{
-    return sys_snooze_ns(delay.AsNanoseconds());
+    return kthread_kill(pid, sig);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -398,8 +188,7 @@ PErrorCode ksnooze(TimeValNanos delay)
 
 PErrorCode sys_yield()
 {
-    KSWITCH_CONTEXT();
-    return PErrorCode::Success;
+    return kyield();
 }
 
 } // extern "C"

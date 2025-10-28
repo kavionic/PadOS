@@ -27,6 +27,7 @@
 #include <Kernel/KTime.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/HAL/DigitalPort.h>
+#include <Kernel/KThread.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KSemaphore.h>
 #include <Kernel/Kernel.h>
@@ -601,6 +602,13 @@ static void* idle_thread_entry(void* arguments)
 void* main_thread_entry(void* argument)
 {
     KBlockCache::Initialize();
+    initialize_device_drivers();
+
+    uint32_t control;
+    __asm volatile ("mrs %0, CONTROL" : "=r"(control));
+    control |= 1; // set nPRIV
+    __asm volatile ("msr CONTROL, %0\n isb" :: "r"(control) : "memory");
+
     main();
     return nullptr;
 }
@@ -629,10 +637,10 @@ static void* init_thread_entry(void* arguments)
     // to sleep, we must initialize it's stack properly before that happens.
 
     size_t mainThreadStackSize = size_t(arguments);
-    gk_IdleThread->InitializeStack(idle_thread_entry, /*skipEntryTrampoline*/ true, nullptr);
+    gk_IdleThread->InitializeStack(idle_thread_entry, /*privileged*/ true, /*skipEntryTrampoline*/ true, nullptr);
 
     PThreadAttribs attrs("main_thread", 0, PThreadDetachState_Detached, mainThreadStackSize);
-    sys_thread_spawn(&gk_MainThreadID, &attrs, main_thread_entry, nullptr);
+    gk_MainThreadID = kthread_spawn_trw(&attrs, /*privileged*/ true, main_thread_entry, nullptr);
 
     for (;;)
     {
@@ -649,7 +657,14 @@ static void* init_thread_entry(void* arguments)
         {
             threadsToDelete.Remove(zombie);
             zombie->m_State = ThreadState_Deleted;
-            gk_ThreadTable.FreeHandle(zombie->GetHandle());
+            try
+            {
+                gk_ThreadTable.FreeHandle_trw(zombie->GetHandle());
+            }
+            catch(const std::exception& exc)
+            {
+                kernel_log(LogCatKernel_Scheduler, KLogSeverity::CRITICAL, "%s: failed to free zombie thread handle: %s\n", __PRETTY_FUNCTION__, exc.what());
+            }
         }
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
@@ -690,7 +705,7 @@ void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
     gk_InitThread = new((void*)gk_InitThreadBuffer)KThreadCB(&attrs);
     Ptr<KThreadCB> initThread = ptr_new_cast(gk_InitThread);
 
-    gk_InitThread->InitializeStack(init_thread_entry, /*skipEntryTrampoline*/ false, (void*)mainThreadStackSize);
+    gk_InitThread->InitializeStack(init_thread_entry, /*privileged*/ true, /*skipEntryTrampoline*/ false, (void*)mainThreadStackSize);
 
     gk_ThreadTable.AllocHandle(initThreadHandle);
     gk_InitThread->SetHandle(initThreadHandle);

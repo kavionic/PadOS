@@ -20,14 +20,9 @@
 #pragma once
 
 #include <vector>
+#include <PadOS/ObjectWaitGroup.h>
 #include <Kernel/KThreadWaitNode.h>
 
-enum class ObjectWaitMode : uint8_t
-{
-    Read,
-    Write,
-    ReadWrite
-};
 
 namespace kernel
 {

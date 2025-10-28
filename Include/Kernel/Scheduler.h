@@ -24,6 +24,8 @@
 
 extern kernel::KThreadCB* volatile gk_CurrentThread;
 
+extern "C" void initialize_device_drivers();
+
 namespace kernel
 {
 

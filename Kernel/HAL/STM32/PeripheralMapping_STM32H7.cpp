@@ -392,42 +392,6 @@ static const NamedPinMuxTarget g_MuxTargets[] =
     NAMED_PINMUX(SPI6_MOSI_PG14)
 };
 
-PinMuxTarget pinmux_target_from_name(const char* name)
-{
-    for (size_t i = 0; i < ARRAY_COUNT(g_MuxTargets); ++i)
-    {
-        if (strcmp(name, g_MuxTargets[i].Name) == 0)
-        {
-            return g_MuxTargets[i].Target;
-        }
-    }
-    return PINMUX_NONE;
-}
-
-DigitalPinID pin_id_from_name(const char* name)
-{
-    if (name[0] < 'A' || name[0] > ('A' + e_DigitalPortID_Count) || !isdigit(name[1]) || (name[2] != '\0' && (name[2] < '0' || name[2] > '5')))
-    {
-        if (strcmp(name, "None") != 0) {
-            printf("ERROR: pin_id_from_name() failed to convert '%s'\n", name);
-        }
-        return DigitalPinID::None;
-    }
-    DigitalPortID   portID = DigitalPortID(name[0] - 'A');
-    int32_t         pinIndex = atoi(name + 1);
-
-    return DigitalPinID(MAKE_DIGITAL_PIN_ID(portID, pinIndex));
-}
-
-HWTimerID timer_id_from_name(const char* name)
-{
-    if (name[0] != 'T' || name[1] != 'I' || name[2] != 'M')
-    {
-        printf("ERROR: timer_id_from_name() failed to convert '%s'\n", name);
-        return HWTimerID::None;
-    }
-    return HWTimerID(atoi(name + 3));
-}
 
 TIM_TypeDef* get_timer_from_id(HWTimerID timerID)
 {
@@ -508,6 +472,128 @@ volatile uint32_t* get_timer_dbg_clk_flag(HWTimerID timerID, uint32_t& outFlagMa
     }
 }
 
+
+USART_TypeDef* get_usart_from_id(USARTID id)
+{
+    switch (id)
+    {
+        case USARTID::LPUART_1: return LPUART1;
+        case USARTID::USART_1:  return USART1;
+        case USARTID::USART_2:  return USART2;
+        case USARTID::USART_3:  return USART3;
+        case USARTID::UART_4:   return UART4;
+        case USARTID::UART_5:   return UART5;
+        case USARTID::USART_6:  return USART6;
+        case USARTID::UART_7:   return UART7;
+        case USARTID::UART_8:   return UART8;
+        default:    return nullptr;
+    }
+}
+
+
+I2C_TypeDef* get_i2c_from_id(I2CID id)
+{
+    switch (id)
+    {
+        case I2CID::I2C_1:  return I2C1;
+        case I2CID::I2C_2:  return I2C2;
+        case I2CID::I2C_3:  return I2C3;
+        case I2CID::I2C_4:  return I2C4;
+        default: return nullptr;
+    }
+}
+
+
+
+SPI_TypeDef* get_spi_from_id(SPIID id)
+{
+    switch (id)
+    {
+        case SPIID::SPI_1:  return SPI1;
+        case SPIID::SPI_2:  return SPI2;
+        case SPIID::SPI_3:  return SPI3;
+        case SPIID::SPI_4:  return SPI4;
+        case SPIID::SPI_5:  return SPI5;
+        case SPIID::SPI_6:  return SPI6;
+        default: return nullptr;
+    }
+}
+
+
+
+USB_OTG_GlobalTypeDef* get_usb_from_id(USB_OTG_ID id)
+{
+    switch (id)
+    {
+        case USB_OTG_ID::USB1_HS:   return USB1_OTG_HS;
+        case USB_OTG_ID::USB2_FS:   return USB2_OTG_FS;
+        default: return nullptr;
+    }
+}
+
+ADC_TypeDef* get_adc_from_id(ADC_ID id)
+{
+    switch (id)
+    {
+        case ADC_ID::ADC_1:  return ADC1;
+        case ADC_ID::ADC_2:  return ADC2;
+        case ADC_ID::ADC_3:  return ADC3;
+    }
+    return nullptr;
+}
+
+ADC_Common_TypeDef* get_adc_common_from_id(ADC_ID id)
+{
+    switch (id)
+    {
+        case ADC_ID::ADC_1:  return ADC12_COMMON;
+        case ADC_ID::ADC_2:  return ADC12_COMMON;
+        case ADC_ID::ADC_3:  return ADC3_COMMON;
+    }
+    return nullptr;
+}
+
+
+} // namespace kernel
+
+
+PinMuxTarget pinmux_target_from_name(const char* name)
+{
+    for (size_t i = 0; i < ARRAY_COUNT(kernel::g_MuxTargets); ++i)
+    {
+        if (strcmp(name, kernel::g_MuxTargets[i].Name) == 0)
+        {
+            return kernel::g_MuxTargets[i].Target;
+        }
+    }
+    return PINMUX_NONE;
+}
+
+DigitalPinID pin_id_from_name(const char* name)
+{
+    if (name[0] < 'A' || name[0] > ('A' + e_DigitalPortID_Count) || !isdigit(name[1]) || (name[2] != '\0' && (name[2] < '0' || name[2] > '5')))
+    {
+        if (strcmp(name, "None") != 0) {
+            printf("ERROR: pin_id_from_name() failed to convert '%s'\n", name);
+        }
+        return DigitalPinID::None;
+    }
+    DigitalPortID   portID = DigitalPortID(name[0] - 'A');
+    int32_t         pinIndex = atoi(name + 1);
+
+    return DigitalPinID(MAKE_DIGITAL_PIN_ID(portID, pinIndex));
+}
+
+HWTimerID timer_id_from_name(const char* name)
+{
+    if (name[0] != 'T' || name[1] != 'I' || name[2] != 'M')
+    {
+        printf("ERROR: timer_id_from_name() failed to convert '%s'\n", name);
+        return HWTimerID::None;
+    }
+    return HWTimerID(atoi(name + 3));
+}
+
 IRQn_Type get_timer_irq(HWTimerID timerID, HWTimerIRQType irqType)
 {
     switch (timerID)
@@ -556,29 +642,12 @@ USARTID usart_id_from_name(const char* name)
     else if (strcmp(name, "USART1") == 0) { return USARTID::USART_1; }
     else if (strcmp(name, "USART2") == 0) { return USARTID::USART_2; }
     else if (strcmp(name, "USART3") == 0) { return USARTID::USART_3; }
-    else if (strcmp(name, "UART4") == 0)  { return USARTID::UART_4; }
-    else if (strcmp(name, "UART5") == 0)  { return USARTID::UART_5; }
+    else if (strcmp(name, "UART4") == 0) { return USARTID::UART_4; }
+    else if (strcmp(name, "UART5") == 0) { return USARTID::UART_5; }
     else if (strcmp(name, "USART6") == 0) { return USARTID::USART_6; }
-    else if (strcmp(name, "UART7") == 0)  { return USARTID::UART_7; }
-    else if (strcmp(name, "UART8") == 0)  { return USARTID::UART_8; }
+    else if (strcmp(name, "UART7") == 0) { return USARTID::UART_7; }
+    else if (strcmp(name, "UART8") == 0) { return USARTID::UART_8; }
     else return USARTID::None;
-}
-
-USART_TypeDef* get_usart_from_id(USARTID id)
-{
-    switch (id)
-    {
-        case USARTID::LPUART_1: return LPUART1;
-        case USARTID::USART_1:  return USART1;
-        case USARTID::USART_2:  return USART2;
-        case USARTID::USART_3:  return USART3;
-        case USARTID::UART_4:   return UART4;
-        case USARTID::UART_5:   return UART5;
-        case USARTID::USART_6:  return USART6;
-        case USARTID::UART_7:   return UART7;
-        case USARTID::UART_8:   return UART8;
-        default:    return nullptr;
-    }
 }
 
 IRQn_Type get_usart_irq(USARTID id)
@@ -646,23 +715,11 @@ I2CID i2c_id_from_name(const char* name)
 {
     if (strncmp(name, "I2C", 3) == 0 && name[3] >= '1' && name[3] <= '4') {
         return I2CID(int(name[3] - '0'));
-    } else {
+    }
+    else {
         return I2CID::None;
     }
 }
-
-I2C_TypeDef* get_i2c_from_id(I2CID id)
-{
-    switch (id)
-    {
-        case kernel::I2CID::I2C_1:  return I2C1;
-        case kernel::I2CID::I2C_2:  return I2C2;
-        case kernel::I2CID::I2C_3:  return I2C3;
-        case kernel::I2CID::I2C_4:  return I2C4;
-        default: return nullptr;
-    }
-}
-
 
 IRQn_Type get_i2c_irq(I2CID id, I2CIRQType type)
 {
@@ -670,10 +727,10 @@ IRQn_Type get_i2c_irq(I2CID id, I2CIRQType type)
     {
         switch (id)
         {
-            case kernel::I2CID::I2C_1:  return I2C1_EV_IRQn;
-            case kernel::I2CID::I2C_2:  return I2C2_EV_IRQn;
-            case kernel::I2CID::I2C_3:  return I2C3_EV_IRQn;
-            case kernel::I2CID::I2C_4:  return I2C4_EV_IRQn;
+            case I2CID::I2C_1:  return I2C1_EV_IRQn;
+            case I2CID::I2C_2:  return I2C2_EV_IRQn;
+            case I2CID::I2C_3:  return I2C3_EV_IRQn;
+            case I2CID::I2C_4:  return I2C4_EV_IRQn;
             default: break;
         }
     }
@@ -681,14 +738,14 @@ IRQn_Type get_i2c_irq(I2CID id, I2CIRQType type)
     {
         switch (id)
         {
-            case kernel::I2CID::I2C_1:  return I2C1_ER_IRQn;
-            case kernel::I2CID::I2C_2:  return I2C2_ER_IRQn;
-            case kernel::I2CID::I2C_3:  return I2C3_ER_IRQn;
-            case kernel::I2CID::I2C_4:  return I2C4_ER_IRQn;
+            case I2CID::I2C_1:  return I2C1_ER_IRQn;
+            case I2CID::I2C_2:  return I2C2_ER_IRQn;
+            case I2CID::I2C_3:  return I2C3_ER_IRQn;
+            case I2CID::I2C_4:  return I2C4_ER_IRQn;
             default: break;
         }
     }
-        
+
     return IRQn_Type(IRQ_COUNT);
 }
 
@@ -697,36 +754,22 @@ SPIID spi_id_from_name(const char* name)
 {
     if (strncmp(name, "SPI", 3) == 0 && name[3] >= '1' && name[3] <= '6') {
         return SPIID(int(name[3] - '0'));
-    } else {
+    }
+    else {
         return SPIID::None;
     }
 }
-
-SPI_TypeDef* get_spi_from_id(SPIID id)
-{
-    switch (id)
-    {
-        case kernel::SPIID::SPI_1:  return SPI1;
-        case kernel::SPIID::SPI_2:  return SPI2;
-        case kernel::SPIID::SPI_3:  return SPI3;
-        case kernel::SPIID::SPI_4:  return SPI4;
-        case kernel::SPIID::SPI_5:  return SPI5;
-        case kernel::SPIID::SPI_6:  return SPI6;
-        default: return nullptr;
-    }
-}
-
 
 IRQn_Type get_spi_irq(SPIID id)
 {
     switch (id)
     {
-        case kernel::SPIID::SPI_1:  return SPI1_IRQn;
-        case kernel::SPIID::SPI_2:  return SPI2_IRQn;
-        case kernel::SPIID::SPI_3:  return SPI3_IRQn;
-        case kernel::SPIID::SPI_4:  return SPI4_IRQn;
-        case kernel::SPIID::SPI_5:  return SPI5_IRQn;
-        case kernel::SPIID::SPI_6:  return SPI6_IRQn;
+        case SPIID::SPI_1:  return SPI1_IRQn;
+        case SPIID::SPI_2:  return SPI2_IRQn;
+        case SPIID::SPI_3:  return SPI3_IRQn;
+        case SPIID::SPI_4:  return SPI4_IRQn;
+        case SPIID::SPI_5:  return SPI5_IRQn;
+        case SPIID::SPI_6:  return SPI6_IRQn;
         default: break;
     }
     return IRQn_Type(IRQ_COUNT);
@@ -764,45 +807,14 @@ bool get_spi_dma_requests(SPIID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx)
     }
 }
 
-USB_OTG_GlobalTypeDef* get_usb_from_id(USB_OTG_ID id)
-{
-    switch (id)
-    {
-        case kernel::USB_OTG_ID::USB1_HS:   return USB1_OTG_HS;
-        case kernel::USB_OTG_ID::USB2_FS:   return USB2_OTG_FS;
-        default: return nullptr;
-    }
-}
 IRQn_Type get_usb_irq(USB_OTG_ID id)
 {
     switch (id)
     {
-        case kernel::USB_OTG_ID::USB1_HS:   return OTG_HS_IRQn;
-        case kernel::USB_OTG_ID::USB2_FS:   return OTG_FS_IRQn;
+        case USB_OTG_ID::USB1_HS:   return OTG_HS_IRQn;
+        case USB_OTG_ID::USB2_FS:   return OTG_FS_IRQn;
         default: return IRQn_Type(IRQ_COUNT);
     }
-}
-
-ADC_TypeDef* get_adc_from_id(ADC_ID id)
-{
-    switch (id)
-    {
-        case ADC_ID::ADC_1:  return ADC1;
-        case ADC_ID::ADC_2:  return ADC2;
-        case ADC_ID::ADC_3:  return ADC3;
-    }
-    return nullptr;
-}
-
-ADC_Common_TypeDef* get_adc_common_from_id(ADC_ID id)
-{
-    switch (id)
-    {
-        case ADC_ID::ADC_1:  return ADC12_COMMON;
-        case ADC_ID::ADC_2:  return ADC12_COMMON;
-        case ADC_ID::ADC_3:  return ADC3_COMMON;
-    }
-    return nullptr;
 }
 
 IRQn_Type get_adc_irq(ADC_ID id)
@@ -815,7 +827,5 @@ IRQn_Type get_adc_irq(ADC_ID id)
     }
     return IRQn_Type(IRQ_COUNT);
 }
-
-} // namespace kernel
 
 #endif // STM32H7

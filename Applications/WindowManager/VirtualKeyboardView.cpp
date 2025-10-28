@@ -67,7 +67,7 @@ void VirtualKeyboardView::SlotKeyPressed(KeyCodes keyCode, const String& text)
     event.m_KeyCode = keyCode;
     strncpy(event.m_Text, text.c_str(), KeyEvent::MAX_TEXT_LENGTH);
 
-    send_message(get_input_event_port(), INVALID_HANDLE, int32_t(event.EventID), &event, sizeof(event));
+    message_port_send(get_input_event_port(), INVALID_HANDLE, int32_t(event.EventID), &event, sizeof(event));
 }
 
 

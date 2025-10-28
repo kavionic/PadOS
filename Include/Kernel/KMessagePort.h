@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -47,12 +47,12 @@ public:
     PErrorCode  SendMessageTimeout(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValNanos timeout);
     PErrorCode  SendMessageDeadline(handler_id targetHandler, int32_t code, const void* data, size_t length, TimeValNanos deadline);
 
-    ssize_t ReceiveMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
-    ssize_t ReceiveMessageTimeout(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValNanos timeout);
-    ssize_t ReceiveMessageDeadline(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValNanos deadline);
+    ssize_t ReceiveMessage_trw(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
+    ssize_t ReceiveMessageTimeout_trw(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValNanos timeout);
+    ssize_t ReceiveMessageDeadline_trw(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, TimeValNanos deadline);
     
 private:
-    ssize_t DetachMessage(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
+    ssize_t DetachMessage_trw(handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
     
     KMutex     m_Mutex;
     KConditionVariable m_SendCondition;
@@ -67,5 +67,16 @@ private:
     KMessagePort(const KMessagePort &) = delete;
     KMessagePort& operator=(const KMessagePort &) = delete;
 };
+
+port_id kmessage_port_create_trw(const char* name, int maxCount);
+port_id kmessage_port_duplicate_trw(port_id handle);
+void    kmessage_port_delete_trw(port_id handle);
+void    kmessage_port_send_trw(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length);
+void    kmessage_port_send_timeout_ns_trw(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t timeout);
+void    kmessage_port_send_deadline_ns_trw(port_id handle, handler_id targetHandler, int32_t code, const void* data, size_t length, bigtime_t deadline);
+ssize_t kmessage_port_receive_trw(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize);
+ssize_t kmessage_port_receive_timeout_ns_trw(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t timeout);
+ssize_t kmessage_port_receive_deadline_ns_trw(port_id handle, handler_id* targetHandler, int32_t* code, void* buffer, size_t bufferSize, bigtime_t deadline);
+
 
 } // namespace

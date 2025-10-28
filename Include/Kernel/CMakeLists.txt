@@ -10,6 +10,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KPowerManager.h
 	KProcess.h
 	KSemaphore.h
+	KThread.h
 	KThreadCB.h
 	KThreadWaitNode.h
 	KTime.h

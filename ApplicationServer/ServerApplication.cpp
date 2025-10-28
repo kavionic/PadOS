@@ -215,7 +215,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
         {
             MsgCreateViewReply reply;
             reply.m_ViewHandle = -1;
-            const PErrorCode result = send_message_timeout_ns(replyPort, -1, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0);
+            const PErrorCode result = message_port_send_timeout_ns(replyPort, -1, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0);
             if (result != PErrorCode::Success) {
                 kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
             }
@@ -235,7 +235,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
         
     MsgCreateViewReply reply;
     reply.m_ViewHandle = view->GetHandle();
-    const PErrorCode result = send_message_timeout_ns(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0);
+    const PErrorCode result = message_port_send_timeout_ns(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0);
     if (result != PErrorCode::Success) {
         kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
     }
@@ -321,7 +321,7 @@ void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int heigh
     reply.m_Framebuffer  = bitmap->m_Raster;
     reply.m_BytesPerRow  = bitmap->m_BytesPerLine;
 
-    const PErrorCode result = send_message_timeout_ns(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), 0);
+    const PErrorCode result = message_port_send_timeout_ns(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), 0);
     if (result != PErrorCode::Success) {
         kernel_log(LogCategoryAppServer, kernel::KLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
     }

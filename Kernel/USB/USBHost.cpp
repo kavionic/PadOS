@@ -38,7 +38,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USBHost::USBHost() : Thread("usb_host"), m_Mutex("usb_host", PEMutexRecursionMode_RaiseError), m_EventQueueCondition("usbh_event_queue")
+USBHost::USBHost() : KThread("usb_host"), m_Mutex("usb_host", PEMutexRecursionMode_RaiseError), m_EventQueueCondition("usbh_event_queue")
 {
 }
 
@@ -76,7 +76,7 @@ bool USBHost::Setup(USBDriver* driver)
         return false;
     }
     SetDeleteOnExit(false);
-    Start(PThreadDetachState_Detached);
+    Start_trw(PThreadDetachState_Detached);
 
     return true;
 }

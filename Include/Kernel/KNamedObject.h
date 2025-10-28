@@ -38,7 +38,7 @@ enum class KNamedObjectType
     Semaphore,
     Mutex,
     ConditionVariable,
-	ObjectWaitGroup,
+    ObjectWaitGroup,
     MessagePort,
 };
 
@@ -60,13 +60,27 @@ public:
     int32_t          GetHandle() const noexcept         { return m_Handle; }
 
     static PErrorCode        RegisterObject(handle_id& outHandle, Ptr<KNamedObject> object);
-    static bool              FreeHandle(int32_t handle);
-	static bool              FreeHandle(int32_t handle, KNamedObjectType type);
+    static handle_id         RegisterObject_trw(Ptr<KNamedObject> object);
+    static void              FreeHandle_trw(int32_t handle);
+    static void              FreeHandle_trw(int32_t handle, KNamedObjectType type);
 
     static Ptr<KNamedObject> GetObject(int32_t handle, KNamedObjectType type);
+    static Ptr<KNamedObject> GetObject_trw(int32_t handle, KNamedObjectType type);
+    
     template<typename T>
     static Ptr<T>            GetObject(int32_t handle) { return ptr_static_cast<T>(GetObject(handle, T::ObjectType)); }
-	static Ptr<KNamedObject> GetAnyObject(int32_t handle);
+    template<typename T>
+    static Ptr<T>            GetObject_trw(int32_t handle) { return ptr_static_cast<T>(GetObject_trw(handle, T::ObjectType)); }
+    
+    static Ptr<KNamedObject> GetAnyObject(int32_t handle);
+    static Ptr<KNamedObject> GetAnyObject_trw(int32_t handle);
+
+    template<typename TObjectType, typename CALLBACK, typename... ARGS>
+    static void ForwardToHandle_trw(int handle, CALLBACK callback, ARGS&&... args)
+    {
+        Ptr<TObjectType> object = GetObject_trw<TObjectType>(handle);
+        (ptr_raw_pointer_cast(object)->*callback)(args...);
+    }
 
     template<typename TObjectType, typename TReturnType, typename CALLBACK, typename... ARGS>
     static TReturnType ForwardToHandle(int handle, const TReturnType& invalidHandleReturnValue, CALLBACK callback, ARGS&&... args)
@@ -119,5 +133,7 @@ private:
     KNamedObject& operator=(const KNamedObject&);
 };
 
+handle_id kduplicate_handle_trw(handle_id handle);
+void kdelete_handle_trw(handle_id handle);
 
 } // namespace

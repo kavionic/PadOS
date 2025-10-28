@@ -19,14 +19,15 @@
 
 
 #pragma once
-#include "Kernel/HAL/DigitalPort.h"
-#include "Kernel/VFS/KDeviceNode.h"
-#include "Kernel/VFS/KFileHandle.h"
-#include "Kernel/IRQDispatcher.h"
-#include "Kernel/KSemaphore.h"
-#include "Kernel/KMutex.h"
-#include "Threads/Thread.h"
-#include "Math/Point.h"
+
+#include <Kernel/HAL/DigitalPort.h>
+#include <Kernel/VFS/KDeviceNode.h>
+#include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/KThread.h>
+#include <Kernel/IRQDispatcher.h>
+#include <Kernel/KSemaphore.h>
+#include <Kernel/KMutex.h>
+#include <Math/Point.h>
 
 // FT5206
 
@@ -135,7 +136,7 @@ public:
     
 };*/
 
-class FT5x0xDriver : public PtrTarget, public os::Thread, public KFilesystemFileOps
+class FT5x0xDriver : public PtrTarget, public KThread, public KFilesystemFileOps
 {
 public:
     FT5x0xDriver();

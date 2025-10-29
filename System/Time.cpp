@@ -62,7 +62,7 @@ TimeValNanos get_real_time_hires()
 
 PErrorCode set_real_time(TimeValNanos time, bool updateRTC)
 {
-    return __set_real_time_ns(time.AsNanoseconds(), updateRTC);
+    return set_real_time_ns(time.AsNanoseconds(), updateRTC);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

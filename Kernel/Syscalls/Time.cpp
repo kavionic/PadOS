@@ -39,60 +39,36 @@ extern "C"
 ///////////////////////////////////////////////////////////////////////////////
 
 
-PErrorCode sys_get_monotonic_time_ns(bigtime_t* outTime)
+time_t sys_get_monotonic_time_ns()
 {
-    try
-    {
-        validate_user_write_pointer_trw(outTime);
-        *outTime = kget_monotonic_time_ns();
-        return PErrorCode::Success;
-    }
-    PERROR_CATCH_RET_CODE;
+    return kget_monotonic_time_ns();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_get_monotonic_time_hires_ns(bigtime_t* outTime)
+time_t sys_get_monotonic_time_hires_ns()
 {
-    try
-    {
-        validate_user_write_pointer_trw(outTime);
-        *outTime = kget_monotonic_time_hires_ns();
-        return PErrorCode::Success;
-    }
-    PERROR_CATCH_RET_CODE;
+    return kget_monotonic_time_hires_ns();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_get_real_time_ns(bigtime_t* outTime)
+time_t sys_get_real_time_ns()
 {
-    try
-    {
-        validate_user_write_pointer_trw(outTime);
-        *outTime = kget_real_time_ns();
-        return PErrorCode::Success;
-    }
-    PERROR_CATCH_RET_CODE;
+    return kget_real_time_ns();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_get_real_time_hires_ns(bigtime_t* outTime)
+time_t sys_get_real_time_hires_ns()
 {
-    try
-    {
-        validate_user_write_pointer_trw(outTime);
-        *outTime = kget_real_time_hires_ns();
-        return PErrorCode::Success;
-    }
-    PERROR_CATCH_RET_CODE;
+    return kget_real_time_hires_ns();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -153,30 +129,18 @@ PErrorCode sys_get_clock_time_hires_ns(clockid_t clockID, bigtime_t* outTime)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_get_idle_time_ns(bigtime_t* outTime)
+time_t sys_get_idle_time_ns()
 {
-    try
-    {
-        validate_user_write_pointer_trw(outTime);
-        *outTime = kget_idle_time_ns();
-        return PErrorCode::Success;
-    }
-    PERROR_CATCH_RET_CODE;
+    return kget_idle_time_ns();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_get_total_irq_time_ns(bigtime_t* outTime)
+time_t sys_get_total_irq_time_ns()
 {
-    try
-    {
-        validate_user_write_pointer_trw(outTime);
-        *outTime = kget_total_irq_time().AsNanoseconds();
-        return PErrorCode::Success;
-    }
-    PERROR_CATCH_RET_CODE;
+    return kget_total_irq_time().AsNanoseconds();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -27,8 +27,8 @@
 class PRPCDispatcher
 {
 public:
-    template<typename TReturnType, typename TMethodClass, typename TOwner, typename... TArgTypes>
-    void AddHandler(int handlerID, TOwner* obj, TReturnType(TMethodClass::* callback)(TArgTypes...))
+    template<typename TSignature, typename TReturnType, typename TOwner, typename... TArgTypes>
+    void AddHandler(int handlerID, TOwner obj, TSignature callback)
     {
         std::function<void(const void* inData, size_t inDataLength, void* outData, size_t outDataLength)> handler = [obj, callback](const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
         {
@@ -55,6 +55,17 @@ public:
         m_RemoteProcedures[handlerID] = handler;
     }
 
+    template<typename TReturnType, typename TMethodClass, typename TOwner, typename... TArgTypes>
+    void AddHandler(int handlerID, TOwner* obj, TReturnType(TMethodClass::* callback)(TArgTypes...))
+    {
+        AddHandler<TReturnType(TMethodClass::*)(TArgTypes...), TReturnType, TOwner*, TArgTypes...>(handlerID, obj, callback);
+    }
+    template<typename TReturnType, typename TMethodClass, typename TOwner, typename... TArgTypes>
+    void AddHandler(int handlerID, const TOwner* obj, TReturnType(TMethodClass::* callback)(TArgTypes...) const)
+    {
+        AddHandler<decltype(callback), TReturnType, const TOwner*, TArgTypes...>(handlerID, obj, callback);
+    }
+
     template<typename THandlerDefinition, typename TReturnType, typename TMethodClass, typename TOwner, typename... TArgTypes>
     void AddHandler(TOwner* obj, TReturnType(TMethodClass::* callback)(TArgTypes...))
     {
@@ -62,8 +73,20 @@ public:
         AddHandler(THandlerDefinition::HandlerID, obj, callback);
     }
 
+    template<typename THandlerDefinition, typename TReturnType, typename TMethodClass, typename TOwner, typename... TArgTypes>
+    void AddHandler(TOwner* obj, TReturnType(TMethodClass::* callback)(TArgTypes...) const)
+    {
+        static_assert(std::is_same_v<std::tuple<TArgTypes...>, typename THandlerDefinition::ArgumentTypes>);
+        AddHandler(THandlerDefinition::HandlerID, obj, callback);
+    }
+
     template<typename TInvokerOwner, typename TInvokerType, typename TReturnType, typename TMethodClass, typename TOwner, typename... TArgTypes>
     void AddHandler(TInvokerType TInvokerOwner::* invoker, TOwner* obj, TReturnType(TMethodClass::* callback)(TArgTypes...))
+    {
+        AddHandler<typename TInvokerType::Definition>(obj, callback);
+    }
+    template<typename TInvokerOwner, typename TInvokerType, typename TReturnType, typename TMethodClass, typename TOwner, typename... TArgTypes>
+    void AddHandler(TInvokerType TInvokerOwner::* invoker, TOwner* obj, TReturnType(TMethodClass::* callback)(TArgTypes...) const)
     {
         AddHandler<typename TInvokerType::Definition>(obj, callback);
     }

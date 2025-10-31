@@ -38,8 +38,10 @@
 #include <System/TimeValue.h>
 #include <Threads/Mutex.h>
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 uint32_t            Kernel::s_FrequencyCore;
 uint32_t            Kernel::s_FrequencyPeripheral;
@@ -59,42 +61,44 @@ static std::map<int, std::pair<KLogSeverity, os::String>>& get_kernel_log_levels
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool kernel::kernel_log_register_category(uint32_t categoryHash, const char* categoryName, KLogSeverity initialLogLevel)
+bool kernel_log_register_category(uint32_t categoryHash, const char* categoryName, KLogSeverity initialLogLevel)
 {
-	CRITICAL_SCOPE(gk_KernelLogMutex);
+    CRITICAL_SCOPE(gk_KernelLogMutex);
     get_kernel_log_levels_map()[categoryHash] = std::make_pair(initialLogLevel, os::String(categoryName));
-	return true;
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::kernel_log_set_category_log_level(uint32_t categoryHash, KLogSeverity logLevel)
+void kernel_log_set_category_log_level(uint32_t categoryHash, KLogSeverity logLevel)
 {
-	CRITICAL_SCOPE(gk_KernelLogMutex);
-	auto i = get_kernel_log_levels_map().find(categoryHash);
-	if (i != get_kernel_log_levels_map().end()) {
+    CRITICAL_SCOPE(gk_KernelLogMutex);
+    auto i = get_kernel_log_levels_map().find(categoryHash);
+    if (i != get_kernel_log_levels_map().end()) {
         i->second.first = logLevel;
-    } else {
-		kprintf("ERROR: kernel_log_set_category_log_level() called with unknown categoryHash %08x\n", categoryHash);
-    }        
+    }
+    else {
+        kprintf("ERROR: kernel_log_set_category_log_level() called with unknown categoryHash %08x\n", categoryHash);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool kernel::kernel_log_is_category_active(uint32_t categoryHash, KLogSeverity logLevel)
+bool kernel_log_is_category_active(uint32_t categoryHash, KLogSeverity logLevel)
 {
-	CRITICAL_SCOPE(gk_KernelLogMutex);
-	
-	auto i = get_kernel_log_levels_map().find(categoryHash);
+    CRITICAL_SCOPE(gk_KernelLogMutex);
+
+    auto i = get_kernel_log_levels_map().find(categoryHash);
     if (i != get_kernel_log_levels_map().end()) {
         return logLevel >= i->second.first;
-	} else {
-		kprintf("ERROR: kernel_log_is_category_active() called with unknown categoryHash %08x\n", categoryHash);
-	}
+    }
+    else {
+        kprintf("ERROR: kernel_log_is_category_active() called with unknown categoryHash %08x\n", categoryHash);
+    }
     return false;
 }
 
@@ -102,7 +106,7 @@ bool kernel::kernel_log_is_category_active(uint32_t categoryHash, KLogSeverity l
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::panic(const char* message)
+void panic(const char* message)
 {
     handle_panic(message);
 }
@@ -111,9 +115,27 @@ void kernel::panic(const char* message)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool is_in_isr()
+{
+    return (SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk) != 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool kis_debugger_attached()
+{
+    return (CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk) != 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void Kernel::SetupFrequencies(uint32_t frequencyCore, uint32_t frequencyPeripheral)
 {
-    s_FrequencyCore       = frequencyCore;
+    s_FrequencyCore = frequencyCore;
     s_FrequencyPeripheral = frequencyPeripheral;
     SpinTimer::Initialize();
 }
@@ -158,7 +180,7 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
     SUPC->SUPC_MR = SUPC_MR_KEY_PASSWD | SUPC_MR_BODRSTEN_Msk | SUPC_MR_ONREG_Msk;
     SUPC->SUPC_WUMR = SUPC_WUMR_SMEN_Msk | SUPC_WUMR_WKUPDBC_4096_SLCK;
     SUPC->SUPC_WUIR = SUPC_WUIR_WKUPEN9_Msk;
-    
+
     WDT->WDT_MR = WDT_MR_WDDIS;
 #elif defined(STM32H7) || defined(STM32G0)
 #else
@@ -170,7 +192,7 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
     __DSB();
     SCB->CPACR |= 0xF << 20; // Full access to CP10 & CP 11
     FPU->FPCCR |= FPU_FPCCR_ASPEN_Msk | // Enable CONTROL.FPCA setting on execution of a floating-point instruction.
-                  FPU_FPCCR_LSPEN_Msk;  // Enable automatic lazy state preservation for floating-point context.
+        FPU_FPCCR_LSPEN_Msk;  // Enable automatic lazy state preservation for floating-point context.
 #endif // defined(STM32H7)
     __DSB();
     __ISB();
@@ -190,7 +212,7 @@ void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MC
 {
     ResetWatchdog();
 
-//    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
+    //    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
     kernel::start_scheduler(coreFrequency, mainThreadStackSize);
 }
 
@@ -220,6 +242,8 @@ void Kernel::RemoveDevice_trw(int handle)
 {
     kget_rootfs_trw()->RemoveDevice(handle);
 }
+
+} // namespace kernel
 
 extern "C"
 {
@@ -265,7 +289,7 @@ void set_last_error(PErrorCode error)
 
 status_t set_input_event_port(port_id port)
 {
-    gk_InputEventPort = port;
+    kernel::gk_InputEventPort = port;
     return 0;
 }
 
@@ -275,5 +299,5 @@ status_t set_input_event_port(port_id port)
 
 port_id get_input_event_port()
 {
-    return gk_InputEventPort;
+    return kernel::gk_InputEventPort;
 }

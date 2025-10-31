@@ -96,6 +96,8 @@ void panic(const char* fmt, FIRSTARG&& firstArg, ARGS&&... args)
     panic(os::String::format_string(fmt, firstArg, args...).c_str());
 }
 
+bool is_in_isr();
+bool kis_debugger_attached();
 
 class Kernel
 {

@@ -142,7 +142,8 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(message_port_receive_deadline_ns),
     SYS_PTR(get_total_irq_time_ns),
     SYS_PTR(duplicate_handle),
-    SYS_PTR(delete_handle)
+    SYS_PTR(delete_handle),
+    SYS_PTR(is_debugger_attached)
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);

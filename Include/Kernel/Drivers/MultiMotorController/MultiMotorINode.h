@@ -71,23 +71,23 @@ public:
     bool    GetCurrentDirection(handle_id motorID);
 
     void            SetCurrent(handle_id motorID, float holdCurrent, float runCurrent, TimeValMillis fadeTime);
-    float           GetRunCurrent(handle_id motorID);
+    float           GetRunCurrent(handle_id motorID) const;
     void            SetRunCurrent(handle_id motorID, float current);
     void            SetHoldCurrent(handle_id motorID, float current);
-    float           GetHoldCurrent(handle_id motorID);
-    TimeValMillis   GetCurrentFadeTime(handle_id motorID);
+    float           GetHoldCurrent(handle_id motorID) const;
+    TimeValMillis   GetCurrentFadeTime(handle_id motorID) const;
     void            SetCurrentFadeTime(handle_id motorID, TimeValMillis fadeTime);
     void            SetPowerDownTime(handle_id motorID, TimeValMillis time);
     void            SetMicrosteps(handle_id motorID, int32_t steps);
-    uint32_t        GetStepTicks(handle_id motorID);
-    float           GetStepTime(handle_id motorID);
+    uint32_t        GetStepTicks(handle_id motorID) const;
+    float           GetStepTime(handle_id motorID) const;
     void            SetMaxStealthChopSpeed(handle_id motorID, float maxSpeed);
     void            SetMinStallGuardSpeed(handle_id motorID, float minSpeed);
     void            SetStallGuardThreshold(handle_id motorID, float threshold);
-    float           GetStallGuardResult(handle_id motorID);
+    float           GetStallGuardResult(handle_id motorID) const;
     void            SetHaltOnStall(handle_id motorID, bool doHalt);
     void            ClearHaltedFlag(handle_id motorID);
-    bool            HasHalted(handle_id motorID);
+    bool            HasHalted(handle_id motorID) const;
     void            StartMultipleMotors(uint32_t motorIDMask);
     void            SyncStartMultipleMotors(bool doWait, uint32_t motorIDMask);
     void            WaitMultipleMotors(uint32_t motorIDMask);
@@ -95,6 +95,7 @@ public:
 
 private:
     TMC2209Driver& GetMotor(handle_id motorID);
+    const TMC2209Driver& GetMotor(handle_id motorID) const { return const_cast<MultiMotorINode*>(this)->GetMotor(motorID); }
     std::vector<TMC2209Driver*> GetMotorsFromMask(uint32_t motorIDMask);
 
     Ptr<TMC2209IODriver> m_ControlPort;

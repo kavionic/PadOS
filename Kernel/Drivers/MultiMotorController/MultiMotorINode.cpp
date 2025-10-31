@@ -24,6 +24,7 @@
 #include <Kernel/Drivers/MultiMotorController/MultiMotorINode.h>
 #include <Kernel/Drivers/MultiMotorController/MultiMotorController.h>
 #include <Kernel/Drivers/MultiMotorController/TMC2209IODriver.h>
+#include <Kernel/Drivers/MultiMotorController/TMC2209Driver.h>
 
 namespace kernel
 {
@@ -361,7 +362,7 @@ void MultiMotorINode::SetCurrent(handle_id motorID, float holdCurrent, float run
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetRunCurrent(handle_id motorID)
+float MultiMotorINode::GetRunCurrent(handle_id motorID) const
 {
     return GetMotor(motorID).GetRunCurrent();
 }
@@ -388,7 +389,7 @@ void MultiMotorINode::SetHoldCurrent(handle_id motorID, float current)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetHoldCurrent(handle_id motorID)
+float MultiMotorINode::GetHoldCurrent(handle_id motorID) const
 {
     return GetMotor(motorID).GetHoldCurrent();
 }
@@ -397,7 +398,7 @@ float MultiMotorINode::GetHoldCurrent(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValMillis MultiMotorINode::GetCurrentFadeTime(handle_id motorID)
+TimeValMillis MultiMotorINode::GetCurrentFadeTime(handle_id motorID) const
 {
     return GetMotor(motorID).GetCurrentFadeTime();
 }
@@ -433,7 +434,7 @@ void MultiMotorINode::SetMicrosteps(handle_id motorID, int32_t steps)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t MultiMotorINode::GetStepTicks(handle_id motorID)
+uint32_t MultiMotorINode::GetStepTicks(handle_id motorID) const
 {
     return GetMotor(motorID).GetStepTicks_trw();
 }
@@ -442,7 +443,7 @@ uint32_t MultiMotorINode::GetStepTicks(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetStepTime(handle_id motorID)
+float MultiMotorINode::GetStepTime(handle_id motorID) const
 {
     return GetMotor(motorID).GetStepTime_trw();
 }
@@ -478,7 +479,7 @@ void MultiMotorINode::SetStallGuardThreshold(handle_id motorID, float threshold)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetStallGuardResult(handle_id motorID)
+float MultiMotorINode::GetStallGuardResult(handle_id motorID) const
 {
     return GetMotor(motorID).GetStallGuardResult_trw();
 }
@@ -505,7 +506,7 @@ void MultiMotorINode::ClearHaltedFlag(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool MultiMotorINode::HasHalted(handle_id motorID)
+bool MultiMotorINode::HasHalted(handle_id motorID) const
 {
     return GetMotor(motorID).HasHalted();
 }

@@ -50,7 +50,7 @@ extern "C"
 
 void sys_exit(int exitCode)
 {
-    if (CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk)
+    if (kis_debugger_attached())
     {
         __BKPT(0);
     }

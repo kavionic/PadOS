@@ -153,7 +153,7 @@ public:
     void        SetMinStallGuardSpeed_trw(float minSpeed);
 
     void        SetStallGuardThreshold_trw(float threshold);
-    float       GetStallGuardResult_trw();
+    float       GetStallGuardResult_trw() const;
 
 
     void SetHaltOnStall(bool doHalt);

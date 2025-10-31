@@ -29,10 +29,10 @@ struct PRPCDefinition
     using ReturnType = TReturnType;
     using ArgumentTypes = std::tuple<TArgTypes...>;
     using Signature = ReturnType(TArgTypes...);
-
-    template<typename TMethodClass>
-    using MethodSignature = ReturnType(TMethodClass::*)(TArgTypes...);
 };
 
 template<int THandlerID, typename TReturnType, typename... TArgTypes>
 class PRPCDefinition<THandlerID, TReturnType(TArgTypes...)> : public PRPCDefinition<THandlerID, TReturnType, TArgTypes...> {};
+
+template<int THandlerID, typename TReturnType, typename... TArgTypes>
+class PRPCDefinition<THandlerID, TReturnType(TArgTypes...) const> : public PRPCDefinition<THandlerID, TReturnType, TArgTypes...> {};

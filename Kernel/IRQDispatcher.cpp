@@ -106,15 +106,6 @@ int unregister_irq_handler(IRQn_Type irqNum, int handle)
     return -1;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool is_in_isr()
-{
-    return (SCB->ICSR & SCB_ICSR_VECTACTIVE_Msk) != 0;
-}
-
 } // namespace
 
 using namespace kernel;

@@ -261,7 +261,7 @@ void TMC2209Driver::SetStallGuardThreshold_trw(float threshold)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float TMC2209Driver::GetStallGuardResult_trw()
+float TMC2209Driver::GetStallGuardResult_trw() const
 {
     const uint32_t value = ReadRegister_trw(TMC2209_REG_SG_RESULT);
     return float(value) * (1.0f / 511.0f);

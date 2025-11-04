@@ -52,6 +52,9 @@ public:
         , SetWakeupOnFullStep(*this)
         , GetWakeupOnFullStep(*this)
         , SetSpeed(*this)
+        , SetSpeedMultiMask(*this)
+        , StopAtOffset(*this)
+        , StopAtOffsetMultiMask(*this)
         , StopAtPos(*this)
         , SyncMove(*this)
         , QueueMotion(*this)
@@ -105,45 +108,48 @@ public:
     PDeviceControlInvoker< 7, void           (handle_id motorID, bool value)>                                                    SetWakeupOnFullStep;
     PDeviceControlInvoker< 8, bool           (handle_id motorID)>                                                                GetWakeupOnFullStep;
     PDeviceControlInvoker< 9, void           (handle_id motorID, float speedMMS, float accelerationMMS)>                         SetSpeed;
-    PDeviceControlInvoker<10, void           (handle_id motorID, float position, float speed, float acceleration)>               StopAtPos;
-    PDeviceControlInvoker<11, void           (handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS)>       SyncMove;
-    PDeviceControlInvoker<12, void           (handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS)>       QueueMotion;
-    PDeviceControlInvoker<13, void           (handle_id motorID)>                                                                StepForward;
-    PDeviceControlInvoker<14, void           (handle_id motorID)>                                                                StepBackward;
-    PDeviceControlInvoker<15, void           (handle_id motorID, bool enable)>                                                   EnableMotor;
-    PDeviceControlInvoker<16, bool           (handle_id motorID)>                                                                IsMotorEnabled;
-    PDeviceControlInvoker<17, void           (handle_id motorID)>                                                                Wait;
-    PDeviceControlInvoker<18, float          (handle_id motorID, float acceleration)>                                            GetCurrentStopDistance;
-    PDeviceControlInvoker<19, bool           (handle_id motorID)>                                                                IsRunning;
-    PDeviceControlInvoker<20, void           (handle_id motorID, bool doRun)>                                                    StartStopTimer;
-    PDeviceControlInvoker<21, void           (handle_id motorID)>                                                                ClearMotion;
-    PDeviceControlInvoker<22, int32_t        (handle_id motorID)>                                                                GetStepPosition;
-    PDeviceControlInvoker<23, float          (handle_id motorID)>                                                                GetPosition;
-    PDeviceControlInvoker<24, void           (handle_id motorID, float position)>                                                ResetPosition;
-    PDeviceControlInvoker<25, float          (handle_id motorID)>                                                                GetCurrentSpeed;
-    PDeviceControlInvoker<26, bool           (handle_id motorID)>                                                                GetCurrentDirection;
-    PDeviceControlInvoker<27, void           (handle_id motorID, float holdCurrent, float runCurrent, TimeValMillis fadeTime)>   SetCurrent;
-    PDeviceControlInvoker<28, float          (handle_id motorID)>                                                                GetRunCurrent;
-    PDeviceControlInvoker<29, void           (handle_id motorID, float current)>                                                 SetRunCurrent;
-    PDeviceControlInvoker<30, void           (handle_id motorID, float current)>                                                 SetHoldCurrent;
-    PDeviceControlInvoker<31, float          (handle_id motorID)>                                                                GetHoldCurrent;
-    PDeviceControlInvoker<32, TimeValMillis  (handle_id motorID)>                                                                GetCurrentFadeTime;
-    PDeviceControlInvoker<33, void           (handle_id motorID, TimeValMillis fadeTime)>                                        SetCurrentFadeTime;
-    PDeviceControlInvoker<34, void           (handle_id motorID, TimeValMillis time)>                                            SetPowerDownTime;
-    PDeviceControlInvoker<35, void           (handle_id motorID, int32_t steps)>                                                 SetMicrosteps;
-    PDeviceControlInvoker<36, uint32_t       (handle_id motorID)>                                                                GetStepTicks;
-    PDeviceControlInvoker<37, float          (handle_id motorID)>                                                                GetStepTime;
-    PDeviceControlInvoker<38, void           (handle_id motorID, float maxSpeed)>                                                SetMaxStealthChopSpeed;
-    PDeviceControlInvoker<39, void           (handle_id motorID, float minSpeed)>                                                SetMinStallGuardSpeed;
-    PDeviceControlInvoker<40, void           (handle_id motorID, float threshold)>                                               SetStallGuardThreshold;
-    PDeviceControlInvoker<41, float          (handle_id motorID)>                                                                GetStallGuardResult;
-    PDeviceControlInvoker<42, void           (handle_id motorID, bool doHalt)>                                                   SetHaltOnStall;
-    PDeviceControlInvoker<43, void           (handle_id motorID)>                                                                ClearHaltedFlag;
-    PDeviceControlInvoker<44, bool           (handle_id motorID)>                                                                HasHalted;
-    PDeviceControlInvoker<45, void           (uint32_t motorIDMask)>                                                             StartMultipleMotors;
-    PDeviceControlInvoker<46, void           (bool doWait, uint32_t motorIDMask)>                                                SyncStartMultipleMotors;
-    PDeviceControlInvoker<47, void           (uint32_t motorIDMask)>                                                             WaitMultipleMotors;
-    PDeviceControlInvoker<48, void           (handle_id motorID, handle_id waitGroupHandle)>                                     AddMotorToWaitGroup;
+    PDeviceControlInvoker<10, void           (uint32_t motorIDMask, float speedMMS, float accelerationMMS)>                      SetSpeedMultiMask;
+    PDeviceControlInvoker<11, void           (handle_id motorID, float position, float speed, float acceleration)>               StopAtOffset;
+    PDeviceControlInvoker<12, void           (uint32_t motorIDMask, float position, float speed, float acceleration)>            StopAtOffsetMultiMask;
+    PDeviceControlInvoker<13, void           (handle_id motorID, float position, float speed, float acceleration)>               StopAtPos;
+    PDeviceControlInvoker<14, void           (handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS)>       SyncMove;
+    PDeviceControlInvoker<15, void           (handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS)>       QueueMotion;
+    PDeviceControlInvoker<16, void           (handle_id motorID)>                                                                StepForward;
+    PDeviceControlInvoker<17, void           (handle_id motorID)>                                                                StepBackward;
+    PDeviceControlInvoker<18, void           (handle_id motorID, bool enable)>                                                   EnableMotor;
+    PDeviceControlInvoker<19, bool           (handle_id motorID)>                                                                IsMotorEnabled;
+    PDeviceControlInvoker<20, void           (handle_id motorID)>                                                                Wait;
+    PDeviceControlInvoker<21, float          (handle_id motorID, float acceleration)>                                            GetCurrentStopDistance;
+    PDeviceControlInvoker<22, bool           (handle_id motorID)>                                                                IsRunning;
+    PDeviceControlInvoker<23, void           (handle_id motorID, bool doRun)>                                                    StartStopTimer;
+    PDeviceControlInvoker<24, void           (handle_id motorID)>                                                                ClearMotion;
+    PDeviceControlInvoker<25, int32_t        (handle_id motorID)>                                                                GetStepPosition;
+    PDeviceControlInvoker<26, float          (handle_id motorID)>                                                                GetPosition;
+    PDeviceControlInvoker<27, void           (handle_id motorID, float position)>                                                ResetPosition;
+    PDeviceControlInvoker<28, float          (handle_id motorID)>                                                                GetCurrentSpeed;
+    PDeviceControlInvoker<29, bool           (handle_id motorID)>                                                                GetCurrentDirection;
+    PDeviceControlInvoker<30, void           (handle_id motorID, float holdCurrent, float runCurrent, TimeValMillis fadeTime)>   SetCurrent;
+    PDeviceControlInvoker<31, float          (handle_id motorID)>                                                                GetRunCurrent;
+    PDeviceControlInvoker<32, void           (handle_id motorID, float current)>                                                 SetRunCurrent;
+    PDeviceControlInvoker<33, void           (handle_id motorID, float current)>                                                 SetHoldCurrent;
+    PDeviceControlInvoker<34, float          (handle_id motorID)>                                                                GetHoldCurrent;
+    PDeviceControlInvoker<35, TimeValMillis  (handle_id motorID)>                                                                GetCurrentFadeTime;
+    PDeviceControlInvoker<36, void           (handle_id motorID, TimeValMillis fadeTime)>                                        SetCurrentFadeTime;
+    PDeviceControlInvoker<37, void           (handle_id motorID, TimeValMillis time)>                                            SetPowerDownTime;
+    PDeviceControlInvoker<38, void           (handle_id motorID, int32_t steps)>                                                 SetMicrosteps;
+    PDeviceControlInvoker<39, uint32_t       (handle_id motorID)>                                                                GetStepTicks;
+    PDeviceControlInvoker<40, float          (handle_id motorID)>                                                                GetStepTime;
+    PDeviceControlInvoker<41, void           (handle_id motorID, float maxSpeed)>                                                SetMaxStealthChopSpeed;
+    PDeviceControlInvoker<42, void           (handle_id motorID, float minSpeed)>                                                SetMinStallGuardSpeed;
+    PDeviceControlInvoker<43, void           (handle_id motorID, float threshold)>                                               SetStallGuardThreshold;
+    PDeviceControlInvoker<44, float          (handle_id motorID)>                                                                GetStallGuardResult;
+    PDeviceControlInvoker<45, void           (handle_id motorID, bool doHalt)>                                                   SetHaltOnStall;
+    PDeviceControlInvoker<46, void           (handle_id motorID)>                                                                ClearHaltedFlag;
+    PDeviceControlInvoker<47, bool           (handle_id motorID)>                                                                HasHalted;
+    PDeviceControlInvoker<48, void           (uint32_t motorIDMask)>                                                             StartMultipleMotors;
+    PDeviceControlInvoker<49, void           (bool doWait, uint32_t motorIDMask)>                                                SyncStartMultipleMotors;
+    PDeviceControlInvoker<50, void           (uint32_t motorIDMask)>                                                             WaitMultipleMotors;
+    PDeviceControlInvoker<51, void           (handle_id motorID, handle_id waitGroupHandle)>                                     AddMotorToWaitGroup;
 
     template<typename TFirstMotorID>
     static uint32_t MakeMotorsMask(TFirstMotorID firstMotorID)
@@ -155,6 +161,18 @@ public:
     static uint32_t MakeMotorsMask(TFirstMotorID firstMotorID, TMotorIDs... motorIDs)
     {
         return (1 << firstMotorID) | MakeMotorsMask(motorIDs...);
+    }
+
+    template<typename TFirstMotorID, typename... TMotorIDs>
+    void SetSpeedMulti(float speedMMS, float accelerationMMS, TFirstMotorID firstMotorID, TMotorIDs... motorIDs)
+    {
+        SetSpeedMultiMask(MakeMotorsMask(firstMotorID, motorIDs...), speedMMS, accelerationMMS);
+    }
+
+    template<typename TFirstMotorID, typename... TMotorIDs>
+    void StopAtOffsetMulti(float offset, float speed, float acceleration, TFirstMotorID firstMotorID, TMotorIDs... motorIDs)
+    {
+        StopAtOffsetMultiMask(MakeMotorsMask(firstMotorID, motorIDs...), offset, speed, acceleration);
     }
 
     template<typename TFirstMotorID, typename... TMotorIDs>

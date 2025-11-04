@@ -89,7 +89,7 @@ void TMC2209Driver::Setup_trw(
     {
         m_DiagPin.SetDirection(DigitalPinDirection_e::In);
         m_DiagPin.SetInterruptMode(PinInterruptMode_e::RisingEdge);
-        kernel::register_irq_handler(get_peripheral_irq(diagPinID), MotorStallIRQCallback, this);
+        register_irq_handler(get_peripheral_irq(diagPinID), MotorStallIRQCallback, this);
     }
 }
 
@@ -340,16 +340,16 @@ void TMC2209Driver::WriteRegister_trw(uint8_t registerAddress, uint32_t data) co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-kernel::IRQResult TMC2209Driver::HandleMotorStallIRQ()
+IRQResult TMC2209Driver::HandleMotorStallIRQ()
 {
     if (m_DiagPin.GetAndClearInterruptStatus())
     {
         m_HasHalted = true;
         StartStopTimer(false);
         ClearMotion();
-        return kernel::IRQResult::HANDLED;
+        return IRQResult::HANDLED;
     }
-    return kernel::IRQResult::UNHANDLED;
+    return IRQResult::UNHANDLED;
 }
 
 } // namespace kernel

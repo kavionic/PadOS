@@ -24,8 +24,9 @@
 #include <Kernel/Syscalls.h>
 
 using namespace os;
-using namespace kernel;
 
+namespace kernel
+{
 
 extern "C"
 {
@@ -50,3 +51,5 @@ PErrorCode sys_thread_local_delete_key(tls_id key)
 
 
 } // extern "C"
+
+} // namespace kernel

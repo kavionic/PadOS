@@ -68,8 +68,8 @@ I2C_TypeDef* get_i2c_from_id(I2CID id)
 {
     switch (id)
     {
-        case kernel::I2CID::I2C_1:  return I2C1;
-        case kernel::I2CID::I2C_2:  return I2C2;
+        case I2CID::I2C_1:  return I2C1;
+        case I2CID::I2C_2:  return I2C2;
         default: return nullptr;
     }
 }
@@ -79,8 +79,8 @@ IRQn_Type get_i2c_irq(I2CID id)
 {
     switch (id)
     {
-        case kernel::I2CID::I2C_1:  return I2C1_IRQn;
-        case kernel::I2CID::I2C_2:  return I2C2_IRQn;
+        case I2CID::I2C_1:  return I2C1_IRQn;
+        case I2CID::I2C_2:  return I2C2_IRQn;
         default: return IRQn_Type(IRQ_COUNT);
     }
 }
@@ -100,8 +100,8 @@ SPI_TypeDef* get_spi_from_id(SPIID id)
 {
     switch (id)
     {
-        case kernel::SPIID::SPI_1:  return SPI1;
-        case kernel::SPIID::SPI_2:  return SPI2;
+        case SPIID::SPI_1:  return SPI1;
+        case SPIID::SPI_2:  return SPI2;
         default: return nullptr;
     }
 }
@@ -111,8 +111,8 @@ IRQn_Type get_spi_irq(SPIID id)
 {
     switch (id)
     {
-        case kernel::SPIID::SPI_1:  return SPI1_IRQn;
-        case kernel::SPIID::SPI_2:  return SPI2_IRQn;
+        case SPIID::SPI_1:  return SPI1_IRQn;
+        case SPIID::SPI_2:  return SPI2_IRQn;
         default: return IRQn_Type(IRQ_COUNT);
     }
 }

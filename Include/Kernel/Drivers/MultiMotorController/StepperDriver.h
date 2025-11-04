@@ -72,6 +72,7 @@ public:
     inline bool     GetWakeupOnFullStep() const     { return m_WakeupOnFullStep; }
 
     void            SetSpeed(float speedMMS, float accelerationMMS);
+    void            StopAtOffset(float offset, float speed, float acceleration);
     void            StopAtPos(float position, float speed, float acceleration);
     void            SyncMove(float distanceMM, float speedMMS, float accelerationMMS);
     void            QueueMotion(float distanceMM, float speedMMS, float accelerationMMS);

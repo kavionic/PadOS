@@ -18,10 +18,7 @@
 
 #include "System/Platform.h"
 #include "SDRAM.h"
-//#include "SystemSetup.h"
-//#include "Kernel/SpinTimer.h"
 
-//using namespace kernel;
 
 void SetupSDRAM(uint32_t configReg, uint32_t mode, uint32_t block1Bit, uint32_t refreshNS, uint32_t clkFrequency)
 {

@@ -23,7 +23,10 @@
 #include <Kernel/VFS/KFilesystem.h>
 #include <System/ExceptionHandling.h>
 
-bool kernel::KFileNode::LastReferenceGone()
+namespace kernel
+{
+
+bool KFileNode::LastReferenceGone()
 {
     try
     {
@@ -34,7 +37,7 @@ bool kernel::KFileNode::LastReferenceGone()
     return KFileTableNode::LastReferenceGone();
 }
 
-bool kernel::KDirectoryNode::LastReferenceGone()
+bool KDirectoryNode::LastReferenceGone()
 {
     try
     {
@@ -47,7 +50,7 @@ bool kernel::KDirectoryNode::LastReferenceGone()
     return KFileTableNode::LastReferenceGone();
 }
 
-size_t kernel::KDirectoryNode::ReadDirectory(dirent_t* entry, size_t bufSize)
+size_t KDirectoryNode::ReadDirectory(dirent_t* entry, size_t bufSize)
 {
     Ptr<KINode> inode = GetINode();
     if (inode->m_FileOps == nullptr) {
@@ -56,7 +59,7 @@ size_t kernel::KDirectoryNode::ReadDirectory(dirent_t* entry, size_t bufSize)
     return inode->m_FileOps->ReadDirectory(inode->m_Volume, ptr_tmp_cast(this), entry, bufSize);
 }
 
-void kernel::KDirectoryNode::RewindDirectory()
+void KDirectoryNode::RewindDirectory()
 {
     Ptr<KINode> inode = GetINode();
     if (inode->m_FileOps == nullptr) {
@@ -64,3 +67,5 @@ void kernel::KDirectoryNode::RewindDirectory()
     }
     inode->m_FileOps->RewindDirectory(inode->m_Volume, ptr_tmp_cast(this));
 }
+
+} // namespace kernel

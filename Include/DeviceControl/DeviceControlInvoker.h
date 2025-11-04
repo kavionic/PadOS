@@ -38,13 +38,13 @@ private:
 };
 
 template<typename TDefinition>
-class PDeviceControlDefInvoker : public PRPCInvoker<typename TDefinition::Signature>
+class PDeviceControlDefInvoker : public PRPCInvoker<TDefinition::IsConst, typename TDefinition::Signature>
 {
 public:
     using Definition = TDefinition;
 
     PDeviceControlDefInvoker(const PDeviceControlInterface& dcInterface) :
-        PRPCInvoker<typename TDefinition::Signature>(
+        PRPCInvoker<TDefinition::IsConst, typename TDefinition::Signature>(
             [&dcInterface, handlerID = TDefinition::HandlerID](const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
             {
                 const PErrorCode result = device_control(dcInterface.GetDeviceFD(), handlerID, inData, inDataLength, outData, outDataLength);
@@ -57,13 +57,24 @@ public:
         ) {}
 };
 
+//template<int THandlerID, bool TIsConst, typename TReturnType, typename... TArgTypes>
+//class PDeviceControlInvoker2 : public PDeviceControlDefInvoker<PRPCDefinition<THandlerID, TIsConst, TReturnType, TArgTypes...>>
+//{
+//public:
+//    PDeviceControlInvoker2(const PDeviceControlInterface& dcInterface) : PDeviceControlDefInvoker<PRPCDefinition<THandlerID, TIsConst, TReturnType, TArgTypes...>>(dcInterface) {}
+//};
+
 template<int THandlerID, typename TReturnType, typename... TArgTypes>
-class PDeviceControlInvoker : public PDeviceControlDefInvoker<PRPCDefinition<THandlerID, TReturnType, TArgTypes...>>
+class PDeviceControlInvoker // : public PDeviceControlDefInvoker<PRPCDefinition<THandlerID, TIsConst, TReturnType, TArgTypes...>>
 {
 public:
-    PDeviceControlInvoker(const PDeviceControlInterface& dcInterface) : PDeviceControlDefInvoker<PRPCDefinition<THandlerID, TReturnType, TArgTypes...>>(dcInterface) {}
+//    PDeviceControlInvoker(const PDeviceControlInterface& dcInterface) : PDeviceControlDefInvoker<PRPCDefinition<THandlerID, TIsConst, TReturnType, TArgTypes...>>(dcInterface) {}
 };
 
 template<int THandlerID, typename TReturnType, typename... TArgTypes>
-class PDeviceControlInvoker<THandlerID, TReturnType(TArgTypes...)> : public PDeviceControlInvoker<THandlerID, TReturnType, TArgTypes...>
+class PDeviceControlInvoker<THandlerID, TReturnType(TArgTypes...)> : public PDeviceControlDefInvoker< PRPCDefinition<THandlerID, false, TReturnType, TArgTypes...>>
+{};
+
+template<int THandlerID, typename TReturnType, typename... TArgTypes>
+class PDeviceControlInvoker<THandlerID, TReturnType(TArgTypes...) const> : public PDeviceControlDefInvoker<PRPCDefinition<THandlerID, true, TReturnType, TArgTypes...>>
 {};

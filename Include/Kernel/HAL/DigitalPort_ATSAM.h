@@ -58,7 +58,7 @@ static Pio* DigitalPortsRegisters[] = {
     };
 
 
-enum class DigitalPinPeripheralID : int
+enum class DigitalPinPeripheralID : int32_t
 {
     None = -1,
     A = 0,

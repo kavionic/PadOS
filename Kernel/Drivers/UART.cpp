@@ -21,7 +21,8 @@
 #include "Kernel/HAL/SAME70System.h"
 #include "Kernel/HAL/DigitalPort.h"
 
-using namespace kernel;
+namespace kernel
+{
 
 static UART* g_Handlers[int(UART::Channels::ChannelCount)];
 
@@ -460,3 +461,4 @@ void UART::HandleIRQ()
     }        */
 }    
 
+} // namespace kernel

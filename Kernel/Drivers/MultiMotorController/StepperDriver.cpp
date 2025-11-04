@@ -99,7 +99,7 @@ void StepperDriver::Setup_trw(HWTimerID timerID, uint32_t timerClkFrequency, Pin
     }
 
     NVIC_ClearPendingIRQ(irq);
-    kernel::register_irq_handler(irq, IRQCallback, this);
+    register_irq_handler(irq, IRQCallback, this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -239,6 +239,15 @@ void StepperDriver::SetSpeed(float speed, float acceleration)
             node.m_TargetSpeed = 0;
         }
     } CRITICAL_END;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void StepperDriver::StopAtOffset(float offset, float speed, float acceleration)
+{
+    StopAtPos(GetPosition() + offset, speed, acceleration);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -542,7 +551,7 @@ void StepperDriver::SetTimerSpeed(float speed)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-kernel::IRQResult StepperDriver::IRQCallback(IRQn_Type irq, void* userData)
+IRQResult StepperDriver::IRQCallback(IRQn_Type irq, void* userData)
 {
     return static_cast<StepperDriver*>(userData)->HandleIRQ();
 }
@@ -551,7 +560,7 @@ kernel::IRQResult StepperDriver::IRQCallback(IRQn_Type irq, void* userData)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-kernel::IRQResult StepperDriver::HandleIRQ()
+IRQResult StepperDriver::HandleIRQ()
 {
     if (IsInterruptFlagged())
     {
@@ -635,9 +644,9 @@ kernel::IRQResult StepperDriver::HandleIRQ()
                 }
             }
         }
-        return kernel::IRQResult::HANDLED;
+        return IRQResult::HANDLED;
     }
-    return kernel::IRQResult::UNHANDLED;
+    return IRQResult::UNHANDLED;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

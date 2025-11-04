@@ -22,7 +22,8 @@
 #include "Kernel/VFS/KDeviceNode.h"
 #include "Kernel/VFS/KFileHandle.h"
 
-using namespace kernel;
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -58,3 +59,5 @@ status_t KDeviceNode::Close(Ptr<KFileNode> file)
     set_last_error(ENOSYS);
     return -1;
 }
+
+} // namespace kernel

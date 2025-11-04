@@ -17,9 +17,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 26.04.2022 21:00
 
+#include <algorithm>
 
 #include <Kernel/HAL/STM32/QSPI_STM32_IS25LP512M.h>
 #include <Kernel/SpinTimer.h>
+
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -32,11 +36,11 @@ bool QSPI_STM32_IS25LP512M::Setup(uint32_t spiFrequency, uint32_t addressBits, P
     }
     for (;;)
     {
-        kernel::SpinTimer::SleepuS(500);
+        SpinTimer::SleepuS(500);
         SendCommand(QSPI_CMD_RSTEN, QSPI_FunctionalMode::IndirectWrite, QSPI_InstrMode::Instr1Line);
         SendCommand(QSPI_CMD_RST, QSPI_FunctionalMode::IndirectWrite, QSPI_InstrMode::Instr1Line);
 
-        kernel::SpinTimer::SleepuS(500);
+        SpinTimer::SleepuS(500);
 
         // Set output drive strength.
         SendCommand(QSPI_CMD_WREN, QSPI_FunctionalMode::IndirectWrite, QSPI_InstrMode::Instr1Line);
@@ -311,3 +315,5 @@ uint32_t QSPI_STM32_IS25LP512M::ReadProductID(bool quadMode)
 
     return (manufacturerID << 16) | (memoryType << 8) | capacity;
 }
+
+} // namespace kernel

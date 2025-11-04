@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.07.2022 20:30
 
+#include <Utils/Utils.h>
 #include <Kernel/KTime.h>
 #include <Kernel/HAL/STM32/USBHost_STM32.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>

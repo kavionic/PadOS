@@ -1,10 +1,30 @@
+// This file is part of PadOS.
+//
+// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+//
+// PadOS is free software : you can redistribute it and / or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PadOS is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with PadOS. If not, see <http://www.gnu.org/licenses/>.
+///////////////////////////////////////////////////////////////////////////////
+
 
 #include <Kernel/Kernel.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/Syscalls.h>
 #include <Utils/Utils.h>
 
-using namespace kernel;
+
+namespace kernel
+{
 
 PErrorCode sys_unimplemented() { return PErrorCode::NotImplemented; }
 
@@ -143,7 +163,17 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(get_total_irq_time_ns),
     SYS_PTR(duplicate_handle),
     SYS_PTR(delete_handle),
-    SYS_PTR(is_debugger_attached)
+    SYS_PTR(is_debugger_attached),
+    SYS_PTR(digital_pin_set_direction),
+    SYS_PTR(digital_pin_set_drive_strength),
+    SYS_PTR(digital_pin_set_pull_mode),
+    SYS_PTR(digital_pin_set_peripheral_mux),
+    SYS_PTR(digital_pin_read),
+    SYS_PTR(digital_pin_write),
+    SYS_PTR(write_backup_register),
+    SYS_PTR(read_backup_register),
+    SYS_PTR(beep_seconds)
+
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);
@@ -213,3 +243,6 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
         "b      SetupSystemCall\n"
     );
 }
+
+
+} // namespace kernel

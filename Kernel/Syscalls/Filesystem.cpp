@@ -28,8 +28,9 @@
 #include <Kernel/Syscalls.h>
 
 using namespace os;
-using namespace kernel;
 
+namespace kernel
+{
 
 extern "C"
 {
@@ -500,3 +501,5 @@ PErrorCode sys_mount(const char* devicePath, const char* directoryPath, const ch
 }
 
 } // extern "C"
+
+} // namespace kernel

@@ -23,29 +23,32 @@
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/KMutex.h>
 
-class SerialDebugStreamINode : public kernel::KINode
+namespace kernel
+{
+
+class SerialDebugStreamINode : public KINode
 {
 public:
-	SerialDebugStreamINode(kernel::KFilesystemFileOps* fileOps);
+	SerialDebugStreamINode(KFilesystemFileOps* fileOps);
 
-    size_t Read(Ptr<kernel::KFileNode> file, void* buffer, size_t length);
-    size_t Write(Ptr<kernel::KFileNode> file, const void* buffer, size_t length);
+    size_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
+    size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
 
 private:
-	kernel::KMutex m_Mutex;
+	KMutex m_Mutex;
 };
 
 
-class SerialDebugStreamDriver : public PtrTarget, public kernel::KFilesystemFileOps
+class SerialDebugStreamDriver : public PtrTarget, public KFilesystemFileOps
 {
 public:
 	SerialDebugStreamDriver() {}
 
     void Setup(const char* devicePath);
 
-    virtual size_t Read(Ptr<kernel::KFileNode> file, void* buffer, size_t length, off64_t position) override;
-    virtual size_t Write(Ptr<kernel::KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    virtual void   DeviceControl(Ptr<kernel::KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
     SerialDebugStreamDriver(const SerialDebugStreamDriver &other) = delete;
@@ -53,3 +56,4 @@ private:
 };
 
 
+} // namespace kernel

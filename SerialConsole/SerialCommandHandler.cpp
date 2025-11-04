@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 20.01.2020
 
+#include <utility>
 #include <algorithm>
 #include <stdio.h>
 #include <sys/unistd.h>
@@ -35,7 +36,6 @@
 #include <Utils/HashCalculator.h>
 
 using namespace os;
-using namespace kernel;
 
 static constexpr size_t MAX_MESSAGE_QUEUE_SIZE = 1024 * 64;
 
@@ -54,6 +54,7 @@ SerialCommandHandler::SerialCommandHandler()
     , m_LogMutex("sch_log_mutes", PEMutexRecursionMode_RaiseError)
     , m_ReplyCondition("sch_reply_cond")
     , m_QueueCondition("sch_queue_cond")
+    , m_WaitGroup("sch_wait_group")
     , m_MessageQueue(*new CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * 16, void>)
 {
     s_Instance = this;
@@ -82,13 +83,16 @@ SerialCommandHandler& SerialCommandHandler::Get()
 
 bool SerialCommandHandler::OpenSerialPort()
 {
-    if (m_SerialPort == -1)
+    if (m_SerialPortIn == -1)
     {
-        m_SerialPort = open(m_SerialPortPath.c_str(), O_RDWR | O_DIRECT);
-        if (m_SerialPort != -1)
+        m_SerialPortIn = open(m_SerialPortPath.c_str(), O_RDONLY | O_NONBLOCK);
+        if (m_SerialPortIn != -1)
         {
-            USARTIOCTL_SetWriteTimeout(m_SerialPort, TimeValNanos::FromMilliseconds(100));
-            USARTIOCTL_SetBaudrate(m_SerialPort, m_Baudrate);
+            USARTIOCTL_SetBaudrate(m_SerialPortIn, m_Baudrate);
+
+            m_WaitGroup.AddFile(m_SerialPortIn);
+            m_SerialPortOut = reopen_file(m_SerialPortIn, O_WRONLY | O_DIRECT);
+            USARTIOCTL_SetWriteTimeout(m_SerialPortOut, TimeValNanos::FromMilliseconds(100));
             return true;
         }
         return false;
@@ -102,10 +106,13 @@ bool SerialCommandHandler::OpenSerialPort()
 
 void SerialCommandHandler::CloseSerialPort()
 {
-    if (m_SerialPort != -1)
+    if (m_SerialPortIn != -1)
     {
-        close(m_SerialPort);
-        m_SerialPort = -1;
+        m_WaitGroup.RemoveFile(m_SerialPortIn);
+        close(m_SerialPortIn);
+        close(m_SerialPortOut);
+        m_SerialPortIn = -1;
+        m_SerialPortOut = -1;
     }
 }
 
@@ -118,7 +125,7 @@ void* SerialCommandHandler::Run()
     SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer);
     for (;;)
     {
-        if (m_SerialPort == -1)
+        if (m_SerialPortIn == -1)
         {
             if (!OpenSerialPort())
             {
@@ -126,9 +133,16 @@ void* SerialCommandHandler::Run()
                 continue;
             }
         }
-        if (!ReadPacket(packetBuffer, SerialProtocol::MAX_MESSAGE_SIZE)) {
-            continue;
+        m_WaitGroup.Wait();
+        Tick();
+        try
+        {
+            if (!ReadPacket()) {
+                continue;
+            }
         }
+        PERROR_CATCH([this](PErrorCode error) { m_InMessageBytes = 0; CloseSerialPort(); });
+
         CRITICAL_BEGIN(m_QueueMutex)
         {
             if (packetBuffer->Command == SerialProtocol::Commands::MessageReply)
@@ -160,9 +174,9 @@ void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, Str
 
     m_DeviceType = deviceType;
 
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategorySerialHandler, kernel::KLogSeverity::WARNING);
+    PREGISTER_LOG_CATEGORY(LogCategorySerialHandler, PLogSeverity::WARNING);
 
-//    kernel::kernel_log_set_category_log_level(LogCategorySerialHandler, kernel::KLogSeverity::INFO_HIGH_VOL);
+//    kernel::kernel_log_set_category_log_level(LogCategorySerialHandler, PLogSeverity::INFO_HIGH_VOL);
 
     RegisterPacketHandler<SerialProtocol::ProbeDevice>(SerialProtocol::Commands::ProbeDevice, this, &SerialCommandHandler::HandleProbeDevice);
     RegisterPacketHandler<SerialProtocol::SetSystemTime>(SerialProtocol::Commands::SetSystemTime, this, &SerialCommandHandler::HandleSetSystemTime);
@@ -178,8 +192,8 @@ void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, Str
 
 void SerialCommandHandler::Execute()
 {
-    kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Starting serial command handler\n");
-    kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Largest packet size: %u\n", m_LargestCommandPacket);
+    p_log(LogCategorySerialHandler, PLogSeverity::INFO_LOW_VOL, "Starting serial command handler\n");
+    p_log(LogCategorySerialHandler, PLogSeverity::INFO_LOW_VOL, "Largest packet size: %u\n", m_LargestCommandPacket);
 
     for (;;)
     {
@@ -210,7 +224,7 @@ void SerialCommandHandler::Execute()
             }
             else
             {
-                kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Unknown serial command %d\n", int(packetBuffer->Command));
+                p_log(LogCategorySerialHandler, PLogSeverity::WARNING, "Unknown serial command %d\n", int(packetBuffer->Command));
             }
         }
         else
@@ -225,28 +239,6 @@ void SerialCommandHandler::Execute()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t SerialCommandHandler::SerialRead(void* buffer, size_t length)
-{
-    uint8_t* dst = static_cast<uint8_t*>(buffer);
-    ssize_t bytesRead = 0;
-    while (bytesRead < length)
-    {
-        const ssize_t result = read(m_SerialPort, dst, length - bytesRead);
-        if (result <= 0 && get_last_error() != EINTR)
-        {
-            CloseSerialPort();
-            return result;
-        }
-        bytesRead += result;
-        dst += result;
-    }
-    return bytesRead;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 ssize_t SerialCommandHandler::SerialWrite(const void* buffer, size_t length)
 {
     kassert(m_TransmitMutex.IsLocked());
@@ -255,7 +247,7 @@ ssize_t SerialCommandHandler::SerialWrite(const void* buffer, size_t length)
     ssize_t bytesWritten = 0;
     while (bytesWritten < length)
     {
-        const ssize_t result = write(m_SerialPort, src, length - bytesWritten);
+        const ssize_t result = write(m_SerialPortOut, src, length - bytesWritten);
         if (result <= 0)
         {
             if (get_last_error() == EINTR) {
@@ -274,69 +266,68 @@ ssize_t SerialCommandHandler::SerialWrite(const void* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength)
+bool SerialCommandHandler::ReadPacket()
 {
     for (;;)
     {
-        size_t size = sizeof(SerialProtocol::PacketHeader::Magic);
-
-        uint8_t magicNumber;
-        // Read and validate magic number.
-        ssize_t length = read(m_SerialPort, &magicNumber, 1);
-        if (length != 1)
+        if (m_InMessageBytes == 0)
         {
-            if (length != 0) {
-                CloseSerialPort();
-                snooze_ms(100);
+            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[0], 1);
+            if (length == 0 || m_InMessageBuffer[0] != SerialProtocol::PacketHeader::MAGIC1) {
+                return false;
             }
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Failed to read serial packet magic number 1\n");
-            return false;
+            m_InMessageBytes++;
         }
-        else if (magicNumber != SerialProtocol::PacketHeader::MAGIC1)
+        if (m_InMessageBytes == 1)
         {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_HIGH_VOL, "Received packet with invalid magic number 1 %02x\n", magicNumber);
-            return false;
-        }
-        if (SerialRead(&magicNumber, 1) != 1)
-        {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Failed to read serial packet magic number 2\n");
-            return false;
-        }
-        else if (magicNumber != SerialProtocol::PacketHeader::MAGIC2)
-        {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_LOW_VOL, "Received packet with invalid magic number 2 %02x\n", magicNumber);
-            return false;
-        }
-        packetBuffer->Magic = SerialProtocol::PacketHeader::MAGIC;
-        // Read rest of header.
-        size = sizeof(SerialProtocol::PacketHeader) - sizeof(SerialProtocol::PacketHeader::Magic);
+            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[1], 1);
 
-        if (SerialRead(reinterpret_cast<uint8_t*>(packetBuffer) + sizeof(SerialProtocol::PacketHeader::Magic), size) != size)
-        {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Failed to read serial packet header\n");
-            return false;
+            if (length == 0) {
+                return false;
+            }
+            if (m_InMessageBuffer[1] != SerialProtocol::PacketHeader::MAGIC2)
+            {
+                m_InMessageBytes = 0;
+                return false;
+            }
+            m_InMessageBytes++;
         }
+        if (m_InMessageBytes < sizeof(SerialProtocol::PacketHeader))
+        {
+            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[m_InMessageBytes], sizeof(SerialProtocol::PacketHeader) - m_InMessageBytes);
+            if (length == 0) {
+                return false;
+            }
+            m_InMessageBytes += length;
+            if (m_InMessageBytes < sizeof(SerialProtocol::PacketHeader)) {
+                continue;
+            }
+        }
+        // *** PACKET HEADER READ ***
+
+        SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer);
 
         if (packetBuffer->PackageLength > SerialProtocol::MAX_MESSAGE_SIZE)
         {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Packet to large. Cmd=%d, Size=%d\n", int(packetBuffer->Command), int(int(packetBuffer->PackageLength)));
-            return false;
+            p_log(LogCategorySerialHandler, PLogSeverity::WARNING, "Packet to large. Cmd=%d, Size=%d\n", packetBuffer->Command, packetBuffer->PackageLength);
+            m_InMessageBytes = 0;
+            continue;
         }
 
-        // Validate message size.
-        if (packetBuffer->PackageLength > maxLength)
+        if (m_InMessageBytes < packetBuffer->PackageLength)
         {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Packet to large. Cmd=%d, Size=%d\n", int(packetBuffer->Command), int(int(packetBuffer->PackageLength)));
-            return false;
+            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[m_InMessageBytes], packetBuffer->PackageLength - m_InMessageBytes);
+            if (length == 0) {
+                return false;
+            }
+            m_InMessageBytes += length;
+            if (m_InMessageBytes < packetBuffer->PackageLength) {
+                continue;
+            }
         }
+        // *** FULL PACKET READ ***
 
-        // Read message body.
-        size_t bodyLength = packetBuffer->PackageLength - sizeof(SerialProtocol::PacketHeader);
-        if (SerialRead(packetBuffer + 1, bodyLength) != bodyLength)
-        {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Failed to read serial packet body\n");
-            return false;
-        }
+        m_InMessageBytes = 0;
 
         HashCalculator<HashAlgorithm::CRC32> crcCalc;
 
@@ -347,11 +338,11 @@ bool SerialCommandHandler::ReadPacket(SerialProtocol::PacketHeader* packetBuffer
 
         if (calculatedCRC != receivedCRC)
         {
-            kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "Invalid CRC32. Got %08x, expected %08x\n", receivedCRC, calculatedCRC);
-            return false;
+            p_log(LogCategorySerialHandler, PLogSeverity::WARNING, "Invalid CRC32. Got %08x, expected %08x\n", receivedCRC, calculatedCRC);
+            continue;
         }
 
-        kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::INFO_HIGH_VOL, "Received command %d\n", int(packetBuffer->Command));
+        p_log(LogCategorySerialHandler, PLogSeverity::INFO_HIGH_VOL, "Received command %d\n", int(packetBuffer->Command));
 
         return true;
     }
@@ -382,7 +373,7 @@ void SerialCommandHandler::HandleSetSystemTime(const SerialProtocol::SetSystemTi
 
 bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize)
 {
-    if (GetThreadID() == -1 || m_SerialPort == -1)
+    if (GetThreadID() == -1 || m_SerialPortOut == -1)
     {
         return false;
     }
@@ -419,7 +410,7 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
             return true;
         }
     }
-//    kernel::kernel_log(LogCategorySerialHandler, kernel::KLogSeverity::WARNING, "ERROR: transmitting %ld failed.\n", header->Command);
+//    p_log(LogCategorySerialHandler, PLogSeverity::WARNING, "ERROR: transmitting %ld failed.\n", header->Command);
     return false;
 }
 
@@ -438,8 +429,6 @@ void SerialCommandHandler::SendSerialPacket(SerialProtocol::PacketHeader* msg)
 
 ssize_t SerialCommandHandler::WriteLogMessage(const void* buffer, size_t length)
 {
-    kassert(!is_in_isr());
-
     kassert(!m_TransmitMutex.IsLocked());
     kassert(!m_LogMutex.IsLocked());
     CRITICAL_SCOPE(m_LogMutex);
@@ -470,7 +459,7 @@ bool SerialCommandHandler::FlushLogBuffer()
     if (m_LogBuffer.GetLength() == 0) {
         return false;
     }
-    if (m_SerialPort == -1) {
+    if (m_SerialPortOut == -1) {
         return false;
     }
 
@@ -481,7 +470,7 @@ bool SerialCommandHandler::FlushLogBuffer()
     kassert(!m_TransmitMutex.IsLocked());
     CRITICAL_SCOPE(m_TransmitMutex);
     SerialWrite(&header, sizeof(header));
-    while (length > 0 && m_SerialPort != -1)
+    while (length > 0 && m_SerialPortOut != -1)
     {
         uint8_t buffer[128];
         ssize_t curLength = 0;

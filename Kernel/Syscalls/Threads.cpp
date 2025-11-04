@@ -31,7 +31,9 @@
 #include <Kernel/Syscalls.h>
 
 using namespace os;
-using namespace kernel;
+
+namespace kernel
+{
 
 extern "C"
 {
@@ -193,3 +195,4 @@ PErrorCode sys_yield()
 
 } // extern "C"
 
+} // namespace kernel

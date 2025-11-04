@@ -514,10 +514,10 @@ bool ADC_STM32::ConfigureWatchdog23(ADC_WatchdogID watchdogID, uint32_t channelM
 {
     switch (watchdogID)
     {
-        case kernel::ADC_WatchdogID::WD2:
+        case ADC_WatchdogID::WD2:
             m_ADC->AWD2CR = channelMask << ADC_AWD2CR_AWD2CH_Pos;
             return true;
-        case kernel::ADC_WatchdogID::WD3:
+        case ADC_WatchdogID::WD3:
             m_ADC->AWD3CR = channelMask << ADC_AWD3CR_AWD3CH_Pos;
             return true;
         default:
@@ -533,17 +533,17 @@ bool ADC_STM32::SetWatchdogThreshold(ADC_WatchdogID watchdogID, uint32_t lowThre
 {
     switch (watchdogID)
     {
-        case kernel::ADC_WatchdogID::WD1:
+        case ADC_WatchdogID::WD1:
             m_ADC->LTR1 = lowThreshold;
             m_ADC->HTR1 = highThreshold;
             if (clearAlarm) m_ADC->ISR |= ADC_ISR_AWD1;
             return true;
-        case kernel::ADC_WatchdogID::WD2:
+        case ADC_WatchdogID::WD2:
             m_ADC->LTR2 = lowThreshold;
             m_ADC->HTR2 = highThreshold;
             if (clearAlarm) m_ADC->ISR |= ADC_ISR_AWD2;
             return true;
-        case kernel::ADC_WatchdogID::WD3:
+        case ADC_WatchdogID::WD3:
             m_ADC->LTR3 = lowThreshold;
             m_ADC->HTR3 = highThreshold;
             if (clearAlarm) m_ADC->ISR |= ADC_ISR_AWD3;
@@ -564,9 +564,9 @@ bool ADC_STM32::EnableWatchdog(ADC_WatchdogID watchdogID, bool enable, bool clea
 
     switch (watchdogID)
     {
-        case kernel::ADC_WatchdogID::WD1: irqMask = ADC_ISR_AWD1; enableMask = ADC_IER_AWD1IE; break;
-        case kernel::ADC_WatchdogID::WD2: irqMask = ADC_ISR_AWD2; enableMask = ADC_IER_AWD2IE; break;
-        case kernel::ADC_WatchdogID::WD3: irqMask = ADC_ISR_AWD3; enableMask = ADC_IER_AWD3IE; break;
+        case ADC_WatchdogID::WD1: irqMask = ADC_ISR_AWD1; enableMask = ADC_IER_AWD1IE; break;
+        case ADC_WatchdogID::WD2: irqMask = ADC_ISR_AWD2; enableMask = ADC_IER_AWD2IE; break;
+        case ADC_WatchdogID::WD3: irqMask = ADC_ISR_AWD3; enableMask = ADC_IER_AWD3IE; break;
         default: return false;
     }
     if (enable && clearAlarm) {
@@ -590,9 +590,9 @@ bool ADC_STM32::IsWatchdogEnabled(ADC_WatchdogID watchdogID) const
 
     switch (watchdogID)
     {
-        case kernel::ADC_WatchdogID::WD1: enableMask = ADC_IER_AWD1IE; break;
-        case kernel::ADC_WatchdogID::WD2: enableMask = ADC_IER_AWD2IE; break;
-        case kernel::ADC_WatchdogID::WD3: enableMask = ADC_IER_AWD3IE; break;
+        case ADC_WatchdogID::WD1: enableMask = ADC_IER_AWD1IE; break;
+        case ADC_WatchdogID::WD2: enableMask = ADC_IER_AWD2IE; break;
+        case ADC_WatchdogID::WD3: enableMask = ADC_IER_AWD3IE; break;
         default: return false;
     }
     return (m_ADC->IER & enableMask) != 0;

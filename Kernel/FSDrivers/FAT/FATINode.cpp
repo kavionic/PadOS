@@ -97,7 +97,7 @@ bool FATINode::Write()
 
     Ptr<FATVolume> volume = ptr_static_cast<FATVolume>(m_Volume);
     if ((m_StartCluster != 0) && !volume->IsDataCluster(m_StartCluster)) {
-        kernel_log(FATFilesystem::LOGC_FS, KLogSeverity::CRITICAL, "FATINode::Write() called on invalid cluster (%lx)\n", m_StartCluster);
+        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::CRITICAL, "FATINode::Write() called on invalid cluster (%lx)\n", m_StartCluster);
         set_last_error(EINVAL);
         return false;
     }

@@ -24,7 +24,9 @@
 #include <Kernel/KMutex.h>
 
 using namespace os;
-using namespace kernel;
+
+namespace kernel
+{
 
 extern "C"
 {
@@ -181,3 +183,5 @@ PErrorCode sys_mutex_islocked(sem_id handle)
 }
 
 } // extern "C"
+
+} // namespace kernel

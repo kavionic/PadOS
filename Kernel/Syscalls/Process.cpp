@@ -31,10 +31,12 @@
 
 
 using namespace os;
-using namespace kernel;
 
 extern unsigned char* _sheap;
 extern unsigned char* _eheap;
+
+namespace kernel
+{
 
 #define HEAP_START ((uint8_t*)&_sheap)
 #define HEAP_END   ((uint8_t*)&_eheap)
@@ -300,3 +302,5 @@ PErrorCode sys_reboot(BootMode bootMode)
 }
 
 } // extern "C"
+
+} // namespace kernel

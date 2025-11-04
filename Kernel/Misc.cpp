@@ -17,23 +17,29 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 14.05.2022 23:00
 
+#include <sys/pados_syscalls.h>
 #include <Kernel/Misc.h>
 #include <Kernel/HAL/STM32/PiezoBuzzer_STM32.h>
 
-namespace os
+namespace kernel
 {
 
-static kernel::PiezoBuzzer_STM32 g_BuzzerDriver;
+static PiezoBuzzer_STM32 g_BuzzerDriver;
 
 bool setup_beeper(HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin)
 {
     return g_BuzzerDriver.Setup(timerID, timerClkFrequency, beeperPin);
 }
 
-void beep(float duration)
+void kbeep_seconds(float duration)
 {
     g_BuzzerDriver.Beep(duration);
 }
+
+} // namespace kernel
+
+namespace os
+{
 
 void beep(BeepLength length)
 {
@@ -45,7 +51,7 @@ void beep(BeepLength length)
         case BeepLength::Long:      duration = 1.0f;   break;
         case BeepLength::VeryLong:  duration = 3.0f;   break;
     }
-    g_BuzzerDriver.Beep(duration);
+    beep_seconds(duration);
 }
 
 } // namespace os

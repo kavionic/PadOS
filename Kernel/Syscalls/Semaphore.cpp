@@ -24,8 +24,10 @@
 #include <Kernel/KSemaphore.h>
 #include <Kernel/KMutex.h>
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 static KMutex gk_PublicSemaphoresMutex("global_sema_mutex", PEMutexRecursionMode_RaiseError);
 static std::map<String, Ptr<KSemaphore>> gk_PublicSemaphores;
@@ -206,3 +208,5 @@ PErrorCode sys_semaphore_get_count(sem_id handle, int* outCount)
 }
 
 } // extern "C"
+
+} // namespace kernel

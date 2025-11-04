@@ -21,6 +21,9 @@
 
 #include <Kernel/HAL/STM32/QSPI_STM32.h>
 
+namespace kernel
+{
+
 static constexpr uint8_t QSPI_CMD_WRDI  = 0x04; // Write disable.
 static constexpr uint8_t QSPI_CMD_WREN  = 0x06; // Write enable.
 static constexpr uint8_t QSPI_CMD_RDSR  = 0x05; // Read Status Register.
@@ -164,3 +167,4 @@ public:
 };
 
 
+} // namespace kernel

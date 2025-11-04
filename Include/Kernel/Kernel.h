@@ -27,11 +27,14 @@
 #include <vector>
 #include <atomic>
 #include <cstdint>
+#include <print>
+#include <sys/pados_error_codes.h>
 
 #include <Ptr/PtrTarget.h>
 #include <Ptr/Ptr.h>
 #include <Utils/String.h>
 #include <System/TimeValue.h>
+#include <Kernel/HAL/DigitalPort.h>
 
 
 #define DCACHE_LINE_SIZE __SCB_DCACHE_LINE_SIZE
@@ -42,6 +45,16 @@ class DigitalPin;
 extern "C" size_t get_heap_size();
 extern "C" size_t get_max_heap_size();
 
+enum class PLogSeverity
+{
+    INFO_HIGH_VOL,
+    INFO_LOW_VOL,
+    WARNING,
+    CRITICAL,
+    ERROR,
+    FATAL,
+    NONE
+};
 
 namespace kernel
 {
@@ -62,30 +75,20 @@ template<typename ...ARGS> int kprintf(const char* fmt, ARGS&&... args) { return
 #define DEFINE_KERNEL_LOG_CATEGORY(CATEGORY)   static constexpr uint32_t CATEGORY = os::String::hash_string_literal(#CATEGORY, sizeof(#CATEGORY) - 1); static constexpr const char* CATEGORY##_Name = #CATEGORY
 #define GET_KERNEL_LOG_CATEGORY_NAME(CATEGORY) CATEGORY##_Name
 #define REGISTER_KERNEL_LOG_CATEGORY(CATEGORY, INITIAL_LEVEL) kernel_log_register_category(CATEGORY, #CATEGORY, INITIAL_LEVEL)
+#define PREGISTER_LOG_CATEGORY(CATEGORY, INITIAL_LEVEL) kernel::kernel_log_register_category(CATEGORY, #CATEGORY, INITIAL_LEVEL)
 
 DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_General);
 DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_VFS);
 DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache);
 DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler);
 
-enum class KLogSeverity
-{
-    INFO_HIGH_VOL,
-    INFO_LOW_VOL,
-    WARNING,
-    CRITICAL,
-    ERROR,
-    FATAL,
-    NONE
-};
 
-
-bool kernel_log_register_category(uint32_t categoryHash, const char* categoryName, KLogSeverity initialLogLevel);
-void kernel_log_set_category_log_level(uint32_t categoryHash, KLogSeverity logLevel);
-bool kernel_log_is_category_active(uint32_t categoryHash, KLogSeverity logLevel);
+bool kernel_log_register_category(uint32_t categoryHash, const char* categoryName, PLogSeverity initialLogLevel);
+void kernel_log_set_category_log_level(uint32_t categoryHash, PLogSeverity logLevel);
+bool kernel_log_is_category_active(uint32_t categoryHash, PLogSeverity logLevel);
 
 template<typename ...ARGS>
-void kernel_log(uint32_t category, KLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel_log_is_category_active(category, severity)) kprintf(fmt, args...); }
+void kernel_log(uint32_t category, PLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel_log_is_category_active(category, severity)) kprintf(fmt, args...); }
 
 
 void panic(const char* message); // __attribute__((__noreturn__));
@@ -98,6 +101,17 @@ void panic(const char* fmt, FIRSTARG&& firstArg, ARGS&&... args)
 
 bool is_in_isr();
 bool kis_debugger_attached();
+
+PErrorCode kdigital_pin_set_direction(DigitalPinID pinID, DigitalPinDirection_e dir);
+PErrorCode kdigital_pin_set_drive_strength(DigitalPinID pinID, DigitalPinDriveStrength_e strength);
+PErrorCode kdigital_pin_set_pull_mode(DigitalPinID pinID, PinPullMode_e mode);
+PErrorCode kdigital_pin_set_peripheral_mux(DigitalPinID pinID, DigitalPinPeripheralID peripheral);
+PErrorCode kdigital_pin_read(DigitalPinID pinID, bool& outValue);
+PErrorCode kdigital_pin_write(DigitalPinID pinID, bool value);
+
+void     kwrite_backup_register_trw(size_t registerID, uint32_t value);
+uint32_t kread_backup_register_trw(size_t registerID);
+
 
 class Kernel
 {
@@ -126,6 +140,12 @@ public:
 };
 
 } // namespace
+
+template<typename ...ARGS>
+void p_log(uint32_t category, PLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel::kernel_log_is_category_active(category, severity)) kernel::kprintf(fmt, args...); }
+
+template<typename ...ARGS>
+void p_system_log(uint32_t category, PLogSeverity severity, std::format_string<ARGS...> fmt, ARGS&&... args) { if (kernel::kernel_log_is_category_active(category, severity)) std::println(fmt, std::forward<ARGS>(args)...); }
 
 inline void kassert_function(const char* file, int line, const char* func, const char* expression)
 {

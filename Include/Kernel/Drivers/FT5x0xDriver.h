@@ -27,6 +27,7 @@
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/KSemaphore.h>
 #include <Kernel/KMutex.h>
+#include <Utils/Utils.h>
 #include <Math/Point.h>
 
 // FT5206

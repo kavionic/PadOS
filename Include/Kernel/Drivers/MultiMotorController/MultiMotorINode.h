@@ -30,11 +30,11 @@ class MultiMotorDriver;
 class TMC2209Driver;
 class TMC2209IODriver;
 
-class MultiMotorINode : public KINode
+class MultiMotorINode : public KINode, public KFilesystemFileOps
 {
 public:
-    MultiMotorINode(const char* controlPortPath, uint32_t baudrate, MultiMotorDriver* driver);
-    void DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
+    MultiMotorINode(const char* controlPortPath, uint32_t baudrate, DigitalPinID motorEnablePinID);
+    virtual void DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
     void        SetupControllerIO(const char* controlPortPath, uint32_t baudrate);
     handle_id   CreateMotor(handle_id motorID, const TMC2209IOSetup& setup);
@@ -50,6 +50,9 @@ public:
     bool  GetWakeupOnFullStep(handle_id motorID);
 
     void SetSpeed(handle_id motorID, float speedMMS, float accelerationMMS);
+    void SetSpeedMultiMask(uint32_t motorIDMask, float speedMMS, float accelerationMMS);
+    void StopAtOffset(handle_id motorID, float offset, float speed, float acceleration);
+    void StopAtOffsetMultiMask(uint32_t motorIDMask, float offset, float speed, float acceleration);
     void StopAtPos(handle_id motorID, float position, float speed, float acceleration);
     void SyncMove(handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS);
     void QueueMotion(handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS);

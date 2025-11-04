@@ -35,8 +35,10 @@
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/Syscalls.h>
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 DEFINE_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver);
 
@@ -67,7 +69,7 @@ TLV493DDriver::~TLV493DDriver()
 
 void TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin)
 {
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver, KLogSeverity::ERROR);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver, PLogSeverity::ERROR);
 
     m_PowerPin = powerPin;
     m_I2CDevice = kopen_trw(i2cPath, O_RDWR);
@@ -126,7 +128,7 @@ void TLV493DDriver::ResetSensor()
         errorCount = 0;
         size_t bytesRead;
         while ((kpread(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters), 0, bytesRead) != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters)) && errorCount++ < 5) {
-            kernel::kernel_log(LogCategoryTLV493DDriver, kernel::KLogSeverity::CRITICAL, "Error: Failed to read initial TLV493D registers!\n");
+            kernel_log(LogCategoryTLV493DDriver, PLogSeverity::CRITICAL, "Error: Failed to read initial TLV493D registers!\n");
             snooze_ms(10);
         }
 //      printf("TLV493DDriver: initial registers read.\n");
@@ -148,7 +150,7 @@ void TLV493DDriver::ResetSensor()
         }
         if (errorCount == 5)
         {
-            kernel::kernel_log(LogCategoryTLV493DDriver, kernel::KLogSeverity::CRITICAL, "Error: Failed to write TLV493D config registers!\n");
+            kernel_log(LogCategoryTLV493DDriver, PLogSeverity::CRITICAL, "Error: Failed to write TLV493D config registers!\n");
             snooze(TimeValNanos::FromSeconds(1.0));
             continue;
         }/* else if (errorCount > 0) {
@@ -344,3 +346,5 @@ size_t TLV493DDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off
 {
     return 0;
 }
+
+} // namespace kernel

@@ -46,8 +46,8 @@ static int POWER_BUTTON_RESET_THRESHOLD; //   = 2 * CLOCK_PERIF_FREQUENCY / 6553
 
 KPowerManager::KPowerManager() : KThread("sys_power_manager")
 {
-    POWER_BUTTON_PRESSED_THRESHOLD = kernel::Kernel::GetFrequencyPeripheral() / 65536 / 10; // ~100mS
-    POWER_BUTTON_RESET_THRESHOLD   = 2 * kernel::Kernel::GetFrequencyPeripheral() / 65536; // ~2S
+    POWER_BUTTON_PRESSED_THRESHOLD = Kernel::GetFrequencyPeripheral() / 65536 / 10; // ~100mS
+    POWER_BUTTON_RESET_THRESHOLD   = 2 * Kernel::GetFrequencyPeripheral() / 65536; // ~2S
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -77,8 +77,8 @@ void KPowerManager::Initialize(MCU_Timer16_t* timerChannel, const DigitalPin& pi
     m_TimerChannel = timerChannel;
     m_PinPowerSwitch = pinPowerSwitch;
 #if defined(__SAME70Q21__)
-    kernel::Kernel::RegisterIRQHandler(PIOA_IRQn, IRQCallback, this);
-    kernel::Kernel::RegisterIRQHandler(TC4_IRQn, TimerIRQCallback, this);
+    Kernel::RegisterIRQHandler(PIOA_IRQn, IRQCallback, this);
+    Kernel::RegisterIRQHandler(TC4_IRQn, TimerIRQCallback, this);
 
     m_PinPowerSwitch.SetPullMode(PinPullMode_e::Up);
     m_PinPowerSwitch.SetInterruptMode(PinInterruptMode_e::BothEdges);
@@ -106,7 +106,7 @@ void KPowerManager::Initialize(MCU_Timer16_t* timerChannel, const DigitalPin& pi
 
 void KPowerManager::Shutdown()
 {
-//    kernel::GfxDriver::Instance.Shutdown();
+//    GfxDriver::Instance.Shutdown();
 //    ShutdownSDRAM();
 	snooze_ms(100);
 //    QSPI_RESET_Pin   = false;
@@ -164,7 +164,7 @@ void* KPowerManager::Run()
 ///////////////////////////////////////////////////////////////////////////////
 
 #if defined(__SAME70Q21__)
-kernel::IRQResult KPowerManager::HandleIRQ()
+IRQResult KPowerManager::HandleIRQ()
 {
     if (m_PinPowerSwitch.GetInterruptStatus())
     {
@@ -216,9 +216,9 @@ kernel::IRQResult KPowerManager::HandleIRQ()
         } else {
             RGBLED_B.Write(true);            
         }*/
-		return kernel::IRQResult::HANDLED;
+		return IRQResult::HANDLED;
     }
-	return kernel::IRQResult::UNHANDLED;
+	return IRQResult::UNHANDLED;
 }
 
 IRQResult KPowerManager::HandleTimerIRQ()

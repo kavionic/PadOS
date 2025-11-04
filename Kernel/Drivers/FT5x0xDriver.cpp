@@ -33,9 +33,10 @@
 #include <System/SystemMessageIDs.h>
 #include <GUI/GUIEvent.h>
 
-using namespace kernel;
 using namespace os;
 
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -89,7 +90,7 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
     m_PinINT.GetAndClearInterruptStatus(); // Clear any pending interrupts.
     m_PinINT.EnableInterrupts();
         
-    kernel::register_irq_handler(irqNum, IRQHandler, this);
+    register_irq_handler(irqNum, IRQHandler, this);
 
     uint8_t reg = 0;
     kpwrite(m_I2CDevice, &reg, 1, 0);
@@ -300,3 +301,5 @@ IRQResult FT5x0xDriver::HandleIRQ()
 	}
 	return IRQResult::UNHANDLED;
 }
+
+} // namespace kernel

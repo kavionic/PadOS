@@ -25,8 +25,10 @@
 #include "Kernel/Scheduler.h"
 #include "System/System.h"
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -392,3 +394,4 @@ bool KMutex::IsLocked() const
     return !(m_Count == 0 || m_Holder != gk_CurrentThread->GetHandle());
 }
 
+} // namespace kernel

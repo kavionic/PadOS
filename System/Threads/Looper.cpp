@@ -275,7 +275,6 @@ Ptr<EventHandler> Looper::FindHandler(handler_id handle) const
 
 void* Looper::Run()
 {
-    m_Thread = kernel::get_current_thread();
     CRITICAL_SCOPE(m_Mutex);
     ThreadStarted();
 

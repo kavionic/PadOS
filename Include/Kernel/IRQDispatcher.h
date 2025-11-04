@@ -44,6 +44,8 @@ struct KIRQAction
 
 int register_irq_handler(IRQn_Type irqNum, KIRQHandler* handler, void* userData);
 int unregister_irq_handler(IRQn_Type irqNum, int handle);
-} // namespace
 
 TimeValNanos kget_total_irq_time();
+
+} // namespace
+

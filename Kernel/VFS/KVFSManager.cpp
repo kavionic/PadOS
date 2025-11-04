@@ -31,7 +31,8 @@
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KINode.h>
 
-using namespace kernel;
+namespace kernel
+{
 
 KINode* const                              KVFSManager::PENDING_INODE = (KINode*)(1);
 KMutex                                     KVFSManager::s_INodeMapMutex("inode_map_mutex", PEMutexRecursionMode_RaiseError);
@@ -368,7 +369,7 @@ void KVFSManager::DiscardInode(KINode* inode)
     {
         inode->m_Filesystem->ReleaseInode(inode);
     }
-    PERROR_CATCH([](PErrorCode error) { kernel_log(LogCatKernel_VFS, KLogSeverity::ERROR, "ERROR: Failed to release inode\n"); });
+    PERROR_CATCH([](PErrorCode error) { kernel_log(LogCatKernel_VFS, PLogSeverity::ERROR, "ERROR: Failed to release inode\n"); });
 
     delete inode;
     s_INodeMapMutex.Lock();
@@ -381,3 +382,4 @@ void KVFSManager::DiscardInode(KINode* inode)
     s_InodeMapConditionVar.Wakeup(0);
 }
 
+} // namespace kernel

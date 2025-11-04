@@ -18,7 +18,9 @@
 
 #pragma once
 
-enum class DigitalPinDirection_e
+#include <stdint.h>
+
+enum class DigitalPinDirection_e : uint32_t
 {
     Analog,
     In,
@@ -26,14 +28,14 @@ enum class DigitalPinDirection_e
     OpenCollector
 };
 
-enum class PinPullMode_e
+enum class PinPullMode_e : uint32_t
 {
     None,
     Up,
     Down
 };
 
-enum class DigitalPinDriveStrength_e
+enum class DigitalPinDriveStrength_e : uint32_t
 {
     Low,
 #if defined(STM32H7) || defined(STM32G0)

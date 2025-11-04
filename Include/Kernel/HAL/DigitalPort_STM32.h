@@ -20,7 +20,7 @@
 
 #include <atomic>
 #include <System/Platform.h>
-#include <Utils/Utils.h>
+#include <System/Sections.h>
 
 enum DigitalPortID
 {
@@ -295,7 +295,7 @@ static IFLASHD constexpr GPIO_Port_t* DigitalPortsRegisters[] =
 
 
 
-enum class DigitalPinPeripheralID : int
+enum class DigitalPinPeripheralID : int32_t
 {
     None = -1,
     AF0  = 0,

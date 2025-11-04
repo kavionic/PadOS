@@ -20,7 +20,8 @@
 #include "Kernel/Kernel.h"
 #include <System/TimeValue.h>
 
-using namespace kernel;
+namespace kernel
+{
 
 uint32_t   SpinTimer::s_TicksPerMicroSec;
 
@@ -53,3 +54,5 @@ void SpinTimer::SleepMS(uint32_t delay)
 {
     SleepuS(delay * 1000);
 }
+
+} // namespace kernel

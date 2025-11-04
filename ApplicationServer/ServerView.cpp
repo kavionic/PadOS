@@ -29,7 +29,6 @@
 #include "ServerView.h"
 
 using namespace os;
-using namespace kernel;
 
 static int g_ServerViewCount = 0;
 

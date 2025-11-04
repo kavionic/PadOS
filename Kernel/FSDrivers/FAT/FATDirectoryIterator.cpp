@@ -154,7 +154,7 @@ static bool FilteredUTF16ToCP437(uint16_t utf16, uint8_t* result)
 
 static void FATRawShortNameToUTF8(const char* src, String* dst)
 {
-    kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATRawShortNameToUTF8().\n");
+    kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::INFO_HIGH_VOL, "FATRawShortNameToUTF8().\n");
 
     for (int i = 0; i < 8 && src[i] != ' '; ++i) {
         dst->append(CP437ToUTF16((i == 0 && src[i] == 5) ? 0xe5 : uint8_t(src[i])));
@@ -178,7 +178,7 @@ bool FATDirectoryIterator::RequiresLongName(const wchar16_t* longName, size_t lo
 {
     size_t i;
 
-    kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::RequiresLongName().\n");
+    kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::RequiresLongName().\n");
 
     for (i = 0; i < 8; ++i)
     {
@@ -212,7 +212,7 @@ void FATDirectoryIterator::MungeShortName(char* shortName, uint32_t value)
 {
     char buffer[8];
 
-    kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::MungeShortName().\n");
+    kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::MungeShortName().\n");
 
     // Short names must have only numbers following the tilde and cannot begin with 0
     sprintf(buffer, "~%" PRIu32, value);
@@ -239,7 +239,7 @@ void FATDirectoryIterator::MungeShortName(char* shortName, uint32_t value)
 
 void FATDirectoryIterator::GenerateShortName(const wchar16_t* longName, size_t longNameLength, char* shortName)
 {
-    kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GenerateShortName().\n");
+    kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GenerateShortName().\n");
 
     memset(shortName, ' ', 11);
 
@@ -307,7 +307,7 @@ void FATDirectoryIterator::ReleaseCurrentBlock()
         if (m_IsDirty)
         {
             m_SectorIterator.MarkBlockDirty();
-            kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_LOW_VOL, "FATDirectoryIterator::ReleaseCurrentBlock(): Writing updated directory entries.\n");
+            kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::INFO_LOW_VOL, "FATDirectoryIterator::ReleaseCurrentBlock(): Writing updated directory entries.\n");
             m_IsDirty = false;
         }
         m_CurrentBlock.Reset();
@@ -325,7 +325,7 @@ FATDirectoryIterator::FATDirectoryIterator(Ptr<FATVolume> vol, uint32_t cluster,
     m_EntriesPerSector = vol->m_BytesPerSector / sizeof(FATDirectoryEntry);
 
     if (cluster >= vol->m_TotalClusters + 2) {
-        kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::CRITICAL, "FATDirectoryIterator::FATDirectoryIterator() cluster %d outside volume.\n", cluster);
+        kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::CRITICAL, "FATDirectoryIterator::FATDirectoryIterator() cluster %d outside volume.\n", cluster);
     }
     m_StartingCluster = cluster;
     m_CurrentIndex    = index;
@@ -420,7 +420,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, Strin
     if (filename != nullptr) {
         utf16Buffer.resize(512);
     }
-    kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GetNextLFNEntry(): %ld\n", m_CurrentIndex);
+    kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GetNextLFNEntry(): %ld\n", m_CurrentIndex);
 
     // LFN state
     uint32_t startIndex  = 0xffff;
@@ -430,11 +430,11 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, Strin
     FATDirectoryEntryCombo* buffer;
     for (buffer = GetCurrentEntry(); buffer != nullptr; buffer = GetNextRawEntry())
     {
-        kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GetNextLFNEntry(): %lx/%lx/%ld\n", m_SectorIterator.m_CurrentCluster, m_SectorIterator.m_CurrentSector, m_CurrentIndex);
+        kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GetNextLFNEntry(): %lx/%lx/%ld\n", m_SectorIterator.m_CurrentCluster, m_SectorIterator.m_CurrentSector, m_CurrentIndex);
         if (buffer->m_LFN.m_SequenceNumber == 0) // quit if at end of table
         {
             if (startIndex != 0xffff) {
-                kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): LFN entry (%s) with no alias.\n", (filename != nullptr) ? filename->c_str() : "*none*");
+                kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): LFN entry (%s) with no alias.\n", (filename != nullptr) ? filename->c_str() : "*none*");
             }
             return false;
         }
@@ -442,23 +442,23 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, Strin
         if (buffer->m_LFN.m_SequenceNumber == 0xe5) // skip erased entries
         {
             if (startIndex != 0xffff) {
-                kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::WARNING, "FATDirectoryIterator::GetNextLFNEntry(): LFN entry (%s) with intervening erased entries.\n", (filename != nullptr) ? filename->c_str() : "*none*");
+                kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::WARNING, "FATDirectoryIterator::GetNextLFNEntry(): LFN entry (%s) with intervening erased entries.\n", (filename != nullptr) ? filename->c_str() : "*none*");
                 startIndex = 0xffff;
             }
-            kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GetNextLFNEntry(): Entry erased, skipping...\n");
+            kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GetNextLFNEntry(): Entry erased, skipping...\n");
             continue;
         }
         
         if (buffer->m_LFN.m_Attribs == 0x0f) // long file name
         {
             if ((buffer->m_LFN.m_Reserved1 != 0) || (buffer->m_LFN.m_Reserved2[0] != 0) || (buffer->m_LFN.m_Reserved2[1] != 0)) {
-                kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): Invalid LFN entry: reserved fields clobbered.\n");
+                kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): Invalid LFN entry: reserved fields clobbered.\n");
                 continue;
             }
             if (startIndex == 0xffff)
             {
                 if ((buffer->m_LFN.m_SequenceNumber & 0x40) == 0) {
-                    kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): Bad LFN start entry in directory.\n");
+                    kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): Bad LFN start entry in directory.\n");
                     continue;
                 }
                 hash = buffer->m_LFN.m_Hash;
@@ -499,12 +499,12 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, Strin
             else
             {
                 if (buffer->m_LFN.m_Hash != hash) {
-                    kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): Error in long file name: hash values don't match.\n");
+                    kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): Error in long file name: hash values don't match.\n");
                     startIndex = 0xffff;
                     continue;
                 }
                 if (buffer->m_LFN.m_SequenceNumber != --lfnCount) {
-                    kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): Bad LFN sequence number.\n");
+                    kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): Bad LFN sequence number.\n");
                     startIndex = 0xffff;
                     continue;
                 }
@@ -533,7 +533,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, Strin
     {
         if (lfnCount != 1)
         {
-            kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): Unfinished LFN in directory\n");
+            kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): Unfinished LFN in directory\n");
             startIndex = 0xffff;
         }
         else
@@ -543,7 +543,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, Strin
             }            
             if (HashMSDOSName(buffer->m_Normal.m_Filename) != hash)
             {
-                kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): long file name (%s) hash and short file name (%11.11s) don't match\n", ((filename != nullptr) ? filename->c_str() : "*none*"), buffer->m_Normal.m_Filename);
+                kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::CRITICAL, "FATDirectoryIterator::GetNextLFNEntry(): long file name (%s) hash and short file name (%11.11s) don't match\n", ((filename != nullptr) ? filename->c_str() : "*none*"), buffer->m_Normal.m_Filename);
                 startIndex = 0xffff;
             }
         }
@@ -641,7 +641,7 @@ bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t*
             }
         }
     }
-    kernel_log(FATFilesystem::LOGC_DIR, KLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GetNextDirectoryEntry(): found %s (inode ID %" PRIx64 ").\n", outFilename->c_str(), *outInodeID);
+    kernel_log(FATFilesystem::LOGC_DIR, PLogSeverity::INFO_HIGH_VOL, "FATDirectoryIterator::GetNextDirectoryEntry(): found %s (inode ID %" PRIx64 ").\n", outFilename->c_str(), *outInodeID);
     return true;
 }
 

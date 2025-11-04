@@ -30,8 +30,10 @@
 #include <System/System.h>
 #include <System/ExceptionHandling.h>
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -324,3 +326,5 @@ void KFilesystemFileOps::Sync(Ptr<KFileNode> file)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
+
+} // namespace kernel

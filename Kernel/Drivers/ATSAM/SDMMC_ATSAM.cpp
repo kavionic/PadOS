@@ -23,6 +23,9 @@
 
 using namespace sdmmc;
 
+namespace kernel
+{
+
 static const uint32_t CONF_HSMCI_XDMAC_CHANNEL = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -112,7 +115,7 @@ SDMMC_ATSAM::~SDMMC_ATSAM()
 bool SDMMC_ATSAM::Setup(const os::String& devicePath, const DigitalPin& pinCD, IRQn_Type irqNum)
 {
 	if (!SetupBase(devicePath, pinCD)) return false;
-	kernel::Kernel::RegisterIRQHandler(irqNum, IRQCallback, this);
+	Kernel::RegisterIRQHandler(irqNum, IRQCallback, this);
 	return true;
 }
 
@@ -600,3 +603,5 @@ void SDMMCDriver::ApplySpeedAndBusWidth()
 	}
 	HSMCI->HSMCI_SDCR = HSMCI_SDCR_SDCSEL_SLOTA | busWidthCfg;
 }
+
+} // namespace kernel

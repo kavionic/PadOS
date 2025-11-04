@@ -22,7 +22,8 @@
 #include "Kernel/KHandleArray.h"
 #include "Ptr/NoPtr.h"
 
-using namespace kernel;
+namespace kernel
+{
 
 uint8_t g_KHandleArrayEmptyBlockBuffer[sizeof(KHandleArrayEmptyBlock)];
 Ptr<KHandleArrayEmptyBlock> KHandleArrayEmptyBlock::g_KHandleArrayEmptyBlock;
@@ -247,7 +248,7 @@ bool KHandleArrayBase::AllocBuffers()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<kernel::KHandleArrayBlock> KHandleArrayBase::AllocBlock()
+Ptr<KHandleArrayBlock> KHandleArrayBase::AllocBlock()
 {
     for (uint32_t i = 0; i < ARRAY_COUNT(m_ReservedBlocks); ++i)
     {
@@ -261,3 +262,5 @@ Ptr<kernel::KHandleArrayBlock> KHandleArrayBase::AllocBlock()
     }
     return nullptr;
 }
+
+} // namespace kernel

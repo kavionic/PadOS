@@ -30,6 +30,7 @@
 #include <Threads/Thread.h>
 #include <Threads/Mutex.h>
 #include <Threads/ConditionVariable.h>
+#include <Threads/ObjectWaitGroup.h>
 #include <Kernel/Kernel.h>
 #include <SerialConsole/SerialProtocol.h>
 
@@ -79,7 +80,7 @@ private:
 
 
 
-class SerialCommandHandler : public SignalTarget, public os::Thread
+class SerialCommandHandler : public SignalTarget, public PThread
 {
 public:
     SerialCommandHandler();
@@ -90,8 +91,9 @@ public:
     virtual void* Run() override;
 
 
-    virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, os::String&& serialPortPath, int baudrate, int readThreadPriority);
+    virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, PString&& serialPortPath, int baudrate, int readThreadPriority);
     virtual void ProbeRequestReceived(SerialProtocol::ProbeDeviceType expectedMode) {}
+    virtual void Tick() {}
 
     void Execute();
 
@@ -134,12 +136,12 @@ public:
 
     ssize_t WriteLogMessage(const void* buffer, size_t length);
 
+    PObjectWaitGroup& GetWaitGroup() { return m_WaitGroup; }
 private:
     bool OpenSerialPort();
     void CloseSerialPort();
-    ssize_t SerialRead(void* buffer, size_t length);
     ssize_t SerialWrite(const void* buffer, size_t length);
-    bool ReadPacket(SerialProtocol::PacketHeader* packetBuffer, size_t maxLength);
+    bool ReadPacket();
 
     bool FlushLogBuffer();
     void HandleProbeDevice(const SerialProtocol::ProbeDevice& packet);
@@ -147,17 +149,19 @@ private:
 
     static SerialCommandHandler* s_Instance;
 
-    mutable os::Mutex      m_TransmitMutex;
-    mutable os::Mutex      m_QueueMutex;
-    mutable os::Mutex      m_LogMutex;
-    os::ConditionVariable  m_ReplyCondition;
-    os::ConditionVariable  m_QueueCondition;
+    mutable PMutex       m_TransmitMutex;
+    mutable PMutex       m_QueueMutex;
+    mutable PMutex       m_LogMutex;
+    PConditionVariable   m_ReplyCondition;
+    PConditionVariable   m_QueueCondition;
+    PObjectWaitGroup     m_WaitGroup;
 
     volatile std::atomic_bool     m_ReplyReceived = false;
 
-    os::String                  m_SerialPortPath;
-    int                         m_Baudrate = 0;
-    int                         m_SerialPort = -1;
+    PString             m_SerialPortPath;
+    int                 m_Baudrate = 0;
+    int                 m_SerialPortIn = -1;
+    int                 m_SerialPortOut = -1;
 
     SerialProtocol::ProbeDeviceType m_DeviceType = SerialProtocol::ProbeDeviceType::Bootloader;
 
@@ -167,7 +171,7 @@ private:
     CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * 16, void>&   m_MessageQueue;
     uint8_t m_InMessageBuffer[SerialProtocol::MAX_MESSAGE_SIZE];
     uint8_t m_OutMessageBuffer[SerialProtocol::MAX_MESSAGE_SIZE];
-
+    size_t m_InMessageBytes = 0;
     CircularBuffer<uint8_t, 1024*128>   m_LogBuffer;
 
     SerialCommandHandler(const SerialCommandHandler &other) = delete;

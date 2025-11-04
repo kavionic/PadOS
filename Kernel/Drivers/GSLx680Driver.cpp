@@ -32,10 +32,13 @@
 #include <DeviceControl/HID.h>
 #include <System/SystemMessageIDs.h>
 #include <System/ExceptionHandling.h>
+#include <Utils/Utils.h>
 #include <GUI/GUIEvent.h>
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -74,7 +77,7 @@ void GSLx680Driver::Setup(const char* devicePath, int threadPriority, DigitalPin
 	m_PinIRQ.GetAndClearInterruptStatus(); // Clear any pending interrupts.
 	m_PinIRQ.EnableInterrupts();
 
-	kernel::register_irq_handler(get_peripheral_irq(pinIRQ), IRQHandler, this);
+	register_irq_handler(get_peripheral_irq(pinIRQ), IRQHandler, this);
 
 	m_I2CDevice = kopen_trw(i2cPath, O_RDWR);
 
@@ -515,3 +518,6 @@ IRQResult GSLx680Driver::HandleIRQ()
 	}
 	return IRQResult::UNHANDLED;
 }
+
+
+} // namespace kernel

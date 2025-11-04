@@ -19,13 +19,15 @@
 
 #include <sys/pados_syscalls.h>
 #include <System/ExceptionHandling.h>
+#include <Kernel/Misc.h>
 #include <Kernel/KNamedObject.h>
+#include <Kernel/KAddressValidation.h>
 
-using namespace kernel;
+namespace kernel
+{
 
 extern "C"
 {
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -64,5 +66,95 @@ bool sys_is_debugger_attached()
     return kis_debugger_attached();
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_digital_pin_set_direction(DigitalPinID pinID, DigitalPinDirection_e dir)
+{
+    return kdigital_pin_set_direction(pinID, dir);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_digital_pin_set_drive_strength(DigitalPinID pinID, DigitalPinDriveStrength_e strength)
+{
+    return kdigital_pin_set_drive_strength(pinID, strength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_digital_pin_set_pull_mode(DigitalPinID pinID, PinPullMode_e mode)
+{
+    return kdigital_pin_set_pull_mode(pinID, mode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_digital_pin_set_peripheral_mux(DigitalPinID pinID, DigitalPinPeripheralID peripheral)
+{
+    return kdigital_pin_set_peripheral_mux(pinID, peripheral);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_digital_pin_read(DigitalPinID pinID, bool* outValue)
+{
+    return kdigital_pin_read(pinID, *outValue);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_digital_pin_write(DigitalPinID pinID, bool value)
+{
+    return kdigital_pin_write(pinID, value);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_write_backup_register(size_t registerID, uint32_t value)
+{
+    try
+    {
+        kwrite_backup_register_trw(registerID, value);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_read_backup_register(size_t registerID, uint32_t* outValue)
+{
+    try
+    {
+        validate_user_write_pointer_trw(outValue);
+        *outValue = kread_backup_register_trw(registerID);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+PErrorCode sys_beep_seconds(float duration)
+{
+    kbeep_seconds(duration);
+    return PErrorCode::Success;
+}
 
 } // extern "C"
+
+} // namespace kernel

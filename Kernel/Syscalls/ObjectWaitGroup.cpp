@@ -21,7 +21,8 @@
 #include <Kernel/KObjectWaitGroup.h>
 #include <System/ExceptionHandling.h>
 
-using namespace kernel;
+namespace kernel
+{
 
 extern "C"
 {
@@ -127,3 +128,5 @@ PErrorCode sys_object_wait_group_wait_deadline_ns(handle_id handle, handle_id mu
 }
 
 } // extern "C"
+
+} // namespace kernel

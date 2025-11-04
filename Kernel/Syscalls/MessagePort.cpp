@@ -21,7 +21,8 @@
 #include <Kernel/KMessagePort.h>
 #include <System/ExceptionHandling.h>
 
-using namespace kernel;
+namespace kernel
+{
 
 extern "C"
 {
@@ -114,3 +115,5 @@ PSysRetPair sys_message_port_receive_deadline_ns(port_id handle, handler_id* tar
 }
 
 } // extern "C"
+
+} // namespace kernel

@@ -51,7 +51,7 @@ void USBClientClassCDC::Reset()
         {
             channel->Close();
         }
-        PERROR_CATCH([](PErrorCode error) { kernel_log(LogCategoryUSBHost, KLogSeverity::ERROR, "USBH: Failed to close channel.\n"); });
+        PERROR_CATCH([](PErrorCode error) { kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "USBH: Failed to close channel.\n"); });
 
         SignalChannelRemoved(channel);
     }
@@ -132,7 +132,7 @@ bool USBClientClassCDC::HandleControlTransfer(USB_ControlStage stage, const USB_
     }
     else
     {
-        kernel_log(LogCategoryUSBDevice, KLogSeverity::ERROR, "USBD: USBClientClassCDC::HandleControlTransfer() unknown interface %u.\n", interfaceNum);
+        kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBD: USBClientClassCDC::HandleControlTransfer() unknown interface %u.\n", interfaceNum);
         return false;
     }
 }
@@ -150,7 +150,7 @@ bool USBClientClassCDC::HandleDataTransfer(uint8_t endpointAddr, USB_TransferRes
     }
     else
     {
-        kernel_log(LogCategoryUSBDevice, KLogSeverity::ERROR, "USBD: USBClientClassCDC::HandleDataTransfer() unknown endpoint %02x.\n", endpointAddr);
+        kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBD: USBClientClassCDC::HandleDataTransfer() unknown endpoint %02x.\n", endpointAddr);
         return false;
     }
 }

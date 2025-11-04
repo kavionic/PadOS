@@ -32,8 +32,10 @@
 #include "Kernel/VFS/FileIO.h"
 #include "Kernel/VFS/KFSVolume.h"
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -358,3 +360,5 @@ double BME280Driver::CompensateHumidity(uint32_t uncompHumidity) const
     }
     return humidity;
 }
+
+} // namespace kernel

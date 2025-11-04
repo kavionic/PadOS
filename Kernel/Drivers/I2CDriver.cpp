@@ -31,8 +31,9 @@
 #include "Kernel/SpinTimer.h"
 #include "Kernel/VFS/KFSVolume.h"
 
-using namespace kernel;
 
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -51,7 +52,7 @@ I2CDriverINode::I2CDriverINode(KFilesystemFileOps* fileOps, Channels channel) : 
             m_PeripheralID = DigitalPinPeripheralID::A;
             SAME70System::EnablePeripheralClock(ID_TWIHS0);
             NVIC_ClearPendingIRQ(TWIHS0_IRQn);
-            kernel::Kernel::RegisterIRQHandler(TWIHS0_IRQn, IRQCallback, this);
+            Kernel::RegisterIRQHandler(TWIHS0_IRQn, IRQCallback, this);
             break;
         case Channels::Channel1:
             m_Port = TWIHS1;
@@ -60,7 +61,7 @@ I2CDriverINode::I2CDriverINode(KFilesystemFileOps* fileOps, Channels channel) : 
             m_PeripheralID = DigitalPinPeripheralID::A;
             SAME70System::EnablePeripheralClock(ID_TWIHS1);
             NVIC_ClearPendingIRQ(TWIHS1_IRQn);
-            kernel::Kernel::RegisterIRQHandler(TWIHS1_IRQn, IRQCallback, this);
+            Kernel::RegisterIRQHandler(TWIHS1_IRQn, IRQCallback, this);
             break;
         case Channels::Channel2:
             m_Port = TWIHS2;
@@ -69,7 +70,7 @@ I2CDriverINode::I2CDriverINode(KFilesystemFileOps* fileOps, Channels channel) : 
             m_ClockPin.Set(e_DigitalPortID_D, PIN28_bp);
             m_PeripheralID = DigitalPinPeripheralID::C;
             NVIC_ClearPendingIRQ(TWIHS2_IRQn);
-            kernel::Kernel::RegisterIRQHandler(TWIHS2_IRQn, IRQCallback, this);
+            Kernel::RegisterIRQHandler(TWIHS2_IRQn, IRQCallback, this);
             break;
         default:
             break;
@@ -494,3 +495,5 @@ int I2CDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inDat
 {
     return ptr_static_cast<I2CDriverINode>(file->GetINode())->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);
 }
+
+} // namespace kernel

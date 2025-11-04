@@ -36,7 +36,6 @@
 #include "ServerApplication.h"
 
 using namespace os;
-using namespace kernel;
 
 static port_id g_AppserverPort = -1;
 
@@ -59,7 +58,7 @@ ApplicationServer::ApplicationServer(Ptr<os::DisplayDriver> displayDriver)
     : Looper("Appserver", 10, APPSERVER_MSG_BUFFER_SIZE)
     , m_ReplyPort("appserver_reply", 100)
 {
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryAppServer, kernel::KLogSeverity::INFO_HIGH_VOL);
+    PREGISTER_LOG_CATEGORY(LogCategoryAppServer, PLogSeverity::INFO_HIGH_VOL);
     
     set_input_event_port(GetPortID());
 

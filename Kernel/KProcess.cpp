@@ -31,7 +31,9 @@
 #include <Utils/Utils.h>
 
 using namespace os;
-using namespace kernel;
+
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -115,9 +117,9 @@ PErrorCode KProcess::AllocTLSSlot(tls_id& outKey, TLSDestructor_t destructor)
                         m_TLSAllocationMap[i] |= mask;
                         m_TLSDestructors[index] = destructor;
 
-                        for (Ptr<const KThreadCB> thread = kernel::get_thread_table().GetNext(INVALID_HANDLE, [](Ptr<const KThreadCB> thread) { return thread->m_State != ThreadState_Deleted; });
+                        for (Ptr<const KThreadCB> thread = get_thread_table().GetNext(INVALID_HANDLE, [](Ptr<const KThreadCB> thread) { return thread->m_State != ThreadState_Deleted; });
                             thread != nullptr;
-                            thread = kernel::get_thread_table().GetNext(thread->GetHandle(), [](Ptr<const KThreadCB> thread) { return thread->m_State != ThreadState_Deleted; }))
+                            thread = get_thread_table().GetNext(thread->GetHandle(), [](Ptr<const KThreadCB> thread) { return thread->m_State != ThreadState_Deleted; }))
                         {
                             thread->m_ControlBlock->TLSSlots[index] = nullptr;
                         }
@@ -154,3 +156,5 @@ PErrorCode KProcess::FreeTLSSlot(tls_id slot)
         return PErrorCode::InvalidArg;
     }
 }
+
+} // namespace kernel

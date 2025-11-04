@@ -43,8 +43,8 @@ public:
     inline bool         IsDirectory() const noexcept            { return m_IsDirectory; }
     inline void         SetOpenFlags(int flags) noexcept        { m_OpenFlags = flags; }
     inline int          GetOpenFlags() const noexcept           { return m_OpenFlags; }
-    inline bool         HasReadAccess() const noexcept          { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDWR; }
-    inline bool         HasWriteAccess() const noexcept         { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDWR; }
+    inline bool         HasReadAccess() const noexcept          { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDONLY; }
+    inline bool         HasWriteAccess() const noexcept         { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_WRONLY; }
 private:
     Ptr<KINode> m_INode;
     bool        m_IsDirectory;

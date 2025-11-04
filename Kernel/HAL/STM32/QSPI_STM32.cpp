@@ -22,6 +22,9 @@
 #include <Kernel/HAL/STM32/ResetAndClockControl.h>
 #include <Kernel/SpinTimer.h>
 
+namespace kernel
+{
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -278,10 +281,10 @@ void QSPI_STM32::WaitTransferComplete() const
 
 void QSPI_STM32::SendIO3Reset(DigitalPinID pinD3)
 {
-    kernel::SpinTimer::SleepuS(200);
+    SpinTimer::SleepuS(200);
     DigitalPin(pinD3).SetDirection(DigitalPinDirection_e::Out);
     DigitalPin(pinD3).Write(false);
-    kernel::SpinTimer::SleepuS(200);
+    SpinTimer::SleepuS(200);
     DigitalPin(pinD3).SetDirection(DigitalPinDirection_e::Analog);
 }
 
@@ -300,21 +303,21 @@ void QSPI_STM32::SendJEDECReset(DigitalPinID pinD0, DigitalPinID pinCLK, Digital
 
     for (int i = 0; i < 2; ++i)
     {
-        kernel::SpinTimer::SleepuS(100);
+        SpinTimer::SleepuS(100);
         DigitalPin(pinNCS).Write(false);
-        kernel::SpinTimer::SleepuS(100);
+        SpinTimer::SleepuS(100);
         DigitalPin(pinD0).Write(false);
-        kernel::SpinTimer::SleepuS(100);
+        SpinTimer::SleepuS(100);
         DigitalPin(pinNCS).Write(true);
-        kernel::SpinTimer::SleepuS(100);
+        SpinTimer::SleepuS(100);
         DigitalPin(pinD0).Write(true);
     }
 
     for (int i = 0; i < 4; ++i)
     {
-        kernel::SpinTimer::SleepuS(100);
+        SpinTimer::SleepuS(100);
         DigitalPin(pinNCS).Write(false);
-        kernel::SpinTimer::SleepuS(100);
+        SpinTimer::SleepuS(100);
         DigitalPin(pinNCS).Write(true);
     }
 
@@ -322,3 +325,5 @@ void QSPI_STM32::SendJEDECReset(DigitalPinID pinD0, DigitalPinID pinCLK, Digital
     DigitalPin(pinCLK).SetDirection(DigitalPinDirection_e::Analog);
     DigitalPin(pinD0).SetDirection(DigitalPinDirection_e::Analog);
 }
+
+} // namespace kernel

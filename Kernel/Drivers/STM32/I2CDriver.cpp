@@ -31,7 +31,8 @@
 #include <Kernel/SpinTimer.h>
 #include <Kernel/VFS/KFSVolume.h>
 
-using namespace kernel;
+namespace kernel
+{
 
 DEFINE_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver);
 
@@ -76,11 +77,11 @@ I2CDriverINode::I2CDriverINode(I2CDriver* driver
     const IRQn_Type eventIRQ = get_i2c_irq(portID, I2CIRQType::Event);
     const IRQn_Type errorIRQ = get_i2c_irq(portID, I2CIRQType::Error);
 
-    kernel::register_irq_handler(eventIRQ, IRQCallbackEvent, this);
-    kernel::register_irq_handler(errorIRQ, IRQCallbackError, this);
+    register_irq_handler(eventIRQ, IRQCallbackEvent, this);
+    register_irq_handler(errorIRQ, IRQCallbackError, this);
 #elif defined(STM32G0)
     const IRQn_Type portIRQ = get_i2c_irq(portID);
-    kernel::register_irq_handler(portIRQ, IRQCallbackEvent, this);
+    register_irq_handler(portIRQ, IRQCallbackEvent, this);
 #else
 #error Unknown platform.
 #endif
@@ -231,7 +232,7 @@ size_t I2CDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length, of
     if (m_TransactionError != PErrorCode::Success)
     {
         ResetPeripheral();
-        kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::INFO_LOW_VOL, "I2CDriver::Read() request failed: %s\n", strerror(get_last_error()));
+        kernel_log(LogCategoryI2CDriver, PLogSeverity::INFO_LOW_VOL, "I2CDriver::Read() request failed: %s\n", strerror(get_last_error()));
         PERROR_THROW_CODE(m_TransactionError);
     }
     return m_CurPos;
@@ -318,7 +319,7 @@ size_t I2CDriverINode::Write(Ptr<KFileNode> file, const void* buffer, size_t len
     } CRITICAL_END;
     if (m_TransactionError != PErrorCode::Success)
     {
-        kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::INFO_LOW_VOL, "I2CDriver::Write() request failed: %s\n", strerror(get_last_error()));
+        kernel_log(LogCategoryI2CDriver, PLogSeverity::INFO_LOW_VOL, "I2CDriver::Write() request failed: %s\n", strerror(get_last_error()));
         PERROR_THROW_CODE(m_TransactionError);
     }
     return m_CurPos;
@@ -481,7 +482,7 @@ int I2CDriverINode::SetSpeed(I2CSpeed speed)
         }
     }
     if (minError == std::numeric_limits<uint32_t>::max()) {
-        kernel::kernel_log(LogCategoryI2CDriver, kernel::KLogSeverity::CRITICAL, "ERROR: I2C failed to set baudrate!\n");
+        kernel_log(LogCategoryI2CDriver, PLogSeverity::CRITICAL, "ERROR: I2C failed to set baudrate!\n");
         return -1;
     }
 //  m_Port->TIMINGR = 0x00b03fdb;
@@ -507,7 +508,7 @@ int I2CDriverINode::GetBaudrate() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel::I2CDriverINode::UpdateTransactionLength(uint32_t& CR2)
+void I2CDriverINode::UpdateTransactionLength(uint32_t& CR2)
 {
     CR2 &= ~(I2C_CR2_NBYTES_Msk | I2C_CR2_RELOAD);
 
@@ -651,7 +652,7 @@ IRQResult I2CDriverINode::HandleErrorIRQ()
 
 void I2CDriver::Setup(const char* devicePath, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime)
 {
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, KLogSeverity::WARNING);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, PLogSeverity::WARNING);
 
     Ptr<I2CDriverINode> node = ptr_new<I2CDriverINode>(this, portID, clockPin, dataPin, clockFrequency, fallTime, riseTime);
     Kernel::RegisterDevice_trw(devicePath, node);    
@@ -709,3 +710,5 @@ void I2CDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inDa
 {
     ptr_static_cast<I2CDriverINode>(file->GetINode())->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);
 }
+
+} // namespace kernel

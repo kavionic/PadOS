@@ -24,8 +24,10 @@
 #include "Kernel/VFS/KFilesystem.h"
 #include "Utils/String.h"
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -35,3 +37,4 @@ KFSVolume::KFSVolume(fs_id volumeID, const String& devicePath ) : m_VolumeID(vol
 {
 }
 
+} // namespace kernel

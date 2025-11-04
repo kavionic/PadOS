@@ -32,15 +32,17 @@
 #include <System/ExceptionHandling.h>
 #include <Storage/Directory.h>
 
-using namespace kernel;
 using namespace os;
 
-static KMutex                                         kg_TableMutex("vfs_tables", PEMutexRecursionMode_RaiseError);
-static std::map<os::String, Ptr<kernel::KFilesystem>> kg_FilesystemDrivers;
-static Ptr<KFileTableNode>                            kg_PlaceholderFile;
-static Ptr<KRootFilesystem>                           kg_RootFilesystem;
-static Ptr<KFSVolume>                                 kg_RootVolume;
-static std::vector<Ptr<KFileTableNode>>               kg_FileTable;
+namespace kernel
+{
+
+static KMutex                                   kg_TableMutex("vfs_tables", PEMutexRecursionMode_RaiseError);
+static std::map<os::String, Ptr<KFilesystem>>   kg_FilesystemDrivers;
+static Ptr<KFileTableNode>                      kg_PlaceholderFile;
+static Ptr<KRootFilesystem>                     kg_RootFilesystem;
+static Ptr<KFSVolume>                           kg_RootVolume;
+static std::vector<Ptr<KFileTableNode>>         kg_FileTable;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Prepends a new name in front of a path.
@@ -1281,4 +1283,4 @@ void kset_filehandle(int handle, Ptr<KFileTableNode> file) noexcept
 }
 
 
-
+} // namespace kernel

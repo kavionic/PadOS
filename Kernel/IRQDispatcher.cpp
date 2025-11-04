@@ -106,10 +106,6 @@ int unregister_irq_handler(IRQn_Type irqNum, int handle)
     return -1;
 }
 
-} // namespace
-
-using namespace kernel;
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -157,3 +153,5 @@ extern "C" void KernelHandleIRQ()
     gk_CurrentThread->m_StartTime += delta; // Don't blame the current thread for the time spent handling interrupts.
     gk_TotalIRQTime += delta;
 }
+
+} // namespace kernel

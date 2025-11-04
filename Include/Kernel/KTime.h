@@ -23,6 +23,9 @@
 #include <sys/pados_error_codes.h>
 #include <System/TimeValue.h>
 
+namespace kernel
+{
+
 time_t          kget_monotonic_time_ns() noexcept;
 TimeValNanos    kget_monotonic_time() noexcept;
 
@@ -61,3 +64,5 @@ PErrorCode      kget_clock_time_offset(clockid_t clockID, TimeValNanos& outOffse
 
 TimeValNanos    kconvert_clock_to_monotonic_trw(clockid_t clockID, TimeValNanos clockTime);
 PErrorCode      kconvert_clock_to_monotonic(clockid_t clockID, TimeValNanos clockTime, TimeValNanos& outMonotonicTime) noexcept;
+
+} // namespace kernel

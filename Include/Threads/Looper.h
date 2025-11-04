@@ -79,7 +79,6 @@ private:
 #if DEBUG_LOOPER_LIST
     static std::vector<Looper*> s_LooperList;
 #endif
-    kernel::KThreadCB* m_Thread = nullptr;
     mutable Mutex                           m_Mutex;
     MessagePort                             m_Port;
     ConditionVariable                       m_TimerMapCondition;

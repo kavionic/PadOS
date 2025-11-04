@@ -21,7 +21,8 @@
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/VFS/KFSVolume.h"
 
-using namespace kernel;
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -93,3 +94,4 @@ ssize_t UARTDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buf
     return length;
 }
 
+} // namespace kernel

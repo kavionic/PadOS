@@ -31,7 +31,7 @@ extern "C"
 
 void NonMaskableInt_Handler()
 {
-    kernel::panic("NMI\n");
+    panic("NMI\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -40,7 +40,7 @@ void NonMaskableInt_Handler()
 
 void HardFault_Handler()
 {
-    kernel::panic("HardFault\n");
+    panic("HardFault\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -79,7 +79,7 @@ void MemoryManagement_Handler()
     (void)exceptionUnstackingError;
     (void)dataAccessError;
     (void)instrAccessError;
-    kernel::panic("MemManage\n");
+    panic("MemManage\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -126,7 +126,7 @@ void BusFault_Handler()
     (void)dataAccessError;
     (void)instrBusError;
 
-    kernel::panic("BusFault\n");
+    panic("BusFault\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -135,7 +135,7 @@ void BusFault_Handler()
 
 void UsageFault_Handler()
 {
-    kernel::panic("UsageFault\n");
+    panic("UsageFault\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////

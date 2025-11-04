@@ -100,7 +100,7 @@ WS2812BDriverINode::WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t c
 	{
 		auto irq = dma_get_channel_irq(m_SendDMAChannel);
 		NVIC_ClearPendingIRQ(irq);
-		kernel::register_irq_handler(irq, IRQCallbackSend, this);
+		register_irq_handler(irq, IRQCallbackSend, this);
 	}
 }
 

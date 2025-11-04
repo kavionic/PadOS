@@ -32,8 +32,10 @@
 #include <System/ExceptionHandling.h>
 #include <Utils/String.h>
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -415,3 +417,5 @@ int KRootFilesystem::AllocINodeNumber()
     static std::atomic_int32_t nextID = 1;
     return nextID++;
 }
+
+} // namespace kernel

@@ -34,8 +34,10 @@
 #include <Utils/Utils.h>
 #include <System/ExceptionHandling.h>
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 static constexpr TimeValNanos FLUSH_PERIODE = TimeValNanos::FromMilliseconds(1000);
 static constexpr int KBLOCK_CACHE_BLOCK_COUNT = 64;
@@ -395,14 +397,14 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
 
             m_DirtyTime = kget_monotonic_time();
             if (KBlockCache::s_DirtyBlockCount == 1) {
-                kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "Cache dirty\n");
+                kernel_log(LogCatKernel_BlockCache, PLogSeverity::INFO_HIGH_VOL, "Cache dirty\n");
             }
         }
         else
         {
             m_Flags |= BCF_DIRTY_PENDING;
         }
-        kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "Block %" PRIu64 " from device %d dirty\n", m_bufferNumber, m_Device);
+        kernel_log(LogCatKernel_BlockCache, PLogSeverity::INFO_HIGH_VOL, "Block %" PRIu64 " from device %d dirty\n", m_bufferNumber, m_Device);
         if (KBlockCache::s_DirtyBlockCount >= BC_MIN_WAKEUP_COUNT) {
             KBlockCache::s_FlushingRequestConditionVar.WakeupAll();
         }
@@ -414,7 +416,7 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
             m_Flags &= ~BCF_DIRTY;
             KBlockCache::s_DirtyBlockCount--;
             if (KBlockCache::s_DirtyBlockCount == 0) {
-                kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "Cache clean\n");
+                kernel_log(LogCatKernel_BlockCache, PLogSeverity::INFO_HIGH_VOL, "Cache clean\n");
             }
         }
     }
@@ -484,7 +486,7 @@ void KCacheBlockDesc::Reset()
 
 bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t blockCount)
 {
-    kernel_log(LogCatKernel_BlockCache, KLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() flushing %d blocks.\n", blockCount);
+    kernel_log(LogCatKernel_BlockCache, PLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() flushing %d blocks.\n", blockCount);
 
     std::sort(blockList, blockList + blockCount, [](const KCacheBlockHeader* lhs, const KCacheBlockHeader* rhs) { return std::tie(lhs->m_Device, lhs->m_bufferNumber) < std::tie(rhs->m_Device, rhs->m_bufferNumber); });
 
@@ -534,7 +536,7 @@ bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t block
                 }
                 PERROR_CATCH(([&blockList, &start, &segmentCount](PErrorCode error)
                     {
-                        kernel_log(LogCatKernel_BlockCache, KLogSeverity::CRITICAL, "Failed to flush block %" PRId64 ":%d from device %d\n", blockList[start]->m_bufferNumber, segmentCount, blockList[start]->m_Device);
+                        kernel_log(LogCatKernel_BlockCache, PLogSeverity::CRITICAL, "Failed to flush block %" PRId64 ":%d from device %d\n", blockList[start]->m_bufferNumber, segmentCount, blockList[start]->m_Device);
                     }
                 ));
                 s_Mutex.Lock();
@@ -614,8 +616,9 @@ void* KBlockCache::DiskCacheFlusher(void* arg)
                     s_FlushingRequestConditionVar.WaitTimeout(s_Mutex, FLUSH_PERIODE);
                 }
             }
-            PERROR_CATCH(([](PErrorCode error) { kernel_log(LogCatKernel_BlockCache, KLogSeverity::CRITICAL, "Exception caught during disk cache flushing.\n"); }));
+            PERROR_CATCH(([](PErrorCode error) { kernel_log(LogCatKernel_BlockCache, PLogSeverity::CRITICAL, "Exception caught during disk cache flushing.\n"); }));
         } CRITICAL_END;
     }
 }
 
+} // namespace kernel

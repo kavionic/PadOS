@@ -23,7 +23,8 @@
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 #include <System/ExceptionHandling.h>
 
-using namespace kernel;
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -354,3 +355,5 @@ PErrorCode kconvert_clock_to_monotonic(clockid_t clockID, TimeValNanos clockTime
     outMonotonicTime = clockTime - offset;
     return PErrorCode::Success;
 }
+
+} // namespace kernel

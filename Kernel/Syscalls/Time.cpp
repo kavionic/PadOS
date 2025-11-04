@@ -29,7 +29,9 @@
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 
 using namespace os;
-using namespace kernel;
+
+namespace kernel
+{
 
 extern "C"
 {
@@ -176,3 +178,5 @@ PErrorCode sys_set_clock_resolution_ns(clockid_t clockID, bigtime_t resolutionNa
 }
 
 } // extern "C"
+
+} // namespace kernel

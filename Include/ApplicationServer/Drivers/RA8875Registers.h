@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <Utils/Utils.h>
+
 namespace os
 {
 

@@ -26,9 +26,11 @@
 #include <Kernel/SpinTimer.h>
 #include <Kernel/VFS/FileIO.h>
 
-using namespace kernel;
 using namespace os;
 using namespace sdmmc;
+
+namespace kernel
+{
 
 static const uint32_t SDMMC_EVENT_FLAGS = SDMMC_MASK_CMDRENDIE      // Command Response Received Interrupt Enable
                                         | SDMMC_MASK_CMDSENTIE      // Command Sent Interrupt Enable
@@ -98,7 +100,7 @@ void SDMMCDriver_STM32::Setup(const os::String& devicePath, SDMMC_TypeDef* port,
     m_SDMMC->POWER = 3 << SDMMC_POWER_PWRCTRL_Pos;
 
     SetupBase(devicePath, pinCD);
-    kernel::register_irq_handler(irqNum, IRQCallback, this);
+    register_irq_handler(irqNum, IRQCallback, this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -578,3 +580,4 @@ void SDMMCDriver_STM32::SendClock()
     m_SDMMC->CLKCR = CLKCR; // Restore power-save.
 }
 
+} // namespace kernel

@@ -22,7 +22,6 @@
 #include "System/System.h"
 
 using namespace os;
-using namespace kernel;
 
 thread_local Thread* Thread::st_CurrentThread = nullptr;
 
@@ -123,12 +122,12 @@ void* Thread::ThreadEntry(void* data)
     }
     catch(const std::exception& e)
     {
-        kernel_log(LogCatKernel_Scheduler, KLogSeverity::FATAL, "Uncaught exception in thread %s: %s\n", self->GetName().c_str(), e.what());
+        p_log(kernel::LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in thread %s: %s\n", self->GetName().c_str(), e.what());
         self->Exit(nullptr);
     }
     catch (...)
     {
-        kernel_log(LogCatKernel_Scheduler, KLogSeverity::FATAL, "Uncaught exception in thread %s: unknown\n", self->GetName().c_str());
+        p_log(kernel::LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in thread %s: unknown\n", self->GetName().c_str());
         self->Exit(nullptr);
     }
     return nullptr;

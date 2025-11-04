@@ -78,25 +78,25 @@ bool USB_STM32::Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG
     }
     if (!SetupCore(useExternalVBus, batteryChargingEnabled))
     {
-        kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: Failed to setup USB core.\n");
+        kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "USB: Failed to setup USB core.\n");
         return false;
     }
     if (!SetUSBMode(mode))
     {
-        kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: Failed switch mode.\n");
+        kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "USB: Failed switch mode.\n");
         return false;
     }
     const bool enableVBusSense = pinVBus != DigitalPinID::None;
     if (mode == USB_Mode::Host)
     {
         if (!m_HostDriver.Setup(this, portID, enableVBusSense)) {
-            kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: Failed to setup host mode.\n");
+            kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "USB: Failed to setup host mode.\n");
         }
     }
     else
     {
         if (!m_DeviceDriver.Setup(this, portID, enableVBusSense, useSOF)) {
-            kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: Failed to setup device mode.\n");
+            kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "USB: Failed to setup device mode.\n");
         }
     }
     return true;
@@ -134,7 +134,7 @@ bool USB_STM32::SetupCore(bool useExternalVBus, bool batteryChargingEnabled)
         // Reset after a PHY select.
         if (!CoreReset())
         {
-            kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: Failed to reset USB core.\n");
+            kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "USB: Failed to reset USB core.\n");
             return false;
         }
     }
@@ -146,7 +146,7 @@ bool USB_STM32::SetupCore(bool useExternalVBus, bool batteryChargingEnabled)
         // Reset after a PHY select.
         if (!CoreReset())
         {
-            kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: Failed to reset USB core.\n");
+            kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "USB: Failed to reset USB core.\n");
             return false;
         }
 
@@ -197,7 +197,7 @@ bool USB_STM32::CoreReset()
 {
     if (!WaitForAHBIdle())
     {
-        kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: CoreReset() Timeout while waiting for AHB to become idle.\n");
+        kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "USB: CoreReset() Timeout while waiting for AHB to become idle.\n");
         return false;
     }
     for (TimeValNanos endTime = kget_monotonic_time() + TimeValNanos::FromMilliseconds(100); (m_Port->GRSTCTL & USB_OTG_GRSTCTL_AHBIDL) == 0; ) {
@@ -221,7 +221,7 @@ bool USB_STM32::FlushTxFifo(uint32_t count)
 {
     if (!WaitForAHBIdle())
     {
-        kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: FlushTxFifo() Timeout while waiting for AHB to become idle.\n");
+        kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "USB: FlushTxFifo() Timeout while waiting for AHB to become idle.\n");
         return false;
     }
     m_Port->GRSTCTL = (USB_OTG_GRSTCTL_TXFFLSH | (count << USB_OTG_GRSTCTL_TXFNUM_Pos));
@@ -240,7 +240,7 @@ bool USB_STM32::FlushRxFifo()
 {
     if (!WaitForAHBIdle())
     {
-        kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: FlushRxFifo() Timeout while waiting for AHB to become idle.\n");
+        kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "USB: FlushRxFifo() Timeout while waiting for AHB to become idle.\n");
         return false;
     }
     m_Port->GRSTCTL = USB_OTG_GRSTCTL_RXFFLSH;

@@ -26,7 +26,9 @@
 #include <Kernel/Syscalls.h>
 
 using namespace os;
-using namespace kernel;
+
+namespace kernel
+{
 
 extern "C"
 {
@@ -125,3 +127,5 @@ PErrorCode sys_condition_var_wakeup_all(handle_id handle)
 }
 
 } // extern "C"
+
+} // namespace kernel

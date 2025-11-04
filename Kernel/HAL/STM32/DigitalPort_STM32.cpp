@@ -1,4 +1,5 @@
 #include <Kernel/HAL/DigitalPort.h>
+#include <Utils/Utils.h>
 
 
 DigitalPort::DigitalPort(DigitalPortID port) : m_Port(port)

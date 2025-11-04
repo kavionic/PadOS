@@ -66,4 +66,6 @@ private:
     Thread& operator=(const Thread &) = delete;
 };
 
-} // namespace
+} // namespace os
+
+using PThread = os::Thread;

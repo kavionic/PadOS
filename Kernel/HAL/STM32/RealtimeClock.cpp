@@ -21,6 +21,7 @@
 #include <stm32h7xx.h>
 
 #include <Kernel/HAL/STM32/RealtimeClock.h>
+#include <System/ExceptionHandling.h>
 #include <Utils/Utils.h>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -124,30 +125,29 @@ TimeValNanos RealtimeClock::GetClock()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RealtimeClock::WriteBackupRegister(uint32_t registerIndex, uint32_t value)
+void RealtimeClock::WriteBackupRegister_trw(size_t registerIndex, uint32_t value)
 {
     const uint32_t registerCount = &RTC->BKP31R - &RTC->BKP0R + 1;
-    if (registerIndex < registerCount)
-    {
-        volatile uint32_t* backupRegisters = &RTC->BKP0R;
-        PWR->CR1 |= PWR_CR1_DBP; // Disable Back-up domain protection.
-        backupRegisters[registerIndex] = value;
-        PWR->CR1 &= ~PWR_CR1_DBP; // Enable Back-up domain protection.
+    if (registerIndex >= registerCount) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
+    volatile uint32_t* backupRegisters = &RTC->BKP0R;
+    PWR->CR1 |= PWR_CR1_DBP; // Disable Back-up domain protection.
+    backupRegisters[registerIndex] = value;
+    PWR->CR1 &= ~PWR_CR1_DBP; // Enable Back-up domain protection.
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t RealtimeClock::ReadBackupRegister(uint32_t registerIndex)
+uint32_t RealtimeClock::ReadBackupRegister_trw(size_t registerIndex)
 {
     const uint32_t registerCount = &RTC->BKP31R - &RTC->BKP0R + 1;
-    if (registerIndex < registerCount)
-    {
-        volatile uint32_t* backupRegisters = &RTC->BKP0R;
-        return backupRegisters[registerIndex];
+    if (registerIndex >= registerCount) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
-    return 0;
+    volatile uint32_t* backupRegisters = &RTC->BKP0R;
+    return backupRegisters[registerIndex];
 }
 

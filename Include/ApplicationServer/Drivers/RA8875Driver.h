@@ -143,9 +143,9 @@ private:
     void        WriteData(uint16_t data) { m_Registers->DATA = data; }
 
     LCDRegisters*   m_Registers = nullptr;
-    DigitalPin      m_PinLCDReset;
-    DigitalPin      m_PinTouchpadReset;
-    DigitalPin      m_PinBacklightControl;
+    DigitalPinID    m_PinLCDResetID;
+    DigitalPinID    m_PinTouchpadResetID;
+    DigitalPinID    m_PinBacklightControlID;
 
     Ptr<SrvBitmap>  m_ScreenBitmap;
 

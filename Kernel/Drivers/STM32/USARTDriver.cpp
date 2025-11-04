@@ -26,6 +26,7 @@
 
 #include <Ptr/Ptr.h>
 #include <System/ExceptionHandling.h>
+#include <Utils/Utils.h>
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
@@ -78,7 +79,7 @@ USARTDriverINode::USARTDriverINode( USARTID      portID,
 
         auto irq = dma_get_channel_irq(m_ReceiveDMAChannel);
         NVIC_ClearPendingIRQ(irq);
-        kernel::register_irq_handler(irq, IRQCallbackReceive, this);
+        register_irq_handler(irq, IRQCallbackReceive, this);
 
         m_PendingReceiveBytes = m_ReceiveBufferSize;
         dma_setup(m_ReceiveDMAChannel, DMADirection::PeriphToMem, m_DMARequestRX, &m_Port->RDR, m_ReceiveBuffer, m_ReceiveBufferSize);
@@ -88,7 +89,7 @@ USARTDriverINode::USARTDriverINode( USARTID      portID,
     {
         auto irq = dma_get_channel_irq(m_SendDMAChannel);
         NVIC_ClearPendingIRQ(irq);
-        kernel::register_irq_handler(irq, IRQCallbackSend, this);
+        register_irq_handler(irq, IRQCallbackSend, this);
     }
 }
 

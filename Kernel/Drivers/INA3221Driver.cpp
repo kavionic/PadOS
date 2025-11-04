@@ -28,8 +28,10 @@
 #include "DeviceControl/I2C.h"
 #include "Kernel/VFS/KFSVolume.h"
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -202,3 +204,5 @@ int INA3221Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* i
             return -1;
     }
 }
+
+} // namespace kernel

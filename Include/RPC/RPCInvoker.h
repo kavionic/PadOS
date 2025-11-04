@@ -26,7 +26,7 @@
 
 
 
-template<typename TReturnType, typename... TArgTypes>
+template<bool TIsConst, typename TReturnType, typename... TArgTypes>
 class PRPCInvoker
 {
 public:
@@ -34,7 +34,20 @@ public:
 
     PRPCInvoker(CallbackSignature callback) : m_Callback(callback) {}
 
-    TReturnType operator()(TArgTypes... args)
+    template<bool TOIsConst = TIsConst>
+    std::enable_if_t<!TOIsConst, TReturnType> operator()(TArgTypes... args)
+    {
+        return Invoke(std::forward<TArgTypes>(args)...);
+    }
+
+    template<bool TOIsConst = TIsConst>
+    std::enable_if_t<TOIsConst, TReturnType> operator()(TArgTypes... args) const
+    {
+        return Invoke(std::forward<TArgTypes>(args)...);
+    }
+
+private:
+    TReturnType Invoke(TArgTypes... args) const
     {
         uint8_t argBuffer[PArgumentSerializer<TReturnType, TArgTypes...>::GetSize(args...)];
 
@@ -50,14 +63,14 @@ public:
             return returnValue;
         }
     }
-private:
+
     CallbackSignature m_Callback;
     int m_DeviceFD = -1;
 };
 
-template<typename TReturnType, typename... TArgTypes>
-class PRPCInvoker<TReturnType(TArgTypes...)> : public PRPCInvoker<TReturnType, TArgTypes...>
+template<bool TIsConst, typename TReturnType, typename... TArgTypes>
+class PRPCInvoker<TIsConst, TReturnType(TArgTypes...)> : public PRPCInvoker<TIsConst, TReturnType, TArgTypes...>
 {
 public:
-    PRPCInvoker(PRPCInvoker<TReturnType, TArgTypes...>::CallbackSignature&& callback) : PRPCInvoker<TReturnType, TArgTypes...>(callback) {}
+    PRPCInvoker(PRPCInvoker<TIsConst, TReturnType, TArgTypes...>::CallbackSignature&& callback) : PRPCInvoker<TIsConst, TReturnType, TArgTypes...>(callback) {}
 };

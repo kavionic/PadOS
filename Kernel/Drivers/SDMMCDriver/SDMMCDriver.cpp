@@ -32,12 +32,16 @@
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <System/ExceptionHandling.h>
+#include <Utils/Utils.h>
 #include <Utils/String.h>
 #include <DeviceControl/SDCARD.h>
 
-using namespace kernel;
 using namespace os;
 using namespace sdmmc;
+
+namespace kernel
+{
+
 
 // Supported voltages
 #define SD_MMC_VOLTAGE_SUPPORT (OCR_VDD_27_28 | OCR_VDD_28_29 | OCR_VDD_29_30 | OCR_VDD_30_31 | OCR_VDD_31_32 | OCR_VDD_32_33)
@@ -100,7 +104,7 @@ void SDMMCDriver::SetupBase(const String& devicePath, DigitalPinID pinCD)
 
     Start_trw(PThreadDetachState_Detached);
 
-    kernel::register_irq_handler(get_peripheral_irq(pinCD), IRQHandler, this);
+    register_irq_handler(get_peripheral_irq(pinCD), IRQHandler, this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1595,3 +1599,5 @@ bool SDMMCDriver::Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t re
     iovec_t segment(const_cast<void*>(buffer), size);
     return StartAddressedDataTransCmd((rwFlag == SDIO_CMD53_READ_FLAG) ? SDIO_CMD53_IO_R_BYTE_EXTENDED : SDIO_CMD53_IO_W_BYTE_EXTENDED, cmdArgs, get_first_bit_index(1), size, &segment, 1);
 }
+
+} // namespace kernel

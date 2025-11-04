@@ -17,9 +17,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 14.05.2022 16:30
 
+
+#include <algorithm>
+
 #include <Kernel/HAL/PeripheralMapping.h>
 #include <Kernel/HAL/STM32/PiezoBuzzer_STM32.h>
 #include <Kernel/IRQDispatcher.h>
+#include <Utils/Utils.h>
 
 namespace kernel
 {

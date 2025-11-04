@@ -17,11 +17,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18.04.2022 20:30
 
-#include "System/Platform.h"
-#include "Kernel/HAL/STM32/SDRAM_STM32.h"
-#include "Utils/Utils.h"
+#include <System/Platform.h>
+#include <Kernel/HAL/STM32/SDRAM_STM32.h>
+#include <Utils/Utils.h>
 
-//using namespace kernel;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

@@ -26,6 +26,7 @@
 
 #include <Ptr/Ptr.h>
 #include <System/ExceptionHandling.h>
+#include <Utils/Utils.h>
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
@@ -161,7 +162,7 @@ SPIDriverINode::SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver)
     }
     const IRQn_Type spiIRQ = get_spi_irq(setup.PortID);
     NVIC_ClearPendingIRQ(spiIRQ);
-    kernel::register_irq_handler(spiIRQ, SPIIRQCallback, this);
+    register_irq_handler(spiIRQ, SPIIRQCallback, this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

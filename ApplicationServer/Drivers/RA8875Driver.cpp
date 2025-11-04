@@ -32,9 +32,9 @@ using namespace os;
 
 RA8875Driver::RA8875Driver(LCDRegisters* registers, DigitalPinID pinLCDReset, DigitalPinID pinTouchpadReset, DigitalPinID pinBacklightControl)
     : m_Registers(registers)
-    , m_PinLCDReset(pinLCDReset)
-    , m_PinTouchpadReset(pinTouchpadReset)
-    , m_PinBacklightControl(pinBacklightControl)
+    , m_PinLCDResetID(pinLCDReset)
+    , m_PinTouchpadResetID(pinTouchpadReset)
+    , m_PinBacklightControlID(pinBacklightControl)
 {
     m_ScreenBitmap = ptr_new<SrvBitmap>(IPoint(0, 0), EColorSpace::RGB16);
     m_ScreenBitmap->m_VideoMem = true;
@@ -47,13 +47,13 @@ RA8875Driver::RA8875Driver(LCDRegisters* registers, DigitalPinID pinLCDReset, Di
 
 bool RA8875Driver::Open()
 {
-    if (m_PinLCDReset.IsValid())
+    if (m_PinLCDResetID != DigitalPinID::None)
     {
-        m_PinLCDReset = true;
-        m_PinLCDReset.SetDirection(DigitalPinDirection_e::Out);
+        digital_pin_write(m_PinLCDResetID, true);
+        digital_pin_set_direction(m_PinLCDResetID, DigitalPinDirection_e::Out);
     }
-    m_PinBacklightControl = true;
-    m_PinBacklightControl.SetDirection(DigitalPinDirection_e::Out);
+    digital_pin_write(m_PinBacklightControlID, true);
+    digital_pin_set_direction(m_PinBacklightControlID, DigitalPinDirection_e::Out);
 
     Reset();
     m_ScreenBitmap->m_Size = GetResolution();
@@ -90,7 +90,7 @@ void RA8875Driver::Close()
 
 void RA8875Driver::PowerLost(bool hasPower)
 {
-    m_PinBacklightControl = hasPower;
+    digital_pin_write(m_PinBacklightControlID, hasPower);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -746,12 +746,12 @@ uint32_t RA8875Driver::WriteString(SrvBitmap* bitmap, const IPoint& position, co
 
 void RA8875Driver::Reset()
 {
-    if (m_PinLCDReset.IsValid())
+    if (m_PinLCDResetID != DigitalPinID::None)
     {
         snooze_ms(2);
-        m_PinLCDReset = false;
+        digital_pin_write(m_PinLCDResetID, false);
         snooze_ms(10);
-        m_PinLCDReset = true;
+        digital_pin_write(m_PinLCDResetID, true);
         snooze_ms(100);
     }
 

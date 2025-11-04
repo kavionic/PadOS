@@ -172,8 +172,8 @@ public:
 private:
     static constexpr uint32_t CHANNEL_COUNT = 20;
 
-    static kernel::IRQResult IRQCallback(IRQn_Type irq, void* userData);
-    kernel::IRQResult HandleIRQ();
+    static IRQResult IRQCallback(IRQn_Type irq, void* userData);
+    IRQResult HandleIRQ();
 
     ADC_ID              m_ADCID;
     ADC_TypeDef*        m_ADC = nullptr;

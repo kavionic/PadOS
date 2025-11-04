@@ -21,6 +21,9 @@
 
 #pragma once
 
+namespace kernel
+{
+
 class SDMMC_ATSAM
 {
 public:
@@ -59,3 +62,4 @@ private:
 
 };
 
+} // namespace kernel

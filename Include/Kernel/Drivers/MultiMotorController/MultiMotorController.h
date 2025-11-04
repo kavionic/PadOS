@@ -20,8 +20,17 @@
 #pragma once
 
 #include <DeviceControl/DeviceControlInvoker.h>
+#include <RPC/RPCDispatcher.h>
+#include <RPC/ArgumentDeserializer.h>
+
 #include <Ptr/PtrTarget.h>
+#include <Signals/RemoteSignal.h>
+#include <System/ExceptionHandling.h>
+
 #include <Kernel/VFS/KFilesystem.h>
+#include <Kernel/VFS/KINode.h>
+#include <Kernel/Drivers/MultiMotorController/TMC2209Driver.h>
+#include <Kernel/Drivers/MultiMotorController/TMC2209IODriver.h>
 
 
 namespace kernel

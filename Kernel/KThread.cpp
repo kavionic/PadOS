@@ -130,12 +130,12 @@ void* KThread::ThreadEntry(void* data)
     }
     catch (const std::exception& e)
     {
-        kernel_log(LogCatKernel_Scheduler, KLogSeverity::FATAL, "Uncaught exception in KThread %s: %s", self->GetName().c_str(), e.what());
+        kernel_log(LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in KThread %s: %s", self->GetName().c_str(), e.what());
         self->Exit(nullptr);
     }
     catch (...)
     {
-        kernel_log(LogCatKernel_Scheduler, KLogSeverity::FATAL, "Uncaught exception in KThread %s: unknown", self->GetName().c_str());
+        kernel_log(LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in KThread %s: unknown", self->GetName().c_str());
         self->Exit(nullptr);
     }
     return nullptr;

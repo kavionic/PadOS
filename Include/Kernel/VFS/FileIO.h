@@ -31,32 +31,33 @@
 #include <Utils/String.h>
 #include <Kernel/KMutex.h>
 
-namespace kernel
-{
-    class KFilesystem;
-    class KFSVolume;
-    class KINode;
-    class KFileTableNode;
-    class KFileNode;
-    class KDirectoryNode;
-    class KRootFilesystem;
-    class Kernel;
-}
 typedef struct iovec iovec_t;
 
-void                            ksetup_rootfs_trw();
-Ptr<kernel::KRootFilesystem>    kget_rootfs_trw();
-Ptr<kernel::KRootFilesystem>    kget_rootfs() noexcept;
+namespace kernel
+{
 
-void                        kregister_filesystem_trw(const char* name, Ptr<kernel::KFilesystem> filesystem);
-Ptr<kernel::KFilesystem>    kfind_filesystem_trw(const char* name);
+class KFilesystem;
+class KFSVolume;
+class KINode;
+class KFileTableNode;
+class KFileNode;
+class KDirectoryNode;
+class KRootFilesystem;
+class Kernel;
+
+void                            ksetup_rootfs_trw();
+Ptr<KRootFilesystem>    kget_rootfs_trw();
+Ptr<KRootFilesystem>    kget_rootfs() noexcept;
+
+void                        kregister_filesystem_trw(const char* name, Ptr<KFilesystem> filesystem);
+Ptr<KFilesystem>    kfind_filesystem_trw(const char* name);
 
 void                        kmount_trw(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength);
 
-Ptr<kernel::KFileTableNode> kget_file_table_node_trw(int handle, bool forKernel = false);
-Ptr<kernel::KFileNode>      kget_file_node_trw(int handle);
-Ptr<kernel::KFileNode>      kget_file_node_trw(int handle, Ptr<kernel::KINode>& outInode);
-Ptr<kernel::KDirectoryNode> kget_directory_node_trw(int handle);
+Ptr<KFileTableNode> kget_file_table_node_trw(int handle, bool forKernel = false);
+Ptr<KFileNode>      kget_file_node_trw(int handle);
+Ptr<KFileNode>      kget_file_node_trw(int handle, Ptr<KINode>& outInode);
+Ptr<KDirectoryNode> kget_directory_node_trw(int handle);
 
 int         kopen_trw(const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 int         kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
@@ -120,23 +121,14 @@ void    kremove_directory_trw(int baseFolderFD, const char* path);
 void    kget_directory_path_trw(int handle, char* buffer, size_t bufferSize);
 
 
-
-
-
-
-
-
-
-Ptr<kernel::KINode> klocate_inode_by_name_trw(Ptr<kernel::KINode> parent, const char* name, int nameLength, bool crossMount);
-Ptr<kernel::KINode> klocate_inode_by_path_trw(Ptr<kernel::KINode> parent, const char* path, int pathLength);
-Ptr<kernel::KINode> klocate_parent_inode_trw(Ptr<kernel::KINode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength);
-void                kget_directory_name_trw(Ptr<kernel::KINode> inode, char* path, size_t bufferSize);
+Ptr<KINode> klocate_inode_by_name_trw(Ptr<KINode> parent, const char* name, int nameLength, bool crossMount);
+Ptr<KINode> klocate_inode_by_path_trw(Ptr<KINode> parent, const char* path, int pathLength);
+Ptr<KINode> klocate_parent_inode_trw(Ptr<KINode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength);
+void                kget_directory_name_trw(Ptr<KINode> inode, char* path, size_t bufferSize);
 int                 kallocate_filehandle_trw();
 void                kfree_filehandle(int handle) noexcept;
-int                 kopen_from_inode_trw(bool kernelFile, Ptr<kernel::KINode> inode, int openFlags);
-void                kset_filehandle(int handle, Ptr<kernel::KFileTableNode> file) noexcept;
-
-
+int                 kopen_from_inode_trw(bool kernelFile, Ptr<KINode> inode, int openFlags);
+void                kset_filehandle(int handle, Ptr<KFileTableNode> file) noexcept;
 
 off_t       klseek(int handle, off_t offset, int mode) noexcept;
 
@@ -164,3 +156,5 @@ int         kunlink(int baseFolderFD, const char* path) noexcept;
 
 int         kremove_directory(const char* path) noexcept;
 int         kremove_directory(int baseFolderFD, const char* path) noexcept;
+
+} // namespace kernel

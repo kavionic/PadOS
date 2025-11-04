@@ -22,7 +22,6 @@
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/KObjectWaitGroup.h>
 #include <Kernel/Drivers/MultiMotorController/MultiMotorINode.h>
-#include <Kernel/Drivers/MultiMotorController/MultiMotorController.h>
 #include <Kernel/Drivers/MultiMotorController/TMC2209IODriver.h>
 #include <Kernel/Drivers/MultiMotorController/TMC2209Driver.h>
 
@@ -33,8 +32,14 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MultiMotorINode::MultiMotorINode(const char* controlPortPath, uint32_t baudrate, MultiMotorDriver* driver) : KINode(nullptr, nullptr, driver, false)
+MultiMotorINode::MultiMotorINode(
+    const char* controlPortPath,
+    uint32_t baudrate,
+    DigitalPinID motorEnablePinID)
+    : KINode(nullptr, nullptr, this, false)
 {
+    DigitalPin(motorEnablePinID).SetDirection(DigitalPinDirection_e::Out);
+
     m_ControlPort = ptr_new<TMC2209IODriver>();
     m_ControlPort->Setup(controlPortPath, baudrate);
 
@@ -49,6 +54,9 @@ MultiMotorINode::MultiMotorINode(const char* controlPortPath, uint32_t baudrate,
     MMI_REGISTER_HANDLER(SetWakeupOnFullStep);
     MMI_REGISTER_HANDLER(GetWakeupOnFullStep);
     MMI_REGISTER_HANDLER(SetSpeed);
+    MMI_REGISTER_HANDLER(SetSpeedMultiMask);
+    MMI_REGISTER_HANDLER(StopAtOffset);
+    MMI_REGISTER_HANDLER(StopAtOffsetMultiMask);
     MMI_REGISTER_HANDLER(StopAtPos);
     MMI_REGISTER_HANDLER(SyncMove);
     MMI_REGISTER_HANDLER(QueueMotion);
@@ -89,13 +97,14 @@ MultiMotorINode::MultiMotorINode(const char* controlPortPath, uint32_t baudrate,
     MMI_REGISTER_HANDLER(WaitMultipleMotors);
     MMI_REGISTER_HANDLER(AddMotorToWaitGroup);
 #undef MMI_REGISTER_HANDLER
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void MultiMotorINode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     m_DeviceControlDispatcher.Dispatch(request, inData, inDataLength, outData, outDataLength);
 }
@@ -194,6 +203,33 @@ bool  MultiMotorINode::GetWakeupOnFullStep(handle_id motorID)
 void MultiMotorINode::SetSpeed(handle_id motorID, float speedMMS, float accelerationMMS)
 {
     GetMotor(motorID).SetSpeed(speedMMS, accelerationMMS);
+}
+
+void MultiMotorINode::SetSpeedMultiMask(uint32_t motorIDMask, float speedMMS, float accelerationMMS)
+{
+    const std::vector<TMC2209Driver*> motors = GetMotorsFromMask(motorIDMask);
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        for (TMC2209Driver* motor : motors) {
+            motor->SetSpeed(speedMMS, accelerationMMS);
+        }
+    } CRITICAL_END;
+}
+
+void MultiMotorINode::StopAtOffset(handle_id motorID, float offset, float speed, float acceleration)
+{
+    GetMotor(motorID).StopAtOffset(offset, speed, acceleration);
+}
+
+void MultiMotorINode::StopAtOffsetMultiMask(uint32_t motorIDMask, float offset, float speed, float acceleration)
+{
+    const std::vector<TMC2209Driver*> motors = GetMotorsFromMask(motorIDMask);
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        for (TMC2209Driver* motor : motors) {
+            motor->StopAtOffset(offset, speed, acceleration);
+        }
+    } CRITICAL_END;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

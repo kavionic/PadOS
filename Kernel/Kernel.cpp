@@ -31,9 +31,8 @@
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <Utils/Utils.h>
-#include <Kernel/HAL/SAME70System.h>
+#include <Kernel/HAL/STM32/RealtimeClock.h>
 #include <Kernel/VFS/FileIO.h>
-#include <Kernel/HAL/ATSAM/SAME70TimerDefines.h>
 #include <Kernel/SpinTimer.h>
 #include <System/TimeValue.h>
 #include <Threads/Mutex.h>
@@ -51,9 +50,9 @@ TimeValNanos        Kernel::s_RealTime;
 static Mutex												gk_KernelLogMutex("kernel_log", PEMutexRecursionMode_RaiseError);
 static port_id                                              gk_InputEventPort = INVALID_HANDLE;
 
-static std::map<int, std::pair<KLogSeverity, os::String>>& get_kernel_log_levels_map()
+static std::map<int, std::pair<PLogSeverity, os::String>>& get_kernel_log_levels_map()
 {
-    static std::map<int, std::pair<KLogSeverity, os::String>>	kernelLogLevels;
+    static std::map<int, std::pair<PLogSeverity, os::String>>	kernelLogLevels;
     return kernelLogLevels;
 }
 
@@ -61,7 +60,7 @@ static std::map<int, std::pair<KLogSeverity, os::String>>& get_kernel_log_levels
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool kernel_log_register_category(uint32_t categoryHash, const char* categoryName, KLogSeverity initialLogLevel)
+bool kernel_log_register_category(uint32_t categoryHash, const char* categoryName, PLogSeverity initialLogLevel)
 {
     CRITICAL_SCOPE(gk_KernelLogMutex);
     get_kernel_log_levels_map()[categoryHash] = std::make_pair(initialLogLevel, os::String(categoryName));
@@ -72,7 +71,7 @@ bool kernel_log_register_category(uint32_t categoryHash, const char* categoryNam
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kernel_log_set_category_log_level(uint32_t categoryHash, KLogSeverity logLevel)
+void kernel_log_set_category_log_level(uint32_t categoryHash, PLogSeverity logLevel)
 {
     CRITICAL_SCOPE(gk_KernelLogMutex);
     auto i = get_kernel_log_levels_map().find(categoryHash);
@@ -88,7 +87,7 @@ void kernel_log_set_category_log_level(uint32_t categoryHash, KLogSeverity logLe
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool kernel_log_is_category_active(uint32_t categoryHash, KLogSeverity logLevel)
+bool kernel_log_is_category_active(uint32_t categoryHash, PLogSeverity logLevel)
 {
     CRITICAL_SCOPE(gk_KernelLogMutex);
 
@@ -127,6 +126,84 @@ bool is_in_isr()
 bool kis_debugger_attached()
 {
     return (CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk) != 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kdigital_pin_set_direction(DigitalPinID pinID, DigitalPinDirection_e dir)
+{
+    DigitalPin(pinID).SetDirection(dir);
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kdigital_pin_set_drive_strength(DigitalPinID pinID, DigitalPinDriveStrength_e strength)
+{
+    DigitalPin(pinID).SetDriveStrength(strength);
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kdigital_pin_set_pull_mode(DigitalPinID pinID, PinPullMode_e mode)
+{
+    DigitalPin(pinID).SetPullMode(mode);
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kdigital_pin_set_peripheral_mux(DigitalPinID pinID, DigitalPinPeripheralID peripheral)
+{
+    DigitalPin(pinID).SetPeripheralMux(peripheral);
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kdigital_pin_read(DigitalPinID pinID, bool& outValue)
+{
+    outValue = DigitalPin(pinID).Read();
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kdigital_pin_write(DigitalPinID pinID, bool value)
+{
+    DigitalPin(pinID).Write(value);
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kwrite_backup_register_trw(size_t registerID, uint32_t value)
+{
+    RealtimeClock::WriteBackupRegister_trw(registerID, value);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t kread_backup_register_trw(size_t registerID)
+{
+    return RealtimeClock::ReadBackupRegister_trw(registerID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -213,7 +290,7 @@ void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MC
     ResetWatchdog();
 
     //    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
-    kernel::start_scheduler(coreFrequency, mainThreadStackSize);
+    start_scheduler(coreFrequency, mainThreadStackSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -260,7 +337,6 @@ void launch_pados(uint32_t coreFrequency, size_t mainThreadStackSize)
 
 int get_last_error()
 {
-//    return gk_CurrentThread->m_NewLibreent._errno;
     return errno;
 }
 
@@ -270,7 +346,6 @@ int get_last_error()
 
 void set_last_error(int error)
 {
-//    gk_CurrentThread->m_NewLibreent._errno = error;
     errno = error;
 }
 

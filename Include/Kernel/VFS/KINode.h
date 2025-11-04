@@ -51,9 +51,7 @@ public:
     inline void SetDeletedFlag(bool isDeleted) { m_IsDeleted = isDeleted; }
     inline bool IsDeleted() { return m_IsDeleted; }
     inline bool IsDirectory() const { return m_IsDirectory; }
-    
-    int     GetDirectoryPath(os::String* path);
-    
+        
     Ptr<KFilesystem>    m_Filesystem;
     Ptr<KFSVolume>      m_Volume; // The volume this i-node came from.
     KFilesystemFileOps* m_FileOps;

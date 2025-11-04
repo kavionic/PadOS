@@ -24,8 +24,10 @@
 #include <Kernel/KMutex.h>
 #include <Kernel/KTime.h>
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -297,3 +299,5 @@ PErrorCode KConditionVariable::Wakeup(int threadCount)
     } CRITICAL_END;    
     return PErrorCode::Success;
 }
+
+} // namespace kernel

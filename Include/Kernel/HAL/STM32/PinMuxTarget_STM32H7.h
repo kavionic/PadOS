@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <System/Sections.h>
 
 
 static IFLASHD constexpr PinMuxTarget	PINMUX_NONE = { DigitalPinID::None, DigitalPinPeripheralID::None };

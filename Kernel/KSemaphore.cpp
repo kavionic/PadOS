@@ -28,8 +28,10 @@
 #include <Kernel/KTime.h>
 #include <System/System.h>
 
-using namespace kernel;
 using namespace os;
+
+namespace kernel
+{
 
 static KMutex gk_PublicSemaphoresMutex("global_sema_mutex", PEMutexRecursionMode_RaiseError);
 static std::map<String, Ptr<KSemaphore>> gk_PublicSemaphores;
@@ -221,3 +223,5 @@ PErrorCode KSemaphore::Release()
 
     return PErrorCode::Success;
 }
+
+} // namespace kernel

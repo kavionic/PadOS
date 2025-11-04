@@ -49,7 +49,6 @@ extern uint8_t _idle_tls_start;
 extern uint8_t _idle_tls_end;
 
 
-kernel::KThreadCB* volatile gk_CurrentThread;
 
 namespace kernel
 {
@@ -64,6 +63,7 @@ static NoPtr<KThreadCB>& gk_IdleThreadInstance = *reinterpret_cast<NoPtr<KThread
 static uint8_t gk_InitThreadBuffer[sizeof(KThreadCB)] __attribute__((aligned(8)));
 
 KProcess* volatile gk_CurrentProcess = &gk_FirstProcess;
+KThreadCB* volatile gk_CurrentThread;
 
 KThreadCB* gk_IdleThread;
 thread_id  gk_MainThreadID;
@@ -624,10 +624,10 @@ static void* init_thread_entry(void* arguments)
 
     KThreadCB* thread = gk_CurrentThread;
 
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_General, KLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_VFS, KLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache, KLogSeverity::INFO_LOW_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler, KLogSeverity::INFO_HIGH_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_General, PLogSeverity::INFO_HIGH_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_VFS, PLogSeverity::INFO_HIGH_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache, PLogSeverity::INFO_LOW_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler, PLogSeverity::INFO_HIGH_VOL);
 
     ksetup_rootfs_trw();
 
@@ -663,7 +663,7 @@ static void* init_thread_entry(void* arguments)
             }
             catch(const std::exception& exc)
             {
-                kernel_log(LogCatKernel_Scheduler, KLogSeverity::CRITICAL, "%s: failed to free zombie thread handle: %s\n", __PRETTY_FUNCTION__, exc.what());
+                kernel_log(LogCatKernel_Scheduler, PLogSeverity::CRITICAL, "%s: failed to free zombie thread handle: %s\n", __PRETTY_FUNCTION__, exc.what());
             }
         }
         CRITICAL_BEGIN(CRITICAL_IRQ)

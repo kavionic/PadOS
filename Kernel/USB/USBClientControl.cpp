@@ -109,7 +109,7 @@ bool USBClientControl::ControlTransferComplete(uint8_t endpointAddr, USB_Transfe
         }
         if (length > m_ControlEndpointBuffer.size())
         {
-            kernel_log(LogCategoryUSBDevice, KLogSeverity::ERROR, "USBD: USBClientControl::ControlTransferComplete(%02x) invalid transfer length: &lu.\n", endpointAddr, length);
+            kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBD: USBClientControl::ControlTransferComplete(%02x) invalid transfer length: &lu.\n", endpointAddr, length);
             return false;
         }
         memcpy(m_TransferBuffer, m_ControlEndpointBuffer.data(), length);

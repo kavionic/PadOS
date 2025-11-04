@@ -19,9 +19,11 @@
 
 #ifdef STM32H7
 
+#include <stdio.h>
 #include <string.h>
 
 #include <System/Platform.h>
+#include <Utils/Utils.h>
 #include <Kernel/HAL/DigitalPort.h>
 #include <Kernel/HAL/PeripheralMapping.h>
 #include <Kernel/HAL/STM32/PinMuxTarget_STM32.h>

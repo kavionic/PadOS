@@ -22,7 +22,6 @@
 #include "Kernel.h"
 #include "KThreadCB.h"
 
-extern kernel::KThreadCB* volatile gk_CurrentThread;
 
 extern "C" void initialize_device_drivers();
 
@@ -63,6 +62,7 @@ enum KIRQPriorityLevels
 
 
 extern KProcess* volatile      gk_CurrentProcess;
+extern "C" KThreadCB* volatile gk_CurrentThread;
 extern KThreadCB* gk_IdleThread;
 extern thread_id                gk_MainThreadID;
 extern KHandleArray<KThreadCB>& gk_ThreadTable;
@@ -129,7 +129,7 @@ private:
     IRQDisabler& operator=(const IRQDisabler& c) = delete;
 };
 
-#define CRITICAL_IRQ kernel::IRQDisabler()
+#define CRITICAL_IRQ IRQDisabler()
 inline IRQDisabler&& critical_create_guard(IRQDisabler&& lock) { return std::move(lock); }
 
 

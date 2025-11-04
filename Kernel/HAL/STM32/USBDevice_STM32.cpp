@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.07.2022 20:30
 
+#include <Utils/Utils.h>
 #include <Kernel/HAL/STM32/USBDevice_STM32.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
 #include <Kernel/HAL/PeripheralMapping.h>
@@ -124,13 +125,13 @@ bool USBDevice_STM32::EndpointOpen(const USB_DescEndpoint& endpointDescriptor)
     {
         // Check if enough FIFO space is available.
         if (m_AllocatedTXFIFOWords + fifoSizeWords + m_Port->GRXFSIZ > USB_OTG_FIFO_SIZE / 4) {
-            kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: failed to allocate %u FIFO bytes (%u).\n", fifoSizeWords * 4, m_AllocatedTXFIFOWords * 4);
+            kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "USB: failed to allocate %u FIFO bytes (%u).\n", fifoSizeWords * 4, m_AllocatedTXFIFOWords * 4);
             return false;
         }
 
         m_AllocatedTXFIFOWords += fifoSizeWords;
 
-        kernel_log(LogCategoryUSB, KLogSeverity::INFO_LOW_VOL, "USB: Allocated %u FIFO bytes at offset %u.\n", fifoSizeWords * 4, USB_OTG_FIFO_SIZE - m_AllocatedTXFIFOWords * 4);
+        kernel_log(LogCategoryUSB, PLogSeverity::INFO_LOW_VOL, "USB: Allocated %u FIFO bytes at offset %u.\n", fifoSizeWords * 4, USB_OTG_FIFO_SIZE - m_AllocatedTXFIFOWords * 4);
 
         m_Port->DIEPTXF[epNum - 1] = (fifoSizeWords << USB_OTG_DIEPTXF_INEPTXFD_Pos) | (USB_OTG_FIFO_SIZE / 4 - m_AllocatedTXFIFOWords);
 
@@ -189,7 +190,7 @@ void USBDevice_STM32::EndpointClose(uint8_t endpointAddr)
         }
         else
         {
-            kernel_log(LogCategoryUSB, KLogSeverity::ERROR, "USB: USB_STM32::EndpointClose(%02x) called on non-last endpoint. Leaking %lu FIFO bytes.\n", endpointAddr, fifoSize * 4);
+            kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "USB: USB_STM32::EndpointClose(%02x) called on non-last endpoint. Leaking %lu FIFO bytes.\n", endpointAddr, fifoSize * 4);
         }
     }
     else

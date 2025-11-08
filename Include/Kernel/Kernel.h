@@ -19,15 +19,17 @@
 
 #pragma once
 
+#include <iostream>
+#include <print>
+#include <vector>
+#include <atomic>
+#include <cstdint>
+#include <format>
 
 #include "System/Platform.h"
 
 #include <stdio.h>
 
-#include <vector>
-#include <atomic>
-#include <cstdint>
-#include <print>
 #include <sys/pados_error_codes.h>
 
 #include <Ptr/PtrTarget.h>
@@ -72,13 +74,14 @@ static constexpr uint32_t SYS_TICKS_PER_SEC = 1000;
 
 template<typename ...ARGS> int kprintf(const char* fmt, ARGS&&... args) { return printf(fmt, args...); }
 
-#define DEFINE_KERNEL_LOG_CATEGORY(CATEGORY)   static constexpr uint32_t CATEGORY = os::String::hash_string_literal(#CATEGORY, sizeof(#CATEGORY) - 1); static constexpr const char* CATEGORY##_Name = #CATEGORY
+#define DEFINE_KERNEL_LOG_CATEGORY(CATEGORY)   static constexpr uint32_t CATEGORY = PString::hash_string_literal(#CATEGORY, sizeof(#CATEGORY) - 1); static constexpr const char* CATEGORY##_Name = #CATEGORY
 #define GET_KERNEL_LOG_CATEGORY_NAME(CATEGORY) CATEGORY##_Name
 #define REGISTER_KERNEL_LOG_CATEGORY(CATEGORY, INITIAL_LEVEL) kernel_log_register_category(CATEGORY, #CATEGORY, INITIAL_LEVEL)
 #define PREGISTER_LOG_CATEGORY(CATEGORY, INITIAL_LEVEL) kernel::kernel_log_register_category(CATEGORY, #CATEGORY, INITIAL_LEVEL)
 
 DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_General);
 DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_VFS);
+DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_Drivers);
 DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache);
 DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler);
 
@@ -90,13 +93,22 @@ bool kernel_log_is_category_active(uint32_t categoryHash, PLogSeverity logLevel)
 template<typename ...ARGS>
 void kernel_log(uint32_t category, PLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel_log_is_category_active(category, severity)) kprintf(fmt, args...); }
 
+template<typename ...ARGS>
+void ksystem_log(uint32_t category, PLogSeverity severity, std::format_string<ARGS...> fmt, ARGS&&... args)
+{
+    if (kernel::kernel_log_is_category_active(category, severity))
+    {
+        PString text = std::format(fmt, std::forward<ARGS>(args)...);
+        puts(text.c_str());
+    }
+}
 
 void panic(const char* message); // __attribute__((__noreturn__));
 
 template<typename FIRSTARG, typename... ARGS>
 void panic(const char* fmt, FIRSTARG&& firstArg, ARGS&&... args)
 {
-    panic(os::String::format_string(fmt, firstArg, args...).c_str());
+    panic(PString::format_string(fmt, firstArg, args...).c_str());
 }
 
 bool is_in_isr();
@@ -127,9 +139,6 @@ public:
 #endif
     static void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
     static void Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/);
-    static int  RegisterDevice_trw(const char* path, Ptr<KINode> deviceNode);
-    static void RenameDevice_trw(int handle, const char* newPath);
-    static void RemoveDevice_trw(int handle);
 
 //private:
 
@@ -141,15 +150,39 @@ public:
 
 } // namespace
 
-template<typename ...ARGS>
-void p_log(uint32_t category, PLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel::kernel_log_is_category_active(category, severity)) kernel::kprintf(fmt, args...); }
+DEFINE_KERNEL_LOG_CATEGORY(LogCat_General);
 
 template<typename ...ARGS>
-void p_system_log(uint32_t category, PLogSeverity severity, std::format_string<ARGS...> fmt, ARGS&&... args) { if (kernel::kernel_log_is_category_active(category, severity)) std::println(fmt, std::forward<ARGS>(args)...); }
+void p_log(uint32_t category, PLogSeverity severity, const char* fmt, ARGS&&... args)
+{
+    if (kernel::kernel_log_is_category_active(category, severity)) {
+        kernel::kprintf(fmt, args...);
+    }
+}
+
+template<typename ...ARGS>
+void p_system_log(uint32_t category, PLogSeverity severity, std::format_string<ARGS...> fmt, ARGS&&... args)
+{
+    if (kernel::kernel_log_is_category_active(category, severity))
+    {
+        PString text = std::format(fmt, std::forward<ARGS>(args)...);
+        puts(text.c_str());
+    }
+}
+
+template<typename ...ARGS>
+void p_system_vlog(uint32_t category, PLogSeverity severity, std::string_view fmt, ARGS&&... args)
+{
+    if (kernel::kernel_log_is_category_active(category, severity))
+    {
+        PString text = std::vformat(fmt, std::make_format_args(args...));
+        puts(text.c_str());
+    }
+}
 
 inline void kassert_function(const char* file, int line, const char* func, const char* expression)
 {
-    os::String message;
+    PString message;
     message.format("KASSERT %s / %s:%d: %s", func, file, line, expression);
     printf("%s\n", message.c_str());
     kernel::panic(message.c_str());
@@ -158,9 +191,9 @@ inline void kassert_function(const char* file, int line, const char* func, const
 template<typename... ARGS>
 void kassert_function(const char* file, int line, const char* func, const char* expression, const char* fmt, ARGS&&... args)
 {
-    os::String message;
+    PString message;
     message.format("KASSERT %s / %s:%d: %s -> ", func, file, line, expression);
-    message += os::String::format_string(fmt, args...);
+    message += PString::format_string(fmt, args...);
     printf("%s\n", message.c_str());
     kernel::panic(message.c_str());
 }

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -22,12 +22,57 @@
 #include <cmath>
 
 #include <Kernel/HAL/DigitalPort.h>
-#include <Kernel/VFS/KDeviceNode.h>
+#include <Kernel/VFS/KFilesystem.h>
+#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KDriverParametersBase.h>
 #include <Kernel/KThread.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/KConditionVariable.h>
 #include <DeviceControl/TLV493D.h>
 #include <Utils/Utils.h>
+
+
+struct TLV493DDriverParameters : KDriverParametersBase
+{
+    static constexpr char DRIVER_NAME[] = "tlv493d";
+
+    TLV493DDriverParameters() = default;
+    TLV493DDriverParameters(
+        const PString&  devicePath,
+        DigitalPinID    pinPower,
+        PString         i2cPath,
+        int             threadPriority
+    )
+        : KDriverParametersBase(devicePath)
+        , PinPower(pinPower)
+        , I2CPath(i2cPath)
+        , ThreadPriority(threadPriority)
+    {}
+
+    DigitalPinID    PinPower;
+    PString         I2CPath;
+    int             ThreadPriority;
+
+    friend void to_json(Pjson& data, const TLV493DDriverParameters& value)
+    {
+        to_json(data, static_cast<const KDriverParametersBase&>(value));
+        data.update(Pjson{
+            {"pin_power",       value.PinPower},
+            {"i2c_path",        value.I2CPath},
+            {"thread_priority", value.ThreadPriority}
+        });
+    }
+    friend void from_json(const Pjson& data, TLV493DDriverParameters& outValue)
+    {
+        from_json(data, static_cast<KDriverParametersBase&>(outValue));
+
+        data.at("pin_power").get_to(outValue.PinPower);
+        data.at("i2c_path").get_to(outValue.I2CPath);
+        data.at("thread_priority").get_to(outValue.ThreadPriority);
+    }
+};
+
+
 
 namespace kernel
 {
@@ -83,13 +128,11 @@ static const uint8_t TLV493D_MODE1_PARITY   = 0x80;
 constexpr int32_t   TLV493D_MAX_FRAMERATE = 2475; // 3.3kHz - 25%
 constexpr TimeValNanos  TLV493D_CONVERSION_TIME = TimeValNanos::FromNanoseconds(TimeValNanos::TicksPerSecond / TLV493D_MAX_FRAMERATE);
 
-class TLV493DDriver : public PtrTarget, public KThread, public SignalTarget, public KFilesystemFileOps
+class TLV493DDriver : public KINode, public KThread, public SignalTarget, public KFilesystemFileOps
 {
 public:
-    TLV493DDriver();
+    TLV493DDriver(const TLV493DDriverParameters& parameters);
     ~TLV493DDriver();
-
-    void Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin);
 
     virtual void* Run() override;
 

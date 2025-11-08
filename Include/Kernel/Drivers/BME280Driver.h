@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include "Kernel/VFS/KDeviceNode.h"
 #include "Kernel/KMutex.h"
 #include "DeviceControl/BME280.h"
 #include "Utils/Utils.h"

@@ -24,19 +24,44 @@
 
 #include <Ptr/Ptr.h>
 #include <Kernel/HAL/DigitalPort.h>
-#include <Kernel/VFS/KDeviceNode.h>
+#include <Kernel/VFS/KFilesystem.h>
+#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KDriverParametersBase.h>
 #include <Kernel/KThread.h>
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/KConditionVariable.h>
 #include <Kernel/KSemaphore.h>
-#include <Kernel/VFS/KINode.h>
 
 #include "SDMMCProtocol.h"
+
+struct SDMMCBaseDriverParameters : KDriverParametersBase
+{
+    SDMMCBaseDriverParameters() = default;
+    SDMMCBaseDriverParameters(const PString& devicePath, DigitalPinID pinCardDetect) : KDriverParametersBase(devicePath), PinCardDetect(pinCardDetect) {}
+
+
+    DigitalPinID    PinCardDetect;
+
+    friend void to_json(Pjson& data, const SDMMCBaseDriverParameters& value)
+    {
+        to_json(data, static_cast<const KDriverParametersBase&>(value));
+        data.update(Pjson{
+            {"pin_card_detect",       value.PinCardDetect}
+        });
+    }
+    friend void from_json(const Pjson& data, SDMMCBaseDriverParameters& outValue)
+    {
+        from_json(data, static_cast<KDriverParametersBase&>(outValue));
+
+        data.at("pin_card_detect").get_to(outValue.PinCardDetect);
+    }
+};
 
 namespace kernel
 {
 class KFileNode;
+class SDMMCDriver;
 
 namespace SDMMCCardType
 {
@@ -66,7 +91,10 @@ enum class SDMMCCardVersion
 class SDMMCINode : public KINode
 {
 public:
-    SDMMCINode(KFilesystemFileOps* fileOps);
+    SDMMCINode(Ptr<SDMMCDriver> driver);
+
+    Ptr<SDMMCDriver> m_Driver;
+
     int		bi_nOpenCount = 0;
     int		bi_nNodeHandle = -1;
     int		bi_nPartitionType = 0;
@@ -77,10 +105,10 @@ public:
 class SDMMCDriver : public PtrTarget, public KFilesystemFileOps, public KThread
 {
 public:
-    SDMMCDriver();
+    SDMMCDriver(const SDMMCBaseDriverParameters& parameters);
 	virtual ~SDMMCDriver();
 
-    void SetupBase(const os::String& devicePath, DigitalPinID pinCD);
+    int RegisterDevice();
     
     virtual void* Run() override;
     
@@ -195,7 +223,7 @@ protected:
     SDMMCCardVersion    m_CardVersion  = SDMMCCardVersion::Unknown;
     uint32_t            m_Clock        = 0;
     uint64_t            m_SectorCount  = 0;
-    CardState           m_CardState    = CardState::NoCard;
+    CardState           m_CardState    = CardState::Initializing;
     int                 m_BusWidth     = 1;
     bool                m_HighSpeed    = false;
 

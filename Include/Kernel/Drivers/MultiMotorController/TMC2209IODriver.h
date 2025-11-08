@@ -29,7 +29,7 @@ class TMC2209IODriver : public PtrTarget
 {
 public:
     TMC2209IODriver() : m_Mutex("TMC2209SerDrv", PEMutexRecursionMode_RaiseError) {}
-    void Setup(const char* controlPortPath, uint32_t baudrate);
+    void Setup(const PString& controlPortPath, uint32_t baudrate);
 
     uint32_t    ReadRegister(uint8_t chipAddress, uint8_t registerAddress);
     void        WriteRegister(uint8_t chipAddress, uint8_t registerAddress, uint32_t data);

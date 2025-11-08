@@ -22,6 +22,7 @@
 #include <RPC/RPCDispatcher.h>
 
 struct TMC2209IOSetup;
+struct MultiMotorDriverParameters;
 
 namespace kernel
 {
@@ -33,7 +34,8 @@ class TMC2209IODriver;
 class MultiMotorINode : public KINode, public KFilesystemFileOps
 {
 public:
-    MultiMotorINode(const char* controlPortPath, uint32_t baudrate, DigitalPinID motorEnablePinID);
+    MultiMotorINode(const MultiMotorDriverParameters& parameters);
+
     virtual void DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
     void        SetupControllerIO(const char* controlPortPath, uint32_t baudrate);

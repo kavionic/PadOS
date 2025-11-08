@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,18 +15,21 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 10.05.2022 18:30
+// Created: 04.11.2025 21:00
 
-#pragma once
+#include <Ptr/Ptr.h>
+#include <Kernel/VFS/KINode.h>
+#include <Kernel/Kernel.h>
 
-#ifndef IFLASHC
-#define IFLASHC __attribute__((section(".itext")))
-#endif
+namespace kernel
+{
 
-#ifndef IFLASHD
-#define IFLASHD __attribute__((section(".irodata")))
-#endif
+struct KDriverDescriptor
+{
+    const char* Name;
 
-#ifndef SECTION_DEVICE_DESCRIPTORS
-#define SECTION_DEVICE_DESCRIPTORS __attribute__((section(".drvdesc")))
-#endif
+    bool (*Initialize)(const char* parameters);
+};
+
+
+} // namespace kernel

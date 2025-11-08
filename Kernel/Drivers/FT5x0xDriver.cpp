@@ -26,6 +26,7 @@
 #include <Kernel/Drivers/FT5x0xDriver.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KDriverManager.h>
 #include <Kernel/KMessagePort.h>
 #include <DeviceControl/I2C.h>
 #include <DeviceControl/HID.h>
@@ -109,7 +110,7 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
     Start_trw(PThreadDetachState_Detached, 10);
         
     Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
-    Kernel::RegisterDevice_trw(devicePath, inode);    
+    kregister_device_root_trw(devicePath, inode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

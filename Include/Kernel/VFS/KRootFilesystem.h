@@ -37,8 +37,6 @@ class KRootFSINode : public KINode
 public:
     KRootFSINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KRootFSINode* parent, KFilesystemFileOps* fileOps, bool isDirectory);
 
-    Ptr<KDeviceNode> m_DeviceNode;
-
     KRootFSINode* m_Parent = nullptr;
 
     std::map<os::String, Ptr<KINode>> m_Children;

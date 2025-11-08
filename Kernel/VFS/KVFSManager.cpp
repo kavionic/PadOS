@@ -27,7 +27,6 @@
 #include <System/ExceptionHandling.h>
 #include <Kernel/KTime.h>
 #include <Kernel/VFS/KVFSManager.h>
-#include <Kernel/VFS/KDeviceNode.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KINode.h>
 

@@ -19,6 +19,7 @@
 #pragma once
 #include <cmath>
 #include <Utils/String.h>
+#include <Utils/JSON.h>
 
 namespace os
 {
@@ -87,6 +88,16 @@ public:
     constexpr bool  operator>(const Point& rhs) const noexcept  { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
     constexpr bool  operator==(const Point& rhs) const noexcept { return(y == rhs.y && x == rhs.x); }
     constexpr bool  operator!=(const Point& rhs) const noexcept { return(y != rhs.y || x != rhs.x); }
+
+    friend void to_json(Pjson& data, const Point& value)
+    {
+        data = Pjson{ {"x", value.x}, {"y", value.y} };
+    }
+    friend void from_json(const Pjson& data, Point& p)
+    {
+        data.at("x").get_to(p.x);
+        data.at("y").get_to(p.y);
+    }
 };
 
 /**
@@ -120,6 +131,17 @@ public:
     bool          operator>(const IPoint& rhs) const noexcept   { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
     bool          operator==(const IPoint& rhs) const noexcept  { return(y == rhs.y && x == rhs.x); }
     bool          operator!=(const IPoint& rhs) const noexcept  { return(y != rhs.y || x != rhs.x); }
+
+
+    friend void to_json(Pjson& data, const IPoint& value)
+    {
+        data = Pjson{ {"x", value.x}, {"y", value.y} };
+    }
+    friend void from_json(const Pjson& data, IPoint& p)
+    {
+        data.at("x").get_to(p.x);
+        data.at("y").get_to(p.y);
+    }
 };
 
 
@@ -127,3 +149,6 @@ constexpr Point::Point(const IPoint& other) noexcept : x(float(other.x)), y(floa
 constexpr IPoint::IPoint(const Point& other) noexcept : x(int(other.x)), y(int(other.y)) {}
 
 } // namespace os
+
+using PPoint = os::Point;
+using PIPoint = os::IPoint;

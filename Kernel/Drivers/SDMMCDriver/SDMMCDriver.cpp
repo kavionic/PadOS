@@ -31,6 +31,7 @@
 #include <Kernel/VFS/KVFSManager.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KDriverManager.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/Utils.h>
 #include <Utils/String.h>
@@ -60,7 +61,7 @@ static constexpr uint32_t g_TransferRateMultipliers_mmc[16] = { 0, 10, 12, 13, 1
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCINode::SDMMCINode(KFilesystemFileOps* fileOps) : KINode(nullptr, nullptr, fileOps, false)
+SDMMCINode::SDMMCINode(Ptr<SDMMCDriver> driver) : KINode(nullptr, nullptr, ptr_raw_pointer_cast(driver), false), m_Driver(driver)
 {
 }
 
@@ -68,12 +69,26 @@ SDMMCINode::SDMMCINode(KFilesystemFileOps* fileOps) : KINode(nullptr, nullptr, f
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCDriver::SDMMCDriver() : KThread("hsmci_driver"), m_Mutex("hsmci_driver_mutex", PEMutexRecursionMode_RaiseError), m_CardDetectCondition("hsmci_driver_cd"), m_CardStateCondition("hsmci_driver_cstate"), m_IOCondition("hsmci_driver_io"), m_DeviceSemaphore("hsmci_driver_dev_sema", CLOCK_MONOTONIC_COARSE, 1)
+SDMMCDriver::SDMMCDriver(const SDMMCBaseDriverParameters& parameters)
+    : KThread("hsmci_driver")
+    , m_Mutex("hsmci_driver_mutex", PEMutexRecursionMode_RaiseError)
+    , m_CardDetectCondition("hsmci_driver_cd")
+    , m_CardStateCondition("hsmci_driver_cstate")
+    , m_IOCondition("hsmci_driver_io")
+    , m_DeviceSemaphore("hsmci_driver_dev_sema", CLOCK_MONOTONIC_COARSE, 1)
+    , m_DevicePathBase(parameters.DevicePath)
 {
-    m_CardType = 0;
-    m_CardState = CardState::Initializing;
-
 	m_CacheAlignedBuffer = memalign(DCACHE_LINE_SIZE, BLOCK_SIZE);
+
+    m_PinCD = parameters.PinCardDetect;
+    m_PinCD.SetDirection(DigitalPinDirection_e::In);
+    m_PinCD.SetPullMode(PinPullMode_e::Up);
+    m_PinCD.SetInterruptMode(PinInterruptMode_e::BothEdges);
+    m_PinCD.EnableInterrupts();
+
+    m_RawINode = ptr_new<SDMMCINode>(ptr_tmp_cast(this));
+
+    register_irq_handler(get_peripheral_irq(parameters.PinCardDetect), IRQHandler, this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -89,22 +104,10 @@ SDMMCDriver::~SDMMCDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SDMMCDriver::SetupBase(const String& devicePath, DigitalPinID pinCD)
+int SDMMCDriver::RegisterDevice()
 {
-	m_PinCD = pinCD;
-	m_PinCD.SetDirection(DigitalPinDirection_e::In);
-	m_PinCD.SetPullMode(PinPullMode_e::Up);
-	m_PinCD.SetInterruptMode(PinInterruptMode_e::BothEdges);
-	m_PinCD.EnableInterrupts();
-
-    m_DevicePathBase = devicePath;
-
-    m_RawINode = ptr_new<SDMMCINode>(this);
-    m_RawINode->bi_nNodeHandle = Kernel::RegisterDevice_trw((devicePath + "raw").c_str(), m_RawINode);
-
-    Start_trw(PThreadDetachState_Detached);
-
-    register_irq_handler(get_peripheral_irq(pinCD), IRQHandler, this);
+    m_RawINode->bi_nNodeHandle = kregister_device_root_trw((m_DevicePathBase + "raw").c_str(), m_RawINode);
+    return m_RawINode->bi_nNodeHandle;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -675,7 +678,7 @@ void SDMMCDriver::DecodePartitions(bool force)
         }
         if (!found)
         {
-            Kernel::RemoveDevice_trw(partition->bi_nNodeHandle);
+            kremove_device_root_trw(partition->bi_nNodeHandle);
             partition->bi_nNodeHandle = -1;
             i = m_PartitionINodes.erase(i);
             if (partition->bi_nOpenCount == 0) {
@@ -699,7 +702,7 @@ void SDMMCDriver::DecodePartitions(bool force)
             partition = unusedPartitionINodes.back();
             unusedPartitionINodes.pop_back();
         } else {
-            partition = ptr_new<SDMMCINode>(this);
+            partition = ptr_new<SDMMCINode>(ptr_tmp_cast(this));
         }
         m_PartitionINodes.push_back(partition);
 	    partition->bi_nStart = partitions[i].p_start;
@@ -719,7 +722,7 @@ void SDMMCDriver::DecodePartitions(bool force)
         if (partition->bi_nNodeHandle != -1)
         {
             String path = m_DevicePathBase + String::format_string("%lu_new", i);
-            Kernel::RenameDevice_trw(partition->bi_nNodeHandle, path.c_str());
+            krename_device_root_trw(partition->bi_nNodeHandle, path.c_str());
         }
     }
     for (size_t i = 0; i < m_PartitionINodes.size(); ++i)
@@ -728,9 +731,9 @@ void SDMMCDriver::DecodePartitions(bool force)
         
         Ptr<SDMMCINode> partition = m_PartitionINodes[i];
         if (partition->bi_nNodeHandle != -1) {
-            Kernel::RenameDevice_trw(partition->bi_nNodeHandle, path.c_str());
+            krename_device_root_trw(partition->bi_nNodeHandle, path.c_str());
         } else {
-            Kernel::RegisterDevice_trw(path.c_str(), partition);
+            partition->bi_nNodeHandle = kregister_device_root_trw(path.c_str(), partition);
         }
     }
 }

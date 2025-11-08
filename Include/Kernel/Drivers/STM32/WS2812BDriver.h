@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,27 +19,67 @@
 
 #pragma once
 
-#include "System/Platform.h"
-#include "Kernel/IRQDispatcher.h"
-#include "Kernel/KMutex.h"
-#include "Kernel/KConditionVariable.h"
-#include "Kernel/VFS/KINode.h"
-#include "Kernel/VFS/KFilesystem.h"
-#include "Kernel/HAL/STM32/DMARequestID.h"
+#include <System/Platform.h>
+#include <Kernel/IRQDispatcher.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/KConditionVariable.h>
+#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KFilesystem.h>
+#include <Kernel/VFS/KDriverParametersBase.h>
+#include <Kernel/HAL/STM32/DMARequestID.h>
 
 enum class SPIID : int;
+
+struct WS2812BDriverParameters : KDriverParametersBase
+{
+    static constexpr char DRIVER_NAME[] = "ws2812b";
+
+    WS2812BDriverParameters() = default;
+    WS2812BDriverParameters(
+        const PString& devicePath,
+        SPIID           portID,
+        PinMuxTarget    pinData,
+        bool            swapIOPins = false
+    )
+        : KDriverParametersBase(devicePath)
+        , PortID(portID)
+        , PinData(pinData)
+        , SwapIOPins(swapIOPins)
+    {}
+
+    SPIID           PortID;
+    PinMuxTarget    PinData;
+    bool            SwapIOPins = false;
+
+    friend void to_json(Pjson& data, const WS2812BDriverParameters& value)
+    {
+        to_json(data, static_cast<const KDriverParametersBase&>(value));
+        data.update(Pjson{
+            {"port_id",         value.PortID},
+            {"pin_data",        value.PinData},
+            {"swap_io_pins",    value.SwapIOPins}
+        });
+    }
+    friend void from_json(const Pjson& data, WS2812BDriverParameters& outValue)
+    {
+        from_json(data, static_cast<KDriverParametersBase&>(outValue));
+
+        data.at("port_id").get_to(outValue.PortID);
+        data.at("pin_data").get_to(outValue.PinData);
+        data.at("swap_io_pins").get_to(outValue.SwapIOPins);
+    }
+};
 
 namespace kernel
 {
 
-class WS2812BDriverINode : public KINode
+class WS2812BDriverINode : public KINode, public KFilesystemFileOps
 {
 public:
-    WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t clockFrequency, KFilesystemFileOps* fileOps);
+    WS2812BDriverINode(const WS2812BDriverParameters& parameters);
 
-    void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
-    size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position);
-    size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position);
+    virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
 
 private:
     enum class State
@@ -78,22 +118,5 @@ private:
     bool        m_Exponential = true;
 };
 
-
-class WS2812BDriver : public PtrTarget, public KFilesystemFileOps
-{
-public:
-    WS2812BDriver();
-    ~WS2812BDriver();
-
-    void Setup(const char* devicePath, bool swapIOPins, SPIID portID, uint32_t clockFrequency);
-
-    virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
-    virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-
-private:
-    WS2812BDriver(const WS2812BDriver &other) = delete;
-    WS2812BDriver& operator=(const WS2812BDriver &other) = delete;
-};
 
 } // namespace

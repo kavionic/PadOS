@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,14 +20,15 @@
 
 #include <atomic>
 
-#include "Kernel/VFS/KDeviceNode.h"
-#include "Kernel/VFS/KFileHandle.h"
-#include "Kernel/IRQDispatcher.h"
-#include "Kernel/KSemaphore.h"
-#include "Kernel/KMutex.h"
-#include "Kernel/KConditionVariable.h"
-#include "Kernel/HAL/DigitalPort.h"
-#include "DeviceControl/I2C.h"
+#include <Kernel/VFS/KFilesystem.h>
+#include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/VFS/KDriverParametersBase.h>
+#include <Kernel/IRQDispatcher.h>
+#include <Kernel/KSemaphore.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/KConditionVariable.h>
+#include <Kernel/HAL/DigitalPort.h>
+#include <DeviceControl/I2C.h>
 
 enum class I2CID : int;
 enum class SPIID : int;
@@ -39,16 +40,62 @@ enum class I2CSpeed : int
     FastPlus
 };
 
-struct I2CDriverSetup
+struct I2CDriverParameters : KDriverParametersBase
 {
-    os::String      DevicePath;
+    static constexpr char DRIVER_NAME[] = "i2c";
+
+    I2CDriverParameters() = default;
+    I2CDriverParameters(
+        const PString&  devicePath,
+        I2CID           portID,
+        PinMuxTarget    clockPin,
+        PinMuxTarget    dataPin,
+        uint32_t        clockFrequency,
+        double          fallTime,
+        double          riseTime
+    )
+        : KDriverParametersBase(devicePath)
+        , PortID(portID)
+        , ClockPin(clockPin)
+        , DataPin(dataPin)
+        , ClockFrequency(clockFrequency)
+        , FallTime(fallTime)
+        , RiseTime(riseTime)
+    {}
+
     I2CID           PortID;
     PinMuxTarget    ClockPin;
     PinMuxTarget    DataPin;
     uint32_t        ClockFrequency;
     double          FallTime;
     double          RiseTime;
+
+    friend void to_json(Pjson& data, const I2CDriverParameters& value)
+    {
+        to_json(data, static_cast<const KDriverParametersBase&>(value));
+        data.update(Pjson{
+            {"port_id",         value.PortID },
+            {"pin_clock",       value.ClockPin },
+            {"pin_data",        value.DataPin },
+            {"clock_frequency", value.ClockFrequency },
+            {"fall_time",       value.FallTime },
+            {"rise_time",       value.RiseTime }
+        });
+    }
+    friend void from_json(const Pjson& data, I2CDriverParameters& outValue)
+    {
+        from_json(data, static_cast<KDriverParametersBase&>(outValue));
+
+        data.at("port_id").get_to(outValue.PortID);
+        data.at("pin_clock").get_to(outValue.ClockPin);
+        data.at("pin_data").get_to(outValue.DataPin);
+        data.at("clock_frequency").get_to(outValue.ClockFrequency);
+        data.at("fall_time").get_to(outValue.FallTime);
+        data.at("rise_time").get_to(outValue.RiseTime);
+    }
+
 };
+
 
 namespace kernel
 {
@@ -120,18 +167,19 @@ public:
 };
 
 
-class I2CDriverINode : public KINode
+class I2CDriverINode : public KINode, public KFilesystemFileOps
 {
 public:
-    I2CDriverINode(I2CDriver* driver, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
+    I2CDriverINode(const I2CDriverParameters& parameters);
     virtual ~I2CDriverINode() override;
 
 
     Ptr<KFileNode> Open(int flags);
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
 
-    void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
-    size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position);
-    size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position);
+    virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
 
 private:
     void ResetPeripheral();
@@ -161,7 +209,6 @@ private:
 
     KMutex m_Mutex;
     KConditionVariable      m_RequestCondition;
-    Ptr<I2CDriver>          m_Driver;
     I2C_TypeDef*            m_Port;
     PinMuxTarget            m_ClockPin;
     PinMuxTarget            m_DataPin;
@@ -183,19 +230,5 @@ private:
     volatile PErrorCode     m_TransactionError = PErrorCode::Success;
 };
 
-class I2CDriver : public PtrTarget, public KFilesystemFileOps
-{
-public:
-    void Setup(const char* devicePath, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime);
-    void Setup(const I2CDriverSetup& setup);
-
-    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
-    virtual void           CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
-
-    virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
-    virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-
-};
     
 } // namespace

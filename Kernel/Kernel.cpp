@@ -26,7 +26,6 @@
 #include <Kernel/Kernel.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KPowerManager.h>
-#include <Kernel/VFS/KDeviceNode.h>
 #include <Kernel/VFS/KRootFilesystem.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
@@ -291,33 +290,6 @@ void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MC
 
     //    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
     start_scheduler(coreFrequency, mainThreadStackSize);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-int Kernel::RegisterDevice_trw(const char* path, Ptr<KINode> deviceNode)
-{
-    return kget_rootfs_trw()->RegisterDevice(path, deviceNode);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void Kernel::RenameDevice_trw(int handle, const char* newPath)
-{
-    kget_rootfs_trw()->RenameDevice(handle, newPath);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void Kernel::RemoveDevice_trw(int handle)
-{
-    kget_rootfs_trw()->RemoveDevice(handle);
 }
 
 } // namespace kernel

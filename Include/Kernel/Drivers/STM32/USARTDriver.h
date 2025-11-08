@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020-2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -25,19 +25,58 @@
 #include "Kernel/KConditionVariable.h"
 #include "Kernel/VFS/KINode.h"
 #include "Kernel/VFS/KFilesystem.h"
+#include <Kernel/VFS/KDriverParametersBase.h>
 #include "Kernel/HAL/STM32/DMARequestID.h"
 #include "Kernel/HAL/DigitalPort.h"
 #include "DeviceControl/USART.h"
 
 enum class USARTID : int;
 
-struct USARTDriverSetup
+
+struct USARTDriverParameters : KDriverParametersBase
 {
-    os::String      DevicePath;
+    static constexpr char DRIVER_NAME[] = "usart";
+
+    USARTDriverParameters() = default;
+    USARTDriverParameters(
+        const PString&  devicePath,
+        USARTID         portID,
+        PinMuxTarget    pinRX,
+        PinMuxTarget    pinTX,
+        uint32_t        clockFrequency
+    )
+        : KDriverParametersBase(devicePath),
+        PortID(portID),
+        PinRX(pinRX),
+        PinTX(pinTX),
+        ClockFrequency(clockFrequency)
+    {}
+
     USARTID         PortID;
     PinMuxTarget    PinRX;
     PinMuxTarget    PinTX;
     uint32_t        ClockFrequency;
+
+    friend void to_json(Pjson& data, const USARTDriverParameters& value)
+    {
+        to_json(data, static_cast<const KDriverParametersBase&>(value));
+        data.update(Pjson{
+            {"port_id",         value.PortID },
+            {"pin_rx",          value.PinRX },
+            {"pin_tx",          value.PinTX },
+            {"clock_frequency", value.ClockFrequency }
+        });
+    }
+    friend void from_json(const Pjson& data, USARTDriverParameters& outValue)
+    {
+        from_json(data, static_cast<KDriverParametersBase&>(outValue));
+
+        data.at("port_id").get_to(outValue.PortID);
+        data.at("pin_rx").get_to(outValue.PinRX);
+        data.at("pin_tx").get_to(outValue.PinTX);
+        data.at("clock_frequency").get_to(outValue.ClockFrequency);
+    }
+
 };
 
 namespace kernel
@@ -45,19 +84,16 @@ namespace kernel
 
 class USARTDriver;
 
-class USARTDriverINode : public KINode
+class USARTDriverINode : public KINode, public KFilesystemFileOps
 {
 public:
-    USARTDriverINode(USARTID             portID,
-                     const PinMuxTarget& pinRX,
-                     const PinMuxTarget& pinTX,
-                     uint32_t            clockFrequency,
-                     USARTDriver*        driver);
+    USARTDriverINode(const USARTDriverParameters& parameters);
 
-    ssize_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
-    ssize_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
+    virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+    virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+
     virtual bool    AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
-    void            DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
 private:
     void SetBaudrate(int baudrate);
@@ -69,14 +105,12 @@ private:
     bool GetSwapRXTX() const;
 
     bool    RestartReceiveDMA(size_t maxLength);
-    ssize_t ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length);
+    size_t  ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length);
 
     static IRQResult IRQCallbackReceive(IRQn_Type irq, void* userData);
     IRQResult HandleIRQReceive();
     static IRQResult IRQCallbackSend(IRQn_Type irq, void* userData);
     IRQResult HandleIRQSend();
-
-    Ptr<USARTDriver> m_Driver;
 
     KMutex m_MutexRead;
     KMutex m_MutexWrite;
@@ -107,28 +141,6 @@ private:
     uint8_t* m_ReceiveBuffer;
 
     volatile bool m_ReceiveTransactionActive = false;
-};
-
-class USARTDriver : public PtrTarget, public KFilesystemFileOps
-{
-public:
-    USARTDriver();
-
-    void Setup(const char*         devicePath,
-                  USARTID             portID,
-                  const PinMuxTarget& pinRX,
-                  const PinMuxTarget& pinTX,
-                  uint32_t            clockFrequency);
-
-    void Setup(const USARTDriverSetup& setup);
-
-    virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
-    virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-
-private:
-    USARTDriver(const USARTDriver &other) = delete;
-    USARTDriver& operator=(const USARTDriver &other) = delete;
 };
 
 } // namespace

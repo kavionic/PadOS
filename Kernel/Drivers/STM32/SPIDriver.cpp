@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2023-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2023-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -30,6 +30,8 @@
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/VFS/KDriverManager.h>
+#include <Kernel/VFS/KDriverDescriptor.h>
 #include <Kernel/HAL/PeripheralMapping.h>
 
 
@@ -37,6 +39,10 @@
 
 namespace kernel
 {
+
+
+PREGISTER_KERNEL_DRIVER(SPIDriverINode, SPIDriverParameters);
+
 
 static constexpr int SPI_MAX_WORD_LENGTH(SPIID spiID) { return (spiID <= SPIID::SPI_3) ? 32 : 16; }
 
@@ -46,15 +52,14 @@ const uint32_t IFCR_ALL = SPI_IFCR_EOTC | SPI_IFCR_TXTFC | SPI_IFCR_UDRC | SPI_I
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SPIDriverINode::SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver)
-    : KINode(nullptr, nullptr, driver, false)
+SPIDriverINode::SPIDriverINode(const SPIDriverParameters& setup)
+    : KINode(nullptr, nullptr, this, false)
     , m_Mutex("SPIDriverINodeMutex", PEMutexRecursionMode_RaiseError)
     , m_TransactionCondition("SPIDriverINodeTransC")
     , m_PinCLK(setup.PinCLK)
     , m_PinMOSI(setup.PinMOSI)
     , m_PinMISO(setup.PinMISO)
 {
-    m_Driver = ptr_tmp_cast(driver);
     m_Port   = get_spi_from_id(setup.PortID);
 
     get_spi_dma_requests(setup.PortID, m_DMARequestRX, m_DMARequestTX);
@@ -169,25 +174,7 @@ SPIDriverINode::SPIDriverINode(const SPIDriverSetup& setup, SPIDriver* driver)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t SPIDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length)
-{
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t SPIDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length)
-{
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void SPIDriverINode::DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void SPIDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -538,54 +525,6 @@ IRQResult SPIDriverINode::HandleSPIIRQ()
     KSWITCH_CONTEXT();
 
     return IRQResult::HANDLED;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-SPIDriver::SPIDriver()
-{
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void SPIDriver::Setup(const SPIDriverSetup& setup)
-{
-    Ptr<SPIDriverINode> node = ptr_new<SPIDriverINode>(setup, this);
-    Kernel::RegisterDevice_trw(setup.DevicePath.c_str(), node);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t SPIDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
-{
-    Ptr<SPIDriverINode> node = ptr_static_cast<SPIDriverINode>(file->GetINode());
-    return node->Read(file, buffer, length);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t SPIDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
-{
-    Ptr<SPIDriverINode> node = ptr_static_cast<SPIDriverINode>(file->GetINode());
-    return node->Write(file, buffer, length);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void SPIDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
-{
-    Ptr<SPIDriverINode> node = ptr_static_cast<SPIDriverINode>(file->GetINode());
-    node->DeviceControl(request, inData, inDataLength, outData, outDataLength);
 }
 
 

@@ -20,6 +20,8 @@
 #include <DeviceControl/MultiMotor.h>
 
 #include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KDriverManager.h>
+#include <Kernel/VFS/KDriverDescriptor.h>
 #include <Kernel/KObjectWaitGroup.h>
 #include <Kernel/Drivers/MultiMotorController/MultiMotorINode.h>
 #include <Kernel/Drivers/MultiMotorController/TMC2209IODriver.h>
@@ -28,20 +30,22 @@
 namespace kernel
 {
 
+
+
+PREGISTER_KERNEL_DRIVER(MultiMotorINode, MultiMotorDriverParameters);
+
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MultiMotorINode::MultiMotorINode(
-    const char* controlPortPath,
-    uint32_t baudrate,
-    DigitalPinID motorEnablePinID)
+MultiMotorINode::MultiMotorINode(const MultiMotorDriverParameters& parameters)
     : KINode(nullptr, nullptr, this, false)
 {
-    DigitalPin(motorEnablePinID).SetDirection(DigitalPinDirection_e::Out);
+    DigitalPin(parameters.PinMotorEnable).SetDirection(DigitalPinDirection_e::Out);
 
     m_ControlPort = ptr_new<TMC2209IODriver>();
-    m_ControlPort->Setup(controlPortPath, baudrate);
+    m_ControlPort->Setup(parameters.ControlPortPath, parameters.Baudrate);
 
 #define MMI_REGISTER_HANDLER(NAME) m_DeviceControlDispatcher.AddHandler(&PMultiMotor::NAME, this, &MultiMotorINode::NAME)
     MMI_REGISTER_HANDLER(CreateMotor);

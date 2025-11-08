@@ -21,7 +21,6 @@
 
 #include <atomic>
 
-#include "Kernel/VFS/KDeviceNode.h"
 #include "Kernel/VFS/KFileHandle.h"
 #include "Kernel/KSemaphore.h"
 #include "Kernel/KMutex.h"

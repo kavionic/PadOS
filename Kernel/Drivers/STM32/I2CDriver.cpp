@@ -30,36 +30,36 @@
 #include <Kernel/KSemaphore.h>
 #include <Kernel/SpinTimer.h>
 #include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KDriverManager.h>
+#include <Kernel/VFS/KDriverDescriptor.h>
 
 namespace kernel
 {
 
 DEFINE_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver);
 
+
+PREGISTER_KERNEL_DRIVER(I2CDriverINode, I2CDriverParameters);
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-I2CDriverINode::I2CDriverINode(I2CDriver* driver
-                             , I2CID portID
-                             , const PinMuxTarget& clockPinCfg
-                             , const PinMuxTarget& dataPinCfg
-                             , uint32_t clockFrequency
-                             , double fallTime
-                             , double riseTime)
-    : KINode(nullptr, nullptr, driver, false)
+I2CDriverINode::I2CDriverINode(const I2CDriverParameters& parameters)
+    : KINode(nullptr, nullptr, this, false)
     , m_Mutex("I2CDriverINode", PEMutexRecursionMode_RaiseError)
     , m_RequestCondition("I2CDriverINodeRequest")
-    , m_ClockPin(clockPinCfg)
-    , m_DataPin(dataPinCfg)
-    , m_ClockFrequency(clockFrequency)
-    , m_FallTime(fallTime)
-    , m_RiseTime(riseTime)
+    , m_ClockPin(parameters.ClockPin)
+    , m_DataPin(parameters.DataPin)
+    , m_ClockFrequency(parameters.ClockFrequency)
+    , m_FallTime(parameters.FallTime)
+    , m_RiseTime(parameters.RiseTime)
 {
-    m_Driver = ptr_tmp_cast(driver);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, PLogSeverity::WARNING);
+
     m_State = State_e::Idle;
 
-    m_Port = get_i2c_from_id(portID);
+    m_Port = get_i2c_from_id(parameters.PortID);
 
     DigitalPin clockPin(m_ClockPin.PINID);
     DigitalPin dataPin(m_DataPin.PINID);
@@ -74,13 +74,13 @@ I2CDriverINode::I2CDriverINode(I2CDriver* driver
     dataPin.SetPullMode(PinPullMode_e::Up);
 
 #if defined(STM32H7)
-    const IRQn_Type eventIRQ = get_i2c_irq(portID, I2CIRQType::Event);
-    const IRQn_Type errorIRQ = get_i2c_irq(portID, I2CIRQType::Error);
+    const IRQn_Type eventIRQ = get_i2c_irq(parameters.PortID, I2CIRQType::Event);
+    const IRQn_Type errorIRQ = get_i2c_irq(parameters.PortID, I2CIRQType::Error);
 
     register_irq_handler(eventIRQ, IRQCallbackEvent, this);
     register_irq_handler(errorIRQ, IRQCallbackError, this);
 #elif defined(STM32G0)
-    const IRQn_Type portIRQ = get_i2c_irq(portID);
+    const IRQn_Type portIRQ = get_i2c_irq(parameters.PortID);
     register_irq_handler(portIRQ, IRQCallbackEvent, this);
 #else
 #error Unknown platform.
@@ -104,7 +104,7 @@ I2CDriverINode::~I2CDriverINode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> I2CDriverINode::Open(int flags)
+Ptr<KFileNode> I2CDriverINode::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags)
 {
     Ptr<I2CFile> file = ptr_new<I2CFile>(flags);
     return file;
@@ -114,7 +114,7 @@ Ptr<KFileNode> I2CDriverINode::Open(int flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriverINode::DeviceControl( Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void I2CDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
@@ -646,69 +646,5 @@ IRQResult I2CDriverINode::HandleErrorIRQ()
     return IRQResult::HANDLED;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void I2CDriver::Setup(const char* devicePath, I2CID portID, const PinMuxTarget& clockPin, const PinMuxTarget& dataPin, uint32_t clockFrequency, double fallTime, double riseTime)
-{
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, PLogSeverity::WARNING);
-
-    Ptr<I2CDriverINode> node = ptr_new<I2CDriverINode>(this, portID, clockPin, dataPin, clockFrequency, fallTime, riseTime);
-    Kernel::RegisterDevice_trw(devicePath, node);    
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void I2CDriver::Setup(const I2CDriverSetup& setup)
-{
-    Setup(setup.DevicePath.c_str(), setup.PortID, setup.ClockPin, setup.DataPin, setup.ClockFrequency, setup.FallTime, setup.RiseTime);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<KFileNode> I2CDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags)
-{
-    return ptr_static_cast<I2CDriverINode>(inode)->Open(flags);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void I2CDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
-{
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t I2CDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
-{
-    return ptr_static_cast<I2CDriverINode>(file->GetINode())->Read(file, buffer, length, position);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t I2CDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
-{
-    return ptr_static_cast<I2CDriverINode>(file->GetINode())->Write(file, buffer, length, position);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void I2CDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
-{
-    ptr_static_cast<I2CDriverINode>(file->GetINode())->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);
-}
 
 } // namespace kernel

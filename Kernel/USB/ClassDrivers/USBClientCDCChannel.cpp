@@ -26,6 +26,7 @@
 #include <Kernel/USB/USBClassDriverDevice.h>
 #include <Kernel/USB/USBDevice.h>
 #include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KDriverManager.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <System/ExceptionHandling.h>
 #include <DeviceControl/USART.h>
@@ -58,7 +59,7 @@ USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, int channelIn
     m_OutEndpointBuffer.resize(endpointOutMaxSize);
     m_InEndpointBuffer.resize(endpointInMaxSize);
 
-    m_DevNodeHandle = Kernel::RegisterDevice_trw(String::format_string("com/udp%u", channelIndex).c_str(), ptr_tmp_cast(this));
+    m_DevNodeHandle = kregister_device_root_trw(String::format_string("com/udp%u", channelIndex).c_str(), ptr_tmp_cast(this));
 
     StartOutTransaction();
 }
@@ -108,7 +109,7 @@ void USBClientCDCChannel::Close()
 {
     if (m_DevNodeHandle != -1)
     {
-        Kernel::RemoveDevice_trw(m_DevNodeHandle);
+        kremove_device_root_trw(m_DevNodeHandle);
         m_DevNodeHandle = -1;
     }
     m_IsActive = false;

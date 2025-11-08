@@ -556,6 +556,17 @@ ADC_Common_TypeDef* get_adc_common_from_id(ADC_ID id)
 }
 
 
+SDMMC_TypeDef* get_sdmmc_from_id(SDMMC_ID id)
+{
+    switch (id)
+    {
+        case SDMMC_ID::None:    break;
+        case SDMMC_ID::SDMMC_1: return SDMMC1;
+        case SDMMC_ID::SDMMC_2: return SDMMC2;
+    }
+    return nullptr;
+}
+
 } // namespace kernel
 
 
@@ -826,6 +837,17 @@ IRQn_Type get_adc_irq(ADC_ID id)
         case ADC_ID::ADC_1:  return ADC_IRQn;
         case ADC_ID::ADC_2:  return ADC_IRQn;
         case ADC_ID::ADC_3:  return ADC3_IRQn;
+    }
+    return IRQn_Type(IRQ_COUNT);
+}
+
+IRQn_Type get_sdmmc_irq(SDMMC_ID id)
+{
+    switch(id)
+    {
+        case SDMMC_ID::None:    break;
+        case SDMMC_ID::SDMMC_1: return SDMMC1_IRQn;
+        case SDMMC_ID::SDMMC_2: return SDMMC2_IRQn;
     }
     return IRQn_Type(IRQ_COUNT);
 }

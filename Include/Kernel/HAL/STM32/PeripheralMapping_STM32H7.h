@@ -90,6 +90,13 @@ enum class ADC_ID : int
     ADC_3
 };
 
+enum class SDMMC_ID : int
+{
+    None    = 0,
+    SDMMC_1 = 1,
+    SDMMC_2 = 2
+};
+
 PinMuxTarget pinmux_target_from_name(const char* name);
 DigitalPinID pin_id_from_name(const char* name);
 
@@ -109,6 +116,7 @@ bool        get_spi_dma_requests(SPIID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& t
 
 IRQn_Type   get_usb_irq(USB_OTG_ID id);
 IRQn_Type   get_adc_irq(ADC_ID id);
+IRQn_Type   get_sdmmc_irq(SDMMC_ID id);
 
 namespace kernel
 {
@@ -127,6 +135,7 @@ USB_OTG_GlobalTypeDef*  get_usb_from_id(USB_OTG_ID id);
 ADC_TypeDef*        get_adc_from_id(ADC_ID id);
 ADC_Common_TypeDef* get_adc_common_from_id(ADC_ID id);
 
+SDMMC_TypeDef* get_sdmmc_from_id(SDMMC_ID id);
 
 } // namespace kernel
 

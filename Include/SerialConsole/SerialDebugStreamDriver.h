@@ -23,36 +23,37 @@
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/KMutex.h>
 
-namespace kernel
+
+struct SerialDebugStreamParameters : KDriverParametersBase
 {
+    static constexpr char DRIVER_NAME[] = "debug_stream";
 
-class SerialDebugStreamINode : public KINode
-{
-public:
-	SerialDebugStreamINode(KFilesystemFileOps* fileOps);
+    SerialDebugStreamParameters() = default;
+    SerialDebugStreamParameters(const PString& devicePath) : KDriverParametersBase(devicePath) {}
 
-    size_t Read(Ptr<KFileNode> file, void* buffer, size_t length);
-    size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length);
-
-private:
-	KMutex m_Mutex;
+    friend void to_json(Pjson& data, const SerialDebugStreamParameters& value)
+    {
+        to_json(data, static_cast<const KDriverParametersBase&>(value));
+    }
+    friend void from_json(const Pjson& data, SerialDebugStreamParameters& outValue)
+    {
+        from_json(data, static_cast<KDriverParametersBase&>(outValue));
+    }
 };
 
 
-class SerialDebugStreamDriver : public PtrTarget, public KFilesystemFileOps
+namespace kernel
+{
+
+class SerialDebugStreamINode : public KINode, public KFilesystemFileOps
 {
 public:
-	SerialDebugStreamDriver() {}
+	SerialDebugStreamINode(const SerialDebugStreamParameters& parameters);
 
-    void Setup(const char* devicePath);
-
-    virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
     virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
-    SerialDebugStreamDriver(const SerialDebugStreamDriver &other) = delete;
-    SerialDebugStreamDriver& operator=(const SerialDebugStreamDriver &other) = delete;
+	KMutex m_Mutex;
 };
 
 

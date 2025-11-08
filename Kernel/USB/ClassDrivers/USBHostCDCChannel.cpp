@@ -24,6 +24,7 @@
 #include <Kernel/USB/USBHost.h>
 #include <Kernel/USB/ClassDrivers/USBHostCDCChannel.h>
 #include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KDriverManager.h>
 #include <Kernel/VFS/KFileHandle.h>
 
 using namespace os;
@@ -212,9 +213,9 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     m_InEndpointBuffer.resize(m_DataEndpointInSize);
 
     if (m_DevNodeHandle != -1 ) {
-        Kernel::RemoveDevice_trw(m_DevNodeHandle);
+        kremove_device_root_trw(m_DevNodeHandle);
     }
-    m_DevNodeHandle = Kernel::RegisterDevice_trw(String::format_string("com/uhp%u", channelIndex).c_str(), ptr_tmp_cast(this));
+    m_DevNodeHandle = kregister_device_root_trw(String::format_string("com/uhp%u", channelIndex).c_str(), ptr_tmp_cast(this));
 
     return desc;
 }
@@ -251,7 +252,7 @@ void USBHostCDCChannel::Close()
     m_IsActive = false;
 
     if (m_DevNodeHandle != -1) {
-        Kernel::RemoveDevice_trw(m_DevNodeHandle);
+        kremove_device_root_trw(m_DevNodeHandle);
         m_DevNodeHandle = -1;
     }
 

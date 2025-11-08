@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -33,7 +33,9 @@
 #include <System/ExceptionHandling.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KFSVolume.h>
-#include <Kernel/Syscalls.h>
+#include <Kernel/VFS/KDriverManager.h>
+#include <Kernel/VFS/KDriverDescriptor.h>
+
 
 using namespace os;
 
@@ -42,37 +44,26 @@ namespace kernel
 
 DEFINE_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver);
 
+
+PREGISTER_KERNEL_DRIVER(TLV493DDriver, TLV493DDriverParameters);
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TLV493DDriver::TLV493DDriver() : KThread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex", PEMutexRecursionMode_RaiseError), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
+TLV493DDriver::TLV493DDriver(const TLV493DDriverParameters& parameters)
+    : KINode(nullptr, nullptr, this, false)
+    , KThread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex", PEMutexRecursionMode_RaiseError), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
 {
+    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver, PLogSeverity::ERROR);
+
     m_Config.frame_rate = 10;
     m_Config.temparature_scale = 1.0f;
     m_Config.temperature_offset = 0.0f;
 
-    SetDeleteOnExit(false);
-}
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-TLV493DDriver::~TLV493DDriver()
-{
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, DigitalPinID powerPin)
-{
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver, PLogSeverity::ERROR);
-
-    m_PowerPin = powerPin;
-    m_I2CDevice = kopen_trw(i2cPath, O_RDWR);
+    m_PowerPin = parameters.PinPower;
+    m_I2CDevice = kopen_trw(parameters.I2CPath.c_str(), O_RDWR);
 
     ConfigChanged();
 
@@ -85,10 +76,16 @@ void TLV493DDriver::Setup(const char* devicePath, const char* i2cPath, DigitalPi
     }
     snooze_ms(5);
 
-    Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
-    Kernel::RegisterDevice_trw(devicePath, inode);
+    SetDeleteOnExit(false);
+    Start_trw(PThreadDetachState_Detached, parameters.ThreadPriority);
+}
 
-    Start_trw(PThreadDetachState_Detached);
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TLV493DDriver::~TLV493DDriver()
+{
 }
 
 ///////////////////////////////////////////////////////////////////////////////

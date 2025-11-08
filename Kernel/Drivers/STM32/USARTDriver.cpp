@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -27,9 +27,12 @@
 #include <Ptr/Ptr.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/Utils.h>
+#include <Utils/JSON.h>
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/VFS/KDriverManager.h>
+#include <Kernel/VFS/KDriverDescriptor.h>
 #include <Kernel/HAL/DMA.h>
 #include <Kernel/HAL/PeripheralMapping.h>
 
@@ -37,27 +40,24 @@ namespace kernel
 {
 
 
+PREGISTER_KERNEL_DRIVER(USARTDriverINode, USARTDriverParameters);
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USARTDriverINode::USARTDriverINode( USARTID      portID,
-                                    const PinMuxTarget& pinRX,
-                                    const PinMuxTarget& pinTX,
-                                    uint32_t            clockFrequency,
-                                    USARTDriver*        driver)
-    : KINode(nullptr, nullptr, driver, false)
+USARTDriverINode::USARTDriverINode(const USARTDriverParameters& parameters)
+    : KINode(nullptr, nullptr, this, false)
     , m_MutexRead("USARTDriverINodeRead", PEMutexRecursionMode_RaiseError)
     , m_MutexWrite("USARTDriverINodeWrite", PEMutexRecursionMode_RaiseError)
     , m_ReceiveCondition("USARTDriverINodeReceive")
     , m_TransmitCondition("USARTDriverINodeTransmit")
-    , m_PinRX(pinRX)
-    , m_PinTX(pinTX)
+    , m_PinRX(parameters.PinRX)
+    , m_PinTX(parameters.PinTX)
 {
-    m_Driver = ptr_tmp_cast(driver);
-    m_Port = get_usart_from_id(portID);
+    m_Port = get_usart_from_id(parameters.PortID);
 
-    get_usart_dma_requests(portID, m_DMARequestRX, m_DMARequestTX);
+    get_usart_dma_requests(parameters.PortID, m_DMARequestRX, m_DMARequestTX);
 
     DigitalPin::ActivatePeripheralMux(m_PinRX);
     DigitalPin::ActivatePeripheralMux(m_PinTX);
@@ -65,7 +65,7 @@ USARTDriverINode::USARTDriverINode( USARTID      portID,
     m_Port->CR1 = USART_CR1_RE | USART_CR1_FIFOEN;
     m_Port->CR3 = USART_CR3_DMAR | USART_CR3_DMAT;
 
-    m_ClockFrequency = clockFrequency;
+    m_ClockFrequency = parameters.ClockFrequency;
     SetBaudrate(921600);
 
     m_Port->CR1 |= USART_CR1_UE | USART_CR1_RE | USART_CR1_TE;
@@ -97,7 +97,7 @@ USARTDriverINode::USARTDriverINode( USARTID      portID,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length)
+size_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length, off64_t position)
 {
     if (length == 0) {
         return 0;
@@ -108,7 +108,7 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t l
 
     for (;;)
     {
-        ssize_t curLen = ReadReceiveBuffer(file, currentTarget, length);
+        size_t curLen = ReadReceiveBuffer(file, currentTarget, length);
         if (curLen > 0 || (file->GetOpenFlags() & O_NONBLOCK)) {
             return curLen;
         }
@@ -137,7 +137,7 @@ ssize_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t l
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length)
+size_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length, off64_t position)
 {
     const intptr_t startAddr = align_down<intptr_t>(intptr_t(buffer), DCACHE_LINE_SIZE);
     const intptr_t endAddr   = align_up<intptr_t>(intptr_t(buffer) + length, DCACHE_LINE_SIZE);
@@ -146,9 +146,9 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
     CRITICAL_SCOPE(m_MutexWrite);
 
     const uint8_t* currentTarget = reinterpret_cast<const uint8_t*>(buffer);
-    ssize_t remainingLen = length;
+    size_t remainingLen = length;
 
-    for (size_t currentLen = std::min(ssize_t(DMA_MAX_TRANSFER_LENGTH), remainingLen); remainingLen > 0; remainingLen -= currentLen, currentTarget += currentLen)
+    for (size_t currentLen = std::min(size_t(DMA_MAX_TRANSFER_LENGTH), remainingLen); remainingLen > 0; remainingLen -= currentLen, currentTarget += currentLen)
     {
         m_Port->ICR = USART_ICR_TCCF;
 
@@ -172,43 +172,7 @@ ssize_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USARTDriverINode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
-{
-    kassert(!m_MutexRead.IsLocked());
-    CRITICAL_SCOPE(m_MutexRead);
-
-    switch (mode)
-    {
-        case ObjectWaitMode::Read:
-        case ObjectWaitMode::ReadWrite:
-            CRITICAL_BEGIN(CRITICAL_IRQ)
-            {
-                if (m_ReceiveBytesInBuffer == 0)
-                {
-                    dma_stop(m_ReceiveDMAChannel);
-                    dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
-                    RestartReceiveDMA(1);
-                }
-
-                if (m_ReceiveBytesInBuffer == 0) {
-                    return m_ReceiveCondition.AddListener(waitNode, ObjectWaitMode::Read);
-                } else {
-                    return false; // Will not block.
-                }
-            } CRITICAL_END;
-        case ObjectWaitMode::Write:
-            return false;
-        default:
-            return false;
-    }
-
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void USARTDriverINode::DeviceControl(int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void USARTDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_MutexRead);
     CRITICAL_SCOPE(m_MutexWrite);
@@ -379,6 +343,42 @@ void USARTDriverINode::DeviceControl(int request, const void* inData, size_t inD
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool USARTDriverINode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
+{
+    kassert(!m_MutexRead.IsLocked());
+    CRITICAL_SCOPE(m_MutexRead);
+
+    switch (mode)
+    {
+        case ObjectWaitMode::Read:
+        case ObjectWaitMode::ReadWrite:
+            CRITICAL_BEGIN(CRITICAL_IRQ)
+            {
+                if (m_ReceiveBytesInBuffer == 0)
+                {
+                    dma_stop(m_ReceiveDMAChannel);
+                    dma_clear_interrupt_flags(m_ReceiveDMAChannel, DMA_LIFCR_CTCIF0);
+                    RestartReceiveDMA(1);
+                }
+
+                if (m_ReceiveBytesInBuffer == 0) {
+                    return m_ReceiveCondition.AddListener(waitNode, ObjectWaitMode::Read);
+                } else {
+                    return false; // Will not block.
+                }
+            } CRITICAL_END;
+        case ObjectWaitMode::Write:
+            return false;
+        default:
+            return false;
+    }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void USARTDriverINode::SetBaudrate(int baudrate)
 {
     if (baudrate != m_Baudrate)
@@ -531,7 +531,7 @@ bool USARTDriverINode::RestartReceiveDMA(size_t maxLength)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t USARTDriverINode::ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length)
+size_t USARTDriverINode::ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length)
 {
     uint8_t* currentTarget = reinterpret_cast<uint8_t*>(buffer);
 
@@ -610,68 +610,6 @@ IRQResult USARTDriverINode::HandleIRQSend()
         m_TransmitCondition.Wakeup(1);
     }
     return IRQResult::HANDLED;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-USARTDriver::USARTDriver()
-{
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void USARTDriver::Setup(const char*         devicePath,
-                           USARTID             portID,
-                           const PinMuxTarget& pinRX,
-                           const PinMuxTarget& pinTX,
-                           uint32_t            clockFrequency)
-{
-    Ptr<USARTDriverINode> node = ptr_new<USARTDriverINode>(portID, pinRX, pinTX, clockFrequency, this);
-    Kernel::RegisterDevice_trw(devicePath, node);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void USARTDriver::Setup(const USARTDriverSetup& setup)
-{
-    Ptr<USARTDriverINode> node = ptr_new<USARTDriverINode>(setup.PortID, setup.PinRX, setup.PinTX, setup.ClockFrequency, this);
-    Kernel::RegisterDevice_trw(setup.DevicePath.c_str(), node);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t USARTDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
-{
-    Ptr<USARTDriverINode> node = ptr_static_cast<USARTDriverINode>(file->GetINode());
-    return node->Read(file, buffer, length);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t USARTDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
-{
-    Ptr<USARTDriverINode> node = ptr_static_cast<USARTDriverINode>(file->GetINode());
-    return node->Write(file, buffer, length);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void USARTDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
-{
-    Ptr<USARTDriverINode> node = ptr_static_cast<USARTDriverINode>(file->GetINode());
-    node->DeviceControl(request, inData, inDataLength, outData, outDataLength);
 }
 
 

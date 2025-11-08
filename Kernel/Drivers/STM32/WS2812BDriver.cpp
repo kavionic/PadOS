@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -26,6 +26,8 @@
 #include <Ptr/Ptr.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/VFS/KDriverManager.h>
+#include <Kernel/VFS/KDriverDescriptor.h>
 #include <Kernel/HAL/DMA.h>
 #include <Kernel/HAL/PeripheralMapping.h>
 #include <DeviceControl/WS2812B.h>
@@ -37,6 +39,9 @@ using namespace os;
 
 namespace kernel
 {
+
+
+PREGISTER_KERNEL_DRIVER(WS2812BDriverINode, WS2812BDriverParameters);
 
 static const uint8_t g_GammaTable[] =
 {
@@ -62,16 +67,19 @@ static const uint8_t g_GammaTable[] =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-WS2812BDriverINode::WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t clockFrequency, KFilesystemFileOps* fileOps)
-	: KINode(nullptr, nullptr, fileOps, false)
+WS2812BDriverINode::WS2812BDriverINode(const WS2812BDriverParameters& parameters)
+	: KINode(nullptr, nullptr, this, false)
 	, m_Mutex("WS2812BDriverINodeWrite", PEMutexRecursionMode_RaiseError)
 	, m_TransmitCondition("WS2812BDriverINodeTransmit")
 {
-	m_Port = get_spi_from_id(portID);
+	m_Port = get_spi_from_id(parameters.PortID);
+
+    DigitalPin(parameters.PinData.PINID).SetDriveStrength(DigitalPinDriveStrength_e::Low);
+    DigitalPin::ActivatePeripheralMux(parameters.PinData);
 
     DMAMUX_REQUEST dmaRequestRX;
 
-    get_spi_dma_requests(portID, dmaRequestRX, m_DMARequestTX);
+    get_spi_dma_requests(parameters.PortID, dmaRequestRX, m_DMARequestTX);
 
 //	const uint32_t bitRate = 800000 * 3;
 	uint32_t divider = get_first_bit_index(64) - 1;
@@ -87,7 +95,7 @@ WS2812BDriverINode::WS2812BDriverINode(SPIID portID, bool swapIOPins, uint32_t c
 					| (0 << SPI_CFG2_SP_Pos)	// Motorola.
 					| (1 << SPI_CFG2_COMM_Pos);		// Simplex transmitter.
 
-	if (swapIOPins) {
+	if (parameters.SwapIOPins) {
 		m_Port->CFG2 |= SPI_CFG2_IOSWP;
 	}
 
@@ -135,15 +143,6 @@ void WS2812BDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const v
 		    return;
 		default: PERROR_THROW_CODE(PErrorCode::InvalidArg);
 	}
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t WS2812BDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
-{
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -336,62 +335,6 @@ bool WS2812BDriverINode::GetExponential() const
 {
     return m_Exponential;
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-WS2812BDriver::WS2812BDriver()
-{
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-WS2812BDriver::~WS2812BDriver()
-{
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void WS2812BDriver::Setup(const char* devicePath, bool swapIOPins, SPIID portID, uint32_t clockFrequency)
-{
-    Ptr<WS2812BDriverINode> node = ptr_new<WS2812BDriverINode>(portID, swapIOPins, clockFrequency, this);
-    Kernel::RegisterDevice_trw(devicePath, node);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t WS2812BDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
-{
-    Ptr<WS2812BDriverINode> node = ptr_static_cast<WS2812BDriverINode>(file->GetINode());
-	return node->Read(file, buffer, length, position);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t WS2812BDriver::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
-{
-    Ptr<WS2812BDriverINode> node = ptr_static_cast<WS2812BDriverINode>(file->GetINode());
-	return node->Write(file, buffer, length, position);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void WS2812BDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
-{
-	ptr_static_cast<WS2812BDriverINode>(file->GetINode())->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);
-}
-
 
 
 } // namespace

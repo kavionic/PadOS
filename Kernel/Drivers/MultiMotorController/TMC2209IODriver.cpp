@@ -93,10 +93,10 @@ bool TMC2209ValidateCRC(const DATAGRAM& datagram)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TMC2209IODriver::Setup(const char* controlPortPath, uint32_t baudrate)
+void TMC2209IODriver::Setup(const PString& controlPortPath, uint32_t baudrate)
 {
     m_Baudrate = baudrate;
-    m_ControlPort = kopen_trw(controlPortPath, O_RDWR);
+    m_ControlPort = kopen_trw(controlPortPath.c_str(), O_RDWR);
 
     USARTIOCTL_SetBaudrate(m_ControlPort, m_Baudrate);
     USARTIOCTL_SetReadTimeout(m_ControlPort, TimeValNanos::FromMilliseconds(10));

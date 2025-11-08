@@ -21,6 +21,7 @@
 #include <atomic>
 #include <System/Platform.h>
 #include <System/Sections.h>
+#include <Utils/JSON.h>
 
 enum DigitalPortID
 {
@@ -321,6 +322,16 @@ struct PinMuxTarget
 {
     DigitalPinID           PINID;
     DigitalPinPeripheralID MUX;
+
+    friend void to_json(Pjson& data, const PinMuxTarget& value)
+    {
+        data = Pjson{ {"pin", value.PINID}, {"mux", value.MUX} };
+    }
+    friend void from_json(const Pjson& data, PinMuxTarget& outValue)
+    {
+        data.at("pin").get_to(outValue.PINID);
+        data.at("mux").get_to(outValue.MUX);
+    }
 };
 
 

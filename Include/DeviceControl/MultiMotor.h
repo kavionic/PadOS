@@ -21,6 +21,7 @@
 
 #include <sys/pados_types.h>
 #include <DeviceControl/DeviceControlInvoker.h>
+#include <Kernel/VFS/KDriverParametersBase.h>
 #include <Kernel/HAL/STM32/PeripheralMapping_STM32H7.h>
 
 struct StepperIOSetup
@@ -191,5 +192,45 @@ public:
     void WaitMotors(TFirstMotorID firstMotorID, TMotorIDs... motorIDs)
     {
         WaitMultipleMotors(MakeMotorsMask(firstMotorID, motorIDs...));
+    }
+};
+
+struct MultiMotorDriverParameters : KDriverParametersBase
+{
+    static constexpr char DRIVER_NAME[] = "multimotor";
+
+    MultiMotorDriverParameters() = default;
+    MultiMotorDriverParameters(
+        const PString&  devicePath,
+        DigitalPinID    pinMotorEnable,
+        uint32_t        baudrate,
+        const PString&  controlPortPath
+    )
+        : KDriverParametersBase(devicePath)
+        , PinMotorEnable(pinMotorEnable)
+        , Baudrate(baudrate)
+        , ControlPortPath(controlPortPath)
+    {}
+
+    DigitalPinID    PinMotorEnable;
+    uint32_t        Baudrate;
+    PString         ControlPortPath;
+
+    friend void to_json(Pjson& data, const MultiMotorDriverParameters& value)
+    {
+        to_json(data, static_cast<const KDriverParametersBase&>(value));
+        data.update(Pjson{
+            {"control_port_path",   value.ControlPortPath},
+            {"baudrate",            value.Baudrate },
+            {"pin_motorenable",     value.PinMotorEnable }
+        });
+    }
+    friend void from_json(const Pjson& data, MultiMotorDriverParameters& outValue)
+    {
+        from_json(data, static_cast<KDriverParametersBase&>(outValue));
+
+        data.at("control_port_path").get_to(outValue.ControlPortPath);
+        data.at("baudrate").get_to(outValue.Baudrate);
+        data.at("pin_motorenable").get_to(outValue.PinMotorEnable);
     }
 };

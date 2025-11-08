@@ -15,39 +15,26 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 28.06.2025 01:30
+// Created: 05.11.2025 22:00
 
 #pragma once
 
-#include <nlohmann/json.hpp>
+#include <Utils/String.h>
+#include <Utils/JSON.h>
 
-using json = nlohmann::json;
-
-namespace os
+struct KDriverParametersBase
 {
+    KDriverParametersBase() = default;
+    KDriverParametersBase(const PString& devicePath) : DevicePath(devicePath) {}
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
+    PString      DevicePath;
 
-void to_json(json& data, const Point& value)
-{
-    json::object_t object;
-    object["x"] = value.x;
-    object["y"] = value.y;
-
-    data = object;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void from_json(const json& data, Point& p)
-{
-    data.at("x").get_to(p.x);
-    data.at("y").get_to(p.y);
-}
-
-
-} // namespace os
+    friend void to_json(Pjson& data, const KDriverParametersBase& value)
+    {
+        data = Pjson{ {"device_path", value.DevicePath } };
+    }
+    friend void from_json(const Pjson& data, KDriverParametersBase& outValue)
+    {
+        data.at("device_path").get_to(outValue.DevicePath);
+    }
+};

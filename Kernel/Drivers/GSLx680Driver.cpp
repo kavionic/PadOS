@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -25,6 +25,8 @@
 #include <Kernel/HAL/Peripherals.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KDriverManager.h>
+#include <Kernel/VFS/KDriverDescriptor.h>
 #include <Kernel/Drivers/GSLx680Driver.h>
 #include <Kernel/KTime.h>
 #include <Kernel/KMessagePort.h>
@@ -40,13 +42,43 @@ using namespace os;
 namespace kernel
 {
 
+
+PREGISTER_KERNEL_DRIVER(GSLx680Driver, GSLx680DriverParameters);
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-GSLx680Driver::GSLx680Driver() : KThread("GSLx680_driver"), m_Mutex("GSLx680_mutex", PEMutexRecursionMode_RaiseError), m_EventCondition("GSLx680_events")
+GSLx680Driver::GSLx680Driver(const GSLx680DriverParameters& parameters)
+    : KINode(nullptr, nullptr, this, false)
+    , KThread("GSLx680_driver")
+    , m_Mutex("GSLx680_mutex", PEMutexRecursionMode_RaiseError)
+    , m_EventCondition("GSLx680_events")
 {
+    m_PinShutdown   = parameters.PinShutdown;
+    m_PinIRQ        = parameters.PinIRQ;
+
+    m_PinShutdown.Write(false);
+    m_PinShutdown.SetDirection(DigitalPinDirection_e::Out);
+
+    m_PinIRQ.SetDirection(DigitalPinDirection_e::In);
+    m_PinIRQ.SetPullMode(PinPullMode_e::Down);
+
+
+    m_PinIRQ.SetInterruptMode(PinInterruptMode_e::RisingEdge);
+    m_PinIRQ.GetAndClearInterruptStatus(); // Clear any pending interrupts.
+    m_PinIRQ.EnableInterrupts();
+
+    register_irq_handler(get_peripheral_irq(parameters.PinIRQ), IRQHandler, this);
+
+    m_I2CDevice = kopen_trw(parameters.I2CPath.c_str(), O_RDWR);
+
+    I2CIOCTL_SetTimeout(m_I2CDevice, TimeValNanos::FromMilliseconds(1000));
+    I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x80);
+    I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
+
     SetDeleteOnExit(false);
+    Start_trw(PThreadDetachState_Detached, parameters.ThreadPriority);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -55,40 +87,6 @@ GSLx680Driver::GSLx680Driver() : KThread("GSLx680_driver"), m_Mutex("GSLx680_mut
 
 GSLx680Driver::~GSLx680Driver()
 {
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void GSLx680Driver::Setup(const char* devicePath, int threadPriority, DigitalPinID pinShutdown, DigitalPinID pinIRQ, const char* i2cPath)
-{
-    m_PinShutdown = pinShutdown;
-	m_PinIRQ = pinIRQ;
-
-	m_PinShutdown.Write(false);
-    m_PinShutdown.SetDirection(DigitalPinDirection_e::Out);
-    
-	m_PinIRQ.SetDirection(DigitalPinDirection_e::In);
-	m_PinIRQ.SetPullMode(PinPullMode_e::Down);
-
-
-	m_PinIRQ.SetInterruptMode(PinInterruptMode_e::RisingEdge);
-	m_PinIRQ.GetAndClearInterruptStatus(); // Clear any pending interrupts.
-	m_PinIRQ.EnableInterrupts();
-
-	register_irq_handler(get_peripheral_irq(pinIRQ), IRQHandler, this);
-
-	m_I2CDevice = kopen_trw(i2cPath, O_RDWR);
-
-	I2CIOCTL_SetTimeout(m_I2CDevice, TimeValNanos::FromMilliseconds(1000));
-	I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x80);
-	I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
-
-    Start_trw(PThreadDetachState_Detached, threadPriority);
-
-	Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
-	Kernel::RegisterDevice_trw(devicePath, inode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

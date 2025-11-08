@@ -27,6 +27,7 @@
 #include <Kernel/KTime.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/HAL/DigitalPort.h>
+#include <Kernel/HAL/STM32/RealtimeClock.h>
 #include <Kernel/KThread.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KSemaphore.h>
@@ -601,6 +602,8 @@ static void* idle_thread_entry(void* arguments)
 
 void* main_thread_entry(void* argument)
 {
+    kset_real_time(RealtimeClock::GetClock(), false);
+
     KBlockCache::Initialize();
     initialize_device_drivers();
 
@@ -624,8 +627,10 @@ static void* init_thread_entry(void* arguments)
 
     KThreadCB* thread = gk_CurrentThread;
 
+    REGISTER_KERNEL_LOG_CATEGORY(LogCat_General, PLogSeverity::INFO_HIGH_VOL);
     REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_General, PLogSeverity::INFO_HIGH_VOL);
     REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_VFS, PLogSeverity::INFO_HIGH_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Drivers, PLogSeverity::INFO_HIGH_VOL);
     REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache, PLogSeverity::INFO_LOW_VOL);
     REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler, PLogSeverity::INFO_HIGH_VOL);
 

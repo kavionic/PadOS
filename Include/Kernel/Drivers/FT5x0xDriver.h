@@ -21,7 +21,7 @@
 #pragma once
 
 #include <Kernel/HAL/DigitalPort.h>
-#include <Kernel/VFS/KDeviceNode.h>
+#include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/KThread.h>
 #include <Kernel/IRQDispatcher.h>

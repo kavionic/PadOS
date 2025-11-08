@@ -25,12 +25,18 @@
 #include <Kernel/Drivers/STM32/SDMMCDriver_STM32.h>
 #include <Kernel/SpinTimer.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KDriverManager.h>
+#include <Kernel/VFS/KDriverDescriptor.h>
+#include <Kernel/HAL/PeripheralMapping.h>
 
 using namespace os;
 using namespace sdmmc;
 
 namespace kernel
 {
+
+PREGISTER_KERNEL_DRIVER(SDMMCDriver_STM32, SDMMCDriverParameters);
+
 
 static const uint32_t SDMMC_EVENT_FLAGS = SDMMC_MASK_CMDRENDIE      // Command Response Received Interrupt Enable
                                         | SDMMC_MASK_CMDSENTIE      // Command Sent Interrupt Enable
@@ -74,8 +80,39 @@ static constexpr uint32_t SDMMC_ICR_ALL_FLAGS =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCDriver_STM32::SDMMCDriver_STM32()
+SDMMCDriver_STM32::SDMMCDriver_STM32(const SDMMCDriverParameters& parameters) : SDMMCDriver(parameters)
 {
+    m_PeripheralClockFrequency = parameters.ClockFrequency;
+    m_ClockCap = parameters.ClockCap;
+    m_SDMMC = get_sdmmc_from_id(parameters.PortID);
+
+    DigitalPin(parameters.PinD0.PINID).SetPullMode(PinPullMode_e::Up);
+    DigitalPin(parameters.PinD1.PINID).SetPullMode(PinPullMode_e::Up);
+    DigitalPin(parameters.PinD2.PINID).SetPullMode(PinPullMode_e::Up);
+    DigitalPin(parameters.PinD3.PINID).SetPullMode(PinPullMode_e::Up);
+    DigitalPin(parameters.PinCMD.PINID).SetPullMode(PinPullMode_e::Up);
+    DigitalPin(parameters.PinCK.PINID).SetPullMode(PinPullMode_e::Up);
+
+    DigitalPin(parameters.PinD0.PINID).SetDriveStrength(DigitalPinDriveStrength_e::VeryHigh);
+    DigitalPin(parameters.PinD1.PINID).SetDriveStrength(DigitalPinDriveStrength_e::VeryHigh);
+    DigitalPin(parameters.PinD2.PINID).SetDriveStrength(DigitalPinDriveStrength_e::VeryHigh);
+    DigitalPin(parameters.PinD3.PINID).SetDriveStrength(DigitalPinDriveStrength_e::VeryHigh);
+    DigitalPin(parameters.PinCMD.PINID).SetDriveStrength(DigitalPinDriveStrength_e::VeryHigh);
+    DigitalPin(parameters.PinCK.PINID).SetDriveStrength(DigitalPinDriveStrength_e::VeryHigh);
+
+    DigitalPin::ActivatePeripheralMux(parameters.PinD0);
+    DigitalPin::ActivatePeripheralMux(parameters.PinD1);
+    DigitalPin::ActivatePeripheralMux(parameters.PinD2);
+    DigitalPin::ActivatePeripheralMux(parameters.PinD3);
+    DigitalPin::ActivatePeripheralMux(parameters.PinCMD);
+    DigitalPin::ActivatePeripheralMux(parameters.PinCK);
+
+    SetClockFrequency(SDMMC_CLOCK_INIT);
+    m_SDMMC->POWER = 3 << SDMMC_POWER_PWRCTRL_Pos;
+
+    register_irq_handler(get_sdmmc_irq(parameters.PortID), IRQCallback, this);
+
+    Start_trw(PThreadDetachState_Detached);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -84,23 +121,6 @@ SDMMCDriver_STM32::SDMMCDriver_STM32()
 
 SDMMCDriver_STM32::~SDMMCDriver_STM32()
 {
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void SDMMCDriver_STM32::Setup(const os::String& devicePath, SDMMC_TypeDef* port, uint32_t peripheralClockFrequency, uint32_t clockCap, DigitalPinID pinCD, IRQn_Type irqNum)
-{
-    m_PeripheralClockFrequency = peripheralClockFrequency;
-    m_ClockCap = clockCap;
-    m_SDMMC = port;
-
-    SetClockFrequency(SDMMC_CLOCK_INIT);
-    m_SDMMC->POWER = 3 << SDMMC_POWER_PWRCTRL_Pos;
-
-    SetupBase(devicePath, pinCD);
-    register_irq_handler(irqNum, IRQCallback, this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -215,7 +215,7 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
     {
         inode = klocate_inode_by_name_trw(parent, name, nameLength, true);
     }
-    PERROR_CATCH(([handle, &parent, name, nameLength, openFlags, permissions](PErrorCode error)
+    PERROR_CATCH_RET(([handle, &parent, name, nameLength, openFlags, permissions](const std::exception& exc, PErrorCode error)
         {
             if (error == PErrorCode::NoEntry && (openFlags & O_CREAT))
             {

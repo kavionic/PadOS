@@ -20,6 +20,7 @@
 #pragma once
 
 #include <Kernel/HAL/DigitalPort.h>
+#include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/DisplayDriver.h>
 #include <GUI/Color.h>
 #include <GUI/Font.h>
@@ -122,7 +123,7 @@ private:
                 Reset();
                 spinCount = 0;
 
-                printf("Resetting video chip\n");
+                p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "Resetting video chip.");
             }
         }
 
@@ -130,7 +131,7 @@ private:
         if (spinCount > maxSpinCount)
         {
             maxSpinCount = spinCount;
-            printf("SC: %u\n", maxSpinCount);
+            p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "SC: {}", maxSpinCount);
         }
     }
 

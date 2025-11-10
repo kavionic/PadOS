@@ -82,7 +82,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
       // read in the boot sector
     const size_t bytesRead = kpread_trw(deviceFile, buffer.data(), buffer.size(), 0);
     if (bytesRead != buffer.size()) {
-	    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): error reading boot sector\n");
+        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): error reading boot sector.");
         PERROR_THROW_CODE(PErrorCode::IOError);
     }
     
@@ -91,19 +91,19 @@ void FATVolume::ReadSuperBlock(int deviceFile)
       // Only check boot signature on hard disks 
     if (superBlock->m_Signature != 0xaa55 && m_MediaDescriptor == 0xf8)
     {
-	    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): invalid signature 0x%x\n", uint16_t(superBlock->m_Signature));
+        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): invalid signature 0x{:x}", uint16_t(superBlock->m_Signature));
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
     if (memcmp(superBlock->m_OEMName, "NTFS    ", 8) == 0 || memcmp(superBlock->m_OEMName, "HPFS    ", 8) == 0)
     {
-	    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): %4.4s, not FAT\n", superBlock->m_OEMName);
+        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): {}, not FAT.", std::string_view(reinterpret_cast<const char*>(superBlock->m_OEMName), sizeof(superBlock->m_OEMName)));
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
       // First fill in the universal fields from the bpb
     m_BytesPerSector = superBlock->m_BytesPerSector;
     if ((m_BytesPerSector != 512) && (m_BytesPerSector != 1024) && (m_BytesPerSector != 2048))
     {
-	    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): unsupported bytes per sector (%lu)\n", m_BytesPerSector);
+        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): unsupported bytes per sector ({})", m_BytesPerSector);
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 	
@@ -119,7 +119,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     }
     if (!validSectorsPerCluster)
     {
-	    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount() sectors/cluster = %d\n", m_SectorsPerCluster);
+        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount() sectors/cluster = {}", m_SectorsPerCluster);
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
@@ -128,14 +128,14 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     m_FATCount = superBlock->m_FATCount;
     if (m_FATCount == 0 || m_FATCount > 8)
     {
-	    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): unreasonable FAT count (%lu)\n", m_FATCount);
+        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): unreasonable FAT count ({}).", m_FATCount);
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
       // Check media descriptor versus known types.
     if ((superBlock->m_Media != 0xF0) && (superBlock->m_Media < 0xf8))
     {
-	    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): invalid media descriptor byte.\n");
+        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): invalid media descriptor byte.");
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
@@ -155,7 +155,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         m_FSInfoSector  = superBlock->m_FSDependent.FAT32.m_FSInfoSector;
 	    if ((m_FSInfoSector != 0xffff) && (m_FSInfoSector >= m_ReservedSectors))
         {
-	        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): fsinfo sector too large (%x)\n", m_FSInfoSector);
+            kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): fsinfo sector too large ({}).", m_FSInfoSector);
             PERROR_THROW_CODE(PErrorCode::InvalidArg);
         }
         m_FATMirrored = !(superBlock->m_FSDependent.FAT32.m_ExtendedFlags & 0x80);
@@ -167,7 +167,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         rootStartCluster = superBlock->m_FSDependent.FAT32.m_RootDirectory;
 	    if (rootStartCluster >= m_TotalClusters)
         {
-	        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): root inode cluster too large (%lx)\n", rootStartCluster);
+            kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): root inode cluster too large ({}).", rootStartCluster);
             PERROR_THROW_CODE(PErrorCode::InvalidArg);
         }
     }
@@ -176,14 +176,14 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         m_SectorsPerFAT = superBlock->m_SectorsPerFAT16;
 	  // FAT12 & FAT16
     	if (m_FATCount != 2) {
-	        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): claims %ld fat tables\n", m_FATCount);
+            kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): claims {} fat tables.", m_FATCount);
             PERROR_THROW_CODE(PErrorCode::InvalidArg);
         }
 
         m_RootEntriesCount = superBlock->m_RootDirEntryCount16;
 	    if (m_RootEntriesCount % (m_BytesPerSector / 0x20))
         {
-	        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): invalid number of root entries\n");
+            kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::ERROR, "FATFilesystem::Mount(): invalid number of root entries.");
             PERROR_THROW_CODE(PErrorCode::InvalidArg);
         }
 
@@ -234,7 +234,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
 
 ino_t FATVolume::AllocUniqueINodeID()
 {
-    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_HIGH_VOL, "Allocate unique inode ID: %" PRIx64 "\n", m_CurrentArtificialID);
+    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_HIGH_VOL, "Allocate unique inode ID: {:x}", m_CurrentArtificialID);
     return m_CurrentArtificialID++;
 }
 
@@ -246,7 +246,7 @@ void FATVolume::SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
 {
     CRITICAL_SCOPE(m_INodeIDMapMutex);
 
-    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_HIGH_VOL, "FATVolume::SetINodeIDToLocationIDMapping(%16" PRIx64 " -> %16" PRIx64 ")\n", inodeID, locationID);
+    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_HIGH_VOL, "FATVolume::SetINodeIDToLocationIDMapping({:16x} -> {:16x})", inodeID, locationID);
 
     auto inodeItr = m_INodeToLocationMap.find(inodeID);
     if (inodeItr != m_INodeToLocationMap.end())
@@ -302,7 +302,7 @@ void FATVolume::SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
 
 bool FATVolume::RemoveINodeIDToLocationIDMapping(ino_t inodeID)
 {
-    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_HIGH_VOL, "FATVolume::RemoveINodeIDToLocationIDMapping(%16" PRIx64 ")\n", inodeID);
+    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_HIGH_VOL, "FATVolume::RemoveINodeIDToLocationIDMapping({:16x})", inodeID);
 
     CRITICAL_SCOPE(m_INodeIDMapMutex);
 
@@ -318,7 +318,7 @@ bool FATVolume::RemoveINodeIDToLocationIDMapping(ino_t inodeID)
         m_INodeToLocationMap.erase(inodeItr);
         return true;
     }
-    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::CRITICAL, "FATVolume::RemoveINodeIDToLocationIDMapping(%16" PRIx64 ") failed to find mapping.\n", inodeID);
+    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::CRITICAL, "FATVolume::RemoveINodeIDToLocationIDMapping({:16x}) failed to find mapping.", inodeID);
     set_last_error(ENOENT);
     return false;
 }
@@ -379,11 +379,11 @@ bool FATVolume::HasLocationIDToINodeIDMapping(ino_t locationID) const
 
 void FATVolume::DumpINodeIDMap()
 {
-    kprintf("INode map size %ld, current artificial ID = %Lx\n", m_INodeToLocationMap.size(), m_CurrentArtificialID);
+    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_LOW_VOL, "INode map size {}, current artificial ID = {:x}", m_INodeToLocationMap.size(), m_CurrentArtificialID);
     
     for (auto& entry : m_INodeToLocationMap)
     {
-        kprintf("%16Lx %16Lx\n", entry.second.m_INodeID, entry.second.m_LocationID);
+        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_LOW_VOL, "{:16x} {:16x}", entry.second.m_INodeID, entry.second.m_LocationID);
     }
 }
 
@@ -393,7 +393,7 @@ void FATVolume::DumpINodeIDMap()
 
 void FATVolume::AddDirectoryMapping(ino_t inodeID)
 {
-    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_HIGH_VOL, "FATVolume::AddDirectoryMapping(%" PRIx64 ")\n", inodeID);
+    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_HIGH_VOL, "FATVolume::AddDirectoryMapping({:x})", inodeID);
 
     kassert(IS_DIR_CLUSTER_INODEID(inodeID));
     kassert(inodeID != 0);
@@ -408,7 +408,7 @@ void FATVolume::AddDirectoryMapping(ino_t inodeID)
 
 bool FATVolume::RemoveDirectoryMapping(ino_t inodeID)
 {
-    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_HIGH_VOL, "FATVolume::RemoveDirectoryMapping(%" PRIx64 ")\n", inodeID);
+    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_HIGH_VOL, "FATVolume::RemoveDirectoryMapping({:x})", inodeID);
 
     kassert(IS_DIR_CLUSTER_INODEID(inodeID));
     kassert(inodeID != 0);
@@ -443,12 +443,11 @@ ino_t FATVolume::GetDirectoryMapping(uint32_t startCluster) const
 
 void FATVolume::DumpDirectoryMap()
 {
-    kprintf("%ld directory mapping entries.\n", m_DirectoryMap.size());
+    kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_LOW_VOL, "{} directory mapping entries.", m_DirectoryMap.size());
 
     for (auto i : m_DirectoryMap) {
-        kprintf("%Lx ", i.second);
+        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::INFO_LOW_VOL, "{:x}", i.second);
     }
-    kprintf("\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////

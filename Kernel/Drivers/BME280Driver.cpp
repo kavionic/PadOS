@@ -132,7 +132,7 @@ void BME280Driver::SlotTick()
         m_CurrentValues.m_Pressure    = CompensatePressure(pressure);
         m_CurrentValues.m_Humidity    = CompensateHumidity(humidity);
 
-//        printf("Temp: %.3f, Pres: %.3f, Hum: %.3f\n", m_CurrentValues.m_Temperature, m_CurrentValues.m_Pressure / 100.0, m_CurrentValues.m_Humidity);
+        //        p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_HIGH_VOL, "Temp: {:.3}, Pres: {:.3}, Hum: {:.3}", m_CurrentValues.m_Temperature, m_CurrentValues.m_Pressure / 100.0, m_CurrentValues.m_Humidity);
         m_BytesToReceive = 0;
         //m_Timer.Start(m_UpdatePeriode - (time - m_LastUpdateTime));
         m_State = State_e::Idle;
@@ -144,27 +144,27 @@ void BME280Driver::SlotTick()
             uint8_t chipID = 0;
 
             if (FileIO::Read(m_I2CDevice, BME280_CHIP_ID_ADDR, &chipID, 1) != 1) {
-                printf("ERROR: BME280 failed to read chip ID\n");
+                p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "BME280 failed to read chip ID.");
             } else {
-                printf("BME280 ChipID: %02x\n", chipID);
+                p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "BME280 ChipID: {:02x}", chipID);
             }
             uint8_t humCfg = 0;
             if (FileIO::Read(m_I2CDevice, BME280_CTRL_HUM_ADDR, &humCfg, 1) != 1) {
-                printf("ERROR: BME280 failed to read humidity config\n");
+                p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "BME280 failed to read humidity config.");
             }
 
             humCfg = (humCfg & ~BME280_CTRL_HUM_OVRSMPL_bm) | BME280_CTRL_HUM_OVRSMPL_4;
             uint8_t measCfg = BME280_CTRL_MEAS_SENSOR_MODE_NORMAL | BME280_CTRL_MEAS_OVRSMPL_PRESS_4 | BME280_CTRL_MEAS_OVRSMPL_TEMP_4;
 
             if (FileIO::Write(m_I2CDevice, BME280_CTRL_HUM_ADDR, &humCfg, 1) != 1) {
-                printf("ERROR: BME280 failed to write humidity config\n");
+                p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "BME280 failed to write humidity config.");
             }
             if (FileIO::Write(m_I2CDevice, BME280_CTRL_MEAS_ADDR, &measCfg, 1) != 1) {
-                printf("ERROR: BME280 failed to write measurement config\n");
+                p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "BME280 failed to write measurement config.");
             }
             uint8_t measCfg2 = 0;
             if (FileIO::Read(m_I2CDevice, BME280_CTRL_MEAS_ADDR, &measCfg2, 1) != 1) {
-                printf("ERROR: BME280 failed to read measurement config\n");
+                p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "BME280 failed to read measurement config.");
             }
 
             m_State = State_e::ReadingTempPressCalibration;
@@ -263,7 +263,7 @@ void BME280Driver::RequestData(uint8_t address, uint8_t length)
     m_ReadRetryCount = 0;
     m_BytesReceived = FileIO::Read(m_I2CDevice, address, m_ReceiveBuffer, m_BytesToReceive);
     if (m_BytesReceived != m_BytesToReceive) {
-        printf("ERROR: BME280Driver failed to read from device (%d/%d): %s\n", m_BytesReceived, m_BytesToReceive, strerror(get_last_error()));        
+        p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "BME280Driver failed to read from device ({}/{}): {}", m_BytesReceived, m_BytesToReceive, strerror(get_last_error()));
     }
 }
 

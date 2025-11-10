@@ -24,6 +24,7 @@
 #include <vector>
 #include <map>
 
+#include <Utils/Logging.h>
 #include <Kernel/KTime.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/HAL/DigitalPort.h>
@@ -627,12 +628,12 @@ static void* init_thread_entry(void* arguments)
 
     KThreadCB* thread = gk_CurrentThread;
 
-    REGISTER_KERNEL_LOG_CATEGORY(LogCat_General, PLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_General, PLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_VFS, PLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Drivers, PLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache, PLogSeverity::INFO_LOW_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler, PLogSeverity::INFO_HIGH_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCat_General,            "GEN",      PLogSeverity::INFO_HIGH_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_General,      "KGEN",     PLogSeverity::INFO_HIGH_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_VFS,          "VFS",      PLogSeverity::INFO_HIGH_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Drivers,      "DRIVRS",   PLogSeverity::INFO_HIGH_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache,   "BCACHE",   PLogSeverity::INFO_LOW_VOL);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler,    "SCHED",    PLogSeverity::INFO_HIGH_VOL);
 
     ksetup_rootfs_trw();
 
@@ -668,7 +669,7 @@ static void* init_thread_entry(void* arguments)
             }
             catch(const std::exception& exc)
             {
-                kernel_log(LogCatKernel_Scheduler, PLogSeverity::CRITICAL, "%s: failed to free zombie thread handle: %s\n", __PRETTY_FUNCTION__, exc.what());
+                kernel_log(LogCatKernel_Scheduler, PLogSeverity::CRITICAL, "{}: failed to free zombie thread handle: {}", __PRETTY_FUNCTION__, exc.what());
             }
         }
         CRITICAL_BEGIN(CRITICAL_IRQ)

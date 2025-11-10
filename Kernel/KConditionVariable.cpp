@@ -19,6 +19,7 @@
 
 
 #include <PadOS/Time.h>
+#include <Utils/Logging.h>
 #include <Kernel/KConditionVariable.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KMutex.h>
@@ -166,7 +167,7 @@ PErrorCode KConditionVariable::IRQWait()
     
     if (irqState == IRQEnableState::Enabled)
     {
-        printf("ERROR: KConditionVariable::IRQWait() called with interrupts enabled!\n");
+        p_system_log(LogCatKernel_General, PLogSeverity::ERROR, "KConditionVariable::IRQWait() called with interrupts enabled!");
         return PErrorCode::InvalidArg;
     }
     
@@ -217,7 +218,7 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos cloc
     
     if (irqState == IRQEnableState::Enabled)
     {
-        printf("ERROR: KConditionVariable::IRQWaitDeadline() called with interrupts enabled!\n");
+        p_system_log(LogCatKernel_General, PLogSeverity::ERROR, "KConditionVariable::IRQWaitDeadline() called with interrupts enabled!");
         return PErrorCode::InvalidArg;
     }
     

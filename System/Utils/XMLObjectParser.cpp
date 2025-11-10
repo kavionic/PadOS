@@ -104,7 +104,7 @@ bool parse(const char* text, Ptr<LayoutNode>& value)
 	    value = ptr_new<VLayoutNode>();
 	    return true;
 	} else {
-	    printf("ERROR: View - invalid layout mode %s\n", text);
+        p_system_log(LogCat_General, PLogSeverity::ERROR, "View - invalid layout mode {}", text);
 	    value = nullptr;
 	    return false;
 	}
@@ -143,7 +143,7 @@ bool parse(const char* text, Alignment& value)
             value = Alignment::Stretch;
             return true;
         } else {
-			printf("ERROR: View - invalid layout mode '%s'\n", text);
+            p_system_log(LogCat_General, PLogSeverity::ERROR, "View - invalid layout mode '{}'", text);
 			value = Alignment::Left;
 			return false;
 		}
@@ -170,7 +170,7 @@ bool parse(const char* text, Orientation& value)
 			value = Orientation::Vertical;
 			return true;
 		} else {
-			printf("ERROR: View - invalid orientation '%s'\n", text);
+            p_system_log(LogCat_General, PLogSeverity::ERROR, "View - invalid orientation '{}'", text);
 			value = Orientation::Horizontal;
 			return false;
 		}

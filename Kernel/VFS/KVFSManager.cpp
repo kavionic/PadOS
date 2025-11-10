@@ -25,6 +25,7 @@
 #include <PadOS/DeviceControl.h>
 
 #include <System/ExceptionHandling.h>
+#include <Utils/Logging.h>
 #include <Kernel/KTime.h>
 #include <Kernel/VFS/KVFSManager.h>
 #include <Kernel/VFS/KFSVolume.h>
@@ -133,7 +134,7 @@ std::vector<disk_partition_desc> KVFSManager::DecodeDiskPartitions_trw(void* blo
         readCallback(userData, tablePos, buffer, bufferSize);
         if (*reinterpret_cast<uint16_t*>(&buffer[0x1fe]) != 0xaa55)
         {
-            kprintf("ERROR: KVFSManager::DecodeDiskPartitions() Invalid partition table signature %04x\n", *reinterpret_cast<uint16_t*>(&buffer[0x1fe]));
+            kernel_log(LogCatKernel_VFS, PLogSeverity::ERROR, "KVFSManager::DecodeDiskPartitions() Invalid partition table signature {:04x}", *reinterpret_cast<uint16_t*>(&buffer[0x1fe]));
             PERROR_THROW_CODE(PErrorCode::InvalidFileType);
         }
 
@@ -149,11 +150,11 @@ std::vector<disk_partition_desc> KVFSManager::DecodeDiskPartitions_trw(void* blo
                 numExtended++;
             }
             if (numActive > 1) {
-                kprintf("WARNING: KVFSManager::DecodeDiskPartitions() more than one active partitions\n");
+                kernel_log(LogCatKernel_VFS, PLogSeverity::WARNING, "KVFSManager::DecodeDiskPartitions() more than one active partitions.");
             }
             if (numExtended > 1)
             {
-                kprintf("ERROR: KVFSManager::DecodeDiskPartitions() more than one extended partitions\n");
+                kernel_log(LogCatKernel_VFS, PLogSeverity::ERROR, "KVFSManager::DecodeDiskPartitions() more than one extended partitions.");
                 PERROR_THROW_CODE(PErrorCode::InvalidFileType);
             }
         }
@@ -180,7 +181,7 @@ std::vector<disk_partition_desc> KVFSManager::DecodeDiskPartitions_trw(void* blo
 
             if (partitionDesc.p_start + partitionDesc.p_size > diskSize)
             {
-                kprintf("ERROR: Partition %d extend outside the disk/extended partition\n", partitions.size());
+                kernel_log(LogCatKernel_VFS, PLogSeverity::ERROR, "Partition {} extend outside the disk/extended partition.", partitions.size());
                 PERROR_THROW_CODE(PErrorCode::InvalidFileType);
             }
 
@@ -193,17 +194,17 @@ std::vector<disk_partition_desc> KVFSManager::DecodeDiskPartitions_trw(void* blo
                 if (curPartition.p_start + curPartition.p_size > partitionDesc.p_start &&
                     curPartition.p_start < partitionDesc.p_start + partitionDesc.p_size)
                 {
-                    kprintf("ERROR: KVFSManager::DecodeDiskPartitions() partition %d overlap partition %d\n", j, partitions.size());
+                    kernel_log(LogCatKernel_VFS, PLogSeverity::ERROR, "KVFSManager::DecodeDiskPartitions() partition {} overlap partition {}", j, partitions.size());
                     PERROR_THROW_CODE(PErrorCode::InvalidFileType);
                 }
                 if ((partitionDesc.p_status & 0x80) != 0 && (curPartition.p_status & 0x80) != 0)
                 {
-                    kprintf("ERROR: KVFSManager::DecodeDiskPartitions() more than one active partitions\n");
+                    kernel_log(LogCatKernel_VFS, PLogSeverity::ERROR, "KVFSManager::DecodeDiskPartitions() more than one active partitions.");
                     PERROR_THROW_CODE(PErrorCode::InvalidFileType);
                 }
                 if (partitionDesc.p_type == 0x05 && curPartition.p_type == 0x05)
                 {
-                    kprintf("ERROR: KVFSManager::DecodeDiskPartitions() more than one extended partitions\n");
+                    kernel_log(LogCatKernel_VFS, PLogSeverity::ERROR, "KVFSManager::DecodeDiskPartitions() more than one extended partitions.");
                     PERROR_THROW_CODE(PErrorCode::InvalidFileType);
                 }
             }
@@ -235,7 +236,7 @@ void KVFSManager::RegisterVolume_trw(Ptr<KFSVolume> volume)
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
     if (s_VolumeMap.find(volume->m_VolumeID) != s_VolumeMap.end()) {
-        kprintf("ERROR: KVFSManager::RegisterVolume() failed to register volume %p\n", ptr_raw_pointer_cast(volume));
+        kernel_log(LogCatKernel_VFS, PLogSeverity::ERROR, "KVFSManager::RegisterVolume() failed to register volume {:#x}", intptr_t(ptr_raw_pointer_cast(volume)));
         PERROR_THROW_CODE(PErrorCode::Exist);
     }
     s_VolumeMap[volume->m_VolumeID] = volume;
@@ -368,7 +369,7 @@ void KVFSManager::DiscardInode(KINode* inode)
     {
         inode->m_Filesystem->ReleaseInode(inode);
     }
-    PERROR_CATCH([](PErrorCode error) { kernel_log(LogCatKernel_VFS, PLogSeverity::ERROR, "ERROR: Failed to release inode\n"); });
+    PERROR_CATCH([](PErrorCode error) { kernel_log(LogCatKernel_VFS, PLogSeverity::ERROR, "ERROR: Failed to release inode."); });
 
     delete inode;
     s_INodeMapMutex.Lock();

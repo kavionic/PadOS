@@ -10,7 +10,7 @@ HWTimerID timer_id_from_name(const char* name)
 {
     if (name[0] != 'T' || name[1] != 'I' || name[2] != 'M')
     {
-        printf("ERROR: timer_id_from_name() failed to convert '%s'\n", name);
+        p_system_log(LogCatKernel_General, PLogSeverity::ERROR, "timer_id_from_name() failed to convert '{}'", name);
         return HWTimerID::None;
     }
     return HWTimerID(atoi(name + 3));
@@ -26,7 +26,7 @@ TIM_TypeDef* get_timer_from_id(HWTimerID timerID)
         case HWTimerID::Timer16:    return TIM16;
         case HWTimerID::Timer17:    return TIM17;
         default:
-            printf("ERROR: get_timer_from_id() unknown timer '%d'\n", int(timerID));
+            p_system_log(LogCatKernel_General, PLogSeverity::ERROR, "get_timer_from_id() unknown timer '{}'", int(timerID));
             return nullptr;
     }
 }
@@ -50,7 +50,7 @@ IRQn_Type get_timer_irq(HWTimerID timerID, HWTimerIRQType irqType)
         case HWTimerID::Timer16:    return TIM16_IRQn;
         case HWTimerID::Timer17:    return TIM17_IRQn;
         default:
-            printf("ERROR: get_timer_irq() unknown timer '%d'\n", int(timerID));
+            p_system_log(LogCatKernel_General, PLogSeverity::ERROR, "get_timer_irq() unknown timer '{}'", int(timerID));
             return IRQn_Type(IRQ_COUNT);
     }
 }

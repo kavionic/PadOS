@@ -25,7 +25,9 @@
 #include <deque>
 #include <algorithm>
 
-#include "GUI/Region.h"
+#include <Utils/Logging.h>
+#include <GUI/Region.h>
+#include <GUI/GUIDefines.h>
 
 using namespace os;
 
@@ -597,7 +599,7 @@ void Region::Validate()
         for (const IRect& clip2 : m_Rects)
         {
             if (&clip1 != &clip2 && clip1.DoIntersect(clip2)) {
-                printf("ERROR: Region::Validate() CLIPS OEVRLAP!!!\n");
+                p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Region::Validate() CLIPS OVERLAP!!!");
             }
         }
     }

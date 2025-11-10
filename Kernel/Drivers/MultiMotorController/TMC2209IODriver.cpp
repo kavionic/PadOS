@@ -23,6 +23,7 @@
 
 #include <System/ExceptionHandling.h>
 #include <Utils/HashCalculator.h>
+#include <Utils/Logging.h>
 #include <Kernel/KTime.h>
 #include <Kernel/VFS/FileIO.h>
 
@@ -150,7 +151,7 @@ uint32_t TMC2209IODriver::ReadRegister(uint8_t chipAddress, uint8_t registerAddr
     m_LastActiveTime = kget_monotonic_time_hires();
 
     if (!TMC2209ValidateCRC(reply)) {
-        printf("ERROR: TMC2209IODriver::ReadRegister(%d, %d) invalid checksum\n", chipAddress, registerAddress);
+        p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "TMC2209IODriver::ReadRegister({}, {}) invalid checksum.", chipAddress, registerAddress);
         PERROR_THROW_CODE(PErrorCode::IOError);
     }
 

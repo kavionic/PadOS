@@ -23,6 +23,7 @@
 #include <System/Types.h>
 #include <System/System.h>
 #include <Utils/String.h>
+#include <Utils/Logging.h>
 #include <Kernel/Scheduler.h>
 
 template<typename T>
@@ -153,11 +154,11 @@ class ProfileTimer
             {
                 if (m_PrevLapTime == m_StartTime)
                 {
-                    printf("Prof: %s (%.3f)\n", m_Title.c_str(), time.AsSeconds() * 1000.0);
+                    p_system_log(LogCat_General, PLogSeverity::INFO_LOW_VOL, "Prof: {} ({:.3})", m_Title, time.AsSeconds() * 1000.0);
                 }
                 else
                 {
-                    printf("Prof: %s (%.3f / %.3f)\n", m_Title.c_str(), lapTime.AsSeconds() * 1000.0, time.AsSeconds() * 1000.0);
+                    p_system_log(LogCat_General, PLogSeverity::INFO_LOW_VOL, "Prof: {} ({:.3} / {:.3})", m_Title, lapTime.AsSeconds() * 1000.0, time.AsSeconds() * 1000.0);
                 }
                 return true;
             }
@@ -174,7 +175,7 @@ class ProfileTimer
             {
                 const TimeValNanos lapTime = curTime - m_PrevLapTime;
                 m_PrevLapTime = curTime;
-                printf("Prof: %s (%s) (%.3f / %.3f)\n", m_Title.c_str(), text, lapTime.AsSeconds() * 1000.0, time.AsSeconds() * 1000.0);
+                p_system_log(LogCat_General, PLogSeverity::INFO_LOW_VOL, "Prof: {} ({}) ({:.3f} / {:.3})", m_Title, text, lapTime.AsSeconds() * 1000.0, time.AsSeconds() * 1000.0);
                 return true;
             }
         }
@@ -285,6 +286,6 @@ class ProfileTimer
 #define PIN31_bm BIT32(PIN31_bp, 1)
 #endif // PIN0_bm
 
-#define _EXPECT_TRUE(expr) if (!(expr)) { printf("TEST FAILED: %s\n", #expr);}
-#define _EXPECT_FALSE(expr) if ((expr)) { printf("TEST FAILED: %s\n", #expr);}
-#define _EXPECT_NEAR(expr1, expr2, abs_error) if (fabs((expr1) - (expr2)) > abs_error) { printf("TEST FAILED: %s != %s\n", #expr1, #expr2); }
+#define _EXPECT_TRUE(expr) if (!(expr)) { p_system_log(LogCat_General, PLogSeverity::ERROR, "TEST FAILED: {}", #expr);}
+#define _EXPECT_FALSE(expr) if ((expr)) { p_system_log(LogCat_General, PLogSeverity::ERROR, "TEST FAILED: {}", #expr);}
+#define _EXPECT_NEAR(expr1, expr2, abs_error) if (fabs((expr1) - (expr2)) > abs_error) { p_system_log(LogCat_General, PLogSeverity::ERROR, "TEST FAILED: {} != {}", #expr1, #expr2); }

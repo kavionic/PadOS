@@ -7,6 +7,8 @@ target_sources(PadOS_System PRIVATE
 	HashCalculator.h
 	InertialScroller.h
 	IntrusiveList.h
+	JSON.h
+	Logging.h
 	MessagePort.h
 	String.h
 	TypeTraits.h

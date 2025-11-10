@@ -50,25 +50,17 @@ public:
                 const PErrorCode result = device_control(dcInterface.GetDeviceFD(), handlerID, inData, inDataLength, outData, outDataLength);
                 if (result != PErrorCode::Success)
                 {
-                    printf("ERROR: DeviceControlDefInvoker %d/%d failed: %s\n", dcInterface.GetDeviceFD(), handlerID, strerror(std::to_underlying(result)));
+                    p_system_log(LogCat_General, PLogSeverity::ERROR, "DeviceControlDefInvoker {}/{} failed: {}", dcInterface.GetDeviceFD(), handlerID, strerror(std::to_underlying(result)));
                     PERROR_THROW_CODE(result);
                 }
             }
         ) {}
 };
 
-//template<int THandlerID, bool TIsConst, typename TReturnType, typename... TArgTypes>
-//class PDeviceControlInvoker2 : public PDeviceControlDefInvoker<PRPCDefinition<THandlerID, TIsConst, TReturnType, TArgTypes...>>
-//{
-//public:
-//    PDeviceControlInvoker2(const PDeviceControlInterface& dcInterface) : PDeviceControlDefInvoker<PRPCDefinition<THandlerID, TIsConst, TReturnType, TArgTypes...>>(dcInterface) {}
-//};
-
 template<int THandlerID, typename TReturnType, typename... TArgTypes>
-class PDeviceControlInvoker // : public PDeviceControlDefInvoker<PRPCDefinition<THandlerID, TIsConst, TReturnType, TArgTypes...>>
+class PDeviceControlInvoker
 {
 public:
-//    PDeviceControlInvoker(const PDeviceControlInterface& dcInterface) : PDeviceControlDefInvoker<PRPCDefinition<THandlerID, TIsConst, TReturnType, TArgTypes...>>(dcInterface) {}
 };
 
 template<int THandlerID, typename TReturnType, typename... TArgTypes>

@@ -22,6 +22,7 @@
 #include <string>
 #include <sys/types.h>
 #include <Utils/String.h>
+#include <Utils/Logging.h>
 
 constexpr size_t align_argument_size(size_t length) noexcept { return (length + 3) & ~3; }
 
@@ -41,7 +42,7 @@ struct ArgumentPacker
             *reinterpret_cast<T*>(data) = value;
             return sizeof(value);
         }
-        printf("ERROR: %s: not enough data %zd/%zd.", __PRETTY_FUNCTION__, length, sizeof(T));
+        p_system_log(LogCat_General, PLogSeverity::ERROR, "{}: not enough data {}/{}.", __PRETTY_FUNCTION__, length, sizeof(T));
         return -1;
     }
     static ssize_t Read(const void* data, size_t length, T* value)
@@ -51,7 +52,7 @@ struct ArgumentPacker
             *value = *reinterpret_cast<const T*>(data);
             return sizeof(T);
         }
-        printf("ERROR: %s: not enough data %zd/%zd.", __PRETTY_FUNCTION__, length, sizeof(T));
+        p_system_log(LogCat_General, PLogSeverity::ERROR, "{}: not enough data {}/{}.", __PRETTY_FUNCTION__, length, sizeof(T));
         return -1;
     }
 };
@@ -79,14 +80,14 @@ struct ArgumentPacker<std::string>
     {
         if (length < sizeof(uint32_t))
         {
-            printf("ERROR: %s: not enough data %zd.", __PRETTY_FUNCTION__, length);
+            p_system_log(LogCat_General, PLogSeverity::ERROR, "{}: not enough data {}.", __PRETTY_FUNCTION__, length);
             return -1;
         }
         const uint32_t strLength = *reinterpret_cast<const uint32_t*>(data);
 
         if (length < (sizeof(uint32_t) + strLength))
         {
-            printf("ERROR: %s: not enough data %zd / %" PRIu32 ".", __PRETTY_FUNCTION__, length, strLength);
+            p_system_log(LogCat_General, PLogSeverity::ERROR, "{}: not enough data {} / {}.", __PRETTY_FUNCTION__, length, strLength);
             return -1;
         }
 

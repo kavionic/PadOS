@@ -118,13 +118,13 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position, co
         {
             if (!post_to_window_manager<ASHandleMouseDown>(m_ManagerHandle, button, position, event))
             {
-                printf("ERROR: ServerView::HandleMouseDown() failed to send message: %s\n", strerror(get_last_error()));
+                p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "ServerView::HandleMouseDown() failed to send message: {}", strerror(get_last_error()));
                 return false;
             }            
         }
                     
         if (!post_to_remotesignal<ASHandleMouseDown>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
-            printf("ERROR: ServerView::HandleMouseDown() failed to send message: %s\n", strerror(get_last_error()));
+            p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "ServerView::HandleMouseDown() failed to send message: {}", strerror(get_last_error()));
             return false;
         }
         ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
@@ -157,7 +157,7 @@ bool ServerView::HandleMouseUp(MouseButton_e button, const Point& position, cons
     if (m_ClientHandle != INVALID_HANDLE)
     {
         if (!post_to_remotesignal<ASHandleMouseUp>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
-            printf("ERROR: ServerView::HandleMouseUp() failed to send message: %s\n", strerror(get_last_error()));
+            p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "ServerView::HandleMouseUp() failed to send message: {}", strerror(get_last_error()));
         }
         return true;
     }
@@ -173,7 +173,7 @@ bool ServerView::HandleMouseMove(MouseButton_e button, const Point& position, co
     if (m_ClientHandle != INVALID_HANDLE)
     {
         if (!post_to_remotesignal<ASHandleMouseMove>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
-            printf("ERROR: ServerView::HandleMouseMove() failed to send message: %s\n", strerror(get_last_error()));
+            p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "ServerView::HandleMouseMove() failed to send message: {}", strerror(get_last_error()));
         }
         return true;
     }
@@ -294,7 +294,7 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
         else
         {
             if (!post_to_remotesignal<ASViewFrameChanged>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, m_Frame)) {
-                printf("ERROR: ServerView::SetFrame() failed to send message: %s\n", strerror(get_last_error()));
+                p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "ServerView::SetFrame() failed to send message: {}", strerror(get_last_error()));
             }            
         }
     }
@@ -868,7 +868,7 @@ void ServerView::Paint(const IRect& updateRect)
         return;
     }
     if (!post_to_remotesignal<ASPaintView>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, updateRect - IPoint(m_ScrollOffset))) {
-        printf("ERROR: ServerView::Paint() failed to send message: %s\n", strerror(get_last_error()));        
+        p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "ServerView::Paint() failed to send message: {}", strerror(get_last_error()));
     }
 }
 

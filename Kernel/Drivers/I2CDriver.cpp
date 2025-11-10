@@ -201,7 +201,7 @@ PErrorCode I2CDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length
 
     if (!m_RequestSema.AcquireTimeout(bigtime_from_ms(std::max<uint32_t>(2, i2cfile->m_RelativeTimeout * length / m_Baudrate))))
     {
-        printf("I2CDriver::Read() request failed: %s\n", strerror(get_last_error()));        
+        p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "I2CDriver::Read() request failed: {}", strerror(get_last_error()));
         m_Port->TWIHS_IDR = ~0UL; // Disable interrupts.
         Reset();
         ClearBus();

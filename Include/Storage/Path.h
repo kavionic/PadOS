@@ -77,3 +77,11 @@ private:
 };
 
 } // namespace os
+
+using PPath = os::Path;
+
+namespace std
+{
+template<>
+struct formatter<PPath> : formatter<basic_string<PString::value_type, PString::traits_type, PString::allocator_type>, PString::value_type> {};
+}

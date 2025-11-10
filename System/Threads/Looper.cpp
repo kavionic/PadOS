@@ -24,6 +24,7 @@
 #include <Threads/EventHandler.h>
 #include <Threads/EventTimer.h>
 #include <System/SystemMessageIDs.h>
+#include <Utils/Logging.h>
 #include <Kernel/Scheduler.h>
 
 using namespace os;
@@ -159,7 +160,7 @@ bool Looper::AddHandler(Ptr<EventHandler> handler)
     {
         if (handler->m_Looper != nullptr)
         {
-            printf("ERROR: Looper::AddHandler() attempt to add handler %s(%d) already owned by looper %s(%d)\n", handler->GetName().c_str(), handler->GetHandle(), handler->m_Looper->GetName().c_str(), handler->m_Looper->GetThreadID());
+            p_system_log(LogCat_General, PLogSeverity::ERROR, "Looper::AddHandler() attempt to add handler {}({}) already owned by looper {}({})", handler->GetName(), handler->GetHandle(), handler->m_Looper->GetName(), handler->m_Looper->GetThreadID());
             set_last_error(EBUSY);
             return false;
         }
@@ -180,7 +181,7 @@ bool Looper::RemoveHandler(Ptr<EventHandler> handler)
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
     if (handler->m_Looper != this) {
-        printf("ERROR: Looper::RemoveHandler() attempt to remove handler %s(%d) from unrelated looper %s(%d)\n", handler->GetName().c_str(), handler->GetHandle(), GetName().c_str(), GetThreadID());
+        p_system_log(LogCat_General, PLogSeverity::ERROR, "Looper::RemoveHandler() attempt to remove handler {}({}) from unrelated looper {}({})", handler->GetName(), handler->GetHandle(), GetName(), GetThreadID());
         return false;
     }
     handler->m_Looper = nullptr;
@@ -189,7 +190,7 @@ bool Looper::RemoveHandler(Ptr<EventHandler> handler)
         m_HandlerMap.erase(i);
         return true;
     } else {
-        printf("ERROR: Looper::RemoveHandler() failed to find handler %s(%d) in looper %s(%d)\n", handler->GetName().c_str(), handler->GetHandle(), GetName().c_str(), GetThreadID());        
+        p_system_log(LogCat_General, PLogSeverity::ERROR, "Looper::RemoveHandler() failed to find handler {}({}) in looper {}({})", handler->GetName(), handler->GetHandle(), GetName(), GetThreadID());
         return false;
     }
 }
@@ -249,7 +250,7 @@ bool Looper::RemoveTimer(EventTimer* timer)
     }
     else
     {
-        printf("ERROR: Looper::RemoveTimer() attempt to remove timer not belonging to us\n");
+        p_system_log(LogCat_General, PLogSeverity::ERROR, "Looper::RemoveTimer() attempt to remove timer not belonging to us.");
         set_last_error(EINVAL);
         return false;
     }

@@ -78,7 +78,9 @@ SDMMCDriver::SDMMCDriver(const SDMMCBaseDriverParameters& parameters)
     , m_DeviceSemaphore("hsmci_driver_dev_sema", CLOCK_MONOTONIC_COARSE, 1)
     , m_DevicePathBase(parameters.DevicePath)
 {
-	m_CacheAlignedBuffer = memalign(DCACHE_LINE_SIZE, BLOCK_SIZE);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCategorySDMMCDriver, "SDMMC", PLogSeverity::WARNING);
+    
+    m_CacheAlignedBuffer = memalign(DCACHE_LINE_SIZE, BLOCK_SIZE);
 
     m_PinCD = parameters.PinCardDetect;
     m_PinCD.SetDirection(DigitalPinDirection_e::In);
@@ -152,16 +154,16 @@ void* SDMMCDriver::Run()
                     } catch(...) {}
                     break;
                 case CardState::Ready:
-                    kprintf("SD/MMC card ready: %" PRIu64 "\n", m_SectorCount * BLOCK_SIZE);
+                    kernel_log(LogCategorySDMMCDriver, PLogSeverity::INFO_LOW_VOL, "SD/MMC card ready: {}", m_SectorCount * BLOCK_SIZE);
                     try {
                         DecodePartitions(true);
                     } catch(...) {}
                     break;
                 case CardState::Initializing:
-                    kprintf("SD/MMC RestartCard() failed\n");
+                    kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SD/MMC RestartCard() failed.");
                     break;
                 case CardState::Unusable:
-                    kprintf("SD/MMC card initialization failed\n");
+                    kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SD/MMC card initialization failed.");
                     snooze_ms(500);
                     break;
 
@@ -320,7 +322,7 @@ size_t SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t se
         uint32_t response = GetResponse();
         if (response & CARD_STATUS_ERR_RD_WR)
         {
-            kprintf("ERROR: SDMMCDriver::Read() Read %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver::Read() Read {:02} response 0x{:08x} CARD_STATUS_ERR_RD_WR.", int(SDMMC_CMD_GET_INDEX(cmd)), response);
             error = PErrorCode::IOError;
             continue;
         }
@@ -401,7 +403,7 @@ size_t SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t s
         uint32_t response = GetResponse();
         if (response & CARD_STATUS_ERR_RD_WR)
         {
-            kprintf("ERROR: SDMMCDriver::Write() Write %02d response 0x%08lx CARD_STATUS_ERR_RD_WR\n", int(SDMMC_CMD_GET_INDEX(cmd)), response);
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver::Write() Write {:02} response 0x{:08x} CARD_STATUS_ERR_RD_WR.", int(SDMMC_CMD_GET_INDEX(cmd)), response);
             error = PErrorCode::IOError;
             continue;
         }
@@ -490,7 +492,7 @@ bool SDMMCDriver::InitializeCard()
     m_CardVersion = SDMMCCardVersion::Unknown;
     m_RCA         = 0;
 
-    kprintf("Start SD card install\n");
+    kernel_log(LogCategorySDMMCDriver, PLogSeverity::INFO_LOW_VOL, "Start SD card install.");
 
     // Card need of 74 cycles clock minimum to start
     SendClock();
@@ -518,7 +520,7 @@ bool SDMMCDriver::InitializeCard()
         if (!OperationalConditionMCI_sd(v2))
         {
             // It is not a SD card
-            kprintf("Start MMC Install\n");
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::INFO_LOW_VOL, "Start MMC Install.");
             m_CardType = SDMMCCardType::MMC;
             return InitializeMMCCard();
         }
@@ -628,7 +630,7 @@ void SDMMCDriver::DecodePartitions(bool force)
     diskGeom.read_only 	      = false;
     diskGeom.removable 	      = true;
 
-    kprintf("SDMMCDriver::DecodePartitions(): Decoding partition table\n");
+    kernel_log(LogCategorySDMMCDriver, PLogSeverity::INFO_LOW_VOL, "SDMMCDriver::DecodePartitions(): Decoding partition table.");
 
     std::vector<disk_partition_desc> partitions = KVFSManager::DecodeDiskPartitions_trw(m_CacheAlignedBuffer, BLOCK_SIZE, diskGeom, &ReadPartitionData, this);
 
@@ -636,7 +638,8 @@ void SDMMCDriver::DecodePartitions(bool force)
     {
 	    if (partitions[i].p_type != 0 && partitions[i].p_size != 0)
         {
-	        kprintf( "   Partition %" PRIu32 " : %10" PRIu64 " -> %10" PRIu64 " %02x (%" PRIu64 ")\n", uint32_t(i), partitions[i].p_start,
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::INFO_LOW_VOL,
+                "   Partition {} : {:10} -> {:10} {:02x} ({})", uint32_t(i), partitions[i].p_start,
 		            partitions[i].p_start + partitions[i].p_size - 1LL, partitions[i].p_type,
 		            partitions[i].p_size);
 	    }
@@ -655,7 +658,7 @@ void SDMMCDriver::DecodePartitions(bool force)
 	    }
 	    if (!force && !found && partition->bi_nOpenCount > 0)
         {
-	        kprintf("ERROR: SDMMCDriver::DecodePartitions() Open partition has changed.\n");
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver::DecodePartitions() Open partition has changed.");
             PERROR_THROW_CODE(PErrorCode::Busy);
 	    }
     }
@@ -908,7 +911,7 @@ bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
     {
         // CMD55 - Tell the card that the next command is an application specific command.
         if (!SendCmd(SDMMC_CMD55_APP_CMD, 0)) {
-            kprintf("ERROR: OperationalConditionMCI_sd() CMD55 failed.\n");
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "OperationalConditionMCI_sd() CMD55 failed.");
             return false;
         }
 
@@ -918,7 +921,7 @@ bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
             arg |= SD_ACMD41_HCS;
         }
         if (!SendCmd(SD_MCI_ACMD41_SD_SEND_OP_COND, arg)) {
-            kprintf("ERROR: OperationalConditionMCI_sd() ACMD41 failed.\n");
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "OperationalConditionMCI_sd() ACMD41 failed.");
             return false;
         }
         uint32_t response = GetResponse();
@@ -931,7 +934,7 @@ bool SDMMCDriver::OperationalConditionMCI_sd(bool v2)
             break;
         }
         if (kget_monotonic_time() > deadline) {
-            kprintf("ERROR: OperationalConditionMCI_sd(): Timeout (0x%08lx)\n", response);
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "OperationalConditionMCI_sd(): Timeout (0x{:08x})", response);
             return false;
         }
     }
@@ -954,7 +957,7 @@ bool SDMMCDriver::OperationalConditionMCI_mmc()
     {
         if (!SendCmd(MMC_MCI_CMD1_SEND_OP_COND, SD_MMC_VOLTAGE_SUPPORT | OCR_ACCESS_MODE_SECTOR))
         {
-            kprintf("ERROR: OperationalConditionMCI_mmc() CMD1 MCI failed.\n");
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "OperationalConditionMCI_mmc() CMD1 MCI failed.");
             return false;
         }
         uint32_t response = GetResponse();
@@ -968,7 +971,7 @@ bool SDMMCDriver::OperationalConditionMCI_mmc()
             break;
         }
         if (kget_monotonic_time() > deadline) {
-            kprintf("ERROR: OperationalConditionMCI_mmc(): Timeout (0x%08lx)\n", response);
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "OperationalConditionMCI_mmc(): Timeout (0x{:08x})", response);
             return false;
         }
     }
@@ -990,7 +993,7 @@ bool SDMMCDriver::OperationalCondition_sdio()
 {
     // CMD5 - SDIO send operation condition (OCR) command.
     if (!SendCmd(SDIO_CMD5_SEND_OP_COND, 0)) {
-        kprintf("ERROR: SDMMCDriver::OperationalCondition_sdio:1() CMD5 Fail\n");
+        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver::OperationalCondition_sdio:1() CMD5 Fail.");
         return true; // No error but card type not updated
     }
     uint32_t response = GetResponse();
@@ -1003,7 +1006,7 @@ bool SDMMCDriver::OperationalCondition_sdio()
     {
         // CMD5 - SDIO send operation condition (OCR) command.
         if (!SendCmd(SDIO_CMD5_SEND_OP_COND, response & SD_MMC_VOLTAGE_SUPPORT)) {
-            kprintf("ERROR: SDMMCDriver::OperationalCondition_sdio:2() CMD5 Fail\n");
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver::OperationalCondition_sdio:2() CMD5 Fail.");
             return false;
         }
         response = GetResponse();
@@ -1011,7 +1014,7 @@ bool SDMMCDriver::OperationalCondition_sdio()
             break;
         }
         if (kget_monotonic_time() > deadline) {
-            kprintf("ERROR: OperationalCondition_sdio(): Timeout (0x%08lx)\n", response);
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "OperationalCondition_sdio(): Timeout (0x{:08x}).", response);
             return false;
         }
     }
@@ -1125,7 +1128,7 @@ bool SDMMCDriver::SetBusWidth_sdio()
         return false;
     }
     m_BusWidth = 4;
-    kprintf("%d-bit bus width enabled.\n", m_BusWidth);
+    kernel_log(LogCategorySDMMCDriver, PLogSeverity::INFO_LOW_VOL, "{}-bit bus width enabled.", m_BusWidth);
     return true;
 }
 
@@ -1192,7 +1195,7 @@ bool SDMMCDriver::SetHighSpeed_sd()
     }
 
     if (GetResponse() & CARD_STATUS_SWITCH_ERROR) {
-        kprintf("ERROR: SetHighSpeed_sd() CMD6 CARD_STATUS_SWITCH_ERROR\n");
+        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SetHighSpeed_sd() CMD6 CARD_STATUS_SWITCH_ERROR.");
         return false;
     }
     if (SD_SW_STATUS_FUN_GRP1_RC(switch_status) == SD_SW_STATUS_FUN_GRP_RC_ERROR) {
@@ -1200,7 +1203,7 @@ bool SDMMCDriver::SetHighSpeed_sd()
         return true;
     }
     if (SD_SW_STATUS_FUN_GRP1_BUSY(switch_status)) {
-        kprintf("ERROR: SetHighSpeed_sd() CMD6 SD_SW_STATUS_FUN_GRP1_BUSY\n");
+        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SetHighSpeed_sd() CMD6 SD_SW_STATUS_FUN_GRP1_BUSY.");
         return false;
     }
     // CMD6 function switching period is within 8 clocks after the end bit of status data.
@@ -1243,11 +1246,11 @@ bool SDMMCDriver::SetBusWidth_mmc(int busWidth)
     }
     if (GetResponse() & CARD_STATUS_SWITCH_ERROR) {
         // Not supported, it is not a protocol error
-        kprintf("ERROR: SetBusWidth_mmc() CMD6 CARD_STATUS_SWITCH_ERROR\n");
+        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SetBusWidth_mmc() CMD6 CARD_STATUS_SWITCH_ERROR.");
         return false;
     }
     m_BusWidth = busWidth;
-    kprintf("%d-bit bus width enabled.\n", m_BusWidth);
+    kernel_log(LogCategorySDMMCDriver, PLogSeverity::INFO_LOW_VOL, "{}-bit bus width enabled.", m_BusWidth);
     return true;
 }
 
@@ -1269,7 +1272,7 @@ bool SDMMCDriver::SetHighSpeed_mmc()
     }
     if (GetResponse() & CARD_STATUS_SWITCH_ERROR) {
         // Not supported, it is not a protocol error
-        kprintf("ERROR: SetHighSpeed_mmc() CMD6 CARD_STATUS_SWITCH_ERROR\n");
+        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SetHighSpeed_mmc() CMD6 CARD_STATUS_SWITCH_ERROR.");
         return false;
     }
     m_HighSpeed = true;
@@ -1379,7 +1382,7 @@ bool SDMMCDriver::ACmd6_sd()
         return false;
     }
     m_BusWidth = 4;
-    kprintf("%d-bit bus width enabled.\n", m_BusWidth);
+    kernel_log(LogCategorySDMMCDriver, PLogSeverity::INFO_LOW_VOL, "{}-bit bus width enabled.", m_BusWidth);
     return true;
 }
 
@@ -1412,10 +1415,10 @@ bool SDMMCDriver::Cmd8_sd(bool* v2)
         return true; // It is not a V2
     }
     if ((response & (SD_CMD8_MASK_PATTERN | SD_CMD8_MASK_VOLTAGE)) != (SD_CMD8_PATTERN | SD_CMD8_HIGH_VOLTAGE)) {
-        kprintf("ERROR: Cmd8_sd() CMD8 resp32 0x%08lx UNUSABLE CARD\n", response);
+        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "Cmd8_sd() CMD8 resp32 0x{:08x} UNUSABLE CARD", response);
         return false;
     }
-    kprintf("SD card V2\n");
+    kernel_log(LogCategorySDMMCDriver, PLogSeverity::INFO_LOW_VOL, "SD card V2.");
     *v2 = true;
     return true;
 }
@@ -1488,7 +1491,7 @@ bool SDMMCDriver::Cmd13_sdmmc()
             return true;
         }
         if (kget_monotonic_time() > deadline) {
-            kprintf("ERROR: Cmd13_sdmmc() timeout\n");
+            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "Cmd13_sdmmc() timeout.");
             return false;
         }
     }
@@ -1552,7 +1555,7 @@ bool SDMMCDriver::ACmd51_sd()
 bool SDMMCDriver::Cmd52_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t readAfterWriteFlag, uint8_t* data)
 {
     if (data == nullptr) {
-        kprintf("ERROR: Cmd52_sdio() called with nullptr data\n");
+        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "Cmd52_sdio() called with nullptr data.");
         return false;
     }
     if (!SendCmd(SDIO_CMD52_IO_RW_DIRECT,
@@ -1587,7 +1590,7 @@ bool SDMMCDriver::Cmd52_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t re
 bool SDMMCDriver::Cmd53_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t registerAddr, uint8_t incrementAddr, uint32_t size, const void* buffer)
 {
     if (size == 0 || size > BLOCK_SIZE) {
-        kprintf("ERROR: Cmd53_sdio() invalid size %" PRIu32 "\n", size);
+        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "Cmd53_sdio() invalid size {}.", size);
         return false;
     }
     

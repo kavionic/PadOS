@@ -20,11 +20,12 @@
 #include <assert.h>
 #include <sys/pados_syscalls.h>
 
+#include <Utils/Logging.h>
 #include <Storage/FSNode.h>
 #include <Storage/FileReference.h>
 #include <Storage/Directory.h>
 #include <Storage/Path.h>
-//#include <Kernel/VFS/KFilesystem.h>
+
 
 using namespace os;
 
@@ -621,7 +622,7 @@ bool FSNode::SetStats(const struct stat& statBuffer, uint32_t mask) const
                  WSTAT_ATIME |
                  WSTAT_MTIME |
                  WSTAT_CTIME)) {
-        printf("ERROR: FSNode::SetStats() called with unknown mask bits: %08lx\n", mask);
+        p_system_log(LogCat_General, PLogSeverity::ERROR, "FSNode::SetStats() called with unknown mask bits: {:08x}", mask);
     }
     return true;
 }

@@ -27,6 +27,7 @@
 #include <Signals/SignalTarget.h>
 #include <Utils/String.h>
 #include <Utils/CircularBuffer.h>
+#include <Utils/Logging.h>
 #include <Threads/Thread.h>
 #include <Threads/Mutex.h>
 #include <Threads/ConditionVariable.h>

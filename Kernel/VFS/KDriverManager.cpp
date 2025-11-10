@@ -24,6 +24,7 @@
 #include <Kernel/VFS/KDriverDescriptor.h>
 #include <Kernel/VFS/KRootFilesystem.h>
 #include <System/ExceptionHandling.h>
+#include <Utils/Logging.h>
 
 extern const kernel::KDriverDescriptor* const _driver_descriptors_start;
 extern const kernel::KDriverDescriptor* const _driver_descriptors_end;
@@ -55,13 +56,13 @@ void ksetup_device_driver_trw(const char* name, const char* parameters)
 {
     try
     {
-        ksystem_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "Setting up driver '{}'.", name);
+        kernel_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "Setting up driver '{}'.", name);
         const KDriverDescriptor* descriptor = kget_driver_descriptor_trw(name);
         descriptor->Initialize(parameters);
     }
     PERROR_CATCH([name](PErrorCode error)
         {
-            ksystem_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "Failed to setup driver '{}': {}", name, strerror(std::to_underlying(error)));
+            kernel_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "Failed to setup driver '{}': {}", name, strerror(std::to_underlying(error)));
             throw;
         }
     );

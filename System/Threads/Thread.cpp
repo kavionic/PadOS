@@ -17,9 +17,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 11.03.2018 13:10:28
 
-#include "Threads/Thread.h"
-#include "Threads/Threads.h"
-#include "System/System.h"
+#include <Threads/Thread.h>
+#include <Threads/Threads.h>
+#include <System/System.h>
+#include <Utils/Logging.h>
 
 using namespace os;
 
@@ -122,12 +123,12 @@ void* Thread::ThreadEntry(void* data)
     }
     catch(const std::exception& e)
     {
-        p_log(kernel::LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in thread %s: %s\n", self->GetName().c_str(), e.what());
+        p_system_log(kernel::LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in thread {}: {}", self->GetName(), e.what());
         self->Exit(nullptr);
     }
     catch (...)
     {
-        p_log(kernel::LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in thread %s: unknown\n", self->GetName().c_str());
+        p_system_log(kernel::LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in thread {}: unknown", self->GetName());
         self->Exit(nullptr);
     }
     return nullptr;

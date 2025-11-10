@@ -62,7 +62,7 @@ void TMC2209Driver::Setup_trw(
 {
     if (controlPort == nullptr)
     {
-        printf("TMC2209Driver::Setup(): missing control port.\n");
+        p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "TMC2209Driver::Setup(): missing control port.");
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
     StepperDriver::Setup_trw(timerID, timerClkFrequency, pinStep, pinEnable, pinDirection);
@@ -76,14 +76,14 @@ void TMC2209Driver::Setup_trw(
     m_CurrentUpdateCount = uint8_t(prevCnt);
 
     const uint32_t curIO = ReadRegister_trw(TMC2209_REG_IOIN);
-    printf("TMC2209Driver::Setup(): IO%lu=%02lx\n", chipAddress, curIO);
+    p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "TMC2209Driver::Setup(): IO{}={:02x}", chipAddress, curIO);
 
     SetCurrent_trw(0.5f, 1.2f, 1.0);
     SetPowerDownTime_trw(2.0);
     SetMicrosteps_trw(TMC2209_MICROSTEPS_16);
 
     WriteRegister_trw(TMC2209_REG_GCONF, /*TMC2209_I_SCALE_ANALOG |*/ TMC2209_GCONF_PDN_DISABLE | TMC2209_GCONF_MSTEP_REG_SELECT | TMC2209_GCONF_MULTISTEP_FILT);
-    printf("Wrote config.\n");
+    p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "{}: Wrote config.", __PRETTY_FUNCTION__);
 
     if (diagPinID != DigitalPinID::None)
     {
@@ -304,7 +304,7 @@ uint32_t TMC2209Driver::ReadRegister_trw(uint8_t registerAddress) const
         }
         PERROR_CATCH([](PErrorCode) {});
     }
-    printf("TMC2209Driver::ReadRegister(%d, %d) To many retries.\n", m_ChipAddress, registerAddress);
+    p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "TMC2209Driver::ReadRegister({}, {}) To many retries.", m_ChipAddress, registerAddress);
     PERROR_THROW_CODE(PErrorCode::IOError);
 }
 
@@ -327,12 +327,12 @@ void TMC2209Driver::WriteRegister_trw(uint8_t registerAddress, uint32_t data) co
             if (m_CurrentUpdateCount == uint8_t(updateCount)) {
                 return;
             }
-            printf("TMC2209Driver::WriteRegister(%d, %d) failed to update register (%d != %d). Retrying...\n", m_ChipAddress, registerAddress, uint8_t(updateCount), m_CurrentUpdateCount);
+            p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "TMC2209Driver::WriteRegister({}, {}) failed to update register ({} != {}). Retrying...", m_ChipAddress, registerAddress, uint8_t(updateCount), m_CurrentUpdateCount);
             m_CurrentUpdateCount = uint8_t(updateCount);
         }
         PERROR_CATCH([](PErrorCode) {});
     }
-    printf("TMC2209Driver::WriteRegister(%d, %d) failed to update register. To many retries.\n", m_ChipAddress, registerAddress);
+    p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "TMC2209Driver::WriteRegister({}, {}) failed to update register. To many retries.", m_ChipAddress, registerAddress);
     PERROR_THROW_CODE(PErrorCode::IOError);
 }
 

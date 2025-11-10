@@ -174,7 +174,7 @@ void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, Str
 
     m_DeviceType = deviceType;
 
-    PREGISTER_LOG_CATEGORY(LogCategorySerialHandler, PLogSeverity::WARNING);
+    PREGISTER_LOG_CATEGORY(LogCategorySerialHandler, "SCMDH", PLogSeverity::WARNING);
 
 //    kernel::kernel_log_set_category_log_level(LogCategorySerialHandler, PLogSeverity::INFO_HIGH_VOL);
 
@@ -192,8 +192,8 @@ void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, Str
 
 void SerialCommandHandler::Execute()
 {
-    p_log(LogCategorySerialHandler, PLogSeverity::INFO_LOW_VOL, "Starting serial command handler\n");
-    p_log(LogCategorySerialHandler, PLogSeverity::INFO_LOW_VOL, "Largest packet size: %u\n", m_LargestCommandPacket);
+    p_system_log(LogCategorySerialHandler, PLogSeverity::INFO_LOW_VOL, "Starting serial command handler.");
+    p_system_log(LogCategorySerialHandler, PLogSeverity::INFO_LOW_VOL, "Largest packet size: {}", m_LargestCommandPacket);
 
     for (;;)
     {
@@ -224,7 +224,7 @@ void SerialCommandHandler::Execute()
             }
             else
             {
-                p_log(LogCategorySerialHandler, PLogSeverity::WARNING, "Unknown serial command %d\n", int(packetBuffer->Command));
+                p_system_log(LogCategorySerialHandler, PLogSeverity::WARNING, "Unknown serial command {}", int(packetBuffer->Command));
             }
         }
         else
@@ -309,7 +309,7 @@ bool SerialCommandHandler::ReadPacket()
 
         if (packetBuffer->PackageLength > SerialProtocol::MAX_MESSAGE_SIZE)
         {
-            p_log(LogCategorySerialHandler, PLogSeverity::WARNING, "Packet to large. Cmd=%d, Size=%d\n", packetBuffer->Command, packetBuffer->PackageLength);
+            p_system_log(LogCategorySerialHandler, PLogSeverity::WARNING, "Packet to large. Cmd={}, Size={}", packetBuffer->Command, packetBuffer->PackageLength);
             m_InMessageBytes = 0;
             continue;
         }
@@ -338,11 +338,11 @@ bool SerialCommandHandler::ReadPacket()
 
         if (calculatedCRC != receivedCRC)
         {
-            p_log(LogCategorySerialHandler, PLogSeverity::WARNING, "Invalid CRC32. Got %08x, expected %08x\n", receivedCRC, calculatedCRC);
+            p_system_log(LogCategorySerialHandler, PLogSeverity::WARNING, "Invalid CRC32. Got {:08x}, expected {:08x}", receivedCRC, calculatedCRC);
             continue;
         }
 
-        p_log(LogCategorySerialHandler, PLogSeverity::INFO_HIGH_VOL, "Received command %d\n", int(packetBuffer->Command));
+        p_system_log(LogCategorySerialHandler, PLogSeverity::INFO_HIGH_VOL, "Received command {}", int(packetBuffer->Command));
 
         return true;
     }
@@ -410,7 +410,7 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
             return true;
         }
     }
-//    p_log(LogCategorySerialHandler, PLogSeverity::WARNING, "ERROR: transmitting %ld failed.\n", header->Command);
+//    p_system_log(LogCategorySerialHandler, PLogSeverity::WARNING, "Transmitting {} failed.", header->Command);
     return false;
 }
 

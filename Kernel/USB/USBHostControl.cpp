@@ -105,7 +105,7 @@ bool USBHostControl::SendControlRequest(uint8_t deviceAddr, const USB_ControlReq
     if (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle)
     {
         m_ErrorCount = 0;
-        kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "USBH: Control request error. Pipe not idle.\n");
+        kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "Control request error. Pipe not idle.");
         FreePipes();
         m_HostHandler->RestartDeviceInitialization();
         HandleRequestCompletion(false);
@@ -209,7 +209,7 @@ void USBHostControl::HandleRequestError()
     else
     {
         m_ErrorCount = 0;
-        kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "USBH: Control request error. Device not responding.\n");
+        kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "Control request error. Device not responding.");
         FreePipes();
         m_HostHandler->RestartDeviceInitialization();
         HandleRequestCompletion(false);

@@ -16,6 +16,7 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/ServerBitmap.h>
 
@@ -550,7 +551,7 @@ void DisplayDriver::DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPo
                     draw_line32(bitmap, clipRect, point1, point2, color.GetColor32());
                     break;
                 default:
-                    printf("DisplayDriver::DrawLine() unknown color space %d\n", int(bitmap->m_ColorSpace));
+                    p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "DisplayDriver::DrawLine() unknown color space {}.", int(bitmap->m_ColorSpace));
             }
             break;
         case DrawingMode::Invert:
@@ -566,7 +567,7 @@ void DisplayDriver::DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPo
                     invert_line32(bitmap, clipRect, point1, point2);
                     break;
                 default:
-                    printf("DisplayDriver::DrawLine() unknown color space %d can't invert\n", int(bitmap->m_ColorSpace));
+                    p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "DisplayDriver::DrawLine() unknown color space {} can't invert.", int(bitmap->m_ColorSpace));
             }
             break;
     }

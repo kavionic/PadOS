@@ -97,7 +97,7 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
 
                 if (message->m_Length < sizeof(AppserverMessage) || (i + message->m_Length) > length)
                 {
-                    p_log(LogCategoryAppServer, PLogSeverity::ERROR, "%s: Message %d has invalid length %d (%d)\n", __PRETTY_FUNCTION__, message->m_Code, message->m_Length, length);
+                    p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "{}: Message {} has invalid length {} ({})", __PRETTY_FUNCTION__, message->m_Code, message->m_Length, length);
                     break;
                 }
 
@@ -217,7 +217,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
             reply.m_ViewHandle = -1;
             const PErrorCode result = message_port_send_timeout_ns(replyPort, -1, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0);
             if (result != PErrorCode::Success) {
-                p_log(LogCategoryAppServer, PLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
+                p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "{}: failed to send message: {}", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
             }
             return;
         }
@@ -237,7 +237,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
     reply.m_ViewHandle = view->GetHandle();
     const PErrorCode result = message_port_send_timeout_ns(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_VIEW_REPLY, &reply, sizeof(reply), 0);
     if (result != PErrorCode::Success) {
-        p_log(LogCategoryAppServer, PLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
+        p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "{}: failed to send message: {}", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
     }
     view->Invalidate(true);
     if (parent != nullptr)
@@ -274,7 +274,7 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
     }
     else
     {
-        p_log(LogCategoryAppServer, PLogSeverity::ERROR, "%s: no view with ID %d\n", __PRETTY_FUNCTION__, clientHandle);
+        p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "{}: no view with ID {}", __PRETTY_FUNCTION__, clientHandle);
     }
 }
 
@@ -323,7 +323,7 @@ void ServerApplication::SlotCreateBitmap(port_id replyPort, int width, int heigh
 
     const PErrorCode result = message_port_send_timeout_ns(replyPort, INVALID_HANDLE, AppserverProtocol::CREATE_BITMAP_REPLY, &reply, sizeof(reply), 0);
     if (result != PErrorCode::Success) {
-        p_log(LogCategoryAppServer, PLogSeverity::ERROR, "%s: failed to send message: %s\n", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
+        p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "{}: failed to send message: {}", __PRETTY_FUNCTION__, strerror(std::to_underlying(result)));
     }
 }
 
@@ -337,7 +337,7 @@ void ServerApplication::SlotDeleteBitmap(handle_id bitmapHandle)
     if (i != m_BitmapMap.end()) {
         m_BitmapMap.erase(i);
     } else {
-        p_log(LogCategoryAppServer, PLogSeverity::ERROR, "%s: invalid handle: %d\n", __PRETTY_FUNCTION__, bitmapHandle);
+        p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "{}: invalid handle: {}", __PRETTY_FUNCTION__, bitmapHandle);
     }
 }
 
@@ -364,7 +364,7 @@ void ServerApplication::SlotViewSetFrame(handler_id clientHandle, const Rect& fr
     }
     else
     {
-        p_log(LogCategoryAppServer, PLogSeverity::ERROR, "%s: no view with ID %d\n", __PRETTY_FUNCTION__, clientHandle);
+        p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "{}: no view with ID {}", __PRETTY_FUNCTION__, clientHandle);
     }    
 }
 
@@ -385,7 +385,7 @@ void ServerApplication::SlotViewInvalidate(handler_id clientHandle, const IRect&
     }
     else
     {
-        p_log(LogCategoryAppServer, PLogSeverity::ERROR, "%s: no view with ID %d\n", __PRETTY_FUNCTION__, clientHandle);
+        p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "{}: no view with ID {}", __PRETTY_FUNCTION__, clientHandle);
     }    
 }
 
@@ -443,6 +443,6 @@ void ServerApplication::SlotViewShow(handler_id viewHandle, bool show)
     }
     else
     {
-        p_log(LogCategoryAppServer, PLogSeverity::ERROR, "%s: no view with ID %d\n", __PRETTY_FUNCTION__, viewHandle);
+        p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "{}: no view with ID {}", __PRETTY_FUNCTION__, viewHandle);
     }
 }

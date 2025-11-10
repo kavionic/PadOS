@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -47,16 +47,6 @@ class DigitalPin;
 extern "C" size_t get_heap_size();
 extern "C" size_t get_max_heap_size();
 
-enum class PLogSeverity
-{
-    INFO_HIGH_VOL,
-    INFO_LOW_VOL,
-    WARNING,
-    CRITICAL,
-    ERROR,
-    FATAL,
-    NONE
-};
 
 namespace kernel
 {
@@ -74,34 +64,6 @@ static constexpr uint32_t SYS_TICKS_PER_SEC = 1000;
 
 template<typename ...ARGS> int kprintf(const char* fmt, ARGS&&... args) { return printf(fmt, args...); }
 
-#define DEFINE_KERNEL_LOG_CATEGORY(CATEGORY)   static constexpr uint32_t CATEGORY = PString::hash_string_literal(#CATEGORY, sizeof(#CATEGORY) - 1); static constexpr const char* CATEGORY##_Name = #CATEGORY
-#define GET_KERNEL_LOG_CATEGORY_NAME(CATEGORY) CATEGORY##_Name
-#define REGISTER_KERNEL_LOG_CATEGORY(CATEGORY, INITIAL_LEVEL) kernel_log_register_category(CATEGORY, #CATEGORY, INITIAL_LEVEL)
-#define PREGISTER_LOG_CATEGORY(CATEGORY, INITIAL_LEVEL) kernel::kernel_log_register_category(CATEGORY, #CATEGORY, INITIAL_LEVEL)
-
-DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_General);
-DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_VFS);
-DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_Drivers);
-DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache);
-DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler);
-
-
-bool kernel_log_register_category(uint32_t categoryHash, const char* categoryName, PLogSeverity initialLogLevel);
-void kernel_log_set_category_log_level(uint32_t categoryHash, PLogSeverity logLevel);
-bool kernel_log_is_category_active(uint32_t categoryHash, PLogSeverity logLevel);
-
-template<typename ...ARGS>
-void kernel_log(uint32_t category, PLogSeverity severity, const char* fmt, ARGS&&... args) { if (kernel_log_is_category_active(category, severity)) kprintf(fmt, args...); }
-
-template<typename ...ARGS>
-void ksystem_log(uint32_t category, PLogSeverity severity, std::format_string<ARGS...> fmt, ARGS&&... args)
-{
-    if (kernel::kernel_log_is_category_active(category, severity))
-    {
-        PString text = std::format(fmt, std::forward<ARGS>(args)...);
-        puts(text.c_str());
-    }
-}
 
 void panic(const char* message); // __attribute__((__noreturn__));
 
@@ -150,41 +112,12 @@ public:
 
 } // namespace
 
-DEFINE_KERNEL_LOG_CATEGORY(LogCat_General);
-
-template<typename ...ARGS>
-void p_log(uint32_t category, PLogSeverity severity, const char* fmt, ARGS&&... args)
-{
-    if (kernel::kernel_log_is_category_active(category, severity)) {
-        kernel::kprintf(fmt, args...);
-    }
-}
-
-template<typename ...ARGS>
-void p_system_log(uint32_t category, PLogSeverity severity, std::format_string<ARGS...> fmt, ARGS&&... args)
-{
-    if (kernel::kernel_log_is_category_active(category, severity))
-    {
-        PString text = std::format(fmt, std::forward<ARGS>(args)...);
-        puts(text.c_str());
-    }
-}
-
-template<typename ...ARGS>
-void p_system_vlog(uint32_t category, PLogSeverity severity, std::string_view fmt, ARGS&&... args)
-{
-    if (kernel::kernel_log_is_category_active(category, severity))
-    {
-        PString text = std::vformat(fmt, std::make_format_args(args...));
-        puts(text.c_str());
-    }
-}
 
 inline void kassert_function(const char* file, int line, const char* func, const char* expression)
 {
     PString message;
     message.format("KASSERT %s / %s:%d: %s", func, file, line, expression);
-    printf("%s\n", message.c_str());
+    kernel::kprintf("%s\n", message.c_str());
     kernel::panic(message.c_str());
 }
 
@@ -194,7 +127,7 @@ void kassert_function(const char* file, int line, const char* func, const char* 
     PString message;
     message.format("KASSERT %s / %s:%d: %s -> ", func, file, line, expression);
     message += PString::format_string(fmt, args...);
-    printf("%s\n", message.c_str());
+    kernel::kprintf("%s\n", message.c_str());
     kernel::panic(message.c_str());
 }
 

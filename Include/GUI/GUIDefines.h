@@ -22,7 +22,7 @@
 #include <map>
 #include <stdint.h>
 #include <Utils/String.h>
-#include <Kernel/Kernel.h>
+#include <Utils/Logging.h>
 
 namespace os
 {

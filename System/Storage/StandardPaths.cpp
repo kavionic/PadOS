@@ -19,6 +19,7 @@
 #include <Storage/StandardPaths.h>
 #include <Storage/Path.h>
 #include <Threads/Mutex.h>
+#include <Utils/Logging.h>
 
 
 namespace os
@@ -36,7 +37,7 @@ bool StandardPaths::RegisterPath(StandardPathID pathID, const String& path)
 
     if (s_PathMap.find(pathID) != s_PathMap.end())
     {
-        printf("ERROR: StandardPaths::RegisterPath() path already registered (hash collision?): %lu : '%s'\n", pathID, path.c_str());
+        p_system_log(LogCat_General, PLogSeverity::ERROR, "StandardPaths::RegisterPath() path already registered (hash collision?): {} : '{}'", pathID, path);
         return false;
     }
     s_PathMap[pathID] = path;
@@ -54,7 +55,7 @@ bool StandardPaths::UpdatePath(StandardPathID pathID, const String& path)
     auto i = s_PathMap.find(pathID);
     if (i == s_PathMap.end())
     {
-        printf("ERROR: StandardPaths::UpdatePath() path not registered: %lu : '%s'\n", pathID, path.c_str());
+        p_system_log(LogCat_General, PLogSeverity::ERROR, "StandardPaths::UpdatePath() path not registered: {} : '{}'", pathID, path);
         return false;
     }
     i->second = path;

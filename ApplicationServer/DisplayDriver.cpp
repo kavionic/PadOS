@@ -23,6 +23,7 @@
 
 #include "ApplicationServer/DisplayDriver.h"
 #include <ApplicationServer/ServerBitmap.h>
+#include <ApplicationServer/ApplicationServer.h>
 
 #include <GUI/Bitmap.h>
 #include <GUI/Color.h>
@@ -129,7 +130,7 @@ void DisplayDriver::MouseOn()
 //    if (m_pcMouseSprite == NULL) {
 //        m_pcMouseSprite = new SrvSprite(IRect(0, 0, m_pcMouseImage->m_nWidth, m_pcMouseImage->m_nHeight), m_cMousePos, m_cCursorHotSpot, g_pcScreenBitmap, m_pcMouseImage);
 //    } else {
-//        printf("Warning: DisplayDriver::MouseOn() called while mouse visible\n");
+//        p_system_log(LogCategoryAppServer, PLogSeverity::WARNING, "DisplayDriver::MouseOn() called while mouse visible.");
 //    }
 }
 
@@ -140,7 +141,7 @@ void DisplayDriver::MouseOn()
 void DisplayDriver::MouseOff()
 {
 //    if (m_pcMouseSprite == NULL) {
-//        printf("Warning: VDisplayDriver::MouseOff() called while mouse hidden\n");
+//        p_system_log(LogCategoryAppServer, PLogSeverity::WARNING, "VDisplayDriver::MouseOff() called while mouse hidden");
 //    }
 //    delete m_pcMouseSprite;
 //    m_pcMouseSprite = NULL;
@@ -256,7 +257,7 @@ void DisplayDriver::WritePixel(SrvBitmap* bitmap, const IPoint& pos, Color color
             *reinterpret_cast<uint32_t*>(&bitmap->m_Raster[pos.x * 4 + pos.y * bitmap->m_BytesPerLine]) = color.GetColor32();
             break;
         default:
-            printf("DisplayDriver::WritePixel() unknown color space %d\n", int(bitmap->m_ColorSpace));
+            p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "DisplayDriver::WritePixel() unknown color space {}.", int(bitmap->m_ColorSpace));
             break;
     }
 }
@@ -293,7 +294,7 @@ void DisplayDriver::FillRect(SrvBitmap* pcBitmap, const IRect& cRect, const Colo
             FillBlit32((uint32_t*)&pcBitmap->m_Raster[BltY * pcBitmap->m_BytesPerLine + BltX * 4], pcBitmap->m_BytesPerLine / 4 - BltW, BltW, BltH, sColor.GetColor32());
             break;
         default:
-            printf("DisplayDriver::FillRect() unknown color space %d\n", int(pcBitmap->m_ColorSpace));
+            p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "DisplayDriver::FillRect() unknown color space {}.", int(pcBitmap->m_ColorSpace));
             break;
     }
 }
@@ -638,7 +639,7 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             break;
         }
         default:
-            printf("blit_convert_copy() unknown src color space %d\n", int(pcSrc->m_ColorSpace));
+            p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "blit_convert_copy() unknown src color space {}.", int(pcSrc->m_ColorSpace));
             break;
     }
 }
@@ -723,7 +724,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     break;
                 }
                 default:
-                    printf("blit_convert_over() unknown dst colorspace for 8 bit src %d\n", int(pcDst->m_ColorSpace));
+                    p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "blit_convert_over() unknown dst colorspace for 8 bit src {}.", int(pcDst->m_ColorSpace));
                     break;
             }
             break;
@@ -891,7 +892,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             break;
         }
         default:
-            printf("blit_convert_over() unknown src color space %d\n", int(pcSrc->m_ColorSpace));
+            p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "blit_convert_over() unknown src color space {}.", int(pcSrc->m_ColorSpace));
             break;
     }
 }

@@ -254,10 +254,10 @@ void TestNamedColors()
     for (size_t i = 1; i < os::g_StandardColors.size(); ++i)
     {
         if (os::g_StandardColors[i - 1].NameID == os::g_StandardColors[i].NameID) {
-            printf("Hash collision! Both %d and %d have hash 0x%08lx\n", i - 1, i, uint32_t(os::g_StandardColors[i].NameID));
+            p_system_log(LogCat_General, PLogSeverity::ERROR, "Hash collision! Both {} and {} have hash 0x{:08x}", i - 1, i, uint32_t(os::g_StandardColors[i].NameID));
         }
         else if (os::g_StandardColors[i - 1].NameID > os::g_StandardColors[i].NameID) {
-            printf("Bad named color table sorting! %d:0x%08lx > %d:0x%08lx\n", i - 1, uint32_t(os::g_StandardColors[i - 1].NameID), i, uint32_t(os::g_StandardColors[i].NameID));
+            p_system_log(LogCat_General, PLogSeverity::ERROR, "Bad named color table sorting! {}:0x{:08x} > {}:0x{:08x}", i - 1, uint32_t(os::g_StandardColors[i - 1].NameID), i, uint32_t(os::g_StandardColors[i].NameID));
         }
     }
     _EXPECT_TRUE(os::Color::FromColorID(os::NamedColors::aliceblue).GetColor32()    == 0xfff0f8ff);

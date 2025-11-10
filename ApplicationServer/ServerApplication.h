@@ -103,7 +103,7 @@ private:
         if (view != nullptr) {
             (*view.*callback)(args...);
         } else {
-            printf("ERROR: ServerView::ForwardToView() failed to find view %d\n", viewHandle);
+            p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "ServerView::ForwardToView() failed to find view {}.", viewHandle);
         }
     }
 

@@ -21,11 +21,12 @@
 #include <string.h>
 #include <cmath>
 
+#include <Utils/Logging.h>
+#include <System/System.h>
+#include <System/ExceptionHandling.h>
 #include <Kernel/Drivers/STM32/I2CDriver.h>
 #include <Kernel/HAL/DigitalPort.h>
 #include <Kernel/HAL/PeripheralMapping.h>
-#include <System/System.h>
-#include <System/ExceptionHandling.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KSemaphore.h>
 #include <Kernel/SpinTimer.h>
@@ -55,7 +56,7 @@ I2CDriverINode::I2CDriverINode(const I2CDriverParameters& parameters)
     , m_FallTime(parameters.FallTime)
     , m_RiseTime(parameters.RiseTime)
 {
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, PLogSeverity::WARNING);
+    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, "I2CD", PLogSeverity::WARNING);
 
     m_State = State_e::Idle;
 
@@ -232,7 +233,7 @@ size_t I2CDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length, of
     if (m_TransactionError != PErrorCode::Success)
     {
         ResetPeripheral();
-        kernel_log(LogCategoryI2CDriver, PLogSeverity::INFO_LOW_VOL, "I2CDriver::Read() request failed: %s\n", strerror(get_last_error()));
+        kernel_log(LogCategoryI2CDriver, PLogSeverity::INFO_LOW_VOL, "I2CDriver::Read() request failed: {}", strerror(get_last_error()));
         PERROR_THROW_CODE(m_TransactionError);
     }
     return m_CurPos;
@@ -319,7 +320,7 @@ size_t I2CDriverINode::Write(Ptr<KFileNode> file, const void* buffer, size_t len
     } CRITICAL_END;
     if (m_TransactionError != PErrorCode::Success)
     {
-        kernel_log(LogCategoryI2CDriver, PLogSeverity::INFO_LOW_VOL, "I2CDriver::Write() request failed: %s\n", strerror(get_last_error()));
+        kernel_log(LogCategoryI2CDriver, PLogSeverity::INFO_LOW_VOL, "I2CDriver::Write() request failed: {}", strerror(get_last_error()));
         PERROR_THROW_CODE(m_TransactionError);
     }
     return m_CurPos;
@@ -482,7 +483,7 @@ int I2CDriverINode::SetSpeed(I2CSpeed speed)
         }
     }
     if (minError == std::numeric_limits<uint32_t>::max()) {
-        kernel_log(LogCategoryI2CDriver, PLogSeverity::CRITICAL, "ERROR: I2C failed to set baudrate!\n");
+        kernel_log(LogCategoryI2CDriver, PLogSeverity::CRITICAL, "ERROR: I2C failed to set baudrate!");
         return -1;
     }
 //  m_Port->TIMINGR = 0x00b03fdb;

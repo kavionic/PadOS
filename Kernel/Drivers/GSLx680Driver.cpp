@@ -109,9 +109,9 @@ void* GSLx680Driver::Run()
 		if (!ReadData(GSLx680_REG_TOUCH_COUNT, &touchData, sizeof(touchData)))
 		{
 			failCount++;
-			printf("GSLx680Driver: Failed to read touch data(%d): %s\n", failCount, strerror(errno));
+            p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "GSLx680Driver: Failed to read touch data({}): {}", failCount, strerror(errno));
 			if (failCount == 5) {
-				printf("GSLx680Driver: Re-initializing chip.\n");
+                p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "GSLx680Driver: Re-initializing chip.");
 				InitializeChip();
 				failCount = 0;
 				continue;
@@ -175,14 +175,14 @@ void* GSLx680Driver::Run()
 				mouseEvent.ButtonID     = MouseButton_e(int(MouseButton_e::FirstTouchID) + i);
 				mouseEvent.Position     = Point(m_TouchPositions[i]);
 
-				// printf("Mouse event %d: %d/%d\n", eventID - MessageID::MOUSE_DOWN, m_TouchPositions[i].x, m_TouchPositions[i].y);
+				// p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_HIGH_VOL, "Mouse event {}: {}/{}", eventID - MessageID::MOUSE_DOWN, m_TouchPositions[i].x, m_TouchPositions[i].y);
 				for (auto file : m_OpenFiles)
 				{
 					if (file->m_TargetPort != -1) {
                         try {
 						    kmessage_port_send_trw(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
                         } catch (const std::exception& exc) {
-                            printf("GSLx680Driver: failed to send event: %s\n", exc.what());
+                            p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "GSLx680Driver: failed to send event: {}", exc.what());
                         }
                     }
 				}
@@ -258,7 +258,7 @@ bool GSLx680Driver::WriteData(int address, const void* data, size_t length)
     {
 		result = kpwrite(m_I2CDevice, data, length, address);
 		if (result != PErrorCode::Success) {
-			printf("Error %d writing reg %02x:%d: %s\n", i, address, length, strerror(std::to_underlying(result)));
+            p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "Error {} writing reg {:02x}:{}: {}", i, address, length, strerror(std::to_underlying(result)));
 		}
 	}
 	return result == PErrorCode::Success;
@@ -292,7 +292,7 @@ bool GSLx680Driver::ReadData(int address, void* data, size_t length)
 	for (int i = 0; i < 10 && result != PErrorCode::Success; ++i) {
 		result = kpread(m_I2CDevice, data, length, address);
 		if (result != PErrorCode::Success && i > 0) {
-			printf("Error %d reading reg %02x:%d: %s\n", i, address, length, strerror(std::to_underlying(result)));
+            p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "Error {} reading reg {:02x}:{}: {}", i, address, length, strerror(std::to_underlying(result)));
 		}
 	}
 	return result == PErrorCode::Success;
@@ -315,11 +315,11 @@ bool GSLx680Driver::InitializeChip()
 	if (ReadData(GSLx680_REG_ID, &chipID, sizeof(chipID)))
 	{
 		m_ChipID = chipID;
-		printf("GSLx680Driver: Chip ID 0x%8lx\n", m_ChipID);
+        p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "GSLx680Driver: Chip ID 0x{:8x}", m_ChipID);
 	}
 	else
 	{
-		printf("Error: GSLx680Driver::InitializeChip() failed to read chip ID: %s\n", strerror(errno));
+        p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "GSLx680Driver::InitializeChip() failed to read chip ID: {}", strerror(errno));
 		m_ChipID = 0;
 	}
 
@@ -343,11 +343,11 @@ void GSLx680Driver::TestI2C()
 	uint32_t write_buf = 0x00000012;
 
 	ReadData(GSLx680_REG_PAGE, &read_buf, sizeof(read_buf));
-	printf("gslX680 TestI2C read 0xf0: %08lx\n", read_buf);
+    p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "gslX680 TestI2C read 0xf0: {:08x}", read_buf);
 	WriteRegister32(GSLx680_REG_PAGE, write_buf);
-	printf("gslX680 TestI2C write 0xf0: %08lx\n", write_buf);
+    p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "gslX680 TestI2C write 0xf0: {:08x}", write_buf);
 	ReadData(GSLx680_REG_PAGE, &read_buf, sizeof(read_buf));
-	printf("gslX680 TestI2C read 0xf0: %08lx\n", read_buf);
+    p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "gslX680 TestI2C read 0xf0: {:08x}", read_buf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -413,7 +413,7 @@ bool GSLx680Driver::ClearRegisters()
 
 bool GSLx680Driver::LoadFirmware()
 {
-	printf("============= GSLx680Driver::LoadFirmware(): start ==============\n");
+    p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "============= GSLx680Driver::LoadFirmware(): start ==============");
 
 	for (int source_line = 0; source_line < g_GSLx680_FW_Count; ++source_line)
 	{
@@ -425,11 +425,11 @@ bool GSLx680Driver::LoadFirmware()
 		else
 		{
 			if (!WriteRegister32(g_GSLx680_FW[source_line].offset, g_GSLx680_FW[source_line].val)) {
-				printf("Failed to write FW: %s\n", strerror(errno));
+                p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "Failed to write FW: {}", strerror(errno));
 			}
 		}
 	}
-	printf("============= GSLx680Driver::LoadFirmware(): end ==============\n");
+    p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "============= GSLx680Driver::LoadFirmware(): end ==============");
 	return true;
 }
 
@@ -439,7 +439,7 @@ bool GSLx680Driver::LoadFirmware()
 
 bool GSLx680Driver::VerifyFirmware()
 {
-	printf("============= GSLx680Driver::VerifyFirmware(): start ==============\n");
+    p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "============= GSLx680Driver::VerifyFirmware(): start ==============");
 
 	uint8_t currentPage = 0xff;
 	bool succeeded = true;
@@ -459,18 +459,18 @@ bool GSLx680Driver::VerifyFirmware()
 			{
 				if (value != g_GSLx680_FW[source_line].val) {
 					succeeded = false;
-					printf("Error: FW mismatch at %02x:%02x (%08lx != %08lx)\n", currentPage, g_GSLx680_FW[source_line].offset, value, g_GSLx680_FW[source_line].val);
+                    p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "FW mismatch at {:02x}:{:02x} ({:08x} != {:08x})", currentPage, g_GSLx680_FW[source_line].offset, value, g_GSLx680_FW[source_line].val);
 				}
 			}
 			else
 			{
-				printf("Failed to read back FW %02x:%02x: %s\n", currentPage, g_GSLx680_FW[source_line].offset, strerror(errno));
+                p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "Failed to read back FW {:02x}:{:02x}: {}", currentPage, g_GSLx680_FW[source_line].offset, strerror(errno));
 				succeeded = false;
 				continue;
 			}
 		}
 	}
-	printf("============= GSLx680Driver::VerifyFirmware(): end ==============\n");
+    p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "============= GSLx680Driver::VerifyFirmware(): end ==============");
 	return succeeded;
 }
 
@@ -485,7 +485,7 @@ bool GSLx680Driver::CheckStatus()
 	ReadData(GSLx680_REG_STATUS, &status, sizeof(status));
 	if (status != GSLx680_STATUS_OK)
 	{
-		printf("#########check mem read 0xb0 = %08lx #########\n", status);
+        p_system_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "#########check mem read 0xb0 = {:08x} #########", status);
 		m_PinShutdown = false;
 		snooze_ms(20);
 		m_PinShutdown = true;

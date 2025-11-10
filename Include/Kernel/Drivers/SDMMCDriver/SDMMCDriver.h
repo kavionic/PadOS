@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include <Ptr/Ptr.h>
+#include <Utils/Logging.h>
 #include <Kernel/HAL/DigitalPort.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/VFS/KINode.h>
@@ -34,6 +35,9 @@
 #include <Kernel/KSemaphore.h>
 
 #include "SDMMCProtocol.h"
+
+DEFINE_KERNEL_LOG_CATEGORY(LogCategorySDMMCDriver);
+
 
 struct SDMMCBaseDriverParameters : KDriverParametersBase
 {

@@ -1124,7 +1124,7 @@ void View::Invalidate(const Rect& rect)
     if (m_ServerHandle != INVALID_HANDLE) {
         Post<ASViewInvalidate>(IRect(rect));
     } else if (!HasFlags(ViewFlags::WillDraw)) {
-        p_log(LogCategoryGUITK, PLogSeverity::ERROR, "%s: Called on client-only view %s[%s].\n", __PRETTY_FUNCTION__, typeid(*this).name(), GetName().c_str());
+        p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "{}: Called on client-only view {}[{}].", __PRETTY_FUNCTION__, typeid(*this).name(), GetName());
     }
 }
 

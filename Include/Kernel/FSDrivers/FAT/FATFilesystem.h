@@ -20,7 +20,8 @@
 
 #pragma once
 
-#include "Kernel/VFS/KFilesystem.h"
+#include <Utils/Logging.h>
+#include <Kernel/VFS/KFilesystem.h>
 
 namespace os
 {

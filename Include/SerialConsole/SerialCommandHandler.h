@@ -141,6 +141,7 @@ public:
 private:
     bool OpenSerialPort();
     void CloseSerialPort();
+    bool IsSerialPortActive() const { return !m_ComFailure && m_SerialPortIn != -1; }
     ssize_t SerialWrite(const void* buffer, size_t length);
     bool ReadPacket();
 
@@ -153,6 +154,7 @@ private:
     mutable PMutex       m_TransmitMutex;
     mutable PMutex       m_QueueMutex;
     mutable PMutex       m_LogMutex;
+    PConditionVariable   m_EventCondition;
     PConditionVariable   m_ReplyCondition;
     PConditionVariable   m_QueueCondition;
     PObjectWaitGroup     m_WaitGroup;
@@ -163,6 +165,7 @@ private:
     int                 m_Baudrate = 0;
     int                 m_SerialPortIn = -1;
     int                 m_SerialPortOut = -1;
+    bool                m_ComFailure = false;
 
     SerialProtocol::ProbeDeviceType m_DeviceType = SerialProtocol::ProbeDeviceType::Bootloader;
 

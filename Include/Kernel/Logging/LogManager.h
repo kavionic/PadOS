@@ -19,12 +19,15 @@
 
 #pragma once
 
+#include <deque>
 #include <format>
 #include <print>
 
 #include <stdint.h>
 #include <Utils/String.h>
 #include <Threads/Mutex.h>
+#include <Threads/ConditionVariable.h>
+#include <Kernel/KThread.h>
 
 
 enum class PLogSeverity
@@ -42,21 +45,28 @@ enum class PLogSeverity
 namespace kernel
 {
 
-class KLogManager
+class KLogManager : public KThread
 {
 public:
     static KLogManager& Get();
 
     KLogManager();
 
+    void Setup(int threadPriority, size_t threadStackSize);
+
+    virtual void* Run() override;
+
+
     bool RegisterCategory(uint32_t categoryHash, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel);
     void SetCategoryMinimumSeverity(uint32_t categoryHash, PLogSeverity logLevel);
     bool IsCategoryActive(uint32_t categoryHash, PLogSeverity logLevel);
+    bool IsCategoryActive_pl(uint32_t categoryHash, PLogSeverity logLevel);
 
 
     const char* GetLogSeverityName(PLogSeverity logLevel);
     const PString& GetCategoryName(uint32_t categoryHash);
     const PString& GetCategoryDisplayName(uint32_t categoryHash);
+    const PString& GetCategoryDisplayName_pl(uint32_t categoryHash);
 
     void AddLogMessage(uint32_t category, PLogSeverity severity, const PString& message);
 
@@ -69,14 +79,22 @@ private:
         PString         CategoryName;
         PString         DisplayName;
     };
+    struct LogEntry
+    {
+        TimeValNanos    Timestamp;
+        uint32_t        CategoryHash;
+        PLogSeverity    Severity;
+        PString         Message;
+    };
 
     CategoryDesc*       FindCategoryDesc(uint32_t categoryHash);
     const CategoryDesc* FindCategoryDesc(uint32_t categoryHash) const { return const_cast<KLogManager*>(this)->FindCategoryDesc(categoryHash); }
     const CategoryDesc& GetCategoryDesc(uint32_t categoryHash) const;
 
     PMutex m_Mutex;
-
+    PConditionVariable m_ConditionVar;
     std::map<int, CategoryDesc>	m_LogCategories;
+    std::deque<LogEntry>        m_LogEntries;
 };
 
 

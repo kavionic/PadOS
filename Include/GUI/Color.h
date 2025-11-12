@@ -264,7 +264,6 @@ public:
 
 } // namespace
 
-namespace unit_test
-{
-void TestNamedColors();
-}
+using PColor = os::Color;
+using PDynamicColor = os::DynamicColor;
+using PStandardColorID = os::StandardColorID;

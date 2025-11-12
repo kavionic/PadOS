@@ -50,8 +50,4 @@ private:
 
 } // namespace os
 
-
-namespace unit_test
-{
-void TestBase64Codec();
-}
+using PBase64Codec = os::Base64Codec;

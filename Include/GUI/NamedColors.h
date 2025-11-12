@@ -183,3 +183,4 @@ enum class NamedColors : uint32_t
 
 } // namespace os
 
+using PNamedColors = os::NamedColors;

@@ -17,7 +17,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 08.11.2025 23:30
 
+#include <PadOS/Time.h>
+
 #include <Kernel/Logging/LogManager.h>
+#include <SerialConsole/SerialProtocol.h>
+#include <SerialConsole/SerialCommandHandler.h>
 
 namespace kernel
 {
@@ -27,8 +31,59 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KLogManager::KLogManager() : m_Mutex("log_manager", PEMutexRecursionMode_RaiseError)
+KLogManager::KLogManager() : KThread("log_manager"), m_Mutex("log_manager", PEMutexRecursionMode_RaiseError), m_ConditionVar("log_manager")
 {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KLogManager::Setup(int threadPriority, size_t threadStackSize)
+{
+    Start_trw(PThreadDetachState_Detached, threadPriority, threadStackSize);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void* KLogManager::Run()
+{
+    CRITICAL_SCOPE(m_Mutex);
+
+    for(;;)
+    {
+        while (m_LogEntries.empty()) {
+            m_ConditionVar.Wait(m_Mutex);
+        }
+        while(!m_LogEntries.empty())
+        {
+            const LogEntry& entry = m_LogEntries.front();
+            if (!IsCategoryActive_pl(entry.CategoryHash, entry.Severity))
+            {
+                m_LogEntries.pop_front();
+                continue;
+            }
+            const PString text = std::format("[{:<8}: {:<7}]: {}\n", GetCategoryDisplayName_pl(entry.CategoryHash), GetLogSeverityName(entry.Severity), entry.Message);
+            m_LogEntries.pop_front();
+
+            SerialProtocol::LogMessage header;
+            header.InitMsg(header);
+            header.PackageLength = sizeof(header) + text.size();
+
+            m_Mutex.Unlock();
+            for (;;)
+            {
+                if (SerialCommandHandler::Get().SendSerialData(&header, sizeof(header), text.data(), text.size())) {
+                    break;
+                } else {
+                    snooze_ms(100);
+                }
+            }
+            m_Mutex.Lock();
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -78,6 +133,16 @@ bool KLogManager::IsCategoryActive(uint32_t categoryHash, PLogSeverity logLevel)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
+    return IsCategoryActive_pl(categoryHash, logLevel);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KLogManager::IsCategoryActive_pl(uint32_t categoryHash, PLogSeverity logLevel)
+{
+    kassert(m_Mutex.IsLocked());
     const CategoryDesc& desc = GetCategoryDesc(categoryHash);
     return logLevel >= desc.MinSeverity;
 }
@@ -120,6 +185,16 @@ const PString& KLogManager::GetCategoryDisplayName(uint32_t categoryHash)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
+    return GetCategoryDisplayName_pl(categoryHash);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const PString& KLogManager::GetCategoryDisplayName_pl(uint32_t categoryHash)
+{
+    kassert(m_Mutex.IsLocked());
     return GetCategoryDesc(categoryHash).DisplayName;
 }
 
@@ -129,7 +204,14 @@ const PString& KLogManager::GetCategoryDisplayName(uint32_t categoryHash)
 
 void KLogManager::AddLogMessage(uint32_t category, PLogSeverity severity, const PString& message)
 {
-    puts(std::format("[{:<8}: {:<7}]: {}", GetCategoryDisplayName(category), GetLogSeverityName(severity), message).c_str());
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
+    if (m_LogEntries.size() < 1000)
+    {
+        m_LogEntries.push_back(LogEntry{ .Timestamp = get_real_time(), .CategoryHash = category, .Severity = severity, .Message = message });
+        m_ConditionVar.WakeupAll();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

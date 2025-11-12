@@ -52,12 +52,15 @@ SerialCommandHandler::SerialCommandHandler()
     , m_TransmitMutex("sch_xmt_mutex", PEMutexRecursionMode_RaiseError)
     , m_QueueMutex("sch_queue_mutex", PEMutexRecursionMode_RaiseError)
     , m_LogMutex("sch_log_mutes", PEMutexRecursionMode_RaiseError)
+    , m_EventCondition("sch_event_cond")
     , m_ReplyCondition("sch_reply_cond")
     , m_QueueCondition("sch_queue_cond")
     , m_WaitGroup("sch_wait_group")
     , m_MessageQueue(*new CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * 16, void>)
 {
     s_Instance = this;
+
+    m_WaitGroup.AddObject(m_EventCondition);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -106,6 +109,7 @@ bool SerialCommandHandler::OpenSerialPort()
 
 void SerialCommandHandler::CloseSerialPort()
 {
+    m_ComFailure = false;
     if (m_SerialPortIn != -1)
     {
         m_WaitGroup.RemoveFile(m_SerialPortIn);
@@ -125,6 +129,9 @@ void* SerialCommandHandler::Run()
     SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer);
     for (;;)
     {
+        if (m_ComFailure) {
+            CloseSerialPort();
+        }
         if (m_SerialPortIn == -1)
         {
             if (!OpenSerialPort())
@@ -253,7 +260,8 @@ ssize_t SerialCommandHandler::SerialWrite(const void* buffer, size_t length)
             if (get_last_error() == EINTR) {
                 continue;
             }
-            CloseSerialPort();
+            m_ComFailure = true;
+            m_EventCondition.WakeupAll();
             return result;
         }
         bytesWritten += result;
@@ -373,7 +381,7 @@ void SerialCommandHandler::HandleSetSystemTime(const SerialProtocol::SetSystemTi
 
 bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize)
 {
-    if (GetThreadID() == -1 || m_SerialPortOut == -1)
+    if (GetThreadID() == -1 || !IsSerialPortActive())
     {
         return false;
     }
@@ -459,7 +467,7 @@ bool SerialCommandHandler::FlushLogBuffer()
     if (m_LogBuffer.GetLength() == 0) {
         return false;
     }
-    if (m_SerialPortOut == -1) {
+    if (!IsSerialPortActive()) {
         return false;
     }
 
@@ -470,7 +478,7 @@ bool SerialCommandHandler::FlushLogBuffer()
     kassert(!m_TransmitMutex.IsLocked());
     CRITICAL_SCOPE(m_TransmitMutex);
     SerialWrite(&header, sizeof(header));
-    while (length > 0 && m_SerialPortOut != -1)
+    while (length > 0 && IsSerialPortActive())
     {
         uint8_t buffer[128];
         ssize_t curLength = 0;

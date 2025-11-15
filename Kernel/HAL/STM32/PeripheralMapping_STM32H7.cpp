@@ -24,6 +24,7 @@
 
 #include <System/Platform.h>
 #include <Utils/Utils.h>
+#include <Kernel/KLogging.h>
 #include <Kernel/HAL/DigitalPort.h>
 #include <Kernel/HAL/PeripheralMapping.h>
 #include <Kernel/HAL/STM32/PinMuxTarget_STM32.h>
@@ -414,7 +415,7 @@ TIM_TypeDef* get_timer_from_id(HWTimerID timerID)
         case HWTimerID::Timer16:    return TIM16;
         case HWTimerID::Timer17:    return TIM17;
         default:
-            p_system_log(LogCatKernel_General, PLogSeverity::ERROR, "{} unknown timer '{}'", __PRETTY_FUNCTION__, int(timerID));
+            p_system_log<PLogSeverity::ERROR>(LogCatKernel_General, "{} unknown timer '{}'", __PRETTY_FUNCTION__, int(timerID));
             return nullptr;
     }
 }
@@ -468,7 +469,7 @@ volatile uint32_t* get_timer_dbg_clk_flag(HWTimerID timerID, uint32_t& outFlagMa
         default:
         {
             outFlagMask = 0;
-            p_system_log(LogCatKernel_General, PLogSeverity::ERROR, "{}: unknown timer '{}'", __PRETTY_FUNCTION__, int(timerID));
+            p_system_log<PLogSeverity::ERROR>(LogCatKernel_General, "{}: unknown timer '{}'", __PRETTY_FUNCTION__, int(timerID));
             return nullptr;
         }
     }
@@ -587,7 +588,7 @@ DigitalPinID pin_id_from_name(const char* name)
     if (name[0] < 'A' || name[0] > ('A' + e_DigitalPortID_Count) || !isdigit(name[1]) || (name[2] != '\0' && (name[2] < '0' || name[2] > '5')))
     {
         if (strcmp(name, "None") != 0) {
-            p_system_log(LogCat_General, PLogSeverity::ERROR, "pin_id_from_name() failed to convert '{}'", name);
+            p_system_log<PLogSeverity::ERROR>(LogCat_General, "pin_id_from_name() failed to convert '{}'", name);
         }
         return DigitalPinID::None;
     }
@@ -601,7 +602,7 @@ HWTimerID timer_id_from_name(const char* name)
 {
     if (name[0] != 'T' || name[1] != 'I' || name[2] != 'M')
     {
-        p_system_log(LogCat_General, PLogSeverity::ERROR, "timer_id_from_name() failed to convert '{}'", name);
+        p_system_log<PLogSeverity::ERROR>(LogCat_General, "timer_id_from_name() failed to convert '{}'", name);
         return HWTimerID::None;
     }
     return HWTimerID(atoi(name + 3));
@@ -644,7 +645,7 @@ IRQn_Type get_timer_irq(HWTimerID timerID, HWTimerIRQType irqType)
         case HWTimerID::Timer16:    return TIM16_IRQn;
         case HWTimerID::Timer17:    return TIM17_IRQn;
         default:
-            p_system_log(LogCat_General, PLogSeverity::ERROR, "get_timer_irq() unknown timer '{}'", int(timerID));
+            p_system_log<PLogSeverity::ERROR>(LogCat_General, "get_timer_irq() unknown timer '{}'", int(timerID));
             return IRQn_Type(IRQ_COUNT);
     }
 }

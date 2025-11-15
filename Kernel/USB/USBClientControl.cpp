@@ -19,6 +19,7 @@
 
 #include <string.h>
 #include <algorithm>
+#include <Kernel/KLogging.h>
 #include <Kernel/USB/USBClientControl.h>
 #include <Kernel/USB/USBClassDriverDevice.h>
 #include <Kernel/USB/USBDevice.h>
@@ -109,7 +110,7 @@ bool USBClientControl::ControlTransferComplete(uint8_t endpointAddr, USB_Transfe
         }
         if (length > m_ControlEndpointBuffer.size())
         {
-            kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBClientControl::ControlTransferComplete({:02x}) invalid transfer length: {}.", endpointAddr, length);
+            kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBClientControl::ControlTransferComplete({:02x}) invalid transfer length: {}.", endpointAddr, length);
             return false;
         }
         memcpy(m_TransferBuffer, m_ControlEndpointBuffer.data(), length);

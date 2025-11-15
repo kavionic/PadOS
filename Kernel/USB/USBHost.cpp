@@ -22,6 +22,7 @@
 #include <System/ExceptionHandling.h>
 #include <Utils/Utils.h>
 #include <Kernel/KTime.h>
+#include <Kernel/KLogging.h>
 #include <Kernel/USB/USBHost.h>
 #include <Kernel/USB/USBClassDriverHost.h>
 #include <Kernel/USB/USBDriver.h>
@@ -156,7 +157,7 @@ void* USBHost::Run()
                     RestartDeviceInitialization();
                     break;
                 case USBHostEventID::DeviceConnected:
-                    kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Device connected.");
+                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device connected.");
 
                     snooze_ms(200);
                     m_Driver->ResetPort();
@@ -167,7 +168,7 @@ void* USBHost::Run()
                 case USBHostEventID::DeviceAttached:
                     m_DeviceAttachDeadline = TimeValNanos::infinit;
                     m_PortEnabled = true;
-                    kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Device reset Completed.");
+                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device reset Completed.");
                     m_ResetErrorCount = 0;
 
                     SignalConnectionChanged(true);
@@ -192,11 +193,11 @@ void* USBHost::Run()
                             {
                                 driver->Close();
                             }
-                            PERROR_CATCH([](PErrorCode error) { kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "Failed to close channel."); });
+                            PERROR_CATCH([](PErrorCode error) { kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to close channel."); });
                         }
                     }
                     SignalConnectionChanged(false);
-                    kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Device disconnected.");
+                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device disconnected.");
 
                     m_Driver->StartHost();
                     break;
@@ -211,7 +212,7 @@ void* USBHost::Run()
         {
             m_DeviceAttachDeadline = TimeValNanos::infinit;
             if (++m_ResetErrorCount > 3) {
-                kernel_log(LogCategoryUSBHost, PLogSeverity::WARNING, "Device reset failed.");
+                kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Device reset failed.");
             } else {
                 RestartDeviceInitialization();
             }
@@ -236,7 +237,7 @@ bool USBHost::AddClassDriver(Ptr<USBClassDriverHost> driver)
 {
     if (driver == nullptr)
     {
-        kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "USBHost::AddClassDriver() called with nullptr.");
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "USBHost::AddClassDriver() called with nullptr.");
         return false;
     }
     m_ClassDrivers.push_back(driver);
@@ -479,14 +480,14 @@ bool USBHost::ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t d
         {
             // IAD's first interface number and class should match current interface
             if (desc_iad->bFirstInterface != interfaceDesc->bInterfaceNumber || desc_iad->bFunctionClass != interfaceDesc->bInterfaceClass) {
-                kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "Invalid interface association.");
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSB, "Invalid interface association.");
                 return false;
             }
         }
 
-        kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Class    : {:x}h", int(interfaceDesc->bInterfaceClass));
-        kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "SubClass : {:x}h", interfaceDesc->bInterfaceSubClass);
-        kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Protocol : {:x}h", interfaceDesc->bInterfaceProtocol);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Class    : {:x}h", int(interfaceDesc->bInterfaceClass));
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "SubClass : {:x}h", interfaceDesc->bInterfaceSubClass);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Protocol : {:x}h", interfaceDesc->bInterfaceProtocol);
 
         // Find driver for this interface.
         bool driverFound = false;
@@ -497,18 +498,18 @@ bool USBHost::ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t d
                 const USB_DescriptorHeader* nextDesc = driver->Open(deviceAddr, interfaceDesc, desc_iad, endDesc);
                 driver->m_IsActive = true;
 
-                kernel_log(LogCategoryUSB, PLogSeverity::INFO_LOW_VOL, "{} opened", driver->GetName());
+                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSB, "{} opened", driver->GetName());
 
                 desc = nextDesc;
 
                 driverFound = true;
                 break;
             }
-            PERROR_CATCH([](PErrorCode error) { kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "Failed to open channel."); });
+            PERROR_CATCH([](PErrorCode error) { kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to open channel."); });
         }
         if (!driverFound)
         {
-            kernel_log(LogCategoryUSB, PLogSeverity::ERROR, "Interface {}: class = {}, subclass = {}, protocol = {} is not supported.",
+            kernel_log<PLogSeverity::ERROR>(LogCategoryUSB, "Interface {}: class = {}, subclass = {}, protocol = {} is not supported.",
                 interfaceDesc->bInterfaceNumber, std::to_underlying(interfaceDesc->bInterfaceClass), interfaceDesc->bInterfaceSubClass, interfaceDesc->bInterfaceProtocol);
 
             // Find the next interface.
@@ -632,7 +633,7 @@ void USBHost::SetupClassDrivers()
 {
     if (m_ClassDrivers.empty())
     {
-        kernel_log(LogCategoryUSBHost, PLogSeverity::WARNING, "No class drivers has been registered.");
+        kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "No class drivers has been registered.");
     }
     else
     {
@@ -656,11 +657,11 @@ void USBHost::HandleEnumerationDone(bool result, uint8_t deviceAddr)
         USBDeviceNode* device = GetDevice(deviceAddr);
         if (device != nullptr)
         {
-            kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Manufacturer : {}",   (device->m_ManufacturerString.empty())  ? "N/A" : device->m_ManufacturerString.c_str());
-            kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Product : {}",        (device->m_ProductString.empty())       ? "N/A" : device->m_ProductString.c_str());
-            kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Serial Number : {}",  (device->m_SerialNumberString.empty())  ? "N/A" : device->m_SerialNumberString.c_str());
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Manufacturer : {}",   (device->m_ManufacturerString.empty())  ? "N/A" : device->m_ManufacturerString.c_str());
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Product : {}",        (device->m_ProductString.empty())       ? "N/A" : device->m_ProductString.c_str());
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Serial Number : {}",  (device->m_SerialNumberString.empty())  ? "N/A" : device->m_SerialNumberString.c_str());
 
-            kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Enumeration done. Device has {} configurations.", device->m_DeviceDesc.bNumConfigurations);
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Enumeration done. Device has {} configurations.", device->m_DeviceDesc.bNumConfigurations);
 
             if (!VFSelectConfiguration.Empty()) {
                 device->m_SelectedConfiguration = VFSelectConfiguration(this);
@@ -673,7 +674,7 @@ void USBHost::HandleEnumerationDone(bool result, uint8_t deviceAddr)
         m_Enumerator.Reset();
         if (++m_EnumErrorCount > 3)
         {
-            kernel_log(LogCategoryUSBHost, PLogSeverity::WARNING, "Device enumeration failed.");
+            kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Device enumeration failed.");
         }
         else
         {
@@ -689,7 +690,7 @@ void USBHost::HandleEnumerationDone(bool result, uint8_t deviceAddr)
 
 void USBHost::HandleSetConfigurationResult(bool result, uint8_t deviceAddr)
 {
-    kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Configuration set.");
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Configuration set.");
 
     USBDeviceNode* device = GetDevice(deviceAddr);
 
@@ -719,9 +720,9 @@ void USBHost::HandleSetConfigurationResult(bool result, uint8_t deviceAddr)
 void USBHost::HandleSetWakeupFeatureResult(bool result, uint8_t deviceAddr)
 {
     if (result) {
-        kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Device remote wakeup enabled.");
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device remote wakeup enabled.");
     } else {
-        kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Remote wakeup not supported by device.");
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Remote wakeup not supported by device.");
     }
     SetupClassDrivers();
 }

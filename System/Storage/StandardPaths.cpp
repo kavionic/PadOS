@@ -37,7 +37,7 @@ bool StandardPaths::RegisterPath(StandardPathID pathID, const String& path)
 
     if (s_PathMap.find(pathID) != s_PathMap.end())
     {
-        p_system_log(LogCat_General, PLogSeverity::ERROR, "StandardPaths::RegisterPath() path already registered (hash collision?): {} : '{}'", pathID, path);
+        p_system_log<PLogSeverity::ERROR>(LogCat_General, "StandardPaths::RegisterPath() path already registered (hash collision?): {} : '{}'", pathID, path);
         return false;
     }
     s_PathMap[pathID] = path;
@@ -55,7 +55,7 @@ bool StandardPaths::UpdatePath(StandardPathID pathID, const String& path)
     auto i = s_PathMap.find(pathID);
     if (i == s_PathMap.end())
     {
-        p_system_log(LogCat_General, PLogSeverity::ERROR, "StandardPaths::UpdatePath() path not registered: {} : '{}'", pathID, path);
+        p_system_log<PLogSeverity::ERROR>(LogCat_General, "StandardPaths::UpdatePath() path not registered: {} : '{}'", pathID, path);
         return false;
     }
     i->second = path;

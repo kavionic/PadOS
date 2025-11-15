@@ -117,7 +117,7 @@ inline int BitsPerPixel(EColorSpace colorSpace)
     case EColorSpace::MONO1:
         return 1;
     default:
-        p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "BitsPerPixel() invalid color space {}", int(colorSpace));
+        p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "BitsPerPixel() invalid color space {}", int(colorSpace));
         return 8;
     }
 }

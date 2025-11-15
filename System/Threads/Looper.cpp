@@ -160,7 +160,7 @@ bool Looper::AddHandler(Ptr<EventHandler> handler)
     {
         if (handler->m_Looper != nullptr)
         {
-            p_system_log(LogCat_General, PLogSeverity::ERROR, "Looper::AddHandler() attempt to add handler {}({}) already owned by looper {}({})", handler->GetName(), handler->GetHandle(), handler->m_Looper->GetName(), handler->m_Looper->GetThreadID());
+            p_system_log<PLogSeverity::ERROR>(LogCat_General, "Looper::AddHandler() attempt to add handler {}({}) already owned by looper {}({})", handler->GetName(), handler->GetHandle(), handler->m_Looper->GetName(), handler->m_Looper->GetThreadID());
             set_last_error(EBUSY);
             return false;
         }
@@ -181,7 +181,7 @@ bool Looper::RemoveHandler(Ptr<EventHandler> handler)
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
     if (handler->m_Looper != this) {
-        p_system_log(LogCat_General, PLogSeverity::ERROR, "Looper::RemoveHandler() attempt to remove handler {}({}) from unrelated looper {}({})", handler->GetName(), handler->GetHandle(), GetName(), GetThreadID());
+        p_system_log<PLogSeverity::ERROR>(LogCat_General, "Looper::RemoveHandler() attempt to remove handler {}({}) from unrelated looper {}({})", handler->GetName(), handler->GetHandle(), GetName(), GetThreadID());
         return false;
     }
     handler->m_Looper = nullptr;
@@ -190,7 +190,7 @@ bool Looper::RemoveHandler(Ptr<EventHandler> handler)
         m_HandlerMap.erase(i);
         return true;
     } else {
-        p_system_log(LogCat_General, PLogSeverity::ERROR, "Looper::RemoveHandler() failed to find handler {}({}) in looper {}({})", handler->GetName(), handler->GetHandle(), GetName(), GetThreadID());
+        p_system_log<PLogSeverity::ERROR>(LogCat_General, "Looper::RemoveHandler() failed to find handler {}({}) in looper {}({})", handler->GetName(), handler->GetHandle(), GetName(), GetThreadID());
         return false;
     }
 }
@@ -250,7 +250,7 @@ bool Looper::RemoveTimer(EventTimer* timer)
     }
     else
     {
-        p_system_log(LogCat_General, PLogSeverity::ERROR, "Looper::RemoveTimer() attempt to remove timer not belonging to us.");
+        p_system_log<PLogSeverity::ERROR>(LogCat_General, "Looper::RemoveTimer() attempt to remove timer not belonging to us.");
         set_last_error(EINVAL);
         return false;
     }

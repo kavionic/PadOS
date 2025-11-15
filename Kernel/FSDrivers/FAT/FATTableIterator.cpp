@@ -19,6 +19,7 @@
 
 
 #include <System/ExceptionHandling.h>
+#include <Kernel/KLogging.h>
 #include <Kernel/FSDrivers/FAT/FATFilesystem.h>
 
 #include "FATTableIterator.h"
@@ -35,7 +36,7 @@ namespace kernel
 FATTableIterator::FATTableIterator(Ptr<FATVolume> volume, uint32_t startCluster) : m_Volume(volume), m_CurrentCluster(startCluster)
 {
     if (!m_Volume->IsDataCluster(m_CurrentCluster)) {
-        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::CRITICAL, "FATTableIterator constructed with invalid cluster {}", m_CurrentCluster);
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATTableIterator constructed with invalid cluster {}", m_CurrentCluster);
     }
     
     m_OffsetInSector  = m_CurrentCluster * m_Volume->m_FATBits / 8;

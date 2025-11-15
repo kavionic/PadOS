@@ -18,6 +18,7 @@
 // Created: 30.07.2022 23:00
 
 #include <Utils/Utils.h>
+#include <Kernel/KLogging.h>
 #include <Kernel/USB/USBHostEnumerator.h>
 #include <Kernel/USB/USBHost.h>
 
@@ -82,7 +83,7 @@ void USBHostEnumerator::HandleConfigurationHeaderResult(bool result, uint8_t dev
     }
     else
     {
-        kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "Get device descriptor request failed.");
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Get device descriptor request failed.");
         SendResult(result, deviceAddr);
     }
 }
@@ -98,20 +99,20 @@ void USBHostEnumerator::HandleConfigurationFullResult(bool result, uint8_t devic
         USBDeviceNode* device = m_HostHandler->CreateDeviceNode();
         if (device != nullptr)
         {
-            kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "PID: {:04x}h", int(device->m_DeviceDesc.idProduct));
-            kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "VID: {:04x}h", int(device->m_DeviceDesc.idVendor));
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "PID: {:04x}h", int(device->m_DeviceDesc.idProduct));
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "VID: {:04x}h", int(device->m_DeviceDesc.idVendor));
 
             m_HostHandler->GetControlHandler().ReqSetAddress(device->m_Address, bind_method(this, &USBHostEnumerator::HandleSetAddressResult));
         }
         else
         {
-            kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "Failed to allocate new device node.");
+            kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to allocate new device node.");
             SendResult(result, deviceAddr);
         }
     }
     else
     {
-        kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "Get full device descriptor request failed.");
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Get full device descriptor request failed.");
         SendResult(result, deviceAddr);
     }
 }
@@ -127,7 +128,7 @@ void USBHostEnumerator::HandleSetAddressResult(bool result, uint8_t deviceAddr)
         USBDeviceNode* device = m_HostHandler->GetDevice(deviceAddr);
         if (device != nullptr)
         {
-            kernel_log(LogCategoryUSBHost, PLogSeverity::INFO_LOW_VOL, "Address {} assigned.", device->m_Address);
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Address {} assigned.", device->m_Address);
 
             USBHostControl& control = m_HostHandler->GetControlHandler();
             uint8_t* buffer = control.GetCtrlDataBuffer();
@@ -157,7 +158,7 @@ void USBHostEnumerator::HandleSetAddressResult(bool result, uint8_t deviceAddr)
                                 }
                                 else
                                 {
-                                    kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "Failed to get full configuration descriptor.");
+                                    kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to get full configuration descriptor.");
                                     SendResult(result, deviceAddr);
                                 }
 
@@ -166,7 +167,7 @@ void USBHostEnumerator::HandleSetAddressResult(bool result, uint8_t deviceAddr)
                     }
                     else
                     {
-                        kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "Failed to get configuration descriptor header.");
+                        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to get configuration descriptor header.");
                         SendResult(result, deviceAddr);
                     }
                 }
@@ -175,7 +176,7 @@ void USBHostEnumerator::HandleSetAddressResult(bool result, uint8_t deviceAddr)
     }
     else
     {
-        kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "Failed to set device address.");
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to set device address.");
         SendResult(result, deviceAddr);
     }
 }

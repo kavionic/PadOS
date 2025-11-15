@@ -369,7 +369,7 @@ bool USBClientCDCChannel::HandleControlTransfer(USB_ControlStage stage, const US
         case USB_CDC_ManagementRequest::SET_LINE_CODING:
             if (stage == USB_ControlStage::SETUP)
             {
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "CDC set line coding.");
+                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "CDC set line coding.");
                 return m_DeviceHandler->GetControlEndpointHandler().SendControlDataReply(request, &m_LineCoding, sizeof(m_LineCoding));
             }
             else if (stage == USB_ControlStage::ACK)
@@ -381,7 +381,7 @@ bool USBClientCDCChannel::HandleControlTransfer(USB_ControlStage stage, const US
         case USB_CDC_ManagementRequest::GET_LINE_CODING:
             if (stage == USB_ControlStage::SETUP)
             {
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_HIGH_VOL, "CDC get line coding.");
+                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "CDC get line coding.");
                 return m_DeviceHandler->GetControlEndpointHandler().SendControlDataReply(request, &m_LineCoding, sizeof(m_LineCoding));
             }
             break;
@@ -392,7 +392,7 @@ bool USBClientCDCChannel::HandleControlTransfer(USB_ControlStage stage, const US
                 m_DTR = (request.wValue & USB_DTE_LINE_CONTROL_STATE_DTE_PRESENT) != 0;
                 m_RTS = (request.wValue & USB_DTE_LINE_CONTROL_STATE_CARRIER_ACTIVE) != 0;
 
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_HIGH_VOL, "CDC Set control line state: DTR = {}, RTS = {}.", m_DTR, m_RTS);
+                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "CDC Set control line state: DTR = {}, RTS = {}.", m_DTR, m_RTS);
 
                 SignalControlLineStateChanged(m_DTR, m_RTS);
                 return m_DeviceHandler->GetControlEndpointHandler().SendControlStatusReply(request);
@@ -405,7 +405,7 @@ bool USBClientCDCChannel::HandleControlTransfer(USB_ControlStage stage, const US
             }
             else if (stage == USB_ControlStage::ACK)
             {
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "CDC Send break.");
+                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "CDC Send break.");
                 if (request.wValue != 0xffff) {
                     SignalBreak(TimeValNanos::FromMilliseconds(request.wValue));
                 }

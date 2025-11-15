@@ -58,8 +58,6 @@ ApplicationServer::ApplicationServer(Ptr<os::DisplayDriver> displayDriver)
     : Looper("Appserver", 10, APPSERVER_MSG_BUFFER_SIZE)
     , m_ReplyPort("appserver_reply", 100)
 {
-    PREGISTER_LOG_CATEGORY(LogCategoryAppServer, "APPSRV", PLogSeverity::INFO_HIGH_VOL);
-    
     set_input_event_port(GetPortID());
 
     s_DisplayDriver = displayDriver;
@@ -78,7 +76,7 @@ ApplicationServer::ApplicationServer(Ptr<os::DisplayDriver> displayDriver)
     }
     else
     {
-        p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "ApplicationServer::ApplicationServer() failed to open touch device.");
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ApplicationServer() failed to open touch device.");
     }
     g_AppserverPort = GetPortID();
 }
@@ -257,7 +255,7 @@ void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clien
     
     const PErrorCode result = message_port_send_timeout_ns(replyPort, -1, AppserverProtocol::REGISTER_APPLICATION_REPLY, &reply, sizeof(reply), 0);
     if (result != PErrorCode::Success) {
-        p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "ApplicationServer::SlotRegisterApplication() failed to send message: {}", strerror(std::to_underlying(result)));
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::SlotRegisterApplication() failed to send message: {}", strerror(std::to_underlying(result)));
     }
 }
 

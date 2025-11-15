@@ -21,6 +21,7 @@
 #include <System/ExceptionHandling.h>
 #include <Utils/String.h>
 #include <Utils/Utils.h>
+#include <Kernel/KLogging.h>
 #include <Kernel/USB/ClassDrivers/USBClientClassCDC.h>
 #include <Kernel/USB/ClassDrivers/USBClientCDCChannel.h>
 #include <Kernel/USB/USBDevice.h>
@@ -51,7 +52,7 @@ void USBClientClassCDC::Reset()
         {
             channel->Close();
         }
-        PERROR_CATCH([](PErrorCode error) { kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "Failed to close channel."); });
+        PERROR_CATCH([](PErrorCode error) { kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to close channel."); });
 
         SignalChannelRemoved(channel);
     }
@@ -132,7 +133,7 @@ bool USBClientClassCDC::HandleControlTransfer(USB_ControlStage stage, const USB_
     }
     else
     {
-        kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBClientClassCDC::HandleControlTransfer() unknown interface {}.", interfaceNum);
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBClientClassCDC::HandleControlTransfer() unknown interface {}.", interfaceNum);
         return false;
     }
 }
@@ -150,7 +151,7 @@ bool USBClientClassCDC::HandleDataTransfer(uint8_t endpointAddr, USB_TransferRes
     }
     else
     {
-        kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBClientClassCDC::HandleDataTransfer() unknown endpoint {:02x}.", endpointAddr);
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBClientClassCDC::HandleDataTransfer() unknown endpoint {:02x}.", endpointAddr);
         return false;
     }
 }

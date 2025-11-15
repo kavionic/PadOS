@@ -55,7 +55,7 @@ void CommandHandlerFilesystem::Setup(SerialCommandHandler* commandHandler)
 
 void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirectory& packet)
 {
-    p_system_log(LogCategorySerialHandler, PLogSeverity::INFO_LOW_VOL, "Directory '{}' requested.", packet.m_Path);
+    p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCategorySerialHandler, "Directory '{}' requested.", packet.m_Path);
     std::vector<SerialProtocol::GetDirectoryReplyDirEnt> entryList;
     int dir = open(packet.m_Path, O_RDONLY);
     if (dir >= 0)
@@ -95,7 +95,7 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
     }
     else
     {
-        p_system_log(LogCategorySerialHandler, PLogSeverity::WARNING, "Failed to open directory '{}'.", packet.m_Path);
+        p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Failed to open directory '{}'.", packet.m_Path);
         m_CommandHandler->SendMessage<SerialProtocol::GetDirectoryReply>(0);
     }
 }
@@ -207,7 +207,7 @@ void CommandHandlerFilesystem::HandleDeleteFile(const SerialProtocol::DeleteFile
 
 bool CommandHandlerFilesystem::SendDirectoryEntries(const std::vector<SerialProtocol::GetDirectoryReplyDirEnt>& entryList)
 {
-    p_system_log(LogCategorySerialHandler, PLogSeverity::INFO_LOW_VOL, "Returning {} entries.", entryList.size());
+    p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCategorySerialHandler, "Returning {} entries.", entryList.size());
     SerialProtocol::GetDirectoryReply msg;
     SerialProtocol::GetDirectoryReply::InitMsg(msg, entryList.size());
     msg.Command = SerialProtocol::GetDirectoryReply::COMMAND;

@@ -366,7 +366,7 @@ void HLayoutNode::Layout()
             totalWheight += wheights[i];
         }
     //    if ( vMinWidth > bounds.Width() + 1.0f ) {
-    //      p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "HLayoutNode::Layout() Width={:.2}, Required width={:.2}", bounds.Width() + 1.0f, vMinWidth  );
+    //      p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "HLayoutNode::Layout() Width={:.2}, Required width={:.2}", bounds.Width() + 1.0f, vMinWidth  );
     //    }
         const float unusedWidth = SpaceOut(childList.size(), bounds.Width(), vMinWidth, totalWheight, minWidths, maxWidths, wheights, finalHeights) / float(childList.size());
 
@@ -383,7 +383,7 @@ void HLayoutNode::Layout()
             {
                 case Alignment::Top:    y = bounds.top; break;
                 case Alignment::Right:  y = bounds.bottom - frame.Height(); break;
-                default:           p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "HLayoutNode::Layout() node '{}' has invalid v-alignment {}", m_View->GetName(), int(childList[i]->GetVAlignment()) );
+                default:           p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "HLayoutNode::Layout() node '{}' has invalid v-alignment {}", m_View->GetName(), int(childList[i]->GetVAlignment()) );
                 [[fallthrough]];
                 case Alignment::Center: y = bounds.top + (bounds.Height() - frame.Height()) * 0.5f; break;
                 case Alignment::Stretch: x = 0.0f; break;
@@ -397,7 +397,7 @@ void HLayoutNode::Layout()
             
             x += width + unusedWidth;
             frame.Floor();
-//            p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "    {}: {:.2}->{:.2}", i, frame.left, frame.right);
+//            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "    {}: {:.2}->{:.2}", i, frame.left, frame.right);
             childList[i]->SetFrame(frame);
         }
     }    
@@ -513,7 +513,7 @@ void VLayoutNode::Layout()
             {
                 case Alignment::Left:   x = bounds.left; break;
                 case Alignment::Right:  x = bounds.right - frame.Width(); break;
-                default:           p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "VLayoutNode::Layout() node '{}' has invalid h-alignment {}", m_View->GetName(), int(childList[i]->GetHAlignment()) );
+                default:           p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "VLayoutNode::Layout() node '{}' has invalid h-alignment {}", m_View->GetName(), int(childList[i]->GetHAlignment()) );
                 [[fallthrough]];
                 case Alignment::Center: x = bounds.left + (bounds.Width() - frame.Width()) * 0.5f; break;
                 case Alignment::Stretch: x = 0.0f; break;

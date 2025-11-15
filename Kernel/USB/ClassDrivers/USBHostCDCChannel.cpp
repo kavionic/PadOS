@@ -162,7 +162,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
 
     interfaceDesc = static_cast<const USB_DescInterface*>(desc);
     if (desc >= endDesc || interfaceDesc->bInterfaceClass != USB_ClassCode::CDC_DATA) {
-        kernel_log(LogCategoryUSBHost, PLogSeverity::WARNING, "CDC cannot find the interface for data interface.");
+        kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "CDC cannot find the interface for data interface.");
         PERROR_THROW_CODE(PErrorCode::IOError);
     }
 
@@ -193,7 +193,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     }
     if (m_DataEndpointIn == USB_INVALID_ENDPOINT || m_DataEndpointOut == USB_INVALID_ENDPOINT)
     {
-        kernel_log(LogCategoryUSBHost, PLogSeverity::WARNING, "CDC cannot find the endpoints for data interface.");
+        kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "CDC cannot find the endpoints for data interface.");
         PERROR_THROW_CODE(PErrorCode::IOError);
     }
 
@@ -541,7 +541,7 @@ const USB_CDC_LineCoding& USBHostCDCChannel::GetLineCoding() const
 void USBHostCDCChannel::HandleSetLineCodingResult(bool result, uint8_t deviceAddr)
 {
     if (!result) {
-        kernel_log(LogCategoryUSBHost, PLogSeverity::ERROR, "CDC set line coding configuration failed.");
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "CDC set line coding configuration failed.");
     }
 }
 

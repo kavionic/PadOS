@@ -21,13 +21,13 @@
 
 #include <System/System.h>
 #include <System/ExceptionHandling.h>
-#include <Utils/Logging.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KThread.h>
 #include <Kernel/KThreadCB.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KHandleArray.h>
 #include <Kernel/KTime.h>
+#include <Kernel/KLogging.h>
 
 using namespace os;
 
@@ -131,12 +131,12 @@ void* KThread::ThreadEntry(void* data)
     }
     catch (const std::exception& e)
     {
-        kernel_log(LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in KThread {}: {}", self->GetName(), e.what());
+        kernel_log<PLogSeverity::FATAL>(LogCatKernel_Scheduler, "Uncaught exception in KThread {}: {}", self->GetName(), e.what());
         self->Exit(nullptr);
     }
     catch (...)
     {
-        kernel_log(LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in KThread {}: unknown", self->GetName());
+        kernel_log<PLogSeverity::FATAL>(LogCatKernel_Scheduler, "Uncaught exception in KThread {}: unknown", self->GetName());
         self->Exit(nullptr);
     }
     return nullptr;

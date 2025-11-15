@@ -102,7 +102,7 @@ void INA3221Driver::SlotTick()
             m_ReadRetryCount++;
             if (m_ReadRetryCount > 10)
             {
-                p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "INA3221Driver request timed out.");
+                p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "INA3221Driver request timed out.");
                 m_LastUpdateTime = time;
                 m_State = State_e::Idle;
                 m_Timer.Set(m_UpdatePeriode);

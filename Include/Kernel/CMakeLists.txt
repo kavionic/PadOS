@@ -3,6 +3,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KConditionVariable.h
 	Kernel.h
 	KHandleArray.h
+	KLogging.h
 	KMessagePort.h
 	KMutex.h
 	KNamedObject.h

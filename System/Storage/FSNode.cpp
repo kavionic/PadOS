@@ -622,7 +622,7 @@ bool FSNode::SetStats(const struct stat& statBuffer, uint32_t mask) const
                  WSTAT_ATIME |
                  WSTAT_MTIME |
                  WSTAT_CTIME)) {
-        p_system_log(LogCat_General, PLogSeverity::ERROR, "FSNode::SetStats() called with unknown mask bits: {:08x}", mask);
+        p_system_log<PLogSeverity::ERROR>(LogCat_General, "FSNode::SetStats() called with unknown mask bits: {:08x}", mask);
     }
     return true;
 }

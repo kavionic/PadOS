@@ -172,7 +172,8 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(digital_pin_write),
     SYS_PTR(write_backup_register),
     SYS_PTR(read_backup_register),
-    SYS_PTR(beep_seconds)
+    SYS_PTR(beep_seconds),
+    SYS_PTR(add_system_log_message)
 
 };
 

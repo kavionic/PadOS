@@ -21,6 +21,8 @@
 
 #include <string.h>
 
+#include <Kernel/KLogging.h>
+
 #include "FATINode.h"
 #include "FATVolume.h"
 #include "FATDirectoryIterator.h"
@@ -97,7 +99,7 @@ bool FATINode::Write()
 
     Ptr<FATVolume> volume = ptr_static_cast<FATVolume>(m_Volume);
     if ((m_StartCluster != 0) && !volume->IsDataCluster(m_StartCluster)) {
-        kernel_log(FATFilesystem::LOGC_FS, PLogSeverity::CRITICAL, "FATINode::Write() called on invalid cluster ({}).", m_StartCluster);
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATINode::Write() called on invalid cluster ({}).", m_StartCluster);
         set_last_error(EINVAL);
         return false;
     }

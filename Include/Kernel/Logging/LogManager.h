@@ -25,21 +25,13 @@
 
 #include <stdint.h>
 #include <Utils/String.h>
+#include <Utils/EnumUtils.h>
 #include <Threads/Mutex.h>
 #include <Threads/ConditionVariable.h>
 #include <Kernel/KThread.h>
 
 
-enum class PLogSeverity
-{
-    INFO_HIGH_VOL,
-    INFO_LOW_VOL,
-    WARNING,
-    CRITICAL,
-    ERROR,
-    FATAL,
-    NONE
-};
+enum class PLogSeverity : uint8_t;
 
 
 namespace kernel
@@ -62,11 +54,10 @@ public:
     bool IsCategoryActive(uint32_t categoryHash, PLogSeverity logLevel);
     bool IsCategoryActive_pl(uint32_t categoryHash, PLogSeverity logLevel);
 
-
-    const char* GetLogSeverityName(PLogSeverity logLevel);
-    const PString& GetCategoryName(uint32_t categoryHash);
-    const PString& GetCategoryDisplayName(uint32_t categoryHash);
-    const PString& GetCategoryDisplayName_pl(uint32_t categoryHash);
+    const char*     GetLogSeverityName(PLogSeverity logLevel);
+    const PString&  GetCategoryName(uint32_t categoryHash);
+    const PString&  GetCategoryDisplayName(uint32_t categoryHash);
+    const PString&  GetCategoryDisplayName_pl(uint32_t categoryHash);
 
     void AddLogMessage(uint32_t category, PLogSeverity severity, const PString& message);
 
@@ -91,55 +82,14 @@ private:
     const CategoryDesc* FindCategoryDesc(uint32_t categoryHash) const { return const_cast<KLogManager*>(this)->FindCategoryDesc(categoryHash); }
     const CategoryDesc& GetCategoryDesc(uint32_t categoryHash) const;
 
-    PMutex m_Mutex;
-    PConditionVariable m_ConditionVar;
+    PMutex              m_Mutex;
+    PConditionVariable  m_ConditionVar;
+
     std::map<int, CategoryDesc>	m_LogCategories;
     std::deque<LogEntry>        m_LogEntries;
 };
 
-
-#define DEFINE_KERNEL_LOG_CATEGORY(CATEGORY)   static constexpr uint32_t CATEGORY = PString::hash_string_literal(#CATEGORY, sizeof(#CATEGORY) - 1); static constexpr const char* CATEGORY##_Name = #CATEGORY
-#define GET_KERNEL_LOG_CATEGORY_NAME(CATEGORY) CATEGORY##_Name
-#define REGISTER_KERNEL_LOG_CATEGORY(CATEGORY, DISPLAY_NAME, INITIAL_LEVEL) KLogManager::Get().RegisterCategory(CATEGORY, #CATEGORY, DISPLAY_NAME, INITIAL_LEVEL)
-#define PREGISTER_LOG_CATEGORY(CATEGORY, DISPLAY_NAME, INITIAL_LEVEL) kernel::KLogManager::Get().RegisterCategory(CATEGORY, #CATEGORY, DISPLAY_NAME, INITIAL_LEVEL)
-
-DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_General);
-DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_VFS);
-DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_Drivers);
-DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache);
-DEFINE_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler);
-
-template<typename ...ARGS>
-void kernel_log(uint32_t category, PLogSeverity severity, std::format_string<ARGS...> fmt, ARGS&&... args)
-{
-    if (kernel::KLogManager::Get().IsCategoryActive(category, severity))
-    {
-        PString text = std::format(fmt, std::forward<ARGS>(args)...);
-        KLogManager::Get().AddLogMessage(category, severity, text);
-    }
-}
+void kadd_log_message(uint32_t category, PLogSeverity severity, const PString& message);
 
 } // namespace
 
-DEFINE_KERNEL_LOG_CATEGORY(LogCat_General);
-
-
-template<typename ...ARGS>
-void p_system_log(uint32_t category, PLogSeverity severity, std::format_string<ARGS...> fmt, ARGS&&... args)
-{
-    if (kernel::KLogManager::Get().IsCategoryActive(category, severity))
-    {
-        PString text = std::format(fmt, std::forward<ARGS>(args)...);
-        kernel::KLogManager::Get().AddLogMessage(category, severity, text);
-    }
-}
-
-template<typename ...ARGS>
-void p_system_vlog(uint32_t category, PLogSeverity severity, std::string_view fmt, ARGS&&... args)
-{
-    if (kernel::KLogManager::Get().IsCategoryActive(category, severity))
-    {
-        PString text = std::vformat(fmt, std::make_format_args(args...));
-        kernel::KLogManager::Get().AddLogMessage(category, severity, text);
-    }
-}

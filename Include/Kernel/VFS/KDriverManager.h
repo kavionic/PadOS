@@ -20,8 +20,8 @@
 #pragma once
 
 #include <Utils/JSON.h>
-#include <Utils/Logging.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/KLogging.h>
 
 struct KDriverParametersBase;
 
@@ -93,7 +93,7 @@ int kregister_device_driver_trw(const char* devicePath, T rootINode)
     { \
         PARAMETER_CLASS parametersData; \
         Pjson::parse(parameters).get_to(parametersData); \
-        kernel_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "Setup driver '{}'", PARAMETER_CLASS::DRIVER_NAME); \
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCatKernel_Drivers, "Setup driver '{}'", PARAMETER_CLASS::DRIVER_NAME); \
         Ptr<DRIVER_CLASS> driver = ptr_new<DRIVER_CLASS>(parametersData); \
         kregister_device_driver_trw(parametersData.DevicePath.c_str(), driver); \
         return true; \

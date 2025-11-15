@@ -50,7 +50,7 @@ public:
                 const PErrorCode result = device_control(dcInterface.GetDeviceFD(), handlerID, inData, inDataLength, outData, outDataLength);
                 if (result != PErrorCode::Success)
                 {
-                    p_system_log(LogCat_General, PLogSeverity::ERROR, "DeviceControlDefInvoker {}/{} failed: {}", dcInterface.GetDeviceFD(), handlerID, strerror(std::to_underlying(result)));
+                    p_system_log<PLogSeverity::ERROR>(LogCat_General, "DeviceControlDefInvoker {}/{} failed: {}", dcInterface.GetDeviceFD(), handlerID, strerror(std::to_underlying(result)));
                     PERROR_THROW_CODE(result);
                 }
             }

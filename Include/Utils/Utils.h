@@ -154,11 +154,11 @@ class ProfileTimer
             {
                 if (m_PrevLapTime == m_StartTime)
                 {
-                    p_system_log(LogCat_General, PLogSeverity::INFO_LOW_VOL, "Prof: {} ({:.3})", m_Title, time.AsSeconds() * 1000.0);
+                    p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCat_General, "Prof: {} ({:.3})", m_Title, time.AsSeconds() * 1000.0);
                 }
                 else
                 {
-                    p_system_log(LogCat_General, PLogSeverity::INFO_LOW_VOL, "Prof: {} ({:.3} / {:.3})", m_Title, lapTime.AsSeconds() * 1000.0, time.AsSeconds() * 1000.0);
+                    p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCat_General, "Prof: {} ({:.3} / {:.3})", m_Title, lapTime.AsSeconds() * 1000.0, time.AsSeconds() * 1000.0);
                 }
                 return true;
             }
@@ -175,7 +175,7 @@ class ProfileTimer
             {
                 const TimeValNanos lapTime = curTime - m_PrevLapTime;
                 m_PrevLapTime = curTime;
-                p_system_log(LogCat_General, PLogSeverity::INFO_LOW_VOL, "Prof: {} ({}) ({:.3f} / {:.3})", m_Title, text, lapTime.AsSeconds() * 1000.0, time.AsSeconds() * 1000.0);
+                p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCat_General, "Prof: {} ({}) ({:.3f} / {:.3})", m_Title, text, lapTime.AsSeconds() * 1000.0, time.AsSeconds() * 1000.0);
                 return true;
             }
         }

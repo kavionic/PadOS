@@ -599,7 +599,7 @@ void Region::Validate()
         for (const IRect& clip2 : m_Rects)
         {
             if (&clip1 != &clip2 && clip1.DoIntersect(clip2)) {
-                p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Region::Validate() CLIPS OVERLAP!!!");
+                p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Region::Validate() CLIPS OVERLAP!!!");
             }
         }
     }

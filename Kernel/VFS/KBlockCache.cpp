@@ -31,8 +31,8 @@
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KVFSManager.h>
 #include <Kernel/KThread.h>
+#include <Kernel/KLogging.h>
 #include <Utils/Utils.h>
-#include <Utils/Logging.h>
 #include <System/ExceptionHandling.h>
 
 using namespace os;
@@ -86,7 +86,7 @@ KBlockCache* KBlockCache::GetDeviceCache(int device)
     if (i != s_DeviceMap.end()) {
         return i->second;
     } else {
-        kernel_log(LogCatKernel_BlockCache, PLogSeverity::ERROR, "KBlockCache::GetDeviceCache() device {} not registered!", device);
+        kernel_log<PLogSeverity::ERROR>(LogCatKernel_BlockCache, "KBlockCache::GetDeviceCache() device {} not registered!", device);
         return nullptr;
     }
 }
@@ -103,12 +103,12 @@ bool KBlockCache::SetDevice(int device, off64_t blockCount, size_t blockSize)
         if (i != s_DeviceMap.end()) {
             s_DeviceMap.erase(i);
         } else {
-            kernel_log(LogCatKernel_BlockCache, PLogSeverity::ERROR, "KBlockCache::SetDevice() previous device {} not registered!", m_Device);
+            kernel_log<PLogSeverity::ERROR>(LogCatKernel_BlockCache, "KBlockCache::SetDevice() previous device {} not registered!", m_Device);
         }
         m_Device = -1;
     }
     if (s_DeviceMap.find(device) != s_DeviceMap.end()) {
-        kernel_log(LogCatKernel_BlockCache, PLogSeverity::ERROR, "KBlockCache::SetDevice() device {} already registered!", device);
+        kernel_log<PLogSeverity::ERROR>(LogCatKernel_BlockCache, "KBlockCache::SetDevice() device {} already registered!", device);
         return false;        
     }
     m_Device     = device;
@@ -229,7 +229,7 @@ KCacheBlockDesc KBlockCache::GetBlock_trw(off64_t blockNum, bool doLoad)
         }
         else
         {
-            kernel_log(LogCatKernel_BlockCache, PLogSeverity::ERROR, "KBlockCache::GetBlock() all cache blocks locked!");
+            kernel_log<PLogSeverity::ERROR>(LogCatKernel_BlockCache, "KBlockCache::GetBlock() all cache blocks locked!");
             PERROR_THROW_CODE(PErrorCode::TryAgain);
         }
         kassert(block != nullptr);
@@ -251,11 +251,11 @@ KCacheBlockDesc KBlockCache::GetBlock_trw(off64_t blockNum, bool doLoad)
         block->m_bufferNumber = bufferNum;
         m_BlockMap[bufferNum] = block;
                 
-//                kernel_log(LogCatKernel_BlockCache, PLogSeverity::ERROR, "Block {} read.", bufferNum);
+//                kernel_log<PLogSeverity::ERROR>(LogCatKernel_BlockCache, "Block {} read.", bufferNum);
                 
         return KCacheBlockDesc(block, blockOffset);
     }
-    kernel_log(LogCatKernel_BlockCache, PLogSeverity::ERROR, "KBlockCache::GetBlock() to many retries. All blocks stuck in busy state.");
+    kernel_log<PLogSeverity::ERROR>(LogCatKernel_BlockCache, "KBlockCache::GetBlock() to many retries. All blocks stuck in busy state.");
     PERROR_THROW_CODE(PErrorCode::TryAgain);
 }
 
@@ -302,7 +302,7 @@ void KBlockCache::CachedWrite_trw(off64_t blockNum, const void* buffer, size_t b
     for (size_t i = 0 ; i < blockCount ; ++i)
     {
         KCacheBlockDesc block = GetBlock_trw(blockNum + i, false);
-//            kernel_log(LogCatKernel_BlockCache, PLogSeverity::ERROR, "Block {} written", blockNum + i);
+//            kernel_log<PLogSeverity::ERROR>(LogCatKernel_BlockCache, "Block {} written", blockNum + i);
         memcpy(block.m_Buffer, reinterpret_cast<const uint8_t*>(buffer) + i * m_BlockSize, m_BlockSize);
         CRITICAL_SCOPE(s_Mutex);
         block.m_Block->SetDirty(true);
@@ -398,14 +398,14 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
 
             m_DirtyTime = kget_monotonic_time();
             if (KBlockCache::s_DirtyBlockCount == 1) {
-                kernel_log(LogCatKernel_BlockCache, PLogSeverity::INFO_HIGH_VOL, "Cache dirty.");
+                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "Cache dirty.");
             }
         }
         else
         {
             m_Flags |= BCF_DIRTY_PENDING;
         }
-        kernel_log(LogCatKernel_BlockCache, PLogSeverity::INFO_HIGH_VOL, "Block {} from device {} dirty.", m_bufferNumber, m_Device);
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "Block {} from device {} dirty.", m_bufferNumber, m_Device);
         if (KBlockCache::s_DirtyBlockCount >= BC_MIN_WAKEUP_COUNT) {
             KBlockCache::s_FlushingRequestConditionVar.WakeupAll();
         }
@@ -417,7 +417,7 @@ void KCacheBlockHeader::SetDirty(bool isDirty)
             m_Flags &= ~BCF_DIRTY;
             KBlockCache::s_DirtyBlockCount--;
             if (KBlockCache::s_DirtyBlockCount == 0) {
-                kernel_log(LogCatKernel_BlockCache, PLogSeverity::INFO_HIGH_VOL, "Cache clean.");
+                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "Cache clean.");
             }
         }
     }
@@ -487,13 +487,13 @@ void KCacheBlockDesc::Reset()
 
 bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t blockCount)
 {
-    kernel_log(LogCatKernel_BlockCache, PLogSeverity::INFO_HIGH_VOL, "KBlockCache::FlushBlockList() flushing {} blocks.", blockCount);
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "KBlockCache::FlushBlockList() flushing {} blocks.", blockCount);
 
     std::sort(blockList, blockList + blockCount, [](const KCacheBlockHeader* lhs, const KCacheBlockHeader* rhs) { return std::tie(lhs->m_Device, lhs->m_bufferNumber) < std::tie(rhs->m_Device, rhs->m_bufferNumber); });
 
     static iovec_t segments[BC_FLUSH_COUNT];
 
-//    kernel_log(LogCatKernel_BlockCache, PLogSeverity::INFO_HIGH_VOL, "Flush {} blocks.", blockCount);
+//    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "Flush {} blocks.", blockCount);
 
     TimeValNanos curTime = kget_monotonic_time();
 
@@ -506,7 +506,7 @@ bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t block
     {
 //        if (i < blockCount)
 //        {
-//            kernel_log(LogCatKernel_BlockCache, PLogSeverity::INFO_HIGH_VOL, "    {}", blockList[i]->m_bufferNumber);
+//            kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "    {}", blockList[i]->m_bufferNumber);
 //        }
 
         if (i < blockCount)
@@ -527,7 +527,7 @@ bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t block
                     blockList[j]->ClearDirtyPending();
                 }
 
-//                kernel_log(LogCatKernel_BlockCache, PLogSeverity::INFO_HIGH_VOL, "  {}:{}", blockList[start]->m_bufferNumber, segmentCount);
+//                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_BlockCache, "  {}:{}", blockList[start]->m_bufferNumber, segmentCount);
 
                 s_Mutex.Unlock();
                 try
@@ -537,7 +537,7 @@ bool KBlockCache::FlushBlockList_trw(KCacheBlockHeader** blockList, size_t block
                 }
                 PERROR_CATCH(([&blockList, &start, &segmentCount](PErrorCode error)
                     {
-                        kernel_log(LogCatKernel_BlockCache, PLogSeverity::CRITICAL, "Failed to flush block {}:{} from device {}", blockList[start]->m_bufferNumber, segmentCount, blockList[start]->m_Device);
+                        kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_BlockCache, "Failed to flush block {}:{} from device {}", blockList[start]->m_bufferNumber, segmentCount, blockList[start]->m_Device);
                     }
                 ));
                 s_Mutex.Lock();
@@ -617,7 +617,7 @@ void* KBlockCache::DiskCacheFlusher(void* arg)
                     s_FlushingRequestConditionVar.WaitTimeout(s_Mutex, FLUSH_PERIODE);
                 }
             }
-            PERROR_CATCH(([](PErrorCode error) { kernel_log(LogCatKernel_BlockCache, PLogSeverity::CRITICAL, "Exception caught during disk cache flushing."); }));
+            PERROR_CATCH(([](PErrorCode error) { kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_BlockCache, "Exception caught during disk cache flushing."); }));
         } CRITICAL_END;
     }
 }

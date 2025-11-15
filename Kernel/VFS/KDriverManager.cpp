@@ -56,13 +56,13 @@ void ksetup_device_driver_trw(const char* name, const char* parameters)
 {
     try
     {
-        kernel_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "Setting up driver '{}'.", name);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCatKernel_Drivers, "Setting up driver '{}'.", name);
         const KDriverDescriptor* descriptor = kget_driver_descriptor_trw(name);
         descriptor->Initialize(parameters);
     }
     PERROR_CATCH([name](PErrorCode error)
         {
-            kernel_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "Failed to setup driver '{}': {}", name, strerror(std::to_underlying(error)));
+            kernel_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "Failed to setup driver '{}': {}", name, strerror(std::to_underlying(error)));
             throw;
         }
     );

@@ -125,9 +125,9 @@ void FT5x0xDriver::PrintChipStatus()
         /*reg = FT5x0x_REG_##NAME;*/ \
         /*kwrite(m_I2CDevice, 0, &reg, 1);*/ \
         if (const PErrorCode result = kpread(m_I2CDevice, &reg, 1, FT5x0x_REG_##NAME); result != PErrorCode::Success) { \
-            p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, #NAME ": failed ({})", strerror(std::to_underlying(result))); \
+            p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, #NAME ": failed ({})", strerror(std::to_underlying(result))); \
         } else { \
-            p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, #NAME ": {}", reg); \
+            p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, #NAME ": {}", reg); \
         }
         
         PRINT_REG(G_ERR);
@@ -155,7 +155,7 @@ void FT5x0xDriver::PrintChipStatus()
                     log += '.';
                 }                
             }    
-            p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "Log: '{}'", log);
+            p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "Log: '{}'", log);
        }            
 }
 
@@ -203,7 +203,7 @@ void* FT5x0xDriver::Run()
                         mouseEvent.ButtonID  = MouseButton_e(int(MouseButton_e::FirstTouchID) + touchID);
                         mouseEvent.Position  = Point(position);
 
-//                        p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "Mouse event {}: {}/{}", eventID - MessageID::MOUSE_DOWN, position.x, position.y);
+//                        p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "Mouse event {}: {}/{}", eventID - MessageID::MOUSE_DOWN, position.x, position.y);
                         CRITICAL_BEGIN(m_Mutex)
                         {
                             for (auto file : m_OpenFiles)
@@ -214,7 +214,7 @@ void* FT5x0xDriver::Run()
                                         kmessage_port_send_trw(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
                                     }
                                     catch (const std::exception& exc) {
-                                        p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "FT5x0xDriver: failed to send event: {}", exc.what());
+                                        p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "FT5x0xDriver: failed to send event: {}", exc.what());
                                     }
                                 }
                             }
@@ -226,7 +226,7 @@ void* FT5x0xDriver::Run()
         }
         else
         {
-            p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "FT5x0xDriver::Run() read error. Resetting touch device.");
+            p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "FT5x0xDriver::Run() read error. Resetting touch device.");
             m_PinRESET.Write(false);
 			snooze_ms(5);
             m_PinRESET.Write(true);

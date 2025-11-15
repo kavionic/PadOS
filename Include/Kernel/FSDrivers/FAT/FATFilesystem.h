@@ -37,6 +37,11 @@ class FATINode;
 //#define FAT_VERIFY_FAT_CHAINS
 
 
+PDEFINE_LOG_CATEGORY(LogCat_FATFS, "FATFS", PLogSeverity::WARNING);
+PDEFINE_LOG_CATEGORY(LogCat_FATTABLE, "FATTBL", PLogSeverity::WARNING);
+PDEFINE_LOG_CATEGORY(LogCat_FATDIR, "FATDIR", PLogSeverity::WARNING);
+PDEFINE_LOG_CATEGORY(LogCat_FATFILE, "FATFIL", PLogSeverity::WARNING);
+
 struct FATNewDirEntryInfo
 {
     uint32_t    cluster;
@@ -48,12 +53,6 @@ struct FATNewDirEntryInfo
 
 class FATFilesystem : public KFilesystem, public KFilesystemFileOps
 {
-public:
-
-    DEFINE_KERNEL_LOG_CATEGORY(LOGC_FS);
-    DEFINE_KERNEL_LOG_CATEGORY(LOGC_FATTABLE);
-    DEFINE_KERNEL_LOG_CATEGORY(LOGC_DIR);
-    DEFINE_KERNEL_LOG_CATEGORY(LOGC_FILE);
 public:
     FATFilesystem();
     

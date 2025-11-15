@@ -23,17 +23,6 @@
 namespace kernel
 {
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void USB_Initialize()
-{
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryUSB,        "USB",  PLogSeverity::INFO_LOW_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryUSBDevice,  "USBD", PLogSeverity::WARNING);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryUSBHost,    "USBH", PLogSeverity::INFO_LOW_VOL);
-}
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

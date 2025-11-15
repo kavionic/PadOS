@@ -37,8 +37,7 @@
 namespace kernel
 {
 
-DEFINE_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver);
-
+PDEFINE_LOG_CATEGORY(LogCategoryI2CDriver, "I2CDRV", PLogSeverity::WARNING);
 
 PREGISTER_KERNEL_DRIVER(I2CDriverINode, I2CDriverParameters);
 
@@ -56,8 +55,6 @@ I2CDriverINode::I2CDriverINode(const I2CDriverParameters& parameters)
     , m_FallTime(parameters.FallTime)
     , m_RiseTime(parameters.RiseTime)
 {
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryI2CDriver, "I2CD", PLogSeverity::WARNING);
-
     m_State = State_e::Idle;
 
     m_Port = get_i2c_from_id(parameters.PortID);
@@ -233,7 +230,7 @@ size_t I2CDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length, of
     if (m_TransactionError != PErrorCode::Success)
     {
         ResetPeripheral();
-        kernel_log(LogCategoryI2CDriver, PLogSeverity::INFO_LOW_VOL, "I2CDriver::Read() request failed: {}", strerror(get_last_error()));
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryI2CDriver, "I2CDriver::Read() request failed: {}", strerror(get_last_error()));
         PERROR_THROW_CODE(m_TransactionError);
     }
     return m_CurPos;
@@ -320,7 +317,7 @@ size_t I2CDriverINode::Write(Ptr<KFileNode> file, const void* buffer, size_t len
     } CRITICAL_END;
     if (m_TransactionError != PErrorCode::Success)
     {
-        kernel_log(LogCategoryI2CDriver, PLogSeverity::INFO_LOW_VOL, "I2CDriver::Write() request failed: {}", strerror(get_last_error()));
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryI2CDriver, "I2CDriver::Write() request failed: {}", strerror(get_last_error()));
         PERROR_THROW_CODE(m_TransactionError);
     }
     return m_CurPos;
@@ -483,7 +480,7 @@ int I2CDriverINode::SetSpeed(I2CSpeed speed)
         }
     }
     if (minError == std::numeric_limits<uint32_t>::max()) {
-        kernel_log(LogCategoryI2CDriver, PLogSeverity::CRITICAL, "ERROR: I2C failed to set baudrate!");
+        kernel_log<PLogSeverity::CRITICAL>(LogCategoryI2CDriver, "ERROR: I2C failed to set baudrate!");
         return -1;
     }
 //  m_Port->TIMINGR = 0x00b03fdb;

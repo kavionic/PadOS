@@ -43,7 +43,7 @@ using namespace os;
 namespace kernel
 {
 
-DEFINE_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver);
+PDEFINE_LOG_CATEGORY(LogCategoryTLV493DDriver, "TLV493D", PLogSeverity::ERROR);
 
 
 PREGISTER_KERNEL_DRIVER(TLV493DDriver, TLV493DDriverParameters);
@@ -56,8 +56,6 @@ TLV493DDriver::TLV493DDriver(const TLV493DDriverParameters& parameters)
     : KINode(nullptr, nullptr, this, false)
     , KThread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex", PEMutexRecursionMode_RaiseError), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
 {
-    REGISTER_KERNEL_LOG_CATEGORY(LogCategoryTLV493DDriver, "TLV493D", PLogSeverity::ERROR);
-
     m_Config.frame_rate = 10;
     m_Config.temparature_scale = 1.0f;
     m_Config.temperature_offset = 0.0f;
@@ -97,7 +95,7 @@ void TLV493DDriver::ResetSensor()
 {
     for (;;)
     {
-//      kernel_log(LogCategoryTLV493DDriver, PLogSeverity::ERROR, "Resetting TLV493D.");
+//      kernel_log<PLogSeverity::ERROR>(LogCategoryTLV493DDriver, "Resetting TLV493D.");
 
         if (m_PowerPin.IsValid())
         {
@@ -126,10 +124,10 @@ void TLV493DDriver::ResetSensor()
         errorCount = 0;
         size_t bytesRead;
         while ((kpread(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters), 0, bytesRead) != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters)) && errorCount++ < 5) {
-            kernel_log(LogCategoryTLV493DDriver, PLogSeverity::ERROR, "Failed to read initial TLV493D registers!");
+            kernel_log<PLogSeverity::ERROR>(LogCategoryTLV493DDriver, "Failed to read initial TLV493D registers!");
             snooze_ms(10);
         }
-//      kernel_log(LogCategoryTLV493DDriver, PLogSeverity::ERROR, "TLV493DDriver: initial registers read.");
+//      kernel_log<PLogSeverity::ERROR>(LogCategoryTLV493DDriver, "TLV493DDriver: initial registers read.");
 
         m_WriteRegisters.Reserved1 = 0;
         m_WriteRegisters.Mode1 = m_ReadRegisters.DefaultCfg1;
@@ -148,13 +146,13 @@ void TLV493DDriver::ResetSensor()
         }
         if (errorCount == 5)
         {
-            kernel_log(LogCategoryTLV493DDriver, PLogSeverity::ERROR, "Error: Failed to write TLV493D config registers!");
+            kernel_log<PLogSeverity::ERROR>(LogCategoryTLV493DDriver, "Error: Failed to write TLV493D config registers!");
             snooze(TimeValNanos::FromSeconds(1.0));
             continue;
         }/* else if (errorCount > 0) {
-            kernel_log(LogCategoryTLV493DDriver, PLogSeverity::ERROR, "TLV493DDriver: config written ({} retries).", errorCount);
+            kernel_log<PLogSeverity::ERROR>(LogCategoryTLV493DDriver, "TLV493DDriver: config written ({} retries).", errorCount);
         } else {
-            kernel_log(LogCategoryTLV493DDriver, PLogSeverity::INFO_LOW_VOL, "TLV493DDriver: config written.");
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryTLV493DDriver, "TLV493DDriver: config written.");
         }*/
 
         kpread(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters), 0, bytesRead); // Trigger first conversion
@@ -168,7 +166,7 @@ void TLV493DDriver::ResetSensor()
 
 void* TLV493DDriver::Run()
 {
-    kernel_log(LogCategoryTLV493DDriver, PLogSeverity::INFO_LOW_VOL, "TLV493DDriver: Resetting sensor.");
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryTLV493DDriver, "TLV493DDriver: Resetting sensor.");
 
     I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 0);
 
@@ -177,7 +175,7 @@ void* TLV493DDriver::Run()
     size_t bytesRead;
     const PErrorCode result = kpread(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters) - 3, 0, bytesRead);
     if (result != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters) - 3) {
-        kernel_log(LogCategoryTLV493DDriver, PLogSeverity::ERROR, "Failed to read initial TLV493D registers! {} ({})", std::to_underlying(result), strerror(std::to_underlying(result)));
+        kernel_log<PLogSeverity::ERROR>(LogCategoryTLV493DDriver, "Failed to read initial TLV493D registers! {} ({})", std::to_underlying(result), strerror(std::to_underlying(result)));
     }
 
     int errorCount = 0;
@@ -189,7 +187,7 @@ void* TLV493DDriver::Run()
         m_NewConfigCondition.WaitDeadline(m_Mutex, m_LastUpdateTime + m_PeriodTime);
 
         if (errorCount >= 3) {
-//          kernel_log(LogCategoryTLV493DDriver, PLogSeverity::ERROR, "TLV493D to many errors. Reset sensor.");
+//          kernel_log<PLogSeverity::ERROR>(LogCategoryTLV493DDriver, "TLV493D to many errors. Reset sensor.");
             ResetSensor();
             errorCount = 0;
         }
@@ -210,13 +208,13 @@ void* TLV493DDriver::Run()
         PErrorCode result = kpread(m_I2CDevice, &m_ReadRegisters, sizeof(m_ReadRegisters) - 3, 0, bytesRead);
         if (result != PErrorCode::Success || bytesRead != sizeof(m_ReadRegisters) - 3) {
             errorCount++;
-            kernel_log(LogCategoryTLV493DDriver, PLogSeverity::ERROR, "Failed to read TLV493D registers! {} ({})", std::to_underlying(result), strerror(std::to_underlying(result)));
+            kernel_log<PLogSeverity::ERROR>(LogCategoryTLV493DDriver, "Failed to read TLV493D registers! {} ({})", std::to_underlying(result), strerror(std::to_underlying(result)));
             continue;
         }
         if ((m_ReadRegisters.TempHFrmCh & TLV493D_FRAME) == lastFrame) {
             errorCount++;
 //          if (errorCount > 1) {
-//              kernel_log(LogCategoryTLV493DDriver, PLogSeverity::ERROR, "TLV493D frame counter didn't advance {}.", errorCount);
+//              kernel_log<PLogSeverity::ERROR>(LogCategoryTLV493DDriver, "TLV493D frame counter didn't advance {}.", errorCount);
 //          }
             continue;
         }

@@ -32,7 +32,7 @@
 namespace os
 {
 
-DEFINE_KERNEL_LOG_CATEGORY(LogCategoryAppServer);
+PDEFINE_LOG_CATEGORY(LogCategoryAppServer, "APPSERV", PLogSeverity::INFO_HIGH_VOL);
 
 class ServerView;
 class DisplayDriver;

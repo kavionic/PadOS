@@ -244,7 +244,7 @@ void ViewBase<ViewType>::LinkChild(Ptr<ViewType> child, size_t index)
 	}
     else
 	{
-        p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Attempt to add a view already belonging to a window.");
+        p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Attempt to add a view already belonging to a window.");
 	}
 }
 
@@ -266,7 +266,7 @@ Ptr<ViewType> ViewBase<ViewType>::UnlinkChild(typename  ChildList_t::iterator it
     }
     else
     {
-        p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Attempt to remove a view not belonging to this window.");
+        p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Attempt to remove a view not belonging to this window.");
     }
     return child;
 }
@@ -284,12 +284,12 @@ void ViewBase<ViewType>::UnlinkChild(Ptr<ViewType> child)
 		if (i != m_ChildrenList.end()) {
             UnlinkChild(i);
 		} else {
-            p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "ViewBase::UnlinkChildren() failed to find view in children list.");
+            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "ViewBase::UnlinkChildren() failed to find view in children list.");
 		}
 	}
     else
 	{
-        p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Attempt to remove a view not belonging to this window.");
+        p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Attempt to remove a view not belonging to this window.");
 	}
 }
 

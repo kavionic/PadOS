@@ -123,12 +123,12 @@ void* Thread::ThreadEntry(void* data)
     }
     catch(const std::exception& e)
     {
-        p_system_log(kernel::LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in thread {}: {}", self->GetName(), e.what());
+        p_system_log<PLogSeverity::FATAL>(LogCat_Threads, "Uncaught exception in thread {}: {}", self->GetName(), e.what());
         self->Exit(nullptr);
     }
     catch (...)
     {
-        p_system_log(kernel::LogCatKernel_Scheduler, PLogSeverity::FATAL, "Uncaught exception in thread {}: unknown", self->GetName());
+        p_system_log<PLogSeverity::FATAL>(LogCat_Threads, "Uncaught exception in thread {}: unknown", self->GetName());
         self->Exit(nullptr);
     }
     return nullptr;

@@ -269,7 +269,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
                 }
                 else
                 {
-                    kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver_STM32::StartAddressedDataTransCmd() called with unaligned buffer or size larger than 512 bytes.");
+                    kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() called with unaligned buffer or size larger than 512 bytes.");
                     set_last_error(EINVAL);
                     return false;
                 }
@@ -284,7 +284,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
             {
                 if ((intptr_t(segments[i].iov_base) & DCACHE_LINE_SIZE_MASK) != 0)
                 {
-                    kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment write with unaligned buffer.");
+                    kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment write with unaligned buffer.");
                     set_last_error(EINVAL);
                     return false;
                 }
@@ -297,7 +297,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
             {
                 if ((intptr_t(segments[i].iov_base) & DCACHE_LINE_SIZE_MASK) != 0)
                 {
-                    kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment write with unaligned buffer.");
+                    kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment write with unaligned buffer.");
                     set_last_error(EINVAL);
                     return false;
                 }
@@ -321,7 +321,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
             dataControl |= 3 << SDMMC_DCTRL_DTMODE_Pos; // Block data transfer ending with STOP_TRANSMISSION command (not to be used with DTEN initiated data transfers).
             //dataControl |= 0 << SDMMC_DCTRL_DTMODE_Pos; // Block data transfer ending with STOP_TRANSMISSION command (not to be used with DTEN initiated data transfers).
         } else {
-            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "StartAddressedDataTransCmd() invalid command flags: {:x}", cmd);
+            kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "StartAddressedDataTransCmd() invalid command flags: {:x}", cmd);
             return false;
         }
     }
@@ -359,18 +359,18 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
             if (kget_monotonic_time() - startTime > TimeValNanos::FromMilliseconds(500))
             {
                 result = false;
-                kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver_STM32::StartAddressedDataTransCmd() could only read {} of {} blocks.", static_cast<std::remove_volatile_t<decltype(m_CurrentSegment)>>(m_CurrentSegment), m_SegmentCount);
+                kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() could only read {} of {} blocks.", static_cast<std::remove_volatile_t<decltype(m_CurrentSegment)>>(m_CurrentSegment), m_SegmentCount);
                 break;
             }
         } while (m_CurrentSegment != m_SegmentCount);
     } else {
-        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver_STM32::StartAddressedDataTransCmd() Failed to start cmd {}:{} ({})", arg, m_SegmentCount, int(m_WakeupReason));
+        kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() Failed to start cmd {}:{} ({})", arg, m_SegmentCount, int(m_WakeupReason));
     }
     m_SDMMC->IDMACTRL = 0;
 //    m_SDMMC->CLKCR &= ~SDMMC_CLKCR_HWFC_EN; // Hardware flow-control disabled.
 
     if (m_CurrentSegment != m_SegmentCount) {
-        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver_STM32::StartAddressedDataTransCmd() Only {} of {} blocks where transfered at {} ({})", static_cast<std::remove_volatile_t<decltype(m_CurrentSegment)>>(m_CurrentSegment), m_SegmentCount, arg, int(m_WakeupReason));
+        kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() Only {} of {} blocks where transfered at {} ({})", static_cast<std::remove_volatile_t<decltype(m_CurrentSegment)>>(m_CurrentSegment), m_SegmentCount, arg, int(m_WakeupReason));
         result = false;
     }
 
@@ -389,7 +389,7 @@ bool SDMMCDriver_STM32::StartAddressedDataTransCmd(uint32_t cmd, uint32_t arg, u
                 {
                     if ((intptr_t(segments[i].iov_base) & DCACHE_LINE_SIZE_MASK) != 0)
                     {
-                        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment read with unaligned buffer.");
+                        kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver_STM32::StartAddressedDataTransCmd() multi segment read with unaligned buffer.");
                         set_last_error(EINVAL);
                         return false;
                     }
@@ -435,7 +435,7 @@ void SDMMCDriver_STM32::ApplySpeedAndBusWidth()
         case 4: CLKCR |= 1 << SDMMC_CLKCR_WIDBUS_Pos; break;
         case 8: CLKCR |= 2 << SDMMC_CLKCR_WIDBUS_Pos; break;
         default:
-            kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "SDMMCDriver invalid bus width ({}) using 1-bit.", m_BusWidth);
+            kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver invalid bus width ({}) using 1-bit.", m_BusWidth);
             break;
     }
     m_SDMMC->CLKCR = CLKCR;
@@ -510,7 +510,7 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
     if (status & errorFlags)
     {
         set_last_error(EIO);
-        kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "{}: ERROR already flagged: {:x}", __PRETTY_FUNCTION__, status);
+        kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "{}: ERROR already flagged: {:x}", __PRETTY_FUNCTION__, status);
         return false;
     }
     if (status & flags) {
@@ -539,13 +539,13 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
         if (m_IOError != ~0L)
         {
             if (m_IOError & SDMMC_STA_CTIMEOUT) {
-                kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "{}: ERROR SDMMC_STA_CTIMEOUT", __PRETTY_FUNCTION__);
+                kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "{}: ERROR SDMMC_STA_CTIMEOUT", __PRETTY_FUNCTION__);
             }
             if (m_IOError & SDMMC_STA_DTIMEOUT) {
-                kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "{}: ERROR SDMMC_STA_DTIMEOUT", __PRETTY_FUNCTION__);
+                kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "{}: ERROR SDMMC_STA_DTIMEOUT", __PRETTY_FUNCTION__);
             }
             if (m_IOError & SDMMC_STA_CCRCFAIL) {
-                kernel_log(LogCategorySDMMCDriver, PLogSeverity::ERROR, "{}: ERROR SDMMC_STA_CCRCFAIL", __PRETTY_FUNCTION__);
+                kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "{}: ERROR SDMMC_STA_CCRCFAIL", __PRETTY_FUNCTION__);
             }
             set_last_error(EIO);
         }

@@ -22,6 +22,7 @@
 #include <Kernel/Misc.h>
 #include <Kernel/KNamedObject.h>
 #include <Kernel/KAddressValidation.h>
+#include <Kernel/Logging/LogManager.h>
 
 namespace kernel
 {
@@ -152,6 +153,12 @@ PErrorCode sys_read_backup_register(size_t registerID, uint32_t* outValue)
 PErrorCode sys_beep_seconds(float duration)
 {
     kbeep_seconds(duration);
+    return PErrorCode::Success;
+}
+
+PErrorCode sys_add_system_log_message(uint32_t category, PLogSeverity severity, const char* message)
+{
+    kadd_log_message(category, severity, message);
     return PErrorCode::Success;
 }
 

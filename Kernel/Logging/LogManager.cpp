@@ -65,7 +65,7 @@ void* KLogManager::Run()
                 m_LogEntries.pop_front();
                 continue;
             }
-            const PString text = std::format("[{:<8}: {:<7}]: {}\n", GetCategoryDisplayName_pl(entry.CategoryHash), GetLogSeverityName(entry.Severity), entry.Message);
+            const PString text = std::format("[{:<8}: {:<7.7}]: {}\n", GetCategoryDisplayName_pl(entry.CategoryHash), GetLogSeverityName(entry.Severity), entry.Message);
             m_LogEntries.pop_front();
 
             SerialProtocol::LogMessage header;
@@ -144,7 +144,7 @@ bool KLogManager::IsCategoryActive_pl(uint32_t categoryHash, PLogSeverity logLev
 {
     kassert(m_Mutex.IsLocked());
     const CategoryDesc& desc = GetCategoryDesc(categoryHash);
-    return logLevel >= desc.MinSeverity;
+    return logLevel <= desc.MinSeverity;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -153,17 +153,7 @@ bool KLogManager::IsCategoryActive_pl(uint32_t categoryHash, PLogSeverity logLev
 
 const char* KLogManager::GetLogSeverityName(PLogSeverity logLevel)
 {
-    switch(logLevel)
-    {
-        case PLogSeverity::INFO_HIGH_VOL:   return "INFO_HI";
-        case PLogSeverity::INFO_LOW_VOL:    return "INFO_LO";
-        case PLogSeverity::WARNING:         return "WARNING";
-        case PLogSeverity::CRITICAL:        return "CRITICAL";
-        case PLogSeverity::ERROR:           return "ERROR";
-        case PLogSeverity::FATAL:           return "FATAL";
-        case PLogSeverity::NONE:            return "NONE";
-    }
-    return "UNKNOWN";
+    return PLogSeverity_names[logLevel];
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -247,6 +237,11 @@ const KLogManager::CategoryDesc& KLogManager::GetCategoryDesc(uint32_t categoryH
         static CategoryDesc unknownDesc(PLogSeverity::NONE, "*invalid*", "*invalid*");
         return unknownDesc;
     }
+}
+
+void kadd_log_message(uint32_t category, PLogSeverity severity, const PString& message)
+{
+    kernel::KLogManager::Get().AddLogMessage(category, severity, message);
 }
 
 } // namespace kernel

@@ -26,7 +26,7 @@
 
 namespace os
 {
-DEFINE_KERNEL_LOG_CATEGORY(LogCategoryGUITK);
+PDEFINE_LOG_CATEGORY(LogCategoryGUITK, "GUITK", PLogSeverity::WARNING);
 
 
 ///////////////////////////////////////////////////////////////////////////////

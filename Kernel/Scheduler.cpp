@@ -24,7 +24,6 @@
 #include <vector>
 #include <map>
 
-#include <Utils/Logging.h>
 #include <Kernel/KTime.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/HAL/DigitalPort.h>
@@ -38,6 +37,7 @@
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/ThreadSyncDebugTracker.h>
 #include <Kernel/Syscalls.h>
+#include <Kernel/KLogging.h>
 #include <Ptr/NoPtr.h>
 
 using namespace os;
@@ -628,13 +628,6 @@ static void* init_thread_entry(void* arguments)
 
     KThreadCB* thread = gk_CurrentThread;
 
-    REGISTER_KERNEL_LOG_CATEGORY(LogCat_General,            "GEN",      PLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_General,      "KGEN",     PLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_VFS,          "VFS",      PLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Drivers,      "DRIVRS",   PLogSeverity::INFO_HIGH_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_BlockCache,   "BCACHE",   PLogSeverity::INFO_LOW_VOL);
-    REGISTER_KERNEL_LOG_CATEGORY(LogCatKernel_Scheduler,    "SCHED",    PLogSeverity::INFO_HIGH_VOL);
-
     ksetup_rootfs_trw();
 
     // To avoid any special cases in the first context switch we allow the
@@ -669,7 +662,7 @@ static void* init_thread_entry(void* arguments)
             }
             catch(const std::exception& exc)
             {
-                kernel_log(LogCatKernel_Scheduler, PLogSeverity::CRITICAL, "{}: failed to free zombie thread handle: {}", __PRETTY_FUNCTION__, exc.what());
+                kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_Scheduler, "{}: failed to free zombie thread handle: {}", __PRETTY_FUNCTION__, exc.what());
             }
         }
         CRITICAL_BEGIN(CRITICAL_IRQ)

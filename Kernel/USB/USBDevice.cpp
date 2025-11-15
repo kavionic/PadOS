@@ -18,6 +18,7 @@
 // Created: 27.05.2022 18:00
 
 #include <string.h>
+#include <Kernel/KLogging.h>
 #include <Kernel/USB/USBCommon.h>
 #include <Kernel/USB/USBDevice.h>
 #include <Kernel/USB/USBDriver.h>
@@ -72,17 +73,17 @@ void* USBDevice::Run()
         switch (event.EventID)
         {
             case USBDeviceEventID::BusReset:
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "BusReset. Speed: {}.", USB_GetSpeedName(event.BusReset.speed));
+                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "BusReset. Speed: {}.", USB_GetSpeedName(event.BusReset.speed));
                 BusReset();
                 m_SelectedSpeed = event.BusReset.speed;
                 break;
             case USBDeviceEventID::SessionEnded:
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "SessionEnded.");
+                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "SessionEnded.");
                 BusReset();
                 break;
             case USBDeviceEventID::ControlRequestReceived:
             {
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_HIGH_VOL, "ControlRequestReceived.");
+                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "ControlRequestReceived.");
 
                 SetIsConnected(true);
 
@@ -96,7 +97,7 @@ void* USBDevice::Run()
 
                 if (!HandleControlRequest(event.ControlRequestReceived.Request))
                 {
-                    kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "ControlRequestReceived, Stall endpoint0.");
+                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "ControlRequestReceived, Stall endpoint0.");
                     // Stall control endpoints on failure.
                     m_Driver->EndpointStall(USB_MK_OUT_ADDRESS(0));
                     m_Driver->EndpointStall(USB_MK_IN_ADDRESS(0));
@@ -107,7 +108,7 @@ void* USBDevice::Run()
             {
                 const uint8_t endpointAddr = event.TransferComplete.EndpointAddr;
 
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_HIGH_VOL, "TransferComplete on endpoint {:02x} with {} bytes.", endpointAddr, event.TransferComplete.Length);
+                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "TransferComplete on endpoint {:02x} with {} bytes.", endpointAddr, event.TransferComplete.Length);
 
                 USBEndpointState& endpoint = GetEndpoint(endpointAddr);
                 endpoint.Busy    = false;
@@ -122,12 +123,12 @@ void* USBDevice::Run()
                     Ptr<USBClassDriverDevice> driver = GetEndpointDriver(endpointAddr);
                     if (driver != nullptr)
                     {
-                        kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_HIGH_VOL, "TransferComplete, call '{}' HandleDataTransfer().", driver->GetName());
+                        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "TransferComplete, call '{}' HandleDataTransfer().", driver->GetName());
                         driver->HandleDataTransfer(endpointAddr, event.TransferComplete.Result, event.TransferComplete.Length);
                     }
                     else
                     {
-                        kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "TransferComplete, no driver for endpoint {:02x}.", endpointAddr);
+                        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "TransferComplete, no driver for endpoint {:02x}.", endpointAddr);
                     }
                 }
                 break;
@@ -135,19 +136,19 @@ void* USBDevice::Run()
             case USBDeviceEventID::Suspend:
                 if (m_IsConnected)
                 {
-                    kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Suspend (Remote Wakeup is {}).", (m_RemoteWakeupEnabled) ? "enabled" : "disabled");
+                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Suspend (Remote Wakeup is {}).", (m_RemoteWakeupEnabled) ? "enabled" : "disabled");
                     SetIsSuspended(true);
                 }
                 break;
             case USBDeviceEventID::Resume:
                 if (m_IsConnected)
                 {
-                    kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Resume.");
+                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Resume.");
                     SetIsSuspended(false);
                 }
                 break;
             case USBDeviceEventID::StartOfFrame:
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_HIGH_VOL, "StartOfFrame.");
+                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "StartOfFrame.");
 
                 if (m_IsSuspended) {
                     SetIsSuspended(false);
@@ -157,7 +158,7 @@ void* USBDevice::Run()
                 }
                 break;
             default:
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "Unknown event {}.", int(event.EventID));
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Unknown event {}.", int(event.EventID));
                 break;
         }
     }
@@ -542,7 +543,7 @@ void USBDevice::EndpointSetStall(uint8_t endpointAddr)
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
     if (!endpoint.Stalled)
     {
-        kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Stall endpoint {:02x}.", endpointAddr);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Stall endpoint {:02x}.", endpointAddr);
         m_Driver->EndpointStall(endpointAddr);
         endpoint.Stalled = true;
         endpoint.Busy = true;
@@ -561,7 +562,7 @@ void USBDevice::EndpointClearStall(uint8_t endpointAddr)
 
     if (endpoint.Stalled)
     {
-        kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Clear stall on endpoint {:02x}.", endpointAddr);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Clear stall on endpoint {:02x}.", endpointAddr);
         m_Driver->EndpointClearStall(endpointAddr);
         endpoint.Stalled = false;
         endpoint.Busy = false;
@@ -588,12 +589,12 @@ bool USBDevice::EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t l
 {
     kassert(m_Mutex.IsLocked());
 
-    kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_HIGH_VOL, "USBDevice::EndpointTransfer() transfer {} bytes on endpoint {:02x}.", length, endpointAddr);
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "USBDevice::EndpointTransfer() transfer {} bytes on endpoint {:02x}.", length, endpointAddr);
 
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
 
     if (endpoint.Busy) {
-        kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBDevice::EndpointTransfer() endpoint {:02x} is busy.", endpointAddr);
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBDevice::EndpointTransfer() endpoint {:02x} is busy.", endpointAddr);
         return false;
     }
     endpoint.Busy = true;
@@ -606,7 +607,7 @@ bool USBDevice::EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t l
     {
         endpoint.Busy    = false;
         endpoint.Claimed = false;
-        kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBDevice::EndpointTransfer() failed.");
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBDevice::EndpointTransfer() failed.");
         return false;
     }
 }
@@ -727,7 +728,7 @@ bool USBDevice::HandleControlRequest(const USB_ControlRequest& request)
             case USB_RequestRecipient::INTERFACE:   return HandleInterfaceControlRequest(request);
             case USB_RequestRecipient::ENDPOINT:    return HandleEndpointControlRequest(request);
             default:
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBDevice::HandleControlRequest(): Unknown recipient {}.", int(recipient));
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBDevice::HandleControlRequest(): Unknown recipient {}.", int(recipient));
                 return false;
         }
     }
@@ -800,7 +801,7 @@ bool USBDevice::HandleDeviceControlRequests(const USB_ControlRequest& request)
             case USB_RequestCode::SET_FEATURE:
                 if (USB_RequestFeatureSelector(request.wValue) == USB_RequestFeatureSelector::DEVICE_REMOTE_WAKEUP)
                 {
-                    kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Enable remote wakeup.");
+                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Enable remote wakeup.");
                     // Host may enable remote wake up before suspending.
                     m_RemoteWakeupEnabled = true;
                     m_ControlTransfer.SendControlStatusReply(request);
@@ -813,7 +814,7 @@ bool USBDevice::HandleDeviceControlRequests(const USB_ControlRequest& request)
             case USB_RequestCode::CLEAR_FEATURE:
                 if (USB_RequestFeatureSelector(request.wValue) == USB_RequestFeatureSelector::DEVICE_REMOTE_WAKEUP)
                 {
-                    kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Disable remote wakeup.");
+                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Disable remote wakeup.");
 
                     // Host may disable remote wake up after resuming.
                     m_RemoteWakeupEnabled = false;
@@ -836,13 +837,13 @@ bool USBDevice::HandleDeviceControlRequests(const USB_ControlRequest& request)
                 break;
             }
             default:
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBDevice::HandleDeviceControlRequest(): Unknown control request {}.", int(requestCode));
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBDevice::HandleDeviceControlRequest(): Unknown control request {}.", int(requestCode));
                 return false;
         }
     }
     else
     {
-        kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBDevice::HandleDeviceControlRequest(): unsupported device request {}.", int(requestType));
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBDevice::HandleDeviceControlRequest(): unsupported device request {}.", int(requestType));
         return false;
     }
     return true;
@@ -956,7 +957,7 @@ bool USBDevice::HandleEndpointControlRequest(const USB_ControlRequest& request)
                 break;
             }
             default:
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBDevice::HandleControlRequest(): Unknown endpoint request {}.", int(requestCode));
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBDevice::HandleControlRequest(): Unknown endpoint request {}.", int(requestCode));
                 return false;
         }
     }
@@ -1011,7 +1012,7 @@ bool USBDevice::HandleSelectConfiguration(uint8_t configNum)
             }
             desc = nextDesc;
 
-            kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "'{}' opened.", driver->GetName());
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "'{}' opened.", driver->GetName());
 
             if (associatedInterfaceCount == 0)
             {
@@ -1024,7 +1025,7 @@ bool USBDevice::HandleSelectConfiguration(uint8_t configNum)
 
                 if (m_InterfaceToDriverMap.find(interfaceNum) != m_InterfaceToDriverMap.end())
                 {
-                    kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBDevice::HandleSelectConfiguration() interface {} already mapped to '{}'.", interfaceNum, m_InterfaceToDriverMap[interfaceNum]->GetName());
+                    kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBDevice::HandleSelectConfiguration() interface {} already mapped to '{}'.", interfaceNum, m_InterfaceToDriverMap[interfaceNum]->GetName());
                     return false;
                 }
                 m_InterfaceToDriverMap[interfaceNum] = driver;
@@ -1044,7 +1045,7 @@ bool USBDevice::HandleSelectConfiguration(uint8_t configNum)
                     {
                         if (driverIt->second != driver)
                         {
-                            kernel_log(LogCategoryUSBDevice, PLogSeverity::ERROR, "USBDevice::HandleSelectConfiguration() endpoint {:02x} already mapped to '{}'. Can't map to '{}'.", endpointAddr, driverIt->second->GetName(), driver->GetName());
+                            kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "USBDevice::HandleSelectConfiguration() endpoint {:02x} already mapped to '{}'. Can't map to '{}'.", endpointAddr, driverIt->second->GetName(), driver->GetName());
                             return false;
                         }
                     }
@@ -1076,7 +1077,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
     switch (descType)
     {
         case USB_DescriptorType::DEVICE:
-            kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Get descriptor DEVICE.");
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor DEVICE.");
 
             if (m_DeviceDescriptor.bcdDevice == 0) {
                 return false;
@@ -1096,7 +1097,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
             }
         case USB_DescriptorType::BOS:
         {
-            kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Get descriptor BOS.");
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor BOS.");
             const USB_DescBOS* desc = GetBOSDescriptor();
             if (desc != nullptr) {
                 return m_ControlTransfer.SendControlDataReply(request, const_cast<USB_DescBOS*>(desc), LittleEndianToHost(desc->wTotalLength));
@@ -1107,7 +1108,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
         case USB_DescriptorType::OTHER_SPEED_CONFIGURATION:
         {
             const USB_DescConfiguration* desc = (descType == USB_DescriptorType::CONFIGURATION) ? GetConfigDescriptor(descIndex) : GetOtherConfigDescriptor(descIndex);
-            kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Get descriptor {}[{}].", ((descType == USB_DescriptorType::CONFIGURATION) ? "CONFIGURATION" : "OTHER_SPEED_CONFIG"), descIndex);
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor {}[{}].", ((descType == USB_DescriptorType::CONFIGURATION) ? "CONFIGURATION" : "OTHER_SPEED_CONFIG"), descIndex);
             if (desc != nullptr) {
                 return m_ControlTransfer.SendControlDataReply(request, const_cast<USB_DescConfiguration*>(desc), LittleEndianToHost(desc->wTotalLength));
             }
@@ -1116,7 +1117,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
         case USB_DescriptorType::STRING:
             if (descIndex == 0)
             {
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Get descriptor STRING[0].");
+                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor STRING[0].");
                 std::vector<uint16_t> languages;
                 languages.resize(1);
                 for (auto i : m_StringDescriptors)
@@ -1134,7 +1135,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
             else
             {
                 USB_LanguageID languageCode = USB_LanguageID(LittleEndianToHost(request.wIndex));
-                kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Get descriptor STRING[{:04x}][{}].\n", int(languageCode), descIndex);
+                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor STRING[{:04x}][{}].\n", int(languageCode), descIndex);
 
                 auto languageIter = m_StringDescriptors.find(languageCode);
                 if (languageIter == m_StringDescriptors.end()) {
@@ -1153,13 +1154,13 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
                 return false;
             }
         case USB_DescriptorType::DEVICE_QUALIFIER:
-            kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Get descriptor DEVICE_QUALIFIER.");
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor DEVICE_QUALIFIER.");
             if (m_DeviceQualifier.bcdUSB != 0) { // We use this to detect if a qualifier has been specified.
                 return m_ControlTransfer.SendControlDataReply(request, &m_DeviceQualifier, m_DeviceQualifier.bLength);
             }
             return false;
         default:
-            kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Get unknown descriptor {}.", int(descType));
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get unknown descriptor {}.", int(descType));
             return false;
     }
 }
@@ -1173,7 +1174,7 @@ bool USBDevice::InvokeClassDriverControlTransfer(Ptr<USBClassDriverDevice> drive
     kassert(m_Mutex.IsLocked());
 
     m_ControlTransfer.SetControlTransferHandler(ControlTransferHandler::ClassDriver, driver);
-    kernel_log(LogCategoryUSBDevice, PLogSeverity::INFO_LOW_VOL, "Class {} handle control transfer setup.", driver->GetName());
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Class {} handle control transfer setup.", driver->GetName());
     if (!driver->HandleControlTransfer(USB_ControlStage::SETUP, request))
     {
         m_ControlTransfer.SetControlTransferHandler(ControlTransferHandler::None);

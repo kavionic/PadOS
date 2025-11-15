@@ -123,7 +123,7 @@ private:
                 Reset();
                 spinCount = 0;
 
-                p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "Resetting video chip.");
+                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "Resetting video chip.");
             }
         }
 
@@ -131,7 +131,7 @@ private:
         if (spinCount > maxSpinCount)
         {
             maxSpinCount = spinCount;
-            p_system_log(LogCategoryAppServer, PLogSeverity::ERROR, "SC: {}", maxSpinCount);
+            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "SC: {}", maxSpinCount);
         }
     }
 

@@ -59,7 +59,7 @@ struct ChannelInfoUpdate;
 
 }
 
-DEFINE_KERNEL_LOG_CATEGORY(LogCategorySerialHandler);
+PDEFINE_LOG_CATEGORY(LogCategorySerialHandler, "SCMDH", PLogSeverity::WARNING);
 
 class PacketHandlerBase
 {

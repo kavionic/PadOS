@@ -36,7 +36,7 @@
 
 #include "SDMMCProtocol.h"
 
-DEFINE_KERNEL_LOG_CATEGORY(LogCategorySDMMCDriver);
+PDEFINE_LOG_CATEGORY(LogCategorySDMMCDriver, "SDMMC", PLogSeverity::WARNING);
 
 
 struct SDMMCBaseDriverParameters : KDriverParametersBase

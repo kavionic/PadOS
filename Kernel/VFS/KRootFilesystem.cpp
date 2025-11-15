@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <atomic>
 
+#include <Kernel/KLogging.h>
 #include <Kernel/KTime.h>
 #include <Kernel/VFS/KRootFilesystem.h>
 #include <Kernel/VFS/KFSVolume.h>
@@ -30,7 +31,6 @@
 #include <System/System.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/String.h>
-#include <Utils/Logging.h>
 
 
 using namespace os;
@@ -361,7 +361,7 @@ int KRootFilesystem::RegisterDevice(const char* path, Ptr<KINode> deviceNode)
     deviceNode->m_Filesystem = ptr_tmp_cast(this);
     deviceNode->m_Volume     = m_Volume;
     
-    kernel_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "Register device {} at '/dev/{}'.", handle, path);
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCatKernel_Drivers, "Register device {} at '/dev/{}'.", handle, path);
     parent->m_Children[path + nameStart] = deviceNode;
     return handle;
 }
@@ -388,7 +388,7 @@ void KRootFilesystem::RenameDevice(int handle, const char* newPath)
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
     newParent->m_Children[newPath + nameStart] = node;
-    kernel_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "Rename device {} at '/dev/{}'.", handle, newPath);
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCatKernel_Drivers, "Rename device {} at '/dev/{}'.", handle, newPath);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -401,7 +401,7 @@ void KRootFilesystem::RemoveDevice(int handle)
 
     Ptr<KRootFSINode> prevParent;
     Ptr<KINode> node = FindINode(m_DevRoot, handle, true, &prevParent);
-    kernel_log(LogCatKernel_Drivers, PLogSeverity::INFO_LOW_VOL, "Remove device {}.", handle);
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCatKernel_Drivers, "Remove device {}.", handle);
     // Remove empty folders
     while(prevParent != m_DevRoot && prevParent->m_Children.empty())
     {

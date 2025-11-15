@@ -73,12 +73,12 @@ Application::Application(const String& name) : Looper(name, 1000), m_ReplyPort("
             }
             else
             {
-                p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Application::Application() received invalid reply: {}", code);
+                p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::Application() received invalid reply: {}", code);
             }
         }
         else if (get_last_error() != EINTR)
         {
-            p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Application::Application() receive failed: {}", strerror(get_last_error()));
+            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::Application() receive failed: {}", strerror(get_last_error()));
             break;
         }
     }
@@ -129,7 +129,7 @@ bool Application::AddView(Ptr<View> view, ViewDockType dockType, size_t index)
     assert(!IsRunning() || GetMutex().IsLocked());
 
     if (dockType == ViewDockType::ChildView) {
-        p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Application::AddView() attempt to add top-level view as 'ViewDockType::ChildView'");
+        p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::AddView() attempt to add top-level view as 'ViewDockType::ChildView'");
         return false;
     }
     view->HandlePreAttachToScreen(this);
@@ -333,12 +333,12 @@ bool Application::CreateBitmap(int width, int height, EColorSpace colorSpace, ui
             }
             else
             {
-                p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Application::CreateBitmap() received invalid reply: {}", code);
+                p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::CreateBitmap() received invalid reply: {}", code);
             }
         }
         else if (get_last_error() != EINTR)
         {
-            p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Application::CreateBitmap() receive failed: {}", strerror(get_last_error()));
+            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::CreateBitmap() receive failed: {}", strerror(get_last_error()));
             return false;
         }
     }
@@ -386,7 +386,7 @@ void Application::Sync()
         if (code == AppserverProtocol::SYNC_REPLY) {
             break;
         } else {
-            p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Application::Sync() received invalid reply: {}", code);
+            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::Sync() received invalid reply: {}", code);
         }
         
     }
@@ -488,12 +488,12 @@ bool Application::CreateServerView(Ptr<View> view, handler_id parentHandle, View
                 view->SetServerHandle(reply.m_ViewHandle);
                 break;
             } else {
-                p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Application::AddView() received invalid reply: {}", code);
+                p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::AddView() received invalid reply: {}", code);
             }
         }
         else if (get_last_error() != EINTR)
         {
-            p_system_log(LogCategoryGUITK, PLogSeverity::ERROR, "Application::AddView() receive failed: {}", strerror(get_last_error()));
+            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::AddView() receive failed: {}", strerror(get_last_error()));
             return false;
         }
     }

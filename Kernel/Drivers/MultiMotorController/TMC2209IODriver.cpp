@@ -23,9 +23,9 @@
 
 #include <System/ExceptionHandling.h>
 #include <Utils/HashCalculator.h>
-#include <Utils/Logging.h>
 #include <Kernel/KTime.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/KLogging.h>
 
 #include <Kernel/Drivers/MultiMotorController/TMC2209IODriver.h>
 
@@ -151,7 +151,7 @@ uint32_t TMC2209IODriver::ReadRegister(uint8_t chipAddress, uint8_t registerAddr
     m_LastActiveTime = kget_monotonic_time_hires();
 
     if (!TMC2209ValidateCRC(reply)) {
-        p_system_log(LogCatKernel_Drivers, PLogSeverity::ERROR, "TMC2209IODriver::ReadRegister({}, {}) invalid checksum.", chipAddress, registerAddress);
+        p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "TMC2209IODriver::ReadRegister({}, {}) invalid checksum.", chipAddress, registerAddress);
         PERROR_THROW_CODE(PErrorCode::IOError);
     }
 

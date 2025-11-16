@@ -29,6 +29,7 @@ add_library(PadOS_WindowManager)
 add_library(PadOS_DataTranslators)
 add_library(PadOS_UnitTests)
 
+add_library(PadOS_Drivers_MultiMotor EXCLUDE_FROM_ALL)
 add_library(PadOS_Drivers_SDMMC EXCLUDE_FROM_ALL)
 add_library(PadOS_Drivers_SPI EXCLUDE_FROM_ALL)
 add_library(PadOS_Drivers_FT5x0x EXCLUDE_FROM_ALL)

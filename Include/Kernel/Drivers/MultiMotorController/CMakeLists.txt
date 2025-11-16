@@ -1,5 +1,5 @@
 
-target_sources(Rainbow3DFirmware PRIVATE
+target_sources(PadOS_Drivers_MultiMotor PRIVATE
 	MultiMotorINode.h
 	StepperDriver.h
 	TMC2209IODriver.h

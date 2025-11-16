@@ -27,7 +27,6 @@
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/Syscalls.h>
-#include "SystemSettings.h"
 
 
 using namespace os;
@@ -297,7 +296,7 @@ PErrorCode sys_sysconf(int name, long* outValue)
 
 PErrorCode sys_reboot(BootMode bootMode)
 {
-    SystemSettings::WriteBackupRegister(BackupRegisterID::BootMode, std::to_underlying(bootMode));
+    kwrite_backup_register_trw(PBackupReg_BootMode, std::to_underlying(bootMode));
     NVIC_SystemReset();
 }
 

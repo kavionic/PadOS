@@ -49,8 +49,11 @@ inline const PEnumNames<PLogSeverity> PLogSeverity_names(
     }
 );
 
+#ifdef PADOS_OPT_MINIMUM_LOG_SEVERITY
+static constexpr PLogSeverity PLogSeverity_Minimum = PLogSeverity::PADOS_OPT_MINIMUM_LOG_SEVERITY;
+#else
 static constexpr PLogSeverity PLogSeverity_Minimum = PLogSeverity::INFO_HIGH_VOL;
-
+#endif
 
 struct PLogCategoryRegistrator
 {

@@ -21,7 +21,17 @@
 namespace SerialProtocol
 {
 
+#ifdef PADOS_OPT_SERIAL_MAX_MESSAGE_SIZE
+static constexpr size_t MAX_MESSAGE_SIZE = PADOS_OPT_SERIAL_MAX_MESSAGE_SIZE;
+#else
 static constexpr size_t MAX_MESSAGE_SIZE = 1024 * 64;
+#endif
+
+#ifdef PADOS_OPT_SERIAL_MAX_QUEUE_LENGTH
+static constexpr size_t MAX_QUEUE_LENGTH = PADOS_OPT_SERIAL_MAX_QUEUE_LENGTH;
+#else
+static constexpr size_t MAX_QUEUE_LENGTH = 16;
+#endif
 
 enum class ProbeDeviceType : uint32_t
 {

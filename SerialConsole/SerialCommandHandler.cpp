@@ -56,7 +56,7 @@ SerialCommandHandler::SerialCommandHandler()
     , m_ReplyCondition("sch_reply_cond")
     , m_QueueCondition("sch_queue_cond")
     , m_WaitGroup("sch_wait_group")
-    , m_MessageQueue(*new CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * 16, void>)
+    , m_MessageQueue(*new CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * SerialProtocol::MAX_QUEUE_LENGTH, void>)
 {
     s_Instance = this;
 

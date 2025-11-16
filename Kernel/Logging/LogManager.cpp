@@ -41,7 +41,10 @@ KLogManager::KLogManager() : KThread("log_manager"), m_Mutex("log_manager", PEMu
 
 void KLogManager::Setup(int threadPriority, size_t threadStackSize)
 {
-    Start_trw(PThreadDetachState_Detached, threadPriority, threadStackSize);
+    if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
+    {
+        Start_trw(PThreadDetachState_Detached, threadPriority, threadStackSize);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -50,40 +53,44 @@ void KLogManager::Setup(int threadPriority, size_t threadStackSize)
 
 void* KLogManager::Run()
 {
-    CRITICAL_SCOPE(m_Mutex);
-
-    for(;;)
+    if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
     {
-        while (m_LogEntries.empty()) {
-            m_ConditionVar.Wait(m_Mutex);
-        }
-        while(!m_LogEntries.empty())
+        CRITICAL_SCOPE(m_Mutex);
+
+        for (;;)
         {
-            const LogEntry& entry = m_LogEntries.front();
-            if (!IsCategoryActive_pl(entry.CategoryHash, entry.Severity))
-            {
-                m_LogEntries.pop_front();
-                continue;
+            while (m_LogEntries.empty()) {
+                m_ConditionVar.Wait(m_Mutex);
             }
-            const PString text = std::format("[{:<8}: {:<7.7}]: {}\n", GetCategoryDisplayName_pl(entry.CategoryHash), GetLogSeverityName(entry.Severity), entry.Message);
-            m_LogEntries.pop_front();
-
-            SerialProtocol::LogMessage header;
-            header.InitMsg(header);
-            header.PackageLength = sizeof(header) + text.size();
-
-            m_Mutex.Unlock();
-            for (;;)
+            while (!m_LogEntries.empty())
             {
-                if (SerialCommandHandler::Get().SendSerialData(&header, sizeof(header), text.data(), text.size())) {
-                    break;
-                } else {
-                    snooze_ms(100);
+                const LogEntry& entry = m_LogEntries.front();
+                if (!IsCategoryActive_pl(entry.CategoryHash, entry.Severity))
+                {
+                    m_LogEntries.pop_front();
+                    continue;
                 }
+                const PString text = std::format("[{:<8}: {:<7.7}]: {}\n", GetCategoryDisplayName_pl(entry.CategoryHash), GetLogSeverityName(entry.Severity), entry.Message);
+                m_LogEntries.pop_front();
+
+                SerialProtocol::LogMessage header;
+                header.InitMsg(header);
+                header.PackageLength = sizeof(header) + text.size();
+
+                m_Mutex.Unlock();
+                for (;;)
+                {
+                    if (SerialCommandHandler::Get().SendSerialData(&header, sizeof(header), text.data(), text.size())) {
+                        break;
+                    } else {
+                        snooze_ms(100);
+                    }
+                }
+                m_Mutex.Lock();
             }
-            m_Mutex.Lock();
         }
     }
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -194,13 +201,16 @@ const PString& KLogManager::GetCategoryDisplayName_pl(uint32_t categoryHash)
 
 void KLogManager::AddLogMessage(uint32_t category, PLogSeverity severity, const PString& message)
 {
-    kassert(!m_Mutex.IsLocked());
-    CRITICAL_SCOPE(m_Mutex);
-
-    if (m_LogEntries.size() < 1000)
+    if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
     {
-        m_LogEntries.push_back(LogEntry{ .Timestamp = get_real_time(), .CategoryHash = category, .Severity = severity, .Message = message });
-        m_ConditionVar.WakeupAll();
+        kassert(!m_Mutex.IsLocked());
+        CRITICAL_SCOPE(m_Mutex);
+
+        if (m_LogEntries.size() < 1000)
+        {
+            m_LogEntries.push_back(LogEntry{ .Timestamp = get_real_time(), .CategoryHash = category, .Severity = severity, .Message = message });
+            m_ConditionVar.WakeupAll();
+        }
     }
 }
 
@@ -241,7 +251,10 @@ const KLogManager::CategoryDesc& KLogManager::GetCategoryDesc(uint32_t categoryH
 
 void kadd_log_message(uint32_t category, PLogSeverity severity, const PString& message)
 {
-    kernel::KLogManager::Get().AddLogMessage(category, severity, message);
+    if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
+    {
+        kernel::KLogManager::Get().AddLogMessage(category, severity, message);
+    }
 }
 
 } // namespace kernel

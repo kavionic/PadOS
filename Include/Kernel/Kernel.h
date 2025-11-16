@@ -47,7 +47,9 @@ class DigitalPin;
 extern "C" size_t get_heap_size();
 extern "C" size_t get_max_heap_size();
 
-
+static constexpr uint32_t PBackupReg_BootMode = 0;
+static constexpr uint32_t PBackupReg_BootCount = 1;
+static constexpr uint32_t PBackupReg_SYSTEM_COUNT = 2;
 namespace kernel
 {
 

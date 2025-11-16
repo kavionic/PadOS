@@ -172,7 +172,7 @@ private:
     std::map<SerialProtocol::Commands::Value, const PacketHandlerBase*> m_CommandHandlerMap;
     size_t                                                              m_LargestCommandPacket = 0;
 
-    CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * 16, void>&   m_MessageQueue;
+    CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * SerialProtocol::MAX_QUEUE_LENGTH, void>&   m_MessageQueue;
     uint8_t m_InMessageBuffer[SerialProtocol::MAX_MESSAGE_SIZE];
     uint8_t m_OutMessageBuffer[SerialProtocol::MAX_MESSAGE_SIZE];
     size_t m_InMessageBytes = 0;

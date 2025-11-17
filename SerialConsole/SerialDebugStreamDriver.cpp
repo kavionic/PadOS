@@ -23,7 +23,6 @@
 #include <Kernel/VFS/KDriverDescriptor.h>
 #include <Kernel/VFS/KDriverParametersBase.h>
 #include <System/ExceptionHandling.h>
-#include <SerialConsole/SerialCommandHandler.h>
 #include <SerialConsole/SerialDebugStreamDriver.h>
 
 namespace kernel
@@ -49,7 +48,8 @@ SerialDebugStreamINode::SerialDebugStreamINode(const SerialDebugStreamParameters
 
 size_t SerialDebugStreamINode::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
-    return SerialCommandHandler::Get().WriteLogMessage(buffer, length);
+    kernel_log<PLogSeverity::NOTICE>(LogCatKernel_General, "{}", std::string_view(reinterpret_cast<const char*>(buffer), length));
+    return length;
 }
 
 

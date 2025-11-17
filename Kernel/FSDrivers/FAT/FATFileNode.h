@@ -37,7 +37,7 @@ class FATFileNode : public KFileNode
     {
         if (m_Magic != MAGIC)
         {
-            panic("%s passed file-handle with invalid magic number 0x%08x\n", functionName, m_Magic);
+            panic("{} passed file-handle with invalid magic number {:#08x}", functionName, m_Magic);
             return false;
         }
         return true;

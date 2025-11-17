@@ -24,7 +24,6 @@
 #include <vector>
 #include <atomic>
 #include <cstdint>
-#include <format>
 
 #include "System/Platform.h"
 
@@ -69,10 +68,10 @@ template<typename ...ARGS> int kprintf(const char* fmt, ARGS&&... args) { return
 
 void panic(const char* message); // __attribute__((__noreturn__));
 
-template<typename FIRSTARG, typename... ARGS>
-void panic(const char* fmt, FIRSTARG&& firstArg, ARGS&&... args)
+template<typename... ARGS>
+void panic(PFormatString<ARGS...>&& fmt, ARGS&&... args)
 {
-    panic(PString::format_string(fmt, firstArg, args...).c_str());
+    panic(PString::format_string(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...).c_str());
 }
 
 bool is_in_isr();
@@ -118,22 +117,23 @@ public:
 inline void kassert_function(const char* file, int line, const char* func, const char* expression)
 {
     PString message;
-    message.format("KASSERT %s / %s:%d: %s", func, file, line, expression);
+    message.format("KASSERT {} / {}:{}: {}", func, file, line, expression);
     kernel::kprintf("%s\n", message.c_str());
     kernel::panic(message.c_str());
 }
 
 template<typename... ARGS>
-void kassert_function(const char* file, int line, const char* func, const char* expression, const char* fmt, ARGS&&... args)
+void kassert_function(const char* file, int line, const char* func, const char* expression, PFormatString<ARGS...> fmt, ARGS&&... args)
 {
     PString message;
-    message.format("KASSERT %s / %s:%d: %s -> ", func, file, line, expression);
-    message += PString::format_string(fmt, args...);
+    message.format("KASSERT {} / {}:{}: {} -> ", func, file, line, expression);
+    message += PString::format_string(fmt, std::forward<ARGS>(args)...);
     kernel::kprintf("%s\n", message.c_str());
     kernel::panic(message.c_str());
 }
 
-#define kassert(expression, ...) if (!(expression)) kassert_function(__FILE__, __LINE__, __func__, #expression __VA_ARGS__)
+#define kassert(expression) if (!(expression)) kassert_function(__FILE__, __LINE__, __func__, #expression)
+#define kassert2(expression, ...) if (!(expression)) kassert_function(__FILE__, __LINE__, __func__, #expression __VA_ARGS__)
 
 template<typename ...ARGS>
 void kassure(bool expression, const char* fmt, ARGS&&... args)

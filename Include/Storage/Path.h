@@ -80,8 +80,8 @@ private:
 
 using PPath = os::Path;
 
-namespace std
+PFORMATTER_NAMESPACE
 {
 template<>
-struct formatter<PPath> : formatter<basic_string<PString::value_type, PString::traits_type, PString::allocator_type>, PString::value_type> {};
+struct formatter<PPath> : formatter<std::basic_string<PString::value_type, PString::traits_type, PString::allocator_type>, PString::value_type> {};
 }

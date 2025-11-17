@@ -171,9 +171,12 @@ void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, bool privileged, 
     stackFrame->ExceptionFrame.xPSR = xPSR_T_Msk; // Always in Thumb state.
 
     m_CurrentStackAndPrivilege = reinterpret_cast<intptr_t>(stackFrame);
+
+#ifndef PADOS_OPT_PRIVILEGED_USERSPACE_THREADS
     if (!privileged) {
         m_CurrentStackAndPrivilege |= 0x01;
     }
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////

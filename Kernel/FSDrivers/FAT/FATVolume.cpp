@@ -459,7 +459,7 @@ bool FATVolume::CheckMagic(const char* functionName)
 {
     if (m_Magic != MAGIC)
     {
-        panic("%s passed volume with invalid magic number 0x%08x\n", functionName, m_Magic);
+        panic("{} passed volume with invalid magic number {:#08x}", functionName, m_Magic);
         return false;
     }
     return true;

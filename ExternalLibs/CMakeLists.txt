@@ -29,8 +29,8 @@ add_subdirectory(pugixml EXCLUDE_FROM_ALL)
 add_subdirectory(zlib EXCLUDE_FROM_ALL)
 add_subdirectory(libpng EXCLUDE_FROM_ALL)
 add_subdirectory(eigen EXCLUDE_FROM_ALL)
+add_subdirectory(fmt EXCLUDE_FROM_ALL)
 add_subdirectory(json EXCLUDE_FROM_ALL)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
 
 add_dependencies(png_static zlibstatic)
-

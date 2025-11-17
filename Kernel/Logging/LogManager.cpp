@@ -68,10 +68,12 @@ void* KLogManager::Run()
                 if (!IsCategoryActive_pl(entry.CategoryHash, entry.Severity))
                 {
                     m_LogEntries.pop_front();
+                    m_ConditionVar.WakeupAll();
                     continue;
                 }
-                const PString text = std::format("[{:<8}: {:<7.7}]: {}\n", GetCategoryDisplayName_pl(entry.CategoryHash), GetLogSeverityName(entry.Severity), entry.Message);
+                const PString text = PString::format_string("[{:<8}: {:<7.7}]: {}\n", GetCategoryDisplayName_pl(entry.CategoryHash), GetLogSeverityName(entry.Severity), entry.Message);
                 m_LogEntries.pop_front();
+                m_ConditionVar.WakeupAll();
 
                 SerialProtocol::LogMessage header;
                 header.InitMsg(header);
@@ -211,6 +213,18 @@ void KLogManager::AddLogMessage(uint32_t category, PLogSeverity severity, const 
             m_LogEntries.push_back(LogEntry{ .Timestamp = get_real_time(), .CategoryHash = category, .Severity = severity, .Message = message });
             m_ConditionVar.WakeupAll();
         }
+    }
+}
+
+void KLogManager::FlushMessages(TimeValNanos timeout)
+{
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
+    TimeValNanos deadline = timeout.IsInfinit() ? TimeValNanos::infinit : (get_monotonic_time() + timeout);
+    while(!m_LogEntries.empty() && get_monotonic_time() <= deadline)
+    {
+        m_ConditionVar.Wait(m_Mutex);
     }
 }
 

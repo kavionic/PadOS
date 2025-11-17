@@ -22,3 +22,6 @@
 [submodule "ExternalLibs/STM32/cmsis-device-h7"]
 	path = ExternalLibs/STM32/cmsis-device-h7
 	url = https://github.com/STMicroelectronics/cmsis-device-h7.git
+[submodule "ExternalLibs/fmt"]
+	path = ExternalLibs/fmt
+	url = https://github.com/fmtlib/fmt.git

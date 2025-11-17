@@ -20,11 +20,37 @@
 #pragma once
 
 #include <string>
-#include <format>
 #include <vector>
 #include <stdarg.h>
+
 #include <System/Types.h>
 #include <System/TimeValue.h>
+
+#ifdef PADOS_OPT_USE_FMT_FORMATTING
+
+#include <fmt/format.h>
+
+#define PFORMATTER_NAMESPACE namespace fmt
+
+template <typename T, typename Char = char, typename Enable = void>
+using PFormatter = fmt::formatter<T, Char, Enable>;
+
+template<typename... ARGS>
+using PFormatString = fmt::format_string<ARGS...>;
+
+#else // PADOS_OPT_USE_FMT_FORMATTING
+
+#include <format>
+
+#define PFORMATTER_NAMESPACE namespace std
+
+template <typename T, typename Char = char, typename Enable = void>
+using PFormatter = std::formatter<T, Char, Enable>;
+
+template<typename... ARGS>
+using PFormatString = std::format_string<ARGS...>;
+
+#endif // PADOS_OPT_USE_FMT_FORMATTING
 
 namespace os
 {
@@ -62,7 +88,41 @@ public:
     String& lower();
     String& upper();
 
-    String& format(const char* fmt, va_list pArgs)
+    template<typename ...ARGS>
+    static String format_string(PFormatString<ARGS...>&& fmt, ARGS&&... args)
+    {
+#ifdef PADOS_OPT_USE_FMT_FORMATTING
+        return fmt::format(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
+#else // PADOS_OPT_USE_FMT_FORMATTING
+        return std::format(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
+#endif // PADOS_OPT_USE_FMT_FORMATTING
+    }
+
+    template<typename ...ARGS>
+    static String vformat_string(std::string_view fmt, ARGS&&... args)
+    {
+#ifdef PADOS_OPT_USE_FMT_FORMATTING
+        return fmt::vformat(fmt, fmt::make_format_args(args...));
+#else // PADOS_OPT_USE_FMT_FORMATTING
+        return std::vformat(fmt, std::make_format_args(args...));
+#endif // PADOS_OPT_USE_FMT_FORMATTING
+    }
+
+    template<typename ...ARGS>
+    String& format(PFormatString<ARGS...>&& fmt, ARGS&&... args)
+    {
+        *this = format_string(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
+        return *this;
+    }
+
+    template<typename ...ARGS>
+    String& vformat(std::string_view fmt, ARGS&&... args)
+    {
+        *this = vformat_string(fmt, std::forward<ARGS>(args)...);
+        return *this;
+    }
+
+    String& formatf(const char* fmt, va_list pArgs)
     {
         int maxLen;
         int length;
@@ -92,21 +152,22 @@ public:
         return *this;
     }
 
-    String& format(const char* fmt, ...)
+
+    String& formatf(const char* fmt, ...)
     {
         va_list argList;
         va_start(argList, fmt);
-        format(fmt, argList);
+        formatf(fmt, argList);
         va_end(argList);
         return *this;
     }
 
-    static String format_string(const char* fmt, ...)
+    static String format_stringf(const char* fmt, ...)
     {
         String result;
         va_list argList;
         va_start(argList, fmt);
-        result.format(fmt, argList);
+        result.formatf(fmt, argList);
         va_end(argList);
         return result;
     }
@@ -160,8 +221,8 @@ private:
 
 using PString = os::String;
 
-namespace std
+PFORMATTER_NAMESPACE
 {
 template<>
-struct formatter<os::String> : formatter<basic_string<os::String::value_type, os::String::traits_type, os::String::allocator_type>, os::String::value_type> {};
+struct formatter<PString> : formatter<std::basic_string<PString::value_type, PString::traits_type, PString::allocator_type>, PString::value_type> {};
 }

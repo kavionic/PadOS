@@ -234,7 +234,6 @@ void SerialCommandHandler::Execute()
         }
         else
         {
-            FlushLogBuffer();
             SendMessage<SerialProtocol::ProbeDeviceReply>(m_DeviceType);
         }
     }
@@ -427,64 +426,4 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
 void SerialCommandHandler::SendSerialPacket(SerialProtocol::PacketHeader* msg)
 {
     SendSerialData(msg, msg->PackageLength, nullptr, 0);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-ssize_t SerialCommandHandler::WriteLogMessage(const void* buffer, size_t length)
-{
-    kassert(!m_TransmitMutex.IsLocked());
-    kassert(!m_LogMutex.IsLocked());
-    CRITICAL_SCOPE(m_LogMutex);
-
-    const uint8_t* src = static_cast<const uint8_t*>(buffer);
-
-    size_t bytesWritten = 0;
-    bytesWritten = m_LogBuffer.Write(src, length);
-
-    if (m_LogBuffer.GetLength() > 0) {
-        m_QueueCondition.WakeupAll();
-    }
-    return bytesWritten;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool SerialCommandHandler::FlushLogBuffer()
-{
-    kassert(!m_LogMutex.IsLocked());
-    CRITICAL_SCOPE(m_LogMutex);
-  
-    SerialProtocol::LogMessage header;
-    header.InitMsg(header);
-
-    if (m_LogBuffer.GetLength() == 0) {
-        return false;
-    }
-    if (!IsSerialPortActive()) {
-        return false;
-    }
-
-    size_t length = m_LogBuffer.GetLength();
-
-    header.PackageLength = sizeof(header) + length;
-
-    kassert(!m_TransmitMutex.IsLocked());
-    CRITICAL_SCOPE(m_TransmitMutex);
-    SerialWrite(&header, sizeof(header));
-    while (length > 0 && IsSerialPortActive())
-    {
-        uint8_t buffer[128];
-        ssize_t curLength = 0;
-
-        curLength = m_LogBuffer.Read(buffer, std::min(length, sizeof(buffer)));
-        length -= curLength;
-
-        SerialWrite(buffer, curLength);
-    }
-    return true;
 }

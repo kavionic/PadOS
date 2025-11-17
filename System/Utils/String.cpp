@@ -241,17 +241,17 @@ String& String::upper()
 String String::format_file_size(off64_t size)
 {
     if (size < 1024LL) {
-        return format_string("%u", uint32_t(size));
+        return format_string("{}", uint32_t(size));
     } else if (size < 1024LL * 1024LL) {
-        return format_string("%uKB", uint32_t(size / 1024LL));
+        return format_string("{}KB", uint32_t(size / 1024LL));
     } else if (size < 1024LL * 1024LL * 1024LL) {
-        return format_string("%uMB", uint32_t(size / (1024LL * 1024LL)));
+        return format_string("{}MB", uint32_t(size / (1024LL * 1024LL)));
     } else if (size < 1024LL * 1024LL * 1024LL * 1024LL) {
-        return format_string("%uGB", uint32_t(size / (1024LL * 1024LL * 1024LL)));
+        return format_string("{}GB", uint32_t(size / (1024LL * 1024LL * 1024LL)));
     } else if (size < 1024LL * 1024LL * 1024LL * 1024LL * 1024LL) {
-        return format_string("%uTB", uint32_t(size / (1024LL * 1024LL * 1024LL * 1024LL)));
+        return format_string("{}TB", uint32_t(size / (1024LL * 1024LL * 1024LL * 1024LL)));
     } else {
-        return format_string("%uPB", uint32_t(size / (1024LL * 1024LL * 1024LL * 1024LL * 1024LL)));
+        return format_string("{}PB", uint32_t(size / (1024LL * 1024LL * 1024LL * 1024LL * 1024LL)));
     }
 }
 

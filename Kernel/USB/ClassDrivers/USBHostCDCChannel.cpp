@@ -215,7 +215,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     if (m_DevNodeHandle != -1 ) {
         kremove_device_root_trw(m_DevNodeHandle);
     }
-    m_DevNodeHandle = kregister_device_root_trw(String::format_string("com/uhp%u", channelIndex).c_str(), ptr_tmp_cast(this));
+    m_DevNodeHandle = kregister_device_root_trw(String::format_string("com/uhp{}", channelIndex).c_str(), ptr_tmp_cast(this));
 
     return desc;
 }

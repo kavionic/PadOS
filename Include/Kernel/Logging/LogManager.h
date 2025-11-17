@@ -20,7 +20,6 @@
 #pragma once
 
 #include <deque>
-#include <format>
 #include <print>
 
 #include <stdint.h>
@@ -61,6 +60,7 @@ public:
 
     void AddLogMessage(uint32_t category, PLogSeverity severity, const PString& message);
 
+    void FlushMessages(TimeValNanos timeout);
 private:
     struct CategoryDesc
     {

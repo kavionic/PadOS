@@ -33,11 +33,11 @@ PDEFINE_LOG_CATEGORY(LogCatKernel_Scheduler,    "SCHEDUL",  PLogSeverity::INFO_H
 
 
 template<PLogSeverity TSeverity, typename ...ARGS>
-void kernel_log(uint32_t category, std::format_string<ARGS...> fmt, ARGS&&... args)
+void kernel_log(uint32_t category, PFormatString<ARGS...>&& fmt, ARGS&&... args)
 {
     if constexpr (TSeverity <= PLogSeverity_Minimum)
     {
-        PString text = std::format(fmt, std::forward<ARGS>(args)...);
+        const PString text = PString::format_string(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
         KLogManager::Get().AddLogMessage(category, TSeverity, text);
     }
 }

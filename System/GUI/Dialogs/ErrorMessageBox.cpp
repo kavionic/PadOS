@@ -26,7 +26,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ErrorMessageBox::ErrorMessageBox(const String& title, const String& text, DialogButtonSets buttonSet) : MessageBox(title, String::format_string(text.c_str(), strerror(errno)), buttonSet)
+ErrorMessageBox::ErrorMessageBox(const String& title, const String& text, DialogButtonSets buttonSet) : MessageBox(title, String::vformat_string(text.c_str(), strerror(errno)), buttonSet)
 {
 }
 

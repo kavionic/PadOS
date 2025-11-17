@@ -695,7 +695,7 @@ void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
             label = m_SymbolsActive ? "ABC" : "!#1";
         }
         else if (button.m_NormalKeyCode == KeyCodes::SHIFT && m_SymbolsActive) {
-            label = String::format_string("%ld/%ld", m_SymbolPage + 1, m_SymbolLayouts.size());
+            label = String::format_string("{}/{}", m_SymbolPage + 1, m_SymbolLayouts.size());
         } else {
             label = GetKeyText((m_CapsLockMode == CapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode);
         }

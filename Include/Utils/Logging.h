@@ -19,7 +19,7 @@
 
 #pragma once
 
-
+#include <Utils/String.h>
 #include <Kernel/Logging/LogManager.h>
 
 enum class PLogSeverity : uint8_t
@@ -70,11 +70,11 @@ struct PLogCategoryRegistrator
 #define PGET_LOG_CATEGORY_NAME(CATEGORY) CATEGORY##_Name
 
 template<PLogSeverity TSeverity, typename ...ARGS>
-void p_system_log(uint32_t category, std::format_string<ARGS...> fmt, ARGS&&... args)
+void p_system_log(uint32_t category, PFormatString<ARGS...>&& fmt, ARGS&&... args)
 {
     if constexpr (TSeverity <= PLogSeverity_Minimum)
     {
-        PString text = std::format(fmt, std::forward<ARGS>(args)...);
+        const PString text = PString::format_string(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
         add_system_log_message(category, TSeverity, text.c_str());
     }
 }
@@ -84,7 +84,7 @@ void p_system_vlog(uint32_t category, std::string_view fmt, ARGS&&... args)
 {
     if constexpr (TSeverity <= PLogSeverity_Minimum)
     {
-        PString text = std::vformat(fmt, std::make_format_args(args...));
+        const PString text = PString::vformat_string(fmt, std::forward<ARGS>(args)...);
         add_system_log_message(category, TSeverity, text.c_str());
     }
 }

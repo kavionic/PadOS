@@ -49,6 +49,7 @@ include_directories(
 	${CMAKE_SOURCE_DIR}/PadOS/ExternalLibs/libpng
 	${CMAKE_SOURCE_DIR}/PadOS/ExternalLibs/eigen
 	${CMAKE_SOURCE_DIR}/PadOS/ExternalLibs/googletest/googletest/include
+	${CMAKE_SOURCE_DIR}/PadOS/ExternalLibs/fmt/include
 	${CMAKE_BINARY_DIR}/PadOS/ExternalLibs/zlib
 	${CMAKE_BINARY_DIR}/PadOS/ExternalLibs/libpng
 	.

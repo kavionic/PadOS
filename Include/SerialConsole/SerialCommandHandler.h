@@ -135,8 +135,6 @@ public:
         SendSerialPacket(&msg);
     }
 
-    ssize_t WriteLogMessage(const void* buffer, size_t length);
-
     PObjectWaitGroup& GetWaitGroup() { return m_WaitGroup; }
 private:
     bool OpenSerialPort();
@@ -145,7 +143,6 @@ private:
     ssize_t SerialWrite(const void* buffer, size_t length);
     bool ReadPacket();
 
-    bool FlushLogBuffer();
     void HandleProbeDevice(const SerialProtocol::ProbeDevice& packet);
     void HandleSetSystemTime(const SerialProtocol::SetSystemTime& packet);
 
@@ -176,7 +173,6 @@ private:
     uint8_t m_InMessageBuffer[SerialProtocol::MAX_MESSAGE_SIZE];
     uint8_t m_OutMessageBuffer[SerialProtocol::MAX_MESSAGE_SIZE];
     size_t m_InMessageBytes = 0;
-    CircularBuffer<uint8_t, 1024*128>   m_LogBuffer;
 
     SerialCommandHandler(const SerialCommandHandler &other) = delete;
     SerialCommandHandler& operator=(const SerialCommandHandler &other) = delete;

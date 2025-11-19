@@ -118,7 +118,7 @@ bool USBDevice_STM32::EndpointOpen(const USB_DescEndpoint& endpointDescriptor)
     xfer->EndpointMaxSize = endpointDescriptor.GetMaxPacketSize();
     xfer->Interval = endpointDescriptor.bInterval;
 
-    const size_t fifoSizeWords = (xfer->EndpointMaxSize + 3) / 4;
+    const size_t fifoSizeWords = std::max(16ul, (xfer->EndpointMaxSize + 3) / 4);
 
     const USB_TransferType transferType = endpointDescriptor.GetTransferType();
 
@@ -126,17 +126,17 @@ bool USBDevice_STM32::EndpointOpen(const USB_DescEndpoint& endpointDescriptor)
     {
         // Check if enough FIFO space is available.
         if (m_AllocatedTXFIFOWords + fifoSizeWords + m_Port->GRXFSIZ > USB_OTG_FIFO_SIZE / 4) {
-            kernel_log<PLogSeverity::ERROR>(LogCategoryUSB, "failed to allocate {} FIFO bytes ({}).", fifoSizeWords * 4, m_AllocatedTXFIFOWords * 4);
+            kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "failed to allocate {} FIFO bytes ({}).", fifoSizeWords * 4, m_AllocatedTXFIFOWords * 4);
             return false;
         }
 
         m_AllocatedTXFIFOWords += fifoSizeWords;
 
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSB, "Allocated {} FIFO bytes at offset {}.", fifoSizeWords * 4, USB_OTG_FIFO_SIZE - m_AllocatedTXFIFOWords * 4);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Allocated {} FIFO bytes at offset {} for EP {}.", fifoSizeWords * 4, USB_OTG_FIFO_SIZE - m_AllocatedTXFIFOWords * 4, USB_ADDRESS_EPNUM(endpointDescriptor.bEndpointAddress));
 
         m_Port->DIEPTXF[epNum - 1] = (fifoSizeWords << USB_OTG_DIEPTXF_INEPTXFD_Pos) | (USB_OTG_FIFO_SIZE / 4 - m_AllocatedTXFIFOWords);
 
-        m_InEndpoints[epNum].DIEPCTL |= (1 << USB_OTG_DIEPCTL_USBAEP_Pos) |
+        m_InEndpoints[epNum].DIEPCTL |= USB_OTG_DIEPCTL_USBAEP |
             (epNum << USB_OTG_DIEPCTL_TXFNUM_Pos) |
             (uint32_t(transferType) << USB_OTG_DIEPCTL_EPTYP_Pos) |
             (transferType != USB_TransferType::ISOCHRONOUS ? USB_OTG_DIEPCTL_SD0PID_SEVNFRM : 0) |

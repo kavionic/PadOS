@@ -194,7 +194,7 @@ __attribute__((noreturn)) void kthread_exit(void* returnValue)
 
     KSWITCH_CONTEXT();
 
-    panic("exit_thread() survived a context switch!\n");
+    panic("kthread_exit() survived a context switch!\n");
     for (;;);
 }
 

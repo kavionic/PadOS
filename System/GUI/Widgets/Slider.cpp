@@ -264,7 +264,7 @@ String Slider::GetValueString() const
     if (m_ValueFormat.empty()) {
         return String::zero;
     } else {
-        return String::format_stringf(m_ValueFormat.c_str(), m_Value * m_ValueScale);
+        return String::vformat_string(m_ValueFormat.c_str(), m_Value * m_ValueScale);
     }
 }
 

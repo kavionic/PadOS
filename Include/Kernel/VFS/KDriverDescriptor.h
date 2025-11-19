@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 04.11.2025 21:00
 
+#pragma once
+
 #include <Ptr/Ptr.h>
 #include <Kernel/VFS/KINode.h>
 #include <Kernel/Kernel.h>

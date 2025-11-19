@@ -108,7 +108,7 @@ void* USBDevice::Run()
             {
                 const uint8_t endpointAddr = event.TransferComplete.EndpointAddr;
 
-                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "TransferComplete on endpoint {:02x} with {} bytes.", endpointAddr, event.TransferComplete.Length);
+                kernel_log<PLogSeverity::INFO_FLOODING>(LogCategoryUSBDevice, "TransferComplete on endpoint {:02x} with {} bytes.", endpointAddr, event.TransferComplete.Length);
 
                 USBEndpointState& endpoint = GetEndpoint(endpointAddr);
                 endpoint.Busy    = false;
@@ -123,7 +123,7 @@ void* USBDevice::Run()
                     Ptr<USBClassDriverDevice> driver = GetEndpointDriver(endpointAddr);
                     if (driver != nullptr)
                     {
-                        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "TransferComplete, call '{}' HandleDataTransfer().", driver->GetName());
+                        kernel_log<PLogSeverity::INFO_FLOODING>(LogCategoryUSBDevice, "TransferComplete, call '{}' HandleDataTransfer().", driver->GetName());
                         driver->HandleDataTransfer(endpointAddr, event.TransferComplete.Result, event.TransferComplete.Length);
                     }
                     else
@@ -589,7 +589,7 @@ bool USBDevice::EndpointTransfer(uint8_t endpointAddr, uint8_t* buffer, size_t l
 {
     kassert(m_Mutex.IsLocked());
 
-    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "USBDevice::EndpointTransfer() transfer {} bytes on endpoint {:02x}.", length, endpointAddr);
+    kernel_log<PLogSeverity::INFO_FLOODING>(LogCategoryUSBDevice, "USBDevice::EndpointTransfer() transfer {} bytes on endpoint {:02x}.", length, endpointAddr);
 
     USBEndpointState& endpoint = GetEndpoint(endpointAddr);
 

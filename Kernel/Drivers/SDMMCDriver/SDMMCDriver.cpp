@@ -722,13 +722,13 @@ void SDMMCDriver::DecodePartitions(bool force)
         Ptr<SDMMCINode> partition = m_PartitionINodes[i];
         if (partition->bi_nNodeHandle != -1)
         {
-            String path = m_DevicePathBase + String::format_string("%lu_new", i);
+            String path = m_DevicePathBase + String::format_string("{}_new", i);
             krename_device_root_trw(partition->bi_nNodeHandle, path.c_str());
         }
     }
     for (size_t i = 0; i < m_PartitionINodes.size(); ++i)
     {
-        String path = m_DevicePathBase + String::format_string("%lu", i);
+        String path = m_DevicePathBase + String::format_string("{}", i);
         
         Ptr<SDMMCINode> partition = m_PartitionINodes[i];
         if (partition->bi_nNodeHandle != -1) {

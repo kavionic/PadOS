@@ -20,6 +20,7 @@
 #pragma once
 
 #include <Utils/combsort.h>
+#include <GUI/Color.h>
 #include <GUI/NamedColors.h>
 
 struct PNamedColorNode

@@ -366,7 +366,7 @@ void HLayoutNode::Layout()
             totalWheight += wheights[i];
         }
     //    if ( vMinWidth > bounds.Width() + 1.0f ) {
-    //      p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "HLayoutNode::Layout() Width={:.2}, Required width={:.2}", bounds.Width() + 1.0f, vMinWidth  );
+    //      p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "HLayoutNode::Layout() Width={:.2f}, Required width={:.2f}", bounds.Width() + 1.0f, vMinWidth  );
     //    }
         const float unusedWidth = SpaceOut(childList.size(), bounds.Width(), vMinWidth, totalWheight, minWidths, maxWidths, wheights, finalHeights) / float(childList.size());
 
@@ -397,7 +397,7 @@ void HLayoutNode::Layout()
             
             x += width + unusedWidth;
             frame.Floor();
-//            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "    {}: {:.2}->{:.2}", i, frame.left, frame.right);
+//            p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "    {}: {:.2f}->{:.2f}", i, frame.left, frame.right);
             childList[i]->SetFrame(frame);
         }
     }    

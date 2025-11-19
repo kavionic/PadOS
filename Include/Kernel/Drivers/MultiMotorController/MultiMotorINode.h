@@ -41,6 +41,7 @@ public:
     void        SetupControllerIO(const char* controlPortPath, uint32_t baudrate);
     handle_id   CreateMotor(handle_id motorID, const TMC2209IOSetup& setup);
     void        DeleteMotor(handle_id motorID);
+    void        EnableMotorsPower(bool enable) { m_MotorEnablePin = !enable; }
 
     void SetJerk(handle_id motorID, float jerk);
     void SetReverse(handle_id motorID, bool reverse);
@@ -103,6 +104,7 @@ private:
     const TMC2209Driver& GetMotor(handle_id motorID) const { return const_cast<MultiMotorINode*>(this)->GetMotor(motorID); }
     std::vector<TMC2209Driver*> GetMotorsFromMask(uint32_t motorIDMask);
 
+    DigitalPin           m_MotorEnablePin;
     Ptr<TMC2209IODriver> m_ControlPort;
 
     PRPCDispatcher m_DeviceControlDispatcher;

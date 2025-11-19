@@ -132,7 +132,7 @@ void BME280Driver::SlotTick()
         m_CurrentValues.m_Pressure    = CompensatePressure(pressure);
         m_CurrentValues.m_Humidity    = CompensateHumidity(humidity);
 
-        //        p_system_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_Drivers, "Temp: {:.3}, Pres: {:.3}, Hum: {:.3}", m_CurrentValues.m_Temperature, m_CurrentValues.m_Pressure / 100.0, m_CurrentValues.m_Humidity);
+        //        p_system_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_Drivers, "Temp: {:.3f}, Pres: {:.3f}, Hum: {:.3f}", m_CurrentValues.m_Temperature, m_CurrentValues.m_Pressure / 100.0, m_CurrentValues.m_Humidity);
         m_BytesToReceive = 0;
         //m_Timer.Start(m_UpdatePeriode - (time - m_LastUpdateTime));
         m_State = State_e::Idle;

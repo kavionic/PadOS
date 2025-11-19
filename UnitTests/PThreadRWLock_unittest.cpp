@@ -30,12 +30,11 @@ using namespace std::chrono;
 #  define RWTEST_TIMEOUT_MS 500
 #endif
 
-static constexpr milliseconds kShort(RWTEST_BASE_MS);
-static constexpr milliseconds kLong(RWTEST_BASE_MS * 5);
-static constexpr milliseconds kTO(RWTEST_TIMEOUT_MS);
+static constexpr milliseconds PthreadRwlock_kShort(RWTEST_BASE_MS);
+static constexpr milliseconds PthreadRwlock_kTO(RWTEST_TIMEOUT_MS);
 
 // Small start gate so threads begin attempts together.
-struct StartGate {
+struct PthreadRwlock_StartGate {
     std::mutex m;
     std::condition_variable cv;
     std::atomic<int> ready{0};
@@ -49,7 +48,7 @@ struct StartGate {
         cv.wait(lk, [&] { return open; });
     }
     void wait_ready(int n) {
-        auto deadline = steady_clock::now() + kTO;
+        auto deadline = steady_clock::now() + PthreadRwlock_kTO;
         while (ready.load(std::memory_order_acquire) < n &&
             steady_clock::now() < deadline) {
             std::this_thread::sleep_for(milliseconds(1));
@@ -122,7 +121,7 @@ TEST(PthreadRwlock, MultipleReadersConcurrently)
     ASSERT_EQ(pthread_rwlock_init(&rw, nullptr), 0);
 
     constexpr int N = 4;
-    StartGate gate;
+    PthreadRwlock_StartGate gate;
     std::atomic<int> in_read{0};
     std::atomic<int> max_in_read{0};
 
@@ -133,7 +132,7 @@ TEST(PthreadRwlock, MultipleReadersConcurrently)
         int cur = in_read.fetch_add(1, std::memory_order_acq_rel) + 1;
         int prev = max_in_read.load(std::memory_order_acquire);
         while (cur > prev && !max_in_read.compare_exchange_weak(prev, cur)) { /* retry */ }
-        std::this_thread::sleep_for(kShort);
+        std::this_thread::sleep_for(PthreadRwlock_kShort);
         in_read.fetch_sub(1, std::memory_order_acq_rel);
         EXPECT_EQ(pthread_rwlock_unlock(&rw), 0);
     };
@@ -159,7 +158,7 @@ TEST(PthreadRwlock, WriterBlocksReadersAndIsExclusive)
     ASSERT_EQ(pthread_rwlock_wrlock(&rw), 0);
 
     std::atomic<bool> reader_entered{false};
-    StartGate gate;
+    PthreadRwlock_StartGate gate;
 
     std::thread r([&] noexcept {
         gate.arrived();
@@ -174,7 +173,7 @@ TEST(PthreadRwlock, WriterBlocksReadersAndIsExclusive)
     gate.open_all();
 
     // Give the reader a chance to attempt.
-    std::this_thread::sleep_for(kShort);
+    std::this_thread::sleep_for(PthreadRwlock_kShort);
 
     // While writer holds, tryrdlock should fail with EBUSY.
     errno = 0;
@@ -188,7 +187,7 @@ TEST(PthreadRwlock, WriterBlocksReadersAndIsExclusive)
     // Release writer; reader should proceed soon.
     EXPECT_EQ(pthread_rwlock_unlock(&rw), 0);
 
-    auto deadline = steady_clock::now() + kTO;
+    auto deadline = steady_clock::now() + PthreadRwlock_kTO;
     while (!reader_entered.load(std::memory_order_acquire) && steady_clock::now() < deadline) {
         std::this_thread::sleep_for(milliseconds(1));
     }
@@ -254,7 +253,7 @@ TEST(PthreadRwlock, TimedRdLockTimesOutUnderWriter)
     ASSERT_EQ(pthread_rwlock_init(&rw, nullptr), 0);
     ASSERT_EQ(pthread_rwlock_wrlock(&rw), 0);
 
-    timespec abst = MakeAbsTimespec(kShort);
+    timespec abst = MakeAbsTimespec(PthreadRwlock_kShort);
     int rc = pthread_rwlock_timedrdlock(&rw, &abst);
     EXPECT_EQ(rc, ETIMEDOUT);
 
@@ -268,7 +267,7 @@ TEST(PthreadRwlock, TimedWrLockTimesOutUnderWriter)
     ASSERT_EQ(pthread_rwlock_init(&rw, nullptr), 0);
     ASSERT_EQ(pthread_rwlock_wrlock(&rw), 0);
 
-    timespec abst = MakeAbsTimespec(kShort);
+    timespec abst = MakeAbsTimespec(PthreadRwlock_kShort);
     int rc = pthread_rwlock_timedwrlock(&rw, &abst);
     EXPECT_EQ(rc, ETIMEDOUT);
 
@@ -284,7 +283,7 @@ TEST(PthreadRwlock, ReadersBlockedWhileWriterHolds)
     ASSERT_EQ(pthread_rwlock_init(&rw, nullptr), 0);
     ASSERT_EQ(pthread_rwlock_wrlock(&rw), 0);
 
-    StartGate gate;
+    PthreadRwlock_StartGate gate;
     std::atomic<bool> any_reader_entered{false};
     constexpr int N = 3;
 
@@ -304,7 +303,7 @@ TEST(PthreadRwlock, ReadersBlockedWhileWriterHolds)
     gate.wait_ready(N);
     gate.open_all();
 
-    std::this_thread::sleep_for(kShort);
+    std::this_thread::sleep_for(PthreadRwlock_kShort);
     EXPECT_FALSE(any_reader_entered.load(std::memory_order_acquire));
 
     EXPECT_EQ(pthread_rwlock_unlock(&rw), 0);

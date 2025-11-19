@@ -26,8 +26,8 @@ using namespace std::chrono;
 #  define SEMTEST_TIMEOUT_MS 1000
 #endif
 
-static constexpr milliseconds kShort(SEMTEST_BASE_MS);
-static constexpr milliseconds kTO(SEMTEST_TIMEOUT_MS);
+static constexpr milliseconds PSemaphore_kShort(SEMTEST_BASE_MS);
+static constexpr milliseconds PSemaphore_kTO(SEMTEST_TIMEOUT_MS);
 
 // -------- helpers --------
 static timespec MakeAbsTimespecRealtime(milliseconds rel) noexcept {
@@ -76,7 +76,7 @@ struct StartGate {
     std::atomic<bool> open{false};
     void arrived() noexcept { ready.fetch_add(1, std::memory_order_acq_rel); }
     void wait_ready(int n) const noexcept {
-        auto deadline = steady_clock::now() + kTO;
+        auto deadline = steady_clock::now() + PSemaphore_kTO;
         while (ready.load(std::memory_order_acquire) < n &&
             steady_clock::now() < deadline) {
             std::this_thread::sleep_for(milliseconds(1));
@@ -84,7 +84,7 @@ struct StartGate {
     }
     void open_all() noexcept { open.store(true, std::memory_order_release); }
     void wait_open() const noexcept {
-        auto deadline = steady_clock::now() + kTO;
+        auto deadline = steady_clock::now() + PSemaphore_kTO;
         while (!open.load(std::memory_order_acquire) &&
             steady_clock::now() < deadline) {
             std::this_thread::sleep_for(milliseconds(1));
@@ -100,7 +100,7 @@ TEST(PosixSem, InitDestroyBasic) {
     sem_t s;
     ASSERT_EQ(sem_init(&s, /*pshared=*/0, /*value=*/0), 0);
     EXPECT_EQ(sem_post(&s), 0);
-    timespec ts = MakeAbsTimespecRealtime(kShort);
+    timespec ts = MakeAbsTimespecRealtime(PSemaphore_kShort);
     errno = 0;
     EXPECT_EQ(TimedWait(&s, &ts), 0) << "errno=" << errno;
     EXPECT_EQ(sem_destroy(&s), 0);
@@ -120,7 +120,7 @@ TEST(PosixSem, PostThenWaitSingleThread) {
     ASSERT_EQ(sem_init(&s, 0, 0), 0);
 
     EXPECT_EQ(sem_post(&s), 0);
-    timespec ts = MakeAbsTimespecRealtime(kShort);
+    timespec ts = MakeAbsTimespecRealtime(PSemaphore_kShort);
     EXPECT_EQ(TimedWait(&s, &ts), 0) << "errno=" << errno;
 
     int v = -1;
@@ -177,7 +177,7 @@ TEST(PosixSem, PostWakesExactlyOneWaiter) {
 
     auto waiter = [&](std::atomic<bool>& started, std::atomic<bool>& done) noexcept {
         started.store(true, std::memory_order_release);
-        timespec ts = MakeAbsTimespecRealtime(kTO);
+        timespec ts = MakeAbsTimespecRealtime(PSemaphore_kTO);
         if (TimedWait(&s, &ts) == 0) {
             done.store(true, std::memory_order_release);
         }
@@ -186,7 +186,7 @@ TEST(PosixSem, PostWakesExactlyOneWaiter) {
     std::thread t1(waiter, std::ref(w1_started), std::ref(w1_done));
     std::thread t2(waiter, std::ref(w2_started), std::ref(w2_done));
 
-    auto deadline = steady_clock::now() + kTO;
+    auto deadline = steady_clock::now() + PSemaphore_kTO;
     while (!(w1_started.load(std::memory_order_acquire) &&
         w2_started.load(std::memory_order_acquire)) &&
         steady_clock::now() < deadline) {
@@ -196,7 +196,7 @@ TEST(PosixSem, PostWakesExactlyOneWaiter) {
 
     ASSERT_EQ(sem_post(&s), 0);
 
-    auto one_deadline = steady_clock::now() + kShort;
+    auto one_deadline = steady_clock::now() + PSemaphore_kShort;
     while (!w1_done.load(std::memory_order_acquire) &&
         !w2_done.load(std::memory_order_acquire) &&
         steady_clock::now() < one_deadline) {
@@ -207,7 +207,7 @@ TEST(PosixSem, PostWakesExactlyOneWaiter) {
 
     ASSERT_EQ(sem_post(&s), 0);
 
-    deadline = steady_clock::now() + kTO;
+    deadline = steady_clock::now() + PSemaphore_kTO;
     while (!(w1_done.load(std::memory_order_acquire) &&
         w2_done.load(std::memory_order_acquire)) &&
         steady_clock::now() < deadline) {
@@ -222,7 +222,7 @@ TEST(PosixSem, PostWakesExactlyOneWaiter) {
 TEST(PosixSem, TimedWaitTimesOutWhenZero) {
     sem_t s;
     ASSERT_EQ(sem_init(&s, 0, 0), 0);
-    timespec ts = MakeAbsTimespecRealtime(kShort);
+    timespec ts = MakeAbsTimespecRealtime(PSemaphore_kShort);
     errno = 0;
     EXPECT_EQ(TimedWait(&s, &ts), -1);
     EXPECT_EQ(errno, ETIMEDOUT);
@@ -237,7 +237,7 @@ TEST(PosixSem, ClockWaitRealtimeTimesOutWhenZero) {
     sem_t s;
     ASSERT_EQ(sem_init(&s, 0, 0), 0);
     timespec abs{};
-    ASSERT_TRUE(MakeAbsTimespecForClock(CLOCK_REALTIME, kShort, &abs)) << "clock_gettime failed";
+    ASSERT_TRUE(MakeAbsTimespecForClock(CLOCK_REALTIME, PSemaphore_kShort, &abs)) << "clock_gettime failed";
     errno = 0;
     EXPECT_EQ(ClockWait(&s, CLOCK_REALTIME, &abs), -1);
     EXPECT_EQ(errno, ETIMEDOUT);
@@ -248,7 +248,7 @@ TEST(PosixSem, ClockWaitMonotonicTimesOutWhenZero) {
     sem_t s;
     ASSERT_EQ(sem_init(&s, 0, 0), 0);
     timespec abs{};
-    ASSERT_TRUE(MakeAbsTimespecForClock(CLOCK_MONOTONIC, kShort, &abs)) << "clock_gettime failed";
+    ASSERT_TRUE(MakeAbsTimespecForClock(CLOCK_MONOTONIC, PSemaphore_kShort, &abs)) << "clock_gettime failed";
     errno = 0;
     EXPECT_EQ(ClockWait(&s, CLOCK_MONOTONIC, &abs), -1);
     EXPECT_EQ(errno, ETIMEDOUT);
@@ -265,18 +265,18 @@ TEST(PosixSem, ClockWaitRealtimeWakesOnPost) {
     std::thread w([&] noexcept {
         started.store(true, std::memory_order_release);
         timespec abs{};
-        ASSERT_TRUE(MakeAbsTimespecForClock(CLOCK_REALTIME, kTO, &abs)) << "clock_gettime failed";
+        ASSERT_TRUE(MakeAbsTimespecForClock(CLOCK_REALTIME, PSemaphore_kTO, &abs)) << "clock_gettime failed";
         ASSERT_EQ(ClockWait(&s, CLOCK_REALTIME, &abs), 0) << "errno=" << errno;
         done.store(true, std::memory_order_release);
         });
 
-    auto deadline = steady_clock::now() + kTO;
+    auto deadline = steady_clock::now() + PSemaphore_kTO;
     while (!started.load(std::memory_order_acquire) && steady_clock::now() < deadline)
         std::this_thread::sleep_for(milliseconds(1));
 
     ASSERT_EQ(sem_post(&s), 0);
 
-    deadline = steady_clock::now() + kTO;
+    deadline = steady_clock::now() + PSemaphore_kTO;
     while (!done.load(std::memory_order_acquire) && steady_clock::now() < deadline)
         std::this_thread::sleep_for(milliseconds(1));
 
@@ -295,18 +295,18 @@ TEST(PosixSem, ClockWaitMonotonicWakesOnPost) {
     std::thread w([&] noexcept {
         started.store(true, std::memory_order_release);
         timespec abs{};
-        ASSERT_TRUE(MakeAbsTimespecForClock(CLOCK_MONOTONIC, kTO, &abs)) << "clock_gettime failed";
+        ASSERT_TRUE(MakeAbsTimespecForClock(CLOCK_MONOTONIC, PSemaphore_kTO, &abs)) << "clock_gettime failed";
         ASSERT_EQ(ClockWait(&s, CLOCK_MONOTONIC, &abs), 0) << "errno=" << errno;
         done.store(true, std::memory_order_release);
         });
 
-    auto deadline = steady_clock::now() + kTO;
+    auto deadline = steady_clock::now() + PSemaphore_kTO;
     while (!started.load(std::memory_order_acquire) && steady_clock::now() < deadline)
         std::this_thread::sleep_for(milliseconds(1));
 
     ASSERT_EQ(sem_post(&s), 0);
 
-    deadline = steady_clock::now() + kTO;
+    deadline = steady_clock::now() + PSemaphore_kTO;
     while (!done.load(std::memory_order_acquire) && steady_clock::now() < deadline)
         std::this_thread::sleep_for(milliseconds(1));
 
@@ -350,15 +350,15 @@ TEST(PosixSemNamed, OpenExistingAndExclSemantics) {
     // Prove all successful handles refer to the *same* object.
     std::atomic<bool> done{false};
     std::thread w([&] noexcept {
-        timespec ts = MakeAbsTimespecRealtime(kTO);
+        timespec ts = MakeAbsTimespecRealtime(PSemaphore_kTO);
         ASSERT_EQ(TimedWait(h0, &ts), 0) << "errno=" << errno;
         done.store(true, std::memory_order_release);
         });
 
     ASSERT_EQ(sem_post(a), 0);
-    auto deadline = std::chrono::steady_clock::now() + kTO;
+    auto deadline = std::chrono::steady_clock::now() + PSemaphore_kTO;
     while (!done.load(std::memory_order_acquire) && std::chrono::steady_clock::now() < deadline)
-        std::this_thread::sleep_for(kShort);
+        std::this_thread::sleep_for(PSemaphore_kShort);
     EXPECT_TRUE(done.load());
 
     w.join();
@@ -384,14 +384,14 @@ TEST(PosixSemNamed, RecreateAfterUnlinkCreatesFreshSemaphore) {
     // Post on 'a' should NOT satisfy waits on 'b'.
     std::atomic<bool> b_done{false};
     std::thread w([&] noexcept {
-        timespec ts = MakeAbsTimespecRealtime(kShort);
+        timespec ts = MakeAbsTimespecRealtime(PSemaphore_kShort);
         int rc = TimedWait(b, &ts);
         if (rc == 0) b_done.store(true, std::memory_order_release);
         else if (errno != ETIMEDOUT) FAIL() << "unexpected errno=" << errno;
         });
 
     ASSERT_EQ(sem_post(a), 0);
-    std::this_thread::sleep_for(kShort);
+    std::this_thread::sleep_for(PSemaphore_kShort);
     EXPECT_FALSE(b_done.load(std::memory_order_acquire));
 
     w.join();

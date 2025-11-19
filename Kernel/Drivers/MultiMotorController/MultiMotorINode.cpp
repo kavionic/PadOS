@@ -42,7 +42,9 @@ PREGISTER_KERNEL_DRIVER(MultiMotorINode, MultiMotorDriverParameters);
 MultiMotorINode::MultiMotorINode(const MultiMotorDriverParameters& parameters)
     : KINode(nullptr, nullptr, this, false)
 {
-    DigitalPin(parameters.PinMotorEnable).SetDirection(DigitalPinDirection_e::Out);
+    m_MotorEnablePin = parameters.PinMotorEnable;
+    m_MotorEnablePin.Write(true);
+    m_MotorEnablePin.SetDirection(DigitalPinDirection_e::Out);
 
     m_ControlPort = ptr_new<TMC2209IODriver>();
     m_ControlPort->Setup(parameters.ControlPortPath, parameters.Baudrate);
@@ -50,6 +52,7 @@ MultiMotorINode::MultiMotorINode(const MultiMotorDriverParameters& parameters)
 #define MMI_REGISTER_HANDLER(NAME) m_DeviceControlDispatcher.AddHandler(&PMultiMotor::NAME, this, &MultiMotorINode::NAME)
     MMI_REGISTER_HANDLER(CreateMotor);
     MMI_REGISTER_HANDLER(DeleteMotor);
+    MMI_REGISTER_HANDLER(EnableMotorsPower);
     MMI_REGISTER_HANDLER(SetJerk);
     MMI_REGISTER_HANDLER(SetReverse);
     MMI_REGISTER_HANDLER(GetReverse);

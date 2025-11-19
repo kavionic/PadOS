@@ -27,11 +27,11 @@ TEST(NamedColors, TableIntegrity)
     for (size_t i = 1; i < PStandardColorsTable.size(); ++i)
     {
         {
-            SCOPED_TRACE(std::format("Hash collision! Both {} and {} have hash {:#08x}", i - 1, i, uint32_t(PStandardColorsTable[i].NameID)));
+            SCOPED_TRACE(PString::format_string("Hash collision! Both {} and {} have hash {:#08x}", i - 1, i, uint32_t(PStandardColorsTable[i].NameID)));
             EXPECT_NE(PStandardColorsTable[i - 1].NameID, PStandardColorsTable[i].NameID);
         }
         {
-            SCOPED_TRACE(std::format("Bad named color table sorting! {}:{:#08x} > {}:{:#08x}", i - 1, uint32_t(PStandardColorsTable[i - 1].NameID), i, uint32_t(PStandardColorsTable[i].NameID)));
+            SCOPED_TRACE(PString::format_string("Bad named color table sorting! {}:{:#08x} > {}:{:#08x}", i - 1, uint32_t(PStandardColorsTable[i - 1].NameID), i, uint32_t(PStandardColorsTable[i].NameID)));
             EXPECT_LT(PStandardColorsTable[i - 1].NameID, PStandardColorsTable[i].NameID);
         }
     }

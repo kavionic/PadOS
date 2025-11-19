@@ -33,9 +33,8 @@ using namespace std::chrono;
 #define CHRONO_RESOLUTION_PROBES 128
 #endif
 
-static constexpr milliseconds kShort(CHRONO_BASE_MS);
-static constexpr milliseconds kLong(CHRONO_BASE_MS * 5);
-static constexpr milliseconds kSlack(CHRONO_SLACK_MS);
+static constexpr milliseconds STLChrono_kShort(CHRONO_BASE_MS);
+static constexpr milliseconds STLChrono_kSlack(CHRONO_SLACK_MS);
 
 // Helper: absolute difference for durations/time_points
 template<class T>
@@ -77,17 +76,17 @@ TEST(ChronoSystemClock, TimeTRoundTripWithinOneSecond)
     auto back = system_clock::from_time_t(tt);
     auto diff = now - back;
     EXPECT_GE(diff, 0s);
-    EXPECT_LT(diff, 1s + kSlack);
+    EXPECT_LT(diff, 1s + STLChrono_kSlack);
 }
 
 TEST(ChronoSystemClock, SleepUntilReachesTarget)
 {
     // system_clock is not required to be steady but should respect sleep_until deadlines.
-    auto target = system_clock::now() + kShort;
+    auto target = system_clock::now() + STLChrono_kShort;
     std::this_thread::sleep_until(target);
     auto now = system_clock::now();
     EXPECT_GE(now, target);
-    EXPECT_LT(now - target, kSlack);
+    EXPECT_LT(now - target, STLChrono_kSlack);
 }
 
 // ---------- steady_clock ----------
@@ -113,19 +112,19 @@ TEST(ChronoSteadyClock, ResolutionReasonable)
 TEST(ChronoSteadyClock, SleepForAtLeastRequested)
 {
     auto t0 = steady_clock::now();
-    std::this_thread::sleep_for(kShort);
+    std::this_thread::sleep_for(STLChrono_kShort);
     auto elapsed = steady_clock::now() - t0;
-    EXPECT_GE(elapsed, kShort);
-    EXPECT_LT(elapsed, kShort + kSlack);
+    EXPECT_GE(elapsed, STLChrono_kShort);
+    EXPECT_LT(elapsed, STLChrono_kShort + STLChrono_kSlack);
 }
 
 TEST(ChronoSteadyClock, SleepUntilAtLeastTarget)
 {
-    auto target = steady_clock::now() + kShort;
+    auto target = steady_clock::now() + STLChrono_kShort;
     std::this_thread::sleep_until(target);
     auto now = steady_clock::now();
     EXPECT_GE(now, target);
-    EXPECT_LT(now - target, kSlack);
+    EXPECT_LT(now - target, STLChrono_kSlack);
 }
 
 // ---------- high_resolution_clock ----------
@@ -143,23 +142,23 @@ TEST(ChronoCV, WaitForTimesOutNearTarget)
     std::mutex m; std::condition_variable cv;
     std::unique_lock<std::mutex> lk(m);
     auto t0 = steady_clock::now();
-    auto status = cv.wait_for(lk, kShort);
+    auto status = cv.wait_for(lk, STLChrono_kShort);
     auto elapsed = steady_clock::now() - t0;
     EXPECT_EQ(status, std::cv_status::timeout);
-    EXPECT_GE(elapsed, kShort);
-    EXPECT_LT(elapsed, kShort + kSlack);
+    EXPECT_GE(elapsed, STLChrono_kShort);
+    EXPECT_LT(elapsed, STLChrono_kShort + STLChrono_kSlack);
 }
 
 TEST(ChronoCV, WaitUntilSystemClockTimesOutNearTarget)
 {
     std::mutex m; std::condition_variable cv;
     std::unique_lock<std::mutex> lk(m);
-    auto target = system_clock::now() + kShort;
+    auto target = system_clock::now() + STLChrono_kShort;
     auto status = cv.wait_until(lk, target);
     auto now = system_clock::now();
     EXPECT_EQ(status, std::cv_status::timeout);
     EXPECT_GE(now, target);
-    EXPECT_LT(now - target, kSlack);
+    EXPECT_LT(now - target, STLChrono_kSlack);
 }
 
 // ---------- time_point arithmetic across durations ----------

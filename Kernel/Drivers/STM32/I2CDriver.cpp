@@ -466,7 +466,7 @@ int I2CDriverINode::SetSpeed(I2CSpeed speed)
             continue;
         }
 
-        uint32_t error = abs(rate - spec.Baudrate);
+        uint32_t error = std::abs(int32_t(rate - spec.Baudrate));
         if (error < minError)
         {
             minError = error;

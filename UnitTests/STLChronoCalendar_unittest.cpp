@@ -4,8 +4,6 @@
 // Build knobs (override with -D…):
 //   -DCHRONO_HAVE_PARSE=1   // force-enable from_stream tests if your lib supports it but lacks a macro
 //
-// Requires C++20 <chrono>. Formatting tests are gated on <format> availability.
-//
 // Compile/link either with gtest_main, or call RunStdChronoCalendarTests() yourself.
 
 #include <gtest/gtest.h>
@@ -14,10 +12,7 @@
 #include <sstream>
 #include <locale>
 #include <type_traits>
-
-#if __has_include(<format>)
-#include <format>
-#endif
+#include <Utils/String.h>
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
@@ -25,12 +20,6 @@ using namespace std::chrono_literals;
 // ---------------- Feature gates ----------------
 #ifndef __cpp_lib_chrono
 #define __cpp_lib_chrono 0
-#endif
-
-#if __has_include(<format>) && defined(__cpp_lib_format)
-#define CHRONO_HAVE_FORMAT 1
-#else
-#define CHRONO_HAVE_FORMAT 0
 #endif
 
 // Some libraries ship parse()/from_stream but not a macro; allow override.
@@ -164,21 +153,17 @@ TEST(ChronoCalendar, ParseDateTimeToSysSeconds)
 }
 #endif
 
-// ---------------- std::format formatting of chrono (if available) ----------------
-#if CHRONO_HAVE_FORMAT
 TEST(ChronoCalendar, FormatDateAndTimePoint)
 {
     auto d = sys_days{ 2020y / February / 29 };
-    EXPECT_EQ(std::format("{:%F}", d), "2020-02-29");
+    EXPECT_EQ(PString::format_string("{:%F}", d), "2020-02-29");
 
     auto tp = sys_days{ 1970y / January / 1 } + 12h + 34min + 56s;
-    EXPECT_EQ(std::format("{:%F %T}", tp), "1970-01-01 12:34:56");
+    EXPECT_EQ(PString::format_string("{:%F %T}", tp), "1970-01-01 12:34:56");
 }
 
 TEST(ChronoCalendar, FormatDurationsQuantityUnitAndClocktime)
 {
-    EXPECT_EQ(std::format("{:%Q%q}", 1500ms), "1500ms");    // quantity + unit
-    EXPECT_EQ(std::format("{:%T}", 3661s), "01:01:01");  // clock-style
+    EXPECT_EQ(PString::format_string("{:%Q%q}", 1500ms), "1500ms");    // quantity + unit
+    EXPECT_EQ(PString::format_string("{:%T}", 3661s), "01:01:01");  // clock-style
 }
-#endif
-

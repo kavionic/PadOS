@@ -32,9 +32,6 @@
 
 #define PFORMATTER_NAMESPACE namespace fmt
 
-template <typename T, typename Char = char, typename Enable = void>
-using PFormatter = fmt::formatter<T, Char, Enable>;
-
 template<typename... ARGS>
 using PFormatString = fmt::format_string<ARGS...>;
 
@@ -43,9 +40,6 @@ using PFormatString = fmt::format_string<ARGS...>;
 #include <format>
 
 #define PFORMATTER_NAMESPACE namespace std
-
-template <typename T, typename Char = char, typename Enable = void>
-using PFormatter = std::formatter<T, Char, Enable>;
 
 template<typename... ARGS>
 using PFormatString = std::format_string<ARGS...>;
@@ -122,56 +116,6 @@ public:
         return *this;
     }
 
-    String& formatf(const char* fmt, va_list pArgs)
-    {
-        int maxLen;
-        int length;
-        {
-            char buffer[128];
-            maxLen = sizeof(buffer);
-
-            length = vsnprintf(buffer, sizeof(buffer), fmt, pArgs);
-
-            if (length < sizeof(buffer))
-            {
-                assign(buffer);
-                return *this;
-            }
-        }
-        while (length >= maxLen)
-        {
-            maxLen *= 2;
-            std::vector<char> buffer;
-            buffer.resize(maxLen);
-
-            length = vsnprintf(buffer.data(), maxLen, fmt, pArgs);
-            if (length < maxLen) {
-                assign(buffer.data());
-            }
-        }
-        return *this;
-    }
-
-
-    String& formatf(const char* fmt, ...)
-    {
-        va_list argList;
-        va_start(argList, fmt);
-        formatf(fmt, argList);
-        va_end(argList);
-        return *this;
-    }
-
-    static String format_stringf(const char* fmt, ...)
-    {
-        String result;
-        va_list argList;
-        va_start(argList, fmt);
-        result.formatf(fmt, argList);
-        va_end(argList);
-        return result;
-    }
-
     static String format_file_size(off64_t size);
     static String format_time_period(const TimeValNanos& timeVal, bool includeUnits, size_t maxCharacters = 0);
 
@@ -224,5 +168,5 @@ using PString = os::String;
 PFORMATTER_NAMESPACE
 {
 template<>
-struct formatter<PString> : formatter<std::basic_string<PString::value_type, PString::traits_type, PString::allocator_type>, PString::value_type> {};
+struct formatter<PString> : formatter<::std::basic_string<PString::value_type, PString::traits_type, PString::allocator_type>, PString::value_type> {};
 }

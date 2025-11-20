@@ -162,7 +162,7 @@ uint32_t kread_backup_register_trw(size_t registerID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Kernel::SetupGlobals(uint32_t frequencyCore, uint32_t frequencyPeripheral)
+void Kernel::SetupGlobals()
 {
     SCB->VTOR = ((uintptr_t)&_vectors) & SCB_VTOR_TBLOFF_Msk;
 

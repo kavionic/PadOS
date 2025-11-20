@@ -38,6 +38,10 @@
 
 using namespace os;
 
+extern uint32_t _vectors;
+
+extern "C" void newlib_retarget_locks_initialize();
+
 namespace kernel
 {
 
@@ -158,11 +162,14 @@ uint32_t kread_backup_register_trw(size_t registerID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Kernel::SetupFrequencies(uint32_t frequencyCore, uint32_t frequencyPeripheral)
+void Kernel::SetupGlobals(uint32_t frequencyCore, uint32_t frequencyPeripheral)
 {
-    s_FrequencyCore = frequencyCore;
-    s_FrequencyPeripheral = frequencyPeripheral;
-    SpinTimer::Initialize();
+    SCB->VTOR = ((uintptr_t)&_vectors) & SCB_VTOR_TBLOFF_Msk;
+
+    kernel::KNamedObject::InitializeStatics();
+    kernel::initialize_scheduler_statics();
+
+    newlib_retarget_locks_initialize();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -201,6 +208,10 @@ void Kernel::ResetWatchdog()
 
 void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral)
 {
+    s_FrequencyCore = frequencyCore;
+    s_FrequencyPeripheral = frequencyPeripheral;
+    SpinTimer::Initialize();
+
 #if defined(__SAME70Q21__)
     SUPC->SUPC_MR = SUPC_MR_KEY_PASSWD | SUPC_MR_BODRSTEN_Msk | SUPC_MR_ONREG_Msk;
     SUPC->SUPC_WUMR = SUPC_WUMR_SMEN_Msk | SUPC_WUMR_WKUPDBC_4096_SLCK;

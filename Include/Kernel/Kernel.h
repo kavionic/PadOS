@@ -91,7 +91,7 @@ uint32_t kread_backup_register_trw(size_t registerID);
 class Kernel
 {
 public:
-    static void     SetupFrequencies(uint32_t frequencyCore, uint32_t frequencyPeripheral);
+    static void     SetupGlobals(uint32_t frequencyCore, uint32_t frequencyPeripheral);
     static uint32_t GetFrequencyCore();
     static uint32_t GetFrequencyPeripheral();
 

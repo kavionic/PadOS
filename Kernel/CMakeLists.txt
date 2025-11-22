@@ -18,6 +18,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KObjectWaitGroup.cpp
 	KPowerManager.cpp
 	KProcess.cpp
+	KRelocMemSection.cpp
 	KSemaphore.cpp
 	KThread.cpp
 	KThreadCB.cpp

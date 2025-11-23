@@ -45,10 +45,12 @@ extern "C" void newlib_retarget_locks_initialize();
 namespace kernel
 {
 
-uint32_t            Kernel::s_FrequencyCore;
-uint32_t            Kernel::s_FrequencyPeripheral;
-volatile bigtime_t  Kernel::s_SystemTime = 0;
-TimeValNanos        Kernel::s_RealTime;
+uint32_t        Kernel::s_FrequencyCore;
+uint32_t        Kernel::s_FrequencyPeripheral;
+double          Kernel::s_CoreFrequencyToNanosecondScale;
+bigtime_t       Kernel::s_SystemTicks = 0;
+bigtime_t       Kernel::s_SystemTimeNS = 0;
+TimeValNanos    Kernel::s_RealTime;
 
 static port_id                                              gk_InputEventPort = INVALID_HANDLE;
 
@@ -208,10 +210,6 @@ void Kernel::ResetWatchdog()
 
 void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral)
 {
-    s_FrequencyCore = frequencyCore;
-    s_FrequencyPeripheral = frequencyPeripheral;
-    SpinTimer::Initialize();
-
 #if defined(__SAME70Q21__)
     SUPC->SUPC_MR = SUPC_MR_KEY_PASSWD | SUPC_MR_BODRSTEN_Msk | SUPC_MR_ONREG_Msk;
     SUPC->SUPC_WUMR = SUPC_WUMR_SMEN_Msk | SUPC_WUMR_WKUPDBC_4096_SLCK;
@@ -238,6 +236,12 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
 #else
 #error Unknown platform
 #endif
+    s_FrequencyCore = frequencyCore;
+    s_FrequencyPeripheral = frequencyPeripheral;
+
+    s_CoreFrequencyToNanosecondScale = 1.0e9 / double(s_FrequencyCore);
+
+    SpinTimer::Initialize();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

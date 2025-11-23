@@ -35,9 +35,9 @@ time_t kget_monotonic_time_ns() noexcept
     time_t time;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        time = Kernel::s_SystemTime;
+        time = Kernel::s_SystemTimeNS;
     } CRITICAL_END;
-    return time * 1000000;
+    return time;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -53,26 +53,45 @@ TimeValNanos kget_monotonic_time() noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+time_t kget_system_ticks_hires() noexcept
+{
+    time_t   systemTicks;
+    uint32_t ticks;
+    CRITICAL_BEGIN(CRITICAL_IRQ)
+    {
+        ticks = SysTick->VAL;
+        systemTicks = Kernel::s_SystemTicks;
+        if (SCB->ICSR & SCB_ICSR_PENDSTSET_Msk)
+        {
+            ticks = SysTick->VAL;               // Make sure we get the post-wrap value.
+            systemTicks += SysTick->LOAD + 1;   // Add the missed tick.
+        }
+    } CRITICAL_END;
+    ticks = SysTick->LOAD - ticks;
+    return systemTicks + ticks;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 time_t kget_monotonic_time_hires_ns() noexcept
 {
-    const uint32_t coreFrequency = Kernel::GetFrequencyCore();
-    time_t   time;
+    const double coreFrequencyScale = Kernel::GetCoreFrequencyToNanosecondScale();
+    time_t      time;
     uint32_t    ticks;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         ticks = SysTick->VAL;
-        time = Kernel::s_SystemTime;
-        if ((SCB->ICSR & SCB_ICSR_PENDSTSET_Msk) || SysTick->VAL > ticks)
+        time = Kernel::s_SystemTimeNS;
+        if (SCB->ICSR & SCB_ICSR_PENDSTSET_Msk)
         {
-            // If the SysTick exception is pending, or the timer wrapped around after reading
-            // Kernel::s_SystemTime we need to add another tick and re-read the timer.
-            ticks = SysTick->VAL;
-            time++;
+            ticks = SysTick->VAL; // Make sure we get the post-wrap value.
+            time += 1000000;      // Add the missed tick.
         }
     } CRITICAL_END;
     ticks = SysTick->LOAD - ticks;
-    time *= 1000000; // Convert system time from mS to nS.
-    return time + time_t(ticks) * TimeValNanos::TicksPerSecond / coreFrequency;  // Convert clock-cycles to nS and add to the time.
+    return time + time_t(double(ticks) * Kernel::s_CoreFrequencyToNanosecondScale);  // Convert clock-cycles to nS and add to the time.
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -173,7 +173,8 @@ void check_stack_overflow()
 extern "C" void SysTick_Handler()
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
-    Kernel::s_SystemTime++;
+    Kernel::s_SystemTimeNS += 1000000;
+    Kernel::s_SystemTicks += SysTick->LOAD + 1;
     wakeup_sleeping_threads();
     KSWITCH_CONTEXT();
 }
@@ -405,7 +406,7 @@ bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount)
 
 static void wakeup_sleeping_threads()
 {
-    TimeValNanos curTime = TimeValNanos::FromMilliseconds(Kernel::s_SystemTime);
+    TimeValNanos curTime = TimeValNanos::FromNanoseconds(Kernel::s_SystemTimeNS);
 
     for (KThreadWaitNode* waitNode = gk_SleepingThreads.m_First; waitNode != nullptr && waitNode->m_ResumeTime <= curTime; waitNode = gk_SleepingThreads.m_First)
     {

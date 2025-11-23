@@ -453,11 +453,14 @@ const USB_DescriptorHeader* USBDevice::OpenEndpointPair(const USB_DescriptorHead
             break;
         }
 
-        if (endpointDescriptor.bEndpointAddress & USB_ADDRESS_DIR_IN) {
+        if (endpointDescriptor.bEndpointAddress & USB_ADDRESS_DIR_IN)
+        {
             endpointIn = endpointDescriptor.bEndpointAddress;
             endpointInMaxSize = endpointDescriptor.GetMaxPacketSize();
             endpointInFound = true;
-        } else {
+        }
+        else
+        {
             endpointOut = endpointDescriptor.bEndpointAddress;
             endpointOutMaxSize = endpointDescriptor.GetMaxPacketSize();
             endpointOutFound = true;
@@ -744,6 +747,8 @@ bool USBDevice::HandleDeviceControlRequests(const USB_ControlRequest& request)
 
     const USB_RequestType requestType = USB_RequestType((request.bmRequestType & USB_ControlRequest::REQUESTTYPE_TYPE_Msk) >> USB_ControlRequest::REQUESTTYPE_TYPE_Pos);
 
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "{}: {}.", __PRETTY_FUNCTION__, int(requestType));
+
     if (requestType == USB_RequestType::CLASS)
     {
         const uint8_t interfaceNum = uint8_t(request.wIndex & 0xff);
@@ -860,6 +865,8 @@ bool USBDevice::HandleInterfaceControlRequest(const USB_ControlRequest& request)
     const USB_RequestCode requestCode  = USB_RequestCode(request.bRequest);
     const uint8_t         interfaceNum = uint8_t(request.wIndex & 0xff);
 
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "{}: {} {}.", __PRETTY_FUNCTION__, int(requestCode), interfaceNum);
+
     Ptr<USBClassDriverDevice> driver = GetInterfaceDriver(interfaceNum);
     if (driver != nullptr && InvokeClassDriverControlTransfer(driver, request)) {
         return true;
@@ -910,6 +917,8 @@ bool USBDevice::HandleEndpointControlRequest(const USB_ControlRequest& request)
     const USB_RequestCode requestCode  = USB_RequestCode(request.bRequest);
     const USB_RequestType requestType  = USB_RequestType((request.bmRequestType & USB_ControlRequest::REQUESTTYPE_TYPE_Msk) >> USB_ControlRequest::REQUESTTYPE_TYPE_Pos);
     const uint8_t         endpointAddr = uint8_t(request.wIndex & 0xff);
+
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "{}: {} {} {:x}.", __PRETTY_FUNCTION__, int(requestCode), int(requestType), endpointAddr);
 
     Ptr<USBClassDriverDevice> driver = GetEndpointDriver(endpointAddr);
 

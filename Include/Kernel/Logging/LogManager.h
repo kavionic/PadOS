@@ -31,6 +31,7 @@
 
 
 enum class PLogSeverity : uint8_t;
+enum class PLogChannel : uint8_t;
 
 
 namespace kernel
@@ -48,10 +49,12 @@ public:
     virtual void* Run() override;
 
 
-    bool RegisterCategory(uint32_t categoryHash, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel);
+    bool RegisterCategory(uint32_t categoryHash, PLogChannel channel, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel);
     void SetCategoryMinimumSeverity(uint32_t categoryHash, PLogSeverity logLevel);
     bool IsCategoryActive(uint32_t categoryHash, PLogSeverity logLevel);
     bool IsCategoryActive_pl(uint32_t categoryHash, PLogSeverity logLevel);
+    
+    PLogChannel GetCategoryChannel_pl(uint32_t categoryHash) const;
 
     const char*     GetLogSeverityName(PLogSeverity logLevel);
     const PString&  GetCategoryName(uint32_t categoryHash);
@@ -64,8 +67,9 @@ public:
 private:
     struct CategoryDesc
     {
-        CategoryDesc(PLogSeverity minSeverity, const PString& categoryName, const PString& displayName) : MinSeverity(minSeverity), CategoryName(categoryName), DisplayName(displayName) {}
+        CategoryDesc(PLogChannel channel, PLogSeverity minSeverity, const PString& categoryName, const PString& displayName) : Channel(channel), MinSeverity(minSeverity), CategoryName(categoryName), DisplayName(displayName) {}
 
+        PLogChannel     Channel;
         PLogSeverity    MinSeverity;
         PString         CategoryName;
         PString         DisplayName;

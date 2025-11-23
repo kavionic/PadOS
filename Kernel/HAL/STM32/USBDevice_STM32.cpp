@@ -118,7 +118,7 @@ bool USBDevice_STM32::EndpointOpen(const USB_DescEndpoint& endpointDescriptor)
     xfer->EndpointMaxSize = endpointDescriptor.GetMaxPacketSize();
     xfer->Interval = endpointDescriptor.bInterval;
 
-    const size_t fifoSizeWords = std::max(16ul, (xfer->EndpointMaxSize + 3) / 4);
+    const uint32_t fifoSizeWords = std::max(16ul, (xfer->EndpointMaxSize * 2 + 3) / 4);
 
     const USB_TransferType transferType = endpointDescriptor.GetTransferType();
 
@@ -357,6 +357,7 @@ void USBDevice_STM32::ResetReceived()
     m_Device->DAINTMSK = (1 << USB_OTG_DAINTMSK_OEPM_Pos) | (1 << USB_OTG_DAINTMSK_IEPM_Pos);
     m_Device->DOEPMSK = USB_OTG_DOEPMSK_STUPM | USB_OTG_DOEPMSK_XFRCM;
     m_Device->DIEPMSK = USB_OTG_DIEPMSK_TOM | USB_OTG_DIEPMSK_XFRCM;
+    m_Device->DIEPEMPMSK = 0;
 
     m_Port->GRXFSIZ = CalculateRXFIFOSize(m_SupportHighSpeed ? 512 : 64);
 
@@ -745,27 +746,28 @@ void USBDevice_STM32::HandleInEndpointIRQ()
                     m_Driver->IRQTransferComplete(epNum | USB_ADDRESS_DIR_IN, xfer.TotalLength, USB_TransferResult::Success);
                 }
             }
-            // TX FIFO empty.
+
+            // TX FIFO below threshold.
             if ((m_InEndpoints[epNum].DIEPINT & USB_OTG_DIEPINT_TXFE) && (m_Device->DIEPEMPMSK & (1 << epNum)))
             {
-                const uint32_t remainingPackets = (m_InEndpoints[epNum].DIEPTSIZ & USB_OTG_DIEPTSIZ_PKTCNT_Msk) >> USB_OTG_DIEPTSIZ_PKTCNT_Pos;
-
-                for (uint32_t i = 0; i < remainingPackets; ++i)
+                while(xfer.BytesTransferred < xfer.TotalLength)
                 {
-                    const uint32_t remainingBytes = (m_InEndpoints[epNum].DIEPTSIZ & USB_OTG_DIEPTSIZ_XFRSIZ_Msk) >> USB_OTG_DIEPTSIZ_XFRSIZ_Pos;
-
+                    const uint32_t remainingBytes = xfer.TotalLength - xfer.BytesTransferred;
                     const uint32_t packetSize = std::min(remainingBytes, xfer.EndpointMaxSize);
+                    const uint32_t fifoWords = m_InEndpoints[epNum].DTXFSTS & USB_OTG_DTXFSTS_INEPTFSAV_Msk;
+                    const uint32_t fifoBytes = fifoWords * 4;
 
                     // Only full packets can be written to FIFO, so check that the entire packet will fit.
-                    if (packetSize > (m_InEndpoints[epNum].DTXFSTS & USB_OTG_DTXFSTS_INEPTFSAV_Msk) * 4) {
+                    if (packetSize > fifoBytes) {
                         break;
                     }
                     kassert(xfer.BytesTransferred + packetSize <= xfer.BufferSize);
                     m_Driver->WriteToFIFO(epNum, xfer.Buffer + xfer.BytesTransferred, packetSize);
+
                     xfer.BytesTransferred += packetSize;
                 }
-                // Turn off TXFE when all bytes are written.
-                if (((m_InEndpoints[epNum].DIEPTSIZ & USB_OTG_DIEPTSIZ_XFRSIZ_Msk) >> USB_OTG_DIEPTSIZ_XFRSIZ_Pos) == 0)
+
+                if (xfer.BytesTransferred == xfer.TotalLength)
                 {
                     m_Device->DIEPEMPMSK &= ~(1 << epNum);
                 }

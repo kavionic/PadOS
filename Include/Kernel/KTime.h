@@ -29,6 +29,8 @@ namespace kernel
 time_t          kget_monotonic_time_ns() noexcept;
 TimeValNanos    kget_monotonic_time() noexcept;
 
+time_t          kget_system_ticks_hires() noexcept;
+
 time_t          kget_monotonic_time_hires_ns() noexcept;
 TimeValNanos    kget_monotonic_time_hires() noexcept;
 

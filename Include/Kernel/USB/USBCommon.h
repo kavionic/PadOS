@@ -28,9 +28,9 @@ enum class USB_Speed : uint8_t;
 
 namespace kernel
 {
-PDEFINE_LOG_CATEGORY(LogCategoryUSB,        "USB",  PLogSeverity::INFO_LOW_VOL);
-PDEFINE_LOG_CATEGORY(LogCategoryUSBDevice,  "USBD", PLogSeverity::INFO_HIGH_VOL);
-PDEFINE_LOG_CATEGORY(LogCategoryUSBHost,    "USBH", PLogSeverity::INFO_LOW_VOL);
+PDEFINE_LOG_CATEGORY(LogCategoryUSB,        "USB",  PLogSeverity::INFO_LOW_VOL,  PLogChannel::DebugPort);
+PDEFINE_LOG_CATEGORY(LogCategoryUSBDevice,  "USBD", PLogSeverity::INFO_LOW_VOL, PLogChannel::DebugPort);
+PDEFINE_LOG_CATEGORY(LogCategoryUSBHost,    "USBH", PLogSeverity::INFO_LOW_VOL,  PLogChannel::DebugPort);
 
 enum class USB_ControlStage : int
 {

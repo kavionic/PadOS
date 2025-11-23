@@ -71,6 +71,7 @@ void* KLogManager::Run()
                     m_ConditionVar.WakeupAll();
                     continue;
                 }
+                const PLogChannel channel = GetCategoryChannel_pl(entry.CategoryHash);
                 const PString text = PString::format_string("[{:<8}: {:<7.7}]: {}\n", GetCategoryDisplayName_pl(entry.CategoryHash), GetLogSeverityName(entry.Severity), entry.Message);
                 m_LogEntries.pop_front();
                 m_ConditionVar.WakeupAll();
@@ -80,13 +81,21 @@ void* KLogManager::Run()
                 header.PackageLength = sizeof(header) + text.size();
 
                 m_Mutex.Unlock();
-                for (;;)
+
+                if (channel == PLogChannel::SerialManager)
                 {
-                    if (SerialCommandHandler::Get().SendSerialData(&header, sizeof(header), text.data(), text.size())) {
-                        break;
-                    } else {
-                        snooze_ms(100);
+                    for (;;)
+                    {
+                        if (SerialCommandHandler::Get().SendSerialData(&header, sizeof(header), text.data(), text.size())) {
+                            break;
+                        } else {
+                            snooze_ms(100);
+                        }
                     }
+                }
+                else
+                {
+                    write(1, text.data(), text.size());
                 }
                 m_Mutex.Lock();
             }
@@ -109,11 +118,11 @@ KLogManager& KLogManager::Get()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KLogManager::RegisterCategory(uint32_t categoryHash, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel)
+bool KLogManager::RegisterCategory(uint32_t categoryHash, PLogChannel channel, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
-    m_LogCategories.emplace(categoryHash, CategoryDesc(initialLogLevel, categoryName, displayName));
+    m_LogCategories.emplace(categoryHash, CategoryDesc(channel, initialLogLevel, categoryName, displayName));
     return true;
 }
 
@@ -154,6 +163,17 @@ bool KLogManager::IsCategoryActive_pl(uint32_t categoryHash, PLogSeverity logLev
     kassert(m_Mutex.IsLocked());
     const CategoryDesc& desc = GetCategoryDesc(categoryHash);
     return logLevel <= desc.MinSeverity;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PLogChannel KLogManager::GetCategoryChannel_pl(uint32_t categoryHash) const
+{
+    kassert(m_Mutex.IsLocked());
+    const CategoryDesc& desc = GetCategoryDesc(categoryHash);
+    return desc.Channel;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -258,7 +278,7 @@ const KLogManager::CategoryDesc& KLogManager::GetCategoryDesc(uint32_t categoryH
     }
     else
     {
-        static CategoryDesc unknownDesc(PLogSeverity::NONE, "*invalid*", "*invalid*");
+        static CategoryDesc unknownDesc(PLogChannel::DebugPort, PLogSeverity::NONE, "*invalid*", "*invalid*");
         return unknownDesc;
     }
 }

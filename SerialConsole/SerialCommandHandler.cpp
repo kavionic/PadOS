@@ -56,7 +56,6 @@ SerialCommandHandler::SerialCommandHandler()
     , m_ReplyCondition("sch_reply_cond")
     , m_QueueCondition("sch_queue_cond")
     , m_WaitGroup("sch_wait_group")
-    , m_MessageQueue(*new CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * SerialProtocol::MAX_QUEUE_LENGTH, void>)
 {
     s_Instance = this;
 
@@ -95,7 +94,7 @@ bool SerialCommandHandler::OpenSerialPort()
 
             m_WaitGroup.AddFile(m_SerialPortIn);
             m_SerialPortOut = reopen_file(m_SerialPortIn, O_WRONLY | O_DIRECT);
-            USARTIOCTL_SetWriteTimeout(m_SerialPortOut, TimeValNanos::FromMilliseconds(100));
+//            USARTIOCTL_SetWriteTimeout(m_SerialPortOut, TimeValNanos::FromMilliseconds(1000));
             return true;
         }
         return false;
@@ -126,7 +125,6 @@ void SerialCommandHandler::CloseSerialPort()
 
 void* SerialCommandHandler::Run()
 {
-    SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer);
     for (;;)
     {
         if (m_ComFailure) {
@@ -148,24 +146,29 @@ void* SerialCommandHandler::Run()
                 continue;
             }
         }
-        PERROR_CATCH([this](PErrorCode error) { m_InMessageBytes = 0; CloseSerialPort(); });
-
-        CRITICAL_BEGIN(m_QueueMutex)
+        PERROR_CATCH([this](PErrorCode error) { m_InMessageBuffer.clear(); CloseSerialPort(); });
+        if (m_InMessageBuffer.empty()) {
+            continue;
+        }
+        SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer.data());
+        if (packetBuffer->Command == SerialProtocol::Commands::MessageReply)
         {
-            if (packetBuffer->Command == SerialProtocol::Commands::MessageReply)
+            m_ReplyReceived = true;
+            m_ReplyCondition.WakeupAll();
+            m_InMessageBuffer.clear();
+        }
+        else
+        {
+            CRITICAL_BEGIN(m_QueueMutex)
             {
-                m_ReplyReceived = true;
-                m_ReplyCondition.WakeupAll();
-            }
-            else
-            {
-                if (packetBuffer->PackageLength > m_MessageQueue.GetRemainingSpace()) {
-                    continue;
+                if (m_MessageQueue.size() >= 1000) {
+                    m_MessageQueue.pop_front();
                 }
-                m_MessageQueue.Write(packetBuffer, packetBuffer->PackageLength);
+                m_MessageQueue.push_back(std::move(m_InMessageBuffer));
+                m_InMessageBuffer.clear();
                 m_QueueCondition.WakeupAll();
-            }
-        } CRITICAL_END;
+            } CRITICAL_END;
+        }
     }
     return nullptr;
 }
@@ -202,23 +205,29 @@ void SerialCommandHandler::Execute()
 
     for (;;)
     {
-        const SerialProtocol::PacketHeader* packetBuffer = nullptr;
+        std::vector<uint8_t> packetData;
 
         CRITICAL_BEGIN(m_QueueMutex);
         {
-            if (m_MessageQueue.IsEmpty()) {
-                m_QueueCondition.WaitTimeout(m_QueueMutex, TimeValNanos::FromMilliseconds(SerialProtocol::PING_PERIOD_MS_DEVICE));
+            if (m_MessageQueue.empty()) {
+                m_QueueCondition.WaitDeadline(m_QueueMutex, m_NextDeviceProbeTime);
             }
-            if (!m_MessageQueue.IsEmpty())
+            if (!m_MessageQueue.empty())
             {
-                m_MessageQueue.Read(m_OutMessageBuffer, sizeof(SerialProtocol::PacketHeader));
-                packetBuffer = reinterpret_cast<const SerialProtocol::PacketHeader*>(m_OutMessageBuffer);
-                m_MessageQueue.Read(&m_OutMessageBuffer[sizeof(SerialProtocol::PacketHeader)], packetBuffer->PackageLength - sizeof(SerialProtocol::PacketHeader));
+                packetData = std::move(m_MessageQueue.front());
+                m_MessageQueue.pop_front();
             }
         } CRITICAL_END;
 
-        if (packetBuffer != nullptr)
+        const TimeValNanos curTime = get_monotonic_time();
+        if (curTime > m_NextDeviceProbeTime) {
+            m_NextDeviceProbeTime = curTime + TimeValNanos::FromMilliseconds(SerialProtocol::PING_PERIOD_MS_DEVICE);
+            SendMessage<SerialProtocol::ProbeDeviceReply>(m_DeviceType);
+        }
+        if (!packetData.empty())
         {
+            const SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<const SerialProtocol::PacketHeader*>(packetData.data());
+
             auto handler = m_CommandHandlerMap.find(packetBuffer->Command);
             if (handler != m_CommandHandlerMap.end())
             {
@@ -231,10 +240,6 @@ void SerialCommandHandler::Execute()
             {
                 p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Unknown serial command {}", int(packetBuffer->Command));
             }
-        }
-        else
-        {
-            SendMessage<SerialProtocol::ProbeDeviceReply>(m_DeviceType);
         }
     }
 }
@@ -275,64 +280,71 @@ bool SerialCommandHandler::ReadPacket()
 {
     for (;;)
     {
-        if (m_InMessageBytes == 0)
+        if (m_InMessageBuffer.size() < sizeof(SerialProtocol::PacketHeader))
         {
-            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[0], 1);
-            if (length == 0 || m_InMessageBuffer[0] != SerialProtocol::PacketHeader::MAGIC1) {
+            uint8_t data[sizeof(SerialProtocol::PacketHeader)];
+            const ssize_t length = read_trw(m_SerialPortIn, data, sizeof(SerialProtocol::PacketHeader) - m_InMessageBuffer.size());
+            if (length == 0) {
                 return false;
             }
-            m_InMessageBytes++;
-        }
-        if (m_InMessageBytes == 1)
-        {
-            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[1], 1);
+            m_InMessageBuffer.insert(m_InMessageBuffer.end(), &data[0], &data[length]);
 
-            if (length == 0) {
-                return false;
-            }
-            if (m_InMessageBuffer[1] != SerialProtocol::PacketHeader::MAGIC2)
+            if (m_InMessageBuffer.size() >= 1 && m_InMessageBuffer[0] != SerialProtocol::PacketHeader::MAGIC1)
             {
-                m_InMessageBytes = 0;
-                return false;
+                auto end = m_InMessageBuffer.end();
+                for (auto i = m_InMessageBuffer.begin(); i != end; ++i)
+                {
+                    if (*i == SerialProtocol::PacketHeader::MAGIC1)
+                    {
+                        end = i;
+                        break;
+                    }
+                }
+                m_InMessageBuffer.erase(m_InMessageBuffer.begin(), end);
             }
-            m_InMessageBytes++;
-        }
-        if (m_InMessageBytes < sizeof(SerialProtocol::PacketHeader))
-        {
-            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[m_InMessageBytes], sizeof(SerialProtocol::PacketHeader) - m_InMessageBytes);
-            if (length == 0) {
-                return false;
+
+            if (m_InMessageBuffer.size() >= 2)
+            {
+                if (m_InMessageBuffer[1] != SerialProtocol::PacketHeader::MAGIC2)
+                {
+                    m_InMessageBuffer.erase(m_InMessageBuffer.begin(), m_InMessageBuffer.begin() + 2);
+                    continue;
+                }
             }
-            m_InMessageBytes += length;
-            if (m_InMessageBytes < sizeof(SerialProtocol::PacketHeader)) {
+            if (m_InMessageBuffer.size() < sizeof(SerialProtocol::PacketHeader)) {
                 continue;
             }
         }
         // *** PACKET HEADER READ ***
 
-        SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer);
+        const size_t packageLength = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer.data())->PackageLength;
 
-        if (packetBuffer->PackageLength > SerialProtocol::MAX_MESSAGE_SIZE)
+        if (packageLength > SerialProtocol::MAX_MESSAGE_SIZE)
         {
-            p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Packet to large. Cmd={}, Size={}", packetBuffer->Command, packetBuffer->PackageLength);
-            m_InMessageBytes = 0;
+            p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Packet to large. Cmd={}, Size={}", reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer.data())->Command, packageLength);
+            m_InMessageBuffer.clear();
             continue;
         }
 
-        if (m_InMessageBytes < packetBuffer->PackageLength)
+        if (m_InMessageBuffer.size() < packageLength)
         {
-            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[m_InMessageBytes], packetBuffer->PackageLength - m_InMessageBytes);
+            size_t prevSize = m_InMessageBuffer.size();
+            m_InMessageBuffer.resize(packageLength);
+
+            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[prevSize], packageLength - prevSize);
             if (length == 0) {
+                m_InMessageBuffer.resize(prevSize);
                 return false;
             }
-            m_InMessageBytes += length;
-            if (m_InMessageBytes < packetBuffer->PackageLength) {
+
+            if (prevSize + length < packageLength) {
+                m_InMessageBuffer.resize(prevSize + length);
                 continue;
             }
         }
         // *** FULL PACKET READ ***
 
-        m_InMessageBytes = 0;
+        SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer.data());
 
         HashCalculator<HashAlgorithm::CRC32> crcCalc;
 
@@ -343,6 +355,7 @@ bool SerialCommandHandler::ReadPacket()
 
         if (calculatedCRC != receivedCRC)
         {
+            m_InMessageBuffer.clear();
             p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Invalid CRC32. Got {:08x}, expected {:08x}", receivedCRC, calculatedCRC);
             continue;
         }
@@ -415,7 +428,7 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
             return true;
         }
     }
-//    p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Transmitting {} failed.", header->Command);
+    p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Transmitting {} failed.", header->Command);
     return false;
 }
 

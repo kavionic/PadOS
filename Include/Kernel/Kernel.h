@@ -94,6 +94,7 @@ public:
     static void     SetupGlobals();
     static uint32_t GetFrequencyCore();
     static uint32_t GetFrequencyPeripheral();
+    static double   GetCoreFrequencyToNanosecondScale() { return s_CoreFrequencyToNanosecondScale; }
 
 #if defined(__SAME70Q21__)
     static void ResetWatchdog();
@@ -105,10 +106,12 @@ public:
 
 //private:
 
-    static uint32_t s_FrequencyCore;
-    static uint32_t s_FrequencyPeripheral;
-    static volatile bigtime_t   s_SystemTime;
-    static TimeValNanos         s_RealTime;
+    static uint32_t     s_FrequencyCore;
+    static uint32_t     s_FrequencyPeripheral;
+    static double       s_CoreFrequencyToNanosecondScale;
+    static bigtime_t    s_SystemTicks;
+    static bigtime_t    s_SystemTimeNS;
+    static TimeValNanos s_RealTime;
 };
 
 } // namespace

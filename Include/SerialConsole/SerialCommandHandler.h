@@ -59,7 +59,7 @@ struct ChannelInfoUpdate;
 
 }
 
-PDEFINE_LOG_CATEGORY(LogCategorySerialHandler, "SCMDH", PLogSeverity::WARNING);
+PDEFINE_LOG_CATEGORY(LogCategorySerialHandler, "SCMDH", PLogSeverity::WARNING, PLogChannel::DebugPort);
 
 class PacketHandlerBase
 {
@@ -169,11 +169,10 @@ private:
     std::map<SerialProtocol::Commands::Value, const PacketHandlerBase*> m_CommandHandlerMap;
     size_t                                                              m_LargestCommandPacket = 0;
 
-    CircularBuffer<uint8_t, SerialProtocol::MAX_MESSAGE_SIZE * SerialProtocol::MAX_QUEUE_LENGTH, void>&   m_MessageQueue;
-    uint8_t m_InMessageBuffer[SerialProtocol::MAX_MESSAGE_SIZE];
+    std::deque<std::vector<uint8_t>> m_MessageQueue;
+    std::vector<uint8_t> m_InMessageBuffer;
     uint8_t m_OutMessageBuffer[SerialProtocol::MAX_MESSAGE_SIZE];
-    size_t m_InMessageBytes = 0;
-
+    TimeValNanos    m_NextDeviceProbeTime;
     SerialCommandHandler(const SerialCommandHandler &other) = delete;
     SerialCommandHandler& operator=(const SerialCommandHandler &other) = delete;
 };

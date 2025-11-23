@@ -91,7 +91,7 @@ time_t kget_monotonic_time_hires_ns() noexcept
         }
     } CRITICAL_END;
     ticks = SysTick->LOAD - ticks;
-    return time + time_t(double(ticks) * Kernel::s_CoreFrequencyToNanosecondScale);  // Convert clock-cycles to nS and add to the time.
+    return time + time_t(double(ticks) * coreFrequencyScale);  // Convert clock-cycles to nS and add to the time.
 }
 
 ///////////////////////////////////////////////////////////////////////////////

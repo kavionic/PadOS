@@ -171,7 +171,7 @@ private:
 
     std::deque<std::vector<uint8_t>> m_MessageQueue;
     std::vector<uint8_t> m_InMessageBuffer;
-    uint8_t m_OutMessageBuffer[SerialProtocol::MAX_MESSAGE_SIZE];
+    size_t               m_PackageBytesRead = 0;
     TimeValNanos    m_NextDeviceProbeTime;
     SerialCommandHandler(const SerialCommandHandler &other) = delete;
     SerialCommandHandler& operator=(const SerialCommandHandler &other) = delete;

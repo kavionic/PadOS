@@ -126,7 +126,7 @@ struct WriteFile : PacketHeader
     int32_t m_File;
     int32_t m_Size;
     int32_t m_StartPos;
-    char    m_Buffer[1024];
+    char    m_Buffer[1024 * 64];
 };
 
 struct WriteFileReply : PacketHeader
@@ -170,7 +170,7 @@ struct ReadFileReply : PacketHeader
     int32_t m_File;
     int32_t m_Size;
     int32_t m_StartPos;
-    char    m_Buffer[1024];
+    char    m_Buffer[1024 * 64];
 };
 
 struct DeleteFile : PacketHeader

@@ -94,7 +94,7 @@ bool SerialCommandHandler::OpenSerialPort()
 
             m_WaitGroup.AddFile(m_SerialPortIn);
             m_SerialPortOut = reopen_file(m_SerialPortIn, O_WRONLY | O_DIRECT);
-//            USARTIOCTL_SetWriteTimeout(m_SerialPortOut, TimeValNanos::FromMilliseconds(1000));
+            USARTIOCTL_SetWriteTimeout(m_SerialPortOut, TimeValNanos::FromMilliseconds(1000));
             return true;
         }
         return false;
@@ -146,8 +146,14 @@ void* SerialCommandHandler::Run()
                 continue;
             }
         }
-        PERROR_CATCH([this](PErrorCode error) { m_InMessageBuffer.clear(); CloseSerialPort(); });
-        if (m_InMessageBuffer.empty()) {
+        PERROR_CATCH([this](PErrorCode error)
+            {
+                m_InMessageBuffer.clear();
+                m_PackageBytesRead = 0;
+                CloseSerialPort();
+            }
+        );
+        if (m_PackageBytesRead == 0) {
             continue;
         }
         SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer.data());
@@ -156,6 +162,7 @@ void* SerialCommandHandler::Run()
             m_ReplyReceived = true;
             m_ReplyCondition.WakeupAll();
             m_InMessageBuffer.clear();
+            m_PackageBytesRead = 0;
         }
         else
         {
@@ -166,6 +173,7 @@ void* SerialCommandHandler::Run()
                 }
                 m_MessageQueue.push_back(std::move(m_InMessageBuffer));
                 m_InMessageBuffer.clear();
+                m_PackageBytesRead = 0;
                 m_QueueCondition.WakeupAll();
             } CRITICAL_END;
         }
@@ -280,38 +288,42 @@ bool SerialCommandHandler::ReadPacket()
 {
     for (;;)
     {
-        if (m_InMessageBuffer.size() < sizeof(SerialProtocol::PacketHeader))
+        if (m_PackageBytesRead < sizeof(SerialProtocol::PacketHeader))
         {
-            uint8_t data[sizeof(SerialProtocol::PacketHeader)];
-            const ssize_t length = read_trw(m_SerialPortIn, data, sizeof(SerialProtocol::PacketHeader) - m_InMessageBuffer.size());
+            if (m_InMessageBuffer.empty()) {
+                m_InMessageBuffer.resize(sizeof(SerialProtocol::PacketHeader));
+            }
+            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[m_PackageBytesRead], sizeof(SerialProtocol::PacketHeader) - m_PackageBytesRead);
             if (length == 0) {
                 return false;
             }
-            m_InMessageBuffer.insert(m_InMessageBuffer.end(), &data[0], &data[length]);
+            m_PackageBytesRead += length;
 
-            if (m_InMessageBuffer.size() >= 1 && m_InMessageBuffer[0] != SerialProtocol::PacketHeader::MAGIC1)
+            if (m_PackageBytesRead >= 1 && m_InMessageBuffer[0] != SerialProtocol::PacketHeader::MAGIC1)
             {
-                auto end = m_InMessageBuffer.end();
-                for (auto i = m_InMessageBuffer.begin(); i != end; ++i)
+                size_t end = m_PackageBytesRead;
+                for (size_t i = 0; i < m_PackageBytesRead; ++i)
                 {
-                    if (*i == SerialProtocol::PacketHeader::MAGIC1)
+                    if (m_InMessageBuffer[i] == SerialProtocol::PacketHeader::MAGIC1)
                     {
                         end = i;
                         break;
                     }
                 }
-                m_InMessageBuffer.erase(m_InMessageBuffer.begin(), end);
+                memmove(&m_InMessageBuffer[0], &m_InMessageBuffer[end], m_PackageBytesRead - end);
+                m_PackageBytesRead -= end;
             }
 
-            if (m_InMessageBuffer.size() >= 2)
+            if (m_PackageBytesRead >= 2)
             {
                 if (m_InMessageBuffer[1] != SerialProtocol::PacketHeader::MAGIC2)
                 {
-                    m_InMessageBuffer.erase(m_InMessageBuffer.begin(), m_InMessageBuffer.begin() + 2);
+                    memmove(&m_InMessageBuffer[0], &m_InMessageBuffer[2], m_PackageBytesRead - 2);
+                    m_PackageBytesRead -= 2;
                     continue;
                 }
             }
-            if (m_InMessageBuffer.size() < sizeof(SerialProtocol::PacketHeader)) {
+            if (m_PackageBytesRead < sizeof(SerialProtocol::PacketHeader)) {
                 continue;
             }
         }
@@ -323,22 +335,22 @@ bool SerialCommandHandler::ReadPacket()
         {
             p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Packet to large. Cmd={}, Size={}", reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer.data())->Command, packageLength);
             m_InMessageBuffer.clear();
+            m_PackageBytesRead = 0;
             continue;
         }
 
-        if (m_InMessageBuffer.size() < packageLength)
-        {
-            size_t prevSize = m_InMessageBuffer.size();
+        if (m_InMessageBuffer.size() < packageLength) {
             m_InMessageBuffer.resize(packageLength);
+        }
+        if (m_PackageBytesRead < packageLength)
+        {
 
-            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[prevSize], packageLength - prevSize);
+            const ssize_t length = read_trw(m_SerialPortIn, &m_InMessageBuffer[m_PackageBytesRead], packageLength - m_PackageBytesRead);
             if (length == 0) {
-                m_InMessageBuffer.resize(prevSize);
                 return false;
             }
-
-            if (prevSize + length < packageLength) {
-                m_InMessageBuffer.resize(prevSize + length);
+            m_PackageBytesRead += length;
+            if (m_PackageBytesRead < packageLength) {
                 continue;
             }
         }
@@ -356,6 +368,7 @@ bool SerialCommandHandler::ReadPacket()
         if (calculatedCRC != receivedCRC)
         {
             m_InMessageBuffer.clear();
+            m_PackageBytesRead = 0;
             p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Invalid CRC32. Got {:08x}, expected {:08x}", receivedCRC, calculatedCRC);
             continue;
         }

@@ -157,11 +157,22 @@ void CommandHandlerFilesystem::HandleReadFile(const SerialProtocol::ReadFile& ms
     if (m_CurrentExternalFile == -1 || msg.m_File != m_CurrentExternalFile) {
         return;
     }
-    SerialProtocol::ReadFileReply reply;
-    ssize_t result = pread(m_CurrentExternalFile, reply.m_Buffer, msg.m_Size, msg.m_StartPos);
-    SerialProtocol::ReadFileReply::InitMsg(reply, m_CurrentExternalFile, msg.m_StartPos, result);
+    size_t size = msg.m_Size;
+    if (size > sizeof(SerialProtocol::ReadFileReply::m_Buffer))
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategorySerialHandler, "{}: Request too large: {} > {}.", __PRETTY_FUNCTION__, size, sizeof(SerialProtocol::ReadFileReply::m_Buffer));
+        size = sizeof(SerialProtocol::ReadFileReply::m_Buffer);
+    }
+    std::unique_ptr<SerialProtocol::ReadFileReply> reply = std::make_unique<SerialProtocol::ReadFileReply>();
+    ssize_t result = pread(m_CurrentExternalFile, reply->m_Buffer, size, msg.m_StartPos);
+    if (result < 0) {
+        p_system_log<PLogSeverity::ERROR>(LogCategorySerialHandler, "{}: Failed to read: {}.", __PRETTY_FUNCTION__, strerror(errno));
+    } else if (result > size) {
+        p_system_log<PLogSeverity::ERROR>(LogCategorySerialHandler, "{}: Read more bytes than requested: {}/{}.", __PRETTY_FUNCTION__, result, size);
+    }
+    SerialProtocol::ReadFileReply::InitMsg(*reply, m_CurrentExternalFile, msg.m_StartPos, result);
 
-    m_CommandHandler->SendSerialPacket(&reply);
+    m_CommandHandler->SendSerialPacket(reply.get());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

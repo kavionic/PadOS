@@ -12,6 +12,7 @@ set(ZLIB_LIBRARY_RELEASE "${ZLIB_LIBRARY}" CACHE FILEPATH "" FORCE)
 set(PNG_SHARED OFF CACHE BOOL "" FORCE)
 set(PNG_STATIC ON  CACHE BOOL "" FORCE)
 # If libpng’s tests aren’t needed on bare metal:
+set(PNG_TOOLS  OFF CACHE BOOL "" FORCE)
 set(PNG_TESTS  OFF CACHE BOOL "" FORCE)
 
 # Now add an empty ZLIB::ZLIB interface library to stop find_package(ZLIB) from
@@ -21,7 +22,6 @@ add_library(ZLIB::ZLIB INTERFACE IMPORTED)
 
 option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_STATIC "Build static lib" ON)
-option(PNG_EXECUTABLES "Build libpng executables" OFF)
 option(PNG_TESTS "Build libpng tests" OFF)
 set(SKIP_INSTALL_ALL TRUE)
 

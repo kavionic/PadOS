@@ -41,6 +41,7 @@ include_directories(
 )
 
 include_directories(
+	${CMAKE_SOURCE_DIR}/Source
 	${CMAKE_SOURCE_DIR}/PadOS/Include
 	${CMAKE_SOURCE_DIR}/PadOS/Applications
 	${CMAKE_SOURCE_DIR}/PadOS/ExternalLibs

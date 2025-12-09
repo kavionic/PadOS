@@ -22,6 +22,8 @@
 #include <sys/pados_syscalls.h>
 #include <PadOS/ThreadLocal.h>
 #include <Threads/Threads.h>
+#include <Threads/Mutex.h>
+#include <Kernel/KThreadCB.h>
 
 template<typename T>
 class ThreadLocal
@@ -86,4 +88,32 @@ private:
 
     ThreadLocal(const ThreadLocal &) = delete;
     ThreadLocal& operator=(const ThreadLocal &) = delete;
+};
+
+class ThreadLocalSlotManager
+{
+public:
+    ThreadLocalSlotManager();
+
+    static ThreadLocalSlotManager& Get();
+
+    PErrorCode  AllocSlot(tls_id& outKey, TLSDestructor_t destructor);
+    PErrorCode  FreeSlot(tls_id slot);
+
+    void*       GetSlot(tls_id key);
+    PErrorCode  SetSlot(tls_id key, const void* value);
+
+    void ThreadTerminated();
+
+private:
+    tls_id FindFreeIndex() const;
+
+    static ThreadLocalSlotManager* s_Instance;
+
+    PMutex          m_Mutex;
+    uint32_t        m_AllocationMap[(THREAD_MAX_TLS_SLOTS + 31) / 32];
+    std::vector<TLSDestructor_t> m_Destructors;
+    std::map<thread_id, std::vector<void*>*> m_ThreadSlotsMap;
+
+    thread_local static std::vector<void*>* s_ThreadSlots;
 };

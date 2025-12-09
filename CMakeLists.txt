@@ -34,9 +34,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PADOS_C_CXX_FLAGS} -Wsuggest-override 
 
 # add the library
 add_library(PadOS_Kernel)
+add_library(PadOS_Startup)
 add_library(PadOS_Syscalls)
 add_library(PadOS_FATFS)
 add_library(PadOS_System)
+add_library(PadOS_SystemIFlash)
 add_library(PadOS_Ptr)
 add_library(PadOS_Signals)
 add_library(PadOS_IO)
@@ -48,6 +50,9 @@ add_library(PadOS_DataTranslators)
 if(PADOS_MODULE_UNITTESTS)
 	add_library(PadOS_UnitTests)
 endif()
+
+add_library(PadOS_Drivers_Misc)
+
 if(PADOS_DRIVER_MultiMotor)
 	add_library(PadOS_Drivers_MultiMotor EXCLUDE_FROM_ALL)
 endif()
@@ -116,7 +121,7 @@ get_property(all_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 
 
 # Minimum number of C++ source files required before we enable PCH
-set(MIN_CXX_SOURCES 10)   # tweak this threshold to taste
+set(MIN_CXX_SOURCES 5)   # tweak this threshold to taste
 
 set(PADOS_PCH_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/Include/Precompile.h")
 
@@ -139,29 +144,32 @@ foreach(buildTarget ${all_targets})
 		continue()
 	endif()
 
-	message(STATUS "Enabling unity build for target ${buildTarget}")
-	set_target_properties(${buildTarget} PROPERTIES UNITY_BUILD ON)
+	if(PADOS_OPT_USE_UNITY_BUILD)
+		message(STATUS "Enabling unity build for target ${buildTarget}")
+		set_target_properties(${buildTarget} PROPERTIES UNITY_BUILD ON)
+	endif()
 
-	# Count C++ sources
-	set(cxx_count 0)
-	foreach(src ${targetSources})
-		# Ignore generator expressions etc.
-		if(src MATCHES "^\\$<")
-			continue()
+	if(PADOS_OPT_USE_PCH)
+		# Count C++ sources
+		set(cxx_count 0)
+		foreach(src ${targetSources})
+			# Ignore generator expressions etc.
+			if(src MATCHES "^\\$<")
+				continue()
+			endif()
+
+			if(src MATCHES "\\.(cxx|cpp|cc|C)$")
+				math(EXPR cxx_count "${cxx_count} + 1")
+			endif()
+		endforeach()
+
+		# Only enable PCH if we have enough C++ files
+		if(cxx_count GREATER_EQUAL MIN_CXX_SOURCES)
+			message(STATUS "Enabling PCH for target ${buildTarget} (${cxx_count} C++ sources)")
+			target_precompile_headers(${buildTarget} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${PADOS_PCH_HEADER}>")
+		else()
+			message(STATUS "Skipping PCH for target ${buildTarget} (${cxx_count} C++ sources)")
 		endif()
-
-		if(src MATCHES "\\.(cxx|cpp|cc|C)$")
-			math(EXPR cxx_count "${cxx_count} + 1")
-		endif()
-	endforeach()
-
-	# Only enable PCH if we have enough C++ files
-	if(cxx_count GREATER_EQUAL MIN_CXX_SOURCES)
-		message(STATUS "Enabling PCH for target ${buildTarget} (${cxx_count} C++ sources)")
-		target_precompile_headers(${buildTarget} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${PADOS_PCH_HEADER}>"
-	)
-	else()
-		message(STATUS "Skipping PCH for target ${buildTarget} (${cxx_count} C++ sources)")
 	endif()
 endforeach()
 

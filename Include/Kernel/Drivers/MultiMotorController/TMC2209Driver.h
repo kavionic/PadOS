@@ -118,7 +118,6 @@ public:
         DigitalPinID            diagPinID,
         uint32_t                chipAddress,
         HWTimerID               timerID,
-        uint32_t                timerClkFrequency,
         PinMuxTarget            pinStep,
         DigitalPinID            pinEnable,
         DigitalPinID            pinDirection

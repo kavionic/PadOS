@@ -37,10 +37,6 @@ extern unsigned char* _eheap;
 namespace kernel
 {
 
-#define HEAP_START ((uint8_t*)&_sheap)
-#define HEAP_END   ((uint8_t*)&_eheap)
-
-static uint32_t g_HeapSize = 0;
 
 extern "C"
 {
@@ -75,51 +71,6 @@ PSysRetPair sys_getpid(void)
 PErrorCode sys_kill(pid_t pid, int sig)
 {
     return PErrorCode::NotImplemented;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PSysRetPair sys_sbrk(ptrdiff_t size)
-{
-    static uint8_t* heap = nullptr;
-    uint8_t* prev_heap;
-
-
-    if (heap == nullptr) {
-        heap = HEAP_START;
-    }
-    prev_heap = heap;
-
-    if ((heap + size) > HEAP_END)
-    {
-        return PMakeSysRetFail(PErrorCode::NoMemory);
-    }
-    g_HeapSize += size;
-    heap += size;
-    if (size > 0) {
-        memset(prev_heap, 0, size);
-    }
-    return PMakeSysRetSuccess(intptr_t(prev_heap));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t get_heap_size()
-{
-    return g_HeapSize;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-size_t get_max_heap_size()
-{
-    return HEAP_END - HEAP_START;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

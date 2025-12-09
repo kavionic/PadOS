@@ -27,7 +27,6 @@
 struct StepperIOSetup
 {
     HWTimerID       TimerID;
-    uint32_t        TimerClkFrequency;
     DigitalPinID    EnablePin;
     DigitalPinID    DirectionPin;
     PinMuxTarget    StepPin;

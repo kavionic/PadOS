@@ -19,8 +19,6 @@
 
 #pragma once
 
-class SerialCommandHandler;
-
 namespace SerialProtocol
 {
 struct GetDirectory;
@@ -34,6 +32,9 @@ struct DeleteFile;
 struct GetDirectoryReplyDirEnt;
 }
 
+namespace kernel
+{
+class SerialCommandHandler;
 
 class CommandHandlerFilesystem
 {
@@ -52,8 +53,9 @@ private:
 
     bool SendDirectoryEntries(const std::vector<SerialProtocol::GetDirectoryReplyDirEnt>& entryList);
 
-    SerialCommandHandler*   m_CommandHandler = nullptr;
+    SerialCommandHandler* m_CommandHandler = nullptr;
     int                     m_CurrentExternalFile = -1;
 };
 
 
+} // namespace kernel

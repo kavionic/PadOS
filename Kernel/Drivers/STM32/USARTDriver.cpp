@@ -65,7 +65,7 @@ USARTDriverINode::USARTDriverINode(const USARTDriverParameters& parameters)
     m_Port->CR1 = USART_CR1_RE | USART_CR1_FIFOEN;
     m_Port->CR3 = USART_CR3_DMAR | USART_CR3_DMAT;
 
-    m_ClockFrequency = parameters.ClockFrequency;
+    m_ClockFrequency = Kernel::GetFrequencyPeripheral() / 2;
     SetBaudrate(921600);
 
     m_Port->CR1 |= USART_CR1_UE | USART_CR1_RE | USART_CR1_TE;

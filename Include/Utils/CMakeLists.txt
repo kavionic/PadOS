@@ -1,5 +1,6 @@
 target_sources(PadOS_System PRIVATE
 	Base64Codec.h
+	Beep.h
 	CircularBuffer.h
 	combsort.h
 	EasingCurve.h
@@ -11,6 +12,7 @@ target_sources(PadOS_System PRIVATE
 	JSON.h
 	Logging.h
 	MessagePort.h
+	RelocMemSection.h
 	String.h
 	TypeTraits.h
 	UTF8Utils.h

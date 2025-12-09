@@ -3,6 +3,7 @@ add_subdirectory(FSDrivers)
 add_subdirectory(HAL)
 add_subdirectory(Interrupts)
 add_subdirectory(Logging)
+add_subdirectory(Startup)
 add_subdirectory(Syscalls)
 add_subdirectory(USB)
 add_subdirectory(VFS)
@@ -18,7 +19,6 @@ target_sources(PadOS_Kernel PRIVATE
 	KObjectWaitGroup.cpp
 	KPowerManager.cpp
 	KProcess.cpp
-	KRelocMemSection.cpp
 	KSemaphore.cpp
 	KThread.cpp
 	KThreadCB.cpp

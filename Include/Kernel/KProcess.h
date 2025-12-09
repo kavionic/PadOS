@@ -30,29 +30,15 @@
 namespace kernel
 {
 
-struct KTLSNode
-{
-    TLSDestructor_t m_Destructor;
-};
-
 class KProcess : public PtrTarget
 {
 public:
     KProcess();
     ~KProcess();
 
-    void ThreadQuit(KThreadCB* thread);
-
-    PErrorCode AllocTLSSlot(tls_id& outKey, TLSDestructor_t destructor);
-    PErrorCode FreeTLSSlot(tls_id slot);
-
     KIOContext* GetIOContext() { return &m_IOContext; }
 
 private:
-    KMutex          m_TLSMutex;
-    TLSDestructor_t m_TLSDestructors[THREAD_MAX_TLS_SLOTS];
-    uint32_t        m_TLSAllocationMap[(THREAD_MAX_TLS_SLOTS + 31) / 32];
-
     KIOContext m_IOContext;
 
     KProcess(const KProcess &) = delete;

@@ -38,12 +38,12 @@
 #include <Kernel/ThreadSyncDebugTracker.h>
 #include <Kernel/Syscalls.h>
 #include <Kernel/KLogging.h>
+#include <System/AppDefinition.h>
 #include <Ptr/NoPtr.h>
 
 using namespace os;
 
 extern "C" void __libc_init_array(void);
-int main();
 
 static uint8_t gk_IdleThreadStack[256] __attribute__((aligned(8)));
 static uint8_t gk_InitThreadStack[32768] __attribute__((aligned(8)));
@@ -108,7 +108,7 @@ void initialize_scheduler_statics()
         gk_IdleThread = &gk_IdleThreadInstance;
         gk_CurrentThread = gk_IdleThread;
 
-        current_thread_control_block = gk_CurrentThread->m_ControlBlock;
+        __kernel_thread_data = gk_CurrentThread->m_KernelTLS;
 
         for (size_t i = 0; i < ARRAY_COUNT(gk_InitialBlocksBuffer); ++i)
         {
@@ -133,7 +133,7 @@ void initialize_scheduler_statics()
 extern "C" __attribute__((naked)) void* __aeabi_read_tp(void)
 {
     __asm__ volatile(
-        "ldr   r0, =current_thread_control_block \n"
+        "ldr   r0, =__kernel_thread_data \n"
         "ldr   r0, [r0]           \n"
         "bx    lr                 \n"
         );
@@ -252,8 +252,11 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
                         add_thread_to_ready_list(prevThread);
                     }
                     nextThread->m_State = ThreadState_Running;
+                    gk_CurrentThread->m_UserspaceTLS = __app_thread_data;
                     gk_CurrentThread = nextThread;
-                    current_thread_control_block = nextThread->m_ControlBlock;
+                    __kernel_thread_data = nextThread->m_KernelTLS;
+                    __app_thread_data = gk_CurrentThread->m_UserspaceTLS;
+
                     nextThread->DebugValidate();
                     break;
                 }
@@ -614,7 +617,8 @@ void* main_thread_entry(void* argument)
     control |= 1; // set nPRIV
     __asm volatile ("msr CONTROL, %0\n isb" :: "r"(control) : "memory");
 
-    main();
+    __app_definition.Entry();
+
     return nullptr;
 }
 

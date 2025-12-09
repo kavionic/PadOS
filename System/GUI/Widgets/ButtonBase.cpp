@@ -20,7 +20,7 @@
 #include <GUI/Widgets/ButtonBase.h>
 #include <GUI/Widgets/ButtonGroup.h>
 #include <Utils/XMLObjectParser.h>
-#include <Kernel/Misc.h>
+#include <Utils/Beep.h>
 
 using namespace os;
 

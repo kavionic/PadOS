@@ -109,7 +109,7 @@ public:
     KBlockCache();
     ~KBlockCache();
 
-    static inline int GetDirtyBlockCount() { return s_DirtyBlockCount; }
+    static inline size_t GetDirtyBlockCount() { return s_DirtyBlockCount; }
 
     static KBlockCache* GetDeviceCache(int device);
     bool SetDevice(int device, off64_t blockCount, size_t blockSize);
@@ -154,5 +154,7 @@ private:
     KBlockCache(const KBlockCache&) = delete;
     KBlockCache& operator=(const KBlockCache&) = delete;
 };
+
+size_t kget_dirty_disk_cache_blocks();
 
 } // namespace

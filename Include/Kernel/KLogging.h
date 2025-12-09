@@ -38,7 +38,7 @@ void kernel_log(uint32_t category, PFormatString<ARGS...>&& fmt, ARGS&&... args)
     if constexpr (TSeverity <= PLogSeverity_Minimum)
     {
         const PString text = PString::format_string(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
-        KLogManager::Get().AddLogMessage(category, TSeverity, text);
+        ksystem_log_add_message(category, TSeverity, text);
     }
 }
 

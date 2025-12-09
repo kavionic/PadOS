@@ -24,6 +24,7 @@
 
 #include <System/ExceptionHandling.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KBlockCache.h>
 #include <Kernel/KAddressValidation.h>
 #include <Kernel/Syscalls.h>
 
@@ -495,6 +496,17 @@ PErrorCode sys_mount(const char* devicePath, const char* directoryPath, const ch
         validate_user_read_string_trw(directoryPath, PATH_MAX);
         validate_user_read_pointer_trw(args, argLength);
         kmount_trw(devicePath, directoryPath, filesystemName, flags, args, argLength);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+PErrorCode sys_get_dirty_disk_cache_blocks(size_t* outBlocks)
+{
+    try
+    {
+        validate_user_read_pointer_trw(outBlocks);
+        *outBlocks = kget_dirty_disk_cache_blocks();
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;

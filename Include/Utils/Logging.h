@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <sys/pados_syscalls.h>
 #include <Utils/String.h>
 #include <Kernel/Logging/LogManager.h>
 
@@ -64,7 +65,7 @@ static constexpr PLogSeverity PLogSeverity_Minimum = PLogSeverity::INFO_HIGH_VOL
 struct PLogCategoryRegistrator
 {
     PLogCategoryRegistrator(uint32_t categoryHash, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel, PLogChannel channel = PLogChannel::SerialManager) {
-        kernel::KLogManager::Get().RegisterCategory(categoryHash, channel, categoryName, displayName, initialLogLevel);
+        system_log_register_category(categoryHash, channel, categoryName, displayName, initialLogLevel);
     }
 };
 
@@ -81,7 +82,7 @@ void p_system_log(uint32_t category, PFormatString<ARGS...>&& fmt, ARGS&&... arg
     if constexpr (TSeverity <= PLogSeverity_Minimum)
     {
         const PString text = PString::format_string(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
-        add_system_log_message(category, TSeverity, text.c_str());
+        system_log_add_message(category, TSeverity, text.c_str());
     }
 }
 
@@ -91,7 +92,7 @@ void p_system_vlog(uint32_t category, std::string_view fmt, ARGS&&... args)
     if constexpr (TSeverity <= PLogSeverity_Minimum)
     {
         const PString text = PString::vformat_string(fmt, std::forward<ARGS>(args)...);
-        add_system_log_message(category, TSeverity, text.c_str());
+        system_log_add_message(category, TSeverity, text.c_str());
     }
 }
 

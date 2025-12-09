@@ -43,11 +43,11 @@ template<typename T> inline T wrap(const T& bottom, const T& top, const T& value
     }        
 }
 
-template<typename T>
-constexpr T align_up(T value, T alignment) { return (value + alignment - 1) & ~(alignment - 1); }
+template<typename Tvalue, typename Talign>
+constexpr Tvalue align_up(Tvalue value, Talign alignment) { return (value + alignment - 1) & ~(alignment - 1); }
 
-template<typename T>
-constexpr T align_down(T value, T alignment) { return value & ~(alignment - 1); }
+template<typename Tvalue, typename Talign>
+constexpr Tvalue align_down(Tvalue value, Talign alignment) { return value & ~(alignment - 1); }
 
 
 template<typename T>

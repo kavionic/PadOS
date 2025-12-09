@@ -1,10 +1,13 @@
 target_sources(PadOS_Kernel PRIVATE
 	DigitalPort_STM32.cpp
 	DMA_STM32.cpp
-	PeripheralMapping_STM32G030xx.cpp
-	PeripheralMapping_STM32H7.cpp
 	PiezoBuzzer_STM32.cpp
 	ResetAndClockControl.cpp
+)
+
+target_sources(PadOS_System PRIVATE
+	PeripheralMapping_STM32G030xx.cpp
+	PeripheralMapping_STM32H7.cpp
 )
 
 if(PADOS_DRIVER_ADC)

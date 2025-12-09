@@ -51,13 +51,14 @@ I2CDriverINode::I2CDriverINode(const I2CDriverParameters& parameters)
     , m_RequestCondition("I2CDriverINodeRequest")
     , m_ClockPin(parameters.ClockPin)
     , m_DataPin(parameters.DataPin)
-    , m_ClockFrequency(parameters.ClockFrequency)
     , m_FallTime(parameters.FallTime)
     , m_RiseTime(parameters.RiseTime)
 {
     m_State = State_e::Idle;
 
     m_Port = get_i2c_from_id(parameters.PortID);
+
+    m_ClockFrequency = Kernel::GetFrequencyPeripheral() / 2;
 
     DigitalPin clockPin(m_ClockPin.PINID);
     DigitalPin dataPin(m_DataPin.PINID);

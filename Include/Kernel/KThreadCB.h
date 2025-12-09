@@ -30,12 +30,15 @@ namespace os
 {
     class DebugCallTracker;
 }
+
+extern PThreadControlBlock* __kernel_thread_data;
+
+static constexpr int32_t THREAD_MAX_TLS_SLOTS = 256;
+
 namespace kernel
 {
 
 static constexpr int32_t THREAD_DEFAULT_STACK_SIZE = 1024*4;
-static constexpr int32_t THREAD_MAX_TLS_SLOTS      = 64;
-static constexpr size_t  THREAD_TLS_SLOTS_BUFFER_SIZE = (THREAD_MAX_TLS_SLOTS * sizeof(void*) + 7) & ~7;
 
 class KThreadCB;
 
@@ -89,8 +92,8 @@ public:
     uint8_t*                  m_StackBuffer;
     int                       m_StackSize;
 
-    uint8_t*                  m_ThreadLocalBuffer = nullptr;
-    PThreadControlBlock*      m_ControlBlock = nullptr;
+    PThreadControlBlock*      m_KernelTLS = nullptr;
+    PThreadControlBlock*      m_UserspaceTLS = nullptr;
 
     KThreadCB*                m_Prev = nullptr;
     KThreadCB*                m_Next = nullptr;

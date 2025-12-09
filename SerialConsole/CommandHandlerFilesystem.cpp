@@ -31,6 +31,9 @@
 
 using namespace os;
 
+namespace kernel
+{
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -227,3 +230,5 @@ bool CommandHandlerFilesystem::SendDirectoryEntries(const std::vector<SerialProt
 
     return m_CommandHandler->SendSerialData(&msg, sizeof(msg), entryList.data(), entryList.size() * sizeof(SerialProtocol::GetDirectoryReplyDirEnt));
 }
+
+} // namespace kernel

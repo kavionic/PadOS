@@ -1,5 +1,5 @@
 
-target_sources(PadOS_System PRIVATE
+target_sources(PadOS_Kernel PRIVATE
 	CommandHandlerFilesystem.h
 	FilesystemMessages.h
 	SerialCommandHandler.h

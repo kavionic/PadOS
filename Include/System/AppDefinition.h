@@ -15,28 +15,28 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 21.11.2025 23:30
+// Created: 25.11.2025 01:00
 
-#include <Kernel/KRelocMemSection.h>
+#pragma once
 
+#include <stdint.h>
 
-void krelocate_memory_sections(const KRelocMemSection* sections, size_t count)
+#include <System/ModuleTLSDefinition.h>
+
+struct PAppDefinition
 {
-    for (size_t i = 0; i < count; ++i)
-    {
-        const KRelocMemSection& section = sections[i];
+    void (*Entry)();
+    void (*ThreadTerminated)(thread_id, void*, PThreadControlBlock*);
+    
+    PModuleTLSDefinition TLSDefinition;
+};
 
-        if (section.Source != section.Destination)
-        {
-            kassert((section.Size & 3) == 0);
+extern "C"
+{
 
-            const uint32_t* src = reinterpret_cast<const uint32_t*>(section.Source);
-            uint32_t*       dst = reinterpret_cast<uint32_t*>(section.Destination);
-            const size_t    words = section.Size / 4;
+extern PAppDefinition __kernel_definition;
+extern PAppDefinition __app_definition;
+extern PThreadControlBlock* __app_thread_data;
 
-            for (size_t j = 0; j < words; ++j) {
-                *dst++ = *src++;
-            }
-        }
-    }
-}
+} // extern "C"
+

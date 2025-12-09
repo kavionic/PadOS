@@ -19,13 +19,16 @@
 
 #include <PadOS/Time.h>
 
+#include <Kernel/VFS/FileIO.h>
 #include <Kernel/Logging/LogManager.h>
 #include <SerialConsole/SerialProtocol.h>
 #include <SerialConsole/SerialCommandHandler.h>
 
+
 namespace kernel
 {
 
+const std::deque<KLogManager::LogEntry>* g_LogEntries;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -33,6 +36,7 @@ namespace kernel
 
 KLogManager::KLogManager() : KThread("log_manager"), m_Mutex("log_manager", PEMutexRecursionMode_RaiseError), m_ConditionVar("log_manager")
 {
+    g_LogEntries = &m_LogEntries;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -95,7 +99,7 @@ void* KLogManager::Run()
                 }
                 else
                 {
-                    write(1, text.data(), text.size());
+                    kwrite(1, text.data(), text.size());
                 }
                 m_Mutex.Lock();
             }
@@ -118,28 +122,33 @@ KLogManager& KLogManager::Get()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KLogManager::RegisterCategory(uint32_t categoryHash, PLogChannel channel, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel)
+PErrorCode KLogManager::RegisterCategory(uint32_t categoryHash, PLogChannel channel, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
     m_LogCategories.emplace(categoryHash, CategoryDesc(channel, initialLogLevel, categoryName, displayName));
-    return true;
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KLogManager::SetCategoryMinimumSeverity(uint32_t categoryHash, PLogSeverity logLevel)
+PErrorCode KLogManager::SetCategoryMinimumSeverity(uint32_t categoryHash, PLogSeverity logLevel)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
     CategoryDesc* desc = FindCategoryDesc(categoryHash);
 
-    if (desc != nullptr) {
+    if (desc != nullptr)
+    {
         desc->MinSeverity = logLevel;
-    } else {
+        return PErrorCode::Success;
+    }
+    else
+    {
         kprintf("ERROR: kernel_log_set_category_log_level() called with unknown categoryHash %08x\n", categoryHash);
+        return PErrorCode::NoEntry;
     }
 }
 
@@ -163,6 +172,17 @@ bool KLogManager::IsCategoryActive_pl(uint32_t categoryHash, PLogSeverity logLev
     kassert(m_Mutex.IsLocked());
     const CategoryDesc& desc = GetCategoryDesc(categoryHash);
     return logLevel <= desc.MinSeverity;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PLogChannel KLogManager::GetCategoryChannel(uint32_t categoryHash) const
+{
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+    return GetCategoryChannel_pl(categoryHash);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -230,7 +250,7 @@ void KLogManager::AddLogMessage(uint32_t category, PLogSeverity severity, const 
 
         if (m_LogEntries.size() < 1000)
         {
-            m_LogEntries.push_back(LogEntry{ .Timestamp = get_real_time(), .CategoryHash = category, .Severity = severity, .Message = message });
+            m_LogEntries.push_back(LogEntry{ .Timestamp = kget_real_time(), .CategoryHash = category, .Severity = severity, .Message = message });
             m_ConditionVar.WakeupAll();
         }
     }
@@ -241,8 +261,8 @@ void KLogManager::FlushMessages(TimeValNanos timeout)
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
 
-    TimeValNanos deadline = timeout.IsInfinit() ? TimeValNanos::infinit : (get_monotonic_time() + timeout);
-    while(!m_LogEntries.empty() && get_monotonic_time() <= deadline)
+    TimeValNanos deadline = timeout.IsInfinit() ? TimeValNanos::infinit : (kget_monotonic_time() + timeout);
+    while(!m_LogEntries.empty() && kget_monotonic_time() <= deadline)
     {
         m_ConditionVar.Wait(m_Mutex);
     }
@@ -283,11 +303,106 @@ const KLogManager::CategoryDesc& KLogManager::GetCategoryDesc(uint32_t categoryH
     }
 }
 
-void kadd_log_message(uint32_t category, PLogSeverity severity, const PString& message)
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode ksystem_log_register_category(uint32_t categoryHash, PLogChannel channel, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel)
 {
     if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
     {
-        kernel::KLogManager::Get().AddLogMessage(category, severity, message);
+        return KLogManager::Get().RegisterCategory(categoryHash, channel, categoryName, displayName, initialLogLevel);
+    }
+    return PErrorCode::NotImplemented;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode ksystem_log_set_category_minimum_severity(uint32_t categoryHash, PLogSeverity logLevel)
+{
+    if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
+    {
+        return KLogManager::Get().SetCategoryMinimumSeverity(categoryHash, logLevel);
+    }
+    return PErrorCode::NotImplemented;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool ksystem_log_is_category_active(uint32_t categoryHash, PLogSeverity logLevel)
+{
+    if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
+    {
+        return KLogManager::Get().IsCategoryActive(categoryHash, logLevel);
+    }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PLogChannel ksystem_log_get_category_channel(uint32_t categoryHash)
+{
+    if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
+    {
+        return KLogManager::Get().GetCategoryChannel(categoryHash);
+    }
+    return PLogChannel::DebugPort;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const char* ksystem_log_get_severity_name(PLogSeverity logLevel)
+{
+    if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
+    {
+        return KLogManager::Get().GetLogSeverityName(logLevel);
+    }
+    return "";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const PString& ksystem_log_get_category_name(uint32_t categoryHash)
+{
+    if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
+    {
+        return KLogManager::Get().GetCategoryName(categoryHash);
+    }
+    return PString::zero;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const PString& ksystem_log_get_category_display_name(uint32_t categoryHash)
+{
+    if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
+    {
+        return KLogManager::Get().GetCategoryDisplayName(categoryHash);
+    }
+    return PString::zero;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ksystem_log_add_message(uint32_t category, PLogSeverity severity, const PString& message)
+{
+    if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
+    {
+        KLogManager::Get().AddLogMessage(category, severity, message);
     }
 }
 

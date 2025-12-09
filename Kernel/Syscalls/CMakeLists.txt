@@ -7,7 +7,8 @@ target_sources(PadOS_Syscalls PRIVATE
 	ObjectWaitGroup.cpp
 	Process.cpp
 	Semaphore.cpp
-	ThreadLocal.cpp
+	SysDigitalPin.cpp
+	SysLogging.cpp
 	Threads.cpp
 	Time.cpp
 )

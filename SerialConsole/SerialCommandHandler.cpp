@@ -37,6 +37,9 @@
 
 using namespace os;
 
+namespace kernel
+{
+
 static constexpr size_t MAX_MESSAGE_QUEUE_SIZE = 1024 * 64;
 
 CommandHandlerFilesystem        g_FilesystemHandler;
@@ -48,7 +51,7 @@ SerialCommandHandler* SerialCommandHandler::s_Instance;
 ///////////////////////////////////////////////////////////////////////////////
 
 SerialCommandHandler::SerialCommandHandler()
-    : Thread("SerialHandler")
+    : KThread("SerialHandlerProc")
     , m_TransmitMutex("sch_xmt_mutex", PEMutexRecursionMode_RaiseError)
     , m_QueueMutex("sch_queue_mutex", PEMutexRecursionMode_RaiseError)
     , m_LogMutex("sch_log_mutes", PEMutexRecursionMode_RaiseError)
@@ -56,10 +59,13 @@ SerialCommandHandler::SerialCommandHandler()
     , m_ReplyCondition("sch_reply_cond")
     , m_QueueCondition("sch_queue_cond")
     , m_WaitGroup("sch_wait_group")
+    , m_HandlerPort(INVALID_HANDLE)
 {
+    assert(s_Instance == nullptr);
+
     s_Instance = this;
 
-    m_WaitGroup.AddObject(m_EventCondition);
+    m_WaitGroup.AddObject_trw(&m_EventCondition);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -83,47 +89,7 @@ SerialCommandHandler& SerialCommandHandler::Get()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SerialCommandHandler::OpenSerialPort()
-{
-    if (m_SerialPortIn == -1)
-    {
-        m_SerialPortIn = open(m_SerialPortPath.c_str(), O_RDONLY | O_NONBLOCK);
-        if (m_SerialPortIn != -1)
-        {
-            USARTIOCTL_SetBaudrate(m_SerialPortIn, m_Baudrate);
-
-            m_WaitGroup.AddFile(m_SerialPortIn);
-            m_SerialPortOut = reopen_file(m_SerialPortIn, O_WRONLY | O_DIRECT);
-            USARTIOCTL_SetWriteTimeout(m_SerialPortOut, TimeValNanos::FromMilliseconds(1000));
-            return true;
-        }
-        return false;
-    }
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void SerialCommandHandler::CloseSerialPort()
-{
-    m_ComFailure = false;
-    if (m_SerialPortIn != -1)
-    {
-        m_WaitGroup.RemoveFile(m_SerialPortIn);
-        close(m_SerialPortIn);
-        close(m_SerialPortOut);
-        m_SerialPortIn = -1;
-        m_SerialPortOut = -1;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void* SerialCommandHandler::Run()
+void* SerialCommandHandler::HandleIO()
 {
     for (;;)
     {
@@ -138,8 +104,8 @@ void* SerialCommandHandler::Run()
                 continue;
             }
         }
-        m_WaitGroup.Wait();
-        Tick();
+        m_WaitGroup.Wait_trw();
+
         try
         {
             if (!ReadPacket()) {
@@ -178,6 +144,7 @@ void* SerialCommandHandler::Run()
             } CRITICAL_END;
         }
     }
+
     return nullptr;
 }
 
@@ -185,28 +152,55 @@ void* SerialCommandHandler::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, String&& serialPortPath, int baudrate, int readThreadPriority)
+bool SerialCommandHandler::OpenSerialPort()
 {
-    m_SerialPortPath = std::move(serialPortPath);
-    m_Baudrate = baudrate;
+    try
+    {
+        if (m_SerialPortIn == -1)
+        {
+            m_SerialPortIn = kopen_trw(m_SerialPortPath.c_str(), O_RDONLY | O_NONBLOCK);
+            if (m_SerialPortIn != -1)
+            {
+                USARTIOCTL_SetBaudrate(m_SerialPortIn, m_Baudrate);
 
-    m_DeviceType = deviceType;
-
-//    kernel::kernel_log_set_category_log_level(LogCategorySerialHandler, PLogSeverity::INFO_HIGH_VOL);
-
-    RegisterPacketHandler<SerialProtocol::ProbeDevice>(SerialProtocol::Commands::ProbeDevice, this, &SerialCommandHandler::HandleProbeDevice);
-    RegisterPacketHandler<SerialProtocol::SetSystemTime>(SerialProtocol::Commands::SetSystemTime, this, &SerialCommandHandler::HandleSetSystemTime);
-
-    g_FilesystemHandler.Setup(this);
-
-    Start(PThreadDetachState_Detached, readThreadPriority);
+                m_WaitGroup.AddFile_trw(m_SerialPortIn);
+                m_SerialPortOut = kreopen_file_trw(m_SerialPortIn, O_WRONLY | O_DIRECT);
+                USARTIOCTL_SetWriteTimeout(m_SerialPortOut, TimeValNanos::FromMilliseconds(1000));
+                return true;
+            }
+            return false;
+        }
+        return true;
+    }
+    PERROR_CATCH_RET([](const std::exception& exc, PErrorCode error) { return false; });
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SerialCommandHandler::Execute()
+void SerialCommandHandler::CloseSerialPort()
+{
+    m_ComFailure = false;
+    if (m_SerialPortIn != -1)
+    {
+        try {
+            m_WaitGroup.RemoveFile_trw(m_SerialPortIn);
+        }
+        catch (const std::exception&) {}
+
+        kclose(m_SerialPortIn);
+        kclose(m_SerialPortOut);
+        m_SerialPortIn = -1;
+        m_SerialPortOut = -1;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void* SerialCommandHandler::Run()
 {
     p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCategorySerialHandler, "Starting serial command handler.");
     p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCategorySerialHandler, "Largest packet size: {}", m_LargestCommandPacket);
@@ -236,20 +230,45 @@ void SerialCommandHandler::Execute()
         {
             const SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<const SerialProtocol::PacketHeader*>(packetData.data());
 
-            auto handler = m_CommandHandlerMap.find(packetBuffer->Command);
-            if (handler != m_CommandHandlerMap.end())
-            {
-                if ((packetBuffer->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) == 0) {
-                    SendMessage<SerialProtocol::MessageReply>();
-                }
-                handler->second->HandleMessage(packetBuffer);
+            if ((packetBuffer->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) == 0) {
+                SendMessage<SerialProtocol::MessageReply>();
             }
-            else
+
+            if (!DispatchPacket(packetBuffer))
             {
-                p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Unknown serial command {}", int(packetBuffer->Command));
+                if (m_HandlerPort.GetHandle() != INVALID_HANDLE) {
+                    m_HandlerPort.SendMessageTimeout(INVALID_HANDLE, packetBuffer->Command, packetData.data(), packetData.size(), TimeValNanos::FromSeconds(10.0));
+                } else {
+                    p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Unknown serial command {}", int(packetBuffer->Command));
+                }
             }
         }
     }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, String&& serialPortPath, int baudrate, int readThreadPriority, int procThreadPriority)
+{
+    m_SerialPortPath = std::move(serialPortPath);
+    m_Baudrate = baudrate;
+
+    m_DeviceType = deviceType;
+
+    //    kernel::kernel_log_set_category_log_level(LogCategorySerialHandler, PLogSeverity::INFO_HIGH_VOL);
+
+    RegisterPacketHandler<SerialProtocol::ProbeDevice>(SerialProtocol::Commands::ProbeDevice, this, &SerialCommandHandler::HandleProbeDevice);
+    RegisterPacketHandler<SerialProtocol::SetSystemTime>(SerialProtocol::Commands::SetSystemTime, this, &SerialCommandHandler::HandleSetSystemTime);
+
+    g_FilesystemHandler.Setup(this);
+
+    Start_trw(PThreadDetachState_Detached, readThreadPriority);
+
+    PThreadAttribs attrs("SerialHandlerIO", readThreadPriority, PThreadDetachState_Detached, 16384);
+    m_InputHandlerThread = kthread_spawn_trw(&attrs, true, InputHandlerThreadEntry, this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -395,7 +414,7 @@ void SerialCommandHandler::HandleProbeDevice(const SerialProtocol::ProbeDevice& 
 
 void SerialCommandHandler::HandleSetSystemTime(const SerialProtocol::SetSystemTime& packet)
 {
-    set_real_time(TimeValNanos::FromMicroseconds(packet.UnixTime), true);
+    kset_real_time(TimeValNanos::FromMicroseconds(packet.UnixTime), true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -453,3 +472,10 @@ void SerialCommandHandler::SendSerialPacket(SerialProtocol::PacketHeader* msg)
 {
     SendSerialData(msg, msg->PackageLength, nullptr, 0);
 }
+
+void SerialCommandHandler::SetHandlerMessagePort(port_id portID)
+{
+    m_HandlerPort.SetHandle(portID);
+}
+
+} // namespace kernel

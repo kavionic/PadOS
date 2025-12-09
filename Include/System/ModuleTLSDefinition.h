@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,20 +15,18 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 14.05.2022 23:00
+// Created: 25.11.2025 01:00
 
 #pragma once
 
 #include <stdint.h>
-#include <Kernel/HAL/DigitalPort.h>
 
-enum class HWTimerID : int32_t;
-
-namespace kernel
+struct PModuleTLSDefinition
 {
+	void* TLSData;
+	void* TLSBSS;
 
-bool setup_beeper(HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin);
-
-void kbeep_seconds(float duration);
-
-} //namespace kernel
+	uint32_t TLSDataSize;
+	uint32_t TLSBSSSize;
+	uint32_t TLSAlign;
+};

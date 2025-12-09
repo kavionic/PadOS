@@ -52,8 +52,27 @@ bigtime_t       Kernel::s_SystemTicks = 0;
 bigtime_t       Kernel::s_SystemTimeNS = 0;
 TimeValNanos    Kernel::s_RealTime;
 
-static port_id                                              gk_InputEventPort = INVALID_HANDLE;
 
+void handle_panic(const char* message)
+{
+    //    write(1, message, strlen(message));
+
+    if (kis_debugger_attached())
+    {
+        __BKPT(0);
+    }
+    else
+    {
+        //        NVIC_SystemReset();
+        volatile bool freeze = true;
+        if (is_in_isr()) {
+            while (freeze);
+        }
+        else {
+            while (freeze) snooze(TimeValNanos::FromSeconds(1.0));
+        }
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -294,21 +313,3 @@ void set_last_error(PErrorCode error)
     errno = std::to_underlying(error);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-status_t set_input_event_port(port_id port)
-{
-    kernel::gk_InputEventPort = port;
-    return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-port_id get_input_event_port()
-{
-    return kernel::gk_InputEventPort;
-}

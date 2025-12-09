@@ -235,7 +235,7 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos cloc
         KThreadWaitNode waitNode;
         KThreadWaitNode sleepNode;
 
-        if (deadline.IsInfinit() || get_monotonic_time() < deadline)
+        if (deadline.IsInfinit() || kget_monotonic_time() < deadline)
         {
             waitNode.m_Thread      = thread;
 

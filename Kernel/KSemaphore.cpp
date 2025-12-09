@@ -135,7 +135,7 @@ PErrorCode KSemaphore::AcquireClock(clockid_t clockID, TimeValNanos clockDeadlin
                 m_Holder = thread->GetHandle();
                 return PErrorCode::Success;
             }
-            if (deadline.IsInfinit() || get_monotonic_time() < deadline)
+            if (deadline.IsInfinit() || kget_monotonic_time() < deadline)
             {
                 waitNode.m_Thread = thread;
 

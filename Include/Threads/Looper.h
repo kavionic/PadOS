@@ -48,6 +48,8 @@ public:
 
     Mutex& GetMutex() const { return m_Mutex; }
 
+    PObjectWaitGroup& GetWaitGroup() { return m_WaitGroup; }
+
     const MessagePort& GetPort() const { return m_Port; }
     port_id GetPortID() const { return m_Port.GetHandle(); }
 
@@ -97,3 +99,5 @@ private:
 };
 
 } // namespace
+
+using PLooper = os::Looper;

@@ -15,27 +15,26 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 21.11.2025 23:30
+// Created: 26.11.2025 21:00
 
-#pragma once
+#include <sys/pados_syscalls.h>
+#include <Utils/Beep.h>
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef struct
+namespace os
 {
-    const void* Source;
-    void*       Destination;
-    uint32_t    Size;
-} KRelocMemSection;
 
-
-void krelocate_memory_sections(const KRelocMemSection* sections, size_t count);
-
-
-#ifdef __cplusplus
+void beep(BeepLength length)
+{
+    float duration = 0.1f;
+    switch (length)
+    {
+        case BeepLength::Short:     duration = 0.02f;  break;
+        case BeepLength::Medium:    duration = 0.2f;   break;
+        case BeepLength::Long:      duration = 1.0f;   break;
+        case BeepLength::VeryLong:  duration = 3.0f;   break;
+    }
+    beep_seconds(duration);
 }
-#endif
 
+} // namespace os

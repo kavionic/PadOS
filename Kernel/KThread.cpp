@@ -21,6 +21,7 @@
 
 #include <System/System.h>
 #include <System/ExceptionHandling.h>
+#include <System/AppDefinition.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KThread.h>
 #include <Kernel/KThreadCB.h>
@@ -182,10 +183,9 @@ thread_id kthread_spawn_trw(const PThreadAttribs* attribs, bool privileged, Thre
 
 __attribute__((noreturn)) void kthread_exit(void* returnValue)
 {
-    KProcess* process = gk_CurrentProcess;
     KThreadCB* thread = gk_CurrentThread;
 
-    process->ThreadQuit(thread);
+    __app_definition.ThreadTerminated(thread->GetHandle(), thread->m_StackBuffer, thread->m_UserspaceTLS);
 
     thread->m_State = ThreadState_Zombie;
     thread->m_ReturnValue = returnValue;

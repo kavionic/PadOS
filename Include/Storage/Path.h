@@ -82,6 +82,13 @@ using PPath = os::Path;
 
 PFORMATTER_NAMESPACE
 {
+
 template<>
-struct formatter<PPath> : formatter<std::basic_string<PString::value_type, PString::traits_type, PString::allocator_type>, PString::value_type> {};
+struct formatter<os::Path> : formatter<::std::string>
+{
+  auto format(const os::Path& a, format_context& ctx) const {
+    return formatter<std::string>::format(static_cast<const std::string&>(a), ctx);
+  }
+};
+
 }

@@ -17,10 +17,17 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 11.03.2018 13:10:28
 
+#include <cstdlib>
+#include <sys/reent.h>
+#include <sys/pados_syscalls.h>
+#include <PadOS/Threads.h>
 #include <Threads/Thread.h>
 #include <Threads/Threads.h>
+#include <System/AppDefinition.h>
 #include <System/System.h>
 #include <Utils/Logging.h>
+#include <Utils/Utils.h>
+#include <Kernel/KThreadCB.h>
 
 using namespace os;
 
@@ -133,3 +140,66 @@ void* Thread::ThreadEntry(void* data)
     }
     return nullptr;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void* spawn_thread_entry_function(void* arguments)
+{
+    __app_thread_data = reinterpret_cast<PThreadControlBlock*>(arguments);
+
+    void** controlBlock = reinterpret_cast<void**>(arguments);
+
+    ThreadEntryPoint_t  threadEntry     = reinterpret_cast<ThreadEntryPoint_t>(controlBlock[0]);
+    void*               threadArguments = controlBlock[1];
+
+    memcpy(__app_thread_data + 1, __app_definition.TLSDefinition.TLSData, __app_definition.TLSDefinition.TLSDataSize);
+
+    void* result = threadEntry(threadArguments);
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void __thread_terminated(thread_id threadID, void* stackBuffer, PThreadControlBlock* threadLocalBuffer)
+{
+    _reclaim_reent(nullptr);
+
+    ThreadLocalSlotManager::Get().ThreadTerminated();
+
+    if (threadLocalBuffer != nullptr) {
+        free(threadLocalBuffer);
+    }
+}
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode thread_spawn(thread_id* outHandle, const PThreadAttribs* attribs, ThreadEntryPoint_t entryPoint, void* arguments)
+{
+    const size_t controlBlockSize = sizeof(PThreadControlBlock) + __app_definition.TLSDefinition.TLSDataSize + __app_definition.TLSDefinition.TLSBSSSize;
+    assert(__app_definition.TLSDefinition.TLSAlign <= sizeof(PThreadControlBlock));
+    
+    void** controlBlock = reinterpret_cast<void**>(aligned_alloc(__app_definition.TLSDefinition.TLSAlign, align_up(controlBlockSize, __app_definition.TLSDefinition.TLSAlign)));
+    if (controlBlock == nullptr) {
+        return PErrorCode::NoMemory;
+    }
+    memset(controlBlock, 0, controlBlockSize);
+    controlBlock[0] = reinterpret_cast<void*>(entryPoint);
+    controlBlock[1] = arguments;
+    return __thread_spawn(outHandle, attribs, spawn_thread_entry_function, controlBlock);
+}
+
+
+#ifdef __cplusplus
+}
+#endif
+

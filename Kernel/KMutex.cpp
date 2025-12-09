@@ -145,7 +145,7 @@ PErrorCode KMutex::LockClock(int clockID, TimeValNanos clockDeadline)
                     return PErrorCode::Deadlock;
                 }
             }
-            if (deadline.IsInfinit() || get_monotonic_time() < deadline)
+            if (deadline.IsInfinit() || kget_monotonic_time() < deadline)
             {
                 if (!first) {
                     return PErrorCode::Interrupted;

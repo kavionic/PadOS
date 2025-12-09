@@ -53,7 +53,7 @@ StepperDriver::~StepperDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void StepperDriver::Setup_trw(HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget pinStep, DigitalPinID pinEnable, DigitalPinID pinDirection)
+void StepperDriver::Setup_trw(HWTimerID timerID, PinMuxTarget pinStep, DigitalPinID pinEnable, DigitalPinID pinDirection)
 {
     if (pinStep.MUX == DigitalPinPeripheralID::None || pinDirection == DigitalPinID::None) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
@@ -83,7 +83,7 @@ void StepperDriver::Setup_trw(HWTimerID timerID, uint32_t timerClkFrequency, Pin
 
     m_PinStep.SetPeripheralMux(m_PinStepMux.MUX);
 
-    m_TimerPerifFrequency = timerClkFrequency;
+    m_TimerPerifFrequency = Kernel::GetFrequencyPeripheral();
     m_TimerFrequency = 3000000;
     m_TimerChannel->CR1 = TIM_CR1_ARPE_Msk;
     m_TimerChannel->CCMR1 = (6 << TIM_CCMR1_OC1M_Pos); // PWM-mode1

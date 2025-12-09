@@ -45,13 +45,13 @@ protected:
         EmitGuard( const SignalBase* targetSignal, SlotBase* slotIterator ) : m_SlotIterator(slotIterator)
         {
             m_Signal = targetSignal;
-            m_Next = s_LocalEmitGuard.Get();
-            s_LocalEmitGuard.Set(this);
+            m_Next = s_LocalEmitGuard;
+            s_LocalEmitGuard = this;
         }
         ~EmitGuard()
         {
-            assert(s_LocalEmitGuard.Get() == this);
-            s_LocalEmitGuard.Set(m_Next);
+            assert(s_LocalEmitGuard == this);
+            s_LocalEmitGuard = m_Next;
         }
         SlotBase*         m_SlotIterator;
         const SignalBase* m_Signal;
@@ -78,7 +78,7 @@ private:
     friend class  SlotBase;
     friend struct EmitGuard;
 
-    static ThreadLocal<EmitGuard*> s_LocalEmitGuard;
+    static thread_local EmitGuard* s_LocalEmitGuard;
 };
 
 

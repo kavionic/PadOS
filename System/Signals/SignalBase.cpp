@@ -22,7 +22,7 @@
 static int g_SignalCount = 0;
 #endif  //!defined(NDEBUG)
 
-ThreadLocal< SignalBase::EmitGuard* > SignalBase::s_LocalEmitGuard;
+thread_local SignalBase::EmitGuard* SignalBase::s_LocalEmitGuard;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -63,7 +63,7 @@ SignalBase::~SignalBase()
     g_SignalCount--;
 #endif // defined(N3_CLIENT) || !defined(NDEBUG)
 
-    for ( EmitGuard* guard = s_LocalEmitGuard.Get() ; guard != nullptr ; guard = guard->m_Next ) {
+    for ( EmitGuard* guard = s_LocalEmitGuard ; guard != nullptr ; guard = guard->m_Next ) {
         if ( guard->m_Signal == this ) {
             guard->m_Signal = nullptr; // Make sure Emit() don't screw up.
         }
@@ -117,7 +117,7 @@ void SignalBase::DisconnectInternal(SlotBase* slot, bool deleteSlot) const
 
     assert(slot->m_Signal == this);
     
-    for (EmitGuard* guard = s_LocalEmitGuard.Get() ; guard != nullptr ; guard = guard->m_Next) {
+    for (EmitGuard* guard = s_LocalEmitGuard ; guard != nullptr ; guard = guard->m_Next) {
         if (guard->m_SlotIterator == slot) {
             guard->m_SlotIterator = slot->m_NextInSignal;
         }

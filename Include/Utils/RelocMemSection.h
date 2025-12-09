@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,20 +15,29 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 14.05.2022 23:00
+// Created: 21.11.2025 23:30
 
 #pragma once
 
 #include <stdint.h>
-#include <Kernel/HAL/DigitalPort.h>
+#include <sys/types.h>
 
-enum class HWTimerID : int32_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace kernel
+typedef struct
 {
+    const void* Source;
+    void*       Destination;
+    uint32_t    Size;
+} PRelocMemSection;
 
-bool setup_beeper(HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin);
 
-void kbeep_seconds(float duration);
+void relocate_memory_sections(const PRelocMemSection* sections, size_t count);
 
-} //namespace kernel
+
+#ifdef __cplusplus
+}
+#endif
+

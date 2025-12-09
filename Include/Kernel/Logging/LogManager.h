@@ -25,9 +25,9 @@
 #include <stdint.h>
 #include <Utils/String.h>
 #include <Utils/EnumUtils.h>
-#include <Threads/Mutex.h>
-#include <Threads/ConditionVariable.h>
 #include <Kernel/KThread.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/KConditionVariable.h>
 
 
 enum class PLogSeverity : uint8_t;
@@ -49,11 +49,12 @@ public:
     virtual void* Run() override;
 
 
-    bool RegisterCategory(uint32_t categoryHash, PLogChannel channel, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel);
-    void SetCategoryMinimumSeverity(uint32_t categoryHash, PLogSeverity logLevel);
-    bool IsCategoryActive(uint32_t categoryHash, PLogSeverity logLevel);
-    bool IsCategoryActive_pl(uint32_t categoryHash, PLogSeverity logLevel);
+    PErrorCode  RegisterCategory(uint32_t categoryHash, PLogChannel channel, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel);
+    PErrorCode  SetCategoryMinimumSeverity(uint32_t categoryHash, PLogSeverity logLevel);
+    bool        IsCategoryActive(uint32_t categoryHash, PLogSeverity logLevel);
+    bool        IsCategoryActive_pl(uint32_t categoryHash, PLogSeverity logLevel);
     
+    PLogChannel GetCategoryChannel(uint32_t categoryHash) const;
     PLogChannel GetCategoryChannel_pl(uint32_t categoryHash) const;
 
     const char*     GetLogSeverityName(PLogSeverity logLevel);
@@ -64,7 +65,7 @@ public:
     void AddLogMessage(uint32_t category, PLogSeverity severity, const PString& message);
 
     void FlushMessages(TimeValNanos timeout);
-private:
+
     struct CategoryDesc
     {
         CategoryDesc(PLogChannel channel, PLogSeverity minSeverity, const PString& categoryName, const PString& displayName) : Channel(channel), MinSeverity(minSeverity), CategoryName(categoryName), DisplayName(displayName) {}
@@ -82,18 +83,29 @@ private:
         PString         Message;
     };
 
+private:
+
     CategoryDesc*       FindCategoryDesc(uint32_t categoryHash);
     const CategoryDesc* FindCategoryDesc(uint32_t categoryHash) const { return const_cast<KLogManager*>(this)->FindCategoryDesc(categoryHash); }
     const CategoryDesc& GetCategoryDesc(uint32_t categoryHash) const;
 
-    PMutex              m_Mutex;
-    PConditionVariable  m_ConditionVar;
+    mutable KMutex      m_Mutex;
+    KConditionVariable  m_ConditionVar;
 
     std::map<int, CategoryDesc>	m_LogCategories;
     std::deque<LogEntry>        m_LogEntries;
 };
 
-void kadd_log_message(uint32_t category, PLogSeverity severity, const PString& message);
+PErrorCode  ksystem_log_register_category(uint32_t categoryHash, PLogChannel channel, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel);
+PErrorCode  ksystem_log_set_category_minimum_severity(uint32_t categoryHash, PLogSeverity logLevel);
+bool        ksystem_log_is_category_active(uint32_t categoryHash, PLogSeverity logLevel);
+PLogChannel ksystem_log_get_category_channel(uint32_t categoryHash);
+
+const char*     ksystem_log_get_severity_name(PLogSeverity logLevel);
+const PString&  ksystem_log_get_category_name(uint32_t categoryHash);
+const PString&  ksystem_log_get_category_display_name(uint32_t categoryHash);
+
+void            ksystem_log_add_message(uint32_t category, PLogSeverity severity, const PString& message);
 
 } // namespace
 

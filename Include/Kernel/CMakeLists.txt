@@ -10,7 +10,6 @@ target_sources(PadOS_Kernel PRIVATE
 	KObjectWaitGroup.h
 	KPowerManager.h
 	KProcess.h
-	KRelocMemSection.h
 	KSemaphore.h
 	KThread.h
 	KThreadCB.h

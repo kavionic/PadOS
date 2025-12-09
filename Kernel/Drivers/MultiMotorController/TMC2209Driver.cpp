@@ -55,7 +55,6 @@ void TMC2209Driver::Setup_trw(
     DigitalPinID            diagPinID,
     uint32_t                chipAddress,
     HWTimerID               timerID,
-    uint32_t                timerClkFrequency,
     PinMuxTarget            pinStep,
     DigitalPinID            pinEnable,
     DigitalPinID            pinDirection
@@ -66,7 +65,7 @@ void TMC2209Driver::Setup_trw(
         p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "TMC2209Driver::Setup(): missing control port.");
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
-    StepperDriver::Setup_trw(timerID, timerClkFrequency, pinStep, pinEnable, pinDirection);
+    StepperDriver::Setup_trw(timerID, pinStep, pinEnable, pinDirection);
 
     m_ControlPort   = controlPort;
     m_DiagPin       = diagPinID;
@@ -100,7 +99,7 @@ void TMC2209Driver::Setup_trw(
 
 void TMC2209Driver::Setup_trw(Ptr<TMC2209IODriver> controlPort, const TMC2209IOSetup& setup)
 {
-    Setup_trw(controlPort, setup.DiagPinID, setup.ChipAddress, setup.TimerID, setup.TimerClkFrequency, setup.StepPin, setup.EnablePin, setup.DirectionPin);
+    Setup_trw(controlPort, setup.DiagPinID, setup.ChipAddress, setup.TimerID, setup.StepPin, setup.EnablePin, setup.DirectionPin);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

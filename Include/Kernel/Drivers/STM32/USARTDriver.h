@@ -42,20 +42,17 @@ struct USARTDriverParameters : KDriverParametersBase
         const PString&  devicePath,
         USARTID         portID,
         PinMuxTarget    pinRX,
-        PinMuxTarget    pinTX,
-        uint32_t        clockFrequency
+        PinMuxTarget    pinTX
     )
         : KDriverParametersBase(devicePath),
         PortID(portID),
         PinRX(pinRX),
-        PinTX(pinTX),
-        ClockFrequency(clockFrequency)
+        PinTX(pinTX)
     {}
 
     USARTID         PortID;
     PinMuxTarget    PinRX;
     PinMuxTarget    PinTX;
-    uint32_t        ClockFrequency;
 
     friend void to_json(Pjson& data, const USARTDriverParameters& value)
     {
@@ -63,8 +60,7 @@ struct USARTDriverParameters : KDriverParametersBase
         data.update(Pjson{
             {"port_id",         value.PortID },
             {"pin_rx",          value.PinRX },
-            {"pin_tx",          value.PinTX },
-            {"clock_frequency", value.ClockFrequency }
+            {"pin_tx",          value.PinTX }
         });
     }
     friend void from_json(const Pjson& data, USARTDriverParameters& outValue)
@@ -74,7 +70,6 @@ struct USARTDriverParameters : KDriverParametersBase
         data.at("port_id").get_to(outValue.PortID);
         data.at("pin_rx").get_to(outValue.PinRX);
         data.at("pin_tx").get_to(outValue.PinTX);
-        data.at("clock_frequency").get_to(outValue.ClockFrequency);
     }
 
 };

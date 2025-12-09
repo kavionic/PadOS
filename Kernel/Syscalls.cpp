@@ -100,7 +100,7 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(thread_kill),
     SYS_PTR(getpid),
     SYS_PTR(kill),
-    SYS_PTR(sbrk),
+    SYS_PTR(get_dirty_disk_cache_blocks),
     SYS_PTR(exit),
     SYS_PTR(sysconf),
     SYS_PTR(semaphore_create),
@@ -138,8 +138,6 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(condition_var_wait_clock_ns),
     SYS_PTR(condition_var_wakeup),
     SYS_PTR(condition_var_wakeup_all),
-    SYS_PTR(thread_local_create_key),
-    SYS_PTR(thread_local_delete_key),
     SYS_PTR(reboot),
     SYS_PTR(object_wait_group_create),
     SYS_PTR(object_wait_group_delete),
@@ -173,8 +171,16 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(write_backup_register),
     SYS_PTR(read_backup_register),
     SYS_PTR(beep_seconds),
-    SYS_PTR(add_system_log_message)
-
+    SYS_PTR(system_log_register_category),
+    SYS_PTR(system_log_set_category_minimum_severity),
+    SYS_PTR(system_log_is_category_active),
+    SYS_PTR(system_log_get_category_channel),
+    SYS_PTR(system_log_get_severity_name),
+    SYS_PTR(system_log_get_category_name),
+    SYS_PTR(system_log_get_category_display_name),
+    SYS_PTR(system_log_add_message),
+    SYS_PTR(add_serial_command_handler),
+    SYS_PTR(serial_command_send_data)
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);

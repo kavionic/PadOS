@@ -56,7 +56,7 @@ public:
     StepperDriver();
     virtual ~StepperDriver();
 
-    void Setup_trw(HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget pinStep, DigitalPinID pinEnable, DigitalPinID pinDirection);
+    void Setup_trw(HWTimerID timerID, PinMuxTarget pinStep, DigitalPinID pinEnable, DigitalPinID pinDirection);
 
     void            SetJerk(float jerk) { m_Jerk = jerk * m_StepsPerMillimeter; }
     void            SetReverse(bool reverse) { m_Reverse = reverse; }

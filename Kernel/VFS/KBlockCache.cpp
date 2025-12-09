@@ -622,4 +622,9 @@ void* KBlockCache::DiskCacheFlusher(void* arg)
     }
 }
 
+size_t kget_dirty_disk_cache_blocks()
+{
+    return KBlockCache::GetDirtyBlockCount();
+}
+
 } // namespace kernel

@@ -15,13 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 28.10.2025 23:00
+// Created: 08.12.2025 22:30
 
 #include <sys/pados_syscalls.h>
 #include <System/ExceptionHandling.h>
-#include <SerialConsole/SerialCommandHandler.h>
-#include <Kernel/Misc.h>
-#include <Kernel/KNamedObject.h>
 #include <Kernel/KAddressValidation.h>
 
 namespace kernel
@@ -30,100 +27,61 @@ namespace kernel
 extern "C"
 {
 
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_duplicate_handle(handle_id handle, handle_id* outNewHandle)
+PErrorCode sys_digital_pin_set_direction(DigitalPinID pinID, DigitalPinDirection_e dir)
 {
-    try
-    {
-        *outNewHandle = kduplicate_handle_trw(handle);
-        return PErrorCode::Success;
-    }
-    PERROR_CATCH_RET_CODE;
+    return kdigital_pin_set_direction(pinID, dir);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_delete_handle(handle_id handle)
+PErrorCode sys_digital_pin_set_drive_strength(DigitalPinID pinID, DigitalPinDriveStrength_e strength)
 {
-    try
-    {
-        kdelete_handle_trw(handle);
-        return PErrorCode::Success;
-    }
-    PERROR_CATCH_RET_CODE;
+    return kdigital_pin_set_drive_strength(pinID, strength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool sys_is_debugger_attached()
+PErrorCode sys_digital_pin_set_pull_mode(DigitalPinID pinID, PinPullMode_e mode)
 {
-    return kis_debugger_attached();
+    return kdigital_pin_set_pull_mode(pinID, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_write_backup_register(size_t registerID, uint32_t value)
+PErrorCode sys_digital_pin_set_peripheral_mux(DigitalPinID pinID, DigitalPinPeripheralID peripheral)
 {
-    try
-    {
-        kwrite_backup_register_trw(registerID, value);
-        return PErrorCode::Success;
-    }
-    PERROR_CATCH_RET_CODE;
+    return kdigital_pin_set_peripheral_mux(pinID, peripheral);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_read_backup_register(size_t registerID, uint32_t* outValue)
+PErrorCode sys_digital_pin_read(DigitalPinID pinID, bool* outValue)
 {
-    try
-    {
-        validate_user_write_pointer_trw(outValue);
-        *outValue = kread_backup_register_trw(registerID);
-        return PErrorCode::Success;
-    }
-    PERROR_CATCH_RET_CODE;
+    return kdigital_pin_read(pinID, *outValue);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_beep_seconds(float duration)
+PErrorCode sys_digital_pin_write(DigitalPinID pinID, bool value)
 {
-    kbeep_seconds(duration);
-    return PErrorCode::Success;
+    return kdigital_pin_write(pinID, value);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode sys_add_serial_command_handler(uint32_t command, port_id messagePortID)
-{
-    SerialCommandHandler::Get().SetHandlerMessagePort(messagePortID);
-    return PErrorCode::Success;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode sys_serial_command_send_data(void* header, size_t headerSize, const void* data, size_t dataSize)
-{
-    return SerialCommandHandler::Get().SendSerialData(static_cast<SerialProtocol::PacketHeader*>(header), headerSize, data, dataSize) ? PErrorCode::Success : PErrorCode::IOError;
-}
 
 } // extern "C"
 

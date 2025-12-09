@@ -81,3 +81,5 @@ private:
 };
 
 } // namespace
+
+using PMessagePort = os::MessagePort;

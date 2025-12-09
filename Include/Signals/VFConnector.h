@@ -53,7 +53,7 @@ public:
     }
     static TSignalReturnType CallBase(TSignalArgs... args)
     {
-        SignalBase::EmitGuard* emitGuardPtr = SignalBase::s_LocalEmitGuard.Get();
+        SignalBase::EmitGuard* emitGuardPtr = SignalBase::s_LocalEmitGuard;
         SignalBase::PrevSlotGuard cGuard( emitGuardPtr );
         if ( emitGuardPtr->m_SlotIterator == nullptr) {
             assert(!"Call to a VFConnector with a null SlotIterator");

@@ -50,7 +50,6 @@ struct I2CDriverParameters : KDriverParametersBase
         I2CID           portID,
         PinMuxTarget    clockPin,
         PinMuxTarget    dataPin,
-        uint32_t        clockFrequency,
         double          fallTime,
         double          riseTime
     )
@@ -58,7 +57,6 @@ struct I2CDriverParameters : KDriverParametersBase
         , PortID(portID)
         , ClockPin(clockPin)
         , DataPin(dataPin)
-        , ClockFrequency(clockFrequency)
         , FallTime(fallTime)
         , RiseTime(riseTime)
     {}
@@ -66,7 +64,6 @@ struct I2CDriverParameters : KDriverParametersBase
     I2CID           PortID;
     PinMuxTarget    ClockPin;
     PinMuxTarget    DataPin;
-    uint32_t        ClockFrequency;
     double          FallTime;
     double          RiseTime;
 
@@ -77,7 +74,6 @@ struct I2CDriverParameters : KDriverParametersBase
             {"port_id",         value.PortID },
             {"pin_clock",       value.ClockPin },
             {"pin_data",        value.DataPin },
-            {"clock_frequency", value.ClockFrequency },
             {"fall_time",       value.FallTime },
             {"rise_time",       value.RiseTime }
         });
@@ -89,7 +85,6 @@ struct I2CDriverParameters : KDriverParametersBase
         data.at("port_id").get_to(outValue.PortID);
         data.at("pin_clock").get_to(outValue.ClockPin);
         data.at("pin_data").get_to(outValue.DataPin);
-        data.at("clock_frequency").get_to(outValue.ClockFrequency);
         data.at("fall_time").get_to(outValue.FallTime);
         data.at("rise_time").get_to(outValue.RiseTime);
     }

@@ -30,7 +30,6 @@
 #include "Kernel/VFS/KRootFilesystem.h"
 #include "Kernel/VFS/KVFSManager.h"
 #include <System/ExceptionHandling.h>
-#include <Storage/Directory.h>
 
 using namespace os;
 
@@ -1161,7 +1160,7 @@ void kget_directory_name_trw(Ptr<KINode> inode, char* path, size_t bufferSize)
 
         Ptr<KINode> parent = klocate_inode_by_name_trw(inode, "..", 2, true);
         directoryHandle = kopen_from_inode_trw(true, parent, O_RDONLY);
-        Directory directory(directoryHandle, true);
+        PScopeExit handleGuard([directoryHandle]() { kclose(directoryHandle); });
 
         bool isMountPoint = (inode->m_Volume != parent->m_Volume);
         bool foundInParent = false;

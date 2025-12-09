@@ -26,36 +26,18 @@
 
 #include <Signals/SignalTarget.h>
 #include <Utils/String.h>
-#include <Utils/CircularBuffer.h>
-#include <Utils/Logging.h>
-#include <Threads/Thread.h>
-#include <Threads/Mutex.h>
-#include <Threads/ConditionVariable.h>
-#include <Threads/ObjectWaitGroup.h>
+#include <Utils/MessagePort.h>
+#include <Kernel/KLogging.h>
+#include <Kernel/KThread.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/KConditionVariable.h>
+#include <Kernel/KObjectWaitGroup.h>
 #include <Kernel/Kernel.h>
 #include <SerialConsole/SerialProtocol.h>
 
 namespace SerialProtocol
 {
 struct PacketHeader;
-struct SetMaterials;
-struct SetMaterialsConfig;
-
-struct BufferSensorUpdate;
-
-struct GetDirectory;
-struct CreateFile;
-struct CreateDirectory;
-struct OpenFile;
-struct WriteFile;
-struct ReadFile;
-struct CloseFile;
-struct DeleteFile;
-
-struct FilamentDetectorUpdate;
-struct MotorStatusUpdate;
-struct SelectChannel;
-struct ChannelInfoUpdate;
 
 }
 
@@ -79,24 +61,18 @@ private:
     CallbackType m_Callback;
 };
 
-
-
-class SerialCommandHandler : public SignalTarget, public PThread
+class PPacketHandlerDispatcher
 {
 public:
-    SerialCommandHandler();
-    ~SerialCommandHandler();
-
-    static SerialCommandHandler& Get();
-
-    virtual void* Run() override;
-
-
-    virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, PString&& serialPortPath, int baudrate, int readThreadPriority);
-    virtual void ProbeRequestReceived(SerialProtocol::ProbeDeviceType expectedMode) {}
-    virtual void Tick() {}
-
-    void Execute();
+    bool DispatchPacket(const SerialProtocol::PacketHeader* packetBuffer)
+    {
+        auto handler = m_CommandHandlerMap.find(packetBuffer->Command);
+        if (handler == m_CommandHandlerMap.end()) {
+            return false;
+        }
+        handler->second->HandleMessage(packetBuffer);
+        return true;
+    }
 
     template<typename PacketType, typename CallbackType>
     void RegisterPacketHandler(SerialProtocol::Commands::Value commandID, CallbackType&& callback)
@@ -106,6 +82,7 @@ public:
 
         m_LargestCommandPacket = std::max(m_LargestCommandPacket, sizeof(PacketType));
     }
+
     template<typename PacketType, typename CallbackType>
     void RegisterPacketHandler(CallbackType&& callback)
     {
@@ -124,6 +101,30 @@ public:
         RegisterPacketHandler<PacketType>(commandID, std::bind(callback, object, std::placeholders::_1));
     }
 
+protected:
+    size_t                                                              m_LargestCommandPacket = 0;
+
+private:
+    std::map<SerialProtocol::Commands::Value, const PacketHandlerBase*> m_CommandHandlerMap;
+};
+
+namespace kernel
+{
+
+class SerialCommandHandler : public PPacketHandlerDispatcher, public SignalTarget, public KThread
+{
+public:
+    SerialCommandHandler();
+    ~SerialCommandHandler();
+
+    static SerialCommandHandler& Get();
+
+    virtual void* Run() override;
+
+
+    virtual void Setup(SerialProtocol::ProbeDeviceType deviceType, PString&& serialPortPath, int baudrate, int readThreadPriority, int procThreadPriority);
+    virtual void ProbeRequestReceived(SerialProtocol::ProbeDeviceType expectedMode) {}
+
     bool SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize);
     void SendSerialPacket(SerialProtocol::PacketHeader* msg);
 
@@ -135,8 +136,14 @@ public:
         SendSerialPacket(&msg);
     }
 
-    PObjectWaitGroup& GetWaitGroup() { return m_WaitGroup; }
+    void SetHandlerMessagePort(port_id portID);
+
+    KObjectWaitGroup& GetWaitGroup() { return m_WaitGroup; }
 private:
+    static void* InputHandlerThreadEntry(void* args) { return static_cast<SerialCommandHandler*>(args)->HandleIO(); }
+
+    void* HandleIO();
+
     bool OpenSerialPort();
     void CloseSerialPort();
     bool IsSerialPortActive() const { return !m_ComFailure && m_SerialPortIn != -1; }
@@ -148,13 +155,15 @@ private:
 
     static SerialCommandHandler* s_Instance;
 
-    mutable PMutex       m_TransmitMutex;
-    mutable PMutex       m_QueueMutex;
-    mutable PMutex       m_LogMutex;
-    PConditionVariable   m_EventCondition;
-    PConditionVariable   m_ReplyCondition;
-    PConditionVariable   m_QueueCondition;
-    PObjectWaitGroup     m_WaitGroup;
+    mutable KMutex      m_TransmitMutex;
+    mutable KMutex      m_QueueMutex;
+    mutable KMutex      m_LogMutex;
+    KConditionVariable  m_EventCondition;
+    KConditionVariable  m_ReplyCondition;
+    KConditionVariable  m_QueueCondition;
+    KObjectWaitGroup    m_WaitGroup;
+    thread_id           m_InputHandlerThread = INVALID_HANDLE;
+    PMessagePort        m_HandlerPort;
 
     volatile std::atomic_bool     m_ReplyReceived = false;
 
@@ -166,13 +175,13 @@ private:
 
     SerialProtocol::ProbeDeviceType m_DeviceType = SerialProtocol::ProbeDeviceType::Bootloader;
 
-    std::map<SerialProtocol::Commands::Value, const PacketHandlerBase*> m_CommandHandlerMap;
-    size_t                                                              m_LargestCommandPacket = 0;
 
     std::deque<std::vector<uint8_t>> m_MessageQueue;
     std::vector<uint8_t> m_InMessageBuffer;
     size_t               m_PackageBytesRead = 0;
     TimeValNanos    m_NextDeviceProbeTime;
-    SerialCommandHandler(const SerialCommandHandler &other) = delete;
-    SerialCommandHandler& operator=(const SerialCommandHandler &other) = delete;
+    SerialCommandHandler(const SerialCommandHandler& other) = delete;
+    SerialCommandHandler& operator=(const SerialCommandHandler& other) = delete;
 };
+
+} // namespace kernel

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,7 +17,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 14.05.2022 23:00
 
-#include <sys/pados_syscalls.h>
 #include <Kernel/Misc.h>
 #include <Kernel/HAL/STM32/PiezoBuzzer_STM32.h>
 
@@ -38,20 +37,3 @@ void kbeep_seconds(float duration)
 
 } // namespace kernel
 
-namespace os
-{
-
-void beep(BeepLength length)
-{
-    float duration = 0.1f;
-    switch (length)
-    {
-        case BeepLength::Short:     duration = 0.02f;  break;
-        case BeepLength::Medium:    duration = 0.2f;   break;
-        case BeepLength::Long:      duration = 1.0f;   break;
-        case BeepLength::VeryLong:  duration = 3.0f;   break;
-    }
-    beep_seconds(duration);
-}
-
-} // namespace os

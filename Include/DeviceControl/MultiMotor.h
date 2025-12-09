@@ -45,6 +45,7 @@ public:
         : CreateMotor(*this)
         , DeleteMotor(*this)
         , EnableMotorsPower(*this)
+        , IsMotorsPowerEnabled(*this)
         , SetJerk(*this)
         , SetReverse(*this)
         , GetReverse(*this)
@@ -100,6 +101,7 @@ public:
     PDeviceControlInvoker< 0, handle_id     (handle_id motorID, const TMC2209IOSetup& setup)>                                   CreateMotor;
     PDeviceControlInvoker< 1, void          (handle_id motorID)>                                                                DeleteMotor;
     PDeviceControlInvoker< 2, void          (bool enable)>                                                                      EnableMotorsPower;
+    PDeviceControlInvoker< 2, bool          () const>                                                                           IsMotorsPowerEnabled;
     PDeviceControlInvoker< 3, void          (handle_id motorID, float jerk)>                                                    SetJerk;
     PDeviceControlInvoker< 4, void          (handle_id motorID, bool reverse)>                                                  SetReverse;
     PDeviceControlInvoker< 5, bool          (handle_id motorID)>                                                                GetReverse;

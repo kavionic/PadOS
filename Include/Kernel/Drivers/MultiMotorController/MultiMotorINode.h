@@ -42,7 +42,7 @@ public:
     handle_id   CreateMotor(handle_id motorID, const TMC2209IOSetup& setup);
     void        DeleteMotor(handle_id motorID);
     void        EnableMotorsPower(bool enable) { m_MotorEnablePin = !enable; }
-
+    bool        IsMotorsPowerEnabled() const { return !m_MotorEnablePin.Read(); }
     void SetJerk(handle_id motorID, float jerk);
     void SetReverse(handle_id motorID, bool reverse);
     bool GetReverse(handle_id motorID);

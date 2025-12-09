@@ -53,6 +53,7 @@ MultiMotorINode::MultiMotorINode(const MultiMotorDriverParameters& parameters)
     MMI_REGISTER_HANDLER(CreateMotor);
     MMI_REGISTER_HANDLER(DeleteMotor);
     MMI_REGISTER_HANDLER(EnableMotorsPower);
+    MMI_REGISTER_HANDLER(IsMotorsPowerEnabled);
     MMI_REGISTER_HANDLER(SetJerk);
     MMI_REGISTER_HANDLER(SetReverse);
     MMI_REGISTER_HANDLER(GetReverse);

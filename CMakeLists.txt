@@ -117,6 +117,9 @@ if(PADOS_MODULE_UNITTESTS)
 endif()
 add_subdirectory(Include)
 
+add_dependencies(png_static zlib)
+add_dependencies(PadOS_DataTranslators png_static)
+
 get_property(all_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 
 

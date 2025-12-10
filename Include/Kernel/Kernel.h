@@ -36,7 +36,6 @@
 #include <Utils/String.h>
 #include <System/TimeValue.h>
 #include <Kernel/HAL/DigitalPort.h>
-#include <ClockFrequencies.h>
 
 
 #define DCACHE_LINE_SIZE __SCB_DCACHE_LINE_SIZE

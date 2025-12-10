@@ -17,7 +17,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 11.03.2018 02:48:15
 
-#include "Threads/ThreadLocal.h"
+#include <Threads/ThreadLocal.h>
+#include <System/ExceptionHandling.h>
+#include <Utils/Utils.h>
 
 ThreadLocalSlotManager*          ThreadLocalSlotManager::s_Instance;
 thread_local std::vector<void*>* ThreadLocalSlotManager::s_ThreadSlots;

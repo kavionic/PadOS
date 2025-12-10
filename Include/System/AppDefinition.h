@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 
+#include <PadOS/Threads.h>
 #include <System/ModuleTLSDefinition.h>
 
 struct PAppDefinition

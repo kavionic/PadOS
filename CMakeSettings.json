@@ -4,7 +4,7 @@
       "name": "STM32H7-Debug",
       "generator": "Ninja",
       "configurationType": "Debug",
-      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "buildRoot": "${projectDir}\\Build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
       "cmakeCommandArgs": "",
       "buildCommandArgs": "",
@@ -20,10 +20,19 @@
           "name": "CMAKE_CXX_FLAGS_DEBUG",
           "value": "-O3 -g3",
           "type": "STRING"
+        },
+        {
+          "name": "CMAKE_INSTALL_PREFIX",
+          "value": "Install",
+          "type": "PATH"
         }
       ],
+      "environments": [
+        { "PATH": "C:\\msys64\\mingw64\\bin;C:\\msys64\\usr\\bin;C:\\Windows\\system32" },
+        { "NINJA_STATUS": "[%e: %f/%t] " }
+      ],
       "intelliSenseMode": "linux-gcc-arm",
-      "cmakeToolchain": "Tools/CMake/ToolChains/arm-gcc.cmake"
+      "cmakeToolchain": "Tools/CMake/ToolChains/arm-gcc.stm32h7xx.cmake"
     },
     {
       "name": "STM32H7-Release",
@@ -42,6 +51,10 @@
           "value": "Release",
           "type": "STRING"
         }
+      ],
+      "environments": [
+        { "PATH": "C:\\msys64\\mingw64\\bin;C:\\msys64\\usr\\bin;C:\\Windows\\system32" },
+        { "NINJA_STATUS": "[%e: %f/%t] " }
       ],
       "intelliSenseMode": "linux-gcc-arm"
     },
@@ -62,6 +75,10 @@
           "value": "RelWithDebInfo",
           "type": "STRING"
         }
+      ],
+      "environments": [
+        { "PATH": "C:\\msys64\\mingw64\\bin;C:\\msys64\\usr\\bin;C:\\Windows\\system32" },
+        { "NINJA_STATUS": "[%e: %f/%t] " }
       ],
       "intelliSenseMode": "linux-gcc-arm"
     }

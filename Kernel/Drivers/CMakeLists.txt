@@ -21,7 +21,7 @@ target_sources(PadOS_Kernel PRIVATE
 )
 
 #add_subdirectory(ATSAM)
-if(PADOS_MODULE_UNITTESTS)
+if(PADOS_DRIVER_MultiMotor)
 	add_subdirectory(MultiMotorController)
 endif()
 if(PADOS_DRIVER_SDMMC)

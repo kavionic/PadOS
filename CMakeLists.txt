@@ -1,7 +1,21 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.25)
 
 # set the project name
 project(PadOS VERSION 0.1)
+
+
+include("CMake/Utils.cmake")
+
+set(PADOS_BUILD_CONFIG "")
+pados_find_build_config(PADOS_BUILD_CONFIG)
+
+if(PADOS_BUILD_CONFIG)
+	message(STATUS "Using PadOS config file: ${PADOS_BUILD_CONFIG}")
+	include(${PADOS_BUILD_CONFIG})
+else()
+	message(STATUS "No external PadOS build config file found. Using defaults.")
+endif()
+
 
 option(PADOS_OPT_DEBUG_LOOPER_LIST		"Keep a global list of PLooper objects for debugging."			OFF)
 option(PADOS_OPT_DEBUG_HANDLE_OBJECT_LIST	"Keep a global list of KNamedObject objects for debugging."		OFF)
@@ -24,9 +38,23 @@ option(PADOS_DRIVER_USART			"Build driver" OFF)
 option(PADOS_DRIVER_WS2812B			"Build driver" OFF)
 
 
-set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")
-
-include_directories(. Include ExternalLibs)
+include_directories(
+	${CMAKE_SOURCE_DIR}/Include
+	${CMAKE_SOURCE_DIR}/Applications
+	${CMAKE_SOURCE_DIR}/ExternalLibs
+	${CMAKE_SOURCE_DIR}/ExternalLibs/STM32/cmsis-core/Include
+	${CMAKE_SOURCE_DIR}/ExternalLibs/STM32/cmsis-device-h7/Include
+	${CMAKE_SOURCE_DIR}/ExternalLibs/pugixml/src
+	${CMAKE_SOURCE_DIR}/ExternalLibs/json/include
+	${CMAKE_SOURCE_DIR}/ExternalLibs/zlib
+	${CMAKE_SOURCE_DIR}/ExternalLibs/libpng
+	${CMAKE_SOURCE_DIR}/ExternalLibs/eigen
+	${CMAKE_SOURCE_DIR}/ExternalLibs/googletest/googletest/include
+	${CMAKE_SOURCE_DIR}/ExternalLibs/fmt/include
+	${CMAKE_BINARY_DIR}/ExternalLibs/zlib
+	${CMAKE_BINARY_DIR}/ExternalLibs/libpng
+	.
+)
 
 set(PADOS_C_CXX_FLAGS "-Wall -Wextra -Wconversion -Wno-unused-parameter -Wno-multichar -Wno-sign-compare")
 set(PADOS_C_CXX_FLAGS "${PADOS_C_CXX_FLAGS} -Wno-psabi") # Supress STL warnings
@@ -35,14 +63,7 @@ set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${PADOS_C_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PADOS_C_CXX_FLAGS} -Wsuggest-override -Wnoexcept -Wno-invalid-offsetof")
 
 
-add_compile_definitions(FMT_OPTIMIZE_SIZE=2)
-
-#link_libraries(PRIVATE runtimes::ready)
-
-add_executable(PadOS_KernelImage)
-
 add_library(PadOS_Kernel)
-add_library(PadOS_Startup)
 add_library(PadOS_Syscalls)
 add_library(PadOS_FATFS)
 add_library(PadOS_System)
@@ -55,22 +76,12 @@ add_library(PadOS_ApplicationServer)
 add_library(PadOS_WindowManager)
 add_library(PadOS_DataTranslators)
 
-target_compile_definitions(PadOS_KernelImage PUBLIC __pados_kernel__)
-
-set(PADOS_KERNEL_MODULES "")
-
-macro(pados_add_compile_option option define)
-    if(${opt})
-	add_compile_definitions(${define}=1)
-    endif()
-endmacro()
-
-macro(pados_add_kernel_module opt lib)
-    if(${opt})
-        list(APPEND PADOS_KERNEL_MODULES ${lib})
-	add_library(${lib} EXCLUDE_FROM_ALL)
-    endif()
-endmacro()
+set(PADOS_EXTERNAL_LIBS
+	fmt
+	pugixml
+	png_static
+	gtest
+)
 
 
 pados_add_compile_option(PADOS_OPT_DEBUG_LOOPER_LIST		DEBUG_LOOPER_LIST)
@@ -81,9 +92,8 @@ if(PADOS_MODULE_UNITTESTS)
 	add_library(PadOS_UnitTests)
 endif()
 
-#add_library(PadOS_Drivers_Misc)
-#list(APPEND PADOS_KERNEL_MODULES PadOS_Drivers_Misc)
 
+pados_add_kernel_module(ON	PadOS_Kernel_Startup)
 pados_add_kernel_module(ON	PadOS_Drivers_Misc)
 
 pados_add_kernel_module(PADOS_DRIVER_MultiMotor		PadOS_Drivers_MultiMotor)
@@ -125,101 +135,67 @@ add_subdirectory(Include)
 add_dependencies(png_static zlib)
 add_dependencies(PadOS_DataTranslators png_static)
 
+pados_add_kernel_library(ON	PadOS_Kernel)
+pados_add_kernel_library(ON	PadOS_FATFS)
+pados_add_kernel_library(ON	PadOS_Ptr)
+pados_add_kernel_library(ON	PadOS_Signals)
+pados_add_kernel_library(ON	PadOS_System)
+pados_add_kernel_library(ON	PadOS_SystemIFlash)
+pados_add_kernel_library(ON	PadOS_IO)
+pados_add_kernel_library(ON	PadOS_Syscalls)
+pados_add_kernel_library(ON	fmt)
 
 
+set_libraries_section("iflash" ${PADOS_OPT_IFLASH_MODULES})
 
-target_link_libraries(PadOS_KernelImage
-	-Wl,--start-group
-	PadOS_SystemInit
+
+setup_unity_build_and_pch(5, "${CMAKE_CURRENT_SOURCE_DIR}/Include/Precompile.h")
+
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/CMake/PadOSConfig.cmake.in
+    ${CMAKE_BINARY_DIR}/cmake/PadOSConfig.cmake
+    @ONLY
+)
+
+install(TARGETS
 	PadOS_Kernel
+	PadOS_Syscalls
 	PadOS_FATFS
-	PadOS_Ptr
-	PadOS_Signals
 	PadOS_System
 	PadOS_SystemIFlash
+	PadOS_Ptr
+	PadOS_Signals
 	PadOS_IO
-	-Wl,--whole-archive
-	PadOS_Startup
-	PadOS_Syscalls
-	${PADOS_KERNEL_MODULES}
-	-Wl,--no-whole-archive
-	c
-	pthread
-	fmt
-	-Wl,--end-group
+	PadOS_GUI
+	PadOS_ApplicationServer
+	PadOS_WindowManager
+	PadOS_DataTranslators
+
+	PadOS_UnitTests
+	${PADOS_KERNEL_MODULE_TARGETS}
+	${PADOS_EXTERNAL_LIBS}
+    EXPORT PadOSTargets
+    ARCHIVE DESTINATION lib
 )
 
-target_link_options(PadOS_KernelImage PRIVATE
-	"-L${CMAKE_SOURCE_DIR}/LinkerScripts"
-	"-TPadOS_KernelImage.ld"
-	"-Wl,-Map=${CMAKE_BINARY_DIR}/PadOS_KernelImage.map"
+install(DIRECTORY Include/ DESTINATION include
+	FILE_PERMISSIONS OWNER_READ GROUP_READ WORLD_READ
+	PATTERN "CMakeLists.txt" EXCLUDE
+	PATTERN "Precompile.h" EXCLUDE
+)
+install(FILES ${CMAKE_BINARY_DIR}/cmake/PadOSConfig.cmake DESTINATION lib/cmake/PadOS)
+install(EXPORT PadOSTargets NAMESPACE PadOS:: DESTINATION lib/cmake/PadOS)
+
+install(DIRECTORY ExternalLibs/STM32/cmsis-core/Include/ DESTINATION include/cmsis-core)
+install(DIRECTORY ExternalLibs/STM32/cmsis-device-h7/Include/ DESTINATION include/cmsis-device-h7)
+
+install(TARGETS zlib
+    ARCHIVE DESTINATION lib
 )
 
-add_custom_command(
-    OUTPUT ${CMAKE_BINARY_DIR}/PadOS/PadOS_KernelImage.hex
-    COMMAND ${CMAKE_OBJCOPY} -O ihex
-            ${CMAKE_BINARY_DIR}/PadOS/PadOS_KernelImage.elf
-            ${CMAKE_BINARY_DIR}/PadOS/PadOS_KernelImage.hex
-    DEPENDS PadOS_KernelImage
-    VERBATIM
+install(FILES
+    ${CMAKE_SOURCE_DIR}/ExternalLibs/zlib/zlib.h
+    ${CMAKE_BINARY_DIR}/ExternalLibs/zlib/zconf.h
+    DESTINATION include
 )
-
-add_custom_target(PadOS_KernelImage_hex ALL DEPENDS ${CMAKE_BINARY_DIR}/PadOS/PadOS_KernelImage.hex)
-
-
-get_property(all_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
-
-
-# Minimum number of C++ source files required before we enable PCH
-set(MIN_CXX_SOURCES 5)   # tweak this threshold to taste
-
-set(PADOS_PCH_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/Include/Precompile.h")
-
-foreach(buildTarget ${all_targets})
-	# Skip imported targets (toolchain, external stuff)
-	get_target_property(is_imported ${buildTarget} IMPORTED)
-	if(is_imported)
-		continue()
-	endif()
-
-	# Skip pure INTERFACE libraries
-	get_target_property(type ${buildTarget} TYPE)
-	if(type STREQUAL "INTERFACE_LIBRARY")
-		continue()
-	endif()
-
-	# Get the sources for this target
-	get_target_property(targetSources ${buildTarget} SOURCES)
-	if(NOT targetSources)
-		continue()
-	endif()
-
-	if(PADOS_OPT_USE_UNITY_BUILD)
-		message(STATUS "Enabling unity build for target ${buildTarget}")
-		set_target_properties(${buildTarget} PROPERTIES UNITY_BUILD ON)
-	endif()
-
-	if(PADOS_OPT_USE_PCH)
-		# Count C++ sources
-		set(cxx_count 0)
-		foreach(src ${targetSources})
-			# Ignore generator expressions etc.
-			if(src MATCHES "^\\$<")
-				continue()
-			endif()
-
-			if(src MATCHES "\\.(cxx|cpp|cc|C)$")
-				math(EXPR cxx_count "${cxx_count} + 1")
-			endif()
-		endforeach()
-
-		# Only enable PCH if we have enough C++ files
-		if(cxx_count GREATER_EQUAL MIN_CXX_SOURCES)
-			message(STATUS "Enabling PCH for target ${buildTarget} (${cxx_count} C++ sources)")
-			target_precompile_headers(${buildTarget} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${PADOS_PCH_HEADER}>")
-		else()
-			message(STATUS "Skipping PCH for target ${buildTarget} (${cxx_count} C++ sources)")
-		endif()
-	endif()
-endforeach()
 

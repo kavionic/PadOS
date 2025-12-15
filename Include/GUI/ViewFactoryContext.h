@@ -21,7 +21,7 @@
 
 #include <map>
 
-#include <pugixml/src/pugixml.hpp>
+#include <pugixml.hpp>
 #include "Utils/String.h"
 #include "Ptr/Ptr.h"
 #include "Utils/XMLObjectParser.h"

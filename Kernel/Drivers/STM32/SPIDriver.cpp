@@ -35,8 +35,6 @@
 #include <Kernel/HAL/PeripheralMapping.h>
 
 
-#include "SystemSetup.h"
-
 namespace kernel
 {
 

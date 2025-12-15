@@ -19,7 +19,7 @@
 
 #include <sys/fcntl.h>
 
-#include <pugixml/src/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <GUI/ViewFactory.h>
 #include <GUI/View.h>

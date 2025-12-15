@@ -19,7 +19,7 @@
 
 #include <sys/fcntl.h>
 #include <cwctype>
-#include <pugixml/src/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <GUI/Bitmap.h>
 #include <GUI/ViewFactory.h>

@@ -24,7 +24,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
-#include <pugixml/src/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <GUI/View.h>
 #include <GUI/Widgets/ScrollBar.h>

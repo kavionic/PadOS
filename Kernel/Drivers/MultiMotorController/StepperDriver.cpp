@@ -25,7 +25,6 @@
 #include <Kernel/SpinTimer.h>
 #include <Kernel/Drivers/MultiMotorController/StepperDriver.h>
 
-#include "SystemSetup.h"
 
 using namespace os;
 

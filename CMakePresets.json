@@ -1,0 +1,69 @@
+{
+	"version": 5,
+	"cmakeMinimumRequired": {
+		"major": 3,
+		"minor": 23,
+		"patch": 0
+	},
+	"configurePresets": [
+		{
+			"name": "stm32h7-base",
+			"hidden": true,
+			"generator": "Ninja",
+			"binaryDir": "${sourceDir}/Build/${presetName}",
+			"cacheVariables": {
+				"CMAKE_TOOLCHAIN_FILE": "Tools/CMake/ToolChains/arm-gcc.stm32h7xx.cmake",
+				"CMAKE_INSTALL_PREFIX": "${sourceDir}/Install/${presetName}"
+			},
+			"environment": {
+				"PATH": "C:\\msys64\\mingw64\\bin;C:\\msys64\\usr\\bin;C:\\Windows\\system32"
+			}
+		},
+		{
+			"name": "STM32H7-Debug",
+			"inherits": "stm32h7-base",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug",
+				"CMAKE_C_FLAGS_DEBUG": "-O2 -g3",
+				"CMAKE_CXX_FLAGS_DEBUG": "-O2 -g3"
+			},
+			"environment": {
+				"NINJA_STATUS": "[%e: %f/%t] "
+			}
+		},
+		{
+			"name": "STM32H7-Release",
+			"inherits": "stm32h7-base",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release"
+			}
+		},
+		{
+			"name": "STM32H7-ReleaseWidthDbg",
+			"inherits": "stm32h7-base",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "RelWithDebInfo"
+			}
+		}
+	],
+	"buildPresets": [
+		{
+			"name": "STM32H7-Debug",
+			"configurePreset": "STM32H7-Debug"
+		},
+		{
+			"name": "STM32H7-Release",
+			"configurePreset": "STM32H7-Release"
+		},
+		{
+			"name": "STM32H7-ReleaseWidthDbg",
+			"configurePreset": "STM32H7-ReleaseWidthDbg"
+		}
+	],
+	"testPresets": [
+		{
+			"name": "STM32H7-Debug",
+			"configurePreset": "STM32H7-Debug"
+		}
+	]
+}

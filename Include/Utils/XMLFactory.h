@@ -22,7 +22,7 @@
 #include <map>
 #include <string.h>
 
-#include <pugixml/src/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include "String.h"
 

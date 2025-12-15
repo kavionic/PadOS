@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <pugixml/src/pugixml.hpp>
+#include <pugixml.hpp>
 
 #include <Utils/XMLFactory.h>
 #include <Utils/FactoryAutoRegistrator.h>

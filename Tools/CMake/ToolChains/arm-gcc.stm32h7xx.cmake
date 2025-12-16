@@ -31,5 +31,4 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PADOS_SYSTEM_C_CXX_FLAGS} -D_DEFAULT_S
 
 set(CMAKE_EXE_LINKER_FLAGS "-mcpu=cortex-m7 -Wl,--gc-sections -static -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb")
 
-set(CMAKE_EXECUTABLE_SUFFIX .elf)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")

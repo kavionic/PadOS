@@ -16,6 +16,9 @@ else()
 	message(STATUS "No external PadOS build config file found. Using defaults.")
 endif()
 
+message(STATUS "Install folder: ${CMAKE_INSTALL_PREFIX}")
+
+set(CMAKE_PREFIX_PATH ${CMAKE_INSTALL_PREFIX})
 
 option(PADOS_OPT_DEBUG_LOOPER_LIST		"Keep a global list of PLooper objects for debugging."			OFF)
 option(PADOS_OPT_DEBUG_HANDLE_OBJECT_LIST	"Keep a global list of KNamedObject objects for debugging."		OFF)
@@ -41,18 +44,9 @@ option(PADOS_DRIVER_WS2812B			"Build driver" OFF)
 include_directories(
 	${CMAKE_SOURCE_DIR}/Include
 	${CMAKE_SOURCE_DIR}/Applications
-	${CMAKE_SOURCE_DIR}/ExternalLibs
-	${CMAKE_SOURCE_DIR}/ExternalLibs/STM32/cmsis-core/Include
-	${CMAKE_SOURCE_DIR}/ExternalLibs/STM32/cmsis-device-h7/Include
-	${CMAKE_SOURCE_DIR}/ExternalLibs/pugixml/src
-	${CMAKE_SOURCE_DIR}/ExternalLibs/json/include
-	${CMAKE_SOURCE_DIR}/ExternalLibs/zlib
-	${CMAKE_SOURCE_DIR}/ExternalLibs/libpng
-	${CMAKE_SOURCE_DIR}/ExternalLibs/eigen
-	${CMAKE_SOURCE_DIR}/ExternalLibs/googletest/googletest/include
-	${CMAKE_SOURCE_DIR}/ExternalLibs/fmt/include
-	${CMAKE_BINARY_DIR}/ExternalLibs/zlib
-	${CMAKE_BINARY_DIR}/ExternalLibs/libpng
+	${CMAKE_INSTALL_PREFIX}/include
+	${CMAKE_INSTALL_PREFIX}/include/cmsis-core
+	${CMAKE_INSTALL_PREFIX}/include/cmsis-device-h7
 	.
 )
 
@@ -75,14 +69,6 @@ add_library(PadOS_GUI)
 add_library(PadOS_ApplicationServer)
 add_library(PadOS_WindowManager)
 add_library(PadOS_DataTranslators)
-
-set(PADOS_EXTERNAL_LIBS
-	fmt
-	pugixml
-	png_static
-	gtest
-)
-
 
 pados_add_compile_option(PADOS_OPT_DEBUG_LOOPER_LIST		DEBUG_LOOPER_LIST)
 pados_add_compile_option(PADOS_OPT_DEBUG_HANDLE_OBJECT_LIST	DEBUG_HANDLE_OBJECT_LIST)
@@ -119,7 +105,6 @@ target_sources(PadOS_Kernel PRIVATE
 )
 
 
-add_subdirectory(ExternalLibs)
 add_subdirectory(Applications)
 add_subdirectory(ApplicationServer)
 add_subdirectory(DataTranslation)
@@ -132,8 +117,7 @@ if(PADOS_MODULE_UNITTESTS)
 endif()
 add_subdirectory(Include)
 
-add_dependencies(png_static zlib)
-add_dependencies(PadOS_DataTranslators png_static)
+find_package(fmt CONFIG REQUIRED)
 
 pados_add_kernel_library(ON	PadOS_Kernel)
 pados_add_kernel_library(ON	PadOS_FATFS)
@@ -143,8 +127,7 @@ pados_add_kernel_library(ON	PadOS_System)
 pados_add_kernel_library(ON	PadOS_SystemIFlash)
 pados_add_kernel_library(ON	PadOS_IO)
 pados_add_kernel_library(ON	PadOS_Syscalls)
-pados_add_kernel_library(ON	fmt)
-
+pados_add_kernel_external_library(ON	fmt::fmt)
 
 set_libraries_section("iflash" ${PADOS_OPT_IFLASH_MODULES})
 
@@ -173,7 +156,6 @@ install(TARGETS
 
 	PadOS_UnitTests
 	${PADOS_KERNEL_MODULE_TARGETS}
-	${PADOS_EXTERNAL_LIBS}
     EXPORT PadOSTargets
     ARCHIVE DESTINATION lib
 )
@@ -185,17 +167,3 @@ install(DIRECTORY Include/ DESTINATION include
 )
 install(FILES ${CMAKE_BINARY_DIR}/cmake/PadOSConfig.cmake DESTINATION lib/cmake/PadOS)
 install(EXPORT PadOSTargets NAMESPACE PadOS:: DESTINATION lib/cmake/PadOS)
-
-install(DIRECTORY ExternalLibs/STM32/cmsis-core/Include/ DESTINATION include/cmsis-core)
-install(DIRECTORY ExternalLibs/STM32/cmsis-device-h7/Include/ DESTINATION include/cmsis-device-h7)
-
-install(TARGETS zlib
-    ARCHIVE DESTINATION lib
-)
-
-install(FILES
-    ${CMAKE_SOURCE_DIR}/ExternalLibs/zlib/zlib.h
-    ${CMAKE_BINARY_DIR}/ExternalLibs/zlib/zconf.h
-    DESTINATION include
-)
-

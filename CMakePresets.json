@@ -10,7 +10,7 @@
 			"name": "stm32h7-base",
 			"hidden": true,
 			"generator": "Ninja",
-			"binaryDir": "${sourceDir}/Build/${presetName}",
+			"binaryDir": "${sourceDir}/../Build_PadOS/${presetName}",
 			"cacheVariables": {
 				"CMAKE_TOOLCHAIN_FILE": "Tools/CMake/ToolChains/arm-gcc.stm32h7xx.cmake",
 				"CMAKE_INSTALL_PREFIX": "${sourceDir}/Install/${presetName}"

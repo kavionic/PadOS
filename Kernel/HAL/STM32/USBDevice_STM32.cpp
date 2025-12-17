@@ -179,7 +179,7 @@ void USBDevice_STM32::EndpointClose(uint8_t endpointAddr)
 
     if (endpointAddr & USB_ADDRESS_DIR_IN)
     {
-        m_TransferStatusIn[epNum].EndpointMaxSize = 0;
+        m_TransferStatusIn[epNum].Reset();
 
         const uint32_t fifoSize = (m_Port->DIEPTXF[epNum - 1] & USB_OTG_DIEPTXF_INEPTXFD_Msk) >> USB_OTG_DIEPTXF_INEPTXFD_Pos;
         const uint32_t fifoStart = (m_Port->DIEPTXF[epNum - 1] & USB_OTG_DIEPTXF_INEPTXSA_Msk) >> USB_OTG_DIEPTXF_INEPTXSA_Pos;
@@ -196,7 +196,7 @@ void USBDevice_STM32::EndpointClose(uint8_t endpointAddr)
     }
     else
     {
-        m_TransferStatusOut[epNum].EndpointMaxSize = 0;
+        m_TransferStatusOut[epNum].Reset();
         m_UpdateRXFIFOSize = true;  // Update RX FIFO size when empty.
     }
 }
@@ -216,11 +216,11 @@ void USBDevice_STM32::EndpointCloseAll()
     {
         // Disable out endpoint.
         m_OutEndpoints[i].DOEPCTL = 0;
-        m_TransferStatusOut[i].EndpointMaxSize = 0;
+        m_TransferStatusOut[i].Reset();
 
         // Disable in endpoint.
         m_InEndpoints[i].DIEPCTL = 0;
-        m_TransferStatusIn[i].EndpointMaxSize = 0;
+        m_TransferStatusIn[i].Reset();
     }
     // Reset TX FIFO allocation.
     m_AllocatedTXFIFOWords = 16;

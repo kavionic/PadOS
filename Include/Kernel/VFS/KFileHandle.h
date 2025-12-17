@@ -39,7 +39,7 @@ public:
     KFileTableNode(bool isDirectory, int openFlags) : m_IsDirectory(isDirectory), m_OpenFlags(openFlags & ~O_CREAT) {}
 
     inline void         SetINode(Ptr<KINode> inode) noexcept    { m_INode = inode; }
-    inline Ptr<KINode>  GetINode() noexcept                     { kassert(m_INode != nullptr); return m_INode; }
+    inline Ptr<KINode>  GetINode() noexcept                     { return m_INode; }
     inline bool         IsDirectory() const noexcept            { return m_IsDirectory; }
     inline void         SetOpenFlags(int flags) noexcept        { m_OpenFlags = flags; }
     inline int          GetOpenFlags() const noexcept           { return m_OpenFlags; }

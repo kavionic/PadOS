@@ -1,0 +1,22 @@
+{
+	"configurations": [
+		{
+			"inheritEnvironments": [ "linux-gcc-arm" ],
+			"name": "Rainbow3DFirmware",
+			"includePath": [
+				// Toolkit folders
+				"${workspaceRoot}\\..\\Install\\include\\cmsis-core",
+				"${workspaceRoot}\\..\\Install\\include\\cmsis-device-h7",
+				"${env.PADOS_TOOLCHAIN_PATH}\\arm-unknown-pados-eabi\\include",
+				"${env.PADOS_TOOLCHAIN_PATH}\\arm-unknown-pados-eabi\\include\\c++\\15.2.0"
+			],
+			"defines": [ "STM32H753xx", "__FPU_PRESENT", "ARM_MATH_CM7=true", "_DEFAULT_SOURCE", "__pados__" ],
+			"intelliSenseMode": "linux-gcc-arm"
+		},
+		{
+			"inheritEnvironments": [ "Rainbow3DFirmware" ],
+			"name": "PadOS",
+			"intelliSenseMode": "linux-gcc-arm"
+		}
+	]
+}

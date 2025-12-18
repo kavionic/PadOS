@@ -5,6 +5,7 @@
 			"name": "Rainbow3DFirmware",
 			"includePath": [
 				// Toolkit folders
+				"${workspaceRoot}\\..\\Install\\include",
 				"${workspaceRoot}\\..\\Install\\include\\cmsis-core",
 				"${workspaceRoot}\\..\\Install\\include\\cmsis-device-h7",
 				"${env.PADOS_TOOLCHAIN_PATH}\\arm-unknown-pados-eabi\\include",

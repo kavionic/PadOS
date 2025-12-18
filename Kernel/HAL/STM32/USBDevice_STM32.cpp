@@ -236,7 +236,7 @@ bool USBDevice_STM32::EndpointTransfer(uint8_t endpointAddr, void* buffer, size_
 
     EndpointTransferState* xfer = GetEndpointTranferState(endpointAddr);
 
-    if (xfer == nullptr) {
+    if (xfer == nullptr || xfer->EndpointMaxSize == 0) {
         return false;
     }
 

@@ -49,8 +49,8 @@ option(PADOS_DRIVER_WS2812B			"Build driver" OFF)
 
 
 include_directories(
-	${CMAKE_SOURCE_DIR}/Include
-	${CMAKE_SOURCE_DIR}/Applications
+	${CMAKE_CURRENT_SOURCE_DIR}/Include
+	${CMAKE_CURRENT_SOURCE_DIR}/Applications
 	${CMAKE_INSTALL_PREFIX}/include
 	${CMAKE_INSTALL_PREFIX}/include/cmsis-core
 	${CMAKE_INSTALL_PREFIX}/include/cmsis-device-h7

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,16 +17,17 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 17.03.2018 20:45:16
 
-#include "System/Platform.h"
 
 #include <string.h>
 #include <fcntl.h>
 
+#include <System/AppDefinition.h>
 #include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/Protocol.h>
 #include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/ServerBitmap.h>
 #include <ApplicationServer/ServerView.h>
+#include <ApplicationServer/Drivers/RA8875Driver.h>
 #include <Utils/Utils.h>
 #include <GUI/View.h>
 
@@ -37,7 +38,7 @@
 
 using namespace os;
 
-static port_id g_AppserverPort = -1;
+static volatile port_id g_AppserverPort = -1;
 
 Ptr<os::DisplayDriver>  ApplicationServer::s_DisplayDriver;
 Ptr<SrvBitmap>          ApplicationServer::s_ScreenBitmap;
@@ -46,6 +47,9 @@ namespace os
 {
     port_id get_appserver_port()
     {
+        while(g_AppserverPort == INVALID_HANDLE) {
+            snooze_ms(100);
+        }
         return g_AppserverPort;
     }
 }
@@ -454,3 +458,21 @@ void ApplicationServer::PowerLost(bool hasPower)
 {
     s_DisplayDriver->PowerLost(hasPower);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int appserver_main(int argc, char* argv[])
+{
+    RA8875DriverParameters driverConfig;
+    if (argc > 1) {
+        Pjson::parse(argv[1]).get_to(driverConfig);
+    }
+    ApplicationServer* applicationServer = new ApplicationServer(ptr_new<RA8875Driver>(driverConfig));
+    p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCat_General, "Application server started.");
+    applicationServer->Adopt();
+    return 0;
+}
+
+static PAppDefinition g_AppServerAppDef("appserver", appserver_main);

@@ -25,6 +25,8 @@
 #include "System/System.h"
 #include "Utils/String.h"
 
+struct PFirmwareImageDefinition;
+
 namespace os
 {
 
@@ -43,6 +45,8 @@ public:
 
     PErrorCode  Start(PThreadDetachState detachState = PThreadDetachState_Detached, int priority = 0, int stackSize = 0);
     PErrorCode  Join(void** outReturnValue, TimeValNanos deadline = TimeValNanos::infinit);
+
+    PErrorCode Adopt();
 
     bool IsRunning() const { return m_ThreadHandle != INVALID_HANDLE; }
     thread_id GetThreadID() const { return m_ThreadHandle; }
@@ -69,3 +73,6 @@ private:
 } // namespace os
 
 using PThread = os::Thread;
+
+PThreadControlBlock* create_thread_tls_block(const PFirmwareImageDefinition& imageDefinition, void* buffer = nullptr);
+void delete_thread_tls_block(PThreadControlBlock* tlsBlock);

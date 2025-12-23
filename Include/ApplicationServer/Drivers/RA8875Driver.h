@@ -36,6 +36,38 @@ struct LCDRegisters
 };
 
 
+struct RA8875DriverParameters
+{
+    RA8875DriverParameters() = default;
+    RA8875DriverParameters(void* registers, DigitalPinID pinLCDReset, DigitalPinID pinTouchpadReset, DigitalPinID pinBacklightControl)
+        : Registers(uintptr_t(registers))
+        , PinLCDReset(pinLCDReset)
+        , PinTouchpadReset(pinTouchpadReset)
+        , PinBacklightControl(pinBacklightControl)
+    {}
+
+    uintptr_t       Registers;
+    DigitalPinID    PinLCDReset;
+    DigitalPinID    PinTouchpadReset;
+    DigitalPinID    PinBacklightControl;
+
+    friend void to_json(Pjson& data, const RA8875DriverParameters& value)
+    {
+        data = Pjson{
+            {"registers",               value.Registers},
+            {"pin_lcd_reset",           value.PinLCDReset},
+            {"pin_touchpad_reset",      value.PinTouchpadReset},
+            {"pin_backlight_control",   value.PinBacklightControl }
+        };
+    }
+    friend void from_json(const Pjson& data, RA8875DriverParameters& outValue)
+    {
+        data.at("registers"             ).get_to(outValue.Registers);
+        data.at("pin_lcd_reset"         ).get_to(outValue.PinLCDReset);
+        data.at("pin_touchpad_reset"    ).get_to(outValue.PinTouchpadReset);
+        data.at("pin_backlight_control" ).get_to(outValue.PinBacklightControl);
+    }
+};
 
 class RA8875Driver : public DisplayDriver
 {
@@ -43,7 +75,7 @@ public:
     enum Orientation_e { e_Portrait, e_Landscape };
     enum FillDirection_e { e_FillLeftDown, e_FillDownLeft };
 
-    RA8875Driver(LCDRegisters* registers, DigitalPinID pinLCDReset, DigitalPinID pinTouchpadReset, DigitalPinID pinBacklightControl);
+    RA8875Driver(const RA8875DriverParameters& config);
 
     virtual bool            Open() override;
     virtual void            Close() override;

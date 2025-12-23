@@ -73,7 +73,7 @@ void KThread::Start_trw(PThreadDetachState detachState, int priority, int stackS
     {
         m_DetachState = detachState;
         PThreadAttribs attrs(m_Name.c_str(), priority, detachState, stackSize);
-        m_ThreadHandle = kthread_spawn_trw(&attrs, /*privileged*/ true, ThreadEntry, this);
+        m_ThreadHandle = kthread_spawn_trw(&attrs, /*tlsBlock*/ nullptr, /*privileged*/ true, ThreadEntry, this);
     }
 }
 
@@ -157,11 +157,11 @@ PErrorCode kthread_attribs_init(PThreadAttribs& outAttribs) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-thread_id kthread_spawn_trw(const PThreadAttribs* attribs, bool privileged, ThreadEntryPoint_t entryPoint, void* arguments)
+thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, bool privileged, ThreadEntryPoint_t entryPoint, void* arguments)
 {
     Ptr<KThreadCB> thread;
 
-    thread = ptr_new<KThreadCB>(attribs);
+    thread = ptr_new<KThreadCB>(attribs, tlsBlock, nullptr);
     thread->InitializeStack(entryPoint, privileged, /*skipEntryTrampoline*/ false, arguments);
 
     const thread_id handle = gk_ThreadTable.AllocHandle_trw();
@@ -185,8 +185,9 @@ __attribute__((noreturn)) void kthread_exit(void* returnValue)
 {
     KThreadCB* thread = gk_CurrentThread;
 
-    __app_definition.ThreadTerminated(thread->GetHandle(), thread->m_StackBuffer, thread->m_UserspaceTLS);
-
+    if (thread->m_UserspaceTLS != nullptr) {
+        __app_definition.thread_terminated(thread->GetHandle(), thread->m_StackBuffer, thread->m_UserspaceTLS);
+    }
     thread->m_State = ThreadState_Zombie;
     thread->m_ReturnValue = returnValue;
 
@@ -307,7 +308,7 @@ void kthread_set_priority_trw(thread_id handle, int priority)
         {
             const int prevPriorityLevel = thread->GetPriorityLevel();
             thread->SetPriority(priority);
-            if (thread->GetPriorityLevel() > prevPriorityLevel) {
+            if (thread != gk_CurrentThread && thread->GetPriorityLevel() > prevPriorityLevel) {
                 KSWITCH_CONTEXT();
             }
         }

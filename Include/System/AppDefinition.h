@@ -24,19 +24,39 @@
 #include <PadOS/Threads.h>
 #include <System/ModuleTLSDefinition.h>
 
-struct PAppDefinition
+
+class PAppDefinition
 {
-    void (*Entry)();
-    void (*ThreadTerminated)(thread_id, void*, PThreadControlBlock*);
-    
+public:
+    PAppDefinition(const char* name, int (*mainEntry)(int argc, char* argv[]), size_t stackSize = 0);
+    ~PAppDefinition();
+
+    static const PAppDefinition* FindApplication(const char* name);
+
+    const char* Name = nullptr;
+    int (*MainEntry)(int argc, char* argv[]);
+    size_t StackSize = 0;
+
+    static PAppDefinition* s_FirstApp;
+private:
+    PAppDefinition* m_NextApp = nullptr;
+};
+
+struct PFirmwareImageDefinition
+{
+    void (*entry)();
+    void (*thread_terminated)(thread_id, void*, PThreadControlBlock*);
+    PThreadControlBlock* (*create_main_thread_tls_block)();
+    PAppDefinition*& FirstAppPointer;
+
     PModuleTLSDefinition TLSDefinition;
 };
 
 extern "C"
 {
 
-extern PAppDefinition __kernel_definition;
-extern PAppDefinition __app_definition;
+extern PFirmwareImageDefinition __kernel_definition;
+extern PFirmwareImageDefinition __app_definition;
 extern PThreadControlBlock* __app_thread_data;
 
 } // extern "C"

@@ -180,7 +180,8 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(system_log_get_category_display_name),
     SYS_PTR(system_log_add_message),
     SYS_PTR(add_serial_command_handler),
-    SYS_PTR(serial_command_send_data)
+    SYS_PTR(serial_command_send_data),
+    SYS_PTR(spawn_execve)
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);

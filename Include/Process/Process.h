@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,26 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 10.05.2022 18:30
+// Created: 21.12.2025 17:30
 
 #pragma once
 
-#ifndef IFLASHC
-#define IFLASHC __attribute__((section(".itext")))
-#endif
+#include <sys/pados_error_codes.h>
 
-#ifndef IFLASHD
-#define IFLASHD __attribute__((section(".irodata")))
-#endif
-
-#ifndef SECTION_DEVICE_DESCRIPTORS
-#define SECTION_DEVICE_DESCRIPTORS __attribute__((section(".drvdesc"), used))
-#endif
-
-#ifndef SECTION_KERNEL_IMAGE_DEFINITION
-#define SECTION_KERNEL_IMAGE_DEFINITION __attribute__((section(".krnimgdesc"), used))
-#endif
-
-#ifndef SECTION_FIRNWARE_IMAGE_DEFINITION
-#define SECTION_FIRNWARE_IMAGE_DEFINITION __attribute__((section(".fwimgdesc"), used))
-#endif
+PErrorCode spawn_execl(const char* name, int priority, const char* arg0, ...);
+PErrorCode spawn_execle(const char* name, int priority, const char* arg0, ...);
+PErrorCode spawn_execv(const char* name, int priority, char* const argv[]);
+PErrorCode spawn_execve(const char* name, int priority, char* const argv[], char* const envp[]);

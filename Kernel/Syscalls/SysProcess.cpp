@@ -23,6 +23,7 @@
 #include <sys/pados_syscalls.h>
 #include <PadOS/SyscallReturns.h>
 
+#include <System/AppDefinition.h>
 #include <System/ErrorCodes.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcess.h>
@@ -37,9 +38,47 @@ extern unsigned char* _eheap;
 namespace kernel
 {
 
+void* process_entry(void* arguments)
+{
+    const PAppDefinition* app = static_cast<const PAppDefinition*>(__app_thread_data->Ptr1);
+
+    char** argv = static_cast<char**>(__app_thread_data->Ptr2);
+    int argc = 0;
+    if (argv != nullptr) {
+        for (; argv[argc] != nullptr; ++argc);
+    }
+    app->MainEntry(argc, argv);
+
+    return nullptr;
+}
 
 extern "C"
 {
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_spawn_execve(const char* name, int priority, PThreadControlBlock* const tlsBlock, char* const argv[], char* const envp[])
+{
+    const PAppDefinition* const app = PAppDefinition::FindApplication(name);
+
+    if (app == nullptr) {
+        return PErrorCode::NoEntry;
+    }
+
+    try
+    {
+        tlsBlock->Ptr1 = const_cast<void*>(static_cast<const void*>(app));
+        tlsBlock->Ptr2 = const_cast<void*>(static_cast<const void*>(argv));
+
+        const PThreadAttribs attrs(name, priority, PThreadDetachState_Detached, app->StackSize);
+        kthread_spawn_trw(&attrs, tlsBlock, false, process_entry, tlsBlock);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+    return PErrorCode::Success;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

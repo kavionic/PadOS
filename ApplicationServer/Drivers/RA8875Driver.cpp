@@ -30,11 +30,11 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-RA8875Driver::RA8875Driver(LCDRegisters* registers, DigitalPinID pinLCDReset, DigitalPinID pinTouchpadReset, DigitalPinID pinBacklightControl)
-    : m_Registers(registers)
-    , m_PinLCDResetID(pinLCDReset)
-    , m_PinTouchpadResetID(pinTouchpadReset)
-    , m_PinBacklightControlID(pinBacklightControl)
+RA8875Driver::RA8875Driver(const RA8875DriverParameters& config)
+    : m_Registers((LCDRegisters*)config.Registers)
+    , m_PinLCDResetID(config.PinLCDReset)
+    , m_PinTouchpadResetID(config.PinTouchpadReset)
+    , m_PinBacklightControlID(config.PinBacklightControl)
 {
     m_ScreenBitmap = ptr_new<SrvBitmap>(IPoint(0, 0), EColorSpace::RGB16);
     m_ScreenBitmap->m_VideoMem = true;

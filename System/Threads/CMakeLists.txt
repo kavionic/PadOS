@@ -3,6 +3,9 @@ target_sources(PadOS_System PRIVATE
 	EventTimer.cpp
 	Looper.cpp
 	Semaphore.cpp
-	Thread.cpp
 	ThreadLocal.cpp
+)
+
+target_sources(PadOS_SystemIFlash PRIVATE
+	Thread.cpp
 )

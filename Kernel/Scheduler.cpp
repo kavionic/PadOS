@@ -93,12 +93,12 @@ void initialize_scheduler_statics()
     {
         PThreadAttribs idleAttrs("idle", KTHREAD_PRIORITY_MIN, PThreadDetachState_Detached, sizeof(gk_IdleThreadStack));
         idleAttrs.StackAddress = gk_IdleThreadStack;
-        idleAttrs.ThreadLocalStorageAddress = &_idle_tls_start;
-        idleAttrs.ThreadLocalStorageSize = &_idle_tls_end - &_idle_tls_start;
+//        idleAttrs.ThreadLocalStorageAddress = &_idle_tls_start;
+//        idleAttrs.ThreadLocalStorageSize = &_idle_tls_end - &_idle_tls_start;
 
         new((void*)gk_FirstProcessBuffer) KProcess();
         new((void*)gk_ThreadTableBuffer) KHandleArray<KThreadCB>();
-        new((void*)gk_IdleThreadBuffer) NoPtr<KThreadCB>(&idleAttrs);
+        new((void*)gk_IdleThreadBuffer) NoPtr<KThreadCB>(&idleAttrs, nullptr, &_idle_tls_start);
 
         // Set the idle thread as the current thread, so that when the init thread is
         // scheduled the initial context is dumped on the idle thread's task. The init
@@ -252,10 +252,9 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
                         add_thread_to_ready_list(prevThread);
                     }
                     nextThread->m_State = ThreadState_Running;
-                    gk_CurrentThread->m_UserspaceTLS = __app_thread_data;
                     gk_CurrentThread = nextThread;
-                    __kernel_thread_data = nextThread->m_KernelTLS;
-                    __app_thread_data = gk_CurrentThread->m_UserspaceTLS;
+                    __kernel_thread_data = gk_CurrentThread->m_KernelTLS;
+                    __app_thread_data    = gk_CurrentThread->m_UserspaceTLS;
 
                     nextThread->DebugValidate();
                     break;
@@ -617,7 +616,7 @@ void* main_thread_entry(void* argument)
     control |= 1; // set nPRIV
     __asm volatile ("msr CONTROL, %0\n isb" :: "r"(control) : "memory");
 
-    __app_definition.Entry();
+    __app_definition.entry();
 
     return nullptr;
 }
@@ -644,7 +643,7 @@ static void* init_thread_entry(void* arguments)
     gk_IdleThread->InitializeStack(idle_thread_entry, /*privileged*/ true, /*skipEntryTrampoline*/ true, nullptr);
 
     PThreadAttribs attrs("main_thread", 0, PThreadDetachState_Detached, mainThreadStackSize);
-    gk_MainThreadID = kthread_spawn_trw(&attrs, /*privileged*/ true, main_thread_entry, nullptr);
+    gk_MainThreadID = kthread_spawn_trw(&attrs, __app_definition.create_main_thread_tls_block(), /*privileged*/ true, main_thread_entry, nullptr);
 
     for (;;)
     {
@@ -701,12 +700,10 @@ void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
 
     PThreadAttribs attrs("init", 0, PThreadDetachState_Detached, sizeof(gk_InitThreadStack));
     attrs.StackAddress = gk_InitThreadStack;
-    attrs.ThreadLocalStorageAddress = &_idle_tls_start;
-    attrs.ThreadLocalStorageSize = &_idle_tls_end - &_idle_tls_start;
 
     thread_id initThreadHandle = INVALID_HANDLE;
 
-    gk_InitThread = new((void*)gk_InitThreadBuffer)KThreadCB(&attrs);
+    gk_InitThread = new((void*)gk_InitThreadBuffer)KThreadCB(&attrs, nullptr, &_idle_tls_start);
     Ptr<KThreadCB> initThread = ptr_new_cast(gk_InitThread);
 
     gk_InitThread->InitializeStack(init_thread_entry, /*privileged*/ true, /*skipEntryTrampoline*/ false, (void*)mainThreadStackSize);

@@ -47,11 +47,12 @@ extern uint8_t __tdata_size;
 extern uint8_t __tbss_size;
 extern uint8_t __tls_align;
 
-__attribute__((section(".kerneldef"), used))
-PAppDefinition _kerneldef =
+SECTION_KERNEL_IMAGE_DEFINITION PFirmwareImageDefinition _kerneldef =
 {
-    .Entry = nullptr,
-    .ThreadTerminated = nullptr,
+    .entry = nullptr,
+    .thread_terminated = nullptr,
+    .create_main_thread_tls_block = nullptr,
+    .FirstAppPointer = PAppDefinition::s_FirstApp,
     .TLSDefinition =
     {
         .TLSData = &__tdata_start,
@@ -107,7 +108,7 @@ static void invalid_return_handler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KThreadCB::KThreadCB(const PThreadAttribs* attribs) : KNamedObject((attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "", KNamedObjectType::Thread)
+KThreadCB::KThreadCB(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, void* kernelTLSMemory) : KNamedObject((attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "", KNamedObjectType::Thread)
 {
     const int priority = (attribs != nullptr) ? attribs->Priority : 0;
     m_DetachState = (attribs != nullptr) ? attribs->DetachState : PThreadDetachState_Detached;
@@ -130,10 +131,11 @@ KThreadCB::KThreadCB(const PThreadAttribs* attribs) : KNamedObject((attribs != n
     m_CurrentStackAndPrivilege = (intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1);
     m_State = ThreadState_Ready;
     m_PriorityLevel = PriToLevel(priority);
+    m_UserspaceTLS = tlsBlock;
 
     try
     {
-        SetupTLS(attribs);
+        SetupTLS(attribs, kernelTLSMemory);
     }
     catch (...)
     {
@@ -243,41 +245,13 @@ void KThreadCB::SetBlockingObject(const KNamedObject* waitObject)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KThreadCB::SetupTLS(const PThreadAttribs* attribs)
+void KThreadCB::SetupTLS(const PThreadAttribs* attribs, void* kernelTLSMemory)
 {
-    static_assert(sizeof(PThreadControlBlock) == 8);
-
-    const size_t totalDataBssSize = sizeof(PThreadControlBlock) + __kernel_definition.TLSDefinition.TLSDataSize + __kernel_definition.TLSDefinition.TLSBSSSize;
-
-    if (totalDataBssSize > 0)
-    {
-        const size_t bufferSize = (attribs != nullptr && attribs->ThreadLocalStorageSize != 0) ? attribs->ThreadLocalStorageSize : totalDataBssSize;
-        void* const bufferAddress = (attribs != nullptr) ? attribs->ThreadLocalStorageAddress : nullptr;
-
-        if (bufferSize < totalDataBssSize) {
-            throw std::invalid_argument("TLS buffer too small");
-        }
-        if (bufferAddress == nullptr)
-        {
-            assert(__kernel_definition.TLSDefinition.TLSAlign <= sizeof(PThreadControlBlock));
-            m_KernelTLS = reinterpret_cast<PThreadControlBlock*>(aligned_alloc(__kernel_definition.TLSDefinition.TLSAlign, align_up(totalDataBssSize, __kernel_definition.TLSDefinition.TLSAlign)));
-            if (m_KernelTLS == nullptr) {
-                throw std::bad_alloc();
-            }
-            m_FreeTLSOnExit = true;
-        }
-        else
-        {
-            m_KernelTLS = reinterpret_cast<PThreadControlBlock*>(bufferAddress);
-            m_FreeTLSOnExit = false;
-        }
-        uint8_t* const threadLocalDataSegment = reinterpret_cast<uint8_t*>(uintptr_t(m_KernelTLS + 1));
-        if (uintptr_t(threadLocalDataSegment) & uintptr_t(__kernel_definition.TLSDefinition.TLSAlign - 1)) {
-            throw std::invalid_argument("Invalid TLS buffer alignment");
-        }
-        memcpy(threadLocalDataSegment, &__tdata_start, __kernel_definition.TLSDefinition.TLSDataSize);
-        memset(threadLocalDataSegment + __kernel_definition.TLSDefinition.TLSDataSize, 0, __kernel_definition.TLSDefinition.TLSBSSSize);
+    m_KernelTLS = create_thread_tls_block(__kernel_definition, kernelTLSMemory);
+    if (m_KernelTLS == nullptr) {
+        throw std::bad_alloc();
     }
+    m_FreeTLSOnExit = kernelTLSMemory == nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

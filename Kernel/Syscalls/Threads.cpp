@@ -51,13 +51,13 @@ PErrorCode sys_thread_attribs_init(PThreadAttribs* attribs)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_thread_spawn(thread_id* outThreadHandle, const PThreadAttribs* attribs, ThreadEntryPoint_t entryPoint, void* arguments)
+PErrorCode sys_thread_spawn(thread_id* outThreadHandle, const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, ThreadEntryPoint_t entryPoint, void* arguments)
 {
     Ptr<KThreadCB> thread;
 
     try
     {
-        const thread_id handle = kthread_spawn_trw(attribs, /*privileged*/ false, entryPoint, arguments);
+        const thread_id handle = kthread_spawn_trw(attribs, tlsBlock, /*privileged*/ false, entryPoint, arguments);
         if (outThreadHandle != nullptr) {
             *outThreadHandle = handle;
         }

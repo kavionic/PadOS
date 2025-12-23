@@ -145,19 +145,18 @@ void* Thread::ThreadEntry(void* data)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void* spawn_thread_entry_function(void* arguments)
+PErrorCode Thread::Adopt()
 {
-    __app_thread_data = reinterpret_cast<PThreadControlBlock*>(arguments);
+    if (m_ThreadHandle == INVALID_HANDLE)
+    {
+        m_ThreadHandle = get_thread_id();
+//        m_DetachState = detachState;
+        ThreadEntry(this);
 
-    void** controlBlock = reinterpret_cast<void**>(arguments);
+        return PErrorCode::Success;
+    }
+    return PErrorCode::Busy;
 
-    ThreadEntryPoint_t  threadEntry     = reinterpret_cast<ThreadEntryPoint_t>(controlBlock[0]);
-    void*               threadArguments = controlBlock[1];
-
-    memcpy(__app_thread_data + 1, __app_definition.TLSDefinition.TLSData, __app_definition.TLSDefinition.TLSDataSize);
-
-    void* result = threadEntry(threadArguments);
-    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -170,8 +169,42 @@ void __thread_terminated(thread_id threadID, void* stackBuffer, PThreadControlBl
 
     ThreadLocalSlotManager::Get().ThreadTerminated();
 
-    if (threadLocalBuffer != nullptr) {
-        free(threadLocalBuffer);
+    delete_thread_tls_block(threadLocalBuffer);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PThreadControlBlock* create_thread_tls_block(const PFirmwareImageDefinition& imageDefinition, void* buffer)
+{
+    static_assert(sizeof(PThreadControlBlock) == 8);
+
+    const size_t controlBlockSize = sizeof(PThreadControlBlock) + imageDefinition.TLSDefinition.TLSDataSize + imageDefinition.TLSDefinition.TLSBSSSize;
+    assert(imageDefinition.TLSDefinition.TLSAlign <= sizeof(PThreadControlBlock));
+
+    PThreadControlBlock* controlBlock = 
+        (buffer == nullptr)
+        ? reinterpret_cast<PThreadControlBlock*>(aligned_alloc(imageDefinition.TLSDefinition.TLSAlign, align_up(controlBlockSize, imageDefinition.TLSDefinition.TLSAlign)))
+        : reinterpret_cast<PThreadControlBlock*>(buffer);
+
+    if (controlBlock == nullptr) {
+        return nullptr;
+    }
+    memset(controlBlock, 0, sizeof(*controlBlock));
+    memcpy(controlBlock + 1, imageDefinition.TLSDefinition.TLSData, imageDefinition.TLSDefinition.TLSDataSize);
+    memset(reinterpret_cast<uint8_t*>(controlBlock + 1) + imageDefinition.TLSDefinition.TLSDataSize, 0, imageDefinition.TLSDefinition.TLSBSSSize);
+    return controlBlock;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void delete_thread_tls_block(PThreadControlBlock* tlsBlock)
+{
+    if (tlsBlock != nullptr) {
+        free(tlsBlock);
     }
 }
 
@@ -185,17 +218,15 @@ extern "C" {
 
 PErrorCode thread_spawn(thread_id* outHandle, const PThreadAttribs* attribs, ThreadEntryPoint_t entryPoint, void* arguments)
 {
-    const size_t controlBlockSize = sizeof(PThreadControlBlock) + __app_definition.TLSDefinition.TLSDataSize + __app_definition.TLSDefinition.TLSBSSSize;
-    assert(__app_definition.TLSDefinition.TLSAlign <= sizeof(PThreadControlBlock));
-    
-    void** controlBlock = reinterpret_cast<void**>(aligned_alloc(__app_definition.TLSDefinition.TLSAlign, align_up(controlBlockSize, __app_definition.TLSDefinition.TLSAlign)));
-    if (controlBlock == nullptr) {
+    PThreadControlBlock* tlsBlock = create_thread_tls_block(__app_definition);
+    if (tlsBlock == nullptr) {
         return PErrorCode::NoMemory;
     }
-    memset(controlBlock, 0, controlBlockSize);
-    controlBlock[0] = reinterpret_cast<void*>(entryPoint);
-    controlBlock[1] = arguments;
-    return __thread_spawn(outHandle, attribs, spawn_thread_entry_function, controlBlock);
+    const PErrorCode result = __thread_spawn(outHandle, attribs, tlsBlock, entryPoint, arguments);
+    if (result != PErrorCode::Success) {
+        delete_thread_tls_block(tlsBlock);
+    }
+    return result;
 }
 
 

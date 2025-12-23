@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 09.04.2018 22:56:33
 
-#include <System/Platform.h>
+#include <System/AppDefinition.h>
 
 #include "WindowManager.h"
 #include "VirtualKeyboardView.h"
@@ -300,3 +300,12 @@ void WindowManager::SlotKeyboardAnimTimer()
     }
     Sync();
 }
+
+int windowmanager_main(int argc, char* argv[])
+{
+    WindowManager* windowManager = new WindowManager();
+    windowManager->Adopt();
+    return 0;
+}
+
+static PAppDefinition g_WindowManagerDef("windowmanager", windowmanager_main);

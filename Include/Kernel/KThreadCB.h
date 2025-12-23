@@ -38,7 +38,7 @@ static constexpr int32_t THREAD_MAX_TLS_SLOTS = 256;
 namespace kernel
 {
 
-static constexpr int32_t THREAD_DEFAULT_STACK_SIZE = 1024*4;
+static constexpr int32_t THREAD_DEFAULT_STACK_SIZE = 1024*32;
 
 class KThreadCB;
 
@@ -51,7 +51,7 @@ class KThreadCB : public KNamedObject
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::Thread;
 
-    KThreadCB(const PThreadAttribs* attribs);
+    KThreadCB(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, void* kernelTLSMemory);
     ~KThreadCB();
 
     virtual void SetHandle(int32_t handle) noexcept override;
@@ -71,7 +71,7 @@ public:
     void                SetBlockingObject(const KNamedObject* WaitObject);
     const KNamedObject* GetBlockingObject() const { return m_BlockingObject; }
 
-    void SetupTLS(const PThreadAttribs* attribs);
+    void SetupTLS(const PThreadAttribs* attribs, void* kernelTLSMemory);
 
     // For suspended threads, this holds upper 31 bits of current stack
     // frame address in bit 31:1 and current CONTROL.nPRIV value in bit 0.

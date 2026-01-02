@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 
 #include <PadOS/Time.h>
 
+#include <Kernel/KLogging.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/Logging/LogManager.h>
 #include <SerialConsole/SerialProtocol.h>

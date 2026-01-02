@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -25,6 +25,8 @@
 #include <System/System.h>
 #include <System/ErrorCodes.h>
 #include <Kernel/KWaitableObject.h>
+#include <Kernel/KPosixSignals.h>
+
 
 namespace kernel
 {
@@ -79,7 +81,7 @@ public:
     static void ForwardToHandle_trw(int handle, CALLBACK callback, ARGS&&... args)
     {
         Ptr<TObjectType> object = GetObject_trw<TObjectType>(handle);
-        (ptr_raw_pointer_cast(object)->*callback)(args...);
+        (ptr_raw_pointer_cast(object)->*callback)(std::forward<ARGS>(args)...);
     }
 
     template<typename TObjectType, typename TReturnType, typename CALLBACK, typename... ARGS>
@@ -87,9 +89,23 @@ public:
     {
         Ptr<TObjectType> object = GetObject<TObjectType>(handle);
         if (object != nullptr) {
-            return (ptr_raw_pointer_cast(object)->*callback)(args...);
+            return (ptr_raw_pointer_cast(object)->*callback)(std::forward<ARGS>(args)...);
         } else {
             return invalidHandleReturnValue;
+        }
+    }
+
+    template<typename TObjectType, typename CALLBACK, typename... ARGS>
+    static PErrorCode ForwardToHandleRestartable(int handle, const PErrorCode& invalidHandleReturnValue, CALLBACK callback, ARGS&&... args)
+    {
+        for (;;)
+        {
+            const PErrorCode result = ForwardToHandle<TObjectType>(handle, invalidHandleReturnValue, callback, std::forward<ARGS>(args)...);
+            if (result != PErrorCode::RestartSyscall) [[likely]] {
+                return result;
+            } else {
+                kforce_process_signals();
+            }
         }
     }
 
@@ -99,7 +115,7 @@ public:
         Ptr<T> object = GetObject<T>(handle);
         if (object != nullptr)
         {
-            (ptr_raw_pointer_cast(object)->*callback)(args...);
+            (ptr_raw_pointer_cast(object)->*callback)(std::forward<ARGS>(args)...);
             return 0;
         }
         else
@@ -112,7 +128,7 @@ public:
     template<typename T, typename RETURN_TYPE, typename CALLBACK, typename... ARGS>
     static RETURN_TYPE ForwardToHandleBool(int handle, RETURN_TYPE falseValue, RETURN_TYPE trueValue, CALLBACK callback, ARGS&&... args)
     {
-        return ForwardToHandle<T>(handle, false, callback, args...) ? trueValue : falseValue;
+        return ForwardToHandle<T>(handle, false, callback, std::forward<ARGS>(args)...) ? trueValue : falseValue;
     }
 
 private:

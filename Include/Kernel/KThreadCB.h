@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <sys/signal.h>
 #include <sys/pados_threads.h>
 #include <PadOS/Threads.h>
 #include <System/TimeValue.h>
@@ -26,10 +27,6 @@
 #include <Threads/Threads.h>
 #include <Kernel/KNamedObject.h>
 
-namespace os
-{
-    class DebugCallTracker;
-}
 
 extern PThreadControlBlock* __kernel_thread_data;
 
@@ -68,6 +65,9 @@ public:
     static int PriToLevel(int priority);
     static int LevelToPri(int level);
 
+    sigset_t GetUnblockedSignals(sigset_t signalMask) const { return signalMask & ~m_BlockedSignals; }
+    sigset_t GetUnblockedPendingSignals() const { return GetUnblockedSignals(m_PendingSignals); }
+
     void                SetBlockingObject(const KNamedObject* WaitObject);
     const KNamedObject* GetBlockingObject() const { return m_BlockingObject; }
 
@@ -99,7 +99,10 @@ public:
     KThreadCB*                m_Next = nullptr;
     IntrusiveList<KThreadCB>* m_List = nullptr;
     const KNamedObject*       m_BlockingObject = nullptr;
-    os::DebugCallTracker*     m_FirstDebugCallTracker = nullptr;
+
+    sigset_t		          m_PendingSignals = 0;
+    sigset_t		          m_BlockedSignals = 0;
+    sigaction_t               m_SignalHandlers[NSIG + NRTSIG];
 };
 
 typedef IntrusiveList<KThreadCB>       KThreadList;

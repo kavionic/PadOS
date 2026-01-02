@@ -9,6 +9,7 @@ target_sources(PadOS_Syscalls PRIVATE
 	SysDigitalPin.cpp
 	SysLogging.cpp
 	SysProcess.cpp
+	SysSignals.cpp
 	Threads.cpp
 	Time.cpp
 )

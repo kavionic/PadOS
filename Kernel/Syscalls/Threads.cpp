@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -173,15 +173,6 @@ PErrorCode sys_snooze_until_ns(bigtime_t resumeTimeNanos)
 PErrorCode sys_snooze_ns(bigtime_t delayNanos)
 {
     return ksnooze_ns(delayNanos);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode sys_thread_kill(pid_t pid, int sig)
-{
-    return kthread_kill(pid, sig);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

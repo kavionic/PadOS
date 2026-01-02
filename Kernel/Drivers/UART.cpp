@@ -115,35 +115,35 @@ bool UART::Initialize(Channels channel, uint32_t baudrate)
         case 0:
             m_Port = UART0;
             SAME70System::EnablePeripheralClock(ID_UART0);
-            NVIC_SetPriority(UART0_IRQn, 6);
+            NVIC_SetPriority(UART0_IRQn, KIRQ_PRI_NORMAL_LATENCY2);
             NVIC_ClearPendingIRQ(UART0_IRQn);
             NVIC_EnableIRQ(UART0_IRQn);
             break;
         case 1:
             m_Port = UART1;
             SAME70System::EnablePeripheralClock(ID_UART1);
-            NVIC_SetPriority(UART1_IRQn, 6);
+            NVIC_SetPriority(UART1_IRQn, KIRQ_PRI_NORMAL_LATENCY2);
             NVIC_ClearPendingIRQ(UART1_IRQn);
             NVIC_EnableIRQ(UART1_IRQn);
             break;
         case 2:
             m_Port = UART2;
             SAME70System::EnablePeripheralClock(ID_UART2);
-            NVIC_SetPriority(UART2_IRQn, 6);
+            NVIC_SetPriority(UART2_IRQn, KIRQ_PRI_NORMAL_LATENCY2);
             NVIC_ClearPendingIRQ(UART2_IRQn);
             NVIC_EnableIRQ(UART2_IRQn);
             break;
         case 3:
             m_Port = UART3;
             SAME70System::EnablePeripheralClock(ID_UART3);
-            NVIC_SetPriority(UART3_IRQn, 6);
+            NVIC_SetPriority(UART3_IRQn, KIRQ_PRI_NORMAL_LATENCY2);
             NVIC_ClearPendingIRQ(UART3_IRQn);
             NVIC_EnableIRQ(UART3_IRQn);
             break;
         case 4:
             m_Port = UART4;
             SAME70System::EnablePeripheralClock(ID_UART4);
-            NVIC_SetPriority(UART4_IRQn, 6);
+            NVIC_SetPriority(UART4_IRQn, KIRQ_PRI_NORMAL_LATENCY2);
             NVIC_ClearPendingIRQ(UART4_IRQn);
             NVIC_EnableIRQ(UART4_IRQn);
             break;

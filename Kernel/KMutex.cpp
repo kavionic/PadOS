@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,10 +20,11 @@
 #include <string.h>
 
 #include <Kernel/KTime.h>
-#include "Kernel/KMutex.h"
-#include "Kernel/KHandleArray.h"
-#include "Kernel/Scheduler.h"
-#include "System/System.h"
+#include <Kernel/KMutex.h>
+#include <Kernel/KHandleArray.h>
+#include <Kernel/Scheduler.h>
+#include <Kernel/KPosixSignals.h>
+#include <System/System.h>
 
 using namespace os;
 
@@ -53,7 +54,7 @@ KMutex::~KMutex()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::Lock()
+PErrorCode KMutex::Lock(bool interruptible)
 {
     KThreadCB* thread = gk_CurrentThread;
     for (;;)
@@ -99,6 +100,9 @@ PErrorCode KMutex::Lock()
                 return PErrorCode::Success;
             }
         } CRITICAL_END;
+        if (interruptible) {
+            return PErrorCode::RestartSyscall;
+        }
     }
 }
 
@@ -106,16 +110,16 @@ PErrorCode KMutex::Lock()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockDeadline(TimeValNanos deadline)
+PErrorCode KMutex::LockDeadline(TimeValNanos deadline, bool interruptible)
 {
-    return LockClock(m_ClockID, deadline);
+    return LockClock(m_ClockID, deadline, interruptible);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockClock(int clockID, TimeValNanos clockDeadline)
+PErrorCode KMutex::LockClock(int clockID, TimeValNanos clockDeadline, bool interruptible)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -147,8 +151,8 @@ PErrorCode KMutex::LockClock(int clockID, TimeValNanos clockDeadline)
             }
             if (deadline.IsInfinit() || kget_monotonic_time() < deadline)
             {
-                if (!first) {
-                    return PErrorCode::Interrupted;
+                if (!first && interruptible) {
+                    return PErrorCode::RestartSyscall;
                 }
                 waitNode.m_Thread = thread;
 
@@ -189,9 +193,9 @@ PErrorCode KMutex::LockClock(int clockID, TimeValNanos clockDeadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockTimeout(TimeValNanos timeout)
+PErrorCode KMutex::LockTimeout(TimeValNanos timeout, bool interruptible)
 {
-    return LockClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
+    return LockClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit, interruptible);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -242,7 +246,7 @@ PErrorCode KMutex::Unlock()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockShared()
+PErrorCode KMutex::LockShared(bool interruptible)
 {
     KThreadCB* thread = gk_CurrentThread;
     for (;;)
@@ -279,6 +283,9 @@ PErrorCode KMutex::LockShared()
                 return PErrorCode::Success;
             }
         } CRITICAL_END;
+        if (interruptible) {
+            return PErrorCode::RestartSyscall;
+        }
     }
 }
 
@@ -286,16 +293,16 @@ PErrorCode KMutex::LockShared()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockSharedDeadline(TimeValNanos deadline)
+PErrorCode KMutex::LockSharedDeadline(TimeValNanos deadline, bool interruptible)
 {
-    return LockSharedClock(m_ClockID, deadline);
+    return LockSharedClock(m_ClockID, deadline, interruptible);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos clockDeadline)
+PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos clockDeadline, bool interruptible)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -319,8 +326,8 @@ PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos clockDeadline
             }
             if (deadline.IsInfinit() || kget_monotonic_time() < deadline)
             {
-                if (!first) {
-                    return PErrorCode::Interrupted;
+                if (!first && interruptible) {
+                    return PErrorCode::RestartSyscall;
                 }
                 waitNode.m_Thread      = thread;
 
@@ -363,9 +370,9 @@ PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos clockDeadline
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KMutex::LockSharedTimeout(TimeValNanos timeout)
+PErrorCode KMutex::LockSharedTimeout(TimeValNanos timeout, bool interruptible)
 {
-    return LockSharedClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
+    return LockSharedClock(CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit, interruptible);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

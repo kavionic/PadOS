@@ -8,6 +8,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KMutex.h
 	KNamedObject.h
 	KObjectWaitGroup.h
+	KPosixSignals.h
 	KPowerManager.h
 	KProcess.h
 	KSemaphore.h

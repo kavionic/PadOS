@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -135,6 +135,48 @@ void BusFault_Handler()
 
 void UsageFault_Handler()
 {
+    volatile uint32_t   cfsr = SCB->CFSR;
+    volatile uint32_t   fpccr = FPU->FPCCR;
+
+    volatile uint32_t   faultAddress = 0xff00ffff;
+    volatile bool       fpuLazyStatePreservation = false;
+    volatile bool       exceptionStackingError = false;
+    volatile bool       exceptionUnstackingError = false;
+    volatile bool		impreciseError = false;
+    volatile bool		preciseError = false;
+    volatile bool       dataAccessError = false;
+    volatile bool       instrBusError = false;
+    if (cfsr & SCB_CFSR_BFARVALID_Msk) {
+        faultAddress = SCB->BFAR;
+    }
+    if (cfsr & SCB_CFSR_LSPERR_Msk) {
+        fpuLazyStatePreservation = true;
+    }
+    if (cfsr & SCB_CFSR_STKERR_Msk) {
+        exceptionStackingError = true;
+    }
+    if (cfsr & SCB_CFSR_UNSTKERR_Msk) {
+        exceptionUnstackingError = true;
+    }
+    if (cfsr & SCB_CFSR_IMPRECISERR_Msk) {
+        impreciseError = true;
+    }
+    if (cfsr & SCB_CFSR_PRECISERR_Msk) {
+        preciseError = true;
+    }
+    if (cfsr & SCB_CFSR_IBUSERR_Msk) {
+        instrBusError = true;
+    }
+    (void)fpccr;
+    (void)faultAddress;
+    (void)fpuLazyStatePreservation;
+    (void)exceptionStackingError;
+    (void)exceptionUnstackingError;
+    (void)impreciseError;
+    (void)preciseError;
+    (void)dataAccessError;
+    (void)instrBusError;
+
     panic("UsageFault\n");
 }
 

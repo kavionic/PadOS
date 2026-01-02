@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -95,17 +95,6 @@ private:
     std::map<int, CategoryDesc>	m_LogCategories;
     std::deque<LogEntry>        m_LogEntries;
 };
-
-PErrorCode  ksystem_log_register_category(uint32_t categoryHash, PLogChannel channel, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel);
-PErrorCode  ksystem_log_set_category_minimum_severity(uint32_t categoryHash, PLogSeverity logLevel);
-bool        ksystem_log_is_category_active(uint32_t categoryHash, PLogSeverity logLevel);
-PLogChannel ksystem_log_get_category_channel(uint32_t categoryHash);
-
-const char*     ksystem_log_get_severity_name(PLogSeverity logLevel);
-const PString&  ksystem_log_get_category_name(uint32_t categoryHash);
-const PString&  ksystem_log_get_category_display_name(uint32_t categoryHash);
-
-void            ksystem_log_add_message(uint32_t category, PLogSeverity severity, const PString& message);
 
 } // namespace
 

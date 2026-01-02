@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -81,6 +81,9 @@ void add_thread_to_zombie_list(KThreadCB* thread);
 
 bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount);
 
+void        stop_thread(bool notifyParent);
+PErrorCode  wakeup_thread(thread_id handle, bool wakeupSuspended);
+
 
 void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize);
 
@@ -133,98 +136,5 @@ private:
 inline IRQDisabler&& critical_create_guard(IRQDisabler&& lock) { return std::move(lock); }
 
 
-struct KExceptionStackFrame
-{
-    uint32_t R0;
-    uint32_t R1;
-    uint32_t R2;
-    uint32_t R3;
-    uint32_t R12;
-    uint32_t LR;    // LR/R14
-    uint32_t PC;    // PC/R15
-    uint32_t xPSR;
-};
-
-struct KExceptionStackFrameFPU
-{
-    uint32_t R0;
-    uint32_t R1;
-    uint32_t R2;
-    uint32_t R3;
-    uint32_t R12;
-    uint32_t LR;
-    uint32_t PC;
-    uint32_t xPSR;
-    uint32_t S0;
-    uint32_t S1;
-    uint32_t S2;
-    uint32_t S3;
-    uint32_t S4;
-    uint32_t S5;
-    uint32_t S6;
-    uint32_t S7;
-    uint32_t S8;
-    uint32_t S9;
-    uint32_t S10;
-    uint32_t S11;
-    uint32_t S12;
-    uint32_t S13;
-    uint32_t S14;
-    uint32_t S15;
-    uint32_t FPSCR;
-};
-
-struct KCtxSwitchKernelStackFrame
-{
-    uint32_t R11;
-    uint32_t R10;
-    uint32_t R9;
-    uint32_t R8;
-    uint32_t R7;
-    uint32_t R6;
-    uint32_t R5;
-    uint32_t R4;
-    uint32_t EXEC_RETURN;
-};
-
-struct KCtxSwitchKernelStackFrameFPU
-{
-    uint32_t R11;
-    uint32_t R10;
-    uint32_t R9;
-    uint32_t R8;
-    uint32_t R7;
-    uint32_t R6;
-    uint32_t R5;
-    uint32_t R4;
-    uint32_t EXEC_RETURN;
-    uint32_t S31;
-    uint32_t S30;
-    uint32_t S29;
-    uint32_t S28;
-    uint32_t S27;
-    uint32_t S26;
-    uint32_t S25;
-    uint32_t S24;
-    uint32_t S23;
-    uint32_t S22;
-    uint32_t S21;
-    uint32_t S20;
-    uint32_t S19;
-    uint32_t S18;
-    uint32_t S17;
-    uint32_t S16;
-};
-struct KCtxSwitchStackFrame
-{
-    KCtxSwitchKernelStackFrame  KernelFrame;
-    KExceptionStackFrame        ExceptionFrame;
-};
-
-struct KCtxSwitchStackFrameFPU
-{
-    KCtxSwitchKernelStackFrameFPU   KernelFrame;
-    KExceptionStackFrameFPU         ExceptionFrame;
-};
 
 } // namespace

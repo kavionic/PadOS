@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -43,17 +43,17 @@ public:
     KMutex(const char* name, PEMutexRecursionMode recursionMode, clockid_t clockID = CLOCK_MONOTONIC);
     ~KMutex();
 
-    PErrorCode Lock();
-    PErrorCode LockTimeout(TimeValNanos timeout);
-    PErrorCode LockDeadline(TimeValNanos deadline);
-    PErrorCode LockClock(clockid_t clockID, TimeValNanos deadline);
+    PErrorCode Lock(bool interruptible = false);
+    PErrorCode LockTimeout(TimeValNanos timeout, bool interruptible = false);
+    PErrorCode LockDeadline(TimeValNanos deadline, bool interruptible = false);
+    PErrorCode LockClock(clockid_t clockID, TimeValNanos deadline, bool interruptible = false);
     PErrorCode TryLock();
     PErrorCode Unlock();
     
-    PErrorCode LockShared();
-    PErrorCode LockSharedTimeout(TimeValNanos timeout);
-    PErrorCode LockSharedDeadline(TimeValNanos deadline);
-    PErrorCode LockSharedClock(clockid_t clockID, TimeValNanos deadline);
+    PErrorCode LockShared(bool interruptible = false);
+    PErrorCode LockSharedTimeout(TimeValNanos timeout, bool interruptible = false);
+    PErrorCode LockSharedDeadline(TimeValNanos deadline, bool interruptible = false);
+    PErrorCode LockSharedClock(clockid_t clockID, TimeValNanos deadline, bool interruptible = false);
     PErrorCode TryLockShared();
     
     bool IsLocked() const;

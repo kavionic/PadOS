@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -505,9 +505,15 @@ PErrorCode kyield()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode kthread_kill(pid_t pid, int sig)
+PErrorCode kthread_kill(thread_id threadID, int sigNum)
 {
-    return PErrorCode::NotImplemented;
+    const Ptr<KThreadCB> thread = get_thread(threadID);
+
+    if (thread == nullptr) {
+        return PErrorCode::NoSuchProcess;
+    }
+
+    return ksend_signal_to_thread(*thread, sigNum);
 }
 
 

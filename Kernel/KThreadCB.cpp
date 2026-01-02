@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@
 
 #include <Kernel/KThreadCB.h>
 #include <Kernel/KHandleArray.h>
+#include <Kernel/KStackFrames.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/ThreadSyncDebugTracker.h>
 #include <Kernel/Syscalls.h>
@@ -51,6 +52,8 @@ SECTION_KERNEL_IMAGE_DEFINITION PFirmwareImageDefinition _kerneldef =
 {
     .entry = nullptr,
     .thread_terminated = nullptr,
+    .signal_trampoline = nullptr,
+    .signal_terminate_thread = nullptr,
     .create_main_thread_tls_block = nullptr,
     .FirstAppPointer = PAppDefinition::s_FirstApp,
     .TLSDefinition =
@@ -110,6 +113,8 @@ static void invalid_return_handler()
 
 KThreadCB::KThreadCB(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, void* kernelTLSMemory) : KNamedObject((attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "", KNamedObjectType::Thread)
 {
+    memset(&m_SignalHandlers, 0, sizeof(m_SignalHandlers));
+
     const int priority = (attribs != nullptr) ? attribs->Priority : 0;
     m_DetachState = (attribs != nullptr) ? attribs->DetachState : PThreadDetachState_Detached;
     m_StackSize = (attribs != nullptr && attribs->StackSize != 0) ? (attribs->StackSize & ~(KSTACK_ALIGNMENT - 1)) : THREAD_DEFAULT_STACK_SIZE;

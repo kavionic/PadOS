@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@
 
 #include <Kernel/KTime.h>
 #include <Kernel/Scheduler.h>
+#include <Kernel/KPosixSignals.h>
 #include <Kernel/HAL/DigitalPort.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 #include <Kernel/KThread.h>
@@ -205,20 +206,39 @@ void add_thread_to_zombie_list(KThreadCB* thread)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-status_t wakeup_thread(thread_id handle)
+void stop_thread(bool notifyParent)
+{
+    KThreadCB* const thread = gk_CurrentThread;
+
+    CRITICAL_SCOPE(CRITICAL_IRQ);
+
+//    if (notifyParent && thread->m_Parent != INVALID_HANDLE) {
+//        sys_kill(thread->m_Parent, SIGCHLD);
+//    }
+
+    thread->m_State = ThreadState_Stopped;
+
+    KSWITCH_CONTEXT();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode wakeup_thread(thread_id handle, bool wakeupSuspended)
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
 
     Ptr<KThreadCB> thread = get_thread(handle);
-    if (thread == nullptr || thread->m_State == ThreadState_Zombie)
+    if (thread == nullptr || thread->m_State == ThreadState_Zombie) {
+        return PErrorCode::InvalidArg;
+    }
+    if (thread->m_State == ThreadState_Sleeping || thread->m_State == ThreadState_Waiting || (wakeupSuspended && thread->m_State == ThreadState_Stopped))
     {
-        set_last_error(EINVAL);
-        return -1;
-    }
-    if (thread->m_State == ThreadState_Sleeping || thread->m_State == ThreadState_Waiting) {
         add_thread_to_ready_list(ptr_raw_pointer_cast(thread));
+        return PErrorCode::Success;
     }
-    return 0;
+    return PErrorCode::InvalidArg;
 }
 
 namespace
@@ -280,6 +300,11 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
         gk_DebugWakeupThread = 0;
         __BKPT(0);
     }
+    if ((gk_CurrentThread->m_CurrentStackAndPrivilege & 0x01) && gk_CurrentThread->GetUnblockedPendingSignals() != 0)
+    {
+        const uintptr_t newStackPtr = process_signals(gk_CurrentThread->m_CurrentStackAndPrivilege & ~0x01, gk_CurrentThread, /*userMode*/ true);
+        gk_CurrentThread->m_CurrentStackAndPrivilege = (gk_CurrentThread->m_CurrentStackAndPrivilege & 0x01) | newStackPtr;
+    }
     return gk_CurrentThread->m_CurrentStackAndPrivilege;
 }
 
@@ -328,30 +353,22 @@ extern "C" __attribute__((naked)) void PendSV_Handler(void)
 {
     __asm volatile
     (
-        "   mrs r0, psp\n"
-        "   mrs r1, CONTROL\n"
+        "   mrs     r0, psp\n"
+        "   mrs     r1, CONTROL\n"
         ""
-        "   tst lr, #0x10\n"            // Test bit 4 in EXEC_RETURN to check if the thread use the FPU context.
-        "   it eq\n"
-        "   vstmdbeq r0!, {s16-s31}\n"  // If bit 4 not set, push the high FPU registers.
+            ASM_STORE_SCHED_CONTEXT(r0)
+        "   bl      select_thread\n"        // Ask the scheduler to find the next thread to run and update gk_CurrentThread.
         ""
-        "   stmdb r0!, {r4-r11, lr}\n"  // Push high core registers.
-        "   bl select_thread\n"         // Ask the scheduler to find the next thread to run and update gk_CurrentThread.
+        "   mrs     r1, CONTROL\n"
+        "   bfi     r1, r0, #0, #1\n"       // Set nPRIV to bit 0 from the stack address returned by select_thread().
+        "   msr     CONTROL, r1\n"
+        "   isb\n"                          // Flush instruction pipeline.
+        "   bic     r0, r0, #1\n"           // Clear bit 0 (nPRIV) from the stack address.
         ""
-        "   mrs r1, CONTROL\n"
-        "   bfi r1, r0, #0, #1\n"       // Set nPRIV to bit 0 from the stack address returned by select_thread().
-        "   msr CONTROL, r1\n"
-        "   isb\n"                      // Flush instruction pipeline.
-        "   bic r0, r0, #1\n"           // Clear bit 0 (nPRIV) from the stack address.
+            ASM_LOAD_SCHED_CONTEXT(r0)
         ""
-        "   ldmia r0!, {r4-r11, lr}\n"  // Pop high core registers.
-        ""
-        "   tst lr, #0x10\n"            // Test bit 4 in EXEC_RETURN to check if the thread use the FPU context.
-        "   it eq\n"
-        "   vldmiaeq r0!, {s16-s31}\n"  // If bit 4 not set, pop the high FPU registers.
-        ""
-        "   msr psp, r0\n"
-        "   bx lr\n"
+        "   msr     psp, r0\n"
+        "   bx      lr\n"
         );
 }
 #elif defined(STM32G030xx)
@@ -595,7 +612,7 @@ static void* idle_thread_entry(void* arguments)
         //        __WFI();
         if (gk_DebugWakeupThread != 0)
         {
-            wakeup_thread(gk_DebugWakeupThread);
+            wakeup_thread(gk_DebugWakeupThread, true);
         }
     }
 }

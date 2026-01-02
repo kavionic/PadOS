@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -46,6 +46,8 @@ struct PFirmwareImageDefinition
 {
     void (*entry)();
     void (*thread_terminated)(thread_id, void*, PThreadControlBlock*);
+    void (*signal_trampoline)();
+    void (*signal_terminate_thread)(int);
     PThreadControlBlock* (*create_main_thread_tls_block)();
     PAppDefinition*& FirstAppPointer;
 

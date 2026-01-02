@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -181,7 +181,8 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(system_log_add_message),
     SYS_PTR(add_serial_command_handler),
     SYS_PTR(serial_command_send_data),
-    SYS_PTR(spawn_execve)
+    SYS_PTR(spawn_execve),
+    SYS_PTR(sigaction)
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);
@@ -193,17 +194,30 @@ static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);
 extern "C" __attribute__((naked)) void syscall_trampoline_entry(void)
 {
     __asm volatile (
-        "blx    r12\n"              // Call syscall.
-        "ldr    r12, =gk_CurrentThread\n"
-        "ldr    r12, [r12]\n"
-        "ldr    r2, [r12, %0]\n"    // Return address / privilege level
-        "mrs    r12, CONTROL\n"
-        "bfi    r12, r2, #0, #1\n"  // Bit 0 of the return address contain the privilege level.
-        "msr    CONTROL, r12\n"
-        "isb\n"                     // Flush instruction pipeline.
-        "orr    r2, r2, #1\n"       // Set the thumb flag.
-        "bx     r2\n"               // Return directly to caller.
-        :: "i"(offsetof(KThreadCB, m_SyscallReturn))
+        "   blx     r12\n"              // Call syscall.
+        "   ldr     r12, =gk_CurrentThread\n"
+        "   ldr     r12, [r12]\n"       // Fetch thread pointer.
+        "   ldr     r2, [r12, %0]\n"    // m_PendingSignals.
+        "   ldr     r3, [r12, %1]\n"    // m_BlockedSignals.
+        "   mvn     r3, r3\n"           // Invert m_BlockedSignals.
+        "   and     r3, r2\n"           // Check if any unmasked signals are pending.
+        "   ldr     r2, [r12, %2]\n"    // Return address / privilege level
+        "   mrs     r12, CONTROL\n"
+        "   bfi     r12, r2, #0, #1\n"  // Bit 0 of the return address contain the privilege level.
+        "   msr     CONTROL, r12\n"
+        "   isb\n"                      // Flush instruction pipeline.
+        "   orr     r2, r2, #1\n"       // Set the thumb flag.
+        "   cmp     r3, #0\n"           // Check for pending signals.
+        "   beq     .no_pending_signals\n"
+        "   ldr     r12, =%3\n"         // SYS_process_signals.
+        "   svc     0\n"                // Force synchronous signal handling after syscall.
+        ".no_pending_signals:\n"
+        "   bx      r2\n"               // Return directly to caller.
+        ::  "i"(offsetof(KThreadCB, m_PendingSignals)), // %0
+            "i"(offsetof(KThreadCB, m_BlockedSignals)), // %1
+            "i"(offsetof(KThreadCB, m_SyscallReturn)),  // %2
+            "i"(SYS_process_signals)                    // %3
+
     );
 }
 
@@ -211,27 +225,10 @@ extern "C" __attribute__((naked)) void syscall_trampoline_entry(void)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" void SetupSystemCall(KExceptionStackFrame* frame)
+extern "C" void SetupSystemCall(KExceptionStackFrame* frame, uint32_t syscallNum, uint32_t prevControlReg)
 {
-    uint32_t syscallNum = frame->R12;
-
-    if (syscallNum >= ARRAY_COUNT(gk_SyscallTable)) [[unlikely]]
-    {
-        frame->R0 = ENOSYS;
-        return;
-    }
-
-    uint32_t prevControl;
-    __asm volatile ("mrs %0, CONTROL" : "=r"(prevControl));
-    const uint32_t newControl = prevControl & ~1u; // Clear nPRIV (privileged).
-    __asm volatile (
-        "msr CONTROL, %0 \n"
-        "isb\n"
-        :: "r"(newControl) : "memory"
-    );
-
     // Store the return address with the thumb flag replaced by the privilege level.
-    gk_CurrentThread->m_SyscallReturn = (frame->LR & ~0x01) | (prevControl & 0x01);
+    gk_CurrentThread->m_SyscallReturn = (frame->LR & ~0x01) | (prevControlReg & 0x01);
 
     frame->R12 = reinterpret_cast<uintptr_t>(gk_SyscallTable[syscallNum]);
     frame->PC  = reinterpret_cast<uintptr_t>(syscall_trampoline_entry); // Run trampoline next.
@@ -244,11 +241,94 @@ extern "C" void SetupSystemCall(KExceptionStackFrame* frame)
 extern "C" __attribute__((naked)) void SVCall_Handler(void)
 {
     __asm volatile (
-        "tst    lr, #4\n"   // EXC_RETURN bit2: 0=MSP, 1=PSP
-        "ite    eq\n"
-        "mrseq  r0, msp\n"  // r0 = exception frame
-        "mrsne  r0, psp\n"
-        "b      SetupSystemCall\n"
+    "   tst     lr, #4\n"       // EXC_RETURN bit2: 0=MSP, 1=PSP
+    "   ite     eq\n"
+    "   mrseq   r0, msp\n"      // r0 = exception frame (arg 0)
+    "   mrsne   r0, psp\n"
+    "   ldr     r1, [r0, %0]\n" // r1 = syscall number (arg 1)
+    "   cmp     r1, %1\n"
+    "   bhi     .invalid_syscall\n"
+    ""
+    "   mrs     r2, CONTROL\n"  // r2 = CONTROL (arg 2)
+    "   mov     r3, r2\n"
+    "   bfc     r3, #0, #1\n"   // Clear nPRIV (bit 0).
+    "   msr     CONTROL, r3\n"
+    "   isb\n"
+    "   b      SetupSystemCall\n"   // SetupSystemCall(stackPtr, SyscallNum, prevCONTROL)
+    ""
+    ".invalid_syscall:\n"
+    "   cmp     r1, %2\n"           // SYS_sigreturn
+    "   beq     .sigreturn\n"
+    "   cmp     r1, %3\n"           // SYS_process_signals
+    "   beq     .process_signals\n"
+    "   ldr     r1, =%4\n"          // ENOSYS
+    "   str     r1, [r0, %5]\n"     // frame -> R0 (return ENOSYS).
+    "   ldr     r1, [r0, %6]\n"     // Read frame -> LR.
+    "   str     r1, [r0, %7]\n"     // Write frame -> PC.
+    "   bx      lr\n"
+    ""
+    ".sigreturn:\n" // Used by the signal-return trampoline to restore normal thread context.
+    "   ldr     r2, [r0, #28]\n"    // Stacked xPSR (basic frame) : 7*4
+    "   lsrs    r2, r2, #9\n"       // Shift ALIGN bit to bit-0
+    "   ands    r2, r2, #1\n"
+    "   lsls    r2, r2, #2\n"       // r2 = 0 or 4
+    "   add     r0, r0, r2\n"       // Skip padding if present.
+    "   tst     lr, #0x10\n"        // Test bit-4 in EXEC_RETURN to check if the thread use the FPU context.
+    "   ite     eq\n"
+    "   addeq   r0, %9\n"           // Remove exception frame with FPU registers.
+    "   addne   r0, %8\n"           // Remove exception frame without FPU registers.
+    "   ldr     r4, [r0, %10]\n"    // Fetch the pre-signal signal mask.
+    "   ldr     r0, [r0, %11]\n"    // Fetch the pre-signal stack pointer.
+    "   mrs     r2, CONTROL\n"
+    "   bfi     r2, r0, #0, #1\n"   // Bit 0 of the pre-signal stack pointer contain the privilege level.
+    "   msr     CONTROL, r2\n"      // Restore nPRIV to pre-signal value.
+    "   isb\n"                      // Flush instruction pipeline.
+    "   bfc     r0, #0, #1\n"       // Clear the privilege flag from the stack-pointer.
+    "   ldr     r1, =gk_CurrentThread\n"
+    "   ldr     r1, [r1]\n"
+    "   ldr     r3, =%12\n"         // KBLOCKABLE_SIGNALS_MASK.
+    "   and     r4, r3\n"           // Sanitized pre-signal mask with KBLOCKABLE_SIGNALS_MASK.
+    "   str     r4, [r1, %13]\n"    // Restore pre-signal signal mask.
+    "   mrs     r2, CONTROL\n"
+    "   and     r2, #1\n"
+    "   bl      process_signals\n"  // process_signal(currentStack[r0], gk_CurrentThread[r1], userMode[r2])
+        ASM_LOAD_SCHED_CONTEXT(r0)
+    "   msr     psp, r0\n"
+    "   bx      lr\n"
+    ""
+    ".process_signals:\n"   // Used to force synchronous signal handling after regular syscalls.
+        ASM_STORE_SCHED_CONTEXT(r0)
+    "   ldr     r1, =gk_CurrentThread\n"
+    "   ldr     r1, [r1]\n"
+    "   mrs     r2, CONTROL\n"
+    "   and     r2, #1\n"
+    "   mov     r4, r0\n"
+    "   bl      process_signals\n"  // process_signal(currentStack[r0], gk_CurrentThread[r1], userMode[r2])
+    "   cmp     r0, r4\n"
+    "   beq     .no_signal_added\n"
+    "   mrs     r2, CONTROL\n"
+    "   orr     r2, #1\n"       // Set nPRIV (bit 0).
+    "   msr     CONTROL, r2\n"  // Drop privilege before entering signal handler.
+    "   isb\n"
+    ".no_signal_added:\n"
+        ASM_LOAD_SCHED_CONTEXT(r0)
+    "   msr     psp, r0\n"
+    "   bx      lr\n"
+    ""
+    ::  "i"(offsetof(KExceptionStackFrame, R12)),       // %0
+        "i"(ARRAY_COUNT(gk_SyscallTable) - 1),          // %1
+        "i"(SYS_sigreturn),                             // %2
+        "i"(SYS_process_signals),                       // %3
+        "i"(ENOSYS),                                    // %4
+        "i"(offsetof(KExceptionStackFrame, R0)),        // %5
+        "i"(offsetof(KExceptionStackFrame, LR)),        // %6
+        "i"(offsetof(KExceptionStackFrame, PC)),        // %7
+        "i"(sizeof(KExceptionStackFrame)),              // %8
+        "i"(sizeof(KExceptionStackFrameFPU)),           // %9
+        "i"(offsetof(KSignalStackFrame, SignalMask)),   // %10
+        "i"(offsetof(KSignalStackFrame, PreSignalPSPAndPrivilege)), // %11
+        "i"(KBLOCKABLE_SIGNALS_MASK),                   // %12
+        "i"(offsetof(KThreadCB, m_BlockedSignals))      // %13
     );
 }
 

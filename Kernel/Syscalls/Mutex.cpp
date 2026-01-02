@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -80,16 +80,18 @@ PErrorCode sys_mutex_delete(sem_id handle)
 
 PErrorCode sys_mutex_lock(sem_id handle)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::Lock);
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::Lock, /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_mutex_lock_timeout_ns(sem_id handle, bigtime_t timeout)
+PErrorCode sys_mutex_lock_timeout_ns(sem_id handle, bigtime_t timeoutns)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockTimeout, TimeValNanos::FromNanoseconds(timeout));
+    const TimeValNanos timeout = TimeValNanos::FromNanoseconds(timeoutns);
+    const TimeValNanos deadline = (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit;
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockDeadline, deadline, /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -98,7 +100,7 @@ PErrorCode sys_mutex_lock_timeout_ns(sem_id handle, bigtime_t timeout)
 
 PErrorCode sys_mutex_lock_deadline_ns(sem_id handle, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockDeadline, TimeValNanos::FromNanoseconds(deadline));
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockDeadline, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -107,7 +109,7 @@ PErrorCode sys_mutex_lock_deadline_ns(sem_id handle, bigtime_t deadline)
 
 PErrorCode sys_mutex_lock_clock_ns(sem_id handle, clockid_t clockID, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockClock, clockID, TimeValNanos::FromNanoseconds(deadline));
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockClock, clockID, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -134,16 +136,18 @@ PErrorCode sys_mutex_unlock(sem_id handle)
 
 PErrorCode sys_mutex_lock_shared(sem_id handle)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockShared);
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockShared, /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_mutex_lock_shared_timeout_ns(sem_id handle, bigtime_t timeout)
+PErrorCode sys_mutex_lock_shared_timeout_ns(sem_id handle, bigtime_t timeoutns)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedTimeout, TimeValNanos::FromNanoseconds(timeout));
+    const TimeValNanos timeout = TimeValNanos::FromNanoseconds(timeoutns);
+    const TimeValNanos deadline = (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit;
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedDeadline, deadline, /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -152,7 +156,7 @@ PErrorCode sys_mutex_lock_shared_timeout_ns(sem_id handle, bigtime_t timeout)
 
 PErrorCode sys_mutex_lock_shared_deadline_ns(sem_id handle, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedDeadline, TimeValNanos::FromNanoseconds(deadline));
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedDeadline, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -161,7 +165,7 @@ PErrorCode sys_mutex_lock_shared_deadline_ns(sem_id handle, bigtime_t deadline)
 
 PErrorCode sys_mutex_lock_shared_clock_ns(sem_id handle, clockid_t clockID, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedClock, clockID, TimeValNanos::FromNanoseconds(deadline));
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedClock, clockID, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

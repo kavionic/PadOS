@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -29,8 +29,6 @@
 static constexpr uint8_t THREAD_STACK_FILLER = 0x5f;
 extern "C"
 {
-status_t  wakeup_thread(thread_id handle);
-
 inline PErrorCode snooze_until(TimeValNanos resumeTime) { return snooze_until_ns(resumeTime.AsNanoseconds()); }
 inline PErrorCode snooze(TimeValNanos delay) { return snooze_ns(delay.AsNanoseconds()); }
 

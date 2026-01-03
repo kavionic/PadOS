@@ -1,15 +1,15 @@
 target_sources(PadOS_Syscalls PRIVATE
-	ConditionVar.cpp
-	Filesystem.cpp
-	MessagePort.cpp
-	MiscSyscalls.cpp
-	Mutex.cpp
-	ObjectWaitGroup.cpp
-	Semaphore.cpp
+	SysConditionVar.cpp
+	SysFilesystem.cpp
+	SysMessagePort.cpp
+	SysMiscSyscalls.cpp
+	SysMutex.cpp
+	SysObjectWaitGroup.cpp
+	SysSemaphore.cpp
 	SysDigitalPin.cpp
 	SysLogging.cpp
 	SysProcess.cpp
 	SysSignals.cpp
-	Threads.cpp
-	Time.cpp
+	SysThreads.cpp
+	SysTime.cpp
 )

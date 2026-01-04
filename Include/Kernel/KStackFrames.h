@@ -126,7 +126,6 @@ struct KSignalStackFrame
     uintptr_t   PreSignalPSPAndPrivilege;
     uint32_t    SignalMask;
     siginfo_t   SigInfo;
-    uint32_t    Padding;
 };
 static_assert(sizeof(KSignalStackFrame) % 8 == 0);
 

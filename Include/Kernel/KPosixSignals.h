@@ -19,6 +19,10 @@
 
 #pragma once
 
+#include <signal.h>
+
+#include <Kernel/KStackFrames.h>
+
 namespace kernel
 {
 
@@ -27,8 +31,6 @@ class KThreadCB;
 inline constexpr sigset_t sig_mkmask(int sigNum) { return sigset_t(1) << (sigNum - 1); }
 
 static constexpr sigset_t KBLOCKABLE_SIGNALS_MASK = ~(sig_mkmask(SIGKILL) | sig_mkmask(SIGSTOP));
-
-#include <signal.h>
 
 enum class PESignalDefaultAction
 {
@@ -43,8 +45,22 @@ PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum);
 
 void kforce_process_signals();
 
-extern "C" uintptr_t process_signals(intptr_t curStackPtr, KThreadCB* thread, bool userMode);
+intptr_t kprocess_signal(const uintptr_t prevStackPtr, KThreadCB& thread, bool userMode, bool fromFault, const siginfo_t& sigInfo);
+extern "C" uintptr_t kprocess_pending_signals(intptr_t curStackPtr, KThreadCB* thread, bool userMode);
 
+static inline bool exception_has_fpu_frame(uint32_t execReturn)
+{
+    return (execReturn & 0x10) == 0;
+}
+
+static inline uint32_t get_ctxswitch_frame_pc(const void* ctxBase)
+{
+    if (exception_has_fpu_frame(static_cast<const KCtxSwitchKernelStackFrame*>(ctxBase)->EXEC_RETURN)) {
+        return static_cast<const KCtxSwitchStackFrameFPU*>(ctxBase)->ExceptionFrame.PC;
+    } else {
+        return static_cast<const KCtxSwitchStackFrame*>(ctxBase)->ExceptionFrame.PC;
+    }
+}
 
 static inline PESignalDefaultAction sig_get_default_action(int sigNum)
 {

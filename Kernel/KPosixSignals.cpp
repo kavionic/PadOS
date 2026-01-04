@@ -92,43 +92,6 @@ void kforce_process_signals()
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename T>
-static void setup_signal_termination_exception_frame(T& frame, int sigNum)
-{
-    frame.ExceptionFrame.xPSR &= xPSR_T_Msk; // Clear everything but the thumb flag.
-    frame.ExceptionFrame.R0 = sigNum;
-    frame.ExceptionFrame.PC = uintptr_t(__app_definition.signal_terminate_thread);
-    frame.ExceptionFrame.LR = 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static uintptr_t add_signal_terminate_frame(uintptr_t prevStackPtr, int sigNum)
-{
-    KCtxSwitchKernelStackFrame* prevStackFrame = reinterpret_cast<KCtxSwitchKernelStackFrame*>(prevStackPtr);
-
-    const bool   hasFPUFrame = (prevStackFrame->EXEC_RETURN & 0x10) == 0;
-    const size_t frameSize = hasFPUFrame ? sizeof(KCtxSwitchStackFrameFPU) : sizeof(KCtxSwitchStackFrame);
-
-    const uintptr_t newStackPtr = prevStackPtr - frameSize;
-
-    memcpy(reinterpret_cast<void*>(newStackPtr), reinterpret_cast<const void*>(prevStackPtr), frameSize);
-
-    if (hasFPUFrame) {
-        setup_signal_termination_exception_frame(*reinterpret_cast<KCtxSwitchStackFrameFPU*>(newStackPtr), sigNum);
-    }
-    else {
-        setup_signal_termination_exception_frame(*reinterpret_cast<KCtxSwitchStackFrame*>(newStackPtr), sigNum);
-    }
-    return newStackPtr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-template<typename T>
 static void setup_signal_handler_exception_frame(T& frame, uintptr_t prevStackPtr, const KSignalStackFrame* signalFrame, const sigaction_t& sigAction)
 {
     frame.ExceptionFrame.xPSR &= xPSR_T_Msk; // Clear everything but the thumb flag.
@@ -143,14 +106,11 @@ static void setup_signal_handler_exception_frame(T& frame, uintptr_t prevStackPt
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static uintptr_t add_signal_handler_frame(uintptr_t prevStackPtr, KThreadCB& thread, bool userMode, int sigNum)
+static uintptr_t add_signal_handler_frame(uintptr_t prevStackPtr, KThreadCB& thread, bool userMode, const sigaction_t& sigAction, const siginfo_t& sigInfo)
 {
-    const int    signalIndex = sigNum - 1;
-    sigaction_t& sigAction   = thread.m_SignalHandlers[signalIndex];
-
     KCtxSwitchKernelStackFrame* prevStackFrame = reinterpret_cast<KCtxSwitchKernelStackFrame*>(prevStackPtr);
 
-    const bool   hasFPUFrame = (prevStackFrame->EXEC_RETURN & 0x10) == 0;
+    const bool   hasFPUFrame = exception_has_fpu_frame(prevStackFrame->EXEC_RETURN);
     const size_t frameSize = hasFPUFrame ? sizeof(KCtxSwitchStackFrameFPU) : sizeof(KCtxSwitchStackFrame);
 
     const uintptr_t signalFramePtr = prevStackPtr - sizeof(KSignalStackFrame);
@@ -161,20 +121,18 @@ static uintptr_t add_signal_handler_frame(uintptr_t prevStackPtr, KThreadCB& thr
     signalFrame->PreSignalPSPAndPrivilege = prevStackPtr;
     if (userMode) {
         signalFrame->PreSignalPSPAndPrivilege |= 0x01;
-    }
-    else {
+    } else {
         signalFrame->PreSignalPSPAndPrivilege &= ~0x01;
     }
     signalFrame->SignalMask = thread.m_BlockedSignals;
 
-    signalFrame->SigInfo.si_signo = sigNum;
-    signalFrame->SigInfo.si_code = SI_USER;
-    signalFrame->SigInfo.si_value.sival_int = 0;
+    signalFrame->SigInfo = sigInfo;
 
     thread.m_BlockedSignals |= sigAction.sa_mask;
     if ((sigAction.sa_flags & SA_NODEFER) == 0) {
-        thread.m_BlockedSignals |= sig_mkmask(sigNum);
+        thread.m_BlockedSignals |= sig_mkmask(sigInfo.si_signo);
     }
+    thread.m_BlockedSignals &= KBLOCKABLE_SIGNALS_MASK;
 
     memcpy(reinterpret_cast<void*>(newStackPtr), reinterpret_cast<const void*>(prevStackPtr), frameSize);
 
@@ -191,20 +149,21 @@ static uintptr_t add_signal_handler_frame(uintptr_t prevStackPtr, KThreadCB& thr
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static intptr_t process_signal(const uintptr_t prevStackPtr, KThreadCB& thread, bool userMode, int sigNum)
+intptr_t kprocess_signal(const uintptr_t prevStackPtr, KThreadCB& thread, bool userMode, bool fromFault, const siginfo_t& sigInfo)
 {
     static_assert(sizeof(KSignalStackFrame) % 8 == 0);
     static_assert(sizeof(KCtxSwitchStackFrame) % 8 == 0);
     static_assert(sizeof(KCtxSwitchStackFrameFPU) % 8 == 0);
 
-    const sigset_t sigMask = sig_mkmask(sigNum);
-    const int signalIndex = sigNum - 1;
+    const int      sigNum      = sigInfo.si_signo;
+    const sigset_t sigMask     = sig_mkmask(sigNum);
+    const int      signalIndex = sigNum - 1;
 
     thread.m_PendingSignals &= ~sigMask;
 
     sigaction_t& sigAction = thread.m_SignalHandlers[signalIndex];
 
-    if (sigAction.sa_handler == SIG_DFL || !sig_can_be_ignored(sigNum))
+    if (sigAction.sa_handler == SIG_DFL || (sigAction.sa_handler == SIG_IGN && fromFault) || !sig_can_be_ignored(sigNum))
     {
         const PESignalDefaultAction action = sig_get_default_action(sigNum);
         if (action == PESignalDefaultAction::Stop)
@@ -216,7 +175,9 @@ static intptr_t process_signal(const uintptr_t prevStackPtr, KThreadCB& thread, 
             if (thread.m_State == ThreadState_Stopped) {
                 wakeup_thread(thread.GetHandle(), true);
             }
-            return add_signal_terminate_frame(prevStackPtr, sigNum);
+            sigaction_t terminateAction = {};
+            terminateAction.sa_sigaction = __app_definition.signal_terminate_thread;
+            return add_signal_handler_frame(prevStackPtr, thread, userMode, terminateAction, sigInfo);
         }
         return prevStackPtr;
     }
@@ -225,7 +186,8 @@ static intptr_t process_signal(const uintptr_t prevStackPtr, KThreadCB& thread, 
         return prevStackPtr;
     }
 
-    if ((sigAction.sa_flags & SA_RESETHAND) && sig_can_auto_reset(sigNum)) {
+    if ((sigAction.sa_flags & SA_RESETHAND) && sig_can_auto_reset(sigNum))
+    {
         sigAction.sa_handler = SIG_DFL;
         sigAction.sa_flags &= ~(SA_SIGINFO | SA_RESETHAND);
     }
@@ -233,24 +195,29 @@ static intptr_t process_signal(const uintptr_t prevStackPtr, KThreadCB& thread, 
     if (prevStackPtr & 0x07) {
         kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_Scheduler, "{}: Unaligned SP: {:#08x}", __PRETTY_FUNCTION__, prevStackPtr);
     }
-    return add_signal_handler_frame(prevStackPtr, thread, userMode, sigNum);
+    return add_signal_handler_frame(prevStackPtr, thread, userMode, sigAction, sigInfo);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" uintptr_t process_signals(intptr_t curStackPtr, KThreadCB* thread, bool userMode)
+extern "C" uintptr_t kprocess_pending_signals(intptr_t curStackPtr, KThreadCB* thread, bool userMode)
 {
     sigset_t pendingSignals = thread->GetUnblockedPendingSignals();
+
+    siginfo_t sigInfo = {};
+    sigInfo.si_code = SI_USER;
 
     for (int sigNum : {SIGKILL, SIGSTOP})
     {
         const sigset_t sigMask = sig_mkmask(sigNum);
         if (pendingSignals & sigMask)
         {
+            sigInfo.si_signo = sigNum;
+
             pendingSignals &= ~sigMask;
-            const uintptr_t newStackPtr = process_signal(curStackPtr, *thread, userMode, sigNum);
+            const uintptr_t newStackPtr = kprocess_signal(curStackPtr, *thread, userMode, /*fromFault*/ false, sigInfo);
             if (newStackPtr != curStackPtr) {
                 return newStackPtr;
             }
@@ -262,7 +229,8 @@ extern "C" uintptr_t process_signals(intptr_t curStackPtr, KThreadCB* thread, bo
         if (pendingSignals & sig_mkmask(SIGCONT))
         {
             pendingSignals &= ~sig_mkmask(SIGCONT);
-            const uintptr_t newStackPtr = process_signal(curStackPtr, *thread, userMode, SIGCONT);
+            sigInfo.si_signo = SIGCONT;
+            const uintptr_t newStackPtr = kprocess_signal(curStackPtr, *thread, userMode, /*fromFault*/ false, sigInfo);
             if (newStackPtr != curStackPtr) {
                 return newStackPtr;
             }
@@ -277,7 +245,8 @@ extern "C" uintptr_t process_signals(intptr_t curStackPtr, KThreadCB* thread, bo
         {
             if (pendingSignals & curMask)
             {
-                const uintptr_t newStackPtr = process_signal(curStackPtr, *thread, userMode, i + 1);
+                sigInfo.si_signo = i + 1;
+                const uintptr_t newStackPtr = kprocess_signal(curStackPtr, *thread, userMode, /*fromFault*/ false, sigInfo);
                 if (newStackPtr != curStackPtr) {
                     return newStackPtr;
                 }

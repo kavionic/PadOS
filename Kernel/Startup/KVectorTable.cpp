@@ -26,9 +26,7 @@ extern "C"
 void Reset_Handler(void);
 void NonMaskableInt_Handler(void);
 void HardFault_Handler(void);
-void MemoryManagement_Handler(void);
-void BusFault_Handler(void);
-void UsageFault_Handler(void);
+void Fault_Handler(void);
 void SVCall_Handler(void);
 void DebugMonitor_Handler(void);
 void PendSV_Handler(void);
@@ -219,9 +217,9 @@ const DeviceVectors exception_table = {
     .pfnReset_Handler              = (void*) Reset_Handler,
     .pfnNonMaskableInt_Handler     = (void*) NonMaskableInt_Handler,
     .pfnHardFault_Handler          = (void*) HardFault_Handler,
-    .pfnMemoryManagement_Handler   = (void*) MemoryManagement_Handler,
-    .pfnBusFault_Handler           = (void*) BusFault_Handler,
-    .pfnUsageFault_Handler         = (void*) UsageFault_Handler,
+    .pfnMemoryManagement_Handler   = (void*) Fault_Handler,
+    .pfnBusFault_Handler           = (void*) Fault_Handler,
+    .pfnUsageFault_Handler         = (void*) Fault_Handler,
     .pvReservedC9                  = nullptr,                       // Reserved
     .pvReservedC8                  = nullptr,                       // Reserved
     .pvReservedC7                  = nullptr,                       // Reserved

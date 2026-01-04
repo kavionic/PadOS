@@ -291,7 +291,7 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
     "   str     r4, [r1, %13]\n"    // Restore pre-signal signal mask.
     "   mrs     r2, CONTROL\n"
     "   and     r2, #1\n"
-    "   bl      process_signals\n"  // process_signal(currentStack[r0], gk_CurrentThread[r1], userMode[r2])
+    "   bl      kprocess_pending_signals\n"  // kprocess_pending_signals(currentStack[r0], gk_CurrentThread[r1], userMode[r2])
         ASM_LOAD_SCHED_CONTEXT(r0)
     "   msr     psp, r0\n"
     "   bx      lr\n"
@@ -303,7 +303,7 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
     "   mrs     r2, CONTROL\n"
     "   and     r2, #1\n"
     "   mov     r4, r0\n"
-    "   bl      process_signals\n"  // process_signal(currentStack[r0], gk_CurrentThread[r1], userMode[r2])
+    "   bl      kprocess_pending_signals\n"  // kprocess_pending_signals(currentStack[r0], gk_CurrentThread[r1], userMode[r2])
     "   cmp     r0, r4\n"
     "   beq     .no_signal_added\n"
     "   mrs     r2, CONTROL\n"

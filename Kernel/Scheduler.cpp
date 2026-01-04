@@ -302,7 +302,7 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
     }
     if ((gk_CurrentThread->m_CurrentStackAndPrivilege & 0x01) && gk_CurrentThread->GetUnblockedPendingSignals() != 0)
     {
-        const uintptr_t newStackPtr = process_signals(gk_CurrentThread->m_CurrentStackAndPrivilege & ~0x01, gk_CurrentThread, /*userMode*/ true);
+        const uintptr_t newStackPtr = kprocess_pending_signals(gk_CurrentThread->m_CurrentStackAndPrivilege & ~0x01, gk_CurrentThread, /*userMode*/ true);
         gk_CurrentThread->m_CurrentStackAndPrivilege = (gk_CurrentThread->m_CurrentStackAndPrivilege & 0x01) | newStackPtr;
     }
     return gk_CurrentThread->m_CurrentStackAndPrivilege;

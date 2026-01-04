@@ -175,11 +175,8 @@ void KHandleArrayBase::FreeHandle_trw(int handle)
         {
             m_TopLevel.m_UsedIndexes--; // Toplevel block counts total number of used handles.
             block3->m_UsedIndexes--;
-            if (block3->m_UsedIndexes > 0)
-            {
-                block3->m_Array[index3] = KHandleArrayEmptyBlock::GetInstance();
-            }
-            else
+            block3->m_Array[index3] = KHandleArrayEmptyBlock::GetInstance();
+            if (block3->m_UsedIndexes == 0)
             {
                 CacheBlock(block3);
                 block2->m_Array[index2] = KHandleArrayEmptyBlock::GetInstance();

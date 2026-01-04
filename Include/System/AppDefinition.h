@@ -47,7 +47,7 @@ struct PFirmwareImageDefinition
     void (*entry)();
     void (*thread_terminated)(thread_id, void*, PThreadControlBlock*);
     void (*signal_trampoline)();
-    void (*signal_terminate_thread)(int);
+    void (*signal_terminate_thread)(int, siginfo_t*, void*);
     PThreadControlBlock* (*create_main_thread_tls_block)();
     PAppDefinition*& FirstAppPointer;
 

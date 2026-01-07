@@ -28,6 +28,13 @@ namespace kernel
 
 class KThreadCB;
 
+struct KSignalQueueNode
+{
+    KSignalQueueNode*   Next;
+    int                 SigNum;
+    siginfo_t           SigInfo;
+};
+
 inline constexpr sigset_t sig_mkmask(int sigNum) { return sigset_t(1) << (sigNum - 1); }
 
 static constexpr sigset_t KBLOCKABLE_SIGNALS_MASK = ~(sig_mkmask(SIGKILL) | sig_mkmask(SIGSTOP));
@@ -42,11 +49,16 @@ enum class PESignalDefaultAction
 };
 
 PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum);
+PErrorCode kqueue_signal_to_thread(KThreadCB& thread, int signo, sigval_t value);
+PErrorCode kthread_sigmask(int how, const sigset_t* newSet, sigset_t* outOldSet);
+
+KSignalQueueNode* kalloc_signal_queue_node();
+void kfree_signal_queue_node(KSignalQueueNode* node);
 
 void kforce_process_signals();
 
-intptr_t kprocess_signal(const uintptr_t prevStackPtr, KThreadCB& thread, bool userMode, bool fromFault, const siginfo_t& sigInfo);
-extern "C" uintptr_t kprocess_pending_signals(intptr_t curStackPtr, KThreadCB* thread, bool userMode);
+intptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode, bool fromFault, const siginfo_t* extSigInfo);
+extern "C" uintptr_t kprocess_pending_signals(intptr_t curStackPtr, bool userMode);
 
 static inline bool exception_has_fpu_frame(uint32_t execReturn)
 {

@@ -212,10 +212,10 @@ uint32_t handle_fault(void* currentStack, uint32_t controlReg)
     SCB->CFSR = SCB->CFSR;
     SCB->HFSR = SCB->HFSR;
 
-    thread.m_PendingSignals |= sig_mkmask(sigInfo.si_signo);
+    thread.SetPendingSignal(sigInfo.si_signo);
     if (thread.m_CurrentStackAndPrivilege & 0x01)
     {
-        const uintptr_t newStackPtr = kprocess_signal(thread.m_CurrentStackAndPrivilege & ~0x01, thread, /*userMode*/ true, /*fromFault*/ true, sigInfo);
+        const uintptr_t newStackPtr = kprocess_signal(sigInfo.si_signo, thread.m_CurrentStackAndPrivilege & ~0x01, /*userMode*/ true, /*fromFault*/ true, &sigInfo);
         thread.m_CurrentStackAndPrivilege = (thread.m_CurrentStackAndPrivilege & 0x01) | newStackPtr;
     }
     else

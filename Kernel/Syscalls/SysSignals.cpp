@@ -54,24 +54,127 @@ PErrorCode sys_kill(thread_id threadID, int sigNum)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PErrorCode sys_raise(int sigNum)
+{
+    KThreadCB& thread = *gk_CurrentThread;
+    return ksend_signal_to_thread(thread, sigNum);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_thread_sigqueue(thread_id threadID, int signo, union sigval value)
+{
+    const Ptr<KThreadCB> thread = get_thread(threadID);
+
+    if (thread == nullptr) {
+        return PErrorCode::NoSuchProcess;
+    }
+
+    return kqueue_signal_to_thread(*thread, signo, value);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PErrorCode sys_sigaction(int sigNum, const struct sigaction* action, struct sigaction* outPrevAction)
 {
     const int sigIndex = sigNum - 1;
 
-    KThreadCB* const thread = gk_CurrentThread;
+    KThreadCB& thread = *gk_CurrentThread;
 
     if (sigIndex < 0 || sigIndex >= ARRAY_COUNT(KThreadCB::m_SignalHandlers)) {
         return PErrorCode::InvalidArg;
     }
     if (outPrevAction != nullptr) {
-        *outPrevAction = thread->m_SignalHandlers[sigIndex];
+        *outPrevAction = thread.m_SignalHandlers[sigIndex];
     }
     if (action != nullptr) {
-        thread->m_SignalHandlers[sigIndex] = *action;
+        thread.m_SignalHandlers[sigIndex] = *action;
     }
     return PErrorCode::Success;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PSysRetPair sys_signal(int sigNum, _sig_func_ptr handler)
+{
+    sigaction_t newAction = {};
+    sigaction_t prevAction;
+
+    newAction.sa_handler = handler;
+
+    const PErrorCode result = sys_sigaction(sigNum, &newAction, &prevAction);
+
+    if (result == PErrorCode::Success) {
+        return PMakeSysRetSuccess(intptr_t(prevAction.sa_handler));
+    } else {
+        return PMakeSysRetFail(result);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_sigsuspend(const sigset_t* sigmask)
+{
+    try
+    {
+        validate_user_read_pointer_trw(sigmask);
+        KThreadCB& thread = *gk_CurrentThread;
+
+        const sigset_t prevMask = thread.m_BlockedSignals;
+        thread.m_BlockedSignals = *sigmask & KBLOCKABLE_SIGNALS_MASK;
+
+        thread.m_State = ThreadState_Waiting;
+        KSWITCH_CONTEXT();
+
+        thread.m_BlockedSignals = prevMask;
+
+        return PErrorCode::Interrupted;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_thread_sigmask(int how, const sigset_t* newSet, sigset_t* outOldSet)
+{
+    try
+    {
+        if (newSet != nullptr)      validate_user_read_pointer_trw(newSet);
+        if (outOldSet != nullptr)   validate_user_write_pointer_trw(outOldSet);
+
+        return kthread_sigmask(how, newSet, outOldSet);
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_sigpending(sigset_t* outSet)
+{
+    try
+    {
+        validate_user_write_pointer_trw(outSet);
+
+        const KThreadCB& thread = *gk_CurrentThread;
+
+        *outSet = thread.GetPendingSignals() & thread.m_BlockedSignals;
+
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
 
 } // extern "C"
 

@@ -3,6 +3,8 @@ target_sources(PadOS_Kernel PRIVATE
 	KConditionVariable.h
 	Kernel.h
 	KHandleArray.h
+	KInterrupts.h
+	KIRQPriorityLevels.h
 	KLogging.h
 	KMessagePort.h
 	KMutex.h
@@ -11,6 +13,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KPosixSignals.h
 	KPowerManager.h
 	KProcess.h
+	KSchedulerLock.h
 	KSemaphore.h
 	KThread.h
 	KThreadCB.h

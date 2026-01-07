@@ -210,7 +210,7 @@ void stop_thread(bool notifyParent)
 {
     KThreadCB* const thread = gk_CurrentThread;
 
-    CRITICAL_SCOPE(CRITICAL_IRQ);
+    KSchedulerLock slock;
 
 //    if (notifyParent && thread->m_Parent != INVALID_HANDLE) {
 //        sys_kill(thread->m_Parent, SIGCHLD);
@@ -227,7 +227,7 @@ void stop_thread(bool notifyParent)
 
 PErrorCode wakeup_thread(thread_id handle, bool wakeupSuspended)
 {
-    CRITICAL_SCOPE(CRITICAL_IRQ);
+    KSchedulerLock slock;
 
     Ptr<KThreadCB> thread = get_thread(handle);
     if (thread == nullptr || thread->m_State == ThreadState_Zombie) {
@@ -250,8 +250,9 @@ namespace
 
 extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
 {
-    CRITICAL_BEGIN(CRITICAL_IRQ)
     {
+        KSchedulerLock slock;
+
         KThreadCB* const prevThread = gk_CurrentThread;
         const uint32_t stackAddrInt = intptr_t(currentStack);
         prevThread->m_CurrentStackAndPrivilege = stackAddrInt | (controlReg & 0x01); // Store nPRIV in bit 0 of stack address.
@@ -293,16 +294,16 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
         const TimeValNanos curTime = kget_monotonic_time_hires();
         prevThread->m_RunTime += curTime - prevThread->m_StartTime;
         gk_CurrentThread->m_StartTime = curTime;
-    } CRITICAL_END;
+    }
 
     if (gk_DebugWakeupThread != 0 && gk_CurrentThread->GetHandle() == gk_DebugWakeupThread) [[unlikely]]
     {
         gk_DebugWakeupThread = 0;
         __BKPT(0);
     }
-    if ((gk_CurrentThread->m_CurrentStackAndPrivilege & 0x01) && gk_CurrentThread->GetUnblockedPendingSignals() != 0)
+    if ((gk_CurrentThread->m_CurrentStackAndPrivilege & 0x01) && gk_CurrentThread->HasUnblockedPendingSignals())
     {
-        const uintptr_t newStackPtr = kprocess_pending_signals(gk_CurrentThread->m_CurrentStackAndPrivilege & ~0x01, gk_CurrentThread, /*userMode*/ true);
+        const uintptr_t newStackPtr = kprocess_pending_signals(gk_CurrentThread->m_CurrentStackAndPrivilege & ~0x01, /*userMode*/ true);
         gk_CurrentThread->m_CurrentStackAndPrivilege = (gk_CurrentThread->m_CurrentStackAndPrivilege & 0x01) | newStackPtr;
     }
     return gk_CurrentThread->m_CurrentStackAndPrivilege;
@@ -404,18 +405,19 @@ bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount)
     bool needSchedule = false;
 
     if (maxCount == 0) maxCount = std::numeric_limits<int>::max();
-    CRITICAL_BEGIN(CRITICAL_IRQ)
+
+    KSchedulerLock slock;
+
+    for (KThreadWaitNode* waitNode = queue->m_First; waitNode != nullptr && maxCount != 0; waitNode = queue->m_First, --maxCount)
     {
-        for (KThreadWaitNode* waitNode = queue->m_First; waitNode != nullptr && maxCount != 0; waitNode = queue->m_First, --maxCount)
-        {
-            KThreadCB* thread = waitNode->m_Thread;
-            if (thread != nullptr && (thread->m_State == ThreadState_Sleeping || thread->m_State == ThreadState_Waiting)) {
-                if (thread->m_PriorityLevel > ourPriLevel) needSchedule = true;
-                add_thread_to_ready_list(thread);
-            }
-            queue->Remove(waitNode);
+        KThreadCB* thread = waitNode->m_Thread;
+        if (thread != nullptr && (thread->m_State == ThreadState_Sleeping || thread->m_State == ThreadState_Waiting)) {
+            if (thread->m_PriorityLevel > ourPriLevel) needSchedule = true;
+            add_thread_to_ready_list(thread);
         }
-    } CRITICAL_END;
+        queue->Remove(waitNode);
+    }
+
     return needSchedule;
 }
 
@@ -506,105 +508,6 @@ void remove_from_sleep_list(KThreadWaitNode* waitNode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQEnableState get_interrupt_enabled_state()
-{
-#if defined(STM32H7)
-    uint32_t basePri = __get_BASEPRI();
-    if (basePri == 0) {
-        return IRQEnableState::Enabled;
-    }
-    else if (basePri >= (KIRQ_PRI_NORMAL_LATENCY_MAX << (8 - __NVIC_PRIO_BITS))) {
-        return IRQEnableState::NormalLatencyDisabled;
-    }
-    else {
-        return IRQEnableState::LowLatencyDisabled;
-    }
-#elif defined(STM32G030xx)
-    return (__get_PRIMASK() & 0x01) ? IRQEnableState::Disabled : IRQEnableState::Enabled;
-#else
-#error Unknown platform.
-#endif
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void set_interrupt_enabled_state(IRQEnableState state)
-{
-#if defined(STM32H7)
-    switch (state)
-    {
-        case IRQEnableState::Enabled:               __set_BASEPRI(0); break;
-        case IRQEnableState::NormalLatencyDisabled: __set_BASEPRI(KIRQ_PRI_NORMAL_LATENCY_MAX << (8 - __NVIC_PRIO_BITS)); break;
-        case IRQEnableState::LowLatencyDisabled:    __set_BASEPRI(KIRQ_PRI_LOW_LATENCY_MAX << (8 - __NVIC_PRIO_BITS)); break;
-    }
-#elif defined(STM32G030xx)
-    __set_PRIMASK((state == IRQEnableState::Enabled) ? 0 : 1);
-#else
-#error Unknown platform.
-#endif
-    __ISB();
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-uint32_t disable_interrupts()
-{
-#if defined(STM32H7)
-    const uint32_t oldState = __get_BASEPRI();
-    __set_BASEPRI(KIRQ_PRI_NORMAL_LATENCY_MAX << (8 - __NVIC_PRIO_BITS));
-    assert(__get_BASEPRI() == (KIRQ_PRI_NORMAL_LATENCY_MAX << (8 - __NVIC_PRIO_BITS)));
-#elif defined(STM32G030xx)
-    const uint32_t oldState = __get_PRIMASK();
-    __disable_irq();
-#else
-#error Unknown platform.
-#endif
-    __ISB();
-    return oldState;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-#if defined(STM32H7)
-uint32_t KDisableLowLatenctInterrupts()
-{
-    const uint32_t oldState = __get_BASEPRI();
-    __set_BASEPRI(KIRQ_PRI_LOW_LATENCY_MAX << (8 - __NVIC_PRIO_BITS));
-    __ISB();
-    assert(__get_BASEPRI() == (KIRQ_PRI_LOW_LATENCY_MAX << (8 - __NVIC_PRIO_BITS)));
-    return oldState;
-}
-#endif // defined(STM32H7)
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void restore_interrupts(uint32_t state)
-{
-#if defined(STM32H7)
-    __set_BASEPRI(state);
-    assert(__get_BASEPRI() == state);
-#elif defined(STM32G030xx)
-    if ((state & 0x01) == 0)
-    {
-        __enable_irq();
-    }
-#else
-#error Unknown platform.
-#endif
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 static void* idle_thread_entry(void* arguments)
 {
     for (;;)
@@ -665,14 +568,15 @@ static void* init_thread_entry(void* arguments)
     for (;;)
     {
         KThreadList threadsToDelete;
-        CRITICAL_BEGIN(CRITICAL_IRQ)
         {
+            KSchedulerLock slock;
+
             for (KThreadCB* zombie = gk_ZombieThreadLists.m_First; zombie != nullptr; zombie = gk_ZombieThreadLists.m_First)
             {
                 gk_ZombieThreadLists.Remove(zombie);
                 threadsToDelete.Append(zombie);
             }
-        } CRITICAL_END;
+        }
         for (KThreadCB* zombie = threadsToDelete.m_First; zombie != nullptr; zombie = threadsToDelete.m_First)
         {
             threadsToDelete.Remove(zombie);
@@ -686,15 +590,16 @@ static void* init_thread_entry(void* arguments)
                 kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_Scheduler, "{}: failed to free zombie thread handle: {}", __PRETTY_FUNCTION__, exc.what());
             }
         }
-        CRITICAL_BEGIN(CRITICAL_IRQ)
         {
+            KSchedulerLock slock;
+
             if (gk_ZombieThreadLists.m_First == nullptr)
             {
                 thread->m_State = ThreadState_Waiting;
 
                 KSWITCH_CONTEXT();
             }
-        } CRITICAL_END;
+        }
     }
 }
 

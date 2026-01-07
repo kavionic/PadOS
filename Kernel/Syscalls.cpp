@@ -182,10 +182,28 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(add_serial_command_handler),
     SYS_PTR(serial_command_send_data),
     SYS_PTR(spawn_execve),
-    SYS_PTR(sigaction)
+    SYS_PTR(sigaction),
+    SYS_PTR(thread_sigqueue),
+    SYS_PTR(thread_sigmask),
+    SYS_PTR(raise),
+    SYS_PTR(signal),
+    SYS_PTR(sigsuspend)
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+extern "C" uint32_t syscall_return()
+{
+    const KThreadCB& thread = *gk_CurrentThread;
+    if (thread.HasUnblockedPendingSignals()) {
+        kforce_process_signals();
+    }
+    return thread.m_SyscallReturn;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -195,29 +213,16 @@ extern "C" __attribute__((naked)) void syscall_trampoline_entry(void)
 {
     __asm volatile (
         "   blx     r12\n"              // Call syscall.
-        "   ldr     r12, =gk_CurrentThread\n"
-        "   ldr     r12, [r12]\n"       // Fetch thread pointer.
-        "   ldr     r2, [r12, %0]\n"    // m_PendingSignals.
-        "   ldr     r3, [r12, %1]\n"    // m_BlockedSignals.
-        "   mvn     r3, r3\n"           // Invert m_BlockedSignals.
-        "   and     r3, r2\n"           // Check if any unmasked signals are pending.
-        "   ldr     r2, [r12, %2]\n"    // Return address / privilege level
+        "   push    {r0, r1}\n"         // Preserve the syscall return value.
+        "   bl      syscall_return\n"
+        "   mov     r2, r0\n"           // syscall_return() returns the caller address + privilege level.
+        "   pop     {r0, r1}\n"         // Restore the syscall return value.
         "   mrs     r12, CONTROL\n"
         "   bfi     r12, r2, #0, #1\n"  // Bit 0 of the return address contain the privilege level.
         "   msr     CONTROL, r12\n"
         "   isb\n"                      // Flush instruction pipeline.
         "   orr     r2, r2, #1\n"       // Set the thumb flag.
-        "   cmp     r3, #0\n"           // Check for pending signals.
-        "   beq     .no_pending_signals\n"
-        "   ldr     r12, =%3\n"         // SYS_process_signals.
-        "   svc     0\n"                // Force synchronous signal handling after syscall.
-        ".no_pending_signals:\n"
         "   bx      r2\n"               // Return directly to caller.
-        ::  "i"(offsetof(KThreadCB, m_PendingSignals)), // %0
-            "i"(offsetof(KThreadCB, m_BlockedSignals)), // %1
-            "i"(offsetof(KThreadCB, m_SyscallReturn)),  // %2
-            "i"(SYS_process_signals)                    // %3
-
     );
 }
 
@@ -277,33 +282,17 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
     "   ite     eq\n"
     "   addeq   r0, %9\n"           // Remove exception frame with FPU registers.
     "   addne   r0, %8\n"           // Remove exception frame without FPU registers.
-    "   ldr     r4, [r0, %10]\n"    // Fetch the pre-signal signal mask.
-    "   ldr     r0, [r0, %11]\n"    // Fetch the pre-signal stack pointer.
-    "   mrs     r2, CONTROL\n"
-    "   bfi     r2, r0, #0, #1\n"   // Bit 0 of the pre-signal stack pointer contain the privilege level.
-    "   msr     CONTROL, r2\n"      // Restore nPRIV to pre-signal value.
-    "   isb\n"                      // Flush instruction pipeline.
-    "   bfc     r0, #0, #1\n"       // Clear the privilege flag from the stack-pointer.
-    "   ldr     r1, =gk_CurrentThread\n"
-    "   ldr     r1, [r1]\n"
-    "   ldr     r3, =%12\n"         // KBLOCKABLE_SIGNALS_MASK.
-    "   and     r4, r3\n"           // Sanitized pre-signal mask with KBLOCKABLE_SIGNALS_MASK.
-    "   str     r4, [r1, %13]\n"    // Restore pre-signal signal mask.
-    "   mrs     r2, CONTROL\n"
-    "   and     r2, #1\n"
-    "   bl      kprocess_pending_signals\n"  // kprocess_pending_signals(currentStack[r0], gk_CurrentThread[r1], userMode[r2])
+    "   bl      ksigreturn\n"
         ASM_LOAD_SCHED_CONTEXT(r0)
     "   msr     psp, r0\n"
     "   bx      lr\n"
     ""
     ".process_signals:\n"   // Used to force synchronous signal handling after regular syscalls.
         ASM_STORE_SCHED_CONTEXT(r0)
-    "   ldr     r1, =gk_CurrentThread\n"
-    "   ldr     r1, [r1]\n"
-    "   mrs     r2, CONTROL\n"
-    "   and     r2, #1\n"
+    "   mrs     r1, CONTROL\n"
+    "   and     r1, #1\n"   // r1=nPRIV
     "   mov     r4, r0\n"
-    "   bl      kprocess_pending_signals\n"  // kprocess_pending_signals(currentStack[r0], gk_CurrentThread[r1], userMode[r2])
+    "   bl      kprocess_pending_signals\n"  // kprocess_pending_signals(currentStack[r0], userMode[r1])
     "   cmp     r0, r4\n"
     "   beq     .no_signal_added\n"
     "   mrs     r2, CONTROL\n"
@@ -324,11 +313,7 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
         "i"(offsetof(KExceptionStackFrame, LR)),        // %6
         "i"(offsetof(KExceptionStackFrame, PC)),        // %7
         "i"(sizeof(KExceptionStackFrame)),              // %8
-        "i"(sizeof(KExceptionStackFrameFPU)),           // %9
-        "i"(offsetof(KSignalStackFrame, SignalMask)),   // %10
-        "i"(offsetof(KSignalStackFrame, PreSignalPSPAndPrivilege)), // %11
-        "i"(KBLOCKABLE_SIGNALS_MASK),                   // %12
-        "i"(offsetof(KThreadCB, m_BlockedSignals))      // %13
+        "i"(sizeof(KExceptionStackFrameFPU))            // %9
     );
 }
 

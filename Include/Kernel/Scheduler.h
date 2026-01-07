@@ -40,25 +40,6 @@ void initialize_scheduler_statics();
 #define KSTACK_ALIGNMENT 8
 
 #define KSWITCH_CONTEXT() do {SCB->ICSR = SCB_ICSR_PENDSVSET_Msk; __DSB();} while(false)
-enum KIRQPriorityLevels
-{
-    KIRQ_PRI_LOW_LATENCY_MAX = 1,
-    KIRQ_PRI_LOW_LATENCY3 = KIRQ_PRI_LOW_LATENCY_MAX,
-    KIRQ_PRI_LOW_LATENCY2,
-    KIRQ_PRI_LOW_LATENCY1,
-    KIRQ_PRI_NORMAL_LATENCY_MAX,
-    KIRQ_PRI_NORMAL_LATENCY4 = KIRQ_PRI_NORMAL_LATENCY_MAX,
-    KIRQ_PRI_NORMAL_LATENCY3,
-    KIRQ_PRI_NORMAL_LATENCY2,
-#if	__NVIC_PRIO_BITS == 3
-#elif __NVIC_PRIO_BITS == 4
-    KIRQP_PRI_unused1, KIRQP_PRI_unused2, KIRQP_PRI_unused3, KIRQP_PRI_unused4, KIRQP_PRI_unused5, KIRQP_PRI_unused6, KIRQP_PRI_unused7, KIRQP_PRI_unused8,
-#else
-#endif
-    KIRQ_PRI_NORMAL_LATENCY1,
-    KIRQ_PRI_KERNEL = KIRQ_PRI_NORMAL_LATENCY1
-};
-
 
 
 extern KProcess* volatile      gk_CurrentProcess;
@@ -87,29 +68,6 @@ PErrorCode  wakeup_thread(thread_id handle, bool wakeupSuspended);
 
 void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize);
 
-enum class IRQEnableState
-{
-    Enabled,
-#if defined(STM32H7)
-    NormalLatencyDisabled,
-    LowLatencyDisabled,
-#elif defined(STM32G0)
-    Disabled
-#else
-#error Unknown platform.
-#endif
-};
-
-IRQEnableState get_interrupt_enabled_state();
-void           set_interrupt_enabled_state(IRQEnableState state);
-
-uint32_t disable_interrupts();
-#if defined(STM32H7)
-uint32_t KDisableLowLatenctInterrupts();
-#endif // defined(STM32H7)
-
-void restore_interrupts(uint32_t state);
-
 
 const KHandleArray<KThreadCB>& get_thread_table();
 int  get_remaining_stack();
@@ -134,7 +92,5 @@ private:
 
 #define CRITICAL_IRQ IRQDisabler()
 inline IRQDisabler&& critical_create_guard(IRQDisabler&& lock) { return std::move(lock); }
-
-
 
 } // namespace

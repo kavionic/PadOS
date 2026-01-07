@@ -26,6 +26,9 @@
 namespace kernel
 {
 
+KSignalQueueNode* gk_FirstFreeSignalQueueNode = nullptr;
+size_t            gk_FreeSignalQueueNodeCount = 0;
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -45,18 +48,177 @@ PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum)
         wakeup_thread(thread.GetHandle(), false);
         return PErrorCode::Success;
     }
-    const sigset_t  sigMask = sig_mkmask(sigNum);
 
-    thread.m_PendingSignals |= sigMask;
-
+    thread.SetPendingSignal(sigNum);
 
     if (sigNum == SIGCONT || sigNum == SIGKILL) {
         wakeup_thread(thread.GetHandle(), true);
     }
-    else if (sigNum == SIGCHLD || thread.GetUnblockedSignals(sigMask) != 0) {
+    else if (sigNum == SIGCHLD || !thread.IsSignalBlocked(sigNum)) {
         wakeup_thread(thread.GetHandle(), false);
     }
     return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kqueue_signal_to_thread(KThreadCB& thread, int sigNum, sigval_t value)
+{
+    if (thread.m_State == ThreadState_Zombie) {
+        return PErrorCode::NoSuchProcess;
+    }
+    if (sigNum == 0) { // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target thread.
+        return PErrorCode::Success;
+    }
+    // Signals to 'init' will only wake it up. We don't change the signal mask
+    if (thread.GetHandle() == 1)
+    {
+        wakeup_thread(thread.GetHandle(), false);
+        return PErrorCode::Success;
+    }
+
+    KSignalQueueNode* node = kalloc_signal_queue_node();
+    if (node == nullptr)
+    {
+        if (sigNum < SIGRTMIN)
+        {
+            thread.SetPendingSignal(sigNum);
+            return PErrorCode::Success;
+        }
+        else
+        {
+            return PErrorCode::NoMemory;
+        }
+    }
+    node->Next   = nullptr;
+    node->SigNum = sigNum;
+    node->SigInfo = {};
+    node->SigInfo.si_signo = sigNum;
+    node->SigInfo.si_code  = SI_QUEUE;
+    node->SigInfo.si_value = value;
+    {
+        KSchedulerLock slock;
+
+        if (sigNum < SIGRTMIN)
+        {
+            for (KSignalQueueNode** i = &thread.m_FirstQueuedSignal; ; i = &(*i)->Next)
+            {
+                if (*i == nullptr || (*i)->SigNum >= sigNum)
+                {
+                    if (*i == nullptr)
+                    {
+                        node->Next = nullptr;
+                        *i = node;
+                        thread.m_QueuedSignalCount++;
+                    }
+                    else if ((*i)->SigNum == sigNum)
+                    {
+                        node->Next = (*i)->Next;    // Only keep the last node for non-realtime signals.
+                        kfree_signal_queue_node(*i);
+                        *i = node;
+                    }
+                    else
+                    {
+                        node->Next = *i;
+                        *i = node;
+                        thread.m_QueuedSignalCount++;
+                    }
+                    break;
+                }
+            }
+        }
+        else
+        {
+            for (KSignalQueueNode** i = &thread.m_FirstQueuedSignal; ; i = &(*i)->Next)
+            {
+                if (*i == nullptr || (*i)->SigNum > sigNum)
+                {
+                    node->Next = *i;
+                    *i = node;
+                    thread.m_QueuedSignalCount++;
+                    break;
+                }
+            }
+        }
+        thread.SetPendingSignal(sigNum);
+    }
+    if (!thread.IsSignalBlocked(sigNum)) {
+        wakeup_thread(thread.GetHandle(), false);
+    }
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kthread_sigmask(int how, const sigset_t* newSet, sigset_t* outOldSet)
+{
+    KThreadCB& thread = *gk_CurrentThread;
+
+    if (outOldSet != nullptr) {
+        *outOldSet = thread.m_BlockedSignals;
+    }
+    if (newSet != nullptr)
+    {
+        sigset_t newMask;
+        switch (how)
+        {
+            case SIG_BLOCK:
+                newMask = thread.m_BlockedSignals | *newSet;
+                break;
+            case SIG_UNBLOCK:
+                newMask = thread.m_BlockedSignals & ~(*newSet);
+                break;
+            case SIG_SETMASK:
+                newMask = *newSet;
+                break;
+            default:
+                return PErrorCode::InvalidArg;
+        }
+        thread.m_BlockedSignals = newMask & KBLOCKABLE_SIGNALS_MASK;
+    }
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KSignalQueueNode* kalloc_signal_queue_node()
+{
+    {
+        KSchedulerLock slock;
+
+        if (gk_FirstFreeSignalQueueNode != nullptr)
+        {
+            KSignalQueueNode* node = gk_FirstFreeSignalQueueNode;
+            gk_FirstFreeSignalQueueNode = node->Next;
+            gk_FreeSignalQueueNodeCount--;
+            node->Next = nullptr;
+            return node;
+        }
+    }
+    try {
+        return new KSignalQueueNode;
+    } catch(std::exception& exc) {
+        return nullptr;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kfree_signal_queue_node(KSignalQueueNode* node)
+{
+    KSchedulerLock slock;
+
+    node->Next = gk_FirstFreeSignalQueueNode;
+    gk_FirstFreeSignalQueueNode = node;
+    gk_FreeSignalQueueNodeCount++;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,13 +235,9 @@ PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum)
 
 void kforce_process_signals()
 {
-    CRITICAL_BEGIN(CRITICAL_IRQ)
-    {
-        if (gk_CurrentThread->GetUnblockedPendingSignals() == 0) {
-            return;
-        }
-    } CRITICAL_END;
-
+    if (!gk_CurrentThread->HasUnblockedPendingSignals()) {
+        return;
+    }
     __asm volatile (
         "   ldr     r12, =%0\n"
         "   svc     0\n"
@@ -138,8 +296,7 @@ static uintptr_t add_signal_handler_frame(uintptr_t prevStackPtr, KThreadCB& thr
 
     if (hasFPUFrame) {
         setup_signal_handler_exception_frame(*reinterpret_cast<KCtxSwitchStackFrameFPU*>(newStackPtr), prevStackPtr, signalFrame, sigAction);
-    }
-    else {
+    } else {
         setup_signal_handler_exception_frame(*reinterpret_cast<KCtxSwitchStackFrame*>(newStackPtr), prevStackPtr, signalFrame, sigAction);
     }
     return newStackPtr;
@@ -149,17 +306,62 @@ static uintptr_t add_signal_handler_frame(uintptr_t prevStackPtr, KThreadCB& thr
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-intptr_t kprocess_signal(const uintptr_t prevStackPtr, KThreadCB& thread, bool userMode, bool fromFault, const siginfo_t& sigInfo)
+intptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode, bool fromFault, const siginfo_t* extSigInfo)
 {
     static_assert(sizeof(KSignalStackFrame) % 8 == 0);
     static_assert(sizeof(KCtxSwitchStackFrame) % 8 == 0);
     static_assert(sizeof(KCtxSwitchStackFrameFPU) % 8 == 0);
 
-    const int      sigNum      = sigInfo.si_signo;
-    const sigset_t sigMask     = sig_mkmask(sigNum);
-    const int      signalIndex = sigNum - 1;
+    KThreadCB& thread = *gk_CurrentThread;
 
-    thread.m_PendingSignals &= ~sigMask;
+    const int signalIndex = sigNum - 1;
+
+    siginfo_t sigInfo;
+
+    if (extSigInfo == nullptr)
+    {
+        KSignalQueueNode* queuNode = nullptr;
+        {
+            KSchedulerLock slock;
+
+            for (KSignalQueueNode** i = &thread.m_FirstQueuedSignal; *i != nullptr && (*i)->SigNum <= sigNum; i = &(*i)->Next)
+            {
+                if ((*i)->SigNum == sigNum)
+                {
+                    queuNode = *i;
+                    *i = queuNode->Next;
+
+                    thread.m_QueuedSignalCount--;
+
+                    if (queuNode->Next == nullptr || queuNode->Next->SigNum != sigNum) {
+                        thread.ClearPendingSignal(sigNum);
+                    }
+
+                    break;
+                }
+            }
+        }
+        if (queuNode != nullptr)
+        {
+            sigInfo = queuNode->SigInfo;
+            kfree_signal_queue_node(queuNode);
+        }
+        else
+        {
+            sigInfo = {};
+            sigInfo.si_signo = sigNum;
+            sigInfo.si_code  = SI_USER;
+
+            thread.ClearPendingSignal(sigNum);
+        }
+    }
+    else
+    {
+        sigInfo = *extSigInfo;
+
+        thread.ClearPendingSignal(sigNum);
+    }
+    sigInfo.si_signo = sigNum;
 
     sigaction_t& sigAction = thread.m_SignalHandlers[signalIndex];
 
@@ -202,35 +404,23 @@ intptr_t kprocess_signal(const uintptr_t prevStackPtr, KThreadCB& thread, bool u
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" uintptr_t kprocess_pending_signals(intptr_t curStackPtr, KThreadCB* thread, bool userMode)
+extern "C" uintptr_t kprocess_pending_signals(intptr_t curStackPtr, bool userMode)
 {
-    sigset_t pendingSignals = thread->GetUnblockedPendingSignals();
+    KThreadCB& thread = *gk_CurrentThread;
 
-    siginfo_t sigInfo = {};
-    sigInfo.si_code = SI_USER;
+    sigset_t pendingSignals = thread.GetUnblockedPendingSignals();
 
-    for (int sigNum : {SIGKILL, SIGSTOP})
+    if (pendingSignals == 0) {
+        return curStackPtr;
+    }
+
+    for (int sigNum : {SIGKILL, SIGSTOP, SIGCONT})
     {
         const sigset_t sigMask = sig_mkmask(sigNum);
         if (pendingSignals & sigMask)
         {
-            sigInfo.si_signo = sigNum;
-
             pendingSignals &= ~sigMask;
-            const uintptr_t newStackPtr = kprocess_signal(curStackPtr, *thread, userMode, /*fromFault*/ false, sigInfo);
-            if (newStackPtr != curStackPtr) {
-                return newStackPtr;
-            }
-        }
-    }
-    if (thread->m_PendingSignals & sig_mkmask(SIGCONT))
-    {
-        wakeup_thread(thread->GetHandle(), true);
-        if (pendingSignals & sig_mkmask(SIGCONT))
-        {
-            pendingSignals &= ~sig_mkmask(SIGCONT);
-            sigInfo.si_signo = SIGCONT;
-            const uintptr_t newStackPtr = kprocess_signal(curStackPtr, *thread, userMode, /*fromFault*/ false, sigInfo);
+            const uintptr_t newStackPtr = kprocess_signal(sigNum, curStackPtr, userMode, /*fromFault*/ false, /*sigInfo*/ nullptr);
             if (newStackPtr != curStackPtr) {
                 return newStackPtr;
             }
@@ -245,8 +435,7 @@ extern "C" uintptr_t kprocess_pending_signals(intptr_t curStackPtr, KThreadCB* t
         {
             if (pendingSignals & curMask)
             {
-                sigInfo.si_signo = i + 1;
-                const uintptr_t newStackPtr = kprocess_signal(curStackPtr, *thread, userMode, /*fromFault*/ false, sigInfo);
+                const uintptr_t newStackPtr = kprocess_signal(i + 1, curStackPtr, userMode, /*fromFault*/ false, /*sigInfo*/ nullptr);
                 if (newStackPtr != curStackPtr) {
                     return newStackPtr;
                 }
@@ -254,6 +443,24 @@ extern "C" uintptr_t kprocess_pending_signals(intptr_t curStackPtr, KThreadCB* t
         }
     }
     return curStackPtr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+extern "C" uintptr_t ksigreturn(uintptr_t curStackPtr)
+{
+    KThreadCB& thread = *gk_CurrentThread;
+
+    const KSignalStackFrame* signalStackFrame = reinterpret_cast<KSignalStackFrame*>(curStackPtr);
+
+    const uint32_t control = __get_CONTROL();
+    __set_CONTROL((control & ~0x01) | (signalStackFrame->PreSignalPSPAndPrivilege & 0x01)); // Restore nPRIV
+
+    thread.m_BlockedSignals = signalStackFrame->SignalMask & KBLOCKABLE_SIGNALS_MASK;
+
+    return kprocess_pending_signals(signalStackFrame->PreSignalPSPAndPrivilege & ~0x01, (signalStackFrame->PreSignalPSPAndPrivilege & 0x01) != 0);
 }
 
 } // namespace kernel

@@ -124,7 +124,8 @@ struct KCtxSwitchStackFrameFPU
 struct KSignalStackFrame
 {
     uintptr_t   PreSignalPSPAndPrivilege;
-    uint32_t    SignalMask;
+    uint32_t    Padding;
+    sigset_t    SignalMask;
     siginfo_t   SigInfo;
 };
 static_assert(sizeof(KSignalStackFrame) % 8 == 0);

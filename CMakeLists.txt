@@ -66,6 +66,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PADOS_C_CXX_FLAGS} -Wsuggest-override 
 
 add_library(PadOS_Kernel)
 add_library(PadOS_Syscalls)
+add_library(PadOS_KDebugConsole)
 add_library(PadOS_FATFS)
 add_library(PadOS_System)
 add_library(PadOS_SystemIFlash)
@@ -134,6 +135,7 @@ pados_add_kernel_library(ON	PadOS_System)
 pados_add_kernel_library(ON	PadOS_SystemIFlash)
 pados_add_kernel_library(ON	PadOS_IO)
 pados_add_kernel_library(ON	PadOS_Syscalls)
+pados_add_kernel_library(ON	PadOS_KDebugConsole)
 pados_add_kernel_external_library(ON	fmt::fmt)
 
 set_libraries_section("iflash" ${PADOS_OPT_IFLASH_MODULES})
@@ -153,6 +155,7 @@ get_property(PADOS_KERNEL_LIBRARY_TARGETS GLOBAL PROPERTY PADOS_KERNEL_LIBRARY_T
 install(TARGETS
 	PadOS_Kernel
 	PadOS_Syscalls
+	PadOS_KDebugConsole
 	PadOS_FATFS
 	PadOS_System
 	PadOS_SystemIFlash

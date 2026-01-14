@@ -20,6 +20,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <signal.h>
 
 #include <PadOS/Threads.h>
 #include <System/ModuleTLSDefinition.h>

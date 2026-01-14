@@ -1,3 +1,4 @@
+add_subdirectory(DebugConsole)
 add_subdirectory(Drivers)
 add_subdirectory(FSDrivers)
 add_subdirectory(HAL)

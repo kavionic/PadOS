@@ -1,4 +1,5 @@
 target_sources(PadOS_System PRIVATE
+	ANSIEscapeCodeParser.h
 	Base64Codec.h
 	Beep.h
 	CircularBuffer.h

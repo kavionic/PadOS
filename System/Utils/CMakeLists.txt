@@ -1,4 +1,5 @@
 target_sources(PadOS_System PRIVATE
+	ANSIEscapeCodeParser.cpp
 	Base64Codec.cpp
 	Beep.cpp
 	FactoryAutoRegistrator.cpp

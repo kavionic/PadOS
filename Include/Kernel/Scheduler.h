@@ -42,11 +42,15 @@ void initialize_scheduler_statics();
 #define KSWITCH_CONTEXT() do {SCB->ICSR = SCB_ICSR_PENDSVSET_Msk; __DSB();} while(false)
 
 
-extern KProcess* volatile      gk_CurrentProcess;
-extern "C" KThreadCB* volatile gk_CurrentThread;
-extern KThreadCB* gk_IdleThread;
+extern KProcess* volatile       gk_CurrentProcess;
+extern "C" KThreadCB* volatile  gk_CurrentThread;
+extern KThreadCB*               gk_IdleThread;
+extern KThreadCB*               gk_InitThread;
 extern thread_id                gk_MainThreadID;
 extern KHandleArray<KThreadCB>& gk_ThreadTable;
+extern KThreadList              gk_ZombieThreadLists;
+
+extern volatile thread_id gk_DebugWakeupThread;
 
 Ptr<KThreadCB> get_thread(thread_id handle);
 

@@ -25,6 +25,7 @@
 #include <Kernel/KThread.h>
 #include <Kernel/DebugConsole/KConsoleCommand.h>
 
+class PPOSIXTokenizer;
 
 namespace kernel
 {
@@ -52,6 +53,8 @@ public:
         SendText(m_ANSICodeParser.FormatANSICode(code, std::forward<TArgTypes>(args)...));
     }
     
+    void ShowTerminalCursor(bool show);
+
     PIPoint GetScreenPosition(size_t cursorPosition) const;
     void    MoveScreenCursor(const PIPoint& startPos, const PIPoint& endPos);
 
@@ -67,25 +70,27 @@ public:
     void BackspaceChar();
 
     void RefreshText(size_t startPosition);
+    void ResetInput();
 
     const std::map<PString, Ptr<KConsoleCommand>>& GetCommands() const { return m_Commands; }
 
     void RegisterCommand(const PString& name, Ptr<KConsoleCommand> command) { m_Commands[name] = command; }
 
 private:
-    void ProcessCmdLine(const PString& lineBuffer);
+    void ProcessCmdLine(PPOSIXTokenizer&& tokenizer);
     void ProcessControlChar(PANSIControlCode controlChar, const std::vector<int>& args);
-
-    std::vector<std::string> Tokenize(const PString& text);
 
     static KDebugConsole s_Instance;
 
     PANSIEscapeCodeParser m_ANSICodeParser;
 
-    PString m_Prompt = "$ ";
+    PString m_CmdPrompt = "$ ";
+    PString m_EditPrompt = "> ";
+    PString m_Prompt = m_CmdPrompt;
 
     PIPoint m_TerminalSize = PIPoint(80, 24);
 
+    PString m_InputBuffer;
     PString m_EditBuffer;
     std::vector<PString> m_HistoryBuffers;
 

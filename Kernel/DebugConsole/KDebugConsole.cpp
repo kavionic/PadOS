@@ -22,6 +22,7 @@
 #include <stdexcept>
 
 #include <PadOS/Time.h>
+#include <Utils/POSIXTokenizer.h>
 #include <Utils/Logging.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/DebugConsole/KDebugConsole.h>
@@ -87,7 +88,7 @@ void* KDebugConsole::Run()
             {
                 if (i != length)
                 {
-                    PANSIControlCode controlChar = m_ANSICodeParser.ProcessCharacter(buffer[i]);
+                    const PANSIControlCode controlChar = m_ANSICodeParser.ProcessCharacter(buffer[i]);
                     if (controlChar != PANSIControlCode::None)
                     {
                         start = i + 1;
@@ -106,12 +107,10 @@ void* KDebugConsole::Run()
                         AddInputText(&buffer[start], bytesAdded);
                     }
 
-                    if (i != length)
+                    start = i + 1;
+                    if (i != length && buffer[i] == '\r')
                     {
-                        start = i + 1;
-                        if (buffer[i] != '\n') {
-                            EnterPressed();
-                        }
+                        EnterPressed();
                     }
                 }
             }
@@ -154,15 +153,36 @@ void KDebugConsole::AddInputText(const char* text, size_t length)
 void KDebugConsole::EnterPressed()
 {
     write(1, "\n", 1);
-    if (!m_EditBuffer.empty())
-    {
-        ProcessCmdLine(m_EditBuffer);
-        m_HistoryBuffers.push_back(std::move(m_EditBuffer));
-        m_EditBuffer.clear();
 
-        m_CursorPosition = 0;
+    const PString& lineBuffer = m_InputBuffer.empty() ? m_EditBuffer : (m_InputBuffer + m_EditBuffer);
+
+    if (!lineBuffer.empty())
+    {
+        PPOSIXTokenizer tokenizer(lineBuffer);
+
+        if (tokenizer.GetTermination() == PPOSIXTokenizer::Termination::Normal)
+        {
+            m_InputBuffer.clear();
+
+            m_HistoryBuffers.push_back(lineBuffer);
+            m_HistoryLocation = m_HistoryBuffers.size();
+
+            m_EditBuffer.clear();
+            m_CursorPosition = 0;
+
+            m_Prompt = m_CmdPrompt;
+            ProcessCmdLine(std::move(tokenizer));
+        }
+        else
+        {
+            m_InputBuffer += m_EditBuffer + "\n";
+
+            m_EditBuffer.clear();
+            m_CursorPosition = 0;
+
+            m_Prompt = m_EditPrompt;
+        }
     }
-    m_HistoryLocation = m_HistoryBuffers.size();
     SendText(m_Prompt);
 }
 
@@ -179,9 +199,33 @@ void KDebugConsole::SendText(const char* text, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void KDebugConsole::ShowTerminalCursor(bool show)
+{
+    SendText(show ? "\033[?25h" : "\033[?25l");
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PIPoint KDebugConsole::GetScreenPosition(size_t cursorPosition) const
 {
-    return PIPoint((m_Prompt.size() + cursorPosition) % m_TerminalSize.x, (m_Prompt.size() + cursorPosition) / m_TerminalSize.x);
+    const size_t promptLength = m_Prompt.size();
+    PIPoint      position(promptLength, 0);
+
+    for (size_t i = 0; i < cursorPosition; ++i)
+    {
+        if (m_EditBuffer[i] == '\n' || ((promptLength + i) % m_TerminalSize.x) == 0)
+        {
+            position.x = 0;
+            position.y++;
+        }
+        else
+        {
+            position.x++;
+        }
+    }
+    return position;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -191,7 +235,7 @@ PIPoint KDebugConsole::GetScreenPosition(size_t cursorPosition) const
 void KDebugConsole::MoveScreenCursor(const PIPoint& startPos, const PIPoint& endPos)
 {
     const PIPoint delta = endPos - startPos;
-
+    ShowTerminalCursor(false);
     if (delta.y < 0) {
         SendANSICode(PANSIControlCode::XTerm_Up, -delta.y);
     } else if (delta.y > 0) {
@@ -202,6 +246,7 @@ void KDebugConsole::MoveScreenCursor(const PIPoint& startPos, const PIPoint& end
     } else if (delta.x > 0) {
         SendANSICode(PANSIControlCode::XTerm_Right, delta.x);
     }
+    ShowTerminalCursor(true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -232,6 +277,9 @@ void KDebugConsole::MoveCursor(int distance)
 
 void KDebugConsole::MoveInHistory(int distance)
 {
+    if (!m_InputBuffer.empty()) {
+        return; // No navigation during multi-line input.
+    }
     if (distance < 0) {
         if (-distance > m_HistoryLocation) distance = -m_HistoryLocation;
     } else {
@@ -306,9 +354,37 @@ void KDebugConsole::RefreshText(size_t startPosition)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KDebugConsole::ProcessCmdLine(const PString& lineBuffer)
+void KDebugConsole::ResetInput()
 {
-    std::vector<std::string> tokens = Tokenize(lineBuffer);
+    const PString& lineBuffer = m_InputBuffer.empty() ? m_EditBuffer : (m_InputBuffer + m_EditBuffer);
+
+    if (!lineBuffer.empty()) {
+        m_HistoryBuffers.push_back(lineBuffer);
+    }
+
+    m_InputBuffer.clear();
+    m_EditBuffer.clear();
+    m_CursorPosition = 0;
+    m_HistoryLocation = m_HistoryBuffers.size();
+    
+    m_Prompt = m_CmdPrompt;
+
+    SendText("\n", 1);
+    SendText(m_Prompt);
+    SendANSICode(PANSIControlCode::EraseDisplay);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
+{
+    std::vector<std::string> tokens;
+
+    for (const PPOSIXTokenizer::Token& token : tokenizer.GetTokens()) {
+        tokens.push_back(tokenizer.GetTokenText(token));
+    }
 
     if (!tokens.empty())
     {
@@ -339,6 +415,14 @@ void KDebugConsole::ProcessControlChar(PANSIControlCode controlChar, const std::
 {
     switch(controlChar)
     {
+        case PANSIControlCode::Break:
+            SendText("^C", 2);
+            ResetInput();
+            break;
+        case PANSIControlCode::Disconnect:
+            SendText("^D", 2);
+            ResetInput();
+            break;
         case PANSIControlCode::XTerm_Left:
             MoveCursor(-1);
             break;
@@ -397,122 +481,6 @@ void KDebugConsole::ProcessControlChar(PANSIControlCode controlChar, const std::
         default:
             break;
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-std::vector<std::string> KDebugConsole::Tokenize(const PString& text)
-{
-    enum class QuoteMode { None, InSingle, InDouble };
-
-    QuoteMode                quouteMode = QuoteMode::None;
-    std::vector<std::string> tokenList;
-    std::string              currentToken;
-
-    bool forceTokenSave = false;
-
-    auto push_token = [&tokenList, &currentToken, &forceTokenSave]()
-        {
-            if (forceTokenSave || !currentToken.empty())
-            {
-                tokenList.push_back(std::move(currentToken));
-                currentToken.clear();
-                forceTokenSave = false;
-            }
-        };
-
-    auto is_space = [](char c) { return c == ' ' || c == '\t' || c == '\n'; };
-
-    for (size_t i = 0; i < text.size(); ++i)
-    {
-        char character = text[i];
-
-        switch (quouteMode)
-        {
-            case QuoteMode::None:
-                if (is_space(character))
-                {
-                    push_token();
-                }
-                else if (character == '\'')
-                {
-                    quouteMode = QuoteMode::InSingle;
-                    forceTokenSave = true; // Allow '' to produce empty token.
-                }
-                else if (character == '"')
-                {
-                    quouteMode = QuoteMode::InDouble;
-                    forceTokenSave = true; // Allow "" to produce empty token.
-                }
-                else if (character == '\\')
-                {
-                    if (i + 1 >= text.size()) {
-                        throw std::runtime_error("tokenize: trailing backslash");
-                    }
-                    const char nextChar = text[i + 1];
-                    if (nextChar == '\n')
-                    {
-                        ++i; // Remove both \ and newline (line continuation).
-                    }
-                    else
-                    {
-                        currentToken.push_back(nextChar);
-                        ++i;
-                    }
-                }
-                else
-                {
-                    currentToken.push_back(character);
-                }
-                break;
-
-            case QuoteMode::InSingle:
-                if (character == '\'') {
-                    quouteMode = QuoteMode::None;
-                } else {
-                    currentToken.push_back(character);
-                }
-                break;
-
-            case QuoteMode::InDouble:
-                if (character == '"')
-                {
-                    quouteMode = QuoteMode::None;
-                }
-                else if (character == '\\')
-                {
-                    if (i + 1 >= text.size()) throw std::runtime_error("tokenize: trailing backslash in double quotes");
-                    const char nextChar = text[i + 1];
-                    // POSIX: backslash only special before \, ", $, `, or newline.
-                    if (nextChar == '\\' || nextChar == '"' || nextChar == '$' || nextChar == '`')
-                    {
-                        currentToken.push_back(nextChar);
-                        ++i;
-                    }
-                    else if (nextChar == '\n')
-                    {
-                        ++i; // Remove both \ and newline (line continuation).
-                    }
-                    else
-                    {
-                        currentToken.push_back('\\'); // Backslash preserved literally.
-                    }
-                }
-                else
-                {
-                    currentToken.push_back(character);
-                }
-                break;
-        }
-    }
-
-    if (quouteMode == QuoteMode::InSingle) throw std::runtime_error("tokenize: unmatched single quote");
-    if (quouteMode == QuoteMode::InDouble) throw std::runtime_error("tokenize: unmatched double quote");
-
-    push_token();
-    return tokenList;
 }
 
 

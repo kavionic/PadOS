@@ -7,6 +7,7 @@ target_sources(PadOS_System PRIVATE
 	InertialScroller.cpp
 	IntrusiveList.cpp
 	MessagePort.cpp
+	POSIXTokenizer.cpp
 	String.cpp
 	Utils.cpp
 	XMLFactory.cpp

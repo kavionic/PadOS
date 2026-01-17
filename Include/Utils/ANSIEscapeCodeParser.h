@@ -23,6 +23,9 @@ enum class PANSIControlCode
 {
     None,
     Pending,
+    Disconnect,
+    Break,
+    Escape,
     Backspace,
     VT_Keycode = '~',
     XTerm_Up = 'A',

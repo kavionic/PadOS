@@ -29,15 +29,14 @@ class CCmdEcho : public KConsoleCommand
 public:
     virtual int Invoke(std::vector<std::string>&& args) override
     {
-        bool first = true;
-        for (const std::string& arg : args)
+        for (size_t i = 1; i < args.size(); ++i)
         {
-            if (first) {
+            const std::string& arg = args[i];
+            if (i == 1) {
                 Print("{}", arg);
             } else {
                 Print(" {}", arg);
             }
-            first = false;
         }
         Print("\n");
         return 0;

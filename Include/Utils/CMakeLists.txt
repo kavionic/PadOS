@@ -13,6 +13,7 @@ target_sources(PadOS_System PRIVATE
 	JSON.h
 	Logging.h
 	MessagePort.h
+	POSIXTokenizer.h
 	RelocMemSection.h
 	String.h
 	TypeTraits.h

@@ -26,7 +26,11 @@
 
 PANSIControlCode PANSIEscapeCodeParser::ProcessCharacter(char character)
 {
-    if (character == 0x08 || character == 0x7f) {
+    if (character == 0x03) {
+        return PANSIControlCode::Break;
+    } else if (character == 0x04) {
+        return PANSIControlCode::Disconnect;
+    } else if (character == 0x08 || character == 0x7f) {
         return PANSIControlCode::Backspace;
     }
 
@@ -45,6 +49,11 @@ PANSIControlCode PANSIEscapeCodeParser::ProcessCharacter(char character)
             {
                 m_ControlState = EControlState::WaitingForEnd;
                 return PANSIControlCode::Pending;
+            }
+            else if (character == 0x1b)
+            {
+                m_ControlState = EControlState::None;
+                return PANSIControlCode::Escape;
             }
             m_ControlState = EControlState::None;
             return PANSIControlCode::None;

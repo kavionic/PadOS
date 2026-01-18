@@ -21,6 +21,10 @@
 
 PAppDefinition* PAppDefinition::s_FirstApp = nullptr;
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PAppDefinition::PAppDefinition(const char* name, int (*mainEntry)(int argc, char* argv[]), size_t stackSize)
     : Name(name)
     , MainEntry(mainEntry)
@@ -29,6 +33,10 @@ PAppDefinition::PAppDefinition(const char* name, int (*mainEntry)(int argc, char
     m_NextApp = s_FirstApp;
     s_FirstApp = this;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 PAppDefinition::~PAppDefinition()
 {
@@ -42,6 +50,10 @@ PAppDefinition::~PAppDefinition()
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 const PAppDefinition* PAppDefinition::FindApplication(const char* name)
 {
     for (const PAppDefinition* app = __app_definition.FirstAppPointer; app != nullptr; app = app->m_NextApp)
@@ -51,4 +63,18 @@ const PAppDefinition* PAppDefinition::FindApplication(const char* name)
         }
     }
     return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+std::vector<const PAppDefinition*> PAppDefinition::GetApplicationList()
+{
+    std::vector<const PAppDefinition*> apps;
+    for (const PAppDefinition* app = __app_definition.FirstAppPointer; app != nullptr; app = app->m_NextApp)
+    {
+        apps.push_back(app);
+    }
+    return apps;
 }

@@ -46,9 +46,10 @@ public:
 
     void SendText(const char* text, size_t length);
     void SendText(const PString& text) { SendText(text.c_str(), text.size()); }
+    void SendNewline() { SendText("\n", 1); }
 
     template<typename... TArgTypes>
-    void SendANSICode(PANSIControlCode code, TArgTypes ...args)
+    void SendANSICode(PANSI_ControlCode code, TArgTypes ...args)
     {
         SendText(m_ANSICodeParser.FormatANSICode(code, std::forward<TArgTypes>(args)...));
     }
@@ -77,8 +78,16 @@ public:
     void RegisterCommand(const PString& name, Ptr<KConsoleCommand> command) { m_Commands[name] = command; }
 
 private:
+    static size_t GetCommonStartLength(const std::vector<PString>& alternatives);
+
+    void PrintPendingExpansionAlternatives();
+
+    void                    ExpandArgument();
+    std::vector<PString>    ExpandCommandName(size_t argumentIndex, const PString& argumentText, size_t argumentOffset, size_t& outReplaceStart, size_t& outReplaceEnd);
+    std::vector<PString>    ExpandFilePath(size_t argumentIndex, const PString& argumentText, size_t argumentOffset, size_t& outReplaceStart, size_t& outReplaceEnd);
+
     void ProcessCmdLine(PPOSIXTokenizer&& tokenizer);
-    void ProcessControlChar(PANSIControlCode controlChar, const std::vector<int>& args);
+    void ProcessControlChar(PANSI_ControlCode controlChar, const std::vector<int>& args);
 
     static KDebugConsole s_Instance;
 
@@ -96,6 +105,8 @@ private:
 
     size_t  m_HistoryLocation = 0;
     size_t  m_CursorPosition = 0;
+
+    std::vector<PString> m_PendingExpansionAlternatives;
 
     std::map<PString, Ptr<KConsoleCommand>> m_Commands;
 };

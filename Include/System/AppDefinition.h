@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <vector>
 #include <stdint.h>
 #include <signal.h>
 
@@ -33,6 +34,7 @@ public:
     ~PAppDefinition();
 
     static const PAppDefinition* FindApplication(const char* name);
+    static std::vector<const PAppDefinition*> GetApplicationList();
 
     const char* Name = nullptr;
     int (*MainEntry)(int argc, char* argv[]);

@@ -24,14 +24,16 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PANSIControlCode PANSIEscapeCodeParser::ProcessCharacter(char character)
+PANSI_ControlCode PANSIEscapeCodeParser::ProcessCharacter(char character)
 {
     if (character == 0x03) {
-        return PANSIControlCode::Break;
+        return PANSI_ControlCode::Break;
     } else if (character == 0x04) {
-        return PANSIControlCode::Disconnect;
+        return PANSI_ControlCode::Disconnect;
     } else if (character == 0x08 || character == 0x7f) {
-        return PANSIControlCode::Backspace;
+        return PANSI_ControlCode::Backspace;
+    } else if (character == 0x09) {
+        return PANSI_ControlCode::Tab;
     }
 
     switch (m_ControlState)
@@ -41,27 +43,27 @@ PANSIControlCode PANSIEscapeCodeParser::ProcessCharacter(char character)
             {
                 m_ControlState = EControlState::WaitingForStart;
                 m_CodeArgs = { 0 };
-                return PANSIControlCode::Pending;
+                return PANSI_ControlCode::Pending;
             }
-            return PANSIControlCode::None;
+            return PANSI_ControlCode::None;
         case EControlState::WaitingForStart:
             if (character == '[')
             {
                 m_ControlState = EControlState::WaitingForEnd;
-                return PANSIControlCode::Pending;
+                return PANSI_ControlCode::Pending;
             }
             else if (character == 0x1b)
             {
                 m_ControlState = EControlState::None;
-                return PANSIControlCode::Escape;
+                return PANSI_ControlCode::Escape;
             }
             m_ControlState = EControlState::None;
-            return PANSIControlCode::None;
+            return PANSI_ControlCode::None;
         case EControlState::WaitingForEnd:
             if (character >= 0x40 && character <= 0x7e)
             {
                 m_ControlState = EControlState::None;
-                return PANSIControlCode(character);
+                return PANSI_ControlCode(character);
             }
             else if (character >= 0x30 && character <= 0x3F)
             {
@@ -70,25 +72,25 @@ PANSIControlCode PANSIEscapeCodeParser::ProcessCharacter(char character)
                 } else if (std::isdigit(character)) {
                     m_CodeArgs.back() = m_CodeArgs.back() * 10 + character - '0';
                 }
-                return PANSIControlCode::Pending;
+                return PANSI_ControlCode::Pending;
             }
             else if (character >= 0x20 && character <= 0x2F)
             {
                 // Intermediate.
-                return PANSIControlCode::Pending;
+                return PANSI_ControlCode::Pending;
             }
             m_ControlState = EControlState::None;
-            return PANSIControlCode::None;
+            return PANSI_ControlCode::None;
 
     }
-    return PANSIControlCode::None;
+    return PANSI_ControlCode::None;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString PANSIEscapeCodeParser::FormatANSICode(PANSIControlCode code, std::vector<int> args)
+PString PANSIEscapeCodeParser::FormatANSICode(PANSI_ControlCode code, std::vector<int> args)
 {
     PString text = "\033[";
     bool first = true;

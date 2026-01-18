@@ -122,19 +122,11 @@ PPOSIXTokenizer::Termination PPOSIXTokenizer::SetText(const PString& text)
     return m_Termination;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
-PString PPOSIXTokenizer::GetTokenText(const Token& token) const
+void PPOSIXTokenizer::ParseToken(const Token& token, std::function<bool(size_t position, char character)>&& callback) const
 {
-    if (!token.HasFormatting)
-    {
-        return PString(&m_Text[token.Start], &m_Text[token.End]);
-    }
     QuoteMode        quouteMode = QuoteMode::None;
     std::string_view text(&m_Text[token.Start], &m_Text[token.End]);
-    PString          tokenText;
 
     for (size_t i = 0; i < text.size(); ++i)
     {
@@ -154,7 +146,7 @@ PString PPOSIXTokenizer::GetTokenText(const Token& token) const
                 else if (character == '\\')
                 {
                     if (i + 1 >= text.size()) {
-                        return tokenText; // Trailing backslash.
+                        return; // Trailing backslash.
                     }
                     const char nextChar = text[i + 1];
                     if (nextChar == '\n')
@@ -163,22 +155,21 @@ PString PPOSIXTokenizer::GetTokenText(const Token& token) const
                     }
                     else
                     {
-                        tokenText.push_back(nextChar);
                         ++i;
+                        if (!callback(i, nextChar)) return;
                     }
                 }
                 else
                 {
-                    tokenText.push_back(character);
+                    if (!callback(i, character)) return;
                 }
                 break;
 
             case QuoteMode::InSingle:
                 if (character == '\'') {
                     quouteMode = QuoteMode::None;
-                }
-                else {
-                    tokenText.push_back(character);
+                } else {
+                    if (!callback(i, character)) return;
                 }
                 break;
 
@@ -190,24 +181,101 @@ PString PPOSIXTokenizer::GetTokenText(const Token& token) const
                 else if (character == '\\')
                 {
                     if (i + 1 >= text.size()) {
-                        return tokenText; // Trailing backslash.
+                        return; // Trailing backslash.
                     }
                     const char nextChar = text[i + 1];
                     // Backslash in double-quote only special before \, ", $, `, or newline.
                     if (nextChar == '\\' || nextChar == '"' || nextChar == '$' || nextChar == '`') {
-                        tokenText.push_back(nextChar); ++i;
+                        if (!callback(++i, nextChar)) return;
                     } else if (nextChar == '\n') {
                         ++i; // Remove both \ and newline (line continuation).
                     } else {
-                        tokenText.push_back('\\'); // Backslash preserved literally.
+                        if (!callback(i, character)) return; // Backslash preserved literally.
                     }
                 }
                 else
                 {
-                    tokenText.push_back(character);
+                    if (!callback(i, character)) return;
                 }
                 break;
         }
     }
-    return tokenText;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PString PPOSIXTokenizer::GetTokenText(const Token& token) const
+{
+    if (!token.HasFormatting)
+    {
+        return PString(&m_Text[token.Start], &m_Text[token.End]);
+    }
+    else
+    {
+        PString tokenText;
+
+        ParseToken(token, [&tokenText](size_t position, char character) { tokenText.push_back(character); return true; });
+
+        return tokenText;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t PPOSIXTokenizer::TokenToGlobalOffset(const Token& token, size_t tokenOffset) const
+{
+    if (tokenOffset == token.End - token.Start) {
+        return token.End;
+    }
+    size_t globalPos = INVALID_INDEX;
+    size_t tokenPos = 0;
+    ParseToken(token, [tokenOffset, &token, &globalPos, &tokenPos](size_t charPos, char character) noexcept
+        {
+            if (tokenPos == tokenOffset)
+            {
+                globalPos = token.Start + charPos;
+                return false;
+            }
+            tokenPos++;
+            return true;
+        }
+    );
+    return globalPos;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t PPOSIXTokenizer::GetTokenByPosition(size_t position, size_t& outOffsetInToken) const
+{
+    auto i = std::lower_bound(m_Tokens.begin(), m_Tokens.end(), position, [](const Token& lhs, size_t rhs) { return lhs.Start < rhs; });
+    if (i != m_Tokens.begin())
+    {
+        --i;
+        if (i != m_Tokens.end() && position <= i->End)
+        {
+            const Token& token = *i;
+
+
+            size_t tokenPos = 0;
+            ParseToken(token, [position, &token, &tokenPos](size_t charPos, char character) noexcept
+                {
+                    if (token.Start + charPos >= position) {
+                        return false;
+                    }
+                    tokenPos++;
+                    return true;
+                }
+            );
+            outOffsetInToken = tokenPos;
+
+            return i - m_Tokens.begin();
+        }
+    }
+    return INVALID_INDEX;
 }

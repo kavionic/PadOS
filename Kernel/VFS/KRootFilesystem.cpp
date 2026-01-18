@@ -235,7 +235,7 @@ size_t KRootFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode>
                 entry->d_namlen = static_cast<decltype(entry->d_namlen)>(name.size());
                 name.copy(entry->d_name, name.size());
                 entry->d_name[name.size()] = '\0';
-                return 1;
+                return sizeof(dirent_t);
             }
         }
         return 0;

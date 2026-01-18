@@ -24,6 +24,7 @@
 #include <PadOS/Time.h>
 #include <Utils/POSIXTokenizer.h>
 #include <Utils/Logging.h>
+#include <System/AppDefinition.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/DebugConsole/KDebugConsole.h>
 #include <Kernel/VFS/FileIO.h>
@@ -80,7 +81,7 @@ void* KDebugConsole::Run()
             if (curTime >= nextSizeQueryTime)
             {
                 nextSizeQueryTime = curTime + TimeValNanos::FromMilliseconds(250);
-                SendANSICode(PANSIControlCode::XTerm_XTWINOPS, 18);
+                SendANSICode(PANSI_ControlCode::XTerm_XTWINOPS, 18);
             }
 
             size_t start = 0;
@@ -88,11 +89,11 @@ void* KDebugConsole::Run()
             {
                 if (i != length)
                 {
-                    const PANSIControlCode controlChar = m_ANSICodeParser.ProcessCharacter(buffer[i]);
-                    if (controlChar != PANSIControlCode::None)
+                    const PANSI_ControlCode controlChar = m_ANSICodeParser.ProcessCharacter(buffer[i]);
+                    if (controlChar != PANSI_ControlCode::None)
                     {
                         start = i + 1;
-                        if (controlChar != PANSIControlCode::Pending) {
+                        if (controlChar != PANSI_ControlCode::Pending) {
                             ProcessControlChar(controlChar, m_ANSICodeParser.GetArguments());
                         }
                         continue;
@@ -128,6 +129,8 @@ void* KDebugConsole::Run()
 
 void KDebugConsole::AddInputText(const char* text, size_t length)
 {
+    m_PendingExpansionAlternatives.clear();
+
     m_EditBuffer.insert(m_EditBuffer.begin() + m_CursorPosition, text, text + length);
 
     m_CursorPosition += length;
@@ -153,6 +156,8 @@ void KDebugConsole::AddInputText(const char* text, size_t length)
 void KDebugConsole::EnterPressed()
 {
     write(1, "\n", 1);
+
+    m_PendingExpansionAlternatives.clear();
 
     const PString& lineBuffer = m_InputBuffer.empty() ? m_EditBuffer : (m_InputBuffer + m_EditBuffer);
 
@@ -237,14 +242,14 @@ void KDebugConsole::MoveScreenCursor(const PIPoint& startPos, const PIPoint& end
     const PIPoint delta = endPos - startPos;
     ShowTerminalCursor(false);
     if (delta.y < 0) {
-        SendANSICode(PANSIControlCode::XTerm_Up, -delta.y);
+        SendANSICode(PANSI_ControlCode::XTerm_Up, -delta.y);
     } else if (delta.y > 0) {
-        SendANSICode(PANSIControlCode::XTerm_Down, delta.y);
+        SendANSICode(PANSI_ControlCode::XTerm_Down, delta.y);
     }
     if (delta.x < 0) {
-        SendANSICode(PANSIControlCode::XTerm_Left, -delta.x);
+        SendANSICode(PANSI_ControlCode::XTerm_Left, -delta.x);
     } else if (delta.x > 0) {
-        SendANSICode(PANSIControlCode::XTerm_Right, delta.x);
+        SendANSICode(PANSI_ControlCode::XTerm_Right, delta.x);
     }
     ShowTerminalCursor(true);
 }
@@ -255,6 +260,8 @@ void KDebugConsole::MoveScreenCursor(const PIPoint& startPos, const PIPoint& end
 
 void KDebugConsole::MoveCursor(int distance)
 {
+    m_PendingExpansionAlternatives.clear();
+
     if (distance < 0) {
         if (-distance > m_CursorPosition) distance = -m_CursorPosition;
     } else {
@@ -277,6 +284,8 @@ void KDebugConsole::MoveCursor(int distance)
 
 void KDebugConsole::MoveInHistory(int distance)
 {
+    m_PendingExpansionAlternatives.clear();
+
     if (!m_InputBuffer.empty()) {
         return; // No navigation during multi-line input.
     }
@@ -308,6 +317,8 @@ void KDebugConsole::MoveInHistory(int distance)
 
 void KDebugConsole::DeleteChar()
 {
+    m_PendingExpansionAlternatives.clear();
+
     if (m_CursorPosition < m_EditBuffer.size())
     {
         m_EditBuffer.erase(m_EditBuffer.begin() + m_CursorPosition);
@@ -321,6 +332,8 @@ void KDebugConsole::DeleteChar()
 
 void KDebugConsole::BackspaceChar()
 {
+    m_PendingExpansionAlternatives.clear();
+
     if (m_CursorPosition > 0)
     {
         MoveCursor(-1);
@@ -340,12 +353,12 @@ void KDebugConsole::RefreshText(size_t startPosition)
     SendText(&m_EditBuffer[startPosition], length);
 
     const PIPoint postScreenPos = GetScreenPosition(m_CursorPosition);
-    const PIPoint preScreenPos = GetScreenPosition(m_EditBuffer.size());
+    const PIPoint preScreenPos  = GetScreenPosition(m_EditBuffer.size());
 
     if (preScreenPos.x == 0) {
         SendText(" \010", 2); // Punch through "pending wrap".
     }
-    SendANSICode(PANSIControlCode::EraseDisplay);
+    SendANSICode(PANSI_ControlCode::EraseDisplay);
 
     MoveScreenCursor(preScreenPos, postScreenPos);
 }
@@ -356,6 +369,8 @@ void KDebugConsole::RefreshText(size_t startPosition)
 
 void KDebugConsole::ResetInput()
 {
+    m_PendingExpansionAlternatives.clear();
+
     const PString& lineBuffer = m_InputBuffer.empty() ? m_EditBuffer : (m_InputBuffer + m_EditBuffer);
 
     if (!lineBuffer.empty()) {
@@ -371,7 +386,265 @@ void KDebugConsole::ResetInput()
 
     SendText("\n", 1);
     SendText(m_Prompt);
-    SendANSICode(PANSIControlCode::EraseDisplay);
+    SendANSICode(PANSI_ControlCode::EraseDisplay);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t KDebugConsole::GetCommonStartLength(const std::vector<PString>& alternatives)
+{
+    if (alternatives.empty()) {
+        return 0;
+    } else if (alternatives.size() == 1) {
+        return alternatives[0].size();
+    }
+    for (size_t commonStartLength = 0; ; ++commonStartLength)
+    {
+        for (size_t i = 0; i < alternatives.size(); ++i)
+        {
+            const PString& text = alternatives[i];
+            const size_t   length = (alternatives[i].back() == '\\') ? (alternatives[i].size() - 1) : alternatives[i].size();
+
+            if (length <= commonStartLength)
+            {
+                return commonStartLength;
+            }
+            if (i != 0)
+            {
+                if (text[commonStartLength] != alternatives[0][commonStartLength])
+                {
+                    return commonStartLength;
+                }
+            }
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::PrintPendingExpansionAlternatives()
+{
+    std::vector<PString> alternatives = std::move(m_PendingExpansionAlternatives);
+
+    const size_t cursorPosition = m_CursorPosition;
+
+    MoveCursor(m_EditBuffer.size() - m_CursorPosition);
+    SendNewline();
+
+    SendANSICode(PANSI_ControlCode::SetRenderProperty, int(PANSI_RenderProperty::FgColor_BrightGreen));
+
+    for (size_t i = 0; i < alternatives.size(); ++i)
+    {
+        if (i != 0) SendText(" ", 1);
+
+        const PString& text = alternatives[i];
+        const size_t   length = (alternatives[i].back() == '\\') ? (alternatives[i].size() - 1) : alternatives[i].size();
+
+        SendText(text.c_str(), length);
+    }
+
+    SendANSICode(PANSI_ControlCode::SetRenderProperty, int(PANSI_RenderProperty::Reset));
+
+    SendNewline();
+    SendText(m_Prompt);
+    RefreshText(0);
+    MoveCursor(cursorPosition);
+
+    m_PendingExpansionAlternatives = std::move(alternatives);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::ExpandArgument()
+{
+    if (!m_PendingExpansionAlternatives.empty())
+    {
+        PrintPendingExpansionAlternatives();
+        return;
+    }
+    const PString& lineBuffer = m_InputBuffer.empty() ? m_EditBuffer : (m_InputBuffer + m_EditBuffer);
+
+    std::vector<PString> alternatives;
+
+    size_t replaceStart;
+    size_t replaceEnd;
+
+    if (lineBuffer.empty())
+    {
+        alternatives = ExpandCommandName(0, PString::zero, 0, replaceStart, replaceEnd);
+    }
+    else
+    {
+        PPOSIXTokenizer tokenizer(lineBuffer);
+
+        size_t tokenPosition = 0;
+        const size_t tokenIndex = tokenizer.GetTokenByPosition(m_CursorPosition, tokenPosition);
+
+        if (tokenIndex != INVALID_INDEX)
+        {
+            const PPOSIXTokenizer::Token& token = tokenizer.GetTokens()[tokenIndex];
+
+            PString text = tokenizer.GetTokenText(token);
+
+            if (tokenIndex == 0) {
+                alternatives = ExpandCommandName(tokenIndex, text, tokenPosition, replaceStart, replaceEnd);
+            } else {
+                alternatives = ExpandFilePath(tokenIndex, text, tokenPosition, replaceStart, replaceEnd);
+            }
+            replaceStart = tokenizer.TokenToGlobalOffset(token, replaceStart);
+            replaceEnd   = tokenizer.TokenToGlobalOffset(token, replaceEnd);
+        }
+    }
+
+    if (alternatives.empty()) {
+        return;
+    }
+
+    const size_t replacementLength = replaceEnd - replaceStart;
+    PString replacementString;
+
+    bool finalExpansion = true;
+
+    if (alternatives.size() == 1)
+    {
+        replacementString = alternatives[0];
+        if (replacementString.back() == '\\')
+        {
+            finalExpansion = false;
+            replacementString.resize(replacementString.size() - 1);
+        }
+    }
+    else
+    {
+        finalExpansion = false;
+        const size_t commonStartLength = GetCommonStartLength(alternatives);
+        if (commonStartLength > replacementLength ||
+            (commonStartLength == replacementLength &&
+             std::string_view(m_EditBuffer.c_str() + replaceStart, commonStartLength) != std::string_view(alternatives[0].c_str(), commonStartLength)))
+        {
+            replacementString = PString(alternatives[0].data(), commonStartLength);
+        }
+    }
+
+    if (!replacementString.empty())
+    {
+        assert(replaceStart != INVALID_INDEX);
+        assert(replaceEnd != INVALID_INDEX);
+
+        for (size_t i = 0; i < replacementString.size(); ++i)
+        {
+            if (replacementString[i] == ' ')
+            {
+                replacementString.insert(replacementString.begin() + i, '\\');
+                ++i;
+            }
+        }
+
+        MoveCursor(replaceStart - m_CursorPosition);
+
+        if (finalExpansion && replaceEnd == m_EditBuffer.size()) {
+            replacementString += " ";
+        }
+        m_CursorPosition = replaceStart + replacementString.size();
+
+        m_EditBuffer.erase(m_EditBuffer.begin() + replaceStart, m_EditBuffer.begin() + replaceEnd);
+        m_EditBuffer.insert(m_EditBuffer.begin() + replaceStart, replacementString.begin(), replacementString.end());
+
+        RefreshText(replaceStart);
+    }
+    else
+    {
+        m_PendingExpansionAlternatives = std::move(alternatives);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+std::vector<PString> KDebugConsole::ExpandCommandName(size_t argumentIndex, const PString& argumentText, size_t argumentOffset, size_t& outReplaceStart, size_t& outReplaceEnd)
+{
+    std::vector<PString> alternatives;
+
+    for (const auto& i : m_Commands)
+    {
+        if (i.first.starts_with_nocase(argumentText.c_str()))
+        {
+            alternatives.push_back(i.first);
+        }
+    }
+
+    const std::vector<const PAppDefinition*> apps = PAppDefinition::GetApplicationList();
+
+    for (const PAppDefinition* app : apps)
+    {
+        PString entryName(app->Name);
+        if (entryName.starts_with_nocase(argumentText.c_str()))
+        {
+            alternatives.push_back(std::move(entryName));
+        }
+    }
+    outReplaceStart = 0;
+    outReplaceEnd   = argumentText.size();
+
+    std::sort(alternatives.begin(), alternatives.end());
+
+    return alternatives;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+std::vector<PString> KDebugConsole::ExpandFilePath(size_t argumentIndex, const PString& argumentText, size_t argumentOffset, size_t& outReplaceStart, size_t& outReplaceEnd)
+{
+    PString folderPath;
+    PString filename;
+
+    for (ssize_t i = argumentOffset - 1; i >= 0; --i)
+    {
+        if (argumentText[i] == '/')
+        {
+            outReplaceStart = i + 1;
+            outReplaceEnd = argumentText.size();
+            folderPath.insert(folderPath.begin(), &argumentText[0], &argumentText[i+1]);
+            filename.insert(filename.begin(), &argumentText[i+1], &argumentText[argumentText.size()]);
+
+            if (folderPath.size() < 2) folderPath += ".";
+            break;
+        }
+    }
+
+    std::vector<PString> alternatives;
+    if (!folderPath.empty())
+    {
+        int directory = open(folderPath.c_str(), O_RDONLY | O_DIRECTORY);
+        if (directory != -1)
+        {
+            dirent_t entry;
+
+            while(kread_directory(directory, &entry, sizeof(entry)) == sizeof(entry))
+            {
+                PString entryName(entry.d_name, entry.d_namlen);
+                if (entryName != "." && entryName != ".." && entryName.starts_with_nocase(filename.c_str()))
+                {
+                    if (entry.d_type == DT_DIR) {
+                        entryName += "/\\";
+                    }
+                    alternatives.push_back(std::move(entryName));
+                }
+            }
+            close(directory);
+        }
+    }
+    std::sort(alternatives.begin(), alternatives.end());
+    return alternatives;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -411,40 +684,43 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KDebugConsole::ProcessControlChar(PANSIControlCode controlChar, const std::vector<int>& args)
+void KDebugConsole::ProcessControlChar(PANSI_ControlCode controlChar, const std::vector<int>& args)
 {
     switch(controlChar)
     {
-        case PANSIControlCode::Break:
+        case PANSI_ControlCode::Break:
             SendText("^C", 2);
             ResetInput();
             break;
-        case PANSIControlCode::Disconnect:
+        case PANSI_ControlCode::Disconnect:
             SendText("^D", 2);
             ResetInput();
             break;
-        case PANSIControlCode::XTerm_Left:
+        case PANSI_ControlCode::XTerm_Left:
             MoveCursor(-1);
             break;
-        case PANSIControlCode::XTerm_Right:
+        case PANSI_ControlCode::XTerm_Right:
             MoveCursor(1);
             break;
-        case PANSIControlCode::XTerm_Up:
+        case PANSI_ControlCode::XTerm_Up:
             MoveInHistory(-1);
             break;
-        case PANSIControlCode::XTerm_Down:
+        case PANSI_ControlCode::XTerm_Down:
             MoveInHistory(1);
             break;
-        case PANSIControlCode::XTerm_End:
+        case PANSI_ControlCode::XTerm_End:
             MoveToEnd();
             break;
-        case PANSIControlCode::XTerm_Home:
+        case PANSI_ControlCode::XTerm_Home:
             MoveToHome();
             break;
-        case PANSIControlCode::Backspace:
+        case PANSI_ControlCode::Backspace:
             BackspaceChar();
             break;
-        case PANSIControlCode::VT_Keycode:
+        case PANSI_ControlCode::Tab:
+            ExpandArgument();
+            break;
+        case PANSI_ControlCode::VT_Keycode:
             if (args.size() >= 1)
             {
                 switch(PANSI_VT_KeyCodes(args[0]))
@@ -473,7 +749,7 @@ void KDebugConsole::ProcessControlChar(PANSIControlCode controlChar, const std::
                 }
             }
             break;
-        case PANSIControlCode::XTerm_XTWINOPS:
+        case PANSI_ControlCode::XTerm_XTWINOPS:
             if (args.size() >= 3 && args[0] == 8) {
                 m_TerminalSize = PIPoint(args[2], args[1]);
             }

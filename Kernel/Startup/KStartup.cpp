@@ -149,6 +149,9 @@ void* main_thread_entry(void* argument)
     kset_real_time(RealtimeClock::GetClock(), false);
 
     KBlockCache::Initialize();
+
+    kchdir_trw("/");
+
     initialize_device_drivers();
 
     uint32_t control;

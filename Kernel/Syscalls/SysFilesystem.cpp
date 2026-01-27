@@ -471,8 +471,14 @@ PErrorCode sys_get_directory_path(int handle, char* buffer, size_t bufferSize)
 
 PErrorCode sys_chdir(const char* path)
 {
-    validate_user_read_string_trw(path, PATH_MAX);
-    return PErrorCode::NotImplemented;
+    try
+    {
+        validate_user_read_string_trw(path, PATH_MAX);
+
+        kchdir_trw(path);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -481,12 +487,17 @@ PErrorCode sys_chdir(const char* path)
 
 PErrorCode sys_getcwd(char* pathBuffer, size_t bufferSize)
 {
-    if (bufferSize < 2) {
-        return PErrorCode::Range;
+    try
+    {
+        kgetcwd_trw(pathBuffer, bufferSize);
+        return PErrorCode::Success;
     }
-    strncpy(pathBuffer, "/", bufferSize);
-    return PErrorCode::Success;
+    PERROR_CATCH_RET_CODE;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 PErrorCode sys_mount(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength)
 {

@@ -25,13 +25,12 @@
 
 #include <pugixml.hpp>
 
-#include "String.h"
+#include <Utils/String.h>
 
 #include "Ptr/Ptr.h"
 
 namespace os
 {
-class String;
 class Point;
 class Rect;
 class LayoutNode;
@@ -52,7 +51,7 @@ bool parse(const char* text, float& value);
 bool parse(const char* text, double& value);
 bool parse(const char* text, bool& value);
 
-bool parse(const char* text, os::String& value);
+bool parse(const char* text, PString& value);
 bool parse(const char* text, os::Point& value);
 bool parse(const char* text, os::Rect& value);
 bool parse(const char* text, Ptr<os::LayoutNode>& value);
@@ -62,7 +61,7 @@ bool parse(const char* text, os::KeyCodes& value);
 
 
 template<typename T>
-bool parse_flags(const char* text, const std::map<os::String, T>& flagDefinitions, T& value)
+bool parse_flags(const char* text, const std::map<PString, T>& flagDefinitions, T& value)
 {
     T flags = 0;
     const char* start = text;
@@ -75,7 +74,7 @@ bool parse_flags(const char* text, const std::map<os::String, T>& flagDefinition
         if (end == nullptr) end = start + strlen(start);
         while (isspace(end[-1])) --end;
 
-        auto i = flagDefinitions.find(os::String(start, end));
+        auto i = flagDefinitions.find(PString(start, end));
         if (i != flagDefinitions.end()) {
             flags |= i->second;
         }
@@ -100,7 +99,7 @@ T parse_attribute(const pugi::xml_node& xmlNode, const char* name, const T& defa
 }
 
 template<typename T>
-T parse_flags_attribute(const pugi::xml_node& xmlNode, const std::map<os::String, T>& flagDefinitions, const char* name, const T& defaultValue)
+T parse_flags_attribute(const pugi::xml_node& xmlNode, const std::map<PString, T>& flagDefinitions, const char* name, const T& defaultValue)
 {
     pugi::xml_attribute attribute = xmlNode.attribute(name);
     if (!attribute.empty())

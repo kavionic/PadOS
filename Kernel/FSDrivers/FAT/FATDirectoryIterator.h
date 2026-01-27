@@ -24,10 +24,8 @@
 #include "Kernel/VFS/KBlockCache.h"
 #include "FATClusterSectorIterator.h"
 
-namespace os
-{
-class String;
-}
+class PString;
+
 
 namespace kernel
 {
@@ -90,8 +88,8 @@ public:
     FATDirectoryEntryCombo* GetCurrentEntry();
     FATDirectoryEntryCombo* GetNextRawEntry();
 
-    bool                    GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, os::String* outFilename);
-    bool                    GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, os::String* outFilename, uint32_t* outDosAttribs);
+    bool                    GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* outFilename);
+    bool                    GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, PString* outFilename, uint32_t* outDosAttribs);
 
     FATDirectoryEntryCombo* Rewind();
     void                    MarkDirty() { m_IsDirty = true; }  

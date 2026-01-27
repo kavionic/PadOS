@@ -23,10 +23,7 @@
 #include <Utils/Logging.h>
 #include <Kernel/VFS/KFilesystem.h>
 
-namespace os
-{
-class String;
-}
+class PString;
 
 namespace kernel
 {
@@ -97,13 +94,13 @@ public:
 private:
     uint32_t CreateVolumeLabel(Ptr<FATVolume> vol, const char* name);
     bool FindShortName(Ptr<FATVolume> vol, Ptr<FATINode> parent, const char* rawShortName);
-    Ptr<FATINode> DoLocateINode(Ptr<FATVolume> vol, Ptr<FATINode> dir, const os::String& fileName);
+    Ptr<FATINode> DoLocateINode(Ptr<FATVolume> vol, Ptr<FATINode> dir, const PString& fileName);
     bool IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATINode> dir);
-    void CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> parent, Ptr<FATINode> node, const os::String& name, uint32_t* startIndex, uint32_t* endIndex);
+    void CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> parent, Ptr<FATINode> node, const PString& name, uint32_t* startIndex, uint32_t* endIndex);
     void DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t len, uint32_t* startIndex, uint32_t* endIndex);
     void CompactDirectory(Ptr<FATVolume> vol, Ptr<FATINode> dir);
     void EraseDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> node);
-    void DoUnlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const os::String& name, bool removeFile);
+    void DoUnlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const PString& name, bool removeFile);
 
 };
 

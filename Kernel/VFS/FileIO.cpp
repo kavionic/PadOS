@@ -17,18 +17,18 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 08.05.2018 20:01:27
 
-#include "System/Platform.h"
 
 #include <string.h>
 #include <fcntl.h>
 #include <sys/uio.h>
 
-#include "Kernel/VFS/FileIO.h"
-#include "Kernel/VFS/KFileHandle.h"
-#include "Kernel/VFS/KFSVolume.h"
-#include "Kernel/VFS/KINode.h"
-#include "Kernel/VFS/KRootFilesystem.h"
-#include "Kernel/VFS/KVFSManager.h"
+#include <Kernel/KProcess.h>
+#include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/VFS/KFSVolume.h>
+#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KRootFilesystem.h>
+#include <Kernel/VFS/KVFSManager.h>
 #include <System/ExceptionHandling.h>
 
 using namespace os;
@@ -49,14 +49,14 @@ static std::vector<Ptr<KFileTableNode>>         kg_FileTable;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static int PrependNameToPath(char* buffer, int currentPathLength, char* name, int nameLength)
+static int PrependNameToPath(char* buffer, size_t currentPathLength, const char* name, size_t nameLength)
 {
     if (currentPathLength > 0) {
         memmove(buffer + nameLength + 1, buffer, currentPathLength);
     }
     buffer[0] = '/';
     memcpy(buffer + 1, name, nameLength);
-    return(currentPathLength + nameLength + 1);
+    return currentPathLength + nameLength + 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -112,6 +112,15 @@ Ptr<KFilesystem> kfind_filesystem_trw(const char* name)
         return i->second;
     }
     PERROR_THROW_CODE(PErrorCode::NoEntry);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KIOContext* kget_io_context()
+{
+    return gk_CurrentProcess->GetIOContext();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -673,6 +682,18 @@ size_t kreadlink_trw(int baseFolderFD, const char* path, char* buffer, size_t bu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void kread_stat_trw(Ptr<KINode> inode, struct stat* outStats)
+{
+    if (inode == nullptr || inode->m_FileOps == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    }
+    inode->m_FileOps->ReadStat(inode->m_Volume, inode, outStats);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void kread_stat_trw(int handle, struct stat* outStats)
 {
     Ptr<KFileTableNode> node = kget_file_table_node_trw(handle);
@@ -680,7 +701,7 @@ void kread_stat_trw(int handle, struct stat* outStats)
     if (inode == nullptr || inode->m_FileOps == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NotImplemented);
     }
-    inode->m_FileOps->ReadStat(inode->m_Volume, inode, outStats);
+    kread_stat_trw(inode, outStats);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1107,6 +1128,7 @@ Ptr<KINode> klocate_inode_by_path_trw(Ptr<KINode> parent, const char* path, int 
 
 Ptr<KINode> klocate_parent_inode_trw(Ptr<KINode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength)
 {
+    const KIOContext* const ioContext = kget_io_context();
     Ptr<KINode> current = parent;
 
     int i = 0;
@@ -1117,7 +1139,7 @@ Ptr<KINode> klocate_parent_inode_trw(Ptr<KINode> parent, const char* path, int p
     }
     else if (current == nullptr)
     {
-        current = kg_RootVolume->m_RootNode; // FIXME: Implement working directory
+        current = ioContext->GetCurrentDirectory();
     }
     if (current == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NoEntry);
@@ -1152,6 +1174,16 @@ Ptr<KINode> klocate_parent_inode_trw(Ptr<KINode> parent, const char* path, int p
 void kget_directory_name_trw(Ptr<KINode> inode, char* path, size_t bufferSize)
 {
     int         pathLength = 0;
+
+    if (inode == kg_RootVolume->m_RootNode)
+    {
+        if (bufferSize < 2) {
+            PERROR_THROW_CODE(PErrorCode::NameTooLong);
+        }
+        path[0] = '/';
+        path[1] = '\0';
+        return;
+    }
 
     for (;;)
     {
@@ -1281,5 +1313,55 @@ void kset_filehandle(int handle, Ptr<KFileTableNode> file) noexcept
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kfchdir_trw(int handle)
+{
+    KIOContext* const ioContext = kget_io_context();
+
+    const Ptr<KDirectoryNode> dirNode = kget_directory_node_trw(handle);
+    const Ptr<KINode> inode = dirNode->GetINode();
+
+    struct stat stats;
+    kread_stat_trw(inode, &stats);
+
+    if (!S_ISDIR(stats.st_mode)) {
+        PERROR_THROW_CODE(PErrorCode::NotDirectory);
+    }
+
+    ioContext->SetCurrentDirectory(inode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kchdir_trw(const char* path)
+{
+    int fd = kopen_trw(path, O_RDONLY | O_DIRECTORY);
+
+    PScopeExit cleanup([fd]() { kclose(fd); });
+
+    kfchdir_trw(fd);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kgetcwd_trw(char* pathBuffer, size_t bufferSize)
+{
+    const KIOContext* const ioContext = kget_io_context();
+
+    const Ptr<KINode> inode = ioContext->GetCurrentDirectory();
+
+    if (inode == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NoEntry);
+    }
+
+    kget_directory_name_trw(inode, pathBuffer, bufferSize);
+}
 
 } // namespace kernel

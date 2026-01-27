@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2017-2018 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,37 +15,30 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 18/06/19 23:44:30
+// Created: 18.01.2026 22:30
 
-#pragma once
+#include <argparse/argparse.hpp>
 
-#include <map>
-
-#include <System/Sections.h>
-#include <Ptr/Ptr.h>
-
-class KNodeMonitorNode;
+#include <Kernel/DebugConsole/KConsoleCommand.h>
 
 namespace kernel
 {
 
-class KIOContext
+class CCmdCD : public KConsoleCommand
 {
 public:
-    KIOContext();
-    ~KIOContext();
-    
-    bool AddNodeMonitor(Ptr<KNodeMonitorNode> node);
-
-    void        SetCurrentDirectory(Ptr<KINode> inode);
-    Ptr<KINode> GetCurrentDirectory() const;
-
-private:
-    Ptr<KINode> m_CurrentDirectory;
-//    std::map<int, Ptr<KNodeMonitorNode>> m_NodeMonitorMap;
-    
-    KIOContext(const KIOContext&) = delete;
-    KIOContext& operator=(const KIOContext&) = delete;
+    virtual int Invoke(std::vector<std::string>&& args) override
+    {
+        if (args.size() == 2)
+        {
+            chdir(args[1].c_str());
+            return 0;
+        }
+        return 1;
+    }
+    virtual PString GetDescription() const override { return "Change working directory."; }
 };
 
-} // namespace
+static KConsoleCommandRegistrator<CCmdCD> g_RegisterCCmdCD("cd");
+
+} // namespace kernel

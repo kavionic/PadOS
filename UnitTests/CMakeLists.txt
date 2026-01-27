@@ -4,6 +4,7 @@ target_sources(PadOS_UnitTests PRIVATE
 	CircularBuffer_unittest.cpp
 	NamedColors_unittest.cpp
 	PSemaphore_unittest.cpp
+	PString_unittest.cpp
 	PThreadRWLock_unittest.cpp
 	Signal_unittest.cpp
 	STLChronoCalendar_unittest.cpp

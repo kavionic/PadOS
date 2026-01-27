@@ -23,13 +23,13 @@
 
 #include <Utils/XMLFactory.h>
 #include <Utils/FactoryAutoRegistrator.h>
+#include <Utils/String.h>
 #include <GUI/ViewFactoryContext.h>
 #include <Storage/File.h>
 
 
 namespace os
 {
-class String;
 class View;
 
 
@@ -39,7 +39,7 @@ public:
     XMLDocument() { m_Parser = new pugi::xml_document(); }
     ~XMLDocument() { delete m_Parser; }
 
-    bool Load(const String& path)
+    bool Load(const PString& path)
     {
         m_Buffer.clear();
         {
@@ -53,7 +53,7 @@ public:
         }
         return m_Parser->load_buffer_inplace(&m_Buffer[0], m_Buffer.size());
     }
-    bool Parse(String&& data)
+    bool Parse(PString&& data)
     {
         m_Buffer = std::move(data);
         return m_Parser->load_buffer_inplace(&m_Buffer[0], m_Buffer.size());
@@ -62,7 +62,7 @@ public:
     pugi::xml_node GetDocumentElement() { return m_Parser->document_element(); }
 
     pugi::xml_document* m_Parser;
-    String              m_Buffer;
+    PString             m_Buffer;
 };
 
 
@@ -72,9 +72,9 @@ public:
     ViewFactory();
     static ViewFactory& Get();
 
-    Ptr<View> CreateView(Ptr<View> parentView, String&& XML);
+    Ptr<View> CreateView(Ptr<View> parentView, PString&& XML);
     Ptr<View> CreateView(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode);
-    Ptr<View> LoadView(Ptr<View> parentView, const String& path);
+    Ptr<View> LoadView(Ptr<View> parentView, const PString& path);
 
 private:
     bool Parse(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode);

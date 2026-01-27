@@ -27,10 +27,6 @@
 #include <Utils/IntrusiveList.h>
 #include <Kernel/KWaitableObject.h>
 
-namespace os
-{
-class String;
-}
 
 namespace kernel
 {

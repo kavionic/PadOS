@@ -109,8 +109,9 @@ void    ksymlink_trw(const char* target, int baseFolderFD, const char* linkPath)
 
 size_t  kreadlink_trw(int dirfd, const char* path, char* buffer, size_t bufferSize);
 
-void	   kread_stat_trw(int handle, struct stat* outStats);
-void	   kwrite_stat_trw(int handle, const struct stat& value, uint32_t mask);
+void    kread_stat_trw(Ptr<KINode> inode, struct stat* outStats);
+void    kread_stat_trw(int handle, struct stat* outStats);
+void    kwrite_stat_trw(int handle, const struct stat& value, uint32_t mask);
 
 void    krename_trw(const char* oldPath, const char* newPath);
 void    kunlink_trw(const char* path);
@@ -156,5 +157,9 @@ int         kunlink(int baseFolderFD, const char* path) noexcept;
 
 int         kremove_directory(const char* path) noexcept;
 int         kremove_directory(int baseFolderFD, const char* path) noexcept;
+
+void        kfchdir_trw(int handle);
+void        kchdir_trw(const char* path);
+void        kgetcwd_trw(char* pathBuffer, size_t bufferSize);
 
 } // namespace kernel

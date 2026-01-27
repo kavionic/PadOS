@@ -77,6 +77,9 @@ public:
 
     void RegisterCommand(const PString& name, Ptr<KConsoleCommand> command) { m_Commands[name] = command; }
 
+    bool SetPrompt(const PString& text);
+
+    void UpdatePrompt();
 private:
     static size_t GetCommonStartLength(const std::vector<PString>& alternatives);
 

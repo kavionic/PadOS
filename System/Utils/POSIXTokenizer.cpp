@@ -231,7 +231,7 @@ size_t PPOSIXTokenizer::TokenToGlobalOffset(const Token& token, size_t tokenOffs
     if (tokenOffset == token.End - token.Start) {
         return token.End;
     }
-    size_t globalPos = INVALID_INDEX;
+    size_t globalPos = token.End;
     size_t tokenPos = 0;
     ParseToken(token, [tokenOffset, &token, &globalPos, &tokenPos](size_t charPos, char character) noexcept
         {

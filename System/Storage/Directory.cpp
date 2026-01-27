@@ -230,7 +230,7 @@ bool Directory::GetPath(String& outPath) const
 bool Directory::GetNextEntry(String& outName)
 {
     dirent_t entry;
-    if (posix_getdents(GetFileDescriptor(), &entry, sizeof(entry), 0) != 1) {
+    if (posix_getdents(GetFileDescriptor(), &entry, sizeof(entry), 0) != sizeof(entry)) {
         return false;
     }
     outName = entry.d_name;

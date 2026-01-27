@@ -191,10 +191,10 @@ public:
     PANSI_ControlCode ProcessCharacter(char character);
     const std::vector<int>& GetArguments() const { return m_CodeArgs; }
 
-    PString FormatANSICode(PANSI_ControlCode code, std::vector<int> args);
+    static PString FormatANSICode(PANSI_ControlCode code, std::vector<int> args);
 
     template<typename... TArgTypes>
-    PString FormatANSICode(PANSI_ControlCode code, TArgTypes ...args)
+    static PString FormatANSICode(PANSI_ControlCode code, TArgTypes ...args)
     {
         return FormatANSICode(code, { args... });
     }

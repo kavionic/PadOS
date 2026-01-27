@@ -56,7 +56,7 @@ public:
         }
         return 0;
     }
-    virtual PString GetDescription() const override { return "Echo all arguments."; }
+    virtual PString GetDescription() const override { return "Concatenate FILE(s) to standard output."; }
 };
 
 static KConsoleCommandRegistrator<CCmdCat> g_RegisterCCmdCat("cat");

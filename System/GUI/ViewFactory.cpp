@@ -88,7 +88,7 @@ ViewFactory& ViewFactory::Get()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> ViewFactory::CreateView(Ptr<View> parentView, String&& XML)
+Ptr<View> ViewFactory::CreateView(Ptr<View> parentView, PString&& XML)
 {
     XMLDocument doc;
 
@@ -116,7 +116,7 @@ Ptr<View> ViewFactory::CreateView(ViewFactoryContext& context, Ptr<View> parentV
     }
 
     if (parentView == nullptr) {
-        parentView = ptr_new<View>(String::zero);
+        parentView = ptr_new<View>(PString::zero);
     }
 
     parentView->MergeFlags(xml_object_parser::parse_flags_attribute<uint32_t>(xmlNode, ViewFlags::FlagMap, "flags", 0));
@@ -132,14 +132,14 @@ Ptr<View> ViewFactory::CreateView(ViewFactoryContext& context, Ptr<View> parentV
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> ViewFactory::LoadView(Ptr<View> parentView, const String& path)
+Ptr<View> ViewFactory::LoadView(Ptr<View> parentView, const PString& path)
 {
     File file(StandardPaths::GetPath(StandardPath::GUI, path));
 
     if (!file.IsValid()) {
         return nullptr;
     }
-    String buffer;
+    PString buffer;
     if (!file.Read(buffer)) {
         return nullptr;
     }
@@ -153,7 +153,7 @@ Ptr<View> ViewFactory::LoadView(Ptr<View> parentView, const String& path)
 
 bool ViewFactory::Parse(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode)
 {
-    std::vector< std::map<String, pugi::xml_node>::iterator> localTemplates;
+    std::vector< std::map<PString, pugi::xml_node>::iterator> localTemplates;
     for (xml_node childNode = xmlNode.first_child(); childNode; childNode = childNode.next_sibling())
     {
         if (strcmp(childNode.name(), "Template") != 0)

@@ -188,7 +188,7 @@ void KDebugConsole::EnterPressed()
             m_Prompt = m_EditPrompt;
         }
     }
-    SendText(m_Prompt);
+    UpdatePrompt();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -384,9 +384,47 @@ void KDebugConsole::ResetInput()
     
     m_Prompt = m_CmdPrompt;
 
-    SendText("\n", 1);
+    SendNewline();
     SendText(m_Prompt);
     SendANSICode(PANSI_ControlCode::EraseDisplay);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KDebugConsole::SetPrompt(const PString& text)
+{
+    if (text != m_Prompt)
+    {
+        const size_t prevCursorPos = m_CursorPosition;
+        MoveCursor(-m_CursorPosition);
+
+        m_Prompt = text;
+        m_CursorPosition = prevCursorPos;
+
+        SendNewline();
+        SendText(m_Prompt);
+        RefreshText(0);
+        return true;
+    }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::UpdatePrompt()
+{
+    char cwd[PATH_MAX];
+
+    const PString setColor = PANSIEscapeCodeParser::FormatANSICode(PANSI_ControlCode::SetRenderProperty, int(PANSI_RenderProperty::FgColor_Yellow));
+    const PString resetColor = PANSIEscapeCodeParser::FormatANSICode(PANSI_ControlCode::SetRenderProperty, int(PANSI_RenderProperty::Reset));
+
+    if (getcwd(cwd, sizeof(cwd)) == nullptr || !SetPrompt(PString::format_string("[{}{}{}]$ ", setColor, cwd, resetColor))) {
+        SendText(m_Prompt);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -616,9 +654,17 @@ std::vector<PString> KDebugConsole::ExpandFilePath(size_t argumentIndex, const P
             folderPath.insert(folderPath.begin(), &argumentText[0], &argumentText[i+1]);
             filename.insert(filename.begin(), &argumentText[i+1], &argumentText[argumentText.size()]);
 
-            if (folderPath.size() < 2) folderPath += ".";
+            folderPath += ".";
             break;
         }
+    }
+    if (folderPath.empty())
+    {
+        folderPath = ".";
+        filename = argumentText;
+
+        outReplaceStart = 0;
+        outReplaceEnd = argumentText.size();
     }
 
     std::vector<PString> alternatives;

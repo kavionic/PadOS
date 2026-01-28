@@ -27,7 +27,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MessageBox::MessageBox(const String& title, const String& text, DialogButtonSets buttonSet) : DialogBase(title, text, buttonSet)
+MessageBox::MessageBox(const PString& title, const PString& text, DialogButtonSets buttonSet) : DialogBase(title, text, buttonSet)
 {
     m_MessageView = ptr_new<TextView>("TextView", text, nullptr, TextViewFlags::MultiLine);
     m_MessageView->SetWidthOverride(PrefSizeType::Smallest, SizeOverride::Extend, 400.0f);
@@ -46,7 +46,7 @@ MessageBox::~MessageBox()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MessageBox> MessageBox::ShowMessage(const String& title, const String& text, DialogButtonSets buttonSet)
+Ptr<MessageBox> MessageBox::ShowMessage(const PString& title, const PString& text, DialogButtonSets buttonSet)
 {
     try
     {
@@ -61,7 +61,7 @@ Ptr<MessageBox> MessageBox::ShowMessage(const String& title, const String& text,
     }
 }
 
-DialogButtonID MessageBox::ShowMessageSync(Ptr<View> owner, const String& title, const String& text, DialogButtonSets buttonSet)
+DialogButtonID MessageBox::ShowMessageSync(Ptr<View> owner, const PString& title, const PString& text, DialogButtonSets buttonSet)
 {
     try
     {

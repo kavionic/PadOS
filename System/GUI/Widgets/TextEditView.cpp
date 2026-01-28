@@ -29,7 +29,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextEditView::TextEditView(const String& name, const String& text, Ptr<View> parent, uint32_t flags) : Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize), m_Text(text)
+TextEditView::TextEditView(const PString& name, const PString& text, Ptr<View> parent, uint32_t flags) : Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize), m_Text(text)
 {
     Initialize();
 }
@@ -41,7 +41,7 @@ TextEditView::TextEditView(const String& name, const String& text, Ptr<View> par
 TextEditView::TextEditView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
 {
     MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, TextBoxFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
-    m_Text = context.GetAttribute(xmlData, "text", String::zero);
+    m_Text = context.GetAttribute(xmlData, "text", PString::zero);
 
     Initialize();
 }
@@ -254,7 +254,7 @@ bool TextEditView::OnTouchMove(MouseButton_e pointID, const Point& position, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextEditView::OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& event)
+void TextEditView::OnKeyUp(KeyCodes keyCode, const PString& text, const KeyEvent& event)
 {
     if (keyCode == KeyCodes::CURSOR_LEFT)
     {
@@ -288,7 +288,7 @@ void TextEditView::OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent&
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextEditView::SetText(const String& text, bool sendEvent)
+void TextEditView::SetText(const PString& text, bool sendEvent)
 {
     m_Text = text;
 
@@ -305,7 +305,7 @@ void TextEditView::SetText(const String& text, bool sendEvent)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextEditView::InsertText(const String& text, bool sendEvent)
+void TextEditView::InsertText(const PString& text, bool sendEvent)
 {
     Rect damageRect = GetBounds();
     damageRect.left = m_CursorViewPos.x;
@@ -444,7 +444,7 @@ size_t TextEditView::ViewPosToCursorPos(const Point& position) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point TextEditView::GetSizeForString(const String& text, bool includeWidth, bool includeHeight) const
+Point TextEditView::GetSizeForString(const PString& text, bool includeWidth, bool includeHeight) const
 {
     Point size;
     if (includeWidth) {

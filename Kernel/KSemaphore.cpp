@@ -34,7 +34,7 @@ namespace kernel
 {
 
 static KMutex gk_PublicSemaphoresMutex("global_sema_mutex", PEMutexRecursionMode_RaiseError);
-static std::map<String, Ptr<KSemaphore>> gk_PublicSemaphores;
+static std::map<PString, Ptr<KSemaphore>> gk_PublicSemaphores;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

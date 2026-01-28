@@ -29,10 +29,10 @@ class TextView;
 class MessageBox : public DialogBase
 {
 public:
-    MessageBox(const String& title, const String& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
+    MessageBox(const PString& title, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
     virtual ~MessageBox();
-    static Ptr<MessageBox> ShowMessage(const String& title, const String& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
-    static DialogButtonID  ShowMessageSync(Ptr<View> owner, const String& title, const String& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
+    static Ptr<MessageBox> ShowMessage(const PString& title, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
+    static DialogButtonID  ShowMessageSync(Ptr<View> owner, const PString& title, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
 
     virtual void OnActivated(DialogButtonID buttonID) override { SignalSelected(buttonID, this); }
 

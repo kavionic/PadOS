@@ -33,7 +33,7 @@ class View;
 class Application : public Looper, public SignalTarget
 {
 public:
-    Application(const String& name);
+    Application(const PString& name);
     ~Application();
 
     static Application* GetDefaultApplication();

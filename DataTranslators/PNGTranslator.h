@@ -68,7 +68,7 @@ private:
 class PNGTranslatorNode : public os::TranslatorNode
 {
 public:
-    virtual os::EDataTranslatorStatus   Identify(const os::String& srcType, os::EDataTranslatorType dstType, const void* data, size_t length) const override;
+    virtual os::EDataTranslatorStatus   Identify(const PString& srcType, os::EDataTranslatorType dstType, const void* data, size_t length) const override;
     virtual os::TranslatorInfo          GetTranslatorInfo() const override;
     virtual Ptr<os::DataTranslator>     CreateTranslator() const override;
 };

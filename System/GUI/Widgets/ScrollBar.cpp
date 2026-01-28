@@ -46,7 +46,7 @@ static Color Tint(const Color& color, float tint)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ScrollBar::ScrollBar(const String& name, Ptr<View> parent, float min, float max, Orientation orientation, uint32_t flags)
+ScrollBar::ScrollBar(const PString& name, Ptr<View> parent, float min, float max, Orientation orientation, uint32_t flags)
     : Control(name, parent, flags | ViewFlags::WillDraw)
 {
     memset(m_ArrowStates, 0, sizeof(m_ArrowStates));

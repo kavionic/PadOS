@@ -137,7 +137,7 @@ bool USBHostControl::ReqGetDescriptor(uint8_t deviceAddr, USB_RequestRecipient r
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHostControl::ReqGetStringDescriptor(uint8_t deviceAddr, uint8_t stringIndex, String& outString, USBHostControlRequestCallback&& callback)
+bool USBHostControl::ReqGetStringDescriptor(uint8_t deviceAddr, uint8_t stringIndex, PString& outString, USBHostControlRequestCallback&& callback)
 {
     return ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::STRING, stringIndex, uint16_t(USB_LanguageID::ENGLISH_UNITED_STATES), m_CtrlDataBuffer, sizeof(m_CtrlDataBuffer),
         [this, &outString, callback](bool result, uint8_t deviceAddr)
@@ -235,15 +235,15 @@ void USBHostControl::HandleRequestCompletion(bool status)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String USBHostControl::ParseStringDescriptor(const USB_DescString* stringDesc)
+PString USBHostControl::ParseStringDescriptor(const USB_DescString* stringDesc)
 {
     if (stringDesc->bDescriptorType != USB_DescriptorType::STRING) {
-        return String::zero;
+        return PString::zero;
     }
     const size_t     strlength = (stringDesc->bLength - sizeof(USB_DescString)) / sizeof(wchar16_t);
     const wchar16_t* utf16Str = reinterpret_cast<const wchar16_t*>(stringDesc + 1);
 
-    String result;
+    PString result;
     result.assign_utf16(utf16Str, strlength);
     return result;
 }

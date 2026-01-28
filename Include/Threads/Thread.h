@@ -33,12 +33,12 @@ namespace os
 class Thread
 {
 public:
-    Thread(const String& name);
+    Thread(const PString& name);
     virtual ~Thread();
 
     static Thread* GetCurrentThread();
 
-    const String& GetName() const { return m_Name; }
+    const PString& GetName() const { return m_Name; }
 
     void SetDeleteOnExit(bool doDelete) { m_DeleteOnExit = doDelete; }
     bool GetDeleteOnExit() const { return m_DeleteOnExit; }
@@ -61,7 +61,7 @@ private:
 
     static thread_local Thread* st_CurrentThread;
 
-    String              m_Name;
+    PString             m_Name;
     thread_id           m_ThreadHandle = INVALID_HANDLE;
     PThreadDetachState  m_DetachState = PThreadDetachState_Detached;
     bool                m_DeleteOnExit = true;

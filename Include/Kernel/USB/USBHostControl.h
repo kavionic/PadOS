@@ -49,7 +49,7 @@ public:
     bool SendControlRequest(uint8_t deviceAddr, const USB_ControlRequest& request, void* buff, USBHostControlRequestCallback&& callback);
 
     bool ReqGetDescriptor(uint8_t deviceAddr, USB_RequestRecipient recipient, USB_RequestType type, USB_DescriptorType descType, uint16_t descIndex, uint16_t index, void* buffer, size_t length, USBHostControlRequestCallback&& callback);
-    bool ReqGetStringDescriptor(uint8_t deviceAddr, uint8_t stringIndex, os::String& outString, USBHostControlRequestCallback&& callback);
+    bool ReqGetStringDescriptor(uint8_t deviceAddr, uint8_t stringIndex, PString& outString, USBHostControlRequestCallback&& callback);
     bool ReqSetAddress(uint8_t deviceAddr, USBHostControlRequestCallback&& callback);
     bool ReqSetConfiguration(uint8_t deviceAddr, uint16_t configIndex, USBHostControlRequestCallback&& callback);
 
@@ -59,7 +59,7 @@ private:
     void HandleRequestError();
     void HandleRequestCompletion(bool status);
 
-    os::String ParseStringDescriptor(const USB_DescString* stringDesc);
+    PString ParseStringDescriptor(const USB_DescString* stringDesc);
 
     void ControlSentCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
     void ControlDataReceivedCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);

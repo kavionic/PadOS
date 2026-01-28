@@ -39,7 +39,7 @@ class Menu;
 class MenuItem : public PtrTarget
 {
 public:
-    MenuItem(const String& label, int id = 0);
+    MenuItem(const PString& label, int id = 0);
     MenuItem(Ptr<Menu> menu);
     ~MenuItem();
 
@@ -48,7 +48,7 @@ public:
     Ptr<Menu>       GetSuperMenu() const;
     Rect            GetFrame() const;
     virtual Point   GetContentSize();
-    String          GetLabel() const;
+    PString         GetLabel() const;
     virtual void    Draw(Ptr<View> targetView);
     virtual void    DrawContent(Ptr<View> targetView);
     virtual void    Highlight(bool highlight);
@@ -64,7 +64,7 @@ private:
     Rect        m_Frame;
 
     int         m_ID = 0;
-    String      m_Label;
+    PString     m_Label;
 
     bool        m_IsHighlighted;
 };

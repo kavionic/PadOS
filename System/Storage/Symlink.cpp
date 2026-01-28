@@ -39,7 +39,7 @@ SymLink::SymLink()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SymLink::SymLink(const String& path, int openFlags) : FSNode(path, openFlags | O_NOFOLLOW)
+SymLink::SymLink(const PString& path, int openFlags) : FSNode(path, openFlags | O_NOFOLLOW)
 {
     if (!IsLink()) {
         errno = EINVAL;
@@ -51,7 +51,7 @@ SymLink::SymLink(const String& path, int openFlags) : FSNode(path, openFlags | O
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SymLink::SymLink(const Directory& directory, const String& name, int openFlags) : FSNode(directory, name, openFlags | O_NOFOLLOW)
+SymLink::SymLink(const Directory& directory, const PString& name, int openFlags) : FSNode(directory, name, openFlags | O_NOFOLLOW)
 {
     if (!IsLink()) {
         errno = EINVAL;
@@ -103,7 +103,7 @@ SymLink::~SymLink()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::Open(const String& path, int openFlags)
+bool SymLink::Open(const PString& path, int openFlags)
 {
     return SetTo(FSNode(path, openFlags | O_NOFOLLOW));
 }
@@ -112,7 +112,7 @@ bool SymLink::Open(const String& path, int openFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::Open(const Directory& directory, const String& path, int openFlags)
+bool SymLink::Open(const Directory& directory, const PString& path, int openFlags)
 {
     return SetTo(FSNode(directory, path, openFlags | O_NOFOLLOW));
 }
@@ -165,10 +165,10 @@ bool SymLink::SetTo(const SymLink& link)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::ReadLink(String& buffer)
+bool SymLink::ReadLink(PString& buffer)
 {
     return false;
-//    String cBuffer;
+//    PString cBuffer;
 //
 //    cBuffer.resize(PATH_MAX);
 //    for (;;) {
@@ -192,13 +192,13 @@ bool SymLink::ReadLink(String& buffer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String SymLink::ReadLink()
+PString SymLink::ReadLink()
 {
-    String buffer;
+    PString buffer;
     if (ReadLink(buffer)) {
         return buffer;
     } else {
-        return String::zero;
+        return PString::zero;
     }
 }
 
@@ -206,9 +206,9 @@ String SymLink::ReadLink()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::ConstructPath(const String& parent, Path& outPath)
+bool SymLink::ConstructPath(const PString& parent, Path& outPath)
 {
-    String buffer;
+    PString buffer;
     if (!ReadLink(buffer)) {
         return false;
     }
@@ -227,7 +227,7 @@ bool SymLink::ConstructPath(const String& parent, Path& outPath)
 
 bool SymLink::ConstructPath(const Directory& parent, Path& outPath)
 {
-    String parentPath;
+    PString parentPath;
     if (!parent.GetPath(parentPath)) {
         return false;
     }

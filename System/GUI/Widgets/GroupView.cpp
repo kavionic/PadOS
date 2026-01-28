@@ -28,7 +28,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-GroupView::GroupView(const String& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
+GroupView::GroupView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
 {
 }
 
@@ -39,7 +39,7 @@ GroupView::GroupView(const String& name, Ptr<View> parent, uint32_t flags) : Vie
 GroupView::GroupView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
 {
     MergeFlags(ViewFlags::WillDraw);
-	m_Label = context.GetAttribute(xmlData, "label", String::zero);
+	m_Label = context.GetAttribute(xmlData, "label", PString::zero);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

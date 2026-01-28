@@ -29,18 +29,18 @@ namespace TextViewFlags
 {
 static constexpr uint32_t IncludeLineGap    = 0x01 << ViewFlags::FirstUserBit;
 static constexpr uint32_t MultiLine         = 0x02 << ViewFlags::FirstUserBit;
-extern const std::map<String, uint32_t> FlagMap;
+extern const std::map<PString, uint32_t> FlagMap;
 }
 
 class TextView : public View
 {
 public:
-    TextView(const String& name = String::zero, const String& text = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    TextView(const PString& name = PString::zero, const PString& text = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
 	TextView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~TextView();
     
-    void SetText(const String& text);
-    const String& GetText() const { return m_Text; }
+    void SetText(const PString& text);
+    const PString& GetText() const { return m_Text; }
 
     virtual void OnFrameSized(const Point& delta) override;
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
@@ -50,7 +50,7 @@ public:
 private:
     bool UpdateWordWrapping();
 
-    String  m_Text;
+    PString m_Text;
     float   m_AspectRatio = 3.0f;
     float   m_TextWidth = 0.0f;
     bool    m_IsWordWrappingValid = true;

@@ -46,7 +46,7 @@ public:
     constexpr explicit Point(float value) noexcept : x(value), y(value) {}
     constexpr Point(float X, float Y) noexcept : x(X), y(Y) {}
 
-    String ToString() const { return PString::format_string("Point({}, {})", x, y); }
+    PString ToString() const { return PString::format_string("Point({}, {})", x, y); }
     static std::optional<Point> FromString(const char* string)
     {
         Point value;

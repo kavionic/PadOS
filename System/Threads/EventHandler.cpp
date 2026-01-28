@@ -22,7 +22,7 @@
 
 using namespace os;
 
-EventHandler::EventHandler(const String& name) : m_Name(name)
+EventHandler::EventHandler(const PString& name) : m_Name(name)
 {
     static handler_id nextHandle = 0;
     m_Handle = ++nextHandle;

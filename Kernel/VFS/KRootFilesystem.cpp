@@ -124,7 +124,7 @@ Ptr<KRootFSINode> KRootFilesystem::LocateParentInode(Ptr<KRootFSINode> parent, c
                 nameStart = i + 1;
                 continue;
             }
-            String name(path + nameStart, i - nameStart);
+            PString name(path + nameStart, i - nameStart);
             auto nodeIterator = current->m_Children.find(name);
             if (nodeIterator != current->m_Children.end() && nodeIterator->second->IsDirectory())
             {
@@ -177,7 +177,7 @@ Ptr<KINode> KRootFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> pare
             return ptr_tmp_cast(current->m_Parent);
         }
     }
-    auto nodeIterator = current->m_Children.find(String(name, nameLength));
+    auto nodeIterator = current->m_Children.find(PString(name, nameLength));
     if (nodeIterator != current->m_Children.end()) {
         return nodeIterator->second;
     } else {
@@ -225,7 +225,7 @@ size_t KRootFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode>
         {
             if (index++ == dirNode->m_CurrentIndex)
             {
-                const String&   name  = i.first;
+                const PString&  name  = i.first;
                 Ptr<KINode>     inode = i.second;
 
                 dirNode->m_CurrentIndex++;
@@ -292,7 +292,7 @@ void KRootFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parentB
     Ptr<KRootFSINode> parent = ptr_static_cast<KRootFSINode>(parentBase);
     Ptr<KRootFSINode> dir    = ptr_new<KRootFSINode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(parent), this, true);
 
-    String nodeName(name, nameLength);
+    PString nodeName(name, nameLength);
     if (parent->m_Children.find(nodeName) != parent->m_Children.end())
     {
         PERROR_THROW_CODE(PErrorCode::Exist);

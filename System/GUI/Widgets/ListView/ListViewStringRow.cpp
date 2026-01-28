@@ -44,7 +44,7 @@ void ListViewStringRow::SetRect(const Rect& rect, size_t column)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewStringRow::AppendString(const String& string)
+void ListViewStringRow::AppendString(const PString& string)
 {
     m_Strings.push_back(std::make_pair(string, 0.0f));
 }
@@ -53,7 +53,7 @@ void ListViewStringRow::AppendString(const String& string)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewStringRow::SetString(size_t index, const String& string)
+void ListViewStringRow::SetString(size_t index, const PString& string)
 {
     if (index >= m_Strings.size()) m_Strings.resize(index + 1);
     m_Strings[index].first = string;
@@ -63,9 +63,9 @@ void ListViewStringRow::SetString(size_t index, const String& string)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const String& ListViewStringRow::GetString(size_t index) const
+const PString& ListViewStringRow::GetString(size_t index) const
 {
-    return (index < m_Strings.size()) ? m_Strings[index].first : String::zero;
+    return (index < m_Strings.size()) ? m_Strings[index].first : PString::zero;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

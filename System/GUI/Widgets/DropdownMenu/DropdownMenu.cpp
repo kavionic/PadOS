@@ -52,7 +52,7 @@ static constexpr float  ARROW_BUTTON_ASPECT_RATIO = 0.9f;
 
 static Ptr<Bitmap> g_ArrowBitmap;
 
-const std::map<String, uint32_t> DropdownMenuFlags::FlagMap
+const std::map<PString, uint32_t> DropdownMenuFlags::FlagMap
 {
     DEFINE_FLAG_MAP_ENTRY(DropdownMenuFlags, ReadOnly)
 };
@@ -67,7 +67,7 @@ const std::map<String, uint32_t> DropdownMenuFlags::FlagMap
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-DropdownMenu::DropdownMenu(const String& name, Ptr<View> parent, uint32_t flags) :
+DropdownMenu::DropdownMenu(const PString& name, Ptr<View> parent, uint32_t flags) :
     Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
     Initialize();
@@ -89,7 +89,7 @@ DropdownMenu::DropdownMenu(ViewFactoryContext& context, Ptr<View> parent, const 
 
 void DropdownMenu::Initialize()
 {
-    m_EditBox = ptr_new<TextBox>("text_view", String::zero, ptr_tmp_cast(this), HasFlags(DropdownMenuFlags::ReadOnly) ? (TextBoxFlags::ReadOnly | TextBoxFlags::RaisedFrame) : 0);
+    m_EditBox = ptr_new<TextBox>("text_view", PString::zero, ptr_tmp_cast(this), HasFlags(DropdownMenuFlags::ReadOnly) ? (TextBoxFlags::ReadOnly | TextBoxFlags::RaisedFrame) : 0);
     OnFrameSized(Point(0, 0));
 
     m_EditBox->SignalTextChanged.Connect(this, &DropdownMenu::SlotTextChanged);
@@ -255,7 +255,7 @@ void DropdownMenu::OnEnableStatusChanged(bool isEnabled)
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::AppendItem(const String& text)
+void DropdownMenu::AppendItem(const PString& text)
 {
     m_StringList.push_back(text);
     PreferredSizeChanged();
@@ -270,7 +270,7 @@ void DropdownMenu::AppendItem(const String& text)
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::InsertItem(size_t index, const String& text)
+void DropdownMenu::InsertItem(size_t index, const PString& text)
 {
     m_StringList.insert(m_StringList.begin() + index, text);
     PreferredSizeChanged();
@@ -332,7 +332,7 @@ void DropdownMenu::Clear()
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-const String& DropdownMenu::GetItem(size_t index) const
+const PString& DropdownMenu::GetItem(size_t index) const
 {
     assert(index < m_StringList.size());
     return(m_StringList[index]);
@@ -383,7 +383,7 @@ void DropdownMenu::SetSelection(size_t index, bool notify)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const String& DropdownMenu::GetCurrentString() const
+const PString& DropdownMenu::GetCurrentString() const
 {
     return m_EditBox->GetText();
 }
@@ -392,7 +392,7 @@ const String& DropdownMenu::GetCurrentString() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::SetCurrentString(const String& cString)
+void DropdownMenu::SetCurrentString(const PString& cString)
 {
     m_EditBox->SetText(cString);
 }
@@ -489,7 +489,7 @@ void DropdownMenu::LayoutMenuWindow()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::SlotTextChanged(const String& text, bool finalUpdate)
+void DropdownMenu::SlotTextChanged(const PString& text, bool finalUpdate)
 {
     SignalTextChanged(text, finalUpdate, this);
 }

@@ -142,7 +142,7 @@ NoPtr<KeyboardViewStyle> KeyboardView::s_DefaultStyle;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+KeyboardView::KeyboardView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
     const FontHeight fontHeight = m_Style->LargeFont->GetHeight();
     m_KeyHeight = fontHeight.descender - fontHeight.ascender + 11.0f;
@@ -175,12 +175,12 @@ KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags)
         m_KeysBitmap->UnlockRaster();
     }
 
-    String selectedKeyboard = "English";
+    PString selectedKeyboard = "English";
 
     LoadConfig(selectedKeyboard);
 
     Directory   keyboardDir(StandardPaths::GetPath(StandardPath::Keyboards));
-    String      fileName;
+    PString     fileName;
     while(keyboardDir.GetNextEntry(fileName))
     {
         if (fileName.compare_nocase("numerical.xml") == 0) {
@@ -216,15 +216,15 @@ KeyboardView::KeyboardView(const String& name, Ptr<View> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KeyboardView::LoadKeyboard(const String& name)
+bool KeyboardView::LoadKeyboard(const PString& name)
 {
-    File file(StandardPaths::GetPath(StandardPath::Keyboards, name + String(".xml")));
+    File file(StandardPaths::GetPath(StandardPath::Keyboards, name + PString(".xml")));
 
     if (!file.IsValid()) {
         return false;
     }
 
-    String buffer;
+    PString buffer;
     if (!file.Read(buffer)) {
         return false;
     }
@@ -253,7 +253,7 @@ bool KeyboardView::LoadKeyboard(const String& name)
         if (strcmp(layoutNode.name(), "Layout") != 0) {
             continue;
         }
-        String typeName = xml_object_parser::parse_attribute(layoutNode, "type", String::zero);
+        PString typeName = xml_object_parser::parse_attribute(layoutNode, "type", PString::zero);
         KeyboardLayout* layout = nullptr;
 
         if (typeName.compare_nocase("normal") == 0 || typeName.compare_nocase("numerical") == 0) {
@@ -442,7 +442,7 @@ bool KeyboardView::OnLongPress(MouseButton_e pointID, const Point& position, con
         {
             if (!m_Keyboards.empty() && m_LayoutSelectMenu == nullptr)
             {
-                m_LayoutSelectMenu = ptr_new<Menu>(String::zero, MenuLayout::Vertical, MenuFlags::NoKeyboardFocus);
+                m_LayoutSelectMenu = ptr_new<Menu>(PString::zero, MenuLayout::Vertical, MenuFlags::NoKeyboardFocus);
 
                 for (size_t i = 0; i < m_Keyboards.size(); ++i)
                 {
@@ -567,12 +567,12 @@ bool KeyboardView::OnTouchMove(MouseButton_e pointID, const Point& position, con
         while (cursorPos < m_PrevCursorPos)
         {
             m_PrevCursorPos--;
-            SignalKeyPressed(KeyCodes::CURSOR_LEFT, String::zero, this);
+            SignalKeyPressed(KeyCodes::CURSOR_LEFT, PString::zero, this);
         }
         while (cursorPos > m_PrevCursorPos)
         {
             m_PrevCursorPos++;
-            SignalKeyPressed(KeyCodes::CURSOR_RIGHT, String::zero, this);
+            SignalKeyPressed(KeyCodes::CURSOR_RIGHT, PString::zero, this);
         }
     }
     else if (m_PressedButton != INVALID_INDEX)
@@ -607,11 +607,11 @@ void KeyboardView::SetLayout(KeyboardLayout* layout)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String KeyboardView::GetKeyText(KeyCodes keyCode) const
+PString KeyboardView::GetKeyText(KeyCodes keyCode) const
 {
     if (keyCode > KeyCodes::LAST_SPECIAL)
     {
-        String text;
+        PString text;
 
         if (keyCode == KeyCodes::TAB) {
             text = "\t";
@@ -622,7 +622,7 @@ String KeyboardView::GetKeyText(KeyCodes keyCode) const
         }
         return text;
     }
-    return String::zero;
+    return PString::zero;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -690,16 +690,16 @@ void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
     {
         SetBgColor(GetEraseColor());
 
-        String label;
+        PString label;
         if (button.m_NormalKeyCode == KeyCodes::SYMBOLS) {
             label = m_SymbolsActive ? "ABC" : "!#1";
         }
         else if (button.m_NormalKeyCode == KeyCodes::SHIFT && m_SymbolsActive) {
-            label = String::format_string("{}/{}", m_SymbolPage + 1, m_SymbolLayouts.size());
+            label = PString::format_string("{}/{}", m_SymbolPage + 1, m_SymbolLayouts.size());
         } else {
             label = GetKeyText((m_CapsLockMode == CapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode);
         }
-        String smallLabel = GetKeyText(button.m_ExtraKeyCode);
+        PString smallLabel = GetKeyText(button.m_ExtraKeyCode);
 
         SetFont(m_Style->LargeFont);
         const FontHeight fontHeight = m_Style->LargeFont->GetHeight();
@@ -773,7 +773,7 @@ void KeyboardView::SlotRepeatTimer()
 
         if (button.m_NormalKeyCode == KeyCodes::BACKSPACE)
         {
-            SignalKeyPressed(KeyCodes::BACKSPACE, String::zero, this);
+            SignalKeyPressed(KeyCodes::BACKSPACE, PString::zero, this);
 
             m_RepeatTimer.Set(KEYREPEAT_REPEAT, true);
             m_RepeatTimer.Start(true);
@@ -785,7 +785,7 @@ void KeyboardView::SlotRepeatTimer()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::LoadConfig(String& outSelectedKeyboard)
+void KeyboardView::LoadConfig(PString& outSelectedKeyboard)
 {
     XMLDocument document;
     if (document.Load(StandardPaths::GetPath(StandardPath::Settings, "Settings.xml")))
@@ -803,11 +803,11 @@ void KeyboardView::LoadConfig(String& outSelectedKeyboard)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::SaveConfig(const String& selectedKeyboard)
+void KeyboardView::SaveConfig(const PString& selectedKeyboard)
 {
     XMLDocument document;
 
-    String path = StandardPaths::GetPath(StandardPath::Settings, "Settings.xml");
+    PString path = StandardPaths::GetPath(StandardPath::Settings, "Settings.xml");
 
     Path(path).CreateFolders(false);
 

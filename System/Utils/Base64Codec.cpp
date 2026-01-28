@@ -49,17 +49,17 @@ const uint8_t Base64Codec::g_Base64DecodeAlphabet[] =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String Base64Codec::Encode(const uint8_t* data, size_t length)
+PString Base64Codec::Encode(const uint8_t* data, size_t length)
 {
     const uint8_t* srcData = static_cast<const uint8_t*>(data);
 
     const size_t resultLength = ((length + 2) / 3) * 4;
 
     if (resultLength < length) {
-        return String::zero; // size_t overflow.
+        return PString::zero; // size_t overflow.
     }
 
-    String resultBuffer;
+    PString resultBuffer;
     resultBuffer.resize(resultLength);
 
     uint8_t* dstPtr = reinterpret_cast<uint8_t*>(resultBuffer.data());

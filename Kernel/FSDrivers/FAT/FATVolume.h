@@ -100,7 +100,7 @@ class FATVolume : public KFSVolume
 public:
     static const uint32_t MAGIC = 0x2ecf6059;
     
-    FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const os::String& devicePath);
+    FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PString& devicePath);
     ~FATVolume();
     
     

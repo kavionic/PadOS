@@ -35,7 +35,7 @@ namespace os
 class CheckBox : public ButtonBase
 {
 public:
-    CheckBox(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
+    CheckBox(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
     CheckBox(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~CheckBox();
 

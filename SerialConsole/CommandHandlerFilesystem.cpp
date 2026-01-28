@@ -68,7 +68,7 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
         dirent_t dirEntry;
         for (int i = 0; posix_getdents(dir, &dirEntry, sizeof(dirEntry), 0) == sizeof(dirEntry); ++i)
         {
-            String path = packet.m_Path;
+            PString path = packet.m_Path;
             path += "/";
             path += dirEntry.d_name;
             struct stat statResult;

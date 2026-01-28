@@ -37,7 +37,7 @@ thread_local Thread* Thread::st_CurrentThread = nullptr;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Thread::Thread(const String& name) : m_Name(name)
+Thread::Thread(const PString& name) : m_Name(name)
 {
 }
 

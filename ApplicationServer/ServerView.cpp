@@ -38,7 +38,7 @@ static int g_ServerViewCount = 0;
 
 ServerView::ServerView(
     SrvBitmap*          bitmap,
-    const String&       name,
+    const PString&      name,
     const Rect&         frame,
     const Point&        scrollOffset,
     ViewDockType        dockType,
@@ -1154,7 +1154,7 @@ void ServerView::FillCircle(const Point& position, float radius)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DrawString(const String& string)
+void ServerView::DrawString(const PString& string)
 {
     const Ptr<const Region> region = GetRegion();
     if (region != nullptr)

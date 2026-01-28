@@ -28,7 +28,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MVCListView::MVCListView(const String& name, Ptr<View> parent, uint32_t flags)
+MVCListView::MVCListView(const PString& name, Ptr<View> parent, uint32_t flags)
     : MVCBaseView(name, parent, flags)
 {
 }

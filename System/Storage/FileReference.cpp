@@ -47,7 +47,7 @@ FileReference::FileReference(const FileReference& reference) : m_Directory(refer
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FileReference::FileReference(const String& path, bool followLinks)
+FileReference::FileReference(const PString& path, bool followLinks)
 {
     SetTo(path, followLinks);
 }
@@ -56,7 +56,7 @@ FileReference::FileReference(const String& path, bool followLinks)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FileReference::FileReference(const Directory& directory, const String& name, bool followLinks)
+FileReference::FileReference(const Directory& directory, const PString& name, bool followLinks)
 {
     SetTo(directory, name, followLinks);
 }
@@ -86,7 +86,7 @@ bool FileReference::SetTo(const FileReference& reference)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::SetTo(const String& pathString, bool followLinks)
+bool FileReference::SetTo(const PString& pathString, bool followLinks)
 {
     Path path(pathString);
 
@@ -118,7 +118,7 @@ bool FileReference::SetTo(const String& pathString, bool followLinks)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::SetTo(const Directory& directory, const String& name, bool followLinks)
+bool FileReference::SetTo(const Directory& directory, const PString& name, bool followLinks)
 {
     if (!m_Directory.SetTo(directory)) {
         return false;
@@ -160,7 +160,7 @@ bool FileReference::IsValid() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String FileReference::GetName() const
+PString FileReference::GetName() const
 {
     return m_Name;
 }
@@ -169,9 +169,9 @@ String FileReference::GetName() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::GetPath(String& outPath) const
+bool FileReference::GetPath(PString& outPath) const
 {
-    String path;
+    PString path;
 
     if (!m_Directory.GetPath(path)) {
         return false;
@@ -186,14 +186,14 @@ bool FileReference::GetPath(String& outPath) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::Rename(const String& newName)
+bool FileReference::Rename(const PString& newName)
 {
-    String oldPath;
+    PString oldPath;
     if (!m_Directory.GetPath(oldPath)) {
         return false;
     }
     oldPath += "/";
-    String newPath(oldPath);
+    PString newPath(oldPath);
     oldPath += m_Name;
 
     if (newName[0] == '/') {
@@ -225,7 +225,7 @@ bool FileReference::Rename(const String& newName)
 
 bool FileReference::Delete()
 {
-    String path;
+    PString path;
     if (!GetPath(path)) {
         return false;
     }

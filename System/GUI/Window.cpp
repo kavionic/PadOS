@@ -26,7 +26,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Window::Window(const String& title) : View("Window", nullptr, ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize), m_Title(title)
+Window::Window(const PString& title) : View("Window", nullptr, ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize), m_Title(title)
 {
     FontHeight fontHeight = GetFontHeight();
     m_ClientBorders = Rect(8.0f, fontHeight.descender - fontHeight.ascender + 8.0f, 8.0f, 8.0f);

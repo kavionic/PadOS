@@ -31,16 +31,16 @@ namespace os
 class TabView : public View
 {
 public:
-    TabView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    TabView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     TabView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
-    int         AppendTab( const String& title, Ptr<View> view = nullptr );
-    int         InsertTab(size_t index, const String& title, Ptr<View> view = nullptr );
+    int         AppendTab( const PString& title, Ptr<View> view = nullptr );
+    int         InsertTab(size_t index, const PString& title, Ptr<View> view = nullptr );
     Ptr<View>   DeleteTab(size_t index );
     Ptr<View>   GetTabView(size_t index ) const;
     int         GetTabCount() const;
 
-    int         SetTabTitle(size_t index, const String& title );
+    int         SetTabTitle(size_t index, const PString& title );
     const std::string&  GetTabTitle(size_t index ) const;
 
     Ptr<View> SetTopBarClientView(Ptr<View> view);
@@ -56,7 +56,7 @@ public:
     virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
     virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual void    OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event) override;
+    virtual void    OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& event) override;
 
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
     virtual void    OnPaint(const Rect& updateRect) override;
@@ -68,9 +68,9 @@ private:
 
     struct Tab
     {
-        Tab(const String& title, Ptr<View> view) : m_Title(title) { m_View = view; }
+        Tab(const PString& title, Ptr<View> view) : m_Title(title) { m_View = view; }
         Ptr<View>   m_View;
-        String      m_Title;
+        PString     m_Title;
         float       m_Width;
     };
 

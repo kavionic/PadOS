@@ -46,7 +46,7 @@ int32_t Looper::s_NextReplyToken;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Looper::Looper(const String& name, int portSize, size_t receiveBufferSize) : Thread(name), m_Mutex("looper", PEMutexRecursionMode_RaiseError), m_Port("looper", portSize), m_DoRun(true)
+Looper::Looper(const PString& name, int portSize, size_t receiveBufferSize) : Thread(name), m_Mutex("looper", PEMutexRecursionMode_RaiseError), m_Port("looper", portSize), m_DoRun(true)
 {
 #if DEBUG_LOOPER_LIST
     CRITICAL_BEGIN(GetLooperListMutex()) {

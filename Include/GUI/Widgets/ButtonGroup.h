@@ -34,31 +34,31 @@ class ButtonBase;
 class ButtonGroup : public PtrTarget, public SignalTarget
 {
 public:
-	ButtonGroup(const String& name = String::zero, size_t reserveCount = 0);
-	virtual ~ButtonGroup() override;
+    ButtonGroup(const PString& name = PString::zero, size_t reserveCount = 0);
+    virtual ~ButtonGroup() override;
 
-	const String& GetName() const { return m_Name; }
+    const PString&  GetName() const { return m_Name; }
 
-	size_t			AddButton(Ptr<ButtonBase> button);
-	void			InsertButton(size_t index, Ptr<ButtonBase> button);
-	Ptr<ButtonBase>	RemoveButton(Ptr<ButtonBase> button);
-	Ptr<ButtonBase>	RemoveButtonAt(size_t index);
+    size_t          AddButton(Ptr<ButtonBase> button);
+    void            InsertButton(size_t index, Ptr<ButtonBase> button);
+    Ptr<ButtonBase> RemoveButton(Ptr<ButtonBase> button);
+    Ptr<ButtonBase> RemoveButtonAt(size_t index);
 
-	Ptr<ButtonBase>	SetSelectedIndex(size_t index, bool sendEvent = true);
-	size_t			SelectButton(Ptr<ButtonBase> button, bool sendEvent = true);
-	Ptr<ButtonBase> GetSelectedButton() const;
-	int32_t			GetSelectedID() const;
-	size_t			GetSelectedIndex() const;
+    Ptr<ButtonBase> SetSelectedIndex(size_t index, bool sendEvent = true);
+    size_t          SelectButton(Ptr<ButtonBase> button, bool sendEvent = true);
+    Ptr<ButtonBase> GetSelectedButton() const;
+    int32_t         GetSelectedID() const;
+    size_t          GetSelectedIndex() const;
 
-	size_t			GetButtonIndex(Ptr<ButtonBase> button) const;
+    size_t          GetButtonIndex(Ptr<ButtonBase> button) const;
 
-	size_t			GetButtonCount() const;
-	Ptr<ButtonBase> GetButton(size_t index) const;
+    size_t          GetButtonCount() const;
+    Ptr<ButtonBase> GetButton(size_t index) const;
 
-	Signal<void, size_t, int32_t, Ptr<ButtonBase>, Ptr<ButtonGroup>> SignalSelectionChanged;//(size_t index, int32_t ID, Ptr<ButtonBase> button, Ptr<ButtonGroup> group)
+    Signal<void, size_t, int32_t, Ptr<ButtonBase>, Ptr<ButtonGroup>> SignalSelectionChanged;//(size_t index, int32_t ID, Ptr<ButtonBase> button, Ptr<ButtonGroup> group)
 private:
-	String								m_Name;
-	std::vector<WeakPtr<ButtonBase>>	m_ButtonList;
+    PString                             m_Name;
+    std::vector<WeakPtr<ButtonBase>>    m_ButtonList;
 };
 
 } // namespace

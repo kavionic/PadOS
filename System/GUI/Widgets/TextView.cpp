@@ -25,7 +25,7 @@
 
 using namespace os;
 
-const std::map<String, uint32_t> TextViewFlags::FlagMap
+const std::map<PString, uint32_t> TextViewFlags::FlagMap
 {
     DEFINE_FLAG_MAP_ENTRY(TextViewFlags, IncludeLineGap),
     DEFINE_FLAG_MAP_ENTRY(TextViewFlags, MultiLine),
@@ -35,7 +35,7 @@ const std::map<String, uint32_t> TextViewFlags::FlagMap
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextView::TextView(const String& name, const String& text, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
+TextView::TextView(const PString& name, const PString& text, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
 {
     SetText(text);
 }
@@ -48,7 +48,7 @@ TextView::TextView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xm
 {
     MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, TextViewFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw);
 
-    SetText(context.GetAttribute(xmlData, "text", String::zero));
+    SetText(context.GetAttribute(xmlData, "text", PString::zero));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -63,7 +63,7 @@ TextView::~TextView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextView::SetText(const String& text)
+void TextView::SetText(const PString& text)
 {
 //    ProfileTimer timer("TextView::SetText()");    
     m_Text = text;
@@ -174,7 +174,7 @@ void TextView::OnPaint(const Rect& updateRect)
         {
             const char* nextLine = m_Text.c_str() + nextLineStart;
             size_t lineLength = nextLine - lineStart;
-            DrawString(String(lineStart, lineLength));
+            DrawString(PString(lineStart, lineLength));
             lineStart = nextLine;
             MovePenBy(0.0f, lineHeight);
         }

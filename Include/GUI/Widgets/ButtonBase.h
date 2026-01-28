@@ -29,11 +29,11 @@ class ButtonGroup;
 class ButtonBase : public Control
 {
 public:
-    ButtonBase(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    ButtonBase(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     ButtonBase(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment);
     ~ButtonBase();
 
-    static Ptr<ButtonGroup> FindButtonGroup(Ptr<View> root, const String& name);
+    static Ptr<ButtonGroup> FindButtonGroup(Ptr<View> root, const PString& name);
 
     virtual void AllAttachedToScreen() override { Invalidate(); }
 

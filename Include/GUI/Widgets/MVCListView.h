@@ -44,7 +44,7 @@ struct MVCListViewItemNode : MVCBaseViewItemNode
 class MVCListView : public MVCBaseView
 {
 public:
-    MVCListView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    MVCListView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     MVCListView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     virtual void OnFrameSized(const Point& delta) override;

@@ -27,7 +27,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Button::Button(const String& name, const String& label, Ptr<View> parent, uint32_t flags) : ButtonBase(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+Button::Button(const PString& name, const PString& label, Ptr<View> parent, uint32_t flags) : ButtonBase(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
     SetLabel(label);
 	UpdateLabelSize();
@@ -94,7 +94,7 @@ void Button::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Button::OnLabelChanged(const String& label)
+void Button::OnLabelChanged(const PString& label)
 {
     UpdateLabelSize();
     Invalidate();

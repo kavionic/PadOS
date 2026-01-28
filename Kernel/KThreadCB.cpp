@@ -86,7 +86,7 @@ static void thread_entry_point(void* (*threadEntry)(void*), void* arguments)
     }
     catch (const std::exception& e)
     {
-        const String error = PString("Uncaught exception in thread '") + gk_CurrentThread->GetName() + "': " + e.what();
+        const PString error = PString("Uncaught exception in thread '") + gk_CurrentThread->GetName() + "': " + e.what();
         panic(error.c_str());
         ksys_thread_exit(nullptr);
     }

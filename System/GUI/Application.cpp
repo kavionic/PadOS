@@ -53,7 +53,7 @@ void Application::SetDefaultApplication(Application* application)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Application::Application(const String& name) : Looper(name, 1000), m_ReplyPort("app_reply", 1000)
+Application::Application(const PString& name) : Looper(name, 1000), m_ReplyPort("app_reply", 1000)
 {
     post_to_remotesignal<ASRegisterApplication>(get_appserver_port(), INVALID_HANDLE, TimeValNanos::infinit, m_ReplyPort.GetHandle(), GetPortID(), GetName());
 

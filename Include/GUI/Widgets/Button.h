@@ -27,7 +27,7 @@ namespace os
 class Button : public ButtonBase
 {
 public:
-    Button(const String& name, const String& label, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    Button(const PString& name, const PString& label, Ptr<View> parent = nullptr, uint32_t flags = 0);
 	Button(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~Button();
 
@@ -38,7 +38,7 @@ public:
 
 	// From Control:
     virtual void OnEnableStatusChanged(bool bIsEnabled) override { Invalidate(); Flush(); }
-	virtual void OnLabelChanged(const String& label) override;
+	virtual void OnLabelChanged(const PString& label) override;
 
 private:
     void UpdateLabelSize();

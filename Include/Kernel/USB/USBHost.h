@@ -86,9 +86,9 @@ public:
     bool            m_SelfPowered           = false;
     USB_Speed       m_Speed                 = USB_Speed::FULL;
 
-    os::String      m_ManufacturerString;
-    os::String      m_ProductString;
-    os::String      m_SerialNumberString;
+    PString         m_ManufacturerString;
+    PString         m_ProductString;
+    PString         m_SerialNumberString;
     USB_DescDevice  m_DeviceDesc;
 };
 

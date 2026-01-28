@@ -28,7 +28,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextInputDialog::TextInputDialog(const String& title, const String& message, const String& text, DialogButtonSets buttonSet) : DialogBase(title, text, buttonSet)
+TextInputDialog::TextInputDialog(const PString& title, const PString& message, const PString& text, DialogButtonSets buttonSet) : DialogBase(title, text, buttonSet)
 {
     m_MessageView = ptr_new<TextView>("Message", message, nullptr, TextViewFlags::MultiLine);
     m_TextInput   = ptr_new<TextBox>("Input", text);
@@ -57,7 +57,7 @@ void TextInputDialog::OnActivated(DialogButtonID buttonID)
     SignalSelected(buttonID, m_TextInput->GetText(), this);
 }
 
-const String& TextInputDialog::GetText() const
+const PString& TextInputDialog::GetText() const
 {
     return m_TextInput->GetText();
 }
@@ -66,7 +66,7 @@ const String& TextInputDialog::GetText() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextInputDialog::SlotTextChanged(const String& newText, bool finalUpdate, TextBox* source)
+void TextInputDialog::SlotTextChanged(const PString& newText, bool finalUpdate, TextBox* source)
 {
     SignalTextChanged(newText, finalUpdate, this);
 }

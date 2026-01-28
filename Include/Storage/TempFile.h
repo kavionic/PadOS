@@ -34,16 +34,16 @@ namespace os
 class TempFile : public File
 {
 public:
-    TempFile(const String& prefix = String::zero, const String& path = String::zero, int access = S_IRUSR | S_IWUSR );
+    TempFile(const PString& prefix = PString::zero, const PString& path = PString::zero, int access = S_IRUSR | S_IWUSR );
     ~TempFile();
 
     void    Detatch();
     bool    Unlink();
 
-    String GetPath() const;
+    PString GetPath() const;
     
 private:
-    String  m_Path;
+    PString m_Path;
     bool    m_DeleteFile;
 };
 

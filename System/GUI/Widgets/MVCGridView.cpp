@@ -29,7 +29,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MVCGridView::MVCGridView(const String& name, Ptr<View> parent, uint32_t flags)
+MVCGridView::MVCGridView(const PString& name, Ptr<View> parent, uint32_t flags)
     : MVCBaseView(name, parent, flags | ViewFlags::WillDraw)
 {
 }

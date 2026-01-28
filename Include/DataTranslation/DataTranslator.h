@@ -91,7 +91,7 @@ private:
 
 struct TranslatorInfo
 {
-    String              SourceType;
+    PString             SourceType;
     EDataTranslatorType DestType;
     float               Quality;
 };
@@ -102,7 +102,7 @@ public:
     TranslatorNode();
     virtual ~TranslatorNode();
 
-    virtual EDataTranslatorStatus   Identify(const String& srcType, EDataTranslatorType dstType, const void* data, size_t length) const = 0;
+    virtual EDataTranslatorStatus   Identify(const PString& srcType, EDataTranslatorType dstType, const void* data, size_t length) const = 0;
     virtual TranslatorInfo          GetTranslatorInfo() const = 0;
     virtual Ptr<DataTranslator>     CreateTranslator() const = 0;
 };
@@ -116,7 +116,7 @@ public:
     static TranslatorFactory& Get();
     
     void RegisterTranslator(Ptr<TranslatorNode> translatorNode) { m_Nodes.push_back(translatorNode); }
-    Ptr<DataTranslator> FindTranslator(const String& srcType, EDataTranslatorType dstType, const void* data, size_t length, EDataTranslatorStatus& outStatus) const;
+    Ptr<DataTranslator> FindTranslator(const PString& srcType, EDataTranslatorType dstType, const void* data, size_t length, EDataTranslatorStatus& outStatus) const;
 
     size_t              GetTranslatorCount() const;
     Ptr<TranslatorNode> GetTranslatorNode(size_t index) const;

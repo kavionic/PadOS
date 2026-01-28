@@ -26,7 +26,7 @@
 namespace os
 {
 
-const std::map<String, uint32_t> TextBoxFlags::FlagMap
+const std::map<PString, uint32_t> TextBoxFlags::FlagMap
 {
     DEFINE_FLAG_MAP_ENTRY(TextBoxFlags, IncludeLineGap),
     DEFINE_FLAG_MAP_ENTRY(TextBoxFlags, RaisedFrame),
@@ -39,7 +39,7 @@ NoPtr<TextBoxStyle> TextBox::s_DefaultStyle;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextBox::TextBox(const String& name, const String& text, Ptr<View> parent, uint32_t flags) : Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+TextBox::TextBox(const PString& name, const PString& text, Ptr<View> parent, uint32_t flags) : Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
     Initialize(text);
 }
@@ -50,7 +50,7 @@ TextBox::TextBox(const String& name, const String& text, Ptr<View> parent, uint3
 
 TextBox::TextBox(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
 {
-    Initialize(context.GetAttribute(xmlData, "text", String::zero));
+    Initialize(context.GetAttribute(xmlData, "text", PString::zero));
     MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, TextBoxFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
 }
 
@@ -58,7 +58,7 @@ TextBox::TextBox(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextBox::Initialize(const String& text)
+void TextBox::Initialize(const PString& text)
 {
     m_Editor = ptr_new<TextEditView>("Editor", text, ptr_tmp_cast(this), GetFlags());
     m_Editor->SetBorders(4.0f, 4.0f, 4.0f, 4.0f);
@@ -73,7 +73,7 @@ void TextBox::Initialize(const String& text)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextBox::SlotTextChanged(const String& text, bool finalUpdate)
+void TextBox::SlotTextChanged(const PString& text, bool finalUpdate)
 {
     SignalTextChanged(text, finalUpdate, this);
 }
@@ -165,7 +165,7 @@ bool TextBox::OnTouchMove(MouseButton_e pointID, const Point& position, const Mo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point TextBox::GetSizeForString(const String& text, bool includeWidth, bool includeHeight) const
+Point TextBox::GetSizeForString(const PString& text, bool includeWidth, bool includeHeight) const
 {
     Point size = m_Editor->GetSizeForString(text, includeWidth, includeHeight);
     Rect  borders = m_Editor->GetBorders();

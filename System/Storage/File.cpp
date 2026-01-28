@@ -72,7 +72,7 @@ File::File()
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-File::File(const String& path, int openFlags) : FSNode(path, openFlags & ~O_NOFOLLOW)
+File::File(const PString& path, int openFlags) : FSNode(path, openFlags & ~O_NOFOLLOW)
 {
     if (IsDir())
     {
@@ -84,7 +84,7 @@ File::File(const String& path, int openFlags) : FSNode(path, openFlags & ~O_NOFO
 ///////////////////////////////////////////////////////////////////////////////
 ///* Open a file addressed as a name inside a specified directory.
 /// \par Description:
-///     Look at File( const String& path, int openFlags ) for a more
+///     Look at File(const PString& path, int openFlags) for a more
 ///     detailed description.
 ///
 /// \param directory
@@ -93,15 +93,15 @@ File::File(const String& path, int openFlags) : FSNode(path, openFlags & ~O_NOFO
 ///     Path relative to \p path.
 /// \param openFlags
 ///     Flags controlling how to open the file. See
-///     File( const String& path, int openFlags )
+///     File(const PString& path, int openFlags)
 ///     for a full description.
 ///
-/// \sa File( const String& path, int openFlags )
+/// \sa File( const PString& path, int openFlags )
 /// \author Kurt Skauen (kurt@atheos.cx)
  ///////////////////////////////////////////////////////////////////////////////
 
 
-File::File(const Directory& directory, const String& path, int openFlags) : FSNode(directory, path, openFlags & ~O_NOFOLLOW)
+File::File(const Directory& directory, const PString& path, int openFlags) : FSNode(directory, path, openFlags & ~O_NOFOLLOW)
 {
     if (IsDir())
     {
@@ -113,17 +113,17 @@ File::File(const Directory& directory, const String& path, int openFlags) : FSNo
 ///////////////////////////////////////////////////////////////////////////////
 /// Open a file referred to by a os::FileReference.
 /// \par Description:
-///     Look at File(const String& path, int openFlags) for a more
+///     Look at File(const PString& path, int openFlags) for a more
 ///     detailed description.
 ///
 /// \param reference
 ///     Reference to the file to open.
 /// \param openFlags
 ///     Flags controlling how to open the file. See
-///     File( const String& path, int openFlags )
+///     File(const PString& path, int openFlags)
 ///     for a full description.
 ///
-/// \sa File( const String& path, int openFlags )
+/// \sa File(const PString& path, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -422,7 +422,7 @@ ssize_t File::Read(void* buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::Read(String& buffer, ssize_t size)
+bool File::Read(PString& buffer, ssize_t size)
 {
     if (size < 0 || !IsValid()) {
         set_last_error(EINVAL);
@@ -456,7 +456,7 @@ bool File::Read(String& buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::Read(String& buffer)
+bool File::Read(PString& buffer)
 {
     return Read(buffer, ssize_t(GetSize()));
 }
@@ -478,7 +478,7 @@ ssize_t File::Write(const void* buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::Write(const String& buffer, ssize_t size)
+bool File::Write(const PString& buffer, ssize_t size)
 {
     if (size < 0 || !IsValid()) {
         set_last_error(EINVAL);
@@ -491,7 +491,7 @@ bool File::Write(const String& buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::Write(const String& buffer)
+bool File::Write(const PString& buffer)
 {
     return Write(buffer, buffer.size());
 }

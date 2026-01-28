@@ -40,7 +40,7 @@ struct MVCGridViewItemNode : MVCBaseViewItemNode
 class MVCGridView : public MVCBaseView
 {
 public:
-    MVCGridView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    MVCGridView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     MVCGridView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     virtual void OnLayoutChanged() override;

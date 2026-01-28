@@ -30,7 +30,7 @@ static constexpr float CB_CHECK_BORDER = 7.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-CheckBox::CheckBox(const String& name, Ptr<View> parent, uint32_t flags) : ButtonBase(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+CheckBox::CheckBox(const PString& name, Ptr<View> parent, uint32_t flags) : ButtonBase(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
     SetCheckable(true);
 }
@@ -72,7 +72,7 @@ void os::CheckBox::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
 {
     Point size(CB_SIZE, CB_SIZE);
 
-    const String& label = GetLabel();
+    const PString& label = GetLabel();
     if (!label.empty())
     {
         FontHeight fontHeight = GetFontHeight();
@@ -97,7 +97,7 @@ void CheckBox::OnPaint(const Rect& cUpdateRect)
     SetFgColor(StandardColorID::DefaultBackground);
     FillRect(cUpdateRect);
 
-    const String& label = GetLabel();
+    const PString& label = GetLabel();
     if (!label.empty())
     {
         FontHeight fontHeight = GetFontHeight();

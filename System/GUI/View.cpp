@@ -38,7 +38,7 @@
 using namespace os;
 
 
-const std::map<String, uint32_t> ViewFlags::FlagMap
+const std::map<PString, uint32_t> ViewFlags::FlagMap
 {
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResizeH),
     DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResizeV),
@@ -135,7 +135,7 @@ static Color Tint(const Color& color, float tint)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(const String& name, Ptr<View> parent, uint32_t flags) : ViewBase(name, Rect(), Point(), flags, 0, 1.0f, get_standard_color(StandardColorID::DefaultBackground), get_standard_color(StandardColorID::DefaultBackground), Color(0))
+View::View(const PString& name, Ptr<View> parent, uint32_t flags) : ViewBase(name, Rect(), Point(), flags, 0, 1.0f, get_standard_color(StandardColorID::DefaultBackground), get_standard_color(StandardColorID::DefaultBackground), Color(0))
 {
     Initialize();
     if (parent != nullptr) {
@@ -251,8 +251,8 @@ View::View(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& 
     SetLayoutNode(context.GetAttribute(xmlData, "layout", Ptr<LayoutNode>()));
     m_Borders = context.GetAttribute(xmlData, "layout_borders", Rect(0.0f));
 
-    String widthGroupName = context.GetAttribute(xmlData, "width_group", String::zero);
-	String heightGroupName = context.GetAttribute(xmlData, "height_group", String::zero);
+    PString widthGroupName = context.GetAttribute(xmlData, "width_group", PString::zero);
+    PString heightGroupName = context.GetAttribute(xmlData, "height_group", PString::zero);
 
     if (!widthGroupName.empty())
     {
@@ -283,7 +283,7 @@ View::View(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame) : ViewBase(name, frame, Point(), ViewFlags::Eavesdropper | ViewFlags::WillDraw, 0, 1.0f, Color(0xffffffff), Color(0xffffffff), Color(0))
+View::View(Ptr<View> parent, handler_id serverHandle, const PString& name, const Rect& frame) : ViewBase(name, frame, Point(), ViewFlags::Eavesdropper | ViewFlags::WillDraw, 0, 1.0f, Color(0xffffffff), Color(0xffffffff), Color(0))
 {
     Initialize();
     m_ServerHandle = serverHandle;
@@ -671,7 +671,7 @@ bool View::OnMouseMove(MouseButton_e button, const Point& position, const Motion
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& keyEvent)
+void View::OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent)
 {
 }
 
@@ -679,7 +679,7 @@ void View::OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& keyEv
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& keyEvent)
+void View::OnKeyUp(KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent)
 {
 }
 
@@ -1969,7 +1969,7 @@ bool View::DispatchMouseMove(MouseButton_e buttonID, const Point& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::DispatchKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& keyEvent)
+void View::DispatchKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent)
 {
     if (VFKeyDown.Empty()) {
         OnKeyDown(keyCode, text, keyEvent);
@@ -1982,7 +1982,7 @@ void View::DispatchKeyDown(KeyCodes keyCode, const String& text, const KeyEvent&
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::DispatchKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& keyEvent)
+void View::DispatchKeyUp(KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent)
 {
     if (VFKeyUp.Empty()) {
         OnKeyUp(keyCode, text, keyEvent);

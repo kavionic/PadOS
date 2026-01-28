@@ -31,7 +31,7 @@ static constexpr float RB_CHECK_BORDER = 7.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-RadioButton::RadioButton(const String& name, Ptr<View> parent, uint32_t flags) : ButtonBase(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+RadioButton::RadioButton(const PString& name, Ptr<View> parent, uint32_t flags) : ButtonBase(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
     SetCheckable(true);
 }
@@ -72,7 +72,7 @@ void os::RadioButton::CalculatePreferredSize(Point* minSize, Point* maxSize, boo
 {
     Point size(RB_SIZE, RB_SIZE);
 
-    const String& label = GetLabel();
+    const PString& label = GetLabel();
     if (!label.empty())
     {
 		FontHeight fontHeight = GetFontHeight();
@@ -109,7 +109,7 @@ void RadioButton::OnPaint(const Rect& updateRect)
     SetFgColor(StandardColorID::DefaultBackground);
     FillRect(updateRect);
 
-    const String& label = GetLabel();
+    const PString& label = GetLabel();
     if (!label.empty())
     {
         FontHeight fontHeight = GetFontHeight();

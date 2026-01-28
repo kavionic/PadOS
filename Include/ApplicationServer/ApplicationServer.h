@@ -73,7 +73,7 @@ private:
     void HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
     void HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event);
 
-    void SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name);
+    void SlotRegisterApplication(port_id replyPort, port_id clientPort, const PString& name);
 
     static Ptr<DisplayDriver>   s_DisplayDriver;
     static Ptr<SrvBitmap>       s_ScreenBitmap;

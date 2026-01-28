@@ -39,7 +39,7 @@ public:
 
     KRootFSINode* m_Parent = nullptr;
 
-    std::map<os::String, Ptr<KINode>> m_Children;
+    std::map<PString, Ptr<KINode>> m_Children;
     TimeValNanos                      m_CreateTime;
 };
 

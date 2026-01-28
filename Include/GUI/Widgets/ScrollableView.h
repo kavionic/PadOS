@@ -27,7 +27,7 @@ namespace os
 class ScrollableView : public View
 {
 public:
-    ScrollableView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    ScrollableView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     ScrollableView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;

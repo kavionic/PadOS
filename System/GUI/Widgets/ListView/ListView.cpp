@@ -73,7 +73,7 @@ using namespace os;
 //  +--------------------------------------------------------------------------+
 
 
-const std::map<String, uint32_t> ListViewFlags::FlagMap
+const std::map<PString, uint32_t> ListViewFlags::FlagMap
 {
     DEFINE_FLAG_MAP_ENTRY(ListViewFlags, MultiSelect),
     DEFINE_FLAG_MAP_ENTRY(ListViewFlags, NoAutoSort),
@@ -87,7 +87,7 @@ const std::map<String, uint32_t> ListViewFlags::FlagMap
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListView::ListView(const String& name, Ptr<View> parent, uint32_t flags) :
+ListView::ListView(const PString& name, Ptr<View> parent, uint32_t flags) :
     Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
 {
     Construct();

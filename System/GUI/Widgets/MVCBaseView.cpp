@@ -23,7 +23,7 @@
 namespace os
 {
 
-const std::map<String, uint32_t> MVCBaseViewFlags::FlagMap
+const std::map<PString, uint32_t> MVCBaseViewFlags::FlagMap
 {
     DEFINE_FLAG_MAP_ENTRY(MVCBaseViewFlags, MultiSelect),
     DEFINE_FLAG_MAP_ENTRY(MVCBaseViewFlags, NoAutoSelect),
@@ -33,7 +33,7 @@ const std::map<String, uint32_t> MVCBaseViewFlags::FlagMap
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MVCBaseView::MVCBaseView(const String& name, Ptr<View> parent, uint32_t flags)
+MVCBaseView::MVCBaseView(const PString& name, Ptr<View> parent, uint32_t flags)
     : Control(name, parent, flags | ViewFlags::WillDraw)
 {
     Construct();
@@ -381,7 +381,7 @@ void MVCBaseView::CacheItemWidget(Ptr<View> itemWidget, int32_t widgetClassID) c
 void MVCBaseView::Construct()
 {
     m_ScrollView = ptr_new<ScrollView>();
-    m_ContentView = ptr_new<View>(String::zero, nullptr, ViewFlags::WillDraw);
+    m_ContentView = ptr_new<View>(PString::zero, nullptr, ViewFlags::WillDraw);
 
     m_ContentView->VFCalculateContentSize.Connect(this, &View::GetContentSize);
     m_ContentView->SignalFrameSized.Connect(this, &MVCBaseView::OnContentViewFrameSized);

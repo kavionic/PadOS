@@ -153,7 +153,7 @@ static bool FilteredUTF16ToCP437(uint16_t utf16, uint8_t* result)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void FATRawShortNameToUTF8(const char* src, String* dst)
+static void FATRawShortNameToUTF8(const char* src, PString* dst)
 {
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATRawShortNameToUTF8().");
 
@@ -413,7 +413,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::GetNextRawEntry()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, String* filename)
+bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* filename)
 {
     uint8_t            hash = 0;
     std::vector<wchar16_t> utf16Buffer;
@@ -581,7 +581,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, Strin
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, String* outFilename, uint32_t* outDosAttribs)
+bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, PString* outFilename, uint32_t* outDosAttribs)
 {
     FATDirectoryEntryInfo info;
 

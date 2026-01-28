@@ -26,7 +26,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ScrollableView::ScrollableView(const String& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags)
+ScrollableView::ScrollableView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags)
 {
 }
 

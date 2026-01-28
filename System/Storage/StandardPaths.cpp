@@ -25,13 +25,13 @@
 namespace os
 {
 
-std::map<StandardPathID, String> StandardPaths::s_PathMap;
+std::map<StandardPathID, PString> StandardPaths::s_PathMap;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool StandardPaths::RegisterPath(StandardPathID pathID, const String& path)
+bool StandardPaths::RegisterPath(StandardPathID pathID, const PString& path)
 {
     CRITICAL_SCOPE(GetMutex());
 
@@ -48,7 +48,7 @@ bool StandardPaths::RegisterPath(StandardPathID pathID, const String& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool StandardPaths::UpdatePath(StandardPathID pathID, const String& path)
+bool StandardPaths::UpdatePath(StandardPathID pathID, const PString& path)
 {
     CRITICAL_SCOPE(GetMutex());
 
@@ -66,7 +66,7 @@ bool StandardPaths::UpdatePath(StandardPathID pathID, const String& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String StandardPaths::GetPath(StandardPathID pathID)
+PString StandardPaths::GetPath(StandardPathID pathID)
 {
     CRITICAL_SCOPE(GetMutex());
 
@@ -75,7 +75,7 @@ String StandardPaths::GetPath(StandardPathID pathID)
         return i->second;
     }
     else {
-        return String::zero;
+        return PString::zero;
     }
 }
 
@@ -83,7 +83,7 @@ String StandardPaths::GetPath(StandardPathID pathID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String StandardPaths::GetPath(StandardPathID pathID, const String& file)
+PString StandardPaths::GetPath(StandardPathID pathID, const PString& file)
 {
     if (!file.empty() && file[0] == '/') {
         return file; // Already an absolute path.

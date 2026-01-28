@@ -30,16 +30,16 @@ class TextBox;
 class TextInputDialog : public DialogBase
 {
 public:
-    TextInputDialog(const String& title, const String& message, const String& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
+    TextInputDialog(const PString& title, const PString& message, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
     virtual void OnActivated(DialogButtonID buttonID) override;
 
-    const String& GetText() const;
+    const PString& GetText() const;
 
-    Signal<void, const String&, bool, TextInputDialog*> SignalTextChanged;//(const String& newText, bool finalUpdate, TextInputDialog* dialog)
-    Signal<void, DialogButtonID, const String&, TextInputDialog*> SignalSelected;//(DialogButtonID buttonID, const String& text, TextInputDialog* dialog)
+    Signal<void, const PString&, bool, TextInputDialog*> SignalTextChanged;//(const PString& newText, bool finalUpdate, TextInputDialog* dialog)
+    Signal<void, DialogButtonID, const PString&, TextInputDialog*> SignalSelected;//(DialogButtonID buttonID, const PString& text, TextInputDialog* dialog)
 
 private:
-    void SlotTextChanged(const String& newText, bool finalUpdate, TextBox* source);
+    void SlotTextChanged(const PString& newText, bool finalUpdate, TextBox* source);
 
     Ptr<TextView>   m_MessageView;
     Ptr<TextBox>    m_TextInput;

@@ -96,7 +96,7 @@ public:
     void AddConfigDescriptor(uint32_t index, const void* data, size_t length);
     void AddOtherConfigDescriptor(uint32_t index, const void* data, size_t length);
     void AddBOSDescriptor(const void* data, size_t length);
-    void SetStringDescriptor(USB_LanguageID languageID, uint32_t index, const os::String& string);
+    void SetStringDescriptor(USB_LanguageID languageID, uint32_t index, const PString& string);
 
     void ClearConfigDescriptors()       { m_ConfigDescriptors.clear(); }
     void ClearOtherConfigDescriptors()  { m_OtherConfigDescriptors.clear(); }

@@ -30,7 +30,7 @@ class ViewBase : public EventHandler, public SignalTarget
 public:
     typedef std::vector<Ptr<ViewType>> ChildList_t;
 
-    ViewBase(const String& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, float penWidth, Color eraseColor, Color bgColor, Color fgColor)
+    ViewBase(const PString& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, float penWidth, Color eraseColor, Color bgColor, Color fgColor)
         : EventHandler(name)
         , m_Frame(frame)
         , m_ScrollOffset(scrollOffset)
@@ -81,13 +81,13 @@ public:
     }
 
     template<typename T = View>
-    Ptr<T> FindChild(const String& name, bool recursive = true) const
+    Ptr<T> FindChild(const PString& name, bool recursive = true) const
     {
         return ptr_dynamic_cast<T>(FindChildInternal([&name](Ptr<ViewType> child) { return child->GetName() == name; }, recursive));
     }
 
     template<typename T = View>
-    bool FindChild(const String& name, Ptr<T>& outResult, bool recursive = true) const
+    bool FindChild(const PString& name, Ptr<T>& outResult, bool recursive = true) const
     {
         outResult = FindChild<T>(name, recursive);
         return outResult != nullptr;

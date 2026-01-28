@@ -35,7 +35,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ServerApplication::ServerApplication(ApplicationServer* server, const String& name, port_id clientPort) : EventHandler(name), m_Server(server), m_ClientPort(clientPort)
+ServerApplication::ServerApplication(ApplicationServer* server, const PString& name, port_id clientPort) : EventHandler(name), m_Server(server), m_ClientPort(clientPort)
 {
     RegisterRemoteSignal(&RSSync,               &ServerApplication::SlotSync);
     RegisterRemoteSignal(&RSCreateView,         &ServerApplication::SlotCreateView);
@@ -189,7 +189,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
                                        handler_id           parentHandle,
                                        ViewDockType         dockType,
                                        size_t               index,
-                                       const String&        name,
+                                       const PString&       name,
                                        const Rect&          frame,
                                        const Point&         scrollOffset,
                                        uint32_t             flags,

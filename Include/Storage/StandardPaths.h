@@ -29,20 +29,20 @@ class Mutex;
 using StandardPathID = uint32_t;
 
 
-#define DEFINE_STANDARD_PATH_ID(ID)   static constexpr os::StandardPathID ID = os::String::hash_string_literal(#ID, sizeof(#ID) - 1);
+#define DEFINE_STANDARD_PATH_ID(ID)   static constexpr os::StandardPathID ID = PString::hash_string_literal(#ID, sizeof(#ID) - 1);
 
 class StandardPaths
 {
 public:
-    static bool    RegisterPath(StandardPathID pathID, const String& path);
-    static bool    UpdatePath(StandardPathID pathID, const String& path);
-    static String  GetPath(StandardPathID pathID);
-    static String  GetPath(StandardPathID pathID, const String& file);
+    static bool    RegisterPath(StandardPathID pathID, const PString& path);
+    static bool    UpdatePath(StandardPathID pathID, const PString& path);
+    static PString GetPath(StandardPathID pathID);
+    static PString GetPath(StandardPathID pathID, const PString& file);
 
 private:
     static Mutex& GetMutex();
 
-    static std::map<StandardPathID, String> s_PathMap;
+    static std::map<StandardPathID, PString> s_PathMap;
 };
 
 } // namespace os

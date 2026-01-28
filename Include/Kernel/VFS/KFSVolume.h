@@ -41,7 +41,7 @@ enum
 class KFSVolume : public PtrTarget
 {
 public:
-    KFSVolume(fs_id volumeID, const os::String& devicePath);
+    KFSVolume(fs_id volumeID, const PString& devicePath);
     
     inline void     SetFlags(uint32_t flags) { m_Flags = flags; }
     inline uint32_t GetFlags() const         { return m_Flags; }
@@ -51,7 +51,7 @@ public:
     uint32_t         m_Flags;
     Ptr<KFilesystem> m_Filesystem;
     Ptr<KINode>      m_MountPoint;
-    os::String       m_DevicePath;
+    PString          m_DevicePath;
 
     Ptr<KINode>      m_RootNode;
 };

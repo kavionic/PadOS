@@ -27,7 +27,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Control::Control(const String& name, Ptr<View> parent, uint32_t flags)
+Control::Control(const PString& name, Ptr<View> parent, uint32_t flags)
     : View(name, parent, flags )
 {
     m_IsEnabled	= true;
@@ -39,7 +39,7 @@ Control::Control(const String& name, Ptr<View> parent, uint32_t flags)
 
 Control::Control(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment) : View(context, parent, xmlData)
 {
-    m_Label             = context.GetAttribute(xmlData, "label", String::zero);
+    m_Label             = context.GetAttribute(xmlData, "label", PString::zero);
     m_LabelAlignment    = context.GetAttribute(xmlData, "label_alignment", defaultLabelAlignment);
     m_IsEnabled         = context.GetAttribute<bool>(xmlData, "enabled", true);
 }
@@ -77,12 +77,12 @@ bool Control::IsEnabled() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Control::SetLabel(const String& label)
+void Control::SetLabel(const PString& label)
 {
     if (label != m_Label)
     {
-	m_Label = label;
-	OnLabelChanged(m_Label);
+        m_Label = label;
+        OnLabelChanged(m_Label);
     }
 }
 

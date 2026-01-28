@@ -251,7 +251,7 @@ void* SerialCommandHandler::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, String&& serialPortPath, int baudrate, int readThreadPriority, int procThreadPriority)
+void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, PString&& serialPortPath, int baudrate, int readThreadPriority, int procThreadPriority)
 {
     m_SerialPortPath = std::move(serialPortPath);
     m_Baudrate = baudrate;

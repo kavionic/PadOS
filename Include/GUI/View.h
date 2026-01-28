@@ -66,9 +66,9 @@ enum class FocusKeyboardMode : uint8_t
 class View : public ViewBase<View>
 {
 public:
-    View(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    View(const PString& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
     View(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
-    View(Ptr<View> parent, handler_id serverHandle, const String& name, const Rect& frame);
+    View(Ptr<View> parent, handler_id serverHandle, const PString& name, const Rect& frame);
     virtual ~View();
 
     // From EventHandler:
@@ -127,8 +127,8 @@ public:
     virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& motionEvent);
     virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& motionEvent);
 
-    virtual void OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& keyEvent);
-    virtual void OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& keyEvent);
+    virtual void OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent);
+    virtual void OnKeyUp(KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent);
 
     virtual void OnLayoutChanged();
     virtual void OnLayoutUpdated() {}
@@ -252,8 +252,8 @@ public:
     void            EraseRect(const Rect& rect)                        { Post<ASViewFillRect>(rect, m_EraseColor); }
 
     void            FillCircle(const Point& position, float radius) { Post<ASViewFillCircle>(position, radius); }
-    void            DrawString(const String& string) { Post<ASViewDrawString>(string); }
-    void            DrawString(const String& string, const Point& pos) { MovePenTo(pos); Post<ASViewDrawString>(string); }
+    void            DrawString(const PString& string) { Post<ASViewDrawString>(string); }
+    void            DrawString(const PString& string, const Point& pos) { MovePenTo(pos); Post<ASViewDrawString>(string); }
 
     virtual void    ScrollBy(const Point& offset);
     virtual void    ScrollBy(float vDeltaX, float vDeltaY) { ScrollBy(Point(vDeltaX, vDeltaY)); }
@@ -269,7 +269,7 @@ public:
         
     FontHeight      GetFontHeight() const;
     float           GetStringWidth(const char* string, size_t length) const;
-    float           GetStringWidth(const String& string) const { return GetStringWidth(string.data(), string.length()); }
+    float           GetStringWidth(const PString& string) const { return GetStringWidth(string.data(), string.length()); }
 
     void            Flush();
     void            Sync();
@@ -300,8 +300,8 @@ public:
     VFConnector<bool (View* view, MouseButton_e button , const Point& position, const MotionEvent& motionEvent)> VFMouseUp;
     VFConnector<bool (View* view, MouseButton_e button , const Point& position, const MotionEvent& motionEvent)> VFMouseMove;
 
-    VFConnector<void (View* view, KeyCodes keyCode, const String& text, const KeyEvent& keyEvent)>               VFKeyDown;
-    VFConnector<void (View* view, KeyCodes keyCode, const String& text, const KeyEvent& keyEvent)>               VFKeyUp;
+    VFConnector<void (View* view, KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent)>               VFKeyDown;
+    VFConnector<void (View* view, KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent)>               VFKeyUp;
 
     VFConnector<Point ()> VFCalculateContentSize;
 
@@ -360,8 +360,8 @@ private:
     bool DispatchMouseDown(MouseButton_e buttonID, const Point& position, const MotionEvent& motionEvent);
     bool DispatchMouseUp(MouseButton_e buttonID, const Point& position, const MotionEvent& motionEvent);
     bool DispatchMouseMove(MouseButton_e buttonID, const Point& position, const MotionEvent& motionEvent);
-    void DispatchKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& motionEvent);
-    void DispatchKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& motionEvent);
+    void DispatchKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& motionEvent);
+    void DispatchKeyUp(KeyCodes keyCode, const PString& text, const KeyEvent& motionEvent);
 
 
     void SlotFrameChanged(const Rect& frame);

@@ -34,7 +34,7 @@ namespace os
 class ServerApplication : public EventHandler, public SignalTarget
 {
 public:
-    ServerApplication(ApplicationServer* server, const String& name, port_id clientPort);
+    ServerApplication(ApplicationServer* server, const PString& name, port_id clientPort);
     ~ServerApplication();
     
     virtual bool HandleMessage(int32_t code, const void* data, size_t length) override;
@@ -52,7 +52,7 @@ private:
                         handler_id parentHandle,
                         ViewDockType dockType,
                         size_t index,
-                        const String& name,
+                        const PString& name,
                         const Rect& frame,
                         const Point& scrollOffset,
                         uint32_t flags,
@@ -89,7 +89,7 @@ private:
     void SlotViewDrawLine2(handler_id viewHandle, const Point& fromPnt, const Point& toPnt) { ForwardToView(viewHandle, &ServerView::DrawLine, fromPnt, toPnt); }
     void SlotViewFillRect(handler_id viewHandle, const Rect& rect, Color color)             { ForwardToView(viewHandle, &ServerView::FillRect, rect, color); }
     void SlotViewFillCircle(handler_id viewHandle, const Point& position, float radius)     { ForwardToView(viewHandle, &ServerView::FillCircle, position, radius); }
-    void SlotViewDrawString(handler_id viewHandle, const String& string)                    { ForwardToView(viewHandle, &ServerView::DrawString, string); }
+    void SlotViewDrawString(handler_id viewHandle, const PString& string)                   { ForwardToView(viewHandle, &ServerView::DrawString, string); }
     void SlotViewScrollBy(handler_id viewHandle, const Point& delta)                        { ForwardToView(viewHandle, &ServerView::ScrollBy, delta); }
     void SlotViewCopyRect(handler_id viewHandle, const Rect& srcRect, const Point& dstPos)  { ForwardToView(viewHandle, &ServerView::CopyRect, srcRect, dstPos); }
     void SlotViewDrawBitmap(handler_id viewHandle, handle_id bitmapHandle, const Rect& srcRect, const Point& dstPos)        { ForwardToView(viewHandle, &ServerView::DrawBitmap, GetBitmap(bitmapHandle), srcRect, dstPos); }

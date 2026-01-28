@@ -27,7 +27,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ProgressBar::ProgressBar(const std::string& name, Ptr<View> parent, Orientation orientation, uint32_t flags)
+ProgressBar::ProgressBar(const PString& name, Ptr<View> parent, Orientation orientation, uint32_t flags)
     : View(name, parent, flags | ViewFlags::WillDraw | ViewFlags::ClearBackground)
 {
     m_Orientation = orientation;

@@ -30,7 +30,7 @@ struct TextBoxStyle;
 class TextEditView : public Control
 {
 public:
-    TextEditView(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    TextEditView(const PString& name, const PString& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
     TextEditView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~TextEditView();
 
@@ -45,32 +45,32 @@ public:
     virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
     virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
 
-    virtual void OnKeyUp(KeyCodes keyCode, const String& text, const KeyEvent& event) override;
+    virtual void OnKeyUp(KeyCodes keyCode, const PString& text, const KeyEvent& event) override;
 
     // From TextEditView:
-    void                    SetText(const String& text, bool sendEvent = true);
-    void                    InsertText(const String& text, bool sendEvent = true);
+    void                    SetText(const PString& text, bool sendEvent = true);
+    void                    InsertText(const PString& text, bool sendEvent = true);
     void                    Delete();
 
-    const String&           GetText() const { return m_Text; }
+    const PString&          GetText() const { return m_Text; }
 
     bool                    MoveCursor(int delta);
     bool                    SetCursorPos(size_t position);
     size_t                  ViewPosToCursorPos(const Point& position) const;
 
-    Point                   GetSizeForString(const String& text, bool includeWidth = true, bool includeHeight = true) const;
+    Point                   GetSizeForString(const PString& text, bool includeWidth = true, bool includeHeight = true) const;
 
     Ptr<const TextBoxStyle> GetStyle() const;
     void                    SetStyle(Ptr<const TextBoxStyle> style);
 
-    Signal<void, const String&, bool, TextEditView*> SignalTextChanged; //(const String& newText, bool finalEdit, TextEditView* source)
+    Signal<void, const PString&, bool, TextEditView*> SignalTextChanged; //(const PString& newText, bool finalEdit, TextEditView* source)
 private:
     void Initialize();
     Rect GetCursorFrame();
     void UpdateCursorTimer();
     void SlotCursorTimer();
 
-    String                  m_Text;
+    PString                 m_Text;
     size_t                  m_CursorPos = 0;
     Point                   m_CursorViewPos;
     EventTimer              m_CursorTimer;

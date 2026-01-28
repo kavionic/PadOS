@@ -37,7 +37,7 @@ class DirIterator
 public:
     virtual ~DirIterator() {}
 
-    virtual bool GetNextEntry(String& outName) = 0;
+    virtual bool GetNextEntry(PString& outName) = 0;
     virtual bool GetNextEntry(FileReference& outReference) = 0;
     virtual bool Rewind() = 0;
 };

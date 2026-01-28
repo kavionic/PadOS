@@ -48,7 +48,7 @@ Path::Path(const Path& cPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Path::Path(const String& path)
+Path::Path(const PString& path)
 {
     SetTo(path);
 }
@@ -83,7 +83,7 @@ void Path::operator =(const Path& cPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Path::operator =(const String& path)
+void Path::operator =(const PString& path)
 {
     SetTo(path);
 }
@@ -101,7 +101,7 @@ bool Path::operator==(const Path& path) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Path::SetTo(const String& path)
+void Path::SetTo(const PString& path)
 {
     if (path.empty())
     {
@@ -124,19 +124,19 @@ void Path::SetTo(const String& path)
 
 void Path::SetTo(const char* path, size_t length)
 {
-    SetTo(String(path, length));
+    SetTo(PString(path, length));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Path::Append(const String& path)
+void Path::Append(const PString& path)
 {
     if (path.empty()) {
         return;
     }
-    m_Path += String("/") + path;
+    m_Path += PString("/") + path;
     Normalize();
 }
 
@@ -153,9 +153,9 @@ void Path::Append(const Path& cPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String Path::GetLeaf() const
+PString Path::GetLeaf() const
 {
-    String name(m_Path.begin() + m_NameStart, m_Path.end());
+    PString name(m_Path.begin() + m_NameStart, m_Path.end());
     return name;
 }
 
@@ -174,25 +174,25 @@ size_t Path::GetExtensionLength() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String Path::GetExtension() const
+PString Path::GetExtension() const
 {
     size_t extensionLength = GetExtensionLength();
 
-    return String(m_Path.end() - extensionLength, m_Path.end());
+    return PString(m_Path.end() - extensionLength, m_Path.end());
     for (ssize_t i = m_Path.size(); i >= m_NameStart; --i)
     {
         if (m_Path[i] == '.') {
-            return String(m_Path.begin() + i + 1, m_Path.end());
+            return PString(m_Path.begin() + i + 1, m_Path.end());
         }
     }
-    return String::zero;
+    return PString::zero;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Path::SetExtension(const String& extension)
+bool Path::SetExtension(const PString& extension)
 {
     if (m_Path.empty()) {
         return false;
@@ -216,14 +216,14 @@ bool Path::SetExtension(const String& extension)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String Path::GetDir() const
+PString Path::GetDir() const
 {
     if (m_NameStart >= m_Path.size()) {
         return m_Path;
     } else if (m_NameStart > 1 && m_Path[m_NameStart - 1] == '/') {
-        return String(m_Path.begin(), m_Path.begin() + m_NameStart - 1);
+        return PString(m_Path.begin(), m_Path.begin() + m_NameStart - 1);
     } else {
-        return String(m_Path.begin(), m_Path.begin() + m_NameStart);
+        return PString(m_Path.begin(), m_Path.begin() + m_NameStart);
     }
 }
 
@@ -242,14 +242,14 @@ bool Path::CreateFolders(bool includeLeaf, Directory* outLeafDirectory, int acce
     if (!directory.IsValid()) {
         return false;
     }
-    return directory.CreatePath(String(m_Path.begin() + 1, m_Path.end()), includeLeaf, outLeafDirectory, accessMode);
+    return directory.CreatePath(PString(m_Path.begin() + 1, m_Path.end()), includeLeaf, outLeafDirectory, accessMode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const String& Path::GetPath() const
+const PString& Path::GetPath() const
 {
     return m_Path;
 }
@@ -258,7 +258,7 @@ const String& Path::GetPath() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String Path::GetCWD()
+PString Path::GetCWD()
 {
     std::vector<char> buffer;
     buffer.resize(128);
@@ -267,12 +267,12 @@ String Path::GetCWD()
     {
         if (getcwd(buffer.data(), buffer.size()) != nullptr)
         {
-            return String(buffer.data());
+            return PString(buffer.data());
         }
         else
         {
             if (errno != ERANGE) {
-                return String::zero;
+                return PString::zero;
             }
             if (buffer.size() < PATH_MAX)
             {
@@ -281,7 +281,7 @@ String Path::GetCWD()
             else
             {
                 errno = ENAMETOOLONG;
-                return String::zero;
+                return PString::zero;
             }
         }
     }
@@ -380,7 +380,7 @@ void Path::Normalize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Path::operator String() const
+Path::operator PString() const
 {
     return m_Path;
 }

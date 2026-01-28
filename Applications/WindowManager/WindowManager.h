@@ -39,7 +39,7 @@ public:
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
 
 private:
-    void SlotRegisterView(handler_id viewHandle, os::ViewDockType dockType, const os::String& name, const os::Rect& frame);
+    void SlotRegisterView(handler_id viewHandle, os::ViewDockType dockType, const PString& name, const os::Rect& frame);
     void SlotUnregisterView(handler_id viewHandle);
     void SlotEnableVKeyboard(const Rect& focusViewEditArea, bool numerical);
     void SlotDisableVKeyboard();

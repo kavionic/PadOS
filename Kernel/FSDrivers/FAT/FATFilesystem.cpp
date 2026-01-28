@@ -53,7 +53,7 @@ namespace kernel
 // Short name cannot be any of the DOS/Win device names (list from wikipedia).
 ///////////////////////////////////////////////////////////////////////////////
 
-static std::set<String> g_DOSDeviceNames =
+static std::set<PString> g_DOSDeviceNames =
 {
     "CON        ",
     "PRN        ",
@@ -557,7 +557,7 @@ Ptr<KINode> FATFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent
     // Starting at the base, find file in the subdir, and return path string and inode id of file.
     Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(volume);
     Ptr<FATINode>  dir = ptr_static_cast<FATINode>(parent);
-    String         file;
+    PString        file;
 
     if (nameLength > 255) {
         PERROR_THROW_CODE(PErrorCode::NameTooLong);
@@ -689,7 +689,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
     Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(volume);
     Ptr<FATINode>  dir = ptr_static_cast<FATINode>(parent);
 
-    String	name;
+    PString name;
 
     if (!vol->CheckMagic(__func__) || !dir->CheckMagic(__func__)) {
         PERROR_THROW_CODE(PErrorCode::IOError);
@@ -934,7 +934,7 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, c
     Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(volume);
     Ptr<FATINode>  dir = ptr_static_cast<FATINode>(parent);
     uint32_t i;
-    String name;
+    PString name;
 
     if (!vol->CheckMagic(__func__) || !dir->CheckMagic(__func__))
     {
@@ -1082,8 +1082,8 @@ void FATFilesystem::Rename(Ptr<KFSVolume> _vol, Ptr<KINode> _odir, const char* p
     Ptr<FATINode>  file2;
     
     uint32_t ns, ne;
-    String   oldname;
-    String   newname;
+    PString  oldname;
+    PString  newname;
 
     if ( nOldNameLen > 255 || nNewNameLen > 255 ) {
         PERROR_THROW_CODE(PErrorCode::NameTooLong);
@@ -1192,7 +1192,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> _vol, Ptr<KINode> _odir, const char* p
 
 void FATFilesystem::Unlink(Ptr<KFSVolume> vol, Ptr<KINode> dir, const char* _name, int nameLength)
 {
-    String name;
+    PString name;
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Unlink() called.");
     
@@ -1210,7 +1210,7 @@ void FATFilesystem::Unlink(Ptr<KFSVolume> vol, Ptr<KINode> dir, const char* _nam
 
 void FATFilesystem::RemoveDirectory(Ptr<KFSVolume> vol, Ptr<KINode> dir, const char* _name, int nameLength)
 {
-    String name;
+    PString name;
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::RemoveDirectory() called.");
 
     if ( nameLength > 255 ) {
@@ -1560,7 +1560,7 @@ size_t FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> d
     }
 
     FATDirectoryIterator diri(vol, dir->m_StartCluster, dirNode->m_CurrentIndex);
-    String fileName;
+    PString fileName;
     uint32_t dosAttributes = 0;
 
     bool entryFound = false;
@@ -1911,7 +1911,7 @@ bool FATFilesystem::FindShortName(Ptr<FATVolume> vol, Ptr<FATINode> parent, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<FATINode> FATFilesystem::DoLocateINode(Ptr<FATVolume> vol, Ptr<FATINode> dir, const String& fileName)
+Ptr<FATINode> FATFilesystem::DoLocateINode(Ptr<FATVolume> vol, Ptr<FATINode> dir, const PString& fileName)
 {
     ino_t inodeID;
 
@@ -1936,7 +1936,7 @@ Ptr<FATINode> FATFilesystem::DoLocateINode(Ptr<FATVolume> vol, Ptr<FATINode> dir
         bool found = false;
         for(;;)
         {
-            String curName;
+            PString curName;
             if (!diri.GetNextDirectoryEntry(dir, &inodeID, &curName, nullptr)) {
                 return nullptr;
             }
@@ -1973,7 +1973,7 @@ bool FATFilesystem::IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATINode> dir)
 
     for (; i < 3; ++i)
     {
-        String filename;
+        PString filename;
 
         if (!iter.GetNextLFNEntry(nullptr, &filename)) {
             return i == 2;
@@ -1993,7 +1993,7 @@ bool FATFilesystem::IsDirectoryEmpty(Ptr<FATVolume> volume, Ptr<FATINode> dir)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> parent, Ptr<FATINode> node, const String& name, uint32_t* startIndex, uint32_t* endIndex)
+void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> parent, Ptr<FATINode> node, const PString& name, uint32_t* startIndex, uint32_t* endIndex)
 {
     struct FATNewDirEntryInfo info;
 
@@ -2094,7 +2094,7 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> paren
 
 void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> dir, FATNewDirEntryInfo* info, const char shortName[11], const wchar16_t* longName, uint32_t len, uint32_t* startIndex, uint32_t* endIndex)
 {
-    if (g_DOSDeviceNames.count(String(shortName, 11)) != 0)
+    if (g_DOSDeviceNames.count(PString(shortName, 11)) != 0)
     {
         PERROR_THROW_CODE(PErrorCode::NoPermission);
     }
@@ -2316,7 +2316,7 @@ void FATFilesystem::EraseDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> node)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KINode> _dir, const String& name, bool removeFile)
+void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KINode> _dir, const PString& name, bool removeFile)
 {
     Ptr<FATVolume> vol = ptr_static_cast<FATVolume>(_vol);
     Ptr<FATINode>  dir = ptr_static_cast<FATINode>(_dir);

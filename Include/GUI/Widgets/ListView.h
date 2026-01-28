@@ -41,7 +41,7 @@ static constexpr uint32_t DontScroll    = 0x0008 << ViewFlags::FirstUserBit;
 static constexpr uint32_t NoHeader      = 0x0010 << ViewFlags::FirstUserBit;
 static constexpr uint32_t NoColumnRemap = 0x0020 << ViewFlags::FirstUserBit;
 
-extern const std::map<String, uint32_t> FlagMap;
+extern const std::map<PString, uint32_t> FlagMap;
 }
 
 
@@ -65,7 +65,7 @@ public:
     using const_iterator = std::vector<Ptr<ListViewRow>>::const_iterator;
     using ColumnMap = std::vector<size_t>;
 
-    ListView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = ListViewFlags::MultiSelect | ListViewFlags::RenderBorder);
+    ListView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = ListViewFlags::MultiSelect | ListViewFlags::RenderBorder);
     ListView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     ~ListView();

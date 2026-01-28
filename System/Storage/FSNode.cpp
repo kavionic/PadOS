@@ -46,7 +46,7 @@ FSNode::FSNode()
 ///////////////////////////////////////////////////////////////////////////////
 /// Construct a FSNode from a file path.
 /// \par Description:
-///     See: Open(const String& path, int openFlags)
+///     See: Open(const PString& path, int openFlags)
 /// \par Note:
 ///     Since constructors can't return error codes it will throw an
 ///     os::errno_exception in the case of failure. The error code can
@@ -55,7 +55,7 @@ FSNode::FSNode()
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode::FSNode(const String& path, int openFlags)
+FSNode::FSNode(const PString& path, int openFlags)
 {
     Open(path, openFlags);
 }
@@ -63,7 +63,7 @@ FSNode::FSNode(const String& path, int openFlags)
 ///////////////////////////////////////////////////////////////////////////////
 /// Construct a FSNode from directory and a name inside that directory.
 /// \par Description:
-///     See: Open( const Directory& directory, const String& path, int openFlags )
+///     See: Open( const Directory& directory, const PString& path, int openFlags )
 /// \par Note:
 ///     Since constructors can't return error codes it will throw an
 ///     os::errno_exception in the case of failure. The error code can
@@ -72,7 +72,7 @@ FSNode::FSNode(const String& path, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode::FSNode(const Directory& directory, const String& path, int openFlags)
+FSNode::FSNode(const Directory& directory, const PString& path, int openFlags)
 {
     Open(directory, path, openFlags);
 }
@@ -238,7 +238,7 @@ bool FSNode::IsValid() const
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::Open(const String& path, int openFlags)
+bool FSNode::Open(const PString& path, int openFlags)
 {
     int newFileDescriptor = -1;
     if (path.size() > 1 && path[0] == '~' && path[1] == '/')
@@ -249,7 +249,7 @@ bool FSNode::Open(const String& path, int openFlags)
             errno = ENOENT;
             return false;
         }
-        String realPath = home;
+        PString realPath = home;
         realPath.insert(realPath.end(), path.begin() + 1, path.end());
         newFileDescriptor = open(realPath.c_str(), openFlags);
     }
@@ -307,13 +307,13 @@ bool FSNode::Open(const String& path, int openFlags)
 ///     ignored) or it can be relative to \p directory. This have much the
 ///     same semantics as setting the current working directory to \p
 ///     directory and then open the node by calling Open( const
-///     String& path, int openFlags ) with the path. The main
+///     PString& path, int openFlags ) with the path. The main
 ///     advantage with this function is that it is thread-safe. You
 ///     don't get any races while temporarily changing the current
 ///     working directory.
 ///
 ///     For a more detailed description look at:
-///     Open( const String& path, int openFlags )
+///     Open( const PString& path, int openFlags )
 ///
 /// \note
 ///     If this call fail the old state of the FSNode will remain
@@ -326,7 +326,7 @@ bool FSNode::Open(const String& path, int openFlags)
 ///     be relative to \p directory.
 /// \param openFlags
 ///     Flags controlling how to open the node. See
-///     Open( const String& path, int openFlags )
+///     Open( const PString& path, int openFlags )
 ///     for a full description of the various flags.
 ///
 /// \return
@@ -335,11 +335,11 @@ bool FSNode::Open(const String& path, int openFlags)
 ///     The error code can be any of the errors returned by
 ///     the open() POSIX function.
 ///
-/// \sa FSNode( const String& path, int openFlags )
+/// \sa FSNode( const PString& path, int openFlags )
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::Open(const Directory& directory, const String& path, int openFlags)
+bool FSNode::Open(const Directory& directory, const PString& path, int openFlags)
 {
     if (!directory.IsValid())
     {
@@ -377,7 +377,7 @@ bool FSNode::Open(const Directory& directory, const String& path, int openFlags)
 ///////////////////////////////////////////////////////////////////////////////
 /// Open the node referred to by the given os::FileReference.
 /// \par Description:
-///     Same semantics Open( const String& path, int openFlags )
+///     Same semantics Open(const PString& path, int openFlags)
 ///     except that the node to open is targeted by a file reference
 ///     rather than a regular path.
 /// \par Note:
@@ -388,7 +388,7 @@ bool FSNode::Open(const Directory& directory, const String& path, int openFlags)
 ///     error code is assigned to the global variable "errno".
 ///     The error code can be any of the errors returned by
 ///     the open() POSIX function.
-/// \sa Open( const String& path, int openFlags )
+/// \sa Open( const PString& path, int openFlags )
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -438,7 +438,7 @@ bool FSNode::Open(const FileReference& reference, int openFlags)
 ///     error code is assigned to the global variable "errno".
 ///     The error code can be any of the errors returned by
 ///     the open() POSIX function.
-/// \sa Open(const String& path, int openFlags)
+/// \sa Open(const PString& path, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -807,7 +807,7 @@ PErrorCode FSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
 ///     this member will fail.
 ///
 /// \param pcName
-///     Pointer to an STL string that will receive the name.
+///     Pointer to a PString that will receive the name.
 /// \return
 ///     If a new name was successfully obtained 1 will be returned. If
 ///     we reach the end of the attribute directory 0 will be
@@ -817,7 +817,7 @@ PErrorCode FSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-//status_t FSNode::GetNextAttrName(String* pcName)
+//status_t FSNode::GetNextAttrName(PString* pcName)
 //{
 //    if (m_FileDescriptor < 0) {
 //        errno = EINVAL;
@@ -925,7 +925,7 @@ PErrorCode FSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-//ssize_t FSNode::WriteAttr(const String& cAttrName, int nFlags, int nType, const void* pBuffer, off_t nPos, size_t nLen)
+//ssize_t FSNode::WriteAttr(const PString& cAttrName, int nFlags, int nType, const void* pBuffer, off_t nPos, size_t nLen)
 //{
 //    if (m_FileDescriptor < 0) {
 //        errno = EINVAL;
@@ -963,7 +963,7 @@ PErrorCode FSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
 ///////////////////////////////////////////////////////////////////////////////
 
 
-//ssize_t FSNode::ReadAttr(const String& cAttrName, int nType, void* pBuffer, off_t nPos, size_t nLen)
+//ssize_t FSNode::ReadAttr(const PString& cAttrName, int nType, void* pBuffer, off_t nPos, size_t nLen)
 //{
 //    if (m_FileDescriptor < 0) {
 //        errno = EINVAL;
@@ -992,7 +992,7 @@ PErrorCode FSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
 ///////////////////////////////////////////////////////////////////////////////
 
 
-//status_t FSNode::RemoveAttr(const String& cName)
+//status_t FSNode::RemoveAttr(const PString& cName)
 //{
 //    if (m_FileDescriptor < 0) {
 //        errno = EINVAL;
@@ -1020,7 +1020,7 @@ PErrorCode FSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-//status_t FSNode::StatAttr(const String& cName, struct attr_info* psBuffer)
+//status_t FSNode::StatAttr(const PString& cName, struct attr_info* psBuffer)
 //{
 //    if (m_FileDescriptor < 0) {
 //        errno = EINVAL;

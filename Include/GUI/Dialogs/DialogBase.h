@@ -50,16 +50,16 @@ enum class DialogButtonSets : int
 class DialogBase : public Window
 {
 public:
-    DialogBase(const String& title, const String& text, DialogButtonSets buttonSet);
+    DialogBase(const PString& title, const PString& text, DialogButtonSets buttonSet);
     virtual ~DialogBase();
 
     Ptr<View>   SetContentView(Ptr<View> contentView);
-    Ptr<Button> AddButton(const String& label, DialogButtonID buttonID);
-    Ptr<Button> AddButton(const String& label, int32_t buttonID);
+    Ptr<Button> AddButton(const PString& label, DialogButtonID buttonID);
+    Ptr<Button> AddButton(const PString& label, int32_t buttonID);
 
     Ptr<Button> FindButton(DialogButtonID buttonID) const;
     Ptr<Button> FindButton(int32_t buttonID) const;
-    Ptr<Button> FindButton(const String& buttonName) const;
+    Ptr<Button> FindButton(const PString& buttonName) const;
 
     DialogButtonID Go(Ptr<View> owner);
 protected:

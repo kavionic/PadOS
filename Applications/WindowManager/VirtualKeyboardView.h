@@ -33,7 +33,7 @@ public:
     VirtualKeyboardView(bool numerical);
     void SetIsNumerical(bool numerical);
 private:
-    void SlotKeyPressed(KeyCodes keyCode, const String& text);
+    void SlotKeyPressed(KeyCodes keyCode, const PString& text);
 
     Ptr<KeyboardView>   m_KeyboardView;
 };

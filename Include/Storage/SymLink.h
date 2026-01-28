@@ -40,25 +40,25 @@ class SymLink : public FSNode
 {
 public:
     SymLink();
-    SymLink(const String& path, int openFlags = O_RDONLY);
-    SymLink(const Directory& directory, const String& name, int openFlags = O_RDONLY);
+    SymLink(const PString& path, int openFlags = O_RDONLY);
+    SymLink(const Directory& directory, const PString& name, int openFlags = O_RDONLY);
     SymLink(const FileReference& reference, int openFlags = O_RDONLY);
     SymLink(const FSNode& node);
     SymLink(const SymLink& node);
     virtual ~SymLink();
 
-    virtual bool Open(const String& path, int openFlags = O_RDONLY) override;
-    virtual bool Open(const Directory& directory, const String& path, int openFlags = O_RDONLY) override;
+    virtual bool Open(const PString& path, int openFlags = O_RDONLY) override;
+    virtual bool Open(const Directory& directory, const PString& path, int openFlags = O_RDONLY) override;
     virtual bool Open(const FileReference& reference, int openFlags = O_RDONLY) override;
     virtual bool SetTo(int fileDescriptor, bool takeOwnership) override { return FSNode::SetTo(fileDescriptor, takeOwnership); }
     virtual bool SetTo(const FSNode& node) override;
     virtual bool SetTo(FSNode&& node) override;
     virtual bool SetTo(const SymLink& link);
 
-    bool    ReadLink(String& buffer);
-    String  ReadLink();
+    bool    ReadLink(PString& buffer);
+    PString ReadLink();
     bool    ConstructPath(const Directory& parent, Path& outPath);
-    bool    ConstructPath(const String& parent, Path& outPath);
+    bool    ConstructPath(const PString& parent, Path& outPath);
 
 };
 

@@ -40,7 +40,7 @@ static constexpr uint32_t KnobPointDown     = 0x0008 << ViewFlags::FirstUserBit;
 static constexpr uint32_t KnobPointLeft     = KnobPointUp;
 static constexpr uint32_t KnobPointRight    = KnobPointDown;
 
-extern const std::map<String, uint32_t> FlagMap;
+extern const std::map<PString, uint32_t> FlagMap;
 
 }
 
@@ -55,7 +55,7 @@ extern const std::map<String, uint32_t> FlagMap;
 class Slider : public Control
 {
 public:
-    Slider(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = SliderFlags::TicksBelow,
+    Slider(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = SliderFlags::TicksBelow,
            int tickCount = 10, Orientation orientation = Orientation::Horizontal);
     Slider(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
@@ -65,7 +65,7 @@ public:
     virtual void OnFlagsChanged(uint32_t changedFlags) override { Control::OnFlagsChanged(changedFlags); PreferredSizeChanged(); Invalidate(); }
 
     // From Control:
-    virtual void OnLabelChanged(const String& label) override;
+    virtual void OnLabelChanged(const PString& label) override;
 
     // From Slider:
     virtual void RenderLabels();
@@ -86,9 +86,9 @@ public:
     virtual float   GetSliderSize() const;
 
     
-    virtual void    SetValueStringFormat(const String& format, float scale = 1.0f);
-    virtual String  GetValueStringFormat() const;
-    virtual String  GetValueString() const;
+    virtual void    SetValueStringFormat(const PString& format, float scale = 1.0f);
+    virtual PString GetValueStringFormat() const;
+    virtual PString GetValueString() const;
 
     void        SetValue(float value, bool sendEvent = true);
     float       GetValue() const;
@@ -99,8 +99,8 @@ public:
     void        SetTickCount( int count);
     int         GetTickCount() const;
 
-    void        SetLimitLabels(const String& minLabel, const String& maxLabel);
-    void        GetLimitLabels(String* minLabel, String* maxLabel);
+    void        SetLimitLabels(const PString& minLabel, const PString& maxLabel);
+    void        GetLimitLabels(PString* minLabel, PString* maxLabel);
     
     virtual void    SetSteps(float small, float big)         { m_SmallStep = small; m_BigStep = big; }
     virtual void    GetSteps(float* small, float* big) const { *small = m_SmallStep; *big = m_BigStep; }
@@ -137,9 +137,9 @@ private:
 
     Ptr<TextView>   m_ValueView;
 
-    String          m_MinLabel;
-    String          m_MaxLabel;
-    String          m_ValueFormat;
+    PString         m_MinLabel;
+    PString         m_MaxLabel;
+    PString         m_ValueFormat;
     float           m_ValueScale = 1.0f;
 
     Color           m_SliderColor1;

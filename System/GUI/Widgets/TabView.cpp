@@ -32,7 +32,7 @@ static constexpr float ARROW_SPACE = 16.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TabView::TabView(const String& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
+TabView::TabView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
 {
     Initialize();
 }
@@ -128,7 +128,7 @@ void TabView::Initialize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int TabView::AppendTab(const String& title, Ptr<View> view)
+int TabView::AppendTab(const PString& title, Ptr<View> view)
 {
     return InsertTab(m_TabList.size(), title, view);
 }
@@ -154,7 +154,7 @@ int TabView::AppendTab(const String& title, Ptr<View> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int TabView::InsertTab(size_t index, const String& title, Ptr<View> view)
+int TabView::InsertTab(size_t index, const PString& title, Ptr<View> view)
 {
     if (index > m_TabList.size()) index = m_TabList.size();
     if (m_SelectedTab != INVALID_INDEX && index <= m_SelectedTab) {
@@ -281,7 +281,7 @@ int TabView::GetTabCount() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int TabView::SetTabTitle(size_t index, const String& title)
+int TabView::SetTabTitle(size_t index, const PString& title)
 {
     m_TabList[index].m_Title = title;
 
@@ -607,7 +607,7 @@ bool TabView::OnMouseMove(MouseButton_e button, const Point& position, const Mot
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event)
+void TabView::OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& event)
 {
     switch (keyCode)
     {

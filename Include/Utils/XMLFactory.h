@@ -39,10 +39,10 @@ public:
 
     virtual ~XMLFactory() {}
 
-    void RegisterClass(const String& name, CreateObjectCallback factory) { m_ClassMap[name] = factory; }
+    void RegisterClass(const PString& name, CreateObjectCallback factory) { m_ClassMap[name] = factory; }
 
     template<typename T>
-    Ptr<T> CreateInstance(const String& name, ARGS... args)
+    Ptr<T> CreateInstance(const PString& name, ARGS... args)
     {
         auto i = m_ClassMap.find(name);
         if (i != m_ClassMap.end())
@@ -53,7 +53,7 @@ public:
         return nullptr;
     }
 private:
-    std::map<String, CreateObjectCallback> m_ClassMap;
+    std::map<PString, CreateObjectCallback> m_ClassMap;
 };
 
 

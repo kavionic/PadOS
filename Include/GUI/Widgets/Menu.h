@@ -32,7 +32,7 @@ namespace MenuFlags
 {
 static constexpr uint32_t NoKeyboardFocus = 0x01 << ViewFlags::FirstUserBit;
 
-extern const std::map<String, uint32_t> FlagMap;
+extern const std::map<PString, uint32_t> FlagMap;
 }
 
 
@@ -64,7 +64,7 @@ public:
     static constexpr int    LEFT_ARROW_WIDTH = 10;
     static constexpr int    LEFT_ARROW_HEIGHT = 19;
 
-    Menu(const String& title = String::zero, MenuLayout layout = MenuLayout::Vertical, uint32_t flags = 0);
+    Menu(const PString& title = PString::zero, MenuLayout layout = MenuLayout::Vertical, uint32_t flags = 0);
     ~Menu();
 
 //  From View:
@@ -72,16 +72,16 @@ public:
 
     virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
 
-    virtual void    OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event) override;
+    virtual void    OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& event) override;
 
     virtual void    OnFrameSized(const Point& delta) override;
 
     virtual void    OnPaint(const Rect& updateRect) override;
 
 //  From Menu:
-    String          GetLabel() const;
+    PString         GetLabel() const;
     MenuLayout      GetLayout() const;
-    Ptr<MenuItem>   AddStringItem(const String& label, int id = 0);
+    Ptr<MenuItem>   AddStringItem(const PString& label, int id = 0);
     Ptr<MenuItem>   AddItem(Ptr<MenuItem> item);
     Ptr<MenuItem>   AddItem(Ptr<MenuItem> item, size_t index);
     Ptr<MenuItem>   AddSubMenu(Ptr<Menu> subMenu);
@@ -100,7 +100,7 @@ public:
     size_t          GetIndexOf(Ptr<Menu> subMenu) const;
 
     Ptr<MenuItem>   FindItem(int id) const;
-    Ptr<MenuItem>   FindItem(const String& name) const;
+    Ptr<MenuItem>   FindItem(const PString& name) const;
 
     Ptr<MenuItem>   FindMarked() const;
 
@@ -135,7 +135,7 @@ private:
     Ptr<MenuRenderView>         m_ContentView;
     Ptr<Bitmap>                 m_ArrowRightBitmap;
 
-    String                      m_Title;
+    PString                     m_Title;
 
     bool                        m_IsOpen            = false;
     bool                        m_HasOpenChildren   = false;

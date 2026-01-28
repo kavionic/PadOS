@@ -32,7 +32,7 @@ class ServerView : public ViewBase<ServerView>
 public:
     ServerView(
         SrvBitmap*          bitmap,
-        const String&       name,
+        const PString&      name,
         const Rect&         frame,
         const Point&        scrollOffset,
         ViewDockType        dockType,
@@ -119,7 +119,7 @@ public:
     
     void        FillRect(const Rect& rect, Color color);
     void        FillCircle(const Point& position, float radius);
-    void        DrawString(const String& string);
+    void        DrawString(const PString& string);
     void        CopyRect(const Rect& srcRect, const Point& dstPos);
     void        DrawBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Point& dstPos);
     void        DrawScaledBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Rect& dstRect);

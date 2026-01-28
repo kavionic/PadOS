@@ -58,7 +58,7 @@ void VirtualKeyboardView::SetIsNumerical(bool numerical)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void VirtualKeyboardView::SlotKeyPressed(KeyCodes keyCode, const String& text)
+void VirtualKeyboardView::SlotKeyPressed(KeyCodes keyCode, const PString& text)
 {
     KeyEvent event;
 

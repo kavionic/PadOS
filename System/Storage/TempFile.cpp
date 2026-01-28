@@ -26,7 +26,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TempFile::TempFile(const String& prefix, const String& path, int access) : File()
+TempFile::TempFile(const PString& prefix, const PString& path, int access) : File()
 {
     m_DeleteFile = true;
     while (true)
@@ -93,7 +93,7 @@ bool TempFile::Unlink()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String TempFile::GetPath() const
+PString TempFile::GetPath() const
 {
     return m_Path;
 }

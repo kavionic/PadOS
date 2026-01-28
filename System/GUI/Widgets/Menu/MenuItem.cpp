@@ -27,7 +27,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MenuItem::MenuItem(const String& label, int id) : m_ID(id), m_Label(label)
+MenuItem::MenuItem(const PString& label, int id) : m_ID(id), m_Label(label)
 {
     m_SuperMenu       = nullptr;
     m_SubMenu         = nullptr;
@@ -113,7 +113,7 @@ Point MenuItem::GetContentSize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String MenuItem::GetLabel() const
+PString MenuItem::GetLabel() const
 {
     return m_Label;
 }

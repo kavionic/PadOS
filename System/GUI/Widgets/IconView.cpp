@@ -30,7 +30,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IconView::IconView(const String& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
+IconView::IconView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
 {
     Construct();
 }
@@ -121,7 +121,7 @@ Ptr<os::Bitmap> IconView::GetBitmap() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void IconView::SetLabel(const String& label)
+void IconView::SetLabel(const PString& label)
 {
     m_LabelView->SetText(label);
 }
@@ -133,7 +133,7 @@ void IconView::SetLabel(const String& label)
 void IconView::Clear()
 {
     m_IconView->ClearBitmap();
-    m_LabelView->SetText(String::zero);
+    m_LabelView->SetText(PString::zero);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

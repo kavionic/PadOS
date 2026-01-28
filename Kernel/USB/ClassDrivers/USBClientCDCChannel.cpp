@@ -59,7 +59,7 @@ USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, int channelIn
     m_OutEndpointBuffer.resize(endpointOutMaxSize);
     m_InEndpointBuffer.resize(endpointInMaxSize);
 
-    m_DevNodeHandle = kregister_device_root_trw(String::format_string("com/udp{}", channelIndex).c_str(), ptr_tmp_cast(this));
+    m_DevNodeHandle = kregister_device_root_trw(PString::format_string("com/udp{}", channelIndex).c_str(), ptr_tmp_cast(this));
 
     StartOutTransaction();
 }

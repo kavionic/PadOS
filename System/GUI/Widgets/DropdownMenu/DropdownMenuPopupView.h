@@ -31,7 +31,7 @@ class DropdownMenuPopupView;
 class DropdownMenuPopupWindow : public View, public ViewScroller
 {
 public:
-    DropdownMenuPopupWindow(const std::vector<String>& itemList, size_t selection);
+    DropdownMenuPopupWindow(const std::vector<PString>& itemList, size_t selection);
     // From View:
     virtual void OnPaint(const Rect& updateRect) override;
     virtual void OnFrameSized(const Point& delta) override;
@@ -48,7 +48,7 @@ private:
 class DropdownMenuPopupView : public View
 {
 public:
-    DropdownMenuPopupView(const std::vector<String>& itemList, size_t selection, Signal<void, size_t, bool>& signalSelectionChanged);
+    DropdownMenuPopupView(const std::vector<PString>& itemList, size_t selection, Signal<void, size_t, bool>& signalSelectionChanged);
 
     // From View:
     virtual void    OnPaint(const Rect& updateRect) override;
@@ -80,7 +80,7 @@ private:
     MouseButton_e           m_HitButton = MouseButton_e::None;
     Point                   m_HitPos;
     bool                    m_MouseMoved = false;
-    const std::vector<String>& m_ItemList;
+    const std::vector<PString>& m_ItemList;
 };
 
 } // namespace osi

@@ -27,14 +27,14 @@ namespace os
 class GroupView : public View
 {
 public:
-    GroupView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    GroupView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     GroupView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     // From View:
     virtual void OnPaint(const Rect& updateRect) override;
 
 private:
-    String  m_Label;
+    PString m_Label;
 };
 
 }

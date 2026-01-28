@@ -218,7 +218,7 @@ protected:
     KSemaphore          m_DeviceSemaphore;
     DigitalPin          m_PinCD;
     
-    os::String                   m_DevicePathBase;
+    PString                      m_DevicePathBase;
     Ptr<SDMMCINode>              m_RawINode;
     std::vector<Ptr<SDMMCINode>> m_PartitionINodes;
     

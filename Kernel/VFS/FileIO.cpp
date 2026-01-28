@@ -36,12 +36,12 @@ using namespace os;
 namespace kernel
 {
 
-static KMutex                                   kg_TableMutex("vfs_tables", PEMutexRecursionMode_RaiseError);
-static std::map<os::String, Ptr<KFilesystem>>   kg_FilesystemDrivers;
-static Ptr<KFileTableNode>                      kg_PlaceholderFile;
-static Ptr<KRootFilesystem>                     kg_RootFilesystem;
-static Ptr<KFSVolume>                           kg_RootVolume;
-static std::vector<Ptr<KFileTableNode>>         kg_FileTable;
+static KMutex                               kg_TableMutex("vfs_tables", PEMutexRecursionMode_RaiseError);
+static std::map<PString, Ptr<KFilesystem>>  kg_FilesystemDrivers;
+static Ptr<KFileTableNode>                  kg_PlaceholderFile;
+static Ptr<KRootFilesystem>                 kg_RootFilesystem;
+static Ptr<KFSVolume>                       kg_RootVolume;
+static std::vector<Ptr<KFileTableNode>>     kg_FileTable;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Prepends a new name in front of a path.
@@ -68,7 +68,7 @@ static int PrependNameToPath(char* buffer, size_t currentPathLength, const char*
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool RemoveTrailingSlashes(String* name)
+static bool RemoveTrailingSlashes(PString* name)
 {
     bool slashesRemoved = false;
     while (name->size() > 1 && (*name)[name->size() - 1] == '/')
@@ -727,8 +727,8 @@ void krename_trw(const char* inOldPath, const char* inNewPath)
     if (inOldPath == nullptr || inNewPath == nullptr) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
-    String oldPath(inOldPath);
-    String newPath(inNewPath);
+    PString oldPath(inOldPath);
+    PString newPath(inNewPath);
 
     bool mustBeDir = RemoveTrailingSlashes(&oldPath);
     mustBeDir = RemoveTrailingSlashes(&newPath) || mustBeDir;
@@ -756,7 +756,7 @@ void kunlink_trw(int baseFolderFD, const char* inPath)
     if (inPath == nullptr) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
-    String path(inPath);
+    PString path(inPath);
 
     Ptr<KINode> baseInode;
     if (baseFolderFD != AT_FDCWD)
@@ -790,7 +790,7 @@ void kremove_directory_trw(int baseFolderFD, const char* inPath)
     if (inPath == nullptr) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
-    String path(inPath);
+    PString path(inPath);
 
     const char* name;
     size_t      nameLength;

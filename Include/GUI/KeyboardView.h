@@ -105,7 +105,7 @@ static constexpr uint32_t Numerical = 0x01 << ViewFlags::FirstUserBit;
 class KeyboardView : public View
 {
 public:
-    KeyboardView(const String& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    KeyboardView(const PString& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
 
     static Ptr<KeyboardViewStyle> GetDefaultStyle() { return s_DefaultStyle; }
 
@@ -123,15 +123,15 @@ public:
     virtual bool OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
 
     // From KeyboardView:
-    bool LoadKeyboard(const String& name);
+    bool LoadKeyboard(const PString& name);
 
-    Signal<void, KeyCodes, const String&, KeyboardView*> SignalKeyPressed;
+    Signal<void, KeyCodes, const PString&, KeyboardView*> SignalKeyPressed;
 private:
-    void    LoadConfig(String& outSelectedKeyboard);
-    void    SaveConfig(const String& selectedKeyboard);
+    void    LoadConfig(PString& outSelectedKeyboard);
+    void    SaveConfig(const PString& selectedKeyboard);
 
     void    SetLayout(KeyboardLayout* layout);
-    String  GetKeyText(KeyCodes keyCode) const;
+    PString GetKeyText(KeyCodes keyCode) const;
     void    DrawButton(const KeyButton& button, bool pressed);
     void    SetPressedButton(size_t index);
     size_t  GetButtonIndex(const Point& position) const;
@@ -146,7 +146,7 @@ private:
 
     float                       m_KeyHeight = 0.0f;
 
-    std::vector<String>         m_Keyboards;
+    std::vector<PString>        m_Keyboards;
     size_t                      m_SelectedKeyboard;
     KeyboardLayout              m_DefaultLayout;
     std::vector<KeyboardLayout> m_SymbolLayouts;

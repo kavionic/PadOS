@@ -62,7 +62,7 @@ void ListViewHeaderView::DrawButton(const char* title, const Rect& frame, Ptr<Fo
     float vFontHeight = fontHeight->ascender + fontHeight->descender;
 
     int nStrLen = font->GetStringLength(title, frame.Width() - 9.0f);
-    DrawString(String(title, title + nStrLen), frame.TopLeft() + Point(5, (frame.Height() + 1.0f) / 2 - vFontHeight / 2 + fontHeight->ascender));
+    DrawString(PString(title, title + nStrLen), frame.TopLeft() + Point(5, (frame.Height() + 1.0f) / 2 - vFontHeight / 2 + fontHeight->ascender));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

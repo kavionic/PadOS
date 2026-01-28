@@ -22,7 +22,7 @@
 
 using namespace os;
 
-Ptr<ButtonGroup> ViewFactoryContext::GetButtonGroup(const String& name)
+Ptr<ButtonGroup> ViewFactoryContext::GetButtonGroup(const PString& name)
 {
 	Ptr<ButtonGroup> group;
 	auto i = m_ButtonGroups.find(name);

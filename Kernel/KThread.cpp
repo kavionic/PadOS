@@ -42,7 +42,7 @@ thread_local KThread* KThread::st_CurrentThread = nullptr;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KThread::KThread(const String& name) : m_Name(name)
+KThread::KThread(const PString& name) : m_Name(name)
 {
 }
 

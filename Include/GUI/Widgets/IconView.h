@@ -15,7 +15,7 @@ class TextView;
 class IconView : public View
 {
 public:
-    IconView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    IconView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     IconView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     Ptr<BitmapView>         GetIconView();
@@ -30,7 +30,7 @@ public:
     void        SetBitmap(Ptr<Bitmap> bitmap);
     Ptr<Bitmap> GetBitmap() const;
 
-    void SetLabel(const String& label);
+    void SetLabel(const PString& label);
 
     void Clear();
 

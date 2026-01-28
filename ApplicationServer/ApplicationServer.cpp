@@ -248,7 +248,7 @@ void ApplicationServer::ViewDestructed(ServerView* view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clientPort, const String& name)
+void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clientPort, const PString& name)
 {
     Ptr<ServerApplication> app = ptr_new<ServerApplication>(this, name, clientPort);
     

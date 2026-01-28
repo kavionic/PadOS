@@ -27,7 +27,7 @@ namespace os
 {
 
 // Named colors from SVG (https://www.w3.org/TR/css-color-3/)
-#define DEF_NAMED_COLOR_ENUM(NAME) NAME = String::hash_string_literal(#NAME)
+#define DEF_NAMED_COLOR_ENUM(NAME) NAME = PString::hash_string_literal(#NAME)
 enum class NamedColors : uint32_t
 {
     DEF_NAMED_COLOR_ENUM(aliceblue),

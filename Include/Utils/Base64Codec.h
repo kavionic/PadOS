@@ -30,7 +30,7 @@ namespace os
 class Base64Codec
 {
 public:
-    static os::String Encode(const uint8_t* data, size_t length);
+    static PString Encode(const uint8_t* data, size_t length);
     static std::vector<uint8_t> Decode(const void* data, const size_t length);
 
     static uint8_t EncodeBit00_05(const uint8_t* srcData) { return g_Base64EncodeAlphabet[srcData[0] >> 2]; }

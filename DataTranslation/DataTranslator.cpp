@@ -137,7 +137,7 @@ TranslatorFactory& TranslatorFactory::Get()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<DataTranslator> TranslatorFactory::FindTranslator(const String& srcType, EDataTranslatorType dstType, const void* data, size_t length, EDataTranslatorStatus& outStatus) const
+Ptr<DataTranslator> TranslatorFactory::FindTranslator(const PString& srcType, EDataTranslatorType dstType, const void* data, size_t length, EDataTranslatorStatus& outStatus) const
 {
     float bestQuality = -1000.0f;
     Ptr<TranslatorNode> bestTranslator;

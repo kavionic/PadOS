@@ -48,22 +48,22 @@ class FileReference
 {
 public:
     FileReference();
-    FileReference(const String& path, bool followLinks = false);
-    FileReference(const Directory& directory, const String& name, bool followLinks = false);
+    FileReference(const PString& path, bool followLinks = false);
+    FileReference(const Directory& directory, const PString& name, bool followLinks = false);
     FileReference(const FileReference& reference);
     virtual ~FileReference();
     
-    bool    SetTo(const String& path, bool followLinks = false);
-    bool    SetTo(const Directory& directory, const String& name, bool followLinks = false);
+    bool    SetTo(const PString& path, bool followLinks = false);
+    bool    SetTo(const Directory& directory, const PString& name, bool followLinks = false);
     bool    SetTo(const FileReference& reference);
     void    Unset();
     
     bool    IsValid() const;
     
-    String  GetName() const;
-    bool    GetPath(String& outPath) const;
+    PString GetName() const;
+    bool    GetPath(PString& outPath) const;
 
-    bool    Rename(const String& newName);
+    bool    Rename(const PString& newName);
     bool    Delete();
 
     bool    GetStat(struct ::stat* statBuffer) const;
@@ -72,7 +72,7 @@ public:
 
 private:
     Directory   m_Directory;
-    String      m_Name;
+    PString     m_Name;
 };
 
 } // namespace os

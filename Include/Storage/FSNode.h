@@ -62,8 +62,8 @@ class FSNode
 {
 public:
     FSNode();
-    FSNode(const String& path, int openFlags = O_RDONLY);
-    FSNode(const Directory& directory, const String& path, int openFlags = O_RDONLY);
+    FSNode(const PString& path, int openFlags = O_RDONLY);
+    FSNode(const Directory& directory, const PString& path, int openFlags = O_RDONLY);
     FSNode(const FileReference& reference, int openFlags = O_RDONLY);
     FSNode(int fileDescriptor, bool takeOwnership);
     FSNode(const FSNode& node);
@@ -73,8 +73,8 @@ public:
     virtual bool FDChanged(int newFileDescriptor, const struct ::stat& statBuffer);
     
     bool            Open(const Path& path, int openFlags = O_RDONLY) { return Open(path.GetPath(), openFlags); }
-    virtual bool    Open(const String& path, int openFlags = O_RDONLY);
-    virtual bool    Open(const Directory& directory, const String& path, int openFlags = O_RDONLY);
+    virtual bool    Open(const PString& path, int openFlags = O_RDONLY);
+    virtual bool    Open(const Directory& directory, const PString& path, int openFlags = O_RDONLY);
     virtual bool    Open(const FileReference& reference, int openFlags = O_RDONLY);
     virtual bool    SetTo(int fileDescriptor, bool takeOwnership);
     virtual bool    SetTo(const FSNode& node);
@@ -107,14 +107,14 @@ public:
     bool    IsBlockDev() const  { return S_ISBLK(GetMode()); }
     bool    IsFIFO() const      { return S_ISFIFO(GetMode()); }
     
-//    virtual status_t GetNextAttrName( String* pcName );
+//    virtual status_t GetNextAttrName( PString* pcName );
 //    virtual status_t RewindAttrdir();
 //
-//    virtual ssize_t  WriteAttr( const String& cAttrName, int nFlags, int nType, const void* pBuffer, off_t nPos, size_t nLen );
-//    virtual ssize_t  ReadAttr( const String& cAttrName, int nType, void* pBuffer, off_t nPos, size_t nLen );
+//    virtual ssize_t  WriteAttr( const PString& cAttrName, int nFlags, int nType, const void* pBuffer, off_t nPos, size_t nLen );
+//    virtual ssize_t  ReadAttr( const PString& cAttrName, int nType, void* pBuffer, off_t nPos, size_t nLen );
 //
-//    virtual status_t RemoveAttr( const String& cName );
-//    virtual status_t StatAttr( const String& cName, struct ::attr_info* psBuffer );
+//    virtual status_t RemoveAttr( const PString& cName );
+//    virtual status_t StatAttr( const PString& cName, struct ::attr_info* psBuffer );
 
     virtual int GetFileDescriptor() const;
     

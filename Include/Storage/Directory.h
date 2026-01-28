@@ -47,8 +47,8 @@ class Directory : public FSNode, public DirIterator
 {
 public:
     Directory();
-    Directory(const String& path, int openFlags = O_RDONLY);
-    Directory(const Directory& directory, const String& name, int openFlags = O_RDONLY);
+    Directory(const PString& path, int openFlags = O_RDONLY);
+    Directory(const Directory& directory, const PString& name, int openFlags = O_RDONLY);
     Directory(const FileReference& fileReference, int openFlags = O_RDONLY);
     Directory(const FSNode& node);
     Directory(int fileDescriptor, bool takeOwnership);
@@ -58,16 +58,16 @@ public:
 
     virtual bool FDChanged(int newFileDescriptor, const struct ::stat& statBuffer) override;
     
-    virtual bool GetNextEntry(String& outName) override;
+    virtual bool GetNextEntry(PString& outName) override;
     virtual bool GetNextEntry(FileReference& outReference) override;
     virtual bool Rewind() override;
 
-    bool CreateFile(const String& name, File& outFile, int accessMode = S_IRWXU);
-    bool CreateDirectory(const String& name, Directory& outDirectory, int accessMode = S_IRWXU);
-    bool CreatePath(const String& path, bool includeLeaf = true, Directory* outLeafDirectory = nullptr, int accessMode = S_IRWXU);
-    bool CreateSymlink(const String& name, const String& destination, SymLink& outLink);
-    bool Unlink(const String& name);
-    bool GetPath(String& outPath) const;
+    bool CreateFile(const PString& name, File& outFile, int accessMode = S_IRWXU);
+    bool CreateDirectory(const PString& name, Directory& outDirectory, int accessMode = S_IRWXU);
+    bool CreatePath(const PString& path, bool includeLeaf = true, Directory* outLeafDirectory = nullptr, int accessMode = S_IRWXU);
+    bool CreateSymlink(const PString& name, const PString& destination, SymLink& outLink);
+    bool Unlink(const PString& name);
+    bool GetPath(PString& outPath) const;
 
     Directory& operator=(const Directory& rhs) = default;
     Directory& operator=(Directory&& rhs) = default;

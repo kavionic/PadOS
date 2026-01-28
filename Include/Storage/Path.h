@@ -41,38 +41,38 @@ class Path
 public:
     Path();
     Path(const Path& path);
-    Path(const String& path);
+    Path(const PString& path);
     Path(const char* path, size_t length);
     ~Path();
 
     void operator =(const Path& path);
-    void operator =(const String& path);
+    void operator =(const PString& path);
     bool operator==(const Path& path) const;
 
-    void SetTo(const String& path);
+    void SetTo(const PString& path);
     void SetTo(const char* path, size_t length);
     void Append(const Path& path);
-    void Append(const String& name);
+    void Append(const PString& name);
   
-    String          GetLeaf() const;
-    const String&   GetPath() const;
-    String          GetDir() const;
+    PString         GetLeaf() const;
+    const PString&  GetPath() const;
+    PString         GetDir() const;
 
     size_t          GetExtensionLength() const;
-    String          GetExtension() const;
-    bool            SetExtension(const String& extension);
+    PString         GetExtension() const;
+    bool            SetExtension(const PString& extension);
 
     const char* c_str() const { return m_Path.c_str(); }
 
     bool    CreateFolders(bool includeLeaf = true, Directory* outLeafDirectory = nullptr, int accessMode = S_IRWXU);
 
-    operator String() const;
+    operator PString() const;
 
-    static String GetCWD();
+    static PString GetCWD();
 private:
     void Normalize();
 
-    String  m_Path;
+    PString m_Path;
     size_t  m_NameStart = 0;
 };
 

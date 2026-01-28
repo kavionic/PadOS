@@ -27,9 +27,9 @@ namespace os
 class ErrorMessageBox : public MessageBox
 {
 public:
-    ErrorMessageBox(const String& title, const String& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
+    ErrorMessageBox(const PString& title, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
 
-    static Ptr<ErrorMessageBox> ShowMessage(const String& title, const String& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
+    static Ptr<ErrorMessageBox> ShowMessage(const PString& title, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
 private:
 };
 

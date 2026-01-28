@@ -39,7 +39,7 @@ class EventTimer;
 class Looper : public Thread
 {
 public:
-    Looper(const String& name, int portSize, size_t receiveBufferSize = 512);
+    Looper(const PString& name, int portSize, size_t receiveBufferSize = 512);
     ~Looper();
 
     static Looper* GetCurrentLooper() { return dynamic_cast<Looper*>(GetCurrentThread()); }

@@ -56,7 +56,7 @@ Color::Color(NamedColors colorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Color::Color(const String& name)
+Color::Color(const PString& name)
 {
     m_Color = FromColorName(name).m_Color;
 }

@@ -30,7 +30,7 @@
 namespace os
 {
 
-const std::map<String, uint32_t> MenuFlags::FlagMap
+const std::map<PString, uint32_t> MenuFlags::FlagMap
 {
     DEFINE_FLAG_MAP_ENTRY(MenuFlags, NoKeyboardFocus)
 };
@@ -63,7 +63,7 @@ static const uint32_t g_ArrowBitmapRaster[] =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Menu::Menu(const String& title, MenuLayout layout, uint32_t flags)
+Menu::Menu(const PString& title, MenuLayout layout, uint32_t flags)
     : View("_menu_", nullptr, flags | ViewFlags::WillDraw | ViewFlags::ClearBackground)
     , m_Title(title)
 {
@@ -89,7 +89,7 @@ Menu::~Menu()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String Menu::GetLabel() const
+PString Menu::GetLabel() const
 {
     return m_Title;
 }
@@ -460,7 +460,7 @@ void Menu::Close(bool bCloseChilds, bool bCloseParent, Ptr<MenuItem> selectedIte
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::OnKeyDown(KeyCodes keyCode, const String& text, const KeyEvent& event)
+void Menu::OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& event)
 {
     switch (keyCode)
     {
@@ -562,7 +562,7 @@ void Menu::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::AddStringItem(const String& label, int id)
+Ptr<MenuItem> Menu::AddStringItem(const PString& label, int id)
 {
     return AddItem(ptr_new<MenuItem>(label, id));
 }
@@ -762,7 +762,7 @@ Ptr<MenuItem> Menu::FindItem(int id) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::FindItem(const String& name) const
+Ptr<MenuItem> Menu::FindItem(const PString& name) const
 {
     for (Ptr<MenuItem> item : m_Items)
     {

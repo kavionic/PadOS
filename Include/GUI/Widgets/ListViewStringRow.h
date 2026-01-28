@@ -36,16 +36,16 @@ public:
 
     virtual void    AttachToView(Ptr<View> view, int column) override;
     virtual void    SetRect(const Rect& rect, size_t column) override;
-    void            AppendString(const String& string);
-    void            SetString(size_t index, const String& string);
-    const String& GetString(size_t index) const;
+    void            AppendString(const PString& string);
+    void            SetString(size_t index, const PString& string);
+    const PString&  GetString(size_t index) const;
     virtual float   GetWidth(Ptr<View> view, size_t column) override;
     virtual float   GetHeight(Ptr<View> view) override;
     virtual void    Paint(const Rect& frame, Ptr<View> view, size_t column, bool selected, bool highlighted, bool hasFocus) override;
     virtual bool    IsLessThan(Ptr<const ListViewRow> other, size_t column) const override;
 
 private:
-    std::vector<std::pair<String, float>> m_Strings;
+    std::vector<std::pair<PString, float>> m_Strings;
 };
 
 

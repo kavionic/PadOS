@@ -52,7 +52,7 @@ namespace ViewFlags
     static constexpr uint32_t IsAttachedToScreen  = 0x0400;   ///< Set while the view is registered with the server.
     static constexpr int FirstUserBit = 16;    // Inheriting classes should shift their flags this much to the left to avoid collisions.
 
-    extern const std::map<String, uint32_t> FlagMap;
+    extern const std::map<PString, uint32_t> FlagMap;
 }
 
 namespace ViewDebugDrawFlags

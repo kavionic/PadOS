@@ -43,7 +43,7 @@ namespace MVCBaseViewFlags
 static constexpr uint32_t MultiSelect   = 0x0001 << ViewFlags::FirstUserBit;
 static constexpr uint32_t NoAutoSelect  = 0x0002 << ViewFlags::FirstUserBit;
 
-extern const std::map<String, uint32_t> FlagMap;
+extern const std::map<PString, uint32_t> FlagMap;
 }
 
 struct MVCBaseViewItemNode
@@ -66,7 +66,7 @@ struct MVCBaseViewItemNode
 class MVCBaseView : public Control
 {
 public:
-    MVCBaseView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    MVCBaseView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     MVCBaseView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     virtual void OnLayoutChanged() override;

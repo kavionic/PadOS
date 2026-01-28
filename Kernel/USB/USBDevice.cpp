@@ -292,7 +292,7 @@ void USBDevice::AddBOSDescriptor(const void* data, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBDevice::SetStringDescriptor(USB_LanguageID languageID, uint32_t index, const os::String& string)
+void USBDevice::SetStringDescriptor(USB_LanguageID languageID, uint32_t index, const PString& string)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);

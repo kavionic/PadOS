@@ -182,12 +182,6 @@ private:
 
 };
 
-namespace os
-{
-using String = PString;
-} // namespace os
-
-
 PFORMATTER_NAMESPACE
 {
 template<>

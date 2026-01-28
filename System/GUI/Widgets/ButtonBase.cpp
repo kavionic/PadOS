@@ -28,7 +28,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ButtonBase::ButtonBase(const String& name, Ptr<View> parent, uint32_t flags) : Control(name, parent, flags)
+ButtonBase::ButtonBase(const PString& name, Ptr<View> parent, uint32_t flags) : Control(name, parent, flags)
 {
 }
 
@@ -38,7 +38,7 @@ ButtonBase::ButtonBase(const String& name, Ptr<View> parent, uint32_t flags) : C
 
 ButtonBase::ButtonBase(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment) : Control(context, parent, xmlData, defaultLabelAlignment)
 {
-    String groupName = context.GetAttribute(xmlData, "group", String::zero);
+    PString groupName = context.GetAttribute(xmlData, "group", PString::zero);
 
     if (!groupName.empty())
     {
@@ -61,7 +61,7 @@ ButtonBase::~ButtonBase()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ButtonGroup> ButtonBase::FindButtonGroup(Ptr<View> root, const String& name)
+Ptr<ButtonGroup> ButtonBase::FindButtonGroup(Ptr<View> root, const PString& name)
 {
     for (const Ptr<View>& child : root->GetChildList())
     {

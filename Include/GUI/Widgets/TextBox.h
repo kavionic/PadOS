@@ -34,7 +34,7 @@ static constexpr uint32_t IncludeLineGap = 0x01 << ViewFlags::FirstUserBit;
 static constexpr uint32_t RaisedFrame    = 0x02 << ViewFlags::FirstUserBit;
 static constexpr uint32_t ReadOnly       = 0x04 << ViewFlags::FirstUserBit;
 
-extern const std::map<String, uint32_t> FlagMap;
+extern const std::map<PString, uint32_t> FlagMap;
 }
 
 struct TextBoxStyle : PtrTarget
@@ -50,7 +50,7 @@ struct TextBoxStyle : PtrTarget
 class TextBox : public Control, public ViewScroller
 {
 public:
-    TextBox(const String& name, const String& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    TextBox(const PString& name, const PString& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
     TextBox(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     static Ptr<TextBoxStyle> GetDefaultStyle() { return s_DefaultStyle; }
@@ -66,19 +66,19 @@ public:
     virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
 
     // From TextBox:
-    void            SetText(const String& text, bool sendEvent = true) { m_Editor->SetText(text, sendEvent); }
-    const String&   GetText() const { return m_Editor->GetText(); }
+    void            SetText(const PString& text, bool sendEvent = true) { m_Editor->SetText(text, sendEvent); }
+    const PString&  GetText() const { return m_Editor->GetText(); }
 
-    Point           GetSizeForString(const String& text, bool includeWidth = true, bool includeHeight = true) const;
+    Point           GetSizeForString(const PString& text, bool includeWidth = true, bool includeHeight = true) const;
 
     Ptr<const TextBoxStyle> GetStyle() const { return m_Editor->GetStyle(); }
     void                    SetStyle(Ptr<const TextBoxStyle> style) { m_Editor->SetStyle(style); }
 
-    Signal<void, const String&, bool, TextBox*> SignalTextChanged; //(const String& newText, bool finalUpdate, TextBox* source)
+    Signal<void, const PString&, bool, TextBox*> SignalTextChanged; //(const PString& newText, bool finalUpdate, TextBox* source)
 private:
-    void Initialize(const String& text);
+    void Initialize(const PString& text);
 
-    void SlotTextChanged(const String& text, bool finalUpdate);
+    void SlotTextChanged(const PString& text, bool finalUpdate);
 
     static NoPtr<TextBoxStyle> s_DefaultStyle;
 

@@ -31,7 +31,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-BitmapView::BitmapView(const String& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
+BitmapView::BitmapView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
 {
     SetDrawingMode(DrawingMode::Copy);
 }
@@ -132,7 +132,7 @@ bool BitmapView::LoadBitmap(StreamableIO& file)
             TranslatorFactory& factory = TranslatorFactory::Get();
 
             EDataTranslatorStatus status;
-            translator = factory.FindTranslator(String::zero, EDataTranslatorType::Image, buffer.data(), bytesRead, status);
+            translator = factory.FindTranslator(PString::zero, EDataTranslatorType::Image, buffer.data(), bytesRead, status);
 
             if (translator == nullptr)
             {

@@ -27,7 +27,7 @@ namespace os
 class Window : public View
 {
 public:
-    Window(const String& title);
+    Window(const PString& title);
 
     // From View:
     virtual void OnPaint(const Rect& updateRect) override;
@@ -51,7 +51,7 @@ private:
 
     Rect    m_ClientBorders;
 
-    String  m_Title;
+    PString m_Title;
 
     MouseButton_e   m_DragHitButton = MouseButton_e::None;
     Point           m_DragHitPos;

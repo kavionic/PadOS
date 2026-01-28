@@ -103,6 +103,6 @@ struct ArgumentPacker<std::string>
 ///////////////////////////////////////////////////////////////////////////////
 
 template<>
-struct ArgumentPacker<os::String> : public ArgumentPacker<std::string>
+struct ArgumentPacker<PString> : public ArgumentPacker<std::string>
 {
 };

@@ -26,13 +26,13 @@ namespace os
 class DialogBoxView : public View
 {
 public:
-    DialogBoxView(const String& title, const String& text, DialogButtonSets buttonSet);
+    DialogBoxView(const PString& title, const PString& text, DialogButtonSets buttonSet);
 
     Ptr<View>   SetContentView(Ptr<View> contentView);
-    Ptr<Button> AddButton(const String& label, DialogButtonID buttonID);
+    Ptr<Button> AddButton(const PString& label, DialogButtonID buttonID);
 
     Ptr<Button> FindButton(int32_t buttonID) const;
-    Ptr<Button> FindButton(const String& buttonName) const;
+    Ptr<Button> FindButton(const PString& buttonName) const;
 
 public:
     Signal<void, DialogButtonID> SignalSelected;
@@ -49,7 +49,7 @@ private:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DialogBase::DialogBase(const String& title, const String& text, DialogButtonSets buttonSet) : Window(title)
+DialogBase::DialogBase(const PString& title, const PString& text, DialogButtonSets buttonSet) : Window(title)
 {
     m_DialogView = ptr_new<DialogBoxView>(title, text, buttonSet);
 
@@ -79,7 +79,7 @@ Ptr<View> DialogBase::SetContentView(Ptr<View> contentView)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBase::AddButton(const String& label, DialogButtonID buttonID)
+Ptr<Button> DialogBase::AddButton(const PString& label, DialogButtonID buttonID)
 {
     return m_DialogView->AddButton(label, buttonID);
 }
@@ -88,7 +88,7 @@ Ptr<Button> DialogBase::AddButton(const String& label, DialogButtonID buttonID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBase::AddButton(const String& label, int32_t buttonID)
+Ptr<Button> DialogBase::AddButton(const PString& label, int32_t buttonID)
 {
     return AddButton(label, DialogButtonID(buttonID));
 }
@@ -126,7 +126,7 @@ Ptr<Button> DialogBase::FindButton(int32_t buttonID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBase::FindButton(const String& buttonName) const
+Ptr<Button> DialogBase::FindButton(const PString& buttonName) const
 {
     return m_DialogView->FindButton(buttonName);
 }
@@ -158,7 +158,7 @@ DialogButtonID DialogBase::Go(Ptr<View> owner)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DialogBoxView::DialogBoxView(const String& title, const String& text, DialogButtonSets buttonSet) : View(title, nullptr)
+DialogBoxView::DialogBoxView(const PString& title, const PString& text, DialogButtonSets buttonSet) : View(title, nullptr)
 {
     SetLayoutNode(ptr_new<VLayoutNode>());
 
@@ -210,7 +210,7 @@ Ptr<View> DialogBoxView::SetContentView(Ptr<View> contentView)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBoxView::AddButton(const String& label, DialogButtonID buttonID)
+Ptr<Button> DialogBoxView::AddButton(const PString& label, DialogButtonID buttonID)
 {
     Ptr<Button> button = ptr_new<Button>("DlgButton", label);
     button->SetBorders(m_Buttons.empty() ? 10.0f : 0.0f, 10.0f, 10.0f, 10.0f);
@@ -240,7 +240,7 @@ Ptr<Button> DialogBoxView::FindButton(int32_t buttonID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBoxView::FindButton(const String& buttonName) const
+Ptr<Button> DialogBoxView::FindButton(const PString& buttonName) const
 {
     return m_ButtonContainer->FindChild<Button>(buttonName, false);
 }

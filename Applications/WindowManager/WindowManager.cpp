@@ -156,7 +156,7 @@ bool WindowManager::HandleMessage(handler_id targetHandler, int32_t code, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void WindowManager::SlotRegisterView(handler_id viewHandle, ViewDockType dockType, const String& name, const Rect& frame)
+void WindowManager::SlotRegisterView(handler_id viewHandle, ViewDockType dockType, const PString& name, const Rect& frame)
 {
     if (m_ClientsView != nullptr)
     {

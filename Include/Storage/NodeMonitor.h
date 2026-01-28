@@ -244,10 +244,10 @@ class NodeMonitor
 {
 public:
     NodeMonitor();
-    NodeMonitor(const String& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
-    NodeMonitor(const String& cPath, uint32_t nFlags, const Messenger& cTarget);
-    NodeMonitor(const Directory& cDir, const String& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
-    NodeMonitor(const Directory& cDir, const String& cPath, uint32_t nFlags, const Messenger& cTarget);
+    NodeMonitor(const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
+    NodeMonitor(const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
+    NodeMonitor(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
+    NodeMonitor(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
     NodeMonitor(const FileReference& cRef, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
     NodeMonitor(const FileReference& cRef, uint32_t nFlags, const Messenger& cTarget);
     NodeMonitor(const FSNode* pcNode, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
@@ -257,10 +257,10 @@ public:
     bool IsValid() const;
 
     status_t Unset();
-    status_t SetTo(const String& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
-    status_t SetTo(const String& cPath, uint32_t nFlags, const Messenger& cTarget);
-    status_t SetTo(const Directory& cDir, const String& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
-    status_t SetTo(const Directory& cDir, const String& cPath, uint32_t nFlags, const Messenger& cTarget);
+    status_t SetTo(const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
+    status_t SetTo(const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
+    status_t SetTo(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
+    status_t SetTo(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
     status_t SetTo(const FileReference& cRef, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
     status_t SetTo(const FileReference& cRef, uint32_t nFlags, const Messenger& cTarget );
     status_t SetTo(const FSNode* pcNode, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
@@ -270,8 +270,8 @@ public:
     int GetMonitor() const;
     
 private:
-    int _CreateMonitor(const String& cPath, uint32_t nFlags, const Messenger& cTarget);
-    int _CreateMonitor(const Directory& cDir, const String& cPath, uint32_t nFlags, const Messenger& cTarget);
+    int _CreateMonitor(const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
+    int _CreateMonitor(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
     int _CreateMonitor(const FileReference& cRef, uint32_t nFlags, const Messenger& cTarget);
     int _CreateMonitor(const FSNode* pcNode, uint32_t nFlags, const Messenger& cTarget);
     

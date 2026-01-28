@@ -36,67 +36,67 @@ class ButtonGroup;
 struct ViewFactoryContext
 {
 
-	pugi::xml_attribute GetAttribute(const pugi::xml_node& xmlNode, const char* name)
-	{
-		pugi::xml_attribute attribute = xmlNode.attribute(name);
-		if (!attribute.empty())
-		{
-			return attribute;
-		}
-		else
-		{
-			// Attribute not found in xmlNode. Check if it specify a template, and search it if so.
-			pugi::xml_attribute templateName = xmlNode.attribute("template");
-			if (!templateName.empty())
-			{
-				auto i = m_Templates.upper_bound(templateName.value());
-				if (i != m_Templates.begin())
-				{
-					--i;
-					if (i->first == templateName.value()) {
-						return GetAttribute(i->second, name);
-					}
-				}
-			}
-		}
-		return pugi::xml_attribute();
-	}
+    pugi::xml_attribute GetAttribute(const pugi::xml_node& xmlNode, const char* name)
+    {
+        pugi::xml_attribute attribute = xmlNode.attribute(name);
+        if (!attribute.empty())
+        {
+            return attribute;
+        }
+        else
+        {
+            // Attribute not found in xmlNode. Check if it specify a template, and search it if so.
+            pugi::xml_attribute templateName = xmlNode.attribute("template");
+            if (!templateName.empty())
+            {
+                auto i = m_Templates.upper_bound(templateName.value());
+                if (i != m_Templates.begin())
+                {
+                    --i;
+                    if (i->first == templateName.value()) {
+                        return GetAttribute(i->second, name);
+                    }
+                }
+            }
+        }
+        return pugi::xml_attribute();
+    }
 
-	template<typename T>
-	T GetAttribute(const pugi::xml_node& xmlNode, const char* name, const T& defaultValue)
-	{
-		pugi::xml_attribute attribute = GetAttribute(xmlNode, name);
-		if (!attribute.empty())
-		{
-			T value;
-			if (xml_object_parser::parse(attribute.value(), value)) {
-				return value;
-			}
-		}
-		return defaultValue;
-	}
+    template<typename T>
+    T GetAttribute(const pugi::xml_node& xmlNode, const char* name, const T& defaultValue)
+    {
+        pugi::xml_attribute attribute = GetAttribute(xmlNode, name);
+        if (!attribute.empty())
+        {
+            T value;
+            if (xml_object_parser::parse(attribute.value(), value)) {
+                return value;
+            }
+        }
+        return defaultValue;
+    }
 
-	template<typename T>
-	T GetFlagsAttribute(const pugi::xml_node& xmlNode, const std::map<os::String, T>& flagDefinitions, const char* name, const T& defaultValue)
-	{
-		String noFlagString("-none-");
-		String flagString = GetAttribute(xmlNode, name, noFlagString);
-		if (flagString != noFlagString)
-		{
-			T flags = 0;
-			if (xml_object_parser::parse_flags(flagString.c_str(), flagDefinitions, flags)) {
-				return flags;
-			}
-		}
-		return defaultValue;
-	}
+    template<typename T>
+    T GetFlagsAttribute(const pugi::xml_node& xmlNode, const std::map<PString, T>& flagDefinitions, const char* name, const T& defaultValue)
+    {
+        PString noFlagString("-none-");
+        PString flagString = GetAttribute(xmlNode, name, noFlagString);
+        if (flagString != noFlagString)
+        {
+            T flags = 0;
+            if (xml_object_parser::parse_flags(flagString.c_str(), flagDefinitions, flags)) {
+                return flags;
+            }
+        }
+        return defaultValue;
+    }
 
-    Ptr<ButtonGroup> GetButtonGroup(const String& name);
+    Ptr<ButtonGroup> GetButtonGroup(const PString& name);
 
-	std::multimap<String, pugi::xml_node>	m_Templates;
-	std::map<String, Ptr<View>>				m_WidthRings;
-	std::map<String, Ptr<View>>				m_HeightRings;
-	std::map<String, Ptr<ButtonGroup>>		m_ButtonGroups;
+    std::multimap<PString, pugi::xml_node>  m_Templates;
+    std::map<PString, Ptr<View>>             m_WidthRings;
+    std::map<PString, Ptr<View>>             m_HeightRings;
+    std::map<PString, Ptr<ButtonGroup>>      m_ButtonGroups;
 };
 
 } // namespace

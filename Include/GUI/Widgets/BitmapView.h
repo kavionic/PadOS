@@ -32,7 +32,7 @@ class Bitmap;
 class BitmapView : public View
 {
 public:
-    BitmapView(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    BitmapView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     BitmapView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
 
     virtual void OnPaint(const Rect& updateRect) override;

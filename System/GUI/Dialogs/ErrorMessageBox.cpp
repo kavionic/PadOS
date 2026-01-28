@@ -26,7 +26,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ErrorMessageBox::ErrorMessageBox(const String& title, const String& text, DialogButtonSets buttonSet) : MessageBox(title, String::vformat_string(text.c_str(), strerror(errno)), buttonSet)
+ErrorMessageBox::ErrorMessageBox(const PString& title, const PString& text, DialogButtonSets buttonSet) : MessageBox(title, PString::vformat_string(text.c_str(), strerror(errno)), buttonSet)
 {
 }
 
@@ -34,7 +34,7 @@ ErrorMessageBox::ErrorMessageBox(const String& title, const String& text, Dialog
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ErrorMessageBox> ErrorMessageBox::ShowMessage(const String& title, const String& text, DialogButtonSets buttonSet)
+Ptr<ErrorMessageBox> ErrorMessageBox::ShowMessage(const PString& title, const PString& text, DialogButtonSets buttonSet)
 {
     try
     {

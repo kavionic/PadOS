@@ -28,7 +28,7 @@ class ListViewScrolledView;
 class ListViewColumnView : public View
 {
 public:
-    ListViewColumnView(Ptr<ListViewScrolledView> parent, const String& title);
+    ListViewColumnView(Ptr<ListViewScrolledView> parent, const PString& title);
     ~ListViewColumnView();
 
     virtual void OnPaint(const Rect& updateRect) override;
@@ -37,7 +37,7 @@ private:
     friend class ListViewHeaderView;
     friend class ListViewScrolledView;
 
-    String  m_Title;
+    PString m_Title;
     float   m_ContentWidth;
 };
 

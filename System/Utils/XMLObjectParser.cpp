@@ -58,7 +58,7 @@ bool parse(const char* text, bool& value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool parse(const char* text, String& value)
+bool parse(const char* text, PString& value)
 {
 	value = text; return true;
 }
@@ -195,7 +195,7 @@ bool parse(const char* text, KeyCodes& value)
             return true;
         }
     }
-    static const std::map<String, KeyCodes> nameMap =
+    static const std::map<PString, KeyCodes> nameMap =
     {
         {"NONE",            KeyCodes::NONE},
         {"CURSOR_LEFT",     KeyCodes::CURSOR_LEFT},

@@ -27,7 +27,7 @@
 
 using namespace os;
 
-const std::map<String, uint32_t> SliderFlags::FlagMap
+const std::map<PString, uint32_t> SliderFlags::FlagMap
 {
     DEFINE_FLAG_MAP_ENTRY(SliderFlags, TicksAbove),
     DEFINE_FLAG_MAP_ENTRY(SliderFlags, TicksBelow),
@@ -48,7 +48,7 @@ static constexpr float HLABEL_SPACING   = 2.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Slider::Slider(const String& name, Ptr<View> parent, uint32_t flags, int tickCount, Orientation orientation)
+Slider::Slider(const PString& name, Ptr<View> parent, uint32_t flags, int tickCount, Orientation orientation)
     : Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize )
 {
     m_Orientation   = orientation;
@@ -71,8 +71,8 @@ Slider::Slider(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_no
     m_Orientation   = context.GetAttribute(xmlData, "orientation", Orientation::Horizontal);
     m_NumTicks      = context.GetAttribute(xmlData, "num_ticks", 10);
 
-    m_MinLabel = context.GetAttribute(xmlData, "min_label", String::zero);
-    m_MaxLabel = context.GetAttribute(xmlData, "max_label", String::zero);
+    m_MinLabel = context.GetAttribute(xmlData, "min_label", PString::zero);
+    m_MaxLabel = context.GetAttribute(xmlData, "max_label", PString::zero);
 
     m_Min           = context.GetAttribute(xmlData, "min", 0.0f);
     m_Max           = context.GetAttribute(xmlData, "max", 1.0f);
@@ -85,7 +85,7 @@ Slider::Slider(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_no
     m_SliderColor1  = get_standard_color(StandardColorID::ScrollBarBackground);;
     m_SliderColor2  = m_SliderColor1;
 
-    SetValueStringFormat(context.GetAttribute(xmlData, "value_format", String::zero), context.GetAttribute(xmlData, "value_scale", 1.0f));
+    SetValueStringFormat(context.GetAttribute(xmlData, "value_format", PString::zero), context.GetAttribute(xmlData, "value_scale", 1.0f));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -239,7 +239,7 @@ float Slider::GetSliderSize() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetValueStringFormat(const String& format, float scale)
+void Slider::SetValueStringFormat(const PString& format, float scale)
 {
     m_ValueFormat = format;
     m_ValueScale = scale;
@@ -250,7 +250,7 @@ void Slider::SetValueStringFormat(const String& format, float scale)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String Slider::GetValueStringFormat() const
+PString Slider::GetValueStringFormat() const
 {
     return m_ValueFormat;
 }
@@ -259,12 +259,12 @@ String Slider::GetValueStringFormat() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-String Slider::GetValueString() const
+PString Slider::GetValueString() const
 {
     if (m_ValueFormat.empty()) {
-        return String::zero;
+        return PString::zero;
     } else {
-        return String::vformat_string(m_ValueFormat.c_str(), m_Value * m_ValueScale);
+        return PString::vformat_string(m_ValueFormat.c_str(), m_Value * m_ValueScale);
     }
 }
 
@@ -378,7 +378,7 @@ int Slider::GetTickCount() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetLimitLabels(const String& minLabel, const String& maxLabel)
+void Slider::SetLimitLabels(const PString& minLabel, const PString& maxLabel)
 {
     m_MinLabel = minLabel;
     m_MaxLabel = maxLabel;
@@ -394,7 +394,7 @@ void Slider::SetLimitLabels(const String& minLabel, const String& maxLabel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::GetLimitLabels(String* minLabel, String* maxLabel)
+void Slider::GetLimitLabels(PString* minLabel, PString* maxLabel)
 {
     if (minLabel != nullptr) {
         *minLabel = m_MinLabel;
@@ -563,13 +563,13 @@ bool Slider::OnMouseMove(MouseButton_e button, const Point& position, const Moti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::OnLabelChanged(const String& label)
+void Slider::OnLabelChanged(const PString& label)
 {
     if (m_Orientation == Orientation::Horizontal && (!m_ValueFormat.empty() || !label.empty()))
     {
         if (m_ValueView == nullptr)
         {
-            m_ValueView = ptr_new<TextView>("value", String::zero, ptr_tmp_cast(this), ViewFlags::IgnoreMouse);
+            m_ValueView = ptr_new<TextView>("value", PString::zero, ptr_tmp_cast(this), ViewFlags::IgnoreMouse);
             m_ValueView->SignalPreferredSizeChanged.Connect(this, &Slider::LayoutValueView);
         }
         UpdateValueView();

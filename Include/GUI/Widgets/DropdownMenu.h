@@ -44,7 +44,7 @@ namespace DropdownMenuFlags
 
 static constexpr uint32_t ReadOnly    = 0x01 << ViewFlags::FirstUserBit;
 
-extern const std::map<String, uint32_t> FlagMap;
+extern const std::map<PString, uint32_t> FlagMap;
 }
 
 
@@ -59,7 +59,7 @@ extern const std::map<String, uint32_t> FlagMap;
 class DropdownMenu : public Control
 {
 public:
-    DropdownMenu(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    DropdownMenu(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
     DropdownMenu(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
     ~DropdownMenu();
 
@@ -78,35 +78,35 @@ public:
 //    void    SetReadOnly(bool bFlag = true);
 //    bool    GetReadOnly() const;
 
-    void            AppendItem(const String& text);
-    void            InsertItem(size_t index, const String& text);
+    void            AppendItem(const PString& text);
+    void            InsertItem(size_t index, const PString& text);
     bool            DeleteItem(size_t index);
     size_t          GetItemCount() const;
     void            Clear();
-    const String&   GetItem(size_t index) const;
+    const PString&  GetItem(size_t index) const;
 
     size_t          GetSelection() const;
     void            SetSelection(size_t index, bool notify = true);
 
-    const String&   GetCurrentString() const;
-    void            SetCurrentString(const String& string);
+    const PString&  GetCurrentString() const;
+    void            SetCurrentString(const PString& string);
 
     Signal<void (size_t index, bool finalUpdate, DropdownMenu* sourceMenu)>         SignalSelectionChanged;
-    Signal<void (const String& text, bool finalUpdate, DropdownMenu* sourceMenu)>   SignalTextChanged;
+    Signal<void (const PString& text, bool finalUpdate, DropdownMenu* sourceMenu)>   SignalTextChanged;
 private:
     void    Initialize();
     void    OpenMenu();
     void    CloseMenu();
     void    LayoutMenuWindow();
-    void    SlotTextChanged(const String& text, bool finalUpdate);
+    void    SlotTextChanged(const PString& text, bool finalUpdate);
     void    SlotSelectionChanged(size_t selection, bool finalUpdate);
 
-    Ptr<View>           m_MenuWindow;
-    Ptr<TextBox>        m_EditBox;
-    Rect                m_ArrowFrame;
-    std::vector<String> m_StringList;
-    size_t              m_Selection = 0;
-    bool                m_SendIntermediateEvents = false;
+    Ptr<View>               m_MenuWindow;
+    Ptr<TextBox>            m_EditBox;
+    Rect                    m_ArrowFrame;
+    std::vector<PString>    m_StringList;
+    size_t                  m_Selection = 0;
+    bool                    m_SendIntermediateEvents = false;
 };
 
 }

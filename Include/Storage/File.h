@@ -37,8 +37,8 @@ class File : public SeekableIO, public FSNode
 public:
     enum { DEFAULT_BUFFER_SIZE=0 };
     File();
-    File(const String& path, int openFlags = O_RDONLY);
-    File(const Directory& directory, const String& name, int openFlags = O_RDONLY);
+    File(const PString& path, int openFlags = O_RDONLY);
+    File(const Directory& directory, const PString& name, int openFlags = O_RDONLY);
     File(const FileReference& reference, int openFlags = O_RDONLY);
     File(const FSNode& node);
     File(int fileDescriptor, bool takeOwnership);
@@ -51,11 +51,11 @@ public:
     
       // From StreamableIO
     virtual ssize_t Read(void* buffer, ssize_t size) override;
-    bool            Read(String& buffer, ssize_t size);
-    bool            Read(String& buffer);
+    bool            Read(PString& buffer, ssize_t size);
+    bool            Read(PString& buffer);
     virtual ssize_t Write(const void* buffer, ssize_t size) override;
-    bool            Write(const String& buffer, ssize_t size);
-    bool            Write(const String& buffer);
+    bool            Write(const PString& buffer, ssize_t size);
+    bool            Write(const PString& buffer);
 
       // From seekableIO
     virtual ssize_t ReadPos(off64_t position, void* buffer, ssize_t size) const override;

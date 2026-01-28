@@ -27,7 +27,7 @@ namespace os
 /// Base class for GUI controls.
 /// \ingroup gui
 /// \par Description:
-///	
+///
 /// \sa os::View
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -38,19 +38,19 @@ class Control : public View
 public:
     static constexpr int32_t INVALID_ID = -1;
 
-    Control(const String& name = String::zero, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
+    Control(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
     Control(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment = Alignment::Center);
     ~Control();
 
       // From Control:
     virtual void OnEnableStatusChanged(bool isEnabled) { Invalidate(); Flush(); }
-    virtual void OnLabelChanged(const String& label) { Invalidate(); Flush(); PreferredSizeChanged(); }
+    virtual void OnLabelChanged(const PString& label) { Invalidate(); Flush(); PreferredSizeChanged(); }
 
     virtual void SetEnable(bool enabled);
     virtual bool IsEnabled() const;
 
-    void	SetLabel(const String& label);
-    String	GetLabel() const { return m_Label; }
+    void    SetLabel(const PString& label);
+    PString GetLabel() const { return m_Label; }
     
     void        SetLabelAlignment(Alignment alignment) { m_LabelAlignment = alignment; PreferredSizeChanged(); Invalidate(); Flush(); }
     Alignment   GetLabelAlignment() const { return m_LabelAlignment; }
@@ -60,8 +60,8 @@ public:
 
 private:
     int32_t m_ID = INVALID_ID;
-    String      m_Label;
-	Alignment   m_LabelAlignment = Alignment::Center;
+    PString     m_Label;
+    Alignment   m_LabelAlignment = Alignment::Center;
     bool    m_IsEnabled;
 };
 

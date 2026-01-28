@@ -27,7 +27,7 @@ using namespace os;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListViewColumnView::ListViewColumnView(Ptr<ListViewScrolledView> parent, const String& title)
+ListViewColumnView::ListViewColumnView(Ptr<ListViewScrolledView> parent, const PString& title)
     : View("_lv_column", parent, ViewFlags::WillDraw)
     , m_Title(title)
 {

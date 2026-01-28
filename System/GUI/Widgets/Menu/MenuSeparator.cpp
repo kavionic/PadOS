@@ -26,7 +26,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MenuSeparator::MenuSeparator() : MenuItem(String::zero)
+MenuSeparator::MenuSeparator() : MenuItem(PString::zero)
 {
 }
 

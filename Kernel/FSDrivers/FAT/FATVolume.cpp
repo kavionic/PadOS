@@ -38,7 +38,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const os::String& devicePath)
+FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PString& devicePath)
     : KFSVolume(volumeID, devicePath), m_Mutex("fatfs_vol_mutex", PEMutexRecursionMode_RaiseError), m_INodeIDMapMutex("fatfs_inodemap_mutex", PEMutexRecursionMode_RaiseError)
 {
     m_Magic = MAGIC;

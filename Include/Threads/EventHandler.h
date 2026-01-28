@@ -34,11 +34,11 @@ class RemoteSignalRXBase;
 class EventHandler : public PtrTarget
 {
 public:
-    EventHandler(const String& name);
+    EventHandler(const PString& name);
     virtual ~EventHandler();
 
-    const String& GetName() const { return m_Name; }
-    void SetName(const String& name) { m_Name = name; }
+    const PString& GetName() const { return m_Name; }
+    void SetName(const PString& name) { m_Name = name; }
 
     handler_id GetHandle() const { return m_Handle; }
 
@@ -63,7 +63,7 @@ public:
 private:
     friend class Looper;
 
-    String     m_Name;
+    PString    m_Name;
 
     Looper*    m_Looper = nullptr;
     handler_id m_Handle;

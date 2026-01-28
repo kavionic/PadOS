@@ -232,7 +232,7 @@ void PNGTranslator::Reset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-os::EDataTranslatorStatus PNGTranslatorNode::Identify(const String& srcType, EDataTranslatorType dstType, const void* data, size_t length) const
+os::EDataTranslatorStatus PNGTranslatorNode::Identify(const PString& srcType, EDataTranslatorType dstType, const void* data, size_t length) const
 {
     if (dstType != EDataTranslatorType::Unknown && dstType != EDataTranslatorType::Image) {
         return EDataTranslatorStatus::UnsupportedType;

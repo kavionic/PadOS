@@ -154,8 +154,8 @@ struct Color
     }
 
     static           Color FromColorID(NamedColors colorID);
-    static           Color FromColorName(const char* name)   { return FromColorID(NamedColors(String::hash_string_literal_nocase(name))); }
-    static           Color FromColorName(const String& name) { return FromColorName(name.c_str()); }
+    static           Color FromColorName(const char* name)      { return FromColorID(NamedColors(PString::hash_string_literal_nocase(name))); }
+    static           Color FromColorName(const PString& name)   { return FromColorName(name.c_str()); }
 
     constexpr PALWAYS_INLINE Color() : m_Color(0) {}
     constexpr PALWAYS_INLINE Color(const Color& color)  : m_Color(color.m_Color) {}
@@ -163,7 +163,7 @@ struct Color
     constexpr PALWAYS_INLINE Color(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : m_Color((r << 16) | (g << 8) | b | (a << 24)) {}
     
     Color(NamedColors colorID);
-    Color(const String& name);
+    Color(const PString& name);
 
     std::strong_ordering operator<=>(const Color& rhs) const = default;
 
@@ -257,7 +257,7 @@ public:
     constexpr DynamicColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) : Color(r, g, b, a) {}
 
     DynamicColor(NamedColors colorID) : Color(colorID) {}
-    DynamicColor(const String& name) : Color(name) {}
+    DynamicColor(const PString& name) : Color(name) {}
 
     DynamicColor(StandardColorID colorID);
 };

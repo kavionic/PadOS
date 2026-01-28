@@ -29,7 +29,7 @@ using namespace os;
 #if 0
 
 
-int NodeMonitor::_CreateMonitor( const String& cPath, uint32_t nFlags, const Messenger& cTarget )
+int NodeMonitor::_CreateMonitor(const PString& cPath, uint32_t nFlags, const Messenger& cTarget)
 {
     int nFile = open( cPath.c_str(), O_RDONLY );
     if ( nFile < 0 ) {
@@ -40,7 +40,7 @@ int NodeMonitor::_CreateMonitor( const String& cPath, uint32_t nFlags, const Mes
     return( nMonitor );
 }
 
-int NodeMonitor::_CreateMonitor( const Directory& cDir, const String& cPath, uint32_t nFlags, const Messenger& cTarget )
+int NodeMonitor::_CreateMonitor(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget)
 {
     if ( cDir.IsValid() == false ) {
 	return( -1 );
@@ -85,7 +85,7 @@ NodeMonitor::NodeMonitor()
     m_nMonitor = -1;
 }
 
-NodeMonitor::NodeMonitor( const String& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper )
+NodeMonitor::NodeMonitor(const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper)
 {
     m_nMonitor = _CreateMonitor( cPath, nFlags, Messenger( pcHandler, pcLooper ) );
     if ( m_nMonitor < 0 ) {
@@ -93,7 +93,7 @@ NodeMonitor::NodeMonitor( const String& cPath, uint32_t nFlags, const Handler* p
     }
 }
 
-NodeMonitor::NodeMonitor( const String& cPath, uint32_t nFlags, const Messenger& cTarget )
+NodeMonitor::NodeMonitor(const PString& cPath, uint32_t nFlags, const Messenger& cTarget)
 {
     m_nMonitor = _CreateMonitor( cPath, nFlags, cTarget );
     if ( m_nMonitor < 0 ) {
@@ -101,7 +101,7 @@ NodeMonitor::NodeMonitor( const String& cPath, uint32_t nFlags, const Messenger&
     }
 }
 
-NodeMonitor::NodeMonitor( const Directory& cDir, const String& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper )
+NodeMonitor::NodeMonitor(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper)
 {
     if ( cDir.IsValid() == false ) {
 	throw errno_exception( "Invalid directory", EINVAL );
@@ -112,7 +112,7 @@ NodeMonitor::NodeMonitor( const Directory& cDir, const String& cPath, uint32_t n
     }
 }
 
-NodeMonitor::NodeMonitor( const Directory& cDir, const String& cPath, uint32_t nFlags, const Messenger& cTarget )
+NodeMonitor::NodeMonitor(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget)
 {
     if ( cDir.IsValid() == false ) {
 	throw errno_exception( "Invalid directory", EINVAL );
@@ -185,7 +185,7 @@ status_t NodeMonitor::Unset()
     
 }
 
-status_t NodeMonitor::SetTo( const String& cPath, uint32_t nFlags, const Messenger& cTarget )
+status_t NodeMonitor::SetTo(const PString& cPath, uint32_t nFlags, const Messenger& cTarget)
 {
     int nNewMonitor = _CreateMonitor( cPath, nFlags, cTarget );
     if ( nNewMonitor < 0 ) {
@@ -198,12 +198,12 @@ status_t NodeMonitor::SetTo( const String& cPath, uint32_t nFlags, const Messeng
     return( 0 );
 }
 
-status_t NodeMonitor::SetTo( const String& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper )
+status_t NodeMonitor::SetTo(const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper)
 {
     return( SetTo( cPath, nFlags, Messenger( pcHandler, pcLooper ) ) );
 }
 
-status_t NodeMonitor::SetTo( const Directory& cDir, const String& cPath, uint32_t nFlags, const Messenger& cTarget )
+status_t NodeMonitor::SetTo(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget)
 {
     if ( cDir.IsValid() == false ) {
 	return( -1 );
@@ -219,7 +219,7 @@ status_t NodeMonitor::SetTo( const Directory& cDir, const String& cPath, uint32_
     return( 0 );
 }
 
-status_t NodeMonitor::SetTo( const Directory& cDir, const String& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper )
+status_t NodeMonitor::SetTo(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper)
 {
     return( SetTo( cDir, cPath, nFlags, Messenger( pcHandler, pcLooper ) ) );
 }

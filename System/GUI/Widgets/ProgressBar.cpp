@@ -20,15 +20,13 @@
 #include <GUI/Widgets/ProgressBar.h>
 #include <GUI/Font.h>
 
-using namespace os;
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ProgressBar::ProgressBar(const PString& name, Ptr<View> parent, Orientation orientation, uint32_t flags)
-    : View(name, parent, flags | ViewFlags::WillDraw | ViewFlags::ClearBackground)
+PProgressBar::PProgressBar(const PString& name, Ptr<PView> parent, POrientation orientation, uint32_t flags)
+    : PView(name, parent, flags | PViewFlags::WillDraw | PViewFlags::ClearBackground)
 {
     m_Orientation = orientation;
 }
@@ -37,29 +35,29 @@ ProgressBar::ProgressBar(const PString& name, Ptr<View> parent, Orientation orie
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ProgressBar::ProgressBar(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+PProgressBar::PProgressBar(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
 {
-    MergeFlags(ViewFlags::WillDraw | ViewFlags::ClearBackground);
-    m_Orientation = context.GetAttribute(xmlData, "orientation", Orientation::Horizontal);
+    MergeFlags(PViewFlags::WillDraw | PViewFlags::ClearBackground);
+    m_Orientation = context.GetAttribute(xmlData, "orientation", POrientation::Horizontal);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ProgressBar::OnPaint(const Rect& updateRect)
+void PProgressBar::OnPaint(const PRect& updateRect)
 {
-    Rect bounds = GetNormalizedBounds();
+    PRect bounds = GetNormalizedBounds();
     bounds.Floor();
 
     DrawFrame(bounds, FRAME_RECESSED | FRAME_TRANSPARENT);
 
-    float barLength = (m_Orientation == Orientation::Horizontal) ? bounds.Width() : bounds.Height();
+    float barLength = (m_Orientation == POrientation::Horizontal) ? bounds.Width() : bounds.Height();
     barLength = std::ceil((barLength - 4.0f) * m_Progress);
 
-    Rect barFrame = bounds;
+    PRect barFrame = bounds;
     barFrame.Resize(2.0f, 2.0f, -2.0f, -2.0f);
-    Rect restFrame = barFrame;
+    PRect restFrame = barFrame;
 
     if (barLength < 1.0f)
     {
@@ -67,7 +65,7 @@ void ProgressBar::OnPaint(const Rect& updateRect)
     }
     else
     {
-        if (m_Orientation == Orientation::Horizontal)
+        if (m_Orientation == POrientation::Horizontal)
         {
             barFrame.right = barFrame.left + barLength;
             if (barFrame.right > bounds.right - 2.0f) {
@@ -85,7 +83,7 @@ void ProgressBar::OnPaint(const Rect& updateRect)
         }
 
         if (barLength >= 1.0f) {
-            FillRect(barFrame, Color(0x66, 0x88, 0xbb));
+            FillRect(barFrame, PColor(0x66, 0x88, 0xbb));
         }
         if (restFrame.IsValid()) {
             FillRect(restFrame, GetBgColor());
@@ -97,20 +95,20 @@ void ProgressBar::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ProgressBar::OnFrameSized(const Point& delta)
+void PProgressBar::OnFrameSized(const PPoint& delta)
 {
-    Rect bounds(GetBounds());
+    PRect bounds(GetBounds());
     bool needFlush = false;
-    if ((m_Orientation == Orientation::Horizontal && delta.x != 0.0f) || (m_Orientation == Orientation::Vertical && delta.y != 0.0f))
+    if ((m_Orientation == POrientation::Horizontal && delta.x != 0.0f) || (m_Orientation == POrientation::Vertical && delta.y != 0.0f))
     {
-        Rect damage = bounds;
+        PRect damage = bounds;
         damage.Resize(2.0f, 2.0f, -2.0f, -2.0f);
         Invalidate(damage);
         needFlush = true;
     }
     if (delta.x != 0.0f)
     {
-        Rect damage = bounds;
+        PRect damage = bounds;
 
         damage.left = damage.right - std::max(2.0f, delta.x + 2.0f);
         Invalidate(damage);
@@ -118,7 +116,7 @@ void ProgressBar::OnFrameSized(const Point& delta)
     }
     if (delta.y != 0.0f)
     {
-        Rect damage = bounds;
+        PRect damage = bounds;
 
         damage.top = damage.bottom - std::max(2.0f, delta.y + 2.0f);
         Invalidate(damage);
@@ -133,7 +131,7 @@ void ProgressBar::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void os::ProgressBar::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PProgressBar::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     minSize->x = 50.0f;
     minSize->y = 24.0f;
@@ -146,7 +144,7 @@ void os::ProgressBar::CalculatePreferredSize(Point* minSize, Point* maxSize, boo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ProgressBar::SetProgress(float value)
+void PProgressBar::SetProgress(float value)
 {
     m_Progress = value;
     Invalidate();
@@ -157,7 +155,7 @@ void ProgressBar::SetProgress(float value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float ProgressBar::GetProgress() const
+float PProgressBar::GetProgress() const
 {
     return m_Progress;
 }

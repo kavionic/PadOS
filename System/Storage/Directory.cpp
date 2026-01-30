@@ -33,7 +33,6 @@
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KFilesystem.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Default contructor.
@@ -45,7 +44,7 @@ using namespace os;
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-Directory::Directory()
+PDirectory::PDirectory()
 {
 }
 
@@ -56,7 +55,7 @@ Directory::Directory()
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-Directory::Directory(const PString& path, int openFlags) : FSNode(path, openFlags)
+PDirectory::PDirectory(const PString& path, int openFlags) : PFSNode(path, openFlags)
 {
     if (IsValid() && !IsDir())
     {
@@ -72,7 +71,7 @@ Directory::Directory(const PString& path, int openFlags) : FSNode(path, openFlag
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-Directory::Directory(const Directory& directory, const PString& path, int openFlags) : FSNode(directory, path, openFlags)
+PDirectory::PDirectory(const PDirectory& directory, const PString& path, int openFlags) : PFSNode(directory, path, openFlags)
 {
     if (IsValid() && !IsDir())
     {
@@ -88,7 +87,7 @@ Directory::Directory(const Directory& directory, const PString& path, int openFl
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-Directory::Directory(const FileReference& fileReference, int openFlags) : FSNode(fileReference, openFlags)
+PDirectory::PDirectory(const PFileReference& fileReference, int openFlags) : PFSNode(fileReference, openFlags)
 {
     if (IsValid() && !IsDir())
     {
@@ -104,7 +103,7 @@ Directory::Directory(const FileReference& fileReference, int openFlags) : FSNode
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-Directory::Directory(const FSNode& node) : FSNode(node)
+PDirectory::PDirectory(const PFSNode& node) : PFSNode(node)
 {
     if (IsValid() && !IsDir())
     {
@@ -127,7 +126,7 @@ Directory::Directory(const FSNode& node) : FSNode(node)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-Directory::Directory(const Directory& directory) : FSNode(directory)
+PDirectory::PDirectory(const PDirectory& directory) : PFSNode(directory)
 {
 }
 
@@ -142,7 +141,7 @@ Directory::Directory(const Directory& directory) : FSNode(directory)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-Directory::Directory(int fileDescriptor, bool takeOwnership) : FSNode(fileDescriptor, takeOwnership)
+PDirectory::PDirectory(int fileDescriptor, bool takeOwnership) : PFSNode(fileDescriptor, takeOwnership)
 {
     if (IsValid() && !IsDir())
     {
@@ -155,7 +154,7 @@ Directory::Directory(int fileDescriptor, bool takeOwnership) : FSNode(fileDescri
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Directory::~Directory()
+PDirectory::~PDirectory()
 {
 }
 
@@ -163,7 +162,7 @@ Directory::~Directory()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Directory::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer)
+bool PDirectory::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer)
 {
     if (newFileDescriptor >= 0 && !S_ISDIR(statBuffer.st_mode))
     {
@@ -204,7 +203,7 @@ bool Directory::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Directory::GetPath(PString& outPath) const
+bool PDirectory::GetPath(PString& outPath) const
 {
     try
     {
@@ -227,7 +226,7 @@ bool Directory::GetPath(PString& outPath) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Directory::GetNextEntry(PString& outName)
+bool PDirectory::GetNextEntry(PString& outName)
 {
     dirent_t entry;
     if (posix_getdents(GetFileDescriptor(), &entry, sizeof(entry), 0) != sizeof(entry)) {
@@ -241,7 +240,7 @@ bool Directory::GetNextEntry(PString& outName)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Directory::GetNextEntry(FileReference& outReference)
+bool PDirectory::GetNextEntry(PFileReference& outReference)
 {
     PString name;
     if (!GetNextEntry(name)) {
@@ -254,7 +253,7 @@ bool Directory::GetNextEntry(FileReference& outReference)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Directory::Rewind()
+bool PDirectory::Rewind()
 {
     return rewind_directory(GetFileDescriptor()) == PErrorCode::Success;
 }
@@ -263,7 +262,7 @@ bool Directory::Rewind()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Directory::CreateFile(const PString& name, File& outFile, int accessMode)
+bool PDirectory::CreateFile(const PString& name, PFile& outFile, int accessMode)
 {
     int file = openat(GetFileDescriptor(), name.c_str(), O_WRONLY | O_CREAT, accessMode);
     if (file < 0) {
@@ -276,7 +275,7 @@ bool Directory::CreateFile(const PString& name, File& outFile, int accessMode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Directory::CreateDirectory(const PString& name, Directory& outDirectory, int accessMode)
+bool PDirectory::CreateDirectory(const PString& name, PDirectory& outDirectory, int accessMode)
 {
     if (mkdirat(GetFileDescriptor(), name.c_str(), accessMode) < 0) {
         return false;
@@ -288,7 +287,7 @@ bool Directory::CreateDirectory(const PString& name, Directory& outDirectory, in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Directory::CreatePath(const PString& path, bool includeLeaf, Directory* outLeafDirectory, int accessMode)
+bool PDirectory::CreatePath(const PString& path, bool includeLeaf, PDirectory* outLeafDirectory, int accessMode)
 {
     if (path.empty() || path[0] == '/')
     {
@@ -297,7 +296,7 @@ bool Directory::CreatePath(const PString& path, bool includeLeaf, Directory* out
     }
     const char* nameStart = path.c_str();
 
-    Directory parent = *this;
+    PDirectory parent = *this;
     for (;;)
     {
         const char* nameEnd = strchr(nameStart, '/');
@@ -319,7 +318,7 @@ bool Directory::CreatePath(const PString& path, bool includeLeaf, Directory* out
             }
             return true;
         }
-        Directory directory(parent, name);
+        PDirectory directory(parent, name);
         if (!directory.IsValid())
         {
             if (errno != ENOENT) {
@@ -344,7 +343,7 @@ bool Directory::CreatePath(const PString& path, bool includeLeaf, Directory* out
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Directory::CreateSymlink(const PString& name, const PString& destinationPath, SymLink& outLink)
+bool PDirectory::CreateSymlink(const PString& name, const PString& destinationPath, PSymLink& outLink)
 {
     status_t result = symlinkat(destinationPath.c_str(), GetFileDescriptor(), name.c_str());
     if (result != 0) {
@@ -357,7 +356,7 @@ bool Directory::CreateSymlink(const PString& name, const PString& destinationPat
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Directory::Unlink(const PString& name)
+bool PDirectory::Unlink(const PString& name)
 {
     return unlinkat(GetFileDescriptor(), name.c_str(), 0) != -1;
 }

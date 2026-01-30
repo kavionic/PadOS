@@ -3,32 +3,31 @@
 #include <GUI/View.h>
 #include <DataTranslation/DataTranslator.h>
 
-namespace os
-{
 
-class StreamableIO;
-class Path;
-class Bitmap;
-class BitmapView;
-class TextView;
+class PTextView;
+class PBitmapView;
+class PBitmap;
+class PStreamableIO;
+class PPath;
 
-class IconView : public View
+
+class PIconView : public PView
 {
 public:
-    IconView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    IconView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PIconView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PIconView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
-    Ptr<BitmapView>         GetIconView();
-    Ptr<const BitmapView>   GetIconView() const;
+    Ptr<PBitmapView>         GetIconView();
+    Ptr<const PBitmapView>   GetIconView() const;
 
-    Ptr<TextView>       GetLabelView();
-    Ptr<const TextView> GetLabelView() const;
+    Ptr<PTextView>       GetLabelView();
+    Ptr<const PTextView> GetLabelView() const;
 
-    bool LoadBitmap(const Path& path);
-    bool LoadBitmap(StreamableIO& file);
+    bool LoadBitmap(const PPath& path);
+    bool LoadBitmap(PStreamableIO& file);
 
-    void        SetBitmap(Ptr<Bitmap> bitmap);
-    Ptr<Bitmap> GetBitmap() const;
+    void        SetBitmap(Ptr<PBitmap> bitmap);
+    Ptr<PBitmap> GetBitmap() const;
 
     void SetLabel(const PString& label);
 
@@ -44,13 +43,9 @@ private:
     void Construct();
     void UpdateHighlightColor();
 
-    Ptr<BitmapView> m_IconView;
-    Ptr<TextView>   m_LabelView;
+    Ptr<PBitmapView> m_IconView;
+    Ptr<PTextView>   m_LabelView;
 
     bool m_IsHighlighted = false;
     bool m_IsSelected = false;
 };
-
-} // namespace os
-
-

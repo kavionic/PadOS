@@ -20,8 +20,6 @@
 
 #include <GUI/Widgets/ButtonBase.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// 2-state check box.
@@ -32,21 +30,19 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class RadioButton : public ButtonBase
+class PRadioButton : public PButtonBase
 {
 public:
-    RadioButton(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
-    RadioButton(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
-    ~RadioButton();
+    PRadioButton(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = PViewFlags::WillDraw | PViewFlags::ClearBackground);
+    PRadioButton(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    ~PRadioButton();
 
       // From View:
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual void OnPaint(const Rect& updateRect) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void OnPaint(const PRect& updateRect) override;
 
     // From Control:
     virtual void OnEnableStatusChanged(bool isEnabled) override;
 
 private:
 };
-
-}

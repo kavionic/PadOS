@@ -23,10 +23,8 @@
 #include <Math/Rect.h>
 #include <Signals/Signal.h>
 
-namespace os
-{
-class View;
-class Menu;
+class PView;
+class PMenu;
 
 /** 
  * \ingroup gui
@@ -36,37 +34,35 @@ class Menu;
  * \author Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
-class MenuItem : public PtrTarget
+class PMenuItem : public PtrTarget
 {
 public:
-    MenuItem(const PString& label, int id = 0);
-    MenuItem(Ptr<Menu> menu);
-    ~MenuItem();
+    PMenuItem(const PString& label, int id = 0);
+    PMenuItem(Ptr<PMenu> menu);
+    ~PMenuItem();
 
     int             GetID() const { return m_ID; }
-    Ptr<Menu>       GetSubMenu() const;
-    Ptr<Menu>       GetSuperMenu() const;
-    Rect            GetFrame() const;
-    virtual Point   GetContentSize();
+    Ptr<PMenu>       GetSubMenu() const;
+    Ptr<PMenu>       GetSuperMenu() const;
+    PRect            GetFrame() const;
+    virtual PPoint   GetContentSize();
     PString         GetLabel() const;
-    virtual void    Draw(Ptr<View> targetView);
-    virtual void    DrawContent(Ptr<View> targetView);
+    virtual void    Draw(Ptr<PView> targetView);
+    virtual void    DrawContent(Ptr<PView> targetView);
     virtual void    Highlight(bool highlight);
-    Point           GetContentLocation() const;
+    PPoint           GetContentLocation() const;
     
-    Signal<void, Ptr<MenuItem>> SignalClicked;
+    Signal<void, Ptr<PMenuItem>> SignalClicked;
 private:
-    friend class Menu;
-    friend class MenuRenderView;
+    friend class PMenu;
+    friend class PMenuRenderView;
 
-    Menu*       m_SuperMenu;
-    Ptr<Menu>   m_SubMenu;
-    Rect        m_Frame;
+    PMenu*       m_SuperMenu;
+    Ptr<PMenu>   m_SubMenu;
+    PRect        m_Frame;
 
     int         m_ID = 0;
     PString     m_Label;
 
     bool        m_IsHighlighted;
 };
-
-} // namespace os

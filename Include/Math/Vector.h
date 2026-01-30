@@ -23,70 +23,68 @@
 
 #include <Math/Misc.h>
 
-namespace os
-{
 
 template<typename T, int N>
-class VectorN
+class PVectorN
 {
 public:
     static constexpr size_t AxisCount = N;
 
     template<typename ...ARGS>
-    VectorN(ARGS ...args) : m_Axis{ args... }
+    PVectorN(ARGS ...args) : m_Axis{ args... }
     {
         for (size_t i = sizeof...(ARGS); i < AxisCount; ++i) m_Axis[i] = 0.0f;
     }
-    VectorN(const VectorN&) = default;
+    PVectorN(const PVectorN&) = default;
 
     T LengthSqr() const
     {
         T length = 0.0f;
-        for (size_t i = 0; i < AxisCount; ++i) length += square(m_Axis[i]);
+        for (size_t i = 0; i < AxisCount; ++i) length += PMath::square(m_Axis[i]);
         return length;
     }
     T Length() const { return T(sqrt(double(LengthSqr()))); }
 
-    VectorN     GetNormalized() const { return *this * (1.0f / Length()); }
-    VectorN&    Normalize() { return *this *= (1.0f / Length()); }
+    PVectorN     GetNormalized() const { return *this * (1.0f / Length()); }
+    PVectorN&    Normalize() { return *this *= (1.0f / Length()); }
 
     T& operator[](size_t index) { return m_Axis[index]; }
     const T& operator[](size_t index) const { return m_Axis[index]; }
 
-    VectorN      operator-(void) const
+    PVectorN      operator-(void) const
     {
-        VectorN result;
+        PVectorN result;
         for (size_t i = 0; i < AxisCount; ++i)
         {
             result.m_Axis[i] = -m_Axis[i];
         }
         return result;
     }
-    VectorN        operator+(const VectorN& rhs) const
+    PVectorN        operator+(const PVectorN& rhs) const
     {
-        VectorN result;
+        PVectorN result;
         for (size_t i = 0; i < AxisCount; ++i) {
             result.m_Axis[i] = m_Axis[i] + rhs.m_Axis[i];
         }
         return result;
     }
-    VectorN        operator-(const VectorN& rhs) const
+    PVectorN        operator-(const PVectorN& rhs) const
     {
-        VectorN result;
+        PVectorN result;
         for (size_t i = 0; i < AxisCount; ++i) {
             result.m_Axis[i] = m_Axis[i] - rhs.m_Axis[i];
         }
         return result;
     }
 
-    VectorN& operator+=(const VectorN& rhs)
+    PVectorN& operator+=(const PVectorN& rhs)
     {
         for (size_t i = 0; i < AxisCount; ++i) {
             m_Axis[i] += rhs.m_Axis[i];
         }
         return *this;
     }
-    VectorN& operator-=(const VectorN& rhs)
+    PVectorN& operator-=(const PVectorN& rhs)
     {
         for (size_t i = 0; i < AxisCount; ++i) {
             m_Axis[i] -= rhs.m_Axis[i];
@@ -95,48 +93,48 @@ public:
     }
 
 
-    VectorN operator*(const VectorN& rhs) const
+    PVectorN operator*(const PVectorN& rhs) const
     {
-        VectorN result;
+        PVectorN result;
         for (size_t i = 0; i < AxisCount; ++i) {
             result.m_Axis[i] = m_Axis[i] * rhs.m_Axis[i];
         }
         return result;
     }
-    VectorN operator*(float rhs) const
+    PVectorN operator*(float rhs) const
     {
-        VectorN result;
+        PVectorN result;
         for (size_t i = 0; i < AxisCount; ++i) {
             result.m_Axis[i] = m_Axis[i] * rhs;
         }
         return result;
     }
 
-    VectorN operator/(const VectorN& rhs) const
+    PVectorN operator/(const PVectorN& rhs) const
     {
-        VectorN result;
+        PVectorN result;
         for (size_t i = 0; i < AxisCount; ++i) {
             result.m_Axis[i] = m_Axis[i] / rhs.m_Axis[i];
         }
         return result;
     }
-    VectorN operator/(float rhs) const
+    PVectorN operator/(float rhs) const
     {
-        VectorN result;
+        PVectorN result;
         for (size_t i = 0; i < AxisCount; ++i) {
             result.m_Axis[i] = m_Axis[i] / rhs;
         }
         return result;
     }
 
-    VectorN& operator*=(const VectorN& rhs)
+    PVectorN& operator*=(const PVectorN& rhs)
     {
         for (size_t i = 0; i < AxisCount; ++i) {
             m_Axis[i] *= rhs.m_Axis[i];
         }
         return *this;
     }
-    VectorN& operator*=(float rhs)
+    PVectorN& operator*=(float rhs)
     {
         for (size_t i = 0; i < AxisCount; ++i) {
             m_Axis[i] *= rhs;
@@ -144,7 +142,7 @@ public:
         return *this;
     }
 
-    VectorN& operator/=(const VectorN& rhs)
+    PVectorN& operator/=(const PVectorN& rhs)
     {
         for (size_t i = 0; i < AxisCount; ++i) {
             m_Axis[i] /= rhs.m_Axis[i];
@@ -152,7 +150,7 @@ public:
         return *this;
     }
 
-    VectorN& operator/=(float rhs)
+    PVectorN& operator/=(float rhs)
     {
         for (size_t i = 0; i < AxisCount; ++i) {
             m_Axis[i] /= rhs;
@@ -162,14 +160,14 @@ public:
 
     //    bool         operator<(const VectorN& rhs) const { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
     //    bool         operator>(const VectorN& rhs) const { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
-    bool operator==(const VectorN& rhs) const
+    bool operator==(const PVectorN& rhs) const
     {
         for (size_t i = 0; i < AxisCount; ++i) {
             if (m_Axis[i] != rhs.m_Axis[i]) return false;
         }
         return true;
     }
-    bool operator!=(const VectorN& rhs) const
+    bool operator!=(const PVectorN& rhs) const
     {
         for (size_t i = 0; i < AxisCount; ++i) {
             if (m_Axis[i] != rhs.m_Axis[i]) return true;
@@ -182,8 +180,6 @@ private:
     T m_Axis[N];
 };
 
-using Vector2 = VectorN<float, 2>;
-using Vector3 = VectorN<float, 3>;
-using Vector4 = VectorN<float, 4>;
-
-} // namespace os
+using PVector2 = PVectorN<float, 2>;
+using PVector3 = PVectorN<float, 3>;
+using PVector4 = PVectorN<float, 4>;

@@ -28,7 +28,6 @@
 #include <Kernel/KAddressValidation.h>
 #include <Kernel/Syscalls.h>
 
-using namespace os;
 
 namespace kernel
 {

@@ -29,16 +29,13 @@
 #include <RPC/ArgumentPacker.h>
 #include <RPC/ArgumentSerializer.h>
 
-namespace os
-{
-
  
   ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename R, typename... ARGS>
-class RemoteSignalTX : public SignalBase
+class PRemoteSignalTX : public SignalBase
 {
 public:
     using Serializer = PArgumentSerializer<R, ARGS...>;
@@ -46,7 +43,7 @@ public:
     template<typename CB_OBJ>
     static bool Emit(CB_OBJ* callbackObj, void* (CB_OBJ::*callback)(int32_t, size_t), int32_t messageID, ARGS... args)
     {
-        size_t size = Serializer::AccumulateSize(ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...);
+        size_t size = Serializer::AccumulateSize(PArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...);
         
         void* buffer = (callbackObj->*callback)(messageID, size);
         if (buffer == nullptr) {
@@ -60,7 +57,7 @@ public:
     {
         static const size_t MAX_STACK_BUFFER_SIZE = 128;
         
-        size_t size = Serializer::AccumulateSize(ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...);
+        size_t size = Serializer::AccumulateSize(PArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...);
         
         void* buffer;
 
@@ -92,7 +89,7 @@ public:
         return result == PErrorCode::Success;
     }
 
-    static bool Emit(const MessagePort& port, handler_id targetHandler, int32_t messageID, const TimeValNanos& timeout, ARGS... args)
+    static bool Emit(const PMessagePort& port, handler_id targetHandler, int32_t messageID, const TimeValNanos& timeout, ARGS... args)
     {
         return Emit(port.GetHandle(), targetHandler, messageID, timeout, args...);
     }
@@ -104,10 +101,10 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename R, typename... ARGS>
-class RemoteSignalTXLinked : public RemoteSignalTX<R, ARGS...>
+class PRemoteSignalTXLinked : public PRemoteSignalTX<R, ARGS...>
 {
 public:
-    RemoteSignalTXLinked() {}
+    PRemoteSignalTXLinked() {}
     
     template <typename T,typename fT>
     bool SetTransmitter(const T* object, bool (fT::*callback)(int, const void*, size_t))
@@ -146,7 +143,7 @@ public:
     {
         static const size_t MAX_STACK_BUFFER_SIZE = 128;
         
-        constexpr size_t size = this->AccumulateSize(ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...);
+        constexpr size_t size = this->AccumulateSize(PArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...);
         
         void* buffer;
         std::vector<uint8_t> heapBuffer;
@@ -173,7 +170,7 @@ private:
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class RemoteSignalRXBase
+class PRemoteSignalRXBase
 {
 public:
     virtual bool Dispatch(const void* data, size_t length) = 0;
@@ -184,13 +181,13 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename R, typename... ARGS>
-class RemoteSignalRX : public RemoteSignalRXBase, public Signal<R, ARGS...>
+class PRemoteSignalRX : public PRemoteSignalRXBase, public Signal<R, ARGS...>
 {
 public:
     using ReturnType = R;
 
     typedef std::tuple<std::decay_t<ARGS>...> ArgTuple_t;
-    RemoteSignalRX() {}
+    PRemoteSignalRX() {}
     
     virtual bool Dispatch(const void* data, size_t length) override
     {
@@ -206,7 +203,7 @@ private:
     template<int I, typename FIRST, typename... REST>
     ssize_t UnpackArgs(ArgTuple_t& tuple, const void* data, size_t length)
     {
-        ssize_t result = ArgumentPacker<FIRST>::Read(data, length, &std::get<I>(tuple));
+        ssize_t result = PArgumentPacker<FIRST>::Read(data, length, &std::get<I>(tuple));
         if (result >= 0)
         {
             const size_t consumed = align_argument_size(result);
@@ -235,18 +232,18 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 
 template<int MSGID, typename... ARGS>
-class RemoteSignal : public SignalTarget
+class PRemoteSignal : public SignalTarget
 {
 public:
     static int GetID() { return MSGID; }
 
-    typedef RemoteSignalRX<void, ARGS...> Receiver;
-    typedef RemoteSignalTX<void, ARGS...> Sender;
+    typedef PRemoteSignalRX<void, ARGS...> Receiver;
+    typedef PRemoteSignalTX<void, ARGS...> Sender;
 
     template <typename ...fARGS>
     void Connect(const Signal<void, fARGS...>& srcSignal)
     {
-        srcSignal.Connect(this, &RemoteSignal::SlotSignalReceived);
+        srcSignal.Connect(this, &PRemoteSignal::SlotSignalReceived);
     }
 
     template <typename fR, typename fC, typename T, typename ...fARGS>
@@ -276,25 +273,23 @@ private:
 };
 
 template<int MSGID, typename R, typename... ARGS>
-class RemoteSignal<MSGID, R (ARGS...)> : public RemoteSignal<MSGID, ARGS...> {};
+class PRemoteSignal<MSGID, R (ARGS...)> : public PRemoteSignal<MSGID, ARGS...> {};
 
 
 template<typename SIGNAL, typename CB_OBJ, typename... ARGS>
-bool post_to_remotesignal(CB_OBJ* callbackObj, void* (CB_OBJ::* callback)(int32_t, size_t), ARGS&&... args)
+bool p_post_to_remotesignal(CB_OBJ* callbackObj, void* (CB_OBJ::* callback)(int32_t, size_t), ARGS&&... args)
 {
     return SIGNAL::Sender::Emit(callbackObj, callback, SIGNAL::GetID(), args...);
 }
 
 template<typename SIGNAL, typename... ARGS>
-bool post_to_remotesignal(port_id port, handler_id targetHandler, const TimeValNanos& timeout, ARGS&&... args)
+bool p_post_to_remotesignal(port_id port, handler_id targetHandler, const TimeValNanos& timeout, ARGS&&... args)
 {
     return SIGNAL::Sender::Emit(port, targetHandler, SIGNAL::GetID(), timeout, args...);
 }
 
 template<typename SIGNAL, typename... ARGS>
-bool post_to_remotesignal(const MessagePort& port, handler_id targetHandler, const TimeValNanos& timeout, ARGS&&... args)
+bool p_post_to_remotesignal(const PMessagePort& port, handler_id targetHandler, const TimeValNanos& timeout, ARGS&&... args)
 {
     return SIGNAL::Sender::Emit(port, targetHandler, SIGNAL::GetID(), timeout, args...);
 }
-
-} // namespace

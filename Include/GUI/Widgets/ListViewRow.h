@@ -20,40 +20,38 @@
 
 #include <Ptr/PtrTarget.h>
 
-namespace os
-{
+class PRect;
+class PPoint;
+class PView;
 
-class View;
-class Rect;
-class Point;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class ListViewRow : public PtrTarget
+class PListViewRow : public PtrTarget
 {
 public:
-    ListViewRow();
-    virtual ~ListViewRow();
+    PListViewRow();
+    virtual ~PListViewRow();
 
-    virtual void AttachToView(Ptr<View> view, int column) = 0;
-    virtual void SetRect(const Rect& rect, size_t column) = 0;
+    virtual void AttachToView(Ptr<PView> view, int column) = 0;
+    virtual void SetRect(const PRect& rect, size_t column) = 0;
 
-    virtual float GetWidth(Ptr<View> view, size_t column) = 0;
-    virtual float GetHeight(Ptr<View> view) = 0;
-    virtual void  Paint(const Rect& frame, Ptr<View> view, size_t column, bool selected, bool highlighted, bool hasFocus) = 0;
-    virtual bool  HitTest(Ptr<View> view, const Rect& frame, int column, const Point& pos);
-    virtual bool  IsLessThan(Ptr<const ListViewRow> other, size_t column) const = 0;
+    virtual float GetWidth(Ptr<PView> view, size_t column) = 0;
+    virtual float GetHeight(Ptr<PView> view) = 0;
+    virtual void  Paint(const PRect& frame, Ptr<PView> view, size_t column, bool selected, bool highlighted, bool hasFocus) = 0;
+    virtual bool  HitTest(Ptr<PView> view, const PRect& frame, int column, const PPoint& pos);
+    virtual bool  IsLessThan(Ptr<const PListViewRow> other, size_t column) const = 0;
 
     void      SetIsSelectable(bool selectable);
     bool      IsSelectable() const;
     bool      IsSelected() const;
     bool      IsHighlighted() const;
 private:
-    friend class ListView;
-    friend class ListViewScrolledView;
-    friend class ListViewColumnView;
+    friend class PListView;
+    friend class PListViewScrolledView;
+    friend class PListViewColumnView;
 
     float   m_YPos = 0.0f;
     float   m_Height = 0.0f;
@@ -61,5 +59,3 @@ private:
     bool    m_Selected = false;
     bool    m_Highlighted = false;
 };
-
-} // namespace os

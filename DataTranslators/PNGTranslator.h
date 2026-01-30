@@ -24,7 +24,7 @@
 
 #include <png.h>
 
-class PNGTranslator : public os::DataTranslator
+class PNGTranslator : public PDataTranslator
 {
 public:
     PNGTranslator();
@@ -54,8 +54,8 @@ private:
         static_cast<PNGTranslator*>(png_get_progressive_ptr(pngPtr))->EndCallback();
     }
 
-    os::BitmapHeader        m_BitmapHeader;
-    os::BitmapFrameHeader   m_CurrentFrame;
+    PBitmapHeader        m_BitmapHeader;
+    PBitmapFrameHeader   m_CurrentFrame;
 
     int            m_NumPasses = 1;
     bool           m_IsInterlaced = false;
@@ -65,10 +65,10 @@ private:
 };
 
 
-class PNGTranslatorNode : public os::TranslatorNode
+class PNGTranslatorNode : public PTranslatorNode
 {
 public:
-    virtual os::EDataTranslatorStatus   Identify(const PString& srcType, os::EDataTranslatorType dstType, const void* data, size_t length) const override;
-    virtual os::TranslatorInfo          GetTranslatorInfo() const override;
-    virtual Ptr<os::DataTranslator>     CreateTranslator() const override;
+    virtual PDataTranslatorStatus   Identify(const PString& srcType, PDataTranslatorType dstType, const void* data, size_t length) const override;
+    virtual PTranslatorInfo          GetTranslatorInfo() const override;
+    virtual Ptr<PDataTranslator>     CreateTranslator() const override;
 };

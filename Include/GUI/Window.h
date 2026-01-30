@@ -21,40 +21,36 @@
 
 #include <GUI/View.h>
 
-namespace os
-{
 
-class Window : public View
+class PWindow : public PView
 {
 public:
-    Window(const PString& title);
+    PWindow(const PString& title);
 
     // From View:
-    virtual void OnPaint(const Rect& updateRect) override;
-    virtual void OnFrameSized(const Point& delta) override;
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void OnPaint(const PRect& updateRect) override;
+    virtual void OnFrameSized(const PPoint& delta) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 
-    virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
 
     // From Window:
-    void SetClient(Ptr<View> client);
-    Ptr<View> GetClient();
+    void SetClient(Ptr<PView> client);
+    Ptr<PView> GetClient();
 
-    void Open(Application* application = nullptr);
+    void Open(PApplication* application = nullptr);
     void Close();
 
 private:
     void SlotClientPreferredSizeChanged();
-    Ptr<View> m_ClientView;
+    Ptr<PView> m_ClientView;
 
-    Rect    m_ClientBorders;
+    PRect    m_ClientBorders;
 
     PString m_Title;
 
-    MouseButton_e   m_DragHitButton = MouseButton_e::None;
-    Point           m_DragHitPos;
+    PMouseButton   m_DragHitButton = PMouseButton::None;
+    PPoint           m_DragHitPos;
 };
-
-} // namespace os

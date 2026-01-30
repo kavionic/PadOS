@@ -26,11 +26,9 @@
 #include <Utils/EasingCurve.h>
 
 
-namespace os
-{
-class VirtualKeyboardView;
+class PVirtualKeyboardView;
 
-class WindowManager : public os::Application
+class WindowManager : public PApplication
 {
 public:
     WindowManager();
@@ -39,30 +37,27 @@ public:
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
 
 private:
-    void SlotRegisterView(handler_id viewHandle, os::ViewDockType dockType, const PString& name, const os::Rect& frame);
+    void SlotRegisterView(handler_id viewHandle, PViewDockType dockType, const PString& name, const PRect& frame);
     void SlotUnregisterView(handler_id viewHandle);
-    void SlotEnableVKeyboard(const Rect& focusViewEditArea, bool numerical);
+    void SlotEnableVKeyboard(const PRect& focusViewEditArea, bool numerical);
     void SlotDisableVKeyboard();
     void SlotKeyboardAnimTimer();
 
-    os::ASWindowManagerRegisterView::Receiver       RSWindowManagerRegisterView;
-    os::ASWindowManagerUnregisterView::Receiver     RSWindowManagerUnregisterView;
-    os::ASWindowManagerEnableVKeyboard::Receiver    RSWindowManagerEnableVKeyboard;
-    os::ASWindowManagerDisableVKeyboard::Receiver   RSWindowManagerDisableVKeyboard;
+    ASWindowManagerRegisterView::Receiver       RSWindowManagerRegisterView;
+    ASWindowManagerUnregisterView::Receiver     RSWindowManagerUnregisterView;
+    ASWindowManagerEnableVKeyboard::Receiver    RSWindowManagerEnableVKeyboard;
+    ASWindowManagerDisableVKeyboard::Receiver   RSWindowManagerDisableVKeyboard;
 
-    Ptr<os::View> m_TopView;
-    Ptr<os::View> m_SidebarView;
-    Ptr<os::View> m_ClientsView;
+    Ptr<PView> m_TopView;
+    Ptr<PView> m_SidebarView;
+    Ptr<PView> m_ClientsView;
 
-    Ptr<os::VirtualKeyboardView>        m_KeyboardView;
+    Ptr<PVirtualKeyboardView>        m_KeyboardView;
     bool                                m_IsKeyboardActive = false;
-    EventTimer                          m_KeyboardAnimTimer;
-    ValueAnimator<float, EasingCurve>   m_KeyboardAnimator;
-    ValueAnimator<float, EasingCurve>   m_TargetAnimator;
+    PEventTimer                          m_KeyboardAnimTimer;
+    PValueAnimator<float, PEasingCurve>   m_KeyboardAnimator;
+    PValueAnimator<float, PEasingCurve>   m_TargetAnimator;
 
     WindowManager(const WindowManager&) = delete;
     WindowManager& operator=(const WindowManager&) = delete;
 };
-
-
-} // namespace os

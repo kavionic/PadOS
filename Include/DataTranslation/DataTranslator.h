@@ -28,16 +28,14 @@
 #include <Math/Rect.h>
 #include <GUI/GUIDefines.h>
 
-namespace os
-{
 
-enum class EDataTranslatorType : uint8_t
+enum class PDataTranslatorType : uint8_t
 {
     Unknown,
     Image
 };
 
-enum class EDataTranslatorStatus : uint8_t
+enum class PDataTranslatorStatus : uint8_t
 {
     Success,
     NotEnoughData,
@@ -47,32 +45,32 @@ enum class EDataTranslatorStatus : uint8_t
 };
 
 
-struct BitmapHeader
+struct PBitmapHeader
 {
     size_t      HeaderSize;
     size_t      DataSize;
     uint32_t    Flags;
-    IRect       Bounds;
+    PIRect       Bounds;
     int32_t     FrameCount;
     size_t      BytesPerRow;
-    EColorSpace ColorSpace;
+    PEColorSpace ColorSpace;
 };
 
-struct BitmapFrameHeader
+struct PBitmapFrameHeader
 {
     size_t      HeaderSize;
     size_t      DataSize;
     uint32_t    Timestamp;
-    EColorSpace ColorSpace;
+    PEColorSpace ColorSpace;
     size_t      BytesPerRow;
-    IRect       Frame;
+    PIRect       Frame;
 };
 
-class DataTranslator : public PtrTarget
+class PDataTranslator : public PtrTarget
 {
 public:
-    DataTranslator();
-    virtual ~DataTranslator();
+    PDataTranslator();
+    virtual ~PDataTranslator();
 
     virtual status_t AddData(const void* data, size_t length, bool isFinal ) = 0;
     virtual ssize_t  AvailableDataSize();
@@ -89,44 +87,42 @@ private:
     std::deque<uint8_t> m_OutBuffer;
 };
 
-struct TranslatorInfo
+struct PTranslatorInfo
 {
     PString             SourceType;
-    EDataTranslatorType DestType;
+    PDataTranslatorType DestType;
     float               Quality;
 };
 
-class TranslatorNode : public PtrTarget
+class PTranslatorNode : public PtrTarget
 {
 public:
-    TranslatorNode();
-    virtual ~TranslatorNode();
+    PTranslatorNode();
+    virtual ~PTranslatorNode();
 
-    virtual EDataTranslatorStatus   Identify(const PString& srcType, EDataTranslatorType dstType, const void* data, size_t length) const = 0;
-    virtual TranslatorInfo          GetTranslatorInfo() const = 0;
-    virtual Ptr<DataTranslator>     CreateTranslator() const = 0;
+    virtual PDataTranslatorStatus   Identify(const PString& srcType, PDataTranslatorType dstType, const void* data, size_t length) const = 0;
+    virtual PTranslatorInfo          GetTranslatorInfo() const = 0;
+    virtual Ptr<PDataTranslator>     CreateTranslator() const = 0;
 };
 
-class TranslatorFactory
+class PTranslatorFactory
 {
 public:
-    TranslatorFactory();
-    ~TranslatorFactory();
+    PTranslatorFactory();
+    ~PTranslatorFactory();
 
-    static TranslatorFactory& Get();
+    static PTranslatorFactory& Get();
     
-    void RegisterTranslator(Ptr<TranslatorNode> translatorNode) { m_Nodes.push_back(translatorNode); }
-    Ptr<DataTranslator> FindTranslator(const PString& srcType, EDataTranslatorType dstType, const void* data, size_t length, EDataTranslatorStatus& outStatus) const;
+    void RegisterTranslator(Ptr<PTranslatorNode> translatorNode) { m_Nodes.push_back(translatorNode); }
+    Ptr<PDataTranslator> FindTranslator(const PString& srcType, PDataTranslatorType dstType, const void* data, size_t length, PDataTranslatorStatus& outStatus) const;
 
     size_t              GetTranslatorCount() const;
-    Ptr<TranslatorNode> GetTranslatorNode(size_t index) const;
-    TranslatorInfo      GetTranslatorInfo(size_t index) const;
-    Ptr<DataTranslator> CreateTranslator(size_t index) const;
+    Ptr<PTranslatorNode> GetTranslatorNode(size_t index) const;
+    PTranslatorInfo      GetTranslatorInfo(size_t index) const;
+    Ptr<PDataTranslator> CreateTranslator(size_t index) const;
 
 private:
-    std::vector<Ptr<TranslatorNode>> m_Nodes;
+    std::vector<Ptr<PTranslatorNode>> m_Nodes;
 };
 
-#define REGISTER_DATA_TRANSLATOR(CLASS) FactoryAutoRegistrator<CLASS> g_DataTranslatorFactoryRegistrationHelper___##CLASS([]{ Ptr<CLASS> obj = ptr_new<CLASS>();  TranslatorFactory::Get().RegisterTranslator(obj); });
-
-} // end of namespace
+#define PREGISTER_DATA_TRANSLATOR(CLASS) PFactoryAutoRegistrator<CLASS> g_DataTranslatorFactoryRegistrationHelper___##CLASS([]{ Ptr<CLASS> obj = ptr_new<CLASS>();  PTranslatorFactory::Get().RegisterTranslator(obj); });

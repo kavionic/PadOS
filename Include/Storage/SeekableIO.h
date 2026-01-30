@@ -21,8 +21,6 @@
 #include <System/Types.h>
 #include <Storage/StreamableIO.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \ingroup storage
@@ -32,10 +30,10 @@ namespace os
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-class SeekableIO : public StreamableIO
+class PSeekableIO : public PStreamableIO
 {
 public:
-    virtual ~SeekableIO();
+    virtual ~PSeekableIO();
     
     virtual ssize_t ReadPos(off64_t position, void* buffer, ssize_t size) const = 0;
     virtual ssize_t WritePos(off64_t position, const void* buffer, ssize_t size) = 0;
@@ -43,6 +41,3 @@ public:
     virtual off64_t Seek(off64_t position, int mode) = 0;
 
 };
-
-
-} // namespace os

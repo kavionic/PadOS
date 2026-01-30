@@ -21,30 +21,28 @@
 #include <GUI/Widgets/TextView.h>
 #include <GUI/Widgets/TextBox.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextInputDialog::TextInputDialog(const PString& title, const PString& message, const PString& text, DialogButtonSets buttonSet) : DialogBase(title, text, buttonSet)
+PTextInputDialog::PTextInputDialog(const PString& title, const PString& message, const PString& text, PDialogButtonSets buttonSet) : PDialogBase(title, text, buttonSet)
 {
-    m_MessageView = ptr_new<TextView>("Message", message, nullptr, TextViewFlags::MultiLine);
-    m_TextInput   = ptr_new<TextBox>("Input", text);
+    m_MessageView = ptr_new<PTextView>("Message", message, nullptr, PTextViewFlags::MultiLine);
+    m_TextInput   = ptr_new<PTextBox>("Input", text);
 
-    m_MessageView->SetWidthOverride(PrefSizeType::Smallest, SizeOverride::Extend, 400.0f);
-    m_TextInput->SetWidthOverride(PrefSizeType::Smallest, SizeOverride::Always, 0.0f);
-    m_TextInput->SetWidthOverride(PrefSizeType::Greatest, SizeOverride::Always, COORD_MAX);
+    m_MessageView->SetWidthOverride(PPrefSizeType::Smallest, PSizeOverride::Extend, 400.0f);
+    m_TextInput->SetWidthOverride(PPrefSizeType::Smallest, PSizeOverride::Always, 0.0f);
+    m_TextInput->SetWidthOverride(PPrefSizeType::Greatest, PSizeOverride::Always, COORD_MAX);
 
     m_TextInput->SetBorders(0.0f, 10.0f, 0.0f, 10.0f);
 
-    m_TextInput->SignalTextChanged.Connect(this, &TextInputDialog::SlotTextChanged);
+    m_TextInput->SignalTextChanged.Connect(this, &PTextInputDialog::SlotTextChanged);
 
-    Ptr<View> contentView = ptr_new<View>("Content");
+    Ptr<PView> contentView = ptr_new<PView>("Content");
     contentView->AddChild(m_MessageView);
     contentView->AddChild(m_TextInput);
-    contentView->SetLayoutNode(ptr_new<VLayoutNode>());
+    contentView->SetLayoutNode(ptr_new<PVLayoutNode>());
     SetContentView(contentView);
 }
 
@@ -52,12 +50,12 @@ TextInputDialog::TextInputDialog(const PString& title, const PString& message, c
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextInputDialog::OnActivated(DialogButtonID buttonID)
+void PTextInputDialog::OnActivated(PDialogButtonID buttonID)
 {
     SignalSelected(buttonID, m_TextInput->GetText(), this);
 }
 
-const PString& TextInputDialog::GetText() const
+const PString& PTextInputDialog::GetText() const
 {
     return m_TextInput->GetText();
 }
@@ -66,9 +64,7 @@ const PString& TextInputDialog::GetText() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextInputDialog::SlotTextChanged(const PString& newText, bool finalUpdate, TextBox* source)
+void PTextInputDialog::SlotTextChanged(const PString& newText, bool finalUpdate, PTextBox* source)
 {
     SignalTextChanged(newText, finalUpdate, this);
 }
-
-} //namespace os

@@ -22,16 +22,13 @@
 #include <Utils/Logging.h>
 
 
-namespace os
-{
-
-std::map<StandardPathID, PString> StandardPaths::s_PathMap;
+std::map<PStandardPathID, PString> PStandardPaths::s_PathMap;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool StandardPaths::RegisterPath(StandardPathID pathID, const PString& path)
+bool PStandardPaths::RegisterPath(PStandardPathID pathID, const PString& path)
 {
     CRITICAL_SCOPE(GetMutex());
 
@@ -48,7 +45,7 @@ bool StandardPaths::RegisterPath(StandardPathID pathID, const PString& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool StandardPaths::UpdatePath(StandardPathID pathID, const PString& path)
+bool PStandardPaths::UpdatePath(PStandardPathID pathID, const PString& path)
 {
     CRITICAL_SCOPE(GetMutex());
 
@@ -66,7 +63,7 @@ bool StandardPaths::UpdatePath(StandardPathID pathID, const PString& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString StandardPaths::GetPath(StandardPathID pathID)
+PString PStandardPaths::GetPath(PStandardPathID pathID)
 {
     CRITICAL_SCOPE(GetMutex());
 
@@ -83,12 +80,12 @@ PString StandardPaths::GetPath(StandardPathID pathID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString StandardPaths::GetPath(StandardPathID pathID, const PString& file)
+PString PStandardPaths::GetPath(PStandardPathID pathID, const PString& file)
 {
     if (!file.empty() && file[0] == '/') {
         return file; // Already an absolute path.
     }
-    Path path(GetPath(pathID));
+    PPath path(GetPath(pathID));
     path.Append(file);
     return path.GetPath();
 }
@@ -97,10 +94,8 @@ PString StandardPaths::GetPath(StandardPathID pathID, const PString& file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Mutex& StandardPaths::GetMutex()
+PMutex& PStandardPaths::GetMutex()
 {
-    static Mutex mutex("std_path_mutex", PEMutexRecursionMode_RaiseError);
+    static PMutex mutex("std_path_mutex", PEMutexRecursionMode_RaiseError);
     return mutex;
 }
-
-} // namespace os

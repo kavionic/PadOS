@@ -23,19 +23,18 @@
 #include "Utils/Utils.h"
 #include "Utils/XMLObjectParser.h"
 
-using namespace os;
 
-const std::map<PString, uint32_t> TextViewFlags::FlagMap
+const std::map<PString, uint32_t> PTextViewFlags::FlagMap
 {
-    DEFINE_FLAG_MAP_ENTRY(TextViewFlags, IncludeLineGap),
-    DEFINE_FLAG_MAP_ENTRY(TextViewFlags, MultiLine),
+    DEFINE_FLAG_MAP_ENTRY(PTextViewFlags, IncludeLineGap),
+    DEFINE_FLAG_MAP_ENTRY(PTextViewFlags, MultiLine),
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextView::TextView(const PString& name, const PString& text, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
+PTextView::PTextView(const PString& name, const PString& text, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
 {
     SetText(text);
 }
@@ -44,9 +43,9 @@ TextView::TextView(const PString& name, const PString& text, Ptr<View> parent, u
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextView::TextView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+PTextView::PTextView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
 {
-    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, TextViewFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw);
+    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PTextViewFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw);
 
     SetText(context.GetAttribute(xmlData, "text", PString::zero));
 }
@@ -55,7 +54,7 @@ TextView::TextView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xm
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextView::~TextView()
+PTextView::~PTextView()
 {
 }
 
@@ -63,14 +62,14 @@ TextView::~TextView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextView::SetText(const PString& text)
+void PTextView::SetText(const PString& text)
 {
 //    ProfileTimer timer("TextView::SetText()");    
     m_Text = text;
 
     m_TextWidth = GetStringWidth(m_Text);
 
-    if (HasFlags(TextViewFlags::MultiLine))
+    if (HasFlags(PTextViewFlags::MultiLine))
     {
         m_IsWordWrappingValid = false;
     }
@@ -82,11 +81,11 @@ void TextView::SetText(const PString& text)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextView::OnFrameSized(const Point& delta)
+void PTextView::OnFrameSized(const PPoint& delta)
 {
-    View::OnFrameSized(delta);
+    PView::OnFrameSized(delta);
 
-    if (delta.x != 0.0f && HasFlags(TextViewFlags::MultiLine))
+    if (delta.x != 0.0f && HasFlags(PTextViewFlags::MultiLine))
     {
         m_IsWordWrappingValid = false;
         PreferredSizeChanged();
@@ -97,16 +96,16 @@ void TextView::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void os::TextView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PTextView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    FontHeight fontHeight = GetFontHeight();
-    if (HasFlags(TextViewFlags::MultiLine))
+    PFontHeight fontHeight = GetFontHeight();
+    if (HasFlags(PTextViewFlags::MultiLine))
     {
         if (includeWidth)
         {
             if (m_AspectRatio != 0.0f)
             {
-                const FontHeight fontHeight = GetFontHeight();
+                const PFontHeight fontHeight = GetFontHeight();
 
                 const float textArea = m_TextWidth * (fontHeight.descender - fontHeight.ascender + fontHeight.line_gap);
 
@@ -124,7 +123,7 @@ void os::TextView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
             UpdateWordWrapping();
 
             minSize->y = std::max(1.0f, float(m_LineWraps.size())) * (fontHeight.descender - fontHeight.ascender + fontHeight.line_gap);
-            if (!HasFlags(TextViewFlags::IncludeLineGap)) {
+            if (!HasFlags(PTextViewFlags::IncludeLineGap)) {
                 minSize->y -= fontHeight.line_gap;
             }
             maxSize->y = minSize->y;
@@ -132,14 +131,14 @@ void os::TextView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
     }
     else
     {
-        Point size;
+        PPoint size;
         if (includeWidth) {
             size.x = m_TextWidth;
         }
         if (includeHeight)
         {
             size.y = fontHeight.descender - fontHeight.ascender;
-            if (HasFlags(TextViewFlags::IncludeLineGap)) {
+            if (HasFlags(PTextViewFlags::IncludeLineGap)) {
                 size.y += fontHeight.line_gap;
             }
         }
@@ -152,21 +151,21 @@ void os::TextView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextView::OnPaint(const Rect& updateRect)
+void PTextView::OnPaint(const PRect& updateRect)
 {
     if (UpdateWordWrapping()) {
         PreferredSizeChanged();
     }
 
     SetEraseColor(GetBgColor());
-    Rect bounds = GetBounds();
+    PRect bounds = GetBounds();
     EraseRect(bounds);
 
     MovePenTo(0.0f, 0.0f);
 
     if (!m_LineWraps.empty())
     {
-        const FontHeight fontHeight = GetFontHeight();
+        const PFontHeight fontHeight = GetFontHeight();
         const float lineHeight = fontHeight.descender - fontHeight.ascender + fontHeight.line_gap;
 
         const char* lineStart = m_Text.c_str();
@@ -189,19 +188,19 @@ void TextView::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool TextView::UpdateWordWrapping()
+bool PTextView::UpdateWordWrapping()
 {
     if (m_IsWordWrappingValid) {
         return false;
     }
     m_IsWordWrappingValid = true;
-    if (!HasFlags(TextViewFlags::MultiLine))
+    if (!HasFlags(PTextViewFlags::MultiLine))
     {
         const bool wasEmpty = m_LineWraps.empty();
         m_LineWraps.clear();
         return !wasEmpty;
     }
-    Ptr<Font> font = GetFont();
+    Ptr<PFont> font = GetFont();
 
     if (font == nullptr)
     {

@@ -31,7 +31,7 @@ constexpr size_t align_argument_size(size_t length) noexcept { return (length + 
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename T>
-struct ArgumentPacker
+struct PArgumentPacker
 {
     static constexpr size_t GetSize(T value) noexcept { return sizeof(T); }
 
@@ -62,7 +62,7 @@ struct ArgumentPacker
 ///////////////////////////////////////////////////////////////////////////////
 
 template<>
-struct ArgumentPacker<std::string>
+struct PArgumentPacker<std::string>
 {
     static size_t   GetSize(const std::string& value) noexcept { return sizeof(uint32_t) + value.size(); }
     static ssize_t  Write(const std::string& value, void* data, size_t length) noexcept
@@ -103,6 +103,6 @@ struct ArgumentPacker<std::string>
 ///////////////////////////////////////////////////////////////////////////////
 
 template<>
-struct ArgumentPacker<PString> : public ArgumentPacker<std::string>
+struct PArgumentPacker<PString> : public PArgumentPacker<std::string>
 {
 };

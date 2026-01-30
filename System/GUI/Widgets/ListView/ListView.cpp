@@ -29,7 +29,6 @@
 #include <GUI/Widgets/ScrollBar.h>
 #include <Ptr/NoPtr.h>
 
-using namespace os;
 
 //  ListView -+
 //            |
@@ -73,22 +72,22 @@ using namespace os;
 //  +--------------------------------------------------------------------------+
 
 
-const std::map<PString, uint32_t> ListViewFlags::FlagMap
+const std::map<PString, uint32_t> PListViewFlags::FlagMap
 {
-    DEFINE_FLAG_MAP_ENTRY(ListViewFlags, MultiSelect),
-    DEFINE_FLAG_MAP_ENTRY(ListViewFlags, NoAutoSort),
-    DEFINE_FLAG_MAP_ENTRY(ListViewFlags, RenderBorder),
-    DEFINE_FLAG_MAP_ENTRY(ListViewFlags, DontScroll),
-    DEFINE_FLAG_MAP_ENTRY(ListViewFlags, NoHeader),
-    DEFINE_FLAG_MAP_ENTRY(ListViewFlags, NoColumnRemap)
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, MultiSelect),
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, NoAutoSort),
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, RenderBorder),
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, DontScroll),
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, NoHeader),
+    DEFINE_FLAG_MAP_ENTRY(PListViewFlags, NoColumnRemap)
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListView::ListView(const PString& name, Ptr<View> parent, uint32_t flags) :
-    Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+PListView::PListView(const PString& name, Ptr<PView> parent, uint32_t flags) :
+    PControl(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     Construct();
 }
@@ -97,9 +96,9 @@ ListView::ListView(const PString& name, Ptr<View> parent, uint32_t flags) :
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListView::ListView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
+PListView::PListView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PControl(context, parent, xmlData)
 {
-    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, ListViewFlags::FlagMap, "flags", ListViewFlags::RenderBorder) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
+    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PListViewFlags::FlagMap, "flags", PListViewFlags::RenderBorder) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
 
     Construct();
 }
@@ -108,9 +107,9 @@ ListView::ListView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xm
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::Construct()
+void PListView::Construct()
 {
-    m_HeaderView = ptr_new<ListViewHeaderView>(ptr_tmp_cast(this));
+    m_HeaderView = ptr_new<PListViewHeaderView>(ptr_tmp_cast(this));
     m_ScrolledContainerView = m_HeaderView->m_ScrolledContainerView;
 
     Layout();
@@ -120,7 +119,7 @@ void ListView::Construct()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListView::~ListView()
+PListView::~PListView()
 {
 }
 
@@ -128,21 +127,21 @@ ListView::~ListView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListView::IsMultiSelect() const
+bool PListView::IsMultiSelect() const
 {
-    return HasFlags(ListViewFlags::MultiSelect);
+    return HasFlags(PListViewFlags::MultiSelect);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::SetMultiSelect(bool multi)
+void PListView::SetMultiSelect(bool multi)
 {
     if (multi) {
-        MergeFlags(ListViewFlags::MultiSelect);
+        MergeFlags(PListViewFlags::MultiSelect);
     } else {
-        ClearFlags(ListViewFlags::MultiSelect);
+        ClearFlags(PListViewFlags::MultiSelect);
     }
 }
 
@@ -150,21 +149,21 @@ void ListView::SetMultiSelect(bool multi)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListView::IsAutoSort() const
+bool PListView::IsAutoSort() const
 {
-    return !HasFlags(ListViewFlags::NoAutoSort);
+    return !HasFlags(PListViewFlags::NoAutoSort);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::SetAutoSort(bool autoSort)
+void PListView::SetAutoSort(bool autoSort)
 {
     if (autoSort) {
-        ClearFlags(ListViewFlags::NoAutoSort);
+        ClearFlags(PListViewFlags::NoAutoSort);
     } else {
-        MergeFlags(ListViewFlags::NoAutoSort);
+        MergeFlags(PListViewFlags::NoAutoSort);
     }
 }
 
@@ -172,21 +171,21 @@ void ListView::SetAutoSort(bool autoSort)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListView::HasBorder() const
+bool PListView::HasBorder() const
 {
-    return HasFlags(ListViewFlags::RenderBorder);
+    return HasFlags(PListViewFlags::RenderBorder);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::SetRenderBorder(bool render)
+void PListView::SetRenderBorder(bool render)
 {
     if (render) {
-        MergeFlags(ListViewFlags::RenderBorder);
+        MergeFlags(PListViewFlags::RenderBorder);
     } else {
-        ClearFlags(ListViewFlags::RenderBorder);
+        ClearFlags(PListViewFlags::RenderBorder);
     }
     Layout();
     Flush();
@@ -196,21 +195,21 @@ void ListView::SetRenderBorder(bool render)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListView::HasColumnHeader() const
+bool PListView::HasColumnHeader() const
 {
-    return !HasFlags(ListViewFlags::NoHeader);
+    return !HasFlags(PListViewFlags::NoHeader);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::SetHasColumnHeader(bool value)
+void PListView::SetHasColumnHeader(bool value)
 {
     if (value) {
-        ClearFlags(ListViewFlags::NoHeader);
+        ClearFlags(PListViewFlags::NoHeader);
     } else {
-        MergeFlags(ListViewFlags::NoHeader);
+        MergeFlags(PListViewFlags::NoHeader);
     }
     Layout();
     Flush();
@@ -220,9 +219,9 @@ void ListView::SetHasColumnHeader(bool value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListView::HasFocus(MouseButton_e button) const
+bool PListView::HasFocus(PMouseButton button) const
 {
-    if (View::HasFocus(button)) {
+    if (PView::HasFocus(button)) {
         return true;
     }
     return m_HeaderView->HasFocus(button);
@@ -251,7 +250,7 @@ bool ListView::HasFocus(MouseButton_e button) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::AdjustScrollBars(bool okToHScroll)
+void PListView::AdjustScrollBars(bool okToHScroll)
 {
     if (m_ScrolledContainerView->m_Rows.empty())
     {
@@ -288,7 +287,7 @@ void ListView::AdjustScrollBars(bool okToHScroll)
         {
             if (m_VScrollBar == nullptr)
             {
-                m_VScrollBar = ptr_new<ScrollBar>("v_scroll", nullptr, 0.0f, 1000.0f, Orientation::Vertical);
+                m_VScrollBar = ptr_new<PScrollBar>("v_scroll", nullptr, 0.0f, 1000.0f, POrientation::Vertical);
                 m_VScrollBar->SetScrollTarget(m_ScrolledContainerView);
                 AddChild(m_VScrollBar);
                 Layout();
@@ -326,7 +325,7 @@ void ListView::AdjustScrollBars(bool okToHScroll)
         {
             if (m_HScrollBar == nullptr)
             {
-                m_HScrollBar = ptr_new<ScrollBar>("h_scroll", nullptr, 0.0f, 1000.0f, Orientation::Horizontal);
+                m_HScrollBar = ptr_new<PScrollBar>("h_scroll", nullptr, 0.0f, 1000.0f, POrientation::Horizontal);
                 m_HScrollBar->SetScrollTarget(m_HeaderView);
                 AddChild(m_HScrollBar);
                 Layout();
@@ -381,24 +380,24 @@ void ListView::AdjustScrollBars(bool okToHScroll)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::Layout()
+void PListView::Layout()
 {
     const float topHeight = m_HeaderView->m_HeaderHeight;
 
-    Rect frame(GetBounds().Bounds());
+    PRect frame(GetBounds().Bounds());
     frame.Floor();
-    if (HasFlags(ListViewFlags::RenderBorder)) {
+    if (HasFlags(PListViewFlags::RenderBorder)) {
         frame.Resize(2.0f, 2.0f, -2.0f, -2.0f);
     }
 
-    Rect headerFrame(frame);
+    PRect headerFrame(frame);
 
     if (m_HScrollBar != nullptr) {
         headerFrame.bottom -= 16.0f;
     }
     if (m_VScrollBar != nullptr)
     {
-        Rect scrollBarFrame(frame);
+        PRect scrollBarFrame(frame);
 
         scrollBarFrame.top += topHeight;
         //  cVScrFrame.bottom -= 2.0f;
@@ -411,7 +410,7 @@ void ListView::Layout()
     }
     if (m_HScrollBar != nullptr)
     {
-        Rect scrollBarFrame(frame);
+        PRect scrollBarFrame(frame);
         headerFrame.bottom = std::floor(headerFrame.bottom);
         if (m_VScrollBar != nullptr) {
             scrollBarFrame.right -= 16.0f;
@@ -431,12 +430,12 @@ void ListView::Layout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::OnFrameSized(const Point& delta)
+void PListView::OnFrameSized(const PPoint& delta)
 {
     if (m_ScrolledContainerView->m_ColumnMap.empty() == false)
     {
-        Ptr<ListViewColumnView> columnView = m_ScrolledContainerView->m_ColumnViews[m_ScrolledContainerView->m_ColumnMap[m_ScrolledContainerView->m_ColumnMap.size() - 1]];
-        Rect frame = columnView->GetFrame();
+        Ptr<PListViewColumnView> columnView = m_ScrolledContainerView->m_ColumnViews[m_ScrolledContainerView->m_ColumnMap[m_ScrolledContainerView->m_ColumnMap.size() - 1]];
+        PRect frame = columnView->GetFrame();
         frame.right = GetBounds().right - m_HeaderView->GetScrollOffset().x;
 
         columnView->SetFrame(frame);
@@ -449,7 +448,7 @@ void ListView::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::Sort()
+void PListView::Sort()
 {
     if (m_ScrolledContainerView->m_SortColumn >= m_ScrolledContainerView->m_ColumnViews.size()) {
         return;
@@ -458,7 +457,7 @@ void ListView::Sort()
         return;
     }
 
-    std::stable_sort(m_ScrolledContainerView->m_Rows.begin(), m_ScrolledContainerView->m_Rows.end(), [sortColumn = m_ScrolledContainerView->m_SortColumn](Ptr<const ListViewRow> lhs, Ptr<const ListViewRow> rhs) { return lhs->IsLessThan(rhs, sortColumn); });
+    std::stable_sort(m_ScrolledContainerView->m_Rows.begin(), m_ScrolledContainerView->m_Rows.end(), [sortColumn = m_ScrolledContainerView->m_SortColumn](Ptr<const PListViewRow> lhs, Ptr<const PListViewRow> rhs) { return lhs->IsLessThan(rhs, sortColumn); });
 
     float y = 0.0f;
     for (size_t i = 0; i < m_ScrolledContainerView->m_Rows.size(); ++i) {
@@ -492,7 +491,7 @@ void ListView::Sort()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::MakeVisible(size_t row, bool center)
+void PListView::MakeVisible(size_t row, bool center)
 {
     m_ScrolledContainerView->MakeVisible(row, center);
     Flush();
@@ -502,7 +501,7 @@ void ListView::MakeVisible(size_t row, bool center)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t ListView::InsertColumn(const char* title, float width, size_t index)
+size_t PListView::InsertColumn(const char* title, float width, size_t index)
 {
     const size_t column = m_ScrolledContainerView->InsertColumn(title, width, index);
     Layout();
@@ -514,7 +513,7 @@ size_t ListView::InsertColumn(const char* title, float width, size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const ListView::ColumnMap& ListView::GetColumnMapping() const
+const PListView::ColumnMap& PListView::GetColumnMapping() const
 {
     return m_ScrolledContainerView->m_ColumnMap;
 }
@@ -523,7 +522,7 @@ const ListView::ColumnMap& ListView::GetColumnMapping() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::SetColumnMapping(const ColumnMap& map)
+void PListView::SetColumnMapping(const ColumnMap& map)
 {
     for (size_t i = 0; i < m_ScrolledContainerView->m_ColumnViews.size(); ++i)
     {
@@ -549,7 +548,7 @@ void ListView::SetColumnMapping(const ColumnMap& map)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::InsertRow(size_t index, Ptr<ListViewRow> row, bool update)
+void PListView::InsertRow(size_t index, Ptr<PListViewRow> row, bool update)
 {
     m_ScrolledContainerView->InsertRow(index, row, update);
     AdjustScrollBars();
@@ -562,7 +561,7 @@ void ListView::InsertRow(size_t index, Ptr<ListViewRow> row, bool update)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::InsertRow(Ptr<ListViewRow> row, bool update)
+void PListView::InsertRow(Ptr<PListViewRow> row, bool update)
 {
     InsertRow(INVALID_INDEX, row, update);
 }
@@ -571,9 +570,9 @@ void ListView::InsertRow(Ptr<ListViewRow> row, bool update)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ListViewRow> ListView::RemoveRow(size_t index, bool update)
+Ptr<PListViewRow> PListView::RemoveRow(size_t index, bool update)
 {
-    Ptr<ListViewRow> row = m_ScrolledContainerView->RemoveRow(index, update);
+    Ptr<PListViewRow> row = m_ScrolledContainerView->RemoveRow(index, update);
     AdjustScrollBars();
     if (update) {
         Flush();
@@ -585,7 +584,7 @@ Ptr<ListViewRow> ListView::RemoveRow(size_t index, bool update)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::InvalidateRow(size_t row, uint32_t flags)
+void PListView::InvalidateRow(size_t row, uint32_t flags)
 {
     m_ScrolledContainerView->InvalidateRow(row, flags);
     Flush();
@@ -595,7 +594,7 @@ void ListView::InvalidateRow(size_t row, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t ListView::GetRowCount() const
+size_t PListView::GetRowCount() const
 {
     return m_ScrolledContainerView->m_Rows.size();
 }
@@ -604,7 +603,7 @@ size_t ListView::GetRowCount() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ListViewRow> ListView::GetRow(size_t index) const
+Ptr<PListViewRow> PListView::GetRow(size_t index) const
 {
     if (index < m_ScrolledContainerView->m_Rows.size()) {
         return m_ScrolledContainerView->m_Rows[index];
@@ -617,7 +616,7 @@ Ptr<ListViewRow> ListView::GetRow(size_t index) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ListViewRow> ListView::GetRow(const Point& pos) const
+Ptr<PListViewRow> PListView::GetRow(const PPoint& pos) const
 {
     const size_t hitRow = m_ScrolledContainerView->GetRowIndex(pos.y);
     if (hitRow != INVALID_INDEX) {
@@ -631,7 +630,7 @@ Ptr<ListViewRow> ListView::GetRow(const Point& pos) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t ListView::GetRowIndex(Ptr<ListViewRow> row) const
+size_t PListView::GetRowIndex(Ptr<PListViewRow> row) const
 {
     return m_ScrolledContainerView->GetRowIndex(row);
 }
@@ -640,9 +639,9 @@ size_t ListView::GetRowIndex(Ptr<ListViewRow> row) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t ListView::HitTest(const Point& pos) const
+size_t PListView::HitTest(const PPoint& pos) const
 {
-    const Point parentPos = ConvertToRoot(m_ScrolledContainerView->ConvertFromRoot(pos));
+    const PPoint parentPos = ConvertToRoot(m_ScrolledContainerView->ConvertFromRoot(pos));
     return m_ScrolledContainerView->GetRowIndex(parentPos.y);
 }
 
@@ -650,7 +649,7 @@ size_t ListView::HitTest(const Point& pos) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float ListView::GetRowPos(size_t row)
+float PListView::GetRowPos(size_t row)
 {
     if (row < m_ScrolledContainerView->m_Rows.size()) {
         return m_ScrolledContainerView->m_Rows[row]->m_YPos + m_ScrolledContainerView->GetFrame().top + m_ScrolledContainerView->GetScrollOffset().y;
@@ -663,12 +662,12 @@ float ListView::GetRowPos(size_t row)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::Select(size_t first, size_t last, bool replace, bool select)
+void PListView::Select(size_t first, size_t last, bool replace, bool select)
 {
     if (m_ScrolledContainerView->m_Rows.empty()) {
         return;
     }
-    if ((replace || !HasFlags(ListViewFlags::MultiSelect)) && m_ScrolledContainerView->m_FirstSel != INVALID_INDEX)
+    if ((replace || !HasFlags(PListViewFlags::MultiSelect)) && m_ScrolledContainerView->m_FirstSel != INVALID_INDEX)
     {
         for (size_t i = m_ScrolledContainerView->m_FirstSel; i <= m_ScrolledContainerView->m_LastSel; ++i)
         {
@@ -691,7 +690,7 @@ void ListView::Select(size_t first, size_t last, bool replace, bool select)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::Select(size_t row, bool replace, bool select)
+void PListView::Select(size_t row, bool replace, bool select)
 {
     Select(row, row, replace, select);
 }
@@ -700,7 +699,7 @@ void ListView::Select(size_t row, bool replace, bool select)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::ClearSelection()
+void PListView::ClearSelection()
 {
     if (m_ScrolledContainerView->ClearSelection()) {
         SelectionChanged(INVALID_INDEX, INVALID_INDEX);
@@ -711,7 +710,7 @@ void ListView::ClearSelection()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::Highlight(size_t first, size_t last, bool replace, bool highlight)
+void PListView::Highlight(size_t first, size_t last, bool replace, bool highlight)
 {
     if (replace)
     {
@@ -721,7 +720,7 @@ void ListView::Highlight(size_t first, size_t last, bool replace, bool highlight
             if (m_ScrolledContainerView->m_Rows[i]->m_Highlighted != highlighted)
             {
                 m_ScrolledContainerView->m_Rows[i]->m_Highlighted = highlighted;
-                m_ScrolledContainerView->InvalidateRow(i, ListView::INV_VISUAL);
+                m_ScrolledContainerView->InvalidateRow(i, PListView::INV_VISUAL);
             }
         }
     }
@@ -732,7 +731,7 @@ void ListView::Highlight(size_t first, size_t last, bool replace, bool highlight
             if (m_ScrolledContainerView->m_Rows[i]->m_Highlighted != highlight)
             {
                 m_ScrolledContainerView->m_Rows[i]->m_Highlighted = highlight;
-                m_ScrolledContainerView->InvalidateRow(i, ListView::INV_VISUAL);
+                m_ScrolledContainerView->InvalidateRow(i, PListView::INV_VISUAL);
             }
         }
     }
@@ -743,7 +742,7 @@ void ListView::Highlight(size_t first, size_t last, bool replace, bool highlight
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::Highlight(size_t row, bool replace, bool highlight)
+void PListView::Highlight(size_t row, bool replace, bool highlight)
 {
     Highlight(row, row, replace, highlight);
 }
@@ -752,7 +751,7 @@ void ListView::Highlight(size_t row, bool replace, bool highlight)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListView::IsSelected(size_t row) const
+bool PListView::IsSelected(size_t row) const
 {
     if (row < m_ScrolledContainerView->m_Rows.size()) {
         return m_ScrolledContainerView->m_Rows[row]->m_Selected;
@@ -765,7 +764,7 @@ bool ListView::IsSelected(size_t row) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::Clear()
+void PListView::Clear()
 {
     m_ScrolledContainerView->Clear();
     AdjustScrollBars();
@@ -776,16 +775,16 @@ void ListView::Clear()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::OnPaint(const Rect& updateRect)
+void PListView::OnPaint(const PRect& updateRect)
 {
     if (m_VScrollBar != nullptr && m_HScrollBar != nullptr)
     {
-        const Rect scrollBarFrameH = m_HScrollBar->GetFrame();
-        const Rect scrollBarFrameV = m_VScrollBar->GetFrame();
-        const Rect frame(scrollBarFrameH.right, scrollBarFrameV.bottom, scrollBarFrameV.right, scrollBarFrameH.bottom);
-        FillRect(frame, get_standard_color(StandardColorID::DefaultBackground));
+        const PRect scrollBarFrameH = m_HScrollBar->GetFrame();
+        const PRect scrollBarFrameV = m_VScrollBar->GetFrame();
+        const PRect frame(scrollBarFrameH.right, scrollBarFrameV.bottom, scrollBarFrameV.right, scrollBarFrameH.bottom);
+        FillRect(frame, pget_standard_color(PStandardColorID::DefaultBackground));
     }
-    if (HasFlags(ListViewFlags::RenderBorder)) {
+    if (HasFlags(PListViewFlags::RenderBorder)) {
         DrawFrame(GetBounds(), FRAME_RECESSED | FRAME_TRANSPARENT);
     }
 }
@@ -794,7 +793,7 @@ void ListView::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::SelectionChanged(size_t firstRow, size_t lastRow)
+void PListView::SelectionChanged(size_t firstRow, size_t lastRow)
 {
     SignalSelectionChanged(firstRow, lastRow, ptr_tmp_cast(this));
 }
@@ -803,7 +802,7 @@ void ListView::SelectionChanged(size_t firstRow, size_t lastRow)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t ListView::GetFirstSelected() const
+size_t PListView::GetFirstSelected() const
 {
     return m_ScrolledContainerView->m_FirstSel;
 }
@@ -812,7 +811,7 @@ size_t ListView::GetFirstSelected() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t ListView::GetLastSelected() const
+size_t PListView::GetLastSelected() const
 {
     return m_ScrolledContainerView->m_LastSel;
 }
@@ -821,7 +820,7 @@ size_t ListView::GetLastSelected() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::StartScroll(ScrollDirection direction, bool select)
+void PListView::StartScroll(PScrollDirection direction, bool select)
 {
     m_ScrolledContainerView->StartScroll(direction, select);
 }
@@ -830,7 +829,7 @@ void ListView::StartScroll(ScrollDirection direction, bool select)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListView::StopScroll()
+void PListView::StopScroll()
 {
     m_ScrolledContainerView->StopScroll();
 }
@@ -839,7 +838,7 @@ void ListView::StopScroll()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListView::DragSelection(const Point& pos)
+bool PListView::DragSelection(const PPoint& pos)
 {
     return false;
 }
@@ -848,7 +847,7 @@ bool ListView::DragSelection(const Point& pos)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListView::const_iterator ListView::begin() const
+PListView::const_iterator PListView::begin() const
 {
     return m_ScrolledContainerView->m_Rows.begin();
 }
@@ -857,7 +856,7 @@ ListView::const_iterator ListView::begin() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListView::const_iterator ListView::end() const
+PListView::const_iterator PListView::end() const
 {
     return m_ScrolledContainerView->m_Rows.end();
 }

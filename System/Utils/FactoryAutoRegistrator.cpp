@@ -23,13 +23,13 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FactoryAutoRegistratorBase* FactoryAutoRegistratorBase::s_FirstRegistrator = nullptr;
+PFactoryAutoRegistratorBase* PFactoryAutoRegistratorBase::s_FirstRegistrator = nullptr;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FactoryAutoRegistratorBase::FactoryAutoRegistratorBase()
+PFactoryAutoRegistratorBase::PFactoryAutoRegistratorBase()
 {
     m_NextRegistrator = s_FirstRegistrator; s_FirstRegistrator = this;
 }
@@ -38,7 +38,7 @@ FactoryAutoRegistratorBase::FactoryAutoRegistratorBase()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FactoryAutoRegistratorBase::InvokeAll()
+void PFactoryAutoRegistratorBase::InvokeAll()
 {
     while (s_FirstRegistrator != nullptr)
     {

@@ -26,39 +26,35 @@
 #include <Signals/Signal.h>
 #include <Utils/String.h>
 
-namespace os
-{
 
-class ButtonBase;
+class PButtonBase;
 
-class ButtonGroup : public PtrTarget, public SignalTarget
+class PButtonGroup : public PtrTarget, public SignalTarget
 {
 public:
-    ButtonGroup(const PString& name = PString::zero, size_t reserveCount = 0);
-    virtual ~ButtonGroup() override;
+    PButtonGroup(const PString& name = PString::zero, size_t reserveCount = 0);
+    virtual ~PButtonGroup() override;
 
     const PString&  GetName() const { return m_Name; }
 
-    size_t          AddButton(Ptr<ButtonBase> button);
-    void            InsertButton(size_t index, Ptr<ButtonBase> button);
-    Ptr<ButtonBase> RemoveButton(Ptr<ButtonBase> button);
-    Ptr<ButtonBase> RemoveButtonAt(size_t index);
+    size_t          AddButton(Ptr<PButtonBase> button);
+    void            InsertButton(size_t index, Ptr<PButtonBase> button);
+    Ptr<PButtonBase> RemoveButton(Ptr<PButtonBase> button);
+    Ptr<PButtonBase> RemoveButtonAt(size_t index);
 
-    Ptr<ButtonBase> SetSelectedIndex(size_t index, bool sendEvent = true);
-    size_t          SelectButton(Ptr<ButtonBase> button, bool sendEvent = true);
-    Ptr<ButtonBase> GetSelectedButton() const;
+    Ptr<PButtonBase> SetSelectedIndex(size_t index, bool sendEvent = true);
+    size_t          SelectButton(Ptr<PButtonBase> button, bool sendEvent = true);
+    Ptr<PButtonBase> GetSelectedButton() const;
     int32_t         GetSelectedID() const;
     size_t          GetSelectedIndex() const;
 
-    size_t          GetButtonIndex(Ptr<ButtonBase> button) const;
+    size_t          GetButtonIndex(Ptr<PButtonBase> button) const;
 
     size_t          GetButtonCount() const;
-    Ptr<ButtonBase> GetButton(size_t index) const;
+    Ptr<PButtonBase> GetButton(size_t index) const;
 
-    Signal<void, size_t, int32_t, Ptr<ButtonBase>, Ptr<ButtonGroup>> SignalSelectionChanged;//(size_t index, int32_t ID, Ptr<ButtonBase> button, Ptr<ButtonGroup> group)
+    Signal<void, size_t, int32_t, Ptr<PButtonBase>, Ptr<PButtonGroup>> SignalSelectionChanged;//(size_t index, int32_t ID, Ptr<ButtonBase> button, Ptr<ButtonGroup> group)
 private:
     PString                             m_Name;
-    std::vector<WeakPtr<ButtonBase>>    m_ButtonList;
+    std::vector<WeakPtr<PButtonBase>>    m_ButtonList;
 };
-
-} // namespace

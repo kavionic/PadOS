@@ -21,24 +21,19 @@
 
 #include <GUI/View.h>
 
-namespace os
-{
 
-class ScrollableView : public View
+class PScrollableView : public PView
 {
 public:
-    ScrollableView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    ScrollableView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PScrollableView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PScrollableView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual Point CalculateContentSize() const override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual PPoint CalculateContentSize() const override;
     virtual void OnLayoutChanged() override;
 
-    void SetContentView(Ptr<View> contentView);
+    void SetContentView(Ptr<PView> contentView);
 
 private:
-    Ptr<View> m_ContentView;
+    Ptr<PView> m_ContentView;
 };
-
-
-} // namespace os

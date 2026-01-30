@@ -105,7 +105,7 @@ public:
 
     KThreadCB*                m_Prev = nullptr;
     KThreadCB*                m_Next = nullptr;
-    IntrusiveList<KThreadCB>* m_List = nullptr;
+    PIntrusiveList<KThreadCB>* m_List = nullptr;
     const KNamedObject*       m_BlockingObject = nullptr;
 
     sigset_t                  m_PendingSignals_ = 0;
@@ -115,6 +115,6 @@ public:
     size_t                    m_QueuedSignalCount = 0;
 };
 
-typedef IntrusiveList<KThreadCB>       KThreadList;
+typedef PIntrusiveList<KThreadCB>       KThreadList;
 
 } // namespace

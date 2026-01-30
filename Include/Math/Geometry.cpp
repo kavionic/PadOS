@@ -21,7 +21,7 @@
 
 #include <Math/Geometry.h>
 
-namespace os
+namespace PMath
 {
 
 
@@ -29,7 +29,7 @@ namespace os
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point LineLineIntersection(const LineSegment& line1, const LineSegment& line2)
+PPoint LineLineIntersection(const PLineSegment& line1, const PLineSegment& line2)
 {
     const float deltaYL1 = line1.p2.y - line1.p1.y;
     const float deltaXL1 = line1.p1.x - line1.p2.x;
@@ -40,13 +40,13 @@ Point LineLineIntersection(const LineSegment& line1, const LineSegment& line2)
     const float determinant = deltaYL1 * deltaXL2 - deltaYL2 * deltaXL1;
 
     if (determinant == 0.0f) { // Lines are parallel.
-        return Point(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+        return PPoint(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
     }
 
     const float c1 = deltaYL1 * line1.p1.x + deltaXL1 * line1.p1.y;
     const float c2 = deltaYL2 * line2.p1.x + deltaXL2 * line2.p1.y;
 
-    Point result;
+    PPoint result;
     result.x = (deltaXL2 * c1 - deltaXL1 * c2) / determinant;
     result.y = (deltaYL1 * c2 - deltaYL2 * c1) / determinant;
     return result;
@@ -56,7 +56,7 @@ Point LineLineIntersection(const LineSegment& line1, const LineSegment& line2)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float PointToSegmentDistance(const LineSegment& line, const Point& point)
+float PointToSegmentDistance(const PLineSegment& line, const PPoint& point)
 {
     return std::sqrt(PointToSegmentDistanceSqr(line, point));
 }
@@ -65,10 +65,10 @@ float PointToSegmentDistance(const LineSegment& line, const Point& point)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float PointToSegmentDistanceSqr(const LineSegment& line, const Point& point)
+float PointToSegmentDistanceSqr(const PLineSegment& line, const PPoint& point)
 {
-    const Point lineDirection = line.p2 - line.p1;
-    const Point pointDirection = point - line.p1;
+    const PPoint lineDirection = line.p2 - line.p1;
+    const PPoint pointDirection = point - line.p1;
 
     const float lineLengthSqr = lineDirection.LengthSqr();
 
@@ -80,9 +80,9 @@ float PointToSegmentDistanceSqr(const LineSegment& line, const Point& point)
     const float distFromLineStart = std::clamp((pointDirection.x * lineDirection.x + pointDirection.y * lineDirection.y) / lineLengthSqr, 0.0f, 1.0f);
 
     // Calculate closest point along line
-    const Point closest = line.p1 + lineDirection * distFromLineStart;
+    const PPoint closest = line.p1 + lineDirection * distFromLineStart;
 
     return (point - closest).LengthSqr();
 }
 
-} // namespace os
+} // namespace PMath

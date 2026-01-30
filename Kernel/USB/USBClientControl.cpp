@@ -26,7 +26,6 @@
 #include <Kernel/USB/USBDriver.h>
 #include <Kernel/USB/USBCommon.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -73,7 +72,7 @@ void USBClientControl::SetRequest(const USB_ControlRequest& request, void* buffe
     m_Request           = request;
     m_TransferBuffer    = reinterpret_cast<uint8_t*>(buffer);
     m_TransferBytesSent = 0;
-    m_TransferLength    = std::min(length, uint32_t(LittleEndianToHost(request.wLength)));
+    m_TransferLength    = std::min(length, uint32_t(PLittleEndianToHost(request.wLength)));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

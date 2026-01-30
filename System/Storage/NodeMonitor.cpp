@@ -24,7 +24,6 @@
 #include <Storage/FSNode.h>
 #include <Storage/Directory.h>
 
-using namespace os;
 
 #if 0
 

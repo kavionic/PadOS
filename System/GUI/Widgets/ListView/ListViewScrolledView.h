@@ -22,55 +22,52 @@
 #include "Threads/EventTimer.h"
 #include "Utils/InertialScroller.h"
 
-namespace os
-{
-class ListViewRow;
+class PListView;
+class PListViewRow;
+class PListViewColumnView;
 
-class ListView;
-class ListViewColumnView;
-
-class ListViewScrolledView : public View
+class PListViewScrolledView : public PView
 {
 public:
-    friend class ListView;
-    friend class ListViewHeaderView;
-    friend class ListViewRow;
-    friend class ListViewColumnView;
+    friend class PListView;
+    friend class PListViewHeaderView;
+    friend class PListViewRow;
+    friend class PListViewColumnView;
 
     enum { AUTOSCROLL_TIMER = 1 };
 
-    ListViewScrolledView(Ptr<ListView> listView);
+    PListViewScrolledView(Ptr<PListView> listView);
 
 private:
     size_t              InsertColumn(const char* title, float width, size_t index = INVALID_INDEX) noexcept;
-    size_t              InsertRow(size_t index, Ptr<ListViewRow> row, bool update);
-    Ptr<ListViewRow>    RemoveRow(size_t index, bool update);
+    size_t              InsertRow(size_t index, Ptr<PListViewRow> row, bool update);
+    Ptr<PListViewRow>    RemoveRow(size_t index, bool update);
     void                InvalidateRow(size_t index, uint32_t flags, bool imidiate = false);
     void                Clear();
     size_t              GetRowIndex(float y) const;
-    size_t              GetRowIndex(Ptr<const ListViewRow> row) const;
+    size_t              GetRowIndex(Ptr<const PListViewRow> row) const;
     void                MakeVisible(size_t row, bool center);
-    void                StartScroll(ScrollDirection direction, bool select);
+    void                StartScroll(PScrollDirection direction, bool select);
     void                StopScroll();
 
-    virtual void    OnFrameSized(const Point& delta) override;
+    virtual void    OnFrameSized(const PPoint& delta) override;
 
-    virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
 
-    virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
     //    virtual void  WheelMoved(const Point& cDelta);
-    virtual void    OnPaint(const Rect& updateRect) override;
+    virtual void    OnPaint(const PRect& updateRect) override;
     //    virtual void  TimerTick( int nID );
     virtual void    DetachedFromWindow();
-    virtual bool    HasFocus(MouseButton_e button) const override;
+    virtual bool    HasFocus(PMouseButton button) const override;
 
     //    bool      HandleKey( char nChar, uint32_t nQualifiers );
     void        LayoutColumns();
-    Ptr<ListViewColumnView>    GetColumn(int columnIndex) const { return(m_ColumnViews[m_ColumnMap[columnIndex]]); }
+    Ptr<PListViewColumnView>    GetColumn(int columnIndex) const { return(m_ColumnViews[m_ColumnMap[columnIndex]]); }
 
 
     bool    ClearSelection();
@@ -78,17 +75,17 @@ private:
     void    InvertRange(size_t start, size_t end);
     void    ExpandSelect(size_t row, bool invert, bool clear);
 
-    void SlotInertialScrollUpdate(const Point& position);
+    void SlotInertialScrollUpdate(const PPoint& position);
 
-    std::vector<Ptr<ListViewColumnView>>    m_ColumnViews;
+    std::vector<Ptr<PListViewColumnView>>    m_ColumnViews;
     std::vector<size_t>                     m_ColumnMap;
-    std::vector<Ptr<ListViewRow>>           m_Rows;
-    ListView*                               m_ListView;
+    std::vector<Ptr<PListViewRow>>           m_Rows;
+    PListView*                               m_ListView;
 
-    MouseButton_e                           m_HitButton = MouseButton_e::None;
-    Point                                   m_HitPos;
-    InertialScroller                        m_InertialScroller;
-    Rect                                    m_SelectRect;
+    PMouseButton                           m_HitButton = PMouseButton::None;
+    PPoint                                   m_HitPos;
+    PInertialScroller                        m_InertialScroller;
+    PRect                                    m_SelectRect;
     bool                                    m_IsSelecting       = false;
     bool                                    m_MouseMoved        = false;
     bool                                    m_DragIfMoved       = false;
@@ -107,5 +104,3 @@ private:
     bool                                    m_MousDownSeen      = false;
     bool                                    m_AutoScrollSelects = false;
 };
-
-} // namespace os

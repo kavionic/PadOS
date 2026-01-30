@@ -24,33 +24,31 @@
 
 #include "VirtualKeyboardView.h"
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-VirtualKeyboardView::VirtualKeyboardView(bool numerical) : View("VirtualKeyboard", nullptr, ViewFlags::WillDraw)
+PVirtualKeyboardView::PVirtualKeyboardView(bool numerical) : PView("VirtualKeyboard", nullptr, PViewFlags::WillDraw)
 {
-    SetLayoutNode(ptr_new<LayoutNode>());
+    SetLayoutNode(ptr_new<PLayoutNode>());
 
-    m_KeyboardView = ptr_new<KeyboardView>("Keyboard", ptr_tmp_cast(this), (numerical) ? KeyboardViewFlags::Numerical : 0);
+    m_KeyboardView = ptr_new<PKeyboardView>("Keyboard", ptr_tmp_cast(this), (numerical) ? PKeyboardViewFlags::Numerical : 0);
     m_KeyboardView->PreferredSizeChanged();
 
-    m_KeyboardView->SignalKeyPressed.Connect(this, &VirtualKeyboardView::SlotKeyPressed);
+    m_KeyboardView->SignalKeyPressed.Connect(this, &PVirtualKeyboardView::SlotKeyPressed);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void VirtualKeyboardView::SetIsNumerical(bool numerical)
+void PVirtualKeyboardView::SetIsNumerical(bool numerical)
 {
     if (numerical) {
-        m_KeyboardView->MergeFlags(KeyboardViewFlags::Numerical);
+        m_KeyboardView->MergeFlags(PKeyboardViewFlags::Numerical);
     } else {
-        m_KeyboardView->ClearFlags(KeyboardViewFlags::Numerical);
+        m_KeyboardView->ClearFlags(PKeyboardViewFlags::Numerical);
     }
 }
 
@@ -58,17 +56,14 @@ void VirtualKeyboardView::SetIsNumerical(bool numerical)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void VirtualKeyboardView::SlotKeyPressed(KeyCodes keyCode, const PString& text)
+void PVirtualKeyboardView::SlotKeyPressed(PKeyCodes keyCode, const PString& text)
 {
-    KeyEvent event;
+    PKeyEvent event;
 
     event.Timestamp = get_monotonic_time();
-    event.EventID = MessageID::KEY_UP;
+    event.EventID = PMessageID::KEY_UP;
     event.m_KeyCode = keyCode;
-    strncpy(event.m_Text, text.c_str(), KeyEvent::MAX_TEXT_LENGTH);
+    strncpy(event.m_Text, text.c_str(), PKeyEvent::MAX_TEXT_LENGTH);
 
     message_port_send(get_input_event_port(), INVALID_HANDLE, int32_t(event.EventID), &event, sizeof(event));
 }
-
-
-} // namespace os

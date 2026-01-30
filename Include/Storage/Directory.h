@@ -23,12 +23,10 @@
 #include <Storage/FSNode.h>
 #include <Storage/DirIterator.h>
 
-namespace os
-{
+class PFileReference;
+class PFile;
+class PSymLink;
 
-class FileReference;
-class File;
-class SymLink;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Filesystem directory class
@@ -43,34 +41,32 @@ class SymLink;
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-class Directory : public FSNode, public DirIterator
+class PDirectory : public PFSNode, public PDirIterator
 {
 public:
-    Directory();
-    Directory(const PString& path, int openFlags = O_RDONLY);
-    Directory(const Directory& directory, const PString& name, int openFlags = O_RDONLY);
-    Directory(const FileReference& fileReference, int openFlags = O_RDONLY);
-    Directory(const FSNode& node);
-    Directory(int fileDescriptor, bool takeOwnership);
-    Directory(const Directory& directory);
-    Directory(Directory&& directory) = default;
-    virtual ~Directory();
+    PDirectory();
+    PDirectory(const PString& path, int openFlags = O_RDONLY);
+    PDirectory(const PDirectory& directory, const PString& name, int openFlags = O_RDONLY);
+    PDirectory(const PFileReference& fileReference, int openFlags = O_RDONLY);
+    PDirectory(const PFSNode& node);
+    PDirectory(int fileDescriptor, bool takeOwnership);
+    PDirectory(const PDirectory& directory);
+    PDirectory(PDirectory&& directory) = default;
+    virtual ~PDirectory();
 
     virtual bool FDChanged(int newFileDescriptor, const struct ::stat& statBuffer) override;
     
     virtual bool GetNextEntry(PString& outName) override;
-    virtual bool GetNextEntry(FileReference& outReference) override;
+    virtual bool GetNextEntry(PFileReference& outReference) override;
     virtual bool Rewind() override;
 
-    bool CreateFile(const PString& name, File& outFile, int accessMode = S_IRWXU);
-    bool CreateDirectory(const PString& name, Directory& outDirectory, int accessMode = S_IRWXU);
-    bool CreatePath(const PString& path, bool includeLeaf = true, Directory* outLeafDirectory = nullptr, int accessMode = S_IRWXU);
-    bool CreateSymlink(const PString& name, const PString& destination, SymLink& outLink);
+    bool CreateFile(const PString& name, PFile& outFile, int accessMode = S_IRWXU);
+    bool CreateDirectory(const PString& name, PDirectory& outDirectory, int accessMode = S_IRWXU);
+    bool CreatePath(const PString& path, bool includeLeaf = true, PDirectory* outLeafDirectory = nullptr, int accessMode = S_IRWXU);
+    bool CreateSymlink(const PString& name, const PString& destination, PSymLink& outLink);
     bool Unlink(const PString& name);
     bool GetPath(PString& outPath) const;
 
-    Directory& operator=(const Directory& rhs) = default;
-    Directory& operator=(Directory&& rhs) = default;
+    PDirectory& operator=(const PDirectory& rhs) = default;
+    PDirectory& operator=(PDirectory&& rhs) = default;
 };
-
-} // namespace os

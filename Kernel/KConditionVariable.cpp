@@ -25,7 +25,6 @@
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
 
-using namespace os;
 
 namespace kernel
 {

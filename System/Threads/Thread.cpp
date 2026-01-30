@@ -29,15 +29,14 @@
 #include <Utils/Utils.h>
 #include <Kernel/KThreadCB.h>
 
-using namespace os;
 
-thread_local Thread* Thread::st_CurrentThread = nullptr;
+thread_local PThread* PThread::st_CurrentThread = nullptr;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Thread::Thread(const PString& name) : m_Name(name)
+PThread::PThread(const PString& name) : m_Name(name)
 {
 }
 
@@ -45,7 +44,7 @@ Thread::Thread(const PString& name) : m_Name(name)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Thread::~Thread()
+PThread::~PThread()
 {
 }
 
@@ -53,7 +52,7 @@ Thread::~Thread()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Thread* Thread::GetCurrentThread()
+PThread* PThread::GetCurrentThread()
 {
     return st_CurrentThread;
 }
@@ -62,7 +61,7 @@ Thread* Thread::GetCurrentThread()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode Thread::Start(PThreadDetachState detachState, int priority, int stackSize)
+PErrorCode PThread::Start(PThreadDetachState detachState, int priority, int stackSize)
 {
     if (m_ThreadHandle == INVALID_HANDLE)
     {
@@ -77,7 +76,7 @@ PErrorCode Thread::Start(PThreadDetachState detachState, int priority, int stack
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode Thread::Join(void** outReturnValue, TimeValNanos deadline)
+PErrorCode PThread::Join(void** outReturnValue, TimeValNanos deadline)
 {
     PErrorCode result = PErrorCode::InvalidArg;
     if (m_DetachState == PThreadDetachState_Joinable)
@@ -95,7 +94,7 @@ PErrorCode Thread::Join(void** outReturnValue, TimeValNanos deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void* Thread::Run()
+void* PThread::Run()
 {
     if (!VFRun.Empty()) {
         return VFRun(this);
@@ -107,7 +106,7 @@ void* Thread::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
     
-void Thread::Exit(void* returnValue)
+void PThread::Exit(void* returnValue)
 {
     if (m_DetachState == PThreadDetachState_Detached && m_DeleteOnExit) {
         delete this;
@@ -119,9 +118,9 @@ void Thread::Exit(void* returnValue)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void* Thread::ThreadEntry(void* data)
+void* PThread::ThreadEntry(void* data)
 {
-    Thread* self = static_cast<Thread*>(data);
+    PThread* self = static_cast<PThread*>(data);
 
     try
     {
@@ -145,7 +144,7 @@ void* Thread::ThreadEntry(void* data)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode Thread::Adopt()
+PErrorCode PThread::Adopt()
 {
     if (m_ThreadHandle == INVALID_HANDLE)
     {
@@ -167,7 +166,7 @@ void __thread_terminated(thread_id threadID, void* stackBuffer, PThreadControlBl
 {
     _reclaim_reent(nullptr);
 
-    ThreadLocalSlotManager::Get().ThreadTerminated();
+    PThreadLocalSlotManager::Get().ThreadTerminated();
 
     delete_thread_tls_block(threadLocalBuffer);
 }

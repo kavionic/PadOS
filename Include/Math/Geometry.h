@@ -21,11 +21,11 @@
 
 #include <Math/LineSegment.h>
 
-namespace os
+namespace PMath
 {
 
-Point LineLineIntersection(const LineSegment& line1, const LineSegment& line2);
-float PointToSegmentDistance(const LineSegment& line, const Point& point);
-float PointToSegmentDistanceSqr(const LineSegment& line, const Point& point);
+PPoint LineLineIntersection(const PLineSegment& line1, const PLineSegment& line2);
+float PointToSegmentDistance(const PLineSegment& line, const PPoint& point);
+float PointToSegmentDistanceSqr(const PLineSegment& line, const PPoint& point);
 
-} // namespace os
+} // namespace PMath

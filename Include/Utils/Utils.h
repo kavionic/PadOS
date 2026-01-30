@@ -93,12 +93,10 @@ static constexpr uint32_t time_to_cycles_ceil(double clockFrequency, double time
     return uint32_t(std::ceil(clockFrequency * timeValue));
 }
 
-namespace os
-{
 template<typename T>
-struct ReverseRangedWrapper
+struct PReverseRangedWrapper
 {
-    ReverseRangedWrapper(T& list) : m_List(list) {}
+    PReverseRangedWrapper(T& list) : m_List(list) {}
     
     auto begin() { return m_List.rbegin(); }
     auto end() { return m_List.rend(); }
@@ -107,9 +105,9 @@ struct ReverseRangedWrapper
 };
 
 template<typename T>
-struct ReverseRangedWrapperConst
+struct PReverseRangedWrapperConst
 {
-    ReverseRangedWrapperConst(const T& list) : m_List(list) {}
+    PReverseRangedWrapperConst(const T& list) : m_List(list) {}
     
     auto begin() { return m_List.rbegin(); }
     auto end() { return m_List.rend(); }
@@ -117,27 +115,27 @@ struct ReverseRangedWrapperConst
     const T& m_List;
 };
 
-template<typename T> ReverseRangedWrapper<T>      reverse_ranged(T& list) { return ReverseRangedWrapper<T>(list); }
-template<typename T> ReverseRangedWrapperConst<T> reverse_ranged(const T& list) { return ReverseRangedWrapper<T>(list); }
+template<typename T> PReverseRangedWrapper<T>      p_reverse_ranged(T& list) { return PReverseRangedWrapper<T>(list); }
+template<typename T> PReverseRangedWrapperConst<T> p_reverse_ranged(const T& list) { return PReverseRangedWrapper<T>(list); }
 
-template <typename O, typename F> auto bind_method(O* obj, F&& f) { return [=](auto&&... args) { return (obj->*f)(std::forward<decltype(args)>(args)...); }; }
+template <typename O, typename F> auto p_bind_method(O* obj, F&& f) { return [=](auto&&... args) { return (obj->*f)(std::forward<decltype(args)>(args)...); }; }
 
 
-class TimeoutTracker
+class PTimeoutTracker
 {
 public:
-    TimeoutTracker(TimeValNanos timeout) : m_Deadline(get_monotonic_time() + timeout) {}
-    TimeoutTracker(bigtime_t timeoutMilliseconds) : m_Deadline(get_monotonic_time() + TimeValNanos::FromMilliseconds(timeoutMilliseconds)) {}
+    PTimeoutTracker(TimeValNanos timeout) : m_Deadline(get_monotonic_time() + timeout) {}
+    PTimeoutTracker(bigtime_t timeoutMilliseconds) : m_Deadline(get_monotonic_time() + TimeValNanos::FromMilliseconds(timeoutMilliseconds)) {}
     operator bool() const { return get_monotonic_time() < m_Deadline; }
 private:
     TimeValNanos m_Deadline;
 };
 
-class ProfileTimer
+class PProfileTimer
 {
     public:
-        ProfileTimer(const PString& title, TimeValNanos minimumTime = 0.0) : m_Title(title), m_MinimumTime(minimumTime) { m_StartTime = get_monotonic_time_hires(); m_PrevLapTime = m_StartTime; }
-    ~ProfileTimer()
+        PProfileTimer(const PString& title, TimeValNanos minimumTime = 0.0) : m_Title(title), m_MinimumTime(minimumTime) { m_StartTime = get_monotonic_time_hires(); m_PrevLapTime = m_StartTime; }
+    ~PProfileTimer()
     {
         Terminate();
     }
@@ -187,7 +185,6 @@ class ProfileTimer
     TimeValNanos m_MinimumTime;
 };
 
-} // namespace
 
 #define I8(value) static_cast<int8_t>(value)
 #define U8(value) static_cast<uint8_t>(value)

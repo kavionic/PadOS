@@ -25,7 +25,6 @@
 #include <Kernel/KMutex.h>
 #include <Kernel/Syscalls.h>
 
-using namespace os;
 
 namespace kernel
 {

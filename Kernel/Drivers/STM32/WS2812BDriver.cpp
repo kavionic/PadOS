@@ -35,7 +35,6 @@
 #include <Utils/Utils.h>
 #include <GUI/Color.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -179,8 +178,8 @@ size_t WS2812BDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const 
 
         if (m_Exponential)
         {
-            const Color tmp(color);
-            color = Color(g_GammaTable[tmp.GetRed()], g_GammaTable[tmp.GetGreen()], g_GammaTable[tmp.GetBlue()]).GetColor32();
+            const PColor tmp(color);
+            color = PColor(g_GammaTable[tmp.GetRed()], g_GammaTable[tmp.GetGreen()], g_GammaTable[tmp.GetBlue()]).GetColor32();
         }
         uint32_t patternR = 0;
         uint32_t patternG = 0;

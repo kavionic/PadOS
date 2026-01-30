@@ -42,8 +42,6 @@
 #include <System/AppDefinition.h>
 #include <Ptr/NoPtr.h>
 
-using namespace os;
-
 
 namespace kernel
 {

@@ -19,13 +19,9 @@
 
 #pragma once
 
-namespace os
-{
 
 typedef struct
 {
     uint64_t	CoreSpeed;
     bigtime_t	ActiveTime;
-} CPUInfo;
-
-} // namespace
+} PCPUInfo;

@@ -25,13 +25,12 @@
 #include <Storage/Directory.h>
 #include <Kernel/VFS/KFilesystem.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Path::Path()
+PPath::PPath()
 {
 }
 
@@ -39,7 +38,7 @@ Path::Path()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Path::Path(const Path& cPath)
+PPath::PPath(const PPath& cPath)
 {
     SetTo(cPath.m_Path);
 }
@@ -48,7 +47,7 @@ Path::Path(const Path& cPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Path::Path(const PString& path)
+PPath::PPath(const PString& path)
 {
     SetTo(path);
 }
@@ -57,7 +56,7 @@ Path::Path(const PString& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Path::Path(const char* path, size_t length)
+PPath::PPath(const char* path, size_t length)
 {
     SetTo(path, length);
 }
@@ -66,7 +65,7 @@ Path::Path(const char* path, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Path::~Path()
+PPath::~PPath()
 {
 }
 
@@ -74,7 +73,7 @@ Path::~Path()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Path::operator =(const Path& cPath)
+void PPath::operator =(const PPath& cPath)
 {
     SetTo(cPath.m_Path);
 }
@@ -83,7 +82,7 @@ void Path::operator =(const Path& cPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Path::operator =(const PString& path)
+void PPath::operator =(const PString& path)
 {
     SetTo(path);
 }
@@ -92,7 +91,7 @@ void Path::operator =(const PString& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Path::operator==(const Path& path) const
+bool PPath::operator==(const PPath& path) const
 {
     return m_Path == path.m_Path;
 }
@@ -101,7 +100,7 @@ bool Path::operator==(const Path& path) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Path::SetTo(const PString& path)
+void PPath::SetTo(const PString& path)
 {
     if (path.empty())
     {
@@ -122,7 +121,7 @@ void Path::SetTo(const PString& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Path::SetTo(const char* path, size_t length)
+void PPath::SetTo(const char* path, size_t length)
 {
     SetTo(PString(path, length));
 }
@@ -131,7 +130,7 @@ void Path::SetTo(const char* path, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Path::Append(const PString& path)
+void PPath::Append(const PString& path)
 {
     if (path.empty()) {
         return;
@@ -144,7 +143,7 @@ void Path::Append(const PString& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Path::Append(const Path& cPath)
+void PPath::Append(const PPath& cPath)
 {
     Append(cPath.m_Path);
 }
@@ -153,13 +152,13 @@ void Path::Append(const Path& cPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString Path::GetLeaf() const
+PString PPath::GetLeaf() const
 {
     PString name(m_Path.begin() + m_NameStart, m_Path.end());
     return name;
 }
 
-size_t Path::GetExtensionLength() const
+size_t PPath::GetExtensionLength() const
 {
     for (ssize_t i = m_Path.size(); i >= m_NameStart; --i)
     {
@@ -174,7 +173,7 @@ size_t Path::GetExtensionLength() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString Path::GetExtension() const
+PString PPath::GetExtension() const
 {
     size_t extensionLength = GetExtensionLength();
 
@@ -192,7 +191,7 @@ PString Path::GetExtension() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Path::SetExtension(const PString& extension)
+bool PPath::SetExtension(const PString& extension)
 {
     if (m_Path.empty()) {
         return false;
@@ -216,7 +215,7 @@ bool Path::SetExtension(const PString& extension)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString Path::GetDir() const
+PString PPath::GetDir() const
 {
     if (m_NameStart >= m_Path.size()) {
         return m_Path;
@@ -231,14 +230,14 @@ PString Path::GetDir() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Path::CreateFolders(bool includeLeaf, Directory* outLeafDirectory, int accessMode)
+bool PPath::CreateFolders(bool includeLeaf, PDirectory* outLeafDirectory, int accessMode)
 {
     if (m_Path.empty())
     {
         set_last_error(EINVAL);
         return false;
     }
-    Directory directory("/");
+    PDirectory directory("/");
     if (!directory.IsValid()) {
         return false;
     }
@@ -249,7 +248,7 @@ bool Path::CreateFolders(bool includeLeaf, Directory* outLeafDirectory, int acce
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const PString& Path::GetPath() const
+const PString& PPath::GetPath() const
 {
     return m_Path;
 }
@@ -258,7 +257,7 @@ const PString& Path::GetPath() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString Path::GetCWD()
+PString PPath::GetCWD()
 {
     std::vector<char> buffer;
     buffer.resize(128);
@@ -291,7 +290,7 @@ PString Path::GetCWD()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Path::Normalize()
+void PPath::Normalize()
 {
     if (m_Path.size() < 2) {
         m_NameStart = m_Path.size();
@@ -380,7 +379,7 @@ void Path::Normalize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Path::operator PString() const
+PPath::operator PString() const
 {
     return m_Path;
 }

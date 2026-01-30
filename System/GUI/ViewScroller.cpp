@@ -19,10 +19,6 @@
 
 #include <GUI/ViewScroller.h>
 
-using namespace os;
-
-namespace os
-{
 
 namespace osi
 {
@@ -40,9 +36,9 @@ ViewScrollerSignalTarget::ViewScrollerSignalTarget()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> ViewScrollerSignalTarget::SetScrolledView(Ptr<View> view)
+Ptr<PView> ViewScrollerSignalTarget::SetScrolledView(Ptr<PView> view)
 {
-    Ptr<View> prevView = m_ScrolledView.Lock();
+    Ptr<PView> prevView = m_ScrolledView.Lock();
     if (prevView != nullptr)
     {
         prevView->SignalContentSizeChanged.Disconnect(this, &ViewScrollerSignalTarget::UpdateScroller);
@@ -64,13 +60,13 @@ Ptr<View> ViewScrollerSignalTarget::SetScrolledView(Ptr<View> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ViewScrollerSignalTarget::BeginSwipe(const Point& position)
+void ViewScrollerSignalTarget::BeginSwipe(const PPoint& position)
 {
-    Ptr<View> view = m_ScrolledView.Lock();
+    Ptr<PView> view = m_ScrolledView.Lock();
     if (view != nullptr)
     {
-        const Rect bounds = view->GetBounds();
-        const Point contentSize = view->GetContentSize();
+        const PRect bounds = view->GetBounds();
+        const PPoint contentSize = view->GetContentSize();
         if (contentSize.x > bounds.Width() || contentSize.y > bounds.Height())
         {
             m_InertialScroller.BeginDrag(view->GetScrollOffset(), position);
@@ -82,7 +78,7 @@ void ViewScrollerSignalTarget::BeginSwipe(const Point& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ViewScrollerSignalTarget::SwipeMove(const Point& position)
+void ViewScrollerSignalTarget::SwipeMove(const PPoint& position)
 {
     m_InertialScroller.AddUpdate(position);
 }
@@ -100,9 +96,9 @@ void ViewScrollerSignalTarget::EndSwipe()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ViewScrollerSignalTarget::SlotInertialScrollUpdate(const Point& position)
+void ViewScrollerSignalTarget::SlotInertialScrollUpdate(const PPoint& position)
 {
-    Ptr<View> view = m_ScrolledView.Lock();
+    Ptr<PView> view = m_ScrolledView.Lock();
     if (view != nullptr) {
         view->ScrollTo(position);
     }
@@ -114,19 +110,19 @@ void ViewScrollerSignalTarget::SlotInertialScrollUpdate(const Point& position)
 
 void ViewScrollerSignalTarget::UpdateScroller()
 {
-    Ptr<View> view = m_ScrolledView.Lock();
+    Ptr<PView> view = m_ScrolledView.Lock();
     if (view != nullptr)
     {
-        const Rect  frame       = view->GetFrame();
-        const Point contentSize = view->GetContentSize();
+        const PRect  frame       = view->GetFrame();
+        const PPoint contentSize = view->GetContentSize();
 
         m_InertialScroller.SetScrollHBounds(std::min(0.0f, frame.Width()  - contentSize.x), 0.0f);
         m_InertialScroller.SetScrollVBounds(std::min(0.0f, frame.Height() - contentSize.y), 0.0f);
 
-        if (m_InertialScroller.GetState() == InertialScroller::State::Idle)
+        if (m_InertialScroller.GetState() == PInertialScroller::State::Idle)
         {
-            Point maxScroll    = view->GetBounds().Size() - view->GetContentSize();
-            Point scrollOffset = view->GetScrollOffset();
+            PPoint maxScroll    = view->GetBounds().Size() - view->GetContentSize();
+            PPoint scrollOffset = view->GetScrollOffset();
 
             maxScroll.x = std::min(0.0f, maxScroll.x);
             maxScroll.y = std::min(0.0f, maxScroll.y);
@@ -145,7 +141,7 @@ void ViewScrollerSignalTarget::UpdateScroller()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ViewScroller::ViewScroller()
+PViewScroller::PViewScroller()
 {
     m_Handler.SetViewScroller(this);
 }
@@ -154,13 +150,10 @@ ViewScroller::ViewScroller()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ViewScroller* ViewScroller::GetViewScroller(View* view)
+PViewScroller* PViewScroller::GetViewScroller(PView* view)
 {
     if (view == nullptr) return nullptr;
 
-    ViewScroller* viewScroller = dynamic_cast<ViewScroller*>(view);
+    PViewScroller* viewScroller = dynamic_cast<PViewScroller*>(view);
     return (viewScroller != nullptr) ? viewScroller : GetViewScroller(ptr_raw_pointer_cast(view->GetParent()));
 }
-
-} // namespace os
-

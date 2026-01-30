@@ -26,41 +26,39 @@
 
 #include "Acceleration.h"
 
-using namespace os;
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float Acceleration::CalculateAccelerationSpeed(float distance, float startSpeed, float acceleration)
+float PAcceleration::CalculateAccelerationSpeed(float distance, float startSpeed, float acceleration)
 {
-    return sqrtf(square(startSpeed) + fabsf(distance) * acceleration * 2.0f) - startSpeed;
+    return sqrtf(PMath::square(startSpeed) + fabsf(distance) * acceleration * 2.0f) - startSpeed;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float Acceleration::CalcAccelerationDistance(float startSpeed, float resultSpeed, float acceleration)
+float PAcceleration::CalcAccelerationDistance(float startSpeed, float resultSpeed, float acceleration)
 {
-    return (fabsf(square(resultSpeed) - square(startSpeed))) / (acceleration * 2.0f);
+    return (fabsf(PMath::square(resultSpeed) - PMath::square(startSpeed))) / (acceleration * 2.0f);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float Acceleration::CalcMaxSpeedPermittingStop(float distance, float startSpeed, float endSpeed, float acceleration)
+float PAcceleration::CalcMaxSpeedPermittingStop(float distance, float startSpeed, float endSpeed, float acceleration)
 {
-    return (std::sqrt(fabsf((-(square(startSpeed))) + 2.0f * square(endSpeed) - square(endSpeed) + 4.0f * acceleration * distance)) + startSpeed + endSpeed) * 0.5f;
+    return (std::sqrt(fabsf((-(PMath::square(startSpeed))) + 2.0f * PMath::square(endSpeed) - PMath::square(endSpeed) + 4.0f * acceleration * distance)) + startSpeed + endSpeed) * 0.5f;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Acceleration::CalculateMaxCruiseSpeed(float distance, float startSpeed, float cruiseSpeed, float endSpeed, float acceleration, float& outAccDist, float& outDecDist, float& outMaxCruiseSpeed, float& outMaxEndSpeed)
+bool PAcceleration::CalculateMaxCruiseSpeed(float distance, float startSpeed, float cruiseSpeed, float endSpeed, float acceleration, float& outAccDist, float& outDecDist, float& outMaxCruiseSpeed, float& outMaxEndSpeed)
 {
     if (endSpeed > cruiseSpeed) endSpeed = cruiseSpeed;
     float deltaSpeed = fabsf(endSpeed - startSpeed);
@@ -78,7 +76,7 @@ bool Acceleration::CalculateMaxCruiseSpeed(float distance, float startSpeed, flo
         float maxStartSpeed = endSpeed + maxDeltaSpeed;
         float maxEndSpeed = startSpeed + maxDeltaSpeed;
 
-        float maxSpeed = LineLineIntersection(LineSegment(Point(0.0f, startSpeed), Point(distance, maxEndSpeed)), LineSegment(Point(distance, endSpeed), Point(0.0f, maxStartSpeed))).y;
+        float maxSpeed = PMath::LineLineIntersection(PLineSegment(PPoint(0.0f, startSpeed), PPoint(distance, maxEndSpeed)), PLineSegment(PPoint(distance, endSpeed), PPoint(0.0f, maxStartSpeed))).y;
         maxCruiseSpeed = std::min(cruiseSpeed, maxSpeed);
 
         outAccDist = CalcAccelerationDistance(startSpeed, maxCruiseSpeed, acceleration);
@@ -116,7 +114,7 @@ bool Acceleration::CalculateMaxCruiseSpeed(float distance, float startSpeed, flo
     }
 }
 
-float Acceleration::CalcTravelTime(float distance, float startSpeed, float cruiseSpeed, float endSpeed, float acceleration)
+float PAcceleration::CalcTravelTime(float distance, float startSpeed, float cruiseSpeed, float endSpeed, float acceleration)
 {
     float accDist;
     float decDist;

@@ -22,7 +22,7 @@
 #include <GUI/StandardColorsDefinition.h>
 
 
-TEST(NamedColors, TableIntegrity)
+TEST(PNamedColors, TableIntegrity)
 {
     for (size_t i = 1; i < PStandardColorsTable.size(); ++i)
     {

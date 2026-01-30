@@ -34,14 +34,12 @@
 #include "ApplicationServer/Fonts/SansSerif_20.h"
 #include "ApplicationServer/Fonts/SansSerif_72.h"
 
-using namespace os;
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DisplayDriver::DisplayDriver() : m_cCursorHotSpot(0, 0)
+PDisplayDriver::PDisplayDriver() : m_cCursorHotSpot(0, 0)
 {
 //    m_pcMouseImage = nullptr;
 //    m_pcMouseSprite = nullptr;
@@ -51,7 +49,7 @@ DisplayDriver::DisplayDriver() : m_cCursorHotSpot(0, 0)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DisplayDriver::~DisplayDriver()
+PDisplayDriver::~PDisplayDriver()
 {
 //    delete m_pcMouseSprite;
 }
@@ -60,7 +58,7 @@ DisplayDriver::~DisplayDriver()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::Close(void)
+void PDisplayDriver::Close(void)
 {
 }
 
@@ -83,7 +81,7 @@ void DisplayDriver::Close(void)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int DisplayDriver::GetFramebufferOffset()
+int PDisplayDriver::GetFramebufferOffset()
 {
     return 0;
 }
@@ -125,7 +123,7 @@ int DisplayDriver::GetFramebufferOffset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::MouseOn()
+void PDisplayDriver::MouseOn()
 {
 //    if (m_pcMouseSprite == NULL) {
 //        m_pcMouseSprite = new SrvSprite(IRect(0, 0, m_pcMouseImage->m_nWidth, m_pcMouseImage->m_nHeight), m_cMousePos, m_cCursorHotSpot, g_pcScreenBitmap, m_pcMouseImage);
@@ -138,7 +136,7 @@ void DisplayDriver::MouseOn()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::MouseOff()
+void PDisplayDriver::MouseOff()
 {
 //    if (m_pcMouseSprite == NULL) {
 //        p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "VDisplayDriver::MouseOff() called while mouse hidden");
@@ -151,7 +149,7 @@ void DisplayDriver::MouseOff()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::SetMousePos(IPoint cNewPos)
+void PDisplayDriver::SetMousePos(PIPoint cNewPos)
 {
 //    if (m_pcMouseSprite != NULL) {
 //        m_pcMouseSprite->MoveTo(cNewPos);
@@ -163,33 +161,16 @@ void DisplayDriver::SetMousePos(IPoint cNewPos)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Color DisplayDriver::GetPaletteEntry(uint8_t index)
+PColor PDisplayDriver::GetPaletteEntry(uint8_t index)
 {
-    return Color::FromCMAP8(index);
+    return PColor::FromCMAP8(index);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::FillBlit8(uint8_t* pDst, int nMod, int W, int H, uint8_t nColor)
-{
-    int X, Y;
-
-    for (Y = 0; Y < H; Y++)
-    {
-        for (X = 0; X < W; X++) {
-            *pDst++ = nColor;
-        }
-        pDst += nMod;
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void DisplayDriver::FillBlit16(uint16_t* pDst, int nMod, int W, int H, uint16_t nColor)
+void PDisplayDriver::FillBlit8(uint8_t* pDst, int nMod, int W, int H, uint8_t nColor)
 {
     int X, Y;
 
@@ -206,7 +187,24 @@ void DisplayDriver::FillBlit16(uint16_t* pDst, int nMod, int W, int H, uint16_t 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::FillBlit24(uint8_t* pDst, int nMod, int W, int H, uint32_t nColor)
+void PDisplayDriver::FillBlit16(uint16_t* pDst, int nMod, int W, int H, uint16_t nColor)
+{
+    int X, Y;
+
+    for (Y = 0; Y < H; Y++)
+    {
+        for (X = 0; X < W; X++) {
+            *pDst++ = nColor;
+        }
+        pDst += nMod;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDisplayDriver::FillBlit24(uint8_t* pDst, int nMod, int W, int H, uint32_t nColor)
 {
     int X, Y;
 
@@ -226,7 +224,7 @@ void DisplayDriver::FillBlit24(uint8_t* pDst, int nMod, int W, int H, uint32_t n
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::FillBlit32(uint32_t* pDst, int nMod, int W, int H, uint32_t nColor)
+void PDisplayDriver::FillBlit32(uint32_t* pDst, int nMod, int W, int H, uint32_t nColor)
 {
     int X, Y;
 
@@ -243,17 +241,17 @@ void DisplayDriver::FillBlit32(uint32_t* pDst, int nMod, int W, int H, uint32_t 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::WritePixel(SrvBitmap* bitmap, const IPoint& pos, Color color)
+void PDisplayDriver::WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color)
 {
     switch (bitmap->m_ColorSpace)
     {
-        case EColorSpace::RGB15:
+        case PEColorSpace::RGB15:
             *reinterpret_cast<uint16_t*>(&bitmap->m_Raster[pos.x * 2 + pos.y * bitmap->m_BytesPerLine]) = color.GetColor15();
             break;
-        case EColorSpace::RGB16:
+        case PEColorSpace::RGB16:
             *reinterpret_cast<uint16_t*>(&bitmap->m_Raster[pos.x * 2 + pos.y * bitmap->m_BytesPerLine]) = color.GetColor16();
             break;
-        case EColorSpace::RGB32:
+        case PEColorSpace::RGB32:
             *reinterpret_cast<uint32_t*>(&bitmap->m_Raster[pos.x * 4 + pos.y * bitmap->m_BytesPerLine]) = color.GetColor32();
             break;
         default:
@@ -266,7 +264,7 @@ void DisplayDriver::WritePixel(SrvBitmap* bitmap, const IPoint& pos, Color color
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::FillRect(SrvBitmap* pcBitmap, const IRect& cRect, const Color& sColor)
+void PDisplayDriver::FillRect(PSrvBitmap* pcBitmap, const PIRect& cRect, const PColor& sColor)
 {
     int BltX, BltY, BltW, BltH;
 
@@ -281,16 +279,16 @@ void DisplayDriver::FillRect(SrvBitmap* pcBitmap, const IRect& cRect, const Colo
         //      FillBlit8( pcBitmap->m_Raster + ((BltY * pcBitmap->m_BytesPerLine) + BltX),
         //       pcBitmap->m_BytesPerLine - BltW, BltW, BltH, nColor );
         //      break;
-        case EColorSpace::RGB15:
+        case PEColorSpace::RGB15:
             FillBlit16((uint16_t*)&pcBitmap->m_Raster[BltY * pcBitmap->m_BytesPerLine + BltX * 2], pcBitmap->m_BytesPerLine / 2 - BltW, BltW, BltH, sColor.GetColor15());
             break;
-        case EColorSpace::RGB16:
+        case PEColorSpace::RGB16:
             FillBlit16((uint16_t*)&pcBitmap->m_Raster[BltY * pcBitmap->m_BytesPerLine + BltX * 2], pcBitmap->m_BytesPerLine / 2 - BltW, BltW, BltH, sColor.GetColor16());
             break;
-        case EColorSpace::RGB24:
+        case PEColorSpace::RGB24:
             FillBlit24( &pcBitmap->m_Raster[ BltY * pcBitmap->m_BytesPerLine + BltX * 3 ], pcBitmap->m_BytesPerLine - BltW * 3, BltW, BltH, sColor.GetColor32() );
             break;
-        case EColorSpace::RGB32:
+        case PEColorSpace::RGB32:
             FillBlit32((uint32_t*)&pcBitmap->m_Raster[BltY * pcBitmap->m_BytesPerLine + BltX * 4], pcBitmap->m_BytesPerLine / 4 - BltW, BltW, BltH, sColor.GetColor32());
             break;
         default:
@@ -376,7 +374,7 @@ static inline void Blit(uint8_t* Src, uint8_t* Dst, int SMod, int DMod, int W, i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static inline void BitBlit(SrvBitmap* sbm, SrvBitmap* dbm, int sx, int sy, int dx, int dy, int w, int h)
+static inline void BitBlit(PSrvBitmap* sbm, PSrvBitmap* dbm, int sx, int sy, int dx, int dy, int w, int h)
 {
     int Smod, Dmod;
     int BytesPerPix = 1;
@@ -441,11 +439,11 @@ static inline void BitBlit(SrvBitmap* sbm, SrvBitmap* dbm, int sx, int sy, int d
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const IRect& cSrcRect, const IPoint& cDstPos)
+static inline void blit_convert_copy(PSrvBitmap* pcDst, PSrvBitmap* pcSrc, const PIRect& cSrcRect, const PIPoint& cDstPos)
 {
     switch (pcSrc->m_ColorSpace)
     {
-        case EColorSpace::CMAP8:
+        case PEColorSpace::CMAP8:
         {
             uint8_t* pSrc = RAS_OFFSET8(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
 
@@ -453,8 +451,8 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
 
             switch (pcDst->m_ColorSpace)
             {
-                case EColorSpace::RGB15:
-                case EColorSpace::RGBA15:
+                case PEColorSpace::RGB15:
+                case PEColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -463,14 +461,14 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = DisplayDriver::GetPaletteEntry(*pSrc++).GetColor15();
+                            *pDst++ = PDisplayDriver::GetPaletteEntry(*pSrc++).GetColor15();
                         }
                         pSrc += nSrcModulo;
                         pDst = (uint16_t*)(((uint8_t*)pDst) + nDstModulo);
                     }
                     break;
                 }
-                case EColorSpace::RGB16:
+                case PEColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -479,15 +477,15 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = DisplayDriver::GetPaletteEntry(*pSrc++).GetColor16();
+                            *pDst++ = PDisplayDriver::GetPaletteEntry(*pSrc++).GetColor16();
                         }
                         pSrc += nSrcModulo;
                         pDst = (uint16_t*)(((uint8_t*)pDst) + nDstModulo);
                     }
                     break;
                 }
-                case EColorSpace::RGB32:
-                case EColorSpace::RGBA32:
+                case PEColorSpace::RGB32:
+                case PEColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -495,7 +493,7 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = DisplayDriver::GetPaletteEntry(*pSrc++).GetColor32();
+                            *pDst++ = PDisplayDriver::GetPaletteEntry(*pSrc++).GetColor32();
                         }
                         pSrc += nSrcModulo;
                         pDst = (uint32_t*)(((uint8_t*)pDst) + nDstModulo);
@@ -507,15 +505,15 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case EColorSpace::RGB15:
-        case EColorSpace::RGBA15:
+        case PEColorSpace::RGB15:
+        case PEColorSpace::RGBA15:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
             switch (pcDst->m_ColorSpace)
             {
-                case EColorSpace::RGB16:
+                case PEColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -523,15 +521,15 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = Color::FromRGB15(*pSrc++).GetColor16();
+                            *pDst++ = PColor::FromRGB15(*pSrc++).GetColor16();
                         }
                         pSrc = (uint16_t*)(((uint8_t*)pSrc) + nSrcModulo);
                         pDst = (uint16_t*)(((uint8_t*)pDst) + nDstModulo);
                     }
                     break;
                 }
-                case EColorSpace::RGB32:
-                case EColorSpace::RGBA32:
+                case PEColorSpace::RGB32:
+                case PEColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -539,7 +537,7 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = Color::FromRGB15(*pSrc++).GetColor32();
+                            *pDst++ = PColor::FromRGB15(*pSrc++).GetColor32();
                         }
                         pSrc = (uint16_t*)(((uint8_t*)pSrc) + nSrcModulo);
                         pDst = (uint32_t*)(((uint8_t*)pDst) + nDstModulo);
@@ -551,15 +549,15 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case EColorSpace::RGB16:
+        case PEColorSpace::RGB16:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
             switch (pcDst->m_ColorSpace)
             {
-                case EColorSpace::RGB15:
-                case EColorSpace::RGBA15:
+                case PEColorSpace::RGB15:
+                case PEColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -567,15 +565,15 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = Color::FromRGB16(*pSrc++).GetColor15();
+                            *pDst++ = PColor::FromRGB16(*pSrc++).GetColor15();
                         }
                         pSrc = (uint16_t*)(((uint8_t*)pSrc) + nSrcModulo);
                         pDst = (uint16_t*)(((uint8_t*)pDst) + nDstModulo);
                     }
                     break;
                 }
-                case EColorSpace::RGB32:
-                case EColorSpace::RGBA32:
+                case PEColorSpace::RGB32:
+                case PEColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -583,7 +581,7 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = Color::FromRGB16(*pSrc++).GetColor32();
+                            *pDst++ = PColor::FromRGB16(*pSrc++).GetColor32();
                         }
                         pSrc = (uint16_t*)(((uint8_t*)pSrc) + nSrcModulo);
                         pDst = (uint32_t*)(((uint8_t*)pDst) + nDstModulo);
@@ -595,15 +593,15 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case EColorSpace::RGB32:
-        case EColorSpace::RGBA32:
+        case PEColorSpace::RGB32:
+        case PEColorSpace::RGBA32:
         {
             uint32_t* pSrc = RAS_OFFSET32(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 4;
 
             switch (pcDst->m_ColorSpace)
             {
-                case EColorSpace::RGB16:
+                case PEColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -611,14 +609,14 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = Color::FromRGB32A(*pSrc++).GetColor16();
+                            *pDst++ = PColor::FromRGB32A(*pSrc++).GetColor16();
                         }
                         pSrc = (uint32_t*)(((uint8_t*)pSrc) + nSrcModulo);
                         pDst = (uint16_t*)(((uint8_t*)pDst) + nDstModulo);
                     }
                     break;
                 }
-                case EColorSpace::RGB15:
+                case PEColorSpace::RGB15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -626,7 +624,7 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = Color::FromRGB32A(*pSrc++).GetColor15();
+                            *pDst++ = PColor::FromRGB32A(*pSrc++).GetColor15();
                         }
                         pSrc = (uint32_t*)(((uint8_t*)pSrc) + nSrcModulo);
                         pDst = (uint16_t*)(((uint8_t*)pDst) + nDstModulo);
@@ -648,11 +646,11 @@ static inline void blit_convert_copy(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const IRect& cSrcRect, const IPoint& cDstPos)
+static inline void blit_convert_over(PSrvBitmap* pcDst, PSrvBitmap* pcSrc, const PIRect& cSrcRect, const PIPoint& cDstPos)
 {
     switch (pcSrc->m_ColorSpace)
     {
-        case EColorSpace::CMAP8:
+        case PEColorSpace::CMAP8:
         {
             uint8_t* pSrc = RAS_OFFSET8(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
 
@@ -660,8 +658,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
 
             switch (pcDst->m_ColorSpace)
             {
-                case EColorSpace::RGB15:
-                case EColorSpace::RGBA15:
+                case PEColorSpace::RGB15:
+                case PEColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -672,8 +670,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x)
                         {
                             uint8_t nPix = *pSrc++;
-                            if (nPix != TransparentColors::CMAP8) {
-                                *pDst = DisplayDriver::GetPaletteEntry(nPix).GetColor15();
+                            if (nPix != PTransparentColors::CMAP8) {
+                                *pDst = PDisplayDriver::GetPaletteEntry(nPix).GetColor15();
                             }
                             pDst++;
                         }
@@ -682,7 +680,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case EColorSpace::RGB16:
+                case PEColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -692,8 +690,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x)
                         {
                             uint8_t nPix = *pSrc++;
-                            if (nPix != TransparentColors::CMAP8) {
-                                *pDst = DisplayDriver::GetPaletteEntry(nPix).GetColor16();
+                            if (nPix != PTransparentColors::CMAP8) {
+                                *pDst = PDisplayDriver::GetPaletteEntry(nPix).GetColor16();
                             }
                             pDst++;
                         }
@@ -702,8 +700,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case EColorSpace::RGB32:
-                case EColorSpace::RGBA32:
+                case PEColorSpace::RGB32:
+                case PEColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -713,8 +711,8 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x)
                         {
                             uint8_t nPix = *pSrc++;
-                            if (nPix != TransparentColors::CMAP8) {
-                                *pDst = DisplayDriver::GetPaletteEntry(nPix).GetColor32();
+                            if (nPix != PTransparentColors::CMAP8) {
+                                *pDst = PDisplayDriver::GetPaletteEntry(nPix).GetColor32();
                             }
                             pDst++;
                         }
@@ -729,15 +727,15 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case EColorSpace::RGB15:
-        case EColorSpace::RGBA15:
+        case PEColorSpace::RGB15:
+        case PEColorSpace::RGBA15:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
             switch (pcDst->m_ColorSpace)
             {
-                case EColorSpace::RGB16:
+                case PEColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -745,15 +743,15 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = Color::FromRGB15(*pSrc++).GetColor16();
+                            *pDst++ = PColor::FromRGB15(*pSrc++).GetColor16();
                         }
                         pSrc = (uint16_t*)(((uint8_t*)pSrc) + nSrcModulo);
                         pDst = (uint16_t*)(((uint8_t*)pDst) + nDstModulo);
                     }
                     break;
                 }
-                case EColorSpace::RGB32:
-                case EColorSpace::RGBA32:
+                case PEColorSpace::RGB32:
+                case PEColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
 
@@ -762,7 +760,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = Color::FromRGB15(*pSrc++).GetColor32();
+                            *pDst++ = PColor::FromRGB15(*pSrc++).GetColor32();
                         }
                         pSrc = (uint16_t*)(((uint8_t*)pSrc) + nSrcModulo);
                         pDst = (uint32_t*)(((uint8_t*)pDst) + nDstModulo);
@@ -774,15 +772,15 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case EColorSpace::RGB16:
+        case PEColorSpace::RGB16:
         {
             uint16_t* pSrc = RAS_OFFSET16(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 2;
 
             switch (pcDst->m_ColorSpace)
             {
-                case EColorSpace::RGB15:
-                case EColorSpace::RGBA15:
+                case PEColorSpace::RGB15:
+                case PEColorSpace::RGBA15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -790,15 +788,15 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = Color::FromRGB16(*pSrc++).GetColor15();
+                            *pDst++ = PColor::FromRGB16(*pSrc++).GetColor15();
                         }
                         pSrc = (uint16_t*)(((uint8_t*)pSrc) + nSrcModulo);
                         pDst = (uint16_t*)(((uint8_t*)pDst) + nDstModulo);
                     }
                     break;
                 }
-                case EColorSpace::RGB32:
-                case EColorSpace::RGBA32:
+                case PEColorSpace::RGB32:
+                case PEColorSpace::RGBA32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -806,7 +804,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     for (int y = cSrcRect.top; y <= cSrcRect.bottom; ++y)
                     {
                         for (int x = cSrcRect.left; x <= cSrcRect.right; ++x) {
-                            *pDst++ = Color::FromRGB16(*pSrc++).GetColor32();
+                            *pDst++ = PColor::FromRGB16(*pSrc++).GetColor32();
                         }
                         pSrc = (uint16_t*)(((uint8_t*)pSrc) + nSrcModulo);
                         pDst = (uint32_t*)(((uint8_t*)pDst) + nDstModulo);
@@ -818,15 +816,15 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
             }
             break;
         }
-        case EColorSpace::RGB32:
-        case EColorSpace::RGBA32:
+        case PEColorSpace::RGB32:
+        case PEColorSpace::RGBA32:
         {
             uint32_t* pSrc = RAS_OFFSET32(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
             int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 4;
 
             switch (pcDst->m_ColorSpace)
             {
-                case EColorSpace::RGB16:
+                case PEColorSpace::RGB16:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -837,7 +835,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                         {
                             uint32_t nPix = *pSrc++;
                             if (nPix != 0xffffffff) {
-                                *pDst = Color::FromRGB32A(nPix).GetColor16();
+                                *pDst = PColor::FromRGB32A(nPix).GetColor16();
                             }
                             pDst++;
                         }
@@ -846,7 +844,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case EColorSpace::RGB15:
+                case PEColorSpace::RGB15:
                 {
                     uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -857,7 +855,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                         {
                             uint32_t nPix = *pSrc++;
                             if (nPix != 0xffffffff) {
-                                *pDst = Color::FromRGB32A(nPix).GetColor15();
+                                *pDst = PColor::FromRGB32A(nPix).GetColor15();
                             }
                             pDst++;
                         }
@@ -866,7 +864,7 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
                     }
                     break;
                 }
-                case EColorSpace::RGB32:
+                case PEColorSpace::RGB32:
                 {
                     uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
                     int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -901,14 +899,14 @@ static inline void blit_convert_over(SrvBitmap* pcDst, SrvBitmap* pcSrc, const I
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const IRect& cSrcRect, const IPoint& cDstPos)
+static inline void blit_convert_alpha(PSrvBitmap* pcDst, PSrvBitmap* pcSrc, const PIRect& cSrcRect, const PIPoint& cDstPos)
 {
     uint32_t* pSrc = RAS_OFFSET32(pcSrc->m_Raster, cSrcRect.left, cSrcRect.top, pcSrc->m_BytesPerLine);
     int nSrcModulo = pcSrc->m_BytesPerLine - cSrcRect.Width() * 4;
 
     switch (pcDst->m_ColorSpace)
     {
-        case EColorSpace::RGB16:
+        case PEColorSpace::RGB16:
         {
             uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
             int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -917,14 +915,14 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
             {
                 for (int x = cSrcRect.left; x <= cSrcRect.right; ++x)
                 {
-                    Color sSrcColor = Color::FromRGB32A(*pSrc++);
+                    PColor sSrcColor = PColor::FromRGB32A(*pSrc++);
 
                     int nAlpha = sSrcColor.GetAlpha();
                     if (nAlpha == 0xff) {
                         *pDst = sSrcColor.GetColor16();
                     } else if (nAlpha != 0x00) {
-                        Color sDstColor = Color::FromRGB16(*pDst);
-                        *pDst = Color(uint8_t(sDstColor.GetRed() * (256 - nAlpha) / 256   + sSrcColor.GetRed() * nAlpha / 256),
+                        PColor sDstColor = PColor::FromRGB16(*pDst);
+                        *pDst = PColor(uint8_t(sDstColor.GetRed() * (256 - nAlpha) / 256   + sSrcColor.GetRed() * nAlpha / 256),
                                       uint8_t(sDstColor.GetGreen() * (256 - nAlpha) / 256 + sSrcColor.GetGreen() * nAlpha / 256),
                                       uint8_t(sDstColor.GetBlue() * (256 - nAlpha) / 256  + sSrcColor.GetBlue() * nAlpha / 256),
                                       0).GetColor16();
@@ -936,7 +934,7 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
             }
             break;
         }
-        case EColorSpace::RGB15:
+        case PEColorSpace::RGB15:
         {
             uint16_t* pDst = RAS_OFFSET16(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
             int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 2;
@@ -945,17 +943,17 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
             {
                 for (int x = cSrcRect.left; x <= cSrcRect.right; ++x)
                 {
-                    Color sSrcColor = Color::FromRGB32A(*pSrc++);
+                    PColor sSrcColor = PColor::FromRGB32A(*pSrc++);
 
                     int nAlpha = sSrcColor.GetAlpha();
                     if (nAlpha == 0xff) {
                         *pDst = sSrcColor.GetColor15();
                     } else if (nAlpha != 0x00) {
-                        Color sDstColor = Color::FromRGB15(*pDst);
-                        *pDst = Color(uint8_t(sDstColor.GetRed() * (256 - nAlpha) / 256   + sSrcColor.GetRed() * nAlpha / 256),
-                                      uint8_t(sDstColor.GetGreen() * (256 - nAlpha) / 256 + sSrcColor.GetGreen() * nAlpha / 256),
-                                      uint8_t(sDstColor.GetBlue() * (256 - nAlpha) / 256  + sSrcColor.GetBlue() * nAlpha / 256),
-                                      0).GetColor15();
+                        PColor sDstColor = PColor::FromRGB15(*pDst);
+                        *pDst = PColor(uint8_t(sDstColor.GetRed() * (256 - nAlpha) / 256   + sSrcColor.GetRed() * nAlpha / 256),
+                                       uint8_t(sDstColor.GetGreen() * (256 - nAlpha) / 256 + sSrcColor.GetGreen() * nAlpha / 256),
+                                       uint8_t(sDstColor.GetBlue() * (256 - nAlpha) / 256  + sSrcColor.GetBlue() * nAlpha / 256),
+                                       0).GetColor15();
                     }
                     pDst++;
                 }
@@ -964,7 +962,7 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
             }
             break;
         }
-        case EColorSpace::RGB32:
+        case PEColorSpace::RGB32:
         {
             uint32_t* pDst = RAS_OFFSET32(pcDst->m_Raster, cDstPos.x, cDstPos.y, pcDst->m_BytesPerLine);
             int nDstModulo = pcDst->m_BytesPerLine - cSrcRect.Width() * 4;
@@ -973,17 +971,17 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
             {
                 for (int x = cSrcRect.left; x <= cSrcRect.right; ++x)
                 {
-                    Color sSrcColor = Color::FromRGB32A(*pSrc++);
+                    PColor sSrcColor = PColor::FromRGB32A(*pSrc++);
 
                     int nAlpha = sSrcColor.GetAlpha();
                     if (nAlpha == 0xff) {
                         *pDst = sSrcColor.GetColor32();
                     } else if (nAlpha != 0x00) {
-                        Color sDstColor = Color::FromRGB32A(*pDst);
-                        *pDst = Color(uint8_t(sDstColor.GetRed() * (256 - nAlpha) / 256 + sSrcColor.GetRed() * nAlpha / 256),
-                                      uint8_t(sDstColor.GetGreen() * (256 - nAlpha) / 256 + sSrcColor.GetGreen() * nAlpha / 256),
-                                      uint8_t(sDstColor.GetBlue() * (256 - nAlpha) / 256 + sSrcColor.GetBlue() * nAlpha / 256),
-                                      0).GetColor32();
+                        PColor sDstColor = PColor::FromRGB32A(*pDst);
+                        *pDst = PColor(uint8_t(sDstColor.GetRed() * (256 - nAlpha) / 256 + sSrcColor.GetRed() * nAlpha / 256),
+                                       uint8_t(sDstColor.GetGreen() * (256 - nAlpha) / 256 + sSrcColor.GetGreen() * nAlpha / 256),
+                                       uint8_t(sDstColor.GetBlue() * (256 - nAlpha) / 256 + sSrcColor.GetBlue() * nAlpha / 256),
+                                       0).GetColor32();
                     }
                     pDst++;
                 }
@@ -1001,11 +999,11 @@ static inline void blit_convert_alpha(SrvBitmap* pcDst, SrvBitmap* pcSrc, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bgColor, Color fgColor, const IRect& srcRect, const IPoint& dstPos, DrawingMode mode)
+void PDisplayDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPos, PDrawingMode mode)
 {
     switch (mode)
     {
-        case DrawingMode::Copy:
+        case PDrawingMode::Copy:
             if (srcBitmap->m_ColorSpace == dstBitmap->m_ColorSpace)
             {
                 int sx = srcRect.left;
@@ -1022,11 +1020,11 @@ void DisplayDriver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color b
                 blit_convert_copy(dstBitmap, srcBitmap, srcRect, dstPos);
             }
             break;
-        case DrawingMode::Overlay:
+        case PDrawingMode::Overlay:
             blit_convert_over(dstBitmap, srcBitmap, srcRect, dstPos);
             break;
-        case DrawingMode::Blend:
-            if (srcBitmap->m_ColorSpace == EColorSpace::RGB32) {
+        case PDrawingMode::Blend:
+            if (srcBitmap->m_ColorSpace == PEColorSpace::RGB32) {
                 blit_convert_alpha(dstBitmap, srcBitmap, srcRect, dstPos);
             } else {
                 blit_convert_over(dstBitmap, srcBitmap, srcRect, dstPos);
@@ -1041,7 +1039,7 @@ void DisplayDriver::CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color b
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::ScaleRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bgColor, Color fgColor, const IRect& srcOrigRect, const IRect& dstOrigRect, const Rect& srcRect, const IRect& dstRect, DrawingMode mode)
+void PDisplayDriver::ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode)
 {
 
 }
@@ -1051,7 +1049,7 @@ void DisplayDriver::ScaleRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color 
 ///////////////////////////////////////////////////////////////////////////////
 
 #if 0
-void DisplayDriver::BltBitmapMask(SrvBitmap* pcDstBitMap, SrvBitmap* pcSrcBitMap, const Color& sHighColor, const Color& sLowColor, IRect   cSrcRect, IPoint cDstPos)
+void DisplayDriver::BltBitmapMask(SrvBitmap* pcDstBitMap, SrvBitmap* pcSrcBitMap, const PColor& sHighColor, const PColor& sLowColor, IRect   cSrcRect, IPoint cDstPos)
 {
     int  DX = cDstPos.x;
     int  DY = cDstPos.y;
@@ -1188,7 +1186,7 @@ void DisplayDriver::BltBitmapMask(SrvBitmap* pcDstBitMap, SrvBitmap* pcSrcBitMap
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, DrawingMode mode)
+void PDisplayDriver::FillCircle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& center, int32_t radius, const PColor& color, PDrawingMode mode)
 {
     const float radiusSqr = float(radius * radius);
 
@@ -1197,21 +1195,21 @@ void DisplayDriver::FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const I
         const float fy = float(y) + 0.5f;
         const int32_t deltaX = int32_t(std::round(std::sqrt(std::max(0.0f, radiusSqr - fy * fy))));
 
-        IRect topRect(center.x - deltaX, center.y - y, center.x + deltaX + 1, center.y - y + 1);
+        PIRect topRect(center.x - deltaX, center.y - y, center.x + deltaX + 1, center.y - y + 1);
         topRect &= clipRect;
 
         if (topRect.IsValid()) {
             FillRect(bitmap, topRect, color);
         }
 
-        IRect bottomRect(center.x - deltaX, center.y + y, center.x + deltaX + 1, center.y + y + 1);
+        PIRect bottomRect(center.x - deltaX, center.y + y, center.x + deltaX + 1, center.y + y + 1);
         bottomRect &= clipRect;
 
         if (bottomRect.IsValid()) {
             FillRect(bitmap, bottomRect, color);
         }
     }
-    IRect midRect(center.x - radius, center.y, center.x + radius + 1, center.y + 1);
+    PIRect midRect(center.x - radius, center.y, center.x + radius + 1, center.y + 1);
     midRect &= clipRect;
 
     if (midRect.IsValid()) {
@@ -1223,7 +1221,7 @@ void DisplayDriver::FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const I
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t DisplayDriver::WriteString(SrvBitmap* bitmap, const IPoint& position, const char* string, size_t strLength, const IRect& clipRect, Color colorBg, Color colorFg, Font_e fontID)
+uint32_t PDisplayDriver::WriteString(PSrvBitmap* bitmap, const PIPoint& position, const char* string, size_t strLength, const PIRect& clipRect, PColor colorBg, PColor colorFg, PFontID fontID)
 {
     return position.x;
 }
@@ -1272,7 +1270,7 @@ uint32_t DisplayDriver::WriteString(SrvBitmap* bitmap, const IPoint& position, c
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-//bool DisplayDriver::RenderGlyph(SrvBitmap* pcBitmap, Glyph* pcGlyph, const IPoint& cPos, const IRect& cClipRect, const Color& sFgColor)
+//bool DisplayDriver::RenderGlyph(SrvBitmap* pcBitmap, Glyph* pcGlyph, const IPoint& cPos, const IRect& cClipRect, const PColor& sFgColor)
 //{
 //    IRect cBounds = pcGlyph->m_cBounds + cPos;
 //    IRect cRect = cBounds & cClipRect;
@@ -1290,8 +1288,8 @@ uint32_t DisplayDriver::WriteString(SrvBitmap* bitmap, const IPoint& position, c
 //
 //    uint8_t* pSrc = pcGlyph->m_Raster + sx + sy * pcGlyph->m_BytesPerLine;
 //
-//    Color sCurCol;
-//    Color sBgColor;
+//    PColor sCurCol;
+//    PColor sBgColor;
 //
 //    if (pcBitmap->m_ColorSpace == ColorSpace::RGB16) {
 //        int   nDstModulo = pcBitmap->m_BytesPerLine / 2 - nWidth;
@@ -1309,7 +1307,7 @@ uint32_t DisplayDriver::WriteString(SrvBitmap* bitmap, const IPoint& position, c
 //                    } else {
 //                        int   nClut = *pDst;
 //
-//                        sBgColor = Color::FromRGB16(nClut);
+//                        sBgColor = PColor::FromRGB16(nClut);
 //
 //                        sCurCol.GetRed()   = sBgColor.GetRed()   + (sFgColor.GetRed()   - sBgColor.GetRed()) * nAlpha / 4;
 //                        sCurCol.GetGreen() = sBgColor.GetGreen() + (sFgColor.GetGreen() - sBgColor.GetGreen()) * nAlpha / 4;
@@ -1338,7 +1336,7 @@ uint32_t DisplayDriver::WriteString(SrvBitmap* bitmap, const IPoint& position, c
 //                    } else {
 //                        int   nClut = *pDst;
 //
-//                        sBgColor = Color::FromRGB32A(nClut);
+//                        sBgColor = PColor::FromRGB32A(nClut);
 //
 //                        sCurCol.GetRed   = sBgColor.GetRed()   + (sFgColor.GetRed()   - sBgColor.GetRed()) * nAlpha / 4;
 //                        sCurCol.GetGreen = sBgColor.GetGreen() + (sFgColor.GetGreen() - sBgColor.GetGreen()) * nAlpha / 4;
@@ -1360,7 +1358,7 @@ uint32_t DisplayDriver::WriteString(SrvBitmap* bitmap, const IPoint& position, c
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float DisplayDriver::GetFontHeight(Font_e fontID) const
+float PDisplayDriver::GetFontHeight(PFontID fontID) const
 {
     const FONT_INFO* font = GetFontDesc(fontID);
     return (font != nullptr) ? float(font->heightPages) : 0.0f;
@@ -1370,7 +1368,7 @@ float DisplayDriver::GetFontHeight(Font_e fontID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float DisplayDriver::GetStringWidth(Font_e fontID, const char* string, size_t length) const
+float PDisplayDriver::GetStringWidth(PFontID fontID, const char* string, size_t length) const
 {
     const FONT_INFO* font = GetFontDesc(fontID);
 
@@ -1405,7 +1403,7 @@ float DisplayDriver::GetStringWidth(Font_e fontID, const char* string, size_t le
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t DisplayDriver::GetStringLength(Font_e fontID, const char* string, size_t length, float width, bool includeLast)
+size_t PDisplayDriver::GetStringLength(PFontID fontID, const char* string, size_t length, float width, bool includeLast)
 {
     const FONT_INFO* font = GetFontDesc(fontID);
 
@@ -1447,18 +1445,18 @@ size_t DisplayDriver::GetStringLength(Font_e fontID, const char* string, size_t 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const FONT_INFO* DisplayDriver::GetFontDesc(Font_e fontID) const
+const FONT_INFO* PDisplayDriver::GetFontDesc(PFontID fontID) const
 {
     switch (fontID)
     {
-        case Font_e::e_FontSmall:
-        case Font_e::e_FontNormal:
+        case PFontID::e_FontSmall:
+        case PFontID::e_FontNormal:
             return &sansSerif_14ptFontInfo;
-        case Font_e::e_FontLarge:
+        case PFontID::e_FontLarge:
             return &sansSerif_20ptFontInfo;
-        case Font_e::e_Font7Seg:
+        case PFontID::e_Font7Seg:
             return &sansSerif_72ptFontInfo;
-        case Font_e::e_FontCount:
+        case PFontID::e_FontCount:
             return nullptr;
     }
     return nullptr;

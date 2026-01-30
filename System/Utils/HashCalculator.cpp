@@ -19,7 +19,6 @@
 
 #include "Utils/HashCalculator.h"
 
-using namespace os;
 
 static const uint32_t g_Poly8Lookup[256] =
 {
@@ -45,7 +44,7 @@ static const uint32_t g_Poly8Lookup[256] =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void HashCalculator<HashAlgorithm::CRC8>::AddData(const void* data, size_t length)
+void PHashCalculator<PHashAlgorithm::CRC8>::AddData(const void* data, size_t length)
 {
     const uint8_t* ptr = reinterpret_cast<const uint8_t*>(data);
     for (size_t i = 0; i < length; ++i)
@@ -68,7 +67,7 @@ void HashCalculator<HashAlgorithm::CRC8>::AddData(const void* data, size_t lengt
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void HashCalculator<HashAlgorithm::CRC32>::AddData(const void* data, size_t length)
+void PHashCalculator<PHashAlgorithm::CRC32>::AddData(const void* data, size_t length)
 {
     const uint8_t* ptr = reinterpret_cast<const uint8_t*>(data);
     while (length--) m_CRC = g_Poly8Lookup[((uint8_t)m_CRC ^ *(ptr++))] ^ (m_CRC >> 8);

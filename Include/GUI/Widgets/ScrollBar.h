@@ -23,37 +23,33 @@
 #include <GUI/Widgets/Control.h>
 #include <Threads/EventTimer.h>
 
-namespace os
-{
-
-enum	{ SB_MINSIZE = 12 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class ScrollBar : public Control
+class PScrollBar : public PControl
 {
 public:
-    ScrollBar(const PString& name = PString::zero, Ptr<View> parent = nullptr, float min = 0.0f, float max = std::numeric_limits<float>::max(), Orientation orientation = Orientation::Vertical, uint32_t flags = 0);
-    ~ScrollBar();
+    PScrollBar(const PString& name = PString::zero, Ptr<PView> parent = nullptr, float min = 0.0f, float max = std::numeric_limits<float>::max(), POrientation orientation = POrientation::Vertical, uint32_t flags = 0);
+    ~PScrollBar();
 
-    void  SetScrollTarget(Ptr<View> target);
-    Ptr<View> GetScrollTarget();
+    void  SetScrollTarget(Ptr<PView> target);
+    Ptr<PView> GetScrollTarget();
 
 
     // From View
-    virtual void    OnFrameSized(const Point& delta) override;
+    virtual void    OnFrameSized(const PPoint& delta) override;
 
-    virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
 
 //    virtual void	WheelMoved(const Point& cDelta);
 
-    virtual void	OnPaint(const Rect& updateRect) override;
+    virtual void	OnPaint(const PRect& updateRect) override;
 
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 
     void SlotTimerTick();
 
@@ -69,31 +65,29 @@ public:
     void	SetProportion(float proportion);
     float	GetProportion() const;
 
-    Signal<void, float, bool, Ptr<ScrollBar>>	SignalValueChanged;
+    Signal<void, float, bool, Ptr<PScrollBar>>	SignalValueChanged;
 
 private:
     enum { HIT_NONE, HIT_KNOB, HIT_ARROW };
-    Rect	GetKnobFrame() const;
-    float	PosToVal(Point pos) const;
+    PRect	GetKnobFrame() const;
+    float	PosToVal(PPoint pos) const;
 
-    EventTimer m_RepeatTimer;
+    PEventTimer m_RepeatTimer;
 
-    View*       m_Target = nullptr;
+    PView*       m_Target = nullptr;
     float       m_Min = 0.0f;
     float       m_Max = 1.0f;
     float       m_Value = 0.0f;
     float       m_Proportion = 0.1f;
     float       m_SmallStep = 1.0f;
     float       m_BigStep = 10.0f;
-    Orientation m_Orientation = Orientation::Vertical;
-    Rect        m_ArrowRects[4];
+    POrientation m_Orientation = POrientation::Vertical;
+    PRect        m_ArrowRects[4];
     bool        m_ArrowStates[4];
-    Rect        m_KnobArea;
+    PRect        m_KnobArea;
     bool        m_Changed = false;
     bool        m_FirstTick = true;
-    Point       m_HitPos;
+    PPoint       m_HitPos;
     int         m_HitButton = 0;
     int         m_HitState = HIT_NONE;
 };
-
-}

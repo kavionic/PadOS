@@ -28,7 +28,6 @@
 
 #include "ServerView.h"
 
-using namespace os;
 
 static int g_ServerViewCount = 0;
 
@@ -36,23 +35,23 @@ static int g_ServerViewCount = 0;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ServerView::ServerView(
-    SrvBitmap*          bitmap,
+PServerView::PServerView(
+    PSrvBitmap*          bitmap,
     const PString&      name,
-    const Rect&         frame,
-    const Point&        scrollOffset,
-    ViewDockType        dockType,
+    const PRect&         frame,
+    const PPoint&        scrollOffset,
+    PViewDockType        dockType,
     uint32_t            flags,
     int32_t             hideCount,
-    FocusKeyboardMode   focusKeyboardMode,
-    DrawingMode         drawingMode,
+    PFocusKeyboardMode   focusKeyboardMode,
+    PDrawingMode         drawingMode,
     float               penWidth,
-    Font_e              fontID,
-    Color               eraseColor,
-    Color               bgColor,
-    Color               fgColor
+    PFontID              fontID,
+    PColor               eraseColor,
+    PColor               bgColor,
+    PColor               fgColor
 )
-    : ViewBase(name, frame, scrollOffset, flags, hideCount, penWidth, eraseColor, bgColor, fgColor)
+    : PViewBase(name, frame, scrollOffset, flags, hideCount, penWidth, eraseColor, bgColor, fgColor)
     , m_Bitmap(bitmap)
     , m_DockType(dockType)
     , m_FocusKeyboardMode(focusKeyboardMode)
@@ -66,7 +65,7 @@ ServerView::ServerView(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ServerView::~ServerView()
+PServerView::~PServerView()
 {
     g_ServerViewCount--;
 
@@ -79,7 +78,7 @@ ServerView::~ServerView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::HandleAddedToParent(Ptr<ServerView> parent, size_t index)
+void PServerView::HandleAddedToParent(Ptr<PServerView> parent, size_t index)
 {
     if (!parent->IsVisible()) {
         Show(false);
@@ -90,7 +89,7 @@ void ServerView::HandleAddedToParent(Ptr<ServerView> parent, size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::HandleRemovedFromParent(Ptr<ServerView> parent)
+void PServerView::HandleRemovedFromParent(Ptr<PServerView> parent)
 {
     ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
     if (server != nullptr) {
@@ -106,24 +105,24 @@ void ServerView::HandleRemovedFromParent(Ptr<ServerView> parent)
 ///////////////////////////////////////////////////////////////////////////////
 
     
-bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PServerView::HandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (!IsVisible())
     {
         return false;
     }
-    if (m_ClientHandle != INVALID_HANDLE && !HasFlags(ViewFlags::IgnoreMouse))
+    if (m_ClientHandle != INVALID_HANDLE && !HasFlags(PViewFlags::IgnoreMouse))
     {
         if (m_ManagerHandle != INVALID_HANDLE)
         {
-            if (!post_to_window_manager<ASHandleMouseDown>(m_ManagerHandle, button, position, event))
+            if (!p_post_to_window_manager<ASHandleMouseDown>(m_ManagerHandle, button, position, event))
             {
                 p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandleMouseDown() failed to send message: {}", strerror(get_last_error()));
                 return false;
             }            
         }
                     
-        if (!post_to_remotesignal<ASHandleMouseDown>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
+        if (!p_post_to_remotesignal<ASHandleMouseDown>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
             p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandleMouseDown() failed to send message: {}", strerror(get_last_error()));
             return false;
         }
@@ -134,11 +133,11 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position, co
         return true;
     }
     
-    for (Ptr<ServerView> child : reverse_ranged(m_ChildrenList))
+    for (Ptr<PServerView> child : p_reverse_ranged(m_ChildrenList))
     {
         if (child->m_Frame.DoIntersect(position))
         {
-            const Point childPos = child->ConvertFromParent(position);
+            const PPoint childPos = child->ConvertFromParent(position);
             if (child->HandleMouseDown(button, childPos, event))
             {
                 return true;
@@ -152,11 +151,11 @@ bool ServerView::HandleMouseDown(MouseButton_e button, const Point& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ServerView::HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PServerView::HandleMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (m_ClientHandle != INVALID_HANDLE)
     {
-        if (!post_to_remotesignal<ASHandleMouseUp>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
+        if (!p_post_to_remotesignal<ASHandleMouseUp>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
             p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandleMouseUp() failed to send message: {}", strerror(get_last_error()));
         }
         return true;
@@ -168,11 +167,11 @@ bool ServerView::HandleMouseUp(MouseButton_e button, const Point& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ServerView::HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PServerView::HandleMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (m_ClientHandle != INVALID_HANDLE)
     {
-        if (!post_to_remotesignal<ASHandleMouseMove>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
+        if (!p_post_to_remotesignal<ASHandleMouseMove>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
             p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandleMouseMove() failed to send message: {}", strerror(get_last_error()));
         }
         return true;
@@ -184,7 +183,7 @@ bool ServerView::HandleMouseMove(MouseButton_e button, const Point& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::AddChild(Ptr<ServerView> child, size_t index)
+void PServerView::AddChild(Ptr<PServerView> child, size_t index)
 {
     if (index != INVALID_INDEX && index > m_ChildrenList.size()) index = m_ChildrenList.size();
     LinkChild(child, index);
@@ -194,13 +193,13 @@ void ServerView::AddChild(Ptr<ServerView> child, size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::RemoveChild(Ptr<ServerView> child, bool removeAsHandler)
+void PServerView::RemoveChild(Ptr<PServerView> child, bool removeAsHandler)
 {
     UnlinkChild(child);
 
     if (removeAsHandler)
     {
-        Looper* const looper = child->GetLooper();
+        PLooper* const looper = child->GetLooper();
         if (looper != nullptr) {
             looper->RemoveHandler(child);
         }
@@ -211,9 +210,9 @@ void ServerView::RemoveChild(Ptr<ServerView> child, bool removeAsHandler)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::RemoveThis(bool removeAsHandler)
+void PServerView::RemoveThis(bool removeAsHandler)
 {
-    const Ptr<ServerView> parent = m_Parent.Lock();
+    const Ptr<PServerView> parent = m_Parent.Lock();
     if (parent != nullptr)
     {
         parent->RemoveChild(ptr_tmp_cast(this), removeAsHandler);
@@ -224,7 +223,7 @@ void ServerView::RemoveThis(bool removeAsHandler)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ServerView::IsVisible() const
+bool PServerView::IsVisible() const
 {
     return m_HideCount == 0;
 }
@@ -233,10 +232,10 @@ bool ServerView::IsVisible() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
+void PServerView::SetFrame(const PRect& rect, handler_id requestingClient)
 {
-    const IRect intFrame(rect);
-    const IRect prevIFrame = GetIFrame();
+    const PIRect intFrame(rect);
+    const PIRect prevIFrame = GetIFrame();
 
     m_Frame = rect;
     UpdateScreenPos();
@@ -245,18 +244,18 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
         return;
     }
 
-    const Ptr<ServerView> parent = m_Parent.Lock();
+    const Ptr<PServerView> parent = m_Parent.Lock();
 
     if (m_HideCount == 0)
     {
-        m_DeltaMove += IPoint(intFrame.left, intFrame.top ) - IPoint(prevIFrame.left, prevIFrame.top);
-        m_DeltaSize += IPoint(intFrame.Width(), intFrame.Height() ) - IPoint(prevIFrame.Width(), prevIFrame.Height());
+        m_DeltaMove += PIPoint(intFrame.left, intFrame.top ) - PIPoint(prevIFrame.left, prevIFrame.top);
+        m_DeltaSize += PIPoint(intFrame.Width(), intFrame.Height() ) - PIPoint(prevIFrame.Width(), prevIFrame.Height());
 
         if (parent != nullptr)
         {
-            for (Ptr<ServerView> i = parent; i != nullptr; i = i->GetParent())
+            for (Ptr<PServerView> i = parent; i != nullptr; i = i->GetParent())
             {
-                if ((i->m_Flags & ViewFlags::Transparent) == 0) {
+                if ((i->m_Flags & PViewFlags::Transparent) == 0) {
                     i->SetDirtyRegFlags();
                     break;
                 }                    
@@ -267,8 +266,8 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
             {
                 for (++i; i != parent->m_ChildrenList.rend(); ++i)
                 {
-                    const Ptr<ServerView> sibling = *i;
-                    IRect siblingIFrame = sibling->GetIFrame();
+                    const Ptr<PServerView> sibling = *i;
+                    PIRect siblingIFrame = sibling->GetIFrame();
                     if (siblingIFrame.DoIntersect(prevIFrame) || siblingIFrame.DoIntersect(intFrame))
                     {
                         sibling->MarkModified(prevIFrame - siblingIFrame.TopLeft());
@@ -287,13 +286,13 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
             {
                 ApplicationServer* const server = static_cast<ApplicationServer*>(GetLooper());
                 if (server !=  nullptr) {
-                    post_to_window_manager<ASViewFrameChanged>(m_ManagerHandle, m_Frame);
+                    p_post_to_window_manager<ASViewFrameChanged>(m_ManagerHandle, m_Frame);
                 }                    
             }
         }
         else
         {
-            if (!post_to_remotesignal<ASViewFrameChanged>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, m_Frame)) {
+            if (!p_post_to_remotesignal<ASViewFrameChanged>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, m_Frame)) {
                 p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::SetFrame() failed to send message: {}", strerror(get_last_error()));
             }            
         }
@@ -308,7 +307,7 @@ void ServerView::SetFrame(const Rect& rect, handler_id requestingClient)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::SetDrawRegion(Ptr<Region> region)
+void PServerView::SetDrawRegion(Ptr<PRegion> region)
 {
     m_DrawConstrainReg = region;
 
@@ -322,18 +321,18 @@ void ServerView::SetDrawRegion(Ptr<Region> region)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::SetShapeRegion(Ptr<Region> region)
+void PServerView::SetShapeRegion(Ptr<PRegion> region)
 {
     m_ShapeConstrainReg = region;
 
     if (m_HideCount == 0)
     {
-        const Ptr<ServerView> parent = m_Parent.Lock();
+        const Ptr<PServerView> parent = m_Parent.Lock();
         if (parent != nullptr)
         {
-            for (Ptr<ServerView> i = parent; i != nullptr; i = i->GetParent())
+            for (Ptr<PServerView> i = parent; i != nullptr; i = i->GetParent())
             {
-                if ((i->m_Flags & ViewFlags::Transparent) == 0)
+                if ((i->m_Flags & PViewFlags::Transparent) == 0)
                 {
                     i->SetDirtyRegFlags();
                     break;
@@ -343,11 +342,11 @@ void ServerView::SetShapeRegion(Ptr<Region> region)
             auto i = parent->GetChildRIterator(ptr_tmp_cast(this));
             if (i != parent->m_ChildrenList.rend())
             {
-                const IRect intFrame = GetIFrame();
+                const PIRect intFrame = GetIFrame();
                 for (++i; i != parent->m_ChildrenList.rend(); ++i)
                 {
-                    const Ptr<ServerView> sibling = *i;
-                    const IRect siblingIFrame = sibling->GetIFrame();
+                    const Ptr<PServerView> sibling = *i;
+                    const PIRect siblingIFrame = sibling->GetIFrame();
                     if ( siblingIFrame.DoIntersect(intFrame) ) {
                         sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
                     }
@@ -361,12 +360,12 @@ void ServerView::SetShapeRegion(Ptr<Region> region)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::Invalidate(const IRect& rect)
+void PServerView::Invalidate(const PIRect& rect)
 {
     if (m_HideCount == 0)
     {
         if (m_DamageReg == nullptr) {
-            m_DamageReg = ptr_new<Region>(rect);
+            m_DamageReg = ptr_new<PRegion>(rect);
         } else {
             m_DamageReg->Include(rect);
         }
@@ -377,15 +376,15 @@ void ServerView::Invalidate(const IRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::Invalidate(bool reqursive)
+void PServerView::Invalidate(bool reqursive)
 {
     if (m_HideCount == 0)
     {
-        m_DamageReg = ptr_new<Region>(static_cast<IRect>(GetNormalizedBounds()));
+        m_DamageReg = ptr_new<PRegion>(static_cast<PIRect>(GetNormalizedBounds()));
 
         if (reqursive)
         {
-            for (Ptr<ServerView> child : m_ChildrenList) {
+            for (Ptr<PServerView> child : m_ChildrenList) {
                 child->Invalidate(true);
             }
         }
@@ -396,7 +395,7 @@ void ServerView::Invalidate(bool reqursive)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::InvalidateNewAreas()
+void PServerView::InvalidateNewAreas()
 {
     if (m_HideCount > 0) {
         return;
@@ -408,7 +407,7 @@ void ServerView::InvalidateNewAreas()
   
     if (m_HasInvalidRegs)
     {
-        if ( ((m_Flags & ViewFlags::FullUpdateOnResizeH) && m_DeltaSize.x != 0) || ((m_Flags & ViewFlags::FullUpdateOnResizeV) && m_DeltaSize.y != 0) )
+        if ( ((m_Flags & PViewFlags::FullUpdateOnResizeH) && m_DeltaSize.x != 0) || ((m_Flags & PViewFlags::FullUpdateOnResizeV) && m_DeltaSize.y != 0) )
         {
             Invalidate(false);
         }
@@ -418,7 +417,7 @@ void ServerView::InvalidateNewAreas()
             {
                 try
                 {
-                    Ptr<Region> region = ptr_new<Region>(*m_VisibleReg);
+                    Ptr<PRegion> region = ptr_new<PRegion>(*m_VisibleReg);
     
                     if (m_PrevVisibleReg != nullptr) {
                         region->Exclude(*m_PrevVisibleReg);
@@ -431,7 +430,7 @@ void ServerView::InvalidateNewAreas()
                     }
                     else
                     {
-                        for (const IRect& clip : region->m_Rects) {
+                        for (const PIRect& clip : region->m_Rects) {
                             Invalidate(clip);
                         }
                     }
@@ -441,11 +440,11 @@ void ServerView::InvalidateNewAreas()
         }
         m_PrevVisibleReg = nullptr;
 
-        m_DeltaSize = IPoint(0, 0);
-        m_DeltaMove = IPoint(0, 0);
+        m_DeltaSize = PIPoint(0, 0);
+        m_DeltaMove = PIPoint(0, 0);
     }
   
-    for (Ptr<ServerView> child : m_ChildrenList) {
+    for (Ptr<PServerView> child : m_ChildrenList) {
         child->InvalidateNewAreas();
     }
 }
@@ -456,9 +455,9 @@ void ServerView::InvalidateNewAreas()
 
 struct BlitSortCompare
 {
-    BlitSortCompare(const IPoint& deltaMove) : m_DeltaMove(deltaMove) {}
+    BlitSortCompare(const PIPoint& deltaMove) : m_DeltaMove(deltaMove) {}
         
-    bool operator()(IRect* lhs, IRect* rhs) const
+    bool operator()(PIRect* lhs, PIRect* rhs) const
     {
         if (lhs->left >= rhs->right && lhs->right <= rhs->left)
         {
@@ -477,14 +476,14 @@ struct BlitSortCompare
             }
         }
     }
-    IPoint m_DeltaMove;
+    PIPoint m_DeltaMove;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::MoveChilds()
+void PServerView::MoveChilds()
 {
     if ( m_HideCount > 0  /*|| nullptr == m_pcBitmap */) {
         return;
@@ -495,9 +494,9 @@ void ServerView::MoveChilds()
   
     if (m_HasInvalidRegs)
     {
-        const IRect bounds(GetNormalizedBounds());
-        const IPoint screenPos(m_ScreenPos);
-        for (Ptr<ServerView> child : m_ChildrenList)
+        const PIRect bounds(GetNormalizedBounds());
+        const PIPoint screenPos(m_ScreenPos);
+        for (Ptr<PServerView> child : m_ChildrenList)
         {
             if (child->m_DeltaMove.x == 0 && child->m_DeltaMove.y == 0) {
                 continue;
@@ -506,45 +505,45 @@ void ServerView::MoveChilds()
                 continue;
             }
 
-            const Ptr<Region> region = ptr_new<Region>(*child->m_PrevFullReg);
+            const Ptr<PRegion> region = ptr_new<PRegion>(*child->m_PrevFullReg);
             region->Intersect(*child->m_FullReg);
 
             if (region->IsEmpty()) {
                 continue;
             }
 
-            const IPoint cChildOffset = IPoint(child->m_ScreenPos);
-            const IPoint cChildMove(child->m_DeltaMove);
-            for (IRect& clip : region->m_Rects)
+            const PIPoint cChildOffset = PIPoint(child->m_ScreenPos);
+            const PIPoint cChildMove(child->m_DeltaMove);
+            for (PIRect& clip : region->m_Rects)
             {
                 // Transform into parents coordinate system
                 clip += cChildOffset;
                 assert(clip.IsValid());
             }
 
-            std::vector<IRect*> clipList;
+            std::vector<PIRect*> clipList;
             clipList.reserve(region->m_Rects.size());
 
-            for (IRect& clip : region->m_Rects) {
+            for (PIRect& clip : region->m_Rects) {
                 clipList.push_back(&clip);
             }
             std::sort(clipList.begin(), clipList.end(), BlitSortCompare(cChildMove));
 
-            for (const IRect* clip : clipList) {
-                m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - cChildMove, clip->TopLeft(), DrawingMode::Copy);
+            for (const PIRect* clip : clipList) {
+                m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - cChildMove, clip->TopLeft(), PDrawingMode::Copy);
             }
         }
 
         // Since the parent window is shrinked before the children is moved
         // we may need to redraw the right and bottom edges.
 
-        Ptr<ServerView> parent = m_Parent.Lock();
+        Ptr<PServerView> parent = m_Parent.Lock();
         if ( parent != nullptr && (m_DeltaMove.x != 0 || m_DeltaMove.y != 0) )
         {
             if (parent->m_DeltaSize.x < 0)
             {
-                IRect rect = bounds;
-                const IRect parentIFrame = parent->GetIFrame();
+                PIRect rect = bounds;
+                const PIRect parentIFrame = parent->GetIFrame();
 
                 rect.left = rect.right + int(parent->m_DeltaSize.x + parentIFrame.right - parentIFrame.left - GetIFrame().right);
 
@@ -554,8 +553,8 @@ void ServerView::MoveChilds()
             }
             if (parent->m_DeltaSize.y < 0)
             {
-                IRect rect = bounds;
-                const IRect parentIFrame = parent->GetIFrame();
+                PIRect rect = bounds;
+                const PIRect parentIFrame = parent->GetIFrame();
 
                 rect.top = rect.bottom + int(parent->m_DeltaSize.y + parentIFrame.bottom - parentIFrame.top - GetIFrame().bottom);
 
@@ -566,7 +565,7 @@ void ServerView::MoveChilds()
         }
         m_PrevFullReg = nullptr;
     }
-    for (Ptr<ServerView> child : m_ChildrenList) {
+    for (Ptr<PServerView> child : m_ChildrenList) {
         child->MoveChilds();
     }
 }
@@ -575,7 +574,7 @@ void ServerView::MoveChilds()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::RebuildRegion()
+void PServerView::RebuildRegion()
 {
     if (m_HideCount > 0)
     {
@@ -594,32 +593,32 @@ void ServerView::RebuildRegion()
         m_PrevVisibleReg = m_VisibleReg;
         m_PrevFullReg = m_FullReg;
 
-        const IPoint scrollOffset(m_ScrollOffset);
+        const PIPoint scrollOffset(m_ScrollOffset);
 
-        const Ptr<ServerView> parent = m_Parent.Lock();
+        const Ptr<PServerView> parent = m_Parent.Lock();
         if (parent == nullptr)
         {
-            m_FullReg = ptr_new<Region>(GetIFrame());
+            m_FullReg = ptr_new<PRegion>(GetIFrame());
         }
         else
         {
-            const IRect intFrame = GetIFrame();
+            const PIRect intFrame = GetIFrame();
             assert(parent->m_FullReg != nullptr);
             if (parent->m_FullReg == nullptr) {
-                m_FullReg = ptr_new<Region>(intFrame.Bounds());
+                m_FullReg = ptr_new<PRegion>(intFrame.Bounds());
             } else {
-                m_FullReg = ptr_new<Region>(*parent->m_FullReg, intFrame + IPoint(parent->m_ScrollOffset), true);
+                m_FullReg = ptr_new<PRegion>(*parent->m_FullReg, intFrame + PIPoint(parent->m_ScrollOffset), true);
             }
             if (m_ShapeConstrainReg != nullptr) {
                 m_FullReg->Intersect(*m_ShapeConstrainReg);
             }
-            const IPoint topLeft(intFrame.TopLeft());
+            const PIPoint topLeft(intFrame.TopLeft());
             auto i = parent->GetChildIterator(ptr_tmp_cast(this));
             if (i != parent->m_ChildrenList.end())
             {
                 for (++i; i != parent->m_ChildrenList.end(); ++i) // Loop over all siblings above us.
                 {
-                    Ptr<ServerView> sibling = *i;
+                    Ptr<PServerView> sibling = *i;
                     if (sibling->m_HideCount == 0)
                     {
                         if (sibling->GetIFrame().DoIntersect(intFrame))
@@ -631,12 +630,12 @@ void ServerView::RebuildRegion()
             }
             m_FullReg->Optimize();
         }
-        m_VisibleReg = ptr_new<Region>(*m_FullReg);
+        m_VisibleReg = ptr_new<PRegion>(*m_FullReg);
 
-        if ((m_Flags & ViewFlags::DrawOnChildren) == 0)
+        if ((m_Flags & PViewFlags::DrawOnChildren) == 0)
         {
             bool regModified = false;
-            for (Ptr<ServerView> child : m_ChildrenList)
+            for (Ptr<PServerView> child : m_ChildrenList)
             {
                 // Remove children from child region
                 if (child->ExcludeFromRegion(m_VisibleReg, scrollOffset)) {
@@ -648,7 +647,7 @@ void ServerView::RebuildRegion()
             }
         }
     }
-    for (Ptr<ServerView> child : m_ChildrenList) {
+    for (Ptr<PServerView> child : m_ChildrenList) {
         child->RebuildRegion();
     }
 }
@@ -657,11 +656,11 @@ void ServerView::RebuildRegion()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ServerView::ExcludeFromRegion(Ptr<Region> region, const IPoint& offset)
+bool PServerView::ExcludeFromRegion(Ptr<PRegion> region, const PIPoint& offset)
 {
     if (m_HideCount == 0)
     {
-        if ((m_Flags & ViewFlags::Transparent) == 0)
+        if ((m_Flags & PViewFlags::Transparent) == 0)
         {
             if ( m_ShapeConstrainReg == nullptr ) {
                 region->Exclude(GetIFrame() + offset);
@@ -673,9 +672,9 @@ bool ServerView::ExcludeFromRegion(Ptr<Region> region, const IPoint& offset)
         else
         {
             bool wasModified = false;
-            const IPoint framePos = GetITopLeft();
-            const IPoint scrollOffset(m_ScrollOffset);
-            for (Ptr<ServerView> child : m_ChildrenList)
+            const PIPoint framePos = GetITopLeft();
+            const PIPoint scrollOffset(m_ScrollOffset);
+            for (Ptr<PServerView> child : m_ChildrenList)
             {
                 if (child->ExcludeFromRegion(region, offset + framePos + scrollOffset)) {
                     wasModified = true;
@@ -691,10 +690,10 @@ bool ServerView::ExcludeFromRegion(Ptr<Region> region, const IPoint& offset)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::ClearDirtyRegFlags()
+void PServerView::ClearDirtyRegFlags()
 {
     m_HasInvalidRegs = false;
-    for (Ptr<ServerView> child : m_ChildrenList) {
+    for (Ptr<PServerView> child : m_ChildrenList) {
         child->ClearDirtyRegFlags();
     }
 }
@@ -703,7 +702,7 @@ void ServerView::ClearDirtyRegFlags()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::UpdateRegions()
+void PServerView::UpdateRegions()
 {
     RebuildRegion();
     MoveChilds();
@@ -714,11 +713,11 @@ void ServerView::UpdateRegions()
     {
         if (m_Bitmap == ApplicationServer::GetScreenBitmap())
         {
-            Region cDrawReg(*m_VisibleReg);
+            PRegion cDrawReg(*m_VisibleReg);
             cDrawReg.Intersect(*m_DamageReg);
         
-            const IPoint screenPos(m_ScreenPos);
-            for (const IRect& clip : cDrawReg.m_Rects) {
+            const PIPoint screenPos(m_ScreenPos);
+            for (const PIRect& clip : cDrawReg.m_Rects) {
                 m_Bitmap->m_Driver->FillRect(m_Bitmap, clip + screenPos, m_EraseColor);
             }
         }
@@ -732,7 +731,7 @@ void ServerView::UpdateRegions()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DeleteRegions()
+void PServerView::DeleteRegions()
 {
     assert(m_PrevVisibleReg == nullptr);
     assert(m_PrevFullReg == nullptr);
@@ -743,7 +742,7 @@ void ServerView::DeleteRegions()
     m_DamageReg       = nullptr;
     m_ActiveDamageReg = nullptr;
     
-    for (Ptr<ServerView> child : m_ChildrenList) {
+    for (Ptr<PServerView> child : m_ChildrenList) {
         child->DeleteRegions();
     }
 }
@@ -752,7 +751,7 @@ void ServerView::DeleteRegions()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Region> ServerView::GetRegion()
+Ptr<PRegion> PServerView::GetRegion()
 {
     if ( m_HideCount > 0 ) {
         return nullptr;
@@ -771,14 +770,14 @@ Ptr<Region> ServerView::GetRegion()
         {
             if ( m_DrawReg == nullptr )
             {
-                m_DrawReg = ptr_new<Region>(*m_VisibleReg);
+                m_DrawReg = ptr_new<PRegion>(*m_VisibleReg);
                 m_DrawReg->Intersect( *m_DrawConstrainReg );
             }
         }
     }
     else if (m_DrawReg == nullptr && m_VisibleReg != nullptr)
     {
-        m_DrawReg = ptr_new<Region>(*m_VisibleReg);
+        m_DrawReg = ptr_new<PRegion>(*m_VisibleReg);
 
         assert(m_ActiveDamageReg != nullptr);
         m_DrawReg->Intersect(*m_ActiveDamageReg);
@@ -795,10 +794,10 @@ Ptr<Region> ServerView::GetRegion()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::ToggleDepth()
+void PServerView::ToggleDepth()
 {
-    const Ptr<ServerView> self = ptr_tmp_cast(this);
-    const Ptr<ServerView> parent = GetParent();
+    const Ptr<PServerView> self = ptr_tmp_cast(this);
+    const Ptr<PServerView> parent = GetParent();
     if (parent != nullptr)
     {
         if (parent->m_ChildrenList[parent->m_ChildrenList.size()-1] == self)
@@ -812,14 +811,14 @@ void ServerView::ToggleDepth()
             parent->AddChild(self, INVALID_INDEX);
         }
 
-        const Ptr<ServerView> opacParent = GetOpacParent(parent, nullptr);
+        const Ptr<PServerView> opacParent = GetOpacParent(parent, nullptr);
         assert(opacParent != nullptr);
         opacParent->SetDirtyRegFlags();
     
-        const IRect intFrame = GetIFrame();
-        for (Ptr<ServerView> sibling : *parent)
+        const PIRect intFrame = GetIFrame();
+        for (Ptr<PServerView> sibling : *parent)
         {
-            const IRect siblingIFrame = sibling->GetIFrame();
+            const PIRect siblingIFrame = sibling->GetIFrame();
             if (siblingIFrame.DoIntersect(intFrame)) {
                 sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
             }
@@ -832,7 +831,7 @@ void ServerView::ToggleDepth()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::BeginUpdate()
+void PServerView::BeginUpdate()
 {
     if (m_VisibleReg != nullptr) {
         m_IsUpdating = true;
@@ -843,7 +842,7 @@ void ServerView::BeginUpdate()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::EndUpdate( void )
+void PServerView::EndUpdate( void )
 {
     m_ActiveDamageReg = nullptr;
     m_DrawReg         = nullptr;
@@ -854,7 +853,7 @@ void ServerView::EndUpdate( void )
     {
         m_ActiveDamageReg = m_DamageReg;
         m_DamageReg = nullptr;
-        Paint(static_cast<Rect>(m_ActiveDamageReg->GetBounds()));
+        Paint(static_cast<PRect>(m_ActiveDamageReg->GetBounds()));
     }
 }
 
@@ -862,12 +861,12 @@ void ServerView::EndUpdate( void )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::Paint(const IRect& updateRect)
+void PServerView::Paint(const PIRect& updateRect)
 {
     if ( m_HideCount > 0 || m_IsUpdating == true || m_ClientHandle == INVALID_HANDLE) {
         return;
     }
-    if (!post_to_remotesignal<ASPaintView>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, updateRect - IPoint(m_ScrollOffset))) {
+    if (!p_post_to_remotesignal<ASPaintView>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, updateRect - PIPoint(m_ScrollOffset))) {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::Paint() failed to send message: {}", strerror(get_last_error()));
     }
 }
@@ -876,7 +875,7 @@ void ServerView::Paint(const IRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::RequestPaintIfNeeded()
+void PServerView::RequestPaintIfNeeded()
 {
     if ( m_HideCount > 0) {
         return;
@@ -891,9 +890,9 @@ void ServerView::RequestPaintIfNeeded()
         m_ActiveDamageReg = m_DamageReg;
         m_DamageReg = nullptr;
         m_ActiveDamageReg->Optimize();
-        Paint( static_cast<Rect>(m_ActiveDamageReg->GetBounds()));
+        Paint( static_cast<PRect>(m_ActiveDamageReg->GetBounds()));
     }
-    for (Ptr<ServerView> child : m_ChildrenList) {
+    for (Ptr<PServerView> child : m_ChildrenList) {
         child->RequestPaintIfNeeded();
     }
 }
@@ -902,14 +901,14 @@ void ServerView::RequestPaintIfNeeded()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::MarkModified(const IRect& rect)
+void PServerView::MarkModified(const PIRect& rect)
 {
     if (GetNormalizedBounds().DoIntersect(rect))
     {
         m_HasInvalidRegs = true;
-        const IPoint scrollOffset(m_ScrollOffset);
+        const PIPoint scrollOffset(m_ScrollOffset);
         
-        for (Ptr<ServerView> child : m_ChildrenList) {
+        for (Ptr<PServerView> child : m_ChildrenList) {
             child->MarkModified(rect - child->GetITopLeft() - scrollOffset);
         }
     }
@@ -919,11 +918,11 @@ void ServerView::MarkModified(const IRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::SetDirtyRegFlags()
+void PServerView::SetDirtyRegFlags()
 {
     m_HasInvalidRegs = true;
     
-    for (Ptr<ServerView> child : m_ChildrenList) {
+    for (Ptr<PServerView> child : m_ChildrenList) {
         child->SetDirtyRegFlags();
     }
 }
@@ -932,7 +931,7 @@ void ServerView::SetDirtyRegFlags()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::Show(bool doShow)
+void PServerView::Show(bool doShow)
 {
     const bool wasVisible = IsVisible();
 
@@ -946,21 +945,21 @@ void ServerView::Show(bool doShow)
     if (isVisible != wasVisible)
     {
 
-        const Ptr<ServerView> parent = m_Parent.Lock();
+        const Ptr<PServerView> parent = m_Parent.Lock();
         if (parent != nullptr)
         {
-            for (Ptr<ServerView> i = parent; i != nullptr; i = i->GetParent())
+            for (Ptr<PServerView> i = parent; i != nullptr; i = i->GetParent())
             {
-                if ((i->m_Flags & ViewFlags::Transparent) == 0)
+                if ((i->m_Flags & PViewFlags::Transparent) == 0)
                 {
                     i->SetDirtyRegFlags();
                     break;
                 }
             }
-            const IRect intFrame = GetIFrame();
-            for (Ptr<ServerView> sibling : parent->m_ChildrenList)
+            const PIRect intFrame = GetIFrame();
+            for (Ptr<PServerView> sibling : parent->m_ChildrenList)
             {
-                const IRect siblingIFrame = sibling->GetIFrame();
+                const PIRect siblingIFrame = sibling->GetIFrame();
                 if (siblingIFrame.DoIntersect(intFrame)) {
                     sibling->MarkModified(intFrame - siblingIFrame.TopLeft());
                 }
@@ -977,7 +976,7 @@ void ServerView::Show(bool doShow)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::SetFocusKeyboardMode(FocusKeyboardMode mode)
+void PServerView::SetFocusKeyboardMode(PFocusKeyboardMode mode)
 {
     if (mode != m_FocusKeyboardMode)
     {
@@ -994,7 +993,7 @@ void ServerView::SetFocusKeyboardMode(FocusKeyboardMode mode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DrawLineTo(const Point& toPoint)
+void PServerView::DrawLineTo(const PPoint& toPoint)
 {
     DrawLine(m_PenPosition, toPoint);
 }
@@ -1003,7 +1002,7 @@ void ServerView::DrawLineTo(const Point& toPoint)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt)
+void PServerView::DrawLine(const PPoint& fromPnt, const PPoint& toPnt)
 {
     if (m_PenWidth < 2.0f)
     {
@@ -1011,20 +1010,20 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt)
     }
     else
     {
-        const Point start = fromPnt.GetRounded();
-        const Point end = toPnt.GetRounded();
+        const PPoint start = fromPnt.GetRounded();
+        const PPoint end = toPnt.GetRounded();
         const float halfThickness = m_PenWidth * 0.5f;
 
-        const Point delta = end - start;
-        const Point normal = Point(-delta.y, delta.x).GetNormalized();
+        const PPoint delta = end - start;
+        const PPoint normal = PPoint(-delta.y, delta.x).GetNormalized();
 
-        Point prevOffset = (normal * -halfThickness).GetRounded();
+        PPoint prevOffset = (normal * -halfThickness).GetRounded();
         DrawThinLine(start + prevOffset, end + prevOffset);
 
         for (int32_t i = 1; i < int32_t(std::round(m_PenWidth)); ++i)
         {
-            Point offset = normal * (float(i) - halfThickness);
-            const Point offsetDelta = offset - prevOffset;
+            PPoint offset = normal * (float(i) - halfThickness);
+            const PPoint offsetDelta = offset - prevOffset;
             if (std::abs(offsetDelta.x) > std::abs(offsetDelta.y))
             {
                 offset.x = (offsetDelta.x < 0.0f) ? (prevOffset.x - 1.0f) : (prevOffset.x + 1.0f);
@@ -1045,16 +1044,16 @@ void ServerView::DrawLine(const Point& fromPnt, const Point& toPnt)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DrawThinLine(const Point& fromPnt, const Point& toPnt )
+void PServerView::DrawThinLine(const PPoint& fromPnt, const PPoint& toPnt )
 {
-    Ptr<const Region> region = GetRegion();
+    Ptr<const PRegion> region = GetRegion();
     if (region != nullptr)
     {
-        const IPoint screenPos(m_ScreenPos);
-        IPoint fromPntScr(fromPnt + m_ScrollOffset);
-        IPoint toPntScr(toPnt + m_ScrollOffset);
+        const PIPoint screenPos(m_ScreenPos);
+        PIPoint fromPntScr(fromPnt + m_ScrollOffset);
+        PIPoint toPntScr(toPnt + m_ScrollOffset);
 
-        IRect boundingBox;
+        PIRect boundingBox;
         if (fromPntScr.x > toPntScr.x) {
             std::swap(toPntScr, fromPntScr);
         }
@@ -1072,11 +1071,11 @@ void ServerView::DrawThinLine(const Point& fromPnt, const Point& toPnt )
         fromPntScr += screenPos;
         toPntScr   += screenPos;
         
-        const IRect screenFrame = ApplicationServer::GetScreenIFrame();
+        const PIRect screenFrame = ApplicationServer::GetScreenIFrame();
 
-        if (Region::ClipLine(screenFrame, &fromPntScr, &toPntScr))
+        if (PRegion::ClipLine(screenFrame, &fromPntScr, &toPntScr))
         {
-            for (const IRect& clip : region->m_Rects)
+            for (const PIRect& clip : region->m_Rects)
             {
                 if (clip.DoIntersect(boundingBox))
                 {
@@ -1092,29 +1091,29 @@ void ServerView::DrawThinLine(const Point& fromPnt, const Point& toPnt )
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DrawRect(const Rect& frame)
+void PServerView::DrawRect(const PRect& frame)
 {
-    DrawLine(Point(frame.left, frame.top), Point(frame.right - 1.0f, frame.top));
-    DrawLine(Point(frame.right - 1.0f, frame.top), Point(frame.right - 1.0f, frame.bottom - 1.0f));
-    DrawLine(Point(frame.right - 1.0f, frame.bottom - 1.0f), Point(frame.left, frame.bottom - 1.0f));
-    DrawLine(Point(frame.left, frame.bottom - 1.0f), Point(frame.left, frame.top));
+    DrawLine(PPoint(frame.left, frame.top), PPoint(frame.right - 1.0f, frame.top));
+    DrawLine(PPoint(frame.right - 1.0f, frame.top), PPoint(frame.right - 1.0f, frame.bottom - 1.0f));
+    DrawLine(PPoint(frame.right - 1.0f, frame.bottom - 1.0f), PPoint(frame.left, frame.bottom - 1.0f));
+    DrawLine(PPoint(frame.left, frame.bottom - 1.0f), PPoint(frame.left, frame.top));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::FillRect(const Rect& rect, Color color)
+void PServerView::FillRect(const PRect& rect, PColor color)
 {
-    const Ptr<const Region> region = GetRegion();
+    const Ptr<const PRegion> region = GetRegion();
     if (region != nullptr)
     {
-        const IPoint screenPos(m_ScreenPos);
-        const IRect  rectScr(rect + m_ScrollOffset);
+        const PIPoint screenPos(m_ScreenPos);
+        const PIRect  rectScr(rect + m_ScrollOffset);
         
-        for (const IRect& clip : region->m_Rects)
+        for (const PIRect& clip : region->m_Rects)
         {
-            IRect clippedRect(rectScr & clip);
+            PIRect clippedRect(rectScr & clip);
             if (clippedRect.IsValid()) {
                 clippedRect += screenPos;
                 m_Bitmap->m_Driver->FillRect(m_Bitmap, clippedRect, color);
@@ -1127,21 +1126,21 @@ void ServerView::FillRect(const Rect& rect, Color color)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::FillCircle(const Point& position, float radius)
+void PServerView::FillCircle(const PPoint& position, float radius)
 {
-    const Ptr<const Region> region = GetRegion();
+    const Ptr<const PRegion> region = GetRegion();
     if (region != nullptr)
     {
-        const IPoint screenPos(m_ScreenPos);
-        IPoint positionScr(position + m_ScrollOffset);
+        const PIPoint screenPos(m_ScreenPos);
+        PIPoint positionScr(position + m_ScrollOffset);
         const int    radiusRounded = int(radius + 0.5f);
         
         positionScr += screenPos;
         
-        const IRect boundingBox(positionScr.x - radiusRounded - 2, positionScr.y - radiusRounded - 2, positionScr.x + radiusRounded + 2, positionScr.y + radiusRounded + 2);
-        for (const IRect& clip : region->m_Rects)
+        const PIRect boundingBox(positionScr.x - radiusRounded - 2, positionScr.y - radiusRounded - 2, positionScr.x + radiusRounded + 2, positionScr.y + radiusRounded + 2);
+        for (const PIRect& clip : region->m_Rects)
         {
-            const IRect clipRect = clip + screenPos;
+            const PIRect clipRect = clip + screenPos;
             if (!boundingBox.DoIntersect(clipRect)) {
                 continue;
             }
@@ -1154,21 +1153,21 @@ void ServerView::FillCircle(const Point& position, float radius)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DrawString(const PString& string)
+void PServerView::DrawString(const PString& string)
 {
-    const Ptr<const Region> region = GetRegion();
+    const Ptr<const PRegion> region = GetRegion();
     if (region != nullptr)
     {
-        const IPoint screenPos(m_ScreenPos);
-        IPoint penPos = IPoint(m_PenPosition + m_ScrollOffset);
+        const PIPoint screenPos(m_ScreenPos);
+        PIPoint penPos = PIPoint(m_PenPosition + m_ScrollOffset);
         
-        DisplayDriver* const driver = m_Bitmap->m_Driver;
+        PDisplayDriver* const driver = m_Bitmap->m_Driver;
 
-        const IRect boundingBox(penPos.x, penPos.y, penPos.x + int(driver->GetStringWidth(m_Font->Get(), string.c_str(), string.size())), penPos.y + int(driver->GetFontHeight(m_Font->Get())));
+        const PIRect boundingBox(penPos.x, penPos.y, penPos.x + int(driver->GetStringWidth(m_Font->Get(), string.c_str(), string.size())), penPos.y + int(driver->GetFontHeight(m_Font->Get())));
 
         penPos += screenPos;
         
-        for (const IRect& clip : region->m_Rects)
+        for (const PIRect& clip : region->m_Rects)
         {
             if (clip.DoIntersect(boundingBox))
             {
@@ -1183,29 +1182,29 @@ void ServerView::DrawString(const PString& string)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
+void PServerView::CopyRect(const PRect& srcRect, const PPoint& dstPos)
 {
     if ( m_VisibleReg == nullptr ) {
         return;
     }
 
-    IRect  intSrcRect(srcRect);
-    const IPoint delta   = IPoint(dstPos) - intSrcRect.TopLeft();
+    PIRect  intSrcRect(srcRect);
+    const PIPoint delta   = PIPoint(dstPos) - intSrcRect.TopLeft();
 
     if (delta.x == 0 && delta.y == 0) {
         return;
     }
 
-    intSrcRect += IPoint(m_ScrollOffset);
-    const IRect  dstRect = intSrcRect + delta;
+    intSrcRect += PIPoint(m_ScrollOffset);
+    const PIRect  dstRect = intSrcRect + delta;
 
-    std::vector<IRect> bltList;
-    Region             damage(*m_VisibleReg, intSrcRect, false);
+    std::vector<PIRect> bltList;
+    PRegion             damage(*m_VisibleReg, intSrcRect, false);
 
-    for (const IRect& srcClip : m_VisibleReg->m_Rects)
+    for (const PIRect& srcClip : m_VisibleReg->m_Rects)
     {
         // Clip to source rectangle
-        IRect sRect(intSrcRect & srcClip);
+        PIRect sRect(intSrcRect & srcClip);
 
         if (!sRect.IsValid()) {
             continue;
@@ -1213,9 +1212,9 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
         // Transform into destination space
         sRect += delta;
 
-        for(const IRect& dstClip : m_VisibleReg->m_Rects)
+        for(const PIRect& dstClip : m_VisibleReg->m_Rects)
         {
-            const IRect dRect = sRect & dstClip;
+            const PIRect dRect = sRect & dstClip;
 
             if (!dRect.IsValid()) {
                 continue;
@@ -1233,24 +1232,24 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
         return;
     }
 
-    std::vector<IRect*> clipList;
+    std::vector<PIRect*> clipList;
     clipList.reserve(bltList.size());
     
-    for (IRect& clip : bltList) {
+    for (PIRect& clip : bltList) {
         clipList.push_back(&clip);
     }
     std::sort(clipList.begin(), clipList.end(), BlitSortCompare(delta));
 
-    const IPoint screenPos(m_ScreenPos);
-    for (IRect* clip : clipList)
+    const PIPoint screenPos(m_ScreenPos);
+    for (PIRect* clip : clipList)
     {
         *clip += screenPos; // Convert into screen space
         m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - delta, clip->TopLeft(), m_DrawingMode);
     }
     if (m_DamageReg != nullptr)
     {
-        const Region region(*m_DamageReg, intSrcRect, false);
-        for (const IRect& dmgClip : region.m_Rects)
+        const PRegion region(*m_DamageReg, intSrcRect, false);
+        for (const PIRect& dmgClip : region.m_Rects)
         {
             m_DamageReg->Include((dmgClip + delta)  & dstRect);
             if (m_ActiveDamageReg != nullptr) {
@@ -1260,20 +1259,20 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
     }
     if (m_ActiveDamageReg != nullptr)
     {
-        const Region region(*m_ActiveDamageReg, intSrcRect, false);
+        const PRegion region(*m_ActiveDamageReg, intSrcRect, false);
         if (!region.IsEmpty())
         {
             if ( m_DamageReg == nullptr ) {
-                m_DamageReg = ptr_new<Region>();
+                m_DamageReg = ptr_new<PRegion>();
             }
-            for (const IRect& dmgClip : region.m_Rects)
+            for (const PIRect& dmgClip : region.m_Rects)
             {
                 m_ActiveDamageReg->Exclude((dmgClip + delta) & dstRect);
                 m_DamageReg->Include((dmgClip + delta) & dstRect);
             }
         }
     }
-    for (const IRect& dstClip : damage.m_Rects) {
+    for (const PIRect& dstClip : damage.m_Rects) {
         Invalidate(dstClip);
     }
     if ( m_DamageReg != nullptr ) {
@@ -1289,36 +1288,36 @@ void ServerView::CopyRect(const Rect& srcRect, const Point& dstPos)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DrawBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Point& dstPos)
+void PServerView::DrawBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PPoint& dstPos)
 {
     if (bitmap == nullptr || m_VisibleReg == nullptr) {
         return;
     }
-    Ptr<const Region> region = GetRegion();
+    Ptr<const PRegion> region = GetRegion();
 
     if (region == nullptr) {
         return;
     }
 
-    const IPoint screenPos(m_ScreenPos);
+    const PIPoint screenPos(m_ScreenPos);
 
-    const IRect  intSrcRect(srcRect);
-    IPoint intDstPos(dstPos + m_ScrollOffset);
+    const PIRect  intSrcRect(srcRect);
+    PIPoint intDstPos(dstPos + m_ScrollOffset);
 
-    const IRect clippedSrcRect = intSrcRect & IRect(IPoint(0, 0), bitmap->m_Size);
+    const PIRect clippedSrcRect = intSrcRect & PIRect(PIPoint(0, 0), bitmap->m_Size);
     intDstPos += clippedSrcRect.TopLeft() - intSrcRect.TopLeft();
 
-    const IRect  dstRect = clippedSrcRect.Bounds() + intDstPos;
-    const IPoint srcPos(clippedSrcRect.TopLeft());
+    const PIRect  dstRect = clippedSrcRect.Bounds() + intDstPos;
+    const PIPoint srcPos(clippedSrcRect.TopLeft());
 
-    for (const IRect& clipRect : region->m_Rects)
+    for (const PIRect& clipRect : region->m_Rects)
     {
-        const IRect rect = dstRect & clipRect;
+        const PIRect rect = dstRect & clipRect;
 
         if (rect.IsValid())
         {
-            const IPoint cDst = rect.TopLeft() + screenPos;
-            const IRect  cSrc = rect - intDstPos + srcPos;
+            const PIPoint cDst = rect.TopLeft() + screenPos;
+            const PIRect  cSrc = rect - intDstPos + srcPos;
 
             m_Bitmap->m_Driver->CopyRect(m_Bitmap, ptr_raw_pointer_cast(bitmap), m_BgColor, m_FgColor, cSrc, cDst, m_DrawingMode);
         }
@@ -1329,20 +1328,20 @@ void ServerView::DrawBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Po
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DrawScaledBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, const Rect& inDstRect)
+void PServerView::DrawScaledBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PRect& inDstRect)
 {
     if (bitmap == nullptr || m_VisibleReg == nullptr) {
         return;
     }
-    Ptr<const Region> region = GetRegion();
+    Ptr<const PRegion> region = GetRegion();
 
     if (region == nullptr) {
         return;
     }
-    const IPoint screenPos(m_ScreenPos);
+    const PIPoint screenPos(m_ScreenPos);
 
-    const Rect snappedSrcRect = srcRect.GetFloored();
-    const Rect snappedDstRect = inDstRect.GetFloored();
+    const PRect snappedSrcRect = srcRect.GetFloored();
+    const PRect snappedDstRect = inDstRect.GetFloored();
 
     const float scaleX = (snappedSrcRect.Width()  - 1.0f) / snappedDstRect.Width();
     const float scaleY = (snappedSrcRect.Height() - 1.0f) / snappedDstRect.Height();
@@ -1350,29 +1349,29 @@ void ServerView::DrawScaledBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, co
     const float scaleXinv = 1.0f / scaleX;
     const float scaleYinv = 1.0f / scaleY;
 
-    const Rect clippedSrcRect = snappedSrcRect & Rect::FromSize(Point(bitmap->m_Size));
+    const PRect clippedSrcRect = snappedSrcRect & PRect::FromSize(PPoint(bitmap->m_Size));
 
-    const Rect clippedDstRect(
+    const PRect clippedDstRect(
         snappedDstRect.left   + (clippedSrcRect.left   - snappedSrcRect.left)   * scaleXinv,
         snappedDstRect.top    + (clippedSrcRect.top    - snappedSrcRect.top)    * scaleYinv,
         snappedDstRect.right  + (clippedSrcRect.right  - snappedSrcRect.right)  * scaleXinv,
         snappedDstRect.bottom + (clippedSrcRect.bottom - snappedSrcRect.bottom) * scaleYinv
     );
 
-    for (const IRect& clipRect : region->m_Rects)
+    for (const PIRect& clipRect : region->m_Rects)
     {
-        const Rect rectDst = clippedDstRect & clipRect;
+        const PRect rectDst = clippedDstRect & clipRect;
 
         if (rectDst.IsValid())
         {
-            const Rect rectSrc(
+            const PRect rectSrc(
                 clippedSrcRect.left +   (rectDst.left   - clippedDstRect.left)   * scaleX,
                 clippedSrcRect.top +    (rectDst.top    - clippedDstRect.top)    * scaleY,
                 clippedSrcRect.right +  (rectDst.right  - clippedDstRect.right)  * scaleX,
                 clippedSrcRect.bottom + (rectDst.bottom - clippedDstRect.bottom) * scaleY
             );
 
-            const IRect cDst((rectDst + m_ScreenPos).GetRounded());
+            const PIRect cDst((rectDst + m_ScreenPos).GetRounded());
 
             m_Bitmap->m_Driver->ScaleRect(m_Bitmap, ptr_raw_pointer_cast(bitmap), m_BgColor, m_FgColor, clippedSrcRect, clippedDstRect, rectSrc, cDst, m_DrawingMode);
         }
@@ -1383,30 +1382,30 @@ void ServerView::DrawScaledBitmap(Ptr<SrvBitmap> bitmap, const Rect& srcRect, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DebugDraw(Color color, uint32_t drawFlags)
+void PServerView::DebugDraw(PColor color, uint32_t drawFlags)
 {
-    const IPoint screenPos(m_ScreenPos);
+    const PIPoint screenPos(m_ScreenPos);
     
-    if (drawFlags & ViewDebugDrawFlags::ViewFrame)
+    if (drawFlags & PViewDebugDrawFlags::ViewFrame)
     {
         DebugDrawRect(GetNormalizedIBounds() + screenPos, color);
     }
-    if (drawFlags & ViewDebugDrawFlags::DrawRegion)
+    if (drawFlags & PViewDebugDrawFlags::DrawRegion)
     {
         if (m_VisibleReg != nullptr)
         {
-            for (const IRect& clip : m_VisibleReg->m_Rects)
+            for (const PIRect& clip : m_VisibleReg->m_Rects)
             {
                 DebugDrawRect(clip + screenPos, color);
             }
         }
     }        
-    if (drawFlags & ViewDebugDrawFlags::DamageRegion)
+    if (drawFlags & PViewDebugDrawFlags::DamageRegion)
     {
-        const Ptr<Region> region = GetRegion();
+        const Ptr<PRegion> region = GetRegion();
         if (region != nullptr)
         {
-            for (const IRect& clip : region->m_Rects)
+            for (const PIRect& clip : region->m_Rects)
             {
                 DebugDrawRect(clip + screenPos, color);
             }
@@ -1418,23 +1417,23 @@ void ServerView::DebugDraw(Color color, uint32_t drawFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::ScrollBy(const Point& offset)
+void PServerView::ScrollBy(const PPoint& offset)
 {
-    const Ptr<ServerView> parent = m_Parent.Lock();
+    const Ptr<PServerView> parent = m_Parent.Lock();
     if ( parent == nullptr ) {
         return;
     }
-    const IPoint screenPos(m_ScreenPos);
+    const PIPoint screenPos(m_ScreenPos);
 
-    const IPoint oldOffset(m_ScrollOffset);
+    const PIPoint oldOffset(m_ScrollOffset);
     m_ScrollOffset += offset;
-    const IPoint newOffset(m_ScrollOffset);
+    const PIPoint newOffset(m_ScrollOffset);
     
     if (newOffset == oldOffset) {
         return;
     }
     UpdateScreenPos();
-    const IPoint intOffset(newOffset - oldOffset);
+    const PIPoint intOffset(newOffset - oldOffset);
     
     if ( m_HideCount > 0 ) {
         return;
@@ -1448,14 +1447,14 @@ void ServerView::ScrollBy(const Point& offset)
         return;
     }
 
-    const IRect        bounds(GetNormalizedBounds());
-    std::vector<IRect> bltList;
-    Region       damage(*m_VisibleReg);
+    const PIRect        bounds(GetNormalizedBounds());
+    std::vector<PIRect> bltList;
+    PRegion       damage(*m_VisibleReg);
 
-    for (const IRect& srcClip : m_FullReg->m_Rects)
+    for (const PIRect& srcClip : m_FullReg->m_Rects)
     {
         // Clip to source rectangle
-        IRect sRect = bounds & srcClip;
+        PIRect sRect = bounds & srcClip;
 
         // Transform into destination space
         if (!sRect.IsValid()) {
@@ -1463,9 +1462,9 @@ void ServerView::ScrollBy(const Point& offset)
         }
         sRect += intOffset;
 
-        for(const IRect& dstClip : m_FullReg->m_Rects)
+        for(const PIRect& dstClip : m_FullReg->m_Rects)
         {
-            const IRect dRect = sRect & dstClip;
+            const PIRect dRect = sRect & dstClip;
             if (dRect.IsValid())
             {
                 damage.Exclude(dRect);
@@ -1481,37 +1480,37 @@ void ServerView::ScrollBy(const Point& offset)
         return;
     }
 
-    std::vector<IRect*> clipList;
+    std::vector<PIRect*> clipList;
     clipList.reserve(bltList.size());
 
-    for (IRect& clip : bltList) {
+    for (PIRect& clip : bltList) {
         clipList.push_back(&clip);
     }
     std::sort(clipList.begin(), clipList.end(), BlitSortCompare(intOffset));
 
     for (size_t i = 0 ; i < clipList.size() ; ++i)
     {
-        IRect* const clip = clipList[i];
+        PIRect* const clip = clipList[i];
 
         *clip += screenPos; // Convert into screen space
 
-        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - intOffset, clip->TopLeft(), DrawingMode::Copy);
+        m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - intOffset, clip->TopLeft(), PDrawingMode::Copy);
     }
 
     if (m_DamageReg != nullptr)
     {
-        for (IRect& dstClip : m_DamageReg->m_Rects) {
+        for (PIRect& dstClip : m_DamageReg->m_Rects) {
             dstClip += intOffset;
         }
     }
 
     if (m_ActiveDamageReg != nullptr)
     {
-        for (IRect& dstClip : m_ActiveDamageReg->m_Rects) {
+        for (PIRect& dstClip : m_ActiveDamageReg->m_Rects) {
             dstClip += intOffset;
         }
     }
-    for (const IRect& dstClip : damage.m_Rects) {
+    for (const PIRect& dstClip : damage.m_Rects) {
         Invalidate(dstClip);
     }
     RequestPaintIfNeeded();
@@ -1521,15 +1520,15 @@ void ServerView::ScrollBy(const Point& offset)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::UpdateScreenPos()
+void PServerView::UpdateScreenPos()
 {
-    const Ptr<ServerView> parent = m_Parent.Lock();
+    const Ptr<PServerView> parent = m_Parent.Lock();
     if (parent == nullptr) {
         m_ScreenPos = m_Frame.TopLeft();
     } else {
         m_ScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
     }
-    for (Ptr<ServerView> child : m_ChildrenList) {
+    for (Ptr<PServerView> child : m_ChildrenList) {
         child->UpdateScreenPos();
     }
 }
@@ -1538,15 +1537,15 @@ void ServerView::UpdateScreenPos()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerView::DebugDrawRect(const IRect& frame, Color color)
+void PServerView::DebugDrawRect(const PIRect& frame, PColor color)
 {
-    const IPoint p1(frame.left, frame.top);
-    const IPoint p2(frame.right - 1, frame.top);
-    const IPoint p3(frame.right - 1, frame.bottom - 1);
-    const IPoint p4(frame.left, frame.bottom - 1);
+    const PIPoint p1(frame.left, frame.top);
+    const PIPoint p2(frame.right - 1, frame.top);
+    const PIPoint p3(frame.right - 1, frame.bottom - 1);
+    const PIPoint p4(frame.left, frame.bottom - 1);
 
-    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p1, p2, color, DrawingMode::Copy);
-    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p2, p3, color, DrawingMode::Copy);
-    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p4, p3, color, DrawingMode::Copy);
-    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p1, p4, color, DrawingMode::Copy);
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p1, p2, color, PDrawingMode::Copy);
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p2, p3, color, PDrawingMode::Copy);
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p4, p3, color, PDrawingMode::Copy);
+    m_Bitmap->m_Driver->DrawLine(m_Bitmap, frame, p1, p4, color, PDrawingMode::Copy);
 }

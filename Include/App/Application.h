@@ -21,91 +21,88 @@
 
 #include <set>
 
+#include <Math/Rect.h>
 #include <Threads/Looper.h>
 #include <Threads/EventTimer.h>
 #include <ApplicationServer/Protocol.h>
 
-namespace os
-{
+class PView;
 
-class View;
-    
-class Application : public Looper, public SignalTarget
+
+class PApplication : public PLooper, public SignalTarget
 {
 public:
-    Application(const PString& name);
-    ~Application();
+    PApplication(const PString& name);
+    ~PApplication();
 
-    static Application* GetDefaultApplication();
-    static void SetDefaultApplication(Application* application);
+    static PApplication* GetDefaultApplication();
+    static void SetDefaultApplication(PApplication* application);
 
-    static Application* GetCurrentApplication() { return dynamic_cast<Application*>(GetCurrentThread()); }
+    static PApplication* GetCurrentApplication() { return dynamic_cast<PApplication*>(GetCurrentThread()); }
 
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
     virtual void Idle() override;
-    static IRect    GetScreenIFrame();
-    static Rect     GetScreenFrame() { return Rect(GetScreenIFrame()); }
+    static PIRect    GetScreenIFrame();
+    static PRect     GetScreenFrame() { return PRect(GetScreenIFrame()); }
     
-    bool AddView(Ptr<View> view, ViewDockType dockType, size_t index = INVALID_INDEX);
-    bool AddChildView(Ptr<View> parent, Ptr<View> view, size_t index = INVALID_INDEX);
-    bool RemoveView(Ptr<View> view);
+    bool AddView(Ptr<PView> view, PViewDockType dockType, size_t index = INVALID_INDEX);
+    bool AddChildView(Ptr<PView> parent, Ptr<PView> view, size_t index = INVALID_INDEX);
+    bool RemoveView(Ptr<PView> view);
     
-    Ptr<View> FindView(handler_id handle);
+    Ptr<PView> FindView(handler_id handle);
 
 
-    void SetFocusView(MouseButton_e button, Ptr<View> view, bool focus);
-    Ptr<View> GetFocusView(MouseButton_e button) const;
+    void SetFocusView(PMouseButton button, Ptr<PView> view, bool focus);
+    Ptr<PView> GetFocusView(PMouseButton button) const;
 
-    void SetKeyboardFocus(Ptr<View> view, bool focus, bool notifyServer);
-    Ptr<View> GetKeyboardFocus() const;
+    void SetKeyboardFocus(Ptr<PView> view, bool focus, bool notifyServer);
+    Ptr<PView> GetKeyboardFocus() const;
 
-    bool CreateBitmap(int width, int height, EColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow);
+    bool CreateBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow);
     void DeleteBitmap(handle_id bitmapHandle);
 
     template<typename SIGNAL, typename... ARGS>
-    void Post(ARGS&&... args) { SIGNAL::Sender::Emit(this, &Application::AllocMessageBuffer, SIGNAL::GetID(), args...); }
+    void Post(ARGS&&... args) { SIGNAL::Sender::Emit(this, &PApplication::AllocMessageBuffer, SIGNAL::GetID(), args...); }
      
     void Flush();
     void Sync();
 
     uint32_t GetQualifiers() const { return 0; }
 private:
-    friend class View;
+    friend class PView;
  
     
-    void DetachView(Ptr<View> view);
+    void DetachView(Ptr<PView> view);
     
     void* AllocMessageBuffer(int32_t messageID, size_t size);
 
-    bool CreateServerView(Ptr<View> view, handler_id parentHandle, ViewDockType dockType, size_t index);
-    void RegisterViewForLayout(Ptr<View> view, bool recursive = false);
+    bool CreateServerView(Ptr<PView> view, handler_id parentHandle, PViewDockType dockType, size_t index);
+    void RegisterViewForLayout(Ptr<PView> view, bool recursive = false);
 
-    void      SetMouseDownView(MouseButton_e button, Ptr<View> view, const MotionEvent& motionEvent);
-    Ptr<View> GetMouseDownView(MouseButton_e button) const;
+    void      SetMouseDownView(PMouseButton button, Ptr<PView> view, const PMotionEvent& motionEvent);
+    Ptr<PView> GetMouseDownView(PMouseButton button) const;
 
     void LayoutViews();
 
     void SlotLongPressTimer();
 
-    static Application* s_DefaultApplication;
-    MessagePort m_ReplyPort;
+    static PApplication* s_DefaultApplication;
+    PMessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
 
-    uint8_t m_SendBuffer[APPSERVER_MSG_BUFFER_SIZE]; 
+    uint8_t m_SendBuffer[PAPPSERVER_MSG_BUFFER_SIZE]; 
     int32_t m_UsedSendBufferSize = 0;
 
-    std::map<int, View*>    m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
-    std::map<int, View*>    m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
-    MotionEvent             m_LastClickEvent;
-    View*                   m_KeyboardFocusView = nullptr;
+    std::map<int, PView*>    m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
+    std::map<int, PView*>    m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
+    PMotionEvent             m_LastClickEvent;
+    PView*                   m_KeyboardFocusView = nullptr;
 
-    EventTimer              m_LongPressTimer;
+    PEventTimer              m_LongPressTimer;
 
-    std::set<Ptr<View>>     m_ViewsNeedingLayout;
+    std::set<Ptr<PView>>     m_ViewsNeedingLayout;
 
 
-    Application(const Application &) = delete;
-    Application& operator=(const Application &) = delete;
+    PApplication(const PApplication &) = delete;
+    PApplication& operator=(const PApplication &) = delete;
 };
-
-}

@@ -25,20 +25,17 @@
 #include "System/System.h"
 #include "System/HandleObject.h"
 
-namespace os
-{
-
-class MessagePort : public HandleObject
+class PMessagePort : public PHandleObject
 {
 public:
-    MessagePort(const char* name, int maxCount)
+    PMessagePort(const char* name, int maxCount)
     {
         port_id handle;
         if (message_port_create(&handle, name, maxCount) == PErrorCode::Success) {
             SetHandle(handle);
         }
     }
-    MessagePort(port_id port, bool doClone = false) : HandleObject()
+    PMessagePort(port_id port, bool doClone = false) : PHandleObject()
     {
         if (doClone)
         {
@@ -54,7 +51,7 @@ public:
         }
         m_DontDeletePort = !doClone;
     }
-    ~MessagePort() {
+    ~PMessagePort() {
         if (m_DontDeletePort) m_Handle = INVALID_HANDLE;
     }
     
@@ -71,15 +68,11 @@ public:
         return message_port_receive_deadline_ns(m_Handle, targetHandler, code, buffer, bufferSize, deadline.AsNanoseconds());
     }
 
-    MessagePort(MessagePort&& other) = default;
-    MessagePort(const MessagePort& other) = default;
-    MessagePort& operator=(const MessagePort&) = default;
+    PMessagePort(PMessagePort&& other) = default;
+    PMessagePort(const PMessagePort& other) = default;
+    PMessagePort& operator=(const PMessagePort&) = default;
 
     
 private:
     bool    m_DontDeletePort = false;
 };
-
-} // namespace
-
-using PMessagePort = os::MessagePort;

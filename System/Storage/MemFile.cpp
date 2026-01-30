@@ -24,14 +24,12 @@
 #include <Storage/MemFile.h>
 #include <Utils/String.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MemFile::MemFile(std::vector<uint8_t>&& data) : m_Buffer(std::move(data))
+PMemFile::PMemFile(std::vector<uint8_t>&& data) : m_Buffer(std::move(data))
 {
 }
 
@@ -39,7 +37,7 @@ MemFile::MemFile(std::vector<uint8_t>&& data) : m_Buffer(std::move(data))
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t MemFile::Read(void* buffer, ssize_t size)
+ssize_t PMemFile::Read(void* buffer, ssize_t size)
 {
     ssize_t curLength = ReadPos(m_Position, buffer, size);
     if (curLength > 0) {
@@ -52,7 +50,7 @@ ssize_t MemFile::Read(void* buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t MemFile::Write(const void* buffer, ssize_t size)
+ssize_t PMemFile::Write(const void* buffer, ssize_t size)
 {
     ssize_t curLength = WritePos(m_Position, buffer, size);
     if (curLength > 0) {
@@ -65,7 +63,7 @@ ssize_t MemFile::Write(const void* buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t MemFile::ReadPos(off64_t position, void* buffer, ssize_t size) const
+ssize_t PMemFile::ReadPos(off64_t position, void* buffer, ssize_t size) const
 {
     const size_t bufferPos = size_t(position);
 
@@ -88,7 +86,7 @@ ssize_t MemFile::ReadPos(off64_t position, void* buffer, ssize_t size) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t MemFile::WritePos(off64_t position, const void* buffer, ssize_t size)
+ssize_t PMemFile::WritePos(off64_t position, const void* buffer, ssize_t size)
 {
     const size_t bufferPos = size_t(position);
 
@@ -104,7 +102,7 @@ ssize_t MemFile::WritePos(off64_t position, const void* buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-off64_t MemFile::Seek(off64_t position, int mode)
+off64_t PMemFile::Seek(off64_t position, int mode)
 {
     const ssize_t bufferPos = ssize_t(position);
 
@@ -141,5 +139,3 @@ off64_t MemFile::Seek(off64_t position, int mode)
             return -1;
     }
 }
-
-} // namespace os

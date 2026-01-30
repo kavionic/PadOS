@@ -20,17 +20,15 @@
 #include <GUI/Dialogs/MessageBox.h>
 #include <GUI/Widgets/TextView.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MessageBox::MessageBox(const PString& title, const PString& text, DialogButtonSets buttonSet) : DialogBase(title, text, buttonSet)
+PMessageBox::PMessageBox(const PString& title, const PString& text, PDialogButtonSets buttonSet) : PDialogBase(title, text, buttonSet)
 {
-    m_MessageView = ptr_new<TextView>("TextView", text, nullptr, TextViewFlags::MultiLine);
-    m_MessageView->SetWidthOverride(PrefSizeType::Smallest, SizeOverride::Extend, 400.0f);
+    m_MessageView = ptr_new<PTextView>("TextView", text, nullptr, PTextViewFlags::MultiLine);
+    m_MessageView->SetWidthOverride(PPrefSizeType::Smallest, PSizeOverride::Extend, 400.0f);
     SetContentView(m_MessageView);
 }
 
@@ -38,7 +36,7 @@ MessageBox::MessageBox(const PString& title, const PString& text, DialogButtonSe
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MessageBox::~MessageBox()
+PMessageBox::~PMessageBox()
 {
 }
 
@@ -46,11 +44,11 @@ MessageBox::~MessageBox()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MessageBox> MessageBox::ShowMessage(const PString& title, const PString& text, DialogButtonSets buttonSet)
+Ptr<PMessageBox> PMessageBox::ShowMessage(const PString& title, const PString& text, PDialogButtonSets buttonSet)
 {
     try
     {
-        Ptr<MessageBox> dialog = ptr_new<MessageBox>(title, text, buttonSet);
+        Ptr<PMessageBox> dialog = ptr_new<PMessageBox>(title, text, buttonSet);
         dialog->Open();
         return dialog;
     }
@@ -61,18 +59,16 @@ Ptr<MessageBox> MessageBox::ShowMessage(const PString& title, const PString& tex
     }
 }
 
-DialogButtonID MessageBox::ShowMessageSync(Ptr<View> owner, const PString& title, const PString& text, DialogButtonSets buttonSet)
+PDialogButtonID PMessageBox::ShowMessageSync(Ptr<PView> owner, const PString& title, const PString& text, PDialogButtonSets buttonSet)
 {
     try
     {
-        Ptr<MessageBox> dialog = ptr_new<MessageBox>(title, text, buttonSet);
+        Ptr<PMessageBox> dialog = ptr_new<PMessageBox>(title, text, buttonSet);
         return dialog->Go(owner);
     }
     catch (const std::bad_alloc& error)
     {
         set_last_error(ENOMEM);
-        return DialogButtonID::None;
+        return PDialogButtonID::None;
     }
 }
-
-} //namespace os

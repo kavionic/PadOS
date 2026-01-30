@@ -21,15 +21,12 @@
 
 #include <GUI/Window.h>
 
-namespace os
-{
-
-class Button;
-class ButtonBase;
-class DialogBoxView;
+class PButtonBase;
+class PButton;
+class PDialogBoxView;
 
 
-enum class DialogButtonID : int32_t
+enum class PDialogButtonID : int32_t
 {
     None,
     Cancel,
@@ -38,7 +35,7 @@ enum class DialogButtonID : int32_t
     Yes = Ok,
     FirstCustom = 100
 };
-enum class DialogButtonSets : int
+enum class PDialogButtonSets : int
 {
     None,
     Ok,
@@ -47,30 +44,28 @@ enum class DialogButtonSets : int
     YesNo
 };
 
-class DialogBase : public Window
+class PDialogBase : public PWindow
 {
 public:
-    DialogBase(const PString& title, const PString& text, DialogButtonSets buttonSet);
-    virtual ~DialogBase();
+    PDialogBase(const PString& title, const PString& text, PDialogButtonSets buttonSet);
+    virtual ~PDialogBase();
 
-    Ptr<View>   SetContentView(Ptr<View> contentView);
-    Ptr<Button> AddButton(const PString& label, DialogButtonID buttonID);
-    Ptr<Button> AddButton(const PString& label, int32_t buttonID);
+    Ptr<PView>   SetContentView(Ptr<PView> contentView);
+    Ptr<PButton> AddButton(const PString& label, PDialogButtonID buttonID);
+    Ptr<PButton> AddButton(const PString& label, int32_t buttonID);
 
-    Ptr<Button> FindButton(DialogButtonID buttonID) const;
-    Ptr<Button> FindButton(int32_t buttonID) const;
-    Ptr<Button> FindButton(const PString& buttonName) const;
+    Ptr<PButton> FindButton(PDialogButtonID buttonID) const;
+    Ptr<PButton> FindButton(int32_t buttonID) const;
+    Ptr<PButton> FindButton(const PString& buttonName) const;
 
-    DialogButtonID Go(Ptr<View> owner);
+    PDialogButtonID Go(Ptr<PView> owner);
 protected:
-    virtual void OnActivated(DialogButtonID buttonID) = 0;
+    virtual void OnActivated(PDialogButtonID buttonID) = 0;
 
 private:
-    void SlotSelected(DialogButtonID buttonID);
+    void SlotSelected(PDialogButtonID buttonID);
 
-    Ptr<DialogBoxView> m_DialogView;
+    Ptr<PDialogBoxView> m_DialogView;
 //    WeakPtr<View>      m_OwnerView;
-    DialogButtonID     m_ButtonClicked = DialogButtonID::None;
+    PDialogButtonID     m_ButtonClicked = PDialogButtonID::None;
 };
-
-} // namespace os

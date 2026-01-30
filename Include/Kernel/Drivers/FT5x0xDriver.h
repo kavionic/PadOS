@@ -169,7 +169,7 @@ private:
     KSemaphore m_EventSemaphore;
     
     static const int MAX_POINTS = 10;
-    os::IPoint m_TouchPositions[MAX_POINTS];
+    PIPoint m_TouchPositions[MAX_POINTS];
     
     FT5x0xDriver(const FT5x0xDriver&) = delete;
     FT5x0xDriver& operator=(const FT5x0xDriver&) = delete;

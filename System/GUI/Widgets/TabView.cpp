@@ -23,8 +23,6 @@
 #include <GUI/ViewFactory.h>
 
 
-using namespace os;
-
 static constexpr float CORNER_SIZE = 10.0f;
 static constexpr float ARROW_SPACE = 16.0f;
 
@@ -32,7 +30,7 @@ static constexpr float ARROW_SPACE = 16.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TabView::TabView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
+PTabView::PTabView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
 {
     Initialize();
 }
@@ -41,9 +39,9 @@ TabView::TabView(const PString& name, Ptr<View> parent, uint32_t flags) : View(n
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TabView::TabView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+PTabView::PTabView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
 {
-    MergeFlags(ViewFlags::WillDraw);
+    MergeFlags(PViewFlags::WillDraw);
     Initialize();
 
     for (pugi::xml_node childNode = xmlData.first_child(); childNode; childNode = childNode.next_sibling())
@@ -51,17 +49,17 @@ TabView::TabView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_
         if (strcmp(childNode.name(), "_TabViewTab") == 0)
         {
             const char* tabName = childNode.attribute("name").value();
-            Ptr<View> tabContentView;
+            Ptr<PView> tabContentView;
             if (childNode.first_child())
             {
-                tabContentView = ViewFactory::Get().CreateView(context, nullptr, childNode);
+                tabContentView = PViewFactory::Get().CreateView(context, nullptr, childNode);
                 if (tabContentView != nullptr)
                 {
                     if (tabContentView->GetLayoutNode() == nullptr) {
-                        tabContentView->SetLayoutNode(ptr_new<LayoutNode>());
+                        tabContentView->SetLayoutNode(ptr_new<PLayoutNode>());
                     }
                     tabContentView->SetName(tabName);
-                    tabContentView->MergeFlags(ViewFlags::WillDraw);
+                    tabContentView->MergeFlags(PViewFlags::WillDraw);
                 }
             }
             AppendTab(tabName, tabContentView);
@@ -69,17 +67,17 @@ TabView::TabView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_
         else if (strcmp(childNode.name(), "_TopBarClientView") == 0)
         {
             const char* viewName = childNode.attribute("name").value();
-            Ptr<View> topBarClientView;
+            Ptr<PView> topBarClientView;
             if (childNode.first_child())
             {
-                topBarClientView = ViewFactory::Get().CreateView(context, nullptr, childNode);
+                topBarClientView = PViewFactory::Get().CreateView(context, nullptr, childNode);
                 if (topBarClientView != nullptr)
                 {
                     if (topBarClientView->GetLayoutNode() == nullptr) {
-                        topBarClientView->SetLayoutNode(ptr_new<LayoutNode>());
+                        topBarClientView->SetLayoutNode(ptr_new<PLayoutNode>());
                     }
                     topBarClientView->SetName(viewName);
-                    topBarClientView->MergeFlags(ViewFlags::WillDraw);
+                    topBarClientView->MergeFlags(PViewFlags::WillDraw);
                 }
             }
             SetTopBarClientView(topBarClientView);
@@ -91,7 +89,7 @@ TabView::TabView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::Initialize()
+void PTabView::Initialize()
 {
     m_FontHeight = GetFontHeight();
     m_GlyphHeight = m_FontHeight.ascender + m_FontHeight.descender + m_FontHeight.line_gap;
@@ -128,7 +126,7 @@ void TabView::Initialize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int TabView::AppendTab(const PString& title, Ptr<View> view)
+int PTabView::AppendTab(const PString& title, Ptr<PView> view)
 {
     return InsertTab(m_TabList.size(), title, view);
 }
@@ -154,7 +152,7 @@ int TabView::AppendTab(const PString& title, Ptr<View> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int TabView::InsertTab(size_t index, const PString& title, Ptr<View> view)
+int PTabView::InsertTab(size_t index, const PString& title, Ptr<PView> view)
 {
     if (index > m_TabList.size()) index = m_TabList.size();
     if (m_SelectedTab != INVALID_INDEX && index <= m_SelectedTab) {
@@ -193,15 +191,15 @@ int TabView::InsertTab(size_t index, const PString& title, Ptr<View> view)
 ///////////////////////////////////////////////////////////////////////////////
 
 
-Ptr<View> TabView::DeleteTab(size_t index)
+Ptr<PView> PTabView::DeleteTab(size_t index)
 {
     if (index >= m_TabList.size()) {
         return nullptr;
     }
 
     const size_t  oldSelection = m_SelectedTab;
-    Ptr<View> view = m_TabList[index].m_View;
-    Ptr<View> prevSelection;
+    Ptr<PView> view = m_TabList[index].m_View;
+    Ptr<PView> prevSelection;
 
     if (m_SelectedTab != INVALID_INDEX && m_SelectedTab < m_TabList.size() && m_TabList[m_SelectedTab].m_View != nullptr) {
         prevSelection = m_TabList[m_SelectedTab].m_View;
@@ -239,7 +237,7 @@ Ptr<View> TabView::DeleteTab(size_t index)
             }
             if (m_TabList[m_SelectedTab].m_View != nullptr)
             {
-                Ptr<View> newView = m_TabList[m_SelectedTab].m_View;
+                Ptr<PView> newView = m_TabList[m_SelectedTab].m_View;
                 newView->SetFrame(GetClientFrame());
                 newView->Show(true);
             }
@@ -260,7 +258,7 @@ Ptr<View> TabView::DeleteTab(size_t index)
 ///////////////////////////////////////////////////////////////////////////////
 
 
-Ptr<View> TabView::GetTabView(size_t index) const
+Ptr<PView> PTabView::GetTabView(size_t index) const
 {
     return m_TabList[index].m_View;
 }
@@ -272,7 +270,7 @@ Ptr<View> TabView::GetTabView(size_t index) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int TabView::GetTabCount() const
+int PTabView::GetTabCount() const
 {
     return m_TabList.size();
 }
@@ -281,7 +279,7 @@ int TabView::GetTabCount() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int TabView::SetTabTitle(size_t index, const PString& title)
+int PTabView::SetTabTitle(size_t index, const PString& title)
 {
     m_TabList[index].m_Title = title;
 
@@ -304,7 +302,7 @@ int TabView::SetTabTitle(size_t index, const PString& title)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const std::string& TabView::GetTabTitle(size_t index) const
+const std::string& PTabView::GetTabTitle(size_t index) const
 {
     return m_TabList[index].m_Title;
 }
@@ -313,11 +311,11 @@ const std::string& TabView::GetTabTitle(size_t index) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> TabView::SetTopBarClientView(Ptr<View> view)
+Ptr<PView> PTabView::SetTopBarClientView(Ptr<PView> view)
 {
     if (view != m_TopBarClientView)
     {
-        Ptr<View> prevView = m_TopBarClientView;
+        Ptr<PView> prevView = m_TopBarClientView;
         m_TopBarClientView = view;
         if (prevView != nullptr)
         {
@@ -327,7 +325,7 @@ Ptr<View> TabView::SetTopBarClientView(Ptr<View> view)
         {
             AddChild(view);
         }
-        Layout(Point(0.0f, 0.0f));
+        Layout(PPoint(0.0f, 0.0f));
         return prevView;
     }
     return m_TopBarClientView;
@@ -345,7 +343,7 @@ Ptr<View> TabView::SetTopBarClientView(Ptr<View> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t TabView::GetSelection()
+size_t PTabView::GetSelection()
 {
     return m_SelectedTab;
 }
@@ -362,7 +360,7 @@ size_t TabView::GetSelection()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::SetSelection(size_t index, bool notify)
+void PTabView::SetSelection(size_t index, bool notify)
 {
     if (index != m_SelectedTab && index < m_TabList.size())
     {
@@ -372,7 +370,7 @@ void TabView::SetSelection(size_t index, bool notify)
         m_SelectedTab = index;
         if (m_TabList[m_SelectedTab].m_View != nullptr)
         {
-            Ptr<View> view = m_TabList[m_SelectedTab].m_View;
+            Ptr<PView> view = m_TabList[m_SelectedTab].m_View;
             view->SetFrame(GetClientFrame());
             view->Show(true);
 //            view->MakeFocus(true);
@@ -389,9 +387,9 @@ void TabView::SetSelection(size_t index, bool notify)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Rect TabView::GetClientFrame() const
+PRect PTabView::GetClientFrame() const
 {
-    Rect frame = GetNormalizedBounds();
+    PRect frame = GetNormalizedBounds();
     frame.Resize(2.0f, m_TabHeight, -2.0f, -2.0f);
     return frame;
 }
@@ -400,14 +398,14 @@ Rect TabView::GetClientFrame() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::Layout(const Point& delta)
+void PTabView::Layout(const PPoint& delta)
 {
-    const Rect bounds = GetBounds();
+    const PRect bounds = GetBounds();
     bool needFlush = false;
 
     if (m_SelectedTab != INVALID_INDEX && m_SelectedTab < m_TabList.size())
     {
-        Ptr<View> view = m_TabList[m_SelectedTab].m_View;
+        Ptr<PView> view = m_TabList[m_SelectedTab].m_View;
         if (view != nullptr)
         {
             view->SetFrame(GetClientFrame());
@@ -415,7 +413,7 @@ void TabView::Layout(const Point& delta)
     }
     if (delta.x != 0.0f)
     {
-        Rect damage = bounds;
+        PRect damage = bounds;
 
         damage.left = damage.right - std::max(3.0f, delta.x + 9.0f);
         Invalidate(damage);
@@ -423,7 +421,7 @@ void TabView::Layout(const Point& delta)
     }
     if (delta.y != 0.0f)
     {
-        Rect damage = bounds;
+        PRect damage = bounds;
 
         damage.top = damage.bottom - std::max(3.0f, delta.y + 2.0f);
         Invalidate(damage);
@@ -433,13 +431,13 @@ void TabView::Layout(const Point& delta)
     float width = bounds.Width();
 
     if (m_TopBarClientView != nullptr) {
-        width -= m_TopBarClientView->GetPreferredSize(PrefSizeType::Smallest).x;
+        width -= m_TopBarClientView->GetPreferredSize(PPrefSizeType::Smallest).x;
     }
 
     const float oldOffset = m_ScrollOffset;
     if (width < m_TotalTabsWidth)
     {
-        m_TopView->SetFrame(Rect(bounds.left + ARROW_SPACE, bounds.top, bounds.right - ARROW_SPACE, m_TabHeight - 2.0f));
+        m_TopView->SetFrame(PRect(bounds.left + ARROW_SPACE, bounds.top, bounds.right - ARROW_SPACE, m_TabHeight - 2.0f));
         width -= ARROW_SPACE * 2.0f;
         if (m_ScrollOffset > 0.0f) {
             m_ScrollOffset = 0.0f;
@@ -450,7 +448,7 @@ void TabView::Layout(const Point& delta)
         if (width + ARROW_SPACE * 2.0f - delta.x >= m_TotalTabsWidth)
         {
             m_TopView->Invalidate();
-            Rect damage(bounds);
+            PRect damage(bounds);
             damage.bottom = damage.top + m_TabHeight;
             Invalidate(damage);
             needFlush = true;
@@ -458,7 +456,7 @@ void TabView::Layout(const Point& delta)
     }
     else
     {
-        m_TopView->SetFrame(Rect(bounds.left + 2.0f, bounds.top, bounds.right - 2.0f, m_TabHeight - 2.0f));
+        m_TopView->SetFrame(PRect(bounds.left + 2.0f, bounds.top, bounds.right - 2.0f, m_TabHeight - 2.0f));
         if (m_ScrollOffset > width - m_TotalTabsWidth) {
             m_ScrollOffset = width - m_TotalTabsWidth;
         }
@@ -468,7 +466,7 @@ void TabView::Layout(const Point& delta)
         if (width - delta.x < m_TotalTabsWidth)
         {
             m_TopView->Invalidate();
-            Rect damage(bounds);
+            PRect damage(bounds);
             damage.bottom = damage.top + m_TabHeight;
             Invalidate(damage);
             needFlush = true;
@@ -476,10 +474,10 @@ void TabView::Layout(const Point& delta)
     }
     if (m_TopBarClientView != nullptr)
     {
-        Rect topBarClientViewFrame = m_TopView->GetFrame();
+        PRect topBarClientViewFrame = m_TopView->GetFrame();
         topBarClientViewFrame.left = m_TotalTabsWidth + 2.0f;
         topBarClientViewFrame.right = bounds.right - 2.0f;
-        float maxWidth = m_TopBarClientView->GetPreferredSize(PrefSizeType::Greatest).x;
+        float maxWidth = m_TopBarClientView->GetPreferredSize(PPrefSizeType::Greatest).x;
         if (topBarClientViewFrame.Width() > maxWidth) topBarClientViewFrame.left = topBarClientViewFrame.right - maxWidth;
         m_TopBarClientView->SetFrame(topBarClientViewFrame);
     }
@@ -487,7 +485,7 @@ void TabView::Layout(const Point& delta)
     {
         m_TopView->ScrollBy(m_ScrollOffset - oldOffset, 0.0f);
         m_TopView->Invalidate();
-        Rect damage(bounds);
+        PRect damage(bounds);
         damage.bottom = damage.top + m_TabHeight;
         Invalidate(damage);
         needFlush = true;
@@ -501,7 +499,7 @@ void TabView::Layout(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::OnFrameSized(const Point& delta)
+void PTabView::OnFrameSized(const PPoint& delta)
 {
     Layout(delta);
 }
@@ -510,9 +508,9 @@ void TabView::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool TabView::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PTabView::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
-    if (m_HitButton != MouseButton_e::None || m_TabList.empty() || position.y >= m_TabHeight) {
+    if (m_HitButton != PMouseButton::None || m_TabList.empty() || position.y >= m_TabHeight) {
         return false;
     }
     m_HitButton = button;
@@ -537,13 +535,13 @@ bool TabView::OnMouseDown(MouseButton_e button, const Point& position, const Mot
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool TabView::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PTabView::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (button != m_HitButton) {
         return false;
     }
     MakeFocus(button, false);
-    m_HitButton = MouseButton_e::None;
+    m_HitButton = PMouseButton::None;
     return true;
 }
 
@@ -551,7 +549,7 @@ bool TabView::OnMouseUp(MouseButton_e button, const Point& position, const Motio
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool TabView::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PTabView::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (button == m_HitButton)
     {
@@ -593,8 +591,8 @@ bool TabView::OnMouseMove(MouseButton_e button, const Point& position, const Mot
             }
             else
             {
-                Rect cBounds = GetBounds();
-                Invalidate(Rect(cBounds.left, m_TabHeight - 2.0f, cBounds.right, m_TabHeight));
+                PRect cBounds = GetBounds();
+                Invalidate(PRect(cBounds.left, m_TabHeight - 2.0f, cBounds.right, m_TabHeight));
             }
             m_TopView->ScrollBy(m_ScrollOffset - oldOffset, 0.0f);
             Flush();
@@ -607,22 +605,22 @@ bool TabView::OnMouseMove(MouseButton_e button, const Point& position, const Mot
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& event)
+void PTabView::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event)
 {
     switch (keyCode)
     {
-        case KeyCodes::CURSOR_LEFT:
+        case PKeyCodes::CURSOR_LEFT:
             if (m_SelectedTab > 0) {
                 SetSelection(m_SelectedTab - 1);
             }
             break;
-        case KeyCodes::CURSOR_RIGHT:
+        case PKeyCodes::CURSOR_RIGHT:
             if (m_SelectedTab < m_TabList.size() - 1) {
                 SetSelection(m_SelectedTab + 1);
             }
             break;
         default:
-            View::OnKeyDown(keyCode, text, event);
+            PView::OnKeyDown(keyCode, text, event);
             break;
     }
 }
@@ -636,7 +634,7 @@ void TabView::OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& e
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void os::TabView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PTabView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     minSize->x = m_TotalTabsWidth;
     minSize->y = 0.0f;
@@ -646,10 +644,10 @@ void os::TabView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool in
     {
         if (m_TabList[i].m_View != nullptr)
         {
-            const Point viewMinSize = m_TabList[i].m_View->GetPreferredSize(PrefSizeType::Smallest);
+            const PPoint viewMinSize = m_TabList[i].m_View->GetPreferredSize(PPrefSizeType::Smallest);
             if (viewMinSize.x > minSize->x) minSize->x = viewMinSize.x;
             if (viewMinSize.y > minSize->y) minSize->y = viewMinSize.y;
-            const Point viewMaxSize = m_TabList[i].m_View->GetPreferredSize(PrefSizeType::Greatest);
+            const PPoint viewMaxSize = m_TabList[i].m_View->GetPreferredSize(PPrefSizeType::Greatest);
             if (viewMaxSize.x > maxSize->x) maxSize->x = viewMaxSize.x;
             if (viewMaxSize.y > maxSize->y) maxSize->y = viewMaxSize.y;
         }
@@ -662,12 +660,12 @@ void os::TabView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool in
 }
 
 
-float TabView::GetAvailableTabsWidth() const
+float PTabView::GetAvailableTabsWidth() const
 {
     float width = Width();
 
     if (m_TopBarClientView != nullptr) {
-        width -= m_TopBarClientView->GetPreferredSize(PrefSizeType::Smallest).x;
+        width -= m_TopBarClientView->GetPreferredSize(PPrefSizeType::Smallest).x;
     }
     return width;
 }
@@ -676,12 +674,12 @@ float TabView::GetAvailableTabsWidth() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static Color Tint(const Color& color, float tint)
+static PColor Tint(const PColor& color, float tint)
 {
-    return Color(uint8_t((float(color.GetRed()) * tint + 127.0f * (1.0f - tint)) * 0.5f),
-                 uint8_t((float(color.GetGreen()) * tint + 127.0f * (1.0f - tint)) * 0.5f),
-                 uint8_t((float(color.GetBlue()) * tint + 127.0f * (1.0f - tint)) * 0.5f),
-                 color.GetAlpha()
+    return PColor(uint8_t((float(color.GetRed()) * tint + 127.0f * (1.0f - tint)) * 0.5f),
+                  uint8_t((float(color.GetGreen()) * tint + 127.0f * (1.0f - tint)) * 0.5f),
+                  uint8_t((float(color.GetBlue()) * tint + 127.0f * (1.0f - tint)) * 0.5f),
+                  color.GetAlpha()
     );
 }
 
@@ -689,14 +687,14 @@ static Color Tint(const Color& color, float tint)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::TopView::OnPaint(const Rect& updateRect)
+void PTabView::TopView::OnPaint(const PRect& updateRect)
 {
-    const Rect bounds = GetBounds();
+    const PRect bounds = GetBounds();
 
-    const DynamicColor fgColor(StandardColorID::Shine);
-    const DynamicColor bgColor(StandardColorID::Shadow);
-    const Color fgShadowColor = Tint(fgColor, 0.9f);
-    const Color bgShadowColor = Tint(bgColor, 0.8f);
+    const PDynamicColor fgColor(PStandardColorID::Shine);
+    const PDynamicColor bgColor(PStandardColorID::Shadow);
+    const PColor fgShadowColor = Tint(fgColor, 0.9f);
+    const PColor bgShadowColor = Tint(bgColor, 0.8f);
 
     float x;
 
@@ -707,14 +705,14 @@ void TabView::TopView::OnPaint(const Rect& updateRect)
     }
 
     const float       tabHeight = m_TabView->m_TabHeight;
-    const FontHeight  fontHeight = m_TabView->m_FontHeight;
+    const PFontHeight  fontHeight = m_TabView->m_FontHeight;
     const float       glyphHeight = m_TabView->m_GlyphHeight;
 
-    FillRect(bounds, get_standard_color(StandardColorID::DefaultBackground));
+    FillRect(bounds, pget_standard_color(PStandardColorID::DefaultBackground));
     for (size_t i = 0; i < m_TabView->m_TabList.size(); ++i)
     {
         float width = m_TabView->m_TabList[i].m_Width;
-        Rect tabFrame(x + 2.0f, 2.0f, x + width + 2.0f, m_TabView->m_TabHeight);
+        PRect tabFrame(x + 2.0f, 2.0f, x + width + 2.0f, m_TabView->m_TabHeight);
 
         if (i == m_TabView->m_SelectedTab) {
             tabFrame.Resize(-2.0f, -2.0f, 2.0f, 0.0f);
@@ -722,38 +720,38 @@ void TabView::TopView::OnPaint(const Rect& updateRect)
         SetFgColor(fgShadowColor);
         if (i != m_TabView->m_SelectedTab + 1)
         {
-            DrawLine(Point(tabFrame.left, tabFrame.bottom - 3.0f), Point(tabFrame.left, tabFrame.top + CORNER_SIZE));
-            DrawLine(Point(tabFrame.left + CORNER_SIZE, tabFrame.top));
+            DrawLine(PPoint(tabFrame.left, tabFrame.bottom - 3.0f), PPoint(tabFrame.left, tabFrame.top + CORNER_SIZE));
+            DrawLine(PPoint(tabFrame.left + CORNER_SIZE, tabFrame.top));
             if (i == m_TabView->m_SelectedTab - 1) {
-                DrawLine(Point(tabFrame.right + CORNER_SIZE - 3.0f, tabFrame.top));
+                DrawLine(PPoint(tabFrame.right + CORNER_SIZE - 3.0f, tabFrame.top));
             } else {
-                DrawLine(Point(tabFrame.right - 1.0f, tabFrame.top));
+                DrawLine(PPoint(tabFrame.right - 1.0f, tabFrame.top));
             }
 
             SetFgColor(fgColor);
 
-            DrawLine(Point(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f), Point(tabFrame.left + 1.0f, tabFrame.top + 1.0f + CORNER_SIZE));
-            DrawLine(Point(tabFrame.left + 1.0f + CORNER_SIZE, tabFrame.top + 1.0f));
+            DrawLine(PPoint(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f), PPoint(tabFrame.left + 1.0f, tabFrame.top + 1.0f + CORNER_SIZE));
+            DrawLine(PPoint(tabFrame.left + 1.0f + CORNER_SIZE, tabFrame.top + 1.0f));
             if (i == m_TabView->m_SelectedTab - 1) {
-                DrawLine(Point(tabFrame.right + CORNER_SIZE - 4.0f, tabFrame.top + 1.0f));
+                DrawLine(PPoint(tabFrame.right + CORNER_SIZE - 4.0f, tabFrame.top + 1.0f));
             } else {
-                DrawLine(Point(tabFrame.right - 2.0f, tabFrame.top + 1.0f));
+                DrawLine(PPoint(tabFrame.right - 2.0f, tabFrame.top + 1.0f));
             }
         }
         else
         {
-            DrawLine(Point(tabFrame.left + 2.0f, tabFrame.top), Point(tabFrame.right - 1.0f, tabFrame.top));
+            DrawLine(PPoint(tabFrame.left + 2.0f, tabFrame.top), PPoint(tabFrame.right - 1.0f, tabFrame.top));
             SetFgColor(fgColor);
-            DrawLine(Point(tabFrame.left + 2.0f, tabFrame.top + 1.0f), Point(tabFrame.right - 2.0f, tabFrame.top + 1.0f));
+            DrawLine(PPoint(tabFrame.left + 2.0f, tabFrame.top + 1.0f), PPoint(tabFrame.right - 2.0f, tabFrame.top + 1.0f));
         }
 
         if (i != m_TabView->m_SelectedTab - 1)
         {
             SetFgColor(bgShadowColor);
-            DrawLine(Point(tabFrame.right - 1.0f, tabFrame.top + 2.0f), Point(tabFrame.right - 1.0f, tabFrame.bottom - 3.0f));
+            DrawLine(PPoint(tabFrame.right - 1.0f, tabFrame.top + 2.0f), PPoint(tabFrame.right - 1.0f, tabFrame.bottom - 3.0f));
 
             SetFgColor(bgColor);
-            DrawLine(Point(tabFrame.right - 2.0f, tabFrame.top + 2.0f), Point(tabFrame.right - 2.0f, tabFrame.bottom - 2.0f));
+            DrawLine(PPoint(tabFrame.right - 2.0f, tabFrame.top + 2.0f), PPoint(tabFrame.right - 2.0f, tabFrame.bottom - 2.0f));
         }
         SetFgColor(0, 0, 0);
 
@@ -768,36 +766,36 @@ void TabView::TopView::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TabView::OnPaint(const Rect& updateRect)
+void PTabView::OnPaint(const PRect& updateRect)
 {
-    Rect bounds = GetBounds();
+    PRect bounds = GetBounds();
 
     const float viewWidth = bounds.Width();
 
-    Rect tabRect = bounds;
+    PRect tabRect = bounds;
     tabRect.bottom = m_TabHeight - 2.0f;
 
     bounds.top += m_TabHeight - 2.0f;
 
-    const DynamicColor fgColor(StandardColorID::Shine);
-    const DynamicColor bgColor(StandardColorID::Shadow);
+    const PDynamicColor fgColor(PStandardColorID::Shine);
+    const PDynamicColor bgColor(PStandardColorID::Shadow);
 
-    const Color fgShadowColor = Tint(fgColor, 0.9f);
-    const Color bgShadowColor = Tint(bgColor, 0.8f);
+    const PColor fgShadowColor = Tint(fgColor, 0.9f);
+    const PColor bgShadowColor = Tint(bgColor, 0.8f);
 
     SetFgColor(bgShadowColor);
-    DrawLine(Point(bounds.right - 1.0f, bounds.top + 2.0f), Point(bounds.right - 1.0f, bounds.bottom - 1.0f));  // top/right -> bottom/right
-    DrawLine(Point(bounds.left, bounds.bottom - 1.0f));                                                         // bottom/left
+    DrawLine(PPoint(bounds.right - 1.0f, bounds.top + 2.0f), PPoint(bounds.right - 1.0f, bounds.bottom - 1.0f));  // top/right -> bottom/right
+    DrawLine(PPoint(bounds.left, bounds.bottom - 1.0f));                                                         // bottom/left
 
     SetFgColor(bgColor);
-    DrawLine(Point(bounds.right - 2.0f, bounds.top + 2.0f), Point(bounds.right - 2.0f, bounds.bottom - 2.0f));  // top/right -> bottom/right
-    DrawLine(Point(bounds.left + 1.0f, bounds.bottom - 2.0f));                                                  // bottom/left
+    DrawLine(PPoint(bounds.right - 2.0f, bounds.top + 2.0f), PPoint(bounds.right - 2.0f, bounds.bottom - 2.0f));  // top/right -> bottom/right
+    DrawLine(PPoint(bounds.left + 1.0f, bounds.bottom - 2.0f));                                                  // bottom/left
 
     SetFgColor(fgShadowColor);
-    DrawLine(Point(bounds.left, bounds.top - 1.0f), Point(bounds.left, bounds.bottom - 3.0f));                  // top/left -> bottom/left
+    DrawLine(PPoint(bounds.left, bounds.top - 1.0f), PPoint(bounds.left, bounds.bottom - 3.0f));                  // top/left -> bottom/left
 
     SetFgColor(fgColor);
-    DrawLine(Point(bounds.left + 1.0f, bounds.top + 1.0f), Point(bounds.left + 1.0f, bounds.bottom - 3.0f));    // top/left -> bottom/left
+    DrawLine(PPoint(bounds.left + 1.0f, bounds.top + 1.0f), PPoint(bounds.left + 1.0f, bounds.bottom - 3.0f));    // top/left -> bottom/left
 
     float x = m_ScrollOffset;
 
@@ -806,15 +804,15 @@ void TabView::OnPaint(const Rect& updateRect)
     }
     if (m_TotalTabsWidth <= viewWidth)
     {
-        SetFgColor(StandardColorID::DefaultBackground);
-        FillRect(Rect(0.0f, 0.0f, 2.0f, m_TabHeight - 2.0f));
-        FillRect(Rect(tabRect.right - 2.0f, 0.0f, tabRect.right, m_TabHeight - 2.0f));
+        SetFgColor(PStandardColorID::DefaultBackground);
+        FillRect(PRect(0.0f, 0.0f, 2.0f, m_TabHeight - 2.0f));
+        FillRect(PRect(tabRect.right - 2.0f, 0.0f, tabRect.right, m_TabHeight - 2.0f));
     }
 
     for (size_t i = 0; i < m_TabList.size(); ++i)
     {
         float width = m_TabList[i].m_Width;
-        Rect tabFrame(x + 2.0f, 2.0f, x + width + 2.0f, m_TabHeight);
+        PRect tabFrame(x + 2.0f, 2.0f, x + width + 2.0f, m_TabHeight);
 
         if (i == m_SelectedTab) {
             tabFrame.Resize(-2.0f, -2.0f, 2.0f, 0.0f);
@@ -825,22 +823,22 @@ void TabView::OnPaint(const Rect& updateRect)
             if (i != m_SelectedTab + 1)
             {
                 SetFgColor(fgShadowColor);
-                DrawLine(Point(tabFrame.left, tabFrame.bottom - 3.0f), Point(tabFrame.left, tabFrame.top + 2.0f + CORNER_SIZE));
-                DrawLine(Point(tabFrame.left + 3.0f, tabFrame.top));
+                DrawLine(PPoint(tabFrame.left, tabFrame.bottom - 3.0f), PPoint(tabFrame.left, tabFrame.top + 2.0f + CORNER_SIZE));
+                DrawLine(PPoint(tabFrame.left + 3.0f, tabFrame.top));
                 SetFgColor(fgColor);
-                DrawLine(Point(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f), Point(tabFrame.left + 1.0f, tabFrame.top + 2.0f + CORNER_SIZE));
-                DrawLine(Point(tabFrame.left + 1.0f + CORNER_SIZE, tabFrame.top + 1.0f));
+                DrawLine(PPoint(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f), PPoint(tabFrame.left + 1.0f, tabFrame.top + 2.0f + CORNER_SIZE));
+                DrawLine(PPoint(tabFrame.left + 1.0f + CORNER_SIZE, tabFrame.top + 1.0f));
             }
         }
         else
         {
             if (i == m_SelectedTab) {
-                DrawLine(Point(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f), Point(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f));
+                DrawLine(PPoint(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f), PPoint(tabFrame.left + 1.0f, tabFrame.bottom - 2.0f));
             }
         }
         if (i == m_SelectedTab)
         {
-            SetFgColor(StandardColorID::DefaultBackground);
+            SetFgColor(PStandardColorID::DefaultBackground);
             float x1 = x + 2.0f;
             float x2 = x + width + 2.0f;
 
@@ -853,44 +851,44 @@ void TabView::OnPaint(const Rect& updateRect)
                     x2 = bounds.right - 2.0f - ARROW_SPACE;
                 }
             }
-            DrawLine(Point(x1, tabFrame.bottom - 2.0f), Point(x2, tabFrame.bottom - 2.0f));
-            DrawLine(Point(x1, tabFrame.bottom - 1.0f), Point(x2, tabFrame.bottom - 1.0f));
+            DrawLine(PPoint(x1, tabFrame.bottom - 2.0f), PPoint(x2, tabFrame.bottom - 2.0f));
+            DrawLine(PPoint(x1, tabFrame.bottom - 1.0f), PPoint(x2, tabFrame.bottom - 1.0f));
 
             SetFgColor(fgShadowColor);
 
             if (x >= 0.0f) {
-                DrawLine(Point(0, tabFrame.bottom - 2.0f), Point(x, tabFrame.bottom - 2.0f));
+                DrawLine(PPoint(0, tabFrame.bottom - 2.0f), PPoint(x, tabFrame.bottom - 2.0f));
             }
-            DrawLine(Point(x + width + 2, tabFrame.bottom - 2.0f), Point(bounds.right - 1.0f, tabFrame.bottom - 2.0f));
+            DrawLine(PPoint(x + width + 2, tabFrame.bottom - 2.0f), PPoint(bounds.right - 1.0f, tabFrame.bottom - 2.0f));
 
             SetFgColor(fgColor);
             if (x >= 1) {
-                DrawLine(Point(1, tabFrame.bottom - 1.0f), Point(x + 1.0f, tabFrame.bottom - 1.0f));
+                DrawLine(PPoint(1, tabFrame.bottom - 1.0f), PPoint(x + 1.0f, tabFrame.bottom - 1.0f));
             }
-            DrawLine(Point(x + width + 2.0f, tabFrame.bottom - 1.0f), Point(bounds.right - 1.0f, tabFrame.bottom - 1.0f));
+            DrawLine(PPoint(x + width + 2.0f, tabFrame.bottom - 1.0f), PPoint(bounds.right - 1.0f, tabFrame.bottom - 1.0f));
         }
         x += width;
     }
 
     if (m_TotalTabsWidth > viewWidth)
     {
-        SetFgColor(StandardColorID::DefaultBackground);
-        FillRect(Rect(0.0f, 0.0f, ARROW_SPACE, m_TabHeight - 2.0f));
-        FillRect(Rect(tabRect.right - ARROW_SPACE, 0.0f, tabRect.right, m_TabHeight - 2.0f));
+        SetFgColor(PStandardColorID::DefaultBackground);
+        FillRect(PRect(0.0f, 0.0f, ARROW_SPACE, m_TabHeight - 2.0f));
+        FillRect(PRect(tabRect.right - ARROW_SPACE, 0.0f, tabRect.right, m_TabHeight - 2.0f));
         SetFgColor(bgColor);
         for (float x = 2.0f; x < ARROW_SPACE - 2.0f; x += 1.0f)
         {
             const float y1 = m_TabHeight * 0.5f - (x - 2.0f);
             const float y2 = m_TabHeight * 0.5f + (x - 2.0f);
-            DrawLine(Point(x, y1), Point(x, y2));
-            DrawLine(Point(bounds.right - x - 1.0f, y1), Point(bounds.right - x - 1.0f, y2));
+            DrawLine(PPoint(x, y1), PPoint(x, y2));
+            DrawLine(PPoint(bounds.right - x - 1.0f, y1), PPoint(bounds.right - x - 1.0f, y2));
         }
 
         SetFgColor(fgShadowColor);
-        DrawLine(Point(0, m_TabHeight - 2.0f), Point(ARROW_SPACE, m_TabHeight - 2.0f));
-        DrawLine(Point(bounds.right - 1.0f - ARROW_SPACE, m_TabHeight - 2.0f), Point(bounds.right - 1.0f, m_TabHeight - 2.0f));
+        DrawLine(PPoint(0, m_TabHeight - 2.0f), PPoint(ARROW_SPACE, m_TabHeight - 2.0f));
+        DrawLine(PPoint(bounds.right - 1.0f - ARROW_SPACE, m_TabHeight - 2.0f), PPoint(bounds.right - 1.0f, m_TabHeight - 2.0f));
         SetFgColor(fgColor);
-        DrawLine(Point(1.0f, m_TabHeight - 1.0f), Point(ARROW_SPACE, m_TabHeight - 1.0f));
-        DrawLine(Point(bounds.right - 1.0f - ARROW_SPACE, m_TabHeight - 1.0f), Point(bounds.right - 1.0f, m_TabHeight - 1.0f));
+        DrawLine(PPoint(1.0f, m_TabHeight - 1.0f), PPoint(ARROW_SPACE, m_TabHeight - 1.0f));
+        DrawLine(PPoint(bounds.right - 1.0f - ARROW_SPACE, m_TabHeight - 1.0f), PPoint(bounds.right - 1.0f, m_TabHeight - 1.0f));
     }
 }

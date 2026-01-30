@@ -25,24 +25,23 @@
 #include "Ptr/PtrTarget.h"
 #include "Utils/String.h"
 
-namespace os
-{
-    
-class Looper;
-class RemoteSignalRXBase;
 
-class EventHandler : public PtrTarget
+class PLooper;
+class PRemoteSignalRXBase;
+
+
+class PEventHandler : public PtrTarget
 {
 public:
-    EventHandler(const PString& name);
-    virtual ~EventHandler();
+    PEventHandler(const PString& name);
+    virtual ~PEventHandler();
 
     const PString& GetName() const { return m_Name; }
     void SetName(const PString& name) { m_Name = name; }
 
     handler_id GetHandle() const { return m_Handle; }
 
-    Looper* GetLooper() const { return m_Looper; }
+    PLooper* GetLooper() const { return m_Looper; }
 
     virtual bool HandleMessage(int32_t code, const void* data, size_t length);
 
@@ -52,7 +51,7 @@ public:
         m_RemoteSignalMap[SIGNAL::GetID()] = &signal->ReceiverObj;
         signal->ReceiverObj.Connect(this, callback);
     }
-    RemoteSignalRXBase* GetSignalForMessage(int32_t code) {
+    PRemoteSignalRXBase* GetSignalForMessage(int32_t code) {
         auto i = m_RemoteSignalMap.find(code);
         if (i != m_RemoteSignalMap.end()) {
             return i->second;
@@ -61,17 +60,15 @@ public:
     }
 
 private:
-    friend class Looper;
+    friend class PLooper;
 
     PString    m_Name;
 
-    Looper*    m_Looper = nullptr;
+    PLooper*    m_Looper = nullptr;
     handler_id m_Handle;
     
-    std::map<int, RemoteSignalRXBase*> m_RemoteSignalMap;
+    std::map<int, PRemoteSignalRXBase*> m_RemoteSignalMap;
     
-    EventHandler(const EventHandler &) = delete;
-    EventHandler& operator=(const EventHandler &) = delete;
+    PEventHandler(const PEventHandler &) = delete;
+    PEventHandler& operator=(const PEventHandler &) = delete;
 };
-
-} // namespace

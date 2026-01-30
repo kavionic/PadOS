@@ -22,26 +22,24 @@
 
 #include <Ptr/PtrTarget.h>
 
-namespace os
-{
 
-enum class Font_e : uint8_t { e_FontSmall, e_FontNormal, e_FontLarge, e_Font7Seg, e_FontCount };
+enum class PFontID : uint8_t { e_FontSmall, e_FontNormal, e_FontLarge, e_Font7Seg, e_FontCount };
 
-struct FontHeight
+struct PFontHeight
 {
     float ascender;   // Pixels from baseline to top of glyph (positive)
     float descender;  // Pixels from baseline to bottom of glyph (negative)
     float line_gap;   // Space between lines (positive)    
 };
 
-class Font : public PtrTarget
+class PFont : public PtrTarget
 {
 public:
-    Font(Font_e font) : m_Font(font) {}
+    PFont(PFontID font) : m_Font(font) {}
 
-    void Set(Font_e font) { m_Font = font; }
-    Font_e Get() const { return m_Font; }
-    FontHeight GetHeight() const;        
+    void Set(PFontID font) { m_Font = font; }
+    PFontID Get() const { return m_Font; }
+    PFontHeight GetHeight() const;        
 
     int		GetStringLength(const char* pzString, float vWidth, bool bIncludeLast = false) const;
     int		GetStringLength(const char* pzString, int nLength, float vWidth, bool bIncludeLast = false) const;
@@ -51,7 +49,5 @@ public:
     float GetStringWidth(const char* string, size_t length) const;
     
 private:
-    Font_e m_Font;
+    PFontID m_Font;
 };
-
-} // namespace

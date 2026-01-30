@@ -20,14 +20,12 @@
 #include <System/Platform.h>
 #include <GUI/Widgets/Button.h>
 
-using namespace os;
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Button::Button(const PString& name, const PString& label, Ptr<View> parent, uint32_t flags) : ButtonBase(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+PButton::PButton(const PString& name, const PString& label, Ptr<PView> parent, uint32_t flags) : PButtonBase(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     SetLabel(label);
 	UpdateLabelSize();
@@ -37,9 +35,9 @@ Button::Button(const PString& name, const PString& label, Ptr<View> parent, uint
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Button::Button(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : ButtonBase(context, parent, xmlData, Alignment::Center)
+PButton::PButton(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PButtonBase(context, parent, xmlData, PAlignment::Center)
 {
-    MergeFlags(ViewFlags::WillDraw);
+    MergeFlags(PViewFlags::WillDraw);
 	UpdateLabelSize();
 }
 
@@ -47,7 +45,7 @@ Button::Button(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_no
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Button::~Button()
+PButton::~PButton()
 {
 }
 
@@ -55,9 +53,9 @@ Button::~Button()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void os::Button::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PButton::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    Point size(m_LabelSize.x + 16.0f, m_LabelSize.y + 8.0f);
+    PPoint size(m_LabelSize.x + 16.0f, m_LabelSize.y + 8.0f);
     *minSize = size;
     *maxSize = size;
 }
@@ -66,27 +64,27 @@ void os::Button::CalculatePreferredSize(Point* minSize, Point* maxSize, bool inc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Button::OnPaint(const Rect& updateRect)
+void PButton::OnPaint(const PRect& updateRect)
 {
     const bool isPressed = GetPressedState();
     const bool isEnabled = IsEnabled();
-    Rect bounds = GetBounds();
-    SetEraseColor(StandardColorID::ButtonBackground);
+    PRect bounds = GetBounds();
+    SetEraseColor(PStandardColorID::ButtonBackground);
 
     if (isEnabled) {
         DrawFrame(bounds, isPressed ? FRAME_RECESSED : FRAME_RAISED);
     } else {
         DrawFrame(bounds, FRAME_DISABLED);
     }
-    Point labelPos(std::round((bounds.Width() - m_LabelSize.x) * 0.5f), std::round((bounds.Height() - m_LabelSize.y) * 0.5f));
+    PPoint labelPos(std::round((bounds.Width() - m_LabelSize.x) * 0.5f), std::round((bounds.Height() - m_LabelSize.y) * 0.5f));
     
     if (isPressed) {
-        labelPos += Point(1.0f, 1.0f);
+        labelPos += PPoint(1.0f, 1.0f);
     }
 
     MovePenTo(labelPos);
-    SetFgColor(IsEnabled() ? StandardColorID::ButtonLabelNormal : StandardColorID::ButtonLabelDisabled);
-    SetBgColor(StandardColorID::ButtonBackground);
+    SetFgColor(IsEnabled() ? PStandardColorID::ButtonLabelNormal : PStandardColorID::ButtonLabelDisabled);
+    SetBgColor(PStandardColorID::ButtonBackground);
     DrawString(GetLabel());
 }
 
@@ -94,7 +92,7 @@ void Button::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Button::OnLabelChanged(const PString& label)
+void PButton::OnLabelChanged(const PString& label)
 {
     UpdateLabelSize();
     Invalidate();
@@ -106,9 +104,9 @@ void Button::OnLabelChanged(const PString& label)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Button::UpdateLabelSize()
+void PButton::UpdateLabelSize()
 {
 	m_LabelSize.x = GetStringWidth(GetLabel());
-	FontHeight fontHeight = GetFontHeight();
+	PFontHeight fontHeight = GetFontHeight();
 	m_LabelSize.y = fontHeight.descender - fontHeight.ascender + fontHeight.line_gap;
 }

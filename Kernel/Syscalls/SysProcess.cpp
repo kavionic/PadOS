@@ -30,8 +30,6 @@
 #include <Kernel/Syscalls.h>
 
 
-using namespace os;
-
 extern unsigned char* _sheap;
 extern unsigned char* _eheap;
 

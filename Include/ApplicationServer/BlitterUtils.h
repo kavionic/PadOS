@@ -4,7 +4,7 @@
 #include <Math/Point.h>
 #include <GUI/Color.h>
 
-namespace os::BlitterUtils
+namespace PBlitterUtils
 {
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -12,7 +12,7 @@ namespace os::BlitterUtils
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename TReadPixel, typename TWritePixel, typename TNextLine>
-void CopyBitmap(TReadPixel&& readPixel, TWritePixel&& writePixel, TNextLine&& nextLine, const IRect& rect)
+void CopyBitmap(TReadPixel&& readPixel, TWritePixel&& writePixel, TNextLine&& nextLine, const PIRect& rect)
 {
     for (int32_t y = rect.top; y < rect.bottom; ++y)
     {
@@ -29,7 +29,7 @@ void CopyBitmap(TReadPixel&& readPixel, TWritePixel&& writePixel, TNextLine&& ne
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename TReadPixel, typename TWritePixel>
-void ScaleBitmapBilinear(TReadPixel&& readPixel, TWritePixel&& writePixel, const IRect& srcOrigRect, const IRect& dstOrigRect, const Rect& srcRect, const IRect& dstRect)
+void ScaleBitmapBilinear(TReadPixel&& readPixel, TWritePixel&& writePixel, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect)
 {
     const float scaleX = float(srcOrigRect.Width()  - 1) / float(dstOrigRect.Width());
     const float scaleY = float(srcOrigRect.Height() - 1) / float(dstOrigRect.Height());
@@ -40,8 +40,8 @@ void ScaleBitmapBilinear(TReadPixel&& readPixel, TWritePixel&& writePixel, const
         const int32_t srcY = int32_t(srcYf);
         const float   offsetY = srcYf - float(srcY);
 
-        Color p00 = readPixel(int32_t(srcRect.left), srcY);
-        Color p01 = readPixel(int32_t(srcRect.left), srcY + 1);
+        PColor p00 = readPixel(int32_t(srcRect.left), srcY);
+        PColor p01 = readPixel(int32_t(srcRect.left), srcY + 1);
 
         for (int x = 0; x < dstRect.Width(); ++x)
         {
@@ -49,8 +49,8 @@ void ScaleBitmapBilinear(TReadPixel&& readPixel, TWritePixel&& writePixel, const
             const int32_t srcX = int32_t(srcXf);
             const float   offsetX = srcXf - float(srcX);
 
-            const Color p10 = readPixel(srcX + 1, srcY);
-            const Color p11 = readPixel(srcX + 1, srcY + 1);
+            const PColor p10 = readPixel(srcX + 1, srcY);
+            const PColor p11 = readPixel(srcX + 1, srcY + 1);
 
             auto interpolate = [](float offsetX, float offsetY, float v00, float v10, float v01, float v11)
             {
@@ -64,7 +64,7 @@ void ScaleBitmapBilinear(TReadPixel&& readPixel, TWritePixel&& writePixel, const
             };
 
             // Interpolate each channel.
-            const Color pixel32 = Color::FromRGB32AFloat(
+            const PColor pixel32 = PColor::FromRGB32AFloat(
                 interpolate(offsetX, offsetY, p00.GetRedFloat(),   p10.GetRedFloat(),   p01.GetRedFloat(),   p11.GetRedFloat()),
                 interpolate(offsetX, offsetY, p00.GetGreenFloat(), p10.GetGreenFloat(), p01.GetGreenFloat(), p11.GetGreenFloat()),
                 interpolate(offsetX, offsetY, p00.GetBlueFloat(),  p10.GetBlueFloat(),  p01.GetBlueFloat(),  p11.GetBlueFloat()),
@@ -79,4 +79,4 @@ void ScaleBitmapBilinear(TReadPixel&& readPixel, TWritePixel&& writePixel, const
     }
 }
 
-} // namespace os::BlitterUtils
+} // namespace PBlitterUtils

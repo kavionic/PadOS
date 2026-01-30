@@ -20,13 +20,12 @@
 #include <unistd.h>
 #include <Storage/TempFile.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TempFile::TempFile(const PString& prefix, const PString& path, int access) : File()
+PTempFile::PTempFile(const PString& prefix, const PString& path, int access) : PFile()
 {
     m_DeleteFile = true;
     while (true)
@@ -56,7 +55,7 @@ TempFile::TempFile(const PString& prefix, const PString& path, int access) : Fil
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TempFile::~TempFile()
+PTempFile::~PTempFile()
 {
     if (m_DeleteFile) {
         unlink(m_Path.c_str());
@@ -67,7 +66,7 @@ TempFile::~TempFile()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TempFile::Detatch()
+void PTempFile::Detatch()
 {
     m_DeleteFile = false;
 }
@@ -76,7 +75,7 @@ void TempFile::Detatch()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool TempFile::Unlink()
+bool PTempFile::Unlink()
 {
     if (m_DeleteFile)
     {
@@ -93,7 +92,7 @@ bool TempFile::Unlink()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString TempFile::GetPath() const
+PString PTempFile::GetPath() const
 {
     return m_Path;
 }

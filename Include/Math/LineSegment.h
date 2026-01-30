@@ -21,29 +21,25 @@
 
 #include "Math/Point.h"
 
-namespace os
-{
 
-class LineSegment
+class PLineSegment
 {
 public:
-  LineSegment() {}
-  LineSegment(const LineSegment& line) : p1(line.p1), p2(line.p2) {}
-  LineSegment(const Point& inP1, const Point& inP2) : p1(inP1), p2(inP2) {}
+  PLineSegment() {}
+  PLineSegment(const PLineSegment& line) : p1(line.p1), p2(line.p2) {}
+  PLineSegment(const PPoint& inP1, const PPoint& inP2) : p1(inP1), p2(inP2) {}
   
-  Point p1;
-  Point p2;      
+  PPoint p1;
+  PPoint p2;      
 };
 
-class ILineSegment
+class PILineSegment
 {
 public:
-  ILineSegment() {}
-  ILineSegment(const ILineSegment& line) : p1(line.p1), p2(line.p2) {}
-  ILineSegment(const IPoint& inP1, const IPoint& inP2) : p1(inP1), p2(inP2) {}
+  PILineSegment() {}
+  PILineSegment(const PILineSegment& line) : p1(line.p1), p2(line.p2) {}
+  PILineSegment(const PIPoint& inP1, const PIPoint& inP2) : p1(inP1), p2(inP2) {}
   
-  IPoint p1;
-  IPoint p2;      
+  PIPoint p1;
+  PIPoint p2;      
 };
-
-} // namespace os

@@ -21,28 +21,25 @@
 
 #include <GUI/Dialogs/DialogBase.h>
 
-namespace os
-{
+class PTextView;
 
-class TextView;
-class TextBox;
 
-class TextInputDialog : public DialogBase
+class PTextBox;
+
+class PTextInputDialog : public PDialogBase
 {
 public:
-    TextInputDialog(const PString& title, const PString& message, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
-    virtual void OnActivated(DialogButtonID buttonID) override;
+    PTextInputDialog(const PString& title, const PString& message, const PString& text, PDialogButtonSets buttonSet = PDialogButtonSets::Ok);
+    virtual void OnActivated(PDialogButtonID buttonID) override;
 
     const PString& GetText() const;
 
-    Signal<void, const PString&, bool, TextInputDialog*> SignalTextChanged;//(const PString& newText, bool finalUpdate, TextInputDialog* dialog)
-    Signal<void, DialogButtonID, const PString&, TextInputDialog*> SignalSelected;//(DialogButtonID buttonID, const PString& text, TextInputDialog* dialog)
+    Signal<void, const PString&, bool, PTextInputDialog*> SignalTextChanged;//(const PString& newText, bool finalUpdate, TextInputDialog* dialog)
+    Signal<void, PDialogButtonID, const PString&, PTextInputDialog*> SignalSelected;//(DialogButtonID buttonID, const PString& text, TextInputDialog* dialog)
 
 private:
-    void SlotTextChanged(const PString& newText, bool finalUpdate, TextBox* source);
+    void SlotTextChanged(const PString& newText, bool finalUpdate, PTextBox* source);
 
-    Ptr<TextView>   m_MessageView;
-    Ptr<TextBox>    m_TextInput;
+    Ptr<PTextView>   m_MessageView;
+    Ptr<PTextBox>    m_TextInput;
 };
-
-} // namespace os

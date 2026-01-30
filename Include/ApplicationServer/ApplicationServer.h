@@ -29,73 +29,68 @@
 #include "Threads/EventTimer.h"
 #include "ServerBitmap.h"
 
-namespace os
-{
 
 PDEFINE_LOG_CATEGORY(LogCategoryAppServer, "APPSERV", PLogSeverity::INFO_HIGH_VOL);
 
-class ServerView;
-class DisplayDriver;
+class PServerView;
+class PDisplayDriver;
 
-class ApplicationServer : public Looper, public SignalTarget
+class ApplicationServer : public PLooper, public SignalTarget
 {
 public:
-    ApplicationServer(Ptr<DisplayDriver> displayDriver);
+    ApplicationServer(Ptr<PDisplayDriver> displayDriver);
     ~ApplicationServer();
 
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) override;
     virtual void Idle() override;
 
-    static Rect             GetScreenFrame();
-    static IRect            GetScreenIFrame();
-    static SrvBitmap*       GetScreenBitmap() { return ptr_raw_pointer_cast(s_ScreenBitmap); }
-    static DisplayDriver*   GetDisplayDriver();
+    static PRect             GetScreenFrame();
+    static PIRect            GetScreenIFrame();
+    static PSrvBitmap*       GetScreenBitmap() { return ptr_raw_pointer_cast(s_ScreenBitmap); }
+    static PDisplayDriver*   GetDisplayDriver();
 
-    Ptr<ServerView> GetTopView();
+    Ptr<PServerView> GetTopView();
     
-    bool            RegisterView(Ptr<ServerView> view);
-    Ptr<ServerView> FindView(handler_id handle) const;
+    bool            RegisterView(Ptr<PServerView> view);
+    Ptr<PServerView> FindView(handler_id handle) const;
 
-    void ViewDestructed(ServerView* view);
+    void ViewDestructed(PServerView* view);
 
-    void            SetFocusView(MouseButton_e button, Ptr<ServerView> view, bool focus);
-    Ptr<ServerView> GetFocusView(MouseButton_e button) const;
-    void            SetMouseDownView(MouseButton_e button, Ptr<ServerView> view);
-    Ptr<ServerView> GetMouseDownView(MouseButton_e button) const;
+    void            SetFocusView(PMouseButton button, Ptr<PServerView> view, bool focus);
+    Ptr<PServerView> GetFocusView(PMouseButton button) const;
+    void            SetMouseDownView(PMouseButton button, Ptr<PServerView> view);
+    Ptr<PServerView> GetMouseDownView(PMouseButton button) const;
 
-    void            SetKeyboardFocus(Ptr<ServerView> view, bool focus);
-    Ptr<ServerView> GetKeyboardFocus() const;
-    void            UpdateViewFocusMode(ServerView* view);
+    void            SetKeyboardFocus(Ptr<PServerView> view, bool focus);
+    Ptr<PServerView> GetKeyboardFocus() const;
+    void            UpdateViewFocusMode(PServerView* view);
 
     void            PowerLost(bool hasPower);
 private:
-    void HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event);
-    void HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event);
-    void HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event);
+    void HandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event);
+    void HandleMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event);
+    void HandleMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event);
 
     void SlotRegisterApplication(port_id replyPort, port_id clientPort, const PString& name);
 
-    static Ptr<DisplayDriver>   s_DisplayDriver;
-    static Ptr<SrvBitmap>       s_ScreenBitmap;
+    static Ptr<PDisplayDriver>   s_DisplayDriver;
+    static Ptr<PSrvBitmap>       s_ScreenBitmap;
 
-    MessagePort m_ReplyPort;
-    EventTimer m_PollTouchDriverTimer;
+    PMessagePort m_ReplyPort;
+    PEventTimer m_PollTouchDriverTimer;
 
-    std::queue<MotionEvent> m_MouseEventQueue;
+    std::queue<PMotionEvent> m_MouseEventQueue;
 
     ASRegisterApplication::Receiver RSRegisterApplication;
     
-    Ptr<ServerView> m_TopView;
+    Ptr<PServerView> m_TopView;
 
-    std::map<int, ServerView*>  m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
-    std::map<int, ServerView*>  m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
-    ServerView*                 m_KeyboardFocusView = nullptr;
+    std::map<int, PServerView*>  m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
+    std::map<int, PServerView*>  m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
+    PServerView*                 m_KeyboardFocusView = nullptr;
 
     int        m_TouchInputDevice = -1;
 
     ApplicationServer(const ApplicationServer&) = delete;
     ApplicationServer& operator=(const ApplicationServer&) = delete;
 };
-
-
-}

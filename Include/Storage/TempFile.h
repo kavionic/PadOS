@@ -20,8 +20,6 @@
 
 #include <Storage/File.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \ingroup storage
@@ -31,11 +29,11 @@ namespace os
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-class TempFile : public File
+class PTempFile : public PFile
 {
 public:
-    TempFile(const PString& prefix = PString::zero, const PString& path = PString::zero, int access = S_IRUSR | S_IWUSR );
-    ~TempFile();
+    PTempFile(const PString& prefix = PString::zero, const PString& path = PString::zero, int access = S_IRUSR | S_IWUSR );
+    ~PTempFile();
 
     void    Detatch();
     bool    Unlink();
@@ -46,5 +44,3 @@ private:
     PString m_Path;
     bool    m_DeleteFile;
 };
-
-} // namespace os

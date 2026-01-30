@@ -25,9 +25,8 @@
 #include <GUI/GUIDefines.h>
 #include <Utils/UTF8Utils.h>
 
-using namespace os;
 
-namespace xml_object_parser
+namespace p_xml_object_parser
 {
 
 bool parse(const char* text, int& value)	{ return sscanf(text, " %d ", &value) == 1; }
@@ -67,9 +66,9 @@ bool parse(const char* text, PString& value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool parse(const char* text, Point& value)
+bool parse(const char* text, PPoint& value)
 {
-    if (std::optional<Point> point = Point::FromString(text))
+    if (std::optional<PPoint> point = PPoint::FromString(text))
     {
         value = *point;
         return true;
@@ -81,7 +80,7 @@ bool parse(const char* text, Point& value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool parse(const char* text, Rect& value)
+bool parse(const char* text, PRect& value)
 {
 	return sscanf(text, "Rect( %f , %f , %f , %f )", &value.left, &value.top, &value.right, &value.bottom) == 4;
 }
@@ -90,18 +89,18 @@ bool parse(const char* text, Rect& value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool parse(const char* text, Ptr<LayoutNode>& value)
+bool parse(const char* text, Ptr<PLayoutNode>& value)
 {
     if (*text != '\0')
     {
 	if (strcmp(text, "stacked") == 0) {
-	    value = ptr_new<LayoutNode>();
+	    value = ptr_new<PLayoutNode>();
 	    return true;
 	} else if (strcmp(text, "horizontal") == 0) {
-	    value = ptr_new<HLayoutNode>();
+	    value = ptr_new<PHLayoutNode>();
 	    return true;
 	} else if (strcmp(text, "vertical") == 0) {
-	    value = ptr_new<VLayoutNode>();
+	    value = ptr_new<PVLayoutNode>();
 	    return true;
 	} else {
         p_system_log<PLogSeverity::ERROR>(LogCat_General, "View - invalid layout mode {}", text);
@@ -120,37 +119,37 @@ bool parse(const char* text, Ptr<LayoutNode>& value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool parse(const char* text, Alignment& value)
+bool parse(const char* text, PAlignment& value)
 {
 	if (*text != '\0')
 	{
 		if (strcmp(text, "left") == 0) {
-			value = Alignment::Left;
+			value = PAlignment::Left;
 			return true;
 		} else if (strcmp(text, "right") == 0) {
-			value = Alignment::Right;
+			value = PAlignment::Right;
 			return true;
 		} else if (strcmp(text, "top") == 0) {
-			value = Alignment::Top;
+			value = PAlignment::Top;
 			return true;
 		} else if (strcmp(text, "bottom") == 0) {
-			value = Alignment::Bottom;
+			value = PAlignment::Bottom;
 			return true;
 		} else if (strcmp(text, "center") == 0) {
-			value = Alignment::Center;
+			value = PAlignment::Center;
 			return true;
         } else if (strcmp(text, "stretch") == 0) {
-            value = Alignment::Stretch;
+            value = PAlignment::Stretch;
             return true;
         } else {
             p_system_log<PLogSeverity::ERROR>(LogCat_General, "View - invalid layout mode '{}'", text);
-			value = Alignment::Left;
+			value = PAlignment::Left;
 			return false;
 		}
 	}
     else
 	{
-		value = Alignment::Left;
+		value = PAlignment::Left;
 		return true;
 	}
 }
@@ -159,30 +158,30 @@ bool parse(const char* text, Alignment& value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool parse(const char* text, Orientation& value)
+bool parse(const char* text, POrientation& value)
 {
 	if (*text != '\0')
 	{
 		if (strcmp(text, "horizontal") == 0) {
-			value = Orientation::Horizontal;
+			value = POrientation::Horizontal;
 			return true;
 		} else if (strcmp(text, "vertical") == 0) {
-			value = Orientation::Vertical;
+			value = POrientation::Vertical;
 			return true;
 		} else {
             p_system_log<PLogSeverity::ERROR>(LogCat_General, "View - invalid orientation '{}'", text);
-			value = Orientation::Horizontal;
+			value = POrientation::Horizontal;
 			return false;
 		}
 	}
 	else
 	{
-		value = Orientation::Horizontal;
+		value = POrientation::Horizontal;
 		return true;
 	}
 }
 
-bool parse(const char* text, KeyCodes& value)
+bool parse(const char* text, PKeyCodes& value)
 {
     if (text[0] == '\0')
     {
@@ -191,38 +190,38 @@ bool parse(const char* text, KeyCodes& value)
     else if (text[1] == '\0')
     {
         if ((text[0] >= 'A' && text[0] <= 'Z') || (text[0] >= '0' && text[0] <= '9') || text[0] == ' ') {
-            value = KeyCodes(text[0]);
+            value = PKeyCodes(text[0]);
             return true;
         }
     }
-    static const std::map<PString, KeyCodes> nameMap =
+    static const std::map<PString, PKeyCodes> nameMap =
     {
-        {"NONE",            KeyCodes::NONE},
-        {"CURSOR_LEFT",     KeyCodes::CURSOR_LEFT},
-        {"CURSOR_RIGHT",    KeyCodes::CURSOR_RIGHT},
-        {"CURSOR_UP",       KeyCodes::CURSOR_UP},
-        {"CURSOR_DOWN",     KeyCodes::CURSOR_DOWN},
-        {"HOME",            KeyCodes::HOME},
-        {"END",             KeyCodes::END},
-        {"DELETE",          KeyCodes::DELETE},
-        {"BACKSPACE",       KeyCodes::BACKSPACE},
-        {"TAB",             KeyCodes::TAB},
-        {"ENTER",           KeyCodes::ENTER},
-        {"SHIFT",           KeyCodes::SHIFT},
-        {"CTRL",            KeyCodes::CTRL},
-        {"ALT",             KeyCodes::ALT},
-        {"SYMBOLS",         KeyCodes::SYMBOLS},
-        {"SPACE",           KeyCodes::SPACE},
+        {"NONE",            PKeyCodes::NONE},
+        {"CURSOR_LEFT",     PKeyCodes::CURSOR_LEFT},
+        {"CURSOR_RIGHT",    PKeyCodes::CURSOR_RIGHT},
+        {"CURSOR_UP",       PKeyCodes::CURSOR_UP},
+        {"CURSOR_DOWN",     PKeyCodes::CURSOR_DOWN},
+        {"HOME",            PKeyCodes::HOME},
+        {"END",             PKeyCodes::END},
+        {"DELETE",          PKeyCodes::DELETE},
+        {"BACKSPACE",       PKeyCodes::BACKSPACE},
+        {"TAB",             PKeyCodes::TAB},
+        {"ENTER",           PKeyCodes::ENTER},
+        {"SHIFT",           PKeyCodes::SHIFT},
+        {"CTRL",            PKeyCodes::CTRL},
+        {"ALT",             PKeyCodes::ALT},
+        {"SYMBOLS",         PKeyCodes::SYMBOLS},
+        {"SPACE",           PKeyCodes::SPACE},
 
-        {"AE",              KeyCodes::AE},
-        {"OE",              KeyCodes::OE},
-        {"AA",              KeyCodes::AA},
+        {"AE",              PKeyCodes::AE},
+        {"OE",              PKeyCodes::OE},
+        {"AA",              PKeyCodes::AA},
     };
     auto i = nameMap.find(text);
     if (i != nameMap.end()) {
         value = i->second;
     } else {
-        value = KeyCodes(utf8_to_unicode(text));
+        value = PKeyCodes(utf8_to_unicode(text));
     }
     return true;
 }

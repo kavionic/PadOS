@@ -29,7 +29,6 @@
 
 #include <Kernel/Drivers/MultiMotorController/TMC2209IODriver.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -71,7 +70,7 @@ struct TMC2209ReadReplyDatagram
 template<typename DATAGRAM>
 void TMC2209UpdateCRC(DATAGRAM* datagram)
 {
-    os::HashCalculator<os::HashAlgorithm::CRC8> crcCalc;
+    PHashCalculator<PHashAlgorithm::CRC8> crcCalc;
     crcCalc.Start();
     crcCalc.AddData(datagram, sizeof(DATAGRAM) - 1);
     datagram->Checksum = crcCalc.Finalize();
@@ -84,7 +83,7 @@ void TMC2209UpdateCRC(DATAGRAM* datagram)
 template<typename DATAGRAM>
 bool TMC2209ValidateCRC(const DATAGRAM& datagram)
 {
-    os::HashCalculator<os::HashAlgorithm::CRC8> crcCalc;
+    PHashCalculator<PHashAlgorithm::CRC8> crcCalc;
     crcCalc.Start();
     crcCalc.AddData(&datagram, sizeof(DATAGRAM) - 1);
     return datagram.Checksum == crcCalc.Finalize();

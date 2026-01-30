@@ -25,53 +25,49 @@
 #include "Ptr/PtrTarget.h"
 
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class Region : public PtrTarget
+class PRegion : public PtrTarget
 {
 public:
-    Region();
-    Region(const IRect& rect);
-    Region(const Region& region);
-    Region(const Region& region, const IRect& rect, bool normalize);
+    PRegion();
+    PRegion(const PIRect& rect);
+    PRegion(const PRegion& region);
+    PRegion(const PRegion& region, const PIRect& rect, bool normalize);
 
-    ~Region();
+    ~PRegion();
 
-    void        Set(const IRect& rect);
-    void        Set(const Region& region);
+    void        Set(const PIRect& rect);
+    void        Set(const PRegion& region);
     void        Clear();
     bool        IsEmpty() const      { return m_Rects.empty(); }
     int         GetClipCount() const { return m_Rects.size(); }
         
-    void        Include(const IRect& rect);
-    void        Intersect(const Region& region);
-    void        Intersect(const Region& region, const IPoint& offset);
+    void        Include(const PIRect& rect);
+    void        Intersect(const PRegion& region);
+    void        Intersect(const PRegion& region, const PIPoint& offset);
 
-    void        Exclude(const IRect& rect);
-    void        Exclude(const Region& region);
-    void        Exclude(const Region& region, const IPoint& offset);
+    void        Exclude(const PIRect& rect);
+    void        Exclude(const PRegion& region);
+    void        Exclude(const PRegion& region, const PIPoint& offset);
 
-    void        AddRect(const IRect& rect);
+    void        AddRect(const PIRect& rect);
     
     void        Optimize();
-    IRect       GetBounds() const;
+    PIRect       GetBounds() const;
         
-    static bool ClipLine(const IRect& rect, IPoint* point1, IPoint* point2);
+    static bool ClipLine(const PIRect& rect, PIPoint* point1, PIPoint* point2);
     
     void Validate();
 
-    std::vector<IRect> m_Rects;
+    std::vector<PIRect> m_Rects;
 
 private:
     size_t FindUnusedClip(size_t prevUnused, size_t lastToCheck);
-    size_t AddOrReuseClip(size_t prevUnused, size_t lastToCheck, const IRect& frame);
+    size_t AddOrReuseClip(size_t prevUnused, size_t lastToCheck, const PIRect& frame);
     void RemoveUnusedClips(size_t firstToCheck, size_t lastToCheck);
   
 };
-
-} // namespace

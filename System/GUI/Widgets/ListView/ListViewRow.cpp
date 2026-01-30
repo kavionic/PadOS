@@ -19,13 +19,12 @@
 #include <GUI/Widgets/ListViewRow.h>
 #include <GUI/View.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListViewRow::ListViewRow()
+PListViewRow::PListViewRow()
 {
 }
 
@@ -33,7 +32,7 @@ ListViewRow::ListViewRow()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListViewRow::~ListViewRow()
+PListViewRow::~PListViewRow()
 {
 }
 
@@ -41,7 +40,7 @@ ListViewRow::~ListViewRow()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewRow::HitTest(Ptr<View> view, const Rect& frame, int column, const Point& pos)
+bool PListViewRow::HitTest(Ptr<PView> view, const PRect& frame, int column, const PPoint& pos)
 {
     return true;
 }
@@ -50,7 +49,7 @@ bool ListViewRow::HitTest(Ptr<View> view, const Rect& frame, int column, const P
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewRow::SetIsSelectable(bool selectable)
+void PListViewRow::SetIsSelectable(bool selectable)
 {
     m_IsSelectable = selectable;
 }
@@ -59,7 +58,7 @@ void ListViewRow::SetIsSelectable(bool selectable)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewRow::IsSelectable() const
+bool PListViewRow::IsSelectable() const
 {
     return m_IsSelectable;
 }
@@ -68,7 +67,7 @@ bool ListViewRow::IsSelectable() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewRow::IsSelected() const
+bool PListViewRow::IsSelected() const
 {
     return m_Selected;
 }
@@ -77,7 +76,7 @@ bool ListViewRow::IsSelected() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewRow::IsHighlighted() const
+bool PListViewRow::IsHighlighted() const
 {
     return m_Highlighted;
 }

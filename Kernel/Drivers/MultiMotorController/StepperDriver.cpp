@@ -26,9 +26,6 @@
 #include <Kernel/Drivers/MultiMotorController/StepperDriver.h>
 
 
-using namespace os;
-
-
 namespace kernel
 {
 
@@ -133,7 +130,7 @@ void StepperMotionNode::Update(bool direction, int32_t distance, float startSpee
     float accDist;
     float decDist;
 
-    Acceleration::CalculateMaxCruiseSpeed(float(distance), startSpeed, cruiseSpeed, endSpeed, acceleration, accDist, decDist, m_CruiseSpeed, endSpeed);
+    PAcceleration::CalculateMaxCruiseSpeed(float(distance), startSpeed, cruiseSpeed, endSpeed, acceleration, accDist, decDist, m_CruiseSpeed, endSpeed);
 
     m_AccelStepsLeft = int32_t(accDist + 0.5f);
     m_DecelStepsLeft = int32_t(decDist + 0.5f);
@@ -203,7 +200,7 @@ void StepperDriver::SetSpeed(float speed, float acceleration)
                     //                printf("%p: reverse from %.3f to %.3f\n", m_TimerChannel, m_CurrentSpeed, speed);
                     const float startSpeed = std::min(m_Jerk, speed);
                     const float stopSpeed = std::min(m_CurrentSpeed, m_Jerk - startSpeed);
-                    const float stopDist = Acceleration::CalcAccelerationDistance(m_CurrentSpeed, stopSpeed, acceleration);
+                    const float stopDist = PAcceleration::CalcAccelerationDistance(m_CurrentSpeed, stopSpeed, acceleration);
 
                     node.m_Acceleration = acceleration;
                     node.m_AccelStepsLeft = 0;
@@ -227,7 +224,7 @@ void StepperDriver::SetSpeed(float speed, float acceleration)
             m_MotionQueueInPos = GetNextBlockIndex(m_MotionQueueCurrentNode);
 
             const float stopSpeed = std::min(m_CurrentSpeed, m_Jerk * 0.5f);
-            const float stopDist = Acceleration::CalcAccelerationDistance(m_CurrentSpeed, stopSpeed, acceleration);
+            const float stopDist = PAcceleration::CalcAccelerationDistance(m_CurrentSpeed, stopSpeed, acceleration);
 
             node.m_Acceleration = acceleration;
             node.m_AccelStepsLeft = 0;
@@ -293,7 +290,7 @@ void StepperDriver::StopAtPos(float position, float speed, float acceleration)
                 {
                     const float startSpeed = std::min(m_Jerk, speed);
                     const float stopSpeed = std::min(m_CurrentSpeed, m_Jerk - startSpeed);
-                    const int32_t stopDist = int32_t(ceil(Acceleration::CalcAccelerationDistance(m_CurrentSpeed, stopSpeed, acceleration)));
+                    const int32_t stopDist = int32_t(ceil(PAcceleration::CalcAccelerationDistance(m_CurrentSpeed, stopSpeed, acceleration)));
                     node.Update(node.m_Direction, stopDist, m_CurrentSpeed, m_CurrentSpeed, stopSpeed, acceleration);
                     if (node.m_Direction) {
                         QueueMotionInternal(distance - stopDist, speed, acceleration);
@@ -414,7 +411,7 @@ float StepperDriver::GetCurrentStopDistance(float acceleration) const
         if (m_MotionQueueCurrentCount > 0 && m_CurrentSpeed > m_Jerk)
         {
             const StepperMotionNode& node = m_MotionQueue[m_MotionQueueCurrentNode];
-            stopDist = Acceleration::CalcAccelerationDistance(m_CurrentSpeed, m_Jerk, acceleration * m_StepsPerMillimeter);
+            stopDist = PAcceleration::CalcAccelerationDistance(m_CurrentSpeed, m_Jerk, acceleration * m_StepsPerMillimeter);
             if (node.m_Direction == m_Reverse) {
                 stopDist = -stopDist;
             }

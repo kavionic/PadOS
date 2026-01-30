@@ -21,20 +21,18 @@
 
 #include <GUI/Widgets/ButtonBase.h>
 
-namespace os
-{
 
-class Button : public ButtonBase
+class PButton : public PButtonBase
 {
 public:
-    Button(const PString& name, const PString& label, Ptr<View> parent = nullptr, uint32_t flags = 0);
-	Button(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
-    ~Button();
+    PButton(const PString& name, const PString& label, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+	PButton(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    ~PButton();
 
     // From View:
     virtual void AllAttachedToScreen() override { Invalidate(); }
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual void OnPaint(const Rect& updateRect) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void OnPaint(const PRect& updateRect) override;
 
 	// From Control:
     virtual void OnEnableStatusChanged(bool bIsEnabled) override { Invalidate(); Flush(); }
@@ -42,11 +40,8 @@ public:
 
 private:
     void UpdateLabelSize();
-    Point  m_LabelSize;
+    PPoint  m_LabelSize;
         
-    Button(const Button&) = delete;
-    Button& operator=(const Button&) = delete;
+    PButton(const PButton&) = delete;
+    PButton& operator=(const PButton&) = delete;
 };
-    
-    
-} // namespace

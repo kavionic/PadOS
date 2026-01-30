@@ -28,22 +28,20 @@
 #include <Storage/File.h>
 
 
-namespace os
-{
-class View;
+class PView;
 
 
-class XMLDocument
+class PXMLDocument
 {
 public:
-    XMLDocument() { m_Parser = new pugi::xml_document(); }
-    ~XMLDocument() { delete m_Parser; }
+    PXMLDocument() { m_Parser = new pugi::xml_document(); }
+    ~PXMLDocument() { delete m_Parser; }
 
     bool Load(const PString& path)
     {
         m_Buffer.clear();
         {
-            File file(path);
+            PFile file(path);
             if (!file.IsValid()) {
                 return false;
             }
@@ -66,25 +64,30 @@ public:
 };
 
 
-class ViewFactory : public XMLFactory<ViewFactoryContext&, Ptr<View>, const pugi::xml_node&>
+class PViewFactory : public PXMLFactory<PViewFactoryContext&, Ptr<PView>, const pugi::xml_node&>
 {
 public:
-    ViewFactory();
-    static ViewFactory& Get();
+    PViewFactory();
+    static PViewFactory& Get();
 
-    Ptr<View> CreateView(Ptr<View> parentView, PString&& XML);
-    Ptr<View> CreateView(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode);
-    Ptr<View> LoadView(Ptr<View> parentView, const PString& path);
+    Ptr<PView> CreateView(Ptr<PView> parentView, PString&& XML);
+    Ptr<PView> CreateView(PViewFactoryContext& context, Ptr<PView> parentView, const pugi::xml_node& xmlNode);
+    Ptr<PView> LoadView(Ptr<PView> parentView, const PString& path);
 
 private:
-    bool Parse(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode);
+    bool Parse(PViewFactoryContext& context, Ptr<PView> parentView, const pugi::xml_node& xmlNode);
 };
 
-#define VIEW_FACTORY_REGISTER_CLASS(CLASS) FactoryAutoRegistrator<CLASS> \
+#define PVIEW_FACTORY_REGISTER_CLASS(CLASS) PFactoryAutoRegistrator<CLASS> \
     g_ViewFactoryRegistrationHelper___##CLASS([] { \
-            ViewFactory::Get().RegisterClass(#CLASS, [](ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) { \
+            PViewFactory::Get().RegisterClass(#CLASS, [](PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) { \
                     return ptr_new<CLASS>(context, parent, xmlData); \
                 }); \
         });
 
-} // namespace
+#define PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(CLASS) PFactoryAutoRegistrator<CLASS> \
+    g_ViewFactoryRegistrationHelper___##CLASS([] { \
+            PViewFactory::Get().RegisterClass(#CLASS + 1, [](PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) { \
+                    return ptr_new<CLASS>(context, parent, xmlData); \
+                }); \
+        });

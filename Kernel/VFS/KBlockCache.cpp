@@ -35,7 +35,6 @@
 #include <Utils/Utils.h>
 #include <System/ExceptionHandling.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -50,8 +49,8 @@ static uint8_t* gk_BCacheBuffer;
 static KCacheBlockHeader gk_BCacheHeaders[KBLOCK_CACHE_BLOCK_COUNT];
 
 std::map<int, KBlockCache*>         KBlockCache::s_DeviceMap;
-IntrusiveList<KCacheBlockHeader>    KBlockCache::s_FreeList;
-IntrusiveList<KCacheBlockHeader>    KBlockCache::s_MRUList;
+PIntrusiveList<KCacheBlockHeader>    KBlockCache::s_FreeList;
+PIntrusiveList<KCacheBlockHeader>    KBlockCache::s_MRUList;
 KMutex                              KBlockCache::s_Mutex("bcache_mutex", PEMutexRecursionMode_RaiseError);
 KConditionVariable                  KBlockCache::s_FlushingRequestConditionVar("bcache_flush_req");
 KConditionVariable                  KBlockCache::s_FlushingDoneConditionVar("bcache_flush_done");

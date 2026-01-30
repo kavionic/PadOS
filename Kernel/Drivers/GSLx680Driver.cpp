@@ -37,7 +37,6 @@
 #include <Utils/Utils.h>
 #include <GUI/GUIEvent.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -131,7 +130,7 @@ void* GSLx680Driver::Run()
 			
 			if (index < 0 || index >= MAX_POINTS) continue;
 
-			IPoint position(touchData.Points[i].x_id & GSLx680_X_Msk, touchData.Points[i].y & GSLx680_X_Msk);
+			PIPoint position(touchData.Points[i].x_id & GSLx680_X_Msk, touchData.Points[i].y & GSLx680_X_Msk);
 			std::swap(position.x, position.y);
 			if (position != m_TouchPositions[index]) {
 				m_TouchPositions[index] = position;
@@ -141,7 +140,7 @@ void* GSLx680Driver::Run()
 		}
 		uint32_t toggledPoints = pointFlags ^ m_PointFlags;
 
-		MessageID eventID = MessageID::NONE;
+		PMessageID eventID = PMessageID::NONE;
 
 		for (int i = 0; i < MAX_POINTS; ++i)
 		{
@@ -150,30 +149,30 @@ void* GSLx680Driver::Run()
 			{
 				if (pointFlags & mask)
 				{
-					eventID = MessageID::MOUSE_DOWN;
+					eventID = PMessageID::MOUSE_DOWN;
 				}
 				else
 				{
-					eventID = MessageID::MOUSE_UP;
+					eventID = PMessageID::MOUSE_UP;
 				}
 			}
 			else if (pointFlags & mask)
 			{
-				eventID = MessageID::MOUSE_MOVE;
+				eventID = PMessageID::MOUSE_MOVE;
 			}
 			else
 			{
 				continue;
 			}
 
-			if (eventID != MessageID::MOUSE_MOVE || (moveFlags & mask))
+			if (eventID != PMessageID::MOUSE_MOVE || (moveFlags & mask))
 			{
-                MotionEvent mouseEvent;
+                PMotionEvent mouseEvent;
 				mouseEvent.Timestamp    = kget_monotonic_time();
 				mouseEvent.EventID      = eventID;
-                mouseEvent.ToolType     = MotionToolType::Finger;
-				mouseEvent.ButtonID     = MouseButton_e(int(MouseButton_e::FirstTouchID) + i);
-				mouseEvent.Position     = Point(m_TouchPositions[i]);
+                mouseEvent.ToolType     = PMotionToolType::Finger;
+				mouseEvent.ButtonID     = PMouseButton(int(PMouseButton::FirstTouchID) + i);
+				mouseEvent.Position     = PPoint(m_TouchPositions[i]);
 
 				// p_system_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_Drivers, "Mouse event {}: {}/{}", eventID - MessageID::MOUSE_DOWN, m_TouchPositions[i].x, m_TouchPositions[i].y);
 				for (auto file : m_OpenFiles)

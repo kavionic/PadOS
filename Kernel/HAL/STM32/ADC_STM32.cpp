@@ -23,7 +23,6 @@
 #include <Kernel/IRQDispatcher.h>
 #include <Utils/Utils.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -100,7 +99,7 @@ void ADC_STM32::Calibrate(ADC_Polarity polarity, bool calibrateLinearity)
     if (calibrateLinearity)                     flags |= ADC_CR_ADCALLIN;
     
     set_bit_group(m_ADC->CR, ADC_CR_ADCALLIN | ADC_CR_ADCALDIF | ADC_CR_ADCAL, flags);
-    for (TimeoutTracker timeout(100); (m_ADC->CR & ADC_CR_ADCAL) && timeout;) {} // Wait for calibration to finish.
+    for (PTimeoutTracker timeout(100); (m_ADC->CR & ADC_CR_ADCAL) && timeout;) {} // Wait for calibration to finish.
 
     if (polarity == ADC_Polarity::SingleAndDiff)
     {
@@ -108,7 +107,7 @@ void ADC_STM32::Calibrate(ADC_Polarity polarity, bool calibrateLinearity)
         flags |= ADC_CR_ADCALDIF;
 
         set_bit_group(m_ADC->CR, ADC_CR_ADCALLIN | ADC_CR_ADCALDIF | ADC_CR_ADCAL, flags);
-        for (TimeoutTracker timeout(100); (m_ADC->CR & ADC_CR_ADCAL) && timeout;) {} // Wait for calibration to finish.
+        for (PTimeoutTracker timeout(100); (m_ADC->CR & ADC_CR_ADCAL) && timeout;) {} // Wait for calibration to finish.
     }
 }
 
@@ -299,7 +298,7 @@ void ADC_STM32::EnableADC(bool enable)
     {
         m_ADC->ISR |= ADC_ISR_ADRDY;
         m_ADC->CR |= ADC_CR_ADEN;
-        for (TimeoutTracker timeout(100); ((m_ADC->ISR & ADC_ISR_ADRDY) == 0) && timeout;) {} // Wait for startup.
+        for (PTimeoutTracker timeout(100); ((m_ADC->ISR & ADC_ISR_ADRDY) == 0) && timeout;) {} // Wait for startup.
         m_ADC->ISR |= ADC_ISR_ADRDY;
     }
     else
@@ -307,10 +306,10 @@ void ADC_STM32::EnableADC(bool enable)
         if (m_ADC->CR & (ADC_CR_ADSTART | ADC_CR_JADSTART))
         {
             m_ADC->CR |= ADC_CR_ADSTP | ADC_CR_JADSTP;
-            for (TimeoutTracker timeout(100); (m_ADC->CR & (ADC_CR_ADSTART | ADC_CR_JADSTART)) && timeout;) {}
+            for (PTimeoutTracker timeout(100); (m_ADC->CR & (ADC_CR_ADSTART | ADC_CR_JADSTART)) && timeout;) {}
         }
         m_ADC->CR |= ADC_CR_ADDIS;
-        for (TimeoutTracker timeout(100); (m_ADC->CR & ADC_CR_ADEN) == 0 && timeout;) {} // Wait for stop.
+        for (PTimeoutTracker timeout(100); (m_ADC->CR & ADC_CR_ADEN) == 0 && timeout;) {} // Wait for stop.
     }
 }
 

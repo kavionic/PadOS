@@ -24,13 +24,12 @@
 #include <GUI/Color.h>
 #include <GUI/Region.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void draw_line16(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2, uint16_t nColor)
+static void draw_line16(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, uint16_t nColor)
 {
     int nODeltaX = abs(pos2.x - pos1.x);
     int nODeltaY = abs(pos2.y - pos1.y);
@@ -38,10 +37,10 @@ static void draw_line16(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoint
     uint16_t* pRaster;
     int   nModulo = pcBitmap->m_BytesPerLine;
 
-    IPoint clippedPos1 = pos1;
-    IPoint clippedPos2 = pos2;
+    PIPoint clippedPos1 = pos1;
+    PIPoint clippedPos2 = pos2;
 
-    if (!Region::ClipLine(clipRect, &clippedPos1, &clippedPos2)) {
+    if (!PRegion::ClipLine(clipRect, &clippedPos1, &clippedPos2)) {
         return;
     }
     int nDeltaX = abs(clippedPos2.x - clippedPos1.x);
@@ -129,17 +128,17 @@ static void draw_line16(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoint
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void invert_line16(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2)
+static void invert_line16(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2)
 {
     int nODeltaX = abs(pos2.x - pos1.x);
     int nODeltaY = abs(pos2.y - pos1.y);
     uint16_t* pRaster;
     int   nModulo = pcBitmap->m_BytesPerLine;
 
-    IPoint clippedPos1 = pos1;
-    IPoint clippedPos2 = pos2;
+    PIPoint clippedPos1 = pos1;
+    PIPoint clippedPos2 = pos2;
 
-    if (!Region::ClipLine(clipRect, &clippedPos1, &clippedPos2)) {
+    if (!PRegion::ClipLine(clipRect, &clippedPos1, &clippedPos2)) {
         return;
     }
     int nDeltaX = abs(clippedPos2.x - clippedPos1.x);
@@ -174,7 +173,7 @@ static void invert_line16(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoi
 
         for (int i = 0; i <= nDeltaX; ++i)
         {
-            Color color = Color::FromRGB16(*pRaster);
+            PColor color = PColor::FromRGB16(*pRaster);
             *pRaster = color.GetInverted().GetColor16();
 
             if (d < 0) {
@@ -214,7 +213,7 @@ static void invert_line16(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoi
 
         for (int i = 0; i <= nDeltaY; ++i)
         {
-            Color color = Color::FromRGB16(*pRaster);
+            PColor color = PColor::FromRGB16(*pRaster);
             *pRaster = color.GetInverted().GetColor16();
 
             if (d < 0) {
@@ -232,17 +231,17 @@ static void invert_line16(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void invert_line15(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2)
+static void invert_line15(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2)
 {
     int nODeltaX = abs(pos2.x - pos1.x);
     int nODeltaY = abs(pos2.y - pos1.y);
     uint16_t* pRaster;
     int   nModulo = pcBitmap->m_BytesPerLine;
 
-    IPoint clippedPos1 = pos1;
-    IPoint clippedPos2 = pos2;
+    PIPoint clippedPos1 = pos1;
+    PIPoint clippedPos2 = pos2;
 
-    if (!Region::ClipLine(clipRect, &clippedPos1, &clippedPos2)) {
+    if (!PRegion::ClipLine(clipRect, &clippedPos1, &clippedPos2)) {
         return;
     }
     int nDeltaX = abs(clippedPos2.x - clippedPos1.x);
@@ -276,7 +275,7 @@ static void invert_line15(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoi
 
         for (int i = 0; i <= nDeltaX; ++i)
         {
-            Color color = Color::FromRGB15(*pRaster);
+            PColor color = PColor::FromRGB15(*pRaster);
             *pRaster = color.GetInverted().GetColor15();
 
             if (d < 0) {
@@ -316,7 +315,7 @@ static void invert_line15(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoi
 
         for (int i = 0; i <= nDeltaY; ++i)
         {
-            Color color = Color::FromRGB15(*pRaster);
+            PColor color = PColor::FromRGB15(*pRaster);
             *pRaster = color.GetInverted().GetColor15();
 
             if (d < 0) {
@@ -334,17 +333,17 @@ static void invert_line15(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void draw_line32(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2, uint32_t nColor)
+static void draw_line32(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, uint32_t nColor)
 {
     int nODeltaX = abs(pos2.x - pos1.x);
     int nODeltaY = abs(pos2.y - pos1.y);
     uint32_t* pRaster;
     int   nModulo = pcBitmap->m_BytesPerLine;
 
-    IPoint clippedPos1 = pos1;
-    IPoint clippedPos2 = pos2;
+    PIPoint clippedPos1 = pos1;
+    PIPoint clippedPos2 = pos2;
 
-    if (!Region::ClipLine(clipRect, &clippedPos1, &clippedPos2)) {
+    if (!PRegion::ClipLine(clipRect, &clippedPos1, &clippedPos2)) {
         return;
     }
     int nDeltaX = abs(clippedPos2.x - clippedPos1.x);
@@ -431,17 +430,17 @@ static void draw_line32(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoint
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void invert_line32(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2)
+static void invert_line32(PSrvBitmap* pcBitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2)
 {
     int nODeltaX = abs(pos2.x - pos1.x);
     int nODeltaY = abs(pos2.y - pos1.y);
     uint32_t* pRaster;
     int   nModulo = pcBitmap->m_BytesPerLine;
 
-    IPoint clippedPos1 = pos1;
-    IPoint clippedPos2 = pos2;
+    PIPoint clippedPos1 = pos1;
+    PIPoint clippedPos2 = pos2;
 
-    if (!Region::ClipLine(clipRect, &clippedPos1, &clippedPos2)) {
+    if (!PRegion::ClipLine(clipRect, &clippedPos1, &clippedPos2)) {
         return;
     }
     int nDeltaX = abs(clippedPos2.x - clippedPos1.x);
@@ -475,7 +474,7 @@ static void invert_line32(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoi
 
         for (int i = 0; i <= nDeltaX; ++i)
         {
-            Color color = Color::FromRGB32A(*pRaster);
+            PColor color = PColor::FromRGB32A(*pRaster);
             *pRaster = color.GetInverted().GetColor32();
             if (d < 0) {
                 d += dinc1;
@@ -514,7 +513,7 @@ static void invert_line32(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoi
 
         for (int i = 0; i <= nDeltaY; ++i)
         {
-            Color color = Color::FromRGB32A(*pRaster);
+            PColor color = PColor::FromRGB32A(*pRaster);
             *pRaster = color.GetInverted().GetColor32();
 
             if (d < 0) {
@@ -532,38 +531,38 @@ static void invert_line32(SrvBitmap* pcBitmap, const IRect& clipRect, const IPoi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DisplayDriver::DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& point1, const IPoint& point2, const Color& color, DrawingMode mode)
+void PDisplayDriver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& point1, const PIPoint& point2, const PColor& color, PDrawingMode mode)
 {
     switch (mode)
     {
-        case DrawingMode::Copy:
-        case DrawingMode::Overlay:
+        case PDrawingMode::Copy:
+        case PDrawingMode::Overlay:
         default:
             switch (bitmap->m_ColorSpace)
             {
-                case EColorSpace::RGB15:
+                case PEColorSpace::RGB15:
                     draw_line16(bitmap, clipRect, point1, point2, color.GetColor15());
                     break;
-                case EColorSpace::RGB16:
+                case PEColorSpace::RGB16:
                     draw_line16(bitmap, clipRect, point1, point2, color.GetColor16());
                     break;
-                case EColorSpace::RGB32:
+                case PEColorSpace::RGB32:
                     draw_line32(bitmap, clipRect, point1, point2, color.GetColor32());
                     break;
                 default:
                     p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "DisplayDriver::DrawLine() unknown color space {}.", int(bitmap->m_ColorSpace));
             }
             break;
-        case DrawingMode::Invert:
+        case PDrawingMode::Invert:
             switch (bitmap->m_ColorSpace)
             {
-                case EColorSpace::RGB15:
+                case PEColorSpace::RGB15:
                     invert_line15(bitmap, clipRect, point1, point2);
                     break;
-                case EColorSpace::RGB16:
+                case PEColorSpace::RGB16:
                     invert_line16(bitmap, clipRect, point1, point2);
                     break;
-                case EColorSpace::RGB32:
+                case PEColorSpace::RGB32:
                     invert_line32(bitmap, clipRect, point1, point2);
                     break;
                 default:

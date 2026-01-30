@@ -20,13 +20,12 @@
 #include <GUI/Widgets/ButtonGroup.h>
 #include <GUI/Widgets/ButtonBase.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ButtonGroup::ButtonGroup(const PString& name, size_t reserveCount) : m_Name(name)
+PButtonGroup::PButtonGroup(const PString& name, size_t reserveCount) : m_Name(name)
 {
     if (reserveCount != 0) {
         m_ButtonList.reserve(reserveCount);
@@ -37,7 +36,7 @@ ButtonGroup::ButtonGroup(const PString& name, size_t reserveCount) : m_Name(name
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ButtonGroup::~ButtonGroup()
+PButtonGroup::~PButtonGroup()
 {
 }
 
@@ -45,7 +44,7 @@ ButtonGroup::~ButtonGroup()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t ButtonGroup::AddButton(Ptr<ButtonBase> button)
+size_t PButtonGroup::AddButton(Ptr<PButtonBase> button)
 {
     size_t index = m_ButtonList.size();
     InsertButton(index, button);
@@ -56,9 +55,9 @@ size_t ButtonGroup::AddButton(Ptr<ButtonBase> button)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ButtonGroup::InsertButton(size_t index, Ptr<ButtonBase> button)
+void PButtonGroup::InsertButton(size_t index, Ptr<PButtonBase> button)
 {
-    Ptr<ButtonGroup> prevGroup = button->GetButtonGroup();
+    Ptr<PButtonGroup> prevGroup = button->GetButtonGroup();
     if (prevGroup == this) {
         return;
     } else if (prevGroup != nullptr) {
@@ -73,7 +72,7 @@ void ButtonGroup::InsertButton(size_t index, Ptr<ButtonBase> button)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ButtonBase> ButtonGroup::RemoveButton(Ptr<ButtonBase> button)
+Ptr<PButtonBase> PButtonGroup::RemoveButton(Ptr<PButtonBase> button)
 {
     size_t index = GetButtonIndex(button);
     if (index != INVALID_INDEX)
@@ -87,11 +86,11 @@ Ptr<ButtonBase> ButtonGroup::RemoveButton(Ptr<ButtonBase> button)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ButtonBase> ButtonGroup::RemoveButtonAt(size_t index)
+Ptr<PButtonBase> PButtonGroup::RemoveButtonAt(size_t index)
 {
     if (index < m_ButtonList.size())
     {
-        Ptr<ButtonBase> button = m_ButtonList[index].Lock();
+        Ptr<PButtonBase> button = m_ButtonList[index].Lock();
         m_ButtonList.erase(m_ButtonList.begin() + index);
         button->SetButtonGroup(nullptr);
         return button;
@@ -103,9 +102,9 @@ Ptr<ButtonBase> ButtonGroup::RemoveButtonAt(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ButtonBase> ButtonGroup::SetSelectedIndex(size_t index, bool sendEvent)
+Ptr<PButtonBase> PButtonGroup::SetSelectedIndex(size_t index, bool sendEvent)
 {
-    Ptr<ButtonBase> button = GetButton(index);
+    Ptr<PButtonBase> button = GetButton(index);
     SelectButton(button, sendEvent);
 
     return button;
@@ -115,14 +114,14 @@ Ptr<ButtonBase> ButtonGroup::SetSelectedIndex(size_t index, bool sendEvent)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t ButtonGroup::SelectButton(Ptr<ButtonBase> button, bool sendEvent)
+size_t PButtonGroup::SelectButton(Ptr<PButtonBase> button, bool sendEvent)
 {
     size_t  prevSelection = GetSelectedIndex();
     size_t  selectedIndex = INVALID_INDEX;
 
     for (size_t i = 0; i < m_ButtonList.size(); ++i)
     {
-        Ptr<ButtonBase> curButton = m_ButtonList[i].Lock();
+        Ptr<PButtonBase> curButton = m_ButtonList[i].Lock();
         if (curButton != nullptr)
         {
             if (curButton == button) {
@@ -134,7 +133,7 @@ size_t ButtonGroup::SelectButton(Ptr<ButtonBase> button, bool sendEvent)
         }
     }
     if (sendEvent && selectedIndex != prevSelection) {
-        SignalSelectionChanged(selectedIndex, (button != nullptr) ? button->GetID() : Control::INVALID_ID, button, ptr_tmp_cast(this));
+        SignalSelectionChanged(selectedIndex, (button != nullptr) ? button->GetID() : PControl::INVALID_ID, button, ptr_tmp_cast(this));
     }
     return selectedIndex;
 }
@@ -143,7 +142,7 @@ size_t ButtonGroup::SelectButton(Ptr<ButtonBase> button, bool sendEvent)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ButtonBase> ButtonGroup::GetSelectedButton() const
+Ptr<PButtonBase> PButtonGroup::GetSelectedButton() const
 {
     size_t index = GetSelectedIndex();
 
@@ -154,21 +153,21 @@ Ptr<ButtonBase> ButtonGroup::GetSelectedButton() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int32_t ButtonGroup::GetSelectedID() const
+int32_t PButtonGroup::GetSelectedID() const
 {
-    Ptr<ButtonBase> button = GetSelectedButton();
-    return (button != nullptr) ? button->GetID() : Control::INVALID_ID;
+    Ptr<PButtonBase> button = GetSelectedButton();
+    return (button != nullptr) ? button->GetID() : PControl::INVALID_ID;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t ButtonGroup::GetSelectedIndex() const
+size_t PButtonGroup::GetSelectedIndex() const
 {
     for (size_t i = 0; i < m_ButtonList.size(); ++i)
     {
-        Ptr<ButtonBase> button = m_ButtonList[i].Lock();
+        Ptr<PButtonBase> button = m_ButtonList[i].Lock();
         if (button != nullptr && button->IsChecked()) {
             return i;
         }
@@ -180,7 +179,7 @@ size_t ButtonGroup::GetSelectedIndex() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t ButtonGroup::GetButtonIndex(Ptr<ButtonBase> button) const
+size_t PButtonGroup::GetButtonIndex(Ptr<PButtonBase> button) const
 {
     for (size_t i = 0; i < m_ButtonList.size(); ++i)
     {
@@ -195,7 +194,7 @@ size_t ButtonGroup::GetButtonIndex(Ptr<ButtonBase> button) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t ButtonGroup::GetButtonCount() const
+size_t PButtonGroup::GetButtonCount() const
 {
     return m_ButtonList.size();
 }
@@ -204,7 +203,7 @@ size_t ButtonGroup::GetButtonCount() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ButtonBase> ButtonGroup::GetButton(size_t index) const
+Ptr<PButtonBase> PButtonGroup::GetButton(size_t index) const
 {
     if (index < m_ButtonList.size()) {
         return m_ButtonList[index].Lock();

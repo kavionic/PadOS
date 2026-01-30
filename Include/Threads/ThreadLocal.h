@@ -26,13 +26,13 @@
 #include <Kernel/KThreadCB.h>
 
 template<typename T>
-class ThreadLocal
+class PThreadLocal
 {
 public:
-    ThreadLocal() {
+    PThreadLocal() {
         thread_local_create_key(m_Slot, TLSDestructor);
     }
-    ~ThreadLocal() { thread_local_delete_key(m_Slot); }
+    ~PThreadLocal() { thread_local_delete_key(m_Slot); }
 
     void Set(const T& object )
     {
@@ -63,18 +63,18 @@ private:
     }
     int m_Slot;
 
-    ThreadLocal(const ThreadLocal &) = delete;
-    ThreadLocal& operator=(const ThreadLocal &) = delete;
+    PThreadLocal(const PThreadLocal &) = delete;
+    PThreadLocal& operator=(const PThreadLocal &) = delete;
 };
 
 template<typename T>
-class ThreadLocal<T*>
+class PThreadLocal<T*>
 {
 public:
-    ThreadLocal() {
+    PThreadLocal() {
         thread_local_create_key(&m_Slot, nullptr);
     }
-    ~ThreadLocal() { thread_local_delete_key(m_Slot); }
+    ~PThreadLocal() { thread_local_delete_key(m_Slot); }
 
     void Set(T* object ) {
         thread_local_set(m_Slot, object);
@@ -86,16 +86,16 @@ public:
 private:
     tls_id m_Slot;
 
-    ThreadLocal(const ThreadLocal &) = delete;
-    ThreadLocal& operator=(const ThreadLocal &) = delete;
+    PThreadLocal(const PThreadLocal &) = delete;
+    PThreadLocal& operator=(const PThreadLocal &) = delete;
 };
 
-class ThreadLocalSlotManager
+class PThreadLocalSlotManager
 {
 public:
-    ThreadLocalSlotManager();
+    PThreadLocalSlotManager();
 
-    static ThreadLocalSlotManager& Get();
+    static PThreadLocalSlotManager& Get();
 
     PErrorCode  AllocSlot(tls_id& outKey, TLSDestructor_t destructor);
     PErrorCode  FreeSlot(tls_id slot);
@@ -108,7 +108,7 @@ public:
 private:
     tls_id FindFreeIndex() const;
 
-    static ThreadLocalSlotManager* s_Instance;
+    static PThreadLocalSlotManager* s_Instance;
 
     PMutex          m_Mutex;
     uint32_t        m_AllocationMap[(THREAD_MAX_TLS_SLOTS + 31) / 32];

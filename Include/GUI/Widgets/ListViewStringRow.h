@@ -21,33 +21,27 @@
 #include <GUI/Widgets/ListViewRow.h>
 #include <Utils/String.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class ListViewStringRow : public ListViewRow
+class PListViewStringRow : public PListViewRow
 {
 public:
-    ListViewStringRow() {}
-    virtual ~ListViewStringRow() {}
+    PListViewStringRow() {}
+    virtual ~PListViewStringRow() {}
 
-    virtual void    AttachToView(Ptr<View> view, int column) override;
-    virtual void    SetRect(const Rect& rect, size_t column) override;
+    virtual void    AttachToView(Ptr<PView> view, int column) override;
+    virtual void    SetRect(const PRect& rect, size_t column) override;
     void            AppendString(const PString& string);
     void            SetString(size_t index, const PString& string);
     const PString&  GetString(size_t index) const;
-    virtual float   GetWidth(Ptr<View> view, size_t column) override;
-    virtual float   GetHeight(Ptr<View> view) override;
-    virtual void    Paint(const Rect& frame, Ptr<View> view, size_t column, bool selected, bool highlighted, bool hasFocus) override;
-    virtual bool    IsLessThan(Ptr<const ListViewRow> other, size_t column) const override;
+    virtual float   GetWidth(Ptr<PView> view, size_t column) override;
+    virtual float   GetHeight(Ptr<PView> view) override;
+    virtual void    Paint(const PRect& frame, Ptr<PView> view, size_t column, bool selected, bool highlighted, bool hasFocus) override;
+    virtual bool    IsLessThan(Ptr<const PListViewRow> other, size_t column) const override;
 
 private:
     std::vector<std::pair<PString, float>> m_Strings;
 };
-
-
-} // namespace os
-

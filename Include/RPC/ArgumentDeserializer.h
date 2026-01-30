@@ -24,13 +24,13 @@
 #include <RPC/ArgumentPacker.h>
 
 template<typename R, typename... ARGS>
-class ArgumentDeserializer
+class PArgumentDeserializer
 {
 public:
     using ReturnType = R;
 
     typedef std::tuple<std::decay_t<ARGS>...> ArgTuple_t;
-    ArgumentDeserializer() {}
+    PArgumentDeserializer() {}
 
     template<typename TSignature>
     static ReturnType Invoke(const void* data, size_t length, TSignature&& callback)
@@ -54,7 +54,7 @@ private:
     template<int I, typename FIRST, typename... REST>
     static ssize_t UnpackArgs(ArgTuple_t& tuple, const void* data, size_t length)
     {
-        ssize_t result = ArgumentPacker<FIRST>::Read(data, length, &std::get<I>(tuple));
+        ssize_t result = PArgumentPacker<FIRST>::Read(data, length, &std::get<I>(tuple));
         if (result >= 0)
         {
             const size_t consumed = align_argument_size(result);
@@ -70,4 +70,4 @@ private:
 };
 
 template<typename TReturnType, typename... TArgTypes>
-class ArgumentDeserializer<TReturnType(TArgTypes...)> : public ArgumentDeserializer<TArgTypes...> {};
+class PArgumentDeserializer<TReturnType(TArgTypes...)> : public PArgumentDeserializer<TArgTypes...> {};

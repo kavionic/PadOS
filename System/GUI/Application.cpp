@@ -27,15 +27,14 @@
 #include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/DisplayDriver.h>
 
-using namespace os;
 
-Application* Application::s_DefaultApplication = nullptr;
+PApplication* PApplication::s_DefaultApplication = nullptr;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Application* Application::GetDefaultApplication()
+PApplication* PApplication::GetDefaultApplication()
 {
     return s_DefaultApplication;
 }
@@ -44,7 +43,7 @@ Application* Application::GetDefaultApplication()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::SetDefaultApplication(Application* application)
+void PApplication::SetDefaultApplication(PApplication* application)
 {
     s_DefaultApplication = application;
 }
@@ -53,12 +52,12 @@ void Application::SetDefaultApplication(Application* application)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Application::Application(const PString& name) : Looper(name, 1000), m_ReplyPort("app_reply", 1000)
+PApplication::PApplication(const PString& name) : PLooper(name, 1000), m_ReplyPort("app_reply", 1000)
 {
-    post_to_remotesignal<ASRegisterApplication>(get_appserver_port(), INVALID_HANDLE, TimeValNanos::infinit, m_ReplyPort.GetHandle(), GetPortID(), GetName());
+    p_post_to_remotesignal<ASRegisterApplication>(p_get_appserver_port(), INVALID_HANDLE, TimeValNanos::infinit, m_ReplyPort.GetHandle(), GetPortID(), GetName());
 
     m_LongPressTimer.Set(LONG_PRESS_DELAY, true);
-    m_LongPressTimer.SignalTrigged.Connect(this, &Application::SlotLongPressTimer);
+    m_LongPressTimer.SignalTrigged.Connect(this, &PApplication::SlotLongPressTimer);
 
     for(;;)
     {
@@ -66,7 +65,7 @@ Application::Application(const PString& name) : Looper(name, 1000), m_ReplyPort(
         int32_t                     code;
         if (m_ReplyPort.ReceiveMessage(nullptr, &code, &reply, sizeof(reply)))
         {
-            if (code == AppserverProtocol::REGISTER_APPLICATION_REPLY)
+            if (code == PAppserverProtocol::REGISTER_APPLICATION_REPLY)
             {
                 m_ServerHandle = reply.m_ServerHandle;
                 break;
@@ -88,7 +87,7 @@ Application::Application(const PString& name) : Looper(name, 1000), m_ReplyPort(
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Application::~Application()
+PApplication::~PApplication()
 {
 }
 
@@ -96,7 +95,7 @@ Application::~Application()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Application::HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length)
+bool PApplication::HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length)
 {
     return false;
 }
@@ -105,7 +104,7 @@ bool Application::HandleMessage(handler_id targetHandler, int32_t code, const vo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::Idle()
+void PApplication::Idle()
 {
     LayoutViews();
     Flush();
@@ -115,7 +114,7 @@ void Application::Idle()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRect Application::GetScreenIFrame()
+PIRect PApplication::GetScreenIFrame()
 {
     return ApplicationServer::GetScreenIFrame();
 }
@@ -124,23 +123,23 @@ IRect Application::GetScreenIFrame()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Application::AddView(Ptr<View> view, ViewDockType dockType, size_t index)
+bool PApplication::AddView(Ptr<PView> view, PViewDockType dockType, size_t index)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    if (dockType == ViewDockType::ChildView) {
+    if (dockType == PViewDockType::ChildView) {
         p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::AddView() attempt to add top-level view as 'ViewDockType::ChildView'");
         return false;
     }
     view->HandlePreAttachToScreen(this);
 
-    Ptr<View>   parent       = view->GetParent();
+    Ptr<PView>   parent       = view->GetParent();
     handler_id  parentHandle = view->GetParentServerHandle();
 
     CreateServerView(view, parentHandle, dockType, index);
 
-    for (Ptr<View> child : view->m_ChildrenList) {
-        AddChildView(view, ptr_static_cast<View>(child));
+    for (Ptr<PView> child : view->m_ChildrenList) {
+        AddChildView(view, ptr_static_cast<PView>(child));
     }
     view->HandleAttachedToScreen(this);
     LayoutViews();
@@ -151,17 +150,17 @@ bool Application::AddView(Ptr<View> view, ViewDockType dockType, size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Application::AddChildView(Ptr<View> parent, Ptr<View> view, size_t index)
+bool PApplication::AddChildView(Ptr<PView> parent, Ptr<PView> view, size_t index)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
     handler_id parentHandle = view->GetParentServerHandle();
 
-    if (view->HasFlags(ViewFlags::WillDraw)) {
-        CreateServerView(view, parentHandle, ViewDockType::ChildView, index);
+    if (view->HasFlags(PViewFlags::WillDraw)) {
+        CreateServerView(view, parentHandle, PViewDockType::ChildView, index);
     }
-    for (Ptr<View> child : view->m_ChildrenList) {
-        AddChildView(view, ptr_static_cast<View>(child));
+    for (Ptr<PView> child : view->m_ChildrenList) {
+        AddChildView(view, ptr_static_cast<PView>(child));
     }
     return true;
 }
@@ -170,7 +169,7 @@ bool Application::AddChildView(Ptr<View> parent, Ptr<View> view, size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Application::RemoveView(Ptr<View> view)
+bool PApplication::RemoveView(Ptr<PView> view)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
@@ -184,10 +183,10 @@ bool Application::RemoveView(Ptr<View> view)
     if (view->GetLooper() != nullptr) {
         RemoveHandler(view);
     }
-    for (Ptr<View> child : *view) {
+    for (Ptr<PView> child : *view) {
         RemoveView(child);
     }
-    view->ClearFlags(ViewFlags::IsAttachedToScreen);
+    view->ClearFlags(PViewFlags::IsAttachedToScreen);
     return true;
 }
 
@@ -195,26 +194,26 @@ bool Application::RemoveView(Ptr<View> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> Application::FindView(handler_id handle)
+Ptr<PView> PApplication::FindView(handler_id handle)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    return ptr_static_cast<View>(FindHandler(handle));
+    return ptr_static_cast<PView>(FindHandler(handle));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::SetFocusView(MouseButton_e button, Ptr<View> view, bool focus)
+void PApplication::SetFocusView(PMouseButton button, Ptr<PView> view, bool focus)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
 
     if (view != nullptr)
     {
-        Ptr<View> root = view;
+        Ptr<PView> root = view;
         while (root->GetParent() != nullptr) root = root->GetParent();
 
         if (focus)
@@ -237,7 +236,7 @@ void Application::SetFocusView(MouseButton_e button, Ptr<View> view, bool focus)
         auto iterator = m_MouseFocusMap.find(deviceID);
         if (iterator != m_MouseFocusMap.end())
         {
-            Ptr<View> root = ptr_tmp_cast(iterator->second);
+            Ptr<PView> root = ptr_tmp_cast(iterator->second);
             while (root->GetParent() != nullptr) root = root->GetParent();
             m_MouseFocusMap.erase(iterator);
             Post<ASFocusView>(root->m_ServerHandle, button, false);
@@ -249,11 +248,11 @@ void Application::SetFocusView(MouseButton_e button, Ptr<View> view, bool focus)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> Application::GetFocusView(MouseButton_e button) const
+Ptr<PView> PApplication::GetFocusView(PMouseButton button) const
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
 
     auto iterator = m_MouseFocusMap.find(deviceID);
     if (iterator != m_MouseFocusMap.end()) {
@@ -266,7 +265,7 @@ Ptr<View> Application::GetFocusView(MouseButton_e button) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::SetKeyboardFocus(Ptr<View> view, bool focus, bool notifyServer)
+void PApplication::SetKeyboardFocus(Ptr<PView> view, bool focus, bool notifyServer)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
@@ -274,8 +273,8 @@ void Application::SetKeyboardFocus(Ptr<View> view, bool focus, bool notifyServer
         return;
     }
 
-    View* newFocus = (focus) ? ptr_raw_pointer_cast(view) : nullptr;
-    View* oldFocus = m_KeyboardFocusView;
+    PView* newFocus = (focus) ? ptr_raw_pointer_cast(view) : nullptr;
+    PView* oldFocus = m_KeyboardFocusView;
     if (newFocus != oldFocus)
     {
         m_KeyboardFocusView = newFocus;
@@ -297,7 +296,7 @@ void Application::SetKeyboardFocus(Ptr<View> view, bool focus, bool notifyServer
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> Application::GetKeyboardFocus() const
+Ptr<PView> PApplication::GetKeyboardFocus() const
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
@@ -308,11 +307,11 @@ Ptr<View> Application::GetKeyboardFocus() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Application::CreateBitmap(int width, int height, EColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow)
+bool PApplication::CreateBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    Post<ASCreateBitmap>(m_ReplyPort.GetHandle(), width, height, colorSpace, (flags & Bitmap::CUSTOM_FRAMEBUFFER) ? inOutFramebuffer : nullptr, (flags & Bitmap::CUSTOM_FRAMEBUFFER) ? inOutBytesPerRow : 0, flags);
+    Post<ASCreateBitmap>(m_ReplyPort.GetHandle(), width, height, colorSpace, (flags & PBitmap::CUSTOM_FRAMEBUFFER) ? inOutFramebuffer : nullptr, (flags & PBitmap::CUSTOM_FRAMEBUFFER) ? inOutBytesPerRow : 0, flags);
     Flush();
 
     for (;;)
@@ -321,7 +320,7 @@ bool Application::CreateBitmap(int width, int height, EColorSpace colorSpace, ui
         int32_t              code;
         if (m_ReplyPort.ReceiveMessage(nullptr, &code, &reply, sizeof(reply)))
         {
-            if (code == AppserverProtocol::CREATE_BITMAP_REPLY)
+            if (code == PAppserverProtocol::CREATE_BITMAP_REPLY)
             {
                 if (reply.m_BitmapHandle == INVALID_HANDLE) {
                     return false;
@@ -348,7 +347,7 @@ bool Application::CreateBitmap(int width, int height, EColorSpace colorSpace, ui
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::DeleteBitmap(handle_id bitmapHandle)
+void PApplication::DeleteBitmap(handle_id bitmapHandle)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
@@ -359,12 +358,12 @@ void Application::DeleteBitmap(handle_id bitmapHandle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::Flush()
+void PApplication::Flush()
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
     if (m_UsedSendBufferSize > 0) {
-        message_port_send(get_appserver_port(), m_ServerHandle, AppserverProtocol::MESSAGE_BUNDLE, m_SendBuffer, m_UsedSendBufferSize);
+        message_port_send(p_get_appserver_port(), m_ServerHandle, PAppserverProtocol::MESSAGE_BUNDLE, m_SendBuffer, m_UsedSendBufferSize);
         m_UsedSendBufferSize = 0;
     }    
 }
@@ -373,7 +372,7 @@ void Application::Flush()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::Sync()
+void PApplication::Sync()
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
@@ -383,7 +382,7 @@ void Application::Sync()
     for (;;)
     {
         if (m_ReplyPort.ReceiveMessage(nullptr, &code, nullptr, 0) < 0 && get_last_error() != EINTR) break;
-        if (code == AppserverProtocol::SYNC_REPLY) {
+        if (code == PAppserverProtocol::SYNC_REPLY) {
             break;
         } else {
             p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::Sync() received invalid reply: {}", code);
@@ -396,7 +395,7 @@ void Application::Sync()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::DetachView(Ptr<View> view)
+void PApplication::DetachView(Ptr<PView> view)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
@@ -421,7 +420,7 @@ void Application::DetachView(Ptr<View> view)
         view->OnKeyboardFocusChanged(false);
     }
     view->SetServerHandle(INVALID_HANDLE);
-    for (Ptr<View> child : *view)
+    for (Ptr<PView> child : *view)
     {
         DetachView(child);
     }
@@ -431,7 +430,7 @@ void Application::DetachView(Ptr<View> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void* Application::AllocMessageBuffer(int32_t messageID, size_t size)
+void* PApplication::AllocMessageBuffer(int32_t messageID, size_t size)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
     assert(size > 0);
@@ -453,7 +452,7 @@ void* Application::AllocMessageBuffer(int32_t messageID, size_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Application::CreateServerView(Ptr<View> view, handler_id parentHandle, ViewDockType dockType, size_t index)
+bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PViewDockType dockType, size_t index)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
@@ -471,7 +470,7 @@ bool Application::CreateServerView(Ptr<View> view, handler_id parentHandle, View
         , view->m_FocusKeyboardMode
         , view->m_DrawingMode
         , view->m_PenWidth
-        , (view->m_Font != nullptr) ? view->m_Font->Get() : Font_e::e_FontLarge
+        , (view->m_Font != nullptr) ? view->m_Font->Get() : PFontID::e_FontLarge
         , view->m_EraseColor
         , view->m_BgColor
         , view->m_FgColor
@@ -484,7 +483,7 @@ bool Application::CreateServerView(Ptr<View> view, handler_id parentHandle, View
         int32_t            code;
         if (m_ReplyPort.ReceiveMessage(nullptr, &code, &reply, sizeof(reply)))
         {
-            if (code == AppserverProtocol::CREATE_VIEW_REPLY) {
+            if (code == PAppserverProtocol::CREATE_VIEW_REPLY) {
                 view->SetServerHandle(reply.m_ViewHandle);
                 break;
             } else {
@@ -504,7 +503,7 @@ bool Application::CreateServerView(Ptr<View> view, handler_id parentHandle, View
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::RegisterViewForLayout(Ptr<View> view, bool recursive)
+void PApplication::RegisterViewForLayout(Ptr<PView> view, bool recursive)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
@@ -514,7 +513,7 @@ void Application::RegisterViewForLayout(Ptr<View> view, bool recursive)
     }
     if (recursive)
     {
-        for (Ptr<View> child : view->GetChildList())
+        for (Ptr<PView> child : view->GetChildList())
         {
             RegisterViewForLayout(child, true);
         }
@@ -525,11 +524,11 @@ void Application::RegisterViewForLayout(Ptr<View> view, bool recursive)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::SetMouseDownView(MouseButton_e button, Ptr<View> view, const MotionEvent& motionEvent)
+void PApplication::SetMouseDownView(PMouseButton button, Ptr<PView> view, const PMotionEvent& motionEvent)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
 
     if (view != nullptr)
     {
@@ -553,11 +552,11 @@ void Application::SetMouseDownView(MouseButton_e button, Ptr<View> view, const M
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> Application::GetMouseDownView(MouseButton_e button) const
+Ptr<PView> PApplication::GetMouseDownView(PMouseButton button) const
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    int deviceID = (button < MouseButton_e::FirstTouchID) ? 0 : int(button);
+    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
 
     auto iterator = m_MouseViewMap.find(deviceID);
     if (iterator != m_MouseViewMap.end()) {
@@ -570,22 +569,22 @@ Ptr<View> Application::GetMouseDownView(MouseButton_e button) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::LayoutViews()
+void PApplication::LayoutViews()
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    std::set<Ptr<View>> updatedViews;
+    std::set<Ptr<PView>> updatedViews;
     for (int i = 0; i < 100 && !m_ViewsNeedingLayout.empty(); ++i)
     {
-        std::set<Ptr<View>> list = std::move(m_ViewsNeedingLayout);
-        for (Ptr<View> view : list)
+        std::set<Ptr<PView>> list = std::move(m_ViewsNeedingLayout);
+        for (Ptr<PView> view : list)
         {
             view->m_IsLayoutPending = false;
             view->RefreshLayout();
         }
         updatedViews.merge(list);
     }
-    for (Ptr<View> view : updatedViews) {
+    for (Ptr<PView> view : updatedViews) {
         view->OnLayoutUpdated();
     }
 }
@@ -594,11 +593,11 @@ void Application::LayoutViews()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Application::SlotLongPressTimer()
+void PApplication::SlotLongPressTimer()
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    Ptr<View> lastPressedView = GetMouseDownView(m_LastClickEvent.ButtonID);
+    Ptr<PView> lastPressedView = GetMouseDownView(m_LastClickEvent.ButtonID);
     if (lastPressedView != nullptr) {
         lastPressedView->DispatchLongPress(m_LastClickEvent.ButtonID, lastPressedView->ConvertFromScreen(m_LastClickEvent.Position), m_LastClickEvent);
     }

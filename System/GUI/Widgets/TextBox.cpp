@@ -23,23 +23,21 @@
 #include <Utils/Utils.h>
 #include <Utils/XMLObjectParser.h>
 
-namespace os
-{
 
-const std::map<PString, uint32_t> TextBoxFlags::FlagMap
+const std::map<PString, uint32_t> PTextBoxFlags::FlagMap
 {
-    DEFINE_FLAG_MAP_ENTRY(TextBoxFlags, IncludeLineGap),
-    DEFINE_FLAG_MAP_ENTRY(TextBoxFlags, RaisedFrame),
-    DEFINE_FLAG_MAP_ENTRY(TextBoxFlags, ReadOnly)
+    DEFINE_FLAG_MAP_ENTRY(PTextBoxFlags, IncludeLineGap),
+    DEFINE_FLAG_MAP_ENTRY(PTextBoxFlags, RaisedFrame),
+    DEFINE_FLAG_MAP_ENTRY(PTextBoxFlags, ReadOnly)
 };
 
-NoPtr<TextBoxStyle> TextBox::s_DefaultStyle;
+NoPtr<PTextBoxStyle> PTextBox::s_DefaultStyle;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextBox::TextBox(const PString& name, const PString& text, Ptr<View> parent, uint32_t flags) : Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+PTextBox::PTextBox(const PString& name, const PString& text, Ptr<PView> parent, uint32_t flags) : PControl(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     Initialize(text);
 }
@@ -48,32 +46,32 @@ TextBox::TextBox(const PString& name, const PString& text, Ptr<View> parent, uin
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TextBox::TextBox(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
+PTextBox::PTextBox(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PControl(context, parent, xmlData)
 {
     Initialize(context.GetAttribute(xmlData, "text", PString::zero));
-    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, TextBoxFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
+    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PTextBoxFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextBox::Initialize(const PString& text)
+void PTextBox::Initialize(const PString& text)
 {
-    m_Editor = ptr_new<TextEditView>("Editor", text, ptr_tmp_cast(this), GetFlags());
+    m_Editor = ptr_new<PTextEditView>("Editor", text, ptr_tmp_cast(this), GetFlags());
     m_Editor->SetBorders(4.0f, 4.0f, 4.0f, 4.0f);
 
     SetMaxOverscroll(40.0f, 0.0f);
     SetScrolledView(m_Editor);
 
-    m_Editor->SignalTextChanged.Connect(this, &TextBox::SlotTextChanged);
+    m_Editor->SignalTextChanged.Connect(this, &PTextBox::SlotTextChanged);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextBox::SlotTextChanged(const PString& text, bool finalUpdate)
+void PTextBox::SlotTextChanged(const PString& text, bool finalUpdate)
 {
     SignalTextChanged(text, finalUpdate, this);
 }
@@ -82,9 +80,9 @@ void TextBox::SlotTextChanged(const PString& text, bool finalUpdate)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextBox::OnFlagsChanged(uint32_t changedFlags)
+void PTextBox::OnFlagsChanged(uint32_t changedFlags)
 {
-    Control::OnFlagsChanged(changedFlags);
+    PControl::OnFlagsChanged(changedFlags);
     m_Editor->ReplaceFlags(GetFlags());
 }
 
@@ -92,10 +90,10 @@ void TextBox::OnFlagsChanged(uint32_t changedFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextBox::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PTextBox::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    Point size = m_Editor->GetPreferredSize(PrefSizeType::Smallest);
-    Rect borders = m_Editor->GetBorders();
+    PPoint size = m_Editor->GetPreferredSize(PPrefSizeType::Smallest);
+    PRect borders = m_Editor->GetBorders();
     size.x += borders.left + borders.right;
     size.y += borders.top + borders.bottom;
 
@@ -107,10 +105,10 @@ void TextBox::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includ
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextBox::OnFrameSized(const Point& delta)
+void PTextBox::OnFrameSized(const PPoint& delta)
 {
-    Rect frame = GetBounds();
-    Rect borders = m_Editor->GetBorders();
+    PRect frame = GetBounds();
+    PRect borders = m_Editor->GetBorders();
     frame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
     m_Editor->SetFrame(frame);
 }
@@ -119,26 +117,26 @@ void TextBox::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TextBox::OnPaint(const Rect& updateRect)
+void PTextBox::OnPaint(const PRect& updateRect)
 {
-    Ptr<const TextBoxStyle> style = GetStyle();
+    Ptr<const PTextBoxStyle> style = GetStyle();
     if (!IsEnabled()) {
         SetEraseColor(style->DisabledBackgroundColor);
-    } else if (HasFlags(TextBoxFlags::ReadOnly)) {
+    } else if (HasFlags(PTextBoxFlags::ReadOnly)) {
         SetEraseColor(style->ReadOnlyBackgroundColor);
     } else {
         SetEraseColor(style->BackgroundColor);
     }
 
-    Rect bounds = GetBounds();
-    DrawFrame(bounds, HasFlags(TextBoxFlags::RaisedFrame) ? FRAME_RAISED : FRAME_RECESSED);
+    PRect bounds = GetBounds();
+    DrawFrame(bounds, HasFlags(PTextBoxFlags::RaisedFrame) ? FRAME_RAISED : FRAME_RECESSED);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool TextBox::OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool PTextBox::OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
     return m_Editor->OnTouchDown(pointID, m_Editor->ConvertFromParent(position), event);
 }
@@ -147,7 +145,7 @@ bool TextBox::OnTouchDown(MouseButton_e pointID, const Point& position, const Mo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool TextBox::OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool PTextBox::OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
     return m_Editor->OnTouchUp(pointID, m_Editor->ConvertFromParent(position), event);
 }
@@ -156,7 +154,7 @@ bool TextBox::OnTouchUp(MouseButton_e pointID, const Point& position, const Moti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool TextBox::OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool PTextBox::OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
     return m_Editor->OnTouchMove(pointID, m_Editor->ConvertFromParent(position), event);
 }
@@ -165,14 +163,12 @@ bool TextBox::OnTouchMove(MouseButton_e pointID, const Point& position, const Mo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point TextBox::GetSizeForString(const PString& text, bool includeWidth, bool includeHeight) const
+PPoint PTextBox::GetSizeForString(const PString& text, bool includeWidth, bool includeHeight) const
 {
-    Point size = m_Editor->GetSizeForString(text, includeWidth, includeHeight);
-    Rect  borders = m_Editor->GetBorders();
+    PPoint size = m_Editor->GetSizeForString(text, includeWidth, includeHeight);
+    PRect  borders = m_Editor->GetBorders();
 
     size.x += borders.left + borders.right;
     size.y += borders.top + borders.bottom;
     return size;
 }
-
-} // namespace os

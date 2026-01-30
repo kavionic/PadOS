@@ -21,28 +21,27 @@
 #include <GUI/View.h>
 #include <GUI/ViewScroller.h>
 
-namespace os
-{
-class Menu;
-class MenuItem;
-class MenuRenderView;
+
+class PMenu;
+class PMenuItem;
+class PMenuRenderView;
 
 
-namespace MenuFlags
+namespace PMenuFlags
 {
-static constexpr uint32_t NoKeyboardFocus = 0x01 << ViewFlags::FirstUserBit;
+static constexpr uint32_t NoKeyboardFocus = 0x01 << PViewFlags::FirstUserBit;
 
 extern const std::map<PString, uint32_t> FlagMap;
 }
 
 
-enum class MenuLayout : uint8_t
+enum class PMenuLayout : uint8_t
 {
     Vertical,
     Horizontal,
 };
 
-enum class MenuLocation
+enum class PMenuLocation
 {
     Auto,
     Center,
@@ -58,87 +57,85 @@ enum class MenuLocation
  * \author Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
-class Menu : public View, public ViewScroller
+class PMenu : public PView, public PViewScroller
 {
 public:
     static constexpr int    LEFT_ARROW_WIDTH = 10;
     static constexpr int    LEFT_ARROW_HEIGHT = 19;
 
-    Menu(const PString& title = PString::zero, MenuLayout layout = MenuLayout::Vertical, uint32_t flags = 0);
-    ~Menu();
+    PMenu(const PString& title = PString::zero, PMenuLayout layout = PMenuLayout::Vertical, uint32_t flags = 0);
+    ~PMenu();
 
 //  From View:
 //    void        WindowActivated( bool bIsActive );
 
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 
-    virtual void    OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& event) override;
+    virtual void    OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event) override;
 
-    virtual void    OnFrameSized(const Point& delta) override;
+    virtual void    OnFrameSized(const PPoint& delta) override;
 
-    virtual void    OnPaint(const Rect& updateRect) override;
+    virtual void    OnPaint(const PRect& updateRect) override;
 
 //  From Menu:
     PString         GetLabel() const;
-    MenuLayout      GetLayout() const;
-    Ptr<MenuItem>   AddStringItem(const PString& label, int id = 0);
-    Ptr<MenuItem>   AddItem(Ptr<MenuItem> item);
-    Ptr<MenuItem>   AddItem(Ptr<MenuItem> item, size_t index);
-    Ptr<MenuItem>   AddSubMenu(Ptr<Menu> subMenu);
-    Ptr<MenuItem>   AddSubMenu(Ptr<Menu> subMenu, size_t index);
+    PMenuLayout      GetLayout() const;
+    Ptr<PMenuItem>   AddStringItem(const PString& label, int id = 0);
+    Ptr<PMenuItem>   AddItem(Ptr<PMenuItem> item);
+    Ptr<PMenuItem>   AddItem(Ptr<PMenuItem> item, size_t index);
+    Ptr<PMenuItem>   AddSubMenu(Ptr<PMenu> subMenu);
+    Ptr<PMenuItem>   AddSubMenu(Ptr<PMenu> subMenu, size_t index);
 
-    Ptr<MenuItem>   RemoveItem(size_t index);
-    bool            RemoveItem(Ptr<MenuItem> item);
-    bool            RemoveItem(Ptr<Menu> subMenu);
+    Ptr<PMenuItem>   RemoveItem(size_t index);
+    bool            RemoveItem(Ptr<PMenuItem> item);
+    bool            RemoveItem(Ptr<PMenu> subMenu);
 
-    Ptr<MenuItem>   GetItemAt(size_t index) const;
-    Ptr<MenuItem>   GetItemAt(Point position) const;
-    Ptr<Menu>       GetSubMenuAt(size_t index) const;
+    Ptr<PMenuItem>   GetItemAt(size_t index) const;
+    Ptr<PMenuItem>   GetItemAt(PPoint position) const;
+    Ptr<PMenu>       GetSubMenuAt(size_t index) const;
     size_t          GetItemCount() const;
 
-    size_t          GetIndexOf(Ptr<MenuItem> item) const;
-    size_t          GetIndexOf(Ptr<Menu> subMenu) const;
+    size_t          GetIndexOf(Ptr<PMenuItem> item) const;
+    size_t          GetIndexOf(Ptr<PMenu> subMenu) const;
 
-    Ptr<MenuItem>   FindItem(int id) const;
-    Ptr<MenuItem>   FindItem(const PString& name) const;
+    Ptr<PMenuItem>   FindItem(int id) const;
+    Ptr<PMenuItem>   FindItem(const PString& name) const;
 
-    Ptr<MenuItem>   FindMarked() const;
+    Ptr<PMenuItem>   FindMarked() const;
 
-    Ptr<Menu>       GetSuperMenu() const;
-    Ptr<MenuItem>   GetSuperItem();
+    Ptr<PMenu>       GetSuperMenu() const;
+    Ptr<PMenuItem>   GetSuperItem();
     void            InvalidateLayout();
 
-    void    Open(const Point& screenPosition, MenuLocation relativeLocation);
+    void    Open(const PPoint& screenPosition, PMenuLocation relativeLocation);
 
-    Signal<void, Ptr<MenuItem>, Ptr<Menu>> SignalItemSelected;
+    Signal<void, Ptr<PMenuItem>, Ptr<PMenu>> SignalItemSelected;
 private:
-    friend class MenuItem;
-    friend class MenuRenderView;
+    friend class PMenuItem;
+    friend class PMenuRenderView;
 
     void        StartOpenTimer(TimeValNanos delay);
     void        OpenSelection();
-    void        SelectItem(Ptr<MenuItem> item);
+    void        SelectItem(Ptr<PMenuItem> item);
     void        SelectPrev();
     void        SelectNext();
-    void        Close(bool closeChilds, bool closeParent, Ptr<MenuItem> selectedItem);
-    void        InvalidateItem(MenuItem* item);
-    Ptr<Bitmap> GetArrowRightBitmap();
+    void        Close(bool closeChilds, bool closeParent, Ptr<PMenuItem> selectedItem);
+    void        InvalidateItem(PMenuItem* item);
+    Ptr<PBitmap> GetArrowRightBitmap();
 
-    std::vector<Ptr<MenuItem>>  m_Items;
-    EventTimer                  m_OpenTimer;
-    MenuLayout                  m_Layout;
-    MenuItem*                   m_SuperItem = nullptr;
-    Point                       m_ContentSize;
+    std::vector<Ptr<PMenuItem>>  m_Items;
+    PEventTimer                  m_OpenTimer;
+    PMenuLayout                  m_Layout;
+    PMenuItem*                   m_SuperItem = nullptr;
+    PPoint                       m_ContentSize;
 
-    Rect                        m_ItemBorders;
+    PRect                        m_ItemBorders;
 
-    Ptr<MenuRenderView>         m_ContentView;
-    Ptr<Bitmap>                 m_ArrowRightBitmap;
+    Ptr<PMenuRenderView>         m_ContentView;
+    Ptr<PBitmap>                 m_ArrowRightBitmap;
 
     PString                     m_Title;
 
     bool                        m_IsOpen            = false;
     bool                        m_HasOpenChildren   = false;
 };
-
-} // namespace os

@@ -24,22 +24,20 @@
 #include <string>
 #include <functional>
 
-namespace os
-{
+class PScrollBar;
 
-class ScrollBar;
-class ListViewHeaderView;
-class ListViewScrolledView;
-class ListViewRow;
+class PListViewHeaderView;
+class PListViewScrolledView;
+class PListViewRow;
 
-namespace ListViewFlags
+namespace PListViewFlags
 {
-static constexpr uint32_t MultiSelect   = 0x0001 << ViewFlags::FirstUserBit;
-static constexpr uint32_t NoAutoSort    = 0x0002 << ViewFlags::FirstUserBit;
-static constexpr uint32_t RenderBorder  = 0x0004 << ViewFlags::FirstUserBit;
-static constexpr uint32_t DontScroll    = 0x0008 << ViewFlags::FirstUserBit;
-static constexpr uint32_t NoHeader      = 0x0010 << ViewFlags::FirstUserBit;
-static constexpr uint32_t NoColumnRemap = 0x0020 << ViewFlags::FirstUserBit;
+static constexpr uint32_t MultiSelect   = 0x0001 << PViewFlags::FirstUserBit;
+static constexpr uint32_t NoAutoSort    = 0x0002 << PViewFlags::FirstUserBit;
+static constexpr uint32_t RenderBorder  = 0x0004 << PViewFlags::FirstUserBit;
+static constexpr uint32_t DontScroll    = 0x0008 << PViewFlags::FirstUserBit;
+static constexpr uint32_t NoHeader      = 0x0010 << PViewFlags::FirstUserBit;
+static constexpr uint32_t NoColumnRemap = 0x0020 << PViewFlags::FirstUserBit;
 
 extern const std::map<PString, uint32_t> FlagMap;
 }
@@ -51,7 +49,7 @@ extern const std::map<PString, uint32_t> FlagMap;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class ListView : public Control
+class PListView : public PControl
 {
 public:
     static constexpr float AUTOSCROLL_BORDER = 20.0f;
@@ -62,18 +60,18 @@ public:
         INV_VISUAL = 0x04
     };
 
-    using const_iterator = std::vector<Ptr<ListViewRow>>::const_iterator;
+    using const_iterator = std::vector<Ptr<PListViewRow>>::const_iterator;
     using ColumnMap = std::vector<size_t>;
 
-    ListView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = ListViewFlags::MultiSelect | ListViewFlags::RenderBorder);
-    ListView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PListView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = PListViewFlags::MultiSelect | PListViewFlags::RenderBorder);
+    PListView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
-    ~ListView();
+    ~PListView();
 
     virtual void    SelectionChanged(size_t firstRow, size_t lastRow);
-    virtual bool    DragSelection(const Point& pos);
+    virtual bool    DragSelection(const PPoint& pos);
 
-    void            StartScroll(ScrollDirection direction, bool select);
+    void            StartScroll(PScrollDirection direction, bool select);
     void            StopScroll();
 
     bool            IsMultiSelect() const;
@@ -94,15 +92,15 @@ public:
     const ColumnMap&    GetColumnMapping() const;
     void                SetColumnMapping(const ColumnMap& map);
 
-    void                InsertRow(size_t index, Ptr<ListViewRow> row, bool update = true);
-    void                InsertRow(Ptr<ListViewRow> row, bool update = true);
-    Ptr<ListViewRow>    RemoveRow(size_t index, bool update = true);
+    void                InsertRow(size_t index, Ptr<PListViewRow> row, bool update = true);
+    void                InsertRow(Ptr<PListViewRow> row, bool update = true);
+    Ptr<PListViewRow>    RemoveRow(size_t index, bool update = true);
     void                InvalidateRow(size_t row, uint32_t flags);
     size_t              GetRowCount() const;
-    Ptr<ListViewRow>    GetRow(const Point& pos) const;
-    Ptr<ListViewRow>    GetRow(size_t index) const;
-    size_t              GetRowIndex(Ptr<ListViewRow> row) const;
-    size_t              HitTest(const Point& pos) const;
+    Ptr<PListViewRow>    GetRow(const PPoint& pos) const;
+    Ptr<PListViewRow>    GetRow(size_t index) const;
+    size_t              GetRowIndex(Ptr<PListViewRow> row) const;
+    size_t              HitTest(const PPoint& pos) const;
     float               GetRowPos(size_t row);
     void                Clear();
     bool                IsSelected(size_t row) const;
@@ -116,30 +114,28 @@ public:
     void                Sort();
     size_t              GetFirstSelected() const;
     size_t              GetLastSelected() const;
-    virtual void        OnPaint(const Rect& updateRect) override;
-    virtual void        OnFrameSized(const Point& delta) override;
+    virtual void        OnPaint(const PRect& updateRect) override;
+    virtual void        OnFrameSized(const PPoint& delta) override;
     //    virtual void      KeyDown( const char* pzString, const char* pzRawString, uint32_t nQualifiers );
     //    virtual void      AllAttachedToScreen() override;
-    virtual bool        HasFocus(MouseButton_e button) const override;
+    virtual bool        HasFocus(PMouseButton button) const override;
 
     // STL iterator interface to the rows.
     const_iterator begin() const;
     const_iterator end() const;
 
-    Signal<void, size_t, size_t, Ptr<ListView>> SignalSelectionChanged;//(size_t firstRow, size_t lastRow, Ptr<ListView> source)
-    Signal<void, size_t, size_t, Ptr<ListView>> SignalItemClicked;
+    Signal<void, size_t, size_t, Ptr<PListView>> SignalSelectionChanged;//(size_t firstRow, size_t lastRow, Ptr<ListView> source)
+    Signal<void, size_t, size_t, Ptr<PListView>> SignalItemClicked;
 
 private:
-    friend class ListViewScrolledView;
-    friend class ListViewHeaderView;
+    friend class PListViewScrolledView;
+    friend class PListViewHeaderView;
     void    Construct();
     void    Layout();
     void    AdjustScrollBars(bool okToHScroll = true);
 
-    Ptr<ListViewScrolledView>   m_ScrolledContainerView;
-    Ptr<ListViewHeaderView>     m_HeaderView;
-    Ptr<ScrollBar>              m_VScrollBar;
-    Ptr<ScrollBar>              m_HScrollBar;
+    Ptr<PListViewScrolledView>   m_ScrolledContainerView;
+    Ptr<PListViewHeaderView>     m_HeaderView;
+    Ptr<PScrollBar>              m_VScrollBar;
+    Ptr<PScrollBar>              m_HScrollBar;
 };
-
-} // namespace os

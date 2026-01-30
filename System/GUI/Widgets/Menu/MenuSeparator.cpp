@@ -19,14 +19,12 @@
 #include <GUI/Widgets/MenuSeparator.h>
 #include <GUI/Widgets/Menu.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MenuSeparator::MenuSeparator() : MenuItem(PString::zero)
+PMenuSeparator::PMenuSeparator() : PMenuItem(PString::zero)
 {
 }
 
@@ -34,7 +32,7 @@ MenuSeparator::MenuSeparator() : MenuItem(PString::zero)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MenuSeparator::~MenuSeparator()
+PMenuSeparator::~PMenuSeparator()
 {
 }
 
@@ -42,36 +40,36 @@ MenuSeparator::~MenuSeparator()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point MenuSeparator::GetContentSize()
+PPoint PMenuSeparator::GetContentSize()
 {
-    Ptr<Menu> menu = GetSuperMenu();
+    Ptr<PMenu> menu = GetSuperMenu();
 
     if (menu != nullptr)
     {
-        if (menu->GetLayout() == MenuLayout::Horizontal) {
-            return Point(6.0f, 0.0f);
+        if (menu->GetLayout() == PMenuLayout::Horizontal) {
+            return PPoint(6.0f, 0.0f);
         } else {
-            return Point(0.0f, 6.0f);
+            return PPoint(0.0f, 6.0f);
         }
     }
-    return Point(0.0f, 0.0f);
+    return PPoint(0.0f, 0.0f);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MenuSeparator::Draw(Ptr<View> targetView)
+void PMenuSeparator::Draw(Ptr<PView> targetView)
 {
-    Ptr<Menu> menu = GetSuperMenu();
+    Ptr<PMenu> menu = GetSuperMenu();
 
     if (menu == nullptr) {
         return;
     }
-    Rect frame = GetFrame();
-    Rect viewFrame = targetView->GetBounds();
+    PRect frame = GetFrame();
+    PRect viewFrame = targetView->GetBounds();
 
-    if (menu->GetLayout() == MenuLayout::Horizontal)
+    if (menu->GetLayout() == PMenuLayout::Horizontal)
     {
         frame.top = viewFrame.top;
         frame.bottom = viewFrame.bottom;
@@ -81,26 +79,26 @@ void MenuSeparator::Draw(Ptr<View> targetView)
         frame.left = viewFrame.left;
         frame.right = viewFrame.right;
     }
-    targetView->SetFgColor(StandardColorID::MenuBackground);
+    targetView->SetFgColor(PStandardColorID::MenuBackground);
     targetView->FillRect(frame);
 
-    if (menu->GetLayout() == MenuLayout::Horizontal)
+    if (menu->GetLayout() == PMenuLayout::Horizontal)
     {
         float x = std::floor(frame.left + (frame.Width() + 1.0f) * 0.5f);
-        targetView->SetFgColor(StandardColorID::Shadow);
-        targetView->DrawLine(Point(x, frame.top + 2.0f), Point(x, frame.bottom - 2.0f));
+        targetView->SetFgColor(PStandardColorID::Shadow);
+        targetView->DrawLine(PPoint(x, frame.top + 2.0f), PPoint(x, frame.bottom - 2.0f));
         x += 1.0f;
-        targetView->SetFgColor(StandardColorID::Shine);
-        targetView->DrawLine(Point(x, frame.top + 2.0f), Point(x, frame.bottom - 2.0f));
+        targetView->SetFgColor(PStandardColorID::Shine);
+        targetView->DrawLine(PPoint(x, frame.top + 2.0f), PPoint(x, frame.bottom - 2.0f));
     }
     else
     {
         float y = std::floor(frame.top + (frame.Height() + 1.0f) * 0.5f);
-        targetView->SetFgColor(StandardColorID::Shadow);
-        targetView->DrawLine(Point(frame.left + 4.0f, y), Point(frame.right - 4.0f, y));
+        targetView->SetFgColor(PStandardColorID::Shadow);
+        targetView->DrawLine(PPoint(frame.left + 4.0f, y), PPoint(frame.right - 4.0f, y));
         y += 1.0f;
-        targetView->SetFgColor(StandardColorID::Shine);
-        targetView->DrawLine(Point(frame.left + 4.0f, y), Point(frame.right - 4.0f, y));
+        targetView->SetFgColor(PStandardColorID::Shine);
+        targetView->DrawLine(PPoint(frame.left + 4.0f, y), PPoint(frame.right - 4.0f, y));
     }
 
 }
@@ -109,7 +107,7 @@ void MenuSeparator::Draw(Ptr<View> targetView)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MenuSeparator::DrawContent(Ptr<View> targetView)
+void PMenuSeparator::DrawContent(Ptr<PView> targetView)
 {
 }
 
@@ -117,8 +115,6 @@ void MenuSeparator::DrawContent(Ptr<View> targetView)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MenuSeparator::Highlight(bool highlight)
+void PMenuSeparator::Highlight(bool highlight)
 {
 }
-
-} // namespace os

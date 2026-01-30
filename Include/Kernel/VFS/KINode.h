@@ -36,7 +36,7 @@ class KFilesystemFileOps;
 class KFSVolume;
 class KINode;
 
-class KINode : public PtrTarget, public KWaitableObject, public IntrusiveListNode<KINode>
+class KINode : public PtrTarget, public KWaitableObject, public PIntrusiveListNode<KINode>
 {
 public:
     KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, bool isDirectory);

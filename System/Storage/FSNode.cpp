@@ -27,9 +27,6 @@
 #include <Storage/Path.h>
 
 
-using namespace os;
-
-
 ///////////////////////////////////////////////////////////////////////////////
 /// Default constructor.
 /// \par Description:
@@ -39,7 +36,7 @@ using namespace os;
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode::FSNode()
+PFSNode::PFSNode()
 {
 }
 
@@ -55,7 +52,7 @@ FSNode::FSNode()
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode::FSNode(const PString& path, int openFlags)
+PFSNode::PFSNode(const PString& path, int openFlags)
 {
     Open(path, openFlags);
 }
@@ -72,7 +69,7 @@ FSNode::FSNode(const PString& path, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode::FSNode(const Directory& directory, const PString& path, int openFlags)
+PFSNode::PFSNode(const PDirectory& directory, const PString& path, int openFlags)
 {
     Open(directory, path, openFlags);
 }
@@ -89,7 +86,7 @@ FSNode::FSNode(const Directory& directory, const PString& path, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode::FSNode(const FileReference& reference, int openFlags)
+PFSNode::PFSNode(const PFileReference& reference, int openFlags)
 {
     Open(reference, openFlags);
 }
@@ -105,7 +102,7 @@ FSNode::FSNode(const FileReference& reference, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode::FSNode(int fileDescriptor, bool takeOwnership)
+PFSNode::PFSNode(int fileDescriptor, bool takeOwnership)
 {
     if (!takeOwnership && fileDescriptor != -1) {
         fileDescriptor = dup(fileDescriptor);
@@ -137,7 +134,7 @@ FSNode::FSNode(int fileDescriptor, bool takeOwnership)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode::FSNode(const FSNode& node)
+PFSNode::PFSNode(const PFSNode& node)
 {
     m_FileDescriptor = dup(node.m_FileDescriptor);
     m_StatCache = node.m_StatCache;
@@ -147,7 +144,7 @@ FSNode::FSNode(const FSNode& node)
 ///
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode::FSNode(FSNode&& node)
+PFSNode::PFSNode(PFSNode&& node)
 {
     m_FileDescriptor = node.m_FileDescriptor;
     m_StatCache = node.m_StatCache;
@@ -162,7 +159,7 @@ FSNode::FSNode(FSNode&& node)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode::~FSNode()
+PFSNode::~PFSNode()
 {
 //    if (m_hAttrDir != nullptr) {
 //        close_attrdir(m_hAttrDir);
@@ -186,7 +183,7 @@ FSNode::~FSNode()
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::IsValid() const
+bool PFSNode::IsValid() const
 {
     return m_FileDescriptor >= 0;
 }
@@ -238,7 +235,7 @@ bool FSNode::IsValid() const
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::Open(const PString& path, int openFlags)
+bool PFSNode::Open(const PString& path, int openFlags)
 {
     int newFileDescriptor = -1;
     if (path.size() > 1 && path[0] == '~' && path[1] == '/')
@@ -339,7 +336,7 @@ bool FSNode::Open(const PString& path, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::Open(const Directory& directory, const PString& path, int openFlags)
+bool PFSNode::Open(const PDirectory& directory, const PString& path, int openFlags)
 {
     if (!directory.IsValid())
     {
@@ -392,7 +389,7 @@ bool FSNode::Open(const Directory& directory, const PString& path, int openFlags
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::Open(const FileReference& reference, int openFlags)
+bool PFSNode::Open(const PFileReference& reference, int openFlags)
 {
     if (!reference.IsValid())
     {
@@ -442,7 +439,7 @@ bool FSNode::Open(const FileReference& reference, int openFlags)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::SetTo(int fileDescriptor, bool takeOwnership)
+bool PFSNode::SetTo(int fileDescriptor, bool takeOwnership)
 {
     struct ::stat statBuffer;
     if (fstat(fileDescriptor, &statBuffer) < 0)
@@ -486,7 +483,7 @@ bool FSNode::SetTo(int fileDescriptor, bool takeOwnership)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::SetTo(const FSNode& node)
+bool PFSNode::SetTo(const PFSNode& node)
 {
     if (!node.IsValid())
     {
@@ -516,7 +513,7 @@ bool FSNode::SetTo(const FSNode& node)
 ///
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::SetTo(FSNode&& node)
+bool PFSNode::SetTo(PFSNode&& node)
 {
     if (!node.IsValid())
     {
@@ -547,7 +544,7 @@ bool FSNode::SetTo(FSNode&& node)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-void FSNode::Close()
+void PFSNode::Close()
 {
 //    if (m_hAttrDir != nullptr) {
 //        close_attrdir(m_hAttrDir);
@@ -564,7 +561,7 @@ void FSNode::Close()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer)
+bool PFSNode::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer)
 {
     return true;
 }
@@ -573,7 +570,7 @@ bool FSNode::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::GetStat(struct ::stat* statBuffer, bool updateCache) const
+bool PFSNode::GetStat(struct ::stat* statBuffer, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
         errno = EINVAL;
@@ -595,7 +592,7 @@ bool FSNode::GetStat(struct ::stat* statBuffer, bool updateCache) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::SetStats(const struct stat& statBuffer, uint32_t mask) const
+bool PFSNode::SetStats(const struct stat& statBuffer, uint32_t mask) const
 {
     if (m_FileDescriptor < 0) {
         errno = EINVAL;
@@ -631,7 +628,7 @@ bool FSNode::SetStats(const struct stat& statBuffer, uint32_t mask) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ino_t FSNode::GetInode() const
+ino_t PFSNode::GetInode() const
 {
     if (m_FileDescriptor < 0) {
         errno = EINVAL;
@@ -644,7 +641,7 @@ ino_t FSNode::GetInode() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-dev_t FSNode::GetDev() const
+dev_t PFSNode::GetDev() const
 {
     if (m_FileDescriptor < 0) {
         errno = EINVAL;
@@ -657,7 +654,7 @@ dev_t FSNode::GetDev() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FSNode::GetMode(bool updateCache) const
+int PFSNode::GetMode(bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
         errno = EINVAL;
@@ -676,7 +673,7 @@ int FSNode::GetMode(bool updateCache) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-off64_t FSNode::GetSize(bool updateCache) const
+off64_t PFSNode::GetSize(bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
         errno = EINVAL;
@@ -694,7 +691,7 @@ off64_t FSNode::GetSize(bool updateCache) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FSNode::SetSize(off64_t size) const
+bool PFSNode::SetSize(off64_t size) const
 {
     if (m_FileDescriptor < 0) {
         errno = EINVAL;
@@ -709,7 +706,7 @@ bool FSNode::SetSize(off64_t size) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode FSNode::GetCTime(TimeValNanos& outTime, bool updateCache) const
+PErrorCode PFSNode::GetCTime(TimeValNanos& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
         return PErrorCode::InvalidArg;
@@ -727,7 +724,7 @@ PErrorCode FSNode::GetCTime(TimeValNanos& outTime, bool updateCache) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode FSNode::GetMTime(TimeValNanos& outTime, bool updateCache) const
+PErrorCode PFSNode::GetMTime(TimeValNanos& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
         return PErrorCode::InvalidArg;
@@ -745,7 +742,7 @@ PErrorCode FSNode::GetMTime(TimeValNanos& outTime, bool updateCache) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode FSNode::GetATime(TimeValNanos& outTime, bool updateCache) const
+PErrorCode PFSNode::GetATime(TimeValNanos& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
         return PErrorCode::InvalidArg;
@@ -759,7 +756,7 @@ PErrorCode FSNode::GetATime(TimeValNanos& outTime, bool updateCache) const
     return PErrorCode::Success;
 }
 
-PErrorCode FSNode::GetCTime(time_t& outTime, bool updateCache) const
+PErrorCode PFSNode::GetCTime(time_t& outTime, bool updateCache) const
 {
     TimeValNanos fileTime;
     PErrorCode result = GetCTime(fileTime, updateCache);
@@ -769,7 +766,7 @@ PErrorCode FSNode::GetCTime(time_t& outTime, bool updateCache) const
     return result;
 }
 
-PErrorCode FSNode::GetMTime(time_t& outTime, bool updateCache /*= true*/) const
+PErrorCode PFSNode::GetMTime(time_t& outTime, bool updateCache /*= true*/) const
 {
     TimeValNanos fileTime;
     PErrorCode result = GetMTime(fileTime, updateCache);
@@ -779,7 +776,7 @@ PErrorCode FSNode::GetMTime(time_t& outTime, bool updateCache /*= true*/) const
     return result;
 }
 
-PErrorCode FSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
+PErrorCode PFSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
 {
     TimeValNanos fileTime;
     PErrorCode result = GetATime(fileTime, updateCache);
@@ -1033,7 +1030,7 @@ PErrorCode FSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int FSNode::GetFileDescriptor() const
+int PFSNode::GetFileDescriptor() const
 {
     return m_FileDescriptor;
 }
@@ -1042,7 +1039,7 @@ int FSNode::GetFileDescriptor() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode& FSNode::operator=(const FSNode& rhs)
+PFSNode& PFSNode::operator=(const PFSNode& rhs)
 {
     Close();
     SetTo(rhs);
@@ -1053,9 +1050,9 @@ FSNode& FSNode::operator=(const FSNode& rhs)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FSNode& FSNode::operator=(FSNode&& rhs)
+PFSNode& PFSNode::operator=(PFSNode&& rhs)
 {
     Close();
-    SetTo(std::forward<FSNode&&>(rhs));
+    SetTo(std::forward<PFSNode&&>(rhs));
     return *this;
 }

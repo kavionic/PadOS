@@ -20,13 +20,8 @@
 
 #include <Math/Point.h>
 
-namespace os
-{
-
-class Desktop
+class PDesktop
 {
 public:
-    Point GetResolution() const { return Point(800.0f, 480.0f); }
+    PPoint GetResolution() const { return PPoint(800.0f, 480.0f); }
 };
-
-} // namespace os

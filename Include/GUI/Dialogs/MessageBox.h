@@ -21,25 +21,22 @@
 
 #include <GUI/Dialogs/DialogBase.h>
 
-namespace os
-{
 
-class TextView;
+class PTextView;
 
-class MessageBox : public DialogBase
+
+class PMessageBox : public PDialogBase
 {
 public:
-    MessageBox(const PString& title, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
-    virtual ~MessageBox();
-    static Ptr<MessageBox> ShowMessage(const PString& title, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
-    static DialogButtonID  ShowMessageSync(Ptr<View> owner, const PString& title, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
+    PMessageBox(const PString& title, const PString& text, PDialogButtonSets buttonSet = PDialogButtonSets::Ok);
+    virtual ~PMessageBox();
+    static Ptr<PMessageBox> ShowMessage(const PString& title, const PString& text, PDialogButtonSets buttonSet = PDialogButtonSets::Ok);
+    static PDialogButtonID  ShowMessageSync(Ptr<PView> owner, const PString& title, const PString& text, PDialogButtonSets buttonSet = PDialogButtonSets::Ok);
 
-    virtual void OnActivated(DialogButtonID buttonID) override { SignalSelected(buttonID, this); }
+    virtual void OnActivated(PDialogButtonID buttonID) override { SignalSelected(buttonID, this); }
 
-    Signal<void, DialogButtonID, MessageBox*> SignalSelected;//(DialogButtonID buttonID, MessageBox* dialog)
+    Signal<void, PDialogButtonID, PMessageBox*> SignalSelected;//(DialogButtonID buttonID, MessageBox* dialog)
 
 private:
-    Ptr<TextView> m_MessageView;
+    Ptr<PTextView> m_MessageView;
 };
-
-} // namespace os

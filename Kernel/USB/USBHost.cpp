@@ -29,8 +29,6 @@
 #include <Kernel/HAL/STM32/USB_STM32.h>
 #include <Kernel/USB/USBCommon.h>
 
-using namespace os;
-
 
 namespace kernel
 {
@@ -177,7 +175,7 @@ void* USBHost::Run()
 
                     m_Device0.m_Speed = m_Driver->HostGetSpeed();
                     m_ControlHandler.AllocPipes(0, m_Device0.m_Speed, 0);
-                    m_Enumerator.Enumerate(bind_method(this, &USBHost::HandleEnumerationDone));
+                    m_Enumerator.Enumerate(p_bind_method(this, &USBHost::HandleEnumerationDone));
                     break;
                 case USBHostEventID::DeviceDetached:
                     m_PortEnabled = false;
@@ -666,7 +664,7 @@ void USBHost::HandleEnumerationDone(bool result, uint8_t deviceAddr)
             if (!VFSelectConfiguration.Empty()) {
                 device->m_SelectedConfiguration = VFSelectConfiguration(this);
             }
-            m_ControlHandler.ReqSetConfiguration(deviceAddr, device->m_SelectedConfiguration, bind_method(this, &USBHost::HandleSetConfigurationResult));
+            m_ControlHandler.ReqSetConfiguration(deviceAddr, device->m_SelectedConfiguration, p_bind_method(this, &USBHost::HandleSetConfigurationResult));
         }
     }
     else
@@ -705,7 +703,7 @@ void USBHost::HandleSetConfigurationResult(bool result, uint8_t deviceAddr)
             0,
             0
         );
-        m_ControlHandler.SendControlRequest(deviceAddr, request, nullptr, bind_method(this, &USBHost::HandleSetWakeupFeatureResult));
+        m_ControlHandler.SendControlRequest(deviceAddr, request, nullptr, p_bind_method(this, &USBHost::HandleSetWakeupFeatureResult));
     }
     else
     {

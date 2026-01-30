@@ -24,7 +24,6 @@
 #include <Kernel/USB/USBHost.h>
 #include <Kernel/USB/USBLanguages.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -96,7 +95,7 @@ bool USBHostControl::SendControlRequest(uint8_t deviceAddr, const USB_ControlReq
 {
     m_Setup                 = request;
     m_Buffer                = static_cast<uint8_t*>(buffer);
-    m_Length                = LittleEndianToHost(request.wLength);
+    m_Length                = PLittleEndianToHost(request.wLength);
     m_CurrentDeviceAddress  = deviceAddr;
     m_ErrorCount            = 0;
     m_RequestCallback       = std::move(callback);
@@ -112,7 +111,7 @@ bool USBHostControl::SendControlRequest(uint8_t deviceAddr, const USB_ControlReq
         HandleRequestCompletion(false);
         return false;
     }
-    return m_HostHandler->ControlSendSetup(m_PipeOut, &m_Setup, bind_method(this, &USBHostControl::ControlSentCallback));
+    return m_HostHandler->ControlSendSetup(m_PipeOut, &m_Setup, p_bind_method(this, &USBHostControl::ControlSentCallback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -205,7 +204,7 @@ void USBHostControl::HandleRequestError()
     if (m_ErrorCount++ == 0)
     {
         // Restart the request from SETUP.
-        m_HostHandler->ControlSendSetup(m_PipeOut, &m_Setup, bind_method(this, &USBHostControl::ControlSentCallback));
+        m_HostHandler->ControlSendSetup(m_PipeOut, &m_Setup, p_bind_method(this, &USBHostControl::ControlSentCallback));
     }
     else
     {
@@ -261,17 +260,17 @@ void USBHostControl::ControlSentCallback(USB_PipeIndex pipeIndex, USB_URBState u
         if (m_Length != 0)
         {
             if (direction == USB_RequestDirection::DEVICE_TO_HOST) {
-                m_HostHandler->ControlReceiveData(m_PipeIn, m_Buffer, m_Length, bind_method(this, &USBHostControl::ControlDataReceivedCallback));
+                m_HostHandler->ControlReceiveData(m_PipeIn, m_Buffer, m_Length, p_bind_method(this, &USBHostControl::ControlDataReceivedCallback));
             } else {
-                m_HostHandler->ControlSendData(m_PipeOut, m_Buffer, m_Length, true, bind_method(this, &USBHostControl::ControlDataSentCallback));
+                m_HostHandler->ControlSendData(m_PipeOut, m_Buffer, m_Length, true, p_bind_method(this, &USBHostControl::ControlDataSentCallback));
             }
         }
         else
         {
             if (direction == USB_RequestDirection::DEVICE_TO_HOST) {
-                m_HostHandler->ControlSendData(m_PipeOut, nullptr, 0, true, bind_method(this, &USBHostControl::ControlStatusSentCallback));
+                m_HostHandler->ControlSendData(m_PipeOut, nullptr, 0, true, p_bind_method(this, &USBHostControl::ControlStatusSentCallback));
             } else {
-                m_HostHandler->ControlReceiveData(m_PipeIn, nullptr, 0, bind_method(this, &USBHostControl::ControlStatusReceivedCallback));
+                m_HostHandler->ControlReceiveData(m_PipeIn, nullptr, 0, p_bind_method(this, &USBHostControl::ControlStatusReceivedCallback));
             }
         }
     }
@@ -290,7 +289,7 @@ void USBHostControl::ControlSentCallback(USB_PipeIndex pipeIndex, USB_URBState u
 void USBHostControl::ControlDataReceivedCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength)
 {
     if (urbState == USB_URBState::Done) {
-        m_HostHandler->ControlSendData(m_PipeOut, nullptr, 0, true, bind_method(this, &USBHostControl::ControlStatusSentCallback));
+        m_HostHandler->ControlSendData(m_PipeOut, nullptr, 0, true, p_bind_method(this, &USBHostControl::ControlStatusSentCallback));
     } else if (urbState == USB_URBState::Stall) {
         HandleRequestCompletion(false);
     } else if (urbState == USB_URBState::Error) {
@@ -305,11 +304,11 @@ void USBHostControl::ControlDataReceivedCallback(USB_PipeIndex pipeIndex, USB_UR
 void USBHostControl::ControlDataSentCallback(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength)
 {
     if (urbState == USB_URBState::Done) {
-        m_HostHandler->ControlReceiveData(m_PipeIn, nullptr, 0, bind_method(this, &USBHostControl::ControlStatusReceivedCallback));
+        m_HostHandler->ControlReceiveData(m_PipeIn, nullptr, 0, p_bind_method(this, &USBHostControl::ControlStatusReceivedCallback));
     } else if (urbState == USB_URBState::Stall) {
         HandleRequestCompletion(false);
     } else if (urbState == USB_URBState::NotReady) { // Received NAK from device.
-        m_HostHandler->ControlSendData(m_PipeOut, m_Buffer, m_Length, true, bind_method(this, &USBHostControl::ControlDataSentCallback));
+        m_HostHandler->ControlSendData(m_PipeOut, m_Buffer, m_Length, true, p_bind_method(this, &USBHostControl::ControlDataSentCallback));
     } else if (urbState == USB_URBState::Error) {
         HandleRequestError();
     }
@@ -324,7 +323,7 @@ void USBHostControl::ControlStatusSentCallback(USB_PipeIndex pipeIndex, USB_URBS
     if (urbState == USB_URBState::Done) {
         HandleRequestCompletion(true);
     } else if (urbState == USB_URBState::NotReady) {
-        m_HostHandler->ControlSendData(m_PipeOut, nullptr, 0, true, bind_method(this, &USBHostControl::ControlStatusSentCallback));
+        m_HostHandler->ControlSendData(m_PipeOut, nullptr, 0, true, p_bind_method(this, &USBHostControl::ControlStatusSentCallback));
     } else if (urbState == USB_URBState::Error) {
         HandleRequestError();
     }

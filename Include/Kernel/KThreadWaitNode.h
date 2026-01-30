@@ -44,9 +44,9 @@ struct KThreadWaitNode
     bool                            m_TargetDeleted = false;
     KThreadWaitNode*                m_Next = nullptr;
     KThreadWaitNode*                m_Prev = nullptr;
-    IntrusiveList<KThreadWaitNode>* m_List = nullptr;
+    PIntrusiveList<KThreadWaitNode>* m_List = nullptr;
 };
 
-typedef IntrusiveList<KThreadWaitNode> KThreadWaitList;
+typedef PIntrusiveList<KThreadWaitNode> KThreadWaitList;
 
 } // namespace kernel

@@ -29,20 +29,17 @@ namespace osi
 class DropdownMenuPopupWindow;
 }
 
-namespace os
-{
-
-class TextBox;
-class DropdownMenu;
+class PTextBox;
+class PDropdownMenu;
 
 
-namespace DropdownMenuFlags
+namespace PDropdownMenuFlags
 {
 // When the DropdownMenu is in read-only mode the user will not be able
 // to edit the contents of the edit box.It will also make the menu open
 // when the user click inside the edit box.
 
-static constexpr uint32_t ReadOnly    = 0x01 << ViewFlags::FirstUserBit;
+static constexpr uint32_t ReadOnly    = 0x01 << PViewFlags::FirstUserBit;
 
 extern const std::map<PString, uint32_t> FlagMap;
 }
@@ -56,21 +53,21 @@ extern const std::map<PString, uint32_t> FlagMap;
  * \author  Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
-class DropdownMenu : public Control
+class PDropdownMenu : public PControl
 {
 public:
-    DropdownMenu(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    DropdownMenu(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
-    ~DropdownMenu();
+    PDropdownMenu(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PDropdownMenu(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    ~PDropdownMenu();
 
     // From View:
     virtual void    OnFlagsChanged(uint32_t changedFlags) override;
     virtual void    DetachedFromScreen() override;
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual void    OnFrameSized(const Point& cDelta) override;
-    virtual void    OnScreenFrameMoved(const Point& delta) override;
-    virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual void    OnPaint(const Rect& cUpdateRect) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void    OnFrameSized(const PPoint& cDelta) override;
+    virtual void    OnScreenFrameMoved(const PPoint& delta) override;
+    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual void    OnPaint(const PRect& cUpdateRect) override;
 
     // From Control:
     virtual void    OnEnableStatusChanged(bool isEnabled) override;
@@ -91,8 +88,8 @@ public:
     const PString&  GetCurrentString() const;
     void            SetCurrentString(const PString& string);
 
-    Signal<void (size_t index, bool finalUpdate, DropdownMenu* sourceMenu)>         SignalSelectionChanged;
-    Signal<void (const PString& text, bool finalUpdate, DropdownMenu* sourceMenu)>   SignalTextChanged;
+    Signal<void (size_t index, bool finalUpdate, PDropdownMenu* sourceMenu)>         SignalSelectionChanged;
+    Signal<void (const PString& text, bool finalUpdate, PDropdownMenu* sourceMenu)>   SignalTextChanged;
 private:
     void    Initialize();
     void    OpenMenu();
@@ -101,12 +98,10 @@ private:
     void    SlotTextChanged(const PString& text, bool finalUpdate);
     void    SlotSelectionChanged(size_t selection, bool finalUpdate);
 
-    Ptr<View>               m_MenuWindow;
-    Ptr<TextBox>            m_EditBox;
-    Rect                    m_ArrowFrame;
+    Ptr<PView>               m_MenuWindow;
+    Ptr<PTextBox>            m_EditBox;
+    PRect                    m_ArrowFrame;
     std::vector<PString>    m_StringList;
     size_t                  m_Selection = 0;
     bool                    m_SendIntermediateEvents = false;
 };
-
-}

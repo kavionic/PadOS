@@ -24,13 +24,12 @@
 #include <System/System.h>
 #include <Threads/Looper.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-EventTimer::EventTimer(TimeValNanos timeout, bool singleshot, int32_t id) : m_ID(id), m_Timeout(timeout)
+PEventTimer::PEventTimer(TimeValNanos timeout, bool singleshot, int32_t id) : m_ID(id), m_Timeout(timeout)
 {
 }
 
@@ -38,7 +37,7 @@ EventTimer::EventTimer(TimeValNanos timeout, bool singleshot, int32_t id) : m_ID
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-EventTimer::~EventTimer()
+PEventTimer::~PEventTimer()
 {
     Stop();
 }
@@ -47,7 +46,7 @@ EventTimer::~EventTimer()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void EventTimer::Set(TimeValNanos timeout, bool singleshot)
+void PEventTimer::Set(TimeValNanos timeout, bool singleshot)
 {
     if ( timeout <= TimeValNanos::zero ) {
         timeout = TimeValNanos::FromNanoseconds(1);
@@ -65,10 +64,10 @@ void EventTimer::Set(TimeValNanos timeout, bool singleshot)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool EventTimer::Start(bool singleShot, Looper* looper)
+bool PEventTimer::Start(bool singleShot, PLooper* looper)
 {
     if (looper == nullptr) {
-        looper = Looper::GetCurrentLooper();
+        looper = PLooper::GetCurrentLooper();
     }
     if (looper != nullptr) {
         looper->AddTimer(this, singleShot);
@@ -81,7 +80,7 @@ bool EventTimer::Start(bool singleShot, Looper* looper)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void EventTimer::Stop()
+void PEventTimer::Stop()
 {
     if (m_Looper != nullptr) {
         m_Looper->RemoveTimer(this);
@@ -92,7 +91,7 @@ void EventTimer::Stop()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool EventTimer::IsRunning() const
+bool PEventTimer::IsRunning() const
 {
     return m_Looper != nullptr;
 }
@@ -101,7 +100,7 @@ bool EventTimer::IsRunning() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void EventTimer::SetID(int32_t id)
+void PEventTimer::SetID(int32_t id)
 {
     m_ID = id;
 }
@@ -110,7 +109,7 @@ void EventTimer::SetID(int32_t id)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int32_t EventTimer::GetID() const
+int32_t PEventTimer::GetID() const
 {
     return m_ID;
 }
@@ -119,7 +118,7 @@ int32_t EventTimer::GetID() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValNanos EventTimer::GetRemainingTime() const
+TimeValNanos PEventTimer::GetRemainingTime() const
 {  
     if (m_Looper == nullptr) {
         return TimeValNanos::zero;

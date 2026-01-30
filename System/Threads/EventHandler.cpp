@@ -20,19 +20,18 @@
 #include "Threads/EventHandler.h"
 #include "Signals/RemoteSignal.h"
 
-using namespace os;
 
-EventHandler::EventHandler(const PString& name) : m_Name(name)
+PEventHandler::PEventHandler(const PString& name) : m_Name(name)
 {
     static handler_id nextHandle = 0;
     m_Handle = ++nextHandle;
 }
 
-EventHandler::~EventHandler()
+PEventHandler::~PEventHandler()
 {
 }
 
-bool EventHandler::HandleMessage(int32_t code, const void* data, size_t length)
+bool PEventHandler::HandleMessage(int32_t code, const void* data, size_t length)
 {
     auto i = m_RemoteSignalMap.find(code);
     if (i != m_RemoteSignalMap.end()) {

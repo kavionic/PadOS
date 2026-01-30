@@ -23,12 +23,9 @@
 
 #include <Utils/String.h>
 
-namespace os
-{
-
 // Named colors from SVG (https://www.w3.org/TR/css-color-3/)
 #define DEF_NAMED_COLOR_ENUM(NAME) NAME = PString::hash_string_literal(#NAME)
-enum class NamedColors : uint32_t
+enum class PNamedColors : uint32_t
 {
     DEF_NAMED_COLOR_ENUM(aliceblue),
     DEF_NAMED_COLOR_ENUM(antiquewhite),
@@ -179,8 +176,3 @@ enum class NamedColors : uint32_t
     DEF_NAMED_COLOR_ENUM(yellowgreen),
 };
 #undef DEF_NAMED_COLOR_ENUM
-
-
-} // namespace os
-
-using PNamedColors = os::NamedColors;

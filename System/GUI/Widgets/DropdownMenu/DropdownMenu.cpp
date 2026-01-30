@@ -27,8 +27,6 @@
 
 #include "DropdownMenuPopupView.h"
 
-namespace os
-{
 using namespace osi;
 
 
@@ -50,11 +48,11 @@ static constexpr int    ARROW_WIDTH = 19;
 static constexpr int    ARROW_HEIGHT = 10;
 static constexpr float  ARROW_BUTTON_ASPECT_RATIO = 0.9f;
 
-static Ptr<Bitmap> g_ArrowBitmap;
+static Ptr<PBitmap> g_ArrowBitmap;
 
-const std::map<PString, uint32_t> DropdownMenuFlags::FlagMap
+const std::map<PString, uint32_t> PDropdownMenuFlags::FlagMap
 {
-    DEFINE_FLAG_MAP_ENTRY(DropdownMenuFlags, ReadOnly)
+    DEFINE_FLAG_MAP_ENTRY(PDropdownMenuFlags, ReadOnly)
 };
 
 /** DropdownMenu constructor
@@ -67,8 +65,8 @@ const std::map<PString, uint32_t> DropdownMenuFlags::FlagMap
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-DropdownMenu::DropdownMenu(const PString& name, Ptr<View> parent, uint32_t flags) :
-    Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+PDropdownMenu::PDropdownMenu(const PString& name, Ptr<PView> parent, uint32_t flags) :
+    PControl(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     Initialize();
 }
@@ -77,9 +75,9 @@ DropdownMenu::DropdownMenu(const PString& name, Ptr<View> parent, uint32_t flags
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DropdownMenu::DropdownMenu(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
+PDropdownMenu::PDropdownMenu(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PControl(context, parent, xmlData)
 {
-    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, DropdownMenuFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
+    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PDropdownMenuFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
     Initialize();
 }
 
@@ -87,16 +85,16 @@ DropdownMenu::DropdownMenu(ViewFactoryContext& context, Ptr<View> parent, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::Initialize()
+void PDropdownMenu::Initialize()
 {
-    m_EditBox = ptr_new<TextBox>("text_view", PString::zero, ptr_tmp_cast(this), HasFlags(DropdownMenuFlags::ReadOnly) ? (TextBoxFlags::ReadOnly | TextBoxFlags::RaisedFrame) : 0);
-    OnFrameSized(Point(0, 0));
+    m_EditBox = ptr_new<PTextBox>("text_view", PString::zero, ptr_tmp_cast(this), HasFlags(PDropdownMenuFlags::ReadOnly) ? (PTextBoxFlags::ReadOnly | PTextBoxFlags::RaisedFrame) : 0);
+    OnFrameSized(PPoint(0, 0));
 
-    m_EditBox->SignalTextChanged.Connect(this, &DropdownMenu::SlotTextChanged);
+    m_EditBox->SignalTextChanged.Connect(this, &PDropdownMenu::SlotTextChanged);
 
     if (g_ArrowBitmap == nullptr)
     {
-        g_ArrowBitmap = ptr_new<Bitmap>(ARROW_WIDTH, ARROW_HEIGHT, EColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
+        g_ArrowBitmap = ptr_new<PBitmap>(ARROW_WIDTH, ARROW_HEIGHT, PEColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
     }
 }
 
@@ -104,7 +102,7 @@ void DropdownMenu::Initialize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DropdownMenu::~DropdownMenu()
+PDropdownMenu::~PDropdownMenu()
 {
 }
 
@@ -112,15 +110,15 @@ DropdownMenu::~DropdownMenu()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::OnFlagsChanged(uint32_t changedFlags)
+void PDropdownMenu::OnFlagsChanged(uint32_t changedFlags)
 {
-    Control::OnFlagsChanged(changedFlags);
-    if ((changedFlags & DropdownMenuFlags::ReadOnly) && m_EditBox != nullptr)
+    PControl::OnFlagsChanged(changedFlags);
+    if ((changedFlags & PDropdownMenuFlags::ReadOnly) && m_EditBox != nullptr)
     {
-        if (HasFlags(DropdownMenuFlags::ReadOnly)) {
-            m_EditBox->MergeFlags(TextBoxFlags::ReadOnly | TextBoxFlags::RaisedFrame);
+        if (HasFlags(PDropdownMenuFlags::ReadOnly)) {
+            m_EditBox->MergeFlags(PTextBoxFlags::ReadOnly | PTextBoxFlags::RaisedFrame);
         } else {
-            m_EditBox->ClearFlags(TextBoxFlags::ReadOnly | TextBoxFlags::RaisedFrame);
+            m_EditBox->ClearFlags(PTextBoxFlags::ReadOnly | PTextBoxFlags::RaisedFrame);
         }
     }
 }
@@ -129,7 +127,7 @@ void DropdownMenu::OnFlagsChanged(uint32_t changedFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::DetachedFromScreen()
+void PDropdownMenu::DetachedFromScreen()
 {
     CloseMenu();
 }
@@ -138,15 +136,15 @@ void DropdownMenu::DetachedFromScreen()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PDropdownMenu::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    Point size = (m_StringList.empty()) ? m_EditBox->GetPreferredSize(PrefSizeType::Smallest) : m_EditBox->GetSizeForString(m_StringList[0]);
+    PPoint size = (m_StringList.empty()) ? m_EditBox->GetPreferredSize(PPrefSizeType::Smallest) : m_EditBox->GetSizeForString(m_StringList[0]);
 
     if (includeWidth)
     {
         for (size_t i = 1; i < m_StringList.size(); ++i)
         {
-            Point curSize = m_EditBox->GetSizeForString(m_StringList[i], true, false);
+            PPoint curSize = m_EditBox->GetSizeForString(m_StringList[i], true, false);
 
             if (curSize.x > size.x) {
                 size.x = curSize.x;
@@ -163,11 +161,11 @@ void DropdownMenu::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::OnFrameSized(const Point& cDelta)
+void PDropdownMenu::OnFrameSized(const PPoint& cDelta)
 {
-    Rect editFrame = GetBounds();
+    PRect editFrame = GetBounds();
 
-    m_ArrowFrame = Rect(editFrame.right - std::round(editFrame.Height() * ARROW_BUTTON_ASPECT_RATIO), 0.0f, editFrame.right, editFrame.bottom);
+    m_ArrowFrame = PRect(editFrame.right - std::round(editFrame.Height() * ARROW_BUTTON_ASPECT_RATIO), 0.0f, editFrame.right, editFrame.bottom);
 
     editFrame.right = m_ArrowFrame.left;
     m_EditBox->SetFrame(editFrame);
@@ -177,7 +175,7 @@ void DropdownMenu::OnFrameSized(const Point& cDelta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::OnScreenFrameMoved(const Point& delta)
+void PDropdownMenu::OnScreenFrameMoved(const PPoint& delta)
 {
     LayoutMenuWindow();
 }
@@ -186,10 +184,10 @@ void DropdownMenu::OnScreenFrameMoved(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenu::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PDropdownMenu::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (!m_EditBox->IsEnabled()) {
-        return View::OnMouseDown(button, position, event);
+        return PView::OnMouseDown(button, position, event);
     }
     if (m_MenuWindow == nullptr)
     {
@@ -208,41 +206,41 @@ bool DropdownMenu::OnMouseDown(MouseButton_e button, const Point& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::OnPaint(const Rect& cUpdateRect)
+void PDropdownMenu::OnPaint(const PRect& cUpdateRect)
 {
-    SetEraseColor(StandardColorID::DefaultBackground);
+    SetEraseColor(PStandardColorID::DefaultBackground);
     DrawFrame(m_ArrowFrame, (m_MenuWindow != nullptr) ? FRAME_RECESSED : FRAME_RAISED);
 
-    Point center(m_ArrowFrame.left + m_ArrowFrame.Width() * 0.5f, m_ArrowFrame.top + m_ArrowFrame.Height() * 0.5f);
+    PPoint center(m_ArrowFrame.left + m_ArrowFrame.Width() * 0.5f, m_ArrowFrame.top + m_ArrowFrame.Height() * 0.5f);
     center.Round();
 
     if (!m_EditBox->IsEnabled())
     {
     }
 
-    const Rect arrowFrame(0.0f, 0.0f, float(ARROW_WIDTH), float(ARROW_HEIGHT));
+    const PRect arrowFrame(0.0f, 0.0f, float(ARROW_WIDTH), float(ARROW_HEIGHT));
 
-    SetDrawingMode(DrawingMode::Overlay);
+    SetDrawingMode(PDrawingMode::Overlay);
     SetFgColor(0, 0, 0);
     if (m_EditBox->IsEnabled())
     {
-        DrawBitmap(g_ArrowBitmap, arrowFrame, center - Point(9.0f, 4.0f));
+        DrawBitmap(g_ArrowBitmap, arrowFrame, center - PPoint(9.0f, 4.0f));
     }
     else
     {
         SetFgColor(255, 255, 255);
-        DrawBitmap(g_ArrowBitmap, arrowFrame, center - Point(8.0f, 4.0f));
+        DrawBitmap(g_ArrowBitmap, arrowFrame, center - PPoint(8.0f, 4.0f));
         SetFgColor(110, 110, 110);
-        DrawBitmap(g_ArrowBitmap, arrowFrame, center - Point(9.0f, 5.0f));
+        DrawBitmap(g_ArrowBitmap, arrowFrame, center - PPoint(9.0f, 5.0f));
     }
-    SetDrawingMode(DrawingMode::Copy);
+    SetDrawingMode(PDrawingMode::Copy);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::OnEnableStatusChanged(bool isEnabled)
+void PDropdownMenu::OnEnableStatusChanged(bool isEnabled)
 {
     m_EditBox->SetEnable(isEnabled);
     Invalidate();
@@ -255,7 +253,7 @@ void DropdownMenu::OnEnableStatusChanged(bool isEnabled)
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::AppendItem(const PString& text)
+void PDropdownMenu::AppendItem(const PString& text)
 {
     m_StringList.push_back(text);
     PreferredSizeChanged();
@@ -270,7 +268,7 @@ void DropdownMenu::AppendItem(const PString& text)
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::InsertItem(size_t index, const PString& text)
+void PDropdownMenu::InsertItem(size_t index, const PString& text)
 {
     m_StringList.insert(m_StringList.begin() + index, text);
     PreferredSizeChanged();
@@ -286,7 +284,7 @@ void DropdownMenu::InsertItem(size_t index, const PString& text)
  *//////////////////////////////////////////////////////////////////////////////
 
 
-bool DropdownMenu::DeleteItem(size_t index)
+bool PDropdownMenu::DeleteItem(size_t index)
 {
     if (index < m_StringList.size())
     {
@@ -303,7 +301,7 @@ bool DropdownMenu::DeleteItem(size_t index)
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-size_t DropdownMenu::GetItemCount() const
+size_t PDropdownMenu::GetItemCount() const
 {
     return m_StringList.size();
 }
@@ -317,7 +315,7 @@ size_t DropdownMenu::GetItemCount() const
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::Clear()
+void PDropdownMenu::Clear()
 {
     m_StringList.clear();
     PreferredSizeChanged();
@@ -332,7 +330,7 @@ void DropdownMenu::Clear()
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-const PString& DropdownMenu::GetItem(size_t index) const
+const PString& PDropdownMenu::GetItem(size_t index) const
 {
     assert(index < m_StringList.size());
     return(m_StringList[index]);
@@ -344,7 +342,7 @@ const PString& DropdownMenu::GetItem(size_t index) const
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-size_t DropdownMenu::GetSelection() const
+size_t PDropdownMenu::GetSelection() const
 {
     return m_Selection;
 }
@@ -363,7 +361,7 @@ size_t DropdownMenu::GetSelection() const
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::SetSelection(size_t index, bool notify)
+void PDropdownMenu::SetSelection(size_t index, bool notify)
 {
     if (index < m_StringList.size())
     {
@@ -383,7 +381,7 @@ void DropdownMenu::SetSelection(size_t index, bool notify)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const PString& DropdownMenu::GetCurrentString() const
+const PString& PDropdownMenu::GetCurrentString() const
 {
     return m_EditBox->GetText();
 }
@@ -392,7 +390,7 @@ const PString& DropdownMenu::GetCurrentString() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::SetCurrentString(const PString& cString)
+void PDropdownMenu::SetCurrentString(const PString& cString)
 {
     m_EditBox->SetText(cString);
 }
@@ -401,19 +399,19 @@ void DropdownMenu::SetCurrentString(const PString& cString)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::OpenMenu()
+void PDropdownMenu::OpenMenu()
 {
     Ptr<DropdownMenuPopupWindow> pcMenuView = ptr_new<DropdownMenuPopupWindow>(m_StringList, m_Selection);
     m_MenuWindow = pcMenuView;
 
-    pcMenuView->SignalSelectionChanged.Connect(this, &DropdownMenu::SlotSelectionChanged);
+    pcMenuView->SignalSelectionChanged.Connect(this, &PDropdownMenu::SlotSelectionChanged);
 
     LayoutMenuWindow();
     pcMenuView->MakeSelectionVisible();
 
-    Application* app = GetApplication();
+    PApplication* app = GetApplication();
     if (app != nullptr) {
-        app->AddView(m_MenuWindow, ViewDockType::PopupWindow);
+        app->AddView(m_MenuWindow, PViewDockType::PopupWindow);
     }
     Invalidate();
 }
@@ -422,11 +420,11 @@ void DropdownMenu::OpenMenu()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::CloseMenu()
+void PDropdownMenu::CloseMenu()
 {
     if (m_MenuWindow != nullptr)
     {
-        Application* app = GetApplication();
+        PApplication* app = GetApplication();
         if (app != nullptr)
         {
             app->RemoveView(m_MenuWindow);
@@ -441,24 +439,24 @@ void DropdownMenu::CloseMenu()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::LayoutMenuWindow()
+void PDropdownMenu::LayoutMenuWindow()
 {
     if (m_MenuWindow != nullptr)
     {
-        Rect screenFrame(100.0f, 0.0f, 800.0f, 480.0f); // FIXME: Query this data from the application server.
+        PRect screenFrame(100.0f, 0.0f, 800.0f, 480.0f); // FIXME: Query this data from the application server.
 
         screenFrame.Resize(5.0f, 20.0f, -5.0f, -20.0f);
 
-        Rect menuFrame = GetBounds();
+        PRect menuFrame = GetBounds();
         ConvertToScreen(&menuFrame);
 
-        const Point menuSize = m_MenuWindow->GetPreferredSize(PrefSizeType::Smallest);
+        const PPoint menuSize = m_MenuWindow->GetPreferredSize(PPrefSizeType::Smallest);
 
         if (menuFrame.Width() < menuSize.x) {
             menuFrame.right = menuFrame.left + menuSize.x;
         }
         if (menuFrame.right > screenFrame.right) {
-            menuFrame += Point(screenFrame.right - menuFrame.right, 0.0f);
+            menuFrame += PPoint(screenFrame.right - menuFrame.right, 0.0f);
         }
         if (menuFrame.left < screenFrame.left) {
             menuFrame.left = screenFrame.left;
@@ -489,7 +487,7 @@ void DropdownMenu::LayoutMenuWindow()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::SlotTextChanged(const PString& text, bool finalUpdate)
+void PDropdownMenu::SlotTextChanged(const PString& text, bool finalUpdate)
 {
     SignalTextChanged(text, finalUpdate, this);
 }
@@ -498,7 +496,7 @@ void DropdownMenu::SlotTextChanged(const PString& text, bool finalUpdate)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenu::SlotSelectionChanged(size_t selection, bool finalUpdate)
+void PDropdownMenu::SlotSelectionChanged(size_t selection, bool finalUpdate)
 {
     if (finalUpdate || selection != m_Selection)
     {
@@ -520,5 +518,3 @@ void DropdownMenu::SlotSelectionChanged(size_t selection, bool finalUpdate)
         CloseMenu();
     }
 }
-
-} // namespace os

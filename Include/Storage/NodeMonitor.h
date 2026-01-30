@@ -23,15 +23,15 @@
 #include <System/Types.h>
 #include <Utils/String.h>
 
-namespace os
-{
+class PLooper;
 
-class Looper;
+class PFileReference;
+class PFSNode;
+class PDirectory;
+
+
 class Handler;
 class Messenger;
-class FSNode;
-class Directory;
-class FileReference;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -240,43 +240,40 @@ class FileReference;
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-class NodeMonitor
+class PNodeMonitor
 {
 public:
-    NodeMonitor();
-    NodeMonitor(const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
-    NodeMonitor(const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
-    NodeMonitor(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
-    NodeMonitor(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
-    NodeMonitor(const FileReference& cRef, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
-    NodeMonitor(const FileReference& cRef, uint32_t nFlags, const Messenger& cTarget);
-    NodeMonitor(const FSNode* pcNode, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
-    NodeMonitor(const FSNode* pcNode, uint32_t nFlags, const Messenger& cTarget);
-    ~NodeMonitor();
+    PNodeMonitor();
+    PNodeMonitor(const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const PLooper* pcLooper = nullptr);
+    PNodeMonitor(const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
+    PNodeMonitor(const PDirectory& cDir, const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const PLooper* pcLooper = nullptr);
+    PNodeMonitor(const PDirectory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
+    PNodeMonitor(const PFileReference& cRef, uint32_t nFlags, const Handler* pcHandler, const PLooper* pcLooper = nullptr);
+    PNodeMonitor(const PFileReference& cRef, uint32_t nFlags, const Messenger& cTarget);
+    PNodeMonitor(const PFSNode* pcNode, uint32_t nFlags, const Handler* pcHandler, const PLooper* pcLooper = nullptr);
+    PNodeMonitor(const PFSNode* pcNode, uint32_t nFlags, const Messenger& cTarget);
+    ~PNodeMonitor();
 
     bool IsValid() const;
 
     status_t Unset();
-    status_t SetTo(const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
+    status_t SetTo(const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const PLooper* pcLooper = nullptr);
     status_t SetTo(const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
-    status_t SetTo(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
-    status_t SetTo(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
-    status_t SetTo(const FileReference& cRef, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
-    status_t SetTo(const FileReference& cRef, uint32_t nFlags, const Messenger& cTarget );
-    status_t SetTo(const FSNode* pcNode, uint32_t nFlags, const Handler* pcHandler, const Looper* pcLooper = nullptr);
-    status_t SetTo(const FSNode* pcNode, uint32_t nFlags, const Messenger& cTarget);
+    status_t SetTo(const PDirectory& cDir, const PString& cPath, uint32_t nFlags, const Handler* pcHandler, const PLooper* pcLooper = nullptr);
+    status_t SetTo(const PDirectory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
+    status_t SetTo(const PFileReference& cRef, uint32_t nFlags, const Handler* pcHandler, const PLooper* pcLooper = nullptr);
+    status_t SetTo(const PFileReference& cRef, uint32_t nFlags, const Messenger& cTarget );
+    status_t SetTo(const PFSNode* pcNode, uint32_t nFlags, const Handler* pcHandler, const PLooper* pcLooper = nullptr);
+    status_t SetTo(const PFSNode* pcNode, uint32_t nFlags, const Messenger& cTarget);
 
 
     int GetMonitor() const;
     
 private:
     int _CreateMonitor(const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
-    int _CreateMonitor(const Directory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
-    int _CreateMonitor(const FileReference& cRef, uint32_t nFlags, const Messenger& cTarget);
-    int _CreateMonitor(const FSNode* pcNode, uint32_t nFlags, const Messenger& cTarget);
+    int _CreateMonitor(const PDirectory& cDir, const PString& cPath, uint32_t nFlags, const Messenger& cTarget);
+    int _CreateMonitor(const PFileReference& cRef, uint32_t nFlags, const Messenger& cTarget);
+    int _CreateMonitor(const PFSNode* pcNode, uint32_t nFlags, const Messenger& cTarget);
     
     int m_nMonitor;
 };
-
-} // namespace os
-

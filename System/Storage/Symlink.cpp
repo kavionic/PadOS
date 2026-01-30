@@ -25,13 +25,11 @@
 #include <Storage/Path.h>
 
 
-using namespace os;
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SymLink::SymLink()
+PSymLink::PSymLink()
 {
 }
 
@@ -39,7 +37,7 @@ SymLink::SymLink()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SymLink::SymLink(const PString& path, int openFlags) : FSNode(path, openFlags | O_NOFOLLOW)
+PSymLink::PSymLink(const PString& path, int openFlags) : PFSNode(path, openFlags | O_NOFOLLOW)
 {
     if (!IsLink()) {
         errno = EINVAL;
@@ -51,7 +49,7 @@ SymLink::SymLink(const PString& path, int openFlags) : FSNode(path, openFlags | 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SymLink::SymLink(const Directory& directory, const PString& name, int openFlags) : FSNode(directory, name, openFlags | O_NOFOLLOW)
+PSymLink::PSymLink(const PDirectory& directory, const PString& name, int openFlags) : PFSNode(directory, name, openFlags | O_NOFOLLOW)
 {
     if (!IsLink()) {
         errno = EINVAL;
@@ -63,7 +61,7 @@ SymLink::SymLink(const Directory& directory, const PString& name, int openFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SymLink::SymLink(const FileReference& reference, int openFlags) : FSNode(reference, openFlags | O_NOFOLLOW)
+PSymLink::PSymLink(const PFileReference& reference, int openFlags) : PFSNode(reference, openFlags | O_NOFOLLOW)
 {
     if (!IsLink()) {
         errno = EINVAL;
@@ -75,7 +73,7 @@ SymLink::SymLink(const FileReference& reference, int openFlags) : FSNode(referen
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SymLink::SymLink(const FSNode& node) : FSNode(node)
+PSymLink::PSymLink(const PFSNode& node) : PFSNode(node)
 {
     if (!IsLink()) {
         errno = EINVAL;
@@ -87,7 +85,7 @@ SymLink::SymLink(const FSNode& node) : FSNode(node)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SymLink::SymLink(const SymLink& link) : FSNode(link)
+PSymLink::PSymLink(const PSymLink& link) : PFSNode(link)
 {
 }
 
@@ -95,7 +93,7 @@ SymLink::SymLink(const SymLink& link) : FSNode(link)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SymLink::~SymLink()
+PSymLink::~PSymLink()
 {
 }
 
@@ -103,69 +101,69 @@ SymLink::~SymLink()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::Open(const PString& path, int openFlags)
+bool PSymLink::Open(const PString& path, int openFlags)
 {
-    return SetTo(FSNode(path, openFlags | O_NOFOLLOW));
+    return SetTo(PFSNode(path, openFlags | O_NOFOLLOW));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::Open(const Directory& directory, const PString& path, int openFlags)
+bool PSymLink::Open(const PDirectory& directory, const PString& path, int openFlags)
 {
-    return SetTo(FSNode(directory, path, openFlags | O_NOFOLLOW));
+    return SetTo(PFSNode(directory, path, openFlags | O_NOFOLLOW));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::Open(const FileReference& reference, int openFlags)
+bool PSymLink::Open(const PFileReference& reference, int openFlags)
 {
-    return SetTo(FSNode(reference, openFlags | O_NOFOLLOW));
+    return SetTo(PFSNode(reference, openFlags | O_NOFOLLOW));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::SetTo(const FSNode& node)
+bool PSymLink::SetTo(const PFSNode& node)
 {
     if (node.IsValid() && !node.IsLink()) {
         errno = EINVAL;
         return false;
     }
-    return FSNode::SetTo(node);
+    return PFSNode::SetTo(node);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::SetTo(FSNode&& node)
+bool PSymLink::SetTo(PFSNode&& node)
 {
     if (node.IsValid() && !node.IsLink()) {
         errno = EINVAL;
         return false;
     }
-    return FSNode::SetTo(node);
+    return PFSNode::SetTo(node);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::SetTo(const SymLink& link)
+bool PSymLink::SetTo(const PSymLink& link)
 {
-    return FSNode::SetTo(link);
+    return PFSNode::SetTo(link);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::ReadLink(PString& buffer)
+bool PSymLink::ReadLink(PString& buffer)
 {
     return false;
 //    PString cBuffer;
@@ -192,7 +190,7 @@ bool SymLink::ReadLink(PString& buffer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString SymLink::ReadLink()
+PString PSymLink::ReadLink()
 {
     PString buffer;
     if (ReadLink(buffer)) {
@@ -206,7 +204,7 @@ PString SymLink::ReadLink()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::ConstructPath(const PString& parent, Path& outPath)
+bool PSymLink::ConstructPath(const PString& parent, PPath& outPath)
 {
     PString buffer;
     if (!ReadLink(buffer)) {
@@ -225,7 +223,7 @@ bool SymLink::ConstructPath(const PString& parent, Path& outPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SymLink::ConstructPath(const Directory& parent, Path& outPath)
+bool PSymLink::ConstructPath(const PDirectory& parent, PPath& outPath)
 {
     PString parentPath;
     if (!parent.GetPath(parentPath)) {

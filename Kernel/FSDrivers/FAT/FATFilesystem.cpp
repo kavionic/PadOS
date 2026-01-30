@@ -42,7 +42,6 @@
 #include "FATDirectoryIterator.h"
 #include "FATFileNode.h"
 
-using namespace os;
 
 #define FAT_MAX_FILE_SIZE 0xffffffffLL
 

@@ -22,15 +22,13 @@
 #include <GUI/Widgets/MVCGridView.h>
 #include <GUI/Widgets/ScrollView.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MVCGridView::MVCGridView(const PString& name, Ptr<View> parent, uint32_t flags)
-    : MVCBaseView(name, parent, flags | ViewFlags::WillDraw)
+PMVCGridView::PMVCGridView(const PString& name, Ptr<PView> parent, uint32_t flags)
+    : PMVCBaseView(name, parent, flags | PViewFlags::WillDraw)
 {
 }
 
@@ -38,8 +36,8 @@ MVCGridView::MVCGridView(const PString& name, Ptr<View> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MVCGridView::MVCGridView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData)
-    : MVCBaseView(context, parent, xmlData)
+PMVCGridView::PMVCGridView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData)
+    : PMVCBaseView(context, parent, xmlData)
 {
 }
 
@@ -47,9 +45,9 @@ MVCGridView::MVCGridView(ViewFactoryContext& context, Ptr<View> parent, const pu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCGridView::OnLayoutChanged()
+void PMVCGridView::OnLayoutChanged()
 {
-    MVCBaseView::OnLayoutChanged();
+    PMVCBaseView::OnLayoutChanged();
 
     if (m_RowCount == 0 || m_ColumnCount == 0) {
         return;
@@ -57,12 +55,12 @@ void MVCGridView::OnLayoutChanged()
 
     UpdateWidgets();
 
-    const Rect& bounds = m_ContentView->GetBounds();
+    const PRect& bounds = m_ContentView->GetBounds();
 
     const int32_t firstColumn   = int32_t(bounds.top / m_GridSize.y);
 
     const float column0center = roundf(m_GridSize.x * 0.5f + m_LeftMargin);
-    Point centerPos(0.0f, roundf(float(firstColumn) * m_GridSize.y + m_GridSize.y * 0.5f));
+    PPoint centerPos(0.0f, roundf(float(firstColumn) * m_GridSize.y + m_GridSize.y * 0.5f));
 
     size_t index = firstColumn * m_ColumnCount;
 
@@ -75,11 +73,11 @@ void MVCGridView::OnLayoutChanged()
                 return;
             }
 
-            const MVCGridViewItemNode& itemNode = m_Items[index];
+            const PMVCGridViewItemNode& itemNode = m_Items[index];
             if (itemNode.ItemWidget != nullptr)
             {
-                const Point preferredSize = itemNode.ItemWidget->GetPreferredSize(PrefSizeType::Smallest);
-                itemNode.ItemWidget->SetFrame(Rect::Centered(centerPos, preferredSize));
+                const PPoint preferredSize = itemNode.ItemWidget->GetPreferredSize(PPrefSizeType::Smallest);
+                itemNode.ItemWidget->SetFrame(PRect::Centered(centerPos, preferredSize));
             }
 
             centerPos.x += m_GridSize.x;
@@ -94,20 +92,20 @@ void MVCGridView::OnLayoutChanged()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point MVCGridView::CalculateContentSize() const
+PPoint PMVCGridView::CalculateContentSize() const
 {
     if (m_ColumnCount > 0 && !m_Items.empty())
     {
-        return Point(0.0f, float((m_Items.size() + m_ColumnCount - 1) / m_ColumnCount) * m_GridSize.y);
+        return PPoint(0.0f, float((m_Items.size() + m_ColumnCount - 1) / m_ColumnCount) * m_GridSize.y);
     }
-    return Point(0.0f, 0.0f);
+    return PPoint(0.0f, 0.0f);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCGridView::SetGridSize(const Point& gridSize)
+void PMVCGridView::SetGridSize(const PPoint& gridSize)
 {
     if (gridSize != m_GridSize)
     {
@@ -120,7 +118,7 @@ void MVCGridView::SetGridSize(const Point& gridSize)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCGridView::AddItem(Ptr<PtrTarget> item)
+void PMVCGridView::AddItem(Ptr<PtrTarget> item)
 {
     uint32_t classID = VFGetItemWidgetClassID.Empty() ? 0 : VFGetItemWidgetClassID(item);
     m_Items.emplace_back(item, nullptr, classID, false);
@@ -132,7 +130,7 @@ void MVCGridView::AddItem(Ptr<PtrTarget> item)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCGridView::Clear()
+void PMVCGridView::Clear()
 {
     m_Items.clear();
     InvalidateLayout();
@@ -142,7 +140,7 @@ void MVCGridView::Clear()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t MVCGridView::GetItemIndexAtPosition(const Point& position) const
+size_t PMVCGridView::GetItemIndexAtPosition(const PPoint& position) const
 {
     const int32_t x = int32_t((position.x - m_LeftMargin) / m_GridSize.x);
 
@@ -162,9 +160,9 @@ size_t MVCGridView::GetItemIndexAtPosition(const Point& position) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCGridView::OnContentViewFrameSized(const Point& delta)
+void PMVCGridView::OnContentViewFrameSized(const PPoint& delta)
 {
-    const Rect& bounds = m_ContentView->GetBounds();
+    const PRect& bounds = m_ContentView->GetBounds();
 
     const int32_t rowCount = int32_t((bounds.Height() + m_GridSize.y - 1.0f) / m_GridSize.y);
     const int32_t columnCount = int32_t(bounds.Width() / m_GridSize.x);
@@ -184,9 +182,9 @@ void MVCGridView::OnContentViewFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCGridView::UpdateWidgets()
+void PMVCGridView::UpdateWidgets()
 {
-    const Rect& bounds = m_ContentView->GetBounds();
+    const PRect& bounds = m_ContentView->GetBounds();
     if (bounds.IsValid())
     {
         const int32_t firstColumn = int32_t(bounds.top / m_GridSize.y);
@@ -202,5 +200,3 @@ void MVCGridView::UpdateWidgets()
         RemoveAllWidgets();
     }
 }
-
-} // namespace os

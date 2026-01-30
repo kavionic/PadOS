@@ -290,7 +290,7 @@ PString& PString::upper()
 
 PString PString::format_byte_size(int64_t size, int numDecimalsOrDigits, PUnitSystem unitSystem)
 {
-    const uint64_t absSize = signed_to_unsigned_abs(size);
+    const uint64_t absSize = PMath::signed_to_unsigned_abs(size);
 
     const int64_t kiloSize = (unitSystem == PUnitSystem::SI) ? 1000 : 1024;
     const int64_t nextToMaxScale = (unitSystem == PUnitSystem::SI)
@@ -609,12 +609,12 @@ std::optional<int64_t> PString::parse_byte_size(const PString& text, PUnitSystem
             : uint64_t(std::numeric_limits<int64_t>::max());
 
         // Safe abs into uint64_t
-        uint64_t mag = signed_to_unsigned_abs(mantissa); // isNegative ? (uint64_t(-(mantissa + 1)) + 1ULL) : uint64_t(mantissa);
+        uint64_t mag = PMath::signed_to_unsigned_abs(mantissa); // isNegative ? (uint64_t(-(mantissa + 1)) + 1ULL) : uint64_t(mantissa);
 
         if (exponent != 0)
         {
-            const uint64_t factor = pow_u64(base, exponent); // exp<=8 safe
-            if (!checked_mul_u64(mag, factor, limitMag)) {
+            const uint64_t factor = PMath::pow_u64(base, exponent); // exp<=8 safe
+            if (!PMath::checked_mul_u64(mag, factor, limitMag)) {
                 return std::nullopt;
             }
         }

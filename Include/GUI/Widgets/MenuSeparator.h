@@ -20,9 +20,6 @@
 
 #include <GUI/Widgets/MenuItem.h>
 
-namespace os
-{
-
 /** Menu separator item.
  * \ingroup gui
  * \par Description:
@@ -32,17 +29,15 @@ namespace os
  * \author Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
-class MenuSeparator : public MenuItem
+class PMenuSeparator : public PMenuItem
 {
 public:
-    MenuSeparator();
-    ~MenuSeparator();
+    PMenuSeparator();
+    ~PMenuSeparator();
 
-    virtual Point GetContentSize() override;
-    virtual void  Draw(Ptr<View> targetView) override;
-    virtual void  DrawContent(Ptr<View> targetView) override;
+    virtual PPoint GetContentSize() override;
+    virtual void  Draw(Ptr<PView> targetView) override;
+    virtual void  DrawContent(Ptr<PView> targetView) override;
     virtual void  Highlight(bool highlight) override;
 private:
 };
-
-} // namespace os

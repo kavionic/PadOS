@@ -21,13 +21,11 @@
 
 #include <vector>
 
-namespace os
-{
 
-class PIDController
+class PPIDController
 {
 public:
-    PIDController();
+    PPIDController();
 
     void    Reset();
     float   Update(float deltaTime, float measuredValue);
@@ -68,6 +66,3 @@ private:
     size_t              m_CurrentSetpointWindow = 0;
     std::vector<float>  m_IntegralErrors;
 };
-
-
-} // namespace os

@@ -26,10 +26,8 @@
 #include <GUI/Font.h>
 #include "RA8875Registers.h"
 
-namespace os
-{
 
-struct LCDRegisters
+struct PLCDRegisters
 {
     volatile uint16_t DATA;
     volatile uint16_t CMD;
@@ -69,7 +67,7 @@ struct RA8875DriverParameters
     }
 };
 
-class RA8875Driver : public DisplayDriver
+class RA8875Driver : public PDisplayDriver
 {
 public:
     enum Orientation_e { e_Portrait, e_Landscape };
@@ -81,26 +79,26 @@ public:
     virtual void            Close() override;
     virtual void            PowerLost(bool hasPower) override;
 
-    virtual Ptr<SrvBitmap>  GetScreenBitmap() override;
+    virtual Ptr<PSrvBitmap>  GetScreenBitmap() override;
 
     virtual int             GetScreenModeCount() override;
-    virtual bool            GetScreenModeDesc(size_t index, ScreenMode& outMode) override;
-    virtual bool            SetScreenMode(const IPoint& resolution, EColorSpace colorSpace, float refreshRate) override;
+    virtual bool            GetScreenModeDesc(size_t index, PScreenMode& outMode) override;
+    virtual bool            SetScreenMode(const PIPoint& resolution, PEColorSpace colorSpace, float refreshRate) override;
 
-    virtual IPoint          GetResolution() override;
+    virtual PIPoint          GetResolution() override;
     virtual int             GetBytesPerLine() override;
-    virtual EColorSpace     GetColorSpace() override;
-    virtual void            SetColor(size_t index, Color color) override;
+    virtual PEColorSpace     GetColorSpace() override;
+    virtual void            SetColor(size_t index, PColor color) override;
 
-    virtual void            WritePixel(SrvBitmap* bitmap, const IPoint& pos, Color color) override;
-    virtual void            DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2, const Color& color, DrawingMode mode) override;
-    virtual void            FillRect(SrvBitmap* bitmap, const IRect& rect, const Color& color) override;
-    virtual void            CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bgColor, Color fgColor, const IRect& srcRect, const IPoint& dstPos, DrawingMode mode) override;
-    virtual void            ScaleRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bgColor, Color fgColor, const IRect& srcOrigRect, const IRect& dstOrigRect, const Rect& srcRect, const IRect& dstRect, DrawingMode mode) override;
+    virtual void            WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color) override;
+    virtual void            DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode) override;
+    virtual void            FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor& color) override;
+    virtual void            CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPos, PDrawingMode mode) override;
+    virtual void            ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode) override;
     //    virtual void    FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, DrawingMode mode) override;
 
-    IPoint                  RenderGlyph(const IPoint& position, uint32_t character, const IRect& clipRect, const FONT_INFO* font, uint16_t colorBg, uint16_t colorFg);
-    virtual uint32_t        WriteString(SrvBitmap* bitmap, const IPoint& position, const char* string, size_t strLength, const IRect& clipRect, Color colorBg, Color colorFg, Font_e fontID) override;
+    PIPoint                  RenderGlyph(const PIPoint& position, uint32_t character, const PIRect& clipRect, const FONT_INFO* font, uint16_t colorBg, uint16_t colorFg);
+    virtual uint32_t        WriteString(PSrvBitmap* bitmap, const PIPoint& position, const char* string, size_t strLength, const PIRect& clipRect, PColor colorBg, PColor colorFg, PFontID fontID) override;
     //    virtual uint8_t     WriteStringTransparent(SrvBitmap* bitmap, const char* string, uint8_t strLength, int16_t maxWidth, Font_e fontID);
 
 private:
@@ -112,7 +110,7 @@ private:
     void SetTransparantColor(uint16_t color);
 
     void SetWindow(int x1, int y1, int x2, int y2);
-    void SetWindow(const IRect& frame) { SetWindow(frame.left, frame.top, frame.right, frame.bottom); }
+    void SetWindow(const PIRect& frame) { SetWindow(frame.left, frame.top, frame.right, frame.bottom); }
 
     inline void SetFillDirection(FillDirection_e direction) { m_FillDirection = direction; UpdateAddressMode(); }
     inline void UpdateAddressMode()
@@ -175,15 +173,13 @@ private:
     uint16_t    ReadData() { return m_Registers->DATA; }
     void        WriteData(uint16_t data) { m_Registers->DATA = data; }
 
-    LCDRegisters*   m_Registers = nullptr;
+    PLCDRegisters*   m_Registers = nullptr;
     DigitalPinID    m_PinLCDResetID;
     DigitalPinID    m_PinTouchpadResetID;
     DigitalPinID    m_PinBacklightControlID;
 
-    Ptr<SrvBitmap>  m_ScreenBitmap;
+    Ptr<PSrvBitmap>  m_ScreenBitmap;
 
     Orientation_e   m_Orientation = e_Landscape;
     FillDirection_e m_FillDirection = e_FillLeftDown;
 };
-
-} // namespace os

@@ -21,14 +21,12 @@
 
 #include <GUI/Widgets/MVCBaseView.h>
 
-namespace os
-{
 
-struct MVCListViewItemNode : MVCBaseViewItemNode
+struct PMVCListViewItemNode : PMVCBaseViewItemNode
 {
-    MVCListViewItemNode() noexcept = default;
-    MVCListViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<View>& itemWidget, uint32_t widgetClassID, bool isSelected, float height, float positionY) noexcept
-        : MVCBaseViewItemNode(itemData, itemWidget, widgetClassID, isSelected)
+    PMVCListViewItemNode() noexcept = default;
+    PMVCListViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<PView>& itemWidget, uint32_t widgetClassID, bool isSelected, float height, float positionY) noexcept
+        : PMVCBaseViewItemNode(itemData, itemWidget, widgetClassID, isSelected)
         , Height(height), PositionY(positionY) {}
 
     float           Height;
@@ -41,20 +39,20 @@ struct MVCListViewItemNode : MVCBaseViewItemNode
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class MVCListView : public MVCBaseView
+class PMVCListView : public PMVCBaseView
 {
 public:
-    MVCListView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    MVCListView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PMVCListView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PMVCListView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
-    virtual void OnFrameSized(const Point& delta) override;
+    virtual void OnFrameSized(const PPoint& delta) override;
     virtual void OnLayoutChanged() override;
-    virtual Point CalculateContentSize() const override;
+    virtual PPoint CalculateContentSize() const override;
 
     void AddItem(Ptr<PtrTarget> item);
 
     virtual void Clear() override;
-    virtual size_t GetItemIndexAtPosition(const Point& position) const override;
+    virtual size_t GetItemIndexAtPosition(const PPoint& position) const override;
 
     virtual size_t GetItemCount() const override { return m_Items.size(); }
 
@@ -66,7 +64,7 @@ public:
     VFConnector<float (Ptr<const PtrTarget> itemData, float width)> VFGetItemHeight;
 
 protected:
-    virtual MVCBaseViewItemNode& GetItemNode(size_t index) override { return m_Items[index]; }
+    virtual PMVCBaseViewItemNode& GetItemNode(size_t index) override { return m_Items[index]; }
 
     virtual void UpdateWidgets() override;
     virtual void OnItemsReordered() override;
@@ -76,9 +74,6 @@ private:
 
     void SlotContentScrolled() { InvalidateLayout(); }
 
-    std::vector<MVCListViewItemNode>    m_Items;
+    std::vector<PMVCListViewItemNode>    m_Items;
     float                               m_ItemSpacing = 5.0f;
 };
-
-
-} // namespace os

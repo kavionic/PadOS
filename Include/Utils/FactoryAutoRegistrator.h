@@ -21,26 +21,26 @@
 
 #include <functional>
 
-class FactoryAutoRegistratorBase
+class PFactoryAutoRegistratorBase
 {
 public:
-    FactoryAutoRegistratorBase();
+    PFactoryAutoRegistratorBase();
 
     static void InvokeAll();
 
     virtual void Invoke() = 0;
 private:
-    static FactoryAutoRegistratorBase* s_FirstRegistrator;
+    static PFactoryAutoRegistratorBase* s_FirstRegistrator;
 
-    FactoryAutoRegistratorBase* m_NextRegistrator = nullptr;
+    PFactoryAutoRegistratorBase* m_NextRegistrator = nullptr;
 };
 
 template<typename T>
-class FactoryAutoRegistrator : public FactoryAutoRegistratorBase
+class PFactoryAutoRegistrator : public PFactoryAutoRegistratorBase
 {
 public:
     template<typename TCallback>
-    FactoryAutoRegistrator(TCallback&& callback) : m_Callback(std::move(callback)) {}
+    PFactoryAutoRegistrator(TCallback&& callback) : m_Callback(std::move(callback)) {}
 
     virtual void Invoke() override { if (m_Callback) m_Callback(); m_Callback = {}; }
 

@@ -22,12 +22,10 @@
 #include <Math/Rect.h>
 #include <Ptr/PtrTarget.h>
 
-namespace os
-{
+class PApplication;
+class PWindow;
+class PView;
 
-class Window;
-class View;
-class Application;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Container for bitmap-image data.
@@ -55,24 +53,24 @@ class Application;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class Bitmap : public PtrTarget
+class PBitmap : public PtrTarget
 {
 public:
     enum { ACCEPT_VIEWS = 0x0001, SHARE_FRAMEBUFFER = 0x0002, CUSTOM_FRAMEBUFFER = 0x0004, READ_ONLY = 0x0008 };
-    Bitmap(int width, int height, EColorSpace colorSpace, uint32_t flags = SHARE_FRAMEBUFFER, Application* application = nullptr);
-    Bitmap(int width, int height, EColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags = 0, Application* application = nullptr);
-    Bitmap(int width, int height, EColorSpace colorSpace, const void* raster, size_t bytesPerRow, uint32_t flags = 0, Application* application = nullptr);
+    PBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags = SHARE_FRAMEBUFFER, PApplication* application = nullptr);
+    PBitmap(int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags = 0, PApplication* application = nullptr);
+    PBitmap(int width, int height, PEColorSpace colorSpace, const void* raster, size_t bytesPerRow, uint32_t flags = 0, PApplication* application = nullptr);
 
-    virtual ~Bitmap();
+    virtual ~PBitmap();
 
     bool            IsValid() const;
 
-    EColorSpace     GetColorSpace() const;
-    IRect           GetBounds() const;
+    PEColorSpace     GetColorSpace() const;
+    PIRect           GetBounds() const;
     int             GetBytesPerRow() const;
-    virtual void    AddChild(View* view);
-    virtual bool    RemoveChild(View* view);
-    View*           FindView(const char* name) const;
+    virtual void    AddChild(PView* view);
+    virtual bool    RemoveChild(PView* view);
+    PView*           FindView(const char* name) const;
 
     void            Sync();
     void            Flush();
@@ -81,45 +79,43 @@ public:
     void            UnlockRaster() {}
 
 private:
-    void Initialize(int width, int height, EColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, Application* application);
+    void Initialize(int width, int height, PEColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, PApplication* application);
 
-    friend class View;
-    friend class Window;
+    friend class PView;
+    friend class PWindow;
     friend class Sprite;
 
-    Application*    m_Application   = nullptr;
-    Window*         m_Window        = nullptr;
+    PApplication*    m_Application   = nullptr;
+    PWindow*         m_Window        = nullptr;
     handle_id       m_Handle        = INVALID_HANDLE;
-    EColorSpace     m_ColorSpace    = EColorSpace::NO_COLOR_SPACE;
+    PEColorSpace     m_ColorSpace    = PEColorSpace::NO_COLOR_SPACE;
     size_t          m_BytesPerRow   = 0;
-    IRect           m_Bounds;
+    PIRect           m_Bounds;
     uint8_t*        m_Raster        = nullptr;
 };
 
 
 
-inline int BitsPerPixel(EColorSpace colorSpace)
+inline int BitsPerPixel(PEColorSpace colorSpace)
 {
     switch(colorSpace)
     {
-    case EColorSpace::RGB32:
-    case EColorSpace::RGBA32:
+    case PEColorSpace::RGB32:
+    case PEColorSpace::RGBA32:
         return 32;
-    case EColorSpace::RGB24:
+    case PEColorSpace::RGB24:
         return 24;
-    case EColorSpace::RGB16:
-    case EColorSpace::RGB15:
-    case EColorSpace::RGBA15:
+    case PEColorSpace::RGB16:
+    case PEColorSpace::RGB15:
+    case PEColorSpace::RGBA15:
         return 16;
-    case EColorSpace::CMAP8:
-    case EColorSpace::GRAY8:
+    case PEColorSpace::CMAP8:
+    case PEColorSpace::GRAY8:
         return 8;
-    case EColorSpace::MONO1:
+    case PEColorSpace::MONO1:
         return 1;
     default:
         p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "BitsPerPixel() invalid color space {}", int(colorSpace));
         return 8;
     }
 }
-
-} // namespace os

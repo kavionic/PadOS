@@ -45,32 +45,31 @@
 #include <Storage/File.h>
 
 
-using namespace os;
 using namespace pugi;
 
-VIEW_FACTORY_REGISTER_CLASS(BitmapView);
-VIEW_FACTORY_REGISTER_CLASS(Button);
-VIEW_FACTORY_REGISTER_CLASS(CheckBox);
-VIEW_FACTORY_REGISTER_CLASS(DropdownMenu);
-VIEW_FACTORY_REGISTER_CLASS(GroupView);
-VIEW_FACTORY_REGISTER_CLASS(ListView);
-VIEW_FACTORY_REGISTER_CLASS(MVCGridView);
-VIEW_FACTORY_REGISTER_CLASS(MVCListView);
-VIEW_FACTORY_REGISTER_CLASS(ProgressBar);
-VIEW_FACTORY_REGISTER_CLASS(RadioButton);
-VIEW_FACTORY_REGISTER_CLASS(ScrollableView);
-VIEW_FACTORY_REGISTER_CLASS(ScrollView);
-VIEW_FACTORY_REGISTER_CLASS(Slider);
-VIEW_FACTORY_REGISTER_CLASS(TabView);
-VIEW_FACTORY_REGISTER_CLASS(TextBox);
-VIEW_FACTORY_REGISTER_CLASS(TextView);
-VIEW_FACTORY_REGISTER_CLASS(View);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PBitmapView);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PButton);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PCheckBox);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PDropdownMenu);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PGroupView);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PListView);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PMVCGridView);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PMVCListView);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PProgressBar);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PRadioButton);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PScrollableView);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PScrollView);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PSlider);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PTabView);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PTextBox);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PTextView);
+PVIEW_FACTORY_REGISTER_CLASS_RPREFIX(PView);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ViewFactory::ViewFactory()
+PViewFactory::PViewFactory()
 {
 }
 
@@ -78,9 +77,9 @@ ViewFactory::ViewFactory()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ViewFactory& ViewFactory::Get()
+PViewFactory& PViewFactory::Get()
 {
-    static ViewFactory factory;
+    static PViewFactory factory;
     return factory;
 }
 
@@ -88,9 +87,9 @@ ViewFactory& ViewFactory::Get()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> ViewFactory::CreateView(Ptr<View> parentView, PString&& XML)
+Ptr<PView> PViewFactory::CreateView(Ptr<PView> parentView, PString&& XML)
 {
-    XMLDocument doc;
+    PXMLDocument doc;
 
     if (!doc.Parse(std::move(XML))) {
         return nullptr;
@@ -101,7 +100,7 @@ Ptr<View> ViewFactory::CreateView(Ptr<View> parentView, PString&& XML)
     if (!rootNode) {
         return nullptr;
     }
-    ViewFactoryContext context;
+    PViewFactoryContext context;
     return CreateView(context, parentView, rootNode);
 }
 
@@ -109,19 +108,19 @@ Ptr<View> ViewFactory::CreateView(Ptr<View> parentView, PString&& XML)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> ViewFactory::CreateView(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode)
+Ptr<PView> PViewFactory::CreateView(PViewFactoryContext& context, Ptr<PView> parentView, const pugi::xml_node& xmlNode)
 {
     if (!xmlNode) {
         return nullptr;
     }
 
     if (parentView == nullptr) {
-        parentView = ptr_new<View>(PString::zero);
+        parentView = ptr_new<PView>(PString::zero);
     }
 
-    parentView->MergeFlags(xml_object_parser::parse_flags_attribute<uint32_t>(xmlNode, ViewFlags::FlagMap, "flags", 0));
-    parentView->SetLayoutNode(xml_object_parser::parse_attribute(xmlNode, "layout", parentView->GetLayoutNode()));
-    parentView->SetBorders(xml_object_parser::parse_attribute(xmlNode, "layout_borders", parentView->GetBorders()));
+    parentView->MergeFlags(p_xml_object_parser::parse_flags_attribute<uint32_t>(xmlNode, PViewFlags::FlagMap, "flags", 0));
+    parentView->SetLayoutNode(p_xml_object_parser::parse_attribute(xmlNode, "layout", parentView->GetLayoutNode()));
+    parentView->SetBorders(p_xml_object_parser::parse_attribute(xmlNode, "layout_borders", parentView->GetBorders()));
 
     Parse(context, parentView, xmlNode);
 
@@ -132,9 +131,9 @@ Ptr<View> ViewFactory::CreateView(ViewFactoryContext& context, Ptr<View> parentV
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> ViewFactory::LoadView(Ptr<View> parentView, const PString& path)
+Ptr<PView> PViewFactory::LoadView(Ptr<PView> parentView, const PString& path)
 {
-    File file(StandardPaths::GetPath(StandardPath::GUI, path));
+    PFile file(PStandardPaths::GetPath(PStandardPath::GUI, path));
 
     if (!file.IsValid()) {
         return nullptr;
@@ -151,7 +150,7 @@ Ptr<View> ViewFactory::LoadView(Ptr<View> parentView, const PString& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ViewFactory::Parse(ViewFactoryContext& context, Ptr<View> parentView, const pugi::xml_node& xmlNode)
+bool PViewFactory::Parse(PViewFactoryContext& context, Ptr<PView> parentView, const pugi::xml_node& xmlNode)
 {
     std::vector< std::map<PString, pugi::xml_node>::iterator> localTemplates;
     for (xml_node childNode = xmlNode.first_child(); childNode; childNode = childNode.next_sibling())
@@ -160,7 +159,7 @@ bool ViewFactory::Parse(ViewFactoryContext& context, Ptr<View> parentView, const
         {
             if (*childNode.name() != '_')
             {
-                Ptr<View> childView = CreateInstance<View>(childNode.name(), context, parentView, childNode);
+                Ptr<PView> childView = CreateInstance<PView>(childNode.name(), context, parentView, childNode);
                 if (childView != nullptr && childNode.first_child()) {
                     Parse(context, childView, childNode);
                 }
@@ -180,10 +179,10 @@ bool ViewFactory::Parse(ViewFactoryContext& context, Ptr<View> parentView, const
     }
     localTemplates.clear();
 
-    Ptr<LayoutNode> layoutNode = parentView->GetLayoutNode();
+    Ptr<PLayoutNode> layoutNode = parentView->GetLayoutNode();
     if (layoutNode != nullptr)
     {
-        Rect innerBorders = context.GetAttribute(xmlNode, "inner_borders", Rect());
+        PRect innerBorders = context.GetAttribute(xmlNode, "inner_borders", PRect());
         float spacing = context.GetAttribute(xmlNode, "spacing", 0.0f);
 
         if (spacing != 0.0f || innerBorders.left != 0.0f || innerBorders.top != 0.0f || innerBorders.right != 0.0f || innerBorders.bottom != 0.0f) {

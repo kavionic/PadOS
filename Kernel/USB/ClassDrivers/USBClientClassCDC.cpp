@@ -27,7 +27,6 @@
 #include <Kernel/USB/USBDevice.h>
 #include <Kernel/USB/USBProtocol.h>
 
-using namespace os;
 
 namespace kernel
 {

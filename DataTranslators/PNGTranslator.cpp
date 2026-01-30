@@ -25,9 +25,7 @@
 
 #include "PNGTranslator.h"
 
-using namespace os;
-
-REGISTER_DATA_TRANSLATOR(PNGTranslatorNode);
+PREGISTER_DATA_TRANSLATOR(PNGTranslatorNode);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -85,10 +83,10 @@ void PNGTranslator::InfoCallback(png_infop info)
 
     m_BitmapHeader.HeaderSize   = sizeof(m_BitmapHeader);
     m_BitmapHeader.DataSize     = 0;
-    m_BitmapHeader.Bounds       = IRect(0, 0, width, height);
+    m_BitmapHeader.Bounds       = PIRect(0, 0, width, height);
     m_BitmapHeader.FrameCount   = 1;
     m_BitmapHeader.BytesPerRow  = width * 4;
-    m_BitmapHeader.ColorSpace   = EColorSpace::RGBA32;
+    m_BitmapHeader.ColorSpace   = PEColorSpace::RGBA32;
 
     AddProcessedData(&m_BitmapHeader, sizeof(m_BitmapHeader), false);
 
@@ -232,27 +230,27 @@ void PNGTranslator::Reset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-os::EDataTranslatorStatus PNGTranslatorNode::Identify(const PString& srcType, EDataTranslatorType dstType, const void* data, size_t length) const
+PDataTranslatorStatus PNGTranslatorNode::Identify(const PString& srcType, PDataTranslatorType dstType, const void* data, size_t length) const
 {
-    if (dstType != EDataTranslatorType::Unknown && dstType != EDataTranslatorType::Image) {
-        return EDataTranslatorStatus::UnsupportedType;
+    if (dstType != PDataTranslatorType::Unknown && dstType != PDataTranslatorType::Image) {
+        return PDataTranslatorStatus::UnsupportedType;
     }
     if (length < 8) {
-        return EDataTranslatorStatus::NotEnoughData;
+        return PDataTranslatorStatus::NotEnoughData;
     }
     if (png_sig_cmp(static_cast<const png_byte*>(data), 0, length) == 0) {
-        return EDataTranslatorStatus::Success;
+        return PDataTranslatorStatus::Success;
     }
-    return EDataTranslatorStatus::UnknownFormat;
+    return PDataTranslatorStatus::UnknownFormat;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TranslatorInfo PNGTranslatorNode::GetTranslatorInfo() const
+PTranslatorInfo PNGTranslatorNode::GetTranslatorInfo() const
 {
-    static TranslatorInfo info = { "image/png", EDataTranslatorType::Image, 1.0f };
+    static PTranslatorInfo info = { "image/png", PDataTranslatorType::Image, 1.0f };
     return info;
 }
 
@@ -260,7 +258,7 @@ TranslatorInfo PNGTranslatorNode::GetTranslatorInfo() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<DataTranslator> PNGTranslatorNode::CreateTranslator() const
+Ptr<PDataTranslator> PNGTranslatorNode::CreateTranslator() const
 {
     try
     {

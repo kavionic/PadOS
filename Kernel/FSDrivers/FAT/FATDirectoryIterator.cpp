@@ -30,7 +30,6 @@
 #include "FATDirectoryIterator.h"
 #include "FATVolume.h"
 
-using namespace os;
 
 namespace kernel
 {

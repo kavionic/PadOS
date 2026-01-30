@@ -28,7 +28,6 @@
 #include <Kernel/KTime.h>
 #include <System/System.h>
 
-using namespace os;
 
 namespace kernel
 {

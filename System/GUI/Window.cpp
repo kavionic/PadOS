@@ -19,17 +19,15 @@
 
 #include <GUI/Window.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Window::Window(const PString& title) : View("Window", nullptr, ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize), m_Title(title)
+PWindow::PWindow(const PString& title) : PView("Window", nullptr, PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize), m_Title(title)
 {
-    FontHeight fontHeight = GetFontHeight();
-    m_ClientBorders = Rect(8.0f, fontHeight.descender - fontHeight.ascender + 8.0f, 8.0f, 8.0f);
+    PFontHeight fontHeight = GetFontHeight();
+    m_ClientBorders = PRect(8.0f, fontHeight.descender - fontHeight.ascender + 8.0f, 8.0f, 8.0f);
     Show(false);
 }
 
@@ -37,10 +35,10 @@ Window::Window(const PString& title) : View("Window", nullptr, ViewFlags::WillDr
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Window::OnPaint(const Rect& updateRect)
+void PWindow::OnPaint(const PRect& updateRect)
 {
-    Rect outerFrame = GetBounds();
-    Rect innerFrame = outerFrame;
+    PRect outerFrame = GetBounds();
+    PRect innerFrame = outerFrame;
 
     innerFrame.Resize(m_ClientBorders.left - 2.0f, m_ClientBorders.top - 2.0f, -m_ClientBorders.right + 2.0f, -m_ClientBorders.bottom + 2.0f);
 
@@ -48,19 +46,19 @@ void Window::OnPaint(const Rect& updateRect)
 
     DrawFrame(innerFrame, FRAME_RECESSED | FRAME_TRANSPARENT);
 
-    SetFgColor(StandardColorID::WindowBorderActive);
-    FillRect(Rect(outerFrame.left + 2.0f, innerFrame.top, innerFrame.left, innerFrame.bottom));                     // Left edge.
-    FillRect(Rect(innerFrame.right, innerFrame.top, outerFrame.right - 2.0f, innerFrame.bottom));                   // Right edge.
-    FillRect(Rect(outerFrame.left + 2.0f, innerFrame.bottom, outerFrame.right - 2.0f, outerFrame.bottom - 2.0f));   // Bottom edge.
-    FillRect(Rect(outerFrame.left + 2.0f, outerFrame.top + 2.0f, outerFrame.right - 2.0f, innerFrame.top));         // Top edge.
+    SetFgColor(PStandardColorID::WindowBorderActive);
+    FillRect(PRect(outerFrame.left + 2.0f, innerFrame.top, innerFrame.left, innerFrame.bottom));                     // Left edge.
+    FillRect(PRect(innerFrame.right, innerFrame.top, outerFrame.right - 2.0f, innerFrame.bottom));                   // Right edge.
+    FillRect(PRect(outerFrame.left + 2.0f, innerFrame.bottom, outerFrame.right - 2.0f, outerFrame.bottom - 2.0f));   // Bottom edge.
+    FillRect(PRect(outerFrame.left + 2.0f, outerFrame.top + 2.0f, outerFrame.right - 2.0f, innerFrame.top));         // Top edge.
 
-    SetFgColor(NamedColors::black);
-    SetBgColor(StandardColorID::WindowBorderActive);
+    SetFgColor(PNamedColors::black);
+    SetBgColor(PStandardColorID::WindowBorderActive);
 
     MovePenTo(10.0f, 4.0f);
     DrawString(m_Title);
 
-    SetFgColor(StandardColorID::DefaultBackground);
+    SetFgColor(PStandardColorID::DefaultBackground);
 
     innerFrame.Resize(2.0f, 2.0f, -2.0f, -2.0f);
     FillRect(innerFrame);
@@ -70,11 +68,11 @@ void Window::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Window::OnFrameSized(const Point& delta)
+void PWindow::OnFrameSized(const PPoint& delta)
 {
     if (m_ClientView != nullptr)
     {
-        Rect frame = GetBounds();
+        PRect frame = GetBounds();
         frame.Resize(m_ClientBorders.left, m_ClientBorders.top, -m_ClientBorders.right, -m_ClientBorders.bottom);
         m_ClientView->SetFrame(frame);
     }
@@ -84,18 +82,18 @@ void Window::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Window::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PWindow::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     if (m_ClientView != nullptr)
     {
-        Point borderSize(m_ClientBorders.left + m_ClientBorders.right, m_ClientBorders.top + m_ClientBorders.bottom);
-        *minSize = m_ClientView->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
-        *maxSize = m_ClientView->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+        PPoint borderSize(m_ClientBorders.left + m_ClientBorders.right, m_ClientBorders.top + m_ClientBorders.bottom);
+        *minSize = m_ClientView->GetPreferredSize(PPrefSizeType::Smallest) + borderSize;
+        *maxSize = m_ClientView->GetPreferredSize(PPrefSizeType::Greatest) + borderSize;
     }
     else
     {
-        View::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
-        *minSize = Point(m_ClientBorders.left + m_ClientBorders.right, m_ClientBorders.top + m_ClientBorders.bottom);
+        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+        *minSize = PPoint(m_ClientBorders.left + m_ClientBorders.right, m_ClientBorders.top + m_ClientBorders.bottom);
     }
 }
 
@@ -103,9 +101,9 @@ void Window::CalculatePreferredSize(Point* minSize, Point* maxSize, bool include
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Window::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PWindow::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
-    if (m_DragHitButton != MouseButton_e::None) {
+    if (m_DragHitButton != PMouseButton::None) {
         return false;
     }
     if (m_ClientView != nullptr && m_ClientView->GetFrame().DoIntersect(position)) {
@@ -121,13 +119,13 @@ bool Window::OnMouseDown(MouseButton_e button, const Point& position, const Moti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Window::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PWindow::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (button != m_DragHitButton) {
         return false;
     }
     MakeFocus(button, false);
-    m_DragHitButton = MouseButton_e::None;
+    m_DragHitButton = PMouseButton::None;
     return true;
 }
 
@@ -135,13 +133,13 @@ bool Window::OnMouseUp(MouseButton_e button, const Point& position, const Motion
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Window::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PWindow::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (button != m_DragHitButton) {
         return false;
     }
 
-    Point delta = event.Position - m_DragHitPos;
+    PPoint delta = event.Position - m_DragHitPos;
     m_DragHitPos = event.Position;
     MoveBy(delta);
     return true;
@@ -151,17 +149,17 @@ bool Window::OnMouseMove(MouseButton_e button, const Point& position, const Moti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Window::SetClient(Ptr<View> client)
+void PWindow::SetClient(Ptr<PView> client)
 {
     if (m_ClientView != nullptr) {
-        m_ClientView->SignalPreferredSizeChanged.Disconnect(this, &Window::SlotClientPreferredSizeChanged);
+        m_ClientView->SignalPreferredSizeChanged.Disconnect(this, &PWindow::SlotClientPreferredSizeChanged);
         RemoveChild(m_ClientView);
     }
     m_ClientView = client;
     if (m_ClientView != nullptr)
     {
         m_ClientView->SetFrame(GetBounds());
-        m_ClientView->SignalPreferredSizeChanged.Connect(this, &Window::SlotClientPreferredSizeChanged);
+        m_ClientView->SignalPreferredSizeChanged.Connect(this, &PWindow::SlotClientPreferredSizeChanged);
         AddChild(m_ClientView);
     }
     PreferredSizeChanged();
@@ -171,7 +169,7 @@ void Window::SetClient(Ptr<View> client)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> Window::GetClient()
+Ptr<PView> PWindow::GetClient()
 {
     return m_ClientView;
 }
@@ -180,19 +178,19 @@ Ptr<View> Window::GetClient()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Window::Open(Application* application)
+void PWindow::Open(PApplication* application)
 {
     if (application == nullptr) {
-        application = Application::GetDefaultApplication();
+        application = PApplication::GetDefaultApplication();
     }
-    Rect screenFrame = Application::GetScreenFrame();
-    Rect frame(Point(0.0f, 0.0f), GetPreferredSize(PrefSizeType::Smallest));
+    PRect screenFrame = PApplication::GetScreenFrame();
+    PRect frame(PPoint(0.0f, 0.0f), GetPreferredSize(PPrefSizeType::Smallest));
 
     frame += ((screenFrame.Size() - frame.Size()) * 0.5f).GetRounded();
 
     SetFrame(frame);
 
-    application->AddView(ptr_tmp_cast(this), ViewDockType::PopupWindow);
+    application->AddView(ptr_tmp_cast(this), PViewDockType::PopupWindow);
 
     Show(true);
 }
@@ -201,9 +199,9 @@ void Window::Open(Application* application)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Window::Close()
+void PWindow::Close()
 {
-    Application* application = GetApplication();
+    PApplication* application = GetApplication();
     if (application != nullptr)
     {
         application->RemoveView(ptr_tmp_cast(this));
@@ -214,16 +212,14 @@ void Window::Close()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Window::SlotClientPreferredSizeChanged()
+void PWindow::SlotClientPreferredSizeChanged()
 {
     PreferredSizeChanged();
 
-    Rect screenFrame = Application::GetScreenFrame();
-    Rect frame(Point(0.0f, 0.0f), GetPreferredSize(PrefSizeType::Smallest));
+    PRect screenFrame = PApplication::GetScreenFrame();
+    PRect frame(PPoint(0.0f, 0.0f), GetPreferredSize(PPrefSizeType::Smallest));
 
     frame += ((screenFrame.Size() - frame.Size()) * 0.5f).GetRounded();
 
     SetFrame(frame);
 }
-
-} //namespace os

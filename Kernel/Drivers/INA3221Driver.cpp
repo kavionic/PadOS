@@ -28,7 +28,6 @@
 #include "DeviceControl/I2C.h"
 #include "Kernel/VFS/KFSVolume.h"
 
-using namespace os;
 
 namespace kernel
 {
@@ -37,7 +36,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-INA3221Driver::INA3221Driver() : Looper("ina3221_driver", 10), m_Mutex("ina3221_driver"), m_Timer(bigtime_from_ms(10))
+INA3221Driver::INA3221Driver() : PLooper("ina3221_driver", 10), m_Mutex("ina3221_driver"), m_Timer(bigtime_from_ms(10))
 {
     SetDeleteOnExit(false);
 }

@@ -27,27 +27,24 @@
 #include <GUI/View.h>
 
 
-namespace os
-{
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Color Color::FromColorID(NamedColors colorID)
+PColor PColor::FromColorID(PNamedColors colorID)
 {
-    auto i = std::lower_bound(PStandardColorsTable.begin(), PStandardColorsTable.end(), colorID, [](const PNamedColorNode& lhs, NamedColors rhs) { return lhs.NameID < rhs; });
+    auto i = std::lower_bound(PStandardColorsTable.begin(), PStandardColorsTable.end(), colorID, [](const PNamedColorNode& lhs, PNamedColors rhs) { return lhs.NameID < rhs; });
     if (i != PStandardColorsTable.end() && i->NameID == colorID) {
         return i->ColorValue;
     }
-    return Color(0, 0, 0);
+    return PColor(0, 0, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Color::Color(NamedColors colorID)
+PColor::PColor(PNamedColors colorID)
 {
     m_Color = FromColorID(colorID).m_Color;
 }
@@ -56,7 +53,7 @@ Color::Color(NamedColors colorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Color::Color(const PString& name)
+PColor::PColor(const PString& name)
 {
     m_Color = FromColorName(name).m_Color;
 }
@@ -65,7 +62,7 @@ Color::Color(const PString& name)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Color& Color::operator*=(float rhs)
+PColor& PColor::operator*=(float rhs)
 {
     *this = (*this) * rhs;
     return *this;
@@ -75,9 +72,6 @@ Color& Color::operator*=(float rhs)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DynamicColor::DynamicColor(StandardColorID colorID) : Color(get_standard_color(colorID))
+PDynamicColor::PDynamicColor(PStandardColorID colorID) : PColor(pget_standard_color(colorID))
 {
 }
-
-
-} // namespace os

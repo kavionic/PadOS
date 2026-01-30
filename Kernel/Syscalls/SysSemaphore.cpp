@@ -24,7 +24,6 @@
 #include <Kernel/KSemaphore.h>
 #include <Kernel/KMutex.h>
 
-using namespace os;
 
 namespace kernel
 {

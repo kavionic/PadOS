@@ -20,43 +20,36 @@
 
 #include "GUI/View.h"
 
-namespace os
-{
+class PListView;
+class PListViewScrolledView;
 
-class ListView;
-class ListViewScrolledView;
-
-class ListViewHeaderView : public View
+class PListViewHeaderView : public PView
 {
 public:
-    friend class ListView;
-    friend class ListViewRow;
-    friend class ListViewColumnView;
+    friend class PListView;
+    friend class PListViewRow;
+    friend class PListViewColumnView;
 
-    ListViewHeaderView(Ptr<ListView> parent);
+    PListViewHeaderView(Ptr<PListView> parent);
 
 private:
-    void  DrawButton(const char* title, const Rect& frame, Ptr<Font> font, FontHeight* fontHeight);
-    virtual void    OnPaint(const Rect& updateRect) override;
+    void  DrawButton(const char* title, const PRect& frame, Ptr<PFont> font, PFontHeight* fontHeight);
+    virtual void    OnPaint(const PRect& updateRect) override;
 
-    virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual void    OnFrameSized(const Point& deltaSize) override;
-    virtual void    OnViewScrolled(const Point& delta) override;
+    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual void    OnFrameSized(const PPoint& deltaSize) override;
+    virtual void    OnViewScrolled(const PPoint& delta) override;
 
-    virtual bool    HasFocus(MouseButton_e button) const override;
+    virtual bool    HasFocus(PMouseButton button) const override;
 
     void    Layout();
 
-    Ptr<ListViewScrolledView>  m_ScrolledContainerView;
+    Ptr<PListViewScrolledView>  m_ScrolledContainerView;
 
     size_t                  m_SizeColumn = INVALID_INDEX;
     size_t                  m_DragColumn = INVALID_INDEX;
-    Point                   m_HitPos;
+    PPoint                   m_HitPos;
     float                   m_HeaderHeight;
 };
-
-
-} // namespace os
-

@@ -31,7 +31,6 @@
 #include <System/AppDefinition.h>
 #include <Utils/Utils.h>
 
-using namespace os;
 
 namespace kernel
 {

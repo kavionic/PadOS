@@ -35,49 +35,47 @@
 #include <Utils/XMLFactory.h>
 #include <Utils/XMLObjectParser.h>
 
-using namespace os;
 
-
-const std::map<PString, uint32_t> ViewFlags::FlagMap
+const std::map<PString, uint32_t> PViewFlags::FlagMap
 {
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResizeH),
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResizeV),
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, FullUpdateOnResize),
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, IgnoreWhenHidden),
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, WillDraw),
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, Transparent),
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, ClearBackground),
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, DrawOnChildren),
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, Eavesdropper),
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, IgnoreMouse),
-    DEFINE_FLAG_MAP_ENTRY(ViewFlags, ForceHandleMouse)
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, FullUpdateOnResizeH),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, FullUpdateOnResizeV),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, FullUpdateOnResize),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, IgnoreWhenHidden),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, WillDraw),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, Transparent),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, ClearBackground),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, DrawOnChildren),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, Eavesdropper),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, IgnoreMouse),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, ForceHandleMouse)
 };
 
-static Color g_DefaultColors[] =
+static PColor g_DefaultColors[] =
 {
-    [int(StandardColorID::None)]                    = Color(0, 0, 0),
-    [int(StandardColorID::DefaultBackground)]       = Color(NamedColors::darkgray),
-    [int(StandardColorID::Shine)]                   = Color(NamedColors::white),
-    [int(StandardColorID::Shadow)]                  = Color(NamedColors::black),
-    [int(StandardColorID::WindowBorderActive)]      = Color(NamedColors::steelblue),
-    [int(StandardColorID::WindowBorderInactive)]    = Color(NamedColors::slategray),
-    [int(StandardColorID::ButtonBackground)]        = Color(NamedColors::darkgray),
-    [int(StandardColorID::ButtonLabelNormal)]       = Color(NamedColors::black),
-    [int(StandardColorID::ButtonLabelDisabled)]     = Color(NamedColors::gray),
-    [int(StandardColorID::MenuText)]                = Color(NamedColors::black),
-    [int(StandardColorID::MenuTextSelected)]        = Color(NamedColors::black),
-    [int(StandardColorID::MenuBackground)]          = Color(NamedColors::silver),
-    [int(StandardColorID::MenuBackgroundSelected)]  = Color(NamedColors::steelblue),
-    [int(StandardColorID::ScrollBarBackground)]     = Color(NamedColors::slategray),
-    [int(StandardColorID::ScrollBarKnob)]           = Color(NamedColors::darkgray),
-    [int(StandardColorID::SliderKnobNormal)]        = Color(NamedColors::lightslategray),
-    [int(StandardColorID::SliderKnobPressed)]       = Color(NamedColors::lightsteelblue),
-    [int(StandardColorID::SliderKnobShadow)]        = Color(NamedColors::darkgray),
-    [int(StandardColorID::SliderKnobDisabled)]      = Color(NamedColors::darkgray),
-    [int(StandardColorID::SliderTrackNormal)]       = Color(NamedColors::darkgray),
-    [int(StandardColorID::SliderTrackDisabled)]     = Color(NamedColors::darkgray),
-    [int(StandardColorID::ListViewTab)]             = Color(NamedColors::slategray),
-    [int(StandardColorID::ListViewTabText)]         = Color(NamedColors::white)
+    [int(PStandardColorID::None)]                    = PColor(0, 0, 0),
+    [int(PStandardColorID::DefaultBackground)]       = PColor(PNamedColors::darkgray),
+    [int(PStandardColorID::Shine)]                   = PColor(PNamedColors::white),
+    [int(PStandardColorID::Shadow)]                  = PColor(PNamedColors::black),
+    [int(PStandardColorID::WindowBorderActive)]      = PColor(PNamedColors::steelblue),
+    [int(PStandardColorID::WindowBorderInactive)]    = PColor(PNamedColors::slategray),
+    [int(PStandardColorID::ButtonBackground)]        = PColor(PNamedColors::darkgray),
+    [int(PStandardColorID::ButtonLabelNormal)]       = PColor(PNamedColors::black),
+    [int(PStandardColorID::ButtonLabelDisabled)]     = PColor(PNamedColors::gray),
+    [int(PStandardColorID::MenuText)]                = PColor(PNamedColors::black),
+    [int(PStandardColorID::MenuTextSelected)]        = PColor(PNamedColors::black),
+    [int(PStandardColorID::MenuBackground)]          = PColor(PNamedColors::silver),
+    [int(PStandardColorID::MenuBackgroundSelected)]  = PColor(PNamedColors::steelblue),
+    [int(PStandardColorID::ScrollBarBackground)]     = PColor(PNamedColors::slategray),
+    [int(PStandardColorID::ScrollBarKnob)]           = PColor(PNamedColors::darkgray),
+    [int(PStandardColorID::SliderKnobNormal)]        = PColor(PNamedColors::lightslategray),
+    [int(PStandardColorID::SliderKnobPressed)]       = PColor(PNamedColors::lightsteelblue),
+    [int(PStandardColorID::SliderKnobShadow)]        = PColor(PNamedColors::darkgray),
+    [int(PStandardColorID::SliderKnobDisabled)]      = PColor(PNamedColors::darkgray),
+    [int(PStandardColorID::SliderTrackNormal)]       = PColor(PNamedColors::darkgray),
+    [int(PStandardColorID::SliderTrackDisabled)]     = PColor(PNamedColors::darkgray),
+    [int(PStandardColorID::ListViewTab)]             = PColor(PNamedColors::slategray),
+    [int(PStandardColorID::ListViewTabText)]         = PColor(PNamedColors::white)
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -94,13 +92,13 @@ static Color g_DefaultColors[] =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Color os::get_standard_color(StandardColorID colorID)
+PColor pget_standard_color(PStandardColorID colorID)
 {
     uint32_t index = uint32_t(colorID);
     if (index < ARRAY_COUNT(g_DefaultColors)) {
         return g_DefaultColors[index];
     } else {
-        return g_DefaultColors[int32_t(StandardColorID::DefaultBackground)];
+        return g_DefaultColors[int32_t(PStandardColorID::DefaultBackground)];
     }        
 }
 
@@ -108,7 +106,7 @@ Color os::get_standard_color(StandardColorID colorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void os::set_standard_color(StandardColorID colorID, Color color)
+void pset_standard_color(PStandardColorID colorID, PColor color)
 {
     uint32_t index = uint32_t(colorID);
     if (index < ARRAY_COUNT(g_DefaultColors)) {
@@ -120,7 +118,7 @@ void os::set_standard_color(StandardColorID colorID, Color color)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static Color Tint(const Color& color, float tint)
+static PColor Tint(const PColor& color, float tint)
 {
     int r = int( (float(color.GetRed()) * tint + 127.0f * (1.0f - tint)) );
     int g = int( (float(color.GetGreen()) * tint + 127.0f * (1.0f - tint)) );
@@ -128,14 +126,14 @@ static Color Tint(const Color& color, float tint)
     if ( r < 0 ) r = 0; else if (r > 255) r = 255;
     if ( g < 0 ) g = 0; else if (g > 255) g = 255;
     if ( b < 0 ) b = 0; else if (b > 255) b = 255;
-    return Color(uint8_t(r), uint8_t(g), uint8_t(b), color.GetAlpha());
+    return PColor(uint8_t(r), uint8_t(g), uint8_t(b), color.GetAlpha());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(const PString& name, Ptr<View> parent, uint32_t flags) : ViewBase(name, Rect(), Point(), flags, 0, 1.0f, get_standard_color(StandardColorID::DefaultBackground), get_standard_color(StandardColorID::DefaultBackground), Color(0))
+PView::PView(const PString& name, Ptr<PView> parent, uint32_t flags) : PViewBase(name, PRect(), PPoint(), flags, 0, 1.0f, pget_standard_color(PStandardColorID::DefaultBackground), pget_standard_color(PStandardColorID::DefaultBackground), PColor(0))
 {
     Initialize();
     if (parent != nullptr) {
@@ -145,46 +143,46 @@ View::View(const PString& name, Ptr<View> parent, uint32_t flags) : ViewBase(nam
 }
 
 template< typename T>
-static SizeOverride GetSizeOverride(pugi::xml_attribute absoluteAttr, pugi::xml_attribute limitAttr, pugi::xml_attribute extendAttr, T& outValue)
+static PSizeOverride GetSizeOverride(pugi::xml_attribute absoluteAttr, pugi::xml_attribute limitAttr, pugi::xml_attribute extendAttr, T& outValue)
 {
-    if (!absoluteAttr.empty() && xml_object_parser::parse(absoluteAttr.value(), outValue)) {
-        return SizeOverride::Always;
-    } else if (!limitAttr.empty() && xml_object_parser::parse(limitAttr.value(), outValue)) {
-        return SizeOverride::Limit;
-    } else if (!extendAttr.empty() && xml_object_parser::parse(extendAttr.value(), outValue)) {
-        return SizeOverride::Extend;
+    if (!absoluteAttr.empty() && p_xml_object_parser::parse(absoluteAttr.value(), outValue)) {
+        return PSizeOverride::Always;
+    } else if (!limitAttr.empty() && p_xml_object_parser::parse(limitAttr.value(), outValue)) {
+        return PSizeOverride::Limit;
+    } else if (!extendAttr.empty() && p_xml_object_parser::parse(extendAttr.value(), outValue)) {
+        return PSizeOverride::Extend;
     }
-    return SizeOverride::None;
+    return PSizeOverride::None;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData)
-    : ViewBase(xmlData.attribute("name").value(),
-               Rect(),
-               Point(),
-               context.GetFlagsAttribute<uint32_t>(xmlData, ViewFlags::FlagMap, "flags", 0),
+PView::PView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData)
+    : PViewBase(xmlData.attribute("name").value(),
+               PRect(),
+               PPoint(),
+               context.GetFlagsAttribute<uint32_t>(xmlData, PViewFlags::FlagMap, "flags", 0),
                0,
                1.0f,
-               get_standard_color(StandardColorID::DefaultBackground),
-               get_standard_color(StandardColorID::DefaultBackground),
-               Color(0))
+               pget_standard_color(PStandardColorID::DefaultBackground),
+               pget_standard_color(PStandardColorID::DefaultBackground),
+               PColor(0))
 {
     Initialize();
 
-    SetHAlignment(context.GetAttribute(xmlData, "h_alignment", Alignment::Center));
-    SetVAlignment(context.GetAttribute(xmlData, "v_alignment", Alignment::Center));
+    SetHAlignment(context.GetAttribute(xmlData, "h_alignment", PAlignment::Center));
+    SetVAlignment(context.GetAttribute(xmlData, "v_alignment", PAlignment::Center));
 
-	Point sizeOverride;
-	Point sizeSmallestOverride;
-    Point sizeGreatestOverride;
-	SizeOverride overrideType;
-    SizeOverride overrideTypeSmallestH;
-	SizeOverride overrideTypeGreatestH;
-	SizeOverride overrideTypeSmallestV;
-	SizeOverride overrideTypeGreatestV;
+	PPoint sizeOverride;
+	PPoint sizeSmallestOverride;
+    PPoint sizeGreatestOverride;
+	PSizeOverride overrideType;
+    PSizeOverride overrideTypeSmallestH;
+	PSizeOverride overrideTypeGreatestH;
+	PSizeOverride overrideTypeSmallestV;
+	PSizeOverride overrideTypeGreatestV;
 
     overrideType = GetSizeOverride(context.GetAttribute(xmlData, "size"), context.GetAttribute(xmlData, "size_limit"), context.GetAttribute(xmlData, "size_extend"), sizeOverride);
     overrideTypeSmallestH = overrideTypeGreatestH = overrideTypeSmallestV = overrideTypeGreatestV = overrideType;
@@ -192,64 +190,64 @@ View::View(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& 
 
     float value;
 	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "width"), context.GetAttribute(xmlData, "width_limit"), context.GetAttribute(xmlData, "width_extend"), value);
-    if (overrideType != SizeOverride::None) {
+    if (overrideType != PSizeOverride::None) {
         sizeSmallestOverride.x = sizeGreatestOverride.x = value;
         overrideTypeSmallestH = overrideTypeGreatestH = overrideType;
     }
 	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "height"), context.GetAttribute(xmlData, "height_limit"), context.GetAttribute(xmlData, "height_extend"), value);
-	if (overrideType != SizeOverride::None) {
+	if (overrideType != PSizeOverride::None) {
 		sizeSmallestOverride.y = sizeGreatestOverride.y = value;
 		overrideTypeSmallestV = overrideTypeGreatestV = overrideType;
 	}
 
 	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "min_size"), context.GetAttribute(xmlData, "min_size_limit"), context.GetAttribute(xmlData, "min_size_extend"), sizeOverride);
-    if (overrideType != SizeOverride::None) {
+    if (overrideType != PSizeOverride::None) {
         overrideTypeSmallestH = overrideTypeSmallestV = overrideType;
         sizeSmallestOverride = sizeOverride;
     }
 	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "min_width"), context.GetAttribute(xmlData, "min_width_limit"), context.GetAttribute(xmlData, "min_width_extend"), value);
-	if (overrideType != SizeOverride::None) {
+	if (overrideType != PSizeOverride::None) {
 		sizeSmallestOverride.x = value;
 		overrideTypeSmallestH = overrideType;
 	}
 	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "min_height"), context.GetAttribute(xmlData, "min_height_limit"), context.GetAttribute(xmlData, "min_height_extend"), value);
-	if (overrideType != SizeOverride::None) {
+	if (overrideType != PSizeOverride::None) {
 		sizeSmallestOverride.y = value;
 		overrideTypeSmallestV = overrideType;
 	}
 
 
 	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "max_size"), context.GetAttribute(xmlData, "max_size_limit"), context.GetAttribute(xmlData, "max_size_extend"), sizeOverride);
-	if (overrideType != SizeOverride::None) {
+	if (overrideType != PSizeOverride::None) {
 		overrideTypeGreatestH = overrideTypeGreatestV = overrideType;
 		sizeGreatestOverride = sizeOverride;
 	}
 	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "max_width"), context.GetAttribute(xmlData, "max_width_limit"), context.GetAttribute(xmlData, "max_width_extend"), value);
-	if (overrideType != SizeOverride::None) {
+	if (overrideType != PSizeOverride::None) {
 		sizeGreatestOverride.x = value;
 		overrideTypeGreatestH = overrideType;
 	}
 	overrideType = GetSizeOverride(context.GetAttribute(xmlData, "max_height"), context.GetAttribute(xmlData, "max_height_limit"), context.GetAttribute(xmlData, "max_height_extend"), value);
-	if (overrideType != SizeOverride::None) {
+	if (overrideType != PSizeOverride::None) {
 		sizeGreatestOverride.y = value;
 		overrideTypeGreatestV = overrideType;
 	}
 
-    if (overrideTypeSmallestH != SizeOverride::None) {
-		SetWidthOverride(PrefSizeType::Smallest, overrideTypeSmallestH, sizeSmallestOverride.x);
+    if (overrideTypeSmallestH != PSizeOverride::None) {
+		SetWidthOverride(PPrefSizeType::Smallest, overrideTypeSmallestH, sizeSmallestOverride.x);
     }
-	if (overrideTypeGreatestH != SizeOverride::None) {
-		SetWidthOverride(PrefSizeType::Greatest, overrideTypeGreatestH, sizeGreatestOverride.x);
+	if (overrideTypeGreatestH != PSizeOverride::None) {
+		SetWidthOverride(PPrefSizeType::Greatest, overrideTypeGreatestH, sizeGreatestOverride.x);
 	}
-	if (overrideTypeSmallestV != SizeOverride::None) {
-		SetHeightOverride(PrefSizeType::Smallest, overrideTypeSmallestV, sizeSmallestOverride.y);
+	if (overrideTypeSmallestV != PSizeOverride::None) {
+		SetHeightOverride(PPrefSizeType::Smallest, overrideTypeSmallestV, sizeSmallestOverride.y);
 	}
-	if (overrideTypeGreatestV != SizeOverride::None) {
-		SetHeightOverride(PrefSizeType::Greatest, overrideTypeGreatestV, sizeGreatestOverride.y);
+	if (overrideTypeGreatestV != PSizeOverride::None) {
+		SetHeightOverride(PPrefSizeType::Greatest, overrideTypeGreatestV, sizeGreatestOverride.y);
 	}
     m_Wheight = context.GetAttribute(xmlData, "layout_weight", 1.0f);
-    SetLayoutNode(context.GetAttribute(xmlData, "layout", Ptr<LayoutNode>()));
-    m_Borders = context.GetAttribute(xmlData, "layout_borders", Rect(0.0f));
+    SetLayoutNode(context.GetAttribute(xmlData, "layout", Ptr<PLayoutNode>()));
+    m_Borders = context.GetAttribute(xmlData, "layout_borders", PRect(0.0f));
 
     PString widthGroupName = context.GetAttribute(xmlData, "width_group", PString::zero);
     PString heightGroupName = context.GetAttribute(xmlData, "height_group", PString::zero);
@@ -283,7 +281,7 @@ View::View(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::View(Ptr<View> parent, handler_id serverHandle, const PString& name, const Rect& frame) : ViewBase(name, frame, Point(), ViewFlags::Eavesdropper | ViewFlags::WillDraw, 0, 1.0f, Color(0xffffffff), Color(0xffffffff), Color(0))
+PView::PView(Ptr<PView> parent, handler_id serverHandle, const PString& name, const PRect& frame) : PViewBase(name, frame, PPoint(), PViewFlags::Eavesdropper | PViewFlags::WillDraw, 0, 1.0f, PColor(0xffffffff), PColor(0xffffffff), PColor(0))
 {
     Initialize();
     m_ServerHandle = serverHandle;
@@ -296,21 +294,21 @@ View::View(Ptr<View> parent, handler_id serverHandle, const PString& name, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::Initialize()
+void PView::Initialize()
 {
-    RegisterRemoteSignal(&RSPaintView, &View::HandlePaint);
-    RegisterRemoteSignal(&RSViewFrameChanged, &View::SlotFrameChanged);
-    RegisterRemoteSignal(&RSViewFocusChanged, &View::SlotKeyboardFocusChanged);
-    RegisterRemoteSignal(&RSHandleMouseDown, &View::SlotHandleMouseDown);
-    RegisterRemoteSignal(&RSHandleMouseUp, &View::HandleMouseUp);
-    RegisterRemoteSignal(&RSHandleMouseMove, &View::HandleMouseMove);
+    RegisterRemoteSignal(&RSPaintView, &PView::HandlePaint);
+    RegisterRemoteSignal(&RSViewFrameChanged, &PView::SlotFrameChanged);
+    RegisterRemoteSignal(&RSViewFocusChanged, &PView::SlotKeyboardFocusChanged);
+    RegisterRemoteSignal(&RSHandleMouseDown, &PView::SlotHandleMouseDown);
+    RegisterRemoteSignal(&RSHandleMouseUp, &PView::HandleMouseUp);
+    RegisterRemoteSignal(&RSHandleMouseMove, &PView::HandleMouseMove);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View::~View()
+PView::~PView()
 {
     if (m_VScrollBar != nullptr) {
         m_VScrollBar->SetScrollTarget(nullptr);
@@ -332,24 +330,24 @@ View::~View()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::HandleMessage(int32_t code, const void* data, size_t length)
+bool PView::HandleMessage(int32_t code, const void* data, size_t length)
 {
-    switch (MessageID(code))
+    switch (PMessageID(code))
     {
-        case os::MessageID::KEY_DOWN:
+        case PMessageID::KEY_DOWN:
         {
-            const KeyEvent* keyEvent = static_cast<const KeyEvent*>(data);
+            const PKeyEvent* keyEvent = static_cast<const PKeyEvent*>(data);
             DispatchKeyDown(keyEvent->m_KeyCode, keyEvent->m_Text, *keyEvent);
             return true;
         }
-        case os::MessageID::KEY_UP:
+        case PMessageID::KEY_UP:
         {
-            const KeyEvent* keyEvent = static_cast<const KeyEvent*>(data);
+            const PKeyEvent* keyEvent = static_cast<const PKeyEvent*>(data);
             DispatchKeyUp(keyEvent->m_KeyCode, keyEvent->m_Text, *keyEvent);
             return true;
         }
         default:
-            return ViewBase<View>::HandleMessage(code, data, length);
+            return PViewBase<PView>::HandleMessage(code, data, length);
     }
 }
 
@@ -357,16 +355,16 @@ bool View::HandleMessage(int32_t code, const void* data, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Application* View::GetApplication() const
+PApplication* PView::GetApplication() const
 {
-    Looper* const looper = GetLooper();
+    PLooper* const looper = GetLooper();
     if (looper != nullptr)
     {
-        return static_cast<Application*>(looper);
+        return static_cast<PApplication*>(looper);
     }
     else
     {
-        const Ptr<const View> parent = GetParent();
+        const Ptr<const PView> parent = GetParent();
         if (parent != nullptr) {
             return parent->GetApplication();
         } else {
@@ -381,9 +379,9 @@ Application* View::GetApplication() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-handler_id View::GetParentServerHandle() const
+handler_id PView::GetParentServerHandle() const
 {
-    for (Ptr<const View> i = GetParent(); i != nullptr; i = i->GetParent())
+    for (Ptr<const PView> i = GetParent(); i != nullptr; i = i->GetParent())
     {
         handler_id curParentHandle = i->GetServerHandle();
         if (curParentHandle != INVALID_HANDLE) {
@@ -397,7 +395,7 @@ handler_id View::GetParentServerHandle() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<LayoutNode> View::GetLayoutNode() const
+Ptr<PLayoutNode> PView::GetLayoutNode() const
 {
     return m_LayoutNode;
 }
@@ -406,11 +404,11 @@ Ptr<LayoutNode> View::GetLayoutNode() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetLayoutNode(Ptr<LayoutNode> node)
+void PView::SetLayoutNode(Ptr<PLayoutNode> node)
 {
     if (m_LayoutNode != nullptr) 
     {
-        Ptr<LayoutNode> layoutNode = m_LayoutNode;
+        Ptr<PLayoutNode> layoutNode = m_LayoutNode;
         m_LayoutNode = nullptr;
         layoutNode->AttachedToView(nullptr);
     }
@@ -426,10 +424,10 @@ void View::SetLayoutNode(Ptr<LayoutNode> node)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetBorders(const Rect& border)
+void PView::SetBorders(const PRect& border)
 {
     m_Borders = border;
-    Ptr<View> parent = GetParent();
+    Ptr<PView> parent = GetParent();
     if (parent != nullptr) {
         parent->InvalidateLayout();
     }
@@ -439,7 +437,7 @@ void View::SetBorders(const Rect& border)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Rect View::GetBorders() const
+PRect PView::GetBorders() const
 {
     return m_Borders;
 }
@@ -448,7 +446,7 @@ Rect View::GetBorders() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float View::GetWheight() const
+float PView::GetWheight() const
 {
     return m_Wheight;
 }
@@ -457,10 +455,10 @@ float View::GetWheight() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetWheight(float vWheight)
+void PView::SetWheight(float vWheight)
 {
     m_Wheight = vWheight;
-    Ptr<View> parent = GetParent();
+    Ptr<PView> parent = GetParent();
     if (parent != nullptr) {
         parent->InvalidateLayout();
     }
@@ -470,10 +468,10 @@ void View::SetWheight(float vWheight)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetHAlignment(Alignment alignment)
+void PView::SetHAlignment(PAlignment alignment)
 {
     m_HAlign = alignment;
-    Ptr<View> parent = GetParent();
+    Ptr<PView> parent = GetParent();
     if (parent != nullptr) {
         parent->InvalidateLayout();
     }
@@ -483,10 +481,10 @@ void View::SetHAlignment(Alignment alignment)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetVAlignment(Alignment alignment)
+void PView::SetVAlignment(PAlignment alignment)
 {
     m_VAlign = alignment;
-    Ptr<View> parent = GetParent();
+    Ptr<PView> parent = GetParent();
     if (parent != nullptr) {
         parent->InvalidateLayout();
     }
@@ -496,7 +494,7 @@ void View::SetVAlignment(Alignment alignment)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Alignment View::GetHAlignment() const
+PAlignment PView::GetHAlignment() const
 {
     return m_HAlign;
 }
@@ -505,7 +503,7 @@ Alignment View::GetHAlignment() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Alignment View::GetVAlignment() const
+PAlignment PView::GetVAlignment() const
 {
     return m_VAlign;
 }
@@ -514,20 +512,20 @@ Alignment View::GetVAlignment() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetWidthOverride(PrefSizeType sizeType, SizeOverride when, float size)
+void PView::SetWidthOverride(PPrefSizeType sizeType, PSizeOverride when, float size)
 {
-    if (sizeType == PrefSizeType::Smallest || sizeType == PrefSizeType::Greatest)
+    if (sizeType == PPrefSizeType::Smallest || sizeType == PPrefSizeType::Greatest)
     {
         m_WidthOverride[int(sizeType)]     = size;
         m_WidthOverrideType[int(sizeType)] = when;
     }
-    else if (sizeType == PrefSizeType::All)
+    else if (sizeType == PPrefSizeType::All)
     {
-        m_WidthOverride[int(PrefSizeType::Smallest)]     = size;
-        m_WidthOverrideType[int(PrefSizeType::Smallest)] = when;
+        m_WidthOverride[int(PPrefSizeType::Smallest)]     = size;
+        m_WidthOverrideType[int(PPrefSizeType::Smallest)] = when;
         
-        m_WidthOverride[int(PrefSizeType::Greatest)]     = size;
-        m_WidthOverrideType[int(PrefSizeType::Greatest)] = when;        
+        m_WidthOverride[int(PPrefSizeType::Greatest)]     = size;
+        m_WidthOverrideType[int(PPrefSizeType::Greatest)] = when;        
     }
     PreferredSizeChanged();
 }
@@ -536,20 +534,20 @@ void View::SetWidthOverride(PrefSizeType sizeType, SizeOverride when, float size
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetHeightOverride(PrefSizeType sizeType, SizeOverride when, float size)
+void PView::SetHeightOverride(PPrefSizeType sizeType, PSizeOverride when, float size)
 {
-    if (sizeType == PrefSizeType::Smallest || sizeType == PrefSizeType::Greatest)
+    if (sizeType == PPrefSizeType::Smallest || sizeType == PPrefSizeType::Greatest)
     {
         m_HeightOverride[int(sizeType)]     = size;
         m_HeightOverrideType[int(sizeType)] = when;
     }
-    else if (sizeType == PrefSizeType::All)
+    else if (sizeType == PPrefSizeType::All)
     {
-        m_HeightOverride[int(PrefSizeType::Smallest)]     = size;
-        m_HeightOverrideType[int(PrefSizeType::Smallest)] = when;
+        m_HeightOverride[int(PPrefSizeType::Smallest)]     = size;
+        m_HeightOverrideType[int(PPrefSizeType::Smallest)] = when;
         
-        m_HeightOverride[int(PrefSizeType::Greatest)]     = size;
-        m_HeightOverrideType[int(PrefSizeType::Greatest)] = when;        
+        m_HeightOverride[int(PPrefSizeType::Greatest)]     = size;
+        m_HeightOverrideType[int(PPrefSizeType::Greatest)] = when;        
     }
     PreferredSizeChanged();
 }
@@ -558,7 +556,7 @@ void View::SetHeightOverride(PrefSizeType sizeType, SizeOverride when, float siz
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::AddToWidthRing(Ptr<View> ring)
+void PView::AddToWidthRing(Ptr<PView> ring)
 {
     if (m_WidthRing != nullptr) {
         RemoveFromWidthRing();
@@ -572,11 +570,11 @@ void View::AddToWidthRing(Ptr<View> ring)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::RemoveFromWidthRing()
+void PView::RemoveFromWidthRing()
 {
     if (m_WidthRing != nullptr)
     {
-        for (View* i = m_WidthRing;; i = i->m_WidthRing)
+        for (PView* i = m_WidthRing;; i = i->m_WidthRing)
         {
             if (i->m_WidthRing == this)
             {
@@ -594,7 +592,7 @@ void View::RemoveFromWidthRing()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::AddToHeightRing(Ptr<View> ring)
+void PView::AddToHeightRing(Ptr<PView> ring)
 {
     RemoveFromHeightRing();
     m_HeightRing = (ring->m_HeightRing != nullptr) ? ring->m_HeightRing : ptr_raw_pointer_cast(ring);
@@ -606,11 +604,11 @@ void View::AddToHeightRing(Ptr<View> ring)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::RemoveFromHeightRing()
+void PView::RemoveFromHeightRing()
 {
     if (m_HeightRing != nullptr)
     {
-        for (View* i = m_HeightRing;; i = i->m_HeightRing)
+        for (PView* i = m_HeightRing;; i = i->m_HeightRing)
         {
             if (i->m_HeightRing == this)
             {
@@ -628,12 +626,12 @@ void View::RemoveFromHeightRing()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::InvalidateLayout()
+void PView::InvalidateLayout()
 {
     if (m_IsLayoutValid)
     {
         m_IsLayoutValid = false;
-        Application* app = GetApplication();
+        PApplication* app = GetApplication();
         if (app != nullptr) {
             app->RegisterViewForLayout(ptr_tmp_cast(this));
         }
@@ -644,7 +642,7 @@ void View::InvalidateLayout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& motionEvent)
+bool PView::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
 {
     return false;
 }
@@ -653,7 +651,7 @@ bool View::OnMouseDown(MouseButton_e button, const Point& position, const Motion
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& motionEvent)
+bool PView::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
 {
     return false;
 }
@@ -662,7 +660,7 @@ bool View::OnMouseUp(MouseButton_e button, const Point& position, const MotionEv
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& motionEvent)
+bool PView::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
 {
     return false;
 }
@@ -671,7 +669,7 @@ bool View::OnMouseMove(MouseButton_e button, const Point& position, const Motion
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent)
+void PView::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent)
 {
 }
 
@@ -679,7 +677,7 @@ void View::OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& keyE
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::OnKeyUp(KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent)
+void PView::OnKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent)
 {
 }
 
@@ -687,7 +685,7 @@ void View::OnKeyUp(KeyCodes keyCode, const PString& text, const KeyEvent& keyEve
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::OnLayoutChanged()
+void PView::OnLayoutChanged()
 {
     if (m_LayoutNode != nullptr)
     {
@@ -699,7 +697,7 @@ void View::OnLayoutChanged()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::OnFrameMoved(const Point& delta)
+void PView::OnFrameMoved(const PPoint& delta)
 {
 }
 
@@ -707,7 +705,7 @@ void View::OnFrameMoved(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::OnFrameSized(const Point& delta)
+void PView::OnFrameSized(const PPoint& delta)
 {
     InvalidateLayout();
 }
@@ -716,7 +714,7 @@ void View::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void  View::OnScreenFrameMoved(const Point& delta)
+void  PView::OnScreenFrameMoved(const PPoint& delta)
 {
 }
 
@@ -724,7 +722,7 @@ void  View::OnScreenFrameMoved(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::OnViewScrolled(const Point& delta)
+void PView::OnViewScrolled(const PPoint& delta)
 {
 }
 
@@ -732,7 +730,7 @@ void View::OnViewScrolled(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::OnFontChanged(Ptr<Font> newFont)
+void PView::OnFontChanged(Ptr<PFont> newFont)
 {
 }
 
@@ -740,7 +738,7 @@ void View::OnFontChanged(Ptr<Font> newFont)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::RefreshLayout(int32_t maxIterations, bool recursive)
+bool PView::RefreshLayout(int32_t maxIterations, bool recursive)
 {
     while (!m_IsLayoutValid && maxIterations-- > 0)
     {
@@ -749,7 +747,7 @@ bool View::RefreshLayout(int32_t maxIterations, bool recursive)
 
         if (recursive)
         {
-            for (Ptr<View> child : *this) {
+            for (Ptr<PView> child : *this) {
                 child->RefreshLayout(maxIterations, true);
             }
         }
@@ -761,7 +759,7 @@ bool View::RefreshLayout(int32_t maxIterations, bool recursive)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void os::View::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     if (m_LayoutNode != nullptr)
     {
@@ -780,16 +778,16 @@ void os::View::CalculatePreferredSize(Point* minSize, Point* maxSize, bool inclu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-os::Point View::CalculateContentSize() const
+PPoint PView::CalculateContentSize() const
 {
-    return Point(0.0f, 0.0f);
+    return PPoint(0.0f, 0.0f);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point View::GetPreferredSize(PrefSizeType sizeType) const
+PPoint PView::GetPreferredSize(PPrefSizeType sizeType) const
 {
     return m_PreferredSizes[int(sizeType)];
 }
@@ -798,7 +796,7 @@ Point View::GetPreferredSize(PrefSizeType sizeType) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point View::GetContentSize() const
+PPoint PView::GetContentSize() const
 {
     if (VFCalculateContentSize.Empty()) {
         return CalculateContentSize();
@@ -811,42 +809,42 @@ Point View::GetContentSize() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::PreferredSizeChanged()
+void PView::PreferredSizeChanged()
 {
-    Point sizes[int(PrefSizeType::Count)];
+    PPoint sizes[int(PPrefSizeType::Count)];
     
-    bool includeWidth  = m_WidthOverrideType[int(PrefSizeType::Smallest)] != SizeOverride::Always || m_WidthOverrideType[int(PrefSizeType::Greatest)] != SizeOverride::Always;
-    bool includeHeight = m_HeightOverrideType[int(PrefSizeType::Smallest)] != SizeOverride::Always || m_HeightOverrideType[int(PrefSizeType::Greatest)] != SizeOverride::Always;
+    bool includeWidth  = m_WidthOverrideType[int(PPrefSizeType::Smallest)] != PSizeOverride::Always || m_WidthOverrideType[int(PPrefSizeType::Greatest)] != PSizeOverride::Always;
+    bool includeHeight = m_HeightOverrideType[int(PPrefSizeType::Smallest)] != PSizeOverride::Always || m_HeightOverrideType[int(PPrefSizeType::Greatest)] != PSizeOverride::Always;
     
-    CalculatePreferredSize(&sizes[int(PrefSizeType::Smallest)], &sizes[int(PrefSizeType::Greatest)], includeWidth, includeHeight);
+    CalculatePreferredSize(&sizes[int(PPrefSizeType::Smallest)], &sizes[int(PPrefSizeType::Greatest)], includeWidth, includeHeight);
     
-    for (int i = 0; i < int(PrefSizeType::Count); ++i)
+    for (int i = 0; i < int(PPrefSizeType::Count); ++i)
     {
         switch(m_WidthOverrideType[i])
         {
-            case SizeOverride::None: break;
-            case SizeOverride::Always:  sizes[i].x = m_WidthOverride[i]; break;
-            case SizeOverride::Extend:  sizes[i].x = std::max(sizes[i].x, m_WidthOverride[i]); break;
-            case SizeOverride::Limit:   sizes[i].x = std::min(sizes[i].x, m_WidthOverride[i]); break;
+            case PSizeOverride::None: break;
+            case PSizeOverride::Always:  sizes[i].x = m_WidthOverride[i]; break;
+            case PSizeOverride::Extend:  sizes[i].x = std::max(sizes[i].x, m_WidthOverride[i]); break;
+            case PSizeOverride::Limit:   sizes[i].x = std::min(sizes[i].x, m_WidthOverride[i]); break;
         }
         switch(m_HeightOverrideType[i])
         {
-            case SizeOverride::None: break;
-            case SizeOverride::Always:  sizes[i].y = m_HeightOverride[i]; break;
-            case SizeOverride::Extend:  sizes[i].y = std::max(sizes[i].y, m_HeightOverride[i]); break;
-            case SizeOverride::Limit:   sizes[i].y = std::min(sizes[i].y, m_HeightOverride[i]); break;
+            case PSizeOverride::None: break;
+            case PSizeOverride::Always:  sizes[i].y = m_HeightOverride[i]; break;
+            case PSizeOverride::Extend:  sizes[i].y = std::max(sizes[i].y, m_HeightOverride[i]); break;
+            case PSizeOverride::Limit:   sizes[i].y = std::min(sizes[i].y, m_HeightOverride[i]); break;
         }
         if (sizes[i].x > LAYOUT_MAX_SIZE) sizes[i].x = LAYOUT_MAX_SIZE;
         if (sizes[i].y > LAYOUT_MAX_SIZE) sizes[i].y = LAYOUT_MAX_SIZE;
     }
     
-    if (sizes[int(PrefSizeType::Greatest)].x < sizes[int(PrefSizeType::Smallest)].x) sizes[int(PrefSizeType::Greatest)].x = sizes[int(PrefSizeType::Smallest)].x;
-    if (sizes[int(PrefSizeType::Greatest)].y < sizes[int(PrefSizeType::Smallest)].y) sizes[int(PrefSizeType::Greatest)].y = sizes[int(PrefSizeType::Smallest)].y;
+    if (sizes[int(PPrefSizeType::Greatest)].x < sizes[int(PPrefSizeType::Smallest)].x) sizes[int(PPrefSizeType::Greatest)].x = sizes[int(PPrefSizeType::Smallest)].x;
+    if (sizes[int(PPrefSizeType::Greatest)].y < sizes[int(PPrefSizeType::Smallest)].y) sizes[int(PPrefSizeType::Greatest)].y = sizes[int(PPrefSizeType::Smallest)].y;
 
-    if (sizes[int(PrefSizeType::Smallest)] != m_LocalPrefSize[int(PrefSizeType::Smallest)] || sizes[int(PrefSizeType::Greatest)] != m_LocalPrefSize[int(PrefSizeType::Greatest)])
+    if (sizes[int(PPrefSizeType::Smallest)] != m_LocalPrefSize[int(PPrefSizeType::Smallest)] || sizes[int(PPrefSizeType::Greatest)] != m_LocalPrefSize[int(PPrefSizeType::Greatest)])
     {
-        m_LocalPrefSize[int(PrefSizeType::Smallest)] = sizes[int(PrefSizeType::Smallest)];
-        m_LocalPrefSize[int(PrefSizeType::Greatest)] = sizes[int(PrefSizeType::Greatest)];
+        m_LocalPrefSize[int(PPrefSizeType::Smallest)] = sizes[int(PPrefSizeType::Smallest)];
+        m_LocalPrefSize[int(PPrefSizeType::Greatest)] = sizes[int(PPrefSizeType::Greatest)];
         
         UpdateRingSize();
         SignalPreferredSizeChanged(ptr_tmp_cast(this));
@@ -857,7 +855,7 @@ void View::PreferredSizeChanged()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::ContentSizeChanged()
+void PView::ContentSizeChanged()
 {
     SignalContentSizeChanged(this);
 }
@@ -866,7 +864,7 @@ void View::ContentSizeChanged()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::AddChild(Ptr<View> child)
+void PView::AddChild(Ptr<PView> child)
 {
     LinkChild(child, INVALID_INDEX);
 }
@@ -875,7 +873,7 @@ void View::AddChild(Ptr<View> child)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::InsertChild(Ptr<View> child, size_t index)
+void PView::InsertChild(Ptr<PView> child, size_t index)
 {
     LinkChild(child, index);
 }
@@ -884,7 +882,7 @@ void View::InsertChild(Ptr<View> child, size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::RemoveChild(Ptr<View> child)
+void PView::RemoveChild(Ptr<PView> child)
 {
     UnlinkChild(child);
 }
@@ -893,7 +891,7 @@ void View::RemoveChild(Ptr<View> child)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> View::RemoveChild(ChildList_t::iterator iterator)
+Ptr<PView> PView::RemoveChild(ChildList_t::iterator iterator)
 {
     return UnlinkChild(iterator);
 }
@@ -902,9 +900,9 @@ Ptr<View> View::RemoveChild(ChildList_t::iterator iterator)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::RemoveThis()
+bool PView::RemoveThis()
 {
-    Ptr<View> parent = m_Parent.Lock();
+    Ptr<PView> parent = m_Parent.Lock();
     if (parent != nullptr)
     {
         parent->RemoveChild(ptr_tmp_cast(this));
@@ -917,9 +915,9 @@ bool View::RemoveThis()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> View::GetChildAt(const Point& pos)
+Ptr<PView> PView::GetChildAt(const PPoint& pos)
 {
-    for (Ptr<View> child : reverse_ranged(*this))
+    for (Ptr<PView> child : p_reverse_ranged(*this))
     {
         if (child->GetFrame().DoIntersect(pos)) {
             return child;
@@ -932,7 +930,7 @@ Ptr<View> View::GetChildAt(const Point& pos)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> View::GetChildAt(size_t index)
+Ptr<PView> PView::GetChildAt(size_t index)
 {
     if (index < m_ChildrenList.size()) {
         return m_ChildrenList[index];
@@ -945,7 +943,7 @@ Ptr<View> View::GetChildAt(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ScrollBar> View::GetVScrollBar() const
+Ptr<PScrollBar> PView::GetVScrollBar() const
 {
     return ptr_tmp_cast(m_VScrollBar);
 }
@@ -954,7 +952,7 @@ Ptr<ScrollBar> View::GetVScrollBar() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ScrollBar> View::GetHScrollBar() const
+Ptr<PScrollBar> PView::GetHScrollBar() const
 {
     return ptr_tmp_cast(m_HScrollBar);
 }
@@ -963,7 +961,7 @@ Ptr<ScrollBar> View::GetHScrollBar() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::Show(bool visible)
+void PView::Show(bool visible)
 {
     const bool wasVisible = IsVisible();
 
@@ -978,12 +976,12 @@ void View::Show(bool visible)
         if (m_ServerHandle != INVALID_HANDLE) {
             Post<ASViewShow>(isVisible);
         }
-        for (Ptr<View> child : *this) {
+        for (Ptr<PView> child : *this) {
             child->Show(isVisible);
         }
-        if (HasFlags(ViewFlags::IgnoreWhenHidden))
+        if (HasFlags(PViewFlags::IgnoreWhenHidden))
         {
-            Ptr<View> parent = GetParent();
+            Ptr<PView> parent = GetParent();
             if (parent != nullptr) {
                 parent->PreferredSizeChanged();
                 parent->InvalidateLayout();
@@ -996,7 +994,7 @@ void View::Show(bool visible)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::IsVisible() const
+bool PView::IsVisible() const
 {
     return m_HideCount == 0;
 }
@@ -1005,9 +1003,9 @@ bool View::IsVisible() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::MakeFocus(MouseButton_e button, bool focus)
+void PView::MakeFocus(PMouseButton button, bool focus)
 {
-    Application* app = GetApplication();
+    PApplication* app = GetApplication();
     if (app != nullptr) {
         app->SetFocusView(button, ptr_tmp_cast(this), focus);
     }
@@ -1017,9 +1015,9 @@ void View::MakeFocus(MouseButton_e button, bool focus)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::HasFocus(MouseButton_e button) const
+bool PView::HasFocus(PMouseButton button) const
 {
-    const Application* app = GetApplication();
+    const PApplication* app = GetApplication();
     return app != nullptr && ptr_raw_pointer_cast(app->GetFocusView(button)) == this;
 }
 
@@ -1027,9 +1025,9 @@ bool View::HasFocus(MouseButton_e button) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetKeyboardFocus(bool focus)
+void PView::SetKeyboardFocus(bool focus)
 {
-    Application* app = GetApplication();
+    PApplication* app = GetApplication();
     if (app != nullptr) {
         app->SetKeyboardFocus(ptr_tmp_cast(this), focus, true);
     }
@@ -1039,9 +1037,9 @@ void View::SetKeyboardFocus(bool focus)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::HasKeyboardFocus() const
+bool PView::HasKeyboardFocus() const
 {
-    const Application* app = GetApplication();
+    const PApplication* app = GetApplication();
     return app != nullptr && ptr_raw_pointer_cast(app->GetKeyboardFocus()) == this;
 }
 
@@ -1049,7 +1047,7 @@ bool View::HasKeyboardFocus() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetFrame(const Rect& frame)
+void PView::SetFrame(const PRect& frame)
 {
     SetFrameInternal(frame, true);
 }
@@ -1058,18 +1056,18 @@ void View::SetFrame(const Rect& frame)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::ResizeBy(const Point& delta)
+void PView::ResizeBy(const PPoint& delta)
 {
-    SetFrame(Rect(m_Frame.left, m_Frame.top, m_Frame.right + delta.x, m_Frame.bottom + delta.y));
+    SetFrame(PRect(m_Frame.left, m_Frame.top, m_Frame.right + delta.x, m_Frame.bottom + delta.y));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::ResizeBy(float deltaW, float deltaH)
+void PView::ResizeBy(float deltaW, float deltaH)
 {
-    SetFrame(Rect(m_Frame.left, m_Frame.top, m_Frame.right + deltaW, m_Frame.bottom + deltaH));
+    SetFrame(PRect(m_Frame.left, m_Frame.top, m_Frame.right + deltaW, m_Frame.bottom + deltaH));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1077,14 +1075,14 @@ void View::ResizeBy(float deltaW, float deltaH)
 /// \par Description:
 ///     See ResizeTo(float,float)
 /// \param size
-///     New size (os::Point::x is width, os::Point::y is height).
+///     New size (PPoint::x is width, PPoint::y is height).
 /// \sa ResizeTo(float,float)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::ResizeTo(const Point& size)
+void PView::ResizeTo(const PPoint& size)
 {
-    SetFrame(Rect(m_Frame.left, m_Frame.top, m_Frame.left + size.x, m_Frame.top + size.y));
+    SetFrame(PRect(m_Frame.left, m_Frame.top, m_Frame.left + size.x, m_Frame.top + size.y));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1105,13 +1103,13 @@ void View::ResizeTo(const Point& size)
 ///	    New height.
 /// \return
 /// \par Error codes:
-/// \sa ResizeTo(const Point&), ResizeBy(), SetFrame()
+/// \sa ResizeTo(const PPoint&), ResizeBy(), SetFrame()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::ResizeTo(float w, float h)
+void PView::ResizeTo(float w, float h)
 {
-    SetFrame(Rect(m_Frame.left, m_Frame.top, m_Frame.left + w, m_Frame.top + h));
+    SetFrame(PRect(m_Frame.left, m_Frame.top, m_Frame.left + w, m_Frame.top + h));
 }
 
 
@@ -1119,11 +1117,11 @@ void View::ResizeTo(float w, float h)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::Invalidate(const Rect& rect)
+void PView::Invalidate(const PRect& rect)
 {
     if (m_ServerHandle != INVALID_HANDLE) {
-        Post<ASViewInvalidate>(IRect(rect));
-    } else if (!HasFlags(ViewFlags::WillDraw)) {
+        Post<ASViewInvalidate>(PIRect(rect));
+    } else if (!HasFlags(PViewFlags::WillDraw)) {
         p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "{}: Called on client-only view {}[{}].", __PRETTY_FUNCTION__, typeid(*this).name(), GetName());
     }
 }
@@ -1132,7 +1130,7 @@ void View::Invalidate(const Rect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::Invalidate()
+void PView::Invalidate()
 {
     Invalidate(GetBounds());
 }
@@ -1141,7 +1139,7 @@ void View::Invalidate()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetFocusKeyboardMode(FocusKeyboardMode mode)
+void PView::SetFocusKeyboardMode(PFocusKeyboardMode mode)
 {
     if (mode != m_FocusKeyboardMode)
     {
@@ -1154,7 +1152,7 @@ void View::SetFocusKeyboardMode(FocusKeyboardMode mode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetDrawingMode(DrawingMode mode)
+void PView::SetDrawingMode(PDrawingMode mode)
 {
     if (mode != m_DrawingMode)
     {
@@ -1167,7 +1165,7 @@ void View::SetDrawingMode(DrawingMode mode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DrawingMode View::GetDrawingMode() const
+PDrawingMode PView::GetDrawingMode() const
 {
     return m_DrawingMode;
 }
@@ -1176,7 +1174,7 @@ DrawingMode View::GetDrawingMode() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetFont(Ptr<Font> font)
+void PView::SetFont(Ptr<PFont> font)
 {
     m_Font = font;
     Post<ASViewSetFont>(int(font->Get()));
@@ -1186,7 +1184,7 @@ void View::SetFont(Ptr<Font> font)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
     
-Ptr<Font> View::GetFont() const
+Ptr<PFont> PView::GetFont() const
 {
     return m_Font;
 }
@@ -1195,14 +1193,14 @@ Ptr<Font> View::GetFont() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::SlotHandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& motionEvent)
+bool PView::SlotHandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
 {
     // Dive down the hierarchy to find the top-most children under the mouse.
-    for (Ptr<View> child : reverse_ranged(m_ChildrenList))
+    for (Ptr<PView> child : p_reverse_ranged(m_ChildrenList))
     {
         if (child->IsVisible() && child->m_Frame.DoIntersect(position))
         {
-            const Point childPos = child->ConvertFromParent(position);
+            const PPoint childPos = child->ConvertFromParent(position);
             return child->SlotHandleMouseDown(button, childPos, motionEvent);
         }
     }
@@ -1214,13 +1212,13 @@ bool View::SlotHandleMouseDown(MouseButton_e button, const Point& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::HandleMouseDown(MouseButton_e button, const Point& position, const MotionEvent& motionEvent)
+bool PView::HandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
 {
     bool handled = false;
 
-    if (!HasFlags(ViewFlags::IgnoreMouse))
+    if (!HasFlags(PViewFlags::IgnoreMouse))
     {
-        if (button < MouseButton_e::FirstTouchID) {
+        if (button < PMouseButton::FirstTouchID) {
             handled = DispatchMouseDown(button, position, motionEvent);
         } else {
             handled = DispatchTouchDown(button, position, motionEvent);
@@ -1228,25 +1226,25 @@ bool View::HandleMouseDown(MouseButton_e button, const Point& position, const Mo
     }
     if (handled)
     {
-        Application* app = GetApplication();
+        PApplication* app = GetApplication();
         if (app != nullptr) {
             app->SetMouseDownView(button, ptr_tmp_cast(this), motionEvent);
         }
     }
     else
     {
-        Ptr<View> parent = GetParent();
+        Ptr<PView> parent = GetParent();
 
         if (parent != nullptr)
         {
             // Event not handled by us. Check if the mouse hit any overlapping siblings below us.
-            const Point parentPos = ConvertToParent(position);
+            const PPoint parentPos = ConvertToParent(position);
             auto i = parent->GetChildRIterator(ptr_tmp_cast(this));
             if (i != parent->rend())
             {
                 for (++i; i != parent->rend(); ++i)
                 {
-                    Ptr<View> sibling = *i;
+                    Ptr<PView> sibling = *i;
                     if (sibling->IsVisible() && sibling->GetFrame().DoIntersect(parentPos)) {
                         return sibling->HandleMouseDown(button, sibling->ConvertFromParent(parentPos), motionEvent);
                     }
@@ -1263,13 +1261,13 @@ bool View::HandleMouseDown(MouseButton_e button, const Point& position, const Mo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::HandleMouseUp(MouseButton_e button, const Point& position, const MotionEvent& motionEvent)
+void PView::HandleMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
 {
-    Application* app = GetApplication();
-    Ptr<View> mouseView = (app != nullptr) ? app->GetMouseDownView(button) : nullptr;
+    PApplication* app = GetApplication();
+    Ptr<PView> mouseView = (app != nullptr) ? app->GetMouseDownView(button) : nullptr;
     if (mouseView != nullptr)
     {
-        if (button < MouseButton_e::FirstTouchID) {
+        if (button < PMouseButton::FirstTouchID) {
             mouseView->DispatchMouseUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), motionEvent);
         } else {
             mouseView->DispatchTouchUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), motionEvent);
@@ -1285,21 +1283,21 @@ void View::HandleMouseUp(MouseButton_e button, const Point& position, const Moti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::HandleMouseMove(MouseButton_e button, const Point& position, const MotionEvent& motionEvent)
+void PView::HandleMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
 {
-    Application* app = GetApplication();
-    Ptr<View> mouseView = (app != nullptr) ? app->GetFocusView(button) : nullptr;
+    PApplication* app = GetApplication();
+    Ptr<PView> mouseView = (app != nullptr) ? app->GetFocusView(button) : nullptr;
     if (mouseView != nullptr)
     {
-        if (button < MouseButton_e::FirstTouchID) {
+        if (button < PMouseButton::FirstTouchID) {
             mouseView->DispatchMouseMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), motionEvent);
         } else {
             mouseView->DispatchTouchMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), motionEvent);
         }
     }
-    else if (m_HideCount == 0 && !HasFlags(ViewFlags::IgnoreMouse))
+    else if (m_HideCount == 0 && !HasFlags(PViewFlags::IgnoreMouse))
     {
-        if (button < MouseButton_e::FirstTouchID) {
+        if (button < PMouseButton::FirstTouchID) {
             DispatchMouseMove(button, position, motionEvent);
         } else {
             DispatchTouchMove(button, position, motionEvent);
@@ -1311,14 +1309,14 @@ void View::HandleMouseMove(MouseButton_e button, const Point& position, const Mo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::ScrollBy(const Point& offset)
+void PView::ScrollBy(const PPoint& offset)
 {
     if (offset.x == 0.0f && offset.y == 0.0f) {
         return;
     }
 
     m_ScrollOffset += offset;
-    UpdatePosition(View::UpdatePositionNotifyServer::IfChanged);
+    UpdatePosition(PView::UpdatePositionNotifyServer::IfChanged);
     Post<ASViewScrollBy>(offset);
 
     if (offset.x != 0 && m_HScrollBar != nullptr) {
@@ -1335,7 +1333,7 @@ void View::ScrollBy(const Point& offset)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::CopyRect(const Rect& srcRect, const Point& dstPos)
+void PView::CopyRect(const PRect& srcRect, const PPoint& dstPos)
 {
     if (m_BeginPainCount != 0) {
         m_DidScrollRect = true;
@@ -1347,7 +1345,7 @@ void View::CopyRect(const Rect& srcRect, const Point& dstPos)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::DrawBitmap(Ptr<const Bitmap> bitmap, const Rect& srcRect, const Point& dstPos)
+void PView::DrawBitmap(Ptr<const PBitmap> bitmap, const PRect& srcRect, const PPoint& dstPos)
 {
     Post<ASViewDrawBitmap>(bitmap->m_Handle, srcRect, dstPos);
 }
@@ -1356,7 +1354,7 @@ void View::DrawBitmap(Ptr<const Bitmap> bitmap, const Rect& srcRect, const Point
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::DrawBitmap(Ptr<const Bitmap> bitmap, const Rect& srcRect, const Rect& dstRect)
+void PView::DrawBitmap(Ptr<const PBitmap> bitmap, const PRect& srcRect, const PRect& dstRect)
 {
     Post<ASViewDrawScaledBitmap>(bitmap->m_Handle, srcRect, dstRect);
 }
@@ -1365,9 +1363,9 @@ void View::DrawBitmap(Ptr<const Bitmap> bitmap, const Rect& srcRect, const Rect&
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
+void PView::DrawFrame( const PRect& rect, uint32_t syleFlags)
 {
-    Rect frame(rect);
+    PRect frame(rect);
     frame.Floor();
     bool sunken = false;
 
@@ -1375,24 +1373,24 @@ void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
         sunken = true;
     }
 
-    Color fgColor = get_standard_color(StandardColorID::Shine);
-    Color bgColor = get_standard_color(StandardColorID::Shadow);
+    PColor fgColor = pget_standard_color(PStandardColorID::Shine);
+    PColor bgColor = pget_standard_color(PStandardColorID::Shadow);
 
     if (syleFlags & FRAME_DISABLED) {
         fgColor = Tint(fgColor, 0.6f);
         bgColor = Tint(bgColor, 0.4f);
     }
-    Color fgShadowColor = Tint(fgColor, 0.6f);
-    Color bgShadowColor = Tint(bgColor, 0.5f);
+    PColor fgShadowColor = Tint(fgColor, 0.6f);
+    PColor bgShadowColor = Tint(bgColor, 0.5f);
   
     if (syleFlags & FRAME_FLAT)
     {
         SetFgColor(sunken ? bgColor : fgColor);
         MovePenTo(frame.left, frame.bottom - 1.0f);
-        DrawLine(Point( frame.left, frame.top));
-        DrawLine(Point(frame.right - 1.0f, frame.top));
-        DrawLine(Point(frame.right - 1.0f, frame.bottom - 1.0f));
-        DrawLine(Point(frame.left, frame.bottom - 1.0f));
+        DrawLine(PPoint( frame.left, frame.top));
+        DrawLine(PPoint(frame.right - 1.0f, frame.top));
+        DrawLine(PPoint(frame.right - 1.0f, frame.bottom - 1.0f));
+        DrawLine(PPoint(frame.left, frame.bottom - 1.0f));
     }
     else
     {
@@ -1403,16 +1401,16 @@ void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
         }
 
         MovePenTo(frame.left, frame.bottom - 1.0f);
-        DrawLine(Point(frame.left, frame.top));
-        DrawLine(Point(frame.right - 1.0f, frame.top));
+        DrawLine(PPoint(frame.left, frame.top));
+        DrawLine(PPoint(frame.right - 1.0f, frame.top));
 
         if (syleFlags & FRAME_THIN) {
             SetFgColor(sunken ? fgColor : bgColor);
         } else {
             SetFgColor(sunken ? fgColor : bgShadowColor);
         }
-        DrawLine(Point(frame.right - 1.0f, frame.bottom - 1.0f));
-        DrawLine(Point(frame.left, frame.bottom - 1.0f));
+        DrawLine(PPoint(frame.right - 1.0f, frame.bottom - 1.0f));
+        DrawLine(PPoint(frame.left, frame.bottom - 1.0f));
 
 
         if ((syleFlags & FRAME_THIN) == 0)
@@ -1423,13 +1421,13 @@ void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
 
                 MovePenTo(frame.left + 1.0f, frame.bottom - 2.0f);
 
-                DrawLine(Point(frame.left + 1.0f, frame.top + 1.0f));
-                DrawLine(Point(frame.right - 2.0f, frame.top + 1.0f));
+                DrawLine(PPoint(frame.left + 1.0f, frame.top + 1.0f));
+                DrawLine(PPoint(frame.right - 2.0f, frame.top + 1.0f));
 
                 SetFgColor(sunken ? fgColor : bgColor);
 
-                DrawLine(Point(frame.right - 2.0f, frame.bottom - 2.0f));
-                DrawLine(Point(frame.left + 1.0f, frame.bottom - 2.0f));
+                DrawLine(PPoint(frame.right - 2.0f, frame.bottom - 2.0f));
+                DrawLine(PPoint(frame.left + 1.0f, frame.bottom - 2.0f));
             }
             else
             {
@@ -1437,22 +1435,22 @@ void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
 
                 MovePenTo(frame.left + 1.0f, frame.bottom - 2.0f);
 
-                DrawLine(Point(frame.left + 1.0f, frame.top + 1.0f));
-                DrawLine(Point(frame.right - 2.0f, frame.top + 1.0f));
+                DrawLine(PPoint(frame.left + 1.0f, frame.top + 1.0f));
+                DrawLine(PPoint(frame.right - 2.0f, frame.top + 1.0f));
 
                 SetFgColor(sunken ? fgShadowColor : bgColor);
 
-                DrawLine(Point(frame.right - 2.0f, frame.bottom - 2.0f));
-                DrawLine(Point(frame.left + 1.0f, frame.bottom - 2.0f));
+                DrawLine(PPoint(frame.right - 2.0f, frame.bottom - 2.0f));
+                DrawLine(PPoint(frame.left + 1.0f, frame.bottom - 2.0f));
             }
             if ((syleFlags & FRAME_TRANSPARENT) == 0) {
-                EraseRect(Rect(frame.left + 2.0f, frame.top + 2.0f, frame.right - 2.0f, frame.bottom - 2.0f));
+                EraseRect(PRect(frame.left + 2.0f, frame.top + 2.0f, frame.right - 2.0f, frame.bottom - 2.0f));
             }
         }
         else
         {
             if ((syleFlags & FRAME_TRANSPARENT) == 0) {
-                EraseRect(Rect(frame.left + 1.0f, frame.top + 1.0f, frame.right - 1.0f, frame.bottom - 1.0f));
+                EraseRect(PRect(frame.left + 1.0f, frame.top + 1.0f, frame.right - 1.0f, frame.bottom - 1.0f));
             }
         }
     }
@@ -1462,7 +1460,7 @@ void View::DrawFrame( const Rect& rect, uint32_t syleFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FontHeight View::GetFontHeight() const
+PFontHeight PView::GetFontHeight() const
 {
     if (m_Font != nullptr)
     {
@@ -1470,7 +1468,7 @@ FontHeight View::GetFontHeight() const
     }
     else
     {
-        FontHeight height;
+        PFontHeight height;
         height.ascender  = 0.0f;
         height.descender = 0.0f;
         height.line_gap  = 0.0f;
@@ -1482,7 +1480,7 @@ FontHeight View::GetFontHeight() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float View::GetStringWidth(const char* string, size_t length) const
+float PView::GetStringWidth(const char* string, size_t length) const
 {
     if (m_Font != nullptr) {
         return m_Font->GetStringWidth(string, length);
@@ -1495,9 +1493,9 @@ float View::GetStringWidth(const char* string, size_t length) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::Flush()
+void PView::Flush()
 {
-    Application* app = GetApplication();
+    PApplication* app = GetApplication();
     if (app != nullptr) {
         app->Flush();
     }
@@ -1507,9 +1505,9 @@ void View::Flush()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::Sync()
+void PView::Sync()
 {
-    Application* app = GetApplication();
+    PApplication* app = GetApplication();
     if (app != nullptr) {
         app->Sync();
     }
@@ -1521,22 +1519,22 @@ void View::Sync()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::HandleAddedToParent(Ptr<View> parent, size_t index)
+void PView::HandleAddedToParent(Ptr<PView> parent, size_t index)
 {
-    UpdatePosition(View::UpdatePositionNotifyServer::IfChanged);
+    UpdatePosition(PView::UpdatePositionNotifyServer::IfChanged);
     if (!parent->IsVisible()) {
         Show(false);
     }
-    if (parent->HasFlags(ViewFlags::IsAttachedToScreen))
+    if (parent->HasFlags(PViewFlags::IsAttachedToScreen))
     {
         parent->InvalidateLayout();
 
-        Application* app = parent->GetApplication();
+        PApplication* app = parent->GetApplication();
         if (app != nullptr)
         {
             HandlePreAttachToScreen(app);
 
-            if (!HasFlags(ViewFlags::Eavesdropper)) {
+            if (!HasFlags(PViewFlags::Eavesdropper)) {
                 app->AddChildView(parent, ptr_tmp_cast(this), index);
             }
             HandleAttachedToScreen(app);
@@ -1552,19 +1550,19 @@ void View::HandleAddedToParent(Ptr<View> parent, size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
     
-void View::HandleRemovedFromParent(Ptr<View> parent)
+void PView::HandleRemovedFromParent(Ptr<PView> parent)
 {
     if (!parent->IsVisible()) {
         Show(true);
     }
     OnDetachedFromParent(parent);
-    if (!HasFlags(ViewFlags::Eavesdropper))
+    if (!HasFlags(PViewFlags::Eavesdropper))
     {
-        Application* const app = GetApplication();
+        PApplication* const app = GetApplication();
         if (app != nullptr) {
             app->RemoveView(ptr_tmp_cast(this));
         }
-        UpdatePosition(View::UpdatePositionNotifyServer::IfChanged);
+        UpdatePosition(PView::UpdatePositionNotifyServer::IfChanged);
     }
 }
 
@@ -1572,15 +1570,15 @@ void View::HandleRemovedFromParent(Ptr<View> parent)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::HandlePreAttachToScreen(Application* app)
+void PView::HandlePreAttachToScreen(PApplication* app)
 {
-    MergeFlags(ViewFlags::IsAttachedToScreen);
+    MergeFlags(PViewFlags::IsAttachedToScreen);
     app->AddHandler(ptr_tmp_cast(this));
     AttachedToScreen();
 
     PreferredSizeChanged();
 
-    for (Ptr<View> child : m_ChildrenList) {
+    for (Ptr<PView> child : m_ChildrenList) {
         child->HandlePreAttachToScreen(app);
     }
 }
@@ -1589,9 +1587,9 @@ void View::HandlePreAttachToScreen(Application* app)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::HandleAttachedToScreen(Application* app)
+void PView::HandleAttachedToScreen(PApplication* app)
 {
-    for (Ptr<View> child : m_ChildrenList) {
+    for (Ptr<PView> child : m_ChildrenList) {
         child->HandleAttachedToScreen(app);
     }
     if (!m_IsLayoutValid) {
@@ -1606,10 +1604,10 @@ void View::HandleAttachedToScreen(Application* app)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::HandleDetachedFromScreen()
+void PView::HandleDetachedFromScreen()
 {
     DetachedFromScreen();
-    for (Ptr<View> child : m_ChildrenList) {
+    for (Ptr<PView> child : m_ChildrenList) {
         child->HandleDetachedFromScreen();
     }
     AllDetachedFromScreen();
@@ -1619,9 +1617,9 @@ void View::HandleDetachedFromScreen()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::HandlePaint(const Rect& updateRect)
+void PView::HandlePaint(const PRect& updateRect)
 {
-    Rect frame = updateRect;
+    PRect frame = updateRect;
     if (m_BeginPainCount++ == 0) {
         Post<ASViewBeginUpdate>();
     }        
@@ -1639,17 +1637,17 @@ void View::HandlePaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::UpdateRingSize()
+void PView::UpdateRingSize()
 {
     if (m_WidthRing == nullptr && m_HeightRing == nullptr)
     {
-        if (m_LocalPrefSize[int(PrefSizeType::Smallest)] != m_PreferredSizes[int(PrefSizeType::Smallest)] || m_LocalPrefSize[int(PrefSizeType::Greatest)] != m_PreferredSizes[int(PrefSizeType::Greatest)])
+        if (m_LocalPrefSize[int(PPrefSizeType::Smallest)] != m_PreferredSizes[int(PPrefSizeType::Smallest)] || m_LocalPrefSize[int(PPrefSizeType::Greatest)] != m_PreferredSizes[int(PPrefSizeType::Greatest)])
         {
-            m_PreferredSizes[int(PrefSizeType::Smallest)] = m_LocalPrefSize[int(PrefSizeType::Smallest)];
-            m_PreferredSizes[int(PrefSizeType::Greatest)] = m_LocalPrefSize[int(PrefSizeType::Greatest)];
+            m_PreferredSizes[int(PPrefSizeType::Smallest)] = m_LocalPrefSize[int(PPrefSizeType::Smallest)];
+            m_PreferredSizes[int(PPrefSizeType::Greatest)] = m_LocalPrefSize[int(PPrefSizeType::Greatest)];
 
             SignalPreferredSizeChanged(ptr_tmp_cast(this));
-            Ptr<View> parent = GetParent();
+            Ptr<PView> parent = GetParent();
             if (parent != nullptr)
             {
                 parent->PreferredSizeChanged();
@@ -1659,20 +1657,20 @@ void View::UpdateRingSize()
     }
     else
     {
-        Point ringSizes[int(PrefSizeType::Count)];
+        PPoint ringSizes[int(PPrefSizeType::Count)];
         //// Calculate ring with. ////
         if (m_WidthRing == nullptr)
         {
-            for (int i = 0; i < int(PrefSizeType::Count); ++i) {
+            for (int i = 0; i < int(PPrefSizeType::Count); ++i) {
                 ringSizes[i].x = m_LocalPrefSize[i].x;
             }
         }
         else
         {
-            View* member = this;
+            PView* member = this;
             do
             {
-                for (int i = 0; i < int(PrefSizeType::Count); ++i)
+                for (int i = 0; i < int(PPrefSizeType::Count); ++i)
                 {
                     if (member->m_LocalPrefSize[i].x > ringSizes[i].x) ringSizes[i].x = member->m_LocalPrefSize[i].x;
                 }
@@ -1682,16 +1680,16 @@ void View::UpdateRingSize()
         //// Calculate ring height. ////
         if (m_HeightRing == nullptr)
         {
-            for (int i = 0; i < int(PrefSizeType::Count); ++i) {
+            for (int i = 0; i < int(PPrefSizeType::Count); ++i) {
                 ringSizes[i].y = m_LocalPrefSize[i].y;
             }
         }
         else
         {
-            View* member = this;
+            PView* member = this;
             do
             {
-                for (int i = 0; i < int(PrefSizeType::Count); ++i)
+                for (int i = 0; i < int(PPrefSizeType::Count); ++i)
                 {
                     if (member->m_LocalPrefSize[i].y > ringSizes[i].y) ringSizes[i].y = member->m_LocalPrefSize[i].y;
                 }
@@ -1699,15 +1697,15 @@ void View::UpdateRingSize()
             } while (member != this);
         }
 
-        std::set<Ptr<View>> modifiedViews;
+        std::set<Ptr<PView>> modifiedViews;
 
         if (m_WidthRing != nullptr)
         {
-            View* member = this;
+            PView* member = this;
             do
             {
                 bool modified = false;
-                for (int i = 0; i < int(PrefSizeType::Count); ++i)
+                for (int i = 0; i < int(PPrefSizeType::Count); ++i)
                 {
                     if (ringSizes[i].x != member->m_PreferredSizes[i].x)
                     {
@@ -1724,7 +1722,7 @@ void View::UpdateRingSize()
         else
         {
             bool modified = false;
-            for (int i = 0; i < int(PrefSizeType::Count); ++i)
+            for (int i = 0; i < int(PPrefSizeType::Count); ++i)
             {
                 if (m_LocalPrefSize[i].x != m_PreferredSizes[i].x)
                 {
@@ -1739,11 +1737,11 @@ void View::UpdateRingSize()
 
         if (m_HeightRing != nullptr)
         {
-            View* member = this;
+            PView* member = this;
             do
             {
                 bool modified = false;
-                for (int i = 0; i < int(PrefSizeType::Count); ++i)
+                for (int i = 0; i < int(PPrefSizeType::Count); ++i)
                 {
                     if (ringSizes[i].y != member->m_PreferredSizes[i].y)
                     {
@@ -1760,7 +1758,7 @@ void View::UpdateRingSize()
         else
         {
             bool modified = false;
-            for (int i = 0; i < int(PrefSizeType::Count); ++i)
+            for (int i = 0; i < int(PPrefSizeType::Count); ++i)
             {
                 if (m_LocalPrefSize[i].y != m_PreferredSizes[i].y)
                 {
@@ -1773,18 +1771,18 @@ void View::UpdateRingSize()
             }
         }
 
-        std::set<Ptr<View>> notifiedParents;
-        for (Ptr<View> modifiedView : modifiedViews)
+        std::set<Ptr<PView>> notifiedParents;
+        for (Ptr<PView> modifiedView : modifiedViews)
         {
             modifiedView->SignalPreferredSizeChanged(modifiedView);
-            Ptr<View> parent = modifiedView->GetParent();
+            Ptr<PView> parent = modifiedView->GetParent();
             if (parent != nullptr) {
                 notifiedParents.insert(parent);
             }
         }
         modifiedViews.clear();
 
-        for (Ptr<View> modifiedParent : notifiedParents)
+        for (Ptr<PView> modifiedParent : notifiedParents)
         {
             modifiedParent->PreferredSizeChanged();
             modifiedParent->InvalidateLayout();
@@ -1796,7 +1794,7 @@ void View::UpdateRingSize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetVScrollBar(ScrollBar* scrollBar)
+void PView::SetVScrollBar(PScrollBar* scrollBar)
 {
     m_VScrollBar = scrollBar;
 }
@@ -1805,7 +1803,7 @@ void View::SetVScrollBar(ScrollBar* scrollBar)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetHScrollBar(ScrollBar* scrollBar)
+void PView::SetHScrollBar(PScrollBar* scrollBar)
 {
     m_HScrollBar = scrollBar;
 }
@@ -1814,20 +1812,20 @@ void View::SetHScrollBar(ScrollBar* scrollBar)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SetFrameInternal(const Rect& frame, bool notifyServer)
+void PView::SetFrameInternal(const PRect& frame, bool notifyServer)
 {
-    const Point deltaSize = frame.Size() - m_Frame.Size();
-    const Point deltaPos = frame.TopLeft() - m_Frame.TopLeft();
+    const PPoint deltaSize = frame.Size() - m_Frame.Size();
+    const PPoint deltaPos = frame.TopLeft() - m_Frame.TopLeft();
 
     m_Frame = frame;
 
-    UpdatePosition(notifyServer ? View::UpdatePositionNotifyServer::Always : View::UpdatePositionNotifyServer::Never);
-    if (deltaSize != Point(0.0f, 0.0f))
+    UpdatePosition(notifyServer ? PView::UpdatePositionNotifyServer::Always : PView::UpdatePositionNotifyServer::Never);
+    if (deltaSize != PPoint(0.0f, 0.0f))
     {
         OnFrameSized(deltaSize);
         SignalFrameSized(deltaSize, ptr_tmp_cast(this));
     }
-    if (deltaPos != Point(0.0f, 0.0f))
+    if (deltaPos != PPoint(0.0f, 0.0f))
     {
         OnFrameMoved(deltaPos);
         SignalFrameMoved(deltaPos, ptr_tmp_cast(this));
@@ -1838,16 +1836,16 @@ void View::SetFrameInternal(const Rect& frame, bool notifyServer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::UpdatePosition(UpdatePositionNotifyServer notifyMode)
+void PView::UpdatePosition(UpdatePositionNotifyServer notifyMode)
 {
-    Point newOffset;
-    Point newScreenPos;
+    PPoint newOffset;
+    PPoint newScreenPos;
     {
-        Ptr<View> parent = m_Parent.Lock();
-        if (parent != nullptr && !parent->HasFlags(ViewFlags::WillDraw)) {
+        Ptr<PView> parent = m_Parent.Lock();
+        if (parent != nullptr && !parent->HasFlags(PViewFlags::WillDraw)) {
             newOffset = parent->m_PositionOffset + parent->m_Frame.TopLeft();
         } else {
-            newOffset = Point(0.0f, 0.0f);
+            newOffset = PPoint(0.0f, 0.0f);
         }
         if (parent == nullptr) {
             newScreenPos = m_Frame.TopLeft();
@@ -1855,7 +1853,7 @@ void View::UpdatePosition(UpdatePositionNotifyServer notifyMode)
             newScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
         }
     }
-    if (notifyMode == View::UpdatePositionNotifyServer::Always || (notifyMode == View::UpdatePositionNotifyServer::IfChanged && newOffset != m_PositionOffset))
+    if (notifyMode == PView::UpdatePositionNotifyServer::Always || (notifyMode == PView::UpdatePositionNotifyServer::IfChanged && newOffset != m_PositionOffset))
     {
         m_PositionOffset = newOffset;
         if (m_ServerHandle != INVALID_HANDLE)
@@ -1863,11 +1861,11 @@ void View::UpdatePosition(UpdatePositionNotifyServer notifyMode)
             Post<ASViewSetFrame>(m_Frame + m_PositionOffset, GetHandle());
         }
     }
-    Point deltaScreenPos = m_ScreenPos - newScreenPos;
+    PPoint deltaScreenPos = m_ScreenPos - newScreenPos;
     m_ScreenPos = newScreenPos;
 
-    for (Ptr<View> child : m_ChildrenList) {
-        child->UpdatePosition((notifyMode == View::UpdatePositionNotifyServer::Never) ? View::UpdatePositionNotifyServer::Never : View::UpdatePositionNotifyServer::IfChanged);
+    for (Ptr<PView> child : m_ChildrenList) {
+        child->UpdatePosition((notifyMode == PView::UpdatePositionNotifyServer::Never) ? PView::UpdatePositionNotifyServer::Never : PView::UpdatePositionNotifyServer::IfChanged);
     }
     if (deltaScreenPos.x != 0.0f || deltaScreenPos.y != 0.0f) {
         OnScreenFrameMoved(deltaScreenPos);
@@ -1878,7 +1876,7 @@ void View::UpdatePosition(UpdatePositionNotifyServer notifyMode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::DispatchTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)
+bool PView::DispatchTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
 {
     if (VFTouchDown.Empty()) {
         return OnTouchDown(pointID, position, motionEvent);
@@ -1891,7 +1889,7 @@ bool View::DispatchTouchDown(MouseButton_e pointID, const Point& position, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::DispatchTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)
+bool PView::DispatchTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
 {
     if (VFTouchUp.Empty()) {
         return OnTouchUp(pointID, position, motionEvent);
@@ -1904,7 +1902,7 @@ bool View::DispatchTouchUp(MouseButton_e pointID, const Point& position, const M
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::DispatchTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)
+bool PView::DispatchTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
 {
     if (VFTouchMove.Empty()) {
         return OnTouchMove(pointID, position, motionEvent);
@@ -1917,7 +1915,7 @@ bool View::DispatchTouchMove(MouseButton_e pointID, const Point& position, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::DispatchLongPress(MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)
+bool PView::DispatchLongPress(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
 {
     if (VFLongPress.Empty()) {
         return OnLongPress(pointID, position, motionEvent);
@@ -1930,7 +1928,7 @@ bool View::DispatchLongPress(MouseButton_e pointID, const Point& position, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::DispatchMouseDown(MouseButton_e buttonID, const Point& position, const MotionEvent& motionEvent)
+bool PView::DispatchMouseDown(PMouseButton buttonID, const PPoint& position, const PMotionEvent& motionEvent)
 {
     if (VFMouseDown.Empty()) {
         return OnMouseDown(buttonID, position, motionEvent);
@@ -1943,7 +1941,7 @@ bool View::DispatchMouseDown(MouseButton_e buttonID, const Point& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::DispatchMouseUp(MouseButton_e buttonID, const Point& position, const MotionEvent& motionEvent)
+bool PView::DispatchMouseUp(PMouseButton buttonID, const PPoint& position, const PMotionEvent& motionEvent)
 {
     if (VFMouseUp.Empty()) {
         return OnMouseUp(buttonID, position, motionEvent);
@@ -1956,7 +1954,7 @@ bool View::DispatchMouseUp(MouseButton_e buttonID, const Point& position, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool View::DispatchMouseMove(MouseButton_e buttonID, const Point& position, const MotionEvent& motionEvent)
+bool PView::DispatchMouseMove(PMouseButton buttonID, const PPoint& position, const PMotionEvent& motionEvent)
 {
     if (VFMouseMove.Empty()) {
         return OnMouseMove(buttonID, position, motionEvent);
@@ -1969,7 +1967,7 @@ bool View::DispatchMouseMove(MouseButton_e buttonID, const Point& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::DispatchKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent)
+void PView::DispatchKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent)
 {
     if (VFKeyDown.Empty()) {
         OnKeyDown(keyCode, text, keyEvent);
@@ -1982,7 +1980,7 @@ void View::DispatchKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::DispatchKeyUp(KeyCodes keyCode, const PString& text, const KeyEvent& keyEvent)
+void PView::DispatchKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent)
 {
     if (VFKeyUp.Empty()) {
         OnKeyUp(keyCode, text, keyEvent);
@@ -1995,7 +1993,7 @@ void View::DispatchKeyUp(KeyCodes keyCode, const PString& text, const KeyEvent& 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SlotFrameChanged(const Rect& frame)
+void PView::SlotFrameChanged(const PRect& frame)
 {
     SetFrameInternal(frame, false);
 }
@@ -2004,9 +2002,9 @@ void View::SlotFrameChanged(const Rect& frame)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void View::SlotKeyboardFocusChanged(bool hasFocus)
+void PView::SlotKeyboardFocusChanged(bool hasFocus)
 {
-    Application* app = GetApplication();
+    PApplication* app = GetApplication();
     if (app != nullptr) {
         app->SetKeyboardFocus(ptr_tmp_cast(this), hasFocus, false);
     }

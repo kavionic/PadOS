@@ -31,77 +31,77 @@
 class   Glyph;
 class   SrvSprite;
 
+struct PColor;
+
 #define RAS_OFFSET8( ptr, x, y, bpl) (((uint8_t*)(ptr)) + (x) + (y) * (bpl))
 #define RAS_OFFSET16(ptr, x, y, bpl) ((uint16_t*)(((uint8_t*)(ptr)) + (x*2) + (y) * (bpl)))
 #define RAS_OFFSET32(ptr, x, y, bpl) ((uint32_t*)(((uint8_t*)(ptr)) + (x*4) + (y) * (bpl)))
 
-namespace os
-{
-class Color;
-class SrvBitmap;
+
+class PSrvBitmap;
 
 
-struct ScreenMode
+struct PScreenMode
 {
-    ScreenMode() {}
-    ScreenMode(const IPoint& resolution, int bytesPerLine, EColorSpace colorSpace) : m_Resolution(resolution), m_BytesPerLine(bytesPerLine), m_ColorSpace(colorSpace) {}
-    IPoint      m_Resolution;
+    PScreenMode() {}
+    PScreenMode(const PIPoint& resolution, int bytesPerLine, PEColorSpace colorSpace) : m_Resolution(resolution), m_BytesPerLine(bytesPerLine), m_ColorSpace(colorSpace) {}
+    PIPoint      m_Resolution;
     size_t      m_BytesPerLine = 0;
-    EColorSpace m_ColorSpace = EColorSpace::NO_COLOR_SPACE;
+    PEColorSpace m_ColorSpace = PEColorSpace::NO_COLOR_SPACE;
 };
 
 
-class DisplayDriver : public PtrTarget
+class PDisplayDriver : public PtrTarget
 {
 public:
     static constexpr int CHARACTER_SPACING = 3;
 
-    DisplayDriver();
-    virtual     ~DisplayDriver();
+    PDisplayDriver();
+    virtual     ~PDisplayDriver();
 
     virtual bool            Open() = 0;
     virtual void            Close() = 0;
     virtual void            PowerLost(bool hasPower) = 0;
-    virtual Ptr<SrvBitmap>  GetScreenBitmap() = 0;
+    virtual Ptr<PSrvBitmap>  GetScreenBitmap() = 0;
 
     virtual int             GetScreenModeCount() = 0;
-    virtual bool            GetScreenModeDesc(size_t index, ScreenMode& outMode) = 0;
-    virtual bool            SetScreenMode(const IPoint& resolution, EColorSpace colorSpace, float refreshRate) = 0;
+    virtual bool            GetScreenModeDesc(size_t index, PScreenMode& outMode) = 0;
+    virtual bool            SetScreenMode(const PIPoint& resolution, PEColorSpace colorSpace, float refreshRate) = 0;
 
-    virtual IPoint          GetResolution() = 0;
+    virtual PIPoint          GetResolution() = 0;
     virtual int             GetBytesPerLine() = 0;
     virtual int             GetFramebufferOffset();
-    virtual EColorSpace     GetColorSpace() = 0;
-    virtual void            SetColor(size_t index, Color color) = 0;
+    virtual PEColorSpace     GetColorSpace() = 0;
+    virtual void            SetColor(size_t index, PColor color) = 0;
 
     //    virtual void  SetCursorBitmap(mouse_ptr_mode eMode, const IPoint& cHotSpot, const void* pRaster, int nWidth, int nHeight );
 
     virtual void    MouseOn();
     virtual void    MouseOff();
-    virtual void    SetMousePos(IPoint cNewPos);
+    virtual void    SetMousePos(PIPoint cNewPos);
 //    virtual bool    IntersectWithMouse(const IRect& cRect) = 0;
 
-    virtual void    WritePixel(SrvBitmap* bitmap, const IPoint& pos, Color color);
-    virtual void    DrawLine(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& pos1, const IPoint& pos2, const Color& color, DrawingMode mode);
-    virtual void    FillRect(SrvBitmap* bitmap, const IRect& rect, const Color& color);
-    virtual void    CopyRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bgColor, Color fgColor, const IRect& srcRect, const IPoint& dstPos, DrawingMode mode);
-    virtual void    ScaleRect(SrvBitmap* dstBitmap, SrvBitmap* srcBitmap, Color bgColor, Color fgColor, const IRect& srcOrigRect, const IRect& dstOrigRect, const Rect& srcRect, const IRect& dstRect, DrawingMode mode);
+    virtual void    WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color);
+    virtual void    DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode);
+    virtual void    FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor& color);
+    virtual void    CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPos, PDrawingMode mode);
+    virtual void    ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode);
     //    virtual void  BltBitmapMask(SrvBitmap* pcDstBitMap, SrvBitmap* pcSrcBitMap, const Color& sHighColor, const Color& sLowColor, IRect cSrcRect, IPoint cDstPos);
 
-    virtual void    FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, DrawingMode mode);
+    virtual void    FillCircle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& center, int32_t radius, const PColor& color, PDrawingMode mode);
 
-    virtual uint32_t WriteString(os::SrvBitmap* bitmap, const os::IPoint& position, const char* string, size_t strLength, const os::IRect& clipRect, os::Color colorBg, os::Color colorFg, Font_e fontID);
+    virtual uint32_t WriteString(PSrvBitmap* bitmap, const PIPoint& position, const char* string, size_t strLength, const PIRect& clipRect, PColor colorBg, PColor colorFg, PFontID fontID);
 
     //    virtual bool  RenderGlyph(SrvBitmap* pcBitmap, Glyph* pcGlyph, const IPoint& cPos, const IRect& cClipRect, uint32_t* anPalette);
     //    virtual bool  RenderGlyph(SrvBitmap* pcBitmap, Glyph* pcGlyph, const IPoint& cPos, const IRect& cClipRect, const Color& sFgColor);
 
-    float   GetFontHeight(Font_e fontID) const;
-    float   GetStringWidth(Font_e fontID, const char* string, size_t length) const;
-    size_t  GetStringLength(Font_e fontID, const char* string, size_t length, float width, bool includeLast);
+    float   GetFontHeight(PFontID fontID) const;
+    float   GetStringWidth(PFontID fontID, const char* string, size_t length) const;
+    size_t  GetStringLength(PFontID fontID, const char* string, size_t length, float width, bool includeLast);
 
-    const FONT_INFO* GetFontDesc(Font_e fontID) const;
+    const FONT_INFO* GetFontDesc(PFontID fontID) const;
 
-    static Color   GetPaletteEntry(uint8_t index);
+    static PColor   GetPaletteEntry(uint8_t index);
 private:
     void    FillBlit8(uint8_t* pDst, int nMod, int W, int H, uint8_t nColor);
     void    FillBlit16(uint16_t* pDst, int nMod, int W, int H, uint16_t nColor);
@@ -110,8 +110,6 @@ private:
 
     //    SrvBitmap*      m_pcMouseImage;
     //    SrvSprite*          m_pcMouseSprite;
-    IPoint        m_cMousePos;
-    IPoint        m_cCursorHotSpot;
+    PIPoint        m_cMousePos;
+    PIPoint        m_cCursorHotSpot;
 };
-
-} // namespace os

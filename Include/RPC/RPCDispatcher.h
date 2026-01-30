@@ -34,7 +34,7 @@ public:
         {
             if constexpr (std::is_void_v<TReturnType>)
             {
-                ArgumentDeserializer<TReturnType, TArgTypes...>::Invoke(inData, inDataLength, [obj, callback](TArgTypes... args)
+                PArgumentDeserializer<TReturnType, TArgTypes...>::Invoke(inData, inDataLength, [obj, callback](TArgTypes... args)
                     {
                         (obj->*callback)(args...);
                     }
@@ -45,7 +45,7 @@ public:
                 if (outDataLength != sizeof(TReturnType)) {
                     PERROR_THROW_CODE(PErrorCode::InvalidArg);
                 }
-                *reinterpret_cast<TReturnType*>(outData) = ArgumentDeserializer<TReturnType, TArgTypes...>::Invoke(inData, inDataLength, [obj, callback](TArgTypes... args) -> TReturnType
+                *reinterpret_cast<TReturnType*>(outData) = PArgumentDeserializer<TReturnType, TArgTypes...>::Invoke(inData, inDataLength, [obj, callback](TArgTypes... args) -> TReturnType
                     {
                         return (obj->*callback)(args...);
                     }

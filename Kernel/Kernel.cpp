@@ -36,7 +36,6 @@
 #include <System/TimeValue.h>
 #include <Threads/Mutex.h>
 
-using namespace os;
 
 extern uint32_t _vectors;
 

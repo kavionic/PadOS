@@ -21,10 +21,7 @@
 #include <Utils/String.h>
 #include <Utils/JSON.h>
 
-namespace os
-{
-
-class IPoint;
+class PIPoint;
 
 /**
  * \ingroup gui
@@ -34,22 +31,22 @@ class IPoint;
  * \author Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
-class Point
+class PPoint
 {
 public:
     float x;
     float y;
 
-    constexpr Point() noexcept : x(0.0f), y(0.0f) {}
-    constexpr Point(const Point& other) noexcept : x(other.x), y(other.y) {}
-    constexpr explicit inline Point(const IPoint& other) noexcept;
-    constexpr explicit Point(float value) noexcept : x(value), y(value) {}
-    constexpr Point(float X, float Y) noexcept : x(X), y(Y) {}
+    constexpr PPoint() noexcept : x(0.0f), y(0.0f) {}
+    constexpr PPoint(const PPoint& other) noexcept : x(other.x), y(other.y) {}
+    constexpr explicit inline PPoint(const PIPoint& other) noexcept;
+    constexpr explicit PPoint(float value) noexcept : x(value), y(value) {}
+    constexpr PPoint(float X, float Y) noexcept : x(X), y(Y) {}
 
     PString ToString() const { return PString::format_string("Point({}, {})", x, y); }
-    static std::optional<Point> FromString(const char* string)
+    static std::optional<PPoint> FromString(const char* string)
     {
-        Point value;
+        PPoint value;
         if (sscanf(string, "Point( %f , %f )", &value.x, &value.y) == 2) {
             return value;
         }
@@ -58,42 +55,42 @@ public:
     constexpr float LengthSqr() const noexcept { return x * x + y * y; }
     constexpr float Length() const noexcept { return sqrtf(LengthSqr()); }
 
-    constexpr Point GetNormalized() const { return *this * (1.0f / Length()); }
-    Point& Normalize() { return *this *= (1.0f / Length()); }
+    constexpr PPoint GetNormalized() const { return *this * (1.0f / Length()); }
+    PPoint& Normalize() { return *this *= (1.0f / Length()); }
 
-    constexpr Point GetRounded() const noexcept { return Point(roundf(x), roundf(y)); }
-    Point&          Round() noexcept { x = roundf(x); y = roundf(y); return *this; }
+    constexpr PPoint GetRounded() const noexcept { return PPoint(roundf(x), roundf(y)); }
+    PPoint&          Round() noexcept { x = roundf(x); y = roundf(y); return *this; }
 
-    Point& operator=(const Point& rhs) noexcept = default;
+    PPoint& operator=(const PPoint& rhs) noexcept = default;
 
-    constexpr Point operator-(void) const noexcept { return Point(-x, -y); }
-    constexpr Point operator+(const Point& rhs) const noexcept { return Point(x + rhs.x, y + rhs.y); }
-    constexpr Point operator-(const Point& rhs) const noexcept { return Point(x - rhs.x, y - rhs.y); }
-    Point&          operator+=(const Point& rhs) noexcept { x += rhs.x; y += rhs.y; return *this; }
-    Point&          operator-=(const Point& rhs) noexcept { x -= rhs.x; y -= rhs.y; return *this; }
+    constexpr PPoint operator-(void) const noexcept { return PPoint(-x, -y); }
+    constexpr PPoint operator+(const PPoint& rhs) const noexcept { return PPoint(x + rhs.x, y + rhs.y); }
+    constexpr PPoint operator-(const PPoint& rhs) const noexcept { return PPoint(x - rhs.x, y - rhs.y); }
+    PPoint&          operator+=(const PPoint& rhs) noexcept { x += rhs.x; y += rhs.y; return *this; }
+    PPoint&          operator-=(const PPoint& rhs) noexcept { x -= rhs.x; y -= rhs.y; return *this; }
 
-    constexpr Point operator*(const Point& rhs) const noexcept  { return Point(x * rhs.x, y * rhs.y);   }
-    constexpr Point operator*(float rhs) const noexcept         { return Point(x * rhs, y * rhs);       }
+    constexpr PPoint operator*(const PPoint& rhs) const noexcept  { return PPoint(x * rhs.x, y * rhs.y);   }
+    constexpr PPoint operator*(float rhs) const noexcept         { return PPoint(x * rhs, y * rhs);       }
     
-    constexpr Point operator/(const Point& rhs) const  { return Point(x / rhs.x, y / rhs.y);   }
-    constexpr Point operator/(float rhs) const         { return Point(x / rhs, y / rhs);       }
+    constexpr PPoint operator/(const PPoint& rhs) const  { return PPoint(x / rhs.x, y / rhs.y);   }
+    constexpr PPoint operator/(float rhs) const         { return PPoint(x / rhs, y / rhs);       }
 
-    Point&          operator*=(const Point& rhs) noexcept   { x *= rhs.x; y *= rhs.y; return *this; }
-    Point&          operator*=(float rhs) noexcept          { x *= rhs; y *= rhs; return *this; }
+    PPoint&          operator*=(const PPoint& rhs) noexcept   { x *= rhs.x; y *= rhs.y; return *this; }
+    PPoint&          operator*=(float rhs) noexcept          { x *= rhs; y *= rhs; return *this; }
 
-    Point&          operator/=(const Point& rhs) { x /= rhs.x; y /= rhs.y; return *this; }
-    Point&          operator/=(float rhs)        { x /= rhs; y /= rhs; return *this; }
+    PPoint&          operator/=(const PPoint& rhs) { x /= rhs.x; y /= rhs.y; return *this; }
+    PPoint&          operator/=(float rhs)        { x /= rhs; y /= rhs; return *this; }
 
-    constexpr bool  operator<(const Point& rhs) const noexcept  { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
-    constexpr bool  operator>(const Point& rhs) const noexcept  { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
-    constexpr bool  operator==(const Point& rhs) const noexcept { return(y == rhs.y && x == rhs.x); }
-    constexpr bool  operator!=(const Point& rhs) const noexcept { return(y != rhs.y || x != rhs.x); }
+    constexpr bool  operator<(const PPoint& rhs) const noexcept  { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
+    constexpr bool  operator>(const PPoint& rhs) const noexcept  { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
+    constexpr bool  operator==(const PPoint& rhs) const noexcept { return(y == rhs.y && x == rhs.x); }
+    constexpr bool  operator!=(const PPoint& rhs) const noexcept { return(y != rhs.y || x != rhs.x); }
 
-    friend void to_json(Pjson& data, const Point& value)
+    friend void to_json(Pjson& data, const PPoint& value)
     {
         data = Pjson{ {"x", value.x}, {"y", value.y} };
     }
-    friend void from_json(const Pjson& data, Point& p)
+    friend void from_json(const Pjson& data, PPoint& p)
     {
         data.at("x").get_to(p.x);
         data.at("y").get_to(p.y);
@@ -108,36 +105,36 @@ public:
  * \author Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
-class IPoint
+class PIPoint
 {
 public:
     int x;
     int y;
 
-    constexpr IPoint() noexcept : x(0), y(0) {}
-    constexpr IPoint(const IPoint& other) noexcept : x(other.x), y(other.y) {}
-    constexpr explicit inline IPoint(const Point& other) noexcept;
-    constexpr explicit IPoint(int value) noexcept : x(value), y(value) {}
-    constexpr IPoint(int X, int Y) noexcept : x(X), y(Y) {}
+    constexpr PIPoint() noexcept : x(0), y(0) {}
+    constexpr PIPoint(const PIPoint& other) noexcept : x(other.x), y(other.y) {}
+    constexpr explicit inline PIPoint(const PPoint& other) noexcept;
+    constexpr explicit PIPoint(int value) noexcept : x(value), y(value) {}
+    constexpr PIPoint(int X, int Y) noexcept : x(X), y(Y) {}
 
-    IPoint& operator=(const IPoint&) = default;
+    PIPoint& operator=(const PIPoint&) = default;
 
-    IPoint        operator-(void) const noexcept                { return(IPoint(-x, -y)); }
-    IPoint        operator+(const IPoint& rhs) const noexcept   { return(IPoint(x + rhs.x, y + rhs.y)); }
-    IPoint        operator-(const IPoint& rhs) const noexcept   { return(IPoint(x - rhs.x, y - rhs.y)); }
-    const IPoint& operator+=(const IPoint& rhs) noexcept        { x += rhs.x; y += rhs.y; return(*this); }
-    const IPoint& operator-=(const IPoint& rhs) noexcept        { x -= rhs.x; y -= rhs.y; return(*this); }
-    bool          operator<(const IPoint& rhs) const noexcept   { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
-    bool          operator>(const IPoint& rhs) const noexcept   { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
-    bool          operator==(const IPoint& rhs) const noexcept  { return(y == rhs.y && x == rhs.x); }
-    bool          operator!=(const IPoint& rhs) const noexcept  { return(y != rhs.y || x != rhs.x); }
+    PIPoint        operator-(void) const noexcept                { return(PIPoint(-x, -y)); }
+    PIPoint        operator+(const PIPoint& rhs) const noexcept   { return(PIPoint(x + rhs.x, y + rhs.y)); }
+    PIPoint        operator-(const PIPoint& rhs) const noexcept   { return(PIPoint(x - rhs.x, y - rhs.y)); }
+    const PIPoint& operator+=(const PIPoint& rhs) noexcept        { x += rhs.x; y += rhs.y; return(*this); }
+    const PIPoint& operator-=(const PIPoint& rhs) noexcept        { x -= rhs.x; y -= rhs.y; return(*this); }
+    bool          operator<(const PIPoint& rhs) const noexcept   { return(y < rhs.y || (y == rhs.y && x < rhs.x)); }
+    bool          operator>(const PIPoint& rhs) const noexcept   { return(y > rhs.y || (y == rhs.y && x > rhs.x)); }
+    bool          operator==(const PIPoint& rhs) const noexcept  { return(y == rhs.y && x == rhs.x); }
+    bool          operator!=(const PIPoint& rhs) const noexcept  { return(y != rhs.y || x != rhs.x); }
 
 
-    friend void to_json(Pjson& data, const IPoint& value)
+    friend void to_json(Pjson& data, const PIPoint& value)
     {
         data = Pjson{ {"x", value.x}, {"y", value.y} };
     }
-    friend void from_json(const Pjson& data, IPoint& p)
+    friend void from_json(const Pjson& data, PIPoint& p)
     {
         data.at("x").get_to(p.x);
         data.at("y").get_to(p.y);
@@ -145,10 +142,5 @@ public:
 };
 
 
-constexpr Point::Point(const IPoint& other) noexcept : x(float(other.x)), y(float(other.y)) {}
-constexpr IPoint::IPoint(const Point& other) noexcept : x(int(other.x)), y(int(other.y)) {}
-
-} // namespace os
-
-using PPoint = os::Point;
-using PIPoint = os::IPoint;
+constexpr PPoint::PPoint(const PIPoint& other) noexcept : x(float(other.x)), y(float(other.y)) {}
+constexpr PIPoint::PIPoint(const PPoint& other) noexcept : x(int(other.x)), y(int(other.y)) {}

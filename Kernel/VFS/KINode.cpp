@@ -25,8 +25,6 @@
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KVFSManager.h"
 
-using namespace os;
-
 
 namespace kernel
 {

@@ -21,12 +21,10 @@
 
 #pragma once
 
-namespace os
-{
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 
-template<typename T> constexpr T HostToNetwork(T value)
+template<typename T> constexpr T PHostToNetwork(T value)
 {
     if constexpr (sizeof(T) == 1) {
         return value;
@@ -39,7 +37,7 @@ template<typename T> constexpr T HostToNetwork(T value)
     }
 }
 
-template<typename T> T NetworkToHost(T value)
+template<typename T> T PNetworkToHost(T value)
 {
     if constexpr (sizeof(T) == 1) {
         return value;
@@ -52,23 +50,21 @@ template<typename T> T NetworkToHost(T value)
     }
 }
 
-template<typename T> T HostToLittleEndian(T value) { return value; }
-template<typename T> T LittleEndianToHost(T value) { return value; }
+template<typename T> T PHostToLittleEndian(T value) { return value; }
+template<typename T> T PLittleEndianToHost(T value) { return value; }
 
 #else
 
-inline uint16_t HostToNetwork(uint16_t value) { return value; }
-inline uint32_t NetworkToHost(uint32_t value) { return value; }
+inline uint16_t PHostToNetwork(uint16_t value) { return value; }
+inline uint32_t PNetworkToHost(uint32_t value) { return value; }
 
-inline uint16_t NetworkToHost(uint16_t value) { return value; }
-inline uint32_t HostToNetwork(uint32_t value) { return value; }
+inline uint16_t PNetworkToHost(uint16_t value) { return value; }
+inline uint32_t PHostToNetwork(uint32_t value) { return value; }
 
-inline uint16_t HostToLittleEndian(uint16_t value) { return __builtin_bswap16(value); }
-inline uint32_t HostToLittleEndian(uint32_t value) { return __builtin_bswap32(value); }
+inline uint16_t PHostToLittleEndian(uint16_t value) { return __builtin_bswap16(value); }
+inline uint32_t PHostToLittleEndian(uint32_t value) { return __builtin_bswap32(value); }
 
-inline uint16_t LittleEndianToHost(uint16_t value) { return __builtin_bswap16(value); }
-inline uint32_t LittleEndianToHost(uint32_t value) { return __builtin_bswap32(value); }
+inline uint16_t PLittleEndianToHost(uint16_t value) { return __builtin_bswap16(value); }
+inline uint32_t PLittleEndianToHost(uint32_t value) { return __builtin_bswap32(value); }
 
 #endif
-
-} // namespace os

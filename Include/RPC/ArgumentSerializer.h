@@ -38,7 +38,7 @@ public:
     template<typename FIRST>
     static ssize_t WriteArg(void* buffer, size_t length, FIRST&& first)
     {
-        ssize_t result = ArgumentPacker<std::decay_t<FIRST>>::Write(std::forward<FIRST>(first), buffer, length);
+        ssize_t result = PArgumentPacker<std::decay_t<FIRST>>::Write(std::forward<FIRST>(first), buffer, length);
         if (result >= 0) {
             return align_argument_size(result);
         }
@@ -47,7 +47,7 @@ public:
     template<typename FIRST, typename... REST>
     static ssize_t WriteArg(void* buffer, size_t length, FIRST&& first, REST&&... rest)
     {
-        ssize_t result = ArgumentPacker<std::decay_t<FIRST>>::Write(std::forward<FIRST>(first), buffer, length);
+        ssize_t result = PArgumentPacker<std::decay_t<FIRST>>::Write(std::forward<FIRST>(first), buffer, length);
         if (result >= 0)
         {
             const size_t consumed = align_argument_size(result);
@@ -57,7 +57,7 @@ public:
         return -1;
     }
 
-    static constexpr size_t GetSize(ARGS... args) noexcept { return AccumulateSize(ArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...); }
+    static constexpr size_t GetSize(ARGS... args) noexcept { return AccumulateSize(PArgumentPacker<std::decay_t<ARGS>>::GetSize(args)...); }
 private:
 };
 

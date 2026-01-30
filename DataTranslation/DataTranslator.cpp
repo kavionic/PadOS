@@ -23,16 +23,13 @@
 #include <DataTranslation/DataTranslator.h>
 
 
-namespace os
-{
-
-static TranslatorFactory g_DataTranslatorFactory;
+static PTranslatorFactory g_DataTranslatorFactory;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DataTranslator::DataTranslator()
+PDataTranslator::PDataTranslator()
 {
 }
 
@@ -40,7 +37,7 @@ DataTranslator::DataTranslator()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DataTranslator::~DataTranslator()
+PDataTranslator::~PDataTranslator()
 {
 }
 
@@ -48,7 +45,7 @@ DataTranslator::~DataTranslator()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t DataTranslator::AvailableDataSize()
+ssize_t PDataTranslator::AvailableDataSize()
 {
     return m_OutBuffer.size();
 }
@@ -57,7 +54,7 @@ ssize_t DataTranslator::AvailableDataSize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t DataTranslator::Read(void* data, size_t length)
+ssize_t PDataTranslator::Read(void* data, size_t length)
 {
     const ssize_t curLength = std::min(m_OutBuffer.size(), length);
 
@@ -78,7 +75,7 @@ ssize_t DataTranslator::Read(void* data, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DataTranslator::AddProcessedData(void* data, size_t length, bool isFinal)
+void PDataTranslator::AddProcessedData(void* data, size_t length, bool isFinal)
 {
     if (VFDataReady.Empty())
     {
@@ -96,7 +93,7 @@ void DataTranslator::AddProcessedData(void* data, size_t length, bool isFinal)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TranslatorNode::TranslatorNode()
+PTranslatorNode::PTranslatorNode()
 {
 }
 
@@ -104,7 +101,7 @@ TranslatorNode::TranslatorNode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TranslatorNode::~TranslatorNode()
+PTranslatorNode::~PTranslatorNode()
 {
 }
 
@@ -112,7 +109,7 @@ TranslatorNode::~TranslatorNode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TranslatorFactory::TranslatorFactory()
+PTranslatorFactory::PTranslatorFactory()
 {
 }
 
@@ -120,7 +117,7 @@ TranslatorFactory::TranslatorFactory()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TranslatorFactory::~TranslatorFactory()
+PTranslatorFactory::~PTranslatorFactory()
 {
 }
 
@@ -128,7 +125,7 @@ TranslatorFactory::~TranslatorFactory()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TranslatorFactory& TranslatorFactory::Get()
+PTranslatorFactory& PTranslatorFactory::Get()
 {
     return g_DataTranslatorFactory;
 }
@@ -137,24 +134,24 @@ TranslatorFactory& TranslatorFactory::Get()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<DataTranslator> TranslatorFactory::FindTranslator(const PString& srcType, EDataTranslatorType dstType, const void* data, size_t length, EDataTranslatorStatus& outStatus) const
+Ptr<PDataTranslator> PTranslatorFactory::FindTranslator(const PString& srcType, PDataTranslatorType dstType, const void* data, size_t length, PDataTranslatorStatus& outStatus) const
 {
     float bestQuality = -1000.0f;
-    Ptr<TranslatorNode> bestTranslator;
-    EDataTranslatorStatus status = EDataTranslatorStatus::UnknownFormat;
+    Ptr<PTranslatorNode> bestTranslator;
+    PDataTranslatorStatus status = PDataTranslatorStatus::UnknownFormat;
     
     for (size_t i = 0 ;i < m_Nodes.size(); ++i)
     {
-	    Ptr<TranslatorNode> node = m_Nodes[i];
-	    TranslatorInfo info   = node->GetTranslatorInfo();
+	    Ptr<PTranslatorNode> node = m_Nodes[i];
+	    PTranslatorInfo info   = node->GetTranslatorInfo();
 
-	    if (dstType != EDataTranslatorType::Unknown && info.DestType != dstType) {
+	    if (dstType != PDataTranslatorType::Unknown && info.DestType != dstType) {
 	        continue;
 	    }
 
-	    const EDataTranslatorStatus result = node->Identify(srcType, dstType, data, length);
+	    const PDataTranslatorStatus result = node->Identify(srcType, dstType, data, length);
 
-	    if (result == EDataTranslatorStatus::Success)
+	    if (result == PDataTranslatorStatus::Success)
         {
 	        if (info.Quality > bestQuality)
             {
@@ -162,20 +159,20 @@ Ptr<DataTranslator> TranslatorFactory::FindTranslator(const PString& srcType, ED
 		        bestTranslator = node;
 	        }
 	    }
-        else if (result == EDataTranslatorStatus::NotEnoughData)
+        else if (result == PDataTranslatorStatus::NotEnoughData)
         {
-	        status = EDataTranslatorStatus::NotEnoughData;
+	        status = PDataTranslatorStatus::NotEnoughData;
 	    }
     }
 
-    Ptr<DataTranslator> translator;
+    Ptr<PDataTranslator> translator;
     if (bestTranslator != nullptr)
     {
         translator = bestTranslator->CreateTranslator();
 	    if (translator != nullptr) {
-	        status = EDataTranslatorStatus::Success;
+	        status = PDataTranslatorStatus::Success;
 	    } else {
-	        status = EDataTranslatorStatus::NoMemory;
+	        status = PDataTranslatorStatus::NoMemory;
 	    }
     }
     outStatus = status;
@@ -186,7 +183,7 @@ Ptr<DataTranslator> TranslatorFactory::FindTranslator(const PString& srcType, ED
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t TranslatorFactory::GetTranslatorCount() const
+size_t PTranslatorFactory::GetTranslatorCount() const
 {
     return m_Nodes.size();
 }
@@ -195,7 +192,7 @@ size_t TranslatorFactory::GetTranslatorCount() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<TranslatorNode> TranslatorFactory::GetTranslatorNode(size_t index) const
+Ptr<PTranslatorNode> PTranslatorFactory::GetTranslatorNode(size_t index) const
 {
     return m_Nodes[index];
 }
@@ -204,7 +201,7 @@ Ptr<TranslatorNode> TranslatorFactory::GetTranslatorNode(size_t index) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TranslatorInfo TranslatorFactory::GetTranslatorInfo(size_t index) const
+PTranslatorInfo PTranslatorFactory::GetTranslatorInfo(size_t index) const
 {
     return m_Nodes[index]->GetTranslatorInfo();
 }
@@ -213,9 +210,7 @@ TranslatorInfo TranslatorFactory::GetTranslatorInfo(size_t index) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<DataTranslator> TranslatorFactory::CreateTranslator(size_t index) const
+Ptr<PDataTranslator> PTranslatorFactory::CreateTranslator(size_t index) const
 {
     return m_Nodes[index]->CreateTranslator();
 }
-
-} // namespace os

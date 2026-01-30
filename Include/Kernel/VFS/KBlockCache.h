@@ -62,7 +62,7 @@ struct KCacheBlockHeader
 
     KCacheBlockHeader*                m_Next         = nullptr;
     KCacheBlockHeader*                m_Prev         = nullptr;
-    IntrusiveList<KCacheBlockHeader>* m_List         = nullptr;
+    PIntrusiveList<KCacheBlockHeader>* m_List         = nullptr;
     int                               m_Device       = 0;
     off64_t                           m_bufferNumber = 0;
     uint32_t                          m_UseCount     = 0;
@@ -136,8 +136,8 @@ private:
     static void* DiskCacheFlusher(void* arg);
     
     static std::map<int, KBlockCache*>      s_DeviceMap;
-    static IntrusiveList<KCacheBlockHeader> s_FreeList;
-    static IntrusiveList<KCacheBlockHeader> s_MRUList;
+    static PIntrusiveList<KCacheBlockHeader> s_FreeList;
+    static PIntrusiveList<KCacheBlockHeader> s_MRUList;
     static KMutex                           s_Mutex;
     static KConditionVariable               s_FlushingRequestConditionVar;
     static KConditionVariable               s_FlushingDoneConditionVar;

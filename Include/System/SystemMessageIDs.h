@@ -19,10 +19,8 @@
  
 #pragma once
 
-namespace os
-{
 
-enum class MessageID : uint32_t
+enum class PMessageID : uint32_t
 {
     NONE = 0,
     FIRST_SIGNAL_ID = std::numeric_limits<int32_t>::max() - 200000,
@@ -34,7 +32,3 @@ enum class MessageID : uint32_t
     KEY_UP,
     QUIT
 };
-
-
-
-}

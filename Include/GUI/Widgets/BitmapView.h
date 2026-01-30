@@ -22,47 +22,44 @@
 #include <GUI/View.h>
 #include <DataTranslation/DataTranslator.h>
 
-namespace os
-{
 
-class StreamableIO;
-class Path;
-class Bitmap;
+class PBitmap;
+class PStreamableIO;
+class PPath;
 
-class BitmapView : public View
+
+class PBitmapView : public PView
 {
 public:
-    BitmapView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    BitmapView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PBitmapView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PBitmapView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
-    virtual void OnPaint(const Rect& updateRect) override;
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual void OnFrameSized(const Point& delta) override;
+    virtual void OnPaint(const PRect& updateRect) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void OnFrameSized(const PPoint& delta) override;
 
-    bool LoadBitmap(const Path& path);
-    bool LoadBitmap(StreamableIO& file);
+    bool LoadBitmap(const PPath& path);
+    bool LoadBitmap(PStreamableIO& file);
 
-    void SetBitmap(Ptr<Bitmap> bitmap);
-    Ptr<Bitmap> GetBitmap() const;
+    void SetBitmap(Ptr<PBitmap> bitmap);
+    Ptr<PBitmap> GetBitmap() const;
 
     void ClearBitmap();
 
-    void SetScale(const Point& scale);
-    Point GetScale() const { return m_Scale; }
+    void SetScale(const PPoint& scale);
+    PPoint GetScale() const { return m_Scale; }
 
 private:
     void UpdateIsScaled();
     bool SlotImageDataReady(const void* data, size_t length, bool isFinal);
 
-    os::BitmapFrameHeader m_CurrentFrame;
+    PBitmapFrameHeader m_CurrentFrame;
     ssize_t     m_CurrentFrameByteSize = -1;
     size_t      m_BytesAddedToRow = 0;
     size_t      m_BytesAddedToFrame = 0;
 
-    Point m_Scale = Point(1.0f, 1.0f);
-    bool  m_IsScaled = false;
+    PPoint m_Scale = PPoint(1.0f, 1.0f);
+    bool   m_IsScaled = false;
 
-    Ptr<Bitmap> m_Bitmap;
+    Ptr<PBitmap> m_Bitmap;
 };
-
-} // namespace os

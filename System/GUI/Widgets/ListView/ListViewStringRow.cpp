@@ -19,13 +19,12 @@
 #include <GUI/Widgets/ListViewStringRow.h>
 #include <GUI/View.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewStringRow::AttachToView(Ptr<View> view, int column)
+void PListViewStringRow::AttachToView(Ptr<PView> view, int column)
 {
     if (column >= m_Strings.size()) m_Strings.resize(column + 1);
 
@@ -36,7 +35,7 @@ void ListViewStringRow::AttachToView(Ptr<View> view, int column)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewStringRow::SetRect(const Rect& rect, size_t column)
+void PListViewStringRow::SetRect(const PRect& rect, size_t column)
 {
 }
 
@@ -44,7 +43,7 @@ void ListViewStringRow::SetRect(const Rect& rect, size_t column)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewStringRow::AppendString(const PString& string)
+void PListViewStringRow::AppendString(const PString& string)
 {
     m_Strings.push_back(std::make_pair(string, 0.0f));
 }
@@ -53,7 +52,7 @@ void ListViewStringRow::AppendString(const PString& string)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewStringRow::SetString(size_t index, const PString& string)
+void PListViewStringRow::SetString(size_t index, const PString& string)
 {
     if (index >= m_Strings.size()) m_Strings.resize(index + 1);
     m_Strings[index].first = string;
@@ -63,7 +62,7 @@ void ListViewStringRow::SetString(size_t index, const PString& string)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const PString& ListViewStringRow::GetString(size_t index) const
+const PString& PListViewStringRow::GetString(size_t index) const
 {
     return (index < m_Strings.size()) ? m_Strings[index].first : PString::zero;
 }
@@ -72,7 +71,7 @@ const PString& ListViewStringRow::GetString(size_t index) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float ListViewStringRow::GetWidth(Ptr<View> view, size_t column)
+float PListViewStringRow::GetWidth(Ptr<PView> view, size_t column)
 {
     return (column < m_Strings.size()) ? m_Strings[column].second : 0.0f;
 }
@@ -81,9 +80,9 @@ float ListViewStringRow::GetWidth(Ptr<View> view, size_t column)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float ListViewStringRow::GetHeight(Ptr<View> view)
+float PListViewStringRow::GetHeight(Ptr<PView> view)
 {
-    const FontHeight fontHeight = view->GetFontHeight();
+    const PFontHeight fontHeight = view->GetFontHeight();
     return fontHeight.ascender + fontHeight.descender;
 }
 
@@ -91,13 +90,13 @@ float ListViewStringRow::GetHeight(Ptr<View> view)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewStringRow::Paint(const Rect& frame, Ptr<View> view, size_t column, bool selected, bool highlighted, bool hasFocus)
+void PListViewStringRow::Paint(const PRect& frame, Ptr<PView> view, size_t column, bool selected, bool highlighted, bool hasFocus)
 {
     if (column >= m_Strings.size()) {
         return;
     }
 
-    const FontHeight fontHeight = view->GetFontHeight();
+    const PFontHeight fontHeight = view->GetFontHeight();
 
     view->SetFgColor(255, 255, 255);
     view->FillRect(frame);
@@ -120,11 +119,11 @@ void ListViewStringRow::Paint(const Rect& frame, Ptr<View> view, size_t column, 
 
     if (selected && column == 0)
     {
-        Rect rect = frame;
+        PRect rect = frame;
         rect.right = rect.left + view->GetStringWidth(m_Strings[column].first.c_str()) + 4;
         rect.top = baseLine - fontHeight.ascender - 1;
         rect.bottom = baseLine + fontHeight.descender + 1;
-        view->FillRect(rect, Color(0, 0, 0, 0));
+        view->FillRect(rect, PColor(0, 0, 0, 0));
     }
     view->DrawString(m_Strings[column].first.c_str());
 }
@@ -133,9 +132,9 @@ void ListViewStringRow::Paint(const Rect& frame, Ptr<View> view, size_t column, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewStringRow::IsLessThan(Ptr<const ListViewRow> other, size_t column) const
+bool PListViewStringRow::IsLessThan(Ptr<const PListViewRow> other, size_t column) const
 {
-    Ptr<const ListViewStringRow> row = ptr_dynamic_cast<const ListViewStringRow>(other);
+    Ptr<const PListViewStringRow> row = ptr_dynamic_cast<const PListViewStringRow>(other);
     if (row == nullptr || column >= m_Strings.size() || column >= row->m_Strings.size()) {
         return false;
     }

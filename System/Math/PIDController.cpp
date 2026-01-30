@@ -23,13 +23,12 @@
 
 #include <Math/PIDController.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PIDController::PIDController()
+PPIDController::PPIDController()
 {
     m_IntegralErrors.resize(150);
 }
@@ -38,7 +37,7 @@ PIDController::PIDController()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PIDController::Reset()
+void PPIDController::Reset()
 {
     m_PrevError = 0.0f;
     
@@ -51,7 +50,7 @@ void PIDController::Reset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float PIDController::Update(float deltaTime, float measuredValue)
+float PPIDController::Update(float deltaTime, float measuredValue)
 {
     float& integralError = m_IntegralErrors[m_CurrentSetpointWindow];
 
@@ -95,7 +94,7 @@ float PIDController::Update(float deltaTime, float measuredValue)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PIDController::SetTargetValue(float targetValue)
+void PPIDController::SetTargetValue(float targetValue)
 {
     m_TargetValue = targetValue;
     m_CurrentSetpointWindow = std::clamp<size_t>(ssize_t(m_TargetValue * m_SetpointWindowSpacing), 0, m_IntegralErrors.size() - 1);
@@ -105,7 +104,7 @@ void PIDController::SetTargetValue(float targetValue)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PIDController::SetControlSmoothingTimeConstant(float timeConstant)
+void PPIDController::SetControlSmoothingTimeConstant(float timeConstant)
 {
     if (timeConstant != 0.0f) {
         m_ControlSmoothingInverseTimeConstant = 1.0f / timeConstant;
@@ -118,7 +117,7 @@ void PIDController::SetControlSmoothingTimeConstant(float timeConstant)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float PIDController::GetControlSmoothingTimeConstant() const
+float PPIDController::GetControlSmoothingTimeConstant() const
 {
     if (m_ControlSmoothingInverseTimeConstant != 0.0f) {
         return 1.0f / m_ControlSmoothingInverseTimeConstant;

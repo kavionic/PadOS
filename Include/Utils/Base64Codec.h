@@ -24,10 +24,8 @@
 
 #include <Utils/String.h>
 
-namespace os
-{
 
-class Base64Codec
+class PBase64Codec
 {
 public:
     static PString Encode(const uint8_t* data, size_t length);
@@ -47,7 +45,3 @@ private:
     static const uint8_t g_Base64DecodeAlphabet[128];
 
 };
-
-} // namespace os
-
-using PBase64Codec = os::Base64Codec;

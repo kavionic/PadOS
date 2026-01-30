@@ -20,16 +20,15 @@
 #include <GUI/ViewFactoryContext.h>
 #include <GUI/Widgets/ButtonGroup.h>
 
-using namespace os;
 
-Ptr<ButtonGroup> ViewFactoryContext::GetButtonGroup(const PString& name)
+Ptr<PButtonGroup> PViewFactoryContext::GetButtonGroup(const PString& name)
 {
-	Ptr<ButtonGroup> group;
+	Ptr<PButtonGroup> group;
 	auto i = m_ButtonGroups.find(name);
 	if (i != m_ButtonGroups.end()) {
 		group = i->second;
 	} else {
-		group = ptr_new<ButtonGroup>(name);
+		group = ptr_new<PButtonGroup>(name);
 		m_ButtonGroups[name] = group;
 	}
 	return group;

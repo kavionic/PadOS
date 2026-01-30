@@ -19,15 +19,13 @@
 
 #pragma once
 
-namespace os
-{
 
 template<typename VALUE_TYPE, typename EASING_TYPE>
-class ValueAnimator
+class PValueAnimator
 {
 public:
     template<typename... EASE_ARGS>
-    ValueAnimator(EASE_ARGS&& ...easeArgs) : m_EasingCurve(std::forward<EASE_ARGS>(easeArgs)...) {}
+    PValueAnimator(EASE_ARGS&& ...easeArgs) : m_EasingCurve(std::forward<EASE_ARGS>(easeArgs)...) {}
 
     void            Start() { m_StartTime = get_monotonic_time(); }
     void            Reverse()
@@ -95,5 +93,3 @@ private:
     TimeValNanos    m_StartTime;
     TimeValNanos    m_Period;
 };
-
-} // namespace os

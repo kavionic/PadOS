@@ -118,7 +118,7 @@ namespace kernel
 #define INA3221_SENSOR_IDX_3 2
 
 
-class INA3221Driver : public PtrTarget, public os::Looper, public KFilesystemFileOps, public SignalTarget
+class INA3221Driver : public PtrTarget, public PLooper, public KFilesystemFileOps, public SignalTarget
 {
 public:
     INA3221Driver();
@@ -155,7 +155,7 @@ private:
     double CalculateCurrent(int sensor, int16_t value) const { return double(value / 8)*40e-6/m_ShuntValues[sensor]; }
     double CalculateVoltage(int16_t value) const { return double(value / 8) * 8.0e-3; }
 
-    os::EventTimer m_Timer;
+    PEventTimer m_Timer;
 
     INA3221Values m_CurrentValues = { {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0} };
     double m_ShuntValues[INA3221_SENSOR_COUNT] = {1.0, 1.0, 1.0};

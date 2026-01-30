@@ -22,10 +22,8 @@
 #include <Utils/Base64Codec.h>
 #include <Utils/Utils.h>
 
-namespace os
-{
 
-const uint8_t Base64Codec::g_Base64EncodeAlphabet[64] =
+const uint8_t PBase64Codec::g_Base64EncodeAlphabet[64] =
 {
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -33,7 +31,7 @@ const uint8_t Base64Codec::g_Base64EncodeAlphabet[64] =
     '+', '/'
 };
 
-const uint8_t Base64Codec::g_Base64DecodeAlphabet[] =
+const uint8_t PBase64Codec::g_Base64DecodeAlphabet[] =
 {
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, //  0-15
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, // 16-31
@@ -49,7 +47,7 @@ const uint8_t Base64Codec::g_Base64DecodeAlphabet[] =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString Base64Codec::Encode(const uint8_t* data, size_t length)
+PString PBase64Codec::Encode(const uint8_t* data, size_t length)
 {
     const uint8_t* srcData = static_cast<const uint8_t*>(data);
 
@@ -96,7 +94,7 @@ PString Base64Codec::Encode(const uint8_t* data, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-std::vector<uint8_t> Base64Codec::Decode(const void* data, const size_t length)
+std::vector<uint8_t> PBase64Codec::Decode(const void* data, const size_t length)
 {
     const uint8_t* srcData = static_cast<const uint8_t*>(data);
 
@@ -155,5 +153,3 @@ std::vector<uint8_t> Base64Codec::Decode(const void* data, const size_t length)
 
     return resultBuffer;
 }
-
-} // namespace os

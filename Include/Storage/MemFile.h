@@ -22,14 +22,12 @@
 #include <vector>
 #include <Storage/SeekableIO.h>
 
-namespace os
-{
 
-class MemFile : public SeekableIO
+class PMemFile : public PSeekableIO
 {
 public:
-    MemFile() = default;
-    MemFile(std::vector<uint8_t>&& data);
+    PMemFile() = default;
+    PMemFile(std::vector<uint8_t>&& data);
 
 
     virtual ssize_t Read(void* buffer, ssize_t size) override;
@@ -43,6 +41,3 @@ private:
     std::vector<uint8_t> m_Buffer;
     ssize_t              m_Position = 0;
 };
-
-
-} // namespace os

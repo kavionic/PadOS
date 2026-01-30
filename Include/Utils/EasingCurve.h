@@ -21,10 +21,8 @@
 
 #include <Math/Misc.h>
 
-namespace os
-{
 
-enum class EasingCurveFunction
+enum class PEasingCurveFunction
 {
     Linear,
     EaseIn,
@@ -32,27 +30,27 @@ enum class EasingCurveFunction
     EaseInOut
 };
 
-class EasingCurve
+class PEasingCurve
 {
 public:
-    EasingCurve(EasingCurveFunction function) : m_Function(function) {}
+    PEasingCurve(PEasingCurveFunction function) : m_Function(function) {}
     float   GetValue(float progress) const
     {
         switch (m_Function)
         {
-            case os::EasingCurveFunction::Linear:
+            case PEasingCurveFunction::Linear:
                 return progress;
-            case os::EasingCurveFunction::EaseIn:
-                return square(progress);
-            case os::EasingCurveFunction::EaseOut:
-                return 1.0f - square(1.0f - progress);
+            case PEasingCurveFunction::EaseIn:
+                return PMath::square(progress);
+            case PEasingCurveFunction::EaseOut:
+                return 1.0f - PMath::square(1.0f - progress);
                 break;
-            case os::EasingCurveFunction::EaseInOut:
+            case PEasingCurveFunction::EaseInOut:
                 if (progress < 0.5f) {
-                    return square(progress * 2.0f) * 0.5f;
+                    return PMath::square(progress * 2.0f) * 0.5f;
                 }
                 else {
-                    return 0.5f + square((0.5f - progress) * 2.0f) * 0.5f;
+                    return 0.5f + PMath::square((0.5f - progress) * 2.0f) * 0.5f;
                 }
                 break;
             default:
@@ -60,7 +58,5 @@ public:
         }
     }
 private:
-    EasingCurveFunction m_Function;
+    PEasingCurveFunction m_Function;
 };
-
-} // namespace os

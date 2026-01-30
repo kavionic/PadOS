@@ -21,18 +21,17 @@
 #include <Math/Misc.h>
 #include <Utils/InertialScroller.h>
 
-using namespace os;
 
-float InertialScroller::s_SpringConstant  = 20.0f;
-float InertialScroller::s_MinSpeed        = 40.0f;
-float InertialScroller::s_OverscrollSlip  = 0.25f;
+float PInertialScroller::s_SpringConstant  = 20.0f;
+float PInertialScroller::s_MinSpeed        = 40.0f;
+float PInertialScroller::s_OverscrollSlip  = 0.25f;
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-InertialScroller::InertialScroller(const Point& initialValue, float frameRate, int ticksPerUpdate)
+PInertialScroller::PInertialScroller(const PPoint& initialValue, float frameRate, int ticksPerUpdate)
     : m_TicksPerUpdate(ticksPerUpdate)
     , m_TargetPosition(initialValue)
     , m_CurrentPosition(initialValue)
@@ -40,14 +39,14 @@ InertialScroller::InertialScroller(const Point& initialValue, float frameRate, i
     m_LastTickTime = get_monotonic_time();
 
     m_Timer.Set(TimeValNanos::FromSeconds(1.0f / frameRate));
-    m_Timer.SignalTrigged.Connect(this, &InertialScroller::SlotTick);
+    m_Timer.SignalTrigged.Connect(this, &PInertialScroller::SlotTick);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void InertialScroller::BeginDrag(const Point& scrollOffset, const Point& dragPosition, Looper* looper)
+void PInertialScroller::BeginDrag(const PPoint& scrollOffset, const PPoint& dragPosition, PLooper* looper)
 {
     m_BeginDragTime     = get_monotonic_time();
     
@@ -57,22 +56,22 @@ void InertialScroller::BeginDrag(const Point& scrollOffset, const Point& dragPos
 
     m_StaticOffset      = dragPosition - scrollOffset;
 
-    if (m_State == InertialScroller::State::Idle)
+    if (m_State == PInertialScroller::State::Idle)
     {
         if (m_StartScrollThreshold == 0.0f)
         {
             m_LastTickTime = m_BeginDragTime;
             m_Timer.Start(false, looper);
-            m_State = InertialScroller::State::Dragging;
+            m_State = PInertialScroller::State::Dragging;
         }
         else
         {
-            m_State = InertialScroller::State::WaitForThreshold;
+            m_State = PInertialScroller::State::WaitForThreshold;
         }
     }
     else
     {
-        m_State = InertialScroller::State::Dragging;
+        m_State = PInertialScroller::State::Dragging;
     }
 }
 
@@ -80,7 +79,7 @@ void InertialScroller::BeginDrag(const Point& scrollOffset, const Point& dragPos
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void InertialScroller::EndDrag()
+void PInertialScroller::EndDrag()
 {
     if (m_State == State::WaitForThreshold)
     {
@@ -95,8 +94,8 @@ void InertialScroller::EndDrag()
     m_TargetPosition = m_CurrentPosition;
 
     // Calculate stop time based on current velocity and default friction.
-    const Point speed(std::abs(m_Velocity.x), std::abs(m_Velocity.y));
-    const Point stopTime(std::max(s_MinSpeed, speed.x - s_MinSpeed) / s_DefaultFriction, std::max(s_MinSpeed, speed.y - s_MinSpeed) / s_DefaultFriction);
+    const PPoint speed(std::abs(m_Velocity.x), std::abs(m_Velocity.y));
+    const PPoint stopTime(std::max(s_MinSpeed, speed.x - s_MinSpeed) / s_DefaultFriction, std::max(s_MinSpeed, speed.y - s_MinSpeed) / s_DefaultFriction);
 
     // Calculate stopping distance based on current velocity and default friction.
     m_TargetPosition.x += std::copysign(std::abs(m_Velocity.x) * stopTime.x - s_DefaultFriction * stopTime.x * stopTime.x * 0.5f, m_Velocity.x);
@@ -104,7 +103,7 @@ void InertialScroller::EndDrag()
 
     // Calculate distance between natural stopping point and nearest detention.
     m_TargetPosition = GetClosestIndention(m_TargetPosition);
-    const Point targetDistance = m_TargetPosition - m_CurrentPosition;
+    const PPoint targetDistance = m_TargetPosition - m_CurrentPosition;
 
     // Calculate friction needed to stop at the selected detention.
     if (targetDistance.x != 0.0f) {
@@ -119,19 +118,19 @@ void InertialScroller::EndDrag()
         m_Friction.y = s_DefaultFriction;
         m_Velocity.y = 0.0f;
     }
-    m_State = InertialScroller::State::Coasting;
+    m_State = PInertialScroller::State::Coasting;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void InertialScroller::AddUpdate(const Point& value, Looper* looper)
+void PInertialScroller::AddUpdate(const PPoint& value, PLooper* looper)
 {
     m_TargetPosition = value - m_StaticOffset;
     if (m_State == State::WaitForThreshold)
     {
-        if ((value - (m_StaticOffset + m_BeginDragPosition)).LengthSqr() >= square(m_StartScrollThreshold))
+        if ((value - (m_StaticOffset + m_BeginDragPosition)).LengthSqr() >= PMath::square(m_StartScrollThreshold))
         {
             m_LastTickTime = m_BeginDragTime;
             m_Timer.Start(false, looper);
@@ -144,7 +143,7 @@ void InertialScroller::AddUpdate(const Point& value, Looper* looper)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-os::Point InertialScroller::GetValue() const
+PPoint PInertialScroller::GetValue() const
 {
     return m_CurrentPosition;
 }
@@ -153,7 +152,7 @@ os::Point InertialScroller::GetValue() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point InertialScroller::GetVelocity() const
+PPoint PInertialScroller::GetVelocity() const
 {
     return m_Velocity;
 }
@@ -162,9 +161,9 @@ Point InertialScroller::GetVelocity() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point InertialScroller::GetClosestIndention(const Point& position) const
+PPoint PInertialScroller::GetClosestIndention(const PPoint& position) const
 {
-    Point nearest;
+    PPoint nearest;
 
     nearest.x = (m_DetentSpacing.x > 1.0f) ? std::round(position.x / m_DetentSpacing.x) * m_DetentSpacing.x : position.x;
     nearest.y = (m_DetentSpacing.y > 1.0f) ? std::round(position.y / m_DetentSpacing.y) * m_DetentSpacing.y : position.y;
@@ -176,7 +175,7 @@ Point InertialScroller::GetClosestIndention(const Point& position) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void InertialScroller::SlotTick()
+void PInertialScroller::SlotTick()
 {
     const TimeValNanos curTime = get_monotonic_time();
     if (curTime == m_LastTickTime) {
@@ -188,12 +187,12 @@ void InertialScroller::SlotTick()
 
     if (m_State == State::Dragging)
     {
-        Point nearestIndent = GetClosestIndention(m_CurrentPosition);
-        Point detentOffset = nearestIndent - m_CurrentPosition;
-        Point detentPull((m_DetentSpacing.x != 0.0f) ? detentOffset.x / (m_DetentSpacing.x * 0.5f) : 0.0f,
+        PPoint nearestIndent = GetClosestIndention(m_CurrentPosition);
+        PPoint detentOffset = nearestIndent - m_CurrentPosition;
+        PPoint detentPull((m_DetentSpacing.x != 0.0f) ? detentOffset.x / (m_DetentSpacing.x * 0.5f) : 0.0f,
                          (m_DetentSpacing.y != 0.0f) ? detentOffset.y / (m_DetentSpacing.y * 0.5f) : 0.0f);
         detentPull *= m_DetentAttraction;
-        Point deltaMove = (m_TargetPosition - m_CurrentPosition + detentPull) * std::min(1.0f, deltaTime * s_SpringConstant);
+        PPoint deltaMove = (m_TargetPosition - m_CurrentPosition + detentPull) * std::min(1.0f, deltaTime * s_SpringConstant);
         m_Velocity = deltaMove / deltaTime;
         m_CurrentPosition += deltaMove;
     }
@@ -240,15 +239,15 @@ void InertialScroller::SlotTick()
             yIdle = true;
         }
         if (xIdle && yIdle) {
-            m_State = InertialScroller::State::Idle;
+            m_State = PInertialScroller::State::Idle;
         }
     }
     m_TicksSinceUpdate++;
-    if (m_State == InertialScroller::State::Idle || m_TicksSinceUpdate >= m_TicksPerUpdate)
+    if (m_State == PInertialScroller::State::Idle || m_TicksSinceUpdate >= m_TicksPerUpdate)
     {
         m_TicksSinceUpdate = 0;
 
-        Point scrollOffset;
+        PPoint scrollOffset;
 
         if (m_State == State::Dragging)
         {
@@ -270,16 +269,16 @@ void InertialScroller::SlotTick()
             scrollOffset.y = std::clamp(m_CurrentPosition.y, m_ScrollBounds.top, m_ScrollBounds.bottom);
         }
 
-        SignalUpdate(Point(std::round(scrollOffset.x), std::round(scrollOffset.y)), this);
+        SignalUpdate(PPoint(std::round(scrollOffset.x), std::round(scrollOffset.y)), this);
     }
-    if (m_State == InertialScroller::State::Idle) {
+    if (m_State == PInertialScroller::State::Idle) {
         m_Timer.Stop();
     }
 }
 
-void InertialScroller::ScrollTo(const Point& scrollOffset, const Point& velocity, Looper* looper)
+void PInertialScroller::ScrollTo(const PPoint& scrollOffset, const PPoint& velocity, PLooper* looper)
 {
-    const Point prevPosition = m_CurrentPosition;
+    const PPoint prevPosition = m_CurrentPosition;
 
     m_TargetPosition = scrollOffset;
     if (velocity.x == 0.0f) {
@@ -293,24 +292,24 @@ void InertialScroller::ScrollTo(const Point& scrollOffset, const Point& velocity
         m_Velocity.x = std::copysign(std::abs(velocity.x), m_TargetPosition.x - m_CurrentPosition.x);
         m_Velocity.y = std::copysign(std::abs(velocity.y), m_TargetPosition.y - m_CurrentPosition.y);
 
-        if (m_State == InertialScroller::State::Idle)
+        if (m_State == PInertialScroller::State::Idle)
         {
             m_LastTickTime = get_monotonic_time();
             m_Timer.Start(false, looper);
         }
-        m_State = InertialScroller::State::Coasting;
+        m_State = PInertialScroller::State::Coasting;
     }
     else
     {
-        m_Velocity = Point(0.0f, 0.0f);
-        m_State = InertialScroller::State::Idle;
+        m_Velocity = PPoint(0.0f, 0.0f);
+        m_State = PInertialScroller::State::Idle;
         m_Timer.Stop();
         if (m_CurrentPosition != prevPosition)
         {
-            Point scrollOffset;
+            PPoint scrollOffset;
             scrollOffset.x = std::clamp(m_CurrentPosition.x, m_ScrollBounds.left, m_ScrollBounds.right);
             scrollOffset.y = std::clamp(m_CurrentPosition.y, m_ScrollBounds.top, m_ScrollBounds.bottom);
-            SignalUpdate(Point(std::round(scrollOffset.x), std::round(scrollOffset.y)), this);
+            SignalUpdate(PPoint(std::round(scrollOffset.x), std::round(scrollOffset.y)), this);
         }
     }
 }

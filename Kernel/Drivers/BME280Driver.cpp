@@ -32,7 +32,6 @@
 #include "Kernel/VFS/FileIO.h"
 #include "Kernel/VFS/KFSVolume.h"
 
-using namespace os;
 
 namespace kernel
 {
@@ -41,7 +40,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-BME280Driver::BME280Driver() : Thread("bme280_driver"), m_Mutex("bme280_driver")
+BME280Driver::BME280Driver() : PThread("bme280_driver"), m_Mutex("bme280_driver")
 {
     SetDeleteOnExit(false);
 }

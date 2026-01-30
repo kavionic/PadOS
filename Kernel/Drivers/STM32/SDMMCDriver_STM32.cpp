@@ -31,7 +31,7 @@
 #include <Kernel/VFS/KDriverDescriptor.h>
 #include <Kernel/HAL/PeripheralMapping.h>
 
-using namespace os;
+
 using namespace sdmmc;
 
 namespace kernel

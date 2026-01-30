@@ -27,7 +27,6 @@
 #include <Kernel/VFS/KDriverManager.h>
 #include <Kernel/VFS/KFileHandle.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -268,7 +267,7 @@ void USBHostCDCChannel::Startup()
 {
     m_IsActive = true;
     const size_t maxLength = std::min(m_ReceiveFIFO.GetRemainingSpace(), m_InEndpointBuffer.size());
-    m_HostHandler->BulkReceiveData(m_DataPipeIn, m_InEndpointBuffer.data(), maxLength, bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback));
+    m_HostHandler->BulkReceiveData(m_DataPipeIn, m_InEndpointBuffer.data(), maxLength, p_bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback));
 
     ReqSetLineCoding(&m_LineCoding);
 }
@@ -320,7 +319,7 @@ size_t USBHostCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t length,
             {
                 const size_t maxLength = std::min(m_ReceiveFIFO.GetRemainingSpace(), m_InEndpointBuffer.size());
                 if (maxLength > 0) {
-                    m_HostHandler->BulkReceiveData(m_DataPipeIn, m_InEndpointBuffer.data(), maxLength, bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback));
+                    m_HostHandler->BulkReceiveData(m_DataPipeIn, m_InEndpointBuffer.data(), maxLength, p_bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback));
                 }
             }
         }
@@ -480,7 +479,7 @@ void USBHostCDCChannel::ReqSetLineCoding(USB_CDC_LineCoding* linecoding)
         0,
         sizeof(USB_CDC_LineCoding)
     );
-    m_HostHandler->GetControlHandler().SendControlRequest(m_DeviceAddress, request, linecoding, bind_method(this, &USBHostCDCChannel::HandleSetLineCodingResult));
+    m_HostHandler->GetControlHandler().SendControlRequest(m_DeviceAddress, request, linecoding, p_bind_method(this, &USBHostCDCChannel::HandleSetLineCodingResult));
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -503,7 +502,7 @@ void USBHostCDCChannel::FlushInternal()
                 m_TransmitCondition.WakeupAll();
                 m_CurrentTxTransactionLength = length;
 
-                m_HostHandler->BulkSendData(m_DataPipeOut, m_OutEndpointBuffer.data(), m_CurrentTxTransactionLength, true, bind_method(this, &USBHostCDCChannel::SendTransactionCallback));
+                m_HostHandler->BulkSendData(m_DataPipeOut, m_OutEndpointBuffer.data(), m_CurrentTxTransactionLength, true, p_bind_method(this, &USBHostCDCChannel::SendTransactionCallback));
             }
         }
     }
@@ -565,7 +564,7 @@ void USBHostCDCChannel::SendTransactionCallback(USB_PipeIndex pipeIndex, USB_URB
     }
     else if (urbState == USB_URBState::NotReady)
     {
-        m_HostHandler->BulkSendData(m_DataPipeOut, m_OutEndpointBuffer.data(), m_CurrentTxTransactionLength, true, bind_method(this, &USBHostCDCChannel::SendTransactionCallback));
+        m_HostHandler->BulkSendData(m_DataPipeOut, m_OutEndpointBuffer.data(), m_CurrentTxTransactionLength, true, p_bind_method(this, &USBHostCDCChannel::SendTransactionCallback));
     }
 }
 
@@ -584,7 +583,7 @@ void USBHostCDCChannel::ReceiveTransactionCallback(USB_PipeIndex pipeIndex, USB_
         }
         const size_t maxLength = std::min(m_ReceiveFIFO.GetRemainingSpace(), m_InEndpointBuffer.size());
         if (maxLength > 0) {
-            m_HostHandler->BulkReceiveData(m_DataPipeIn, m_InEndpointBuffer.data(), maxLength, bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback));
+            m_HostHandler->BulkReceiveData(m_DataPipeIn, m_InEndpointBuffer.data(), maxLength, p_bind_method(this, &USBHostCDCChannel::ReceiveTransactionCallback));
         }
     }
 }

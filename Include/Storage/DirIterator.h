@@ -20,9 +20,8 @@
 
 #include <Utils/String.h>
 
-namespace os
-{
-class FileReference;
+class PFileReference;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // \ingroup storage
@@ -32,14 +31,12 @@ class FileReference;
 // \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-class DirIterator
+class PDirIterator
 {
 public:
-    virtual ~DirIterator() {}
+    virtual ~PDirIterator() {}
 
     virtual bool GetNextEntry(PString& outName) = 0;
-    virtual bool GetNextEntry(FileReference& outReference) = 0;
+    virtual bool GetNextEntry(PFileReference& outReference) = 0;
     virtual bool Rewind() = 0;
 };
-
-} // namespace os

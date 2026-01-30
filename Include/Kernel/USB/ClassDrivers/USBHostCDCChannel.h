@@ -110,8 +110,8 @@ private:
     std::vector<uint8_t> m_OutEndpointBuffer;
     std::vector<uint8_t> m_InEndpointBuffer;
 
-    CircularBuffer<uint8_t, 1024, void> m_ReceiveFIFO;
-    CircularBuffer<uint8_t, 1024, void> m_TransmitFIFO;
+    PCircularBuffer<uint8_t, 1024, void> m_ReceiveFIFO;
+    PCircularBuffer<uint8_t, 1024, void> m_TransmitFIFO;
 
 };
 

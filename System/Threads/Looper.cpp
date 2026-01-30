@@ -27,26 +27,25 @@
 #include <Utils/Logging.h>
 #include <Kernel/Scheduler.h>
 
-using namespace os;
 
 #if DEBUG_LOOPER_LIST
-std::vector<Looper*> Looper::s_LooperList;
+std::vector<PLooper*> PLooper::s_LooperList;
 
-static Mutex& GetLooperListMutex()
+static PMutex& GetLooperListMutex()
 {
-    static Mutex mutex("LooperList", PEMutexRecursionMode_RaiseError);
+    static PMutex mutex("LooperList", PEMutexRecursionMode_RaiseError);
     return mutex;
 }
 #endif // DEBUG_LOOPER_LIST
 
-int32_t Looper::s_NextReplyToken;
+int32_t PLooper::s_NextReplyToken;
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Looper::Looper(const PString& name, int portSize, size_t receiveBufferSize) : Thread(name), m_Mutex("looper", PEMutexRecursionMode_RaiseError), m_Port("looper", portSize), m_DoRun(true)
+PLooper::PLooper(const PString& name, int portSize, size_t receiveBufferSize) : PThread(name), m_Mutex("looper", PEMutexRecursionMode_RaiseError), m_Port("looper", portSize), m_DoRun(true)
 {
 #if DEBUG_LOOPER_LIST
     CRITICAL_BEGIN(GetLooperListMutex()) {
@@ -63,7 +62,7 @@ Looper::Looper(const PString& name, int portSize, size_t receiveBufferSize) : Th
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Looper::~Looper()
+PLooper::~PLooper()
 {
     for (auto& i : m_TimerMap)
     {
@@ -80,7 +79,7 @@ Looper::~Looper()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t Looper::SetReceiveBufferSize(size_t size)
+ssize_t PLooper::SetReceiveBufferSize(size_t size)
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
     try {
@@ -96,7 +95,7 @@ ssize_t Looper::SetReceiveBufferSize(size_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t   Looper::GetReceiveBufferSize() const
+size_t   PLooper::GetReceiveBufferSize() const
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
     return m_ReceiveBuffer.size();
@@ -111,7 +110,7 @@ size_t   Looper::GetReceiveBufferSize() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Looper::WaitForReply(handler_id replyHandler, int32_t replyCode)
+bool PLooper::WaitForReply(handler_id replyHandler, int32_t replyCode)
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
     int32_t replyToken = s_NextReplyToken++;
@@ -153,7 +152,7 @@ bool Looper::WaitForReply(handler_id replyHandler, int32_t replyCode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Looper::AddHandler(Ptr<EventHandler> handler)
+bool PLooper::AddHandler(Ptr<PEventHandler> handler)
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
     try
@@ -177,7 +176,7 @@ bool Looper::AddHandler(Ptr<EventHandler> handler)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Looper::RemoveHandler(Ptr<EventHandler> handler)
+bool PLooper::RemoveHandler(Ptr<PEventHandler> handler)
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
     if (handler->m_Looper != this) {
@@ -199,7 +198,7 @@ bool Looper::RemoveHandler(Ptr<EventHandler> handler)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Looper::AddTimer(EventTimer* timer, bool singleshot)
+bool PLooper::AddTimer(PEventTimer* timer, bool singleshot)
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
     try
@@ -237,7 +236,7 @@ bool Looper::AddTimer(EventTimer* timer, bool singleshot)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Looper::RemoveTimer(EventTimer* timer)
+bool PLooper::RemoveTimer(PEventTimer* timer)
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
 
@@ -260,7 +259,7 @@ bool Looper::RemoveTimer(EventTimer* timer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<EventHandler> Looper::FindHandler(handler_id handle) const
+Ptr<PEventHandler> PLooper::FindHandler(handler_id handle) const
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
     auto i = m_HandlerMap.find(handle);
@@ -274,7 +273,7 @@ Ptr<EventHandler> Looper::FindHandler(handler_id handle) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void* Looper::Run()
+void* PLooper::Run()
 {
     CRITICAL_SCOPE(m_Mutex);
     ThreadStarted();
@@ -290,7 +289,7 @@ void* Looper::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Looper::ProcessEvents()
+bool PLooper::ProcessEvents()
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
     while (Tick());
@@ -301,7 +300,7 @@ bool Looper::ProcessEvents()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Looper::Tick()
+bool PLooper::Tick()
 {
     if (m_DoRun)
     {
@@ -332,10 +331,10 @@ bool Looper::Tick()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Looper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgLength)
+void PLooper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgLength)
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
-    if (MessageID(code) == MessageID::QUIT) {
+    if (PMessageID(code) == PMessageID::QUIT) {
         Stop();
     }
     if (!HandleMessage(targetHandler, code, m_ReceiveBuffer.data(), msgLength))
@@ -354,7 +353,7 @@ void Looper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgL
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Looper::RunTimers()
+void PLooper::RunTimers()
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
     TimeValNanos curTime = get_monotonic_time();
@@ -370,7 +369,7 @@ void Looper::RunTimers()
             return;
         }
 
-        EventTimer* timer = (*i).second;
+        PEventTimer* timer = (*i).second;
         
         m_TimerMap.erase(i);
 

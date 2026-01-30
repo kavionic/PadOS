@@ -20,21 +20,19 @@
 #include <GUI/Widgets/ScrollView.h>
 #include <GUI/Widgets/MVCBaseView.h>
 
-namespace os
-{
 
-const std::map<PString, uint32_t> MVCBaseViewFlags::FlagMap
+const std::map<PString, uint32_t> PMVCBaseViewFlags::FlagMap
 {
-    DEFINE_FLAG_MAP_ENTRY(MVCBaseViewFlags, MultiSelect),
-    DEFINE_FLAG_MAP_ENTRY(MVCBaseViewFlags, NoAutoSelect),
+    DEFINE_FLAG_MAP_ENTRY(PMVCBaseViewFlags, MultiSelect),
+    DEFINE_FLAG_MAP_ENTRY(PMVCBaseViewFlags, NoAutoSelect),
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MVCBaseView::MVCBaseView(const PString& name, Ptr<View> parent, uint32_t flags)
-    : Control(name, parent, flags | ViewFlags::WillDraw)
+PMVCBaseView::PMVCBaseView(const PString& name, Ptr<PView> parent, uint32_t flags)
+    : PControl(name, parent, flags | PViewFlags::WillDraw)
 {
     Construct();
 }
@@ -43,10 +41,10 @@ MVCBaseView::MVCBaseView(const PString& name, Ptr<View> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MVCBaseView::MVCBaseView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData)
-    : Control(context, parent, xmlData)
+PMVCBaseView::PMVCBaseView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData)
+    : PControl(context, parent, xmlData)
 {
-    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, MVCBaseViewFlags::FlagMap, "flags", 0) | ViewFlags::WillDraw);
+    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PMVCBaseViewFlags::FlagMap, "flags", 0) | PViewFlags::WillDraw);
     Construct();
 }
 
@@ -54,9 +52,9 @@ MVCBaseView::MVCBaseView(ViewFactoryContext& context, Ptr<View> parent, const pu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::OnLayoutChanged()
+void PMVCBaseView::OnLayoutChanged()
 {
-    Control::OnLayoutChanged();
+    PControl::OnLayoutChanged();
 
     m_ScrollView->RefreshLayout();
 }
@@ -65,7 +63,7 @@ void MVCBaseView::OnLayoutChanged()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PtrTarget> MVCBaseView::GetItemAtPosition(const Point& position) const
+Ptr<PtrTarget> PMVCBaseView::GetItemAtPosition(const PPoint& position) const
 {
     const size_t index = GetItemIndexAtPosition(position);
 
@@ -80,7 +78,7 @@ Ptr<PtrTarget> MVCBaseView::GetItemAtPosition(const Point& position) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PtrTarget> MVCBaseView::GetItemAt(size_t index) const
+Ptr<PtrTarget> PMVCBaseView::GetItemAt(size_t index) const
 {
     if (index < GetItemCount()) {
         return GetItemNode(index).ItemData;
@@ -92,7 +90,7 @@ Ptr<PtrTarget> MVCBaseView::GetItemAt(size_t index) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::SetHighlightedItem(size_t index)
+void PMVCBaseView::SetHighlightedItem(size_t index)
 {
     if (index != m_HighlightedItem)
     {
@@ -101,7 +99,7 @@ void MVCBaseView::SetHighlightedItem(size_t index)
 
         if (prevHighlighted < GetItemCount() && !VFUpdateItemWidgetSelection.Empty())
         {
-            const MVCBaseViewItemNode& itemNode = GetItemNode(prevHighlighted);
+            const PMVCBaseViewItemNode& itemNode = GetItemNode(prevHighlighted);
             if (itemNode.ItemWidget != nullptr) {
                 VFUpdateItemWidgetSelection(itemNode.ItemWidget, itemNode.IsSelected, false, itemNode.ItemData);
             }
@@ -110,7 +108,7 @@ void MVCBaseView::SetHighlightedItem(size_t index)
 
         if (m_HighlightedItem < GetItemCount() && !VFUpdateItemWidgetSelection.Empty())
         {
-            const MVCBaseViewItemNode& itemNode = GetItemNode(m_HighlightedItem);
+            const PMVCBaseViewItemNode& itemNode = GetItemNode(m_HighlightedItem);
             if (itemNode.ItemWidget != nullptr) {
                 VFUpdateItemWidgetSelection(itemNode.ItemWidget, itemNode.IsSelected, true, itemNode.ItemData);
             }
@@ -123,14 +121,14 @@ void MVCBaseView::SetHighlightedItem(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::SetItemSelection(size_t index, bool isSelected)
+void PMVCBaseView::SetItemSelection(size_t index, bool isSelected)
 {
     if (index < GetItemCount())
     {
-        MVCBaseViewItemNode& itemNode = GetItemNode(index);
+        PMVCBaseViewItemNode& itemNode = GetItemNode(index);
         if (isSelected != itemNode.IsSelected)
         {
-            if (isSelected && !HasFlags(MVCBaseViewFlags::MultiSelect)) {
+            if (isSelected && !HasFlags(PMVCBaseViewFlags::MultiSelect)) {
                 ClearSelection();
             }
             itemNode.IsSelected = isSelected;
@@ -153,7 +151,7 @@ void MVCBaseView::SetItemSelection(size_t index, bool isSelected)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool MVCBaseView::GetItemSelection(size_t index) const
+bool PMVCBaseView::GetItemSelection(size_t index) const
 {
     if (index < GetItemCount())
     {
@@ -166,12 +164,12 @@ bool MVCBaseView::GetItemSelection(size_t index) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::ClearSelection()
+void PMVCBaseView::ClearSelection()
 {
     m_SelectedItems.clear();
     for (size_t i = 0; i < GetItemCount(); ++i)
     {
-        MVCBaseViewItemNode& itemNode = GetItemNode(i);
+        PMVCBaseViewItemNode& itemNode = GetItemNode(i);
         if (itemNode.IsSelected)
         {
             SetItemSelection(i, false);
@@ -183,7 +181,7 @@ void MVCBaseView::ClearSelection()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::OnItemsReordered()
+void PMVCBaseView::OnItemsReordered()
 {
     m_SelectedItems.clear();
 
@@ -191,7 +189,7 @@ void MVCBaseView::OnItemsReordered()
     {
         for (size_t i = 0; i < m_FirstVisibleItem; ++i)
         {
-            MVCBaseViewItemNode& itemNode = GetItemNode(i);
+            PMVCBaseViewItemNode& itemNode = GetItemNode(i);
 
             if (itemNode.ItemWidget != nullptr) {
                 RemoveItemWidget(i);
@@ -202,7 +200,7 @@ void MVCBaseView::OnItemsReordered()
         }
         for (size_t i = m_FirstVisibleItem; i <= m_LastVisibleItem; ++i)
         {
-            MVCBaseViewItemNode& itemNode = GetItemNode(i);
+            PMVCBaseViewItemNode& itemNode = GetItemNode(i);
 
             if (itemNode.ItemWidget == nullptr) {
                 AddItemWidget(i);
@@ -213,7 +211,7 @@ void MVCBaseView::OnItemsReordered()
         }
         for (size_t i = m_LastVisibleItem + 1; i < GetItemCount(); ++i)
         {
-            MVCBaseViewItemNode& itemNode = GetItemNode(i);
+            PMVCBaseViewItemNode& itemNode = GetItemNode(i);
 
             if (itemNode.ItemWidget != nullptr) {
                 RemoveItemWidget(i);
@@ -230,7 +228,7 @@ void MVCBaseView::OnItemsReordered()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::CreateWidgetsForRange(size_t firstItemIndex, size_t lastItemIndex)
+void PMVCBaseView::CreateWidgetsForRange(size_t firstItemIndex, size_t lastItemIndex)
 {
     if (m_FirstVisibleItem != INVALID_INDEX)
     {
@@ -292,7 +290,7 @@ void MVCBaseView::CreateWidgetsForRange(size_t firstItemIndex, size_t lastItemIn
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::RemoveAllWidgets()
+void PMVCBaseView::RemoveAllWidgets()
 {
     if (m_FirstVisibleItem != INVALID_INDEX)
     {
@@ -308,13 +306,13 @@ void MVCBaseView::RemoveAllWidgets()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> MVCBaseView::CreateItemWidget(uint32_t classID) const
+Ptr<PView> PMVCBaseView::CreateItemWidget(uint32_t classID) const
 {
     auto cachedWidgets = m_CachedItemWidgets.find(classID);
 
     if (cachedWidgets != m_CachedItemWidgets.end())
     {
-        Ptr<View> itemWidget = cachedWidgets->second.back();
+        Ptr<PView> itemWidget = cachedWidgets->second.back();
         cachedWidgets->second.pop_back();
         if (cachedWidgets->second.empty()) m_CachedItemWidgets.erase(cachedWidgets);
 
@@ -327,11 +325,11 @@ Ptr<View> MVCBaseView::CreateItemWidget(uint32_t classID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::AddItemWidget(size_t index)
+void PMVCBaseView::AddItemWidget(size_t index)
 {
     if (index < GetItemCount())
     {
-        MVCBaseViewItemNode& itemNode = GetItemNode(index);
+        PMVCBaseViewItemNode& itemNode = GetItemNode(index);
 
         if (itemNode.ItemWidget == nullptr)
         {
@@ -350,11 +348,11 @@ void MVCBaseView::AddItemWidget(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::RemoveItemWidget(size_t index)
+void PMVCBaseView::RemoveItemWidget(size_t index)
 {
     if (index < GetItemCount())
     {
-        MVCBaseViewItemNode& itemNode = GetItemNode(index);
+        PMVCBaseViewItemNode& itemNode = GetItemNode(index);
         if (itemNode.ItemWidget != nullptr)
         {
             CacheItemWidget(itemNode.ItemWidget, itemNode.WidgetClassID);
@@ -368,7 +366,7 @@ void MVCBaseView::RemoveItemWidget(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::CacheItemWidget(Ptr<View> itemWidget, int32_t widgetClassID) const
+void PMVCBaseView::CacheItemWidget(Ptr<PView> itemWidget, int32_t widgetClassID) const
 {
     if (!VFUpdateItemWidget.Empty()) VFUpdateItemWidget(itemWidget, nullptr, false, false);
     m_CachedItemWidgets[widgetClassID].push_back(itemWidget);
@@ -378,33 +376,33 @@ void MVCBaseView::CacheItemWidget(Ptr<View> itemWidget, int32_t widgetClassID) c
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::Construct()
+void PMVCBaseView::Construct()
 {
-    m_ScrollView = ptr_new<ScrollView>();
-    m_ContentView = ptr_new<View>(PString::zero, nullptr, ViewFlags::WillDraw);
+    m_ScrollView = ptr_new<PScrollView>();
+    m_ContentView = ptr_new<PView>(PString::zero, nullptr, PViewFlags::WillDraw);
 
-    m_ContentView->VFCalculateContentSize.Connect(this, &View::GetContentSize);
-    m_ContentView->SignalFrameSized.Connect(this, &MVCBaseView::OnContentViewFrameSized);
-    m_ContentView->SignalViewScrolled.Connect(this, &MVCBaseView::SlotContentScrolled);
+    m_ContentView->VFCalculateContentSize.Connect(this, &PView::GetContentSize);
+    m_ContentView->SignalFrameSized.Connect(this, &PMVCBaseView::OnContentViewFrameSized);
+    m_ContentView->SignalViewScrolled.Connect(this, &PMVCBaseView::SlotContentScrolled);
 
     m_ScrollView->SetScrolledView(m_ContentView);
     m_ScrollView->SetStartScrollThreshold(BEGIN_DRAG_OFFSET);
 
-    m_ScrollView->VFTouchDown.Connect(this, &MVCBaseView::SlotScrollViewTouchDown);
-    m_ScrollView->VFTouchUp.Connect(this, &MVCBaseView::SlotScrollViewTouchUp);
-    m_ScrollView->VFTouchMove.Connect(this, &MVCBaseView::SlotScrollViewTouchMove);
+    m_ScrollView->VFTouchDown.Connect(this, &PMVCBaseView::SlotScrollViewTouchDown);
+    m_ScrollView->VFTouchUp.Connect(this, &PMVCBaseView::SlotScrollViewTouchUp);
+    m_ScrollView->VFTouchMove.Connect(this, &PMVCBaseView::SlotScrollViewTouchMove);
 
     AddChild(m_ScrollView);
-    SetLayoutNode(ptr_new<LayoutNode>());
+    SetLayoutNode(ptr_new<PLayoutNode>());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::ItemClicked(size_t index)
+void PMVCBaseView::ItemClicked(size_t index)
 {
-    if (!HasFlags(MVCBaseViewFlags::NoAutoSelect)) {
+    if (!HasFlags(PMVCBaseViewFlags::NoAutoSelect)) {
         SetItemSelection(index, !GetItemSelection(index));
     }
     SignalItemClicked(index, this);
@@ -414,9 +412,9 @@ void MVCBaseView::ItemClicked(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::SlotScrollViewTouchDown(View* view, MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)
+void PMVCBaseView::SlotScrollViewTouchDown(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
 {
-    const Point& itemPosition = m_ContentView->ConvertFromScreen(view->ConvertToScreen(position));
+    const PPoint& itemPosition = m_ContentView->ConvertFromScreen(view->ConvertToScreen(position));
 
     const size_t index = GetItemIndexAtPosition(itemPosition);
     SetHighlightedItem(index);
@@ -428,11 +426,11 @@ void MVCBaseView::SlotScrollViewTouchDown(View* view, MouseButton_e pointID, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::SlotScrollViewTouchUp(View* view, MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)
+void PMVCBaseView::SlotScrollViewTouchUp(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
 {
-    if (m_ScrollView->GetInertialScrollerState() == InertialScroller::State::WaitForThreshold)
+    if (m_ScrollView->GetInertialScrollerState() == PInertialScroller::State::WaitForThreshold)
     {
-        const Point& itemPosition = m_ContentView->ConvertFromScreen(view->ConvertToScreen(position));
+        const PPoint& itemPosition = m_ContentView->ConvertFromScreen(view->ConvertToScreen(position));
 
         const size_t index = GetItemIndexAtPosition(itemPosition);
         if (index != INVALID_INDEX && index == m_HighlightedItem)
@@ -448,13 +446,11 @@ void MVCBaseView::SlotScrollViewTouchUp(View* view, MouseButton_e pointID, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCBaseView::SlotScrollViewTouchMove(View* view, MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent)
+void PMVCBaseView::SlotScrollViewTouchMove(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
 {
-    if (m_HighlightedItem != INVALID_INDEX && m_ScrollView->GetInertialScrollerState() == InertialScroller::State::Dragging)
+    if (m_HighlightedItem != INVALID_INDEX && m_ScrollView->GetInertialScrollerState() == PInertialScroller::State::Dragging)
     {
         SetHighlightedItem(INVALID_INDEX);
     }
     view->OnTouchMove(pointID, position, motionEvent);
 }
-
-} // namespace os

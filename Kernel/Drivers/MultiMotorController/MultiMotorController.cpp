@@ -23,7 +23,6 @@
 #include <Kernel/Drivers/MultiMotorController/MultiMotorController.h>
 #include <Kernel/Drivers/MultiMotorController/MultiMotorINode.h>
 
-using namespace os;
 
 namespace kernel
 {

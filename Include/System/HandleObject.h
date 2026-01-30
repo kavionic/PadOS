@@ -23,24 +23,21 @@
 #include <System/Types.h>
 #include <System/System.h>
 
-namespace os
-{
 
-
-class HandleObject
+class PHandleObject
 {
 public:
-    HandleObject() : m_Handle(INVALID_HANDLE) {}
-    HandleObject(handler_id handle) : m_Handle(handle) {}
-    virtual ~HandleObject();
+    PHandleObject() : m_Handle(INVALID_HANDLE) {}
+    PHandleObject(handler_id handle) : m_Handle(handle) {}
+    virtual ~PHandleObject();
 
     void SetHandle(handle_id handle) { m_Handle = handle; }
     handle_id GetHandle() const { return m_Handle; }
     
-    HandleObject(HandleObject&& other) : m_Handle(other.m_Handle) { other.m_Handle = INVALID_HANDLE; }
+    PHandleObject(PHandleObject&& other) : m_Handle(other.m_Handle) { other.m_Handle = INVALID_HANDLE; }
 
-    HandleObject(const HandleObject& other);
-    HandleObject& operator=(const HandleObject& other);
+    PHandleObject(const PHandleObject& other);
+    PHandleObject& operator=(const PHandleObject& other);
 
 protected:
     bool ParseResult(PErrorCode result) const
@@ -58,5 +55,3 @@ protected:
 
     handle_id m_Handle;
 };
-
-} // namespace

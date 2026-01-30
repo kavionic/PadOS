@@ -188,7 +188,7 @@ private:
 
     KMutex                                  m_Mutex;
     KConditionVariable                      m_EventQueueCondition;
-    CircularBuffer<USBHostEvent, 256>       m_EventQueue;
+    PCircularBuffer<USBHostEvent, 256>       m_EventQueue;
 
     USBDeviceNode                           m_Device0;
     std::vector<USBDeviceNode>              m_Devices;

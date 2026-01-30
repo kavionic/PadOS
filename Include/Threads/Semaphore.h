@@ -20,20 +20,20 @@
 #pragma once
 #include "Threads/Threads.h"
 
-class Semaphore
+class PSemaphore
 {
 public:
     enum class NoInit {};
 
-    explicit Semaphore(NoInit) : m_Handle(INVALID_HANDLE) {}
+    explicit PSemaphore(NoInit) : m_Handle(INVALID_HANDLE) {}
 
-    Semaphore(const char* name, int count = 1)
+    PSemaphore(const char* name, int count = 1)
     {
         if (semaphore_create(&m_Handle, name, CLOCK_MONOTONIC_COARSE, count) != PErrorCode::Success) {
             m_Handle = INVALID_HANDLE;
         }
     }
-    ~Semaphore() {
+    ~PSemaphore() {
         if (m_Handle != INVALID_HANDLE) semaphore_delete(m_Handle);
     }
 
@@ -43,10 +43,10 @@ public:
     bool TryAcquire()                           { return ParseResult(semaphore_try_acquire(m_Handle)); }
     bool Release()                              { return ParseResult(semaphore_release(m_Handle)); }
 
-    Semaphore(Semaphore&& other) : m_Handle(other.m_Handle) { other.m_Handle = INVALID_HANDLE; }
+    PSemaphore(PSemaphore&& other) : m_Handle(other.m_Handle) { other.m_Handle = INVALID_HANDLE; }
 
-    Semaphore(const Semaphore& other) { m_Handle = INVALID_HANDLE; semaphore_duplicate(&m_Handle, other.m_Handle); }
-    Semaphore& operator=(const Semaphore& other) { m_Handle = INVALID_HANDLE; semaphore_duplicate(&m_Handle, other.m_Handle); return *this; }
+    PSemaphore(const PSemaphore& other) { m_Handle = INVALID_HANDLE; semaphore_duplicate(&m_Handle, other.m_Handle); }
+    PSemaphore& operator=(const PSemaphore& other) { m_Handle = INVALID_HANDLE; semaphore_duplicate(&m_Handle, other.m_Handle); return *this; }
 
 private:
     bool ParseResult(PErrorCode result) const
@@ -68,15 +68,15 @@ private:
 class SemaphoreObjGuard
 {
 public:
-    SemaphoreObjGuard(Semaphore& sema) : m_Semaphore(&sema) { m_Semaphore->Acquire(); }
+    SemaphoreObjGuard(PSemaphore& sema) : m_Semaphore(&sema) { m_Semaphore->Acquire(); }
     ~SemaphoreObjGuard() { if (m_Semaphore != nullptr) m_Semaphore->Release(); }
 
     SemaphoreObjGuard(SemaphoreObjGuard&& other) : m_Semaphore(other.m_Semaphore) { m_Semaphore = nullptr; }
 
 private:
-    Semaphore* m_Semaphore;
+    PSemaphore* m_Semaphore;
 
     SemaphoreObjGuard(SemaphoreObjGuard& other)  = delete;
 };
 
-inline SemaphoreObjGuard    critical_create_guard(Semaphore& sema) { return SemaphoreObjGuard(sema); }
+inline SemaphoreObjGuard    critical_create_guard(PSemaphore& sema) { return SemaphoreObjGuard(sema); }

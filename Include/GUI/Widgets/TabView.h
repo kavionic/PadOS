@@ -24,82 +24,76 @@
 #include <vector>
 #include <string>
 
-namespace os
-{
 
-
-class TabView : public View
+class PTabView : public PView
 {
 public:
-    TabView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    TabView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PTabView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PTabView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
-    int         AppendTab( const PString& title, Ptr<View> view = nullptr );
-    int         InsertTab(size_t index, const PString& title, Ptr<View> view = nullptr );
-    Ptr<View>   DeleteTab(size_t index );
-    Ptr<View>   GetTabView(size_t index ) const;
+    int         AppendTab( const PString& title, Ptr<PView> view = nullptr );
+    int         InsertTab(size_t index, const PString& title, Ptr<PView> view = nullptr );
+    Ptr<PView>   DeleteTab(size_t index );
+    Ptr<PView>   GetTabView(size_t index ) const;
     int         GetTabCount() const;
 
     int         SetTabTitle(size_t index, const PString& title );
     const std::string&  GetTabTitle(size_t index ) const;
 
-    Ptr<View> SetTopBarClientView(Ptr<View> view);
+    Ptr<PView> SetTopBarClientView(Ptr<PView> view);
 
 
     size_t      GetSelection();
     void        SetSelection(size_t index, bool notify = true );
 
-    Rect GetClientFrame() const;
+    PRect GetClientFrame() const;
 
-    virtual void    Layout(const Point& delta);
-    virtual void    OnFrameSized(const Point& delta) override;
-    virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual void    OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& event) override;
+    virtual void    Layout(const PPoint& delta);
+    virtual void    OnFrameSized(const PPoint& delta) override;
+    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual void    OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event) override;
 
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual void    OnPaint(const Rect& updateRect) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void    OnPaint(const PRect& updateRect) override;
 
-    Signal<void, size_t, Ptr<View>, TabView*> SignalSelectionChanged;//(size_t index, Ptr<View> tabView, TabView* source)
+    Signal<void, size_t, Ptr<PView>, PTabView*> SignalSelectionChanged;//(size_t index, Ptr<View> tabView, TabView* source)
 private:
     void Initialize();
     float GetAvailableTabsWidth() const;
 
     struct Tab
     {
-        Tab(const PString& title, Ptr<View> view) : m_Title(title) { m_View = view; }
-        Ptr<View>   m_View;
+        Tab(const PString& title, Ptr<PView> view) : m_Title(title) { m_View = view; }
+        Ptr<PView>   m_View;
         PString     m_Title;
         float       m_Width;
     };
 
-    class TopView : public View
+    class TopView : public PView
     {
     public:
-        TopView(TabView* parent) : View("top_view", ptr_tmp_cast(parent), ViewFlags::WillDraw) {
+        TopView(PTabView* parent) : PView("top_view", ptr_tmp_cast(parent), PViewFlags::WillDraw) {
             m_TabView = parent;
         }
     
-        virtual void OnPaint(const Rect& updateRect) override;
+        virtual void OnPaint(const PRect& updateRect) override;
     private:
-        TabView* m_TabView;
+        PTabView* m_TabView;
     };
 
-    friend class TabView::TopView;
+    friend class PTabView::TopView;
   
     size_t              m_SelectedTab = INVALID_INDEX;
     float               m_ScrollOffset = 0.0f;
-    Point               m_HitPos;
-    MouseButton_e       m_HitButton = MouseButton_e::None;
+    PPoint               m_HitPos;
+    PMouseButton       m_HitButton = PMouseButton::None;
     float               m_TabHeight;
     float               m_GlyphHeight;
-    FontHeight          m_FontHeight;
+    PFontHeight          m_FontHeight;
     float               m_TotalTabsWidth;
     std::vector<Tab>    m_TabList;
     Ptr<TopView>        m_TopView;
-    Ptr<View>           m_TopBarClientView;
+    Ptr<PView>           m_TopBarClientView;
 };
-
-
-}

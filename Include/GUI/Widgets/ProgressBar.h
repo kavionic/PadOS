@@ -20,8 +20,6 @@
 
 #include <GUI/View.h>
 
-namespace os
-{
 
 /** 
  * \ingroup gui
@@ -31,16 +29,16 @@ namespace os
  * \author	Kurt Skauen (kurt@atheos.cx)
  *****************************************************************************/
 
-class ProgressBar : public View
+class PProgressBar : public PView
 {
 public:
-    ProgressBar(const PString& name = PString::zero, Ptr<View> parent = nullptr, Orientation orientation = Orientation::Horizontal, uint32_t flags = 0);
-    ProgressBar(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PProgressBar(const PString& name = PString::zero, Ptr<PView> parent = nullptr, POrientation orientation = POrientation::Horizontal, uint32_t flags = 0);
+    PProgressBar(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
     // From View:
-    virtual void OnPaint(const Rect& updateRect) override;
-    virtual void OnFrameSized(const Point& delta) override;
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void OnPaint(const PRect& updateRect) override;
+    virtual void OnFrameSized(const PPoint& delta) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 
     // From ProgressBar:
     void    SetProgress(float value);
@@ -48,9 +46,5 @@ public:
 
 private:
     float 	    m_Progress = 0.0f;
-    Orientation m_Orientation;
+    POrientation m_Orientation;
 };
-
-
-
-} // namespace os

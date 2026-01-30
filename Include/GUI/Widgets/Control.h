@@ -20,8 +20,6 @@
 
 #include <GUI/View.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Base class for GUI controls.
@@ -33,14 +31,14 @@ namespace os
 ///////////////////////////////////////////////////////////////////////////////
 
 
-class Control : public View
+class PControl : public PView
 {
 public:
     static constexpr int32_t INVALID_ID = -1;
 
-    Control(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = ViewFlags::WillDraw | ViewFlags::ClearBackground);
-    Control(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment = Alignment::Center);
-    ~Control();
+    PControl(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = PViewFlags::WillDraw | PViewFlags::ClearBackground);
+    PControl(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment = PAlignment::Center);
+    ~PControl();
 
       // From Control:
     virtual void OnEnableStatusChanged(bool isEnabled) { Invalidate(); Flush(); }
@@ -52,8 +50,8 @@ public:
     void    SetLabel(const PString& label);
     PString GetLabel() const { return m_Label; }
     
-    void        SetLabelAlignment(Alignment alignment) { m_LabelAlignment = alignment; PreferredSizeChanged(); Invalidate(); Flush(); }
-    Alignment   GetLabelAlignment() const { return m_LabelAlignment; }
+    void        SetLabelAlignment(PAlignment alignment) { m_LabelAlignment = alignment; PreferredSizeChanged(); Invalidate(); Flush(); }
+    PAlignment   GetLabelAlignment() const { return m_LabelAlignment; }
 
     void    SetID(int32_t ID) { m_ID = ID; }
     int32_t GetID() const { return m_ID; }
@@ -61,8 +59,6 @@ public:
 private:
     int32_t m_ID = INVALID_ID;
     PString     m_Label;
-    Alignment   m_LabelAlignment = Alignment::Center;
+    PAlignment   m_LabelAlignment = PAlignment::Center;
     bool    m_IsEnabled;
 };
-
-}

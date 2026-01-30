@@ -20,14 +20,12 @@
 #include <GUI/Widgets/Menu.h>
 #include <GUI/Bitmap.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MenuItem::MenuItem(const PString& label, int id) : m_ID(id), m_Label(label)
+PMenuItem::PMenuItem(const PString& label, int id) : m_ID(id), m_Label(label)
 {
     m_SuperMenu       = nullptr;
     m_SubMenu         = nullptr;
@@ -38,7 +36,7 @@ MenuItem::MenuItem(const PString& label, int id) : m_ID(id), m_Label(label)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MenuItem::MenuItem(Ptr<Menu> menu) : m_Label(menu->GetLabel())
+PMenuItem::PMenuItem(Ptr<PMenu> menu) : m_Label(menu->GetLabel())
 {
     m_SuperMenu       = nullptr;
     m_SubMenu         = menu;
@@ -51,7 +49,7 @@ MenuItem::MenuItem(Ptr<Menu> menu) : m_Label(menu->GetLabel())
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MenuItem::~MenuItem()
+PMenuItem::~PMenuItem()
 {
     if (m_SubMenu != nullptr) {
         m_SubMenu->m_SuperItem = nullptr;
@@ -62,7 +60,7 @@ MenuItem::~MenuItem()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Menu> MenuItem::GetSubMenu() const
+Ptr<PMenu> PMenuItem::GetSubMenu() const
 {
     return m_SubMenu;
 }
@@ -71,7 +69,7 @@ Ptr<Menu> MenuItem::GetSubMenu() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Menu> MenuItem::GetSuperMenu() const
+Ptr<PMenu> PMenuItem::GetSuperMenu() const
 {
     return ptr_tmp_cast(m_SuperMenu);
 }
@@ -80,7 +78,7 @@ Ptr<Menu> MenuItem::GetSuperMenu() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Rect MenuItem::GetFrame() const
+PRect PMenuItem::GetFrame() const
 {
     return m_Frame;
 }
@@ -89,18 +87,18 @@ Rect MenuItem::GetFrame() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point MenuItem::GetContentSize()
+PPoint PMenuItem::GetContentSize()
 {
-    Ptr<Menu> menu = GetSuperMenu();
+    Ptr<PMenu> menu = GetSuperMenu();
 
-    Point size(4.0f, Menu::LEFT_ARROW_HEIGHT + 4.0f);
+    PPoint size(4.0f, PMenu::LEFT_ARROW_HEIGHT + 4.0f);
 
     if (m_SubMenu != nullptr) {
-        size.x += Menu::LEFT_ARROW_WIDTH + 15.0f;
+        size.x += PMenu::LEFT_ARROW_WIDTH + 15.0f;
     }
 
     if (!m_Label.empty() && menu != nullptr) {
-        FontHeight sHeight = menu->GetFontHeight();
+        PFontHeight sHeight = menu->GetFontHeight();
 
         size.x += menu->GetStringWidth(GetLabel());
         size.y = std::max(size.y, sHeight.ascender + sHeight.descender + sHeight.line_gap);
@@ -113,7 +111,7 @@ Point MenuItem::GetContentSize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString MenuItem::GetLabel() const
+PString PMenuItem::GetLabel() const
 {
     return m_Label;
 }
@@ -122,12 +120,12 @@ PString MenuItem::GetLabel() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point MenuItem::GetContentLocation() const
+PPoint PMenuItem::GetContentLocation() const
 {
     if (m_SuperMenu != nullptr) {
-        return Point(m_Frame.left, m_Frame.top);
+        return PPoint(m_Frame.left, m_Frame.top);
     } else {
-        return Point(m_Frame.left, m_Frame.top);
+        return PPoint(m_Frame.left, m_Frame.top);
     }
 }
 
@@ -135,9 +133,9 @@ Point MenuItem::GetContentLocation() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MenuItem::Draw(Ptr<View> targetView)
+void PMenuItem::Draw(Ptr<PView> targetView)
 {
-    Ptr<Menu> menu = GetSuperMenu();
+    Ptr<PMenu> menu = GetSuperMenu();
 
     if (menu == nullptr) {
         return;
@@ -145,40 +143,40 @@ void MenuItem::Draw(Ptr<View> targetView)
     if (m_Label.empty()) {
         return;
     }
-    Rect frame = GetFrame();
+    PRect frame = GetFrame();
 
-    FontHeight fontHeight = targetView->GetFontHeight();
+    PFontHeight fontHeight = targetView->GetFontHeight();
 
     if (m_IsHighlighted) {
-        targetView->SetFgColor(StandardColorID::MenuBackgroundSelected);
+        targetView->SetFgColor(PStandardColorID::MenuBackgroundSelected);
     } else {
-        targetView->SetFgColor(StandardColorID::MenuBackground);
+        targetView->SetFgColor(PStandardColorID::MenuBackground);
     }
 
     targetView->FillRect(GetFrame());
 
     if (m_IsHighlighted) {
-        targetView->SetFgColor(StandardColorID::MenuTextSelected);
-        targetView->SetBgColor(StandardColorID::MenuBackgroundSelected);
+        targetView->SetFgColor(PStandardColorID::MenuTextSelected);
+        targetView->SetBgColor(PStandardColorID::MenuBackgroundSelected);
     } else {
-        targetView->SetFgColor(StandardColorID::MenuText);
-        targetView->SetBgColor(StandardColorID::MenuBackground);
+        targetView->SetFgColor(PStandardColorID::MenuText);
+        targetView->SetBgColor(PStandardColorID::MenuBackground);
     }
 
     float vCharHeight = fontHeight.ascender + fontHeight.descender + fontHeight.line_gap;
     float y = std::round(frame.top + (frame.Height() - vCharHeight) * 0.5f + fontHeight.ascender /*+ fontHeight.line_gap * 0.5f*/);
 
-    targetView->DrawString(m_Label, Point(frame.left + 2.0f, y));
+    targetView->DrawString(m_Label, PPoint(frame.left + 2.0f, y));
 
     if (m_SubMenu != nullptr)
     {
-        Ptr<Bitmap> bitmap = menu->GetArrowRightBitmap();
+        Ptr<PBitmap> bitmap = menu->GetArrowRightBitmap();
 
-        Rect arrowBounds = bitmap->GetBounds();
+        PRect arrowBounds = bitmap->GetBounds();
 
-        targetView->SetDrawingMode(DrawingMode::Overlay);
-        targetView->DrawBitmap(bitmap, arrowBounds, Point(frame.right - arrowBounds.Width() - 5.0f, std::round(frame.top + (frame.Height() - arrowBounds.Height()) * 0.5f)));
-        targetView->SetDrawingMode(DrawingMode::Copy);
+        targetView->SetDrawingMode(PDrawingMode::Overlay);
+        targetView->DrawBitmap(bitmap, arrowBounds, PPoint(frame.right - arrowBounds.Width() - 5.0f, std::round(frame.top + (frame.Height() - arrowBounds.Height()) * 0.5f)));
+        targetView->SetDrawingMode(PDrawingMode::Copy);
     }
 }
 
@@ -186,7 +184,7 @@ void MenuItem::Draw(Ptr<View> targetView)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MenuItem::DrawContent(Ptr<View> targetView)
+void PMenuItem::DrawContent(Ptr<PView> targetView)
 {
 }
 
@@ -194,7 +192,7 @@ void MenuItem::DrawContent(Ptr<View> targetView)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MenuItem::Highlight(bool bHighlight)
+void PMenuItem::Highlight(bool bHighlight)
 {
     m_IsHighlighted = bHighlight;
     if (m_SuperMenu != nullptr)
@@ -203,5 +201,3 @@ void MenuItem::Highlight(bool bHighlight)
     }
 //    Draw();
 }
-
-} // namespace os;

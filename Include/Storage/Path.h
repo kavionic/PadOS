@@ -24,9 +24,9 @@
 
 #include <Utils/String.h>
 
-namespace os
-{
-class Directory;
+
+class PDirectory;
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \ingroup storage
@@ -36,22 +36,22 @@ class Directory;
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-class Path
+class PPath
 {
 public:
-    Path();
-    Path(const Path& path);
-    Path(const PString& path);
-    Path(const char* path, size_t length);
-    ~Path();
+    PPath();
+    PPath(const PPath& path);
+    PPath(const PString& path);
+    PPath(const char* path, size_t length);
+    ~PPath();
 
-    void operator =(const Path& path);
+    void operator =(const PPath& path);
     void operator =(const PString& path);
-    bool operator==(const Path& path) const;
+    bool operator==(const PPath& path) const;
 
     void SetTo(const PString& path);
     void SetTo(const char* path, size_t length);
-    void Append(const Path& path);
+    void Append(const PPath& path);
     void Append(const PString& name);
   
     PString         GetLeaf() const;
@@ -64,7 +64,7 @@ public:
 
     const char* c_str() const { return m_Path.c_str(); }
 
-    bool    CreateFolders(bool includeLeaf = true, Directory* outLeafDirectory = nullptr, int accessMode = S_IRWXU);
+    bool    CreateFolders(bool includeLeaf = true, PDirectory* outLeafDirectory = nullptr, int accessMode = S_IRWXU);
 
     operator PString() const;
 
@@ -76,17 +76,13 @@ private:
     size_t  m_NameStart = 0;
 };
 
-} // namespace os
-
-using PPath = os::Path;
-
 PFORMATTER_NAMESPACE
 {
 
 template<>
-struct formatter<os::Path> : formatter<::std::string>
+struct formatter<PPath> : formatter<::std::string>
 {
-  auto format(const os::Path& a, format_context& ctx) const {
+  auto format(const PPath& a, format_context& ctx) const {
     return formatter<std::string>::format(static_cast<const std::string&>(a), ctx);
   }
 };

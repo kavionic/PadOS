@@ -19,10 +19,8 @@
 
 #pragma once
 
-namespace os
-{
 
-namespace Acceleration
+namespace PAcceleration
 {
 
 float CalculateAccelerationSpeed(float distance, float startSpeed, float acceleration);
@@ -32,5 +30,3 @@ bool  CalculateMaxCruiseSpeed(float distance, float startSpeed, float cruiseSpee
 float CalcTravelTime(float distance, float startSpeed, float cruiseSpeed, float endSpeed, float acceleration);
 
 } // namespace Acceleration
-
-} // namespace os

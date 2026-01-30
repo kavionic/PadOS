@@ -22,24 +22,22 @@
 #include <stdint.h>
 #include <stddef.h>
 
-namespace os
-{
 
-enum class HashAlgorithm
+enum class PHashAlgorithm
 {
     CRC8,
 //    CRC16,
     CRC32
 };
 
-template<HashAlgorithm ALGORITHM>
-class HashCalculator
+template<PHashAlgorithm ALGORITHM>
+class PHashCalculator
 {
 
 };
 
 template<>
-class HashCalculator<HashAlgorithm::CRC8>
+class PHashCalculator<PHashAlgorithm::CRC8>
 {
 public:
     void    Start() { m_CRC = 0; }
@@ -52,7 +50,7 @@ private:
 };
 
 template<>
-class HashCalculator<HashAlgorithm::CRC32>
+class PHashCalculator<PHashAlgorithm::CRC32>
 {
 public:
     void Start() { m_CRC = 0xffffffff; }
@@ -63,5 +61,3 @@ private:
     uint32_t m_CRC = 0xffffffff;
 
 };
-
-}

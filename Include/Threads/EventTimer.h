@@ -24,20 +24,18 @@
 #include "Kernel/Kernel.h"
 #include "Signals/Signal.h"
 
-namespace os
-{
-    
-class Looper;
 
-class EventTimer
+class PLooper;
+
+class PEventTimer
 {
 public:
-    EventTimer(TimeValNanos timeout = TimeValNanos::zero, bool singleshot = false, int32_t id = 0);
-    ~EventTimer();
+    PEventTimer(TimeValNanos timeout = TimeValNanos::zero, bool singleshot = false, int32_t id = 0);
+    ~PEventTimer();
     
     void      Set(TimeValNanos timeout, bool singleshot = false);
 
-    bool      Start(bool singleShot = false, Looper* looper = nullptr);
+    bool      Start(bool singleShot = false, PLooper* looper = nullptr);
     void      Stop();
     bool      IsRunning() const;
     bool      IsSingleshot() const { return m_IsSingleshot; }
@@ -48,20 +46,18 @@ public:
     TimeValNanos GetTimeout() const { return m_Timeout; }
     TimeValNanos GetRemainingTime() const;
 
-    Signal<void, EventTimer*> SignalTrigged;
+    Signal<void, PEventTimer*> SignalTrigged;
 
 private:
-    friend class Looper;
+    friend class PLooper;
 
-    Looper* m_Looper = nullptr;
+    PLooper* m_Looper = nullptr;
     int32_t                                             m_ID;
     TimeValNanos                                        m_Timeout;
     bool                                                m_IsSingleshot = false;
-    std::multimap<TimeValNanos, EventTimer*>::iterator  m_TimerMapIterator;
+    std::multimap<TimeValNanos, PEventTimer*>::iterator  m_TimerMapIterator;
 
-    EventTimer( const EventTimer &c );
-    EventTimer& operator=( const EventTimer &c );
+    PEventTimer( const PEventTimer &c );
+    PEventTimer& operator=( const PEventTimer &c );
 
 };
-
-} // namespace

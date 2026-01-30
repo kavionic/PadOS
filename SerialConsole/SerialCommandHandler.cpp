@@ -35,7 +35,6 @@
 #include <Kernel/IRQDispatcher.h>
 #include <Utils/HashCalculator.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -377,7 +376,7 @@ bool SerialCommandHandler::ReadPacket()
 
         SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer.data());
 
-        HashCalculator<HashAlgorithm::CRC32> crcCalc;
+        PHashCalculator<PHashAlgorithm::CRC32> crcCalc;
 
         uint32_t receivedCRC = packetBuffer->Checksum;
         packetBuffer->Checksum = 0;
@@ -427,7 +426,7 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
     {
         return false;
     }
-    HashCalculator<HashAlgorithm::CRC32> crcCalc;
+    PHashCalculator<PHashAlgorithm::CRC32> crcCalc;
 
     header->Checksum = 0;
     crcCalc.AddData(header, headerSize);

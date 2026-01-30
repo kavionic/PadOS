@@ -22,30 +22,28 @@
 #include <GUI/Widgets/Control.h>
 #include <Threads/EventTimer.h>
 
-namespace os
-{
 
-struct TextBoxStyle;
+struct PTextBoxStyle;
 
-class TextEditView : public Control
+class PTextEditView : public PControl
 {
 public:
-    TextEditView(const PString& name, const PString& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    TextEditView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
-    ~TextEditView();
+    PTextEditView(const PString& name, const PString& text, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PTextEditView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
+    ~PTextEditView();
 
     // From View:
     virtual void    OnKeyboardFocusChanged(bool hasFocus) override;
     virtual void    OnFlagsChanged(uint32_t changedFlags) override;
-    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual Point   CalculateContentSize() const override;
-    virtual void    OnPaint(const Rect& updateRect) override;
+    virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual PPoint   CalculateContentSize() const override;
+    virtual void    OnPaint(const PRect& updateRect) override;
 
-    virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
 
-    virtual void OnKeyUp(KeyCodes keyCode, const PString& text, const KeyEvent& event) override;
+    virtual void OnKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& event) override;
 
     // From TextEditView:
     void                    SetText(const PString& text, bool sendEvent = true);
@@ -56,36 +54,33 @@ public:
 
     bool                    MoveCursor(int delta);
     bool                    SetCursorPos(size_t position);
-    size_t                  ViewPosToCursorPos(const Point& position) const;
+    size_t                  ViewPosToCursorPos(const PPoint& position) const;
 
-    Point                   GetSizeForString(const PString& text, bool includeWidth = true, bool includeHeight = true) const;
+    PPoint                   GetSizeForString(const PString& text, bool includeWidth = true, bool includeHeight = true) const;
 
-    Ptr<const TextBoxStyle> GetStyle() const;
-    void                    SetStyle(Ptr<const TextBoxStyle> style);
+    Ptr<const PTextBoxStyle> GetStyle() const;
+    void                    SetStyle(Ptr<const PTextBoxStyle> style);
 
-    Signal<void, const PString&, bool, TextEditView*> SignalTextChanged; //(const PString& newText, bool finalEdit, TextEditView* source)
+    Signal<void, const PString&, bool, PTextEditView*> SignalTextChanged; //(const PString& newText, bool finalEdit, TextEditView* source)
 private:
     void Initialize();
-    Rect GetCursorFrame();
+    PRect GetCursorFrame();
     void UpdateCursorTimer();
     void SlotCursorTimer();
 
     PString                 m_Text;
     size_t                  m_CursorPos = 0;
-    Point                   m_CursorViewPos;
-    EventTimer              m_CursorTimer;
+    PPoint                   m_CursorViewPos;
+    PEventTimer              m_CursorTimer;
     bool                    m_CursorVisible = false;
     bool                    m_CursorFrozen = false;
     bool                    m_IsScrolling = false;
     bool                    m_IsDraggingCursor = false;
-    MouseButton_e           m_HitButton = MouseButton_e::None;
-    Point                   m_HitPos;
+    PMouseButton           m_HitButton = PMouseButton::None;
+    PPoint                   m_HitPos;
 
-    Ptr<const TextBoxStyle> m_Style;
+    Ptr<const PTextBoxStyle> m_Style;
 
-    TextEditView(const TextEditView&) = delete;
-    TextEditView& operator=(const TextEditView&) = delete;
+    PTextEditView(const PTextEditView&) = delete;
+    PTextEditView& operator=(const PTextEditView&) = delete;
 };
-
-
-} // namespace os

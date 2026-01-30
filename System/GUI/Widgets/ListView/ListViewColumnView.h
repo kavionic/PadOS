@@ -20,27 +20,21 @@
 
 #include "GUI/View.h"
 
-namespace os
-{
 
-class ListViewScrolledView;
+class PListViewScrolledView;
 
-class ListViewColumnView : public View
+class PListViewColumnView : public PView
 {
 public:
-    ListViewColumnView(Ptr<ListViewScrolledView> parent, const PString& title);
-    ~ListViewColumnView();
+    PListViewColumnView(Ptr<PListViewScrolledView> parent, const PString& title);
+    ~PListViewColumnView();
 
-    virtual void OnPaint(const Rect& updateRect) override;
-    void         Refresh(const Rect& updateRect);
+    virtual void OnPaint(const PRect& updateRect) override;
+    void         Refresh(const PRect& updateRect);
 private:
-    friend class ListViewHeaderView;
-    friend class ListViewScrolledView;
+    friend class PListViewHeaderView;
+    friend class PListViewScrolledView;
 
     PString m_Title;
     float   m_ContentWidth;
 };
-
-
-} // namespace os
-

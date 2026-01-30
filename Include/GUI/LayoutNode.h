@@ -24,60 +24,53 @@
 #include "Ptr/PtrTarget.h"
 #include "Math/Rect.h"
 
-namespace os
-{
-class View;
+class PView;
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class LayoutNode : public PtrTarget
+class PLayoutNode : public PtrTarget
 {
 public:
-    LayoutNode();
-    virtual ~LayoutNode();
+    PLayoutNode();
+    virtual ~PLayoutNode();
 
     virtual void Layout();
-    virtual void CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight);
-    virtual void ApplyInnerBorders(const Rect& borders, float spacing);
+    virtual void CalculatePreferredSize(PPoint* minSizeOut, PPoint* maxSizeOut, bool includeWidth, bool includeHeight);
+    virtual void ApplyInnerBorders(const PRect& borders, float spacing);
 protected:
-    View* m_View = nullptr;
+    PView* m_View = nullptr;
 
 private:
-    friend class View;
+    friend class PView;
 
-    void AttachedToView(View* view);
+    void AttachedToView(PView* view);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class HLayoutNode : public LayoutNode
+class PHLayoutNode : public PLayoutNode
 {
 public:
-    HLayoutNode();
+    PHLayoutNode();
     virtual void Layout() override;
-    virtual void CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight) override;
-	virtual void ApplyInnerBorders(const Rect& borders, float spacing) override;
+    virtual void CalculatePreferredSize(PPoint* minSizeOut, PPoint* maxSizeOut, bool includeWidth, bool includeHeight) override;
+	virtual void ApplyInnerBorders(const PRect& borders, float spacing) override;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class VLayoutNode : public LayoutNode
+class PVLayoutNode : public PLayoutNode
 {
 public:
-    VLayoutNode();
+    PVLayoutNode();
     virtual void Layout() override;
-    virtual void CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight) override;
-	virtual void ApplyInnerBorders(const Rect& borders, float spacing) override;
+    virtual void CalculatePreferredSize(PPoint* minSizeOut, PPoint* maxSizeOut, bool includeWidth, bool includeHeight) override;
+	virtual void ApplyInnerBorders(const PRect& borders, float spacing) override;
 };
-
-
-
-
-} // end of namespace

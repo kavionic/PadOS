@@ -22,35 +22,33 @@
 
 #include <Utils/String.h>
 
-namespace os
-{
-class Mutex;
-
-using StandardPathID = uint32_t;
+class PMutex;
 
 
-#define DEFINE_STANDARD_PATH_ID(ID)   static constexpr os::StandardPathID ID = PString::hash_string_literal(#ID, sizeof(#ID) - 1);
+using PStandardPathID = uint32_t;
 
-class StandardPaths
+
+#define PDEFINE_STANDARD_PATH_ID(ID)   static constexpr PStandardPathID ID = PString::hash_string_literal(#ID, sizeof(#ID) - 1);
+
+class PStandardPaths
 {
 public:
-    static bool    RegisterPath(StandardPathID pathID, const PString& path);
-    static bool    UpdatePath(StandardPathID pathID, const PString& path);
-    static PString GetPath(StandardPathID pathID);
-    static PString GetPath(StandardPathID pathID, const PString& file);
+    static bool    RegisterPath(PStandardPathID pathID, const PString& path);
+    static bool    UpdatePath(PStandardPathID pathID, const PString& path);
+    static PString GetPath(PStandardPathID pathID);
+    static PString GetPath(PStandardPathID pathID, const PString& file);
 
 private:
-    static Mutex& GetMutex();
+    static PMutex& GetMutex();
 
-    static std::map<StandardPathID, PString> s_PathMap;
+    static std::map<PStandardPathID, PString> s_PathMap;
 };
 
-} // namespace os
 
-namespace StandardPath
+namespace PStandardPath
 {
-DEFINE_STANDARD_PATH_ID(System);
-DEFINE_STANDARD_PATH_ID(Settings);
-DEFINE_STANDARD_PATH_ID(Keyboards);
-DEFINE_STANDARD_PATH_ID(GUI);
+PDEFINE_STANDARD_PATH_ID(System);
+PDEFINE_STANDARD_PATH_ID(Settings);
+PDEFINE_STANDARD_PATH_ID(Keyboards);
+PDEFINE_STANDARD_PATH_ID(GUI);
 }

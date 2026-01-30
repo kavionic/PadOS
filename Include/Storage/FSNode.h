@@ -29,11 +29,9 @@
 #include <System/ErrorCodes.h>
 #include <Storage/Path.h>
 
-namespace os
-{
+class PFileReference;
+class PDirectory;
 
-class FileReference;
-class Directory;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Lowlevel filesystem node class.
@@ -58,27 +56,27 @@ class Directory;
 ///////////////////////////////////////////////////////////////////////////////
 
 
-class FSNode
+class PFSNode
 {
 public:
-    FSNode();
-    FSNode(const PString& path, int openFlags = O_RDONLY);
-    FSNode(const Directory& directory, const PString& path, int openFlags = O_RDONLY);
-    FSNode(const FileReference& reference, int openFlags = O_RDONLY);
-    FSNode(int fileDescriptor, bool takeOwnership);
-    FSNode(const FSNode& node);
-    FSNode(FSNode&& node);
-    virtual ~FSNode();
+    PFSNode();
+    PFSNode(const PString& path, int openFlags = O_RDONLY);
+    PFSNode(const PDirectory& directory, const PString& path, int openFlags = O_RDONLY);
+    PFSNode(const PFileReference& reference, int openFlags = O_RDONLY);
+    PFSNode(int fileDescriptor, bool takeOwnership);
+    PFSNode(const PFSNode& node);
+    PFSNode(PFSNode&& node);
+    virtual ~PFSNode();
 
     virtual bool FDChanged(int newFileDescriptor, const struct ::stat& statBuffer);
     
-    bool            Open(const Path& path, int openFlags = O_RDONLY) { return Open(path.GetPath(), openFlags); }
+    bool            Open(const PPath& path, int openFlags = O_RDONLY) { return Open(path.GetPath(), openFlags); }
     virtual bool    Open(const PString& path, int openFlags = O_RDONLY);
-    virtual bool    Open(const Directory& directory, const PString& path, int openFlags = O_RDONLY);
-    virtual bool    Open(const FileReference& reference, int openFlags = O_RDONLY);
+    virtual bool    Open(const PDirectory& directory, const PString& path, int openFlags = O_RDONLY);
+    virtual bool    Open(const PFileReference& reference, int openFlags = O_RDONLY);
     virtual bool    SetTo(int fileDescriptor, bool takeOwnership);
-    virtual bool    SetTo(const FSNode& node);
-    virtual bool    SetTo(FSNode&& node);
+    virtual bool    SetTo(const PFSNode& node);
+    virtual bool    SetTo(PFSNode&& node);
     virtual void    Close();
     
     virtual bool    IsValid() const;
@@ -118,8 +116,8 @@ public:
 
     virtual int GetFileDescriptor() const;
     
-    FSNode& operator=(const FSNode& rhs);
-    FSNode& operator=(FSNode&& rhs);
+    PFSNode& operator=(const PFSNode& rhs);
+    PFSNode& operator=(PFSNode&& rhs);
 
 protected:
     bool ParseResult(PErrorCode result) const
@@ -136,11 +134,9 @@ protected:
     }
 
 private:
-    friend class Directory;
+    friend class PDirectory;
     
     int  m_FileDescriptor = -1;
 //    DIR* m_hAttrDir = nullptr;
     mutable struct ::stat m_StatCache;
 };
-
-} // namespace os

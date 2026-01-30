@@ -22,9 +22,7 @@
 #include <GUI/View.h>
 #include <Utils/InertialScroller.h>
 
-namespace os
-{
-class ViewScroller;
+class PViewScroller;
 
 
 namespace osi
@@ -35,38 +33,38 @@ class ViewScrollerSignalTarget : public SignalTarget
 public:
     ViewScrollerSignalTarget();
 
-    void SetViewScroller(ViewScroller* viewScroller) { m_ViewScroller = viewScroller; }
+    void SetViewScroller(PViewScroller* viewScroller) { m_ViewScroller = viewScroller; }
 
-    Ptr<View>   SetScrolledView(Ptr<View> view);
-    Ptr<View>   GetScrolledView() const { return m_ScrolledView.Lock(); }
+    Ptr<PView>   SetScrolledView(Ptr<PView> view);
+    Ptr<PView>   GetScrolledView() const { return m_ScrolledView.Lock(); }
 
-    void BeginSwipe(const Point& position);
-    void SwipeMove(const Point& position);
+    void BeginSwipe(const PPoint& position);
+    void SwipeMove(const PPoint& position);
     void EndSwipe();
 
 private:
-    friend class os::ViewScroller;
+    friend class ::PViewScroller;
 
     void UpdateScroller();
-    void SlotInertialScrollUpdate(const Point& position);
+    void SlotInertialScrollUpdate(const PPoint& position);
 
-    InertialScroller    m_InertialScroller;
+    PInertialScroller    m_InertialScroller;
 
-    ViewScroller* m_ViewScroller;
+    PViewScroller* m_ViewScroller;
 
-    WeakPtr<View> m_ScrolledView;
+    WeakPtr<PView> m_ScrolledView;
 };
 
 } // namespace osi
 
-class ViewScroller
+class PViewScroller
 {
 public:
-    ViewScroller();
+    PViewScroller();
 
-    static ViewScroller* GetViewScroller(View* view);
+    static PViewScroller* GetViewScroller(PView* view);
 
-    InertialScroller::State GetInertialScrollerState() const { return m_Handler.m_InertialScroller.GetState(); }
+    PInertialScroller::State GetInertialScrollerState() const { return m_Handler.m_InertialScroller.GetState(); }
 
     void  SetMaxHOverscroll(float value)    { m_Handler.m_InertialScroller.SetMaxHOverscroll(value); }
     float GetMaxHOverscroll() const         { return m_Handler.m_InertialScroller.GetMaxHOverscroll(); }
@@ -79,16 +77,13 @@ public:
     void    SetStartScrollThreshold(float threshold) { m_Handler.m_InertialScroller.SetStartScrollThreshold(threshold); }
     float   GetStartScrollThreshold() const { return m_Handler.m_InertialScroller.GetStartScrollThreshold(); }
 
-    void BeginSwipe(const Point& position)  { m_Handler.BeginSwipe(position); }
-    void SwipeMove(const Point& position)   { m_Handler.SwipeMove(position); }
+    void BeginSwipe(const PPoint& position)  { m_Handler.BeginSwipe(position); }
+    void SwipeMove(const PPoint& position)   { m_Handler.SwipeMove(position); }
     void EndSwipe()                         { m_Handler.EndSwipe(); }
 
-    virtual Ptr<View>   SetScrolledView(Ptr<View> view) { return m_Handler.SetScrolledView(view); }
-    Ptr<View>           GetScrolledView() const           { return m_Handler.GetScrolledView(); }
+    virtual Ptr<PView>   SetScrolledView(Ptr<PView> view) { return m_Handler.SetScrolledView(view); }
+    Ptr<PView>           GetScrolledView() const           { return m_Handler.GetScrolledView(); }
 
 private:
     osi::ViewScrollerSignalTarget  m_Handler;
 };
-
-
-} // namespace os

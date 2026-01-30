@@ -26,143 +26,139 @@
 #include <Utils/UTF8Utils.h>
 #include <Ptr/NoPtr.h>
 
-namespace os
-{
-class Menu;
-class MenuItem;
+class PMenu;
+class PMenuItem;
 
-struct KeyboardViewStyle : public PtrTarget
-{
-    DynamicColor BackgroundColor        = DynamicColor(NamedColors::black /*StandardColorID::DefaultBackground*/);
-    DynamicColor NormalTextColor        = DynamicColor(NamedColors::white);
-    DynamicColor SelectedTextColor      = DynamicColor(NamedColors::darkblue);
-    DynamicColor LockedTextColor        = DynamicColor(NamedColors::white);
-    DynamicColor ExtraTextColor         = DynamicColor(NamedColors::gainsboro);
-    DynamicColor NormalButtonColor      = DynamicColor(NamedColors::dimgray);
-    DynamicColor PressedButtonColor     = DynamicColor(NamedColors::mediumblue);
-    DynamicColor SelectedButtonColor    = DynamicColor(NamedColors::dimgray);
-    DynamicColor LockedButtonColor      = DynamicColor(NamedColors::darkblue);
 
-    Ptr<Font>   LargeFont = ptr_new<Font>(Font_e::e_FontLarge);
-    Ptr<Font>   SmallFont = ptr_new<Font>(Font_e::e_FontSmall);
+struct PKeyboardViewStyle : public PtrTarget
+{
+    PDynamicColor BackgroundColor        = PDynamicColor(PNamedColors::black /*StandardColorID::DefaultBackground*/);
+    PDynamicColor NormalTextColor        = PDynamicColor(PNamedColors::white);
+    PDynamicColor SelectedTextColor      = PDynamicColor(PNamedColors::darkblue);
+    PDynamicColor LockedTextColor        = PDynamicColor(PNamedColors::white);
+    PDynamicColor ExtraTextColor         = PDynamicColor(PNamedColors::gainsboro);
+    PDynamicColor NormalButtonColor      = PDynamicColor(PNamedColors::dimgray);
+    PDynamicColor PressedButtonColor     = PDynamicColor(PNamedColors::mediumblue);
+    PDynamicColor SelectedButtonColor    = PDynamicColor(PNamedColors::dimgray);
+    PDynamicColor LockedButtonColor      = PDynamicColor(PNamedColors::darkblue);
+
+    Ptr<PFont>   LargeFont = ptr_new<PFont>(PFontID::e_FontLarge);
+    Ptr<PFont>   SmallFont = ptr_new<PFont>(PFontID::e_FontSmall);
 };
 
 
-struct KeyButton
+struct PKeyButton
 {
-    KeyButton(const Point& relativePos, float relativeWidth, float relativeHeight, KeyCodes normalKeyCode, KeyCodes lowerKeyCode, KeyCodes extraKeyCode, KeyCodes symbolKeyCode) noexcept
+    PKeyButton(const PPoint& relativePos, float relativeWidth, float relativeHeight, PKeyCodes normalKeyCode, PKeyCodes lowerKeyCode, PKeyCodes extraKeyCode, PKeyCodes symbolKeyCode) noexcept
         : m_Width(relativeWidth), m_Height(relativeHeight), m_RelativePos(relativePos), m_NormalKeyCode(normalKeyCode), m_LowerKeyCode(lowerKeyCode), m_ExtraKeyCode(extraKeyCode), m_SymbolKeyCode(symbolKeyCode) {}
 
-    Rect        m_Frame;
+    PRect        m_Frame;
     float       m_Width;
     float       m_Height;
-    Point       m_RelativePos;
-    KeyCodes    m_NormalKeyCode;
-    KeyCodes    m_LowerKeyCode;
-    KeyCodes    m_ExtraKeyCode;
-    KeyCodes    m_SymbolKeyCode;
+    PPoint       m_RelativePos;
+    PKeyCodes    m_NormalKeyCode;
+    PKeyCodes    m_LowerKeyCode;
+    PKeyCodes    m_ExtraKeyCode;
+    PKeyCodes    m_SymbolKeyCode;
 };
 
-enum class KeyboardLayoutType
+enum class PKeyboardLayoutType
 {
     Normal,
     Symbols,
     Numerical
 };
 
-struct KeyboardLayout
+struct PKeyboardLayout
 {
-    void Layout(const Rect& frame, const Point keySpacing, float rowHeight)
+    void Layout(const PRect& frame, const PPoint keySpacing, float rowHeight)
     {
         const float viewWidth  = frame.Width()  - keySpacing.x;
         const float viewHeight = frame.Height() - keySpacing.y;
 
         for (auto& button : m_KeyButtons)
         {
-            Point position(std::round(button.m_RelativePos.x * viewWidth) + keySpacing.x, std::round(button.m_RelativePos.y * viewHeight) + keySpacing.y);
-            button.m_Frame = Rect(position.x, position.y, position.x + std::floor(viewWidth * button.m_Width - keySpacing.x), position.y + std::floor(viewHeight * button.m_Height - keySpacing.y));
+            PPoint position(std::round(button.m_RelativePos.x * viewWidth) + keySpacing.x, std::round(button.m_RelativePos.y * viewHeight) + keySpacing.y);
+            button.m_Frame = PRect(position.x, position.y, position.x + std::floor(viewWidth * button.m_Width - keySpacing.x), position.y + std::floor(viewHeight * button.m_Height - keySpacing.y));
         }
     }
     void Clear() { m_KeyButtons.clear(); m_KeyRows = 0; }
 
-    KeyboardLayoutType      Type;
-    std::vector<KeyButton>  m_KeyButtons;
+    PKeyboardLayoutType      Type;
+    std::vector<PKeyButton>  m_KeyButtons;
     size_t                  m_KeyRows = 0;
 };
 
-enum class CapsLockMode : uint8_t
+enum class PCapsLockMode : uint8_t
 {
     Off,
     Single,
     Locked
 };
 
-namespace KeyboardViewFlags
+namespace PKeyboardViewFlags
 {
-static constexpr uint32_t Numerical = 0x01 << ViewFlags::FirstUserBit;
+static constexpr uint32_t Numerical = 0x01 << PViewFlags::FirstUserBit;
 }
 
-class KeyboardView : public View
+class PKeyboardView : public PView
 {
 public:
-    KeyboardView(const PString& name, Ptr<View> parent = nullptr, uint32_t flags = 0);
+    PKeyboardView(const PString& name, Ptr<PView> parent = nullptr, uint32_t flags = 0);
 
-    static Ptr<KeyboardViewStyle> GetDefaultStyle() { return s_DefaultStyle; }
+    static Ptr<PKeyboardViewStyle> GetDefaultStyle() { return s_DefaultStyle; }
 
     // From ViewBase:
     virtual void OnFlagsChanged(uint32_t changedFlags) override;
 
     // From View:
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual void OnFrameSized(const Point& delta) override;
-    virtual void OnPaint(const Rect& updateRect) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void OnFrameSized(const PPoint& delta) override;
+    virtual void OnPaint(const PRect& updateRect) override;
 
-    virtual bool OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool OnLongPress(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual bool OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnLongPress(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
 
     // From KeyboardView:
     bool LoadKeyboard(const PString& name);
 
-    Signal<void, KeyCodes, const PString&, KeyboardView*> SignalKeyPressed;
+    Signal<void, PKeyCodes, const PString&, PKeyboardView*> SignalKeyPressed;
 private:
     void    LoadConfig(PString& outSelectedKeyboard);
     void    SaveConfig(const PString& selectedKeyboard);
 
-    void    SetLayout(KeyboardLayout* layout);
-    PString GetKeyText(KeyCodes keyCode) const;
-    void    DrawButton(const KeyButton& button, bool pressed);
+    void    SetLayout(PKeyboardLayout* layout);
+    PString GetKeyText(PKeyCodes keyCode) const;
+    void    DrawButton(const PKeyButton& button, bool pressed);
     void    SetPressedButton(size_t index);
-    size_t  GetButtonIndex(const Point& position) const;
+    size_t  GetButtonIndex(const PPoint& position) const;
     void    SlotRepeatTimer();
-    void    SlotLayoutSelected(Ptr<MenuItem> item);
+    void    SlotLayoutSelected(Ptr<PMenuItem> item);
 
-    static NoPtr<KeyboardViewStyle> s_DefaultStyle;
-    Ptr<KeyboardViewStyle>          m_Style = s_DefaultStyle;
+    static NoPtr<PKeyboardViewStyle> s_DefaultStyle;
+    Ptr<PKeyboardViewStyle>          m_Style = s_DefaultStyle;
 
-    Ptr<Bitmap>                 m_KeysBitmap;
-    EventTimer                  m_RepeatTimer;
+    Ptr<PBitmap>                 m_KeysBitmap;
+    PEventTimer                  m_RepeatTimer;
 
     float                       m_KeyHeight = 0.0f;
 
     std::vector<PString>        m_Keyboards;
     size_t                      m_SelectedKeyboard;
-    KeyboardLayout              m_DefaultLayout;
-    std::vector<KeyboardLayout> m_SymbolLayouts;
-    KeyboardLayout*             m_CurrentLayout = &m_DefaultLayout;
+    PKeyboardLayout              m_DefaultLayout;
+    std::vector<PKeyboardLayout> m_SymbolLayouts;
+    PKeyboardLayout*             m_CurrentLayout = &m_DefaultLayout;
 
-    MouseButton_e               m_HitButton = MouseButton_e::None;
-    Point                       m_HitPos;
+    PMouseButton               m_HitButton = PMouseButton::None;
+    PPoint                       m_HitPos;
     size_t                      m_PressedButton = INVALID_INDEX;
-    CapsLockMode                m_CapsLockMode  = CapsLockMode::Single;
+    PCapsLockMode                m_CapsLockMode  = PCapsLockMode::Single;
     size_t                      m_SymbolPage = 0;
     int                         m_PrevCursorPos = 0;
-    Ptr<Menu>                   m_LayoutSelectMenu;
+    Ptr<PMenu>                   m_LayoutSelectMenu;
     bool                        m_IsDraggingCursor = false;
     bool                        m_SymbolsActive = false;
 
 };
-
-} // namespace os
-

@@ -27,7 +27,6 @@
 #include <Utils/Utils.h>
 #include <System/TimeValue.h>
 
-using namespace os;
 
 namespace kernel
 {

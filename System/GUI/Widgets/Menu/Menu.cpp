@@ -27,12 +27,9 @@
 #include "MenuRenderView.h"
 
 
-namespace os
+const std::map<PString, uint32_t> PMenuFlags::FlagMap
 {
-
-const std::map<PString, uint32_t> MenuFlags::FlagMap
-{
-    DEFINE_FLAG_MAP_ENTRY(MenuFlags, NoKeyboardFocus)
+    DEFINE_FLAG_MAP_ENTRY(PMenuFlags, NoKeyboardFocus)
 };
 
 static const uint32_t g_ArrowBitmapRaster[] =
@@ -63,25 +60,25 @@ static const uint32_t g_ArrowBitmapRaster[] =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Menu::Menu(const PString& title, MenuLayout layout, uint32_t flags)
-    : View("_menu_", nullptr, flags | ViewFlags::WillDraw | ViewFlags::ClearBackground)
+PMenu::PMenu(const PString& title, PMenuLayout layout, uint32_t flags)
+    : PView("_menu_", nullptr, flags | PViewFlags::WillDraw | PViewFlags::ClearBackground)
     , m_Title(title)
 {
-    m_ItemBorders = Rect(3, 2, 3, 2);
+    m_ItemBorders = PRect(3, 2, 3, 2);
     m_Layout = layout;
 
-    m_ContentView = ptr_new<MenuRenderView>(this);
+    m_ContentView = ptr_new<PMenuRenderView>(this);
 
     SetScrolledView(m_ContentView);
 
-    m_OpenTimer.SignalTrigged.Connect(this, &Menu::OpenSelection);
+    m_OpenTimer.SignalTrigged.Connect(this, &PMenu::OpenSelection);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Menu::~Menu()
+PMenu::~PMenu()
 {
 }
 
@@ -89,7 +86,7 @@ Menu::~Menu()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString Menu::GetLabel() const
+PString PMenu::GetLabel() const
 {
     return m_Title;
 }
@@ -98,7 +95,7 @@ PString Menu::GetLabel() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MenuLayout Menu::GetLayout() const
+PMenuLayout PMenu::GetLayout() const
 {
     return m_Layout;
 }
@@ -107,16 +104,16 @@ MenuLayout Menu::GetLayout() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::OnFrameSized(const Point& delta)
+void PMenu::OnFrameSized(const PPoint& delta)
 {
-    Rect contentFrame = GetBounds();
+    PRect contentFrame = GetBounds();
     contentFrame.Resize(2.0f, 2.0f, -2.0f, -2.0f);
 
     m_ContentView->SetFrame(contentFrame);
 
     if (delta.x > 0.0f)
     {
-        Rect bounds = GetBounds();
+        PRect bounds = GetBounds();
 
         bounds.left = bounds.right - delta.x;
         Invalidate(bounds);
@@ -124,7 +121,7 @@ void Menu::OnFrameSized(const Point& delta)
     }
     else if (delta.x < 0.0f)
     {
-        Rect bounds = GetBounds();
+        PRect bounds = GetBounds();
 
         bounds.left = bounds.right - 2.0f;
         Invalidate(bounds);
@@ -136,7 +133,7 @@ void Menu::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::StartOpenTimer(TimeValNanos delay)
+void PMenu::StartOpenTimer(TimeValNanos delay)
 {
     if (!m_OpenTimer.IsRunning())
     {
@@ -149,15 +146,15 @@ void Menu::StartOpenTimer(TimeValNanos delay)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::OpenSelection()
+void PMenu::OpenSelection()
 {
-    Ptr<MenuItem> selectedItem = FindMarked();
+    Ptr<PMenuItem> selectedItem = FindMarked();
 
     if (selectedItem == nullptr) {
         return;
     }
 
-    for (Ptr<MenuItem> item : m_Items)
+    for (Ptr<PMenuItem> item : m_Items)
     {
         if (item == selectedItem) {
             continue;
@@ -172,16 +169,16 @@ void Menu::OpenSelection()
         return;
     }
 
-    Rect frame = selectedItem->GetFrame();
-    Point screenPos;
+    PRect frame = selectedItem->GetFrame();
+    PPoint screenPos;
 
-    Point screenResolution(Desktop().GetResolution());
+    PPoint screenResolution(PDesktop().GetResolution());
 
-    Point topLeft(0.0f, 0.0f);
+    PPoint topLeft(0.0f, 0.0f);
 
     m_ContentView->ConvertToScreen(&topLeft);
 
-    if (m_Layout == MenuLayout::Horizontal)
+    if (m_Layout == PMenuLayout::Horizontal)
     {
         screenPos.x = topLeft.x + frame.left - m_ItemBorders.left;
 
@@ -204,16 +201,16 @@ void Menu::OpenSelection()
         }
     }
     m_HasOpenChildren = true;
-    selectedItem->m_SubMenu->Open(screenPos, MenuLocation::TopLeft);
+    selectedItem->m_SubMenu->Open(screenPos, PMenuLocation::TopLeft);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::SelectItem(Ptr<MenuItem> item)
+void PMenu::SelectItem(Ptr<PMenuItem> item)
 {
-    Ptr<MenuItem> prev = FindMarked();
+    Ptr<PMenuItem> prev = FindMarked();
 
     if (item == prev) {
         return;
@@ -225,7 +222,7 @@ void Menu::SelectItem(Ptr<MenuItem> item)
     {
         item->Highlight(true);
 
-        if (m_Layout == MenuLayout::Horizontal) {
+        if (m_Layout == PMenuLayout::Horizontal) {
             OpenSelection();
         } else {
             StartOpenTimer(0.2);
@@ -237,14 +234,14 @@ void Menu::SelectItem(Ptr<MenuItem> item)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::SelectPrev()
+void PMenu::SelectPrev()
 {
     if (m_Items.empty()) {
         return;
     }
-    Ptr<MenuItem> previous;
+    Ptr<PMenuItem> previous;
 
-    for (Ptr<MenuItem> item : m_Items)
+    for (Ptr<PMenuItem> item : m_Items)
     {
         if (item->m_IsHighlighted)
         {
@@ -257,10 +254,10 @@ void Menu::SelectPrev()
         }
         previous = item;
     }
-    if (m_Layout == MenuLayout::Vertical)
+    if (m_Layout == PMenuLayout::Vertical)
     {
-        Ptr<Menu> super = GetSuperMenu();
-        if (super != nullptr && super->m_Layout == MenuLayout::Horizontal) {
+        Ptr<PMenu> super = GetSuperMenu();
+        if (super != nullptr && super->m_Layout == PMenuLayout::Horizontal) {
             Close(false, false, nullptr);
         }
     }
@@ -275,11 +272,11 @@ void Menu::SelectPrev()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::SelectNext()
+void PMenu::SelectNext()
 {
     for (size_t i = 0; i < m_Items.size(); ++i)
     {
-        Ptr<MenuItem> item = m_Items[i];
+        Ptr<PMenuItem> item = m_Items[i];
         if (item->m_IsHighlighted || i == m_Items.size() - 1)
         {
             if (i + 1 < m_Items.size()) {
@@ -297,38 +294,38 @@ void Menu::SelectNext()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::Open(const Point& screenPosition, MenuLocation relativeLocation)
+void PMenu::Open(const PPoint& screenPosition, PMenuLocation relativeLocation)
 {
     if (m_IsOpen) {
         return;
     }
-    const Point resolution = Desktop().GetResolution();
-    const Point size = GetPreferredSize(PrefSizeType::Smallest);
-    const Rect  bounds(0, 0, size.x, size.y);
-    Rect  frame = bounds;
+    const PPoint resolution = PDesktop().GetResolution();
+    const PPoint size = GetPreferredSize(PPrefSizeType::Smallest);
+    const PRect  bounds(0, 0, size.x, size.y);
+    PRect  frame = bounds;
     m_IsOpen = true;
 
     switch (relativeLocation)
     {
-        case os::MenuLocation::Auto:
+        case PMenuLocation::Auto:
             frame += screenPosition;
             if (size.y < screenPosition.y - 20.0f || screenPosition.y > resolution.y * 0.5f)
             {
-                frame += Point(-std::round(size.x * 0.5f), -size.y - 20.0f);
+                frame += PPoint(-std::round(size.x * 0.5f), -size.y - 20.0f);
             }
             else
             {
-                frame += Point(-std::round(size.x * 0.5f), 20.0f);
+                frame += PPoint(-std::round(size.x * 0.5f), 20.0f);
             }
             break;
-        case os::MenuLocation::Center:
+        case PMenuLocation::Center:
             frame += (screenPosition - frame.Size() * 0.5f).GetRounded();
             break;
-        case os::MenuLocation::TopLeft:
+        case PMenuLocation::TopLeft:
             frame += screenPosition;
             break;
-        case os::MenuLocation::BottomLeft:
-            frame += screenPosition - Point(0.0f, -size.y);
+        case PMenuLocation::BottomLeft:
+            frame += screenPosition - PPoint(0.0f, -size.y);
             break;
         default:
             break;
@@ -364,14 +361,14 @@ void Menu::Open(const Point& screenPosition, MenuLocation relativeLocation)
     }
 
     SetFrame(frame);
-    if (!HasFlags(MenuFlags::NoKeyboardFocus)) {
+    if (!HasFlags(PMenuFlags::NoKeyboardFocus)) {
         SetKeyboardFocus(true);
     }
 
-    Application* app = Application::GetCurrentApplication();
+    PApplication* app = PApplication::GetCurrentApplication();
 
     if (app != nullptr) {
-        app->AddView(ptr_tmp_cast(this), ViewDockType::RootLevelView);
+        app->AddView(ptr_tmp_cast(this), PViewDockType::RootLevelView);
     }
 
     Flush();
@@ -381,10 +378,10 @@ void Menu::Open(const Point& screenPosition, MenuLocation relativeLocation)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::Close(bool bCloseChilds, bool bCloseParent, Ptr<MenuItem> selectedItem)
+void PMenu::Close(bool bCloseChilds, bool bCloseParent, Ptr<PMenuItem> selectedItem)
 {
-    Ptr<Menu> self = ptr_tmp_cast(this);
-    for (Ptr<MenuItem> item : m_Items)
+    Ptr<PMenu> self = ptr_tmp_cast(this);
+    for (Ptr<PMenuItem> item : m_Items)
     {
         if (item->m_IsHighlighted) {
             item->Highlight(false);
@@ -392,7 +389,7 @@ void Menu::Close(bool bCloseChilds, bool bCloseParent, Ptr<MenuItem> selectedIte
     }
     if (bCloseChilds)
     {
-        for (Ptr<MenuItem> item : m_Items)
+        for (Ptr<PMenuItem> item : m_Items)
         {
             if (item->m_SubMenu != nullptr) {
                 item->m_SubMenu->Close(bCloseChilds, bCloseParent, selectedItem);
@@ -403,16 +400,16 @@ void Menu::Close(bool bCloseChilds, bool bCloseParent, Ptr<MenuItem> selectedIte
     if (m_IsOpen)
     {
         m_IsOpen = false;
-        Application* app = GetApplication();
+        PApplication* app = GetApplication();
 
         if (app != nullptr) {
             app->RemoveView(self);
         }
 
-        Ptr<Menu> parent = GetSuperMenu();
+        Ptr<PMenu> parent = GetSuperMenu();
         if (parent != nullptr)
         {
-            if (parent->m_IsOpen && !HasFlags(MenuFlags::NoKeyboardFocus)) {
+            if (parent->m_IsOpen && !HasFlags(PMenuFlags::NoKeyboardFocus)) {
                 parent->SetKeyboardFocus(true);
             }
             parent->m_HasOpenChildren = false;
@@ -422,7 +419,7 @@ void Menu::Close(bool bCloseChilds, bool bCloseParent, Ptr<MenuItem> selectedIte
 
     if (bCloseParent)
     {
-        Ptr<Menu> parent = GetSuperMenu();
+        Ptr<PMenu> parent = GetSuperMenu();
         if (parent != nullptr) {
             parent->Close(false, true, selectedItem);
         } else if (selectedItem != nullptr) {
@@ -460,37 +457,37 @@ void Menu::Close(bool bCloseChilds, bool bCloseParent, Ptr<MenuItem> selectedIte
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& event)
+void PMenu::OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event)
 {
     switch (keyCode)
     {
-        case KeyCodes::CURSOR_UP:
-            if (m_Layout == MenuLayout::Horizontal) {
+        case PKeyCodes::CURSOR_UP:
+            if (m_Layout == PMenuLayout::Horizontal) {
             } else {
                 SelectPrev();
                 StartOpenTimer(1.0);
             }
             break;
-        case KeyCodes::CURSOR_DOWN:
-            if (m_Layout == MenuLayout::Horizontal) {
+        case PKeyCodes::CURSOR_DOWN:
+            if (m_Layout == PMenuLayout::Horizontal) {
                 OpenSelection();
             } else {
                 SelectNext();
                 StartOpenTimer(1.0);
             }
             break;
-        case KeyCodes::CURSOR_LEFT:
-            if (m_Layout == MenuLayout::Horizontal)
+        case PKeyCodes::CURSOR_LEFT:
+            if (m_Layout == PMenuLayout::Horizontal)
             {
                 SelectPrev();
                 OpenSelection();
             }
             else
             {
-                Ptr<Menu> super = GetSuperMenu();
+                Ptr<PMenu> super = GetSuperMenu();
                 if (super != nullptr)
                 {
-                    if (super->m_Layout == MenuLayout::Vertical) {
+                    if (super->m_Layout == PMenuLayout::Vertical) {
                         Close(false, false, nullptr);
                     } else {
                         super->SelectPrev();
@@ -499,30 +496,30 @@ void Menu::OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& even
                 }
             }
             break;
-        case KeyCodes::CURSOR_RIGHT:
-            if (m_Layout == MenuLayout::Horizontal)
+        case PKeyCodes::CURSOR_RIGHT:
+            if (m_Layout == PMenuLayout::Horizontal)
             {
                 SelectNext();
                 OpenSelection();
             }
             else
             {
-                Ptr<Menu> super = GetSuperMenu();
+                Ptr<PMenu> super = GetSuperMenu();
                 if (super != nullptr)
                 {
-                    Ptr<MenuItem> item = FindMarked();
+                    Ptr<PMenuItem> item = FindMarked();
                     if (item != nullptr && item->m_SubMenu != nullptr) {
                         OpenSelection();
-                    } else if (super->m_Layout == MenuLayout::Horizontal) {
+                    } else if (super->m_Layout == PMenuLayout::Horizontal) {
                         super->SelectNext();
                         super->OpenSelection();
                     }
                 }
             }
             break;
-        case KeyCodes::ENTER:
+        case PKeyCodes::ENTER:
         {
-            Ptr<MenuItem> item = FindMarked();
+            Ptr<PMenuItem> item = FindMarked();
             if (item != nullptr)
             {
                 if (item->m_SubMenu != nullptr)
@@ -536,12 +533,12 @@ void Menu::OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& even
             }
             break;
         }
-        case KeyCodes::ESCAPE:
+        case PKeyCodes::ESCAPE:
             Close(false, false, nullptr);
             Flush();
             break;
         default:
-            View::OnKeyDown(keyCode, text, event);
+            PView::OnKeyDown(keyCode, text, event);
             break;
     }
 }
@@ -550,9 +547,9 @@ void Menu::OnKeyDown(KeyCodes keyCode, const PString& text, const KeyEvent& even
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::OnPaint(const Rect& updateRect)
+void PMenu::OnPaint(const PRect& updateRect)
 {
-    SetFgColor(StandardColorID::MenuBackground);
+    SetFgColor(PStandardColorID::MenuBackground);
     FillRect(GetBounds());
 
     DrawFrame(GetBounds(), FRAME_RAISED | FRAME_THIN | FRAME_TRANSPARENT);
@@ -562,16 +559,16 @@ void Menu::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::AddStringItem(const PString& label, int id)
+Ptr<PMenuItem> PMenu::AddStringItem(const PString& label, int id)
 {
-    return AddItem(ptr_new<MenuItem>(label, id));
+    return AddItem(ptr_new<PMenuItem>(label, id));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::AddItem(Ptr<MenuItem> item)
+Ptr<PMenuItem> PMenu::AddItem(Ptr<PMenuItem> item)
 {
     return AddItem(item, m_Items.size());
 }
@@ -580,7 +577,7 @@ Ptr<MenuItem> Menu::AddItem(Ptr<MenuItem> item)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::AddItem(Ptr<MenuItem> item, size_t index)
+Ptr<PMenuItem> PMenu::AddItem(Ptr<PMenuItem> item, size_t index)
 {
     if (index > m_Items.size()) {
         return nullptr;
@@ -597,7 +594,7 @@ Ptr<MenuItem> Menu::AddItem(Ptr<MenuItem> item, size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::AddSubMenu(Ptr<Menu> menu)
+Ptr<PMenuItem> PMenu::AddSubMenu(Ptr<PMenu> menu)
 {
     return AddSubMenu(menu, m_Items.size());
 }
@@ -606,20 +603,20 @@ Ptr<MenuItem> Menu::AddSubMenu(Ptr<Menu> menu)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::AddSubMenu(Ptr<Menu> menu, size_t index)
+Ptr<PMenuItem> PMenu::AddSubMenu(Ptr<PMenu> menu, size_t index)
 {
-    return AddItem(ptr_new<MenuItem>(menu), index);
+    return AddItem(ptr_new<PMenuItem>(menu), index);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::RemoveItem(size_t index)
+Ptr<PMenuItem> PMenu::RemoveItem(size_t index)
 {
     if (index < m_Items.size())
     {
-        Ptr<MenuItem> item = m_Items[index];
+        Ptr<PMenuItem> item = m_Items[index];
         m_Items.erase(m_Items.begin() + index);
         InvalidateLayout();
         return item;
@@ -631,7 +628,7 @@ Ptr<MenuItem> Menu::RemoveItem(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Menu::RemoveItem(Ptr<MenuItem> item)
+bool PMenu::RemoveItem(Ptr<PMenuItem> item)
 {
     auto i = std::find(m_Items.begin(), m_Items.end(), item);
 
@@ -648,9 +645,9 @@ bool Menu::RemoveItem(Ptr<MenuItem> item)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Menu::RemoveItem(Ptr<Menu> menu)
+bool PMenu::RemoveItem(Ptr<PMenu> menu)
 {
-    auto i = std::find_if(m_Items.begin(), m_Items.end(), [&menu](const Ptr<MenuItem>& item) { return item->m_SubMenu == menu; });
+    auto i = std::find_if(m_Items.begin(), m_Items.end(), [&menu](const Ptr<PMenuItem>& item) { return item->m_SubMenu == menu; });
 
     if (i != m_Items.end())
     {
@@ -665,9 +662,9 @@ bool Menu::RemoveItem(Ptr<Menu> menu)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::GetItemAt(Point position) const
+Ptr<PMenuItem> PMenu::GetItemAt(PPoint position) const
 {
-    for (Ptr<MenuItem> item : m_Items)
+    for (Ptr<PMenuItem> item : m_Items)
     {
         if (item->m_Frame.DoIntersect(position)) {
             return item;
@@ -680,7 +677,7 @@ Ptr<MenuItem> Menu::GetItemAt(Point position) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::GetItemAt(size_t index) const
+Ptr<PMenuItem> PMenu::GetItemAt(size_t index) const
 {
     if (index < m_Items.size()) {
         return m_Items[index];
@@ -693,9 +690,9 @@ Ptr<MenuItem> Menu::GetItemAt(size_t index) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Menu> Menu::GetSubMenuAt(size_t index) const
+Ptr<PMenu> PMenu::GetSubMenuAt(size_t index) const
 {
-    Ptr<MenuItem> item = GetItemAt(index);
+    Ptr<PMenuItem> item = GetItemAt(index);
 
     if (item != nullptr) {
         return item->m_SubMenu;
@@ -708,7 +705,7 @@ Ptr<Menu> Menu::GetSubMenuAt(size_t index) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t Menu::GetItemCount() const
+size_t PMenu::GetItemCount() const
 {
     return m_Items.size();
 }
@@ -717,7 +714,7 @@ size_t Menu::GetItemCount() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t Menu::GetIndexOf(Ptr<MenuItem> item) const
+size_t PMenu::GetIndexOf(Ptr<PMenuItem> item) const
 {
     for (size_t i = 0; i < m_Items.size(); ++i)
     {
@@ -732,7 +729,7 @@ size_t Menu::GetIndexOf(Ptr<MenuItem> item) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t Menu::GetIndexOf(Ptr<Menu> menu) const
+size_t PMenu::GetIndexOf(Ptr<PMenu> menu) const
 {
     for (size_t i = 0; i < m_Items.size(); ++i)
     {
@@ -747,9 +744,9 @@ size_t Menu::GetIndexOf(Ptr<Menu> menu) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::FindItem(int id) const
+Ptr<PMenuItem> PMenu::FindItem(int id) const
 {
-    for (Ptr<MenuItem> item : m_Items)
+    for (Ptr<PMenuItem> item : m_Items)
     {
         if (item->m_ID == id) {
             return item;
@@ -762,13 +759,13 @@ Ptr<MenuItem> Menu::FindItem(int id) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::FindItem(const PString& name) const
+Ptr<PMenuItem> PMenu::FindItem(const PString& name) const
 {
-    for (Ptr<MenuItem> item : m_Items)
+    for (Ptr<PMenuItem> item : m_Items)
     {
         if (item->m_SubMenu != nullptr)
         {
-            Ptr<MenuItem> subItem = item->m_SubMenu->FindItem(name);
+            Ptr<PMenuItem> subItem = item->m_SubMenu->FindItem(name);
             if (subItem != nullptr) {
                 return subItem;
             }
@@ -787,9 +784,9 @@ Ptr<MenuItem> Menu::FindItem(const PString& name) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::FindMarked() const
+Ptr<PMenuItem> PMenu::FindMarked() const
 {
-    for (Ptr<MenuItem> item : m_Items)
+    for (Ptr<PMenuItem> item : m_Items)
     {
         if (item->m_IsHighlighted) {
             return item;
@@ -802,7 +799,7 @@ Ptr<MenuItem> Menu::FindMarked() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Menu> Menu::GetSuperMenu() const
+Ptr<PMenu> PMenu::GetSuperMenu() const
 {
     if (m_SuperItem != nullptr) {
         return ptr_tmp_cast(m_SuperItem->m_SuperMenu);
@@ -815,7 +812,7 @@ Ptr<Menu> Menu::GetSuperMenu() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<MenuItem> Menu::GetSuperItem()
+Ptr<PMenuItem> PMenu::GetSuperItem()
 {
     return ptr_tmp_cast(m_SuperItem);
 }
@@ -824,9 +821,9 @@ Ptr<MenuItem> Menu::GetSuperItem()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PMenu::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    *minSize = m_ContentSize + Point(4.0f, 4.0f);
+    *minSize = m_ContentSize + PPoint(4.0f, 4.0f);
     *maxSize = *minSize;
 }
 
@@ -834,18 +831,18 @@ void Menu::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::InvalidateLayout()
+void PMenu::InvalidateLayout()
 {
-    m_ContentSize = Point(0.0f, 0.0f);
+    m_ContentSize = PPoint(0.0f, 0.0f);
 
     switch (m_Layout)
     {
-        case MenuLayout::Horizontal:
-            for (Ptr<MenuItem> item : m_Items)
+        case PMenuLayout::Horizontal:
+            for (Ptr<PMenuItem> item : m_Items)
             {
-                Point   itemContentSize = item->GetContentSize();
+                PPoint   itemContentSize = item->GetContentSize();
 
-                item->m_Frame = Rect(m_ContentSize.x + m_ItemBorders.left, m_ItemBorders.top, m_ContentSize.x + itemContentSize.x + m_ItemBorders.left, itemContentSize.y + m_ItemBorders.top);
+                item->m_Frame = PRect(m_ContentSize.x + m_ItemBorders.left, m_ItemBorders.top, m_ContentSize.x + itemContentSize.x + m_ItemBorders.left, itemContentSize.y + m_ItemBorders.top);
                 m_ContentSize.x += itemContentSize.x + m_ItemBorders.left + m_ItemBorders.right;
 
                 if (itemContentSize.y + m_ItemBorders.top + m_ItemBorders.bottom > m_ContentSize.y) {
@@ -853,12 +850,12 @@ void Menu::InvalidateLayout()
                 }
             }
             break;
-        case MenuLayout::Vertical:
-            for (Ptr<MenuItem> item : m_Items)
+        case PMenuLayout::Vertical:
+            for (Ptr<PMenuItem> item : m_Items)
             {
-                Point   itemContentSize = item->GetContentSize();
+                PPoint   itemContentSize = item->GetContentSize();
 
-                item->m_Frame = Rect(m_ItemBorders.left, m_ContentSize.y + m_ItemBorders.top, itemContentSize.x + m_ItemBorders.left, m_ContentSize.y + itemContentSize.y + m_ItemBorders.top);
+                item->m_Frame = PRect(m_ItemBorders.left, m_ContentSize.y + m_ItemBorders.top, itemContentSize.x + m_ItemBorders.left, m_ContentSize.y + itemContentSize.y + m_ItemBorders.top);
 
                 m_ContentSize.y += itemContentSize.y + m_ItemBorders.top + m_ItemBorders.bottom;
 
@@ -866,7 +863,7 @@ void Menu::InvalidateLayout()
                     m_ContentSize.x = itemContentSize.x + m_ItemBorders.left + m_ItemBorders.right;
                 }
             }
-            for (Ptr<MenuItem> item : m_Items) {
+            for (Ptr<PMenuItem> item : m_Items) {
                 item->m_Frame.right = m_ContentSize.x - m_ItemBorders.left - m_ItemBorders.right;
             }
             break;
@@ -879,7 +876,7 @@ void Menu::InvalidateLayout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Menu::InvalidateItem(MenuItem* item)
+void PMenu::InvalidateItem(PMenuItem* item)
 {
     m_ContentView->Invalidate(item->GetFrame());
 }
@@ -888,12 +885,10 @@ void Menu::InvalidateItem(MenuItem* item)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Bitmap> Menu::GetArrowRightBitmap()
+Ptr<PBitmap> PMenu::GetArrowRightBitmap()
 {
     if (m_ArrowRightBitmap == nullptr) {
-        m_ArrowRightBitmap = ptr_new<Bitmap>(LEFT_ARROW_WIDTH, LEFT_ARROW_HEIGHT, EColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
+        m_ArrowRightBitmap = ptr_new<PBitmap>(LEFT_ARROW_WIDTH, LEFT_ARROW_HEIGHT, PEColorSpace::MONO1, g_ArrowBitmapRaster, sizeof(uint32_t));
     }
     return m_ArrowRightBitmap;
 }
-
-} // namespace os;

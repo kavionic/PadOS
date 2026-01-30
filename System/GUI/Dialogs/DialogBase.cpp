@@ -20,40 +20,38 @@
 #include <GUI/Dialogs/DialogBase.h>
 #include <GUI/Widgets/Button.h>
 
-namespace os
-{
 
-class DialogBoxView : public View
+class PDialogBoxView : public PView
 {
 public:
-    DialogBoxView(const PString& title, const PString& text, DialogButtonSets buttonSet);
+    PDialogBoxView(const PString& title, const PString& text, PDialogButtonSets buttonSet);
 
-    Ptr<View>   SetContentView(Ptr<View> contentView);
-    Ptr<Button> AddButton(const PString& label, DialogButtonID buttonID);
+    Ptr<PView>   SetContentView(Ptr<PView> contentView);
+    Ptr<PButton> AddButton(const PString& label, PDialogButtonID buttonID);
 
-    Ptr<Button> FindButton(int32_t buttonID) const;
-    Ptr<Button> FindButton(const PString& buttonName) const;
+    Ptr<PButton> FindButton(int32_t buttonID) const;
+    Ptr<PButton> FindButton(const PString& buttonName) const;
 
 public:
-    Signal<void, DialogButtonID> SignalSelected;
+    Signal<void, PDialogButtonID> SignalSelected;
 
 private:
-    void SlotButtonClicked(MouseButton_e mouseButton, ButtonBase* button);
+    void SlotButtonClicked(PMouseButton mouseButton, PButtonBase* button);
 
-    Ptr<View>                   m_ContentView;
-    Ptr<View>                   m_ButtonContainer;
-    std::vector<Ptr<Button>>    m_Buttons;
+    Ptr<PView>                   m_ContentView;
+    Ptr<PView>                   m_ButtonContainer;
+    std::vector<Ptr<PButton>>    m_Buttons;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DialogBase::DialogBase(const PString& title, const PString& text, DialogButtonSets buttonSet) : Window(title)
+PDialogBase::PDialogBase(const PString& title, const PString& text, PDialogButtonSets buttonSet) : PWindow(title)
 {
-    m_DialogView = ptr_new<DialogBoxView>(title, text, buttonSet);
+    m_DialogView = ptr_new<PDialogBoxView>(title, text, buttonSet);
 
-    m_DialogView->SignalSelected.Connect(this, &DialogBase::SlotSelected);
+    m_DialogView->SignalSelected.Connect(this, &PDialogBase::SlotSelected);
 
     SetClient(m_DialogView);
 }
@@ -62,7 +60,7 @@ DialogBase::DialogBase(const PString& title, const PString& text, DialogButtonSe
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DialogBase::~DialogBase()
+PDialogBase::~PDialogBase()
 {
 }
 
@@ -70,7 +68,7 @@ DialogBase::~DialogBase()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> DialogBase::SetContentView(Ptr<View> contentView)
+Ptr<PView> PDialogBase::SetContentView(Ptr<PView> contentView)
 {
     return m_DialogView->SetContentView(contentView);
 }
@@ -79,7 +77,7 @@ Ptr<View> DialogBase::SetContentView(Ptr<View> contentView)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBase::AddButton(const PString& label, DialogButtonID buttonID)
+Ptr<PButton> PDialogBase::AddButton(const PString& label, PDialogButtonID buttonID)
 {
     return m_DialogView->AddButton(label, buttonID);
 }
@@ -88,16 +86,16 @@ Ptr<Button> DialogBase::AddButton(const PString& label, DialogButtonID buttonID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBase::AddButton(const PString& label, int32_t buttonID)
+Ptr<PButton> PDialogBase::AddButton(const PString& label, int32_t buttonID)
 {
-    return AddButton(label, DialogButtonID(buttonID));
+    return AddButton(label, PDialogButtonID(buttonID));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DialogBase::SlotSelected(DialogButtonID buttonID)
+void PDialogBase::SlotSelected(PDialogButtonID buttonID)
 {
     m_ButtonClicked = buttonID;
     OnActivated(buttonID);
@@ -108,7 +106,7 @@ void DialogBase::SlotSelected(DialogButtonID buttonID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBase::FindButton(DialogButtonID buttonID) const
+Ptr<PButton> PDialogBase::FindButton(PDialogButtonID buttonID) const
 {
     return FindButton(int32_t(buttonID));
 }
@@ -117,7 +115,7 @@ Ptr<Button> DialogBase::FindButton(DialogButtonID buttonID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBase::FindButton(int32_t buttonID) const
+Ptr<PButton> PDialogBase::FindButton(int32_t buttonID) const
 {
     return m_DialogView->FindButton(buttonID);
 }
@@ -126,7 +124,7 @@ Ptr<Button> DialogBase::FindButton(int32_t buttonID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBase::FindButton(const PString& buttonName) const
+Ptr<PButton> PDialogBase::FindButton(const PString& buttonName) const
 {
     return m_DialogView->FindButton(buttonName);
 }
@@ -135,19 +133,19 @@ Ptr<Button> DialogBase::FindButton(const PString& buttonName) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DialogButtonID DialogBase::Go(Ptr<View> owner)
+PDialogButtonID PDialogBase::Go(Ptr<PView> owner)
 {
-    Ptr<DialogBase> self = ptr_tmp_cast(this); // Make sure we are not deleted before returning.
+    Ptr<PDialogBase> self = ptr_tmp_cast(this); // Make sure we are not deleted before returning.
 
     Open((owner != nullptr) ? owner->GetApplication() : nullptr);
 
-    Looper* looper = GetLooper();
+    PLooper* looper = GetLooper();
 
     if (looper != nullptr)
     {
-        while (HasFlags(ViewFlags::IsAttachedToScreen) && (owner == nullptr || owner->HasFlags(ViewFlags::IsAttachedToScreen)) && looper->Tick());
+        while (HasFlags(PViewFlags::IsAttachedToScreen) && (owner == nullptr || owner->HasFlags(PViewFlags::IsAttachedToScreen)) && looper->Tick());
     }
-    if (HasFlags(ViewFlags::IsAttachedToScreen)) {
+    if (HasFlags(PViewFlags::IsAttachedToScreen)) {
         Close();
     }
     return m_ButtonClicked;
@@ -158,32 +156,32 @@ DialogButtonID DialogBase::Go(Ptr<View> owner)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DialogBoxView::DialogBoxView(const PString& title, const PString& text, DialogButtonSets buttonSet) : View(title, nullptr)
+PDialogBoxView::PDialogBoxView(const PString& title, const PString& text, PDialogButtonSets buttonSet) : PView(title, nullptr)
 {
-    SetLayoutNode(ptr_new<VLayoutNode>());
+    SetLayoutNode(ptr_new<PVLayoutNode>());
 
-    m_ButtonContainer = ptr_new<View>("DlgButtons");
+    m_ButtonContainer = ptr_new<PView>("DlgButtons");
     AddChild(m_ButtonContainer);
-    m_ButtonContainer->SetLayoutNode(ptr_new<HLayoutNode>());
-    m_ButtonContainer->SetHAlignment(Alignment::Right);
+    m_ButtonContainer->SetLayoutNode(ptr_new<PHLayoutNode>());
+    m_ButtonContainer->SetHAlignment(PAlignment::Right);
 
     switch (buttonSet)
     {
-        case DialogButtonSets::None:
+        case PDialogButtonSets::None:
             break;
-        case DialogButtonSets::Ok:
-            AddButton("Ok", DialogButtonID::Ok);
+        case PDialogButtonSets::Ok:
+            AddButton("Ok", PDialogButtonID::Ok);
             break;
-        case DialogButtonSets::Cancel:
-            AddButton("Cancel", DialogButtonID::Cancel);
+        case PDialogButtonSets::Cancel:
+            AddButton("Cancel", PDialogButtonID::Cancel);
             break;
-        case DialogButtonSets::OkCancel:
-            AddButton("Cancel", DialogButtonID::Cancel);
-            AddButton("Ok", DialogButtonID::Ok);
+        case PDialogButtonSets::OkCancel:
+            AddButton("Cancel", PDialogButtonID::Cancel);
+            AddButton("Ok", PDialogButtonID::Ok);
             break;
-        case DialogButtonSets::YesNo:
-            AddButton("No", DialogButtonID::No);
-            AddButton("Yes", DialogButtonID::Yes);
+        case PDialogButtonSets::YesNo:
+            AddButton("No", PDialogButtonID::No);
+            AddButton("Yes", PDialogButtonID::Yes);
             break;
     }
 }
@@ -192,9 +190,9 @@ DialogBoxView::DialogBoxView(const PString& title, const PString& text, DialogBu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> DialogBoxView::SetContentView(Ptr<View> contentView)
+Ptr<PView> PDialogBoxView::SetContentView(Ptr<PView> contentView)
 {
-    Ptr<View> prevContentView = m_ContentView;
+    Ptr<PView> prevContentView = m_ContentView;
     if (m_ContentView != nullptr) {
         m_ContentView->RemoveThis();
     }
@@ -210,13 +208,13 @@ Ptr<View> DialogBoxView::SetContentView(Ptr<View> contentView)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBoxView::AddButton(const PString& label, DialogButtonID buttonID)
+Ptr<PButton> PDialogBoxView::AddButton(const PString& label, PDialogButtonID buttonID)
 {
-    Ptr<Button> button = ptr_new<Button>("DlgButton", label);
+    Ptr<PButton> button = ptr_new<PButton>("DlgButton", label);
     button->SetBorders(m_Buttons.empty() ? 10.0f : 0.0f, 10.0f, 10.0f, 10.0f);
     m_ButtonContainer->AddChild(button);
     button->SetID(int32_t(buttonID));
-    button->SignalActivated.Connect(this, &DialogBoxView::SlotButtonClicked);
+    button->SignalActivated.Connect(this, &PDialogBoxView::SlotButtonClicked);
 
     if (!m_Buttons.empty()) {
         button->AddToWidthRing(m_Buttons[0]);
@@ -231,27 +229,25 @@ Ptr<Button> DialogBoxView::AddButton(const PString& label, DialogButtonID button
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBoxView::FindButton(int32_t buttonID) const
+Ptr<PButton> PDialogBoxView::FindButton(int32_t buttonID) const
 {
-    return m_ButtonContainer->FindChildIf<Button>([buttonID](Ptr<View> view) { Ptr<Button> button = ptr_dynamic_cast<Button>(view); return button != nullptr && button->GetID() == buttonID; }, false);
+    return m_ButtonContainer->FindChildIf<PButton>([buttonID](Ptr<PView> view) { Ptr<PButton> button = ptr_dynamic_cast<PButton>(view); return button != nullptr && button->GetID() == buttonID; }, false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Button> DialogBoxView::FindButton(const PString& buttonName) const
+Ptr<PButton> PDialogBoxView::FindButton(const PString& buttonName) const
 {
-    return m_ButtonContainer->FindChild<Button>(buttonName, false);
+    return m_ButtonContainer->FindChild<PButton>(buttonName, false);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DialogBoxView::SlotButtonClicked(MouseButton_e mouseButton, ButtonBase* button)
+void PDialogBoxView::SlotButtonClicked(PMouseButton mouseButton, PButtonBase* button)
 {
-    SignalSelected(DialogButtonID(button->GetID()));
+    SignalSelected(PDialogButtonID(button->GetID()));
 }
-
-} //namespace os

@@ -21,20 +21,15 @@
 #include <Utils/Beep.h>
 
 
-namespace os
-{
-
-void beep(BeepLength length)
+void p_beep(PBeepLength length)
 {
     float duration = 0.1f;
     switch (length)
     {
-        case BeepLength::Short:     duration = 0.02f;  break;
-        case BeepLength::Medium:    duration = 0.2f;   break;
-        case BeepLength::Long:      duration = 1.0f;   break;
-        case BeepLength::VeryLong:  duration = 3.0f;   break;
+        case PBeepLength::Short:     duration = 0.02f;  break;
+        case PBeepLength::Medium:    duration = 0.2f;   break;
+        case PBeepLength::Long:      duration = 1.0f;   break;
+        case PBeepLength::VeryLong:  duration = 3.0f;   break;
     }
     beep_seconds(duration);
 }
-
-} // namespace os

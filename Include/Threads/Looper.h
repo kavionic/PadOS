@@ -30,27 +30,24 @@
 #include "ConditionVariable.h"
 #include "ObjectWaitGroup.h"
 
-namespace os
-{
+class PEventHandler;
+class PEventTimer;
 
-class EventHandler;
-class EventTimer;
-
-class Looper : public Thread
+class PLooper : public PThread
 {
 public:
-    Looper(const PString& name, int portSize, size_t receiveBufferSize = 512);
-    ~Looper();
+    PLooper(const PString& name, int portSize, size_t receiveBufferSize = 512);
+    ~PLooper();
 
-    static Looper* GetCurrentLooper() { return dynamic_cast<Looper*>(GetCurrentThread()); }
+    static PLooper* GetCurrentLooper() { return dynamic_cast<PLooper*>(GetCurrentThread()); }
 
     void Stop() { m_DoRun = false; }
 
-    Mutex& GetMutex() const { return m_Mutex; }
+    PMutex& GetMutex() const { return m_Mutex; }
 
     PObjectWaitGroup& GetWaitGroup() { return m_WaitGroup; }
 
-    const MessagePort& GetPort() const { return m_Port; }
+    const PMessagePort& GetPort() const { return m_Port; }
     port_id GetPortID() const { return m_Port.GetHandle(); }
 
     status_t SetReceiveBufferSize(size_t size);
@@ -58,12 +55,12 @@ public:
 
     bool    WaitForReply(handler_id replyHandler, int32_t replyCode);
 
-    bool AddHandler(Ptr<EventHandler> handler);
-    bool RemoveHandler(Ptr<EventHandler> handler);
-    bool AddTimer(EventTimer* timer, bool singleshot = false);
-    bool RemoveTimer(EventTimer* timer);
+    bool AddHandler(Ptr<PEventHandler> handler);
+    bool RemoveHandler(Ptr<PEventHandler> handler);
+    bool AddTimer(PEventTimer* timer, bool singleshot = false);
+    bool RemoveTimer(PEventTimer* timer);
 
-    Ptr<EventHandler> FindHandler(handler_id handle) const;
+    Ptr<PEventHandler> FindHandler(handler_id handle) const;
 
     virtual void ThreadStarted() {}
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) { return false; }
@@ -79,25 +76,21 @@ private:
     void RunTimers();
 
 #if DEBUG_LOOPER_LIST
-    static std::vector<Looper*> s_LooperList;
+    static std::vector<PLooper*> s_LooperList;
 #endif
-    mutable Mutex                           m_Mutex;
-    MessagePort                             m_Port;
-    ConditionVariable                       m_TimerMapCondition;
-    ObjectWaitGroup                         m_WaitGroup;
+    mutable PMutex                           m_Mutex;
+    PMessagePort                             m_Port;
+    PConditionVariable                       m_TimerMapCondition;
+    PObjectWaitGroup                         m_WaitGroup;
 
     std::vector<uint8_t>                        m_ReceiveBuffer;
     TimeValNanos                                m_NextEventTime = TimeValNanos::infinit;
     volatile std::atomic_bool                   m_DoRun;
-    std::multimap<TimeValNanos, EventTimer*>    m_TimerMap;
-    std::map<handler_id, Ptr<EventHandler>>     m_HandlerMap;
+    std::multimap<TimeValNanos, PEventTimer*>    m_TimerMap;
+    std::map<handler_id, Ptr<PEventHandler>>     m_HandlerMap;
     std::vector<std::pair<int32_t,int32_t>>     m_WaitingCodes;
     static int32_t                              s_NextReplyToken;
 
-    Looper(const Looper &) = delete;
-    Looper& operator=(const Looper &) = delete;
+    PLooper(const PLooper &) = delete;
+    PLooper& operator=(const PLooper &) = delete;
 };
-
-} // namespace
-
-using PLooper = os::Looper;

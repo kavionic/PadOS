@@ -13,7 +13,7 @@ template <class SizeT>
 class CircularBufferTest : public ::testing::Test {
 protected:
     static constexpr size_t N = SizeT::value;
-    CircularBuffer<uint8_t, N> buf;
+    PCircularBuffer<uint8_t, N> buf;
 };
 
 using TestSizes = ::testing::Types<SizeTag<4>, SizeTag<8>, SizeTag<16>, SizeTag<64>>;

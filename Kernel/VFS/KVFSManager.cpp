@@ -37,7 +37,7 @@ namespace kernel
 KINode* const                              KVFSManager::PENDING_INODE = (KINode*)(1);
 KMutex                                     KVFSManager::s_INodeMapMutex("inode_map_mutex", PEMutexRecursionMode_RaiseError);
 std::map<std::pair<fs_id, ino_t>, KINode*> KVFSManager::s_INodeMap;
-IntrusiveList<KINode>                      KVFSManager::s_InodeMRUList;
+PIntrusiveList<KINode>                      KVFSManager::s_InodeMRUList;
 int                                        KVFSManager::s_UnusedInodeCount = 0;
 KConditionVariable                         KVFSManager::s_InodeMapConditionVar("inode_map_condition");
 

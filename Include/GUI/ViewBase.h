@@ -21,17 +21,14 @@
 
 #include "GUIDefines.h"
 
-namespace os
-{
-
 template<typename ViewType>
-class ViewBase : public EventHandler, public SignalTarget
+class PViewBase : public PEventHandler, public SignalTarget
 {
 public:
     typedef std::vector<Ptr<ViewType>> ChildList_t;
 
-    ViewBase(const PString& name, const Rect& frame, const Point& scrollOffset, uint32_t flags, int32_t hideCount, float penWidth, Color eraseColor, Color bgColor, Color fgColor)
-        : EventHandler(name)
+    PViewBase(const PString& name, const PRect& frame, const PPoint& scrollOffset, uint32_t flags, int32_t hideCount, float penWidth, PColor eraseColor, PColor bgColor, PColor fgColor)
+        : PEventHandler(name)
         , m_Frame(frame)
         , m_ScrollOffset(scrollOffset)
         , m_Flags(flags)
@@ -67,26 +64,26 @@ public:
     typename ChildList_t::reverse_iterator          GetChildRIterator(Ptr<ViewType> child)       { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
     typename ChildList_t::const_reverse_iterator    GetChildRIterator(Ptr<ViewType> child) const { return std::find(m_ChildrenList.rbegin(), m_ChildrenList.rend(), child); }
 
-    template<typename T = View, typename DELEGATE>
+    template<typename T = PView, typename DELEGATE>
     Ptr<T> FindChildIf(DELEGATE compareDelegate, bool recursive = true) const
     {
         return ptr_dynamic_cast<T>(FindChildInternal(compareDelegate, recursive));
     }
 
-    template<typename T = View, typename DELEGATE>
+    template<typename T = PView, typename DELEGATE>
     bool FindChildIf(DELEGATE compareDelegate, Ptr<T>& outResult, bool recursive = true) const
     {
         outResult = FindChildIf<T>(compareDelegate, recursive);
         return outResult != nullptr;
     }
 
-    template<typename T = View>
+    template<typename T = PView>
     Ptr<T> FindChild(const PString& name, bool recursive = true) const
     {
         return ptr_dynamic_cast<T>(FindChildInternal([&name](Ptr<ViewType> child) { return child->GetName() == name; }, recursive));
     }
 
-    template<typename T = View>
+    template<typename T = PView>
     bool FindChild(const PString& name, Ptr<T>& outResult, bool recursive = true) const
     {
         outResult = FindChild<T>(name, recursive);
@@ -130,45 +127,45 @@ public:
     bool	    HasFlagsAll(uint32_t mask) const    { return (m_Flags & mask) == mask; }
     
 
-    const Rect&	GetFrame() const { return m_Frame; }
-    Rect	    GetBounds() const { return m_Frame.Bounds() - m_ScrollOffset; }
-    Rect	    GetNormalizedBounds() const { return m_Frame.Bounds(); }
+    const PRect&	GetFrame() const { return m_Frame; }
+    PRect	    GetBounds() const { return m_Frame.Bounds() - m_ScrollOffset; }
+    PRect	    GetNormalizedBounds() const { return m_Frame.Bounds(); }
 
-    IRect	    GetIFrame() const { return IRect(m_Frame); }
-    IRect	    GetIBounds() const { return GetIFrame().Bounds() - IPoint(m_ScrollOffset); }
-    IRect	    GetNormalizedIBounds() const { return GetIFrame().Bounds(); }
+    PIRect	    GetIFrame() const { return PIRect(m_Frame); }
+    PIRect	    GetIBounds() const { return GetIFrame().Bounds() - PIPoint(m_ScrollOffset); }
+    PIRect	    GetNormalizedIBounds() const { return GetIFrame().Bounds(); }
         
-    Point	    GetTopLeft() const  { return Point( m_Frame.left, m_Frame.top ); }
-    IPoint	    GetITopLeft() const { return IPoint(m_Frame.TopLeft()); }
+    PPoint	    GetTopLeft() const  { return PPoint( m_Frame.left, m_Frame.top ); }
+    PIPoint	    GetITopLeft() const { return PIPoint(m_Frame.TopLeft()); }
         
-    Point       GetScrollOffset() const { return m_ScrollOffset; }
+    PPoint      GetScrollOffset() const { return m_ScrollOffset; }
 
-    Color	    GetFgColor() const { return m_FgColor; }
-    Color	    GetBgColor() const { return m_BgColor; }
-    Color	    GetEraseColor() const { return m_EraseColor; }
+    PColor	    GetFgColor() const { return m_FgColor; }
+    PColor	    GetBgColor() const { return m_BgColor; }
+    PColor	    GetEraseColor() const { return m_EraseColor; }
 
     
       // Coordinate conversions:
-    Point       ConvertToParent(const Point& point) const   { return point + GetTopLeft() + m_ScrollOffset; }
-    void        ConvertToParent(Point* point) const         { *point += GetTopLeft() + m_ScrollOffset; }
-    Rect        ConvertToParent(const Rect& rect) const     { return rect + GetTopLeft() + m_ScrollOffset; }
-    void        ConvertToParent(Rect* rect) const           { *rect += GetTopLeft() + m_ScrollOffset; }
-    Point       ConvertFromParent(const Point& point) const { return point - GetTopLeft() - m_ScrollOffset; }
-    void        ConvertFromParent(Point* point) const       { *point -= GetTopLeft() - m_ScrollOffset; }
-    Rect        ConvertFromParent(const Rect& rect) const   { return rect - GetTopLeft() - m_ScrollOffset; }
-    void        ConvertFromParent(Rect* rect) const         { *rect -= GetTopLeft() - m_ScrollOffset; }
-    Point       ConvertToRoot(const Point& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
-    void        ConvertToRoot(Point* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
-    Rect        ConvertToRoot(const Rect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
-    void        ConvertToRoot(Rect* rect) const             { *rect += m_ScreenPos + m_ScrollOffset; }
-    Point       ConvertFromRoot(const Point& point) const   { return point - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromRoot(Point* point) const         { *point -= m_ScreenPos + m_ScrollOffset; }
-    Rect        ConvertFromRoot(const Rect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
-    void        ConvertFromRoot(Rect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
+    PPoint       ConvertToParent(const PPoint& point) const   { return point + GetTopLeft() + m_ScrollOffset; }
+    void        ConvertToParent(PPoint* point) const         { *point += GetTopLeft() + m_ScrollOffset; }
+    PRect        ConvertToParent(const PRect& rect) const     { return rect + GetTopLeft() + m_ScrollOffset; }
+    void        ConvertToParent(PRect* rect) const           { *rect += GetTopLeft() + m_ScrollOffset; }
+    PPoint       ConvertFromParent(const PPoint& point) const { return point - GetTopLeft() - m_ScrollOffset; }
+    void        ConvertFromParent(PPoint* point) const       { *point -= GetTopLeft() - m_ScrollOffset; }
+    PRect        ConvertFromParent(const PRect& rect) const   { return rect - GetTopLeft() - m_ScrollOffset; }
+    void        ConvertFromParent(PRect* rect) const         { *rect -= GetTopLeft() - m_ScrollOffset; }
+    PPoint       ConvertToRoot(const PPoint& point) const     { return m_ScreenPos + point + m_ScrollOffset; }
+    void        ConvertToRoot(PPoint* point) const           { *point += m_ScreenPos + m_ScrollOffset; }
+    PRect        ConvertToRoot(const PRect& rect) const       { return rect + m_ScreenPos + m_ScrollOffset; }
+    void        ConvertToRoot(PRect* rect) const             { *rect += m_ScreenPos + m_ScrollOffset; }
+    PPoint       ConvertFromRoot(const PPoint& point) const   { return point - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromRoot(PPoint* point) const         { *point -= m_ScreenPos + m_ScrollOffset; }
+    PRect        ConvertFromRoot(const PRect& rect) const     { return rect - m_ScreenPos - m_ScrollOffset; }
+    void        ConvertFromRoot(PRect* rect) const           { *rect -= m_ScreenPos + m_ScrollOffset; }
     
-    static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, IRect* frame = nullptr)
+    static Ptr<ViewType> GetOpacParent(Ptr<ViewType> view, PIRect* frame = nullptr)
     {
-        while(view != nullptr && view->HasFlags(ViewFlags::Transparent))
+        while(view != nullptr && view->HasFlags(PViewFlags::Transparent))
         {
             if (frame != nullptr) {
                 *frame += view->GetITopLeft();
@@ -179,7 +176,7 @@ public:
     }        
 protected:
     friend class GUI;
-    friend class Application;
+    friend class PApplication;
     friend class ApplicationServer;
     friend class ServerApplication;
 
@@ -187,7 +184,7 @@ protected:
     Ptr<ViewType>   UnlinkChild(typename  ChildList_t::iterator iterator);
     void            UnlinkChild(Ptr<ViewType> child);
     
-    void Added(ViewBase* parent, int level)
+    void Added(PViewBase* parent, int level)
     {
         m_Level = level;
         if (parent == nullptr) {
@@ -195,32 +192,32 @@ protected:
         } else {
             m_ScreenPos = parent->m_ScreenPos + parent->m_ScrollOffset + m_Frame.TopLeft();
         }
-        for (Ptr<ViewBase> child : m_ChildrenList) {
+        for (Ptr<PViewBase> child : m_ChildrenList) {
             child->Added(this, level + 1);
         }
     }
 
-    Rect        m_Frame = Rect(0.0f, 0.0f, 0.0f, 0.0f);
-    Point       m_ScrollOffset;
+    PRect        m_Frame = PRect(0.0f, 0.0f, 0.0f, 0.0f);
+    PPoint       m_ScrollOffset;
     uint32_t    m_Flags = 0;    
 
-    Point       m_ScreenPos = Point(0.0f, 0.0f);
+    PPoint       m_ScreenPos = PPoint(0.0f, 0.0f);
 
     WeakPtr<ViewType>   m_Parent;
     std::vector<Ptr<ViewType>>  m_ChildrenList;
     
-    Point       m_PenPosition;
+    PPoint      m_PenPosition;
     float       m_PenWidth = 1.0f;
 
     int         m_HideCount = 0;
     int         m_Level = 0;
 
-    Color       m_EraseColor   = Color::FromRGB32A(255, 255, 255);
-    Color       m_BgColor      = Color::FromRGB32A(255, 255, 255);
-    Color       m_FgColor      = Color::FromRGB32A(0, 0, 0);
+    PColor       m_EraseColor   = PColor::FromRGB32A(255, 255, 255);
+    PColor       m_BgColor      = PColor::FromRGB32A(255, 255, 255);
+    PColor       m_FgColor      = PColor::FromRGB32A(0, 0, 0);
     
-    ViewBase(const ViewBase&) = delete;
-    ViewBase& operator=(const ViewBase&) = delete;
+    PViewBase(const PViewBase&) = delete;
+    PViewBase& operator=(const PViewBase&) = delete;
 };
 
 
@@ -229,7 +226,7 @@ protected:
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename ViewType>
-void ViewBase<ViewType>::LinkChild(Ptr<ViewType> child, size_t index)
+void PViewBase<ViewType>::LinkChild(Ptr<ViewType> child, size_t index)
 {
 	if (child->m_Parent.Lock() == nullptr)
 	{
@@ -253,7 +250,7 @@ void ViewBase<ViewType>::LinkChild(Ptr<ViewType> child, size_t index)
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename ViewType>
-Ptr<ViewType> ViewBase<ViewType>::UnlinkChild(typename  ChildList_t::iterator iterator)
+Ptr<ViewType> PViewBase<ViewType>::UnlinkChild(typename  ChildList_t::iterator iterator)
 {
     Ptr<ViewType> child = *iterator;
     if (child->m_Parent.Lock() == static_cast<ViewType*>(this))
@@ -276,7 +273,7 @@ Ptr<ViewType> ViewBase<ViewType>::UnlinkChild(typename  ChildList_t::iterator it
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename ViewType>
-void ViewBase<ViewType>::UnlinkChild(Ptr<ViewType> child)
+void PViewBase<ViewType>::UnlinkChild(Ptr<ViewType> child)
 {
 	if (child->m_Parent.Lock() == static_cast<ViewType*>(this))
 	{
@@ -292,5 +289,3 @@ void ViewBase<ViewType>::UnlinkChild(Ptr<ViewType> child)
         p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Attempt to remove a view not belonging to this window.");
 	}
 }
-
-} // namespace

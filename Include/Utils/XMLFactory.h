@@ -28,16 +28,15 @@
 
 #include "Ptr/Ptr.h"
 #include "Math/Rect.h"
-namespace os
-{
+
 
 template<typename ...ARGS>
-class XMLFactory
+class PXMLFactory
 {
 public:
     using CreateObjectCallback = std::function<Ptr<PtrTarget>(ARGS...)>;
 
-    virtual ~XMLFactory() {}
+    virtual ~PXMLFactory() {}
 
     void RegisterClass(const PString& name, CreateObjectCallback factory) { m_ClassMap[name] = factory; }
 
@@ -55,6 +54,3 @@ public:
 private:
     std::map<PString, CreateObjectCallback> m_ClassMap;
 };
-
-
-}

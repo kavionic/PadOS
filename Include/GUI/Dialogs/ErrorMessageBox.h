@@ -21,16 +21,12 @@
 
 #include <GUI/Dialogs/MessageBox.h>
 
-namespace os
-{
 
-class ErrorMessageBox : public MessageBox
+class PErrorMessageBox : public PMessageBox
 {
 public:
-    ErrorMessageBox(const PString& title, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
+    PErrorMessageBox(const PString& title, const PString& text, PDialogButtonSets buttonSet = PDialogButtonSets::Ok);
 
-    static Ptr<ErrorMessageBox> ShowMessage(const PString& title, const PString& text, DialogButtonSets buttonSet = DialogButtonSets::Ok);
+    static Ptr<PErrorMessageBox> ShowMessage(const PString& title, const PString& text, PDialogButtonSets buttonSet = PDialogButtonSets::Ok);
 private:
 };
-
-} // namespace os

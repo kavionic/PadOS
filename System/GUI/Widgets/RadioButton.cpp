@@ -19,7 +19,6 @@
 #include <GUI/Widgets/RadioButton.h>
 #include <Utils/XMLFactory.h>
 
-using namespace os;
 
 static constexpr float RB_SIZE = 32.0f;
 static constexpr float RB_LABEL_H_SPACING = 8.0f;
@@ -31,7 +30,7 @@ static constexpr float RB_CHECK_BORDER = 7.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-RadioButton::RadioButton(const PString& name, Ptr<View> parent, uint32_t flags) : ButtonBase(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+PRadioButton::PRadioButton(const PString& name, Ptr<PView> parent, uint32_t flags) : PButtonBase(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
     SetCheckable(true);
 }
@@ -40,9 +39,9 @@ RadioButton::RadioButton(const PString& name, Ptr<View> parent, uint32_t flags) 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-RadioButton::RadioButton(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : ButtonBase(context, parent, xmlData, Alignment::Right)
+PRadioButton::PRadioButton(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PButtonBase(context, parent, xmlData, PAlignment::Right)
 {
-    MergeFlags(ViewFlags::WillDraw);
+    MergeFlags(PViewFlags::WillDraw);
 	SetCheckable(true);
 }
 
@@ -50,7 +49,7 @@ RadioButton::RadioButton(ViewFactoryContext& context, Ptr<View> parent, const pu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-RadioButton::~RadioButton()
+PRadioButton::~PRadioButton()
 {
 }
 
@@ -58,7 +57,7 @@ RadioButton::~RadioButton()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RadioButton::OnEnableStatusChanged(bool isEnabled)
+void PRadioButton::OnEnableStatusChanged(bool isEnabled)
 {
     Invalidate();
     Flush();
@@ -68,17 +67,17 @@ void RadioButton::OnEnableStatusChanged(bool isEnabled)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void os::RadioButton::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PRadioButton::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    Point size(RB_SIZE, RB_SIZE);
+    PPoint size(RB_SIZE, RB_SIZE);
 
     const PString& label = GetLabel();
     if (!label.empty())
     {
-		FontHeight fontHeight = GetFontHeight();
+		PFontHeight fontHeight = GetFontHeight();
 
-        Alignment labelAlignment = GetLabelAlignment();
-        if (labelAlignment == Alignment::Top || labelAlignment == Alignment::Bottom)
+        PAlignment labelAlignment = GetLabelAlignment();
+        if (labelAlignment == PAlignment::Top || labelAlignment == PAlignment::Bottom)
         {
             float labelWidth = GetStringWidth(label);
             if (labelWidth > size.x) {
@@ -102,22 +101,22 @@ void os::RadioButton::CalculatePreferredSize(Point* minSize, Point* maxSize, boo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RadioButton::OnPaint(const Rect& updateRect)
+void PRadioButton::OnPaint(const PRect& updateRect)
 {
-    Rect bounds = GetBounds();
-    Rect buttonFrame = bounds;
-    SetFgColor(StandardColorID::DefaultBackground);
+    PRect bounds = GetBounds();
+    PRect buttonFrame = bounds;
+    SetFgColor(PStandardColorID::DefaultBackground);
     FillRect(updateRect);
 
     const PString& label = GetLabel();
     if (!label.empty())
     {
-        FontHeight fontHeight = GetFontHeight();
+        PFontHeight fontHeight = GetFontHeight();
 		float labelWidth = GetStringWidth(label);
-		Alignment labelAlignment = GetLabelAlignment();
-        if (labelAlignment == Alignment::Top || labelAlignment == Alignment::Bottom)
+		PAlignment labelAlignment = GetLabelAlignment();
+        if (labelAlignment == PAlignment::Top || labelAlignment == PAlignment::Bottom)
         {
-            if (labelAlignment == Alignment::Top) {
+            if (labelAlignment == PAlignment::Top) {
                 MovePenTo(std::floor((bounds.Width() - labelWidth) * 0.5f), fontHeight.ascender);
                 buttonFrame.top += fontHeight.ascender + fontHeight.descender + RB_LABEL_V_SPACING;
             } else {
@@ -127,7 +126,7 @@ void RadioButton::OnPaint(const Rect& updateRect)
         }
         else
         {
-            if (labelAlignment == Alignment::Left) {
+            if (labelAlignment == PAlignment::Left) {
 				MovePenTo(0.0f, std::floor(bounds.Height() * 0.5f - (fontHeight.ascender + fontHeight.descender) * 0.5f + fontHeight.ascender));
                 buttonFrame.left += labelWidth + RB_LABEL_H_SPACING;
             } else {
@@ -136,28 +135,28 @@ void RadioButton::OnPaint(const Rect& updateRect)
             }
         }
 		SetFgColor(0, 0, 0);
-		SetBgColor(StandardColorID::DefaultBackground);
+		SetBgColor(PStandardColorID::DefaultBackground);
 		DrawString(label);
     }
 
-    SetEraseColor(StandardColorID::DefaultBackground);
+    SetEraseColor(PStandardColorID::DefaultBackground);
 
-    SetFgColor(StandardColorID::Shadow);
+    SetFgColor(PStandardColorID::Shadow);
 
 
     float radius = std::floor(RB_SIZE * 0.5f);
-    Point center(std::floor(buttonFrame.left + buttonFrame.Width() * 0.5f), std::floor(buttonFrame.top + buttonFrame.Height() * 0.5f));
+    PPoint center(std::floor(buttonFrame.left + buttonFrame.Width() * 0.5f), std::floor(buttonFrame.top + buttonFrame.Height() * 0.5f));
 
     radius -= 1.0f;
     FillCircle(center, radius);
 
-    SetFgColor(StandardColorID::DefaultBackground);
+    SetFgColor(PStandardColorID::DefaultBackground);
 	radius -= 3.0f;
 	FillCircle(center, radius);
 
     if (IsChecked())
     {
-        SetFgColor(StandardColorID::Shadow);
+        SetFgColor(PStandardColorID::Shadow);
 		radius -= 3.0f;
 		FillCircle(center, radius);
     }

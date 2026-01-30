@@ -34,7 +34,7 @@ typedef struct
 } PRelocMemSection;
 
 
-void relocate_memory_sections(const PRelocMemSection* sections, size_t count);
+void p_relocate_memory_sections(const PRelocMemSection* sections, size_t count);
 
 
 #ifdef __cplusplus

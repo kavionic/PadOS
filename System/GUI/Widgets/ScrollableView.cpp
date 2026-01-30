@@ -19,14 +19,12 @@
 
 #include <GUI/Widgets/ScrollableView.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ScrollableView::ScrollableView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags)
+PScrollableView::PScrollableView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags)
 {
 }
 
@@ -34,7 +32,7 @@ ScrollableView::ScrollableView(const PString& name, Ptr<View> parent, uint32_t f
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ScrollableView::ScrollableView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+PScrollableView::PScrollableView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
 {
 }
 
@@ -42,12 +40,12 @@ ScrollableView::ScrollableView(ViewFactoryContext& context, Ptr<View> parent, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollableView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PScrollableView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     if (m_ContentView != nullptr) {
         m_ContentView->CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     } else {
-        View::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
 }
 
@@ -55,12 +53,12 @@ void ScrollableView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point ScrollableView::CalculateContentSize() const
+PPoint PScrollableView::CalculateContentSize() const
 {
     if (m_ContentView != nullptr) {
-        return m_ContentView->GetPreferredSize(PrefSizeType::Smallest);
+        return m_ContentView->GetPreferredSize(PPrefSizeType::Smallest);
     } else {
-        return View::CalculateContentSize();
+        return PView::CalculateContentSize();
     }
 }
 
@@ -68,17 +66,17 @@ Point ScrollableView::CalculateContentSize() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollableView::OnLayoutChanged()
+void PScrollableView::OnLayoutChanged()
 {
     if (m_ContentView != nullptr)
     {
-        const Rect bounds = GetNormalizedBounds();
-        const Point minPreferredSize = m_ContentView->GetPreferredSize(PrefSizeType::Smallest);
-        const Point maxPreferredSize = m_ContentView->GetPreferredSize(PrefSizeType::Greatest);
+        const PRect bounds = GetNormalizedBounds();
+        const PPoint minPreferredSize = m_ContentView->GetPreferredSize(PPrefSizeType::Smallest);
+        const PPoint maxPreferredSize = m_ContentView->GetPreferredSize(PPrefSizeType::Greatest);
 
-        const Point contentViewSize(std::clamp(bounds.Width(), minPreferredSize.x, maxPreferredSize.x), std::clamp(bounds.Height(), minPreferredSize.y, maxPreferredSize.y));
+        const PPoint contentViewSize(std::clamp(bounds.Width(), minPreferredSize.x, maxPreferredSize.x), std::clamp(bounds.Height(), minPreferredSize.y, maxPreferredSize.y));
 
-        m_ContentView->SetFrame(Rect::FromSize(contentViewSize));
+        m_ContentView->SetFrame(PRect::FromSize(contentViewSize));
     }
 }
 
@@ -86,7 +84,7 @@ void ScrollableView::OnLayoutChanged()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollableView::SetContentView(Ptr<View> contentView)
+void PScrollableView::SetContentView(Ptr<PView> contentView)
 {
     if (m_ContentView != nullptr)
     {
@@ -96,10 +94,8 @@ void ScrollableView::SetContentView(Ptr<View> contentView)
     m_ContentView = contentView;
     if (m_ContentView != nullptr)
     {
-        m_ContentView->SetFrame(Rect::FromSize(Point(GetBounds().Width(), m_ContentView->GetPreferredSize(PrefSizeType::Smallest).y)));
+        m_ContentView->SetFrame(PRect::FromSize(PPoint(GetBounds().Width(), m_ContentView->GetPreferredSize(PPrefSizeType::Smallest).y)));
         AddChild(m_ContentView);
         InvalidateLayout();
     }
 }
-
-} // namespace os

@@ -19,17 +19,14 @@
 
 #pragma once
 
-#include "Signals/SignalTarget.h"
-#include "Threads/EventTimer.h"
-#include "Math/Point.h"
-#include "Math/Rect.h"
-#include "GUI/GUIDefines.h"
-
-namespace os
-{
+#include <Signals/SignalTarget.h>
+#include <Threads/EventTimer.h>
+#include <Math/Point.h>
+#include <Math/Rect.h>
+#include <GUI/GUIDefines.h>
 
 
-class InertialScroller : public SignalTarget
+class PInertialScroller : public SignalTarget
 {
 public:
     enum class State : uint8_t
@@ -40,15 +37,15 @@ public:
         Coasting
     };
 
-    InertialScroller(const Point& initialValue = Point(), float frameRate = 60.0f, int ticksPerUpdate = 2);
+    PInertialScroller(const PPoint& initialValue = PPoint(), float frameRate = 60.0f, int ticksPerUpdate = 2);
 
     State GetState() const { return m_State; }
 
-    void SetScrollBounds(const Rect& bounds) { m_ScrollBounds = bounds; }
-    void SetScrollBounds(float left, float top, float right, float bottom) { SetScrollBounds(Rect(left, top, right, bottom)); }
+    void SetScrollBounds(const PRect& bounds) { m_ScrollBounds = bounds; }
+    void SetScrollBounds(float left, float top, float right, float bottom) { SetScrollBounds(PRect(left, top, right, bottom)); }
     void SetScrollHBounds(float left, float right) { m_ScrollBounds.left = left; m_ScrollBounds.right = right; }
     void SetScrollVBounds(float top, float bottom) { m_ScrollBounds.top = top; m_ScrollBounds.bottom = bottom; }
-    Rect GetScrollBounds() const { return m_ScrollBounds; }
+    PRect GetScrollBounds() const { return m_ScrollBounds; }
 
     void  SetMaxHOverscroll(float value)    { m_MaxHOverscroll = value; }
     float GetMaxHOverscroll() const         { return m_MaxHOverscroll; }
@@ -61,24 +58,24 @@ public:
     void    SetStartScrollThreshold(float threshold) { m_StartScrollThreshold = threshold; }
     float   GetStartScrollThreshold() const { return m_StartScrollThreshold; }
 
-    void SetDetentSpacing(const Point& spacing) { m_DetentSpacing = spacing; }
-    void SetDetentSpacing(float horizontal, float vertical) { SetDetentSpacing(Point(horizontal, vertical)); }
-    Point GetDetentSpacing() const              { return m_DetentSpacing; }
+    void SetDetentSpacing(const PPoint& spacing) { m_DetentSpacing = spacing; }
+    void SetDetentSpacing(float horizontal, float vertical) { SetDetentSpacing(PPoint(horizontal, vertical)); }
+    PPoint GetDetentSpacing() const              { return m_DetentSpacing; }
 
     void SetFriction(float pixelsPerSecond) { s_DefaultFriction = pixelsPerSecond; }
     float GetFriction() const { return s_DefaultFriction; }
 
-    void BeginDrag(const Point& scrollOffset, const Point& dragPosition, Looper* looper = nullptr);
+    void BeginDrag(const PPoint& scrollOffset, const PPoint& dragPosition, PLooper* looper = nullptr);
     void EndDrag();
-    void AddUpdate(const Point& value, Looper* looper = nullptr);
+    void AddUpdate(const PPoint& value, PLooper* looper = nullptr);
 
-    Point GetValue() const;
-    Point GetVelocity() const;
-    Point GetClosestIndention(const Point& position) const;
+    PPoint GetValue() const;
+    PPoint GetVelocity() const;
+    PPoint GetClosestIndention(const PPoint& position) const;
 
-    void ScrollTo(const Point& scrollOffset, const Point& velocity, Looper* looper = nullptr);
+    void ScrollTo(const PPoint& scrollOffset, const PPoint& velocity, PLooper* looper = nullptr);
 
-    Signal<void, const Point&, InertialScroller*> SignalUpdate;
+    Signal<void, const PPoint&, PInertialScroller*> SignalUpdate;
 
 private:
     void SlotTick();
@@ -88,30 +85,28 @@ private:
     static float    s_MinSpeed;
     static float    s_OverscrollSlip;
 
-    Point           m_DetentSpacing = Point(0.0f, 0.0f);
-    Point           m_DetentAttraction = Point(20.0f, 20.0f);
+    PPoint           m_DetentSpacing = PPoint(0.0f, 0.0f);
+    PPoint           m_DetentAttraction = PPoint(20.0f, 20.0f);
 
     float           m_MaxVOverscroll = 40.0f;
     float           m_MaxHOverscroll = 0.0f;
-    Rect            m_ScrollBounds = Rect(-COORD_MAX, -COORD_MAX, COORD_MAX, COORD_MAX);
+    PRect            m_ScrollBounds = PRect(-COORD_MAX, -COORD_MAX, COORD_MAX, COORD_MAX);
 
     float           m_StartScrollThreshold = 0.0f;
 
-    EventTimer      m_Timer;
+    PEventTimer      m_Timer;
     TimeValNanos    m_BeginDragTime;
     TimeValNanos    m_LastTickTime;
 
     int             m_TicksPerUpdate = 2;
     int             m_TicksSinceUpdate = 0;
 
-    Point           m_Friction;
+    PPoint           m_Friction;
 
-    Point           m_Velocity;
-    Point           m_BeginDragPosition;
-    Point           m_TargetPosition;
-    Point           m_CurrentPosition;
-    Point           m_StaticOffset;
+    PPoint           m_Velocity;
+    PPoint           m_BeginDragPosition;
+    PPoint           m_TargetPosition;
+    PPoint           m_CurrentPosition;
+    PPoint           m_StaticOffset;
     State           m_State = State::Idle;
 };
-
-} // namespace os

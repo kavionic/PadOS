@@ -20,13 +20,12 @@
 #include <PadOS/HandleObject.h>
 #include <System/HandleObject.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-HandleObject::HandleObject(const HandleObject& other)
+PHandleObject::PHandleObject(const PHandleObject& other)
 {
     if (duplicate_handle(other.m_Handle, &m_Handle) != PErrorCode::Success) {
         m_Handle = INVALID_HANDLE;
@@ -37,7 +36,7 @@ HandleObject::HandleObject(const HandleObject& other)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-HandleObject::~HandleObject()
+PHandleObject::~PHandleObject()
 {
     if (m_Handle != INVALID_HANDLE) {
         delete_handle(m_Handle);
@@ -48,7 +47,7 @@ HandleObject::~HandleObject()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-HandleObject& HandleObject::operator=(const HandleObject& other)
+PHandleObject& PHandleObject::operator=(const PHandleObject& other)
 {
     if (m_Handle != INVALID_HANDLE) {
         delete_handle(m_Handle);

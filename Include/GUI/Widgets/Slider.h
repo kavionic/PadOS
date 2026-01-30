@@ -23,20 +23,17 @@
 #include <GUI/Widgets/Control.h>
 
 
-namespace os
+class PTextView;
+
+
+namespace PSliderFlags
 {
-
-class TextView;
-
-
-namespace SliderFlags
-{
-static constexpr uint32_t TicksAbove        = 0x0001 << ViewFlags::FirstUserBit;
-static constexpr uint32_t TicksBelow        = 0x0002 << ViewFlags::FirstUserBit;
+static constexpr uint32_t TicksAbove        = 0x0001 << PViewFlags::FirstUserBit;
+static constexpr uint32_t TicksBelow        = 0x0002 << PViewFlags::FirstUserBit;
 static constexpr uint32_t TicksLeft         = TicksAbove;
 static constexpr uint32_t TicksRight        = TicksBelow;
-static constexpr uint32_t KnobPointUp       = 0x0004 << ViewFlags::FirstUserBit;
-static constexpr uint32_t KnobPointDown     = 0x0008 << ViewFlags::FirstUserBit;
+static constexpr uint32_t KnobPointUp       = 0x0004 << PViewFlags::FirstUserBit;
+static constexpr uint32_t KnobPointDown     = 0x0008 << PViewFlags::FirstUserBit;
 static constexpr uint32_t KnobPointLeft     = KnobPointUp;
 static constexpr uint32_t KnobPointRight    = KnobPointDown;
 
@@ -52,17 +49,17 @@ extern const std::map<PString, uint32_t> FlagMap;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class Slider : public Control
+class PSlider : public PControl
 {
 public:
-    Slider(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = SliderFlags::TicksBelow,
-           int tickCount = 10, Orientation orientation = Orientation::Horizontal);
-    Slider(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PSlider(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = PSliderFlags::TicksBelow,
+           int tickCount = 10, POrientation orientation = POrientation::Horizontal);
+    PSlider(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
-    ~Slider();
+    ~PSlider();
 
     // From View:
-    virtual void OnFlagsChanged(uint32_t changedFlags) override { Control::OnFlagsChanged(changedFlags); PreferredSizeChanged(); Invalidate(); }
+    virtual void OnFlagsChanged(uint32_t changedFlags) override { PControl::OnFlagsChanged(changedFlags); PreferredSizeChanged(); Invalidate(); }
 
     // From Control:
     virtual void OnLabelChanged(const PString& label) override;
@@ -70,18 +67,18 @@ public:
     // From Slider:
     virtual void RenderLabels();
     virtual void RenderSlider();
-    virtual void RenderKnob(StandardColorID knobColor, float value);
+    virtual void RenderKnob(PStandardColorID knobColor, float value);
     virtual void RenderTicks();
     
-    virtual float PosToVal(const Point& position) const;
-    virtual Point ValToPos(float value) const;
+    virtual float PosToVal(const PPoint& position) const;
+    virtual PPoint ValToPos(float value) const;
 
     enum class GetKnobFrameMode {FullFrame, SquareFrame};
-    virtual Rect    GetKnobFrame(Orientation orientation, GetKnobFrameMode mode) const;
-    virtual Rect    GetSliderFrame(Rect* outTotalFrame = nullptr, float* minimumLength = nullptr) const;
+    virtual PRect    GetKnobFrame(POrientation orientation, GetKnobFrameMode mode) const;
+    virtual PRect    GetSliderFrame(PRect* outTotalFrame = nullptr, float* minimumLength = nullptr) const;
 
-    virtual void    SetSliderColors(const Color& color1, const Color& color2);
-    virtual void    GetSliderColors(Color* color1, Color* color2) const;
+    virtual void    SetSliderColors(const PColor& color1, const PColor& color2);
+    virtual void    GetSliderColors(PColor* color1, PColor* color2) const;
     virtual void    SetSliderSize(float size);
     virtual float   GetSliderSize() const;
 
@@ -113,37 +110,37 @@ public:
     size_t          GetShadowKnobsCount() const;
     void            SetShadowKnobValue(size_t index, float value);
 
-    bool            IsBeingDragged() const { return m_HitButton != MouseButton_e::None; }
+    bool            IsBeingDragged() const { return m_HitButton != PMouseButton::None; }
     // From Control:
     virtual void    OnEnableStatusChanged(bool isEnabled) override;
     
     // From View
     virtual void AttachedToScreen() override;
-    virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual void OnFrameSized(const Point& delta) override;
-    virtual void OnPaint(const Rect& updateRect) override;
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual bool OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual void OnFrameSized(const PPoint& delta) override;
+    virtual void OnPaint(const PRect& updateRect) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 
 
-    Signal<void, float, Slider*, MouseButton_e> SignalBeginDrag;
-    Signal<void, float, Slider*, MouseButton_e> SignalEndDrag;
-    Signal<void, float, bool, Slider*>          SignalValueChanged;//(float value, bool finalUpdate, os::Slider* slider)
+    Signal<void, float, PSlider*, PMouseButton> SignalBeginDrag;
+    Signal<void, float, PSlider*, PMouseButton> SignalEndDrag;
+    Signal<void, float, bool, PSlider*>          SignalValueChanged;//(float value, bool finalUpdate, os::Slider* slider)
 private:
     void UpdateValueView();
     void LayoutValueView();
     void RefreshDisplay();
 
-    Ptr<TextView>   m_ValueView;
+    Ptr<PTextView>   m_ValueView;
 
     PString         m_MinLabel;
     PString         m_MaxLabel;
     PString         m_ValueFormat;
     float           m_ValueScale = 1.0f;
 
-    Color           m_SliderColor1;
-    Color           m_SliderColor2;
+    PColor           m_SliderColor1;
+    PColor           m_SliderColor2;
     float           m_SliderSize = 5.0f;
     int             m_NumSteps = 0;
     int             m_NumTicks;
@@ -154,16 +151,14 @@ private:
     float           m_BigStep = 0.1f;
     float           m_DragScale = 1.0f;
     float           m_DragScaleRange = 100.0f;
-    Orientation     m_Orientation;
+    POrientation     m_Orientation;
     float           m_Value = 0.0f;
     
     std::vector<float>  m_ShadowArrows;
 
     bool            m_Changed = false;
-    MouseButton_e   m_HitButton = MouseButton_e::None;
-    Point           m_HitPos;
+    PMouseButton   m_HitButton = PMouseButton::None;
+    PPoint           m_HitPos;
     float           m_HitValue = 0.0f;
-    Point           m_SmoothedPos;
+    PPoint           m_SmoothedPos;
 };
-
-}

@@ -19,9 +19,6 @@
 
 #pragma once
 
-namespace os
-{
-
 
 typedef struct
 {
@@ -30,7 +27,7 @@ typedef struct
     char        KernelBuildDate[OS_NAME_LENGTH];	// Date of kernel built.
     char        KernelBuildTime[OS_NAME_LENGTH];	// Time of kernel built.
     bigtime_t   BootTime;				            // Time of boot (# usec since 1/1/70).
-    CPUInfo     CPUInfo;
+    PCPUInfo    PCPUInfo;
     int         MutexCount;                 // Number of mutexes in use.
     int         SemaphoreCount;				// Number of semaphores in use.
     int         ConditionVariableCount;     // Number of condition variables in use.
@@ -45,6 +42,4 @@ typedef struct
     int	        BlockCacheSize;
     int	        DirtyCacheSize;
     int	        LockedCacheBlocks;
-} system_info;
-
-} // namespace
+} PSystemInfo;

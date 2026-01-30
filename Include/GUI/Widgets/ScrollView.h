@@ -22,28 +22,24 @@
 #include <GUI/View.h>
 #include <GUI/ViewScroller.h>
 
-namespace os
-{
 
-class ScrollView : public View, public ViewScroller
+class PScrollView : public PView, public PViewScroller
 {
 public:
-    ScrollView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    ScrollView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PScrollView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PScrollView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
     // From View:
     virtual void    OnLayoutChanged() override;
-    virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual bool    OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 
     // From ViewScroller:
-    virtual Ptr<View>   SetScrolledView(Ptr<View> view) override;
+    virtual Ptr<PView>   SetScrolledView(Ptr<PView> view) override;
 
 private:
-    MouseButton_e   m_HitButton = MouseButton_e::None;
+    PMouseButton   m_HitButton = PMouseButton::None;
 
 };
-
-} // namespace os

@@ -36,8 +36,6 @@
 
 using namespace pugi;
 
-namespace os
-{
 
 static const uint32_t g_BackspaceRaster[] =
 {
@@ -127,27 +125,27 @@ static const uint32_t g_SpaceRaster[] =
     0b111111111111111111111111111111,
 };
 
-static constexpr IRect KEY_BM_FRAME_BACKSPACE(0, 0, 32, sizeof(g_BackspaceRaster) / sizeof(uint32_t));
-static constexpr IRect KEY_BM_FRAME_SHIFT(0, KEY_BM_FRAME_BACKSPACE.bottom, 23, KEY_BM_FRAME_BACKSPACE.bottom + sizeof(g_ShiftRaster) / sizeof(uint32_t));
-static constexpr IRect KEY_BM_FRAME_ENTER(0, KEY_BM_FRAME_SHIFT.bottom, 32, KEY_BM_FRAME_SHIFT.bottom + sizeof(g_EnterRaster) / sizeof(uint32_t));
-static constexpr IRect KEY_BM_FRAME_SPACE(0, KEY_BM_FRAME_ENTER.bottom, 32, KEY_BM_FRAME_ENTER.bottom + sizeof(g_SpaceRaster) / sizeof(uint32_t));
+static constexpr PIRect KEY_BM_FRAME_BACKSPACE(0, 0, 32, sizeof(g_BackspaceRaster) / sizeof(uint32_t));
+static constexpr PIRect KEY_BM_FRAME_SHIFT(0, KEY_BM_FRAME_BACKSPACE.bottom, 23, KEY_BM_FRAME_BACKSPACE.bottom + sizeof(g_ShiftRaster) / sizeof(uint32_t));
+static constexpr PIRect KEY_BM_FRAME_ENTER(0, KEY_BM_FRAME_SHIFT.bottom, 32, KEY_BM_FRAME_SHIFT.bottom + sizeof(g_EnterRaster) / sizeof(uint32_t));
+static constexpr PIRect KEY_BM_FRAME_SPACE(0, KEY_BM_FRAME_ENTER.bottom, 32, KEY_BM_FRAME_ENTER.bottom + sizeof(g_SpaceRaster) / sizeof(uint32_t));
 
-static constexpr IPoint KEYS_BITMAP_SIZE(32, KEY_BM_FRAME_BACKSPACE.Height() + KEY_BM_FRAME_SHIFT.Height() + KEY_BM_FRAME_ENTER.Height() + KEY_BM_FRAME_SPACE.Height());
+static constexpr PIPoint KEYS_BITMAP_SIZE(32, KEY_BM_FRAME_BACKSPACE.Height() + KEY_BM_FRAME_SHIFT.Height() + KEY_BM_FRAME_ENTER.Height() + KEY_BM_FRAME_SPACE.Height());
 
-static constexpr Point KEY_SPACING(5.0f, 5.0f);
+static constexpr PPoint KEY_SPACING(5.0f, 5.0f);
 
-NoPtr<KeyboardViewStyle> KeyboardView::s_DefaultStyle;
+NoPtr<PKeyboardViewStyle> PKeyboardView::s_DefaultStyle;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KeyboardView::KeyboardView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize)
+PKeyboardView::PKeyboardView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize)
 {
-    const FontHeight fontHeight = m_Style->LargeFont->GetHeight();
+    const PFontHeight fontHeight = m_Style->LargeFont->GetHeight();
     m_KeyHeight = fontHeight.descender - fontHeight.ascender + 11.0f;
 
-    m_KeysBitmap = ptr_new<Bitmap>(KEYS_BITMAP_SIZE.x, KEYS_BITMAP_SIZE.y, EColorSpace::MONO1, Bitmap::SHARE_FRAMEBUFFER);
+    m_KeysBitmap = ptr_new<PBitmap>(KEYS_BITMAP_SIZE.x, KEYS_BITMAP_SIZE.y, PEColorSpace::MONO1, PBitmap::SHARE_FRAMEBUFFER);
 
     uint8_t* raster = m_KeysBitmap->LockRaster();
     if (raster != nullptr)
@@ -179,7 +177,7 @@ KeyboardView::KeyboardView(const PString& name, Ptr<View> parent, uint32_t flags
 
     LoadConfig(selectedKeyboard);
 
-    Directory   keyboardDir(StandardPaths::GetPath(StandardPath::Keyboards));
+    PDirectory   keyboardDir(PStandardPaths::GetPath(PStandardPath::Keyboards));
     PString     fileName;
     while(keyboardDir.GetNextEntry(fileName))
     {
@@ -197,7 +195,7 @@ KeyboardView::KeyboardView(const PString& name, Ptr<View> parent, uint32_t flags
         }
     }
 
-    if (HasFlags(KeyboardViewFlags::Numerical))
+    if (HasFlags(PKeyboardViewFlags::Numerical))
     {
         LoadKeyboard("Numerical");
     }
@@ -209,16 +207,16 @@ KeyboardView::KeyboardView(const PString& name, Ptr<View> parent, uint32_t flags
             LoadKeyboard(m_Keyboards[m_SelectedKeyboard]);
         }
     }
-    m_RepeatTimer.SignalTrigged.Connect(this, &KeyboardView::SlotRepeatTimer);
+    m_RepeatTimer.SignalTrigged.Connect(this, &PKeyboardView::SlotRepeatTimer);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KeyboardView::LoadKeyboard(const PString& name)
+bool PKeyboardView::LoadKeyboard(const PString& name)
 {
-    File file(StandardPaths::GetPath(StandardPath::Keyboards, name + PString(".xml")));
+    PFile file(PStandardPaths::GetPath(PStandardPath::Keyboards, name + PString(".xml")));
 
     if (!file.IsValid()) {
         return false;
@@ -229,7 +227,7 @@ bool KeyboardView::LoadKeyboard(const PString& name)
         return false;
     }
 
-    XMLDocument doc;
+    PXMLDocument doc;
 
     if (!doc.Parse(std::move(buffer))) {
         return false;
@@ -253,8 +251,8 @@ bool KeyboardView::LoadKeyboard(const PString& name)
         if (strcmp(layoutNode.name(), "Layout") != 0) {
             continue;
         }
-        PString typeName = xml_object_parser::parse_attribute(layoutNode, "type", PString::zero);
-        KeyboardLayout* layout = nullptr;
+        PString typeName = p_xml_object_parser::parse_attribute(layoutNode, "type", PString::zero);
+        PKeyboardLayout* layout = nullptr;
 
         if (typeName.compare_nocase("normal") == 0 || typeName.compare_nocase("numerical") == 0) {
             layout = &m_DefaultLayout;
@@ -269,7 +267,7 @@ bool KeyboardView::LoadKeyboard(const PString& name)
                 totalHeight += 1.0f;
             }
         }
-        Point position(0.0f, 0.0f);
+        PPoint position(0.0f, 0.0f);
         for (xml_node rowNode = layoutNode.first_child(); rowNode; rowNode = rowNode.next_sibling())
         {
             if (strcmp(rowNode.name(), "KeyRow") != 0) {
@@ -279,7 +277,7 @@ bool KeyboardView::LoadKeyboard(const PString& name)
             for (xml_node keyNode = rowNode.first_child(); keyNode; keyNode = keyNode.next_sibling())
             {
                 if (strcmp(keyNode.name(), "Key") == 0) {
-                    totalWidth += xml_object_parser::parse_attribute(keyNode, "width", 1.0f);
+                    totalWidth += p_xml_object_parser::parse_attribute(keyNode, "width", 1.0f);
                 }
             }
             position.x = 0.0f;
@@ -289,13 +287,13 @@ bool KeyboardView::LoadKeyboard(const PString& name)
                     continue;
                 }
 
-                float   width = xml_object_parser::parse_attribute(keyNode, "width", 1.0f) / totalWidth;
-                KeyCodes normalKeyCode = xml_object_parser::parse_attribute(keyNode, "normal", KeyCodes::NONE);
-                KeyCodes lowerKeyCode = xml_object_parser::parse_attribute(keyNode, "lower", KeyCodes(std::towlower(int(normalKeyCode))));
-                KeyCodes extraKeyCode = xml_object_parser::parse_attribute(keyNode, "extra", KeyCodes::NONE);
-                KeyCodes symbolKeyCode = xml_object_parser::parse_attribute(keyNode, "symbol", KeyCodes::NONE);
+                float   width = p_xml_object_parser::parse_attribute(keyNode, "width", 1.0f) / totalWidth;
+                PKeyCodes normalKeyCode = p_xml_object_parser::parse_attribute(keyNode, "normal", PKeyCodes::NONE);
+                PKeyCodes lowerKeyCode = p_xml_object_parser::parse_attribute(keyNode, "lower", PKeyCodes(std::towlower(int(normalKeyCode))));
+                PKeyCodes extraKeyCode = p_xml_object_parser::parse_attribute(keyNode, "extra", PKeyCodes::NONE);
+                PKeyCodes symbolKeyCode = p_xml_object_parser::parse_attribute(keyNode, "symbol", PKeyCodes::NONE);
 
-                if (normalKeyCode != KeyCodes::NONE) {
+                if (normalKeyCode != PKeyCodes::NONE) {
                     layout->m_KeyButtons.emplace_back(position, width, 1.0f / totalHeight, normalKeyCode, lowerKeyCode, extraKeyCode, symbolKeyCode);
                 }
                 position.x += width;
@@ -312,13 +310,13 @@ bool KeyboardView::LoadKeyboard(const PString& name)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::OnFlagsChanged(uint32_t changedFlags)
+void PKeyboardView::OnFlagsChanged(uint32_t changedFlags)
 {
-    if (changedFlags & KeyboardViewFlags::Numerical)
+    if (changedFlags & PKeyboardViewFlags::Numerical)
     {
         m_SymbolsActive = false;
         m_SymbolPage = 0;
-        if (HasFlags(KeyboardViewFlags::Numerical))
+        if (HasFlags(PKeyboardViewFlags::Numerical))
         {
             LoadKeyboard("Numerical");
         }
@@ -338,9 +336,9 @@ void KeyboardView::OnFlagsChanged(uint32_t changedFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PKeyboardView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    Point size(11.0f * 40.0f, (m_KeyHeight + KEY_SPACING.y) * std::max(5.0f, float(m_CurrentLayout->m_KeyRows)) + KEY_SPACING.y);
+    PPoint size(11.0f * 40.0f, (m_KeyHeight + KEY_SPACING.y) * std::max(5.0f, float(m_CurrentLayout->m_KeyRows)) + KEY_SPACING.y);
 
     *minSize = size;
     *maxSize = size;
@@ -351,9 +349,9 @@ void KeyboardView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::OnFrameSized(const Point& delta)
+void PKeyboardView::OnFrameSized(const PPoint& delta)
 {
-    const Rect bounds = GetBounds();
+    const PRect bounds = GetBounds();
     m_CurrentLayout->Layout(bounds, KEY_SPACING, m_KeyHeight + KEY_SPACING.y);
 }
 
@@ -361,21 +359,21 @@ void KeyboardView::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::OnPaint(const Rect& updateRect)
+void PKeyboardView::OnPaint(const PRect& updateRect)
 {
-    Region clearRegion(updateRect);
+    PRegion clearRegion(updateRect);
     for (const auto& button : m_CurrentLayout->m_KeyButtons)
     {
         if (updateRect.DoIntersect(button.m_Frame)) {
             clearRegion.Exclude(button.m_Frame);
         }
     }
-    for (const IRect& rect : clearRegion.m_Rects) {
+    for (const PIRect& rect : clearRegion.m_Rects) {
         EraseRect(rect);
     }
     for (size_t i = 0; i < m_CurrentLayout->m_KeyButtons.size(); ++i)
     {
-        const KeyButton& button = m_CurrentLayout->m_KeyButtons[i];
+        const PKeyButton& button = m_CurrentLayout->m_KeyButtons[i];
         if (button.m_Frame.DoIntersect(updateRect)) {
             DrawButton(button, i == m_PressedButton);
         }
@@ -387,10 +385,10 @@ void KeyboardView::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KeyboardView::OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool PKeyboardView::OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
-    if (m_HitButton != MouseButton_e::None) {
-        return View::OnTouchDown(pointID, position, event);
+    if (m_HitButton != PMouseButton::None) {
+        return PView::OnTouchDown(pointID, position, event);
     }
     m_HitButton = pointID;
     m_HitPos = position;
@@ -399,11 +397,11 @@ bool KeyboardView::OnTouchDown(MouseButton_e pointID, const Point& position, con
 
     if (m_PressedButton != INVALID_INDEX)
     {
-        KeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
+        PKeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
 
-        if (button.m_NormalKeyCode == KeyCodes::BACKSPACE)
+        if (button.m_NormalKeyCode == PKeyCodes::BACKSPACE)
         {
-            SignalKeyPressed(button.m_NormalKeyCode, GetKeyText((m_CapsLockMode == CapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode), this);
+            SignalKeyPressed(button.m_NormalKeyCode, GetKeyText((m_CapsLockMode == PCapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode), this);
             m_RepeatTimer.Set(KEYREPEAT_DELAY, true);
             m_RepeatTimer.Start(true);
         }
@@ -416,7 +414,7 @@ bool KeyboardView::OnTouchDown(MouseButton_e pointID, const Point& position, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KeyboardView::OnLongPress(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool PKeyboardView::OnLongPress(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
     if (pointID != m_HitButton) {
         return false;
@@ -424,40 +422,40 @@ bool KeyboardView::OnLongPress(MouseButton_e pointID, const Point& position, con
     bool cancelPress = false;
     if (m_PressedButton != INVALID_INDEX)
     {
-        KeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
+        PKeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
 
-        if (button.m_NormalKeyCode == KeyCodes::SHIFT)
+        if (button.m_NormalKeyCode == PKeyCodes::SHIFT)
         {
             if (!m_SymbolsActive)
             {
-                if (m_CapsLockMode == CapsLockMode::Off) {
-                    m_CapsLockMode = CapsLockMode::Locked;
+                if (m_CapsLockMode == PCapsLockMode::Off) {
+                    m_CapsLockMode = PCapsLockMode::Locked;
                 } else {
-                    m_CapsLockMode = CapsLockMode::Off;
+                    m_CapsLockMode = PCapsLockMode::Off;
                 }
                 cancelPress = true;
             }
         }
-        else if (button.m_NormalKeyCode == KeyCodes::ENTER && !HasFlags(KeyboardViewFlags::Numerical))
+        else if (button.m_NormalKeyCode == PKeyCodes::ENTER && !HasFlags(PKeyboardViewFlags::Numerical))
         {
             if (!m_Keyboards.empty() && m_LayoutSelectMenu == nullptr)
             {
-                m_LayoutSelectMenu = ptr_new<Menu>(PString::zero, MenuLayout::Vertical, MenuFlags::NoKeyboardFocus);
+                m_LayoutSelectMenu = ptr_new<PMenu>(PString::zero, PMenuLayout::Vertical, PMenuFlags::NoKeyboardFocus);
 
                 for (size_t i = 0; i < m_Keyboards.size(); ++i)
                 {
-                    Ptr<MenuItem> item = m_LayoutSelectMenu->AddStringItem(m_Keyboards[i], i);
+                    Ptr<PMenuItem> item = m_LayoutSelectMenu->AddStringItem(m_Keyboards[i], i);
                     if (i == m_SelectedKeyboard) {
                         item->Highlight(true);
                     }
                 }
 
-                m_LayoutSelectMenu->SignalItemSelected.Connect(this, &KeyboardView::SlotLayoutSelected);
-                m_LayoutSelectMenu->Open(Desktop().GetResolution() * 0.5f, MenuLocation::Center);
+                m_LayoutSelectMenu->SignalItemSelected.Connect(this, &PKeyboardView::SlotLayoutSelected);
+                m_LayoutSelectMenu->Open(PDesktop().GetResolution() * 0.5f, PMenuLocation::Center);
                 cancelPress = true;
             }
         }
-        else if (button.m_ExtraKeyCode != KeyCodes::NONE)
+        else if (button.m_ExtraKeyCode != PKeyCodes::NONE)
         {
             SignalKeyPressed(button.m_ExtraKeyCode, GetKeyText(button.m_ExtraKeyCode), this);
             cancelPress = true;
@@ -466,7 +464,7 @@ bool KeyboardView::OnLongPress(MouseButton_e pointID, const Point& position, con
     if (cancelPress)
     {
         SetPressedButton(INVALID_INDEX);
-        m_HitButton = MouseButton_e::None;
+        m_HitButton = PMouseButton::None;
         MakeFocus(pointID, false);
         Invalidate();
     }
@@ -477,19 +475,19 @@ bool KeyboardView::OnLongPress(MouseButton_e pointID, const Point& position, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KeyboardView::OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool PKeyboardView::OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
     if (pointID != m_HitButton) {
-        return View::OnTouchUp(pointID, position, event);
+        return PView::OnTouchUp(pointID, position, event);
     }
 
     if (m_PressedButton != INVALID_INDEX)
     {
-        KeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
+        PKeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
         SetPressedButton(INVALID_INDEX);
 
         bool resetCapsLock = false;
-        if (button.m_NormalKeyCode == KeyCodes::SHIFT)
+        if (button.m_NormalKeyCode == PKeyCodes::SHIFT)
         {
             if (m_SymbolsActive)
             {
@@ -504,17 +502,17 @@ bool KeyboardView::OnTouchUp(MouseButton_e pointID, const Point& position, const
             }
             else
             {
-                if (m_CapsLockMode == CapsLockMode::Off) {
-                    m_CapsLockMode = CapsLockMode::Single;
-                } else if (m_CapsLockMode == CapsLockMode::Single) {
-                    m_CapsLockMode = CapsLockMode::Locked;
+                if (m_CapsLockMode == PCapsLockMode::Off) {
+                    m_CapsLockMode = PCapsLockMode::Single;
+                } else if (m_CapsLockMode == PCapsLockMode::Single) {
+                    m_CapsLockMode = PCapsLockMode::Locked;
                 } else {
-                    m_CapsLockMode = CapsLockMode::Off;
+                    m_CapsLockMode = PCapsLockMode::Off;
                 }
             }
             Invalidate();
         }
-        else if (button.m_NormalKeyCode == KeyCodes::SYMBOLS)
+        else if (button.m_NormalKeyCode == PKeyCodes::SYMBOLS)
         {
             m_SymbolsActive = !m_SymbolsActive;
             if (m_SymbolsActive)
@@ -531,22 +529,22 @@ bool KeyboardView::OnTouchUp(MouseButton_e pointID, const Point& position, const
                 SetLayout(&m_DefaultLayout);
             }
         }
-        else if (button.m_NormalKeyCode != KeyCodes::BACKSPACE && button.m_NormalKeyCode != KeyCodes::SPACE && button.m_NormalKeyCode != KeyCodes::ENTER)
+        else if (button.m_NormalKeyCode != PKeyCodes::BACKSPACE && button.m_NormalKeyCode != PKeyCodes::SPACE && button.m_NormalKeyCode != PKeyCodes::ENTER)
         {
             resetCapsLock = true;
         }
         if (!m_RepeatTimer.IsRunning()) {
-            SignalKeyPressed(button.m_NormalKeyCode, GetKeyText((m_CapsLockMode == CapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode), this);
+            SignalKeyPressed(button.m_NormalKeyCode, GetKeyText((m_CapsLockMode == PCapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode), this);
         }
-        if (resetCapsLock && m_CapsLockMode == CapsLockMode::Single)
+        if (resetCapsLock && m_CapsLockMode == PCapsLockMode::Single)
         {
-            m_CapsLockMode = CapsLockMode::Off;
+            m_CapsLockMode = PCapsLockMode::Off;
             Invalidate();
         }
     }
     m_RepeatTimer.Stop();
     m_IsDraggingCursor = false;
-    m_HitButton = MouseButton_e::None;
+    m_HitButton = PMouseButton::None;
     MakeFocus(pointID, false);
     return true;
 }
@@ -555,10 +553,10 @@ bool KeyboardView::OnTouchUp(MouseButton_e pointID, const Point& position, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KeyboardView::OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool PKeyboardView::OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
     if (pointID != m_HitButton) {
-        return View::OnTouchMove(pointID, position, event);
+        return PView::OnTouchMove(pointID, position, event);
     }
 
     if (m_IsDraggingCursor)
@@ -567,20 +565,20 @@ bool KeyboardView::OnTouchMove(MouseButton_e pointID, const Point& position, con
         while (cursorPos < m_PrevCursorPos)
         {
             m_PrevCursorPos--;
-            SignalKeyPressed(KeyCodes::CURSOR_LEFT, PString::zero, this);
+            SignalKeyPressed(PKeyCodes::CURSOR_LEFT, PString::zero, this);
         }
         while (cursorPos > m_PrevCursorPos)
         {
             m_PrevCursorPos++;
-            SignalKeyPressed(KeyCodes::CURSOR_RIGHT, PString::zero, this);
+            SignalKeyPressed(PKeyCodes::CURSOR_RIGHT, PString::zero, this);
         }
     }
     else if (m_PressedButton != INVALID_INDEX)
     {
-        if ((position - m_HitPos).LengthSqr() > square(BEGIN_DRAG_OFFSET))
+        if ((position - m_HitPos).LengthSqr() > PMath::square(BEGIN_DRAG_OFFSET))
         {
-            KeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
-            if (button.m_NormalKeyCode == KeyCodes::SPACE)
+            PKeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
+            if (button.m_NormalKeyCode == PKeyCodes::SPACE)
             {
                 m_IsDraggingCursor = true;
                 m_PrevCursorPos = int(std::round((position.x - m_HitPos.x) / 20.0f));
@@ -595,7 +593,7 @@ bool KeyboardView::OnTouchMove(MouseButton_e pointID, const Point& position, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::SetLayout(KeyboardLayout* layout)
+void PKeyboardView::SetLayout(PKeyboardLayout* layout)
 {
     m_CurrentLayout = layout;
 
@@ -607,15 +605,15 @@ void KeyboardView::SetLayout(KeyboardLayout* layout)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString KeyboardView::GetKeyText(KeyCodes keyCode) const
+PString PKeyboardView::GetKeyText(PKeyCodes keyCode) const
 {
-    if (keyCode > KeyCodes::LAST_SPECIAL)
+    if (keyCode > PKeyCodes::LAST_SPECIAL)
     {
         PString text;
 
-        if (keyCode == KeyCodes::TAB) {
+        if (keyCode == PKeyCodes::TAB) {
             text = "\t";
-        } else if (keyCode == KeyCodes::ENTER) {
+        } else if (keyCode == PKeyCodes::ENTER) {
             text = "\n";
         } else {
             text.append(uint32_t(keyCode));
@@ -629,21 +627,21 @@ PString KeyboardView::GetKeyText(KeyCodes keyCode) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
+void PKeyboardView::DrawButton(const PKeyButton& button, bool pressed)
 {
-    Color textColor = m_Style->NormalTextColor;
+    PColor textColor = m_Style->NormalTextColor;
 
     if (pressed)
     {
         SetEraseColor(m_Style->PressedButtonColor);
     }
-    else if (!m_SymbolsActive && button.m_NormalKeyCode == KeyCodes::SHIFT)
+    else if (!m_SymbolsActive && button.m_NormalKeyCode == PKeyCodes::SHIFT)
     {
         switch (m_CapsLockMode)
         {
-            case os::CapsLockMode::Off:     SetEraseColor(m_Style->NormalButtonColor);      break;
-            case os::CapsLockMode::Single:  SetEraseColor(m_Style->SelectedButtonColor); textColor = m_Style->SelectedTextColor;   break;
-            case os::CapsLockMode::Locked:  SetEraseColor(m_Style->LockedButtonColor);   textColor = m_Style->LockedTextColor;     break;
+            case PCapsLockMode::Off:     SetEraseColor(m_Style->NormalButtonColor);      break;
+            case PCapsLockMode::Single:  SetEraseColor(m_Style->SelectedButtonColor); textColor = m_Style->SelectedTextColor;   break;
+            case PCapsLockMode::Locked:  SetEraseColor(m_Style->LockedButtonColor);   textColor = m_Style->LockedTextColor;     break;
         }
     }
     else
@@ -654,59 +652,59 @@ void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
     DrawFrame(button.m_Frame, FRAME_RAISED);
     SetFgColor(textColor);
 
-    Rect bitmapFrame(0.0f, 0.0f, 0.0f, 0.0f);
+    PRect bitmapFrame(0.0f, 0.0f, 0.0f, 0.0f);
 
-    switch (KeyCodes(button.m_NormalKeyCode))
+    switch (PKeyCodes(button.m_NormalKeyCode))
     {
-        case KeyCodes::ENTER:           bitmapFrame = KEY_BM_FRAME_ENTER; break;
-        case KeyCodes::BACKSPACE:       bitmapFrame = KEY_BM_FRAME_BACKSPACE; break;
-        case KeyCodes::SPACE:           bitmapFrame = KEY_BM_FRAME_SPACE; break;
-        case KeyCodes::DELETE:          break;
-        case KeyCodes::CURSOR_LEFT:     break;
-        case KeyCodes::CURSOR_RIGHT:    break;
-        case KeyCodes::CURSOR_UP:       break;
-        case KeyCodes::CURSOR_DOWN:     break;
-        case KeyCodes::HOME:            break;
-        case KeyCodes::END:             break;
-        case KeyCodes::TAB:             break;
-        case KeyCodes::SHIFT:
+        case PKeyCodes::ENTER:           bitmapFrame = KEY_BM_FRAME_ENTER; break;
+        case PKeyCodes::BACKSPACE:       bitmapFrame = KEY_BM_FRAME_BACKSPACE; break;
+        case PKeyCodes::SPACE:           bitmapFrame = KEY_BM_FRAME_SPACE; break;
+        case PKeyCodes::DELETE:          break;
+        case PKeyCodes::CURSOR_LEFT:     break;
+        case PKeyCodes::CURSOR_RIGHT:    break;
+        case PKeyCodes::CURSOR_UP:       break;
+        case PKeyCodes::CURSOR_DOWN:     break;
+        case PKeyCodes::HOME:            break;
+        case PKeyCodes::END:             break;
+        case PKeyCodes::TAB:             break;
+        case PKeyCodes::SHIFT:
             if (!m_SymbolsActive) {
                 bitmapFrame = KEY_BM_FRAME_SHIFT;
             }
             break;
-        case KeyCodes::CTRL:            break;
-        case KeyCodes::ALT:             break;
-        case KeyCodes::SYMBOLS:         break;
+        case PKeyCodes::CTRL:            break;
+        case PKeyCodes::ALT:             break;
+        case PKeyCodes::SYMBOLS:         break;
         default: break;
 
     }
     if (bitmapFrame.Width() > 0.0f)
     {
-        SetDrawingMode(DrawingMode::Overlay);
-        DrawBitmap(m_KeysBitmap, bitmapFrame, button.m_Frame.TopLeft() + Point(std::round((button.m_Frame.Width() - bitmapFrame.Width()) * 0.5f), std::round((button.m_Frame.Height() - bitmapFrame.Height()) * 0.5f)));
-        SetDrawingMode(DrawingMode::Copy);
+        SetDrawingMode(PDrawingMode::Overlay);
+        DrawBitmap(m_KeysBitmap, bitmapFrame, button.m_Frame.TopLeft() + PPoint(std::round((button.m_Frame.Width() - bitmapFrame.Width()) * 0.5f), std::round((button.m_Frame.Height() - bitmapFrame.Height()) * 0.5f)));
+        SetDrawingMode(PDrawingMode::Copy);
     }
     else
     {
         SetBgColor(GetEraseColor());
 
         PString label;
-        if (button.m_NormalKeyCode == KeyCodes::SYMBOLS) {
+        if (button.m_NormalKeyCode == PKeyCodes::SYMBOLS) {
             label = m_SymbolsActive ? "ABC" : "!#1";
         }
-        else if (button.m_NormalKeyCode == KeyCodes::SHIFT && m_SymbolsActive) {
+        else if (button.m_NormalKeyCode == PKeyCodes::SHIFT && m_SymbolsActive) {
             label = PString::format_string("{}/{}", m_SymbolPage + 1, m_SymbolLayouts.size());
         } else {
-            label = GetKeyText((m_CapsLockMode == CapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode);
+            label = GetKeyText((m_CapsLockMode == PCapsLockMode::Off) ? button.m_LowerKeyCode : button.m_NormalKeyCode);
         }
         PString smallLabel = GetKeyText(button.m_ExtraKeyCode);
 
         SetFont(m_Style->LargeFont);
-        const FontHeight fontHeight = m_Style->LargeFont->GetHeight();
+        const PFontHeight fontHeight = m_Style->LargeFont->GetHeight();
         const float labelWidth = GetStringWidth(label);
         const float labelHeight = fontHeight.descender - fontHeight.ascender;
 
-        Point labelPos = button.m_Frame.TopLeft() + Point(std::round((button.m_Frame.Width() - labelWidth) * 0.5f), ceilf((button.m_Frame.Height() - labelHeight) * 0.5f));
+        PPoint labelPos = button.m_Frame.TopLeft() + PPoint(std::round((button.m_Frame.Width() - labelWidth) * 0.5f), ceilf((button.m_Frame.Height() - labelHeight) * 0.5f));
 
         if (!smallLabel.empty()) {
             labelPos.y += 2.0f;
@@ -719,7 +717,7 @@ void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
             const float smallLabelWidth = GetStringWidth(smallLabel);
             SetFont(m_Style->SmallFont);
             SetFgColor(m_Style->ExtraTextColor);
-            DrawString(smallLabel, button.m_Frame.TopRight() + Point(-smallLabelWidth - 6.0f, 2.0f));
+            DrawString(smallLabel, button.m_Frame.TopRight() + PPoint(-smallLabelWidth - 6.0f, 2.0f));
         }
     }
 }
@@ -728,7 +726,7 @@ void KeyboardView::DrawButton(const KeyButton& button, bool pressed)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::SetPressedButton(size_t index)
+void PKeyboardView::SetPressedButton(size_t index)
 {
     if (index != m_PressedButton)
     {
@@ -750,7 +748,7 @@ void KeyboardView::SetPressedButton(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t KeyboardView::GetButtonIndex(const Point& position) const
+size_t PKeyboardView::GetButtonIndex(const PPoint& position) const
 {
     for (size_t i = 0; i < m_CurrentLayout->m_KeyButtons.size(); ++i)
     {
@@ -765,15 +763,15 @@ size_t KeyboardView::GetButtonIndex(const Point& position) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::SlotRepeatTimer()
+void PKeyboardView::SlotRepeatTimer()
 {
     if (m_PressedButton != INVALID_INDEX)
     {
-        KeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
+        PKeyButton& button = m_CurrentLayout->m_KeyButtons[m_PressedButton];
 
-        if (button.m_NormalKeyCode == KeyCodes::BACKSPACE)
+        if (button.m_NormalKeyCode == PKeyCodes::BACKSPACE)
         {
-            SignalKeyPressed(KeyCodes::BACKSPACE, PString::zero, this);
+            SignalKeyPressed(PKeyCodes::BACKSPACE, PString::zero, this);
 
             m_RepeatTimer.Set(KEYREPEAT_REPEAT, true);
             m_RepeatTimer.Start(true);
@@ -785,10 +783,10 @@ void KeyboardView::SlotRepeatTimer()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::LoadConfig(PString& outSelectedKeyboard)
+void PKeyboardView::LoadConfig(PString& outSelectedKeyboard)
 {
-    XMLDocument document;
-    if (document.Load(StandardPaths::GetPath(StandardPath::Settings, "Settings.xml")))
+    PXMLDocument document;
+    if (document.Load(PStandardPaths::GetPath(PStandardPath::Settings, "Settings.xml")))
     {
         pugi::xml_node root = document.GetDocumentElement();
         pugi::xml_node keyboardLayout = root.child("keyboard_layout");
@@ -803,13 +801,13 @@ void KeyboardView::LoadConfig(PString& outSelectedKeyboard)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::SaveConfig(const PString& selectedKeyboard)
+void PKeyboardView::SaveConfig(const PString& selectedKeyboard)
 {
-    XMLDocument document;
+    PXMLDocument document;
 
-    PString path = StandardPaths::GetPath(StandardPath::Settings, "Settings.xml");
+    PString path = PStandardPaths::GetPath(PStandardPath::Settings, "Settings.xml");
 
-    Path(path).CreateFolders(false);
+    PPath(path).CreateFolders(false);
 
     pugi::xml_node root;
     if (document.Load(path)) {
@@ -835,7 +833,7 @@ void KeyboardView::SaveConfig(const PString& selectedKeyboard)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KeyboardView::SlotLayoutSelected(Ptr<MenuItem> item)
+void PKeyboardView::SlotLayoutSelected(Ptr<PMenuItem> item)
 {
     if (item != nullptr)
     {
@@ -847,5 +845,3 @@ void KeyboardView::SlotLayoutSelected(Ptr<MenuItem> item)
     }
     m_LayoutSelectMenu = nullptr;
 }
-
-} // namespace os

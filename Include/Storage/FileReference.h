@@ -24,8 +24,6 @@
 
 #include <string>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 ///* Semi persistent reference to a file
@@ -44,18 +42,18 @@ namespace os
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-class FileReference
+class PFileReference
 {
 public:
-    FileReference();
-    FileReference(const PString& path, bool followLinks = false);
-    FileReference(const Directory& directory, const PString& name, bool followLinks = false);
-    FileReference(const FileReference& reference);
-    virtual ~FileReference();
+    PFileReference();
+    PFileReference(const PString& path, bool followLinks = false);
+    PFileReference(const PDirectory& directory, const PString& name, bool followLinks = false);
+    PFileReference(const PFileReference& reference);
+    virtual ~PFileReference();
     
     bool    SetTo(const PString& path, bool followLinks = false);
-    bool    SetTo(const Directory& directory, const PString& name, bool followLinks = false);
-    bool    SetTo(const FileReference& reference);
+    bool    SetTo(const PDirectory& directory, const PString& name, bool followLinks = false);
+    bool    SetTo(const PFileReference& reference);
     void    Unset();
     
     bool    IsValid() const;
@@ -68,11 +66,9 @@ public:
 
     bool    GetStat(struct ::stat* statBuffer) const;
 
-    const Directory& GetDirectory() const;
+    const PDirectory& GetDirectory() const;
 
 private:
-    Directory   m_Directory;
+    PDirectory   m_Directory;
     PString     m_Name;
 };
-
-} // namespace os

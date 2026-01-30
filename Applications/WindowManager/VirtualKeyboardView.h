@@ -21,21 +21,17 @@
 
 #include <GUI/View.h>
 
-namespace os
-{
 
-class TextBox;
-class KeyboardView;
+class PTextBox;
+class PKeyboardView;
 
-class VirtualKeyboardView : public View
+class PVirtualKeyboardView : public PView
 {
 public:
-    VirtualKeyboardView(bool numerical);
+    PVirtualKeyboardView(bool numerical);
     void SetIsNumerical(bool numerical);
 private:
-    void SlotKeyPressed(KeyCodes keyCode, const PString& text);
+    void SlotKeyPressed(PKeyCodes keyCode, const PString& text);
 
-    Ptr<KeyboardView>   m_KeyboardView;
+    Ptr<PKeyboardView>   m_KeyboardView;
 };
-
-} // namespace os

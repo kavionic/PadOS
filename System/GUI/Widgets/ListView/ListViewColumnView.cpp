@@ -21,14 +21,13 @@
 #include <GUI/Widgets/ListView.h>
 #include <GUI/Widgets/ListViewRow.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListViewColumnView::ListViewColumnView(Ptr<ListViewScrolledView> parent, const PString& title)
-    : View("_lv_column", parent, ViewFlags::WillDraw)
+PListViewColumnView::PListViewColumnView(Ptr<PListViewScrolledView> parent, const PString& title)
+    : PView("_lv_column", parent, PViewFlags::WillDraw)
     , m_Title(title)
 {
     m_ContentWidth = 0.0f;
@@ -38,7 +37,7 @@ ListViewColumnView::ListViewColumnView(Ptr<ListViewScrolledView> parent, const P
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListViewColumnView::~ListViewColumnView()
+PListViewColumnView::~PListViewColumnView()
 {
 }
 
@@ -46,9 +45,9 @@ ListViewColumnView::~ListViewColumnView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewColumnView::Refresh(const Rect& updateRect)
+void PListViewColumnView::Refresh(const PRect& updateRect)
 {
-    Ptr<ListViewScrolledView> parent = ptr_static_cast<ListViewScrolledView>(GetParent());
+    Ptr<PListViewScrolledView> parent = ptr_static_cast<PListViewScrolledView>(GetParent());
 
     if (parent == nullptr) {
         return;
@@ -62,7 +61,7 @@ void ListViewColumnView::Refresh(const Rect& updateRect)
     }
 //    const Rect bounds = GetBounds();
 
-    Ptr<ListViewRow> lastRow = parent->m_Rows[parent->m_Rows.size() - 1];
+    Ptr<PListViewRow> lastRow = parent->m_Rows[parent->m_Rows.size() - 1];
     if (updateRect.top > lastRow->m_YPos + lastRow->m_Height + parent->m_VSpacing)
     {
         SetFgColor(255, 255, 255);
@@ -70,7 +69,7 @@ void ListViewColumnView::Refresh(const Rect& updateRect)
         return;
     }
 
-    Rect frame = GetBounds(); // (bounds.left, 0.0f, bounds.right, 0.0f);
+    PRect frame = GetBounds(); // (bounds.left, 0.0f, bounds.right, 0.0f);
 
     const size_t firstRow = parent->GetRowIndex(updateRect.top);
 
@@ -78,7 +77,7 @@ void ListViewColumnView::Refresh(const Rect& updateRect)
     {
         size_t column = std::find(parent->m_ColumnViews.begin(), parent->m_ColumnViews.end(), this) - parent->m_ColumnViews.begin();
 
-        std::vector<Ptr<ListViewRow>>& rowList = parent->m_Rows;
+        std::vector<Ptr<PListViewRow>>& rowList = parent->m_Rows;
         bool hasFocus = false; // parent->m_ListView->HasFocus();
 
 
@@ -107,26 +106,26 @@ void ListViewColumnView::Refresh(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewColumnView::OnPaint(const Rect& updateRect)
+void PListViewColumnView::OnPaint(const PRect& updateRect)
 {
     if (!updateRect.IsValid()) {
         return; // FIXME: Workaround for appserver bug. Fix appserver.
     }
-    Ptr<ListViewScrolledView> parent = ptr_static_cast<ListViewScrolledView>(GetParent());
+    Ptr<PListViewScrolledView> parent = ptr_static_cast<PListViewScrolledView>(GetParent());
     assert(parent != nullptr);
 
     if (parent->m_IsSelecting)
     {
-        parent->SetDrawingMode(DrawingMode::Invert);
+        parent->SetDrawingMode(PDrawingMode::Invert);
         parent->DrawFrame(parent->m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-        parent->SetDrawingMode(DrawingMode::Copy);
+        parent->SetDrawingMode(PDrawingMode::Copy);
     }
     Refresh(updateRect);
     if (parent->m_IsSelecting)
     {
-        parent->SetDrawingMode(DrawingMode::Invert);
+        parent->SetDrawingMode(PDrawingMode::Invert);
         parent->DrawFrame(parent->m_SelectRect, FRAME_TRANSPARENT | FRAME_THIN);
-        parent->SetDrawingMode(DrawingMode::Copy);
+        parent->SetDrawingMode(PDrawingMode::Copy);
     }
 }
 

@@ -26,7 +26,6 @@
 #include <Kernel/KObjectWaitGroup.h>
 #include <Kernel/KHandleArray.h>
 
-using namespace os;
 
 namespace kernel
 {

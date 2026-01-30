@@ -37,7 +37,7 @@
 #include <Utils/String.h>
 #include <DeviceControl/SDCARD.h>
 
-using namespace os;
+
 using namespace sdmmc;
 
 namespace kernel

@@ -20,22 +20,20 @@
 
 #include <GUI/ViewScroller.h>
 
-namespace os
-{
-class DropdownMenu;
+class PDropdownMenu;
 
 namespace osi
 {
 class DropdownMenuPopupView;
 
-class DropdownMenuPopupWindow : public View, public ViewScroller
+class DropdownMenuPopupWindow : public PView, public PViewScroller
 {
 public:
     DropdownMenuPopupWindow(const std::vector<PString>& itemList, size_t selection);
     // From View:
-    virtual void OnPaint(const Rect& updateRect) override;
-    virtual void OnFrameSized(const Point& delta) override;
-    virtual void CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void OnPaint(const PRect& updateRect) override;
+    virtual void OnFrameSized(const PPoint& delta) override;
+    virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 
     void MakeSelectionVisible();
 
@@ -45,43 +43,42 @@ private:
 };
 
 
-class DropdownMenuPopupView : public View
+class DropdownMenuPopupView : public PView
 {
 public:
     DropdownMenuPopupView(const std::vector<PString>& itemList, size_t selection, Signal<void, size_t, bool>& signalSelectionChanged);
 
     // From View:
-    virtual void    OnPaint(const Rect& updateRect) override;
+    virtual void    OnPaint(const PRect& updateRect) override;
 
-    virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
 
-    virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
     virtual void    Activated(bool isActive);
 
-    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual Point   CalculateContentSize() const override { return m_ContentSize; }
+    virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual PPoint   CalculateContentSize() const override { return m_ContentSize; }
 
     void MakeSelectionVisible();
 
     Signal<void, size_t, bool>& SignalSelectionChanged;
 private:
-    size_t PositionToIndex(const Point& position);
+    size_t PositionToIndex(const PPoint& position);
 
-    Point                   m_ContentSize;
-    FontHeight              m_FontHeight;
+    PPoint                   m_ContentSize;
+    PFontHeight              m_FontHeight;
     float                   m_GlyphHeight;
     size_t                  m_OldSelection;
     size_t                  m_CurSelection;
     size_t                  m_HitItem = INVALID_INDEX;
-    MouseButton_e           m_HitButton = MouseButton_e::None;
-    Point                   m_HitPos;
+    PMouseButton           m_HitButton = PMouseButton::None;
+    PPoint                   m_HitPos;
     bool                    m_MouseMoved = false;
     const std::vector<PString>& m_ItemList;
 };
 
 } // namespace osi
-} // namespace os

@@ -22,7 +22,6 @@
 #include <Kernel/USB/USBHostEnumerator.h>
 #include <Kernel/USB/USBHost.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -46,7 +45,7 @@ bool USBHostEnumerator::Enumerate(USBHostControlRequestCallback&& callback)
     if (device != nullptr)
     {
         m_ResultCallback = std::move(callback);
-        m_HostHandler->GetControlHandler().ReqGetDescriptor(0, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::DEVICE, 0, 0, &device->m_DeviceDesc, sizeof(USB_DescDeviceHeader), bind_method(this, &USBHostEnumerator::HandleConfigurationHeaderResult));
+        m_HostHandler->GetControlHandler().ReqGetDescriptor(0, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::DEVICE, 0, 0, &device->m_DeviceDesc, sizeof(USB_DescDeviceHeader), p_bind_method(this, &USBHostEnumerator::HandleConfigurationHeaderResult));
         return true;
     }
     return false;
@@ -78,7 +77,7 @@ void USBHostEnumerator::HandleConfigurationHeaderResult(bool result, uint8_t dev
         if (device != nullptr)
         {
             m_HostHandler->GetControlHandler().UpdatePipes(deviceAddr, device->m_Speed, device->m_DeviceDesc.bMaxPacketSize0);
-            m_HostHandler->GetControlHandler().ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::DEVICE, 0, 0, &device->m_DeviceDesc, sizeof(USB_DescDevice), bind_method(this, &USBHostEnumerator::HandleConfigurationFullResult));
+            m_HostHandler->GetControlHandler().ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::DEVICE, 0, 0, &device->m_DeviceDesc, sizeof(USB_DescDevice), p_bind_method(this, &USBHostEnumerator::HandleConfigurationFullResult));
         }
     }
     else
@@ -102,7 +101,7 @@ void USBHostEnumerator::HandleConfigurationFullResult(bool result, uint8_t devic
             kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "PID: {:04x}h", int(device->m_DeviceDesc.idProduct));
             kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "VID: {:04x}h", int(device->m_DeviceDesc.idVendor));
 
-            m_HostHandler->GetControlHandler().ReqSetAddress(device->m_Address, bind_method(this, &USBHostEnumerator::HandleSetAddressResult));
+            m_HostHandler->GetControlHandler().ReqSetAddress(device->m_Address, p_bind_method(this, &USBHostEnumerator::HandleSetAddressResult));
         }
         else
         {
@@ -191,7 +190,7 @@ void USBHostEnumerator::GetStringDescriptors(uint8_t deviceAddr)
     if (device != nullptr)
     {
         if (device->m_DeviceDesc.iManufacturer != 0) {
-            m_HostHandler->GetControlHandler().ReqGetStringDescriptor(deviceAddr, device->m_DeviceDesc.iManufacturer, device->m_ManufacturerString, bind_method(this, &USBHostEnumerator::HandleGetManufacturerStringResult));
+            m_HostHandler->GetControlHandler().ReqGetStringDescriptor(deviceAddr, device->m_DeviceDesc.iManufacturer, device->m_ManufacturerString, p_bind_method(this, &USBHostEnumerator::HandleGetManufacturerStringResult));
         } else {
             HandleGetManufacturerStringResult(false, deviceAddr);
         }
@@ -208,7 +207,7 @@ void USBHostEnumerator::HandleGetManufacturerStringResult(bool result, uint8_t d
     if (device != nullptr)
     {
         if (device->m_DeviceDesc.iProduct != 0) {
-            m_HostHandler->GetControlHandler().ReqGetStringDescriptor(deviceAddr, device->m_DeviceDesc.iProduct, device->m_ProductString, bind_method(this, &USBHostEnumerator::HandleGetProductStringResult));
+            m_HostHandler->GetControlHandler().ReqGetStringDescriptor(deviceAddr, device->m_DeviceDesc.iProduct, device->m_ProductString, p_bind_method(this, &USBHostEnumerator::HandleGetProductStringResult));
         } else {
             HandleGetProductStringResult(false, deviceAddr);
         }
@@ -229,7 +228,7 @@ void USBHostEnumerator::HandleGetProductStringResult(bool result, uint8_t device
     if (device != nullptr)
     {
         if (device->m_DeviceDesc.iSerialNumber != 0) {
-            m_HostHandler->GetControlHandler().ReqGetStringDescriptor(deviceAddr, device->m_DeviceDesc.iSerialNumber, device->m_SerialNumberString, bind_method(this, &USBHostEnumerator::HandleGetSerialNumberResult));
+            m_HostHandler->GetControlHandler().ReqGetStringDescriptor(deviceAddr, device->m_DeviceDesc.iSerialNumber, device->m_SerialNumberString, p_bind_method(this, &USBHostEnumerator::HandleGetSerialNumberResult));
         } else {
             HandleGetSerialNumberResult(false, deviceAddr);
         }

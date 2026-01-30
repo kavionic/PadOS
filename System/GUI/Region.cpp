@@ -29,13 +29,12 @@
 #include <GUI/Region.h>
 #include <GUI/GUIDefines.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::Region()
+PRegion::PRegion()
 {
 }
 
@@ -43,7 +42,7 @@ Region::Region()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::Region(const IRect& rect)
+PRegion::PRegion(const PIRect& rect)
 {
     AddRect(rect);
 }
@@ -52,7 +51,7 @@ Region::Region(const IRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::Region(const Region& reg) : PtrTarget()
+PRegion::PRegion(const PRegion& reg) : PtrTarget()
 {
     Set(reg);
 }
@@ -61,12 +60,12 @@ Region::Region(const Region& reg) : PtrTarget()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::Region(const Region& region, const IRect& rectangle, bool normalize)
+PRegion::PRegion(const PRegion& region, const PIRect& rectangle, bool normalize)
 {
-    const IPoint topLeft = rectangle.TopLeft();
-    for (const IRect& oldClip : region.m_Rects)
+    const PIPoint topLeft = rectangle.TopLeft();
+    for (const PIRect& oldClip : region.m_Rects)
     {
-        IRect rect = oldClip & rectangle;
+        PIRect rect = oldClip & rectangle;
             
         if (rect.IsValid())
         {
@@ -82,7 +81,7 @@ Region::Region(const Region& region, const IRect& rectangle, bool normalize)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Region::~Region()
+PRegion::~PRegion()
 {
 }
 
@@ -90,7 +89,7 @@ Region::~Region()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Set(const IRect& rect)
+void PRegion::Set(const PIRect& rect)
 {
     try
     {
@@ -104,7 +103,7 @@ void Region::Set(const IRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Set(const Region& region)
+void PRegion::Set(const PRegion& region)
 {
     try
     {
@@ -117,7 +116,7 @@ void Region::Set(const Region& region)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Clear()
+void PRegion::Clear()
 {
     m_Rects.clear();
 }
@@ -126,7 +125,7 @@ void Region::Clear()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::AddRect(const IRect& rect)
+void PRegion::AddRect(const PIRect& rect)
 {
     try
     {
@@ -139,14 +138,14 @@ void Region::AddRect(const IRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Include(const IRect& rect)
+void PRegion::Include(const PIRect& rect)
 {
     try
     {
-        Region tmpReg(rect);
+        PRegion tmpReg(rect);
 
         // Remove all areas already present in clip-list.
-        for (const IRect& clip : m_Rects) {
+        for (const PIRect& clip : m_Rects) {
             tmpReg.Exclude(clip);
         }
         m_Rects.insert(m_Rects.begin(), tmpReg.m_Rects.begin(), tmpReg.m_Rects.end());
@@ -158,7 +157,7 @@ void Region::Include(const IRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Exclude(const IRect& rect)
+void PRegion::Exclude(const PIRect& rect)
 {
     try
     {
@@ -168,8 +167,8 @@ void Region::Exclude(const IRect& rect)
     
         for (size_t i = 0; i < prevClipCount; ++i)
         {
-            const IRect oldFrame = m_Rects[i];
-            const IRect hide = rect & oldFrame;
+            const PIRect oldFrame = m_Rects[i];
+            const PIRect hide = rect & oldFrame;
 
             if (!hide.IsValid()) {
                 continue;
@@ -178,16 +177,16 @@ void Region::Exclude(const IRect& rect)
             // Boundaries of the four possible rectangles surrounding the one to remove.
 
             if (oldFrame.left < hide.left) { // Left (center)
-                nextFree = AddOrReuseClip(nextFree, i, IRect(oldFrame.left, hide.top, hide.left, hide.bottom));
+                nextFree = AddOrReuseClip(nextFree, i, PIRect(oldFrame.left, hide.top, hide.left, hide.bottom));
             }
             if (hide.right < oldFrame.right) { // Right (center)
-                nextFree = AddOrReuseClip(nextFree, i, IRect(hide.right, hide.top, oldFrame.right, hide.bottom));
+                nextFree = AddOrReuseClip(nextFree, i, PIRect(hide.right, hide.top, oldFrame.right, hide.bottom));
             }
             if (oldFrame.top < hide.top) { // Above (full width)
-                nextFree = AddOrReuseClip(nextFree, i, IRect(oldFrame.left, oldFrame.top, oldFrame.right, hide.top));
+                nextFree = AddOrReuseClip(nextFree, i, PIRect(oldFrame.left, oldFrame.top, oldFrame.right, hide.top));
             }
             if (hide.bottom < oldFrame.bottom) { // Below (full width)
-                nextFree = AddOrReuseClip(nextFree, i, IRect(oldFrame.left, hide.bottom, oldFrame.right, oldFrame.bottom));
+                nextFree = AddOrReuseClip(nextFree, i, PIRect(oldFrame.left, hide.bottom, oldFrame.right, oldFrame.bottom));
             }        
         }
         RemoveUnusedClips(nextFree, prevClipCount);
@@ -201,9 +200,9 @@ void Region::Exclude(const IRect& rect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Exclude(const Region& region)
+void PRegion::Exclude(const PRegion& region)
 {
-    for (const IRect& clip : region.m_Rects) {
+    for (const PIRect& clip : region.m_Rects) {
         Exclude(clip);
     }
 }
@@ -212,9 +211,9 @@ void Region::Exclude(const Region& region)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Exclude(const Region& region, const IPoint& offset)
+void PRegion::Exclude(const PRegion& region, const PIPoint& offset)
 {
-    for (const IRect& clip : region.m_Rects) {
+    for (const PIRect& clip : region.m_Rects) {
         Exclude(clip + offset);
     }
 }
@@ -223,16 +222,16 @@ void Region::Exclude(const Region& region, const IPoint& offset)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Intersect(const Region& region)
+void PRegion::Intersect(const PRegion& region)
 {
     try
     {
-        std::vector<IRect> newList;
-        for (const IRect& dstRect : m_Rects)
+        std::vector<PIRect> newList;
+        for (const PIRect& dstRect : m_Rects)
         {
-            for (const IRect& srcRect : region.m_Rects)
+            for (const PIRect& srcRect : region.m_Rects)
             {
-                const IRect rect = dstRect & srcRect;
+                const PIRect rect = dstRect & srcRect;
                 if (rect.IsValid()) {
                     newList.push_back(rect);
                 }
@@ -247,16 +246,16 @@ void Region::Intersect(const Region& region)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Intersect(const Region& region, const IPoint& offset)
+void PRegion::Intersect(const PRegion& region, const PIPoint& offset)
 {
     try
     {
-        std::vector<IRect> newList;
-        for (const IRect& dstRect : m_Rects)
+        std::vector<PIRect> newList;
+        for (const PIRect& dstRect : m_Rects)
         {
-            for (const IRect& srcRect : region.m_Rects)
+            for (const PIRect& srcRect : region.m_Rects)
             {
-                const IRect rect = dstRect & (srcRect + offset);
+                const PIRect rect = dstRect & (srcRect + offset);
                 if (rect.IsValid()) {
                     newList.push_back(rect);
                 }
@@ -271,11 +270,11 @@ void Region::Intersect(const Region& region, const IPoint& offset)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRect Region::GetBounds() const
+PIRect PRegion::GetBounds() const
 {
-    IRect bounds(999999, 999999, -999999, -999999);
+    PIRect bounds(999999, 999999, -999999, -999999);
   
-    for (const IRect& clip : m_Rects) {
+    for (const PIRect& clip : m_Rects) {
         bounds |= clip;
     }
     return bounds;
@@ -285,18 +284,18 @@ IRect Region::GetBounds() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Optimize()
+void PRegion::Optimize()
 {
     try
     {
         if ( m_Rects.size() <= 1 ) {
             return;
         }
-        std::vector<IRect*> list;
+        std::vector<PIRect*> list;
 
         list.reserve(m_Rects.size());
 
-        for (IRect& clip : m_Rects) {
+        for (PIRect& clip : m_Rects) {
             list.push_back(&clip);
         }
     
@@ -304,11 +303,11 @@ void Region::Optimize()
         while(list.size() > 1 && someRemoved)
         {
             someRemoved = false;
-            std::sort(list.begin(), list.end(), [](const IRect* lhs, const IRect* rhs) { return lhs->left < rhs->left; });
+            std::sort(list.begin(), list.end(), [](const PIRect* lhs, const PIRect* rhs) { return lhs->left < rhs->left; });
             for (size_t i = 0 ; i < list.size() - 1 ;)
             {
-                IRect& curr = *list[i];
-                IRect& next = *list[i+1];
+                PIRect& curr = *list[i];
+                PIRect& next = *list[i+1];
                 if ( curr.right == next.left && curr.top == next.top && curr.bottom == next.bottom )
                 {
                     curr.right = next.right; // Expand
@@ -324,11 +323,11 @@ void Region::Optimize()
             if (list.size() <= 1) {
                 break;
             }
-            std::sort(list.begin(), list.end(), [](const IRect* lhs, const IRect* rhs) { return lhs->top < rhs->top; });
+            std::sort(list.begin(), list.end(), [](const PIRect* lhs, const PIRect* rhs) { return lhs->top < rhs->top; });
             for (size_t i = 0 ; i < list.size() - 1 ;)
             {
-                IRect& curr = *list[i];
-                IRect& next = *list[i+1];
+                PIRect& curr = *list[i];
+                PIRect& next = *list[i+1];
                 if (curr.bottom == next.top && curr.left == next.left && curr.right == next.right)
                 {
                     curr.bottom = next.bottom; // Expand
@@ -351,7 +350,7 @@ void Region::Optimize()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
+bool PRegion::ClipLine(const PIRect& rect, PIPoint* point1, PIPoint* point2)
 {
     // Check if each end point is visible or invisible
     const bool point1Inside = rect.DoIntersect(*point1);
@@ -592,11 +591,11 @@ bool Region::ClipLine(const IRect& rect, IPoint* point1, IPoint* point2)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::Validate()
+void PRegion::Validate()
 {
-    for (const IRect& clip1 : m_Rects)
+    for (const PIRect& clip1 : m_Rects)
     {
-        for (const IRect& clip2 : m_Rects)
+        for (const PIRect& clip2 : m_Rects)
         {
             if (&clip1 != &clip2 && clip1.DoIntersect(clip2)) {
                 p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Region::Validate() CLIPS OVERLAP!!!");
@@ -609,7 +608,7 @@ void Region::Validate()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t Region::FindUnusedClip(size_t prevUnused, size_t lastToCheck)
+size_t PRegion::FindUnusedClip(size_t prevUnused, size_t lastToCheck)
 {
     if (prevUnused != INVALID_INDEX)
     {
@@ -627,7 +626,7 @@ size_t Region::FindUnusedClip(size_t prevUnused, size_t lastToCheck)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t Region::AddOrReuseClip(size_t prevUnused, size_t lastToCheck, const IRect& frame)
+size_t PRegion::AddOrReuseClip(size_t prevUnused, size_t lastToCheck, const PIRect& frame)
 {
     try
     {
@@ -653,7 +652,7 @@ size_t Region::AddOrReuseClip(size_t prevUnused, size_t lastToCheck, const IRect
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Region::RemoveUnusedClips(size_t firstToCheck, size_t lastToCheck)
+void PRegion::RemoveUnusedClips(size_t firstToCheck, size_t lastToCheck)
 {
     try
     {

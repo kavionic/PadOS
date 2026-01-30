@@ -27,11 +27,8 @@
 #include "ApplicationServer/ApplicationServer.h"
 #include "ServerView.h"
 
-namespace os
-{
 
-
-class ServerApplication : public EventHandler, public SignalTarget
+class ServerApplication : public PEventHandler, public SignalTarget
 {
 public:
     ServerApplication(ApplicationServer* server, const PString& name, port_id clientPort);
@@ -39,67 +36,67 @@ public:
     
     virtual bool HandleMessage(int32_t code, const void* data, size_t length) override;
     
-    Ptr<SrvBitmap> GetBitmap(handle_id bitmapHandle) const;
+    Ptr<PSrvBitmap> GetBitmap(handle_id bitmapHandle) const;
 
 private:
     void ProcessMessage(int32_t code, const void* data, size_t length);
     void UpdateRegions();
-    void UpdateLowestInvalidView(Ptr<ServerView> view);
+    void UpdateLowestInvalidView(Ptr<PServerView> view);
 
     void SlotCreateView(port_id clientPort,
                         port_id replyPort,
                         handler_id replyTarget,
                         handler_id parentHandle,
-                        ViewDockType dockType,
+                        PViewDockType dockType,
                         size_t index,
                         const PString& name,
-                        const Rect& frame,
-                        const Point& scrollOffset,
+                        const PRect& frame,
+                        const PPoint& scrollOffset,
                         uint32_t flags,
                         int32_t hideCount,
-                        FocusKeyboardMode focusKeyboardMode,
-                        DrawingMode drawingMode,
+                        PFocusKeyboardMode focusKeyboardMode,
+                        PDrawingMode drawingMode,
                         float       penWidth,
-                        Font_e      fontID,
-                        Color eraseColor,
-                        Color bgColor,
-                        Color fgColor);
+                        PFontID      fontID,
+                        PColor eraseColor,
+                        PColor bgColor,
+                        PColor fgColor);
     void SlotDeleteView(handler_id clientHandle);
-    void SlotFocusView(handler_id clientHandle, MouseButton_e button, bool focus);
+    void SlotFocusView(handler_id clientHandle, PMouseButton button, bool focus);
     void SlotSetKeyboardFocus(handler_id clientHandle, bool focus);
-    void SlotCreateBitmap(port_id replyPort, int width, int height, EColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags);
+    void SlotCreateBitmap(port_id replyPort, int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags);
     void SlotDeleteBitmap(handle_id bitmapHandle);
-    void SlotViewSetFrame(handler_id clientHandle, const Rect& frame, handler_id requestingClient);
-    void SlotViewInvalidate(handler_id clientHandle, const IRect& frame);
+    void SlotViewSetFrame(handler_id clientHandle, const PRect& frame, handler_id requestingClient);
+    void SlotViewInvalidate(handler_id clientHandle, const PIRect& frame);
     void SlotViewAddChild(size_t index, handler_id viewHandle, handler_id childHandle, handler_id managerHandle);
-    void SlotSync(port_id replyPort)                                                        { post_to_remotesignal<ASSyncReply>(MessagePort(replyPort), INVALID_HANDLE, TimeValNanos::zero); }
-    void SlotViewToggleDepth(handler_id viewHandle)                                         { ForwardToView(viewHandle, &ServerView::ToggleDepth); }
-    void SlotViewBeginUpdate(handler_id viewHandle)                                         { ForwardToView(viewHandle, &ServerView::BeginUpdate); }
-    void SlotViewEndUpdate(handler_id viewHandle)                                           { ForwardToView(viewHandle, &ServerView::EndUpdate); }
+    void SlotSync(port_id replyPort)                                                        { p_post_to_remotesignal<ASSyncReply>(PMessagePort(replyPort), INVALID_HANDLE, TimeValNanos::zero); }
+    void SlotViewToggleDepth(handler_id viewHandle)                                         { ForwardToView(viewHandle, &PServerView::ToggleDepth); }
+    void SlotViewBeginUpdate(handler_id viewHandle)                                         { ForwardToView(viewHandle, &PServerView::BeginUpdate); }
+    void SlotViewEndUpdate(handler_id viewHandle)                                           { ForwardToView(viewHandle, &PServerView::EndUpdate); }
     void SlotViewShow(handler_id viewHandle, bool show);
-    void SlotViewSetFgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetFgColor, color); }
-    void SlotViewSetBgColor(handler_id viewHandle, Color color)                             { ForwardToView(viewHandle, &ServerView::SetBgColor, color); }
-    void SlotViewSetEraseColor(handler_id viewHandle, Color color)                          { ForwardToView(viewHandle, &ServerView::SetEraseColor, color); }
-    void SlotViewSetFocusKeyboardMode(handler_id viewHandle, FocusKeyboardMode mode)        { ForwardToView(viewHandle, &ServerView::SetFocusKeyboardMode, mode); }
-    void SlotViewSetDrawingMode(handler_id viewHandle, DrawingMode mode)                    { ForwardToView(viewHandle, &ServerView::SetDrawingMode, mode); }
-    void SlotViewSetFont(handler_id viewHandle, int fontHandle)                             { ForwardToView(viewHandle, &ServerView::SetFont, fontHandle); }
-    void SlotViewSetPenWidth(handler_id viewHandle, float width)                            { ForwardToView(viewHandle, &ServerView::SetPenWidth, width); }
-    void SlotViewMovePenTo(handler_id viewHandle, const Point& pos)                         { ForwardToView(viewHandle, &ServerView::MovePenTo, pos); }
-    void SlotViewDrawLine1(handler_id viewHandle, const Point& toPoint)                     { ForwardToView(viewHandle, &ServerView::DrawLineTo, toPoint); }
-    void SlotViewDrawLine2(handler_id viewHandle, const Point& fromPnt, const Point& toPnt) { ForwardToView(viewHandle, &ServerView::DrawLine, fromPnt, toPnt); }
-    void SlotViewFillRect(handler_id viewHandle, const Rect& rect, Color color)             { ForwardToView(viewHandle, &ServerView::FillRect, rect, color); }
-    void SlotViewFillCircle(handler_id viewHandle, const Point& position, float radius)     { ForwardToView(viewHandle, &ServerView::FillCircle, position, radius); }
-    void SlotViewDrawString(handler_id viewHandle, const PString& string)                   { ForwardToView(viewHandle, &ServerView::DrawString, string); }
-    void SlotViewScrollBy(handler_id viewHandle, const Point& delta)                        { ForwardToView(viewHandle, &ServerView::ScrollBy, delta); }
-    void SlotViewCopyRect(handler_id viewHandle, const Rect& srcRect, const Point& dstPos)  { ForwardToView(viewHandle, &ServerView::CopyRect, srcRect, dstPos); }
-    void SlotViewDrawBitmap(handler_id viewHandle, handle_id bitmapHandle, const Rect& srcRect, const Point& dstPos)        { ForwardToView(viewHandle, &ServerView::DrawBitmap, GetBitmap(bitmapHandle), srcRect, dstPos); }
-    void SlotViewDrawScaledBitmap(handler_id viewHandle, handle_id bitmapHandle, const Rect& srcRect, const Rect& dstRect)  { ForwardToView(viewHandle, &ServerView::DrawScaledBitmap, GetBitmap(bitmapHandle), srcRect, dstRect); }
-    void SlotViewDebugDraw(handler_id viewHandle, Color color, uint32_t drawFlags)          { ForwardToView(viewHandle, &ServerView::DebugDraw, color, drawFlags); }
+    void SlotViewSetFgColor(handler_id viewHandle, PColor color)                             { ForwardToView(viewHandle, &PServerView::SetFgColor, color); }
+    void SlotViewSetBgColor(handler_id viewHandle, PColor color)                             { ForwardToView(viewHandle, &PServerView::SetBgColor, color); }
+    void SlotViewSetEraseColor(handler_id viewHandle, PColor color)                          { ForwardToView(viewHandle, &PServerView::SetEraseColor, color); }
+    void SlotViewSetFocusKeyboardMode(handler_id viewHandle, PFocusKeyboardMode mode)        { ForwardToView(viewHandle, &PServerView::SetFocusKeyboardMode, mode); }
+    void SlotViewSetDrawingMode(handler_id viewHandle, PDrawingMode mode)                    { ForwardToView(viewHandle, &PServerView::SetDrawingMode, mode); }
+    void SlotViewSetFont(handler_id viewHandle, int fontHandle)                             { ForwardToView(viewHandle, &PServerView::SetFont, fontHandle); }
+    void SlotViewSetPenWidth(handler_id viewHandle, float width)                            { ForwardToView(viewHandle, &PServerView::SetPenWidth, width); }
+    void SlotViewMovePenTo(handler_id viewHandle, const PPoint& pos)                         { ForwardToView(viewHandle, &PServerView::MovePenTo, pos); }
+    void SlotViewDrawLine1(handler_id viewHandle, const PPoint& toPoint)                     { ForwardToView(viewHandle, &PServerView::DrawLineTo, toPoint); }
+    void SlotViewDrawLine2(handler_id viewHandle, const PPoint& fromPnt, const PPoint& toPnt) { ForwardToView(viewHandle, &PServerView::DrawLine, fromPnt, toPnt); }
+    void SlotViewFillRect(handler_id viewHandle, const PRect& rect, PColor color)             { ForwardToView(viewHandle, &PServerView::FillRect, rect, color); }
+    void SlotViewFillCircle(handler_id viewHandle, const PPoint& position, float radius)     { ForwardToView(viewHandle, &PServerView::FillCircle, position, radius); }
+    void SlotViewDrawString(handler_id viewHandle, const PString& string)                   { ForwardToView(viewHandle, &PServerView::DrawString, string); }
+    void SlotViewScrollBy(handler_id viewHandle, const PPoint& delta)                        { ForwardToView(viewHandle, &PServerView::ScrollBy, delta); }
+    void SlotViewCopyRect(handler_id viewHandle, const PRect& srcRect, const PPoint& dstPos)  { ForwardToView(viewHandle, &PServerView::CopyRect, srcRect, dstPos); }
+    void SlotViewDrawBitmap(handler_id viewHandle, handle_id bitmapHandle, const PRect& srcRect, const PPoint& dstPos)        { ForwardToView(viewHandle, &PServerView::DrawBitmap, GetBitmap(bitmapHandle), srcRect, dstPos); }
+    void SlotViewDrawScaledBitmap(handler_id viewHandle, handle_id bitmapHandle, const PRect& srcRect, const PRect& dstRect)  { ForwardToView(viewHandle, &PServerView::DrawScaledBitmap, GetBitmap(bitmapHandle), srcRect, dstRect); }
+    void SlotViewDebugDraw(handler_id viewHandle, PColor color, uint32_t drawFlags)          { ForwardToView(viewHandle, &PServerView::DebugDraw, color, drawFlags); }
 
     template<typename CB, typename... ARGS>
     void ForwardToView(handler_id viewHandle, CB callback, ARGS&&... args)
     {
-        Ptr<ServerView> view = m_Server->FindView(viewHandle);
+        Ptr<PServerView> view = m_Server->FindView(viewHandle);
         if (view != nullptr) {
             (*view.*callback)(args...);
         } else {
@@ -115,7 +112,7 @@ private:
     bool            m_HaveInvalidRegions = false;
 
     handle_id                           m_NextBitmapHandle = 1;
-    std::map<handle_id, Ptr<SrvBitmap>> m_BitmapMap;
+    std::map<handle_id, Ptr<PSrvBitmap>> m_BitmapMap;
 
     ASSync                      RSSync;
     ASCreateView                RSCreateView;
@@ -153,5 +150,3 @@ private:
     ServerApplication(const ServerApplication&) = delete;
     ServerApplication& operator=(const ServerApplication&) = delete;
 };
-
-}

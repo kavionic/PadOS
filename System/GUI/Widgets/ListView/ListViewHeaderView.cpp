@@ -21,17 +21,16 @@
 #include "ListViewColumnView.h"
 #include <GUI/Widgets/ListView.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ListViewHeaderView::ListViewHeaderView(Ptr<ListView> parent) : View("header_view", parent, ViewFlags::WillDraw)
+PListViewHeaderView::PListViewHeaderView(Ptr<PListView> parent) : PView("header_view", parent, PViewFlags::WillDraw)
 {
     m_SizeColumn = -1;
     m_DragColumn = -1;
-    m_ScrolledContainerView = ptr_new<ListViewScrolledView>(parent);
+    m_ScrolledContainerView = ptr_new<PListViewScrolledView>(parent);
     AddChild(m_ScrolledContainerView);
 }
 
@@ -39,9 +38,9 @@ ListViewHeaderView::ListViewHeaderView(Ptr<ListView> parent) : View("header_view
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewHeaderView::HasFocus(MouseButton_e button) const
+bool PListViewHeaderView::HasFocus(PMouseButton button) const
 {
-    if (View::HasFocus(button)) {
+    if (PView::HasFocus(button)) {
         return true;
     }
     return m_ScrolledContainerView->HasFocus(button);
@@ -51,37 +50,37 @@ bool ListViewHeaderView::HasFocus(MouseButton_e button) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewHeaderView::DrawButton(const char* title, const Rect& frame, Ptr<Font> font, FontHeight* fontHeight)
+void PListViewHeaderView::DrawButton(const char* title, const PRect& frame, Ptr<PFont> font, PFontHeight* fontHeight)
 {
-    SetEraseColor(StandardColorID::ListViewTab);
+    SetEraseColor(PStandardColorID::ListViewTab);
     DrawFrame(frame, FRAME_RAISED);
 
-    SetFgColor(StandardColorID::ListViewTabText);
-    SetBgColor(StandardColorID::ListViewTab);
+    SetFgColor(PStandardColorID::ListViewTabText);
+    SetBgColor(PStandardColorID::ListViewTab);
 
     float vFontHeight = fontHeight->ascender + fontHeight->descender;
 
     int nStrLen = font->GetStringLength(title, frame.Width() - 9.0f);
-    DrawString(PString(title, title + nStrLen), frame.TopLeft() + Point(5, (frame.Height() + 1.0f) / 2 - vFontHeight / 2 + fontHeight->ascender));
+    DrawString(PString(title, title + nStrLen), frame.TopLeft() + PPoint(5, (frame.Height() + 1.0f) / 2 - vFontHeight / 2 + fontHeight->ascender));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewHeaderView::OnPaint(const Rect& cUpdateRect)
+void PListViewHeaderView::OnPaint(const PRect& cUpdateRect)
 {
-    Ptr<Font> pcFont = GetFont();
+    Ptr<PFont> pcFont = GetFont();
     if (pcFont == nullptr) {
         return;
     }
 
-    FontHeight sHeight = pcFont->GetHeight();
+    PFontHeight sHeight = pcFont->GetHeight();
 
-    Rect cFrame;
+    PRect cFrame;
     for (size_t i = 0; i < m_ScrolledContainerView->m_ColumnMap.size(); ++i)
     {
-        Ptr<ListViewColumnView> pcCol = m_ScrolledContainerView->GetColumn(i);
+        Ptr<PListViewColumnView> pcCol = m_ScrolledContainerView->GetColumn(i);
         cFrame = pcCol->GetFrame();
         cFrame.top = 0;
         cFrame.bottom = sHeight.ascender + sHeight.descender + 6 - 1;
@@ -101,9 +100,9 @@ void ListViewHeaderView::OnPaint(const Rect& cUpdateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewHeaderView::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PListViewHeaderView::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
-    Ptr<ListView> listView = ptr_static_cast<ListView>(GetParent());
+    Ptr<PListView> listView = ptr_static_cast<PListView>(GetParent());
     assert(listView != nullptr);
 
     if (m_DragColumn != -1)
@@ -135,8 +134,8 @@ bool ListViewHeaderView::OnMouseMove(MouseButton_e button, const Point& position
     }
     m_ScrolledContainerView->GetColumn(m_SizeColumn)->ResizeBy(deltaSize, 0.0f);
 
-    Ptr<ListViewColumnView> columnView = m_ScrolledContainerView->m_ColumnViews[m_ScrolledContainerView->m_ColumnMap[m_ScrolledContainerView->m_ColumnMap.size() - 1]];
-    Rect frame = columnView->GetFrame();
+    Ptr<PListViewColumnView> columnView = m_ScrolledContainerView->m_ColumnViews[m_ScrolledContainerView->m_ColumnMap[m_ScrolledContainerView->m_ColumnMap.size() - 1]];
+    PRect frame = columnView->GetFrame();
     frame.right = listView->GetBounds().right - GetScrollOffset().x;
     columnView->SetFrame(frame);
 
@@ -154,13 +153,13 @@ bool ListViewHeaderView::OnMouseMove(MouseButton_e button, const Point& position
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewHeaderView::OnViewScrolled(const Point& delta)
+void PListViewHeaderView::OnViewScrolled(const PPoint& delta)
 {
     if (m_ScrolledContainerView->m_ColumnMap.empty()) {
         return;
     }
-    Ptr<ListViewColumnView> columnView = m_ScrolledContainerView->m_ColumnViews[m_ScrolledContainerView->m_ColumnMap[m_ScrolledContainerView->m_ColumnMap.size() - 1]];
-    Rect frame = columnView->GetFrame();
+    Ptr<PListViewColumnView> columnView = m_ScrolledContainerView->m_ColumnViews[m_ScrolledContainerView->m_ColumnMap[m_ScrolledContainerView->m_ColumnMap.size() - 1]];
+    PRect frame = columnView->GetFrame();
     frame.right = GetParent()->GetBounds().right - GetScrollOffset().x;
     columnView->SetFrame(frame);
 
@@ -170,7 +169,7 @@ void ListViewHeaderView::OnViewScrolled(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewHeaderView::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PListViewHeaderView::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (m_ScrolledContainerView->m_ColumnMap.empty()) {
         return false;
@@ -178,10 +177,10 @@ bool ListViewHeaderView::OnMouseDown(MouseButton_e button, const Point& position
     if (position.y >= m_ScrolledContainerView->GetFrame().top) {
         return false;
     }
-    Point containerViewPos = m_ScrolledContainerView->ConvertFromParent(position);
+    PPoint containerViewPos = m_ScrolledContainerView->ConvertFromParent(position);
     for (size_t i = 0; i < m_ScrolledContainerView->m_ColumnMap.size(); ++i)
     {
-        Rect frame(m_ScrolledContainerView->GetColumn(i)->GetFrame());
+        PRect frame(m_ScrolledContainerView->GetColumn(i)->GetFrame());
 
         if (containerViewPos.x >= frame.left && containerViewPos.x <= frame.right)
         {
@@ -210,7 +209,7 @@ bool ListViewHeaderView::OnMouseDown(MouseButton_e button, const Point& position
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ListViewHeaderView::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PListViewHeaderView::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     m_SizeColumn = INVALID_INDEX;
 
@@ -218,13 +217,13 @@ bool ListViewHeaderView::OnMouseUp(MouseButton_e button, const Point& position, 
     {
         m_ScrolledContainerView->m_SortColumn = m_ScrolledContainerView->m_ColumnMap[m_DragColumn];
 
-        if (!m_ScrolledContainerView->m_ListView->HasFlags(ListViewFlags::NoAutoSort))
+        if (!m_ScrolledContainerView->m_ListView->HasFlags(PListViewFlags::NoAutoSort))
         {
-            Ptr<ListView> listView = ptr_static_cast<ListView>(GetParent());
+            Ptr<PListView> listView = ptr_static_cast<PListView>(GetParent());
             assert(listView != nullptr);
 
             listView->Sort();
-            Rect bounds = m_ScrolledContainerView->GetBounds();
+            PRect bounds = m_ScrolledContainerView->GetBounds();
             for (size_t j = 0; j < m_ScrolledContainerView->m_ColumnMap.size(); ++j)
             {
                 if (m_ScrolledContainerView->GetColumn(j) != nullptr) {
@@ -275,14 +274,14 @@ bool ListViewHeaderView::OnMouseUp(MouseButton_e button, const Point& position, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewHeaderView::OnFrameSized(const Point& deltaSize)
+void PListViewHeaderView::OnFrameSized(const PPoint& deltaSize)
 {
-    Rect bounds = GetBounds();
+    PRect bounds = GetBounds();
     bool needFlush = false;
 
     if (deltaSize.x != 0.0f)
     {
-        Rect damage = bounds;
+        PRect damage = bounds;
 
         damage.left = damage.right - std::max(1.0f, deltaSize.x);
         Invalidate(damage);
@@ -290,7 +289,7 @@ void ListViewHeaderView::OnFrameSized(const Point& deltaSize)
     }
     if (deltaSize.y != 0.0f)
     {
-        Rect damage = bounds;
+        PRect damage = bounds;
 
         damage.top = damage.bottom - std::max(1.0f, deltaSize.y);
         Invalidate(damage);
@@ -308,17 +307,17 @@ void ListViewHeaderView::OnFrameSized(const Point& deltaSize)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ListViewHeaderView::Layout()
+void PListViewHeaderView::Layout()
 {
-    FontHeight fontHeight = GetFontHeight();
+    PFontHeight fontHeight = GetFontHeight();
 
-    if (m_ScrolledContainerView->m_ListView->HasFlags(ListViewFlags::NoHeader)) {
+    if (m_ScrolledContainerView->m_ListView->HasFlags(PListViewFlags::NoHeader)) {
         m_HeaderHeight = 0.0f;
     } else {
         m_HeaderHeight = fontHeight.ascender + fontHeight.descender + 6.0f;
     }
 
-    Rect frame = GetFrame().Bounds();
+    PRect frame = GetFrame().Bounds();
     frame.Floor();
     frame.top += m_HeaderHeight;
     frame.right = COORD_MAX;

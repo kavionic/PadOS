@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -21,18 +21,15 @@
 #include <algorithm>
 #include <math.h>
 
-#include "Math/point.h"
+#include <Math/point.h>
 
-namespace os
-{
-
-class IRect;
+class PIRect;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class Rect
+class PRect
 {
 public:
     float left;
@@ -40,72 +37,72 @@ public:
     float right;
     float bottom;
 
-    constexpr Rect() noexcept : left(0.0f), top(0.0f), right(0.0f), bottom(0.0f) {}
-    explicit Rect(bool initialize) noexcept { if (initialize) { left = top = right = bottom = 0.0f; } }
-    constexpr explicit Rect(float value) noexcept : left(value), top(value), right(value), bottom(value) {}
+    constexpr PRect() noexcept : left(0.0f), top(0.0f), right(0.0f), bottom(0.0f) {}
+    explicit PRect(bool initialize) noexcept { if (initialize) { left = top = right = bottom = 0.0f; } }
+    constexpr explicit PRect(float value) noexcept : left(value), top(value), right(value), bottom(value) {}
 
-    constexpr Rect(float l, float t, float r, float b) noexcept : left(l), top(t), right(r), bottom(b) {}
-    constexpr Rect(const Point& topLeft, const Point& bottomRight) noexcept : left(topLeft.x), top(topLeft.y), right(bottomRight.x), bottom(bottomRight.y) {}
-    constexpr inline Rect(const IRect& rect) noexcept;
+    constexpr PRect(float l, float t, float r, float b) noexcept : left(l), top(t), right(r), bottom(b) {}
+    constexpr PRect(const PPoint& topLeft, const PPoint& bottomRight) noexcept : left(topLeft.x), top(topLeft.y), right(bottomRight.x), bottom(bottomRight.y) {}
+    constexpr inline PRect(const PIRect& rect) noexcept;
 
     constexpr bool  IsValid() const noexcept { return left < right && top < bottom; }
     void  Invalidate() noexcept  { left = top = 999999.0f; right = bottom = -999999.0f; }
 
-    constexpr bool  DoIntersect(const Point& point) const noexcept { return !(point.x < left || point.x >= right || point.y < top || point.y >= bottom); }
-    constexpr bool  DoIntersect(const Rect& rect) const noexcept { return !(rect.right <= left || rect.left >= right || rect.bottom <= top || rect.top >= bottom); }
+    constexpr bool  DoIntersect(const PPoint& point) const noexcept { return !(point.x < left || point.x >= right || point.y < top || point.y >= bottom); }
+    constexpr bool  DoIntersect(const PRect& rect) const noexcept { return !(rect.right <= left || rect.left >= right || rect.bottom <= top || rect.top >= bottom); }
 
     constexpr float Width() const noexcept { return right - left; }
     constexpr float Height() const noexcept { return bottom - top; }
-    constexpr Point Size() const noexcept { return Point(right - left, bottom - top); }
-    constexpr Point TopLeft() const noexcept { return Point(left, top); }
-    constexpr Point TopRight() const noexcept { return Point(right, top); }
-    constexpr Point BottomLeft() const noexcept { return Point(left, bottom); }
-    constexpr Point BottomRight() const noexcept { return Point(right, bottom); }
-    constexpr Point Center() const noexcept { return Point(right * 0.5f, bottom * 0.5f); }
-    constexpr Rect  Bounds() const noexcept { return Rect(0.0f, 0.0f, right - left, bottom - top); }
+    constexpr PPoint Size() const noexcept { return PPoint(right - left, bottom - top); }
+    constexpr PPoint TopLeft() const noexcept { return PPoint(left, top); }
+    constexpr PPoint TopRight() const noexcept { return PPoint(right, top); }
+    constexpr PPoint BottomLeft() const noexcept { return PPoint(left, bottom); }
+    constexpr PPoint BottomRight() const noexcept { return PPoint(right, bottom); }
+    constexpr PPoint Center() const noexcept { return PPoint(right * 0.5f, bottom * 0.5f); }
+    constexpr PRect  Bounds() const noexcept { return PRect(0.0f, 0.0f, right - left, bottom - top); }
 
-    Rect& Round() noexcept { left = std::round(left); right = std::round(right); top = std::round(top); bottom = std::round(bottom); return *this; }
-    Rect& Floor() noexcept { left = std::floor(left); right = std::floor(right); top = std::floor(top); bottom = std::floor(bottom); return *this; }
-    Rect& Ceil() noexcept { left = std::ceil(left); right = std::ceil(right); top = std::ceil(top); bottom = std::ceil(bottom); return *this; }
+    PRect& Round() noexcept { left = std::round(left); right = std::round(right); top = std::round(top); bottom = std::round(bottom); return *this; }
+    PRect& Floor() noexcept { left = std::floor(left); right = std::floor(right); top = std::floor(top); bottom = std::floor(bottom); return *this; }
+    PRect& Ceil() noexcept { left = std::ceil(left); right = std::ceil(right); top = std::ceil(top); bottom = std::ceil(bottom); return *this; }
 
-    constexpr Rect GetRounded() const noexcept  { return Rect(std::round(left), std::round(top), std::round(right), std::round(bottom)); }
-    constexpr Rect GetFloored() const noexcept  { return Rect(std::floor(left), std::floor(top), std::floor(right), std::floor(bottom)); }
-    constexpr Rect GetCeiled() const noexcept   { return Rect(std::ceil(left),  std::ceil(top),  std::ceil(right),  std::ceil(bottom)); }
+    constexpr PRect GetRounded() const noexcept  { return PRect(std::round(left), std::round(top), std::round(right), std::round(bottom)); }
+    constexpr PRect GetFloored() const noexcept  { return PRect(std::floor(left), std::floor(top), std::floor(right), std::floor(bottom)); }
+    constexpr PRect GetCeiled() const noexcept   { return PRect(std::ceil(left),  std::ceil(top),  std::ceil(right),  std::ceil(bottom)); }
 
-    Rect& Resize(float inLeft, float inTop, float inRight, float inBottom) noexcept { left += inLeft; top += inTop; right += inRight; bottom += inBottom; return *this; }
-    Rect  GetResized(float inLeft, float inTop, float inRight, float inBottom) const noexcept { Rect result = *this; result.Resize(inLeft, inTop, inRight, inBottom); return result; }
+    PRect& Resize(float inLeft, float inTop, float inRight, float inBottom) noexcept { left += inLeft; top += inTop; right += inRight; bottom += inBottom; return *this; }
+    PRect  GetResized(float inLeft, float inTop, float inRight, float inBottom) const noexcept { PRect result = *this; result.Resize(inLeft, inTop, inRight, inBottom); return result; }
 
-    constexpr Rect  operator+(const Point& point) const noexcept { return Rect(left + point.x, top + point.y, right + point.x, bottom + point.y); }
-    constexpr Rect  operator-(const Point& point) const noexcept { return Rect(left - point.x, top - point.y, right - point.x, bottom - point.y); }
+    constexpr PRect  operator+(const PPoint& point) const noexcept { return PRect(left + point.x, top + point.y, right + point.x, bottom + point.y); }
+    constexpr PRect  operator-(const PPoint& point) const noexcept { return PRect(left - point.x, top - point.y, right - point.x, bottom - point.y); }
 
-    constexpr Point operator+(const Rect& rect) const noexcept { return Point(left + rect.left, top + rect.top); }
-    constexpr Point operator-(const Rect& rect) const noexcept { return Point(left - rect.left, top - rect.top); }
+    constexpr PPoint operator+(const PRect& rect) const noexcept { return PPoint(left + rect.left, top + rect.top); }
+    constexpr PPoint operator-(const PRect& rect) const noexcept { return PPoint(left - rect.left, top - rect.top); }
 
-    constexpr Rect  operator&(const Rect& rect) const noexcept { return Rect(std::max(left, rect.left), std::max(top, rect.top), std::min(right, rect.right), std::min(bottom, rect.bottom)); }
-    void            operator&=(const Rect& rect) noexcept { left = std::max(left, rect.left); top = std::max(top, rect.top); right = std::min(right, rect.right); bottom = std::min(bottom, rect.bottom); }
-    constexpr Rect  operator|(const Rect& rect) const noexcept { return Rect(std::min(left, rect.left), std::min(top, rect.top), std::max(right, rect.right), std::max(bottom, rect.bottom)); }
-    void            operator|=(const Rect& rect) noexcept { left = std::min(left, rect.left); top = std::min(top, rect.top); right = std::max(right, rect.right); bottom = std::max(bottom, rect.bottom); }
-    constexpr Rect  operator|(const Point& point) const noexcept { return Rect(std::min(left, point.x), std::min(top, point.y), std::max(right, point.x), std::max(bottom, point.y)); }
-    void            operator|=(const Point& point) noexcept { left = std::min(left, point.x); top = std::min(top, point.y); right = std::max(right, point.x); bottom = std::max(bottom, point.y); }
+    constexpr PRect  operator&(const PRect& rect) const noexcept { return PRect(std::max(left, rect.left), std::max(top, rect.top), std::min(right, rect.right), std::min(bottom, rect.bottom)); }
+    void            operator&=(const PRect& rect) noexcept { left = std::max(left, rect.left); top = std::max(top, rect.top); right = std::min(right, rect.right); bottom = std::min(bottom, rect.bottom); }
+    constexpr PRect  operator|(const PRect& rect) const noexcept { return PRect(std::min(left, rect.left), std::min(top, rect.top), std::max(right, rect.right), std::max(bottom, rect.bottom)); }
+    void            operator|=(const PRect& rect) noexcept { left = std::min(left, rect.left); top = std::min(top, rect.top); right = std::max(right, rect.right); bottom = std::max(bottom, rect.bottom); }
+    constexpr PRect  operator|(const PPoint& point) const noexcept { return PRect(std::min(left, point.x), std::min(top, point.y), std::max(right, point.x), std::max(bottom, point.y)); }
+    void            operator|=(const PPoint& point) noexcept { left = std::min(left, point.x); top = std::min(top, point.y); right = std::max(right, point.x); bottom = std::max(bottom, point.y); }
 
-    void            operator+=(const Point& point) noexcept { left += point.x; top += point.y; right += point.x; bottom += point.y; }
-    void            operator-=(const Point& point) noexcept { left -= point.x; top -= point.y; right -= point.x; bottom -= point.y; }
+    void            operator+=(const PPoint& point) noexcept { left += point.x; top += point.y; right += point.x; bottom += point.y; }
+    void            operator-=(const PPoint& point) noexcept { left -= point.x; top -= point.y; right -= point.x; bottom -= point.y; }
 
-    constexpr bool  operator==(const Rect& rect) const noexcept { return left == rect.left && top == rect.top && right == rect.right && bottom == rect.bottom; }
+    constexpr bool  operator==(const PRect& rect) const noexcept { return left == rect.left && top == rect.top && right == rect.right && bottom == rect.bottom; }
 
-    constexpr bool  operator!=(const Rect& rect) const noexcept { return left != rect.left || top != rect.top || right != rect.right || bottom != rect.bottom; }
+    constexpr bool  operator!=(const PRect& rect) const noexcept { return left != rect.left || top != rect.top || right != rect.right || bottom != rect.bottom; }
 
 
-    static constexpr Rect FromSize(const Point& size) noexcept { return Rect(Point(0.0f, 0.0f), size); }
-    static constexpr Rect FromSize(float x, float y) noexcept  { return Rect(0.0f, 0.0f, x, y); }
-    static constexpr Rect Centered(const Point& center, const Point& size) noexcept { return FromSize(size) - size * 0.5f + center; }
+    static constexpr PRect FromSize(const PPoint& size) noexcept { return PRect(PPoint(0.0f, 0.0f), size); }
+    static constexpr PRect FromSize(float x, float y) noexcept  { return PRect(0.0f, 0.0f, x, y); }
+    static constexpr PRect Centered(const PPoint& center, const PPoint& size) noexcept { return FromSize(size) - size * 0.5f + center; }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class IRect
+class PIRect
 {
 public:
     int left;
@@ -113,59 +110,56 @@ public:
     int right;
     int bottom;
 
-    constexpr IRect() noexcept  : left(999999), top(999999), right(-999999), bottom(-999999) {}
-    constexpr explicit IRect(int value) noexcept : left(value), top(value), right(value), bottom(value) {}
-    constexpr IRect(int l, int t, int r, int b) noexcept : left(l), top(t), right(r), bottom(b) {}
-    constexpr IRect(const IPoint& topLeft, const IPoint& bottomRight) noexcept : left(topLeft.x), top(topLeft.y), right(bottomRight.x), bottom(bottomRight.y) {}
-    constexpr inline IRect(const Rect& rect) noexcept;
+    constexpr PIRect() noexcept  : left(999999), top(999999), right(-999999), bottom(-999999) {}
+    constexpr explicit PIRect(int value) noexcept : left(value), top(value), right(value), bottom(value) {}
+    constexpr PIRect(int l, int t, int r, int b) noexcept : left(l), top(t), right(r), bottom(b) {}
+    constexpr PIRect(const PIPoint& topLeft, const PIPoint& bottomRight) noexcept : left(topLeft.x), top(topLeft.y), right(bottomRight.x), bottom(bottomRight.y) {}
+    constexpr inline PIRect(const PRect& rect) noexcept;
 
     constexpr bool  IsValid() const noexcept { return left < right && top < bottom; }
     void            Invalidate() noexcept { left = top = 999999; right = bottom = -999999; }
 
-    constexpr bool  DoIntersect(const IPoint& point) const noexcept { return !(point.x < left || point.x >= right || point.y < top || point.y >= bottom); }
-    constexpr bool  DoIntersect(const IRect& rect) const noexcept { return !(rect.right <= left || rect.left >= right || rect.bottom <= top || rect.top >= bottom); }
+    constexpr bool  DoIntersect(const PIPoint& point) const noexcept { return !(point.x < left || point.x >= right || point.y < top || point.y >= bottom); }
+    constexpr bool  DoIntersect(const PIRect& rect) const noexcept { return !(rect.right <= left || rect.left >= right || rect.bottom <= top || rect.top >= bottom); }
 
     constexpr int    Width() const noexcept { return right - left; }
     constexpr int    Height() const noexcept { return bottom - top; }
-    constexpr IPoint Size() const noexcept { return IPoint(right - left, bottom - top); }
-    constexpr IPoint TopLeft() const noexcept { return IPoint(left, top); }
-    constexpr IPoint RightBottom() const noexcept { return IPoint(right, bottom); }
-    constexpr IRect  Bounds(void) const noexcept { return IRect(0, 0, right - left, bottom - top); }
+    constexpr PIPoint Size() const noexcept { return PIPoint(right - left, bottom - top); }
+    constexpr PIPoint TopLeft() const noexcept { return PIPoint(left, top); }
+    constexpr PIPoint RightBottom() const noexcept { return PIPoint(right, bottom); }
+    constexpr PIRect  Bounds(void) const noexcept { return PIRect(0, 0, right - left, bottom - top); }
 
-    IRect& Resize(int inLeft, int inTop, int inRight, int inBottom) noexcept { left += inLeft; top += inTop; right += inRight; bottom += inBottom; return *this; }
+    PIRect& Resize(int inLeft, int inTop, int inRight, int inBottom) noexcept { left += inLeft; top += inTop; right += inRight; bottom += inBottom; return *this; }
 
-    constexpr IRect operator+(const IPoint& point) const noexcept { return IRect(left + point.x, top + point.y, right + point.x, bottom + point.y); }
-    constexpr IRect operator-(const IPoint& point) const noexcept { return IRect(left - point.x, top - point.y, right - point.x, bottom - point.y); }
+    constexpr PIRect operator+(const PIPoint& point) const noexcept { return PIRect(left + point.x, top + point.y, right + point.x, bottom + point.y); }
+    constexpr PIRect operator-(const PIPoint& point) const noexcept { return PIRect(left - point.x, top - point.y, right - point.x, bottom - point.y); }
 
-    constexpr IPoint operator+(const IRect& rect) const noexcept { return IPoint(left + rect.left, top + rect.top); }
-    constexpr IPoint operator-(const IRect& rect) const noexcept { return IPoint(left - rect.left, top - rect.top); }
+    constexpr PIPoint operator+(const PIRect& rect) const noexcept { return PIPoint(left + rect.left, top + rect.top); }
+    constexpr PIPoint operator-(const PIRect& rect) const noexcept { return PIPoint(left - rect.left, top - rect.top); }
 
-    constexpr IRect operator&(const IRect& rect) const noexcept { return IRect(std::max(left, rect.left), std::max(top, rect.top), std::min(right, rect.right), std::min(bottom, rect.bottom)); }
-    void            operator&=(const IRect& rect) noexcept { left = std::max(left, rect.left); top = std::max(top, rect.top); right = std::min(right, rect.right); bottom = std::min(bottom, rect.bottom); }
-    constexpr IRect operator|(const IRect& rect) const noexcept { return IRect(std::min(left, rect.left), std::min(top, rect.top), std::max(right, rect.right), std::max(bottom, rect.bottom)); }
-    void            operator|=(const IRect& rect) noexcept { left = std::min(left, rect.left); top = std::min(top, rect.top); right = std::max(right, rect.right); bottom = std::max(bottom, rect.bottom); }
-    constexpr IRect operator|(const IPoint& point) const noexcept { return IRect(std::min(left, point.x), std::min(top, point.y), std::max(right, point.x), std::max(bottom, point.y)); }
-    void            operator|=(const IPoint& point) noexcept  { left = std::min(left, point.x); top = std::min(top, point.y); right = std::max(right, point.x); bottom = std::max(bottom, point.y); }
+    constexpr PIRect operator&(const PIRect& rect) const noexcept { return PIRect(std::max(left, rect.left), std::max(top, rect.top), std::min(right, rect.right), std::min(bottom, rect.bottom)); }
+    void            operator&=(const PIRect& rect) noexcept { left = std::max(left, rect.left); top = std::max(top, rect.top); right = std::min(right, rect.right); bottom = std::min(bottom, rect.bottom); }
+    constexpr PIRect operator|(const PIRect& rect) const noexcept { return PIRect(std::min(left, rect.left), std::min(top, rect.top), std::max(right, rect.right), std::max(bottom, rect.bottom)); }
+    void            operator|=(const PIRect& rect) noexcept { left = std::min(left, rect.left); top = std::min(top, rect.top); right = std::max(right, rect.right); bottom = std::max(bottom, rect.bottom); }
+    constexpr PIRect operator|(const PIPoint& point) const noexcept { return PIRect(std::min(left, point.x), std::min(top, point.y), std::max(right, point.x), std::max(bottom, point.y)); }
+    void            operator|=(const PIPoint& point) noexcept  { left = std::min(left, point.x); top = std::min(top, point.y); right = std::max(right, point.x); bottom = std::max(bottom, point.y); }
 
 
-    void operator+=(const IPoint& point) noexcept { left += point.x; top += point.y; right += point.x; bottom += point.y; }
-    void operator-=(const IPoint& point) noexcept { left -= point.x; top -= point.y; right -= point.x; bottom -= point.y; }
+    void operator+=(const PIPoint& point) noexcept { left += point.x; top += point.y; right += point.x; bottom += point.y; }
+    void operator-=(const PIPoint& point) noexcept { left -= point.x; top -= point.y; right -= point.x; bottom -= point.y; }
 
-    constexpr bool operator==(const IRect& rect) const noexcept { return left == rect.left && top == rect.top && right == rect.right && bottom == rect.bottom; }
-    constexpr bool operator!=(const IRect& rect) const noexcept { return left != rect.left || top != rect.top || right != rect.right || bottom != rect.bottom; }
+    constexpr bool operator==(const PIRect& rect) const noexcept { return left == rect.left && top == rect.top && right == rect.right && bottom == rect.bottom; }
+    constexpr bool operator!=(const PIRect& rect) const noexcept { return left != rect.left || top != rect.top || right != rect.right || bottom != rect.bottom; }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-constexpr Rect::Rect(const IRect& rect) noexcept : left(float(rect.left)), top(float(rect.top)), right(float(rect.right)), bottom(float(rect.bottom)) {}
+constexpr PRect::PRect(const PIRect& rect) noexcept : left(float(rect.left)), top(float(rect.top)), right(float(rect.right)), bottom(float(rect.bottom)) {}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-constexpr IRect::IRect(const Rect& rect) noexcept : left(int(rect.left)), top(int(rect.top)), right(int(rect.right)), bottom(int(rect.bottom)) {}
-
-
-} // namespace os
+constexpr PIRect::PIRect(const PRect& rect) noexcept : left(int(rect.left)), top(int(rect.top)), right(int(rect.right)), bottom(int(rect.bottom)) {}

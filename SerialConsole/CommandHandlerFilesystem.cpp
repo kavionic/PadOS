@@ -29,7 +29,6 @@
 #include <SerialConsole/CommandHandlerFilesystem.h>
 #include <SerialConsole/FilesystemMessages.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -201,7 +200,7 @@ void CommandHandlerFilesystem::HandleDeleteFile(const SerialProtocol::DeleteFile
         close(m_CurrentExternalFile);
     }
 
-    FSNode file(msg.m_Path);
+    PFSNode file(msg.m_Path);
     if (file.IsValid())
     {
         bool isDirectory = file.IsDir();

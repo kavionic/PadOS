@@ -21,25 +21,21 @@
 #include <GUI/GUIDefines.h>
 #include <Ptr/PtrTarget.h>
 
-namespace os
-{
 
-class DisplayDriver;
+class PDisplayDriver;
 
-class SrvBitmap : public PtrTarget
+class PSrvBitmap : public PtrTarget
 {
 public:
-    SrvBitmap(const os::IPoint& size, os::EColorSpace colorSpace, uint8_t* raster = nullptr, size_t bytesPerLine = 0);
+    PSrvBitmap(const PIPoint& size, PEColorSpace colorSpace, uint8_t* raster = nullptr, size_t bytesPerLine = 0);
 
-    EColorSpace     m_ColorSpace    = EColorSpace::NO_COLOR_SPACE;
-    IPoint          m_Size;
+    PEColorSpace     m_ColorSpace    = PEColorSpace::NO_COLOR_SPACE;
+    PIPoint          m_Size;
     size_t          m_BytesPerLine  = 0;
     uint8_t*        m_Raster        = nullptr;  // Frame buffer address.
-    DisplayDriver*  m_Driver        = nullptr;
+    PDisplayDriver*  m_Driver        = nullptr;
     bool            m_FreeRaster    = false;    // true if the raster memory is allocated by the constructor
     bool            m_VideoMem      = false;
 protected:
-    ~SrvBitmap();
+    ~PSrvBitmap();
 };
-
-} // namespace os

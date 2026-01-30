@@ -19,13 +19,12 @@
 #include <GUI/Bitmap.h>
 #include <App/Application.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Bitmap::Bitmap(int width, int height, EColorSpace colorSpace, uint32_t flags, Application* application)
+PBitmap::PBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, PApplication* application)
 {
     Initialize(width, height, colorSpace, nullptr, 0, flags, application);
 }
@@ -34,7 +33,7 @@ Bitmap::Bitmap(int width, int height, EColorSpace colorSpace, uint32_t flags, Ap
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Bitmap::Bitmap(int width, int height, EColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags, Application* application)
+PBitmap::PBitmap(int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags, PApplication* application)
 {
     Initialize(width, height, colorSpace, static_cast<uint8_t*>(raster), bytesPerRow, flags | CUSTOM_FRAMEBUFFER, application);
 }
@@ -43,7 +42,7 @@ Bitmap::Bitmap(int width, int height, EColorSpace colorSpace, void* raster, size
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Bitmap::Bitmap(int width, int height, EColorSpace colorSpace, const void* raster, size_t bytesPerRow, uint32_t flags, Application* application)
+PBitmap::PBitmap(int width, int height, PEColorSpace colorSpace, const void* raster, size_t bytesPerRow, uint32_t flags, PApplication* application)
 {
     Initialize(width, height, colorSpace, static_cast<uint8_t*>(const_cast<void*>(raster)), bytesPerRow, flags | CUSTOM_FRAMEBUFFER | READ_ONLY, application);
 }
@@ -52,9 +51,9 @@ Bitmap::Bitmap(int width, int height, EColorSpace colorSpace, const void* raster
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Bitmap::Initialize(int width, int height, EColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, Application* application)
+void PBitmap::Initialize(int width, int height, PEColorSpace colorSpace, uint8_t* raster, size_t bytesPerRow, uint32_t flags, PApplication* application)
 {
-    m_Bounds = IRect(0, 0, width, height);
+    m_Bounds = PIRect(0, 0, width, height);
 
     m_Handle        = INVALID_HANDLE;
     m_Raster        = raster;
@@ -62,7 +61,7 @@ void Bitmap::Initialize(int width, int height, EColorSpace colorSpace, uint8_t* 
     m_BytesPerRow   = bytesPerRow;
 
     if (application == nullptr) {
-        application = Application::GetCurrentApplication();
+        application = PApplication::GetCurrentApplication();
     }
     if (application != nullptr)
     {
@@ -82,7 +81,7 @@ void Bitmap::Initialize(int width, int height, EColorSpace colorSpace, uint8_t* 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Bitmap::~Bitmap()
+PBitmap::~PBitmap()
 {
     if (m_Application != nullptr) {
         m_Application->DeleteBitmap(m_Handle);
@@ -93,7 +92,7 @@ Bitmap::~Bitmap()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-EColorSpace Bitmap::GetColorSpace() const
+PEColorSpace PBitmap::GetColorSpace() const
 {
     return m_ColorSpace;
 }
@@ -102,7 +101,7 @@ EColorSpace Bitmap::GetColorSpace() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Bitmap::AddChild(View* pcView)
+void PBitmap::AddChild(PView* pcView)
 {
 //    if (NULL != m_pcWindow) {
 //        m_pcWindow->AddChild(pcView);
@@ -113,7 +112,7 @@ void Bitmap::AddChild(View* pcView)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Bitmap::RemoveChild(View* pcView)
+bool PBitmap::RemoveChild(PView* pcView)
 {
 //    if (NULL != m_pcWindow) {
 //        m_pcWindow->RemoveChild(pcView);
@@ -127,7 +126,7 @@ bool Bitmap::RemoveChild(View* pcView)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-View* Bitmap::FindView(const char* pzName) const
+PView* PBitmap::FindView(const char* pzName) const
 {
 //    if (NULL != m_pcWindow) {
 //        return m_pcWindow->FindView(pzName);
@@ -140,7 +139,7 @@ View* Bitmap::FindView(const char* pzName) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Bitmap::Flush()
+void PBitmap::Flush()
 {
 //    if (NULL != m_pcWindow) {
 //        m_pcWindow->Flush();
@@ -151,7 +150,7 @@ void Bitmap::Flush()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Bitmap::Sync()
+void PBitmap::Sync()
 {
 //    if (NULL != m_pcWindow) {
 //        m_pcWindow->Sync();
@@ -162,7 +161,7 @@ void Bitmap::Sync()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRect Bitmap::GetBounds() const
+PIRect PBitmap::GetBounds() const
 {
     return m_Bounds;
 }
@@ -171,7 +170,7 @@ IRect Bitmap::GetBounds() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Bitmap::GetBytesPerRow() const
+int PBitmap::GetBytesPerRow() const
 {
     return m_BytesPerRow;
 }

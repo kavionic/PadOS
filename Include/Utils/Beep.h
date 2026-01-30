@@ -21,10 +21,8 @@
 
 #include <stdint.h>
 
-namespace os
-{
 
-enum class BeepLength : uint32_t
+enum class PBeepLength : uint32_t
 {
     Short,
     Medium,
@@ -32,7 +30,4 @@ enum class BeepLength : uint32_t
     VeryLong
 };
 
-void beep(BeepLength length);
-
-
-} // namespace os
+void p_beep(PBeepLength length);

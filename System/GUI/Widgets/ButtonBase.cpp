@@ -22,13 +22,12 @@
 #include <Utils/XMLObjectParser.h>
 #include <Utils/Beep.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ButtonBase::ButtonBase(const PString& name, Ptr<View> parent, uint32_t flags) : Control(name, parent, flags)
+PButtonBase::PButtonBase(const PString& name, Ptr<PView> parent, uint32_t flags) : PControl(name, parent, flags)
 {
 }
 
@@ -36,13 +35,13 @@ ButtonBase::ButtonBase(const PString& name, Ptr<View> parent, uint32_t flags) : 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ButtonBase::ButtonBase(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment) : Control(context, parent, xmlData, defaultLabelAlignment)
+PButtonBase::PButtonBase(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment) : PControl(context, parent, xmlData, defaultLabelAlignment)
 {
     PString groupName = context.GetAttribute(xmlData, "group", PString::zero);
 
     if (!groupName.empty())
     {
-        Ptr<ButtonGroup> group = context.GetButtonGroup(groupName);
+        Ptr<PButtonGroup> group = context.GetButtonGroup(groupName);
         if (group != nullptr) {
             group->AddButton(ptr_tmp_cast(this));
         }
@@ -53,7 +52,7 @@ ButtonBase::ButtonBase(ViewFactoryContext& context, Ptr<View> parent, const pugi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ButtonBase::~ButtonBase()
+PButtonBase::~PButtonBase()
 {
 }
 
@@ -61,22 +60,22 @@ ButtonBase::~ButtonBase()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ButtonGroup> ButtonBase::FindButtonGroup(Ptr<View> root, const PString& name)
+Ptr<PButtonGroup> PButtonBase::FindButtonGroup(Ptr<PView> root, const PString& name)
 {
-    for (const Ptr<View>& child : root->GetChildList())
+    for (const Ptr<PView>& child : root->GetChildList())
     {
-        Ptr<ButtonBase> button = ptr_dynamic_cast<ButtonBase>(child);
+        Ptr<PButtonBase> button = ptr_dynamic_cast<PButtonBase>(child);
         if (button != nullptr)
         {
-            Ptr<ButtonGroup> group = button->GetButtonGroup();
+            Ptr<PButtonGroup> group = button->GetButtonGroup();
             if (group != nullptr && group->GetName() == name) {
                 return group;
             }
         }
     }
-    for (const Ptr<View>& child : root->GetChildList())
+    for (const Ptr<PView>& child : root->GetChildList())
     {
-        Ptr<ButtonGroup> group = FindButtonGroup(child, name);
+        Ptr<PButtonGroup> group = FindButtonGroup(child, name);
         if (group != nullptr) {
             return group;
         }
@@ -88,7 +87,7 @@ Ptr<ButtonGroup> ButtonBase::FindButtonGroup(Ptr<View> root, const PString& name
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ButtonBase::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PButtonBase::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     //    printf("Button: Mouse down %d, %.1f/%.1f\n", int(button), position.x, position.y);
 
@@ -96,11 +95,11 @@ bool ButtonBase::OnMouseDown(MouseButton_e button, const Point& position, const 
         return false;
     }
 
-    if (m_HitButton == MouseButton_e::None)
+    if (m_HitButton == PMouseButton::None)
     {
         m_HitButton = button;
         SetPressedState(true);
-        beep(BeepLength::Short);
+        p_beep(PBeepLength::Short);
         if (m_CanBeCheked)
         {
             if (m_ButtonGroup != nullptr) {
@@ -118,7 +117,7 @@ bool ButtonBase::OnMouseDown(MouseButton_e button, const Point& position, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ButtonBase::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PButtonBase::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (!IsEnabled()) {
         return false;
@@ -126,7 +125,7 @@ bool ButtonBase::OnMouseUp(MouseButton_e button, const Point& position, const Mo
     //    printf("Button: Mouse up %d, %.1f/%.1f\n", int(button), position.x, position.y);
     if (button == m_HitButton)
     {
-        m_HitButton = MouseButton_e::None;
+        m_HitButton = PMouseButton::None;
         if (m_IsPressed)
         {
             SetPressedState(false);
@@ -143,7 +142,7 @@ bool ButtonBase::OnMouseUp(MouseButton_e button, const Point& position, const Mo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ButtonBase::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PButtonBase::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (button == m_HitButton)
     {
@@ -157,7 +156,7 @@ bool ButtonBase::OnMouseMove(MouseButton_e button, const Point& position, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ButtonBase::SetChecked(bool isChecked)
+void PButtonBase::SetChecked(bool isChecked)
 {
     if (isChecked != m_IsChecked)
     {
@@ -171,7 +170,7 @@ void ButtonBase::SetChecked(bool isChecked)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ButtonBase::SetPressedState(bool isPressed)
+void PButtonBase::SetPressedState(bool isPressed)
 {
     if (isPressed != m_IsPressed)
     {
@@ -184,24 +183,24 @@ void ButtonBase::SetPressedState(bool isPressed)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ButtonBase::OnEnableStatusChanged(bool isEnabled)
+void PButtonBase::OnEnableStatusChanged(bool isEnabled)
 {
     if (!isEnabled)
     {
-        m_HitButton = MouseButton_e::None;
+        m_HitButton = PMouseButton::None;
         if (m_IsPressed)
         {
             SetPressedState(false);
         }
     }
-    Control::OnEnableStatusChanged(isEnabled);
+    PControl::OnEnableStatusChanged(isEnabled);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ButtonGroup> ButtonBase::GetButtonGroup() const
+Ptr<PButtonGroup> PButtonBase::GetButtonGroup() const
 {
     return m_ButtonGroup;
 }
@@ -210,7 +209,7 @@ Ptr<ButtonGroup> ButtonBase::GetButtonGroup() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ButtonBase::SetButtonGroup(Ptr<ButtonGroup> group)
+void PButtonBase::SetButtonGroup(Ptr<PButtonGroup> group)
 {
     m_ButtonGroup = group;
 }

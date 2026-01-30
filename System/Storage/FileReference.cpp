@@ -25,13 +25,12 @@
 #include <Storage/Symlink.h>
 #include <Storage/Path.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FileReference::FileReference()
+PFileReference::PFileReference()
 {
 }
 
@@ -39,7 +38,7 @@ FileReference::FileReference()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FileReference::FileReference(const FileReference& reference) : m_Directory(reference.m_Directory), m_Name(reference.m_Name)
+PFileReference::PFileReference(const PFileReference& reference) : m_Directory(reference.m_Directory), m_Name(reference.m_Name)
 {
 }
 
@@ -47,7 +46,7 @@ FileReference::FileReference(const FileReference& reference) : m_Directory(refer
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FileReference::FileReference(const PString& path, bool followLinks)
+PFileReference::PFileReference(const PString& path, bool followLinks)
 {
     SetTo(path, followLinks);
 }
@@ -56,7 +55,7 @@ FileReference::FileReference(const PString& path, bool followLinks)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FileReference::FileReference(const Directory& directory, const PString& name, bool followLinks)
+PFileReference::PFileReference(const PDirectory& directory, const PString& name, bool followLinks)
 {
     SetTo(directory, name, followLinks);
 }
@@ -65,7 +64,7 @@ FileReference::FileReference(const Directory& directory, const PString& name, bo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FileReference::~FileReference()
+PFileReference::~PFileReference()
 {
 }
 
@@ -73,7 +72,7 @@ FileReference::~FileReference()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::SetTo(const FileReference& reference)
+bool PFileReference::SetTo(const PFileReference& reference)
 {
     if (!m_Directory.SetTo(reference.m_Directory)) {
         return false;
@@ -86,17 +85,17 @@ bool FileReference::SetTo(const FileReference& reference)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::SetTo(const PString& pathString, bool followLinks)
+bool PFileReference::SetTo(const PString& pathString, bool followLinks)
 {
-    Path path(pathString);
+    PPath path(pathString);
 
     while (followLinks)
     {
-        SymLink link(path.GetPath());
+        PSymLink link(path.GetPath());
         if (!link.IsValid()) {
             break;
         }
-        Path newPath;
+        PPath newPath;
         if (!link.ConstructPath(path.GetDir(), newPath)) {
             break;
         }
@@ -118,7 +117,7 @@ bool FileReference::SetTo(const PString& pathString, bool followLinks)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::SetTo(const Directory& directory, const PString& name, bool followLinks)
+bool PFileReference::SetTo(const PDirectory& directory, const PString& name, bool followLinks)
 {
     if (!m_Directory.SetTo(directory)) {
         return false;
@@ -126,10 +125,10 @@ bool FileReference::SetTo(const Directory& directory, const PString& name, bool 
     m_Name = name;
     if (followLinks)
     {
-        SymLink link(directory, name);
+        PSymLink link(directory, name);
         if (link.IsValid())
         {
-            Path newPath;
+            PPath newPath;
             if (link.ConstructPath(directory, newPath)) {
                 SetTo(newPath.GetPath(), true);
             }
@@ -142,7 +141,7 @@ bool FileReference::SetTo(const Directory& directory, const PString& name, bool 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FileReference::Unset()
+void PFileReference::Unset()
 {
     m_Directory.Close();
 }
@@ -151,7 +150,7 @@ void FileReference::Unset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::IsValid() const
+bool PFileReference::IsValid() const
 {
     return m_Directory.IsValid();
 }
@@ -160,7 +159,7 @@ bool FileReference::IsValid() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString FileReference::GetName() const
+PString PFileReference::GetName() const
 {
     return m_Name;
 }
@@ -169,7 +168,7 @@ PString FileReference::GetName() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::GetPath(PString& outPath) const
+bool PFileReference::GetPath(PString& outPath) const
 {
     PString path;
 
@@ -186,7 +185,7 @@ bool FileReference::GetPath(PString& outPath) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::Rename(const PString& newName)
+bool PFileReference::Rename(const PString& newName)
 {
     PString oldPath;
     if (!m_Directory.GetPath(oldPath)) {
@@ -223,7 +222,7 @@ bool FileReference::Rename(const PString& newName)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::Delete()
+bool PFileReference::Delete()
 {
     PString path;
     if (!GetPath(path)) {
@@ -236,7 +235,7 @@ bool FileReference::Delete()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FileReference::GetStat(struct ::stat* statBuffer) const
+bool PFileReference::GetStat(struct ::stat* statBuffer) const
 {
     int file = openat(m_Directory.GetFileDescriptor(), m_Name.c_str(), O_RDONLY);
     if (file < 0) {
@@ -251,7 +250,7 @@ bool FileReference::GetStat(struct ::stat* statBuffer) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const Directory& FileReference::GetDirectory() const
+const PDirectory& PFileReference::GetDirectory() const
 {
     return m_Directory;
 }

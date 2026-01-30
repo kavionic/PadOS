@@ -19,8 +19,6 @@
 #include <GUI/Widgets/DropdownMenu.h>
 #include "DropdownMenuPopupView.h"
 
-namespace os
-{
 namespace osi
 {
 
@@ -29,15 +27,15 @@ namespace osi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& itemList, size_t selection) : View(PString::zero, nullptr, ViewFlags::WillDraw)
+DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& itemList, size_t selection) : PView(PString::zero, nullptr, PViewFlags::WillDraw)
 {
     m_ContentView = ptr_new<DropdownMenuPopupView>(itemList, selection, SignalSelectionChanged);
     m_ContentView->SetBorders(2.0f, 4.0f, 2.0f, 4.0f);
-    m_ContentView->SignalPreferredSizeChanged.Connect(this, &View::PreferredSizeChanged);
+    m_ContentView->SignalPreferredSizeChanged.Connect(this, &PView::PreferredSizeChanged);
     SetScrolledView(m_ContentView);
 
     AddChild(m_ContentView);
-    OnFrameSized(Point());
+    OnFrameSized(PPoint());
     PreferredSizeChanged();
 }
 
@@ -45,7 +43,7 @@ DropdownMenuPopupWindow::DropdownMenuPopupWindow(const std::vector<PString>& ite
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupWindow::OnPaint(const Rect& updateRect)
+void DropdownMenuPopupWindow::OnPaint(const PRect& updateRect)
 {
     SetEraseColor(255, 255, 255);
     DrawFrame(GetBounds(), FRAME_RECESSED);
@@ -55,10 +53,10 @@ void DropdownMenuPopupWindow::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupWindow::OnFrameSized(const Point& delta)
+void DropdownMenuPopupWindow::OnFrameSized(const PPoint& delta)
 {
-    Rect contentFrame = GetBounds();
-    Rect contentBorders = m_ContentView->GetBorders();
+    PRect contentFrame = GetBounds();
+    PRect contentBorders = m_ContentView->GetBorders();
     contentFrame.Resize(contentBorders.left, contentBorders.top, contentBorders.right, contentBorders.bottom);
     m_ContentView->SetFrame(contentFrame);
 }
@@ -67,12 +65,12 @@ void DropdownMenuPopupWindow::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupWindow::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void DropdownMenuPopupWindow::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    *minSize = m_ContentView->GetPreferredSize(PrefSizeType::Smallest);
-    *maxSize = m_ContentView->GetPreferredSize(PrefSizeType::Greatest);
-    Rect  clientBorders = m_ContentView->GetBorders();
-    Point borderSize(clientBorders.left + clientBorders.right, clientBorders.top + clientBorders.bottom);
+    *minSize = m_ContentView->GetPreferredSize(PPrefSizeType::Smallest);
+    *maxSize = m_ContentView->GetPreferredSize(PPrefSizeType::Greatest);
+    PRect  clientBorders = m_ContentView->GetBorders();
+    PPoint borderSize(clientBorders.left + clientBorders.right, clientBorders.top + clientBorders.bottom);
 
     *minSize += borderSize;
     *maxSize += borderSize;
@@ -92,7 +90,7 @@ void DropdownMenuPopupWindow::MakeSelectionVisible()
 ///////////////////////////////////////////////////////////////////////////////
 
 DropdownMenuPopupView::DropdownMenuPopupView(const std::vector<PString>& itemList, size_t selection, Signal<void, size_t, bool>& signalSelectionChanged)
-    : View("drop_down_view", nullptr, ViewFlags::WillDraw)
+    : PView("drop_down_view", nullptr, PViewFlags::WillDraw)
     , SignalSelectionChanged(signalSelectionChanged)
     , m_ItemList(itemList)
 {
@@ -120,7 +118,7 @@ DropdownMenuPopupView::DropdownMenuPopupView(const std::vector<PString>& itemLis
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupView::OnPaint(const Rect& updateRect)
+void DropdownMenuPopupView::OnPaint(const PRect& updateRect)
 {
     SetEraseColor(255, 255, 255);
     EraseRect(GetBounds());
@@ -136,7 +134,7 @@ void DropdownMenuPopupView::OnPaint(const Rect& updateRect)
     {
         if (i == m_CurSelection || i == m_HitItem)
         {
-            Rect itemFrame = GetBounds();
+            PRect itemFrame = GetBounds();
 
             if (i == m_CurSelection) {
                 SetFgColor(0, 0, 0);
@@ -183,7 +181,7 @@ void DropdownMenuPopupView::Activated(bool isActive)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void DropdownMenuPopupView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void DropdownMenuPopupView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     *minSize = m_ContentSize;
     *maxSize = m_ContentSize;
@@ -193,17 +191,17 @@ void DropdownMenuPopupView::CalculatePreferredSize(Point* minSize, Point* maxSiz
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool DropdownMenuPopupView::OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
-    if (m_HitButton != MouseButton_e::None) {
-        return View::OnTouchDown(pointID, position, event);
+    if (m_HitButton != PMouseButton::None) {
+        return PView::OnTouchDown(pointID, position, event);
     }
     m_HitPos = position;
     m_HitButton = pointID;
 
     m_HitItem = PositionToIndex(position);
 
-    Rect itemFrame = GetBounds();
+    PRect itemFrame = GetBounds();
 
     itemFrame.top = float(m_HitItem) * m_GlyphHeight;
     itemFrame.bottom = itemFrame.top + m_GlyphHeight;
@@ -217,17 +215,17 @@ bool DropdownMenuPopupView::OnTouchDown(MouseButton_e pointID, const Point& posi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool DropdownMenuPopupView::OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
     if (pointID != m_HitButton) {
-        return View::OnTouchUp(pointID, position, event);
+        return PView::OnTouchUp(pointID, position, event);
     }
 
-    m_HitButton = MouseButton_e::None;
+    m_HitButton = PMouseButton::None;
 
     if (m_MouseMoved)
     {
-        ViewScroller* viewScroller = ViewScroller::GetViewScroller(this);
+        PViewScroller* viewScroller = PViewScroller::GetViewScroller(this);
         if (viewScroller != nullptr) {
             viewScroller->EndSwipe();
         }
@@ -245,20 +243,20 @@ bool DropdownMenuPopupView::OnTouchUp(MouseButton_e pointID, const Point& positi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool DropdownMenuPopupView::OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
     if (pointID != m_HitButton) {
-        return View::OnTouchMove(pointID, position, event);
+        return PView::OnTouchMove(pointID, position, event);
     }
     if (m_MouseMoved)
     {
-        ViewScroller* viewScroller = ViewScroller::GetViewScroller(this);
+        PViewScroller* viewScroller = PViewScroller::GetViewScroller(this);
         if (viewScroller != nullptr) {
             viewScroller->SwipeMove(position);
         }
         if (m_HitItem != INVALID_INDEX)
         {
-            Rect itemFrame = GetBounds();
+            PRect itemFrame = GetBounds();
 
             itemFrame.top = float(m_HitItem) * m_GlyphHeight;
             itemFrame.bottom = itemFrame.top + m_GlyphHeight;
@@ -270,7 +268,7 @@ bool DropdownMenuPopupView::OnTouchMove(MouseButton_e pointID, const Point& posi
     {
         if ((position - m_HitPos).LengthSqr() > 20.0f * 20.0f)
         {
-            ViewScroller* viewScroller = ViewScroller::GetViewScroller(this);
+            PViewScroller* viewScroller = PViewScroller::GetViewScroller(this);
             if (viewScroller != nullptr) {
                 viewScroller->BeginSwipe(position);
             }
@@ -284,10 +282,10 @@ bool DropdownMenuPopupView::OnTouchMove(MouseButton_e pointID, const Point& posi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool DropdownMenuPopupView::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
-    if (m_HitButton != MouseButton_e::None) {
-        return View::OnMouseDown(button, position, event);
+    if (m_HitButton != PMouseButton::None) {
+        return PView::OnMouseDown(button, position, event);
     }
     m_HitButton = button;
 
@@ -306,7 +304,7 @@ bool DropdownMenuPopupView::OnMouseDown(MouseButton_e button, const Point& posit
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool DropdownMenuPopupView::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (GetBounds().DoIntersect(position))
     {
@@ -319,7 +317,7 @@ bool DropdownMenuPopupView::OnMouseUp(MouseButton_e button, const Point& positio
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool DropdownMenuPopupView::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (!GetBounds().DoIntersect(position)) {
         return false;
@@ -330,7 +328,7 @@ bool DropdownMenuPopupView::OnMouseMove(MouseButton_e button, const Point& posit
     {
         int prevSel = m_CurSelection;
         m_CurSelection = newSelection;
-        Rect itemFrame = GetBounds();
+        PRect itemFrame = GetBounds();
 
         itemFrame.top = float(prevSel) * m_GlyphHeight;
         itemFrame.bottom = itemFrame.top + m_GlyphHeight;
@@ -351,7 +349,7 @@ bool DropdownMenuPopupView::OnMouseMove(MouseButton_e button, const Point& posit
 
 void DropdownMenuPopupView::MakeSelectionVisible()
 {
-    Rect bounds = GetBounds();
+    PRect bounds = GetBounds();
 
     const float itemTop = float(m_CurSelection) * m_GlyphHeight;
     const float itemBottom = itemTop + m_GlyphHeight;
@@ -369,7 +367,7 @@ void DropdownMenuPopupView::MakeSelectionVisible()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t DropdownMenuPopupView::PositionToIndex(const Point& position)
+size_t DropdownMenuPopupView::PositionToIndex(const PPoint& position)
 {
     size_t newSelection = 0;
     if (position.y < 0.0f) {
@@ -383,5 +381,3 @@ size_t DropdownMenuPopupView::PositionToIndex(const Point& position)
 }
 
 } // namespace osi
-} // namespace os
-

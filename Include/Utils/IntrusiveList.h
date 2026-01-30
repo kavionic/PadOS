@@ -21,7 +21,7 @@
 
 
 template<typename T>
-struct IntrusiveList
+struct PIntrusiveList
 {
     void Append(T* node)
     {
@@ -82,12 +82,12 @@ struct IntrusiveList
 };
 
 template<typename T>
-class IntrusiveListNode
+class PIntrusiveListNode
 {
 public:
     T* GetNext() { return m_Next; }
     T* GetPrev() { return m_Prev; }
-    IntrusiveList<T>* GetList() { return m_List; }
+    PIntrusiveList<T>* GetList() { return m_List; }
         
     bool RemoveFromList()
     {
@@ -99,9 +99,9 @@ public:
         }
     }        
 protected:
-    friend class IntrusiveList<T>;
+    friend class PIntrusiveList<T>;
     
     T*                m_Prev = nullptr;
     T*                m_Next = nullptr;
-    IntrusiveList<T>* m_List = nullptr;    
+    PIntrusiveList<T>* m_List = nullptr;    
 };

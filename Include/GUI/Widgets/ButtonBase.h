@@ -21,25 +21,23 @@
 
 #include <GUI/Widgets/Control.h>
 
-namespace os
-{
 
-class ButtonGroup;
+class PButtonGroup;
 
-class ButtonBase : public Control
+class PButtonBase : public PControl
 {
 public:
-    ButtonBase(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    ButtonBase(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment);
-    ~ButtonBase();
+    PButtonBase(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PButtonBase(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment);
+    ~PButtonBase();
 
-    static Ptr<ButtonGroup> FindButtonGroup(Ptr<View> root, const PString& name);
+    static Ptr<PButtonGroup> FindButtonGroup(Ptr<PView> root, const PString& name);
 
     virtual void AllAttachedToScreen() override { Invalidate(); }
 
-    virtual bool OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
 
     void SetCheckable(bool value) { m_CanBeCheked = value; }
     bool IsCheckable() const { return m_CanBeCheked; }
@@ -54,10 +52,10 @@ public:
     virtual void OnPressedStateChanged(bool isPressed) { Invalidate(); Flush(); }
     virtual void OnCheckedStateChanged(bool isChecked) { Invalidate(); Flush(); }
 
-    Ptr<ButtonGroup> GetButtonGroup() const;
+    Ptr<PButtonGroup> GetButtonGroup() const;
 
-    Signal<void, MouseButton_e, ButtonBase*>    SignalActivated;
-    Signal<void, bool, ButtonBase*>             SignalToggled;
+    Signal<void, PMouseButton, PButtonBase*>    SignalActivated;
+    Signal<void, bool, PButtonBase*>             SignalToggled;
 
 protected:
     void SetPressedState(bool isPressed);
@@ -65,21 +63,16 @@ protected:
 
 
 private:
-    friend class ButtonGroup;
+    friend class PButtonGroup;
 
-    void SetButtonGroup(Ptr<ButtonGroup> group);
-    MouseButton_e           m_HitButton = MouseButton_e::None;
-    Ptr<ButtonGroup>        m_ButtonGroup;
+    void SetButtonGroup(Ptr<PButtonGroup> group);
+    PMouseButton           m_HitButton = PMouseButton::None;
+    Ptr<PButtonGroup>        m_ButtonGroup;
     bool                    m_CanBeCheked = false;
     bool                    m_IsPressed = false;
     bool                    m_IsChecked = false;
 
 
-    ButtonBase(const ButtonBase&) = delete;
-    ButtonBase& operator=(const ButtonBase&) = delete;
+    PButtonBase(const PButtonBase&) = delete;
+    PButtonBase& operator=(const PButtonBase&) = delete;
 };
-
-
-} // namespace
-
-

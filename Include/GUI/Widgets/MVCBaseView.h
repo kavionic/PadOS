@@ -26,33 +26,31 @@
 #include <Utils/TypeTraits.h>
 #include <GUI/Widgets/Control.h>
 
-namespace os
-{
 
-class ScrollView;
+class PScrollView;
 
-enum class EMVCHighlightState : uint8_t
+enum class PEMVCHighlightState : uint8_t
 {
     Normal,
     Highlighted,
     Selected
 };
 
-namespace MVCBaseViewFlags
+namespace PMVCBaseViewFlags
 {
-static constexpr uint32_t MultiSelect   = 0x0001 << ViewFlags::FirstUserBit;
-static constexpr uint32_t NoAutoSelect  = 0x0002 << ViewFlags::FirstUserBit;
+static constexpr uint32_t MultiSelect   = 0x0001 << PViewFlags::FirstUserBit;
+static constexpr uint32_t NoAutoSelect  = 0x0002 << PViewFlags::FirstUserBit;
 
 extern const std::map<PString, uint32_t> FlagMap;
 }
 
-struct MVCBaseViewItemNode
+struct PMVCBaseViewItemNode
 {
-    MVCBaseViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<View>& itemWidget, uint32_t widgetClassID, bool isSelected) noexcept
+    PMVCBaseViewItemNode(const Ptr<PtrTarget>& itemData, const Ptr<PView>& itemWidget, uint32_t widgetClassID, bool isSelected) noexcept
         : ItemData(itemData), ItemWidget(itemWidget), WidgetClassID(widgetClassID), IsSelected(isSelected) {}
 
     Ptr<PtrTarget>  ItemData;
-    Ptr<View>       ItemWidget;
+    Ptr<PView>       ItemWidget;
     uint32_t        WidgetClassID;
     bool            IsSelected;
 };
@@ -63,18 +61,18 @@ struct MVCBaseViewItemNode
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-class MVCBaseView : public Control
+class PMVCBaseView : public PControl
 {
 public:
-    MVCBaseView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    MVCBaseView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PMVCBaseView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PMVCBaseView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
     virtual void OnLayoutChanged() override;
 
     virtual void Clear() = 0;
 
-    virtual size_t GetItemIndexAtPosition(const Point& position) const = 0;
-    Ptr<PtrTarget> GetItemAtPosition(const Point& position) const;
+    virtual size_t GetItemIndexAtPosition(const PPoint& position) const = 0;
+    Ptr<PtrTarget> GetItemAtPosition(const PPoint& position) const;
     
     Ptr<PtrTarget> GetItemAt(size_t index) const;
     template<typename T>
@@ -93,21 +91,21 @@ public:
     size_t  GetFirstSelected() const { return m_SelectedItems.empty() ? INVALID_INDEX : *m_SelectedItems.begin(); }
     const std::set<size_t>& GetSelectionSet() const { return m_SelectedItems; }
 
-    Signal<void(size_t itemIndex, bool isSelected, MVCBaseView* sourceView)>   SignalSelectionChanged;
-    Signal<void(size_t itemIndex, MVCBaseView* sourceView)>                    SignalItemPressed;
-    Signal<void(size_t itemIndex, MVCBaseView* sourceView)>                    SignalItemReleased;
-    Signal<void(size_t itemIndex, MVCBaseView* sourceView)>                    SignalItemClicked;
+    Signal<void(size_t itemIndex, bool isSelected, PMVCBaseView* sourceView)>   SignalSelectionChanged;
+    Signal<void(size_t itemIndex, PMVCBaseView* sourceView)>                    SignalItemPressed;
+    Signal<void(size_t itemIndex, PMVCBaseView* sourceView)>                    SignalItemReleased;
+    Signal<void(size_t itemIndex, PMVCBaseView* sourceView)>                    SignalItemClicked;
 
     VFConnector<uint32_t(Ptr<const PtrTarget> itemData)>                                   VFGetItemWidgetClassID;
-    VFConnector<Ptr<View>(uint32_t widgetClassID)>                                         VFCreateItemWidget;
+    VFConnector<Ptr<PView>(uint32_t widgetClassID)>                                         VFCreateItemWidget;
 
-    VFConnector<void(Ptr<View> widget, Ptr<const PtrTarget> itemData, bool isSelected, bool isHighlighted)> VFUpdateItemWidget;
-    VFConnector<void(Ptr<View> widget, bool isSelected, bool isHighlighted, Ptr<const PtrTarget> itemData)> VFUpdateItemWidgetSelection;
+    VFConnector<void(Ptr<PView> widget, Ptr<const PtrTarget> itemData, bool isSelected, bool isHighlighted)> VFUpdateItemWidget;
+    VFConnector<void(Ptr<PView> widget, bool isSelected, bool isHighlighted, Ptr<const PtrTarget> itemData)> VFUpdateItemWidgetSelection;
 
 protected:
-    virtual void                    OnContentViewFrameSized(const Point& delta) {}
-    virtual MVCBaseViewItemNode&    GetItemNode(size_t index) = 0;
-    const MVCBaseViewItemNode&      GetItemNode(size_t index) const { return const_cast<MVCBaseView*>(this)->GetItemNode(index); }
+    virtual void                    OnContentViewFrameSized(const PPoint& delta) {}
+    virtual PMVCBaseViewItemNode&    GetItemNode(size_t index) = 0;
+    const PMVCBaseViewItemNode&      GetItemNode(size_t index) const { return const_cast<PMVCBaseView*>(this)->GetItemNode(index); }
 
     virtual void UpdateWidgets() = 0;
     virtual void OnItemsReordered();
@@ -117,7 +115,7 @@ protected:
     {
         using ItemDataType = std::remove_reference_t<callable_argument_type_t<TCompareDelegate, 0>>;
 
-        std::stable_sort(itemList.begin(), itemList.end(), [compareDelegate](const MVCBaseViewItemNode& lhs, const MVCBaseViewItemNode& rhs)
+        std::stable_sort(itemList.begin(), itemList.end(), [compareDelegate](const PMVCBaseViewItemNode& lhs, const PMVCBaseViewItemNode& rhs)
             {
                 const ItemDataType* const lhsData = ptr_raw_pointer_dynamic_cast<ItemDataType>(lhs.ItemData);
                 const ItemDataType* const rhsData = ptr_raw_pointer_dynamic_cast<ItemDataType>(rhs.ItemData);
@@ -135,16 +133,16 @@ protected:
     void        CreateWidgetsForRange(size_t firstItemIndex, size_t lastItemIndex);
     void        RemoveAllWidgets();
 
-    Ptr<View>   CreateItemWidget(uint32_t classID) const;
+    Ptr<PView>   CreateItemWidget(uint32_t classID) const;
     void        AddItemWidget(size_t index);
     void        RemoveItemWidget(size_t index);
-    void        CacheItemWidget(Ptr<View> itemWidget, int32_t widgetClassID) const;
+    void        CacheItemWidget(Ptr<PView> itemWidget, int32_t widgetClassID) const;
 
 
     ssize_t     m_FirstVisibleItem = INVALID_INDEX;
     ssize_t     m_LastVisibleItem = INVALID_INDEX;
 
-    Ptr<View>   m_ContentView;
+    Ptr<PView>   m_ContentView;
 
 private:
     void Construct();
@@ -153,17 +151,14 @@ private:
 
     void SlotContentScrolled() { InvalidateLayout(); }
 
-    void SlotScrollViewTouchDown(View* view, MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent);
-    void SlotScrollViewTouchUp(View* view, MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent);
-    void SlotScrollViewTouchMove(View* view, MouseButton_e pointID, const Point& position, const MotionEvent& motionEvent);
+    void SlotScrollViewTouchDown(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent);
+    void SlotScrollViewTouchUp(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent);
+    void SlotScrollViewTouchMove(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent);
 
-    Ptr<ScrollView>         m_ScrollView;
+    Ptr<PScrollView>         m_ScrollView;
 
     std::set<size_t>        m_SelectedItems;
     size_t                  m_HighlightedItem = INVALID_INDEX;
 
-    mutable std::map<uint32_t, std::vector<Ptr<View>>> m_CachedItemWidgets;
+    mutable std::map<uint32_t, std::vector<Ptr<PView>>> m_CachedItemWidgets;
 };
-
-
-} // namespace os

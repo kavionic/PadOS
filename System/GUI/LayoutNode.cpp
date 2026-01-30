@@ -26,14 +26,12 @@
 #include "GUI/LayoutNode.h"
 #include "GUI/View.h"
 
-using namespace os;
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-LayoutNode::LayoutNode()
+PLayoutNode::PLayoutNode()
 {
 }
 
@@ -41,7 +39,7 @@ LayoutNode::LayoutNode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-LayoutNode::~LayoutNode()
+PLayoutNode::~PLayoutNode()
 {
     if (m_View != nullptr) {
         m_View->SetLayoutNode(nullptr);
@@ -52,39 +50,39 @@ LayoutNode::~LayoutNode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayoutNode::Layout()
+void PLayoutNode::Layout()
 {
     if (m_View != nullptr)
     {
-        Rect frame   = m_View->GetNormalizedBounds();
+        PRect frame   = m_View->GetNormalizedBounds();
     
-        for (Ptr<View> child : *m_View)
+        for (Ptr<PView> child : *m_View)
         {
-            Rect borders = child->GetBorders();
-            Rect childFrame = frame;
+            PRect borders = child->GetBorders();
+            PRect childFrame = frame;
             childFrame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
-            if (child->GetHAlignment() == Alignment::Stretch && child->GetVAlignment() == Alignment::Stretch)
+            if (child->GetHAlignment() == PAlignment::Stretch && child->GetVAlignment() == PAlignment::Stretch)
             {
                 child->SetFrame(childFrame);
             }
             else
             {
-                const Point maxPrefferredSize = child->GetPreferredSize(PrefSizeType::Greatest);
-                Point offset(0.0f, 0.0f);
+                const PPoint maxPrefferredSize = child->GetPreferredSize(PPrefSizeType::Greatest);
+                PPoint offset(0.0f, 0.0f);
 
-                const Point preferredSize = std::min(childFrame.Size(), maxPrefferredSize);
+                const PPoint preferredSize = std::min(childFrame.Size(), maxPrefferredSize);
 
                 switch(child->GetHAlignment())
                 {
-                    case Alignment::Left:
+                    case PAlignment::Left:
                         offset.x = 0.0f;
                         childFrame.right = childFrame.left + preferredSize.x;
                         break;
-                    case Alignment::Center:
+                    case PAlignment::Center:
                         offset.x = roundf((childFrame.Width() - preferredSize.x) * 0.5f);
                         childFrame.right = childFrame.left + preferredSize.x;
                         break;
-                    case Alignment::Right:
+                    case PAlignment::Right:
                         offset.x = childFrame.Width() - preferredSize.x;
                         childFrame.right = childFrame.left + preferredSize.x;
                         break;
@@ -93,15 +91,15 @@ void LayoutNode::Layout()
                 }
                 switch (child->GetVAlignment())
                 {
-                    case Alignment::Top:
+                    case PAlignment::Top:
                         offset.y = 0.0f;
                         childFrame.bottom = childFrame.top + preferredSize.y;
                         break;
-                    case Alignment::Center:
+                    case PAlignment::Center:
                         offset.y = roundf((childFrame.Height() - preferredSize.y) * 0.5f);
                         childFrame.bottom = childFrame.top + preferredSize.y;
                         break;
-                    case Alignment::Right:
+                    case PAlignment::Right:
                         offset.y = childFrame.Height() - preferredSize.y;
                         childFrame.bottom = childFrame.top + preferredSize.y;
                         break;
@@ -119,22 +117,22 @@ void LayoutNode::Layout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayoutNode::CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bool includeWidth, bool includeHeight)
+void PLayoutNode::CalculatePreferredSize(PPoint* minSizeOut, PPoint* maxSizeOut, bool includeWidth, bool includeHeight)
 {
-    Point minSize(0.0f,0.0f);
-    Point maxSize(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+    PPoint minSize(0.0f,0.0f);
+    PPoint maxSize(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
     
     if (m_View != nullptr)
     {
-        for (Ptr<View> child : *m_View)
+        for (Ptr<PView> child : *m_View)
         {
-            if (child->HasFlags(ViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
+            if (child->HasFlags(PViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
                 continue;
             }
-            const Rect borders = child->GetBorders();
-            const Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
-            const Point currentMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
-            const Point currentMaxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+            const PRect borders = child->GetBorders();
+            const PPoint borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            const PPoint currentMinSize = child->GetPreferredSize(PPrefSizeType::Smallest) + borderSize;
+            const PPoint currentMaxSize = child->GetPreferredSize(PPrefSizeType::Greatest) + borderSize;
 
             if (includeWidth) {
                 minSize.x = std::max(minSize.x, currentMinSize.x);
@@ -160,13 +158,13 @@ void LayoutNode::CalculatePreferredSize(Point* minSizeOut, Point* maxSizeOut, bo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayoutNode::ApplyInnerBorders(const Rect& borders, float spacing)
+void PLayoutNode::ApplyInnerBorders(const PRect& borders, float spacing)
 {
     if (m_View != nullptr)
     {
-        for (Ptr<View> child : *m_View)
+        for (Ptr<PView> child : *m_View)
         {
-            Rect childBorders = child->GetBorders();
+            PRect childBorders = child->GetBorders();
             childBorders.Resize(borders.left, borders.top, borders.right, borders.bottom);
             child->SetBorders(childBorders);
         }
@@ -177,7 +175,7 @@ void LayoutNode::ApplyInnerBorders(const Rect& borders, float spacing)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayoutNode::AttachedToView(View* view)
+void PLayoutNode::AttachedToView(PView* view)
 {
     if (m_View != nullptr) {
         m_View->SetLayoutNode(nullptr);
@@ -238,7 +236,7 @@ static float SpaceOut(uint32_t count, float totalSize, float totalMinSize, float
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-HLayoutNode::HLayoutNode()
+PHLayoutNode::PHLayoutNode()
 {
 }
 
@@ -246,22 +244,22 @@ HLayoutNode::HLayoutNode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void HLayoutNode::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PHLayoutNode::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    *minSize = Point(0.0f, 0.0f);
-    *maxSize = Point(0.0f, 0.0f);
+    *minSize = PPoint(0.0f, 0.0f);
+    *maxSize = PPoint(0.0f, 0.0f);
 
     if (m_View != nullptr)
     {
-        for (Ptr<View> child : *m_View)
+        for (Ptr<PView> child : *m_View)
         {
-            if (child->HasFlags(ViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
+            if (child->HasFlags(PViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
                 continue;
             }
-            Rect borders = child->GetBorders();
-            Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
-            Point childMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
-            Point childMaxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+            PRect borders = child->GetBorders();
+            PPoint borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            PPoint childMinSize = child->GetPreferredSize(PPrefSizeType::Smallest) + borderSize;
+            PPoint childMaxSize = child->GetPreferredSize(PPrefSizeType::Greatest) + borderSize;
             if (includeWidth) {
                 minSize->x += childMinSize.x;
                 maxSize->x += childMaxSize.x;
@@ -278,7 +276,7 @@ void HLayoutNode::CalculatePreferredSize(Point* minSize, Point* maxSize, bool in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void HLayoutNode::ApplyInnerBorders(const Rect& borders, float spacing)
+void PHLayoutNode::ApplyInnerBorders(const PRect& borders, float spacing)
 {
     if (m_View == nullptr) {
         return;
@@ -289,14 +287,14 @@ void HLayoutNode::ApplyInnerBorders(const Rect& borders, float spacing)
     }
     if (childList.size() == 1)
     {
-        Rect childBorders = childList[0]->GetBorders();
+        PRect childBorders = childList[0]->GetBorders();
         childBorders.Resize(borders.left, borders.top, borders.right, borders.bottom);
         childList[0]->SetBorders(childBorders);
     }
     else
     {
         // Apply to left-most child:
-        Rect childBorders = childList[0]->GetBorders();
+        PRect childBorders = childList[0]->GetBorders();
         childBorders.Resize(borders.left, borders.top, spacing, borders.bottom);
         childList[0]->SetBorders(childBorders);
 		
@@ -319,13 +317,13 @@ void HLayoutNode::ApplyInnerBorders(const Rect& borders, float spacing)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void HLayoutNode::Layout()
+void PHLayoutNode::Layout()
 {
     if (m_View != nullptr)
     {
         const auto& childList = m_View->GetChildList();
 
-        Rect bounds = m_View->GetNormalizedBounds();
+        PRect bounds = m_View->GetNormalizedBounds();
 
         float* minWidths    = (float*)alloca(sizeof(float)*childList.size());
         float* maxWidths    = (float*)alloca(sizeof(float)*childList.size());
@@ -338,9 +336,9 @@ void HLayoutNode::Layout()
     
         for (size_t i = 0 ; i < childList.size() ; ++i)
         {
-            Ptr<View> child = childList[i];
+            Ptr<PView> child = childList[i];
   
-            if (child->HasFlags(ViewFlags::IgnoreWhenHidden) && !child->IsVisible())
+            if (child->HasFlags(PViewFlags::IgnoreWhenHidden) && !child->IsVisible())
             {
                 wheights[i] = 0.0f;
                 maxHeights[i] = 0.0f;
@@ -349,11 +347,11 @@ void HLayoutNode::Layout()
                 continue;
             }
 
-            const Rect borders = child->GetBorders();
-            const Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            const PRect borders = child->GetBorders();
+            const PPoint borderSize(borders.left + borders.right, borders.top + borders.bottom);
             
-            const Point minSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
-            const Point maxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+            const PPoint minSize = child->GetPreferredSize(PPrefSizeType::Smallest) + borderSize;
+            const PPoint maxSize = child->GetPreferredSize(PPrefSizeType::Greatest) + borderSize;
 
             
             wheights[i]   = child->GetWheight();
@@ -374,23 +372,23 @@ void HLayoutNode::Layout()
     
         for (size_t i = 0 ; i < childList.size() ; ++i)
         {
-            Rect frame(0.0f, 0.0f, finalHeights[i], bounds.bottom);
-            if (childList[i]->GetVAlignment() != Alignment::Stretch && frame.Height() > maxHeights[i]) {
+            PRect frame(0.0f, 0.0f, finalHeights[i], bounds.bottom);
+            if (childList[i]->GetVAlignment() != PAlignment::Stretch && frame.Height() > maxHeights[i]) {
                 frame.bottom = maxHeights[i];
             }
             float y = 0.0f;
             switch(childList[i]->GetVAlignment())
             {
-                case Alignment::Top:    y = bounds.top; break;
-                case Alignment::Right:  y = bounds.bottom - frame.Height(); break;
+                case PAlignment::Top:    y = bounds.top; break;
+                case PAlignment::Right:  y = bounds.bottom - frame.Height(); break;
                 default:           p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "HLayoutNode::Layout() node '{}' has invalid v-alignment {}", m_View->GetName(), int(childList[i]->GetVAlignment()) );
                 [[fallthrough]];
-                case Alignment::Center: y = bounds.top + (bounds.Height() - frame.Height()) * 0.5f; break;
-                case Alignment::Stretch: x = 0.0f; break;
+                case PAlignment::Center: y = bounds.top + (bounds.Height() - frame.Height()) * 0.5f; break;
+                case PAlignment::Stretch: x = 0.0f; break;
             }
             
-            frame += Point(x, y);
-            Rect borders = childList[i]->GetBorders();
+            frame += PPoint(x, y);
+            PRect borders = childList[i]->GetBorders();
             
             float width = frame.Width();
             frame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
@@ -407,7 +405,7 @@ void HLayoutNode::Layout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-VLayoutNode::VLayoutNode()
+PVLayoutNode::PVLayoutNode()
 {
 }
 
@@ -415,24 +413,24 @@ VLayoutNode::VLayoutNode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void VLayoutNode::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PVLayoutNode::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    *minSize = Point(0.0f, 0.0f);
-    *maxSize = Point(0.0f, 0.0f);
+    *minSize = PPoint(0.0f, 0.0f);
+    *maxSize = PPoint(0.0f, 0.0f);
     
     if (m_View != nullptr)
     {
-        for (Ptr<View> child : *m_View)
+        for (Ptr<PView> child : *m_View)
         {
-            if (child->HasFlags(ViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
+            if (child->HasFlags(PViewFlags::IgnoreWhenHidden) && !child->IsVisible()) {
                 continue;
             }
 
-            const Rect  borders = child->GetBorders();
-            const Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            const PRect  borders = child->GetBorders();
+            const PPoint borderSize(borders.left + borders.right, borders.top + borders.bottom);
 
-            const Point childMinSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
-            const Point childMaxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+            const PPoint childMinSize = child->GetPreferredSize(PPrefSizeType::Smallest) + borderSize;
+            const PPoint childMaxSize = child->GetPreferredSize(PPrefSizeType::Greatest) + borderSize;
             
             if (includeWidth) {
                 if (childMinSize.x > minSize->x) minSize->x = childMinSize.x;
@@ -450,12 +448,12 @@ void VLayoutNode::CalculatePreferredSize(Point* minSize, Point* maxSize, bool in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void VLayoutNode::Layout()
+void PVLayoutNode::Layout()
 {
     if (m_View != nullptr)
     {
         const auto& childList = m_View->GetChildList();
-        const Rect bounds = m_View->GetNormalizedBounds();
+        const PRect bounds = m_View->GetNormalizedBounds();
     
         float* maxWidths    = (float*)alloca(sizeof(float)*childList.size());
         float* minHeights   = (float*)alloca(sizeof(float)*childList.size());
@@ -469,9 +467,9 @@ void VLayoutNode::Layout()
 
         for (size_t i = 0 ; i < childList.size() ; ++i)
         {
-            Ptr<View> child = childList[i];
+            Ptr<PView> child = childList[i];
             
-            if (child->HasFlags(ViewFlags::IgnoreWhenHidden) && !child->IsVisible())
+            if (child->HasFlags(PViewFlags::IgnoreWhenHidden) && !child->IsVisible())
             {
                 wheights[i] = 0.0f;
                 maxWidths[i] = 0.0f;
@@ -480,11 +478,11 @@ void VLayoutNode::Layout()
                 continue;
             }
 
-            const Rect borders = child->GetBorders();
-            const Point borderSize(borders.left + borders.right, borders.top + borders.bottom);
+            const PRect borders = child->GetBorders();
+            const PPoint borderSize(borders.left + borders.right, borders.top + borders.bottom);
             
-            const Point minSize = child->GetPreferredSize(PrefSizeType::Smallest) + borderSize;
-            const Point maxSize = child->GetPreferredSize(PrefSizeType::Greatest) + borderSize;
+            const PPoint minSize = child->GetPreferredSize(PPrefSizeType::Smallest) + borderSize;
+            const PPoint maxSize = child->GetPreferredSize(PPrefSizeType::Greatest) + borderSize;
 
 
             wheights[i]   = child->GetWheight();
@@ -504,24 +502,24 @@ void VLayoutNode::Layout()
         float y = bounds.top + vUnusedHeight * 0.5f;
         for (size_t i = 0 ; i < childList.size() ; ++i)
         {
-            Rect frame(0.0f, 0.0f, bounds.right, finalHeights[i]);
-            if (childList[i]->GetHAlignment() != Alignment::Stretch && frame.Width() > maxWidths[i]) {
+            PRect frame(0.0f, 0.0f, bounds.right, finalHeights[i]);
+            if (childList[i]->GetHAlignment() != PAlignment::Stretch && frame.Width() > maxWidths[i]) {
                 frame.right = maxWidths[i];
             }
             float x;
             switch(childList[i]->GetHAlignment())
             {
-                case Alignment::Left:   x = bounds.left; break;
-                case Alignment::Right:  x = bounds.right - frame.Width(); break;
+                case PAlignment::Left:   x = bounds.left; break;
+                case PAlignment::Right:  x = bounds.right - frame.Width(); break;
                 default:           p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "VLayoutNode::Layout() node '{}' has invalid h-alignment {}", m_View->GetName(), int(childList[i]->GetHAlignment()) );
                 [[fallthrough]];
-                case Alignment::Center: x = bounds.left + (bounds.Width() - frame.Width()) * 0.5f; break;
-                case Alignment::Stretch: x = 0.0f; break;
+                case PAlignment::Center: x = bounds.left + (bounds.Width() - frame.Width()) * 0.5f; break;
+                case PAlignment::Stretch: x = 0.0f; break;
             }
-            frame += Point(x, y);
+            frame += PPoint(x, y);
             
             float height = frame.Height();
-            Rect borders = childList[i]->GetBorders();
+            PRect borders = childList[i]->GetBorders();
             frame.Resize(borders.left, borders.top, -borders.right, -borders.bottom);
             y += height + vUnusedHeight;
             frame.Floor();
@@ -534,7 +532,7 @@ void VLayoutNode::Layout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void VLayoutNode::ApplyInnerBorders(const Rect& borders, float spacing)
+void PVLayoutNode::ApplyInnerBorders(const PRect& borders, float spacing)
 {
 	if (m_View == nullptr) {
 		return;
@@ -545,14 +543,14 @@ void VLayoutNode::ApplyInnerBorders(const Rect& borders, float spacing)
 	}
 	if (childList.size() == 1)
 	{
-		Rect childBorders = childList[0]->GetBorders();
+		PRect childBorders = childList[0]->GetBorders();
 		childBorders.Resize(borders.left, borders.top, borders.right, borders.bottom);
 		childList[0]->SetBorders(childBorders);
 	}
     else
 	{
 		// Apply to top child:
-		Rect childBorders = childList[0]->GetBorders();
+		PRect childBorders = childList[0]->GetBorders();
 		childBorders.Resize(borders.left, borders.top, borders.right, spacing);
 		childList[0]->SetBorders(childBorders);
 

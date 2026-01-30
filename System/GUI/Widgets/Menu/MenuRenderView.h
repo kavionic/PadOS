@@ -21,32 +21,28 @@
 #include <GUI/View.h>
 #include <GUI/Widgets/Menu.h>
 
-namespace os
-{
 
-class MenuRenderView : public View
+class PMenuRenderView : public PView
 {
 public:
-    MenuRenderView(Menu* menu) : View("menu_content", ptr_tmp_cast(menu), ViewFlags::WillDraw), m_Menu(menu) {}
+    PMenuRenderView(PMenu* menu) : PView("menu_content", ptr_tmp_cast(menu), PViewFlags::WillDraw), m_Menu(menu) {}
 
-    virtual Point   CalculateContentSize() const override;
+    virtual PPoint   CalculateContentSize() const override;
 
-    virtual void    OnPaint(const Rect& updateRect) override;
+    virtual void    OnPaint(const PRect& updateRect) override;
 
-    virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnLongPress(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnLongPress(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
 
-    virtual bool    OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
 
 private:
-    Menu*           m_Menu;
-    MouseButton_e   m_HitButton = MouseButton_e::None;
-    Point           m_HitPos;
+    PMenu*           m_Menu;
+    PMouseButton   m_HitButton = PMouseButton::None;
+    PPoint           m_HitPos;
     bool            m_MouseMoved = false;
 };
-
-} // namespace os;

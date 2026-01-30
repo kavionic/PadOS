@@ -21,8 +21,6 @@
 
 #include <Utils/Utils.h>
 
-namespace os
-{
 
 using ra9975_regaddr = uint8_t;
 
@@ -299,5 +297,3 @@ static constexpr ra9975_regaddr RA8875_BECR1 = 0x51; // BTE Function Control Reg
 #define RA8875_SACS_DATA   0xE2 // Serial Flash/ROM Direct Access Data Read
 #define RA8875_INTC1       0xF0 // Interrupt Control Register1
 #define RA8875_INTC2       0xF1 // Interrupt Control Register2
-
-} // namespace os

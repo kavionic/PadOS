@@ -20,23 +20,23 @@
     </Expand>
   </Type>
 
-  <Type Name="os::Point">
-    <DisplayString>Point({x}, {y})</DisplayString>
+  <Type Name="PPoint">
+    <DisplayString>PPoint({x}, {y})</DisplayString>
     <Expand>
 	<Item Name="x">x</Item>
 	<Item Name="y">y</Item>
     </Expand>
   </Type>
-  <Type Name="os::IPoint">
-    <DisplayString>IPoint({x}, {y})</DisplayString>
+  <Type Name="PIPoint">
+    <DisplayString>PIPoint({x}, {y})</DisplayString>
     <Expand>
 	<Item Name="x">x</Item>
 	<Item Name="y">y</Item>
     </Expand>
   </Type>
 
-  <Type Name="os::Rect">
-    <DisplayString>Rect({left}, {top}, {right}, {bottom})</DisplayString>
+  <Type Name="PRect">
+    <DisplayString>PRect({left}, {top}, {right}, {bottom})</DisplayString>
     <Expand>
 	<Item Name="left">left</Item>
 	<Item Name="top">top</Item>
@@ -47,8 +47,8 @@
     </Expand>
   </Type>
 
-  <Type Name="os::IRect">
-    <DisplayString>IRect({left}, {top}, {right}, {bottom})</DisplayString>
+  <Type Name="PIRect">
+    <DisplayString>PIRect({left}, {top}, {right}, {bottom})</DisplayString>
     <Expand>
 	<Item Name="left">left</Item>
 	<Item Name="top">top</Item>
@@ -59,8 +59,8 @@
     </Expand>
   </Type>
 
-  <Type Name="os::IRect">
-    <DisplayString>IRect({left}, {top}, {right}, {bottom})</DisplayString>
+  <Type Name="PIRect">
+    <DisplayString>PIRect({left}, {top}, {right}, {bottom})</DisplayString>
     <Expand>
 	<Item Name="left">left</Item>
 	<Item Name="top">top</Item>
@@ -71,9 +71,9 @@
     </Expand>
   </Type>
 
-  <Type Name="os::ViewBase&lt;*&gt;" Inheritable="false">
-	<DisplayString Condition="this != 0">ViewBase: {m_Name} : {m_ChildrenList._M_impl._M_finish - m_ChildrenList._M_impl._M_start}</DisplayString>
-	<DisplayString Condition="this == 0">ViewBase: nullptr</DisplayString>
+  <Type Name="PViewBase&lt;*&gt;" Inheritable="false">
+	<DisplayString Condition="this != 0">PViewBase: {m_Name} : {m_ChildrenList._M_impl._M_finish - m_ChildrenList._M_impl._M_start}</DisplayString>
+	<DisplayString Condition="this == 0">PViewBase: nullptr</DisplayString>
 	<Expand>
 		<Item Name="m_Name">m_Name</Item>
 		<Item Name="m_Handle">m_Handle</Item>
@@ -92,9 +92,9 @@
 	</Expand>
   </Type>
 
-    <Type Name="os::ServerView">
-	<DisplayString Condition="this != 0">ServerView: {m_Name} : {m_ChildrenList._M_impl._M_finish - m_ChildrenList._M_impl._M_start}</DisplayString>
-	<DisplayString Condition="this == 0">ServerView: nullptr</DisplayString>
+    <Type Name="PServerView">
+	<DisplayString Condition="this != 0">PServerView: {m_Name} : {m_ChildrenList._M_impl._M_finish - m_ChildrenList._M_impl._M_start}</DisplayString>
+	<DisplayString Condition="this == 0">PServerView: nullptr</DisplayString>
 	<Expand>
 		<Item Name="m_Name">m_Name</Item>
 		<Item Name="m_Handle">m_Handle</Item>
@@ -138,9 +138,9 @@
 	</Expand>
   </Type>
 
-  <Type Name="os::View">
-	<DisplayString Condition="this != 0">View: {m_Name} : {m_ChildrenList._M_impl._M_finish - m_ChildrenList._M_impl._M_start}</DisplayString>
-	<DisplayString Condition="this == 0">View: nullptr</DisplayString>
+  <Type Name="PView">
+	<DisplayString Condition="this != 0">PView: {m_Name} : {m_ChildrenList._M_impl._M_finish - m_ChildrenList._M_impl._M_start}</DisplayString>
+	<DisplayString Condition="this == 0">PView: nullptr</DisplayString>
 	<!--
 	<Expand>
 		<Item Name="m_Name">m_Name</Item>
@@ -190,7 +190,7 @@
   </Type>
 		
 
-  <Type Name="os::ViewBase&lt;os::ServerView&gt;::ChildList_t">
+  <Type Name="PViewBase&lt;PServerView&gt;::ChildList_t">
     <DisplayString>{{size={_M_impl._M_finish - _M_impl._M_start}}}</DisplayString>
     <Expand>
       <Item Name="[size]" ExcludeView="simple">_M_impl._M_finish - _M_impl._M_start</Item>

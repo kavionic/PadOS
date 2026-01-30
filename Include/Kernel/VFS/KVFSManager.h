@@ -75,7 +75,7 @@ private:
     
     static KMutex s_INodeMapMutex;
     static std::map<std::pair<fs_id, ino_t>, KINode*> s_INodeMap;
-    static IntrusiveList<KINode>                      s_InodeMRUList;
+    static PIntrusiveList<KINode>                      s_InodeMRUList;
     static int                                        s_UnusedInodeCount;
     static std::map<fs_id, Ptr<KFSVolume>>            s_VolumeMap;
     static KConditionVariable                         s_InodeMapConditionVar;

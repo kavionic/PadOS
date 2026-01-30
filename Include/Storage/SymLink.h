@@ -22,10 +22,8 @@
 
 #include <string>
 
-namespace os
-{
+class PPath;
 
-class Path;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Symbolic link handling class.
@@ -36,30 +34,28 @@ class Path;
 ///  \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-class SymLink : public FSNode
+class PSymLink : public PFSNode
 {
 public:
-    SymLink();
-    SymLink(const PString& path, int openFlags = O_RDONLY);
-    SymLink(const Directory& directory, const PString& name, int openFlags = O_RDONLY);
-    SymLink(const FileReference& reference, int openFlags = O_RDONLY);
-    SymLink(const FSNode& node);
-    SymLink(const SymLink& node);
-    virtual ~SymLink();
+    PSymLink();
+    PSymLink(const PString& path, int openFlags = O_RDONLY);
+    PSymLink(const PDirectory& directory, const PString& name, int openFlags = O_RDONLY);
+    PSymLink(const PFileReference& reference, int openFlags = O_RDONLY);
+    PSymLink(const PFSNode& node);
+    PSymLink(const PSymLink& node);
+    virtual ~PSymLink();
 
     virtual bool Open(const PString& path, int openFlags = O_RDONLY) override;
-    virtual bool Open(const Directory& directory, const PString& path, int openFlags = O_RDONLY) override;
-    virtual bool Open(const FileReference& reference, int openFlags = O_RDONLY) override;
-    virtual bool SetTo(int fileDescriptor, bool takeOwnership) override { return FSNode::SetTo(fileDescriptor, takeOwnership); }
-    virtual bool SetTo(const FSNode& node) override;
-    virtual bool SetTo(FSNode&& node) override;
-    virtual bool SetTo(const SymLink& link);
+    virtual bool Open(const PDirectory& directory, const PString& path, int openFlags = O_RDONLY) override;
+    virtual bool Open(const PFileReference& reference, int openFlags = O_RDONLY) override;
+    virtual bool SetTo(int fileDescriptor, bool takeOwnership) override { return PFSNode::SetTo(fileDescriptor, takeOwnership); }
+    virtual bool SetTo(const PFSNode& node) override;
+    virtual bool SetTo(PFSNode&& node) override;
+    virtual bool SetTo(const PSymLink& link);
 
     bool    ReadLink(PString& buffer);
     PString ReadLink();
-    bool    ConstructPath(const Directory& parent, Path& outPath);
-    bool    ConstructPath(const PString& parent, Path& outPath);
+    bool    ConstructPath(const PDirectory& parent, PPath& outPath);
+    bool    ConstructPath(const PString& parent, PPath& outPath);
 
 };
-
-} // namespace os

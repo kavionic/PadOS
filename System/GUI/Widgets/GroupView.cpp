@@ -22,13 +22,12 @@
 #include <GUI/Widgets/GroupView.h>
 #include <Utils/XMLFactory.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-GroupView::GroupView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
+PGroupView::PGroupView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
 {
 }
 
@@ -36,9 +35,9 @@ GroupView::GroupView(const PString& name, Ptr<View> parent, uint32_t flags) : Vi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-GroupView::GroupView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+PGroupView::PGroupView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
 {
-    MergeFlags(ViewFlags::WillDraw);
+    MergeFlags(PViewFlags::WillDraw);
 	m_Label = context.GetAttribute(xmlData, "label", PString::zero);
 }
 
@@ -46,7 +45,7 @@ GroupView::GroupView(ViewFactoryContext& context, Ptr<View> parent, const pugi::
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void GroupView::OnPaint(const Rect& updateRect)
+void PGroupView::OnPaint(const PRect& updateRect)
 {
     EraseRect(updateRect);
 
@@ -55,9 +54,9 @@ void GroupView::OnPaint(const Rect& updateRect)
 
     if (!m_Label.empty())
     {
-        FontHeight fontHeight = GetFontHeight();
+        PFontHeight fontHeight = GetFontHeight();
 
-        SetFgColor(StandardColorID::Shadow);
+        SetFgColor(PStandardColorID::Shadow);
 		MovePenTo(30.0f, fontHeight.ascender);
 		DrawString(m_Label);
 
@@ -65,12 +64,12 @@ void GroupView::OnPaint(const Rect& updateRect)
         labelWidth = GetStringWidth(m_Label);
     }
 
-    Rect bound = GetNormalizedBounds();
+    PRect bound = GetNormalizedBounds();
     bound.Resize(0.0f, std::floor(labelHeight * 0.5f), -1.0f, -1.0f);
 
     for (int i = 0; i < 2; ++i)
     {
-        SetFgColor(StandardColorID::Shadow);
+        SetFgColor(PStandardColorID::Shadow);
         MovePenTo(bound.BottomLeft());
         DrawLine(bound.TopLeft());
 
@@ -82,10 +81,10 @@ void GroupView::OnPaint(const Rect& updateRect)
         }
         DrawLine(bound.TopRight());
 
-        SetFgColor(StandardColorID::Shine);
-        MovePenTo(bound.TopRight() + Point(0.0f, 1.0f));
+        SetFgColor(PStandardColorID::Shine);
+        MovePenTo(bound.TopRight() + PPoint(0.0f, 1.0f));
         DrawLine(bound.BottomRight());
-        DrawLine(bound.BottomLeft() + Point(1.0f, 0.0f));
+        DrawLine(bound.BottomLeft() + PPoint(1.0f, 0.0f));
 
 		bound.Resize(1.0f, 1.0f, -1.0f, -1.0f);
     }

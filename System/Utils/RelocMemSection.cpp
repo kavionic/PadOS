@@ -20,7 +20,7 @@
 #include <assert.h>
 #include <Utils/RelocMemSection.h>
 
-void relocate_memory_sections(const PRelocMemSection* sections, size_t count)
+void p_relocate_memory_sections(const PRelocMemSection* sections, size_t count)
 {
     for (size_t i = 0; i < count; ++i)
     {

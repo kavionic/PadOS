@@ -29,7 +29,6 @@
 #include <Storage/Path.h>
 #include <System/System.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Default constructor
@@ -40,7 +39,7 @@ using namespace os;
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-File::File()
+PFile::PFile()
 {
 }
 
@@ -72,7 +71,7 @@ File::File()
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-File::File(const PString& path, int openFlags) : FSNode(path, openFlags & ~O_NOFOLLOW)
+PFile::PFile(const PString& path, int openFlags) : PFSNode(path, openFlags & ~O_NOFOLLOW)
 {
     if (IsDir())
     {
@@ -101,7 +100,7 @@ File::File(const PString& path, int openFlags) : FSNode(path, openFlags & ~O_NOF
  ///////////////////////////////////////////////////////////////////////////////
 
 
-File::File(const Directory& directory, const PString& path, int openFlags) : FSNode(directory, path, openFlags & ~O_NOFOLLOW)
+PFile::PFile(const PDirectory& directory, const PString& path, int openFlags) : PFSNode(directory, path, openFlags & ~O_NOFOLLOW)
 {
     if (IsDir())
     {
@@ -127,7 +126,7 @@ File::File(const Directory& directory, const PString& path, int openFlags) : FSN
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-File::File(const FileReference& reference, int openFlags) : FSNode(reference, openFlags & ~O_NOFOLLOW)
+PFile::PFile(const PFileReference& reference, int openFlags) : PFSNode(reference, openFlags & ~O_NOFOLLOW)
 {
     if (IsDir())
     {
@@ -150,7 +149,7 @@ File::File(const FileReference& reference, int openFlags) : FSNode(reference, op
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-File::File(const FSNode& node) : FSNode(node)
+PFile::PFile(const PFSNode& node) : PFSNode(node)
 {
     if (IsDir())
     {
@@ -173,7 +172,7 @@ File::File(const FSNode& node) : FSNode(node)
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-File::File(int fileDescriptor, bool takeOwnership) : FSNode(fileDescriptor, takeOwnership)
+PFile::PFile(int fileDescriptor, bool takeOwnership) : PFSNode(fileDescriptor, takeOwnership)
 {
     if (IsDir())
     {
@@ -200,7 +199,7 @@ File::File(int fileDescriptor, bool takeOwnership) : FSNode(fileDescriptor, take
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-File::File(const File& file) : FSNode(file)
+PFile::PFile(const PFile& file) : PFSNode(file)
 {
     m_Position   = file.m_Position;
     m_BufferSize = file.m_BufferSize;
@@ -210,7 +209,7 @@ File::File(const File& file) : FSNode(file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-File::~File()
+PFile::~PFile()
 {
     if (m_Dirty) {
         Flush();
@@ -222,7 +221,7 @@ File::~File()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer)
+bool PFile::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer)
 {
     if (m_Dirty && IsValid()) {
         Flush();
@@ -236,7 +235,7 @@ bool File::FDChanged(int newFileDescriptor, const struct ::stat& statBuffer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::FillBuffer(off64_t position) const
+bool PFile::FillBuffer(off64_t position) const
 {
     if (!IsValid()) {
         set_last_error(EINVAL);
@@ -303,7 +302,7 @@ bool File::FillBuffer(off64_t position) const
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::SetBufferSize(size_t bufferSize)
+bool PFile::SetBufferSize(size_t bufferSize)
 {
     if (bufferSize == m_BufferSize) {
         return true;
@@ -357,7 +356,7 @@ bool File::SetBufferSize(size_t bufferSize)
 // \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t File::GetBufferSize() const
+size_t PFile::GetBufferSize() const
 {
     return m_BufferSize;
 }
@@ -374,7 +373,7 @@ size_t File::GetBufferSize() const
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::Flush() const
+bool PFile::Flush() const
 {
     if (!IsValid()) {
         set_last_error(EINVAL);
@@ -409,7 +408,7 @@ bool File::Flush() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t File::Read(void* buffer, ssize_t size)
+ssize_t PFile::Read(void* buffer, ssize_t size)
 {
     ssize_t bytesRead = ReadPos(m_Position, buffer, size);
     if (bytesRead > 0) {
@@ -422,7 +421,7 @@ ssize_t File::Read(void* buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::Read(PString& buffer, ssize_t size)
+bool PFile::Read(PString& buffer, ssize_t size)
 {
     if (size < 0 || !IsValid()) {
         set_last_error(EINVAL);
@@ -456,7 +455,7 @@ bool File::Read(PString& buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::Read(PString& buffer)
+bool PFile::Read(PString& buffer)
 {
     return Read(buffer, ssize_t(GetSize()));
 }
@@ -465,7 +464,7 @@ bool File::Read(PString& buffer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t File::Write(const void* buffer, ssize_t size)
+ssize_t PFile::Write(const void* buffer, ssize_t size)
 {
     ssize_t bytesWritten = WritePos(m_Position, buffer, size);
     if (bytesWritten > 0) {
@@ -478,7 +477,7 @@ ssize_t File::Write(const void* buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::Write(const PString& buffer, ssize_t size)
+bool PFile::Write(const PString& buffer, ssize_t size)
 {
     if (size < 0 || !IsValid()) {
         set_last_error(EINVAL);
@@ -491,7 +490,7 @@ bool File::Write(const PString& buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool File::Write(const PString& buffer)
+bool PFile::Write(const PString& buffer)
 {
     return Write(buffer, buffer.size());
 }
@@ -500,7 +499,7 @@ bool File::Write(const PString& buffer)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t File::ReadPos(off64_t position, void* buffer, ssize_t size) const
+ssize_t PFile::ReadPos(off64_t position, void* buffer, ssize_t size) const
 {
     if (!IsValid()) {
         set_last_error(EINVAL);
@@ -568,7 +567,7 @@ ssize_t File::ReadPos(off64_t position, void* buffer, ssize_t size) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ssize_t File::WritePos(off64_t position, const void* buffer, ssize_t size)
+ssize_t PFile::WritePos(off64_t position, const void* buffer, ssize_t size)
 {
     if (!IsValid()) {
         set_last_error(EINVAL);
@@ -652,9 +651,9 @@ ssize_t File::WritePos(off64_t position, const void* buffer, ssize_t size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-off64_t File::GetSize(bool updateCache) const
+off64_t PFile::GetSize(bool updateCache) const
 {
-    off64_t size = FSNode::GetSize(updateCache);
+    off64_t size = PFSNode::GetSize(updateCache);
 
     if (size != -1 && m_ValidBufferSize > 0 && m_BufferPosition + m_ValidBufferSize > size) {
         size = m_BufferPosition + m_ValidBufferSize;
@@ -674,7 +673,7 @@ off64_t File::GetSize(bool updateCache) const
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-off64_t File::Seek(off64_t position, int mode)
+off64_t PFile::Seek(off64_t position, int mode)
 {
     switch (mode)
     {

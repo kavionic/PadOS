@@ -25,18 +25,16 @@
 #include <Utils/XMLObjectParser.h>
 
 
-using namespace os;
-
-const std::map<PString, uint32_t> SliderFlags::FlagMap
+const std::map<PString, uint32_t> PSliderFlags::FlagMap
 {
-    DEFINE_FLAG_MAP_ENTRY(SliderFlags, TicksAbove),
-    DEFINE_FLAG_MAP_ENTRY(SliderFlags, TicksBelow),
-    DEFINE_FLAG_MAP_ENTRY(SliderFlags, TicksLeft),
-    DEFINE_FLAG_MAP_ENTRY(SliderFlags, TicksRight),
-    DEFINE_FLAG_MAP_ENTRY(SliderFlags, KnobPointUp),
-    DEFINE_FLAG_MAP_ENTRY(SliderFlags, KnobPointDown),
-    DEFINE_FLAG_MAP_ENTRY(SliderFlags, KnobPointLeft),
-    DEFINE_FLAG_MAP_ENTRY(SliderFlags, KnobPointRight)
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, TicksAbove),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, TicksBelow),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, TicksLeft),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, TicksRight),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, KnobPointUp),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, KnobPointDown),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, KnobPointLeft),
+    DEFINE_FLAG_MAP_ENTRY(PSliderFlags, KnobPointRight)
 };
 
 static constexpr float TICK_LENGTH      = 6.0f;
@@ -48,13 +46,13 @@ static constexpr float HLABEL_SPACING   = 2.0f;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Slider::Slider(const PString& name, Ptr<View> parent, uint32_t flags, int tickCount, Orientation orientation)
-    : Control(name, parent, flags | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize )
+PSlider::PSlider(const PString& name, Ptr<PView> parent, uint32_t flags, int tickCount, POrientation orientation)
+    : PControl(name, parent, flags | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize )
 {
     m_Orientation   = orientation;
     m_NumTicks      = tickCount;
 
-    m_SliderColor1  = get_standard_color(StandardColorID::ScrollBarBackground);;
+    m_SliderColor1  = pget_standard_color(PStandardColorID::ScrollBarBackground);;
     m_SliderColor2  = m_SliderColor1;
 }
 
@@ -62,13 +60,13 @@ Slider::Slider(const PString& name, Ptr<View> parent, uint32_t flags, int tickCo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Slider::Slider(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : Control(context, parent, xmlData)
+PSlider::PSlider(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PControl(context, parent, xmlData)
 {
-    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, SliderFlags::FlagMap, "flags", SliderFlags::TicksBelow | SliderFlags::KnobPointDown) | ViewFlags::WillDraw | ViewFlags::FullUpdateOnResize);
+    MergeFlags(context.GetFlagsAttribute<uint32_t>(xmlData, PSliderFlags::FlagMap, "flags", PSliderFlags::TicksBelow | PSliderFlags::KnobPointDown) | PViewFlags::WillDraw | PViewFlags::FullUpdateOnResize);
 
-    SetFont(ptr_new<Font>(Font_e::e_FontSmall));
+    SetFont(ptr_new<PFont>(PFontID::e_FontSmall));
 
-    m_Orientation   = context.GetAttribute(xmlData, "orientation", Orientation::Horizontal);
+    m_Orientation   = context.GetAttribute(xmlData, "orientation", POrientation::Horizontal);
     m_NumTicks      = context.GetAttribute(xmlData, "num_ticks", 10);
 
     m_MinLabel = context.GetAttribute(xmlData, "min_label", PString::zero);
@@ -82,7 +80,7 @@ Slider::Slider(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_no
     m_DragScale = context.GetAttribute(xmlData, "drag_scale", 1.0f);
     m_DragScaleRange = context.GetAttribute(xmlData, "drag_scale_range", 100.0f);
 
-    m_SliderColor1  = get_standard_color(StandardColorID::ScrollBarBackground);;
+    m_SliderColor1  = pget_standard_color(PStandardColorID::ScrollBarBackground);;
     m_SliderColor2  = m_SliderColor1;
 
     SetValueStringFormat(context.GetAttribute(xmlData, "value_format", PString::zero), context.GetAttribute(xmlData, "value_scale", 1.0f));
@@ -92,7 +90,7 @@ Slider::Slider(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_no
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Slider::~Slider()
+PSlider::~PSlider()
 {
     if (m_ValueView != nullptr)
     {
@@ -106,7 +104,7 @@ Slider::~Slider()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::AttachedToScreen()
+void PSlider::AttachedToScreen()
 {
     SetEraseColor(GetParent()->GetEraseColor());
 }
@@ -115,7 +113,7 @@ void Slider::AttachedToScreen()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::OnFrameSized(const Point& delta)
+void PSlider::OnFrameSized(const PPoint& delta)
 {
     LayoutValueView();
 }
@@ -124,13 +122,13 @@ void Slider::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void os::Slider::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PSlider::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    Rect frame;
+    PRect frame;
     float minLength;
     GetSliderFrame(&frame, &minLength);
 
-    if (m_Orientation == Orientation::Horizontal)
+    if (m_Orientation == POrientation::Horizontal)
     {
         minSize->x = minLength;
         minSize->y = frame.Height();
@@ -161,7 +159,7 @@ void os::Slider::CalculatePreferredSize(Point* minSize, Point* maxSize, bool inc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetSliderColors(const Color& color1, const Color& color2)
+void PSlider::SetSliderColors(const PColor& color1, const PColor& color2)
 {
     m_SliderColor1 = color1;
     m_SliderColor2 = color2;
@@ -179,7 +177,7 @@ void Slider::SetSliderColors(const Color& color1, const Color& color2)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::GetSliderColors(Color* outColor1, Color* outColor2) const
+void PSlider::GetSliderColors(PColor* outColor1, PColor* outColor2) const
 {
     if ( outColor1 != nullptr ) {
         *outColor1 = m_SliderColor1;
@@ -201,7 +199,7 @@ void Slider::GetSliderColors(Color* outColor1, Color* outColor2) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetSliderSize(float size)
+void PSlider::SetSliderSize(float size)
 {
     m_SliderSize = size;
     RefreshDisplay();
@@ -217,7 +215,7 @@ void Slider::SetSliderSize(float size)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float Slider::GetSliderSize() const
+float PSlider::GetSliderSize() const
 {
     return m_SliderSize;
 }
@@ -239,7 +237,7 @@ float Slider::GetSliderSize() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetValueStringFormat(const PString& format, float scale)
+void PSlider::SetValueStringFormat(const PString& format, float scale)
 {
     m_ValueFormat = format;
     m_ValueScale = scale;
@@ -250,7 +248,7 @@ void Slider::SetValueStringFormat(const PString& format, float scale)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString Slider::GetValueStringFormat() const
+PString PSlider::GetValueStringFormat() const
 {
     return m_ValueFormat;
 }
@@ -259,7 +257,7 @@ PString Slider::GetValueStringFormat() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString Slider::GetValueString() const
+PString PSlider::GetValueString() const
 {
     if (m_ValueFormat.empty()) {
         return PString::zero;
@@ -272,7 +270,7 @@ PString Slider::GetValueString() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetValue(float value, bool sendEvent)
+void PSlider::SetValue(float value, bool sendEvent)
 {
     if (m_Resolution != 0.0f)
     {
@@ -281,14 +279,14 @@ void Slider::SetValue(float value, bool sendEvent)
     if (value != m_Value)
     {
         m_Changed = true;
-        Rect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value);
+        PRect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value);
         m_Value = value;
         knobFrame |= GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value);
         Invalidate(knobFrame);
         UpdateValueView();
         Sync();
         if (sendEvent) {
-            SignalValueChanged(m_Value, m_HitButton == MouseButton_e::None, this);
+            SignalValueChanged(m_Value, m_HitButton == PMouseButton::None, this);
         }
     }
 }
@@ -297,7 +295,7 @@ void Slider::SetValue(float value, bool sendEvent)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float Slider::GetValue() const
+float PSlider::GetValue() const
 {
     return m_Value;
 }
@@ -317,7 +315,7 @@ float Slider::GetValue() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetStepCount(int count)
+void PSlider::SetStepCount(int count)
 {
     m_NumSteps = count;
 }
@@ -329,7 +327,7 @@ void Slider::SetStepCount(int count)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Slider::GetStepCount() const
+int PSlider::GetStepCount() const
 {
     return m_NumSteps;
 }
@@ -347,7 +345,7 @@ int Slider::GetStepCount() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetTickCount(int count)
+void PSlider::SetTickCount(int count)
 {
     m_NumTicks = count;
     RefreshDisplay();
@@ -360,7 +358,7 @@ void Slider::SetTickCount(int count)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Slider::GetTickCount() const
+int PSlider::GetTickCount() const
 {
     return m_NumTicks;
 }
@@ -378,7 +376,7 @@ int Slider::GetTickCount() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetLimitLabels(const PString& minLabel, const PString& maxLabel)
+void PSlider::SetLimitLabels(const PString& minLabel, const PString& maxLabel)
 {
     m_MinLabel = minLabel;
     m_MaxLabel = maxLabel;
@@ -394,7 +392,7 @@ void Slider::SetLimitLabels(const PString& minLabel, const PString& maxLabel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::GetLimitLabels(PString* minLabel, PString* maxLabel)
+void PSlider::GetLimitLabels(PString* minLabel, PString* maxLabel)
 {
     if (minLabel != nullptr) {
         *minLabel = m_MinLabel;
@@ -408,7 +406,7 @@ void Slider::GetLimitLabels(PString* minLabel, PString* maxLabel)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetResolution(float resolution)
+void PSlider::SetResolution(float resolution)
 {
     if (resolution != m_Resolution)
     {
@@ -424,7 +422,7 @@ void Slider::SetResolution(float resolution)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetShadowKnobsCount(size_t count)
+void PSlider::SetShadowKnobsCount(size_t count)
 {
     m_ShadowArrows.resize(count);
 }
@@ -433,7 +431,7 @@ void Slider::SetShadowKnobsCount(size_t count)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t Slider::GetShadowKnobsCount() const
+size_t PSlider::GetShadowKnobsCount() const
 {
     return m_ShadowArrows.size();
 }
@@ -442,12 +440,12 @@ size_t Slider::GetShadowKnobsCount() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::SetShadowKnobValue(size_t index, float value)
+void PSlider::SetShadowKnobValue(size_t index, float value)
 {
     if (index >= m_ShadowArrows.size() || value == m_ShadowArrows[index]) {
         return;
     }
-    Rect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_ShadowArrows[index]);
+    PRect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_ShadowArrows[index]);
     m_ShadowArrows[index] = value;
     knobFrame |= GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(value);
     Invalidate(knobFrame);
@@ -458,12 +456,12 @@ void Slider::SetShadowKnobValue(size_t index, float value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::OnEnableStatusChanged(bool isEnabled)
+void PSlider::OnEnableStatusChanged(bool isEnabled)
 {
-    if (m_HitButton != MouseButton_e::None)
+    if (m_HitButton != PMouseButton::None)
     {
         MakeFocus(m_HitButton, false);
-        m_HitButton = MouseButton_e::None;
+        m_HitButton = PMouseButton::None;
         if (m_Changed)
         {
             SignalValueChanged(m_Value, true, this);
@@ -477,10 +475,10 @@ void Slider::OnEnableStatusChanged(bool isEnabled)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Slider::OnMouseDown(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PSlider::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (!IsEnabled()) return false;
-    if (m_HitButton == MouseButton_e::None)
+    if (m_HitButton == PMouseButton::None)
     {
         m_HitButton = button;
         m_HitValue = GetValue();
@@ -499,13 +497,13 @@ bool Slider::OnMouseDown(MouseButton_e button, const Point& position, const Moti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Slider::OnMouseUp(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PSlider::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (!IsEnabled()) return false;
     if (button == m_HitButton)
     {
         MakeFocus(m_HitButton, false);
-        m_HitButton = MouseButton_e::None;
+        m_HitButton = PMouseButton::None;
         if (m_Changed)
         {
             SignalValueChanged(m_Value, true, this);
@@ -522,13 +520,13 @@ bool Slider::OnMouseUp(MouseButton_e button, const Point& position, const Motion
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Slider::OnMouseMove(MouseButton_e button, const Point& position, const MotionEvent& event)
+bool PSlider::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
 {
     if (!IsEnabled()) return false;
     if (button == m_HitButton)
     {
-        Point distance(fabsf(m_SmoothedPos.x - position.x), fabsf(m_SmoothedPos.y - position.y));
-        Point scale = distance * 0.1f;  // Divide by smoothing range.
+        PPoint distance(fabsf(m_SmoothedPos.x - position.x), fabsf(m_SmoothedPos.y - position.y));
+        PPoint scale = distance * 0.1f;  // Divide by smoothing range.
         scale = scale * scale * 0.5f;   // Exponential growth from 0 -> 0.5
 
         if (distance.x > 10.0f) {
@@ -542,7 +540,7 @@ bool Slider::OnMouseMove(MouseButton_e button, const Point& position, const Moti
             m_SmoothedPos.y += (position.y - m_SmoothedPos.y) * scale.y;
         }
 
-        Point scaledPos = (m_SmoothedPos - m_HitPos).GetRounded();
+        PPoint scaledPos = (m_SmoothedPos - m_HitPos).GetRounded();
 
         float proportion = std::min(1.0f, fabsf(scaledPos.x) / m_DragScaleRange);   // Grows from 0->1 over m_DragScaleRange.
         proportion *= proportion;                                                   // Exponential growth.
@@ -563,14 +561,14 @@ bool Slider::OnMouseMove(MouseButton_e button, const Point& position, const Moti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::OnLabelChanged(const PString& label)
+void PSlider::OnLabelChanged(const PString& label)
 {
-    if (m_Orientation == Orientation::Horizontal && (!m_ValueFormat.empty() || !label.empty()))
+    if (m_Orientation == POrientation::Horizontal && (!m_ValueFormat.empty() || !label.empty()))
     {
         if (m_ValueView == nullptr)
         {
-            m_ValueView = ptr_new<TextView>("value", PString::zero, ptr_tmp_cast(this), ViewFlags::IgnoreMouse);
-            m_ValueView->SignalPreferredSizeChanged.Connect(this, &Slider::LayoutValueView);
+            m_ValueView = ptr_new<PTextView>("value", PString::zero, ptr_tmp_cast(this), PViewFlags::IgnoreMouse);
+            m_ValueView->SignalPreferredSizeChanged.Connect(this, &PSlider::LayoutValueView);
         }
         UpdateValueView();
         LayoutValueView();
@@ -590,21 +588,21 @@ void Slider::OnLabelChanged(const PString& label)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::RenderSlider()
+void PSlider::RenderSlider()
 {
-    SetEraseColor(StandardColorID::SliderTrackNormal);
+    SetEraseColor(PStandardColorID::SliderTrackNormal);
 
-    Rect bounds = GetNormalizedBounds();
+    PRect bounds = GetNormalizedBounds();
 
-    Rect sliderFrame = GetSliderFrame();
-    Rect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(GetValue());
+    PRect sliderFrame = GetSliderFrame();
+    PRect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(GetValue());
 
     // Clear areas not fully overwritten by the slider track and the knob.
-    Region clearRegion(bounds);
+    PRegion clearRegion(bounds);
     clearRegion.Exclude(sliderFrame);
     clearRegion.Exclude(knobFrame);
     clearRegion.Optimize();
-    for (const IRect& rect : clearRegion.m_Rects) {
+    for (const PIRect& rect : clearRegion.m_Rects) {
         EraseRect(rect);
     }
 
@@ -613,16 +611,16 @@ void Slider::RenderSlider()
 
     if (sliderFrame.IsValid())
     {
-        const Color shineColor = get_standard_color(StandardColorID::Shine);
-        const Color shadowColor = get_standard_color(StandardColorID::Shadow);
+        const PColor shineColor = pget_standard_color(PStandardColorID::Shine);
+        const PColor shadowColor = pget_standard_color(PStandardColorID::Shadow);
 
-        if (m_Orientation == Orientation::Horizontal)
+        if (m_Orientation == POrientation::Horizontal)
         {
-            Rect leftSliderFrame(sliderFrame.left, sliderFrame.top, knobFrame.left, sliderFrame.bottom);
-            Rect rightSliderFrame(knobFrame.right - 1.0f, sliderFrame.top, sliderFrame.right, sliderFrame.bottom);
+            PRect leftSliderFrame(sliderFrame.left, sliderFrame.top, knobFrame.left, sliderFrame.bottom);
+            PRect rightSliderFrame(knobFrame.right - 1.0f, sliderFrame.top, sliderFrame.right, sliderFrame.bottom);
             if (leftSliderFrame.IsValid())
             {
-                Rect leftSliderCenter = leftSliderFrame;
+                PRect leftSliderCenter = leftSliderFrame;
                 leftSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
                 leftSliderCenter.Resize(1.0f, 1.0f, 0.0f, -1.0f);
 
@@ -633,13 +631,13 @@ void Slider::RenderSlider()
 
                 SetFgColor(shineColor);
                 MovePenTo(leftSliderFrame.BottomRight());
-                DrawLine(Point(leftSliderFrame.left + 1, leftSliderFrame.bottom));
+                DrawLine(PPoint(leftSliderFrame.left + 1, leftSliderFrame.bottom));
 
                 FillRect(leftSliderCenter, m_SliderColor1);
             }
             if (rightSliderFrame.IsValid())
             {
-                Rect rightSliderCenter = rightSliderFrame;
+                PRect rightSliderCenter = rightSliderFrame;
                 rightSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
                 rightSliderCenter.Resize(0.0f, 1.0f, -1.0f, -1.0f);
 
@@ -648,20 +646,20 @@ void Slider::RenderSlider()
                 DrawLine(rightSliderFrame.TopRight());
 
                 SetFgColor(shineColor);
-                MovePenTo(Point(rightSliderFrame.right, rightSliderFrame.top + 1.0f));
+                MovePenTo(PPoint(rightSliderFrame.right, rightSliderFrame.top + 1.0f));
                 DrawLine(rightSliderFrame.BottomRight());
-                DrawLine(rightSliderFrame.BottomLeft() + Point(1.0f, 0.0f));
+                DrawLine(rightSliderFrame.BottomLeft() + PPoint(1.0f, 0.0f));
 
                 FillRect(rightSliderCenter, m_SliderColor2);
             }
         }
         else
         {
-            Rect topSliderFrame(sliderFrame.left, sliderFrame.top, sliderFrame.right, knobFrame.top);
-            Rect bottomSliderFrame(sliderFrame.left, knobFrame.bottom - 1.0f, sliderFrame.right, sliderFrame.bottom);
+            PRect topSliderFrame(sliderFrame.left, sliderFrame.top, sliderFrame.right, knobFrame.top);
+            PRect bottomSliderFrame(sliderFrame.left, knobFrame.bottom - 1.0f, sliderFrame.right, sliderFrame.bottom);
             if (topSliderFrame.IsValid())
             {
-                Rect topSliderCenter = topSliderFrame;
+                PRect topSliderCenter = topSliderFrame;
                 topSliderCenter.Resize(1.0f, 1.0f, -1.0f, 0.0f);
                 topSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
 
@@ -672,13 +670,13 @@ void Slider::RenderSlider()
 
                 SetFgColor(shineColor);
                 MovePenTo(topSliderFrame.BottomRight());
-                DrawLine(Point(topSliderFrame.right, topSliderFrame.top + 1.0f));
+                DrawLine(PPoint(topSliderFrame.right, topSliderFrame.top + 1.0f));
 
                 FillRect(topSliderCenter, m_SliderColor1);
             }
             if (bottomSliderFrame.IsValid())
             {
-                Rect bottomSliderCenter = bottomSliderFrame;
+                PRect bottomSliderCenter = bottomSliderFrame;
                 bottomSliderFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
                 bottomSliderCenter.Resize(1.0f, 0.0f, -1.0f, -1.0f);
 
@@ -687,9 +685,9 @@ void Slider::RenderSlider()
                 DrawLine(bottomSliderFrame.BottomLeft());
 
                 SetFgColor(shineColor);
-                MovePenTo(Point(bottomSliderFrame.left + 1.0f, bottomSliderFrame.bottom));
+                MovePenTo(PPoint(bottomSliderFrame.left + 1.0f, bottomSliderFrame.bottom));
                 DrawLine(bottomSliderFrame.BottomRight());
-                DrawLine(bottomSliderFrame.TopRight() + Point(0.0f, 1.0f));
+                DrawLine(bottomSliderFrame.TopRight() + PPoint(0.0f, 1.0f));
 
                 FillRect(bottomSliderCenter, m_SliderColor2);
             }
@@ -697,47 +695,47 @@ void Slider::RenderSlider()
     }
     for (float value : m_ShadowArrows)
     {
-        RenderKnob(StandardColorID::SliderKnobShadow, value);
+        RenderKnob(PStandardColorID::SliderKnobShadow, value);
     }
 
-    RenderKnob((IsBeingDragged()) ? StandardColorID::SliderKnobPressed : StandardColorID::SliderKnobNormal, GetValue());
+    RenderKnob((IsBeingDragged()) ? PStandardColorID::SliderKnobPressed : PStandardColorID::SliderKnobNormal, GetValue());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::RenderKnob(StandardColorID knobColor, float value)
+void PSlider::RenderKnob(PStandardColorID knobColor, float value)
 {
-    Rect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::SquareFrame) + ValToPos(value);
+    PRect knobFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::SquareFrame) + ValToPos(value);
 
-    if (!HasFlags(SliderFlags::KnobPointUp | SliderFlags::KnobPointDown))
+    if (!HasFlags(PSliderFlags::KnobPointUp | PSliderFlags::KnobPointDown))
     {
-        Rect center(knobFrame);
+        PRect center(knobFrame);
         center.Resize(1.0f, 1.0f, -1.0f, -1.0f);
         knobFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
 
-        SetFgColor(StandardColorID::Shine);
+        SetFgColor(PStandardColorID::Shine);
         MovePenTo(knobFrame.BottomLeft());
         DrawLine(knobFrame.TopLeft());
         DrawLine(knobFrame.TopRight());
 
-        SetFgColor(StandardColorID::Shadow);
+        SetFgColor(PStandardColorID::Shadow);
         DrawLine(knobFrame.BottomRight());
-        DrawLine(knobFrame.BottomLeft() + Point(1.0f, 0.0f));
-        FillRect(center, get_standard_color(knobColor));
+        DrawLine(knobFrame.BottomLeft() + PPoint(1.0f, 0.0f));
+        FillRect(center, pget_standard_color(knobColor));
     }
     else
     {
-        const Color shineColor = get_standard_color(StandardColorID::Shine);
-        const Color shadowColor = get_standard_color(StandardColorID::Shadow);
+        const PColor shineColor = pget_standard_color(PStandardColorID::Shine);
+        const PColor shadowColor = pget_standard_color(PStandardColorID::Shadow);
 
-        Rect knobFullFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(value);
+        PRect knobFullFrame = GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(value);
 
         knobFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
         knobFullFrame.Resize(0.0f, 0.0f, -1.0f, -1.0f);
 
-        if (m_Orientation == Orientation::Horizontal)
+        if (m_Orientation == POrientation::Horizontal)
         {
             const float center = std::floor(knobFrame.left + (knobFrame.right - knobFrame.left) * 0.5f);
 
@@ -749,12 +747,12 @@ void Slider::RenderKnob(StandardColorID knobColor, float value)
                 float y1 = knobFrame.top;
                 float y2 = knobFrame.bottom;
 
-                if (HasFlags(SliderFlags::KnobPointUp))     y1 -= offset;
-                if (HasFlags(SliderFlags::KnobPointDown))   y2 += offset;
+                if (HasFlags(PSliderFlags::KnobPointUp))     y1 -= offset;
+                if (HasFlags(PSliderFlags::KnobPointDown))   y2 += offset;
 
                 SetFgColor(GetEraseColor());
-                if (HasFlags(SliderFlags::KnobPointUp))     DrawLine(x, knobFullFrame.top, x, y1 - 1.0f);
-                if (HasFlags(SliderFlags::KnobPointDown))   DrawLine(x, y2 + 1.0f, x, knobFullFrame.bottom);
+                if (HasFlags(PSliderFlags::KnobPointUp))     DrawLine(x, knobFullFrame.top, x, y1 - 1.0f);
+                if (HasFlags(PSliderFlags::KnobPointDown))   DrawLine(x, y2 + 1.0f, x, knobFullFrame.bottom);
                 SetFgColor(knobColor);
                 DrawLine(x, y1, x, y2);
                 if (direction > 0.0f && x >= center) {
@@ -765,20 +763,20 @@ void Slider::RenderKnob(StandardColorID knobColor, float value)
 
             SetFgColor(shadowColor);
 
-            if (HasFlags(SliderFlags::KnobPointDown)) {
+            if (HasFlags(PSliderFlags::KnobPointDown)) {
                 MovePenTo(center, knobFullFrame.bottom);
             } else {
                 MovePenTo(knobFrame.BottomLeft());
             }
             DrawLine(knobFrame.BottomRight());
             DrawLine(knobFrame.TopRight());
-            if (HasFlags(SliderFlags::KnobPointUp)) {
+            if (HasFlags(PSliderFlags::KnobPointUp)) {
                 DrawLine(center, knobFullFrame.top);
             }
             SetFgColor(shineColor);
             DrawLine(knobFrame.TopLeft());
             DrawLine(knobFrame.BottomLeft());
-            if (HasFlags(SliderFlags::KnobPointDown)) {
+            if (HasFlags(PSliderFlags::KnobPointDown)) {
                 DrawLine(center, knobFullFrame.bottom);
             }
         }
@@ -794,12 +792,12 @@ void Slider::RenderKnob(StandardColorID knobColor, float value)
                 float x1 = knobFrame.left;
                 float x2 = knobFrame.right;
 
-                if (HasFlags(SliderFlags::KnobPointLeft))  x1 -= offset;
-                if (HasFlags(SliderFlags::KnobPointRight)) x2 += offset;
+                if (HasFlags(PSliderFlags::KnobPointLeft))  x1 -= offset;
+                if (HasFlags(PSliderFlags::KnobPointRight)) x2 += offset;
 
                 SetFgColor(GetEraseColor());
-                if (HasFlags(SliderFlags::KnobPointLeft))  DrawLine(knobFullFrame.left, y, x1 - 1.0f, y);
-                if (HasFlags(SliderFlags::KnobPointRight)) DrawLine(x2 + 1.0f, y, knobFullFrame.right, y);
+                if (HasFlags(PSliderFlags::KnobPointLeft))  DrawLine(knobFullFrame.left, y, x1 - 1.0f, y);
+                if (HasFlags(PSliderFlags::KnobPointRight)) DrawLine(x2 + 1.0f, y, knobFullFrame.right, y);
                 SetFgColor(knobColor);
                 DrawLine(x1, y, x2, y);
                 if (direction > 0.0f && y >= center) {
@@ -809,20 +807,20 @@ void Slider::RenderKnob(StandardColorID knobColor, float value)
             }
 
             SetFgColor(shineColor);
-            if (HasFlags(SliderFlags::KnobPointLeft)) {
+            if (HasFlags(PSliderFlags::KnobPointLeft)) {
                 MovePenTo(knobFullFrame.left, center);
             } else {
                 MovePenTo(knobFrame.BottomLeft());
             }
             DrawLine(knobFrame.TopLeft());
             DrawLine(knobFrame.TopRight());
-            if (HasFlags(SliderFlags::KnobPointRight)) {
+            if (HasFlags(PSliderFlags::KnobPointRight)) {
                 DrawLine(knobFullFrame.right, center);
             }
             SetFgColor(shadowColor);
             DrawLine(knobFrame.BottomRight());
             DrawLine(knobFrame.BottomLeft());
-            if (HasFlags(SliderFlags::KnobPointLeft)) {
+            if (HasFlags(PSliderFlags::KnobPointLeft)) {
                 DrawLine(knobFullFrame.left, center);
             }
         }
@@ -833,16 +831,16 @@ void Slider::RenderKnob(StandardColorID knobColor, float value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::RenderLabels()
+void PSlider::RenderLabels()
 {
-    const Rect          bounds = GetNormalizedBounds();
-    const Rect          sliderFrame = GetSliderFrame();
-    const Point         center(bounds.Width() * 0.5f, bounds.Height() * 0.5f);
-    const FontHeight    fontHeight = GetFontHeight();
+    const PRect          bounds = GetNormalizedBounds();
+    const PRect          sliderFrame = GetSliderFrame();
+    const PPoint         center(bounds.Width() * 0.5f, bounds.Height() * 0.5f);
+    const PFontHeight    fontHeight = GetFontHeight();
 
     SetBgColor(GetEraseColor());
     SetFgColor(0, 0, 0);
-    if (m_Orientation == Orientation::Horizontal)
+    if (m_Orientation == POrientation::Horizontal)
     {
         if (!m_MinLabel.empty() && !m_MaxLabel.empty())
         {
@@ -872,14 +870,14 @@ void Slider::RenderLabels()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::RenderTicks()
+void PSlider::RenderTicks()
 {
     if (m_NumTicks > 0)
     {
-        const Rect sliderFrame(GetSliderFrame());
+        const PRect sliderFrame(GetSliderFrame());
         const float scale = 1.0f / float(m_NumTicks - 1);
 
-        if (m_Orientation == Orientation::Horizontal)
+        if (m_Orientation == POrientation::Horizontal)
         {
             const float width = std::floor(sliderFrame.Width() - 2.0f);
 
@@ -888,26 +886,26 @@ void Slider::RenderTicks()
             const float y4 = std::floor(sliderFrame.bottom + TICK_SPACING);
             const float y3 = y4 + TICK_LENGTH;
 
-            SetFgColor(get_standard_color(StandardColorID::Shadow));
+            SetFgColor(pget_standard_color(PStandardColorID::Shadow));
             for (int i = 0; i < m_NumTicks; ++i)
             {
                 const float x = std::floor(sliderFrame.left + width * float(i) * scale);
-                if (HasFlags(SliderFlags::TicksAbove)) {
-                    DrawLine(Point(x, y1), Point(x, y2));
+                if (HasFlags(PSliderFlags::TicksAbove)) {
+                    DrawLine(PPoint(x, y1), PPoint(x, y2));
                 }
-                if (HasFlags(SliderFlags::TicksBelow)) {
-                    DrawLine(Point(x, y3), Point(x, y4));
+                if (HasFlags(PSliderFlags::TicksBelow)) {
+                    DrawLine(PPoint(x, y3), PPoint(x, y4));
                 }
             }
-            SetFgColor(get_standard_color(StandardColorID::Shine));
+            SetFgColor(pget_standard_color(PStandardColorID::Shine));
             for (int i = 0; i < m_NumTicks; ++i)
             {
                 const float x = std::floor(sliderFrame.left + width * float(i) * scale) + 1.0f;
-                if (HasFlags(SliderFlags::TicksAbove)) {
-                    DrawLine(Point(x, y1), Point(x, y2));
+                if (HasFlags(PSliderFlags::TicksAbove)) {
+                    DrawLine(PPoint(x, y1), PPoint(x, y2));
                 }
-                if (HasFlags(SliderFlags::TicksBelow)) {
-                    DrawLine(Point(x, y3), Point(x, y4));
+                if (HasFlags(PSliderFlags::TicksBelow)) {
+                    DrawLine(PPoint(x, y3), PPoint(x, y4));
                 }
             }
         }
@@ -920,26 +918,26 @@ void Slider::RenderTicks()
             const float x4 = std::floor(sliderFrame.right + TICK_SPACING - 1.0f);
             const float x3 = x4 + TICK_LENGTH;
 
-            SetFgColor(get_standard_color(StandardColorID::Shadow));
+            SetFgColor(pget_standard_color(PStandardColorID::Shadow));
             for (int i = 0; i < m_NumTicks; ++i)
             {
                 const float y = std::floor(sliderFrame.top + height * float(i) * scale);
-                if (HasFlags(SliderFlags::TicksLeft)) {
-                    DrawLine(Point(x1, y), Point(x2, y));
+                if (HasFlags(PSliderFlags::TicksLeft)) {
+                    DrawLine(PPoint(x1, y), PPoint(x2, y));
                 }
-                if (HasFlags(SliderFlags::TicksRight)) {
-                    DrawLine(Point(x3, y), Point(x4, y));
+                if (HasFlags(PSliderFlags::TicksRight)) {
+                    DrawLine(PPoint(x3, y), PPoint(x4, y));
                 }
             }
-            SetFgColor(get_standard_color(StandardColorID::Shine));
+            SetFgColor(pget_standard_color(PStandardColorID::Shine));
             for (int i = 0; i < m_NumTicks; ++i)
             {
                 const float y = std::floor(sliderFrame.top + height * float(i) * scale) + 1.0f;
-                if (HasFlags(SliderFlags::TicksLeft)) {
-                    DrawLine(Point(x1, y), Point(x2, y));
+                if (HasFlags(PSliderFlags::TicksLeft)) {
+                    DrawLine(PPoint(x1, y), PPoint(x2, y));
                 }
-                if (HasFlags(SliderFlags::TicksRight)) {
-                    DrawLine(Point(x3, y), Point(x4, y));
+                if (HasFlags(PSliderFlags::TicksRight)) {
+                    DrawLine(PPoint(x3, y), PPoint(x4, y));
                 }
             }
         }
@@ -950,14 +948,14 @@ void Slider::RenderTicks()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float Slider::PosToVal(const Point& position) const
+float PSlider::PosToVal(const PPoint& position) const
 {
-    const Rect sliderFrame = GetSliderFrame();
+    const PRect sliderFrame = GetSliderFrame();
     float value;
 
-    Point trackPosition = position - sliderFrame.TopLeft();
+    PPoint trackPosition = position - sliderFrame.TopLeft();
 
-    if (m_Orientation == Orientation::Horizontal)
+    if (m_Orientation == POrientation::Horizontal)
     {
         if (m_NumSteps > 1) {
             float vAlign = sliderFrame.Width() / float(m_NumSteps - 1);
@@ -980,16 +978,16 @@ float Slider::PosToVal(const Point& position) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point Slider::ValToPos(float value) const
+PPoint PSlider::ValToPos(float value) const
 {
-    const Rect  bounds = GetSliderFrame();
-    const Rect  sliderFrame = GetSliderFrame();
+    const PRect  bounds = GetSliderFrame();
+    const PRect  sliderFrame = GetSliderFrame();
     const float position = (value - m_Min) / (m_Max - m_Min);
 
-    if (m_Orientation == Orientation::Horizontal) {
-        return Point(std::round(sliderFrame.left + (sliderFrame.Width()) * position), std::round(bounds.top + bounds.Height() * 0.5f));
+    if (m_Orientation == POrientation::Horizontal) {
+        return PPoint(std::round(sliderFrame.left + (sliderFrame.Width()) * position), std::round(bounds.top + bounds.Height() * 0.5f));
     } else {
-        return Point(std::round(bounds.left + bounds.Width() * 0.5f), std::round(sliderFrame.top + sliderFrame.Height() * (1.0f-position)));
+        return PPoint(std::round(bounds.left + bounds.Width() * 0.5f), std::round(sliderFrame.top + sliderFrame.Height() * (1.0f-position)));
     }
 }
 
@@ -997,16 +995,16 @@ Point Slider::ValToPos(float value) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Rect Slider::GetKnobFrame(Orientation orientation, GetKnobFrameMode mode) const
+PRect PSlider::GetKnobFrame(POrientation orientation, GetKnobFrameMode mode) const
 {
-    Rect solidFrame(-7.0f, -10.0f, 8.0f, 11.0f);
+    PRect solidFrame(-7.0f, -10.0f, 8.0f, 11.0f);
 
-    if (HasFlags(SliderFlags::KnobPointUp) || HasFlags(SliderFlags::KnobPointDown))
+    if (HasFlags(PSliderFlags::KnobPointUp) || HasFlags(PSliderFlags::KnobPointDown))
     {
         solidFrame.top      += 4.0f;
         solidFrame.bottom   -= 4.0f;
     }
-    if (HasFlags(SliderFlags::KnobPointUp))
+    if (HasFlags(PSliderFlags::KnobPointUp))
     {
         if (mode == GetKnobFrameMode::FullFrame) {
             solidFrame.top -= 10;
@@ -1014,7 +1012,7 @@ Rect Slider::GetKnobFrame(Orientation orientation, GetKnobFrameMode mode) const
             solidFrame.top -= 2;
         }
     }
-    if (HasFlags(SliderFlags::KnobPointDown))
+    if (HasFlags(PSliderFlags::KnobPointDown))
     {
         if (mode == GetKnobFrameMode::FullFrame) {
             solidFrame.bottom += 10;
@@ -1022,7 +1020,7 @@ Rect Slider::GetKnobFrame(Orientation orientation, GetKnobFrameMode mode) const
             solidFrame.bottom += 2;
         }
     }
-    if (orientation == Orientation::Vertical)
+    if (orientation == POrientation::Vertical)
     {
         std::swap(solidFrame.left, solidFrame.top);
         std::swap(solidFrame.right, solidFrame.bottom);
@@ -1034,25 +1032,25 @@ Rect Slider::GetKnobFrame(Orientation orientation, GetKnobFrameMode mode) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
+PRect PSlider::GetSliderFrame(PRect* outTotalFrame, float* minimumLength) const
 {
-    const Rect  bounds(GetNormalizedBounds());
-    Rect  knobFrame = GetKnobFrame(Orientation::Horizontal, GetKnobFrameMode::FullFrame);
+    const PRect  bounds(GetNormalizedBounds());
+    PRect  knobFrame = GetKnobFrame(POrientation::Horizontal, GetKnobFrameMode::FullFrame);
 
     float center = std::ceil(GetSliderSize() * 0.5f);
-    Rect sliderFrame(0.0f, -center, 0.0f, GetSliderSize() - center);
-    Rect totalFrame = sliderFrame;
+    PRect sliderFrame(0.0f, -center, 0.0f, GetSliderSize() - center);
+    PRect totalFrame = sliderFrame;
 
-    if (HasFlags(SliderFlags::TicksAbove)) {
+    if (HasFlags(PSliderFlags::TicksAbove)) {
         totalFrame.top -= TICK_SPACING + TICK_LENGTH;
     }
-    if (HasFlags(SliderFlags::TicksAbove)) {
+    if (HasFlags(PSliderFlags::TicksAbove)) {
         totalFrame.bottom += TICK_SPACING + TICK_LENGTH;
     }
     if (knobFrame.top < totalFrame.top)         totalFrame.top = knobFrame.top;
     if (knobFrame.bottom > totalFrame.bottom)   totalFrame.bottom = knobFrame.bottom;
 
-    if (m_Orientation == Orientation::Vertical)
+    if (m_Orientation == POrientation::Vertical)
     {
         std::swap(knobFrame.left,   knobFrame.top);
         std::swap(knobFrame.right,  knobFrame.bottom);
@@ -1062,15 +1060,15 @@ Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
         std::swap(totalFrame.right, totalFrame.bottom);
     }
 
-    if (m_Orientation == Orientation::Horizontal)
+    if (m_Orientation == POrientation::Horizontal)
     {
         if (m_ValueView != nullptr)
         {
-            totalFrame.top -= m_ValueView->GetPreferredSize(PrefSizeType::Smallest).y;
+            totalFrame.top -= m_ValueView->GetPreferredSize(PPrefSizeType::Smallest).y;
         }
         if (!m_MinLabel.empty() || !m_MaxLabel.empty())
         {
-            const FontHeight    fontHeight = GetFontHeight();
+            const PFontHeight    fontHeight = GetFontHeight();
             totalFrame.bottom += fontHeight.ascender + fontHeight.descender;
         }
         const float knobCenter = std::ceil(knobFrame.Width() * 0.5f);
@@ -1084,7 +1082,7 @@ Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
     }
     else
     {
-        const FontHeight    fontHeight = GetFontHeight();
+        const PFontHeight    fontHeight = GetFontHeight();
 
         const float minLabelWidth = GetStringWidth(m_MinLabel);
         const float minLabelFontHeight = (m_MinLabel.empty()) ? 0.0f : (fontHeight.ascender + fontHeight.descender + VLABEL_SPACING);
@@ -1120,8 +1118,8 @@ Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
     totalFrame.bottom -= totalFrame.top;
     totalFrame.top = 0.0f;
 
-    Point centerOffset;
-    if (m_Orientation == Orientation::Horizontal) {
+    PPoint centerOffset;
+    if (m_Orientation == POrientation::Horizontal) {
         centerOffset.y = std::floor((bounds.Height() - totalFrame.Height()) * 0.5f);
     } else {
         centerOffset.x = std::floor((bounds.Width() - totalFrame.Width()) * 0.5f);
@@ -1179,7 +1177,7 @@ Rect Slider::GetSliderFrame(Rect* outTotalFrame, float* minimumLength) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::OnPaint(const Rect& updateRect)
+void PSlider::OnPaint(const PRect& updateRect)
 {
     RenderSlider();
 }
@@ -1188,11 +1186,11 @@ void Slider::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::UpdateValueView()
+void PSlider::UpdateValueView()
 {
     if (m_ValueView != nullptr)
     {
-        m_ValueView->SetBgColor(StandardColorID::SliderTrackNormal);
+        m_ValueView->SetBgColor(PStandardColorID::SliderTrackNormal);
         m_ValueView->SetText(GetLabel() + GetValueString());
     }
 }
@@ -1201,22 +1199,22 @@ void Slider::UpdateValueView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::LayoutValueView()
+void PSlider::LayoutValueView()
 {
     if (m_ValueView != nullptr)
     {
-        if (m_Orientation == Orientation::Horizontal)
+        if (m_Orientation == POrientation::Horizontal)
         {
-            const Point size = m_ValueView->GetPreferredSize(PrefSizeType::Smallest);
-            const Rect  frame(0.0f, 0.0f, size.x, size.y);
+            const PPoint size = m_ValueView->GetPreferredSize(PPrefSizeType::Smallest);
+            const PRect  frame(0.0f, 0.0f, size.x, size.y);
             m_ValueView->SetFrame(frame);
         }
         else
         {
-            const Rect  bounds = GetBounds();
-            const Point size = m_ValueView->GetPreferredSize(PrefSizeType::Smallest);
-            const Rect  frame(0.0f, 0.0f, size.x, size.y);
-            m_ValueView->SetFrame(frame + Point(bounds.Width() - size.x, std::round((bounds.Height() - size.y) * 0.5f)));
+            const PRect  bounds = GetBounds();
+            const PPoint size = m_ValueView->GetPreferredSize(PPrefSizeType::Smallest);
+            const PRect  frame(0.0f, 0.0f, size.x, size.y);
+            m_ValueView->SetFrame(frame + PPoint(bounds.Width() - size.x, std::round((bounds.Height() - size.y) * 0.5f)));
         }
     }
 }
@@ -1225,7 +1223,7 @@ void Slider::LayoutValueView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Slider::RefreshDisplay()
+void PSlider::RefreshDisplay()
 {
     Invalidate();
     Flush();

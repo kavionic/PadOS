@@ -22,11 +22,8 @@
 #include <System/SystemMessageIDs.h>
 #include <GUI/GUIDefines.h>
 
-namespace os
-{
 
-
-enum class MouseButton_e : uint32_t
+enum class PMouseButton : uint32_t
 {
     None,
     Left,
@@ -46,7 +43,7 @@ enum class MouseButton_e : uint32_t
     LastTouchID = Touch9
 };
 
-enum class MotionToolType : uint32_t
+enum class PMotionToolType : uint32_t
 {
     Mouse,
     Finger,
@@ -54,28 +51,26 @@ enum class MotionToolType : uint32_t
     Eraser
 };
 
-static constexpr MotionToolType GetMotionToolType(MouseButton_e button) { return button < MouseButton_e::FirstTouchID ? MotionToolType::Mouse : MotionToolType::Finger; }
+static constexpr PMotionToolType GetMotionToolType(PMouseButton button) { return button < PMouseButton::FirstTouchID ? PMotionToolType::Mouse : PMotionToolType::Finger; }
 
-struct InputEvent
+struct PInputEvent
 {
     TimeValNanos    Timestamp;
-    MessageID       EventID;
+    PMessageID       EventID;
 
 };
 
-struct MotionEvent : InputEvent
+struct PMotionEvent : PInputEvent
 {
-    MotionToolType  ToolType;
-    MouseButton_e   ButtonID;
-    Point           Position;
+    PMotionToolType  ToolType;
+    PMouseButton   ButtonID;
+    PPoint           Position;
 };
 
-struct KeyEvent : InputEvent
+struct PKeyEvent : PInputEvent
 {
     static constexpr size_t MAX_TEXT_LENGTH = 11;
 
-    KeyCodes    m_KeyCode;
+    PKeyCodes    m_KeyCode;
     char        m_Text[MAX_TEXT_LENGTH + 1];
 };
-
-} // namespace os

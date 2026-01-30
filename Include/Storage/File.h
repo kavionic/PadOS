@@ -21,8 +21,6 @@
 #include <Storage/SeekableIO.h>
 #include <Storage/FSNode.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \ingroup storage
@@ -32,18 +30,18 @@ namespace os
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-class File : public SeekableIO, public FSNode
+class PFile : public PSeekableIO, public PFSNode
 {
 public:
     enum { DEFAULT_BUFFER_SIZE=0 };
-    File();
-    File(const PString& path, int openFlags = O_RDONLY);
-    File(const Directory& directory, const PString& name, int openFlags = O_RDONLY);
-    File(const FileReference& reference, int openFlags = O_RDONLY);
-    File(const FSNode& node);
-    File(int fileDescriptor, bool takeOwnership);
-    File(const File& file);
-    virtual ~File();
+    PFile();
+    PFile(const PString& path, int openFlags = O_RDONLY);
+    PFile(const PDirectory& directory, const PString& name, int openFlags = O_RDONLY);
+    PFile(const PFileReference& reference, int openFlags = O_RDONLY);
+    PFile(const PFSNode& node);
+    PFile(int fileDescriptor, bool takeOwnership);
+    PFile(const PFile& file);
+    virtual ~PFile();
     
       // From FSNode
     virtual bool    FDChanged(int newFileDescriptor, const struct ::stat& statBuffer) override;
@@ -78,6 +76,3 @@ private:
     mutable off64_t     m_BufferPosition = 0;
     mutable bool        m_Dirty = false;
 };
-
-
-} // namespace os

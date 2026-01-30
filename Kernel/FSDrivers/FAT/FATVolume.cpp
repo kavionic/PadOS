@@ -29,7 +29,6 @@
 #include "FATVolume.h"
 #include "FATINode.h"
 
-using namespace os;
 
 namespace kernel
 {

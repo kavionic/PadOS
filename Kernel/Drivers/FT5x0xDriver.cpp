@@ -34,7 +34,6 @@
 #include <System/SystemMessageIDs.h>
 #include <GUI/GUIEvent.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -181,27 +180,27 @@ void* FT5x0xDriver::Run()
                 int touchID = FT5x0x_TOUCH_YH_TOUCH_ID(touch.TOUCH_YH);
                 int touchFlags = FT5x0x_TOUCH_XH_TOUCH_FLAGS(touch.TOUCH_XH);
 
-                MessageID eventID = MessageID::NONE;
+                PMessageID eventID = PMessageID::NONE;
 
                 switch(touchFlags)
                 {
-                    case FT5x0x_TOUCH_FLAGS_DOWN:    eventID = MessageID::MOUSE_DOWN; break;
-                    case FT5x0x_TOUCH_FLAGS_UP:      eventID = MessageID::MOUSE_UP;   break;
-                    case FT5x0x_TOUCH_FLAGS_CONTACT: eventID = MessageID::MOUSE_MOVE; break;
+                    case FT5x0x_TOUCH_FLAGS_DOWN:    eventID = PMessageID::MOUSE_DOWN; break;
+                    case FT5x0x_TOUCH_FLAGS_UP:      eventID = PMessageID::MOUSE_UP;   break;
+                    case FT5x0x_TOUCH_FLAGS_CONTACT: eventID = PMessageID::MOUSE_MOVE; break;
                 }
-                if (eventID != MessageID::NONE && touchID < MAX_POINTS)
+                if (eventID != PMessageID::NONE && touchID < MAX_POINTS)
                 {
-                    IPoint position(FT5x0x_TOUCH_XH_TOUCH_X(touch.TOUCH_XL, touch.TOUCH_XH), FT5x0x_TOUCH_YH_TOUCH_Y(touch.TOUCH_YL, touch.TOUCH_YH));
-                    if (eventID != MessageID::MOUSE_MOVE || position != m_TouchPositions[touchID])
+                    PIPoint position(FT5x0x_TOUCH_XH_TOUCH_X(touch.TOUCH_XL, touch.TOUCH_XH), FT5x0x_TOUCH_YH_TOUCH_Y(touch.TOUCH_YL, touch.TOUCH_YH));
+                    if (eventID != PMessageID::MOUSE_MOVE || position != m_TouchPositions[touchID])
                     {
                         m_TouchPositions[touchID] = position;
                         
-                        MotionEvent mouseEvent;
+                        PMotionEvent mouseEvent;
                         mouseEvent.Timestamp = kget_monotonic_time();
                         mouseEvent.EventID   = eventID;
-                        mouseEvent.ToolType  = MotionToolType::Finger;
-                        mouseEvent.ButtonID  = MouseButton_e(int(MouseButton_e::FirstTouchID) + touchID);
-                        mouseEvent.Position  = Point(position);
+                        mouseEvent.ToolType  = PMotionToolType::Finger;
+                        mouseEvent.ButtonID  = PMouseButton(int(PMouseButton::FirstTouchID) + touchID);
+                        mouseEvent.Position  = PPoint(position);
 
 //                        p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "Mouse event {}: {}/{}", eventID - MessageID::MOUSE_DOWN, position.x, position.y);
                         CRITICAL_BEGIN(m_Mutex)

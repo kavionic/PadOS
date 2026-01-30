@@ -33,8 +33,6 @@
 #include <Utils/String.h>
 
 
-using namespace os;
-
 namespace kernel
 {
 

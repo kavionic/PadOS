@@ -19,14 +19,12 @@
 
 #include <GUI/Dialogs/ErrorMessageBox.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ErrorMessageBox::ErrorMessageBox(const PString& title, const PString& text, DialogButtonSets buttonSet) : MessageBox(title, PString::vformat_string(text.c_str(), strerror(errno)), buttonSet)
+PErrorMessageBox::PErrorMessageBox(const PString& title, const PString& text, PDialogButtonSets buttonSet) : PMessageBox(title, PString::vformat_string(text.c_str(), strerror(errno)), buttonSet)
 {
 }
 
@@ -34,11 +32,11 @@ ErrorMessageBox::ErrorMessageBox(const PString& title, const PString& text, Dial
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<ErrorMessageBox> ErrorMessageBox::ShowMessage(const PString& title, const PString& text, DialogButtonSets buttonSet)
+Ptr<PErrorMessageBox> PErrorMessageBox::ShowMessage(const PString& title, const PString& text, PDialogButtonSets buttonSet)
 {
     try
     {
-        Ptr<ErrorMessageBox> dlg = ptr_new<ErrorMessageBox>(title, text, buttonSet);
+        Ptr<PErrorMessageBox> dlg = ptr_new<PErrorMessageBox>(title, text, buttonSet);
         dlg->Open();
         return dlg;
     }
@@ -48,5 +46,3 @@ Ptr<ErrorMessageBox> ErrorMessageBox::ShowMessage(const PString& title, const PS
         return nullptr;
     }
 }
-
-} //namespace os

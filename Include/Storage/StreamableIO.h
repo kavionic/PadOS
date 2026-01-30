@@ -20,8 +20,6 @@
 
 #include <sys/types.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \ingroup storage
@@ -31,14 +29,12 @@ namespace os
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-class StreamableIO
+class PStreamableIO
 {
 public:
-    virtual ~StreamableIO();
+    virtual ~PStreamableIO();
 
     virtual ssize_t Read(void* buffer, ssize_t size) = 0;
     virtual ssize_t Write(const void* buffer, ssize_t size) = 0;
     
 };
-
-} // namespace os

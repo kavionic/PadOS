@@ -30,7 +30,6 @@
 #include <Kernel/KHandleArray.h>
 #include <Kernel/Syscalls.h>
 
-using namespace os;
 
 namespace kernel
 {

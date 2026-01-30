@@ -23,14 +23,11 @@
 #include <GUI/Bitmap.h>
 
 
-namespace os
-{
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IconView::IconView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
+PIconView::PIconView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
 {
     Construct();
 }
@@ -39,9 +36,9 @@ IconView::IconView(const PString& name, Ptr<View> parent, uint32_t flags) : View
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IconView::IconView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+PIconView::PIconView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
 {
-    MergeFlags(ViewFlags::WillDraw);
+    MergeFlags(PViewFlags::WillDraw);
     Construct();
 }
 
@@ -49,7 +46,7 @@ IconView::IconView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xm
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<BitmapView> IconView::GetIconView()
+Ptr<PBitmapView> PIconView::GetIconView()
 {
     return m_IconView;
 }
@@ -58,7 +55,7 @@ Ptr<BitmapView> IconView::GetIconView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const BitmapView> IconView::GetIconView() const
+Ptr<const PBitmapView> PIconView::GetIconView() const
 {
     return m_IconView;
 }
@@ -67,7 +64,7 @@ Ptr<const BitmapView> IconView::GetIconView() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<TextView> IconView::GetLabelView()
+Ptr<PTextView> PIconView::GetLabelView()
 {
     return m_LabelView;
 }
@@ -76,7 +73,7 @@ Ptr<TextView> IconView::GetLabelView()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<const TextView> IconView::GetLabelView() const
+Ptr<const PTextView> PIconView::GetLabelView() const
 {
     return m_LabelView;
 }
@@ -85,7 +82,7 @@ Ptr<const TextView> IconView::GetLabelView() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool IconView::LoadBitmap(const Path& path)
+bool PIconView::LoadBitmap(const PPath& path)
 {
     return m_IconView->LoadBitmap(path);
 }
@@ -94,7 +91,7 @@ bool IconView::LoadBitmap(const Path& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool IconView::LoadBitmap(StreamableIO& file)
+bool PIconView::LoadBitmap(PStreamableIO& file)
 {
     return m_IconView->LoadBitmap(file);
 }
@@ -103,7 +100,7 @@ bool IconView::LoadBitmap(StreamableIO& file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void IconView::SetBitmap(Ptr<Bitmap> bitmap)
+void PIconView::SetBitmap(Ptr<PBitmap> bitmap)
 {
     m_IconView->SetBitmap(bitmap);
 }
@@ -112,7 +109,7 @@ void IconView::SetBitmap(Ptr<Bitmap> bitmap)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<os::Bitmap> IconView::GetBitmap() const
+Ptr<PBitmap> PIconView::GetBitmap() const
 {
     return m_IconView->GetBitmap();
 }
@@ -121,7 +118,7 @@ Ptr<os::Bitmap> IconView::GetBitmap() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void IconView::SetLabel(const PString& label)
+void PIconView::SetLabel(const PString& label)
 {
     m_LabelView->SetText(label);
 }
@@ -130,7 +127,7 @@ void IconView::SetLabel(const PString& label)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void IconView::Clear()
+void PIconView::Clear()
 {
     m_IconView->ClearBitmap();
     m_LabelView->SetText(PString::zero);
@@ -140,7 +137,7 @@ void IconView::Clear()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void IconView::SetHighlighting(bool isHighlighted)
+void PIconView::SetHighlighting(bool isHighlighted)
 {
     if (isHighlighted != m_IsHighlighted)
     {
@@ -153,7 +150,7 @@ void IconView::SetHighlighting(bool isHighlighted)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void IconView::SetSelection(bool isSelected)
+void PIconView::SetSelection(bool isSelected)
 {
     if (isSelected != m_IsSelected)
     {
@@ -166,10 +163,10 @@ void IconView::SetSelection(bool isSelected)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void IconView::Construct()
+void PIconView::Construct()
 {
-    m_IconView = ptr_new<BitmapView>();
-    m_LabelView = ptr_new<TextView>();
+    m_IconView = ptr_new<PBitmapView>();
+    m_LabelView = ptr_new<PTextView>();
 
     m_IconView->SetBorders(5.0f, 5.0f, 5.0f, 0.0f);
     m_LabelView->SetBorders(5.0f, 10.0f, 5.0f, 5.0f);
@@ -177,21 +174,21 @@ void IconView::Construct()
     AddChild(m_IconView);
     AddChild(m_LabelView);
 
-    SetLayoutNode(ptr_new<VLayoutNode>());
+    SetLayoutNode(ptr_new<PVLayoutNode>());
 }
 
-void IconView::UpdateHighlightColor()
+void PIconView::UpdateHighlightColor()
 {
-    Color color;
+    PColor color;
 
     if (m_IsSelected && m_IsHighlighted) {
-        color = Color::FromColorID(NamedColors::darkblue);
+        color = PColor::FromColorID(PNamedColors::darkblue);
     } else if (m_IsSelected) {
-        color = Color::FromColorID(NamedColors::royalblue);
+        color = PColor::FromColorID(PNamedColors::royalblue);
     } else if (m_IsHighlighted) {
-        color = Color::FromColorID(NamedColors::lightblue);
+        color = PColor::FromColorID(PNamedColors::lightblue);
     } else {
-        color = get_standard_color(StandardColorID::DefaultBackground);
+        color = pget_standard_color(PStandardColorID::DefaultBackground);
     }
 
     m_IconView->SetBgColor(color);
@@ -202,5 +199,3 @@ void IconView::UpdateHighlightColor()
     m_LabelView->Invalidate();
     Invalidate();
 }
-
-} // namespace os

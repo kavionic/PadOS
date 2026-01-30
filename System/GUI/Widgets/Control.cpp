@@ -20,15 +20,13 @@
 #include <Utils/XMLFactory.h>
 #include <Utils/XMLObjectParser.h>
 
-using namespace os;
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Control::Control(const PString& name, Ptr<View> parent, uint32_t flags)
-    : View(name, parent, flags )
+PControl::PControl(const PString& name, Ptr<PView> parent, uint32_t flags)
+    : PView(name, parent, flags )
 {
     m_IsEnabled	= true;
 }
@@ -37,7 +35,7 @@ Control::Control(const PString& name, Ptr<View> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Control::Control(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData, Alignment defaultLabelAlignment) : View(context, parent, xmlData)
+PControl::PControl(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData, PAlignment defaultLabelAlignment) : PView(context, parent, xmlData)
 {
     m_Label             = context.GetAttribute(xmlData, "label", PString::zero);
     m_LabelAlignment    = context.GetAttribute(xmlData, "label_alignment", defaultLabelAlignment);
@@ -48,7 +46,7 @@ Control::Control(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Control::~Control()
+PControl::~PControl()
 {
 }
 
@@ -56,7 +54,7 @@ Control::~Control()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Control::SetEnable(bool enable)
+void PControl::SetEnable(bool enable)
 {
     if (m_IsEnabled != enable) {
         m_IsEnabled = enable;
@@ -68,7 +66,7 @@ void Control::SetEnable(bool enable)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool Control::IsEnabled() const
+bool PControl::IsEnabled() const
 {
     return m_IsEnabled;
 }
@@ -77,7 +75,7 @@ bool Control::IsEnabled() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Control::SetLabel(const PString& label)
+void PControl::SetLabel(const PString& label)
 {
     if (label != m_Label)
     {

@@ -28,7 +28,6 @@
 #include <Kernel/KAddressValidation.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 
-using namespace os;
 
 namespace kernel
 {

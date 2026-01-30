@@ -37,7 +37,6 @@
 #include <System/ModuleTLSDefinition.h>
 #include <Utils/Utils.h>
 
-using namespace os;
 
 extern uint32_t __tdata_start;
 extern uint32_t __tdata_end;

@@ -26,7 +26,6 @@
 #include <Kernel/KPosixSignals.h>
 #include <System/System.h>
 
-using namespace os;
 
 namespace kernel
 {

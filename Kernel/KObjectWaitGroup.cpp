@@ -28,7 +28,6 @@
 #include <Kernel/VFS/KFileHandle.h>
 #include <System/ExceptionHandling.h>
 
-using namespace os;
 
 namespace kernel
 {

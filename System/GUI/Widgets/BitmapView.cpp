@@ -24,40 +24,38 @@
 #include <Storage/Path.h>
 #include <DataTranslation/DataTranslator.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-BitmapView::BitmapView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
+PBitmapView::PBitmapView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
 {
-    SetDrawingMode(DrawingMode::Copy);
+    SetDrawingMode(PDrawingMode::Copy);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-BitmapView::BitmapView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+PBitmapView::PBitmapView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
 {
-    MergeFlags(ViewFlags::WillDraw);
-    SetDrawingMode(DrawingMode::Copy);
+    MergeFlags(PViewFlags::WillDraw);
+    SetDrawingMode(PDrawingMode::Copy);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void BitmapView::OnPaint(const Rect& updateRect)
+void PBitmapView::OnPaint(const PRect& updateRect)
 {
     if (m_Bitmap != nullptr)
     {
         if (m_IsScaled) {
             DrawBitmap(m_Bitmap, m_Bitmap->GetBounds(), GetNormalizedBounds());
         } else {
-            DrawBitmap(m_Bitmap, m_Bitmap->GetBounds(), Point(0.0f, 0.0f));
+            DrawBitmap(m_Bitmap, m_Bitmap->GetBounds(), PPoint(0.0f, 0.0f));
         }
     }
     else
@@ -70,16 +68,16 @@ void BitmapView::OnPaint(const Rect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void BitmapView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PBitmapView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
     if (m_Bitmap != nullptr)
     {
-        *minSize = Point(m_Bitmap->GetBounds().Size()) * m_Scale;
+        *minSize = PPoint(m_Bitmap->GetBounds().Size()) * m_Scale;
         *maxSize = *minSize;
     }
     else
     {
-        View::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
 }
 
@@ -87,9 +85,9 @@ void BitmapView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool inc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void BitmapView::OnFrameSized(const Point& delta)
+void PBitmapView::OnFrameSized(const PPoint& delta)
 {
-    View::OnFrameSized(delta);
+    PView::OnFrameSized(delta);
     UpdateIsScaled();
 }
 
@@ -97,7 +95,7 @@ void BitmapView::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool BitmapView::LoadBitmap(StreamableIO& file)
+bool PBitmapView::LoadBitmap(PStreamableIO& file)
 {
     constexpr size_t BUFFER_SIZE = 4096;
     m_Bitmap = nullptr;
@@ -106,7 +104,7 @@ bool BitmapView::LoadBitmap(StreamableIO& file)
 
     ssize_t positionIn = 0;
 
-    Ptr<DataTranslator> translator;
+    Ptr<PDataTranslator> translator;
 
     for (;;)
     {
@@ -129,10 +127,10 @@ bool BitmapView::LoadBitmap(StreamableIO& file)
 
         if (translator == nullptr)
         {
-            TranslatorFactory& factory = TranslatorFactory::Get();
+            PTranslatorFactory& factory = PTranslatorFactory::Get();
 
-            EDataTranslatorStatus status;
-            translator = factory.FindTranslator(PString::zero, EDataTranslatorType::Image, buffer.data(), bytesRead, status);
+            PDataTranslatorStatus status;
+            translator = factory.FindTranslator(PString::zero, PDataTranslatorType::Image, buffer.data(), bytesRead, status);
 
             if (translator == nullptr)
             {
@@ -141,7 +139,7 @@ bool BitmapView::LoadBitmap(StreamableIO& file)
                 }
                 continue;
             }
-            translator->VFDataReady.Connect(this, &BitmapView::SlotImageDataReady);
+            translator->VFDataReady.Connect(this, &PBitmapView::SlotImageDataReady);
         }
         translator->AddData(buffer.data(), bytesRead, finalRead);
         buffer.resize(BUFFER_SIZE);
@@ -167,9 +165,9 @@ bool BitmapView::LoadBitmap(StreamableIO& file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool BitmapView::LoadBitmap(const Path& path)
+bool PBitmapView::LoadBitmap(const PPath& path)
 {
-    File file(path);
+    PFile file(path);
     if (file.IsValid()) {
         return LoadBitmap(file);
     } else {
@@ -181,7 +179,7 @@ bool BitmapView::LoadBitmap(const Path& path)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void BitmapView::SetBitmap(Ptr<Bitmap> bitmap)
+void PBitmapView::SetBitmap(Ptr<PBitmap> bitmap)
 {
     m_Bitmap = bitmap;
     UpdateIsScaled();
@@ -193,7 +191,7 @@ void BitmapView::SetBitmap(Ptr<Bitmap> bitmap)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<Bitmap> BitmapView::GetBitmap() const
+Ptr<PBitmap> PBitmapView::GetBitmap() const
 {
     return m_Bitmap;
 }
@@ -202,7 +200,7 @@ Ptr<Bitmap> BitmapView::GetBitmap() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void BitmapView::ClearBitmap()
+void PBitmapView::ClearBitmap()
 {
     SetBitmap(nullptr);
 }
@@ -211,7 +209,7 @@ void BitmapView::ClearBitmap()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void BitmapView::SetScale(const Point& scale)
+void PBitmapView::SetScale(const PPoint& scale)
 {
     if (scale != m_Scale)
     {
@@ -226,26 +224,26 @@ void BitmapView::SetScale(const Point& scale)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void BitmapView::UpdateIsScaled()
+void PBitmapView::UpdateIsScaled()
 {
-    m_IsScaled = m_Bitmap != nullptr && IRect(m_Bitmap->GetBounds()).Size() != IRect(GetBounds()).Size();
+    m_IsScaled = m_Bitmap != nullptr && PIRect(m_Bitmap->GetBounds()).Size() != PIRect(GetBounds()).Size();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool BitmapView::SlotImageDataReady(const void* data, size_t length, bool isFinal)
+bool PBitmapView::SlotImageDataReady(const void* data, size_t length, bool isFinal)
 {
     if (m_Bitmap == nullptr)
     {
-        BitmapHeader bmHeader;
+        PBitmapHeader bmHeader;
         if (length < sizeof(bmHeader)) {
             return false;
         }
         memcpy(&bmHeader, data, sizeof(bmHeader));
 
-        m_Bitmap = ptr_new<Bitmap>(bmHeader.Bounds.Width(), bmHeader.Bounds.Height(), bmHeader.ColorSpace);
+        m_Bitmap = ptr_new<PBitmap>(bmHeader.Bounds.Width(), bmHeader.Bounds.Height(), bmHeader.ColorSpace);
         memset(m_Bitmap->LockRaster(), -1, m_Bitmap->GetBytesPerRow() * m_Bitmap->GetBounds().Height());
 
         UpdateIsScaled();
@@ -284,5 +282,3 @@ bool BitmapView::SlotImageDataReady(const void* data, size_t length, bool isFina
     }
     return true;
 }
-
-} // namespace os

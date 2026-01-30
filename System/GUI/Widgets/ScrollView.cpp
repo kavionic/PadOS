@@ -21,15 +21,12 @@
 #include <GUI/Widgets/ScrollableView.h>
 #include <GUI/ViewFactory.h>
 
-namespace os
-{
-
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ScrollView::ScrollView(const PString& name, Ptr<View> parent, uint32_t flags) : View(name, parent, flags | ViewFlags::WillDraw)
+PScrollView::PScrollView(const PString& name, Ptr<PView> parent, uint32_t flags) : PView(name, parent, flags | PViewFlags::WillDraw)
 {
 }
 
@@ -37,30 +34,30 @@ ScrollView::ScrollView(const PString& name, Ptr<View> parent, uint32_t flags) : 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ScrollView::ScrollView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData) : View(context, parent, xmlData)
+PScrollView::PScrollView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData) : PView(context, parent, xmlData)
 {
-    MergeFlags(ViewFlags::WillDraw);
+    MergeFlags(PViewFlags::WillDraw);
 
     for (pugi::xml_node childNode = xmlData.first_child(); childNode; childNode = childNode.next_sibling())
     {
         if (strcmp(childNode.name(), "_ScrollContent") == 0)
         {
-            Ptr<View> contentView;
+            Ptr<PView> contentView;
             if (childNode.first_child())
             {
-                contentView = ViewFactory::Get().CreateView(context, nullptr, childNode);
+                contentView = PViewFactory::Get().CreateView(context, nullptr, childNode);
                 if (contentView != nullptr)
                 {
-                    Ptr<ScrollableView> scrollableView = ptr_new<ScrollableView>();
+                    Ptr<PScrollableView> scrollableView = ptr_new<PScrollableView>();
 
-                    scrollableView->SetHAlignment(Alignment::Stretch);
-                    scrollableView->SetVAlignment(Alignment::Stretch);
+                    scrollableView->SetHAlignment(PAlignment::Stretch);
+                    scrollableView->SetVAlignment(PAlignment::Stretch);
 
                     if (contentView->GetLayoutNode() == nullptr) {
-                        contentView->SetLayoutNode(ptr_new<LayoutNode>());
+                        contentView->SetLayoutNode(ptr_new<PLayoutNode>());
                     }
-                    scrollableView->MergeFlags(ViewFlags::WillDraw);
-                    contentView->MergeFlags(ViewFlags::WillDraw);
+                    scrollableView->MergeFlags(PViewFlags::WillDraw);
+                    contentView->MergeFlags(PViewFlags::WillDraw);
 
                     scrollableView->SetContentView(contentView);
                     SetScrolledView(scrollableView);
@@ -75,13 +72,13 @@ ScrollView::ScrollView(ViewFactoryContext& context, Ptr<View> parent, const pugi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollView::OnLayoutChanged()
+void PScrollView::OnLayoutChanged()
 {
-    Ptr<View> clientView = GetScrolledView();
+    Ptr<PView> clientView = GetScrolledView();
     if (clientView != nullptr)
     {
-        Rect       clientFrame = GetBounds();
-        const Rect clientBorders = clientView->GetBorders();
+        PRect       clientFrame = GetBounds();
+        const PRect clientBorders = clientView->GetBorders();
         clientFrame.Resize(clientBorders.left, clientBorders.top, clientBorders.right, clientBorders.bottom);
         clientView->SetFrame(clientFrame);
     }
@@ -91,9 +88,9 @@ void ScrollView::OnLayoutChanged()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ScrollView::OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool PScrollView::OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
-    if (m_HitButton != MouseButton_e::None) {
+    if (m_HitButton != PMouseButton::None) {
         return true;
     }
     m_HitButton = pointID;
@@ -108,12 +105,12 @@ bool ScrollView::OnTouchDown(MouseButton_e pointID, const Point& position, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ScrollView::OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool PScrollView::OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
     if (pointID != m_HitButton) {
         return true;
     }
-    m_HitButton = MouseButton_e::None;
+    m_HitButton = PMouseButton::None;
     MakeFocus(pointID, false);
 
     EndSwipe();
@@ -125,7 +122,7 @@ bool ScrollView::OnTouchUp(MouseButton_e pointID, const Point& position, const M
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool ScrollView::OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event)
+bool PScrollView::OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
 {
     if (pointID != m_HitButton) {
         return true;
@@ -138,22 +135,22 @@ bool ScrollView::OnTouchMove(MouseButton_e pointID, const Point& position, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ScrollView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight)
+void PScrollView::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight)
 {
-    Ptr<View> clientView = GetScrolledView();
+    Ptr<PView> clientView = GetScrolledView();
     if (clientView != nullptr)
     {
-        *minSize = clientView->GetPreferredSize(PrefSizeType::Smallest);
-        *maxSize = clientView->GetPreferredSize(PrefSizeType::Greatest);
-        const Rect  clientBorders = clientView->GetBorders();
-        const Point borderSize(clientBorders.left + clientBorders.right, clientBorders.top + clientBorders.bottom);
+        *minSize = clientView->GetPreferredSize(PPrefSizeType::Smallest);
+        *maxSize = clientView->GetPreferredSize(PPrefSizeType::Greatest);
+        const PRect  clientBorders = clientView->GetBorders();
+        const PPoint borderSize(clientBorders.left + clientBorders.right, clientBorders.top + clientBorders.bottom);
 
         *minSize += borderSize;
         *maxSize += borderSize;
     }
     else
     {
-        View::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
+        PView::CalculatePreferredSize(minSize, maxSize, includeWidth, includeHeight);
     }
 }
 
@@ -161,9 +158,9 @@ void ScrollView::CalculatePreferredSize(Point* minSize, Point* maxSize, bool inc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<View> ScrollView::SetScrolledView(Ptr<View> view)
+Ptr<PView> PScrollView::SetScrolledView(Ptr<PView> view)
 {
-    Ptr<View> prevClient = ViewScroller::SetScrolledView(view);
+    Ptr<PView> prevClient = PViewScroller::SetScrolledView(view);
     if (prevClient == view) {
         return prevClient;
     }
@@ -176,5 +173,3 @@ Ptr<View> ScrollView::SetScrolledView(Ptr<View> view)
     InvalidateLayout();
     return prevClient;
 }
-
-} // namespace os

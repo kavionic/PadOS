@@ -25,68 +25,63 @@
 #include <Ptr/NoPtr.h>
 
 
-namespace os
+namespace PTextBoxFlags
 {
-
-namespace TextBoxFlags
-{
-static constexpr uint32_t IncludeLineGap = 0x01 << ViewFlags::FirstUserBit;
-static constexpr uint32_t RaisedFrame    = 0x02 << ViewFlags::FirstUserBit;
-static constexpr uint32_t ReadOnly       = 0x04 << ViewFlags::FirstUserBit;
+static constexpr uint32_t IncludeLineGap = 0x01 << PViewFlags::FirstUserBit;
+static constexpr uint32_t RaisedFrame    = 0x02 << PViewFlags::FirstUserBit;
+static constexpr uint32_t ReadOnly       = 0x04 << PViewFlags::FirstUserBit;
 
 extern const std::map<PString, uint32_t> FlagMap;
 }
 
-struct TextBoxStyle : PtrTarget
+struct PTextBoxStyle : PtrTarget
 {
-    Color   BackgroundColor         = Color(NamedColors::white);
-    Color   TextColor               = Color(NamedColors::black);
-    Color   ReadOnlyBackgroundColor = Color(NamedColors::darkgray);
-    Color   ReadOnlyTextColor       = Color(NamedColors::black);
-    Color   DisabledBackgroundColor = Color(NamedColors::darkgray);
-    Color   DisabledTextColor       = Color(NamedColors::dimgray);
+    PColor   BackgroundColor         = PColor(PNamedColors::white);
+    PColor   TextColor               = PColor(PNamedColors::black);
+    PColor   ReadOnlyBackgroundColor = PColor(PNamedColors::darkgray);
+    PColor   ReadOnlyTextColor       = PColor(PNamedColors::black);
+    PColor   DisabledBackgroundColor = PColor(PNamedColors::darkgray);
+    PColor   DisabledTextColor       = PColor(PNamedColors::dimgray);
 };
 
-class TextBox : public Control, public ViewScroller
+class PTextBox : public PControl, public PViewScroller
 {
 public:
-    TextBox(const PString& name, const PString& text, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    TextBox(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PTextBox(const PString& name, const PString& text, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PTextBox(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
-    static Ptr<TextBoxStyle> GetDefaultStyle() { return s_DefaultStyle; }
+    static Ptr<PTextBoxStyle> GetDefaultStyle() { return s_DefaultStyle; }
 
     // From View:
     virtual void    OnFlagsChanged(uint32_t changedFlags) override;
-    virtual void    CalculatePreferredSize(Point* minSize, Point* maxSize, bool includeWidth, bool includeHeight) override;
-    virtual void    OnFrameSized(const Point& delta) override;
-    virtual void    OnPaint(const Rect& updateRect) override;
+    virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
+    virtual void    OnFrameSized(const PPoint& delta) override;
+    virtual void    OnPaint(const PRect& updateRect) override;
 
-    virtual bool    OnTouchDown(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchUp(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
-    virtual bool    OnTouchMove(MouseButton_e pointID, const Point& position, const MotionEvent& event) override;
+    virtual bool    OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
 
     // From TextBox:
     void            SetText(const PString& text, bool sendEvent = true) { m_Editor->SetText(text, sendEvent); }
     const PString&  GetText() const { return m_Editor->GetText(); }
 
-    Point           GetSizeForString(const PString& text, bool includeWidth = true, bool includeHeight = true) const;
+    PPoint           GetSizeForString(const PString& text, bool includeWidth = true, bool includeHeight = true) const;
 
-    Ptr<const TextBoxStyle> GetStyle() const { return m_Editor->GetStyle(); }
-    void                    SetStyle(Ptr<const TextBoxStyle> style) { m_Editor->SetStyle(style); }
+    Ptr<const PTextBoxStyle> GetStyle() const { return m_Editor->GetStyle(); }
+    void                    SetStyle(Ptr<const PTextBoxStyle> style) { m_Editor->SetStyle(style); }
 
-    Signal<void, const PString&, bool, TextBox*> SignalTextChanged; //(const PString& newText, bool finalUpdate, TextBox* source)
+    Signal<void, const PString&, bool, PTextBox*> SignalTextChanged; //(const PString& newText, bool finalUpdate, TextBox* source)
 private:
     void Initialize(const PString& text);
 
     void SlotTextChanged(const PString& text, bool finalUpdate);
 
-    static NoPtr<TextBoxStyle> s_DefaultStyle;
+    static NoPtr<PTextBoxStyle> s_DefaultStyle;
 
 
-    Ptr<TextEditView> m_Editor;
+    Ptr<PTextEditView> m_Editor;
 
-    TextBox(const TextBox&) = delete;
-    TextBox& operator=(const TextBox&) = delete;
+    PTextBox(const PTextBox&) = delete;
+    PTextBox& operator=(const PTextBox&) = delete;
 };
-
-} // namespace os

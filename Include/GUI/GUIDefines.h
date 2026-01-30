@@ -24,8 +24,6 @@
 #include <Utils/String.h>
 #include <Utils/Logging.h>
 
-namespace os
-{
 PDEFINE_LOG_CATEGORY(LogCategoryGUITK, "GUITK", PLogSeverity::WARNING);
 
 
@@ -36,7 +34,7 @@ PDEFINE_LOG_CATEGORY(LogCategoryGUITK, "GUITK", PLogSeverity::WARNING);
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-namespace ViewFlags
+namespace PViewFlags
 {
     static constexpr uint32_t FullUpdateOnResizeH = 0x0001;   ///< Cause the entire view to be invalidated if made wider
     static constexpr uint32_t FullUpdateOnResizeV = 0x0002;   ///< Cause the entire view to be invalidated if made higher
@@ -55,7 +53,7 @@ namespace ViewFlags
     extern const std::map<PString, uint32_t> FlagMap;
 }
 
-namespace ViewDebugDrawFlags
+namespace PViewDebugDrawFlags
 {
     enum Type
     {
@@ -65,7 +63,7 @@ namespace ViewDebugDrawFlags
     };
 }
 
-enum class ViewDockType : int32_t
+enum class PViewDockType : int32_t
 {
     TopLevelView,
     RootLevelView,
@@ -76,14 +74,14 @@ enum class ViewDockType : int32_t
     StatusBarIcon
 };
 
-namespace TransparentColors
+namespace PTransparentColors
 {
 static constexpr uint8_t    CMAP8 = 0xff;
 static constexpr uint16_t   RGB16 = (0x1f << 11) | (0x01 << 5) | 0x1f; // (255, 4, 255)
 static constexpr uint32_t   RGB32 = 0xffffffff;
 };
 
-enum class DrawingMode : uint8_t
+enum class PDrawingMode : uint8_t
 {
     Copy,
     Overlay,
@@ -97,7 +95,7 @@ enum class DrawingMode : uint8_t
     Select
 };
 
-enum class StandardColorID : int32_t
+enum class PStandardColorID : int32_t
 {
     None,
     DefaultBackground,
@@ -142,7 +140,7 @@ static constexpr float LAYOUT_MAX_SIZE = 100000.0f;
 static constexpr float COORD_MAX = 16000000.0f;
 
 
-enum class Alignment : uint8_t
+enum class PAlignment : uint8_t
 {
     Left,
     Right,
@@ -152,13 +150,13 @@ enum class Alignment : uint8_t
     Stretch
 };
 
-enum class Orientation : uint8_t
+enum class POrientation : uint8_t
 {
     Horizontal,
     Vertical
 };
 
-enum class PrefSizeType : uint8_t
+enum class PPrefSizeType : uint8_t
 {
     Smallest,
     Greatest,
@@ -166,7 +164,7 @@ enum class PrefSizeType : uint8_t
     All = Count
 };
 
-enum class SizeOverride : uint8_t
+enum class PSizeOverride : uint8_t
 {
     None,
     Always,
@@ -174,7 +172,7 @@ enum class SizeOverride : uint8_t
     Limit
 };
 
-enum class ScrollDirection : uint8_t
+enum class PScrollDirection : uint8_t
 {
     Left,
     Right,
@@ -182,7 +180,7 @@ enum class ScrollDirection : uint8_t
     Down
 };
 
-enum class KeyCodes : uint32_t
+enum class PKeyCodes : uint32_t
 {
     NONE = 0,
     CURSOR_LEFT = 1,
@@ -271,7 +269,7 @@ enum
     QUAL_REPEAT = 0x40                      //!< Set if the key-down event was caused by key repeating.
 };
 
-enum class EColorSpace : uint32_t
+enum class PEColorSpace : uint32_t
 {
     NO_COLOR_SPACE,
 
@@ -297,5 +295,3 @@ static constexpr float KEYREPEAT_REPEAT = 0.08f;
 
 static constexpr float LONG_PRESS_DELAY = 0.5f;
 static constexpr float BEGIN_DRAG_OFFSET = 20.0f;
-
-} // namespace

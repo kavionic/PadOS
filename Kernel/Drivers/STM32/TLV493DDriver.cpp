@@ -38,8 +38,6 @@
 #include <Kernel/VFS/KDriverDescriptor.h>
 
 
-using namespace os;
-
 namespace kernel
 {
 

@@ -27,7 +27,6 @@
 #include <Kernel/USB/USBLanguages.h>
 #include <Utils/Utils.h>
 
-using namespace os;
 
 namespace kernel
 {
@@ -326,7 +325,7 @@ const USB_DescConfiguration* USBDevice::GetConfigDescriptor(uint32_t index) cons
     if (buffer != m_ConfigDescriptors.end() && buffer->second.size() >= sizeof(USB_DescConfiguration))
     {
         USB_DescConfiguration* desc = reinterpret_cast<USB_DescConfiguration*>(buffer->second.data());
-        desc->wTotalLength = HostToLittleEndian(uint16_t(buffer->second.size()));
+        desc->wTotalLength = PHostToLittleEndian(uint16_t(buffer->second.size()));
         return desc;
     }
     return nullptr;
@@ -344,7 +343,7 @@ const USB_DescConfiguration* USBDevice::GetOtherConfigDescriptor(uint32_t index)
     if (buffer != m_OtherConfigDescriptors.end() && buffer->second.size() >= sizeof(USB_DescConfiguration))
     {
         USB_DescConfiguration* desc = reinterpret_cast<USB_DescConfiguration*>(buffer->second.data());
-        desc->wTotalLength = HostToLittleEndian(uint16_t(buffer->second.size()));
+        desc->wTotalLength = PHostToLittleEndian(uint16_t(buffer->second.size()));
         return desc;
     }
     return nullptr;
@@ -361,7 +360,7 @@ const USB_DescBOS* USBDevice::GetBOSDescriptor() const
     if (m_BOSDescriptors.size() >= sizeof(USB_DescBOS))
     {
         USB_DescBOS* desc = reinterpret_cast<USB_DescBOS*>(m_BOSDescriptors.data());
-        desc->wTotalLength = HostToLittleEndian(uint16_t(m_BOSDescriptors.size()));
+        desc->wTotalLength = PHostToLittleEndian(uint16_t(m_BOSDescriptors.size()));
         return desc;
     }
     return nullptr;
@@ -837,7 +836,7 @@ bool USBDevice::HandleDeviceControlRequests(const USB_ControlRequest& request)
                 if (m_SelfPowered)          status |= USB_DEVICE_STATUS_SELF_POWERED;
                 if (m_RemoteWakeupEnabled)  status |= USB_DEVICE_STATUS_REMOTE_WAKEUP_ENABLED;
 
-                status = HostToLittleEndian(status);
+                status = PHostToLittleEndian(status);
                 m_ControlTransfer.SendControlDataReply(request, &status, sizeof(status));
                 break;
             }
@@ -939,7 +938,7 @@ bool USBDevice::HandleEndpointControlRequest(const USB_ControlRequest& request)
             {
                 uint16_t status = 0;
                 if (IsEndpointStalled(endpointAddr)) status |= USB_ENDPOINT_STATUS_HALT;
-                status = HostToLittleEndian(status);
+                status = PHostToLittleEndian(status);
                 m_ControlTransfer.SendControlDataReply(request, &status, sizeof(status));
                 break;
             }
@@ -990,7 +989,7 @@ bool USBDevice::HandleSelectConfiguration(uint8_t configNum)
     m_RemoteWakeupSupport   = (configDesc->bmAttributes & USB_DescConfiguration::ATTRIBUTES_REMOTE_WAKEUP) != 0;
     m_SelfPowered           = (configDesc->bmAttributes & USB_DescConfiguration::ATTRIBUTES_SELF_POWERED) != 0;
 
-    const void* endDesc = reinterpret_cast<const uint8_t*>(configDesc) + LittleEndianToHost(configDesc->wTotalLength);
+    const void* endDesc = reinterpret_cast<const uint8_t*>(configDesc) + PLittleEndianToHost(configDesc->wTotalLength);
    
     for (const USB_DescriptorHeader* desc = configDesc->GetNext(); desc < endDesc; )
     {
@@ -1097,7 +1096,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
             {
                 // Adjust the request length to prevent a zero-length status reply at the end of the transfer.
                 USB_ControlRequest truncatedRequest = request;
-                truncatedRequest.wLength = HostToLittleEndian(uint16_t(m_Endpoint0Size));
+                truncatedRequest.wLength = PHostToLittleEndian(uint16_t(m_Endpoint0Size));
                 return m_ControlTransfer.SendControlDataReply(truncatedRequest, &m_DeviceDescriptor, m_Endpoint0Size);
             }
             else
@@ -1109,7 +1108,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
             kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor BOS.");
             const USB_DescBOS* desc = GetBOSDescriptor();
             if (desc != nullptr) {
-                return m_ControlTransfer.SendControlDataReply(request, const_cast<USB_DescBOS*>(desc), LittleEndianToHost(desc->wTotalLength));
+                return m_ControlTransfer.SendControlDataReply(request, const_cast<USB_DescBOS*>(desc), PLittleEndianToHost(desc->wTotalLength));
             }
             return false;
         }
@@ -1119,7 +1118,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
             const USB_DescConfiguration* desc = (descType == USB_DescriptorType::CONFIGURATION) ? GetConfigDescriptor(descIndex) : GetOtherConfigDescriptor(descIndex);
             kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor {}[{}].", ((descType == USB_DescriptorType::CONFIGURATION) ? "CONFIGURATION" : "OTHER_SPEED_CONFIG"), descIndex);
             if (desc != nullptr) {
-                return m_ControlTransfer.SendControlDataReply(request, const_cast<USB_DescConfiguration*>(desc), LittleEndianToHost(desc->wTotalLength));
+                return m_ControlTransfer.SendControlDataReply(request, const_cast<USB_DescConfiguration*>(desc), PLittleEndianToHost(desc->wTotalLength));
             }
             return false;
         }
@@ -1131,7 +1130,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
                 languages.resize(1);
                 for (auto i : m_StringDescriptors)
                 {
-                    languages.push_back(HostToLittleEndian(uint16_t(i.first)));
+                    languages.push_back(PHostToLittleEndian(uint16_t(i.first)));
                 }
                 USB_DescriptorHeader header;
                 header.bLength = uint8_t(languages.size() * sizeof(uint16_t));
@@ -1143,7 +1142,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
             }
             else
             {
-                USB_LanguageID languageCode = USB_LanguageID(LittleEndianToHost(request.wIndex));
+                USB_LanguageID languageCode = USB_LanguageID(PLittleEndianToHost(request.wIndex));
                 kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor STRING[{:04x}][{}].\n", int(languageCode), descIndex);
 
                 auto languageIter = m_StringDescriptors.find(languageCode);

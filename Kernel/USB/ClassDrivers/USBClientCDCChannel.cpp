@@ -31,7 +31,6 @@
 #include <System/ExceptionHandling.h>
 #include <DeviceControl/USART.h>
 
-using namespace os;
 
 namespace kernel
 {

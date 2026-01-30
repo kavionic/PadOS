@@ -24,16 +24,15 @@
 #include "ApplicationServer/ApplicationServer.h"
 #include "ApplicationServer/DisplayDriver.h"
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FontHeight Font::GetHeight() const
+PFontHeight PFont::GetHeight() const
 {
-    DisplayDriver* driver = ApplicationServer::GetDisplayDriver();
-    FontHeight height;
+    PDisplayDriver* driver = ApplicationServer::GetDisplayDriver();
+    PFontHeight height;
     height.ascender = 0.0f;
     height.descender = driver->GetFontHeight(m_Font);
     height.line_gap = std::ceil((height.descender - height.ascender) / 10.0f);
@@ -44,7 +43,7 @@ FontHeight Font::GetHeight() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Font::GetStringLength(const char* pzString, float vWidth, bool bIncludeLast) const
+int PFont::GetStringLength(const char* pzString, float vWidth, bool bIncludeLast) const
 {
     return GetStringLength(pzString, strlen(pzString), vWidth, bIncludeLast);
 }
@@ -53,7 +52,7 @@ int Font::GetStringLength(const char* pzString, float vWidth, bool bIncludeLast)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Font::GetStringLength(const char* pzString, int nLength, float vWidth, bool bIncludeLast) const
+int PFont::GetStringLength(const char* pzString, int nLength, float vWidth, bool bIncludeLast) const
 {
     const char* apzStrPtr[] = { pzString };
     int		nMaxLength;
@@ -67,7 +66,7 @@ int Font::GetStringLength(const char* pzString, int nLength, float vWidth, bool 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int Font::GetStringLength(const std::string& cString, float vWidth, bool bIncludeLast) const
+int PFont::GetStringLength(const std::string& cString, float vWidth, bool bIncludeLast) const
 {
     const char* apzStrPtr[] = { cString.c_str() };
     int		nMaxLength;
@@ -82,9 +81,9 @@ int Font::GetStringLength(const std::string& cString, float vWidth, bool bInclud
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Font::GetStringLengths(const char** stringArray, const int* lengthArray, int stringCount, float width, int* maxLengthArray, bool includeLast) const
+void PFont::GetStringLengths(const char** stringArray, const int* lengthArray, int stringCount, float width, int* maxLengthArray, bool includeLast) const
 {
-    DisplayDriver* driver = ApplicationServer::GetDisplayDriver();
+    PDisplayDriver* driver = ApplicationServer::GetDisplayDriver();
     for (int i = 0; i < stringCount; ++i)
     {
         maxLengthArray[i] = driver->GetStringLength(m_Font, stringArray[i], lengthArray[i], width, includeLast);
@@ -143,8 +142,8 @@ void Font::GetStringLengths(const char** stringArray, const int* lengthArray, in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float Font::GetStringWidth(const char* string, size_t length) const
+float PFont::GetStringWidth(const char* string, size_t length) const
 {
-    DisplayDriver* driver = ApplicationServer::GetScreenBitmap()->m_Driver;
+    PDisplayDriver* driver = ApplicationServer::GetScreenBitmap()->m_Driver;
     return driver->GetStringWidth(m_Font, string, length);
 }

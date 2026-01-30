@@ -23,7 +23,6 @@
 #include <Kernel/KNamedObject.h>
 #include <Kernel/KMutex.h>
 
-using namespace os;
 
 namespace kernel
 {

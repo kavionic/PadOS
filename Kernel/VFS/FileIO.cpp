@@ -31,7 +31,6 @@
 #include <Kernel/VFS/KVFSManager.h>
 #include <System/ExceptionHandling.h>
 
-using namespace os;
 
 namespace kernel
 {

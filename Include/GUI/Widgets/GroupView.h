@@ -21,20 +21,16 @@
 
 #include <GUI/View.h>
 
-namespace os
-{
 
-class GroupView : public View
+class PGroupView : public PView
 {
 public:
-    GroupView(const PString& name = PString::zero, Ptr<View> parent = nullptr, uint32_t flags = 0);
-    GroupView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData);
+    PGroupView(const PString& name = PString::zero, Ptr<PView> parent = nullptr, uint32_t flags = 0);
+    PGroupView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData);
 
     // From View:
-    virtual void OnPaint(const Rect& updateRect) override;
+    virtual void OnPaint(const PRect& updateRect) override;
 
 private:
     PString m_Label;
 };
-
-}

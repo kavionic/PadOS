@@ -27,16 +27,13 @@
 
 struct PFirmwareImageDefinition;
 
-namespace os
-{
-
-class Thread
+class PThread
 {
 public:
-    Thread(const PString& name);
-    virtual ~Thread();
+    PThread(const PString& name);
+    virtual ~PThread();
 
-    static Thread* GetCurrentThread();
+    static PThread* GetCurrentThread();
 
     const PString& GetName() const { return m_Name; }
 
@@ -55,24 +52,20 @@ public:
     
     void Exit(void* returnValue);
 
-    VFConnector<void*, Thread*> VFRun;
+    VFConnector<void*, PThread*> VFRun;
 private:
     static void* ThreadEntry(void* data);
 
-    static thread_local Thread* st_CurrentThread;
+    static thread_local PThread* st_CurrentThread;
 
     PString             m_Name;
     thread_id           m_ThreadHandle = INVALID_HANDLE;
     PThreadDetachState  m_DetachState = PThreadDetachState_Detached;
     bool                m_DeleteOnExit = true;
 
-    Thread(const Thread &) = delete;
-    Thread& operator=(const Thread &) = delete;
+    PThread(const PThread &) = delete;
+    PThread& operator=(const PThread &) = delete;
 };
-
-} // namespace os
-
-using PThread = os::Thread;
 
 PThreadControlBlock* create_thread_tls_block(const PFirmwareImageDefinition& imageDefinition, void* buffer = nullptr);
 void delete_thread_tls_block(PThreadControlBlock* tlsBlock);

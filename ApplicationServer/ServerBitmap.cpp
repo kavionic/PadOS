@@ -19,13 +19,12 @@
 #include <GUI/Bitmap.h>
 #include <ApplicationServer/ServerBitmap.h>
 
-using namespace os;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SrvBitmap::SrvBitmap(const os::IPoint& size, os::EColorSpace colorSpace, uint8_t* raster, size_t bytesPerLine)
+PSrvBitmap::PSrvBitmap(const PIPoint& size, PEColorSpace colorSpace, uint8_t* raster, size_t bytesPerLine)
     : m_ColorSpace(colorSpace)
     , m_Size(size)
     , m_BytesPerLine(bytesPerLine)
@@ -52,7 +51,7 @@ SrvBitmap::SrvBitmap(const os::IPoint& size, os::EColorSpace colorSpace, uint8_t
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SrvBitmap::~SrvBitmap()
+PSrvBitmap::~PSrvBitmap()
 {
     if (m_FreeRaster) {
         delete[] m_Raster;

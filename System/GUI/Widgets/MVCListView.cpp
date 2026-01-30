@@ -21,15 +21,13 @@
 #include <GUI/Widgets/MVCListView.h>
 #include <GUI/Widgets/ScrollView.h>
 
-namespace os
-{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MVCListView::MVCListView(const PString& name, Ptr<View> parent, uint32_t flags)
-    : MVCBaseView(name, parent, flags)
+PMVCListView::PMVCListView(const PString& name, Ptr<PView> parent, uint32_t flags)
+    : PMVCBaseView(name, parent, flags)
 {
 }
 
@@ -37,8 +35,8 @@ MVCListView::MVCListView(const PString& name, Ptr<View> parent, uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MVCListView::MVCListView(ViewFactoryContext& context, Ptr<View> parent, const pugi::xml_node& xmlData)
-    : MVCBaseView(context, parent, xmlData)
+PMVCListView::PMVCListView(PViewFactoryContext& context, Ptr<PView> parent, const pugi::xml_node& xmlData)
+    : PMVCBaseView(context, parent, xmlData)
 {
 }
 
@@ -46,7 +44,7 @@ MVCListView::MVCListView(ViewFactoryContext& context, Ptr<View> parent, const pu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCListView::OnFrameSized(const Point& delta)
+void PMVCListView::OnFrameSized(const PPoint& delta)
 {
     if (delta.x != 0.0f) {
         UpdateItemHeights();
@@ -58,21 +56,21 @@ void MVCListView::OnFrameSized(const Point& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCListView::OnLayoutChanged()
+void PMVCListView::OnLayoutChanged()
 {
-    MVCBaseView::OnLayoutChanged();
+    PMVCBaseView::OnLayoutChanged();
 
     UpdateWidgets();
 
-    const Rect bounds = m_ContentView->GetBounds();
+    const PRect bounds = m_ContentView->GetBounds();
 
     if (m_FirstVisibleItem != INVALID_INDEX)
     {
         for (ssize_t i = m_FirstVisibleItem; i <= m_LastVisibleItem; ++i)
         {
-            const MVCListViewItemNode& itemNode = m_Items[i];
+            const PMVCListViewItemNode& itemNode = m_Items[i];
             if (itemNode.ItemWidget != nullptr) {
-                itemNode.ItemWidget->SetFrame(Rect(bounds.left, itemNode.PositionY, bounds.right, itemNode.PositionY + itemNode.Height));
+                itemNode.ItemWidget->SetFrame(PRect(bounds.left, itemNode.PositionY, bounds.right, itemNode.PositionY + itemNode.Height));
             }
         }
     }
@@ -82,21 +80,21 @@ void MVCListView::OnLayoutChanged()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Point MVCListView::CalculateContentSize() const
+PPoint PMVCListView::CalculateContentSize() const
 {
     if (!m_Items.empty())
     {
-        const MVCListViewItemNode& lastItem = m_Items.back();
-        return Point(0.0f, lastItem.PositionY + lastItem.Height);
+        const PMVCListViewItemNode& lastItem = m_Items.back();
+        return PPoint(0.0f, lastItem.PositionY + lastItem.Height);
     }
-    return Point(0.0f, 0.0f);
+    return PPoint(0.0f, 0.0f);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCListView::AddItem(Ptr<PtrTarget> item)
+void PMVCListView::AddItem(Ptr<PtrTarget> item)
 {
     const float prevItemBottom = m_Items.empty() ? 0.0f : (m_Items.back().PositionY + m_Items.back().Height + m_ItemSpacing);
     uint32_t classID = VFGetItemWidgetClassID.Empty() ? 0 : VFGetItemWidgetClassID(item);
@@ -108,7 +106,7 @@ void MVCListView::AddItem(Ptr<PtrTarget> item)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCListView::Clear()
+void PMVCListView::Clear()
 {
     m_Items.clear();
     InvalidateLayout();
@@ -118,12 +116,12 @@ void MVCListView::Clear()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t MVCListView::GetItemIndexAtPosition(const Point& position) const
+size_t PMVCListView::GetItemIndexAtPosition(const PPoint& position) const
 {
-    const Rect& bounds = GetBounds();
+    const PRect& bounds = GetBounds();
     if (position.x >= bounds.left && position.x <= bounds.right - 1.0f)
     {
-        const auto itemIter = std::upper_bound(m_Items.begin(), m_Items.end(), position.y, [](float y, const MVCListViewItemNode& node) { return y < (node.PositionY + node.Height); });
+        const auto itemIter = std::upper_bound(m_Items.begin(), m_Items.end(), position.y, [](float y, const PMVCListViewItemNode& node) { return y < (node.PositionY + node.Height); });
         if (itemIter != m_Items.end() && (itemIter->PositionY + itemIter->Height) > position.y)
         {
             size_t index = itemIter - m_Items.begin();
@@ -137,21 +135,21 @@ size_t MVCListView::GetItemIndexAtPosition(const Point& position) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MVCListView::GetItemHeight(Ptr<const PtrTarget> item, uint32_t widgetClassID, float width) const
+float PMVCListView::GetItemHeight(Ptr<const PtrTarget> item, uint32_t widgetClassID, float width) const
 {
     if (!VFGetItemHeight.Empty()) {
         return VFGetItemHeight(item, width);
     }
-    Ptr<View> itemWidget = CreateItemWidget(widgetClassID);
+    Ptr<PView> itemWidget = CreateItemWidget(widgetClassID);
     if (itemWidget != nullptr)
     {
-        itemWidget->SetFrame(Rect(0.0f, 0.0f, width, COORD_MAX));
+        itemWidget->SetFrame(PRect(0.0f, 0.0f, width, COORD_MAX));
 
         if (!VFUpdateItemWidget.Empty()) VFUpdateItemWidget(itemWidget, item, false, false);
 
         itemWidget->RefreshLayout(3, true);
 
-        const float height = itemWidget->GetPreferredSize(PrefSizeType::Smallest).y;
+        const float height = itemWidget->GetPreferredSize(PPrefSizeType::Smallest).y;
         CacheItemWidget(itemWidget, widgetClassID);
         return height;
     }
@@ -162,13 +160,13 @@ float MVCListView::GetItemHeight(Ptr<const PtrTarget> item, uint32_t widgetClass
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCListView::UpdateItemHeights()
+void PMVCListView::UpdateItemHeights()
 {
     const float width = Width();
     float positionY = 0.0f;
     for (size_t i = 0; i < m_Items.size(); ++i)
     {
-        MVCListViewItemNode& itemNode = m_Items[i];
+        PMVCListViewItemNode& itemNode = m_Items[i];
         itemNode.Height = GetItemHeight(itemNode.ItemData, itemNode.WidgetClassID, width);
         itemNode.PositionY = positionY;
         positionY += itemNode.Height + m_ItemSpacing;
@@ -179,17 +177,17 @@ void MVCListView::UpdateItemHeights()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCListView::UpdateWidgets()
+void PMVCListView::UpdateWidgets()
 {
-    const Rect& bounds = m_ContentView->GetBounds();
+    const PRect& bounds = m_ContentView->GetBounds();
 
     if (bounds.IsValid())
     {
-        const auto firstVisible = std::lower_bound(m_Items.begin(), m_Items.end(), bounds.top, [](const MVCListViewItemNode& node, float y) { return (node.PositionY + node.Height) < y; });
+        const auto firstVisible = std::lower_bound(m_Items.begin(), m_Items.end(), bounds.top, [](const PMVCListViewItemNode& node, float y) { return (node.PositionY + node.Height) < y; });
 
         if (firstVisible != m_Items.end())
         {
-            const auto lastVisible = std::lower_bound(firstVisible, m_Items.end(), bounds.bottom, [](const MVCListViewItemNode& node, float y) { return node.PositionY < y; });
+            const auto lastVisible = std::lower_bound(firstVisible, m_Items.end(), bounds.bottom, [](const PMVCListViewItemNode& node, float y) { return node.PositionY < y; });
             const ssize_t firstItemIndex = firstVisible - m_Items.begin();
             const ssize_t lastItemIndex = (lastVisible == m_Items.end()) ? (m_Items.size() - 1) : (lastVisible - m_Items.begin());
 
@@ -204,16 +202,14 @@ void MVCListView::UpdateWidgets()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MVCListView::OnItemsReordered()
+void PMVCListView::OnItemsReordered()
 {
     float positionY = 0.0f;
 
-    for (MVCListViewItemNode& itemNode : m_Items)
+    for (PMVCListViewItemNode& itemNode : m_Items)
     {
         itemNode.PositionY = positionY;
         positionY += itemNode.Height + m_ItemSpacing;
     }
-    MVCBaseView::OnItemsReordered();
+    PMVCBaseView::OnItemsReordered();
 }
-
-} // namespace os

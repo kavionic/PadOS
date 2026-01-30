@@ -21,14 +21,14 @@
 #include <System/ExceptionHandling.h>
 #include <Utils/Utils.h>
 
-ThreadLocalSlotManager*          ThreadLocalSlotManager::s_Instance;
-thread_local std::vector<void*>* ThreadLocalSlotManager::s_ThreadSlots;
+PThreadLocalSlotManager*          PThreadLocalSlotManager::s_Instance;
+thread_local std::vector<void*>* PThreadLocalSlotManager::s_ThreadSlots;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ThreadLocalSlotManager::ThreadLocalSlotManager() : m_Mutex("tls_mgr", PEMutexRecursionMode::PEMutexRecursionMode_RaiseError)
+PThreadLocalSlotManager::PThreadLocalSlotManager() : m_Mutex("tls_mgr", PEMutexRecursionMode::PEMutexRecursionMode_RaiseError)
 {
     assert(s_Instance == nullptr);
     s_Instance = this;
@@ -40,9 +40,9 @@ ThreadLocalSlotManager::ThreadLocalSlotManager() : m_Mutex("tls_mgr", PEMutexRec
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ThreadLocalSlotManager& ThreadLocalSlotManager::Get()
+PThreadLocalSlotManager& PThreadLocalSlotManager::Get()
 {
-    static ThreadLocalSlotManager instance;
+    static PThreadLocalSlotManager instance;
     return instance;
 }
 
@@ -50,7 +50,7 @@ ThreadLocalSlotManager& ThreadLocalSlotManager::Get()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode ThreadLocalSlotManager::AllocSlot(tls_id& outKey, TLSDestructor_t destructor)
+PErrorCode PThreadLocalSlotManager::AllocSlot(tls_id& outKey, TLSDestructor_t destructor)
 {
     assert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
@@ -81,7 +81,7 @@ PErrorCode ThreadLocalSlotManager::AllocSlot(tls_id& outKey, TLSDestructor_t des
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode ThreadLocalSlotManager::FreeSlot(tls_id slot)
+PErrorCode PThreadLocalSlotManager::FreeSlot(tls_id slot)
 {
     assert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
@@ -109,7 +109,7 @@ PErrorCode ThreadLocalSlotManager::FreeSlot(tls_id slot)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void* ThreadLocalSlotManager::GetSlot(tls_id key)
+void* PThreadLocalSlotManager::GetSlot(tls_id key)
 {
     if (s_ThreadSlots == nullptr || size_t(key) >= s_ThreadSlots->size()) {
         return nullptr;
@@ -121,7 +121,7 @@ void* ThreadLocalSlotManager::GetSlot(tls_id key)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode ThreadLocalSlotManager::SetSlot(tls_id key, const void* value)
+PErrorCode PThreadLocalSlotManager::SetSlot(tls_id key, const void* value)
 {
     if (size_t(key) >= THREAD_MAX_TLS_SLOTS) {
         return PErrorCode::InvalidArg;
@@ -156,7 +156,7 @@ PErrorCode ThreadLocalSlotManager::SetSlot(tls_id key, const void* value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ThreadLocalSlotManager::ThreadTerminated()
+void PThreadLocalSlotManager::ThreadTerminated()
 {
     std::vector<void*>* slots = s_ThreadSlots;
 
@@ -200,7 +200,7 @@ void ThreadLocalSlotManager::ThreadTerminated()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-tls_id ThreadLocalSlotManager::FindFreeIndex() const
+tls_id PThreadLocalSlotManager::FindFreeIndex() const
 {
     for (uint32_t i = 0; i < ARRAY_COUNT(m_AllocationMap); ++i)
     {
@@ -229,7 +229,7 @@ tls_id ThreadLocalSlotManager::FindFreeIndex() const
 
 PErrorCode thread_local_create_key(tls_id* outKey, TLSDestructor_t destructor)
 {
-    return ThreadLocalSlotManager::Get().AllocSlot(*outKey, destructor);
+    return PThreadLocalSlotManager::Get().AllocSlot(*outKey, destructor);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -238,7 +238,7 @@ PErrorCode thread_local_create_key(tls_id* outKey, TLSDestructor_t destructor)
 
 PErrorCode thread_local_delete_key(tls_id key)
 {
-    return ThreadLocalSlotManager::Get().FreeSlot(key);
+    return PThreadLocalSlotManager::Get().FreeSlot(key);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -247,7 +247,7 @@ PErrorCode thread_local_delete_key(tls_id key)
 
 PErrorCode thread_local_set(tls_id key, const void* value)
 {
-    return ThreadLocalSlotManager::Get().SetSlot(key, value);
+    return PThreadLocalSlotManager::Get().SetSlot(key, value);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -256,5 +256,5 @@ PErrorCode thread_local_set(tls_id key, const void* value)
 
 void* thread_local_get(tls_id key)
 {
-    return ThreadLocalSlotManager::Get().GetSlot(key);
+    return PThreadLocalSlotManager::Get().GetSlot(key);
 }

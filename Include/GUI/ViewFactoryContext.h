@@ -27,13 +27,11 @@
 #include "Utils/XMLObjectParser.h"
 
 
-namespace os
-{
+class PView;
+class PButtonGroup;
 
-class View;
-class ButtonGroup;
 
-struct ViewFactoryContext
+struct PViewFactoryContext
 {
 
     pugi::xml_attribute GetAttribute(const pugi::xml_node& xmlNode, const char* name)
@@ -69,7 +67,7 @@ struct ViewFactoryContext
         if (!attribute.empty())
         {
             T value;
-            if (xml_object_parser::parse(attribute.value(), value)) {
+            if (p_xml_object_parser::parse(attribute.value(), value)) {
                 return value;
             }
         }
@@ -84,19 +82,17 @@ struct ViewFactoryContext
         if (flagString != noFlagString)
         {
             T flags = 0;
-            if (xml_object_parser::parse_flags(flagString.c_str(), flagDefinitions, flags)) {
+            if (p_xml_object_parser::parse_flags(flagString.c_str(), flagDefinitions, flags)) {
                 return flags;
             }
         }
         return defaultValue;
     }
 
-    Ptr<ButtonGroup> GetButtonGroup(const PString& name);
+    Ptr<PButtonGroup> GetButtonGroup(const PString& name);
 
     std::multimap<PString, pugi::xml_node>  m_Templates;
-    std::map<PString, Ptr<View>>             m_WidthRings;
-    std::map<PString, Ptr<View>>             m_HeightRings;
-    std::map<PString, Ptr<ButtonGroup>>      m_ButtonGroups;
+    std::map<PString, Ptr<PView>>             m_WidthRings;
+    std::map<PString, Ptr<PView>>             m_HeightRings;
+    std::map<PString, Ptr<PButtonGroup>>      m_ButtonGroups;
 };
-
-} // namespace

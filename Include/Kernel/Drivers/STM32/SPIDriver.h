@@ -166,6 +166,7 @@ public:
     SPIDriverINode(const SPIDriverParameters& setup);
 
     virtual void DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual void ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
 
 private:
     void    SetBaudrateDivider(SPIBaudRateDivider baudRateDivider);

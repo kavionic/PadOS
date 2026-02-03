@@ -61,7 +61,9 @@ static constexpr uint32_t g_TransferRateMultipliers_mmc[16] = { 0, 10, 12, 13, 1
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCINode::SDMMCINode(Ptr<SDMMCDriver> driver) : KINode(nullptr, nullptr, ptr_raw_pointer_cast(driver), false), m_Driver(driver)
+SDMMCINode::SDMMCINode(Ptr<SDMMCDriver> driver)
+    : KINode(nullptr, nullptr, ptr_raw_pointer_cast(driver), S_IFBLK | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+    , m_Driver(driver)
 {
 }
 
@@ -418,6 +420,22 @@ size_t SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t s
     }
     return length;
 }    
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SDMMCDriver::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+{
+    CRITICAL_SCOPE(m_Mutex);
+
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
+
+    Ptr<SDMMCINode> devInode = ptr_dynamic_cast<SDMMCINode>(inode);
+    if (devInode != nullptr) {
+        statBuf->st_size = devInode->bi_nSize;
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

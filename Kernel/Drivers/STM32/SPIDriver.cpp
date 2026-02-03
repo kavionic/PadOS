@@ -51,7 +51,7 @@ const uint32_t IFCR_ALL = SPI_IFCR_EOTC | SPI_IFCR_TXTFC | SPI_IFCR_UDRC | SPI_I
 ///////////////////////////////////////////////////////////////////////////////
 
 SPIDriverINode::SPIDriverINode(const SPIDriverParameters& setup)
-    : KINode(nullptr, nullptr, this, false)
+    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , m_Mutex("SPIDriverINodeMutex", PEMutexRecursionMode_RaiseError)
     , m_TransactionCondition("SPIDriverINodeTransC")
     , m_PinCLK(setup.PinCLK)
@@ -336,6 +336,17 @@ void SPIDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const void*
         default:
             PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SPIDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+{
+    CRITICAL_SCOPE(m_Mutex);
+
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

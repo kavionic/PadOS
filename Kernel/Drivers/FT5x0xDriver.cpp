@@ -107,8 +107,8 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
 //        kwrite(m_I2CDevice, )
 
     Start_trw(PThreadDetachState_Detached, 10);
-        
-    Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
+
+    Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
     kregister_device_root_trw(devicePath, inode);
 }
 

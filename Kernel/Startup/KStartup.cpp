@@ -27,10 +27,12 @@
 #include <Kernel/KThread.h>
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
+#include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KBlockCache.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 #include <Kernel/DebugConsole/KDebugConsole.h>
+#include <Kernel/FSDrivers/BinFS/BinFS.h>
 
 extern "C" void __libc_init_array(void);
 
@@ -150,6 +152,10 @@ void* main_thread_entry(void* argument)
 
     KBlockCache::Initialize();
 
+    ksetup_rootfs_trw();
+
+    kregister_filesystem_trw("binfs", ptr_new<KBinFilesystem>());
+
     kchdir_trw("/");
 
     initialize_device_drivers();
@@ -174,8 +180,6 @@ static void* init_thread_entry(void* arguments)
     __libc_init_array();
 
     KThreadCB* thread = gk_CurrentThread;
-
-    ksetup_rootfs_trw();
 
     // To avoid any special cases in the first context switch we allow the
     // context switch routine to dump the initial context on the idle-thread's

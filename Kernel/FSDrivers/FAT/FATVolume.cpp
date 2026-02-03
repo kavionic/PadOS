@@ -45,7 +45,7 @@ FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PStrin
     m_VolumeLabelEntry = -2;	// for now, assume there is no volume entry
     memset(m_VolumeLabel, ' ', 11);
         
-    m_RootINode = ptr_new<FATINode>(filesystem, ptr_tmp_cast(this), true);
+    m_RootINode = ptr_new<FATINode>(filesystem, ptr_tmp_cast(this), S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
     m_RootNode = m_RootINode;
 }
 

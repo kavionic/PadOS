@@ -39,14 +39,14 @@ class KINode;
 class KINode : public PtrTarget, public KWaitableObject, public PIntrusiveListNode<KINode>
 {
 public:
-    KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, bool isDirectory);
+    KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, mode_t fileMode);
     virtual ~KINode();
     
     virtual bool LastReferenceGone() override;
     
     inline void SetDeletedFlag(bool isDeleted) { m_IsDeleted = isDeleted; }
     inline bool IsDeleted() { return m_IsDeleted; }
-    inline bool IsDirectory() const { return m_IsDirectory; }
+    inline bool IsDirectory() const { return S_ISDIR(m_FileMode); }
         
     Ptr<KFilesystem>    m_Filesystem;
     Ptr<KFSVolume>      m_Volume; // The volume this i-node came from.
@@ -54,9 +54,14 @@ public:
     Ptr<KINode>         m_MountRoot; // Root node of filesystem mounted on this inode if any.
     ino_t               m_INodeID = 0;
     time_t              m_LastUseTime = 0; // If the reference count is 0, this record the time (in seconds) when it reach 0.
+    mode_t              m_FileMode = 0;
+    
+    TimeValNanos        m_CTime;
+    TimeValNanos        m_MTime;
+    TimeValNanos        m_ATime;
+
     static_assert(sizeof(ino_t) == 8);
 
-    bool m_IsDirectory;
     bool m_IsDeleted = false;
 };
 

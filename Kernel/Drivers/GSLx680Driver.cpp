@@ -49,7 +49,7 @@ PREGISTER_KERNEL_DRIVER(GSLx680Driver, GSLx680DriverParameters);
 ///////////////////////////////////////////////////////////////////////////////
 
 GSLx680Driver::GSLx680Driver(const GSLx680DriverParameters& parameters)
-    : KINode(nullptr, nullptr, this, false)
+    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , KThread("GSLx680_driver")
     , m_Mutex("GSLx680_mutex", PEMutexRecursionMode_RaiseError)
     , m_EventCondition("GSLx680_events")
@@ -244,6 +244,17 @@ void GSLx680Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* 
         default:
             PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void GSLx680Driver::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+{
+    CRITICAL_SCOPE(m_Mutex);
+
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 08.06.2022 22:00
 
+#include <sys/stat.h>
 
 #include <PadOS/Time.h>
 #include <Utils/String.h>
@@ -40,7 +41,7 @@ namespace kernel
 ///////////////////////////////////////////////////////////////////////////////
 
 USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, int channelIndex, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize)
-    : KINode(nullptr, nullptr, this, false)
+    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , m_DeviceHandler(deviceHandler)
     , m_ReceiveCondition("usbdcdc_receive")
     , m_TransmitCondition("usbdcdc_transmit")
@@ -48,7 +49,7 @@ USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, int channelIn
     , m_EndpointOut(endpointOut)
     , m_EndpointIn(endpointIn)
 {
-    m_CreateTime = get_real_time();
+    m_ATime = m_MTime = m_CTime = kget_real_time();
 
     m_LineCoding.dwDTERate   = 115200;
     m_LineCoding.bCharFormat = USB_CDC_LineCodingStopBits::StopBits1;
@@ -267,22 +268,9 @@ void USBClientCDCChannel::Sync(Ptr<KFileNode> file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBClientCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* outStats)
+void USBClientCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
 {
-    outStats->st_dev = dev_t(volume->m_VolumeID);
-    outStats->st_ino = node->m_INodeID;
-    outStats->st_mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
-    outStats->st_mode |= S_IFREG;
-
-    if (volume->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
-        outStats->st_mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
-    }
-    outStats->st_nlink = 1;
-    outStats->st_uid = 0;
-    outStats->st_gid = 0;
-    outStats->st_size = 0;
-    outStats->st_blksize = 1;
-    outStats->st_atim = outStats->st_mtim = outStats->st_ctim = m_CreateTime.AsTimespec();
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

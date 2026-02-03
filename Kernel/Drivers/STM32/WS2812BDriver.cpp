@@ -67,7 +67,7 @@ static const uint8_t g_GammaTable[] =
 ///////////////////////////////////////////////////////////////////////////////
 
 WS2812BDriverINode::WS2812BDriverINode(const WS2812BDriverParameters& parameters)
-	: KINode(nullptr, nullptr, this, false)
+	: KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 	, m_Mutex("WS2812BDriverINodeWrite", PEMutexRecursionMode_RaiseError)
 	, m_TransmitCondition("WS2812BDriverINodeTransmit")
 {
@@ -223,6 +223,17 @@ size_t WS2812BDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const 
     m_Port->CR1 |= SPI_CR1_CSTART;
 
     return length;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void WS2812BDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+{
+    CRITICAL_SCOPE(m_Mutex);
+
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

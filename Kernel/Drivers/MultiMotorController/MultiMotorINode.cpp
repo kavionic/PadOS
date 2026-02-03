@@ -40,7 +40,8 @@ PREGISTER_KERNEL_DRIVER(MultiMotorINode, MultiMotorDriverParameters);
 ///////////////////////////////////////////////////////////////////////////////
 
 MultiMotorINode::MultiMotorINode(const MultiMotorDriverParameters& parameters)
-    : KINode(nullptr, nullptr, this, false)
+    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+    , m_Mutex("multimotor", PEMutexRecursionMode_RaiseError)
 {
     m_MotorEnablePin = parameters.PinMotorEnable;
     m_MotorEnablePin.Write(true);
@@ -114,7 +115,20 @@ MultiMotorINode::MultiMotorINode(const MultiMotorDriverParameters& parameters)
 
 void MultiMotorINode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
+    CRITICAL_SCOPE(m_Mutex);
+
     m_DeviceControlDispatcher.Dispatch(request, inData, inDataLength, outData, outDataLength);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void MultiMotorINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+{
+    CRITICAL_SCOPE(m_Mutex);
+
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

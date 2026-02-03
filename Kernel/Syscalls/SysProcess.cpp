@@ -28,6 +28,7 @@
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/Syscalls.h>
+#include <Kernel/VFS/FileIO.h>
 
 
 extern unsigned char* _sheap;
@@ -59,14 +60,36 @@ extern "C"
 
 PErrorCode sys_spawn_execve(const char* name, int priority, PThreadControlBlock* const tlsBlock, char* const argv[], char* const envp[])
 {
-    const PAppDefinition* const app = PAppDefinition::FindApplication(name);
-
-    if (app == nullptr) {
-        return PErrorCode::NoEntry;
-    }
-
     try
     {
+        const PAppDefinition* app = nullptr;
+
+        {
+            const int file = kopen_trw(name, O_RDONLY);
+
+            PScopeExit scopeCleanup([file]() { kclose(file); });
+
+            struct stat fileStats;
+
+            kread_stat_trw(file, &fileStats);
+
+            if ((fileStats.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) == 0) {
+                return PErrorCode::NoAccess;
+            }
+            if (fileStats.st_size > NAME_MAX) {
+                return PErrorCode::InvalidFileType;
+            }
+            PString appName;
+            appName.resize(size_t(fileStats.st_size));
+            if (kread_trw(file, appName.data(), appName.size()) != appName.size()) {
+                return PErrorCode::IOError;
+            }
+            app = PAppDefinition::FindApplication(appName.c_str());
+        }
+
+        if (app == nullptr) {
+            return PErrorCode::InvalidFileType;
+        }
         tlsBlock->Ptr1 = const_cast<void*>(static_cast<const void*>(app));
         tlsBlock->Ptr2 = const_cast<void*>(static_cast<const void*>(argv));
 
@@ -75,7 +98,6 @@ PErrorCode sys_spawn_execve(const char* name, int priority, PThreadControlBlock*
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
-    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

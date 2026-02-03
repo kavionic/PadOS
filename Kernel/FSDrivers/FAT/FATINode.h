@@ -57,7 +57,7 @@ class FATINode : public KINode
 {
 public:
     static const uint32_t MAGIC = 0x6eb89a76;
-    FATINode(Ptr<FATFilesystem> filesystem, Ptr<KFSVolume> volume, bool isDirectory);
+    FATINode(Ptr<FATFilesystem> filesystem, Ptr<KFSVolume> volume, mode_t fileMode);
     ~FATINode();
         
     bool CheckMagic(const char* functionName);
@@ -81,8 +81,7 @@ public:
     uint32_t m_DirEndIndex;   // Ending index of directory entry.
     uint32_t m_StartCluster;  // Data starting cluster.
     uint32_t m_EndCluster;    // Last data cluster.
-    off64_t  m_Size;          // Size in bytes.
-    time_t   m_Time;          // Unix type timestamp.
+    off_t    m_Size;          // Size in bytes.
     uint8_t  m_DOSAttribs;    // DOS-style attributes.
 
 private:

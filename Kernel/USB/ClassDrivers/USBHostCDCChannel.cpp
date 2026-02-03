@@ -37,13 +37,13 @@ namespace kernel
 ///////////////////////////////////////////////////////////////////////////////
 
 USBHostCDCChannel::USBHostCDCChannel(USBHost* hostHandler, USBHostClassCDC* classDriver)
-    : KINode(nullptr, nullptr, this, false)
+    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , m_HostHandler(hostHandler)
     , m_ClassDriver(classDriver)
     , m_ReceiveCondition("usbhcdc_receive")
     , m_TransmitCondition("usbhcdc_transmit")
 {
-    m_CreateTime = get_real_time();
+    m_ATime = m_MTime = m_CTime = kget_real_time();
 
     m_LineCoding.dwDTERate   = 9600;
     m_LineCoding.bCharFormat = USB_CDC_LineCodingStopBits::StopBits1;
@@ -375,22 +375,9 @@ size_t USBHostCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBHostCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* outStats)
+void USBHostCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
 {
-    outStats->st_dev = dev_t(volume->m_VolumeID);
-    outStats->st_ino = node->m_INodeID;
-    outStats->st_mode = S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
-    outStats->st_mode |= S_IFREG;
-
-    if (volume->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
-        outStats->st_mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
-    }
-    outStats->st_nlink = 1;
-    outStats->st_uid = 0;
-    outStats->st_gid = 0;
-    outStats->st_size = 0;
-    outStats->st_blksize = 1;
-    outStats->st_atim = outStats->st_mtim = outStats->st_ctim = m_CreateTime.AsTimespec();
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

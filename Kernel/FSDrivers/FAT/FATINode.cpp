@@ -56,7 +56,9 @@ static int LeapDays(int year, int month)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FATINode::FATINode(Ptr<FATFilesystem> filesystem, Ptr<KFSVolume> volume, bool isDirectory) : KINode(filesystem, volume, ptr_raw_pointer_cast(filesystem), isDirectory), m_Magic(MAGIC)
+FATINode::FATINode(Ptr<FATFilesystem> filesystem, Ptr<KFSVolume> volume, mode_t fileMode)
+    : KINode(filesystem, volume, ptr_raw_pointer_cast(filesystem), fileMode)
+    , m_Magic(MAGIC)
 {
 }
 
@@ -112,11 +114,11 @@ bool FATINode::Write()
     }
     buffer->m_Normal.m_Attribs = m_DOSAttribs; // file attributes
     
-    buffer->m_Normal.m_Time = UnixTimeToFATTime(m_Time);
+    buffer->m_Normal.m_Time = UnixTimeToFATTime(m_MTime.AsSecondsI());
     buffer->m_Normal.m_FirstClusterLow  = uint16_t(m_StartCluster & 0xffff);	// starting cluster
     buffer->m_Normal.m_FirstClusterHigh = uint16_t(m_StartCluster >> 16);
     
-    if (m_DOSAttribs & FAT_SUBDIR) {
+    if (IsDirectory()) {
         buffer->m_Normal.m_FileSize = 0;
     } else {
         buffer->m_Normal.m_FileSize = uint32_t(m_Size);

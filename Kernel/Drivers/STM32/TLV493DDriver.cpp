@@ -51,7 +51,7 @@ PREGISTER_KERNEL_DRIVER(TLV493DDriver, TLV493DDriverParameters);
 ///////////////////////////////////////////////////////////////////////////////
 
 TLV493DDriver::TLV493DDriver(const TLV493DDriverParameters& parameters)
-    : KINode(nullptr, nullptr, this, false)
+    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , KThread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex", PEMutexRecursionMode_RaiseError), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
 {
     m_Config.frame_rate = 10;
@@ -339,6 +339,17 @@ void TLV493DDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* 
 size_t TLV493DDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
     return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void TLV493DDriver::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+{
+    CRITICAL_SCOPE(m_Mutex);
+
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }
 
 } // namespace kernel

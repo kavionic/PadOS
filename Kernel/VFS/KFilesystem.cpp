@@ -303,9 +303,24 @@ void KFilesystemFileOps::CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KFilesystemFileOps::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* stat)
+void KFilesystemFileOps::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* outStats)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    outStats->st_dev = dev_t(volume->m_VolumeID);
+    outStats->st_ino = inode->m_INodeID;
+
+    outStats->st_mode = inode->m_FileMode;
+    if (volume->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
+        outStats->st_mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
+    }
+    outStats->st_nlink = 1;
+    outStats->st_uid = 0;
+    outStats->st_gid = 0;
+    outStats->st_size = 0;
+    outStats->st_blksize = 512;
+
+    outStats->st_atim = inode->m_ATime.AsTimespec();
+    outStats->st_mtim = inode->m_MTime.AsTimespec();
+    outStats->st_ctim = inode->m_CTime.AsTimespec();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

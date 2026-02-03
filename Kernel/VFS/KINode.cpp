@@ -33,8 +33,13 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KINode::KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, bool isDirectory) : m_Filesystem(filesystem), m_Volume(volume), m_FileOps(fileOps), m_IsDirectory(isDirectory)
+KINode::KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, mode_t fileMode)
+    : m_Filesystem(filesystem)
+    , m_Volume(volume)
+    , m_FileOps(fileOps)
+    , m_FileMode(fileMode)
 {
+    m_ATime = m_MTime = m_CTime = kget_real_time();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

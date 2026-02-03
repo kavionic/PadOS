@@ -47,7 +47,7 @@ PREGISTER_KERNEL_DRIVER(USARTDriverINode, USARTDriverParameters);
 ///////////////////////////////////////////////////////////////////////////////
 
 USARTDriverINode::USARTDriverINode(const USARTDriverParameters& parameters)
-    : KINode(nullptr, nullptr, this, false)
+    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , m_MutexRead("USARTDriverINodeRead", PEMutexRecursionMode_RaiseError)
     , m_MutexWrite("USARTDriverINodeWrite", PEMutexRecursionMode_RaiseError)
     , m_ReceiveCondition("USARTDriverINodeReceive")
@@ -337,6 +337,15 @@ void USARTDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const voi
             PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USARTDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+{
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

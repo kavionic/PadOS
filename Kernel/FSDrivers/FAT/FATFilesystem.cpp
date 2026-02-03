@@ -330,8 +330,8 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
     vol->m_RootINode->m_INodeID = vol->m_RootINode->m_ParentINodeID = GENERATE_DIR_CLUSTER_INODEID(vol->m_RootINode->m_StartCluster, vol->m_RootINode->m_StartCluster);
     vol->m_RootINode->m_DirStartIndex = 0xffffffff;
     vol->m_RootINode->m_DirEndIndex = 0xffffffff;
-    vol->m_RootINode->m_DOSAttribs = FAT_SUBDIR;
-    vol->m_RootINode->m_Time = get_real_time().AsSecondsI();
+    vol->m_RootINode->m_DOSAttribs  = FAT_SUBDIR;
+    vol->m_RootINode->m_ATime = vol->m_RootINode->m_CTime = vol->m_RootINode->m_MTime = TimeValNanos::FromSeconds(get_real_time().AsSecondsI());
     vol->AddDirectoryMapping(vol->m_RootINode->m_INodeID);
 
     // find volume label (supersedes any label in the bpb)
@@ -620,7 +620,7 @@ void FATFilesystem::ReleaseInode(KINode* inode)
             vol->RemoveINodeIDToLocationIDMapping(node->m_INodeID);
         }
         // If directory, remove from directory mapping.
-        if (node->m_DOSAttribs & FAT_SUBDIR) {
+        if (node->IsDirectory()) {
             vol->RemoveDirectoryMapping(node->m_INodeID);
         }      
     }
@@ -650,7 +650,7 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> _node,
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY) || (node->m_DOSAttribs & FAT_READ_ONLY) || (node->m_DOSAttribs & FAT_SUBDIR)) {
+    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY) || (node->m_DOSAttribs & FAT_READ_ONLY) || node->IsDirectory()) {
         openFlags = (openFlags & ~O_ACCMODE) | O_RDONLY;
     }
 
@@ -665,7 +665,6 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> _node,
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::OpenFile() called with O_TRUNC set.");
         vol->GetFATTable()->SetChainLength(node, 0, true);
 
-        node->m_DOSAttribs = 0;
         node->m_Size = 0;
         node->m_Iteration++;
     }
@@ -719,15 +718,11 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
         PERROR_THROW_CODE(PErrorCode::NoPermission);
     }
 
-    if ((perms & (S_IWUSR | S_IWGRP | S_IWOTH)) == 0) {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::CreateFile() called with invalid permission bits ({:x}).", perms);
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    uint8_t dosAttribs = 0;
+    if ((perms & (S_IWUSR | S_IWGRP | S_IWGRP)) == 0) {
+        dosAttribs |= FAT_READ_ONLY;
     }
-
-    if ((openFlags & O_ACCMODE) == O_RDONLY) {
-        kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "invalid permissions used in creating file.");
-        PERROR_THROW_CODE(PErrorCode::NoPermission);
-    }
+    const mode_t fileMode = DOSAttribsToFileMode(dosAttribs);
 
     Ptr<FATFileNode> fileNode;
 
@@ -738,7 +733,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::CreateFile() with O_EXCL called on existing file {}.", name.c_str());
             PERROR_THROW_CODE(PErrorCode::Exist);
         }
-        if (file->m_DOSAttribs & FAT_SUBDIR) {
+        if (file->IsDirectory()) {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::CreateFile() called on existing directory.");
             PERROR_THROW_CODE(PErrorCode::NoPermission);
         }
@@ -751,15 +746,15 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> pare
     }
     else
     {
-        NoPtr<FATINode> dummyObj(ptr_tmp_cast(this), vol, true); // Used only to create directory entry
+        NoPtr<FATINode> dummyObj(ptr_tmp_cast(this), vol, fileMode); // Used only to create directory entry
         Ptr<FATINode> dummy(dummyObj);
         
         dummy->m_ParentINodeID = dir->m_INodeID;
         dummy->m_StartCluster = 0;
         dummy->m_EndCluster = 0;
-        dummy->m_DOSAttribs = 0;
+        dummy->m_DOSAttribs = dosAttribs;
         dummy->m_Size = 0;
-        dummy->m_Time = get_real_time().AsSecondsI();
+        dummy->m_ATime = dummy->m_CTime = dummy->m_MTime = TimeValNanos::FromSeconds(get_real_time().AsSecondsI());
 
         CreateDirectoryEntry(vol, dir, dummy, name, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
 
@@ -871,14 +866,14 @@ Ptr<KINode> FATFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inodeID)
         }
     }
     
-    Ptr<FATINode> entry = ptr_new<FATINode>(ptr_tmp_cast(this), vol, (info.m_DOSAttribs & FAT_SUBDIR) != 0);
+    Ptr<FATINode> entry = ptr_new<FATINode>(ptr_tmp_cast(this), vol, DOSAttribsToFileMode(info.m_DOSAttribs));
 
     entry->m_INodeID = inodeID;
     entry->m_ParentINodeID = parentINodeID;
     entry->m_DirStartIndex = info.m_StartIndex;
-    entry->m_DirEndIndex = info.m_EndIndex;
+    entry->m_DirEndIndex  = info.m_EndIndex;
     entry->m_StartCluster = info.m_StartCluster;
-    entry->m_DOSAttribs = info.m_DOSAttribs;
+    entry->m_DOSAttribs   = info.m_DOSAttribs;
     entry->m_Size = info.m_Size;
     if (info.m_DOSAttribs & FAT_SUBDIR) {
         size_t chainLength = vol->GetFATTable()->GetChainLength(entry->m_StartCluster);
@@ -892,7 +887,7 @@ Ptr<KINode> FATFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inodeID)
     {
         entry->m_EndCluster = 0;
     }        
-    entry->m_Time = FATINode::FATTimeToUnixTime(info.m_FATTime);
+    entry->m_CTime = entry->m_MTime = entry->m_ATime = TimeValNanos::FromSeconds(FATINode::FATTimeToUnixTime(info.m_FATTime));
     return entry;
 }
 
@@ -913,7 +908,7 @@ Ptr<KDirectoryNode> FATFilesystem::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINo
 
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::OpenDirectory (inode ID {:x}).", node->m_INodeID);
 
-    if (!(node->m_DOSAttribs & FAT_SUBDIR))
+    if (!node->IsDirectory())
     {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "FATFilesystem::OpenDirectory() ERROR: inode not a directory.");
         PERROR_THROW_CODE(PErrorCode::NotDirectory);
@@ -954,15 +949,11 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, c
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::CreateDirectory() called: {:x}/{} (perm {:o})", dir->m_INodeID, name.c_str(), perms);
 
-    if ((dir->m_DOSAttribs & FAT_SUBDIR) == 0)
+    if (!dir->IsDirectory())
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATDIR, "FATFilesystem::CreateDirectory(): inode ID {:x} is not a directory.", dir->m_INodeID);
         PERROR_THROW_CODE(PErrorCode::NotDirectory);
     }
-
-    // S_IFDIR is never set in perms, so we patch it
-    perms &= ~S_IFMT;
-    perms |= S_IFDIR;
 
     if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY))
     {
@@ -972,9 +963,15 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, c
 
     std::vector<uint8_t> buffer;
     buffer.resize(vol->m_BytesPerSector);
+    
 
+    uint8_t dosAttribs = FAT_SUBDIR;
+    if ((perms & (S_IWUSR | S_IWGRP | S_IWGRP)) == 0) {
+        dosAttribs |= FAT_READ_ONLY;
+    }
+    const mode_t fileMode = DOSAttribsToFileMode(dosAttribs);
     /* only used to create directory entry */
-    NoPtr<FATINode> dummyObj(ptr_tmp_cast(this), vol, true); /* used only to create directory entry */
+    NoPtr<FATINode> dummyObj(ptr_tmp_cast(this), vol, fileMode); /* used only to create directory entry */
     Ptr<FATINode> dummy(dummyObj);
     dummy->m_ParentINodeID = dir->m_INodeID;
     dummy->m_StartCluster = vol->GetFATTable()->AllocateClusters(1);
@@ -982,12 +979,9 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, c
     PScopeFail scopeCleanupFATChain([&vol, &dummy]() {vol->GetFATTable()->ClearFATChain(dummy->m_StartCluster); });
 
     dummy->m_EndCluster = dummy->m_StartCluster;
-    dummy->m_DOSAttribs = FAT_SUBDIR;
-    if (!(perms & (S_IWUSR | S_IWGRP | S_IWGRP))) {
-        dummy->m_DOSAttribs |= FAT_READ_ONLY;
-    }
+    dummy->m_DOSAttribs = dosAttribs;
     dummy->m_Size = vol->m_BytesPerSector * vol->m_SectorsPerCluster;
-    dummy->m_Time = get_real_time().AsSecondsI();
+    dummy->m_ATime = dummy->m_CTime = dummy->m_MTime = TimeValNanos::FromSeconds(get_real_time().AsSecondsI());
 
     dummy->m_INodeID = GENERATE_DIR_CLUSTER_INODEID(dummy->m_ParentINodeID, dummy->m_StartCluster);
     if(vol->HasINodeIDToLocationIDMapping(dummy->m_INodeID))
@@ -1013,12 +1007,12 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, c
     memset(&buffer[0x20], ' ', 11);
     buffer[0] = buffer[0x20] = buffer[0x21] = '.';
     buffer[0x0b] = buffer[0x2b] = 0x30;
-    i = FATINode::UnixTimeToFATTime(dummy->m_Time);
+    i = FATINode::UnixTimeToFATTime(dummy->m_CTime.AsSecondsI());
     buffer[0x16] = uint8_t(i & 0xff);
     buffer[0x17] = uint8_t((i >> 8) & 0xff);
     buffer[0x18] = uint8_t((i >> 16) & 0xff);
     buffer[0x19] = uint8_t((i >> 24) & 0xff);
-    i = FATINode::UnixTimeToFATTime(dir->m_Time);
+    i = FATINode::UnixTimeToFATTime(dir->m_CTime.AsSecondsI());
     buffer[0x36] = uint8_t(i & 0xff);
     buffer[0x37] = uint8_t((i >> 8) & 0xff);
     buffer[0x38] = uint8_t((i >> 16) & 0xff);
@@ -1118,7 +1112,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> _vol, Ptr<KINode> _odir, const char* p
     file2 = DoLocateINode(vol, ndir, newname);
     if (file2 != nullptr)
     {
-        if (file2->m_DOSAttribs & FAT_SUBDIR)
+        if (file2->IsDirectory())
         {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Rename(): destination already occupied by a directory.");
             PERROR_THROW_CODE(PErrorCode::NoPermission);
@@ -1157,7 +1151,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> _vol, Ptr<KINode> _odir, const char* p
     //      (i.e. old entry, not new)
     file->Write();
 
-    if (file->m_DOSAttribs & FAT_SUBDIR)
+    if (file->IsDirectory())
     {
         // Update the ".." directory entry.
         FATDirectoryIterator diri(vol, file->m_StartCluster, 1);
@@ -1239,7 +1233,7 @@ size_t FATFilesystem::Read(Ptr<KFileNode> file, void* buf, size_t len, off64_t p
         PERROR_THROW_CODE(PErrorCode::IOError);
     }
 
-    if (node->m_DOSAttribs & FAT_SUBDIR) {
+    if (node->IsDirectory()) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Read() called on directory {:x}.", node->m_INodeID);
         PERROR_THROW_CODE(PErrorCode::IsDirectory);
     }
@@ -1366,7 +1360,7 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
         PERROR_THROW_CODE(PErrorCode::IOError);
     }
 
-    if (node->m_DOSAttribs & FAT_SUBDIR) {
+    if (node->IsDirectory()) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Write() called on directory {:x}.", node->m_INodeID);
         PERROR_THROW_CODE(PErrorCode::IsDirectory);
     }
@@ -1652,7 +1646,7 @@ void FATFilesystem::CheckAccess(Ptr<KFSVolume> _vol, Ptr<KINode> _node, int mode
         if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::CheckAccess(): can't write on read-only volume.");
             PERROR_THROW_CODE(PErrorCode::ReadOnlyFilesystem);
-        } else if (node->m_DOSAttribs & FAT_READ_ONLY) {
+        } else if (node->IsDirectory()) {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::CheckAccess(): can't open read-only file for writing.");
             PERROR_THROW_CODE(PErrorCode::NoPermission);
         }
@@ -1663,36 +1657,23 @@ void FATFilesystem::CheckAccess(Ptr<KFSVolume> _vol, Ptr<KINode> _node, int mode
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATFilesystem::ReadStat(Ptr<KFSVolume> _vol, Ptr<KINode> _node, struct stat* st)
+void FATFilesystem::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
 {
-    Ptr<FATVolume> vol  = ptr_static_cast<FATVolume>(_vol);
-    Ptr<FATINode>  node = ptr_static_cast<FATINode>(_node);
+    Ptr<FATVolume> fsVolume = ptr_static_cast<FATVolume>(volume);
+    Ptr<FATINode>  fsInode  = ptr_static_cast<FATINode>(inode);
 
-    CRITICAL_SCOPE(vol->m_Mutex);
+    CRITICAL_SCOPE(fsVolume->m_Mutex);
 
-    if (!vol->CheckMagic(__func__) || !node->CheckMagic(__func__)) {
+    if (!fsVolume->CheckMagic(__func__) || !fsInode->CheckMagic(__func__)) {
         PERROR_THROW_CODE(PErrorCode::IOError);
     }
 
-    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::ReadStat(inode ID {:x})", node->m_INodeID);
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::ReadStat(inode ID {:x})", fsInode->m_INodeID);
 
-    st->st_dev = dev_t(vol->m_VolumeID);
-    st->st_ino = node->m_INodeID;
-    st->st_mode = S_IFREG | S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH;
-    if (node->m_DOSAttribs & FAT_SUBDIR) {
-        st->st_mode &= ~S_IFREG;
-        st->st_mode |= S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH;
-    }
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY) || (node->m_DOSAttribs & FAT_READ_ONLY)) {
-        st->st_mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
-    }
-    
-    st->st_nlink = 1;
-    st->st_uid = 0;
-    st->st_gid = 0;
-    st->st_size = off_t(node->m_Size);
-    st->st_blksize = 0x10000; /* this value was chosen arbitrarily */
-    st->st_atim = st->st_mtim = st->st_ctim = { .tv_sec = node->m_Time, .tv_nsec = 0 };
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
+
+    statBuf->st_size    = fsInode->m_Size;
+    statBuf->st_blksize = fsVolume->m_BytesPerSector * fsVolume->m_SectorsPerCluster;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1721,9 +1702,15 @@ void FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KINode> _node, const stru
     if (mask & WSTAT_MODE)
     {
         kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFILE, "FATFilesystem::WriteStat(): setting file mode to {:o}.", st->st_mode);
-        if (st->st_mode & S_IWUSR) {
+
+        node->m_FileMode = (node->m_FileMode & S_IFMT) | (st->st_mode & ~S_IFMT);
+        if (node->m_FileMode & (S_IWUSR | S_IWGRP | S_IWOTH))
+        {
+            node->m_FileMode |= S_IWUSR | S_IWGRP | S_IWOTH;
             node->m_DOSAttribs &= uint8_t(~FAT_READ_ONLY);
-        } else {
+        }
+        else
+        {
             node->m_DOSAttribs |= FAT_READ_ONLY;
         }
         dirty = true;
@@ -1732,7 +1719,7 @@ void FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KINode> _node, const stru
     if (mask & WSTAT_SIZE)
     {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::WriteStat(): setting file size to {:x}.", st->st_size);
-        if (node->m_DOSAttribs & FAT_SUBDIR)
+        if (node->IsDirectory())
         {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::WriteStat(): can't set file size of directory!");
             PERROR_THROW_CODE(PErrorCode::IsDirectory);
@@ -1757,7 +1744,7 @@ void FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KINode> _node, const stru
     if (mask & WSTAT_MTIME)
     {
         kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFILE, "FATFilesystem::WriteStat(): setting modification time.");
-        node->m_Time = st->st_mtim.tv_sec;
+        node->m_ATime = node->m_CTime = node->m_MTime = TimeValNanos::FromTimespec(st->st_mtim);
         dirty = true;
     }
 
@@ -1784,13 +1771,6 @@ void FATFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void* 
 
     switch (request)
     {
-	case 10002 : /* return real creation time */
-            if (outData != nullptr && outDataLength == sizeof(bigtime_t)) {
-	            *static_cast<bigtime_t*>(outData) = node->m_Time;
-                return;
-            } else {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
-            }	    
 	case 100000:
 	    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "vol info: {} (device {:x}, media descriptor {:x})", vol->m_DevicePath.c_str(), vol->m_DeviceFile, vol->m_MediaDescriptor);
 	    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "{:x} bytes/sector, {:x} sectors/cluster", vol->m_BytesPerSector, vol->m_SectorsPerCluster);
@@ -1826,6 +1806,16 @@ void FATFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void* 
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
     PERROR_THROW_CODE(PErrorCode::InvalidArg);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+mode_t FATFilesystem::DOSAttribsToFileMode(uint8_t dosAttribs)
+{
+    return ((dosAttribs & FAT_SUBDIR) ? (S_IFDIR | S_IXUSR | S_IXGRP | S_IXOTH) : S_IFREG) |
+           ((dosAttribs & FAT_READ_ONLY) ? (S_IRUSR | S_IRGRP | S_IROTH) : (S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2082,7 +2072,7 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATINode> paren
     info.m_DOSAttribs = node->m_DOSAttribs;
     info.cluster = node->m_StartCluster;
     info.size    = size_t(node->m_Size);
-    info.time    = node->m_Time;
+    info.time    = node->m_MTime.AsSecondsI();
 
     DoCreateDirectoryEntry(vol, parent, &info, (char*)shortName, longName.data(), len, startIndex, endIndex);
 }
@@ -2349,13 +2339,13 @@ void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KINode> _dir, const PStrin
 
     if (removeFile)
     {
-        if (file->m_DOSAttribs & FAT_SUBDIR) {
+        if (file->IsDirectory()) {
             PERROR_THROW_CODE(PErrorCode::IsDirectory);
         }
     }
     else
     {
-        if ((file->m_DOSAttribs & FAT_SUBDIR) == 0) {
+        if (!file->IsDirectory()) {
             PERROR_THROW_CODE(PErrorCode::NotDirectory);
         }
         if (file->m_INodeID == vol->m_RootINode->m_INodeID) {

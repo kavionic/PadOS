@@ -51,9 +51,9 @@ public:
 	SerialDebugStreamINode(const SerialDebugStreamParameters& parameters);
 
     virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
+    virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
 
 private:
-	KMutex m_Mutex;
 };
 
 

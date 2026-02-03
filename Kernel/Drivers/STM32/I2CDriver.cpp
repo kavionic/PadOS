@@ -46,7 +46,7 @@ PREGISTER_KERNEL_DRIVER(I2CDriverINode, I2CDriverParameters);
 ///////////////////////////////////////////////////////////////////////////////
 
 I2CDriverINode::I2CDriverINode(const I2CDriverParameters& parameters)
-    : KINode(nullptr, nullptr, this, false)
+    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , m_Mutex("I2CDriverINode", PEMutexRecursionMode_RaiseError)
     , m_RequestCondition("I2CDriverINodeRequest")
     , m_ClockPin(parameters.ClockPin)
@@ -322,6 +322,16 @@ size_t I2CDriverINode::Write(Ptr<KFileNode> file, const void* buffer, size_t len
         PERROR_THROW_CODE(m_TransactionError);
     }
     return m_CurPos;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void I2CDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+{
+    CRITICAL_SCOPE(m_Mutex);
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

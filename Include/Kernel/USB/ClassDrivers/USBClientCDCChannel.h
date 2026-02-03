@@ -49,7 +49,7 @@ public:
     virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
     virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
     virtual void    Sync(Ptr<KFileNode> file) override;
-    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
+    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
     virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
     ssize_t  GetWriteBytesAvailable() const;
 
@@ -72,8 +72,6 @@ private:
     USBDevice*          m_DeviceHandler;
     KConditionVariable  m_ReceiveCondition;
     KConditionVariable  m_TransmitCondition;
-
-    TimeValNanos        m_CreateTime;
 
     int                 m_DevNodeHandle = -1; // Handle for out node in the "/dev/" filesystem.
     uint8_t             m_EndpointNotifications = 0;

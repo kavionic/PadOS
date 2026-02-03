@@ -37,6 +37,7 @@ public:
     MultiMotorINode(const MultiMotorDriverParameters& parameters);
 
     virtual void DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual void ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
 
     void        SetupControllerIO(const char* controlPortPath, uint32_t baudrate);
     handle_id   CreateMotor(handle_id motorID, const TMC2209IOSetup& setup);
@@ -103,6 +104,8 @@ private:
     TMC2209Driver& GetMotor(handle_id motorID);
     const TMC2209Driver& GetMotor(handle_id motorID) const { return const_cast<MultiMotorINode*>(this)->GetMotor(motorID); }
     std::vector<TMC2209Driver*> GetMotorsFromMask(uint32_t motorIDMask);
+
+    KMutex               m_Mutex;
 
     DigitalPin           m_MotorEnablePin;
     Ptr<TMC2209IODriver> m_ControlPort;

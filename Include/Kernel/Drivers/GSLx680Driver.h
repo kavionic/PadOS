@@ -149,6 +149,7 @@ public:
     virtual Ptr<KFileNode>  OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags) override;
     virtual void            CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
     virtual void            DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual void            ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
 
 private:
     bool WriteData(int address, const void* data, size_t length);

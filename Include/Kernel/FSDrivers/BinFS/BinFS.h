@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,33 +15,29 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 23.02.2018 01:49:14
+// Created: 29.01.2026 23:00
 
 #pragma once
 
 #include <map>
 
-#include <Kernel/VFS/KINode.h>
-#include <Kernel/VFS/KFilesystem.h>
 #include <Utils/String.h>
 #include <Kernel/KMutex.h>
-#include <Kernel/FSDrivers/VirtualFSBase.h>
+#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/FSDrivers/VirtualFSBase.h>
 
 namespace kernel
 {
 
-class KRootFilesystem : public KVirtualFilesystemBase
+class KBinFilesystem : public KVirtualFilesystemBase
 {
 public:
-    virtual Ptr<KFSVolume>      Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength) override;
-
-    int  RegisterDevice(const char* path, Ptr<KINode> deviceNode);
-    void RenameDevice(int handle, const char* newPath);
-    void RemoveDevice(int handle);
+    virtual Ptr<KFSVolume>  Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength) override;
 
 private:
-    Ptr<KVirtualFSBaseINode> m_DevRoot;
 };
+
 
 } // namespace kernel

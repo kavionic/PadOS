@@ -36,8 +36,7 @@ PREGISTER_KERNEL_DRIVER(SerialDebugStreamINode, SerialDebugStreamParameters);
 ///////////////////////////////////////////////////////////////////////////////
 
 SerialDebugStreamINode::SerialDebugStreamINode(const SerialDebugStreamParameters& parameters)
-    : KINode(nullptr, nullptr, this, false)
-    , m_Mutex("SerDebugStream", PEMutexRecursionMode_RaiseError)
+    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 {
 
 }
@@ -52,5 +51,13 @@ size_t SerialDebugStreamINode::Write(Ptr<KFileNode> file, const void* buffer, si
     return length;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SerialDebugStreamINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+{
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
+}
 
 } // namespace kernel

@@ -99,8 +99,8 @@ public:
 
     virtual void    CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, int mode);
 
-    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result);
-    virtual void    WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* value, uint32_t mask);
+    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) = 0;
+    virtual void    WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, const struct stat* value, uint32_t mask);
 
     virtual void    Sync(Ptr<KFileNode> file);
 

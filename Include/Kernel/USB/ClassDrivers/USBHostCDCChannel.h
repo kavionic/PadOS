@@ -60,7 +60,7 @@ public:
     virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
     virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
     virtual void    Sync(Ptr<KFileNode> file) override;
-    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> node, struct stat* result) override;
+    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
     virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
     bool SetLineCoding(const USB_CDC_LineCoding& lineCoding);
@@ -84,7 +84,6 @@ private:
     USBHostClassCDC*    m_ClassDriver = nullptr;
 
     int                 m_DevNodeHandle = -1;
-    TimeValNanos        m_CreateTime;
 
     uint8_t             m_DeviceAddress = 0;
     volatile bool       m_IsActive      = false;

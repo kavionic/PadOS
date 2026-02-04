@@ -20,7 +20,7 @@
 #include "System/Platform.h"
 
 #include <Kernel/KTime.h>
-#include "Kernel/VFS/KINode.h"
+#include "Kernel/VFS/KInode.h"
 #include "Kernel/VFS/KFilesystem.h"
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KVFSManager.h"
@@ -33,7 +33,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KINode::KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, mode_t fileMode)
+KInode::KInode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, mode_t fileMode)
     : m_Filesystem(filesystem)
     , m_Volume(volume)
     , m_FileOps(fileOps)
@@ -46,7 +46,7 @@ KINode::KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KINode::~KINode()
+KInode::~KInode()
 {
 }
 
@@ -54,7 +54,7 @@ KINode::~KINode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KINode::LastReferenceGone()
+bool KInode::LastReferenceGone()
 {
     m_LastUseTime = kget_monotonic_time().AsSecondsI();
     KVFSManager::InodeReleased(this);

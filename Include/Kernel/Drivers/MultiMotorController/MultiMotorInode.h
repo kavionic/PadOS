@@ -18,7 +18,7 @@
 // Created: 21.10.2025 20:00
 
 #pragma once
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <RPC/RPCDispatcher.h>
 
 struct TMC2209IOSetup;
@@ -31,13 +31,13 @@ class MultiMotorDriver;
 class TMC2209Driver;
 class TMC2209IODriver;
 
-class MultiMotorINode : public KINode, public KFilesystemFileOps
+class MultiMotorInode : public KInode, public KFilesystemFileOps
 {
 public:
-    MultiMotorINode(const MultiMotorDriverParameters& parameters);
+    MultiMotorInode(const MultiMotorDriverParameters& parameters);
 
     virtual void DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    virtual void ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
+    virtual void ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
     void        SetupControllerIO(const char* controlPortPath, uint32_t baudrate);
     handle_id   CreateMotor(handle_id motorID, const TMC2209IOSetup& setup);
@@ -102,7 +102,7 @@ public:
 
 private:
     TMC2209Driver& GetMotor(handle_id motorID);
-    const TMC2209Driver& GetMotor(handle_id motorID) const { return const_cast<MultiMotorINode*>(this)->GetMotor(motorID); }
+    const TMC2209Driver& GetMotor(handle_id motorID) const { return const_cast<MultiMotorInode*>(this)->GetMotor(motorID); }
     std::vector<TMC2209Driver*> GetMotorsFromMask(uint32_t motorIDMask);
 
     KMutex               m_Mutex;

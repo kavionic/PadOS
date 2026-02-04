@@ -23,7 +23,7 @@
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/KConditionVariable.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/VFS/KDriverParametersBase.h>
 #include <Kernel/HAL/STM32/DMARequestID.h>
@@ -160,13 +160,13 @@ namespace kernel
 class SPIDriver;
 
 
-class SPIDriverINode : public KINode, public KFilesystemFileOps
+class SPIDriverInode : public KInode, public KFilesystemFileOps
 {
 public:
-    SPIDriverINode(const SPIDriverParameters& setup);
+    SPIDriverInode(const SPIDriverParameters& setup);
 
     virtual void DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    virtual void ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
+    virtual void ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
 private:
     void    SetBaudrateDivider(SPIBaudRateDivider baudRateDivider);

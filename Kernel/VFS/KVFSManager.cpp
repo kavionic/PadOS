@@ -29,15 +29,15 @@
 #include <Kernel/KLogging.h>
 #include <Kernel/VFS/KVFSManager.h>
 #include <Kernel/VFS/KFSVolume.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 
 namespace kernel
 {
 
-KINode* const                              KVFSManager::PENDING_INODE = (KINode*)(1);
-KMutex                                     KVFSManager::s_INodeMapMutex("inode_map_mutex", PEMutexRecursionMode_RaiseError);
-std::map<std::pair<fs_id, ino_t>, KINode*> KVFSManager::s_INodeMap;
-PIntrusiveList<KINode>                      KVFSManager::s_InodeMRUList;
+KInode* const                              KVFSManager::PENDING_INODE = (KInode*)(1);
+KMutex                                     KVFSManager::s_InodeMapMutex("inode_map_mutex", PEMutexRecursionMode_RaiseError);
+std::map<std::pair<fs_id, ino_t>, KInode*> KVFSManager::s_InodeMap;
+PIntrusiveList<KInode>                      KVFSManager::s_InodeMRUList;
 int                                        KVFSManager::s_UnusedInodeCount = 0;
 KConditionVariable                         KVFSManager::s_InodeMapConditionVar("inode_map_condition");
 
@@ -260,18 +260,18 @@ Ptr<KFSVolume> KVFSManager::GetVolume(fs_id volumeID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> KVFSManager::GetINode_trw(fs_id volumeID, ino_t inodeID, bool crossMount)
+Ptr<KInode> KVFSManager::GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossMount)
 {
     for (;;)
     {
-        CRITICAL_SCOPE(s_INodeMapMutex);
+        CRITICAL_SCOPE(s_InodeMapMutex);
     
-        auto i = s_INodeMap.find(std::make_pair(volumeID, inodeID));
+        auto i = s_InodeMap.find(std::make_pair(volumeID, inodeID));
     
-        if (i != s_INodeMap.end())
+        if (i != s_InodeMap.end())
         {
             if (i->second == PENDING_INODE) {
-                s_InodeMapConditionVar.Wait(s_INodeMapMutex);
+                s_InodeMapConditionVar.Wait(s_InodeMapMutex);
                 continue;
             }
             if (i->second->GetPtrCount() == 0) {
@@ -279,7 +279,7 @@ Ptr<KINode> KVFSManager::GetINode_trw(fs_id volumeID, ino_t inodeID, bool crossM
                 s_InodeMRUList.Remove(i->second);
                 s_UnusedInodeCount--;
             }
-            Ptr<KINode> inode = ptr_tmp_cast(i->second);
+            Ptr<KInode> inode = ptr_tmp_cast(i->second);
             if (crossMount && inode->m_MountRoot != nullptr) {
                 inode = inode->m_MountRoot;
             }
@@ -291,15 +291,15 @@ Ptr<KINode> KVFSManager::GetINode_trw(fs_id volumeID, ino_t inodeID, bool crossM
             if (volume != nullptr && volume->m_Filesystem != nullptr)
             {
                 auto key = std::make_pair(volumeID, inodeID);
-                s_INodeMap[key] = PENDING_INODE; // Make sure no other thread attempts to load the same inode while we unlock s_INodeMapMutex.
+                s_InodeMap[key] = PENDING_INODE; // Make sure no other thread attempts to load the same inode while we unlock s_InodeMapMutex.
                 
-                s_INodeMapMutex.Unlock();
-                Ptr<KINode> inode = volume->m_Filesystem->LoadInode(volume, inodeID);
-                s_INodeMapMutex.Lock();
+                s_InodeMapMutex.Unlock();
+                Ptr<KInode> inode = volume->m_Filesystem->LoadInode(volume, inodeID);
+                s_InodeMapMutex.Lock();
 
                 if (inode != nullptr)
                 {
-                    s_INodeMap[key] = ptr_raw_pointer_cast(inode);
+                    s_InodeMap[key] = ptr_raw_pointer_cast(inode);
                     if (crossMount && inode->m_MountRoot != nullptr) {
                         inode = inode->m_MountRoot;
                     }
@@ -315,9 +315,9 @@ Ptr<KINode> KVFSManager::GetINode_trw(fs_id volumeID, ino_t inodeID, bool crossM
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KVFSManager::InodeReleased(KINode* inode)
+void KVFSManager::InodeReleased(KInode* inode)
 {
-    CRITICAL_SCOPE(s_INodeMapMutex);
+    CRITICAL_SCOPE(s_InodeMapMutex);
     if (inode->GetPtrCount() == 0)
     {
         s_InodeMRUList.Append(inode);
@@ -337,7 +337,7 @@ void KVFSManager::FlushInodes()
 {
     if (s_InodeMRUList.m_First != nullptr)
     {
-        CRITICAL_SCOPE(s_INodeMapMutex);
+        CRITICAL_SCOPE(s_InodeMapMutex);
 
         time_t curTime = kget_monotonic_time().AsSecondsI();
         while(s_InodeMRUList.m_First != nullptr && curTime > (s_InodeMRUList.m_First->m_LastUseTime + 1))
@@ -351,20 +351,20 @@ void KVFSManager::FlushInodes()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KVFSManager::DiscardInode(KINode* inode)
+void KVFSManager::DiscardInode(KInode* inode)
 {
-    kassert(s_INodeMapMutex.IsLocked());
+    kassert(s_InodeMapMutex.IsLocked());
     kassert(inode->GetPtrCount() == 0);
     s_InodeMRUList.Remove(inode);
     s_UnusedInodeCount--;
     
-    auto key = std::make_pair(inode->m_Volume->m_VolumeID, inode->m_INodeID);
-    auto i = s_INodeMap.find(key);
-    kassert(i != s_INodeMap.end());
+    auto key = std::make_pair(inode->m_Volume->m_VolumeID, inode->m_InodeID);
+    auto i = s_InodeMap.find(key);
+    kassert(i != s_InodeMap.end());
     kassert(i->second != PENDING_INODE);
     i->second = PENDING_INODE;
 
-    s_INodeMapMutex.Unlock();
+    s_InodeMapMutex.Unlock();
     try
     {
         inode->m_Filesystem->ReleaseInode(inode);
@@ -372,13 +372,13 @@ void KVFSManager::DiscardInode(KINode* inode)
     PERROR_CATCH([](PErrorCode error) { kernel_log<PLogSeverity::ERROR>(LogCatKernel_VFS, "ERROR: Failed to release inode."); });
 
     delete inode;
-    s_INodeMapMutex.Lock();
+    s_InodeMapMutex.Lock();
     
-    i = s_INodeMap.find(key);
-    kassert(i != s_INodeMap.end());
+    i = s_InodeMap.find(key);
+    kassert(i != s_InodeMap.end());
     
     kassert(i->second == PENDING_INODE);
-    s_INodeMap.erase(i);
+    s_InodeMap.erase(i);
     s_InodeMapConditionVar.Wakeup(0);
 }
 

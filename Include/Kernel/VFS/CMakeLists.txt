@@ -6,7 +6,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KFileHandle.h
 	KFilesystem.h
 	KFSVolume.h
-	KINode.h
+	KInode.h
 	KIOContext.h
 	KNodeMonitor.h
 	KRootFilesystem.h

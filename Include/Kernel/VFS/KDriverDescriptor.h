@@ -20,7 +20,7 @@
 #pragma once
 
 #include <Ptr/Ptr.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/Kernel.h>
 
 namespace kernel

@@ -22,7 +22,7 @@
 
 #include <Kernel/HAL/DigitalPort.h>
 #include <Kernel/VFS/KFilesystem.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KDriverParametersBase.h>
 #include <Kernel/KThread.h>
@@ -138,7 +138,7 @@ public:
 };
 
 
-class GSLx680Driver : public KINode, public KThread, public KFilesystemFileOps
+class GSLx680Driver : public KInode, public KThread, public KFilesystemFileOps
 {
 public:
     GSLx680Driver(const GSLx680DriverParameters& parameters);
@@ -146,10 +146,10 @@ public:
 
     virtual void* Run() override;
 
-    virtual Ptr<KFileNode>  OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags) override;
+    virtual Ptr<KFileNode>  OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int flags) override;
     virtual void            CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
     virtual void            DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    virtual void            ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
+    virtual void            ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
 private:
     bool WriteData(int address, const void* data, size_t length);

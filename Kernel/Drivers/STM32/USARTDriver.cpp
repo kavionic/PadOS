@@ -40,18 +40,18 @@ namespace kernel
 {
 
 
-PREGISTER_KERNEL_DRIVER(USARTDriverINode, USARTDriverParameters);
+PREGISTER_KERNEL_DRIVER(USARTDriverInode, USARTDriverParameters);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USARTDriverINode::USARTDriverINode(const USARTDriverParameters& parameters)
-    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
-    , m_MutexRead("USARTDriverINodeRead", PEMutexRecursionMode_RaiseError)
-    , m_MutexWrite("USARTDriverINodeWrite", PEMutexRecursionMode_RaiseError)
-    , m_ReceiveCondition("USARTDriverINodeReceive")
-    , m_TransmitCondition("USARTDriverINodeTransmit")
+USARTDriverInode::USARTDriverInode(const USARTDriverParameters& parameters)
+    : KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+    , m_MutexRead("USARTDriverInodeRead", PEMutexRecursionMode_RaiseError)
+    , m_MutexWrite("USARTDriverInodeWrite", PEMutexRecursionMode_RaiseError)
+    , m_ReceiveCondition("USARTDriverInodeReceive")
+    , m_TransmitCondition("USARTDriverInodeTransmit")
     , m_PinRX(parameters.PinRX)
     , m_PinTX(parameters.PinTX)
 {
@@ -97,7 +97,7 @@ USARTDriverINode::USARTDriverINode(const USARTDriverParameters& parameters)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t length, off64_t position)
+size_t USARTDriverInode::Read(Ptr<KFileNode> file, void* buffer, const size_t length, off64_t position)
 {
     if (length == 0) {
         return 0;
@@ -137,7 +137,7 @@ size_t USARTDriverINode::Read(Ptr<KFileNode> file, void* buffer, const size_t le
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length, off64_t position)
+size_t USARTDriverInode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length, off64_t position)
 {
     const intptr_t startAddr = align_down<intptr_t>(intptr_t(buffer), DCACHE_LINE_SIZE);
     const intptr_t endAddr   = align_up<intptr_t>(intptr_t(buffer) + length, DCACHE_LINE_SIZE);
@@ -172,7 +172,7 @@ size_t USARTDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const si
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USARTDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_MutexRead);
     CRITICAL_SCOPE(m_MutexWrite);
@@ -343,7 +343,7 @@ void USARTDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const voi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USARTDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void USARTDriverInode::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }
@@ -352,7 +352,7 @@ void USARTDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USARTDriverINode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
+bool USARTDriverInode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
 {
     kassert(!m_MutexRead.IsLocked());
     CRITICAL_SCOPE(m_MutexRead);
@@ -388,7 +388,7 @@ bool USARTDriverINode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mod
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USARTDriverINode::SetBaudrate(int baudrate)
+void USARTDriverInode::SetBaudrate(int baudrate)
 {
     if (baudrate != m_Baudrate)
     {
@@ -401,7 +401,7 @@ void USARTDriverINode::SetBaudrate(int baudrate)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USARTDriverINode::SetIOControl(uint32_t flags)
+void USARTDriverInode::SetIOControl(uint32_t flags)
 {
     if (flags != m_IOControl)
     {
@@ -427,7 +427,7 @@ void USARTDriverINode::SetIOControl(uint32_t flags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USARTDriverINode::SetPinMode(const PinMuxTarget& pin, USARTPinMode mode)
+bool USARTDriverInode::SetPinMode(const PinMuxTarget& pin, USARTPinMode mode)
 {
     while ((m_Port->ISR & USART_ISR_TC) == 0);
     if (mode == USARTPinMode::Normal)
@@ -465,7 +465,7 @@ bool USARTDriverINode::SetPinMode(const PinMuxTarget& pin, USARTPinMode mode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USARTDriverINode::SetSwapRXTX(bool doSwap)
+void USARTDriverInode::SetSwapRXTX(bool doSwap)
 {
     if (doSwap != GetSwapRXTX())
     {
@@ -504,7 +504,7 @@ void USARTDriverINode::SetSwapRXTX(bool doSwap)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USARTDriverINode::GetSwapRXTX() const
+bool USARTDriverInode::GetSwapRXTX() const
 {
     return (m_Port->CR2 & USART_CR2_SWAP) != 0;
 }
@@ -513,7 +513,7 @@ bool USARTDriverINode::GetSwapRXTX() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USARTDriverINode::RestartReceiveDMA(size_t maxLength)
+bool USARTDriverInode::RestartReceiveDMA(size_t maxLength)
 {
     const int32_t bytesReceived = m_PendingReceiveBytes - dma_get_transfer_count(m_ReceiveDMAChannel);
 
@@ -540,7 +540,7 @@ bool USARTDriverINode::RestartReceiveDMA(size_t maxLength)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t USARTDriverINode::ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length)
+size_t USARTDriverInode::ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, const size_t length)
 {
     uint8_t* currentTarget = reinterpret_cast<uint8_t*>(buffer);
 
@@ -576,16 +576,16 @@ size_t USARTDriverINode::ReadReceiveBuffer(Ptr<KFileNode> file, void* buffer, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult USARTDriverINode::IRQCallbackReceive(IRQn_Type irq, void* userData)
+IRQResult USARTDriverInode::IRQCallbackReceive(IRQn_Type irq, void* userData)
 {
-    return static_cast<USARTDriverINode*>(userData)->HandleIRQReceive();
+    return static_cast<USARTDriverInode*>(userData)->HandleIRQReceive();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult USARTDriverINode::HandleIRQReceive()
+IRQResult USARTDriverInode::HandleIRQReceive()
 {
     if (dma_get_interrupt_flags(m_ReceiveDMAChannel) & DMA_LISR_TCIF0)
     {
@@ -602,16 +602,16 @@ IRQResult USARTDriverINode::HandleIRQReceive()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult USARTDriverINode::IRQCallbackSend(IRQn_Type irq, void* userData)
+IRQResult USARTDriverInode::IRQCallbackSend(IRQn_Type irq, void* userData)
 {
-    return static_cast<USARTDriverINode*>(userData)->HandleIRQSend();
+    return static_cast<USARTDriverInode*>(userData)->HandleIRQSend();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult USARTDriverINode::HandleIRQSend()
+IRQResult USARTDriverInode::HandleIRQSend()
 {
     if (dma_get_interrupt_flags(m_SendDMAChannel) & DMA_LISR_TCIF0)
     {

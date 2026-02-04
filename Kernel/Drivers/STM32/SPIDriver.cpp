@@ -39,7 +39,7 @@ namespace kernel
 {
 
 
-PREGISTER_KERNEL_DRIVER(SPIDriverINode, SPIDriverParameters);
+PREGISTER_KERNEL_DRIVER(SPIDriverInode, SPIDriverParameters);
 
 
 static constexpr int SPI_MAX_WORD_LENGTH(SPIID spiID) { return (spiID <= SPIID::SPI_3) ? 32 : 16; }
@@ -50,10 +50,10 @@ const uint32_t IFCR_ALL = SPI_IFCR_EOTC | SPI_IFCR_TXTFC | SPI_IFCR_UDRC | SPI_I
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SPIDriverINode::SPIDriverINode(const SPIDriverParameters& setup)
-    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
-    , m_Mutex("SPIDriverINodeMutex", PEMutexRecursionMode_RaiseError)
-    , m_TransactionCondition("SPIDriverINodeTransC")
+SPIDriverInode::SPIDriverInode(const SPIDriverParameters& setup)
+    : KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+    , m_Mutex("SPIDriverInodeMutex", PEMutexRecursionMode_RaiseError)
+    , m_TransactionCondition("SPIDriverInodeTransC")
     , m_PinCLK(setup.PinCLK)
     , m_PinMOSI(setup.PinMOSI)
     , m_PinMISO(setup.PinMISO)
@@ -172,7 +172,7 @@ SPIDriverINode::SPIDriverINode(const SPIDriverParameters& setup)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SPIDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -342,7 +342,7 @@ void SPIDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const void*
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SPIDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void SPIDriverInode::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -353,7 +353,7 @@ void SPIDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SPIDriverINode::SetBaudrateDivider(SPIBaudRateDivider baudRateDivider)
+void SPIDriverInode::SetBaudrateDivider(SPIBaudRateDivider baudRateDivider)
 {
     set_bit_group(m_Port->CFG1, SPI_CFG1_MBR_Msk, uint32_t(baudRateDivider) << SPI_CFG1_MBR_Pos);
 }
@@ -362,7 +362,7 @@ void SPIDriverINode::SetBaudrateDivider(SPIBaudRateDivider baudRateDivider)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SPIDriverINode::SetPinMode(const PinMuxTarget& pin, SPIPinMode mode)
+bool SPIDriverInode::SetPinMode(const PinMuxTarget& pin, SPIPinMode mode)
 {
     kassert(m_Mutex.IsLocked());
 
@@ -401,7 +401,7 @@ bool SPIDriverINode::SetPinMode(const PinMuxTarget& pin, SPIPinMode mode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SPIDriverINode::SetSwapMOSIMISO(bool doSwap)
+void SPIDriverInode::SetSwapMOSIMISO(bool doSwap)
 {
     kassert(m_Mutex.IsLocked());
 
@@ -416,7 +416,7 @@ void SPIDriverINode::SetSwapMOSIMISO(bool doSwap)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool SPIDriverINode::GetSwapMOSIMISO() const
+bool SPIDriverInode::GetSwapMOSIMISO() const
 {
     return (m_Port->CFG2 & SPI_CFG2_IOSWP) != 0;
 }
@@ -425,7 +425,7 @@ bool SPIDriverINode::GetSwapMOSIMISO() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SPIDriverINode::StartTransaction(const SPITransaction& transaction)
+void SPIDriverInode::StartTransaction(const SPITransaction& transaction)
 {
     kassert(m_Mutex.IsLocked());
 
@@ -504,16 +504,16 @@ void SPIDriverINode::StartTransaction(const SPITransaction& transaction)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult SPIDriverINode::SPIIRQCallback(IRQn_Type irq, void* userData)
+IRQResult SPIDriverInode::SPIIRQCallback(IRQn_Type irq, void* userData)
 {
-    return static_cast<SPIDriverINode*>(userData)->HandleSPIIRQ();
+    return static_cast<SPIDriverInode*>(userData)->HandleSPIIRQ();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult SPIDriverINode::HandleSPIIRQ()
+IRQResult SPIDriverInode::HandleSPIIRQ()
 {
     if ((m_Port->SR & m_Port->IER) == 0) {
         return IRQResult::UNHANDLED;

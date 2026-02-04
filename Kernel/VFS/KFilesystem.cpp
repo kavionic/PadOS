@@ -24,7 +24,7 @@
 
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/VFS/KFSVolume.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/FileIO.h>
 #include <System/System.h>
@@ -92,7 +92,7 @@ void KFilesystem::WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> KFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* path, int pathLength)
+Ptr<KInode> KFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* path, int pathLength)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
@@ -101,7 +101,7 @@ Ptr<KINode> KFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KFilesystem::ReleaseInode(KINode* inode)
+void KFilesystem::ReleaseInode(KInode* inode)
 {
 }
 
@@ -109,7 +109,7 @@ void KFilesystem::ReleaseInode(KINode* inode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> KFilesystemFileOps::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int openFlags)
+Ptr<KFileNode> KFilesystemFileOps::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> node, int openFlags)
 {
     Ptr<KFileNode> file = ptr_new<KFileNode>(openFlags);
     return file;
@@ -119,7 +119,7 @@ Ptr<KFileNode> KFilesystemFileOps::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> n
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> KFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int openFlags, int permission)
+Ptr<KFileNode> KFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int openFlags, int permission)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
@@ -136,7 +136,7 @@ void KFilesystemFileOps::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> KFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inode)
+Ptr<KInode> KFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inode)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
@@ -145,7 +145,7 @@ Ptr<KINode> KFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KDirectoryNode> KFilesystemFileOps::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node)
+Ptr<KDirectoryNode> KFilesystemFileOps::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
@@ -154,7 +154,7 @@ Ptr<KDirectoryNode> KFilesystemFileOps::OpenDirectory(Ptr<KFSVolume> volume, Ptr
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission)
+void KFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int permission)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
@@ -163,7 +163,7 @@ void KFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KFilesystem::Rename(Ptr<KFSVolume> volume, Ptr<KINode> oldParent, const char* oldName, int oldNameLen, Ptr<KINode> newParent, const char* newName, int newNameLen, bool mustBeDir)
+void KFilesystem::Rename(Ptr<KFSVolume> volume, Ptr<KInode> oldParent, const char* oldName, int oldNameLen, Ptr<KInode> newParent, const char* newName, int newNameLen, bool mustBeDir)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
@@ -172,7 +172,7 @@ void KFilesystem::Rename(Ptr<KFSVolume> volume, Ptr<KINode> oldParent, const cha
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
     
-void KFilesystem::Unlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength)
+void KFilesystem::Unlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
@@ -181,7 +181,7 @@ void KFilesystem::Unlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KFilesystem::RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength)
+void KFilesystem::RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
@@ -258,7 +258,7 @@ size_t KFilesystemFileOps::Write(Ptr<KFileNode> file, const iovec_t* segments, s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t KFilesystemFileOps::ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize)
+size_t KFilesystemFileOps::ReadLink(Ptr<KFSVolume> volume, Ptr<KInode> node, char* buffer, size_t bufferSize)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
@@ -294,7 +294,7 @@ void KFilesystemFileOps::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KFilesystemFileOps::CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, int mode)
+void KFilesystemFileOps::CheckAccess(Ptr<KFSVolume> volume, Ptr<KInode> node, int mode)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
@@ -303,10 +303,10 @@ void KFilesystemFileOps::CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, in
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KFilesystemFileOps::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* outStats)
+void KFilesystemFileOps::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* outStats)
 {
     outStats->st_dev = dev_t(volume->m_VolumeID);
-    outStats->st_ino = inode->m_INodeID;
+    outStats->st_ino = inode->m_InodeID;
 
     outStats->st_mode = inode->m_FileMode;
     if (volume->HasFlag(FSVolumeFlags::FS_IS_READONLY)) {
@@ -327,7 +327,7 @@ void KFilesystemFileOps::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, stru
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KFilesystemFileOps::WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* stat, uint32_t mask)
+void KFilesystemFileOps::WriteStat(Ptr<KFSVolume> volume, Ptr<KInode> node, const struct stat* stat, uint32_t mask)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }

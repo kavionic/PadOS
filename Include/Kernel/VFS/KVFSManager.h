@@ -39,7 +39,7 @@ class KFileNode;
 class KDeviceNode;
 class KRootFilesystem;
 
-class KINode;
+class KInode;
 
 typedef void disk_read_op(void* cookie, off64_t offset, void* buffer, size_t size);
 
@@ -64,23 +64,24 @@ public:
 
     static void           RegisterVolume_trw(Ptr<KFSVolume> volume);
     static Ptr<KFSVolume> GetVolume(fs_id volumeID);
-    static Ptr<KINode>    GetINode_trw(fs_id volumeID, ino_t inodeID, bool crossMount);
-    static void           InodeReleased(KINode* inode);
+    static Ptr<KInode>    GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossMount);
+    static void           InodeReleased(KInode* inode);
     static void           FlushInodes();
 private:
-    static void DiscardInode(KINode* inode);
+    static void DiscardInode(KInode* inode);
     
     static const int     MAX_INODE_CACHE_COUNT = 5;
-    static KINode* const PENDING_INODE;
+    static KInode* const PENDING_INODE;
     
-    static KMutex s_INodeMapMutex;
-    static std::map<std::pair<fs_id, ino_t>, KINode*> s_INodeMap;
-    static PIntrusiveList<KINode>                      s_InodeMRUList;
+    static KMutex                                     s_InodeMapMutex;
+    static std::map<std::pair<fs_id, ino_t>, KInode*> s_InodeMap;
+    static PIntrusiveList<KInode>                     s_InodeMRUList;
     static int                                        s_UnusedInodeCount;
     static std::map<fs_id, Ptr<KFSVolume>>            s_VolumeMap;
     static KConditionVariable                         s_InodeMapConditionVar;
-    KVFSManager( const KVFSManager &c );
-    KVFSManager& operator=( const KVFSManager &c );
+
+    KVFSManager( const KVFSManager &c ) = delete;
+    KVFSManager& operator=( const KVFSManager &c ) = delete;
 };
 
 

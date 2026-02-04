@@ -26,7 +26,7 @@
 
 #include "FATTable.h"
 #include "FATVolume.h"
-#include "FATINode.h"
+#include "FATInode.h"
 
 namespace kernel
 {
@@ -195,9 +195,9 @@ size_t FATTable::GetChainLength(uint32_t cluster)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool updateICache)
+void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusters, bool updateICache)
 {
-    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): {:x} to {} clusters ({}).", node->m_INodeID, clusters, node->m_StartCluster);
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::SetChainLength(): {:x} to {} clusters ({}).", node->m_InodeID, clusters, node->m_StartCluster);
     
     if (IS_FIXED_ROOT(node->m_StartCluster) || (!m_Volume->IsDataCluster(node->m_StartCluster) && (node->m_StartCluster != 0))) {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::SetChainLength(): called on invalid cluster ({}).", node->m_StartCluster);
@@ -216,7 +216,7 @@ void FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool update
         node->m_EndCluster = 0;
         ClearFATChain(c);
         if (updateICache) {
-            m_Volume->SetINodeIDToLocationIDMapping(node->m_INodeID, GENERATE_DIR_INDEX_INODEID(node->m_ParentINodeID, node->m_DirStartIndex));
+            m_Volume->SetInodeIDToLocationIDMapping(node->m_InodeID, GENERATE_DIR_INDEX_INODEID(node->m_ParentInodeID, node->m_DirStartIndex));
         }
         // Write to disk so that get_next_dirent doesn't barf
         node->Write();
@@ -234,7 +234,7 @@ void FATTable::SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool update
         node->m_EndCluster = GetChainEntry(newChainStart, clusters - 1);
 
         if (updateICache) {
-            m_Volume->SetINodeIDToLocationIDMapping(node->m_INodeID, GENERATE_DIR_CLUSTER_INODEID(node->m_ParentINodeID, node->m_StartCluster));
+            m_Volume->SetInodeIDToLocationIDMapping(node->m_InodeID, GENERATE_DIR_CLUSTER_INODEID(node->m_ParentInodeID, node->m_StartCluster));
         }
         // Write to disk so that get_next_dirent doesn't barf.
         node->Write();

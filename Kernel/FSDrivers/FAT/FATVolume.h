@@ -22,12 +22,12 @@
 #include "Kernel/VFS/KFSVolume.h"
 #include "Kernel/VFS/KBlockCache.h"
 #include "FATTable.h"
-#include "FATINode.h"
+#include "FATInode.h"
 
 namespace kernel
 {
 class FATFilesystem;    
-class FATINode;
+class FATInode;
 
 struct FATSuperBlock
 {
@@ -115,16 +115,16 @@ public:
     
     Ptr<FATTable> GetFATTable() { return m_FATTable; }
     
-    ino_t AllocUniqueINodeID();
-    void  SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID);
-    bool  RemoveINodeIDToLocationIDMapping(ino_t inodeID);
-    bool  GetINodeIDToLocationIDMapping(ino_t inodeID, ino_t* locationID) const;
-    bool  GetLocationIDToINodeIDMapping(ino_t locationID, ino_t* inodeID) const;
+    ino_t AllocUniqueInodeID();
+    void  SetInodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID);
+    bool  RemoveInodeIDToLocationIDMapping(ino_t inodeID);
+    bool  GetInodeIDToLocationIDMapping(ino_t inodeID, ino_t* locationID) const;
+    bool  GetLocationIDToInodeIDMapping(ino_t locationID, ino_t* inodeID) const;
 
-    bool  HasINodeIDToLocationIDMapping(ino_t inodeID) const;
-    bool  HasLocationIDToINodeIDMapping(ino_t locationID) const;
+    bool  HasInodeIDToLocationIDMapping(ino_t inodeID) const;
+    bool  HasLocationIDToInodeIDMapping(ino_t locationID) const;
 
-    void  DumpINodeIDMap();
+    void  DumpInodeIDMap();
     
     void  AddDirectoryMapping(ino_t inodeID);
     bool  RemoveDirectoryMapping(ino_t inodeID);
@@ -133,19 +133,19 @@ public:
     
     uint32_t	   m_Magic;
     mutable KMutex m_Mutex;
-    mutable KMutex m_INodeIDMapMutex;
+    mutable KMutex m_InodeIDMapMutex;
     int		   m_DeviceFile = -1;       // Block-device file descriptor
     KBlockCache    m_BCache;
     Ptr<FATTable>  m_FATTable;
     
-    struct INodeMapEntry {
-        ino_t m_INodeID;
+    struct InodeMapEntry {
+        ino_t m_InodeID;
         ino_t m_LocationID;
     };
         
     
-    std::map<ino_t, INodeMapEntry>  m_INodeToLocationMap;
-    std::map<ino_t, INodeMapEntry*> m_LocationToINodeMap;
+    std::map<ino_t, InodeMapEntry>  m_InodeToLocationMap;
+    std::map<ino_t, InodeMapEntry*> m_LocationToInodeMap;
     ino_t                           m_CurrentArtificialID = ARTIFICIAL_INODEID_BITS;
     
     std::map<uint32_t, ino_t>       m_DirectoryMap;
@@ -169,18 +169,12 @@ public:
 
     uint32_t      m_RootStart = 0;        // for fat12 + fat16 only
     uint32_t	  m_RootSectorCount = 0;  // for fat12 + fat16 only
-    Ptr<FATINode> m_RootINode;            // root directory
+    Ptr<FATInode> m_RootInode;            // root directory
     int32_t	  m_VolumeLabelEntry = 0; // index in root directory
     char	  m_VolumeLabel[12];      // lfn's need not apply
 
     uint32_t	  m_FirstDataSector = 0;
     uint32_t      m_LastAllocatedCluster = 0; // last allocated cluster
-
-/*    struct DList {
-	uint32_t entries;
-	uint32_t allocated;
-	ino_t*   vnid_list;
-    } dlist;*/
 };
 
 

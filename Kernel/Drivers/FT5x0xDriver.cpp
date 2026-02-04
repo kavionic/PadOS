@@ -108,7 +108,7 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
 
     Start_trw(PThreadDetachState_Detached, 10);
 
-    Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+    Ptr<KInode> inode = ptr_new<KInode>(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
     kregister_device_root_trw(devicePath, inode);
 }
 
@@ -240,7 +240,7 @@ void* FT5x0xDriver::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> FT5x0xDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags)
+Ptr<KFileNode> FT5x0xDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int flags)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<FT5x0xFile> file = ptr_new<FT5x0xFile>(flags);

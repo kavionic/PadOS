@@ -26,7 +26,7 @@
 #include <Utils/Logging.h>
 #include <Kernel/HAL/DigitalPort.h>
 #include <Kernel/VFS/KFilesystem.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KDriverParametersBase.h>
 #include <Kernel/KThread.h>
 #include <Kernel/IRQDispatcher.h>
@@ -92,10 +92,10 @@ enum class SDMMCCardVersion
     MMC_4    = 0x40    //! MMC version 4
 };
 
-class SDMMCINode : public KINode
+class SDMMCInode : public KInode
 {
 public:
-    SDMMCINode(Ptr<SDMMCDriver> driver);
+    SDMMCInode(Ptr<SDMMCDriver> driver);
 
     Ptr<SDMMCDriver> m_Driver;
 
@@ -116,12 +116,12 @@ public:
     
     virtual void* Run() override;
     
-    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> node, int flags) override;
 
     virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
     virtual size_t Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position) override;
     virtual size_t Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position) override;
-    virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
+    virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
 protected:
     static constexpr uint32_t BLOCK_SIZE = 512;
@@ -220,8 +220,8 @@ protected:
     DigitalPin          m_PinCD;
     
     PString                      m_DevicePathBase;
-    Ptr<SDMMCINode>              m_RawINode;
-    std::vector<Ptr<SDMMCINode>> m_PartitionINodes;
+    Ptr<SDMMCInode>              m_RawInode;
+    std::vector<Ptr<SDMMCInode>> m_PartitionInodes;
     
     bool                m_CardInserted = false;
     SDMMCCardType::Type m_CardType     = SDMMCCardType::Unknown;

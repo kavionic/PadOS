@@ -39,16 +39,16 @@ namespace kernel
 
 PDEFINE_LOG_CATEGORY(LogCategoryI2CDriver, "I2CDRV", PLogSeverity::WARNING);
 
-PREGISTER_KERNEL_DRIVER(I2CDriverINode, I2CDriverParameters);
+PREGISTER_KERNEL_DRIVER(I2CDriverInode, I2CDriverParameters);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-I2CDriverINode::I2CDriverINode(const I2CDriverParameters& parameters)
-    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
-    , m_Mutex("I2CDriverINode", PEMutexRecursionMode_RaiseError)
-    , m_RequestCondition("I2CDriverINodeRequest")
+I2CDriverInode::I2CDriverInode(const I2CDriverParameters& parameters)
+    : KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+    , m_Mutex("I2CDriverInode", PEMutexRecursionMode_RaiseError)
+    , m_RequestCondition("I2CDriverInodeRequest")
     , m_ClockPin(parameters.ClockPin)
     , m_DataPin(parameters.DataPin)
     , m_FallTime(parameters.FallTime)
@@ -95,7 +95,7 @@ I2CDriverINode::I2CDriverINode(const I2CDriverParameters& parameters)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-I2CDriverINode::~I2CDriverINode()
+I2CDriverInode::~I2CDriverInode()
 {
 }
 
@@ -103,7 +103,7 @@ I2CDriverINode::~I2CDriverINode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> I2CDriverINode::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags)
+Ptr<KFileNode> I2CDriverInode::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> node, int flags)
 {
     Ptr<I2CFile> file = ptr_new<I2CFile>(flags);
     return file;
@@ -113,7 +113,7 @@ Ptr<KFileNode> I2CDriverINode::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void I2CDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<I2CFile> i2cfile = ptr_static_cast<I2CFile>(file);
@@ -166,7 +166,7 @@ void I2CDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const void*
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t I2CDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
+size_t I2CDriverInode::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
     if (length == 0) {
         return 0;
@@ -241,7 +241,7 @@ size_t I2CDriverINode::Read(Ptr<KFileNode> file, void* buffer, size_t length, of
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t I2CDriverINode::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
+size_t I2CDriverInode::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
     if (length == 0) {
         return 0;
@@ -328,7 +328,7 @@ size_t I2CDriverINode::Write(Ptr<KFileNode> file, const void* buffer, size_t len
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void I2CDriverInode::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     CRITICAL_SCOPE(m_Mutex);
     KFilesystemFileOps::ReadStat(volume, inode, statBuf);
@@ -338,7 +338,7 @@ void I2CDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriverINode::ResetPeripheral()
+void I2CDriverInode::ResetPeripheral()
 {
     m_Port->CR1 = 0;
     m_Port->CR1 = I2C_CR1_PE
@@ -351,7 +351,7 @@ void I2CDriverINode::ResetPeripheral()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriverINode::ClearBus()
+void I2CDriverInode::ClearBus()
 {
     DigitalPin clockPin(m_ClockPin.PINID);
     DigitalPin dataPin(m_DataPin.PINID);
@@ -387,7 +387,7 @@ void I2CDriverINode::ClearBus()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int I2CDriverINode::SetSpeed(I2CSpeed speed)
+int I2CDriverInode::SetSpeed(I2CSpeed speed)
 {
     int speedIndex = int(speed);
     if (speedIndex < 0 || speedIndex > int(I2CSpeed::FastPlus)) {
@@ -508,7 +508,7 @@ int I2CDriverINode::SetSpeed(I2CSpeed speed)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int I2CDriverINode::GetBaudrate() const
+int I2CDriverInode::GetBaudrate() const
 {
     return m_Baudrate;
 }
@@ -517,7 +517,7 @@ int I2CDriverINode::GetBaudrate() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void I2CDriverINode::UpdateTransactionLength(uint32_t& CR2)
+void I2CDriverInode::UpdateTransactionLength(uint32_t& CR2)
 {
     CR2 &= ~(I2C_CR2_NBYTES_Msk | I2C_CR2_RELOAD);
 
@@ -533,16 +533,16 @@ void I2CDriverINode::UpdateTransactionLength(uint32_t& CR2)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult I2CDriverINode::IRQCallbackEvent(IRQn_Type irq, void* userData)
+IRQResult I2CDriverInode::IRQCallbackEvent(IRQn_Type irq, void* userData)
 {
-    return static_cast<I2CDriverINode*>(userData)->HandleEventIRQ();
+    return static_cast<I2CDriverInode*>(userData)->HandleEventIRQ();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult I2CDriverINode::HandleEventIRQ()
+IRQResult I2CDriverInode::HandleEventIRQ()
 {
     if (m_Port->ISR & I2C_ISR_NACKF)
     {
@@ -637,16 +637,16 @@ IRQResult I2CDriverINode::HandleEventIRQ()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult I2CDriverINode::IRQCallbackError(IRQn_Type irq, void* userData)
+IRQResult I2CDriverInode::IRQCallbackError(IRQn_Type irq, void* userData)
 {
-    return static_cast<I2CDriverINode*>(userData)->HandleErrorIRQ();
+    return static_cast<I2CDriverInode*>(userData)->HandleErrorIRQ();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult I2CDriverINode::HandleErrorIRQ()
+IRQResult I2CDriverInode::HandleErrorIRQ()
 {
     m_Port->CR1 &= ~I2C_CR1_ERRIE;
     m_TransactionError = PErrorCode::IOError;

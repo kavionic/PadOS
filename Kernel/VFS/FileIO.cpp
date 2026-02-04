@@ -26,7 +26,7 @@
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KFSVolume.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KRootFilesystem.h>
 #include <Kernel/VFS/KVFSManager.h>
 #include <System/ExceptionHandling.h>
@@ -128,7 +128,7 @@ KIOContext* kget_io_context()
 
 void kmount_trw(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength)
 {
-    Ptr<KINode> mountPoint = klocate_inode_by_path_trw(nullptr, directoryPath, strlen(directoryPath));
+    Ptr<KInode> mountPoint = klocate_inode_by_path_trw(nullptr, directoryPath, strlen(directoryPath));
     Ptr<KFilesystem> filesystem = kfind_filesystem_trw(filesystemName);
     static fs_id nextFSID = VOLID_FIRST_NORMAL;
     Ptr<KFSVolume> volume = filesystem->Mount(nextFSID++, devicePath, flags, args, argLength);
@@ -145,7 +145,7 @@ void kmount_trw(const char* devicePath, const char* directoryPath, const char* f
 Ptr<KFileTableNode> kget_file_table_node_trw(int handle, bool forKernel)
 {
     CRITICAL_SCOPE(kg_TableMutex);
-    if (handle >= 0 && handle < int(kg_FileTable.size()) && kg_FileTable[handle] != nullptr && kg_FileTable[handle]->GetINode() != nullptr) {
+    if (handle >= 0 && handle < int(kg_FileTable.size()) && kg_FileTable[handle] != nullptr && kg_FileTable[handle]->GetInode() != nullptr) {
         return kg_FileTable[handle];
     }
     PERROR_THROW_CODE(PErrorCode::BadFile);
@@ -168,10 +168,10 @@ Ptr<KFileNode> kget_file_node_trw(int handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> kget_file_node_trw(int handle, Ptr<KINode>& outInode)
+Ptr<KFileNode> kget_file_node_trw(int handle, Ptr<KInode>& outInode)
 {
     Ptr<KFileNode> file = kget_file_node_trw(handle);
-    Ptr<KINode> inode = file->GetINode();
+    Ptr<KInode> inode = file->GetInode();
     assert(inode != nullptr && inode->m_Filesystem != nullptr);
 
     if (inode->m_FileOps == nullptr)
@@ -205,19 +205,19 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
 
     PScopeFail handleGuard([handle]() { kfree_filehandle(handle); });
 
-    Ptr<KINode> baseInode;
+    Ptr<KInode> baseInode;
     if (baseFolderFD != AT_FDCWD)
     {
         Ptr<KFileTableNode> baseFolderFile = kget_directory_node_trw(baseFolderFD);
-        baseInode = baseFolderFile->GetINode();
+        baseInode = baseFolderFile->GetInode();
     }
 
     size_t      pathLength = strlen(path);
     const char* name;
     size_t      nameLength;
-    Ptr<KINode> parent = klocate_parent_inode_trw(baseInode, path, pathLength, &name, &nameLength);
+    Ptr<KInode> parent = klocate_parent_inode_trw(baseInode, path, pathLength, &name, &nameLength);
         
-    Ptr<KINode> inode;
+    Ptr<KInode> inode;
     try
     {
         inode = klocate_inode_by_name_trw(parent, name, nameLength, true);
@@ -246,7 +246,7 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
     } else {
         file = inode->m_FileOps->OpenFile(inode->m_Volume, inode, (openFlags & ~O_CREAT));
     }
-    file->SetINode(inode);
+    file->SetInode(inode);
 
     kset_filehandle(handle, file);
     return handle;
@@ -268,7 +268,7 @@ int kopen_trw(const char* path, int openFlags, int permissions)
 int kreopen_file_trw(int oldHandle, int openFlags)
 {
     Ptr<KFileTableNode> fileNode = kget_file_table_node_trw(oldHandle);
-    return kopen_from_inode_trw(false, fileNode->GetINode(), openFlags);
+    return kopen_from_inode_trw(false, fileNode->GetInode(), openFlags);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -370,7 +370,7 @@ size_t kpread_trw(int handle, void* buffer, size_t length, off_t position)
 
 size_t kreadv_trw(int handle, const iovec_t* segments, size_t segmentCount)
 {
-    Ptr<KINode> inode;
+    Ptr<KInode> inode;
     Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
     const size_t bytesRead = inode->m_FileOps->Read(file, segments, segmentCount, file->m_Position);
     file->m_Position += bytesRead;
@@ -383,7 +383,7 @@ size_t kreadv_trw(int handle, const iovec_t* segments, size_t segmentCount)
 
 size_t kpreadv_trw(int handle, const iovec_t* segments, size_t segmentCount, off_t position)
 {
-    Ptr<KINode> inode;
+    Ptr<KInode> inode;
     Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
     return inode->m_FileOps->Read(file, segments, segmentCount, position);
 }
@@ -470,7 +470,7 @@ size_t kpwrite_trw(int handle, const void* buffer, size_t length, off_t position
 
 size_t kwritev_trw(int handle, const iovec_t* segments, size_t segmentCount)
 {
-    Ptr<KINode> inode;
+    Ptr<KInode> inode;
     Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
     ssize_t bytesWritten = inode->m_FileOps->Write(file, segments, segmentCount, file->m_Position);
     file->m_Position += bytesWritten;
@@ -483,7 +483,7 @@ size_t kwritev_trw(int handle, const iovec_t* segments, size_t segmentCount)
 
 size_t kpwritev_trw(int handle, const iovec_t* segments, size_t segmentCount, off_t position)
 {
-    Ptr<KINode> inode;
+    Ptr<KInode> inode;
     Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
     return inode->m_FileOps->Write(file, segments, segmentCount, position);
 }
@@ -546,7 +546,7 @@ PErrorCode kpwrite(int handle, const void* buffer, size_t length, off_t position
 
 off_t klseek_trw(int handle, off_t offset, int mode)
 {
-    Ptr<KINode> inode;
+    Ptr<KInode> inode;
     Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
     switch (mode)
     {
@@ -584,7 +584,7 @@ off_t klseek_trw(int handle, off_t offset, int mode)
 
 void kfsync_trw(int handle)
 {
-    Ptr<KINode> inode;
+    Ptr<KInode> inode;
     Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
     inode->m_FileOps->Sync(file);
 }
@@ -595,7 +595,7 @@ void kfsync_trw(int handle)
 
 void kdevice_control_trw(int handle, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
-    Ptr<KINode> inode;
+    Ptr<KInode> inode;
     Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
     inode->m_FileOps->DeviceControl(file, request, inData, inDataLength, outData, outDataLength);
 }
@@ -630,14 +630,14 @@ void kcreate_directory_trw(int baseFolderFD, const char* path, int permission)
     const char* name;
     size_t      nameLength;
 
-    Ptr<KINode> baseInode;
+    Ptr<KInode> baseInode;
     if (baseFolderFD != AT_FDCWD)
     {
         Ptr<KFileTableNode> baseFolderFile = kget_directory_node_trw(baseFolderFD);
-        baseInode = baseFolderFile->GetINode();
+        baseInode = baseFolderFile->GetInode();
     }
 
-    Ptr<KINode> parent = klocate_parent_inode_trw(baseInode, path, pathLength, &name, &nameLength);
+    Ptr<KInode> parent = klocate_parent_inode_trw(baseInode, path, pathLength, &name, &nameLength);
     parent->m_Filesystem->CreateDirectory(parent->m_Volume, parent, name, nameLength, permission);
 }
 
@@ -681,7 +681,7 @@ size_t kreadlink_trw(int baseFolderFD, const char* path, char* buffer, size_t bu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kread_stat_trw(Ptr<KINode> inode, struct stat* outStats)
+void kread_stat_trw(Ptr<KInode> inode, struct stat* outStats)
 {
     if (inode == nullptr || inode->m_FileOps == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NotImplemented);
@@ -696,7 +696,7 @@ void kread_stat_trw(Ptr<KINode> inode, struct stat* outStats)
 void kread_stat_trw(int handle, struct stat* outStats)
 {
     Ptr<KFileTableNode> node = kget_file_table_node_trw(handle);
-    Ptr<KINode> inode = node->GetINode();
+    Ptr<KInode> inode = node->GetInode();
     if (inode == nullptr || inode->m_FileOps == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NotImplemented);
     }
@@ -710,7 +710,7 @@ void kread_stat_trw(int handle, struct stat* outStats)
 void kwrite_stat_trw(int handle, const struct stat& value, uint32_t mask)
 {
     Ptr<KFileTableNode> node = kget_file_table_node_trw(handle);
-    Ptr<KINode> inode = node->GetINode();
+    Ptr<KInode> inode = node->GetInode();
     if (inode == nullptr || inode->m_FileOps == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NotImplemented);
     }
@@ -734,11 +734,11 @@ void krename_trw(const char* inOldPath, const char* inNewPath)
 
     const char* oldName;
     size_t      oldNameLength;
-    Ptr<KINode> oldParent = klocate_parent_inode_trw(nullptr, oldPath.c_str(), oldPath.size(), &oldName, &oldNameLength);
+    Ptr<KInode> oldParent = klocate_parent_inode_trw(nullptr, oldPath.c_str(), oldPath.size(), &oldName, &oldNameLength);
 
     const char* newName;
     size_t      newNameLength;
-    Ptr<KINode> newParent = klocate_parent_inode_trw(nullptr, newPath.c_str(), newPath.size(), &newName, &newNameLength);
+    Ptr<KInode> newParent = klocate_parent_inode_trw(nullptr, newPath.c_str(), newPath.size(), &newName, &newNameLength);
 
     if (oldParent->m_Volume->m_VolumeID != newParent->m_Volume->m_VolumeID) {
         PERROR_THROW_CODE(PErrorCode::CrossDeviceLink);
@@ -757,17 +757,17 @@ void kunlink_trw(int baseFolderFD, const char* inPath)
     }
     PString path(inPath);
 
-    Ptr<KINode> baseInode;
+    Ptr<KInode> baseInode;
     if (baseFolderFD != AT_FDCWD)
     {
         Ptr<KFileTableNode> baseFolderFile = kget_directory_node_trw(baseFolderFD);
-        baseInode = baseFolderFile->GetINode();
+        baseInode = baseFolderFile->GetInode();
     }
 
     const char* name;
     size_t      nameLength;
 
-    Ptr<KINode> parent = klocate_parent_inode_trw(baseInode, path.c_str(), path.size(), &name, &nameLength);
+    Ptr<KInode> parent = klocate_parent_inode_trw(baseInode, path.c_str(), path.size(), &name, &nameLength);
     parent->m_Filesystem->Unlink(parent->m_Volume, parent, name, nameLength);
 }
 
@@ -794,14 +794,14 @@ void kremove_directory_trw(int baseFolderFD, const char* inPath)
     const char* name;
     size_t      nameLength;
 
-    Ptr<KINode> baseInode;
+    Ptr<KInode> baseInode;
     if (baseFolderFD != AT_FDCWD)
     {
         Ptr<KFileTableNode> baseFolderFile = kget_directory_node_trw(baseFolderFD);
-        baseInode = baseFolderFile->GetINode();
+        baseInode = baseFolderFile->GetInode();
     }
 
-    Ptr<KINode> parent = klocate_parent_inode_trw(baseInode, path.c_str(), path.size(), &name, &nameLength);
+    Ptr<KInode> parent = klocate_parent_inode_trw(baseInode, path.c_str(), path.size(), &name, &nameLength);
     parent->m_Filesystem->RemoveDirectory(parent->m_Volume, parent, name, nameLength);
 }
 
@@ -1058,7 +1058,7 @@ int kremove_directory(const char* inPath) noexcept
 void kget_directory_path_trw(int handle, char* buffer, size_t bufferSize)
 {
     Ptr<KDirectoryNode> directory = kget_directory_node_trw(handle);
-    Ptr<KINode> inode = directory->GetINode();
+    Ptr<KInode> inode = directory->GetInode();
     assert(inode != nullptr && inode->m_Filesystem != nullptr);
     kget_directory_name_trw(inode, buffer, bufferSize);
 }
@@ -1089,7 +1089,7 @@ Ptr<KRootFilesystem> kget_rootfs() noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> klocate_inode_by_name_trw(Ptr<KINode> parent, const char* name, int nameLength, bool crossMount)
+Ptr<KInode> klocate_inode_by_name_trw(Ptr<KInode> parent, const char* name, int nameLength, bool crossMount)
 {
     if (nameLength == 0) {
         return parent;
@@ -1102,7 +1102,7 @@ Ptr<KINode> klocate_inode_by_name_trw(Ptr<KINode> parent, const char* name, int 
             return parent;
         }
     }
-    Ptr<KINode> inode = parent->m_Filesystem->LocateInode(parent->m_Volume, parent, name, nameLength);
+    Ptr<KInode> inode = parent->m_Filesystem->LocateInode(parent->m_Volume, parent, name, nameLength);
     if (crossMount && inode->m_MountRoot != nullptr) {
         inode = inode->m_MountRoot;
     }
@@ -1113,7 +1113,7 @@ Ptr<KINode> klocate_inode_by_name_trw(Ptr<KINode> parent, const char* name, int 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> klocate_inode_by_path_trw(Ptr<KINode> parent, const char* path, int pathLength)
+Ptr<KInode> klocate_inode_by_path_trw(Ptr<KInode> parent, const char* path, int pathLength)
 {
     const char* name;
     size_t      nameLength;
@@ -1125,10 +1125,10 @@ Ptr<KINode> klocate_inode_by_path_trw(Ptr<KINode> parent, const char* path, int 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> klocate_parent_inode_trw(Ptr<KINode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength)
+Ptr<KInode> klocate_parent_inode_trw(Ptr<KInode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength)
 {
     const KIOContext* const ioContext = kget_io_context();
-    Ptr<KINode> current = parent;
+    Ptr<KInode> current = parent;
 
     int i = 0;
     if (path[0] == '/')
@@ -1170,7 +1170,7 @@ Ptr<KINode> klocate_parent_inode_trw(Ptr<KINode> parent, const char* path, int p
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kget_directory_name_trw(Ptr<KINode> inode, char* path, size_t bufferSize)
+void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
 {
     int         pathLength = 0;
 
@@ -1189,7 +1189,7 @@ void kget_directory_name_trw(Ptr<KINode> inode, char* path, size_t bufferSize)
         dirent_t    dirEntry;
         int         directoryHandle;
 
-        Ptr<KINode> parent = klocate_inode_by_name_trw(inode, "..", 2, true);
+        Ptr<KInode> parent = klocate_inode_by_name_trw(inode, "..", 2, true);
         directoryHandle = kopen_from_inode_trw(true, parent, O_RDONLY);
         PScopeExit handleGuard([directoryHandle]() { kclose(directoryHandle); });
 
@@ -1202,7 +1202,7 @@ void kget_directory_name_trw(Ptr<KINode> inode, char* path, size_t bufferSize)
             }
             if (isMountPoint)
             {
-                Ptr<KINode> entryInode = klocate_inode_by_name_trw(parent, dirEntry.d_name, dirEntry.d_namlen, false);
+                Ptr<KInode> entryInode = klocate_inode_by_name_trw(parent, dirEntry.d_name, dirEntry.d_namlen, false);
                 if (entryInode->m_MountRoot == inode)
                 {
                     if (pathLength + dirEntry.d_namlen + 1 > bufferSize) {
@@ -1213,7 +1213,7 @@ void kget_directory_name_trw(Ptr<KINode> inode, char* path, size_t bufferSize)
                     break;
                 }
             }
-            else if (dirEntry.d_ino == inode->m_INodeID)
+            else if (dirEntry.d_ino == inode->m_InodeID)
             {
                 if (pathLength + dirEntry.d_namlen + 1 > bufferSize) {
                     PERROR_THROW_CODE(PErrorCode::NameTooLong);
@@ -1277,7 +1277,7 @@ void kfree_filehandle(int handle) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int kopen_from_inode_trw(bool kernelFile, Ptr<KINode> inode, int openFlags)
+int kopen_from_inode_trw(bool kernelFile, Ptr<KInode> inode, int openFlags)
 {
     int handle = kallocate_filehandle_trw();
 
@@ -1293,7 +1293,7 @@ int kopen_from_inode_trw(bool kernelFile, Ptr<KINode> inode, int openFlags)
     } else {
         file = inode->m_FileOps->OpenFile(inode->m_Volume, inode, (openFlags & ~O_CREAT));
     }
-    file->SetINode(inode);
+    file->SetInode(inode);
 
     kset_filehandle(handle, file);
     return handle;
@@ -1321,7 +1321,7 @@ void kfchdir_trw(int handle)
     KIOContext* const ioContext = kget_io_context();
 
     const Ptr<KDirectoryNode> dirNode = kget_directory_node_trw(handle);
-    const Ptr<KINode> inode = dirNode->GetINode();
+    const Ptr<KInode> inode = dirNode->GetInode();
 
     struct stat stats;
     kread_stat_trw(inode, &stats);
@@ -1354,7 +1354,7 @@ void kgetcwd_trw(char* pathBuffer, size_t bufferSize)
 {
     const KIOContext* const ioContext = kget_io_context();
 
-    const Ptr<KINode> inode = ioContext->GetCurrentDirectory();
+    const Ptr<KInode> inode = ioContext->GetCurrentDirectory();
 
     if (inode == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NoEntry);

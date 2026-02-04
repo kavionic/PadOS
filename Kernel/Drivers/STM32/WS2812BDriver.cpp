@@ -40,7 +40,7 @@ namespace kernel
 {
 
 
-PREGISTER_KERNEL_DRIVER(WS2812BDriverINode, WS2812BDriverParameters);
+PREGISTER_KERNEL_DRIVER(WS2812BDriverInode, WS2812BDriverParameters);
 
 static const uint8_t g_GammaTable[] =
 {
@@ -66,10 +66,10 @@ static const uint8_t g_GammaTable[] =
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-WS2812BDriverINode::WS2812BDriverINode(const WS2812BDriverParameters& parameters)
-	: KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
-	, m_Mutex("WS2812BDriverINodeWrite", PEMutexRecursionMode_RaiseError)
-	, m_TransmitCondition("WS2812BDriverINodeTransmit")
+WS2812BDriverInode::WS2812BDriverInode(const WS2812BDriverParameters& parameters)
+	: KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+	, m_Mutex("WS2812BDriverInodeWrite", PEMutexRecursionMode_RaiseError)
+	, m_TransmitCondition("WS2812BDriverInodeTransmit")
 {
 	m_Port = get_spi_from_id(parameters.PortID);
 
@@ -115,7 +115,7 @@ WS2812BDriverINode::WS2812BDriverINode(const WS2812BDriverParameters& parameters
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void WS2812BDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void WS2812BDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
 	CRITICAL_SCOPE(m_Mutex);
 
@@ -148,7 +148,7 @@ void WS2812BDriverINode::DeviceControl(Ptr<KFileNode> file, int request, const v
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t WS2812BDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length, off64_t position)
+size_t WS2812BDriverInode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length, off64_t position)
 {
     if (position < 0 || (position & 3) || (length & 3)) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
@@ -229,7 +229,7 @@ size_t WS2812BDriverINode::Write(Ptr<KFileNode> file, const void* buffer, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void WS2812BDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void WS2812BDriverInode::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -240,16 +240,16 @@ void WS2812BDriverINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, stru
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult WS2812BDriverINode::IRQCallbackSend(IRQn_Type irq, void* userData)
+IRQResult WS2812BDriverInode::IRQCallbackSend(IRQn_Type irq, void* userData)
 {
-    return static_cast<WS2812BDriverINode*>(userData)->HandleIRQ();
+    return static_cast<WS2812BDriverInode*>(userData)->HandleIRQ();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-IRQResult WS2812BDriverINode::HandleIRQ()
+IRQResult WS2812BDriverInode::HandleIRQ()
 {
 	if (dma_get_interrupt_flags(m_SendDMAChannel) & DMA_LISR_TCIF0)
 	{
@@ -264,7 +264,7 @@ IRQResult WS2812BDriverINode::HandleIRQ()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode WS2812BDriverINode::WaitForIdle()
+PErrorCode WS2812BDriverInode::WaitForIdle()
 {
 	CRITICAL_BEGIN(CRITICAL_IRQ)
 	{
@@ -287,7 +287,7 @@ PErrorCode WS2812BDriverINode::WaitForIdle()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void WS2812BDriverINode::SetLEDCount(size_t count)
+void WS2812BDriverInode::SetLEDCount(size_t count)
 {
 	if (count == m_LEDCount) {
 		return;
@@ -323,7 +323,7 @@ void WS2812BDriverINode::SetLEDCount(size_t count)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t WS2812BDriverINode::GetLEDCount() const
+size_t WS2812BDriverInode::GetLEDCount() const
 {
     return m_LEDCount;
 }
@@ -332,7 +332,7 @@ size_t WS2812BDriverINode::GetLEDCount() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void WS2812BDriverINode::SetExponential(bool exponential)
+void WS2812BDriverInode::SetExponential(bool exponential)
 {
     m_Exponential = exponential;
 }
@@ -341,7 +341,7 @@ void WS2812BDriverINode::SetExponential(bool exponential)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool WS2812BDriverINode::GetExponential() const
+bool WS2812BDriverInode::GetExponential() const
 {
     return m_Exponential;
 }

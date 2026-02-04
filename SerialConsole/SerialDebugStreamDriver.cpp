@@ -29,14 +29,14 @@ namespace kernel
 {
 
 
-PREGISTER_KERNEL_DRIVER(SerialDebugStreamINode, SerialDebugStreamParameters);
+PREGISTER_KERNEL_DRIVER(SerialDebugStreamInode, SerialDebugStreamParameters);
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SerialDebugStreamINode::SerialDebugStreamINode(const SerialDebugStreamParameters& parameters)
-    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+SerialDebugStreamInode::SerialDebugStreamInode(const SerialDebugStreamParameters& parameters)
+    : KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 {
 
 }
@@ -45,7 +45,7 @@ SerialDebugStreamINode::SerialDebugStreamINode(const SerialDebugStreamParameters
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t SerialDebugStreamINode::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
+size_t SerialDebugStreamInode::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
     kernel_log<PLogSeverity::NOTICE>(LogCatKernel_General, "{}", std::string_view(reinterpret_cast<const char*>(buffer), length));
     return length;
@@ -55,7 +55,7 @@ size_t SerialDebugStreamINode::Write(Ptr<KFileNode> file, const void* buffer, si
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SerialDebugStreamINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void SerialDebugStreamInode::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }

@@ -30,7 +30,7 @@ namespace kernel
 {
 
 class KFilesystem;
-class KINode;
+class KInode;
 
 enum
 {
@@ -50,10 +50,10 @@ public:
     fs_id            m_VolumeID;
     uint32_t         m_Flags;
     Ptr<KFilesystem> m_Filesystem;
-    Ptr<KINode>      m_MountPoint;
+    Ptr<KInode>      m_MountPoint;
     PString          m_DevicePath;
 
-    Ptr<KINode>      m_RootNode;
+    Ptr<KInode>      m_RootNode;
 };
 
 } // namespace

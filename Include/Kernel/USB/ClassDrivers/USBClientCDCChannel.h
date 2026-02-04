@@ -25,7 +25,7 @@
 #include <Kernel/KConditionVariable.h>
 #include <Kernel/USB/USBProtocolCDC.h>
 #include <Kernel/VFS/KFilesystem.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 
 namespace kernel
 {
@@ -34,7 +34,7 @@ class USBDevice;
 enum class USB_ControlStage : int;
 enum class USB_TransferResult : uint8_t;
 
-class USBClientCDCChannel : public KINode, public KFilesystemFileOps
+class USBClientCDCChannel : public KInode, public KFilesystemFileOps
 {
 public:
     USBClientCDCChannel(USBDevice* deviceHandler, int channelIndex, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize);
@@ -49,7 +49,7 @@ public:
     virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
     virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
     virtual void    Sync(Ptr<KFileNode> file) override;
-    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
+    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
     virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
     ssize_t  GetWriteBytesAvailable() const;
 

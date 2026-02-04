@@ -116,7 +116,7 @@
 //#include <Kernel/VFS/KFSVolume.h>
 //#include <Kernel/VFS/KFileHandle.h>
 //#include <Kernel/VFS/KFilesystem.h>
-//#include <Kernel/VFS/KINode.h>
+//#include <Kernel/VFS/KInode.h>
 //#include <Kernel/VFS/KIOContext.h>
 //#include <Kernel/VFS/KRootFilesystem.h>
 //#include <Kernel/VFS/KVFSManager.h>

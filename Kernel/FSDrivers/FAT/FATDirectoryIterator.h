@@ -31,7 +31,7 @@ namespace kernel
 {
     
 class FATVolume;
-class FATINode;
+class FATInode;
 
 struct FATDirectoryEntry
 {
@@ -89,7 +89,7 @@ public:
     FATDirectoryEntryCombo* GetNextRawEntry();
 
     bool                    GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PString* outFilename);
-    bool                    GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, PString* outFilename, uint32_t* outDosAttribs);
+    bool                    GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t* outInodeID, PString* outFilename, uint32_t* outDosAttribs);
 
     FATDirectoryEntryCombo* Rewind();
     void                    MarkDirty() { m_IsDirty = true; }  

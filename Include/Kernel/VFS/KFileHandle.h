@@ -28,7 +28,7 @@
 #include <Kernel/Kernel.h>
 #include <Ptr/PtrTarget.h>
 #include <Ptr/Ptr.h>
-#include "KINode.h"
+#include "KInode.h"
 
 namespace kernel
 {
@@ -38,15 +38,15 @@ class KFileTableNode : public PtrTarget
 public:
     KFileTableNode(bool isDirectory, int openFlags) : m_IsDirectory(isDirectory), m_OpenFlags(openFlags & ~O_CREAT) {}
 
-    inline void         SetINode(Ptr<KINode> inode) noexcept    { m_INode = inode; }
-    inline Ptr<KINode>  GetINode() noexcept                     { return m_INode; }
+    inline void         SetInode(Ptr<KInode> inode) noexcept    { m_Inode = inode; }
+    inline Ptr<KInode>  GetInode() noexcept                     { return m_Inode; }
     inline bool         IsDirectory() const noexcept            { return m_IsDirectory; }
     inline void         SetOpenFlags(int flags) noexcept        { m_OpenFlags = flags; }
     inline int          GetOpenFlags() const noexcept           { return m_OpenFlags; }
     inline bool         HasReadAccess() const noexcept          { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDONLY; }
     inline bool         HasWriteAccess() const noexcept         { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_WRONLY; }
 private:
-    Ptr<KINode> m_INode;
+    Ptr<KInode> m_Inode;
     bool        m_IsDirectory;
     int         m_OpenFlags = 0;
 };

@@ -21,7 +21,7 @@
 
 #include <map>
 
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <Utils/String.h>
 #include <Kernel/KMutex.h>
@@ -36,12 +36,12 @@ class KRootFilesystem : public KVirtualFilesystemBase
 public:
     virtual Ptr<KFSVolume>      Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength) override;
 
-    int  RegisterDevice(const char* path, Ptr<KINode> deviceNode);
+    int  RegisterDevice(const char* path, Ptr<KInode> deviceNode);
     void RenameDevice(int handle, const char* newPath);
     void RemoveDevice(int handle);
 
 private:
-    Ptr<KVirtualFSBaseINode> m_DevRoot;
+    Ptr<KVirtualFSBaseInode> m_DevRoot;
 };
 
 } // namespace kernel

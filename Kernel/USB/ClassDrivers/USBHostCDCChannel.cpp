@@ -37,7 +37,7 @@ namespace kernel
 ///////////////////////////////////////////////////////////////////////////////
 
 USBHostCDCChannel::USBHostCDCChannel(USBHost* hostHandler, USBHostClassCDC* classDriver)
-    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+    : KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , m_HostHandler(hostHandler)
     , m_ClassDriver(classDriver)
     , m_ReceiveCondition("usbhcdc_receive")
@@ -375,7 +375,7 @@ size_t USBHostCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBHostCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void USBHostCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }

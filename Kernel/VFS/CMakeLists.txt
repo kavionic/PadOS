@@ -5,7 +5,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KFileHandle.cpp
 	KFilesystem.cpp
 	KFSVolume.cpp
-	KINode.cpp
+	KInode.cpp
 	KIOContext.cpp
 	KNodeMonitor.cpp
 	KRootFilesystem.cpp

@@ -23,7 +23,7 @@
 
 #include <Kernel/KLogging.h>
 
-#include "FATINode.h"
+#include "FATInode.h"
 #include "FATVolume.h"
 #include "FATDirectoryIterator.h"
 #include "Kernel/FSDrivers/FAT/FATFilesystem.h"
@@ -56,8 +56,8 @@ static int LeapDays(int year, int month)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FATINode::FATINode(Ptr<FATFilesystem> filesystem, Ptr<KFSVolume> volume, mode_t fileMode)
-    : KINode(filesystem, volume, ptr_raw_pointer_cast(filesystem), fileMode)
+FATInode::FATInode(Ptr<FATFilesystem> filesystem, Ptr<KFSVolume> volume, mode_t fileMode)
+    : KInode(filesystem, volume, ptr_raw_pointer_cast(filesystem), fileMode)
     , m_Magic(MAGIC)
 {
 }
@@ -66,7 +66,7 @@ FATINode::FATINode(Ptr<FATFilesystem> filesystem, Ptr<KFSVolume> volume, mode_t 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-FATINode::~FATINode()
+FATInode::~FATInode()
 {
     m_Magic = ~MAGIC;
 }
@@ -75,7 +75,7 @@ FATINode::~FATINode()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATINode::CheckMagic(const char* functionName)
+bool FATInode::CheckMagic(const char* functionName)
 {
     if (m_Magic != MAGIC)
     {
@@ -89,7 +89,7 @@ bool FATINode::CheckMagic(const char* functionName)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATINode::Write()
+bool FATInode::Write()
 {
     FATDirectoryEntryCombo* buffer;
 
@@ -101,12 +101,12 @@ bool FATINode::Write()
 
     Ptr<FATVolume> volume = ptr_static_cast<FATVolume>(m_Volume);
     if ((m_StartCluster != 0) && !volume->IsDataCluster(m_StartCluster)) {
-        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATINode::Write() called on invalid cluster ({}).", m_StartCluster);
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATInode::Write() called on invalid cluster ({}).", m_StartCluster);
         set_last_error(EINVAL);
         return false;
     }
 
-    FATDirectoryIterator diri(volume, CLUSTER_OF_DIR_CLUSTER_INODEID(m_ParentINodeID), m_DirEndIndex);
+    FATDirectoryIterator diri(volume, CLUSTER_OF_DIR_CLUSTER_INODEID(m_ParentInodeID), m_DirEndIndex);
     buffer = diri.GetCurrentEntry();
     if (buffer == nullptr) {
         set_last_error(ENOENT);
@@ -131,7 +131,7 @@ bool FATINode::Write()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-time_t FATINode::FATTimeToUnixTime(uint32_t fatTime)
+time_t FATInode::FATTimeToUnixTime(uint32_t fatTime)
 {
     time_t days;
 
@@ -144,7 +144,7 @@ time_t FATINode::FATTimeToUnixTime(uint32_t fatTime)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t FATINode::UnixTimeToFATTime(time_t unixTime)
+uint32_t FATInode::UnixTimeToFATTime(time_t unixTime)
 {
     uint32_t fatTime, d, y, days;
 

@@ -56,7 +56,7 @@ void ksetup_device_driver_trw(TArgumentTypes&& ...parameters)
 }
 
 
-int     kregister_device_root_trw(const char* devicePath, Ptr<KINode> rootINode);
+int     kregister_device_root_trw(const char* devicePath, Ptr<KInode> rootInode);
 void    krename_device_root_trw(int handle, const char* newPath);
 void    kremove_device_root_trw(int handle);
 
@@ -78,9 +78,9 @@ int kregister_device_driver_trw(const char* devicePath, T driver)
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename T> requires (!kregister_device_driver_has_register_device<T>)
-int kregister_device_driver_trw(const char* devicePath, T rootINode)
+int kregister_device_driver_trw(const char* devicePath, T rootInode)
 {
-    return kregister_device_root_trw(devicePath, rootINode); // Kernel::RegisterDevice_trw(devicePath, rootINode);
+    return kregister_device_root_trw(devicePath, rootInode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

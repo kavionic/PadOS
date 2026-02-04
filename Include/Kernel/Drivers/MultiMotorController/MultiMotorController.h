@@ -28,7 +28,7 @@
 #include <System/ExceptionHandling.h>
 
 #include <Kernel/VFS/KFilesystem.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/Drivers/MultiMotorController/TMC2209Driver.h>
 #include <Kernel/Drivers/MultiMotorController/TMC2209IODriver.h>
 

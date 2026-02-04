@@ -47,8 +47,8 @@ Ptr<KFSVolume> KRootFilesystem::Mount(fs_id volumeID, const char* devicePath, ui
 
     CRITICAL_SCOPE(m_Mutex);
 
-    const Ptr<KVirtualFSBaseINode> rootNode = ptr_dynamic_cast<KVirtualFSBaseINode>(volume->m_RootNode);
-    const Ptr<KVirtualFSBaseINode> devRoot  = ptr_new<KVirtualFSBaseINode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(rootNode), this, S_IFDIR | S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    const Ptr<KVirtualFSBaseInode> rootNode = ptr_dynamic_cast<KVirtualFSBaseInode>(volume->m_RootNode);
+    const Ptr<KVirtualFSBaseInode> devRoot  = ptr_new<KVirtualFSBaseInode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(rootNode), this, S_IFDIR | S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         
     rootNode->m_Children["dev"] = devRoot;
 
@@ -61,13 +61,13 @@ Ptr<KFSVolume> KRootFilesystem::Mount(fs_id volumeID, const char* devicePath, ui
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KRootFilesystem::RegisterDevice(const char* path, Ptr<KINode> deviceNode)
+int KRootFilesystem::RegisterDevice(const char* path, Ptr<KInode> deviceNode)
 {
     CRITICAL_SCOPE(m_Mutex);
     int pathLength = strlen(path);
 
     int nameStart = 0;
-    Ptr<KVirtualFSBaseINode> parent = LocateParentInode(m_DevRoot, path, pathLength, true, &nameStart);
+    Ptr<KVirtualFSBaseInode> parent = LocateParentInode(m_DevRoot, path, pathLength, true, &nameStart);
 
     int nameLength = pathLength - nameStart;
     if (nameLength == 0)
@@ -75,8 +75,8 @@ int KRootFilesystem::RegisterDevice(const char* path, Ptr<KINode> deviceNode)
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
-    int32_t handle = AllocINodeNumber();
-    deviceNode->m_INodeID   = handle;
+    int32_t handle = AllocInodeNumber();
+    deviceNode->m_InodeID   = handle;
     deviceNode->m_Filesystem = ptr_tmp_cast(this);
     deviceNode->m_Volume     = m_Volume;
     
@@ -93,13 +93,13 @@ void KRootFilesystem::RenameDevice(int handle, const char* newPath)
 {
     CRITICAL_SCOPE(m_Mutex);
     
-    Ptr<KVirtualFSBaseINode> prevParent;
-    Ptr<KINode> node = FindINode(m_DevRoot, handle, true, &prevParent);
+    Ptr<KVirtualFSBaseInode> prevParent;
+    Ptr<KInode> node = FindInode(m_DevRoot, handle, true, &prevParent);
 
     int pathLength = strlen(newPath);
 
     int nameStart = 0;
-    Ptr<KVirtualFSBaseINode> newParent = LocateParentInode(m_DevRoot, newPath, pathLength, true, &nameStart);
+    Ptr<KVirtualFSBaseInode> newParent = LocateParentInode(m_DevRoot, newPath, pathLength, true, &nameStart);
 
     int nameLength = pathLength - nameStart;
     if (nameLength == 0)
@@ -118,13 +118,13 @@ void KRootFilesystem::RemoveDevice(int handle)
 {
     CRITICAL_SCOPE(m_Mutex);
 
-    Ptr<KVirtualFSBaseINode> prevParent;
-    Ptr<KINode> node = FindINode(m_DevRoot, handle, true, &prevParent);
+    Ptr<KVirtualFSBaseInode> prevParent;
+    Ptr<KInode> node = FindInode(m_DevRoot, handle, true, &prevParent);
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCatKernel_Drivers, "Remove device {}.", handle);
     // Remove empty folders
     while(prevParent != m_DevRoot && prevParent->m_Children.empty())
     {
-        FindINode(m_DevRoot, prevParent->m_INodeID, true, &prevParent);
+        FindInode(m_DevRoot, prevParent->m_InodeID, true, &prevParent);
     }
 }
 

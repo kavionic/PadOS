@@ -49,7 +49,7 @@ PREGISTER_KERNEL_DRIVER(GSLx680Driver, GSLx680DriverParameters);
 ///////////////////////////////////////////////////////////////////////////////
 
 GSLx680Driver::GSLx680Driver(const GSLx680DriverParameters& parameters)
-    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+    : KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , KThread("GSLx680_driver")
     , m_Mutex("GSLx680_mutex", PEMutexRecursionMode_RaiseError)
     , m_EventCondition("GSLx680_events")
@@ -197,7 +197,7 @@ void* GSLx680Driver::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> GSLx680Driver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags)
+Ptr<KFileNode> GSLx680Driver::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int flags)
 {
     CRITICAL_SCOPE(m_Mutex);
     Ptr<GSLx680File> file = ptr_new<GSLx680File>(flags);
@@ -250,7 +250,7 @@ void GSLx680Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void GSLx680Driver::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void GSLx680Driver::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     CRITICAL_SCOPE(m_Mutex);
 

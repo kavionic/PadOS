@@ -24,7 +24,7 @@
 #include <Kernel/Scheduler.h>
 #include <Kernel/Syscalls.h>
 #include <Kernel/VFS/FileIO.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <System/ExceptionHandling.h>
 
@@ -294,7 +294,7 @@ void KObjectWaitGroup::Wait_trw(KMutex* lock, TimeValNanos deadline, void* ready
 
 void KObjectWaitGroup::AddFile_trw(int fileHandle, ObjectWaitMode waitMode)
 {
-    Ptr<KINode> inode;
+    Ptr<KInode> inode;
     Ptr<KFileNode> file = kget_file_node_trw(fileHandle, inode);
     AddObject_trw(inode, waitMode);
 }
@@ -305,7 +305,7 @@ void KObjectWaitGroup::AddFile_trw(int fileHandle, ObjectWaitMode waitMode)
 
 void KObjectWaitGroup::RemoveFile_trw(int fileHandle, ObjectWaitMode waitMode)
 {
-    Ptr<KINode> inode;
+    Ptr<KInode> inode;
     Ptr<KFileNode> file = kget_file_node_trw(fileHandle, inode);
     RemoveObject_trw(inode, waitMode);
 }

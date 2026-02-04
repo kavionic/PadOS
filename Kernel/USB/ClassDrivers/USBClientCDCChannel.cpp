@@ -41,7 +41,7 @@ namespace kernel
 ///////////////////////////////////////////////////////////////////////////////
 
 USBClientCDCChannel::USBClientCDCChannel(USBDevice* deviceHandler, int channelIndex, uint8_t endpointNotification, uint8_t endpointOut, uint8_t endpointIn, uint16_t endpointOutMaxSize, uint16_t endpointInMaxSize)
-    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+    : KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , m_DeviceHandler(deviceHandler)
     , m_ReceiveCondition("usbdcdc_receive")
     , m_TransmitCondition("usbdcdc_transmit")
@@ -268,7 +268,7 @@ void USBClientCDCChannel::Sync(Ptr<KFileNode> file)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBClientCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void USBClientCDCChannel::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }

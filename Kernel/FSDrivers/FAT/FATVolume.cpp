@@ -27,7 +27,7 @@
 #include <System/ExceptionHandling.h>
 
 #include "FATVolume.h"
-#include "FATINode.h"
+#include "FATInode.h"
 
 
 namespace kernel
@@ -38,15 +38,15 @@ namespace kernel
 ///////////////////////////////////////////////////////////////////////////////
 
 FATVolume::FATVolume(Ptr<FATFilesystem> filesystem, fs_id volumeID, const PString& devicePath)
-    : KFSVolume(volumeID, devicePath), m_Mutex("fatfs_vol_mutex", PEMutexRecursionMode_RaiseError), m_INodeIDMapMutex("fatfs_inodemap_mutex", PEMutexRecursionMode_RaiseError)
+    : KFSVolume(volumeID, devicePath), m_Mutex("fatfs_vol_mutex", PEMutexRecursionMode_RaiseError), m_InodeIDMapMutex("fatfs_inodemap_mutex", PEMutexRecursionMode_RaiseError)
 {
     m_Magic = MAGIC;
 
     m_VolumeLabelEntry = -2;	// for now, assume there is no volume entry
     memset(m_VolumeLabel, ' ', 11);
         
-    m_RootINode = ptr_new<FATINode>(filesystem, ptr_tmp_cast(this), S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
-    m_RootNode = m_RootINode;
+    m_RootInode = ptr_new<FATInode>(filesystem, ptr_tmp_cast(this), S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
+    m_RootNode = m_RootInode;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -221,9 +221,9 @@ void FATVolume::ReadSuperBlock(int deviceFile)
         }
         
     }
-    m_RootINode->m_Size         = rootSize;
-    m_RootINode->m_StartCluster = rootStartCluster;
-    m_RootINode->m_EndCluster   = rootEndCluster;
+    m_RootInode->m_Size         = rootSize;
+    m_RootInode->m_StartCluster = rootStartCluster;
+    m_RootInode->m_EndCluster   = rootEndCluster;
     
     m_FATTable = ptr_new<FATTable>(ptr_tmp_cast(this)); // WARNING: Circular reference! Manually broken in Shutdown().
 }
@@ -232,7 +232,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ino_t FATVolume::AllocUniqueINodeID()
+ino_t FATVolume::AllocUniqueInodeID()
 {
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "Allocate unique inode ID: {:x}", m_CurrentArtificialID);
     return m_CurrentArtificialID++;
@@ -242,54 +242,54 @@ ino_t FATVolume::AllocUniqueINodeID()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATVolume::SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
+void FATVolume::SetInodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
 {
-    CRITICAL_SCOPE(m_INodeIDMapMutex);
+    CRITICAL_SCOPE(m_InodeIDMapMutex);
 
-    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATVolume::SetINodeIDToLocationIDMapping({:16x} -> {:16x})", inodeID, locationID);
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x})", inodeID, locationID);
 
-    auto inodeItr = m_INodeToLocationMap.find(inodeID);
-    if (inodeItr != m_INodeToLocationMap.end())
+    auto inodeItr = m_InodeToLocationMap.find(inodeID);
+    if (inodeItr != m_InodeToLocationMap.end())
     {
-        INodeMapEntry& entry = inodeItr->second;
+        InodeMapEntry& entry = inodeItr->second;
         if (locationID != entry.m_LocationID)
         {
-            auto locItr = m_LocationToINodeMap.find(entry.m_LocationID);
-            kassert(locItr != m_LocationToINodeMap.end() && locItr->second == &entry);
-            if (locItr != m_LocationToINodeMap.end()) {
-                m_LocationToINodeMap.erase(locItr);
+            auto locItr = m_LocationToInodeMap.find(entry.m_LocationID);
+            kassert(locItr != m_LocationToInodeMap.end() && locItr->second == &entry);
+            if (locItr != m_LocationToInodeMap.end()) {
+                m_LocationToInodeMap.erase(locItr);
             }
             if (inodeID != locationID)
             {
                 try {
-                    m_LocationToINodeMap[locationID] = &entry;
+                    m_LocationToInodeMap[locationID] = &entry;
                 } catch(const std::bad_alloc&) {
-                    m_INodeToLocationMap.erase(inodeItr);
+                    m_InodeToLocationMap.erase(inodeItr);
                     throw;
                 }
             }
             else
             {
-                m_INodeToLocationMap.erase(inodeItr);
+                m_InodeToLocationMap.erase(inodeItr);
             }
         }            
     }
     else if (inodeID != locationID)
     {
-        INodeMapEntry* entry;
-        entry = &m_INodeToLocationMap[inodeID];
-        entry->m_INodeID = inodeID;
+        InodeMapEntry* entry;
+        entry = &m_InodeToLocationMap[inodeID];
+        entry->m_InodeID = inodeID;
         entry->m_LocationID = locationID;
         try
         {
-            m_LocationToINodeMap[locationID] = entry;
+            m_LocationToInodeMap[locationID] = entry;
         }
         catch(const std::bad_alloc&)
         {
-            auto i = m_INodeToLocationMap.find(inodeID);
-            kassert(i != m_INodeToLocationMap.end());
-            if (i != m_INodeToLocationMap.end()) {
-                m_INodeToLocationMap.erase(i);
+            auto i = m_InodeToLocationMap.find(inodeID);
+            kassert(i != m_InodeToLocationMap.end());
+            if (i != m_InodeToLocationMap.end()) {
+                m_InodeToLocationMap.erase(i);
             }
             throw;
         }
@@ -300,25 +300,25 @@ void FATVolume::SetINodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATVolume::RemoveINodeIDToLocationIDMapping(ino_t inodeID)
+bool FATVolume::RemoveInodeIDToLocationIDMapping(ino_t inodeID)
 {
-    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATVolume::RemoveINodeIDToLocationIDMapping({:16x})", inodeID);
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFS, "FATVolume::RemoveInodeIDToLocationIDMapping({:16x})", inodeID);
 
-    CRITICAL_SCOPE(m_INodeIDMapMutex);
+    CRITICAL_SCOPE(m_InodeIDMapMutex);
 
-    auto inodeItr = m_INodeToLocationMap.find(inodeID);
-    if (inodeItr != m_INodeToLocationMap.end())
+    auto inodeItr = m_InodeToLocationMap.find(inodeID);
+    if (inodeItr != m_InodeToLocationMap.end())
     {
-        INodeMapEntry& entry = inodeItr->second;
-        auto locItr = m_LocationToINodeMap.find(entry.m_LocationID);
-        kassert(locItr != m_LocationToINodeMap.end() && locItr->second == &entry);
-        if (locItr != m_LocationToINodeMap.end()) {
-            m_LocationToINodeMap.erase(locItr);
+        InodeMapEntry& entry = inodeItr->second;
+        auto locItr = m_LocationToInodeMap.find(entry.m_LocationID);
+        kassert(locItr != m_LocationToInodeMap.end() && locItr->second == &entry);
+        if (locItr != m_LocationToInodeMap.end()) {
+            m_LocationToInodeMap.erase(locItr);
         }
-        m_INodeToLocationMap.erase(inodeItr);
+        m_InodeToLocationMap.erase(inodeItr);
         return true;
     }
-    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATVolume::RemoveINodeIDToLocationIDMapping({:16x}) failed to find mapping.", inodeID);
+    kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFS, "FATVolume::RemoveInodeIDToLocationIDMapping({:16x}) failed to find mapping.", inodeID);
     set_last_error(ENOENT);
     return false;
 }
@@ -327,11 +327,11 @@ bool FATVolume::RemoveINodeIDToLocationIDMapping(ino_t inodeID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATVolume::GetINodeIDToLocationIDMapping(ino_t inodeID, ino_t* locationID) const
+bool FATVolume::GetInodeIDToLocationIDMapping(ino_t inodeID, ino_t* locationID) const
 {
-    CRITICAL_SHARED_SCOPE(m_INodeIDMapMutex);
-    auto i = m_INodeToLocationMap.find(inodeID);
-    if (i != m_INodeToLocationMap.end()) {
+    CRITICAL_SHARED_SCOPE(m_InodeIDMapMutex);
+    auto i = m_InodeToLocationMap.find(inodeID);
+    if (i != m_InodeToLocationMap.end()) {
         *locationID = i->second.m_LocationID;
         return true;
     }
@@ -342,11 +342,11 @@ bool FATVolume::GetINodeIDToLocationIDMapping(ino_t inodeID, ino_t* locationID) 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATVolume::GetLocationIDToINodeIDMapping(ino_t locationID, ino_t* inodeID) const
+bool FATVolume::GetLocationIDToInodeIDMapping(ino_t locationID, ino_t* inodeID) const
 {
-    CRITICAL_SHARED_SCOPE(m_INodeIDMapMutex);
-    auto i = m_LocationToINodeMap.find(locationID);
-    if (i != m_LocationToINodeMap.end()) {
+    CRITICAL_SHARED_SCOPE(m_InodeIDMapMutex);
+    auto i = m_LocationToInodeMap.find(locationID);
+    if (i != m_LocationToInodeMap.end()) {
         *inodeID = i->second->m_LocationID;
         return true;
     }
@@ -357,33 +357,33 @@ bool FATVolume::GetLocationIDToINodeIDMapping(ino_t locationID, ino_t* inodeID) 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATVolume::HasINodeIDToLocationIDMapping(ino_t inodeID) const
+bool FATVolume::HasInodeIDToLocationIDMapping(ino_t inodeID) const
 {
-    CRITICAL_SHARED_SCOPE(m_INodeIDMapMutex);
-    return m_INodeToLocationMap.find(inodeID) != m_INodeToLocationMap.end();
+    CRITICAL_SHARED_SCOPE(m_InodeIDMapMutex);
+    return m_InodeToLocationMap.find(inodeID) != m_InodeToLocationMap.end();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATVolume::HasLocationIDToINodeIDMapping(ino_t locationID) const
+bool FATVolume::HasLocationIDToInodeIDMapping(ino_t locationID) const
 {
-    CRITICAL_SHARED_SCOPE(m_INodeIDMapMutex);
-    return m_LocationToINodeMap.find(locationID) != m_LocationToINodeMap.end();
+    CRITICAL_SHARED_SCOPE(m_InodeIDMapMutex);
+    return m_LocationToInodeMap.find(locationID) != m_LocationToInodeMap.end();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void FATVolume::DumpINodeIDMap()
+void FATVolume::DumpInodeIDMap()
 {
-    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "INode map size {}, current artificial ID = {:x}", m_INodeToLocationMap.size(), m_CurrentArtificialID);
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "Inode map size {}, current artificial ID = {:x}", m_InodeToLocationMap.size(), m_CurrentArtificialID);
     
-    for (auto& entry : m_INodeToLocationMap)
+    for (auto& entry : m_InodeToLocationMap)
     {
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "{:16x} {:16x}", entry.second.m_INodeID, entry.second.m_LocationID);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFS, "{:16x} {:16x}", entry.second.m_InodeID, entry.second.m_LocationID);
     }
 }
 

@@ -66,7 +66,7 @@ bool INA3221Driver::Setup(const char* devicePath, const char* i2cPath)
         AddTimer(&m_Timer);
         Start(true);
         
-        Ptr<KINode> inode = ptr_new<KINode>(nullptr, nullptr, this, false);
+        Ptr<KInode> inode = ptr_new<KInode>(nullptr, nullptr, this, false);
         Kernel::RegisterDevice(devicePath, inode);
         return true;
     }

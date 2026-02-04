@@ -38,7 +38,7 @@ namespace kernel
 
 class KFilesystem;
 class KFSVolume;
-class KINode;
+class KInode;
 class KFileTableNode;
 class KFileNode;
 class KDirectoryNode;
@@ -56,7 +56,7 @@ void                        kmount_trw(const char* devicePath, const char* direc
 
 Ptr<KFileTableNode> kget_file_table_node_trw(int handle, bool forKernel = false);
 Ptr<KFileNode>      kget_file_node_trw(int handle);
-Ptr<KFileNode>      kget_file_node_trw(int handle, Ptr<KINode>& outInode);
+Ptr<KFileNode>      kget_file_node_trw(int handle, Ptr<KInode>& outInode);
 Ptr<KDirectoryNode> kget_directory_node_trw(int handle);
 
 int         kopen_trw(const char* path, int openFlags, int permissions = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
@@ -109,7 +109,7 @@ void    ksymlink_trw(const char* target, int baseFolderFD, const char* linkPath)
 
 size_t  kreadlink_trw(int dirfd, const char* path, char* buffer, size_t bufferSize);
 
-void    kread_stat_trw(Ptr<KINode> inode, struct stat* outStats);
+void    kread_stat_trw(Ptr<KInode> inode, struct stat* outStats);
 void    kread_stat_trw(int handle, struct stat* outStats);
 void    kwrite_stat_trw(int handle, const struct stat& value, uint32_t mask);
 
@@ -122,13 +122,13 @@ void    kremove_directory_trw(int baseFolderFD, const char* path);
 void    kget_directory_path_trw(int handle, char* buffer, size_t bufferSize);
 
 
-Ptr<KINode> klocate_inode_by_name_trw(Ptr<KINode> parent, const char* name, int nameLength, bool crossMount);
-Ptr<KINode> klocate_inode_by_path_trw(Ptr<KINode> parent, const char* path, int pathLength);
-Ptr<KINode> klocate_parent_inode_trw(Ptr<KINode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength);
-void                kget_directory_name_trw(Ptr<KINode> inode, char* path, size_t bufferSize);
+Ptr<KInode> klocate_inode_by_name_trw(Ptr<KInode> parent, const char* name, int nameLength, bool crossMount);
+Ptr<KInode> klocate_inode_by_path_trw(Ptr<KInode> parent, const char* path, int pathLength);
+Ptr<KInode> klocate_parent_inode_trw(Ptr<KInode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength);
+void                kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize);
 int                 kallocate_filehandle_trw();
 void                kfree_filehandle(int handle) noexcept;
-int                 kopen_from_inode_trw(bool kernelFile, Ptr<KINode> inode, int openFlags);
+int                 kopen_from_inode_trw(bool kernelFile, Ptr<KInode> inode, int openFlags);
 void                kset_filehandle(int handle, Ptr<KFileTableNode> file) noexcept;
 
 off_t       klseek(int handle, off_t offset, int mode) noexcept;

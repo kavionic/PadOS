@@ -27,7 +27,7 @@
 static int g_nLastMonitorID = 1;
 static sem_id g_hNodeMonitorMutex;
 
-/*static void add_monitor(KINode* psInode, KNodeMonitorNode* psMonitor)
+/*static void add_monitor(KInode* psInode, KNodeMonitorNode* psMonitor)
 {
     psMonitor->nm_psInode       = psInode;
     psMonitor->nm_psNextInInode = psInode->i_psFirstMonitor;
@@ -36,7 +36,7 @@ static sem_id g_hNodeMonitorMutex;
     atomic_add( &psInode->i_nCount, 1 );
 }
 
-static void remove_monitor(KINode* psInode, NodeMonitorNode* psMonitor)
+static void remove_monitor(KInode* psInode, NodeMonitorNode* psMonitor)
 {
     NodeMonitorNode** ppsTmp;
     
@@ -129,7 +129,7 @@ status_t sys_delete_node_monitor( int nMonitor )
 }
 
 
-static NodeWatchEvent_s* create_full_path_event(NodeWatchEvent_s* psEvent, KINode* psInode, int nWhichPath, const char* pzName, int nNameLen)
+static NodeWatchEvent_s* create_full_path_event(NodeWatchEvent_s* psEvent, KInode* psInode, int nWhichPath, const char* pzName, int nNameLen)
 {
     int		      nError;
 
@@ -162,9 +162,9 @@ status_t KNodeMonitor::notify_node_monitors(int nEvent, dev_t nDevice, ino_t nOl
     eventBuffer.resize(sizeof(NodeWatchEvent_s) + nNameLen);
 
     NodeWatchEvent_s* psEvent = (NodeWatchEvent_s*)eventBuffer.data();
-    Ptr<KINode> psInode;
-    Ptr<KINode> psOldDir;
-    Ptr<KINode> psNewDir;
+    Ptr<KInode> psInode;
+    Ptr<KInode> psOldDir;
+    Ptr<KInode> psNewDir;
     status_t nError;
 
     if ( nNameLen > NAME_MAX ) {
@@ -173,21 +173,21 @@ status_t KNodeMonitor::notify_node_monitors(int nEvent, dev_t nDevice, ino_t nOl
     }
 
     if ( nNode != 0 && nEvent != NWEVENT_CREATED ) {
-	psInode = KVFSManager::GetINode(nDevice, nNode, false);
+	psInode = KVFSManager::GetInode(nDevice, nNode, false);
 	if ( psInode == nullptr ) {
 	    set_last_error(EIO);
 	    return -1;
 	}
     }
     if ( nOldDir != 0 ) {
-	psOldDir = KVFSManager::GetINode(nDevice, nOldDir, false);
+	psOldDir = KVFSManager::GetInode(nDevice, nOldDir, false);
 	if ( psOldDir == nullptr ) {
 	    set_last_error(EIO);
 	    return -1;
 	}
     }
     if ( nNewDir != 0 ) {
-	psNewDir = KVFSManager::GetINode(nDevice, nNewDir, false);
+	psNewDir = KVFSManager::GetInode(nDevice, nNewDir, false);
 	if ( psNewDir == nullptr ) {
 	    set_last_error(EIO);
 	    return -1;

@@ -56,7 +56,7 @@ struct I2CWriteRequest
     void*                          m_UserObject = nullptr;
 };
 
-class I2CDriverINode : public KINode
+class I2CDriverInode : public KInode
 {
 public:
     enum class Channels : int8_t
@@ -66,8 +66,8 @@ public:
         Channel2 = 2,
         ChannelCount,
     };
-    I2CDriverINode(KFilesystemFileOps* fileOps, Channels channel);
-    virtual ~I2CDriverINode() override;
+    I2CDriverInode(KFilesystemFileOps* fileOps, Channels channel);
+    virtual ~I2CDriverInode() override;
 
 
     Ptr<KFileNode> Open(int flags);
@@ -82,8 +82,8 @@ private:
     int SetBaudrate(uint32_t baudrate);
     int GetBaudrate() const;
 
-    I2CDriverINode(const I2CDriverINode&) = delete;
-    I2CDriverINode& operator=(const I2CDriverINode&) = delete;
+    I2CDriverInode(const I2CDriverInode&) = delete;
+    I2CDriverInode& operator=(const I2CDriverInode&) = delete;
 
 //    friend void TWIHS0_Handler();
 //    friend void TWIHS1_Handler();
@@ -96,7 +96,7 @@ private:
         Writing
     };
     
-    static IRQResult IRQCallback(IRQn_Type irq, void* userData) { return static_cast<I2CDriverINode*>(userData)->HandleIRQ(); }
+    static IRQResult IRQCallback(IRQn_Type irq, void* userData) { return static_cast<I2CDriverInode*>(userData)->HandleIRQ(); }
 	IRQResult HandleIRQ();
     
     uint32_t CalcAddress(uint32_t slaveAddress, int len);
@@ -123,9 +123,9 @@ private:
 class I2CDriver : public PtrTarget, public KFilesystemFileOps
 {
 public:
-    void Setup(const char* devicePath, I2CDriverINode::Channels channel);
+    void Setup(const char* devicePath, I2CDriverInode::Channels channel);
 
-    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> node, int flags) override;
     virtual void           CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
 
     virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;

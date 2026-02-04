@@ -46,13 +46,13 @@ Ptr<KFSVolume> KBinFilesystem::Mount(fs_id volumeID, const char* devicePath, uin
 
     CRITICAL_SCOPE(m_Mutex);
 
-    const Ptr<KVirtualFSBaseINode> rootNode = ptr_dynamic_cast<KVirtualFSBaseINode>(volume->m_RootNode);
+    const Ptr<KVirtualFSBaseInode> rootNode = ptr_dynamic_cast<KVirtualFSBaseInode>(volume->m_RootNode);
 
     const std::vector<const PAppDefinition*> apps = PAppDefinition::GetApplicationList();
 
     for (const PAppDefinition* app : apps)
     {
-        Ptr<KVirtualFSBaseINode> fileInode = ptr_new<KVirtualFSBaseINode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(rootNode), this, S_IFREG | S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+        Ptr<KVirtualFSBaseInode> fileInode = ptr_new<KVirtualFSBaseInode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(rootNode), this, S_IFREG | S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 
         const size_t nameLen = strlen(app->Name);
         fileInode->m_FileData.insert(fileInode->m_FileData.begin(), app->Name, app->Name + nameLen);

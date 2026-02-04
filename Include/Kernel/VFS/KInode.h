@@ -34,13 +34,13 @@ namespace kernel
 class KFilesystem;
 class KFilesystemFileOps;
 class KFSVolume;
-class KINode;
+class KInode;
 
-class KINode : public PtrTarget, public KWaitableObject, public PIntrusiveListNode<KINode>
+class KInode : public PtrTarget, public KWaitableObject, public PIntrusiveListNode<KInode>
 {
 public:
-    KINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, mode_t fileMode);
-    virtual ~KINode();
+    KInode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps, mode_t fileMode);
+    virtual ~KInode();
     
     virtual bool LastReferenceGone() override;
     
@@ -51,8 +51,8 @@ public:
     Ptr<KFilesystem>    m_Filesystem;
     Ptr<KFSVolume>      m_Volume; // The volume this i-node came from.
     KFilesystemFileOps* m_FileOps;
-    Ptr<KINode>         m_MountRoot; // Root node of filesystem mounted on this inode if any.
-    ino_t               m_INodeID = 0;
+    Ptr<KInode>         m_MountRoot; // Root node of filesystem mounted on this inode if any.
+    ino_t               m_InodeID = 0;
     time_t              m_LastUseTime = 0; // If the reference count is 0, this record the time (in seconds) when it reach 0.
     mode_t              m_FileMode = 0;
     

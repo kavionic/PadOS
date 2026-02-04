@@ -38,11 +38,11 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KVirtualFSBaseINode::KVirtualFSBaseINode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KVirtualFSBaseINode* parent, KFilesystemFileOps* fileOps, mode_t fileMode)
-    : KINode(filesystem, volume, fileOps, fileMode)
+KVirtualFSBaseInode::KVirtualFSBaseInode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KVirtualFSBaseInode* parent, KFilesystemFileOps* fileOps, mode_t fileMode)
+    : KInode(filesystem, volume, fileOps, fileMode)
     , m_Parent(parent)
 {
-    m_INodeID = KVirtualFilesystemBase::AllocINodeNumber();
+    m_InodeID = KVirtualFilesystemBase::AllocInodeNumber();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -63,7 +63,7 @@ Ptr<KFSVolume> KVirtualFilesystemBase::Mount(fs_id volumeID, const char* deviceP
     CRITICAL_SCOPE(m_Mutex);
 
     Ptr<KFSVolume>   volume   = ptr_new<KFSVolume>(volumeID, devicePath);
-    Ptr<KVirtualFSBaseINode> rootNode = ptr_new<KVirtualFSBaseINode>(ptr_tmp_cast(this), volume, nullptr, this, S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
+    Ptr<KVirtualFSBaseInode> rootNode = ptr_new<KVirtualFSBaseInode>(ptr_tmp_cast(this), volume, nullptr, this, S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
 
     volume->m_RootNode = rootNode;
         
@@ -76,16 +76,16 @@ Ptr<KFSVolume> KVirtualFilesystemBase::Mount(fs_id volumeID, const char* deviceP
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> KVirtualFilesystemBase::FindINode(Ptr<KVirtualFSBaseINode> parent, ino_t inodeNum, bool remove, Ptr<KVirtualFSBaseINode>* parentNode)
+Ptr<KInode> KVirtualFilesystemBase::FindInode(Ptr<KVirtualFSBaseInode> parent, ino_t inodeNum, bool remove, Ptr<KVirtualFSBaseInode>* parentNode)
 {
     kassert(m_Mutex.IsLocked());
-    if (parent->m_INodeID == inodeNum) {
+    if (parent->m_InodeID == inodeNum) {
         return parent;
     }
     for (auto i = parent->m_Children.begin(); i != parent->m_Children.end(); ++i)
     {
-        Ptr<KINode> child = i->second;
-        if (child->m_INodeID == inodeNum)
+        Ptr<KInode> child = i->second;
+        if (child->m_InodeID == inodeNum)
         {
             if (parentNode != nullptr) {
                 *parentNode = parent;
@@ -95,7 +95,7 @@ Ptr<KINode> KVirtualFilesystemBase::FindINode(Ptr<KVirtualFSBaseINode> parent, i
         }
         if (child->IsDirectory())
         {
-            return FindINode(ptr_static_cast<KVirtualFSBaseINode>(child), inodeNum, remove, parentNode);
+            return FindInode(ptr_static_cast<KVirtualFSBaseInode>(child), inodeNum, remove, parentNode);
         }
     }
     PERROR_THROW_CODE(PErrorCode::IOError);
@@ -105,11 +105,11 @@ Ptr<KINode> KVirtualFilesystemBase::FindINode(Ptr<KVirtualFSBaseINode> parent, i
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KVirtualFSBaseINode> KVirtualFilesystemBase::LocateParentInode(Ptr<KVirtualFSBaseINode> parent, const char* path, int pathLength, bool createParents, int* outNameStart)
+Ptr<KVirtualFSBaseInode> KVirtualFilesystemBase::LocateParentInode(Ptr<KVirtualFSBaseInode> parent, const char* path, int pathLength, bool createParents, int* outNameStart)
 {
     kassert(m_Mutex.IsLocked());
     
-    Ptr<KVirtualFSBaseINode> current = parent;
+    Ptr<KVirtualFSBaseInode> current = parent;
 
     int nameStart = 0;
     for (int i = 0; i <= pathLength; ++i)
@@ -129,13 +129,13 @@ Ptr<KVirtualFSBaseINode> KVirtualFilesystemBase::LocateParentInode(Ptr<KVirtualF
             auto nodeIterator = current->m_Children.find(name);
             if (nodeIterator != current->m_Children.end() && nodeIterator->second->IsDirectory())
             {
-                current = ptr_static_cast<KVirtualFSBaseINode>(nodeIterator->second);
+                current = ptr_static_cast<KVirtualFSBaseInode>(nodeIterator->second);
             }
             else
             {
                 if (createParents)
                 {
-                    Ptr<KVirtualFSBaseINode> folder = ptr_new<KVirtualFSBaseINode>(ptr_tmp_cast(this), m_Volume, ptr_raw_pointer_cast(current), this, S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
+                    Ptr<KVirtualFSBaseInode> folder = ptr_new<KVirtualFSBaseInode>(ptr_tmp_cast(this), m_Volume, ptr_raw_pointer_cast(current), this, S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
 
                     current->m_Children[name] = folder;
                     current = folder;
@@ -155,10 +155,10 @@ Ptr<KVirtualFSBaseINode> KVirtualFilesystemBase::LocateParentInode(Ptr<KVirtualF
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> KVirtualFilesystemBase::LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength)
+Ptr<KInode> KVirtualFilesystemBase::LocateInode(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength)
 {
     CRITICAL_SCOPE(m_Mutex);
-    Ptr<KVirtualFSBaseINode> current = ptr_static_cast<KVirtualFSBaseINode>(parent);
+    Ptr<KVirtualFSBaseInode> current = ptr_static_cast<KVirtualFSBaseInode>(parent);
 
     if (current == nullptr || nameLength == 0) {
         PERROR_THROW_CODE(PErrorCode::NoEntry);
@@ -190,7 +190,7 @@ Ptr<KINode> KVirtualFilesystemBase::LocateInode(Ptr<KFSVolume> volume, Ptr<KINod
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KDirectoryNode> KVirtualFilesystemBase::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node)
+Ptr<KDirectoryNode> KVirtualFilesystemBase::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node)
 {
     Ptr<KVirtualFSBaseDirectoryNode> dirNode = ptr_new<KVirtualFSBaseDirectoryNode>(O_RDONLY);
     return dirNode;
@@ -213,11 +213,11 @@ size_t KVirtualFilesystemBase::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirecto
     CRITICAL_SCOPE(m_Mutex);
 
     Ptr<KVirtualFSBaseDirectoryNode> dirNode  = ptr_static_cast<KVirtualFSBaseDirectoryNode>(directory);
-    Ptr<KVirtualFSBaseINode>         dirInode = ptr_static_cast<KVirtualFSBaseINode>(directory->GetINode());
+    Ptr<KVirtualFSBaseInode>         dirInode = ptr_static_cast<KVirtualFSBaseInode>(directory->GetInode());
 
     const bool haveParent = dirInode != volume->m_RootNode || volume->m_MountPoint != nullptr;
 
-    Ptr<const KINode> inode;
+    Ptr<const KInode> inode;
 
     if (dirNode->m_CurrentIndex == 0)
     {
@@ -265,7 +265,7 @@ size_t KVirtualFilesystemBase::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirecto
         entry->d_volumeid = inode->m_Volume->m_VolumeID;
         entry->d_reclen   = sizeof(*entry);
 
-        entry->d_ino    = inode->m_INodeID;
+        entry->d_ino    = inode->m_InodeID;
 
         if (S_ISBLK(inode->m_FileMode)) {
             entry->d_type = DT_BLK;
@@ -311,7 +311,7 @@ void KVirtualFilesystemBase::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirecto
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> KVirtualFilesystemBase::CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int flags, int permission)
+Ptr<KFileNode> KVirtualFilesystemBase::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int flags, int permission)
 {
     PERROR_THROW_CODE(PErrorCode::NotImplemented);
 }
@@ -320,13 +320,13 @@ Ptr<KFileNode> KVirtualFilesystemBase::CreateFile(Ptr<KFSVolume> volume, Ptr<KIN
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> KVirtualFilesystemBase::LoadInode(Ptr<KFSVolume> volume, ino_t inode)
+Ptr<KInode> KVirtualFilesystemBase::LoadInode(Ptr<KFSVolume> volume, ino_t inode)
 {
     CRITICAL_SCOPE(m_Mutex);
-    if (inode == m_Volume->m_RootNode->m_INodeID) {
+    if (inode == m_Volume->m_RootNode->m_InodeID) {
         return m_Volume->m_RootNode;
     } else {
-        return FindINode(ptr_static_cast<KVirtualFSBaseINode>(m_Volume->m_RootNode), inode, false, nullptr);
+        return FindInode(ptr_static_cast<KVirtualFSBaseInode>(m_Volume->m_RootNode), inode, false, nullptr);
     }
 }
 
@@ -334,12 +334,12 @@ Ptr<KINode> KVirtualFilesystemBase::LoadInode(Ptr<KFSVolume> volume, ino_t inode
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KVirtualFilesystemBase::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parentBase, const char* name, int nameLength, int permission)
+void KVirtualFilesystemBase::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parentBase, const char* name, int nameLength, int permission)
 {
     CRITICAL_SCOPE(m_Mutex);
 
-    Ptr<KVirtualFSBaseINode> parent = ptr_static_cast<KVirtualFSBaseINode>(parentBase);
-    Ptr<KVirtualFSBaseINode> dir    = ptr_new<KVirtualFSBaseINode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(parent), this, S_IFDIR | (permission & ~S_IFMT));
+    Ptr<KVirtualFSBaseInode> parent = ptr_static_cast<KVirtualFSBaseInode>(parentBase);
+    Ptr<KVirtualFSBaseInode> dir    = ptr_new<KVirtualFSBaseInode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(parent), this, S_IFDIR | (permission & ~S_IFMT));
 
     PString nodeName(name, nameLength);
     if (parent->m_Children.find(nodeName) != parent->m_Children.end())
@@ -355,7 +355,7 @@ void KVirtualFilesystemBase::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> 
 
 size_t KVirtualFilesystemBase::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
-    Ptr<KVirtualFSBaseINode> inode = ptr_static_cast<KVirtualFSBaseINode>(file->GetINode());
+    Ptr<KVirtualFSBaseInode> inode = ptr_static_cast<KVirtualFSBaseInode>(file->GetInode());
 
     const size_t bytesToRead = std::max(0, ssize_t(inode->m_FileData.size()) - ssize_t(position));
     memcpy(buffer, inode->m_FileData.data() + position, bytesToRead);
@@ -367,7 +367,7 @@ size_t KVirtualFilesystemBase::Read(Ptr<KFileNode> file, void* buffer, size_t le
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KVirtualFilesystemBase::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void KVirtualFilesystemBase::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -375,7 +375,7 @@ void KVirtualFilesystemBase::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, 
 
     if (!inode->IsDirectory())
     {
-        Ptr<KVirtualFSBaseINode> fsInode = ptr_static_cast<KVirtualFSBaseINode>(inode);
+        Ptr<KVirtualFSBaseInode> fsInode = ptr_static_cast<KVirtualFSBaseInode>(inode);
         statBuf->st_size = fsInode->m_FileData.size();
     }
 }
@@ -384,7 +384,7 @@ void KVirtualFilesystemBase::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KVirtualFilesystemBase::WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, const struct stat* stats, uint32_t mask)
+void KVirtualFilesystemBase::WriteStat(Ptr<KFSVolume> volume, Ptr<KInode> node, const struct stat* stats, uint32_t mask)
 {
 }
 
@@ -392,7 +392,7 @@ void KVirtualFilesystemBase::WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> node, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KVirtualFilesystemBase::AllocINodeNumber()
+int KVirtualFilesystemBase::AllocInodeNumber()
 {
     static std::atomic_int32_t nextID = 1;
     return nextID++;

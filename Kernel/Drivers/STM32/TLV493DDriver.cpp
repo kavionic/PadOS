@@ -51,7 +51,7 @@ PREGISTER_KERNEL_DRIVER(TLV493DDriver, TLV493DDriverParameters);
 ///////////////////////////////////////////////////////////////////////////////
 
 TLV493DDriver::TLV493DDriver(const TLV493DDriverParameters& parameters)
-    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+    : KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , KThread("tlv493d_driver"), m_Mutex("tlv493d_driver:mutex", PEMutexRecursionMode_RaiseError), m_NewFrameCondition("tlv493d_driver_new_frame"), m_NewConfigCondition("tlv493d_driver_new_config")
 {
     m_Config.frame_rate = 10;
@@ -345,7 +345,7 @@ size_t TLV493DDriver::Read(Ptr<KFileNode> file, void* buffer, size_t length, off
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void TLV493DDriver::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void TLV493DDriver::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     CRITICAL_SCOPE(m_Mutex);
 

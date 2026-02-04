@@ -23,7 +23,7 @@
 
 #include <Kernel/HAL/DigitalPort.h>
 #include <Kernel/VFS/KFilesystem.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KDriverParametersBase.h>
 #include <Kernel/KThread.h>
 #include <Kernel/KMutex.h>
@@ -128,7 +128,7 @@ static const uint8_t TLV493D_MODE1_PARITY   = 0x80;
 constexpr int32_t   TLV493D_MAX_FRAMERATE = 2475; // 3.3kHz - 25%
 constexpr TimeValNanos  TLV493D_CONVERSION_TIME = TimeValNanos::FromNanoseconds(TimeValNanos::TicksPerSecond / TLV493D_MAX_FRAMERATE);
 
-class TLV493DDriver : public KINode, public KThread, public SignalTarget, public KFilesystemFileOps
+class TLV493DDriver : public KInode, public KThread, public SignalTarget, public KFilesystemFileOps
 {
 public:
     TLV493DDriver(const TLV493DDriverParameters& parameters);
@@ -138,7 +138,7 @@ public:
 
     virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
     virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
-    virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
+    virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
 private:
     enum class State_e

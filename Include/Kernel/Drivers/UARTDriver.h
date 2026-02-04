@@ -21,16 +21,16 @@
 
 #include "UART.h"
 //#include "Kernel/VFS/KDeviceNode.h"
-#include "Kernel/VFS/KINode.h"
+#include "Kernel/VFS/KInode.h"
 #include "Kernel/VFS/KFilesystem.h"
 
 namespace kernel
 {
 
-class UARDDriverINode : public KINode
+class UARDDriverInode : public KInode
 {
 public:
-    UARDDriverINode(UART::Channels channel, KFilesystemFileOps* fileOps);
+    UARDDriverInode(UART::Channels channel, KFilesystemFileOps* fileOps);
     
     UART m_Port;    
 };
@@ -44,10 +44,10 @@ public:
 
     virtual ~UARTDriver() override;
 
-//    virtual Ptr<KFileHandle> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags);
+//    virtual Ptr<KFileHandle> OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> node, int flags);
 //    virtual int              CloseFile(Ptr<KFSVolume> volume, Ptr<KFileHandle> file);
 
-//    virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node);
+//    virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node);
 //    virtual int                 CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory);
 
     virtual ssize_t Read(Ptr<KFileNode> file, off64_t position, void* buffer, size_t length) override;

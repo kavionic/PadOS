@@ -15,13 +15,13 @@
 #include "GUIToolkit/PtrTarget.h"
 #include "GUIToolkit/Ptr.h"
 
-class KINode;
+class KInode;
 
 class KFileHandle : public PtrTarget
 {
 public:
-    KFileHandle(Ptr<KINode> inode);
-    Ptr<KINode> m_INode;
+    KFileHandle(Ptr<KInode> inode);
+    Ptr<KInode> m_INode;
     int   m_FileMode = 0;
     off_t m_Position = 0;
 };
@@ -29,7 +29,7 @@ public:
 class KDirectoryHandle : public KFileHandle
 {
     public:
-    KDirectoryHandle(Ptr<KINode> inode) : KFileHandle(inode) {}
+    KDirectoryHandle(Ptr<KInode> inode) : KFileHandle(inode) {}
 };
 
 #endif //__KFILEHANDLE_H__

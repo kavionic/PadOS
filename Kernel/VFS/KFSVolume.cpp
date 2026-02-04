@@ -20,7 +20,7 @@
  #include "System/Platform.h"
 
 #include "Kernel/VFS/KFSVolume.h"
-#include "Kernel/VFS/KINode.h"
+#include "Kernel/VFS/KInode.h"
 #include "Kernel/VFS/KFilesystem.h"
 #include "Utils/String.h"
 

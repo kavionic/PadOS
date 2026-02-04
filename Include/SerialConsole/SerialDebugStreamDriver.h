@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/KMutex.h>
 
@@ -45,13 +45,13 @@ struct SerialDebugStreamParameters : KDriverParametersBase
 namespace kernel
 {
 
-class SerialDebugStreamINode : public KINode, public KFilesystemFileOps
+class SerialDebugStreamInode : public KInode, public KFilesystemFileOps
 {
 public:
-	SerialDebugStreamINode(const SerialDebugStreamParameters& parameters);
+	SerialDebugStreamInode(const SerialDebugStreamParameters& parameters);
 
     virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
+    virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
 private:
 };

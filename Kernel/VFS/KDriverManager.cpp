@@ -72,9 +72,9 @@ void ksetup_device_driver_trw(const char* name, const char* parameters)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int kregister_device_root_trw(const char* devicePath, Ptr<KINode> rootINode)
+int kregister_device_root_trw(const char* devicePath, Ptr<KInode> rootInode)
 {
-    return kget_rootfs_trw()->RegisterDevice(devicePath, rootINode);
+    return kget_rootfs_trw()->RegisterDevice(devicePath, rootInode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

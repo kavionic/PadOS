@@ -19,7 +19,7 @@
 
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KFSVolume.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <System/ExceptionHandling.h>
 
@@ -30,7 +30,7 @@ bool KFileNode::LastReferenceGone()
 {
     try
     {
-        Ptr<KINode> inode = GetINode();
+        Ptr<KInode> inode = GetInode();
         inode->m_FileOps->CloseFile(inode->m_Volume, this);
     }
     catch (const std::exception&) {}
@@ -41,7 +41,7 @@ bool KDirectoryNode::LastReferenceGone()
 {
     try
     {
-        Ptr<KINode> inode = GetINode();
+        Ptr<KInode> inode = GetInode();
         if (inode->m_FileOps != nullptr) {
             inode->m_FileOps->CloseDirectory(inode->m_Volume, ptr_tmp_cast(this));
         }
@@ -52,7 +52,7 @@ bool KDirectoryNode::LastReferenceGone()
 
 size_t KDirectoryNode::ReadDirectory(dirent_t* entry, size_t bufSize)
 {
-    Ptr<KINode> inode = GetINode();
+    Ptr<KInode> inode = GetInode();
     if (inode->m_FileOps == nullptr) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
@@ -61,7 +61,7 @@ size_t KDirectoryNode::ReadDirectory(dirent_t* entry, size_t bufSize)
 
 void KDirectoryNode::RewindDirectory()
 {
-    Ptr<KINode> inode = GetINode();
+    Ptr<KInode> inode = GetInode();
     if (inode->m_FileOps == nullptr) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }

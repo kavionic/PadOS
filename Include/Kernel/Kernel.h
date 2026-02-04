@@ -52,7 +52,7 @@ static constexpr uint32_t PBackupReg_SYSTEM_COUNT = 2;
 namespace kernel
 {
 
-class KINode;
+class KInode;
 class KFileNode;
 class KFSVolume;
 class KRootFilesystem;

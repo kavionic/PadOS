@@ -27,7 +27,7 @@ namespace kernel
 {
     
 class KIOContext;    
-class KINode;
+class KInode;
 
 
 enum
@@ -88,7 +88,7 @@ public:
     int		nm_nID;
     void*	nm_pUserData;
     KIOContext* nm_psOwner;
-    Ptr<KINode>	nm_psInode;
+    Ptr<KInode>	nm_psInode;
     uint32_t	nm_nWatchFlags;
     port_id	nm_hPortID;
 };

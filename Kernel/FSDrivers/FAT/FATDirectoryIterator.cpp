@@ -580,7 +580,7 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t* outInodeID, PString* outFilename, uint32_t* outDosAttribs)
+bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t* outInodeID, PString* outFilename, uint32_t* outDosAttribs)
 {
     FATDirectoryEntryInfo info;
 
@@ -595,7 +595,7 @@ bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t*
             return false;
         }
         // Only hide volume label entries in the root directory.
-    } while ((info.m_DOSAttribs & FAT_VOLUME) && (directory->m_INodeID == m_SectorIterator.m_Volume->m_RootINode->m_INodeID));
+    } while ((info.m_DOSAttribs & FAT_VOLUME) && (directory->m_InodeID == m_SectorIterator.m_Volume->m_RootInode->m_InodeID));
     
     if (outDosAttribs != nullptr) {
 	    *outDosAttribs = info.m_DOSAttribs;
@@ -603,29 +603,29 @@ bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATINode> directory, ino_t*
     if (*outFilename == ".")
     {
         // Assign inode ID based on parent.
-        if (outInodeID != nullptr) *outInodeID = directory->m_INodeID;
+        if (outInodeID != nullptr) *outInodeID = directory->m_InodeID;
     }
     else if (*outFilename == "..")
     {
         // Assign inode ID based on parent of parent.
-        if (outInodeID != nullptr) *outInodeID = directory->m_ParentINodeID;
+        if (outInodeID != nullptr) *outInodeID = directory->m_ParentInodeID;
     }
     else
     {
         if (outInodeID != nullptr)
         {
-            ino_t loc = (m_SectorIterator.m_Volume->IsDataCluster(info.m_StartCluster)) ? GENERATE_DIR_CLUSTER_INODEID(directory->m_INodeID, info.m_StartCluster) : GENERATE_DIR_INDEX_INODEID(directory->m_INodeID, info.m_StartIndex);
+            ino_t loc = (m_SectorIterator.m_Volume->IsDataCluster(info.m_StartCluster)) ? GENERATE_DIR_CLUSTER_INODEID(directory->m_InodeID, info.m_StartCluster) : GENERATE_DIR_INDEX_INODEID(directory->m_InodeID, info.m_StartIndex);
 
             // If an inode ID is already associated with the location, use that.
-            if (!m_SectorIterator.m_Volume->GetLocationIDToINodeIDMapping(loc, outInodeID))
+            if (!m_SectorIterator.m_Volume->GetLocationIDToInodeIDMapping(loc, outInodeID))
             {
                 // ...else check if another inode is already using our preferred ID
-                if (m_SectorIterator.m_Volume->HasINodeIDToLocationIDMapping(loc))
+                if (m_SectorIterator.m_Volume->HasInodeIDToLocationIDMapping(loc))
                 {
                     // if one does, create a random one to prevent a collision
-                    *outInodeID = m_SectorIterator.m_Volume->AllocUniqueINodeID();
+                    *outInodeID = m_SectorIterator.m_Volume->AllocUniqueInodeID();
                     // and add it to the inode cache
-                    m_SectorIterator.m_Volume->SetINodeIDToLocationIDMapping(*outInodeID, loc);
+                    m_SectorIterator.m_Volume->SetInodeIDToLocationIDMapping(*outInodeID, loc);
                 }
                 else
                 {

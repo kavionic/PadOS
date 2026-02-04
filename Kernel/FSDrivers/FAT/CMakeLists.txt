@@ -8,8 +8,8 @@ target_sources(PadOS_FATFS PRIVATE
 	FATFileNode.cpp
 	FATFileNode.h
 	FATFilesystem.cpp
-	FATINode.cpp
-	FATINode.h
+	FATInode.cpp
+	FATInode.h
 	FATTable.cpp
 	FATTable.h
 	FATTableIterator.cpp

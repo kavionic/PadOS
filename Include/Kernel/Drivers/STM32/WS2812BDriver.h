@@ -23,7 +23,7 @@
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/KConditionVariable.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/VFS/KDriverParametersBase.h>
 #include <Kernel/HAL/STM32/DMARequestID.h>
@@ -73,14 +73,14 @@ struct WS2812BDriverParameters : KDriverParametersBase
 namespace kernel
 {
 
-class WS2812BDriverINode : public KINode, public KFilesystemFileOps
+class WS2812BDriverInode : public KInode, public KFilesystemFileOps
 {
 public:
-    WS2812BDriverINode(const WS2812BDriverParameters& parameters);
+    WS2812BDriverInode(const WS2812BDriverParameters& parameters);
 
     virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
     virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
+    virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
 private:
     enum class State

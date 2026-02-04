@@ -41,7 +41,7 @@ namespace kernel
 class KFSVolume;
 class KFileNode;
 class KDirectoryNode;
-class KINode;
+class KInode;
 
 #define MOUNT_READ_ONLY 0x0001
 
@@ -78,10 +78,10 @@ typedef struct
 class KFilesystemFileOps
 {
 public:
-    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int openFlags);
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> node, int openFlags);
     virtual void           CloseFile(Ptr<KFSVolume> volume, KFileNode* file);
 
-    virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KINode> node);
+    virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node);
     virtual void                CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory);
 
 protected:
@@ -91,16 +91,16 @@ public:
     virtual size_t  Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position);
     virtual size_t  Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position);
 
-    virtual size_t  ReadLink(Ptr<KFSVolume> volume, Ptr<KINode> node, char* buffer, size_t bufferSize);
+    virtual size_t  ReadLink(Ptr<KFSVolume> volume, Ptr<KInode> node, char* buffer, size_t bufferSize);
     virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
     virtual size_t  ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize);
     virtual void    RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode);
 
-    virtual void    CheckAccess(Ptr<KFSVolume> volume, Ptr<KINode> node, int mode);
+    virtual void    CheckAccess(Ptr<KFSVolume> volume, Ptr<KInode> node, int mode);
 
-    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) = 0;
-    virtual void    WriteStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, const struct stat* value, uint32_t mask);
+    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) = 0;
+    virtual void    WriteStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, const struct stat* value, uint32_t mask);
 
     virtual void    Sync(Ptr<KFileNode> file);
 
@@ -117,17 +117,17 @@ public:
     
     virtual void            ReadFSStat(Ptr<KFSVolume> volume, fs_info* fsinfo);
     virtual void            WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint32_t mask);
-    virtual Ptr<KINode>     LocateInode(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* path, int pathLength);
-    virtual void            ReleaseInode(KINode* inode);
-    virtual Ptr<KFileNode>  CreateFile(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int openFlags, int permission);
+    virtual Ptr<KInode>     LocateInode(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* path, int pathLength);
+    virtual void            ReleaseInode(KInode* inode);
+    virtual Ptr<KFileNode>  CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int openFlags, int permission);
 
-    virtual Ptr<KINode>     LoadInode(Ptr<KFSVolume> volume, ino_t inode);
+    virtual Ptr<KInode>     LoadInode(Ptr<KFSVolume> volume, ino_t inode);
 
-    virtual void            CreateDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength, int permission);
+    virtual void            CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int permission);
 
-    virtual void            Rename(Ptr<KFSVolume> volume, Ptr<KINode> oldParent, const char* oldName, int oldNameLen, Ptr<KINode> newParent, const char* newName, int newNameLen, bool mustBeDir);
-    virtual void            Unlink(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength);
-    virtual void            RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KINode> parent, const char* name, int nameLength);
+    virtual void            Rename(Ptr<KFSVolume> volume, Ptr<KInode> oldParent, const char* oldName, int oldNameLen, Ptr<KInode> newParent, const char* newName, int newNameLen, bool mustBeDir);
+    virtual void            Unlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength);
+    virtual void            RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength);
 };
 
 } // namespace

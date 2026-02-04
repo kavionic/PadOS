@@ -37,11 +37,11 @@ public:
     
     bool AddNodeMonitor(Ptr<KNodeMonitorNode> node);
 
-    void        SetCurrentDirectory(Ptr<KINode> inode);
-    Ptr<KINode> GetCurrentDirectory() const;
+    void        SetCurrentDirectory(Ptr<KInode> inode);
+    Ptr<KInode> GetCurrentDirectory() const;
 
 private:
-    Ptr<KINode> m_CurrentDirectory;
+    Ptr<KInode> m_CurrentDirectory;
 //    std::map<int, Ptr<KNodeMonitorNode>> m_NodeMonitorMap;
     
     KIOContext(const KIOContext&) = delete;

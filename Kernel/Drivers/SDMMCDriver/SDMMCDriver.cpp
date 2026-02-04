@@ -61,8 +61,8 @@ static constexpr uint32_t g_TransferRateMultipliers_mmc[16] = { 0, 10, 12, 13, 1
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-SDMMCINode::SDMMCINode(Ptr<SDMMCDriver> driver)
-    : KINode(nullptr, nullptr, ptr_raw_pointer_cast(driver), S_IFBLK | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+SDMMCInode::SDMMCInode(Ptr<SDMMCDriver> driver)
+    : KInode(nullptr, nullptr, ptr_raw_pointer_cast(driver), S_IFBLK | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , m_Driver(driver)
 {
 }
@@ -88,7 +88,7 @@ SDMMCDriver::SDMMCDriver(const SDMMCBaseDriverParameters& parameters)
     m_PinCD.SetInterruptMode(PinInterruptMode_e::BothEdges);
     m_PinCD.EnableInterrupts();
 
-    m_RawINode = ptr_new<SDMMCINode>(ptr_tmp_cast(this));
+    m_RawInode = ptr_new<SDMMCInode>(ptr_tmp_cast(this));
 
     register_irq_handler(get_peripheral_irq(parameters.PinCardDetect), IRQHandler, this);
 }
@@ -108,8 +108,8 @@ SDMMCDriver::~SDMMCDriver()
 
 int SDMMCDriver::RegisterDevice()
 {
-    m_RawINode->bi_nNodeHandle = kregister_device_root_trw((m_DevicePathBase + "raw").c_str(), m_RawINode);
-    return m_RawINode->bi_nNodeHandle;
+    m_RawInode->bi_nNodeHandle = kregister_device_root_trw((m_DevicePathBase + "raw").c_str(), m_RawInode);
+    return m_RawInode->bi_nNodeHandle;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -176,7 +176,7 @@ void* SDMMCDriver::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> SDMMCDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags)
+Ptr<KFileNode> SDMMCDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> node, int flags)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -261,7 +261,7 @@ void SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
 
 size_t SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position)
 {
-    Ptr<SDMMCINode> inode = (file != nullptr) ? ptr_static_cast<SDMMCINode>(file->GetINode()) : nullptr;
+    Ptr<SDMMCInode> inode = (file != nullptr) ? ptr_static_cast<SDMMCInode>(file->GetInode()) : nullptr;
 
     size_t length = 0;
 
@@ -346,7 +346,7 @@ size_t SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t se
 
 size_t SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position)
 {
-    Ptr<SDMMCINode> inode = (file != nullptr) ? ptr_static_cast<SDMMCINode>(file->GetINode()) : nullptr;
+    Ptr<SDMMCInode> inode = (file != nullptr) ? ptr_static_cast<SDMMCInode>(file->GetInode()) : nullptr;
 
     size_t length = 0;
 
@@ -425,13 +425,13 @@ size_t SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void SDMMCDriver::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void SDMMCDriver::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     CRITICAL_SCOPE(m_Mutex);
 
     KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 
-    Ptr<SDMMCINode> devInode = ptr_dynamic_cast<SDMMCINode>(inode);
+    Ptr<SDMMCInode> devInode = ptr_dynamic_cast<SDMMCInode>(inode);
     if (devInode != nullptr) {
         statBuf->st_size = devInode->bi_nSize;
     }
@@ -638,7 +638,7 @@ void SDMMCDriver::DecodePartitions(bool force)
 {
     device_geometry diskGeom;
 
-    m_RawINode->bi_nSize = m_SectorCount * BLOCK_SIZE;
+    m_RawInode->bi_nSize = m_SectorCount * BLOCK_SIZE;
 
     memset(&diskGeom, 0, sizeof(diskGeom));
     diskGeom.sector_count     = m_SectorCount;
@@ -661,7 +661,7 @@ void SDMMCDriver::DecodePartitions(bool force)
 	    }
     }
 
-    for (Ptr<SDMMCINode> partition : m_PartitionINodes)
+    for (Ptr<SDMMCInode> partition : m_PartitionInodes)
     {
 	    bool found = false;
 	    for (size_t i = 0 ; i < partitions.size() ; ++i)
@@ -679,11 +679,11 @@ void SDMMCDriver::DecodePartitions(bool force)
 	    }
     }
     
-    std::vector<Ptr<SDMMCINode>> unusedPartitionINodes; // = std::move(m_PartitionINodes);
+    std::vector<Ptr<SDMMCInode>> unusedPartitionInodes;
         // Remove deleted partitions from /dev/
-    for (auto i = m_PartitionINodes.begin(); i != m_PartitionINodes.end(); )
+    for (auto i = m_PartitionInodes.begin(); i != m_PartitionInodes.end(); )
     {
-        Ptr<SDMMCINode> partition = *i;
+        Ptr<SDMMCInode> partition = *i;
         bool found = false;
         for (size_t i = 0; i < partitions.size(); ++i)
         {
@@ -699,9 +699,9 @@ void SDMMCDriver::DecodePartitions(bool force)
         {
             kremove_device_root_trw(partition->bi_nNodeHandle);
             partition->bi_nNodeHandle = -1;
-            i = m_PartitionINodes.erase(i);
+            i = m_PartitionInodes.erase(i);
             if (partition->bi_nOpenCount == 0) {
-                unusedPartitionINodes.push_back(partition);
+                unusedPartitionInodes.push_back(partition);
             }
         }
         else
@@ -716,39 +716,39 @@ void SDMMCDriver::DecodePartitions(bool force)
 	    if (partitions[i].p_type == 0 || partitions[i].p_size == 0) {
 	        continue;
 	    }
-        Ptr<SDMMCINode> partition;
-        if (!unusedPartitionINodes.empty()) {
-            partition = unusedPartitionINodes.back();
-            unusedPartitionINodes.pop_back();
+        Ptr<SDMMCInode> partition;
+        if (!unusedPartitionInodes.empty()) {
+            partition = unusedPartitionInodes.back();
+            unusedPartitionInodes.pop_back();
         } else {
-            partition = ptr_new<SDMMCINode>(ptr_tmp_cast(this));
+            partition = ptr_new<SDMMCInode>(ptr_tmp_cast(this));
         }
-        m_PartitionINodes.push_back(partition);
+        m_PartitionInodes.push_back(partition);
 	    partition->bi_nStart = partitions[i].p_start;
 	    partition->bi_nSize  = partitions[i].p_size;
     }
         
-    std::sort(m_PartitionINodes.begin(), m_PartitionINodes.end(), [](Ptr<SDMMCINode> lhs, Ptr<SDMMCINode> rhs) { return lhs->bi_nStart < rhs->bi_nStart; });
+    std::sort(m_PartitionInodes.begin(), m_PartitionInodes.end(), [](Ptr<SDMMCInode> lhs, Ptr<SDMMCInode> rhs) { return lhs->bi_nStart < rhs->bi_nStart; });
 
         // We now have to rename nodes that might have moved around in the table and
         // got new names. To avoid name-clashes while renaming we first give all
         // nodes a unique temporary name before looping over again giving them their
         // final names
 
-    for (size_t i = 0; i < m_PartitionINodes.size(); ++i)
+    for (size_t i = 0; i < m_PartitionInodes.size(); ++i)
     {
-        Ptr<SDMMCINode> partition = m_PartitionINodes[i];
+        Ptr<SDMMCInode> partition = m_PartitionInodes[i];
         if (partition->bi_nNodeHandle != -1)
         {
             PString path = m_DevicePathBase + PString::format_string("{}_new", i);
             krename_device_root_trw(partition->bi_nNodeHandle, path.c_str());
         }
     }
-    for (size_t i = 0; i < m_PartitionINodes.size(); ++i)
+    for (size_t i = 0; i < m_PartitionInodes.size(); ++i)
     {
         PString path = m_DevicePathBase + PString::format_string("{}", i);
         
-        Ptr<SDMMCINode> partition = m_PartitionINodes[i];
+        Ptr<SDMMCInode> partition = m_PartitionInodes[i];
         if (partition->bi_nNodeHandle != -1) {
             krename_device_root_trw(partition->bi_nNodeHandle, path.c_str());
         } else {

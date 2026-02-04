@@ -19,7 +19,7 @@
 
 #include <Kernel/VFS/KIOContext.h>
 #include <Kernel/VFS/KNodeMonitor.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 
 namespace kernel
 {
@@ -44,7 +44,7 @@ KIOContext::~KIOContext()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KIOContext::SetCurrentDirectory(Ptr<KINode> inode)
+void KIOContext::SetCurrentDirectory(Ptr<KInode> inode)
 {
     m_CurrentDirectory = inode;
 }
@@ -53,7 +53,7 @@ void KIOContext::SetCurrentDirectory(Ptr<KINode> inode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KINode> KIOContext::GetCurrentDirectory() const
+Ptr<KInode> KIOContext::GetCurrentDirectory() const
 {
     return m_CurrentDirectory;
 }

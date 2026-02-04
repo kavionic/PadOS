@@ -23,7 +23,7 @@
 #include "Kernel/IRQDispatcher.h"
 #include "Kernel/KMutex.h"
 #include "Kernel/KConditionVariable.h"
-#include "Kernel/VFS/KINode.h"
+#include "Kernel/VFS/KInode.h"
 #include "Kernel/VFS/KFilesystem.h"
 #include <Kernel/VFS/KDriverParametersBase.h>
 #include "Kernel/HAL/STM32/DMARequestID.h"
@@ -79,15 +79,15 @@ namespace kernel
 
 class USARTDriver;
 
-class USARTDriverINode : public KINode, public KFilesystemFileOps
+class USARTDriverInode : public KInode, public KFilesystemFileOps
 {
 public:
-    USARTDriverINode(const USARTDriverParameters& parameters);
+    USARTDriverInode(const USARTDriverParameters& parameters);
 
     virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
     virtual size_t  Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
     virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
-    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
+    virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
     virtual bool    AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
 

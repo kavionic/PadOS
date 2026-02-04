@@ -20,7 +20,7 @@
 #pragma once
 
 
-#include "Kernel/VFS/KINode.h"
+#include "Kernel/VFS/KInode.h"
 
 namespace kernel
 {
@@ -53,12 +53,12 @@ class FATFilesystem;
 
 
 
-class FATINode : public KINode
+class FATInode : public KInode
 {
 public:
     static const uint32_t MAGIC = 0x6eb89a76;
-    FATINode(Ptr<FATFilesystem> filesystem, Ptr<KFSVolume> volume, mode_t fileMode);
-    ~FATINode();
+    FATInode(Ptr<FATFilesystem> filesystem, Ptr<KFSVolume> volume, mode_t fileMode);
+    ~FATInode();
         
     bool CheckMagic(const char* functionName);
 
@@ -71,7 +71,7 @@ private:
     uint32_t m_Magic;
     
 public:
-    ino_t    m_ParentINodeID; // Parent inode number (directory containing entry)
+    ino_t    m_ParentInodeID; // Parent inode number (directory containing entry)
     
     // This is incremented when the fat chain changes to tell the read/write code it needs to re-traverse the FAT chain
     uint32_t m_Iteration = 0;
@@ -85,8 +85,8 @@ public:
     uint8_t  m_DOSAttribs;    // DOS-style attributes.
 
 private:
-    FATINode(const FATINode&) = delete;
-    FATINode& operator=(const FATINode&) = delete;
+    FATInode(const FATInode&) = delete;
+    FATInode& operator=(const FATInode&) = delete;
 };
 
 } // namespace

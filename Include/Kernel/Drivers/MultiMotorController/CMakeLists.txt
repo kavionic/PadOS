@@ -1,6 +1,6 @@
 
 target_sources(PadOS_Drivers_MultiMotor PRIVATE
-	MultiMotorINode.h
+	MultiMotorInode.h
 	StepperDriver.h
 	TMC2209IODriver.h
 	TMC2209Driver.h

@@ -23,7 +23,7 @@
 
 #include <Utils/String.h>
 #include <Kernel/KMutex.h>
-#include <Kernel/VFS/KINode.h>
+#include <Kernel/VFS/KInode.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/FSDrivers/VirtualFSBase.h>

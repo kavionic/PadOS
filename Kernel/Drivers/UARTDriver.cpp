@@ -28,7 +28,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-UARDDriverINode::UARDDriverINode(UART::Channels channel, KFilesystemFileOps* fileOps) : KINode(nullptr, nullptr, fileOps, false)
+UARDDriverInode::UARDDriverInode(UART::Channels channel, KFilesystemFileOps* fileOps) : KInode(nullptr, nullptr, fileOps, false)
 {
     m_Port.Initialize(channel, 921600);
     m_Port.SetParity(UART::Parity::NONE);
@@ -60,7 +60,7 @@ UARTDriver::~UARTDriver()
 
 void UARTDriver::Setup(const char* devicePath, UART::Channels channel)
 {
-    Ptr<UARDDriverINode> node = ptr_new<UARDDriverINode>(channel, this);
+    Ptr<UARDDriverInode> node = ptr_new<UARDDriverInode>(channel, this);
     Kernel::RegisterDevice(devicePath, node);
 }
 
@@ -88,7 +88,7 @@ ssize_t UARTDriver::Read(Ptr<KFileNode> file, off64_t position, void* buffer, si
 
 ssize_t UARTDriver::Write(Ptr<KFileNode> file, off64_t position, const void* buffer, size_t length)
 {
-    Ptr<UARDDriverINode> node = ptr_static_cast<UARDDriverINode>(file->GetINode());
+    Ptr<UARDDriverInode> node = ptr_static_cast<UARDDriverInode>(file->GetInode());
     node->m_Port.Send(buffer, length);
 
     return length;

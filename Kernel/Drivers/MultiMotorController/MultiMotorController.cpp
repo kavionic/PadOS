@@ -21,7 +21,7 @@
 #include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/Drivers/MultiMotorController/MultiMotorController.h>
-#include <Kernel/Drivers/MultiMotorController/MultiMotorINode.h>
+#include <Kernel/Drivers/MultiMotorController/MultiMotorInode.h>
 
 
 namespace kernel
@@ -29,13 +29,13 @@ namespace kernel
 
 void MultiMotorDriver::Setup(const char* devicePath, const char* controlPortPath, uint32_t baudrate)
 {
-    Ptr<MultiMotorINode> node = ptr_new<MultiMotorINode>(controlPortPath, baudrate, this);
+    Ptr<MultiMotorInode> node = ptr_new<MultiMotorInode>(controlPortPath, baudrate, this);
     Kernel::RegisterDevice_trw(devicePath, node);
 }
 
 void MultiMotorDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
-    Ptr<MultiMotorINode> node = ptr_static_cast<MultiMotorINode>(file->GetINode());
+    Ptr<MultiMotorInode> node = ptr_static_cast<MultiMotorInode>(file->GetInode());
     node->DeviceControl(request, inData, inDataLength, outData, outDataLength);
 }
 

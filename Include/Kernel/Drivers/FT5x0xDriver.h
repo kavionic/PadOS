@@ -131,11 +131,6 @@ public:
     port_id m_TargetPort = -1;
 };
 
-/*class FT5x0xDriverINode : public KINode
-{
-public:
-    
-};*/
 
 class FT5x0xDriver : public PtrTarget, public KThread, public KFilesystemFileOps
 {
@@ -147,7 +142,7 @@ public:
 
     virtual void* Run() override;
 
-    virtual Ptr<KFileNode>  OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> inode, int flags) override;
+    virtual Ptr<KFileNode>  OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int flags) override;
     virtual void            CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
     virtual void            DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 

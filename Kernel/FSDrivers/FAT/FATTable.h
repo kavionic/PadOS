@@ -32,7 +32,7 @@ namespace kernel
 {
 
 class FATVolume;
-class FATINode;
+class FATInode;
 
 // Root directory for FAT12 and FAT16 is hard-coded to 1.
 #define IS_FIXED_ROOT(cluster) ((cluster) == 1)
@@ -54,7 +54,7 @@ public:
 
     uint32_t    CountFreeClusters();
     size_t      GetChainLength(uint32_t cluster);
-    void        SetChainLength(Ptr<FATINode> node, uint32_t clusters, bool updateICache);
+    void        SetChainLength(Ptr<FATInode> node, uint32_t clusters, bool updateICache);
     uint32_t    AllocateClusters(size_t count);
     void        ClearFATChain(uint32_t cluster);
 

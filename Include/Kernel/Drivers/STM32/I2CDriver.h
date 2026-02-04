@@ -162,20 +162,20 @@ public:
 };
 
 
-class I2CDriverINode : public KINode, public KFilesystemFileOps
+class I2CDriverInode : public KInode, public KFilesystemFileOps
 {
 public:
-    I2CDriverINode(const I2CDriverParameters& parameters);
-    virtual ~I2CDriverINode() override;
+    I2CDriverInode(const I2CDriverParameters& parameters);
+    virtual ~I2CDriverInode() override;
 
 
     Ptr<KFileNode> Open(int flags);
-    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KINode> node, int flags) override;
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> node, int flags) override;
 
     virtual void   DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
     virtual size_t Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
     virtual size_t Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position) override;
-    virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf) override;
+    virtual void   ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
 private:
     void ResetPeripheral();
@@ -183,8 +183,8 @@ private:
     int SetSpeed(I2CSpeed speed);
     int GetBaudrate() const;
 
-    I2CDriverINode(const I2CDriverINode&) = delete;
-    I2CDriverINode& operator=(const I2CDriverINode&) = delete;
+    I2CDriverInode(const I2CDriverInode&) = delete;
+    I2CDriverInode& operator=(const I2CDriverInode&) = delete;
 
     enum class State_e
     {

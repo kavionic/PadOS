@@ -23,7 +23,7 @@
 #include <Kernel/VFS/KDriverManager.h>
 #include <Kernel/VFS/KDriverDescriptor.h>
 #include <Kernel/KObjectWaitGroup.h>
-#include <Kernel/Drivers/MultiMotorController/MultiMotorINode.h>
+#include <Kernel/Drivers/MultiMotorController/MultiMotorInode.h>
 #include <Kernel/Drivers/MultiMotorController/TMC2209IODriver.h>
 #include <Kernel/Drivers/MultiMotorController/TMC2209Driver.h>
 
@@ -32,15 +32,15 @@ namespace kernel
 
 
 
-PREGISTER_KERNEL_DRIVER(MultiMotorINode, MultiMotorDriverParameters);
+PREGISTER_KERNEL_DRIVER(MultiMotorInode, MultiMotorDriverParameters);
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-MultiMotorINode::MultiMotorINode(const MultiMotorDriverParameters& parameters)
-    : KINode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+MultiMotorInode::MultiMotorInode(const MultiMotorDriverParameters& parameters)
+    : KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
     , m_Mutex("multimotor", PEMutexRecursionMode_RaiseError)
 {
     m_MotorEnablePin = parameters.PinMotorEnable;
@@ -50,7 +50,7 @@ MultiMotorINode::MultiMotorINode(const MultiMotorDriverParameters& parameters)
     m_ControlPort = ptr_new<TMC2209IODriver>();
     m_ControlPort->Setup(parameters.ControlPortPath, parameters.Baudrate);
 
-#define MMI_REGISTER_HANDLER(NAME) m_DeviceControlDispatcher.AddHandler(&PMultiMotor::NAME, this, &MultiMotorINode::NAME)
+#define MMI_REGISTER_HANDLER(NAME) m_DeviceControlDispatcher.AddHandler(&PMultiMotor::NAME, this, &MultiMotorInode::NAME)
     MMI_REGISTER_HANDLER(CreateMotor);
     MMI_REGISTER_HANDLER(DeleteMotor);
     MMI_REGISTER_HANDLER(EnableMotorsPower);
@@ -113,7 +113,7 @@ MultiMotorINode::MultiMotorINode(const MultiMotorDriverParameters& parameters)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
+void MultiMotorInode::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -124,7 +124,7 @@ void MultiMotorINode::DeviceControl(Ptr<KFileNode> file, int request, const void
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct stat* statBuf)
+void MultiMotorInode::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
     CRITICAL_SCOPE(m_Mutex);
 
@@ -135,7 +135,7 @@ void MultiMotorINode::ReadStat(Ptr<KFSVolume> volume, Ptr<KINode> inode, struct 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-handle_id MultiMotorINode::CreateMotor(handle_id motorID, const TMC2209IOSetup& setup)
+handle_id MultiMotorInode::CreateMotor(handle_id motorID, const TMC2209IOSetup& setup)
 {
     m_Motors[motorID].Setup_trw(m_ControlPort, setup);
     return motorID;
@@ -145,7 +145,7 @@ handle_id MultiMotorINode::CreateMotor(handle_id motorID, const TMC2209IOSetup& 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::DeleteMotor(handle_id motorID)
+void MultiMotorInode::DeleteMotor(handle_id motorID)
 {
     auto motor = m_Motors.find(motorID);
     if (motor == m_Motors.end()) {
@@ -159,7 +159,7 @@ void MultiMotorINode::DeleteMotor(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetJerk(handle_id motorID, float jerk)
+void MultiMotorInode::SetJerk(handle_id motorID, float jerk)
 {
     GetMotor(motorID).SetJerk(jerk);
 }
@@ -168,7 +168,7 @@ void MultiMotorINode::SetJerk(handle_id motorID, float jerk)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetReverse(handle_id motorID, bool reverse)
+void MultiMotorInode::SetReverse(handle_id motorID, bool reverse)
 {
     GetMotor(motorID).SetReverse(reverse);
 }
@@ -177,7 +177,7 @@ void MultiMotorINode::SetReverse(handle_id motorID, bool reverse)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool MultiMotorINode::GetReverse(handle_id motorID)
+bool MultiMotorInode::GetReverse(handle_id motorID)
 {
     return GetMotor(motorID).GetReverse();
 }
@@ -186,7 +186,7 @@ bool MultiMotorINode::GetReverse(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void  MultiMotorINode::SetStepsPerMillimeter(handle_id motorID, float steps)
+void  MultiMotorInode::SetStepsPerMillimeter(handle_id motorID, float steps)
 {
     GetMotor(motorID).SetStepsPerMillimeter(steps);
 }
@@ -195,7 +195,7 @@ void  MultiMotorINode::SetStepsPerMillimeter(handle_id motorID, float steps)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetStepsPerMillimeter(handle_id motorID)
+float MultiMotorInode::GetStepsPerMillimeter(handle_id motorID)
 {
     return GetMotor(motorID).GetStepsPerMillimeter();
 }
@@ -204,7 +204,7 @@ float MultiMotorINode::GetStepsPerMillimeter(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void  MultiMotorINode::SetWakeupOnFullStep(handle_id motorID, bool value)
+void  MultiMotorInode::SetWakeupOnFullStep(handle_id motorID, bool value)
 {
     GetMotor(motorID).SetWakeupOnFullStep(value);
 }
@@ -213,7 +213,7 @@ void  MultiMotorINode::SetWakeupOnFullStep(handle_id motorID, bool value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool  MultiMotorINode::GetWakeupOnFullStep(handle_id motorID)
+bool  MultiMotorInode::GetWakeupOnFullStep(handle_id motorID)
 {
     return GetMotor(motorID).GetWakeupOnFullStep();
 }
@@ -222,12 +222,12 @@ bool  MultiMotorINode::GetWakeupOnFullStep(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetSpeed(handle_id motorID, float speedMMS, float accelerationMMS)
+void MultiMotorInode::SetSpeed(handle_id motorID, float speedMMS, float accelerationMMS)
 {
     GetMotor(motorID).SetSpeed(speedMMS, accelerationMMS);
 }
 
-void MultiMotorINode::SetSpeedMultiMask(uint32_t motorIDMask, float speedMMS, float accelerationMMS)
+void MultiMotorInode::SetSpeedMultiMask(uint32_t motorIDMask, float speedMMS, float accelerationMMS)
 {
     const std::vector<TMC2209Driver*> motors = GetMotorsFromMask(motorIDMask);
     CRITICAL_BEGIN(CRITICAL_IRQ)
@@ -238,12 +238,12 @@ void MultiMotorINode::SetSpeedMultiMask(uint32_t motorIDMask, float speedMMS, fl
     } CRITICAL_END;
 }
 
-void MultiMotorINode::StopAtOffset(handle_id motorID, float offset, float speed, float acceleration)
+void MultiMotorInode::StopAtOffset(handle_id motorID, float offset, float speed, float acceleration)
 {
     GetMotor(motorID).StopAtOffset(offset, speed, acceleration);
 }
 
-void MultiMotorINode::StopAtOffsetMultiMask(uint32_t motorIDMask, float offset, float speed, float acceleration)
+void MultiMotorInode::StopAtOffsetMultiMask(uint32_t motorIDMask, float offset, float speed, float acceleration)
 {
     const std::vector<TMC2209Driver*> motors = GetMotorsFromMask(motorIDMask);
     CRITICAL_BEGIN(CRITICAL_IRQ)
@@ -258,7 +258,7 @@ void MultiMotorINode::StopAtOffsetMultiMask(uint32_t motorIDMask, float offset, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::StopAtPos(handle_id motorID, float position, float speed, float acceleration)
+void MultiMotorInode::StopAtPos(handle_id motorID, float position, float speed, float acceleration)
 {
     GetMotor(motorID).StopAtPos(position, speed, acceleration);
 }
@@ -267,7 +267,7 @@ void MultiMotorINode::StopAtPos(handle_id motorID, float position, float speed, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SyncMove(handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS)
+void MultiMotorInode::SyncMove(handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS)
 {
     GetMotor(motorID).SyncMove(distanceMM, speedMMS, accelerationMMS);
 }
@@ -276,7 +276,7 @@ void MultiMotorINode::SyncMove(handle_id motorID, float distanceMM, float speedM
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::QueueMotion(handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS)
+void MultiMotorInode::QueueMotion(handle_id motorID, float distanceMM, float speedMMS, float accelerationMMS)
 {
     GetMotor(motorID).QueueMotion(distanceMM, speedMMS, accelerationMMS);
 }
@@ -285,7 +285,7 @@ void MultiMotorINode::QueueMotion(handle_id motorID, float distanceMM, float spe
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::StepForward(handle_id motorID)
+void MultiMotorInode::StepForward(handle_id motorID)
 {
     GetMotor(motorID).StepForward();
 }
@@ -294,7 +294,7 @@ void MultiMotorINode::StepForward(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::StepBackward(handle_id motorID)
+void MultiMotorInode::StepBackward(handle_id motorID)
 {
     GetMotor(motorID).StepBackward();
 }
@@ -303,7 +303,7 @@ void MultiMotorINode::StepBackward(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::EnableMotor(handle_id motorID, bool enable)
+void MultiMotorInode::EnableMotor(handle_id motorID, bool enable)
 {
     GetMotor(motorID).EnableMotor(enable);
 }
@@ -312,7 +312,7 @@ void MultiMotorINode::EnableMotor(handle_id motorID, bool enable)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool MultiMotorINode::IsMotorEnabled(handle_id motorID)
+bool MultiMotorInode::IsMotorEnabled(handle_id motorID)
 {
     return GetMotor(motorID).IsMotorEnabled();
 }
@@ -321,7 +321,7 @@ bool MultiMotorINode::IsMotorEnabled(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::Wait(handle_id motorID)
+void MultiMotorInode::Wait(handle_id motorID)
 {
     GetMotor(motorID).Wait();
 }
@@ -330,7 +330,7 @@ void MultiMotorINode::Wait(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetCurrentStopDistance(handle_id motorID, float acceleration)
+float MultiMotorInode::GetCurrentStopDistance(handle_id motorID, float acceleration)
 {
     return GetMotor(motorID).GetCurrentStopDistance(acceleration);
 }
@@ -339,7 +339,7 @@ float MultiMotorINode::GetCurrentStopDistance(handle_id motorID, float accelerat
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool MultiMotorINode::IsRunning(handle_id motorID)
+bool MultiMotorInode::IsRunning(handle_id motorID)
 {
     return GetMotor(motorID).IsRunning();
 }
@@ -348,7 +348,7 @@ bool MultiMotorINode::IsRunning(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::StartStopTimer(handle_id motorID, bool doRun)
+void MultiMotorInode::StartStopTimer(handle_id motorID, bool doRun)
 {
     GetMotor(motorID).StartStopTimer(doRun);
 }
@@ -357,7 +357,7 @@ void MultiMotorINode::StartStopTimer(handle_id motorID, bool doRun)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::ClearMotion(handle_id motorID)
+void MultiMotorInode::ClearMotion(handle_id motorID)
 {
     GetMotor(motorID).ClearMotion();
 }
@@ -366,7 +366,7 @@ void MultiMotorINode::ClearMotion(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int32_t MultiMotorINode::GetStepPosition(handle_id motorID)
+int32_t MultiMotorInode::GetStepPosition(handle_id motorID)
 {
     return GetMotor(motorID).GetStepPosition();
 }
@@ -375,7 +375,7 @@ int32_t MultiMotorINode::GetStepPosition(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetPosition(handle_id motorID)
+float MultiMotorInode::GetPosition(handle_id motorID)
 {
     return GetMotor(motorID).GetPosition();
 }
@@ -384,7 +384,7 @@ float MultiMotorINode::GetPosition(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::ResetPosition(handle_id motorID, float position)
+void MultiMotorInode::ResetPosition(handle_id motorID, float position)
 {
     GetMotor(motorID).ResetPosition(position);
 }
@@ -393,7 +393,7 @@ void MultiMotorINode::ResetPosition(handle_id motorID, float position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetCurrentSpeed(handle_id motorID)
+float MultiMotorInode::GetCurrentSpeed(handle_id motorID)
 {
     return GetMotor(motorID).GetCurrentSpeed();
 }
@@ -402,7 +402,7 @@ float MultiMotorINode::GetCurrentSpeed(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool MultiMotorINode::GetCurrentDirection(handle_id motorID)
+bool MultiMotorInode::GetCurrentDirection(handle_id motorID)
 {
     return GetMotor(motorID).GetCurrentDirection();
 }
@@ -411,7 +411,7 @@ bool MultiMotorINode::GetCurrentDirection(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetCurrent(handle_id motorID, float holdCurrent, float runCurrent, TimeValMillis fadeTime)
+void MultiMotorInode::SetCurrent(handle_id motorID, float holdCurrent, float runCurrent, TimeValMillis fadeTime)
 {
     GetMotor(motorID).SetCurrent_trw(holdCurrent, runCurrent, fadeTime);
 }
@@ -420,7 +420,7 @@ void MultiMotorINode::SetCurrent(handle_id motorID, float holdCurrent, float run
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetRunCurrent(handle_id motorID) const
+float MultiMotorInode::GetRunCurrent(handle_id motorID) const
 {
     return GetMotor(motorID).GetRunCurrent();
 }
@@ -429,7 +429,7 @@ float MultiMotorINode::GetRunCurrent(handle_id motorID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetRunCurrent(handle_id motorID, float current)
+void MultiMotorInode::SetRunCurrent(handle_id motorID, float current)
 {
     GetMotor(motorID).SetRunCurrent_trw(current);
 }
@@ -438,7 +438,7 @@ void MultiMotorINode::SetRunCurrent(handle_id motorID, float current)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetHoldCurrent(handle_id motorID, float current)
+void MultiMotorInode::SetHoldCurrent(handle_id motorID, float current)
 {
     GetMotor(motorID).SetHoldCurrent_trw(current);
 }
@@ -447,7 +447,7 @@ void MultiMotorINode::SetHoldCurrent(handle_id motorID, float current)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetHoldCurrent(handle_id motorID) const
+float MultiMotorInode::GetHoldCurrent(handle_id motorID) const
 {
     return GetMotor(motorID).GetHoldCurrent();
 }
@@ -456,7 +456,7 @@ float MultiMotorINode::GetHoldCurrent(handle_id motorID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TimeValMillis MultiMotorINode::GetCurrentFadeTime(handle_id motorID) const
+TimeValMillis MultiMotorInode::GetCurrentFadeTime(handle_id motorID) const
 {
     return GetMotor(motorID).GetCurrentFadeTime();
 }
@@ -465,7 +465,7 @@ TimeValMillis MultiMotorINode::GetCurrentFadeTime(handle_id motorID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetCurrentFadeTime(handle_id motorID, TimeValMillis fadeTime)
+void MultiMotorInode::SetCurrentFadeTime(handle_id motorID, TimeValMillis fadeTime)
 {
     GetMotor(motorID).SetCurrentFadeTime_trw(fadeTime);
 }
@@ -474,7 +474,7 @@ void MultiMotorINode::SetCurrentFadeTime(handle_id motorID, TimeValMillis fadeTi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetPowerDownTime(handle_id motorID, TimeValMillis time)
+void MultiMotorInode::SetPowerDownTime(handle_id motorID, TimeValMillis time)
 {
     GetMotor(motorID).SetPowerDownTime_trw(time);
 }
@@ -483,7 +483,7 @@ void MultiMotorINode::SetPowerDownTime(handle_id motorID, TimeValMillis time)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetMicrosteps(handle_id motorID, int32_t steps)
+void MultiMotorInode::SetMicrosteps(handle_id motorID, int32_t steps)
 {
     GetMotor(motorID).SetMicrosteps_trw(steps);
 }
@@ -492,7 +492,7 @@ void MultiMotorINode::SetMicrosteps(handle_id motorID, int32_t steps)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t MultiMotorINode::GetStepTicks(handle_id motorID) const
+uint32_t MultiMotorInode::GetStepTicks(handle_id motorID) const
 {
     return GetMotor(motorID).GetStepTicks_trw();
 }
@@ -501,7 +501,7 @@ uint32_t MultiMotorINode::GetStepTicks(handle_id motorID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetStepTime(handle_id motorID) const
+float MultiMotorInode::GetStepTime(handle_id motorID) const
 {
     return GetMotor(motorID).GetStepTime_trw();
 }
@@ -510,7 +510,7 @@ float MultiMotorINode::GetStepTime(handle_id motorID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetMaxStealthChopSpeed(handle_id motorID, float maxSpeed)
+void MultiMotorInode::SetMaxStealthChopSpeed(handle_id motorID, float maxSpeed)
 {
     GetMotor(motorID).SetMaxStealthChopSpeed_trw(maxSpeed);
 }
@@ -519,7 +519,7 @@ void MultiMotorINode::SetMaxStealthChopSpeed(handle_id motorID, float maxSpeed)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetMinStallGuardSpeed(handle_id motorID, float minSpeed)
+void MultiMotorInode::SetMinStallGuardSpeed(handle_id motorID, float minSpeed)
 {
     GetMotor(motorID).SetMinStallGuardSpeed_trw(minSpeed);
 }
@@ -528,7 +528,7 @@ void MultiMotorINode::SetMinStallGuardSpeed(handle_id motorID, float minSpeed)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetStallGuardThreshold(handle_id motorID, float threshold)
+void MultiMotorInode::SetStallGuardThreshold(handle_id motorID, float threshold)
 {
     GetMotor(motorID).SetStallGuardThreshold_trw(threshold);
 }
@@ -537,7 +537,7 @@ void MultiMotorINode::SetStallGuardThreshold(handle_id motorID, float threshold)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-float MultiMotorINode::GetStallGuardResult(handle_id motorID) const
+float MultiMotorInode::GetStallGuardResult(handle_id motorID) const
 {
     return GetMotor(motorID).GetStallGuardResult_trw();
 }
@@ -546,7 +546,7 @@ float MultiMotorINode::GetStallGuardResult(handle_id motorID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SetHaltOnStall(handle_id motorID, bool doHalt)
+void MultiMotorInode::SetHaltOnStall(handle_id motorID, bool doHalt)
 {
     GetMotor(motorID).SetHaltOnStall(doHalt);
 }
@@ -555,7 +555,7 @@ void MultiMotorINode::SetHaltOnStall(handle_id motorID, bool doHalt)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::ClearHaltedFlag(handle_id motorID)
+void MultiMotorInode::ClearHaltedFlag(handle_id motorID)
 {
     GetMotor(motorID).ClearHaltedFlag();
 }
@@ -564,7 +564,7 @@ void MultiMotorINode::ClearHaltedFlag(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool MultiMotorINode::HasHalted(handle_id motorID) const
+bool MultiMotorInode::HasHalted(handle_id motorID) const
 {
     return GetMotor(motorID).HasHalted();
 }
@@ -573,7 +573,7 @@ bool MultiMotorINode::HasHalted(handle_id motorID) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::StartMultipleMotors(uint32_t motorIDMask)
+void MultiMotorInode::StartMultipleMotors(uint32_t motorIDMask)
 {
     const std::vector<TMC2209Driver*> motors = GetMotorsFromMask(motorIDMask);
     for (TMC2209Driver* motor : motors) {
@@ -585,7 +585,7 @@ void MultiMotorINode::StartMultipleMotors(uint32_t motorIDMask)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::SyncStartMultipleMotors(bool doWait, uint32_t motorIDMask)
+void MultiMotorInode::SyncStartMultipleMotors(bool doWait, uint32_t motorIDMask)
 {
     const std::vector<TMC2209Driver*> motors = GetMotorsFromMask(motorIDMask);
     CRITICAL_BEGIN(CRITICAL_IRQ)
@@ -605,7 +605,7 @@ void MultiMotorINode::SyncStartMultipleMotors(bool doWait, uint32_t motorIDMask)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::WaitMultipleMotors(uint32_t motorIDMask)
+void MultiMotorInode::WaitMultipleMotors(uint32_t motorIDMask)
 {
     const std::vector<TMC2209Driver*> motors = GetMotorsFromMask(motorIDMask);
     for (TMC2209Driver* motor : motors) {
@@ -617,7 +617,7 @@ void MultiMotorINode::WaitMultipleMotors(uint32_t motorIDMask)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void MultiMotorINode::AddMotorToWaitGroup(handle_id motorID, handle_id waitGroupHandle)
+void MultiMotorInode::AddMotorToWaitGroup(handle_id motorID, handle_id waitGroupHandle)
 {
     Ptr<KObjectWaitGroup> waitGroup = KNamedObject::GetObject_trw<KObjectWaitGroup>(waitGroupHandle);
     waitGroup->AddObject_trw(&GetMotor(motorID).GetRunningCondition());
@@ -627,7 +627,7 @@ void MultiMotorINode::AddMotorToWaitGroup(handle_id motorID, handle_id waitGroup
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-TMC2209Driver& MultiMotorINode::GetMotor(handle_id motorID)
+TMC2209Driver& MultiMotorInode::GetMotor(handle_id motorID)
 {
     auto motor = m_Motors.find(motorID);
     if (motor == m_Motors.end()) {
@@ -640,7 +640,7 @@ TMC2209Driver& MultiMotorINode::GetMotor(handle_id motorID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-std::vector<TMC2209Driver*> MultiMotorINode::GetMotorsFromMask(uint32_t motorIDMask)
+std::vector<TMC2209Driver*> MultiMotorInode::GetMotorsFromMask(uint32_t motorIDMask)
 {
     std::vector<TMC2209Driver*> motors;
     for (uint32_t index = 0, mask = 1; mask != 0; ++index, mask >>= 1)

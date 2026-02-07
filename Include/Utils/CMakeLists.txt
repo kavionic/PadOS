@@ -5,6 +5,7 @@ target_sources(PadOS_System PRIVATE
 	CircularBuffer.h
 	combsort.h
 	EasingCurve.h
+	EnumBitmask.h
 	EnumUtils.h
 	FactoryAutoRegistrator.h
 	HashCalculator.h

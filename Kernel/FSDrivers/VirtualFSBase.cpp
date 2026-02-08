@@ -320,6 +320,29 @@ Ptr<KFileNode> KVirtualFilesystemBase::CreateFile(Ptr<KFSVolume> volume, Ptr<KIn
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void KVirtualFilesystemBase::CreateSymlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, const char* targetPath)
+{
+    CRITICAL_SCOPE(m_Mutex);
+
+    Ptr<KVirtualFSBaseInode> fsParent = ptr_static_cast<KVirtualFSBaseInode>(parent);
+
+    PString nodeName(name, nameLength);
+    if (fsParent->m_Children.find(nodeName) != fsParent->m_Children.end())
+    {
+        PERROR_THROW_CODE(PErrorCode::Exist);
+    }
+
+    Ptr<KVirtualFSBaseInode> linkInode = ptr_new<KVirtualFSBaseInode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(fsParent), this, S_IFLNK | S_IRWXU | S_IRWXG | S_IRWXO);
+
+    linkInode->m_FileData.insert(linkInode->m_FileData.begin(), targetPath, targetPath + strlen(targetPath));
+
+    fsParent->m_Children[nodeName] = linkInode;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<KInode> KVirtualFilesystemBase::LoadInode(Ptr<KFSVolume> volume, ino_t inode)
 {
     CRITICAL_SCOPE(m_Mutex);
@@ -361,6 +384,27 @@ size_t KVirtualFilesystemBase::Read(Ptr<KFileNode> file, void* buffer, size_t le
     memcpy(buffer, inode->m_FileData.data() + position, bytesToRead);
     
     return bytesToRead;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t KVirtualFilesystemBase::ReadLink(Ptr<KFSVolume> volume, Ptr<KInode> inode, char* buffer, size_t bufferSize)
+{
+    CRITICAL_SCOPE(m_Mutex);
+
+    if (!S_ISLNK(inode->m_FileMode)) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    }
+
+    Ptr<KVirtualFSBaseInode> fsInode = ptr_static_cast<KVirtualFSBaseInode>(inode);
+
+    const size_t length = std::min(fsInode->m_FileData.size(), bufferSize);
+
+    memcpy(buffer, fsInode->m_FileData.data(), length);
+
+    return length;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

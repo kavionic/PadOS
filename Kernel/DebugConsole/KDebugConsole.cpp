@@ -422,7 +422,22 @@ void KDebugConsole::UpdatePrompt()
     const PString setColor = PANSIEscapeCodeParser::FormatANSICode(PANSI_ControlCode::SetRenderProperty, int(PANSI_RenderProperty::FgColor_Yellow));
     const PString resetColor = PANSIEscapeCodeParser::FormatANSICode(PANSI_ControlCode::SetRenderProperty, int(PANSI_RenderProperty::Reset));
 
-    if (getcwd(cwd, sizeof(cwd)) == nullptr || !SetPrompt(PString::format_string("[{}{}{}]$ ", setColor, cwd, resetColor))) {
+    const char* envPath = getenv("PATH");
+
+    bool pathOK = false;
+
+    if (envPath != nullptr && strlen(envPath) <= PATH_MAX)
+    {
+        strcpy(cwd, envPath);
+
+        stat_t pathStat;
+        stat_t cwdStat;
+        pathOK = stat(envPath, &pathStat) == 0 && stat(".", &cwdStat) == 0 && pathStat.st_dev == cwdStat.st_dev && pathStat.st_ino == cwdStat.st_ino;
+    }
+    if (!pathOK) {
+        pathOK = getcwd(cwd, sizeof(cwd)) != nullptr;
+    }
+    if (!pathOK || !SetPrompt(PString::format_string("[{}{}{}]$ ", setColor, cwd, resetColor))) {
         SendText(m_Prompt);
     }
 }
@@ -680,8 +695,16 @@ std::vector<PString> KDebugConsole::ExpandFilePath(size_t argumentIndex, const P
                 PString entryName(entry.d_name, entry.d_namlen);
                 if (entryName != "." && entryName != ".." && entryName.starts_with_nocase(filename.c_str()))
                 {
-                    if (entry.d_type == DT_DIR) {
+                    if (entry.d_type == DT_DIR)
+                    {
                         entryName += "/\\";
+                    }
+                    else if (entry.d_type == DT_LNK)
+                    {
+                        struct stat targetStat;
+                        if (fstatat(directory, entry.d_name, &targetStat, 0) == 0 && S_ISDIR(targetStat.st_mode)) {
+                            entryName += "/\\";
+                        }
                     }
                     alternatives.push_back(std::move(entryName));
                 }

@@ -62,10 +62,14 @@ public:
 
 	virtual Ptr<KFileNode>      CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int flags, int permission) override;
 
+    virtual void                CreateSymlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, const char* targetPath) override;
+
 	virtual Ptr<KInode>         LoadInode(Ptr<KFSVolume> volume, ino_t inode) override;
 	virtual void                CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int permission) override;
 
     virtual size_t              Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
+
+    virtual size_t              ReadLink(Ptr<KFSVolume> volume, Ptr<KInode> inode, char* buffer, size_t bufferSize) override;
 
 	virtual void                ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 	virtual void                WriteStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, const struct stat* stats, uint32_t mask) override;

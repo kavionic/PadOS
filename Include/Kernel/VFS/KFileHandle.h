@@ -36,25 +36,26 @@ namespace kernel
 class KFileTableNode : public PtrTarget
 {
 public:
-    KFileTableNode(bool isDirectory, int openFlags) : m_IsDirectory(isDirectory), m_OpenFlags(openFlags & ~O_CREAT) {}
+    KFileTableNode(int openFlags) noexcept : m_OpenFlags(openFlags & ~O_CREAT) {}
 
     inline void         SetInode(Ptr<KInode> inode) noexcept    { m_Inode = inode; }
     inline Ptr<KInode>  GetInode() noexcept                     { return m_Inode; }
-    inline bool         IsDirectory() const noexcept            { return m_IsDirectory; }
-    inline void         SetOpenFlags(int flags) noexcept        { m_OpenFlags = flags; }
+    inline bool         IsDirectory() const noexcept            { return m_Inode != nullptr && S_ISDIR(m_Inode->m_FileMode); }
+    inline bool         IsSymlink() const noexcept              { return m_Inode != nullptr && S_ISLNK(m_Inode->m_FileMode); }
     inline int          GetOpenFlags() const noexcept           { return m_OpenFlags; }
+    inline bool         IsPathObject() const noexcept           { return (m_OpenFlags & O_PATH) != 0; }
     inline bool         HasReadAccess() const noexcept          { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDONLY; }
     inline bool         HasWriteAccess() const noexcept         { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_WRONLY; }
+
 private:
     Ptr<KInode> m_Inode;
-    bool        m_IsDirectory;
     int         m_OpenFlags = 0;
 };
 
 class KFileNode : public KFileTableNode
 {
 public:
-    inline KFileNode(int openFlags) : KFileTableNode(false, openFlags) {}
+    inline KFileNode(int openFlags) noexcept : KFileTableNode(openFlags) {}
         
     virtual bool LastReferenceGone() override;
 
@@ -64,7 +65,7 @@ public:
 class KDirectoryNode : public KFileTableNode
 {
 public:
-    inline KDirectoryNode(int openFlags) : KFileTableNode(true, openFlags) {}
+    inline KDirectoryNode(int openFlags) noexcept : KFileTableNode(openFlags) {}
 
     virtual bool LastReferenceGone() override;
     

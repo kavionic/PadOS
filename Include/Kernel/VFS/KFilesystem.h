@@ -91,7 +91,7 @@ public:
     virtual size_t  Read(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position);
     virtual size_t  Write(Ptr<KFileNode> file, const iovec_t* segments, size_t segmentCount, off64_t position);
 
-    virtual size_t  ReadLink(Ptr<KFSVolume> volume, Ptr<KInode> node, char* buffer, size_t bufferSize);
+    virtual size_t  ReadLink(Ptr<KFSVolume> volume, Ptr<KInode> inode, char* buffer, size_t bufferSize);
     virtual void    DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength);
 
     virtual size_t  ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize);
@@ -120,6 +120,7 @@ public:
     virtual Ptr<KInode>     LocateInode(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* path, int pathLength);
     virtual void            ReleaseInode(KInode* inode);
     virtual Ptr<KFileNode>  CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int openFlags, int permission);
+    virtual void            CreateSymlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, const char* targetPath);
 
     virtual Ptr<KInode>     LoadInode(Ptr<KFSVolume> volume, ino_t inode);
 

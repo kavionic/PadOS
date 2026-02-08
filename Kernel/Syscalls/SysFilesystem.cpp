@@ -428,6 +428,7 @@ PSysRetPair sys_readlink(int dirfd, const char* path, char* buffer, size_t buffe
     try
     {
         validate_user_read_string_trw(path, PATH_MAX);
+        validate_user_write_pointer_trw(buffer, bufferSize);
         return PMakeSysRetSuccess(kreadlink_trw(dirfd, path, buffer, bufferSize));
     }
     PERROR_CATCH_RET_SYSRET;

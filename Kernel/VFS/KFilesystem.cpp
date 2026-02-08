@@ -128,6 +128,15 @@ Ptr<KFileNode> KFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> parent
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void KFilesystem::CreateSymlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, const char* targetPath)
+{
+    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void KFilesystemFileOps::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
 }

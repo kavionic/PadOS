@@ -65,6 +65,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PADOS_C_CXX_FLAGS} -Wsuggest-override 
 
 
 add_library(PadOS_Kernel)
+add_library(PadOS_KernelExt)
 add_library(PadOS_Syscalls)
 add_library(PadOS_KDebugConsole)
 add_library(PadOS_FATFS)
@@ -128,6 +129,7 @@ add_subdirectory(Include)
 find_package(fmt CONFIG REQUIRED)
 
 pados_add_kernel_library(ON	PadOS_Kernel)
+pados_add_kernel_library(ON	PadOS_KernelExt)
 pados_add_kernel_library(ON	PadOS_FATFS)
 pados_add_kernel_library(ON	PadOS_Ptr)
 pados_add_kernel_library(ON	PadOS_Signals)
@@ -154,6 +156,7 @@ get_property(PADOS_KERNEL_LIBRARY_TARGETS GLOBAL PROPERTY PADOS_KERNEL_LIBRARY_T
 
 install(TARGETS
 	PadOS_Kernel
+	PadOS_KernelExt
 	PadOS_Syscalls
 	PadOS_KDebugConsole
 	PadOS_FATFS

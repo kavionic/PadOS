@@ -71,7 +71,7 @@ PFile::PFile()
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-PFile::PFile(const PString& path, int openFlags) : PFSNode(path, openFlags & ~O_NOFOLLOW)
+PFile::PFile(const PString& path, int openFlags) : PFSNode(path, openFlags)
 {
     if (IsDir())
     {
@@ -100,7 +100,7 @@ PFile::PFile(const PString& path, int openFlags) : PFSNode(path, openFlags & ~O_
  ///////////////////////////////////////////////////////////////////////////////
 
 
-PFile::PFile(const PDirectory& directory, const PString& path, int openFlags) : PFSNode(directory, path, openFlags & ~O_NOFOLLOW)
+PFile::PFile(const PDirectory& directory, const PString& path, int openFlags) : PFSNode(directory, path, openFlags)
 {
     if (IsDir())
     {
@@ -126,7 +126,7 @@ PFile::PFile(const PDirectory& directory, const PString& path, int openFlags) : 
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
-PFile::PFile(const PFileReference& reference, int openFlags) : PFSNode(reference, openFlags & ~O_NOFOLLOW)
+PFile::PFile(const PFileReference& reference, int openFlags) : PFSNode(reference, openFlags)
 {
     if (IsDir())
     {

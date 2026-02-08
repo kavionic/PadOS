@@ -29,6 +29,7 @@
 
 #include <Ptr/Ptr.h>
 #include <Utils/String.h>
+#include <Utils/EnumBitmask.h>
 #include <Kernel/KMutex.h>
 
 typedef struct iovec iovec_t;
@@ -45,14 +46,21 @@ class KDirectoryNode;
 class KRootFilesystem;
 class Kernel;
 
-void                            ksetup_rootfs_trw();
+enum class KLocateFlag
+{
+    CrossMount      = 0x01,
+    FollowSymlinks  = 0x02
+};
+using KLocateFlags = PEnumBitmask<KLocateFlag>;
+
+void                    ksetup_rootfs_trw();
 Ptr<KRootFilesystem>    kget_rootfs_trw();
 Ptr<KRootFilesystem>    kget_rootfs() noexcept;
 
-void                        kregister_filesystem_trw(const char* name, Ptr<KFilesystem> filesystem);
-Ptr<KFilesystem>    kfind_filesystem_trw(const char* name);
+void                    kregister_filesystem_trw(const char* name, Ptr<KFilesystem> filesystem);
+Ptr<KFilesystem>        kfind_filesystem_trw(const char* name);
 
-void                        kmount_trw(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength);
+void                    kmount_trw(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength);
 
 Ptr<KFileTableNode> kget_file_table_node_trw(int handle, bool forKernel = false);
 Ptr<KFileNode>      kget_file_node_trw(int handle);
@@ -66,7 +74,6 @@ int         kdupe_trw(int oldHandle, int newHandle = -1);
 PErrorCode  kclose(int handle) noexcept;
 
 int         kget_file_flags_trw(int handle);
-int         kset_file_flags_trw(int handle, int flags);
 
 
 size_t kread_trw(int handle, void* buffer, size_t length);
@@ -122,8 +129,8 @@ void    kremove_directory_trw(int baseFolderFD, const char* path);
 void    kget_directory_path_trw(int handle, char* buffer, size_t bufferSize);
 
 
-Ptr<KInode> klocate_inode_by_name_trw(Ptr<KInode> parent, const char* name, int nameLength, bool crossMount);
-Ptr<KInode> klocate_inode_by_path_trw(Ptr<KInode> parent, const char* path, int pathLength);
+Ptr<KInode> klocate_inode_by_name_trw(Ptr<KInode> parent, const char* name, int nameLength, KLocateFlags locateFlags);
+Ptr<KInode> klocate_inode_by_path_trw(Ptr<KInode> parent, const char* path, int pathLength, KLocateFlags locateFlags);
 Ptr<KInode> klocate_parent_inode_trw(Ptr<KInode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength);
 void                kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize);
 int                 kallocate_filehandle_trw();

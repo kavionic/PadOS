@@ -108,6 +108,8 @@ public:
     PIntrusiveList<KThreadCB>* m_List = nullptr;
     const KNamedObject*       m_BlockingObject = nullptr;
 
+    int                       m_SymlinkDepth = 0;
+
     sigset_t                  m_PendingSignals_ = 0;
     sigset_t		          m_BlockedSignals = 0;
     sigaction_t               m_SignalHandlers[NSIG + NRTSIG];

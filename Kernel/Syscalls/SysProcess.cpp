@@ -224,7 +224,9 @@ PErrorCode sys_sysconf(int name, long* outValue)
         case _SC_SPIN_LOCKS:                    return PErrorCode::InvalidArg;
         case _SC_SPORADIC_SERVER:               return PErrorCode::InvalidArg;
         case _SC_SS_REPL_MAX:                   return PErrorCode::InvalidArg;
-        case _SC_SYMLOOP_MAX:                   return PErrorCode::InvalidArg;
+        case _SC_SYMLOOP_MAX:
+            *outValue = SYMLOOP_MAX;
+            return PErrorCode::Success;
         case _SC_THREAD_CPUTIME:                return PErrorCode::InvalidArg;
         case _SC_THREAD_SPORADIC_SERVER:        return PErrorCode::InvalidArg;
         case _SC_TIMEOUTS:                      return PErrorCode::InvalidArg;

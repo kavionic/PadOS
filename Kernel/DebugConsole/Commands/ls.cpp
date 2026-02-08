@@ -38,6 +38,13 @@ enum class EColorMode
     Always
 };
 
+struct FileEntry
+{
+    PString Name;
+    PString LinkTarget;
+    stat_t  StatBuffer;
+};
+
 class CCmdLS : public KConsoleCommand
 {
 public:
@@ -181,101 +188,136 @@ public:
 private:
     void ListDirectory(const std::string& path)
     {
-        std::vector<std::pair<PString, struct stat>> files;
+        std::vector<FileEntry> files;
 
-        int directory = open(path.c_str(), O_RDONLY);
-        if (directory != -1)
+        const bool followSymlink = path.empty() || path == "." || path.back() == '/';
+        
+        int directory = open(path.c_str(), O_RDONLY | (followSymlink ? 0 : O_NOFOLLOW));
+
+        if (directory == -1 && errno == ELOOP && !followSymlink) {
+            directory = open(path.c_str(), O_PATH | O_NOFOLLOW);
+        }
+
+        stat_t nodeStats;
+        if (directory == -1 || fstat(directory, &nodeStats) == -1)
         {
-            struct stat nodeStats;
+            Print("Error: {} - {}", path, strerror(errno));
+            if (directory != -1) {
+                close(directory);
+            }
+            return;
+        }
 
-            if (fstat(directory, &nodeStats) != -1)
+        bool printHeader = false;
+        if (m_ListDirectories || !S_ISDIR(nodeStats.st_mode))
+        {
+            PString linkTarget;
+            if (S_ISLNK(nodeStats.st_mode))
             {
-                bool printHeader = false;
-                if (m_ListDirectories || !S_ISDIR(nodeStats.st_mode))
+                linkTarget.resize(size_t(nodeStats.st_size));
+                if (readlinkat(directory, "", linkTarget.data(), linkTarget.size()) < 0)
                 {
-                    files.push_back(std::make_pair(path, nodeStats));
+                    Print("Error: {} - {}", path, strerror(errno));
+                    linkTarget.clear();
+                }
+            }
+            files.push_back(FileEntry{ path, linkTarget, nodeStats });
+        }
+        else
+        {
+            printHeader = path != ".";
+            dirent_t entry;
+
+            while (kread_directory(directory, &entry, sizeof(entry)) == sizeof(entry))
+            {
+                switch (m_FilesToShow)
+                {
+                    case EFilesToShow::Normal:
+                        if (entry.d_name[0] == '.') {
+                            continue;
+                        }
+                        break;
+                    case EFilesToShow::AlmostAll:
+                        if (PString::is_dot_or_dot_dot(entry.d_name, entry.d_namlen)) {
+                            continue;
+                        }
+                        break;
+                    case EFilesToShow::All:
+                        break;
+                }
+                int error = 0;
+                stat_t fileStat;
+                int fd = openat(directory, entry.d_name, O_PATH | O_NOFOLLOW);
+                if (fd != -1)
+                {
+                    if (fstat(fd, &fileStat) == 0)
+                    {
+                        PString linkTarget;
+                        if (S_ISLNK(fileStat.st_mode))
+                        {
+                            linkTarget.resize(size_t(fileStat.st_size));
+                            if (readlinkat(fd, "", linkTarget.data(), linkTarget.size()) < 0)
+                            {
+                                Print("Error: {}/{} - {}", path, entry.d_name, strerror(errno));
+                                linkTarget.clear();
+                            }
+                        }
+                        files.push_back(FileEntry{ entry.d_name, linkTarget, fileStat });
+                    }
+                    else
+                    {
+                        error = errno;
+                    }
+                    close(fd);
                 }
                 else
                 {
-                    printHeader = path != ".";
-                    dirent_t entry;
-
-                    while (kread_directory(directory, &entry, sizeof(entry)) == sizeof(entry))
-                    {
-                        switch (m_FilesToShow)
-                        {
-                            case EFilesToShow::Normal:
-                                if (entry.d_name[0] == '.') {
-                                    continue;
-                                }
-                                break;
-                            case EFilesToShow::AlmostAll:
-                                if (PString::is_dot_or_dot_dot(entry.d_name, entry.d_namlen)) {
-                                    continue;
-                                }
-                            case EFilesToShow::All:
-                                break;
-                        }
-                        int error = 0;
-                        struct stat fileStat;
-                        int fd = openat(directory, entry.d_name, O_RDONLY);
-                        if (fd != -1)
-                        {
-                            if (fstat(fd, &fileStat) == -1)
-                            {
-                                error = errno;
-                            }
-                            close(fd);
-                        }
-                        else
-                        {
-                            error = errno;
-                        }
-                        if (error == 0) {
-                            files.push_back(std::make_pair(entry.d_name, fileStat));
-                        } else {
-                            Print("Error: {} - {}", path, strerror(error));
-                        }
-                    }
-                    std::sort(files.begin(), files.end(), [](const std::pair<PString, struct stat>& lhs, const std::pair<PString, struct stat>& rhs) { return lhs.first < rhs.first; });
+                    error = errno;
                 }
-                if (printHeader)
+                if (error != 0)
                 {
-                    Print("{}:\n", path);
+                    Print("Error: {}/{} - {}", path, entry.d_name, strerror(error));
                 }
-
-                off_t totalSize = 0;
-                for (size_t i = 0; i < files.size(); ++i)
-                {
-                    const struct stat& fileStat = files[i].second;
-                    totalSize += fileStat.st_size;
-                }
-
-                if (m_UseLongFormat) {
-                    Print("total {}\n", FormatFileSize(totalSize, true));
-                }
-                PrintFileList(files);
-                close(directory);
             }
-            else
-            {
-                Print("Error: {} - {}", path, strerror(errno));
-            }
+            std::sort(files.begin(), files.end(), [](const FileEntry& lhs, const FileEntry& rhs) { return lhs.Name < rhs.Name; });
         }
+        if (printHeader)
+        {
+            Print("{}:\n", path);
+        }
+
+        off_t totalSize = 0;
+        for (size_t i = 0; i < files.size(); ++i)
+        {
+            const stat_t& fileStat = files[i].StatBuffer;
+            totalSize += fileStat.st_size;
+        }
+
+        if (m_UseLongFormat) {
+            Print("total {}\n", FormatFileSize(totalSize, true));
+        }
+        PrintFileList(files);
+        close(directory);
     }
 
-    void PrintFileList(const std::vector<std::pair<PString, struct stat>>& files)
+    void PrintFileList(const std::vector<FileEntry>& files)
     {
         for (size_t i = 0; i < files.size(); ++i)
         {
-            const PString& fileName = files[i].first;
-            const struct stat& fileStat = files[i].second;
+            const PString& fileName = files[i].Name;
+            const stat_t& fileStat = files[i].StatBuffer;
             if (m_UseLongFormat)
             {
                 char timeStr[64];
                 std::strftime(timeStr, sizeof(timeStr), "%b %d %Y", std::localtime(&fileStat.st_mtime));
 
-                Print("{} {:>8} {:12} {}\n", PString::format_file_permissions(fileStat.st_mode), FormatFileSize(fileStat.st_size, false), timeStr, FormatFilename(fileName, fileStat.st_mode));
+                PString name = FormatFilename(fileName, fileStat.st_mode);
+                if (S_ISLNK(fileStat.st_mode))
+                {
+                    name += " -> ";
+                    name += files[i].LinkTarget;
+                }
+                Print("{} {:>8} {:12} {}\n", PString::format_file_permissions(fileStat.st_mode), FormatFileSize(fileStat.st_size, false), timeStr, name);
             }
             else
             {

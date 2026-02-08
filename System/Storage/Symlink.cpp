@@ -37,7 +37,7 @@ PSymLink::PSymLink()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSymLink::PSymLink(const PString& path, int openFlags) : PFSNode(path, openFlags | O_NOFOLLOW)
+PSymLink::PSymLink(const PString& path, int openFlags) : PFSNode(path, openFlags | O_PATH | O_NOFOLLOW)
 {
     if (!IsLink()) {
         errno = EINVAL;
@@ -49,7 +49,7 @@ PSymLink::PSymLink(const PString& path, int openFlags) : PFSNode(path, openFlags
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSymLink::PSymLink(const PDirectory& directory, const PString& name, int openFlags) : PFSNode(directory, name, openFlags | O_NOFOLLOW)
+PSymLink::PSymLink(const PDirectory& directory, const PString& name, int openFlags) : PFSNode(directory, name, openFlags | O_PATH | O_NOFOLLOW)
 {
     if (!IsLink()) {
         errno = EINVAL;
@@ -61,7 +61,7 @@ PSymLink::PSymLink(const PDirectory& directory, const PString& name, int openFla
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSymLink::PSymLink(const PFileReference& reference, int openFlags) : PFSNode(reference, openFlags | O_NOFOLLOW)
+PSymLink::PSymLink(const PFileReference& reference, int openFlags) : PFSNode(reference, openFlags | O_PATH | O_NOFOLLOW)
 {
     if (!IsLink()) {
         errno = EINVAL;
@@ -103,7 +103,7 @@ PSymLink::~PSymLink()
 
 bool PSymLink::Open(const PString& path, int openFlags)
 {
-    return SetTo(PFSNode(path, openFlags | O_NOFOLLOW));
+    return SetTo(PFSNode(path, openFlags | O_PATH | O_NOFOLLOW));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -112,7 +112,7 @@ bool PSymLink::Open(const PString& path, int openFlags)
 
 bool PSymLink::Open(const PDirectory& directory, const PString& path, int openFlags)
 {
-    return SetTo(PFSNode(directory, path, openFlags | O_NOFOLLOW));
+    return SetTo(PFSNode(directory, path, openFlags | O_PATH | O_NOFOLLOW));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -121,7 +121,7 @@ bool PSymLink::Open(const PDirectory& directory, const PString& path, int openFl
 
 bool PSymLink::Open(const PFileReference& reference, int openFlags)
 {
-    return SetTo(PFSNode(reference, openFlags | O_NOFOLLOW));
+    return SetTo(PFSNode(reference, openFlags | O_PATH | O_NOFOLLOW));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

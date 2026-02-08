@@ -31,8 +31,33 @@ public:
     {
         if (args.size() == 2)
         {
-            chdir(args[1].c_str());
-            return 0;
+            const std::string& pathArg = args[1];
+            PPath path;
+            if (!pathArg.empty() && pathArg[0] == '/')
+            {
+                path.SetTo(pathArg);
+            }
+            else
+            {
+                const char* envPath = getenv("PATH");
+                if (envPath != nullptr)
+                {
+                    path.SetTo(envPath);
+                }
+                else
+                {
+                    char cwd[PATH_MAX];
+                    if (getcwd(cwd, sizeof(cwd)) != nullptr) {
+                        path.SetTo(cwd);
+                    }
+                }
+                path.Append(pathArg);
+            }
+            if (chdir(path.c_str()) == 0)
+            {
+                setenv("PATH", path.c_str(), true);
+                return 0;
+            }
         }
         return 1;
     }

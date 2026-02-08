@@ -139,7 +139,6 @@ ssize_t USBClientCDCChannel::GetReadBytesAvailable() const
 
 void USBClientCDCChannel::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
-    file->SetOpenFlags(0);
     m_ReceiveCondition.WakeupAll();
     m_TransmitCondition.WakeupAll();
     KFilesystemFileOps::CloseFile(volume, file);

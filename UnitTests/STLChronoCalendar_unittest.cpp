@@ -80,15 +80,20 @@ TEST(ChronoCalendar, LeapYearAndLastDay)
 // ---------------- Arithmetic with months/years (clamping on month-end) ----------------
 TEST(ChronoCalendar, MonthYearArithmeticClamp)
 {
-    year_month_day ymd = 2020y / February / 29;
-    ymd += years{1};
-    EXPECT_EQ(ymd, 2021y / February / 28); // clamps on non-leap year
+    // Treat as "last day of February" explicitly
+    year_month_day_last ymdl = 2020y / February / last;
 
-    ymd = 2020y / January / 31;
-    ymd += months{1};
-    EXPECT_EQ(ymd, 2020y / February / 29); // 2020 is leap
-    ymd += months{1};
-    EXPECT_EQ(ymd, 2020y / March / 31);
+    ymdl += years{ 1 };
+    EXPECT_EQ(year_month_day{ ymdl }, 2021y / February / 28); // clamps (non-leap)
+
+    // Treat as "last day of January" explicitly
+    ymdl = 2020y / January / last;
+
+    ymdl += months{ 1 };
+    EXPECT_EQ(year_month_day{ ymdl }, 2020y / February / 29); // 2020 is leap, so Feb last is 29
+
+    ymdl += months{ 1 };
+    EXPECT_EQ(year_month_day{ ymdl }, 2020y / March / 31);
 }
 
 // ---------------- Weekday computations & indexed/last forms ----------------

@@ -118,7 +118,7 @@ void* KDebugConsole::Run()
         }
         catch(std::exception& exc)
         {
-            kprintf("ERROR: %s\n", exc.what());
+            snooze_ms(100);
         }
     }
 }

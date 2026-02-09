@@ -28,6 +28,7 @@ class KNodeMonitorNode;
 
 namespace kernel
 {
+class KFileTableNode;
 
 class KIOContext
 {
@@ -40,10 +41,23 @@ public:
     void        SetCurrentDirectory(Ptr<KInode> inode);
     Ptr<KInode> GetCurrentDirectory() const;
 
+    int                 AllocFileHandle();
+    void                FreeFileHandle(int handle) noexcept;
+    Ptr<KFileTableNode> GetFileNode(int handle) const;
+    void                SetFileNode(int handle, Ptr<KFileTableNode> node);
+    int                 DupeFileHandle(int oldHandle, int newHandle);
+
 private:
+    int                 AllocFileHandle_pl();
+    Ptr<KFileTableNode> GetFileNode_pl(int handle) const;
+    void                SetFileNode_pl(int handle, Ptr<KFileTableNode> node);
+
+    static Ptr<KFileTableNode> s_PlaceholderFile;
+    mutable KMutex m_Mutex;
     Ptr<KInode> m_CurrentDirectory;
 //    std::map<int, Ptr<KNodeMonitorNode>> m_NodeMonitorMap;
     
+    std::vector<Ptr<KFileTableNode>>     m_FileTable;
     KIOContext(const KIOContext&) = delete;
     KIOContext& operator=(const KIOContext&) = delete;
 };

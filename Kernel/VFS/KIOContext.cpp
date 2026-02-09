@@ -23,13 +23,18 @@
 
 namespace kernel
 {
-    
+
+Ptr<KFileTableNode> KIOContext::s_PlaceholderFile;
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KIOContext::KIOContext()
+KIOContext::KIOContext() : m_Mutex("iocontext", PEMutexRecursionMode_RaiseError)
 {
+    if (s_PlaceholderFile == nullptr) {
+        s_PlaceholderFile = ptr_new<KFileTableNode>(0);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -46,6 +51,8 @@ KIOContext::~KIOContext()
 
 void KIOContext::SetCurrentDirectory(Ptr<KInode> inode)
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
     m_CurrentDirectory = inode;
 }
 
@@ -55,7 +62,149 @@ void KIOContext::SetCurrentDirectory(Ptr<KInode> inode)
 
 Ptr<KInode> KIOContext::GetCurrentDirectory() const
 {
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
     return m_CurrentDirectory;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KIOContext::AllocFileHandle()
+{
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+    return AllocFileHandle_pl();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KIOContext::FreeFileHandle(int handle) noexcept
+{
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+    if (handle >= 0 && handle < int(m_FileTable.size())) {
+        m_FileTable[handle] = nullptr;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileTableNode> KIOContext::GetFileNode(int handle) const
+{
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+    return GetFileNode_pl(handle);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KIOContext::SetFileNode(int handle, Ptr<KFileTableNode> node)
+{
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+    SetFileNode_pl(handle, node);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KIOContext::DupeFileHandle(int oldHandle, int newHandle)
+{
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
+    if (oldHandle < 0 || oldHandle >= OPEN_MAX || newHandle >= OPEN_MAX) {
+        PERROR_THROW_CODE(PErrorCode::MFILE);
+    }
+    if (oldHandle == newHandle) {
+        return oldHandle;
+    }
+    for (;;)
+    {
+        Ptr<KFileTableNode> file = GetFileNode_pl(oldHandle);
+        if (newHandle < 0)
+        {
+            newHandle = AllocFileHandle_pl();
+        }
+        else
+        {
+            if (newHandle < int(m_FileTable.size() && m_FileTable[newHandle] != nullptr))
+            {
+                m_Mutex.Unlock();
+                kclose(newHandle);
+                m_Mutex.Lock();
+                continue;
+            }
+            if (newHandle >= int(m_FileTable.size())) {
+                m_FileTable.resize(newHandle + 1);
+            }
+        }
+        SetFileNode_pl(newHandle, file);
+        return newHandle;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KIOContext::AllocFileHandle_pl()
+{
+    kassert(m_Mutex.IsLocked());
+
+    auto i = std::find(m_FileTable.begin(), m_FileTable.end(), nullptr);
+    if (i != m_FileTable.end())
+    {
+        int handle = i - m_FileTable.begin();
+        m_FileTable[handle] = s_PlaceholderFile;
+        return handle;
+    }
+    else
+    {
+        if (m_FileTable.size() >= OPEN_MAX) {
+            PERROR_THROW_CODE(PErrorCode::MFILE);
+        }
+        int handle = m_FileTable.size();
+        m_FileTable.push_back(s_PlaceholderFile);
+        return handle;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KFileTableNode> KIOContext::GetFileNode_pl(int handle) const
+{
+    kassert(m_Mutex.IsLocked());
+
+    if (handle >= 0 && handle < int(m_FileTable.size()) && m_FileTable[handle] != nullptr && m_FileTable[handle]->GetInode() != nullptr) {
+        return m_FileTable[handle];
+    }
+    PERROR_THROW_CODE(PErrorCode::BadFile);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KIOContext::SetFileNode_pl(int handle, Ptr<KFileTableNode> node)
+{
+    kassert(m_Mutex.IsLocked());
+
+    if (handle >= 0 && handle < int(m_FileTable.size()))
+    {
+        m_FileTable[handle] = node;
+    }
 }
 
 } // namespace

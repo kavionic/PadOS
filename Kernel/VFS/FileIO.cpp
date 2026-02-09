@@ -40,10 +40,8 @@ static constexpr int MAX_SYMLINK_RECURSIONS = 5;
 
 static KMutex                               kg_TableMutex("vfs_tables", PEMutexRecursionMode_RaiseError);
 static std::map<PString, Ptr<KFilesystem>>  kg_FilesystemDrivers;
-static Ptr<KFileTableNode>                  kg_PlaceholderFile;
 static Ptr<KRootFilesystem>                 kg_RootFilesystem;
 static Ptr<KFSVolume>                       kg_RootVolume;
-static std::vector<Ptr<KFileTableNode>>     kg_FileTable;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Prepends a new name in front of a path.
@@ -87,7 +85,6 @@ static bool RemoveTrailingSlashes(PString* name)
 
 void ksetup_rootfs_trw()
 {
-    kg_PlaceholderFile = ptr_new<KFileTableNode>(0);
     kg_RootFilesystem = ptr_new<KRootFilesystem>();
     kg_RootVolume = kg_RootFilesystem->Mount(VOLID_ROOT, "", 0, nullptr, 0);
 }
@@ -147,11 +144,8 @@ void kmount_trw(const char* devicePath, const char* directoryPath, const char* f
 
 Ptr<KFileTableNode> kget_file_table_node_trw(int handle, bool forKernel)
 {
-    CRITICAL_SCOPE(kg_TableMutex);
-    if (handle >= 0 && handle < int(kg_FileTable.size()) && kg_FileTable[handle] != nullptr && kg_FileTable[handle]->GetInode() != nullptr) {
-        return kg_FileTable[handle];
-    }
-    PERROR_THROW_CODE(PErrorCode::BadFile);
+    const KIOContext* const ioContext = kget_io_context();
+    return ioContext->GetFileNode(handle);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -300,25 +294,9 @@ int kreopen_file_trw(int oldHandle, int openFlags)
 
 int kdupe_trw(int oldHandle, int newHandle)
 {
-    if (oldHandle == newHandle) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
-    }
+    KIOContext* const ioContext = kget_io_context();
 
-    Ptr<KFileTableNode> file = kget_file_table_node_trw(oldHandle);
-    if (newHandle == -1)
-    {
-        newHandle = kallocate_filehandle_trw();
-    }
-    else
-    {
-        kclose(newHandle);
-        CRITICAL_SCOPE(kg_TableMutex);
-        if (newHandle >= int(kg_FileTable.size())) {
-            kg_FileTable.resize(newHandle + 1);
-        }
-    }
-    kset_filehandle(newHandle, file);
-    return newHandle;
+    return ioContext->DupeFileHandle(oldHandle, newHandle);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -327,10 +305,6 @@ int kdupe_trw(int oldHandle, int newHandle)
 
 PErrorCode kclose(int handle) noexcept
 {
-    if (handle >= 0 && handle <=2)
-    {
-        return PErrorCode::BadFile;
-    }
     try
     {
         Ptr<KFileTableNode> file = kget_file_table_node_trw(handle);
@@ -1346,23 +1320,9 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
 
 int kallocate_filehandle_trw()
 {
-    CRITICAL_SCOPE(kg_TableMutex);
-    auto i = std::find(kg_FileTable.begin(), kg_FileTable.end(), nullptr);
-    if (i != kg_FileTable.end())
-    {
-        int file = i - kg_FileTable.begin();
-        kg_FileTable[file] = kg_PlaceholderFile;
-        return file;
-    }
-    else
-    {
-        if (kg_FileTable.size() >= OPEN_MAX) {
-            PERROR_THROW_CODE(PErrorCode::MFILE);
-        }
-        int file = kg_FileTable.size();
-        kg_FileTable.push_back(kg_PlaceholderFile);
-        return file;
-    }
+    KIOContext* const ioContext = kget_io_context();
+
+    return ioContext->AllocFileHandle();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1371,10 +1331,8 @@ int kallocate_filehandle_trw()
 
 void kfree_filehandle(int handle) noexcept
 {
-    CRITICAL_SCOPE(kg_TableMutex);
-    if (handle >= 0 && handle < int(kg_FileTable.size())) {
-        kg_FileTable[handle] = nullptr;
-    }
+    KIOContext* const ioContext = kget_io_context();
+    ioContext->FreeFileHandle(handle);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1409,11 +1367,9 @@ int kopen_from_inode_trw(bool kernelFile, Ptr<KInode> inode, int openFlags)
 
 void kset_filehandle(int handle, Ptr<KFileTableNode> file) noexcept
 {
-    CRITICAL_SCOPE(kg_TableMutex);
-    if (handle >= 0 && handle < int(kg_FileTable.size()))
-    {
-        kg_FileTable[handle] = file;
-    }
+    KIOContext* const ioContext = kget_io_context();
+
+    ioContext->SetFileNode(handle, file);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

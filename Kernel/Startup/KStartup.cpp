@@ -156,7 +156,7 @@ void* main_thread_entry(void* argument)
 
     kregister_filesystem_trw("binfs", ptr_new<KBinFilesystem>());
 
-    kchdir_trw("/");
+    kchdir_trw(KLocateFlag::None, "/");
 
     initialize_device_drivers();
 

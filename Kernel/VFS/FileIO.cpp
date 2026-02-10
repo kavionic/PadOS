@@ -42,6 +42,7 @@ static KMutex                               kg_TableMutex("vfs_tables", PEMutexR
 static std::map<PString, Ptr<KFilesystem>>  kg_FilesystemDrivers;
 static Ptr<KRootFilesystem>                 kg_RootFilesystem;
 static Ptr<KFSVolume>                       kg_RootVolume;
+static KIOContext                           kg_KernelIOContext;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Prepends a new name in front of a path.
@@ -117,9 +118,9 @@ Ptr<KFilesystem> kfind_filesystem_trw(const char* name)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KIOContext* kget_io_context()
+KIOContext* kget_io_context(KLocateFlags locateFlags)
 {
-    return gk_CurrentProcess->GetIOContext();
+    return (locateFlags.Has(KLocateFlag::KernelCtx)) ? &kg_KernelIOContext : gk_CurrentProcess->GetIOContext();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -128,7 +129,7 @@ KIOContext* kget_io_context()
 
 void kmount_trw(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength)
 {
-    Ptr<KInode> mountPoint = klocate_inode_by_path_trw(nullptr, directoryPath, strlen(directoryPath), KLocateFlag::FollowSymlinks);
+    Ptr<KInode> mountPoint = klocate_inode_by_path_trw(KLocateFlag::FollowSymlinks, nullptr, directoryPath, strlen(directoryPath));
     Ptr<KFilesystem> filesystem = kfind_filesystem_trw(filesystemName);
     static fs_id nextFSID = VOLID_FIRST_NORMAL;
     Ptr<KFSVolume> volume = filesystem->Mount(nextFSID++, devicePath, flags, args, argLength);
@@ -142,10 +143,10 @@ void kmount_trw(const char* devicePath, const char* directoryPath, const char* f
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileTableNode> kget_file_table_node_trw(int handle, bool forKernel)
+Ptr<KFileTableNode> kget_file_table_node_trw(int handle)
 {
-    const KIOContext* const ioContext = kget_io_context();
-    return ioContext->GetFileNode(handle);
+    const KIOContext* const ioContext = kget_io_context((handle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
+    return ioContext->GetFileNode(handle & FD_INDEX_MASK);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -202,7 +203,8 @@ Ptr<KDirectoryNode> kget_directory_node_trw(int handle)
 
 int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions)
 {
-    int handle = kallocate_filehandle_trw();
+    const KLocateFlags locateFlags = (openFlags & O_KERNEL) ? KLocateFlag::KernelCtx : KLocateFlag::None;
+    int handle = kallocate_filehandle_trw(locateFlags);
 
     PScopeFail handleGuard([handle]() { kfree_filehandle(handle); });
 
@@ -219,16 +221,16 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
     size_t      pathLength = strlen(path);
     const char* name;
     size_t      nameLength;
-    Ptr<KInode> parent = klocate_parent_inode_trw(baseInode, path, pathLength, &name, &nameLength);
+    Ptr<KInode> parent = klocate_parent_inode_trw(locateFlags, baseInode, path, pathLength, &name, &nameLength);
         
     Ptr<KInode> inode;
     try
     {
-        KLocateFlags flags(KLocateFlag::CrossMount);
+        KLocateFlags flags(locateFlags | KLocateFlag::CrossMount);
         if ((openFlags & O_NOFOLLOW) == 0) {
             flags.SetFlag(KLocateFlag::FollowSymlinks);
         }
-        inode = klocate_inode_by_name_trw(parent, name, nameLength, flags);
+        inode = klocate_inode_by_name_trw(flags, parent, name, nameLength);
     }
     PERROR_CATCH_RET(([handle, &parent, name, nameLength, openFlags, permissions](const std::exception& exc, PErrorCode error)
         {
@@ -285,7 +287,7 @@ int kopen_trw(const char* path, int openFlags, int permissions)
 int kreopen_file_trw(int oldHandle, int openFlags)
 {
     Ptr<KFileTableNode> fileNode = kget_file_table_node_trw(oldHandle);
-    return kopen_from_inode_trw(false, fileNode->GetInode(), openFlags);
+    return kopen_from_inode_trw(fileNode->GetInode(), openFlags);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -294,9 +296,9 @@ int kreopen_file_trw(int oldHandle, int openFlags)
 
 int kdupe_trw(int oldHandle, int newHandle)
 {
-    KIOContext* const ioContext = kget_io_context();
+    KIOContext* const ioContext = kget_io_context((oldHandle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
 
-    return ioContext->DupeFileHandle(oldHandle, newHandle);
+    return ioContext->DupeFileHandle(oldHandle & FD_INDEX_MASK, newHandle & FD_INDEX_MASK) | (oldHandle & FD_KERNEL_FLAG);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -608,7 +610,7 @@ void krewind_directory_trw(int handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kcreate_directory_trw(int baseFolderFD, const char* path, int permission)
+void kcreate_directory_trw(KLocateFlags locateFlags, int baseFolderFD, const char* path, int permission)
 {
     int         pathLength = strlen(path);
     const char* name;
@@ -624,7 +626,7 @@ void kcreate_directory_trw(int baseFolderFD, const char* path, int permission)
         baseInode = baseFolderFile->GetInode();
     }
 
-    Ptr<KInode> parent = klocate_parent_inode_trw(baseInode, path, pathLength, &name, &nameLength);
+    Ptr<KInode> parent = klocate_parent_inode_trw(locateFlags, baseInode, path, pathLength, &name, &nameLength);
     parent->m_Filesystem->CreateDirectory(parent->m_Volume, parent, name, nameLength, permission);
 }
 
@@ -632,16 +634,16 @@ void kcreate_directory_trw(int baseFolderFD, const char* path, int permission)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kcreate_directory_trw(const char* name, int permission)
+void kcreate_directory_trw(KLocateFlags locateFlags, const char* name, int permission)
 {
-    return kcreate_directory_trw(AT_FDCWD, name, permission);
+    return kcreate_directory_trw(locateFlags, AT_FDCWD, name, permission);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ksymlink_trw(const char* target, int baseFolderFD, const char* linkPath)
+void ksymlink_trw(KLocateFlags locateFlags, const char* target, int baseFolderFD, const char* linkPath)
 {
     Ptr<KInode> baseInode;
     if (baseFolderFD != AT_FDCWD)
@@ -657,7 +659,7 @@ void ksymlink_trw(const char* target, int baseFolderFD, const char* linkPath)
     const char* name;
     size_t      nameLength;
 
-    Ptr<KInode> parent = klocate_parent_inode_trw(baseInode, linkPath, pathLength, &name, &nameLength);
+    Ptr<KInode> parent = klocate_parent_inode_trw(locateFlags, baseInode, linkPath, pathLength, &name, &nameLength);
     parent->m_Filesystem->CreateSymlink(parent->m_Volume, parent, name, nameLength, target);
 }
 
@@ -665,16 +667,16 @@ void ksymlink_trw(const char* target, int baseFolderFD, const char* linkPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ksymlink_trw(const char* target, const char* linkPath)
+void ksymlink_trw(KLocateFlags locateFlags, const char* target, const char* linkPath)
 {
-    ksymlink_trw(target, AT_FDCWD, linkPath);
+    ksymlink_trw(locateFlags, target, AT_FDCWD, linkPath);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-size_t kreadlink_trw(int baseFolderFD, const char* path, char* buffer, size_t bufferSize)
+size_t kreadlink_trw(KLocateFlags locateFlags, int baseFolderFD, const char* path, char* buffer, size_t bufferSize)
 {
     const size_t pathLength = strlen(path);
     Ptr<KInode>  baseInode;
@@ -687,7 +689,7 @@ size_t kreadlink_trw(int baseFolderFD, const char* path, char* buffer, size_t bu
         }
         baseInode = baseFolderFile->GetInode();
     }
-    Ptr<KInode>  inode = klocate_inode_by_path_trw(baseInode, path, pathLength, {});
+    Ptr<KInode>  inode = klocate_inode_by_path_trw(locateFlags, baseInode, path, pathLength);
     if (!S_ISLNK(inode->m_FileMode)) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
@@ -738,7 +740,7 @@ void kwrite_stat_trw(int handle, const struct stat& value, uint32_t mask)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void krename_trw(const char* inOldPath, const char* inNewPath)
+void krename_trw(KLocateFlags locateFlags, const char* inOldPath, const char* inNewPath)
 {
     if (inOldPath == nullptr || inNewPath == nullptr) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
@@ -751,11 +753,11 @@ void krename_trw(const char* inOldPath, const char* inNewPath)
 
     const char* oldName;
     size_t      oldNameLength;
-    Ptr<KInode> oldParent = klocate_parent_inode_trw(nullptr, oldPath.c_str(), oldPath.size(), &oldName, &oldNameLength);
+    Ptr<KInode> oldParent = klocate_parent_inode_trw(locateFlags, nullptr, oldPath.c_str(), oldPath.size(), &oldName, &oldNameLength);
 
     const char* newName;
     size_t      newNameLength;
-    Ptr<KInode> newParent = klocate_parent_inode_trw(nullptr, newPath.c_str(), newPath.size(), &newName, &newNameLength);
+    Ptr<KInode> newParent = klocate_parent_inode_trw(locateFlags, nullptr, newPath.c_str(), newPath.size(), &newName, &newNameLength);
 
     if (oldParent->m_Volume->m_VolumeID != newParent->m_Volume->m_VolumeID) {
         PERROR_THROW_CODE(PErrorCode::CrossDeviceLink);
@@ -767,7 +769,7 @@ void krename_trw(const char* inOldPath, const char* inNewPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kunlink_trw(int baseFolderFD, const char* inPath)
+void kunlink_trw(KLocateFlags locateFlags, int baseFolderFD, const char* inPath)
 {
     if (inPath == nullptr) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
@@ -787,7 +789,7 @@ void kunlink_trw(int baseFolderFD, const char* inPath)
     const char* name;
     size_t      nameLength;
 
-    Ptr<KInode> parent = klocate_parent_inode_trw(baseInode, path.c_str(), path.size(), &name, &nameLength);
+    Ptr<KInode> parent = klocate_parent_inode_trw(locateFlags, baseInode, path.c_str(), path.size(), &name, &nameLength);
     parent->m_Filesystem->Unlink(parent->m_Volume, parent, name, nameLength);
 }
 
@@ -795,16 +797,16 @@ void kunlink_trw(int baseFolderFD, const char* inPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kunlink_trw(const char* path)
+void kunlink_trw(KLocateFlags locateFlags, const char* path)
 {
-    kunlink_trw(AT_FDCWD, path);
+    kunlink_trw(locateFlags, AT_FDCWD, path);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kremove_directory_trw(int baseFolderFD, const char* inPath)
+void kremove_directory_trw(KLocateFlags locateFlags, int baseFolderFD, const char* inPath)
 {
     if (inPath == nullptr) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
@@ -824,7 +826,7 @@ void kremove_directory_trw(int baseFolderFD, const char* inPath)
         baseInode = baseFolderFile->GetInode();
     }
 
-    Ptr<KInode> parent = klocate_parent_inode_trw(baseInode, path.c_str(), path.size(), &name, &nameLength);
+    Ptr<KInode> parent = klocate_parent_inode_trw(locateFlags, baseInode, path.c_str(), path.size(), &name, &nameLength);
     parent->m_Filesystem->RemoveDirectory(parent->m_Volume, parent, name, nameLength);
 }
 
@@ -832,9 +834,9 @@ void kremove_directory_trw(int baseFolderFD, const char* inPath)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kremove_directory_trw(const char* path)
+void kremove_directory_trw(KLocateFlags locateFlags, const char* path)
 {
-    kremove_directory_trw(AT_FDCWD, path);
+    kremove_directory_trw(locateFlags, AT_FDCWD, path);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -910,11 +912,11 @@ PErrorCode krewind_directory(int handle) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int kcreate_directory(const char* name, int permission) noexcept
+int kcreate_directory(KLocateFlags locateFlags, const char* name, int permission) noexcept
 {
     try
     {
-        kcreate_directory_trw(name, permission);
+        kcreate_directory_trw(locateFlags, name, permission);
         return 0;
     }
     PERROR_CATCH_SET_ERRNO(-1);
@@ -924,11 +926,11 @@ int kcreate_directory(const char* name, int permission) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int kcreate_directory(int baseFolderFD, const char* name, int permission) noexcept
+int kcreate_directory(KLocateFlags locateFlags, int baseFolderFD, const char* name, int permission) noexcept
 {
     try
     {
-        kcreate_directory_trw(baseFolderFD, name, permission);
+        kcreate_directory_trw(locateFlags, baseFolderFD, name, permission);
         return 0;
     }
     PERROR_CATCH_SET_ERRNO(-1);
@@ -938,11 +940,11 @@ int kcreate_directory(int baseFolderFD, const char* name, int permission) noexce
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode ksymlink(const char* target, const char* linkPath) noexcept
+PErrorCode ksymlink(KLocateFlags locateFlags, const char* target, const char* linkPath) noexcept
 {
     try
     {
-        ksymlink_trw(target, linkPath);
+        ksymlink_trw(locateFlags, target, linkPath);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
@@ -952,11 +954,11 @@ PErrorCode ksymlink(const char* target, const char* linkPath) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode ksymlink(const char* target, int baseFolderFD, const char* linkPath) noexcept
+PErrorCode ksymlink(KLocateFlags locateFlags, const char* target, int baseFolderFD, const char* linkPath) noexcept
 {
     try
     {
-        ksymlink_trw(target, baseFolderFD, linkPath);
+        ksymlink_trw(locateFlags, target, baseFolderFD, linkPath);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
@@ -966,11 +968,11 @@ PErrorCode ksymlink(const char* target, int baseFolderFD, const char* linkPath) 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode kreadLink(int dirfd, const char* path, char* buffer, size_t bufferSize, size_t* outResultLength) noexcept
+PErrorCode kreadLink(KLocateFlags locateFlags, int dirfd, const char* path, char* buffer, size_t bufferSize, size_t* outResultLength) noexcept
 {
     try
     {
-        *outResultLength = kreadlink_trw(dirfd, path, buffer, bufferSize);
+        *outResultLength = kreadlink_trw(locateFlags, dirfd, path, buffer, bufferSize);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
@@ -1009,11 +1011,11 @@ PErrorCode kwrite_stat(int handle, const struct stat& value, uint32_t mask) noex
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int krename(const char* inOldPath, const char* inNewPath) noexcept
+int krename(KLocateFlags locateFlags, const char* inOldPath, const char* inNewPath) noexcept
 {
     try
     {
-        krename_trw(inOldPath, inNewPath);
+        krename_trw(locateFlags, inOldPath, inNewPath);
         return 0;
     }
     PERROR_CATCH_SET_ERRNO(-1);
@@ -1023,11 +1025,11 @@ int krename(const char* inOldPath, const char* inNewPath) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int kunlink(int baseFolderFD, const char* inPath) noexcept
+int kunlink(KLocateFlags locateFlags, int baseFolderFD, const char* inPath) noexcept
 {
     try
     {
-        kunlink_trw(baseFolderFD, inPath);
+        kunlink_trw(locateFlags, baseFolderFD, inPath);
         return 0;
     }
     PERROR_CATCH_SET_ERRNO(-1);
@@ -1037,11 +1039,11 @@ int kunlink(int baseFolderFD, const char* inPath) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int kunlink(const char* path) noexcept
+int kunlink(KLocateFlags locateFlags, const char* path) noexcept
 {
     try
     {
-        kunlink_trw(path);
+        kunlink_trw(locateFlags, path);
         return 0;
     }
     PERROR_CATCH_SET_ERRNO(-1);
@@ -1051,11 +1053,11 @@ int kunlink(const char* path) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int kremove_directory(int baseFolderFD, const char* inPath) noexcept
+int kremove_directory(KLocateFlags locateFlags, int baseFolderFD, const char* inPath) noexcept
 {
     try
     {
-        kremove_directory_trw(baseFolderFD, inPath);
+        kremove_directory_trw(locateFlags, baseFolderFD, inPath);
         return 0;
     }
     PERROR_CATCH_SET_ERRNO(-1);
@@ -1065,11 +1067,11 @@ int kremove_directory(int baseFolderFD, const char* inPath) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int kremove_directory(const char* inPath) noexcept
+int kremove_directory(KLocateFlags locateFlags, const char* inPath) noexcept
 {
     try
     {
-        kremove_directory_trw(inPath);
+        kremove_directory_trw(locateFlags, inPath);
         return 0;
     }
     PERROR_CATCH_SET_ERRNO(-1);
@@ -1116,7 +1118,7 @@ Ptr<KRootFilesystem> kget_rootfs() noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static Ptr<KInode> kfollow_sym_link_trw(Ptr<KInode> parent, Ptr<KInode> inode)
+static Ptr<KInode> kfollow_sym_link_trw(KLocateFlags locateFlags, Ptr<KInode> parent, Ptr<KInode> inode)
 {
     if (gk_CurrentThread->m_SymlinkDepth >= MAX_SYMLINK_RECURSIONS) {
         PERROR_THROW_CODE(PErrorCode::LOOP);
@@ -1146,10 +1148,10 @@ static Ptr<KInode> kfollow_sym_link_trw(Ptr<KInode> parent, Ptr<KInode> inode)
 
         const char* name;
         size_t nameLen;
-        parent = klocate_parent_inode_trw(parent, linkBuffer.data(), linkBuffer.size(), &name, &nameLen);
+        parent = klocate_parent_inode_trw(locateFlags, parent, linkBuffer.data(), linkBuffer.size(), &name, &nameLen);
 
         if (nameLen != 0 && !PString::is_dot(name, nameLen)) {
-            inode = klocate_inode_by_name_trw(parent, name, nameLen, KLocateFlag::CrossMount);
+            inode = klocate_inode_by_name_trw(locateFlags | KLocateFlag::CrossMount, parent, name, nameLen);
         } else {
             inode = parent;
         }
@@ -1162,7 +1164,7 @@ static Ptr<KInode> kfollow_sym_link_trw(Ptr<KInode> parent, Ptr<KInode> inode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KInode> klocate_inode_by_name_trw(Ptr<KInode> parent, const char* name, int nameLength, KLocateFlags locateFlags)
+Ptr<KInode> klocate_inode_by_name_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* name, int nameLength)
 {
     if (nameLength == 0) {
         return parent;
@@ -1179,7 +1181,7 @@ Ptr<KInode> klocate_inode_by_name_trw(Ptr<KInode> parent, const char* name, int 
     if (locateFlags.Has(KLocateFlag::CrossMount) && inode->m_MountRoot != nullptr) {
         inode = inode->m_MountRoot;
     } else if (locateFlags.Has(KLocateFlag::FollowSymlinks)) {
-        inode = kfollow_sym_link_trw(parent, inode);
+        inode = kfollow_sym_link_trw(locateFlags, parent, inode);
     }
     return inode;
 }
@@ -1188,21 +1190,21 @@ Ptr<KInode> klocate_inode_by_name_trw(Ptr<KInode> parent, const char* name, int 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KInode> klocate_inode_by_path_trw(Ptr<KInode> parent, const char* path, int pathLength, KLocateFlags locateFlags)
+Ptr<KInode> klocate_inode_by_path_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* path, int pathLength)
 {
     const char* name;
     size_t      nameLength;
-    parent = klocate_parent_inode_trw(parent, path, pathLength, &name, &nameLength);
-    return klocate_inode_by_name_trw(parent, name, nameLength, KLocateFlag::CrossMount | locateFlags);
+    parent = klocate_parent_inode_trw(locateFlags, parent, path, pathLength, &name, &nameLength);
+    return klocate_inode_by_name_trw(KLocateFlag::CrossMount | locateFlags, parent, name, nameLength);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KInode> klocate_parent_inode_trw(Ptr<KInode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength)
+Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength)
 {
-    const KIOContext* const ioContext = kget_io_context();
+    const KIOContext* const ioContext = kget_io_context(locateFlags);
     Ptr<KInode> current = parent;
 
     int i = 0;
@@ -1235,7 +1237,7 @@ Ptr<KInode> klocate_parent_inode_trw(Ptr<KInode> parent, const char* path, int p
                 nameStart = i + 1;
                 continue;
             }
-            current = klocate_inode_by_name_trw(current, path + nameStart, i - nameStart, { KLocateFlag::CrossMount, KLocateFlag::FollowSymlinks });
+            current = klocate_inode_by_name_trw({ KLocateFlag::CrossMount, KLocateFlag::FollowSymlinks }, current, path + nameStart, i - nameStart);
             nameStart = i + 1;
         }
     }
@@ -1265,8 +1267,8 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
         dirent_t    dirEntry;
         int         directoryHandle;
 
-        Ptr<KInode> parent = klocate_inode_by_name_trw(inode, "..", 2, KLocateFlag::CrossMount);
-        directoryHandle = kopen_from_inode_trw(true, parent, O_RDONLY);
+        Ptr<KInode> parent = klocate_inode_by_name_trw(KLocateFlag::CrossMount, inode, "..", 2);
+        directoryHandle = kopen_from_inode_trw(parent, O_RDONLY);
         PScopeExit handleGuard([directoryHandle]() { kclose(directoryHandle); });
 
         bool isMountPoint = (inode->m_Volume != parent->m_Volume);
@@ -1278,7 +1280,7 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
             }
             if (isMountPoint)
             {
-                Ptr<KInode> entryInode = klocate_inode_by_name_trw(parent, dirEntry.d_name, dirEntry.d_namlen, {});
+                Ptr<KInode> entryInode = klocate_inode_by_name_trw(KLocateFlag::None, parent, dirEntry.d_name, dirEntry.d_namlen);
                 if (entryInode->m_MountRoot == inode)
                 {
                     if (pathLength + dirEntry.d_namlen + 1 > bufferSize) {
@@ -1318,11 +1320,17 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int kallocate_filehandle_trw()
+int kallocate_filehandle_trw(KLocateFlags locateFlags)
 {
-    KIOContext* const ioContext = kget_io_context();
+    KIOContext* const ioContext = kget_io_context(locateFlags);
 
-    return ioContext->AllocFileHandle();
+    int handle = ioContext->AllocFileHandle();
+
+    if (locateFlags.Has(KLocateFlag::KernelCtx)) {
+        handle |= FD_KERNEL_FLAG;
+    }
+
+    return handle;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1331,17 +1339,17 @@ int kallocate_filehandle_trw()
 
 void kfree_filehandle(int handle) noexcept
 {
-    KIOContext* const ioContext = kget_io_context();
-    ioContext->FreeFileHandle(handle);
+    KIOContext* const ioContext = kget_io_context((handle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
+    ioContext->FreeFileHandle(handle & FD_INDEX_MASK);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int kopen_from_inode_trw(bool kernelFile, Ptr<KInode> inode, int openFlags)
+int kopen_from_inode_trw(Ptr<KInode> inode, int openFlags)
 {
-    int handle = kallocate_filehandle_trw();
+    int handle = kallocate_filehandle_trw((openFlags & O_KERNEL) ? KLocateFlag::KernelCtx : KLocateFlag::None);
 
     PScopeFail handleGuard([handle]() { kfree_filehandle(handle); });
 
@@ -1367,18 +1375,18 @@ int kopen_from_inode_trw(bool kernelFile, Ptr<KInode> inode, int openFlags)
 
 void kset_filehandle(int handle, Ptr<KFileTableNode> file) noexcept
 {
-    KIOContext* const ioContext = kget_io_context();
+    KIOContext* const ioContext = kget_io_context((handle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
 
-    ioContext->SetFileNode(handle, file);
+    ioContext->SetFileNode(handle & FD_INDEX_MASK, file);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kfchdir_trw(int handle)
+void kfchdir_trw(KLocateFlags locateFlags, int handle)
 {
-    KIOContext* const ioContext = kget_io_context();
+    KIOContext* const ioContext = kget_io_context(locateFlags);
 
     const Ptr<KFileTableNode> dirNode = kget_file_table_node_trw(handle);
     if (!dirNode->IsDirectory()) {
@@ -1400,22 +1408,25 @@ void kfchdir_trw(int handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kchdir_trw(const char* path)
+void kchdir_trw(KLocateFlags locateFlags, const char* path)
 {
-    int fd = kopen_trw(path, O_RDONLY | O_DIRECTORY);
+    int openFlags = O_PATH | O_DIRECTORY;
+    if (locateFlags.Has(KLocateFlag::KernelCtx)) openFlags |= O_KERNEL;
+
+    int fd = kopen_trw(path, openFlags);
 
     PScopeExit cleanup([fd]() { kclose(fd); });
 
-    kfchdir_trw(fd);
+    kfchdir_trw(locateFlags, fd);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kgetcwd_trw(char* pathBuffer, size_t bufferSize)
+void kgetcwd_trw(KLocateFlags locateFlags, char* pathBuffer, size_t bufferSize)
 {
-    const KIOContext* const ioContext = kget_io_context();
+    const KIOContext* const ioContext = kget_io_context(locateFlags);
 
     const Ptr<KInode> inode = ioContext->GetCurrentDirectory();
 

@@ -130,7 +130,7 @@ PErrorCode sys_rename(const char* oldPath, const char* newPath)
     {
         validate_user_read_string_trw(oldPath, PATH_MAX);
         validate_user_read_string_trw(newPath, PATH_MAX);
-        krename_trw(oldPath, newPath);
+        krename_trw(KLocateFlag::None, oldPath, newPath);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
@@ -361,7 +361,7 @@ PErrorCode sys_create_directory(int dirfd, const char* name, mode_t permission)
     try
     {
         validate_user_read_string_trw(name, PATH_MAX);
-        kcreate_directory_trw(dirfd, name, permission);
+        kcreate_directory_trw(KLocateFlag::None, dirfd, name, permission);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
@@ -398,7 +398,7 @@ PErrorCode sys_unlink_file(int dirfd, const char* path)
     try
     {
         validate_user_read_string_trw(path, PATH_MAX);
-        kunlink_trw(dirfd, path);
+        kunlink_trw(KLocateFlag::None, dirfd, path);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
@@ -413,7 +413,7 @@ PErrorCode sys_remove_directory(int dirfd, const char* path)
     try
     {
         validate_user_read_string_trw(path, PATH_MAX);
-        kremove_directory_trw(dirfd, path);
+        kremove_directory_trw(KLocateFlag::None, dirfd, path);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
@@ -429,7 +429,7 @@ PSysRetPair sys_readlink(int dirfd, const char* path, char* buffer, size_t buffe
     {
         validate_user_read_string_trw(path, PATH_MAX);
         validate_user_write_pointer_trw(buffer, bufferSize);
-        return PMakeSysRetSuccess(kreadlink_trw(dirfd, path, buffer, bufferSize));
+        return PMakeSysRetSuccess(kreadlink_trw(KLocateFlag::None, dirfd, path, buffer, bufferSize));
     }
     PERROR_CATCH_RET_SYSRET;
 }
@@ -444,7 +444,7 @@ PErrorCode sys_symlink(const char* targetPath, int dirfd, const char* symlinkPat
     {
         validate_user_read_string_trw(targetPath, PATH_MAX);
         validate_user_read_string_trw(symlinkPath, PATH_MAX);
-        ksymlink_trw(targetPath, dirfd, symlinkPath);
+        ksymlink_trw(KLocateFlag::None, targetPath, dirfd, symlinkPath);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
@@ -475,7 +475,7 @@ PErrorCode sys_chdir(const char* path)
     {
         validate_user_read_string_trw(path, PATH_MAX);
 
-        kchdir_trw(path);
+        kchdir_trw(KLocateFlag::None, path);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
@@ -489,7 +489,7 @@ PErrorCode sys_getcwd(char* pathBuffer, size_t bufferSize)
 {
     try
     {
-        kgetcwd_trw(pathBuffer, bufferSize);
+        kgetcwd_trw(KLocateFlag::None, pathBuffer, bufferSize);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;

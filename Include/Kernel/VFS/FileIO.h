@@ -48,10 +48,15 @@ class Kernel;
 
 enum class KLocateFlag
 {
-    CrossMount      = 0x01,
-    FollowSymlinks  = 0x02
+    None            = 0,
+    KernelCtx       = 0x01,
+    CrossMount      = 0x02,
+    FollowSymlinks  = 0x04
 };
 using KLocateFlags = PEnumBitmask<KLocateFlag>;
+
+static constexpr int FD_KERNEL_FLAG = 0x40000000;
+static constexpr int FD_INDEX_MASK  = ~FD_KERNEL_FLAG;
 
 void                    ksetup_rootfs_trw();
 Ptr<KRootFilesystem>    kget_rootfs_trw();
@@ -62,7 +67,7 @@ Ptr<KFilesystem>        kfind_filesystem_trw(const char* name);
 
 void                    kmount_trw(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength);
 
-Ptr<KFileTableNode> kget_file_table_node_trw(int handle, bool forKernel = false);
+Ptr<KFileTableNode> kget_file_table_node_trw(int handle);
 Ptr<KFileNode>      kget_file_node_trw(int handle);
 Ptr<KFileNode>      kget_file_node_trw(int handle, Ptr<KInode>& outInode);
 Ptr<KDirectoryNode> kget_directory_node_trw(int handle);
@@ -108,34 +113,34 @@ void    kdevice_control_trw(int handle, int request, const void* inData, size_t 
 size_t  kread_directory_trw(int handle, dirent_t* entry, size_t bufSize);
 void    krewind_directory_trw(int handle);
 
-void    kcreate_directory_trw(const char* name, int permission = S_IRWXU);
-void    kcreate_directory_trw(int baseFolderFD, const char* name, int permission = S_IRWXU);
+void    kcreate_directory_trw(KLocateFlags locateFlags, const char* name, int permission = S_IRWXU);
+void    kcreate_directory_trw(KLocateFlags locateFlags, int baseFolderFD, const char* name, int permission = S_IRWXU);
 
-void    ksymlink_trw(const char* target, const char* linkPath);
-void    ksymlink_trw(const char* target, int baseFolderFD, const char* linkPath);
+void    ksymlink_trw(KLocateFlags locateFlags, const char* target, const char* linkPath);
+void    ksymlink_trw(KLocateFlags locateFlags, const char* target, int baseFolderFD, const char* linkPath);
 
-size_t  kreadlink_trw(int dirfd, const char* path, char* buffer, size_t bufferSize);
+size_t  kreadlink_trw(KLocateFlags locateFlags, int dirfd, const char* path, char* buffer, size_t bufferSize);
 
 void    kread_stat_trw(Ptr<KInode> inode, struct stat* outStats);
 void    kread_stat_trw(int handle, struct stat* outStats);
 void    kwrite_stat_trw(int handle, const struct stat& value, uint32_t mask);
 
-void    krename_trw(const char* oldPath, const char* newPath);
-void    kunlink_trw(const char* path);
-void    kunlink_trw(int baseFolderFD, const char* path);
-void    kremove_directory_trw(const char* path);
-void    kremove_directory_trw(int baseFolderFD, const char* path);
+void    krename_trw(KLocateFlags locateFlags, const char* oldPath, const char* newPath);
+void    kunlink_trw(KLocateFlags locateFlags, const char* path);
+void    kunlink_trw(KLocateFlags locateFlags, int baseFolderFD, const char* path);
+void    kremove_directory_trw(KLocateFlags locateFlags, const char* path);
+void    kremove_directory_trw(KLocateFlags locateFlags, int baseFolderFD, const char* path);
 
 void    kget_directory_path_trw(int handle, char* buffer, size_t bufferSize);
 
 
-Ptr<KInode> klocate_inode_by_name_trw(Ptr<KInode> parent, const char* name, int nameLength, KLocateFlags locateFlags);
-Ptr<KInode> klocate_inode_by_path_trw(Ptr<KInode> parent, const char* path, int pathLength, KLocateFlags locateFlags);
-Ptr<KInode> klocate_parent_inode_trw(Ptr<KInode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength);
+Ptr<KInode> klocate_inode_by_name_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* name, int nameLength);
+Ptr<KInode> klocate_inode_by_path_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* path, int pathLength);
+Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength);
 void                kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize);
-int                 kallocate_filehandle_trw();
+int                 kallocate_filehandle_trw(KLocateFlags locateFlags);
 void                kfree_filehandle(int handle) noexcept;
-int                 kopen_from_inode_trw(bool kernelFile, Ptr<KInode> inode, int openFlags);
+int                 kopen_from_inode_trw(Ptr<KInode> inode, int openFlags);
 void                kset_filehandle(int handle, Ptr<KFileTableNode> file) noexcept;
 
 off_t       klseek(int handle, off_t offset, int mode) noexcept;
@@ -147,26 +152,26 @@ PErrorCode  kdevice_control(int handle, int request, const void* inData, size_t 
 ssize_t     kread_directory(int handle, dirent_t* entry, size_t bufSize) noexcept;
 PErrorCode  krewind_directory(int handle) noexcept;
 
-int         kcreate_directory(const char* name, int permission = S_IRWXU) noexcept;
-int         kcreate_directory(int baseFolderFD, const char* name, int permission = S_IRWXU) noexcept;
+int         kcreate_directory(KLocateFlags locateFlags, const char* name, int permission = S_IRWXU) noexcept;
+int         kcreate_directory(KLocateFlags locateFlags, int baseFolderFD, const char* name, int permission = S_IRWXU) noexcept;
 
-PErrorCode  ksymlink(const char* target, const char* linkPath) noexcept;
-PErrorCode  ksymlink(const char* target, int baseFolderFD, const char* linkPath) noexcept;
+PErrorCode  ksymlink(KLocateFlags locateFlags, const char* target, const char* linkPath) noexcept;
+PErrorCode  ksymlink(KLocateFlags locateFlags, const char* target, int baseFolderFD, const char* linkPath) noexcept;
 
 PErrorCode  kreadlink(int dirfd, const char* path, char* buffer, size_t bufferSize, size_t* outResultLength) noexcept;
 
 PErrorCode  kread_stat(int handle, struct stat* outStats) noexcept;
 PErrorCode  kwrite_stat(int handle, const struct stat& value, uint32_t mask) noexcept;
 
-int         krename(const char* oldPath, const char* newPath) noexcept;
-int         kunlink(const char* path) noexcept;
-int         kunlink(int baseFolderFD, const char* path) noexcept;
+int         krename(KLocateFlags locateFlags, const char* oldPath, const char* newPath) noexcept;
+int         kunlink(KLocateFlags locateFlags, const char* path) noexcept;
+int         kunlink(KLocateFlags locateFlags, int baseFolderFD, const char* path) noexcept;
 
-int         kremove_directory(const char* path) noexcept;
-int         kremove_directory(int baseFolderFD, const char* path) noexcept;
+int         kremove_directory(KLocateFlags locateFlags, const char* path) noexcept;
+int         kremove_directory(KLocateFlags locateFlags, int baseFolderFD, const char* path) noexcept;
 
-void        kfchdir_trw(int handle);
-void        kchdir_trw(const char* path);
-void        kgetcwd_trw(char* pathBuffer, size_t bufferSize);
+void        kfchdir_trw(KLocateFlags locateFlags, int handle);
+void        kchdir_trw(KLocateFlags locateFlags, const char* path);
+void        kgetcwd_trw(KLocateFlags locateFlags, char* pathBuffer, size_t bufferSize);
 
 } // namespace kernel

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2025-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -21,12 +21,21 @@
 
 
 #include <sys/pados_types.h>
-#include "Signals/VFConnector.h"
-#include "System/System.h"
-#include "Utils/String.h"
+#include <Signals/VFConnector.h>
+#include <System/System.h>
+#include <Utils/String.h>
+#include <Utils/EnumBitmask.h>
 
 namespace kernel
 {
+
+enum class KSpawnThreadFlag : uint32_t
+{
+    None            = 0,
+    Privileged      = 0x01,
+    SpawnProcess    = 0x02
+};
+using KSpawnThreadFlags = PEnumBitmask<KSpawnThreadFlag>;
 
 class KThread
 {
@@ -67,7 +76,7 @@ private:
 };
 
 PErrorCode  kthread_attribs_init(PThreadAttribs& outAttribs) noexcept;
-thread_id   kthread_spawn_trw(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, bool privileged, ThreadEntryPoint_t entryPoint, void* arguments);
+thread_id   kthread_spawn_trw(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, KSpawnThreadFlags flags, ThreadEntryPoint_t entryPoint, void* arguments);
 __attribute__((noreturn)) void kthread_exit(void* returnValue);
 PErrorCode  kthread_detach(thread_id handle);
 void*       kthread_join_trw(thread_id handle);

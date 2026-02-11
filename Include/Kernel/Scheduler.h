@@ -42,7 +42,6 @@ void initialize_scheduler_statics();
 #define KSWITCH_CONTEXT() do {SCB->ICSR = SCB_ICSR_PENDSVSET_Msk; __DSB();} while(false)
 
 
-extern KProcess* volatile       gk_CurrentProcess;
 extern "C" KThreadCB* volatile  gk_CurrentThread;
 extern KThreadCB*               gk_IdleThread;
 extern KThreadCB*               gk_InitThread;
@@ -54,9 +53,8 @@ extern volatile thread_id gk_DebugWakeupThread;
 
 Ptr<KThreadCB> get_thread(thread_id handle);
 
-KProcess* get_current_process();
-KThreadCB* get_current_thread();
-KIOContext* get_current_iocxt(bool forKernel);
+KProcess*   kget_current_process();
+KThreadCB*  kget_current_thread();
 
 void add_to_sleep_list(KThreadWaitNode* waitNode);
 void remove_from_sleep_list(KThreadWaitNode* waitNode);

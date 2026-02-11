@@ -49,6 +49,16 @@ KIOContext::~KIOContext()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void KIOContext::Clone(const KIOContext& source)
+{
+    m_CurrentDirectory  = source.m_CurrentDirectory;
+    m_FileTable         = source.m_FileTable;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void KIOContext::SetCurrentDirectory(Ptr<KInode> inode)
 {
     kassert(!m_Mutex.IsLocked());

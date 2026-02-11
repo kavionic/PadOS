@@ -71,7 +71,7 @@ void KThread::Start_trw(PThreadDetachState detachState, int priority, int stackS
     {
         m_DetachState = detachState;
         PThreadAttribs attrs(m_Name.c_str(), priority, detachState, stackSize);
-        m_ThreadHandle = kthread_spawn_trw(&attrs, /*tlsBlock*/ nullptr, /*privileged*/ true, ThreadEntry, this);
+        m_ThreadHandle = kthread_spawn_trw(&attrs, /*tlsBlock*/ nullptr, KSpawnThreadFlag::Privileged, ThreadEntry, this);
     }
 }
 
@@ -155,12 +155,22 @@ PErrorCode kthread_attribs_init(PThreadAttribs& outAttribs) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, bool privileged, ThreadEntryPoint_t entryPoint, void* arguments)
+thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, KSpawnThreadFlags flags, ThreadEntryPoint_t entryPoint, void* arguments)
 {
+    Ptr<KProcess> process;
+    if (flags.Has(KSpawnThreadFlag::SpawnProcess))
+    {
+        process = ptr_new<KProcess>(*kget_current_process(), (attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "");
+    }
+    else
+    {
+        process = ptr_tmp_cast(kget_current_process());
+    }
+
     Ptr<KThreadCB> thread;
 
-    thread = ptr_new<KThreadCB>(attribs, tlsBlock, nullptr);
-    thread->InitializeStack(entryPoint, privileged, /*skipEntryTrampoline*/ false, arguments);
+    thread = ptr_new<KThreadCB>(process, attribs, tlsBlock, nullptr);
+    thread->InitializeStack(entryPoint, flags.Has(KSpawnThreadFlag::Privileged), /*skipEntryTrampoline*/ false, arguments);
 
     const thread_id handle = gk_ThreadTable.AllocHandle_trw();
 
@@ -354,11 +364,15 @@ static void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
 {
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        strncpy(info->ThreadName, thread->GetName(), OS_NAME_LENGTH);
+        strncpy(info->ProcessName, thread->m_Process->GetName(), OS_NAME_LENGTH - 1);
+        strncpy(info->ThreadName, thread->GetName(), OS_NAME_LENGTH - 1);
+
+        info->ThreadName[OS_NAME_LENGTH - 1] = '\0';
+        info->ProcessName[OS_NAME_LENGTH - 1] = '\0';
+
         const KNamedObject* blockingObject = thread->GetBlockingObject();
         info->BlockingObject = (blockingObject != nullptr) ? blockingObject->GetHandle() : INVALID_HANDLE;
     } CRITICAL_END;
-    info->ProcessName[0] = '\0';
 
     info->ThreadID = thread->GetHandle();
     info->ProcessID = thread->GetProcessID();

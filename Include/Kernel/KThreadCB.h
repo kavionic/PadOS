@@ -35,6 +35,8 @@ static constexpr int32_t THREAD_MAX_TLS_SLOTS = 256;
 
 namespace kernel
 {
+class KProcess;
+
 struct KSignalQueueNode;
 
 static constexpr int32_t THREAD_DEFAULT_STACK_SIZE = 1024*32;
@@ -48,7 +50,7 @@ class KThreadCB : public KNamedObject
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::Thread;
 
-    KThreadCB(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, void* kernelTLSMemory);
+    KThreadCB(Ptr<KProcess> process, const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, void* kernelTLSMemory);
     ~KThreadCB();
 
     virtual void SetHandle(int32_t handle) noexcept override;
@@ -93,6 +95,9 @@ public:
     int                       m_PriorityLevel;
     TimeValNanos              m_StartTime;
     TimeValNanos              m_RunTime;
+
+    Ptr<KProcess>             m_Process;
+
     void*                     m_ReturnValue = nullptr;
     PThreadDetachState        m_DetachState = PThreadDetachState_Detached;
     bool                      m_FreeStackOnExit = true;

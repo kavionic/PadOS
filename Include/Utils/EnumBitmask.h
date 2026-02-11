@@ -17,9 +17,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 06.02.2026 23:00
 
+#pragma once
+
 #include <cstdint>
 #include <type_traits>
 #include <utility>
+
 
 template<class TEnumType>
 concept PBitmaskEnum = std::is_enum_v<TEnumType>;

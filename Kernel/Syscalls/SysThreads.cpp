@@ -56,7 +56,7 @@ PErrorCode sys_thread_spawn(thread_id* outThreadHandle, const PThreadAttribs* at
 
     try
     {
-        const thread_id handle = kthread_spawn_trw(attribs, tlsBlock, /*privileged*/ false, entryPoint, arguments);
+        const thread_id handle = kthread_spawn_trw(attribs, tlsBlock, KSpawnThreadFlag::None, entryPoint, arguments);
         if (outThreadHandle != nullptr) {
             *outThreadHandle = handle;
         }

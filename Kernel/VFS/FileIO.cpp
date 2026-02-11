@@ -42,7 +42,6 @@ static KMutex                               kg_TableMutex("vfs_tables", PEMutexR
 static std::map<PString, Ptr<KFilesystem>>  kg_FilesystemDrivers;
 static Ptr<KRootFilesystem>                 kg_RootFilesystem;
 static Ptr<KFSVolume>                       kg_RootVolume;
-static KIOContext                           kg_KernelIOContext;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Prepends a new name in front of a path.
@@ -120,7 +119,7 @@ Ptr<KFilesystem> kfind_filesystem_trw(const char* name)
 
 KIOContext* kget_io_context(KLocateFlags locateFlags)
 {
-    return (locateFlags.Has(KLocateFlag::KernelCtx)) ? &kg_KernelIOContext : gk_CurrentProcess->GetIOContext();
+    return (locateFlags.Has(KLocateFlag::KernelCtx)) ? gk_KernelProcess->GetIOContext() : kget_current_process()->GetIOContext();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -165,7 +165,7 @@ void KBlockCache::Initialize()
         s_FreeList.Append(&gk_BCacheHeaders[i]);
     }
     PThreadAttribs attrs("disk_cache_flusher", 0, PThreadDetachState_Detached, 4096);
-    kthread_spawn_trw(&attrs, nullptr, /*privileged*/ true, DiskCacheFlusher, nullptr);
+    kthread_spawn_trw(&attrs, nullptr, KSpawnThreadFlag::Privileged, DiskCacheFlusher, nullptr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

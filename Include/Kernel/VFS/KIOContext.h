@@ -36,6 +36,8 @@ public:
     KIOContext();
     ~KIOContext();
     
+    void Clone(const KIOContext& source);
+
     bool AddNodeMonitor(Ptr<KNodeMonitorNode> node);
 
     void        SetCurrentDirectory(Ptr<KInode> inode);

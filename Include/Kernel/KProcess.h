@@ -29,16 +29,20 @@
 
 namespace kernel
 {
+extern KProcess* gk_KernelProcess;
 
 class KProcess : public PtrTarget
 {
 public:
-    KProcess();
+    KProcess(const char* name);
+    KProcess(const KProcess& parentProcess, const char* name);
     ~KProcess();
 
+    const char* GetName() const { return m_Name; }
     KIOContext* GetIOContext() { return &m_IOContext; }
 
 private:
+    char       m_Name[OS_NAME_LENGTH];
     KIOContext m_IOContext;
 
     KProcess(const KProcess &) = delete;

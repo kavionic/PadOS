@@ -67,7 +67,7 @@ public:
         for (PErrorCode result = kget_thread_info(INVALID_HANDLE, &threadInfo); result == PErrorCode::Success; result = kget_next_thread_info(&threadInfo))
         {
             if (threadInfo.ThreadID == 0) continue; // Ignore idle-thread.
-            Print("{:4} {:9} {}\n", threadInfo.ThreadID, GetStateName(threadInfo.State), threadInfo.ThreadName);
+            Print("{:4} {:9} {}:{}\n", threadInfo.ThreadID, GetStateName(threadInfo.State), threadInfo.ProcessName, threadInfo.ThreadName);
         }
         return 0;
     }

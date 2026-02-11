@@ -94,7 +94,7 @@ PErrorCode sys_spawn_execve(const char* name, int priority, PThreadControlBlock*
         tlsBlock->Ptr2 = const_cast<void*>(static_cast<const void*>(argv));
 
         const PThreadAttribs attrs(name, priority, PThreadDetachState_Detached, app->StackSize);
-        kthread_spawn_trw(&attrs, tlsBlock, false, process_entry, tlsBlock);
+        kthread_spawn_trw(&attrs, tlsBlock, KSpawnThreadFlag::SpawnProcess, process_entry, tlsBlock);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;

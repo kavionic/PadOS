@@ -110,7 +110,9 @@ static void invalid_return_handler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KThreadCB::KThreadCB(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, void* kernelTLSMemory) : KNamedObject((attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "", KNamedObjectType::Thread)
+KThreadCB::KThreadCB(Ptr<KProcess> process, const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, void* kernelTLSMemory)
+    : KNamedObject((attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "", KNamedObjectType::Thread)
+    , m_Process(process)
 {
     memset(&m_SignalHandlers, 0, sizeof(m_SignalHandlers));
 

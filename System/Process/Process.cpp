@@ -25,7 +25,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode spawn_execl(const char* name, int priority, const char* arg0, ...)
+PErrorCode spawn_execl(pid_t* outPID, const char* name, int priority, const char* arg0, ...)
 {
     va_list args;
 
@@ -44,14 +44,14 @@ PErrorCode spawn_execl(const char* name, int priority, const char* arg0, ...)
     va_end(args);
     argv[argc] = nullptr;
 
-    return spawn_execv(name, priority, const_cast<char* const*>(argv));
+    return spawn_execv(outPID, name, priority, const_cast<char* const*>(argv));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode spawn_execle(const char* name, int priority, const char* arg0, ...)
+PErrorCode spawn_execle(pid_t* outPID, const char* name, int priority, const char* arg0, ...)
 {
     va_list args;
 
@@ -71,23 +71,23 @@ PErrorCode spawn_execle(const char* name, int priority, const char* arg0, ...)
     va_end(args);
     argv[argc] = nullptr;
 
-    return spawn_execve(name, priority, const_cast<char* const*>(argv), envp);
+    return spawn_execve(outPID, name, priority, const_cast<char* const*>(argv), envp);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode spawn_execv(const char* name, int priority, char* const argv[])
+PErrorCode spawn_execv(pid_t* outPID, const char* name, int priority, char* const argv[])
 {
-    return spawn_execve(name, priority, argv, environ);
+    return spawn_execve(outPID, name, priority, argv, environ);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode spawn_execve(const char* name, int priority, char* const argv[], char* const envp[])
+PErrorCode spawn_execve(pid_t* outPID, const char* name, int priority, char* const argv[], char* const envp[])
 {
     PThreadControlBlock* tlsBlock = create_thread_tls_block(__app_definition);
     if (tlsBlock == nullptr) {
@@ -117,7 +117,7 @@ PErrorCode spawn_execve(const char* name, int priority, char* const argv[], char
     }
     argvCopy[argc] = nullptr;
 
-    const PErrorCode result = __spawn_execve(name, priority, tlsBlock, argvCopy, envp);
+    const PErrorCode result = __spawn_execve(outPID, name, priority, tlsBlock, argvCopy, envp);
     if (result != PErrorCode::Success) {
         delete_thread_tls_block(tlsBlock);
         free(argvCopy);

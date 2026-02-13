@@ -119,6 +119,15 @@ bool KNamedObject::DebugValidate() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void KNamedObject::SetName(const char* name)
+{
+    strncpy(m_Name, name, sizeof(m_Name));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PErrorCode KNamedObject::RegisterObject(handle_id& outHandle, Ptr<KNamedObject> object)
 {
     const PErrorCode result = gk_NamedObjectsTable.AllocHandle(outHandle);

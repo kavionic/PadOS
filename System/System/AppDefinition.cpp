@@ -25,8 +25,9 @@ PAppDefinition* PAppDefinition::s_FirstApp = nullptr;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PAppDefinition::PAppDefinition(const char* name, int (*mainEntry)(int argc, char* argv[]), size_t stackSize)
+PAppDefinition::PAppDefinition(const char* name, const char* description, int (*mainEntry)(int argc, char* argv[]), size_t stackSize)
     : Name(name)
+    , Description(description)
     , MainEntry(mainEntry)
     , StackSize(stackSize)
 {

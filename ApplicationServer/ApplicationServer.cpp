@@ -471,4 +471,4 @@ int appserver_main(int argc, char* argv[])
     return 0;
 }
 
-static PAppDefinition g_AppServerAppDef("appserver", appserver_main);
+static PAppDefinition g_AppServerAppDef("appserver", "Server providing GUI and other services to applications.", appserver_main);

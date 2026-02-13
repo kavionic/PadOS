@@ -148,6 +148,7 @@ static void* idle_thread_entry(void* arguments)
 
 void* main_thread_entry(void* argument)
 {
+    gk_CurrentThread->SetName("main_thread");
     uint32_t control;
     __asm volatile ("mrs %0, CONTROL" : "=r"(control));
     control |= 1; // set nPRIV
@@ -193,7 +194,7 @@ static void* init_thread_entry(void* arguments)
 
     KDebugConsole::Get().Setup();
 
-    PThreadAttribs attrs("main_thread", 0, PThreadDetachState_Detached, mainThreadStackSize);
+    PThreadAttribs attrs("main", 0, PThreadDetachState_Detached, mainThreadStackSize);
     gk_MainThreadID = kthread_spawn_trw(&attrs, __app_definition.create_main_thread_tls_block(), { KSpawnThreadFlag::Privileged, KSpawnThreadFlag::SpawnProcess }, main_thread_entry, nullptr);
 
     for (;;)

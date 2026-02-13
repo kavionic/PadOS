@@ -17,12 +17,18 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 10.01.2026 15:30
 
+#include <string.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/pados_types.h>
+
 #include <argparse/argparse.hpp>
 
 #include <Kernel/DebugConsole/KConsoleCommand.h>
+#include <Utils/ANSIEscapeCodeParser.h>
+#include <System/AppDefinition.h>
 
-namespace kernel
-{
 
 enum class EFilesToShow
 {
@@ -45,12 +51,12 @@ struct FileEntry
     stat_t  StatBuffer;
 };
 
-class CCmdLS : public KConsoleCommand
+class CCmdLS
 {
 public:
-    virtual int Invoke(std::vector<std::string>&& args) override
+    int Invoke(int argc, char* argv[])
     {
-        argparse::ArgumentParser program(args[0], "1.0", argparse::default_arguments::none);
+        argparse::ArgumentParser program(argv[0], "1.0", argparse::default_arguments::none);
 
         program.add_argument("--help")
             .help("Print argument help.")
@@ -98,7 +104,7 @@ public:
 
         try
         {
-            program.parse_args(args);
+            program.parse_args(argc, argv);
         }
         catch (const std::exception& exc)
         {
@@ -123,7 +129,7 @@ public:
             }
             else
             {
-                Print("{}: invalid --block-size argument '{}'\n", args[0], valueStr);
+                Print("{}: invalid --block-size argument '{}'\n", argv[0], valueStr);
                 return 1;
             }
         }
@@ -148,7 +154,7 @@ public:
                       "  - ‘always’, ‘yes’, ‘force’\n"
                       "  - ‘never’, ‘no’, ‘none’\n"
                       "  - ‘auto’, ‘tty’, ‘if-tty’\n"
-                      "Try '{0} --help' for more information.\n", args[0], value);
+                      "Try '{0} --help' for more information.\n", argv[0], value);
 
                 return 1;
             }
@@ -182,8 +188,6 @@ public:
 
         return 0;
     }
-
-    virtual PString GetDescription() const override { return "Print information about running threads."; }
 
 private:
     void ListDirectory(const std::string& path)
@@ -228,7 +232,7 @@ private:
             printHeader = path != ".";
             dirent_t entry;
 
-            while (kread_directory(directory, &entry, sizeof(entry)) == sizeof(entry))
+            while (posix_getdents(directory, &entry, sizeof(entry), 0) == sizeof(entry))
             {
                 switch (m_FilesToShow)
                 {
@@ -391,6 +395,13 @@ private:
         return m_HumanReadable ? PString::format_byte_size(size, -2, m_UnitSystem) : PString::format_string("{}", useBlocks ? (size / m_BlockSize) : size);
     }
 
+    template<typename ...ARGS>
+    void Print(PFormatString<ARGS...>&& fmt, ARGS&&... args)
+    {
+        const PString text = PString::format_string(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
+        write(1, text.c_str(), text.size());
+    }
+
     EFilesToShow m_FilesToShow = EFilesToShow::Normal;
     EColorMode   m_ColorMode = EColorMode::Always;
     PUnitSystem  m_UnitSystem = PUnitSystem::IEC;
@@ -402,6 +413,10 @@ private:
     bool         m_FileType = false;
 };
 
-static KConsoleCommandRegistrator<CCmdLS> g_RegisterCCmdLS("ls");
+int ls_main(int argc, char* argv[])
+{
+    CCmdLS cmd;
+    return cmd.Invoke(argc, argv);
+}
 
-} // namespace kernel
+static PAppDefinition g_LSAppDef("ls", "List information about files.", ls_main);

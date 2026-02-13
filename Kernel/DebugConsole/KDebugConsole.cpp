@@ -22,12 +22,14 @@
 #include <stdexcept>
 
 #include <PadOS/Time.h>
+#include <Process/Process.h>
 #include <Utils/POSIXTokenizer.h>
 #include <Utils/Logging.h>
 #include <System/AppDefinition.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/DebugConsole/KDebugConsole.h>
 #include <Kernel/VFS/FileIO.h>
+
 
 namespace kernel
 {
@@ -730,6 +732,28 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
 
     if (!tokens.empty())
     {
+        const PString path = (tokens[0].empty() || tokens[0][0] == '/') ? tokens[0] : (PString("/bin/") + tokens[0]);
+
+        stat_t statBuf;
+        if (stat(path.c_str(), &statBuf) == 0 && (statBuf.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)))
+        {
+            std::vector<char*> argv;
+            argv.reserve(tokens.size());
+            for (auto& token : tokens) {
+                argv.push_back(token.data());
+            }
+            argv.push_back(nullptr);
+
+            pid_t pid;
+            PErrorCode result = spawn_execve(&pid, path.c_str(), 0, argv.data(), environ);
+            if (result != PErrorCode::Success) {
+                kprintf("Failed to execute '%s': %s\n", path.c_str(), p_strerror(result));
+            }
+            void* retValue = nullptr;
+            thread_join(pid, &retValue);
+            return;
+        }
+
         auto cmdIt = m_Commands.find(tokens[0]);
 
         if (cmdIt != m_Commands.end())

@@ -56,6 +56,7 @@ public:
     bool DebugValidate() const;
 
     KNamedObjectType GetType() const noexcept { return m_Type; }
+    void             SetName(const char* name);
     const char*      GetName() const noexcept { return m_Name; }
 
     virtual void     SetHandle(int32_t handle) noexcept { m_Handle = handle; }

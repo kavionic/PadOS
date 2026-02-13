@@ -307,4 +307,4 @@ int windowmanager_main(int argc, char* argv[])
     return 0;
 }
 
-static PAppDefinition g_WindowManagerDef("windowmanager", windowmanager_main);
+static PAppDefinition g_WindowManagerDef("windowmanager", "Server managing top-level GUI layout.", windowmanager_main);

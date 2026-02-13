@@ -58,10 +58,16 @@ extern "C"
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_spawn_execve(const char* name, int priority, PThreadControlBlock* const tlsBlock, char* const argv[], char* const envp[])
+PErrorCode sys_spawn_execve(pid_t* outPID, const char* name, int priority, PThreadControlBlock* const tlsBlock, char* const argv[], char* const envp[])
 {
     try
     {
+        if (outPID != nullptr) {
+            validate_user_write_pointer_trw(outPID);
+        }
+        validate_user_read_string_trw(name, PATH_MAX);
+        validate_user_write_pointer_trw(tlsBlock);
+
         const PAppDefinition* app = nullptr;
 
         {
@@ -93,8 +99,11 @@ PErrorCode sys_spawn_execve(const char* name, int priority, PThreadControlBlock*
         tlsBlock->Ptr1 = const_cast<void*>(static_cast<const void*>(app));
         tlsBlock->Ptr2 = const_cast<void*>(static_cast<const void*>(argv));
 
-        const PThreadAttribs attrs(name, priority, PThreadDetachState_Detached, app->StackSize);
-        kthread_spawn_trw(&attrs, tlsBlock, KSpawnThreadFlag::SpawnProcess, process_entry, tlsBlock);
+        const PThreadAttribs attrs(name, priority, PThreadDetachState_Joinable, app->StackSize);
+        const thread_id mainThreadID = kthread_spawn_trw(&attrs, tlsBlock, KSpawnThreadFlag::SpawnProcess, process_entry, tlsBlock);
+        if (outPID != nullptr) {
+            *outPID = mainThreadID;
+        }
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;

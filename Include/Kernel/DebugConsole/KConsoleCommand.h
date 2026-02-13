@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include <Ptr/PtrTarget.h>
+#include <Ptr/Ptr.h>
 #include <Utils/String.h>
 
 namespace kernel

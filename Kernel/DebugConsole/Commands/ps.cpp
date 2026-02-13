@@ -62,12 +62,25 @@ public:
             return PrintThreadInfo(program.get<int>("--thread"));
         }
 
+        std::vector<std::array<PString, 4>> list;
+        std::array<size_t, 4> columnWidths;
+        columnWidths.fill(0);
+
         ThreadInfo threadInfo;
 
         for (PErrorCode result = kget_thread_info(INVALID_HANDLE, &threadInfo); result == PErrorCode::Success; result = kget_next_thread_info(&threadInfo))
         {
             if (threadInfo.ThreadID == 0) continue; // Ignore idle-thread.
-            Print("{:4} {:9} {}:{}\n", threadInfo.ThreadID, GetStateName(threadInfo.State), threadInfo.ProcessName, threadInfo.ThreadName);
+
+            std::array<PString, 4> entry = { PString::format_string("{}", threadInfo.ThreadID), GetStateName(threadInfo.State), threadInfo.ProcessName, threadInfo.ThreadName };
+            for (size_t i = 0; i < columnWidths.size(); ++i) {
+                columnWidths[i] = std::max(columnWidths[i], entry[i].size());
+            }
+            list.push_back(std::move(entry));
+        }
+        for (const auto& entry : list)
+        {
+            Print("{:>{}}  {:{}}  {:>{}} {:{}}\n", entry[0], columnWidths[0], entry[1], columnWidths[1], entry[2], columnWidths[2], entry[3], columnWidths[3]);
         }
         return 0;
     }

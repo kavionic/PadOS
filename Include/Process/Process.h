@@ -21,7 +21,7 @@
 
 #include <sys/pados_error_codes.h>
 
-PErrorCode spawn_execl(const char* name, int priority, const char* arg0, ...);
-PErrorCode spawn_execle(const char* name, int priority, const char* arg0, ...);
-PErrorCode spawn_execv(const char* name, int priority, char* const argv[]);
-PErrorCode spawn_execve(const char* name, int priority, char* const argv[], char* const envp[]);
+PErrorCode spawn_execl(pid_t* outPID, const char* name, int priority, const char* arg0, ...);
+PErrorCode spawn_execle(pid_t* outPID, const char* name, int priority, const char* arg0, ...);
+PErrorCode spawn_execv(pid_t* outPID, const char* name, int priority, char* const argv[]);
+PErrorCode spawn_execve(pid_t* outPID, const char* name, int priority, char* const argv[], char* const envp[]);

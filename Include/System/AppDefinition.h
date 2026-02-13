@@ -30,13 +30,15 @@
 class PAppDefinition
 {
 public:
-    PAppDefinition(const char* name, int (*mainEntry)(int argc, char* argv[]), size_t stackSize = 0);
+    PAppDefinition(const char* name, const char* description, int (*mainEntry)(int argc, char* argv[]), size_t stackSize = 0);
     ~PAppDefinition();
 
     static const PAppDefinition* FindApplication(const char* name);
     static std::vector<const PAppDefinition*> GetApplicationList();
 
     const char* Name = nullptr;
+    const char* Description = nullptr;
+
     int (*MainEntry)(int argc, char* argv[]);
     size_t StackSize = 0;
 

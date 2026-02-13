@@ -28,15 +28,27 @@ public:
     virtual int Invoke(std::vector<std::string>&& args) override
     {
         std::map<PString, Ptr<KConsoleCommand>> commands = KDebugConsole::Get().GetCommands();
+        const std::vector<const PAppDefinition*> apps = PAppDefinition::GetApplicationList();
 
-        size_t longestName = 0;
+        std::map<PString, PString> commandNames;
+
         for (auto cmdNode : commands)
+        {
+            commandNames[cmdNode.first] = cmdNode.second->GetDescription();
+        }
+
+        for (const PAppDefinition* app : apps)
+        {
+            commandNames[app->Name] = app->Description;
+        }
+        size_t longestName = 0;
+        for (auto cmdNode : commandNames)
         {
             if (cmdNode.first.size() > longestName) longestName = cmdNode.first.size();
         }
-        for (auto cmdNode : commands)
+        for (auto cmdNode : commandNames)
         {
-            Print("{:{}} - {}\n", cmdNode.first, longestName + 1, cmdNode.second->GetDescription());
+            Print("{:{}} - {}\n", cmdNode.first, longestName + 1, cmdNode.second);
         }
         return 0;
     }

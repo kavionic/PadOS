@@ -27,6 +27,8 @@ namespace kernel
 class CCmdCat : public KConsoleCommand
 {
 public:
+    CCmdCat(KDebugConsole* console) : KConsoleCommand(console) {}
+
     virtual int Invoke(std::vector<std::string>&& args) override
     {
         bool lastCharIsNewline = false;

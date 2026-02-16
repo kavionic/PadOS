@@ -75,7 +75,7 @@ bool USBHost::Setup(USBDriver* driver)
         return false;
     }
     SetDeleteOnExit(false);
-    Start_trw(PThreadDetachState_Detached);
+    Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached);
 
     return true;
 }

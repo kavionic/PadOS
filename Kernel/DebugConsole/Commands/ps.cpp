@@ -27,6 +27,8 @@ namespace kernel
 class CCmdPS : public KConsoleCommand
 {
 public:
+    CCmdPS(KDebugConsole* console) : KConsoleCommand(console) {}
+
     virtual int Invoke(std::vector<std::string>&& args) override
     {
         argparse::ArgumentParser program(args[0], "1.0", argparse::default_arguments::none);

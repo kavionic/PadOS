@@ -77,7 +77,7 @@ GSLx680Driver::GSLx680Driver(const GSLx680DriverParameters& parameters)
     I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
     SetDeleteOnExit(false);
-    Start_trw(PThreadDetachState_Detached, parameters.ThreadPriority);
+    Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached, parameters.ThreadPriority);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -33,23 +33,25 @@
 
 namespace kernel
 {
-KDebugConsole KDebugConsole::s_Instance;
+std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>> KDebugConsole::s_Commands;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KDebugConsole::KDebugConsole() : KThread("debug_console")
+KDebugConsole::KDebugConsole(int stdInFD, int stdOutFD, int stdErrFD)
+    : KThread("debug_console")
+    , m_StdInFD(stdInFD)
+    , m_StdOutFD(stdOutFD)
+    , m_StdErrFD(stdErrFD)
 {
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
-KDebugConsole& KDebugConsole::Get()
+KDebugConsole::KDebugConsole(const PString& portPath)
+    : KThread("debug_console")
+    , m_PortPath(portPath)
 {
-    return s_Instance;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -58,7 +60,7 @@ KDebugConsole& KDebugConsole::Get()
 
 void KDebugConsole::Setup()
 {
-    Start_trw();
+    Start_trw(KSpawnThreadFlag::SpawnProcess);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -76,8 +78,51 @@ void* KDebugConsole::Run()
         try
         {
             char buffer[32];
-            const size_t length = kread_trw(0, buffer, sizeof(buffer));
 
+            if (m_StdInFD == -1)
+            {
+                try
+                {
+                    const int stream = kopen_trw(m_PortPath.c_str(), O_RDWR | O_DIRECT);
+
+                    if (stream != STDIN_FILENO) {
+                        dup2(stream, STDIN_FILENO);
+                    }
+                    if (stream != STDOUT_FILENO) {
+                        dup2(stream, STDOUT_FILENO);
+                    }
+                    if (stream != STDERR_FILENO) {
+                        dup2(stream, STDERR_FILENO);
+                    }
+                    m_StdInFD  = STDIN_FILENO;
+                    m_StdOutFD = STDOUT_FILENO;
+                    m_StdErrFD = STDERR_FILENO;
+                    if (stream > 2) {
+                        kclose(stream);
+                    }
+                }
+                catch (std::exception& exc)
+                {
+                    snooze_ms(100);
+                    continue;
+                }
+            }
+            size_t length;
+            try
+            {
+                length = kread_trw(m_StdInFD, buffer, sizeof(buffer));
+            }
+            catch(std::exception& exc)
+            {
+                if (!m_PortPath.empty())
+                {
+                    kclose(m_StdInFD);
+                    kclose(m_StdOutFD);
+                    kclose(m_StdErrFD);
+                    m_StdInFD = m_StdOutFD = m_StdErrFD = -1;
+                }
+                continue;
+            }
             const TimeValNanos curTime = get_monotonic_time();
 
             if (curTime >= nextSizeQueryTime)
@@ -157,7 +202,7 @@ void KDebugConsole::AddInputText(const char* text, size_t length)
 
 void KDebugConsole::EnterPressed()
 {
-    write(1, "\n", 1);
+    write(m_StdOutFD, "\n", 1);
 
     m_PendingExpansionAlternatives.clear();
 
@@ -199,7 +244,7 @@ void KDebugConsole::EnterPressed()
 
 void KDebugConsole::SendText(const char* text, size_t length)
 {
-    write(1, text, length);
+    write(m_StdOutFD, text, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -627,7 +672,7 @@ std::vector<PString> KDebugConsole::ExpandCommandName(size_t argumentIndex, cons
 {
     std::vector<PString> alternatives;
 
-    for (const auto& i : m_Commands)
+    for (const auto& i : s_Commands)
     {
         if (i.first.starts_with_nocase(argumentText.c_str()))
         {
@@ -754,11 +799,11 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
             return;
         }
 
-        auto cmdIt = m_Commands.find(tokens[0]);
+        auto cmdIt = s_Commands.find(tokens[0]);
 
-        if (cmdIt != m_Commands.end())
+        if (cmdIt != s_Commands.end())
         {
-            Ptr<KConsoleCommand>& cmd = cmdIt->second;
+            const Ptr<KConsoleCommand>& cmd = cmdIt->second(this);
 
             try {
                 cmd->Invoke(std::move(tokens));

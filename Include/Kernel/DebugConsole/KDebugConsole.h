@@ -33,13 +33,16 @@ namespace kernel
 class KDebugConsole : public KThread
 {
 public:
-    KDebugConsole();
-
-    static KDebugConsole& Get();
+    KDebugConsole(int stdInFD, int stdOutFD, int stdErrFD);
+    KDebugConsole(const PString& portPath);
 
     void Setup();
 
     virtual void* Run() override;
+
+    int GetStdInFD() const  { return m_StdInFD; }
+    int GetStdOutFD() const { return m_StdOutFD; }
+    int GetStdErrFD() const { return m_StdErrFD; }
 
     void AddInputText(const char* text, size_t length);
     void EnterPressed();
@@ -73,9 +76,9 @@ public:
     void RefreshText(size_t startPosition);
     void ResetInput();
 
-    const std::map<PString, Ptr<KConsoleCommand>>& GetCommands() const { return m_Commands; }
+    static const std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& GetCommands() { return s_Commands; }
 
-    void RegisterCommand(const PString& name, Ptr<KConsoleCommand> command) { m_Commands[name] = command; }
+    static void RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator) { s_Commands[name] = std::move(commandCreator); }
 
     bool SetPrompt(const PString& text);
 
@@ -92,9 +95,13 @@ private:
     void ProcessCmdLine(PPOSIXTokenizer&& tokenizer);
     void ProcessControlChar(PANSI_ControlCode controlChar, const std::vector<int>& args);
 
-    static KDebugConsole s_Instance;
 
     PANSIEscapeCodeParser m_ANSICodeParser;
+
+    PString m_PortPath;
+    int m_StdInFD = -1;
+    int m_StdOutFD = -1;
+    int m_StdErrFD = -1;
 
     PString m_CmdPrompt = "$ ";
     PString m_EditPrompt = "> ";
@@ -111,7 +118,7 @@ private:
 
     std::vector<PString> m_PendingExpansionAlternatives;
 
-    std::map<PString, Ptr<KConsoleCommand>> m_Commands;
+    static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>> s_Commands;
 };
 
 } // namespace kernel

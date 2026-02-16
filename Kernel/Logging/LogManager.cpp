@@ -48,7 +48,7 @@ void KLogManager::Setup(int threadPriority, size_t threadStackSize)
 {
     if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
     {
-        Start_trw(PThreadDetachState_Detached, threadPriority, threadStackSize);
+        Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached, threadPriority, threadStackSize);
     }
 }
 

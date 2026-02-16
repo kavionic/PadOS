@@ -97,7 +97,7 @@ void KPowerManager::Initialize(MCU_Timer16_t* timerChannel, const DigitalPin& pi
 #endif
 
     SetState(sys_power_state::running);
-    Start_trw(PThreadDetachState_Detached);
+    Start_trw();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

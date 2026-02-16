@@ -27,6 +27,8 @@ namespace kernel
 class CCmdCD : public KConsoleCommand
 {
 public:
+    CCmdCD(KDebugConsole* console) : KConsoleCommand(console) {}
+
     virtual int Invoke(std::vector<std::string>&& args) override
     {
         if (args.size() == 2)

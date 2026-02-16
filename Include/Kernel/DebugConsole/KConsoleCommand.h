@@ -28,35 +28,48 @@
 
 namespace kernel
 {
+class KDebugConsole;
 
 class KConsoleCommand : public PtrTarget
 {
 public:
+    KConsoleCommand(KDebugConsole* console) : m_Console(console) {}
+
     template<typename ...ARGS>
     void Print(PFormatString<ARGS...>&& fmt, ARGS&&... args)
     {
         const PString text = PString::format_string(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
-        write(1, text.c_str(), text.size());
+        WriteOutput(text.c_str(), text.size());
     }
+    ssize_t WriteOutput(const void* data, size_t length);
 
     virtual int Invoke(std::vector<std::string>&& args) = 0;
     virtual PString GetDescription() const = 0;
 
     virtual PString ExpandArgument(const std::vector<PString>& args, size_t argIndex, size_t cursorPos) { return PString::zero; }
 
+protected:
+    KDebugConsole* m_Console = nullptr;
 };
 
 class KConsoleCommandRegistratorBase
 {
 protected:
-    void RegisterCommand(const PString& name, Ptr<KConsoleCommand> command);
+    void RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator);
 };
 
 template<typename T>
 class KConsoleCommandRegistrator : public KConsoleCommandRegistratorBase
 {
 public:
-    KConsoleCommandRegistrator(const PString name) { RegisterCommand(name, ptr_new<T>()); }
+    KConsoleCommandRegistrator(const PString name)
+    {
+        RegisterCommand(name, [](KDebugConsole* console)
+            {
+                return ptr_new<T>(console);
+            }
+        );
+    }
 };
 
 

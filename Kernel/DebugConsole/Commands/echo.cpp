@@ -27,6 +27,8 @@ namespace kernel
 class CCmdEcho : public KConsoleCommand
 {
 public:
+    CCmdEcho(KDebugConsole* console) : KConsoleCommand(console) {}
+
     virtual int Invoke(std::vector<std::string>&& args) override
     {
         for (size_t i = 1; i < args.size(); ++i)

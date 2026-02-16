@@ -58,6 +58,8 @@ static uint8_t gk_InitThreadBuffer[sizeof(KThreadCB)] __attribute__((aligned(8))
 static uint8_t gk_IdleThreadStack[256] __attribute__((aligned(8)));
 static uint8_t gk_InitThreadStack[32768] __attribute__((aligned(8)));
 
+static KDebugConsole gk_DebugConsole1(STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+static KDebugConsole gk_DebugConsole2("/dev/com/udp0");
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -191,8 +193,8 @@ static void* init_thread_entry(void* arguments)
 
     initialize_device_drivers();
 
-
-    KDebugConsole::Get().Setup();
+    gk_DebugConsole1.Setup();
+    gk_DebugConsole2.Setup();
 
     PThreadAttribs attrs("main", 0, PThreadDetachState_Detached, mainThreadStackSize);
     gk_MainThreadID = kthread_spawn_trw(&attrs, __app_definition.create_main_thread_tls_block(), { KSpawnThreadFlag::Privileged, KSpawnThreadFlag::SpawnProcess }, main_thread_entry, nullptr);

@@ -65,13 +65,13 @@ KThread* KThread::GetCurrentThread()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KThread::Start_trw(PThreadDetachState detachState, int priority, int stackSize)
+void KThread::Start_trw(KSpawnThreadFlags flags, PThreadDetachState detachState, int priority, int stackSize)
 {
     if (m_ThreadHandle == INVALID_HANDLE)
     {
         m_DetachState = detachState;
         PThreadAttribs attrs(m_Name.c_str(), priority, detachState, stackSize);
-        m_ThreadHandle = kthread_spawn_trw(&attrs, /*tlsBlock*/ nullptr, KSpawnThreadFlag::Privileged, ThreadEntry, this);
+        m_ThreadHandle = kthread_spawn_trw(&attrs, /*tlsBlock*/ nullptr, flags | KSpawnThreadFlag::Privileged, ThreadEntry, this);
     }
 }
 

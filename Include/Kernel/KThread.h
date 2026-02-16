@@ -50,7 +50,7 @@ public:
     void SetDeleteOnExit(bool doDelete) { m_DeleteOnExit = doDelete; }
     bool GetDeleteOnExit() const { return m_DeleteOnExit; }
 
-    void  Start_trw(PThreadDetachState detachState = PThreadDetachState_Detached, int priority = 0, int stackSize = 0);
+    void  Start_trw(KSpawnThreadFlags flags = KSpawnThreadFlag::None, PThreadDetachState detachState = PThreadDetachState_Detached, int priority = 0, int stackSize = 0);
     void* Join_trw(TimeValNanos deadline = TimeValNanos::infinit);
 
     bool IsRunning() const { return m_ThreadHandle != INVALID_HANDLE; }

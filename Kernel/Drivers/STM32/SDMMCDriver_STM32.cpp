@@ -114,7 +114,7 @@ SDMMCDriver_STM32::SDMMCDriver_STM32(const SDMMCDriverParameters& parameters) : 
 
     register_irq_handler(get_sdmmc_irq(parameters.PortID), IRQCallback, this);
 
-    Start_trw(PThreadDetachState_Detached);
+    Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

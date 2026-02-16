@@ -74,7 +74,7 @@ TLV493DDriver::TLV493DDriver(const TLV493DDriverParameters& parameters)
     snooze_ms(5);
 
     SetDeleteOnExit(false);
-    Start_trw(PThreadDetachState_Detached, parameters.ThreadPriority);
+    Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached, parameters.ThreadPriority);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -25,16 +25,18 @@ namespace kernel
 class CCmdHelp : public KConsoleCommand
 {
 public:
+    CCmdHelp(KDebugConsole* console) : KConsoleCommand(console) {}
+
     virtual int Invoke(std::vector<std::string>&& args) override
     {
-        std::map<PString, Ptr<KConsoleCommand>> commands = KDebugConsole::Get().GetCommands();
+        std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>> commands = KDebugConsole::GetCommands();
         const std::vector<const PAppDefinition*> apps = PAppDefinition::GetApplicationList();
 
         std::map<PString, PString> commandNames;
 
         for (auto cmdNode : commands)
         {
-            commandNames[cmdNode.first] = cmdNode.second->GetDescription();
+            commandNames[cmdNode.first] = cmdNode.second(m_Console)->GetDescription();
         }
 
         for (const PAppDefinition* app : apps)

@@ -27,6 +27,8 @@ namespace kernel
 class CCmdReboot : public KConsoleCommand
 {
 public:
+    CCmdReboot(KDebugConsole* console) : KConsoleCommand(console) {}
+
     virtual int Invoke(std::vector<std::string>&& args) override
     {
         Print("Rebooting...\n");

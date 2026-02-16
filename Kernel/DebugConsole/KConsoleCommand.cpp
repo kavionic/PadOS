@@ -31,9 +31,18 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KConsoleCommandRegistratorBase::RegisterCommand(const PString& name, Ptr<KConsoleCommand> command)
+ssize_t KConsoleCommand::WriteOutput(const void* data, size_t length)
 {
-    KDebugConsole::Get().RegisterCommand(name, command);
+    return write(m_Console->GetStdOutFD(), data, length);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KConsoleCommandRegistratorBase::RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator)
+{
+    KDebugConsole::RegisterCommand(name, std::move(commandCreator));
 }
 
 

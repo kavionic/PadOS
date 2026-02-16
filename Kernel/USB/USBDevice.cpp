@@ -188,7 +188,7 @@ bool USBDevice::Setup(USBDriver* driver, uint32_t endpoint0Size, int threadPrior
     m_Driver->IRQTransferComplete.Connect(this, &USBDevice::IRQTransferComplete);
 
     SetDeleteOnExit(false);
-    Start_trw(PThreadDetachState_Detached, threadPriority);
+    Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached, threadPriority);
 
     m_Driver->EnableIRQ(true);
 

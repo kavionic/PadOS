@@ -129,7 +129,8 @@ void sys_exit(int exitCode)
 
 PSysRetPair sys_getpid(void)
 {
-    return PMakeSysRetSuccess(gk_CurrentThread->GetProcessID());
+    const KProcess& process = kget_current_process();
+    return PMakeSysRetSuccess(process.GetPID());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

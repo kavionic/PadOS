@@ -27,6 +27,7 @@
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/VFS/KDriverParametersBase.h>
 #include <Kernel/HAL/STM32/DMARequestID.h>
+#include <Kernel/HAL/DigitalPort.h>
 
 enum class SPIID : int;
 

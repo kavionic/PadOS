@@ -50,36 +50,34 @@ class KThreadCB : public KNamedObject
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::Thread;
 
-    KThreadCB(Ptr<KProcess> process, const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, void* kernelTLSMemory);
+    KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttribs* attribs, bool kernelThread, PThreadControlBlock* tlsBlock, void* kernelTLSMemory);
     ~KThreadCB();
 
-    virtual void SetHandle(int32_t handle) noexcept override;
-    pid_t GetProcessID() const;
-    void InitializeStack(ThreadEntryPoint_t entryPoint, bool privileged, bool skipEntryTrampoline, void* arguments);
+    void InitializeStack(ThreadEntryPoint_t entryPoint, bool skipEntryTrampoline, void* arguments);
 
-    uint8_t* GetStackTop() const { return m_StackBuffer; }
-    uint8_t* GetStackBottom() const { return m_StackBuffer + m_StackSize - 4; }
+    uint8_t* GetStackTop() const noexcept { return m_StackBuffer; }
+    uint8_t* GetStackBottom() const noexcept { return m_StackBuffer + m_StackSize - 4; }
 
-    int SetPriority(int priority) { m_PriorityLevel = PriToLevel(priority); return 0; }
-    int GetPriority() const { return LevelToPri(m_PriorityLevel);  }
-    int GetPriorityLevel() const { return m_PriorityLevel; }
+    int SetPriority(int priority) noexcept { m_PriorityLevel = PriToLevel(priority); return 0; }
+    int GetPriority() const noexcept { return LevelToPri(m_PriorityLevel);  }
+    int GetPriorityLevel() const noexcept { return m_PriorityLevel; }
 
-    static int PriToLevel(int priority);
-    static int LevelToPri(int level);
+    static int PriToLevel(int priority) noexcept;
+    static int LevelToPri(int level) noexcept;
 
-    sigset_t GetPendingSignals() const { KSchedulerLock slock; return GetUnblockedSignals(m_PendingSignals_); }
-    sigset_t GetUnblockedSignals(sigset_t signalMask) const { return signalMask & ~m_BlockedSignals; }
-    sigset_t GetUnblockedPendingSignals() const { return GetUnblockedSignals(GetPendingSignals()); }
-    bool     HasUnblockedPendingSignals() const { return GetUnblockedPendingSignals() != 0; }
-    bool     IsSignalBlocked(int sigNum) const { return (m_BlockedSignals & sig_mkmask(sigNum)) != 0; }
-    void     ReplacePendingSignals(sigset_t newSet) { KSchedulerLock slock; m_PendingSignals_ = newSet; }
-    void     MergePendingSignals(sigset_t set) { KSchedulerLock slock; m_PendingSignals_ |= set; }
+    sigset_t GetPendingSignals() const noexcept { KSchedulerLock slock; return GetUnblockedSignals(m_PendingSignals_); }
+    sigset_t GetUnblockedSignals(sigset_t signalMask) const noexcept { return signalMask & ~m_BlockedSignals; }
+    sigset_t GetUnblockedPendingSignals() const noexcept { return GetUnblockedSignals(GetPendingSignals()); }
+    bool     HasUnblockedPendingSignals() const noexcept { return GetUnblockedPendingSignals() != 0; }
+    bool     IsSignalBlocked(int sigNum) const noexcept { return (m_BlockedSignals & sig_mkmask(sigNum)) != 0; }
+    void     ReplacePendingSignals(sigset_t newSet) noexcept { KSchedulerLock slock; m_PendingSignals_ = newSet; }
+    void     MergePendingSignals(sigset_t set) noexcept { KSchedulerLock slock; m_PendingSignals_ |= set; }
 
-    void     SetPendingSignal(int sigNum) { const sigset_t mask = sig_mkmask(sigNum); KSchedulerLock slock; m_PendingSignals_ |= mask; }
-    void     ClearPendingSignal(int sigNum) { const sigset_t invMask = ~sig_mkmask(sigNum); KSchedulerLock slock; m_PendingSignals_ &= invMask; }
+    void     SetPendingSignal(int sigNum) noexcept { const sigset_t mask = sig_mkmask(sigNum); KSchedulerLock slock; m_PendingSignals_ |= mask; }
+    void     ClearPendingSignal(int sigNum) noexcept { const sigset_t invMask = ~sig_mkmask(sigNum); KSchedulerLock slock; m_PendingSignals_ &= invMask; }
 
-    void                SetBlockingObject(const KNamedObject* WaitObject);
-    const KNamedObject* GetBlockingObject() const { return m_BlockingObject; }
+    void                SetBlockingObject(const KNamedObject* WaitObject) noexcept;
+    const KNamedObject* GetBlockingObject() const noexcept { return m_BlockingObject; }
 
     void SetupTLS(const PThreadAttribs* attribs, void* kernelTLSMemory);
 
@@ -100,6 +98,7 @@ public:
 
     void*                     m_ReturnValue = nullptr;
     PThreadDetachState        m_DetachState = PThreadDetachState_Detached;
+    bool                      m_KernelThread = false;
     bool                      m_FreeStackOnExit = true;
     bool                      m_FreeTLSOnExit = true;
     uint8_t*                  m_StackBuffer;
@@ -117,7 +116,7 @@ public:
 
     sigset_t                  m_PendingSignals_ = 0;
     sigset_t		          m_BlockedSignals = 0;
-    sigaction_t               m_SignalHandlers[NSIG + NRTSIG];
+    sigaction_t               m_SignalHandlers[KTOTAL_SIG_COUNT];
     KSignalQueueNode*         m_FirstQueuedSignal = nullptr;
     size_t                    m_QueuedSignalCount = 0;
 };

@@ -28,6 +28,9 @@ namespace kernel
 
 class KThreadCB;
 
+static constexpr int KTOTAL_SIG_COUNT = NSIG + NRTSIG;
+static_assert(KTOTAL_SIG_COUNT <= sizeof(sigset_t) * 8);
+
 struct KSignalQueueNode
 {
     KSignalQueueNode*   Next;
@@ -48,9 +51,33 @@ enum class PESignalDefaultAction
     TerminateCoreDump
 };
 
-PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum);
-PErrorCode kqueue_signal_to_thread(KThreadCB& thread, int signo, sigval_t value);
-PErrorCode kthread_sigmask(int how, const sigset_t* newSet, sigset_t* outOldSet);
+enum class KSignalMode
+{
+    Invalid,
+    Handled,
+    Ignored,
+    Default,
+    Blocked
+};
+
+KSignalMode kget_signal_mode(int sigNum);
+KSignalMode kget_signal_mode(const KThreadCB& thread, int sigNum);
+
+bool        khas_pending_signals();
+PErrorCode  ksend_signal_to_thread(KThreadCB& thread, int sigNum);
+PErrorCode  kqueue_signal_to_thread(KThreadCB& thread, int signo, sigval_t value);
+
+void ksigaction_trw(int sigNum, const struct sigaction* action, struct sigaction* outPrevAction);
+PErrorCode ksigaction(int sigNum, const struct sigaction* action, struct sigaction* outPrevAction);
+
+_sig_func_ptr ksignal_trw(int sigNum, _sig_func_ptr handler);
+
+PErrorCode  kthread_sigmask(int how, const sigset_t* newSet, sigset_t* outOldSet);
+
+void        kkill_trw(pid_t pid, int sigNum);
+PErrorCode  kkill(pid_t pid, int sigNum);
+void        kkillpg_trw(pid_t pgroup, int sigNum);
+PErrorCode  kkillpg(pid_t pgroup, int sigNum);
 
 KSignalQueueNode* kalloc_signal_queue_node();
 void kfree_signal_queue_node(KSignalQueueNode* node);

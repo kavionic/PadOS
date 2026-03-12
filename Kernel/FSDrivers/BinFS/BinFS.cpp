@@ -44,8 +44,6 @@ Ptr<KFSVolume> KBinFilesystem::Mount(fs_id volumeID, const char* devicePath, uin
 {
     Ptr<KFSVolume> volume = KVirtualFilesystemBase::Mount(volumeID, devicePath, flags, args, argLength);
 
-    CRITICAL_SCOPE(m_Mutex);
-
     const Ptr<KVirtualFSBaseInode> rootNode = ptr_dynamic_cast<KVirtualFSBaseInode>(volume->m_RootNode);
 
     const std::vector<const PAppDefinition*> apps = PAppDefinition::GetApplicationList();

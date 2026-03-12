@@ -51,6 +51,9 @@ KIOContext::~KIOContext()
 
 void KIOContext::Clone(const KIOContext& source)
 {
+    kassert(!source.m_Mutex.IsLocked());
+    CRITICAL_SCOPE(source.m_Mutex);
+
     m_CurrentDirectory  = source.m_CurrentDirectory;
     m_FileTable         = source.m_FileTable;
 }
@@ -59,7 +62,7 @@ void KIOContext::Clone(const KIOContext& source)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KIOContext::SetCurrentDirectory(Ptr<KInode> inode)
+void KIOContext::SetCurrentDirectory(Ptr<KInode> inode) noexcept
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
@@ -70,11 +73,29 @@ void KIOContext::SetCurrentDirectory(Ptr<KInode> inode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KInode> KIOContext::GetCurrentDirectory() const
+Ptr<KInode> KIOContext::GetCurrentDirectory() const noexcept
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
     return m_CurrentDirectory;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KIOContext::SetControllingTTY(Ptr<KInode> inode) noexcept
+{
+    m_ControllingTTY = inode;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<kernel::KInode> KIOContext::GetControllingTTY() const noexcept
+{
+    return m_ControllingTTY;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

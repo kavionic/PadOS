@@ -11,6 +11,7 @@ add_subdirectory(VFS)
 
 target_sources(PadOS_Kernel PRIVATE
 	IRQDispatcher.cpp
+	KCapabilities.cpp
 	KConditionVariable.cpp
 	Kernel.cpp
 	KHandleArray.cpp
@@ -21,6 +22,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KPosixSignals.cpp
 	KPowerManager.cpp
 	KProcess.cpp
+	KProcessGroups.cpp
 	KSemaphore.cpp
 	KThread.cpp
 	KThreadCB.cpp

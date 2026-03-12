@@ -1,5 +1,7 @@
 target_sources(PadOS_Kernel PRIVATE 
 	IRQDispatcher.h
+	KAddressValidation.h
+	KCapabilities.h
 	KConditionVariable.h
 	Kernel.h
 	KHandleArray.h
@@ -13,6 +15,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KPosixSignals.h
 	KPowerManager.h
 	KProcess.h
+	KProcessGroups.h
 	KSchedulerLock.h
 	KSemaphore.h
 	KThread.h

@@ -11,3 +11,8 @@ target_sources(PadOS_Kernel PRIVATE
 	KRootFilesystem.cpp
 	KVFSManager.cpp
 )
+
+target_sources(PadOS_KernelExt PRIVATE
+	Kpty.cpp
+	Kpty.h
+)

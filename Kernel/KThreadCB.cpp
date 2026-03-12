@@ -27,6 +27,7 @@
 #include <malloc.h>
 #include <sys/pados_syscalls.h>
 
+#include <Kernel/KProcess.h>
 #include <Kernel/KThreadCB.h>
 #include <Kernel/KHandleArray.h>
 #include <Kernel/KStackFrames.h>
@@ -110,10 +111,12 @@ static void invalid_return_handler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KThreadCB::KThreadCB(Ptr<KProcess> process, const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, void* kernelTLSMemory)
+KThreadCB::KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttribs* attribs, bool kernelThread, PThreadControlBlock* tlsBlock, void* kernelTLSMemory)
     : KNamedObject((attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "", KNamedObjectType::Thread)
-    , m_Process(process)
+    , m_KernelThread(kernelThread)
 {
+    SetHandle(handle);
+
     memset(&m_SignalHandlers, 0, sizeof(m_SignalHandlers));
 
     const int priority = (attribs != nullptr) ? attribs->Priority : 0;
@@ -150,6 +153,7 @@ KThreadCB::KThreadCB(Ptr<KProcess> process, const PThreadAttribs* attribs, PThre
         }
         throw;
     }
+    process->AddThread(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -158,6 +162,10 @@ KThreadCB::KThreadCB(Ptr<KProcess> process, const PThreadAttribs* attribs, PThre
 
 KThreadCB::~KThreadCB()
 {
+    kassert(m_Process == nullptr);
+    if (m_Process != nullptr) {
+        m_Process->RemoveThread(this);
+    }
     if (m_FreeStackOnExit) {
         delete[] m_StackBuffer;
     }
@@ -167,20 +175,11 @@ KThreadCB::~KThreadCB()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KThreadCB::SetHandle(int32_t handle) noexcept
-{
-    KNamedObject::SetHandle(handle);
-}
-
-///////////////////////////////////////////////////////////////////////////////
 /// Setup a stack frame identical to the one produced during a context switch.
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, bool privileged, bool skipEntryTrampoline, void* arguments)
+void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, bool skipEntryTrampoline, void* arguments)
 {
     uint32_t currentStack = ((intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1));
 
@@ -205,7 +204,7 @@ void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, bool privileged, 
     m_CurrentStackAndPrivilege = reinterpret_cast<intptr_t>(stackFrame);
 
 #ifndef PADOS_OPT_PRIVILEGED_USERSPACE_THREADS
-    if (!privileged) {
+    if (!m_KernelThread) {
         m_CurrentStackAndPrivilege |= 0x01;
     }
 #endif
@@ -215,7 +214,7 @@ void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, bool privileged, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KThreadCB::PriToLevel(int priority)
+int KThreadCB::PriToLevel(int priority) noexcept
 {
     int level = priority - KTHREAD_PRIORITY_MIN;
     return std::clamp(level, 0, KTHREAD_PRIORITY_LEVELS - 1);
@@ -225,7 +224,7 @@ int KThreadCB::PriToLevel(int priority)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KThreadCB::LevelToPri(int level)
+int KThreadCB::LevelToPri(int level) noexcept
 {
     return level + KTHREAD_PRIORITY_MIN;
 }
@@ -234,7 +233,7 @@ int KThreadCB::LevelToPri(int level)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KThreadCB::SetBlockingObject(const KNamedObject* waitObject)
+void KThreadCB::SetBlockingObject(const KNamedObject* waitObject) noexcept
 {
     if (m_BlockingObject != nullptr)
     {
@@ -259,16 +258,6 @@ void KThreadCB::SetupTLS(const PThreadAttribs* attribs, void* kernelTLSMemory)
     }
     m_FreeTLSOnExit = kernelTLSMemory == nullptr;
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-pid_t KThreadCB::GetProcessID() const
-{
-    return gk_MainThreadID;
-}
-
 
 
 } // namespace kernel

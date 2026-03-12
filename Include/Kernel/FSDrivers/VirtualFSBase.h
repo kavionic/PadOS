@@ -25,10 +25,18 @@
 #include <Utils/String.h>
 #include <Kernel/KMutex.h>
 #include <Kernel/VFS/KFileHandle.h>
+#include <Kernel/VFS/KFSVolume.h>
 
 namespace kernel
 {
 
+class KVirtualFSVolume : public KFSVolume
+{
+public:
+    KVirtualFSVolume(fs_id volumeID, const PString& devicePath);
+
+    mutable KMutex m_Mutex;
+};
 
 class KVirtualFSBaseInode : public KInode
 {
@@ -52,7 +60,8 @@ class KVirtualFilesystemBase : public KFilesystem, public KFilesystemFileOps
 public:
 	KVirtualFilesystemBase();
 	virtual Ptr<KFSVolume>      Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength) override;
-	virtual Ptr<KInode>         LocateInode(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength) override;
+    void                        DoMount(Ptr<KVirtualFSVolume> volume, uint32_t flags, const char* args, size_t argLength);
+    virtual Ptr<KInode>         LocateInode(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength) override;
 
 	virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node) override;
 	virtual void                CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory) override;
@@ -76,11 +85,9 @@ public:
 
 	static int AllocInodeNumber();
 protected:
-	Ptr<KInode>       FindInode(Ptr<KVirtualFSBaseInode> parent, ino_t inodeNum, bool remove, Ptr<KVirtualFSBaseInode>* parentNode);
-	Ptr<KVirtualFSBaseInode> LocateParentInode(Ptr<KVirtualFSBaseInode> parent, const char* path, int pathLength, bool createParents, int* nameStart);
-
-	KMutex            m_Mutex;
-	Ptr<KFSVolume>    m_Volume;
+    Ptr<KInode>                 LocateInodeInternal(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength) noexcept;
+    Ptr<KInode>                 FindInode(Ptr<KFSVolume> volume, Ptr<KVirtualFSBaseInode> parent, ino_t inodeNum, bool remove, Ptr<KVirtualFSBaseInode>* parentNode);
+	Ptr<KVirtualFSBaseInode>    LocateParentInode(Ptr<KFSVolume> volume, Ptr<KVirtualFSBaseInode> parent, const char* path, int pathLength, bool createParents, int* nameStart);
 };
 
 } // namespace kernel

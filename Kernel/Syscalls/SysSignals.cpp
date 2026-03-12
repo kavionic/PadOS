@@ -41,13 +41,7 @@ PErrorCode sys_thread_kill(thread_id threadID, int sigNum)
 
 PErrorCode sys_kill(thread_id threadID, int sigNum)
 {
-    const Ptr<KThreadCB> thread = get_thread(threadID);
-
-    if (thread == nullptr) {
-        return PErrorCode::NoSuchProcess;
-    }
-
-    return ksend_signal_to_thread(*thread, sigNum);
+    return kkill(threadID, sigNum);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -81,20 +75,19 @@ PErrorCode sys_thread_sigqueue(thread_id threadID, int signo, union sigval value
 
 PErrorCode sys_sigaction(int sigNum, const struct sigaction* action, struct sigaction* outPrevAction)
 {
-    const int sigIndex = sigNum - 1;
-
-    KThreadCB& thread = *gk_CurrentThread;
-
-    if (sigIndex < 0 || sigIndex >= ARRAY_COUNT(KThreadCB::m_SignalHandlers)) {
-        return PErrorCode::InvalidArg;
+    try
+    {
+        if (action != nullptr) {
+            validate_user_read_pointer_trw(action);
+        }
+        if (outPrevAction != nullptr) {
+            validate_user_write_pointer_trw(outPrevAction);
+        }
+        ksigaction_trw(sigNum, action, outPrevAction);
+        
+        return PErrorCode::Success;
     }
-    if (outPrevAction != nullptr) {
-        *outPrevAction = thread.m_SignalHandlers[sigIndex];
-    }
-    if (action != nullptr) {
-        thread.m_SignalHandlers[sigIndex] = *action;
-    }
-    return PErrorCode::Success;
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -103,18 +96,11 @@ PErrorCode sys_sigaction(int sigNum, const struct sigaction* action, struct siga
 
 PSysRetPair sys_signal(int sigNum, _sig_func_ptr handler)
 {
-    sigaction_t newAction = {};
-    sigaction_t prevAction;
-
-    newAction.sa_handler = handler;
-
-    const PErrorCode result = sys_sigaction(sigNum, &newAction, &prevAction);
-
-    if (result == PErrorCode::Success) {
-        return PMakeSysRetSuccess(intptr_t(prevAction.sa_handler));
-    } else {
-        return PMakeSysRetFail(result);
+    try
+    {
+        return PMakeSysRetSuccess(intptr_t(ksignal_trw(sigNum, handler)));
     }
+    PERROR_CATCH_RET_SYSRET;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

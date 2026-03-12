@@ -43,6 +43,7 @@ public:
     inline bool         IsDirectory() const noexcept            { return m_Inode != nullptr && S_ISDIR(m_Inode->m_FileMode); }
     inline bool         IsSymlink() const noexcept              { return m_Inode != nullptr && S_ISLNK(m_Inode->m_FileMode); }
     inline int          GetOpenFlags() const noexcept           { return m_OpenFlags; }
+    inline void         SetOpenFlags(int flags) noexcept        { m_OpenFlags = flags; }
     inline bool         IsPathObject() const noexcept           { return (m_OpenFlags & O_PATH) != 0; }
     inline bool         HasReadAccess() const noexcept          { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_RDONLY; }
     inline bool         HasWriteAccess() const noexcept         { return (m_OpenFlags & O_ACCMODE) == O_RDWR || (m_OpenFlags & O_ACCMODE) == O_WRONLY; }

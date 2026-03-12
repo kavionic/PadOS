@@ -42,6 +42,7 @@ enum class PANSI_ControlCode
     XTerm_F4 = 'S',   // With '1' as an argument.
     XTerm_XTWINOPS = 't',
     EraseDisplay = 'J',
+    EraseInLine = 'K',
     SetRenderProperty = 'm'
 };
 
@@ -76,6 +77,21 @@ enum class PANSI_VT_KeyCodes
     F18 = 32,
     F19 = 33,
     F20 = 34
+};
+
+enum class PANSI_EraseDisplayProperty : int
+{
+    ToEnd               = 0,
+    ToStart             = 1,
+    All                 = 2,
+    AllAndScrollback    = 3
+};
+
+enum class PANSI_EraseInLineProperty : int
+{
+    ToEnd   = 0,
+    ToStart = 1,
+    All     = 2
 };
 
 enum class PANSI_RenderProperty : int

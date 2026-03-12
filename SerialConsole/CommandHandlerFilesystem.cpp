@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18.04.2021 23:30
 
+#include <memory>
+
 #include <stdio.h>
 #include <dirent.h>
 #include <sys/unistd.h>

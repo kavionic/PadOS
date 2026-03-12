@@ -39,6 +39,9 @@ void            ksystem_log_add_message(uint32_t category, PLogSeverity severity
 
 PDEFINE_LOG_CATEGORY(LogCatKernel_General,      "KGENERL",  PLogSeverity::INFO_HIGH_VOL);
 PDEFINE_LOG_CATEGORY(LogCatKernel_VFS,          "VFS",      PLogSeverity::INFO_HIGH_VOL);
+PDEFINE_LOG_CATEGORY(LogCatKernel_PTY,          "PTY",      PLogSeverity::INFO_HIGH_VOL);
+PDEFINE_LOG_CATEGORY(LogCatKernel_Processes,    "Process",  PLogSeverity::INFO_HIGH_VOL);
+PDEFINE_LOG_CATEGORY(LogCatKernel_Signals,      "Signals",  PLogSeverity::INFO_HIGH_VOL);
 PDEFINE_LOG_CATEGORY(LogCatKernel_Drivers,      "DRIVERS",  PLogSeverity::INFO_HIGH_VOL);
 PDEFINE_LOG_CATEGORY(LogCatKernel_BlockCache,   "BCACHE",   PLogSeverity::INFO_LOW_VOL);
 PDEFINE_LOG_CATEGORY(LogCatKernel_Scheduler,    "SCHEDUL",  PLogSeverity::INFO_HIGH_VOL);

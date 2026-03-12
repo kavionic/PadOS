@@ -176,7 +176,7 @@ void KObjectWaitGroup::WaitForBlockedThread_trw(TimeValNanos deadline)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KObjectWaitGroup::Wait_trw(KMutex* lock, TimeValNanos deadline, void* readyFlagsBuffer, size_t readyFlagsSize)
+PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* readyFlagsBuffer, size_t readyFlagsSize) noexcept
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
@@ -209,12 +209,12 @@ void KObjectWaitGroup::Wait_trw(KMutex* lock, TimeValNanos deadline, void* ready
                 for (int j = i - 1; j >= 0; --j) {
                     m_WaitNodes[j].Detatch();
                 }
-                return;
+                return PErrorCode::Success;
             }
         }
     }
     if (isReady) {
-        return;
+        return PErrorCode::Success;
     }
 
     CRITICAL_BEGIN(CRITICAL_IRQ)
@@ -279,13 +279,15 @@ void KObjectWaitGroup::Wait_trw(KMutex* lock, TimeValNanos deadline, void* ready
         // Give the threads attempting to add/remove objects a chance to work before locking them out again.
         const PErrorCode result = m_BlockedThreadCondition.WaitDeadline(m_Mutex, deadline);
         if (result != PErrorCode::Success) {
-            PERROR_THROW_CODE(result);
+            return result;
         }
     }
 
     if (!isReady) {
-        PERROR_THROW_CODE(didTimeout ? PErrorCode::Timeout : PErrorCode::Interrupted);
+        return didTimeout ? PErrorCode::Timeout : PErrorCode::Interrupted;
     }
+
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

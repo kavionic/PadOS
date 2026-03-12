@@ -157,24 +157,25 @@ PErrorCode kthread_attribs_init(PThreadAttribs& outAttribs) noexcept
 
 thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, KSpawnThreadFlags flags, ThreadEntryPoint_t entryPoint, void* arguments)
 {
+    const thread_id handle = gk_ThreadTable.AllocHandle_trw();
+
+    PScopeFail scopeFail([handle]() { gk_ThreadTable.FreeHandle_trw(handle); });
+
     Ptr<KProcess> process;
     if (flags.Has(KSpawnThreadFlag::SpawnProcess))
     {
-        process = ptr_new<KProcess>(*kget_current_process(), (attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "");
+        process = ptr_new<KProcess>(kget_current_process(), (attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "");
     }
     else
     {
-        process = ptr_tmp_cast(kget_current_process());
+        process = ptr_tmp_cast(&kget_current_process());
     }
 
     Ptr<KThreadCB> thread;
 
-    thread = ptr_new<KThreadCB>(process, attribs, tlsBlock, nullptr);
-    thread->InitializeStack(entryPoint, flags.Has(KSpawnThreadFlag::Privileged), /*skipEntryTrampoline*/ false, arguments);
+    thread = ptr_new<KThreadCB>(handle, process, attribs, flags.Has(KSpawnThreadFlag::Privileged), tlsBlock, nullptr);
+    thread->InitializeStack(entryPoint, /*skipEntryTrampoline*/ false, arguments);
 
-    const thread_id handle = gk_ThreadTable.AllocHandle_trw();
-
-    thread->SetHandle(handle);
     gk_ThreadTable.Set(handle, thread);
 
     CRITICAL_BEGIN(CRITICAL_IRQ)
@@ -196,10 +197,13 @@ __attribute__((noreturn)) void kthread_exit(void* returnValue)
     if (thread->m_UserspaceTLS != nullptr) {
         __app_definition.thread_terminated(thread->GetHandle(), thread->m_StackBuffer, thread->m_UserspaceTLS);
     }
-    thread->m_State = ThreadState_Zombie;
+    thread->m_Process->RemoveThread(thread);
+
     thread->m_ReturnValue = returnValue;
 
     _reclaim_reent(nullptr);
+
+    thread->m_State = ThreadState_Zombie;
 
     KSWITCH_CONTEXT();
 
@@ -375,7 +379,7 @@ static void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
     } CRITICAL_END;
 
     info->ThreadID = thread->GetHandle();
-    info->ProcessID = thread->GetProcessID();
+    info->ProcessID = thread->m_Process->GetPID();
     info->State = thread->m_State;
     info->Flags = 0; // thread->m_Flags;
     info->Priority = thread->GetPriority();

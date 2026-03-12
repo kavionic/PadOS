@@ -30,8 +30,10 @@
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KBlockCache.h>
+#include <Kernel/VFS/Kpty.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 #include <Kernel/DebugConsole/KDebugConsole.h>
+#include <Kernel/DebugConsole/KSerialPseudoTerminal.h>
 #include <Kernel/FSDrivers/BinFS/BinFS.h>
 
 extern "C" void __libc_init_array(void);
@@ -58,8 +60,10 @@ static uint8_t gk_InitThreadBuffer[sizeof(KThreadCB)] __attribute__((aligned(8))
 static uint8_t gk_IdleThreadStack[256] __attribute__((aligned(8)));
 static uint8_t gk_InitThreadStack[32768] __attribute__((aligned(8)));
 
-static KDebugConsole gk_DebugConsole1(STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
-static KDebugConsole gk_DebugConsole2("/dev/com/udp0");
+//static KDebugConsole gk_DebugConsole1(STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+//static KDebugConsole gk_DebugConsole2("/dev/com/udp0");
+static KSerialPseudoTerminal g_SerialTerminal1(STDIN_FILENO);
+static KSerialPseudoTerminal g_SerialTerminal2("/dev/com/udp0");
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -76,7 +80,7 @@ void initialize_scheduler_statics()
 
         new((void*)gk_FirstProcessBuffer) KProcess("kernel");
         new((void*)gk_ThreadTableBuffer) KHandleArray<KThreadCB>();
-        new((void*)gk_IdleThreadBuffer) NoPtr<KThreadCB>(ptr_new_cast(gk_KernelProcess), &idleAttrs, nullptr, &_idle_tls_start);
+        new((void*)gk_IdleThreadBuffer) NoPtr<KThreadCB>(0, ptr_new_cast(gk_KernelProcess), &idleAttrs, /*kernelThread*/ true, nullptr, &_idle_tls_start);
 
         // Set the idle thread as the current thread, so that when the init thread is
         // scheduled the initial context is dumped on the idle thread's task. The init
@@ -178,7 +182,7 @@ static void* init_thread_entry(void* arguments)
     // to sleep, we must initialize it's stack properly before that happens.
 
     size_t mainThreadStackSize = size_t(arguments);
-    gk_IdleThread->InitializeStack(idle_thread_entry, /*privileged*/ true, /*skipEntryTrampoline*/ true, nullptr);
+    gk_IdleThread->InitializeStack(idle_thread_entry, /*skipEntryTrampoline*/ true, nullptr);
 
 
     kset_real_time(RealtimeClock::GetClock(), false);
@@ -188,13 +192,20 @@ static void* init_thread_entry(void* arguments)
     ksetup_rootfs_trw();
 
     kregister_filesystem_trw("binfs", ptr_new<KBinFilesystem>());
+    kregister_filesystem_trw("ptyfs", ptr_new<KPTYFilesystem>());
 
     kchdir_trw(KLocateFlag::None, "/");
 
     initialize_device_drivers();
 
-    gk_DebugConsole1.Setup();
-    gk_DebugConsole2.Setup();
+    mkdir("/dev/pty", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+    mount("", "/dev/pty", "ptyfs", 0, nullptr, 0);
+
+    g_SerialTerminal1.SetDeleteOnExit(false);
+    g_SerialTerminal2.SetDeleteOnExit(false);
+
+    g_SerialTerminal1.Setup();
+    g_SerialTerminal2.Setup();
 
     PThreadAttribs attrs("main", 0, PThreadDetachState_Detached, mainThreadStackSize);
     gk_MainThreadID = kthread_spawn_trw(&attrs, __app_definition.create_main_thread_tls_block(), { KSpawnThreadFlag::Privileged, KSpawnThreadFlag::SpawnProcess }, main_thread_entry, nullptr);
@@ -247,7 +258,6 @@ void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
     NVIC_SetPriority(SysTick_IRQn, KIRQ_PRI_KERNEL);
     NVIC_SetPriority(SVCall_IRQn, KIRQ_PRI_LOW_LATENCY_MAX);
 
-    gk_IdleThread->SetHandle(0);
     gk_IdleThread->m_State = ThreadState_Running;
 
     thread_id idleThreadID = INVALID_HANDLE;
@@ -259,13 +269,13 @@ void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
 
     thread_id initThreadHandle = INVALID_HANDLE;
 
-    gk_InitThread = new((void*)gk_InitThreadBuffer)KThreadCB(ptr_tmp_cast(gk_KernelProcess), &attrs, nullptr, &_idle_tls_start);
+    gk_ThreadTable.AllocHandle(initThreadHandle);
+
+    gk_InitThread = new((void*)gk_InitThreadBuffer)KThreadCB(initThreadHandle, ptr_tmp_cast(gk_KernelProcess), &attrs, /*kernelThread*/ true, nullptr, &_idle_tls_start);
     Ptr<KThreadCB> initThread = ptr_new_cast(gk_InitThread);
 
-    gk_InitThread->InitializeStack(init_thread_entry, /*privileged*/ true, /*skipEntryTrampoline*/ false, (void*)mainThreadStackSize);
+    gk_InitThread->InitializeStack(init_thread_entry, /*skipEntryTrampoline*/ false, (void*)mainThreadStackSize);
 
-    gk_ThreadTable.AllocHandle(initThreadHandle);
-    gk_InitThread->SetHandle(initThreadHandle);
     gk_ThreadTable.Set(initThreadHandle, initThread);
     add_thread_to_ready_list(gk_InitThread);
 

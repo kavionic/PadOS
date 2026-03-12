@@ -41,8 +41,8 @@ public:
 
     static ThreadSyncDebugTracker& GetInstance();
 
-    void AddThread(const KThreadCB* thread, const KNamedObject* waitObject);
-    void RemoveThread(const KThreadCB* thread);
+    void AddThread(const KThreadCB* thread, const KNamedObject* waitObject) noexcept;
+    void RemoveThread(const KThreadCB* thread) noexcept;
 
 private:
     static ThreadSyncDebugTracker s_Instance;

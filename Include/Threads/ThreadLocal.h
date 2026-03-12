@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <map>
+
 #include <sys/pados_syscalls.h>
 #include <PadOS/ThreadLocal.h>
 #include <Threads/Threads.h>

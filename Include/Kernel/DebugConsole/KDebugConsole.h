@@ -80,9 +80,10 @@ public:
 
     static void RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator) { s_Commands[name] = std::move(commandCreator); }
 
-    bool SetPrompt(const PString& text);
+    bool SetPrompt(const PString& text, size_t visibleLength);
 
-    void UpdatePrompt();
+    void UpdateCmdPrompt();
+    void UpdatePrompt(bool editMode);
 private:
     static size_t GetCommonStartLength(const std::vector<PString>& alternatives);
 
@@ -95,6 +96,7 @@ private:
     void ProcessCmdLine(PPOSIXTokenizer&& tokenizer);
     void ProcessControlChar(PANSI_ControlCode controlChar, const std::vector<int>& args);
 
+    void UpdateWindowSize();
 
     PANSIEscapeCodeParser m_ANSICodeParser;
 
@@ -106,6 +108,10 @@ private:
     PString m_CmdPrompt = "$ ";
     PString m_EditPrompt = "> ";
     PString m_Prompt = m_CmdPrompt;
+
+    size_t  m_CmdPromptVisibleLength = m_CmdPrompt.size();
+    size_t  m_EditPromptVisibleLength = m_EditPrompt.size();
+    size_t  m_PromptVisibleLength = m_Prompt.size();
 
     PIPoint m_TerminalSize = PIPoint(80, 24);
 

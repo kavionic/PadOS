@@ -356,31 +356,28 @@ void PLooper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msg
 void PLooper::RunTimers()
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
-    TimeValNanos curTime = get_monotonic_time();
+    const TimeValNanos curTime = get_monotonic_time();
 
     while (!m_TimerMap.empty())
     {
-        auto i = m_TimerMap.begin();
+        const auto i = m_TimerMap.begin();
 
-        TimeValNanos timeout = (*i).first;
+        const TimeValNanos timeout = (*i).first;
 
-        if ( timeout > curTime ) {
+        if (timeout > curTime)
+        {
             m_NextEventTime = timeout;
             return;
         }
 
-        PEventTimer* timer = (*i).second;
+        PEventTimer* const timer = (*i).second;
         
         m_TimerMap.erase(i);
 
-        if ( timer->m_IsSingleshot )
-        {
+        if (timer->m_IsSingleshot) {
             timer->m_Looper = nullptr;
-        }
-        else
-        {
-            timeout += timer->m_Timeout;
-            timer->m_TimerMapIterator = m_TimerMap.insert(std::make_pair(std::max(curTime + TimeValNanos::FromNanoseconds(1),timeout), timer));
+        } else {
+            timer->m_TimerMapIterator = m_TimerMap.insert(std::make_pair(std::max(curTime + TimeValNanos::FromNanoseconds(1), timeout + timer->m_Timeout), timer));
         }
         timer->SignalTrigged(timer);
     }

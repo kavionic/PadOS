@@ -53,8 +53,8 @@ extern volatile thread_id gk_DebugWakeupThread;
 
 Ptr<KThreadCB> get_thread(thread_id handle);
 
-KProcess*   kget_current_process();
-KThreadCB*  kget_current_thread();
+KProcess&   kget_current_process();
+KThreadCB&  kget_current_thread();
 
 void add_to_sleep_list(KThreadWaitNode* waitNode);
 void remove_from_sleep_list(KThreadWaitNode* waitNode);

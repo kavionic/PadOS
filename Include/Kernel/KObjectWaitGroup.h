@@ -25,6 +25,7 @@
 #include "Ptr/Ptr.h"
 #include <Kernel/KTime.h>
 #include <Kernel/KConditionVariable.h>
+#include <System/ExceptionHandling.h>
 
 namespace kernel
 {
@@ -50,20 +51,31 @@ public:
 
     void Clear_trw();
 
-    void Wait_trw(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { Wait_trw(nullptr, TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
-    void WaitTimeout_trw(TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { Wait_trw(nullptr, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
-    void WaitDeadline_trw(TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { Wait_trw(nullptr, deadline, readyFlagsBuffer, readyFlagsSize); }
+    void        Wait_trw(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { PERROR_ERRORCODE_THROW_ON_FAIL(Wait(nullptr, TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize)); }
+    PErrorCode  Wait(void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
 
-    void Wait_trw(KMutex& lock, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { Wait_trw(&lock, TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
-    void WaitTimeout_trw(KMutex& lock, TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { Wait_trw(&lock, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
-    void WaitDeadline_trw(KMutex& lock, TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { Wait_trw(&lock, deadline, readyFlagsBuffer, readyFlagsSize); }
+    void        WaitTimeout_trw(TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { PERROR_ERRORCODE_THROW_ON_FAIL(Wait(nullptr, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize)); }
+    PErrorCode  WaitTimeout(TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
+
+    void        WaitDeadline_trw(TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { PERROR_ERRORCODE_THROW_ON_FAIL(Wait(nullptr, deadline, readyFlagsBuffer, readyFlagsSize)); }
+    PErrorCode  WaitDeadline(TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(nullptr, deadline, readyFlagsBuffer, readyFlagsSize); }
+
+
+    void        Wait_trw(KMutex& lock, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { PERROR_ERRORCODE_THROW_ON_FAIL(Wait(&lock, TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize)); }
+    PErrorCode  Wait(KMutex& lock, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
+    
+    void        WaitTimeout_trw(KMutex& lock, TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { PERROR_ERRORCODE_THROW_ON_FAIL(Wait(&lock, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize)); }
+    PErrorCode  WaitTimeout(KMutex& lock, TimeValNanos timeout, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit, readyFlagsBuffer, readyFlagsSize); }
+
+    void        WaitDeadline_trw(KMutex& lock, TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { PERROR_ERRORCODE_THROW_ON_FAIL(Wait(&lock, deadline, readyFlagsBuffer, readyFlagsSize)); }
+    PErrorCode  WaitDeadline(KMutex& lock, TimeValNanos deadline, void* readyFlagsBuffer = nullptr, size_t readyFlagsSize = 0) { return Wait(&lock, deadline, readyFlagsBuffer, readyFlagsSize); }
 
 private:
     void AddObjectInternal_trw(KWaitableObject* object, ObjectWaitMode waitMode);
     void RemoveObjectInternal_trw(KWaitableObject* object, ObjectWaitMode waitMode);
     void ClearInternal_trw();
     void WaitForBlockedThread_trw(TimeValNanos deadline = TimeValNanos::infinit);
-    void Wait_trw(KMutex* lock, TimeValNanos deadline, void* readyFlagsBuffer, size_t readyFlagsSize);
+    PErrorCode Wait(KMutex* lock, TimeValNanos deadline, void* readyFlagsBuffer, size_t readyFlagsSize) noexcept;
 
     KMutex m_Mutex;
 

@@ -35,7 +35,6 @@
 #include <Ptr/Ptr.h>
 #include <Utils/String.h>
 #include <System/TimeValue.h>
-#include <Kernel/HAL/DigitalPort.h>
 
 
 #define DCACHE_LINE_SIZE __SCB_DCACHE_LINE_SIZE
@@ -76,13 +75,6 @@ void panic(PFormatString<ARGS...>&& fmt, ARGS&&... args)
 
 bool is_in_isr();
 bool kis_debugger_attached();
-
-PErrorCode kdigital_pin_set_direction(DigitalPinID pinID, DigitalPinDirection_e dir);
-PErrorCode kdigital_pin_set_drive_strength(DigitalPinID pinID, DigitalPinDriveStrength_e strength);
-PErrorCode kdigital_pin_set_pull_mode(DigitalPinID pinID, PinPullMode_e mode);
-PErrorCode kdigital_pin_set_peripheral_mux(DigitalPinID pinID, DigitalPinPeripheralID peripheral);
-PErrorCode kdigital_pin_read(DigitalPinID pinID, bool& outValue);
-PErrorCode kdigital_pin_write(DigitalPinID pinID, bool value);
 
 void     kwrite_backup_register_trw(size_t registerID, uint32_t value);
 uint32_t kread_backup_register_trw(size_t registerID);

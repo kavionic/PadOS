@@ -49,7 +49,7 @@ ThreadSyncDebugTracker& ThreadSyncDebugTracker::GetInstance()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ThreadSyncDebugTracker::AddThread(const KThreadCB* thread, const KNamedObject* waitObject)
+void ThreadSyncDebugTracker::AddThread(const KThreadCB* thread, const KNamedObject* waitObject) noexcept
 {
     if (m_ThreadCount < MAX_TRACKED_THREADS)
     {
@@ -74,7 +74,7 @@ void ThreadSyncDebugTracker::AddThread(const KThreadCB* thread, const KNamedObje
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ThreadSyncDebugTracker::RemoveThread(const KThreadCB* thread)
+void ThreadSyncDebugTracker::RemoveThread(const KThreadCB* thread) noexcept
 {
     for (size_t i = 0; i < m_ThreadCount; ++i)
     {

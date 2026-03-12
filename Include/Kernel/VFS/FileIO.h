@@ -65,6 +65,8 @@ Ptr<KRootFilesystem>    kget_rootfs() noexcept;
 void                    kregister_filesystem_trw(const char* name, Ptr<KFilesystem> filesystem);
 Ptr<KFilesystem>        kfind_filesystem_trw(const char* name);
 
+KIOContext& kget_io_context(KLocateFlags locateFlags);
+
 void                    kmount_trw(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength);
 
 Ptr<KFileTableNode> kget_file_table_node_trw(int handle);

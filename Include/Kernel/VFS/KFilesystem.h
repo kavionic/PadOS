@@ -78,10 +78,10 @@ typedef struct
 class KFilesystemFileOps
 {
 public:
-    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> node, int openFlags);
+    virtual Ptr<KFileNode> OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int openFlags);
     virtual void           CloseFile(Ptr<KFSVolume> volume, KFileNode* file);
 
-    virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node);
+    virtual Ptr<KDirectoryNode> OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> inode);
     virtual void                CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory);
 
 protected:
@@ -97,7 +97,7 @@ public:
     virtual size_t  ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize);
     virtual void    RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode);
 
-    virtual void    CheckAccess(Ptr<KFSVolume> volume, Ptr<KInode> node, int mode);
+    virtual void    CheckAccess(Ptr<KFSVolume> volume, Ptr<KInode> inode, int mode);
 
     virtual void    ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) = 0;
     virtual void    WriteStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, const struct stat* value, uint32_t mask);

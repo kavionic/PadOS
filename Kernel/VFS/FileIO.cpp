@@ -117,9 +117,9 @@ Ptr<KFilesystem> kfind_filesystem_trw(const char* name)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KIOContext* kget_io_context(KLocateFlags locateFlags)
+KIOContext& kget_io_context(KLocateFlags locateFlags)
 {
-    return (locateFlags.Has(KLocateFlag::KernelCtx)) ? gk_KernelProcess->GetIOContext() : kget_current_process()->GetIOContext();
+    return (locateFlags.Has(KLocateFlag::KernelCtx)) ? gk_KernelProcess->GetIOContext() : kget_current_process().GetIOContext();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,8 +144,8 @@ void kmount_trw(const char* devicePath, const char* directoryPath, const char* f
 
 Ptr<KFileTableNode> kget_file_table_node_trw(int handle)
 {
-    const KIOContext* const ioContext = kget_io_context((handle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
-    return ioContext->GetFileNode(handle & FD_INDEX_MASK);
+    const KIOContext& ioContext = kget_io_context((handle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
+    return ioContext.GetFileNode(handle & FD_INDEX_MASK);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -295,9 +295,9 @@ int kreopen_file_trw(int oldHandle, int openFlags)
 
 int kdupe_trw(int oldHandle, int newHandle)
 {
-    KIOContext* const ioContext = kget_io_context((oldHandle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
+    KIOContext& ioContext = kget_io_context((oldHandle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
 
-    return ioContext->DupeFileHandle(oldHandle & FD_INDEX_MASK, newHandle & FD_INDEX_MASK) | (oldHandle & FD_KERNEL_FLAG);
+    return ioContext.DupeFileHandle(oldHandle & FD_INDEX_MASK, newHandle & FD_INDEX_MASK) | (oldHandle & FD_KERNEL_FLAG);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1203,7 +1203,7 @@ Ptr<KInode> klocate_inode_by_path_trw(KLocateFlags locateFlags, Ptr<KInode> pare
 
 Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> parent, const char* path, int pathLength, const char** outName, size_t* outNameLength)
 {
-    const KIOContext* const ioContext = kget_io_context(locateFlags);
+    const KIOContext& ioContext = kget_io_context(locateFlags);
     Ptr<KInode> current = parent;
 
     int i = 0;
@@ -1214,7 +1214,7 @@ Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> paren
     }
     else if (current == nullptr)
     {
-        current = ioContext->GetCurrentDirectory();
+        current = ioContext.GetCurrentDirectory();
     }
     if (current == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NoEntry);
@@ -1321,9 +1321,9 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
 
 int kallocate_filehandle_trw(KLocateFlags locateFlags)
 {
-    KIOContext* const ioContext = kget_io_context(locateFlags);
+    KIOContext& ioContext = kget_io_context(locateFlags);
 
-    int handle = ioContext->AllocFileHandle();
+    int handle = ioContext.AllocFileHandle();
 
     if (locateFlags.Has(KLocateFlag::KernelCtx)) {
         handle |= FD_KERNEL_FLAG;
@@ -1338,8 +1338,8 @@ int kallocate_filehandle_trw(KLocateFlags locateFlags)
 
 void kfree_filehandle(int handle) noexcept
 {
-    KIOContext* const ioContext = kget_io_context((handle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
-    ioContext->FreeFileHandle(handle & FD_INDEX_MASK);
+    KIOContext& ioContext = kget_io_context((handle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
+    ioContext.FreeFileHandle(handle & FD_INDEX_MASK);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1374,9 +1374,9 @@ int kopen_from_inode_trw(Ptr<KInode> inode, int openFlags)
 
 void kset_filehandle(int handle, Ptr<KFileTableNode> file) noexcept
 {
-    KIOContext* const ioContext = kget_io_context((handle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
+    KIOContext& ioContext = kget_io_context((handle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
 
-    ioContext->SetFileNode(handle & FD_INDEX_MASK, file);
+    ioContext.SetFileNode(handle & FD_INDEX_MASK, file);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1385,7 +1385,7 @@ void kset_filehandle(int handle, Ptr<KFileTableNode> file) noexcept
 
 void kfchdir_trw(KLocateFlags locateFlags, int handle)
 {
-    KIOContext* const ioContext = kget_io_context(locateFlags);
+    KIOContext& ioContext = kget_io_context(locateFlags);
 
     const Ptr<KFileTableNode> dirNode = kget_file_table_node_trw(handle);
     if (!dirNode->IsDirectory()) {
@@ -1400,7 +1400,7 @@ void kfchdir_trw(KLocateFlags locateFlags, int handle)
         PERROR_THROW_CODE(PErrorCode::NotDirectory);
     }
 
-    ioContext->SetCurrentDirectory(inode);
+    ioContext.SetCurrentDirectory(inode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1425,9 +1425,9 @@ void kchdir_trw(KLocateFlags locateFlags, const char* path)
 
 void kgetcwd_trw(KLocateFlags locateFlags, char* pathBuffer, size_t bufferSize)
 {
-    const KIOContext* const ioContext = kget_io_context(locateFlags);
+    const KIOContext& ioContext = kget_io_context(locateFlags);
 
-    const Ptr<KInode> inode = ioContext->GetCurrentDirectory();
+    const Ptr<KInode> inode = ioContext.GetCurrentDirectory();
 
     if (inode == nullptr) {
         PERROR_THROW_CODE(PErrorCode::NoEntry);

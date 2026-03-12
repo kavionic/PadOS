@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,34 +15,20 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 23.02.2018 01:49:14
+// Created: 28.02.2026 23:00
 
 #pragma once
-
-#include <map>
-
-#include <Kernel/VFS/KInode.h>
-#include <Kernel/VFS/KFilesystem.h>
-#include <Utils/String.h>
-#include <Kernel/KMutex.h>
-#include <Kernel/FSDrivers/VirtualFSBase.h>
-#include <Kernel/VFS/KFileHandle.h>
 
 namespace kernel
 {
 
-class KRootFilesystem : public KVirtualFilesystemBase
+
+enum class KCapability : int32_t
 {
-public:
-    virtual Ptr<KFSVolume>      Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength) override;
-
-    int  RegisterDevice(const char* path, Ptr<KInode> deviceNode);
-    void RenameDevice(int handle, const char* newPath);
-    void RemoveDevice(int handle);
-
-private:
-    Ptr<KVirtualFSVolume>       m_Volume;
-    Ptr<KVirtualFSBaseInode>    m_DevRoot;
+    CAP_KILL = 0
 };
+
+bool kcheck_capability(KCapability capability);
+
 
 } // namespace kernel

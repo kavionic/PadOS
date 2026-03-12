@@ -21,6 +21,8 @@
 #include <cctype>
 #include <stdexcept>
 
+#include <termios.h>
+
 #include <PadOS/Time.h>
 #include <Process/Process.h>
 #include <Utils/POSIXTokenizer.h>
@@ -69,7 +71,10 @@ void KDebugConsole::Setup()
 
 void* KDebugConsole::Run()
 {
-    SendText(m_Prompt);
+    UpdateCmdPrompt();
+    
+    m_Prompt = m_CmdPrompt;
+    m_PromptVisibleLength = m_CmdPromptVisibleLength;
 
     TimeValNanos nextSizeQueryTime;
 
@@ -100,6 +105,9 @@ void* KDebugConsole::Run()
                     if (stream > 2) {
                         kclose(stream);
                     }
+                    UpdateWindowSize();
+
+                    SendText(m_Prompt);
                 }
                 catch (std::exception& exc)
                 {
@@ -108,13 +116,11 @@ void* KDebugConsole::Run()
                 }
             }
             size_t length;
-            try
+            const PErrorCode result = kread(m_StdInFD, buffer, sizeof(buffer), length);
+
+            if (result != PErrorCode::Success)
             {
-                length = kread_trw(m_StdInFD, buffer, sizeof(buffer));
-            }
-            catch(std::exception& exc)
-            {
-                if (!m_PortPath.empty())
+                if (result != PErrorCode::Interrupted && !m_PortPath.empty())
                 {
                     kclose(m_StdInFD);
                     kclose(m_StdOutFD);
@@ -123,12 +129,13 @@ void* KDebugConsole::Run()
                 }
                 continue;
             }
+
             const TimeValNanos curTime = get_monotonic_time();
 
             if (curTime >= nextSizeQueryTime)
             {
-                nextSizeQueryTime = curTime + TimeValNanos::FromMilliseconds(250);
-                SendANSICode(PANSI_ControlCode::XTerm_XTWINOPS, 18);
+                nextSizeQueryTime = curTime + TimeValNanos::FromMilliseconds(100);
+                UpdateWindowSize();
             }
 
             size_t start = 0;
@@ -222,8 +229,9 @@ void KDebugConsole::EnterPressed()
             m_EditBuffer.clear();
             m_CursorPosition = 0;
 
-            m_Prompt = m_CmdPrompt;
             ProcessCmdLine(std::move(tokenizer));
+            UpdateCmdPrompt();
+            UpdatePrompt(false);
         }
         else
         {
@@ -232,10 +240,13 @@ void KDebugConsole::EnterPressed()
             m_EditBuffer.clear();
             m_CursorPosition = 0;
 
-            m_Prompt = m_EditPrompt;
+            UpdatePrompt(true);
         }
     }
-    UpdatePrompt();
+    else
+    {
+        UpdatePrompt(false);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -262,12 +273,11 @@ void KDebugConsole::ShowTerminalCursor(bool show)
 
 PIPoint KDebugConsole::GetScreenPosition(size_t cursorPosition) const
 {
-    const size_t promptLength = m_Prompt.size();
-    PIPoint      position(promptLength, 0);
+    PIPoint position(m_PromptVisibleLength, 0);
 
     for (size_t i = 0; i < cursorPosition; ++i)
     {
-        if (m_EditBuffer[i] == '\n' || ((promptLength + i) % m_TerminalSize.x) == 0)
+        if (m_EditBuffer[i] == '\n' || ((m_PromptVisibleLength + i) % m_TerminalSize.x) == 0)
         {
             position.x = 0;
             position.y++;
@@ -430,6 +440,7 @@ void KDebugConsole::ResetInput()
     m_HistoryLocation = m_HistoryBuffers.size();
     
     m_Prompt = m_CmdPrompt;
+    m_PromptVisibleLength = m_CmdPromptVisibleLength;
 
     SendNewline();
     SendText(m_Prompt);
@@ -440,14 +451,15 @@ void KDebugConsole::ResetInput()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KDebugConsole::SetPrompt(const PString& text)
+bool KDebugConsole::SetPrompt(const PString& text, size_t visibleLength)
 {
-    if (text != m_Prompt)
+    if (text != m_Prompt || visibleLength != m_PromptVisibleLength)
     {
         const size_t prevCursorPos = m_CursorPosition;
         MoveCursor(-m_CursorPosition);
 
         m_Prompt = text;
+        m_PromptVisibleLength = visibleLength;
         m_CursorPosition = prevCursorPos;
 
         SendNewline();
@@ -462,7 +474,7 @@ bool KDebugConsole::SetPrompt(const PString& text)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KDebugConsole::UpdatePrompt()
+void KDebugConsole::UpdateCmdPrompt()
 {
     char cwd[PATH_MAX];
 
@@ -484,7 +496,20 @@ void KDebugConsole::UpdatePrompt()
     if (!pathOK) {
         pathOK = getcwd(cwd, sizeof(cwd)) != nullptr;
     }
-    if (!pathOK || !SetPrompt(PString::format_string("[{}{}{}]$ ", setColor, cwd, resetColor))) {
+    if (pathOK)
+    {
+        m_CmdPrompt = PString::format_string("[{}{}{}]$ ", setColor, cwd, resetColor);
+        m_CmdPromptVisibleLength = m_CmdPrompt.size() - setColor.size() - resetColor.size();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::UpdatePrompt(bool editMode)
+{
+    if (!SetPrompt(editMode ? m_EditPrompt : m_CmdPrompt, editMode ? m_EditPromptVisibleLength : m_CmdPromptVisibleLength)) {
         SendText(m_Prompt);
     }
 }
@@ -887,15 +912,26 @@ void KDebugConsole::ProcessControlChar(PANSI_ControlCode controlChar, const std:
                 }
             }
             break;
-        case PANSI_ControlCode::XTerm_XTWINOPS:
-            if (args.size() >= 3 && args[0] == 8) {
-                m_TerminalSize = PIPoint(args[2], args[1]);
-            }
-            break;
         default:
             break;
     }
 }
 
+
+void KDebugConsole::UpdateWindowSize()
+{
+    try
+    {
+        struct winsize winSize = {};
+
+        kdevice_control_trw(m_StdOutFD, TIOCGWINSZ, nullptr, 0, &winSize, sizeof(winSize));
+
+        m_TerminalSize.x = winSize.ws_col;
+        m_TerminalSize.y = winSize.ws_row;
+    }
+    catch(std::exception& exc)
+    {
+    }
+}
 
 } // namespace kernel

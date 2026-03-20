@@ -12,10 +12,13 @@ target_sources(PadOS_Kernel PRIVATE
 	KMutex.h
 	KNamedObject.h
 	KObjectWaitGroup.h
+	KPIDNode.h
 	KPosixSignals.h
 	KPowerManager.h
 	KProcess.h
+	KProcessGroup.h
 	KProcessGroups.h
+	KProcessSession.h
 	KSchedulerLock.h
 	KSemaphore.h
 	KThread.h

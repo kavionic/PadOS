@@ -19,6 +19,8 @@
 
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcessGroups.h>
+#include <Kernel/KProcess.h>
+#include <Kernel/VFS/KINode.h>
 
 namespace kernel
 {
@@ -32,32 +34,10 @@ int ksetsid_trw()
 {
     KProcess& thisProc = kget_current_process();
 
-    if (thisProc.IsGroupLeader()) {
-        PERROR_THROW_CODE(PErrorCode::NoPermission);
-    }
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
 
-    const pid_t pgroup = thisProc.GetPID();
-
-    Ptr<KInode> controllingTTY;
-    {
-        KProcessLock processLock;
-
-        // Make sure the process group we are about to make don't already exist.
-        for (auto it : KProcess::GetProcessMap())
-        {
-            const KProcess* const process = it.second;
-
-            if (process->GetPGroupID() == pgroup) {
-                PERROR_THROW_CODE(PErrorCode::NoPermission);
-            }
-        }
-
-        thisProc.SetSession(pgroup);
-        thisProc.SetPGroupID(pgroup);
-        controllingTTY = thisProc.GetIOContext().GetControllingTTY();
-        thisProc.GetIOContext().SetControllingTTY(nullptr);
-    }
-    return pgroup;
+    return thisProc.CreateSession();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -75,7 +55,10 @@ void ksetpgid_trw(pid_t inDest, pid_t inGroup)
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
-    Ptr<KProcess> dstProcess = KProcess::GetProcess(dstPID);
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    Ptr<KProcess> dstProcess = KProcess::GetProcess_pl(dstPID);
 
     if (dstProcess == nullptr)
     {
@@ -83,7 +66,7 @@ void ksetpgid_trw(pid_t inDest, pid_t inGroup)
         PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
     }
 
-    if (dstProcess->GetParentPID() == thisProcess.GetPID())
+    if (dstProcess->GetParent_pl() == &thisProcess)
     {
         if (dstProcess->HasExeced()) {
             PERROR_THROW_CODE(PErrorCode::NoAccess);
@@ -104,29 +87,7 @@ void ksetpgid_trw(pid_t inDest, pid_t inGroup)
     if (dstProcess->IsGroupLeader()) {
         PERROR_THROW_CODE(PErrorCode::NoPermission);
     }
-    if (pgroup != dstPID)
-    {
-        bool	groupOK = false;
-
-        KProcessLock processLock;
-
-        // Make sure the process group we are about to make don't already exist.
-        for (auto it : KProcess::GetProcessMap())
-        {
-            const KProcess* const process = it.second;
-
-            if (process->GetPGroupID() == pgroup && process->GetSession() == thisProcess.GetSession())
-            {
-                groupOK = true;
-                break;
-            }
-        }
-
-        if (!groupOK) {
-            PERROR_THROW_CODE(PErrorCode::NoPermission);
-        }
-    }
-    dstProcess->SetPGroupID(pgroup);
+    dstProcess->SetPGroupID(ptr_tmp_cast(&thisProcess), pgroup);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -135,6 +96,9 @@ void ksetpgid_trw(pid_t inDest, pid_t inGroup)
 
 pid_t kgetpgrp()
 {
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
     return kget_current_process().GetPGroupID();
 }
 

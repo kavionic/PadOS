@@ -25,6 +25,7 @@
 #include <Kernel/KHandleArray.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KThread.h>
+#include <Kernel/KPIDNode.h>
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/VFS/KFSVolume.h>
@@ -43,12 +44,6 @@ extern uint8_t _idle_tls_end;
 
 namespace kernel
 {
-
-alignas(KHandleArray<KThreadCB>) std::byte              gk_ThreadTableBuffer[sizeof(KHandleArray<KThreadCB>)];
-
-static uint8_t gk_InitialBlocksBuffer[2][sizeof(KHandleArrayBlock)] __attribute__((aligned(8)));
-static Ptr<KHandleArrayBlock> gk_InitialBlocks[2] __attribute__((aligned(8)));
-
 
 static uint8_t gk_FirstProcessBuffer[sizeof(KProcess)] __attribute__((aligned(8)));
 static KProcess& gk_FirstProcess = *reinterpret_cast<KProcess*>(gk_FirstProcessBuffer);
@@ -78,8 +73,15 @@ void initialize_scheduler_statics()
 
         gk_KernelProcess = &gk_FirstProcess;
 
-        new((void*)gk_FirstProcessBuffer) KProcess("kernel");
-        new((void*)gk_ThreadTableBuffer) KHandleArray<KThreadCB>();
+        g_PIDMapMutexOpt.emplace("pidmap", PEMutexRecursionMode_RaiseError);
+        g_PIDMapOpt.emplace();
+
+        KScopedLock lock(g_PIDMapMutex);
+
+        g_PIDMap[KTHREAD_ID_IDLE] = ptr_new<KPIDNode>(KTHREAD_ID_IDLE);
+        g_PIDMap[KTHREAD_ID_INIT] = ptr_new<KPIDNode>(KTHREAD_ID_INIT);
+
+        new((void*)gk_FirstProcessBuffer) KProcess(*g_PIDMap[KTHREAD_ID_INIT], "kernel");
         new((void*)gk_IdleThreadBuffer) NoPtr<KThreadCB>(0, ptr_new_cast(gk_KernelProcess), &idleAttrs, /*kernelThread*/ true, nullptr, &_idle_tls_start);
 
         // Set the idle thread as the current thread, so that when the init thread is
@@ -91,12 +93,6 @@ void initialize_scheduler_statics()
         gk_CurrentThread = gk_IdleThread;
 
         __kernel_thread_data = gk_CurrentThread->m_KernelTLS;
-
-        for (size_t i = 0; i < ARRAY_COUNT(gk_InitialBlocksBuffer); ++i)
-        {
-            gk_InitialBlocks[i] = ptr_new_cast(new ((void*)&gk_InitialBlocksBuffer[i]) KHandleArrayBlock());
-            gk_ThreadTable.CacheBlock(gk_InitialBlocks[i]);
-        }
     }
     catch (std::exception& exc)
     {
@@ -143,7 +139,10 @@ static void* idle_thread_entry(void* arguments)
         //        __WFI();
         if (gk_DebugWakeupThread != 0)
         {
-            wakeup_thread(gk_DebugWakeupThread, true);
+            Ptr<KThreadCB> thread = kget_thread(gk_DebugWakeupThread);
+            if (thread != nullptr) {
+                wakeup_thread(*thread, true);
+            }
         }
     }
 }
@@ -222,19 +221,27 @@ static void* init_thread_entry(void* arguments)
                 threadsToDelete.Append(zombie);
             }
         }
+
         for (KThreadCB* zombie = threadsToDelete.m_First; zombie != nullptr; zombie = threadsToDelete.m_First)
         {
             threadsToDelete.Remove(zombie);
             zombie->m_State = ThreadState_Deleted;
             try
             {
-                gk_ThreadTable.FreeHandle_trw(zombie->GetHandle());
+                pid_t pid = zombie->GetHandle();
+                const Ptr<KPIDNode> pidNode = kget_pid_node(pid);
+                if (kensure(pidNode != nullptr))
+                {
+                    pidNode->Thread = nullptr;
+                    kerase_pid_node_if_empty(pid);
+                }
             }
-            catch(const std::exception& exc)
+            catch (const std::exception& exc)
             {
                 kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_Scheduler, "{}: failed to free zombie thread handle: {}", __PRETTY_FUNCTION__, exc.what());
             }
         }
+
         {
             KSchedulerLock slock;
 
@@ -257,26 +264,25 @@ void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
     NVIC_SetPriority(PendSV_IRQn, KIRQ_PRI_KERNEL);
     NVIC_SetPriority(SysTick_IRQn, KIRQ_PRI_KERNEL);
     NVIC_SetPriority(SVCall_IRQn, KIRQ_PRI_LOW_LATENCY_MAX);
+    
+    {
+        KScopedLock lock(g_PIDMapMutex);
 
-    gk_IdleThread->m_State = ThreadState_Running;
+        gk_IdleThread->m_State = ThreadState_Running;
 
-    thread_id idleThreadID = INVALID_HANDLE;
-    gk_ThreadTable.AllocHandle(idleThreadID);
-    gk_ThreadTable.Set(idleThreadID, gk_IdleThreadInstance);
 
-    PThreadAttribs attrs("init", 0, PThreadDetachState_Detached, sizeof(gk_InitThreadStack));
-    attrs.StackAddress = gk_InitThreadStack;
+        g_PIDMap[KTHREAD_ID_IDLE]->Thread = gk_IdleThreadInstance;
 
-    thread_id initThreadHandle = INVALID_HANDLE;
+        PThreadAttribs attrs("init", 0, PThreadDetachState_Detached, sizeof(gk_InitThreadStack));
+        attrs.StackAddress = gk_InitThreadStack;
 
-    gk_ThreadTable.AllocHandle(initThreadHandle);
+        gk_InitThread = new((void*)gk_InitThreadBuffer)KThreadCB(KTHREAD_ID_INIT, ptr_tmp_cast(gk_KernelProcess), &attrs, /*kernelThread*/ true, nullptr, &_idle_tls_start);
+        Ptr<KThreadCB> initThread = ptr_new_cast(gk_InitThread);
 
-    gk_InitThread = new((void*)gk_InitThreadBuffer)KThreadCB(initThreadHandle, ptr_tmp_cast(gk_KernelProcess), &attrs, /*kernelThread*/ true, nullptr, &_idle_tls_start);
-    Ptr<KThreadCB> initThread = ptr_new_cast(gk_InitThread);
+        gk_InitThread->InitializeStack(init_thread_entry, /*skipEntryTrampoline*/ false, (void*)mainThreadStackSize);
 
-    gk_InitThread->InitializeStack(init_thread_entry, /*skipEntryTrampoline*/ false, (void*)mainThreadStackSize);
-
-    gk_ThreadTable.Set(initThreadHandle, initThread);
+        g_PIDMap[KTHREAD_ID_INIT]->Thread = initThread;
+    }
     add_thread_to_ready_list(gk_InitThread);
 
 #if defined(STM32H7)

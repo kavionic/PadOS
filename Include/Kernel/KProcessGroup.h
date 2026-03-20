@@ -15,11 +15,41 @@
 // You should have received a copy of the GNU General Public License
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
-// Created: 09.01.2026 23:00
+// Created: 15.03.2026 20:00
 
 #pragma once
 
+#include <sys/types.h>
+#include <Ptr/PtrTarget.h>
+
 namespace kernel
 {
+
+class KProcess;
+class KProcessSession;
+
+class KProcessGroup : public PtrTarget
+{
+public:
+    KProcessGroup(pid_t id, Ptr<KProcessSession> session);
+
+    pid_t GetID() const noexcept { return m_GroupID; }
+
+    bool IsOrphaned() const noexcept;
+
+    Ptr<KProcessSession> GetSession() const noexcept;
+
+    void ReserveSpace();
+    void AddProcess(KProcess* process);
+    void RemoveProcess(KProcess* process);
+
+    const std::vector<KProcess*>& GetProcessList() const noexcept;
+
+private:
+    pid_t                   m_GroupID = -1;
+    Ptr<KProcessSession>    m_Session;
+    std::vector<KProcess*>  m_Processes;
+};
+
 
 } // namespace kernel

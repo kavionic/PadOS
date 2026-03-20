@@ -109,29 +109,37 @@ public:
 } // namespace
 
 
-inline void kassert_function(const char* file, int line, const char* func, const char* expression)
+inline void kassert_function(const char* file, int line, const char* func, const char* expression, bool doPanic)
 {
     PString message;
     message.format("KASSERT {} / {}:{}: {}", func, file, line, expression);
     kernel::kprintf("%s\n", message.c_str());
-    kernel::panic(message.c_str());
+    if (doPanic) {
+        kernel::panic(message.c_str());
+    }
 }
 
 template<typename... ARGS>
-void kassert_function(const char* file, int line, const char* func, const char* expression, PFormatString<ARGS...> fmt, ARGS&&... args)
+void kassert_function(const char* file, int line, const char* func, const char* expression, bool doPanic, PFormatString<ARGS...> fmt, ARGS&&... args)
 {
     PString message;
     message.format("KASSERT {} / {}:{}: {} -> ", func, file, line, expression);
     message += PString::format_string(fmt, std::forward<ARGS>(args)...);
     kernel::kprintf("%s\n", message.c_str());
-    kernel::panic(message.c_str());
+    if (doPanic) {
+        kernel::panic(message.c_str());
+    }
 }
 
-#define kassert(expression) if (!(expression)) kassert_function(__FILE__, __LINE__, __func__, #expression)
-#define kassert2(expression, ...) if (!(expression)) kassert_function(__FILE__, __LINE__, __func__, #expression __VA_ARGS__)
+#define kassert(expression) if (!(expression)) kassert_function(__FILE__, __LINE__, __func__, #expression, true)
+#define kassert2(expression, ...) if (!(expression)) kassert_function(__FILE__, __LINE__, __func__, #expression, true __VA_ARGS__)
 
 template<typename ...ARGS>
 void kassure(bool expression, const char* fmt, ARGS&&... args)
 {
     if (!expression) kernel::kprintf(fmt, args...);
 }
+
+#define kensure(expression, ...) \
+    ((expression) ? true : \
+        (kassert_function(__FILE__, __LINE__, __func__, #expression, false __VA_OPT__(,) __VA_ARGS__), false))

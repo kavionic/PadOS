@@ -93,6 +93,5 @@ PErrorCode  ksnooze_until_ns(bigtime_t resumeTimeNanos);
 PErrorCode  ksnooze_until(TimeValNanos resumeTime);
 
 PErrorCode  kyield();
-PErrorCode  kthread_kill(pid_t pid, int sig);
 
 } // namespace

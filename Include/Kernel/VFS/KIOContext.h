@@ -43,9 +43,6 @@ public:
     void        SetCurrentDirectory(Ptr<KInode> inode) noexcept;
     Ptr<KInode> GetCurrentDirectory() const noexcept;
 
-    void        SetControllingTTY(Ptr<KInode> inode) noexcept;
-    Ptr<KInode> GetControllingTTY() const noexcept;
-
     int                 AllocFileHandle();
     void                FreeFileHandle(int handle) noexcept;
     Ptr<KFileTableNode> GetFileNode(int handle) const;
@@ -60,7 +57,7 @@ private:
     static Ptr<KFileTableNode> s_PlaceholderFile;
     mutable KMutex m_Mutex;
     Ptr<KInode> m_CurrentDirectory;
-    Ptr<KInode> m_ControllingTTY;
+
 //    std::map<int, Ptr<KNodeMonitorNode>> m_NodeMonitorMap;
     
     std::vector<Ptr<KFileTableNode>>     m_FileTable;

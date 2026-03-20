@@ -19,10 +19,13 @@ target_sources(PadOS_Kernel PRIVATE
 	KMutex.cpp
 	KNamedObject.cpp
 	KObjectWaitGroup.cpp
+	KPIDNode.cpp
 	KPosixSignals.cpp
 	KPowerManager.cpp
 	KProcess.cpp
+	KProcessGroup.cpp
 	KProcessGroups.cpp
+	KProcessSession.cpp
 	KSemaphore.cpp
 	KThread.cpp
 	KThreadCB.cpp

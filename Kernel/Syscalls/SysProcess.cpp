@@ -46,9 +46,7 @@ void* process_entry(void* arguments)
     if (argv != nullptr) {
         for (; argv[argc] != nullptr; ++argc);
     }
-    app->MainEntry(argc, argv);
-
-    return nullptr;
+    return reinterpret_cast<void*>(app->MainEntry(argc, argv));
 }
 
 extern "C"

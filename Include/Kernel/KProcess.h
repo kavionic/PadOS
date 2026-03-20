@@ -33,37 +33,48 @@
 
 namespace kernel
 {
+
+class KProcessGroup;
+class KProcessSession;
+
+struct KPIDNode;
+
 extern KProcess* gk_KernelProcess;
 
 class KProcess : public PtrTarget
 {
 public:
-    KProcess(const char* name);
-    KProcess(const KProcess& parentProcess, const char* name);
+    KProcess(KPIDNode& pidNode, const char* name);
+    KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const char* name);
     ~KProcess();
-
-    static KMutex& GetProcessMutex() { return s_ProcessMutex; }
-    static const std::map<pid_t, KProcess*>& GetProcessMap() { kassert(s_ProcessMutex.IsLocked()); return s_ProcessMap; }
 
     void AddThread(KThreadCB* thread);
     void RemoveThread(KThreadCB* thread) noexcept;
 
-    const std::vector<KThreadCB*>& GetThreadListRef() const { kassert(s_ProcessMutex.IsLocked()); return m_Threads; }
-    std::vector<Ptr<KThreadCB>> GetThreads() const;
+    const std::vector<KThreadCB*>& GetThreads() const;
 
-    const char* GetName() const { return m_Name; }
-    pid_t       GetPID() const noexcept { return m_PID; }
-    pid_t       GetParentPID() const noexcept { return m_ParentPID; }
-    void        SetPGroupID(pid_t pgroup) noexcept { m_PGroupID = pgroup; }
-    pid_t       GetPGroupID() const noexcept { return m_PGroupID; }
+    const char*         GetName() const { return m_Name; }
+    pid_t               GetPID() const noexcept { return m_PID; }
+
+    void                SetPGroupID(Ptr<const KProcess> instigator, pid_t pgroup);
+    pid_t               GetPGroupID() const noexcept;
+    void                SetGroup(Ptr<KProcessGroup> group) noexcept;
+    Ptr<KProcessGroup>  GetGroup() const noexcept;
 
     const KIOContext&   GetIOContext() const noexcept { return m_IOContext; }
     KIOContext&         GetIOContext() noexcept { return m_IOContext; }
 
-    int     GetSession() const noexcept { return m_Session; }
-    void    SetSession(int session) noexcept { m_Session = m_PGroupID = session; }
-    bool    IsGroupLeader() const noexcept { return m_PGroupID == m_PID; }
+    Ptr<KProcess> GetParent_pl() const noexcept { return m_Parent; }
+
+    int                     GetSessionID() const noexcept;
+    Ptr<KProcessSession>    GetSession() const noexcept;
+    pid_t    CreateSession();
+
+    bool    IsGroupLeader() const noexcept;
     bool    HasExeced() const noexcept { return false; }
+
+    void                SetSignalHandler(int sigNum, const sigaction_t& action) noexcept { kassert(sigNum >= 0 && sigNum < KTOTAL_SIG_COUNT); m_SignalHandlers[sigNum] = action; }
+    const sigaction_t&  GetSignalHandler(int sigNum) const noexcept { kassert(sigNum >= 0 && sigNum < KTOTAL_SIG_COUNT); return m_SignalHandlers[sigNum]; }
 
     uid_t   GetRUID() const noexcept { return m_RUID; }
     uid_t   GetEUID() const noexcept { return m_EUID; }
@@ -77,48 +88,18 @@ public:
     bool CheckUIDMatch(const KProcess& target) const noexcept;
 
     static Ptr<KProcess> GetProcess(pid_t pid) noexcept;
+    static Ptr<KProcess> GetProcess_pl(pid_t pid) noexcept;
 
-    template<typename Tcallback>
-    static void ForEachProcess(Tcallback&& callback)
-    {
-        CRITICAL_SCOPE(s_ProcessMutex);
-
-        pid_t currentPID = 0;
-
-        for (auto it = s_ProcessMap.begin();
-            it != s_ProcessMap.end();
-            it = s_ProcessMap.upper_bound(currentPID))
-        {
-            currentPID = it->first;
-            Ptr<KProcess> process = ptr_tmp_cast(it->second);
-
-            s_ProcessMutex.Unlock();
-            const PScopeExit scopeRelock([]() { s_ProcessMutex.Lock(); });
-
-            if constexpr (std::is_void_v<std::invoke_result_t<Tcallback, KProcess&>>)
-            {
-                std::invoke(callback, *process);
-            }
-            else
-            {
-                if (!std::invoke(callback, *process)) {
-                    break;
-                }
-            }
-        }
-    }
 private:
-    void SetPID(pid_t pid);
+    mutable KMutex m_Mutex;
 
-    static KMutex s_ProcessMutex;
-    static std::map<pid_t, KProcess*> s_ProcessMap;
     char       m_Name[OS_NAME_LENGTH];
     KIOContext m_IOContext;
 
     std::vector<KThreadCB*> m_Threads;
+    sigaction_t             m_SignalHandlers[KTOTAL_SIG_COUNT] = {};
 
-    pid_t      m_ParentPID = -1;    // Parent process.
-    pid_t      m_PID = -1;          // Our process ID.
+    pid_t      m_PID = -1;  // Our process ID.
 
     uid_t      m_RUID = 0;  // Real User ID.
     uid_t      m_EUID = 0;  // Effective User ID.
@@ -131,25 +112,15 @@ private:
     int        m_NumGroups = 0;
     gid_t      m_Groups[NGROUPS];
 
+    Ptr<KProcess>           m_Parent;
+    Ptr<KProcessSession>    m_Session;
+    Ptr<KProcessGroup>      m_Group;
 
-    pid_t      m_PGroupID = -1;
-    int        m_Session = -1;
+    std::vector<KProcess*> m_Children;
 
     KProcess(const KProcess &) = delete;
     KProcess& operator=(const KProcess &) = delete;
 };
 
-class KProcessLock
-{
-public:
-    KProcessLock() { Lock(); }
-    ~KProcessLock() { Unlock(); }
-
-    void Lock() { if (!m_IsLocked) { KProcess::GetProcessMutex().Lock(); m_IsLocked = true; } }
-    void Unlock() { if (m_IsLocked) { KProcess::GetProcessMutex().Unlock(); m_IsLocked = false; } }
-
-private:
-    bool m_IsLocked = false;
-};
 
 } // namespace kernel

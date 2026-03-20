@@ -27,6 +27,7 @@ namespace kernel
 {
 
 class KThreadCB;
+class KProcessGroup;
 
 static constexpr int KTOTAL_SIG_COUNT = NSIG + NRTSIG;
 static_assert(KTOTAL_SIG_COUNT <= sizeof(sigset_t) * 8);
@@ -74,10 +75,23 @@ _sig_func_ptr ksignal_trw(int sigNum, _sig_func_ptr handler);
 
 PErrorCode  kthread_sigmask(int how, const sigset_t* newSet, sigset_t* outOldSet);
 
+PErrorCode  kthread_kill(pid_t pid, int sig);
+
 void        kkill_trw(pid_t pid, int sigNum);
+void        kkill_trw_pl(pid_t pid, int sigNum);
+
 PErrorCode  kkill(pid_t pid, int sigNum);
+PErrorCode  kkill_pl(pid_t pid, int sigNum);
+
 void        kkillpg_trw(pid_t pgroup, int sigNum);
+void        kkillpg_trw_pl(pid_t pgroup, int sigNum);
+void        kkillpg_trw_pl(const KProcessGroup& group, int sigNum);
+
 PErrorCode  kkillpg(pid_t pgroup, int sigNum);
+PErrorCode  kkillpg(const KProcessGroup& group, int sigNum);
+
+PErrorCode  kkillpg_pl(pid_t pgroup, int sigNum);
+PErrorCode  kkillpg_pl(const KProcessGroup& group, int sigNum);
 
 KSignalQueueNode* kalloc_signal_queue_node();
 void kfree_signal_queue_node(KSignalQueueNode* node);

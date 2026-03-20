@@ -28,7 +28,10 @@
 
 #include <Kernel/KLogging.h>
 #include <Kernel/KTime.h>
+#include <Kernel/KPIDNode.h>
 #include <Kernel/KProcess.h>
+#include <Kernel/KProcessGroup.h>
+#include <Kernel/KProcessSession.h>
 #include <Kernel/KHandleArray.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
@@ -84,16 +87,19 @@ Ptr<KFileNode> KPTYFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode
 
     if (fsInode->IsSlave())
     {
-        if (fsInode->m_TermInfo->SessionID == -1)
+        if (fsInode->m_TermInfo->Session == nullptr)
         {
-            const KProcess& process = kget_current_process();
-            KIOContext& ioContext = kget_io_context(KLocateFlag::None);
+            kassert(!g_PIDMapMutex.IsLocked());
+            KScopedLock lock(g_PIDMapMutex);
 
-            if ((openFlags & O_NOCTTY) == 0 && process.IsGroupLeader() && ioContext.GetControllingTTY() == nullptr)
+            const KProcess& process = kget_current_process();
+            const Ptr<KProcessSession> session = process.GetSession();
+
+            if ((openFlags & O_NOCTTY) == 0 && process.IsGroupLeader() && session->GetControllingTTY() == nullptr)
             {
-                ioContext.SetControllingTTY(fsInode);
-                fsInode->m_TermInfo->SessionID = process.GetSession();
-                fsInode->m_TermInfo->PGroupID  = process.GetPGroupID();
+                session->SetControllingTTY(fsInode);
+                fsInode->m_TermInfo->Session = process.GetSession();
+                session->SetForegroundGroup(process.GetGroup());
             }
         }
     }
@@ -170,9 +176,6 @@ Ptr<KFileNode> KPTYFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> par
     termInfo->WinSize.ws_col = 25;
     termInfo->WinSize.ws_xpixel = 80 * 8;
     termInfo->WinSize.ws_ypixel = 25 * 8;
-
-    termInfo->PGroupID = -1;
-    termInfo->SessionID = -1;
 
     // Must be power of two.
     master->m_FileData.resize(512);
@@ -265,8 +268,15 @@ void KPTYFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void*
             } else {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
-            if (inode->IsMaster() && inode->m_TermInfo->PGroupID != -1) {
-                kkill(-inode->m_TermInfo->PGroupID, SIGWINCH);
+            if (inode->IsMaster())
+            {
+                kassert(!g_PIDMapMutex.IsLocked());
+                KScopedLock lock(g_PIDMapMutex);
+
+                Ptr<KProcessGroup> foregroundGroup = inode->GetForegroundGroup();
+                if (foregroundGroup != nullptr) {
+                    kkillpg_pl(*foregroundGroup, SIGWINCH);
+                }
             }
             break;
         case TIOCGWINSZ:
@@ -281,44 +291,64 @@ void KPTYFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void*
             if (inDataLength != sizeof(pid_t)) {
                 PERROR_THROW_CODE(PErrorCode::InvalidArg);
             }
-            const KProcess&     process = kget_current_process();
-            const KIOContext&   ioContext = kget_io_context(KLocateFlag::None);
-            const pid_t         pgroup = *static_cast<const pid_t*>(inData);
+            const KProcess& process = kget_current_process();
+            const pid_t     pgroup = *static_cast<const pid_t*>(inData);
 
-            KProcessLock processLock;
+            kassert(!g_PIDMapMutex.IsLocked());
+            KScopedLock lock(g_PIDMapMutex);
 
-            if (ioContext.GetControllingTTY() != inode || process.GetSession() != inode->m_TermInfo->SessionID)
+            Ptr<KPIDNode> pidNode = kget_pid_node_pl(pgroup);
+
+            if (pidNode == nullptr || pidNode->Group == nullptr) {
+                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            }
+
+            const Ptr<KProcessSession>  session = process.GetSession();
+
+            if (session->GetControllingTTY() != inode || session != inode->m_TermInfo->Session)
             {
                 kernel_log<PLogSeverity::NOTICE>(LogCatKernel_PTY, "{} rejecting TIOCSPGRP. ctrl-tty = {}, proc-session = {}, pty-session = {}",
-                    __PRETTY_FUNCTION__, reinterpret_cast<const void*>(ptr_raw_pointer_cast(ioContext.GetControllingTTY())), process.GetSession(), inode->m_TermInfo->SessionID);
+                    __PRETTY_FUNCTION__, reinterpret_cast<const void*>(ptr_raw_pointer_cast(session->GetControllingTTY())), session->GetID(), (inode->m_TermInfo->Session != nullptr) ? inode->m_TermInfo->Session->GetID() : -1);
 
                 PERROR_THROW_CODE(PErrorCode::NOTTY);
             }
-            inode->m_TermInfo->PGroupID = pgroup;
+            session->SetForegroundGroup(pidNode->Group);
             break;
         }
         case TIOCGPGRP: // Get foreground process group
         {
-            const KIOContext& ioContext = kget_io_context(KLocateFlag::None);
+            const KProcess& process = kget_current_process();
 
-            KProcessLock processLock;
-            if (ioContext.GetControllingTTY() != inode) {
+            kassert(!g_PIDMapMutex.IsLocked());
+            KScopedLock lock(g_PIDMapMutex);
+
+            const Ptr<KProcessSession>  session = process.GetSession();
+
+            if (session->GetControllingTTY() != inode) {
                 PERROR_THROW_CODE(PErrorCode::NOTTY);
             }
-            *static_cast<pid_t*>(outData) = inode->m_TermInfo->PGroupID;
+            const Ptr<KProcessGroup> foregroundGroup = inode->GetForegroundGroup();
+            *static_cast<pid_t*>(outData) = (foregroundGroup != nullptr) ? foregroundGroup->GetID() : -1;
             break;
         }
         case TIOCNOTTY:
         {
-            KIOContext& ioContext = kget_io_context(KLocateFlag::None);
-            if (ioContext.GetControllingTTY() != inode) {
+            const KProcess& process = kget_current_process();
+
+            kassert(!g_PIDMapMutex.IsLocked());
+            KScopedLock lock(g_PIDMapMutex);
+
+            const Ptr<KProcessSession>  session = process.GetSession();
+
+            if (session->GetControllingTTY() != inode) {
                 PERROR_THROW_CODE(PErrorCode::NOTTY);
             }
-            const KProcess& process = kget_current_process();
+
             if (process.IsGroupLeader()) {
                 kdisassociate_controlling_tty_trw(true);
+            } else {
+                // TODO: implement support for disassociating individual processes.
             }
-            ioContext.SetControllingTTY(nullptr);
             break;
         }
         case FIONBIO:
@@ -717,15 +747,23 @@ size_t KPTYInode::WriteToSlave(const void* buffer, size_t length, int openFlags)
             {
                 if (bufferSrc[i] == termios->c_cc[VINTR])
                 {
-                    if (m_TermInfo->PGroupID != -1) {
-                        kkill(-m_TermInfo->PGroupID, SIGINT);
+                    kassert(!g_PIDMapMutex.IsLocked());
+                    KScopedLock lock(g_PIDMapMutex);
+
+                    const Ptr<KProcessGroup> foregroundGroup = GetForegroundGroup();
+                    if (foregroundGroup != nullptr) {
+                        kkillpg_pl(*foregroundGroup, SIGINT);
                     }
                     continue;
                 }
                 else if (bufferSrc[i] == termios->c_cc[VSUSP])
                 {
-                    if (m_TermInfo->PGroupID != -1) {
-                        kkill(-m_TermInfo->PGroupID, SIGSTOP);
+                    kassert(!g_PIDMapMutex.IsLocked());
+                    KScopedLock lock(g_PIDMapMutex);
+
+                    const Ptr<KProcessGroup> foregroundGroup = GetForegroundGroup();
+                    if (foregroundGroup != nullptr) {
+                        kkillpg_pl(*foregroundGroup, SIGSTOP);
                     }
                     continue;
                 }
@@ -792,47 +830,43 @@ size_t KPTYInode::WriteToSlave(const void* buffer, size_t length, int openFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+Ptr<KProcessGroup> KPTYInode::GetForegroundGroup() const noexcept
+{
+    if (m_TermInfo->Session != nullptr) {
+        return m_TermInfo->Session->GetForegroundGroup();
+    }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void kdisassociate_controlling_tty_trw(bool sendSIGCONT)
 {
+    kassert(g_PIDMapMutex.IsLocked());
+
     KProcess& process = kget_current_process();
-    const KIOContext& ioContext = kget_io_context(KLocateFlag::None);
+    const Ptr<KProcessSession>  session = process.GetSession();
 
-    std::set<Ptr<KInode>> ttySet; // Keeps inodes alive until the process lock is released.
+    Ptr<KPTYInode> inode = ptr_dynamic_cast<KPTYInode>(session->GetControllingTTY());
 
-    pid_t ttyPGroup = -1;
-
-    {
-        KProcessLock processLock;
-
-        Ptr<KPTYInode> inode = ptr_dynamic_cast<KPTYInode>(ioContext.GetControllingTTY());
-
-        if (inode == nullptr) {
-            return;
-        }
-
-        ttyPGroup = inode->m_TermInfo->PGroupID;
-
-        inode->m_TermInfo->SessionID = 0;
-        inode->m_TermInfo->PGroupID = -1;
-
-        const int session = process.GetSession();
-
-        for (const auto& procNode : KProcess::GetProcessMap())
-        {
-            KProcess& curProcess = *procNode.second;
-            KIOContext& ioContext = curProcess.GetIOContext();
-            if (curProcess.GetSession() == session)
-            {
-                ttySet.insert(ioContext.GetControllingTTY());
-                ioContext.SetControllingTTY(nullptr);
-            }
-        }
+    if (inode == nullptr) {
+        return;
     }
-    if (ttyPGroup > 0)
+
+    const Ptr<KProcessGroup> foregroundGroup = session->GetForegroundGroup();
+
+    inode->m_TermInfo->Session  = nullptr;
+
+    session->SetForegroundGroup(nullptr);
+    session->SetControllingTTY(nullptr);
+
+    if (foregroundGroup != nullptr)
     {
-        kkillpg(ttyPGroup, SIGHUP);
+        kkillpg_pl(*foregroundGroup, SIGHUP);
         if (sendSIGCONT) {
-            kkillpg(ttyPGroup, SIGCONT);
+            kkillpg_pl(*foregroundGroup, SIGCONT);
         }
     }
 }

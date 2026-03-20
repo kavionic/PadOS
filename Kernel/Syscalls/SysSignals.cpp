@@ -18,6 +18,7 @@
 // Created: 27.12.2025 21:00
 
 #include <Kernel/KThreadCB.h>
+#include <Kernel/KPIDNode.h>
 
 namespace kernel
 {
@@ -60,7 +61,7 @@ PErrorCode sys_raise(int sigNum)
 
 PErrorCode sys_thread_sigqueue(thread_id threadID, int signo, union sigval value)
 {
-    const Ptr<KThreadCB> thread = get_thread(threadID);
+    const Ptr<KThreadCB> thread = kget_thread(threadID);
 
     if (thread == nullptr) {
         return PErrorCode::NoSuchProcess;

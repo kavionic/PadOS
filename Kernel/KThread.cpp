@@ -22,6 +22,7 @@
 #include <System/System.h>
 #include <System/ExceptionHandling.h>
 #include <System/AppDefinition.h>
+#include <Kernel/KPIDNode.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KThread.h>
 #include <Kernel/KThreadCB.h>
@@ -157,33 +158,33 @@ PErrorCode kthread_attribs_init(PThreadAttribs& outAttribs) noexcept
 
 thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, KSpawnThreadFlags flags, ThreadEntryPoint_t entryPoint, void* arguments)
 {
-    const thread_id handle = gk_ThreadTable.AllocHandle_trw();
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
 
-    PScopeFail scopeFail([handle]() { gk_ThreadTable.FreeHandle_trw(handle); });
+    const Ptr<KPIDNode> pidNode = kallocate_pid_trw_pl();
+
+    PScopeFail scopeFail([&pidNode]() { kerase_pid_node_pl(pidNode->PID); });
 
     Ptr<KProcess> process;
-    if (flags.Has(KSpawnThreadFlag::SpawnProcess))
-    {
-        process = ptr_new<KProcess>(kget_current_process(), (attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "");
-    }
-    else
-    {
+    if (flags.Has(KSpawnThreadFlag::SpawnProcess)) {
+        process = ptr_new<KProcess>(*pidNode, ptr_tmp_cast(&kget_current_process()), (attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "");
+    } else {
         process = ptr_tmp_cast(&kget_current_process());
     }
 
     Ptr<KThreadCB> thread;
 
-    thread = ptr_new<KThreadCB>(handle, process, attribs, flags.Has(KSpawnThreadFlag::Privileged), tlsBlock, nullptr);
+    thread = ptr_new<KThreadCB>(pidNode->PID, process, attribs, flags.Has(KSpawnThreadFlag::Privileged), tlsBlock, nullptr);
     thread->InitializeStack(entryPoint, /*skipEntryTrampoline*/ false, arguments);
 
-    gk_ThreadTable.Set(handle, thread);
+    pidNode->Thread = thread;
 
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         add_thread_to_ready_list(ptr_raw_pointer_cast(thread));
     } CRITICAL_END;
 
-    return handle;
+    return pidNode->PID;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -217,7 +218,7 @@ __attribute__((noreturn)) void kthread_exit(void* returnValue)
 
 PErrorCode kthread_detach(thread_id handle)
 {
-    Ptr<KThreadCB> thread = gk_ThreadTable.Get(handle);
+    Ptr<KThreadCB> thread = kget_thread(handle);
 
     if (thread == nullptr) {
         return PErrorCode::InvalidArg;
@@ -247,8 +248,12 @@ void* kthread_join_trw(thread_id handle)
     PErrorCode result = PErrorCode::Success;
     for (;;)
     {
-        Ptr<KThreadCB> child = gk_ThreadTable.Get(handle);
+        const Ptr<KPIDNode> pidNode = kget_pid_node(handle);
+        if (pidNode == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        }
 
+        const Ptr<KThreadCB> child = pidNode->Thread;
         if (child == nullptr) {
             PERROR_THROW_CODE(PErrorCode::InvalidArg);
         }
@@ -287,7 +292,14 @@ void* kthread_join_trw(thread_id handle)
             }
         } CRITICAL_END;
         void* returnValue = child->m_ReturnValue;
-        gk_ThreadTable.FreeHandle_trw(handle);
+
+        kassert(!g_PIDMapMutex.IsLocked());
+        KScopedLock lock(g_PIDMapMutex);
+
+        pidNode->Thread = nullptr;
+        if (pidNode->IsEmpty()) {
+            kerase_pid_node_pl(handle);
+        }
         return returnValue;
     }
     PERROR_THROW_CODE(result);
@@ -308,7 +320,7 @@ thread_id kget_thread_id() noexcept
 
 void kthread_set_priority_trw(thread_id handle, int priority)
 {
-    Ptr<KThreadCB> thread = gk_ThreadTable.Get(handle);
+    Ptr<KThreadCB> thread = kget_thread(handle);
 
     if (thread == nullptr) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
@@ -339,7 +351,7 @@ void kthread_set_priority_trw(thread_id handle, int priority)
 
 int kthread_get_priority_trw(thread_id handle)
 {
-    Ptr<KThreadCB> thread = gk_ThreadTable.Get(handle);
+    Ptr<KThreadCB> thread = kget_thread(handle);
 
     if (thread == nullptr) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
@@ -401,14 +413,14 @@ PErrorCode kget_thread_info(handle_id handle, ThreadInfo* info)
     Ptr<KThreadCB> thread;
     if (handle != INVALID_HANDLE)
     {
-        thread = get_thread(handle);
+        thread = kget_thread(handle);
         if (thread == nullptr) {
             return PErrorCode::InvalidArg;
         }
     }
     else
     {
-        thread = gk_ThreadTable.GetNext(INVALID_HANDLE, [](Ptr<KThreadCB> thread) { return thread->m_State != ThreadState_Deleted; });
+        thread = kget_first_thread();
         if (thread == nullptr) {
             return PErrorCode::NoEntry;
         }
@@ -423,7 +435,7 @@ PErrorCode kget_thread_info(handle_id handle, ThreadInfo* info)
 
 PErrorCode kget_next_thread_info(ThreadInfo* info)
 {
-    Ptr<KThreadCB> thread = gk_ThreadTable.GetNext(info->ThreadID, [](Ptr<KThreadCB> thread) { return thread->m_State != ThreadState_Deleted; });
+    Ptr<KThreadCB> thread = kget_next_thread(info->ThreadID);
 
     if (thread == nullptr) {
         return PErrorCode::NoEntry;
@@ -517,20 +529,6 @@ PErrorCode kyield()
     return PErrorCode::Success;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode kthread_kill(thread_id threadID, int sigNum)
-{
-    const Ptr<KThreadCB> thread = get_thread(threadID);
-
-    if (thread == nullptr) {
-        return PErrorCode::NoSuchProcess;
-    }
-
-    return ksend_signal_to_thread(*thread, sigNum);
-}
 
 
 } // namespace kernel

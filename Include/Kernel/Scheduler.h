@@ -19,9 +19,8 @@
 
 #pragma once
 
-#include "Kernel.h"
-#include "KThreadCB.h"
-
+#include <Kernel/Kernel.h>
+#include <Kernel/KThreadCB.h>
 
 extern "C" void initialize_device_drivers();
 
@@ -46,12 +45,12 @@ extern "C" KThreadCB* volatile  gk_CurrentThread;
 extern KThreadCB*               gk_IdleThread;
 extern KThreadCB*               gk_InitThread;
 extern thread_id                gk_MainThreadID;
-extern KHandleArray<KThreadCB>& gk_ThreadTable;
+
+
 extern KThreadList              gk_ZombieThreadLists;
 
 extern volatile thread_id gk_DebugWakeupThread;
 
-Ptr<KThreadCB> get_thread(thread_id handle);
 
 KProcess&   kget_current_process();
 KThreadCB&  kget_current_thread();
@@ -65,13 +64,11 @@ void add_thread_to_zombie_list(KThreadCB* thread);
 bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount);
 
 void        stop_thread(bool notifyParent);
-PErrorCode  wakeup_thread(thread_id handle, bool wakeupSuspended);
+PErrorCode  wakeup_thread(KThreadCB& thread, bool wakeupSuspended);
 
 
 void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize);
 
-
-const KHandleArray<KThreadCB>& get_thread_table();
 int  get_remaining_stack();
 void check_stack_overflow();
 

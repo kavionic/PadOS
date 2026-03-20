@@ -24,6 +24,7 @@
 
 #include <Kernel/KHandleArray.h>
 #include <Kernel/KProcess.h>
+#include <Kernel/KProcessSession.h>
 #include <Kernel/KThreadCB.h>
 #include <Kernel/Kernel.h>
 #include <Kernel/Scheduler.h>
@@ -37,39 +38,59 @@ namespace kernel
 {
 
 KProcess* gk_KernelProcess;
-KMutex KProcess::s_ProcessMutex("proctable", PEMutexRecursionMode_RaiseError);
-std::map<pid_t, KProcess*> KProcess::s_ProcessMap;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KProcess::KProcess(const char* name)
+KProcess::KProcess(KPIDNode& pidNode, const char* name)
+    : m_Mutex("process", PEMutexRecursionMode_RaiseError)
+    , m_PID(pidNode.PID)
 {
+    kassert(g_PIDMapMutex.IsLocked());
+
     strncpy(m_Name, name, OS_NAME_LENGTH);
+
+    m_Session = ptr_new<KProcessSession>(pidNode.PID);
+    Ptr<KProcessGroup> group = ptr_new<KProcessGroup>(pidNode.PID, m_Session);
+
+    group->AddProcess(this);
+
+    pidNode.Session = m_Session;
+    pidNode.Group   = m_Group;
+    pidNode.Process = ptr_tmp_cast(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KProcess::KProcess(const KProcess& parentProcess, const char* name) : m_ParentPID(parentProcess.m_PID)
+KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const char* name)
+    : m_Mutex("process", PEMutexRecursionMode_RaiseError)
+    , m_PID(pidNode.PID)
+    , m_Parent(parentProcess)
 {
-    strncpy(m_Name, name, OS_NAME_LENGTH);
-    m_IOContext.Clone(parentProcess.m_IOContext);
-    
-    
-    m_RUID      = parentProcess.m_RUID;
-    m_EUID      = parentProcess.m_EUID;
-    m_SUID      = parentProcess.m_SUID;
-    m_RGID      = parentProcess.m_RGID;
-    m_EGID      = parentProcess.m_EGID;
-    m_SGID      = parentProcess.m_SGID;
-    m_NumGroups = parentProcess.m_NumGroups;
-    m_PGroupID  = parentProcess.m_PGroupID;
-    m_Session   = parentProcess.m_Session;
+    kassert(g_PIDMapMutex.IsLocked());
 
-    memcpy(m_Groups, parentProcess.m_Groups, sizeof(m_Groups));
+    strncpy(m_Name, name, OS_NAME_LENGTH);
+    m_IOContext.Clone(parentProcess->m_IOContext);
+    
+    m_RUID      = parentProcess->m_RUID;
+    m_EUID      = parentProcess->m_EUID;
+    m_SUID      = parentProcess->m_SUID;
+    m_RGID      = parentProcess->m_RGID;
+    m_EGID      = parentProcess->m_EGID;
+    m_SGID      = parentProcess->m_SGID;
+    m_NumGroups = parentProcess->m_NumGroups;
+    m_Session   = parentProcess->m_Session;
+
+    parentProcess->m_Group->AddProcess(this);
+
+    memcpy(m_Groups, parentProcess->m_Groups, sizeof(m_Groups));
+
+    parentProcess->m_Children.push_back(this);
+
+    pidNode.Process = ptr_tmp_cast(this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -78,13 +99,9 @@ KProcess::KProcess(const KProcess& parentProcess, const char* name) : m_ParentPI
 
 KProcess::~KProcess()
 {
-    if (m_PID != -1)
-    {
-        kassert(!s_ProcessMutex.IsLocked());
-        CRITICAL_SCOPE(s_ProcessMutex);
-
-        SetPID(-1);
-    }
+    kassert(m_Threads.empty());
+    kassert(m_Session == nullptr);
+    kassert(m_Group == nullptr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -93,14 +110,10 @@ KProcess::~KProcess()
 
 void KProcess::AddThread(KThreadCB* thread)
 {
-    kassert(!s_ProcessMutex.IsLocked());
-    CRITICAL_SCOPE(s_ProcessMutex);
+    kassert(g_PIDMapMutex.IsLocked());
 
     kassert(thread->m_Process == nullptr);
 
-    if (m_PID == -1) {
-        SetPID(thread->GetHandle());
-    }
     m_Threads.push_back(thread);
     thread->m_Process = ptr_tmp_cast(this);
 }
@@ -111,19 +124,18 @@ void KProcess::AddThread(KThreadCB* thread)
 
 void KProcess::RemoveThread(KThreadCB* thread) noexcept
 {
-    {
-        kassert(!s_ProcessMutex.IsLocked());
-        CRITICAL_SCOPE(s_ProcessMutex);
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
 
-        kassert(thread->m_Process == this);
+    kassert(thread->m_Process == this);
 
-        auto i = std::find(m_Threads.begin(), m_Threads.end(), thread);
-        kassert(i != m_Threads.end());
+    auto i = std::find(m_Threads.begin(), m_Threads.end(), thread);
+    kassert(i != m_Threads.end());
 
-        if (i != m_Threads.end()) {
-            m_Threads.erase(i);
-        }
+    if (i != m_Threads.end()) {
+        m_Threads.erase(i);
     }
+
     if (m_Threads.empty())
     {
         if (IsGroupLeader())
@@ -133,8 +145,25 @@ void KProcess::RemoveThread(KThreadCB* thread) noexcept
             }
             catch (const std::exception& exc) {}
         }
-        CRITICAL_SCOPE(s_ProcessMutex);
-        SetPID(-1);
+
+        m_Group->RemoveProcess(this);
+        m_Session = nullptr;
+
+        Ptr<KPIDNode> pidNode = kget_pid_node_pl(m_PID);
+
+        if (kensure(pidNode != nullptr)) {
+            pidNode->Process = nullptr;
+        }
+        if (m_Parent != nullptr)
+        {
+            auto it = std::find(m_Parent->m_Children.begin(), m_Parent->m_Children.end(), this);
+            if (kensure(it != m_Parent->m_Children.end())) {
+                m_Parent->m_Children.erase(it);
+            }
+            kkill_pl(m_Parent->m_PID, SIGCHLD);
+            m_Parent = nullptr;
+        }
+        kerase_pid_node_if_empty_pl(m_PID);
     }
     thread->m_Process = nullptr;
 }
@@ -143,18 +172,163 @@ void KProcess::RemoveThread(KThreadCB* thread) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-std::vector<Ptr<KThreadCB>> KProcess::GetThreads() const
+const std::vector<kernel::KThreadCB*>& KProcess::GetThreads() const
 {
-    kassert(!s_ProcessMutex.IsLocked());
-    CRITICAL_SCOPE(s_ProcessMutex);
+    kassert(g_PIDMapMutex.IsLocked());
+    return m_Threads;
+}
 
-    std::vector<Ptr<KThreadCB>> result;
-    result.reserve(m_Threads.size());
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-    for (KThreadCB* thread : m_Threads) {
-        result.push_back(ptr_tmp_cast(thread));
+void KProcess::SetPGroupID(Ptr<const KProcess> instigator, pid_t pgroup)
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
+    if (pgroup == m_Group->GetID()) {
+        return;
     }
-    return result;
+
+    if (instigator == m_Parent)
+    {
+        if (m_Session != instigator->GetSession()) {
+            PERROR_THROW_CODE(PErrorCode::NoPermission);
+        }
+        if (HasExeced()) {
+            PERROR_THROW_CODE(PErrorCode::NoAccess);
+        }
+    }
+    else if (instigator != this)
+    {
+        kernel_log<PLogSeverity::NOTICE>(LogCatKernel_Processes, "{}: {} not same as {}\n", __PRETTY_FUNCTION__, m_PID, instigator->m_PID);
+        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+    }
+
+    Ptr<KPIDNode> pidNode = kget_pid_node_pl(pgroup);
+
+    if (pidNode == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    }
+
+    if (pidNode->Session != m_Session) {
+        PERROR_THROW_CODE(PErrorCode::NoPermission);
+    }
+
+    if (pidNode->Group == nullptr)
+    {
+        const Ptr<KProcessGroup> group = ptr_new<KProcessGroup>(pgroup, m_Session);
+        
+        group->ReserveSpace(); // Make sure AddProcess() don't throw after we modified the old group.
+
+        pidNode->Group = group;
+    }
+    else
+    {
+        pidNode->Group->ReserveSpace(); // Make sure AddProcess() don't throw after we modified the old group.
+    }
+    m_Group->RemoveProcess(this);
+    pidNode->Group->AddProcess(this);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+pid_t KProcess::GetPGroupID() const noexcept
+{
+    kassert(g_PIDMapMutex.IsLocked());
+    return (m_Group != nullptr) ? m_Group->GetID() : -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::SetGroup(Ptr<KProcessGroup> group) noexcept
+{
+    kassert(g_PIDMapMutex.IsLocked());
+    m_Group = group;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KProcessGroup> KProcess::GetGroup() const noexcept
+{
+    kassert(g_PIDMapMutex.IsLocked());
+    return m_Group;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KProcess::GetSessionID() const noexcept
+{
+    kassert(g_PIDMapMutex.IsLocked());
+    return (m_Session != nullptr) ? m_Session->GetID() : -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KProcessSession> KProcess::GetSession() const noexcept
+{
+    kassert(g_PIDMapMutex.IsLocked());
+    return m_Session;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+pid_t KProcess::CreateSession()
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
+    if (IsGroupLeader()) {
+        PERROR_THROW_CODE(PErrorCode::NoPermission);
+    }
+
+    const pid_t sessionID = m_PID;
+
+    Ptr<KPIDNode> pidNode = kget_pid_node_pl(sessionID);
+    if (pidNode == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    }
+
+    // Make sure the process group we are about to make don't already exist.
+    if (pidNode->Session != nullptr || pidNode->Group != nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NoPermission);
+    }
+    
+    Ptr<KProcessSession>    session = ptr_new<KProcessSession>(sessionID);
+    Ptr<KProcessGroup>      group = ptr_new<KProcessGroup>(sessionID, session);
+
+    group->ReserveSpace(); // Make sure AddProcess() don't throw after modifying the old group.
+
+    m_Group->RemoveProcess(this);
+
+    group->AddProcess(this);
+    m_Session = session;
+
+    pidNode->Session = session;
+    pidNode->Group = group;
+
+    return sessionID;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KProcess::IsGroupLeader() const noexcept
+{
+    kassert(g_PIDMapMutex.IsLocked());
+    return m_Group->GetID() == m_PID;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -181,39 +355,23 @@ bool KProcess::CheckUIDMatch(const KProcess& target) const noexcept
 
 Ptr<KProcess> KProcess::GetProcess(pid_t pid) noexcept
 {
-    kassert(!s_ProcessMutex.IsLocked());
-    CRITICAL_SCOPE(s_ProcessMutex);
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
 
-    auto it = s_ProcessMap.find(pid);
-    return (it != s_ProcessMap.end()) ? ptr_tmp_cast(it->second) : nullptr;
+    return GetProcess_pl(pid);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KProcess::SetPID(pid_t pid)
+Ptr<KProcess> KProcess::GetProcess_pl(pid_t pid) noexcept
 {
-    kassert(s_ProcessMutex.IsLocked());
+    kassert(g_PIDMapMutex.IsLocked());
 
-    if (pid != m_PID)
-    {
-        if (m_PID != -1)
-        {
-            auto i = s_ProcessMap.find(m_PID);
-            kassert(i != s_ProcessMap.end());
+    Ptr<KPIDNode> pidNode = kget_pid_node_pl(pid);
 
-            if (i != s_ProcessMap.end()) {
-                s_ProcessMap.erase(i);
-            }
-            m_PID = -1;
-        }
-        if (pid != -1)
-        {
-            s_ProcessMap[pid] = this;
-            m_PID = pid;
-        }
-    }
+    return (pidNode != nullptr) ? pidNode->Process : nullptr;
 }
 
 

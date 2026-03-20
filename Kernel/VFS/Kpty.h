@@ -38,11 +38,10 @@ namespace kernel
 
 struct KPTYTermInfo : public PtrTarget
 {
-    struct termios  Termios;
-    struct winsize  WinSize;
-    int             SessionID;
-    pid_t           PGroupID;
-    uint32_t        CtrlStatus;
+    struct termios          Termios;
+    struct winsize          WinSize;
+    Ptr<KProcessSession>    Session;
+    uint32_t                CtrlStatus;
 };
 
 class KPTYVolume : public KVirtualFSVolume
@@ -73,6 +72,8 @@ public:
 
     size_t WriteToMaster(const void* buffer, size_t length, int openFlags, bool echoMode);
     size_t WriteToSlave(const void* buffer, size_t length, int openFlags);
+
+    Ptr<KProcessGroup> GetForegroundGroup() const noexcept;
 
     KConditionVariable  m_IOCondition;
 

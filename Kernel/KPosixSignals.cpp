@@ -21,6 +21,7 @@
 #include <Kernel/KThread.h>
 #include <Kernel/KThreadCB.h>
 #include <Kernel/KProcess.h>
+#include <Kernel/KProcessGroup.h>
 #include <Kernel/KStackFrames.h>
 #include <Kernel/KPosixSignals.h>
 #include <Kernel/KCapabilities.h>
@@ -77,7 +78,7 @@ KSignalMode kget_signal_mode(const KThreadCB& thread, int sigNum)
         return KSignalMode::Blocked;
     }
 
-    const sigaction_t& handler = thread.m_SignalHandlers[sigNum - 1];
+    const sigaction_t& handler = thread.m_Process->GetSignalHandler(sigNum - 1);
 
     if (handler.sa_handler == SIG_DFL) {
         return KSignalMode::Default;
@@ -103,10 +104,12 @@ bool khas_pending_signals()
 
 PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum)
 {
+    kassert(g_PIDMapMutex.IsLocked());
+
     if (sigNum < 0 || sigNum >= KTOTAL_SIG_COUNT) {
         return PErrorCode::InvalidArg;
     }
-    if (thread.m_State == ThreadState_Zombie) {
+    if (thread.IsZombie()) {
         return PErrorCode::NoSuchProcess;
     }
     if (thread.m_KernelThread) {
@@ -119,17 +122,17 @@ PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum)
     // Signals to 'init' will only wake it up. We don't change the signal mask
     if (thread.GetHandle() == 1)
     {
-        wakeup_thread(thread.GetHandle(), false);
+        wakeup_thread(thread, false);
         return PErrorCode::Success;
     }
 
     thread.SetPendingSignal(sigNum);
 
     if (sigNum == SIGCONT || sigNum == SIGKILL) {
-        wakeup_thread(thread.GetHandle(), true);
+        wakeup_thread(thread, true);
     }
     else if (sigNum == SIGCHLD || !thread.IsSignalBlocked(sigNum)) {
-        wakeup_thread(thread.GetHandle(), false);
+        wakeup_thread(thread, false);
     }
     return PErrorCode::Success;
 }
@@ -140,16 +143,32 @@ PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum)
 
 PErrorCode kqueue_signal_to_thread(KThreadCB& thread, int sigNum, sigval_t value)
 {
-    if (thread.m_State == ThreadState_Zombie) {
+    if (thread.IsZombie()) {
         return PErrorCode::NoSuchProcess;
     }
+    Ptr<KProcess> process = thread.m_Process;
+
+    if (!kcheck_kill_permission(*process, sigNum)) {
+        PERROR_THROW_CODE(PErrorCode::NoAccess);
+    }
+    if (sigNum == 0) {
+        return PErrorCode::Success; // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target(s).
+    }
+    if (sigNum == SIGKILL || sigNum == SIGSTOP || sigNum == SIGCONT)
+    {
+        for (KThreadCB* curThread : process->GetThreads()) {
+            ksend_signal_to_thread(*curThread, sigNum);
+        }
+        return PErrorCode::Success;
+    }
+
     if (sigNum == 0) { // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target thread.
         return PErrorCode::Success;
     }
     // Signals to 'init' will only wake it up. We don't change the signal mask
     if (thread.GetHandle() == 1)
     {
-        wakeup_thread(thread.GetHandle(), false);
+        wakeup_thread(thread, false);
         return PErrorCode::Success;
     }
 
@@ -219,7 +238,7 @@ PErrorCode kqueue_signal_to_thread(KThreadCB& thread, int sigNum, sigval_t value
         thread.SetPendingSignal(sigNum);
     }
     if (!thread.IsSignalBlocked(sigNum)) {
-        wakeup_thread(thread.GetHandle(), false);
+        wakeup_thread(thread, false);
     }
     return PErrorCode::Success;
 }
@@ -241,16 +260,16 @@ PErrorCode ksigaction(int sigNum, const struct sigaction* action, struct sigacti
 {
     const int sigIndex = sigNum - 1;
 
-    KThreadCB& thread = *gk_CurrentThread;
-
     if (sigIndex < 0 || sigIndex >= KTOTAL_SIG_COUNT) {
         return PErrorCode::InvalidArg;
     }
+    KProcess& process = kget_current_process();
+
     if (outPrevAction != nullptr) {
-        *outPrevAction = thread.m_SignalHandlers[sigIndex];
+        *outPrevAction = process.GetSignalHandler(sigIndex);
     }
     if (action != nullptr) {
-        thread.m_SignalHandlers[sigIndex] = *action;
+        process.SetSignalHandler(sigIndex, *action);
     }
     return PErrorCode::Success;
 }
@@ -308,27 +327,71 @@ PErrorCode kthread_sigmask(int how, const sigset_t* newSet, sigset_t* outOldSet)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PErrorCode kthread_kill(thread_id threadID, int sigNum)
+{
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    const Ptr<KThreadCB> thread = kget_thread(threadID);
+
+    if (thread == nullptr) {
+        return PErrorCode::NoSuchProcess;
+    }
+    Ptr<KProcess> process = thread->m_Process;
+    if (process == nullptr) {
+        return PErrorCode::NoSuchProcess;
+    }
+
+    if (!kcheck_kill_permission(*process, sigNum)) {
+        PERROR_THROW_CODE(PErrorCode::NoAccess);
+    }
+    if (sigNum == 0) {
+        return PErrorCode::Success; // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target(s).
+    }
+    if ((sigNum == SIGKILL || sigNum == SIGSTOP || sigNum == SIGCONT) && thread->m_Process != nullptr)
+    {
+        for (KThreadCB* curThread : process->GetThreads()) {
+            ksend_signal_to_thread(*curThread, sigNum);
+        }
+        return PErrorCode::Success;
+    }
+    return ksend_signal_to_thread(*thread, sigNum);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 template<typename TDelegate>
 static void kkill_if_trw(TDelegate&& delegate, int sigNum)
 {
+    kassert(g_PIDMapMutex.IsLocked());
+
     bool deliveredAny = false;
     PErrorCode error = PErrorCode::Success;
 
-    KProcess::ForEachProcess([delegate = std::forward<TDelegate>(delegate), sigNum, &deliveredAny, &error](const KProcess& process)
+    pid_t prevPID = -1;
+    for (;;)
+    {
+        const Ptr<KPIDNode> pidNode = kget_next_pid_node_pl(prevPID, [](const KPIDNode& node) noexcept { return node.Process != nullptr; });
+
+        if (pidNode == nullptr) {
+            break;
+        }
+        prevPID = pidNode->PID;
+
+        if (delegate(*pidNode->Process))
         {
-            if (delegate(process))
-            {
-                const PErrorCode result = kkill(process.GetPID(), sigNum);
-                if (result == PErrorCode::Success) {
-                    deliveredAny = true;
-                } else if (result == PErrorCode::NoSuchProcess) {
-                    // Ignore processes that die before we get to kill them.
-                } else if (result == PErrorCode::NoAccess || error != PErrorCode::NoAccess) {
-                    error = result;
-                }
+            const PErrorCode result = kkill_pl(pidNode->PID, sigNum);
+            if (result == PErrorCode::Success) {
+                deliveredAny = true;
+            } else if (result == PErrorCode::NoSuchProcess) {
+                // Ignore processes that die before we get to kill them.
+            } else if (result == PErrorCode::NoAccess || error != PErrorCode::NoAccess) {
+                error = result;
             }
         }
-    );
+    }
     if (!deliveredAny) {
         PERROR_ERRORCODE_THROW_ON_FAIL(error);
     }
@@ -340,16 +403,29 @@ static void kkill_if_trw(TDelegate&& delegate, int sigNum)
 
 void kkill_trw(pid_t pid, int sigNum)
 {
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    kkill_trw_pl(pid, sigNum);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kkill_trw_pl(pid_t pid, int sigNum)
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
     if (ksystem_log_is_category_active(LogCatKernel_Signals, PLogSeverity::INFO_HIGH_VOL))
     {
         PString targetName;
         if (pid >= 0)
         {
-            Ptr<KProcess> process = KProcess::GetProcess(pid);
+            Ptr<KProcess> process = KProcess::GetProcess_pl(pid);
             if (process != nullptr) {
                 targetName = process->GetName();
-            }
-            else {
+            } else {
                 targetName = "*unknown*";
             }
         }
@@ -368,25 +444,25 @@ void kkill_trw(pid_t pid, int sigNum)
     }
     else if (pid < 0)
     {
-        kkillpg_trw(-pid, sigNum);
+        kkillpg_trw_pl(-pid, sigNum);
     }
     else if (pid == 0)
     {
         KProcess& process = kget_current_process();
-        pid_t groupid = process.GetPGroupID();
-        if (groupid > 1) {
-            kkillpg_trw(groupid, sigNum);
+        Ptr<KProcessGroup> group = process.GetGroup();
+        if (group != nullptr && group->GetID() > 1) {
+            kkillpg_trw_pl(*group, sigNum);
         } else {
             PERROR_THROW_CODE(PErrorCode::InvalidArg);
         }
     }
     else
     {
-        Ptr<KProcess> targetProcess = KProcess::GetProcess(pid);
+        Ptr<KProcess> targetProcess = KProcess::GetProcess_pl(pid);
         if (targetProcess == nullptr) {
             PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
         }
-        std::vector<Ptr<KThreadCB>> threads = targetProcess->GetThreads();
+        const std::vector<KThreadCB*>& threads = targetProcess->GetThreads();
 
         if (threads.empty()) {
             PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
@@ -398,12 +474,22 @@ void kkill_trw(pid_t pid, int sigNum)
         if (sigNum == 0) {
             return; // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target(s).
         }
-        for (const Ptr<KThreadCB>& thread : threads)
+        if (sigNum == SIGKILL || sigNum == SIGSTOP || sigNum == SIGCONT)
         {
-            if (!thread->IsSignalBlocked(sigNum))
+            for (KThreadCB* thread : threads) {
+                ksend_signal_to_thread(*thread, sigNum);
+            }
+            return;
+        }
+        else
+        {
+            for (KThreadCB* thread : threads)
             {
-                if (ksend_signal_to_thread(*thread, sigNum) == PErrorCode::Success) {
-                    return;
+                if (!thread->IsSignalBlocked(sigNum))
+                {
+                    if (ksend_signal_to_thread(*thread, sigNum) == PErrorCode::Success) {
+                        return;
+                    }
                 }
             }
         }
@@ -418,9 +504,21 @@ void kkill_trw(pid_t pid, int sigNum)
 
 PErrorCode kkill(pid_t pid, int sigNum)
 {
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    return kkill_pl(pid, sigNum);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kkill_pl(pid_t pid, int sigNum)
+{
     try
     {
-        kkill_trw(pid, sigNum);
+        kkill_trw_pl(pid, sigNum);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
@@ -432,10 +530,58 @@ PErrorCode kkill(pid_t pid, int sigNum)
 
 void kkillpg_trw(pid_t pgroup, int sigNum)
 {
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    kkillpg_trw_pl(pgroup, sigNum);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kkillpg_trw_pl(pid_t pgroup, int sigNum)
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
     if (pgroup < 1) {
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
-    kkill_if_trw([pgroup](const KProcess& process) { return process.GetPGroupID() == pgroup; }, sigNum);
+
+    Ptr<KPIDNode> pidNode = kget_pid_node_pl(pgroup);
+
+    if (pidNode == nullptr || pidNode->Group == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+    }
+
+    kkillpg_trw_pl(*pidNode->Group, sigNum);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kkillpg_trw_pl(const KProcessGroup& group, int sigNum)
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
+    bool deliveredAny = false;
+    PErrorCode error = PErrorCode::Success;
+
+    for (const KProcess* process : group.GetProcessList())
+    {
+        const PErrorCode result = kkill_pl(process->GetPID(), sigNum);
+        if (result == PErrorCode::Success) {
+            deliveredAny = true;
+        } else if (result == PErrorCode::NoSuchProcess) {
+            // Ignore processes that die before we get to kill them.
+        } else if (result == PErrorCode::NoAccess || error != PErrorCode::NoAccess) {
+            error = result;
+        }
+    }
+    if (!deliveredAny) {
+        PERROR_ERRORCODE_THROW_ON_FAIL(error);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -444,9 +590,47 @@ void kkillpg_trw(pid_t pgroup, int sigNum)
 
 PErrorCode kkillpg(pid_t pgroup, int sigNum)
 {
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    return kkillpg_pl(pgroup, sigNum);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kkillpg(const KProcessGroup& group, int sigNum)
+{
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    return kkillpg_pl(group, sigNum);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kkillpg_pl(pid_t pgroup, int sigNum)
+{
     try
     {
-        kkillpg_trw(pgroup, sigNum);
+        kkillpg_trw_pl(pgroup, sigNum);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kkillpg_pl(const KProcessGroup& group, int sigNum)
+{
+    try
+    {
+        kkillpg_trw_pl(group, sigNum);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
@@ -581,7 +765,8 @@ intptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode
     static_assert(sizeof(KCtxSwitchStackFrame) % 8 == 0);
     static_assert(sizeof(KCtxSwitchStackFrameFPU) % 8 == 0);
 
-    KThreadCB& thread = kget_current_thread();
+    KThreadCB&  thread  = kget_current_thread();
+    KProcess&   process = kget_current_process();
 
     const int signalIndex = sigNum - 1;
 
@@ -632,19 +817,26 @@ intptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode
     }
     sigInfo.si_signo = sigNum;
 
-    sigaction_t& sigAction = thread.m_SignalHandlers[signalIndex];
+    sigaction_t sigAction = process.GetSignalHandler(signalIndex);
 
     if (sigAction.sa_handler == SIG_DFL || (sigAction.sa_handler == SIG_IGN && fromFault) || !sig_can_be_ignored(sigNum))
     {
         const PESignalDefaultAction action = sig_get_default_action(sigNum);
         if (action == PESignalDefaultAction::Stop)
         {
-            stop_thread(false);
+            Ptr<KProcess> parent = process.GetParent_pl();
+            bool notifyParent = false;
+            if (parent != nullptr)
+            {
+                const sigaction_t& parentSigaction = parent->GetSignalHandler(SIGCHLD - 1);
+                notifyParent = (parentSigaction.sa_flags & SA_NOCLDSTOP) == 0;
+            }
+            stop_thread(notifyParent);
         }
         else if (action == PESignalDefaultAction::Terminate || action == PESignalDefaultAction::TerminateCoreDump)
         {
             if (thread.m_State == ThreadState_Stopped) {
-                wakeup_thread(thread.GetHandle(), true);
+                wakeup_thread(thread, true);
             }
             sigaction_t terminateAction = {};
             terminateAction.sa_sigaction = __app_definition.signal_terminate_thread;
@@ -657,16 +849,18 @@ intptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode
         return prevStackPtr;
     }
 
+    if (prevStackPtr & 0x07) {
+        kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_Scheduler, "{}: Unaligned SP: {:#08x}", __PRETTY_FUNCTION__, prevStackPtr);
+    }
+    const intptr_t newStackPtr = add_signal_handler_frame(prevStackPtr, thread, userMode, sigAction, sigInfo);
+
     if ((sigAction.sa_flags & SA_RESETHAND) && sig_can_auto_reset(sigNum))
     {
         sigAction.sa_handler = SIG_DFL;
         sigAction.sa_flags &= ~(SA_SIGINFO | SA_RESETHAND);
+        process.SetSignalHandler(signalIndex, sigAction);
     }
-
-    if (prevStackPtr & 0x07) {
-        kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_Scheduler, "{}: Unaligned SP: {:#08x}", __PRETTY_FUNCTION__, prevStackPtr);
-    }
-    return add_signal_handler_frame(prevStackPtr, thread, userMode, sigAction, sigInfo);
+    return newStackPtr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

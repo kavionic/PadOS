@@ -29,6 +29,7 @@
 #include <Kernel/KPosixSignals.h>
 #include <Kernel/HAL/DigitalPort.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
+#include <Kernel/KPIDNode.h>
 #include <Kernel/KThread.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KSemaphore.h>
@@ -56,7 +57,6 @@ KThreadCB* gk_InitThread = nullptr;
 static KThreadList          gk_ReadyThreadLists[KTHREAD_PRIORITY_LEVELS];
 static KThreadWaitList      gk_SleepingThreads;
 KThreadList                 gk_ZombieThreadLists;
-KHandleArray<KThreadCB>&    gk_ThreadTable = *reinterpret_cast<KHandleArray<KThreadCB>*>(gk_ThreadTableBuffer);;
 volatile thread_id          gk_DebugWakeupThread = 0;
 
 
@@ -74,15 +74,6 @@ extern "C" __attribute__((naked)) void* __aeabi_read_tp(void)
         "ldr   r0, [r0]           \n"
         "bx    lr                 \n"
         );
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-const KHandleArray<KThreadCB>& get_thread_table()
-{
-    return gk_ThreadTable;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,15 +135,11 @@ void add_thread_to_zombie_list(KThreadCB* thread)
 
 void stop_thread(bool notifyParent)
 {
-    KThreadCB* const thread = gk_CurrentThread;
+    KThreadCB& thread = kget_current_thread();
 
     KSchedulerLock slock;
 
-//    if (notifyParent && thread->m_Parent != INVALID_HANDLE) {
-//        sys_kill(thread->m_Parent, SIGCHLD);
-//    }
-
-    thread->m_State = ThreadState_Stopped;
+    thread.m_State = ThreadState_Stopped;
 
     KSWITCH_CONTEXT();
 }
@@ -161,17 +148,16 @@ void stop_thread(bool notifyParent)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode wakeup_thread(thread_id handle, bool wakeupSuspended)
+PErrorCode wakeup_thread(KThreadCB& thread, bool wakeupSuspended)
 {
     KSchedulerLock slock;
 
-    Ptr<KThreadCB> thread = get_thread(handle);
-    if (thread == nullptr || thread->m_State == ThreadState_Zombie) {
-        return PErrorCode::InvalidArg;
+    if (thread.IsZombie()) {
+        return PErrorCode::NoSuchProcess;
     }
-    if (thread->m_State == ThreadState_Sleeping || thread->m_State == ThreadState_Waiting || (wakeupSuspended && thread->m_State == ThreadState_Stopped))
+    if (thread.m_State == ThreadState_Sleeping || thread.m_State == ThreadState_Waiting || (wakeupSuspended && thread.m_State == ThreadState_Stopped))
     {
-        add_thread_to_ready_list(ptr_raw_pointer_cast(thread));
+        add_thread_to_ready_list(&thread);
         return PErrorCode::Success;
     }
     return PErrorCode::InvalidArg;
@@ -222,8 +208,7 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
         {
             if (prevThread->m_DetachState == PThreadDetachState_Detached) {
                 add_thread_to_zombie_list(prevThread);
-            }
-            else {
+            } else {
                 wakeup_wait_queue(&prevThread->GetWaitQueue(), prevThread->m_ReturnValue, 0);
             }
         }
@@ -351,16 +336,6 @@ static void wakeup_sleeping_threads()
         gk_SleepingThreads.Remove(waitNode);
     }
 
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<KThreadCB> get_thread(thread_id handle)
-{
-    Ptr<KThreadCB> thread = gk_ThreadTable.Get(handle);
-    return (thread != nullptr && thread->m_State != ThreadState_Deleted) ? thread : nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

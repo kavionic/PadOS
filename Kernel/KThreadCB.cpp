@@ -117,8 +117,6 @@ KThreadCB::KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttri
 {
     SetHandle(handle);
 
-    memset(&m_SignalHandlers, 0, sizeof(m_SignalHandlers));
-
     const int priority = (attribs != nullptr) ? attribs->Priority : 0;
     m_DetachState = (attribs != nullptr) ? attribs->DetachState : PThreadDetachState_Detached;
     m_StackSize = (attribs != nullptr && attribs->StackSize != 0) ? (attribs->StackSize & ~(KSTACK_ALIGNMENT - 1)) : THREAD_DEFAULT_STACK_SIZE;

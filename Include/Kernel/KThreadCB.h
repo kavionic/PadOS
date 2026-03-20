@@ -53,6 +53,8 @@ public:
     KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttribs* attribs, bool kernelThread, PThreadControlBlock* tlsBlock, void* kernelTLSMemory);
     ~KThreadCB();
 
+    bool IsZombie() const noexcept { return m_State == ThreadState_Zombie || m_State == ThreadState_Deleted; }
+
     void InitializeStack(ThreadEntryPoint_t entryPoint, bool skipEntryTrampoline, void* arguments);
 
     uint8_t* GetStackTop() const noexcept { return m_StackBuffer; }
@@ -116,7 +118,6 @@ public:
 
     sigset_t                  m_PendingSignals_ = 0;
     sigset_t		          m_BlockedSignals = 0;
-    sigaction_t               m_SignalHandlers[KTOTAL_SIG_COUNT];
     KSignalQueueNode*         m_FirstQueuedSignal = nullptr;
     size_t                    m_QueuedSignalCount = 0;
 };

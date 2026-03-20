@@ -19,18 +19,19 @@
 
 #pragma once
 
-#include "System/Platform.h"
-
 #include <atomic>
 #include <map>
+#include <mutex>
+#include <shared_mutex>
 
 #include <sys/types.h>
 #include <sys/pados_mutex.h>
 
-#include "Kernel.h"
-#include "KNamedObject.h"
-#include "Scheduler.h"
-#include "Threads/Threads.h"
+#include <System/ExceptionHandling.h>
+#include <Kernel/Kernel.h>
+#include <Kernel/KNamedObject.h>
+#include <Kernel/Scheduler.h>
+#include <Threads/Threads.h>
 
 namespace kernel
 {
@@ -65,6 +66,73 @@ private:
 
     KMutex(const KMutex &) = delete;
     KMutex& operator=(const KMutex &) = delete;
+
+
+    // For STL compatibility:
+public:
+    void lock()     { PERROR_ERRORCODE_THROW_ON_FAIL(Lock()); }
+    bool try_lock() { return ConvertTryResult(TryLock()); }
+    void unlock()   { PERROR_ERRORCODE_THROW_ON_FAIL(Unlock()); }
+
+    template<typename Rep, typename Period>
+    bool try_lock_for(const std::chrono::duration<Rep, Period>& relTime)
+    {
+        return ConvertTryResult(LockTimeout(ToTimeVal(relTime)));
+    }
+
+    template<typename Clock, typename Duration>
+    bool try_lock_until(const std::chrono::time_point<Clock, Duration>& absTime)
+    {
+        if constexpr (std::is_same_v<Clock, std::chrono::steady_clock>) {
+            return ConvertTryResult(LockClock(CLOCK_MONOTONIC, ToTimeVal(absTime.time_since_epoch())));
+        }
+        else if constexpr (std::is_same_v<Clock, std::chrono::system_clock>) {
+            return ConvertTryResult(LockClock(CLOCK_REALTIME, ToTimeVal(absTime.time_since_epoch())));
+        }
+        else {
+            return try_lock_for(absTime - Clock::now());
+        }
+    }
+
+    void lock_shared()      { PERROR_ERRORCODE_THROW_ON_FAIL(LockShared()); }
+    bool try_lock_shared()  { return ConvertTryResult(TryLockShared()); }
+    void unlock_shared()    { PERROR_ERRORCODE_THROW_ON_FAIL(Unlock()); }
+
+    template<typename Rep, typename Period>
+    bool try_lock_shared_for(const std::chrono::duration<Rep, Period>& relTime)
+    {
+        return ConvertTryResult(LockSharedTimeout(ToTimeVal(relTime)));
+    }
+
+    template<typename Clock, typename Duration>
+    bool try_lock_shared_until(const std::chrono::time_point<Clock, Duration>& absTime)
+    {
+        if constexpr (std::is_same_v<Clock, std::chrono::steady_clock>) {
+            return ConvertTryResult(LockSharedClock(CLOCK_MONOTONIC, ToTimeVal(absTime.time_since_epoch())));
+        } else if constexpr (std::is_same_v<Clock, std::chrono::system_clock>) {
+            return ConvertTryResult(LockSharedClock(CLOCK_REALTIME, ToTimeVal(absTime.time_since_epoch())));
+        } else {
+            return try_lock_shared_for(absTime - Clock::now());
+        }
+    }
+
+private:
+    static bool ConvertTryResult(PErrorCode result)
+    {
+        if (result == PErrorCode::Success) {
+            return true;
+        }
+        if (result == PErrorCode::Busy || result == PErrorCode::Timeout) {
+            return false;
+        }
+        PERROR_ERRORCODE_THROW_ON_FAIL(result);
+    }
+
+    template<typename Rep, typename Period>
+    static TimeValNanos ToTimeVal(const std::chrono::duration<Rep, Period>& duration)
+    {
+        return TimeValNanos::FromNanoseconds(std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count());
+    }
 };
 
 class KMutexGuard
@@ -177,5 +245,10 @@ inline KMutexGuard    critical_create_guard(Ptr<KMutex> sema, bool doLock = true
 inline KMutexGuardRaw critical_create_guard(KMutex& sema, bool doLock = true) { return KMutexGuardRaw(sema, doLock); }
 
 inline KMutexSharedGuard critical_create_shared_guard(KMutex& sema, bool doLock = true) { return KMutexSharedGuard(sema, doLock); }
+
+using KScopedLock = std::scoped_lock<KMutex>;
+using KUniqueLock = std::unique_lock<KMutex>;
+using KSharedLock = std::shared_lock<KMutex>;
+
 
 } // namespace

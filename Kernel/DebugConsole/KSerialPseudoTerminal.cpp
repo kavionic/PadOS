@@ -18,7 +18,6 @@
 // Created: 21.02.2026 22:00
 
 #include <termios.h>
-#include <sys/_termios.h>
 
 #include <Kernel/KProcess.h>
 #include <Kernel/KProcessGroups.h>

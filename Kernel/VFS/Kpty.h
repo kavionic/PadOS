@@ -21,8 +21,7 @@
 
 #include <map>
 
-#include <sys/_winsize.h>
-#include <sys/_termios.h>
+#include <termios.h>
 
 #include <Utils/String.h>
 #include <Kernel/KMutex.h>

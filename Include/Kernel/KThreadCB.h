@@ -28,10 +28,12 @@
 #include <Kernel/KNamedObject.h>
 #include <Kernel/KSchedulerLock.h>
 
+struct PThreadUserData;
 
 extern PThreadControlBlock* __kernel_thread_data;
 
 static constexpr int32_t THREAD_MAX_TLS_SLOTS = 256;
+static constexpr int32_t THREAD_DEFAULT_STACK_SIZE = 1024 * 32;
 
 namespace kernel
 {
@@ -39,7 +41,6 @@ class KProcess;
 
 struct KSignalQueueNode;
 
-static constexpr int32_t THREAD_DEFAULT_STACK_SIZE = 1024*32;
 
 static const int KTHREAD_PRIORITY_MIN = -16;
 static const int KTHREAD_PRIORITY_MAX = 15;
@@ -50,12 +51,12 @@ class KThreadCB : public KNamedObject
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::Thread;
 
-    KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttribs* attribs, bool kernelThread, PThreadControlBlock* tlsBlock, void* kernelTLSMemory);
+    KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttribs* attribs, bool kernelThread, PThreadUserData* threadUserData, void* kernelTLSMemory);
     ~KThreadCB();
 
     bool IsZombie() const noexcept { return m_State == ThreadState_Zombie || m_State == ThreadState_Deleted; }
 
-    void InitializeStack(ThreadEntryPoint_t entryPoint, bool skipEntryTrampoline, void* arguments);
+    void InitializeStack(ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, bool skipEntryTrampoline, void* arguments);
 
     uint8_t* GetStackTop() const noexcept { return m_StackBuffer; }
     uint8_t* GetStackBottom() const noexcept { return m_StackBuffer + m_StackSize - 4; }
@@ -120,6 +121,7 @@ public:
     sigset_t		          m_BlockedSignals = 0;
     KSignalQueueNode*         m_FirstQueuedSignal = nullptr;
     size_t                    m_QueuedSignalCount = 0;
+    PThreadUserData*          m_ThreadUserData = nullptr;
 };
 
 typedef PIntrusiveList<KThreadCB>       KThreadList;

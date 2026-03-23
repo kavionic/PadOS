@@ -50,12 +50,16 @@ extern uint8_t __tls_align;
 
 SECTION_KERNEL_IMAGE_DEFINITION PFirmwareImageDefinition _kerneldef =
 {
-    .entry = nullptr,
-    .thread_terminated = nullptr,
-    .signal_trampoline = nullptr,
-    .signal_terminate_thread = nullptr,
-    .create_main_thread_tls_block = nullptr,
+    .entry                          = nullptr,
+    .thread_terminated              = nullptr,
+    .signal_trampoline              = nullptr,
+    .signal_terminate_thread        = nullptr,
+    .create_main_thread_user_data   = nullptr,
+    .create_thread_user_data        = nullptr,
+    .alloc_memory                   = nullptr,
+    .free_memory                    = nullptr,
     .FirstAppPointer = PAppDefinition::s_FirstApp,
+    .ThreadReaperQueue = nullptr,
     .TLSDefinition =
     {
         .TLSData = &__tdata_start,
@@ -82,18 +86,18 @@ static void thread_entry_point(void* (*threadEntry)(void*), void* arguments)
     try
     {
         void* const result = threadEntry(arguments);
-        ksys_thread_exit(result);
+        ksys_thread_terminate(result);
     }
     catch (const std::exception& e)
     {
         const PString error = PString("Uncaught exception in thread '") + gk_CurrentThread->GetName() + "': " + e.what();
         panic(error.c_str());
-        ksys_thread_exit(nullptr);
+        ksys_thread_terminate(nullptr);
     }
     catch (...)
     {
         panic("Uncaught exception from thread.\n");
-        ksys_thread_exit(nullptr);
+        ksys_thread_terminate(nullptr);
     }
 }
 
@@ -111,7 +115,7 @@ static void invalid_return_handler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KThreadCB::KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttribs* attribs, bool kernelThread, PThreadControlBlock* tlsBlock, void* kernelTLSMemory)
+KThreadCB::KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttribs* attribs, bool kernelThread, PThreadUserData* threadUserData, void* kernelTLSMemory)
     : KNamedObject((attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "", KNamedObjectType::Thread)
     , m_KernelThread(kernelThread)
 {
@@ -138,7 +142,11 @@ KThreadCB::KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttri
     m_CurrentStackAndPrivilege = (intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1);
     m_State = ThreadState_Ready;
     m_PriorityLevel = PriToLevel(priority);
-    m_UserspaceTLS = tlsBlock;
+    m_ThreadUserData = threadUserData;
+
+    if (m_ThreadUserData != nullptr) {
+        m_UserspaceTLS = m_ThreadUserData->TLSData;
+    }
 
     try
     {
@@ -177,7 +185,7 @@ KThreadCB::~KThreadCB()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, bool skipEntryTrampoline, void* arguments)
+void KThreadCB::InitializeStack(ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, bool skipEntryTrampoline, void* arguments)
 {
     uint32_t currentStack = ((intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1));
 
@@ -189,7 +197,11 @@ void KThreadCB::InitializeStack(ThreadEntryPoint_t entryPoint, bool skipEntryTra
     {
         stackFrame->ExceptionFrame.R0 = uint32_t(entryPoint);
         stackFrame->ExceptionFrame.R1 = uint32_t(arguments);
-        stackFrame->ExceptionFrame.PC = uint32_t(thread_entry_point) & ~1; // Clear the thumb flag from the function pointer.
+        if (entryTrampoline != nullptr) {
+            stackFrame->ExceptionFrame.PC = uint32_t(entryTrampoline) & ~1; // Clear the thumb flag from the function pointer.
+        } else {
+            stackFrame->ExceptionFrame.PC = uint32_t(thread_entry_point) & ~1; // Clear the thumb flag from the function pointer.
+        }
     }
     else
     {

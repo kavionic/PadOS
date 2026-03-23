@@ -35,7 +35,6 @@
 
 namespace kernel
 {
-std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>> KDebugConsole::s_Commands;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -697,7 +696,7 @@ std::vector<PString> KDebugConsole::ExpandCommandName(size_t argumentIndex, cons
 {
     std::vector<PString> alternatives;
 
-    for (const auto& i : s_Commands)
+    for (const auto& i : GetCommands())
     {
         if (i.first.starts_with_nocase(argumentText.c_str()))
         {
@@ -824,9 +823,9 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
             return;
         }
 
-        auto cmdIt = s_Commands.find(tokens[0]);
+        auto cmdIt = GetCommands().find(tokens[0]);
 
-        if (cmdIt != s_Commands.end())
+        if (cmdIt != GetCommands().end())
         {
             const Ptr<KConsoleCommand>& cmd = cmdIt->second(this);
 

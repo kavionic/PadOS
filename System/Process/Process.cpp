@@ -19,7 +19,45 @@
 
 #include <Process/Process.h>
 #include <System/AppDefinition.h>
+#include <Threads/ThreadUserspaceState.h>
 
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void process_entry_trampoline(ThreadEntryPoint_t threadEntry, void* arguments)
+{
+    try
+    {
+        const PAppDefinition* app = static_cast<const PAppDefinition*>(__app_thread_data->Ptr1);
+
+        char** argv = static_cast<char**>(__app_thread_data->Ptr2);
+
+        PScopeExit cleanup([argv]() { __app_definition.free_memory(argv); });
+
+        int argc = 0;
+        if (argv != nullptr) {
+            for (; argv[argc] != nullptr; ++argc);
+        }
+        int result = app->MainEntry(argc, argv);
+        thread_exit(reinterpret_cast<void*>(result));
+    }
+    catch (const std::exception& exc)
+    {
+        ThreadInfo threadInfo;
+        get_thread_info(get_thread_id(), &threadInfo);
+        p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Uncaught exception in thread '{}': {}", threadInfo.ThreadName, exc.what());
+        thread_exit((void*)-1);
+    }
+    catch (...)
+    {
+        ThreadInfo threadInfo;
+        get_thread_info(get_thread_id(), &threadInfo);
+        p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Unknown uncaught exception in thread {}.", threadInfo.ThreadName);
+        thread_exit((void*)-1);
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -89,8 +127,11 @@ PErrorCode spawn_execv(pid_t* outPID, const char* name, int priority, char* cons
 
 PErrorCode spawn_execve(pid_t* outPID, const char* name, int priority, char* const argv[], char* const envp[])
 {
-    PThreadControlBlock* tlsBlock = create_thread_tls_block(__app_definition);
-    if (tlsBlock == nullptr) {
+    PThreadAttribs attribs(nullptr);
+
+    PThreadUserData* const threadData = __app_definition.create_thread_user_data(attribs);
+
+    if (threadData == nullptr) {
         return PErrorCode::NoMemory;
     }
     size_t argc = 0;
@@ -101,10 +142,10 @@ PErrorCode spawn_execve(pid_t* outPID, const char* name, int priority, char* con
             totalArgSize += strlen(argv[argc]) + 1;
         }
     }
-    char** argvCopy = static_cast<char**>(malloc(sizeof(char*) * (argc + 1) + totalArgSize));
+    char** argvCopy = static_cast<char**>(__app_definition.alloc_memory(sizeof(char*) * (argc + 1) + totalArgSize));
     if (argvCopy == nullptr)
     {
-        delete_thread_tls_block(tlsBlock);
+        delete_thread_user_data(threadData);
         return PErrorCode::NoMemory;
     }
     char* textBuffer = reinterpret_cast<char*>(argvCopy + argc + 1);
@@ -117,10 +158,10 @@ PErrorCode spawn_execve(pid_t* outPID, const char* name, int priority, char* con
     }
     argvCopy[argc] = nullptr;
 
-    const PErrorCode result = __spawn_execve(outPID, name, priority, tlsBlock, argvCopy, envp);
+    const PErrorCode result = __spawn_execve(outPID, process_entry_trampoline, name, priority, threadData, argvCopy, envp);
     if (result != PErrorCode::Success) {
-        delete_thread_tls_block(tlsBlock);
-        free(argvCopy);
+        delete_thread_user_data(threadData);
+        __app_definition.free_memory(argvCopy);
     }
     return result;
 }

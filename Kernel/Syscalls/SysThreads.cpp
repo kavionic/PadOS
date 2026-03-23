@@ -50,13 +50,13 @@ PErrorCode sys_thread_attribs_init(PThreadAttribs* attribs)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_thread_spawn(thread_id* outThreadHandle, const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, ThreadEntryPoint_t entryPoint, void* arguments)
+PErrorCode sys_thread_spawn(thread_id* outThreadHandle, const PThreadAttribs* attribs, PThreadUserData* threadData, ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, void* arguments)
 {
     Ptr<KThreadCB> thread;
 
     try
     {
-        const thread_id handle = kthread_spawn_trw(attribs, tlsBlock, KSpawnThreadFlag::None, entryPoint, arguments);
+        const thread_id handle = kthread_spawn_trw(attribs, threadData, KSpawnThreadFlag::None, entryTrampoline, entryPoint, arguments);
         if (outThreadHandle != nullptr) {
             *outThreadHandle = handle;
         }
@@ -69,7 +69,7 @@ PErrorCode sys_thread_spawn(thread_id* outThreadHandle, const PThreadAttribs* at
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void sys_thread_exit(void* returnValue)
+void sys_thread_terminate(void* returnValue)
 {
     kthread_exit(returnValue);
 }

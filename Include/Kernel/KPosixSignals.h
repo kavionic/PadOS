@@ -98,8 +98,9 @@ void kfree_signal_queue_node(KSignalQueueNode* node);
 
 void kforce_process_signals();
 
-intptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode, bool fromFault, const siginfo_t* extSigInfo);
-extern "C" uintptr_t kprocess_pending_signals(intptr_t curStackPtr, bool userMode);
+uintptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode, bool fromFault, const siginfo_t* extSigInfo);
+extern "C" uintptr_t kprocess_pending_signals(uintptr_t curStackPtr, bool userMode);
+extern "C" uintptr_t kprocess_thread_exit(uintptr_t prevStackPtr, void* returnValue);
 
 static inline bool exception_has_fpu_frame(uint32_t execReturn)
 {

@@ -20,6 +20,7 @@
 #include <Ptr/NoPtr.h>
 
 #include <System/AppDefinition.h>
+#include <Threads/ThreadUserspaceState.h>
 
 #include <Kernel/KThreadCB.h>
 #include <Kernel/KHandleArray.h>
@@ -181,7 +182,7 @@ static void* init_thread_entry(void* arguments)
     // to sleep, we must initialize it's stack properly before that happens.
 
     size_t mainThreadStackSize = size_t(arguments);
-    gk_IdleThread->InitializeStack(idle_thread_entry, /*skipEntryTrampoline*/ true, nullptr);
+    gk_IdleThread->InitializeStack(nullptr, idle_thread_entry, /*skipEntryTrampoline*/ true, nullptr);
 
 
     kset_real_time(RealtimeClock::GetClock(), false);
@@ -206,8 +207,13 @@ static void* init_thread_entry(void* arguments)
     g_SerialTerminal1.Setup();
     g_SerialTerminal2.Setup();
 
+    PThreadUserData* mainThreadUserData = __app_definition.create_main_thread_user_data();
     PThreadAttribs attrs("main", 0, PThreadDetachState_Detached, mainThreadStackSize);
-    gk_MainThreadID = kthread_spawn_trw(&attrs, __app_definition.create_main_thread_tls_block(), { KSpawnThreadFlag::Privileged, KSpawnThreadFlag::SpawnProcess }, main_thread_entry, nullptr);
+
+    attrs.StackSize     = mainThreadUserData->StackSize;
+    attrs.StackAddress  = mainThreadUserData->StackBuffer;
+   
+    gk_MainThreadID = kthread_spawn_trw(&attrs, mainThreadUserData, { KSpawnThreadFlag::Privileged, KSpawnThreadFlag::SpawnProcess }, nullptr, main_thread_entry, nullptr);
 
     for (;;)
     {
@@ -226,6 +232,9 @@ static void* init_thread_entry(void* arguments)
         {
             threadsToDelete.Remove(zombie);
             zombie->m_State = ThreadState_Deleted;
+
+            p_thread_reaper_schedule_cleanup(zombie->m_ThreadUserData);
+
             try
             {
                 pid_t pid = zombie->GetHandle();
@@ -279,7 +288,7 @@ void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
         gk_InitThread = new((void*)gk_InitThreadBuffer)KThreadCB(KTHREAD_ID_INIT, ptr_tmp_cast(gk_KernelProcess), &attrs, /*kernelThread*/ true, nullptr, &_idle_tls_start);
         Ptr<KThreadCB> initThread = ptr_new_cast(gk_InitThread);
 
-        gk_InitThread->InitializeStack(init_thread_entry, /*skipEntryTrampoline*/ false, (void*)mainThreadStackSize);
+        gk_InitThread->InitializeStack(nullptr, init_thread_entry, /*skipEntryTrampoline*/ false, (void*)mainThreadStackSize);
 
         g_PIDMap[KTHREAD_ID_INIT]->Thread = initThread;
     }

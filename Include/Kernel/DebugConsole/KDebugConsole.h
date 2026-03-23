@@ -76,9 +76,13 @@ public:
     void RefreshText(size_t startPosition);
     void ResetInput();
 
-    static const std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& GetCommands() { return s_Commands; }
+    static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& GetCommands()
+    {
+        static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>> commands;
+        return commands;
+    }
 
-    static void RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator) { s_Commands[name] = std::move(commandCreator); }
+    static void RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator) { GetCommands()[name] = std::move(commandCreator); }
 
     bool SetPrompt(const PString& text, size_t visibleLength);
 
@@ -123,8 +127,6 @@ private:
     size_t  m_CursorPosition = 0;
 
     std::vector<PString> m_PendingExpansionAlternatives;
-
-    static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>> s_Commands;
 };
 
 } // namespace kernel

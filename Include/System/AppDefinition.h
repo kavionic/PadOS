@@ -20,12 +20,16 @@
 #pragma once
 
 #include <vector>
+#include <atomic>
+
 #include <stdint.h>
 #include <signal.h>
 
 #include <PadOS/Threads.h>
 #include <System/ModuleTLSDefinition.h>
 
+struct PThreadUserData;
+struct PThreadReaperQueue;
 
 class PAppDefinition
 {
@@ -50,13 +54,17 @@ private:
 struct PFirmwareImageDefinition
 {
     void (*entry)();
-    void (*thread_terminated)(thread_id, void*, PThreadControlBlock*);
+    void (*thread_terminated)(void* returnValue, PThreadUserData*);
     void (*signal_trampoline)();
     void (*signal_terminate_thread)(int, siginfo_t*, void*);
-    PThreadControlBlock* (*create_main_thread_tls_block)();
-    PAppDefinition*& FirstAppPointer;
+    PThreadUserData* (*create_main_thread_user_data)();
+    PThreadUserData* (*create_thread_user_data)(PThreadAttribs& attribs);
+    void*            (*alloc_memory)(size_t size);
+    void             (*free_memory)(void* data);
 
-    PModuleTLSDefinition TLSDefinition;
+    PAppDefinition*&        FirstAppPointer;
+    PThreadReaperQueue*     ThreadReaperQueue;
+    PModuleTLSDefinition    TLSDefinition;
 };
 
 extern "C"

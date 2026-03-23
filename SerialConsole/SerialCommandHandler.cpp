@@ -267,7 +267,7 @@ void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, PSt
     Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached, readThreadPriority);
 
     PThreadAttribs attrs("SerialHandlerIO", readThreadPriority, PThreadDetachState_Detached, 16384);
-    m_InputHandlerThread = kthread_spawn_trw(&attrs, nullptr, KSpawnThreadFlag::Privileged, InputHandlerThreadEntry, this);
+    m_InputHandlerThread = kthread_spawn_trw(&attrs, nullptr, KSpawnThreadFlag::Privileged, nullptr, InputHandlerThreadEntry, this);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

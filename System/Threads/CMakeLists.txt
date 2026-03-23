@@ -8,4 +8,5 @@ target_sources(PadOS_System PRIVATE
 
 target_sources(PadOS_SystemIFlash PRIVATE
 	Thread.cpp
+	ThreadUserspaceState.cpp
 )

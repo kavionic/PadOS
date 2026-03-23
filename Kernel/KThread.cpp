@@ -30,6 +30,7 @@
 #include <Kernel/KHandleArray.h>
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
+#include <Threads/ThreadUserspaceState.h>
 
 
 namespace kernel
@@ -72,7 +73,7 @@ void KThread::Start_trw(KSpawnThreadFlags flags, PThreadDetachState detachState,
     {
         m_DetachState = detachState;
         PThreadAttribs attrs(m_Name.c_str(), priority, detachState, stackSize);
-        m_ThreadHandle = kthread_spawn_trw(&attrs, /*tlsBlock*/ nullptr, flags | KSpawnThreadFlag::Privileged, ThreadEntry, this);
+        m_ThreadHandle = kthread_spawn_trw(&attrs, /*tlsBlock*/ nullptr, flags | KSpawnThreadFlag::Privileged, nullptr, ThreadEntry, this);
     }
 }
 
@@ -156,7 +157,7 @@ PErrorCode kthread_attribs_init(PThreadAttribs& outAttribs) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, KSpawnThreadFlags flags, ThreadEntryPoint_t entryPoint, void* arguments)
+thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadUserData* threadUserData, KSpawnThreadFlags flags, ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, void* arguments)
 {
     kassert(!g_PIDMapMutex.IsLocked());
     KScopedLock lock(g_PIDMapMutex);
@@ -174,8 +175,8 @@ thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadControlBlock* 
 
     Ptr<KThreadCB> thread;
 
-    thread = ptr_new<KThreadCB>(pidNode->PID, process, attribs, flags.Has(KSpawnThreadFlag::Privileged), tlsBlock, nullptr);
-    thread->InitializeStack(entryPoint, /*skipEntryTrampoline*/ false, arguments);
+    thread = ptr_new<KThreadCB>(pidNode->PID, process, attribs, flags.Has(KSpawnThreadFlag::Privileged), threadUserData, nullptr);
+    thread->InitializeStack(entryTrampoline, entryPoint, /*skipEntryTrampoline*/ false, arguments);
 
     pidNode->Thread = thread;
 
@@ -195,9 +196,6 @@ __attribute__((noreturn)) void kthread_exit(void* returnValue)
 {
     KThreadCB* thread = gk_CurrentThread;
 
-    if (thread->m_UserspaceTLS != nullptr) {
-        __app_definition.thread_terminated(thread->GetHandle(), thread->m_StackBuffer, thread->m_UserspaceTLS);
-    }
     thread->m_Process->RemoveThread(thread);
 
     thread->m_ReturnValue = returnValue;
@@ -292,6 +290,8 @@ void* kthread_join_trw(thread_id handle)
             }
         } CRITICAL_END;
         void* returnValue = child->m_ReturnValue;
+
+        p_thread_reaper_schedule_cleanup(child->m_ThreadUserData);
 
         kassert(!g_PIDMapMutex.IsLocked());
         KScopedLock lock(g_PIDMapMutex);

@@ -76,7 +76,7 @@ private:
 };
 
 PErrorCode  kthread_attribs_init(PThreadAttribs& outAttribs) noexcept;
-thread_id   kthread_spawn_trw(const PThreadAttribs* attribs, PThreadControlBlock* tlsBlock, KSpawnThreadFlags flags, ThreadEntryPoint_t entryPoint, void* arguments);
+thread_id   kthread_spawn_trw(const PThreadAttribs* attribs, PThreadUserData* threadUserData, KSpawnThreadFlags flags, ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, void* arguments);
 __attribute__((noreturn)) void kthread_exit(void* returnValue);
 PErrorCode  kthread_detach(thread_id handle);
 void*       kthread_join_trw(thread_id handle);

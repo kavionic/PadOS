@@ -9,4 +9,5 @@ target_sources(PadOS_System PRIVATE
 	Thread.h
 	ThreadLocal.h
 	Threads.h
+	ThreadUserspaceState.h
 )

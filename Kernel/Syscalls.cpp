@@ -86,7 +86,7 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(set_clock_resolution_ns),
     SYS_PTR(thread_attribs_init),
     SYS_PTR(thread_spawn),
-    SYS_PTR(thread_exit),
+    SYS_PTR(thread_terminate),
     SYS_PTR(thread_detach),
     SYS_PTR(thread_join),
     SYS_PTR(get_thread_id),
@@ -266,10 +266,12 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
     "   beq     .sigreturn\n"
     "   cmp     r1, %3\n"           // SYS_process_signals
     "   beq     .process_signals\n"
-    "   ldr     r1, =%4\n"          // ENOSYS
-    "   str     r1, [r0, %5]\n"     // frame -> R0 (return ENOSYS).
-    "   ldr     r1, [r0, %6]\n"     // Read frame -> LR.
-    "   str     r1, [r0, %7]\n"     // Write frame -> PC.
+    "   cmp     r1, %4\n"           // SYS_thread_exit
+    "   beq     .process_thread_exit\n"
+    "   ldr     r1, =%5\n"          // ENOSYS
+    "   str     r1, [r0, %6]\n"     // frame -> R0 (return ENOSYS).
+    "   ldr     r1, [r0, %7]\n"     // Read frame -> LR.
+    "   str     r1, [r0, %8]\n"     // Write frame -> PC.
     "   bx      lr\n"
     ""
     ".sigreturn:\n" // Used by the signal-return trampoline to restore normal thread context.
@@ -280,8 +282,8 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
     "   add     r0, r0, r2\n"       // Skip padding if present.
     "   tst     lr, #0x10\n"        // Test bit-4 in EXEC_RETURN to check if the thread use the FPU context.
     "   ite     eq\n"
-    "   addeq   r0, %9\n"           // Remove exception frame with FPU registers.
-    "   addne   r0, %8\n"           // Remove exception frame without FPU registers.
+    "   addeq   r0, %10\n"           // Remove exception frame with FPU registers.
+    "   addne   r0, %9\n"           // Remove exception frame without FPU registers.
     "   bl      ksigreturn\n"
         ASM_LOAD_SCHED_CONTEXT(r0)
     "   msr     psp, r0\n"
@@ -304,16 +306,29 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
     "   msr     psp, r0\n"
     "   bx      lr\n"
     ""
+    ".process_thread_exit:\n"
+        ASM_STORE_SCHED_CONTEXT(r0)
+    "   ldr     r1, [r0, %6]\n"     // Read frame -> R0.
+    "   bl      kprocess_thread_exit\n"  // kprocess_thread_exit(currentStack[r0], returnValue[r1])
+    "   mrs     r2, CONTROL\n"
+    "   orr     r2, #1\n"       // Set nPRIV (bit 0).
+    "   msr     CONTROL, r2\n"  // Drop privilege before entering cleanup handler.
+    "   isb\n"
+        ASM_LOAD_SCHED_CONTEXT(r0)
+    "   msr     psp, r0\n"
+    "   bx      lr\n"
+    ""
     ::  "i"(offsetof(KExceptionStackFrame, R12)),       // %0
         "i"(ARRAY_COUNT(gk_SyscallTable) - 1),          // %1
         "i"(SYS_sigreturn),                             // %2
         "i"(SYS_process_signals),                       // %3
-        "i"(ENOSYS),                                    // %4
-        "i"(offsetof(KExceptionStackFrame, R0)),        // %5
-        "i"(offsetof(KExceptionStackFrame, LR)),        // %6
-        "i"(offsetof(KExceptionStackFrame, PC)),        // %7
-        "i"(sizeof(KExceptionStackFrame)),              // %8
-        "i"(sizeof(KExceptionStackFrameFPU))            // %9
+        "i"(SYS_thread_exit),                           // %4
+        "i"(ENOSYS),                                    // %5
+        "i"(offsetof(KExceptionStackFrame, R0)),        // %6
+        "i"(offsetof(KExceptionStackFrame, LR)),        // %7
+        "i"(offsetof(KExceptionStackFrame, PC)),        // %8
+        "i"(sizeof(KExceptionStackFrame)),              // %9
+        "i"(sizeof(KExceptionStackFrameFPU))            // %10
     );
 }
 

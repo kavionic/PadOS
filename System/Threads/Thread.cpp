@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -157,79 +157,4 @@ PErrorCode PThread::Adopt()
     return PErrorCode::Busy;
 
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void __thread_terminated(thread_id threadID, void* stackBuffer, PThreadControlBlock* threadLocalBuffer)
-{
-    _reclaim_reent(nullptr);
-
-    PThreadLocalSlotManager::Get().ThreadTerminated();
-
-    delete_thread_tls_block(threadLocalBuffer);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PThreadControlBlock* create_thread_tls_block(const PFirmwareImageDefinition& imageDefinition, void* buffer)
-{
-    static_assert(sizeof(PThreadControlBlock) == 8);
-
-    const size_t controlBlockSize = sizeof(PThreadControlBlock) + imageDefinition.TLSDefinition.TLSDataSize + imageDefinition.TLSDefinition.TLSBSSSize;
-    assert(imageDefinition.TLSDefinition.TLSAlign <= sizeof(PThreadControlBlock));
-
-    PThreadControlBlock* controlBlock = 
-        (buffer == nullptr)
-        ? reinterpret_cast<PThreadControlBlock*>(aligned_alloc(imageDefinition.TLSDefinition.TLSAlign, align_up(controlBlockSize, imageDefinition.TLSDefinition.TLSAlign)))
-        : reinterpret_cast<PThreadControlBlock*>(buffer);
-
-    if (controlBlock == nullptr) {
-        return nullptr;
-    }
-    memset(controlBlock, 0, sizeof(*controlBlock));
-    memcpy(controlBlock + 1, imageDefinition.TLSDefinition.TLSData, imageDefinition.TLSDefinition.TLSDataSize);
-    memset(reinterpret_cast<uint8_t*>(controlBlock + 1) + imageDefinition.TLSDefinition.TLSDataSize, 0, imageDefinition.TLSDefinition.TLSBSSSize);
-    return controlBlock;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void delete_thread_tls_block(PThreadControlBlock* tlsBlock)
-{
-    if (tlsBlock != nullptr) {
-        free(tlsBlock);
-    }
-}
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode thread_spawn(thread_id* outHandle, const PThreadAttribs* attribs, ThreadEntryPoint_t entryPoint, void* arguments)
-{
-    PThreadControlBlock* tlsBlock = create_thread_tls_block(__app_definition);
-    if (tlsBlock == nullptr) {
-        return PErrorCode::NoMemory;
-    }
-    const PErrorCode result = __thread_spawn(outHandle, attribs, tlsBlock, entryPoint, arguments);
-    if (result != PErrorCode::Success) {
-        delete_thread_tls_block(tlsBlock);
-    }
-    return result;
-}
-
-
-#ifdef __cplusplus
-}
-#endif
 

@@ -717,6 +717,19 @@ static void setup_signal_handler_exception_frame(T& frame, uintptr_t prevStackPt
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+template<typename T>
+static void setup_exit_handler_exception_frame(T& frame, uintptr_t prevStackPtr, void* returnValue, PThreadUserData* threadUserData)
+{
+    frame.ExceptionFrame.xPSR &= xPSR_T_Msk; // Clear everything but the thumb flag.
+    frame.ExceptionFrame.R0 = uintptr_t(returnValue);
+    frame.ExceptionFrame.R1 = uintptr_t(threadUserData);
+    frame.ExceptionFrame.PC = uintptr_t(__app_definition.thread_terminated);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 static uintptr_t add_signal_handler_frame(uintptr_t prevStackPtr, KThreadCB& thread, bool userMode, const sigaction_t& sigAction, const siginfo_t& sigInfo)
 {
     KCtxSwitchKernelStackFrame* prevStackFrame = reinterpret_cast<KCtxSwitchKernelStackFrame*>(prevStackPtr);
@@ -759,7 +772,7 @@ static uintptr_t add_signal_handler_frame(uintptr_t prevStackPtr, KThreadCB& thr
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-intptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode, bool fromFault, const siginfo_t* extSigInfo)
+uintptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode, bool fromFault, const siginfo_t* extSigInfo)
 {
     static_assert(sizeof(KSignalStackFrame) % 8 == 0);
     static_assert(sizeof(KCtxSwitchStackFrame) % 8 == 0);
@@ -852,7 +865,7 @@ intptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode
     if (prevStackPtr & 0x07) {
         kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_Scheduler, "{}: Unaligned SP: {:#08x}", __PRETTY_FUNCTION__, prevStackPtr);
     }
-    const intptr_t newStackPtr = add_signal_handler_frame(prevStackPtr, thread, userMode, sigAction, sigInfo);
+    const uintptr_t newStackPtr = add_signal_handler_frame(prevStackPtr, thread, userMode, sigAction, sigInfo);
 
     if ((sigAction.sa_flags & SA_RESETHAND) && sig_can_auto_reset(sigNum))
     {
@@ -867,7 +880,7 @@ intptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-extern "C" uintptr_t kprocess_pending_signals(intptr_t curStackPtr, bool userMode)
+extern "C" uintptr_t kprocess_pending_signals(uintptr_t curStackPtr, bool userMode)
 {
     KThreadCB& thread = kget_current_thread();
 
@@ -924,6 +937,27 @@ extern "C" uintptr_t ksigreturn(uintptr_t curStackPtr)
     thread.m_BlockedSignals = signalStackFrame->SignalMask & KBLOCKABLE_SIGNALS_MASK;
 
     return kprocess_pending_signals(signalStackFrame->PreSignalPSPAndPrivilege & ~0x01, (signalStackFrame->PreSignalPSPAndPrivilege & 0x01) != 0);
+}
+
+extern "C" uintptr_t kprocess_thread_exit(uintptr_t prevStackPtr, void* returnValue)
+{
+    KCtxSwitchKernelStackFrame* prevStackFrame = reinterpret_cast<KCtxSwitchKernelStackFrame*>(prevStackPtr);
+
+    const bool   hasFPUFrame = exception_has_fpu_frame(prevStackFrame->EXEC_RETURN);
+    const size_t frameSize = hasFPUFrame ? sizeof(KCtxSwitchStackFrameFPU) : sizeof(KCtxSwitchStackFrame);
+
+    const uintptr_t newStackPtr = prevStackPtr - frameSize;
+
+    memcpy(reinterpret_cast<void*>(newStackPtr), reinterpret_cast<const void*>(prevStackPtr), frameSize);
+
+    KThreadCB& thread = kget_current_thread();
+
+    if (hasFPUFrame) {
+        setup_exit_handler_exception_frame(*reinterpret_cast<KCtxSwitchStackFrameFPU*>(newStackPtr), prevStackPtr, returnValue, thread.m_ThreadUserData);
+    } else {
+        setup_exit_handler_exception_frame(*reinterpret_cast<KCtxSwitchStackFrame*>(newStackPtr), prevStackPtr, returnValue, thread.m_ThreadUserData);
+    }
+    return newStackPtr;
 }
 
 } // namespace kernel

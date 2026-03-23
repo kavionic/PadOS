@@ -25,6 +25,7 @@
 
 #include <System/AppDefinition.h>
 #include <System/ErrorCodes.h>
+#include <Threads/ThreadUserspaceState.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/Syscalls.h>
@@ -37,18 +38,6 @@ extern unsigned char* _eheap;
 namespace kernel
 {
 
-void* process_entry(void* arguments)
-{
-    const PAppDefinition* app = static_cast<const PAppDefinition*>(__app_thread_data->Ptr1);
-
-    char** argv = static_cast<char**>(__app_thread_data->Ptr2);
-    int argc = 0;
-    if (argv != nullptr) {
-        for (; argv[argc] != nullptr; ++argc);
-    }
-    return reinterpret_cast<void*>(app->MainEntry(argc, argv));
-}
-
 extern "C"
 {
 
@@ -56,7 +45,7 @@ extern "C"
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_spawn_execve(pid_t* outPID, const char* name, int priority, PThreadControlBlock* const tlsBlock, char* const argv[], char* const envp[])
+PErrorCode sys_spawn_execve(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoline, const char* name, int priority, PThreadUserData* threadUserData, char* const argv[], char* const envp[])
 {
     try
     {
@@ -64,7 +53,8 @@ PErrorCode sys_spawn_execve(pid_t* outPID, const char* name, int priority, PThre
             validate_user_write_pointer_trw(outPID);
         }
         validate_user_read_string_trw(name, PATH_MAX);
-        validate_user_write_pointer_trw(tlsBlock);
+        validate_user_read_pointer_trw(threadUserData);
+        validate_user_write_pointer_trw(threadUserData->TLSData);
 
         const PAppDefinition* app = nullptr;
 
@@ -94,11 +84,15 @@ PErrorCode sys_spawn_execve(pid_t* outPID, const char* name, int priority, PThre
         if (app == nullptr) {
             return PErrorCode::InvalidFileType;
         }
-        tlsBlock->Ptr1 = const_cast<void*>(static_cast<const void*>(app));
-        tlsBlock->Ptr2 = const_cast<void*>(static_cast<const void*>(argv));
+        threadUserData->TLSData->Ptr1 = const_cast<void*>(static_cast<const void*>(app));
+        threadUserData->TLSData->Ptr2 = const_cast<void*>(static_cast<const void*>(argv));
 
-        const PThreadAttribs attrs(name, priority, PThreadDetachState_Joinable, app->StackSize);
-        const thread_id mainThreadID = kthread_spawn_trw(&attrs, tlsBlock, KSpawnThreadFlag::SpawnProcess, process_entry, tlsBlock);
+        PThreadAttribs attrs(name, priority, PThreadDetachState_Joinable, app->StackSize);
+
+        attrs.StackSize     = threadUserData->StackSize;
+        attrs.StackAddress  = threadUserData->StackBuffer;
+
+        const thread_id mainThreadID = kthread_spawn_trw(&attrs, threadUserData, KSpawnThreadFlag::SpawnProcess, entryTrampoline, nullptr, threadUserData->TLSData);
         if (outPID != nullptr) {
             *outPID = mainThreadID;
         }

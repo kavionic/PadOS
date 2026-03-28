@@ -49,7 +49,7 @@ KConditionVariable::~KConditionVariable()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KConditionVariable::WaitInternal(KMutex* lock)
+PErrorCode KConditionVariable::WaitInternal(KMutex* lock, bool cancelable)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -59,6 +59,10 @@ PErrorCode KConditionVariable::WaitInternal(KMutex* lock)
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
+            if (cancelable && kis_thread_canceled()) {
+                return PErrorCode::Interrupted;
+            }
+
             waitNode.m_Thread = thread;
             thread->m_State = ThreadState_Waiting;
             m_WaitQueue.Append(&waitNode);
@@ -87,7 +91,7 @@ PErrorCode KConditionVariable::WaitInternal(KMutex* lock)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t clockID, TimeValNanos clockDeadline)
+PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, bool cancelable, clockid_t clockID, TimeValNanos clockDeadline)
 {
     KThreadCB* thread = gk_CurrentThread;
     
@@ -104,6 +108,9 @@ PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t cloc
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
+            if (cancelable && kis_thread_canceled()) {
+                return PErrorCode::Interrupted;
+            }
             if (deadline.IsInfinit() || kget_monotonic_time() < deadline)
             {
                 waitNode.m_Thread = thread;
@@ -151,9 +158,9 @@ PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, clockid_t cloc
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode KConditionVariable::WaitTimeoutInternal(KMutex* lock, TimeValNanos timeout)
+PErrorCode KConditionVariable::WaitTimeoutInternal(KMutex* lock, bool cancelable, TimeValNanos timeout)
 {
-    return WaitDeadlineInternal(lock, CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
+    return WaitDeadlineInternal(lock, cancelable, CLOCK_MONOTONIC_COARSE, (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

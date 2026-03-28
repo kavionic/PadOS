@@ -29,6 +29,8 @@
 #include <Utils/ANSIEscapeCodeParser.h>
 #include <System/AppDefinition.h>
 
+namespace shutil_ls
+{
 
 enum class EFilesToShow
 {
@@ -164,7 +166,7 @@ public:
 
         if (program.get<bool>("--all")) {
             m_FilesToShow = EFilesToShow::All;
-        } else if(program.get<bool>("--almost-all")) {
+        } else if (program.get<bool>("--almost-all")) {
             m_FilesToShow = EFilesToShow::AlmostAll;
         }
         m_ListDirectories   = program.get<bool>("--directory");
@@ -399,7 +401,7 @@ private:
     void Print(PFormatString<ARGS...>&& fmt, ARGS&&... args)
     {
         const PString text = PString::format_string(std::forward<PFormatString<ARGS...>>(fmt), std::forward<ARGS>(args)...);
-        write(1, text.c_str(), text.size());
+        write(STDOUT_FILENO, text.c_str(), text.size());
     }
 
     EFilesToShow m_FilesToShow = EFilesToShow::Normal;
@@ -420,3 +422,5 @@ int ls_main(int argc, char* argv[])
 }
 
 static PAppDefinition g_LSAppDef("ls", "List information about files.", ls_main);
+
+} // namespace shutil_ls

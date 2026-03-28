@@ -53,7 +53,8 @@ private:
 
 struct PFirmwareImageDefinition
 {
-    void (*entry)();
+    void (*entry)(PThreadUserData* threadData);
+    void (*process_entry_trampoline)(PThreadUserData* threadData, ThreadEntryPoint_t threadEntry, void* arguments);
     void (*thread_terminated)(void* returnValue, PThreadUserData*);
     void (*signal_trampoline)();
     void (*signal_terminate_thread)(int, siginfo_t*, void*);

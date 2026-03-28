@@ -132,7 +132,10 @@ Ptr<KPIDNode> kget_next_pid_node_pl(pid_t currentPID, TDelegate&& delegate) noex
     }
 }
 
+Ptr<KThreadCB> kget_thread_trw(pid_t threadID);
 Ptr<KThreadCB> kget_thread(pid_t threadID);
+
+Ptr<KThreadCB> kget_thread_trw_pl(pid_t threadID);
 Ptr<KThreadCB> kget_thread_pl(pid_t threadID);
 
 ///////////////////////////////////////////////////////////////////////////////

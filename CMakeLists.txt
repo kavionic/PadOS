@@ -71,6 +71,7 @@ add_library(PadOS_KDebugConsole)
 add_library(PadOS_FATFS)
 add_library(PadOS_System)
 add_library(PadOS_SystemIFlash)
+add_library(PadOS_SyscallStubs)
 add_library(PadOS_Ptr)
 add_library(PadOS_Signals)
 add_library(PadOS_IO)
@@ -135,6 +136,7 @@ pados_add_kernel_library(ON	PadOS_Ptr)
 pados_add_kernel_library(ON	PadOS_Signals)
 pados_add_kernel_library(ON	PadOS_System)
 pados_add_kernel_library(ON	PadOS_SystemIFlash)
+pados_add_kernel_library(ON	PadOS_SyscallStubs)
 pados_add_kernel_library(ON	PadOS_IO)
 pados_add_kernel_library(ON	PadOS_Syscalls)
 pados_add_kernel_library(ON	PadOS_KDebugConsole)
@@ -162,6 +164,7 @@ install(TARGETS
 	PadOS_FATFS
 	PadOS_System
 	PadOS_SystemIFlash
+	PadOS_SyscallStubs
 	PadOS_Ptr
 	PadOS_Signals
 	PadOS_IO

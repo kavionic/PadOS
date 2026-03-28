@@ -154,13 +154,16 @@ static void* idle_thread_entry(void* arguments)
 
 void* main_thread_entry(void* argument)
 {
+    PThreadUserData* const threadData = gk_CurrentThread->m_ThreadUserData;
+
     gk_CurrentThread->SetName("main_thread");
+
     uint32_t control;
     __asm volatile ("mrs %0, CONTROL" : "=r"(control));
     control |= 1; // set nPRIV
     __asm volatile ("msr CONTROL, %0\n isb" :: "r"(control) : "memory");
 
-    __app_definition.entry();
+    __app_definition.entry(threadData);
 
     return nullptr;
 }

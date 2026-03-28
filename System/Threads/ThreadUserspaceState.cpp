@@ -17,10 +17,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 22.03.2026 16:00
 
+#include <unwind.h>
+
 #include <System/AppDefinition.h>
 #include <Threads/ThreadUserspaceState.h>
 #include <Threads/ThreadLocal.h>
 
+static thread_local PThreadUserData* gt_ThreadUserData;
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -38,6 +41,24 @@ void __thread_terminated(void* returnValue, PThreadUserData* threadData)
         threadData->TLSData = nullptr;
     }
     thread_terminate(returnValue);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void p_set_thread_user_data(PThreadUserData* threadData)
+{
+    gt_ThreadUserData = threadData;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PThreadUserData* p_get_thread_user_data()
+{
+    return gt_ThreadUserData;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -89,7 +110,7 @@ PThreadUserData* create_thread_user_data(const PFirmwareImageDefinition& imageDe
 
 void delete_thread_user_data(PThreadUserData* threadData)
 {
-    if (threadData->IsStackUserProvided && threadData->StackBuffer != nullptr) {
+    if (!threadData->IsStackUserProvided && threadData->StackBuffer != nullptr) {
         free(threadData->StackBuffer);
     }
     if (threadData->TLSData != nullptr) {
@@ -184,8 +205,10 @@ void p_thread_reaper_schedule_cleanup(PThreadUserData* threadData)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void thread_entry_trampoline(ThreadEntryPoint_t threadEntry, void* arguments)
+static void thread_entry_trampoline(PThreadUserData* threadData, ThreadEntryPoint_t threadEntry, void* arguments)
 {
+    p_set_thread_user_data(threadData);
+
     try
     {
         void* const result = threadEntry(arguments);
@@ -196,20 +219,67 @@ static void thread_entry_trampoline(ThreadEntryPoint_t threadEntry, void* argume
         ThreadInfo threadInfo;
         get_thread_info(get_thread_id(), &threadInfo);
         p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Uncaught exception in thread '{}': {}", threadInfo.ThreadName, exc.what());
-        thread_exit(nullptr);
+        thread_exit((void*)-1);
     }
+    PRETHROW_CANCELLATION
     catch (...)
     {
         ThreadInfo threadInfo;
         get_thread_info(get_thread_id(), &threadInfo);
         p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Unknown uncaught exception in thread {}.", threadInfo.ThreadName);
-        thread_exit(nullptr);
+        thread_exit((void*)-1);
     }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static _Unwind_Reason_Code force_unwind_stop(
+    int version,
+    _Unwind_Action actions,
+    _Unwind_Exception_Class exc_class,
+    struct _Unwind_Exception* exc_obj,
+    struct _Unwind_Context* context,
+    void* stop_parameter)
+{
+    if (actions & _UA_END_OF_STACK)
+    {
+        p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Thread terminated by cancellation.");
+        _Unwind_DeleteException(exc_obj);
+        thread_exit((void*)-1);
+    }
+    return _URC_NO_REASON;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void force_unwind_cleanup(_Unwind_Reason_Code reason, struct _Unwind_Exception* exc)
+{
+    // No cleanup needed. The exception object lives in a static thread_local variable.
+}
+
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+thread_id get_thread_id()
+{
+    const PThreadUserData* const threadData = p_get_thread_user_data();
+    if (threadData != nullptr) {
+        return threadData->ThreadID;
+    } else {
+        return __get_thread_id();
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -245,6 +315,33 @@ __attribute__((naked)) void thread_exit(void* returnValue)
         "svc    0\n"
         :: "i"(SYS_thread_exit) : "r12", "memory", "cc"
         );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void thread_testcancel()
+{
+    PThreadUserData* threadData = p_get_thread_user_data();
+    if (threadData != nullptr && threadData->IsCanceled && !threadData->IsCanceling)
+    {
+        threadData->IsCanceling = true;
+
+        static const char className[] = "GNUCFOR";
+
+        static thread_local _Unwind_Exception exc;
+
+        static_assert(sizeof(className) == sizeof(exc.exception_class));
+        memcpy(exc.exception_class, className, sizeof(exc.exception_class));
+
+        exc.exception_cleanup = force_unwind_cleanup;
+
+        _Unwind_ForcedUnwind(&exc, force_unwind_stop, 0);
+
+        p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "{}: unwind returned.", __PRETTY_FUNCTION__);
+        thread_exit((void*)-1);
+    }
 }
 
 #ifdef __cplusplus

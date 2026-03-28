@@ -19,13 +19,19 @@
 
 #pragma once
 
+struct PFirmwareImageDefinition;
+
 struct PThreadUserData
 {
+    pid_t                   ThreadID;
     PThreadUserData*        NextZombie;
     size_t                  StackSize;
     void*                   StackBuffer;
     PThreadControlBlock*    TLSData;
     bool                    IsStackUserProvided;
+    bool                    CancellationPending;
+    bool                    IsCanceled;
+    bool                    IsCanceling;
 };
 
 struct PThreadReaperQueue
@@ -37,6 +43,9 @@ struct PThreadReaperQueue
 
 void __thread_terminated(void* returnValue, PThreadUserData* threadData);
 
+
+void             p_set_thread_user_data(PThreadUserData* threadData);
+PThreadUserData* p_get_thread_user_data();
 
 PThreadUserData* create_thread_user_data(const PFirmwareImageDefinition& imageDefinition, PThreadAttribs& attribs);
 void delete_thread_user_data(PThreadUserData* threadData);

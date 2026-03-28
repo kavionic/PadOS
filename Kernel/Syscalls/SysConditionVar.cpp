@@ -69,7 +69,7 @@ PErrorCode sys_condition_var_wait(handle_id handle, handle_id mutexHandle)
     if (mutex == nullptr) {
         return PErrorCode::InvalidArg;
     }
-    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&)>(&KConditionVariable::Wait), *mutex);
+    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&)>(&KConditionVariable::WaitCancelable), *mutex);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -91,7 +91,7 @@ PErrorCode sys_condition_var_wait_deadline_ns(handle_id handle, handle_id mutexH
     if (mutex == nullptr) {
         return PErrorCode::InvalidArg;
     }
-    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, TimeValNanos)>(&KConditionVariable::WaitDeadline), *mutex, TimeValNanos::FromNanoseconds(deadline));
+    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, TimeValNanos)>(&KConditionVariable::WaitDeadlineCancelable), *mutex, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -104,7 +104,7 @@ PErrorCode sys_condition_var_wait_clock_ns(handle_id handle, handle_id mutexHand
     if (mutex == nullptr) {
         return PErrorCode::InvalidArg;
     }
-    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, clockid_t, TimeValNanos)>(&KConditionVariable::WaitClock), *mutex, clockID, TimeValNanos::FromNanoseconds(deadline));
+    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, clockid_t, TimeValNanos)>(&KConditionVariable::WaitClockCancelable), *mutex, clockID, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

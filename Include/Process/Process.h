@@ -25,3 +25,5 @@ PErrorCode spawn_execl(pid_t* outPID, const char* name, int priority, const char
 PErrorCode spawn_execle(pid_t* outPID, const char* name, int priority, const char* arg0, ...);
 PErrorCode spawn_execv(pid_t* outPID, const char* name, int priority, char* const argv[]);
 PErrorCode spawn_execve(pid_t* outPID, const char* name, int priority, char* const argv[], char* const envp[]);
+
+void __process_entry_trampoline(PThreadUserData* threadData, ThreadEntryPoint_t threadEntry, void* arguments);

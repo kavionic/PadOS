@@ -25,6 +25,7 @@
 #include <Kernel/KStackFrames.h>
 #include <Kernel/KPosixSignals.h>
 #include <Kernel/KCapabilities.h>
+#include <Threads/ThreadUserspaceState.h>
 
 namespace kernel
 {
@@ -102,7 +103,30 @@ bool khas_pending_signals()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum)
+bool kis_thread_canceled()
+{
+    const KThreadCB& thread = kget_current_thread();
+
+    return thread.m_ThreadUserData != nullptr && thread.m_ThreadUserData->IsCanceled;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode  ksend_signal_to_thread(KThreadCB& thread, int sigNum)
+{
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    return ksend_signal_to_thread_pl(thread, sigNum);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode ksend_signal_to_thread_pl(KThreadCB& thread, int sigNum)
 {
     kassert(g_PIDMapMutex.IsLocked());
 
@@ -143,6 +167,20 @@ PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum)
 
 PErrorCode kqueue_signal_to_thread(KThreadCB& thread, int sigNum, sigval_t value)
 {
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    return kqueue_signal_to_thread_pl(thread, sigNum, value);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kqueue_signal_to_thread_pl(KThreadCB& thread, int sigNum, sigval_t value)
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
     if (thread.IsZombie()) {
         return PErrorCode::NoSuchProcess;
     }
@@ -157,7 +195,7 @@ PErrorCode kqueue_signal_to_thread(KThreadCB& thread, int sigNum, sigval_t value
     if (sigNum == SIGKILL || sigNum == SIGSTOP || sigNum == SIGCONT)
     {
         for (KThreadCB* curThread : process->GetThreads()) {
-            ksend_signal_to_thread(*curThread, sigNum);
+            ksend_signal_to_thread_pl(*curThread, sigNum);
         }
         return PErrorCode::Success;
     }
@@ -351,11 +389,11 @@ PErrorCode kthread_kill(thread_id threadID, int sigNum)
     if ((sigNum == SIGKILL || sigNum == SIGSTOP || sigNum == SIGCONT) && thread->m_Process != nullptr)
     {
         for (KThreadCB* curThread : process->GetThreads()) {
-            ksend_signal_to_thread(*curThread, sigNum);
+            ksend_signal_to_thread_pl(*curThread, sigNum);
         }
         return PErrorCode::Success;
     }
-    return ksend_signal_to_thread(*thread, sigNum);
+    return ksend_signal_to_thread_pl(*thread, sigNum);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -477,7 +515,7 @@ void kkill_trw_pl(pid_t pid, int sigNum)
         if (sigNum == SIGKILL || sigNum == SIGSTOP || sigNum == SIGCONT)
         {
             for (KThreadCB* thread : threads) {
-                ksend_signal_to_thread(*thread, sigNum);
+                ksend_signal_to_thread_pl(*thread, sigNum);
             }
             return;
         }
@@ -487,14 +525,14 @@ void kkill_trw_pl(pid_t pid, int sigNum)
             {
                 if (!thread->IsSignalBlocked(sigNum))
                 {
-                    if (ksend_signal_to_thread(*thread, sigNum) == PErrorCode::Success) {
+                    if (ksend_signal_to_thread_pl(*thread, sigNum) == PErrorCode::Success) {
                         return;
                     }
                 }
             }
         }
         // If all threads block the signal, leave it pending on the main thread.
-        PERROR_ERRORCODE_THROW_ON_FAIL(ksend_signal_to_thread(*threads[0], sigNum));
+        PERROR_ERRORCODE_THROW_ON_FAIL(ksend_signal_to_thread_pl(*threads[0], sigNum));
     }
 }
 
@@ -703,10 +741,10 @@ void kforce_process_signals()
 ///////////////////////////////////////////////////////////////////////////////
 
 template<typename T>
-static void setup_signal_handler_exception_frame(T& frame, uintptr_t prevStackPtr, const KSignalStackFrame* signalFrame, const sigaction_t& sigAction)
+static void setup_signal_handler_exception_frame(T& frame, uintptr_t prevStackPtr, int sigNum, const KSignalStackFrame* signalFrame, const sigaction_t& sigAction)
 {
     frame.ExceptionFrame.xPSR &= xPSR_T_Msk; // Clear everything but the thumb flag.
-    frame.ExceptionFrame.R0 = signalFrame->SigInfo.si_signo;
+    frame.ExceptionFrame.R0 = sigNum;
     frame.ExceptionFrame.R1 = uintptr_t(&signalFrame->SigInfo);
     frame.ExceptionFrame.R2 = prevStackPtr;
     frame.ExceptionFrame.PC = uintptr_t(sigAction.sa_sigaction);
@@ -730,7 +768,7 @@ static void setup_exit_handler_exception_frame(T& frame, uintptr_t prevStackPtr,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static uintptr_t add_signal_handler_frame(uintptr_t prevStackPtr, KThreadCB& thread, bool userMode, const sigaction_t& sigAction, const siginfo_t& sigInfo)
+static uintptr_t add_signal_handler_frame(uintptr_t prevStackPtr, KThreadCB& thread, bool userMode, const sigaction_t& sigAction, int sigNum, const siginfo_t& sigInfo)
 {
     KCtxSwitchKernelStackFrame* prevStackFrame = reinterpret_cast<KCtxSwitchKernelStackFrame*>(prevStackPtr);
 
@@ -761,9 +799,9 @@ static uintptr_t add_signal_handler_frame(uintptr_t prevStackPtr, KThreadCB& thr
     memcpy(reinterpret_cast<void*>(newStackPtr), reinterpret_cast<const void*>(prevStackPtr), frameSize);
 
     if (hasFPUFrame) {
-        setup_signal_handler_exception_frame(*reinterpret_cast<KCtxSwitchStackFrameFPU*>(newStackPtr), prevStackPtr, signalFrame, sigAction);
+        setup_signal_handler_exception_frame(*reinterpret_cast<KCtxSwitchStackFrameFPU*>(newStackPtr), prevStackPtr, sigNum, signalFrame, sigAction);
     } else {
-        setup_signal_handler_exception_frame(*reinterpret_cast<KCtxSwitchStackFrame*>(newStackPtr), prevStackPtr, signalFrame, sigAction);
+        setup_signal_handler_exception_frame(*reinterpret_cast<KCtxSwitchStackFrame*>(newStackPtr), prevStackPtr, sigNum, signalFrame, sigAction);
     }
     return newStackPtr;
 }
@@ -853,7 +891,7 @@ uintptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMod
             }
             sigaction_t terminateAction = {};
             terminateAction.sa_sigaction = __app_definition.signal_terminate_thread;
-            return add_signal_handler_frame(prevStackPtr, thread, userMode, terminateAction, sigInfo);
+            return add_signal_handler_frame(prevStackPtr, thread, userMode, terminateAction, fromFault ? sigNum : -sigNum, sigInfo);
         }
         return prevStackPtr;
     }
@@ -865,7 +903,7 @@ uintptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMod
     if (prevStackPtr & 0x07) {
         kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_Scheduler, "{}: Unaligned SP: {:#08x}", __PRETTY_FUNCTION__, prevStackPtr);
     }
-    const uintptr_t newStackPtr = add_signal_handler_frame(prevStackPtr, thread, userMode, sigAction, sigInfo);
+    const uintptr_t newStackPtr = add_signal_handler_frame(prevStackPtr, thread, userMode, sigAction, sigNum, sigInfo);
 
     if ((sigAction.sa_flags & SA_RESETHAND) && sig_can_auto_reset(sigNum))
     {

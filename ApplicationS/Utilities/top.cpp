@@ -26,6 +26,7 @@
 
 #include <PadOS/Filesystem.h>
 #include <Threads/Threads.h>
+#include <Threads/Thread.h>
 
 
 namespace shutil_top
@@ -54,17 +55,6 @@ struct TopThreadInfo : public PtrTarget
 };
 
 
-static volatile thread_local bool g_DoRun = true;
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void signal_int(int sigNum)
-{
-    g_DoRun = false;
-}
-
 class CmdTop : public PtrTarget
 {
 public:
@@ -77,7 +67,7 @@ public:
         printf(ANSI_CLEAR_SCREEN ANSI_CURSOR_TOP_LEFT "Wait for initial update\n");
         update_list();
 
-        while (g_DoRun)
+        for(;;)
         {
             snooze(period);
             update_list();
@@ -147,8 +137,6 @@ private:
         double totalTimeInverse = 1.0f / totalTime.AsSeconds();
         for (size_t i = 0; i < lineCount; ++i)
         {
-            if (!g_DoRun) throw std::exception();
-
             const Ptr<TopThreadInfo>& psInfo = m_ThreadList[i];
             TimeValNanos deltaTime = psInfo->ThisTime - psInfo->LastTime;
 
@@ -213,8 +201,6 @@ private:
 
 int top_main(int argc, char** argv)
 {
-    signal(SIGINT, signal_int);
-
     TimeValNanos period = TimeValNanos::FromSeconds(5.0);
 
     if (argc == 2) {
@@ -224,7 +210,6 @@ int top_main(int argc, char** argv)
 
     try
     {
-        g_DoRun = true;
         Ptr<CmdTop> top = ptr_new<CmdTop>();
 
         printf(ANSI_ENABLE_ALT_SCR_BUFFER ANSI_HIDE_CURSOR ANSI_CURSOR_TOP_LEFT);

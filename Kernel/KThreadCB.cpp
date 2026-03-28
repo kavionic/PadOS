@@ -51,6 +51,7 @@ extern uint8_t __tls_align;
 SECTION_KERNEL_IMAGE_DEFINITION PFirmwareImageDefinition _kerneldef =
 {
     .entry                          = nullptr,
+    .process_entry_trampoline       = nullptr,
     .thread_terminated              = nullptr,
     .signal_trampoline              = nullptr,
     .signal_terminate_thread        = nullptr,
@@ -81,23 +82,24 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void thread_entry_point(void* (*threadEntry)(void*), void* arguments)
+static void thread_entry_point(PThreadUserData* threadData, void* (*threadEntry)(void*), void* arguments)
 {
     try
     {
         void* const result = threadEntry(arguments);
         ksys_thread_terminate(result);
     }
-    catch (const std::exception& e)
+    catch (const std::exception& exc)
     {
-        const PString error = PString("Uncaught exception in thread '") + gk_CurrentThread->GetName() + "': " + e.what();
+        const PString error = PString("Uncaught exception in thread '") + gk_CurrentThread->GetName() + "': " + exc.what();
         panic(error.c_str());
-        ksys_thread_terminate(nullptr);
+        ksys_thread_terminate((void*)-1);
     }
+    PRETHROW_CANCELLATION
     catch (...)
     {
         panic("Uncaught exception from thread.\n");
-        ksys_thread_terminate(nullptr);
+        ksys_thread_terminate((void*)-1);
     }
 }
 
@@ -168,6 +170,13 @@ KThreadCB::KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttri
 
 KThreadCB::~KThreadCB()
 {
+    while (m_FirstQueuedSignal != nullptr)
+    {
+        KSignalQueueNode* node = m_FirstQueuedSignal;
+        m_FirstQueuedSignal = node->Next;
+        kfree_signal_queue_node(node);
+    }
+
     kassert(m_Process == nullptr);
     if (m_Process != nullptr) {
         m_Process->RemoveThread(this);
@@ -195,18 +204,19 @@ void KThreadCB::InitializeStack(ThreadEntryTrampoline_t entryTrampoline, ThreadE
     stackFrame->KernelFrame.EXEC_RETURN = 0xfffffffd; // Return to Thread mode, exception return uses non-floating-point state from the PSP and execution uses PSP after return
     if (!skipEntryTrampoline) [[likely]]
     {
-        stackFrame->ExceptionFrame.R0 = uint32_t(entryPoint);
-        stackFrame->ExceptionFrame.R1 = uint32_t(arguments);
+        stackFrame->ExceptionFrame.R0 = uintptr_t(m_ThreadUserData);
+        stackFrame->ExceptionFrame.R1 = uintptr_t(entryPoint);
+        stackFrame->ExceptionFrame.R2 = uintptr_t(arguments);
         if (entryTrampoline != nullptr) {
-            stackFrame->ExceptionFrame.PC = uint32_t(entryTrampoline) & ~1; // Clear the thumb flag from the function pointer.
+            stackFrame->ExceptionFrame.PC = uintptr_t(entryTrampoline) & ~1; // Clear the thumb flag from the function pointer.
         } else {
-            stackFrame->ExceptionFrame.PC = uint32_t(thread_entry_point) & ~1; // Clear the thumb flag from the function pointer.
+            stackFrame->ExceptionFrame.PC = uintptr_t(thread_entry_point) & ~1; // Clear the thumb flag from the function pointer.
         }
     }
     else
     {
-        stackFrame->ExceptionFrame.R0 = uint32_t(arguments);
-        stackFrame->ExceptionFrame.PC = uint32_t(entryPoint) & ~1; // Clear the thumb flag from the function pointer.
+        stackFrame->ExceptionFrame.R0 = uintptr_t(arguments);
+        stackFrame->ExceptionFrame.PC = uintptr_t(entryPoint) & ~1; // Clear the thumb flag from the function pointer.
     }
     stackFrame->ExceptionFrame.LR = uint32_t(invalid_return_handler) &~1; // Clear the thumb flag from the function pointer.
     stackFrame->ExceptionFrame.xPSR = xPSR_T_Msk; // Always in Thumb state.

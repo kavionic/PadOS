@@ -187,7 +187,10 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(thread_sigmask),
     SYS_PTR(raise),
     SYS_PTR(signal),
-    SYS_PTR(sigsuspend)
+    SYS_PTR(sigsuspend),
+    SYS_PTR(thread_cancel),
+    SYS_PTR(thread_setcancelstate),
+    SYS_PTR(thread_setcanceltype)
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);
@@ -199,10 +202,11 @@ static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);
 extern "C" uint32_t syscall_return()
 {
     const KThreadCB& thread = *gk_CurrentThread;
+    const uint32_t syscallReturn = thread.m_SyscallReturn;
     if (thread.HasUnblockedPendingSignals()) {
         kforce_process_signals();
     }
-    return thread.m_SyscallReturn;
+    return syscallReturn;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -62,6 +62,8 @@
     catch (const std::exception& error)    { set_last_error(EINVAL); return RET_VAL; } \
     ((void)0)
 
+#define PRETHROW_CANCELLATION catch (const __cxxabiv1::__forced_unwind&) { throw; }
+
 template<typename EF> using PScopeSuccess = std::experimental::scope_success<EF>;
 template<typename EF> using PScopeFail    = std::experimental::scope_fail<EF>;
 template<typename EF> using PScopeExit    = std::experimental::scope_exit<EF>;

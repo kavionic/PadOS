@@ -65,8 +65,13 @@ KSignalMode kget_signal_mode(int sigNum);
 KSignalMode kget_signal_mode(const KThreadCB& thread, int sigNum);
 
 bool        khas_pending_signals();
+bool        kis_thread_canceled();
+
 PErrorCode  ksend_signal_to_thread(KThreadCB& thread, int sigNum);
+PErrorCode  ksend_signal_to_thread_pl(KThreadCB& thread, int sigNum);
+
 PErrorCode  kqueue_signal_to_thread(KThreadCB& thread, int signo, sigval_t value);
+PErrorCode  kqueue_signal_to_thread_pl(KThreadCB& thread, int signo, sigval_t value);
 
 void ksigaction_trw(int sigNum, const struct sigaction* action, struct sigaction* outPrevAction);
 PErrorCode ksigaction(int sigNum, const struct sigaction* action, struct sigaction* outPrevAction);

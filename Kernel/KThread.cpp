@@ -173,6 +173,10 @@ thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadUserData* thre
         process = ptr_tmp_cast(&kget_current_process());
     }
 
+    if (threadUserData != nullptr) {
+        threadUserData->ThreadID = pidNode->PID;
+    }
+
     Ptr<KThreadCB> thread;
 
     thread = ptr_new<KThreadCB>(pidNode->PID, process, attribs, flags.Has(KSpawnThreadFlag::Privileged), threadUserData, nullptr);
@@ -208,6 +212,105 @@ __attribute__((noreturn)) void kthread_exit(void* returnValue)
 
     panic("kthread_exit() survived a context switch!\n");
     for (;;);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kthread_cancel_trw(pid_t threadID)
+{
+    Ptr<KThreadCB> thread = kget_thread_trw(threadID);
+
+    if (thread->m_ThreadUserData == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    }
+
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    if (!thread->m_ThreadUserData->CancellationPending)
+    {
+        thread->m_ThreadUserData->CancellationPending = true;
+        if (thread->m_CancelState == THREAD_CANCEL_ENABLE) {
+            thread->m_ThreadUserData->IsCanceled = true;
+        }
+        wakeup_thread(*thread, true);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kthread_cancel(pid_t threadID)
+{
+    try
+    {
+        kthread_cancel_trw(threadID);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kthread_setcancelstate(PThreadCancelState state, PThreadCancelState* outOldState)
+{
+    KThreadCB& thread = kget_current_thread();
+
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    const PThreadCancelState oldState = thread.m_CancelState;
+
+    if (state != oldState)
+    {
+        PThreadUserData* userData = thread.m_ThreadUserData;
+        if (userData == nullptr) {
+            return PErrorCode::InvalidArg;
+        }
+
+        thread.m_CancelState = state;
+
+        if (state == THREAD_CANCEL_DISABLE)
+        {
+            userData->IsCanceled = false;
+        }
+        else
+        {
+            userData->IsCanceled = userData->CancellationPending;
+        }
+    }
+    if (outOldState != nullptr) {
+        *outOldState = oldState;
+    }
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kthread_setcanceltype(PThreadCancelType type, PThreadCancelType* outOldType)
+{
+    KThreadCB& thread = kget_current_thread();
+
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    const PThreadCancelType oldType = thread.m_CancelType;
+
+    if (type != oldType)
+    {
+        thread.m_CancelType = type;
+    }
+    if (outOldType != nullptr) {
+        *outOldType = oldType;
+    }
+    return PErrorCode::Success;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -480,6 +583,9 @@ PErrorCode ksnooze_until_ns(bigtime_t resumeTimeNanos)
     {
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
+            if (kis_thread_canceled()) {
+                return PErrorCode::Interrupted;
+            }
             add_to_sleep_list(&waitNode);
             thread->m_State = ThreadState_Sleeping;
         } CRITICAL_END;

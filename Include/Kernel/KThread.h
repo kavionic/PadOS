@@ -78,6 +78,10 @@ private:
 PErrorCode  kthread_attribs_init(PThreadAttribs& outAttribs) noexcept;
 thread_id   kthread_spawn_trw(const PThreadAttribs* attribs, PThreadUserData* threadUserData, KSpawnThreadFlags flags, ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, void* arguments);
 __attribute__((noreturn)) void kthread_exit(void* returnValue);
+void        kthread_cancel_trw(pid_t threadID);
+PErrorCode  kthread_cancel(pid_t threadID);
+PErrorCode  kthread_setcancelstate(PThreadCancelState state, PThreadCancelState* outOldState);
+PErrorCode  kthread_setcanceltype(PThreadCancelType type, PThreadCancelType* outOldType);
 PErrorCode  kthread_detach(thread_id handle);
 void*       kthread_join_trw(thread_id handle);
 thread_id   kget_thread_id() noexcept;

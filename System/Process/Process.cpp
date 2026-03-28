@@ -26,10 +26,11 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void process_entry_trampoline(ThreadEntryPoint_t threadEntry, void* arguments)
+void __process_entry_trampoline(PThreadUserData* threadData, ThreadEntryPoint_t threadEntry, void* arguments)
 {
     try
     {
+        p_set_thread_user_data(threadData);
         const PAppDefinition* app = static_cast<const PAppDefinition*>(__app_thread_data->Ptr1);
 
         char** argv = static_cast<char**>(__app_thread_data->Ptr2);
@@ -43,6 +44,7 @@ static void process_entry_trampoline(ThreadEntryPoint_t threadEntry, void* argum
         int result = app->MainEntry(argc, argv);
         thread_exit(reinterpret_cast<void*>(result));
     }
+    PRETHROW_CANCELLATION
     catch (const std::exception& exc)
     {
         ThreadInfo threadInfo;
@@ -158,7 +160,7 @@ PErrorCode spawn_execve(pid_t* outPID, const char* name, int priority, char* con
     }
     argvCopy[argc] = nullptr;
 
-    const PErrorCode result = __spawn_execve(outPID, process_entry_trampoline, name, priority, threadData, argvCopy, envp);
+    const PErrorCode result = __spawn_execve(outPID, __app_definition.process_entry_trampoline, name, priority, threadData, argvCopy, envp);
     if (result != PErrorCode::Success) {
         delete_thread_user_data(threadData);
         __app_definition.free_memory(argvCopy);

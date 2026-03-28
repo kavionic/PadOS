@@ -25,7 +25,6 @@
 #include "System/System.h"
 #include "Utils/String.h"
 
-struct PFirmwareImageDefinition;
 
 class PThread
 {

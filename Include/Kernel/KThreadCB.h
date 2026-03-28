@@ -97,6 +97,9 @@ public:
     TimeValNanos              m_StartTime;
     TimeValNanos              m_RunTime;
 
+    PThreadCancelState        m_CancelState = THREAD_CANCEL_ENABLE;
+    PThreadCancelType         m_CancelType  = THREAD_CANCEL_DEFERRED;
+
     Ptr<KProcess>             m_Process;
 
     void*                     m_ReturnValue = nullptr;

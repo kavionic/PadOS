@@ -97,11 +97,37 @@ Ptr<KPIDNode> kget_pid_node_pl(pid_t pid) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+Ptr<KThreadCB> kget_thread_trw(pid_t threadID)
+{
+    Ptr<KThreadCB> thread = kget_thread(threadID);
+    if (thread == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+    }
+    return thread;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<KThreadCB> kget_thread(pid_t threadID)
 {
     kassert(!g_PIDMapMutex.IsLocked());
     KScopedLock lock(g_PIDMapMutex);
     return kget_thread_pl(threadID);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<KThreadCB> kget_thread_trw_pl(pid_t threadID)
+{
+    Ptr<KThreadCB> thread = kget_thread_pl(threadID);
+    if (thread == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+    }
+    return thread;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

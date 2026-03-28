@@ -25,6 +25,7 @@
 #include <Threads/Threads.h>
 #include <System/AppDefinition.h>
 #include <System/System.h>
+#include <System/ExceptionHandling.h>
 #include <Utils/Logging.h>
 #include <Utils/Utils.h>
 #include <Kernel/KThreadCB.h>
@@ -132,6 +133,7 @@ void* PThread::ThreadEntry(void* data)
         p_system_log<PLogSeverity::FATAL>(LogCat_Threads, "Uncaught exception in thread {}: {}", self->GetName(), e.what());
         self->Exit(nullptr);
     }
+    PRETHROW_CANCELLATION
     catch (...)
     {
         p_system_log<PLogSeverity::FATAL>(LogCat_Threads, "Uncaught exception in thread {}: unknown", self->GetName());

@@ -218,7 +218,7 @@ void Kernel::ResetWatchdog()
 #elif defined(STM32H7) || defined(STM32G0)
 void Kernel::ResetWatchdog()
 {
-    /*IWDG1->KR = 0xaaaa;*/
+    IWDG1->KR = 0xAAAA;
 }
 #endif
 

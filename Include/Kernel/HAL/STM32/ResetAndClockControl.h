@@ -29,7 +29,8 @@ enum class RCC_ClockID : int
     HSE,    // High speed external (4MHz-48MHz).
     LSE,    // Low speed external (32768Hz).
     HSI,    // High speed internal RC (64MHz).
-    CSI     // Low power internal RC (4MHz).
+    CSI,    // Low power internal RC (4MHz).
+    LSI     // Low speed internal RC (~32kHz). Used by IWDG and RTC.
 };
 
 enum class RCC_PLLID

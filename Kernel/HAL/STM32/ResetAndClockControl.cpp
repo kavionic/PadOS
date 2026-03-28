@@ -57,14 +57,15 @@ void ResetAndClockControl::EnableClock(RCC_ClockID clock, bool enable, bool wait
     {
         switch (clock)
         {
-            case RCC_ClockID::HSE:  RCC->CR |= RCC_CR_HSEON_Msk;        break;
+            case RCC_ClockID::HSE:  RCC->CR |= RCC_CR_HSEON;    break;
             case RCC_ClockID::LSE:
                 PWR->CR1 |= PWR_CR1_DBP; // Disable Back-up domain protection.
-                RCC->BDCR |= RCC_BDCR_LSEON_Msk;
+                RCC->BDCR |= RCC_BDCR_LSEON;
                 PWR->CR1 &= ~PWR_CR1_DBP; // Enable Back-up domain protection.
                 break;
-            case RCC_ClockID::HSI:  RCC->CR |= RCC_CR_HSION_Msk;        break;
-            case RCC_ClockID::CSI:  RCC->CR |= RCC_CR_CSION_Msk;        break;
+            case RCC_ClockID::HSI:  RCC->CR  |= RCC_CR_HSION;   break;
+            case RCC_ClockID::CSI:  RCC->CR  |= RCC_CR_CSION;   break;
+            case RCC_ClockID::LSI:  RCC->CSR |= RCC_CSR_LSION;  break;
         }
         if (waitForStartup)
         {
@@ -75,14 +76,15 @@ void ResetAndClockControl::EnableClock(RCC_ClockID clock, bool enable, bool wait
     {
         switch (clock)
         {
-            case RCC_ClockID::HSE:  RCC->CR &= ~RCC_CR_HSEON_Msk;       break;
+            case RCC_ClockID::HSE:  RCC->CR  &= ~RCC_CR_HSEON;  break;
             case RCC_ClockID::LSE:
                 PWR->CR1 |= PWR_CR1_DBP; // Disable Back-up domain protection.
-                RCC->BDCR &= ~RCC_BDCR_LSEON_Msk;
+                RCC->BDCR &= ~RCC_BDCR_LSEON;
                 PWR->CR1 &= ~PWR_CR1_DBP; // Enable Back-up domain protection.
                 break;
-            case RCC_ClockID::HSI:  RCC->CR &= ~RCC_CR_HSION_Msk;       break;
-            case RCC_ClockID::CSI:  RCC->CR &= ~RCC_CR_CSION_Msk;       break;
+            case RCC_ClockID::HSI:  RCC->CR  &= ~RCC_CR_HSION;  break;
+            case RCC_ClockID::CSI:  RCC->CR  &= ~RCC_CR_CSION;  break;
+            case RCC_ClockID::LSI:  RCC->CSR &= ~RCC_CSR_LSION; break;
         }
     }
 }
@@ -95,10 +97,11 @@ bool ResetAndClockControl::IsClockEnabled(RCC_ClockID clock)
 {
     switch (clock)
     {
-        case RCC_ClockID::HSE:  return (RCC->CR & RCC_CR_HSEON_Msk) != 0;
-        case RCC_ClockID::LSE:  return (RCC->BDCR & RCC_BDCR_LSEON_Msk) != 0;
-        case RCC_ClockID::HSI:  return (RCC->CR & RCC_CR_HSION_Msk) != 0;
-        case RCC_ClockID::CSI:  return (RCC->CR & RCC_CR_CSION_Msk) != 0;
+        case RCC_ClockID::HSE:  return (RCC->CR   & RCC_CR_HSEON)   != 0;
+        case RCC_ClockID::LSE:  return (RCC->BDCR & RCC_BDCR_LSEON) != 0;
+        case RCC_ClockID::HSI:  return (RCC->CR   & RCC_CR_HSION)   != 0;
+        case RCC_ClockID::CSI:  return (RCC->CR   & RCC_CR_CSION)   != 0;
+        case RCC_ClockID::LSI:  return (RCC->CSR  & RCC_CSR_LSION)  != 0;
     }
     return false;
 }
@@ -113,10 +116,11 @@ void ResetAndClockControl::WaitForClockStartup(RCC_ClockID clock)
     {
         switch (clock)
         {
-            case RCC_ClockID::HSE:  while ((RCC->CR & RCC_CR_HSERDY_Msk) == 0) {}   break;
-            case RCC_ClockID::LSE:  while ((RCC->BDCR & RCC_BDCR_LSERDY_Msk) == 0) {} break;
-            case RCC_ClockID::HSI:  while ((RCC->CR & RCC_CR_HSIRDY_Msk) == 0) {}   break;
-            case RCC_ClockID::CSI:  while ((RCC->CR & RCC_CR_CSIRDY_Msk) == 0) {}   break;
+            case RCC_ClockID::HSE:  while ((RCC->CR   & RCC_CR_HSERDY)   == 0) {} break;
+            case RCC_ClockID::LSE:  while ((RCC->BDCR & RCC_BDCR_LSERDY) == 0) {} break;
+            case RCC_ClockID::HSI:  while ((RCC->CR   & RCC_CR_HSIRDY)   == 0) {} break;
+            case RCC_ClockID::CSI:  while ((RCC->CR   & RCC_CR_CSIRDY)   == 0) {} break;
+            case RCC_ClockID::LSI:  while ((RCC->CSR  & RCC_CSR_LSIRDY)  == 0) {} break;
         }
     }
 }

@@ -100,6 +100,7 @@ void check_stack_overflow()
 
 extern "C" void SysTick_Handler()
 {
+    Kernel::ResetWatchdog();
     CRITICAL_SCOPE(CRITICAL_IRQ);
     Kernel::s_SystemTimeNS += 1000000;
     Kernel::s_SystemTicks += SysTick->LOAD + 1;

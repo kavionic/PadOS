@@ -40,6 +40,16 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& KDebugConsole::GetCommands()
+{
+    static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>> commands;
+    return commands;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 KDebugConsole::KDebugConsole(int stdInFD, int stdOutFD, int stdErrFD)
     : KThread("debug_console")
     , m_StdInFD(stdInFD)

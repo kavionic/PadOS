@@ -67,7 +67,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PADOS_C_CXX_FLAGS} -Wsuggest-override 
 add_library(PadOS_Kernel)
 add_library(PadOS_KernelExt)
 add_library(PadOS_Syscalls)
-add_library(PadOS_KDebugConsole)
 add_library(PadOS_FATFS)
 add_library(PadOS_System)
 add_library(PadOS_SystemIFlash)
@@ -91,6 +90,7 @@ endif()
 
 pados_add_kernel_module(ON	PadOS_Kernel_Startup)
 pados_add_kernel_module(ON	PadOS_Drivers_Misc)
+pados_add_kernel_module(ON	PadOS_KDebugConsole)
 
 pados_add_kernel_module(PADOS_DRIVER_MultiMotor		PadOS_Drivers_MultiMotor)
 pados_add_kernel_module(PADOS_DRIVER_SDMMC		PadOS_Drivers_SDMMC)
@@ -139,7 +139,6 @@ pados_add_kernel_library(ON	PadOS_SystemIFlash)
 pados_add_kernel_library(ON	PadOS_SyscallStubs)
 pados_add_kernel_library(ON	PadOS_IO)
 pados_add_kernel_library(ON	PadOS_Syscalls)
-pados_add_kernel_library(ON	PadOS_KDebugConsole)
 pados_add_kernel_external_library(ON	fmt::fmt)
 
 set_libraries_section("iflash" ${PADOS_OPT_IFLASH_MODULES})
@@ -160,7 +159,6 @@ install(TARGETS
 	PadOS_Kernel
 	PadOS_KernelExt
 	PadOS_Syscalls
-	PadOS_KDebugConsole
 	PadOS_FATFS
 	PadOS_System
 	PadOS_SystemIFlash

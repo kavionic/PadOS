@@ -20,6 +20,7 @@
 #include <argparse/argparse.hpp>
 
 #include <Kernel/DebugConsole/KConsoleCommand.h>
+#include <Kernel/KThread.h>
 
 namespace kernel
 {

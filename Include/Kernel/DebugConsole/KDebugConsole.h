@@ -76,11 +76,7 @@ public:
     void RefreshText(size_t startPosition);
     void ResetInput();
 
-    static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& GetCommands()
-    {
-        static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>> commands;
-        return commands;
-    }
+    static std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& GetCommands();
 
     static void RegisterCommand(const PString& name, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>&& commandCreator) { GetCommands()[name] = std::move(commandCreator); }
 

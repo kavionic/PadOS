@@ -229,8 +229,66 @@ uint32_t handle_fault(void* currentStack, uint32_t controlReg)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+static void nmi_accumulate_flags(uint32_t flags)
+{
+    const uint32_t reg = kread_backup_register_trw(PBackupReg_NMIFiredBeforeReset);
+    const uint32_t existing = ((reg & PBackupReg_NMIFiredBeforeReset_MagicMask) == PBackupReg_NMIFiredBeforeReset_Magic) ? (reg & 0x0000FFFFu) : 0u;
+    kwrite_backup_register_trw(PBackupReg_NMIFiredBeforeReset, PBackupReg_NMIFiredBeforeReset_Magic | existing | flags);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void NonMaskableInt_Handler()
 {
+    // Check if this NMI was triggered by the CSS (Clock Security System) detecting HSE failure.
+    if (RCC->CIFR & RCC_CIFR_HSECSSF)
+    {
+        // Clear the CSS interrupt flag. The NMI fires indefinitely until this is done.
+        // The hardware has already: switched SYSCLK to HSI, disabled HSE, and disabled the PLLs.
+        RCC->CICR = RCC_CICR_HSECSSC;
+
+        // Record the CSS event. The system is now on HSI (switched automatically by hardware).
+        nmi_accumulate_flags(PBackupReg_NMIFiredBeforeReset_FlagCSS);
+
+        // Restart HSE. The hardware disabled it when it detected the failure.
+        // Crystal startup can take up to ~20ms; at 64MHz HSI that is ~1.3M cycles — use 2M as margin.
+        RCC->CR |= RCC_CR_HSEON;
+        uint32_t hseTimeout = 2000000;
+        while (!(RCC->CR & RCC_CR_HSERDY) && --hseTimeout);
+
+        if (hseTimeout != 0)
+        {
+            // HSE is stable. Re-lock all three PLLs (hardware disabled them when HSE failed).
+            // PLL lock takes ~300-500us at 64MHz HSI (~20K-32K cycles) — use 200K as margin.
+            RCC->CR |= RCC_CR_PLL1ON | RCC_CR_PLL2ON | RCC_CR_PLL3ON;
+            uint32_t pllTimeout = 200000;
+            while ((RCC->CR & (RCC_CR_PLL1RDY | RCC_CR_PLL2RDY | RCC_CR_PLL3RDY)) !=
+                   (RCC_CR_PLL1RDY | RCC_CR_PLL2RDY | RCC_CR_PLL3RDY) && --pllTimeout);
+
+            if (pllTimeout != 0)
+            {
+                // All PLLs locked. Switch system clock back to PLL1 and re-enable CSS.
+                RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW_Msk) | RCC_CFGR_SW_PLL1;
+                for (uint32_t i = 10000; (RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL1 && i; --i);
+                RCC->CR |= RCC_CR_CSSHSEON;
+
+                // Recovery successful. Return from NMI and resume normal execution.
+                nmi_accumulate_flags(PBackupReg_NMIFiredBeforeReset_FlagRecovered);
+                return;
+            }
+
+            nmi_accumulate_flags(PBackupReg_NMIFiredBeforeReset_FlagPLLTimeout);
+            panic("NMI: PLLs failed to lock after HSE restart.");
+        }
+
+        nmi_accumulate_flags(PBackupReg_NMIFiredBeforeReset_FlagHSETimeout);
+        panic("NMI: HSE failed to restart after CSS clock failure.");
+    }
+
+    // NMI from a source other than CSS — record it and panic.
+    nmi_accumulate_flags(PBackupReg_NMIFiredBeforeReset_FlagOther);
     panic("NMI");
 }
 

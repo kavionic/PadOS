@@ -48,6 +48,15 @@ extern "C" size_t get_max_heap_size();
 static constexpr uint32_t PBackupReg_BootMode = 0;
 static constexpr uint32_t PBackupReg_BootCount = 1;
 static constexpr uint32_t PBackupReg_SYSTEM_COUNT = 2;
+
+static constexpr uint32_t PBackupReg_NMIFiredBeforeReset = 31;
+static constexpr uint32_t PBackupReg_NMIFiredBeforeReset_Magic          = 0x4E4D0000u; // "NM" in upper 16 bits; lower 16 bits = accumulated flags
+static constexpr uint32_t PBackupReg_NMIFiredBeforeReset_MagicMask      = 0xFFFF0000u;
+static constexpr uint32_t PBackupReg_NMIFiredBeforeReset_FlagCSS        = (1u << 0);   // CSS detected HSE clock failure
+static constexpr uint32_t PBackupReg_NMIFiredBeforeReset_FlagRecovered  = (1u << 1);   // HSE + PLLs recovered; execution resumed without reset
+static constexpr uint32_t PBackupReg_NMIFiredBeforeReset_FlagHSETimeout = (1u << 2);   // HSE failed to restart after CSS failure (kernel panicked)
+static constexpr uint32_t PBackupReg_NMIFiredBeforeReset_FlagPLLTimeout = (1u << 3);   // PLLs failed to lock after HSE restart (kernel panicked)
+static constexpr uint32_t PBackupReg_NMIFiredBeforeReset_FlagOther      = (1u << 4);   // NMI from unknown source (kernel panicked)
 namespace kernel
 {
 

@@ -30,6 +30,7 @@
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KFileHandle.h>
 #include <Utils/Utils.h>
+#include <Utils/Logging.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/SpinTimer.h>
@@ -176,6 +177,50 @@ void kwrite_backup_register_trw(size_t registerID, uint32_t value)
 uint32_t kread_backup_register_trw(size_t registerID)
 {
     return RealtimeClock::ReadBackupRegister_trw(registerID);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool khas_nmi_status()
+{
+    return (kread_backup_register_trw(PBackupReg_NMIFiredBeforeReset) & PBackupReg_NMIFiredBeforeReset_MagicMask)
+           == PBackupReg_NMIFiredBeforeReset_Magic;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void klog_and_clear_nmi_status()
+{
+    const uint32_t nmiReg = kread_backup_register_trw(PBackupReg_NMIFiredBeforeReset);
+    if ((nmiReg & PBackupReg_NMIFiredBeforeReset_MagicMask) == PBackupReg_NMIFiredBeforeReset_Magic)
+    {
+        const uint32_t nmiFlags = nmiReg & ~PBackupReg_NMIFiredBeforeReset_MagicMask;
+
+        p_system_log<PLogSeverity::NOTICE>(LogCat_General, "*******************************************************************************");
+        p_system_log<PLogSeverity::CRITICAL>(LogCat_General, "* NMI occurred since last reboot (flags: {:#06X}).", nmiFlags);
+
+        if (nmiFlags & PBackupReg_NMIFiredBeforeReset_FlagCSS) {
+            p_system_log<PLogSeverity::CRITICAL>(LogCat_General, "*     NMI: CSS detected HSE clock failure.");
+        }
+        if (nmiFlags & PBackupReg_NMIFiredBeforeReset_FlagRecovered) {
+            p_system_log<PLogSeverity::CRITICAL>(LogCat_General, "*     NMI: HSE and PLLs recovered; execution resumed without reset.");
+        }
+        if (nmiFlags & PBackupReg_NMIFiredBeforeReset_FlagHSETimeout) {
+            p_system_log<PLogSeverity::CRITICAL>(LogCat_General, "*     NMI: HSE failed to restart after CSS failure (kernel panicked).");
+        }
+        if (nmiFlags & PBackupReg_NMIFiredBeforeReset_FlagPLLTimeout) {
+            p_system_log<PLogSeverity::CRITICAL>(LogCat_General, "*     NMI: PLLs failed to lock after HSE restart (kernel panicked).");
+        }
+        if (nmiFlags & PBackupReg_NMIFiredBeforeReset_FlagOther) {
+            p_system_log<PLogSeverity::CRITICAL>(LogCat_General, "*     NMI: fired from unknown source (kernel panicked).");
+        }
+        p_system_log<PLogSeverity::NOTICE>(LogCat_General, "*******************************************************************************");
+        kwrite_backup_register_trw(PBackupReg_NMIFiredBeforeReset, 0);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

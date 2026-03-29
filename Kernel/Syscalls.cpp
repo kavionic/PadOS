@@ -190,7 +190,9 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(sigsuspend),
     SYS_PTR(thread_cancel),
     SYS_PTR(thread_setcancelstate),
-    SYS_PTR(thread_setcanceltype)
+    SYS_PTR(thread_setcanceltype),
+    SYS_PTR(has_nmi_status),
+    SYS_PTR(log_and_clear_nmi_status)
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);

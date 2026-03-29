@@ -88,6 +88,9 @@ bool kis_debugger_attached();
 void     kwrite_backup_register_trw(size_t registerID, uint32_t value);
 uint32_t kread_backup_register_trw(size_t registerID);
 
+bool khas_nmi_status();
+void klog_and_clear_nmi_status();
+
 
 class Kernel
 {

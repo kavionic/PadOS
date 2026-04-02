@@ -67,17 +67,8 @@ bool QSPI_STM32::Setup(uint32_t spiFrequency, uint32_t addressBits, PinMuxTarget
 
 bool QSPI_STM32::SetSPIFrequency(uint32_t spiFrequency)
 {
-    uint32_t perifFrequency = 0;
+    const uint32_t perifFrequency = ResetAndClockControl::GetClockFrequency<RCC_ClockMux_QSPISEL>();
 
-    const RCC_ClockMux_QSPISEL clockMux = ResetAndClockControl::GetClockMux<RCC_ClockMux_QSPISEL>();
-
-    switch (clockMux)
-    {
-        case RCC_ClockMux_QSPISEL::RCC_HCLK3:       perifFrequency = 0; break;
-        case RCC_ClockMux_QSPISEL::PLL1_Q:          perifFrequency = ResetAndClockControl::GetPLLOutFrequency(RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ);   break;
-        case RCC_ClockMux_QSPISEL::PLL2_R:          perifFrequency = ResetAndClockControl::GetPLLOutFrequency(RCC_PLLID::PLL2, RCC_PLLDivider::DIVR);   break;
-        case RCC_ClockMux_QSPISEL::PERIPHERAL_CLK:  perifFrequency = 0; break;  // From RCC_ClockMux_CKPERSEL
-    }
     if (perifFrequency == 0)
     {
         return false;

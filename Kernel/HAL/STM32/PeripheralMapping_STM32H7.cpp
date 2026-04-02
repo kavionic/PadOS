@@ -29,6 +29,7 @@
 #include <Kernel/HAL/PeripheralMapping.h>
 #include <Kernel/HAL/STM32/PinMuxTarget_STM32.h>
 #include <Kernel/HAL/STM32/DMARequestID.h>
+#include <Kernel/HAL/STM32/ResetAndClockControl.h>
 
 namespace kernel
 {
@@ -650,6 +651,40 @@ IRQn_Type get_timer_irq(HWTimerID timerID, HWTimerIRQType irqType)
     }
 }
 
+uint32_t get_timer_int_clock_freq(HWTimerID timerID)
+{
+    const bool timpre = (RCC->CFGR & RCC_CFGR_TIMPRE) != 0;
+    const uint32_t mult = timpre ? 4u : 2u;
+
+    switch (timerID)
+    {
+        case HWTimerID::Timer2:     [[fallthrough]];
+        case HWTimerID::Timer3:     [[fallthrough]];
+        case HWTimerID::Timer4:     [[fallthrough]];
+        case HWTimerID::Timer5:     [[fallthrough]];
+        case HWTimerID::Timer6:     [[fallthrough]];
+        case HWTimerID::Timer7:     [[fallthrough]];
+        case HWTimerID::Timer12:    [[fallthrough]];
+        case HWTimerID::Timer13:    [[fallthrough]];
+        case HWTimerID::Timer14:
+            // APB1 timers.
+            return std::min(ResetAndClockControl::GetHCLKFrequency(), ResetAndClockControl::GetPCLK1Frequency() * mult);
+
+        case HWTimerID::Timer1:     [[fallthrough]];
+        case HWTimerID::Timer8:     [[fallthrough]];
+        case HWTimerID::Timer15:    [[fallthrough]];
+        case HWTimerID::Timer16:    [[fallthrough]];
+        case HWTimerID::Timer17:
+            // APB2 timers.
+            return std::min(ResetAndClockControl::GetHCLKFrequency(), ResetAndClockControl::GetPCLK2Frequency() * mult);
+
+        default:
+            p_system_log<PLogSeverity::ERROR>(LogCat_General, "{} unknown timer '{}'", __PRETTY_FUNCTION__, int(timerID));
+            return 0;
+    }
+}
+
+
 USARTID usart_id_from_name(const char* name)
 {
     if (strcmp(name, "LPUART1") == 0) { return USARTID::LPUART_1; }
@@ -725,6 +760,11 @@ bool get_usart_dma_requests(USARTID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx)
     }
 }
 
+uint32_t get_usart_peripheral_clock_freq(USARTID id)
+{
+    return ResetAndClockControl::GetSysClockFrequency() / 4;
+}
+
 I2CID i2c_id_from_name(const char* name)
 {
     if (strncmp(name, "I2C", 3) == 0 && name[3] >= '1' && name[3] <= '4') {
@@ -763,6 +803,11 @@ IRQn_Type get_i2c_irq(I2CID id, I2CIRQType type)
     return IRQn_Type(IRQ_COUNT);
 }
 
+
+uint32_t get_i2c_peripheral_clock_freq(I2CID id)
+{
+    return ResetAndClockControl::GetSysClockFrequency() / 4;
+}
 
 SPIID spi_id_from_name(const char* name)
 {
@@ -819,6 +864,11 @@ bool get_spi_dma_requests(SPIID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx)
             return true;
         default:    return false;
     }
+}
+
+uint32_t get_spi_peripheral_clock_freq(SPIID id)
+{
+    return ResetAndClockControl::GetSysClockFrequency() / 4;
 }
 
 IRQn_Type get_usb_irq(USB_OTG_ID id)

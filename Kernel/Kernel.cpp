@@ -32,6 +32,7 @@
 #include <Utils/Utils.h>
 #include <Utils/Logging.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
+#include <Kernel/HAL/STM32/ResetAndClockControl.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/SpinTimer.h>
 #include <System/TimeValue.h>
@@ -45,8 +46,6 @@ extern "C" void newlib_retarget_locks_initialize();
 namespace kernel
 {
 
-uint32_t        Kernel::s_FrequencyCore;
-uint32_t        Kernel::s_FrequencyPeripheral;
 double          Kernel::s_CoreFrequencyToNanosecondScale;
 bigtime_t       Kernel::s_SystemTicks = 0;
 bigtime_t       Kernel::s_SystemTimeNS = 0;
@@ -237,23 +236,6 @@ void Kernel::SetupGlobals()
     newlib_retarget_locks_initialize();
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-uint32_t Kernel::GetFrequencyCore()
-{
-    return s_FrequencyCore;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-uint32_t Kernel::GetFrequencyPeripheral()
-{
-    return s_FrequencyPeripheral;
-}
 
 #if defined(__SAME70Q21__)
 void Kernel::ResetWatchdog()
@@ -271,7 +253,7 @@ void Kernel::ResetWatchdog()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral)
+void Kernel::PreBSSInitialize()
 {
 #if defined(__SAME70Q21__)
     SUPC->SUPC_MR = SUPC_MR_KEY_PASSWD | SUPC_MR_BODRSTEN_Msk | SUPC_MR_ONREG_Msk;
@@ -299,10 +281,8 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
 #else
 #error Unknown platform
 #endif
-    s_FrequencyCore = frequencyCore;
-    s_FrequencyPeripheral = frequencyPeripheral;
 
-    s_CoreFrequencyToNanosecondScale = 1.0e9 / double(s_FrequencyCore);
+    s_CoreFrequencyToNanosecondScale = 1.0e9 / double(ResetAndClockControl::GetSysClockFrequency());
 
     SpinTimer::Initialize();
 }
@@ -311,12 +291,12 @@ void Kernel::PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/)
+void Kernel::Initialize(size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/)
 {
     ResetWatchdog();
 
     //    KPowerManager::GetInstance().Initialize(powerSwitchTimerChannel, pinPowerSwitch);
-    start_scheduler(coreFrequency, mainThreadStackSize);
+    start_scheduler(mainThreadStackSize);
 }
 
 } // namespace kernel
@@ -324,9 +304,9 @@ void Kernel::Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MC
 extern "C"
 {
 
-void launch_pados(uint32_t coreFrequency, size_t mainThreadStackSize)
+void launch_pados(size_t mainThreadStackSize)
 {
-    kernel::Kernel::Initialize(coreFrequency, mainThreadStackSize);
+    kernel::Kernel::Initialize(mainThreadStackSize);
 }
 
 } // extern "C"

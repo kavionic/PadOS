@@ -31,7 +31,7 @@ enum class IRQResult : int;
 class PiezoBuzzer_STM32
 {
 public:
-    bool Setup(HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin);
+    bool Setup(HWTimerID timerID, PinMuxTarget beeperPin);
 
     void Beep(float time);
 

@@ -96,8 +96,6 @@ class Kernel
 {
 public:
     static void     SetupGlobals();
-    static uint32_t GetFrequencyCore();
-    static uint32_t GetFrequencyPeripheral();
     static double   GetCoreFrequencyToNanosecondScale() { return s_CoreFrequencyToNanosecondScale; }
 
 #if defined(__SAME70Q21__)
@@ -105,13 +103,11 @@ public:
 #elif defined(STM32H7) || defined(STM32G0)
     static void ResetWatchdog();
 #endif
-    static void PreBSSInitialize(uint32_t frequencyCrystal, uint32_t frequencyCore, uint32_t frequencyPeripheral);
-    static void Initialize(uint32_t coreFrequency, size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/);
+    static void PreBSSInitialize();
+    static void Initialize(size_t mainThreadStackSize/*, MCU_Timer16_t* powerSwitchTimerChannel, const DigitalPin& pinPowerSwitch*/);
 
 //private:
 
-    static uint32_t     s_FrequencyCore;
-    static uint32_t     s_FrequencyPeripheral;
     static double       s_CoreFrequencyToNanosecondScale;
     static bigtime_t    s_SystemTicks;
     static bigtime_t    s_SystemTimeNS;

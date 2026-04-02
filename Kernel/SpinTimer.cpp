@@ -17,7 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "Kernel/SpinTimer.h"
-#include "Kernel/Kernel.h"
+#include <Kernel/HAL/STM32/ResetAndClockControl.h>
 #include <System/TimeValue.h>
 
 namespace kernel
@@ -27,7 +27,7 @@ uint32_t   SpinTimer::s_TicksPerMicroSec;
 
 void SpinTimer::Initialize()
 {
-    s_TicksPerMicroSec = Kernel::GetFrequencyCore() / TimeValMicros::TicksPerSecond;
+    s_TicksPerMicroSec = ResetAndClockControl::GetSysClockFrequency() / TimeValMicros::TicksPerSecond;
 }
 
 void SpinTimer::SleepuS(uint32_t delay)

@@ -19,22 +19,24 @@
 
 #pragma once
 
-#include <limits>
 
 #include <sys/types.h>
 
 #include <System/Types.h>
 #include <System/ErrorCodes.h>
-#include <System/TimeValue.h>
 
-static constexpr TimeValNanos INFINIT_TIMEOUT = TimeValNanos::FromNanoseconds(std::numeric_limits<bigtime_t>::max());
 
-extern "C" void launch_pados(uint32_t coreFrequency, size_t mainThreadStackSize);
+#ifdef __cplusplus
+extern "C"
+#endif
+void launch_pados(size_t mainThreadStackSize);
 
 
 int get_last_error();
 void set_last_error(int error);
+#ifdef __cplusplus
 void set_last_error(PErrorCode error);
+#endif
 
 status_t set_input_event_port(port_id port);
 port_id  get_input_event_port();

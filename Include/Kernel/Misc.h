@@ -27,7 +27,7 @@ enum class HWTimerID : int32_t;
 namespace kernel
 {
 
-bool setup_beeper(HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin);
+bool setup_beeper(HWTimerID timerID, PinMuxTarget beeperPin);
 
 void kbeep_seconds(float duration);
 

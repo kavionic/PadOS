@@ -388,13 +388,45 @@ enum class RCC_ClockMux_RTCSEL : uint32_t
     HSE
 };
 
+struct ClockSourceInfo
+{
+    enum class SourceType
+    {
+        Disabled,       // 0 Hz
+        Fixed,          // FixedFreq
+        HSI,            // GetHSIFrequency()
+        HSI_div8,       // GetHSIFrequency() / 8
+        HSE,            // GetHSEFrequency()
+        HSE_RTC,        // GetHSEFrequency() / RTCPRE
+        CSI,            // 4 MHz
+        LSE,            // 32768 Hz
+        LSI,            // 32000 Hz
+        PLL,            // GetPLLOutFrequency(PLLID, PLLDiv)
+        SysClock,       // GetSysClockFrequency()
+        HCLK,           // GetHCLKFrequency()
+        PCLK1,          // GetPCLK1Frequency()
+        PCLK2,          // GetPCLK2Frequency()
+        PCLK4,          // GetPCLK4Frequency()
+        PeriphClock,    // GetClockFrequency(GetClockMux<RCC_ClockMux_CKPERSEL>())
+        I2SCkin,        // 0 Hz (external pin, unknown to software)
+    };
+
+    SourceType      Type        = SourceType::Disabled;
+    RCC_PLLID       PLLID       = RCC_PLLID::PLL1;
+    RCC_PLLDivider  PLLDiv      = RCC_PLLDivider::DIVP;
+    uint32_t        FixedFreq   = 0;
+};
+
 struct ClockMuxInfo
 {
-    ClockMuxInfo(__IO uint32_t* InRegister, uint32_t InValueMask, uint32_t InValuePosition);
+    ClockMuxInfo(__IO uint32_t* InRegister, uint32_t InValueMask, uint32_t InValuePosition,
+                 const ClockSourceInfo* InSources, uint32_t InSourceCount);
 
-    __IO uint32_t*  Register;
-    uint32_t        ValueMask;
-    uint32_t        ValuePosition;
+    __IO uint32_t*          Register;
+    uint32_t                ValueMask;
+    uint32_t                ValuePosition;
+    const ClockSourceInfo*  Sources;
+    uint32_t                SourceCount;
 };
 
 template<typename T> ClockMuxInfo GetClockMuxInfo();
@@ -410,6 +442,12 @@ public:
     static void WaitForClockStartup(RCC_ClockID clock);
 
     static uint32_t GetHSIFrequency();
+    static uint32_t GetHSEFrequency();
+    static uint32_t GetSysClockFrequency();
+    static uint32_t GetHCLKFrequency();
+    static uint32_t GetPCLK1Frequency();
+    static uint32_t GetPCLK2Frequency();
+    static uint32_t GetPCLK4Frequency();
 
     static void             SetPLLSource(RCC_PLLSource source);
     static RCC_PLLSource    GetPLLSource();
@@ -449,7 +487,22 @@ public:
         return T(((*muxInfo.Register) & muxInfo.ValueMask) >> muxInfo.ValuePosition);
     }
 
+    template<typename T> static uint32_t GetClockFrequency(T clockID)
+    {
+        const ClockMuxInfo muxInfo  = GetClockMuxInfo<T>();
+        const uint32_t     srcIndex = uint32_t(clockID);
+        if (srcIndex < muxInfo.SourceCount) {
+            return GetClockSourceFrequency(muxInfo.Sources[srcIndex]);
+        } else {
+            return 0;
+        }
+    }
+    template<typename T> static uint32_t GetClockFrequency()
+    {
+        return GetClockFrequency<T>(GetClockMux<T>());
+    }
 private:
+    static uint32_t GetClockSourceFrequency(const ClockSourceInfo& source);
     static uint32_t s_HSEFrequency;
 };
 

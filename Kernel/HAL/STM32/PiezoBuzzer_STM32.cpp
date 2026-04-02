@@ -32,7 +32,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PiezoBuzzer_STM32::Setup(HWTimerID timerID, uint32_t timerClkFrequency, PinMuxTarget beeperPin)
+bool PiezoBuzzer_STM32::Setup(HWTimerID timerID, PinMuxTarget beeperPin)
 {
     if (beeperPin.MUX == DigitalPinPeripheralID::None)
     {
@@ -57,7 +57,7 @@ bool PiezoBuzzer_STM32::Setup(HWTimerID timerID, uint32_t timerClkFrequency, Pin
 
     const uint32_t prescale = 8;
 
-    m_TimerFrequency = timerClkFrequency / prescale;
+    m_TimerFrequency = get_timer_int_clock_freq(timerID) / prescale;
 
     m_Timer->CR1    = TIM_CR1_ARPE;
     m_Timer->CCMR1  = (6 << TIM_CCMR1_OC1M_Pos); // PWM-mode1

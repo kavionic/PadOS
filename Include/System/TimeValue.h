@@ -268,3 +268,4 @@ using TimeValMillis = TimeValue<bigtime_t, 1000LL>;
 using TimeValMicros = TimeValue<bigtime_t, 1000000LL>;
 using TimeValNanos  = TimeValue<bigtime_t, 1000000000LL>;
 
+static constexpr TimeValNanos INFINIT_TIMEOUT = TimeValNanos::FromNanoseconds(std::numeric_limits<time_t>::max());

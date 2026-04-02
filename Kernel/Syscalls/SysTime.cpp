@@ -27,6 +27,7 @@
 #include <Kernel/IRQDispatcher.h>
 #include <Kernel/KAddressValidation.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
+#include <Kernel/HAL/STM32/ResetAndClockControl.h>
 
 
 namespace kernel
@@ -157,7 +158,7 @@ PErrorCode sys_get_clock_resolution_ns(clockid_t clockID, bigtime_t* outResoluti
     }
     else
     {
-        const uint32_t coreFrequency = Kernel::GetFrequencyCore();
+        const uint32_t coreFrequency = ResetAndClockControl::GetSysClockFrequency();
         *outResolutionNanos = TimeValNanos::FromNanoseconds((TimeValNanos::TicksPerSecond + coreFrequency - 1) / coreFrequency).AsNanoseconds();
         return PErrorCode::Success;
     }

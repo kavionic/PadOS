@@ -34,6 +34,7 @@
 #include <Kernel/VFS/KBlockCache.h>
 #include <Kernel/VFS/Kpty.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
+#include <Kernel/HAL/STM32/ResetAndClockControl.h>
 #include <Kernel/DebugConsole/KDebugConsole.h>
 #include <Kernel/DebugConsole/KSerialPseudoTerminal.h>
 #include <Kernel/FSDrivers/BinFS/BinFS.h>
@@ -271,7 +272,7 @@ static void* init_thread_entry(void* arguments)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
+void start_scheduler(size_t mainThreadStackSize)
 {
     NVIC_SetPriority(PendSV_IRQn, KIRQ_PRI_KERNEL);
     NVIC_SetPriority(SysTick_IRQn, KIRQ_PRI_KERNEL);
@@ -306,7 +307,7 @@ void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize)
 #endif
     __ISB();
 
-    SysTick->LOAD = coreFrequency / 1000 - 1;
+    SysTick->LOAD = ResetAndClockControl::GetSysClockFrequency() / 1000 - 1;
     SysTick->VAL = 0;
     SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk;
 

@@ -58,7 +58,7 @@ I2CDriverInode::I2CDriverInode(const I2CDriverParameters& parameters)
 
     m_Port = get_i2c_from_id(parameters.PortID);
 
-    m_ClockFrequency = Kernel::GetFrequencyPeripheral() / 2;
+    m_ClockFrequency = get_i2c_peripheral_clock_freq(parameters.PortID);
 
     DigitalPin clockPin(m_ClockPin.PINID);
     DigitalPin dataPin(m_DataPin.PINID);

@@ -17,6 +17,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18/08/25 0:24:37
 
+#if 0
+
+
 #include "System/Platform.h"
 
 #if defined(__SAME70Q21__)
@@ -240,3 +243,4 @@ IRQResult KPowerManager::HandleTimerIRQ()
 #endif
 
 } // namespace kernel
+#endif

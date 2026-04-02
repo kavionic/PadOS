@@ -20,6 +20,7 @@
 #ifdef STM32H7
 
 #include <stm32h7xx.h>
+#include <iterator>
 
 #include "Kernel/HAL/STM32/ResetAndClockControl.h"
 #include "Utils/Utils.h"
@@ -31,9 +32,13 @@ uint32_t ResetAndClockControl::s_HSEFrequency = 0;
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-ClockMuxInfo::ClockMuxInfo(__IO uint32_t* InRegister, uint32_t InValueMask, uint32_t InValuePosition) : Register(InRegister)
+ClockMuxInfo::ClockMuxInfo(__IO uint32_t* InRegister, uint32_t InValueMask, uint32_t InValuePosition,
+                           const ClockSourceInfo* InSources, uint32_t InSourceCount)
+: Register(InRegister)
 , ValueMask(InValueMask)
 , ValuePosition(InValuePosition)
+, Sources(InSources)
+, SourceCount(InSourceCount)
 {
 
 }
@@ -137,6 +142,143 @@ uint32_t ResetAndClockControl::GetHSIFrequency()
         case RCC_CR_HSIDIV_2:   return 32000000;
         case RCC_CR_HSIDIV_4:   return 16000000;
         case RCC_CR_HSIDIV_8:   return 8000000;
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t ResetAndClockControl::GetHSEFrequency()
+{
+    return s_HSEFrequency;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t ResetAndClockControl::GetSysClockFrequency()
+{
+    switch (RCC->CFGR & RCC_CFGR_SWS_Msk)
+    {
+        case RCC_CFGR_SWS_HSI:  return GetHSIFrequency();
+        case RCC_CFGR_SWS_CSI:  return 4000000;
+        case RCC_CFGR_SWS_HSE:  return s_HSEFrequency;
+        case RCC_CFGR_SWS_PLL1: return GetPLLOutFrequency(RCC_PLLID::PLL1, RCC_PLLDivider::DIVP);
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Decodes the AHB pre-scaler from a 4-bit field value (shifted to bit 0).
+/// 
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static uint32_t DecodeAHBPrescalerField(uint32_t fieldValue)
+{
+    switch (fieldValue)
+    {
+        case 8:  return 2;
+        case 9:  return 4;
+        case 10: return 8;
+        case 11: return 16;
+        case 12: return 64;
+        case 13: return 128;
+        case 14: return 256;
+        case 15: return 512;
+        default: return 1;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// Decodes the APB pre-scaler from a 3-bit field value (shifted to bit 0).
+/// 
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static uint32_t DecodeAPBPrescalerField(uint32_t fieldValue)
+{
+    switch (fieldValue)
+    {
+        case 4: return 2;
+        case 5: return 4;
+        case 6: return 8;
+        case 7: return 16;
+        default: return 1;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t ResetAndClockControl::GetHCLKFrequency()
+{
+    const uint32_t d1cpre = DecodeAHBPrescalerField((RCC->D1CFGR & RCC_D1CFGR_D1CPRE_Msk) >> RCC_D1CFGR_D1CPRE_Pos);
+    const uint32_t hpre   = DecodeAHBPrescalerField((RCC->D1CFGR & RCC_D1CFGR_HPRE_Msk)   >> RCC_D1CFGR_HPRE_Pos);
+    return GetSysClockFrequency() / d1cpre / hpre;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t ResetAndClockControl::GetPCLK1Frequency()
+{
+    return GetHCLKFrequency() / DecodeAPBPrescalerField((RCC->D2CFGR & RCC_D2CFGR_D2PPRE1_Msk) >> RCC_D2CFGR_D2PPRE1_Pos);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t ResetAndClockControl::GetPCLK2Frequency()
+{
+    return GetHCLKFrequency() / DecodeAPBPrescalerField((RCC->D2CFGR & RCC_D2CFGR_D2PPRE2_Msk) >> RCC_D2CFGR_D2PPRE2_Pos);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t ResetAndClockControl::GetPCLK4Frequency()
+{
+    return GetHCLKFrequency() / DecodeAPBPrescalerField((RCC->D3CFGR & RCC_D3CFGR_D3PPRE_Msk) >> RCC_D3CFGR_D3PPRE_Pos);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t ResetAndClockControl::GetClockSourceFrequency(const ClockSourceInfo& source)
+{
+    using ST = ClockSourceInfo::SourceType;
+    switch (source.Type)
+    {
+        case ST::Disabled:      return 0;
+        case ST::Fixed:         return source.FixedFreq;
+        case ST::HSI:           return GetHSIFrequency();
+        case ST::HSI_div8:      return GetHSIFrequency() / 8;
+        case ST::HSE:           return s_HSEFrequency;
+        case ST::HSE_RTC:
+        {
+            const uint32_t rtcpre = (RCC->CFGR & RCC_CFGR_RTCPRE_Msk) >> RCC_CFGR_RTCPRE_Pos;
+            return (rtcpre > 0) ? s_HSEFrequency / rtcpre : 0;
+        }
+        case ST::CSI:           return 4000000;
+        case ST::LSE:           return 32768;
+        case ST::LSI:           return 32000;
+        case ST::PLL:           return GetPLLOutFrequency(source.PLLID, source.PLLDiv);
+        case ST::SysClock:      return GetSysClockFrequency();
+        case ST::HCLK:          return GetHCLKFrequency();
+        case ST::PCLK1:         return GetPCLK1Frequency();
+        case ST::PCLK2:         return GetPCLK2Frequency();
+        case ST::PCLK4:         return GetPCLK4Frequency();
+        case ST::PeriphClock:   return GetClockFrequency(GetClockMux<RCC_ClockMux_CKPERSEL>());
+        case ST::I2SCkin:       return 0;
     }
     return 0;
 }
@@ -255,9 +397,19 @@ uint32_t ResetAndClockControl::GetPLLOutFrequency(RCC_PLLID pll, RCC_PLLDivider 
         case RCC_PLLSource::HSI:    frequency = GetHSIFrequency();  break;
         case RCC_PLLSource::CSI:    frequency = 4000000;            break;
         case RCC_PLLSource::HSE:    frequency = s_HSEFrequency;     break;
-        case RCC_PLLSource::None:   frequency = 0;                  break;
+        case RCC_PLLSource::None:   return 0;
     }
-    return uint32_t(double(frequency) / double(GetPLLDivider(pll, RCC_PLLDivider::DIVM)) * double(GetPLLDivider(pll, RCC_PLLDivider::DIVN)) / double(GetPLLDivider(pll, divider)));   
+
+    const uint32_t divm = GetPLLDivider(pll, RCC_PLLDivider::DIVM);
+
+    if (divm == 0) {
+        return 0;
+    }
+
+    const uint32_t divn = GetPLLDivider(pll, RCC_PLLDivider::DIVN);
+    const uint32_t divx = GetPLLDivider(pll, divider);
+
+    return uint32_t(uint64_t(frequency) * divn / (divm * divx));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -485,33 +637,351 @@ void ResetAndClockControl::SelectSysClock(RCC_SysClockSource source)
 
 
 
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_FMCSEL>()      { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_FMCSEL_Msk,         RCC_D1CCIPR_FMCSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_QSPISEL>()     { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_QSPISEL_Msk,        RCC_D1CCIPR_QSPISEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SDMMCSEL>()    { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_SDMMCSEL_Msk,       RCC_D1CCIPR_SDMMCSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_CKPERSEL>()    { return ClockMuxInfo(&RCC->D1CCIPR,    RCC_D1CCIPR_CKPERSEL_Msk,       RCC_D1CCIPR_CKPERSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI1SEL>()     { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SAI1SEL_Msk,       RCC_D2CCIP1R_SAI1SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI23SEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SAI23SEL_Msk,      RCC_D2CCIP1R_SAI23SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI123SEL>()   { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPI123SEL_Msk,     RCC_D2CCIP1R_SPI123SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI45SEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPI45SEL_Msk,      RCC_D2CCIP1R_SPI45SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPDIFSEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SPDIFSEL_Msk,      RCC_D2CCIP1R_SPDIFSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_DFSDM1SEL>()   { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_DFSDM1SEL_Msk,     RCC_D2CCIP1R_DFSDM1SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_FDCANSEL>()    { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_FDCANSEL_Msk,      RCC_D2CCIP1R_FDCANSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SWPSEL>()      { return ClockMuxInfo(&RCC->D2CCIP1R,   RCC_D2CCIP1R_SWPSEL_Msk,        RCC_D2CCIP1R_SWPSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USART16SEL>()  { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USART16SEL_Msk,    RCC_D2CCIP2R_USART16SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USART28SEL>()  { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USART28SEL_Msk,    RCC_D2CCIP2R_USART28SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_RNGSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_RNGSEL_Msk,        RCC_D2CCIP2R_RNGSEL_Pos);}
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_I2C123SEL>()   { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_I2C123SEL_Msk,     RCC_D2CCIP2R_I2C123SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USBSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_USBSEL_Msk,        RCC_D2CCIP2R_USBSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_CECSEL>()      { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_CECSEL_Msk,        RCC_D2CCIP2R_CECSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM1SEL>()   { return ClockMuxInfo(&RCC->D2CCIP2R,   RCC_D2CCIP2R_LPTIM1SEL_Msk,     RCC_D2CCIP2R_LPTIM1SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPUART1SEL>()  { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPUART1SEL_Msk,     RCC_D3CCIPR_LPUART1SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_I2C4SEL>()     { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_I2C4SEL_Msk,        RCC_D3CCIPR_I2C4SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM2SEL>()   { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPTIM2SEL_Msk,      RCC_D3CCIPR_LPTIM2SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM345SEL>() { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_LPTIM345SEL_Msk,    RCC_D3CCIPR_LPTIM345SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI4ASEL>()    { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SAI4ASEL_Msk,       RCC_D3CCIPR_SAI4ASEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI4BSEL>()    { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SAI4BSEL_Msk,       RCC_D3CCIPR_SAI4BSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_ADCSEL>()      { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_ADCSEL_Msk,         RCC_D3CCIPR_ADCSEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI6SEL>()     { return ClockMuxInfo(&RCC->D3CCIPR,    RCC_D3CCIPR_SPI6SEL_Msk,        RCC_D3CCIPR_SPI6SEL_Pos); }
-template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_RTCSEL>()      { return ClockMuxInfo(&RCC->BDCR,       RCC_BDCR_RTCSEL_Msk,            RCC_BDCR_RTCSEL_Pos); }
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_FMCSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::HCLK },                                       // RCC_HCLK3
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ }, // PLL1_Q
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVR }, // PLL2_R
+        { ST::PeriphClock },                                // PERIPHERAL_CLK
+    };
+    return ClockMuxInfo(&RCC->D1CCIPR, RCC_D1CCIPR_FMCSEL_Msk, RCC_D1CCIPR_FMCSEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_QSPISEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::HCLK },                                       // RCC_HCLK3
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ }, // PLL1_Q
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVR }, // PLL2_R
+        { ST::PeriphClock },                                // PERIPHERAL_CLK
+    };
+    return ClockMuxInfo(&RCC->D1CCIPR, RCC_D1CCIPR_QSPISEL_Msk, RCC_D1CCIPR_QSPISEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SDMMCSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ }, // PLL1_Q
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVR }, // PLL2_R
+    };
+    return ClockMuxInfo(&RCC->D1CCIPR, RCC_D1CCIPR_SDMMCSEL_Msk, RCC_D1CCIPR_SDMMCSEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_CKPERSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::HSI },    // HSI_KER
+        { ST::CSI },    // CSI_KER
+        { ST::HSE },    // HSE
+    };
+    return ClockMuxInfo(&RCC->D1CCIPR, RCC_D1CCIPR_CKPERSEL_Msk, RCC_D1CCIPR_CKPERSEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI1SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ }, // PLL1_Q
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVP }, // PLL2_P
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVP }, // PLL3_P
+        { ST::I2SCkin },                                    // I2S_CKIN
+        { ST::PeriphClock },                                // PERIPHERAL_CLK
+    };
+    return ClockMuxInfo(&RCC->D2CCIP1R, RCC_D2CCIP1R_SAI1SEL_Msk, RCC_D2CCIP1R_SAI1SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI23SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ }, // PLL1_Q
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVP }, // PLL2_P
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVP }, // PLL3_P
+        { ST::I2SCkin },                                    // I2S_CKIN
+        { ST::PeriphClock },                                // PERIPHERAL_CLK
+    };
+    return ClockMuxInfo(&RCC->D2CCIP1R, RCC_D2CCIP1R_SAI23SEL_Msk, RCC_D2CCIP1R_SAI23SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI123SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ }, // PLL1_Q
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVP }, // PLL2_P
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVP }, // PLL3_P
+        { ST::I2SCkin },                                    // I2S_CKIN
+        { ST::PeriphClock },                                // PERIPHERAL_CLK
+    };
+    return ClockMuxInfo(&RCC->D2CCIP1R, RCC_D2CCIP1R_SPI123SEL_Msk, RCC_D2CCIP1R_SPI123SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI45SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK2 },                                      // APB (PCLK2)
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVQ }, // PLL2_Q
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVQ }, // PLL3_Q
+        { ST::HSI },                                        // HSI_KER
+        { ST::CSI },                                        // CSI_KER
+        { ST::HSE },                                        // HSE_CK
+    };
+    return ClockMuxInfo(&RCC->D2CCIP1R, RCC_D2CCIP1R_SPI45SEL_Msk, RCC_D2CCIP1R_SPI45SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPDIFSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ }, // PLL1_Q
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVR }, // PLL2_R
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVR }, // PLL3_R
+        { ST::HSI },                                        // HSI_KER
+    };
+    return ClockMuxInfo(&RCC->D2CCIP1R, RCC_D2CCIP1R_SPDIFSEL_Msk, RCC_D2CCIP1R_SPDIFSEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_DFSDM1SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK2 },      // RCC_PCLK2
+        { ST::SysClock },   // SYS_CK
+    };
+    return ClockMuxInfo(&RCC->D2CCIP1R, RCC_D2CCIP1R_DFSDM1SEL_Msk, RCC_D2CCIP1R_DFSDM1SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_FDCANSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::HSE },                                        // HSE
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ }, // PLL1_Q
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVQ }, // PLL2_Q
+    };
+    return ClockMuxInfo(&RCC->D2CCIP1R, RCC_D2CCIP1R_FDCANSEL_Msk, RCC_D2CCIP1R_FDCANSEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SWPSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK1 },  // PCLK (PCLK1)
+        { ST::HSI },    // HSI_KER
+    };
+    return ClockMuxInfo(&RCC->D2CCIP1R, RCC_D2CCIP1R_SWPSEL_Msk, RCC_D2CCIP1R_SWPSEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USART16SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK2 },                                      // RCC_PCLK2
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVQ }, // PLL2_Q
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVQ }, // PLL3_Q
+        { ST::HSI },                                        // HSI_KER
+        { ST::CSI },                                        // CSI_KER
+        { ST::LSE },                                        // LSE
+    };
+    return ClockMuxInfo(&RCC->D2CCIP2R, RCC_D2CCIP2R_USART16SEL_Msk, RCC_D2CCIP2R_USART16SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USART28SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK1 },                                      // RCC_PCLK1
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVQ }, // PLL2_Q
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVQ }, // PLL3_Q
+        { ST::HSI },                                        // HSI_KER
+        { ST::CSI },                                        // CSI_KER
+        { ST::LSE },                                        // LSE
+    };
+    return ClockMuxInfo(&RCC->D2CCIP2R, RCC_D2CCIP2R_USART28SEL_Msk, RCC_D2CCIP2R_USART28SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_RNGSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::HSI_div8 },                                   // HSI8 (HSI / 8)
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ }, // PLL1_Q
+        { ST::LSE },                                        // LSE
+        { ST::LSI },                                        // LSI
+    };
+    return ClockMuxInfo(&RCC->D2CCIP2R, RCC_D2CCIP2R_RNGSEL_Msk, RCC_D2CCIP2R_RNGSEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_I2C123SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK1 },                                      // RCC_PCLK1
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVR }, // PLL3_R
+        { ST::HSI },                                        // HSI_KER
+        { ST::CSI },                                        // CSI_KER
+    };
+    return ClockMuxInfo(&RCC->D2CCIP2R, RCC_D2CCIP2R_I2C123SEL_Msk, RCC_D2CCIP2R_I2C123SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_USBSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::Disabled },                                               // Disabled
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ },             // PLL1_Q
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVQ },             // PLL3_Q
+        { ST::Fixed, RCC_PLLID::PLL1, RCC_PLLDivider::DIVP, 48000000 }, // HSI48
+    };
+    return ClockMuxInfo(&RCC->D2CCIP2R, RCC_D2CCIP2R_USBSEL_Msk, RCC_D2CCIP2R_USBSEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_CECSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::LSE },    // LSE
+        { ST::LSI },    // LSI
+        { ST::CSI },    // CSI_KER
+    };
+    return ClockMuxInfo(&RCC->D2CCIP2R, RCC_D2CCIP2R_CECSEL_Msk, RCC_D2CCIP2R_CECSEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM1SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK1 },                                      // RCC_PCLK1
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVP }, // PLL2_P
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVR }, // PLL3_R
+        { ST::LSE },                                        // LSE
+        { ST::LSI },                                        // LSI
+        { ST::PeriphClock },                                // PERIPHERAL_CLK
+    };
+    return ClockMuxInfo(&RCC->D2CCIP2R, RCC_D2CCIP2R_LPTIM1SEL_Msk, RCC_D2CCIP2R_LPTIM1SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPUART1SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK4 },                                      // RCC_PCLK_D3 (PCLK4)
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVQ }, // PLL2_Q
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVQ }, // PLL3_Q
+        { ST::HSI },                                        // HSI_KER
+        { ST::CSI },                                        // CSI_KER
+        { ST::LSE },                                        // LSE
+    };
+    return ClockMuxInfo(&RCC->D3CCIPR, RCC_D3CCIPR_LPUART1SEL_Msk, RCC_D3CCIPR_LPUART1SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_I2C4SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK4 },                                      // RCC_PCLK4
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVR }, // PLL3_R
+        { ST::HSI },                                        // HSI_KER
+        { ST::CSI },                                        // CSI_KER
+    };
+    return ClockMuxInfo(&RCC->D3CCIPR, RCC_D3CCIPR_I2C4SEL_Msk, RCC_D3CCIPR_I2C4SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM2SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK4 },                                      // RCC_PCLK4
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVP }, // PLL2_P
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVR }, // PLL3_R
+        { ST::LSE },                                        // LSE
+        { ST::LSI },                                        // LSI
+        { ST::PeriphClock },                                // PERIPHERAL_CLK
+    };
+    return ClockMuxInfo(&RCC->D3CCIPR, RCC_D3CCIPR_LPTIM2SEL_Msk, RCC_D3CCIPR_LPTIM2SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_LPTIM345SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK4 },                                      // RCC_PCLK4
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVP }, // PLL2_P
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVR }, // PLL3_R
+        { ST::LSE },                                        // LSE
+        { ST::LSI },                                        // LSI
+        { ST::PeriphClock },                                // PERIPHERAL_CLK
+    };
+    return ClockMuxInfo(&RCC->D3CCIPR, RCC_D3CCIPR_LPTIM345SEL_Msk, RCC_D3CCIPR_LPTIM345SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI4ASEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ }, // PLL1_Q
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVP }, // PLL2_P
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVP }, // PLL3_P
+        { ST::I2SCkin },                                    // I2S_CKIN
+        { ST::PeriphClock },                                // PERIPHERAL_CLK
+    };
+    return ClockMuxInfo(&RCC->D3CCIPR, RCC_D3CCIPR_SAI4ASEL_Msk, RCC_D3CCIPR_SAI4ASEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SAI4BSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PLL, RCC_PLLID::PLL1, RCC_PLLDivider::DIVQ }, // PLL1_Q
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVP }, // PLL2_P
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVP }, // PLL3_P
+        { ST::I2SCkin },                                    // I2S_CKIN
+        { ST::PeriphClock },                                // PERIPHERAL_CLK
+    };
+    return ClockMuxInfo(&RCC->D3CCIPR, RCC_D3CCIPR_SAI4BSEL_Msk, RCC_D3CCIPR_SAI4BSEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_ADCSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVP }, // PLL2_P
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVR }, // PLL3_R
+        { ST::PeriphClock },                                // PERIPHERAL_CLK
+    };
+    return ClockMuxInfo(&RCC->D3CCIPR, RCC_D3CCIPR_ADCSEL_Msk, RCC_D3CCIPR_ADCSEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_SPI6SEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::PCLK4 },                                      // RCC_PCLK4
+        { ST::PLL, RCC_PLLID::PLL2, RCC_PLLDivider::DIVQ }, // PLL2_Q
+        { ST::PLL, RCC_PLLID::PLL3, RCC_PLLDivider::DIVQ }, // PLL3_Q
+        { ST::HSI },                                        // HSI_KER
+        { ST::CSI },                                        // CSI_KER
+        { ST::HSE },                                        // HSE
+    };
+    return ClockMuxInfo(&RCC->D3CCIPR, RCC_D3CCIPR_SPI6SEL_Msk, RCC_D3CCIPR_SPI6SEL_Pos, sources, std::size(sources));
+}
+
+template<> ClockMuxInfo GetClockMuxInfo<RCC_ClockMux_RTCSEL>()
+{
+    using ST = ClockSourceInfo::SourceType;
+    static const ClockSourceInfo sources[] = {
+        { ST::Disabled },   // Disabled
+        { ST::LSE },        // LSE
+        { ST::LSI },        // LSI
+        { ST::HSE_RTC },    // HSE / RTCPRE
+    };
+    return ClockMuxInfo(&RCC->BDCR, RCC_BDCR_RTCSEL_Msk, RCC_BDCR_RTCSEL_Pos, sources, std::size(sources));
+}
 
 #endif // STM32H7

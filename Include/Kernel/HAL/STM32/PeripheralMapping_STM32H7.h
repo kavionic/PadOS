@@ -102,17 +102,21 @@ DigitalPinID pin_id_from_name(const char* name);
 
 HWTimerID   timer_id_from_name(const char* name);
 IRQn_Type   get_timer_irq(HWTimerID timerID, HWTimerIRQType irqType);
+uint32_t    get_timer_int_clock_freq(HWTimerID timerID);
 
 USARTID     usart_id_from_name(const char* name);
 IRQn_Type   get_usart_irq(USARTID id);
 bool        get_usart_dma_requests(USARTID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx);
+uint32_t    get_usart_peripheral_clock_freq(USARTID id);
 
 I2CID       i2c_id_from_name(const char* name);
 IRQn_Type   get_i2c_irq(I2CID id, I2CIRQType type);
+uint32_t    get_i2c_peripheral_clock_freq(I2CID id);
 
 SPIID       spi_id_from_name(const char* name);
 IRQn_Type   get_spi_irq(SPIID id);
 bool        get_spi_dma_requests(SPIID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx);
+uint32_t    get_spi_peripheral_clock_freq(SPIID id);
 
 IRQn_Type   get_usb_irq(USB_OTG_ID id);
 IRQn_Type   get_adc_irq(ADC_ID id);

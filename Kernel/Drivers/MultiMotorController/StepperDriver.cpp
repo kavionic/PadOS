@@ -79,7 +79,7 @@ void StepperDriver::Setup_trw(HWTimerID timerID, PinMuxTarget pinStep, DigitalPi
 
     m_PinStep.SetPeripheralMux(m_PinStepMux.MUX);
 
-    m_TimerPerifFrequency = Kernel::GetFrequencyPeripheral();
+    m_TimerPerifFrequency = get_timer_int_clock_freq(timerID);
     m_TimerFrequency = 3000000;
     m_TimerChannel->CR1 = TIM_CR1_ARPE_Msk;
     m_TimerChannel->CCMR1 = (6 << TIM_CCMR1_OC1M_Pos); // PWM-mode1

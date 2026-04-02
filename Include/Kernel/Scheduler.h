@@ -67,7 +67,7 @@ void        stop_thread(bool notifyParent);
 PErrorCode  wakeup_thread(KThreadCB& thread, bool wakeupSuspended);
 
 
-void start_scheduler(uint32_t coreFrequency, size_t mainThreadStackSize);
+void start_scheduler(size_t mainThreadStackSize);
 
 int  get_remaining_stack();
 void check_stack_overflow();

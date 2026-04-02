@@ -21,6 +21,7 @@
 #include <Kernel/KLogging.h>
 #include <Kernel/HAL/STM32/USBDevice_STM32.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
+#include <Kernel/HAL/STM32/ResetAndClockControl.h>
 #include <Kernel/HAL/PeripheralMapping.h>
 #include <Kernel/IRQDispatcher.h>
 
@@ -401,36 +402,27 @@ void USBDevice_STM32::SetTurnaround(USB_Speed speed)
     }
     else
     {
-        const uint32_t ahbClock = Kernel::GetFrequencyCore() / 2;
+        const uint32_t ahbClock = ResetAndClockControl::GetHCLKFrequency();
         // Speed thresholds from the data-sheet.
         if (ahbClock >= 32000000) {
             turnaround = 6;
-        }
-        else if (ahbClock >= 27500000) {
+        } else if (ahbClock >= 27500000) {
             turnaround = 7;
-        }
-        else if (ahbClock >= 24000000) {
+        } else if (ahbClock >= 24000000) {
             turnaround = 8;
-        }
-        else if (ahbClock >= 21800000) {
+        } else if (ahbClock >= 21800000) {
             turnaround = 9;
-        }
-        else if (ahbClock >= 20000000) {
+        } else if (ahbClock >= 20000000) {
             turnaround = 10;
-        }
-        else if (ahbClock >= 18500000) {
+        } else if (ahbClock >= 18500000) {
             turnaround = 11;
-        }
-        else if (ahbClock >= 17200000) {
+        } else if (ahbClock >= 17200000) {
             turnaround = 12;
-        }
-        else if (ahbClock >= 16000000) {
+        } else if (ahbClock >= 16000000) {
             turnaround = 13;
-        }
-        else if (ahbClock >= 15000000) {
+        } else if (ahbClock >= 15000000) {
             turnaround = 14;
-        }
-        else {
+        } else {
             turnaround = 15;
         }
     }

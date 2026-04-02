@@ -762,7 +762,26 @@ bool get_usart_dma_requests(USARTID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx)
 
 uint32_t get_usart_peripheral_clock_freq(USARTID id)
 {
-    return ResetAndClockControl::GetSysClockFrequency() / 4;
+    switch (id)
+    {
+        case USARTID::USART_1:  [[fallthrough]];
+        case USARTID::USART_6:
+            return ResetAndClockControl::GetClockFrequency<RCC_ClockMux_USART16SEL>();
+
+        case USARTID::USART_2:  [[fallthrough]];
+        case USARTID::USART_3:  [[fallthrough]];
+        case USARTID::UART_4:   [[fallthrough]];
+        case USARTID::UART_5:   [[fallthrough]];
+        case USARTID::UART_7:   [[fallthrough]];
+        case USARTID::UART_8:
+            return ResetAndClockControl::GetClockFrequency<RCC_ClockMux_USART28SEL>();
+
+        case USARTID::LPUART_1:
+            return ResetAndClockControl::GetClockFrequency<RCC_ClockMux_LPUART1SEL>();
+
+        default:
+            return 0;
+    }
 }
 
 I2CID i2c_id_from_name(const char* name)
@@ -806,7 +825,19 @@ IRQn_Type get_i2c_irq(I2CID id, I2CIRQType type)
 
 uint32_t get_i2c_peripheral_clock_freq(I2CID id)
 {
-    return ResetAndClockControl::GetSysClockFrequency() / 4;
+    switch (id)
+    {
+        case I2CID::I2C_1:  [[fallthrough]];
+        case I2CID::I2C_2:  [[fallthrough]];
+        case I2CID::I2C_3:
+            return ResetAndClockControl::GetClockFrequency<RCC_ClockMux_I2C123SEL>();
+
+        case I2CID::I2C_4:
+            return ResetAndClockControl::GetClockFrequency<RCC_ClockMux_I2C4SEL>();
+
+        default:
+            return 0;
+    }
 }
 
 SPIID spi_id_from_name(const char* name)
@@ -868,7 +899,23 @@ bool get_spi_dma_requests(SPIID id, DMAMUX_REQUEST& rx, DMAMUX_REQUEST& tx)
 
 uint32_t get_spi_peripheral_clock_freq(SPIID id)
 {
-    return ResetAndClockControl::GetSysClockFrequency() / 4;
+    switch (id)
+    {
+        case SPIID::SPI_1:  [[fallthrough]];
+        case SPIID::SPI_2:  [[fallthrough]];
+        case SPIID::SPI_3:
+            return ResetAndClockControl::GetClockFrequency<RCC_ClockMux_SPI123SEL>();
+
+        case SPIID::SPI_4:  [[fallthrough]];
+        case SPIID::SPI_5:
+            return ResetAndClockControl::GetClockFrequency<RCC_ClockMux_SPI45SEL>();
+
+        case SPIID::SPI_6:
+            return ResetAndClockControl::GetClockFrequency<RCC_ClockMux_SPI6SEL>();
+
+        default:
+            return 0;
+    }
 }
 
 IRQn_Type get_usb_irq(USB_OTG_ID id)

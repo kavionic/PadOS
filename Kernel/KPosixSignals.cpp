@@ -154,8 +154,7 @@ PErrorCode ksend_signal_to_thread_pl(KThreadCB& thread, int sigNum)
 
     if (sigNum == SIGCONT || sigNum == SIGKILL) {
         wakeup_thread(thread, true);
-    }
-    else if (sigNum == SIGCHLD || !thread.IsSignalBlocked(sigNum)) {
+    } else if (sigNum == SIGCHLD || !thread.IsSignalBlocked(sigNum)) {
         wakeup_thread(thread, false);
     }
     return PErrorCode::Success;

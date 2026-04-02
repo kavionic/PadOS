@@ -271,7 +271,7 @@ void NonMaskableInt_Handler()
             {
                 // All PLLs locked. Switch system clock back to PLL1 and re-enable CSS.
                 RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW_Msk) | RCC_CFGR_SW_PLL1;
-                for (uint32_t i = 10000; (RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL1 && i; --i);
+                for (uint32_t i = 10000; (RCC->CFGR & RCC_CFGR_SWS_Msk) != RCC_CFGR_SWS_PLL1 && i; --i);
                 RCC->CR |= RCC_CR_CSSHSEON;
 
                 // Recovery successful. Return from NMI and resume normal execution.

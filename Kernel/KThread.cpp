@@ -218,6 +218,20 @@ __attribute__((noreturn)) void kthread_exit(void* returnValue)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+static void kinitiate_thread_cancellation(KThreadCB& thread)
+{
+    thread.m_ThreadUserData->IsCanceled = true;
+    if (thread.m_CancelType == THREAD_CANCEL_ASYNCHRONOUS)
+    {
+        thread.m_ThreadUserData->CancellationPending = true; // Make SIGKILL hard-kill.
+        ksend_signal_to_thread_pl(thread, SIGKILL);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void kthread_cancel_trw(pid_t threadID)
 {
     Ptr<KThreadCB> thread = kget_thread_trw(threadID);
@@ -232,8 +246,9 @@ void kthread_cancel_trw(pid_t threadID)
     if (!thread->m_ThreadUserData->CancellationPending)
     {
         thread->m_ThreadUserData->CancellationPending = true;
-        if (thread->m_CancelState == THREAD_CANCEL_ENABLE) {
-            thread->m_ThreadUserData->IsCanceled = true;
+        if (thread->m_CancelState == THREAD_CANCEL_ENABLE)
+        {
+            kinitiate_thread_cancellation(*thread);
         }
         wakeup_thread(*thread, true);
     }
@@ -279,9 +294,9 @@ PErrorCode kthread_setcancelstate(PThreadCancelState state, PThreadCancelState* 
         {
             userData->IsCanceled = false;
         }
-        else
+        else if (userData->CancellationPending)
         {
-            userData->IsCanceled = userData->CancellationPending;
+            kinitiate_thread_cancellation(thread);
         }
     }
     if (outOldState != nullptr) {

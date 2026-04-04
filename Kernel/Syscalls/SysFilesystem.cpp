@@ -224,7 +224,7 @@ PSysRetPair sys_read(int file, void* buffer, size_t length)
     PERROR_CATCH_RET_SYSRET;
 }
 
-PSysRetPair sys_read_pos(int file, void* buffer, size_t length, off_t position)
+PSysRetPair sys_pread(int file, void* buffer, size_t length, off_t position)
 {
     try
     {
@@ -234,7 +234,7 @@ PSysRetPair sys_read_pos(int file, void* buffer, size_t length, off_t position)
     PERROR_CATCH_RET_SYSRET;
 }
 
-PSysRetPair sys_readv(int file, const struct iovec* segments, size_t segmentCount)
+PSysRetPair sys_readv(int file, const struct iovec* segments, int segmentCount)
 {
     try
     {
@@ -247,7 +247,7 @@ PSysRetPair sys_readv(int file, const struct iovec* segments, size_t segmentCoun
     PERROR_CATCH_RET_SYSRET;
 }
 
-PSysRetPair sys_readv_pos(int file, const struct iovec* segments, size_t segmentCount, off_t position)
+PSysRetPair sys_preadv(int file, const struct iovec* segments, int segmentCount, off_t position)
 {
     try
     {
@@ -278,7 +278,7 @@ PSysRetPair sys_write(int file, const void* buffer, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSysRetPair sys_write_pos(int file, const void* buffer, size_t length, off_t position)
+PSysRetPair sys_pwrite(int file, const void* buffer, size_t length, off_t position)
 {
     try
     {
@@ -292,7 +292,7 @@ PSysRetPair sys_write_pos(int file, const void* buffer, size_t length, off_t pos
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSysRetPair sys_writev(int file, const struct iovec* segments, size_t segmentCount)
+PSysRetPair sys_writev(int file, const struct iovec* segments, int segmentCount)
 {
     try
     {
@@ -309,7 +309,7 @@ PSysRetPair sys_writev(int file, const struct iovec* segments, size_t segmentCou
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PSysRetPair sys_writev_pos(int file, const struct iovec* segments, size_t segmentCount, off_t position)
+PSysRetPair sys_pwritev(int file, const struct iovec* segments, int segmentCount, off_t position)
 {
     try
     {

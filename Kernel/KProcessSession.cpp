@@ -64,7 +64,7 @@ void KProcessSession::RemoveGroup(Ptr<KProcessGroup> group)
 void KProcessSession::SetForegroundGroup(Ptr<KProcessGroup> group) noexcept
 {
     kassert(g_PIDMapMutex.IsLocked());
-    kassert(std::find(m_Groups.begin(), m_Groups.end(), group) != m_Groups.end());
+    kassert(group == nullptr || std::find(m_Groups.begin(), m_Groups.end(), group) != m_Groups.end());
 
     m_ForegroundGroup = group;
 }

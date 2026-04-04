@@ -208,9 +208,8 @@ void CommandHandlerFilesystem::HandleDeleteFile(const SerialProtocol::DeleteFile
         bool isDirectory = file.IsDir();
         file.Close();
         if (isDirectory) {
-            __remove_directory(AT_FDCWD, msg.m_Path);
-        }
-        else {
+            rmdir(msg.m_Path);
+        } else {
             unlink(msg.m_Path);
         }
     }

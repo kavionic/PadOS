@@ -8,6 +8,7 @@ target_sources(PadOS_System PRIVATE
 	ModuleTLSDefinition.h
 	Platform.h
 	Sections.h
+	SyscallEpilogues.h
 	System.h
 	SystemInfo.h
 	SystemMessageIDs.h

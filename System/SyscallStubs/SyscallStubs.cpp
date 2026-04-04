@@ -26,39 +26,38 @@
 #include <sched.h>
 #include <sys/stat.h>
 #include <sys/pados_syscalls.h>
+#include <System/SyscallEpilogues.h>
 #include <Threads/Thread.h>
 
-template<typename T>
-T _SYSEPILOGUE_passthrough(T result) { return result; }
 
-int _SYSEPILOGUE_errno_errorcode(PErrorCode result) { return PErrorCodeUpdateErrno_impl(result); }
-int _SYSEPILOGUE_errno_sysretpair(PSysRetPair result) { return PSysRetUpdateErrno_impl(result); }
 
-template<typename T>
-T _SYSEPILOGUE_cancelpnt(T result)
-{
-    thread_testcancel();
-    return result;
-}
+#define PEXPAND_SYSCALL(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
+  extern "C" __attribute__((naked)) RETTYPE_SYS __##FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
+    __asm volatile ( \
+        "ldr r12, =%0                           \n" \
+        "svc 0                                  \n" \
+        :: "i"(SYS_##FNAME) : "r12", "memory", "cc");                 \
+  } \
+  extern "C" RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { return EPILOGUE<RETTYPE>(__##FPREFIX##FNAME(PNAME_LIST(SIGNATURE))); }
 
-#define PEXPAND_SYSCALL(RETTYPE, FPREFIX, FNAME, SIGNATURE) \
-  __attribute__((naked)) RETTYPE FPREFIX##FNAME SIGNATURE { \
+#define PEXPAND_SYSCALL_VOID(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
+  extern "C" __attribute__((naked)) RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
     __asm volatile ( \
         "ldr r12, =%0                           \n" \
         "svc 0                                  \n" \
         :: "i"(SYS_##FNAME) : "r12", "memory", "cc");                 \
   }
 
-#define PEXPAND_SYSCALL2(EPILOGUE, RETTYPE, FPREFIX, FNAME, SIGNATURE) \
-  extern "C" __attribute__((naked)) RETTYPE __##FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
+#define PEXPAND_SYSCALL_NORET(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
+  extern "C" __attribute__((naked, noreturn)) RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
     __asm volatile ( \
         "ldr r12, =%0                           \n" \
         "svc 0                                  \n" \
         :: "i"(SYS_##FNAME) : "r12", "memory", "cc");                 \
-  } \
-  extern "C" RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { return EPILOGUE(__##FPREFIX##FNAME(PNAME_LIST(SIGNATURE))); }
+  }
 
 #include <PadOS/SyscallDefinitions.h>
 
 #undef PEXPAND_SYSCALL
-#undef PEXPAND_SYSCALL2
+#undef PEXPAND_SYSCALL_VOID
+#undef PEXPAND_SYSCALL_NORET

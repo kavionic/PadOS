@@ -60,6 +60,7 @@ void remove_from_sleep_list(KThreadWaitNode* waitNode);
 
 void add_thread_to_ready_list(KThreadCB* thread);
 void add_thread_to_zombie_list(KThreadCB* thread);
+void kwakeup_init_thread();
 
 bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount) noexcept;
 

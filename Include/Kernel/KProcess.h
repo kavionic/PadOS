@@ -80,7 +80,8 @@ public:
     void                SetGroup(Ptr<KProcessGroup> group) noexcept;
     Ptr<KProcessGroup>  GetGroup() const noexcept;
 
-    void SetExitCode(int exitCode) noexcept { m_ExitInfo.si_status = exitCode; }
+    void SetExitStatus(int exitCode, int exitStatus) noexcept;
+    bool IsExitStatusSet() const noexcept { return m_ExitInfo.si_code != 0; }
 
     const KIOContext&   GetIOContext() const noexcept { return m_IOContext; }
     KIOContext&         GetIOContext() noexcept { return m_IOContext; }
@@ -108,8 +109,8 @@ public:
     bool CheckUIDMatch(uid_t uid) const noexcept;
     bool CheckUIDMatch(const KProcess& target) const noexcept;
 
-    void StopProcess();
-    void ContinueProcess();
+    void StopProcess(int sigNum);
+    void ContinueProcess(int sigNum);
 
     siginfo_t GetChildInfo(Ptr<KPIDNode> pidNode, int options);
     siginfo_t WaitPID(pid_t pid, int options);
@@ -154,6 +155,7 @@ private:
     std::atomic<int>    m_ThreadsToStop = 0;
 
     siginfo_t m_ExitInfo = {};
+    TimeValNanos m_TotalCPUTime;
 
     KProcess(const KProcess &) = delete;
     KProcess& operator=(const KProcess &) = delete;

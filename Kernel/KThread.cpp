@@ -200,8 +200,8 @@ __attribute__((noreturn)) void kthread_exit(void* returnValue)
 {
     KThreadCB& thread = kget_current_thread();
 
-    if (thread.IsMainThread()) {
-        thread.m_Process->SetExitCode((int)returnValue);
+    if (thread.IsMainThread() && !thread.m_Process->IsExitStatusSet()) {
+        thread.m_Process->SetExitStatus(CLD_EXITED, (int)returnValue);
     }
     thread.m_Process->RemoveThread(&thread);
 

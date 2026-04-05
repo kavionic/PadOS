@@ -37,6 +37,7 @@ public:
     ~KIOContext();
     
     void Clone(const KIOContext& source);
+    void Reset();
 
     bool AddNodeMonitor(Ptr<KNodeMonitorNode> node);
 

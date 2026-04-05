@@ -191,7 +191,17 @@ PErrorCode kqueue_signal_to_thread_pl(KThreadCB& thread, int sigNum, sigval_t va
     if (sigNum == 0) {
         return PErrorCode::Success; // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target(s).
     }
-    if (sigNum == SIGKILL || sigNum == SIGSTOP || sigNum == SIGCONT)
+    if (sigNum == SIGSTOP)
+    {
+        process->StopProcess(sigNum);
+        return PErrorCode::Success;
+    }
+    else if (sigNum == SIGCONT)
+    {
+        process->ContinueProcess(sigNum);
+        return PErrorCode::Success;
+    }
+    else if (sigNum == SIGKILL)
     {
         for (KThreadCB* curThread : process->GetThreads()) {
             ksend_signal_to_thread_pl(*curThread, sigNum);
@@ -385,12 +395,25 @@ PErrorCode kthread_kill(thread_id threadID, int sigNum)
     if (sigNum == 0) {
         return PErrorCode::Success; // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target(s).
     }
-    if ((sigNum == SIGKILL || sigNum == SIGSTOP || sigNum == SIGCONT) && thread->m_Process != nullptr)
+    if (thread->m_Process != nullptr)
     {
-        for (KThreadCB* curThread : process->GetThreads()) {
-            ksend_signal_to_thread_pl(*curThread, sigNum);
+        if (sigNum == SIGSTOP)
+        {
+            process->StopProcess(sigNum);
+            return PErrorCode::Success;
         }
-        return PErrorCode::Success;
+        else if (sigNum == SIGCONT)
+        {
+            process->ContinueProcess(sigNum);
+            return PErrorCode::Success;
+        }
+        else if (sigNum == SIGKILL)
+        {
+            for (KThreadCB* curThread : process->GetThreads()) {
+                ksend_signal_to_thread_pl(*curThread, sigNum);
+            }
+            return PErrorCode::Success;
+        }
     }
     return ksend_signal_to_thread_pl(*thread, sigNum);
 }
@@ -887,6 +910,9 @@ uintptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMod
         {
             if (thread.GetState() == ThreadState_Stopped) {
                 wakeup_thread(thread, true);
+            }
+            if (!process.IsExitStatusSet()) {
+                process.SetExitStatus((action == PESignalDefaultAction::TerminateCoreDump) ? CLD_DUMPED : CLD_KILLED, sigNum);
             }
             sigaction_t terminateAction = {};
             terminateAction.sa_sigaction = __app_definition.signal_terminate_thread;

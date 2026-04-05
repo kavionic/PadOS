@@ -255,6 +255,14 @@ static void* init_thread_entry(void* arguments)
             }
         }
 
+        // Reap zombie child processes reparented to init.
+        {
+            siginfo_t processInfo = {};
+            while (kwaitid(P_ALL, 0, &processInfo, WEXITED | WNOHANG) == PErrorCode::Success && processInfo.si_pid != 0) {
+                processInfo = {};
+            }
+        }
+
         {
             KSchedulerLock slock;
 

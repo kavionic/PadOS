@@ -125,6 +125,15 @@ void add_thread_to_ready_list(KThreadCB* thread)
 void add_thread_to_zombie_list(KThreadCB* thread)
 {
     gk_ZombieThreadLists.Append(thread);
+    kwakeup_init_thread();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kwakeup_init_thread()
+{
     if (gk_InitThread->GetState() == ThreadState_Waiting) {
         add_thread_to_ready_list(gk_InitThread);
     }

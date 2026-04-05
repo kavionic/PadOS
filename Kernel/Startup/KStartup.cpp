@@ -235,7 +235,7 @@ static void* init_thread_entry(void* arguments)
         for (KThreadCB* zombie = threadsToDelete.m_First; zombie != nullptr; zombie = threadsToDelete.m_First)
         {
             threadsToDelete.Remove(zombie);
-            zombie->m_State = ThreadState_Deleted;
+            zombie->SetState(ThreadState_Deleted);
 
             p_thread_reaper_schedule_cleanup(zombie->m_ThreadUserData);
 
@@ -260,7 +260,7 @@ static void* init_thread_entry(void* arguments)
 
             if (gk_ZombieThreadLists.m_First == nullptr)
             {
-                thread->m_State = ThreadState_Waiting;
+                thread->SetState(ThreadState_Waiting);
 
                 KSWITCH_CONTEXT();
             }
@@ -281,7 +281,7 @@ void start_scheduler(size_t mainThreadStackSize)
     {
         KScopedLock lock(g_PIDMapMutex);
 
-        gk_IdleThread->m_State = ThreadState_Running;
+        gk_IdleThread->SetState(ThreadState_Running);
 
 
         g_PIDMap[KTHREAD_ID_IDLE]->Thread = gk_IdleThreadInstance;

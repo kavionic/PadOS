@@ -142,7 +142,7 @@ KThreadCB::KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttri
     }
 
     m_CurrentStackAndPrivilege = (intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1);
-    m_State = ThreadState_Ready;
+    m_ThreadState = ThreadState_Ready;
     m_PriorityLevel = PriToLevel(priority);
     m_ThreadUserData = threadUserData;
 
@@ -190,6 +190,15 @@ KThreadCB::~KThreadCB()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KThreadCB::IsMainThread() const noexcept
+{
+    return GetHandle() == m_Process->GetPID();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 /// Setup a stack frame identical to the one produced during a context switch.
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -228,6 +237,25 @@ void KThreadCB::InitializeStack(ThreadEntryTrampoline_t entryTrampoline, ThreadE
         m_CurrentStackAndPrivilege |= 0x01;
     }
 #endif
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KThreadCB::SetState(ThreadState state) noexcept
+{
+    if (state != m_ThreadState)
+    {
+        const ThreadState prevState = m_ThreadState;
+        m_ThreadState = state;
+
+        if (prevState == ThreadState_Stopped) {
+            m_Process->ThreadContinued();
+        } else if (state == ThreadState_Stopped) {
+            m_Process->ThreadStopped();
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

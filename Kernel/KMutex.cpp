@@ -76,7 +76,7 @@ PErrorCode KMutex::Lock(bool interruptible)
                 }
             }
             waitNode.m_Thread = thread;
-            thread->m_State = ThreadState_Waiting;
+            thread->SetState(ThreadState_Waiting);
             m_WaitQueue.Append(&waitNode);
             thread->SetBlockingObject(this);
 
@@ -158,14 +158,14 @@ PErrorCode KMutex::LockClock(int clockID, TimeValNanos clockDeadline, bool inter
                 m_WaitQueue.Append(&waitNode);
                 if (!deadline.IsInfinit())
                 {
-                    thread->m_State = ThreadState_Sleeping;
+                    thread->SetState(ThreadState_Sleeping);
                     sleepNode.m_Thread = thread;
                     sleepNode.m_ResumeTime = deadline;
                     add_to_sleep_list(&sleepNode);
                 }
                 else
                 {
-                    thread->m_State = ThreadState_Waiting;
+                    thread->SetState(ThreadState_Waiting);
                 }
             }
             else
@@ -260,7 +260,7 @@ PErrorCode KMutex::LockShared(bool interruptible)
                 return PErrorCode::Success;
             }
             waitNode.m_Thread = thread;
-            thread->m_State = ThreadState_Waiting;
+            thread->SetState(ThreadState_Waiting);
             m_WaitQueue.Append(&waitNode);
             thread->SetBlockingObject(this);
 
@@ -333,14 +333,14 @@ PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos clockDeadline
                 m_WaitQueue.Append(&waitNode);
                 if (!deadline.IsInfinit())
                 {
-                    thread->m_State = ThreadState_Sleeping;
+                    thread->SetState(ThreadState_Sleeping);
                     sleepNode.m_Thread = thread;
                     sleepNode.m_ResumeTime = deadline;
                     add_to_sleep_list(&sleepNode);
                 }
                 else
                 {
-                    thread->m_State = ThreadState_Waiting;
+                    thread->SetState(ThreadState_Waiting);
                 }
             }
             else

@@ -54,12 +54,16 @@ public:
     KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttribs* attribs, bool kernelThread, PThreadUserData* threadUserData, void* kernelTLSMemory);
     ~KThreadCB();
 
-    bool IsZombie() const noexcept { return m_State == ThreadState_Zombie || m_State == ThreadState_Deleted; }
+    bool IsMainThread() const noexcept;
+    bool IsZombie() const noexcept { return m_ThreadState == ThreadState_Zombie || m_ThreadState == ThreadState_Deleted; }
 
     void InitializeStack(ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, bool skipEntryTrampoline, void* arguments);
 
     uint8_t* GetStackTop() const noexcept { return m_StackBuffer; }
     uint8_t* GetStackBottom() const noexcept { return m_StackBuffer + m_StackSize - 4; }
+
+    void        SetState(ThreadState state) noexcept;
+    ThreadState GetState() const noexcept { return m_ThreadState; }
 
     int SetPriority(int priority) noexcept { m_PriorityLevel = PriToLevel(priority); return 0; }
     int GetPriority() const noexcept { return LevelToPri(m_PriorityLevel);  }
@@ -92,7 +96,10 @@ public:
     // address with the thumb flag replaced by CONTROL.nPRIV.
     uint32_t                  m_SyscallReturn = 0;
 
-    ThreadState               m_State;
+private:
+    ThreadState               m_ThreadState;
+public:
+
     int                       m_PriorityLevel;
     TimeValNanos              m_StartTime;
     TimeValNanos              m_RunTime;

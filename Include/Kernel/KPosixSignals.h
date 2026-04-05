@@ -68,7 +68,7 @@ bool        khas_pending_signals();
 bool        kis_thread_canceled();
 
 PErrorCode  ksend_signal_to_thread(KThreadCB& thread, int sigNum);
-PErrorCode  ksend_signal_to_thread_pl(KThreadCB& thread, int sigNum);
+PErrorCode  ksend_signal_to_thread_pl(KThreadCB& thread, int sigNum) noexcept;
 
 PErrorCode  kqueue_signal_to_thread(KThreadCB& thread, int signo, sigval_t value);
 PErrorCode  kqueue_signal_to_thread_pl(KThreadCB& thread, int signo, sigval_t value);

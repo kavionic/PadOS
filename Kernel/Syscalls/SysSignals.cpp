@@ -118,7 +118,7 @@ PErrorCode sys_sigsuspend(const sigset_t* sigmask)
         const sigset_t prevMask = thread.m_BlockedSignals;
         thread.m_BlockedSignals = *sigmask & KBLOCKABLE_SIGNALS_MASK;
 
-        thread.m_State = ThreadState_Waiting;
+        thread.SetState(ThreadState_Waiting);
         KSWITCH_CONTEXT();
 
         thread.m_BlockedSignals = prevMask;

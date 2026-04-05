@@ -126,7 +126,7 @@ PErrorCode  ksend_signal_to_thread(KThreadCB& thread, int sigNum)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode ksend_signal_to_thread_pl(KThreadCB& thread, int sigNum)
+PErrorCode ksend_signal_to_thread_pl(KThreadCB& thread, int sigNum) noexcept
 {
     kassert(g_PIDMapMutex.IsLocked());
 
@@ -885,7 +885,7 @@ uintptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMod
         }
         else if (action == PESignalDefaultAction::Terminate || action == PESignalDefaultAction::TerminateCoreDump)
         {
-            if (thread.m_State == ThreadState_Stopped) {
+            if (thread.GetState() == ThreadState_Stopped) {
                 wakeup_thread(thread, true);
             }
             sigaction_t terminateAction = {};

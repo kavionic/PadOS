@@ -42,7 +42,7 @@ void __process_entry_trampoline(PThreadUserData* threadData, ThreadEntryPoint_t 
             for (; argv[argc] != nullptr; ++argc);
         }
         int result = app->MainEntry(argc, argv);
-        thread_exit(reinterpret_cast<void*>(result));
+        exit(result);
     }
     PRETHROW_CANCELLATION
     catch (const std::exception& exc)
@@ -50,14 +50,14 @@ void __process_entry_trampoline(PThreadUserData* threadData, ThreadEntryPoint_t 
         ThreadInfo threadInfo;
         get_thread_info(get_thread_id(), &threadInfo);
         p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Uncaught exception in thread '{}': {}", threadInfo.ThreadName, exc.what());
-        thread_exit((void*)-1);
+        exit(-1);
     }
     catch (...)
     {
         ThreadInfo threadInfo;
         get_thread_info(get_thread_id(), &threadInfo);
         p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Unknown uncaught exception in thread {}.", threadInfo.ThreadName);
-        thread_exit((void*)-1);
+        exit(-1);
     }
 }
 

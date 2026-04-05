@@ -22,12 +22,14 @@
 #include <stdexcept>
 
 #include <termios.h>
+#include <sys/wait.h>
 
 #include <PadOS/Time.h>
 #include <Process/Process.h>
 #include <Utils/POSIXTokenizer.h>
 #include <Utils/Logging.h>
 #include <System/AppDefinition.h>
+#include <Kernel/KProcess.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/DebugConsole/KDebugConsole.h>
 #include <Kernel/VFS/FileIO.h>
@@ -828,8 +830,13 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
             if (result != PErrorCode::Success) {
                 kprintf("Failed to execute '%s': %s\n", path.c_str(), p_strerror(result));
             }
-            void* retValue = nullptr;
-            thread_join(pid, &retValue);
+//            void* retValue = nullptr;
+//            thread_join(pid, &retValue);
+            siginfo_t info;
+            kwaitid(P_PID, pid, &info, WEXITED);
+            if (info.si_status != 0) {
+                kprintf("'%s' exited with code: %d\n", path.c_str(), info.si_status);
+            }
             return;
         }
 

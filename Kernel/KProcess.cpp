@@ -20,6 +20,7 @@
 #include <System/Platform.h>
 
 #include <string.h>
+#include <sys/wait.h>
 #include <sys/errno.h>
 
 #include <Kernel/KHandleArray.h>
@@ -45,6 +46,7 @@ KProcess* gk_KernelProcess;
 
 KProcess::KProcess(KPIDNode& pidNode, const char* name)
     : m_Mutex("process", PEMutexRecursionMode_RaiseError)
+    , m_ChildrenCondition("process")
     , m_PID(pidNode.PID)
 {
     kassert(g_PIDMapMutex.IsLocked());
@@ -67,6 +69,7 @@ KProcess::KProcess(KPIDNode& pidNode, const char* name)
 
 KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const char* name)
     : m_Mutex("process", PEMutexRecursionMode_RaiseError)
+    , m_ChildrenCondition("process")
     , m_PID(pidNode.PID)
     , m_Parent(parentProcess)
 {
@@ -136,36 +139,60 @@ void KProcess::RemoveThread(KThreadCB* thread) noexcept
         m_Threads.erase(i);
     }
 
-    if (m_Threads.empty())
-    {
-        if (IsGroupLeader())
-        {
-            try {
-                kdisassociate_controlling_tty_trw(false);
-            }
-            catch (const std::exception& exc) {}
-        }
-
-        m_Group->RemoveProcess(this);
-        m_Session = nullptr;
-
-        Ptr<KPIDNode> pidNode = kget_pid_node_pl(m_PID);
-
-        if (kensure(pidNode != nullptr)) {
-            pidNode->Process = nullptr;
-        }
-        if (m_Parent != nullptr)
-        {
-            auto it = std::find(m_Parent->m_Children.begin(), m_Parent->m_Children.end(), this);
-            if (kensure(it != m_Parent->m_Children.end())) {
-                m_Parent->m_Children.erase(it);
-            }
-            kkill_pl(m_Parent->m_PID, SIGCHLD);
-            m_Parent = nullptr;
-        }
-        kerase_pid_node_if_empty_pl(m_PID);
+    if (m_Threads.empty()) {
+        HandleExit();
     }
     thread->m_Process = nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::ThreadStopped()
+{
+    if (++m_StoppedThreadCount == m_ThreadsToStop)
+    {
+        if (m_Parent != nullptr)
+        {
+            m_Parent->m_ChildrenCondition.Wakeup(1);
+            kkill_pl(m_Parent->m_PID, SIGCHLD);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::ThreadContinued()
+{
+    if (--m_StoppedThreadCount == m_ThreadsToStop)
+    {
+        if (m_Parent != nullptr)
+        {
+            m_Parent->m_ChildrenCondition.Wakeup(1);
+            kkill_pl(m_Parent->m_PID, SIGCHLD);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::RemoveChild(KProcess* child)
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
+    if (kensure(child->m_Parent == this))
+    {
+        auto it = std::find(m_Children.begin(), m_Children.end(), child);
+        if (kensure(it != m_Children.end())) {
+            m_Children.erase(it);
+        }
+        child->m_Parent = nullptr;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -353,6 +380,198 @@ bool KProcess::CheckUIDMatch(const KProcess& target) const noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void KProcess::StopProcess()
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
+    if (m_State == KProcessState::Stopping || m_State == KProcessState::Stopped) {
+        return;
+    }
+
+    m_State = KProcessState::Stopping;
+    m_ThreadsToStop = m_Threads.size();
+
+    for (KThreadCB* curThread : m_Threads) {
+        ksend_signal_to_thread_pl(*curThread, SIGSTOP);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::ContinueProcess()
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
+    if (m_State != KProcessState::Stopping && m_State != KProcessState::Stopped) {
+        return;
+    }
+
+    m_State = KProcessState::Continuing;
+    m_ThreadsToStop = 0;
+
+    for (KThreadCB* curThread : m_Threads) {
+        ksend_signal_to_thread_pl(*curThread, SIGCONT);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+siginfo_t KProcess::GetChildInfo(Ptr<KPIDNode> pidNode, int options)
+{
+    KProcess& child = *pidNode->Process;
+
+    if (child.m_State == KProcessState::Zombie)
+    {
+        const siginfo_t info = child.m_ExitInfo;
+
+        if ((options & WNOWAIT) == 0)
+        {
+            RemoveChild(&child);
+
+            pidNode->Process = nullptr;
+            kerase_pid_node_if_empty_pl(pidNode->PID);
+        }
+        return info;
+    }
+
+    if (child.m_State == KProcessState::Continued)
+    {
+        if ((options & WNOWAIT) == 0)
+        {
+            child.m_State = KProcessState::Running;
+        }
+    }
+
+    siginfo_t info = {};
+    info.si_signo = SIGCHLD;
+    info.si_pid = child.GetPID();
+    info.si_uid = child.GetRUID();
+
+    return info;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+siginfo_t KProcess::WaitPID(pid_t pid, int options)
+{
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    for (;;)
+    {
+        Ptr<KPIDNode> pidNode = kget_pid_node_pl(pid);
+
+        if (pidNode == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+        }
+
+        Ptr<KProcess> child = pidNode->Process;
+
+        if (child == nullptr) {
+            PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+        }
+        if (child->m_Parent != this) {
+            PERROR_THROW_CODE(PErrorCode::CHILD);
+        }
+
+        const bool isReady =
+            ((options & WEXITED)    && child->m_State == KProcessState::Zombie) ||
+            ((options & WSTOPPED)   && child->m_State == KProcessState::Stopped) ||
+            ((options & WCONTINUED) && child->m_State == KProcessState::Continued);
+
+        if (isReady) {
+            return GetChildInfo(pidNode, options);
+        }
+        if (options & WNOHANG) {
+            PERROR_THROW_CODE(PErrorCode::CHILD);
+        }
+        m_ChildrenCondition.WaitCancelable(g_PIDMapMutex);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+siginfo_t KProcess::WaitGID(pid_t gid, int options)
+{
+    kassert(!g_PIDMapMutex.IsLocked());
+    KScopedLock lock(g_PIDMapMutex);
+
+    for (;;)
+    {
+        const std::vector<KProcess*>* processList = nullptr;
+
+        if (gid != -1)
+        {
+            if (gid != 0)
+            {
+                Ptr<KPIDNode> pidNodeGroup = kget_pid_node_pl(gid);
+
+                if (pidNodeGroup == nullptr) {
+                    PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+                }
+
+                Ptr<KProcessGroup> group = pidNodeGroup->Group;
+
+                if (group == nullptr) {
+                    PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+                }
+                processList = &group->GetProcessList();
+            }
+            else
+            {
+                processList = &m_Group->GetProcessList();
+            }
+        }
+        else
+        {
+            processList = &m_Children;
+        }
+
+        bool foundChild = false;
+
+        for (KProcess* child : *processList)
+        {
+            if (child->m_Parent == this)
+            {
+                foundChild = true;
+
+                const bool isReady =
+                    ((options & WEXITED) &&    child->m_State == KProcessState::Zombie) ||
+                    ((options & WSTOPPED) &&   child->m_State == KProcessState::Stopped) ||
+                    ((options & WCONTINUED) && child->m_State == KProcessState::Continued);
+
+                if (isReady)
+                {
+                    Ptr<KPIDNode> pidNodeChild = kget_pid_node_pl(child->GetPID());
+                    if (kensure(pidNodeChild != nullptr && pidNodeChild->Process != nullptr)) {
+                        return GetChildInfo(pidNodeChild, options);
+                    }
+                }
+            }
+        }
+
+        if (!foundChild) {
+            PERROR_THROW_CODE(PErrorCode::CHILD);
+        }
+        if (options & WNOHANG) {
+            PERROR_THROW_CODE(PErrorCode::CHILD);
+        }
+        m_ChildrenCondition.WaitCancelable(g_PIDMapMutex);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 Ptr<KProcess> KProcess::GetProcess(pid_t pid) noexcept
 {
     kassert(!g_PIDMapMutex.IsLocked());
@@ -374,5 +593,98 @@ Ptr<KProcess> KProcess::GetProcess_pl(pid_t pid) noexcept
     return (pidNode != nullptr) ? pidNode->Process : nullptr;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::HandleExit()
+{
+    if (IsGroupLeader())
+    {
+        try {
+            kdisassociate_controlling_tty_trw(false);
+        }
+        catch (const std::exception& exc) {}
+    }
+
+    m_Group->RemoveProcess(this);
+    m_Session = nullptr;
+
+    m_State = KProcessState::Zombie;
+
+    if (m_Parent != nullptr)
+    {
+        m_Parent->m_ChildrenCondition.Wakeup(1);
+        kkill_pl(m_Parent->m_PID, SIGCHLD);
+    }
+    else
+    {
+        Ptr<KPIDNode> pidNode = kget_pid_node_pl(m_PID);
+        if (kensure(pidNode != nullptr))
+        {
+            pidNode->Process = nullptr;
+            kerase_pid_node_if_empty_pl(m_PID);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kexit(int exitCode)
+{
+    KThreadCB& thread = kget_current_thread();
+    {
+        kassert(!g_PIDMapMutex.IsLocked());
+        KScopedLock lock(g_PIDMapMutex);
+
+        KProcess& process = *thread.m_Process;
+
+        process.SetExitCode(exitCode);
+
+        for (KThreadCB* siblingThread : process.GetThreads())
+        {
+            if (siblingThread != &thread) {
+                kthread_cancel_pl(*siblingThread);
+            }
+        }
+    }
+    kthread_exit((void*)(thread.IsMainThread() ? exitCode : -1));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kwaitid_trw(idtype_t idtype, id_t id, siginfo_t* infop, int options)
+{
+    KProcess& process = kget_current_process();
+
+    switch(idtype)
+    {
+        case P_PID:
+            *infop = process.WaitPID(id, options);
+            break;
+        case P_PGID:
+            *infop = process.WaitGID(id, options);
+            break;
+        case P_ALL:
+            *infop = process.WaitGID(-1, options);
+            break;
+        default:
+            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    }
+}
+
+PErrorCode kwaitid(idtype_t idtype, id_t id, siginfo_t* infop, int options) noexcept
+{
+    try
+    {
+        kwaitid_trw(idtype, id, infop, options);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
 
 } // namespace kernel

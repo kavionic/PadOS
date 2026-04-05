@@ -21,12 +21,14 @@
 
 #include <functional>
 
+#include <sys/wait.h>
 #include <sys/param.h>
 #include <sys/pados_syscalls.h>
 
 #include <Ptr/PtrTarget.h>
 #include <Kernel/KThreadCB.h>
 #include <Kernel/KMutex.h>
+#include <Kernel/KConditionVariable.h>
 #include <Kernel/VFS/KIOContext.h>
 #include <Threads/Threads.h>
 #include <System/ExceptionHandling.h>
@@ -41,6 +43,18 @@ struct KPIDNode;
 
 extern KProcess* gk_KernelProcess;
 
+
+enum KProcessState
+{
+    Running,
+    Stopping,
+    Stopped,
+    Continuing,
+    Continued,
+    Terminating,
+    Zombie
+};
+
 class KProcess : public PtrTarget
 {
 public:
@@ -50,16 +64,23 @@ public:
 
     void AddThread(KThreadCB* thread);
     void RemoveThread(KThreadCB* thread) noexcept;
+    
+    void ThreadStopped();
+    void ThreadContinued();
+
+    void RemoveChild(KProcess* child);
 
     const std::vector<KThreadCB*>& GetThreads() const;
 
-    const char*         GetName() const { return m_Name; }
+    const char*         GetName() const noexcept { return m_Name; }
     pid_t               GetPID() const noexcept { return m_PID; }
 
     void                SetPGroupID(Ptr<const KProcess> instigator, pid_t pgroup);
     pid_t               GetPGroupID() const noexcept;
     void                SetGroup(Ptr<KProcessGroup> group) noexcept;
     Ptr<KProcessGroup>  GetGroup() const noexcept;
+
+    void SetExitCode(int exitCode) noexcept { m_ExitInfo.si_status = exitCode; }
 
     const KIOContext&   GetIOContext() const noexcept { return m_IOContext; }
     KIOContext&         GetIOContext() noexcept { return m_IOContext; }
@@ -87,15 +108,26 @@ public:
     bool CheckUIDMatch(uid_t uid) const noexcept;
     bool CheckUIDMatch(const KProcess& target) const noexcept;
 
+    void StopProcess();
+    void ContinueProcess();
+
+    siginfo_t GetChildInfo(Ptr<KPIDNode> pidNode, int options);
+    siginfo_t WaitPID(pid_t pid, int options);
+    siginfo_t WaitGID(pid_t gid, int options);
+
     static Ptr<KProcess> GetProcess(pid_t pid) noexcept;
     static Ptr<KProcess> GetProcess_pl(pid_t pid) noexcept;
 
 private:
+    void HandleExit();
+
     mutable KMutex m_Mutex;
 
     char       m_Name[OS_NAME_LENGTH];
     KIOContext m_IOContext;
 
+    KProcessState           m_State = KProcessState::Running;
+    KConditionVariable      m_ChildrenCondition;
     std::vector<KThreadCB*> m_Threads;
     sigaction_t             m_SignalHandlers[KTOTAL_SIG_COUNT] = {};
 
@@ -118,9 +150,19 @@ private:
 
     std::vector<KProcess*> m_Children;
 
+    std::atomic<int>    m_StoppedThreadCount = 0;
+    std::atomic<int>    m_ThreadsToStop = 0;
+
+    siginfo_t m_ExitInfo = {};
+
     KProcess(const KProcess &) = delete;
     KProcess& operator=(const KProcess &) = delete;
 };
+
+void kexit(int exitCode);
+void kwaitid_trw(idtype_t idtype, id_t id, siginfo_t* infop, int options);
+
+PErrorCode kwaitid(idtype_t idtype, id_t id, siginfo_t* infop, int options) noexcept;
 
 
 } // namespace kernel

@@ -94,7 +94,7 @@ KNamedObject::~KNamedObject()
         {
             waitNode->m_TargetDeleted = true;
             KThreadCB* thread = waitNode->m_Thread;
-            if (thread != nullptr && (thread->m_State == ThreadState_Sleeping || thread->m_State == ThreadState_Waiting)) {
+            if (thread != nullptr && (thread->GetState() == ThreadState_Sleeping || thread->GetState() == ThreadState_Waiting)) {
                 if (thread->m_PriorityLevel > ourPriLevel) needSchedule = true;
                 add_thread_to_ready_list(thread);
             }

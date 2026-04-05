@@ -61,10 +61,10 @@ void remove_from_sleep_list(KThreadWaitNode* waitNode);
 void add_thread_to_ready_list(KThreadCB* thread);
 void add_thread_to_zombie_list(KThreadCB* thread);
 
-bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount);
+bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount) noexcept;
 
-void        stop_thread(bool notifyParent);
-PErrorCode  wakeup_thread(KThreadCB& thread, bool wakeupSuspended);
+void        stop_thread(bool notifyParent) noexcept;
+PErrorCode  wakeup_thread(KThreadCB& thread, bool wakeupSuspended) noexcept;
 
 
 void start_scheduler(size_t mainThreadStackSize);

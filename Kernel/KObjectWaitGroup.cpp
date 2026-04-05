@@ -230,7 +230,7 @@ PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* rea
         {
             if (!deadline.IsInfinit())
             {
-                thread->m_State = ThreadState_Sleeping;
+                thread->SetState(ThreadState_Sleeping);
 
                 m_SleepNode.m_Thread = thread;
                 m_SleepNode.m_ResumeTime = deadline;
@@ -238,7 +238,7 @@ PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* rea
             }
             else
             {
-                thread->m_State = ThreadState_Waiting;
+                thread->SetState(ThreadState_Waiting);
             }
             thread->SetBlockingObject(this);
             m_BlockedThread = thread;

@@ -114,7 +114,7 @@ extern "C" void SysTick_Handler()
 
 void add_thread_to_ready_list(KThreadCB* thread)
 {
-    thread->m_State = ThreadState_Ready;
+    thread->SetState(ThreadState_Ready);
     gk_ReadyThreadLists[thread->m_PriorityLevel].Append(thread);
 }
 
@@ -125,7 +125,7 @@ void add_thread_to_ready_list(KThreadCB* thread)
 void add_thread_to_zombie_list(KThreadCB* thread)
 {
     gk_ZombieThreadLists.Append(thread);
-    if (gk_InitThread->m_State == ThreadState_Waiting) {
+    if (gk_InitThread->GetState() == ThreadState_Waiting) {
         add_thread_to_ready_list(gk_InitThread);
     }
 }
@@ -134,13 +134,13 @@ void add_thread_to_zombie_list(KThreadCB* thread)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void stop_thread(bool notifyParent)
+void stop_thread(bool notifyParent) noexcept
 {
     KThreadCB& thread = kget_current_thread();
 
     KSchedulerLock slock;
 
-    thread.m_State = ThreadState_Stopped;
+    thread.SetState(ThreadState_Stopped);
 
     KSWITCH_CONTEXT();
 }
@@ -149,14 +149,15 @@ void stop_thread(bool notifyParent)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode wakeup_thread(KThreadCB& thread, bool wakeupSuspended)
+PErrorCode wakeup_thread(KThreadCB& thread, bool wakeupSuspended) noexcept
 {
     KSchedulerLock slock;
 
     if (thread.IsZombie()) {
         return PErrorCode::NoSuchProcess;
     }
-    if (thread.m_State == ThreadState_Sleeping || thread.m_State == ThreadState_Waiting || (wakeupSuspended && thread.m_State == ThreadState_Stopped))
+    const ThreadState state = thread.GetState();
+    if (state == ThreadState_Sleeping || state == ThreadState_Waiting || (wakeupSuspended && state == ThreadState_Stopped))
     {
         add_thread_to_ready_list(&thread);
         return PErrorCode::Success;
@@ -189,13 +190,13 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
             KThreadCB* const nextThread = gk_ReadyThreadLists[i].m_First;
             if (nextThread != nullptr)
             {
-                if (prevThread->m_State != ThreadState_Running || i >= prevThread->m_PriorityLevel)
+                if (prevThread->GetState() != ThreadState_Running || i >= prevThread->m_PriorityLevel)
                 {
                     gk_ReadyThreadLists[i].Remove(nextThread);
-                    if (prevThread->m_State == ThreadState_Running) {
+                    if (prevThread->GetState() == ThreadState_Running) {
                         add_thread_to_ready_list(prevThread);
                     }
-                    nextThread->m_State = ThreadState_Running;
+                    nextThread->SetState(ThreadState_Running);
                     gk_CurrentThread = nextThread;
                     __kernel_thread_data = gk_CurrentThread->m_KernelTLS;
                     __app_thread_data    = gk_CurrentThread->m_UserspaceTLS;
@@ -205,7 +206,7 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
                 }
             }
         }
-        if (prevThread->m_State == ThreadState_Zombie) [[unlikely]]
+        if (prevThread->GetState() == ThreadState_Zombie) [[unlikely]]
         {
             if (prevThread->m_DetachState == PThreadDetachState_Detached) {
                 add_thread_to_zombie_list(prevThread);
@@ -298,7 +299,7 @@ extern "C" __attribute__((naked)) void PendSV_Handler(void)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount)
+bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount) noexcept
 {
     int ourPriLevel = gk_CurrentThread->m_PriorityLevel;
     bool needSchedule = false;
@@ -310,7 +311,8 @@ bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount)
     for (KThreadWaitNode* waitNode = queue->m_First; waitNode != nullptr && maxCount != 0; waitNode = queue->m_First, --maxCount)
     {
         KThreadCB* thread = waitNode->m_Thread;
-        if (thread != nullptr && (thread->m_State == ThreadState_Sleeping || thread->m_State == ThreadState_Waiting)) {
+        if (thread != nullptr && (thread->GetState() == ThreadState_Sleeping || thread->GetState() == ThreadState_Waiting))
+        {
             if (thread->m_PriorityLevel > ourPriLevel) needSchedule = true;
             add_thread_to_ready_list(thread);
         }
@@ -331,7 +333,7 @@ static void wakeup_sleeping_threads()
     for (KThreadWaitNode* waitNode = gk_SleepingThreads.m_First; waitNode != nullptr && waitNode->m_ResumeTime <= curTime; waitNode = gk_SleepingThreads.m_First)
     {
         KThreadCB* thread = waitNode->m_Thread;
-        if (thread != nullptr && thread->m_State == ThreadState_Sleeping) {
+        if (thread != nullptr && thread->GetState() == ThreadState_Sleeping) {
             add_thread_to_ready_list(thread);
         }
         gk_SleepingThreads.Remove(waitNode);

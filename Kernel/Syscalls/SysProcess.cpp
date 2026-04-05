@@ -107,12 +107,7 @@ PErrorCode sys_spawn_execve(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoli
 
 void sys_exit(int exitCode)
 {
-    if (kis_debugger_attached())
-    {
-        __BKPT(0);
-    }
-    NVIC_SystemReset();
-    for (;;);
+    kexit(exitCode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

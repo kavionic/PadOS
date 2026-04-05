@@ -198,15 +198,18 @@ thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadUserData* thre
 
 __attribute__((noreturn)) void kthread_exit(void* returnValue)
 {
-    KThreadCB* thread = gk_CurrentThread;
+    KThreadCB& thread = kget_current_thread();
 
-    thread->m_Process->RemoveThread(thread);
+    if (thread.IsMainThread()) {
+        thread.m_Process->SetExitCode((int)returnValue);
+    }
+    thread.m_Process->RemoveThread(&thread);
 
-    thread->m_ReturnValue = returnValue;
+    thread.m_ReturnValue = returnValue;
 
     _reclaim_reent(nullptr);
 
-    thread->m_State = ThreadState_Zombie;
+    thread.SetState(ThreadState_Zombie);
 
     KSWITCH_CONTEXT();
 
@@ -218,7 +221,7 @@ __attribute__((noreturn)) void kthread_exit(void* returnValue)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void kinitiate_thread_cancellation(KThreadCB& thread)
+static void kinitiate_thread_cancellation(KThreadCB& thread) noexcept
 {
     thread.m_ThreadUserData->IsCanceled = true;
     if (thread.m_CancelType == THREAD_CANCEL_ASYNCHRONOUS)
@@ -243,14 +246,27 @@ void kthread_cancel_trw(pid_t threadID)
     kassert(!g_PIDMapMutex.IsLocked());
     KScopedLock lock(g_PIDMapMutex);
 
-    if (!thread->m_ThreadUserData->CancellationPending)
+    kthread_cancel_pl(*thread);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kthread_cancel_pl(KThreadCB& thread) noexcept
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
+    kassert(thread.m_ThreadUserData != nullptr);
+
+    if (!thread.m_ThreadUserData->CancellationPending)
     {
-        thread->m_ThreadUserData->CancellationPending = true;
-        if (thread->m_CancelState == THREAD_CANCEL_ENABLE)
+        thread.m_ThreadUserData->CancellationPending = true;
+        if (thread.m_CancelState == THREAD_CANCEL_ENABLE)
         {
-            kinitiate_thread_cancellation(*thread);
+            kinitiate_thread_cancellation(thread);
         }
-        wakeup_thread(*thread, true);
+        wakeup_thread(thread, true);
     }
 }
 
@@ -258,7 +274,7 @@ void kthread_cancel_trw(pid_t threadID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode kthread_cancel(pid_t threadID)
+PErrorCode kthread_cancel(pid_t threadID) noexcept
 {
     try
     {
@@ -341,11 +357,11 @@ PErrorCode kthread_detach(thread_id handle)
     }
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        if (thread->m_DetachState != PThreadDetachState_Joinable || thread->m_State == ThreadState_Deleted) {
+        if (thread->m_DetachState != PThreadDetachState_Joinable || thread->GetState() == ThreadState_Deleted) {
             return PErrorCode::InvalidArg;
         }
         thread->m_DetachState = PThreadDetachState_Detached;
-        if (thread->m_State == ThreadState_Zombie) {
+        if (thread->GetState() == ThreadState_Zombie) {
             add_thread_to_zombie_list(ptr_raw_pointer_cast(thread));
         }
     } CRITICAL_END;
@@ -379,14 +395,14 @@ void* kthread_join_trw(thread_id handle)
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
-            if (child->m_State == ThreadState_Deleted)
+            if (child->GetState() == ThreadState_Deleted)
             {
                 result = PErrorCode::InvalidArg;
                 break;
             }
-            if (child->m_State != ThreadState_Zombie)
+            if (child->GetState() != ThreadState_Zombie)
             {
-                thread->m_State = ThreadState_Waiting;
+                thread->SetState(ThreadState_Waiting);
                 child->GetWaitQueue().Append(&waitNode);
 
                 KSWITCH_CONTEXT();
@@ -397,13 +413,13 @@ void* kthread_join_trw(thread_id handle)
         {
             waitNode.Detatch();
 
-            if (child->m_State == ThreadState_Deleted)
+            if (child->GetState() == ThreadState_Deleted)
             {
                 result = PErrorCode::InvalidArg;
                 break;
             }
 
-            if (child->m_State != ThreadState_Zombie) { // We got interrupted
+            if (child->GetState() != ThreadState_Zombie) { // We got interrupted
                 continue;
             }
         } CRITICAL_END;
@@ -446,7 +462,7 @@ void kthread_set_priority_trw(thread_id handle, int priority)
     PErrorCode result = PErrorCode::Success;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        if (thread->m_State != ThreadState_Deleted)
+        if (thread->GetState() != ThreadState_Deleted)
         {
             const int prevPriorityLevel = thread->GetPriorityLevel();
             thread->SetPriority(priority);
@@ -479,7 +495,7 @@ int kthread_get_priority_trw(thread_id handle)
     int priority = 0;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        if (thread->m_State != ThreadState_Deleted) {
+        if (thread->GetState() != ThreadState_Deleted) {
             priority = thread->GetPriority();
         } else {
             result = PErrorCode::InvalidArg;
@@ -510,7 +526,7 @@ static void get_thread_info(Ptr<KThreadCB> thread, ThreadInfo* info)
 
     info->ThreadID = thread->GetHandle();
     info->ProcessID = thread->m_Process->GetPID();
-    info->State = thread->m_State;
+    info->State = thread->GetState();
     info->Flags = 0; // thread->m_Flags;
     info->Priority = thread->GetPriority();
     info->DynamicPri = info->Priority;
@@ -602,7 +618,7 @@ PErrorCode ksnooze_until_ns(bigtime_t resumeTimeNanos)
                 return PErrorCode::Interrupted;
             }
             add_to_sleep_list(&waitNode);
-            thread->m_State = ThreadState_Sleeping;
+            thread->SetState(ThreadState_Sleeping);
         } CRITICAL_END;
 
         KSWITCH_CONTEXT();

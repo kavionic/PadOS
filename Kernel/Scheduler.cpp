@@ -196,7 +196,7 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
         }
         for (int i = KTHREAD_PRIORITY_LEVELS - 1; i >= 0; --i)
         {
-            KThreadCB* const nextThread = gk_ReadyThreadLists[i].m_First;
+            KThreadCB* const nextThread = gk_ReadyThreadLists[i].GetFirst();
             if (nextThread != nullptr)
             {
                 if (prevThread->GetState() != ThreadState_Running || i >= prevThread->m_PriorityLevel)
@@ -317,7 +317,7 @@ bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount) 
 
     KSchedulerLock slock;
 
-    for (KThreadWaitNode* waitNode = queue->m_First; waitNode != nullptr && maxCount != 0; waitNode = queue->m_First, --maxCount)
+    for (KThreadWaitNode* waitNode = queue->GetFirst(); waitNode != nullptr && maxCount != 0; waitNode = queue->GetFirst(), --maxCount)
     {
         KThreadCB* thread = waitNode->m_Thread;
         if (thread != nullptr && (thread->GetState() == ThreadState_Sleeping || thread->GetState() == ThreadState_Waiting))
@@ -339,7 +339,7 @@ static void wakeup_sleeping_threads()
 {
     TimeValNanos curTime = TimeValNanos::FromNanoseconds(Kernel::s_SystemTimeNS);
 
-    for (KThreadWaitNode* waitNode = gk_SleepingThreads.m_First; waitNode != nullptr && waitNode->m_ResumeTime <= curTime; waitNode = gk_SleepingThreads.m_First)
+    for (KThreadWaitNode* waitNode = gk_SleepingThreads.GetFirst(); waitNode != nullptr && waitNode->m_ResumeTime <= curTime; waitNode = gk_SleepingThreads.GetFirst())
     {
         KThreadCB* thread = waitNode->m_Thread;
         if (thread != nullptr && thread->GetState() == ThreadState_Sleeping) {
@@ -374,14 +374,15 @@ KThreadCB& kget_current_thread()
 
 void add_to_sleep_list(KThreadWaitNode* waitNode)
 {
-    for (KThreadWaitNode* i = gk_SleepingThreads.m_First; i != nullptr; i = i->m_Next)
+    for (auto i : gk_SleepingThreads)
     {
-        if (waitNode->m_ResumeTime <= i->m_ResumeTime) {
+        if (waitNode->m_ResumeTime <= i->m_ResumeTime)
+        {
             gk_SleepingThreads.Insert(i, waitNode);
             break;
         }
     }
-    if (waitNode->m_List == nullptr) {
+    if (!waitNode->IsListMember()) {
         gk_SleepingThreads.Append(waitNode);
     }
 }

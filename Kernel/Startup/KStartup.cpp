@@ -225,14 +225,14 @@ static void* init_thread_entry(void* arguments)
         {
             KSchedulerLock slock;
 
-            for (KThreadCB* zombie = gk_ZombieThreadLists.m_First; zombie != nullptr; zombie = gk_ZombieThreadLists.m_First)
+            for (KThreadCB* zombie = gk_ZombieThreadLists.GetFirst(); zombie != nullptr; zombie = gk_ZombieThreadLists.GetFirst())
             {
                 gk_ZombieThreadLists.Remove(zombie);
                 threadsToDelete.Append(zombie);
             }
         }
 
-        for (KThreadCB* zombie = threadsToDelete.m_First; zombie != nullptr; zombie = threadsToDelete.m_First)
+        for (KThreadCB* zombie = threadsToDelete.GetFirst(); zombie != nullptr; zombie = threadsToDelete.GetFirst())
         {
             threadsToDelete.Remove(zombie);
             zombie->SetState(ThreadState_Deleted);
@@ -266,7 +266,7 @@ static void* init_thread_entry(void* arguments)
         {
             KSchedulerLock slock;
 
-            if (gk_ZombieThreadLists.m_First == nullptr)
+            if (gk_ZombieThreadLists.GetFirst() == nullptr)
             {
                 thread->SetState(ThreadState_Waiting);
 

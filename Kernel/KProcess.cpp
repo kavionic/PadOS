@@ -110,7 +110,7 @@ KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const char* n
 
 KProcess::~KProcess()
 {
-    kassert(m_Threads.empty());
+    kassert(m_Threads.IsEmpty());
     kassert(m_Session == nullptr);
     kassert(m_Group == nullptr);
 }
@@ -125,7 +125,7 @@ void KProcess::AddThread(KThreadCB* thread)
 
     kassert(thread->m_Process == nullptr);
 
-    m_Threads.push_back(thread);
+    m_Threads.Append(thread);
     thread->m_Process = ptr_tmp_cast(this);
 }
 
@@ -140,16 +140,10 @@ void KProcess::RemoveThread(KThreadCB* thread) noexcept
 
     kassert(thread->m_Process == this);
 
-    auto i = std::find(m_Threads.begin(), m_Threads.end(), thread);
-    kassert(i != m_Threads.end());
+    m_TotalCPUTime += thread->m_RunTime;
+    m_Threads.Remove(thread);
 
-    if (i != m_Threads.end())
-    {
-        m_TotalCPUTime += thread->m_RunTime;
-        m_Threads.erase(i);
-    }
-
-    if (m_Threads.empty()) {
+    if (m_Threads.IsEmpty()) {
         HandleExit();
     }
     thread->m_Process = nullptr;
@@ -217,7 +211,7 @@ void KProcess::RemoveChild(KProcess* child)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-const std::vector<kernel::KThreadCB*>& KProcess::GetThreads() const
+const KProcessThreadList& KProcess::GetThreads() const
 {
     kassert(g_PIDMapMutex.IsLocked());
     return m_Threads;
@@ -422,7 +416,8 @@ void KProcess::StopProcess(int sigNum)
     SetExitStatus(CLD_STOPPED, sigNum);
 
     m_State = KProcessState::Stopping;
-    m_ThreadsToStop = m_Threads.size();
+
+    m_ThreadsToStop = static_cast<int>(m_Threads.GetCount());
 
     for (KThreadCB* curThread : m_Threads) {
         ksend_signal_to_thread(*curThread, sigNum);

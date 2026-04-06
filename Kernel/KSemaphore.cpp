@@ -50,7 +50,7 @@ KSemaphore::KSemaphore(const char* name, clockid_t clockID, int count) : KNamedO
 
 KSemaphore::~KSemaphore()
 {
-    if (m_WaitQueue.m_First != nullptr) {
+    if (m_WaitQueue.GetFirst() != nullptr) {
         panic("KSemaphore destructed while threads waiting for it\n");
     }
 }

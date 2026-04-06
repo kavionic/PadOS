@@ -556,9 +556,9 @@ void kkillpid_trw_pl(pid_t pid, int sigNum)
 
 void kkillpid_trw_pl(KProcess& targetProcess, int sigNum)
 {
-    const std::vector<KThreadCB*>& threads = targetProcess.GetThreads();
+    const KProcessThreadList& threads = targetProcess.GetThreads();
 
-    if (threads.empty()) {
+    if (threads.IsEmpty()) {
         PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
     }
 
@@ -598,7 +598,7 @@ void kkillpid_trw_pl(KProcess& targetProcess, int sigNum)
         }
     }
     // If all threads block the signal, leave it pending on the main thread.
-    PERROR_ERRORCODE_THROW_ON_FAIL(ksend_signal_to_thread(*threads[0], sigNum));
+    PERROR_ERRORCODE_THROW_ON_FAIL(ksend_signal_to_thread(*threads.GetFirst(), sigNum));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

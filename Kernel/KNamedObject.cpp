@@ -90,7 +90,7 @@ KNamedObject::~KNamedObject()
     bool needSchedule = false;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        for (KThreadWaitNode* waitNode = m_WaitQueue.m_First; waitNode != nullptr; waitNode = m_WaitQueue.m_First)
+        for (KThreadWaitNode* waitNode = m_WaitQueue.GetFirst(); waitNode != nullptr; waitNode = m_WaitQueue.GetFirst())
         {
             waitNode->m_TargetDeleted = true;
             KThreadCB* thread = waitNode->m_Thread;

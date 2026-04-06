@@ -70,7 +70,7 @@ public:
 
     void RemoveChild(KProcess* child);
 
-    const std::vector<KThreadCB*>& GetThreads() const;
+    const KProcessThreadList& GetThreads() const;
 
     const char*         GetName() const noexcept { return m_Name; }
     pid_t               GetPID() const noexcept { return m_PID; }
@@ -129,7 +129,7 @@ private:
 
     KProcessState           m_State = KProcessState::Running;
     KConditionVariable      m_ChildrenCondition;
-    std::vector<KThreadCB*> m_Threads;
+    KProcessThreadList      m_Threads;
     sigaction_t             m_SignalHandlers[KTOTAL_SIG_COUNT] = {};
 
     pid_t      m_PID = -1;  // Our process ID.

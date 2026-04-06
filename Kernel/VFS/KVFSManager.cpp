@@ -275,7 +275,7 @@ Ptr<KInode> KVFSManager::GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossM
                 continue;
             }
             if (i->second->GetPtrCount() == 0) {
-                kassert(i->second->GetList() == &s_InodeMRUList);
+                kassert(i->second->IsListMember(&s_InodeMRUList));
                 s_InodeMRUList.Remove(i->second);
                 s_UnusedInodeCount--;
             }
@@ -323,8 +323,8 @@ void KVFSManager::InodeReleased(KInode* inode)
         s_InodeMRUList.Append(inode);
         s_UnusedInodeCount++;
         if (s_UnusedInodeCount > MAX_INODE_CACHE_COUNT) {
-            kassert(s_InodeMRUList.m_First != nullptr);
-            DiscardInode(s_InodeMRUList.m_First); // Discard oldest cached inode.
+            kassert(s_InodeMRUList.GetFirst() != nullptr);
+            DiscardInode(s_InodeMRUList.GetFirst()); // Discard oldest cached inode.
         }        
     }        
 }
@@ -335,14 +335,14 @@ void KVFSManager::InodeReleased(KInode* inode)
 
 void KVFSManager::FlushInodes()
 {
-    if (s_InodeMRUList.m_First != nullptr)
+    if (s_InodeMRUList.GetFirst() != nullptr)
     {
         CRITICAL_SCOPE(s_InodeMapMutex);
 
         time_t curTime = kget_monotonic_time().AsSecondsI();
-        while(s_InodeMRUList.m_First != nullptr && curTime > (s_InodeMRUList.m_First->m_LastUseTime + 1))
+        while(s_InodeMRUList.GetFirst() != nullptr && curTime > (s_InodeMRUList.GetFirst()->m_LastUseTime + 1))
         {
-            DiscardInode(s_InodeMRUList.m_First);
+            DiscardInode(s_InodeMRUList.GetFirst());
         }            
     }    
 }

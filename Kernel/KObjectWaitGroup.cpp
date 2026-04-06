@@ -221,7 +221,8 @@ PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* rea
     {
         for (const KThreadWaitNode& node : m_WaitNodes)
         {
-            if (node.m_List == nullptr) {
+            if (!node.IsListMember())
+            {
                 isReady = true;
                 break;
             }

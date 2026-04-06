@@ -129,8 +129,11 @@ public:
     KSignalQueueNode*         m_FirstQueuedSignal = nullptr;
     size_t                    m_QueuedSignalCount = 0;
     PThreadUserData*          m_ThreadUserData = nullptr;
+
+    PIntrusiveListNode<KThreadCB> m_ProcessListNode;
 };
 
 typedef PIntrusiveList<KThreadCB>       KThreadList;
+using   KProcessThreadList = PIntrusiveList<KThreadCB, &KThreadCB::m_ProcessListNode>;
 
 } // namespace

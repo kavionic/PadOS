@@ -43,7 +43,7 @@ enum
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-struct KCacheBlockHeader
+struct KCacheBlockHeader : PIntrusiveListNode<KCacheBlockHeader>
 {
     void AddRef();
     void RemoveRef();
@@ -60,15 +60,12 @@ struct KCacheBlockHeader
     inline bool IsFlushing() const { return (m_Flags & BCF_IS_FLUSHING) != 0; }
     inline void SetIsFlushing(bool isFlushing) { m_Flags = (isFlushing) ? (m_Flags | BCF_IS_FLUSHING) : (m_Flags & ~BCF_IS_FLUSHING); }
 
-    KCacheBlockHeader*                m_Next         = nullptr;
-    KCacheBlockHeader*                m_Prev         = nullptr;
-    PIntrusiveList<KCacheBlockHeader>* m_List         = nullptr;
-    int                               m_Device       = 0;
-    off64_t                           m_bufferNumber = 0;
-    uint32_t                          m_UseCount     = 0;
-    void*                             m_Buffer       = nullptr;
-    TimeValNanos                      m_DirtyTime;
-    uint32_t                          m_Flags        = 0;
+    int             m_Device       = 0;
+    off64_t         m_bufferNumber = 0;
+    uint32_t        m_UseCount     = 0;
+    void*           m_Buffer       = nullptr;
+    TimeValNanos    m_DirtyTime;
+    uint32_t        m_Flags        = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

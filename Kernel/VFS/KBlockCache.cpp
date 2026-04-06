@@ -49,8 +49,8 @@ static uint8_t* gk_BCacheBuffer;
 static KCacheBlockHeader gk_BCacheHeaders[KBLOCK_CACHE_BLOCK_COUNT];
 
 std::map<int, KBlockCache*>         KBlockCache::s_DeviceMap;
-PIntrusiveList<KCacheBlockHeader>    KBlockCache::s_FreeList;
-PIntrusiveList<KCacheBlockHeader>    KBlockCache::s_MRUList;
+PIntrusiveList<KCacheBlockHeader>   KBlockCache::s_FreeList;
+PIntrusiveList<KCacheBlockHeader>   KBlockCache::s_MRUList;
 KMutex                              KBlockCache::s_Mutex("bcache_mutex", PEMutexRecursionMode_RaiseError);
 KConditionVariable                  KBlockCache::s_FlushingRequestConditionVar("bcache_flush_req");
 KConditionVariable                  KBlockCache::s_FlushingDoneConditionVar("bcache_flush_done");
@@ -195,15 +195,23 @@ KCacheBlockDesc KBlockCache::GetBlock_trw(off64_t blockNum, bool doLoad)
 
         KCacheBlockHeader* block = nullptr;
 
-        if (s_FreeList.m_Last != nullptr)
+        if (s_FreeList.GetLast() != nullptr)
         {
-            block = s_FreeList.m_Last;
+            block = s_FreeList.GetLast();
             s_FreeList.Remove(block);
         }
-        else if (s_MRUList.m_First != nullptr)
+        else if (s_MRUList.GetFirst() != nullptr)
         {
-            for (block = s_MRUList.m_First; block != nullptr && (block->m_UseCount != 0 /*|| block->IsFlushing() || block->IsDirty()*/); block = block->m_Next) /*EMPTY*/;
-            if (block == nullptr) {
+            for (auto i : s_MRUList)
+            {
+                if (i->m_UseCount == 0 /*&& !i->IsFlushing() && !i->IsDirty()*/)
+                {
+                    block = i;
+                    break;
+                }
+            }
+            if (block == nullptr)
+            {
                 s_FlushingRequestConditionVar.WakeupAll();
                 s_FlushingDoneConditionVar.Wait(s_Mutex);
                 continue;
@@ -318,7 +326,7 @@ bool KBlockCache::FlushInternal()
 
     if (s_DirtyBlockCount != 0)
     {
-        for (KCacheBlockHeader* block = s_MRUList.m_First; block != nullptr; block = block->m_Next)
+        for (auto block : s_MRUList)
         {
             if (block->IsDirty() /*&& !block->IsFlushing()*/) {
                 block->SetFlushRequested(true);
@@ -587,7 +595,7 @@ void* KBlockCache::DiskCacheFlusher(void* arg)
                     static KCacheBlockHeader* blockList[BC_FLUSH_COUNT];
                     int blocksFlushed = 0;
                     int deviceID = -1;
-                    for (KCacheBlockHeader* block = s_MRUList.m_First; block != nullptr && blocksFlushed < BC_FLUSH_COUNT && s_DirtyBlockCount > 0; block = block->m_Next)
+                    for (auto block = s_MRUList.begin(); block != s_MRUList.end() && blocksFlushed < BC_FLUSH_COUNT && s_DirtyBlockCount > 0; ++block)
                     {
                         if (block->IsDirty() && !block->IsFlushing())
                         {
@@ -595,7 +603,7 @@ void* KBlockCache::DiskCacheFlusher(void* arg)
                             if (block->m_Device == deviceID)
                             {
                                 block->SetIsFlushing(true);
-                                blockList[blocksFlushed++] = block;
+                                blockList[blocksFlushed++] = *block;
                             }
                         }
                     }

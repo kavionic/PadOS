@@ -44,7 +44,7 @@ KMutex::KMutex(const char* name, PEMutexRecursionMode recursionMode, int clockID
 
 KMutex::~KMutex()
 {
-    if (m_WaitQueue.m_First != nullptr) {
+    if (m_WaitQueue.GetFirst() != nullptr) {
         panic("KMutex destructed while threads waiting for it\n");
     }
 }

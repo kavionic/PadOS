@@ -26,14 +26,18 @@ namespace kernel
 {
 class KThreadCB;
 
-struct KThreadWaitNode
+struct KThreadWaitNode : PIntrusiveListNode<KThreadWaitNode>
 {
     bool Detatch()
     {
-        if (m_List != nullptr) {
-            m_List->Remove(this);
+        PIntrusiveList<KThreadWaitNode>* list = GetList();
+        if (list != nullptr)
+        {
+            list->Remove(this);
             return true;
-        } else {
+        }
+        else
+        {
             return false;
         }
     }
@@ -42,9 +46,6 @@ struct KThreadWaitNode
     KThreadCB*                      m_Thread = nullptr;
     int                             m_ReturnCode = 0;
     bool                            m_TargetDeleted = false;
-    KThreadWaitNode*                m_Next = nullptr;
-    KThreadWaitNode*                m_Prev = nullptr;
-    PIntrusiveList<KThreadWaitNode>* m_List = nullptr;
 };
 
 typedef PIntrusiveList<KThreadWaitNode> KThreadWaitList;

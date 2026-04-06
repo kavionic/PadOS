@@ -227,7 +227,7 @@ static void kinitiate_thread_cancellation(KThreadCB& thread) noexcept
     if (thread.m_CancelType == THREAD_CANCEL_ASYNCHRONOUS)
     {
         thread.m_ThreadUserData->CancellationPending = true; // Make SIGKILL hard-kill.
-        ksend_signal_to_thread_pl(thread, SIGKILL);
+        ksend_signal_to_thread(thread, SIGKILL);
     }
 }
 

@@ -46,7 +46,7 @@ static const int KTHREAD_PRIORITY_MIN = -16;
 static const int KTHREAD_PRIORITY_MAX = 15;
 static const int KTHREAD_PRIORITY_LEVELS = KTHREAD_PRIORITY_MAX - KTHREAD_PRIORITY_MIN + 1;
 
-class KThreadCB : public KNamedObject
+class KThreadCB : public KNamedObject, public PIntrusiveListNode<KThreadCB>
 {
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::Thread;
@@ -120,9 +120,6 @@ public:
     PThreadControlBlock*      m_KernelTLS = nullptr;
     PThreadControlBlock*      m_UserspaceTLS = nullptr;
 
-    KThreadCB*                m_Prev = nullptr;
-    KThreadCB*                m_Next = nullptr;
-    PIntrusiveList<KThreadCB>* m_List = nullptr;
     const KNamedObject*       m_BlockingObject = nullptr;
 
     int                       m_SymlinkDepth = 0;

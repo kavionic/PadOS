@@ -114,30 +114,19 @@ bool kis_thread_canceled()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode  ksend_signal_to_thread(KThreadCB& thread, int sigNum)
+PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum) noexcept
 {
-    kassert(!g_PIDMapMutex.IsLocked());
-    KScopedLock lock(g_PIDMapMutex);
-
-    return ksend_signal_to_thread_pl(thread, sigNum);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode ksend_signal_to_thread_pl(KThreadCB& thread, int sigNum) noexcept
-{
-    kassert(g_PIDMapMutex.IsLocked());
-
     if (sigNum < 0 || sigNum >= KTOTAL_SIG_COUNT) {
         return PErrorCode::InvalidArg;
     }
-    if (thread.IsZombie()) {
-        return PErrorCode::NoSuchProcess;
-    }
     if (thread.m_KernelThread) {
         return PErrorCode::NoAccess;
+    }
+
+    KSchedulerLock lock;
+
+    if (thread.IsZombie()) {
+        return PErrorCode::NoSuchProcess;
     }
     if (sigNum == 0) { // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target thread.
         return PErrorCode::Success;
@@ -204,7 +193,7 @@ PErrorCode kqueue_signal_to_thread_pl(KThreadCB& thread, int sigNum, sigval_t va
     else if (sigNum == SIGKILL)
     {
         for (KThreadCB* curThread : process->GetThreads()) {
-            ksend_signal_to_thread_pl(*curThread, sigNum);
+            ksend_signal_to_thread(*curThread, sigNum);
         }
         return PErrorCode::Success;
     }
@@ -410,12 +399,12 @@ PErrorCode kthread_kill(thread_id threadID, int sigNum)
         else if (sigNum == SIGKILL)
         {
             for (KThreadCB* curThread : process->GetThreads()) {
-                ksend_signal_to_thread_pl(*curThread, sigNum);
+                ksend_signal_to_thread(*curThread, sigNum);
             }
             return PErrorCode::Success;
         }
     }
-    return ksend_signal_to_thread_pl(*thread, sigNum);
+    return ksend_signal_to_thread(*thread, sigNum);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -518,43 +507,7 @@ void kkill_trw_pl(pid_t pid, int sigNum)
     }
     else
     {
-        Ptr<KProcess> targetProcess = KProcess::GetProcess_pl(pid);
-        if (targetProcess == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
-        }
-        const std::vector<KThreadCB*>& threads = targetProcess->GetThreads();
-
-        if (threads.empty()) {
-            PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
-        }
-
-        if (!kcheck_kill_permission(*targetProcess, sigNum)) {
-            PERROR_THROW_CODE(PErrorCode::NoAccess);
-        }
-        if (sigNum == 0) {
-            return; // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target(s).
-        }
-        if (sigNum == SIGKILL || sigNum == SIGSTOP || sigNum == SIGCONT)
-        {
-            for (KThreadCB* thread : threads) {
-                ksend_signal_to_thread_pl(*thread, sigNum);
-            }
-            return;
-        }
-        else
-        {
-            for (KThreadCB* thread : threads)
-            {
-                if (!thread->IsSignalBlocked(sigNum))
-                {
-                    if (ksend_signal_to_thread_pl(*thread, sigNum) == PErrorCode::Success) {
-                        return;
-                    }
-                }
-            }
-        }
-        // If all threads block the signal, leave it pending on the main thread.
-        PERROR_ERRORCODE_THROW_ON_FAIL(ksend_signal_to_thread_pl(*threads[0], sigNum));
+        kkillpid_trw_pl(pid, sigNum);
     }
 }
 
@@ -582,6 +535,70 @@ PErrorCode kkill_pl(pid_t pid, int sigNum)
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kkillpid_trw_pl(pid_t pid, int sigNum)
+{
+    Ptr<KProcess> targetProcess = KProcess::GetProcess_pl(pid);
+    if (targetProcess == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+    }
+    kkillpid_trw_pl(*targetProcess, sigNum);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void kkillpid_trw_pl(KProcess& targetProcess, int sigNum)
+{
+    const std::vector<KThreadCB*>& threads = targetProcess.GetThreads();
+
+    if (threads.empty()) {
+        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+    }
+
+    if (!kcheck_kill_permission(targetProcess, sigNum)) {
+        PERROR_THROW_CODE(PErrorCode::NoAccess);
+    }
+    if (sigNum == 0) {
+        return; // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target(s).
+    }
+    if (sigNum == SIGSTOP)
+    {
+        targetProcess.StopProcess(sigNum);
+        return;
+    }
+    else if (sigNum == SIGCONT)
+    {
+        targetProcess.ContinueProcess(sigNum);
+        return;
+    }
+    else if (sigNum == SIGKILL)
+    {
+        for (KThreadCB* thread : threads) {
+            ksend_signal_to_thread(*thread, sigNum);
+        }
+        return;
+    }
+    else
+    {
+        for (KThreadCB* thread : threads)
+        {
+            if (!thread->IsSignalBlocked(sigNum))
+            {
+                if (ksend_signal_to_thread(*thread, sigNum) == PErrorCode::Success) {
+                    return;
+                }
+            }
+        }
+    }
+    // If all threads block the signal, leave it pending on the main thread.
+    PERROR_ERRORCODE_THROW_ON_FAIL(ksend_signal_to_thread(*threads[0], sigNum));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

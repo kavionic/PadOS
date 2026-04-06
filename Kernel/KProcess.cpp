@@ -425,7 +425,7 @@ void KProcess::StopProcess(int sigNum)
     m_ThreadsToStop = m_Threads.size();
 
     for (KThreadCB* curThread : m_Threads) {
-        ksend_signal_to_thread_pl(*curThread, sigNum);
+        ksend_signal_to_thread(*curThread, sigNum);
     }
 }
 
@@ -447,7 +447,7 @@ void KProcess::ContinueProcess(int sigNum)
     m_ThreadsToStop = 0;
 
     for (KThreadCB* curThread : m_Threads) {
-        ksend_signal_to_thread_pl(*curThread, SIGCONT);
+        ksend_signal_to_thread(*curThread, SIGCONT);
     }
 }
 
@@ -480,8 +480,7 @@ siginfo_t KProcess::GetChildInfo(Ptr<KPIDNode> pidNode, int options)
     {
         child.m_ExitInfo.si_code = 0;
 
-        if (child.m_State == KProcessState::Continued)
-        {
+        if (child.m_State == KProcessState::Continued) {
             child.m_State = KProcessState::Running;
         }
     }
@@ -516,8 +515,8 @@ siginfo_t KProcess::WaitPID(pid_t pid, int options)
 
         const bool isReady =
             ((options & WEXITED)    && child->m_State == KProcessState::Zombie) ||
-            ((options & WSTOPPED)   && child->m_State == KProcessState::Stopped) ||
-            ((options & WCONTINUED) && child->m_State == KProcessState::Continued);
+            ((options & WSTOPPED)   && child->m_State == KProcessState::Stopped && child->m_ExitInfo.si_code == CLD_STOPPED) ||
+            ((options & WCONTINUED) && child->m_State == KProcessState::Continued && child->m_ExitInfo.si_code == CLD_CONTINUED);
 
         if (isReady) {
             return GetChildInfo(pidNode, options);

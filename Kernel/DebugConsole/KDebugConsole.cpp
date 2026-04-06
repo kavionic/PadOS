@@ -833,9 +833,31 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
 //            void* retValue = nullptr;
 //            thread_join(pid, &retValue);
             siginfo_t info;
-            kwaitid(P_PID, pid, &info, WEXITED);
-            if (info.si_status != 0) {
-                kprintf("'%s' exited with code: %d\n", path.c_str(), info.si_status);
+            result = kwaitid(P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED);
+
+            if (result == PErrorCode::Success)
+            {
+                switch(info.si_code)
+                {
+                    case CLD_EXITED:
+                        if (info.si_status != 0) {
+                            kprintf("'%s' exited with code: %d\n", path.c_str(), info.si_status);
+                        }
+                        break;
+                    case CLD_KILLED:
+                        kprintf("'%s' killed: %s(%d)\n", path.c_str(), strsignal(info.si_status), info.si_status);
+                        break;
+                    case CLD_STOPPED:
+                        kprintf("'%s' stopped: %s(%d)\n", path.c_str(), strsignal(info.si_status), info.si_status);
+                        break;
+                    case CLD_CONTINUED:
+                        kprintf("'%s' started: %s(%d)\n", path.c_str(), strsignal(info.si_status), info.si_status);
+                        break;
+                }
+            }
+            else
+            {
+                kprintf("kwaitpid() failed: %s(%d)\n", p_strerror(result), int(result));
             }
             return;
         }

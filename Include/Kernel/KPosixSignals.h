@@ -26,6 +26,7 @@
 namespace kernel
 {
 
+class KProcess;
 class KThreadCB;
 class KProcessGroup;
 
@@ -67,8 +68,7 @@ KSignalMode kget_signal_mode(const KThreadCB& thread, int sigNum);
 bool        khas_pending_signals();
 bool        kis_thread_canceled();
 
-PErrorCode  ksend_signal_to_thread(KThreadCB& thread, int sigNum);
-PErrorCode  ksend_signal_to_thread_pl(KThreadCB& thread, int sigNum) noexcept;
+PErrorCode  ksend_signal_to_thread(KThreadCB& thread, int sigNum) noexcept;
 
 PErrorCode  kqueue_signal_to_thread(KThreadCB& thread, int signo, sigval_t value);
 PErrorCode  kqueue_signal_to_thread_pl(KThreadCB& thread, int signo, sigval_t value);
@@ -87,6 +87,9 @@ void        kkill_trw_pl(pid_t pid, int sigNum);
 
 PErrorCode  kkill(pid_t pid, int sigNum);
 PErrorCode  kkill_pl(pid_t pid, int sigNum);
+
+void        kkillpid_trw_pl(pid_t pid, int sigNum);
+void        kkillpid_trw_pl(KProcess& targetProcess, int sigNum);
 
 void        kkillpg_trw(pid_t pgroup, int sigNum);
 void        kkillpg_trw_pl(pid_t pgroup, int sigNum);

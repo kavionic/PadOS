@@ -125,6 +125,7 @@ void KProcess::AddThread(KThreadCB* thread)
 
     kassert(thread->m_Process == nullptr);
 
+    KSchedulerLock lock;
     m_Threads.Append(thread);
     thread->m_Process = ptr_tmp_cast(this);
 }
@@ -141,9 +142,14 @@ void KProcess::RemoveThread(KThreadCB* thread) noexcept
     kassert(thread->m_Process == this);
 
     m_TotalCPUTime += thread->m_RunTime;
-    m_Threads.Remove(thread);
 
-    if (m_Threads.IsEmpty()) {
+    bool lastThread;
+    {
+        KSchedulerLock lock;
+        m_Threads.Remove(thread);
+        lastThread = m_Threads.IsEmpty();
+    }
+    if (lastThread) {
         HandleExit();
     }
     thread->m_Process = nullptr;
@@ -163,7 +169,7 @@ void KProcess::ThreadStopped()
             if (m_Parent != nullptr)
             {
                 m_Parent->m_ChildrenCondition.Wakeup(1);
-                kkill_pl(m_Parent->m_PID, SIGCHLD);
+                m_Parent->Kill(SIGCHLD);
             }
         }
     }
@@ -183,7 +189,7 @@ void KProcess::ThreadContinued()
             if (m_Parent != nullptr)
             {
                 m_Parent->m_ChildrenCondition.Wakeup(1);
-                kkill_pl(m_Parent->m_PID, SIGCHLD);
+                m_Parent->Kill(SIGCHLD);
             }
         }
     }
@@ -205,16 +211,6 @@ void KProcess::RemoveChild(KProcess* child)
         }
         child->m_Parent = nullptr;
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-const KProcessThreadList& KProcess::GetThreads() const
-{
-    kassert(g_PIDMapMutex.IsLocked());
-    return m_Threads;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -417,6 +413,8 @@ void KProcess::StopProcess(int sigNum)
 
     m_State = KProcessState::Stopping;
 
+    KSchedulerLock lock;
+
     m_ThreadsToStop = static_cast<int>(m_Threads.GetCount());
 
     for (KThreadCB* curThread : m_Threads) {
@@ -443,6 +441,54 @@ void KProcess::ContinueProcess(int sigNum)
 
     for (KThreadCB* curThread : m_Threads) {
         ksend_signal_to_thread(*curThread, SIGCONT);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::Kill(int sigNum)
+{
+    KSchedulerLock lock;
+
+    if (sigNum == SIGKILL)
+    {
+        for (KThreadCB* thread : m_Threads) {
+            ksend_signal_to_thread(*thread, sigNum);
+        }
+        return;
+    }
+    else
+    {
+        for (KThreadCB* thread : m_Threads)
+        {
+            if (!thread->IsSignalBlocked(sigNum))
+            {
+                if (ksend_signal_to_thread(*thread, sigNum) == PErrorCode::Success) {
+                    return;
+                }
+            }
+        }
+    }
+    // If all threads block the signal, leave it pending on the main thread.
+    ksend_signal_to_thread(*m_Threads.GetFirst(), sigNum);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::CancelThreads(const KThreadCB* threadToIgnore)
+{
+    kassert(g_PIDMapMutex.IsLocked());
+    KSchedulerLock lock;
+
+    for (KThreadCB* thread : m_Threads)
+    {
+        if (thread != threadToIgnore) {
+            kthread_cancel_pl(*thread);
+        }
     }
 }
 
@@ -693,12 +739,7 @@ void kexit(int exitCode)
 
         process.SetExitStatus(CLD_EXITED, exitCode);
 
-        for (KThreadCB* siblingThread : process.GetThreads())
-        {
-            if (siblingThread != &thread) {
-                kthread_cancel_pl(*siblingThread);
-            }
-        }
+        process.CancelThreads(&thread);
     }
     kthread_exit((void*)(thread.IsMainThread() ? exitCode : -1));
 }

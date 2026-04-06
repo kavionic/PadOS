@@ -70,8 +70,6 @@ public:
 
     void RemoveChild(KProcess* child);
 
-    const KProcessThreadList& GetThreads() const;
-
     const char*         GetName() const noexcept { return m_Name; }
     pid_t               GetPID() const noexcept { return m_PID; }
 
@@ -111,6 +109,9 @@ public:
 
     void StopProcess(int sigNum);
     void ContinueProcess(int sigNum);
+    void Kill(int sigNum);
+
+    void CancelThreads(const KThreadCB* threadToIgnore);
 
     siginfo_t GetChildInfo(Ptr<KPIDNode> pidNode, int options);
     siginfo_t WaitPID(pid_t pid, int options);

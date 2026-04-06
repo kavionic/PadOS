@@ -192,9 +192,7 @@ PErrorCode kqueue_signal_to_thread_pl(KThreadCB& thread, int sigNum, sigval_t va
     }
     else if (sigNum == SIGKILL)
     {
-        for (KThreadCB* curThread : process->GetThreads()) {
-            ksend_signal_to_thread(*curThread, sigNum);
-        }
+        process->Kill(sigNum);
         return PErrorCode::Success;
     }
 
@@ -398,9 +396,7 @@ PErrorCode kthread_kill(thread_id threadID, int sigNum)
         }
         else if (sigNum == SIGKILL)
         {
-            for (KThreadCB* curThread : process->GetThreads()) {
-                ksend_signal_to_thread(*curThread, sigNum);
-            }
+            process->Kill(sigNum);
             return PErrorCode::Success;
         }
     }
@@ -556,12 +552,6 @@ void kkillpid_trw_pl(pid_t pid, int sigNum)
 
 void kkillpid_trw_pl(KProcess& targetProcess, int sigNum)
 {
-    const KProcessThreadList& threads = targetProcess.GetThreads();
-
-    if (threads.IsEmpty()) {
-        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
-    }
-
     if (!kcheck_kill_permission(targetProcess, sigNum)) {
         PERROR_THROW_CODE(PErrorCode::NoAccess);
     }
@@ -578,27 +568,10 @@ void kkillpid_trw_pl(KProcess& targetProcess, int sigNum)
         targetProcess.ContinueProcess(sigNum);
         return;
     }
-    else if (sigNum == SIGKILL)
-    {
-        for (KThreadCB* thread : threads) {
-            ksend_signal_to_thread(*thread, sigNum);
-        }
-        return;
-    }
     else
     {
-        for (KThreadCB* thread : threads)
-        {
-            if (!thread->IsSignalBlocked(sigNum))
-            {
-                if (ksend_signal_to_thread(*thread, sigNum) == PErrorCode::Success) {
-                    return;
-                }
-            }
-        }
+        targetProcess.Kill(sigNum);
     }
-    // If all threads block the signal, leave it pending on the main thread.
-    PERROR_ERRORCODE_THROW_ON_FAIL(ksend_signal_to_thread(*threads.GetFirst(), sigNum));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

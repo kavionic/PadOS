@@ -245,6 +245,8 @@ void KThreadCB::InitializeStack(ThreadEntryTrampoline_t entryTrampoline, ThreadE
 
 void KThreadCB::SetState(ThreadState state) noexcept
 {
+    KSchedulerLock lock;
+
     if (state != m_ThreadState)
     {
         const ThreadState prevState = m_ThreadState;

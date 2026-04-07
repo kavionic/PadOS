@@ -64,7 +64,7 @@ void kwakeup_init_thread();
 
 bool wakeup_wait_queue(KThreadWaitList* queue, void* returnValue, int maxCount) noexcept;
 
-void        stop_thread(bool notifyParent) noexcept;
+void        stop_thread() noexcept;
 PErrorCode  wakeup_thread(KThreadCB& thread, bool wakeupSuspended) noexcept;
 
 

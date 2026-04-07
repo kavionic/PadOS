@@ -304,8 +304,10 @@ void start_scheduler(size_t mainThreadStackSize)
 
         g_PIDMap[KTHREAD_ID_INIT]->Thread = initThread;
     }
-    add_thread_to_ready_list(gk_InitThread);
-
+    {
+        KSchedulerLock lock;
+        add_thread_to_ready_list(gk_InitThread);
+    }
 #if defined(STM32H7)
     __set_BASEPRI(0);
 #elif defined(STM32G030xx)

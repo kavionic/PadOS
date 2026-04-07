@@ -30,6 +30,8 @@ public:
     KSchedulerLock() { m_PrevState = disable_interrupts(); }
     ~KSchedulerLock() { restore_interrupts(m_PrevState); }
 
+    static bool IsLocked() { return get_interrupt_enabled_state() != IRQEnableState::Enabled; }
+
 private:
     uint32_t    m_PrevState;
 

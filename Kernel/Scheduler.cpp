@@ -114,6 +114,8 @@ extern "C" void SysTick_Handler()
 
 void add_thread_to_ready_list(KThreadCB* thread)
 {
+    kassert(KSchedulerLock::IsLocked());
+
     thread->SetState(ThreadState_Ready);
     gk_ReadyThreadLists[thread->m_PriorityLevel].Append(thread);
 }
@@ -143,7 +145,7 @@ void kwakeup_init_thread()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void stop_thread(bool notifyParent) noexcept
+void stop_thread() noexcept
 {
     KThreadCB& thread = kget_current_thread();
 

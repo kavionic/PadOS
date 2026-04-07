@@ -161,6 +161,8 @@ void KProcess::RemoveThread(KThreadCB* thread) noexcept
 
 void KProcess::ThreadStopped()
 {
+    kassert(KSchedulerLock::IsLocked());
+
     if (++m_StoppedThreadCount == m_ThreadsToStop)
     {
         if (m_State == KProcessState::Stopping)
@@ -169,7 +171,11 @@ void KProcess::ThreadStopped()
             if (m_Parent != nullptr)
             {
                 m_Parent->m_ChildrenCondition.Wakeup(1);
-                m_Parent->Kill(SIGCHLD);
+
+                const sigaction_t& parentSigaction = m_Parent->GetSignalHandler(SIGCHLD - 1);
+                if ((parentSigaction.sa_flags & SA_NOCLDSTOP) == 0) {
+                    m_Parent->Kill(SIGCHLD);
+                }
             }
         }
     }
@@ -181,6 +187,8 @@ void KProcess::ThreadStopped()
 
 void KProcess::ThreadContinued()
 {
+    kassert(KSchedulerLock::IsLocked());
+
     if (--m_StoppedThreadCount == m_ThreadsToStop)
     {
         if (m_State == KProcessState::Continuing)
@@ -189,7 +197,10 @@ void KProcess::ThreadContinued()
             if (m_Parent != nullptr)
             {
                 m_Parent->m_ChildrenCondition.Wakeup(1);
-                m_Parent->Kill(SIGCHLD);
+                const sigaction_t& parentSigaction = m_Parent->GetSignalHandler(SIGCHLD - 1);
+                if ((parentSigaction.sa_flags & SA_NOCLDSTOP) == 0) {
+                    m_Parent->Kill(SIGCHLD);
+                }
             }
         }
     }
@@ -413,8 +424,6 @@ void KProcess::StopProcess(int sigNum)
 
     m_State = KProcessState::Stopping;
 
-    KSchedulerLock lock;
-
     m_ThreadsToStop = static_cast<int>(m_Threads.GetCount());
 
     for (KThreadCB* curThread : m_Threads) {
@@ -472,7 +481,9 @@ void KProcess::Kill(int sigNum)
         }
     }
     // If all threads block the signal, leave it pending on the main thread.
-    ksend_signal_to_thread(*m_Threads.GetFirst(), sigNum);
+    if (!m_Threads.IsEmpty()) {
+        ksend_signal_to_thread(*m_Threads.GetFirst(), sigNum);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -482,7 +493,6 @@ void KProcess::Kill(int sigNum)
 void KProcess::CancelThreads(const KThreadCB* threadToIgnore)
 {
     kassert(g_PIDMapMutex.IsLocked());
-    KSchedulerLock lock;
 
     for (KThreadCB* thread : m_Threads)
     {

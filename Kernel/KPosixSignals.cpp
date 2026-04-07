@@ -887,14 +887,7 @@ uintptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMod
         const PESignalDefaultAction action = sig_get_default_action(sigNum);
         if (action == PESignalDefaultAction::Stop)
         {
-            Ptr<KProcess> parent = process.GetParent_pl();
-            bool notifyParent = false;
-            if (parent != nullptr)
-            {
-                const sigaction_t& parentSigaction = parent->GetSignalHandler(SIGCHLD - 1);
-                notifyParent = (parentSigaction.sa_flags & SA_NOCLDSTOP) == 0;
-            }
-            stop_thread(notifyParent);
+            stop_thread();
         }
         else if (action == PESignalDefaultAction::Terminate || action == PESignalDefaultAction::TerminateCoreDump)
         {

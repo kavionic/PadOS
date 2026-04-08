@@ -24,8 +24,8 @@
 #include <Threads/Threads.h>
 
 
-template<typename T>
-T _SYSEPILOGUE_passthrough(T result) { return result; }
+template<typename T, typename U>
+T _SYSEPILOGUE_passthrough(U result) { return (T)result; }
 
 template<typename T>
 T _SYSEPILOGUE_errno_errorcode(PErrorCode result) { static_assert(sizeof(T) <= sizeof(PErrorCodeUpdateErrno_impl(result))); return (T)PErrorCodeUpdateErrno_impl(result); }

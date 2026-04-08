@@ -45,21 +45,21 @@ extern "C"
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_spawn_execve(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoline, const char* name, int priority, PThreadUserData* threadUserData, char* const argv[], char* const envp[])
+PErrorCode sys_posix_spawn(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoline, const char* path, int schedpriority, PThreadUserData* threadUserData, char* const argv[], char* const envp[])
 {
     try
     {
         if (outPID != nullptr) {
             validate_user_write_pointer_trw(outPID);
         }
-        validate_user_read_string_trw(name, PATH_MAX);
+        validate_user_read_string_trw(path, PATH_MAX);
         validate_user_read_pointer_trw(threadUserData);
         validate_user_write_pointer_trw(threadUserData->TLSData);
 
         const PAppDefinition* app = nullptr;
 
         {
-            const int file = kopen_trw(name, O_RDONLY);
+            const int file = kopen_trw(path, O_RDONLY);
 
             PScopeExit scopeCleanup([file]() { kclose(file); });
 
@@ -87,7 +87,7 @@ PErrorCode sys_spawn_execve(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoli
         threadUserData->TLSData->Ptr1 = const_cast<void*>(static_cast<const void*>(app));
         threadUserData->TLSData->Ptr2 = const_cast<void*>(static_cast<const void*>(argv));
 
-        PThreadAttribs attrs(name, priority, PThreadDetachState_Joinable, app->StackSize);
+        PThreadAttribs attrs(path, schedpriority, PThreadDetachState_Joinable, app->StackSize);
 
         attrs.StackSize     = threadUserData->StackSize;
         attrs.StackAddress  = threadUserData->StackBuffer;

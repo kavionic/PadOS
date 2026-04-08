@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 21.12.2025 17:30
 
+#include <spawn.h>
+#include <errno.h>
 #include <Process/Process.h>
 #include <System/AppDefinition.h>
 #include <Threads/ThreadUserspaceState.h>
@@ -65,76 +67,19 @@ void __process_entry_trampoline(PThreadUserData* threadData, ThreadEntryPoint_t 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode spawn_execl(pid_t* outPID, const char* name, int priority, const char* arg0, ...)
-{
-    va_list args;
-
-    int argc = 1;
-    va_start(args, arg0);
-    for (; va_arg(args, const char*) != nullptr; ++argc);
-    va_end(args);
-
-    const char** argv = static_cast<const char**>(alloca((argc + 1) * sizeof(const char*)));
-
-    argv[0] = arg0;
-    va_start(args, arg0);
-    for (int i = 1; i < argc; ++i ) {
-        argv[i] = va_arg(args, const char*);
-    }
-    va_end(args);
-    argv[argc] = nullptr;
-
-    return spawn_execv(outPID, name, priority, const_cast<char* const*>(argv));
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode spawn_execle(pid_t* outPID, const char* name, int priority, const char* arg0, ...)
-{
-    va_list args;
-
-    int argc = 1;
-    va_start(args, arg0);
-    for (; va_arg(args, const char*) != nullptr; ++argc);
-    va_end(args);
-
-    const char** argv = static_cast<const char**>(alloca((argc + 1) * sizeof(const char*)));
-
-    argv[0] = arg0;
-    va_start(args, arg0);
-    for (int i = 1; i < argc; ++i) {
-        argv[i] = va_arg(args, const char*);
-    }
-    char* const* envp = va_arg(args, char* const*);
-    va_end(args);
-    argv[argc] = nullptr;
-
-    return spawn_execve(outPID, name, priority, const_cast<char* const*>(argv), envp);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode spawn_execv(pid_t* outPID, const char* name, int priority, char* const argv[])
-{
-    return spawn_execve(outPID, name, priority, argv, environ);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode spawn_execve(pid_t* outPID, const char* name, int priority, char* const argv[], char* const envp[])
+int posix_spawn(pid_t* __restrict outPID,
+                const char* __restrict path,
+                const posix_spawn_file_actions_t* /*file_actions*/,
+                const posix_spawnattr_t* __restrict /*attrp*/,
+                char* const argv[],
+                char* const envp[])
 {
     PThreadAttribs attribs(nullptr);
 
     PThreadUserData* const threadData = __app_definition.create_thread_user_data(attribs);
 
     if (threadData == nullptr) {
-        return PErrorCode::NoMemory;
+        return ENOMEM;
     }
     size_t argc = 0;
     size_t totalArgSize = 0;
@@ -148,7 +93,7 @@ PErrorCode spawn_execve(pid_t* outPID, const char* name, int priority, char* con
     if (argvCopy == nullptr)
     {
         delete_thread_user_data(threadData);
-        return PErrorCode::NoMemory;
+        return ENOMEM;
     }
     char* textBuffer = reinterpret_cast<char*>(argvCopy + argc + 1);
     for (size_t i = 0; i < argc; ++i)
@@ -160,10 +105,24 @@ PErrorCode spawn_execve(pid_t* outPID, const char* name, int priority, char* con
     }
     argvCopy[argc] = nullptr;
 
-    const PErrorCode result = __spawn_execve(outPID, __app_definition.process_entry_trampoline, name, priority, threadData, argvCopy, envp);
-    if (result != PErrorCode::Success) {
+    const int result = __posix_spawn(outPID, __app_definition.process_entry_trampoline, path, 0, threadData, argvCopy, envp != nullptr ? envp : environ);
+    if (result != 0) {
         delete_thread_user_data(threadData);
         __app_definition.free_memory(argvCopy);
     }
     return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int posix_spawnp(pid_t* __restrict outPID,
+                 const char* __restrict file,
+                 const posix_spawn_file_actions_t* file_actions,
+                 const posix_spawnattr_t* __restrict attrp,
+                 char* const argv[],
+                 char* const envp[])
+{
+    return posix_spawn(outPID, file, file_actions, attrp, argv, envp);
 }

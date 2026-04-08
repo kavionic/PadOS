@@ -181,7 +181,7 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(system_log_add_message),
     SYS_PTR(add_serial_command_handler),
     SYS_PTR(serial_command_send_data),
-    SYS_PTR(spawn_execve),
+    SYS_PTR(posix_spawn),
     SYS_PTR(sigaction),
     SYS_PTR(thread_sigqueue),
     SYS_PTR(thread_sigmask),

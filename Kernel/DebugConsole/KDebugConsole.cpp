@@ -22,10 +22,10 @@
 #include <stdexcept>
 
 #include <termios.h>
+#include <spawn.h>
 #include <sys/wait.h>
 
 #include <PadOS/Time.h>
-#include <Process/Process.h>
 #include <Utils/POSIXTokenizer.h>
 #include <Utils/Logging.h>
 #include <System/AppDefinition.h>
@@ -988,9 +988,9 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
             argv.push_back(nullptr);
 
             pid_t pid;
-            const PErrorCode result = spawn_execve(&pid, path.c_str(), 0, argv.data(), environ);
-            if (result != PErrorCode::Success) {
-                kprintf("Failed to execute '%s': %s\n", path.c_str(), p_strerror(result));
+            const int spawnResult = posix_spawn(&pid, path.c_str(), nullptr, nullptr, argv.data(), environ);
+            if (spawnResult != 0) {
+                kprintf("Failed to execute '%s': %s\n", path.c_str(), strerror(spawnResult));
                 return;
             }
 

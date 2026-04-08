@@ -37,6 +37,7 @@ public:
     PPOSIXTokenizer(const PString& text) { SetText(text); }
 
     Termination SetText(const PString& text);
+    const PString& GetText() const noexcept { return m_Text; }
 
     Termination GetTermination() const { return m_Termination; }
 

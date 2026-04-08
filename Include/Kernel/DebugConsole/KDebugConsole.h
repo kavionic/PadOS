@@ -40,9 +40,27 @@ public:
 
     virtual void* Run() override;
 
+    struct JobEntry
+    {
+        pid_t   PID = -1;
+        PString CommandLine;
+        bool    Stopped = false;  // true = stopped, false = running in background
+    };
+
     int GetStdInFD() const  { return m_StdInFD; }
     int GetStdOutFD() const { return m_StdOutFD; }
     int GetStdErrFD() const { return m_StdErrFD; }
+
+    const std::map<int, JobEntry>& GetJobs() const { return m_Jobs; }
+
+    int  AddJob(pid_t pid, bool isStopped, const PString& commandLine);
+    void RemoveJob(int jobNum);
+    int  FindJob(pid_t pid); // Returns job number, or -1 if not found.
+    const JobEntry& GetJobInfo(int jobNum) const;
+    void SetJobStopped(int jobNum, bool stopped);
+
+    void WaitForForegroundProcess(pid_t pid, const PString& commandLine);
+    void CheckBackgroundJobs();
 
     void AddInputText(const char* text, size_t length);
     void EnterPressed();
@@ -123,6 +141,8 @@ private:
     size_t  m_CursorPosition = 0;
 
     std::vector<PString> m_PendingExpansionAlternatives;
+
+    std::map<int, JobEntry> m_Jobs;
 };
 
 } // namespace kernel

@@ -31,6 +31,7 @@
 #include <System/AppDefinition.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KLogging.h>
+#include <Kernel/KPosixSignals.h>
 #include <Kernel/DebugConsole/KDebugConsole.h>
 #include <Kernel/VFS/FileIO.h>
 
@@ -485,8 +486,169 @@ bool KDebugConsole::SetPrompt(const PString& text, size_t visibleLength)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+int KDebugConsole::AddJob(pid_t pid, bool isStopped, const PString& commandLine)
+{
+    const int nextNum = m_Jobs.empty() ? 1 : m_Jobs.rbegin()->first + 1;
+    m_Jobs[nextNum] = { pid, commandLine, isStopped };
+    return nextNum;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::RemoveJob(int jobNum)
+{
+    auto it = m_Jobs.find(jobNum);
+    if (it != m_Jobs.end()) {
+        m_Jobs.erase(it);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int KDebugConsole::FindJob(pid_t pid)
+{
+    for (const auto& job : m_Jobs) {
+        if (job.second.PID == pid) return job.first;
+    }
+    return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const KDebugConsole::JobEntry& KDebugConsole::GetJobInfo(int jobNum) const
+{
+    auto it = m_Jobs.find(jobNum);
+    if (it != m_Jobs.end()) {
+        return it->second;
+    }
+    static JobEntry dummy;
+    return dummy;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::SetJobStopped(int jobNum, bool stopped)
+{
+    auto it = m_Jobs.find(jobNum);
+    if (it != m_Jobs.end()) {
+        it->second.Stopped = stopped;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::WaitForForegroundProcess(pid_t pid, const PString& commandLine)
+{
+    for (;;)
+    {
+        siginfo_t info;
+        const PErrorCode result = kwaitid(P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED);
+
+        if (result != PErrorCode::Success)
+        {
+            kprintf("kwaitpid() failed: %s(%d)\n", p_strerror(result), int(result));
+            return;
+        }
+
+        switch (info.si_code)
+        {
+            case CLD_EXITED:
+                if (info.si_status != 0) {
+                    kprintf("'%s' exited with code: %d\n", commandLine.c_str(), info.si_status);
+                }
+                // Remove from job list if it was a background job brought to foreground.
+                RemoveJob(FindJob(pid));
+                return;
+
+            case CLD_KILLED:
+                kprintf("'%s' killed: %s(%d)\n", commandLine.c_str(), strsignal(info.si_status), info.si_status);
+                RemoveJob(FindJob(pid));
+                return;
+
+            case CLD_STOPPED:
+            {
+                int jobNum = FindJob(pid);
+                if (jobNum < 0) {
+                    jobNum = AddJob(pid, true, commandLine);
+                } else {
+                    SetJobStopped(jobNum, true);
+                }
+                kprintf("\n[%d]+  Stopped\t%s\n", jobNum, commandLine.c_str());
+                return;
+            }
+
+            case CLD_CONTINUED:
+            {
+                const int jobNum = FindJob(pid);
+                if (jobNum >= 0) {
+                    SetJobStopped(jobNum, false);
+                }
+                break; // Process continued — keep waiting.
+            }
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::CheckBackgroundJobs()
+{
+    for (auto it = m_Jobs.begin(); it != m_Jobs.end(); )
+    {
+        siginfo_t info = {};
+        const PErrorCode result = kwaitid(P_PID, it->second.PID, &info, WNOHANG | WEXITED | WSTOPPED | WCONTINUED);
+
+        if (result != PErrorCode::Success || info.si_pid == 0)
+        {
+            ++it;
+            continue;
+        }
+
+        switch (info.si_code)
+        {
+            case CLD_EXITED:
+                kprintf("[%d]  Done\t%s\n", it->first, it->second.CommandLine.c_str());
+                it = m_Jobs.erase(it);
+                continue;
+
+            case CLD_KILLED:
+                kprintf("[%d]  Killed\t%s\n", it->first, it->second.CommandLine.c_str());
+                it = m_Jobs.erase(it);
+                continue;
+
+            case CLD_STOPPED:
+                SetJobStopped(it->first, true);
+                kprintf("[%d]+  Stopped\t%s\n", it->first, it->second.CommandLine.c_str());
+                break;
+
+            case CLD_CONTINUED:
+                SetJobStopped(it->first, false);
+                break;
+        }
+        ++it;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void KDebugConsole::UpdateCmdPrompt()
 {
+    CheckBackgroundJobs();
+
     char cwd[PATH_MAX];
 
     const PString setColor = PANSIEscapeCodeParser::FormatANSICode(PANSI_ControlCode::SetRenderProperty, int(PANSI_RenderProperty::FgColor_Yellow));
@@ -826,39 +988,13 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
             argv.push_back(nullptr);
 
             pid_t pid;
-            PErrorCode result = spawn_execve(&pid, path.c_str(), 0, argv.data(), environ);
+            const PErrorCode result = spawn_execve(&pid, path.c_str(), 0, argv.data(), environ);
             if (result != PErrorCode::Success) {
                 kprintf("Failed to execute '%s': %s\n", path.c_str(), p_strerror(result));
+                return;
             }
-//            void* retValue = nullptr;
-//            thread_join(pid, &retValue);
-            siginfo_t info;
-            result = kwaitid(P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED);
 
-            if (result == PErrorCode::Success)
-            {
-                switch(info.si_code)
-                {
-                    case CLD_EXITED:
-                        if (info.si_status != 0) {
-                            kprintf("'%s' exited with code: %d\n", path.c_str(), info.si_status);
-                        }
-                        break;
-                    case CLD_KILLED:
-                        kprintf("'%s' killed: %s(%d)\n", path.c_str(), strsignal(info.si_status), info.si_status);
-                        break;
-                    case CLD_STOPPED:
-                        kprintf("'%s' stopped: %s(%d)\n", path.c_str(), strsignal(info.si_status), info.si_status);
-                        break;
-                    case CLD_CONTINUED:
-                        kprintf("'%s' started: %s(%d)\n", path.c_str(), strsignal(info.si_status), info.si_status);
-                        break;
-                }
-            }
-            else
-            {
-                kprintf("kwaitpid() failed: %s(%d)\n", p_strerror(result), int(result));
-            }
+            WaitForForegroundProcess(pid, tokenizer.GetText());
             return;
         }
 
@@ -955,6 +1091,9 @@ void KDebugConsole::ProcessControlChar(PANSI_ControlCode controlChar, const std:
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 void KDebugConsole::UpdateWindowSize()
 {

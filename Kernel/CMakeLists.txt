@@ -20,7 +20,6 @@ target_sources(PadOS_Kernel PRIVATE
 	KNamedObject.cpp
 	KObjectWaitGroup.cpp
 	KPIDNode.cpp
-	KPosixSignals.cpp
 	KPowerManager.cpp
 	KProcess.cpp
 	KProcessGroup.cpp
@@ -36,4 +35,9 @@ target_sources(PadOS_Kernel PRIVATE
 	SpinTimer.cpp
 	Syscalls.cpp
 	ThreadSyncDebugTracker.cpp
+)
+
+target_sources(PadOS_KernelExt PRIVATE
+	KPosixSignals.cpp
+	KPosixSpawn.cpp
 )

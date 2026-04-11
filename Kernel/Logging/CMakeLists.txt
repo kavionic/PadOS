@@ -1,3 +1,3 @@
-target_sources(PadOS_Kernel PRIVATE
+target_sources(PadOS_KernelExt PRIVATE
 	LogManager.cpp
 )

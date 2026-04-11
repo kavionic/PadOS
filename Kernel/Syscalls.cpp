@@ -192,7 +192,26 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(thread_setcancelstate),
     SYS_PTR(thread_setcanceltype),
     SYS_PTR(has_nmi_status),
-    SYS_PTR(log_and_clear_nmi_status)
+    SYS_PTR(log_and_clear_nmi_status),
+    SYS_PTR(posix_spawnattr_init),
+    SYS_PTR(posix_spawnattr_destroy),
+    SYS_PTR(posix_spawnattr_getflags),
+    SYS_PTR(posix_spawnattr_setflags),
+    SYS_PTR(posix_spawnattr_getpgroup),
+    SYS_PTR(posix_spawnattr_setpgroup),
+    SYS_PTR(posix_spawnattr_getschedparam),
+    SYS_PTR(posix_spawnattr_setschedparam),
+    SYS_PTR(posix_spawnattr_getschedpolicy),
+    SYS_PTR(posix_spawnattr_setschedpolicy),
+    SYS_PTR(posix_spawnattr_getsigdefault),
+    SYS_PTR(posix_spawnattr_setsigdefault),
+    SYS_PTR(posix_spawnattr_getsigmask),
+    SYS_PTR(posix_spawnattr_setsigmask),
+    SYS_PTR(setpgid),
+    SYS_PTR(getuid),
+    SYS_PTR(getgid),
+    SYS_PTR(seteuid),
+    SYS_PTR(setegid)
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);

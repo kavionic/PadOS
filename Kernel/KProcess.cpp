@@ -23,15 +23,19 @@
 #include <sys/wait.h>
 #include <sys/errno.h>
 
-#include <Kernel/KHandleArray.h>
-#include <Kernel/KProcess.h>
-#include <Kernel/KProcessSession.h>
-#include <Kernel/KThreadCB.h>
 #include <Kernel/Kernel.h>
+#include <Kernel/KHandleArray.h>
+#include <Kernel/KPosixSpawn.h>
+#include <Kernel/KProcess.h>
+#include <Kernel/KProcessGroup.h>
+#include <Kernel/KProcessSession.h>
+#include <Kernel/KThread.h>
+#include <Kernel/KThreadCB.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/VFS/Kpty.h>
-#include <Threads/Threads.h>
+#include <Process/SpawnAttr.h>
 #include <System/AppDefinition.h>
+#include <Threads/Threads.h>
 #include <Utils/Utils.h>
 
 
@@ -71,7 +75,7 @@ KProcess::KProcess(KPIDNode& pidNode, const char* name)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const char* name)
+KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const __posix_spawnattr* spawnAttr, const char* name)
     : m_Mutex("process", PEMutexRecursionMode_RaiseError)
     , m_ChildrenCondition("process")
     , m_PID(pidNode.PID)
@@ -82,11 +86,13 @@ KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const char* n
     strncpy(m_Name, name, OS_NAME_LENGTH);
     m_IOContext.Clone(parentProcess->m_IOContext);
 
+    const bool resetIDs = spawnAttr != nullptr && (spawnAttr->sa_flags & POSIX_SPAWN_RESETIDS);
+
     m_RUID      = parentProcess->m_RUID;
-    m_EUID      = parentProcess->m_EUID;
+    m_EUID      = resetIDs ? parentProcess->m_RUID : parentProcess->m_EUID;
     m_SUID      = parentProcess->m_SUID;
     m_RGID      = parentProcess->m_RGID;
-    m_EGID      = parentProcess->m_EGID;
+    m_EGID      = resetIDs ? parentProcess->m_RGID : parentProcess->m_EGID;
     m_SGID      = parentProcess->m_SGID;
     m_NumGroups = parentProcess->m_NumGroups;
     m_Session   = parentProcess->m_Session;
@@ -97,6 +103,14 @@ KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const char* n
 
     parentProcess->m_Group->AddProcess(this);
 
+    if (spawnAttr != nullptr && spawnAttr->sa_flags & POSIX_SPAWN_SETPGROUP) {
+        SetPGroupID(ptr_tmp_cast(this), (spawnAttr->sa_pgroup != 0) ? spawnAttr->sa_pgroup : m_PID);
+    }
+
+    if (spawnAttr == nullptr || (spawnAttr->sa_flags & POSIX_SPAWN_SETSIGDEF) == 0) {
+        std::copy(std::begin(parentProcess->m_SignalHandlers), std::end(parentProcess->m_SignalHandlers), std::begin(m_SignalHandlers));
+    }
+    
     memcpy(m_Groups, parentProcess->m_Groups, sizeof(m_Groups));
 
     parentProcess->m_Children.push_back(this);
@@ -257,20 +271,19 @@ void KProcess::SetPGroupID(Ptr<const KProcess> instigator, pid_t pgroup)
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
-    if (pidNode->Session != m_Session) {
-        PERROR_THROW_CODE(PErrorCode::NoPermission);
-    }
-
     if (pidNode->Group == nullptr)
     {
         const Ptr<KProcessGroup> group = ptr_new<KProcessGroup>(pgroup, m_Session);
-        
+
         group->ReserveSpace(); // Make sure AddProcess() don't throw after we modified the old group.
 
         pidNode->Group = group;
     }
     else
     {
+        if (pidNode->Group->GetSession() != m_Session) {
+            PERROR_THROW_CODE(PErrorCode::NoPermission);
+        }
         pidNode->Group->ReserveSpace(); // Make sure AddProcess() don't throw after we modified the old group.
     }
     m_Group->RemoveProcess(this);
@@ -378,6 +391,16 @@ pid_t KProcess::CreateSession()
     pidNode->Group = group;
 
     return sessionID;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KProcess::IsSessionLeader() const noexcept
+{
+    kassert(g_PIDMapMutex.IsLocked());
+    return m_Session->GetID() == m_PID;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -683,7 +706,7 @@ Ptr<KProcess> KProcess::GetProcess_pl(pid_t pid) noexcept
 
 void KProcess::HandleExit()
 {
-    if (IsGroupLeader())
+    if (IsSessionLeader())
     {
         try {
             kdisassociate_controlling_tty_trw(false);
@@ -786,6 +809,56 @@ PErrorCode kwaitid(idtype_t idtype, id_t id, siginfo_t* infop, int options) noex
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uid_t kgetuid() noexcept
+{
+    KScopedLock lock(g_PIDMapMutex);
+    return kget_current_process().GetRUID();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+gid_t kgetgid() noexcept
+{
+    KScopedLock lock(g_PIDMapMutex);
+    return kget_current_process().GetRGID();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kseteuid(uid_t uid) noexcept
+{
+    KScopedLock lock(g_PIDMapMutex);
+    KProcess& process = kget_current_process();
+    if (uid != process.GetRUID() && uid != process.GetEUID() && uid != process.GetSUID()) {
+        return PErrorCode::NoPermission;
+    }
+    process.SetEUID(uid);
+    return PErrorCode::Success;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode ksetegid(gid_t gid) noexcept
+{
+    KScopedLock lock(g_PIDMapMutex);
+    KProcess& process = kget_current_process();
+    if (gid != process.GetRGID() && gid != process.GetEGID() && gid != process.GetSGID()) {
+        return PErrorCode::NoPermission;
+    }
+    process.SetEGID(gid);
+    return PErrorCode::Success;
 }
 
 } // namespace kernel

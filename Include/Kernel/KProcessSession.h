@@ -26,11 +26,12 @@
 namespace kernel
 {
 
+class KInode;
 
 class KProcessSession : public PtrTarget
 {
 public:
-    KProcessSession(pid_t id) : m_SessionID(id) {}
+    KProcessSession(pid_t id);
 
     pid_t GetID() const noexcept { return m_SessionID; }
 
@@ -43,7 +44,7 @@ public:
     void SetControllingTTY(Ptr<KInode> inode);
     Ptr<KInode> GetControllingTTY() const;
 
-    const std::vector<Ptr<KProcessGroup>>& GetGroupList() const noexcept { kassert(g_PIDMapMutex.IsLocked()); return m_Groups; }
+    const std::vector<Ptr<KProcessGroup>>& GetGroupList() const noexcept;
 private:
     pid_t                           m_SessionID = -1;
     Ptr<KInode>                     m_ControllingTTY;

@@ -19,6 +19,8 @@
 
 #include <spawn.h>
 #include <errno.h>
+
+#include <Kernel/KPosixSpawn.h>
 #include <Process/Process.h>
 #include <System/AppDefinition.h>
 #include <Threads/ThreadUserspaceState.h>
@@ -69,8 +71,8 @@ void __process_entry_trampoline(PThreadUserData* threadData, ThreadEntryPoint_t 
 
 int posix_spawn(pid_t* __restrict outPID,
                 const char* __restrict path,
-                const posix_spawn_file_actions_t* /*file_actions*/,
-                const posix_spawnattr_t* __restrict /*attrp*/,
+                const posix_spawn_file_actions_t* /*fileActions*/,
+                const posix_spawnattr_t* __restrict spawnAttr,
                 char* const argv[],
                 char* const envp[])
 {
@@ -105,7 +107,16 @@ int posix_spawn(pid_t* __restrict outPID,
     }
     argvCopy[argc] = nullptr;
 
-    const int result = __posix_spawn(outPID, __app_definition.process_entry_trampoline, path, 0, threadData, argvCopy, envp != nullptr ? envp : environ);
+    const int result = __posix_spawn(
+        outPID,
+        __app_definition.process_entry_trampoline,
+        path,
+        (spawnAttr != nullptr) ? *spawnAttr : nullptr,
+        threadData,
+        argvCopy,
+        (envp != nullptr) ? envp : environ
+    );
+
     if (result != 0) {
         delete_thread_user_data(threadData);
         __app_definition.free_memory(argvCopy);
@@ -126,3 +137,42 @@ int posix_spawnp(pid_t* __restrict outPID,
 {
     return posix_spawn(outPID, file, file_actions, attrp, argv, envp);
 }
+
+extern "C"
+{
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int posix_spawnattr_init(posix_spawnattr_t* inAttr)
+{
+    __posix_spawnattr* attr = static_cast<__posix_spawnattr*>(__app_definition.alloc_memory(sizeof(__posix_spawnattr)));
+    if (attr == nullptr) {
+        return ENOMEM;
+    }
+    const int result = __posix_spawnattr_init(attr, sizeof(*attr));
+    if (result != 0)
+    {
+        free(attr);
+        return result;
+    }
+
+    *inAttr = attr;
+
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int posix_spawnattr_destroy(posix_spawnattr_t* attr) noexcept
+{
+    __posix_spawnattr_destroy(*attr);
+    __app_definition.free_memory(*attr);
+    *attr = nullptr;
+    return 0;
+}
+
+} // extern "C"

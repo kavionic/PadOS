@@ -26,14 +26,16 @@
 #include <sys/wait.h>
 
 #include <PadOS/Time.h>
-#include <Utils/POSIXTokenizer.h>
-#include <Utils/Logging.h>
-#include <System/AppDefinition.h>
-#include <Kernel/KProcess.h>
+#include <Kernel/DebugConsole/KDebugConsole.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/KPosixSignals.h>
-#include <Kernel/DebugConsole/KDebugConsole.h>
+#include <Kernel/KProcess.h>
+#include <Kernel/KProcessGroups.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/Kpty.h>
+#include <System/AppDefinition.h>
+#include <Utils/Logging.h>
+#include <Utils/POSIXTokenizer.h>
 
 
 namespace kernel
@@ -83,6 +85,8 @@ void KDebugConsole::Setup()
 
 void* KDebugConsole::Run()
 {
+    ksetpgid_trw(0, 0);
+
     UpdateCmdPrompt();
     
     m_Prompt = m_CmdPrompt;
@@ -551,6 +555,8 @@ void KDebugConsole::WaitForForegroundProcess(pid_t pid, const PString& commandLi
 {
     for (;;)
     {
+        ktcsetpgrp_trw(STDOUT_FILENO, pid);
+
         siginfo_t info;
         const PErrorCode result = kwaitid(P_PID, pid, &info, WEXITED | WSTOPPED | WCONTINUED);
 
@@ -987,9 +993,17 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
             }
             argv.push_back(nullptr);
 
+            posix_spawnattr_t spawnAttrs;
+
+            posix_spawnattr_init(&spawnAttrs);
+            PScopeExit cleanup([&spawnAttrs] { posix_spawnattr_destroy(&spawnAttrs); });
+
+            posix_spawnattr_setflags(&spawnAttrs, POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF);
+
             pid_t pid;
-            const int spawnResult = posix_spawn(&pid, path.c_str(), nullptr, nullptr, argv.data(), environ);
-            if (spawnResult != 0) {
+            const int spawnResult = posix_spawn(&pid, path.c_str(), nullptr, &spawnAttrs, argv.data(), environ);
+            if (spawnResult != 0)
+            {
                 kprintf("Failed to execute '%s': %s\n", path.c_str(), strerror(spawnResult));
                 return;
             }

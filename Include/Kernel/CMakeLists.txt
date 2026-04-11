@@ -14,6 +14,7 @@ target_sources(PadOS_Kernel PRIVATE
 	KObjectWaitGroup.h
 	KPIDNode.h
 	KPosixSignals.h
+	KPosixSpawn.h
 	KPowerManager.h
 	KProcess.h
 	KProcessGroup.h

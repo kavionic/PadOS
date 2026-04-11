@@ -25,9 +25,9 @@
 
 #include <System/AppDefinition.h>
 #include <System/ErrorCodes.h>
-#include <Threads/ThreadUserspaceState.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcess.h>
+#include <Kernel/KProcessGroups.h>
 #include <Kernel/Syscalls.h>
 #include <Kernel/VFS/FileIO.h>
 
@@ -41,65 +41,6 @@ namespace kernel
 extern "C"
 {
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-PErrorCode sys_posix_spawn(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoline, const char* path, int schedpriority, PThreadUserData* threadUserData, char* const argv[], char* const envp[])
-{
-    try
-    {
-        if (outPID != nullptr) {
-            validate_user_write_pointer_trw(outPID);
-        }
-        validate_user_read_string_trw(path, PATH_MAX);
-        validate_user_read_pointer_trw(threadUserData);
-        validate_user_write_pointer_trw(threadUserData->TLSData);
-
-        const PAppDefinition* app = nullptr;
-
-        {
-            const int file = kopen_trw(path, O_RDONLY);
-
-            PScopeExit scopeCleanup([file]() { kclose(file); });
-
-            struct stat fileStats;
-
-            kread_stat_trw(file, &fileStats);
-
-            if ((fileStats.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) == 0) {
-                return PErrorCode::NoAccess;
-            }
-            if (fileStats.st_size > NAME_MAX) {
-                return PErrorCode::InvalidFileType;
-            }
-            PString appName;
-            appName.resize(size_t(fileStats.st_size));
-            if (kread_trw(file, appName.data(), appName.size()) != appName.size()) {
-                return PErrorCode::IOError;
-            }
-            app = PAppDefinition::FindApplication(appName.c_str());
-        }
-
-        if (app == nullptr) {
-            return PErrorCode::InvalidFileType;
-        }
-        threadUserData->TLSData->Ptr1 = const_cast<void*>(static_cast<const void*>(app));
-        threadUserData->TLSData->Ptr2 = const_cast<void*>(static_cast<const void*>(argv));
-
-        PThreadAttribs attrs(path, schedpriority, PThreadDetachState_Joinable, app->StackSize);
-
-        attrs.StackSize     = threadUserData->StackSize;
-        attrs.StackAddress  = threadUserData->StackBuffer;
-
-        const thread_id mainThreadID = kthread_spawn_trw(&attrs, threadUserData, KSpawnThreadFlag::SpawnProcess, entryTrampoline, nullptr, threadUserData->TLSData);
-        if (outPID != nullptr) {
-            *outPID = mainThreadID;
-        }
-        return PErrorCode::Success;
-    }
-    PERROR_CATCH_RET_CODE;
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -108,6 +49,55 @@ PErrorCode sys_posix_spawn(pid_t* outPID, ThreadEntryTrampoline_t entryTrampolin
 void sys_exit(int exitCode)
 {
     kexit(exitCode);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PSysRetPair sys_getuid(void)
+{
+    return PMakeSysRetSuccess(kgetuid());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PSysRetPair sys_getgid(void)
+{
+    return PMakeSysRetSuccess(kgetgid());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_seteuid(uid_t uid)
+{
+    return kseteuid(uid);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_setegid(gid_t gid)
+{
+    return ksetegid(gid);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_setpgid(pid_t pid, pid_t pgid)
+{
+    try {
+        ksetpgid_trw(pid, pgid);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

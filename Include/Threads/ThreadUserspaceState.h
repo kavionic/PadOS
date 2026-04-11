@@ -18,6 +18,8 @@
 // Created: 22.03.2026 16:00
 
 #pragma once
+#include <Threads/Threads.h>
+
 
 struct PFirmwareImageDefinition;
 

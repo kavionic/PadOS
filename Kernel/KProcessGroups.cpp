@@ -20,6 +20,7 @@
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcessGroups.h>
 #include <Kernel/KProcess.h>
+#include <Kernel/KPIDNode.h>
 #include <Kernel/VFS/KINode.h>
 
 namespace kernel

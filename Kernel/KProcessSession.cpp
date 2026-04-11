@@ -17,9 +17,23 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 15.03.2026 20:00
 
+
+#include <Kernel/KProcessSession.h>
+#include <Kernel/KProcessGroup.h>
+#include <Kernel/KPIDNode.h>
+#include <Kernel/VFS/KINode.h>
+
 namespace kernel
 {
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KProcessSession::KProcessSession(pid_t id) : m_SessionID(id)
+{
+
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -73,7 +87,7 @@ void KProcessSession::SetForegroundGroup(Ptr<KProcessGroup> group) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<kernel::KProcessGroup> KProcessSession::GetForegroundGroup() const noexcept
+Ptr<KProcessGroup> KProcessSession::GetForegroundGroup() const noexcept
 {
     kassert(g_PIDMapMutex.IsLocked());
     return m_ForegroundGroup;
@@ -93,11 +107,20 @@ void KProcessSession::SetControllingTTY(Ptr<KInode> inode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<kernel::KInode> KProcessSession::GetControllingTTY() const
+Ptr<KInode> KProcessSession::GetControllingTTY() const
 {
     kassert(g_PIDMapMutex.IsLocked());
     return m_ControllingTTY;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const std::vector<Ptr<KProcessGroup>>& KProcessSession::GetGroupList() const noexcept
+{
+    kassert(g_PIDMapMutex.IsLocked());
+    return m_Groups;
+}
 
 } // namespace kernel

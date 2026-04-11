@@ -217,7 +217,7 @@ static void* init_thread_entry(void* arguments)
     attrs.StackSize     = mainThreadUserData->StackSize;
     attrs.StackAddress  = mainThreadUserData->StackBuffer;
    
-    gk_MainThreadID = kthread_spawn_trw(&attrs, mainThreadUserData, { KSpawnThreadFlag::Privileged, KSpawnThreadFlag::SpawnProcess }, nullptr, main_thread_entry, nullptr);
+    gk_MainThreadID = kthread_spawn_trw(&attrs, nullptr, mainThreadUserData, { KSpawnThreadFlag::Privileged, KSpawnThreadFlag::SpawnProcess }, nullptr, main_thread_entry, nullptr);
 
     for (;;)
     {

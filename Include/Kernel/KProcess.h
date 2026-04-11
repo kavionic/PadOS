@@ -59,7 +59,7 @@ class KProcess : public PtrTarget
 {
 public:
     KProcess(KPIDNode& pidNode, const char* name);
-    KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const char* name);
+    KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const __posix_spawnattr* spawnAttr, const char* name);
     ~KProcess();
 
     void AddThread(KThreadCB* thread);
@@ -90,6 +90,7 @@ public:
     Ptr<KProcessSession>    GetSession() const noexcept;
     pid_t    CreateSession();
 
+    bool    IsSessionLeader() const noexcept;
     bool    IsGroupLeader() const noexcept;
     bool    HasExeced() const noexcept { return false; }
 
@@ -99,10 +100,12 @@ public:
     uid_t   GetRUID() const noexcept { return m_RUID; }
     uid_t   GetEUID() const noexcept { return m_EUID; }
     uid_t   GetSUID() const noexcept { return m_SUID; }
+    void    SetEUID(uid_t euid) noexcept { m_EUID = euid; }
 
     gid_t   GetRGID() const noexcept { return m_RGID; }
     gid_t   GetEGID() const noexcept { return m_EGID; }
     gid_t   GetSGID() const noexcept { return m_SGID; }
+    void    SetEGID(gid_t egid) noexcept { m_EGID = egid; }
 
     bool CheckUIDMatch(uid_t uid) const noexcept;
     bool CheckUIDMatch(const KProcess& target) const noexcept;
@@ -166,6 +169,11 @@ void kexit(int exitCode);
 void kwaitid_trw(idtype_t idtype, id_t id, siginfo_t* infop, int options);
 
 PErrorCode kwaitid(idtype_t idtype, id_t id, siginfo_t* infop, int options) noexcept;
+
+uid_t      kgetuid() noexcept;
+gid_t      kgetgid() noexcept;
+PErrorCode kseteuid(uid_t uid) noexcept;
+PErrorCode ksetegid(gid_t gid) noexcept;
 
 
 } // namespace kernel

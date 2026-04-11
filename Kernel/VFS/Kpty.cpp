@@ -344,7 +344,7 @@ void KPTYFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void*
                 PERROR_THROW_CODE(PErrorCode::NOTTY);
             }
 
-            if (process.IsGroupLeader()) {
+            if (process.IsSessionLeader()) {
                 kdisassociate_controlling_tty_trw(true);
             } else {
                 // TODO: implement support for disassociating individual processes.

@@ -73,7 +73,7 @@ void KThread::Start_trw(KSpawnThreadFlags flags, PThreadDetachState detachState,
     {
         m_DetachState = detachState;
         PThreadAttribs attrs(m_Name.c_str(), priority, detachState, stackSize);
-        m_ThreadHandle = kthread_spawn_trw(&attrs, /*tlsBlock*/ nullptr, flags | KSpawnThreadFlag::Privileged, nullptr, ThreadEntry, this);
+        m_ThreadHandle = kthread_spawn_trw(&attrs, nullptr, /*tlsBlock*/ nullptr, flags | KSpawnThreadFlag::Privileged, nullptr, ThreadEntry, this);
     }
 }
 
@@ -157,7 +157,7 @@ PErrorCode kthread_attribs_init(PThreadAttribs& outAttribs) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadUserData* threadUserData, KSpawnThreadFlags flags, ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, void* arguments)
+thread_id kthread_spawn_trw(const PThreadAttribs* threadAttr, const __posix_spawnattr* spawnAttr, PThreadUserData* threadUserData, KSpawnThreadFlags flags, ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, void* arguments)
 {
     kassert(!g_PIDMapMutex.IsLocked());
     KScopedLock lock(g_PIDMapMutex);
@@ -168,7 +168,7 @@ thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadUserData* thre
 
     Ptr<KProcess> process;
     if (flags.Has(KSpawnThreadFlag::SpawnProcess)) {
-        process = ptr_new<KProcess>(*pidNode, ptr_tmp_cast(&kget_current_process()), (attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "");
+        process = ptr_new<KProcess>(*pidNode, ptr_tmp_cast(&kget_current_process()), spawnAttr, (threadAttr != nullptr && threadAttr->Name != nullptr) ? threadAttr->Name : "");
     } else {
         process = ptr_tmp_cast(&kget_current_process());
     }
@@ -179,7 +179,7 @@ thread_id kthread_spawn_trw(const PThreadAttribs* attribs, PThreadUserData* thre
 
     Ptr<KThreadCB> thread;
 
-    thread = ptr_new<KThreadCB>(pidNode->PID, process, attribs, flags.Has(KSpawnThreadFlag::Privileged), threadUserData, nullptr);
+    thread = ptr_new<KThreadCB>(pidNode->PID, process, threadAttr, flags.Has(KSpawnThreadFlag::Privileged), threadUserData, nullptr);
     thread->InitializeStack(entryTrampoline, entryPoint, /*skipEntryTrampoline*/ false, arguments);
 
     pidNode->Thread = thread;

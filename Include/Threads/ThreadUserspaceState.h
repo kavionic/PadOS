@@ -30,6 +30,7 @@ struct PThreadUserData
     size_t                  StackSize;
     void*                   StackBuffer;
     PThreadControlBlock*    TLSData;
+    PPosixSpawnFileActions* SpawnFileActions;
     bool                    IsStackUserProvided;
     bool                    CancellationPending;
     bool                    IsCanceled;

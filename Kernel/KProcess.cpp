@@ -33,7 +33,6 @@
 #include <Kernel/KThreadCB.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/VFS/Kpty.h>
-#include <Process/SpawnAttr.h>
 #include <System/AppDefinition.h>
 #include <Threads/Threads.h>
 #include <Utils/Utils.h>
@@ -75,7 +74,7 @@ KProcess::KProcess(KPIDNode& pidNode, const char* name)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const __posix_spawnattr* spawnAttr, const char* name)
+KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const PPosixSpawnAttribs* spawnAttr, const char* name)
     : m_Mutex("process", PEMutexRecursionMode_RaiseError)
     , m_ChildrenCondition("process")
     , m_PID(pidNode.PID)
@@ -102,15 +101,27 @@ KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const __posix
     m_ExitInfo.si_uid   = m_RUID;
 
     parentProcess->m_Group->AddProcess(this);
+    std::copy(std::begin(parentProcess->m_SignalHandlers), std::end(parentProcess->m_SignalHandlers), std::begin(m_SignalHandlers));
 
-    if (spawnAttr != nullptr && spawnAttr->sa_flags & POSIX_SPAWN_SETPGROUP) {
-        SetPGroupID(ptr_tmp_cast(this), (spawnAttr->sa_pgroup != 0) ? spawnAttr->sa_pgroup : m_PID);
-    }
+    if (spawnAttr != nullptr)
+    {
+        if (spawnAttr->sa_flags & POSIX_SPAWN_SETSID) {
+            CreateSession();
+        } else if (spawnAttr->sa_flags & POSIX_SPAWN_SETPGROUP) {
+            SetPGroupID(ptr_tmp_cast(this), (spawnAttr->sa_pgroup != 0) ? spawnAttr->sa_pgroup : m_PID);
+        }
 
-    if (spawnAttr == nullptr || (spawnAttr->sa_flags & POSIX_SPAWN_SETSIGDEF) == 0) {
-        std::copy(std::begin(parentProcess->m_SignalHandlers), std::end(parentProcess->m_SignalHandlers), std::begin(m_SignalHandlers));
+        if (spawnAttr->sa_flags & POSIX_SPAWN_SETSIGDEF)
+        {
+            for (int sigNum = 1; sigNum <= KTOTAL_SIG_COUNT; ++sigNum)
+            {
+                if (sigismember(&spawnAttr->sa_sigdefault, sigNum))
+                {
+                    m_SignalHandlers[sigNum - 1] = {};
+                }
+            }
+        }
     }
-    
     memcpy(m_Groups, parentProcess->m_Groups, sizeof(m_Groups));
 
     parentProcess->m_Children.push_back(this);

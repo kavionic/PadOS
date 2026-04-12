@@ -25,8 +25,6 @@
 #include <Kernel/KAddressValidation.h>
 #include <Kernel/KPosixSpawn.h>
 #include <Kernel/Syscalls.h>
-#include <Process/SpawnAttr.h>
-#include <Process/SpawnAttr.h>
 #include <System/ErrorCodes.h>
 #include <Threads/ThreadUserspaceState.h>
 
@@ -41,7 +39,7 @@ extern "C"
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_posix_spawn(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoline, const char* path, const __posix_spawnattr* attr, PThreadUserData* threadUserData, char* const argv[], char* const envp[])
+PErrorCode sys_posix_spawn(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoline, const char* path, const PPosixSpawnAttribs* attr, PThreadUserData* threadUserData, char* const argv[], char* const envp[])
 {
     try
     {
@@ -64,7 +62,7 @@ PErrorCode sys_posix_spawn(pid_t* outPID, ThreadEntryTrampoline_t entryTrampolin
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_posix_spawnattr_init(__posix_spawnattr* attr, size_t attrSize)
+PErrorCode sys_posix_spawnattr_init(PPosixSpawnAttribs* attr, size_t attrSize)
 {
     if (attrSize != sizeof(*attr)) {
         return PErrorCode::InvalidArg;
@@ -81,7 +79,7 @@ PErrorCode sys_posix_spawnattr_init(__posix_spawnattr* attr, size_t attrSize)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode sys_posix_spawnattr_destroy(__posix_spawnattr* attr)
+PErrorCode sys_posix_spawnattr_destroy(PPosixSpawnAttribs* attr)
 {
     try
     {

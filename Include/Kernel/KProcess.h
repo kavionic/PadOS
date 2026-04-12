@@ -59,7 +59,7 @@ class KProcess : public PtrTarget
 {
 public:
     KProcess(KPIDNode& pidNode, const char* name);
-    KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const __posix_spawnattr* spawnAttr, const char* name);
+    KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const PPosixSpawnAttribs* spawnAttr, const char* name);
     ~KProcess();
 
     void AddThread(KThreadCB* thread);

@@ -76,7 +76,7 @@ private:
 };
 
 PErrorCode  kthread_attribs_init(PThreadAttribs& outAttribs) noexcept;
-thread_id   kthread_spawn_trw(const PThreadAttribs* threadAttr, const __posix_spawnattr* spawnAttr, PThreadUserData* threadUserData, KSpawnThreadFlags flags, ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, void* arguments);
+thread_id   kthread_spawn_trw(const PThreadAttribs* threadAttr, const PPosixSpawnAttribs* spawnAttr, PThreadUserData* threadUserData, KSpawnThreadFlags flags, ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, void* arguments);
 __attribute__((noreturn)) void kthread_exit(void* returnValue);
 void        kthread_cancel_trw(pid_t threadID);
 void        kthread_cancel_pl(KThreadCB& thread) noexcept;

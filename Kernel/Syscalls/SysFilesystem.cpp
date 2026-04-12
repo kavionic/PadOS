@@ -499,6 +499,20 @@ PErrorCode sys_getcwd(char* pathBuffer, size_t bufferSize)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PErrorCode sys_fchdir(int fd)
+{
+    try
+    {
+        kfchdir_trw(KLocateFlag::None, fd);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PErrorCode sys_mount(const char* devicePath, const char* directoryPath, const char* filesystemName, uint32_t flags, const char* args, size_t argLength)
 {
     try

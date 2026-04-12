@@ -1000,6 +1000,11 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
 
             posix_spawnattr_setflags(&spawnAttrs, POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF);
 
+            sigset_t defSigs;
+            sigfillset(&defSigs);
+
+            posix_spawnattr_setsigdefault(&spawnAttrs, &defSigs);
+
             pid_t pid;
             const int spawnResult = posix_spawn(&pid, path.c_str(), nullptr, &spawnAttrs, argv.data(), environ);
             if (spawnResult != 0)

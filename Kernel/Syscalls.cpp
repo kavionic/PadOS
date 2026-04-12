@@ -211,7 +211,8 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(getuid),
     SYS_PTR(getgid),
     SYS_PTR(seteuid),
-    SYS_PTR(setegid)
+    SYS_PTR(setegid),
+    SYS_PTR(fchdir)
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);

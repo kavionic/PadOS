@@ -35,7 +35,7 @@ extern "C"
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void kposix_spawn_trw(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoline, const char* path, const __posix_spawnattr* spawnAttr, PThreadUserData* threadUserData, char* const argv[], char* const envp[])
+void kposix_spawn_trw(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoline, const char* path, const PPosixSpawnAttribs* spawnAttr, PThreadUserData* threadUserData, char* const argv[], char* const envp[])
 {
     const PAppDefinition* app = nullptr;
 
@@ -88,7 +88,7 @@ void kposix_spawn_trw(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoline, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode kposix_spawnattr_init(__posix_spawnattr* attr) noexcept
+PErrorCode kposix_spawnattr_init(PPosixSpawnAttribs* attr) noexcept
 {
     *attr = {};
     return PErrorCode::Success;
@@ -98,7 +98,7 @@ PErrorCode kposix_spawnattr_init(__posix_spawnattr* attr) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode kposix_spawnattr_destroy(__posix_spawnattr* attr) noexcept
+PErrorCode kposix_spawnattr_destroy(PPosixSpawnAttribs* attr) noexcept
 {
     return PErrorCode::Success;
 }

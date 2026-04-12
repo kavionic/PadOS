@@ -157,7 +157,7 @@ PErrorCode kthread_attribs_init(PThreadAttribs& outAttribs) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-thread_id kthread_spawn_trw(const PThreadAttribs* threadAttr, const __posix_spawnattr* spawnAttr, PThreadUserData* threadUserData, KSpawnThreadFlags flags, ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, void* arguments)
+thread_id kthread_spawn_trw(const PThreadAttribs* threadAttr, const PPosixSpawnAttribs* spawnAttr, PThreadUserData* threadUserData, KSpawnThreadFlags flags, ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, void* arguments)
 {
     kassert(!g_PIDMapMutex.IsLocked());
     KScopedLock lock(g_PIDMapMutex);

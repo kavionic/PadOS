@@ -23,6 +23,7 @@
 #include <System/ExceptionHandling.h>
 #include <System/AppDefinition.h>
 #include <Kernel/KPIDNode.h>
+#include <Kernel/KPosixSpawn.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KThread.h>
 #include <Kernel/KThreadCB.h>
@@ -181,6 +182,10 @@ thread_id kthread_spawn_trw(const PThreadAttribs* threadAttr, const PPosixSpawnA
 
     thread = ptr_new<KThreadCB>(pidNode->PID, process, threadAttr, flags.Has(KSpawnThreadFlag::Privileged), threadUserData, nullptr);
     thread->InitializeStack(entryTrampoline, entryPoint, /*skipEntryTrampoline*/ false, arguments);
+
+    if (spawnAttr != nullptr && (spawnAttr->sa_flags & POSIX_SPAWN_SETSIGMASK)) {
+        thread->m_BlockedSignals = spawnAttr->sa_sigmask & KBLOCKABLE_SIGNALS_MASK;
+    }
 
     pidNode->Thread = thread;
 

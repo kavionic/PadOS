@@ -46,7 +46,9 @@ static PSpawnFileAction* create_file_action(const char* path)
     
     char* const pathDst = action->GetPath();
     
-    memcpy(pathDst, path, pathLen);
+    if (pathLen > 0) {
+        memcpy(pathDst, path, pathLen);
+    }
     pathDst[pathLen] = '\0';
 
     return action;
@@ -306,7 +308,7 @@ int posix_spawnattr_init(posix_spawnattr_t* inAttr)
     const int result = __posix_spawnattr_init(attr, sizeof(*attr));
     if (result != 0)
     {
-        free(attr);
+        __app_definition.free_memory(attr);
         return result;
     }
 

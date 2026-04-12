@@ -73,9 +73,8 @@ void kposix_spawn_trw(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoline, co
         priority = spawnAttr->sa_schedparam.sched_priority;
     }
 
-    PThreadAttribs threadAttr(path, priority, PThreadDetachState_Joinable, app->StackSize);
+    PThreadAttribs threadAttr(path, priority, PThreadDetachState_Joinable, threadUserData->StackSize);
 
-    threadAttr.StackSize     = threadUserData->StackSize;
     threadAttr.StackAddress  = threadUserData->StackBuffer;
 
     const thread_id mainThreadID = kthread_spawn_trw(&threadAttr, spawnAttr, threadUserData, KSpawnThreadFlag::SpawnProcess, entryTrampoline, nullptr, threadUserData->TLSData);

@@ -20,7 +20,9 @@
 #include <spawn.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <unwind.h>
 
 #include <Kernel/KPosixSpawn.h>
 #include <Process/Process.h>
@@ -101,59 +103,52 @@ static PPosixSpawnFileActions* duplicate_file_actions(const PPosixSpawnFileActio
 
 static void execute_file_actions(PPosixSpawnFileActions* fileActions)
 {
-    try
-    {
-        PScopeExit cleanup([fileActions]() { free_file_actions(fileActions); });
+    PScopeExit cleanup([fileActions]() { free_file_actions(fileActions); });
 
-        for (const PSpawnFileAction* action : fileActions->Actions)
+    for (const PSpawnFileAction* action : fileActions->Actions)
+    {
+        switch (action->Data.ActionType)
         {
-            switch (action->Data.ActionType)
-            {
-            case PSpawnFileActionType::Close:
-                close(action->Data.FD);
-                break;
+        case PSpawnFileActionType::Close:
+            close(action->Data.FD);
+            break;
 
-            case PSpawnFileActionType::Dup2:
-                if (dup2(action->Data.FD, action->Data.Dup2.NewFD) == -1) {
-                    throw errno;
-                }
-                break;
+        case PSpawnFileActionType::Dup2:
+            if (dup2(action->Data.FD, action->Data.Dup2.NewFD) == -1) {
+                exit(errno);
+            }
+            break;
 
-            case PSpawnFileActionType::Open:
+        case PSpawnFileActionType::Open:
+        {
+            const int fd = open(action->GetPath(), action->Data.Open.OFlag, action->Data.Open.Mode);
+            if (fd == -1) {
+                exit(errno);
+            }
+            if (fd != action->Data.FD)
             {
-                const int fd = open(action->GetPath(), action->Data.Open.OFlag, action->Data.Open.Mode);
-                if (fd == -1) {
-                    throw errno;
-                }
-                if (fd != action->Data.FD)
+                if (dup2(fd, action->Data.FD) == -1)
                 {
-                    if (dup2(fd, action->Data.FD) == -1)
-                    {
-                        close(fd);
-                        throw errno;
-                    }
                     close(fd);
+                    exit(errno);
                 }
-                break;
+                close(fd);
             }
-
-            case PSpawnFileActionType::Chdir:
-                if (chdir(action->GetPath()) == -1) {
-                    throw errno;
-                }
-                break;
-
-            case PSpawnFileActionType::Fchdir:
-                if (fchdir(action->Data.FD) == -1) {
-                    throw errno;
-                }
-                break;
-            }
+            break;
         }
-    }
-    catch (int errorCode)
-    {
-        exit(errorCode);
+
+        case PSpawnFileActionType::Chdir:
+            if (chdir(action->GetPath()) == -1) {
+                exit(errno);
+            }
+            break;
+
+        case PSpawnFileActionType::Fchdir:
+            if (fchdir(action->Data.FD) == -1) {
+                exit(errno);
+            }
+            break;
+        }
     }
 }
 
@@ -178,14 +173,17 @@ void __process_entry_trampoline(PThreadUserData* threadData, ThreadEntryPoint_t 
 
         char** argv = static_cast<char**>(__app_thread_data->Ptr2);
 
-        PScopeExit cleanup([argv]() { __app_definition.free_memory(argv); });
+        int result;
+        {
+            PScopeExit cleanup([argv]() { __app_definition.free_memory(argv); });
 
-        int argc = 0;
-        if (argv != nullptr) {
-            for (; argv[argc] != nullptr; ++argc);
+            int argc = 0;
+            if (argv != nullptr) {
+                for (; argv[argc] != nullptr; ++argc);
+            }
+            result = app->MainEntry(argc, argv);
         }
-        int result = app->MainEntry(argc, argv);
-        exit(result);
+        _exit(result);
     }
     PRETHROW_CANCELLATION
     catch (const std::exception& exc)
@@ -193,14 +191,14 @@ void __process_entry_trampoline(PThreadUserData* threadData, ThreadEntryPoint_t 
         ThreadInfo threadInfo;
         get_thread_info(get_thread_id(), &threadInfo);
         p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Uncaught exception in thread '{}': {}", threadInfo.ThreadName, exc.what());
-        exit(-1);
+        _exit(-1);
     }
     catch (...)
     {
         ThreadInfo threadInfo;
         get_thread_info(get_thread_id(), &threadInfo);
         p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Unknown uncaught exception in thread {}.", threadInfo.ThreadName);
-        exit(-1);
+        _exit(-1);
     }
 }
 
@@ -447,6 +445,54 @@ int posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t* __restrict 
 int posix_spawn_file_actions_addfchdir_np(posix_spawn_file_actions_t* __restrict actions, int fd)
 {
     return posix_spawn_file_actions_addfchdir(actions, fd);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static _Unwind_Reason_Code exit_unwind_stop(
+    int version,
+    _Unwind_Action actions,
+    _Unwind_Exception_Class exc_class,
+    struct _Unwind_Exception* exc_obj,
+    struct _Unwind_Context* context,
+    void* stop_parameter)
+{
+    if (actions & _UA_END_OF_STACK)
+    {
+        _Unwind_DeleteException(exc_obj);
+        _exit(static_cast<int>(reinterpret_cast<intptr_t>(stop_parameter)));
+    }
+    return _URC_NO_REASON;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void exit_unwind_cleanup(_Unwind_Reason_Code reason, struct _Unwind_Exception* exc)
+{
+    // No cleanup needed. The exception object lives in a static thread_local variable.
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+extern "C" void exit(int exitCode)
+{
+    static const char className[] = "GNUCFOR";
+    static thread_local _Unwind_Exception exc;
+
+    static_assert(sizeof(className) == sizeof(exc.exception_class));
+    memcpy(exc.exception_class, className, sizeof(exc.exception_class));
+
+    exc.exception_cleanup = exit_unwind_cleanup;
+
+    _Unwind_ForcedUnwind(&exc, exit_unwind_stop, reinterpret_cast<void*>(static_cast<intptr_t>(exitCode)));
+
+    _exit(exitCode);
 }
 
 } // extern "C"

@@ -25,6 +25,7 @@
 
 #include <System/AppDefinition.h>
 #include <System/ErrorCodes.h>
+#include <Kernel/KAddressValidation.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KProcessGroups.h>
@@ -108,6 +109,62 @@ PSysRetPair sys_getpid(void)
 {
     const KProcess& process = kget_current_process();
     return PMakeSysRetSuccess(process.GetPID());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PSysRetPair sys_getpgrp(void)
+{
+    return PMakeSysRetSuccess(kgetpgrp());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PSysRetPair sys_wait(int* status)
+{
+    try
+    {
+        if (status != nullptr) {
+            validate_user_write_pointer_trw(status);
+        }
+        return PMakeSysRetSuccess(kwait_trw(status));
+    }
+    PERROR_CATCH_RET_SYSRET;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PSysRetPair sys_waitpid(pid_t pid, int* status, int options)
+{
+    try
+    {
+        if (status != nullptr) {
+            validate_user_write_pointer_trw(status);
+        }
+        return PMakeSysRetSuccess(kwaitpid_trw(pid, status, options));
+    }
+    PERROR_CATCH_RET_SYSRET;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_waitid(idtype_t idtype, id_t id, siginfo_t* infop, int options)
+{
+    try
+    {
+        validate_user_write_pointer_trw(infop);
+        kwaitid_trw(idtype, id, infop, options);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

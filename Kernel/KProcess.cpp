@@ -792,6 +792,23 @@ void kexit(int exitCode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+static int siginfo_to_status(const siginfo_t& info)
+{
+    switch (info.si_code)
+    {
+        case CLD_EXITED:    return info.si_status << 8;
+        case CLD_KILLED:    return info.si_status;
+        case CLD_DUMPED:    return info.si_status | 0x80;
+        case CLD_STOPPED:   return (info.si_status << 8) | 0x7f;
+        case CLD_CONTINUED: return 0xffff;
+        default:            return 0;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void kwaitid_trw(idtype_t idtype, id_t id, siginfo_t* infop, int options)
 {
     KProcess& process = kget_current_process();
@@ -812,11 +829,95 @@ void kwaitid_trw(idtype_t idtype, id_t id, siginfo_t* infop, int options)
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PErrorCode kwaitid(idtype_t idtype, id_t id, siginfo_t* infop, int options) noexcept
 {
     try
     {
         kwaitid_trw(idtype, id, infop, options);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+pid_t kwait_trw(int* status)
+{
+    siginfo_t info = {};
+    kwaitid_trw(P_ALL, 0, &info, WEXITED);
+    if (status != nullptr) {
+        *status = siginfo_to_status(info);
+    }
+    return info.si_pid;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kwait(int* status, pid_t* outPID) noexcept
+{
+    try
+    {
+        *outPID = kwait_trw(status);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+pid_t kwaitpid_trw(pid_t pid, int* status, int options)
+{
+    idtype_t idtype;
+    id_t     id;
+
+    if (pid == -1)
+    {
+        idtype = P_ALL;
+        id     = 0;
+    }
+    else if (pid > 0)
+    {
+        idtype = P_PID;
+        id     = (id_t)pid;
+    }
+    else if (pid == 0)
+    {
+        idtype = P_PGID;
+        id     = 0;
+    }
+    else // pid < -1
+    {
+        idtype = P_PGID;
+        id     = (id_t)(-pid);
+    }
+
+    siginfo_t info = {};
+    kwaitid_trw(idtype, id, &info, options | WEXITED);
+    if (status != nullptr) {
+        *status = siginfo_to_status(info);
+    }
+    return info.si_pid;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode kwaitpid(pid_t pid, int* status, int options, pid_t* outPID) noexcept
+{
+    try
+    {
+        *outPID = kwaitpid_trw(pid, status, options);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;

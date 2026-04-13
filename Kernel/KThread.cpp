@@ -183,6 +183,10 @@ thread_id kthread_spawn_trw(const PThreadAttribs* threadAttr, const PPosixSpawnA
     thread = ptr_new<KThreadCB>(pidNode->PID, process, threadAttr, flags.Has(KSpawnThreadFlag::Privileged), threadUserData, nullptr);
     thread->InitializeStack(entryTrampoline, entryPoint, /*skipEntryTrampoline*/ false, arguments);
 
+    const KThread& currentThread = kget_current_thread();
+    if (flags.Has(KSpawnThreadFlag::SpawnProcess)) {
+        thread->m_BlockedSignals = currentThread.m_BlockedSignals;
+    }
     if (spawnAttr != nullptr && (spawnAttr->sa_flags & POSIX_SPAWN_SETSIGMASK)) {
         thread->m_BlockedSignals = spawnAttr->sa_sigmask & KBLOCKABLE_SIGNALS_MASK;
     }

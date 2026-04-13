@@ -170,6 +170,12 @@ void kwaitid_trw(idtype_t idtype, id_t id, siginfo_t* infop, int options);
 
 PErrorCode kwaitid(idtype_t idtype, id_t id, siginfo_t* infop, int options) noexcept;
 
+pid_t      kwait_trw(int* status);
+PErrorCode kwait(int* status, pid_t* outPID) noexcept;
+
+pid_t      kwaitpid_trw(pid_t pid, int* status, int options);
+PErrorCode kwaitpid(pid_t pid, int* status, int options, pid_t* outPID) noexcept;
+
 uid_t      kgetuid() noexcept;
 gid_t      kgetgid() noexcept;
 PErrorCode kseteuid(uid_t uid) noexcept;

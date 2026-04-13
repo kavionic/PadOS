@@ -255,15 +255,29 @@ void FATVolume::SetInodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
         if (locationID != entry.m_LocationID)
         {
             auto locItr = m_LocationToInodeMap.find(entry.m_LocationID);
-            kassert(locItr != m_LocationToInodeMap.end() && locItr->second == &entry);
-            if (locItr != m_LocationToInodeMap.end()) {
+            if (locItr != m_LocationToInodeMap.end() && locItr->second == &entry)
+            {
                 m_LocationToInodeMap.erase(locItr);
+            }
+            else
+            {
+                const ino_t staleOwner = (locItr != m_LocationToInodeMap.end()) ? locItr->second->m_InodeID : 0;
+                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): reverse map at {:16x} owned by {:16x}.", inodeID, locationID, entry.m_LocationID, staleOwner);
             }
             if (inodeID != locationID)
             {
-                try {
-                    m_LocationToInodeMap[locationID] = &entry;
-                } catch(const std::bad_alloc&) {
+                try
+                {
+                    auto [it, inserted] = m_LocationToInodeMap.try_emplace(locationID, &entry);
+                    if (!inserted)
+                    {
+                        kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): new location already claimed by {:16x}, taking over.", inodeID, locationID, it->second->m_InodeID);
+                        it->second = &entry;
+                    }
+                    entry.m_LocationID = locationID;
+                }
+                catch(const std::bad_alloc&)
+                {
                     m_InodeToLocationMap.erase(inodeItr);
                     throw;
                 }
@@ -282,7 +296,12 @@ void FATVolume::SetInodeIDToLocationIDMapping(ino_t inodeID, ino_t locationID)
         entry->m_LocationID = locationID;
         try
         {
-            m_LocationToInodeMap[locationID] = entry;
+            auto [it, inserted] = m_LocationToInodeMap.try_emplace(locationID, entry);
+            if (!inserted) {
+                // Location already claimed — log and take it over.
+                kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::SetInodeIDToLocationIDMapping({:16x} -> {:16x}): location already claimed by {:16x}, taking over.", inodeID, locationID, it->second->m_InodeID);
+                it->second = entry;
+            }
         }
         catch(const std::bad_alloc&)
         {
@@ -311,9 +330,10 @@ bool FATVolume::RemoveInodeIDToLocationIDMapping(ino_t inodeID)
     {
         InodeMapEntry& entry = inodeItr->second;
         auto locItr = m_LocationToInodeMap.find(entry.m_LocationID);
-        kassert(locItr != m_LocationToInodeMap.end() && locItr->second == &entry);
-        if (locItr != m_LocationToInodeMap.end()) {
+        if (locItr != m_LocationToInodeMap.end() && locItr->second == &entry) {
             m_LocationToInodeMap.erase(locItr);
+        } else {
+            kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATVolume::RemoveInodeIDToLocationIDMapping({:16x}): reverse map inconsistency at location {:16x}.", inodeID, entry.m_LocationID);
         }
         m_InodeToLocationMap.erase(inodeItr);
         return true;
@@ -347,7 +367,7 @@ bool FATVolume::GetLocationIDToInodeIDMapping(ino_t locationID, ino_t* inodeID) 
     CRITICAL_SHARED_SCOPE(m_InodeIDMapMutex);
     auto i = m_LocationToInodeMap.find(locationID);
     if (i != m_LocationToInodeMap.end()) {
-        *inodeID = i->second->m_LocationID;
+        *inodeID = i->second->m_InodeID;
         return true;
     }
     return false;    

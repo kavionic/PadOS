@@ -650,13 +650,10 @@ Ptr<KFileNode> FATFilesystem::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> _node,
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
-    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY) || (node->m_DOSAttribs & FAT_READ_ONLY) || node->IsDirectory()) {
+    if (vol->HasFlag(FSVolumeFlags::FS_IS_READONLY) || node->IsDirectory()) {
         openFlags = (openFlags & ~O_ACCMODE) | O_RDONLY;
     }
-
-    if ((openFlags & O_TRUNC) && ((openFlags & O_ACCMODE) == O_RDONLY))
-    {
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::OpenFile(): can't open file for reading with O_TRUNC.");
+    if ((node->m_DOSAttribs & FAT_READ_ONLY) && (openFlags & O_ACCMODE) != O_RDONLY) {
         PERROR_THROW_CODE(PErrorCode::NoPermission);
     }
 
@@ -719,7 +716,7 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
     }
 
     uint8_t dosAttribs = 0;
-    if ((perms & (S_IWUSR | S_IWGRP | S_IWGRP)) == 0) {
+    if ((perms & (S_IWUSR | S_IWGRP | S_IWOTH)) == 0) {
         dosAttribs |= FAT_READ_ONLY;
     }
     const mode_t fileMode = DOSAttribsToFileMode(dosAttribs);
@@ -966,7 +963,7 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     
 
     uint8_t dosAttribs = FAT_SUBDIR;
-    if ((perms & (S_IWUSR | S_IWGRP | S_IWGRP)) == 0) {
+    if ((perms & (S_IWUSR | S_IWGRP | S_IWOTH)) == 0) {
         dosAttribs |= FAT_READ_ONLY;
     }
     const mode_t fileMode = DOSAttribsToFileMode(dosAttribs);
@@ -2329,7 +2326,7 @@ void FATFilesystem::DoUnlink(Ptr<KFSVolume> _vol, Ptr<KInode> _dir, const PStrin
     // locate the file
     Ptr<FATInode> file = DoLocateInode(vol, dir, name);
     if (file == nullptr) {
-        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFILE, "FATFilesystem::DoUnlink(): can't find file {} in directory {:x}.", name.c_str(), dir->m_InodeID);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::DoUnlink(): can't find file {} in directory {:x}.", name.c_str(), dir->m_InodeID);
         PERROR_THROW_CODE(PErrorCode::NoEntry);
     }
 

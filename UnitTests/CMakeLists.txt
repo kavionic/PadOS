@@ -1,6 +1,7 @@
 
 target_sources(PadOS_UnitTests PRIVATE
 	Base64Codec_unittest.cpp
+	Exit_unittest.cpp
 	PosixSpawn_unittest.cpp
 	CircularBuffer_unittest.cpp
 	NamedColors_unittest.cpp

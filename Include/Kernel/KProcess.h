@@ -79,7 +79,7 @@ public:
     Ptr<KProcessGroup>  GetGroup() const noexcept;
 
     void SetExitStatus(int exitCode, int exitStatus) noexcept;
-    bool IsExitStatusSet() const noexcept { return m_ExitInfo.si_code != 0; }
+    bool IsExitStatusSet() const noexcept { return m_ExitInfo.si_code == CLD_EXITED || m_ExitInfo.si_code == CLD_KILLED || m_ExitInfo.si_code == CLD_DUMPED; }
 
     const KIOContext&   GetIOContext() const noexcept { return m_IOContext; }
     KIOContext&         GetIOContext() noexcept { return m_IOContext; }

@@ -118,8 +118,11 @@ PErrorCode sys_sigsuspend(const sigset_t* sigmask)
         const sigset_t prevMask = thread.m_BlockedSignals;
         thread.m_BlockedSignals = *sigmask & KBLOCKABLE_SIGNALS_MASK;
 
-        thread.SetState(ThreadState_Waiting);
-        KSWITCH_CONTEXT();
+        if (!thread.HasUnblockedPendingSignals())
+        {
+            thread.SetState(ThreadState_Waiting);
+            KSWITCH_CONTEXT();
+        }
 
         thread.m_BlockedSignals = prevMask;
 
@@ -156,7 +159,7 @@ PErrorCode sys_sigpending(sigset_t* outSet)
 
         const KThreadCB& thread = *gk_CurrentThread;
 
-        *outSet = thread.GetPendingSignals() & thread.m_BlockedSignals;
+        *outSet = thread.GetBlockedPendingSignals();
 
         return PErrorCode::Success;
     }

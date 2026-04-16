@@ -366,7 +366,7 @@ PErrorCode kthread_kill(thread_id threadID, int sigNum)
     kassert(!g_PIDMapMutex.IsLocked());
     KScopedLock lock(g_PIDMapMutex);
 
-    const Ptr<KThreadCB> thread = kget_thread(threadID);
+    const Ptr<KThreadCB> thread = kget_thread_pl(threadID);
 
     if (thread == nullptr) {
         return PErrorCode::NoSuchProcess;

@@ -72,16 +72,19 @@ public:
     static int PriToLevel(int priority) noexcept;
     static int LevelToPri(int level) noexcept;
 
-    sigset_t GetPendingSignals() const noexcept { KSchedulerLock slock; return GetUnblockedSignals(m_PendingSignals_); }
     sigset_t GetUnblockedSignals(sigset_t signalMask) const noexcept { return signalMask & ~m_BlockedSignals; }
-    sigset_t GetUnblockedPendingSignals() const noexcept { return GetUnblockedSignals(GetPendingSignals()); }
-    bool     HasUnblockedPendingSignals() const noexcept { return GetUnblockedPendingSignals() != 0; }
-    bool     IsSignalBlocked(int sigNum) const noexcept { return (m_BlockedSignals & sig_mkmask(sigNum)) != 0; }
-    void     ReplacePendingSignals(sigset_t newSet) noexcept { KSchedulerLock slock; m_PendingSignals_ = newSet; }
-    void     MergePendingSignals(sigset_t set) noexcept { KSchedulerLock slock; m_PendingSignals_ |= set; }
 
-    void     SetPendingSignal(int sigNum) noexcept { const sigset_t mask = sig_mkmask(sigNum); KSchedulerLock slock; m_PendingSignals_ |= mask; }
-    void     ClearPendingSignal(int sigNum) noexcept { const sigset_t invMask = ~sig_mkmask(sigNum); KSchedulerLock slock; m_PendingSignals_ &= invMask; }
+    sigset_t GetBlockedPendingSignals() const noexcept { KSchedulerLock slock; return m_PendingSignals & m_BlockedSignals; }
+
+    sigset_t GetUnblockedPendingSignals() const noexcept { return GetUnblockedSignals(m_PendingSignals); }
+    bool     HasUnblockedPendingSignals() const noexcept { return GetUnblockedPendingSignals() != 0; }
+    
+    bool     IsSignalBlocked(int sigNum) const noexcept { return (m_BlockedSignals & sig_mkmask(sigNum)) != 0; }
+    void     ReplacePendingSignals(sigset_t newSet) noexcept { KSchedulerLock slock; m_PendingSignals = newSet; }
+    void     MergePendingSignals(sigset_t set) noexcept { KSchedulerLock slock; m_PendingSignals |= set; }
+
+    void     SetPendingSignal(int sigNum) noexcept { const sigset_t mask = sig_mkmask(sigNum); KSchedulerLock slock; m_PendingSignals |= mask; }
+    void     ClearPendingSignal(int sigNum) noexcept { const sigset_t invMask = ~sig_mkmask(sigNum); KSchedulerLock slock; m_PendingSignals &= invMask; }
 
     void                SetBlockingObject(const KNamedObject* WaitObject) noexcept;
     const KNamedObject* GetBlockingObject() const noexcept { return m_BlockingObject; }
@@ -124,7 +127,7 @@ public:
 
     int                       m_SymlinkDepth = 0;
 
-    sigset_t                  m_PendingSignals_ = 0;
+    sigset_t                  m_PendingSignals = 0;
     sigset_t		          m_BlockedSignals = 0;
     KSignalQueueNode*         m_FirstQueuedSignal = nullptr;
     size_t                    m_QueuedSignalCount = 0;

@@ -158,6 +158,7 @@ void* main_thread_entry(void* argument)
     PThreadUserData* const threadData = gk_CurrentThread->m_ThreadUserData;
 
     gk_CurrentThread->SetName("main_thread");
+    gk_CurrentThread->m_KernelThread = false;
 
     uint32_t control;
     __asm volatile ("mrs %0, CONTROL" : "=r"(control));

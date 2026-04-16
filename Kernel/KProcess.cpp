@@ -337,7 +337,8 @@ Ptr<KProcessGroup> KProcess::GetGroup() const noexcept
 
 void KProcess::SetExitStatus(int exitCode, int exitStatus) noexcept
 {
-    if (m_ExitInfo.si_code != CLD_EXITED)
+    const int cur = m_ExitInfo.si_code;
+    if (cur != CLD_EXITED && cur != CLD_KILLED && cur != CLD_DUMPED)
     {
         m_ExitInfo.si_code = exitCode;
         m_ExitInfo.si_status = exitStatus;

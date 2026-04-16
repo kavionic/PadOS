@@ -217,6 +217,7 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(waitpid),
     SYS_PTR(waitid),
     SYS_PTR(getpgrp),
+    SYS_PTR(sigpending),
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);

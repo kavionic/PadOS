@@ -166,6 +166,22 @@ PErrorCode sys_sigpending(sigset_t* outSet)
     PERROR_CATCH_RET_CODE;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_sigprocmask(int how, const sigset_t* set, sigset_t* oset)
+{
+    try
+    {
+        if (set != nullptr)   validate_user_read_pointer_trw(set);
+        if (oset != nullptr)  validate_user_write_pointer_trw(oset);
+
+        return kthread_sigmask(how, set, oset);
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
 } // extern "C"
 
 } // namespace kernel

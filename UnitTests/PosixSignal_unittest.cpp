@@ -339,7 +339,7 @@ protected:
         // Clear the current thread's signal mask entirely.
         sigset_t empty;
         sigemptyset(&empty);
-        thread_sigmask(SIG_SETMASK, &empty, nullptr);
+        sigprocmask(SIG_SETMASK, &empty, nullptr);
     }
 
     void TearDown() override
@@ -356,7 +356,7 @@ protected:
 
         sigset_t empty;
         sigemptyset(&empty);
-        thread_sigmask(SIG_SETMASK, &empty, nullptr);  // unblock; pending signals silently discarded
+        sigprocmask(SIG_SETMASK, &empty, nullptr);  // unblock; pending signals silently discarded
 
         struct sigaction dfl{};
         dfl.sa_handler = SIG_DFL;
@@ -600,7 +600,7 @@ TEST_F(PosixSignalTest, SigPending_BlockedAndRaised_ShowsInSet)
     sigset_t block;
     sigemptyset(&block);
     sigaddset(&block, SIGUSR1);
-    thread_sigmask(SIG_BLOCK, &block, nullptr);
+    sigprocmask(SIG_BLOCK, &block, nullptr);
     thread_kill(get_thread_id(), SIGUSR1);  // mark pending; blocked so not delivered yet
 
     sigset_t pending;
@@ -609,7 +609,7 @@ TEST_F(PosixSignalTest, SigPending_BlockedAndRaised_ShowsInSet)
     EXPECT_NE(sigismember(&pending, SIGUSR1), 0);
 
     // Drain the pending signal so TearDown can safely clear the mask.
-    thread_sigmask(SIG_UNBLOCK, &block, nullptr);
+    sigprocmask(SIG_UNBLOCK, &block, nullptr);
 }
 
 // A signal that was already delivered (unblocked) is absent from the pending set.
@@ -804,7 +804,7 @@ TEST_F(PosixSignalTest, Sigsuspend_PendingSignal_ReturnsEINTR)
     sigset_t block;
     sigemptyset(&block);
     sigaddset(&block, SIGUSR1);
-    thread_sigmask(SIG_BLOCK, &block, nullptr);
+    sigprocmask(SIG_BLOCK, &block, nullptr);
     ASSERT_EQ(thread_kill(get_thread_id(), SIGUSR1), PErrorCode::Success);  // mark pending
     ASSERT_EQ(g_handler_count.load(), 0);  // still blocked, not delivered yet
 
@@ -819,13 +819,13 @@ TEST_F(PosixSignalTest, Sigsuspend_PendingSignal_ReturnsEINTR)
     // sigsuspend must have restored the original mask (SIGUSR1 blocked again).
     sigset_t cur;
     sigemptyset(&cur);
-    thread_sigmask(SIG_BLOCK, nullptr, &cur);
+    sigprocmask(SIG_BLOCK, nullptr, &cur);
     EXPECT_NE(sigismember(&cur, SIGUSR1), 0);
 
     // SIGUSR1 is still pending; unblock it so the handler fires and clears the
     // pending bit before TearDown (which would otherwise deliver it with SIG_DFL
     // and terminate the process).
-    thread_sigmask(SIG_UNBLOCK, &block, nullptr);
+    sigprocmask(SIG_UNBLOCK, &block, nullptr);
     EXPECT_EQ(g_handler_count.load(), 1);
 }
 

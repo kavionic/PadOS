@@ -44,9 +44,11 @@ public:
     
     virtual bool LastReferenceGone() override;
     
-    inline void SetDeletedFlag(bool isDeleted) { m_IsDeleted = isDeleted; }
-    inline bool IsDeleted() { return m_IsDeleted; }
-    inline bool IsDirectory() const { return S_ISDIR(m_FileMode); }
+    inline void SetDeletedFlag(bool isDeleted)  noexcept { m_IsDeleted = isDeleted; }
+    inline bool IsDeleted() const  noexcept { return m_IsDeleted; }
+    inline bool IsDirectory() const noexcept { return S_ISDIR(m_FileMode); }
+    inline void SetDontCache(bool dontCache) noexcept { m_DontCache = dontCache; }
+    inline bool GetDontCache() const noexcept { return m_DontCache; }
         
     Ptr<KFilesystem>    m_Filesystem;
     Ptr<KFSVolume>      m_Volume; // The volume this i-node came from.
@@ -62,6 +64,7 @@ public:
 
     static_assert(sizeof(ino_t) == 8);
 
+    bool m_DontCache = false;
     bool m_IsDeleted = false;
 };
 

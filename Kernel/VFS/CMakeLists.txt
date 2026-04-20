@@ -13,6 +13,8 @@ target_sources(PadOS_Kernel PRIVATE
 )
 
 target_sources(PadOS_KernelExt PRIVATE
+	KPipeFilesystem.cpp
+	KPipeFilesystem.h
 	Kpty.cpp
 	Kpty.h
 )

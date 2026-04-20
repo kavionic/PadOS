@@ -533,6 +533,9 @@ off_t klseek_trw(int handle, off_t offset, int mode)
 {
     Ptr<KInode> inode;
     Ptr<KFileNode> file = kget_file_node_trw(handle, inode);
+    if (S_ISFIFO(inode->m_FileMode)) {
+        PERROR_THROW_CODE(PErrorCode::SPIPE);
+    }
     switch (mode)
     {
         case SEEK_SET:

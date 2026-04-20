@@ -25,6 +25,7 @@
 #include <System/ExceptionHandling.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KBlockCache.h>
+#include <Kernel/VFS/KPipeFilesystem.h>
 #include <Kernel/KAddressValidation.h>
 #include <Kernel/Syscalls.h>
 
@@ -82,7 +83,27 @@ PSysRetPair sys_reopen_file(int oldHandle, int openFlags)
 
 PErrorCode sys_fcntl(int file, int cmd, int arg, int* outResult)
 {
-    return PErrorCode::NotImplemented;
+    try
+    {
+        Ptr<KFileTableNode> node = kget_file_table_node_trw(file);
+        switch (cmd)
+        {
+            case F_GETFL:
+                validate_user_write_pointer_trw(outResult);
+                *outResult = node->GetOpenFlags();
+                return PErrorCode::Success;
+            case F_SETFL:
+            {
+                // Only status flags may be changed; preserve access mode bits.
+                const int accessMode = node->GetOpenFlags() & O_ACCMODE;
+                node->SetOpenFlags(accessMode | (arg & ~O_ACCMODE));
+                return PErrorCode::Success;
+            }
+            default:
+                return PErrorCode::NotImplemented;
+        }
+    }
+    PERROR_CATCH_RET_CODE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -521,6 +542,17 @@ PErrorCode sys_mount(const char* devicePath, const char* directoryPath, const ch
         validate_user_read_string_trw(directoryPath, PATH_MAX);
         validate_user_read_pointer_trw(args, argLength);
         kmount_trw(devicePath, directoryPath, filesystemName, flags, args, argLength);
+        return PErrorCode::Success;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+PErrorCode sys_pipe(int* pipefd)
+{
+    try
+    {
+        validate_user_write_pointer_trw(pipefd, sizeof(int) * 2);
+        kpipe_trw(pipefd);
         return PErrorCode::Success;
     }
     PERROR_CATCH_RET_CODE;

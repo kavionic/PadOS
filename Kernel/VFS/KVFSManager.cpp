@@ -320,12 +320,20 @@ void KVFSManager::InodeReleased(KInode* inode)
     CRITICAL_SCOPE(s_InodeMapMutex);
     if (inode->GetPtrCount() == 0)
     {
-        s_InodeMRUList.Append(inode);
-        s_UnusedInodeCount++;
-        if (s_UnusedInodeCount > MAX_INODE_CACHE_COUNT) {
-            kassert(s_InodeMRUList.GetFirst() != nullptr);
-            DiscardInode(s_InodeMRUList.GetFirst()); // Discard oldest cached inode.
-        }        
+        if (!inode->GetDontCache())
+        {
+            s_InodeMRUList.Append(inode);
+            s_UnusedInodeCount++;
+            if (s_UnusedInodeCount > MAX_INODE_CACHE_COUNT)
+            {
+                kassert(s_InodeMRUList.GetFirst() != nullptr);
+                DiscardInode(s_InodeMRUList.GetFirst()); // Discard oldest cached inode.
+            }
+        }
+        else
+        {
+            DiscardInode(inode);
+        }
     }        
 }
 

@@ -314,6 +314,8 @@ void KFilesystemFileOps::CheckAccess(Ptr<KFSVolume> volume, Ptr<KInode> node, in
 
 void KFilesystemFileOps::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* outStats)
 {
+    *outStats = {};
+
     outStats->st_dev = dev_t(volume->m_VolumeID);
     outStats->st_ino = inode->m_InodeID;
 

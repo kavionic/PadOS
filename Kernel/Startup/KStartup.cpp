@@ -32,6 +32,7 @@
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KBlockCache.h>
+#include <Kernel/VFS/KPipeFilesystem.h>
 #include <Kernel/VFS/Kpty.h>
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 #include <Kernel/HAL/STM32/ResetAndClockControl.h>
@@ -198,6 +199,7 @@ static void* init_thread_entry(void* arguments)
 
     kregister_filesystem_trw("binfs", ptr_new<KBinFilesystem>());
     kregister_filesystem_trw("ptyfs", ptr_new<KPTYFilesystem>());
+    kregister_filesystem_trw("pipefs", ptr_new<KPipeFilesystem>());
 
     kchdir_trw(KLocateFlag::None, "/");
 
@@ -205,6 +207,9 @@ static void* init_thread_entry(void* arguments)
 
     mkdir("/dev/pty", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
     mount("", "/dev/pty", "ptyfs", 0, nullptr, 0);
+
+    mkdir("/dev/pipe", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+    mount("", "/dev/pipe", "pipefs", 0, nullptr, 0);
 
     g_SerialTerminal1.SetDeleteOnExit(false);
     g_SerialTerminal2.SetDeleteOnExit(false);

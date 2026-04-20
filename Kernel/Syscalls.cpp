@@ -219,6 +219,7 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(getpgrp),
     SYS_PTR(sigpending),
     SYS_PTR(sigprocmask),
+    SYS_PTR(pipe),
 };
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);

@@ -149,11 +149,9 @@ static int WaitChild(pid_t pid)
         ? WEXITSTATUS(status) : -1;
 }
 
-// Reads the entire content of 'path' into a std::string.
-static std::string ReadFile(const char* path)
+// Drains all data from 'fd' into a std::string and closes it.
+static std::string ReadPipe(int fd)
 {
-    const int fd = open(path, O_RDONLY);
-    if (fd == -1) return {};
     char buf[4096];
     const ssize_t n = read(fd, buf, sizeof(buf) - 1);
     close(fd);
@@ -161,34 +159,31 @@ static std::string ReadFile(const char* path)
     return {};
 }
 
-// Spawns 'path' with 'argv' and 'attr', redirecting child stdout to a temp
-// capture file in /tmp (FAT — no permission bits needed, just data).
+// Spawns 'path' with 'argv' and 'attr', capturing child stdout via a pipe.
 // Returns the child's exit code, captured output text, and spawned PID.
 struct SpawnResult { int exitCode = -1; std::string output; pid_t pid = -1; };
 
 static SpawnResult SpawnCapture(const char* path, char* const argv[],
                                 posix_spawnattr_t* attr = nullptr)
 {
-    static constexpr const char* kCapFile = "/tmp/.ps_cap";
-
-    const int capFD = open(kCapFile, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    if (capFD == -1) return {};
+    int capPipe[2];
+    if (pipe(capPipe) != 0) return {};
 
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
-    posix_spawn_file_actions_adddup2(&actions, capFD, STDOUT_FILENO);
+    posix_spawn_file_actions_adddup2(&actions, capPipe[1], STDOUT_FILENO);
 
     pid_t pid = -1;
     const int ret = posix_spawn(&pid, path, &actions, attr, argv, environ);
-    close(capFD);
+    close(capPipe[1]);
     posix_spawn_file_actions_destroy(&actions);
 
-    if (ret != 0) return { ret, {}, -1 };
+    if (ret != 0) { close(capPipe[0]); return { ret, {}, -1 }; }
 
     SpawnResult result;
     result.pid      = pid;
     result.exitCode = WaitChild(pid);
-    result.output   = ReadFile(kCapFile);
+    result.output   = ReadPipe(capPipe[0]);
     return result;
 }
 
@@ -201,8 +196,6 @@ class PosixSpawnTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        unlink("/tmp/.ps_cap");
-        unlink("/tmp/.ps_addclose_dummy");
         unlink("/tmp/.ps_addopen_in");
 
         // Resolve the canonical path of /tmp, which may differ from "/tmp" if
@@ -224,8 +217,6 @@ protected:
 
     void TearDown() override
     {
-        unlink("/tmp/.ps_cap");
-        unlink("/tmp/.ps_addclose_dummy");
         unlink("/tmp/.ps_addopen_in");
     }
 
@@ -325,39 +316,39 @@ TEST_F(PosixSpawnTest, FileActions_AddMultipleOps_NoError)
 
 TEST_F(PosixSpawnTest, FileActions_AddDup2_RedirectsChildStdout)
 {
-    const char* capPath = "/tmp/.ps_cap";
-    const int capFD = open(capPath, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    ASSERT_NE(capFD, -1);
+    int capPipe[2];
+    ASSERT_EQ(pipe(capPipe), 0);
 
     posix_spawn_file_actions_t actions;
     ASSERT_EQ(posix_spawn_file_actions_init(&actions), 0);
-    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capFD, STDOUT_FILENO), 0);
+    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capPipe[1], STDOUT_FILENO), 0);
 
     char arg0[] = "ps_echo_args", arg1[] = "dup2_works";
     char* argv[] = { arg0, arg1, nullptr };
     pid_t pid;
     ASSERT_EQ(posix_spawn(&pid, "/bin/ps_test_echo_args", &actions, nullptr, argv, environ), 0);
-    close(capFD);
+    close(capPipe[1]);
     posix_spawn_file_actions_destroy(&actions);
 
     EXPECT_EQ(WaitChild(pid), 0);
-    EXPECT_EQ(ReadFile(capPath), "dup2_works\n");
+    EXPECT_EQ(ReadPipe(capPipe[0]), "dup2_works\n");
 }
 
 TEST_F(PosixSpawnTest, FileActions_AddClose_FdIsClosedInChild)
 {
-    // Open a dummy file in the parent; the child should see it as closed.
-    const int extraFD = open("/tmp/.ps_addclose_dummy", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    ASSERT_NE(extraFD, -1);
+    // Use a pipe read-end as the dummy FD; no filesystem interaction needed.
+    int dummyPipe[2];
+    ASSERT_EQ(pipe(dummyPipe), 0);
+    const int extraFD = dummyPipe[0];
+    close(dummyPipe[1]);
 
-    const char* capPath = "/tmp/.ps_cap";
-    const int capFD = open(capPath, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    ASSERT_NE(capFD, -1);
+    int capPipe[2];
+    ASSERT_EQ(pipe(capPipe), 0);
 
     posix_spawn_file_actions_t actions;
     ASSERT_EQ(posix_spawn_file_actions_init(&actions), 0);
     ASSERT_EQ(posix_spawn_file_actions_addclose(&actions, extraFD), 0);
-    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capFD, STDOUT_FILENO), 0);
+    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capPipe[1], STDOUT_FILENO), 0);
 
     char arg0[] = "ps_check_fd";
     char fdArg[16];
@@ -367,11 +358,11 @@ TEST_F(PosixSpawnTest, FileActions_AddClose_FdIsClosedInChild)
     pid_t pid;
     ASSERT_EQ(posix_spawn(&pid, "/bin/ps_test_check_fd", &actions, nullptr, argv, environ), 0);
     close(extraFD);
-    close(capFD);
+    close(capPipe[1]);
     posix_spawn_file_actions_destroy(&actions);
 
     EXPECT_EQ(WaitChild(pid), 0);
-    EXPECT_EQ(ReadFile(capPath), "closed");
+    EXPECT_EQ(ReadPipe(capPipe[0]), "closed");
 }
 
 TEST_F(PosixSpawnTest, FileActions_AddOpen_ChildCanReadFile)
@@ -385,68 +376,65 @@ TEST_F(PosixSpawnTest, FileActions_AddOpen_ChildCanReadFile)
         close(fd);
     }
 
-    const char* capPath = "/tmp/.ps_cap";
-    const int capFD = open(capPath, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    ASSERT_NE(capFD, -1);
+    int capPipe[2];
+    ASSERT_EQ(pipe(capPipe), 0);
 
     posix_spawn_file_actions_t actions;
     ASSERT_EQ(posix_spawn_file_actions_init(&actions), 0);
     ASSERT_EQ(posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, inputPath, O_RDONLY, 0), 0);
-    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capFD, STDOUT_FILENO), 0);
+    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capPipe[1], STDOUT_FILENO), 0);
 
     char arg0[] = "ps_stdin_stdout";
     char* argv[] = { arg0, nullptr };
     pid_t pid;
     ASSERT_EQ(posix_spawn(&pid, "/bin/ps_test_stdin_stdout", &actions, nullptr, argv, environ), 0);
-    close(capFD);
+    close(capPipe[1]);
     posix_spawn_file_actions_destroy(&actions);
 
     EXPECT_EQ(WaitChild(pid), 0);
-    EXPECT_EQ(ReadFile(capPath), "addopen_content");
+    EXPECT_EQ(ReadPipe(capPipe[0]), "addopen_content");
 }
 
 TEST_F(PosixSpawnTest, FileActions_AddChdir_ChildHasNewCwd)
 {
-    const char* capPath = "/tmp/.ps_cap";
-    const int capFD = open(capPath, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    ASSERT_NE(capFD, -1);
+    int capPipe[2];
+    ASSERT_EQ(pipe(capPipe), 0);
 
     posix_spawn_file_actions_t actions;
     ASSERT_EQ(posix_spawn_file_actions_init(&actions), 0);
     ASSERT_EQ(posix_spawn_file_actions_addchdir(&actions, "/tmp"), 0);
-    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capFD, STDOUT_FILENO), 0);
+    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capPipe[1], STDOUT_FILENO), 0);
 
     char arg0[] = "ps_print_cwd";
     char* argv[] = { arg0, nullptr };
     pid_t pid;
     ASSERT_EQ(posix_spawn(&pid, "/bin/ps_test_print_cwd", &actions, nullptr, argv, environ), 0);
-    close(capFD);
+    close(capPipe[1]);
     posix_spawn_file_actions_destroy(&actions);
 
     EXPECT_EQ(WaitChild(pid), 0);
-    EXPECT_EQ(ReadFile(capPath), m_TmpPath);
+    EXPECT_EQ(ReadPipe(capPipe[0]), m_TmpPath);
 }
 
 TEST_F(PosixSpawnTest, FileActions_AddChdirNp_ChildHasNewCwd)
 {
-    const char* capPath = "/tmp/.ps_cap";
-    const int capFD = open(capPath, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    ASSERT_NE(capFD, -1);
+    int capPipe[2];
+    ASSERT_EQ(pipe(capPipe), 0);
 
     posix_spawn_file_actions_t actions;
     ASSERT_EQ(posix_spawn_file_actions_init(&actions), 0);
     ASSERT_EQ(posix_spawn_file_actions_addchdir_np(&actions, "/tmp"), 0);
-    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capFD, STDOUT_FILENO), 0);
+    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capPipe[1], STDOUT_FILENO), 0);
 
     char arg0[] = "ps_print_cwd";
     char* argv[] = { arg0, nullptr };
     pid_t pid;
     ASSERT_EQ(posix_spawn(&pid, "/bin/ps_test_print_cwd", &actions, nullptr, argv, environ), 0);
-    close(capFD);
+    close(capPipe[1]);
     posix_spawn_file_actions_destroy(&actions);
 
     EXPECT_EQ(WaitChild(pid), 0);
-    EXPECT_EQ(ReadFile(capPath), m_TmpPath);
+    EXPECT_EQ(ReadPipe(capPipe[0]), m_TmpPath);
 }
 
 TEST_F(PosixSpawnTest, FileActions_AddFchdir_ChildHasNewCwd)
@@ -454,25 +442,24 @@ TEST_F(PosixSpawnTest, FileActions_AddFchdir_ChildHasNewCwd)
     const int dirFD = open("/tmp", O_RDONLY);
     ASSERT_NE(dirFD, -1);
 
-    const char* capPath = "/tmp/.ps_cap";
-    const int capFD = open(capPath, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    ASSERT_NE(capFD, -1);
+    int capPipe[2];
+    ASSERT_EQ(pipe(capPipe), 0);
 
     posix_spawn_file_actions_t actions;
     ASSERT_EQ(posix_spawn_file_actions_init(&actions), 0);
     ASSERT_EQ(posix_spawn_file_actions_addfchdir(&actions, dirFD), 0);
-    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capFD, STDOUT_FILENO), 0);
+    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capPipe[1], STDOUT_FILENO), 0);
 
     char arg0[] = "ps_print_cwd";
     char* argv[] = { arg0, nullptr };
     pid_t pid;
     ASSERT_EQ(posix_spawn(&pid, "/bin/ps_test_print_cwd", &actions, nullptr, argv, environ), 0);
     close(dirFD);
-    close(capFD);
+    close(capPipe[1]);
     posix_spawn_file_actions_destroy(&actions);
 
     EXPECT_EQ(WaitChild(pid), 0);
-    EXPECT_EQ(ReadFile(capPath), m_TmpPath);
+    EXPECT_EQ(ReadPipe(capPipe[0]), m_TmpPath);
 }
 
 TEST_F(PosixSpawnTest, FileActions_AddFchdirNp_ChildHasNewCwd)
@@ -480,25 +467,24 @@ TEST_F(PosixSpawnTest, FileActions_AddFchdirNp_ChildHasNewCwd)
     const int dirFD = open("/tmp", O_RDONLY);
     ASSERT_NE(dirFD, -1);
 
-    const char* capPath = "/tmp/.ps_cap";
-    const int capFD = open(capPath, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    ASSERT_NE(capFD, -1);
+    int capPipe[2];
+    ASSERT_EQ(pipe(capPipe), 0);
 
     posix_spawn_file_actions_t actions;
     ASSERT_EQ(posix_spawn_file_actions_init(&actions), 0);
     ASSERT_EQ(posix_spawn_file_actions_addfchdir_np(&actions, dirFD), 0);
-    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capFD, STDOUT_FILENO), 0);
+    ASSERT_EQ(posix_spawn_file_actions_adddup2(&actions, capPipe[1], STDOUT_FILENO), 0);
 
     char arg0[] = "ps_print_cwd";
     char* argv[] = { arg0, nullptr };
     pid_t pid;
     ASSERT_EQ(posix_spawn(&pid, "/bin/ps_test_print_cwd", &actions, nullptr, argv, environ), 0);
     close(dirFD);
-    close(capFD);
+    close(capPipe[1]);
     posix_spawn_file_actions_destroy(&actions);
 
     EXPECT_EQ(WaitChild(pid), 0);
-    EXPECT_EQ(ReadFile(capPath), m_TmpPath);
+    EXPECT_EQ(ReadPipe(capPipe[0]), m_TmpPath);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

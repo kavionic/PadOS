@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2014-2020 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2014-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,6 +23,12 @@
 
 
 using ra9975_regaddr = uint8_t;
+
+struct PLCDRegisters
+{
+    volatile uint16_t DATA;
+    volatile uint16_t CMD;
+};
 
 #define   RA8875_STATUS_ROM_BUSY_bp       0
 #define   RA8875_STATUS_ROM_BUSY_bm       BIT8(RA8875_STATUS_ROM_BUSY_bp, 1)
@@ -297,3 +303,9 @@ static constexpr ra9975_regaddr RA8875_BECR1 = 0x51; // BTE Function Control Reg
 #define RA8875_SACS_DATA   0xE2 // Serial Flash/ROM Direct Access Data Read
 #define RA8875_INTC1       0xF0 // Interrupt Control Register1
 #define RA8875_INTC2       0xF1 // Interrupt Control Register2
+
+#define RA8875_INTC1_BTE_bp         1  // BTE process complete interrupt enable
+#define RA8875_INTC1_BTE_bm         BIT8(RA8875_INTC1_BTE_bp, 1)
+
+#define RA8875_INTC2_BTE_bp         1  // Write 1 to clear BTE-done flag
+#define RA8875_INTC2_BTE_bm         BIT8(RA8875_INTC2_BTE_bp, 1)

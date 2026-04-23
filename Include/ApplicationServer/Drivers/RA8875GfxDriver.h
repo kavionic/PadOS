@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2014-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2014-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -24,20 +24,14 @@
 #include <ApplicationServer/DisplayDriver.h>
 #include <GUI/Color.h>
 #include <GUI/Font.h>
+#include <DeviceControl/RA8875.h>
 #include "RA8875Registers.h"
 
 
-struct PLCDRegisters
+struct RA8875GfxDriverParameters
 {
-    volatile uint16_t DATA;
-    volatile uint16_t CMD;
-};
-
-
-struct RA8875DriverParameters
-{
-    RA8875DriverParameters() = default;
-    RA8875DriverParameters(void* registers, DigitalPinID pinLCDReset, DigitalPinID pinTouchpadReset, DigitalPinID pinBacklightControl)
+    RA8875GfxDriverParameters() = default;
+    RA8875GfxDriverParameters(void* registers, DigitalPinID pinLCDReset, DigitalPinID pinTouchpadReset, DigitalPinID pinBacklightControl)
         : Registers(uintptr_t(registers))
         , PinLCDReset(pinLCDReset)
         , PinTouchpadReset(pinTouchpadReset)
@@ -49,7 +43,7 @@ struct RA8875DriverParameters
     DigitalPinID    PinTouchpadReset;
     DigitalPinID    PinBacklightControl;
 
-    friend void to_json(Pjson& data, const RA8875DriverParameters& value)
+    friend void to_json(Pjson& data, const RA8875GfxDriverParameters& value)
     {
         data = Pjson{
             {"registers",               value.Registers},
@@ -58,7 +52,7 @@ struct RA8875DriverParameters
             {"pin_backlight_control",   value.PinBacklightControl }
         };
     }
-    friend void from_json(const Pjson& data, RA8875DriverParameters& outValue)
+    friend void from_json(const Pjson& data, RA8875GfxDriverParameters& outValue)
     {
         data.at("registers"             ).get_to(outValue.Registers);
         data.at("pin_lcd_reset"         ).get_to(outValue.PinLCDReset);
@@ -67,13 +61,13 @@ struct RA8875DriverParameters
     }
 };
 
-class RA8875Driver : public PDisplayDriver
+class RA8875GfxDriver : public PDisplayDriver
 {
 public:
     enum Orientation_e { e_Portrait, e_Landscape };
     enum FillDirection_e { e_FillLeftDown, e_FillDownLeft };
 
-    RA8875Driver(const RA8875DriverParameters& config);
+    RA8875GfxDriver(const RA8875GfxDriverParameters& config);
 
     virtual bool            Open() override;
     virtual void            Close() override;
@@ -141,27 +135,17 @@ private:
     }
     void        BeginWriteData() { WriteCommand(RA8875_MRWC); }
     void        WaitMemory() { while (ReadCommand() & RA8875_STATUS_MEMORY_BUSY_bm); }
-    void        WaitBTE() { while (ReadCommand() & RA8875_STATUS_BTE_BUSY_bm); }
-    void        WaitROM() { while (ReadCommand() & RA8875_STATUS_ROM_BUSY_bm); }
     void        WaitBlitter()
     {
-        size_t spinCount = 0;
-        while (ReadCommand() & (RA8875_STATUS_MEMORY_BUSY_bm | RA8875_STATUS_BTE_BUSY_bm))
+        uint16_t status = ReadCommand();
+        if (status & (RA8875_STATUS_MEMORY_BUSY_bm | RA8875_STATUS_BTE_BUSY_bm))
         {
-            if (spinCount++ > 10000000)
+            if (status & RA8875_STATUS_BTE_BUSY_bm)
             {
-                Reset();
-                spinCount = 0;
-
-                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "Resetting video chip.");
+                m_IRQDriver.WaitBlitter();
+                status = ReadCommand();
             }
-        }
-
-        static size_t maxSpinCount = 0;
-        if (spinCount > maxSpinCount)
-        {
-            maxSpinCount = spinCount;
-            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "SC: {}", maxSpinCount);
+            while (status & RA8875_STATUS_MEMORY_BUSY_bm) { status = ReadCommand(); }
         }
     }
 
@@ -173,7 +157,8 @@ private:
     uint16_t    ReadData() { return m_Registers->DATA; }
     void        WriteData(uint16_t data) { m_Registers->DATA = data; }
 
-    PLCDRegisters*   m_Registers = nullptr;
+    PRA8875         m_IRQDriver;
+    PLCDRegisters*  m_Registers = nullptr;
     DigitalPinID    m_PinLCDResetID;
     DigitalPinID    m_PinTouchpadResetID;
     DigitalPinID    m_PinBacklightControlID;

@@ -1,5 +1,6 @@
 target_sources(PadOS_Kernel PRIVATE
 	BME280Driver.h
+	RA8875Driver.h
 	FT5x0xDriver.h
 	GSLx680Driver.h
 	I2CDriver.h

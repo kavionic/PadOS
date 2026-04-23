@@ -27,7 +27,7 @@
 #include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/ServerBitmap.h>
 #include <ApplicationServer/ServerView.h>
-#include <ApplicationServer/Drivers/RA8875Driver.h>
+#include <ApplicationServer/Drivers/RA8875GfxDriver.h>
 #include <Utils/Utils.h>
 #include <GUI/View.h>
 
@@ -461,11 +461,11 @@ void ApplicationServer::PowerLost(bool hasPower)
 
 int appserver_main(int argc, char* argv[])
 {
-    RA8875DriverParameters driverConfig;
+    RA8875GfxDriverParameters driverConfig;
     if (argc > 1) {
         Pjson::parse(argv[1]).get_to(driverConfig);
     }
-    ApplicationServer* applicationServer = new ApplicationServer(ptr_new<RA8875Driver>(driverConfig));
+    ApplicationServer* applicationServer = new ApplicationServer(ptr_new<RA8875GfxDriver>(driverConfig));
     p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCat_General, "Application server started.");
     applicationServer->Adopt();
     return 0;

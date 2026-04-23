@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2014-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2014-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,19 +17,21 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 16.01.2014 22:21
 
-#include <ApplicationServer/Drivers/RA8875Driver.h>
+#include <ApplicationServer/Drivers/RA8875GfxDriver.h>
 #include <ApplicationServer/ServerBitmap.h>
 #include <ApplicationServer/BlitterUtils.h>
 
 #include <GUI/Color.h>
 #include <Utils/UTF8Utils.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-RA8875Driver::RA8875Driver(const RA8875DriverParameters& config)
+RA8875GfxDriver::RA8875GfxDriver(const RA8875GfxDriverParameters& config)
     : m_Registers((PLCDRegisters*)config.Registers)
     , m_PinLCDResetID(config.PinLCDReset)
     , m_PinTouchpadResetID(config.PinTouchpadReset)
@@ -44,8 +46,10 @@ RA8875Driver::RA8875Driver(const RA8875DriverParameters& config)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool RA8875Driver::Open()
+bool RA8875GfxDriver::Open()
 {
+    m_IRQDriver.SetDeviceFD(open("/dev/ra8875", O_RDWR));
+
     if (m_PinLCDResetID != DigitalPinID::None)
     {
         digital_pin_write(m_PinLCDResetID, true);
@@ -55,6 +59,10 @@ bool RA8875Driver::Open()
     digital_pin_set_direction(m_PinBacklightControlID, DigitalPinDirection_e::Out);
 
     Reset();
+
+    // Enable BTE interrupt.
+    WriteCommand(RA8875_INTC1, RA8875_INTC1_BTE_bm);
+
     m_ScreenBitmap->m_Size = GetResolution();
 
     PIRect screenFrame(PIPoint(0, 0), GetResolution());
@@ -71,7 +79,7 @@ bool RA8875Driver::Open()
         WriteCommand(RA8875_P2DCR, 0xff); // Brightness parameter 0xff-0x00
         */
     WriteCommand(RA8875_PWRR, RA8875_PWRR_DISPLAY_ON_bm);
-    
+
     return true;
 }
 
@@ -79,15 +87,21 @@ bool RA8875Driver::Open()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::Close()
+void RA8875GfxDriver::Close()
 {
+    int fd = m_IRQDriver.GetDeviceFD();
+    if (fd != -1)
+    {
+        close(fd);
+        m_IRQDriver.SetDeviceFD(-1);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::PowerLost(bool hasPower)
+void RA8875GfxDriver::PowerLost(bool hasPower)
 {
     digital_pin_write(m_PinBacklightControlID, hasPower);
 }
@@ -96,7 +110,7 @@ void RA8875Driver::PowerLost(bool hasPower)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PSrvBitmap> RA8875Driver::GetScreenBitmap()
+Ptr<PSrvBitmap> RA8875GfxDriver::GetScreenBitmap()
 {
     return m_ScreenBitmap;
 }
@@ -105,7 +119,7 @@ Ptr<PSrvBitmap> RA8875Driver::GetScreenBitmap()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int RA8875Driver::GetScreenModeCount()
+int RA8875GfxDriver::GetScreenModeCount()
 {
     return 1;
 }
@@ -114,7 +128,7 @@ int RA8875Driver::GetScreenModeCount()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool RA8875Driver::GetScreenModeDesc(size_t index, PScreenMode& outMode)
+bool RA8875GfxDriver::GetScreenModeDesc(size_t index, PScreenMode& outMode)
 {
     if (index == 0)
     {
@@ -128,7 +142,7 @@ bool RA8875Driver::GetScreenModeDesc(size_t index, PScreenMode& outMode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool RA8875Driver::SetScreenMode(const PIPoint& resolution, PEColorSpace colorSpace, float refreshRate)
+bool RA8875GfxDriver::SetScreenMode(const PIPoint& resolution, PEColorSpace colorSpace, float refreshRate)
 {
     return true;
 }
@@ -137,7 +151,7 @@ bool RA8875Driver::SetScreenMode(const PIPoint& resolution, PEColorSpace colorSp
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PIPoint RA8875Driver::GetResolution()
+PIPoint RA8875GfxDriver::GetResolution()
 {
     return PIPoint(800, 480);
 }
@@ -146,7 +160,7 @@ PIPoint RA8875Driver::GetResolution()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int RA8875Driver::GetBytesPerLine()
+int RA8875GfxDriver::GetBytesPerLine()
 {
     return GetResolution().x * 2;
 }
@@ -155,7 +169,7 @@ int RA8875Driver::GetBytesPerLine()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PEColorSpace RA8875Driver::GetColorSpace()
+PEColorSpace RA8875GfxDriver::GetColorSpace()
 {
     return PEColorSpace::RGB16;
 }
@@ -164,7 +178,7 @@ PEColorSpace RA8875Driver::GetColorSpace()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::SetColor(size_t index, PColor color)
+void RA8875GfxDriver::SetColor(size_t index, PColor color)
 {
 }
 
@@ -172,7 +186,7 @@ void RA8875Driver::SetColor(size_t index, PColor color)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color)
+void RA8875GfxDriver::WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color)
 {
     if (bitmap->m_VideoMem)
     {
@@ -189,7 +203,7 @@ void RA8875Driver::WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor col
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode)
+void RA8875GfxDriver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode)
 {
     if (bitmap->m_VideoMem)
     {
@@ -220,7 +234,7 @@ void RA8875Driver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PI
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor& color)
+void RA8875GfxDriver::FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor& color)
 {
     if (bitmap->m_VideoMem)
     {
@@ -252,7 +266,7 @@ void RA8875Driver::FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPosIn, PDrawingMode mode)
+void RA8875GfxDriver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPosIn, PDrawingMode mode)
 {
     if (dstBitmap->m_VideoMem && srcBitmap->m_VideoMem)
     {
@@ -439,7 +453,7 @@ void RA8875Driver::CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode)
+void RA8875GfxDriver::ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode)
 {
     if (dstBitmap->m_VideoMem && srcBitmap->m_VideoMem)
     {
@@ -555,7 +569,7 @@ void RA8875Driver::ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PIPoint RA8875Driver::RenderGlyph(const PIPoint& position, uint32_t character, const PIRect& clipRect, const FONT_INFO* font, uint16_t colorBg, uint16_t colorFg)
+PIPoint RA8875GfxDriver::RenderGlyph(const PIPoint& position, uint32_t character, const PIRect& clipRect, const FONT_INFO* font, uint16_t colorBg, uint16_t colorFg)
 {  
     if (font == nullptr || character < font->startChar || character > font->endChar) {
         return position;
@@ -613,7 +627,7 @@ PIPoint RA8875Driver::RenderGlyph(const PIPoint& position, uint32_t character, c
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-uint32_t RA8875Driver::WriteString(PSrvBitmap* bitmap, const PIPoint& position, const char* string, size_t strLength, const PIRect& clipRect, PColor colorBg, PColor colorFg, PFontID fontID)
+uint32_t RA8875GfxDriver::WriteString(PSrvBitmap* bitmap, const PIPoint& position, const char* string, size_t strLength, const PIRect& clipRect, PColor colorBg, PColor colorFg, PFontID fontID)
 {
     if (bitmap->m_VideoMem)
     {
@@ -743,7 +757,7 @@ uint32_t RA8875Driver::WriteString(PSrvBitmap* bitmap, const PIPoint& position, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::Reset()
+void RA8875GfxDriver::Reset()
 {
     if (m_PinLCDResetID != DigitalPinID::None)
     {
@@ -780,7 +794,7 @@ void RA8875Driver::Reset()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::PLL_ini()
+void RA8875GfxDriver::PLL_ini()
 {
     WriteCommand(RA8875_PLLC1);
     snooze_ms(2);
@@ -796,7 +810,7 @@ void RA8875Driver::PLL_ini()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::SetFgColor(uint16_t color)
+void RA8875GfxDriver::SetFgColor(uint16_t color)
 {
     WaitBlitter();
     WriteCommand(RA8875_FGCR0);
@@ -811,7 +825,7 @@ void RA8875Driver::SetFgColor(uint16_t color)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::SetBgColor(uint16_t color)
+void RA8875GfxDriver::SetBgColor(uint16_t color)
 {
     WaitBlitter();
     WriteCommand(RA8875_BGCR0);
@@ -826,7 +840,7 @@ void RA8875Driver::SetBgColor(uint16_t color)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::SetTransparantColor(uint16_t color)
+void RA8875GfxDriver::SetTransparantColor(uint16_t color)
 {
     WaitBlitter();
     WriteCommand(RA8875_BGTR0);
@@ -841,7 +855,7 @@ void RA8875Driver::SetTransparantColor(uint16_t color)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875Driver::SetWindow(int x1, int y1, int x2, int y2)
+void RA8875GfxDriver::SetWindow(int x1, int y1, int x2, int y2)
 {
     if (m_Orientation == e_Portrait)
     {

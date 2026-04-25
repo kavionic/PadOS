@@ -99,7 +99,7 @@ void PLayoutNode::Layout()
                         offset.y = roundf((childFrame.Height() - preferredSize.y) * 0.5f);
                         childFrame.bottom = childFrame.top + preferredSize.y;
                         break;
-                    case PAlignment::Right:
+                    case PAlignment::Bottom:
                         offset.y = childFrame.Height() - preferredSize.y;
                         childFrame.bottom = childFrame.top + preferredSize.y;
                         break;
@@ -380,7 +380,7 @@ void PHLayoutNode::Layout()
             switch(childList[i]->GetVAlignment())
             {
                 case PAlignment::Top:    y = bounds.top; break;
-                case PAlignment::Right:  y = bounds.bottom - frame.Height(); break;
+                case PAlignment::Bottom:  y = bounds.bottom - frame.Height(); break;
                 default:           p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "HLayoutNode::Layout() node '{}' has invalid v-alignment {}", m_View->GetName(), int(childList[i]->GetVAlignment()) );
                 [[fallthrough]];
                 case PAlignment::Center: y = bounds.top + (bounds.Height() - frame.Height()) * 0.5f; break;

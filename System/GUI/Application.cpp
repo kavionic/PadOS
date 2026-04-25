@@ -507,9 +507,11 @@ void PApplication::RegisterViewForLayout(Ptr<PView> view, bool recursive)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    if (!view->m_IsLayoutValid && !view->m_IsLayoutPending) {
+    if (!view->m_IsLayoutValid && !view->m_IsLayoutPending)
+    {
         view->m_IsLayoutPending = true;
         m_ViewsNeedingLayout.insert(view);
+        WakeupLooper();
     }
     if (recursive)
     {

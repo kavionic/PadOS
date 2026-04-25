@@ -50,6 +50,8 @@ public:
     const PMessagePort& GetPort() const { return m_Port; }
     port_id GetPortID() const { return m_Port.GetHandle(); }
 
+    void WakeupLooper() { m_TimerMapCondition.WakeupAll(); }
+
     status_t SetReceiveBufferSize(size_t size);
     size_t   GetReceiveBufferSize() const;
 

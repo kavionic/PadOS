@@ -34,7 +34,7 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KMutex::KMutex(const char* name, PEMutexRecursionMode recursionMode, int clockID) : KNamedObject(name, KNamedObjectType::Mutex), m_RecursionMode(recursionMode), m_ClockID(clockID)
+KMutex::KMutex(const char* name, PEMutexRecursionMode recursionMode, clockid_t clockID) : KNamedObject(name, KNamedObjectType::Mutex), m_RecursionMode(recursionMode), m_ClockID(clockID)
 {
 }
 

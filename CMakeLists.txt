@@ -145,6 +145,8 @@ set_libraries_section("iflash" ${PADOS_OPT_IFLASH_MODULES})
 
 setup_unity_build_and_pch(5, "${CMAKE_CURRENT_SOURCE_DIR}/Include/Precompile.h")
 
+include("CMake/Doxygen.cmake")
+
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/CMake/PadOSConfig.cmake.in
     ${CMAKE_BINARY_DIR}/cmake/PadOSConfig.cmake

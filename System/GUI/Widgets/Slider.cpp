@@ -194,7 +194,7 @@ void PSlider::GetSliderColors(PColor* outColor1, PColor* outColor2) const
 ///     sets the height and for a vertical it sets the width.
 /// \par Note:
 /// \par Warning:
-/// \param vSize - Slider-bar thickness in pixels.
+/// \param size - Slider-bar thickness in pixels.
 /// \sa GetSliderSize(), GetSliderFrame()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -223,16 +223,16 @@ float PSlider::GetSliderSize() const
 ///////////////////////////////////////////////////////////////////////////////
 /// Set format string for the value label.
 /// \par Description:
-///     Set a printf() style string that will be used to format the
-///     "value" label printed above the slider. The format function
-///     will be passed the sliders value as a parameter so if you throw
-///     in an %f somewhere it will be replaced with the current value.
+///     Set a std::format() style string that will be used to format the
+///     "value" label printed above the slider. The slider's current value
+///     (multiplied by \p scale) is passed as the single format argument,
+///     so a format string of "{:.2f}" will render the value with two decimal places.
 /// \par Note:
 ///     If you need some more advanced formatting you can inherit a new
-///     class from os::Slider and overload the GetValueString() and
+///     class from PSlider and overload the GetValueString() and
 ///     return the string to be used as a value label.
-/// \param cFormat - The printf() style format string used to generate the
-///         value label.
+/// \param format The std::format() style format string used to generate the value label.
+/// \param scale  Scale factor applied to the slider value before formatting. Defaults to 1.0.
 /// \sa GetValueStringFormat(), GetValueString(), SetLimitLabels(), GetLimitLabels()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -310,7 +310,7 @@ float PSlider::GetValue() const
 ///     to the ticks.
 ///
 ///     If the value is less than 2 the knob is not snapped.
-/// \param nCound - Number of possible knob positions. 0 to disable snapping.
+/// \param count - Number of possible knob positions. 0 to disable snapping.
 /// \sa GetStepCount(), SetTickCount(), GetTickCount()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////

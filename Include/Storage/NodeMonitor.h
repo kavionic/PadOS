@@ -53,10 +53,10 @@ class Messenger;
 ///     time-stamps, etc etc).
 ///
 ///     A node monitor will produce asynchronous events that will be
-///     sendt to a os::Looper whenever a relevant change is made to
+///     sendt to a PLooper whenever a relevant change is made to
 ///     the node it is monitoring. When creating a NodeMonitor you
 ///     must provide a bit-mask telling what event's you are
-///     interrested in and what os::Looper/os::Handler should receive
+///     interrested in and what PLooper/PHandler should receive
 ///     the event message.
 ///
 ///     Here is a list of the flags controlling what to monitor:
@@ -236,7 +236,7 @@ class Messenger;
 ///     - NWEVENT_FS_MOUNTED
 ///     - NWEVENT_FS_UNMOUNTED
 ///
-/// \sa os::Looper, os::Handler, os::FSNode
+/// \sa PLooper, PHandler, PFSNode
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 

@@ -56,11 +56,9 @@ const std::map<PString, uint32_t> PDropdownMenuFlags::FlagMap
 };
 
 /** DropdownMenu constructor
- * \param cFrame - The size and position of the edit box and it's associated button.
- * \param pzName - The identifier passed down to the Handler class (Never rendered)
- * \param nResizeMask - Flags describing which edge follows edges of the parent
- *          when the parent is resized (Se View::View())
- * \param nFlags - Various flags passed to the View::View() constructor.
+ * \param name - The identifier passed down to the Handler class (Never rendered)
+ * \param parent - If not null, add as a child to this view.
+ * \param flags - Various flags passed to the View::View() constructor.
  * \sa os::View, os::Invoker
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
@@ -248,7 +246,7 @@ void PDropdownMenu::OnEnableStatusChanged(bool isEnabled)
 }
 
 /** Add a item to the end of the drop down list.
- * \param pzString - The string to be appended
+ * \param text - The string to be appended
  * \sa InsertItem(), DeleteItem(), GetItemCount(), GetItem()
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
@@ -260,10 +258,10 @@ void PDropdownMenu::AppendItem(const PString& text)
 }
 
 /** Insert and item at a given position.
- * \Description:
+ * \par Description:
  *  The new item is inserted before the nPosition'th item.
- * \param nPosition - Zero based index of the item to insert the string in front of
- * \param pzString  - The string to be insert
+ * \param index - Zero based index of the item to insert the string in front of
+ * \param text  - The string to be insert
  * \sa AppendItem(), DeleteItem(), GetItemCount(), GetItem()
  * \author  Kurt Skauen (kurt@atheos.cx)
  *//////////////////////////////////////////////////////////////////////////////
@@ -277,7 +275,7 @@ void PDropdownMenu::InsertItem(size_t index, const PString& text)
 /** Delete a item
  * \par Description:
  *  Delete the item at the given position
- * \param nPosition - The zero based index of the item to delete.
+ * \param index - The zero based index of the item to delete.
  * \return true if an item was deleted, false if the index was out of range.
  * \sa AppendItem(), InsertItem(), GetItemCount(), GetItem()
  * \author  Kurt Skauen (kurt@atheos.cx)
@@ -324,7 +322,7 @@ void PDropdownMenu::Clear()
 /** Get one of the item strings.
  * \par Description:
  *  Returns one of the items encapsulated in a stl string.
- * \param nItem - Zero based index of the item to return.
+ * \param index - Zero based index of the item to return.
  * \return const reference to an stl string containing the item string
  * \sa GetItemCount(), AppendItem(), InsertItem(), DeleteItem()
  * \author  Kurt Skauen (kurt@atheos.cx)
@@ -354,8 +352,8 @@ size_t PDropdownMenu::GetSelection() const
  *  If the notify parameter is true and the selection differs from the current
  *  the "SelectionMessage" (see SetSelectionMessage()) will be sendt to the
  *  target set by SetTarget().
- * \param nItem - The new selection
- * \param bNotify - If true a notification will be sent if the new selection
+ * \param index - The new selection
+ * \param notify - If true a notification will be sent if the new selection
  *          differ from the current.
  * \sa GetSelection(), SetSelectionMessage(), GetSelectionMessage(), Invoker::SetTarget()
  * \author  Kurt Skauen (kurt@atheos.cx)

@@ -144,7 +144,7 @@ int PTabView::AppendTab(const PString& title, Ptr<PView> view)
 ///     The index *MUST* be between 0 and the current number of tabs!
 ///
 /// \param index  - The zero based position where the tab is inserted.
-/// \param pcTitle - The string that should appear inside the tab.
+/// \param title - The string that should appear inside the tab.
 /// \param view  - The View to be associated with the tab, or nullptr.
 ///
 /// \return The zero based index of the new tab (Same as index).

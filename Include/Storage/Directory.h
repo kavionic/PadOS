@@ -55,7 +55,18 @@ public:
     virtual ~PDirectory();
 
     virtual bool FDChanged(int newFileDescriptor, const struct ::stat& statBuffer) override;
-    
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// Open the directory pointed to by \p path. The path must
+    /// be valid and it must point to a directory.
+    /// \param path The directory to open.
+    /// \param openFlags Flags describing how to open the directory. Only O_RDONLY,
+    ///     O_WRONLY, and O_RDWR are relevant to directories. Take a look
+    ///     at the PFSNode documentation for a more detailed description of open modes.
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+    using PFSNode::Open;
+
     virtual bool GetNextEntry(PString& outName) override;
     virtual bool GetNextEntry(PFileReference& outReference) override;
     virtual bool Rewind() override;

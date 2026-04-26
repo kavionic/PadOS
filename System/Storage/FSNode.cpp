@@ -899,7 +899,6 @@ PErrorCode PFSNode::GetATime(time_t& outTime, bool updateCache /*= true*/) const
 /// \param nType
 ///     The data-type of the attribute. This should be one of the ATTR_TYPE_*
 ///     types defined in <atheos/filesystem.h>.
-///
 ///     - \b ATTR_TYPE_NONE,    Untyped "raw" data of any size.
 ///     - \b ATTR_TYPE_INT32,   32-bit integer value (the size must be exactly 4 bytes).
 ///     - \b ATTR_TYPE_INT64,   64-bit integer value often used for time-values (the size must be exactly 8 bytes).

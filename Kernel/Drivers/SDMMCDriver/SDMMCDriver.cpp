@@ -1235,7 +1235,7 @@ bool SDMMCDriver::SetHighSpeed_sd()
 /// \note CMD6 is valid under the "trans" state.
 /// \note m_BusWidth is updated.
 ///
-/// \param bus_width   Bus width to set
+/// \param busWidth   Bus width to set
 ///
 /// \return true if success, otherwise false
 /// \author Kurt Skauen
@@ -1412,8 +1412,7 @@ bool SDMMCDriver::ACmd6_sd()
 ///
 /// \param v2 Pointer to v2 flag to update
 ///
-/// \return true if success, otherwise false
-///         with a update of \ref sd_mmc_err.
+/// \return true if success, otherwise false.
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1592,12 +1591,12 @@ bool SDMMCDriver::Cmd52_sdio(uint8_t rwFlag, uint8_t functionNumber, uint32_t re
 ///    is similar to the single block transfer on memory.
 ///    Note: The SDIO block transfer mode is optional for SDIO card.
 ///
-/// \param rwFlag   Direction, 1:write, 0:read.
-/// \param functionNumber   Number of the function.
-/// \param registerAddr  Register address.
+/// \param rwFlag         Direction, 1:write, 0:read.
+/// \param functionNumber Number of the function.
+/// \param registerAddr   Register address.
 /// \param incrementAddr  1:Incrementing address, 0: fixed.
-/// \param size      Transfer data size.
-/// \param access_block  true, if the block access (DMA) is used
+/// \param size           Transfer data size.
+/// \param buffer         Pointer to the data buffer to read into or write from.
 ///
 /// \return true if success, otherwise false
 /// \author Kurt Skauen

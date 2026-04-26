@@ -121,7 +121,7 @@ PDirectory::PDirectory(const PFSNode& node) : PFSNode(node)
 ///  copy might fail (throwing an errno_exception exception) if the
 ///  process run out of file descriptors.
 ///
-/// \param cDir
+/// \param directory
 ///  The directory to copy
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
@@ -136,8 +136,10 @@ PDirectory::PDirectory(const PDirectory& directory) : PFSNode(directory)
 ///     Construct a directory object from a open file descriptor.
 ///     The file descriptor must be referencing a directory or
 ///     an errno_exception with the ENOTDIR error code will be thrown.
-/// \param nFD
+/// \param fileDescriptor
 ///     An open file descriptor referencing a directory.
+/// \param takeOwnership
+///     Duplicate fileDescriptor with dup().
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -173,34 +175,7 @@ bool PDirectory::FDChanged(int newFileDescriptor, const struct ::stat& statBuffe
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/// Open a directory using a path.
-/// \f status_t Directory::Open(const PString& path, int openFlags = O_RDONLY)
-/// \par Description:
-///     Open the directory pointed to by \p path. The path must
-///     be valid and it must point to a directory.
-///
-/// \param path
-///     The directory to open.
-/// \param openFlags
-///     Flags describing how to open the directory. Only O_RDONLY,
-///     O_WRONLY, and O_RDWR are relevant to directories. Take a look
-///     at the os::FSNode documentation for a more detailed
-///     description of open modes.
-///
-/// \author Kurt Skauen (kurt@atheos.cx)
-///////////////////////////////////////////////////////////////////////////////
-
-
-///////////////////////////////////////////////////////////////////////////////
-/// Get the absolute path of the directory
-/// \par Description:
-/// \par Note:
-/// \par Warning:
-/// \param
-/// \return
-/// \par Error codes:
-/// \sa
-/// \author Kurt Skauen (kurt@atheos.cx)
+/// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 bool PDirectory::GetPath(PString& outPath) const

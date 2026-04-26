@@ -97,19 +97,13 @@ KVFSManager::~KVFSManager()
 ///	The returned count only indicate the highest used partition number
 ///	and the caller must check each returned partition and filter out
 ///	partitions where the type-field is '0'.
-/// \param psDevice
-///	Pointer to a device_geometry structure describing the disk's geometry.
-/// \param pasPartitions
-///	Pointer to an array of partition descriptors that will be filled in.
-/// \param userData
-///	Pointer private to the caller that will be passed back to the pfReadCallback
-///	call-back function.
-/// \param pfReadCallback
-///	Pointer to a function that will be called to read in partition tables.
-/// 
-/// \return
-///	A positive maximum partition-count on success or a negative error
-///	code on failure.
+/// \param blockBuffer  Caller-provided buffer used for reading disk blocks.
+/// \param bufferSize   Size of \p blockBuffer in bytes.
+/// \param diskGeom     Structure describing the disk geometry (sector count and bytes per sector).
+/// \param readCallback Callback invoked to read a block at a given offset into \p blockBuffer.
+/// \param userData     Opaque pointer passed through to each \p readCallback invocation.
+///
+/// \return A vector of partition descriptors for all discovered primary and logical partitions.
 /// \sa create_device_node(), delete_device_node()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////

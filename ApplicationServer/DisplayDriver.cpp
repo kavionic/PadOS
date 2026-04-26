@@ -74,8 +74,6 @@ void PDisplayDriver::Close(void)
 ///     The driver should try to avoid using this offset since it will give
 ///     user-space applications access to the memory area between the start
 ///     of the raster-area and the start of the bitmap.
-/// \par Warning:
-/// \param
 /// \return
 /// \sa
 /// \author Kurt Skauen

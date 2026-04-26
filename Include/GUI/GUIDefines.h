@@ -254,17 +254,17 @@ enum class PKeyCodes : uint32_t
 
 enum
 {
-    QUAL_LSHIFT = 0x01,                     //!< Left <SHIFT> key.
-    QUAL_RSHIFT = 0x02,                     //!< Right <SHIFT> key.
-    QUAL_SHIFT = QUAL_LSHIFT | QUAL_RSHIFT, //!< Any <SHIFT> key.
+    QUAL_LSHIFT = 0x01,                     //!< Left \<SHIFT\> key.
+    QUAL_RSHIFT = 0x02,                     //!< Right \<SHIFT\> key.
+    QUAL_SHIFT = QUAL_LSHIFT | QUAL_RSHIFT, //!< Any \<SHIFT\> key.
 
-    QUAL_LCTRL = 0x04,                      //!< Left <CONTROL> key.
-    QUAL_RCTRL = 0x08,                      //!< Right <CONTROL> key.
-    QUAL_CTRL = QUAL_LCTRL | QUAL_RCTRL,    //!< Any <CONTROL> key.
+    QUAL_LCTRL = 0x04,                      //!< Left \<CONTROL\> key.
+    QUAL_RCTRL = 0x08,                      //!< Right \<CONTROL\> key.
+    QUAL_CTRL = QUAL_LCTRL | QUAL_RCTRL,    //!< Any \<CONTROL\> key.
 
-    QUAL_LALT = 0x10,                       //!< Left <ALT> key.
-    QUAL_RALT = 0x20,                       //!< Right <ALT> key.
-    QUAL_ALT = QUAL_LALT | QUAL_RALT,       //!< Any <ALT> key.
+    QUAL_LALT = 0x10,                       //!< Left \<ALT\> key.
+    QUAL_RALT = 0x20,                       //!< Right \<ALT\> key.
+    QUAL_ALT = QUAL_LALT | QUAL_RALT,       //!< Any \<ALT\> key.
 
     QUAL_REPEAT = 0x40                      //!< Set if the key-down event was caused by key repeating.
 };

@@ -164,11 +164,8 @@ PFile::PFile(const PFSNode& node) : PFSNode(node)
 ///     Construct a file object from a open filedescriptor.
 /// \note
 ///     The file descriptor will be close when the object is deleted.
-/// \par Warning:
-/// \param
-/// \return
-/// \par Error codes:
-/// \sa
+/// \param fileDescriptor An open file descriptor referencing a file.
+/// \param takeOwnership If true, the file descriptor is closed when the object is destroyed; if false, it is duplicated with dup().
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -663,13 +660,9 @@ off64_t PFile::GetSize(bool updateCache) const
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Move the file pointer.
-/// \par Description:
-/// \par Note:
-/// \par Warning:
-/// \param
-/// \return
-/// \par Error codes:
-/// \sa
+/// \param position The new file position, interpreted according to \p mode.
+/// \param mode One of SEEK_SET (from start), SEEK_CUR (from current position), or SEEK_END (from end).
+/// \return The resulting file position, or -1 on error.
 /// \author Kurt Skauen (kurt@atheos.cx)
 ///////////////////////////////////////////////////////////////////////////////
 

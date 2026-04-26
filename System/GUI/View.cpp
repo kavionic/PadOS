@@ -85,8 +85,7 @@ static PColor g_DefaultColors[] =
 ///     system colors. This should be used whenever possible instead
 ///     of hard-coding colors to make it possible for the user to
 ///     customize the look.
-/// \param
-///     colorID - One of the entries from the StandardColorID enum.
+/// \param colorID One of the entries from the StandardColorID enum.
 /// \return
 ///     The current color for the given system pen.
 /// \author Kurt Skauen

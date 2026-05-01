@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2021-2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2021-2025 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,8 +19,15 @@
 
 #pragma once
 
+#include <map>
+#include <vector>
+
 namespace SerialProtocol
 {
+struct OpenSession;
+struct CloseSession;
+struct RenameFile;
+struct GetVolumeInfo;
 struct GetDirectory;
 struct CreateFile;
 struct CreateDirectory;
@@ -34,7 +41,14 @@ struct GetDirectoryReplyDirEnt;
 
 namespace kernel
 {
+PDEFINE_LOG_CATEGORY(LogCategorySerialHandlerFS, "SCMDHFS", PLogSeverity::ERROR, PLogChannel::SerialManager);
+
 class SerialCommandHandler;
+
+struct SessionData
+{
+    std::set<int> m_OpenFiles;
+};
 
 class CommandHandlerFilesystem
 {
@@ -42,6 +56,10 @@ public:
     void Setup(SerialCommandHandler* commandHandler);
 
 private:
+    void HandleOpenSession(const SerialProtocol::OpenSession& msg);
+    void HandleCloseSession(const SerialProtocol::CloseSession& msg);
+    void HandleRenameFile(const SerialProtocol::RenameFile& msg);
+    void HandleGetVolumeInfo(const SerialProtocol::GetVolumeInfo& msg);
     void HandleGetDirectory(const SerialProtocol::GetDirectory& packet);
     void HandleCreateFile(const SerialProtocol::CreateFile& msg);
     void HandleCreateDirectory(const SerialProtocol::CreateDirectory& msg);
@@ -51,10 +69,11 @@ private:
     void HandleCloseFile(const SerialProtocol::CloseFile& msg);
     void HandleDeleteFile(const SerialProtocol::DeleteFile& msg);
 
-    bool SendDirectoryEntries(const std::vector<SerialProtocol::GetDirectoryReplyDirEnt>& entryList);
+    bool ValidateSession(int32_t sessionID);
+    bool SendDirectoryEntries(int32_t sessionID, const std::vector<SerialProtocol::GetDirectoryReplyDirEnt>& entryList);
 
-    SerialCommandHandler* m_CommandHandler = nullptr;
-    int                     m_CurrentExternalFile = -1;
+    SerialCommandHandler*          m_CommandHandler = nullptr;
+    std::map<int32_t, SessionData> m_Sessions;
 };
 
 

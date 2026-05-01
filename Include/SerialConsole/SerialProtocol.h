@@ -51,19 +51,31 @@ namespace Commands
     static constexpr uint32_t SetSystemTime     = 1000;
     static constexpr uint32_t RequestSystemTime = 1010;
 
-    // Filesystem messages:
-    static constexpr uint32_t GetDirectory      = 2000;
-    static constexpr uint32_t GetDirectoryReply = 2010;
-    static constexpr uint32_t CreateFile        = 2020;
-    static constexpr uint32_t CreateDirectory   = 2030;
-    static constexpr uint32_t OpenFile          = 2040;
-    static constexpr uint32_t CloseFile         = 2050;
-    static constexpr uint32_t OpenFileReply     = 2060;
-    static constexpr uint32_t WriteFile         = 2070;
-    static constexpr uint32_t WriteFileReply    = 2080;
-    static constexpr uint32_t ReadFile          = 2090;
-    static constexpr uint32_t ReadFileReply     = 2100;
-    static constexpr uint32_t DeleteFile        = 2110;
+    // Filesystem session commands (1490-1599):
+    static constexpr uint32_t FilesystemStatusReply = 1490;
+    static constexpr uint32_t OpenSession           = 1500;
+    static constexpr uint32_t OpenSessionReply      = 1510;
+    static constexpr uint32_t CloseSession          = 1520;
+    static constexpr uint32_t RenameFile            = 1530;
+    static constexpr uint32_t GetVolumeInfo         = 1540;
+    static constexpr uint32_t GetVolumeInfoReply    = 1550;
+
+    // Filesystem file operation commands (2000-2119):
+    static constexpr uint32_t GetDirectory         = 2000;
+    static constexpr uint32_t GetDirectoryReply    = 2010;
+    static constexpr uint32_t CreateFile           = 2020;
+    static constexpr uint32_t CreateDirectory      = 2030;
+    static constexpr uint32_t CreateDirectoryReply = 2031;
+    static constexpr uint32_t OpenFile             = 2040;
+    static constexpr uint32_t CloseFile            = 2050;
+    static constexpr uint32_t CloseFileReply       = 2051;
+    static constexpr uint32_t OpenFileReply        = 2060;
+    static constexpr uint32_t WriteFile            = 2070;
+    static constexpr uint32_t WriteFileReply       = 2080;
+    static constexpr uint32_t ReadFile             = 2090;
+    static constexpr uint32_t ReadFileReply        = 2100;
+    static constexpr uint32_t DeleteFile           = 2110;
+    static constexpr uint32_t DeleteFileReply      = 2111;
 
     static constexpr uint32_t SysCmdCount       = 10000;
 }

@@ -246,7 +246,9 @@ size_t KPipeFilesystem::Write(Ptr<KFileNode> file, const void* buffer, size_t le
 
     if (pipeInode->m_ReaderCount == 0)
     {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
         ksend_signal_to_thread(kget_current_thread(), SIGPIPE);
+#endif
         PERROR_THROW_CODE(PErrorCode::BrokenPipe);
     }
 
@@ -268,7 +270,9 @@ size_t KPipeFilesystem::Write(Ptr<KFileNode> file, const void* buffer, size_t le
             }
             if (pipeInode->m_ReaderCount == 0)
             {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
                 ksend_signal_to_thread(kget_current_thread(), SIGPIPE);
+#endif
                 PERROR_THROW_CODE(PErrorCode::BrokenPipe);
             }
             if (file->GetOpenFlags() & O_NONBLOCK) {

@@ -25,7 +25,9 @@
 #include <System/System.h>
 #include <System/ErrorCodes.h>
 #include <Kernel/KWaitableObject.h>
+#ifdef PADOS_MODULE_POSIX_SIGNALS
 #include <Kernel/KPosixSignals.h>
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
 
 namespace kernel
@@ -99,15 +101,18 @@ public:
     template<typename TObjectType, typename CALLBACK, typename... ARGS>
     static PErrorCode ForwardToHandleRestartable(int handle, const PErrorCode& invalidHandleReturnValue, CALLBACK callback, ARGS&&... args)
     {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
         for (;;)
         {
             const PErrorCode result = ForwardToHandle<TObjectType>(handle, invalidHandleReturnValue, callback, std::forward<ARGS>(args)...);
             if (result != PErrorCode::RestartSyscall) [[likely]] {
                 return result;
-            } else {
-                kforce_process_signals();
             }
+            kforce_process_signals();
         }
+#else
+        return ForwardToHandle<TObjectType>(handle, invalidHandleReturnValue, callback, std::forward<ARGS>(args)...);
+#endif // PADOS_MODULE_POSIX_SIGNALS
     }
 
     template<typename T, typename CALLBACK, typename... ARGS>

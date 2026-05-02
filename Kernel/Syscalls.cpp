@@ -19,6 +19,7 @@
 
 #include <Kernel/Kernel.h>
 #include <Kernel/Scheduler.h>
+#include <Kernel/KStackFrames.h>
 #include <Kernel/Syscalls.h>
 #include <Utils/Utils.h>
 
@@ -98,9 +99,17 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(snooze_ns),
     SYS_PTR(snooze_until_ns),
     SYS_PTR(yield),
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     SYS_PTR(thread_kill),
+#else // PADOS_MODULE_POSIX_SIGNALS
+    SYS_PTR_UNIMPLEMENTED(thread_kill),
+#endif // PADOS_MODULE_POSIX_SIGNALS
     SYS_PTR(getpid),
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     SYS_PTR(kill),
+#else // PADOS_MODULE_POSIX_SIGNALS
+    SYS_PTR_UNIMPLEMENTED(kill),
+#endif // PADOS_MODULE_POSIX_SIGNALS
     SYS_PTR(get_dirty_disk_cache_blocks),
     SYS_PTR(exit),
     SYS_PTR(sysconf),
@@ -187,6 +196,7 @@ static const void* const gk_SyscallTable[] =
 #else // PADOS_MODULE_POSIX_SPAWN
     SYS_PTR_UNIMPLEMENTED(posix_spawn),
 #endif // PADOS_MODULE_POSIX_SPAWN
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     SYS_PTR(sigaction),
     SYS_PTR(thread_sigqueue),
     SYS_PTR(thread_sigmask),
@@ -196,6 +206,17 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(thread_cancel),
     SYS_PTR(thread_setcancelstate),
     SYS_PTR(thread_setcanceltype),
+#else // PADOS_MODULE_POSIX_SIGNALS
+    SYS_PTR_UNIMPLEMENTED(sigaction),
+    SYS_PTR_UNIMPLEMENTED(thread_sigqueue),
+    SYS_PTR_UNIMPLEMENTED(thread_sigmask),
+    SYS_PTR_UNIMPLEMENTED(raise),
+    SYS_PTR_UNIMPLEMENTED(signal),
+    SYS_PTR_UNIMPLEMENTED(sigsuspend),
+    SYS_PTR_UNIMPLEMENTED(thread_cancel),
+    SYS_PTR_UNIMPLEMENTED(thread_setcancelstate),
+    SYS_PTR_UNIMPLEMENTED(thread_setcanceltype),
+#endif // PADOS_MODULE_POSIX_SIGNALS
     SYS_PTR(has_nmi_status),
     SYS_PTR(log_and_clear_nmi_status),
 #ifdef PADOS_MODULE_POSIX_SPAWN
@@ -239,8 +260,13 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(waitpid),
     SYS_PTR(waitid),
     SYS_PTR(getpgrp),
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     SYS_PTR(sigpending),
     SYS_PTR(sigprocmask),
+#else // PADOS_MODULE_POSIX_SIGNALS
+    SYS_PTR_UNIMPLEMENTED(sigpending),
+    SYS_PTR_UNIMPLEMENTED(sigprocmask),
+#endif // PADOS_MODULE_POSIX_SIGNALS
     SYS_PTR(pipe),
 };
 
@@ -257,9 +283,11 @@ extern "C" uint32_t syscall_return()
 {
     const KThreadCB& thread = *gk_CurrentThread;
     const uint32_t syscallReturn = thread.m_SyscallReturn;
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     if (thread.HasUnblockedPendingSignals()) {
         kforce_process_signals();
     }
+#endif // PADOS_MODULE_POSIX_SIGNALS
     return syscallReturn;
 }
 
@@ -320,10 +348,12 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
     "   b      SetupSystemCall\n"   // SetupSystemCall(stackPtr, SyscallNum, prevCONTROL)
     ""
     ".invalid_syscall:\n"
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     "   cmp     r1, %2\n"           // SYS_sigreturn
     "   beq     .sigreturn\n"
     "   cmp     r1, %3\n"           // SYS_process_signals
     "   beq     .process_signals\n"
+#endif // PADOS_MODULE_POSIX_SIGNALS
     "   cmp     r1, %4\n"           // SYS_thread_exit
     "   beq     .process_thread_exit\n"
     "   ldr     r1, =%5\n"          // ENOSYS
@@ -332,6 +362,7 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
     "   str     r1, [r0, %8]\n"     // Write frame -> PC.
     "   bx      lr\n"
     ""
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     ".sigreturn:\n" // Used by the signal-return trampoline to restore normal thread context.
     "   ldr     r2, [r0, #28]\n"    // Stacked xPSR (basic frame) : 7*4
     "   lsrs    r2, r2, #9\n"       // Shift ALIGN bit to bit-0
@@ -364,6 +395,7 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
     "   msr     psp, r0\n"
     "   bx      lr\n"
     ""
+#endif // PADOS_MODULE_POSIX_SIGNALS
     ".process_thread_exit:\n"
         ASM_STORE_SCHED_CONTEXT(r0)
     "   ldr     r1, [r0, %6]\n"     // Read frame -> R0.

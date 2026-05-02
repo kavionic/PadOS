@@ -33,6 +33,8 @@
 namespace kernel
 {
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
+
 KSignalQueueNode* gk_FirstFreeSignalQueueNode = nullptr;
 size_t            gk_FreeSignalQueueNodeCount = 0;
 
@@ -988,25 +990,6 @@ extern "C" uintptr_t ksigreturn(uintptr_t curStackPtr)
     return kprocess_pending_signals(signalStackFrame->PreSignalPSPAndPrivilege & ~0x01, (signalStackFrame->PreSignalPSPAndPrivilege & 0x01) != 0);
 }
 
-extern "C" uintptr_t kprocess_thread_exit(uintptr_t prevStackPtr, void* returnValue)
-{
-    KCtxSwitchKernelStackFrame* prevStackFrame = reinterpret_cast<KCtxSwitchKernelStackFrame*>(prevStackPtr);
-
-    const bool   hasFPUFrame = exception_has_fpu_frame(prevStackFrame->EXEC_RETURN);
-    const size_t frameSize = hasFPUFrame ? sizeof(KCtxSwitchStackFrameFPU) : sizeof(KCtxSwitchStackFrame);
-
-    const uintptr_t newStackPtr = prevStackPtr - frameSize;
-
-    memcpy(reinterpret_cast<void*>(newStackPtr), reinterpret_cast<const void*>(prevStackPtr), frameSize);
-
-    KThreadCB& thread = kget_current_thread();
-
-    if (hasFPUFrame) {
-        setup_exit_handler_exception_frame(*reinterpret_cast<KCtxSwitchStackFrameFPU*>(newStackPtr), prevStackPtr, returnValue, thread.m_ThreadUserData);
-    } else {
-        setup_exit_handler_exception_frame(*reinterpret_cast<KCtxSwitchStackFrame*>(newStackPtr), prevStackPtr, returnValue, thread.m_ThreadUserData);
-    }
-    return newStackPtr;
-}
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
 } // namespace kernel

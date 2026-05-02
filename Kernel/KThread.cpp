@@ -183,6 +183,7 @@ thread_id kthread_spawn_trw(const PThreadAttribs* threadAttr, const PPosixSpawnA
     thread = ptr_new<KThreadCB>(pidNode->PID, process, threadAttr, flags.Has(KSpawnThreadFlag::Privileged), threadUserData, nullptr);
     thread->InitializeStack(entryTrampoline, entryPoint, /*skipEntryTrampoline*/ false, arguments);
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     const KThreadCB& currentThread = kget_current_thread();
     if (flags.Has(KSpawnThreadFlag::SpawnProcess)) {
         thread->m_BlockedSignals = currentThread.m_BlockedSignals;
@@ -192,6 +193,7 @@ thread_id kthread_spawn_trw(const PThreadAttribs* threadAttr, const PPosixSpawnA
         thread->m_BlockedSignals = spawnAttr->sa_sigmask & KBLOCKABLE_SIGNALS_MASK;
     }
 #endif // PADOS_MODULE_POSIX_SPAWN
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
     pidNode->Thread = thread;
 
@@ -231,6 +233,8 @@ __attribute__((noreturn)) void kthread_exit(void* returnValue)
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+#ifdef PADOS_MODULE_POSIX_SIGNALS
 
 static void kinitiate_thread_cancellation(KThreadCB& thread) noexcept
 {
@@ -354,6 +358,8 @@ PErrorCode kthread_setcanceltype(PThreadCancelType type, PThreadCancelType* outO
     }
     return PErrorCode::Success;
 }
+
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -625,9 +631,11 @@ PErrorCode ksnooze_until_ns(bigtime_t resumeTimeNanos)
     {
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
             if (kis_thread_canceled()) {
                 return PErrorCode::Interrupted;
             }
+#endif // PADOS_MODULE_POSIX_SIGNALS
             add_to_sleep_list(&waitNode);
             thread->SetState(ThreadState_Sleeping);
         } CRITICAL_END;

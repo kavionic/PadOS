@@ -275,7 +275,9 @@ void KPTYFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void*
 
                 Ptr<KProcessGroup> foregroundGroup = inode->GetForegroundGroup();
                 if (foregroundGroup != nullptr) {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
                     kkillpg_pl(*foregroundGroup, SIGWINCH);
+#endif
                 }
             }
             break;
@@ -507,8 +509,16 @@ size_t KPTYInode::Read(void* buffer, size_t length, int openFlags)
         PERROR_THROW_CODE(PErrorCode::InvalidArg);
     }
 
-    while (!CanRead() && !khas_pending_signals())
+    for (;;)
     {
+        if (CanRead()) {
+            break;
+        }
+#ifdef PADOS_MODULE_POSIX_SIGNALS
+        if (khas_pending_signals()) {
+            PERROR_THROW_CODE(PErrorCode::Interrupted);
+        }
+#endif
         if (m_Partner == nullptr || m_Partner->m_OpenCount == 0) {
             return 0;
         }
@@ -516,9 +526,6 @@ size_t KPTYInode::Read(void* buffer, size_t length, int openFlags)
             PERROR_THROW_CODE(PErrorCode::WouldBlock);
         }
         m_IOCondition.Wait(volume->m_Mutex);
-    }
-    if (!CanRead()) {
-        PERROR_THROW_CODE(PErrorCode::Interrupted);
     }
 
     size_t bytesRead = 0;
@@ -752,7 +759,9 @@ size_t KPTYInode::WriteToSlave(const void* buffer, size_t length, int openFlags)
 
                     const Ptr<KProcessGroup> foregroundGroup = GetForegroundGroup();
                     if (foregroundGroup != nullptr) {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
                         kkillpg_pl(*foregroundGroup, SIGINT);
+#endif
                     }
                     continue;
                 }
@@ -763,7 +772,9 @@ size_t KPTYInode::WriteToSlave(const void* buffer, size_t length, int openFlags)
 
                     const Ptr<KProcessGroup> foregroundGroup = GetForegroundGroup();
                     if (foregroundGroup != nullptr) {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
                         kkillpg_pl(*foregroundGroup, SIGSTOP);
+#endif
                     }
                     continue;
                 }
@@ -864,10 +875,12 @@ void kdisassociate_controlling_tty_trw(bool sendSIGCONT)
 
     if (foregroundGroup != nullptr)
     {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
         kkillpg_pl(*foregroundGroup, SIGHUP);
         if (sendSIGCONT) {
             kkillpg_pl(*foregroundGroup, SIGCONT);
         }
+#endif
     }
 }
 

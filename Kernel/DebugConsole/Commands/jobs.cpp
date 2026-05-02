@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 07.04.2026 23:00
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
+
 #include <signal.h>
 
 #include <Kernel/DebugConsole/KConsoleCommand.h>
@@ -213,3 +215,5 @@ static KConsoleCommandRegistrator<CCmdFg>   g_RegisterCCmdFg("fg");
 static KConsoleCommandRegistrator<CCmdBg>   g_RegisterCCmdBg("bg");
 
 } // namespace kernel
+
+#endif // PADOS_MODULE_POSIX_SIGNALS

@@ -59,9 +59,11 @@ PErrorCode KConditionVariable::WaitInternal(KMutex* lock, bool cancelable)
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
             if (cancelable && kis_thread_canceled()) {
                 return PErrorCode::Interrupted;
             }
+#endif
 
             waitNode.m_Thread = thread;
             thread->SetState(ThreadState_Waiting);
@@ -108,9 +110,11 @@ PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, bool cancelabl
 
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
             if (cancelable && kis_thread_canceled()) {
                 return PErrorCode::Interrupted;
             }
+#endif
             if (deadline.IsInfinit() || kget_monotonic_time() < deadline)
             {
                 waitNode.m_Thread = thread;

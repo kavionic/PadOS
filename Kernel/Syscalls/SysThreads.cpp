@@ -78,6 +78,7 @@ void sys_thread_terminate(void* returnValue)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
 PErrorCode sys_thread_cancel(pid_t threadID)
 {
     return kthread_cancel(threadID);
@@ -100,6 +101,7 @@ PErrorCode sys_thread_setcanceltype(PThreadCancelType type, PThreadCancelType* o
 {
     return kthread_setcanceltype(type, outOldType);
 }
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

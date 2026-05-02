@@ -9,10 +9,15 @@ target_sources(PadOS_Syscalls PRIVATE
 	SysObjectWaitGroup.cpp
 	SysProcess.cpp
 	SysSemaphore.cpp
-	SysSignals.cpp
 	SysThreads.cpp
 	SysTime.cpp
 )
+
+if(PADOS_MODULE_POSIX_SIGNALS)
+	target_sources(PadOS_Syscalls PRIVATE
+		SysSignals.cpp
+	)
+endif()
 
 if(PADOS_MODULE_POSIX_SPAWN)
 	target_sources(PadOS_Syscalls PRIVATE

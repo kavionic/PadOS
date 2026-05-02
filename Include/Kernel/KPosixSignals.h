@@ -27,6 +27,7 @@
 namespace kernel
 {
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
 class KProcess;
 class KThreadCB;
 class KProcessGroup;
@@ -109,12 +110,8 @@ void kforce_process_signals();
 
 uintptr_t kprocess_signal(int sigNum, const uintptr_t prevStackPtr, bool userMode, bool fromFault, const siginfo_t* extSigInfo);
 extern "C" uintptr_t kprocess_pending_signals(uintptr_t curStackPtr, bool userMode);
-extern "C" uintptr_t kprocess_thread_exit(uintptr_t prevStackPtr, void* returnValue);
 
-static inline bool exception_has_fpu_frame(uint32_t execReturn)
-{
-    return (execReturn & 0x10) == 0;
-}
+extern "C" uintptr_t kprocess_thread_exit(uintptr_t prevStackPtr, void* returnValue);
 
 static inline uint32_t get_ctxswitch_frame_pc(const void* ctxBase)
 {
@@ -193,6 +190,13 @@ static inline bool sig_can_auto_reset(int sigNum)
         default:
             return true;
     }
+}
+
+#endif // PADOS_MODULE_POSIX_SIGNALS
+
+static inline bool exception_has_fpu_frame(uint32_t execReturn)
+{
+    return (execReturn & 0x10) == 0;
 }
 
 } // namespace kernel

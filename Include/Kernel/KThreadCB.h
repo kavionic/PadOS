@@ -72,6 +72,7 @@ public:
     static int PriToLevel(int priority) noexcept;
     static int LevelToPri(int level) noexcept;
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     sigset_t GetUnblockedSignals(sigset_t signalMask) const noexcept { return signalMask & ~m_BlockedSignals; }
 
     sigset_t GetBlockedPendingSignals() const noexcept { KSchedulerLock slock; return m_PendingSignals & m_BlockedSignals; }
@@ -85,6 +86,7 @@ public:
 
     void     SetPendingSignal(int sigNum) noexcept { const sigset_t mask = sig_mkmask(sigNum); KSchedulerLock slock; m_PendingSignals |= mask; }
     void     ClearPendingSignal(int sigNum) noexcept { const sigset_t invMask = ~sig_mkmask(sigNum); KSchedulerLock slock; m_PendingSignals &= invMask; }
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
     void                SetBlockingObject(const KNamedObject* WaitObject) noexcept;
     const KNamedObject* GetBlockingObject() const noexcept { return m_BlockingObject; }
@@ -107,8 +109,15 @@ public:
     TimeValNanos              m_StartTime;
     TimeValNanos              m_RunTime;
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     PThreadCancelState        m_CancelState = THREAD_CANCEL_ENABLE;
     PThreadCancelType         m_CancelType  = THREAD_CANCEL_DEFERRED;
+
+    sigset_t                  m_PendingSignals = 0;
+    sigset_t		          m_BlockedSignals = 0;
+    KSignalQueueNode*         m_FirstQueuedSignal = nullptr;
+    size_t                    m_QueuedSignalCount = 0;
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
     Ptr<KProcess>             m_Process;
 
@@ -127,10 +136,6 @@ public:
 
     int                       m_SymlinkDepth = 0;
 
-    sigset_t                  m_PendingSignals = 0;
-    sigset_t		          m_BlockedSignals = 0;
-    KSignalQueueNode*         m_FirstQueuedSignal = nullptr;
-    size_t                    m_QueuedSignalCount = 0;
     PThreadUserData*          m_ThreadUserData = nullptr;
 
     PIntrusiveListNode<KThreadCB> m_ProcessListNode;

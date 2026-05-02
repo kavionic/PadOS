@@ -40,8 +40,14 @@ target_sources(PadOS_Kernel PRIVATE
 )
 
 target_sources(PadOS_KernelExt PRIVATE
-	KPosixSignals.cpp
+	KThreadExitTrampoline.cpp
 )
+
+if(PADOS_MODULE_POSIX_SIGNALS)
+	target_sources(PadOS_KernelExt PRIVATE
+		KPosixSignals.cpp
+	)
+endif()
 
 if(PADOS_MODULE_POSIX_SPAWN)
 	target_sources(PadOS_KernelExt PRIVATE

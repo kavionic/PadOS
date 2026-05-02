@@ -17,6 +17,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 28.03.2026 23:00
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
+
 #include <argparse/argparse.hpp>
 #include <signal.h>
 
@@ -233,3 +235,5 @@ private:
 static KConsoleCommandRegistrator<CCmdKill> g_RegisterCCmdKill("kill");
 
 } // namespace kernel
+
+#endif // PADOS_MODULE_POSIX_SIGNALS

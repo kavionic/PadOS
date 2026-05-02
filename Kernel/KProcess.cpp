@@ -108,7 +108,9 @@ KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const PPosixS
     m_ExitInfo.si_uid   = m_RUID;
 
     parentProcess->m_Group->AddProcess(this);
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     std::copy(std::begin(parentProcess->m_SignalHandlers), std::end(parentProcess->m_SignalHandlers), std::begin(m_SignalHandlers));
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
 #ifdef PADOS_MODULE_POSIX_SPAWN
     if (spawnAttr != nullptr)
@@ -119,6 +121,7 @@ KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const PPosixS
             SetPGroupID(ptr_tmp_cast(this), (spawnAttr->sa_pgroup != 0) ? spawnAttr->sa_pgroup : m_PID);
         }
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
         if (spawnAttr->sa_flags & POSIX_SPAWN_SETSIGDEF)
         {
             for (int sigNum = 1; sigNum <= KTOTAL_SIG_COUNT; ++sigNum)
@@ -129,6 +132,7 @@ KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const PPosixS
                 }
             }
         }
+#endif // PADOS_MODULE_POSIX_SIGNALS
     }
 #endif // PADOS_MODULE_POSIX_SPAWN
     memcpy(m_Groups, parentProcess->m_Groups, sizeof(m_Groups));
@@ -193,6 +197,7 @@ void KProcess::RemoveThread(KThreadCB* thread) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
 void KProcess::ThreadStopped()
 {
     kassert(KSchedulerLock::IsLocked());
@@ -239,6 +244,102 @@ void KProcess::ThreadContinued()
         }
     }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::StopProcess(int sigNum)
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
+    if (m_State == KProcessState::Stopping || m_State == KProcessState::Stopped) {
+        return;
+    }
+
+    SetExitStatus(CLD_STOPPED, sigNum);
+
+    m_State = KProcessState::Stopping;
+
+    m_ThreadsToStop = static_cast<int>(m_Threads.GetCount());
+
+    for (KThreadCB* curThread : m_Threads) {
+        ksend_signal_to_thread(*curThread, sigNum);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::ContinueProcess(int sigNum)
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
+    if (m_State != KProcessState::Stopping && m_State != KProcessState::Stopped) {
+        return;
+    }
+
+    SetExitStatus(CLD_CONTINUED, sigNum);
+
+    m_State = KProcessState::Continuing;
+    m_ThreadsToStop = 0;
+
+    for (KThreadCB* curThread : m_Threads) {
+        ksend_signal_to_thread(*curThread, SIGCONT);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::Kill(int sigNum)
+{
+    KSchedulerLock lock;
+
+    if (sigNum == SIGKILL)
+    {
+        for (KThreadCB* thread : m_Threads) {
+            ksend_signal_to_thread(*thread, sigNum);
+        }
+        return;
+    }
+    else
+    {
+        for (KThreadCB* thread : m_Threads)
+        {
+            if (!thread->IsSignalBlocked(sigNum))
+            {
+                if (ksend_signal_to_thread(*thread, sigNum) == PErrorCode::Success) {
+                    return;
+                }
+            }
+        }
+    }
+    // If all threads block the signal, leave it pending on the main thread.
+    if (!m_Threads.IsEmpty()) {
+        ksend_signal_to_thread(*m_Threads.GetFirst(), sigNum);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KProcess::CancelThreads(const KThreadCB* threadToIgnore)
+{
+    kassert(g_PIDMapMutex.IsLocked());
+
+    for (KThreadCB* thread : m_Threads)
+    {
+        if (thread != threadToIgnore) {
+            kthread_cancel_pl(*thread);
+        }
+    }
+}
+
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -450,100 +551,6 @@ bool KProcess::CheckUIDMatch(uid_t uid) const noexcept
 bool KProcess::CheckUIDMatch(const KProcess& target) const noexcept
 {
     return CheckUIDMatch(target.m_RUID) || CheckUIDMatch(target.m_SUID);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KProcess::StopProcess(int sigNum)
-{
-    kassert(g_PIDMapMutex.IsLocked());
-
-    if (m_State == KProcessState::Stopping || m_State == KProcessState::Stopped) {
-        return;
-    }
-
-    SetExitStatus(CLD_STOPPED, sigNum);
-
-    m_State = KProcessState::Stopping;
-
-    m_ThreadsToStop = static_cast<int>(m_Threads.GetCount());
-
-    for (KThreadCB* curThread : m_Threads) {
-        ksend_signal_to_thread(*curThread, sigNum);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KProcess::ContinueProcess(int sigNum)
-{
-    kassert(g_PIDMapMutex.IsLocked());
-
-    if (m_State != KProcessState::Stopping && m_State != KProcessState::Stopped) {
-        return;
-    }
-
-    SetExitStatus(CLD_CONTINUED, sigNum);
-
-    m_State = KProcessState::Continuing;
-    m_ThreadsToStop = 0;
-
-    for (KThreadCB* curThread : m_Threads) {
-        ksend_signal_to_thread(*curThread, SIGCONT);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KProcess::Kill(int sigNum)
-{
-    KSchedulerLock lock;
-
-    if (sigNum == SIGKILL)
-    {
-        for (KThreadCB* thread : m_Threads) {
-            ksend_signal_to_thread(*thread, sigNum);
-        }
-        return;
-    }
-    else
-    {
-        for (KThreadCB* thread : m_Threads)
-        {
-            if (!thread->IsSignalBlocked(sigNum))
-            {
-                if (ksend_signal_to_thread(*thread, sigNum) == PErrorCode::Success) {
-                    return;
-                }
-            }
-        }
-    }
-    // If all threads block the signal, leave it pending on the main thread.
-    if (!m_Threads.IsEmpty()) {
-        ksend_signal_to_thread(*m_Threads.GetFirst(), sigNum);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KProcess::CancelThreads(const KThreadCB* threadToIgnore)
-{
-    kassert(g_PIDMapMutex.IsLocked());
-
-    for (KThreadCB* thread : m_Threads)
-    {
-        if (thread != threadToIgnore) {
-            kthread_cancel_pl(*thread);
-        }
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -765,7 +772,9 @@ void KProcess::HandleExit()
     if (m_Parent != nullptr)
     {
         m_Parent->m_ChildrenCondition.Wakeup(1);
+#ifdef PADOS_MODULE_POSIX_SIGNALS
         kkill_pl(m_Parent->m_PID, SIGCHLD);
+#endif
     }
     else
     {
@@ -793,7 +802,9 @@ void kexit(int exitCode)
 
         process.SetExitStatus(CLD_EXITED, exitCode);
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
         process.CancelThreads(&thread);
+#endif // PADOS_MODULE_POSIX_SIGNALS
     }
     kthread_exit((void*)(thread.IsMainThread() ? exitCode : -1));
 }

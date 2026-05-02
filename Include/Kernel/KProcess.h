@@ -66,9 +66,20 @@ public:
 
     void AddThread(KThreadCB* thread);
     void RemoveThread(KThreadCB* thread) noexcept;
-    
+
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     void ThreadStopped();
     void ThreadContinued();
+
+    void StopProcess(int sigNum);
+    void ContinueProcess(int sigNum);
+    void Kill(int sigNum);
+
+    void CancelThreads(const KThreadCB* threadToIgnore);
+
+    void                SetSignalHandler(int sigNum, const sigaction_t& action) noexcept { kassert(sigNum >= 0 && sigNum < KTOTAL_SIG_COUNT); m_SignalHandlers[sigNum] = action; }
+    const sigaction_t&  GetSignalHandler(int sigNum) const noexcept { kassert(sigNum >= 0 && sigNum < KTOTAL_SIG_COUNT); return m_SignalHandlers[sigNum]; }
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
     void RemoveChild(KProcess* child);
 
@@ -96,9 +107,6 @@ public:
     bool    IsGroupLeader() const noexcept;
     bool    HasExeced() const noexcept { return false; }
 
-    void                SetSignalHandler(int sigNum, const sigaction_t& action) noexcept { kassert(sigNum >= 0 && sigNum < KTOTAL_SIG_COUNT); m_SignalHandlers[sigNum] = action; }
-    const sigaction_t&  GetSignalHandler(int sigNum) const noexcept { kassert(sigNum >= 0 && sigNum < KTOTAL_SIG_COUNT); return m_SignalHandlers[sigNum]; }
-
     uid_t   GetRUID() const noexcept { return m_RUID; }
     uid_t   GetEUID() const noexcept { return m_EUID; }
     uid_t   GetSUID() const noexcept { return m_SUID; }
@@ -111,12 +119,6 @@ public:
 
     bool CheckUIDMatch(uid_t uid) const noexcept;
     bool CheckUIDMatch(const KProcess& target) const noexcept;
-
-    void StopProcess(int sigNum);
-    void ContinueProcess(int sigNum);
-    void Kill(int sigNum);
-
-    void CancelThreads(const KThreadCB* threadToIgnore);
 
     siginfo_t GetChildInfo(Ptr<KPIDNode> pidNode, int options);
     siginfo_t WaitPID(pid_t pid, int options);
@@ -136,7 +138,9 @@ private:
     KProcessState           m_State = KProcessState::Running;
     KConditionVariable      m_ChildrenCondition;
     KProcessThreadList      m_Threads;
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     sigaction_t             m_SignalHandlers[KTOTAL_SIG_COUNT] = {};
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
     pid_t      m_PID = -1;  // Our process ID.
 

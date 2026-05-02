@@ -71,6 +71,7 @@ void* KSerialPseudoTerminal::Run()
 {
     PString ptyPath;
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     ksignal_trw(SIGHUP, SIG_IGN);
     ksignal_trw(SIGINT, SIG_IGN);
     ksignal_trw(SIGQUIT, SIG_IGN);
@@ -78,6 +79,7 @@ void* KSerialPseudoTerminal::Run()
     ksignal_trw(SIGCHLD, SIG_DFL);
     ksignal_trw(SIGTTIN, SIG_IGN);
     ksignal_trw(SIGTTOU, SIG_IGN);
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
     for (int i = 0; i < 10000; ++i)
     {

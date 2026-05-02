@@ -26,6 +26,8 @@
 namespace kernel
 {
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -174,6 +176,8 @@ static siginfo_t classify_fault(IRQn_Type irqNum)
     return si;
 }
 
+#endif // PADOS_MODULE_POSIX_SIGNALS
+
 extern "C"
 {
 
@@ -203,6 +207,8 @@ uint32_t handle_fault(void* currentStack, uint32_t controlReg)
     }
 
     KThreadCB& thread = *gk_CurrentThread;
+
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     const uint32_t stackAddrInt = intptr_t(currentStack);
     thread.m_CurrentStackAndPrivilege = stackAddrInt | (controlReg & 0x01); // Store nPRIV in bit 0 of stack address.
 
@@ -210,11 +216,13 @@ uint32_t handle_fault(void* currentStack, uint32_t controlReg)
     if (sigInfo.si_signo == SIGFPE || sigInfo.si_signo == SIGILL) {
         sigInfo.si_addr = reinterpret_cast<void*>(get_ctxswitch_frame_pc(currentStack));
     }
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
     // Clear fault status:
     SCB->CFSR = SCB->CFSR;
     SCB->HFSR = SCB->HFSR;
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     thread.SetPendingSignal(sigInfo.si_signo);
     if (thread.m_CurrentStackAndPrivilege & 0x01)
     {
@@ -225,6 +233,9 @@ uint32_t handle_fault(void* currentStack, uint32_t controlReg)
     {
         panic("Signal-generating fault from privileged code.");
     }
+#else // PADOS_MODULE_POSIX_SIGNALS
+    panic("User-mode fault.");
+#endif // PADOS_MODULE_POSIX_SIGNALS
     return thread.m_CurrentStackAndPrivilege;
 }
 

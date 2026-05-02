@@ -171,12 +171,14 @@ KThreadCB::KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttri
 
 KThreadCB::~KThreadCB()
 {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     while (m_FirstQueuedSignal != nullptr)
     {
         KSignalQueueNode* node = m_FirstQueuedSignal;
         m_FirstQueuedSignal = node->Next;
         kfree_signal_queue_node(node);
     }
+#endif // PADOS_MODULE_POSIX_SIGNALS
 
     kassert(m_Process == nullptr);
     if (m_Process != nullptr) {
@@ -253,11 +255,15 @@ void KThreadCB::SetState(ThreadState state) noexcept
         const ThreadState prevState = m_ThreadState;
         m_ThreadState = state;
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
         if (prevState == ThreadState_Stopped) {
             m_Process->ThreadContinued();
         } else if (state == ThreadState_Stopped) {
             m_Process->ThreadStopped();
         }
+#else
+        (void)prevState;
+#endif
     }
 }
 

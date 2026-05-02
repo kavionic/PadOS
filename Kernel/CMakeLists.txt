@@ -1,4 +1,6 @@
-add_subdirectory(DebugConsole)
+if(PADOS_MODULE_DEBUG_CONSOLE)
+	add_subdirectory(DebugConsole)
+endif()
 add_subdirectory(Drivers)
 add_subdirectory(FSDrivers)
 add_subdirectory(HAL)

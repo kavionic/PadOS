@@ -32,6 +32,11 @@ option(PADOS_OPT_DEBUG_HANDLE_OBJECT_LIST	"Keep a global list of KNamedObject ob
 option(PADOS_OPT_USE_FMT_FORMATTING		"Use fmt::format instead of std::format for smaller memory usage."	OFF)
 option(PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM	"Build generic SerialCommandHandler filesystem packet handlers."		ON)
 option(PADOS_MODULE_USB_HOST			"Build USB host stack and host class drivers."				ON)
+option(PADOS_MODULE_DEBUG_CONSOLE		"Build and start the kernel debug console."				OFF)
+
+option(PADOS_FSDRIVER_BIN			"Register BinFS during kernel startup."					OFF)
+option(PADOS_FSDRIVER_PTY			"Register and mount PTY filesystem during kernel startup."		OFF)
+option(PADOS_FSDRIVER_PIPE			"Register and mount pipe filesystem during kernel startup."		OFF)
 
 option(PADOS_MODULE_UNITTESTS			"Build the unit tests" OFF)
 option(PADOS_DRIVER_MultiMotor			"Build driver" OFF)
@@ -66,6 +71,9 @@ set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${PADOS_C_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PADOS_C_CXX_FLAGS} -Wsuggest-override -Wnoexcept -Wno-invalid-offsetof")
 
 
+add_library(PadOS_Config INTERFACE)
+add_library(PadOS::PadOS_Config ALIAS PadOS_Config)
+
 add_library(PadOS_Kernel)
 add_library(PadOS_KernelExt)
 add_library(PadOS_Syscalls)
@@ -81,20 +89,31 @@ add_library(PadOS_ApplicationServer)
 add_library(PadOS_WindowManager)
 add_library(PadOS_DataTranslators)
 
+target_link_libraries(PadOS_SyscallStubs PUBLIC PadOS_Config)
+target_link_libraries(PadOS_GUI PUBLIC PadOS_Config)
+target_link_libraries(PadOS_ApplicationServer PUBLIC PadOS_Config)
+target_link_libraries(PadOS_WindowManager PUBLIC PadOS_Config)
+target_link_libraries(PadOS_DataTranslators PUBLIC PadOS_Config)
+
 pados_add_compile_option(PADOS_OPT_DEBUG_LOOPER_LIST		DEBUG_LOOPER_LIST)
 pados_add_compile_option(PADOS_OPT_DEBUG_HANDLE_OBJECT_LIST	DEBUG_HANDLE_OBJECT_LIST)
 pados_add_compile_option(PADOS_OPT_USE_FMT_FORMATTING		PADOS_OPT_USE_FMT_FORMATTING)
 pados_add_compile_option(PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM	PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM)
 pados_add_compile_option(PADOS_MODULE_USB_HOST			PADOS_MODULE_USB_HOST)
+pados_add_compile_option(PADOS_FSDRIVER_BIN			PADOS_FSDRIVER_BIN)
+pados_add_compile_option(PADOS_FSDRIVER_PTY			PADOS_FSDRIVER_PTY)
+pados_add_compile_option(PADOS_FSDRIVER_PIPE			PADOS_FSDRIVER_PIPE)
+pados_add_compile_option(PADOS_MODULE_DEBUG_CONSOLE		PADOS_MODULE_DEBUG_CONSOLE)
 
 if(PADOS_MODULE_UNITTESTS)
 	add_library(PadOS_UnitTests)
+	target_link_libraries(PadOS_UnitTests PUBLIC PadOS_Config)
 endif()
 
 
 pados_add_kernel_module(ON	PadOS_Kernel_Startup)
 pados_add_kernel_module(ON	PadOS_Drivers_Misc)
-pados_add_kernel_module(ON	PadOS_KDebugConsole)
+pados_add_kernel_module(PADOS_MODULE_DEBUG_CONSOLE	PadOS_KDebugConsole)
 
 pados_add_kernel_module(PADOS_DRIVER_MultiMotor		PadOS_Drivers_MultiMotor)
 pados_add_kernel_module(PADOS_DRIVER_SDMMC		PadOS_Drivers_SDMMC)
@@ -161,6 +180,7 @@ get_property(PADOS_KERNEL_MODULE_TARGETS  GLOBAL PROPERTY PADOS_KERNEL_MODULE_TA
 get_property(PADOS_KERNEL_LIBRARY_TARGETS GLOBAL PROPERTY PADOS_KERNEL_LIBRARY_TARGETS)
 
 install(TARGETS
+	PadOS_Config
 	PadOS_Kernel
 	PadOS_KernelExt
 	PadOS_Syscalls

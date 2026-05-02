@@ -41,7 +41,7 @@
 	<Item Name="left">left</Item>
 	<Item Name="top">top</Item>
 	<Item Name="right">right</Item>
-	<Item Name="botom">bottom</Item>
+	<Item Name="bottom">bottom</Item>
 	<Item Name="[Width]">right - left</Item>
 	<Item Name="[Height]">bottom - top</Item>
     </Expand>
@@ -53,19 +53,7 @@
 	<Item Name="left">left</Item>
 	<Item Name="top">top</Item>
 	<Item Name="right">right</Item>
-	<Item Name="botom">bottom</Item>
-	<Item Name="[Width]">right - left</Item>
-	<Item Name="[Height]">bottom - top</Item>
-    </Expand>
-  </Type>
-
-  <Type Name="PIRect">
-    <DisplayString>PIRect({left}, {top}, {right}, {bottom})</DisplayString>
-    <Expand>
-	<Item Name="left">left</Item>
-	<Item Name="top">top</Item>
-	<Item Name="right">left</Item>
-	<Item Name="botom">top</Item>
+	<Item Name="bottom">bottom</Item>
 	<Item Name="[Width]">right - left</Item>
 	<Item Name="[Height]">bottom - top</Item>
     </Expand>
@@ -529,28 +517,28 @@
     </Expand>
   </Type>
 
-  <!-- gnu stl -->
-  <Type Name="std::pair&lt;*&gt;">
-    <AlternativeType Name="std::map&lt;*&gt;::value_type" />
-    <DisplayString>({first}, {second})</DisplayString>
-  </Type>
+	<!-- gnu stl -->
+	<Type Name="std::pair&lt;*&gt;">
+		<AlternativeType Name="std::map&lt;*&gt;::value_type" />
+		<DisplayString>({first}, {second})</DisplayString>
+	</Type>
 
-  <!-- gnu stl -->
+	<!-- gnu stl -->
 
-  <Type Name="std::map&lt;*&gt;">
-    <DisplayString>{{size={_M_t._M_impl._M_node_count}}}</DisplayString>
-    <Expand>
-      <Item Name="[size]">_M_t._M_impl._M_node_count</Item>
-      <TreeItems>
-        <Size>_M_t._M_impl._M_node_count</Size>
-        <HeadPointer>(std::map&lt;$T1,$T2,$T3,$T4&gt;::_Rep_type::_Link_type)_M_t._M_impl._M_header._M_parent</HeadPointer>
-        <LeftPointer>_M_left</LeftPointer>
-        <RightPointer>_M_right</RightPointer>
-        <ValueNode>*(std::map&lt;$T1,$T2,$T3,$T4&gt;::value_type*)&amp;_M_storage._M_storage</ValueNode>
-      </TreeItems>
-    </Expand>
-  </Type>
-
+	<Type Name="std::map&lt;*&gt;">
+		<DisplayString>{{size={_M_t._M_impl._M_node_count}}}</DisplayString>
+		<Expand>
+			<Item Name="[size]">_M_t._M_impl._M_node_count</Item>
+			<TreeItems>
+				<Size>_M_t._M_impl._M_node_count</Size>
+				<HeadPointer>_M_t._M_impl._M_header._M_parent</HeadPointer>
+				<LeftPointer>_M_left</LeftPointer>
+				<RightPointer>_M_right</RightPointer>
+				<ValueNode>*(std::pair&lt;$T1 const,$T2&gt;*)&amp;((std::_Rb_tree_node&lt;std::pair&lt;$T1 const,$T2&gt; &gt;*)&amp;_M_color)-&gt;_M_storage._M_storage[0]</ValueNode>
+			</TreeItems>
+		</Expand>
+	</Type>
+	
   <!-- pre cxx11 gnu stl 
 
   <Type Name="std::map&lt;*&gt;">
@@ -576,10 +564,10 @@
       <Item Name="[size]">_M_t._M_impl._M_node_count</Item>
       <TreeItems>
         <Size>_M_t._M_impl._M_node_count</Size>
-        <HeadPointer>(std::set&lt;$T1,$T2,$T3&gt;::_Rep_type::_Link_type)_M_t._M_impl._M_header._M_parent</HeadPointer>
-        <LeftPointer>_M_left</LeftPointer>
-        <RightPointer>_M_right</RightPointer>
-        <ValueNode>*($T1*)&amp;_M_storage._M_storage</ValueNode>
+	      <HeadPointer>_M_t._M_impl._M_header._M_parent</HeadPointer>
+	      <LeftPointer>_M_left</LeftPointer>
+	      <RightPointer>_M_right</RightPointer>
+	      <ValueNode>*(const $T1*)((char*)&amp;_M_color + sizeof(std::_Rb_tree_node_base))</ValueNode>
       </TreeItems>
     </Expand>
   </Type>

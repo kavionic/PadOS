@@ -21,6 +21,8 @@
 
 #include <Kernel/KThread.h>
 #include <Kernel/KObjectWaitGroup.h>
+#include <Math/Point.h>
+#include <Utils/ANSIEscapeCodeParser.h>
 
 namespace kernel
 {

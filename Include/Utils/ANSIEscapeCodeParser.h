@@ -19,6 +19,10 @@
 
 #pragma once
 
+#include <vector>
+
+#include <Utils/String.h>
+
 enum class PANSI_ControlCode
 {
     None,

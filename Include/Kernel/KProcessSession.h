@@ -20,6 +20,9 @@
 #pragma once
 
 #include <sys/types.h>
+#include <vector>
+
+#include <Ptr/Ptr.h>
 #include <Ptr/PtrTarget.h>
 
 
@@ -27,11 +30,13 @@ namespace kernel
 {
 
 class KInode;
+class KProcessGroup;
 
 class KProcessSession : public PtrTarget
 {
 public:
     KProcessSession(pid_t id);
+    ~KProcessSession();
 
     pid_t GetID() const noexcept { return m_SessionID; }
 

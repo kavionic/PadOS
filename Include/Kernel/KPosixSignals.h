@@ -21,6 +21,7 @@
 
 #include <signal.h>
 
+#include <System/ErrorCodes.h>
 #include <Kernel/KStackFrames.h>
 
 namespace kernel

@@ -21,6 +21,7 @@
 #include <atomic>
 #include <System/Platform.h>
 #include <System/Sections.h>
+#include <Kernel/HAL/DigitalPort.h>
 #include <Utils/JSON.h>
 
 enum DigitalPortID

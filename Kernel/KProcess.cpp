@@ -25,6 +25,8 @@
 
 #include <Kernel/Kernel.h>
 #include <Kernel/KHandleArray.h>
+#include <Kernel/KLogging.h>
+#include <Kernel/KPIDNode.h>
 #include <Kernel/KPosixSpawn.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KProcessGroup.h>

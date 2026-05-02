@@ -99,7 +99,7 @@ function(setup_unity_build_and_pch MIN_CXX_SOURCES PADOS_PCH_HEADER)
 endfunction()
 
 macro(pados_add_compile_option option define)
-    if(${opt})
+    if(${option})
 	add_compile_definitions(${define}=1)
     endif()
 endmacro()

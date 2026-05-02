@@ -19,9 +19,12 @@
 
 #include <strings.h>
 #include <string.h>
+#include <sys/stat.h>
 
+#include "Math/Misc.h"
 #include "Utils/String.h"
 #include "Utils/UTF8Utils.h"
+#include "Utils/Utils.h"
 
 PString PString::zero;
 

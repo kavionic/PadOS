@@ -20,7 +20,9 @@
 #pragma once
 
 #include <map>
+#include <vector>
 
+#include <Kernel/KMutex.h>
 #include <System/Sections.h>
 #include <Ptr/Ptr.h>
 
@@ -29,6 +31,7 @@ class KNodeMonitorNode;
 namespace kernel
 {
 class KFileTableNode;
+class KInode;
 
 class KIOContext
 {

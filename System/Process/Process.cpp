@@ -27,7 +27,9 @@
 #include <Kernel/KPosixSpawn.h>
 #include <Process/Process.h>
 #include <System/AppDefinition.h>
+#include <System/ExceptionHandling.h>
 #include <Threads/ThreadUserspaceState.h>
+#include <Utils/Logging.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

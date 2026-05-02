@@ -18,7 +18,10 @@
 // Created: 15.09.2025 23:00
 
 #include <Kernel/Kernel.h>
+#include <Kernel/KPosixSignals.h>
 #include <Kernel/KStackFrames.h>
+#include <Kernel/KThreadCB.h>
+#include <Kernel/Scheduler.h>
 
 namespace kernel
 {

@@ -23,7 +23,9 @@
 #include <Kernel/HAL/PeripheralMapping.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
 #include <Kernel/USB/USBProtocol.h>
+#ifdef PADOS_MODULE_USB_HOST
 #include <Kernel/USB/USBHost.h>
+#endif
 #include <Utils/Utils.h>
 #include <System/TimeValue.h>
 
@@ -89,9 +91,14 @@ bool USB_STM32::Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG
     const bool enableVBusSense = pinVBus != DigitalPinID::None;
     if (mode == USB_Mode::Host)
     {
+#ifdef PADOS_MODULE_USB_HOST
         if (!m_HostDriver.Setup(this, portID, enableVBusSense)) {
             kernel_log<PLogSeverity::ERROR>(LogCategoryUSB, "Failed to setup host mode.");
         }
+#else
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSB, "USB host mode is disabled.");
+        return false;
+#endif
     }
     else
     {
@@ -108,9 +115,11 @@ bool USB_STM32::Setup(USB_OTG_ID portID, USB_Mode mode, USB_Speed speed, USB_OTG
 
 void USB_STM32::Shutdown()
 {
+#ifdef PADOS_MODULE_USB_HOST
     if (GetUSBMode() == USB_Mode::Host) {
         m_HostDriver.Shutdown();
     }
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////

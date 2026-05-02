@@ -18,11 +18,14 @@
 // Created: 09.04.2026 23:00
 
 #include <spawn.h>
+#include <fcntl.h>
 
 #include <Kernel/KPosixSpawn.h>
 #include <Kernel/KThread.h>
+#include <Kernel/VFS/FileIO.h>
 #include <System/AppDefinition.h>
 #include <System/ErrorCodes.h>
+#include <System/ExceptionHandling.h>
 #include <Threads/ThreadUserspaceState.h>
 
 namespace kernel

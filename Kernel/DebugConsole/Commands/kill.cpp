@@ -20,6 +20,7 @@
 #include <argparse/argparse.hpp>
 #include <signal.h>
 
+#include <System/ErrorCodes.h>
 #include <Utils/String.h>
 #include <Kernel/DebugConsole/KConsoleCommand.h>
 #include <Kernel/KPosixSignals.h>

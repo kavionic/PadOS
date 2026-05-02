@@ -22,6 +22,9 @@
 #include <Kernel/KThreadCB.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KProcessGroup.h>
+#include <Kernel/KProcessSession.h>
+#include <Kernel/KPIDNode.h>
+#include <Kernel/KLogging.h>
 #include <Kernel/KStackFrames.h>
 #include <Kernel/KPosixSignals.h>
 #include <Kernel/KCapabilities.h>

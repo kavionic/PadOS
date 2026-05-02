@@ -19,12 +19,16 @@
 
 #pragma once
 
+#include <concepts>
+#include <limits>
 #include <vector>
 #include <map>
 #include <optional>
+#include <sys/types.h>
 
-#include <Ptr/PtrTarget.h>
+#include <Ptr/Ptr.h>
 #include <Kernel/KMutex.h>
+#include <Kernel/KThreadCB.h>
 
 namespace kernel
 {

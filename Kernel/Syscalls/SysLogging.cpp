@@ -20,6 +20,7 @@
 #include <sys/pados_syscalls.h>
 #include <System/ExceptionHandling.h>
 #include <Kernel/KAddressValidation.h>
+#include <Kernel/KLogging.h>
 #include <Kernel/Logging/LogManager.h>
 
 namespace kernel

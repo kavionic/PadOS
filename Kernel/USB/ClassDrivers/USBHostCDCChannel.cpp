@@ -21,6 +21,7 @@
 #include <DeviceControl/USART.h>
 #include <Utils/Utils.h>
 #include <System/ExceptionHandling.h>
+#include <Kernel/KTime.h>
 #include <Kernel/USB/USBHost.h>
 #include <Kernel/USB/ClassDrivers/USBHostCDCChannel.h>
 #include <Kernel/VFS/KFSVolume.h>

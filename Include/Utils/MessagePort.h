@@ -24,6 +24,7 @@
 #include "System/Types.h"
 #include "System/System.h"
 #include "System/HandleObject.h"
+#include "System/TimeValue.h"
 
 class PMessagePort : public PHandleObject
 {

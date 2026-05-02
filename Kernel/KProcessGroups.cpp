@@ -18,8 +18,10 @@
 // Created: 06.03.2026 20:00
 
 #include <Kernel/Scheduler.h>
+#include <Kernel/KLogging.h>
 #include <Kernel/KProcessGroups.h>
 #include <Kernel/KProcess.h>
+#include <Kernel/KProcessSession.h>
 #include <Kernel/KPIDNode.h>
 #include <Kernel/VFS/KINode.h>
 

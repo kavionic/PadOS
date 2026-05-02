@@ -20,6 +20,7 @@
 #include <argparse/argparse.hpp>
 
 #include <Kernel/DebugConsole/KConsoleCommand.h>
+#include <Storage/Path.h>
 
 namespace kernel
 {

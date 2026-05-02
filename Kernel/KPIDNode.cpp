@@ -19,6 +19,9 @@
 
 
 #include <Kernel/KPIDNode.h>
+#include <Kernel/KProcess.h>
+#include <Kernel/KProcessGroup.h>
+#include <Kernel/KProcessSession.h>
 
 namespace kernel
 {

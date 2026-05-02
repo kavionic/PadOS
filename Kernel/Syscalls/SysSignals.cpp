@@ -19,6 +19,7 @@
 
 #include <Kernel/KThreadCB.h>
 #include <Kernel/KPIDNode.h>
+#include <Kernel/KAddressValidation.h>
 
 namespace kernel
 {

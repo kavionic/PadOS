@@ -33,8 +33,12 @@ if(PADOS_DRIVER_USB)
 	target_sources(PadOS_Drivers_USB PRIVATE
 		USB_STM32.cpp
 		USBDevice_STM32.cpp
-		USBHost_STM32.cpp
 	)
+	if(PADOS_MODULE_USB_HOST)
+		target_sources(PadOS_Drivers_USB PRIVATE
+			USBHost_STM32.cpp
+		)
+	endif()
 endif()
 
 if(PADOS_DRIVER_RealtimeClock)

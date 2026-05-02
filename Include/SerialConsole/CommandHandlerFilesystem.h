@@ -20,6 +20,7 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include <vector>
 
 namespace SerialProtocol

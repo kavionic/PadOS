@@ -20,6 +20,7 @@
 #pragma once
 
 #include <assert.h>
+#include <cstddef>
 
 template<typename TNodeType> class PIntrusiveListNode;
 template<typename TNodeType, PIntrusiveListNode<TNodeType> TNodeType::* NodeMember = nullptr> struct PIntrusiveList;

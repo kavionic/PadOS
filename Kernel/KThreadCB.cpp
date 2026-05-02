@@ -36,6 +36,7 @@
 #include <Kernel/Syscalls.h>
 #include <System/AppDefinition.h>
 #include <System/ModuleTLSDefinition.h>
+#include <Threads/ThreadUserspaceState.h>
 #include <Utils/Utils.h>
 
 

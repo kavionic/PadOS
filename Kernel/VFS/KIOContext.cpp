@@ -18,6 +18,8 @@
 // Created: 18/06/19 23:44:30
 
 #include <Kernel/VFS/KIOContext.h>
+#include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KFileHandle.h>
 #include <Kernel/VFS/KNodeMonitor.h>
 #include <Kernel/VFS/KInode.h>
 

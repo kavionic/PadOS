@@ -19,6 +19,13 @@
 
 #pragma once
 
+#include <cstddef>
+#include <functional>
+#include <string_view>
+#include <sys/types.h>
+#include <vector>
+
+#include <Utils/String.h>
 
 class PPOSIXTokenizer
 {

@@ -50,8 +50,6 @@ enum class USB_TransferResult : uint8_t
 class USBDriver
 {
 public:
-    virtual USB_Speed   HostGetSpeed() const = 0;
-
     // Device interface:
     virtual USB_Speed   DeviceGetSpeed() const = 0;
     virtual void        EndpointStall(uint8_t endpointAddr) = 0;
@@ -63,6 +61,8 @@ public:
     virtual bool        SetAddress(uint8_t deviceAddr) = 0;  // Return 'true' if a response needs to be sent.
 
     // Host interface:
+#ifdef PADOS_MODULE_USB_HOST
+    virtual USB_Speed   HostGetSpeed() const = 0;
     virtual uint32_t    GetMaxPipeCount() const = 0;
     virtual bool        StartHost() = 0;
     virtual bool        StopHost() = 0;
@@ -73,6 +73,7 @@ public:
     virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing) = 0;
     virtual bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle) = 0;
     virtual bool        GetDataToggle(USB_PipeIndex pipeIndex) const = 0;
+#endif
 
 
     virtual void        EnableIRQ(bool enable) = 0;
@@ -81,16 +82,18 @@ public:
     SignalUnguarded<void>                                                                   IRQResume;
     SignalUnguarded<void>                                                                   IRQDebounceDone;
     SignalUnguarded<void>                                                                   IRQSessionEnded;
-    SignalUnguarded<void>                                                                   IRQDeviceConnected;     // Host mode only.
     SignalUnguarded<void>                                                                   IRQDeviceDisconnected;  // Host & device mode.
     SignalUnguarded<void>                                                                   IRQStartOfFrame;        // Host & device mode.
-    SignalUnguarded<void, USB_Speed>                                                        IRQBusReset;
-    SignalUnguarded<void, const USB_ControlRequest&>                                        IRQControlRequestReceived;
-    SignalUnguarded<void, uint8_t/*endpointAddr*/, uint32_t/*length*/, USB_TransferResult>  IRQTransferComplete;
+    SignalUnguarded<void (USB_Speed speed)>                                                 IRQBusReset;
+    SignalUnguarded<void (const USB_ControlRequest& request)>                               IRQControlRequestReceived;
+    SignalUnguarded<void(uint8_t endpointAddr, uint32_t length, USB_TransferResult result)> IRQTransferComplete;
     SignalUnguarded<void>                                                                   IRQIncompleteIsochronousINTransfer;
 
-    SignalUnguarded<void, bool/*isEnabled*/>                                                        IRQPortEnableChange;
-    SignalUnguarded<void, USB_PipeIndex/*pipeIndex*/, USB_URBState/*urbState*/, size_t/*length*/>   IRQPipeURBStateChanged;
+#ifdef PADOS_MODULE_USB_HOST
+    SignalUnguarded<void>                                                                   IRQDeviceConnected;     // Host mode only.
+    SignalUnguarded<void (bool isEnabled)>                                                  IRQPortEnableChange;
+    SignalUnguarded<void (USB_PipeIndex pipeIndex, USB_URBState urbState, size_t length)>   IRQPipeURBStateChanged;
+#endif
 };
 
 

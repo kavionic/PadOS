@@ -22,6 +22,7 @@
 #include <System/ExceptionHandling.h>
 #include <Kernel/KNamedObject.h>
 #include <Kernel/KMutex.h>
+#include <Kernel/KTime.h>
 
 
 namespace kernel

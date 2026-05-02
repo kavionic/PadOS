@@ -28,6 +28,7 @@
 
 #include <Storage/FSNode.h>
 #include <Utils/HashCalculator.h>
+#include <Kernel/VFS/FileIO.h>
 #include <SerialConsole/SerialCommandHandler.h>
 #include <SerialConsole/CommandHandlerFilesystem.h>
 #include <SerialConsole/FilesystemMessages.h>

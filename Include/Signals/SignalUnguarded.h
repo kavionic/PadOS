@@ -55,3 +55,5 @@ public:
     }
 };
 
+template<typename TSignalReturnType, typename... TSignalArgs>
+class SignalUnguarded<TSignalReturnType(TSignalArgs...)> : public SignalUnguarded<TSignalReturnType, TSignalArgs...> {};

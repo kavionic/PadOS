@@ -17,8 +17,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 10.01.2026 15:30
 
-#pragma once
-
 #include <vector>
 
 #include <Kernel/DebugConsole/KDebugConsole.h>

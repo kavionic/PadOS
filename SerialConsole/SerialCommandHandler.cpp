@@ -29,7 +29,9 @@
 #include <DeviceControl/USART.h>
 #include <SerialConsole/SerialCommandHandler.h>
 #include <SerialConsole/SerialProtocol.h>
+#ifdef PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM
 #include <SerialConsole/CommandHandlerFilesystem.h>
+#endif // PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM
 
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/IRQDispatcher.h>
@@ -41,7 +43,9 @@ namespace kernel
 
 static constexpr size_t MAX_MESSAGE_QUEUE_SIZE = 1024 * 64;
 
+#ifdef PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM
 CommandHandlerFilesystem        g_FilesystemHandler;
+#endif // PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM
 
 SerialCommandHandler* SerialCommandHandler::s_Instance;
 
@@ -262,7 +266,9 @@ void SerialCommandHandler::Setup(SerialProtocol::ProbeDeviceType deviceType, PSt
     RegisterPacketHandler<SerialProtocol::ProbeDevice>(SerialProtocol::Commands::ProbeDevice, this, &SerialCommandHandler::HandleProbeDevice);
     RegisterPacketHandler<SerialProtocol::SetSystemTime>(SerialProtocol::Commands::SetSystemTime, this, &SerialCommandHandler::HandleSetSystemTime);
 
+#ifdef PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM
     g_FilesystemHandler.Setup(this);
+#endif // PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM
 
     Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached, readThreadPriority);
 

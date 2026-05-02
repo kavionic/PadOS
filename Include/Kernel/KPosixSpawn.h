@@ -21,7 +21,9 @@
 
 #include <sys/types.h>
 #include <sys/sched.h>
+#include <sys/pados_threads.h>
 #include <signal.h>
+#include <System/ErrorCodes.h>
 #include <Utils/IntrusiveList.h>
 
 struct PPosixSpawnAttribs

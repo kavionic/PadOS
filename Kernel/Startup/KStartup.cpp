@@ -32,13 +32,17 @@
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KBlockCache.h>
+#ifdef PADOS_ENABLE_KERNEL_STARTUP_EXTENDED_FILESYSTEMS
 #include <Kernel/VFS/KPipeFilesystem.h>
 #include <Kernel/VFS/Kpty.h>
+#include <Kernel/FSDrivers/BinFS/BinFS.h>
+#endif // PADOS_ENABLE_KERNEL_STARTUP_EXTENDED_FILESYSTEMS
 #include <Kernel/HAL/STM32/RealtimeClock.h>
 #include <Kernel/HAL/STM32/ResetAndClockControl.h>
+#ifdef PADOS_ENABLE_KERNEL_DEBUG_CONSOLE
 #include <Kernel/DebugConsole/KDebugConsole.h>
 #include <Kernel/DebugConsole/KSerialPseudoTerminal.h>
-#include <Kernel/FSDrivers/BinFS/BinFS.h>
+#endif // PADOS_ENABLE_KERNEL_DEBUG_CONSOLE
 
 extern "C" void __libc_init_array(void);
 
@@ -60,8 +64,10 @@ static uint8_t gk_InitThreadStack[32768] __attribute__((aligned(8)));
 
 //static KDebugConsole gk_DebugConsole1(STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 //static KDebugConsole gk_DebugConsole2("/dev/com/udp0");
+#ifdef PADOS_ENABLE_KERNEL_DEBUG_CONSOLE
 static KSerialPseudoTerminal g_SerialTerminal1(STDIN_FILENO);
 static KSerialPseudoTerminal g_SerialTerminal2("/dev/com/udp0");
+#endif // PADOS_ENABLE_KERNEL_DEBUG_CONSOLE
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -197,25 +203,31 @@ static void* init_thread_entry(void* arguments)
 
     ksetup_rootfs_trw();
 
+#ifdef PADOS_ENABLE_KERNEL_STARTUP_EXTENDED_FILESYSTEMS
     kregister_filesystem_trw("binfs", ptr_new<KBinFilesystem>());
     kregister_filesystem_trw("ptyfs", ptr_new<KPTYFilesystem>());
     kregister_filesystem_trw("pipefs", ptr_new<KPipeFilesystem>());
+#endif // PADOS_ENABLE_KERNEL_STARTUP_EXTENDED_FILESYSTEMS
 
     kchdir_trw(KLocateFlag::None, "/");
 
     initialize_device_drivers();
 
+#ifdef PADOS_ENABLE_KERNEL_STARTUP_EXTENDED_FILESYSTEMS
     mkdir("/dev/pty", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
     mount("", "/dev/pty", "ptyfs", 0, nullptr, 0);
 
     mkdir("/dev/pipe", S_IRUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
     mount("", "/dev/pipe", "pipefs", 0, nullptr, 0);
+#endif // PADOS_ENABLE_KERNEL_STARTUP_EXTENDED_FILESYSTEMS
 
+#ifdef PADOS_ENABLE_KERNEL_DEBUG_CONSOLE
     g_SerialTerminal1.SetDeleteOnExit(false);
     g_SerialTerminal2.SetDeleteOnExit(false);
 
     g_SerialTerminal1.Setup();
     g_SerialTerminal2.Setup();
+#endif // PADOS_ENABLE_KERNEL_DEBUG_CONSOLE
 
     PThreadUserData* mainThreadUserData = __app_definition.create_main_thread_user_data();
     PThreadAttribs attrs("main", 0, PThreadDetachState_Detached, mainThreadStackSize);

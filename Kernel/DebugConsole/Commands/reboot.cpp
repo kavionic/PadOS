@@ -18,6 +18,7 @@
 // Created: 13.01.2026 23:30
 
 #include <argparse/argparse.hpp>
+#include <sys/pados_syscalls.h>
 
 #include <Kernel/DebugConsole/KConsoleCommand.h>
 

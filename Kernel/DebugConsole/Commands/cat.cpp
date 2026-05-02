@@ -17,6 +17,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 18.01.2026 22:30
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #include <argparse/argparse.hpp>
 
 #include <Kernel/DebugConsole/KConsoleCommand.h>

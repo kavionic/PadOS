@@ -19,9 +19,12 @@
 
 #include <termios.h>
 
+#include <PadOS/Time.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KProcessGroups.h>
+#include <Kernel/DebugConsole/KDebugConsole.h>
 #include <Kernel/DebugConsole/KSerialPseudoTerminal.h>
+#include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/Kpty.h>
 
 namespace kernel

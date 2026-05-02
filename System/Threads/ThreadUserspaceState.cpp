@@ -20,6 +20,10 @@
 #include <unwind.h>
 
 #include <System/AppDefinition.h>
+#include <System/ExceptionHandling.h>
+#include <Utils/Logging.h>
+#include <Utils/Utils.h>
+#include <Kernel/Scheduler.h>
 #include <Threads/ThreadUserspaceState.h>
 #include <Threads/ThreadLocal.h>
 

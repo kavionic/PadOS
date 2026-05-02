@@ -17,6 +17,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 10.01.2026 17:00
 
+#include <functional>
+#include <map>
+
+#include <System/AppDefinition.h>
+#include <Kernel/DebugConsole/KDebugConsole.h>
 #include <Kernel/DebugConsole/KConsoleCommand.h>
 
 namespace kernel

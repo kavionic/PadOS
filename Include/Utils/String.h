@@ -21,6 +21,8 @@
 
 #include <string>
 #include <vector>
+#include <optional>
+
 #include <stdarg.h>
 
 #include <System/Types.h>

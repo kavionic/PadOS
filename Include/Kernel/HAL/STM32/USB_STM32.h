@@ -26,7 +26,9 @@
 #include <Kernel/USB/USBCommon.h>
 #include <Kernel/USB/USBProtocol.h>
 #include <Kernel/HAL/STM32/USBDevice_STM32.h>
+#ifdef PADOS_MODULE_USB_HOST
 #include <Kernel/HAL/STM32/USBHost_STM32.h>
+#endif
 
 enum class USB_OTG_ID : int;
 
@@ -74,7 +76,6 @@ public:
     USB_Mode    GetUSBMode() const;
 
     // Device interface:
-    virtual USB_Speed   HostGetSpeed() const override                                       { return m_HostDriver.HostGetSpeed(); }
     virtual USB_Speed   DeviceGetSpeed() const override                                     { return m_DeviceDriver.DeviceGetSpeed(); }
     virtual void        EndpointStall(uint8_t endpointAddr) override                        { m_DeviceDriver.EndpointStall(endpointAddr); }
     virtual void        EndpointClearStall(uint8_t endpointAddr) override                   { m_DeviceDriver.EndpointClearStall(endpointAddr);  }
@@ -85,6 +86,8 @@ public:
     virtual bool        SetAddress(uint8_t deviceAddr) override                             { return m_DeviceDriver.SetAddress(deviceAddr); }
 
     // Host interface:
+#ifdef PADOS_MODULE_USB_HOST
+    virtual USB_Speed   HostGetSpeed() const override { return m_HostDriver.HostGetSpeed(); }
     virtual uint32_t    GetMaxPipeCount() const override { return m_HostDriver.GetMaxPipeCount(); }
     virtual bool        StartHost() override { return m_HostDriver.StartHost(); }
     virtual bool        StopHost() override { return m_HostDriver.StopHost(); }
@@ -96,6 +99,7 @@ public:
     virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing) override { return m_HostDriver.SubmitRequest(pipeIndex, direction, endpointType, initialPID, buffer, length, doPing); }
     virtual bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle) override { return m_HostDriver.SetDataToggle(pipeIndex, toggle); }
     virtual bool        GetDataToggle(USB_PipeIndex pipeIndex) const override { return m_HostDriver.GetDataToggle(pipeIndex); }
+#endif
 
     void        ReadFromFIFO(void* buffer, size_t length);
     void        WriteToFIFO(uint32_t fifoIndex, const void* buffer, size_t length);
@@ -116,7 +120,9 @@ private:
     volatile uint32_t*      m_FIFOBase = nullptr;
 
     USBDevice_STM32         m_DeviceDriver;
+#ifdef PADOS_MODULE_USB_HOST
     USBHost_STM32           m_HostDriver;
+#endif
 
     USB_OTG_Phy             m_PhyInterface = USB_OTG_Phy::Embedded;
     bool                    m_UseDMA = false;

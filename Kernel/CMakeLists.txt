@@ -41,5 +41,10 @@ target_sources(PadOS_Kernel PRIVATE
 
 target_sources(PadOS_KernelExt PRIVATE
 	KPosixSignals.cpp
-	KPosixSpawn.cpp
 )
+
+if(PADOS_MODULE_POSIX_SPAWN)
+	target_sources(PadOS_KernelExt PRIVATE
+		KPosixSpawn.cpp
+	)
+endif()

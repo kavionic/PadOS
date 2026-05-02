@@ -26,6 +26,8 @@
 #include <Utils/String.h>
 #include <Utils/EnumBitmask.h>
 
+struct PPosixSpawnAttribs;
+
 namespace kernel
 {
 

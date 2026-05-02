@@ -22,6 +22,7 @@
 
 
 struct PFirmwareImageDefinition;
+struct PPosixSpawnFileActions;
 
 struct PThreadUserData
 {

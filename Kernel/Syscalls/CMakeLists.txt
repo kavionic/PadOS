@@ -7,10 +7,15 @@ target_sources(PadOS_Syscalls PRIVATE
 	SysMiscSyscalls.cpp
 	SysMutex.cpp
 	SysObjectWaitGroup.cpp
-	SysPosixSpawn.cpp
 	SysProcess.cpp
 	SysSemaphore.cpp
 	SysSignals.cpp
 	SysThreads.cpp
 	SysTime.cpp
 )
+
+if(PADOS_MODULE_POSIX_SPAWN)
+	target_sources(PadOS_Syscalls PRIVATE
+		SysPosixSpawn.cpp
+	)
+endif()

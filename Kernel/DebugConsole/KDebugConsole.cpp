@@ -984,6 +984,7 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
 
     if (!tokens.empty())
     {
+#ifdef PADOS_MODULE_POSIX_SPAWN
         const PString path = (tokens[0].empty() || tokens[0][0] == '/') ? tokens[0] : (PString("/bin/") + tokens[0]);
 
         stat_t statBuf;
@@ -1019,6 +1020,7 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
             WaitForForegroundProcess(pid, tokenizer.GetText());
             return;
         }
+#endif // PADOS_MODULE_POSIX_SPAWN
 
         auto cmdIt = GetCommands().find(tokens[0]);
 

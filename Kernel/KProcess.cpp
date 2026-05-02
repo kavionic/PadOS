@@ -87,7 +87,12 @@ KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const PPosixS
     strncpy(m_Name, name, OS_NAME_LENGTH);
     m_IOContext.Clone(parentProcess->m_IOContext);
 
+#ifdef PADOS_MODULE_POSIX_SPAWN
     const bool resetIDs = spawnAttr != nullptr && (spawnAttr->sa_flags & POSIX_SPAWN_RESETIDS);
+#else // PADOS_MODULE_POSIX_SPAWN
+    const bool resetIDs = false;
+    (void)spawnAttr;
+#endif // PADOS_MODULE_POSIX_SPAWN
 
     m_RUID      = parentProcess->m_RUID;
     m_EUID      = resetIDs ? parentProcess->m_RUID : parentProcess->m_EUID;
@@ -105,6 +110,7 @@ KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const PPosixS
     parentProcess->m_Group->AddProcess(this);
     std::copy(std::begin(parentProcess->m_SignalHandlers), std::end(parentProcess->m_SignalHandlers), std::begin(m_SignalHandlers));
 
+#ifdef PADOS_MODULE_POSIX_SPAWN
     if (spawnAttr != nullptr)
     {
         if (spawnAttr->sa_flags & POSIX_SPAWN_SETSID) {
@@ -124,6 +130,7 @@ KProcess::KProcess(KPIDNode& pidNode, Ptr<KProcess> parentProcess, const PPosixS
             }
         }
     }
+#endif // PADOS_MODULE_POSIX_SPAWN
     memcpy(m_Groups, parentProcess->m_Groups, sizeof(m_Groups));
 
     parentProcess->m_Children.push_back(this);

@@ -187,9 +187,11 @@ thread_id kthread_spawn_trw(const PThreadAttribs* threadAttr, const PPosixSpawnA
     if (flags.Has(KSpawnThreadFlag::SpawnProcess)) {
         thread->m_BlockedSignals = currentThread.m_BlockedSignals;
     }
+#ifdef PADOS_MODULE_POSIX_SPAWN
     if (spawnAttr != nullptr && (spawnAttr->sa_flags & POSIX_SPAWN_SETSIGMASK)) {
         thread->m_BlockedSignals = spawnAttr->sa_sigmask & KBLOCKABLE_SIGNALS_MASK;
     }
+#endif // PADOS_MODULE_POSIX_SPAWN
 
     pidNode->Thread = thread;
 

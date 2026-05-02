@@ -33,6 +33,8 @@
 #include <Threads/Threads.h>
 #include <System/ExceptionHandling.h>
 
+struct PPosixSpawnAttribs;
+
 namespace kernel
 {
 

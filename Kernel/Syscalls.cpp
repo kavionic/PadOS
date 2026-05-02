@@ -34,6 +34,7 @@ template<int A, int B> struct sys_check_eq { static_assert(A == B, "SYS index mi
 #define SYS_CHECK_EQ(a,b) (void)sizeof(sys_check_eq<(a),(b)>)
 
 #define SYS_PTR(name) (SYS_CHECK_EQ((SYS_##name), (int)(__COUNTER__ - SYS_COUNTER_START - 1) ), reinterpret_cast<void*>(&sys_##name))
+#define SYS_PTR_UNIMPLEMENTED(name) (SYS_CHECK_EQ((SYS_##name), (int)(__COUNTER__ - SYS_COUNTER_START - 1) ), reinterpret_cast<void*>(&sys_unimplemented))
 
 static constexpr int SYS_COUNTER_START = __COUNTER__;
 
@@ -181,7 +182,11 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(system_log_add_message),
     SYS_PTR(add_serial_command_handler),
     SYS_PTR(serial_command_send_data),
+#ifdef PADOS_MODULE_POSIX_SPAWN
     SYS_PTR(posix_spawn),
+#else // PADOS_MODULE_POSIX_SPAWN
+    SYS_PTR_UNIMPLEMENTED(posix_spawn),
+#endif // PADOS_MODULE_POSIX_SPAWN
     SYS_PTR(sigaction),
     SYS_PTR(thread_sigqueue),
     SYS_PTR(thread_sigmask),
@@ -193,6 +198,7 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(thread_setcanceltype),
     SYS_PTR(has_nmi_status),
     SYS_PTR(log_and_clear_nmi_status),
+#ifdef PADOS_MODULE_POSIX_SPAWN
     SYS_PTR(posix_spawnattr_init),
     SYS_PTR(posix_spawnattr_destroy),
     SYS_PTR(posix_spawnattr_getflags),
@@ -207,6 +213,22 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(posix_spawnattr_setsigdefault),
     SYS_PTR(posix_spawnattr_getsigmask),
     SYS_PTR(posix_spawnattr_setsigmask),
+#else // PADOS_MODULE_POSIX_SPAWN
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_init),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_destroy),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_getflags),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_setflags),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_getpgroup),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_setpgroup),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_getschedparam),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_setschedparam),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_getschedpolicy),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_setschedpolicy),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_getsigdefault),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_setsigdefault),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_getsigmask),
+    SYS_PTR_UNIMPLEMENTED(posix_spawnattr_setsigmask),
+#endif // PADOS_MODULE_POSIX_SPAWN
     SYS_PTR(setpgid),
     SYS_PTR(getuid),
     SYS_PTR(getgid),
@@ -221,6 +243,9 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR(sigprocmask),
     SYS_PTR(pipe),
 };
+
+#undef SYS_PTR_UNIMPLEMENTED
+#undef SYS_PTR
 
 static_assert(ARRAY_COUNT(gk_SyscallTable) == SYS_COUNT);
 

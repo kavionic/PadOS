@@ -33,6 +33,7 @@ option(PADOS_OPT_USE_FMT_FORMATTING		"Use fmt::format instead of std::format for
 option(PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM	"Build generic SerialCommandHandler filesystem packet handlers."		ON)
 option(PADOS_MODULE_USB_HOST			"Build USB host stack and host class drivers."				ON)
 option(PADOS_MODULE_DEBUG_CONSOLE		"Build and start the kernel debug console."				OFF)
+option(PADOS_MODULE_POSIX_SPAWN		"Build posix_spawn() and posix_spawnattr/file-action support."		ON)
 
 option(PADOS_FSDRIVER_BIN			"Register BinFS during kernel startup."					OFF)
 option(PADOS_FSDRIVER_PTY			"Register and mount PTY filesystem during kernel startup."		OFF)
@@ -104,6 +105,7 @@ pados_add_compile_option(PADOS_FSDRIVER_BIN			PADOS_FSDRIVER_BIN)
 pados_add_compile_option(PADOS_FSDRIVER_PTY			PADOS_FSDRIVER_PTY)
 pados_add_compile_option(PADOS_FSDRIVER_PIPE			PADOS_FSDRIVER_PIPE)
 pados_add_compile_option(PADOS_MODULE_DEBUG_CONSOLE		PADOS_MODULE_DEBUG_CONSOLE)
+pados_add_compile_option(PADOS_MODULE_POSIX_SPAWN		PADOS_MODULE_POSIX_SPAWN)
 
 if(PADOS_MODULE_UNITTESTS)
 	add_library(PadOS_UnitTests)

@@ -22,6 +22,7 @@
 #include <Kernel/KPosixSignals.h>
 #include <Kernel/Scheduler.h>
 #include <Kernel/KThreadCB.h>
+#include <Kernel/KStackFrames.h>
 
 namespace kernel
 {

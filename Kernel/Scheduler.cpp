@@ -35,6 +35,7 @@
 #include <Kernel/KSemaphore.h>
 #include <Kernel/Kernel.h>
 #include <Kernel/KHandleArray.h>
+#include <Kernel/KStackFrames.h>
 #include <Kernel/VFS/KBlockCache.h>
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/Startup/KStartup.h>

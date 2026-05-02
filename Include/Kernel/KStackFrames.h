@@ -130,6 +130,10 @@ struct KSignalStackFrame
 };
 static_assert(sizeof(KSignalStackFrame) % 8 == 0);
 
+static inline bool exception_has_fpu_frame(uint32_t execReturn)
+{
+    return (execReturn & 0x10) == 0;
+}
 
 #define ASM_STORE_SCHED_CONTEXT(base_reg) \
     "   tst     lr, #0x10\n"                    /* Test bit 4 in EXEC_RETURN to check if the thread use the FPU context. */ \

@@ -19,6 +19,8 @@
 
 #pragma once
 
+#ifdef PADOS_MODULE_POSIX_SIGNALS
+
 #include <signal.h>
 
 #include <System/ErrorCodes.h>
@@ -27,7 +29,6 @@
 namespace kernel
 {
 
-#ifdef PADOS_MODULE_POSIX_SIGNALS
 class KProcess;
 class KThreadCB;
 class KProcessGroup;
@@ -192,11 +193,6 @@ static inline bool sig_can_auto_reset(int sigNum)
     }
 }
 
-#endif // PADOS_MODULE_POSIX_SIGNALS
-
-static inline bool exception_has_fpu_frame(uint32_t execReturn)
-{
-    return (execReturn & 0x10) == 0;
-}
-
 } // namespace kernel
+
+#endif // PADOS_MODULE_POSIX_SIGNALS

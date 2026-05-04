@@ -46,7 +46,7 @@ KProcessSession::~KProcessSession() = default;
 
 void KProcessSession::AddGroup(Ptr<KProcessGroup> group)
 {
-    kassert(g_PIDMapMutex.IsLocked());
+    kassert(gk_CurrentThread == nullptr || g_PIDMapMutex.IsLocked());
     kassert(group->GetSession() == this);
 
     m_Groups.push_back(group);

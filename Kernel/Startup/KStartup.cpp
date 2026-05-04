@@ -89,8 +89,6 @@ void initialize_scheduler_statics()
         g_PIDMapMutexOpt.emplace("pidmap", PEMutexRecursionMode_RaiseError);
         g_PIDMapOpt.emplace();
 
-        KScopedLock lock(g_PIDMapMutex);
-
         g_PIDMap[KTHREAD_ID_IDLE] = ptr_new<KPIDNode>(KTHREAD_ID_IDLE);
         g_PIDMap[KTHREAD_ID_INIT] = ptr_new<KPIDNode>(KTHREAD_ID_INIT);
 

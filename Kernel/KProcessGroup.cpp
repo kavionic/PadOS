@@ -90,7 +90,7 @@ Ptr<KProcessSession> KProcessGroup::GetSession() const noexcept
 
 void KProcessGroup::AddProcess(KProcess* process)
 {
-    kassert(g_PIDMapMutex.IsLocked());
+    kassert(gk_CurrentThread == nullptr || g_PIDMapMutex.IsLocked());
 
     kassert(process->GetGroup() == nullptr);
 

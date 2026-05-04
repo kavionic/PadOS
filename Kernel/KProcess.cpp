@@ -54,7 +54,7 @@ KProcess::KProcess(KPIDNode& pidNode, const char* name)
     , m_ChildrenCondition("process")
     , m_PID(pidNode.PID)
 {
-    kassert(g_PIDMapMutex.IsLocked());
+    kassert(gk_CurrentThread == nullptr || g_PIDMapMutex.IsLocked());
 
     strncpy(m_Name, name, OS_NAME_LENGTH);
 
@@ -159,7 +159,7 @@ KProcess::~KProcess()
 
 void KProcess::AddThread(KThreadCB* thread)
 {
-    kassert(g_PIDMapMutex.IsLocked());
+    kassert(gk_CurrentThread == nullptr || g_PIDMapMutex.IsLocked());
 
     kassert(thread->m_Process == nullptr);
 
@@ -427,7 +427,7 @@ pid_t KProcess::GetPGroupID() const noexcept
 
 void KProcess::SetGroup(Ptr<KProcessGroup> group) noexcept
 {
-    kassert(g_PIDMapMutex.IsLocked());
+    kassert(gk_CurrentThread == nullptr || g_PIDMapMutex.IsLocked());
     m_Group = group;
 }
 
@@ -437,7 +437,7 @@ void KProcess::SetGroup(Ptr<KProcessGroup> group) noexcept
 
 Ptr<KProcessGroup> KProcess::GetGroup() const noexcept
 {
-    kassert(g_PIDMapMutex.IsLocked());
+    kassert(gk_CurrentThread == nullptr || g_PIDMapMutex.IsLocked());
     return m_Group;
 }
 

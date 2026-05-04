@@ -19,6 +19,8 @@
 
 #include <unwind.h>
 
+#include <exception>
+
 #include <System/AppDefinition.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/Logging.h>
@@ -26,6 +28,116 @@
 #include <Kernel/Scheduler.h>
 #include <Threads/ThreadUserspaceState.h>
 #include <Threads/ThreadLocal.h>
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void thread_entry_trampoline(PThreadUserData* threadData, ThreadEntryPoint_t threadEntry, void* arguments)
+{
+#ifdef PADOS_MODULE_USER_SPACE
+    p_set_thread_user_data(threadData);
+#endif // PADOS_MODULE_USER_SPACE
+
+    try
+    {
+        void* const result = threadEntry(arguments);
+        thread_exit(result);
+    }
+    catch (const std::exception& exc)
+    {
+        ThreadInfo threadInfo;
+        get_thread_info(get_thread_id(), &threadInfo);
+        p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Uncaught exception in thread '{}': {}", threadInfo.ThreadName, exc.what());
+        thread_exit((void*)-1);
+    }
+    PRETHROW_CANCELLATION
+        catch (...)
+    {
+        ThreadInfo threadInfo;
+        get_thread_info(get_thread_id(), &threadInfo);
+        p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Unknown uncaught exception in thread {}.", threadInfo.ThreadName);
+        thread_exit((void*)-1);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode thread_spawn(thread_id* outHandle, const PThreadAttribs* inAttribs, ThreadEntryPoint_t entryPoint, void* arguments)
+{
+    PThreadAttribs attribs = (inAttribs != nullptr) ? *inAttribs : PThreadAttribs(nullptr);
+
+#ifdef PADOS_MODULE_USER_SPACE
+    PThreadUserData* const threadData = __app_definition.create_thread_user_data(attribs);
+
+    if (threadData != nullptr)
+    {
+        const PErrorCode result = __thread_spawn(outHandle, &attribs, threadData, thread_entry_trampoline, entryPoint, arguments);
+        if (result == PErrorCode::Success) {
+            return result;
+        }
+        delete_thread_user_data(threadData);
+
+        return result;
+    }
+    return PErrorCode::NoMemory;
+#else // PADOS_MODULE_USER_SPACE
+    return __thread_spawn(outHandle, &attribs, /*threadData*/ nullptr, thread_entry_trampoline, entryPoint, arguments);
+#endif // PADOS_MODULE_USER_SPACE
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+__attribute__((naked)) void thread_exit(void* returnValue)
+{
+    __asm volatile (
+    "ldr    r12, =%0\n"
+        "svc    0\n"
+        :: "i"(SYS_thread_exit) : "r12", "memory", "cc"
+        );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PThreadControlBlock* create_thread_tls_block(const PFirmwareImageDefinition& imageDefinition, void* buffer)
+{
+    static_assert(sizeof(PThreadControlBlock) == 8);
+
+    const size_t controlBlockSize = sizeof(PThreadControlBlock) + imageDefinition.TLSDefinition.TLSDataSize + imageDefinition.TLSDefinition.TLSBSSSize;
+    assert(imageDefinition.TLSDefinition.TLSAlign <= sizeof(PThreadControlBlock));
+
+    PThreadControlBlock* controlBlock =
+        (buffer == nullptr)
+        ? reinterpret_cast<PThreadControlBlock*>(aligned_alloc(imageDefinition.TLSDefinition.TLSAlign, align_up(controlBlockSize, imageDefinition.TLSDefinition.TLSAlign)))
+        : reinterpret_cast<PThreadControlBlock*>(buffer);
+
+    if (controlBlock == nullptr) {
+        return nullptr;
+    }
+    memset(controlBlock, 0, sizeof(*controlBlock));
+    memcpy(controlBlock + 1, imageDefinition.TLSDefinition.TLSData, imageDefinition.TLSDefinition.TLSDataSize);
+    memset(reinterpret_cast<uint8_t*>(controlBlock + 1) + imageDefinition.TLSDefinition.TLSDataSize, 0, imageDefinition.TLSDefinition.TLSBSSSize);
+    return controlBlock;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void delete_thread_tls_block(PThreadControlBlock* tlsBlock)
+{
+    if (tlsBlock != nullptr) {
+        free(tlsBlock);
+    }
+}
+
+#ifdef PADOS_MODULE_USER_SPACE
 
 static thread_local PThreadUserData* gt_ThreadUserData;
 
@@ -127,42 +239,6 @@ void delete_thread_user_data(PThreadUserData* threadData)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PThreadControlBlock* create_thread_tls_block(const PFirmwareImageDefinition& imageDefinition, void* buffer)
-{
-    static_assert(sizeof(PThreadControlBlock) == 8);
-
-    const size_t controlBlockSize = sizeof(PThreadControlBlock) + imageDefinition.TLSDefinition.TLSDataSize + imageDefinition.TLSDefinition.TLSBSSSize;
-    assert(imageDefinition.TLSDefinition.TLSAlign <= sizeof(PThreadControlBlock));
-
-    PThreadControlBlock* controlBlock =
-        (buffer == nullptr)
-        ? reinterpret_cast<PThreadControlBlock*>(aligned_alloc(imageDefinition.TLSDefinition.TLSAlign, align_up(controlBlockSize, imageDefinition.TLSDefinition.TLSAlign)))
-        : reinterpret_cast<PThreadControlBlock*>(buffer);
-
-    if (controlBlock == nullptr) {
-        return nullptr;
-    }
-    memset(controlBlock, 0, sizeof(*controlBlock));
-    memcpy(controlBlock + 1, imageDefinition.TLSDefinition.TLSData, imageDefinition.TLSDefinition.TLSDataSize);
-    memset(reinterpret_cast<uint8_t*>(controlBlock + 1) + imageDefinition.TLSDefinition.TLSDataSize, 0, imageDefinition.TLSDefinition.TLSBSSSize);
-    return controlBlock;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void delete_thread_tls_block(PThreadControlBlock* tlsBlock)
-{
-    if (tlsBlock != nullptr) {
-        free(tlsBlock);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void p_thread_reaper_run()
 {
     sem_id semaphore;
@@ -202,36 +278,6 @@ void p_thread_reaper_schedule_cleanup(PThreadUserData* threadData)
         } while (!__app_definition.ThreadReaperQueue->FirstZombie.compare_exchange_weak(oldHead, threadData, std::memory_order_release, std::memory_order_relaxed));
 
         semaphore_release(__app_definition.ThreadReaperQueue->Semaphore);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-static void thread_entry_trampoline(PThreadUserData* threadData, ThreadEntryPoint_t threadEntry, void* arguments)
-{
-    p_set_thread_user_data(threadData);
-
-    try
-    {
-        void* const result = threadEntry(arguments);
-        thread_exit(result);
-    }
-    catch (const std::exception& exc)
-    {
-        ThreadInfo threadInfo;
-        get_thread_info(get_thread_id(), &threadInfo);
-        p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Uncaught exception in thread '{}': {}", threadInfo.ThreadName, exc.what());
-        thread_exit((void*)-1);
-    }
-    PRETHROW_CANCELLATION
-    catch (...)
-    {
-        ThreadInfo threadInfo;
-        get_thread_info(get_thread_id(), &threadInfo);
-        p_system_log<PLogSeverity::NOTICE>(LogCat_Threads, "Unknown uncaught exception in thread {}.", threadInfo.ThreadName);
-        thread_exit((void*)-1);
     }
 }
 
@@ -289,42 +335,6 @@ thread_id get_thread_id()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PErrorCode thread_spawn(thread_id* outHandle, const PThreadAttribs* inAttribs, ThreadEntryPoint_t entryPoint, void* arguments)
-{
-    PThreadAttribs attribs = (inAttribs != nullptr) ? *inAttribs : PThreadAttribs(nullptr);
-
-    PThreadUserData* const threadData = __app_definition.create_thread_user_data(attribs);
-
-    if (threadData != nullptr)
-    {
-        const PErrorCode result = __thread_spawn(outHandle, &attribs, threadData, thread_entry_trampoline, entryPoint, arguments);
-        if (result == PErrorCode::Success) {
-            return result;
-        }
-        delete_thread_user_data(threadData);
-
-        return result;
-    }
-    return PErrorCode::NoMemory;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-__attribute__((naked)) void thread_exit(void* returnValue)
-{
-    __asm volatile (
-    "ldr    r12, =%0\n"
-        "svc    0\n"
-        :: "i"(SYS_thread_exit) : "r12", "memory", "cc"
-        );
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 void thread_testcancel()
 {
     PThreadUserData* threadData = p_get_thread_user_data();
@@ -351,3 +361,16 @@ void thread_testcancel()
 #ifdef __cplusplus
 }
 #endif
+
+#else // PADOS_MODULE_USER_SPACE
+
+thread_id get_thread_id()
+{
+    return kernel::kget_current_thread().GetHandle();
+}
+
+void thread_testcancel()
+{
+}
+
+#endif // PADOS_MODULE_USER_SPACE

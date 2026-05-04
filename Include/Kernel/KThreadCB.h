@@ -51,7 +51,16 @@ class KThreadCB : public KNamedObject, public PIntrusiveListNode<KThreadCB>
 public:
     static const KNamedObjectType ObjectType = KNamedObjectType::Thread;
 
-    KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttribs* attribs, bool kernelThread, PThreadUserData* threadUserData, void* kernelTLSMemory);
+    KThreadCB(
+        thread_id handle,
+        Ptr<KProcess> process,
+        const PThreadAttribs* attribs,
+        bool kernelThread,
+#ifdef PADOS_MODULE_USER_SPACE
+        PThreadUserData* threadUserData,
+#endif // PADOS_MODULE_USER_SPACE
+        void* kernelTLSMemory
+    );
     ~KThreadCB();
 
     bool IsMainThread() const noexcept;
@@ -130,13 +139,14 @@ public:
     int                       m_StackSize;
 
     PThreadControlBlock*      m_KernelTLS = nullptr;
+#ifdef PADOS_MODULE_USER_SPACE
     PThreadControlBlock*      m_UserspaceTLS = nullptr;
+    PThreadUserData*          m_ThreadUserData = nullptr;
+#endif // PADOS_MODULE_USER_SPACE
 
     const KNamedObject*       m_BlockingObject = nullptr;
 
     int                       m_SymlinkDepth = 0;
-
-    PThreadUserData*          m_ThreadUserData = nullptr;
 
     PIntrusiveListNode<KThreadCB> m_ProcessListNode;
 };

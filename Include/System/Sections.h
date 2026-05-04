@@ -31,9 +31,11 @@
 #define SECTION_DEVICE_DESCRIPTORS __attribute__((section(".drvdesc"), used))
 #endif
 
+#ifdef PADOS_MODULE_USER_SPACE
 #ifndef SECTION_KERNEL_IMAGE_DEFINITION
 #define SECTION_KERNEL_IMAGE_DEFINITION __attribute__((section(".krnimgdesc"), used))
 #endif
+#endif // PADOS_MODULE_USER_SPACE
 
 #ifndef SECTION_FIRNWARE_IMAGE_DEFINITION
 #define SECTION_FIRNWARE_IMAGE_DEFINITION __attribute__((section(".fwimgdesc"), used))

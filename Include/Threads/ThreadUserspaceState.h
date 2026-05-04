@@ -24,6 +24,10 @@
 struct PFirmwareImageDefinition;
 struct PPosixSpawnFileActions;
 
+PThreadControlBlock* create_thread_tls_block(const PFirmwareImageDefinition& imageDefinition, void* buffer = nullptr);
+void delete_thread_tls_block(PThreadControlBlock* tlsBlock);
+
+#ifdef PADOS_MODULE_USER_SPACE
 struct PThreadUserData
 {
     pid_t                   ThreadID;
@@ -54,8 +58,7 @@ PThreadUserData* p_get_thread_user_data();
 PThreadUserData* create_thread_user_data(const PFirmwareImageDefinition& imageDefinition, PThreadAttribs& attribs);
 void delete_thread_user_data(PThreadUserData* threadData);
 
-PThreadControlBlock* create_thread_tls_block(const PFirmwareImageDefinition& imageDefinition, void* buffer = nullptr);
-void delete_thread_tls_block(PThreadControlBlock* tlsBlock);
-
 void p_thread_reaper_run();
 void p_thread_reaper_schedule_cleanup(PThreadUserData* threadData);
+
+#endif // PADOS_MODULE_USER_SPACE

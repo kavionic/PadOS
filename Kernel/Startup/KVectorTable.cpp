@@ -210,7 +210,7 @@ typedef struct _DeviceVectors
 
 // Exception Table
 __attribute__((section(".vectors"), used))
-const DeviceVectors exception_table = {
+extern const DeviceVectors exception_table = {
 
     .pvStack = (void*) (&_estack),
 
@@ -224,7 +224,11 @@ const DeviceVectors exception_table = {
     .pvReservedC8                  = nullptr,                       // Reserved
     .pvReservedC7                  = nullptr,                       // Reserved
     .pvReservedC6                  = nullptr,                       // Reserved
+#ifdef PADOS_MODULE_USER_SPACE
     .pfnSVCall_Handler             = (void*) SVCall_Handler,
+#else  // PADOS_MODULE_USER_SPACE
+    .pfnSVCall_Handler             = (void*) Fault_Handler,
+#endif // PADOS_MODULE_USER_SPACE
     .pfnDebugMonitor_Handler       = (void*) DebugMonitor_Handler,
     .pvReservedC3                  = (void*) (0UL),                 // Reserved
     .pfnPendSV_Handler             = (void*) PendSV_Handler,

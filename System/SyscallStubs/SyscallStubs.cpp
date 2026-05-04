@@ -25,11 +25,13 @@
 #include <errno.h>
 #include <sched.h>
 #include <sys/stat.h>
+#include <type_traits>
 #include <sys/pados_syscalls.h>
 #include <System/SyscallEpilogues.h>
 #include <Threads/Thread.h>
 
 
+#ifdef PADOS_MODULE_USER_SPACE
 
 #define PEXPAND_SYSCALL(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
   extern "C" __attribute__((naked)) RETTYPE_SYS __##FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
@@ -61,3 +63,52 @@
 #undef PEXPAND_SYSCALL
 #undef PEXPAND_SYSCALL_VOID
 #undef PEXPAND_SYSCALL_NORET
+
+#else // PADOS_MODULE_USER_SPACE
+
+#include <Kernel/Syscalls.h>
+
+template<typename T>
+T get_not_implemented_retval()
+{
+    if constexpr (std::is_same_v<T, PSysRetPair>) {
+        return PMakeSysRetFail(PErrorCode::NotImplemented);
+    } else {
+        return T(PErrorCode::NotImplemented);
+    }
+}
+
+#define PEXPAND_SYSCALL(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
+  __attribute__((naked)) RETTYPE_SYS __##FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
+    __asm volatile ("b " __XSTRING(sys_##FNAME)); \
+  } \
+  extern "C" RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { return EPILOGUE<RETTYPE>(__##FPREFIX##FNAME(PNAME_LIST(SIGNATURE))); } \
+  extern "C" __attribute__((naked)) RETTYPE_SYS ksys_##FNAME(PDECL_LIST(SIGNATURE)) { \
+    __asm volatile ("b sys_" #FNAME); \
+  } \
+  extern "C" __attribute__((weak)) RETTYPE_SYS sys_##FNAME(PDECL_LIST(SIGNATURE)) { return get_not_implemented_retval<RETTYPE_SYS>(); }
+
+#define PEXPAND_SYSCALL_VOID(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
+  __attribute__((naked)) RETTYPE FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
+    __asm volatile ("b " __XSTRING(sys_##FNAME)); \
+  } \
+  extern "C" __attribute__((naked)) RETTYPE_SYS ksys_##FNAME(PDECL_LIST(SIGNATURE)) { \
+    __asm volatile ("b sys_" #FNAME); \
+  } \
+  extern "C" __attribute__((weak)) RETTYPE_SYS sys_##FNAME(PDECL_LIST(SIGNATURE)) {}
+
+#define PEXPAND_SYSCALL_NORET(EPILOGUE, RETTYPE, RETTYPE_SYS, FPREFIX, FNAME, SIGNATURE) \
+  __attribute__((naked, noreturn)) RETTYPE __##FPREFIX##FNAME(PDECL_LIST(SIGNATURE)) { \
+    __asm volatile ("b " __XSTRING(sys_##FNAME)); \
+  } \
+  extern "C" __attribute__((naked)) RETTYPE_SYS ksys_##FNAME(PDECL_LIST(SIGNATURE)) { \
+    __asm volatile ("b sys_" #FNAME); \
+  }
+
+#include <PadOS/SyscallDefinitions.h>
+
+#undef PEXPAND_SYSCALL
+#undef PEXPAND_SYSCALL_VOID
+#undef PEXPAND_SYSCALL_NORET
+
+#endif // PADOS_MODULE_USER_SPACE

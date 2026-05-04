@@ -16,6 +16,7 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef PADOS_MODULE_USER_SPACE
 
 #include <Kernel/Kernel.h>
 #include <Kernel/Scheduler.h>
@@ -424,3 +425,5 @@ extern "C" __attribute__((naked)) void SVCall_Handler(void)
 
 
 } // namespace kernel
+
+#endif // PADOS_MODULE_USER_SPACE

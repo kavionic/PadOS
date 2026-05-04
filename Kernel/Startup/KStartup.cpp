@@ -95,7 +95,16 @@ void initialize_scheduler_statics()
         g_PIDMap[KTHREAD_ID_INIT] = ptr_new<KPIDNode>(KTHREAD_ID_INIT);
 
         new((void*)gk_FirstProcessBuffer) KProcess(*g_PIDMap[KTHREAD_ID_INIT], "kernel");
-        new((void*)gk_IdleThreadBuffer) NoPtr<KThreadCB>(0, ptr_new_cast(gk_KernelProcess), &idleAttrs, /*kernelThread*/ true, nullptr, &_idle_tls_start);
+        new((void*)gk_IdleThreadBuffer) NoPtr<KThreadCB>(
+            0,          // handle
+            ptr_new_cast(gk_KernelProcess),
+            &idleAttrs,
+            true,       // kernelThread
+#ifdef PADOS_MODULE_USER_SPACE
+            nullptr,    // threadUserData
+#endif // PADOS_MODULE_USER_SPACE
+            &_idle_tls_start
+        );
 
         // Set the idle thread as the current thread, so that when the init thread is
         // scheduled the initial context is dumped on the idle thread's task. The init
@@ -166,17 +175,22 @@ static void* idle_thread_entry(void* arguments)
 
 void* main_thread_entry(void* argument)
 {
-    PThreadUserData* const threadData = gk_CurrentThread->m_ThreadUserData;
-
     gk_CurrentThread->SetName("main_thread");
     gk_CurrentThread->m_KernelThread = false;
 
+#ifdef PADOS_MODULE_USER_SPACE
+    PThreadUserData* const threadData = gk_CurrentThread->m_ThreadUserData;
     uint32_t control;
     __asm volatile ("mrs %0, CONTROL" : "=r"(control));
     control |= 1; // set nPRIV
     __asm volatile ("msr CONTROL, %0\n isb" :: "r"(control) : "memory");
+#endif // PADOS_MODULE_USER_SPACE
 
-    __app_definition.entry(threadData);
+    __app_definition.entry(
+#ifdef PADOS_MODULE_USER_SPACE
+        threadData
+#endif // PADOS_MODULE_USER_SPACE
+    );
 
     return nullptr;
 }
@@ -238,13 +252,25 @@ static void* init_thread_entry(void* arguments)
     g_SerialTerminal2.Setup();
 #endif // PADOS_MODULE_DEBUG_CONSOLE
 
-    PThreadUserData* mainThreadUserData = __app_definition.create_main_thread_user_data();
     PThreadAttribs attrs("main", 0, PThreadDetachState_Detached, mainThreadStackSize);
 
+#ifdef PADOS_MODULE_USER_SPACE
+    PThreadUserData* mainThreadUserData = __app_definition.create_main_thread_user_data();
     attrs.StackSize     = mainThreadUserData->StackSize;
     attrs.StackAddress  = mainThreadUserData->StackBuffer;
+#endif // PADOS_MODULE_USER_SPACE
    
-    gk_MainThreadID = kthread_spawn_trw(&attrs, nullptr, mainThreadUserData, { KSpawnThreadFlag::Privileged, KSpawnThreadFlag::SpawnProcess }, nullptr, main_thread_entry, nullptr);
+    gk_MainThreadID = kthread_spawn_trw(
+        &attrs,
+        nullptr,
+#ifdef PADOS_MODULE_USER_SPACE
+        mainThreadUserData,
+#endif // PADOS_MODULE_USER_SPACE
+        { KSpawnThreadFlag::Privileged, KSpawnThreadFlag::SpawnProcess },
+        nullptr,
+        main_thread_entry,
+        nullptr
+    );
 
     for (;;)
     {
@@ -264,7 +290,9 @@ static void* init_thread_entry(void* arguments)
             threadsToDelete.Remove(zombie);
             zombie->SetState(ThreadState_Deleted);
 
+#ifdef PADOS_MODULE_USER_SPACE
             p_thread_reaper_schedule_cleanup(zombie->m_ThreadUserData);
+#endif // PADOS_MODULE_USER_SPACE
 
             try
             {
@@ -324,7 +352,16 @@ void start_scheduler(size_t mainThreadStackSize)
         PThreadAttribs attrs("init", 0, PThreadDetachState_Detached, sizeof(gk_InitThreadStack));
         attrs.StackAddress = gk_InitThreadStack;
 
-        gk_InitThread = new((void*)gk_InitThreadBuffer)KThreadCB(KTHREAD_ID_INIT, ptr_tmp_cast(gk_KernelProcess), &attrs, /*kernelThread*/ true, nullptr, &_idle_tls_start);
+        gk_InitThread = new((void*)gk_InitThreadBuffer)KThreadCB(
+            KTHREAD_ID_INIT,
+            ptr_tmp_cast(gk_KernelProcess),
+            &attrs,
+            /*kernelThread*/ true,
+#ifdef PADOS_MODULE_USER_SPACE
+            nullptr,
+#endif // PADOS_MODULE_USER_SPACE
+            &_idle_tls_start
+        );
         Ptr<KThreadCB> initThread = ptr_new_cast(gk_InitThread);
 
         gk_InitThread->InitializeStack(nullptr, init_thread_entry, /*skipEntryTrampoline*/ false, (void*)mainThreadStackSize);

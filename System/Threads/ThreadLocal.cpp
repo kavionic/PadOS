@@ -17,12 +17,24 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 11.03.2018 02:48:15
 
+#include <atomic>
+#include <cstdint>
+#include <new>
+
+#include <PadOS/ThreadLocal.h>
+
 #include <Threads/ThreadLocal.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/Utils.h>
 
 PThreadLocalSlotManager*          PThreadLocalSlotManager::s_Instance;
 thread_local std::vector<void*>* PThreadLocalSlotManager::s_ThreadSlots;
+
+namespace
+{
+alignas(PThreadLocalSlotManager) uint8_t g_ThreadLocalSlotManagerBuffer[sizeof(PThreadLocalSlotManager)];
+std::atomic<int> g_ThreadLocalSlotManagerState;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -42,8 +54,26 @@ PThreadLocalSlotManager::PThreadLocalSlotManager() : m_Mutex("tls_mgr", PEMutexR
 
 PThreadLocalSlotManager& PThreadLocalSlotManager::Get()
 {
-    static PThreadLocalSlotManager instance;
-    return instance;
+    int state = g_ThreadLocalSlotManagerState.load(std::memory_order_acquire);
+    if (state == 0)
+    {
+        int expectedState = 0;
+        if (g_ThreadLocalSlotManagerState.compare_exchange_strong(expectedState, 1, std::memory_order_acq_rel))
+        {
+            new (g_ThreadLocalSlotManagerBuffer) PThreadLocalSlotManager();
+            g_ThreadLocalSlotManagerState.store(2, std::memory_order_release);
+        }
+        else
+        {
+            state = expectedState;
+        }
+    }
+    while (state == 1)
+    {
+        __asm volatile ("yield");
+        state = g_ThreadLocalSlotManagerState.load(std::memory_order_acquire);
+    }
+    return *s_Instance;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -222,6 +252,8 @@ tls_id PThreadLocalSlotManager::FindFreeIndex() const
     return INVALID_INDEX;
 }
 
+extern "C"
+{
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -258,3 +290,5 @@ void* thread_local_get(tls_id key)
 {
     return PThreadLocalSlotManager::Get().GetSlot(key);
 }
+
+} // extern "C"

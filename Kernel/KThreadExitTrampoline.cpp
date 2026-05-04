@@ -36,6 +36,7 @@ static void setup_exit_handler_exception_frame(T& frame, void* returnValue, PThr
     frame.ExceptionFrame.PC = uintptr_t(__app_definition.thread_terminated);
 }
 
+#ifdef PADOS_MODULE_USER_SPACE
 extern "C" uintptr_t kprocess_thread_exit(uintptr_t prevStackPtr, void* returnValue)
 {
     KCtxSwitchKernelStackFrame* prevStackFrame = reinterpret_cast<KCtxSwitchKernelStackFrame*>(prevStackPtr);
@@ -56,5 +57,6 @@ extern "C" uintptr_t kprocess_thread_exit(uintptr_t prevStackPtr, void* returnVa
     }
     return newStackPtr;
 }
+#endif // PADOS_MODULE_USER_SPACE
 
 } // namespace kernel

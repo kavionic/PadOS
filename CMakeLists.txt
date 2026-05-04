@@ -33,6 +33,7 @@ option(PADOS_OPT_USE_FMT_FORMATTING		"Use fmt::format instead of std::format for
 option(PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM	"Build generic SerialCommandHandler filesystem packet handlers."	ON)
 option(PADOS_MODULE_USB_HOST			"Build USB host stack and host class drivers."				ON)
 option(PADOS_MODULE_DEBUG_CONSOLE		"Build and start the kernel debug console."				OFF)
+option(PADOS_MODULE_USER_SPACE			"Build user-space syscall dispatch support."				ON)
 option(PADOS_MODULE_POSIX_SPAWN			"Build posix_spawn() and posix_spawnattr/file-action support."		ON)
 option(PADOS_MODULE_POSIX_SIGNALS		"Build POSIX signals and thread_cancel() support."			ON)
 
@@ -77,6 +78,7 @@ add_library(PadOS_Config INTERFACE)
 add_library(PadOS::PadOS_Config ALIAS PadOS_Config)
 
 add_library(PadOS_Kernel)
+add_library(PadOS_Kernel_Unconditional)
 add_library(PadOS_KernelExt)
 add_library(PadOS_Syscalls)
 add_library(PadOS_FATFS)
@@ -92,6 +94,7 @@ add_library(PadOS_WindowManager)
 add_library(PadOS_DataTranslators)
 
 target_link_libraries(PadOS_SyscallStubs PUBLIC PadOS_Config)
+target_link_libraries(PadOS_Kernel_Unconditional PUBLIC PadOS_Config)
 target_link_libraries(PadOS_GUI PUBLIC PadOS_Config)
 target_link_libraries(PadOS_ApplicationServer PUBLIC PadOS_Config)
 target_link_libraries(PadOS_WindowManager PUBLIC PadOS_Config)
@@ -102,12 +105,17 @@ pados_add_compile_option(PADOS_OPT_DEBUG_HANDLE_OBJECT_LIST	DEBUG_HANDLE_OBJECT_
 pados_add_compile_option(PADOS_OPT_USE_FMT_FORMATTING		PADOS_OPT_USE_FMT_FORMATTING)
 pados_add_compile_option(PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM	PADOS_MODULE_SERIAL_COMMAND_FILESYSTEM)
 pados_add_compile_option(PADOS_MODULE_USB_HOST			PADOS_MODULE_USB_HOST)
+pados_add_compile_option(PADOS_MODULE_USER_SPACE		PADOS_MODULE_USER_SPACE)
 pados_add_compile_option(PADOS_FSDRIVER_BIN			PADOS_FSDRIVER_BIN)
 pados_add_compile_option(PADOS_FSDRIVER_PTY			PADOS_FSDRIVER_PTY)
 pados_add_compile_option(PADOS_FSDRIVER_PIPE			PADOS_FSDRIVER_PIPE)
 pados_add_compile_option(PADOS_MODULE_DEBUG_CONSOLE		PADOS_MODULE_DEBUG_CONSOLE)
 pados_add_compile_option(PADOS_MODULE_POSIX_SPAWN		PADOS_MODULE_POSIX_SPAWN)
 pados_add_compile_option(PADOS_MODULE_POSIX_SIGNALS		PADOS_MODULE_POSIX_SIGNALS)
+
+if(DEFINED PADOS_OPT_MINIMUM_LOG_SEVERITY AND NOT PADOS_OPT_MINIMUM_LOG_SEVERITY STREQUAL "")
+	target_compile_definitions(PadOS_Config INTERFACE PADOS_OPT_MINIMUM_LOG_SEVERITY=${PADOS_OPT_MINIMUM_LOG_SEVERITY})
+endif()
 
 if(PADOS_MODULE_UNITTESTS)
 	add_library(PadOS_UnitTests)
@@ -186,6 +194,7 @@ get_property(PADOS_KERNEL_LIBRARY_TARGETS GLOBAL PROPERTY PADOS_KERNEL_LIBRARY_T
 install(TARGETS
 	PadOS_Config
 	PadOS_Kernel
+	PadOS_Kernel_Unconditional
 	PadOS_KernelExt
 	PadOS_Syscalls
 	PadOS_FATFS

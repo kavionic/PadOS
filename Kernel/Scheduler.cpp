@@ -211,7 +211,9 @@ extern "C" uint32_t select_thread(uint32_t * currentStack, uint32_t controlReg)
                     nextThread->SetState(ThreadState_Running);
                     gk_CurrentThread = nextThread;
                     __kernel_thread_data = gk_CurrentThread->m_KernelTLS;
+#ifdef PADOS_MODULE_USER_SPACE
                     __app_thread_data    = gk_CurrentThread->m_UserspaceTLS;
+#endif // PADOS_MODULE_USER_SPACE
 
                     nextThread->DebugValidate();
                     break;

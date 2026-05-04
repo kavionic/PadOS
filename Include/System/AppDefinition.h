@@ -53,7 +53,11 @@ private:
 
 struct PFirmwareImageDefinition
 {
-    void (*entry)(PThreadUserData* threadData);
+    void (*entry)(
+#ifdef PADOS_MODULE_USER_SPACE
+        PThreadUserData* threadData
+#endif // PADOS_MODULE_USER_SPACE
+        );
     void (*process_entry_trampoline)(PThreadUserData* threadData, ThreadEntryPoint_t threadEntry, void* arguments);
     void (*thread_terminated)(void* returnValue, PThreadUserData*);
     void (*signal_trampoline)();
@@ -64,16 +68,23 @@ struct PFirmwareImageDefinition
     void             (*free_memory)(void* data);
 
     PAppDefinition*&        FirstAppPointer;
+#ifdef PADOS_MODULE_USER_SPACE
     PThreadReaperQueue*     ThreadReaperQueue;
+#endif // PADOS_MODULE_USER_SPACE
     PModuleTLSDefinition    TLSDefinition;
 };
 
 extern "C"
 {
 
-extern PFirmwareImageDefinition __kernel_definition;
-extern PFirmwareImageDefinition __app_definition;
+#ifdef PADOS_MODULE_USER_SPACE
 extern PThreadControlBlock* __app_thread_data;
+extern PFirmwareImageDefinition __kernel_definition;
+#else
+#define __kernel_definition __app_definition
+#endif
+
+extern PFirmwareImageDefinition __app_definition;
 
 } // extern "C"
 

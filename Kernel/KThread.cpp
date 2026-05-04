@@ -74,7 +74,17 @@ void KThread::Start_trw(KSpawnThreadFlags flags, PThreadDetachState detachState,
     {
         m_DetachState = detachState;
         PThreadAttribs attrs(m_Name.c_str(), priority, detachState, stackSize);
-        m_ThreadHandle = kthread_spawn_trw(&attrs, nullptr, /*tlsBlock*/ nullptr, flags | KSpawnThreadFlag::Privileged, nullptr, ThreadEntry, this);
+        m_ThreadHandle = kthread_spawn_trw(
+            &attrs,
+            nullptr,    // spawnAttr
+#ifdef PADOS_MODULE_USER_SPACE
+            nullptr,    // threadUserData
+#endif // PADOS_MODULE_USER_SPACE
+            flags | KSpawnThreadFlag::Privileged,
+            nullptr,
+            ThreadEntry,
+            this
+        );
     }
 }
 
@@ -158,7 +168,17 @@ PErrorCode kthread_attribs_init(PThreadAttribs& outAttribs) noexcept
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-thread_id kthread_spawn_trw(const PThreadAttribs* threadAttr, const PPosixSpawnAttribs* spawnAttr, PThreadUserData* threadUserData, KSpawnThreadFlags flags, ThreadEntryTrampoline_t entryTrampoline, ThreadEntryPoint_t entryPoint, void* arguments)
+thread_id kthread_spawn_trw(
+    const PThreadAttribs* threadAttr,
+    const PPosixSpawnAttribs* spawnAttr,
+#ifdef PADOS_MODULE_USER_SPACE
+    PThreadUserData* threadUserData,
+#endif // PADOS_MODULE_USER_SPACE
+    KSpawnThreadFlags flags,
+    ThreadEntryTrampoline_t entryTrampoline,
+    ThreadEntryPoint_t entryPoint,
+    void* arguments
+)
 {
     kassert(!g_PIDMapMutex.IsLocked());
     KScopedLock lock(g_PIDMapMutex);
@@ -174,13 +194,24 @@ thread_id kthread_spawn_trw(const PThreadAttribs* threadAttr, const PPosixSpawnA
         process = ptr_tmp_cast(&kget_current_process());
     }
 
+#ifdef PADOS_MODULE_USER_SPACE
     if (threadUserData != nullptr) {
         threadUserData->ThreadID = pidNode->PID;
     }
+#endif // PADOS_MODULE_USER_SPACE
 
     Ptr<KThreadCB> thread;
 
-    thread = ptr_new<KThreadCB>(pidNode->PID, process, threadAttr, flags.Has(KSpawnThreadFlag::Privileged), threadUserData, nullptr);
+    thread = ptr_new<KThreadCB>(
+        pidNode->PID,
+        process,
+        threadAttr,
+        flags.Has(KSpawnThreadFlag::Privileged),
+#ifdef PADOS_MODULE_USER_SPACE
+        threadUserData,
+#endif // PADOS_MODULE_USER_SPACE
+        nullptr
+    );
     thread->InitializeStack(entryTrampoline, entryPoint, /*skipEntryTrampoline*/ false, arguments);
 
 #ifdef PADOS_MODULE_POSIX_SIGNALS
@@ -442,7 +473,9 @@ void* kthread_join_trw(thread_id handle)
         } CRITICAL_END;
         void* returnValue = child->m_ReturnValue;
 
+#ifdef PADOS_MODULE_USER_SPACE
         p_thread_reaper_schedule_cleanup(child->m_ThreadUserData);
+#endif // PADOS_MODULE_USER_SPACE
 
         kassert(!g_PIDMapMutex.IsLocked());
         KScopedLock lock(g_PIDMapMutex);

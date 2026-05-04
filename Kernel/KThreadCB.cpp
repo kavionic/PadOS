@@ -20,6 +20,7 @@
 #include "System/Platform.h"
 
 #include <algorithm>
+#include <exception>
 #include <map>
 #include <stdlib.h>
 #include <stdint.h>
@@ -49,6 +50,7 @@ extern uint8_t __tdata_size;
 extern uint8_t __tbss_size;
 extern uint8_t __tls_align;
 
+#ifdef PADOS_MODULE_USER_SPACE
 SECTION_KERNEL_IMAGE_DEFINITION PFirmwareImageDefinition _kerneldef =
 {
     .entry                          = nullptr,
@@ -71,6 +73,8 @@ SECTION_KERNEL_IMAGE_DEFINITION PFirmwareImageDefinition _kerneldef =
         .TLSAlign = uint32_t(&__tls_align)
     }
 };
+
+#endif // PADOS_MODULE_USER_SPACE
 
 __attribute__((section(".kerneltls")))
 PThreadControlBlock* __kernel_thread_data;
@@ -118,7 +122,16 @@ static void invalid_return_handler()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KThreadCB::KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttribs* attribs, bool kernelThread, PThreadUserData* threadUserData, void* kernelTLSMemory)
+KThreadCB::KThreadCB(
+    thread_id handle,
+    Ptr<KProcess> process,
+    const PThreadAttribs* attribs,
+    bool kernelThread,
+#ifdef PADOS_MODULE_USER_SPACE
+    PThreadUserData* threadUserData,
+#endif // PADOS_MODULE_USER_SPACE
+    void* kernelTLSMemory
+)
     : KNamedObject((attribs != nullptr && attribs->Name != nullptr) ? attribs->Name : "", KNamedObjectType::Thread)
     , m_KernelThread(kernelThread)
 {
@@ -145,11 +158,14 @@ KThreadCB::KThreadCB(thread_id handle, Ptr<KProcess> process, const PThreadAttri
     m_CurrentStackAndPrivilege = (intptr_t(m_StackBuffer) - 4 + m_StackSize) & ~(KSTACK_ALIGNMENT - 1);
     m_ThreadState = ThreadState_Ready;
     m_PriorityLevel = PriToLevel(priority);
+
+#ifdef PADOS_MODULE_USER_SPACE
     m_ThreadUserData = threadUserData;
 
     if (m_ThreadUserData != nullptr) {
         m_UserspaceTLS = m_ThreadUserData->TLSData;
     }
+#endif // PADOS_MODULE_USER_SPACE
 
     try
     {
@@ -216,7 +232,9 @@ void KThreadCB::InitializeStack(ThreadEntryTrampoline_t entryTrampoline, ThreadE
     stackFrame->KernelFrame.EXEC_RETURN = 0xfffffffd; // Return to Thread mode, exception return uses non-floating-point state from the PSP and execution uses PSP after return
     if (!skipEntryTrampoline) [[likely]]
     {
+#ifdef PADOS_MODULE_USER_SPACE
         stackFrame->ExceptionFrame.R0 = uintptr_t(m_ThreadUserData);
+#endif // PADOS_MODULE_USER_SPACE
         stackFrame->ExceptionFrame.R1 = uintptr_t(entryPoint);
         stackFrame->ExceptionFrame.R2 = uintptr_t(arguments);
         if (entryTrampoline != nullptr) {

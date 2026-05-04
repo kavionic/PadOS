@@ -36,6 +36,8 @@ T _SYSEPILOGUE_errno_sysretpair(PSysRetPair result) { static_assert(sizeof(T) <=
 template<typename T>
 T _SYSEPILOGUE_cancelpnt(T result)
 {
+#ifdef PADOS_MODULE_POSIX_SIGNALS
     thread_testcancel();
+#endif // PADOS_MODULE_POSIX_SIGNALS
     return result;
 }

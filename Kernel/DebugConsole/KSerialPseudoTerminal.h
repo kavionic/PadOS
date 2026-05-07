@@ -19,8 +19,12 @@
 
 #pragma once
 
+#include <atomic>
+#include <functional>
+#include <vector>
+
+#include <Kernel/KMutex.h>
 #include <Kernel/KThread.h>
-#include <Kernel/KObjectWaitGroup.h>
 #include <Math/Point.h>
 #include <Utils/ANSIEscapeCodeParser.h>
 
@@ -31,16 +35,17 @@ namespace kernel
 class KSerialPseudoTerminal : public KThread
 {
 public:
-    KSerialPseudoTerminal(int serialFD);
-    KSerialPseudoTerminal(const PString& portPath);
+    KSerialPseudoTerminal();
 
     void Setup();
+    void SetSerialWriteCallback(std::function<void(const char*, size_t)> callback);
 
     virtual void* Run() override;
 
+    void ReceiveData(const char* buffer, size_t length);
     void ProcessSerialInput(const char* buffer, size_t length);
 
-    void SendToSerial(const char* text, size_t length) { write(m_SerialFD, text, length); }
+    void SendToSerial(const char* text, size_t length);
     void SendToSerial(const PString& text) { SendToSerial(text.c_str(), text.size()); }
     void SendToSlave(const char* text, size_t length) { write(m_MasterPTY, text, length); }
     void SendToSlave(const PString& text) { SendToSlave(text.c_str(), text.size()); }
@@ -53,19 +58,17 @@ public:
     void ProcessControlChar(PANSI_ControlCode controlChar, const std::vector<int>& args);
 
 private:
-    KObjectWaitGroup m_WaitGroup;
-
-    PString m_PortPath;
-
-    int m_SerialFD = -1;
+    std::function<void(const char*, size_t)> m_OnSendToSerial;
 
     int m_MasterPTY = -1;
-    int m_SlavePTY = -1;
+    int m_SlavePTY  = -1;
+    std::atomic<bool> m_PTYReady{false};
 
-    TimeValNanos m_NextSizeQueryTime;
+    KMutex            m_IncomingMutex;
+    std::vector<char> m_IncomingData;
+
     PANSIEscapeCodeParser m_ANSICodeParser;
-    PIPoint m_TerminalSize = PIPoint(80, 24);
-
+    PIPoint               m_TerminalSize = PIPoint(80, 24);
 };
 
 

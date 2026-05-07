@@ -17,9 +17,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 21.02.2026 22:00
 
+#include <mutex>
 #include <termios.h>
 
-#include <PadOS/Time.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KProcessGroups.h>
 #include <Kernel/DebugConsole/KDebugConsole.h>
@@ -35,23 +35,10 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KSerialPseudoTerminal::KSerialPseudoTerminal(int serialFD)
+KSerialPseudoTerminal::KSerialPseudoTerminal()
     : KThread("serialpty")
-    , m_WaitGroup("serialptywg")
+    , m_IncomingMutex("ptyinmtx", PEMutexRecursionMode_RaiseError)
 {
-    m_SerialFD = serialFD;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-KSerialPseudoTerminal::KSerialPseudoTerminal(const PString& portPath)
-    : KThread("serialpty")
-    , m_WaitGroup("serialptywg")
-    , m_PortPath(portPath)
-{
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -61,6 +48,18 @@ KSerialPseudoTerminal::KSerialPseudoTerminal(const PString& portPath)
 void KSerialPseudoTerminal::Setup()
 {
     Start_trw(KSpawnThreadFlag::SpawnProcess);
+    while (!m_PTYReady.load()) {
+        snooze_ms(1);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KSerialPseudoTerminal::SetSerialWriteCallback(std::function<void(const char*, size_t)> callback)
+{
+    m_OnSendToSerial = std::move(callback);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -98,11 +97,11 @@ void* KSerialPseudoTerminal::Run()
         }
     }
 
-    if (m_MasterPTY == -1) {
+    if (m_MasterPTY == -1)
+    {
+        m_PTYReady.store(true);
         return nullptr;
     }
-
-    m_WaitGroup.AddFile_trw(m_MasterPTY);
 
     ksetsid_trw();
 
@@ -110,11 +109,11 @@ void* KSerialPseudoTerminal::Run()
 
     ktcsetpgrp_trw(m_SlavePTY, kgetpgrp());
 
-    termios	sTerm;
+    termios sTerm;
 
     ktcgetattr_trw(m_SlavePTY, &sTerm);
     sTerm.c_iflag = 0;
-    sTerm.c_oflag = 0;
+    sTerm.c_oflag = OPOST | ONLCR;
     sTerm.c_lflag = ISIG;
     ktcsetattr_trw(m_SlavePTY, TCSANOW, &sTerm);
 
@@ -128,67 +127,52 @@ void* KSerialPseudoTerminal::Run()
     KDebugConsole debugConsole(ptyPath.c_str());
     debugConsole.Setup();
 
-    if (m_PortPath.empty() && m_SerialFD != -1) {
-        m_SerialFD = kreopen_file_trw(m_SerialFD, O_RDWR | O_DIRECT | O_NONBLOCK);
-        m_WaitGroup.AddFile_trw(m_SerialFD);
-    }
+    m_PTYReady.store(true);
+
     for (;;)
     {
+        {
+            std::lock_guard<KMutex> lock(m_IncomingMutex);
+            if (!m_IncomingData.empty())
+            {
+                ProcessSerialInput(m_IncomingData.data(), m_IncomingData.size());
+                m_IncomingData.clear();
+            }
+        }
         try
         {
             char buffer[32];
 
-            if (m_SerialFD == -1)
-            {
-                try
-                {
-                    m_SerialFD = kopen_trw(m_PortPath.c_str(), O_RDWR | O_DIRECT | O_NONBLOCK);
-                    m_WaitGroup.AddFile_trw(m_SerialFD);
-                }
-                catch (std::exception& exc)
-                {
-                    snooze_ms(100);
-                    continue;
-                }
-            }
-            size_t length;
-            try
-            {
-                m_WaitGroup.WaitDeadline(m_NextSizeQueryTime);
-
-                const TimeValNanos curTime = get_monotonic_time();
-
-                if (curTime >= m_NextSizeQueryTime)
-                {
-                    m_NextSizeQueryTime = curTime + TimeValNanos::FromMilliseconds(250);
-                    SendANSICode(PANSI_ControlCode::XTerm_XTWINOPS, 18);
-                }
-
-                length = kread_trw(m_SerialFD, buffer, sizeof(buffer));
-
-                if (length > 0) {
-                    ProcessSerialInput(buffer, length);
-                }
-                length = kread_trw(m_MasterPTY, buffer, sizeof(buffer));
-                if (length > 0) {
-                    kwrite(m_SerialFD, buffer, length);
-                }
-            }
-            catch (std::exception& exc)
-            {
-                if (!m_PortPath.empty())
-                {
-                    m_WaitGroup.RemoveFile_trw(m_SerialFD);
-                    kclose(m_SerialFD);
-                    m_SerialFD = -1;
-                }
-                continue;
+            const size_t length = kread_trw(m_MasterPTY, buffer, sizeof(buffer));
+            if (length > 0 && m_OnSendToSerial != nullptr) {
+                m_OnSendToSerial(buffer, length);
             }
         }
         catch (std::exception& exc)
         {
-            snooze_ms(100);
+            snooze_ms(10);
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KSerialPseudoTerminal::ReceiveData(const char* buffer, size_t length)
+{
+    std::lock_guard<KMutex> lock(m_IncomingMutex);
+    m_IncomingData.insert(m_IncomingData.end(), buffer, buffer + length);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KSerialPseudoTerminal::SendToSerial(const char* text, size_t length)
+{
+    if (m_OnSendToSerial) {
+        m_OnSendToSerial(text, length);
     }
 }
 
@@ -229,8 +213,8 @@ void KSerialPseudoTerminal::ProcessControlChar(PANSI_ControlCode controlChar, co
                 m_TerminalSize = size;
                 struct winsize winSize;
 
-                winSize.ws_col = uint16_t(m_TerminalSize.x);
-                winSize.ws_row = uint16_t(m_TerminalSize.y);
+                winSize.ws_col   = uint16_t(m_TerminalSize.x);
+                winSize.ws_row   = uint16_t(m_TerminalSize.y);
                 winSize.ws_xpixel = 0;
                 winSize.ws_ypixel = 0;
 

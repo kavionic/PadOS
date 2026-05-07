@@ -45,7 +45,7 @@
 #include <Kernel/HAL/STM32/ResetAndClockControl.h>
 #ifdef PADOS_MODULE_DEBUG_CONSOLE
 #include <Kernel/DebugConsole/KDebugConsole.h>
-#include <Kernel/DebugConsole/KSerialPseudoTerminal.h>
+#include <Kernel/DebugConsole/KSerialMux.h>
 #endif // PADOS_MODULE_DEBUG_CONSOLE
 
 extern "C" void __libc_init_array(void);
@@ -69,8 +69,8 @@ static uint8_t gk_InitThreadStack[32768] __attribute__((aligned(8)));
 //static KDebugConsole gk_DebugConsole1(STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 //static KDebugConsole gk_DebugConsole2("/dev/com/udp0");
 #ifdef PADOS_MODULE_DEBUG_CONSOLE
-static KSerialPseudoTerminal g_SerialTerminal1(STDIN_FILENO);
-static KSerialPseudoTerminal g_SerialTerminal2("/dev/com/udp0");
+static KSerialMux g_SerialMux1(STDIN_FILENO);        // Physical UART — passthrough
+static KSerialMux g_SerialMux2("/dev/com/udp0");      // USB shell port — mux
 #endif // PADOS_MODULE_DEBUG_CONSOLE
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -243,11 +243,14 @@ static void* init_thread_entry(void* arguments)
 #endif // PADOS_FSDRIVER_PIPE
 
 #ifdef PADOS_MODULE_DEBUG_CONSOLE
-    g_SerialTerminal1.SetDeleteOnExit(false);
-    g_SerialTerminal2.SetDeleteOnExit(false);
+    // g_SerialMux1 is passthrough by default (physical UART)
+    g_SerialMux2.EnableMux();
 
-    g_SerialTerminal1.Setup();
-    g_SerialTerminal2.Setup();
+    g_SerialMux1.SetDeleteOnExit(false);
+    g_SerialMux2.SetDeleteOnExit(false);
+
+    g_SerialMux1.Setup();
+    g_SerialMux2.Setup();
 #endif // PADOS_MODULE_DEBUG_CONSOLE
 
     PThreadAttribs attrs("main", 0, PThreadDetachState_Detached, mainThreadStackSize);

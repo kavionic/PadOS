@@ -115,14 +115,14 @@ void* KSerialMux::Run()
 
 void KSerialMux::RunPassthrough()
 {
-    ChannelState& state = CreateChannel(0);
+    KSerialPseudoTerminal& terminal = CreateChannel(0);
 
-    state.Terminal.SetDeleteOnExit(false);
-    state.Terminal.SetSerialWriteCallback([this](const char* data, size_t length) {
+    terminal.SetDeleteOnExit(false);
+    terminal.SetSerialWriteCallback([this](const char* data, size_t length) {
         SendToSerial(data, length);
     });
-    state.Terminal.Setup();
-    state.NextSizeQueryTime = get_monotonic_time();
+    terminal.Setup();
+    TimeValNanos nextSizeQueryTime = get_monotonic_time();
 
     for (;;)
     {
@@ -145,18 +145,18 @@ void KSerialMux::RunPassthrough()
             }
             try
             {
-                m_WaitGroup.WaitDeadline(state.NextSizeQueryTime);
+                m_WaitGroup.WaitDeadline(nextSizeQueryTime);
 
                 const TimeValNanos curTime = get_monotonic_time();
-                if (curTime >= state.NextSizeQueryTime)
+                if (curTime >= nextSizeQueryTime)
                 {
-                    state.NextSizeQueryTime = curTime + TimeValNanos::FromMilliseconds(250);
-                    state.Terminal.SendANSICode(PANSI_ControlCode::XTerm_XTWINOPS, 18);
+                    nextSizeQueryTime = curTime + TimeValNanos::FromMilliseconds(250);
+                    terminal.SendANSICode(PANSI_ControlCode::XTerm_XTWINOPS, 18);
                 }
 
                 const size_t length = kread_trw(m_SerialFD, buffer, sizeof(buffer));
                 if (length > 0) {
-                    state.Terminal.ReceiveData(buffer, length);
+                    terminal.ReceiveData(buffer, length);
                 }
             }
             catch (std::exception& exc)
@@ -202,8 +202,7 @@ void KSerialMux::RunMux()
             }
             try
             {
-                m_WaitGroup.WaitDeadline(GetNextSizeQueryDeadline());
-                SendSizeQueries();
+                m_WaitGroup.WaitDeadline(TimeValNanos::infinit);
 
                 char buffer[64];
                 const size_t length = kread_trw(m_SerialFD, buffer, sizeof(buffer));
@@ -305,15 +304,31 @@ void KSerialMux::DispatchFrame(uint16_t channelID, const uint8_t* data, size_t l
         if (length >= sizeof(ShellMuxControlPayload))
         {
             ShellMuxControlPayload payload;
-            __builtin_memcpy(&payload, data, sizeof(payload));
-            HandleControlFrame(payload);
+            memcpy(&payload, data, sizeof(payload));
+
+            if (payload.Command == ShellMuxCommand::WindowSizeChange)
+            {
+                if (length >= sizeof(ShellMuxWindowSizePayload))
+                {
+                    ShellMuxWindowSizePayload sizePayload;
+                    memcpy(&sizePayload, data, sizeof(sizePayload));
+                    auto iter = m_Channels.find(sizePayload.ChannelID);
+                    if (iter != m_Channels.end()) {
+                        iter->second.SetTerminalSize(sizePayload.Width, sizePayload.Height, sizePayload.PixelWidth, sizePayload.PixelHeight);
+                    }
+                }
+            }
+            else
+            {
+                HandleControlFrame(payload);
+            }
         }
         return;
     }
 
     auto iter = m_Channels.find(channelID);
     if (iter != m_Channels.end()) {
-        iter->second.Terminal.ReceiveData(reinterpret_cast<const char*>(data), length);
+        iter->second.ReceiveData(reinterpret_cast<const char*>(data), length);
     }
 }
 
@@ -374,19 +389,17 @@ void KSerialMux::SendToSerial(const char* data, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KSerialMux::ChannelState& KSerialMux::CreateChannel(uint16_t channelID)
+KSerialPseudoTerminal& KSerialMux::CreateChannel(uint16_t channelID)
 {
-    ChannelState& state = m_Channels[channelID];
+    KSerialPseudoTerminal& terminal = m_Channels[channelID];
 
-    state.Terminal.SetDeleteOnExit(false);
-    state.Terminal.SetSerialWriteCallback([this, channelID](const char* data, size_t length) {
+    terminal.SetDeleteOnExit(false);
+    terminal.SetSerialWriteCallback([this, channelID](const char* data, size_t length) {
         SendMuxFrame(channelID, data, length);
     });
-    state.Terminal.Setup();
+    terminal.Setup();
 
-    state.NextSizeQueryTime = get_monotonic_time();
-
-    return state;
+    return terminal;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -401,38 +414,6 @@ void KSerialMux::DestroyChannel(uint16_t channelID)
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-TimeValNanos KSerialMux::GetNextSizeQueryDeadline() const
-{
-    TimeValNanos minDeadline = TimeValNanos::infinit;
-    for (const auto& entry : m_Channels)
-    {
-        if (entry.second.NextSizeQueryTime < minDeadline) {
-            minDeadline = entry.second.NextSizeQueryTime;
-        }
-    }
-    return minDeadline;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KSerialMux::SendSizeQueries()
-{
-    const TimeValNanos curTime = get_monotonic_time();
-    for (auto& entry : m_Channels)
-    {
-        if (curTime >= entry.second.NextSizeQueryTime)
-        {
-            entry.second.NextSizeQueryTime = curTime + TimeValNanos::FromMilliseconds(250);
-            entry.second.Terminal.SendANSICode(PANSI_ControlCode::XTerm_XTWINOPS, 18);
-        }
-    }
-}
 
 
 } // namespace kernel

@@ -47,12 +47,6 @@ public:
     virtual void* Run() override;
 
 private:
-    struct ChannelState
-    {
-        KSerialPseudoTerminal   Terminal;
-        TimeValNanos            NextSizeQueryTime;
-    };
-
     void RunPassthrough();
     void RunMux();
     void ProcessIncomingByte(uint8_t byte);
@@ -60,10 +54,9 @@ private:
     void HandleControlFrame(const ShellMuxControlPayload& payload);
     void SendMuxFrame(uint16_t channelID, const char* data, size_t length);
     void SendToSerial(const char* data, size_t length);
-    ChannelState&   CreateChannel(uint16_t channelID);
-    void            DestroyChannel(uint16_t channelID);
-    TimeValNanos GetNextSizeQueryDeadline() const;
-    void SendSizeQueries();
+    
+    KSerialPseudoTerminal&  CreateChannel(uint16_t channelID);
+    void                    DestroyChannel(uint16_t channelID);
 
     KObjectWaitGroup m_WaitGroup;
     KMutex           m_SerialWriteMutex;
@@ -71,7 +64,7 @@ private:
     PString          m_PortPath;
     bool             m_MuxEnabled = false;
 
-    std::map<uint16_t, ChannelState> m_Channels;
+    std::map<uint16_t, KSerialPseudoTerminal> m_Channels;
 
     enum class ParseState { SyncByte0, SyncByte1, Header, Payload };
     ParseState           m_ParseState = ParseState::SyncByte0;

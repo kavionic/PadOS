@@ -131,13 +131,30 @@ void* KSerialPseudoTerminal::Run()
 
     for (;;)
     {
+        uint16_t pendingWidth       = 0;
+        uint16_t pendingHeight      = 0;
+        uint16_t pendingPixelWidth  = 0;
+        uint16_t pendingPixelHeight = 0;
+        bool applySize = false;
         {
             std::lock_guard<KMutex> lock(m_IncomingMutex);
+            if (m_PendingTerminalSizeChange)
+            {
+                pendingWidth       = m_PendingWidth;
+                pendingHeight      = m_PendingHeight;
+                pendingPixelWidth  = m_PendingPixelWidth;
+                pendingPixelHeight = m_PendingPixelHeight;
+                m_PendingTerminalSizeChange = false;
+                applySize = true;
+            }
             if (!m_IncomingData.empty())
             {
                 ProcessSerialInput(m_IncomingData.data(), m_IncomingData.size());
                 m_IncomingData.clear();
             }
+        }
+        if (applySize) {
+            ApplyTerminalSize(pendingWidth, pendingHeight, pendingPixelWidth, pendingPixelHeight);
         }
         try
         {
@@ -205,22 +222,46 @@ void KSerialPseudoTerminal::ProcessControlChar(PANSI_ControlCode controlChar, co
 {
     if (controlChar == PANSI_ControlCode::XTerm_XTWINOPS)
     {
-        if (args.size() >= 3 && args[0] == 8)
-        {
-            PIPoint size(args[2], args[1]);
-            if (size != m_TerminalSize)
-            {
-                m_TerminalSize = size;
-                struct winsize winSize;
-
-                winSize.ws_col   = uint16_t(m_TerminalSize.x);
-                winSize.ws_row   = uint16_t(m_TerminalSize.y);
-                winSize.ws_xpixel = 0;
-                winSize.ws_ypixel = 0;
-
-                kdevice_control_trw(m_MasterPTY, TIOCSWINSZ, &winSize, sizeof(winSize), nullptr, 0);
-            }
+        if (args.size() >= 3 && args[0] == 8) {
+            ApplyTerminalSize(uint16_t(args[2]), uint16_t(args[1]), 0, 0);
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+// Called from external threads — defers to Run() to apply in the correct process context.
+void KSerialPseudoTerminal::SetTerminalSize(uint16_t width, uint16_t height, uint16_t pixelWidth, uint16_t pixelHeight)
+{
+    std::lock_guard<KMutex> lock(m_IncomingMutex);
+    m_PendingWidth              = width;
+    m_PendingHeight             = height;
+    m_PendingPixelWidth         = pixelWidth;
+    m_PendingPixelHeight        = pixelHeight;
+    m_PendingTerminalSizeChange = true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+// Must only be called from Run() — m_MasterPTY is only valid in this process.
+void KSerialPseudoTerminal::ApplyTerminalSize(uint16_t width, uint16_t height, uint16_t pixelWidth, uint16_t pixelHeight)
+{
+    const PIPoint size(width, height);
+    if (size != m_TerminalSize)
+    {
+        m_TerminalSize = size;
+        struct winsize winSize;
+
+        winSize.ws_col    = uint16_t(m_TerminalSize.x);
+        winSize.ws_row    = uint16_t(m_TerminalSize.y);
+        winSize.ws_xpixel = pixelWidth;
+        winSize.ws_ypixel = pixelHeight;
+
+        kdevice_control_trw(m_MasterPTY, TIOCSWINSZ, &winSize, sizeof(winSize), nullptr, 0);
     }
 }
 

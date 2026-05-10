@@ -40,13 +40,24 @@ static constexpr size_t   SHELL_MUX_MAX_PAYLOAD      = 4096;
 
 enum class ShellMuxCommand : uint8_t
 {
-    OpenChannel    = 1,  // PC→Device: request a new channel
-    OpenChannelAck = 2,  // Device→PC: channel ready, ChannelID holds the assigned ID
-    CloseChannel   = 3,  // Either direction: tear down channel
+    OpenChannel      = 1,  // PC→Device: request a new channel
+    OpenChannelAck   = 2,  // Device→PC: channel ready, ChannelID holds the assigned ID
+    CloseChannel     = 3,  // Either direction: tear down channel
+    WindowSizeChange = 4,  // PC→Device: SSH client resized its terminal window
 };
 
 struct ShellMuxControlPayload
 {
     ShellMuxCommand Command;
     uint16_t        ChannelID;  // Assigned ID in OpenChannelAck; 0 in OpenChannel
+};
+
+struct ShellMuxWindowSizePayload
+{
+    ShellMuxCommand Command;   // = WindowSizeChange
+    uint16_t        ChannelID;
+    uint16_t        Width;
+    uint16_t        Height;
+    uint16_t        PixelWidth;
+    uint16_t        PixelHeight;
 };

@@ -44,6 +44,7 @@ public:
 
     void ReceiveData(const char* buffer, size_t length);
     void ProcessSerialInput(const char* buffer, size_t length);
+    void SetTerminalSize(uint16_t width, uint16_t height, uint16_t pixelWidth, uint16_t pixelHeight);
 
     void SendToSerial(const char* text, size_t length);
     void SendToSerial(const PString& text) { SendToSerial(text.c_str(), text.size()); }
@@ -58,6 +59,8 @@ public:
     void ProcessControlChar(PANSI_ControlCode controlChar, const std::vector<int>& args);
 
 private:
+    void ApplyTerminalSize(uint16_t width, uint16_t height, uint16_t pixelWidth, uint16_t pixelHeight);
+
     std::function<void(const char*, size_t)> m_OnSendToSerial;
 
     int m_MasterPTY = -1;
@@ -66,6 +69,11 @@ private:
 
     KMutex            m_IncomingMutex;
     std::vector<char> m_IncomingData;
+    bool     m_PendingTerminalSizeChange{false};
+    uint16_t m_PendingWidth{80};
+    uint16_t m_PendingHeight{24};
+    uint16_t m_PendingPixelWidth{0};
+    uint16_t m_PendingPixelHeight{0};
 
     PANSIEscapeCodeParser m_ANSICodeParser;
     PIPoint               m_TerminalSize = PIPoint(80, 24);

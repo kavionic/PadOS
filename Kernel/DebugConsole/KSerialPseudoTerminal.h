@@ -20,10 +20,9 @@
 #pragma once
 
 #include <atomic>
-#include <functional>
 #include <vector>
 
-#include <Kernel/KMutex.h>
+#include <Kernel/KSemaphore.h>
 #include <Kernel/KThread.h>
 #include <Math/Point.h>
 #include <Utils/ANSIEscapeCodeParser.h>
@@ -35,14 +34,12 @@ namespace kernel
 class KSerialPseudoTerminal : public KThread
 {
 public:
-    KSerialPseudoTerminal();
+    KSerialPseudoTerminal(int serialReadFD, int serialWriteFD, bool queryTerminalSize = false);
 
     void Setup();
-    void SetSerialWriteCallback(std::function<void(const char*, size_t)> callback);
 
     virtual void* Run() override;
 
-    void ReceiveData(const char* buffer, size_t length);
     void ProcessSerialInput(const char* buffer, size_t length);
     void SetTerminalSize(uint16_t width, uint16_t height, uint16_t pixelWidth, uint16_t pixelHeight);
 
@@ -61,19 +58,21 @@ public:
 private:
     void ApplyTerminalSize(uint16_t width, uint16_t height, uint16_t pixelWidth, uint16_t pixelHeight);
 
-    std::function<void(const char*, size_t)> m_OnSendToSerial;
+    int  m_SerialReadFD      = -1;
+    int  m_SerialWriteFD     = -1;
+    bool m_QueryTerminalSize = false;
+
+    KSemaphore m_TerminalSizeNotifier;
 
     int m_MasterPTY = -1;
     int m_SlavePTY  = -1;
     std::atomic<bool> m_PTYReady{false};
 
-    KMutex            m_IncomingMutex;
-    std::vector<char> m_IncomingData;
-    bool     m_PendingTerminalSizeChange{false};
-    uint16_t m_PendingWidth{80};
-    uint16_t m_PendingHeight{24};
-    uint16_t m_PendingPixelWidth{0};
-    uint16_t m_PendingPixelHeight{0};
+    std::atomic<bool>     m_PendingTerminalSizeChange{false};
+    std::atomic<uint16_t> m_PendingWidth{80};
+    std::atomic<uint16_t> m_PendingHeight{24};
+    std::atomic<uint16_t> m_PendingPixelWidth{0};
+    std::atomic<uint16_t> m_PendingPixelHeight{0};
 
     PANSIEscapeCodeParser m_ANSICodeParser;
     PIPoint               m_TerminalSize = PIPoint(80, 24);

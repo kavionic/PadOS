@@ -38,16 +38,22 @@ class KSerialPseudoTerminal;
 class KSerialMux : public KThread
 {
 public:
-    KSerialMux(int serialFD);
     KSerialMux(const PString& portPath);
 
-    void EnableMux();
     void Setup();
 
     virtual void* Run() override;
 
 private:
-    void RunPassthrough();
+    struct Channel
+    {
+        Channel(int termReadFD, int termWriteFD, int muxWriteFD, int muxReadFD);
+
+        KSerialPseudoTerminal Terminal;
+        int InputPipeWriteFD = -1;
+        int OutputPipeReadFD = -1;
+    };
+
     void RunMux();
     void ProcessIncomingByte(uint8_t byte);
     void DispatchFrame(uint16_t channelID, const uint8_t* data, size_t length);
@@ -55,16 +61,16 @@ private:
     void SendMuxFrame(uint16_t channelID, const char* data, size_t length);
     void SendToSerial(const char* data, size_t length);
     
-    KSerialPseudoTerminal&  CreateChannel(uint16_t channelID);
-    void                    DestroyChannel(uint16_t channelID);
+    Channel& CreateChannel(uint16_t channelID);
+    void     DestroyChannel(uint16_t channelID);
+    void     ClearChannels();
 
     KObjectWaitGroup m_WaitGroup;
     KMutex           m_SerialWriteMutex;
     int              m_SerialFD = -1;
     PString          m_PortPath;
-    bool             m_MuxEnabled = false;
 
-    std::map<uint16_t, KSerialPseudoTerminal> m_Channels;
+    std::map<uint16_t, Channel> m_Channels;
 
     enum class ParseState { SyncByte0, SyncByte1, Header, Payload };
     ParseState           m_ParseState = ParseState::SyncByte0;

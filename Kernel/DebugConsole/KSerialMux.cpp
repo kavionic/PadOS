@@ -19,8 +19,10 @@
 
 #include <mutex>
 
+#include <fcntl.h>
 #include <PadOS/Time.h>
 #include <Kernel/KProcess.h>
+#include <Kernel/VFS/KPipeFilesystem.h>
 #include <Kernel/KProcessGroups.h>
 #include <Kernel/DebugConsole/KSerialPseudoTerminal.h>
 #include <Kernel/DebugConsole/KSerialMux.h>
@@ -39,33 +41,12 @@ static constexpr uint8_t MAGIC_BYTE1 = static_cast<uint8_t>(ShellMuxHeader::MAGI
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KSerialMux::KSerialMux(int serialFD)
-    : KThread("serialmux")
-    , m_WaitGroup("serialmuxwg")
-    , m_SerialWriteMutex("serialmuxmtx", PEMutexRecursionMode_RaiseError)
-{
-    m_SerialFD = serialFD;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
 KSerialMux::KSerialMux(const PString& portPath)
     : KThread("serialmux")
     , m_WaitGroup("serialmuxwg")
     , m_SerialWriteMutex("serialmuxmtx", PEMutexRecursionMode_RaiseError)
     , m_PortPath(portPath)
 {
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KSerialMux::EnableMux()
-{
-    m_MuxEnabled = true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -93,88 +74,8 @@ void* KSerialMux::Run()
     ksignal_trw(SIGTTOU, SIG_IGN);
 #endif // PADOS_MODULE_POSIX_SIGNALS
 
-    // FD-based: reopen with non-blocking/direct flags before entering the loop.
-    // Port-path-based: opening is retried inside the loop.
-    if (m_PortPath.empty() && m_SerialFD != -1)
-    {
-        m_SerialFD = kreopen_file_trw(m_SerialFD, O_RDWR | O_DIRECT | O_NONBLOCK);
-        m_WaitGroup.AddFile_trw(m_SerialFD);
-    }
-
-    if (m_MuxEnabled) {
-        RunMux();
-    } else {
-        RunPassthrough();
-    }
+    RunMux();
     return nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KSerialMux::RunPassthrough()
-{
-    KSerialPseudoTerminal& terminal = CreateChannel(0);
-
-    terminal.SetDeleteOnExit(false);
-    terminal.SetSerialWriteCallback([this](const char* data, size_t length) {
-        SendToSerial(data, length);
-    });
-    terminal.Setup();
-    TimeValNanos nextSizeQueryTime = get_monotonic_time();
-
-    for (;;)
-    {
-        try
-        {
-            char buffer[32];
-
-            if (m_SerialFD == -1)
-            {
-                try
-                {
-                    m_SerialFD = kopen_trw(m_PortPath.c_str(), O_RDWR | O_DIRECT | O_NONBLOCK);
-                    m_WaitGroup.AddFile_trw(m_SerialFD);
-                }
-                catch (std::exception& exc)
-                {
-                    snooze_ms(100);
-                    continue;
-                }
-            }
-            try
-            {
-                m_WaitGroup.WaitDeadline(nextSizeQueryTime);
-
-                const TimeValNanos curTime = get_monotonic_time();
-                if (curTime >= nextSizeQueryTime)
-                {
-                    nextSizeQueryTime = curTime + TimeValNanos::FromMilliseconds(250);
-                    terminal.SendANSICode(PANSI_ControlCode::XTerm_XTWINOPS, 18);
-                }
-
-                const size_t length = kread_trw(m_SerialFD, buffer, sizeof(buffer));
-                if (length > 0) {
-                    terminal.ReceiveData(buffer, length);
-                }
-            }
-            catch (std::exception& exc)
-            {
-                if (!m_PortPath.empty())
-                {
-                    m_WaitGroup.RemoveFile_trw(m_SerialFD);
-                    kclose(m_SerialFD);
-                    m_SerialFD = -1;
-                }
-                continue;
-            }
-        }
-        catch (std::exception& exc)
-        {
-            snooze_ms(100);
-        }
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -202,26 +103,46 @@ void KSerialMux::RunMux()
             }
             try
             {
-                m_WaitGroup.WaitDeadline(TimeValNanos::infinit);
+                m_WaitGroup.Wait();
 
-                char buffer[64];
-                const size_t length = kread_trw(m_SerialFD, buffer, sizeof(buffer));
-                for (size_t i = 0; i < length; ++i) {
-                    ProcessIncomingByte(static_cast<uint8_t>(buffer[i]));
+                try
+                {
+                    char inBuffer[64];
+                    const size_t inLength = kread_trw(m_SerialFD, inBuffer, sizeof(inBuffer));
+                    for (size_t i = 0; i < inLength; ++i) {
+                        ProcessIncomingByte(static_cast<uint8_t>(inBuffer[i]));
+                    }
+                }
+                catch (std::exception& exc)
+                {
+                    kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_PTY, "Caught exception while reading serial port: {}.", exc.what());
+                    if (!m_PortPath.empty())
+                    {
+                        m_WaitGroup.RemoveFile_trw(m_SerialFD);
+                        kclose(m_SerialFD);
+                        m_SerialFD = -1;
+                    }
+                    ClearChannels();
+                    m_ParseState = ParseState::SyncByte0;
+                    continue;
+                }
+
+                for (auto& [channelID, channel] : m_Channels)
+                {
+                    try
+                    {
+                        char outBuffer[64];
+                        const size_t outLength = kread_trw(channel.OutputPipeReadFD, outBuffer, sizeof(outBuffer));
+                        if (outLength > 0) {
+                            SendMuxFrame(channelID, outBuffer, outLength);
+                        }
+                    }
+                    catch (std::exception&) {}
                 }
             }
             catch (std::exception& exc)
             {
-                kernel_log<PLogSeverity::CRITICAL>(LogCatKernel_PTY, "Caught exception while reading serial port: {}.", exc.what());
-                if (!m_PortPath.empty())
-                {
-                    m_WaitGroup.RemoveFile_trw(m_SerialFD);
-                    kclose(m_SerialFD);
-                    m_SerialFD = -1;
-                }
-                m_Channels.clear();
-                m_ParseState = ParseState::SyncByte0;
-                continue;
+                snooze_ms(100);
             }
         }
         catch (std::exception& exc)
@@ -314,7 +235,7 @@ void KSerialMux::DispatchFrame(uint16_t channelID, const uint8_t* data, size_t l
                     memcpy(&sizePayload, data, sizeof(sizePayload));
                     auto iter = m_Channels.find(sizePayload.ChannelID);
                     if (iter != m_Channels.end()) {
-                        iter->second.SetTerminalSize(sizePayload.Width, sizePayload.Height, sizePayload.PixelWidth, sizePayload.PixelHeight);
+                        iter->second.Terminal.SetTerminalSize(sizePayload.Width, sizePayload.Height, sizePayload.PixelWidth, sizePayload.PixelHeight);
                     }
                 }
             }
@@ -328,7 +249,7 @@ void KSerialMux::DispatchFrame(uint16_t channelID, const uint8_t* data, size_t l
 
     auto iter = m_Channels.find(channelID);
     if (iter != m_Channels.end()) {
-        iter->second.ReceiveData(reinterpret_cast<const char*>(data), length);
+        kwrite(iter->second.InputPipeWriteFD, data, length);
     }
 }
 
@@ -389,17 +310,35 @@ void KSerialMux::SendToSerial(const char* data, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KSerialPseudoTerminal& KSerialMux::CreateChannel(uint16_t channelID)
+KSerialMux::Channel::Channel(int termReadFD, int termWriteFD, int muxWriteFD, int muxReadFD)
+    : Terminal(termReadFD, termWriteFD)
+    , InputPipeWriteFD(muxWriteFD)
+    , OutputPipeReadFD(muxReadFD)
 {
-    KSerialPseudoTerminal& terminal = m_Channels[channelID];
+}
 
-    terminal.SetDeleteOnExit(false);
-    terminal.SetSerialWriteCallback([this, channelID](const char* data, size_t length) {
-        SendMuxFrame(channelID, data, length);
-    });
-    terminal.Setup();
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-    return terminal;
+KSerialMux::Channel& KSerialMux::CreateChannel(uint16_t channelID)
+{
+    int inputPipe[2];
+    int outputPipe[2];
+    kpipe_trw(inputPipe);
+    kpipe_trw(outputPipe);
+
+    fcntl(outputPipe[0], F_SETFL, fcntl(outputPipe[0], F_GETFL) | O_NONBLOCK);
+
+    auto result  = m_Channels.try_emplace(channelID, inputPipe[0], outputPipe[1], inputPipe[1], outputPipe[0]);
+    Channel& channel = result.first->second;
+
+    channel.Terminal.SetDeleteOnExit(false);
+    channel.Terminal.Setup();
+
+    m_WaitGroup.AddFile_trw(outputPipe[0]);
+
+    return channel;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -409,9 +348,28 @@ KSerialPseudoTerminal& KSerialMux::CreateChannel(uint16_t channelID)
 void KSerialMux::DestroyChannel(uint16_t channelID)
 {
     auto iter = m_Channels.find(channelID);
-    if (iter != m_Channels.end()) {
+    if (iter != m_Channels.end())
+    {
+        m_WaitGroup.RemoveFile_trw(iter->second.OutputPipeReadFD);
+        kclose(iter->second.InputPipeWriteFD);
+        kclose(iter->second.OutputPipeReadFD);
         m_Channels.erase(iter);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KSerialMux::ClearChannels()
+{
+    for (auto& [channelID, channel] : m_Channels)
+    {
+        m_WaitGroup.RemoveFile_trw(channel.OutputPipeReadFD);
+        kclose(channel.InputPipeWriteFD);
+        kclose(channel.OutputPipeReadFD);
+    }
+    m_Channels.clear();
 }
 
 

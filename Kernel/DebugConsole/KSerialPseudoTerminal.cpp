@@ -20,6 +20,7 @@
 #include <mutex>
 #include <termios.h>
 
+#include <Kernel/KObjectWaitGroup.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KProcessGroups.h>
 #include <Kernel/DebugConsole/KDebugConsole.h>
@@ -35,9 +36,12 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KSerialPseudoTerminal::KSerialPseudoTerminal()
+KSerialPseudoTerminal::KSerialPseudoTerminal(int serialReadFD, int serialWriteFD, bool queryTerminalSize)
     : KThread("serialpty")
-    , m_IncomingMutex("ptyinmtx", PEMutexRecursionMode_RaiseError)
+    , m_SerialReadFD(serialReadFD)
+    , m_SerialWriteFD(serialWriteFD)
+    , m_QueryTerminalSize(queryTerminalSize)
+    , m_TerminalSizeNotifier("ptysznfy", CLOCK_MONOTONIC, 0)
 {
 }
 
@@ -51,15 +55,6 @@ void KSerialPseudoTerminal::Setup()
     while (!m_PTYReady.load()) {
         snooze_ms(1);
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KSerialPseudoTerminal::SetSerialWriteCallback(std::function<void(const char*, size_t)> callback)
-{
-    m_OnSendToSerial = std::move(callback);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -127,59 +122,65 @@ void* KSerialPseudoTerminal::Run()
     KDebugConsole debugConsole(ptyPath.c_str());
     debugConsole.Setup();
 
+    fcntl(m_SerialReadFD, F_SETFL, fcntl(m_SerialReadFD, F_GETFL) | O_NONBLOCK);
+
     m_PTYReady.store(true);
+
+    KObjectWaitGroup waitGroup("ptyselect");
+    waitGroup.AddFile_trw(m_SerialReadFD);
+    waitGroup.AddFile_trw(m_MasterPTY);
+    waitGroup.AddObject_trw(&m_TerminalSizeNotifier);
+
+    TimeValNanos nextQueryTime;
 
     for (;;)
     {
-        uint16_t pendingWidth       = 0;
-        uint16_t pendingHeight      = 0;
-        uint16_t pendingPixelWidth  = 0;
-        uint16_t pendingPixelHeight = 0;
-        bool applySize = false;
+        if (m_QueryTerminalSize)
         {
-            std::lock_guard<KMutex> lock(m_IncomingMutex);
-            if (m_PendingTerminalSizeChange)
+            waitGroup.WaitDeadline(nextQueryTime);
+            const TimeValNanos curTime = get_monotonic_time();
+            if (curTime >= nextQueryTime)
             {
-                pendingWidth       = m_PendingWidth;
-                pendingHeight      = m_PendingHeight;
-                pendingPixelWidth  = m_PendingPixelWidth;
-                pendingPixelHeight = m_PendingPixelHeight;
-                m_PendingTerminalSizeChange = false;
-                applySize = true;
-            }
-            if (!m_IncomingData.empty())
-            {
-                ProcessSerialInput(m_IncomingData.data(), m_IncomingData.size());
-                m_IncomingData.clear();
+                nextQueryTime = curTime + TimeValNanos::FromMilliseconds(250);
+                SendANSICode(PANSI_ControlCode::XTerm_XTWINOPS, 18);
             }
         }
-        if (applySize) {
-            ApplyTerminalSize(pendingWidth, pendingHeight, pendingPixelWidth, pendingPixelHeight);
+        else
+        {
+            waitGroup.Wait();
         }
+        while (m_TerminalSizeNotifier.TryAcquire() == PErrorCode::Success) {}
+        if (m_PendingTerminalSizeChange.load())
+        {
+            m_PendingTerminalSizeChange.store(false);
+            ApplyTerminalSize(
+                m_PendingWidth.load(),
+                m_PendingHeight.load(),
+                m_PendingPixelWidth.load(),
+                m_PendingPixelHeight.load()
+            );
+        }
+
+        try
+        {
+            char buffer[64];
+            const size_t length = kread_trw(m_SerialReadFD, buffer, sizeof(buffer));
+            if (length > 0) {
+                ProcessSerialInput(buffer, length);
+            }
+        }
+        catch (std::exception&) {}
+
         try
         {
             char buffer[32];
-
             const size_t length = kread_trw(m_MasterPTY, buffer, sizeof(buffer));
-            if (length > 0 && m_OnSendToSerial != nullptr) {
-                m_OnSendToSerial(buffer, length);
+            if (length > 0) {
+                kwrite(m_SerialWriteFD, buffer, length);
             }
         }
-        catch (std::exception& exc)
-        {
-            snooze_ms(10);
-        }
+        catch (std::exception&) {}
     }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void KSerialPseudoTerminal::ReceiveData(const char* buffer, size_t length)
-{
-    std::lock_guard<KMutex> lock(m_IncomingMutex);
-    m_IncomingData.insert(m_IncomingData.end(), buffer, buffer + length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -188,9 +189,7 @@ void KSerialPseudoTerminal::ReceiveData(const char* buffer, size_t length)
 
 void KSerialPseudoTerminal::SendToSerial(const char* text, size_t length)
 {
-    if (m_OnSendToSerial) {
-        m_OnSendToSerial(text, length);
-    }
+    kwrite(m_SerialWriteFD, text, length);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -229,25 +228,25 @@ void KSerialPseudoTerminal::ProcessControlChar(PANSI_ControlCode controlChar, co
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// Called from external threads — atomics make the lock-free store safe.
+/// 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-// Called from external threads — defers to Run() to apply in the correct process context.
 void KSerialPseudoTerminal::SetTerminalSize(uint16_t width, uint16_t height, uint16_t pixelWidth, uint16_t pixelHeight)
 {
-    std::lock_guard<KMutex> lock(m_IncomingMutex);
-    m_PendingWidth              = width;
-    m_PendingHeight             = height;
-    m_PendingPixelWidth         = pixelWidth;
-    m_PendingPixelHeight        = pixelHeight;
-    m_PendingTerminalSizeChange = true;
+    m_PendingWidth.store(width);
+    m_PendingHeight.store(height);
+    m_PendingPixelWidth.store(pixelWidth);
+    m_PendingPixelHeight.store(pixelHeight);
+    m_PendingTerminalSizeChange.store(true);
+    m_TerminalSizeNotifier.Release();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-// Must only be called from Run() — m_MasterPTY is only valid in this process.
 void KSerialPseudoTerminal::ApplyTerminalSize(uint16_t width, uint16_t height, uint16_t pixelWidth, uint16_t pixelHeight)
 {
     const PIPoint size(width, height);

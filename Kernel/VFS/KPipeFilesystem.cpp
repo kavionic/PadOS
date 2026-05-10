@@ -66,6 +66,31 @@ KPipeInode::KPipeInode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFile
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool KPipeInode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
+{
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
+    switch (mode)
+    {
+        case ObjectWaitMode::Read:
+        case ObjectWaitMode::ReadWrite:
+            if (m_BytesAvailable == 0) {
+                return m_ReadCondition.AddListener(waitNode, ObjectWaitMode::Read);
+            } else {
+                return false;
+            }
+        case ObjectWaitMode::Write:
+            return false;
+        default:
+            return false;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 KPipeFilesystem& KPipeFilesystem::Instance()
 {
     static KPipeFilesystem instance;

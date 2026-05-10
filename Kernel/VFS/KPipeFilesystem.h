@@ -51,6 +51,8 @@ class KPipeInode : public KInode
 public:
     KPipeInode(Ptr<KFilesystem> filesystem, Ptr<KFSVolume> volume, KFilesystemFileOps* fileOps);
 
+    virtual bool AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
+
     static constexpr size_t PIPE_BUF_SIZE = PIPE_BUF; // Must be a power of two.
     static_assert(PIPE_BUF_SIZE > 0 && (PIPE_BUF_SIZE & (PIPE_BUF_SIZE - 1)) == 0, "PIPE_BUF must be a power of two");
 

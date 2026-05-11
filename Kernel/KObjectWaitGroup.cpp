@@ -206,6 +206,7 @@ PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* rea
             }
             else
             {
+                KSchedulerLock schedulerLock;
                 for (int j = i - 1; j >= 0; --j) {
                     m_WaitNodes[j].Detatch();
                 }
@@ -213,7 +214,12 @@ PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* rea
             }
         }
     }
-    if (isReady) {
+    if (isReady)
+    {
+        KSchedulerLock schedulerLock;
+        for (KThreadWaitNode& waitNode : m_WaitNodes) {
+            waitNode.Detatch();
+        }
         return PErrorCode::Success;
     }
 

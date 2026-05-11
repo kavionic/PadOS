@@ -33,8 +33,7 @@ namespace kernel
 class KDebugConsole : public KThread
 {
 public:
-    KDebugConsole(int stdInFD, int stdOutFD, int stdErrFD);
-    KDebugConsole(const PString& portPath);
+    KDebugConsole(int ptyFD);
 
     void Setup();
 
@@ -118,7 +117,7 @@ private:
 
     PANSIEscapeCodeParser m_ANSICodeParser;
 
-    PString m_PortPath;
+    int m_PTYFD = -1;
     int m_StdInFD = -1;
     int m_StdOutFD = -1;
     int m_StdErrFD = -1;

@@ -100,26 +100,27 @@ void* KSerialPseudoTerminal::Run()
 
     ksetsid_trw();
 
-    m_SlavePTY = open(ptyPath.c_str(), O_RDWR);
+    const int slavePTY = open(ptyPath.c_str(), O_RDWR | O_KERNEL);
 
-    ktcsetpgrp_trw(m_SlavePTY, kgetpgrp());
+    ktcsetpgrp_trw(slavePTY, kgetpgrp());
 
     termios sTerm;
 
-    ktcgetattr_trw(m_SlavePTY, &sTerm);
+    ktcgetattr_trw(slavePTY, &sTerm);
     sTerm.c_iflag = 0;
     sTerm.c_oflag = OPOST | ONLCR;
     sTerm.c_lflag = ISIG;
-    ktcsetattr_trw(m_SlavePTY, TCSANOW, &sTerm);
+    ktcsetattr_trw(slavePTY, TCSANOW, &sTerm);
 
     struct winsize winSize = {};
 
     winSize.ws_col = 80;
     winSize.ws_row = 24;
 
-    kdevice_control_trw(m_SlavePTY, TIOCSWINSZ, &winSize, sizeof(winSize), nullptr, 0);
+    kdevice_control_trw(slavePTY, TIOCSWINSZ, &winSize, sizeof(winSize), nullptr, 0);
 
-    KDebugConsole debugConsole(ptyPath.c_str());
+    KDebugConsole debugConsole(slavePTY);
+
     debugConsole.Setup();
 
     fcntl(m_SerialReadFD, F_SETFL, fcntl(m_SerialReadFD, F_GETFL) | O_NONBLOCK);

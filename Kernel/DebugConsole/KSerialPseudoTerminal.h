@@ -65,7 +65,7 @@ private:
     KSemaphore m_TerminalSizeNotifier;
 
     int m_MasterPTY = -1;
-    int m_SlavePTY  = -1;
+
     std::atomic<bool> m_PTYReady{false};
 
     std::atomic<bool>     m_PendingTerminalSizeChange{false};

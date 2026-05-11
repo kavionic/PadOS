@@ -55,21 +55,7 @@ std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KDebugConsole::KDebugConsole(int stdInFD, int stdOutFD, int stdErrFD)
-    : KThread("debug_console")
-    , m_StdInFD(stdInFD)
-    , m_StdOutFD(stdOutFD)
-    , m_StdErrFD(stdErrFD)
-{
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-KDebugConsole::KDebugConsole(const PString& portPath)
-    : KThread("debug_console")
-    , m_PortPath(portPath)
+KDebugConsole::KDebugConsole(int ptyFD) : KThread("debug_console"), m_PTYFD(ptyFD)
 {
 }
 
@@ -90,10 +76,32 @@ void* KDebugConsole::Run()
 {
     ksetpgid_trw(0, 0);
 
+    if (m_PTYFD != -1)
+    {
+        if (m_PTYFD != STDIN_FILENO) {
+            dup2(m_PTYFD, STDIN_FILENO);
+        }
+        if (m_PTYFD != STDOUT_FILENO) {
+            dup2(m_PTYFD, STDOUT_FILENO);
+        }
+        if (m_PTYFD != STDERR_FILENO) {
+            dup2(m_PTYFD, STDERR_FILENO);
+        }
+        if (m_PTYFD != STDIN_FILENO && m_PTYFD != STDOUT_FILENO && m_PTYFD != STDERR_FILENO) {
+            close(m_PTYFD);
+        }
+
+        m_StdInFD = STDIN_FILENO;
+        m_StdOutFD = STDOUT_FILENO;
+        m_StdErrFD = STDERR_FILENO;
+    }
+
     UpdateCmdPrompt();
-    
+
     m_Prompt = m_CmdPrompt;
     m_PromptVisibleLength = m_CmdPromptVisibleLength;
+
+    SendText(m_Prompt);
 
     TimeValNanos nextSizeQueryTime;
 
@@ -103,49 +111,10 @@ void* KDebugConsole::Run()
         {
             char buffer[32];
 
-            if (m_StdInFD == -1)
-            {
-                try
-                {
-                    const int stream = kopen_trw(m_PortPath.c_str(), O_RDWR | O_DIRECT);
-
-                    if (stream != STDIN_FILENO) {
-                        dup2(stream, STDIN_FILENO);
-                    }
-                    if (stream != STDOUT_FILENO) {
-                        dup2(stream, STDOUT_FILENO);
-                    }
-                    if (stream != STDERR_FILENO) {
-                        dup2(stream, STDERR_FILENO);
-                    }
-                    m_StdInFD  = STDIN_FILENO;
-                    m_StdOutFD = STDOUT_FILENO;
-                    m_StdErrFD = STDERR_FILENO;
-                    if (stream > 2) {
-                        kclose(stream);
-                    }
-                    UpdateWindowSize();
-
-                    SendText(m_Prompt);
-                }
-                catch (std::exception& exc)
-                {
-                    snooze_ms(100);
-                    continue;
-                }
-            }
             size_t length;
             const PErrorCode result = kread(m_StdInFD, buffer, sizeof(buffer), length);
 
-            if (result != PErrorCode::Success)
-            {
-                if (result != PErrorCode::Interrupted && !m_PortPath.empty())
-                {
-                    kclose(m_StdInFD);
-                    kclose(m_StdOutFD);
-                    kclose(m_StdErrFD);
-                    m_StdInFD = m_StdOutFD = m_StdErrFD = -1;
-                }
+            if (result != PErrorCode::Success) {
                 continue;
             }
 

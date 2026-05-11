@@ -295,9 +295,10 @@ int kreopen_file_trw(int oldHandle, int openFlags)
 
 int kdupe_trw(int oldHandle, int newHandle)
 {
-    KIOContext& ioContext = kget_io_context((oldHandle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
+    KIOContext& ioContextOld = kget_io_context((oldHandle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
+    KIOContext& ioContextNew = kget_io_context((newHandle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
 
-    return ioContext.DupeFileHandle(oldHandle & FD_INDEX_MASK, newHandle & FD_INDEX_MASK) | (oldHandle & FD_KERNEL_FLAG);
+    return ioContextNew.DupeFileHandle(ioContextOld, oldHandle & FD_INDEX_MASK, newHandle & FD_INDEX_MASK) | (oldHandle & FD_KERNEL_FLAG);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

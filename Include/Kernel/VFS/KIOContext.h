@@ -51,7 +51,7 @@ public:
     void                FreeFileHandle(int handle) noexcept;
     Ptr<KFileTableNode> GetFileNode(int handle) const;
     void                SetFileNode(int handle, Ptr<KFileTableNode> node);
-    int                 DupeFileHandle(int oldHandle, int newHandle);
+    int                 DupeFileHandle(const KIOContext& ioContextOld, int oldHandle, int newHandle);
 
 private:
     int                 AllocFileHandle_pl();

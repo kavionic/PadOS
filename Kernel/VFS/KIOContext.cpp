@@ -144,20 +144,25 @@ void KIOContext::SetFileNode(int handle, Ptr<KFileTableNode> node)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-int KIOContext::DupeFileHandle(int oldHandle, int newHandle)
+int KIOContext::DupeFileHandle(const KIOContext& ioContextOld, int oldHandle, int newHandle)
 {
-    kassert(!m_Mutex.IsLocked());
-    CRITICAL_SCOPE(m_Mutex);
-
     if (oldHandle < 0 || oldHandle >= OPEN_MAX || newHandle >= OPEN_MAX) {
         PERROR_THROW_CODE(PErrorCode::MFILE);
     }
-    if (oldHandle == newHandle) {
+    if (oldHandle == newHandle && &ioContextOld == this) {
         return oldHandle;
     }
+
+    Ptr<KFileTableNode> file;
+    {
+        KScopedLock lock(ioContextOld.m_Mutex);
+        file = ioContextOld.GetFileNode_pl(oldHandle);
+    }
+    kassert(!m_Mutex.IsLocked());
+    KScopedLock lock(m_Mutex);
+
     for (;;)
     {
-        Ptr<KFileTableNode> file = GetFileNode_pl(oldHandle);
         if (newHandle < 0)
         {
             newHandle = AllocFileHandle_pl();

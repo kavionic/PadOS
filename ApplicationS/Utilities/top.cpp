@@ -67,11 +67,13 @@ public:
         printf(ANSI_CLEAR_SCREEN ANSI_CURSOR_TOP_LEFT "Wait for initial update\n");
         update_list();
 
+        snooze(0.3);
+
         for(;;)
         {
-            snooze(period);
             update_list();
             print_list();
+            snooze(period);
         }
         return 0;
     }

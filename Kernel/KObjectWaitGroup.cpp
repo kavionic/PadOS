@@ -44,6 +44,15 @@ KObjectWaitGroup::KObjectWaitGroup(const char* name) : KNamedObject(name, KNamed
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+KObjectWaitGroup::~KObjectWaitGroup()
+{
+    Clear_trw();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void KObjectWaitGroup::AddObject_trw(KWaitableObject* object, ObjectWaitMode waitMode)
 {
     kassert(!m_Mutex.IsLocked());
@@ -160,8 +169,10 @@ void KObjectWaitGroup::WaitForBlockedThread_trw(TimeValNanos deadline)
 {
     while (m_BlockedThread != nullptr)
     {
-        add_thread_to_ready_list(m_BlockedThread);
-
+        {
+            KSchedulerLock slock;
+            add_thread_to_ready_list(m_BlockedThread);
+        }
         ++m_ObjListModsPending;
         const PErrorCode result = m_BlockedThreadCondition.Wait(m_Mutex);
         --m_ObjListModsPending;

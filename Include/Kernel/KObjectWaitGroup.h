@@ -37,6 +37,7 @@ public:
     static constexpr KNamedObjectType ObjectType = KNamedObjectType::ObjectWaitGroup;
 
     KObjectWaitGroup(const char* name);
+    ~KObjectWaitGroup();
 
     void AddObject_trw(KWaitableObject* object, ObjectWaitMode waitMode = ObjectWaitMode::Read);
     template<typename T> void AddObject_trw(Ptr<T> object, ObjectWaitMode waitMode = ObjectWaitMode::Read) { AddObject_trw(ptr_raw_pointer_cast(object), waitMode); }

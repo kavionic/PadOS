@@ -114,6 +114,9 @@ void KPTYFilesystem::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 {
     Ptr<KPTYInode> inode = ptr_static_cast<KPTYInode>(file->GetInode());
     inode->m_OpenCount--;
+    if (inode->m_OpenCount == 0 && inode->m_Partner != nullptr) {
+        inode->m_Partner->m_IOCondition.WakeupAll();
+    }
     KFilesystemFileOps::CloseFile(volume, file);
 }
 
@@ -436,10 +439,10 @@ bool KPTYInode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
     {
         case ObjectWaitMode::Read:
         case ObjectWaitMode::ReadWrite:
-            if (!CanRead()) {
+            if (!CanRead() && m_Partner != nullptr && m_Partner->m_OpenCount > 0) {
                 return m_IOCondition.AddListener(waitNode, ObjectWaitMode::Read);
             } else {
-                return false; // Will not block.
+                return false; // Will not block: data available or partner closed.
             }
         case ObjectWaitMode::Write:
             return false;
@@ -593,7 +596,7 @@ size_t KPTYInode::Write(const void* buffer, size_t length, int openFlags)
 
     while (m_BytesAvailable == m_FileData.size())
     {
-        if (m_Partner == nullptr || m_OpenCount == 0)
+        if (m_Partner == nullptr || m_Partner->m_OpenCount == 0)
         {
             PERROR_THROW_CODE(PErrorCode::IOError);
         }

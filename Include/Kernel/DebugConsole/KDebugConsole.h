@@ -33,7 +33,7 @@ namespace kernel
 class KDebugConsole : public KThread
 {
 public:
-    KDebugConsole(int ptyFD);
+    KDebugConsole(int ptyFD, bool allowTermination);
 
     void Setup();
 
@@ -142,6 +142,9 @@ private:
     std::vector<PString> m_PendingExpansionAlternatives;
 
     std::map<int, JobEntry> m_Jobs;
+
+    bool m_AllowTermination = true;
+    bool m_ShouldRun = true;
 };
 
 } // namespace kernel

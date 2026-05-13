@@ -55,7 +55,7 @@ std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KDebugConsole::KDebugConsole(int ptyFD) : KThread("debug_console"), m_PTYFD(ptyFD)
+KDebugConsole::KDebugConsole(int ptyFD, bool allowTermination) : KThread("debug_console"), m_PTYFD(ptyFD), m_AllowTermination(allowTermination)
 {
 }
 
@@ -65,7 +65,7 @@ KDebugConsole::KDebugConsole(int ptyFD) : KThread("debug_console"), m_PTYFD(ptyF
 
 void KDebugConsole::Setup()
 {
-    Start_trw(KSpawnThreadFlag::SpawnProcess);
+    Start_trw(KSpawnThreadFlag::SpawnProcess, PThreadDetachState_Joinable);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -105,7 +105,7 @@ void* KDebugConsole::Run()
 
     TimeValNanos nextSizeQueryTime;
 
-    for(;;)
+    while (m_ShouldRun)
     {
         try
         {
@@ -116,6 +116,9 @@ void* KDebugConsole::Run()
 
             if (result != PErrorCode::Success) {
                 continue;
+            }
+            if (length == 0) {
+                break;
             }
 
             const TimeValNanos curTime = get_monotonic_time();
@@ -163,6 +166,7 @@ void* KDebugConsole::Run()
             snooze_ms(100);
         }
     }
+    return nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1023,8 +1027,16 @@ void KDebugConsole::ProcessControlChar(PANSI_ControlCode controlChar, const std:
             ResetInput();
             break;
         case PANSI_ControlCode::Disconnect:
-            SendText("^D", 2);
-            ResetInput();
+            if (m_AllowTermination && m_EditBuffer.empty() && m_InputBuffer.empty())
+            {
+                SendText("^D\n", 3);
+                m_ShouldRun = false;
+            }
+            else
+            {
+                SendText("^D", 2);
+                ResetInput();
+            }
             break;
         case PANSI_ControlCode::XTerm_Left:
             MoveCursor(-1);

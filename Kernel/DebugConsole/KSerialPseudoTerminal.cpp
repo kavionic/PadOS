@@ -20,6 +20,7 @@
 #include <mutex>
 #include <termios.h>
 
+#include <System/ExceptionHandling.h>
 #include <Kernel/KObjectWaitGroup.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KProcessGroups.h>
@@ -36,11 +37,11 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KSerialPseudoTerminal::KSerialPseudoTerminal(int serialReadFD, int serialWriteFD, bool queryTerminalSize)
+KSerialPseudoTerminal::KSerialPseudoTerminal(int serialReadFD, int serialWriteFD, bool uartMode)
     : KThread("serialpty")
     , m_SerialReadFD(serialReadFD)
     , m_SerialWriteFD(serialWriteFD)
-    , m_QueryTerminalSize(queryTerminalSize)
+    , m_UARTMode(uartMode)
     , m_TerminalSizeNotifier("ptysznfy", CLOCK_MONOTONIC, 0)
 {
 }
@@ -51,7 +52,7 @@ KSerialPseudoTerminal::KSerialPseudoTerminal(int serialReadFD, int serialWriteFD
 
 void KSerialPseudoTerminal::Setup()
 {
-    Start_trw(KSpawnThreadFlag::SpawnProcess);
+    Start_trw(KSpawnThreadFlag::SpawnProcess, PThreadDetachState_Joinable);
     while (!m_PTYReady.load()) {
         snooze_ms(1);
     }
@@ -119,8 +120,9 @@ void* KSerialPseudoTerminal::Run()
 
     kdevice_control_trw(slavePTY, TIOCSWINSZ, &winSize, sizeof(winSize), nullptr, 0);
 
-    KDebugConsole debugConsole(slavePTY);
+    KDebugConsole debugConsole(slavePTY, !m_UARTMode);
 
+    debugConsole.SetDeleteOnExit(false);
     debugConsole.Setup();
 
     fcntl(m_SerialReadFD, F_SETFL, fcntl(m_SerialReadFD, F_GETFL) | O_NONBLOCK);
@@ -136,7 +138,7 @@ void* KSerialPseudoTerminal::Run()
 
     for (;;)
     {
-        if (m_QueryTerminalSize)
+        if (m_UARTMode)
         {
             waitGroup.WaitDeadline(nextQueryTime);
             const TimeValNanos curTime = get_monotonic_time();
@@ -172,15 +174,29 @@ void* KSerialPseudoTerminal::Run()
         }
         catch (std::exception&) {}
 
+        bool ptySlaveGone = false;
         try
         {
             char buffer[32];
             const size_t length = kread_trw(m_MasterPTY, buffer, sizeof(buffer));
             if (length > 0) {
                 kwrite(m_SerialWriteFD, buffer, length);
+            } else {
+                ptySlaveGone = true;
             }
         }
-        catch (std::exception&) {}
+        PERROR_CATCH([&ptySlaveGone](PErrorCode errorCode)
+            {
+                if (errorCode != PErrorCode::WouldBlock && errorCode != PErrorCode::Interrupted) {
+                    ptySlaveGone = true;
+                }
+            }
+        );
+        if (ptySlaveGone)
+        {
+            debugConsole.Join_trw();
+            return nullptr;
+        }
     }
 }
 

@@ -34,7 +34,7 @@ namespace kernel
 class KSerialPseudoTerminal : public KThread
 {
 public:
-    KSerialPseudoTerminal(int serialReadFD, int serialWriteFD, bool queryTerminalSize = false);
+    KSerialPseudoTerminal(int serialReadFD, int serialWriteFD, bool uartMode = false);
 
     void Setup();
 
@@ -60,7 +60,7 @@ private:
 
     int  m_SerialReadFD      = -1;
     int  m_SerialWriteFD     = -1;
-    bool m_QueryTerminalSize = false;
+    bool m_UARTMode = false;
 
     KSemaphore m_TerminalSizeNotifier;
 

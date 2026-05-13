@@ -127,6 +127,7 @@ void KSerialMux::RunMux()
                     continue;
                 }
 
+                std::vector<uint16_t> deadChannels;
                 for (auto& [channelID, channel] : m_Channels)
                 {
                     try
@@ -135,9 +136,19 @@ void KSerialMux::RunMux()
                         const size_t outLength = kread_trw(channel.OutputPipeReadFD, outBuffer, sizeof(outBuffer));
                         if (outLength > 0) {
                             SendMuxFrame(channelID, outBuffer, outLength);
+                        } else {
+                            deadChannels.push_back(channelID);
                         }
                     }
                     catch (std::exception&) {}
+                }
+                for (const uint16_t channelID : deadChannels)
+                {
+                    ShellMuxControlPayload payload;
+                    payload.Command   = ShellMuxCommand::CloseChannel;
+                    payload.ChannelID = channelID;
+                    SendMuxFrame(SHELL_MUX_CONTROL_CHANNEL, reinterpret_cast<const char*>(&payload), sizeof(payload));
+                    DestroyChannel(channelID);
                 }
             }
             catch (std::exception& exc)
@@ -336,6 +347,9 @@ KSerialMux::Channel& KSerialMux::CreateChannel(uint16_t channelID)
     channel.Terminal.SetDeleteOnExit(false);
     channel.Terminal.Setup();
 
+    kclose(inputPipe[0]);   // Only needed in the terminal's process
+    kclose(outputPipe[1]);  // Only needed in the terminal's process; must be closed here so EOF propagates when terminal exits
+
     m_WaitGroup.AddFile_trw(outputPipe[0]);
 
     return channel;
@@ -353,6 +367,7 @@ void KSerialMux::DestroyChannel(uint16_t channelID)
         m_WaitGroup.RemoveFile_trw(iter->second.OutputPipeReadFD);
         kclose(iter->second.InputPipeWriteFD);
         kclose(iter->second.OutputPipeReadFD);
+        iter->second.Terminal.Join_trw();
         m_Channels.erase(iter);
     }
 }

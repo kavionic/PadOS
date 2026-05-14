@@ -2,6 +2,7 @@ target_sources(PadOS_KDebugConsole PRIVATE
 	cat.cpp
 	cd.cpp
 	echo.cpp
+	exit.cpp
 	help.cpp
 	jobs.cpp
 	kill.cpp

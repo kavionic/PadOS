@@ -23,6 +23,7 @@
 #include <Utils/ANSIEscapeCodeParser.h>
 
 #include <Kernel/KThread.h>
+#include <Kernel/KSemaphore.h>
 #include <Kernel/DebugConsole/KConsoleCommand.h>
 
 class PPOSIXTokenizer;
@@ -101,6 +102,9 @@ public:
 
     void UpdateCmdPrompt();
     void UpdatePrompt(bool editMode);
+
+    void Terminate(int exitCode);
+    int GetLastExitCode() const { return m_LastExitCode; }
 private:
     static size_t GetCommonStartLength(const std::vector<PString>& alternatives);
 
@@ -143,8 +147,10 @@ private:
 
     std::map<int, JobEntry> m_Jobs;
 
-    bool m_AllowTermination = true;
-    bool m_ShouldRun = true;
+    bool            m_AllowTermination = true;
+    volatile bool   m_ShouldRun = true;
+    int             m_LastExitCode = 0;
+    KSemaphore      m_TerminateSemaphore;
 };
 
 } // namespace kernel

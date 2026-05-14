@@ -26,8 +26,10 @@
 #include <sys/wait.h>
 
 #include <PadOS/Time.h>
+
 #include <Kernel/DebugConsole/KDebugConsole.h>
 #include <Kernel/KLogging.h>
+#include <Kernel/KObjectWaitGroup.h>
 #include <Kernel/KPosixSignals.h>
 #include <Kernel/KProcess.h>
 #include <Kernel/KProcessGroups.h>
@@ -55,7 +57,11 @@ std::map<PString, std::function<Ptr<KConsoleCommand>(KDebugConsole* console)>>& 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-KDebugConsole::KDebugConsole(int ptyFD, bool allowTermination) : KThread("debug_console"), m_PTYFD(ptyFD), m_AllowTermination(allowTermination)
+KDebugConsole::KDebugConsole(int ptyFD, bool allowTermination)
+    : KThread("debug_console")
+    , m_PTYFD(ptyFD)
+    , m_AllowTermination(allowTermination)
+    , m_TerminateSemaphore("debug_console_terminate", CLOCK_MONOTONIC_COARSE, 0)
 {
 }
 
@@ -66,6 +72,17 @@ KDebugConsole::KDebugConsole(int ptyFD, bool allowTermination) : KThread("debug_
 void KDebugConsole::Setup()
 {
     Start_trw(KSpawnThreadFlag::SpawnProcess, PThreadDetachState_Joinable);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KDebugConsole::Terminate(int exitCode)
+{
+    m_LastExitCode = exitCode;
+    m_ShouldRun = false;
+    m_TerminateSemaphore.Release();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -105,10 +122,20 @@ void* KDebugConsole::Run()
 
     TimeValNanos nextSizeQueryTime;
 
+    KObjectWaitGroup waitGroup("debug_console_wait");
+    waitGroup.AddFile_trw(m_StdInFD);
+    waitGroup.AddObject_trw(&m_TerminateSemaphore);
+
     while (m_ShouldRun)
     {
         try
         {
+            waitGroup.Wait_trw();
+
+            if (m_TerminateSemaphore.TryAcquire() == PErrorCode::Success) {
+                break;
+            }
+
             char buffer[32];
 
             size_t length;
@@ -545,6 +572,7 @@ void KDebugConsole::WaitForForegroundProcess(pid_t pid, const PString& commandLi
         switch (info.si_code)
         {
             case CLD_EXITED:
+                m_LastExitCode = info.si_status;
                 if (info.si_status != 0) {
                     kprintf("'%s' exited with code: %d\n", commandLine.c_str(), info.si_status);
                 }
@@ -553,6 +581,7 @@ void KDebugConsole::WaitForForegroundProcess(pid_t pid, const PString& commandLi
                 return;
 
             case CLD_KILLED:
+                m_LastExitCode = 128 + info.si_status;
                 kprintf("'%s' killed: %s(%d)\n", commandLine.c_str(), strsignal(info.si_status), info.si_status);
                 RemoveJob(FindJob(pid));
                 return;
@@ -1002,7 +1031,7 @@ void KDebugConsole::ProcessCmdLine(PPOSIXTokenizer&& tokenizer)
             const Ptr<KConsoleCommand>& cmd = cmdIt->second(this);
 
             try {
-                cmd->Invoke(std::move(tokens));
+                m_LastExitCode = cmd->Invoke(std::move(tokens));
             } catch(const std::exception& exc) {
                 kprintf("%s\n", exc.what());
             }

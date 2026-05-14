@@ -80,7 +80,7 @@ PErrorCode sys_mutex_delete(sem_id handle)
 
 PErrorCode sys_mutex_lock(sem_id handle)
 {
-    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::Lock, /*interruptible*/ true);
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::INVAL, &KMutex::Lock, /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -91,7 +91,7 @@ PErrorCode sys_mutex_lock_timeout_ns(sem_id handle, bigtime_t timeoutns)
 {
     const TimeValNanos timeout = TimeValNanos::FromNanoseconds(timeoutns);
     const TimeValNanos deadline = (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit;
-    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockDeadline, deadline, /*interruptible*/ true);
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::INVAL, &KMutex::LockDeadline, deadline, /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -100,7 +100,7 @@ PErrorCode sys_mutex_lock_timeout_ns(sem_id handle, bigtime_t timeoutns)
 
 PErrorCode sys_mutex_lock_deadline_ns(sem_id handle, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockDeadline, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::INVAL, &KMutex::LockDeadline, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -109,7 +109,7 @@ PErrorCode sys_mutex_lock_deadline_ns(sem_id handle, bigtime_t deadline)
 
 PErrorCode sys_mutex_lock_clock_ns(sem_id handle, clockid_t clockID, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockClock, clockID, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::INVAL, &KMutex::LockClock, clockID, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -118,7 +118,7 @@ PErrorCode sys_mutex_lock_clock_ns(sem_id handle, clockid_t clockID, bigtime_t d
 
 PErrorCode sys_mutex_try_lock(sem_id handle)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::TryLock);
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::INVAL, &KMutex::TryLock);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -127,7 +127,7 @@ PErrorCode sys_mutex_try_lock(sem_id handle)
 
 PErrorCode sys_mutex_unlock(sem_id handle)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::Unlock);
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::INVAL, &KMutex::Unlock);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -136,7 +136,7 @@ PErrorCode sys_mutex_unlock(sem_id handle)
 
 PErrorCode sys_mutex_lock_shared(sem_id handle)
 {
-    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockShared, /*interruptible*/ true);
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::INVAL, &KMutex::LockShared, /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -147,7 +147,7 @@ PErrorCode sys_mutex_lock_shared_timeout_ns(sem_id handle, bigtime_t timeoutns)
 {
     const TimeValNanos timeout = TimeValNanos::FromNanoseconds(timeoutns);
     const TimeValNanos deadline = (!timeout.IsInfinit()) ? (kget_monotonic_time() + timeout) : TimeValNanos::infinit;
-    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedDeadline, deadline, /*interruptible*/ true);
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::INVAL, &KMutex::LockSharedDeadline, deadline, /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -156,7 +156,7 @@ PErrorCode sys_mutex_lock_shared_timeout_ns(sem_id handle, bigtime_t timeoutns)
 
 PErrorCode sys_mutex_lock_shared_deadline_ns(sem_id handle, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedDeadline, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::INVAL, &KMutex::LockSharedDeadline, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -165,7 +165,7 @@ PErrorCode sys_mutex_lock_shared_deadline_ns(sem_id handle, bigtime_t deadline)
 
 PErrorCode sys_mutex_lock_shared_clock_ns(sem_id handle, clockid_t clockID, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::LockSharedClock, clockID, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
+    return KNamedObject::ForwardToHandleRestartable<KMutex>(handle, PErrorCode::INVAL, &KMutex::LockSharedClock, clockID, TimeValNanos::FromNanoseconds(deadline), /*interruptible*/ true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -174,7 +174,7 @@ PErrorCode sys_mutex_lock_shared_clock_ns(sem_id handle, clockid_t clockID, bigt
 
 PErrorCode sys_mutex_try_lock_shared(sem_id handle)
 {
-    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::InvalidArg, &KMutex::TryLockShared);
+    return KNamedObject::ForwardToHandle<KMutex>(handle, PErrorCode::INVAL, &KMutex::TryLockShared);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -183,7 +183,7 @@ PErrorCode sys_mutex_try_lock_shared(sem_id handle)
 
 PErrorCode sys_mutex_islocked(sem_id handle)
 {
-    return KNamedObject::ForwardToHandleBool<KMutex>(handle, PErrorCode::Success, PErrorCode::Busy, &KMutex::IsLocked);
+    return KNamedObject::ForwardToHandleBool<KMutex>(handle, PErrorCode::Success, PErrorCode::BUSY, &KMutex::IsLocked);
 }
 
 } // extern "C"

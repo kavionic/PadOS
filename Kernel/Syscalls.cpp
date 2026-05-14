@@ -28,7 +28,7 @@
 namespace kernel
 {
 
-PErrorCode sys_unimplemented() { return PErrorCode::NotImplemented; }
+PErrorCode sys_unimplemented() { return PErrorCode::NOSYS; }
 
 
 

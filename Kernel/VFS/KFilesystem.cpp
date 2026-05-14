@@ -40,7 +40,7 @@ namespace kernel
 
 PErrorCode KFilesystem::Probe(const char* devicePath, fs_info* fsInfo)
 {
-    return PErrorCode::NotImplemented;
+    return PErrorCode::NOSYS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -49,7 +49,7 @@ PErrorCode KFilesystem::Probe(const char* devicePath, fs_info* fsInfo)
 
 Ptr<KFSVolume> KFilesystem::Mount(fs_id volumeID, const char* devicePath, uint32_t flags, const char* args, size_t argLength)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -58,7 +58,7 @@ Ptr<KFSVolume> KFilesystem::Mount(fs_id volumeID, const char* devicePath, uint32
 
 void KFilesystem::Unmount(Ptr<KFSVolume> volume)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -67,7 +67,7 @@ void KFilesystem::Unmount(Ptr<KFSVolume> volume)
 
 void KFilesystem::Sync(Ptr<KFSVolume> volume)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -76,7 +76,7 @@ void KFilesystem::Sync(Ptr<KFSVolume> volume)
 
 void KFilesystem::ReadFSStat(Ptr<KFSVolume> volume, fs_info* fsinfo)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -85,7 +85,7 @@ void KFilesystem::ReadFSStat(Ptr<KFSVolume> volume, fs_info* fsinfo)
 
 void KFilesystem::WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint32_t mask)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -94,7 +94,7 @@ void KFilesystem::WriteFSStat(Ptr<KFSVolume> volume, const fs_info* fsinfo, uint
 
 Ptr<KInode> KFilesystem::LocateInode(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* path, int pathLength)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -121,7 +121,7 @@ Ptr<KFileNode> KFilesystemFileOps::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> n
 
 Ptr<KFileNode> KFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int openFlags, int permission)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -130,7 +130,7 @@ Ptr<KFileNode> KFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> parent
 
 void KFilesystem::CreateSymlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, const char* targetPath)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -147,7 +147,7 @@ void KFilesystemFileOps::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
 
 Ptr<KInode> KFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inode)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -156,7 +156,7 @@ Ptr<KInode> KFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inode)
 
 Ptr<KDirectoryNode> KFilesystemFileOps::OpenDirectory(Ptr<KFSVolume> volume, Ptr<KInode> node)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -165,7 +165,7 @@ Ptr<KDirectoryNode> KFilesystemFileOps::OpenDirectory(Ptr<KFSVolume> volume, Ptr
 
 void KFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int permission)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -174,7 +174,7 @@ void KFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, con
 
 void KFilesystem::Rename(Ptr<KFSVolume> volume, Ptr<KInode> oldParent, const char* oldName, int oldNameLen, Ptr<KInode> newParent, const char* newName, int newNameLen, bool mustBeDir)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -183,7 +183,7 @@ void KFilesystem::Rename(Ptr<KFSVolume> volume, Ptr<KInode> oldParent, const cha
     
 void KFilesystem::Unlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -192,7 +192,7 @@ void KFilesystem::Unlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* 
 
 void KFilesystem::RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -201,7 +201,7 @@ void KFilesystem::RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, con
 
 void KFilesystemFileOps::CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -210,7 +210,7 @@ void KFilesystemFileOps::CloseDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNod
 
 size_t KFilesystemFileOps::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -219,7 +219,7 @@ size_t KFilesystemFileOps::Read(Ptr<KFileNode> file, void* buffer, size_t length
 
 size_t KFilesystemFileOps::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t position)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -269,7 +269,7 @@ size_t KFilesystemFileOps::Write(Ptr<KFileNode> file, const iovec_t* segments, s
 
 size_t KFilesystemFileOps::ReadLink(Ptr<KFSVolume> volume, Ptr<KInode> node, char* buffer, size_t bufferSize)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -278,7 +278,7 @@ size_t KFilesystemFileOps::ReadLink(Ptr<KFSVolume> volume, Ptr<KInode> node, cha
 
 void KFilesystemFileOps::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -287,7 +287,7 @@ void KFilesystemFileOps::DeviceControl(Ptr<KFileNode> file, int request, const v
 
 size_t KFilesystemFileOps::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> directory, dirent_t* entry, size_t bufSize)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -296,7 +296,7 @@ size_t KFilesystemFileOps::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNo
 
 void KFilesystemFileOps::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> dirNode)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -305,7 +305,7 @@ void KFilesystemFileOps::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNo
 
 void KFilesystemFileOps::CheckAccess(Ptr<KFSVolume> volume, Ptr<KInode> node, int mode)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -340,7 +340,7 @@ void KFilesystemFileOps::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, stru
 
 void KFilesystemFileOps::WriteStat(Ptr<KFSVolume> volume, Ptr<KInode> node, const struct stat* stat, uint32_t mask)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -349,7 +349,7 @@ void KFilesystemFileOps::WriteStat(Ptr<KFSVolume> volume, Ptr<KInode> node, cons
 
 void KFilesystemFileOps::Sync(Ptr<KFileNode> file)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 } // namespace kernel

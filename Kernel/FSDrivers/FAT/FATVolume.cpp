@@ -83,7 +83,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     const size_t bytesRead = kpread_trw(deviceFile, buffer.data(), buffer.size(), 0);
     if (bytesRead != buffer.size()) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): error reading boot sector.");
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     
     m_MediaDescriptor = superBlock->m_Media;
@@ -92,19 +92,19 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     if (superBlock->m_Signature != 0xaa55 && m_MediaDescriptor == 0xf8)
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid signature 0x{:x}", uint16_t(superBlock->m_Signature));
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     if (memcmp(superBlock->m_OEMName, "NTFS    ", 8) == 0 || memcmp(superBlock->m_OEMName, "HPFS    ", 8) == 0)
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): {}, not FAT.", std::string_view(reinterpret_cast<const char*>(superBlock->m_OEMName), sizeof(superBlock->m_OEMName)));
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
       // First fill in the universal fields from the bpb
     m_BytesPerSector = superBlock->m_BytesPerSector;
     if ((m_BytesPerSector != 512) && (m_BytesPerSector != 1024) && (m_BytesPerSector != 2048))
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): unsupported bytes per sector ({})", m_BytesPerSector);
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 	
     m_SectorsPerCluster = superBlock->m_SectorsPerCluster;
@@ -120,7 +120,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     if (!validSectorsPerCluster)
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount() sectors/cluster = {}", m_SectorsPerCluster);
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     m_ReservedSectors = superBlock->m_ReservedSectors;
@@ -129,14 +129,14 @@ void FATVolume::ReadSuperBlock(int deviceFile)
     if (m_FATCount == 0 || m_FATCount > 8)
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): unreasonable FAT count ({}).", m_FATCount);
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
       // Check media descriptor versus known types.
     if ((superBlock->m_Media != 0xF0) && (superBlock->m_Media < 0xf8))
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid media descriptor byte.");
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
 
@@ -156,7 +156,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
 	    if ((m_FSInfoSector != 0xffff) && (m_FSInfoSector >= m_ReservedSectors))
         {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): fsinfo sector too large ({}).", m_FSInfoSector);
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
         }
         m_FATMirrored = !(superBlock->m_FSDependent.FAT32.m_ExtendedFlags & 0x80);
         m_ActiveFAT = (m_FATMirrored) ? (superBlock->m_FSDependent.FAT32.m_ExtendedFlags & 0xf) : 0;
@@ -168,7 +168,7 @@ void FATVolume::ReadSuperBlock(int deviceFile)
 	    if (rootStartCluster >= m_TotalClusters)
         {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): root inode cluster too large ({}).", rootStartCluster);
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
         }
     }
     else
@@ -177,14 +177,14 @@ void FATVolume::ReadSuperBlock(int deviceFile)
 	  // FAT12 & FAT16
     	if (m_FATCount != 2) {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): claims {} fat tables.", m_FATCount);
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
         }
 
         m_RootEntriesCount = superBlock->m_RootDirEntryCount16;
 	    if (m_RootEntriesCount % (m_BytesPerSector / 0x20))
         {
             kernel_log<PLogSeverity::ERROR>(LogCat_FATFS, "FATFilesystem::Mount(): invalid number of root entries.");
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
         }
 
 	    m_FSInfoSector = 0xffff;

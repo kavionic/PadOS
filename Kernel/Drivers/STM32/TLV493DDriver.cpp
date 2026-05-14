@@ -310,7 +310,7 @@ void TLV493DDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* 
     {
         case TLV493DIOCTL_SET_CONFIG:
             if (inData == nullptr) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             memcpy(&m_Config, inData, std::min(sizeof(m_CurrentValues), inDataLength));
             ConfigChanged();
@@ -322,14 +322,14 @@ void TLV493DDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* 
             // FALLTHROUGH
         case TLV493DIOCTL_GET_VALUES:
             if (outData == nullptr || outDataLength < sizeof(tlv493d_data)) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             memcpy(outData, &m_CurrentValues, outDataLength);
             return;
         default:
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    PERROR_THROW_CODE(PErrorCode::INVAL);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

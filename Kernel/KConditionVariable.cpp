@@ -61,7 +61,7 @@ PErrorCode KConditionVariable::WaitInternal(KMutex* lock, bool cancelable)
         {
 #ifdef PADOS_MODULE_POSIX_SIGNALS
             if (cancelable && kis_thread_canceled()) {
-                return PErrorCode::Interrupted;
+                return PErrorCode::INTR;
             }
 #endif
 
@@ -79,7 +79,7 @@ PErrorCode KConditionVariable::WaitInternal(KMutex* lock, bool cancelable)
         CRITICAL_BEGIN(CRITICAL_IRQ)
         {
             if (waitNode.m_TargetDeleted) {
-                return PErrorCode::InvalidArg;
+                return PErrorCode::INVAL;
             }
             if (!waitNode.Detatch())
             {
@@ -112,7 +112,7 @@ PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, bool cancelabl
         {
 #ifdef PADOS_MODULE_POSIX_SIGNALS
             if (cancelable && kis_thread_canceled()) {
-                return PErrorCode::Interrupted;
+                return PErrorCode::INTR;
             }
 #endif
             if (deadline.IsInfinit() || kget_monotonic_time() < deadline)
@@ -135,7 +135,7 @@ PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, bool cancelabl
             }
             else
             {
-                return PErrorCode::Timeout;
+                return PErrorCode::TIMEDOUT;
             }
             if (lock != nullptr) lock->Unlock();
 
@@ -148,7 +148,7 @@ PErrorCode KConditionVariable::WaitDeadlineInternal(KMutex* lock, bool cancelabl
         	thread->SetBlockingObject(nullptr);
             sleepNode.Detatch();
             if (waitNode.m_TargetDeleted) {
-                return PErrorCode::InvalidArg;
+                return PErrorCode::INVAL;
             }
             if (!waitNode.Detatch())
             {
@@ -178,7 +178,7 @@ PErrorCode KConditionVariable::IRQWait()
     if (irqState == IRQEnableState::Enabled)
     {
         p_system_log<PLogSeverity::ERROR>(LogCatKernel_General, "KConditionVariable::IRQWait() called with interrupts enabled!");
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     
     KThreadCB* thread = gk_CurrentThread;
@@ -200,7 +200,7 @@ PErrorCode KConditionVariable::IRQWait()
         thread->SetBlockingObject(nullptr);
 
         if (waitNode.m_TargetDeleted) {
-            return PErrorCode::InvalidArg;
+            return PErrorCode::INVAL;
         }
         if (!waitNode.Detatch())
         {
@@ -229,7 +229,7 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos cloc
     if (irqState == IRQEnableState::Enabled)
     {
         p_system_log<PLogSeverity::ERROR>(LogCatKernel_General, "KConditionVariable::IRQWaitDeadline() called with interrupts enabled!");
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     
     TimeValNanos deadline;
@@ -264,7 +264,7 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos cloc
         }
         else
         {
-            return PErrorCode::Timeout;
+            return PErrorCode::TIMEDOUT;
         }
         
         thread->SetBlockingObject(this);
@@ -277,7 +277,7 @@ PErrorCode KConditionVariable::IRQWaitClock(clockid_t clockID, TimeValNanos cloc
 
         sleepNode.Detatch();
         if (waitNode.m_TargetDeleted) {
-            return PErrorCode::InvalidArg;
+            return PErrorCode::INVAL;
         }
         if (!waitNode.Detatch())
         {

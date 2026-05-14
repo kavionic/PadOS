@@ -110,7 +110,7 @@ Ptr<KFilesystem> kfind_filesystem_trw(const char* name)
     if (i != kg_FilesystemDrivers.end()) {
         return i->second;
     }
-    PERROR_THROW_CODE(PErrorCode::NoEntry);
+    PERROR_THROW_CODE(PErrorCode::NOENT);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -156,9 +156,9 @@ Ptr<KFileNode> kget_file_node_trw(int handle)
 {
     Ptr<KFileTableNode> node = kget_file_table_node_trw(handle);
     if (node->IsPathObject()) {
-        PERROR_THROW_CODE(PErrorCode::BadFile);
+        PERROR_THROW_CODE(PErrorCode::BADF);
     } else if (node->IsDirectory()) {
-        PERROR_THROW_CODE(PErrorCode::IsDirectory);
+        PERROR_THROW_CODE(PErrorCode::ISDIR);
     }
     return ptr_static_cast<KFileNode>(node);
 }
@@ -175,7 +175,7 @@ Ptr<KFileNode> kget_file_node_trw(int handle, Ptr<KInode>& outInode)
 
     if (inode->m_FileOps == nullptr)
     {
-        PERROR_THROW_CODE(PErrorCode::NotImplemented);
+        PERROR_THROW_CODE(PErrorCode::NOSYS);
     }
     outInode = inode;
     return file;
@@ -189,9 +189,9 @@ Ptr<KDirectoryNode> kget_directory_node_trw(int handle)
 {
     Ptr<KFileTableNode> node = kget_file_table_node_trw(handle);
     if (node->IsPathObject()) {
-        PERROR_THROW_CODE(PErrorCode::BadFile);
+        PERROR_THROW_CODE(PErrorCode::BADF);
     } else if (!node->IsDirectory()) {
-        PERROR_THROW_CODE(PErrorCode::NotDirectory);
+        PERROR_THROW_CODE(PErrorCode::NOTDIR);
     }
     return ptr_static_cast<KDirectoryNode>(node);
 }
@@ -212,7 +212,7 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
     {
         Ptr<KFileTableNode> baseFolderFile = kget_file_table_node_trw(baseFolderFD);
         if (!baseFolderFile->IsDirectory()) {
-            PERROR_THROW_CODE(PErrorCode::NotDirectory);
+            PERROR_THROW_CODE(PErrorCode::NOTDIR);
         }
         baseInode = baseFolderFile->GetInode();
     }
@@ -233,7 +233,7 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
     }
     PERROR_CATCH_RET(([handle, &parent, name, nameLength, openFlags, permissions](const std::exception& exc, PErrorCode error)
         {
-            if (error == PErrorCode::NoEntry && (openFlags & O_CREAT))
+            if (error == PErrorCode::NOENT && (openFlags & O_CREAT))
             {
                 const Ptr<KFileTableNode> file = parent->m_Filesystem->CreateFile(parent->m_Volume, parent, name, nameLength, openFlags, permissions);
                 kset_filehandle(handle, file);
@@ -247,7 +247,7 @@ int kopen_trw(int baseFolderFD, const char* path, int openFlags, int permissions
     ));
     if (inode->m_FileOps == nullptr)
     {
-        PERROR_THROW_CODE(PErrorCode::NotImplemented);
+        PERROR_THROW_CODE(PErrorCode::NOSYS);
     }
     Ptr<KFileTableNode> file;
     if (openFlags & O_PATH)
@@ -383,7 +383,7 @@ PErrorCode kread(int handle, void* buffer, size_t length)
     size_t bytesRead = 0;
     const PErrorCode result = kread(handle, buffer, length, bytesRead);
     if (result != PErrorCode::Success) return result;
-    return (bytesRead == length) ? PErrorCode::Success : PErrorCode::IOError;
+    return (bytesRead == length) ? PErrorCode::Success : PErrorCode::IO;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -395,7 +395,7 @@ PErrorCode kpread(int handle, void* buffer, size_t length, off_t position)
     size_t bytesRead = 0;
     const PErrorCode result = kpread(handle, buffer, length, position, bytesRead);
     if (result != PErrorCode::Success) return result;
-    return (bytesRead == length) ? PErrorCode::Success : PErrorCode::IOError;
+    return (bytesRead == length) ? PErrorCode::Success : PErrorCode::IO;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -483,7 +483,7 @@ PErrorCode kwrite(int handle, const void* buffer, size_t length)
     size_t bytesWritten = 0;
     const PErrorCode result = kwrite(handle, buffer, length, bytesWritten);
     if (result != PErrorCode::Success) return result;
-    return (bytesWritten == length) ? PErrorCode::Success : PErrorCode::IOError;
+    return (bytesWritten == length) ? PErrorCode::Success : PErrorCode::IO;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -495,7 +495,7 @@ PErrorCode kpwrite(int handle, const void* buffer, size_t length, off_t position
     size_t bytesWritten = 0;
     const PErrorCode result = kpwrite(handle, buffer, length, position, bytesWritten);
     if (result != PErrorCode::Success) return result;
-    return (bytesWritten == length) ? PErrorCode::Success : PErrorCode::IOError;
+    return (bytesWritten == length) ? PErrorCode::Success : PErrorCode::IO;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -541,13 +541,13 @@ off_t klseek_trw(int handle, off_t offset, int mode)
     {
         case SEEK_SET:
             if (offset < 0) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             file->m_Position = offset;
             return file->m_Position;
         case SEEK_CUR:
             if (file->m_Position + offset < 0) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             file->m_Position += offset;
             return file->m_Position;
@@ -557,13 +557,13 @@ off_t klseek_trw(int handle, off_t offset, int mode)
             inode->m_FileOps->ReadStat(inode->m_Volume, inode, &fileStats);
             off_t size = fileStats.st_size;
             if (size + offset < 0) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             file->m_Position = size + offset;
             return file->m_Position;
         }
         default:
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 }
 
@@ -624,7 +624,7 @@ void kcreate_directory_trw(KLocateFlags locateFlags, int baseFolderFD, const cha
     {
         Ptr<KFileTableNode> baseFolderFile = kget_file_table_node_trw(baseFolderFD);
         if (!baseFolderFile->IsDirectory()) {
-            PERROR_THROW_CODE(PErrorCode::NotDirectory);
+            PERROR_THROW_CODE(PErrorCode::NOTDIR);
         }
         baseInode = baseFolderFile->GetInode();
     }
@@ -653,7 +653,7 @@ void ksymlink_trw(KLocateFlags locateFlags, const char* target, int baseFolderFD
     {
         Ptr<KFileTableNode> baseFolderFile = kget_file_table_node_trw(baseFolderFD);
         if (!baseFolderFile->IsDirectory()) {
-            PERROR_THROW_CODE(PErrorCode::NotDirectory);
+            PERROR_THROW_CODE(PErrorCode::NOTDIR);
         }
         baseInode = baseFolderFile->GetInode();
     }
@@ -688,13 +688,13 @@ size_t kreadlink_trw(KLocateFlags locateFlags, int baseFolderFD, const char* pat
     {
         const Ptr<KFileTableNode> baseFolderFile = kget_file_table_node_trw(baseFolderFD);
         if (pathLength != 0 && !baseFolderFile->IsDirectory()) {
-            PERROR_THROW_CODE(PErrorCode::NotDirectory);
+            PERROR_THROW_CODE(PErrorCode::NOTDIR);
         }
         baseInode = baseFolderFile->GetInode();
     }
     Ptr<KInode>  inode = klocate_inode_by_path_trw(locateFlags, baseInode, path, pathLength);
     if (!S_ISLNK(inode->m_FileMode)) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     return inode->m_FileOps->ReadLink(inode->m_Volume, inode, buffer, bufferSize);
 }
@@ -706,7 +706,7 @@ size_t kreadlink_trw(KLocateFlags locateFlags, int baseFolderFD, const char* pat
 void kread_stat_trw(Ptr<KInode> inode, struct stat* outStats)
 {
     if (inode == nullptr || inode->m_FileOps == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NotImplemented);
+        PERROR_THROW_CODE(PErrorCode::NOSYS);
     }
     inode->m_FileOps->ReadStat(inode->m_Volume, inode, outStats);
 }
@@ -720,7 +720,7 @@ void kread_stat_trw(int handle, struct stat* outStats)
     Ptr<KFileTableNode> node = kget_file_table_node_trw(handle);
     Ptr<KInode> inode = node->GetInode();
     if (inode == nullptr || inode->m_FileOps == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NotImplemented);
+        PERROR_THROW_CODE(PErrorCode::NOSYS);
     }
     kread_stat_trw(inode, outStats);
 }
@@ -734,7 +734,7 @@ void kwrite_stat_trw(int handle, const struct stat& value, uint32_t mask)
     Ptr<KFileTableNode> node = kget_file_table_node_trw(handle);
     Ptr<KInode> inode = node->GetInode();
     if (inode == nullptr || inode->m_FileOps == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NotImplemented);
+        PERROR_THROW_CODE(PErrorCode::NOSYS);
     }
     inode->m_FileOps->WriteStat(inode->m_Volume, inode, &value, mask);
 }
@@ -746,7 +746,7 @@ void kwrite_stat_trw(int handle, const struct stat& value, uint32_t mask)
 void krename_trw(KLocateFlags locateFlags, const char* inOldPath, const char* inNewPath)
 {
     if (inOldPath == nullptr || inNewPath == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     PString oldPath(inOldPath);
     PString newPath(inNewPath);
@@ -763,7 +763,7 @@ void krename_trw(KLocateFlags locateFlags, const char* inOldPath, const char* in
     Ptr<KInode> newParent = klocate_parent_inode_trw(locateFlags, nullptr, newPath.c_str(), newPath.size(), &newName, &newNameLength);
 
     if (oldParent->m_Volume->m_VolumeID != newParent->m_Volume->m_VolumeID) {
-        PERROR_THROW_CODE(PErrorCode::CrossDeviceLink);
+        PERROR_THROW_CODE(PErrorCode::XDEV);
     }
     oldParent->m_Filesystem->Rename(oldParent->m_Volume, oldParent, oldName, oldNameLength, newParent, newName, newNameLength, mustBeDir);
 }
@@ -775,7 +775,7 @@ void krename_trw(KLocateFlags locateFlags, const char* inOldPath, const char* in
 void kunlink_trw(KLocateFlags locateFlags, int baseFolderFD, const char* inPath)
 {
     if (inPath == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     PString path(inPath);
 
@@ -784,7 +784,7 @@ void kunlink_trw(KLocateFlags locateFlags, int baseFolderFD, const char* inPath)
     {
         Ptr<KFileTableNode> baseFolderFile = kget_file_table_node_trw(baseFolderFD);
         if (!baseFolderFile->IsDirectory()) {
-            PERROR_THROW_CODE(PErrorCode::NotDirectory);
+            PERROR_THROW_CODE(PErrorCode::NOTDIR);
         }
         baseInode = baseFolderFile->GetInode();
     }
@@ -812,7 +812,7 @@ void kunlink_trw(KLocateFlags locateFlags, const char* path)
 void kremove_directory_trw(KLocateFlags locateFlags, int baseFolderFD, const char* inPath)
 {
     if (inPath == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     PString path(inPath);
 
@@ -824,7 +824,7 @@ void kremove_directory_trw(KLocateFlags locateFlags, int baseFolderFD, const cha
     {
         Ptr<KFileTableNode> baseFolderFile = kget_file_table_node_trw(baseFolderFD);
         if (!baseFolderFile->IsDirectory()) {
-            PERROR_THROW_CODE(PErrorCode::NotDirectory);
+            PERROR_THROW_CODE(PErrorCode::NOTDIR);
         }
         baseInode = baseFolderFile->GetInode();
     }
@@ -1088,7 +1088,7 @@ void kget_directory_path_trw(int handle, char* buffer, size_t bufferSize)
 {
     Ptr<KFileTableNode> dirNode = kget_file_table_node_trw(handle);
     if (!dirNode->IsDirectory()) {
-        PERROR_THROW_CODE(PErrorCode::NotDirectory);
+        PERROR_THROW_CODE(PErrorCode::NOTDIR);
     }
     Ptr<KInode> inode = dirNode->GetInode();
     assert(inode != nullptr && inode->m_Filesystem != nullptr);
@@ -1103,7 +1103,7 @@ Ptr<KRootFilesystem> kget_rootfs_trw()
 {
     Ptr<KRootFilesystem> filesystem = kget_rootfs();
     if (filesystem == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NotImplemented);
+        PERROR_THROW_CODE(PErrorCode::NOSYS);
     }
     return filesystem;
 }
@@ -1141,12 +1141,12 @@ static Ptr<KInode> kfollow_sym_link_trw(KLocateFlags locateFlags, Ptr<KInode> pa
             PERROR_THROW_CODE(PErrorCode::LOOP);
         }
         if (statBuf.st_size > SYMLINK_MAX) {
-            PERROR_THROW_CODE(PErrorCode::NameTooLong);
+            PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
         }
         std::vector<char> linkBuffer;
         linkBuffer.resize(size_t(statBuf.st_size));
         if (inode->m_FileOps->ReadLink(inode->m_Volume, inode, linkBuffer.data(), linkBuffer.size()) != linkBuffer.size()) {
-            PERROR_THROW_CODE(PErrorCode::IOError);
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
 
         const char* name;
@@ -1221,7 +1221,7 @@ Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> paren
         current = ioContext.GetCurrentDirectory();
     }
     if (current == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NoEntry);
+        PERROR_THROW_CODE(PErrorCode::NOENT);
     }
     int nameStart = i;
 
@@ -1244,7 +1244,7 @@ Ptr<KInode> klocate_parent_inode_trw(KLocateFlags locateFlags, Ptr<KInode> paren
             nameStart = i + 1;
         }
     }
-    PERROR_THROW_CODE(PErrorCode::NoEntry);
+    PERROR_THROW_CODE(PErrorCode::NOENT);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1258,7 +1258,7 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
     if (inode == kg_RootVolume->m_RootNode)
     {
         if (bufferSize < 2) {
-            PERROR_THROW_CODE(PErrorCode::NameTooLong);
+            PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
         }
         path[0] = '/';
         path[1] = '\0';
@@ -1287,7 +1287,7 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
                 if (entryInode->m_MountRoot == inode)
                 {
                     if (pathLength + dirEntry.d_namlen + 1 > bufferSize) {
-                        PERROR_THROW_CODE(PErrorCode::NameTooLong);
+                        PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
                     }
                     pathLength = PrependNameToPath(path, pathLength, dirEntry.d_name, dirEntry.d_namlen);
                     foundInParent = true;
@@ -1297,7 +1297,7 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
             else if (dirEntry.d_ino == inode->m_InodeID)
             {
                 if (pathLength + dirEntry.d_namlen + 1 > bufferSize) {
-                    PERROR_THROW_CODE(PErrorCode::NameTooLong);
+                    PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
                 }
                 pathLength = PrependNameToPath(path, pathLength, dirEntry.d_name, dirEntry.d_namlen);
                 foundInParent = true;
@@ -1305,13 +1305,13 @@ void kget_directory_name_trw(Ptr<KInode> inode, char* path, size_t bufferSize)
             }
         }
         if (!foundInParent) {
-            PERROR_THROW_CODE(PErrorCode::NoEntry);
+            PERROR_THROW_CODE(PErrorCode::NOENT);
         }
         inode = parent;
         if (inode == kg_RootVolume->m_RootNode)
         {
             if (pathLength >= bufferSize) {
-                PERROR_THROW_CODE(PErrorCode::NameTooLong);
+                PERROR_THROW_CODE(PErrorCode::NAMETOOLONG);
             }
             path[pathLength] = '\0';
             return;
@@ -1359,7 +1359,7 @@ int kopen_from_inode_trw(Ptr<KInode> inode, int openFlags)
     Ptr<KFileTableNode> file;
     if (inode->m_FileOps == nullptr)
     {
-        PERROR_THROW_CODE(PErrorCode::NotImplemented);
+        PERROR_THROW_CODE(PErrorCode::NOSYS);
     }
     if (inode->IsDirectory()) {
         file = inode->m_FileOps->OpenDirectory(inode->m_Volume, inode);
@@ -1393,7 +1393,7 @@ void kfchdir_trw(KLocateFlags locateFlags, int handle)
 
     const Ptr<KFileTableNode> dirNode = kget_file_table_node_trw(handle);
     if (!dirNode->IsDirectory()) {
-        PERROR_THROW_CODE(PErrorCode::NotDirectory);
+        PERROR_THROW_CODE(PErrorCode::NOTDIR);
     }
     const Ptr<KInode> inode = dirNode->GetInode();
 
@@ -1401,7 +1401,7 @@ void kfchdir_trw(KLocateFlags locateFlags, int handle)
     kread_stat_trw(inode, &stats);
 
     if (!S_ISDIR(stats.st_mode)) {
-        PERROR_THROW_CODE(PErrorCode::NotDirectory);
+        PERROR_THROW_CODE(PErrorCode::NOTDIR);
     }
 
     ioContext.SetCurrentDirectory(inode);
@@ -1434,7 +1434,7 @@ void kgetcwd_trw(KLocateFlags locateFlags, char* pathBuffer, size_t bufferSize)
     const Ptr<KInode> inode = ioContext.GetCurrentDirectory();
 
     if (inode == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NoEntry);
+        PERROR_THROW_CODE(PErrorCode::NOENT);
     }
 
     kget_directory_name_trw(inode, pathBuffer, bufferSize);

@@ -129,7 +129,7 @@ void RealtimeClock::WriteBackupRegister_trw(size_t registerIndex, uint32_t value
 {
     const uint32_t registerCount = &RTC->BKP31R - &RTC->BKP0R + 1;
     if (registerIndex >= registerCount) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     volatile uint32_t* backupRegisters = &RTC->BKP0R;
     PWR->CR1 |= PWR_CR1_DBP; // Disable Back-up domain protection.
@@ -145,7 +145,7 @@ uint32_t RealtimeClock::ReadBackupRegister_trw(size_t registerIndex)
 {
     const uint32_t registerCount = &RTC->BKP31R - &RTC->BKP0R + 1;
     if (registerIndex >= registerCount) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     volatile uint32_t* backupRegisters = &RTC->BKP0R;
     return backupRegisters[registerIndex];

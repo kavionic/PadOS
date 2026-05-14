@@ -68,7 +68,7 @@ inline PErrorCode I2CIOCTL_SetTimeout(int device, TimeValNanos timeout)
 inline PErrorCode I2CIOCTL_GetTimeout(int device, TimeValNanos* timeout)
 {
     if (timeout == nullptr) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     bigtime_t timeoutLL;
     const PErrorCode result = device_control(device, I2CIOCTL_GET_TIMEOUT, nullptr, 0, &timeoutLL, sizeof(timeoutLL));

@@ -567,7 +567,7 @@ bool USBHost::PopEvent(USBHostEvent& event)
             const PErrorCode waitResult = m_EventQueueCondition.IRQWaitDeadline(m_DeviceAttachDeadline);
             if (waitResult != PErrorCode::Success)
             {
-                if (waitResult == PErrorCode::Timeout)
+                if (waitResult == PErrorCode::TIMEDOUT)
                 {
                     set_last_error(waitResult);
                     break;

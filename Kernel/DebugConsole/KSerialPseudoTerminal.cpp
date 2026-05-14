@@ -187,7 +187,7 @@ void* KSerialPseudoTerminal::Run()
         }
         PERROR_CATCH([&ptySlaveGone](PErrorCode errorCode)
             {
-                if (errorCode != PErrorCode::WouldBlock && errorCode != PErrorCode::Interrupted) {
+                if (errorCode != PErrorCode::WOULDBLOCK && errorCode != PErrorCode::INTR) {
                     ptySlaveGone = true;
                 }
             }

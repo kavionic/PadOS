@@ -72,7 +72,7 @@ PErrorCode KMutex::Lock(bool interruptible)
             {
                 kassert(!(m_RecursionMode == PEMutexRecursionMode_RaiseError && m_Holder == thread->GetHandle()));
                 if (m_RecursionMode == PEMutexRecursionMode_RaiseError && m_Holder == thread->GetHandle()) {
-                    return PErrorCode::Deadlock;
+                    return PErrorCode::DEADLK;
                 }
             }
             waitNode.m_Thread = thread;
@@ -89,7 +89,7 @@ PErrorCode KMutex::Lock(bool interruptible)
             thread->SetBlockingObject(nullptr);
             
             if (waitNode.m_TargetDeleted) {
-                return PErrorCode::InvalidArg;
+                return PErrorCode::INVAL;
             }
             
             if (m_Count == 0)
@@ -145,7 +145,7 @@ PErrorCode KMutex::LockClock(int clockID, TimeValNanos clockDeadline, bool inter
             {
                 kassert(!(m_RecursionMode == PEMutexRecursionMode_RaiseError && m_Holder == thread->GetHandle()));
                 if (m_RecursionMode == PEMutexRecursionMode_RaiseError && m_Holder == thread->GetHandle()) {
-                    return PErrorCode::Deadlock;
+                    return PErrorCode::DEADLK;
                 }
             }
             if (deadline.IsInfinit() || kget_monotonic_time() < deadline)
@@ -170,7 +170,7 @@ PErrorCode KMutex::LockClock(int clockID, TimeValNanos clockDeadline, bool inter
             }
             else
             {
-                return PErrorCode::Timeout;
+                return PErrorCode::TIMEDOUT;
             }
 
             KSWITCH_CONTEXT();
@@ -182,7 +182,7 @@ PErrorCode KMutex::LockClock(int clockID, TimeValNanos clockDeadline, bool inter
             sleepNode.Detatch();
             
             if (waitNode.m_TargetDeleted) {
-                return PErrorCode::InvalidArg;
+                return PErrorCode::INVAL;
             }            
         } CRITICAL_END;
     }
@@ -214,7 +214,7 @@ PErrorCode KMutex::TryLock()
         return PErrorCode::Success;
     }
 
-    return PErrorCode::Busy;
+    return PErrorCode::BUSY;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -230,7 +230,7 @@ PErrorCode KMutex::Unlock()
     } else if (m_Count > 0) {
         m_Count--;
     } else {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
 
     if (m_Count == 0) {
@@ -273,7 +273,7 @@ PErrorCode KMutex::LockShared(bool interruptible)
             thread->SetBlockingObject(nullptr);
 
             if (waitNode.m_TargetDeleted) {
-                return PErrorCode::InvalidArg;
+                return PErrorCode::INVAL;
             }
             
             if (m_Count >= 0)
@@ -345,7 +345,7 @@ PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos clockDeadline
             }
             else
             {
-                return PErrorCode::Timeout;
+                return PErrorCode::TIMEDOUT;
             }
 
             KSWITCH_CONTEXT();
@@ -357,7 +357,7 @@ PErrorCode KMutex::LockSharedClock(clockid_t clockID, TimeValNanos clockDeadline
             sleepNode.Detatch();
 
             if (waitNode.m_TargetDeleted) {
-                return PErrorCode::InvalidArg;
+                return PErrorCode::INVAL;
             }
             
             if (wakeup_wait_queue(&m_WaitQueue, 0, 0)) KSWITCH_CONTEXT();
@@ -388,7 +388,7 @@ PErrorCode KMutex::TryLockShared()
         return PErrorCode::Success;
     }
 
-    return PErrorCode::Busy;
+    return PErrorCode::BUSY;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

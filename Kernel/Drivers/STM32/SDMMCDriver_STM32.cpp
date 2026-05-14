@@ -524,7 +524,7 @@ bool SDMMCDriver_STM32::WaitIRQ(uint32_t flags)
         const PErrorCode result = m_IOCondition.IRQWaitTimeout(TimeValNanos::FromMilliseconds(500));
         while (result != PErrorCode::Success)
         {
-            if (result != PErrorCode::Interrupted)
+            if (result != PErrorCode::INTR)
             {
                 set_last_error(result);
                 m_SDMMC->MASK = 0;

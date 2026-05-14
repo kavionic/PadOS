@@ -260,7 +260,7 @@ void FATDirectoryIterator::GenerateShortName(const wchar16_t* longName, size_t l
             }
         }
 		if (!IsCharacterValid(longName[srcPos])) {
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
 		}
         uint8_t c;
         if (FilteredUTF16ToCP437(longName[srcPos], &c))
@@ -286,7 +286,7 @@ void FATDirectoryIterator::GenerateShortName(const wchar16_t* longName, size_t l
         if (longName[srcPos] == 0) return;
 
 		if (!IsCharacterValid(longName[srcPos])) {
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
 		}
         uint8_t c;
         if (FilteredUTF16ToCP437(longName[srcPos], &c))
@@ -354,7 +354,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::Set(uint32_t cluster, uint32_t ind
     m_CurrentBlock.Reset();;
 
     if (cluster >= m_SectorIterator.m_Volume->m_TotalClusters + 2) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     ;
     m_SectorIterator.Set(cluster, 0);
@@ -370,7 +370,7 @@ FATDirectoryEntryCombo* FATDirectoryIterator::Set(uint32_t cluster, uint32_t ind
     m_CurrentBlock = m_SectorIterator.GetBlock_(true);
 
     if (m_CurrentBlock.m_Buffer == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     return static_cast<FATDirectoryEntryCombo*>(m_CurrentBlock.m_Buffer) + (m_CurrentIndex % m_EntriesPerSector);
 }
@@ -585,7 +585,7 @@ bool FATDirectoryIterator::GetNextDirectoryEntry(Ptr<FATInode> directory, ino_t*
     FATDirectoryEntryInfo info;
 
     if (!m_SectorIterator.m_Volume->CheckMagic(__func__)) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     do

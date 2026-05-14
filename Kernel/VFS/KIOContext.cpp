@@ -222,7 +222,7 @@ Ptr<KFileTableNode> KIOContext::GetFileNode_pl(int handle) const
     if (handle >= 0 && handle < int(m_FileTable.size()) && m_FileTable[handle] != nullptr && m_FileTable[handle]->GetInode() != nullptr) {
         return m_FileTable[handle];
     }
-    PERROR_THROW_CODE(PErrorCode::BadFile);
+    PERROR_THROW_CODE(PErrorCode::BADF);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

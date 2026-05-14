@@ -129,7 +129,7 @@ std::vector<disk_partition_desc> KVFSManager::DecodeDiskPartitions_trw(void* blo
         if (*reinterpret_cast<uint16_t*>(&buffer[0x1fe]) != 0xaa55)
         {
             kernel_log<PLogSeverity::ERROR>(LogCatKernel_VFS, "KVFSManager::DecodeDiskPartitions() Invalid partition table signature {:04x}", *reinterpret_cast<uint16_t*>(&buffer[0x1fe]));
-            PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+            PERROR_THROW_CODE(PErrorCode::FTYPE);
         }
 
         numActive = 0;
@@ -149,7 +149,7 @@ std::vector<disk_partition_desc> KVFSManager::DecodeDiskPartitions_trw(void* blo
             if (numExtended > 1)
             {
                 kernel_log<PLogSeverity::ERROR>(LogCatKernel_VFS, "KVFSManager::DecodeDiskPartitions() more than one extended partitions.");
-                PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+                PERROR_THROW_CODE(PErrorCode::FTYPE);
             }
         }
         for (int i = 0; i < 4 && partitions.size() < MAX_PARTITIONS; ++i)
@@ -176,7 +176,7 @@ std::vector<disk_partition_desc> KVFSManager::DecodeDiskPartitions_trw(void* blo
             if (partitionDesc.p_start + partitionDesc.p_size > diskSize)
             {
                 kernel_log<PLogSeverity::ERROR>(LogCatKernel_VFS, "Partition {} extend outside the disk/extended partition.", partitions.size());
-                PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+                PERROR_THROW_CODE(PErrorCode::FTYPE);
             }
 
             for (size_t j = 0; j < partitions.size(); ++j)
@@ -189,17 +189,17 @@ std::vector<disk_partition_desc> KVFSManager::DecodeDiskPartitions_trw(void* blo
                     curPartition.p_start < partitionDesc.p_start + partitionDesc.p_size)
                 {
                     kernel_log<PLogSeverity::ERROR>(LogCatKernel_VFS, "KVFSManager::DecodeDiskPartitions() partition {} overlap partition {}", j, partitions.size());
-                    PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+                    PERROR_THROW_CODE(PErrorCode::FTYPE);
                 }
                 if ((partitionDesc.p_status & 0x80) != 0 && (curPartition.p_status & 0x80) != 0)
                 {
                     kernel_log<PLogSeverity::ERROR>(LogCatKernel_VFS, "KVFSManager::DecodeDiskPartitions() more than one active partitions.");
-                    PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+                    PERROR_THROW_CODE(PErrorCode::FTYPE);
                 }
                 if (partitionDesc.p_type == 0x05 && curPartition.p_type == 0x05)
                 {
                     kernel_log<PLogSeverity::ERROR>(LogCatKernel_VFS, "KVFSManager::DecodeDiskPartitions() more than one extended partitions.");
-                    PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+                    PERROR_THROW_CODE(PErrorCode::FTYPE);
                 }
             }
             partitions.push_back(partitionDesc);
@@ -227,11 +227,11 @@ std::vector<disk_partition_desc> KVFSManager::DecodeDiskPartitions_trw(void* blo
 void KVFSManager::RegisterVolume_trw(Ptr<KFSVolume> volume)
 {
     if (volume == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     if (s_VolumeMap.find(volume->m_VolumeID) != s_VolumeMap.end()) {
         kernel_log<PLogSeverity::ERROR>(LogCatKernel_VFS, "KVFSManager::RegisterVolume() failed to register volume {:#x}", intptr_t(ptr_raw_pointer_cast(volume)));
-        PERROR_THROW_CODE(PErrorCode::Exist);
+        PERROR_THROW_CODE(PErrorCode::EXIST);
     }
     s_VolumeMap[volume->m_VolumeID] = volume;
 }
@@ -302,7 +302,7 @@ Ptr<KInode> KVFSManager::GetInode_trw(fs_id volumeID, ino_t inodeID, bool crossM
             }
         }
     }        
-    PERROR_THROW_CODE(PErrorCode::IOError);
+    PERROR_THROW_CODE(PErrorCode::IO);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

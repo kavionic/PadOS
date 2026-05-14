@@ -151,7 +151,7 @@ uint32_t TMC2209IODriver::ReadRegister(uint8_t chipAddress, uint8_t registerAddr
 
     if (!TMC2209ValidateCRC(reply)) {
         p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "TMC2209IODriver::ReadRegister({}, {}) invalid checksum.", chipAddress, registerAddress);
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     return (uint32_t(reply.Data[0]) << 24) | (uint32_t(reply.Data[1]) << 16) | (uint32_t(reply.Data[2]) << 8) | uint32_t(reply.Data[3]);

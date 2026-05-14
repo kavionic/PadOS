@@ -54,7 +54,7 @@ size_t KDirectoryNode::ReadDirectory(dirent_t* entry, size_t bufSize)
 {
     Ptr<KInode> inode = GetInode();
     if (inode->m_FileOps == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     return inode->m_FileOps->ReadDirectory(inode->m_Volume, ptr_tmp_cast(this), entry, bufSize);
 }
@@ -63,7 +63,7 @@ void KDirectoryNode::RewindDirectory()
 {
     Ptr<KInode> inode = GetInode();
     if (inode->m_FileOps == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     inode->m_FileOps->RewindDirectory(inode->m_Volume, ptr_tmp_cast(this));
 }

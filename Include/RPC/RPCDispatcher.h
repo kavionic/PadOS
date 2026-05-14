@@ -43,7 +43,7 @@ public:
             else
             {
                 if (outDataLength != sizeof(TReturnType)) {
-                    PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                    PERROR_THROW_CODE(PErrorCode::INVAL);
                 }
                 *reinterpret_cast<TReturnType*>(outData) = PArgumentDeserializer<TReturnType, TArgTypes...>::Invoke(inData, inDataLength, [obj, callback](TArgTypes... args) -> TReturnType
                     {
@@ -95,7 +95,7 @@ public:
     {
         auto sig = m_RemoteProcedures.find(request);
         if (sig == m_RemoteProcedures.end()) {
-            PERROR_THROW_CODE(PErrorCode::NotImplemented);
+            PERROR_THROW_CODE(PErrorCode::NOSYS);
         }
         sig->second(inData, inDataLength, outData, outDataLength);
     }

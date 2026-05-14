@@ -125,22 +125,22 @@ void WS2812BDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const v
 	switch (request)
 	{
 		case WS2812BIOCTL_SET_LED_COUNT:
-            if (inArg == nullptr || inDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            if (inArg == nullptr || inDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::INVAL);
             SetLEDCount(*inArg);
             return;
 		case WS2812BIOCTL_GET_LED_COUNT:
-		    if (outArg == nullptr || outDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
+		    if (outArg == nullptr || outDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::INVAL);
 		    *outArg = GetLEDCount();
 		    return;
 		case WS2812BIOCTL_SET_EXPONENTIAL:
-		    if (inArg == nullptr || inDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
+		    if (inArg == nullptr || inDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::INVAL);
 		    SetExponential(*inArg != 0);
 		    return;
 		case WS2812BIOCTL_GET_EXPONENTIAL:
-		    if (outArg == nullptr || outDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
+		    if (outArg == nullptr || outDataLength != sizeof(int)) PERROR_THROW_CODE(PErrorCode::INVAL);
 		    *outArg = GetExponential() ? 1 : 0;
 		    return;
-		default: PERROR_THROW_CODE(PErrorCode::InvalidArg);
+		default: PERROR_THROW_CODE(PErrorCode::INVAL);
 	}
 }
 
@@ -151,14 +151,14 @@ void WS2812BDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const v
 size_t WS2812BDriverInode::Write(Ptr<KFileNode> file, const void* buffer, const size_t length, off64_t position)
 {
     if (position < 0 || (position & 3) || (length & 3)) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     CRITICAL_SCOPE(m_Mutex);
 
     size_t firstLED = size_t(position / 4);
     size_t lastLED = std::min(m_LEDCount, firstLED + length / 4);
     if (lastLED < firstLED) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     const uint32_t* values = reinterpret_cast<const uint32_t*>(buffer);
 
@@ -273,7 +273,7 @@ PErrorCode WS2812BDriverInode::WaitForIdle()
             const PErrorCode result = m_TransmitCondition.IRQWaitTimeout(TimeValNanos::FromMilliseconds(100));
             if (result != PErrorCode::Success) // Timeout in 100mS. Max transmit time is about 27mS (>7000LEDs)
 			{
-				if (result != PErrorCode::Interrupted)
+				if (result != PErrorCode::INTR)
                 {
 					return result;
 				}
@@ -315,7 +315,7 @@ void WS2812BDriverInode::SetLEDCount(size_t count)
     {
 		m_TransmitBufferSize = 0;
 		m_LEDCount = 0;
-        PERROR_THROW_CODE(PErrorCode::NoMemory);
+        PERROR_THROW_CODE(PErrorCode::NOMEM);
 	}
 }
 

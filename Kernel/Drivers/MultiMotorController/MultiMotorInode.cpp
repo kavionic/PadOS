@@ -149,7 +149,7 @@ void MultiMotorInode::DeleteMotor(handle_id motorID)
 {
     auto motor = m_Motors.find(motorID);
     if (motor == m_Motors.end()) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     motor->second.Shutdown();
     m_Motors.erase(motor);
@@ -631,7 +631,7 @@ TMC2209Driver& MultiMotorInode::GetMotor(handle_id motorID)
 {
     auto motor = m_Motors.find(motorID);
     if (motor == m_Motors.end()) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     return motor->second;
 }

@@ -136,7 +136,7 @@ Ptr<KInode> KPipeFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inodeID)
 
     auto i = pipeVolume->m_PipeInodes.find(inodeID);
     if (i == pipeVolume->m_PipeInodes.end()) {
-        PERROR_THROW_CODE(PErrorCode::NoEntry);
+        PERROR_THROW_CODE(PErrorCode::NOENT);
     }
     return i->second;
 }
@@ -231,11 +231,11 @@ size_t KPipeFilesystem::Read(Ptr<KFileNode> file, void* buffer, size_t length, o
             return 0;  // EOF
         }
         if (file->GetOpenFlags() & O_NONBLOCK) {
-            PERROR_THROW_CODE(PErrorCode::WouldBlock);
+            PERROR_THROW_CODE(PErrorCode::WOULDBLOCK);
         }
         const PErrorCode result = pipeInode->m_ReadCondition.WaitCancelable(pipeInode->m_Mutex);
-        if (result == PErrorCode::Interrupted) {
-            PERROR_THROW_CODE(PErrorCode::Interrupted);
+        if (result == PErrorCode::INTR) {
+            PERROR_THROW_CODE(PErrorCode::INTR);
         }
     }
 
@@ -274,7 +274,7 @@ size_t KPipeFilesystem::Write(Ptr<KFileNode> file, const void* buffer, size_t le
 #ifdef PADOS_MODULE_POSIX_SIGNALS
         ksend_signal_to_thread(kget_current_thread(), SIGPIPE);
 #endif
-        PERROR_THROW_CODE(PErrorCode::BrokenPipe);
+        PERROR_THROW_CODE(PErrorCode::PIPE);
     }
 
     // For writes <= PIPE_BUF_SIZE, POSIX requires atomicity: wait until the entire
@@ -298,14 +298,14 @@ size_t KPipeFilesystem::Write(Ptr<KFileNode> file, const void* buffer, size_t le
 #ifdef PADOS_MODULE_POSIX_SIGNALS
                 ksend_signal_to_thread(kget_current_thread(), SIGPIPE);
 #endif
-                PERROR_THROW_CODE(PErrorCode::BrokenPipe);
+                PERROR_THROW_CODE(PErrorCode::PIPE);
             }
             if (file->GetOpenFlags() & O_NONBLOCK) {
-                PERROR_THROW_CODE(PErrorCode::WouldBlock);
+                PERROR_THROW_CODE(PErrorCode::WOULDBLOCK);
             }
             const PErrorCode result = pipeInode->m_WriteCondition.WaitCancelable(pipeInode->m_Mutex);
-            if (result == PErrorCode::Interrupted) {
-                PERROR_THROW_CODE(PErrorCode::Interrupted);
+            if (result == PErrorCode::INTR) {
+                PERROR_THROW_CODE(PErrorCode::INTR);
             }
         }
 
@@ -357,7 +357,7 @@ void kpipe_trw(int pipefd[2])
 {
     Ptr<KPipeVolume> volume = KPipeFilesystem::GetVolume();
     if (volume == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NoEntry);
+        PERROR_THROW_CODE(PErrorCode::NOENT);
     }
 
     ino_t inodeID;

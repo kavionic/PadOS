@@ -172,7 +172,7 @@ PErrorCode sys_set_clock_resolution_ns(clockid_t clockID, bigtime_t resolutionNa
 {
     if (clockID != CLOCK_REALTIME)
     {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     return PErrorCode::Success;
 }

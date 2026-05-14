@@ -87,7 +87,7 @@ PErrorCode KSemaphore::Acquire()
         	thread->SetBlockingObject(nullptr);
             waitNode.Detatch();
             if (waitNode.m_TargetDeleted) {
-                return PErrorCode::InvalidArg;
+                return PErrorCode::INVAL;
             }
             if (m_Count > 0)
             {
@@ -154,7 +154,7 @@ PErrorCode KSemaphore::AcquireClock(clockid_t clockID, TimeValNanos clockDeadlin
             }
             else
             {
-                return PErrorCode::Timeout;
+                return PErrorCode::TIMEDOUT;
             }
 
             KSWITCH_CONTEXT();
@@ -166,7 +166,7 @@ PErrorCode KSemaphore::AcquireClock(clockid_t clockID, TimeValNanos clockDeadlin
             waitNode.Detatch();
             sleepNode.Detatch();
             if (waitNode.m_TargetDeleted) {
-                return PErrorCode::InvalidArg;
+                return PErrorCode::INVAL;
             }
         } CRITICAL_END;
     }
@@ -198,7 +198,7 @@ PErrorCode KSemaphore::TryAcquire()
             return PErrorCode::Success;
         }
     } CRITICAL_END;
-    return PErrorCode::TryAgain;
+    return PErrorCode::AGAIN;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -210,7 +210,7 @@ PErrorCode KSemaphore::Release()
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         if (m_Count == SEM_VALUE_MAX) {
-            return PErrorCode::Overflow;
+            return PErrorCode::OVERFLOW;
         }
         m_Count++;
 

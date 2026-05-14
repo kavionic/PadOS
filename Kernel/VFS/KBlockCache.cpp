@@ -247,18 +247,18 @@ KCacheBlockDesc KBlockCache::GetBlock_trw(off64_t blockNum, bool doLoad)
         else
         {
             kernel_log<PLogSeverity::ERROR>(LogCatKernel_BlockCache, "KBlockCache::GetBlock() all cache blocks locked!");
-            PERROR_THROW_CODE(PErrorCode::TryAgain);
+            PERROR_THROW_CODE(PErrorCode::AGAIN);
         }
         kassert(block != nullptr);
         if (block == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::TryAgain);
+            PERROR_THROW_CODE(PErrorCode::AGAIN);
         }
         PScopeFail contextCleanup([&block]() { s_FreeList.Append(block); });
         if (doLoad)
         {
             const ssize_t bytesRead = kpread_trw(m_Device, block->m_Buffer, BUFFER_BLOCK_SIZE, bufferNum * BUFFER_BLOCK_SIZE);
             if (bytesRead != BUFFER_BLOCK_SIZE) {
-                PERROR_THROW_CODE(PErrorCode::IOError);
+                PERROR_THROW_CODE(PErrorCode::IO);
             }
         }
         s_MRUList.Append(block);
@@ -273,7 +273,7 @@ KCacheBlockDesc KBlockCache::GetBlock_trw(off64_t blockNum, bool doLoad)
         return KCacheBlockDesc(block, blockOffset);
     }
     kernel_log<PLogSeverity::ERROR>(LogCatKernel_BlockCache, "KBlockCache::GetBlock() to many retries. All blocks stuck in busy state.");
-    PERROR_THROW_CODE(PErrorCode::TryAgain);
+    PERROR_THROW_CODE(PErrorCode::AGAIN);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -187,7 +187,7 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case SPIIOCTL_GET_BAUDRATE_DIVIDER:
             if (outDataLength == sizeof(SPIBaudRateDivider))
@@ -198,7 +198,7 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case SPIIOCTL_SET_READ_TIMEOUT:
             if (inDataLength == sizeof(bigtime_t))
@@ -209,7 +209,7 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case SPIIOCTL_GET_READ_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t))
@@ -220,7 +220,7 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case SPIIOCTL_SET_PINMODE:
             if (inDataLength == sizeof(int))
@@ -239,7 +239,7 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
                         }
                         else
                         {
-                            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                            PERROR_THROW_CODE(PErrorCode::INVAL);
                         }
                     case SPIPin::MOSI:
                         if (SetPinMode(m_PinMOSI, mode))
@@ -249,7 +249,7 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
                         }
                         else
                         {
-                            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                            PERROR_THROW_CODE(PErrorCode::INVAL);
                         }
                     case SPIPin::MISO:
                         if (SetPinMode(m_PinMISO, mode))
@@ -259,15 +259,15 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
                         }
                         else
                         {
-                            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                            PERROR_THROW_CODE(PErrorCode::INVAL);
                         }
                     default:
-                        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                        PERROR_THROW_CODE(PErrorCode::INVAL);
                 }
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case SPIIOCTL_GET_PINMODE:
             if (inDataLength == sizeof(int) && outDataLength == sizeof(int))
@@ -289,12 +289,12 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
                         *result = int(m_PinModeMISO);
                         return;
                     default:
-                        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                        PERROR_THROW_CODE(PErrorCode::INVAL);
                 }
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case SPIIOCTL_SET_SWAP_MOSI_MISO:
             if (inDataLength == sizeof(int)) {
@@ -302,7 +302,7 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
                 SetSwapMOSIMISO(arg != 0);
                 return;
             } else {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case SPIIOCTL_GET_SWAP_MOSI_MISO:
             if (outDataLength == sizeof(int)) {
@@ -310,7 +310,7 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
                 *result = GetSwapMOSIMISO();
                 return;
             } else {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case SPIIOCTL_START_TRANSACTION:
             if (inDataLength == sizeof(SPITransaction))
@@ -320,7 +320,7 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case SPIIOCTL_GET_LAST_ERROR:
             if (outDataLength == sizeof(SPIError))
@@ -331,10 +331,10 @@ void SPIDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const void*
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         default:
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 }
 
@@ -430,7 +430,7 @@ void SPIDriverInode::StartTransaction(const SPITransaction& transaction)
     kassert(m_Mutex.IsLocked());
 
     if (transaction.ReceiveBuffer != nullptr && transaction.Length > m_ReceiveBufferSize) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     if (transaction.TransmitBuffer != nullptr)
@@ -491,7 +491,7 @@ void SPIDriverInode::StartTransaction(const SPITransaction& transaction)
         PERROR_THROW_CODE(result);
     }
     if (m_TransactionError != SPIError::None) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     if (transaction.ReceiveBuffer != nullptr)
     {

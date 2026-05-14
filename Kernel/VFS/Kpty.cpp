@@ -134,10 +134,10 @@ Ptr<KFileNode> KPTYFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> par
 
 
     if (parent != fsVolume->m_MasterFolder) {
-        PERROR_THROW_CODE(PErrorCode::NoAccess);
+        PERROR_THROW_CODE(PErrorCode::ACCES);
     }
     if (LocateInodeInternal(volume, parent, name, nameLength) != nullptr) {
-        PERROR_THROW_CODE(PErrorCode::Exist);
+        PERROR_THROW_CODE(PErrorCode::EXIST);
     }
 
     Ptr<KPTYInode> master = ptr_new<KPTYInode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(fsParent), this, S_IFCHR | permission);
@@ -231,7 +231,7 @@ size_t KPTYFilesystem::Write(Ptr<KFileNode> file, const void* buffer, size_t len
             bytesWritten = inode->m_Partner->WriteToSlave(buffer, length, file->GetOpenFlags());
             break;
         default:
-            PERROR_THROW_CODE(PErrorCode::NotImplemented);
+            PERROR_THROW_CODE(PErrorCode::NOSYS);
     }
     return bytesWritten;
 }
@@ -255,21 +255,21 @@ void KPTYFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void*
             if (inDataLength == sizeof(inode->m_TermInfo->Termios)) {
                 inode->m_TermInfo->Termios = *static_cast<const struct termios*>(inData);
             } else {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             break;
         case TCGETA:
             if (outDataLength == sizeof(inode->m_TermInfo->Termios)) {
                 *static_cast<struct termios*>(outData) = inode->m_TermInfo->Termios;
             } else {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             break;
         case TIOCSWINSZ:
             if (inDataLength == sizeof(inode->m_TermInfo->WinSize)) {
                 inode->m_TermInfo->WinSize = *static_cast<const struct winsize*>(inData);
             } else {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             if (inode->IsMaster())
             {
@@ -288,13 +288,13 @@ void KPTYFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void*
             if (outDataLength == sizeof(inode->m_TermInfo->WinSize)) {
                 *static_cast<struct winsize*>(outData) = inode->m_TermInfo->WinSize;
             } else {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             break;
         case TIOCSPGRP: // Set foreground process group
         {
             if (inDataLength != sizeof(pid_t)) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             const KProcess& process = kget_current_process();
             const pid_t     pgroup = *static_cast<const pid_t*>(inData);
@@ -305,7 +305,7 @@ void KPTYFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void*
             Ptr<KPIDNode> pidNode = kget_pid_node_pl(pgroup);
 
             if (pidNode == nullptr || pidNode->Group == nullptr) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
 
             const Ptr<KProcessSession>  session = process.GetSession();
@@ -359,7 +359,7 @@ void KPTYFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void*
         case FIONBIO:
         {
             if (inDataLength != sizeof(int)) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             int nArg = *static_cast<const int*>(inData);
             if (nArg == 0) {
@@ -372,7 +372,7 @@ void KPTYFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void*
         case FIONREAD:
         {
             if (outDataLength != sizeof(int)) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             int length;
             if (inode->IsSlave() && (inode->m_TermInfo->Termios.c_lflag & ICANON)) {
@@ -386,7 +386,7 @@ void KPTYFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void*
         case TIOCPKT:
         {
             if (inDataLength != sizeof(int)) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             if (!inode->IsMaster()) {
                 PERROR_THROW_CODE(PErrorCode::NOTTY);
@@ -408,7 +408,7 @@ void KPTYFilesystem::DeviceControl(Ptr<KFileNode> file, int request, const void*
         }
         default:
             kernel_log<PLogSeverity::NOTICE>(LogCatKernel_PTY, "{} Unknown command {}", __PRETTY_FUNCTION__, request);
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
             break;
 
     }
@@ -485,7 +485,7 @@ bool KPTYInode::NeedNewline() const noexcept
 bool KPTYInode::CanRead() const
 {
     if (m_Parent == nullptr || m_TermInfo == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     return m_NewLineCount != 0 || (!NeedNewline() && m_BytesAvailable != 0);
@@ -509,7 +509,7 @@ size_t KPTYInode::Read(void* buffer, size_t length, int openFlags)
 
     if (m_TermInfo == nullptr || m_FileData.empty())
     {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     for (;;)
@@ -519,14 +519,14 @@ size_t KPTYInode::Read(void* buffer, size_t length, int openFlags)
         }
 #ifdef PADOS_MODULE_POSIX_SIGNALS
         if (khas_pending_signals()) {
-            PERROR_THROW_CODE(PErrorCode::Interrupted);
+            PERROR_THROW_CODE(PErrorCode::INTR);
         }
 #endif
         if (m_Partner == nullptr || m_Partner->m_OpenCount == 0) {
             return 0;
         }
         if (openFlags & O_NONBLOCK) {
-            PERROR_THROW_CODE(PErrorCode::WouldBlock);
+            PERROR_THROW_CODE(PErrorCode::WOULDBLOCK);
         }
         m_IOCondition.Wait(volume->m_Mutex);
     }
@@ -590,7 +590,7 @@ size_t KPTYInode::Write(const void* buffer, size_t length, int openFlags)
     size_t  bytesWritten = 0;
 
     if (m_Parent == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     bool wasReadable = CanRead();
 
@@ -598,10 +598,10 @@ size_t KPTYInode::Write(const void* buffer, size_t length, int openFlags)
     {
         if (m_Partner == nullptr || m_Partner->m_OpenCount == 0)
         {
-            PERROR_THROW_CODE(PErrorCode::IOError);
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
         if (openFlags & O_NONBLOCK) {
-            PERROR_THROW_CODE(PErrorCode::WouldBlock);
+            PERROR_THROW_CODE(PErrorCode::WOULDBLOCK);
         }
         m_IOCondition.Wait(volume->m_Mutex);
     }
@@ -916,7 +916,7 @@ void ktcsetattr_trw(int fd, int optionalActions, const struct termios* termios)
         case TCSANOW:   request = TCSETA; break;
         case TCSADRAIN: request = TCSETAW; break;
         case TCSAFLUSH: request = TCSETAF; break;
-        default: PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        default: PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     kdevice_control_trw(fd, request, termios, sizeof(*termios), nullptr, 0);
 }

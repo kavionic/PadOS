@@ -374,22 +374,22 @@ void KProcess::SetPGroupID(Ptr<const KProcess> instigator, pid_t pgroup)
     if (instigator == m_Parent)
     {
         if (m_Session != instigator->GetSession()) {
-            PERROR_THROW_CODE(PErrorCode::NoPermission);
+            PERROR_THROW_CODE(PErrorCode::PERM);
         }
         if (HasExeced()) {
-            PERROR_THROW_CODE(PErrorCode::NoAccess);
+            PERROR_THROW_CODE(PErrorCode::ACCES);
         }
     }
     else if (instigator != this)
     {
         kernel_log<PLogSeverity::NOTICE>(LogCatKernel_Processes, "{}: {} not same as {}\n", __PRETTY_FUNCTION__, m_PID, instigator->m_PID);
-        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+        PERROR_THROW_CODE(PErrorCode::SRCH);
     }
 
     Ptr<KPIDNode> pidNode = kget_pid_node_pl(pgroup);
 
     if (pidNode == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     if (pidNode->Group == nullptr)
@@ -403,7 +403,7 @@ void KProcess::SetPGroupID(Ptr<const KProcess> instigator, pid_t pgroup)
     else
     {
         if (pidNode->Group->GetSession() != m_Session) {
-            PERROR_THROW_CODE(PErrorCode::NoPermission);
+            PERROR_THROW_CODE(PErrorCode::PERM);
         }
         pidNode->Group->ReserveSpace(); // Make sure AddProcess() don't throw after we modified the old group.
     }
@@ -484,19 +484,19 @@ pid_t KProcess::CreateSession()
     kassert(g_PIDMapMutex.IsLocked());
 
     if (IsGroupLeader()) {
-        PERROR_THROW_CODE(PErrorCode::NoPermission);
+        PERROR_THROW_CODE(PErrorCode::PERM);
     }
 
     const pid_t sessionID = m_PID;
 
     Ptr<KPIDNode> pidNode = kget_pid_node_pl(sessionID);
     if (pidNode == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     // Make sure the process group we are about to make don't already exist.
     if (pidNode->Session != nullptr || pidNode->Group != nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NoPermission);
+        PERROR_THROW_CODE(PErrorCode::PERM);
     }
     
     Ptr<KProcessSession>    session = ptr_new<KProcessSession>(sessionID);
@@ -603,13 +603,13 @@ siginfo_t KProcess::WaitPID(pid_t pid, int options)
         Ptr<KPIDNode> pidNode = kget_pid_node_pl(pid);
 
         if (pidNode == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+            PERROR_THROW_CODE(PErrorCode::SRCH);
         }
 
         Ptr<KProcess> child = pidNode->Process;
 
         if (child == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+            PERROR_THROW_CODE(PErrorCode::SRCH);
         }
         if (child->m_Parent != this) {
             PERROR_THROW_CODE(PErrorCode::CHILD);
@@ -650,13 +650,13 @@ siginfo_t KProcess::WaitGID(pid_t gid, int options)
                 Ptr<KPIDNode> pidNodeGroup = kget_pid_node_pl(gid);
 
                 if (pidNodeGroup == nullptr) {
-                    PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+                    PERROR_THROW_CODE(PErrorCode::SRCH);
                 }
 
                 Ptr<KProcessGroup> group = pidNodeGroup->Group;
 
                 if (group == nullptr) {
-                    PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+                    PERROR_THROW_CODE(PErrorCode::SRCH);
                 }
                 processList = &group->GetProcessList();
             }
@@ -846,7 +846,7 @@ void kwaitid_trw(idtype_t idtype, id_t id, siginfo_t* infop, int options)
             *infop = process.WaitGID(-1, options);
             break;
         default:
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 }
 
@@ -973,7 +973,7 @@ PErrorCode kseteuid(uid_t uid) noexcept
     KScopedLock lock(g_PIDMapMutex);
     KProcess& process = kget_current_process();
     if (uid != process.GetRUID() && uid != process.GetEUID() && uid != process.GetSUID()) {
-        return PErrorCode::NoPermission;
+        return PErrorCode::PERM;
     }
     process.SetEUID(uid);
     return PErrorCode::Success;
@@ -988,7 +988,7 @@ PErrorCode ksetegid(gid_t gid) noexcept
     KScopedLock lock(g_PIDMapMutex);
     KProcess& process = kget_current_process();
     if (gid != process.GetRGID() && gid != process.GetEGID() && gid != process.GetSGID()) {
-        return PErrorCode::NoPermission;
+        return PErrorCode::PERM;
     }
     process.SetEGID(gid);
     return PErrorCode::Success;

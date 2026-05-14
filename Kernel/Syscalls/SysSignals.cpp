@@ -65,7 +65,7 @@ PErrorCode sys_thread_sigqueue(thread_id threadID, int signo, union sigval value
     const Ptr<KThreadCB> thread = kget_thread(threadID);
 
     if (thread == nullptr) {
-        return PErrorCode::NoSuchProcess;
+        return PErrorCode::SRCH;
     }
 
     return kqueue_signal_to_thread(*thread, signo, value);
@@ -127,7 +127,7 @@ PErrorCode sys_sigsuspend(const sigset_t* sigmask)
 
         thread.m_BlockedSignals = prevMask;
 
-        return PErrorCode::Interrupted;
+        return PErrorCode::INTR;
     }
     PERROR_CATCH_RET_CODE;
 }

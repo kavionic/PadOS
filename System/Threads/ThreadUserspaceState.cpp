@@ -82,7 +82,7 @@ PErrorCode thread_spawn(thread_id* outHandle, const PThreadAttribs* inAttribs, T
 
         return result;
     }
-    return PErrorCode::NoMemory;
+    return PErrorCode::NOMEM;
 #else // PADOS_MODULE_USER_SPACE
     return __thread_spawn(outHandle, &attribs, /*threadData*/ nullptr, thread_entry_trampoline, entryPoint, arguments);
 #endif // PADOS_MODULE_USER_SPACE

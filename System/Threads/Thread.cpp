@@ -70,7 +70,7 @@ PErrorCode PThread::Start(PThreadDetachState detachState, int priority, int stac
         PThreadAttribs attrs(m_Name.c_str(), priority, detachState, stackSize);
         return thread_spawn(&m_ThreadHandle, &attrs, ThreadEntry, this);
     }
-    return PErrorCode::Busy;
+    return PErrorCode::BUSY;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -79,7 +79,7 @@ PErrorCode PThread::Start(PThreadDetachState detachState, int priority, int stac
 
 PErrorCode PThread::Join(void** outReturnValue, TimeValNanos deadline)
 {
-    PErrorCode result = PErrorCode::InvalidArg;
+    PErrorCode result = PErrorCode::INVAL;
     if (m_DetachState == PThreadDetachState_Joinable)
     {
         result = thread_join(m_ThreadHandle, outReturnValue);
@@ -156,7 +156,7 @@ PErrorCode PThread::Adopt()
 
         return PErrorCode::Success;
     }
-    return PErrorCode::Busy;
+    return PErrorCode::BUSY;
 
 }
 

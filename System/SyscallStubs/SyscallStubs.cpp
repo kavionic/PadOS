@@ -72,9 +72,9 @@ template<typename T>
 T get_not_implemented_retval()
 {
     if constexpr (std::is_same_v<T, PSysRetPair>) {
-        return PMakeSysRetFail(PErrorCode::NotImplemented);
+        return PMakeSysRetFail(PErrorCode::NOSYS);
     } else {
-        return T(PErrorCode::NotImplemented);
+        return T(PErrorCode::NOSYS);
     }
 }
 

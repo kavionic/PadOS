@@ -65,7 +65,7 @@ private:
                 return result + consumed;
             }
         }
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 };
 

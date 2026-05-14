@@ -53,7 +53,7 @@ public:
     bool IsLocked() const
     {
         const PErrorCode result = mutex_islocked(m_Handle);
-        if (result == PErrorCode::Busy)
+        if (result == PErrorCode::BUSY)
         {
             return true;
         }

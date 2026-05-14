@@ -99,7 +99,7 @@ PErrorCode KHandleArrayBase::AllocHandle(handle_id& outHandle)
                 if (block2 == nullptr)
                 {
                     if (allocBuffersFailed) {
-                        return PErrorCode::NoMemory;
+                        return PErrorCode::NOMEM;
                     } else {
                         m_NextHandle--;
                         needBuffsers = true;
@@ -120,7 +120,7 @@ PErrorCode KHandleArrayBase::AllocHandle(handle_id& outHandle)
                         CacheBlock(block2);
                     }
                     if (allocBuffersFailed) {
-                        return PErrorCode::NoMemory;
+                        return PErrorCode::NOMEM;
                     } else {
                         m_NextHandle--;
                         needBuffsers = true;
@@ -190,7 +190,7 @@ void KHandleArrayBase::FreeHandle_trw(int handle)
             return;
         }
     } CRITICAL_END;
-    PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    PERROR_THROW_CODE(PErrorCode::INVAL);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

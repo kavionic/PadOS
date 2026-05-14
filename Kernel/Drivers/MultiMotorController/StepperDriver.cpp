@@ -52,13 +52,13 @@ StepperDriver::~StepperDriver()
 void StepperDriver::Setup_trw(HWTimerID timerID, PinMuxTarget pinStep, DigitalPinID pinEnable, DigitalPinID pinDirection)
 {
     if (pinStep.MUX == DigitalPinPeripheralID::None || pinDirection == DigitalPinID::None) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     TIM_TypeDef* timerChannel = get_timer_from_id(timerID);
     IRQn_Type irq = get_timer_irq(timerID, HWTimerIRQType::Update);
 
     if (timerChannel == nullptr || irq == IRQ_COUNT) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     m_IsInitialized = true;

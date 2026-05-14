@@ -145,7 +145,7 @@ PErrorCode sys_add_serial_command_handler(uint32_t command, port_id messagePortI
 
 PErrorCode sys_serial_command_send_data(void* header, size_t headerSize, const void* data, size_t dataSize)
 {
-    return SerialCommandHandler::Get().SendSerialData(static_cast<SerialProtocol::PacketHeader*>(header), headerSize, data, dataSize) ? PErrorCode::Success : PErrorCode::IOError;
+    return SerialCommandHandler::Get().SendSerialData(static_cast<SerialProtocol::PacketHeader*>(header), headerSize, data, dataSize) ? PErrorCode::Success : PErrorCode::IO;
 }
 
 } // extern "C"

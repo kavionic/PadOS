@@ -67,7 +67,7 @@ Ptr<KPIDNode> kallocate_pid_trw_pl()
             return node;
         }
         if (nextPID == startPID) {
-            PERROR_THROW_CODE(PErrorCode::TryAgain);
+            PERROR_THROW_CODE(PErrorCode::AGAIN);
         }
     }
 }
@@ -104,7 +104,7 @@ Ptr<KThreadCB> kget_thread_trw(pid_t threadID)
 {
     Ptr<KThreadCB> thread = kget_thread(threadID);
     if (thread == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+        PERROR_THROW_CODE(PErrorCode::SRCH);
     }
     return thread;
 }
@@ -128,7 +128,7 @@ Ptr<KThreadCB> kget_thread_trw_pl(pid_t threadID)
 {
     Ptr<KThreadCB> thread = kget_thread_pl(threadID);
     if (thread == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+        PERROR_THROW_CODE(PErrorCode::SRCH);
     }
     return thread;
 }

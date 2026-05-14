@@ -55,7 +55,7 @@ void ksetpgid_trw(pid_t inDest, pid_t inGroup)
     pid_t pgroup = (0 == inGroup) ? dstPID : inGroup;
 
     if (pgroup <= 0) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     kassert(!g_PIDMapMutex.IsLocked());
@@ -66,16 +66,16 @@ void ksetpgid_trw(pid_t inDest, pid_t inGroup)
     if (dstProcess == nullptr)
     {
         kernel_log<PLogSeverity::NOTICE>(LogCatKernel_Processes, "{}: dest process {} not found.", __PRETTY_FUNCTION__, dstPID);
-        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+        PERROR_THROW_CODE(PErrorCode::SRCH);
     }
 
     if (dstProcess->GetParent_pl() == &thisProcess)
     {
         if (dstProcess->HasExeced()) {
-            PERROR_THROW_CODE(PErrorCode::NoAccess);
+            PERROR_THROW_CODE(PErrorCode::ACCES);
         }
         if (dstProcess->GetSession() != thisProcess.GetSession()) {
-            PERROR_THROW_CODE(PErrorCode::NoPermission);
+            PERROR_THROW_CODE(PErrorCode::PERM);
         }
     }
     else
@@ -83,12 +83,12 @@ void ksetpgid_trw(pid_t inDest, pid_t inGroup)
         if (dstProcess != &thisProcess)
         {
             kernel_log<PLogSeverity::NOTICE>(LogCatKernel_Processes, "{}: {} not same as {}\n", __PRETTY_FUNCTION__, dstProcess->GetPID(), thisProcess.GetPID());
-            PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+            PERROR_THROW_CODE(PErrorCode::SRCH);
         }
     }
 
     if (dstProcess->IsGroupLeader()) {
-        PERROR_THROW_CODE(PErrorCode::NoPermission);
+        PERROR_THROW_CODE(PErrorCode::PERM);
     }
     dstProcess->SetPGroupID(ptr_tmp_cast(&thisProcess), pgroup);
 }

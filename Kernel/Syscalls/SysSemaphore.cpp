@@ -44,7 +44,7 @@ PErrorCode sys_semaphore_create(sem_id* outHandle, const char* name, clockid_t c
         return KNamedObject::RegisterObject(*outHandle, ptr_new<KSemaphore>(name, clockID, count));
     }
     catch (const std::bad_alloc& error) {
-        return PErrorCode::NoMemory;
+        return PErrorCode::NOMEM;
     }
 }
 
@@ -58,7 +58,7 @@ PErrorCode sys_semaphore_duplicate(sem_id* outNewHandle, sem_id handle)
     if (sema != nullptr) {
         return KNamedObject::RegisterObject(*outNewHandle, sema);
     }
-    return PErrorCode::InvalidArg;
+    return PErrorCode::INVAL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -90,14 +90,14 @@ PErrorCode sys_semaphore_create_public(sem_id* outHandle, const char* name, cloc
         {
             if (flags & O_EXCL)
             {
-                return PErrorCode::Exist;
+                return PErrorCode::EXIST;
             }
             return KNamedObject::RegisterObject(*outHandle, iter->second);
         }
         else
         {
             if ((flags & O_CREAT) == 0) {
-                return PErrorCode::NoEntry;
+                return PErrorCode::NOENT;
             }
             const size_t nameLength = strlen(name);
             const size_t nameOffset = (nameLength > (OS_NAME_LENGTH - 1)) ? (nameLength - (OS_NAME_LENGTH - 1)) : 0;
@@ -117,7 +117,7 @@ PErrorCode sys_semaphore_create_public(sem_id* outHandle, const char* name, cloc
     }
     catch (const std::bad_alloc& error)
     {
-        return PErrorCode::NoMemory;
+        return PErrorCode::NOMEM;
     }
 }
 
@@ -135,7 +135,7 @@ PErrorCode sys_semaphore_unlink_public(const char* name)
         gk_PublicSemaphores.erase(iter);
         return PErrorCode::Success;
     }
-    return PErrorCode::NoEntry;
+    return PErrorCode::NOENT;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,7 +144,7 @@ PErrorCode sys_semaphore_unlink_public(const char* name)
 
 PErrorCode sys_semaphore_acquire(sem_id handle)
 {
-    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::Acquire);
+    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::INVAL, &KSemaphore::Acquire);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -153,7 +153,7 @@ PErrorCode sys_semaphore_acquire(sem_id handle)
 
 PErrorCode sys_semaphore_acquire_timeout_ns(sem_id handle, bigtime_t timeout)
 {
-    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::AcquireTimeout, TimeValNanos::FromNanoseconds(timeout));
+    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::INVAL, &KSemaphore::AcquireTimeout, TimeValNanos::FromNanoseconds(timeout));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -162,7 +162,7 @@ PErrorCode sys_semaphore_acquire_timeout_ns(sem_id handle, bigtime_t timeout)
 
 PErrorCode sys_semaphore_acquire_deadline_ns(sem_id handle, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::AcquireDeadline, TimeValNanos::FromNanoseconds(deadline));
+    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::INVAL, &KSemaphore::AcquireDeadline, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -171,7 +171,7 @@ PErrorCode sys_semaphore_acquire_deadline_ns(sem_id handle, bigtime_t deadline)
 
 PErrorCode sys_semaphore_acquire_clock_ns(sem_id handle, clockid_t clockID, bigtime_t deadline)
 {
-    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::AcquireClock, clockID, TimeValNanos::FromNanoseconds(deadline));
+    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::INVAL, &KSemaphore::AcquireClock, clockID, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -180,7 +180,7 @@ PErrorCode sys_semaphore_acquire_clock_ns(sem_id handle, clockid_t clockID, bigt
 
 PErrorCode sys_semaphore_try_acquire(sem_id handle)
 {
-    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::TryAcquire);
+    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::INVAL, &KSemaphore::TryAcquire);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -189,7 +189,7 @@ PErrorCode sys_semaphore_try_acquire(sem_id handle)
 
 PErrorCode sys_semaphore_release(sem_id handle)
 {
-    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::InvalidArg, &KSemaphore::Release);
+    return KNamedObject::ForwardToHandle<KSemaphore>(handle, PErrorCode::INVAL, &KSemaphore::Release);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -200,7 +200,7 @@ PErrorCode sys_semaphore_get_count(sem_id handle, int* outCount)
 {
     const int count = KNamedObject::ForwardToHandle<KSemaphore>(handle, -1, &KSemaphore::GetCount);
     if (count == -1) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     *outCount = count;
     return PErrorCode::Success;

@@ -193,7 +193,7 @@ Ptr<KNamedObject> KNamedObject::GetObject_trw(int32_t handle, KNamedObjectType t
     Ptr<KNamedObject> object = gk_NamedObjectsTable.Get(handle);
 
     if (object == nullptr || object->GetType() != type) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     return object;
 }
@@ -222,7 +222,7 @@ Ptr<KNamedObject> KNamedObject::GetAnyObject_trw(int32_t handle)
     Ptr<KNamedObject> object = gk_NamedObjectsTable.Get(handle);
 
     if (object == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     return object;
 }

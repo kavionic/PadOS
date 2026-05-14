@@ -149,7 +149,7 @@ PErrorCode KLogManager::SetCategoryMinimumSeverity(uint32_t categoryHash, PLogSe
     else
     {
         kprintf("ERROR: kernel_log_set_category_log_level() called with unknown categoryHash %08x\n", categoryHash);
-        return PErrorCode::NoEntry;
+        return PErrorCode::NOENT;
     }
 }
 
@@ -314,7 +314,7 @@ PErrorCode ksystem_log_register_category(uint32_t categoryHash, PLogChannel chan
     {
         return KLogManager::Get().RegisterCategory(categoryHash, channel, categoryName, displayName, initialLogLevel);
     }
-    return PErrorCode::NotImplemented;
+    return PErrorCode::NOSYS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -327,7 +327,7 @@ PErrorCode ksystem_log_set_category_minimum_severity(uint32_t categoryHash, PLog
     {
         return KLogManager::Get().SetCategoryMinimumSeverity(categoryHash, logLevel);
     }
-    return PErrorCode::NotImplemented;
+    return PErrorCode::NOSYS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -76,7 +76,7 @@ FATClusterSectorIterator::FATClusterSectorIterator(Ptr<FATVolume> volume, uint32
 
 void FATClusterSectorIterator::Set(uint32_t cluster, uint32_t sector)
 {
-    if (!IsValidClusterSector(m_Volume, cluster, sector)) PERROR_THROW_CODE(PErrorCode::IOError);
+    if (!IsValidClusterSector(m_Volume, cluster, sector)) PERROR_THROW_CODE(PErrorCode::IO);
  
     m_CurrentCluster = cluster;
     m_CurrentSector  = sector;
@@ -89,10 +89,10 @@ void FATClusterSectorIterator::Set(uint32_t cluster, uint32_t sector)
 void FATClusterSectorIterator::Increment(int sectors)
 {
     if (m_CurrentSector == 0xffff) { // check if already at end of chain
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     if (sectors < 0) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }    
     if (sectors == 0) {
         return;
@@ -125,7 +125,7 @@ void FATClusterSectorIterator::Increment(int sectors)
 
     m_CurrentSector = 0xffff;
     
-    PERROR_THROW_CODE(PErrorCode::IOError);
+    PERROR_THROW_CODE(PErrorCode::IO);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -135,7 +135,7 @@ void FATClusterSectorIterator::Increment(int sectors)
 KCacheBlockDesc FATClusterSectorIterator::GetBlock_(bool doLoad)
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     return m_Volume->m_BCache.GetBlock_trw(GetBlockSector(), doLoad);
 }
@@ -147,9 +147,9 @@ KCacheBlockDesc FATClusterSectorIterator::GetBlock_(bool doLoad)
 PErrorCode FATClusterSectorIterator::MarkBlockDirty()
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
-    return m_Volume->m_BCache.MarkBlockDirty(GetBlockSector()) ? PErrorCode::Success : PErrorCode::NoEntry;
+    return m_Volume->m_BCache.MarkBlockDirty(GetBlockSector()) ? PErrorCode::Success : PErrorCode::NOENT;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -159,7 +159,7 @@ PErrorCode FATClusterSectorIterator::MarkBlockDirty()
 void FATClusterSectorIterator::ReadBlock(uint8_t* buffer)
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     m_Volume->m_BCache.CachedRead_trw(GetBlockSector(), buffer, 1);
 }
@@ -171,7 +171,7 @@ void FATClusterSectorIterator::ReadBlock(uint8_t* buffer)
 void FATClusterSectorIterator::WriteBlock(const uint8_t* buffer)
 {
     if (!IsValidClusterSector(m_Volume, m_CurrentCluster, m_CurrentSector)) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     m_Volume->m_BCache.CachedWrite_trw(GetBlockSector(), buffer, 1);
 }

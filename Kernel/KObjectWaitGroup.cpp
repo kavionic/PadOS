@@ -137,7 +137,7 @@ void KObjectWaitGroup::RemoveObjectInternal_trw(KWaitableObject* object, ObjectW
 
     auto i = std::find(m_Objects.begin(), m_Objects.end(), std::make_pair(object, waitMode));
     if (i == m_Objects.end()) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     auto j = std::find_if(i->first->m_WaitGroups.begin(), i->first->m_WaitGroups.end(), [this, waitMode](const std::pair<KObjectWaitGroup*, ObjectWaitMode>& node) {return node.first == this && node.second == waitMode; });
     if (j != i->first->m_WaitGroups.end()) {
@@ -177,7 +177,7 @@ void KObjectWaitGroup::WaitForBlockedThread_trw(TimeValNanos deadline)
         const PErrorCode result = m_BlockedThreadCondition.Wait(m_Mutex);
         --m_ObjListModsPending;
         m_BlockedThreadCondition.WakeupAll();
-        if (result != PErrorCode::Success && result != PErrorCode::Interrupted) {
+        if (result != PErrorCode::Success && result != PErrorCode::INTR) {
             PERROR_THROW_CODE(result);
         }
     }
@@ -302,7 +302,7 @@ PErrorCode KObjectWaitGroup::Wait(KMutex* lock, TimeValNanos deadline, void* rea
     }
 
     if (!isReady) {
-        return didTimeout ? PErrorCode::Timeout : PErrorCode::Interrupted;
+        return didTimeout ? PErrorCode::TIMEDOUT : PErrorCode::INTR;
     }
 
     return PErrorCode::Success;

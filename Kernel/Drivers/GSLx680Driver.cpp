@@ -234,15 +234,15 @@ void GSLx680Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* 
     switch(request)
     {
         case HIDIOCTL_SET_TARGET_PORT:
-            if (inArg == nullptr || inDataLength != sizeof(port_id)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            if (inArg == nullptr || inDataLength != sizeof(port_id)) PERROR_THROW_CODE(PErrorCode::INVAL);
             ftFile->m_TargetPort = *inArg;
             return;
         case HIDIOCTL_GET_TARGET_PORT:
-            if (outArg == nullptr || outDataLength != sizeof(port_id)) PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            if (outArg == nullptr || outDataLength != sizeof(port_id)) PERROR_THROW_CODE(PErrorCode::INVAL);
             *outArg = ftFile->m_TargetPort;
             return;
         default:
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 }
 
@@ -263,7 +263,7 @@ void GSLx680Driver::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct st
 
 bool GSLx680Driver::WriteData(int address, const void* data, size_t length)
 {
-	PErrorCode result = PErrorCode::IOError;
+	PErrorCode result = PErrorCode::IO;
 	for (int i = 0; i < 10 && result != PErrorCode::Success; ++i)
     {
 		result = kpwrite(m_I2CDevice, data, length, address);
@@ -298,7 +298,7 @@ bool GSLx680Driver::WriteRegister32(int address, uint32_t value)
 
 bool GSLx680Driver::ReadData(int address, void* data, size_t length)
 {
-	PErrorCode result = PErrorCode::IOError;
+	PErrorCode result = PErrorCode::IO;
 	for (int i = 0; i < 10 && result != PErrorCode::Success; ++i) {
 		result = kpread(m_I2CDevice, data, length, address);
 		if (result != PErrorCode::Success && i > 0) {

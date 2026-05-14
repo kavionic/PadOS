@@ -115,7 +115,7 @@ Ptr<KInode> KVirtualFilesystemBase::FindInode(Ptr<KFSVolume> volume, Ptr<KVirtua
             return FindInode(volume, ptr_static_cast<KVirtualFSBaseInode>(child), inodeNum, remove, parentNode);
         }
     }
-    PERROR_THROW_CODE(PErrorCode::IOError);
+    PERROR_THROW_CODE(PErrorCode::IO);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -167,7 +167,7 @@ Ptr<KVirtualFSBaseInode> KVirtualFilesystemBase::LocateParentInode(Ptr<KFSVolume
             nameStart = i + 1;
         }
     }
-    PERROR_THROW_CODE(PErrorCode::NoEntry);
+    PERROR_THROW_CODE(PErrorCode::NOENT);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -181,7 +181,7 @@ Ptr<KInode> KVirtualFilesystemBase::LocateInode(Ptr<KFSVolume> volume, Ptr<KInod
     CRITICAL_SCOPE(fsVolume->m_Mutex);
     Ptr<KInode> inode = LocateInodeInternal(volume, parent, name, nameLength);
     if (inode == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NoEntry);
+        PERROR_THROW_CODE(PErrorCode::NOENT);
     }
     return inode;
 }
@@ -352,7 +352,7 @@ void KVirtualFilesystemBase::RewindDirectory(Ptr<KFSVolume> volume, Ptr<KDirecto
 
 Ptr<KFileNode> KVirtualFilesystemBase::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int flags, int permission)
 {
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -370,7 +370,7 @@ void KVirtualFilesystemBase::CreateSymlink(Ptr<KFSVolume> volume, Ptr<KInode> pa
     PString nodeName(name, nameLength);
     if (fsParent->m_Children.find(nodeName) != fsParent->m_Children.end())
     {
-        PERROR_THROW_CODE(PErrorCode::Exist);
+        PERROR_THROW_CODE(PErrorCode::EXIST);
     }
 
     Ptr<KVirtualFSBaseInode> linkInode = ptr_new<KVirtualFSBaseInode>(ptr_tmp_cast(this), volume, ptr_raw_pointer_cast(fsParent), this, S_IFLNK | S_IRWXU | S_IRWXG | S_IRWXO);
@@ -413,7 +413,7 @@ void KVirtualFilesystemBase::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> 
     PString nodeName(name, nameLength);
     if (parent->m_Children.find(nodeName) != parent->m_Children.end())
     {
-        PERROR_THROW_CODE(PErrorCode::Exist);
+        PERROR_THROW_CODE(PErrorCode::EXIST);
     }
     parent->m_Children[nodeName] = dir;
 }
@@ -443,7 +443,7 @@ size_t KVirtualFilesystemBase::ReadLink(Ptr<KFSVolume> volume, Ptr<KInode> inode
     CRITICAL_SCOPE(fsVolume->m_Mutex);
 
     if (!S_ISLNK(inode->m_FileMode)) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     Ptr<KVirtualFSBaseInode> fsInode = ptr_static_cast<KVirtualFSBaseInode>(inode);

@@ -181,7 +181,7 @@ Ptr<KFileNode> SDMMCDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> node, in
     CRITICAL_SCOPE(m_Mutex);
 
     if (!IsReady()) {
-        PERROR_THROW_CODE(PErrorCode::NoDevice);
+        PERROR_THROW_CODE(PErrorCode::NODEV);
     }
     return KFilesystemFileOps::OpenFile(volume, node, flags);
 }
@@ -195,7 +195,7 @@ void SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
     CRITICAL_SCOPE(m_Mutex);
 
     if (!IsReady()) {
-        PERROR_THROW_CODE(PErrorCode::NoDevice);
+        PERROR_THROW_CODE(PErrorCode::NODEV);
     }
 
     switch(request)
@@ -203,7 +203,7 @@ void SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
         case DEVCTL_GET_DEVICE_GEOMETRY:
         {
             if (outData == nullptr || outDataLength < sizeof(device_geometry)) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             device_geometry* geometry = static_cast<device_geometry*>(outData);
             geometry->bytes_per_sector  = BLOCK_SIZE;
@@ -218,7 +218,7 @@ void SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
         case SDCDEVCTL_SDIO_READ_DIRECT:
         {
             if (inData == nullptr || outData == nullptr || inDataLength < sizeof(SDCDEVCTL_SDIOReadDirectArgs) || outDataLength != sizeof(uint8_t)) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             const SDCDEVCTL_SDIOReadDirectArgs* args = static_cast<const SDCDEVCTL_SDIOReadDirectArgs*>(inData);
             SDIOReadDirect(args->FunctionNumber, args->Address, static_cast<uint8_t*>(outData));
@@ -227,7 +227,7 @@ void SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
         case SDCDEVCTL_SDIO_WRITE_DIRECT:
         {
             if (inData == nullptr || inDataLength < sizeof(SDCDEVCTL_SDIOWriteDirectArgs)) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             const SDCDEVCTL_SDIOWriteDirectArgs* args = static_cast<const SDCDEVCTL_SDIOWriteDirectArgs*>(inData);
             SDIOWriteDirect(args->FunctionNumber, args->Address, args->Data);
@@ -236,7 +236,7 @@ void SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
         case SDCDEVCTL_SDIO_READ_EXTENDED:
         {
             if (inData == nullptr || outData == nullptr || inDataLength < sizeof(SDCDEVCTL_SDIOReadExtendedArgs)) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             const SDCDEVCTL_SDIOReadExtendedArgs* args = static_cast<const SDCDEVCTL_SDIOReadExtendedArgs*>(inData);
             SDIOReadExtended(args->FunctionNumber, args->Address, args->IncrementAddr, outData, outDataLength);
@@ -245,14 +245,14 @@ void SDMMCDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* in
         case SDCDEVCTL_SDIO_WRITE_EXTENDED:        
         {
             if (inData == nullptr || inDataLength < sizeof(SDCDEVCTL_SDIOWriteExtendedArgs)) {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
             const SDCDEVCTL_SDIOWriteExtendedArgs* args = static_cast<const SDCDEVCTL_SDIOWriteExtendedArgs*>(inData);
             SDIOWriteExtended(args->FunctionNumber, args->Address, args->IncrementAddr, args->Buffer, args->Size);
             return;
         }
     }
-    PERROR_THROW_CODE(PErrorCode::NotImplemented);
+    PERROR_THROW_CODE(PErrorCode::NOSYS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -283,7 +283,7 @@ size_t SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t se
     }
     
     if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     
     const uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
@@ -298,11 +298,11 @@ size_t SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t se
         CRITICAL_SCOPE(m_Mutex, needLocking);
 
         if (!IsReady()) {
-            PERROR_THROW_CODE(PErrorCode::NoDevice);
+            PERROR_THROW_CODE(PErrorCode::NODEV);
         }
     
         if (!Cmd13_sdmmc()) {
-            error = PErrorCode::IOError;
+            error = PErrorCode::IO;
             continue;
         }
 
@@ -316,14 +316,14 @@ size_t SDMMCDriver::Read(Ptr<KFileNode> file, const iovec_t* segments, size_t se
         }
 
         if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount)) {
-            error = PErrorCode::IOError;
+            error = PErrorCode::IO;
             continue;
         }
         uint32_t response = GetResponse();
         if (response & CARD_STATUS_ERR_RD_WR)
         {
             kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver::Read() Read {:02} response 0x{:08x} CARD_STATUS_ERR_RD_WR.", int(SDMMC_CMD_GET_INDEX(cmd)), response);
-            error = PErrorCode::IOError;
+            error = PErrorCode::IO;
             continue;
         }
 
@@ -369,7 +369,7 @@ size_t SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t s
 
 
     if ((position % BLOCK_SIZE) != 0 || (length % BLOCK_SIZE) != 0) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     uint32_t firstBlock = uint32_t(position / BLOCK_SIZE);
@@ -384,7 +384,7 @@ size_t SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t s
         CRITICAL_SCOPE(m_Mutex, needLocking);
 
         if (!IsReady()) {
-            PERROR_THROW_CODE(PErrorCode::NoDevice);
+            PERROR_THROW_CODE(PErrorCode::NODEV);
         }
 
         uint32_t cmd = (blockCount > 1) ? SDMMC_CMD25_WRITE_MULTIPLE_BLOCK : SDMMC_CMD24_WRITE_BLOCK;
@@ -397,20 +397,20 @@ size_t SDMMCDriver::Write(Ptr<KFileNode> file, const iovec_t* segments, size_t s
         }
 
         if (!StartAddressedDataTransCmd(cmd, start, get_first_bit_index(BLOCK_SIZE), blockCount, segments, segmentCount)) {
-            error = PErrorCode::IOError;
+            error = PErrorCode::IO;
             continue;
         }
         uint32_t response = GetResponse();
         if (response & CARD_STATUS_ERR_RD_WR)
         {
             kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver::Write() Write {:02} response 0x{:08x} CARD_STATUS_ERR_RD_WR.", int(SDMMC_CMD_GET_INDEX(cmd)), response);
-            error = PErrorCode::IOError;
+            error = PErrorCode::IO;
             continue;
         }
 
 		// SPI multi-block writes terminate using a special token, not a STOP_TRANSMISSION request.
         if (blockCount > 1 && !StopAddressedDataTransCmd(SDMMC_CMD12_STOP_TRANSMISSION, 0)) {
-            error = PErrorCode::IOError;
+            error = PErrorCode::IO;
             continue;
         }
         break;
@@ -626,7 +626,7 @@ void SDMMCDriver::ReadPartitionData(void* userData, off64_t position, void* buff
     segment.iov_len = size;
     if (static_cast<SDMMCDriver*>(userData)->Read(nullptr, &segment, 1, position) != size)
     {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 }
 
@@ -675,7 +675,7 @@ void SDMMCDriver::DecodePartitions(bool force)
 	    if (!force && !found && partition->bi_nOpenCount > 0)
         {
             kernel_log<PLogSeverity::ERROR>(LogCategorySDMMCDriver, "SDMMCDriver::DecodePartitions() Open partition has changed.");
-            PERROR_THROW_CODE(PErrorCode::Busy);
+            PERROR_THROW_CODE(PErrorCode::BUSY);
 	    }
     }
     
@@ -859,10 +859,10 @@ void SDMMCDriver::SetState(CardState state)
 void SDMMCDriver::SDIOReadDirect(uint8_t functionNumber, uint32_t addr, uint8_t *dest)
 {
     if (dest == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     if (!Cmd52_sdio(SDIO_CMD52_READ_FLAG, functionNumber, addr, 0, dest)) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 }
 
@@ -873,7 +873,7 @@ void SDMMCDriver::SDIOReadDirect(uint8_t functionNumber, uint32_t addr, uint8_t 
 void SDMMCDriver::SDIOWriteDirect(uint8_t functionNumber, uint32_t addr, uint8_t data)
 {
     if (!Cmd52_sdio(SDIO_CMD52_WRITE_FLAG, functionNumber, addr, 0, &data)) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 }
 
@@ -884,13 +884,13 @@ void SDMMCDriver::SDIOWriteDirect(uint8_t functionNumber, uint32_t addr, uint8_t
 ssize_t SDMMCDriver::SDIOReadExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, void* buffer, size_t size)
 {
     if ((size == 0) || (size > BLOCK_SIZE)) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
 	if (Cmd53_sdio(SDIO_CMD53_READ_FLAG, functionNumber, addr, incrementAddr, size, buffer)) {
 		return size;
 	} else {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 }
 
@@ -901,10 +901,10 @@ ssize_t SDMMCDriver::SDIOReadExtended(uint8_t functionNumber, uint32_t addr, uin
 ssize_t SDMMCDriver::SDIOWriteExtended(uint8_t functionNumber, uint32_t addr, uint8_t incrementAddr, const void* buffer, size_t size)
 {
     if ((size == 0) || (size > BLOCK_SIZE)) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     if (!Cmd53_sdio(SDIO_CMD53_WRITE_FLAG, functionNumber, addr, incrementAddr, size, buffer)) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     return size;
 }

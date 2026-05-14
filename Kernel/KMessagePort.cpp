@@ -173,14 +173,14 @@ PErrorCode KMessagePort::SendMessageDeadline(handler_id targetHandler, int32_t c
     while (m_MessageCount >= m_MaxCount)
     {
         const PErrorCode result = m_SendCondition.WaitDeadline(m_Mutex, deadline);
-        if (result != PErrorCode::Success && result != PErrorCode::Interrupted) {
+        if (result != PErrorCode::Success && result != PErrorCode::INTR) {
             return result;
         }
     }
 
     KMessagePortMessage* message = alloc_message(length);
     if (message == nullptr) {
-        return PErrorCode::NoMemory;
+        return PErrorCode::NOMEM;
     }
     message->m_TargetHandler = targetHandler;
     message->m_Code = code;
@@ -211,7 +211,7 @@ ssize_t KMessagePort::ReceiveMessage_trw(handler_id* targetHandler, int32_t* cod
     while (m_MessageCount == 0)
     {
         const PErrorCode result = m_ReceiveCondition.Wait(m_Mutex);
-        if (result != PErrorCode::Success && result != PErrorCode::Interrupted) {
+        if (result != PErrorCode::Success && result != PErrorCode::INTR) {
             PERROR_THROW_CODE(result);
         }
     }
@@ -238,7 +238,7 @@ ssize_t KMessagePort::ReceiveMessageDeadline_trw(handler_id* targetHandler, int3
     while (m_MessageCount == 0)
     {
         const PErrorCode result = m_ReceiveCondition.WaitDeadline(m_Mutex, deadline);
-        if (result != PErrorCode::Success && result != PErrorCode::Interrupted) {
+        if (result != PErrorCode::Success && result != PErrorCode::INTR) {
             PERROR_THROW_CODE(result);
         }
     }
@@ -254,7 +254,7 @@ ssize_t KMessagePort::DetachMessage_trw(handler_id* targetHandler, int32_t* code
     KMessagePortMessage* message = m_FirstMsg;
     kassure(m_MessageCount > 0 && message != nullptr, "ERROR: KMessagePort::ReceiveMessage() acquired receive semaphore with no message available.: %s\n", GetName());
     if (message == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg); // DetachMessage() should never be called unless there is a message available.
+        PERROR_THROW_CODE(PErrorCode::INVAL); // DetachMessage() should never be called unless there is a message available.
     }
     m_FirstMsg = message->m_Next;
     if (m_FirstMsg == nullptr) {

@@ -34,26 +34,26 @@
 
 #define PERROR_CATCH(HANDLER) \
     catch (const std::system_error& error) { HANDLER(PErrorCode(error.code().value())); } \
-    catch (const std::bad_alloc& error)    { HANDLER(PErrorCode::NoMemory); } \
-    catch (const std::exception& error)    { HANDLER(PErrorCode::InvalidArg); } \
+    catch (const std::bad_alloc& error)    { HANDLER(PErrorCode::NOMEM); } \
+    catch (const std::exception& error)    { HANDLER(PErrorCode::INVAL); } \
     ((void)0)
 
 #define PERROR_CATCH_RET(HANDLER) \
     catch (const std::system_error& error) { return HANDLER(error, PErrorCode(error.code().value())); } \
-    catch (const std::bad_alloc& error)    { return HANDLER(error, PErrorCode::NoMemory); } \
-    catch (const std::exception& error)    { return HANDLER(error, PErrorCode::InvalidArg); } \
+    catch (const std::bad_alloc& error)    { return HANDLER(error, PErrorCode::NOMEM); } \
+    catch (const std::exception& error)    { return HANDLER(error, PErrorCode::INVAL); } \
     ((void)0)
 
 #define PERROR_CATCH_RET_CODE \
     catch (const std::system_error& error) { return PErrorCode(error.code().value()); } \
-    catch (const std::bad_alloc& error)    { return PErrorCode::NoMemory; } \
-    catch (const std::exception& error)    { return PErrorCode::InvalidArg; } \
+    catch (const std::bad_alloc& error)    { return PErrorCode::NOMEM; } \
+    catch (const std::exception& error)    { return PErrorCode::INVAL; } \
     ((void)0)
 
 #define PERROR_CATCH_RET_SYSRET \
     catch (const std::system_error& error) { return PMakeSysRetFail(PErrorCode(error.code().value())); } \
-    catch (const std::bad_alloc& error)    { return PMakeSysRetFail(PErrorCode::NoMemory); } \
-    catch (const std::exception& error)    { return PMakeSysRetFail(PErrorCode::InvalidArg); } \
+    catch (const std::bad_alloc& error)    { return PMakeSysRetFail(PErrorCode::NOMEM); } \
+    catch (const std::exception& error)    { return PMakeSysRetFail(PErrorCode::INVAL); } \
     ((void)0)
 
 #define PERROR_CATCH_SET_ERRNO(RET_VAL) \

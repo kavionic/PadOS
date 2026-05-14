@@ -65,7 +65,7 @@ PErrorCode sys_posix_spawn(pid_t* outPID, ThreadEntryTrampoline_t entryTrampolin
 PErrorCode sys_posix_spawnattr_init(PPosixSpawnAttribs* attr, size_t attrSize)
 {
     if (attrSize != sizeof(*attr)) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     try
     {

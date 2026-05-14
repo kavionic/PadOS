@@ -67,9 +67,9 @@ PErrorCode sys_condition_var_wait(handle_id handle, handle_id mutexHandle)
 {
     Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(mutexHandle, KNamedObjectType::Mutex));
     if (mutex == nullptr) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
-    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&)>(&KConditionVariable::WaitCancelable), *mutex);
+    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::INVAL, static_cast<PErrorCode(KConditionVariable::*)(KMutex&)>(&KConditionVariable::WaitCancelable), *mutex);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -89,9 +89,9 @@ PErrorCode sys_condition_var_wait_deadline_ns(handle_id handle, handle_id mutexH
 {
     Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(mutexHandle, KNamedObjectType::Mutex));
     if (mutex == nullptr) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
-    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, TimeValNanos)>(&KConditionVariable::WaitDeadlineCancelable), *mutex, TimeValNanos::FromNanoseconds(deadline));
+    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::INVAL, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, TimeValNanos)>(&KConditionVariable::WaitDeadlineCancelable), *mutex, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -102,9 +102,9 @@ PErrorCode sys_condition_var_wait_clock_ns(handle_id handle, handle_id mutexHand
 {
     Ptr<KMutex> mutex = ptr_static_cast<KMutex>(KNamedObject::GetObject(mutexHandle, KNamedObjectType::Mutex));
     if (mutex == nullptr) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
-    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, clockid_t, TimeValNanos)>(&KConditionVariable::WaitClockCancelable), *mutex, clockID, TimeValNanos::FromNanoseconds(deadline));
+    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::INVAL, static_cast<PErrorCode(KConditionVariable::*)(KMutex&, clockid_t, TimeValNanos)>(&KConditionVariable::WaitClockCancelable), *mutex, clockID, TimeValNanos::FromNanoseconds(deadline));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -113,7 +113,7 @@ PErrorCode sys_condition_var_wait_clock_ns(handle_id handle, handle_id mutexHand
 
 PErrorCode sys_condition_var_wakeup(handle_id handle, int threadCount)
 {
-    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, &KConditionVariable::Wakeup, threadCount);
+    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::INVAL, &KConditionVariable::Wakeup, threadCount);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -122,7 +122,7 @@ PErrorCode sys_condition_var_wakeup(handle_id handle, int threadCount)
 
 PErrorCode sys_condition_var_wakeup_all(handle_id handle)
 {
-    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::InvalidArg, &KConditionVariable::WakeupAll);
+    return KNamedObject::ForwardToHandle<KConditionVariable>(handle, PErrorCode::INVAL, &KConditionVariable::WakeupAll);
 }
 
 } // extern "C"

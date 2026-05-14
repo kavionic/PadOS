@@ -155,7 +155,7 @@ size_t USBClientCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t lengt
 
     if (!file->HasReadAccess())
     {
-        PERROR_THROW_CODE(PErrorCode::NoAccess);
+        PERROR_THROW_CODE(PErrorCode::ACCES);
     }
     if (m_IsActive)
     {
@@ -168,17 +168,17 @@ size_t USBClientCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t lengt
                 while (m_ReceiveFIFO.GetLength() == 0)
                 {
                     const PErrorCode result = m_ReceiveCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline);
-                    if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
+                    if (result != PErrorCode::Success && result != PErrorCode::INTR)
                     {
                         PERROR_THROW_CODE(result);
                     }
                     if (!m_IsActive)
                     {
-                        PERROR_THROW_CODE(PErrorCode::BrokenPipe);
+                        PERROR_THROW_CODE(PErrorCode::PIPE);
                     }
                     if (!file->HasReadAccess())
                     {
-                        PERROR_THROW_CODE(PErrorCode::NoAccess);
+                        PERROR_THROW_CODE(PErrorCode::ACCES);
                     }
                 }
             }
@@ -193,7 +193,7 @@ size_t USBClientCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t lengt
         }
         return result;
     }
-    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
+    PERROR_THROW_CODE(PErrorCode::PIPE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -207,7 +207,7 @@ size_t USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_
 
     if (!file->HasWriteAccess())
     {
-        PERROR_THROW_CODE(PErrorCode::NoAccess);
+        PERROR_THROW_CODE(PErrorCode::ACCES);
     }
     if (m_IsActive)
     {
@@ -221,17 +221,17 @@ size_t USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_
                 {
                     FlushInternal();
                     const PErrorCode result = m_TransmitCondition.WaitDeadline(m_DeviceHandler->GetMutex(), deadline);
-                    if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
+                    if (result != PErrorCode::Success && result != PErrorCode::INTR)
                     {
                         PERROR_THROW_CODE(result);
                     }
                     if (!m_IsActive)
                     {
-                        PERROR_THROW_CODE(PErrorCode::BrokenPipe);
+                        PERROR_THROW_CODE(PErrorCode::PIPE);
                     }
                     if (!file->HasWriteAccess())
                     {
-                        PERROR_THROW_CODE(PErrorCode::NoAccess);
+                        PERROR_THROW_CODE(PErrorCode::ACCES);
                     }
                 }
             }
@@ -248,7 +248,7 @@ size_t USBClientCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_
         }
         return result;
     }
-    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
+    PERROR_THROW_CODE(PErrorCode::PIPE);
 }
 
 void USBClientCDCChannel::Sync(Ptr<KFileNode> file)
@@ -260,7 +260,7 @@ void USBClientCDCChannel::Sync(Ptr<KFileNode> file)
         FlushInternal();
         return;
     }
-    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
+    PERROR_THROW_CODE(PErrorCode::PIPE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -289,7 +289,7 @@ void USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const 
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_GET_READ_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t))
@@ -300,7 +300,7 @@ void USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const 
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_SET_WRITE_TIMEOUT:
             if (inDataLength == sizeof(bigtime_t))
@@ -311,7 +311,7 @@ void USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const 
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_GET_WRITE_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t))
@@ -322,10 +322,10 @@ void USBClientCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const 
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         default:
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 }
 

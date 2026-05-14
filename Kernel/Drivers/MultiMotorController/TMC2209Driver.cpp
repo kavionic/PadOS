@@ -63,7 +63,7 @@ void TMC2209Driver::Setup_trw(
     if (controlPort == nullptr)
     {
         p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "TMC2209Driver::Setup(): missing control port.");
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     StepperDriver::Setup_trw(timerID, pinStep, pinEnable, pinDirection);
 
@@ -294,7 +294,7 @@ void TMC2209Driver::SetHaltOnStall(bool doHalt)
 
 uint32_t TMC2209Driver::ReadRegister_trw(uint8_t registerAddress) const
 {
-    if (!IsInitialized()) PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    if (!IsInitialized()) PERROR_THROW_CODE(PErrorCode::INVAL);
     
     for (int i = 0; i < 8; ++i)
     {
@@ -305,7 +305,7 @@ uint32_t TMC2209Driver::ReadRegister_trw(uint8_t registerAddress) const
         PERROR_CATCH([](PErrorCode) {});
     }
     p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "TMC2209Driver::ReadRegister({}, {}) To many retries.", m_ChipAddress, registerAddress);
-    PERROR_THROW_CODE(PErrorCode::IOError);
+    PERROR_THROW_CODE(PErrorCode::IO);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -314,7 +314,7 @@ uint32_t TMC2209Driver::ReadRegister_trw(uint8_t registerAddress) const
 
 void TMC2209Driver::WriteRegister_trw(uint8_t registerAddress, uint32_t data) const
 {
-    if (!IsInitialized()) PERROR_THROW_CODE(PErrorCode::InvalidArg);
+    if (!IsInitialized()) PERROR_THROW_CODE(PErrorCode::INVAL);
 
     for (int i = 0; i < 5; ++i)
     {
@@ -333,7 +333,7 @@ void TMC2209Driver::WriteRegister_trw(uint8_t registerAddress, uint32_t data) co
         PERROR_CATCH([](PErrorCode) {});
     }
     p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "TMC2209Driver::WriteRegister({}, {}) failed to update register. To many retries.", m_ChipAddress, registerAddress);
-    PERROR_THROW_CODE(PErrorCode::IOError);
+    PERROR_THROW_CODE(PErrorCode::IO);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

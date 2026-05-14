@@ -319,7 +319,7 @@ PErrorCode kget_clock_time_offset_ns(clockid_t clockID, time_t& outOffset) noexc
             outOffset = 0;
             return PErrorCode::Success;
     }
-    return PErrorCode::InvalidArg;
+    return PErrorCode::INVAL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

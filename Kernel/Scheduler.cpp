@@ -166,7 +166,7 @@ PErrorCode wakeup_thread(KThreadCB& thread, bool wakeupSuspended) noexcept
     KSchedulerLock slock;
 
     if (thread.IsZombie()) {
-        return PErrorCode::NoSuchProcess;
+        return PErrorCode::SRCH;
     }
     const ThreadState state = thread.GetState();
     if (state == ThreadState_Sleeping || state == ThreadState_Waiting || (wakeupSuspended && state == ThreadState_Stopped))
@@ -174,7 +174,7 @@ PErrorCode wakeup_thread(KThreadCB& thread, bool wakeupSuspended) noexcept
         add_thread_to_ready_list(&thread);
         return PErrorCode::Success;
     }
-    return PErrorCode::InvalidArg;
+    return PErrorCode::INVAL;
 }
 
 namespace

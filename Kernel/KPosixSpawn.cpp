@@ -52,21 +52,21 @@ void kposix_spawn_trw(pid_t* outPID, ThreadEntryTrampoline_t entryTrampoline, co
         kread_stat_trw(file, &fileStats);
 
         if ((fileStats.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) == 0) {
-            PERROR_THROW_CODE(PErrorCode::NoAccess);
+            PERROR_THROW_CODE(PErrorCode::ACCES);
         }
         if (fileStats.st_size > NAME_MAX) {
-            PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+            PERROR_THROW_CODE(PErrorCode::FTYPE);
         }
         PString appName;
         appName.resize(size_t(fileStats.st_size));
         if (kread_trw(file, appName.data(), appName.size()) != appName.size()) {
-            PERROR_THROW_CODE(PErrorCode::IOError);
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
         app = PAppDefinition::FindApplication(appName.c_str());
     }
 
     if (app == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidFileType);
+        PERROR_THROW_CODE(PErrorCode::FTYPE);
     }
     threadUserData->TLSData->Ptr1 = const_cast<void*>(static_cast<const void*>(app));
     threadUserData->TLSData->Ptr2 = const_cast<void*>(static_cast<const void*>(argv));

@@ -126,7 +126,7 @@ size_t USARTDriverInode::Read(Ptr<KFileNode> file, void* buffer, const size_t le
         } CRITICAL_END;
         if (result != PErrorCode::Success)
         {
-            if (result != PErrorCode::Interrupted) {
+            if (result != PErrorCode::INTR) {
                 PERROR_THROW_CODE(result);
             }
         }
@@ -190,7 +190,7 @@ void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const voi
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_GET_BAUDRATE:
             if (outDataLength == sizeof(int))
@@ -201,7 +201,7 @@ void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const voi
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_SET_READ_TIMEOUT:
             if (inDataLength == sizeof(bigtime_t))
@@ -212,7 +212,7 @@ void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const voi
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_GET_READ_TIMEOUT:
             if (outDataLength == sizeof(bigtime_t))
@@ -223,7 +223,7 @@ void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const voi
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_SET_IOCTRL:
             if (inDataLength == sizeof(uint32_t))
@@ -234,7 +234,7 @@ void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const voi
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_GET_IOCTRL:
             if (outDataLength == sizeof(uint32_t))
@@ -245,7 +245,7 @@ void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const voi
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_SET_PINMODE:
             if (inDataLength == sizeof(int))
@@ -265,7 +265,7 @@ void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const voi
                         }
                         else
                         {
-                            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                            PERROR_THROW_CODE(PErrorCode::INVAL);
                         }
                     case USARTPin::TX:
                         if (SetPinMode(m_PinTX, mode))
@@ -276,15 +276,15 @@ void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const voi
                         }
                         else
                         {
-                            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                            PERROR_THROW_CODE(PErrorCode::INVAL);
                         }
                     default:
-                        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                        PERROR_THROW_CODE(PErrorCode::INVAL);
                 }
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_GET_PINMODE:
             if (inDataLength == sizeof(int) && outDataLength == sizeof(int))
@@ -303,12 +303,12 @@ void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const voi
                         *result = int(m_PinModeTX);
                         return;
                     default:
-                        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                        PERROR_THROW_CODE(PErrorCode::INVAL);
                 }
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_SET_SWAPRXTX:
             if (inDataLength == sizeof(int))
@@ -319,7 +319,7 @@ void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const voi
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_GET_SWAPRXTX:
             if (outDataLength == sizeof(int))
@@ -330,11 +330,11 @@ void USARTDriverInode::DeviceControl(Ptr<KFileNode> file, int request, const voi
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
 
         default:
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
 }

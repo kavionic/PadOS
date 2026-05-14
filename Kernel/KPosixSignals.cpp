@@ -122,16 +122,16 @@ bool kis_thread_canceled()
 PErrorCode ksend_signal_to_thread(KThreadCB& thread, int sigNum) noexcept
 {
     if (sigNum < 0 || sigNum >= KTOTAL_SIG_COUNT) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     if (thread.m_KernelThread) {
-        return PErrorCode::NoAccess;
+        return PErrorCode::ACCES;
     }
 
     KSchedulerLock lock;
 
     if (thread.IsZombie()) {
-        return PErrorCode::NoSuchProcess;
+        return PErrorCode::SRCH;
     }
     if (sigNum == 0) { // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target thread.
         return PErrorCode::Success;
@@ -175,12 +175,12 @@ PErrorCode kqueue_signal_to_thread_pl(KThreadCB& thread, int sigNum, sigval_t va
     kassert(g_PIDMapMutex.IsLocked());
 
     if (thread.IsZombie()) {
-        return PErrorCode::NoSuchProcess;
+        return PErrorCode::SRCH;
     }
     Ptr<KProcess> process = thread.m_Process;
 
     if (!kcheck_kill_permission(*process, sigNum)) {
-        PERROR_THROW_CODE(PErrorCode::NoAccess);
+        PERROR_THROW_CODE(PErrorCode::ACCES);
     }
     if (sigNum == 0) {
         return PErrorCode::Success; // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target(s).
@@ -221,7 +221,7 @@ PErrorCode kqueue_signal_to_thread_pl(KThreadCB& thread, int sigNum, sigval_t va
         }
         else
         {
-            return PErrorCode::NoMemory;
+            return PErrorCode::NOMEM;
         }
     }
     node->Next   = nullptr;
@@ -300,7 +300,7 @@ PErrorCode ksigaction(int sigNum, const struct sigaction* action, struct sigacti
     const int sigIndex = sigNum - 1;
 
     if (sigIndex < 0 || sigIndex >= KTOTAL_SIG_COUNT) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     KProcess& process = kget_current_process();
 
@@ -355,7 +355,7 @@ PErrorCode kthread_sigmask(int how, const sigset_t* newSet, sigset_t* outOldSet)
                 newMask = *newSet;
                 break;
             default:
-                return PErrorCode::InvalidArg;
+                return PErrorCode::INVAL;
         }
         thread.m_BlockedSignals = newMask & KBLOCKABLE_SIGNALS_MASK;
     }
@@ -374,15 +374,15 @@ PErrorCode kthread_kill(thread_id threadID, int sigNum)
     const Ptr<KThreadCB> thread = kget_thread_pl(threadID);
 
     if (thread == nullptr) {
-        return PErrorCode::NoSuchProcess;
+        return PErrorCode::SRCH;
     }
     Ptr<KProcess> process = thread->m_Process;
     if (process == nullptr) {
-        return PErrorCode::NoSuchProcess;
+        return PErrorCode::SRCH;
     }
 
     if (!kcheck_kill_permission(*process, sigNum)) {
-        PERROR_THROW_CODE(PErrorCode::NoAccess);
+        PERROR_THROW_CODE(PErrorCode::ACCES);
     }
     if (sigNum == 0) {
         return PErrorCode::Success; // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target(s).
@@ -435,9 +435,9 @@ static void kkill_if_trw(TDelegate&& delegate, int sigNum)
             const PErrorCode result = kkill_pl(pidNode->PID, sigNum);
             if (result == PErrorCode::Success) {
                 deliveredAny = true;
-            } else if (result == PErrorCode::NoSuchProcess) {
+            } else if (result == PErrorCode::SRCH) {
                 // Ignore processes that die before we get to kill them.
-            } else if (result == PErrorCode::NoAccess || error != PErrorCode::NoAccess) {
+            } else if (result == PErrorCode::ACCES || error != PErrorCode::ACCES) {
                 error = result;
             }
         }
@@ -486,7 +486,7 @@ void kkill_trw_pl(pid_t pid, int sigNum)
         kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_Signals, "kill({}({}), {}", targetName.c_str(), pid, strsignal(sigNum));
     }
     if (sigNum < 0 || sigNum >= KTOTAL_SIG_COUNT) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     if (pid == -1)
     {
@@ -503,7 +503,7 @@ void kkill_trw_pl(pid_t pid, int sigNum)
         if (group != nullptr && group->GetID() > 1) {
             kkillpg_trw_pl(*group, sigNum);
         } else {
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
         }
     }
     else
@@ -546,7 +546,7 @@ void kkillpid_trw_pl(pid_t pid, int sigNum)
 {
     Ptr<KProcess> targetProcess = KProcess::GetProcess_pl(pid);
     if (targetProcess == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+        PERROR_THROW_CODE(PErrorCode::SRCH);
     }
     kkillpid_trw_pl(*targetProcess, sigNum);
 }
@@ -558,7 +558,7 @@ void kkillpid_trw_pl(pid_t pid, int sigNum)
 void kkillpid_trw_pl(KProcess& targetProcess, int sigNum)
 {
     if (!kcheck_kill_permission(targetProcess, sigNum)) {
-        PERROR_THROW_CODE(PErrorCode::NoAccess);
+        PERROR_THROW_CODE(PErrorCode::ACCES);
     }
     if (sigNum == 0) {
         return; // Sending signal 0 succeed if a signal can be delivered and fail if not, but does not affect the target(s).
@@ -600,13 +600,13 @@ void kkillpg_trw_pl(pid_t pgroup, int sigNum)
     kassert(g_PIDMapMutex.IsLocked());
 
     if (pgroup < 1) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     Ptr<KPIDNode> pidNode = kget_pid_node_pl(pgroup);
 
     if (pidNode == nullptr || pidNode->Group == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::NoSuchProcess);
+        PERROR_THROW_CODE(PErrorCode::SRCH);
     }
 
     kkillpg_trw_pl(*pidNode->Group, sigNum);
@@ -628,9 +628,9 @@ void kkillpg_trw_pl(const KProcessGroup& group, int sigNum)
         const PErrorCode result = kkill_pl(process->GetPID(), sigNum);
         if (result == PErrorCode::Success) {
             deliveredAny = true;
-        } else if (result == PErrorCode::NoSuchProcess) {
+        } else if (result == PErrorCode::SRCH) {
             // Ignore processes that die before we get to kill them.
-        } else if (result == PErrorCode::NoAccess || error != PErrorCode::NoAccess) {
+        } else if (result == PErrorCode::ACCES || error != PErrorCode::ACCES) {
             error = result;
         }
     }

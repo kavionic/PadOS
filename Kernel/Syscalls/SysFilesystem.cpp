@@ -100,7 +100,7 @@ PErrorCode sys_fcntl(int file, int cmd, int arg, int* outResult)
                 return PErrorCode::Success;
             }
             default:
-                return PErrorCode::NotImplemented;
+                return PErrorCode::NOSYS;
         }
     }
     PERROR_CATCH_RET_CODE;
@@ -213,7 +213,7 @@ PErrorCode sys_write_stat(int file, const struct stat* value, uint32_t mask)
 
 PErrorCode sys_isatty(int file)
 {
-    return PErrorCode::NotImplemented;
+    return PErrorCode::NOSYS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

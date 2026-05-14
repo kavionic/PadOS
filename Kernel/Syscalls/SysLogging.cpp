@@ -84,7 +84,7 @@ PErrorCode sys_system_log_get_category_channel(uint32_t categoryHash, PLogChanne
 static PErrorCode system_log_get_name(char* buffer, size_t bufferLen, const char* name, size_t nameLen)
 {
     if (bufferLen == 0) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     try
     {
@@ -94,7 +94,7 @@ static PErrorCode system_log_get_name(char* buffer, size_t bufferLen, const char
         {
             memcpy(buffer, name, bufferLen - 1);
             buffer[bufferLen - 1] = 0;
-            return PErrorCode::Overflow;
+            return PErrorCode::OVERFLOW;
         }
         memcpy(buffer, name, nameLen);
         buffer[nameLen] = 0;

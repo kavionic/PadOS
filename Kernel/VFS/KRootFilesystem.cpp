@@ -70,7 +70,7 @@ int KRootFilesystem::RegisterDevice(const char* path, Ptr<KInode> deviceNode)
     int nameLength = pathLength - nameStart;
     if (nameLength == 0)
     {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     int32_t handle = AllocInodeNumber();
@@ -102,7 +102,7 @@ void KRootFilesystem::RenameDevice(int handle, const char* newPath)
     int nameLength = pathLength - nameStart;
     if (nameLength == 0)
     {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     newParent->m_Children[newPath + nameStart] = node;
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCatKernel_Drivers, "Rename device {} at '/dev/{}'.", handle, newPath);

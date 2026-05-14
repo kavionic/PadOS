@@ -88,7 +88,7 @@ PErrorCode PThreadLocalSlotManager::AllocSlot(tls_id& outKey, TLSDestructor_t de
     tls_id index = FindFreeIndex();
 
     if (index == INVALID_INDEX) {
-        return PErrorCode::TryAgain;
+        return PErrorCode::AGAIN;
     }
 
     try
@@ -120,7 +120,7 @@ PErrorCode PThreadLocalSlotManager::FreeSlot(tls_id slot)
 
     if (slot >= THREAD_MAX_TLS_SLOTS)
     {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     for (const auto& threadSlots : m_ThreadSlotsMap)
     {
@@ -154,7 +154,7 @@ void* PThreadLocalSlotManager::GetSlot(tls_id key)
 PErrorCode PThreadLocalSlotManager::SetSlot(tls_id key, const void* value)
 {
     if (size_t(key) >= THREAD_MAX_TLS_SLOTS) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     if (s_ThreadSlots == nullptr || s_ThreadSlots->size() <= key)
     {

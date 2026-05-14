@@ -151,7 +151,7 @@ void FATTableIterator::SetEntry(uint32_t value)
         m_Block1.MarkDirty();
         return;
     }
-    PERROR_THROW_CODE(PErrorCode::IOError);
+    PERROR_THROW_CODE(PErrorCode::IO);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -192,7 +192,7 @@ uint32_t FATTableIterator::GetEntry()
     {
         return block1[m_OffsetInSector] + 0x100*block1[m_OffsetInSector + 1] + 0x10000*block1[m_OffsetInSector + 2] + 0x1000000*(block1[m_OffsetInSector + 3]&0x0f);
     }
-    PERROR_THROW_CODE(PErrorCode::IOError);
+    PERROR_THROW_CODE(PErrorCode::IO);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -216,7 +216,7 @@ void FATTableIterator::Update()
         m_LoadedSector2 = -1;
         
         if (m_Block1.m_Buffer == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::IOError);
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
         PScopeFail releaseBlock1([this]()
             {
@@ -228,7 +228,7 @@ void FATTableIterator::Update()
         {
             m_Block2 = m_Volume->m_BCache.GetBlock_trw(m_CurrentSector + 1, true);
             if (m_Block2.m_Buffer == nullptr) {
-                PERROR_THROW_CODE(PErrorCode::IOError);
+                PERROR_THROW_CODE(PErrorCode::IO);
             }
             m_LoadedSector2 = m_CurrentSector + 1;
         }

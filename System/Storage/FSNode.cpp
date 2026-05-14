@@ -709,7 +709,7 @@ bool PFSNode::SetSize(off64_t size) const
 PErrorCode PFSNode::GetCTime(TimeValNanos& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     if (updateCache) {
         if (fstat(m_FileDescriptor, &m_StatCache) < 0) {
@@ -727,7 +727,7 @@ PErrorCode PFSNode::GetCTime(TimeValNanos& outTime, bool updateCache) const
 PErrorCode PFSNode::GetMTime(TimeValNanos& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     if (updateCache) {
         if (fstat(m_FileDescriptor, &m_StatCache) < 0) {
@@ -745,7 +745,7 @@ PErrorCode PFSNode::GetMTime(TimeValNanos& outTime, bool updateCache) const
 PErrorCode PFSNode::GetATime(TimeValNanos& outTime, bool updateCache) const
 {
     if (m_FileDescriptor < 0) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     if (updateCache) {
         if (fstat(m_FileDescriptor, &m_StatCache) < 0) {

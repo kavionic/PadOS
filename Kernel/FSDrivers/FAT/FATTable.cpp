@@ -67,7 +67,7 @@ uint32_t FATTable::GetEntry(uint32_t cluster)
         return BAD_FAT_ENTRY;
     }
     kernel_log<PLogSeverity::ERROR>(LogCat_FATTABLE, "FATTable::GetEntry(): invalid FAT entry {:x} for cluster {}.", value, cluster);
-    PERROR_THROW_CODE(PErrorCode::IOError);
+    PERROR_THROW_CODE(PErrorCode::IO);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -87,7 +87,7 @@ void FATTable::SetEntry(uint32_t cluster, uint32_t value)
 uint32_t FATTable::GetChainEntry(uint32_t chainStart, uint32_t index)
 {
     if (!m_Volume->CheckMagic(__func__)) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATTABLE, "FATTable::GetChainEntry({}, {})", chainStart, index);
@@ -104,7 +104,7 @@ uint32_t FATTable::GetChainEntry(uint32_t chainStart, uint32_t index)
     if (cluster == 0)
     {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATTABLE, "FATTable::GetChainEntry({}, {}) failed!", chainStart, index);
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     return cluster;
 }
@@ -162,12 +162,12 @@ size_t FATTable::GetChainLength(uint32_t cluster)
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATTABLE, "FATTable::GetChainLength() {}", cluster);
         
     if (!m_Volume->CheckMagic(__func__)) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     // not intended for use on root directory
     if (!m_Volume->IsDataCluster(cluster)) {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::GetChainLength() called on invalid cluster ({}).", cluster);
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     while (m_Volume->IsDataCluster(cluster))
@@ -177,7 +177,7 @@ size_t FATTable::GetChainLength(uint32_t cluster)
         if (count == m_Volume->m_TotalClusters)
         {
             kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::GetChainLength() circular FAT chain detected.");
-            PERROR_THROW_CODE(PErrorCode::IOError);
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
         cluster = GetEntry(cluster);
     }
@@ -188,7 +188,7 @@ size_t FATTable::GetChainLength(uint32_t cluster)
         return count;
     }
     kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::GetChainLength() invalid chain. End cluster: {:x}", cluster);
-    PERROR_THROW_CODE(PErrorCode::IOError);
+    PERROR_THROW_CODE(PErrorCode::IO);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -201,7 +201,7 @@ void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusters, bool update
     
     if (IS_FIXED_ROOT(node->m_StartCluster) || (!m_Volume->IsDataCluster(node->m_StartCluster) && (node->m_StartCluster != 0))) {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::SetChainLength(): called on invalid cluster ({}).", node->m_StartCluster);
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     if (clusters == 0)
@@ -284,7 +284,7 @@ void FATTable::SetChainLength(Ptr<FATInode> node, uint32_t clusters, bool update
 
     //	if (n < 0) return n;
     if (newChainEnd != END_FAT_ENTRY && !m_Volume->IsDataCluster(newChainEnd)) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     // clear trailing fat entries
@@ -308,7 +308,7 @@ uint32_t FATTable::AllocateClusters(size_t count)
     uint32_t value = 0x0fffffff;
 
     if (!m_Volume->CheckMagic(__func__)) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATTABLE, "FATTable::AllocateClusters(): {:x}", count);
 
@@ -349,7 +349,7 @@ uint32_t FATTable::AllocateClusters(size_t count)
     if (clustersFound != count)
     {
         kernel_log<PLogSeverity::WARNING>(LogCat_FATTABLE, "FATTable::AllocateClusters(): Failed to allocate {} clusters. Not enough free entries ({} found).", count, clustersFound);
-        PERROR_THROW_CODE(PErrorCode::NoSpace);
+        PERROR_THROW_CODE(PErrorCode::NOSPC);
     }
     else
     {
@@ -371,7 +371,7 @@ void FATTable::ClearFATChain(uint32_t cluster)
 {
     if (!m_Volume->IsDataCluster(cluster)) {
         kernel_log<PLogSeverity::CRITICAL>(LogCat_FATTABLE, "FATTable::ClearFATChain() called on invalid cluster ({}).", cluster);
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
 //    ASSERT(count_clusters(vol, cluster) != 0);

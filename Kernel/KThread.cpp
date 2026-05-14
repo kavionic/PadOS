@@ -95,7 +95,7 @@ void KThread::Start_trw(KSpawnThreadFlags flags, PThreadDetachState detachState,
 void* KThread::Join_trw(TimeValNanos deadline)
 {
     if (m_DetachState != PThreadDetachState_Joinable) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     void* returnValue = kthread_join_trw(m_ThreadHandle);
 
@@ -286,7 +286,7 @@ void kthread_cancel_trw(pid_t threadID)
     Ptr<KThreadCB> thread = kget_thread_trw(threadID);
 
     if (thread->m_ThreadUserData == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     kassert(!g_PIDMapMutex.IsLocked());
@@ -347,7 +347,7 @@ PErrorCode kthread_setcancelstate(PThreadCancelState state, PThreadCancelState* 
     {
         PThreadUserData* userData = thread.m_ThreadUserData;
         if (userData == nullptr) {
-            return PErrorCode::InvalidArg;
+            return PErrorCode::INVAL;
         }
 
         thread.m_CancelState = state;
@@ -401,12 +401,12 @@ PErrorCode kthread_detach(thread_id handle)
     Ptr<KThreadCB> thread = kget_thread(handle);
 
     if (thread == nullptr) {
-        return PErrorCode::InvalidArg;
+        return PErrorCode::INVAL;
     }
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
         if (thread->m_DetachState != PThreadDetachState_Joinable || thread->GetState() == ThreadState_Deleted) {
-            return PErrorCode::InvalidArg;
+            return PErrorCode::INVAL;
         }
         thread->m_DetachState = PThreadDetachState_Detached;
         if (thread->GetState() == ThreadState_Zombie) {
@@ -430,12 +430,12 @@ void* kthread_join_trw(thread_id handle)
     {
         const Ptr<KPIDNode> pidNode = kget_pid_node(handle);
         if (pidNode == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
         }
 
         const Ptr<KThreadCB> child = pidNode->Thread;
         if (child == nullptr) {
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
         }
 
         KThreadWaitNode waitNode;
@@ -445,7 +445,7 @@ void* kthread_join_trw(thread_id handle)
         {
             if (child->GetState() == ThreadState_Deleted)
             {
-                result = PErrorCode::InvalidArg;
+                result = PErrorCode::INVAL;
                 break;
             }
             if (child->GetState() != ThreadState_Zombie)
@@ -463,7 +463,7 @@ void* kthread_join_trw(thread_id handle)
 
             if (child->GetState() == ThreadState_Deleted)
             {
-                result = PErrorCode::InvalidArg;
+                result = PErrorCode::INVAL;
                 break;
             }
 
@@ -507,7 +507,7 @@ void kthread_set_priority_trw(thread_id handle, int priority)
     Ptr<KThreadCB> thread = kget_thread(handle);
 
     if (thread == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
     PErrorCode result = PErrorCode::Success;
     CRITICAL_BEGIN(CRITICAL_IRQ)
@@ -522,7 +522,7 @@ void kthread_set_priority_trw(thread_id handle, int priority)
         }
         else
         {
-            result = PErrorCode::InvalidArg;
+            result = PErrorCode::INVAL;
         }
     } CRITICAL_END;
 
@@ -538,7 +538,7 @@ int kthread_get_priority_trw(thread_id handle)
     Ptr<KThreadCB> thread = kget_thread(handle);
 
     if (thread == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::InvalidArg);
+        PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 
     PErrorCode result = PErrorCode::Success;
@@ -548,7 +548,7 @@ int kthread_get_priority_trw(thread_id handle)
         if (thread->GetState() != ThreadState_Deleted) {
             priority = thread->GetPriority();
         } else {
-            result = PErrorCode::InvalidArg;
+            result = PErrorCode::INVAL;
         }
     } CRITICAL_END;
 
@@ -599,14 +599,14 @@ PErrorCode kget_thread_info(handle_id handle, ThreadInfo* info)
     {
         thread = kget_thread(handle);
         if (thread == nullptr) {
-            return PErrorCode::InvalidArg;
+            return PErrorCode::INVAL;
         }
     }
     else
     {
         thread = kget_first_thread();
         if (thread == nullptr) {
-            return PErrorCode::NoEntry;
+            return PErrorCode::NOENT;
         }
     }
     get_thread_info(thread, info);
@@ -622,7 +622,7 @@ PErrorCode kget_next_thread_info(ThreadInfo* info)
     Ptr<KThreadCB> thread = kget_next_thread(info->ThreadID);
 
     if (thread == nullptr) {
-        return PErrorCode::NoEntry;
+        return PErrorCode::NOENT;
     }
     get_thread_info(thread, info);
     return PErrorCode::Success;
@@ -666,7 +666,7 @@ PErrorCode ksnooze_until_ns(bigtime_t resumeTimeNanos)
         {
 #ifdef PADOS_MODULE_POSIX_SIGNALS
             if (kis_thread_canceled()) {
-                return PErrorCode::Interrupted;
+                return PErrorCode::INTR;
             }
 #endif // PADOS_MODULE_POSIX_SIGNALS
             add_to_sleep_list(&waitNode);
@@ -685,7 +685,7 @@ PErrorCode ksnooze_until_ns(bigtime_t resumeTimeNanos)
         }
         else
         {
-            return PErrorCode::Interrupted;
+            return PErrorCode::INTR;
         }
     }
 }

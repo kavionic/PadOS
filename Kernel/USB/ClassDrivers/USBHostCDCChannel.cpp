@@ -115,12 +115,12 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     m_DeviceAddress = deviceAddr;
 
     if (interfaceDesc->bInterfaceClass != USB_ClassCode::CDC || USB_CDC_CommSubclassType(interfaceDesc->bInterfaceSubClass) != USB_CDC_CommSubclassType::ABSTRACT_CONTROL_MODEL) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     USBDeviceNode* device = m_HostHandler->GetDevice(deviceAddr);
     if (device == nullptr) {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     const USB_DescriptorHeader* desc = interfaceDesc->GetNext();
@@ -139,7 +139,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
         }
         const USB_DescEndpoint* endpointDesc = static_cast<const USB_DescEndpoint*>(desc);
         if (!endpointDesc->Validate(device->m_Speed)) {
-            PERROR_THROW_CODE(PErrorCode::IOError);
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
         if (endpointDesc->bEndpointAddress & USB_ADDRESS_DIR_IN)
         {
@@ -150,7 +150,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     }
     if (m_NotificationEndpoint == USB_INVALID_ENDPOINT)
     {
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     for (; desc < endDesc; desc = desc->GetNext())
@@ -163,7 +163,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     interfaceDesc = static_cast<const USB_DescInterface*>(desc);
     if (desc >= endDesc || interfaceDesc->bInterfaceClass != USB_ClassCode::CDC_DATA) {
         kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "CDC cannot find the interface for data interface.");
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     for (desc = desc->GetNext(); desc < endDesc; desc = desc->GetNext())
@@ -175,7 +175,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
         }
         const USB_DescEndpoint* endpointDesc = static_cast<const USB_DescEndpoint*>(desc);
         if (!endpointDesc->Validate(device->m_Speed)) {
-            PERROR_THROW_CODE(PErrorCode::IOError);
+            PERROR_THROW_CODE(PErrorCode::IO);
         }
         if (endpointDesc->bEndpointAddress & USB_ADDRESS_DIR_IN)
         {
@@ -194,7 +194,7 @@ const USB_DescriptorHeader* USBHostCDCChannel::Open(uint8_t deviceAddr, int chan
     if (m_DataEndpointIn == USB_INVALID_ENDPOINT || m_DataEndpointOut == USB_INVALID_ENDPOINT)
     {
         kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "CDC cannot find the endpoints for data interface.");
-        PERROR_THROW_CODE(PErrorCode::IOError);
+        PERROR_THROW_CODE(PErrorCode::IO);
     }
 
     m_NotificationPipe  = m_HostHandler->AllocPipe(m_NotificationEndpoint);
@@ -326,7 +326,7 @@ size_t USBHostCDCChannel::Read(Ptr<KFileNode> file, void* buffer, size_t length,
         }
         return result;
     }
-    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
+    PERROR_THROW_CODE(PErrorCode::PIPE);
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -347,13 +347,13 @@ size_t USBHostCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t 
                 while (m_TransmitFIFO.GetRemainingSpace() == 0)
                 {
                     const PErrorCode result = m_TransmitCondition.Wait(m_HostHandler->GetMutex());
-                    if (result != PErrorCode::Success && result != PErrorCode::Interrupted)
+                    if (result != PErrorCode::Success && result != PErrorCode::INTR)
                     {
                         PERROR_THROW_CODE(result);
                     }
                     if (!m_IsActive)
                     {
-                        PERROR_THROW_CODE(PErrorCode::BrokenPipe);
+                        PERROR_THROW_CODE(PErrorCode::PIPE);
                     }
                 }
             }
@@ -369,7 +369,7 @@ size_t USBHostCDCChannel::Write(Ptr<KFileNode> file, const void* buffer, size_t 
         }
         return result;
     }
-    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
+    PERROR_THROW_CODE(PErrorCode::PIPE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -400,7 +400,7 @@ void USBHostCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const vo
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         case USARTIOCTL_GET_BAUDRATE:
             if (outDataLength == sizeof(int))
@@ -411,10 +411,10 @@ void USBHostCDCChannel::DeviceControl(Ptr<KFileNode> file, int request, const vo
             }
             else
             {
-                PERROR_THROW_CODE(PErrorCode::InvalidArg);
+                PERROR_THROW_CODE(PErrorCode::INVAL);
             }
         default:
-            PERROR_THROW_CODE(PErrorCode::InvalidArg);
+            PERROR_THROW_CODE(PErrorCode::INVAL);
     }
 }
 
@@ -431,7 +431,7 @@ void USBHostCDCChannel::Sync(Ptr<KFileNode> file)
         FlushInternal();
         return;
     }
-    PERROR_THROW_CODE(PErrorCode::BrokenPipe);
+    PERROR_THROW_CODE(PErrorCode::PIPE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

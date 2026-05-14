@@ -122,7 +122,7 @@ private:
         if (result == PErrorCode::Success) {
             return true;
         }
-        if (result == PErrorCode::Busy || result == PErrorCode::Timeout) {
+        if (result == PErrorCode::BUSY || result == PErrorCode::TIMEDOUT) {
             return false;
         }
         PERROR_ERRORCODE_THROW_ON_FAIL(result);

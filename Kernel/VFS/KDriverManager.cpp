@@ -45,7 +45,7 @@ const KDriverDescriptor* kget_driver_descriptor_trw(const char* name)
             return descriptor;
         }
     }
-    PERROR_THROW_CODE(PErrorCode::NoEntry);
+    PERROR_THROW_CODE(PErrorCode::NOENT);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

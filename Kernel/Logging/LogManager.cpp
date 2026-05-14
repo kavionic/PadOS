@@ -17,6 +17,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 08.11.2025 23:30
 
+#include <string.h>
+#include <vector>
+
 #include <PadOS/Time.h>
 
 #include <Kernel/KLogging.h>
@@ -48,6 +51,7 @@ void KLogManager::Setup(int threadPriority, size_t threadStackSize)
 {
     if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
     {
+        RegisterSerialHandlers();
         Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached, threadPriority, threadStackSize);
     }
 }
@@ -76,14 +80,18 @@ void* KLogManager::Run()
                     m_ConditionVar.WakeupAll();
                     continue;
                 }
-                const PLogChannel channel = GetCategoryChannel_pl(entry.CategoryHash);
-                const PString text = PString::format_string("[{:<8}: {:<7.7}]: {}\n", GetCategoryDisplayName_pl(entry.CategoryHash), GetLogSeverityName(entry.Severity), entry.Message);
+                const PLogChannel   channel      = GetCategoryChannel_pl(entry.CategoryHash);
+                const int64_t       timestamp    = entry.Timestamp.AsNanoseconds();
+                const uint32_t      categoryHash = entry.CategoryHash;
+                const uint8_t       severity     = uint8_t(entry.Severity);
+
+                const PString message = entry.Message;
                 m_LogEntries.pop_front();
                 m_ConditionVar.WakeupAll();
 
-                SerialProtocol::LogMessage header;
-                header.InitMsg(header);
-                header.PackageLength = sizeof(header) + text.size();
+                SerialProtocol::LogMessage msgHeader;
+                msgHeader.InitMsg(msgHeader, timestamp, categoryHash, severity);
+                msgHeader.PackageLength = sizeof(msgHeader) + message.size();
 
                 m_Mutex.Unlock();
 
@@ -91,7 +99,7 @@ void* KLogManager::Run()
                 {
                     for (;;)
                     {
-                        if (SerialCommandHandler::Get().SendSerialData(&header, sizeof(header), text.data(), text.size())) {
+                        if (SerialCommandHandler::Get().SendSerialData(&msgHeader, sizeof(msgHeader), message.data(), message.size())) {
                             break;
                         } else {
                             snooze_ms(100);
@@ -100,6 +108,7 @@ void* KLogManager::Run()
                 }
                 else
                 {
+                    const PString text = PString::format_string("[{:<8}: {:<7.7}]: {}\n", GetCategoryDisplayName(entry.CategoryHash), GetLogSeverityName(entry.Severity), entry.Message);
                     kwrite(1, text.data(), text.size());
                 }
                 m_Mutex.Lock();
@@ -236,6 +245,84 @@ const PString& KLogManager::GetCategoryDisplayName_pl(uint32_t categoryHash)
 {
     kassert(m_Mutex.IsLocked());
     return GetCategoryDesc(categoryHash).DisplayName;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+std::vector<std::pair<uint32_t, KLogManager::CategoryDesc>> KLogManager::GetCategoryList()
+{
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+    return std::vector<std::pair<uint32_t, CategoryDesc>>(m_LogCategories.begin(), m_LogCategories.end());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KLogManager::RegisterSerialHandlers()
+{
+    SerialCommandHandler::Get().RegisterPacketHandler<SerialProtocol::RequestLogCategories>(this, &KLogManager::HandleRequestLogCategories);
+    SerialCommandHandler::Get().RegisterPacketHandler<SerialProtocol::RequestLogSeverities>(this, &KLogManager::HandleRequestLogSeverities);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KLogManager::HandleRequestLogCategories(const SerialProtocol::RequestLogCategories& packet)
+{
+    const auto categories = GetCategoryList();
+
+    std::vector<SerialProtocol::LogCategoryEntry> entries;
+    
+    entries.reserve(categories.size());
+    
+    for (const auto& [hash, desc] : categories)
+    {
+        SerialProtocol::LogCategoryEntry& entry = entries.emplace_back();
+
+        entry = {};
+
+        entry.CategoryHash = hash;
+        entry.MinSeverity  = std::to_underlying(desc.MinSeverity);
+
+        strncpy(entry.CategoryName, desc.CategoryName.c_str(), sizeof(entry.CategoryName) - 1);
+        strncpy(entry.DisplayName, desc.DisplayName.c_str(), sizeof(entry.DisplayName) - 1);
+    }
+
+    SerialProtocol::LogCategoriesReply reply;
+    SerialProtocol::LogCategoriesReply::InitMsg(reply, uint32_t(entries.size()));
+    reply.PackageLength += uint32_t(entries.size() * sizeof(SerialProtocol::LogCategoryEntry));
+
+    SerialCommandHandler::Get().SendSerialData(&reply, sizeof(reply), entries.data(), entries.size() * sizeof(SerialProtocol::LogCategoryEntry));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KLogManager::HandleRequestLogSeverities(const SerialProtocol::RequestLogSeverities& packet)
+{
+    std::vector<SerialProtocol::LogSeverityEntry> entries;
+    
+    for (const auto& [severityEnum, name] : PLogSeverity_names.Names)
+    {
+        SerialProtocol::LogSeverityEntry& entry = entries.emplace_back();
+
+        entry = {};
+        entry.SeverityID  = std::to_underlying(severityEnum);
+
+        strncpy(entry.Name, name, sizeof(entry.Name) - 1);
+    }
+
+    SerialProtocol::LogSeveritiesReply reply;
+    SerialProtocol::LogSeveritiesReply::InitMsg(reply, uint32_t(entries.size()));
+    reply.PackageLength += uint32_t(entries.size() * sizeof(SerialProtocol::LogSeverityEntry));
+
+    SerialCommandHandler::Get().SendSerialData(&reply, sizeof(reply), entries.data(), entries.size() * sizeof(SerialProtocol::LogSeverityEntry));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -21,6 +21,9 @@
 
 #include <deque>
 #include <print>
+#include <vector>
+
+#include <SerialConsole/LogMessages.h>
 
 #include <stdint.h>
 #include <Utils/String.h>
@@ -40,6 +43,23 @@ namespace kernel
 class KLogManager : public KThread
 {
 public:
+    struct CategoryDesc
+    {
+        CategoryDesc(PLogChannel channel, PLogSeverity minSeverity, const PString& categoryName, const PString& displayName) : Channel(channel), MinSeverity(minSeverity), CategoryName(categoryName), DisplayName(displayName) {}
+
+        PLogChannel     Channel;
+        PLogSeverity    MinSeverity;
+        PString         CategoryName;
+        PString         DisplayName;
+    };
+    struct LogEntry
+    {
+        TimeValNanos    Timestamp;
+        uint32_t        CategoryHash;
+        PLogSeverity    Severity;
+        PString         Message;
+    };
+
     static KLogManager& Get();
 
     KLogManager();
@@ -62,28 +82,18 @@ public:
     const PString&  GetCategoryDisplayName(uint32_t categoryHash);
     const PString&  GetCategoryDisplayName_pl(uint32_t categoryHash);
 
+    std::vector<std::pair<uint32_t, CategoryDesc>> GetCategoryList();
+
     void AddLogMessage(uint32_t category, PLogSeverity severity, const PString& message);
 
     void FlushMessages(TimeValNanos timeout);
 
-    struct CategoryDesc
-    {
-        CategoryDesc(PLogChannel channel, PLogSeverity minSeverity, const PString& categoryName, const PString& displayName) : Channel(channel), MinSeverity(minSeverity), CategoryName(categoryName), DisplayName(displayName) {}
-
-        PLogChannel     Channel;
-        PLogSeverity    MinSeverity;
-        PString         CategoryName;
-        PString         DisplayName;
-    };
-    struct LogEntry
-    {
-        TimeValNanos    Timestamp;
-        uint32_t        CategoryHash;
-        PLogSeverity    Severity;
-        PString         Message;
-    };
+    void RegisterSerialHandlers();
 
 private:
+
+    void HandleRequestLogCategories(const SerialProtocol::RequestLogCategories& packet);
+    void HandleRequestLogSeverities(const SerialProtocol::RequestLogSeverities& packet);
 
     CategoryDesc*       FindCategoryDesc(uint32_t categoryHash);
     const CategoryDesc* FindCategoryDesc(uint32_t categoryHash) const { return const_cast<KLogManager*>(this)->FindCategoryDesc(categoryHash); }

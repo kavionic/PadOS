@@ -46,7 +46,9 @@ public:
 
         for (const PAppDefinition* app : apps)
         {
-            commandNames[app->Name] = app->Description;
+            if (app->Description != nullptr && app->Description[0] != '\0') {
+                commandNames[app->Name] = app->Description;
+            }
         }
         size_t longestName = 0;
         for (auto cmdNode : commandNames)

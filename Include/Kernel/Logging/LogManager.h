@@ -64,7 +64,10 @@ public:
 
     KLogManager();
 
-    void Setup(int threadPriority, size_t threadStackSize);
+    void Setup(int threadPriority, size_t threadStackSize,
+               const char* logFilePath    = "/var/logs/system.log",
+               size_t      maxLogFileSize = 64 * 1024,
+               int         maxLogFiles    = 10);
 
     virtual void* Run() override;
 
@@ -79,6 +82,7 @@ public:
 
     const char*     GetLogSeverityName(PLogSeverity logLevel);
     const PString&  GetCategoryName(uint32_t categoryHash);
+    const PString&  GetCategoryName_pl(uint32_t categoryHash);
     const PString&  GetCategoryDisplayName(uint32_t categoryHash);
     const PString&  GetCategoryDisplayName_pl(uint32_t categoryHash);
 
@@ -94,6 +98,13 @@ private:
 
     void HandleRequestLogCategories(const SerialProtocol::RequestLogCategories& packet);
     void HandleRequestLogSeverities(const SerialProtocol::RequestLogSeverities& packet);
+    void HandleRequestLogHistory(const SerialProtocol::RequestLogHistory& packet);
+
+    void    OpenLogFile();
+    void    RotateLogFiles();
+    void    WriteEntryToFile(int64_t timestamp,
+                             const PString& categoryName, const char* severityName,
+                             const PString& message);
 
     CategoryDesc*       FindCategoryDesc(uint32_t categoryHash);
     const CategoryDesc* FindCategoryDesc(uint32_t categoryHash) const { return const_cast<KLogManager*>(this)->FindCategoryDesc(categoryHash); }
@@ -102,8 +113,16 @@ private:
     mutable KMutex      m_Mutex;
     KConditionVariable  m_ConditionVar;
 
-    std::map<int, CategoryDesc>	m_LogCategories;
+    std::map<int, CategoryDesc> m_LogCategories;
     std::deque<LogEntry>        m_LogEntries;
+
+    PString     m_LogFilePath;
+    size_t      m_MaxLogFileSize      = 10 * 1024;
+    int         m_MaxLogFiles         = 5;
+    int         m_LogFileHandle       = -1;
+    size_t      m_CurrentFileSize     = 0;
+    int         m_LogHistoryPageIndex = 0;
+    bool        m_LogHistoryActive    = false;
 };
 
 } // namespace

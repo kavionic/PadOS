@@ -78,7 +78,7 @@ size_t PString::copy_utf16(wchar16_t* dst, size_t length, size_t pos) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PString& PString::append(uint32_t unicode)
+PString& PString::append_utf32_char(uint32_t unicode)
 {
     char utf8Buf[8];
     size_t utf8Length = unicode_to_utf8(utf8Buf, unicode);

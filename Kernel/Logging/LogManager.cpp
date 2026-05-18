@@ -17,8 +17,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 08.11.2025 23:30
 
+#include <fcntl.h>
 #include <string.h>
+#include <time.h>
 #include <vector>
+
+#include <System/ExceptionHandling.h>
 
 #include <PadOS/Time.h>
 
@@ -47,10 +51,17 @@ KLogManager::KLogManager() : KThread("log_manager"), m_Mutex("log_manager", PEMu
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void KLogManager::Setup(int threadPriority, size_t threadStackSize)
+void KLogManager::Setup(int threadPriority, size_t threadStackSize,
+                        const char* logFilePath, size_t maxLogFileSize, int maxLogFiles)
 {
+    m_LogFilePath    = logFilePath;
+    m_MaxLogFileSize = maxLogFileSize;
+    m_MaxLogFiles    = maxLogFiles;
+
     if constexpr (PLogSeverity_Minimum != PLogSeverity::NONE)
     {
+        kcreate_directory(KLocateFlags(KLocateFlag::KernelCtx), "/var/logs");
+        OpenLogFile();
         RegisterSerialHandlers();
         Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached, threadPriority, threadStackSize);
     }
@@ -84,6 +95,8 @@ void* KLogManager::Run()
                 const int64_t       timestamp    = entry.Timestamp.AsNanoseconds();
                 const uint32_t      categoryHash = entry.CategoryHash;
                 const uint8_t       severity     = uint8_t(entry.Severity);
+                const PString       categoryName = GetCategoryName_pl(entry.CategoryHash);
+                const char*         severityName = GetLogSeverityName(entry.Severity);
 
                 const PString message = entry.Message;
                 m_LogEntries.pop_front();
@@ -94,6 +107,8 @@ void* KLogManager::Run()
                 msgHeader.PackageLength = sizeof(msgHeader) + message.size();
 
                 m_Mutex.Unlock();
+
+                WriteEntryToFile(timestamp, categoryName, severityName, message);
 
                 if (channel == PLogChannel::SerialManager)
                 {
@@ -108,7 +123,7 @@ void* KLogManager::Run()
                 }
                 else
                 {
-                    const PString text = PString::format_string("[{:<8}: {:<7.7}]: {}\n", GetCategoryDisplayName(entry.CategoryHash), GetLogSeverityName(entry.Severity), entry.Message);
+                    const PString text = PString::format_string("[{:<8}: {:<7.7}]: {}\n", GetCategoryDisplayName(categoryHash), severityName, message);
                     kwrite(1, text.data(), text.size());
                 }
                 m_Mutex.Lock();
@@ -223,6 +238,16 @@ const PString& KLogManager::GetCategoryName(uint32_t categoryHash)
 {
     kassert(!m_Mutex.IsLocked());
     CRITICAL_SCOPE(m_Mutex);
+    return GetCategoryName_pl(categoryHash);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const PString& KLogManager::GetCategoryName_pl(uint32_t categoryHash)
+{
+    kassert(m_Mutex.IsLocked());
     return GetCategoryDesc(categoryHash).CategoryName;
 }
 
@@ -266,6 +291,106 @@ void KLogManager::RegisterSerialHandlers()
 {
     SerialCommandHandler::Get().RegisterPacketHandler<SerialProtocol::RequestLogCategories>(this, &KLogManager::HandleRequestLogCategories);
     SerialCommandHandler::Get().RegisterPacketHandler<SerialProtocol::RequestLogSeverities>(this, &KLogManager::HandleRequestLogSeverities);
+    SerialCommandHandler::Get().RegisterPacketHandler<SerialProtocol::RequestLogHistory>(this, &KLogManager::HandleRequestLogHistory);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KLogManager::OpenLogFile()
+{
+    try
+    {
+        m_LogFileHandle = kopen_trw(m_LogFilePath.c_str(), O_WRONLY | O_CREAT | O_APPEND);
+        struct stat fileStats;
+        if (kread_stat(m_LogFileHandle, &fileStats) == PErrorCode::Success) {
+            m_CurrentFileSize = static_cast<size_t>(fileStats.st_size);
+        } else {
+            m_CurrentFileSize = 0;
+        }
+    }
+    catch (...)
+    {
+        m_LogFileHandle   = -1;
+        m_CurrentFileSize = 0;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KLogManager::RotateLogFiles()
+{
+    kclose(m_LogFileHandle);
+    m_LogFileHandle = -1;
+
+    for (int i = m_MaxLogFiles - 2; i >= 0; --i)
+    {
+        krename(KLocateFlags(KLocateFlag::KernelCtx),
+                PString::format_string("{}.{}", m_LogFilePath, i).c_str(),
+                PString::format_string("{}.{}", m_LogFilePath, i + 1).c_str());
+    }
+    krename(KLocateFlags(KLocateFlag::KernelCtx),
+            m_LogFilePath.c_str(),
+            PString::format_string("{}.0", m_LogFilePath).c_str());
+
+    {
+        kassert(!m_Mutex.IsLocked());
+        CRITICAL_SCOPE(m_Mutex);
+        if (m_LogHistoryActive) {
+            ++m_LogHistoryPageIndex;
+        }
+    }
+
+    OpenLogFile();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KLogManager::WriteEntryToFile(int64_t timestamp,
+                                   const PString& categoryName, const char* severityName,
+                                   const PString& message)
+{
+    if (m_LogFileHandle < 0) {
+        return;
+    }
+    const time_t seconds      = static_cast<time_t>(timestamp / 1'000'000'000LL);
+    const int    centiseconds = static_cast<int>((timestamp % 1'000'000'000LL) / 10'000'000LL);
+    const tm*    timeInfo     = gmtime(&seconds);
+
+    const PString humanTS = PString::format_string("{:04}{:02}{:02}.{:02}:{:02}:{:02}.{:02}",
+        timeInfo->tm_year + 1900,
+        timeInfo->tm_mon + 1,
+        timeInfo->tm_mday,
+        timeInfo->tm_hour,
+        timeInfo->tm_min,
+        timeInfo->tm_sec,
+        centiseconds);
+
+    PString escaped;
+    escaped.reserve(message.size());
+    for (const char character : message)
+    {
+        if (character == '\\')      { escaped += "\\\\"; }
+        else if (character == '\n') { escaped += "\\n"; }
+        else if (character == '"')  { escaped += "\\\""; }
+        else                        { escaped += character; }
+    }
+
+    const PString line = PString::format_string("{} {} {} {} \"{}\"\n",
+        humanTS, timestamp, categoryName, severityName, escaped);
+
+    size_t written = 0;
+    kwrite(m_LogFileHandle, line.data(), line.size(), written);
+    m_CurrentFileSize += written;
+
+    if (m_CurrentFileSize >= m_MaxLogFileSize) {
+        RotateLogFiles();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -326,6 +451,167 @@ void KLogManager::HandleRequestLogSeverities(const SerialProtocol::RequestLogSev
     reply.PackageLength += uint32_t(entries.size() * sizeof(SerialProtocol::LogSeverityEntry));
 
     SerialCommandHandler::Get().SendSerialData(&reply, sizeof(reply), entries.data(), entries.size() * sizeof(SerialProtocol::LogSeverityEntry));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KLogManager::HandleRequestLogHistory(const SerialProtocol::RequestLogHistory& packet)
+{
+    int pageIndex;
+    {
+        kassert(!m_Mutex.IsLocked());
+        CRITICAL_SCOPE(m_Mutex);
+        if (packet.FirstRequest != 0)
+        {
+            m_LogHistoryPageIndex = 0;
+            m_LogHistoryActive    = true;
+        }
+        pageIndex = m_LogHistoryPageIndex;
+    }
+
+    const PString filename = PString::format_string("{}.{}", m_LogFilePath, pageIndex);
+    try
+    {
+        const int fileHandle = kopen_trw(filename.c_str(), O_RDONLY);
+        PScopeExit closeHandle([fileHandle]() { kclose(fileHandle); });
+
+        const auto categories = GetCategoryList();
+
+        static constexpr size_t CHUNK_SIZE = 512;
+        char chunk[CHUNK_SIZE];
+        PString lineBuffer;
+
+        for (;;)
+        {
+            size_t bytesRead = 0;
+            kread(fileHandle, chunk, CHUNK_SIZE, bytesRead);
+            if (bytesRead == 0) { break; }
+
+            const char* segmentStart = chunk;
+            const char* chunkEnd     = chunk + bytesRead;
+
+            while (segmentStart < chunkEnd)
+            {
+                const char* newline = static_cast<const char*>(memchr(segmentStart, '\n', chunkEnd - segmentStart));
+                if (newline != nullptr)
+                {
+                    lineBuffer.append(segmentStart, newline - segmentStart);
+                    segmentStart = newline + 1;
+
+                    // Parse the completed line.
+                    const char* p = lineBuffer.c_str();
+
+                    // Token 1: skip human timestamp.
+                    while (*p != '\0' && *p != ' ') { ++p; }
+                    if (*p != ' ') { lineBuffer.clear(); continue; }
+                    ++p;
+
+                    // Token 2: nanosecond timestamp.
+                    char* end;
+                    const int64_t nanos = strtoll(p, &end, 10);
+                    if (end == p || *end != ' ') { lineBuffer.clear(); continue; }
+                    p = end + 1;
+
+                    // Token 3: category name.
+                    const char* catStart = p;
+                    while (*p != '\0' && *p != ' ') { ++p; }
+                    if (*p != ' ') { lineBuffer.clear(); continue; }
+                    const PString categoryName(catStart, p - catStart);
+                    ++p;
+
+                    // Token 4: severity name.
+                    const char* sevStart = p;
+                    while (*p != '\0' && *p != ' ') { ++p; }
+                    if (*p != ' ') { lineBuffer.clear(); continue; }
+                    const PString severityName(sevStart, p - sevStart);
+                    ++p;
+
+                    // Token 5: double-quoted message.
+                    if (*p != '"') { lineBuffer.clear(); continue; }
+                    ++p;
+
+                    PString message;
+                    message.reserve(lineBuffer.size());
+                    while (*p != '\0')
+                    {
+                        if (*p == '\\')
+                        {
+                            ++p;
+                            if (*p == '\0') { break; }
+                            if (*p == '\\')      { message += '\\'; }
+                            else if (*p == 'n')  { message += '\n'; }
+                            else if (*p == '"')  { message += '"'; }
+                            else                 { message += '\\'; message += *p; }
+                        }
+                        else if (*p == '"')
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            message += *p;
+                        }
+                        ++p;
+                    }
+
+                    // Calculate category hash.
+                    const uint32_t categoryHash = PString::hash_string_literal(categoryName.c_str());
+
+                    // Look up severity enum.
+                    PLogSeverity severity = PLogSeverity::NONE;
+                    for (const auto& [severityEnum, name] : PLogSeverity_names.Names)
+                    {
+                        if (severityName == name)
+                        {
+                            severity = severityEnum;
+                            break;
+                        }
+                    }
+
+                    SerialProtocol::LogMessage msgHeader;
+                    msgHeader.InitMsg(msgHeader, nanos, categoryHash, uint8_t(severity));
+                    msgHeader.PackageLength = sizeof(msgHeader) + uint32_t(message.size());
+                    SerialCommandHandler::Get().SendSerialData(&msgHeader, sizeof(msgHeader), message.data(), message.size());
+
+                    lineBuffer.clear();
+                }
+                else
+                {
+                    lineBuffer.append(segmentStart, chunkEnd - segmentStart);
+                    break;
+                }
+            }
+        }
+    }
+    catch (...)
+    {
+        SerialProtocol::LogHistoryComplete reply;
+        SerialProtocol::LogHistoryComplete::InitMsg(reply, false);
+        SerialCommandHandler::Get().SendSerialData(&reply, sizeof(reply), nullptr, 0);
+        return;
+    }
+
+    {
+        kassert(!m_Mutex.IsLocked());
+        CRITICAL_SCOPE(m_Mutex);
+        ++m_LogHistoryPageIndex;
+        pageIndex = m_LogHistoryPageIndex;
+    }
+
+    bool hasMorePages = false;
+    try
+    {
+        const int nextHandle = kopen_trw(PString::format_string("{}.{}", m_LogFilePath, pageIndex).c_str(), O_RDONLY);
+        kclose(nextHandle);
+        hasMorePages = true;
+    }
+    catch (...) {}
+
+    SerialProtocol::LogHistoryComplete reply;
+    SerialProtocol::LogHistoryComplete::InitMsg(reply, hasMorePages);
+    SerialCommandHandler::Get().SendSerialData(&reply, sizeof(reply), nullptr, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

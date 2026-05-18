@@ -49,6 +49,8 @@ namespace Commands
     static constexpr uint32_t LogCategoriesReply   = 60;
     static constexpr uint32_t RequestLogSeverities = 70;
     static constexpr uint32_t LogSeveritiesReply   = 80;
+    static constexpr uint32_t RequestLogHistory    = 85;
+    static constexpr uint32_t LogHistoryComplete   = 86;
     static constexpr uint32_t TestMessage          = 100;
 
     // Misc messages:

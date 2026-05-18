@@ -100,4 +100,38 @@ struct LogSeveritiesReply : PacketHeader
     // Array of LogSeverityEntry follows
 };
 
+struct RequestLogHistory : PacketHeader
+{
+    static constexpr Commands::Value COMMAND = Commands::RequestLogHistory;
+
+    static void InitMsg(RequestLogHistory& msg, bool firstRequest)
+    {
+        InitHeader(msg);
+        msg.FirstRequest = firstRequest ? 1 : 0;
+        msg.Padding[0]   = 0;
+        msg.Padding[1]   = 0;
+        msg.Padding[2]   = 0;
+    }
+
+    uint8_t FirstRequest;   // Non-zero resets the page counter.
+    uint8_t Padding[3];
+};
+
+struct LogHistoryComplete : PacketHeader
+{
+    static constexpr Commands::Value COMMAND = Commands::LogHistoryComplete;
+
+    static void InitMsg(LogHistoryComplete& msg, bool hasMorePages)
+    {
+        InitHeader(msg, FLAG_NO_REPLY);
+        msg.HasMorePages = hasMorePages ? 1 : 0;
+        msg.Padding[0]   = 0;
+        msg.Padding[1]   = 0;
+        msg.Padding[2]   = 0;
+    }
+
+    uint8_t HasMorePages;   // Non-zero means there are more older log files available.
+    uint8_t Padding[3];
+};
+
 } // namespace SerialProtocol

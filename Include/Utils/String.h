@@ -66,7 +66,7 @@ public:
 
     size_t copy_utf16(wchar16_t* dst, size_t length, size_t pos = 0) const;
 
-    PString& append(uint32_t unicode);
+    PString& append_utf32_char(uint32_t unicode);
 
     int compare_nocase(const std::string& rhs) const;
     int compare_nocase(const char* rhs) const;

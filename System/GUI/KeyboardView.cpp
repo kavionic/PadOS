@@ -616,7 +616,7 @@ PString PKeyboardView::GetKeyText(PKeyCodes keyCode) const
         } else if (keyCode == PKeyCodes::ENTER) {
             text = "\n";
         } else {
-            text.append(uint32_t(keyCode));
+            text.append_utf32_char(uint32_t(keyCode));
         }
         return text;
     }

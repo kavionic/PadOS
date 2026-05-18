@@ -157,7 +157,7 @@ static void FATRawShortNameToUTF8(const char* src, PString* dst)
     kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATRawShortNameToUTF8().");
 
     for (int i = 0; i < 8 && src[i] != ' '; ++i) {
-        dst->append(CP437ToUTF16((i == 0 && src[i] == 5) ? 0xe5 : uint8_t(src[i])));
+        dst->append_utf32_char(CP437ToUTF16((i == 0 && src[i] == 5) ? 0xe5 : uint8_t(src[i])));
     }
 
     if (src[8] != ' ')
@@ -165,7 +165,7 @@ static void FATRawShortNameToUTF8(const char* src, PString* dst)
         *dst += ".";
         for (int i = 8; i < 11 && src[i] != ' '; ++i) {
             if (src[i] == ' ') break;
-            dst->append(CP437ToUTF16(uint8_t(src[i])));
+            dst->append_utf32_char(CP437ToUTF16(uint8_t(src[i])));
         }
     }
 }

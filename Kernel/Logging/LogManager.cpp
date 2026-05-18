@@ -310,12 +310,15 @@ void KLogManager::HandleRequestLogSeverities(const SerialProtocol::RequestLogSev
     
     for (const auto& [severityEnum, name] : PLogSeverity_names.Names)
     {
-        SerialProtocol::LogSeverityEntry& entry = entries.emplace_back();
+        if (severityEnum != PLogSeverity::NONE)
+        {
+            SerialProtocol::LogSeverityEntry& entry = entries.emplace_back();
 
-        entry = {};
-        entry.SeverityID  = std::to_underlying(severityEnum);
+            entry = {};
+            entry.SeverityID = std::to_underlying(severityEnum);
 
-        strncpy(entry.Name, name, sizeof(entry.Name) - 1);
+            strncpy(entry.Name, name, sizeof(entry.Name) - 1);
+        }
     }
 
     SerialProtocol::LogSeveritiesReply reply;

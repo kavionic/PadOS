@@ -96,5 +96,6 @@ void p_system_vlog(uint32_t category, std::string_view fmt, ARGS&&... args)
     }
 }
 
-PDEFINE_LOG_CATEGORY(LogCat_General, "GENERAL", PLogSeverity::INFO_HIGH_VOL);
-PDEFINE_LOG_CATEGORY(LogCat_Threads, "THREADS", PLogSeverity::INFO_HIGH_VOL);
+PDEFINE_LOG_CATEGORY(LogCat_General,    "GENERAL", PLogSeverity::INFO_HIGH_VOL);
+PDEFINE_LOG_CATEGORY(LogCat_Threads,    "THREADS", PLogSeverity::INFO_HIGH_VOL);
+PDEFINE_LOG_CATEGORY(LogCat_UnitTests,  "TESTS", PLogSeverity::INFO_HIGH_VOL);

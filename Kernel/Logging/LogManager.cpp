@@ -393,25 +393,242 @@ void KLogManager::HandleRequestLogSeverities(const SerialProtocol::RequestLogSev
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+int64_t KLogManager::ParseLineTimestamp(const char* line, size_t length)
+{
+    const char* const end = line + length;
+    const char* p = line;
+
+    // Skip token 1: human timestamp.
+    while (p < end && *p != ' ') { ++p; }
+    if (p >= end) { return INT64_MAX; }
+    ++p;
+
+    // Parse token 2: nanosecond timestamp.
+    char* parseEnd;
+    const int64_t nanos = strtoll(p, &parseEnd, 10);
+    if (parseEnd == p || (parseEnd < end && *parseEnd != ' ')) { return INT64_MAX; }
+
+    return nanos;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int64_t KLogManager::ReadFileFirstTimestamp(const PString& filename)
+{
+    try
+    {
+        const int fileHandle = kopen_trw(filename.c_str(), O_RDONLY);
+        PScopeExit closeHandle([fileHandle]() { kclose(fileHandle); });
+
+        static constexpr size_t READ_SIZE = 256;
+        char buf[READ_SIZE];
+        size_t bytesRead = 0;
+        kread(fileHandle, buf, READ_SIZE - 1, bytesRead);
+        if (bytesRead == 0) { return INT64_MAX; }
+        buf[bytesRead] = '\0';
+
+        const char* newline = static_cast<const char*>(memchr(buf, '\n', bytesRead));
+        const size_t lineLen = (newline != nullptr) ? size_t(newline - buf) : bytesRead;
+
+        return ParseLineTimestamp(buf, lineLen);
+    }
+    catch (...) { return INT64_MAX; }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+off_t KLogManager::FindEndPositionBeforeTimestamp(int fileHandle, off_t fileSize, int64_t targetTimestamp)
+{
+    static constexpr size_t LINE_BUF_SIZE = 512;
+    char lineBuf[LINE_BUF_SIZE];
+
+    off_t lo     = 0;
+    off_t hi     = fileSize;
+    off_t result = 0;
+
+    while (lo < hi)
+    {
+        const off_t mid = lo + (hi - lo) / 2;
+        klseek_trw(fileHandle, mid, SEEK_SET);
+
+        // Skip partial line (scan for newline), unless we are at start of file.
+        off_t lineStart = mid;
+        if (mid > 0)
+        {
+            size_t bytesRead = 0;
+            kread(fileHandle, lineBuf, size_t(std::min(off_t(LINE_BUF_SIZE), hi - mid)), bytesRead);
+            const char* newline = static_cast<const char*>(memchr(lineBuf, '\n', bytesRead));
+            if (newline == nullptr)
+            {
+                hi = mid;
+                continue;
+            }
+            lineStart = mid + off_t(newline + 1 - lineBuf);
+        }
+
+        if (lineStart >= hi)
+        {
+            hi = mid;
+            continue;
+        }
+
+        klseek_trw(fileHandle, lineStart, SEEK_SET);
+        size_t bytesRead = 0;
+        kread(fileHandle, lineBuf, size_t(std::min(off_t(LINE_BUF_SIZE - 1), hi - lineStart)), bytesRead);
+        if (bytesRead == 0)
+        {
+            hi = mid;
+            continue;
+        }
+        lineBuf[bytesRead] = '\0';
+
+        const char* newline = static_cast<const char*>(memchr(lineBuf, '\n', bytesRead));
+        const size_t lineLen = (newline != nullptr) ? size_t(newline - lineBuf) : bytesRead;
+
+        const int64_t timestamp = ParseLineTimestamp(lineBuf, lineLen);
+
+        if (timestamp < targetTimestamp)
+        {
+            result = lineStart + off_t(lineLen) + (newline != nullptr ? 1 : 0);
+            lo = result;
+        }
+        else
+        {
+            if (mid <= lo) { break; }
+            hi = mid;
+        }
+    }
+
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KLogManager::FindFilePositionForTimestamp(int64_t targetTimestamp, int& outPageIndex, off_t& outFilePosition)
+{
+    // Check current (newest) log file first.
+    if (ReadFileFirstTimestamp(m_LogFilePath) < targetTimestamp)
+    {
+        try
+        {
+            const int fileHandle = kopen_trw(m_LogFilePath.c_str(), O_RDONLY);
+            PScopeExit closeHandle([fileHandle]() { kclose(fileHandle); });
+            const off_t fileSize = klseek_trw(fileHandle, 0, SEEK_END);
+            outPageIndex    = -1;
+            outFilePosition = FindEndPositionBeforeTimestamp(fileHandle, fileSize, targetTimestamp);
+            return true;
+        }
+        catch (...) {}
+    }
+
+    // Find max rotated file index.
+    int maxIndex = -1;
+    for (int i = 0; i < m_MaxLogFiles; ++i)
+    {
+        try
+        {
+            const int testHandle = kopen_trw(PString::format_string("{}.{}", m_LogFilePath, i).c_str(), O_RDONLY);
+            kclose(testHandle);
+            maxIndex = i;
+        }
+        catch (...) { break; }
+    }
+
+    if (maxIndex < 0) { return false; }
+
+    // Binary search among rotated files for the lowest index k where firstTimestamp < targetTimestamp.
+    // firstTimestamp decreases as the index increases (higher index = older file).
+    int lo     = 0;
+    int hi     = maxIndex;
+    int result = -1;
+    while (lo <= hi)
+    {
+        const int mid = lo + (hi - lo) / 2;
+        const int64_t firstTs = ReadFileFirstTimestamp(PString::format_string("{}.{}", m_LogFilePath, mid));
+        if (firstTs < targetTimestamp)
+        {
+            result = mid;
+            hi = mid - 1;
+        }
+        else
+        {
+            lo = mid + 1;
+        }
+    }
+
+    if (result < 0) { return false; }
+
+    try
+    {
+        const PString filename = PString::format_string("{}.{}", m_LogFilePath, result);
+        const int fileHandle = kopen_trw(filename.c_str(), O_RDONLY);
+        PScopeExit closeHandle([fileHandle]() { kclose(fileHandle); });
+        const off_t fileSize = klseek_trw(fileHandle, 0, SEEK_END);
+        outPageIndex    = result;
+        outFilePosition = FindEndPositionBeforeTimestamp(fileHandle, fileSize, targetTimestamp);
+        return true;
+    }
+    catch (...) { return false; }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void KLogManager::HandleRequestLogHistory(const SerialProtocol::RequestLogHistory& packet)
 {
     int   pageIndex;
     off_t filePosition;
+    bool  needsSearch = false;
     {
         kassert(!m_Mutex.IsLocked());
         CRITICAL_SCOPE(m_Mutex);
-        if (packet.FirstRequest != 0)
+        if (packet.LastTimestamp == 0)
         {
-            m_LogHistoryPageIndex = -1;
-            m_LogHistoryFilePosition = -1;
-            m_LogHistoryActive = true;
+            m_LogHistoryPageIndex       = -1;
+            m_LogHistoryFilePosition    = -1;
+            m_LogHistoryOldestTimestamp = INT64_MAX;
+            m_LogHistoryActive          = true;
         }
-        pageIndex = m_LogHistoryPageIndex;
+        else if (packet.LastTimestamp != m_LogHistoryOldestTimestamp || !m_LogHistoryActive)
+        {
+            needsSearch = true;
+        }
+        pageIndex    = m_LogHistoryPageIndex;
         filePosition = m_LogHistoryFilePosition;
     }
 
+    if (needsSearch)
+    {
+        int   searchPageIndex;
+        off_t searchFilePosition;
+        if (!FindFilePositionForTimestamp(packet.LastTimestamp, searchPageIndex, searchFilePosition))
+        {
+            SerialProtocol::LogHistoryComplete reply;
+            SerialProtocol::LogHistoryComplete::InitMsg(reply, false);
+            SerialCommandHandler::Get().SendSerialData(&reply, sizeof(reply), nullptr, 0);
+            return;
+        }
+        {
+            kassert(!m_Mutex.IsLocked());
+            CRITICAL_SCOPE(m_Mutex);
+            m_LogHistoryPageIndex    = searchPageIndex;
+            m_LogHistoryFilePosition = searchFilePosition;
+            m_LogHistoryActive       = true;
+            pageIndex    = m_LogHistoryPageIndex;
+            filePosition = m_LogHistoryFilePosition;
+        }
+    }
+
     const PString filename = (pageIndex < 0) ? m_LogFilePath : PString::format_string("{}.{}", m_LogFilePath, pageIndex);
-    off_t actualStart = 0;
+    off_t   actualStart          = 0;
+    int64_t batchOldestTimestamp = INT64_MAX;
     try
     {
         const int fileHandle = kopen_trw(filename.c_str(), O_RDONLY);
@@ -431,7 +648,7 @@ void KLogManager::HandleRequestLogHistory(const SerialProtocol::RequestLogHistor
         PString lineBuffer;
 
         actualStart = seekPos;
-        bool  skipToNewline = (seekPos > 0);
+        bool  skipToNewline  = (seekPos > 0);
         off_t bytesRemaining = readEnd - seekPos;
 
         for (;;)
@@ -477,6 +694,7 @@ void KLogManager::HandleRequestLogHistory(const SerialProtocol::RequestLogHistor
                     SerialProtocol::LogMessage msgHeader;
                     PString message;
                     if (ParseLogfileLine(lineBuffer, msgHeader, message)) {
+                        batchOldestTimestamp = std::min(batchOldestTimestamp, msgHeader.Timestamp);
                         SerialCommandHandler::Get().SendSerialData(&msgHeader, sizeof(msgHeader), message.data(), message.size());
                     }
                     lineBuffer.clear();
@@ -500,13 +718,14 @@ void KLogManager::HandleRequestLogHistory(const SerialProtocol::RequestLogHistor
     {
         kassert(!m_Mutex.IsLocked());
         CRITICAL_SCOPE(m_Mutex);
-        m_LogHistoryFilePosition = actualStart;
+        m_LogHistoryFilePosition    = actualStart;
+        m_LogHistoryOldestTimestamp = batchOldestTimestamp;
         if (actualStart == 0)
         {
-            m_LogHistoryPageIndex = (m_LogHistoryPageIndex < 0) ? 0 : m_LogHistoryPageIndex + 1;
+            m_LogHistoryPageIndex    = (m_LogHistoryPageIndex < 0) ? 0 : m_LogHistoryPageIndex + 1;
             m_LogHistoryFilePosition = -1;
         }
-        pageIndex = m_LogHistoryPageIndex;
+        pageIndex    = m_LogHistoryPageIndex;
         filePosition = m_LogHistoryFilePosition;
     }
 

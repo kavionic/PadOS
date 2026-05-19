@@ -108,6 +108,11 @@ private:
 
     bool ParseLogfileLine(const PString& lineBuffer, SerialProtocol::LogMessage& msgHeader, PString& payload);
 
+    static int64_t  ParseLineTimestamp(const char* line, size_t length);
+    static int64_t  ReadFileFirstTimestamp(const PString& filename);
+    static off_t    FindEndPositionBeforeTimestamp(int fileHandle, off_t fileSize, int64_t targetTimestamp);
+    bool            FindFilePositionForTimestamp(int64_t targetTimestamp, int& outPageIndex, off_t& outFilePosition);
+
     CategoryDesc*       FindCategoryDesc(uint32_t categoryHash);
     const CategoryDesc* FindCategoryDesc(uint32_t categoryHash) const { return const_cast<KLogManager*>(this)->FindCategoryDesc(categoryHash); }
     const CategoryDesc& GetCategoryDesc(uint32_t categoryHash) const;
@@ -123,9 +128,10 @@ private:
     int         m_MaxLogFiles         = 5;
     int         m_LogFileHandle       = -1;
     size_t      m_CurrentFileSize     = 0;
-    int         m_LogHistoryPageIndex    = 0;
-    off_t       m_LogHistoryFilePosition = -1;
-    bool        m_LogHistoryActive       = false;
+    int         m_LogHistoryPageIndex       = 0;
+    off_t       m_LogHistoryFilePosition    = -1;
+    bool        m_LogHistoryActive          = false;
+    int64_t     m_LogHistoryOldestTimestamp = 0;
 };
 
 } // namespace

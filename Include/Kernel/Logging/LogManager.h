@@ -66,14 +66,15 @@ public:
 
     void Setup(int threadPriority, size_t threadStackSize,
                const char* logFilePath    = "/var/logs/system.log",
-               size_t      maxLogFileSize = 64 * 1024,
-               int         maxLogFiles    = 10);
+               size_t      maxLogFileSize = 512 * 1024,
+               int         maxLogFiles    = 100);
 
     virtual void* Run() override;
 
 
     PErrorCode  RegisterCategory(uint32_t categoryHash, PLogChannel channel, const char* categoryName, const char* displayName, PLogSeverity initialLogLevel);
     PErrorCode  SetCategoryMinimumSeverity(uint32_t categoryHash, PLogSeverity logLevel);
+    
     bool        IsCategoryActive(uint32_t categoryHash, PLogSeverity logLevel);
     bool        IsCategoryActive_pl(uint32_t categoryHash, PLogSeverity logLevel);
     
@@ -92,9 +93,8 @@ public:
 
     void FlushMessages(TimeValNanos timeout);
 
-    void RegisterSerialHandlers();
-
 private:
+    void RegisterSerialHandlers();
 
     void HandleRequestLogCategories(const SerialProtocol::RequestLogCategories& packet);
     void HandleRequestLogSeverities(const SerialProtocol::RequestLogSeverities& packet);
@@ -105,6 +105,8 @@ private:
     void    WriteEntryToFile(int64_t timestamp,
                              const PString& categoryName, const char* severityName,
                              const PString& message);
+
+    bool ParseLogfileLine(const PString& lineBuffer, SerialProtocol::LogMessage& msgHeader, PString& payload);
 
     CategoryDesc*       FindCategoryDesc(uint32_t categoryHash);
     const CategoryDesc* FindCategoryDesc(uint32_t categoryHash) const { return const_cast<KLogManager*>(this)->FindCategoryDesc(categoryHash); }
@@ -121,8 +123,9 @@ private:
     int         m_MaxLogFiles         = 5;
     int         m_LogFileHandle       = -1;
     size_t      m_CurrentFileSize     = 0;
-    int         m_LogHistoryPageIndex = 0;
-    bool        m_LogHistoryActive    = false;
+    int         m_LogHistoryPageIndex    = 0;
+    off_t       m_LogHistoryFilePosition = -1;
+    bool        m_LogHistoryActive       = false;
 };
 
 } // namespace

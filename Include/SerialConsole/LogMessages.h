@@ -104,17 +104,19 @@ struct RequestLogHistory : PacketHeader
 {
     static constexpr Commands::Value COMMAND = Commands::RequestLogHistory;
 
-    static void InitMsg(RequestLogHistory& msg, bool firstRequest)
+    static void InitMsg(RequestLogHistory& msg, bool firstRequest, uint32_t pageSize)
     {
         InitHeader(msg);
         msg.FirstRequest = firstRequest ? 1 : 0;
         msg.Padding[0]   = 0;
         msg.Padding[1]   = 0;
         msg.Padding[2]   = 0;
+        msg.PageSize     = pageSize;
     }
 
-    uint8_t FirstRequest;   // Non-zero resets the page counter.
-    uint8_t Padding[3];
+    uint8_t  FirstRequest;   // Non-zero resets the page counter.
+    uint8_t  Padding[3];
+    uint32_t PageSize;       // Number of bytes of log data to read per page.
 };
 
 struct LogHistoryComplete : PacketHeader

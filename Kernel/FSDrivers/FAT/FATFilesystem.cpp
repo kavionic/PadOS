@@ -1097,7 +1097,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> _vol, Ptr<KInode> _odir, const char* p
     // locate the file
     file = DoLocateInode(vol, odir, oldname);
     if (file == nullptr) {
-        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATFILE, "FATFilesystem::Rename(): can't find file {} in directory {:x}.", oldname.c_str(), odir->m_InodeID);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Rename(): can't find file {} in directory {:x}.", oldname.c_str(), odir->m_InodeID);
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
@@ -1111,7 +1111,7 @@ void FATFilesystem::Rename(Ptr<KFSVolume> _vol, Ptr<KInode> _odir, const char* p
     {
         if (file2->IsDirectory())
         {
-            kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Rename(): destination already occupied by a directory.");
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Rename(): destination already occupied by a directory.");
             PERROR_THROW_CODE(PErrorCode::PERM);
         }
 
@@ -1235,7 +1235,7 @@ size_t FATFilesystem::Read(Ptr<KFileNode> file, void* buf, size_t len, off64_t p
         PERROR_THROW_CODE(PErrorCode::ISDIR);
     }
 
-    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Read() called {} bytes at {} (inode ID {:x}).", len, pos, node->m_InodeID);
+    kernel_log<PLogSeverity::INFO_FLOODING>(LogCat_FATFILE, "FATFilesystem::Read() called {} bytes at {} (inode ID {:x}).", len, pos, node->m_InodeID);
 
     if (pos < 0) pos = 0;
 
@@ -1362,7 +1362,7 @@ size_t FATFilesystem::Write(Ptr<KFileNode> file, const void* buf, size_t len, of
         PERROR_THROW_CODE(PErrorCode::ISDIR);
     }
 
-    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATFILE, "FATFilesystem::Write() called {} bytes at {} from buffer at {:x} (inode ID {:x}).", len, pos, (intptr_t)buf, node->m_InodeID);
+    kernel_log<PLogSeverity::INFO_FLOODING>(LogCat_FATFILE, "FATFilesystem::Write() called {} bytes at {} from buffer at {:x} (inode ID {:x}).", len, pos, (intptr_t)buf, node->m_InodeID);
 
     if ((fileNode->GetOpenFlags() & O_ACCMODE) == O_RDONLY) {
         kernel_log<PLogSeverity::ERROR>(LogCat_FATFILE, "FATFilesystem::Write(): called on file opened as read-only.");
@@ -1557,7 +1557,7 @@ size_t FATFilesystem::ReadDirectory(Ptr<KFSVolume> volume, Ptr<KDirectoryNode> d
     if (diri.GetNextDirectoryEntry(dir, &entry->d_ino, &fileName, &dosAttributes))
     {
         entryFound = true;
-        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "FATFilesystem::ReadDirectory(): found file '{}' / {}.", fileName.c_str(), fileName.size());
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATDIR, "FATFilesystem::ReadDirectory(): found file '{}' / {}.", fileName.c_str(), fileName.size());
         if (fileName.size() <= NAME_MAX)
         {
             fileName.copy(entry->d_name, fileName.size());

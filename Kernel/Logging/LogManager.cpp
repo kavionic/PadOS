@@ -296,7 +296,19 @@ void KLogManager::AddLogMessage(uint32_t category, PLogSeverity severity, const 
 
         if (m_LogEntries.size() < 1000)
         {
-            m_LogEntries.push_back(LogEntry{ .Timestamp = kget_real_time(), .CategoryHash = category, .Severity = severity, .Message = message });
+            TimeValNanos timestamp = kget_real_time();
+
+            if (timestamp <= m_PreviousTimestamp)
+            {
+                m_PreviousTimestamp += TimeValNanos::FromNative(1);
+                timestamp = m_PreviousTimestamp;
+            }
+            else
+            {
+                m_PreviousTimestamp = timestamp;
+            }
+
+            m_LogEntries.push_back(LogEntry{ .Timestamp = timestamp, .CategoryHash = category, .Severity = severity, .Message = message });
             m_ConditionVar.WakeupAll();
         }
     }

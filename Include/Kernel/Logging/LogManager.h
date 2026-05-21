@@ -122,6 +122,7 @@ private:
 
     std::map<int, CategoryDesc> m_LogCategories;
     std::deque<LogEntry>        m_LogEntries;
+    TimeValNanos                m_PreviousTimestamp;
 
     PString     m_LogFilePath;
     size_t      m_MaxLogFileSize      = 10 * 1024;

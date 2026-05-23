@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -83,6 +83,7 @@ public:
 
     virtual void    WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color);
     virtual void    DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode);
+    virtual void    FillTriangle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PIPoint& pos3, const PColor& color, PDrawingMode mode);
     virtual void    FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor& color);
     virtual void    CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPos, PDrawingMode mode);
     virtual void    ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode);

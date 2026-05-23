@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,6 +19,8 @@
 
 
 #pragma once
+
+#include <span>
 
 #include <GUI/View.h>
 
@@ -117,6 +119,12 @@ public:
     
     void        FillRect(const PRect& rect, PColor color);
     void        FillCircle(const PPoint& position, float radius);
+    void        FillTriangle(const PPoint& pos1, const PPoint& pos2, const PPoint& pos3);
+    void        FillTriangleFan(std::span<const PPoint> points);
+    void        FillTriangleStrip(std::span<const PPoint> points);
+    void        BeginTriangles(PTriangleMode mode, size_t countHint);
+    void        AddTriangle(const PPoint& position);
+    void        EndTriangles();
     void        DrawString(const PString& string);
     void        CopyRect(const PRect& srcRect, const PPoint& dstPos);
     void        DrawBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PPoint& dstPos);
@@ -159,4 +167,7 @@ private:
     bool    m_HasInvalidRegs = true; // True if something made our clipping region invalid
     bool    m_IsUpdating = false;    // True while we paint areas from the damage list
     bool    m_IsWindowManagerControlled = false;
+
+    PTriangleMode       m_TriangleMode = PTriangleMode::Fan;
+    std::vector<PPoint> m_TrianglePoints;
 };

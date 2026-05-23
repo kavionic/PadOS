@@ -87,6 +87,10 @@ namespace PAppserverProtocol
         VIEW_DRAW_LINE2,
         VIEW_FILL_RECT,
         VIEW_FILL_CIRCLE,
+        VIEW_FILL_TRIANGLE,
+        VIEW_BEGIN_TRIANGLES,
+        VIEW_ADD_TRIANGLE,
+        VIEW_END_TRIANGLES,
         VIEW_DRAW_STRING,
         VIEW_SCROLL_BY,
         VIEW_COPY_RECT,
@@ -212,6 +216,10 @@ using ASViewDrawLine1       = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_LINE1,
 using ASViewDrawLine2       = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_LINE2,          void(handler_id viewHandle, const PPoint& pos1, const PPoint& pos2)>;
 using ASViewFillRect        = PRemoteSignal<PAppserverProtocol::VIEW_FILL_RECT,           void(handler_id viewHandle, const PRect& rect, PColor color)>;
 using ASViewFillCircle      = PRemoteSignal<PAppserverProtocol::VIEW_FILL_CIRCLE,         void(handler_id viewHandle, const PPoint& position, float radius)>;
+using ASViewFillTriangle    = PRemoteSignal<PAppserverProtocol::VIEW_FILL_TRIANGLE,       void(handler_id viewHandle, const PPoint& pos1, const PPoint& pos2, const PPoint& pos3)>;
+using ASViewBeginTriangles  = PRemoteSignal<PAppserverProtocol::VIEW_BEGIN_TRIANGLES,     void(handler_id viewHandle, PTriangleMode mode, size_t countHint)>;
+using ASViewAddTriangle     = PRemoteSignal<PAppserverProtocol::VIEW_ADD_TRIANGLE,        void(handler_id viewHandle, const PPoint& position)>;
+using ASViewEndTriangles    = PRemoteSignal<PAppserverProtocol::VIEW_END_TRIANGLES,       void(handler_id viewHandle)>;
 using ASViewDrawString      = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_STRING,         void(handler_id viewHandle, const PString& string)>;
 using ASViewScrollBy        = PRemoteSignal<PAppserverProtocol::VIEW_SCROLL_BY,           void(handler_id viewHandle, const PPoint& delta)>;
 using ASViewCopyRect        = PRemoteSignal<PAppserverProtocol::VIEW_COPY_RECT,           void(handler_id viewHandle, const PRect& srcRect, const PPoint& dstPos)>;

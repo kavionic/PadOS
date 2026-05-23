@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <span>
 #include <vector>
 
 #include "Ptr/Ptr.h"
@@ -251,6 +252,13 @@ public:
     void            EraseRect(const PRect& rect)                        { Post<ASViewFillRect>(rect, m_EraseColor); }
 
     void            FillCircle(const PPoint& position, float radius) { Post<ASViewFillCircle>(position, radius); }
+    void            FillTriangle(const PPoint& pos1, const PPoint& pos2, const PPoint& pos3) { Post<ASViewFillTriangle>(pos1, pos2, pos3); }
+    void            BeginTriangles(PTriangleMode mode, size_t countHint) { Post<ASViewBeginTriangles>(mode, countHint); }
+    void            AddTriangle(const PPoint& position) { Post<ASViewAddTriangle>(position); }
+    void            AddTriangle(float x, float y) { AddTriangle(PPoint(x, y)); }
+    void            EndTriangles() { Post<ASViewEndTriangles>(); }
+    void            FillTriangleFan(std::span<const PPoint> points);
+    void            FillTriangleStrip(std::span<const PPoint> points);
     void            DrawString(const PString& string) { Post<ASViewDrawString>(string); }
     void            DrawString(const PString& string, const PPoint& pos) { MovePenTo(pos); Post<ASViewDrawString>(string); }
 

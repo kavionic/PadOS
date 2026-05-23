@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,6 +19,9 @@
 
 #include <System/Platform.h>
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <string.h>
 
 #include <ApplicationServer/ApplicationServer.h>
@@ -30,6 +33,147 @@
 
 
 static int g_ServerViewCount = 0;
+
+namespace
+{
+enum class TriangleClipEdge
+{
+    Left,
+    Right,
+    Top,
+    Bottom
+};
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool IsInsideTriangleClipEdge(const PPoint& point, const PRect& clipRect, TriangleClipEdge edge)
+{
+    switch (edge)
+    {
+        case TriangleClipEdge::Left:
+            return point.x >= clipRect.left;
+        case TriangleClipEdge::Right:
+            return point.x <= clipRect.right;
+        case TriangleClipEdge::Top:
+            return point.y >= clipRect.top;
+        case TriangleClipEdge::Bottom:
+            return point.y <= clipRect.bottom;
+        default:
+            return false;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PPoint IntersectTriangleClipEdge(const PPoint& startPoint, const PPoint& endPoint, const PRect& clipRect, TriangleClipEdge edge)
+{
+    const PPoint delta = endPoint - startPoint;
+
+    switch (edge)
+    {
+        case TriangleClipEdge::Left:
+        {
+            const float ratio = (clipRect.left - startPoint.x) / delta.x;
+            return PPoint(clipRect.left, startPoint.y + delta.y * ratio);
+        }
+        case TriangleClipEdge::Right:
+        {
+            const float ratio = (clipRect.right - startPoint.x) / delta.x;
+            return PPoint(clipRect.right, startPoint.y + delta.y * ratio);
+        }
+        case TriangleClipEdge::Top:
+        {
+            const float ratio = (clipRect.top - startPoint.y) / delta.y;
+            return PPoint(startPoint.x + delta.x * ratio, clipRect.top);
+        }
+        case TriangleClipEdge::Bottom:
+        {
+            const float ratio = (clipRect.bottom - startPoint.y) / delta.y;
+            return PPoint(startPoint.x + delta.x * ratio, clipRect.bottom);
+        }
+        default:
+            return endPoint;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t ClipTrianglePolygonEdge(
+    const std::array<PPoint, 8>& inputPoints,
+    size_t inputPointCount,
+    std::array<PPoint, 8>& outputPoints,
+    const PRect& clipRect,
+    TriangleClipEdge edge)
+{
+    size_t outputPointCount = 0;
+
+    if (inputPointCount == 0) {
+        return 0;
+    }
+
+    PPoint startPoint = inputPoints[inputPointCount - 1];
+    bool startInside = IsInsideTriangleClipEdge(startPoint, clipRect, edge);
+
+    for (size_t pointIndex = 0; pointIndex < inputPointCount; ++pointIndex)
+    {
+        const PPoint endPoint = inputPoints[pointIndex];
+        const bool endInside = IsInsideTriangleClipEdge(endPoint, clipRect, edge);
+
+        if (endInside)
+        {
+            if (!startInside) {
+                outputPoints[outputPointCount++] = IntersectTriangleClipEdge(startPoint, endPoint, clipRect, edge);
+            }
+            outputPoints[outputPointCount++] = endPoint;
+        }
+        else if (startInside)
+        {
+            outputPoints[outputPointCount++] = IntersectTriangleClipEdge(startPoint, endPoint, clipRect, edge);
+        }
+        startPoint = endPoint;
+        startInside = endInside;
+    }
+    return outputPointCount;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t ClipTrianglePolygon(std::array<PPoint, 8>& points, size_t pointCount, const PIRect& clipRect)
+{
+    if (clipRect.Width() <= 0 || clipRect.Height() <= 0) {
+        return 0;
+    }
+
+    std::array<PPoint, 8> scratchPoints;
+    const PRect floatClipRect(float(clipRect.left), float(clipRect.top), float(clipRect.right - 1), float(clipRect.bottom - 1));
+
+    pointCount = ClipTrianglePolygonEdge(points, pointCount, scratchPoints, floatClipRect, TriangleClipEdge::Left);
+    pointCount = ClipTrianglePolygonEdge(scratchPoints, pointCount, points, floatClipRect, TriangleClipEdge::Right);
+    pointCount = ClipTrianglePolygonEdge(points, pointCount, scratchPoints, floatClipRect, TriangleClipEdge::Top);
+    pointCount = ClipTrianglePolygonEdge(scratchPoints, pointCount, points, floatClipRect, TriangleClipEdge::Bottom);
+
+    return pointCount;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PIPoint RoundAndClampTrianglePoint(const PPoint& point, const PIRect& clipRect)
+{
+    const int x = std::clamp(int(std::round(point.x)), clipRect.left, clipRect.right - 1);
+    const int y = std::clamp(int(std::round(point.y)), clipRect.top, clipRect.bottom - 1);
+    return PIPoint(x, y);
+}
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -1147,6 +1291,151 @@ void PServerView::FillCircle(const PPoint& position, float radius)
             m_Bitmap->m_Driver->FillCircle(m_Bitmap, clipRect, positionScr, int32_t(roundf(radius)), m_FgColor, m_DrawingMode);
         }
     }    
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::FillTriangle(const PPoint& pos1, const PPoint& pos2, const PPoint& pos3)
+{
+    const Ptr<const PRegion> region = GetRegion();
+    if (region == nullptr) {
+        return;
+    }
+
+    const PIPoint screenPos(m_ScreenPos);
+    const PPoint screenOffset = PPoint(screenPos) + m_ScrollOffset;
+    const PPoint screenPoint1 = pos1 + screenOffset;
+    const PPoint screenPoint2 = pos2 + screenOffset;
+    const PPoint screenPoint3 = pos3 + screenOffset;
+    const PIRect screenFrame = ApplicationServer::GetScreenIFrame();
+
+    const float minX = std::min({ screenPoint1.x, screenPoint2.x, screenPoint3.x });
+    const float minY = std::min({ screenPoint1.y, screenPoint2.y, screenPoint3.y });
+    const float maxX = std::max({ screenPoint1.x, screenPoint2.x, screenPoint3.x });
+    const float maxY = std::max({ screenPoint1.y, screenPoint2.y, screenPoint3.y });
+    const PIRect boundingBox(PRect(std::floor(minX), std::floor(minY), std::ceil(maxX) + 1.0f, std::ceil(maxY) + 1.0f));
+
+    if (!screenFrame.DoIntersect(boundingBox)) {
+        return;
+    }
+
+    std::array<PPoint, 8> clippedPoints =
+        {
+            screenPoint1,
+            screenPoint2,
+            screenPoint3
+        };
+
+    const size_t clippedPointCount = ClipTrianglePolygon(clippedPoints, 3, screenFrame);
+
+    if (clippedPointCount < 3) {
+        return;
+    }
+
+    std::array<PIPoint, 8> integerPoints;
+    PIRect clippedBoundingBox;
+    for (size_t pointIndex = 0; pointIndex < clippedPointCount; ++pointIndex)
+    {
+        integerPoints[pointIndex] = RoundAndClampTrianglePoint(clippedPoints[pointIndex], screenFrame);
+        clippedBoundingBox |= integerPoints[pointIndex];
+    }
+    ++clippedBoundingBox.right;
+    ++clippedBoundingBox.bottom;
+
+    for (const PIRect& clip : region->m_Rects)
+    {
+        const PIRect clipRect = clip + screenPos;
+        if (clipRect.DoIntersect(clippedBoundingBox))
+        {
+            for (size_t pointIndex = 1; pointIndex < clippedPointCount - 1; ++pointIndex)
+            {
+                m_Bitmap->m_Driver->FillTriangle(
+                    m_Bitmap,
+                    clipRect,
+                    integerPoints[0],
+                    integerPoints[pointIndex],
+                    integerPoints[pointIndex + 1],
+                    m_FgColor,
+                    m_DrawingMode);
+            }
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::FillTriangleFan(std::span<const PPoint> points)
+{
+    if (points.size() < 3) {
+        return;
+    }
+
+    for (size_t pointIndex = 1; pointIndex < points.size() - 1; ++pointIndex) {
+        FillTriangle(points[0], points[pointIndex], points[pointIndex + 1]);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::FillTriangleStrip(std::span<const PPoint> points)
+{
+    if (points.size() < 3) {
+        return;
+    }
+
+    for (size_t pointIndex = 0; pointIndex < points.size() - 2; ++pointIndex)
+    {
+        if ((pointIndex & 1) == 0) {
+            FillTriangle(points[pointIndex], points[pointIndex + 1], points[pointIndex + 2]);
+        }
+        else {
+            FillTriangle(points[pointIndex + 1], points[pointIndex], points[pointIndex + 2]);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::BeginTriangles(PTriangleMode mode, size_t countHint)
+{
+    m_TriangleMode = mode;
+    m_TrianglePoints.clear();
+    m_TrianglePoints.reserve(countHint);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::AddTriangle(const PPoint& position)
+{
+    m_TrianglePoints.push_back(position);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::EndTriangles()
+{
+    switch (m_TriangleMode)
+    {
+        case PTriangleMode::Fan:
+            FillTriangleFan(m_TrianglePoints);
+            break;
+        case PTriangleMode::Strip:
+            FillTriangleStrip(m_TrianglePoints);
+            break;
+    }
+    m_TrianglePoints.clear();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

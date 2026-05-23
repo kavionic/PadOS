@@ -86,6 +86,10 @@ private:
     void SlotViewDrawLine2(handler_id viewHandle, const PPoint& fromPnt, const PPoint& toPnt) { ForwardToView(viewHandle, &PServerView::DrawLine, fromPnt, toPnt); }
     void SlotViewFillRect(handler_id viewHandle, const PRect& rect, PColor color)             { ForwardToView(viewHandle, &PServerView::FillRect, rect, color); }
     void SlotViewFillCircle(handler_id viewHandle, const PPoint& position, float radius)     { ForwardToView(viewHandle, &PServerView::FillCircle, position, radius); }
+    void SlotViewFillTriangle(handler_id viewHandle, const PPoint& pos1, const PPoint& pos2, const PPoint& pos3) { ForwardToView(viewHandle, &PServerView::FillTriangle, pos1, pos2, pos3); }
+    void SlotViewBeginTriangles(handler_id viewHandle, PTriangleMode mode, size_t countHint)  { ForwardToView(viewHandle, &PServerView::BeginTriangles, mode, countHint); }
+    void SlotViewAddTriangle(handler_id viewHandle, const PPoint& position)                   { ForwardToView(viewHandle, &PServerView::AddTriangle, position); }
+    void SlotViewEndTriangles(handler_id viewHandle)                                          { ForwardToView(viewHandle, &PServerView::EndTriangles); }
     void SlotViewDrawString(handler_id viewHandle, const PString& string)                   { ForwardToView(viewHandle, &PServerView::DrawString, string); }
     void SlotViewScrollBy(handler_id viewHandle, const PPoint& delta)                        { ForwardToView(viewHandle, &PServerView::ScrollBy, delta); }
     void SlotViewCopyRect(handler_id viewHandle, const PRect& srcRect, const PPoint& dstPos)  { ForwardToView(viewHandle, &PServerView::CopyRect, srcRect, dstPos); }
@@ -140,6 +144,10 @@ private:
     ASViewDrawLine2             RSViewDrawLine2;
     ASViewFillRect              RSViewFillRect;
     ASViewFillCircle            RSViewFillCircle;
+    ASViewFillTriangle          RSViewFillTriangle;
+    ASViewBeginTriangles        RSViewBeginTriangles;
+    ASViewAddTriangle           RSViewAddTriangle;
+    ASViewEndTriangles          RSViewEndTriangles;
     ASViewDrawString            RSViewDrawString;
     ASViewScrollBy              RSViewScrollBy;
     ASViewCopyRect              RSViewCopyRect;

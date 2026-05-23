@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -1302,6 +1302,32 @@ void PView::HandleMouseMove(PMouseButton button, const PPoint& position, const P
             DispatchTouchMove(button, position, motionEvent);
         }
     }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::FillTriangleFan(std::span<const PPoint> points)
+{
+    BeginTriangles(PTriangleMode::Fan, points.size());
+    for (const PPoint& point : points) {
+        AddTriangle(point);
+    }
+    EndTriangles();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::FillTriangleStrip(std::span<const PPoint> points)
+{
+    BeginTriangles(PTriangleMode::Strip, points.size());
+    for (const PPoint& point : points) {
+        AddTriangle(point);
+    }
+    EndTriangles();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

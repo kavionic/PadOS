@@ -95,6 +95,12 @@ enum class PDrawingMode : uint8_t
     Select
 };
 
+enum class PTriangleMode : uint8_t
+{
+    Fan,
+    Strip
+};
+
 enum class PStandardColorID : int32_t
 {
     None,

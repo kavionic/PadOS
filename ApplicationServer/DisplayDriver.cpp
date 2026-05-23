@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 1999-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 1999-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <algorithm>
+#include <cmath>
 
 #include "ApplicationServer/DisplayDriver.h"
 #include <ApplicationServer/ServerBitmap.h>
@@ -255,6 +257,142 @@ void PDisplayDriver::WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor c
         default:
             p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "DisplayDriver::WritePixel() unknown color space {}.", int(bitmap->m_ColorSpace));
             break;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static int TriangleLineLengthSqr(const PIPoint& point1, const PIPoint& point2)
+{
+    const int deltaX = point2.x - point1.x;
+    const int deltaY = point2.y - point1.y;
+    return deltaX * deltaX + deltaY * deltaY;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void AddTriangleHorizontalIntersection(const PIPoint& point1, const PIPoint& point2, float sampleY, float& intersection1, float& intersection2, int& intersectionCount)
+{
+    if ((float(point1.y) <= sampleY && float(point2.y) > sampleY) || (float(point2.y) <= sampleY && float(point1.y) > sampleY))
+    {
+        const float ratio = (sampleY - float(point1.y)) / float(point2.y - point1.y);
+        const float intersection = float(point1.x) + float(point2.x - point1.x) * ratio;
+        if (intersectionCount == 0) {
+            intersection1 = intersection;
+        } else {
+            intersection2 = intersection;
+        }
+        ++intersectionCount;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void AddTriangleVerticalIntersection(const PIPoint& point1, const PIPoint& point2, float sampleX, float& intersection1, float& intersection2, int& intersectionCount)
+{
+    if ((float(point1.x) <= sampleX && float(point2.x) > sampleX) || (float(point2.x) <= sampleX && float(point1.x) > sampleX))
+    {
+        const float ratio = (sampleX - float(point1.x)) / float(point2.x - point1.x);
+        const float intersection = float(point1.y) + float(point2.y - point1.y) * ratio;
+        if (intersectionCount == 0) {
+            intersection1 = intersection;
+        } else {
+            intersection2 = intersection;
+        }
+        ++intersectionCount;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDisplayDriver::FillTriangle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PIPoint& pos3, const PColor& color, PDrawingMode mode)
+{
+    const int triangleArea = (pos2.x - pos1.x) * (pos3.y - pos1.y) - (pos2.y - pos1.y) * (pos3.x - pos1.x);
+
+    if (triangleArea == 0)
+    {
+        const int length12 = TriangleLineLengthSqr(pos1, pos2);
+        const int length23 = TriangleLineLengthSqr(pos2, pos3);
+        const int length31 = TriangleLineLengthSqr(pos3, pos1);
+
+        if (length12 >= length23 && length12 >= length31) {
+            DrawLine(bitmap, clipRect, pos1, pos2, color, mode);
+        } else if (length23 >= length31) {
+            DrawLine(bitmap, clipRect, pos2, pos3, color, mode);
+        } else {
+            DrawLine(bitmap, clipRect, pos3, pos1, color, mode);
+        }
+        return;
+    }
+
+    const int minX = std::max(clipRect.left, std::min({ pos1.x, pos2.x, pos3.x }));
+    const int minY = std::max(clipRect.top, std::min({ pos1.y, pos2.y, pos3.y }));
+    const int maxX = std::min(clipRect.right - 1, std::max({ pos1.x, pos2.x, pos3.x }));
+    const int maxY = std::min(clipRect.bottom - 1, std::max({ pos1.y, pos2.y, pos3.y }));
+
+    if (minX > maxX || minY > maxY) {
+        return;
+    }
+
+    if ((maxX - minX) >= (maxY - minY))
+    {
+        for (int scanY = minY; scanY <= maxY; ++scanY)
+        {
+            float intersection1 = 0.0f;
+            float intersection2 = 0.0f;
+            int intersectionCount = 0;
+            const float sampleY = float(scanY) + 0.5f;
+
+            AddTriangleHorizontalIntersection(pos1, pos2, sampleY, intersection1, intersection2, intersectionCount);
+            AddTriangleHorizontalIntersection(pos2, pos3, sampleY, intersection1, intersection2, intersectionCount);
+            AddTriangleHorizontalIntersection(pos3, pos1, sampleY, intersection1, intersection2, intersectionCount);
+
+            if (intersectionCount == 2)
+            {
+                if (intersection1 > intersection2) {
+                    std::swap(intersection1, intersection2);
+                }
+                const int spanStart = std::max(minX, int(std::ceil(intersection1 - 0.5f)));
+                const int spanEnd = std::min(maxX, int(std::ceil(intersection2 - 0.5f)) - 1);
+                if (spanStart <= spanEnd) {
+                    DrawLine(bitmap, clipRect, PIPoint(spanStart, scanY), PIPoint(spanEnd, scanY), color, mode);
+                }
+            }
+        }
+    }
+    else
+    {
+        for (int scanX = minX; scanX <= maxX; ++scanX)
+        {
+            float intersection1 = 0.0f;
+            float intersection2 = 0.0f;
+            int intersectionCount = 0;
+            const float sampleX = float(scanX) + 0.5f;
+
+            AddTriangleVerticalIntersection(pos1, pos2, sampleX, intersection1, intersection2, intersectionCount);
+            AddTriangleVerticalIntersection(pos2, pos3, sampleX, intersection1, intersection2, intersectionCount);
+            AddTriangleVerticalIntersection(pos3, pos1, sampleX, intersection1, intersection2, intersectionCount);
+
+            if (intersectionCount == 2)
+            {
+                if (intersection1 > intersection2) {
+                    std::swap(intersection1, intersection2);
+                }
+                const int spanStart = std::max(minY, int(std::ceil(intersection1 - 0.5f)));
+                const int spanEnd = std::min(maxY, int(std::ceil(intersection2 - 0.5f)) - 1);
+                if (spanStart <= spanEnd) {
+                    DrawLine(bitmap, clipRect, PIPoint(scanX, spanStart), PIPoint(scanX, spanEnd), color, mode);
+                }
+            }
+        }
     }
 }
 

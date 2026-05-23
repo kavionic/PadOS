@@ -234,6 +234,58 @@ void RA8875GfxDriver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void RA8875GfxDriver::FillTriangle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PIPoint& pos3, const PColor& color, PDrawingMode mode)
+{
+    if (bitmap->m_VideoMem)
+    {
+        const int triangleArea = (pos2.x - pos1.x) * (pos3.y - pos1.y) - (pos2.y - pos1.y) * (pos3.x - pos1.x);
+
+        if (triangleArea == 0)
+        {
+            const int deltaX12 = pos2.x - pos1.x;
+            const int deltaY12 = pos2.y - pos1.y;
+            const int deltaX23 = pos3.x - pos2.x;
+            const int deltaY23 = pos3.y - pos2.y;
+            const int deltaX31 = pos1.x - pos3.x;
+            const int deltaY31 = pos1.y - pos3.y;
+            const int length12 = deltaX12 * deltaX12 + deltaY12 * deltaY12;
+            const int length23 = deltaX23 * deltaX23 + deltaY23 * deltaY23;
+            const int length31 = deltaX31 * deltaX31 + deltaY31 * deltaY31;
+
+            if (length12 >= length23 && length12 >= length31) {
+                DrawLine(bitmap, clipRect, pos1, pos2, color, mode);
+            } else if (length23 >= length31) {
+                DrawLine(bitmap, clipRect, pos2, pos3, color, mode);
+            } else {
+                DrawLine(bitmap, clipRect, pos3, pos1, color, mode);
+            }
+            return;
+        }
+
+        SetWindow(clipRect);
+        WaitBlitter();
+
+        SetFgColor(color.GetColor16());
+
+        WriteCommand(RA8875_DLHSR0, RA8875_DLHSR1, uint16_t(pos1.x));
+        WriteCommand(RA8875_DLVSR0, RA8875_DLVSR1, uint16_t(pos1.y));
+        WriteCommand(RA8875_DLHER0, RA8875_DLHER1, uint16_t(pos2.x));
+        WriteCommand(RA8875_DLVER0, RA8875_DLVER1, uint16_t(pos2.y));
+        WriteCommand(RA8875_DTPH0, RA8875_DTPH1, uint16_t(pos3.x));
+        WriteCommand(RA8875_DTPV0, RA8875_DTPV1, uint16_t(pos3.y));
+
+        WriteCommand(RA8875_DCR, RA8875_DCR_FILL_bm | RA8875_DCR_TRIANGLE_bm | RA8875_DCR_LINE_SQR_TRI_bm);
+    }
+    else
+    {
+        PDisplayDriver::FillTriangle(bitmap, clipRect, pos1, pos2, pos3, color, mode);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void RA8875GfxDriver::FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor& color)
 {
     if (bitmap->m_VideoMem)

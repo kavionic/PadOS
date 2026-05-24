@@ -1334,6 +1334,19 @@ void PView::FillTriangleStrip(std::span<const PPoint> points)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PView::DrawPolyline(std::span<const PPoint> points)
+{
+    Post<ASViewBeginPolyline>();
+    for (const PPoint& point : points) {
+        Post<ASViewAddPolylinePoint>(point);
+    }
+    Post<ASViewEndPolyline>();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PView::ScrollBy(const PPoint& offset)
 {
     if (offset.x == 0.0f && offset.y == 0.0f) {

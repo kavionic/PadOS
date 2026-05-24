@@ -470,6 +470,11 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
         , view->m_FocusKeyboardMode
         , view->m_DrawingMode
         , view->m_PenWidth
+        , view->m_CapStyle
+        , view->m_JointStyle
+        , view->m_MiterLimit
+        , view->m_DashPattern
+        , view->m_DashOffset
         , (view->m_Font != nullptr) ? view->m_Font->Get() : PFontID::e_FontLarge
         , view->m_EraseColor
         , view->m_BgColor

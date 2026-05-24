@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <array>
+#include <span>
 #include <vector>
 
 #include <Ptr/PtrTarget.h>
@@ -83,7 +85,10 @@ public:
 
     virtual void    WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color);
     virtual void    DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode);
+    virtual void    FillPolygon(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, const PColor& color, PDrawingMode mode);
     virtual void    FillTriangle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PIPoint& pos3, const PColor& color, PDrawingMode mode);
+    virtual void    FillTriangleFan(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, const PColor& color, PDrawingMode mode);
+    virtual void    FillTriangleStrip(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, const PColor& color, PDrawingMode mode);
     virtual void    FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor& color);
     virtual void    CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPos, PDrawingMode mode);
     virtual void    ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode);
@@ -104,6 +109,9 @@ public:
 
     static PColor   GetPaletteEntry(uint8_t index);
 private:
+    void    FillTriangleUnion(PSrvBitmap* bitmap, const PIRect& clipRect,
+                              std::span<const std::array<PPoint, 3>> triangles,
+                              const PColor& color, PDrawingMode mode);
     void    FillBlit8(uint8_t* pDst, int nMod, int W, int H, uint8_t nColor);
     void    FillBlit16(uint16_t* pDst, int nMod, int W, int H, uint16_t nColor);
     void    FillBlit24(uint8_t* pDst, int nMod, int W, int H, uint32_t nColor);

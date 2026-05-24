@@ -101,6 +101,20 @@ enum class PTriangleMode : uint8_t
     Strip
 };
 
+enum class PCapStyle : uint8_t
+{
+    Square,
+    Flat,
+    Round
+};
+
+enum class PJointStyle : uint8_t
+{
+    Bevel,
+    Miter,
+    Round
+};
+
 enum class PStandardColorID : int32_t
 {
     None,

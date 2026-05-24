@@ -21,6 +21,7 @@
 #include <stdio.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 #include "ApplicationServer/DisplayDriver.h"
@@ -264,29 +265,220 @@ void PDisplayDriver::WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor c
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static int TriangleLineLengthSqr(const PIPoint& point1, const PIPoint& point2)
+static bool EdgeCrossesScanline(float start, float end, float sample)
 {
-    const int deltaX = point2.x - point1.x;
-    const int deltaY = point2.y - point1.y;
-    return deltaX * deltaX + deltaY * deltaY;
+    return (start <= sample && end > sample)
+        || (end <= sample && start > sample);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void AddTriangleHorizontalIntersection(const PIPoint& point1, const PIPoint& point2, float sampleY, float& intersection1, float& intersection2, int& intersectionCount)
+static int FirstCoveredPixel(float boundary)
 {
-    if ((float(point1.y) <= sampleY && float(point2.y) > sampleY) || (float(point2.y) <= sampleY && float(point1.y) > sampleY))
+    return int(std::ceil(boundary - 0.5f));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static int LastCoveredPixel(float boundary)
+{
+    return int(std::ceil(boundary - 0.5f)) - 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+struct TriangleSpanInterval
+{
+    float Start;
+    float End;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static bool GetTriangleSpanInterval(const std::array<PPoint, 3>& triangle,
+                                    float samplePosition,
+                                    bool useHorizontalSpans,
+                                    TriangleSpanInterval& outInterval)
+{
+    const PPoint delta1 = triangle[1] - triangle[0];
+    const PPoint delta2 = triangle[2] - triangle[0];
+    const float area = delta1.x * delta2.y - delta1.y * delta2.x;
+    if (std::abs(area) < 1e-6f) {
+        return false;
+    }
+
+    std::array<float, 3> intersections;
+    size_t intersectionCount = 0;
+    for (size_t edgeIndex = 0; edgeIndex < triangle.size(); ++edgeIndex)
     {
-        const float ratio = (sampleY - float(point1.y)) / float(point2.y - point1.y);
-        const float intersection = float(point1.x) + float(point2.x - point1.x) * ratio;
-        if (intersectionCount == 0) {
-            intersection1 = intersection;
-        } else {
-            intersection2 = intersection;
+        const PPoint& edgeStart = triangle[edgeIndex];
+        const PPoint& edgeEnd = triangle[(edgeIndex + 1) % triangle.size()];
+        const float edgeStartScan = useHorizontalSpans ? edgeStart.y : edgeStart.x;
+        const float edgeEndScan = useHorizontalSpans ? edgeEnd.y : edgeEnd.x;
+        if (EdgeCrossesScanline(edgeStartScan, edgeEndScan, samplePosition))
+        {
+            const float ratio = (samplePosition - edgeStartScan) / (edgeEndScan - edgeStartScan);
+            intersections[intersectionCount++] = useHorizontalSpans
+                ? edgeStart.x + (edgeEnd.x - edgeStart.x) * ratio
+                : edgeStart.y + (edgeEnd.y - edgeStart.y) * ratio;
         }
-        ++intersectionCount;
+    }
+
+    if (intersectionCount != 2) {
+        return false;
+    }
+
+    outInterval.Start = std::min(intersections[0], intersections[1]);
+    outInterval.End = std::max(intersections[0], intersections[1]);
+    return outInterval.Start < outInterval.End;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDisplayDriver::FillTriangleUnion(PSrvBitmap* bitmap, const PIRect& clipRect,
+                                       std::span<const std::array<PPoint, 3>> triangles,
+                                       const PColor& color, PDrawingMode mode)
+{
+    if (triangles.empty() || clipRect.Width() <= 0 || clipRect.Height() <= 0) {
+        return;
+    }
+
+    bool hasBounds = false;
+    float minX = 0.0f;
+    float minY = 0.0f;
+    float maxX = 0.0f;
+    float maxY = 0.0f;
+    for (const std::array<PPoint, 3>& triangle : triangles)
+    {
+        const PPoint delta1 = triangle[1] - triangle[0];
+        const PPoint delta2 = triangle[2] - triangle[0];
+        const float area = delta1.x * delta2.y - delta1.y * delta2.x;
+        if (std::abs(area) < 1e-6f) {
+            continue;
+        }
+
+        for (const PPoint& point : triangle)
+        {
+            if (!hasBounds)
+            {
+                minX = point.x;
+                minY = point.y;
+                maxX = point.x;
+                maxY = point.y;
+                hasBounds = true;
+            }
+            else
+            {
+                minX = std::min(minX, point.x);
+                minY = std::min(minY, point.y);
+                maxX = std::max(maxX, point.x);
+                maxY = std::max(maxY, point.y);
+            }
+        }
+    }
+
+    if (!hasBounds || minX >= maxX || minY >= maxY) {
+        return;
+    }
+
+    const bool useHorizontalSpans = (maxX - minX) >= (maxY - minY);
+    const float mergeTolerance = 1e-5f;
+    std::vector<TriangleSpanInterval> intervals;
+    intervals.reserve(triangles.size());
+
+    if (useHorizontalSpans)
+    {
+        const int firstScanY = std::max(clipRect.top, FirstCoveredPixel(minY));
+        const int lastScanY = std::min(clipRect.bottom - 1, LastCoveredPixel(maxY));
+        for (int scanY = firstScanY; scanY <= lastScanY; ++scanY)
+        {
+            const float sampleY = float(scanY) + 0.5f;
+            intervals.clear();
+            for (const std::array<PPoint, 3>& triangle : triangles)
+            {
+                TriangleSpanInterval interval;
+                if (GetTriangleSpanInterval(triangle, sampleY, true, interval)) {
+                    intervals.push_back(interval);
+                }
+            }
+            std::sort(intervals.begin(), intervals.end(),
+                [](const TriangleSpanInterval& lhs, const TriangleSpanInterval& rhs)
+                {
+                    return (lhs.Start < rhs.Start)
+                        || (lhs.Start == rhs.Start && lhs.End < rhs.End);
+                });
+
+            size_t intervalIndex = 0;
+            while (intervalIndex < intervals.size())
+            {
+                float spanStartFloat = intervals[intervalIndex].Start;
+                float spanEndFloat = intervals[intervalIndex].End;
+                ++intervalIndex;
+                while (intervalIndex < intervals.size()
+                       && intervals[intervalIndex].Start <= spanEndFloat + mergeTolerance)
+                {
+                    spanEndFloat = std::max(spanEndFloat, intervals[intervalIndex].End);
+                    ++intervalIndex;
+                }
+                const int spanStart = std::max(clipRect.left, FirstCoveredPixel(spanStartFloat));
+                const int spanEnd = std::min(clipRect.right - 1, LastCoveredPixel(spanEndFloat));
+                if (spanStart <= spanEnd) {
+                    DrawLine(bitmap, clipRect, PIPoint(spanStart, scanY), PIPoint(spanEnd, scanY), color, mode);
+                }
+            }
+        }
+    }
+    else
+    {
+        const int firstScanX = std::max(clipRect.left, FirstCoveredPixel(minX));
+        const int lastScanX = std::min(clipRect.right - 1, LastCoveredPixel(maxX));
+        for (int scanX = firstScanX; scanX <= lastScanX; ++scanX)
+        {
+            const float sampleX = float(scanX) + 0.5f;
+            intervals.clear();
+            for (const std::array<PPoint, 3>& triangle : triangles)
+            {
+                TriangleSpanInterval interval;
+                if (GetTriangleSpanInterval(triangle, sampleX, false, interval)) {
+                    intervals.push_back(interval);
+                }
+            }
+            std::sort(intervals.begin(), intervals.end(),
+                [](const TriangleSpanInterval& lhs, const TriangleSpanInterval& rhs)
+                {
+                    return (lhs.Start < rhs.Start)
+                        || (lhs.Start == rhs.Start && lhs.End < rhs.End);
+                });
+
+            size_t intervalIndex = 0;
+            while (intervalIndex < intervals.size())
+            {
+                float spanStartFloat = intervals[intervalIndex].Start;
+                float spanEndFloat = intervals[intervalIndex].End;
+                ++intervalIndex;
+                while (intervalIndex < intervals.size()
+                       && intervals[intervalIndex].Start <= spanEndFloat + mergeTolerance)
+                {
+                    spanEndFloat = std::max(spanEndFloat, intervals[intervalIndex].End);
+                    ++intervalIndex;
+                }
+                const int spanStart = std::max(clipRect.top, FirstCoveredPixel(spanStartFloat));
+                const int spanEnd = std::min(clipRect.bottom - 1, LastCoveredPixel(spanEndFloat));
+                if (spanStart <= spanEnd) {
+                    DrawLine(bitmap, clipRect, PIPoint(scanX, spanStart), PIPoint(scanX, spanEnd), color, mode);
+                }
+            }
+        }
     }
 }
 
@@ -294,18 +486,88 @@ static void AddTriangleHorizontalIntersection(const PIPoint& point1, const PIPoi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-static void AddTriangleVerticalIntersection(const PIPoint& point1, const PIPoint& point2, float sampleX, float& intersection1, float& intersection2, int& intersectionCount)
+void PDisplayDriver::FillPolygon(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, const PColor& color, PDrawingMode mode)
 {
-    if ((float(point1.x) <= sampleX && float(point2.x) > sampleX) || (float(point2.x) <= sampleX && float(point1.x) > sampleX))
+    if (points.size() < 3 || clipRect.Width() <= 0 || clipRect.Height() <= 0) {
+        return;
+    }
+
+    float minX = points[0].x;
+    float minY = points[0].y;
+    float maxX = points[0].x;
+    float maxY = points[0].y;
+    for (size_t pointIndex = 1; pointIndex < points.size(); ++pointIndex)
     {
-        const float ratio = (sampleX - float(point1.x)) / float(point2.x - point1.x);
-        const float intersection = float(point1.y) + float(point2.y - point1.y) * ratio;
-        if (intersectionCount == 0) {
-            intersection1 = intersection;
-        } else {
-            intersection2 = intersection;
+        minX = std::min(minX, points[pointIndex].x);
+        minY = std::min(minY, points[pointIndex].y);
+        maxX = std::max(maxX, points[pointIndex].x);
+        maxY = std::max(maxY, points[pointIndex].y);
+    }
+
+    if (minX >= maxX || minY >= maxY) {
+        return;
+    }
+
+    std::vector<float> intersections;
+    intersections.reserve(points.size());
+
+    if ((maxX - minX) >= (maxY - minY))
+    {
+        const int firstScanY = std::max(clipRect.top, FirstCoveredPixel(minY));
+        const int lastScanY = std::min(clipRect.bottom - 1, LastCoveredPixel(maxY));
+        for (int scanY = firstScanY; scanY <= lastScanY; ++scanY)
+        {
+            const float sampleY = float(scanY) + 0.5f;
+            intersections.clear();
+            for (size_t edgeIndex = 0; edgeIndex < points.size(); ++edgeIndex)
+            {
+                const PPoint& edgeStart = points[edgeIndex];
+                const PPoint& edgeEnd = points[(edgeIndex + 1) % points.size()];
+                if (EdgeCrossesScanline(edgeStart.y, edgeEnd.y, sampleY))
+                {
+                    const float ratio = (sampleY - edgeStart.y) / (edgeEnd.y - edgeStart.y);
+                    intersections.push_back(edgeStart.x + (edgeEnd.x - edgeStart.x) * ratio);
+                }
+            }
+            std::sort(intersections.begin(), intersections.end());
+            for (size_t intersectionIndex = 0; intersectionIndex + 1 < intersections.size(); intersectionIndex += 2)
+            {
+                const int spanStart = std::max(clipRect.left, FirstCoveredPixel(intersections[intersectionIndex]));
+                const int spanEnd = std::min(clipRect.right - 1, LastCoveredPixel(intersections[intersectionIndex + 1]));
+                if (spanStart <= spanEnd) {
+                    DrawLine(bitmap, clipRect, PIPoint(spanStart, scanY), PIPoint(spanEnd, scanY), color, mode);
+                }
+            }
         }
-        ++intersectionCount;
+    }
+    else
+    {
+        const int firstScanX = std::max(clipRect.left, FirstCoveredPixel(minX));
+        const int lastScanX = std::min(clipRect.right - 1, LastCoveredPixel(maxX));
+        for (int scanX = firstScanX; scanX <= lastScanX; ++scanX)
+        {
+            const float sampleX = float(scanX) + 0.5f;
+            intersections.clear();
+            for (size_t edgeIndex = 0; edgeIndex < points.size(); ++edgeIndex)
+            {
+                const PPoint& edgeStart = points[edgeIndex];
+                const PPoint& edgeEnd = points[(edgeIndex + 1) % points.size()];
+                if (EdgeCrossesScanline(edgeStart.x, edgeEnd.x, sampleX))
+                {
+                    const float ratio = (sampleX - edgeStart.x) / (edgeEnd.x - edgeStart.x);
+                    intersections.push_back(edgeStart.y + (edgeEnd.y - edgeStart.y) * ratio);
+                }
+            }
+            std::sort(intersections.begin(), intersections.end());
+            for (size_t intersectionIndex = 0; intersectionIndex + 1 < intersections.size(); intersectionIndex += 2)
+            {
+                const int spanStart = std::max(clipRect.top, FirstCoveredPixel(intersections[intersectionIndex]));
+                const int spanEnd = std::min(clipRect.bottom - 1, LastCoveredPixel(intersections[intersectionIndex + 1]));
+                if (spanStart <= spanEnd) {
+                    DrawLine(bitmap, clipRect, PIPoint(scanX, spanStart), PIPoint(scanX, spanEnd), color, mode);
+                }
+            }
+        }
     }
 }
 
@@ -315,85 +577,46 @@ static void AddTriangleVerticalIntersection(const PIPoint& point1, const PIPoint
 
 void PDisplayDriver::FillTriangle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PIPoint& pos3, const PColor& color, PDrawingMode mode)
 {
-    const int triangleArea = (pos2.x - pos1.x) * (pos3.y - pos1.y) - (pos2.y - pos1.y) * (pos3.x - pos1.x);
+    const std::array<PPoint, 3> points = {
+        PPoint(pos1), PPoint(pos2), PPoint(pos3)
+    };
+    FillPolygon(bitmap, clipRect, points, color, mode);
+}
 
-    if (triangleArea == 0)
-    {
-        const int length12 = TriangleLineLengthSqr(pos1, pos2);
-        const int length23 = TriangleLineLengthSqr(pos2, pos3);
-        const int length31 = TriangleLineLengthSqr(pos3, pos1);
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
-        if (length12 >= length23 && length12 >= length31) {
-            DrawLine(bitmap, clipRect, pos1, pos2, color, mode);
-        } else if (length23 >= length31) {
-            DrawLine(bitmap, clipRect, pos2, pos3, color, mode);
-        } else {
-            DrawLine(bitmap, clipRect, pos3, pos1, color, mode);
-        }
+void PDisplayDriver::FillTriangleFan(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, const PColor& color, PDrawingMode mode)
+{
+    if (points.size() < 3) {
         return;
     }
 
-    const int minX = std::max(clipRect.left, std::min({ pos1.x, pos2.x, pos3.x }));
-    const int minY = std::max(clipRect.top, std::min({ pos1.y, pos2.y, pos3.y }));
-    const int maxX = std::min(clipRect.right - 1, std::max({ pos1.x, pos2.x, pos3.x }));
-    const int maxY = std::min(clipRect.bottom - 1, std::max({ pos1.y, pos2.y, pos3.y }));
+    std::vector<std::array<PPoint, 3>> triangles;
+    triangles.reserve(points.size() - 2);
+    for (size_t pointIndex = 1; pointIndex + 1 < points.size(); ++pointIndex) {
+        triangles.push_back({ points[0], points[pointIndex], points[pointIndex + 1] });
+    }
+    FillTriangleUnion(bitmap, clipRect, triangles, color, mode);
+}
 
-    if (minX > maxX || minY > maxY) {
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PDisplayDriver::FillTriangleStrip(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, const PColor& color, PDrawingMode mode)
+{
+    if (points.size() < 3) {
         return;
     }
 
-    if ((maxX - minX) >= (maxY - minY))
-    {
-        for (int scanY = minY; scanY <= maxY; ++scanY)
-        {
-            float intersection1 = 0.0f;
-            float intersection2 = 0.0f;
-            int intersectionCount = 0;
-            const float sampleY = float(scanY) + 0.5f;
-
-            AddTriangleHorizontalIntersection(pos1, pos2, sampleY, intersection1, intersection2, intersectionCount);
-            AddTriangleHorizontalIntersection(pos2, pos3, sampleY, intersection1, intersection2, intersectionCount);
-            AddTriangleHorizontalIntersection(pos3, pos1, sampleY, intersection1, intersection2, intersectionCount);
-
-            if (intersectionCount == 2)
-            {
-                if (intersection1 > intersection2) {
-                    std::swap(intersection1, intersection2);
-                }
-                const int spanStart = std::max(minX, int(std::ceil(intersection1 - 0.5f)));
-                const int spanEnd = std::min(maxX, int(std::ceil(intersection2 - 0.5f)) - 1);
-                if (spanStart <= spanEnd) {
-                    DrawLine(bitmap, clipRect, PIPoint(spanStart, scanY), PIPoint(spanEnd, scanY), color, mode);
-                }
-            }
-        }
+    std::vector<std::array<PPoint, 3>> triangles;
+    triangles.reserve(points.size() - 2);
+    for (size_t pointIndex = 0; pointIndex + 2 < points.size(); ++pointIndex) {
+        triangles.push_back({ points[pointIndex], points[pointIndex + 1], points[pointIndex + 2] });
     }
-    else
-    {
-        for (int scanX = minX; scanX <= maxX; ++scanX)
-        {
-            float intersection1 = 0.0f;
-            float intersection2 = 0.0f;
-            int intersectionCount = 0;
-            const float sampleX = float(scanX) + 0.5f;
-
-            AddTriangleVerticalIntersection(pos1, pos2, sampleX, intersection1, intersection2, intersectionCount);
-            AddTriangleVerticalIntersection(pos2, pos3, sampleX, intersection1, intersection2, intersectionCount);
-            AddTriangleVerticalIntersection(pos3, pos1, sampleX, intersection1, intersection2, intersectionCount);
-
-            if (intersectionCount == 2)
-            {
-                if (intersection1 > intersection2) {
-                    std::swap(intersection1, intersection2);
-                }
-                const int spanStart = std::max(minY, int(std::ceil(intersection1 - 0.5f)));
-                const int spanEnd = std::min(maxY, int(std::ceil(intersection2 - 0.5f)) - 1);
-                if (spanStart <= spanEnd) {
-                    DrawLine(bitmap, clipRect, PIPoint(scanX, spanStart), PIPoint(scanX, spanEnd), color, mode);
-                }
-            }
-        }
-    }
+    FillTriangleUnion(bitmap, clipRect, triangles, color, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -86,7 +86,6 @@ public:
 
     virtual void            WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color) override;
     virtual void            DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode) override;
-    virtual void            FillTriangle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PIPoint& pos3, const PColor& color, PDrawingMode mode) override;
     virtual void            FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor& color) override;
     virtual void            CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPos, PDrawingMode mode) override;
     virtual void            ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode) override;
@@ -147,6 +146,12 @@ private:
                 status = ReadCommand();
             }
             while (status & RA8875_STATUS_MEMORY_BUSY_bm) { status = ReadCommand(); }
+        }
+
+        WriteCommand(RA8875_DCR);
+        while ((ReadData() & (RA8875_DCR_LINE_SQR_TRI_bm | RA8875_DCR_CIRCLE_bm)) != 0)
+        {
+            WriteCommand(RA8875_DCR);
         }
     }
 

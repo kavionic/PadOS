@@ -57,6 +57,14 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewSetDrawingMode,         &ServerApplication::SlotViewSetDrawingMode);
     RegisterRemoteSignal(&RSViewSetFont,                &ServerApplication::SlotViewSetFont);
     RegisterRemoteSignal(&RSViewSetPenWidth,            &ServerApplication::SlotViewSetPenWidth);
+    RegisterRemoteSignal(&RSViewSetCapStyle,            &ServerApplication::SlotViewSetCapStyle);
+    RegisterRemoteSignal(&RSViewSetJointStyle,          &ServerApplication::SlotViewSetJointStyle);
+    RegisterRemoteSignal(&RSViewSetMiterLimit,          &ServerApplication::SlotViewSetMiterLimit);
+    RegisterRemoteSignal(&RSViewSetDashPattern,         &ServerApplication::SlotViewSetDashPattern);
+    RegisterRemoteSignal(&RSViewSetDashOffset,          &ServerApplication::SlotViewSetDashOffset);
+    RegisterRemoteSignal(&RSViewBeginPolyline,          &ServerApplication::SlotViewBeginPolyline);
+    RegisterRemoteSignal(&RSViewAddPolylinePoint,       &ServerApplication::SlotViewAddPolylinePoint);
+    RegisterRemoteSignal(&RSViewEndPolyline,            &ServerApplication::SlotViewEndPolyline);
     RegisterRemoteSignal(&RSViewMovePenTo,              &ServerApplication::SlotViewMovePenTo);
     RegisterRemoteSignal(&RSViewDrawLine1,              &ServerApplication::SlotViewDrawLine1);
     RegisterRemoteSignal(&RSViewDrawLine2,              &ServerApplication::SlotViewDrawLine2);
@@ -199,6 +207,11 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
                                        PFocusKeyboardMode    focusKeyboardMode,
                                        PDrawingMode          drawingMode,
                                        float                penWidth,
+                                       PCapStyle             capStyle,
+                                       PJointStyle           jointStyle,
+                                       float                 miterLimit,
+                                       const std::vector<float>& dashPattern,
+                                       float                 dashOffset,
                                        PFontID               fontID,
                                        PColor                eraseColor,
                                        PColor                bgColor,
@@ -225,7 +238,7 @@ void ServerApplication::SlotCreateView(port_id              clientPort,
         }
     }
     
-    Ptr<PServerView> view = ptr_new<PServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hideCount, focusKeyboardMode, drawingMode, penWidth, fontID, eraseColor, bgColor, fgColor);
+    Ptr<PServerView> view = ptr_new<PServerView>(ApplicationServer::GetScreenBitmap(), name, frame, scrollOffset, dockType, flags, hideCount, focusKeyboardMode, drawingMode, penWidth, capStyle, jointStyle, miterLimit, dashPattern, dashOffset, fontID, eraseColor, bgColor, fgColor);
     m_Server->RegisterView(view);
     if (parent != nullptr) {
         parent->AddChild(view, index);

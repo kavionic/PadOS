@@ -230,6 +230,27 @@ public:
     void            SetEraseColor(PNamedColors colorID)                                          { SetEraseColor(PColor(colorID)); }
 
     void            SetPenWidth(float width)                           { if (width != m_PenWidth) { m_PenWidth = width; Post<ASViewSetPenWidth>(width); } }
+    void            SetCapStyle(PCapStyle style)
+    {
+        if (style != m_CapStyle) { m_CapStyle = style; Post<ASViewSetCapStyle>(style); }
+    }
+    void            SetJointStyle(PJointStyle style)
+    {
+        if (style != m_JointStyle) { m_JointStyle = style; Post<ASViewSetJointStyle>(style); }
+    }
+    void            SetMiterLimit(float limit)
+    {
+        if (limit != m_MiterLimit) { m_MiterLimit = limit; Post<ASViewSetMiterLimit>(limit); }
+    }
+    void            SetDashPattern(std::span<const float> pattern)
+    {
+        m_DashPattern.assign(pattern.begin(), pattern.end());
+        Post<ASViewSetDashPattern>(m_DashPattern);
+    }
+    void            SetDashOffset(float offset)
+    {
+        if (offset != m_DashOffset) { m_DashOffset = offset; Post<ASViewSetDashOffset>(offset); }
+    }
     void            MovePenTo(const PPoint& pos)                        { m_PenPosition = pos; Post<ASViewMovePenTo>(pos); }
     void            MovePenTo(float x, float y)                        { MovePenTo(PPoint(x, y)); }
     void            MovePenBy(const PPoint& pos)                        { MovePenTo(m_PenPosition + pos); }
@@ -259,6 +280,7 @@ public:
     void            EndTriangles() { Post<ASViewEndTriangles>(); }
     void            FillTriangleFan(std::span<const PPoint> points);
     void            FillTriangleStrip(std::span<const PPoint> points);
+    void            DrawPolyline(std::span<const PPoint> points);
     void            DrawString(const PString& string) { Post<ASViewDrawString>(string); }
     void            DrawString(const PString& string, const PPoint& pos) { MovePenTo(pos); Post<ASViewDrawString>(string); }
 

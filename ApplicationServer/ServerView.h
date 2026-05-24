@@ -41,6 +41,11 @@ public:
         PFocusKeyboardMode   focusKeyboardMode,
         PDrawingMode         drawingMode,
         float               penWidth,
+        PCapStyle            capStyle,
+        PJointStyle          jointStyle,
+        float                miterLimit,
+        const std::vector<float>& dashPattern,
+        float                dashOffset,
         PFontID              fontID,
         PColor               eraseColor,
         PColor               bgColor,
@@ -109,6 +114,11 @@ public:
 
     void        SetFont(int fontHandle) { m_Font->Set(PFontID(fontHandle)); }
     void        SetPenWidth(float width) { m_PenWidth = width; }
+    void        SetCapStyle(PCapStyle style)                       { m_CapStyle = style; }
+    void        SetJointStyle(PJointStyle style)                   { m_JointStyle = style; }
+    void        SetMiterLimit(float limit)                         { m_MiterLimit = limit; }
+    void        SetDashPattern(const std::vector<float>& pattern)  { m_DashPattern = pattern; }
+    void        SetDashOffset(float offset)                        { m_DashOffset = offset; }
 
     void        MovePenTo(const PPoint& pos) { m_PenPosition = pos; }
 
@@ -125,6 +135,9 @@ public:
     void        BeginTriangles(PTriangleMode mode, size_t countHint);
     void        AddTriangle(const PPoint& position);
     void        EndTriangles();
+    void        BeginPolyline();
+    void        AddPolylinePoint(const PPoint& point);
+    void        EndPolyline();
     void        DrawString(const PString& string);
     void        CopyRect(const PRect& srcRect, const PPoint& dstPos);
     void        DrawBitmap(Ptr<PSrvBitmap> bitmap, const PRect& srcRect, const PPoint& dstPos);
@@ -137,7 +150,86 @@ private:
 
     void UpdateScreenPos();
     void DebugDrawRect(const PIRect& frame, PColor color);
-        
+    struct PolylineSegData
+    {
+        PPoint dir;
+        PPoint norm;
+        float  segLen;
+        float  cumLen;
+        PPoint srcStart;
+        PPoint startL;
+        PPoint startR;
+        PPoint endL;
+        PPoint endR;
+    };
+
+    struct PolylineJointData
+    {
+        PPoint vertex;
+        PPoint innerPoint;
+        PPoint outerPrev;
+        PPoint outerNext;
+        PPoint prevDir;
+        PPoint dir;
+        float  crossZ   = 0.0f;
+        float  sign     = -1.0f;
+        bool   isCollinear = false;
+        bool   isHairpin   = false;
+    };
+
+    void RenderSolidPolyline(const std::vector<PPoint>& points, float halfWidth);
+    void RenderDashedPolyline(const std::vector<PPoint>& points, float halfWidth);
+    void BuildPolylineGeometry(const std::vector<PPoint>& points, float halfWidth,
+                               std::vector<PolylineSegData>& outSegs,
+                               std::vector<PolylineJointData>& outJoints);
+    void BuildPolylineElement(const std::vector<PolylineSegData>& segs,
+                              const std::vector<PolylineJointData>& joints,
+                              float halfWidth,
+                              size_t firstSeg, float firstT,
+                              size_t lastSeg,  float lastT,
+                              bool addStartCap, bool addEndCap,
+                              std::vector<PPoint>& strip);
+    void RenderClippedPolylineElement(const std::vector<PolylineSegData>& segs,
+                                      const std::vector<PolylineJointData>& joints,
+                                      float halfWidth, float arcStart, float arcEnd,
+                                      float totalLength);
+    void FillClippedPolylineTriangle(const PPoint& point1, float point1Arc,
+                                     const PPoint& point2, float point2Arc,
+                                     const PPoint& point3, float point3Arc,
+                                     float arcStart, float arcEnd);
+    void FillClippedPolylinePolygon(std::span<const PPoint> points,
+                                    std::span<const float> arcPositions,
+                                    float arcStart, float arcEnd);
+    void RenderClippedPolylineJoint(const std::vector<PolylineSegData>& segs,
+                                    const PolylineJointData& joint, size_t jointIndex,
+                                    float halfWidth, float arcStart, float arcEnd);
+    void RenderClippedPolylineCap(const PPoint& endpoint, const PPoint& lineDirection,
+                                  float halfWidth, bool isStart, float endpointArc,
+                                  float arcStart, float arcEnd);
+    void EmitJointToStrip(std::vector<PPoint>& strip,
+                          std::vector<PPoint>& additionalTrianglePoints,
+                          const PolylineJointData& joint, float halfWidth);
+    void AppendDisconnectedTriangleToStrip(std::vector<PPoint>& strip,
+                                           const PPoint& point1,
+                                           const PPoint& point2,
+                                           const PPoint& point3);
+    void AppendPolylineCapTriangles(std::vector<PPoint>& trianglePoints,
+                                    const PPoint& endpoint, const PPoint& lineDir,
+                                    float halfWidth, bool isStart);
+    void AppendPolylineBevelJointTriangle(std::vector<PPoint>& trianglePoints,
+                                          const PPoint& vertex,
+                                          const PPoint& outerPrev,
+                                          const PPoint& outerNext);
+    void RenderPolylineMiterJoint(const PPoint& vertex,
+                                  const PPoint& outerPrev, const PPoint& outerNext,
+                                  const PPoint& dirPrev,   const PPoint& dirNext);
+    void AppendPolylineRoundJointTriangles(std::vector<PPoint>& trianglePoints,
+                                           const PPoint& vertex,
+                                           const PPoint& innerPoint,
+                                           const PPoint& outerPrev,
+                                           const PPoint& outerNext,
+                                           float crossZ, float halfWidth);
+
     PSrvBitmap*  m_Bitmap        = nullptr;
     port_id     m_ClientPort    = INVALID_HANDLE;
     handler_id  m_ClientHandle  = INVALID_HANDLE;
@@ -170,4 +262,6 @@ private:
 
     PTriangleMode       m_TriangleMode = PTriangleMode::Fan;
     std::vector<PPoint> m_TrianglePoints;
+
+    std::vector<PPoint> m_PolylinePoints;
 };

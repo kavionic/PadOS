@@ -167,6 +167,58 @@ size_t ClipTrianglePolygon(std::array<PPoint, 8>& points, size_t pointCount, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+struct PolylineClipVertex
+{
+    PPoint Point;
+    float  ArcPosition;
+};
+
+size_t ClipPolylineTriangleBoundary(
+    const std::array<PolylineClipVertex, 8>& inputPoints,
+    size_t inputPointCount,
+    std::array<PolylineClipVertex, 8>& outputPoints,
+    float boundaryArc,
+    bool keepAfter)
+{
+    size_t outputPointCount = 0;
+
+    if (inputPointCount == 0) {
+        return 0;
+    }
+
+    PolylineClipVertex startPoint = inputPoints[inputPointCount - 1];
+    float startDistance = startPoint.ArcPosition - boundaryArc;
+    bool startInside = keepAfter ? (startDistance >= 0.0f) : (startDistance <= 0.0f);
+
+    for (size_t pointIndex = 0; pointIndex < inputPointCount; ++pointIndex)
+    {
+        const PolylineClipVertex endPoint = inputPoints[pointIndex];
+        const float endDistance = endPoint.ArcPosition - boundaryArc;
+        const bool endInside = keepAfter ? (endDistance >= 0.0f) : (endDistance <= 0.0f);
+
+        if (endInside != startInside)
+        {
+            const float ratio = startDistance / (startDistance - endDistance);
+            outputPoints[outputPointCount++] = {
+                startPoint.Point + (endPoint.Point - startPoint.Point) * ratio,
+                boundaryArc
+            };
+        }
+        if (endInside) {
+            outputPoints[outputPointCount++] = endPoint;
+        }
+
+        startPoint = endPoint;
+        startDistance = endDistance;
+        startInside = endInside;
+    }
+    return outputPointCount;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 PIPoint RoundAndClampTrianglePoint(const PPoint& point, const PIRect& clipRect)
 {
     const int x = std::clamp(int(std::round(point.x)), clipRect.left, clipRect.right - 1);
@@ -190,12 +242,17 @@ PServerView::PServerView(
     PFocusKeyboardMode   focusKeyboardMode,
     PDrawingMode         drawingMode,
     float               penWidth,
+    PCapStyle            capStyle,
+    PJointStyle          jointStyle,
+    float                miterLimit,
+    const std::vector<float>& dashPattern,
+    float                dashOffset,
     PFontID              fontID,
     PColor               eraseColor,
     PColor               bgColor,
     PColor               fgColor
 )
-    : PViewBase(name, frame, scrollOffset, flags, hideCount, penWidth, eraseColor, bgColor, fgColor)
+    : PViewBase(name, frame, scrollOffset, flags, hideCount, penWidth, eraseColor, bgColor, fgColor, capStyle, jointStyle, miterLimit, dashPattern, dashOffset)
     , m_Bitmap(bitmap)
     , m_DockType(dockType)
     , m_FocusKeyboardMode(focusKeyboardMode)
@@ -1374,8 +1431,26 @@ void PServerView::FillTriangleFan(std::span<const PPoint> points)
         return;
     }
 
-    for (size_t pointIndex = 1; pointIndex < points.size() - 1; ++pointIndex) {
-        FillTriangle(points[0], points[pointIndex], points[pointIndex + 1]);
+    const Ptr<const PRegion> region = GetRegion();
+    if (region == nullptr) {
+        return;
+    }
+
+    const PIPoint screenPos(m_ScreenPos);
+    const PPoint screenOffset = PPoint(screenPos) + m_ScrollOffset;
+    std::vector<PPoint> screenPoints;
+
+    screenPoints.reserve(points.size());
+    for (const PPoint& point : points)
+    {
+        const PPoint screenPoint = point + screenOffset;
+        screenPoints.push_back(screenPoint);
+    }
+
+    for (const PIRect& clip : region->m_Rects)
+    {
+        m_Bitmap->m_Driver->FillTriangleFan(
+            m_Bitmap, clip + screenPos, screenPoints, m_FgColor, m_DrawingMode);
     }
 }
 
@@ -1389,14 +1464,26 @@ void PServerView::FillTriangleStrip(std::span<const PPoint> points)
         return;
     }
 
-    for (size_t pointIndex = 0; pointIndex < points.size() - 2; ++pointIndex)
+    const Ptr<const PRegion> region = GetRegion();
+    if (region == nullptr) {
+        return;
+    }
+
+    const PIPoint screenPos(m_ScreenPos);
+    const PPoint screenOffset = PPoint(screenPos) + m_ScrollOffset;
+    std::vector<PPoint> screenPoints;
+
+    screenPoints.reserve(points.size());
+    for (const PPoint& point : points)
     {
-        if ((pointIndex & 1) == 0) {
-            FillTriangle(points[pointIndex], points[pointIndex + 1], points[pointIndex + 2]);
-        }
-        else {
-            FillTriangle(points[pointIndex + 1], points[pointIndex], points[pointIndex + 2]);
-        }
+        const PPoint screenPoint = point + screenOffset;
+        screenPoints.push_back(screenPoint);
+    }
+
+    for (const PIRect& clip : region->m_Rects)
+    {
+        m_Bitmap->m_Driver->FillTriangleStrip(
+            m_Bitmap, clip + screenPos, screenPoints, m_FgColor, m_DrawingMode);
     }
 }
 
@@ -1442,6 +1529,1128 @@ void PServerView::EndTriangles()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PServerView::BeginPolyline()
+{
+    m_PolylinePoints.clear();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::AddPolylinePoint(const PPoint& point)
+{
+    m_PolylinePoints.push_back(point);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::EndPolyline()
+{
+    if (m_PolylinePoints.size() < 2)
+    {
+        m_PolylinePoints.clear();
+        return;
+    }
+
+    const float halfWidth = m_PenWidth * 0.5f;
+
+    if (m_DashPattern.empty()) {
+        RenderSolidPolyline(m_PolylinePoints, halfWidth);
+    } else {
+        RenderDashedPolyline(m_PolylinePoints, halfWidth);
+    }
+    m_PolylinePoints.clear();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::RenderSolidPolyline(const std::vector<PPoint>& points, float halfWidth)
+{
+    std::vector<PolylineSegData>   segs;
+    std::vector<PolylineJointData> joints;
+    BuildPolylineGeometry(points, halfWidth, segs, joints);
+    if (segs.empty()) {
+        return;
+    }
+    std::vector<PPoint> strip;
+    BuildPolylineElement(segs, joints, halfWidth,
+                         0, 0.0f, segs.size() - 1, 1.0f,
+                         true, true,
+                         strip);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::RenderDashedPolyline(const std::vector<PPoint>& points, float halfWidth)
+{
+    const size_t patternSize = m_DashPattern.size();
+    if (patternSize == 0) {
+        return;
+    }
+
+    std::vector<PolylineSegData>   segs;
+    std::vector<PolylineJointData> joints;
+    BuildPolylineGeometry(points, halfWidth, segs, joints);
+    if (segs.empty()) {
+        return;
+    }
+
+    const float totalLen = segs.back().cumLen + segs.back().segLen;
+    const float capExtension = (m_CapStyle == PCapStyle::Flat) ? 0.0f : halfWidth;
+    const float renderStart = -capExtension;
+    const float renderEnd = totalLen + capExtension;
+    float patternLength = 0.0f;
+    for (const float elementLength : m_DashPattern) {
+        patternLength += elementLength;
+    }
+    if (patternLength < 1e-6f) {
+        return;
+    }
+
+    size_t patternIndex = 0;
+    float patternPosition = m_DashOffset;
+    patternPosition = std::fmod(patternPosition, patternLength);
+    if (patternPosition < 0.0f) {
+        patternPosition += patternLength;
+    }
+    while (patternPosition >= m_DashPattern[patternIndex])
+    {
+        patternPosition -= m_DashPattern[patternIndex];
+        patternIndex = (patternIndex + 1) % patternSize;
+    }
+    float dashPos = patternPosition / m_DashPattern[patternIndex];
+
+    // Clip the solid geometry to each dash/space interval so adjacent colors
+    // partition the same footprint as the undashed polyline.
+    float arcPos = renderStart;
+
+    while (arcPos < renderEnd - 1e-6f)
+    {
+        const float elementLen  = m_DashPattern[patternIndex] * m_PenWidth;
+        const float remainInEl  = elementLen * (1.0f - dashPos);
+        const float step        = std::min(remainInEl, renderEnd - arcPos);
+        const bool  isSolid     = (patternIndex % 2) == 0;
+        const float arcStart    = arcPos;
+        const float arcEnd      = arcPos + step;
+
+        if (isSolid)
+        {
+            RenderClippedPolylineElement(segs, joints, halfWidth,
+                                         arcStart, arcEnd, totalLen);
+        }
+        else if (m_DrawingMode == PDrawingMode::Copy)
+        {
+            const PColor savedFgColor = m_FgColor;
+            m_FgColor = m_BgColor;
+            RenderClippedPolylineElement(segs, joints, halfWidth,
+                                         arcStart, arcEnd, totalLen);
+            m_FgColor = savedFgColor;
+        }
+
+        arcPos  += step;
+        dashPos += step / elementLen;
+        if (dashPos >= 1.0f - 1e-6f)
+        {
+            dashPos      = 0.0f;
+            patternIndex = (patternIndex + 1) % patternSize;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::BuildPolylineGeometry(const std::vector<PPoint>& points, float halfWidth,
+                                        std::vector<PolylineSegData>&   outSegs,
+                                        std::vector<PolylineJointData>& outJoints)
+{
+    outSegs.clear();
+    outJoints.clear();
+
+    // First pass: collect non-degenerate segments.
+    struct RawSeg
+    {
+        PPoint srcStart;
+        PPoint dir;
+        PPoint norm;
+        float  length;
+    };
+    std::vector<RawSeg> rawSegs;
+    rawSegs.reserve(points.size());
+
+    for (size_t i = 0; i + 1 < points.size(); ++i)
+    {
+        const PPoint delta = points[i + 1] - points[i];
+        const float  len   = delta.Length();
+        if (len < 1e-6f) {
+            continue;
+        }
+        const PPoint dir = delta / len;
+        rawSegs.push_back({ points[i], dir, PPoint(-dir.y, dir.x), len });
+    }
+
+    if (rawSegs.empty()) {
+        return;
+    }
+
+    const size_t segCount = rawSegs.size();
+    outSegs.resize(segCount);
+    outJoints.resize(segCount); // outJoints[i] = joint between seg i-1 and seg i
+
+    // Second pass: compute joint data at each interior vertex.
+    for (size_t i = 1; i < segCount; ++i)
+    {
+        const PPoint& prevDir  = rawSegs[i - 1].dir;
+        const PPoint& prevNorm = rawSegs[i - 1].norm;
+        const PPoint& dir      = rawSegs[i].dir;
+        const PPoint& norm     = rawSegs[i].norm;
+        const PPoint& vertex   = rawSegs[i].srcStart;
+
+        PolylineJointData& joint = outJoints[i];
+        joint.vertex  = vertex;
+        joint.prevDir = prevDir;
+        joint.dir     = dir;
+
+        const float crossZ  = prevDir.x * dir.y - prevDir.y * dir.x;
+        const float dotProd = prevDir.x * dir.x + prevDir.y * dir.y;
+        joint.crossZ = crossZ;
+
+        if (std::abs(crossZ) < 1e-4f)
+        {
+            if (dotProd >= 0.0f)
+            {
+                joint.isCollinear = true;
+                joint.innerPoint  = vertex;
+                joint.outerPrev   = vertex;
+                joint.outerNext   = vertex;
+            }
+            else
+            {
+                joint.isHairpin  = true;
+                joint.innerPoint = vertex;
+                joint.sign = (crossZ >= 0.0f) ? -1.0f : 1.0f;
+                joint.outerPrev = vertex + prevNorm * joint.sign * halfWidth;
+                joint.outerNext = vertex + norm     * joint.sign * halfWidth;
+            }
+        }
+        else
+        {
+            joint.sign = (crossZ < 0.0f) ? 1.0f : -1.0f;
+
+            const PPoint outerPrev     = vertex + prevNorm * joint.sign * halfWidth;
+            const PPoint outerNext     = vertex + norm     * joint.sign * halfWidth;
+            const PPoint innerEdgePrev = vertex - prevNorm * joint.sign * halfWidth;
+            const PPoint innerEdgeNext = vertex - norm     * joint.sign * halfWidth;
+            const PPoint innerDelta    = innerEdgeNext - innerEdgePrev;
+            const float  t             = (innerDelta.x * dir.y - innerDelta.y * dir.x) / crossZ;
+            const PPoint candidateInner = innerEdgePrev + prevDir * t;
+            const PPoint nextInnerOffset = candidateInner - innerEdgeNext;
+            const float nextT = nextInnerOffset.x * dir.x + nextInnerOffset.y * dir.y;
+            const bool extendsBeforePreviousSegment = t < -rawSegs[i - 1].length;
+            const bool extendsPastNextSegment = nextT > rawSegs[i].length;
+
+            if (extendsBeforePreviousSegment || extendsPastNextSegment)
+            {
+                joint.isHairpin  = true;
+                joint.innerPoint = vertex;
+                joint.outerPrev  = outerPrev;
+                joint.outerNext  = outerNext;
+            }
+            else
+            {
+                if ((candidateInner - vertex).Length() > halfWidth * 10.0f + 100.0f)
+                {
+                    joint.isHairpin  = true;
+                    joint.innerPoint = vertex;
+                }
+                else
+                {
+                    joint.innerPoint = candidateInner;
+                }
+                joint.outerPrev = outerPrev;
+                joint.outerNext = outerNext;
+            }
+        }
+    }
+
+    // Third pass: assign segment corner points using the joint data.
+    float cumLen = 0.0f;
+    for (size_t i = 0; i < segCount; ++i)
+    {
+        PolylineSegData& seg = outSegs[i];
+        seg.dir      = rawSegs[i].dir;
+        seg.norm     = rawSegs[i].norm;
+        seg.segLen   = rawSegs[i].length;
+        seg.cumLen   = cumLen;
+        seg.srcStart = rawSegs[i].srcStart;
+        cumLen      += seg.segLen;
+
+        // Start corners.
+        if (i == 0)
+        {
+            seg.startL = seg.srcStart - seg.norm * halfWidth;
+            seg.startR = seg.srcStart + seg.norm * halfWidth;
+        }
+        else
+        {
+            const PolylineJointData& joint = outJoints[i];
+            if (joint.isCollinear || joint.isHairpin)
+            {
+                seg.startL = joint.vertex - seg.norm * halfWidth;
+                seg.startR = joint.vertex + seg.norm * halfWidth;
+            }
+            else if (joint.sign > 0.0f)
+            {
+                seg.startL = joint.innerPoint;
+                seg.startR = joint.outerNext;
+            }
+            else
+            {
+                seg.startL = joint.outerNext;
+                seg.startR = joint.innerPoint;
+            }
+        }
+
+        // End corners.
+        if (i + 1 == segCount)
+        {
+            const PPoint srcEnd = seg.srcStart + seg.dir * seg.segLen;
+            seg.endL = srcEnd - seg.norm * halfWidth;
+            seg.endR = srcEnd + seg.norm * halfWidth;
+        }
+        else
+        {
+            const PolylineJointData& nextJoint = outJoints[i + 1];
+            if (nextJoint.isCollinear || nextJoint.isHairpin)
+            {
+                seg.endL = nextJoint.vertex - seg.norm * halfWidth;
+                seg.endR = nextJoint.vertex + seg.norm * halfWidth;
+            }
+            else if (nextJoint.sign > 0.0f)
+            {
+                seg.endL = nextJoint.innerPoint;
+                seg.endR = nextJoint.outerPrev;
+            }
+            else
+            {
+                seg.endL = nextJoint.outerPrev;
+                seg.endR = nextJoint.innerPoint;
+            }
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::EmitJointToStrip(std::vector<PPoint>& strip,
+                                   std::vector<PPoint>& additionalTrianglePoints,
+                                   const PolylineJointData& joint,
+                                   float halfWidth)
+{
+    // sign > 0 (right turn, outer on R/+norm side):
+    //   On entry strip ends with (innerPoint=L, outerPrev=R).
+    //   The cap geometry falls naturally from the strip: the odd slot (n+1) holds
+    //   outerPrev, so the bevel/miter/arc triangle is geometrically correct.
+    //   On exit strip ends with (innerPoint=L, outerNext=R).
+    //
+    // sign < 0 (left turn, outer on L/−norm side):
+    //   On entry strip ends with (outerPrev=L, innerPoint=R).
+    //   The odd slot holds innerPoint, not outerPrev, so building the cap from the
+    //   strip would draw the wrong triangle. Render cap geometry via separate
+    //   FillTriangle / fan calls instead, then bridge the strip.
+    //   Strip bridge: +vertex, +innerPoint, +outerNext, +innerPoint
+    //     → triangle n (even): incoming wedge (outerPrev, innerPoint, vertex)
+    //     → triangle n+1 (odd): degenerate
+    //     → triangle n+2 (even): outgoing wedge (vertex, innerPoint, outerNext)
+    //     → triangle n+3 (odd): degenerate
+    //   On exit strip ends with (outerNext=L, innerPoint=R).
+
+    const PPoint& vertex     = joint.vertex;
+    const PPoint& innerPoint = joint.innerPoint;
+    const PPoint& outerPrev  = joint.outerPrev;
+    const PPoint& outerNext  = joint.outerNext;
+
+    if (m_JointStyle == PJointStyle::Round)
+    {
+        AppendPolylineRoundJointTriangles(additionalTrianglePoints,
+                                           vertex, innerPoint, outerPrev, outerNext,
+                                           joint.crossZ, halfWidth);
+
+        // Restart the stem strip at the next segment without drawing the joint
+        // body. The complete rounded joint was submitted as one fan above.
+        strip.push_back(strip.back());
+        if (joint.sign > 0.0f)
+        {
+            strip.push_back(innerPoint);
+            strip.push_back(innerPoint);
+            strip.push_back(outerNext);
+        }
+        else
+        {
+            strip.push_back(outerNext);
+            strip.push_back(outerNext);
+            strip.push_back(innerPoint);
+        }
+        return;
+    }
+
+    if (joint.sign > 0.0f)
+    {
+        // Outer is on the R (+norm) side. Strip ends (innerPoint=L, outerPrev=R).
+        switch (m_JointStyle)
+        {
+            case PJointStyle::Bevel:
+                strip.push_back(vertex);
+                strip.push_back(outerNext);
+                strip.push_back(innerPoint);
+                strip.push_back(outerNext);
+                break;
+
+            case PJointStyle::Miter:
+            {
+                const float denom    = joint.prevDir.x * joint.dir.y - joint.prevDir.y * joint.dir.x;
+                bool        useBevel = (std::abs(denom) < 1e-6f);
+                PPoint      miterPoint;
+
+                if (!useBevel)
+                {
+                    const PPoint delta = outerNext - outerPrev;
+                    const float  mt    = (delta.x * joint.dir.y - delta.y * joint.dir.x) / denom;
+                    miterPoint = outerPrev + joint.prevDir * mt;
+                    useBevel   = ((miterPoint - vertex).Length() > m_MiterLimit * m_PenWidth);
+                }
+
+                if (useBevel)
+                {
+                    strip.push_back(vertex);
+                    strip.push_back(outerNext);
+                    strip.push_back(innerPoint);
+                    strip.push_back(outerNext);
+                }
+                else
+                {
+                    strip.push_back(vertex);
+                    strip.push_back(miterPoint);
+                    strip.push_back(vertex);
+                    strip.push_back(outerNext);
+                    strip.push_back(innerPoint);
+                    strip.push_back(outerNext);
+                }
+                break;
+            }
+            case PJointStyle::Round:
+                break;
+        }
+    }
+    else
+    {
+        // Outer is on the L (−norm) side. Strip ends (outerPrev=L, innerPoint=R).
+        // Render the cap as separate triangle(s) so innerPoint is never used as a
+        // cap vertex (avoids spikes when innerPoint is far from vertex).
+        switch (m_JointStyle)
+        {
+            case PJointStyle::Bevel:
+            {
+                AppendPolylineBevelJointTriangle(additionalTrianglePoints,
+                                                  vertex, outerPrev, outerNext);
+                break;
+            }
+            case PJointStyle::Miter:
+            {
+                const float denom    = joint.prevDir.x * joint.dir.y - joint.prevDir.y * joint.dir.x;
+                bool        useBevel = (std::abs(denom) < 1e-6f);
+                PPoint      miterPoint;
+
+                if (!useBevel)
+                {
+                    const PPoint delta = outerNext - outerPrev;
+                    const float  mt    = (delta.x * joint.dir.y - delta.y * joint.dir.x) / denom;
+                    miterPoint = outerPrev + joint.prevDir * mt;
+                    useBevel   = ((miterPoint - vertex).Length() > m_MiterLimit * m_PenWidth);
+                }
+
+                if (useBevel)
+                {
+                    AppendPolylineBevelJointTriangle(additionalTrianglePoints,
+                                                      vertex, outerPrev, outerNext);
+                }
+                else
+                {
+                    additionalTrianglePoints.push_back(vertex);
+                    additionalTrianglePoints.push_back(outerPrev);
+                    additionalTrianglePoints.push_back(miterPoint);
+                    additionalTrianglePoints.push_back(vertex);
+                    additionalTrianglePoints.push_back(miterPoint);
+                    additionalTrianglePoints.push_back(outerNext);
+                }
+                break;
+            }
+            case PJointStyle::Round:
+            {
+                break;
+            }
+        }
+        // Bridge strip to (outerNext=L, innerPoint=R).
+        strip.push_back(vertex);
+        strip.push_back(innerPoint);
+        strip.push_back(outerNext);
+        strip.push_back(innerPoint);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::FillClippedPolylineTriangle(const PPoint& point1, float point1Arc,
+                                              const PPoint& point2, float point2Arc,
+                                              const PPoint& point3, float point3Arc,
+                                              float arcStart, float arcEnd)
+{
+    std::array<PolylineClipVertex, 8> clippedPoints =
+        {{
+            { point1, point1Arc },
+            { point2, point2Arc },
+            { point3, point3Arc }
+        }};
+    std::array<PolylineClipVertex, 8> outputPoints;
+    size_t clippedPointCount = 3;
+
+    clippedPointCount = ClipPolylineTriangleBoundary(
+        clippedPoints, clippedPointCount, outputPoints, arcStart, true);
+    clippedPoints = outputPoints;
+    clippedPointCount = ClipPolylineTriangleBoundary(
+        clippedPoints, clippedPointCount, outputPoints, arcEnd, false);
+    clippedPoints = outputPoints;
+
+    if (clippedPointCount < 3) {
+        return;
+    }
+
+    std::array<PPoint, 8> polygonPoints;
+    for (size_t pointIndex = 0; pointIndex < clippedPointCount; ++pointIndex) {
+        polygonPoints[pointIndex] = clippedPoints[pointIndex].Point;
+    }
+    FillTriangleFan(std::span<const PPoint>(polygonPoints.data(), clippedPointCount));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::FillClippedPolylinePolygon(std::span<const PPoint> points,
+                                             std::span<const float> arcPositions,
+                                             float arcStart,
+                                             float arcEnd)
+{
+    if (points.size() != arcPositions.size() || points.size() < 3 || points.size() > 6) {
+        return;
+    }
+
+    std::array<PolylineClipVertex, 8> clippedPoints;
+    std::array<PolylineClipVertex, 8> outputPoints;
+    size_t clippedPointCount = points.size();
+
+    for (size_t pointIndex = 0; pointIndex < points.size(); ++pointIndex)
+    {
+        clippedPoints[pointIndex] = { points[pointIndex], arcPositions[pointIndex] };
+    }
+
+    clippedPointCount = ClipPolylineTriangleBoundary(
+        clippedPoints, clippedPointCount, outputPoints, arcStart, true);
+    clippedPoints = outputPoints;
+    clippedPointCount = ClipPolylineTriangleBoundary(
+        clippedPoints, clippedPointCount, outputPoints, arcEnd, false);
+    clippedPoints = outputPoints;
+
+    if (clippedPointCount < 3) {
+        return;
+    }
+
+    std::array<PPoint, 8> polygonPoints;
+    for (size_t pointIndex = 0; pointIndex < clippedPointCount; ++pointIndex) {
+        polygonPoints[pointIndex] = clippedPoints[pointIndex].Point;
+    }
+    FillTriangleFan(std::span<const PPoint>(polygonPoints.data(), clippedPointCount));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::RenderClippedPolylineJoint(const std::vector<PolylineSegData>& segs,
+                                             const PolylineJointData& joint,
+                                             size_t jointIndex,
+                                             float halfWidth,
+                                             float arcStart,
+                                             float arcEnd)
+{
+    if (joint.isCollinear) {
+        return;
+    }
+
+    const PolylineSegData& previousSegment = segs[jointIndex - 1];
+    const PolylineSegData& nextSegment = segs[jointIndex];
+    const float vertexArc = nextSegment.cumLen;
+    const auto previousArc = [&previousSegment](const PPoint& point)
+        {
+            const PPoint offset = point - previousSegment.srcStart;
+            return previousSegment.cumLen + offset.x * previousSegment.dir.x + offset.y * previousSegment.dir.y;
+        };
+    const auto nextArc = [&nextSegment](const PPoint& point)
+        {
+            const PPoint offset = point - nextSegment.srcStart;
+            return nextSegment.cumLen + offset.x * nextSegment.dir.x + offset.y * nextSegment.dir.y;
+        };
+    const float outerPreviousArc = previousArc(joint.outerPrev);
+    const float outerNextArc = nextArc(joint.outerNext);
+
+    FillClippedPolylineTriangle(joint.innerPoint, previousArc(joint.innerPoint),
+                                joint.outerPrev, outerPreviousArc,
+                                joint.vertex, vertexArc,
+                                arcStart, arcEnd);
+    FillClippedPolylineTriangle(joint.vertex, vertexArc,
+                                joint.outerNext, outerNextArc,
+                                joint.innerPoint, nextArc(joint.innerPoint),
+                                arcStart, arcEnd);
+
+    if (m_JointStyle == PJointStyle::Bevel || joint.isHairpin)
+    {
+        FillClippedPolylineTriangle(joint.vertex, vertexArc,
+                                    joint.outerPrev, outerPreviousArc,
+                                    joint.outerNext, outerNextArc,
+                                    arcStart, arcEnd);
+        return;
+    }
+
+    if (m_JointStyle == PJointStyle::Miter)
+    {
+        const float denominator = joint.prevDir.x * joint.dir.y - joint.prevDir.y * joint.dir.x;
+        bool useBevel = (std::abs(denominator) < 1e-6f);
+        PPoint miterPoint;
+
+        if (!useBevel)
+        {
+            const PPoint delta = joint.outerNext - joint.outerPrev;
+            const float multiplier = (delta.x * joint.dir.y - delta.y * joint.dir.x) / denominator;
+            miterPoint = joint.outerPrev + joint.prevDir * multiplier;
+            useBevel = ((miterPoint - joint.vertex).Length() > m_MiterLimit * m_PenWidth);
+        }
+
+        if (useBevel)
+        {
+            FillClippedPolylineTriangle(joint.vertex, vertexArc,
+                                        joint.outerPrev, outerPreviousArc,
+                                        joint.outerNext, outerNextArc,
+                                        arcStart, arcEnd);
+        }
+        else
+        {
+            const float miterArc = (outerPreviousArc + outerNextArc) * 0.5f;
+            FillClippedPolylineTriangle(joint.vertex, vertexArc,
+                                        joint.outerPrev, outerPreviousArc,
+                                        miterPoint, miterArc,
+                                        arcStart, arcEnd);
+            FillClippedPolylineTriangle(joint.vertex, vertexArc,
+                                        miterPoint, miterArc,
+                                        joint.outerNext, outerNextArc,
+                                        arcStart, arcEnd);
+        }
+        return;
+    }
+
+    static constexpr int ARC_STEPS = 8;
+    const float startAngle = std::atan2f(joint.outerPrev.y - joint.vertex.y, joint.outerPrev.x - joint.vertex.x);
+    const float endAngle = std::atan2f(joint.outerNext.y - joint.vertex.y, joint.outerNext.x - joint.vertex.x);
+    float angleSpan = endAngle - startAngle;
+
+    if (joint.crossZ > 0.0f)
+    {
+        if (angleSpan < 0.0f) {
+            angleSpan += 2.0f * float(M_PI);
+        }
+    }
+    else if (angleSpan > 0.0f)
+    {
+        angleSpan -= 2.0f * float(M_PI);
+    }
+
+    PPoint previousPoint = joint.outerPrev;
+    float previousPointArc = outerPreviousArc;
+    for (int step = 1; step <= ARC_STEPS; ++step)
+    {
+        const PPoint nextPoint = (step == ARC_STEPS)
+            ? joint.outerNext
+            : joint.vertex + PPoint(std::cosf(startAngle + angleSpan * float(step) / float(ARC_STEPS)),
+                                    std::sinf(startAngle + angleSpan * float(step) / float(ARC_STEPS))) * halfWidth;
+        const float nextPointArc = (step == ARC_STEPS)
+            ? outerNextArc
+            : outerPreviousArc + (outerNextArc - outerPreviousArc) * float(step) / float(ARC_STEPS);
+        FillClippedPolylineTriangle(joint.vertex, vertexArc,
+                                    previousPoint, previousPointArc,
+                                    nextPoint, nextPointArc,
+                                    arcStart, arcEnd);
+        previousPoint = nextPoint;
+        previousPointArc = nextPointArc;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::RenderClippedPolylineCap(const PPoint& endpoint,
+                                           const PPoint& lineDirection,
+                                           float halfWidth,
+                                           bool isStart,
+                                           float endpointArc,
+                                           float arcStart,
+                                           float arcEnd)
+{
+    if (m_CapStyle == PCapStyle::Flat) {
+        return;
+    }
+
+    const PPoint normal(-lineDirection.y, lineDirection.x);
+    const auto pointArc = [&endpoint, &lineDirection, endpointArc](const PPoint& point)
+        {
+            const PPoint offset = point - endpoint;
+            return endpointArc + offset.x * lineDirection.x + offset.y * lineDirection.y;
+        };
+    const PPoint endLeft = endpoint - normal * halfWidth;
+    const PPoint endRight = endpoint + normal * halfWidth;
+
+    if (m_CapStyle == PCapStyle::Square)
+    {
+        const PPoint extension = endpoint + lineDirection * (isStart ? -halfWidth : halfWidth);
+        const PPoint extensionLeft = extension - normal * halfWidth;
+        const PPoint extensionRight = extension + normal * halfWidth;
+        const std::array<PPoint, 4> capPoints = {
+            endLeft, endRight, extensionRight, extensionLeft
+        };
+        const std::array<float, 4> capArcs = {
+            pointArc(endLeft), pointArc(endRight),
+            pointArc(extensionRight), pointArc(extensionLeft)
+        };
+        FillClippedPolylinePolygon(capPoints, capArcs, arcStart, arcEnd);
+        return;
+    }
+
+    static constexpr int ARC_STEPS = 8;
+    const float startAngle = isStart
+        ? std::atan2f(-normal.y, -normal.x)
+        : std::atan2f(normal.y, normal.x);
+    PPoint previousPoint = isStart ? endLeft : endRight;
+    float previousPointArc = pointArc(previousPoint);
+    for (int step = 1; step <= ARC_STEPS; ++step)
+    {
+        const PPoint nextPoint = (step == ARC_STEPS)
+            ? (isStart ? endRight : endLeft)
+            : endpoint + PPoint(std::cosf(startAngle - float(step) * float(M_PI) / float(ARC_STEPS)),
+                                std::sinf(startAngle - float(step) * float(M_PI) / float(ARC_STEPS))) * halfWidth;
+        const float nextPointArc = pointArc(nextPoint);
+        FillClippedPolylineTriangle(endpoint, endpointArc,
+                                    previousPoint, previousPointArc,
+                                    nextPoint, nextPointArc,
+                                    arcStart, arcEnd);
+        previousPoint = nextPoint;
+        previousPointArc = nextPointArc;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::RenderClippedPolylineElement(const std::vector<PolylineSegData>& segs,
+                                               const std::vector<PolylineJointData>& joints,
+                                               float halfWidth,
+                                               float arcStart,
+                                               float arcEnd,
+                                               float totalLength)
+{
+    for (const PolylineSegData& segment : segs)
+    {
+        const auto pointArc = [&segment](const PPoint& point)
+            {
+                const PPoint offset = point - segment.srcStart;
+                return segment.cumLen + offset.x * segment.dir.x + offset.y * segment.dir.y;
+            };
+        const std::array<PPoint, 4> segmentPoints = {
+            segment.startL, segment.startR, segment.endR, segment.endL
+        };
+        const std::array<float, 4> segmentArcs = {
+            pointArc(segment.startL), pointArc(segment.startR),
+            pointArc(segment.endR), pointArc(segment.endL)
+        };
+        FillClippedPolylinePolygon(segmentPoints, segmentArcs, arcStart, arcEnd);
+    }
+
+    for (size_t jointIndex = 1; jointIndex < joints.size(); ++jointIndex) {
+        RenderClippedPolylineJoint(segs, joints[jointIndex], jointIndex,
+                                   halfWidth, arcStart, arcEnd);
+    }
+
+    const PolylineSegData& firstSegment = segs.front();
+    RenderClippedPolylineCap(firstSegment.srcStart, firstSegment.dir,
+                             halfWidth, true, 0.0f, arcStart, arcEnd);
+
+    const PolylineSegData& finalSegment = segs.back();
+    const PPoint finalPoint = finalSegment.srcStart + finalSegment.dir * finalSegment.segLen;
+    RenderClippedPolylineCap(finalPoint, finalSegment.dir,
+                             halfWidth, false, totalLength, arcStart, arcEnd);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::BuildPolylineElement(const std::vector<PolylineSegData>&   segs,
+                                       const std::vector<PolylineJointData>& joints,
+                                       float halfWidth,
+                                       size_t firstSeg, float firstT,
+                                       size_t lastSeg,  float lastT,
+                                       bool addStartCap, bool addEndCap,
+                                       std::vector<PPoint>& strip)
+{
+    strip.clear();
+    std::vector<PPoint> additionalTrianglePoints;
+
+    if (firstSeg > lastSeg) {
+        return;
+    }
+    if (firstSeg == lastSeg && firstT >= lastT - 1e-6f) {
+        return;
+    }
+
+    const PolylineSegData& startSeg = segs[firstSeg];
+    const PolylineSegData& endSeg   = segs[lastSeg];
+
+    // When the element starts exactly at a joint vertex (and the joint is not collinear),
+    // this element owns that joint's geometry. The strip begins from the previous segment's
+    // end corners (slanted toward the joint) so that EmitJointToStrip receives the correct
+    // entry geometry, and the adjacent element ending at this joint tiles perfectly.
+    const bool startsAtJoint = (firstT < 1e-6f)
+                            && (firstSeg > 0)
+                            && !joints[firstSeg].isCollinear;
+
+    PPoint startPt = startSeg.srcStart + startSeg.dir * (firstT * startSeg.segLen);
+
+    if (startsAtJoint)
+    {
+        const PolylineJointData& joint   = joints[firstSeg];
+        const PolylineSegData&   prevSeg = segs[firstSeg - 1];
+
+        // Start from the previous segment's end corners so that EmitJointToStrip
+        // receives the correct entry geometry for this joint.
+        strip.push_back(prevSeg.endL);
+        strip.push_back(prevSeg.endR);
+
+        if (joint.isHairpin)
+        {
+            switch (m_JointStyle)
+            {
+                case PJointStyle::Bevel:
+                case PJointStyle::Miter:
+                    AppendPolylineBevelJointTriangle(additionalTrianglePoints,
+                                                      joint.vertex, joint.outerPrev, joint.outerNext);
+                    break;
+                case PJointStyle::Round:
+                    AppendPolylineRoundJointTriangles(additionalTrianglePoints,
+                                                       joint.vertex, joint.vertex,
+                                                       joint.outerPrev, joint.outerNext,
+                                                       joint.crossZ, halfWidth);
+                    break;
+            }
+            strip.push_back(strip.back());
+            strip.push_back(segs[firstSeg].startL);
+            strip.push_back(segs[firstSeg].startR);
+        }
+        else
+        {
+            EmitJointToStrip(strip, additionalTrianglePoints, joint, halfWidth);
+        }
+    }
+    else
+    {
+        const PPoint startL = startPt - startSeg.norm * halfWidth;
+        const PPoint startR = startPt + startSeg.norm * halfWidth;
+
+        if (addStartCap && m_CapStyle == PCapStyle::Square)
+        {
+            const PPoint ext = startPt - startSeg.dir * halfWidth;
+            strip.push_back(ext - startSeg.norm * halfWidth);
+            strip.push_back(ext + startSeg.norm * halfWidth);
+        }
+
+        strip.push_back(startL);
+        strip.push_back(startR);
+    }
+
+    for (size_t i = firstSeg; i <= lastSeg; ++i)
+    {
+        const float endT_i = (i == lastSeg) ? lastT : 1.0f;
+
+        if (i > firstSeg)
+        {
+            const PolylineJointData& joint = joints[i];
+            if (joint.isHairpin)
+            {
+                // Hairpin: render outer cap separately, then bridge to next segment
+                // using degenerate triangles.
+                switch (m_JointStyle)
+                {
+                    case PJointStyle::Bevel:
+                    case PJointStyle::Miter:
+                        AppendPolylineBevelJointTriangle(additionalTrianglePoints,
+                                                          joint.vertex, joint.outerPrev, joint.outerNext);
+                        break;
+                    case PJointStyle::Round:
+                        AppendPolylineRoundJointTriangles(additionalTrianglePoints,
+                                                           joint.vertex, joint.vertex,
+                                                           joint.outerPrev, joint.outerNext,
+                                                           joint.crossZ, halfWidth);
+                        break;
+                }
+                // Degenerate bridge: repeat last point then add next segment's start corners.
+                strip.push_back(strip.back());
+                strip.push_back(segs[i].startL);
+                strip.push_back(segs[i].startR);
+            }
+            else if (!joint.isCollinear)
+            {
+                EmitJointToStrip(strip, additionalTrianglePoints, joint, halfWidth);
+            }
+            // Collinear: prev endL/endR == this seg's startL/startR, just continue.
+        }
+
+        PPoint endL;
+        PPoint endR;
+        if (endT_i >= 1.0f - 1e-6f)
+        {
+            endL = segs[i].endL;
+            endR = segs[i].endR;
+        }
+        else
+        {
+            const PPoint endPt = segs[i].srcStart + segs[i].dir * (endT_i * segs[i].segLen);
+            endL = endPt - segs[i].norm * halfWidth;
+            endR = endPt + segs[i].norm * halfWidth;
+        }
+        strip.push_back(endL);
+        strip.push_back(endR);
+    }
+
+    if (addEndCap && m_CapStyle == PCapStyle::Square)
+    {
+        const PPoint endPt = endSeg.srcStart + endSeg.dir * (lastT * endSeg.segLen);
+        const PPoint ext   = endPt + endSeg.dir * halfWidth;
+        strip.push_back(ext - endSeg.norm * halfWidth);
+        strip.push_back(ext + endSeg.norm * halfWidth);
+    }
+
+    if (addStartCap && m_CapStyle == PCapStyle::Round) {
+        AppendPolylineCapTriangles(additionalTrianglePoints,
+                                    startPt, startSeg.dir, halfWidth, true);
+    }
+    if (addEndCap && m_CapStyle == PCapStyle::Round)
+    {
+        const PPoint endPt = endSeg.srcStart + endSeg.dir * (lastT * endSeg.segLen);
+        AppendPolylineCapTriangles(additionalTrianglePoints,
+                                    endPt, endSeg.dir, halfWidth, false);
+    }
+
+    for (size_t pointIndex = 0;
+         pointIndex + 2 < additionalTrianglePoints.size();
+         pointIndex += 3)
+    {
+        AppendDisconnectedTriangleToStrip(strip,
+                                          additionalTrianglePoints[pointIndex],
+                                          additionalTrianglePoints[pointIndex + 1],
+                                          additionalTrianglePoints[pointIndex + 2]);
+    }
+
+    FillTriangleStrip(strip);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::AppendDisconnectedTriangleToStrip(std::vector<PPoint>& strip,
+                                                    const PPoint& point1,
+                                                    const PPoint& point2,
+                                                    const PPoint& point3)
+{
+    if (strip.empty())
+    {
+        strip.push_back(point1);
+        strip.push_back(point2);
+        strip.push_back(point3);
+        return;
+    }
+
+    strip.push_back(strip.back());
+    strip.push_back(point1);
+    strip.push_back(point1);
+    strip.push_back(point2);
+    strip.push_back(point3);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::AppendPolylineCapTriangles(std::vector<PPoint>& trianglePoints,
+                                             const PPoint& endpoint,
+                                             const PPoint& lineDir,
+                                             float halfWidth,
+                                             bool isStart)
+{
+    const PPoint norm(-lineDir.y, lineDir.x);
+
+    if (m_CapStyle == PCapStyle::Square)
+    {
+        const PPoint ext  = endpoint + lineDir * (isStart ? -halfWidth : halfWidth);
+        const PPoint endL = endpoint - norm * halfWidth;
+        const PPoint endR = endpoint + norm * halfWidth;
+        const PPoint extL = ext - norm * halfWidth;
+        const PPoint extR = ext + norm * halfWidth;
+        trianglePoints.push_back(endL);
+        trianglePoints.push_back(endR);
+        trianglePoints.push_back(extL);
+        trianglePoints.push_back(endR);
+        trianglePoints.push_back(extR);
+        trianglePoints.push_back(extL);
+    }
+    else // Round
+    {
+        // Half-circle fan. For start cap sweep CW from -norm through -lineDir to +norm.
+        // For end cap sweep CW from +norm through +lineDir to -norm.
+        const float startA = isStart
+            ? std::atan2f(-norm.y, -norm.x)
+            : std::atan2f(norm.y, norm.x);
+
+        // Use exact corner points for the first and last arc vertices to avoid
+        // sub-pixel seam gaps caused by atan2→cos/sin floating-point round-trip.
+        const PPoint firstArc = isStart ? (endpoint - norm * halfWidth) : (endpoint + norm * halfWidth);
+        const PPoint lastArc  = isStart ? (endpoint + norm * halfWidth) : (endpoint - norm * halfWidth);
+        static constexpr int ARC_STEPS = 8;
+        PPoint previousPoint = firstArc;
+        for (int step = 1; step < ARC_STEPS; ++step)
+        {
+            const float angle = startA - float(step) * float(M_PI) / float(ARC_STEPS);
+            const PPoint nextPoint = endpoint + PPoint(std::cosf(angle), std::sinf(angle)) * halfWidth;
+            trianglePoints.push_back(endpoint);
+            trianglePoints.push_back(previousPoint);
+            trianglePoints.push_back(nextPoint);
+            previousPoint = nextPoint;
+        }
+        trianglePoints.push_back(endpoint);
+        trianglePoints.push_back(previousPoint);
+        trianglePoints.push_back(lastArc);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::AppendPolylineBevelJointTriangle(std::vector<PPoint>& trianglePoints,
+                                                   const PPoint& vertex,
+                                                   const PPoint& outerPrev,
+                                                   const PPoint& outerNext)
+{
+    trianglePoints.push_back(vertex);
+    trianglePoints.push_back(outerPrev);
+    trianglePoints.push_back(outerNext);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::RenderPolylineMiterJoint(const PPoint& vertex,
+                                           const PPoint& outerPrev,
+                                           const PPoint& outerNext,
+                                           const PPoint& dirPrev,
+                                           const PPoint& dirNext)
+{
+    const float denom = dirPrev.x * dirNext.y - dirPrev.y * dirNext.x;
+    if (std::abs(denom) < 1e-6f)
+    {
+        FillTriangle(vertex, outerPrev, outerNext);
+        return;
+    }
+
+    const PPoint delta = outerNext - outerPrev;
+    const float  t     = (delta.x * dirNext.y - delta.y * dirNext.x) / denom;
+    const PPoint miterPoint = outerPrev + dirPrev * t;
+
+    if ((miterPoint - vertex).Length() > m_MiterLimit * m_PenWidth)
+    {
+        FillTriangle(vertex, outerPrev, outerNext);
+        return;
+    }
+
+    FillTriangle(vertex, outerPrev, miterPoint);
+    FillTriangle(vertex, miterPoint, outerNext);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::AppendPolylineRoundJointTriangles(std::vector<PPoint>& trianglePoints,
+                                                    const PPoint& vertex,
+                                                    const PPoint& innerPoint,
+                                                    const PPoint& outerPrev,
+                                                    const PPoint& outerNext,
+                                                    float crossZ,
+                                                    float halfWidth)
+{
+    float startA = std::atan2f(outerPrev.y - vertex.y, outerPrev.x - vertex.x);
+    const float endA = std::atan2f(outerNext.y - vertex.y, outerNext.x - vertex.x);
+    float spanA = endA - startA;
+
+    if (crossZ > 0.0f) {
+        if (spanA < 0.0f) { spanA += 2.0f * float(M_PI); }
+    } else {
+        if (spanA > 0.0f) { spanA -= 2.0f * float(M_PI); }
+    }
+
+    // Use exact corner points for the first and last arc vertices to avoid
+    // sub-pixel seam gaps caused by atan2→cos/sin floating-point round-trip.
+    static constexpr int ARC_STEPS = 8;
+    PPoint previousPoint = outerPrev;
+    for (int step = 1; step < ARC_STEPS; ++step)
+    {
+        const float angle = startA + spanA * float(step) / float(ARC_STEPS);
+        const PPoint nextPoint = vertex + PPoint(std::cosf(angle), std::sinf(angle)) * halfWidth;
+        trianglePoints.push_back(innerPoint);
+        trianglePoints.push_back(previousPoint);
+        trianglePoints.push_back(nextPoint);
+        previousPoint = nextPoint;
+    }
+    trianglePoints.push_back(innerPoint);
+    trianglePoints.push_back(previousPoint);
+    trianglePoints.push_back(outerNext);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PServerView::DrawString(const PString& string)
 {
     const Ptr<const PRegion> region = GetRegion();
@@ -1458,8 +2667,7 @@ void PServerView::DrawString(const PString& string)
         
         for (const PIRect& clip : region->m_Rects)
         {
-            if (clip.DoIntersect(boundingBox))
-            {
+            if (clip.DoIntersect(boundingBox)) {
                 driver->WriteString(m_Bitmap, penPos, string.c_str(), string.size(), clip + screenPos, m_BgColor, m_FgColor, m_Font->Get());
             }                
         }

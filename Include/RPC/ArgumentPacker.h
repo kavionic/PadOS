@@ -106,3 +106,36 @@ template<>
 struct PArgumentPacker<PString> : public PArgumentPacker<std::string>
 {
 };
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+template<typename T>
+struct PArgumentPacker<std::vector<T>>
+{
+    static size_t GetSize(const std::vector<T>& value) noexcept
+    {
+        return sizeof(uint32_t) + value.size() * sizeof(T);
+    }
+    static ssize_t Write(const std::vector<T>& value, void* data, size_t length) noexcept
+    {
+        const size_t totalSize = sizeof(uint32_t) + value.size() * sizeof(T);
+        if (length < totalSize) { return -1; }
+        *reinterpret_cast<uint32_t*>(data) = static_cast<uint32_t>(value.size());
+        data = reinterpret_cast<uint32_t*>(data) + 1;
+        memcpy(data, value.data(), value.size() * sizeof(T));
+        return static_cast<ssize_t>(totalSize);
+    }
+    static ssize_t Read(const void* data, size_t length, std::vector<T>* value)
+    {
+        if (length < sizeof(uint32_t)) { return -1; }
+        const uint32_t count = *reinterpret_cast<const uint32_t*>(data);
+        const size_t totalSize = sizeof(uint32_t) + count * sizeof(T);
+        if (length < totalSize) { return -1; }
+        data = reinterpret_cast<const uint32_t*>(data) + 1;
+        value->assign(reinterpret_cast<const T*>(data),
+                      reinterpret_cast<const T*>(data) + count);
+        return static_cast<ssize_t>(totalSize);
+    }
+};

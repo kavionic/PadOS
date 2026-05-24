@@ -63,7 +63,27 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
     s_DisplayDriver = displayDriver;
     s_DisplayDriver->Open();
     s_ScreenBitmap = s_DisplayDriver->GetScreenBitmap();
-    m_TopView = ptr_new<PServerView>(ptr_raw_pointer_cast(s_ScreenBitmap), "::topview::", GetScreenFrame(), PPoint(0.0f, 0.0f), PViewDockType::TopLevelView, 0, 0, PFocusKeyboardMode::None, PDrawingMode::Copy, 1.0f, PFontID::e_FontLarge, PColor(0xffffffff), PColor(0xffffffff), PColor(0));
+    m_TopView = ptr_new<PServerView>(
+        ptr_raw_pointer_cast(s_ScreenBitmap),
+        "::topview::",
+        GetScreenFrame(),
+        PPoint(0.0f, 0.0f),
+        PViewDockType::TopLevelView,
+        0,
+        0,
+        PFocusKeyboardMode::None,
+        PDrawingMode::Copy,
+        1.0f,
+        PCapStyle::Square,
+        PJointStyle::Bevel,
+        4.0f,   // Miter limit
+        std::vector<float>{},     // Dash pattern
+        0.0f,   // Dash offset
+        PFontID::e_FontLarge,
+        PColor(0xffffffff),
+        PColor(0xffffffff),
+        PColor(0)
+    );
 
     AddHandler(m_TopView);
 

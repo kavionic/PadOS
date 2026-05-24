@@ -20,6 +20,7 @@
 #pragma once
 
 #include <inttypes.h>
+#include <vector>
 
 #include <Signals/RemoteSignal.h>
 #include <Utils/MessagePort.h>
@@ -97,7 +98,15 @@ namespace PAppserverProtocol
         VIEW_DRAW_BITMAP,
         VIEW_DRAW_SCALED_BITMAP,
         VIEW_DEBUG_DRAW,
-        
+        VIEW_SET_CAP_STYLE,
+        VIEW_SET_JOINT_STYLE,
+        VIEW_SET_MITER_LIMIT,
+        VIEW_SET_DASH_PATTERN,
+        VIEW_SET_DASH_OFFSET,
+        VIEW_BEGIN_POLYLINE,
+        VIEW_ADD_POLYLINE_POINT,
+        VIEW_END_POLYLINE,
+
         // Appserver -> view reply messages:
         REGISTER_APPLICATION_REPLY,
         CREATE_VIEW_REPLY,
@@ -165,6 +174,11 @@ using ASCreateView = PRemoteSignal<PAppserverProtocol::CREATE_VIEW,
         PFocusKeyboardMode focusKeyboardMode,
         PDrawingMode       drawingMode,
         float             penWidth,
+        PCapStyle          capStyle,
+        PJointStyle        jointStyle,
+        float              miterLimit,
+        const std::vector<float>& dashPattern,
+        float              dashOffset,
         PFontID            fontID,
         PColor             eraseColor,
         PColor             bgColor,
@@ -241,3 +255,12 @@ using ASSyncReply = PRemoteSignal<PAppserverProtocol::SYNC_REPLY>;
 using ASHandleMouseDown = PRemoteSignal<PAppserverProtocol::HANDLE_MOUSE_DOWN,    void(PMouseButton button, const PPoint& position, const PMotionEvent& mouseEvent)>;
 using ASHandleMouseUp   = PRemoteSignal<PAppserverProtocol::HANDLE_MOUSE_UP,      void(PMouseButton button, const PPoint& position, const PMotionEvent& mouseEvent)>;
 using ASHandleMouseMove = PRemoteSignal<PAppserverProtocol::HANDLE_MOUSE_MOVE,    void(PMouseButton button, const PPoint& position, const PMotionEvent& mouseEvent)>;
+
+using ASViewSetCapStyle      = PRemoteSignal<PAppserverProtocol::VIEW_SET_CAP_STYLE,        void(handler_id viewHandle, PCapStyle style)>;
+using ASViewSetJointStyle    = PRemoteSignal<PAppserverProtocol::VIEW_SET_JOINT_STYLE,      void(handler_id viewHandle, PJointStyle style)>;
+using ASViewSetMiterLimit    = PRemoteSignal<PAppserverProtocol::VIEW_SET_MITER_LIMIT,      void(handler_id viewHandle, float limit)>;
+using ASViewSetDashPattern   = PRemoteSignal<PAppserverProtocol::VIEW_SET_DASH_PATTERN,     void(handler_id viewHandle, const std::vector<float>& pattern)>;
+using ASViewSetDashOffset    = PRemoteSignal<PAppserverProtocol::VIEW_SET_DASH_OFFSET,      void(handler_id viewHandle, float offset)>;
+using ASViewBeginPolyline    = PRemoteSignal<PAppserverProtocol::VIEW_BEGIN_POLYLINE,       void(handler_id viewHandle)>;
+using ASViewAddPolylinePoint = PRemoteSignal<PAppserverProtocol::VIEW_ADD_POLYLINE_POINT,   void(handler_id viewHandle, const PPoint& point)>;
+using ASViewEndPolyline      = PRemoteSignal<PAppserverProtocol::VIEW_END_POLYLINE,         void(handler_id viewHandle)>;

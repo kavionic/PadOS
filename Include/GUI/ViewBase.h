@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "GUIDefines.h"
 
 template<typename ViewType>
@@ -27,12 +29,17 @@ class PViewBase : public PEventHandler, public SignalTarget
 public:
     typedef std::vector<Ptr<ViewType>> ChildList_t;
 
-    PViewBase(const PString& name, const PRect& frame, const PPoint& scrollOffset, uint32_t flags, int32_t hideCount, float penWidth, PColor eraseColor, PColor bgColor, PColor fgColor)
+    PViewBase(const PString& name, const PRect& frame, const PPoint& scrollOffset, uint32_t flags, int32_t hideCount, float penWidth, PColor eraseColor, PColor bgColor, PColor fgColor, PCapStyle capStyle = PCapStyle::Flat, PJointStyle jointStyle = PJointStyle::Bevel, float miterLimit = 4.0f, const std::vector<float>& dashPattern = {}, float dashOffset = 0.0f)
         : PEventHandler(name)
         , m_Frame(frame)
         , m_ScrollOffset(scrollOffset)
         , m_Flags(flags)
         , m_PenWidth(penWidth)
+        , m_CapStyle(capStyle)
+        , m_JointStyle(jointStyle)
+        , m_MiterLimit(miterLimit)
+        , m_DashPattern(dashPattern)
+        , m_DashOffset(dashOffset)
         , m_HideCount(hideCount)
         , m_EraseColor(eraseColor)
         , m_BgColor(bgColor)
@@ -207,7 +214,13 @@ protected:
     std::vector<Ptr<ViewType>>  m_ChildrenList;
     
     PPoint      m_PenPosition;
-    float       m_PenWidth = 1.0f;
+    float       m_PenWidth   = 1.0f;
+
+    PCapStyle           m_CapStyle   = PCapStyle::Flat;
+    PJointStyle         m_JointStyle = PJointStyle::Bevel;
+    float               m_MiterLimit = 4.0f;
+    std::vector<float>  m_DashPattern;
+    float               m_DashOffset = 0.0f;
 
     int         m_HideCount = 0;
     int         m_Level = 0;

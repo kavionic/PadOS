@@ -57,6 +57,11 @@ private:
                         PFocusKeyboardMode focusKeyboardMode,
                         PDrawingMode drawingMode,
                         float       penWidth,
+                        PCapStyle    capStyle,
+                        PJointStyle  jointStyle,
+                        float        miterLimit,
+                        const std::vector<float>& dashPattern,
+                        float        dashOffset,
                         PFontID      fontID,
                         PColor eraseColor,
                         PColor bgColor,
@@ -81,6 +86,14 @@ private:
     void SlotViewSetDrawingMode(handler_id viewHandle, PDrawingMode mode)                    { ForwardToView(viewHandle, &PServerView::SetDrawingMode, mode); }
     void SlotViewSetFont(handler_id viewHandle, int fontHandle)                             { ForwardToView(viewHandle, &PServerView::SetFont, fontHandle); }
     void SlotViewSetPenWidth(handler_id viewHandle, float width)                            { ForwardToView(viewHandle, &PServerView::SetPenWidth, width); }
+    void SlotViewSetCapStyle(handler_id viewHandle, PCapStyle style)                        { ForwardToView(viewHandle, &PServerView::SetCapStyle, style); }
+    void SlotViewSetJointStyle(handler_id viewHandle, PJointStyle style)                    { ForwardToView(viewHandle, &PServerView::SetJointStyle, style); }
+    void SlotViewSetMiterLimit(handler_id viewHandle, float limit)                          { ForwardToView(viewHandle, &PServerView::SetMiterLimit, limit); }
+    void SlotViewSetDashPattern(handler_id viewHandle, const std::vector<float>& pattern)   { ForwardToView(viewHandle, &PServerView::SetDashPattern, pattern); }
+    void SlotViewSetDashOffset(handler_id viewHandle, float offset)                         { ForwardToView(viewHandle, &PServerView::SetDashOffset, offset); }
+    void SlotViewBeginPolyline(handler_id viewHandle)                                       { ForwardToView(viewHandle, &PServerView::BeginPolyline); }
+    void SlotViewAddPolylinePoint(handler_id viewHandle, const PPoint& point)               { ForwardToView(viewHandle, &PServerView::AddPolylinePoint, point); }
+    void SlotViewEndPolyline(handler_id viewHandle)                                         { ForwardToView(viewHandle, &PServerView::EndPolyline); }
     void SlotViewMovePenTo(handler_id viewHandle, const PPoint& pos)                         { ForwardToView(viewHandle, &PServerView::MovePenTo, pos); }
     void SlotViewDrawLine1(handler_id viewHandle, const PPoint& toPoint)                     { ForwardToView(viewHandle, &PServerView::DrawLineTo, toPoint); }
     void SlotViewDrawLine2(handler_id viewHandle, const PPoint& fromPnt, const PPoint& toPnt) { ForwardToView(viewHandle, &PServerView::DrawLine, fromPnt, toPnt); }
@@ -139,6 +152,14 @@ private:
     ASViewSetDrawingMode        RSViewSetDrawingMode;
     ASViewSetFont               RSViewSetFont;
     ASViewSetPenWidth           RSViewSetPenWidth;
+    ASViewSetCapStyle           RSViewSetCapStyle;
+    ASViewSetJointStyle         RSViewSetJointStyle;
+    ASViewSetMiterLimit         RSViewSetMiterLimit;
+    ASViewSetDashPattern        RSViewSetDashPattern;
+    ASViewSetDashOffset         RSViewSetDashOffset;
+    ASViewBeginPolyline         RSViewBeginPolyline;
+    ASViewAddPolylinePoint      RSViewAddPolylinePoint;
+    ASViewEndPolyline           RSViewEndPolyline;
     ASViewMovePenTo             RSViewMovePenTo;
     ASViewDrawLine1             RSViewDrawLine1;
     ASViewDrawLine2             RSViewDrawLine2;

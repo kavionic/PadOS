@@ -241,7 +241,13 @@ void PMVCBaseView::CreateWidgetsForRange(size_t firstItemIndex, size_t lastItemI
                 RemoveItemWidget(i);
             }
 
-            assert(m_ContentView->GetChildList().empty());
+            if (!m_ContentView->GetChildList().empty())
+            {
+                p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "{}: no overlap, but {} children remain.", __PRETTY_FUNCTION__, m_ContentView->GetChildList().size());
+                while (!m_ContentView->GetChildList().empty()) {
+                    m_ContentView->RemoveChild(m_ContentView->GetChildAt(0));
+                }
+            }
 
             for (ssize_t i = firstItemIndex; i <= lastItemIndex; ++i) {
                 AddItemWidget(i);

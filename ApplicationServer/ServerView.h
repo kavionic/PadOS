@@ -135,6 +135,7 @@ public:
     void        BeginTriangles(PTriangleMode mode, size_t countHint);
     void        AddTriangle(const PPoint& position);
     void        EndTriangles();
+    void        DrawPolyline(std::span<const PPoint> points);
     void        BeginPolyline();
     void        AddPolylinePoint(const PPoint& point);
     void        EndPolyline();
@@ -177,9 +178,11 @@ private:
         bool   isHairpin   = false;
     };
 
-    void RenderSolidPolyline(const std::vector<PPoint>& points, float halfWidth);
-    void RenderDashedPolyline(const std::vector<PPoint>& points, float halfWidth);
-    void BuildPolylineGeometry(const std::vector<PPoint>& points, float halfWidth,
+    void RenderSolidPolyline(std::span<const PPoint> points);
+    void RenderDashedPolyline(std::span<const PPoint> points);
+    void RenderDashedThinPolyline(std::span<const PPoint> points);
+
+    void BuildPolylineGeometry(std::span<const PPoint> points, float halfWidth,
                                std::vector<PolylineSegData>& outSegs,
                                std::vector<PolylineJointData>& outJoints);
     void BuildPolylineElement(const std::vector<PolylineSegData>& segs,

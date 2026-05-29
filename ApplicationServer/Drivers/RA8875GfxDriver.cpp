@@ -68,7 +68,9 @@ bool RA8875GfxDriver::Open()
     PIRect screenFrame(PIPoint(0, 0), GetResolution());
 
     SetWindow(screenFrame);
-    FillRect(ptr_raw_pointer_cast(m_ScreenBitmap), screenFrame, PColor::FromRGB32A(0));
+    m_IsWindowSet = false;
+    SetFgColor(PColor::FromRGB32A(0));
+    FillRect(ptr_raw_pointer_cast(m_ScreenBitmap), screenFrame);
 
     //    WriteCommand(RA8875_P1CR, 0x00);  // PWM setting
     //    WriteCommand(RA8875_P2CR, 0x00);  // open PWM
@@ -235,16 +237,16 @@ void RA8875GfxDriver::DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void RA8875GfxDriver::FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor& color)
+void RA8875GfxDriver::FillRect(PSrvBitmap* bitmap, const PIRect& rect)
 {
     if (bitmap->m_VideoMem)
     {
-        WaitBlitter();
-        SetWindow(PIRect(PIPoint(0), GetResolution()));
+        UnsetWindow();
 
         if (rect.left != (rect.right - 1) || rect.top != (rect.bottom - 1))
         {
-            SetFgColor(color.GetColor16());
+            WaitBlitter();
+
             WriteCommand(RA8875_DLHSR0, RA8875_DLHSR1, uint16_t(rect.left));
             WriteCommand(RA8875_DLVSR0, RA8875_DLVSR1, uint16_t(rect.top));
             WriteCommand(RA8875_DLHER0, RA8875_DLHER1, uint16_t(rect.right - 1));
@@ -254,12 +256,12 @@ void RA8875GfxDriver::FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PCo
         }
         else
         {
-            WritePixel(bitmap, rect.TopLeft(), color);
+            WritePixel(bitmap, rect.TopLeft(), GetFgColor());
         }
     }
     else
     {
-        PDisplayDriver::FillRect(bitmap, rect, color);
+        PDisplayDriver::FillRect(bitmap, rect);
     }
 }
 
@@ -863,6 +865,7 @@ void RA8875GfxDriver::SetWindow(int x1, int y1, int x2, int y2)
         std::swap(x1, y1);
         std::swap(x2, y2);
     }
+    m_IsWindowSet = true;
 
     WaitBlitter();
 
@@ -870,4 +873,17 @@ void RA8875GfxDriver::SetWindow(int x1, int y1, int x2, int y2)
     WriteCommand(RA8875_HEAW0, RA8875_HEAW1, uint16_t(x2 - 1));
     WriteCommand(RA8875_VSAW0, RA8875_VSAW1, uint16_t(y1));
     WriteCommand(RA8875_VEAW0, RA8875_VEAW1, uint16_t(y2 - 1));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875GfxDriver::UnsetWindow()
+{
+    if (m_IsWindowSet)
+    {
+        SetWindow(PIRect(PIPoint(0), GetResolution()));
+        m_IsWindowSet = false;
+    }
 }

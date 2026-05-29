@@ -79,14 +79,17 @@ public:
     virtual bool            GetScreenModeDesc(size_t index, PScreenMode& outMode) override;
     virtual bool            SetScreenMode(const PIPoint& resolution, PEColorSpace colorSpace, float refreshRate) override;
 
-    virtual PIPoint          GetResolution() override;
+    virtual PIPoint         GetResolution() override;
     virtual int             GetBytesPerLine() override;
-    virtual PEColorSpace     GetColorSpace() override;
+    virtual PEColorSpace    GetColorSpace() override;
     virtual void            SetColor(size_t index, PColor color) override;
+
+    virtual void            SetFgColor(PColor color) override { PDisplayDriver::SetFgColor(color); SetFgColor(color.GetColor16()); }
+    virtual void            SetBgColor(PColor color) override { PDisplayDriver::SetBgColor(color); SetBgColor(color.GetColor16()); }
 
     virtual void            WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color) override;
     virtual void            DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode) override;
-    virtual void            FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor& color) override;
+    virtual void            FillRect(PSrvBitmap* bitmap, const PIRect& rect) override;
     virtual void            CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPos, PDrawingMode mode) override;
     virtual void            ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode) override;
     //    virtual void    FillCircle(SrvBitmap* bitmap, const IRect& clipRect, const IPoint& center, int32_t radius, const Color& color, DrawingMode mode) override;
@@ -105,6 +108,7 @@ private:
 
     void SetWindow(int x1, int y1, int x2, int y2);
     void SetWindow(const PIRect& frame) { SetWindow(frame.left, frame.top, frame.right, frame.bottom); }
+    void UnsetWindow();
 
     inline void SetFillDirection(FillDirection_e direction) { m_FillDirection = direction; UpdateAddressMode(); }
     inline void UpdateAddressMode()
@@ -173,4 +177,5 @@ private:
 
     Orientation_e   m_Orientation = e_Landscape;
     FillDirection_e m_FillDirection = e_FillLeftDown;
+    bool            m_IsWindowSet = false;
 };

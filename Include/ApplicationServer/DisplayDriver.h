@@ -70,10 +70,10 @@ public:
     virtual bool            GetScreenModeDesc(size_t index, PScreenMode& outMode) = 0;
     virtual bool            SetScreenMode(const PIPoint& resolution, PEColorSpace colorSpace, float refreshRate) = 0;
 
-    virtual PIPoint          GetResolution() = 0;
+    virtual PIPoint         GetResolution() = 0;
     virtual int             GetBytesPerLine() = 0;
     virtual int             GetFramebufferOffset();
-    virtual PEColorSpace     GetColorSpace() = 0;
+    virtual PEColorSpace    GetColorSpace() = 0;
     virtual void            SetColor(size_t index, PColor color) = 0;
 
     //    virtual void  SetCursorBitmap(mouse_ptr_mode eMode, const IPoint& cHotSpot, const void* pRaster, int nWidth, int nHeight );
@@ -83,13 +83,19 @@ public:
     virtual void    SetMousePos(PIPoint cNewPos);
 //    virtual bool    IntersectWithMouse(const IRect& cRect) = 0;
 
+    virtual void    SetFgColor(PColor color) { m_FgColor = color; }
+    PColor          GetFgColor() const noexcept { return m_FgColor; }
+
+    virtual void    SetBgColor(PColor color) { m_BgColor = color; }
+    PColor          GetBgColor() const noexcept { return m_BgColor; }
+
     virtual void    WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color);
     virtual void    DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode);
-    virtual void    FillPolygon(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, const PColor& color, PDrawingMode mode);
-    virtual void    FillTriangle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PIPoint& pos3, const PColor& color, PDrawingMode mode);
-    virtual void    FillTriangleFan(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, const PColor& color, PDrawingMode mode);
-    virtual void    FillTriangleStrip(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, const PColor& color, PDrawingMode mode);
-    virtual void    FillRect(PSrvBitmap* bitmap, const PIRect& rect, const PColor& color);
+    virtual void    FillPolygon(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, PDrawingMode mode);
+    virtual void    FillTriangle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PIPoint& pos3, PDrawingMode mode);
+    virtual void    FillTriangleFan(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, PDrawingMode mode);
+    virtual void    FillTriangleStrip(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, PDrawingMode mode);
+    virtual void    FillRect(PSrvBitmap* bitmap, const PIRect& rect);
     virtual void    CopyRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcRect, const PIPoint& dstPos, PDrawingMode mode);
     virtual void    ScaleRect(PSrvBitmap* dstBitmap, PSrvBitmap* srcBitmap, PColor bgColor, PColor fgColor, const PIRect& srcOrigRect, const PIRect& dstOrigRect, const PRect& srcRect, const PIRect& dstRect, PDrawingMode mode);
     //    virtual void  BltBitmapMask(SrvBitmap* pcDstBitMap, SrvBitmap* pcSrcBitMap, const Color& sHighColor, const Color& sLowColor, IRect cSrcRect, IPoint cDstPos);
@@ -111,14 +117,17 @@ public:
 private:
     void    FillTriangleUnion(PSrvBitmap* bitmap, const PIRect& clipRect,
                               std::span<const std::array<PPoint, 3>> triangles,
-                              const PColor& color, PDrawingMode mode);
-    void    FillBlit8(uint8_t* pDst, int nMod, int W, int H, uint8_t nColor);
-    void    FillBlit16(uint16_t* pDst, int nMod, int W, int H, uint16_t nColor);
-    void    FillBlit24(uint8_t* pDst, int nMod, int W, int H, uint32_t nColor);
-    void    FillBlit32(uint32_t* pDst, int nMod, int W, int H, uint32_t nColor);
+                              PDrawingMode mode);
+    void    FillBlit8(uint8_t* dst, int nMod, int W, int H, uint8_t nColor);
+    void    FillBlit16(uint16_t* dst, int nMod, int W, int H, uint16_t nColor);
+    void    FillBlit24(uint8_t* dst, int nMod, int W, int H, uint32_t nColor);
+    void    FillBlit32(uint32_t* dst, int nMod, int W, int H, uint32_t nColor);
 
     //    SrvBitmap*      m_pcMouseImage;
     //    SrvSprite*          m_pcMouseSprite;
-    PIPoint        m_cMousePos;
-    PIPoint        m_cCursorHotSpot;
+
+    PColor  m_FgColor;
+    PColor  m_BgColor;
+    PIPoint m_MousePos;
+    PIPoint m_CursorHotSpot;
 };

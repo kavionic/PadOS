@@ -917,9 +917,11 @@ void PServerView::UpdateRegions()
             PRegion cDrawReg(*m_VisibleReg);
             cDrawReg.Intersect(*m_DamageReg);
         
+            m_Bitmap->m_Driver->SetFgColor(m_EraseColor);
+
             const PIPoint screenPos(m_ScreenPos);
             for (const PIRect& clip : cDrawReg.m_Rects) {
-                m_Bitmap->m_Driver->FillRect(m_Bitmap, clip + screenPos, m_EraseColor);
+                m_Bitmap->m_Driver->FillRect(m_Bitmap, clip + screenPos);
             }
         }
         m_DamageReg = nullptr;
@@ -1205,40 +1207,7 @@ void PServerView::DrawLineTo(const PPoint& toPoint)
 
 void PServerView::DrawLine(const PPoint& fromPnt, const PPoint& toPnt)
 {
-    if (m_PenWidth < 2.0f)
-    {
-        DrawThinLine(fromPnt, toPnt);
-    }
-    else
-    {
-        const PPoint start = fromPnt.GetRounded();
-        const PPoint end = toPnt.GetRounded();
-        const float halfThickness = m_PenWidth * 0.5f;
-
-        const PPoint delta = end - start;
-        const PPoint normal = PPoint(-delta.y, delta.x).GetNormalized();
-
-        PPoint prevOffset = (normal * -halfThickness).GetRounded();
-        DrawThinLine(start + prevOffset, end + prevOffset);
-
-        for (int32_t i = 1; i < int32_t(std::round(m_PenWidth)); ++i)
-        {
-            PPoint offset = normal * (float(i) - halfThickness);
-            const PPoint offsetDelta = offset - prevOffset;
-            if (std::abs(offsetDelta.x) > std::abs(offsetDelta.y))
-            {
-                offset.x = (offsetDelta.x < 0.0f) ? (prevOffset.x - 1.0f) : (prevOffset.x + 1.0f);
-                offset.y = prevOffset.y;
-            }
-            else
-            {
-                offset.x = prevOffset.x;
-                offset.y = (offsetDelta.y < 0.0f) ? (prevOffset.y - 1.0f) : (prevOffset.y + 1.0f);
-            }
-            prevOffset = offset;
-            DrawThinLine(start + offset, end + offset);
-        }
-    }
+    DrawPolyline(std::vector<PPoint>{ fromPnt, toPnt });
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1312,12 +1281,14 @@ void PServerView::FillRect(const PRect& rect, PColor color)
         const PIPoint screenPos(m_ScreenPos);
         const PIRect  rectScr(rect + m_ScrollOffset);
         
+        m_Bitmap->m_Driver->SetFgColor(color);
+
         for (const PIRect& clip : region->m_Rects)
         {
             PIRect clippedRect(rectScr & clip);
             if (clippedRect.IsValid()) {
                 clippedRect += screenPos;
-                m_Bitmap->m_Driver->FillRect(m_Bitmap, clippedRect, color);
+                m_Bitmap->m_Driver->FillRect(m_Bitmap, clippedRect);
             }
         }
     }        
@@ -1401,6 +1372,8 @@ void PServerView::FillTriangle(const PPoint& pos1, const PPoint& pos2, const PPo
     ++clippedBoundingBox.right;
     ++clippedBoundingBox.bottom;
 
+    m_Bitmap->m_Driver->SetFgColor(m_FgColor);
+
     for (const PIRect& clip : region->m_Rects)
     {
         const PIRect clipRect = clip + screenPos;
@@ -1414,7 +1387,6 @@ void PServerView::FillTriangle(const PPoint& pos1, const PPoint& pos2, const PPo
                     integerPoints[0],
                     integerPoints[pointIndex],
                     integerPoints[pointIndex + 1],
-                    m_FgColor,
                     m_DrawingMode);
             }
         }
@@ -1447,10 +1419,10 @@ void PServerView::FillTriangleFan(std::span<const PPoint> points)
         screenPoints.push_back(screenPoint);
     }
 
-    for (const PIRect& clip : region->m_Rects)
-    {
-        m_Bitmap->m_Driver->FillTriangleFan(
-            m_Bitmap, clip + screenPos, screenPoints, m_FgColor, m_DrawingMode);
+    m_Bitmap->m_Driver->SetFgColor(m_FgColor);
+
+    for (const PIRect& clip : region->m_Rects) {
+        m_Bitmap->m_Driver->FillTriangleFan(m_Bitmap, clip + screenPos, screenPoints, m_DrawingMode);
     }
 }
 
@@ -1480,10 +1452,10 @@ void PServerView::FillTriangleStrip(std::span<const PPoint> points)
         screenPoints.push_back(screenPoint);
     }
 
-    for (const PIRect& clip : region->m_Rects)
-    {
-        m_Bitmap->m_Driver->FillTriangleStrip(
-            m_Bitmap, clip + screenPos, screenPoints, m_FgColor, m_DrawingMode);
+    m_Bitmap->m_Driver->SetFgColor(m_FgColor);
+
+    for (const PIRect& clip : region->m_Rects) {
+        m_Bitmap->m_Driver->FillTriangleStrip(m_Bitmap, clip + screenPos, screenPoints, m_DrawingMode);
     }
 }
 
@@ -1529,6 +1501,36 @@ void PServerView::EndTriangles()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PServerView::DrawPolyline(std::span<const PPoint> points)
+{
+    if (points.size() < 2) {
+        return;
+    }
+    if (m_PenWidth > 1.0f)
+    {
+        if (m_DashPattern.empty()) {
+            RenderSolidPolyline(points);
+        } else {
+            RenderDashedPolyline(points);
+        }
+    }
+    else
+    {
+        if (m_DashPattern.empty()) {
+            for (size_t pointIndex = 1; pointIndex < points.size(); ++pointIndex) {
+                DrawThinLine(points[pointIndex - 1], points[pointIndex]);
+            }
+        } else {
+            RenderDashedThinPolyline(points);
+        }
+    }
+    m_PenPosition = points.back();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PServerView::BeginPolyline()
 {
     m_PolylinePoints.clear();
@@ -1554,14 +1556,7 @@ void PServerView::EndPolyline()
         m_PolylinePoints.clear();
         return;
     }
-
-    const float halfWidth = m_PenWidth * 0.5f;
-
-    if (m_DashPattern.empty()) {
-        RenderSolidPolyline(m_PolylinePoints, halfWidth);
-    } else {
-        RenderDashedPolyline(m_PolylinePoints, halfWidth);
-    }
+    DrawPolyline(m_PolylinePoints);
     m_PolylinePoints.clear();
 }
 
@@ -1569,10 +1564,13 @@ void PServerView::EndPolyline()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::RenderSolidPolyline(const std::vector<PPoint>& points, float halfWidth)
+void PServerView::RenderSolidPolyline(std::span<const PPoint> points)
 {
     std::vector<PolylineSegData>   segs;
     std::vector<PolylineJointData> joints;
+
+    const float halfWidth = m_PenWidth * 0.5f;
+
     BuildPolylineGeometry(points, halfWidth, segs, joints);
     if (segs.empty()) {
         return;
@@ -1588,12 +1586,13 @@ void PServerView::RenderSolidPolyline(const std::vector<PPoint>& points, float h
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::RenderDashedPolyline(const std::vector<PPoint>& points, float halfWidth)
+void PServerView::RenderDashedPolyline(std::span<const PPoint> points)
 {
     const size_t patternSize = m_DashPattern.size();
     if (patternSize == 0) {
         return;
     }
+    const float halfWidth = m_PenWidth * 0.5f;
 
     std::vector<PolylineSegData>   segs;
     std::vector<PolylineJointData> joints;
@@ -1668,7 +1667,79 @@ void PServerView::RenderDashedPolyline(const std::vector<PPoint>& points, float 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::BuildPolylineGeometry(const std::vector<PPoint>& points, float halfWidth,
+void PServerView::RenderDashedThinPolyline(std::span<const PPoint> points)
+{
+    const size_t patternSize = m_DashPattern.size();
+    if (patternSize == 0) {
+        return;
+    }
+
+    float patternLength = 0.0f;
+    for (const float elementLength : m_DashPattern) {
+        patternLength += elementLength;
+    }
+    if (patternLength < 1e-6f) {
+        return;
+    }
+
+    size_t patternIndex = 0;
+    float patternPosition = std::fmod(m_DashOffset, patternLength);
+    if (patternPosition < 0.0f) {
+        patternPosition += patternLength;
+    }
+    while (patternPosition >= m_DashPattern[patternIndex])
+    {
+        patternPosition -= m_DashPattern[patternIndex];
+        patternIndex = (patternIndex + 1) % patternSize;
+    }
+    float dashPosition = patternPosition / m_DashPattern[patternIndex];
+    const float patternScale = std::max(m_PenWidth, 1.0f);
+
+    for (size_t pointIndex = 1; pointIndex < points.size(); ++pointIndex)
+    {
+        const PPoint segmentStart = points[pointIndex - 1];
+        const PPoint segmentDelta = points[pointIndex] - segmentStart;
+        const float segmentLength = segmentDelta.Length();
+        if (segmentLength < 1e-6f) {
+            continue;
+        }
+
+        const PPoint segmentDirection = segmentDelta / segmentLength;
+        float segmentPosition = 0.0f;
+        while (segmentPosition < segmentLength - 1e-6f)
+        {
+            const float elementLength = m_DashPattern[patternIndex] * patternScale;
+            const float remainingLength = elementLength * (1.0f - dashPosition);
+            const float stepLength = std::min(remainingLength, segmentLength - segmentPosition);
+            const PPoint dashStart = segmentStart + segmentDirection * segmentPosition;
+            const PPoint dashEnd = dashStart + segmentDirection * stepLength;
+            const bool isSolid = (patternIndex % 2) == 0;
+
+            if (isSolid) {
+                DrawThinLine(dashStart, dashEnd);
+            } else if (m_DrawingMode == PDrawingMode::Copy) {
+                const PColor savedFgColor = m_FgColor;
+                m_FgColor = m_BgColor;
+                DrawThinLine(dashStart, dashEnd);
+                m_FgColor = savedFgColor;
+            }
+
+            segmentPosition += stepLength;
+            dashPosition += stepLength / elementLength;
+            if (dashPosition >= 1.0f - 1e-6f)
+            {
+                dashPosition = 0.0f;
+                patternIndex = (patternIndex + 1) % patternSize;
+            }
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::BuildPolylineGeometry(std::span<const PPoint> points, float halfWidth,
                                         std::vector<PolylineSegData>&   outSegs,
                                         std::vector<PolylineJointData>& outJoints)
 {

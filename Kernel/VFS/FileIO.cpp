@@ -295,10 +295,21 @@ int kreopen_file_trw(int oldHandle, int openFlags)
 
 int kdupe_trw(int oldHandle, int newHandle)
 {
-    KIOContext& ioContextOld = kget_io_context((oldHandle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
-    KIOContext& ioContextNew = kget_io_context((newHandle & FD_KERNEL_FLAG) ? KLocateFlag::KernelCtx : KLocateFlag::None);
+    const bool isOldKernel = oldHandle != -1 && (oldHandle & FD_KERNEL_FLAG);
+    const bool isNewKernel = newHandle != -1 && (newHandle & FD_KERNEL_FLAG);
 
-    return ioContextNew.DupeFileHandle(ioContextOld, oldHandle & FD_INDEX_MASK, newHandle & FD_INDEX_MASK) | (oldHandle & FD_KERNEL_FLAG);
+    KIOContext& ioContextOld = kget_io_context(isOldKernel ? KLocateFlag::KernelCtx : KLocateFlag::None);
+    KIOContext& ioContextNew = kget_io_context(isNewKernel ? KLocateFlag::KernelCtx : KLocateFlag::None);
+
+    if (isOldKernel) oldHandle &= FD_INDEX_MASK;
+    if (isNewKernel) newHandle &= FD_INDEX_MASK;
+
+    newHandle = ioContextNew.DupeFileHandle(ioContextOld, oldHandle, newHandle);
+
+    if (newHandle != -1 && isNewKernel) {
+        newHandle |= FD_KERNEL_FLAG;
+    }
+    return newHandle;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

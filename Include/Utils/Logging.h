@@ -21,20 +21,7 @@
 
 #include <sys/pados_syscalls.h>
 #include <Utils/String.h>
-#include <Utils/EnumUtils.h>
-
-enum class PLogSeverity : uint8_t
-{
-    NONE,
-    FATAL,
-    CRITICAL,
-    ERROR,
-    WARNING,
-    NOTICE,
-    INFO_LOW_VOL,
-    INFO_HIGH_VOL,
-    INFO_FLOODING,
-};
+#include <Utils/LogSeverity.h>
 
 enum class PLogChannel : uint8_t
 {
@@ -42,19 +29,6 @@ enum class PLogChannel : uint8_t
     SerialManager
 };
 
-inline const PEnumNames<PLogSeverity> PLogSeverity_names(
-    {
-        PENUM_ENTRY_NAME(PLogSeverity, NONE),
-        PENUM_ENTRY_NAME(PLogSeverity, FATAL),
-        PENUM_ENTRY_NAME(PLogSeverity, CRITICAL),
-        PENUM_ENTRY_NAME(PLogSeverity, ERROR),
-        PENUM_ENTRY_NAME(PLogSeverity, WARNING),
-        PENUM_ENTRY_NAME(PLogSeverity, NOTICE),
-        PENUM_ENTRY_NAME(PLogSeverity, INFO_LOW_VOL),
-        PENUM_ENTRY_NAME(PLogSeverity, INFO_HIGH_VOL),
-        PENUM_ENTRY_NAME(PLogSeverity, INFO_FLOODING)
-    }
-);
 
 #ifdef PADOS_OPT_MINIMUM_LOG_SEVERITY
 static constexpr PLogSeverity PLogSeverity_Minimum = PLogSeverity::PADOS_OPT_MINIMUM_LOG_SEVERITY;

@@ -27,6 +27,7 @@
 #include <ApplicationServer/ApplicationServer.h>
 #include <ApplicationServer/DisplayDriver.h>
 #include <ApplicationServer/ServerBitmap.h>
+#include <Math/Misc.h>
 #include <Utils/Utils.h>
 
 #include "ServerView.h"
@@ -35,6 +36,8 @@
 static int g_ServerViewCount = 0;
 static constexpr float FULL_CIRCLE_RADIANS = 2.0f * float(M_PI);
 static constexpr float MIN_ELLIPSE_SPAN = 1.0e-6f;
+static constexpr float MIN_POINT_LENGTH = 1.0e-6f;
+static constexpr float MIN_POINT_LENGTH_SQUARED = PMath::square(MIN_POINT_LENGTH);
 
 namespace
 {
@@ -262,10 +265,11 @@ void AppendEllipseArcPoints(std::vector<PPoint>& points, const PPoint& center, f
 
 PPoint GetNormalizedPoint(const PPoint& point)
 {
-    const float length = point.Length();
-    if (length < 1.0e-6f) {
+    const float lengthSquared = point.LengthSqr();
+    if (lengthSquared < MIN_POINT_LENGTH_SQUARED) {
         return PPoint(0.0f, 0.0f);
     }
+    const float length = std::sqrtf(lengthSquared);
     return point / length;
 }
 
@@ -288,7 +292,10 @@ void AppendCircularArcPoints(std::vector<PPoint>& points,
 {
     const PPoint startDirection = GetNormalizedPoint(startVector);
     const PPoint endDirection = GetNormalizedPoint(endVector);
-    if (radius < 1.0e-6f || startDirection.Length() < 1.0e-6f || endDirection.Length() < 1.0e-6f) {
+    if (radius < MIN_POINT_LENGTH
+        || startDirection.LengthSqr() < MIN_POINT_LENGTH_SQUARED
+        || endDirection.LengthSqr() < MIN_POINT_LENGTH_SQUARED)
+    {
         return;
     }
 
@@ -1490,10 +1497,10 @@ void PServerView::DrawPie(const PRect& rect, float startAngle, float spanAngle)
         const PPoint startArcDirection = GetNormalizedPoint(outerStartPoint - startPoint);
         const PPoint endArcDirection = GetNormalizedPoint(outerEndPoint - endPoint);
 
-        if (startDirection.Length() >= 1.0e-6f
-            && endDirection.Length() >= 1.0e-6f
-            && startArcDirection.Length() >= 1.0e-6f
-            && endArcDirection.Length() >= 1.0e-6f)
+        if (startDirection.LengthSqr() >= MIN_POINT_LENGTH_SQUARED
+            && endDirection.LengthSqr() >= MIN_POINT_LENGTH_SQUARED
+            && startArcDirection.LengthSqr() >= MIN_POINT_LENGTH_SQUARED
+            && endArcDirection.LengthSqr() >= MIN_POINT_LENGTH_SQUARED)
         {
             PPoint startOutsideNormal;
             PPoint endOutsideNormal;
@@ -1524,7 +1531,7 @@ void PServerView::DrawPie(const PRect& rect, float startAngle, float spanAngle)
             if (hasCenterMiterPoint)
             {
                 const PPoint candidateMiterDirection = GetNormalizedPoint(centerMiterPoint - center);
-                if (candidateMiterDirection.Length() >= 1.0e-6f) {
+                if (candidateMiterDirection.LengthSqr() >= MIN_POINT_LENGTH_SQUARED) {
                     centerMiterDirection = candidateMiterDirection;
                 }
             }
@@ -1535,11 +1542,13 @@ void PServerView::DrawPie(const PRect& rect, float startAngle, float spanAngle)
                 const float centerJoinTolerance = 1.0e-4f;
                 const float startMiterDistance = GetDotProduct(centerMiterPoint - center, startDirection);
                 const float endMiterDistance = GetDotProduct(centerMiterPoint - center, endDirection);
-                const float startRadiusLength = (startPoint - center).Length();
-                const float endRadiusLength = (endPoint - center).Length();
+                const float startRadiusLengthSquared = (startPoint - center).LengthSqr();
+                const float endRadiusLengthSquared = (endPoint - center).LengthSqr();
+                const float startMiterDistanceWithoutTolerance = startMiterDistance - centerJoinTolerance;
+                const float endMiterDistanceWithoutTolerance = endMiterDistance - centerJoinTolerance;
                 useFullOuterEllipseJoin =
-                    startMiterDistance > startRadiusLength + centerJoinTolerance
-                    || endMiterDistance > endRadiusLength + centerJoinTolerance;
+                    (startMiterDistanceWithoutTolerance > 0.0f && PMath::square(startMiterDistanceWithoutTolerance) > startRadiusLengthSquared)
+                    || (endMiterDistanceWithoutTolerance > 0.0f && PMath::square(endMiterDistanceWithoutTolerance) > endRadiusLengthSquared);
             }
 
             if (useFullOuterEllipseJoin)
@@ -1565,7 +1574,7 @@ void PServerView::DrawPie(const PRect& rect, float startAngle, float spanAngle)
                 centerOuterStartPoint = centerMiterPoint;
                 centerOuterEndPoint = centerMiterPoint;
             }
-            else if (centerMiterDirection.Length() >= 1.0e-6f)
+            else if (centerMiterDirection.LengthSqr() >= MIN_POINT_LENGTH_SQUARED)
             {
                 const PPoint centerChamferPoint = center + centerMiterDirection * penWidth;
                 const PPoint centerChamferDirection(-centerMiterDirection.y, centerMiterDirection.x);
@@ -2090,10 +2099,11 @@ void PServerView::RenderDashedThinPolyline(std::span<const PPoint> points)
     {
         const PPoint segmentStart = points[pointIndex - 1];
         const PPoint segmentDelta = points[pointIndex] - segmentStart;
-        const float segmentLength = segmentDelta.Length();
-        if (segmentLength < 1e-6f) {
+        const float segmentLengthSquared = segmentDelta.LengthSqr();
+        if (segmentLengthSquared < PMath::square(1e-6f)) {
             continue;
         }
+        const float segmentLength = std::sqrtf(segmentLengthSquared);
 
         const PPoint segmentDirection = segmentDelta / segmentLength;
         float segmentPosition = 0.0f;
@@ -2151,12 +2161,13 @@ void PServerView::BuildPolylineGeometry(std::span<const PPoint> points, float ha
     for (size_t i = 0; i + 1 < points.size(); ++i)
     {
         const PPoint delta = points[i + 1] - points[i];
-        const float  len   = delta.Length();
-        if (len < 1e-6f) {
+        const float  segmentLengthSquared = delta.LengthSqr();
+        if (segmentLengthSquared < PMath::square(1e-6f)) {
             continue;
         }
-        const PPoint dir = delta / len;
-        rawSegs.push_back({ points[i], dir, PPoint(-dir.y, dir.x), len });
+        const float segmentLength = std::sqrtf(segmentLengthSquared);
+        const PPoint dir = delta / segmentLength;
+        rawSegs.push_back({ points[i], dir, PPoint(-dir.y, dir.x), segmentLength });
     }
 
     if (rawSegs.empty()) {
@@ -2228,7 +2239,7 @@ void PServerView::BuildPolylineGeometry(std::span<const PPoint> points, float ha
             }
             else
             {
-                if ((candidateInner - vertex).Length() > halfWidth * 10.0f + 100.0f)
+                if ((candidateInner - vertex).LengthSqr() > PMath::square(halfWidth * 10.0f + 100.0f))
                 {
                     joint.isHairpin  = true;
                     joint.innerPoint = vertex;
@@ -2389,7 +2400,7 @@ void PServerView::EmitJointToStrip(std::vector<PPoint>& strip,
                     const PPoint delta = outerNext - outerPrev;
                     const float  mt    = (delta.x * joint.dir.y - delta.y * joint.dir.x) / denom;
                     miterPoint = outerPrev + joint.prevDir * mt;
-                    useBevel   = ((miterPoint - vertex).Length() > m_MiterLimit * m_PenWidth);
+                    useBevel   = ((miterPoint - vertex).LengthSqr() > PMath::square(m_MiterLimit * m_PenWidth));
                 }
 
                 if (useBevel)
@@ -2438,7 +2449,7 @@ void PServerView::EmitJointToStrip(std::vector<PPoint>& strip,
                     const PPoint delta = outerNext - outerPrev;
                     const float  mt    = (delta.x * joint.dir.y - delta.y * joint.dir.x) / denom;
                     miterPoint = outerPrev + joint.prevDir * mt;
-                    useBevel   = ((miterPoint - vertex).Length() > m_MiterLimit * m_PenWidth);
+                    useBevel   = ((miterPoint - vertex).LengthSqr() > PMath::square(m_MiterLimit * m_PenWidth));
                 }
 
                 if (useBevel)
@@ -2606,7 +2617,7 @@ void PServerView::RenderClippedPolylineJoint(const std::vector<PolylineSegData>&
             const PPoint delta = joint.outerNext - joint.outerPrev;
             const float multiplier = (delta.x * joint.dir.y - delta.y * joint.dir.x) / denominator;
             miterPoint = joint.outerPrev + joint.prevDir * multiplier;
-            useBevel = ((miterPoint - joint.vertex).Length() > m_MiterLimit * m_PenWidth);
+            useBevel = ((miterPoint - joint.vertex).LengthSqr() > PMath::square(m_MiterLimit * m_PenWidth));
         }
 
         if (useBevel)
@@ -3059,7 +3070,7 @@ void PServerView::RenderPolylineMiterJoint(const PPoint& vertex,
     const float  t     = (delta.x * dirNext.y - delta.y * dirNext.x) / denom;
     const PPoint miterPoint = outerPrev + dirPrev * t;
 
-    if ((miterPoint - vertex).Length() > m_MiterLimit * m_PenWidth)
+    if ((miterPoint - vertex).LengthSqr() > PMath::square(m_MiterLimit * m_PenWidth))
     {
         FillTriangle(vertex, outerPrev, outerNext);
         return;

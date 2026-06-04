@@ -70,6 +70,8 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSViewDrawLine2,              &ServerApplication::SlotViewDrawLine2);
     RegisterRemoteSignal(&RSViewFillRect,               &ServerApplication::SlotViewFillRect);
     RegisterRemoteSignal(&RSViewFillCircle,             &ServerApplication::SlotViewFillCircle);
+    RegisterRemoteSignal(&RSViewDrawEllipse,            &ServerApplication::SlotViewDrawEllipse);
+    RegisterRemoteSignal(&RSViewDrawPie,                &ServerApplication::SlotViewDrawPie);
     RegisterRemoteSignal(&RSViewFillTriangle,           &ServerApplication::SlotViewFillTriangle);
     RegisterRemoteSignal(&RSViewBeginTriangles,         &ServerApplication::SlotViewBeginTriangles);
     RegisterRemoteSignal(&RSViewAddTriangle,            &ServerApplication::SlotViewAddTriangle);

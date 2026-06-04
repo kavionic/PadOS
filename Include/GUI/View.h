@@ -273,6 +273,15 @@ public:
     void            EraseRect(const PRect& rect)                        { Post<ASViewFillRect>(rect, m_EraseColor); }
 
     void            FillCircle(const PPoint& position, float radius) { Post<ASViewFillCircle>(position, radius); }
+
+    void            DrawEllipse(const PRect& rect)                              { Post<ASViewDrawEllipse>(rect); }
+    void            DrawEllipse(const PPoint& position, const PPoint& radiuses) { DrawEllipse(PRect::Centered(position, radiuses * 2.0f).GetRounded()); }
+    void            DrawEllipse(const PPoint& position, float radius)           { DrawEllipse(position, PPoint(radius, radius)); }
+
+    void            DrawPie(const PRect& rect, float startAngle, float spanAngle)                               { Post<ASViewDrawPie>(rect, startAngle, spanAngle); }
+    void            DrawPie(const PPoint& position, const PPoint& radiuses, float startAngle, float spanAngle)  { DrawPie(PRect::Centered(position, radiuses * 2.0f).GetRounded(), startAngle, spanAngle); }
+    void            DrawPie(const PPoint& position, float radius, float startAngle, float spanAngle)            { DrawPie(position, PPoint(radius, radius), startAngle, spanAngle); }
+
     void            FillTriangle(const PPoint& pos1, const PPoint& pos2, const PPoint& pos3) { Post<ASViewFillTriangle>(pos1, pos2, pos3); }
     void            BeginTriangles(PTriangleMode mode, size_t countHint) { Post<ASViewBeginTriangles>(mode, countHint); }
     void            AddTriangle(const PPoint& position) { Post<ASViewAddTriangle>(position); }

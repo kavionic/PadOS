@@ -33,6 +33,8 @@
 
 
 static int g_ServerViewCount = 0;
+static constexpr float FULL_CIRCLE_RADIANS = 2.0f * float(M_PI);
+static constexpr float MIN_ELLIPSE_SPAN = 1.0e-6f;
 
 namespace
 {
@@ -224,6 +226,110 @@ PIPoint RoundAndClampTrianglePoint(const PPoint& point, const PIRect& clipRect)
     const int x = std::clamp(int(std::round(point.x)), clipRect.left, clipRect.right - 1);
     const int y = std::clamp(int(std::round(point.y)), clipRect.top, clipRect.bottom - 1);
     return PIPoint(x, y);
+}
+
+int GetEllipseSegmentCount(float radiusX, float radiusY, float spanAngle)
+{
+    const float largestRadius = std::max(std::abs(radiusX), std::abs(radiusY));
+    const float absoluteSpan = std::abs(spanAngle);
+
+    if (largestRadius < 1.0f || absoluteSpan < MIN_ELLIPSE_SPAN) {
+        return 0;
+    }
+
+    int segmentCount = int(std::ceil(absoluteSpan * largestRadius * 0.25f));
+    segmentCount = std::clamp(segmentCount, 8, 256);
+    return segmentCount;
+}
+
+void AppendEllipseArcPoints(std::vector<PPoint>& points, const PPoint& center, float radiusX, float radiusY, float startAngle, float spanAngle, int segmentCount)
+{
+    const float angleStep = spanAngle / float(segmentCount);
+    const float stepCosine = std::cosf(angleStep);
+    const float stepSine = std::sinf(angleStep);
+    float angleCosine = std::cosf(startAngle);
+    float angleSine = std::sinf(startAngle);
+
+    for (int segmentIndex = 0; segmentIndex <= segmentCount; ++segmentIndex)
+    {
+        points.push_back(center + PPoint(angleCosine * radiusX, angleSine * radiusY));
+
+        const float nextAngleCosine = angleCosine * stepCosine - angleSine * stepSine;
+        angleSine = angleSine * stepCosine + angleCosine * stepSine;
+        angleCosine = nextAngleCosine;
+    }
+}
+
+PPoint GetNormalizedPoint(const PPoint& point)
+{
+    const float length = point.Length();
+    if (length < 1.0e-6f) {
+        return PPoint(0.0f, 0.0f);
+    }
+    return point / length;
+}
+
+float GetDotProduct(const PPoint& lhs, const PPoint& rhs)
+{
+    return lhs.x * rhs.x + lhs.y * rhs.y;
+}
+
+float GetEllipseAngleForDirection(const PPoint& direction, float radiusX, float radiusY)
+{
+    return std::atan2f(direction.y / radiusY, direction.x / radiusX);
+}
+
+void AppendCircularArcPoints(std::vector<PPoint>& points,
+                             const PPoint& center,
+                             float radius,
+                             const PPoint& startVector,
+                             const PPoint& endVector,
+                             bool clockwise)
+{
+    const PPoint startDirection = GetNormalizedPoint(startVector);
+    const PPoint endDirection = GetNormalizedPoint(endVector);
+    if (radius < 1.0e-6f || startDirection.Length() < 1.0e-6f || endDirection.Length() < 1.0e-6f) {
+        return;
+    }
+
+    const float startAngle = std::atan2f(startDirection.y, startDirection.x);
+    const float endAngle = std::atan2f(endDirection.y, endDirection.x);
+    float angleSpan = endAngle - startAngle;
+
+    if (clockwise)
+    {
+        if (angleSpan > 0.0f) {
+            angleSpan -= FULL_CIRCLE_RADIANS;
+        }
+    }
+    else if (angleSpan < 0.0f)
+    {
+        angleSpan += FULL_CIRCLE_RADIANS;
+    }
+
+    const int segmentCount = std::clamp(int(std::ceil(std::abs(angleSpan) * radius * 0.25f)), 1, 16);
+    for (int segmentIndex = 1; segmentIndex <= segmentCount; ++segmentIndex)
+    {
+        const float angle = startAngle + angleSpan * float(segmentIndex) / float(segmentCount);
+        points.push_back(center + PPoint(std::cosf(angle), std::sinf(angle)) * radius);
+    }
+}
+
+bool GetLineIntersectionPoint(const PPoint& firstLinePoint,
+                              const PPoint& firstLineDirection,
+                              const PPoint& secondLinePoint,
+                              const PPoint& secondLineDirection,
+                              PPoint& intersection)
+{
+    const float denominator = firstLineDirection.x * secondLineDirection.y - firstLineDirection.y * secondLineDirection.x;
+    if (std::abs(denominator) < 1.0e-6f) {
+        return false;
+    }
+
+    const PPoint delta = secondLinePoint - firstLinePoint;
+    const float firstLineMultiplier = (delta.x * secondLineDirection.y - delta.y * secondLineDirection.x) / denominator;
+    intersection = firstLinePoint + firstLineDirection * firstLineMultiplier;
+    return true;
 }
 }
 
@@ -1273,6 +1379,248 @@ void PServerView::DrawRect(const PRect& frame)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void PServerView::DrawEllipse(const PRect& rect)
+{
+    if (!rect.IsValid()) {
+        return;
+    }
+
+    const float radiusX = rect.Width() * 0.5f;
+    const float radiusY = rect.Height() * 0.5f;
+    const PPoint center((rect.left + rect.right) * 0.5f, (rect.top + rect.bottom) * 0.5f);
+    const float penWidth = std::max(m_PenWidth, 0.0f);
+    const bool shouldFill = m_BgColor.GetAlpha() != 0;
+    const bool shouldDrawOutline = m_FgColor.GetAlpha() != 0 && penWidth > 0.0f;
+
+    if (!shouldFill && !shouldDrawOutline) {
+        return;
+    }
+
+    const float segmentRadiusX = radiusX + (shouldDrawOutline ? penWidth : 0.0f);
+    const float segmentRadiusY = radiusY + (shouldDrawOutline ? penWidth : 0.0f);
+    const int segmentCount = GetEllipseSegmentCount(segmentRadiusX, segmentRadiusY, FULL_CIRCLE_RADIANS);
+    if (segmentCount == 0) {
+        return;
+    }
+
+    if (shouldFill)
+    {
+        std::vector<PPoint> fillPoints;
+        fillPoints.reserve(size_t(segmentCount) + 1);
+        AppendEllipseArcPoints(fillPoints, center, radiusX, radiusY, 0.0f, FULL_CIRCLE_RADIANS, segmentCount);
+
+        FillPolygon(fillPoints, m_BgColor);
+    }
+
+    if (shouldDrawOutline)
+    {
+        const float outlineRadiusX = radiusX + penWidth;
+        const float outlineRadiusY = radiusY + penWidth;
+        std::vector<PPoint> outlinePoints;
+        outlinePoints.reserve((size_t(segmentCount) + 1) * 2);
+
+        AppendEllipseArcPoints(outlinePoints, center, outlineRadiusX, outlineRadiusY, 0.0f, FULL_CIRCLE_RADIANS, segmentCount);
+        AppendEllipseArcPoints(outlinePoints, center, radiusX, radiusY, FULL_CIRCLE_RADIANS, -FULL_CIRCLE_RADIANS, segmentCount);
+        FillPolygon(outlinePoints, m_FgColor);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::DrawPie(const PRect& rect, float startAngle, float spanAngle)
+{
+    if (!rect.IsValid() || std::abs(spanAngle) < MIN_ELLIPSE_SPAN) {
+        return;
+    }
+
+    if (std::abs(spanAngle) >= FULL_CIRCLE_RADIANS - MIN_ELLIPSE_SPAN)
+    {
+        DrawEllipse(rect);
+        return;
+    }
+
+    const float radiusX = rect.Width() * 0.5f;
+    const float radiusY = rect.Height() * 0.5f;
+    const PPoint center((rect.left + rect.right) * 0.5f, (rect.top + rect.bottom) * 0.5f);
+    const float penWidth = std::max(m_PenWidth, 0.0f);
+    const bool shouldFill = m_BgColor.GetAlpha() != 0;
+    const bool shouldDrawOutline = m_FgColor.GetAlpha() != 0 && penWidth > 0.0f;
+
+    if (!shouldFill && !shouldDrawOutline) {
+        return;
+    }
+
+    const float segmentRadiusX = radiusX + (shouldDrawOutline ? penWidth : 0.0f);
+    const float segmentRadiusY = radiusY + (shouldDrawOutline ? penWidth : 0.0f);
+    const int segmentCount = GetEllipseSegmentCount(segmentRadiusX, segmentRadiusY, spanAngle);
+    if (segmentCount == 0) {
+        return;
+    }
+
+    std::vector<PPoint> innerArcPoints;
+    innerArcPoints.reserve(size_t(segmentCount) + 1);
+    AppendEllipseArcPoints(innerArcPoints, center, radiusX, radiusY, startAngle, spanAngle, segmentCount);
+
+    if (shouldFill)
+    {
+        std::vector<PPoint> fillPoints;
+        fillPoints.reserve(size_t(segmentCount) + 2);
+        fillPoints.push_back(center);
+        fillPoints.insert(fillPoints.end(), innerArcPoints.begin(), innerArcPoints.end());
+
+        FillPolygon(fillPoints, m_BgColor);
+    }
+
+    if (shouldDrawOutline)
+    {
+        const float outlineRadiusX = radiusX + penWidth;
+        const float outlineRadiusY = radiusY + penWidth;
+        std::vector<PPoint> outerArcPoints;
+        outerArcPoints.reserve(size_t(segmentCount) + 1);
+        AppendEllipseArcPoints(outerArcPoints, center, outlineRadiusX, outlineRadiusY, startAngle, spanAngle, segmentCount);
+
+        const PPoint& startPoint = innerArcPoints.front();
+        const PPoint& endPoint = innerArcPoints.back();
+        const PPoint& outerStartPoint = outerArcPoints.front();
+        const PPoint& outerEndPoint = outerArcPoints.back();
+        const PPoint startDirection = GetNormalizedPoint(startPoint - center);
+        const PPoint endDirection = GetNormalizedPoint(endPoint - center);
+        const PPoint startArcDirection = GetNormalizedPoint(outerStartPoint - startPoint);
+        const PPoint endArcDirection = GetNormalizedPoint(outerEndPoint - endPoint);
+
+        if (startDirection.Length() >= 1.0e-6f
+            && endDirection.Length() >= 1.0e-6f
+            && startArcDirection.Length() >= 1.0e-6f
+            && endArcDirection.Length() >= 1.0e-6f)
+        {
+            PPoint startOutsideNormal;
+            PPoint endOutsideNormal;
+            if (spanAngle > 0.0f)
+            {
+                startOutsideNormal = PPoint(startDirection.y, -startDirection.x);
+                endOutsideNormal = PPoint(-endDirection.y, endDirection.x);
+            }
+            else
+            {
+                startOutsideNormal = PPoint(-startDirection.y, startDirection.x);
+                endOutsideNormal = PPoint(endDirection.y, -endDirection.x);
+            }
+
+            const bool isReflexSpan = std::abs(spanAngle) > float(M_PI);
+            const bool clockwiseCorner = spanAngle > 0.0f;
+            const PPoint startOffsetPoint = startPoint + startOutsideNormal * penWidth;
+            const PPoint endOffsetPoint = endPoint + endOutsideNormal * penWidth;
+            const PPoint centerStartOffsetPoint = center + startOutsideNormal * penWidth;
+            const PPoint centerEndOffsetPoint = center + endOutsideNormal * penWidth;
+
+            PPoint centerMiterDirection = GetNormalizedPoint(startOutsideNormal + endOutsideNormal);
+            PPoint centerOuterStartPoint = centerStartOffsetPoint;
+            PPoint centerOuterEndPoint = centerEndOffsetPoint;
+
+            PPoint centerMiterPoint;
+            const bool hasCenterMiterPoint = GetLineIntersectionPoint(centerStartOffsetPoint, startDirection, centerEndOffsetPoint, endDirection, centerMiterPoint);
+            if (hasCenterMiterPoint)
+            {
+                const PPoint candidateMiterDirection = GetNormalizedPoint(centerMiterPoint - center);
+                if (candidateMiterDirection.Length() >= 1.0e-6f) {
+                    centerMiterDirection = candidateMiterDirection;
+                }
+            }
+
+            bool useFullOuterEllipseJoin = isReflexSpan && !hasCenterMiterPoint;
+            if (isReflexSpan && hasCenterMiterPoint)
+            {
+                const float centerJoinTolerance = 1.0e-4f;
+                const float startMiterDistance = GetDotProduct(centerMiterPoint - center, startDirection);
+                const float endMiterDistance = GetDotProduct(centerMiterPoint - center, endDirection);
+                const float startRadiusLength = (startPoint - center).Length();
+                const float endRadiusLength = (endPoint - center).Length();
+                useFullOuterEllipseJoin =
+                    startMiterDistance > startRadiusLength + centerJoinTolerance
+                    || endMiterDistance > endRadiusLength + centerJoinTolerance;
+            }
+
+            if (useFullOuterEllipseJoin)
+            {
+                const int fullSegmentCount = GetEllipseSegmentCount(outlineRadiusX, outlineRadiusY, FULL_CIRCLE_RADIANS);
+                std::vector<PPoint> outlinePoints;
+                outlinePoints.reserve(size_t(fullSegmentCount) + innerArcPoints.size() + 3);
+
+                const float outerSeamAngle = GetEllipseAngleForDirection(startDirection, outlineRadiusX, outlineRadiusY);
+                AppendEllipseArcPoints(outlinePoints, center, outlineRadiusX, outlineRadiusY, outerSeamAngle, FULL_CIRCLE_RADIANS, fullSegmentCount);
+                outlinePoints.push_back(center);
+                for (auto pointIterator = innerArcPoints.rbegin(); pointIterator != innerArcPoints.rend(); ++pointIterator)
+                {
+                    outlinePoints.push_back(*pointIterator);
+                }
+                outlinePoints.push_back(center);
+                FillPolygon(outlinePoints, m_FgColor);
+                return;
+            }
+
+            if (isReflexSpan && hasCenterMiterPoint)
+            {
+                centerOuterStartPoint = centerMiterPoint;
+                centerOuterEndPoint = centerMiterPoint;
+            }
+            else if (centerMiterDirection.Length() >= 1.0e-6f)
+            {
+                const PPoint centerChamferPoint = center + centerMiterDirection * penWidth;
+                const PPoint centerChamferDirection(-centerMiterDirection.y, centerMiterDirection.x);
+                PPoint centerChamferStartPoint;
+                PPoint centerChamferEndPoint;
+                if (GetLineIntersectionPoint(centerStartOffsetPoint, startDirection, centerChamferPoint, centerChamferDirection, centerChamferStartPoint)
+                    && GetLineIntersectionPoint(centerEndOffsetPoint, endDirection, centerChamferPoint, centerChamferDirection, centerChamferEndPoint))
+                {
+                    centerOuterStartPoint = centerChamferStartPoint;
+                    centerOuterEndPoint = centerChamferEndPoint;
+                }
+            }
+
+            std::vector<PPoint> outlinePoints;
+            outlinePoints.reserve(innerArcPoints.size() + outerArcPoints.size() + 36);
+            outlinePoints.push_back(center);
+            outlinePoints.insert(outlinePoints.end(), innerArcPoints.begin(), innerArcPoints.end());
+            outlinePoints.push_back(center);
+            outlinePoints.push_back(centerOuterEndPoint);
+            outlinePoints.push_back(endOffsetPoint);
+
+            const size_t endCornerFirstIndex = outlinePoints.size();
+            AppendCircularArcPoints(outlinePoints, endPoint, penWidth, endOutsideNormal, endArcDirection, clockwiseCorner);
+            if (outlinePoints.size() > endCornerFirstIndex) {
+                outlinePoints.back() = outerEndPoint;
+            } else {
+                outlinePoints.push_back(outerEndPoint);
+            }
+
+            for (size_t pointIndex = outerArcPoints.size() - 1; pointIndex > 0; --pointIndex)
+            {
+                outlinePoints.push_back(outerArcPoints[pointIndex - 1]);
+            }
+
+            const size_t startCornerFirstIndex = outlinePoints.size();
+            AppendCircularArcPoints(outlinePoints, startPoint, penWidth, startArcDirection, startOutsideNormal, clockwiseCorner);
+            if (outlinePoints.size() > startCornerFirstIndex) {
+                outlinePoints.back() = startOffsetPoint;
+            } else {
+                outlinePoints.push_back(startOffsetPoint);
+            }
+
+            outlinePoints.push_back(centerOuterStartPoint);
+            if (!isReflexSpan) {
+                outlinePoints.push_back(centerOuterEndPoint);
+            }
+            FillPolygon(outlinePoints, m_FgColor);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PServerView::FillRect(const PRect& rect, PColor color)
 {
     const Ptr<const PRegion> region = GetRegion();
@@ -1297,6 +1645,49 @@ void PServerView::FillRect(const PRect& rect, PColor color)
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::FillPolygon(std::span<const PPoint> points, PColor fillColor)
+{
+    if (points.size() < 3) {
+        return;
+    }
+
+    const Ptr<const PRegion> region = GetRegion();
+    if (region == nullptr) {
+        return;
+    }
+
+    const PIPoint screenPos(m_ScreenPos);
+    const PPoint screenOffset = PPoint(screenPos) + m_ScrollOffset;
+    std::vector<PPoint> screenPoints;
+
+    screenPoints.reserve(points.size());
+    for (const PPoint& point : points)
+    {
+        screenPoints.push_back(point + screenOffset);
+    }
+
+    m_Bitmap->m_Driver->SetFgColor(fillColor);
+
+    if (region->m_Rects.empty()) {
+        return;
+    }
+
+    if (region->m_Rects.size() == 1)
+    {
+        const std::array<PIRect, 1> clipRects = { region->m_Rects[0] + screenPos };
+        m_Bitmap->m_Driver->FillPolygon(m_Bitmap, clipRects, screenPoints, m_DrawingMode);
+    }
+    else
+    {
+        std::vector<PIRect> clipRects;
+        clipRects.reserve(region->m_Rects.size());
+        for (const PIRect& clip : region->m_Rects) {
+            clipRects.push_back(clip + screenPos);
+        }
+        m_Bitmap->m_Driver->FillPolygon(m_Bitmap, clipRects, screenPoints, m_DrawingMode);
+    }
+}
 
 void PServerView::FillCircle(const PPoint& position, float radius)
 {
@@ -2112,7 +2503,7 @@ void PServerView::FillClippedPolylineTriangle(const PPoint& point1, float point1
     for (size_t pointIndex = 0; pointIndex < clippedPointCount; ++pointIndex) {
         polygonPoints[pointIndex] = clippedPoints[pointIndex].Point;
     }
-    FillTriangleFan(std::span<const PPoint>(polygonPoints.data(), clippedPointCount));
+    FillPolygon(std::span<const PPoint>(polygonPoints.data(), clippedPointCount), m_FgColor);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2152,7 +2543,7 @@ void PServerView::FillClippedPolylinePolygon(std::span<const PPoint> points,
     for (size_t pointIndex = 0; pointIndex < clippedPointCount; ++pointIndex) {
         polygonPoints[pointIndex] = clippedPoints[pointIndex].Point;
     }
-    FillTriangleFan(std::span<const PPoint>(polygonPoints.data(), clippedPointCount));
+    FillPolygon(std::span<const PPoint>(polygonPoints.data(), clippedPointCount), m_FgColor);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

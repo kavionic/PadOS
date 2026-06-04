@@ -91,7 +91,7 @@ public:
 
     virtual void    WritePixel(PSrvBitmap* bitmap, const PIPoint& pos, PColor color);
     virtual void    DrawLine(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PColor& color, PDrawingMode mode);
-    virtual void    FillPolygon(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, PDrawingMode mode);
+    virtual void    FillPolygon(PSrvBitmap* bitmap, std::span<const PIRect> clipRects, std::span<const PPoint> points, PDrawingMode mode);
     virtual void    FillTriangle(PSrvBitmap* bitmap, const PIRect& clipRect, const PIPoint& pos1, const PIPoint& pos2, const PIPoint& pos3, PDrawingMode mode);
     virtual void    FillTriangleFan(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, PDrawingMode mode);
     virtual void    FillTriangleStrip(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, PDrawingMode mode);

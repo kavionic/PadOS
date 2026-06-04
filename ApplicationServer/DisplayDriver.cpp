@@ -299,6 +299,46 @@ struct TriangleSpanInterval
     float End;
 };
 
+struct PolygonScanEdge
+{
+    int   StartScan = 0;
+    int   LastScan = 0;
+    float Intersection = 0.0f;
+    float Step = 0.0f;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void AddPolygonScanEdge(std::vector<PolygonScanEdge>& scanEdges,
+                               const PPoint& edgeStart,
+                               const PPoint& edgeEnd,
+                               int firstScan,
+                               int lastScan,
+                               bool useHorizontalSpans)
+{
+    const float edgeStartScan = useHorizontalSpans ? edgeStart.y : edgeStart.x;
+    const float edgeEndScan = useHorizontalSpans ? edgeEnd.y : edgeEnd.x;
+    const float scanDelta = edgeEndScan - edgeStartScan;
+    if (std::abs(scanDelta) < 1.0e-6f) {
+        return;
+    }
+
+    const float edgeStartSpan = useHorizontalSpans ? edgeStart.x : edgeStart.y;
+    const float edgeEndSpan = useHorizontalSpans ? edgeEnd.x : edgeEnd.y;
+    const float spanDelta = edgeEndSpan - edgeStartSpan;
+    const int edgeFirstScan = std::max(firstScan, FirstCoveredPixel(std::min(edgeStartScan, edgeEndScan)));
+    const int edgeLastScan = std::min(lastScan, LastCoveredPixel(std::max(edgeStartScan, edgeEndScan)));
+    if (edgeFirstScan > edgeLastScan) {
+        return;
+    }
+
+    const float firstSample = float(edgeFirstScan) + 0.5f;
+    const float firstRatio = (firstSample - edgeStartScan) / scanDelta;
+    scanEdges.push_back({ edgeFirstScan, edgeLastScan, edgeStartSpan + spanDelta * firstRatio, spanDelta / scanDelta });
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -486,86 +526,174 @@ void PDisplayDriver::FillTriangleUnion(PSrvBitmap* bitmap, const PIRect& clipRec
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDisplayDriver::FillPolygon(PSrvBitmap* bitmap, const PIRect& clipRect, std::span<const PPoint> points, PDrawingMode mode)
+void PDisplayDriver::FillPolygon(PSrvBitmap* bitmap, std::span<const PIRect> clipRects, std::span<const PPoint> points, PDrawingMode mode)
 {
-    if (points.size() < 3 || clipRect.Width() <= 0 || clipRect.Height() <= 0) {
+    if (points.size() < 3 || clipRects.empty()) {
         return;
     }
 
-    float minX = points[0].x;
-    float minY = points[0].y;
-    float maxX = points[0].x;
-    float maxY = points[0].y;
+    float minPointX = points[0].x;
+    float minPointY = points[0].y;
+    float maxPointX = points[0].x;
+    float maxPointY = points[0].y;
     for (size_t pointIndex = 1; pointIndex < points.size(); ++pointIndex)
     {
-        minX = std::min(minX, points[pointIndex].x);
-        minY = std::min(minY, points[pointIndex].y);
-        maxX = std::max(maxX, points[pointIndex].x);
-        maxY = std::max(maxY, points[pointIndex].y);
+        minPointX = std::min(minPointX, points[pointIndex].x);
+        minPointY = std::min(minPointY, points[pointIndex].y);
+        maxPointX = std::max(maxPointX, points[pointIndex].x);
+        maxPointY = std::max(maxPointY, points[pointIndex].y);
     }
 
-    if (minX >= maxX || minY >= maxY) {
+    if (minPointX >= maxPointX || minPointY >= maxPointY) {
         return;
     }
 
-    std::vector<float> intersections;
-    intersections.reserve(points.size());
+    const bool useHorizontalSpans = (maxPointX - minPointX) >= (maxPointY - minPointY);
+    const float minScan = useHorizontalSpans ? minPointY : minPointX;
+    const float maxScan = useHorizontalSpans ? maxPointY : maxPointX;
+    const float minSpan = useHorizontalSpans ? minPointX : minPointY;
+    const float maxSpan = useHorizontalSpans ? maxPointX : maxPointY;
+    const int firstPolygonScan = FirstCoveredPixel(minScan);
+    const int lastPolygonScan = LastCoveredPixel(maxScan);
+    const int firstPolygonSpan = FirstCoveredPixel(minSpan);
+    const int lastPolygonSpan = LastCoveredPixel(maxSpan);
 
-    if ((maxX - minX) >= (maxY - minY))
+    bool hasValidClip   = false;
+    int firstClipScan   = 0;
+    int lastClipScan    = 0;
+    int firstClipSpan   = 0;
+    int lastClipSpan    = 0;
+
+    for (const PIRect& clipRect : clipRects)
     {
-        const int firstScanY = std::max(clipRect.top, FirstCoveredPixel(minY));
-        const int lastScanY = std::min(clipRect.bottom - 1, LastCoveredPixel(maxY));
-        for (int scanY = firstScanY; scanY <= lastScanY; ++scanY)
+        if (clipRect.Width() <= 0 || clipRect.Height() <= 0) {
+            continue;
+        }
+
+        const int clipScanStart = useHorizontalSpans ? clipRect.top         : clipRect.left;
+        const int clipScanEnd   = useHorizontalSpans ? clipRect.bottom - 1  : clipRect.right - 1;
+        const int clipSpanStart = useHorizontalSpans ? clipRect.left        : clipRect.top;
+        const int clipSpanEnd   = useHorizontalSpans ? clipRect.right - 1   : clipRect.bottom - 1;
+
+        if (!hasValidClip)
         {
-            const float sampleY = float(scanY) + 0.5f;
-            intersections.clear();
-            for (size_t edgeIndex = 0; edgeIndex < points.size(); ++edgeIndex)
-            {
-                const PPoint& edgeStart = points[edgeIndex];
-                const PPoint& edgeEnd = points[(edgeIndex + 1) % points.size()];
-                if (EdgeCrossesScanline(edgeStart.y, edgeEnd.y, sampleY))
-                {
-                    const float ratio = (sampleY - edgeStart.y) / (edgeEnd.y - edgeStart.y);
-                    intersections.push_back(edgeStart.x + (edgeEnd.x - edgeStart.x) * ratio);
-                }
-            }
-            std::sort(intersections.begin(), intersections.end());
-            for (size_t intersectionIndex = 0; intersectionIndex + 1 < intersections.size(); intersectionIndex += 2)
-            {
-                const int spanStart = std::max(clipRect.left, FirstCoveredPixel(intersections[intersectionIndex]));
-                const int spanEnd = std::min(clipRect.right - 1, LastCoveredPixel(intersections[intersectionIndex + 1]));
-                if (spanStart <= spanEnd) {
-                    FillRect(bitmap, PIRect(spanStart, scanY, spanEnd + 1, scanY + 1));
-                }
-            }
+            firstClipScan   = clipScanStart;
+            lastClipScan    = clipScanEnd;
+            firstClipSpan   = clipSpanStart;
+            lastClipSpan    = clipSpanEnd;
+            hasValidClip    = true;
+        }
+        else
+        {
+            firstClipScan   = std::min(firstClipScan, clipScanStart);
+            lastClipScan    = std::max(lastClipScan, clipScanEnd);
+            firstClipSpan   = std::min(firstClipSpan, clipSpanStart);
+            lastClipSpan    = std::max(lastClipSpan, clipSpanEnd);
         }
     }
-    else
-    {
-        const int firstScanX = std::max(clipRect.left, FirstCoveredPixel(minX));
-        const int lastScanX = std::min(clipRect.right - 1, LastCoveredPixel(maxX));
-        for (int scanX = firstScanX; scanX <= lastScanX; ++scanX)
+
+    if (!hasValidClip || firstClipSpan > lastPolygonSpan || lastClipSpan < firstPolygonSpan) {
+        return;
+    }
+
+    const int firstScan = std::max(firstPolygonScan, firstClipScan);
+    const int lastScan  = std::min(lastPolygonScan, lastClipScan);
+    if (firstScan > lastScan) {
+        return;
+    }
+
+    std::vector<PolygonScanEdge> scanEdges;
+    scanEdges.reserve(points.size());
+
+    for (size_t edgeIndex = 0; edgeIndex < points.size(); ++edgeIndex) {
+        AddPolygonScanEdge(scanEdges, points[edgeIndex], points[(edgeIndex + 1) % points.size()], firstScan, lastScan, useHorizontalSpans);
+    }
+
+    if (scanEdges.empty()) {
+        return;
+    }
+
+    std::sort(scanEdges.begin(), scanEdges.end(),
+        [](const PolygonScanEdge& lhs, const PolygonScanEdge& rhs)
         {
-            const float sampleX = float(scanX) + 0.5f;
-            intersections.clear();
-            for (size_t edgeIndex = 0; edgeIndex < points.size(); ++edgeIndex)
+            return (lhs.StartScan < rhs.StartScan)
+                || (lhs.StartScan == rhs.StartScan && lhs.Intersection < rhs.Intersection);
+        });
+
+    std::vector<PolygonScanEdge> activeEdges;
+    std::vector<float> intersections;
+
+    activeEdges.reserve(scanEdges.size());
+    intersections.reserve(scanEdges.size());
+
+    for (const PIRect& clipRect : clipRects)
+    {
+        if (clipRect.Width() <= 0 || clipRect.Height() <= 0) {
+            continue;
+        }
+
+        const int scanClipStart = useHorizontalSpans ? clipRect.top : clipRect.left;
+        const int scanClipEnd   = useHorizontalSpans ? clipRect.bottom - 1 : clipRect.right - 1;
+        const int spanClipStart = useHorizontalSpans ? clipRect.left : clipRect.top;
+        const int spanClipEnd   = useHorizontalSpans ? clipRect.right - 1 : clipRect.bottom - 1;
+
+        const int firstClipScanClamped  = std::max(firstScan, scanClipStart);
+        const int lastClipScanClamped   = std::min(lastScan, scanClipEnd);
+
+        if (firstClipScanClamped > lastClipScanClamped || spanClipStart > lastPolygonSpan || spanClipEnd < firstPolygonSpan) {
+            continue;
+        }
+
+        activeEdges.clear();
+        size_t nextEdgeIndex = 0;
+        while (nextEdgeIndex < scanEdges.size() && scanEdges[nextEdgeIndex].StartScan <= firstClipScanClamped)
+        {
+            const PolygonScanEdge& edge = scanEdges[nextEdgeIndex];
+            if (edge.LastScan >= firstClipScanClamped)
             {
-                const PPoint& edgeStart = points[edgeIndex];
-                const PPoint& edgeEnd = points[(edgeIndex + 1) % points.size()];
-                if (EdgeCrossesScanline(edgeStart.x, edgeEnd.x, sampleX))
+                PolygonScanEdge activeEdge = edge;
+                activeEdge.Intersection += activeEdge.Step * float(firstClipScanClamped - activeEdge.StartScan);
+                activeEdges.push_back(activeEdge);
+            }
+            ++nextEdgeIndex;
+        }
+
+        for (int scan = firstClipScanClamped; scan <= lastClipScanClamped; ++scan)
+        {
+            activeEdges.erase(std::remove_if(activeEdges.begin(), activeEdges.end(),
+                [scan](const PolygonScanEdge& edge)
                 {
-                    const float ratio = (sampleX - edgeStart.x) / (edgeEnd.x - edgeStart.x);
-                    intersections.push_back(edgeStart.y + (edgeEnd.y - edgeStart.y) * ratio);
-                }
+                    return edge.LastScan < scan;
+                }), activeEdges.end());
+
+            while (nextEdgeIndex < scanEdges.size() && scanEdges[nextEdgeIndex].StartScan <= scan)
+            {
+                activeEdges.push_back(scanEdges[nextEdgeIndex]);
+                ++nextEdgeIndex;
+            }
+
+            intersections.clear();
+            for (const PolygonScanEdge& edge : activeEdges) {
+                intersections.push_back(edge.Intersection);
             }
             std::sort(intersections.begin(), intersections.end());
+
             for (size_t intersectionIndex = 0; intersectionIndex + 1 < intersections.size(); intersectionIndex += 2)
             {
-                const int spanStart = std::max(clipRect.top, FirstCoveredPixel(intersections[intersectionIndex]));
-                const int spanEnd = std::min(clipRect.bottom - 1, LastCoveredPixel(intersections[intersectionIndex + 1]));
-                if (spanStart <= spanEnd) {
-                    FillRect(bitmap, PIRect(scanX, spanStart, scanX + 1, spanEnd + 1));
+                const int spanStart = std::max(spanClipStart, FirstCoveredPixel(intersections[intersectionIndex]));
+                const int spanEnd   = std::min(spanClipEnd, LastCoveredPixel(intersections[intersectionIndex + 1]));
+                if (spanStart <= spanEnd)
+                {
+                    if (useHorizontalSpans) {
+                        FillRect(bitmap, PIRect(spanStart, scan, spanEnd + 1, scan + 1));
+                    } else {
+                        FillRect(bitmap, PIRect(scan, spanStart, scan + 1, spanEnd + 1));
+                    }
                 }
+            }
+
+            for (PolygonScanEdge& edge : activeEdges) {
+                edge.Intersection += edge.Step;
             }
         }
     }
@@ -580,7 +708,8 @@ void PDisplayDriver::FillTriangle(PSrvBitmap* bitmap, const PIRect& clipRect, co
     const std::array<PPoint, 3> points = {
         PPoint(pos1), PPoint(pos2), PPoint(pos3)
     };
-    FillPolygon(bitmap, clipRect, points, mode);
+    const std::array<PIRect, 1> clipRects = { clipRect };
+    FillPolygon(bitmap, clipRects, points, mode);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

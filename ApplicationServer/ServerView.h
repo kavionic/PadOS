@@ -126,6 +126,8 @@ public:
     void        DrawLine(const PPoint& fromPnt, const PPoint& toPnt);
     void        DrawThinLine(const PPoint& fromPnt, const PPoint& toPnt);
     void        DrawRect(const PRect& frame);        
+    void        DrawEllipse(const PRect& rect);
+    void        DrawPie(const PRect& rect, float startAngle, float spanAngle);
     
     void        FillRect(const PRect& rect, PColor color);
     void        FillCircle(const PPoint& position, float radius);
@@ -151,6 +153,7 @@ private:
 
     void UpdateScreenPos();
     void DebugDrawRect(const PIRect& frame, PColor color);
+    void FillPolygon(std::span<const PPoint> points, PColor fillColor);
     struct PolylineSegData
     {
         PPoint dir;

@@ -88,6 +88,8 @@ namespace PAppserverProtocol
         VIEW_DRAW_LINE2,
         VIEW_FILL_RECT,
         VIEW_FILL_CIRCLE,
+        VIEW_DRAW_ELLIPSE,
+        VIEW_DRAW_PIE,
         VIEW_FILL_TRIANGLE,
         VIEW_BEGIN_TRIANGLES,
         VIEW_ADD_TRIANGLE,
@@ -230,6 +232,8 @@ using ASViewDrawLine1       = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_LINE1,
 using ASViewDrawLine2       = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_LINE2,          void(handler_id viewHandle, const PPoint& pos1, const PPoint& pos2)>;
 using ASViewFillRect        = PRemoteSignal<PAppserverProtocol::VIEW_FILL_RECT,           void(handler_id viewHandle, const PRect& rect, PColor color)>;
 using ASViewFillCircle      = PRemoteSignal<PAppserverProtocol::VIEW_FILL_CIRCLE,         void(handler_id viewHandle, const PPoint& position, float radius)>;
+using ASViewDrawEllipse     = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_ELLIPSE,        void(handler_id viewHandle, const PRect& rect)>;
+using ASViewDrawPie         = PRemoteSignal<PAppserverProtocol::VIEW_DRAW_PIE,            void(handler_id viewHandle, const PRect& rect, float startAngle, float spanAngle)>;
 using ASViewFillTriangle    = PRemoteSignal<PAppserverProtocol::VIEW_FILL_TRIANGLE,       void(handler_id viewHandle, const PPoint& pos1, const PPoint& pos2, const PPoint& pos3)>;
 using ASViewBeginTriangles  = PRemoteSignal<PAppserverProtocol::VIEW_BEGIN_TRIANGLES,     void(handler_id viewHandle, PTriangleMode mode, size_t countHint)>;
 using ASViewAddTriangle     = PRemoteSignal<PAppserverProtocol::VIEW_ADD_TRIANGLE,        void(handler_id viewHandle, const PPoint& position)>;

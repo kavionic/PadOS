@@ -125,11 +125,15 @@ void* SerialCommandHandler::HandleIO()
         if (m_PackageBytesRead == 0) {
             continue;
         }
-        SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<SerialProtocol::PacketHeader*>(m_InMessageBuffer.data());
-        if (packetBuffer->Command == SerialProtocol::Commands::MessageReply)
+        const SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<const SerialProtocol::PacketHeader*>(m_InMessageBuffer.data());
+        const bool isMessageReply = packetBuffer->Command == SerialProtocol::Commands::MessageReply;
+        const bool isReplyMessage = (packetBuffer->Flags & SerialProtocol::PacketHeader::FLAG_REPLY_MESSAGE) != 0;
+        if (isMessageReply || isReplyMessage)
         {
-            m_ReplyReceived = true;
-            m_ReplyCondition.WakeupAll();
+            AcknowledgeReceivedMessage();
+        }
+        if (isMessageReply)
+        {
             m_InMessageBuffer.clear();
             m_PackageBytesRead = 0;
         }
@@ -161,13 +165,13 @@ bool SerialCommandHandler::OpenSerialPort()
     {
         if (m_SerialPortIn == -1)
         {
-            m_SerialPortIn = kopen_trw(m_SerialPortPath.c_str(), O_RDONLY | O_NONBLOCK);
+            m_SerialPortIn = kopen_trw(m_SerialPortPath.c_str(), O_KERNEL | O_RDONLY | O_NONBLOCK);
             if (m_SerialPortIn != -1)
             {
                 USARTIOCTL_SetBaudrate(m_SerialPortIn, m_Baudrate);
 
                 m_WaitGroup.AddFile_trw(m_SerialPortIn);
-                m_SerialPortOut = kreopen_file_trw(m_SerialPortIn, O_WRONLY | O_DIRECT);
+                m_SerialPortOut = kreopen_file_trw(m_SerialPortIn, O_KERNEL | O_WRONLY | O_DIRECT);
                 USARTIOCTL_SetWriteTimeout(m_SerialPortOut, TimeValNanos::FromMilliseconds(1000));
                 return true;
             }
@@ -225,25 +229,41 @@ void* SerialCommandHandler::Run()
         } CRITICAL_END;
 
         const TimeValNanos curTime = get_monotonic_time();
-        if (curTime > m_NextDeviceProbeTime) {
+        if (curTime > m_NextDeviceProbeTime)
+        {
             m_NextDeviceProbeTime = curTime + TimeValNanos::FromMilliseconds(SerialProtocol::PING_PERIOD_MS_DEVICE);
-            SendMessage<SerialProtocol::ProbeDeviceReply>(m_DeviceType);
+            SendMessage<SerialProtocol::ProbeDeviceReply>(GetAdvertisedDeviceType());
         }
         if (!packetData.empty())
         {
             const SerialProtocol::PacketHeader* packetBuffer = reinterpret_cast<const SerialProtocol::PacketHeader*>(packetData.data());
+            const bool isReplyRequired = (packetBuffer->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) == 0;
+            const bool isReplyMessage = (packetBuffer->Flags & SerialProtocol::PacketHeader::FLAG_REPLY_MESSAGE) != 0;
 
-            if ((packetBuffer->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) == 0) {
-                SendMessage<SerialProtocol::MessageReply>();
-            }
+            BeginReplyMessageTracking(isReplyRequired && !isReplyMessage);
 
-            if (!DispatchPacket(packetBuffer))
+            bool wasHandled = DispatchPacket(packetBuffer);
+            bool wasForwardedToApp = false;
+            bool shouldSendFallbackReply = wasHandled;
+            if (!wasHandled)
             {
-                if (m_HandlerPort.GetHandle() != INVALID_HANDLE) {
-                    m_HandlerPort.SendMessageTimeout(INVALID_HANDLE, packetBuffer->Command, packetData.data(), packetData.size(), TimeValNanos::FromSeconds(10.0));
-                } else {
-                    p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Unknown serial command {}", int(packetBuffer->Command));
+                if (m_HandlerPort.GetHandle() != INVALID_HANDLE)
+                {
+                    wasForwardedToApp = m_HandlerPort.SendMessageTimeout(INVALID_HANDLE, packetBuffer->Command, packetData.data(), packetData.size(), TimeValNanos::FromSeconds(10.0));
+                    if (!wasForwardedToApp)
+                    {
+                        p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "Failed to forward serial command {}", int(packetBuffer->Command));
+                    }
                 }
+                else
+                {
+                    p_system_log<PLogSeverity::WARNING>(LogCategorySerialHandler, "No application serial command handler for command {}", int(packetBuffer->Command));
+                }
+            }
+            const bool didSendReplyMessage = EndReplyMessageTracking();
+            if (isReplyRequired && !wasForwardedToApp && shouldSendFallbackReply && !didSendReplyMessage)
+            {
+                SendMessage<SerialProtocol::MessageReply>();
             }
         }
     }
@@ -419,8 +439,21 @@ bool SerialCommandHandler::ReadPacket()
 
 void SerialCommandHandler::HandleProbeDevice(const SerialProtocol::ProbeDevice& packet)
 {
-    SendMessage<SerialProtocol::ProbeDeviceReply>(m_DeviceType);
+    SendMessage<SerialProtocol::ProbeDeviceReply>(GetAdvertisedDeviceType());
     ProbeRequestReceived(packet.DeviceType);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SerialProtocol::ProbeDeviceType SerialCommandHandler::GetAdvertisedDeviceType() const
+{
+    if (m_DeviceType == SerialProtocol::ProbeDeviceType::Application && m_HandlerPort.GetHandle() == INVALID_HANDLE)
+    {
+        return SerialProtocol::ProbeDeviceType::None;
+    }
+    return m_DeviceType;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -436,12 +469,63 @@ void SerialCommandHandler::HandleSetSystemTime(const SerialProtocol::SetSystemTi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void SerialCommandHandler::AcknowledgeReceivedMessage()
+{
+    m_ReplyReceived = true;
+    m_ReplyCondition.WakeupAll();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void SerialCommandHandler::BeginReplyMessageTracking(bool isReplyRequired)
+{
+    m_IsHandlingRequestRequiringReply = isReplyRequired;
+    m_DidSendReplyMessage = false;
+    m_ReplyMessageThread = isReplyRequired ? kget_thread_id() : INVALID_HANDLE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SerialCommandHandler::EndReplyMessageTracking()
+{
+    const bool didSendReplyMessage = m_DidSendReplyMessage;
+    m_IsHandlingRequestRequiringReply = false;
+    m_DidSendReplyMessage = false;
+    m_ReplyMessageThread = INVALID_HANDLE;
+    return didSendReplyMessage;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool SerialCommandHandler::ShouldMarkAsReplyMessage() const
+{
+    return m_IsHandlingRequestRequiringReply &&
+           !m_DidSendReplyMessage &&
+           m_ReplyMessageThread == kget_thread_id();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, size_t headerSize, const void* data, size_t dataSize)
 {
     if (GetThreadID() == -1 || !IsSerialPortActive())
     {
         return false;
     }
+    if (ShouldMarkAsReplyMessage() && header->Command != SerialProtocol::Commands::MessageReply)
+    {
+        header->Flags |= SerialProtocol::PacketHeader::FLAG_REPLY_MESSAGE;
+        m_DidSendReplyMessage = true;
+    }
+
     PHashCalculator<PHashAlgorithm::CRC32> crcCalc;
 
     header->Checksum = 0;
@@ -467,7 +551,7 @@ bool SerialCommandHandler::SendSerialData(SerialProtocol::PacketHeader* header, 
                 return false;
             }
         }
-        if (header->Flags & SerialProtocol::PacketHeader::FLAG_NO_REPLY) {
+        if (header->Flags & (SerialProtocol::PacketHeader::FLAG_NO_REPLY | SerialProtocol::PacketHeader::FLAG_REPLY_MESSAGE)) {
             return true;
         }
         m_ReplyCondition.WaitTimeout(m_TransmitMutex, TimeValNanos::FromMilliseconds(500));
@@ -491,6 +575,8 @@ void SerialCommandHandler::SendSerialPacket(SerialProtocol::PacketHeader* msg)
 void SerialCommandHandler::SetHandlerMessagePort(port_id portID)
 {
     m_HandlerPort.SetHandle(portID);
+    m_NextDeviceProbeTime = TimeValNanos::zero;
+    m_QueueCondition.WakeupAll();
 }
 
 } // namespace kernel

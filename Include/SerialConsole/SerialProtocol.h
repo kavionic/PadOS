@@ -34,7 +34,7 @@ enum class ProbeDeviceType : uint32_t
     Application
 };
 
-static constexpr uint32_t PING_PERIOD_MS_DEVICE = 100;
+static constexpr uint32_t PING_PERIOD_MS_DEVICE = 500;
 static constexpr uint32_t PING_PERIOD_MS_PC     = 250;
 
 namespace Commands
@@ -92,7 +92,8 @@ struct PacketHeader
     static const uint8_t MAGIC2 = 0x13;
     static const uint16_t MAGIC = MAGIC1 | (uint16_t(MAGIC2) << 8);
 
-    static const uint16_t FLAG_NO_REPLY = 0x0001;
+    static const uint16_t FLAG_NO_REPLY      = 0x0001;
+    static const uint16_t FLAG_REPLY_MESSAGE = 0x0002;
 
     template<typename T>
     static void InitHeader(T& msg, uint16_t flags = 0)

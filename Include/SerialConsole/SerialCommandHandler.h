@@ -147,6 +147,11 @@ private:
     bool OpenSerialPort();
     void CloseSerialPort();
     bool IsSerialPortActive() const { return !m_ComFailure && m_SerialPortIn != -1; }
+    SerialProtocol::ProbeDeviceType GetAdvertisedDeviceType() const;
+    void AcknowledgeReceivedMessage();
+    void BeginReplyMessageTracking(bool isReplyRequired);
+    bool EndReplyMessageTracking();
+    bool ShouldMarkAsReplyMessage() const;
     ssize_t SerialWrite(const void* buffer, size_t length);
     bool ReadPacket();
 
@@ -166,6 +171,9 @@ private:
     PMessagePort        m_HandlerPort;
 
     volatile std::atomic_bool     m_ReplyReceived = false;
+    bool                          m_IsHandlingRequestRequiringReply = false;
+    bool                          m_DidSendReplyMessage = false;
+    thread_id                     m_ReplyMessageThread = INVALID_HANDLE;
 
     PString             m_SerialPortPath;
     int                 m_Baudrate = 0;

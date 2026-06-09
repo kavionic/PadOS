@@ -282,6 +282,7 @@ void* PLooper::Run()
     {
         ProcessEvents();
     }
+    ThreadStopping();
     return nullptr;
 }
 
@@ -334,7 +335,9 @@ bool PLooper::Tick()
 void PLooper::ProcessMessage(handler_id targetHandler, int32_t code, ssize_t msgLength)
 {
     assert(!IsRunning() || m_Mutex.IsLocked());
-    if (PMessageID(code) == PMessageID::QUIT) {
+    if (PMessageID(code) == PMessageID::QUIT)
+    {
+        QuitRequested();
         Stop();
     }
     if (!HandleMessage(targetHandler, code, m_ReceiveBuffer.data(), msgLength))

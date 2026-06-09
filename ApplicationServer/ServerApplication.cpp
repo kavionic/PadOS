@@ -375,9 +375,11 @@ void ServerApplication::SlotViewSetFrame(handler_id clientHandle, const PRect& f
         view->SetFrame(frame, requestingClient);
         modifiedFrame |= view->GetIFrame();
         const Ptr<PServerView> opacParent = PServerView::GetOpacParent(view->GetParent(), &modifiedFrame);
-        assert(opacParent != nullptr);
-        opacParent->MarkModified(modifiedFrame);
-        UpdateLowestInvalidView(opacParent);
+        if (opacParent != nullptr)
+        {
+            opacParent->MarkModified(modifiedFrame);
+            UpdateLowestInvalidView(opacParent);
+        }
     }
     else
     {

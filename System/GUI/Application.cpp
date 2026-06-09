@@ -488,10 +488,13 @@ bool PApplication::CreateServerView(Ptr<PView> view, handler_id parentHandle, PV
         int32_t            code;
         if (m_ReplyPort.ReceiveMessage(nullptr, &code, &reply, sizeof(reply)))
         {
-            if (code == PAppserverProtocol::CREATE_VIEW_REPLY) {
+            if (code == PAppserverProtocol::CREATE_VIEW_REPLY)
+            {
                 view->SetServerHandle(reply.m_ViewHandle);
                 break;
-            } else {
+            }
+            else
+            {
                 p_system_log<PLogSeverity::ERROR>(LogCategoryGUITK, "Application::AddView() received invalid reply: {}", code);
             }
         }

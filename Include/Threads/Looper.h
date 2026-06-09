@@ -65,6 +65,8 @@ public:
     Ptr<PEventHandler> FindHandler(handler_id handle) const;
 
     virtual void ThreadStarted() {}
+    virtual void ThreadStopping() {}
+    virtual void QuitRequested() {}
     virtual bool HandleMessage(handler_id targetHandler, int32_t code, const void* data, size_t length) { return false; }
     virtual void Idle() {}
         

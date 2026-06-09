@@ -907,6 +907,15 @@ bool PView::RemoveThis()
         parent->RemoveChild(ptr_tmp_cast(this));
         return true;
     }
+    else if (m_ServerHandle != INVALID_HANDLE)
+    {
+        PApplication* app = GetApplication();
+        if (app != nullptr)
+        {
+            app->RemoveView(ptr_tmp_cast(this));
+            return true;
+        }
+    }
     return false;
 }
 

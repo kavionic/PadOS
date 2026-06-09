@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -40,48 +40,6 @@ port_id p_get_window_manager_port()
 {
     return g_WindowManagerPort;
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-class WindowBar : public PView
-{
-public:
-    WindowBar(Ptr<PView> parent) : PView("wmgr_window_bar", parent, PViewFlags::WillDraw)
-    {
-        SetLayoutNode(ptr_new<PVLayoutNode>());
-        SetWidthOverride(PPrefSizeType::All, PSizeOverride::Always, 100.0f);
-        SetHeightOverride(PPrefSizeType::Smallest, PSizeOverride::Always, 0.0f);
-        SetHeightOverride(PPrefSizeType::Greatest, PSizeOverride::Always, LAYOUT_MAX_SIZE);
-    }
-    
-    virtual void OnPaint(const PRect& updateRect) override
-    {
-        SetFgColor(100, 100, 100);
-        FillRect(GetBounds());
-    }
-};
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-class WindowIcon : public PButton
-{
-public:
-    WindowIcon(Ptr<PView> parent, Ptr<PView> window) : PButton("wicon", window->GetName(), parent), m_Window(window)
-    {
-        SignalActivated.Connect(this, &WindowIcon::SlotClicked);
-    }
-    
-private:
-    void SlotClicked()
-    {
-        m_Window->ToggleDepth();
-    }
-    Ptr<PView> m_Window;
-};
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -157,24 +115,24 @@ bool WindowManager::HandleMessage(handler_id targetHandler, int32_t code, const 
 
 void WindowManager::SlotRegisterView(handler_id viewHandle, PViewDockType dockType, const PString& name, const PRect& frame)
 {
-    if (m_ClientsView != nullptr)
+    if (dockType == PViewDockType::DockedWindow)
     {
-        Ptr<PView> view = ptr_new<PView>(m_ClientsView, viewHandle, name, frame);
-
-        Post<ASViewAddChild>(INVALID_INDEX, m_ClientsView->GetServerHandle(), viewHandle, view->GetHandle());
-
-        if (dockType == PViewDockType::DockedWindow)
+        if (m_ClientsView != nullptr)
         {
-            if (m_SidebarView != nullptr)
-            {
-                Ptr<PView> prevIcon = m_SidebarView->GetChildAt(0);
-                Ptr<WindowIcon> windowIcon = ptr_new<WindowIcon>(m_SidebarView, view);
+            Ptr<PView> view = ptr_new<PView>(m_ClientsView, viewHandle, name, frame);
 
-                if (prevIcon != nullptr) {
-                    windowIcon->AddToWidthRing(prevIcon);
-                }
-            }
+            Post<ASViewAddChild>(INVALID_INDEX, m_ClientsView->GetServerHandle(), viewHandle, view->GetHandle());
             view->SetFrame(m_ClientsView->GetBounds());
+        }
+    }
+    else if (dockType == PViewDockType::StatusBarIcon)
+    {
+        if (m_SidebarView != nullptr)
+        {
+            Ptr<PView> view = ptr_new<PView>(m_SidebarView, viewHandle, name, frame);
+
+            Post<ASViewAddChild>(INVALID_INDEX, m_SidebarView->GetServerHandle(), viewHandle, view->GetHandle());
+            view->SetFrame(m_SidebarView->GetBounds());
         }
     }
 }
@@ -299,6 +257,10 @@ void WindowManager::SlotKeyboardAnimTimer()
     }
     Sync();
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 int windowmanager_main(int argc, char* argv[])
 {

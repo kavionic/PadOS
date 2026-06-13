@@ -427,7 +427,7 @@ private:
     bool                m_IsPrefSizeValid = false;
     bool                m_IsLayoutValid   = true;
     bool                m_IsLayoutPending = false;
-    bool                m_DidScrollRect   = false;
+    bool                m_SyncOnNextPaint   = false;
     
     PView*               m_WidthRing  = nullptr;
     PView*               m_HeightRing = nullptr;

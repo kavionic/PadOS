@@ -1374,6 +1374,8 @@ void PView::ScrollBy(const PPoint& offset)
     }
     OnViewScrolled(offset);
     SignalViewScrolled(offset, ptr_tmp_cast(this));
+
+    m_SyncOnNextPaint = true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1383,7 +1385,7 @@ void PView::ScrollBy(const PPoint& offset)
 void PView::CopyRect(const PRect& srcRect, const PPoint& dstPos)
 {
     if (m_BeginPainCount != 0) {
-        m_DidScrollRect = true;
+        m_SyncOnNextPaint = true;
     }
     Post<ASViewCopyRect>(srcRect, dstPos);
 }
@@ -1674,8 +1676,9 @@ void PView::HandlePaint(const PRect& updateRect)
     if (--m_BeginPainCount == 0) {
         Post<ASViewEndUpdate>();
     }        
-    if (m_DidScrollRect) {
-        m_DidScrollRect = false;
+    if (m_SyncOnNextPaint)
+    {
+        m_SyncOnNextPaint = false;
         Sync();
     }
 }

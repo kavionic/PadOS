@@ -567,8 +567,11 @@ bool FATDirectoryIterator::GetNextLFNEntry(FATDirectoryEntryInfo* outInfo, PStri
         if (m_SectorIterator.m_Volume->m_FATBits == 32) {
             outInfo->m_StartCluster |= uint32_t(buffer->m_Normal.m_FirstClusterHigh) << 16;
         }            
-        outInfo->m_Size = buffer->m_Normal.m_FileSize;
-        outInfo->m_FATTime = buffer->m_Normal.m_Time;
+        outInfo->m_Size                 = buffer->m_Normal.m_FileSize;
+        outInfo->m_FATCreateTime        = uint32_t(buffer->m_Normal.m_CreateTime) | (uint32_t(buffer->m_Normal.m_CreateDate) << 16);
+        outInfo->m_FATAccessTime        = uint32_t(buffer->m_Normal.m_AccessDate) << 16;
+        outInfo->m_FATModificationTime  = uint32_t(buffer->m_Normal.m_ModificationTime) | (uint32_t(buffer->m_Normal.m_ModificationDate) << 16);
+        outInfo->m_FATCreateTimeFine    = buffer->m_Normal.m_CreateTimeFine;
     }
 
     GetNextRawEntry();

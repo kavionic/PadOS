@@ -64,8 +64,13 @@ public:
 
     bool Write();
 
-    static time_t   FATTimeToUnixTime(uint32_t fatTime);
-    static uint32_t UnixTimeToFATTime(time_t unixTime);
+    static time_t       FATTimeToUnixTime(uint32_t fatTime);
+    static TimeValNanos FATTimeToTimeVal(uint32_t fatTime, uint8_t createTimeFine);
+    static uint32_t     UnixTimeToFATTime(time_t unixTime);
+    static uint8_t      TimeValToFATCreateTimeFine(TimeValNanos time);
+    static TimeValNanos RoundTimeToFATCreateTime(TimeValNanos time);
+    static TimeValNanos RoundTimeToFATAccessTime(TimeValNanos time);
+    static TimeValNanos RoundTimeToFATModificationTime(TimeValNanos time);
 
 private:
     uint32_t m_Magic;

@@ -114,7 +114,16 @@ bool FATInode::Write()
     }
     buffer->m_Normal.m_Attribs = m_DOSAttribs; // file attributes
     
-    buffer->m_Normal.m_Time = UnixTimeToFATTime(m_MTime.AsSecondsI());
+    const uint32_t createTime = UnixTimeToFATTime(m_CTime.AsSecondsI());
+    const uint32_t accessTime = UnixTimeToFATTime(m_ATime.AsSecondsI());
+    const uint32_t modificationTime = UnixTimeToFATTime(m_MTime.AsSecondsI());
+
+    buffer->m_Normal.m_CreateTimeFine = TimeValToFATCreateTimeFine(m_CTime);
+    buffer->m_Normal.m_CreateTime = uint16_t(createTime & 0xffff);
+    buffer->m_Normal.m_CreateDate = uint16_t(createTime >> 16);
+    buffer->m_Normal.m_AccessDate = uint16_t(accessTime >> 16);
+    buffer->m_Normal.m_ModificationTime = uint16_t(modificationTime & 0xffff);
+    buffer->m_Normal.m_ModificationDate = uint16_t(modificationTime >> 16);
     buffer->m_Normal.m_FirstClusterLow  = uint16_t(m_StartCluster & 0xffff);	// starting cluster
     buffer->m_Normal.m_FirstClusterHigh = uint16_t(m_StartCluster >> 16);
     
@@ -138,6 +147,19 @@ time_t FATInode::FATTimeToUnixTime(uint32_t fatTime)
     days = daze[(fatTime>>21)&15] + ((fatTime>>25)+10)*365 + LeapDays((fatTime>>25)+10,((fatTime>>21)&15)-1)+((fatTime>>16)&31)-1;
 
     return (((days * 24) + ((fatTime>>11)&31)) * 60 + ((fatTime>>5)&63) + tzoffset) * 60 + 2*(fatTime&31);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TimeValNanos FATInode::FATTimeToTimeVal(uint32_t fatTime, uint8_t createTimeFine)
+{
+    if (createTimeFine > 199)
+    {
+        createTimeFine = 199;
+    }
+    return TimeValNanos::FromSeconds(FATTimeToUnixTime(fatTime)) + TimeValNanos::FromMilliseconds(bigtime_t(createTimeFine) * 10);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -188,6 +210,48 @@ bi:
     return fatTime + (d << 16) + (y << 25);
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint8_t FATInode::TimeValToFATCreateTimeFine(TimeValNanos time)
+{
+    const timespec timeSpec = time.AsTimespec();
+    uint32_t createTimeFine = uint32_t((timeSpec.tv_sec & 1) * 100 + timeSpec.tv_nsec / 10000000);
+    if (createTimeFine > 199)
+    {
+        createTimeFine = 199;
+    }
+    return uint8_t(createTimeFine);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TimeValNanos FATInode::RoundTimeToFATCreateTime(TimeValNanos time)
+{
+    return FATTimeToTimeVal(UnixTimeToFATTime(time.AsSecondsI()), TimeValToFATCreateTimeFine(time));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TimeValNanos FATInode::RoundTimeToFATAccessTime(TimeValNanos time)
+{
+    const uint32_t fatTime = UnixTimeToFATTime(time.AsSecondsI());
+    return FATTimeToTimeVal(fatTime & 0xffff0000u, 0);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TimeValNanos FATInode::RoundTimeToFATModificationTime(TimeValNanos time)
+{
+    return FATTimeToTimeVal(UnixTimeToFATTime(time.AsSecondsI()), 0);
+}
+
 
 } // namespace
-

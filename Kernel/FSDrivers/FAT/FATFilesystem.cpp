@@ -48,6 +48,16 @@
 namespace kernel
 {
 
+struct FATNewDirEntryInfo
+{
+    uint32_t     Cluster = 0;
+    size_t       Size = 0;
+    TimeValNanos CreateTime;
+    TimeValNanos AccessTime;
+    TimeValNanos ModificationTime;
+    uint8_t      DOSAttribs = 0;
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 // Short name cannot be any of the DOS/Win device names (list from wikipedia).
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,6 +83,60 @@ static std::set<PString> g_DOSDeviceNames =
     "$IDLE$     ", // Only in Concurrent DOS 386, Multiuser DOS and DR DOS 5.0 and higher.
     "CONFIG$    "  // Only in MS-DOS 7.0-8.0.
 };
+
+static void SetFATDirectoryEntryTimestamps(
+    FATDirectoryEntry& entry,
+    const TimeValNanos& createTime,
+    const TimeValNanos& accessTime,
+    const TimeValNanos& modificationTime)
+{
+    const uint32_t fatCreateTime = FATInode::UnixTimeToFATTime(createTime.AsSecondsI());
+    const uint32_t fatAccessTime = FATInode::UnixTimeToFATTime(accessTime.AsSecondsI());
+    const uint32_t fatModificationTime = FATInode::UnixTimeToFATTime(modificationTime.AsSecondsI());
+
+    entry.m_CreateTimeFine = FATInode::TimeValToFATCreateTimeFine(createTime);
+    entry.m_CreateTime = uint16_t(fatCreateTime & 0xffff);
+    entry.m_CreateDate = uint16_t(fatCreateTime >> 16);
+    entry.m_AccessDate = uint16_t(fatAccessTime >> 16);
+    entry.m_ModificationTime = uint16_t(fatModificationTime & 0xffff);
+    entry.m_ModificationDate = uint16_t(fatModificationTime >> 16);
+}
+
+static TimeValNanos FATTimeToTimeValOrFallback(uint32_t fatTime, uint8_t createTimeFine, const TimeValNanos& fallbackTime)
+{
+    if ((fatTime & 0xffff0000) == 0)
+    {
+        return fallbackTime;
+    }
+    return FATInode::FATTimeToTimeVal(fatTime, createTimeFine);
+}
+
+static void InitFATDirectoryEntry(
+    FATDirectoryEntry& entry,
+    const char shortName[11],
+    uint8_t dosAttribs,
+    uint32_t cluster,
+    size_t size,
+    const TimeValNanos& createTime,
+    const TimeValNanos& accessTime,
+    const TimeValNanos& modificationTime)
+{
+    memcpy(entry.m_Filename, shortName, sizeof(entry.m_Filename));
+    entry.m_Attribs = dosAttribs;
+    entry.m_NTReserved = 0;
+    SetFATDirectoryEntryTimestamps(entry, createTime, accessTime, modificationTime);
+    if (cluster == 0)
+    {
+        entry.m_FirstClusterLow = 0;
+        entry.m_FirstClusterHigh = 0;
+    }
+    else
+    {
+        entry.m_FirstClusterLow = uint16_t(cluster & 0xffff);
+        entry.m_FirstClusterHigh = uint16_t(cluster >> 16);
+    }
+    entry.m_FileSize = (dosAttribs & FAT_SUBDIR) ? 0 : uint32_t(size);
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -331,7 +395,10 @@ Ptr<KFSVolume> FATFilesystem::Mount(fs_id volumeID, const char* devicePath, uint
     vol->m_RootInode->m_DirStartIndex = 0xffffffff;
     vol->m_RootInode->m_DirEndIndex = 0xffffffff;
     vol->m_RootInode->m_DOSAttribs  = FAT_SUBDIR;
-    vol->m_RootInode->m_ATime = vol->m_RootInode->m_CTime = vol->m_RootInode->m_MTime = TimeValNanos::FromSeconds(get_real_time().AsSecondsI());
+    const TimeValNanos currentTime = get_real_time();
+    vol->m_RootInode->m_ATime = FATInode::RoundTimeToFATAccessTime(currentTime);
+    vol->m_RootInode->m_CTime = FATInode::RoundTimeToFATCreateTime(currentTime);
+    vol->m_RootInode->m_MTime = FATInode::RoundTimeToFATModificationTime(currentTime);
     vol->AddDirectoryMapping(vol->m_RootInode->m_InodeID);
 
     // find volume label (supersedes any label in the bpb)
@@ -751,7 +818,10 @@ Ptr<KFileNode> FATFilesystem::CreateFile(Ptr<KFSVolume> volume, Ptr<KInode> pare
         dummy->m_EndCluster = 0;
         dummy->m_DOSAttribs = dosAttribs;
         dummy->m_Size = 0;
-        dummy->m_ATime = dummy->m_CTime = dummy->m_MTime = TimeValNanos::FromSeconds(get_real_time().AsSecondsI());
+        const TimeValNanos currentTime = get_real_time();
+        dummy->m_ATime = FATInode::RoundTimeToFATAccessTime(currentTime);
+        dummy->m_CTime = FATInode::RoundTimeToFATCreateTime(currentTime);
+        dummy->m_MTime = FATInode::RoundTimeToFATModificationTime(currentTime);
 
         CreateDirectoryEntry(vol, dir, dummy, name, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
 
@@ -884,7 +954,10 @@ Ptr<KInode> FATFilesystem::LoadInode(Ptr<KFSVolume> volume, ino_t inodeID)
     {
         entry->m_EndCluster = 0;
     }        
-    entry->m_CTime = entry->m_MTime = entry->m_ATime = TimeValNanos::FromSeconds(FATInode::FATTimeToUnixTime(info.m_FATTime));
+    const TimeValNanos modificationTime = FATTimeToTimeValOrFallback(info.m_FATModificationTime, 0, TimeValNanos::zero);
+    entry->m_CTime = FATTimeToTimeValOrFallback(info.m_FATCreateTime, info.m_FATCreateTimeFine, modificationTime);
+    entry->m_ATime = FATTimeToTimeValOrFallback(info.m_FATAccessTime, 0, modificationTime);
+    entry->m_MTime = modificationTime;
     return entry;
 }
 
@@ -978,7 +1051,10 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     dummy->m_EndCluster = dummy->m_StartCluster;
     dummy->m_DOSAttribs = dosAttribs;
     dummy->m_Size = vol->m_BytesPerSector * vol->m_SectorsPerCluster;
-    dummy->m_ATime = dummy->m_CTime = dummy->m_MTime = TimeValNanos::FromSeconds(get_real_time().AsSecondsI());
+    const TimeValNanos currentTime = get_real_time();
+    dummy->m_ATime = FATInode::RoundTimeToFATAccessTime(currentTime);
+    dummy->m_CTime = FATInode::RoundTimeToFATCreateTime(currentTime);
+    dummy->m_MTime = FATInode::RoundTimeToFATModificationTime(currentTime);
 
     dummy->m_InodeID = GENERATE_DIR_CLUSTER_INODEID(dummy->m_ParentInodeID, dummy->m_StartCluster);
     if(vol->HasInodeIDToLocationIDMapping(dummy->m_InodeID))
@@ -1000,38 +1076,43 @@ void FATFilesystem::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, c
     CreateDirectoryEntry(vol, dir, dummy, name, &dummy->m_DirStartIndex, &dummy->m_DirEndIndex);
 
     // create '.' and '..' entries and then end of directories
-    memset(&buffer[0], ' ', 11);
-    memset(&buffer[0x20], ' ', 11);
-    buffer[0] = buffer[0x20] = buffer[0x21] = '.';
-    buffer[0x0b] = buffer[0x2b] = 0x30;
-    i = FATInode::UnixTimeToFATTime(dummy->m_CTime.AsSecondsI());
-    buffer[0x16] = uint8_t(i & 0xff);
-    buffer[0x17] = uint8_t((i >> 8) & 0xff);
-    buffer[0x18] = uint8_t((i >> 16) & 0xff);
-    buffer[0x19] = uint8_t((i >> 24) & 0xff);
-    i = FATInode::UnixTimeToFATTime(dir->m_CTime.AsSecondsI());
-    buffer[0x36] = uint8_t(i & 0xff);
-    buffer[0x37] = uint8_t((i >> 8) & 0xff);
-    buffer[0x38] = uint8_t((i >> 16) & 0xff);
-    buffer[0x39] = uint8_t((i >> 24) & 0xff);
-    buffer[0x1a] = dummy->m_StartCluster & 0xff;
-    buffer[0x1b] = (dummy->m_StartCluster >> 8) & 0xff;
-    if (vol->m_FATBits == 32)
-    {
-        buffer[0x14] = (dummy->m_StartCluster >> 16) & 0xff;
-        buffer[0x15] = (dummy->m_StartCluster >> 24) & 0xff;
-    }
+    memset(buffer.data(), 0, buffer.size());
+    char currentDirectoryName[11];
+    char parentDirectoryName[11];
+    memset(currentDirectoryName, ' ', sizeof(currentDirectoryName));
+    memset(parentDirectoryName, ' ', sizeof(parentDirectoryName));
+    currentDirectoryName[0] = '.';
+    parentDirectoryName[0] = '.';
+    parentDirectoryName[1] = '.';
+
+    FATDirectoryEntry* currentDirectoryEntry = reinterpret_cast<FATDirectoryEntry*>(buffer.data());
+    FATDirectoryEntry* parentDirectoryEntry = reinterpret_cast<FATDirectoryEntry*>(buffer.data() + sizeof(FATDirectoryEntry));
+
+    InitFATDirectoryEntry(
+        *currentDirectoryEntry,
+        currentDirectoryName,
+        FAT_SUBDIR,
+        dummy->m_StartCluster,
+        size_t(dummy->m_Size),
+        dummy->m_CTime,
+        dummy->m_ATime,
+        dummy->m_MTime);
+
     // root directory is always denoted by cluster 0, even for fat32 (!)
+    uint32_t parentCluster = 0;
     if (dir->m_InodeID != vol->m_RootInode->m_InodeID)
     {
-        buffer[0x3a] = dir->m_StartCluster & 0xff;
-        buffer[0x3b] = (dir->m_StartCluster >> 8) & 0xff;
-        if (vol->m_FATBits == 32)
-        {
-            buffer[0x34] = (dir->m_StartCluster >> 16) & 0xff;
-            buffer[0x35] = (dir->m_StartCluster >> 24) & 0xff;
-        }
+        parentCluster = dir->m_StartCluster;
     }
+    InitFATDirectoryEntry(
+        *parentDirectoryEntry,
+        parentDirectoryName,
+        FAT_SUBDIR,
+        parentCluster,
+        size_t(dir->m_Size),
+        dir->m_CTime,
+        dir->m_ATime,
+        dir->m_MTime);
 
     FATClusterSectorIterator csi(vol, dummy->m_StartCluster, 0);
     csi.WriteBlock(buffer.data());
@@ -1738,10 +1819,24 @@ void FATFilesystem::WriteStat(Ptr<KFSVolume> _vol, Ptr<KInode> _node, const stru
         dirty = true;
     }
     
+    if (mask & WSTAT_ATIME)
+    {
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFILE, "FATFilesystem::WriteStat(): setting access time.");
+        node->m_ATime = FATInode::RoundTimeToFATAccessTime(TimeValNanos::FromTimespec(st->st_atim));
+        dirty = true;
+    }
+
     if (mask & WSTAT_MTIME)
     {
         kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFILE, "FATFilesystem::WriteStat(): setting modification time.");
-        node->m_ATime = node->m_CTime = node->m_MTime = TimeValNanos::FromTimespec(st->st_mtim);
+        node->m_MTime = FATInode::RoundTimeToFATModificationTime(TimeValNanos::FromTimespec(st->st_mtim));
+        dirty = true;
+    }
+
+    if (mask & WSTAT_CTIME)
+    {
+        kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCat_FATFILE, "FATFilesystem::WriteStat(): setting creation time.");
+        node->m_CTime = FATInode::RoundTimeToFATCreateTime(TimeValNanos::FromTimespec(st->st_ctim));
         dirty = true;
     }
 
@@ -1823,10 +1918,12 @@ mode_t FATFilesystem::DOSAttribsToFileMode(uint8_t dosAttribs)
 uint32_t FATFilesystem::CreateVolumeLabel(Ptr<FATVolume> vol, const char* name)
 {
     uint32_t dummy;
-    struct FATNewDirEntryInfo info = {
-        FAT_ARCHIVE | FAT_VOLUME, 0, 0, 0
-    };
-    info.time = get_real_time().AsSecondsI();
+    FATNewDirEntryInfo info;
+    const TimeValNanos currentTime = get_real_time();
+    info.CreateTime = FATInode::RoundTimeToFATCreateTime(currentTime);
+    info.AccessTime = FATInode::RoundTimeToFATAccessTime(currentTime);
+    info.ModificationTime = FATInode::RoundTimeToFATModificationTime(currentTime);
+    info.DOSAttribs = FAT_ARCHIVE | FAT_VOLUME;
 
     // check if name already exists
     if (FindShortName(vol, vol->m_RootInode, name)) {
@@ -2066,10 +2163,12 @@ void FATFilesystem::CreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> paren
 
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCat_FATDIR, "FATFilesystem::CreateDirectoryEntry(): creating directory entry [{:11.11}].", shortName);
 
-    info.m_DOSAttribs = node->m_DOSAttribs;
-    info.cluster = node->m_StartCluster;
-    info.size    = size_t(node->m_Size);
-    info.time    = node->m_MTime.AsSecondsI();
+    info.DOSAttribs = node->m_DOSAttribs;
+    info.Cluster = node->m_StartCluster;
+    info.Size    = size_t(node->m_Size);
+    info.CreateTime = node->m_CTime;
+    info.AccessTime = node->m_ATime;
+    info.ModificationTime = node->m_MTime;
 
     DoCreateDirectoryEntry(vol, parent, &info, (char*)shortName, longName.data(), len, startIndex, endIndex);
 }
@@ -2084,9 +2183,9 @@ void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir
     {
         PERROR_THROW_CODE(PErrorCode::PERM);
     }
-    if ((info->cluster != 0) && !vol->IsDataCluster(info->cluster))
+    if ((info->Cluster != 0) && !vol->IsDataCluster(info->Cluster))
     {
-        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::DoCreateDirectoryEntry(): for bad cluster ({}).", info->cluster);
+        kernel_log<PLogSeverity::CRITICAL>(LogCat_FATDIR, "FATFilesystem::DoCreateDirectoryEntry(): for bad cluster ({}).", info->Cluster);
         PERROR_THROW_CODE(PErrorCode::IO);
     }
 
@@ -2180,19 +2279,15 @@ void FATFilesystem::DoCreateDirectoryEntry(Ptr<FATVolume> vol, Ptr<FATInode> dir
     }
 
     // write directory entry
-    memcpy(buffer->m_Normal.m_Filename, shortName, sizeof(buffer->m_Normal.m_Filename));
-    buffer->m_Normal.m_Attribs = info->m_DOSAttribs;
-    memset(buffer->m_Normal.m_Unused1, 0, sizeof(buffer->m_Normal.m_Unused1));
-    buffer->m_Normal.m_Time = FATInode::UnixTimeToFATTime(info->time);
-
-    if (info->size == 0) {		// cluster = 0 for 0 byte files
-        buffer->m_Normal.m_FirstClusterLow = 0;
-        buffer->m_Normal.m_FirstClusterHigh = 0;
-    } else {
-        buffer->m_Normal.m_FirstClusterLow  = info->cluster & 0xffff;
-        buffer->m_Normal.m_FirstClusterHigh = uint16_t(info->cluster >> 16);
-    }
-    buffer->m_Normal.m_FileSize = (info->m_DOSAttribs & FAT_SUBDIR) ? 0 : info->size;
+    InitFATDirectoryEntry(
+        buffer->m_Normal,
+        shortName,
+        info->DOSAttribs,
+        info->Cluster,
+        info->Size,
+        info->CreateTime,
+        info->AccessTime,
+        info->ModificationTime);
     diri.MarkDirty();
     
     if (wasExpanded)

@@ -35,14 +35,20 @@ class FATInode;
 
 struct FATDirectoryEntry
 {
-    char     m_Filename[11];     // 0x00
-    uint8_t  m_Attribs;          // 0x0b
-    uint8_t  m_Unused1[8];       // 0x0c
-    uint16_t m_FirstClusterHigh; // 0x14
-    uint32_t m_Time;             // 0x16
-    uint16_t m_FirstClusterLow;  // 0x1a
-    uint32_t m_FileSize;         // 0x1c
+    char     m_Filename[11];       // 0x00
+    uint8_t  m_Attribs;            // 0x0b
+    uint8_t  m_NTReserved;         // 0x0c
+    uint8_t  m_CreateTimeFine;     // 0x0d, 10 ms ticks within the FAT 2-second timestamp interval.
+    uint16_t m_CreateTime;         // 0x0e
+    uint16_t m_CreateDate;         // 0x10
+    uint16_t m_AccessDate;         // 0x12
+    uint16_t m_FirstClusterHigh;   // 0x14
+    uint16_t m_ModificationTime;   // 0x16
+    uint16_t m_ModificationDate;   // 0x18
+    uint16_t m_FirstClusterLow;    // 0x1a
+    uint32_t m_FileSize;           // 0x1c
 } __attribute__((packed));
+static_assert(sizeof(FATDirectoryEntry) == 32);
 
 struct FATDirectoryEntryLFN
 {
@@ -55,6 +61,7 @@ struct FATDirectoryEntryLFN
     uint8_t  m_Reserved2[2];   // 0x1a
     uint16_t m_NamePart3[2];   // 0x1c
 } __attribute__((packed));
+static_assert(sizeof(FATDirectoryEntryLFN) == 32);
 
 struct FATDirectoryEntryCombo
 {
@@ -63,6 +70,7 @@ struct FATDirectoryEntryCombo
         FATDirectoryEntryLFN m_LFN;    
     } __attribute__((packed));
 } __attribute__((packed));
+static_assert(sizeof(FATDirectoryEntryCombo) == 32);
 
 
 // Structure for returning data from GetNextLFNEntry()
@@ -72,7 +80,10 @@ struct FATDirectoryEntryInfo
     uint32_t m_EndIndex;
     uint32_t m_StartCluster;
     uint32_t m_Size;
-    uint32_t m_FATTime;
+    uint32_t m_FATCreateTime;
+    uint32_t m_FATAccessTime;
+    uint32_t m_FATModificationTime;
+    uint8_t  m_FATCreateTimeFine;
     uint8_t  m_DOSAttribs;
 };
 
@@ -114,4 +125,3 @@ public:
 
 
 } // namespace
-

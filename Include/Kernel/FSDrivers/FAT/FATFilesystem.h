@@ -30,6 +30,7 @@ namespace kernel
 
 class FATVolume;
 class FATInode;
+struct FATNewDirEntryInfo;
 
 //#define FAT_VERIFY_FAT_CHAINS
 
@@ -38,14 +39,6 @@ PDEFINE_LOG_CATEGORY(LogCat_FATFS, "FATFS", PLogSeverity::WARNING);
 PDEFINE_LOG_CATEGORY(LogCat_FATTABLE, "FATTBL", PLogSeverity::WARNING);
 PDEFINE_LOG_CATEGORY(LogCat_FATDIR, "FATDIR", PLogSeverity::WARNING);
 PDEFINE_LOG_CATEGORY(LogCat_FATFILE, "FATFIL", PLogSeverity::WARNING);
-
-struct FATNewDirEntryInfo
-{
-    uint32_t    cluster;
-    size_t      size;
-    time_t      time;
-    uint8_t     m_DOSAttribs;
-};
 
 
 class FATFilesystem : public KFilesystem, public KFilesystemFileOps

@@ -34,6 +34,7 @@ struct CreateFile;
 struct CreateDirectory;
 struct OpenFile;
 struct WriteFile;
+struct SetFileStat;
 struct ReadFile;
 struct CloseFile;
 struct DeleteFile;
@@ -66,6 +67,7 @@ private:
     void HandleCreateDirectory(const SerialProtocol::CreateDirectory& msg);
     void HandleOpenFile(const SerialProtocol::OpenFile& msg);
     void HandleWriteFile(const SerialProtocol::WriteFile& msg);
+    void HandleSetFileStat(const SerialProtocol::SetFileStat& msg);
     void HandleReadFile(const SerialProtocol::ReadFile& msg);
     void HandleCloseFile(const SerialProtocol::CloseFile& msg);
     void HandleDeleteFile(const SerialProtocol::DeleteFile& msg);

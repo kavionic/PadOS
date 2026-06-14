@@ -66,7 +66,7 @@ namespace Commands
     static constexpr uint32_t GetVolumeInfo         = 1540;
     static constexpr uint32_t GetVolumeInfoReply    = 1550;
 
-    // Filesystem file operation commands (2000-2119):
+    // Filesystem file operation commands (2000-2129):
     static constexpr uint32_t GetDirectory         = 2000;
     static constexpr uint32_t GetDirectoryReply    = 2010;
     static constexpr uint32_t CreateFile           = 2020;
@@ -82,6 +82,8 @@ namespace Commands
     static constexpr uint32_t ReadFileReply        = 2100;
     static constexpr uint32_t DeleteFile           = 2110;
     static constexpr uint32_t DeleteFileReply      = 2111;
+    static constexpr uint32_t SetFileStat          = 2120;
+    static constexpr uint32_t SetFileStatReply     = 2121;
 
     static constexpr uint32_t SysCmdCount       = 10000;
 }

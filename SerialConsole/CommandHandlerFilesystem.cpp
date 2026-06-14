@@ -18,8 +18,10 @@
 // Created: 18.04.2021 23:30
 
 #include <memory>
+#include <utility>
 
 #include <stdio.h>
+#include <errno.h>
 #include <dirent.h>
 #include <sys/unistd.h>
 #include <sys/fcntl.h>
@@ -41,6 +43,108 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+SerialProtocol::FilesystemError FilesystemErrorFromErrno(int error)
+{
+    switch (error)
+    {
+        case 0:
+            return SerialProtocol::FilesystemError::OK;
+
+        case ENOENT:
+        case ENOTDIR:
+            return SerialProtocol::FilesystemError::NotFound;
+
+        case EACCES:
+        case EPERM:
+        case EROFS:
+            return SerialProtocol::FilesystemError::PermissionDenied;
+
+        case ENOSPC:
+            return SerialProtocol::FilesystemError::NoSpace;
+
+        case EEXIST:
+            return SerialProtocol::FilesystemError::AlreadyExists;
+
+        case EINVAL:
+        case EBADF:
+            return SerialProtocol::FilesystemError::InvalidArgument;
+
+        case EIO:
+        default:
+            return SerialProtocol::FilesystemError::IOError;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+SerialProtocol::FilesystemError FilesystemErrorFromPErrorCode(PErrorCode error)
+{
+    return FilesystemErrorFromErrno(std::to_underlying(error));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int OpenFlagsToPosixOpenFlags(int32_t openFlags)
+{
+    const bool read = (openFlags & SerialProtocol::FilesystemOpenFlags::Read) != 0;
+    const bool write = (openFlags & SerialProtocol::FilesystemOpenFlags::Write) != 0;
+
+    int result = O_RDONLY;
+    if (read && write) {
+        result = O_RDWR;
+    }
+    else if (write) {
+        result = O_WRONLY;
+    }
+
+    if ((openFlags & SerialProtocol::FilesystemOpenFlags::Append) != 0) {
+        result |= O_APPEND;
+    }
+    if ((openFlags & SerialProtocol::FilesystemOpenFlags::Create) != 0) {
+        result |= O_CREAT;
+    }
+    if ((openFlags & SerialProtocol::FilesystemOpenFlags::Truncate) != 0) {
+        result |= O_TRUNC;
+    }
+    if ((openFlags & SerialProtocol::FilesystemOpenFlags::Exclusive) != 0) {
+        result |= O_EXCL;
+    }
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint32_t FilesystemStatMaskToWriteStatMask(uint32_t mask)
+{
+    uint32_t result = 0;
+    if (mask & SerialProtocol::FilesystemStatMask::Mode) {
+        result |= WSTAT_MODE;
+    }
+    if (mask & SerialProtocol::FilesystemStatMask::Size) {
+        result |= WSTAT_SIZE;
+    }
+    if (mask & SerialProtocol::FilesystemStatMask::AccessTime) {
+        result |= WSTAT_ATIME;
+    }
+    if (mask & SerialProtocol::FilesystemStatMask::ModificationTime) {
+        result |= WSTAT_MTIME;
+    }
+    if (mask & SerialProtocol::FilesystemStatMask::CreationTime) {
+        result |= WSTAT_CTIME;
+    }
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void CommandHandlerFilesystem::Setup(SerialCommandHandler* commandHandler)
 {
     m_CommandHandler = commandHandler;
@@ -54,6 +158,7 @@ void CommandHandlerFilesystem::Setup(SerialCommandHandler* commandHandler)
     commandHandler->RegisterPacketHandler<SerialProtocol::CreateDirectory>(this, &CommandHandlerFilesystem::HandleCreateDirectory);
     commandHandler->RegisterPacketHandler<SerialProtocol::OpenFile>(this, &CommandHandlerFilesystem::HandleOpenFile);
     commandHandler->RegisterPacketHandler<SerialProtocol::WriteFile>(this, &CommandHandlerFilesystem::HandleWriteFile);
+    commandHandler->RegisterPacketHandler<SerialProtocol::SetFileStat>(this, &CommandHandlerFilesystem::HandleSetFileStat);
     commandHandler->RegisterPacketHandler<SerialProtocol::ReadFile>(this, &CommandHandlerFilesystem::HandleReadFile);
     commandHandler->RegisterPacketHandler<SerialProtocol::CloseFile>(this, &CommandHandlerFilesystem::HandleCloseFile);
     commandHandler->RegisterPacketHandler<SerialProtocol::DeleteFile>(this, &CommandHandlerFilesystem::HandleDeleteFile);
@@ -190,10 +295,12 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
             }
 
             SerialProtocol::GetDirectoryReplyDirEnt& replyEntry = entryList.emplace_back();
-            replyEntry.m_Size        = statResult.st_size;
-            replyEntry.m_ModTime     = statResult.st_mtim.tv_sec;
-            replyEntry.m_Attributes  = statResult.st_mode;
-            replyEntry.m_IsDirectory = dirEntry.d_type == DT_DIR;
+            replyEntry.m_Size                  = statResult.st_size;
+            replyEntry.m_CreationTimeNanos     = TimeValNanos::FromTimespec(statResult.st_ctim).AsNanoseconds();
+            replyEntry.m_AccessTimeNanos       = TimeValNanos::FromTimespec(statResult.st_atim).AsNanoseconds();
+            replyEntry.m_ModificationTimeNanos = TimeValNanos::FromTimespec(statResult.st_mtim).AsNanoseconds();
+            replyEntry.m_Attributes            = statResult.st_mode;
+            replyEntry.m_IsDirectory           = dirEntry.d_type == DT_DIR;
             memcpy(replyEntry.m_Name, dirEntry.d_name, dirEntry.d_namlen);
             replyEntry.m_Name[dirEntry.d_namlen] = '\0';
 
@@ -239,12 +346,13 @@ void CommandHandlerFilesystem::HandleCreateFile(const SerialProtocol::CreateFile
     {
         session.m_OpenFiles.insert(fd);
         p_system_log<PLogSeverity::INFO_HIGH_VOL>(LogCategorySerialHandlerFS, "{}: ses: {}, path: '{}', file: {}.", __PRETTY_FUNCTION__, msg.m_SessionID, msg.m_Path, fd);
-        m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(msg.m_SessionID, fd);
+        m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(msg.m_SessionID, fd, SerialProtocol::FilesystemError::OK);
     }
     else
     {
+        const SerialProtocol::FilesystemError status = FilesystemErrorFromErrno(errno);
         p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCategorySerialHandlerFS, "{}: ses: {}, path: '{}', failed.", __PRETTY_FUNCTION__, msg.m_SessionID, msg.m_Path);
-        m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(msg.m_SessionID, -1);
+        m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(msg.m_SessionID, -1, status);
     }
 }
 
@@ -277,20 +385,21 @@ void CommandHandlerFilesystem::HandleOpenFile(const SerialProtocol::OpenFile& ms
         return;
     }
     SessionData& session = m_Sessions[msg.m_SessionID];
-    int fd = open(msg.m_Path, O_RDONLY);
+    int fd = open(msg.m_Path, OpenFlagsToPosixOpenFlags(msg.m_OpenFlags), msg.m_Permissions);
     if (fd >= 0)
     {
         session.m_OpenFiles.insert(fd);
 
-        p_system_log<PLogSeverity::INFO_HIGH_VOL>(LogCategorySerialHandlerFS, "{}: ses: {}, path: '{}', file: {}.", __PRETTY_FUNCTION__, msg.m_SessionID, msg.m_Path, fd);
+        p_system_log<PLogSeverity::INFO_HIGH_VOL>(LogCategorySerialHandlerFS, "{}: ses: {}, path: '{}', flags: {}, permissions: {}, file: {}.", __PRETTY_FUNCTION__, msg.m_SessionID, msg.m_Path, msg.m_OpenFlags, msg.m_Permissions, fd);
 
-        m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(msg.m_SessionID, fd);
+        m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(msg.m_SessionID, fd, SerialProtocol::FilesystemError::OK);
     }
     else
     {
-        p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCategorySerialHandlerFS, "{}: ses: {} path: '{}', failed.", __PRETTY_FUNCTION__, msg.m_SessionID, msg.m_Path);
+        const SerialProtocol::FilesystemError status = FilesystemErrorFromErrno(errno);
+        p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCategorySerialHandlerFS, "{}: ses: {} path: '{}', flags: {}, permissions: {}, failed.", __PRETTY_FUNCTION__, msg.m_SessionID, msg.m_Path, msg.m_OpenFlags, msg.m_Permissions);
 
-        m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(msg.m_SessionID, -1);
+        m_CommandHandler->SendMessage<SerialProtocol::OpenFileReply>(msg.m_SessionID, -1, status);
     }
 }
 
@@ -307,14 +416,63 @@ void CommandHandlerFilesystem::HandleWriteFile(const SerialProtocol::WriteFile& 
     if (!session.m_OpenFiles.contains(msg.m_File))
     {
         p_system_log<PLogSeverity::ERROR>(LogCategorySerialHandlerFS, "{}: ses: {}, file: {}, offset: {}, size: {} invalid file.", __PRETTY_FUNCTION__, msg.m_SessionID, msg.m_File, msg.m_StartPos, msg.m_Size);
-        m_CommandHandler->SendMessage<SerialProtocol::WriteFileReply>(msg.m_SessionID, msg.m_File, -1);
+        m_CommandHandler->SendMessage<SerialProtocol::WriteFileReply>(msg.m_SessionID, msg.m_File, -1, SerialProtocol::FilesystemError::NotFound);
         return;
     }
     const ssize_t result = pwrite(msg.m_File, msg.m_Buffer, msg.m_Size, msg.m_StartPos);
 
     p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCategorySerialHandlerFS, "{}: ses: {}, file: {}, offset: {}, size: {}, result: {}.", __PRETTY_FUNCTION__, msg.m_SessionID, msg.m_File, msg.m_StartPos, msg.m_Size, result);
 
-    m_CommandHandler->SendMessage<SerialProtocol::WriteFileReply>(msg.m_SessionID, msg.m_File, (result == msg.m_Size) ? (msg.m_StartPos + result) : -1);
+    if (result >= 0) {
+        m_CommandHandler->SendMessage<SerialProtocol::WriteFileReply>(msg.m_SessionID, msg.m_File, msg.m_StartPos + result, SerialProtocol::FilesystemError::OK);
+    } else {
+        m_CommandHandler->SendMessage<SerialProtocol::WriteFileReply>(msg.m_SessionID, msg.m_File, -1, FilesystemErrorFromErrno(errno));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void CommandHandlerFilesystem::HandleSetFileStat(const SerialProtocol::SetFileStat& msg)
+{
+    if (!ValidateSession(msg.m_SessionID)) {
+        return;
+    }
+    const SessionData& session = m_Sessions[msg.m_SessionID];
+    if (!session.m_OpenFiles.contains(msg.m_File))
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategorySerialHandlerFS, "{}: ses: {}, file: {}, mask: {} invalid file.", __PRETTY_FUNCTION__, msg.m_SessionID, msg.m_File, msg.m_Mask);
+        m_CommandHandler->SendMessage<SerialProtocol::SetFileStatReply>(msg.m_SessionID, SerialProtocol::FilesystemError::NotFound);
+        return;
+    }
+
+    const uint32_t validMask =
+        SerialProtocol::FilesystemStatMask::Mode |
+        SerialProtocol::FilesystemStatMask::Size |
+        SerialProtocol::FilesystemStatMask::AccessTime |
+        SerialProtocol::FilesystemStatMask::ModificationTime |
+        SerialProtocol::FilesystemStatMask::CreationTime;
+    if ((msg.m_Mask & ~validMask) != 0)
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategorySerialHandlerFS, "{}: ses: {}, file: {}, invalid mask: {}.", __PRETTY_FUNCTION__, msg.m_SessionID, msg.m_File, msg.m_Mask);
+        m_CommandHandler->SendMessage<SerialProtocol::SetFileStatReply>(msg.m_SessionID, SerialProtocol::FilesystemError::InvalidArgument);
+        return;
+    }
+
+    struct stat statBuffer = {};
+    
+    statBuffer.st_mode = mode_t(msg.m_Mode);
+    statBuffer.st_size = msg.m_Size;
+    statBuffer.st_atim = TimeValNanos::FromNanoseconds(msg.m_AccessTimeNanos).AsTimespec();
+    statBuffer.st_mtim = TimeValNanos::FromNanoseconds(msg.m_ModificationTimeNanos).AsTimespec();
+    statBuffer.st_ctim = TimeValNanos::FromNanoseconds(msg.m_CreationTimeNanos).AsTimespec();
+
+    const PErrorCode result = kwrite_stat(msg.m_File, statBuffer, FilesystemStatMaskToWriteStatMask(msg.m_Mask));
+
+    p_system_log<PLogSeverity::INFO_LOW_VOL>(LogCategorySerialHandlerFS, "{}: ses: {}, file: {}, mask: {}, result: {}.", __PRETTY_FUNCTION__, msg.m_SessionID, msg.m_File, msg.m_Mask, std::to_underlying(result));
+
+    m_CommandHandler->SendMessage<SerialProtocol::SetFileStatReply>(msg.m_SessionID, FilesystemErrorFromPErrorCode(result));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

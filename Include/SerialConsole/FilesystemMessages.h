@@ -32,9 +32,32 @@ enum class FilesystemError : int32_t
     NotFound         = -2,
     IOError          = -3,
     PermissionDenied = -4,
+    NoSpace          = -5,
+    AlreadyExists    = -6,
+    InvalidArgument  = -7,
 };
 
 static constexpr size_t FILESYSTEM_IOBUFFER_SIZE = 1024 * 64;
+static constexpr int32_t FILESYSTEM_DEFAULT_FILE_PERMISSIONS = 0777;
+
+namespace FilesystemOpenFlags
+{
+    static constexpr int32_t Read      = 0x0001;
+    static constexpr int32_t Write     = 0x0002;
+    static constexpr int32_t Append    = 0x0004;
+    static constexpr int32_t Create    = 0x0008;
+    static constexpr int32_t Truncate  = 0x0010;
+    static constexpr int32_t Exclusive = 0x0020;
+}
+
+namespace FilesystemStatMask
+{
+    static constexpr uint32_t Mode             = 0x0001;
+    static constexpr uint32_t Size             = 0x0002;
+    static constexpr uint32_t AccessTime       = 0x0004;
+    static constexpr uint32_t ModificationTime = 0x0008;
+    static constexpr uint32_t CreationTime     = 0x0010;
+}
 
 // Base for all filesystem packets that carry a session ID.
 // OpenSession is the only exception — it uses m_ClientToken instead
@@ -119,11 +142,13 @@ struct GetVolumeInfoReply : FilesystemSessionPacket
 };
 
 // Directory entry returned inside GetDirectoryReply packets.
-// sizeof == 280 bytes (same as before m_Attributes was added; m_Name shrunk from [263] to [259]).
+// sizeof == 296 bytes.
 struct GetDirectoryReplyDirEnt
 {
     int64_t  m_Size;
-    int64_t  m_ModTime;
+    int64_t  m_CreationTimeNanos;
+    int64_t  m_AccessTimeNanos;
+    int64_t  m_ModificationTimeNanos;
     uint32_t m_Attributes;  // POSIX mode bits from stat() st_mode
     bool     m_IsDirectory;
     char     m_Name[259];
@@ -193,15 +218,19 @@ struct CreateDirectoryReply : FilesystemSessionPacket
 struct OpenFile : FilesystemSessionPacket
 {
     static constexpr Commands::Value COMMAND = Commands::OpenFile;
-    static void InitMsg(OpenFile& msg, int32_t sessionID, const char* path, int pathLength)
+    static void InitMsg(OpenFile& msg, int32_t sessionID, const char* path, int pathLength, int32_t openFlags, int32_t permissions)
     {
         InitHeader(msg);
-        msg.m_SessionID = sessionID;
+        msg.m_SessionID   = sessionID;
+        msg.m_OpenFlags   = openFlags;
+        msg.m_Permissions = permissions;
         if (pathLength >= int(sizeof(msg.m_Path))) pathLength = sizeof(msg.m_Path) - 1;
         memcpy(msg.m_Path, path, pathLength);
         msg.m_Path[pathLength] = '\0';
     }
 
+    int32_t m_OpenFlags;
+    int32_t m_Permissions;
     char m_Path[1024];
 };
 
@@ -224,9 +253,10 @@ struct CloseFileReply : FilesystemSessionPacket
 struct OpenFileReply : FilesystemSessionPacket
 {
     static constexpr Commands::Value COMMAND = Commands::OpenFileReply;
-    static void InitMsg(OpenFileReply& msg, int32_t sessionID, int32_t file) { InitHeader(msg); msg.m_SessionID = sessionID; msg.m_File = file; }
+    static void InitMsg(OpenFileReply& msg, int32_t sessionID, int32_t file, FilesystemError status) { InitHeader(msg); msg.m_SessionID = sessionID; msg.m_File = file; msg.m_Status = status; }
 
-    int32_t m_File;
+    int32_t         m_File;
+    FilesystemError m_Status;
 };
 
 struct WriteFile : FilesystemSessionPacket
@@ -252,10 +282,44 @@ struct WriteFile : FilesystemSessionPacket
 struct WriteFileReply : FilesystemSessionPacket
 {
     static constexpr Commands::Value COMMAND = Commands::WriteFileReply;
-    static void InitMsg(WriteFileReply& msg, int32_t sessionID, int32_t file, int64_t bytesWritten) { InitHeader(msg); msg.m_SessionID = sessionID; msg.m_File = file; msg.m_BytesWritten = bytesWritten; }
+    static void InitMsg(WriteFileReply& msg, int32_t sessionID, int32_t file, int64_t bytesWritten, FilesystemError status) { InitHeader(msg); msg.m_SessionID = sessionID; msg.m_File = file; msg.m_BytesWritten = bytesWritten; msg.m_Status = status; }
 
-    int32_t m_File;
-    int64_t m_BytesWritten;
+    int32_t         m_File;
+    int64_t         m_BytesWritten;
+    FilesystemError m_Status;
+};
+
+struct SetFileStat : FilesystemSessionPacket
+{
+    static constexpr Commands::Value COMMAND = Commands::SetFileStat;
+    static void InitMsg(SetFileStat& msg, int32_t sessionID, int32_t file, uint32_t mask, uint32_t mode, int64_t size, int64_t accessTimeNanos, int64_t modificationTimeNanos, int64_t creationTimeNanos)
+    {
+        InitHeader(msg);
+        msg.m_SessionID             = sessionID;
+        msg.m_File                  = file;
+        msg.m_Mask                  = mask;
+        msg.m_Mode                  = mode;
+        msg.m_Size                  = size;
+        msg.m_AccessTimeNanos       = accessTimeNanos;
+        msg.m_ModificationTimeNanos = modificationTimeNanos;
+        msg.m_CreationTimeNanos     = creationTimeNanos;
+    }
+
+    int32_t  m_File;
+    uint32_t m_Mask;
+    uint32_t m_Mode;
+    int64_t  m_Size;
+    int64_t  m_AccessTimeNanos;
+    int64_t  m_ModificationTimeNanos;
+    int64_t  m_CreationTimeNanos;
+};
+
+struct SetFileStatReply : FilesystemSessionPacket
+{
+    static constexpr Commands::Value COMMAND = Commands::SetFileStatReply;
+    static void InitMsg(SetFileStatReply& msg, int32_t sessionID, FilesystemError status) { InitHeader(msg); msg.m_SessionID = sessionID; msg.m_Status = status; }
+
+    FilesystemError m_Status;
 };
 
 struct ReadFile : FilesystemSessionPacket

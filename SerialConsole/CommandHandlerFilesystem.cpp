@@ -18,6 +18,7 @@
 // Created: 18.04.2021 23:30
 
 #include <memory>
+#include <exception>
 #include <utility>
 
 #include <stdio.h>
@@ -31,6 +32,8 @@
 #include <Storage/FSNode.h>
 #include <Utils/HashCalculator.h>
 #include <Kernel/VFS/FileIO.h>
+#include <Kernel/VFS/KVFSManager.h>
+#include <Kernel/VFS/KINode.h>
 #include <SerialConsole/SerialCommandHandler.h>
 #include <SerialConsole/CommandHandlerFilesystem.h>
 #include <SerialConsole/FilesystemMessages.h>
@@ -82,6 +85,24 @@ SerialProtocol::FilesystemError FilesystemErrorFromErrno(int error)
 SerialProtocol::FilesystemError FilesystemErrorFromPErrorCode(PErrorCode error)
 {
     return FilesystemErrorFromErrno(std::to_underlying(error));
+}
+
+bool TryReadStatFromDirectoryEntry(const dirent_t& entry, struct stat* statResult)
+{
+    bool result = false;
+    try
+    {
+        Ptr<KInode> inode = KVFSManager::GetInode_trw(entry.d_volumeid, entry.d_ino, false);
+        if (inode != nullptr)
+        {
+            kread_stat_trw(inode, statResult);
+            result = true;
+        }
+    }
+    catch (const std::exception&)
+    {
+    }
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -283,15 +304,19 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
         dirent_t dirEntry;
         for (int i = 0; posix_getdents(dir, &dirEntry, sizeof(dirEntry), 0) == sizeof(dirEntry); ++i)
         {
-            PString path = packet.m_Path;
-            path += "/";
-            path += dirEntry.d_name;
-            struct stat statResult;
-            if (stat(path.c_str(), &statResult) < 0) {
-                continue;
-            }
             if (dirEntry.d_namlen >= sizeof(SerialProtocol::GetDirectoryReplyDirEnt::m_Name)) {
                 continue;
+            }
+
+            struct stat statResult;
+            if (!TryReadStatFromDirectoryEntry(dirEntry, &statResult))
+            {
+                PString path = packet.m_Path;
+                path += "/";
+                path += dirEntry.d_name;
+                if (stat(path.c_str(), &statResult) < 0) {
+                    continue;
+                }
             }
 
             SerialProtocol::GetDirectoryReplyDirEnt& replyEntry = entryList.emplace_back();
@@ -300,7 +325,7 @@ void CommandHandlerFilesystem::HandleGetDirectory(const SerialProtocol::GetDirec
             replyEntry.m_AccessTimeNanos       = TimeValNanos::FromTimespec(statResult.st_atim).AsNanoseconds();
             replyEntry.m_ModificationTimeNanos = TimeValNanos::FromTimespec(statResult.st_mtim).AsNanoseconds();
             replyEntry.m_Attributes            = statResult.st_mode;
-            replyEntry.m_IsDirectory           = dirEntry.d_type == DT_DIR;
+            replyEntry.m_IsDirectory           = S_ISDIR(statResult.st_mode);
             memcpy(replyEntry.m_Name, dirEntry.d_name, dirEntry.d_namlen);
             replyEntry.m_Name[dirEntry.d_namlen] = '\0';
 

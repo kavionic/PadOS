@@ -118,10 +118,10 @@ void* KLogManager::Run()
 
                 m_Mutex.Unlock();
 
-                WriteEntryToFile(timestamp, categoryName, severityName, message);
 
                 if (channel == PLogChannel::SerialManager)
                 {
+                    WriteEntryToFile(timestamp, categoryName, severityName, message);
                     for (;;)
                     {
                         if (SerialCommandHandler::Get().SendSerialData(&msgHeader, sizeof(msgHeader), message.data(), message.size())) {

@@ -200,6 +200,8 @@ void SerialCommandHandler::CloseSerialPort()
         kclose(m_SerialPortOut);
         m_SerialPortIn = -1;
         m_SerialPortOut = -1;
+
+        snooze_ms(100);
     }
 }
 

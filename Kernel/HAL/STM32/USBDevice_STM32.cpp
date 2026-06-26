@@ -18,16 +18,74 @@
 // Created: 23.07.2022 20:30
 
 #include <Utils/Utils.h>
+#include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/HAL/STM32/USBDevice_STM32.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
 #include <Kernel/HAL/STM32/ResetAndClockControl.h>
 #include <Kernel/HAL/PeripheralMapping.h>
 #include <Kernel/IRQDispatcher.h>
+#include <System/TimeValue.h>
 
 namespace kernel
 {
 
+static constexpr uint32_t USB_DEVICE_IN_ENDPOINT_INTERRUPT_CLEAR_MASK =
+    USB_OTG_DIEPINT_XFRC | USB_OTG_DIEPINT_EPDISD | USB_OTG_DIEPINT_AHBERR | USB_OTG_DIEPINT_TOC | USB_OTG_DIEPINT_ITTXFE
+    | USB_OTG_DIEPINT_INEPNM | USB_OTG_DIEPINT_INEPNE | USB_OTG_DIEPINT_TXFIFOUDRN | USB_OTG_DIEPINT_BNA
+    | USB_OTG_DIEPINT_PKTDRPSTS | USB_OTG_DIEPINT_BERR | USB_OTG_DIEPINT_NAK;
+
+static constexpr uint32_t USB_DEVICE_OUT_ENDPOINT_INTERRUPT_CLEAR_MASK =
+    USB_OTG_DOEPINT_XFRC | USB_OTG_DOEPINT_EPDISD | USB_OTG_DOEPINT_AHBERR | USB_OTG_DOEPINT_STUP | USB_OTG_DOEPINT_OTEPDIS
+    | USB_OTG_DOEPINT_OTEPSPR | USB_OTG_DOEPINT_B2BSTUP | USB_OTG_DOEPINT_OUTPKTERR | USB_OTG_DOEPINT_BERR
+    | USB_OTG_DOEPINT_NAK | USB_OTG_DOEPINT_NYET | USB_OTG_DOEPINT_STPKTRX;
+
+static constexpr uint32_t USB_DEVICE_ENDPOINT0_SETUP_TRANSFER_CONFIG =
+    sizeof(USB_ControlRequest) * 3
+    | (1 << USB_OTG_DOEPTSIZ_PKTCNT_Pos)
+    | (3 << USB_OTG_DOEPTSIZ_STUPCNT_Pos);
+
+static constexpr uint32_t USB_DEVICE_IN_ENDPOINT0_RESET_CLEAR_MASK =
+    USB_OTG_DIEPCTL_STALL | USB_OTG_DIEPCTL_SNAK | USB_OTG_DIEPCTL_EPDIS | USB_OTG_DIEPCTL_EPENA;
+
+static constexpr uint32_t USB_DEVICE_OUT_ENDPOINT0_RESET_CLEAR_MASK =
+    USB_OTG_DOEPCTL_STALL | USB_OTG_DOEPCTL_SNAK | USB_OTG_DOEPCTL_EPDIS | USB_OTG_DOEPCTL_EPENA;
+
+static constexpr uint32_t USB_DEVICE_ALL_TX_FIFOS = 0x10;
+
+static constexpr TimeValNanos USB_DEVICE_ENDPOINT_DISABLE_TIMEOUT = TimeValNanos::FromMilliseconds(100);
+static constexpr uint32_t USB_DEVICE_MAX_RX_FIFO_PACKETS_PER_IRQ = 64;
+static constexpr uint32_t USB_DEVICE_IRQ_REGISTER_WAIT_ITERATIONS = 100000;
+
+static bool WaitForRegisterBitsSet(const volatile uint32_t& deviceRegister, uint32_t bitMask)
+{
+    for (TimeValNanos endTime = kget_monotonic_time() + USB_DEVICE_ENDPOINT_DISABLE_TIMEOUT; (deviceRegister & bitMask) == 0; ) {
+        if (kget_monotonic_time() > endTime) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool WaitForRegisterBitsSetFromIRQ(const volatile uint32_t& deviceRegister, uint32_t bitMask)
+{
+    for (uint32_t retry = 0; retry < USB_DEVICE_IRQ_REGISTER_WAIT_ITERATIONS; ++retry) {
+        if ((deviceRegister & bitMask) == bitMask) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool WaitForRegisterBitsClearFromIRQ(const volatile uint32_t& deviceRegister, uint32_t bitMask)
+{
+    for (uint32_t retry = 0; retry < USB_DEVICE_IRQ_REGISTER_WAIT_ITERATIONS; ++retry) {
+        if ((deviceRegister & bitMask) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -42,13 +100,21 @@ bool USBDevice_STM32::Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBu
     m_OutEndpoints = reinterpret_cast<USB_OTG_OUTEndpointTypeDef*>(reinterpret_cast<uint8_t*>(m_Port) + USB_OTG_OUT_ENDPOINT_BASE);
     m_InEndpoints = reinterpret_cast<USB_OTG_INEndpointTypeDef*>(reinterpret_cast<uint8_t*>(m_Port) + USB_OTG_IN_ENDPOINT_BASE);
 
-    if (!enableVBusSense)
+    if (enableVBusSense)
     {
+        m_Port->GCCFG |= USB_OTG_GCCFG_VBDEN;
+        m_Port->GOTGCTL &= ~(USB_OTG_GOTGCTL_BVALOEN | USB_OTG_GOTGCTL_BVALOVAL);
+    }
+    else
+    {
+        m_Port->GCCFG &= ~USB_OTG_GCCFG_VBDEN;
         m_Port->GOTGCTL |= USB_OTG_GOTGCTL_BVALOEN;
         m_Port->GOTGCTL |= USB_OTG_GOTGCTL_BVALOVAL;
     }
-    m_Port->GINTMSK |= USB_OTG_GINTMSK_MMISM | USB_OTG_GINTMSK_OTGINT | USB_OTG_GINTMSK_RXFLVLM
+    const uint32_t interruptMask = USB_OTG_GINTMSK_MMISM | USB_OTG_GINTMSK_OTGINT | USB_OTG_GINTMSK_RXFLVLM
         | USB_OTG_GINTMSK_USBRST | USB_OTG_GINTMSK_ENUMDNEM | USB_OTG_GINTMSK_USBSUSPM | USB_OTG_GINTMSK_WUIM | (useSOF ? USB_OTG_GINTMSK_SOFM : 0);
+    m_Port->GINTMSK = interruptMask;
+
     // Full speed using internal FS PHY.
     SetSpeed(USB_Speed::FULL);
     // Send a STALL handshake on a nonzero-length status OUT transaction.
@@ -345,6 +411,40 @@ void USBDevice_STM32::ResetReceived()
     m_Enpoint0InPending  = 0;
     m_Enpoint0OutPending = 0;
     m_UpdateRXFIFOSize   = false;
+    m_ControlRequestPackage = {};
+    m_Endpoint0InTransferActive = false;
+    m_Endpoint0OutTransferActive = false;
+    m_HasPendingSetupRequest = false;
+
+    // Drop any global NAK state left by an interrupted endpoint-disable sequence.
+    m_Device->DCTL |= USB_OTG_DCTL_CGINAK | USB_OTG_DCTL_CGONAK;
+    m_Port->GINTSTS = USB_OTG_GINTSTS_GINAKEFF | USB_OTG_GINTSTS_BOUTNAKEFF;
+
+    m_Device->DAINTMSK = 0;
+    m_Device->DOEPMSK = 0;
+    m_Device->DIEPMSK = 0;
+    m_Device->DIEPEMPMSK = 0;
+
+    (void)FlushTxFifoFromIRQ(USB_DEVICE_ALL_TX_FIFOS);
+    (void)FlushRxFifoFromIRQ();
+
+    for (uint32_t endpointIndex = 0; endpointIndex < ENDPOINT_COUNT; ++endpointIndex)
+    {
+        m_InEndpoints[endpointIndex].DIEPINT = USB_DEVICE_IN_ENDPOINT_INTERRUPT_CLEAR_MASK;
+        m_OutEndpoints[endpointIndex].DOEPINT = USB_DEVICE_OUT_ENDPOINT_INTERRUPT_CLEAR_MASK;
+    }
+
+    for (uint32_t endpointIndex = 1; endpointIndex < ENDPOINT_COUNT; ++endpointIndex)
+    {
+        m_InEndpoints[endpointIndex].DIEPCTL = 0;
+        m_InEndpoints[endpointIndex].DIEPTSIZ = 0;
+        m_OutEndpoints[endpointIndex].DOEPCTL = 0;
+        m_OutEndpoints[endpointIndex].DOEPTSIZ = 0;
+        m_Port->DIEPTXF[endpointIndex - 1] = 0;
+    }
+
+    m_InEndpoints[0].DIEPCTL &= ~USB_DEVICE_IN_ENDPOINT0_RESET_CLEAR_MASK;
+    m_OutEndpoints[0].DOEPCTL &= ~USB_DEVICE_OUT_ENDPOINT0_RESET_CLEAR_MASK;
 
     // Clear device address.
     m_Device->DCFG &= ~USB_OTG_DCFG_DAD_Msk;
@@ -371,7 +471,7 @@ void USBDevice_STM32::ResetReceived()
     m_InEndpoints[0].DIEPCTL &= ~USB_OTG_DIEPCTL_MPSIZ_Msk;
     m_TransferStatusOut[0].EndpointMaxSize = m_TransferStatusIn[0].EndpointMaxSize = 64;
 
-    m_OutEndpoints[0].DOEPTSIZ |= 3 << USB_OTG_DOEPTSIZ_STUPCNT_Pos;
+    m_OutEndpoints[0].DOEPTSIZ = USB_DEVICE_ENDPOINT0_SETUP_TRANSFER_CONFIG;
 
     m_Port->GINTMSK |= USB_OTG_GINTMSK_OEPINT | USB_OTG_GINTMSK_IEPINT;
 }
@@ -447,19 +547,26 @@ void USBDevice_STM32::EndpointDisable(uint8_t endpointAddr, bool stall)
         else
         {
             // Stop transmitting packets and NAK IN transfers.
+            m_InEndpoints[epNum].DIEPINT = USB_OTG_DIEPINT_INEPNE;
             m_InEndpoints[epNum].DIEPCTL |= USB_OTG_DIEPCTL_SNAK;
-            while ((m_InEndpoints[epNum].DIEPINT & USB_OTG_DIEPINT_INEPNE) == 0) {}
+            if (!WaitForRegisterBitsSet(m_InEndpoints[epNum].DIEPINT, USB_OTG_DIEPINT_INEPNE)) {
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Timeout waiting for IN endpoint {:02x} NAK.", endpointAddr);
+            }
 
             // Disable the endpoint.
-            m_InEndpoints[epNum].DIEPCTL |= USB_OTG_DIEPCTL_EPDIS | (stall ? USB_OTG_DIEPCTL_STALL : 0);
-            while ((m_InEndpoints[epNum].DIEPINT & USB_OTG_DIEPINT_EPDISD_Msk) == 0) {}
             m_InEndpoints[epNum].DIEPINT = USB_OTG_DIEPINT_EPDISD;
+            m_InEndpoints[epNum].DIEPCTL |= USB_OTG_DIEPCTL_EPDIS | (stall ? USB_OTG_DIEPCTL_STALL : 0);
+            if (WaitForRegisterBitsSet(m_InEndpoints[epNum].DIEPINT, USB_OTG_DIEPINT_EPDISD_Msk)) {
+                m_InEndpoints[epNum].DIEPINT = USB_OTG_DIEPINT_EPDISD;
+            } else {
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Timeout waiting for IN endpoint {:02x} disable.", endpointAddr);
+            }
         }
 
         // Flush the FIFO, and wait until we have confirmed it cleared.
-        m_Port->GRSTCTL |= (epNum << USB_OTG_GRSTCTL_TXFNUM_Pos);
-        m_Port->GRSTCTL |= USB_OTG_GRSTCTL_TXFFLSH;
-        while ((m_Port->GRSTCTL & USB_OTG_GRSTCTL_TXFFLSH_Msk) != 0) {}
+        if (!m_Driver->FlushTxFifo(epNum)) {
+            kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Timeout flushing IN endpoint {:02x} TX FIFO.", endpointAddr);
+        }
     }
     else
     {
@@ -472,15 +579,23 @@ void USBDevice_STM32::EndpointDisable(uint8_t endpointAddr, bool stall)
         }
         else
         {
+            m_Port->GINTSTS = USB_OTG_GINTSTS_BOUTNAKEFF;
             m_Device->DCTL |= USB_OTG_DCTL_SGONAK;
-            while ((m_Port->GINTSTS & USB_OTG_GINTSTS_BOUTNAKEFF_Msk) == 0);
+            if (!WaitForRegisterBitsSet(m_Port->GINTSTS, USB_OTG_GINTSTS_BOUTNAKEFF_Msk)) {
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Timeout waiting for global OUT NAK before disabling endpoint {:02x}.", endpointAddr);
+            }
 
             // Disable the endpoint.
-            m_OutEndpoints[epNum].DOEPCTL |= USB_OTG_DOEPCTL_EPDIS | (stall ? USB_OTG_DOEPCTL_STALL : 0);
-            while ((m_OutEndpoints[epNum].DOEPINT & USB_OTG_DOEPINT_EPDISD_Msk) == 0);
             m_OutEndpoints[epNum].DOEPINT = USB_OTG_DOEPINT_EPDISD;
+            m_OutEndpoints[epNum].DOEPCTL |= USB_OTG_DOEPCTL_EPDIS | (stall ? USB_OTG_DOEPCTL_STALL : 0);
+            if (WaitForRegisterBitsSet(m_OutEndpoints[epNum].DOEPINT, USB_OTG_DOEPINT_EPDISD_Msk)) {
+                m_OutEndpoints[epNum].DOEPINT = USB_OTG_DOEPINT_EPDISD;
+            } else {
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Timeout waiting for OUT endpoint {:02x} disable.", endpointAddr);
+            }
 
             // Allow other OUT endpoints to keep receiving.
+            m_Port->GINTSTS = USB_OTG_GINTSTS_BOUTNAKEFF;
             m_Device->DCTL |= USB_OTG_DCTL_CGONAK;
         }
     }
@@ -506,6 +621,9 @@ void USBDevice_STM32::EndpointSchedulePackets(uint8_t endpointAddr, uint32_t pac
     // IN and OUT endpoint transfers are interrupt-driven, we just schedule them here.
     if (endpointAddr & USB_ADDRESS_DIR_IN)
     {
+        if (epNum == 0) {
+            m_Endpoint0InTransferActive = true;
+        }
         // A full IN transfer (multiple packets, possibly) triggers XFRC.
         m_InEndpoints[epNum].DIEPTSIZ = (packetCount << USB_OTG_DIEPTSIZ_PKTCNT_Pos) | ((totalLength << USB_OTG_DIEPTSIZ_XFRSIZ_Pos) & USB_OTG_DIEPTSIZ_XFRSIZ_Msk);
         m_InEndpoints[epNum].DIEPCTL |= USB_OTG_DIEPCTL_EPENA | USB_OTG_DIEPCTL_CNAK;
@@ -522,6 +640,9 @@ void USBDevice_STM32::EndpointSchedulePackets(uint8_t endpointAddr, uint32_t pac
     }
     else
     {
+        if (epNum == 0) {
+            m_Endpoint0OutTransferActive = true;
+        }
         set_bit_group(
             m_OutEndpoints[epNum].DOEPTSIZ,
             USB_OTG_DOEPTSIZ_PKTCNT_Msk | USB_OTG_DOEPTSIZ_XFRSIZ,
@@ -536,6 +657,48 @@ void USBDevice_STM32::EndpointSchedulePackets(uint8_t endpointAddr, uint32_t pac
             m_OutEndpoints[epNum].DOEPCTL |= currentFrameOdd ? USB_OTG_DOEPCTL_SD0PID_SEVNFRM_Msk : USB_OTG_DOEPCTL_SODDFRM_Msk;
         }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBDevice_STM32::DiscardFromFIFO(size_t length)
+{
+    uint32_t discardBuffer[16];
+
+    while (length != 0)
+    {
+        const size_t chunkLength = std::min(length, sizeof(discardBuffer));
+        m_Driver->ReadFromFIFO(discardBuffer, chunkLength);
+        length -= chunkLength;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBDevice_STM32::FlushTxFifoFromIRQ(uint32_t fifoIndex)
+{
+    if (!WaitForRegisterBitsSetFromIRQ(m_Port->GRSTCTL, USB_OTG_GRSTCTL_AHBIDL)) {
+        return false;
+    }
+    m_Port->GRSTCTL = USB_OTG_GRSTCTL_TXFFLSH | (fifoIndex << USB_OTG_GRSTCTL_TXFNUM_Pos);
+    return WaitForRegisterBitsClearFromIRQ(m_Port->GRSTCTL, USB_OTG_GRSTCTL_TXFFLSH);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBDevice_STM32::FlushRxFifoFromIRQ()
+{
+    if (!WaitForRegisterBitsSetFromIRQ(m_Port->GRSTCTL, USB_OTG_GRSTCTL_AHBIDL)) {
+        return false;
+    }
+    m_Port->GRSTCTL = USB_OTG_GRSTCTL_RXFFLSH;
+    return WaitForRegisterBitsClearFromIRQ(m_Port->GRSTCTL, USB_OTG_GRSTCTL_RXFFLSH);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -563,6 +726,7 @@ IRQResult USBDevice_STM32::HandleIRQ()
     {
         m_Port->GINTSTS = USB_OTG_GINTSTS_USBRST;
         ResetReceived();
+        return IRQResult::HANDLED;
     }
     if (intStatus & USB_OTG_GINTSTS_ENUMDNE)   // ENUMDNE indicates the end of reset on the USB. Speed has been detected.
     {
@@ -600,12 +764,20 @@ IRQResult USBDevice_STM32::HandleIRQ()
     {
         // Disable RXFLVL while reading from FIFO.
         m_Port->GINTMSK &= ~USB_OTG_GINTMSK_RXFLVLM;
-        do
+
+        for (uint32_t packetIndex = 0; packetIndex < USB_DEVICE_MAX_RX_FIFO_PACKETS_PER_IRQ; ++packetIndex)
         {
             HandleRxFIFONotEmptyIRQ();
-        } while (m_Port->GINTSTS & USB_OTG_GINTSTS_RXFLVL);
+            if ((m_Port->GINTSTS & USB_OTG_GINTSTS_RXFLVL) == 0) {
+                break;
+            }
+        }
 
-        if (m_UpdateRXFIFOSize)
+        if (m_Port->GINTSTS & USB_OTG_GINTSTS_RXFLVL)
+        {
+            FlushRxFifoFromIRQ();
+        }
+        else if (m_UpdateRXFIFOSize)
         {
             UpdateGRXFSIZ();
             m_UpdateRXFIFOSize = false;
@@ -622,7 +794,9 @@ IRQResult USBDevice_STM32::HandleIRQ()
     if (intStatus & USB_OTG_GINTSTS_IEPINT) {
         HandleInEndpointIRQ();
     }
-    if (intStatus & USB_OTG_GINTSTS_IISOIXFR) {
+    if (intStatus & USB_OTG_GINTSTS_IISOIXFR)
+    {
+        m_Port->GINTSTS = USB_OTG_GINTSTS_IISOIXFR;
         m_Driver->IRQIncompleteIsochronousINTransfer();
     }
 
@@ -641,6 +815,12 @@ void USBDevice_STM32::HandleRxFIFONotEmptyIRQ()
     const uint32_t packetLength = (grxstsp & USB_OTG_GRXSTSP_BCNT_Msk) >> USB_OTG_GRXSTSP_BCNT_Pos;
 
     const uint32_t epNum = (grxstsp & USB_OTG_GRXSTSP_EPNUM_Msk) >> USB_OTG_GRXSTSP_EPNUM_Pos;
+    if (epNum >= ENDPOINT_COUNT)
+    {
+        DiscardFromFIFO(packetLength);
+        return;
+    }
+
     switch (packetStatus)
     {
         case USB_PKTSTS_NAK:
@@ -649,30 +829,42 @@ void USBDevice_STM32::HandleRxFIFONotEmptyIRQ()
         {
             EndpointTransferState& xfer = m_TransferStatusOut[epNum];
 
-            kassert(xfer.BytesTransferred + packetLength <= xfer.BufferSize);
-            m_Driver->ReadFromFIFO(xfer.Buffer + xfer.BytesTransferred, packetLength);
+            const bool transferFits = xfer.BytesTransferred <= xfer.BufferSize && packetLength <= xfer.BufferSize - xfer.BytesTransferred;
+            const bool hasDestination = packetLength == 0 || xfer.Buffer != nullptr;
 
-            xfer.BytesTransferred += packetLength;
-
-            if (packetLength < xfer.EndpointMaxSize)
+            if (transferFits && hasDestination)
             {
-                // Short packet received, transfer done. Adjust transfer length to the actual length received.
-                xfer.TotalLength -= (m_OutEndpoints[epNum].DOEPTSIZ & USB_OTG_DOEPTSIZ_XFRSIZ_Msk) >> USB_OTG_DOEPTSIZ_XFRSIZ_Pos;
-                if (epNum == 0)
-                {
-                    xfer.TotalLength -= m_Enpoint0OutPending;
-                    m_Enpoint0OutPending = 0;
+                if (packetLength != 0) {
+                    m_Driver->ReadFromFIFO(xfer.Buffer + xfer.BytesTransferred, packetLength);
                 }
+
+                xfer.BytesTransferred += packetLength;
+
+                if (packetLength < xfer.EndpointMaxSize)
+                {
+                    // Short packet received, transfer done. Adjust transfer length to the actual length received.
+                    xfer.TotalLength -= (m_OutEndpoints[epNum].DOEPTSIZ & USB_OTG_DOEPTSIZ_XFRSIZ_Msk) >> USB_OTG_DOEPTSIZ_XFRSIZ_Pos;
+                    if (epNum == 0)
+                    {
+                        xfer.TotalLength -= m_Enpoint0OutPending;
+                        m_Enpoint0OutPending = 0;
+                    }
+                }
+            }
+            else
+            {
+                DiscardFromFIFO(packetLength);
             }
             break;
         }
         case USB_PKTSTS_OUT_XFR_DONE:
             break;
         case USB_PKTSTS_SETUP_XFR_DONE:
-            m_OutEndpoints[epNum].DOEPTSIZ |= (3 << USB_OTG_DOEPTSIZ_STUPCNT_Pos);
+            m_OutEndpoints[epNum].DOEPTSIZ = USB_DEVICE_ENDPOINT0_SETUP_TRANSFER_CONFIG;
             break;
         case USB_PKTSTS_SETUP_DATA_RCV:
             m_Driver->ReadFromFIFO(&m_ControlRequestPackage, sizeof(m_ControlRequestPackage));
+            m_HasPendingSetupRequest = true;
             break;
         default:
             break;
@@ -691,16 +883,47 @@ void USBDevice_STM32::HandleOutEndpointIRQ()
 
         if (m_Device->DAINT & (1 << (USB_OTG_DAINT_OEPINT_Pos + epNum)))
         {
+            const uint32_t endpointInterrupts = m_OutEndpoints[epNum].DOEPINT;
+            const uint32_t unhandledInterrupts = endpointInterrupts
+                & USB_DEVICE_OUT_ENDPOINT_INTERRUPT_CLEAR_MASK
+                & ~(USB_OTG_DOEPINT_STUP | USB_OTG_DOEPINT_XFRC);
+            if (unhandledInterrupts != 0) {
+                m_OutEndpoints[epNum].DOEPINT = unhandledInterrupts;
+            }
+
             // Setup Phase done.
-            if (m_OutEndpoints[epNum].DOEPINT & USB_OTG_DOEPINT_STUP)
+            if (endpointInterrupts & USB_OTG_DOEPINT_STUP)
             {
                 m_OutEndpoints[epNum].DOEPINT = USB_OTG_DOEPINT_STUP;
-                m_Driver->IRQControlRequestReceived(m_ControlRequestPackage);
+                if (epNum == 0)
+                {
+                    m_Enpoint0InPending = 0;
+                    m_Enpoint0OutPending = 0;
+                    m_Device->DIEPEMPMSK &= ~1u;
+                    m_Endpoint0InTransferActive = false;
+                    m_Endpoint0OutTransferActive = false;
+
+                    // STUP can be observed again after the setup packet has already been consumed.
+                    // Only emit a high-level setup event when RX FIFO delivered fresh setup data.
+                    if (m_HasPendingSetupRequest)
+                    {
+                        m_HasPendingSetupRequest = false;
+                        m_Driver->IRQControlRequestReceived(m_ControlRequestPackage);
+                    }
+                }
             }
             // OUT transfer complete.
-            if (m_OutEndpoints[epNum].DOEPINT & USB_OTG_DOEPINT_XFRC)
+            if (endpointInterrupts & USB_OTG_DOEPINT_XFRC)
             {
                 m_OutEndpoints[epNum].DOEPINT = USB_OTG_DOEPINT_XFRC;
+
+                if (epNum == 0)
+                {
+                    if (!m_Endpoint0OutTransferActive) {
+                        continue;
+                    }
+                    m_Endpoint0OutTransferActive = false;
+                }
 
                 // Enpoint0 can only handle one packet.
                 if ((epNum == 0) && m_Enpoint0OutPending != 0) {
@@ -726,10 +949,30 @@ void USBDevice_STM32::HandleInEndpointIRQ()
 
         if (m_Device->DAINT & (1 << (USB_OTG_DAINT_IEPINT_Pos + epNum)))
         {
+            const uint32_t endpointInterrupts = m_InEndpoints[epNum].DIEPINT;
+            const uint32_t unhandledInterrupts = endpointInterrupts
+                & USB_DEVICE_IN_ENDPOINT_INTERRUPT_CLEAR_MASK
+                & ~(USB_OTG_DIEPINT_TOC | USB_OTG_DIEPINT_XFRC);
+            if (unhandledInterrupts != 0) {
+                m_InEndpoints[epNum].DIEPINT = unhandledInterrupts;
+            }
+
+            if (endpointInterrupts & USB_OTG_DIEPINT_TOC) {
+                m_InEndpoints[epNum].DIEPINT = USB_OTG_DIEPINT_TOC;
+            }
+
             // Entire IN transfer complete.
-            if (m_InEndpoints[epNum].DIEPINT & USB_OTG_DIEPINT_XFRC)
+            if (endpointInterrupts & USB_OTG_DIEPINT_XFRC)
             {
                 m_InEndpoints[epNum].DIEPINT = USB_OTG_DIEPINT_XFRC;
+
+                if (epNum == 0)
+                {
+                    if (!m_Endpoint0InTransferActive) {
+                        continue;
+                    }
+                    m_Endpoint0InTransferActive = false;
+                }
 
                 // Enpoint0 can only handle one packet.
                 if (epNum == 0 && m_Enpoint0InPending != 0) {
@@ -740,8 +983,14 @@ void USBDevice_STM32::HandleInEndpointIRQ()
             }
 
             // TX FIFO below threshold.
-            if ((m_InEndpoints[epNum].DIEPINT & USB_OTG_DIEPINT_TXFE) && (m_Device->DIEPEMPMSK & (1 << epNum)))
+            if ((endpointInterrupts & USB_OTG_DIEPINT_TXFE) && (m_Device->DIEPEMPMSK & (1 << epNum)))
             {
+                if (xfer.EndpointMaxSize == 0 || (xfer.TotalLength != 0 && xfer.Buffer == nullptr))
+                {
+                    m_Device->DIEPEMPMSK &= ~(1 << epNum);
+                    continue;
+                }
+
                 while(xfer.BytesTransferred < xfer.TotalLength)
                 {
                     const uint32_t remainingBytes = xfer.TotalLength - xfer.BytesTransferred;
@@ -749,6 +998,9 @@ void USBDevice_STM32::HandleInEndpointIRQ()
                     const uint32_t fifoWords = m_InEndpoints[epNum].DTXFSTS & USB_OTG_DTXFSTS_INEPTFSAV_Msk;
                     const uint32_t fifoBytes = fifoWords * 4;
 
+                    if (packetSize == 0) {
+                        break;
+                    }
                     // Only full packets can be written to FIFO, so check that the entire packet will fit.
                     if (packetSize > fifoBytes) {
                         break;

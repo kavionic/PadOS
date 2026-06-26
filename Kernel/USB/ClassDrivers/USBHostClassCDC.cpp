@@ -101,6 +101,7 @@ void USBHostClassCDC::Close()
         SignalChannelRemoved(channel);
     }
     m_Channels.clear();
+    m_IsActive = false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

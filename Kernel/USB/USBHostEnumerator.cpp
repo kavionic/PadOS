@@ -32,7 +32,7 @@ namespace kernel
 
 void USBHostEnumerator::Reset()
 {
-    SendResult(false, 0);
+    m_ResultCallback = nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

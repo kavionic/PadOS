@@ -18,6 +18,7 @@
 // Created: 27.05.2022 18:00
 
 #include <string.h>
+#include <System/ExceptionHandling.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/USB/USBCommon.h>
 #include <Kernel/USB/USBDevice.h>
@@ -74,6 +75,7 @@ void* USBDevice::Run()
             case USBDeviceEventID::BusReset:
                 kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "BusReset. Speed: {}.", USB_GetSpeedName(event.BusReset.speed));
                 BusReset();
+                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "BusReset cleanup completed.");
                 m_SelectedSpeed = event.BusReset.speed;
                 break;
             case USBDeviceEventID::SessionEnded:
@@ -147,13 +149,15 @@ void* USBDevice::Run()
                 }
                 break;
             case USBDeviceEventID::StartOfFrame:
-                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "StartOfFrame.");
-
-                if (m_IsSuspended) {
-                    SetIsSuspended(false);
-                }
-                for (Ptr<USBClassDriverDevice> driver : m_ClassDrivers) {
-                    driver->StartOfFrame();
+                if (m_SelectedConfigNum != 0)
+                {
+                    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "StartOfFrame.");
+                    if (m_IsSuspended) {
+                        SetIsSuspended(false);
+                    }
+                    for (Ptr<USBClassDriverDevice> driver : m_ClassDrivers) {
+                        driver->StartOfFrame();
+                    }
                 }
                 break;
             default:
@@ -215,13 +219,30 @@ void USBDevice::AddClassDriver(Ptr<USBClassDriverDevice> driver)
 void USBDevice::RemoveClassDriver(Ptr<USBClassDriverDevice> driver)
 {
     kassert(!m_Mutex.IsLocked());
-    CRITICAL_SCOPE(m_Mutex);
 
-    auto i = std::find(m_ClassDrivers.begin(), m_ClassDrivers.end(), driver);
-    if (i != m_ClassDrivers.end())
+    bool driverRemoved = false;
+
     {
+        CRITICAL_SCOPE(m_Mutex);
+
+        auto driverIterator = std::find(m_ClassDrivers.begin(), m_ClassDrivers.end(), driver);
+        if (driverIterator != m_ClassDrivers.end())
+        {
+            if (m_SelectedConfigNum != 0) {
+                UnsetConfiguration();
+            }
+
+            driverIterator = std::find(m_ClassDrivers.begin(), m_ClassDrivers.end(), driver);
+            if (driverIterator != m_ClassDrivers.end())
+            {
+                m_ClassDrivers.erase(driverIterator);
+                driverRemoved = true;
+            }
+        }
+    }
+
+    if (driverRemoved) {
         driver->Shutdown();
-        m_ClassDrivers.erase(i);
     }
 }
 
@@ -656,9 +677,12 @@ void USBDevice::BusReset()
 {
     kassert(m_Mutex.IsLocked());
 
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "BusReset cleanup started.");
     UnsetConfiguration();
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "BusReset configuration cleared.");
     m_SelectedSpeed = USB_Speed::LOW;
     m_ControlTransfer.Reset();
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "BusReset control state reset.");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -669,10 +693,23 @@ void USBDevice::UnsetConfiguration()
 {
     kassert(m_Mutex.IsLocked());
 
-    for (Ptr<USBClassDriverDevice> driver : m_ClassDrivers)
     {
-        driver->Reset();
+        const std::vector<Ptr<USBClassDriverDevice>> classDrivers = m_ClassDrivers;
+
+        m_Mutex.Unlock();
+        PScopeExit relockMutex([this]
+        {
+            m_Mutex.Lock();
+        });
+
+        for (Ptr<USBClassDriverDevice> driver : classDrivers)
+        {
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Reset class driver '{}'.", driver->GetName());
+            driver->Reset();
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Class driver '{}' reset.", driver->GetName());
+        }
     }
+
     for (USBEndpointState& endpoint : m_EndpointStates)
     {
         endpoint.Reset();
@@ -702,7 +739,7 @@ bool USBDevice::HandleControlRequest(const USB_ControlRequest& request)
 {
     kassert(m_Mutex.IsLocked());
 
-    m_ControlTransfer.SetControlTransferHandler(ControlTransferHandler::None);
+    m_ControlTransfer.Reset();
 
     USB_RequestType requestType = USB_RequestType((request.bmRequestType & USB_ControlRequest::REQUESTTYPE_TYPE_Msk) >> USB_ControlRequest::REQUESTTYPE_TYPE_Pos);
     if (requestType >= USB_RequestType::INVALID) {
@@ -1085,7 +1122,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
     switch (descType)
     {
         case USB_DescriptorType::DEVICE:
-            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor DEVICE.");
+            kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "Get descriptor DEVICE.");
 
             if (m_DeviceDescriptor.bcdDevice == 0) {
                 return false;
@@ -1105,7 +1142,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
             }
         case USB_DescriptorType::BOS:
         {
-            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor BOS.");
+            kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "Get descriptor BOS.");
             const USB_DescBOS* desc = GetBOSDescriptor();
             if (desc != nullptr) {
                 return m_ControlTransfer.SendControlDataReply(request, const_cast<USB_DescBOS*>(desc), PLittleEndianToHost(desc->wTotalLength));
@@ -1116,7 +1153,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
         case USB_DescriptorType::OTHER_SPEED_CONFIGURATION:
         {
             const USB_DescConfiguration* desc = (descType == USB_DescriptorType::CONFIGURATION) ? GetConfigDescriptor(descIndex) : GetOtherConfigDescriptor(descIndex);
-            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor {}[{}].", ((descType == USB_DescriptorType::CONFIGURATION) ? "CONFIGURATION" : "OTHER_SPEED_CONFIG"), descIndex);
+            kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "Get descriptor {}[{}].", ((descType == USB_DescriptorType::CONFIGURATION) ? "CONFIGURATION" : "OTHER_SPEED_CONFIG"), descIndex);
             if (desc != nullptr) {
                 return m_ControlTransfer.SendControlDataReply(request, const_cast<USB_DescConfiguration*>(desc), PLittleEndianToHost(desc->wTotalLength));
             }
@@ -1125,7 +1162,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
         case USB_DescriptorType::STRING:
             if (descIndex == 0)
             {
-                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor STRING[0].");
+                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "Get descriptor STRING[0].");
                 std::vector<uint16_t> languages;
                 languages.resize(1);
                 for (auto i : m_StringDescriptors)
@@ -1143,7 +1180,7 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
             else
             {
                 USB_LanguageID languageCode = USB_LanguageID(PLittleEndianToHost(request.wIndex));
-                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor STRING[{:04x}][{}].\n", int(languageCode), descIndex);
+                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "Get descriptor STRING[{:04x}][{}].\n", int(languageCode), descIndex);
 
                 auto languageIter = m_StringDescriptors.find(languageCode);
                 if (languageIter == m_StringDescriptors.end()) {
@@ -1162,13 +1199,13 @@ bool USBDevice::HandleGetDescriptor(const USB_ControlRequest& request)
                 return false;
             }
         case USB_DescriptorType::DEVICE_QUALIFIER:
-            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get descriptor DEVICE_QUALIFIER.");
+            kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "Get descriptor DEVICE_QUALIFIER.");
             if (m_DeviceQualifier.bcdUSB != 0) { // We use this to detect if a qualifier has been specified.
                 return m_ControlTransfer.SendControlDataReply(request, &m_DeviceQualifier, m_DeviceQualifier.bLength);
             }
             return false;
         default:
-            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Get unknown descriptor {}.", int(descType));
+            kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "Get unknown descriptor {}.", int(descType));
             return false;
     }
 }
@@ -1182,7 +1219,7 @@ bool USBDevice::InvokeClassDriverControlTransfer(Ptr<USBClassDriverDevice> drive
     kassert(m_Mutex.IsLocked());
 
     m_ControlTransfer.SetControlTransferHandler(ControlTransferHandler::ClassDriver, driver);
-    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "Class {} handle control transfer setup.", driver->GetName());
+    kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "Class {} handle control transfer setup.", driver->GetName());
     if (!driver->HandleControlTransfer(USB_ControlStage::SETUP, request))
     {
         m_ControlTransfer.SetControlTransferHandler(ControlTransferHandler::None);
@@ -1219,10 +1256,22 @@ bool USBDevice::PopEvent(USBDeviceEvent& event)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBDevice::PushEvent(const USBDeviceEvent& event)
+void USBDevice::PushEvent(const USBDeviceEvent& event, bool clearQueue)
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
     static volatile uint32_t maxEvents = 0;
+
+    if (clearQueue)
+    {
+        m_EventQueue.Clear();
+    }
+    else if (event.EventID == USBDeviceEventID::StartOfFrame)
+    {
+        if (m_SelectedConfigNum == 0 || m_EventQueue.GetLength() != 0) {
+            return;
+        }
+    }
+
     m_EventQueue.Write(&event, 1);
     if (m_EventQueue.GetLength() > maxEvents) {
         maxEvents = m_EventQueue.GetLength();
@@ -1262,7 +1311,7 @@ void USBDevice::IRQBusReset(USB_Speed speed)
 {
     USBDeviceEvent event(USBDeviceEventID::BusReset);
     event.BusReset.speed = speed;
-    PushEvent(event);
+    PushEvent(event, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1292,7 +1341,7 @@ void USBDevice::IRQResume()
 void USBDevice::IRQSessionEnded()
 {
     const USBDeviceEvent event(USBDeviceEventID::SessionEnded);
-    PushEvent(event);
+    PushEvent(event, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

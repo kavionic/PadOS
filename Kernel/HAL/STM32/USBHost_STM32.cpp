@@ -629,8 +629,11 @@ IRQResult USBHost_STM32::HandleIRQ()
         if (interrupts & USB_OTG_GINTSTS_IISOIXFR) {
             m_Port->GINTSTS = USB_OTG_GINTSTS_IISOIXFR;
         }
+        if (interrupts & USB_OTG_GINTSTS_NPTXFE) {
+            m_Port->GINTMSK &= ~USB_OTG_GINTMSK_NPTXFEM;
+        }
         if (interrupts & USB_OTG_GINTSTS_PTXFE) {
-            m_Port->GINTSTS = USB_OTG_GINTSTS_PTXFE;
+            m_Port->GINTMSK &= ~USB_OTG_GINTMSK_PTXFEM;
         }
         if (interrupts & USB_OTG_GINTSTS_MMIS) {
             m_Port->GINTSTS = USB_OTG_GINTSTS_MMIS;

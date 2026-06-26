@@ -44,9 +44,14 @@ void USBHostControl::Setup(USBHost* host)
 
 void USBHostControl::Reset()
 {
-    HandleRequestCompletion(false);
-    m_PipeSize   = 64;
-    m_ErrorCount = 0;
+    FreePipes();
+
+    m_PipeSize             = 64;
+    m_ErrorCount           = 0;
+    m_CurrentDeviceAddress = 0;
+    m_Length               = 0;
+    m_Buffer               = nullptr;
+    m_RequestCallback      = nullptr;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -55,6 +60,8 @@ void USBHostControl::Reset()
 
 bool USBHostControl::AllocPipes(uint8_t deviceAddr, USB_Speed speed, size_t pipeSize)
 {
+    FreePipes();
+
     m_PipeOut = m_HostHandler->AllocPipe(USB_MK_OUT_ADDRESS(0));
     m_PipeIn  = m_HostHandler->AllocPipe(USB_MK_IN_ADDRESS(0));
     if (pipeSize != 0) m_PipeSize = pipeSize;
@@ -68,8 +75,11 @@ bool USBHostControl::AllocPipes(uint8_t deviceAddr, USB_Speed speed, size_t pipe
 
 void USBHostControl::FreePipes()
 {
-    m_HostHandler->FreePipe(m_PipeIn);
-    m_HostHandler->FreePipe(m_PipeOut);
+    if (m_HostHandler != nullptr)
+    {
+        m_HostHandler->FreePipe(m_PipeIn);
+        m_HostHandler->FreePipe(m_PipeOut);
+    }
 
     m_PipeIn  = USB_INVALID_PIPE;
     m_PipeOut = USB_INVALID_PIPE;

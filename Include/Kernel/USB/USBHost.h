@@ -160,12 +160,14 @@ public:
 private:
     static constexpr float DEVICE_RESET_TIMEOUT = 1.0f;
 
-    bool                PushEvent(USBHostEventID eventID);
-    bool                PushEvent(const USBHostEvent& event);
+    bool                PushEvent(USBHostEventID eventID, bool clearQueue = false);
+    bool                PushEvent(const USBHostEvent& event, bool clearQueue = false);
     bool                PopEvent(USBHostEvent& event);
 
     void                Reset();
     bool                Stop();
+    bool                CloseActiveClassDrivers();
+    void                HandleDeviceDisconnected();
 
     USBHostPipeData*    GetPipeData(USB_PipeIndex pipeIndex);
 

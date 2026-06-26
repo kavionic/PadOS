@@ -53,6 +53,7 @@ public:
     bool InvokeControlTransferHandler(USB_ControlStage stage);
     bool SendControlStatusReply(const USB_ControlRequest& request);
     bool SendControlDataReply(const USB_ControlRequest& request, void* buffer, uint32_t length);
+    bool ReceiveControlData(const USB_ControlRequest& request, void* buffer, uint32_t length);
 
 private:
     bool StartControlStatusTransfer(const USB_ControlRequest& request);
@@ -65,6 +66,7 @@ private:
     uint8_t*                m_TransferBuffer = nullptr;
     uint32_t                m_TransferLength = 0;
     uint32_t                m_TransferBytesSent = 0;
+    bool                    m_RequireExactTransferLength = false;
 
     ControlTransferHandler  m_TransferHandlerType = ControlTransferHandler::None;
     Ptr<USBClassDriverDevice>     m_TransferHandlerDriver;

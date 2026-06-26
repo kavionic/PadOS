@@ -26,17 +26,93 @@
 #include <Kernel/USB/ClassDrivers/USBClientCDCChannel.h>
 #include <Kernel/USB/USBDevice.h>
 #include <Kernel/USB/USBProtocol.h>
+#include <Kernel/VFS/KDriverManager.h>
 
 
 namespace kernel
 {
+
+class USBClientClassCDC::DeviceNodeCleanupThread : public KThread
+{
+public:
+    explicit DeviceNodeCleanupThread(USBClientClassCDC& driver)
+        : KThread("usb_cdc_cleanup")
+        , m_Driver(driver)
+    {
+        SetDeleteOnExit(false);
+    }
+
+    virtual void* Run() override
+    {
+        return m_Driver.RunDeviceNodeCleanup();
+    }
+
+private:
+    USBClientClassCDC& m_Driver;
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 USBClientClassCDC::USBClientClassCDC()
+    : m_DeferredNodeMutex("usb_cdc_cleanup", PEMutexRecursionMode_RaiseError)
+    , m_DeferredNodeCondition("usb_cdc_cleanup")
 {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+USBClientClassCDC::~USBClientClassCDC()
+{
+    StopCleanupThread();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBClientClassCDC::Init(USBDevice* deviceHandler)
+{
+    USBClassDriverDevice::Init(deviceHandler);
+
+    if (m_CleanupThread == nullptr)
+    {
+        m_CleanupThreadStopRequested = false;
+        m_CleanupThread = std::make_unique<DeviceNodeCleanupThread>(*this);
+        m_CleanupThread->Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Joinable);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBClientClassCDC::Shutdown()
+{
+    kassert(m_DeviceHandler == nullptr || !m_DeviceHandler->GetMutex().IsLocked());
+
+    std::vector<Ptr<USBClientCDCChannel>> closedChannels;
+    std::vector<int> devNodeHandles;
+
+    if (m_DeviceHandler != nullptr)
+    {
+        {
+            CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
+            CloseChannels(closedChannels, devNodeHandles);
+        }
+
+        for (Ptr<USBClientCDCChannel> channel : closedChannels) {
+            SignalChannelRemoved(channel);
+        }
+    }
+
+    QueueDeviceNodeRemoval(devNodeHandles);
+    StopCleanupThread();
+
+    USBClassDriverDevice::Shutdown();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -45,17 +121,24 @@ USBClientClassCDC::USBClientClassCDC()
 
 void USBClientClassCDC::Reset()
 {
-    for (Ptr<USBClientCDCChannel> channel : m_Channels)
-    {
-        try
-        {
-            channel->Close();
-        }
-        PERROR_CATCH([](PErrorCode error) { kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to close channel."); });
+    kassert(m_DeviceHandler != nullptr);
+    kassert(!m_DeviceHandler->GetMutex().IsLocked());
 
+    std::vector<Ptr<USBClientCDCChannel>> closedChannels;
+    std::vector<int> devNodeHandles;
+
+    {
+        CRITICAL_SCOPE(m_DeviceHandler->GetMutex());
+        CloseChannels(closedChannels, devNodeHandles);
+    }
+
+    QueueDeviceNodeRemoval(devNodeHandles);
+
+    for (Ptr<USBClientCDCChannel> channel : closedChannels) {
         SignalChannelRemoved(channel);
     }
-    m_Channels.clear();
+
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "USBClientClassCDC::Reset() completed.");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,6 +156,8 @@ const USB_DescriptorHeader* USBClientClassCDC::Open(const USB_DescInterface* int
     if (desc >= endDesc) {
         return nullptr;
     }
+    bool     hasDataInterface           = false;
+    uint8_t  dataInterfaceNum           = 0;
     uint8_t  endpointAddrNotifications  = 0;
     uint8_t  endpointOutAddr            = 0;
     uint8_t  endpointInAddr             = 0;
@@ -92,6 +177,10 @@ const USB_DescriptorHeader* USBClientClassCDC::Open(const USB_DescInterface* int
 
     if (desc->bDescriptorType == USB_DescriptorType::INTERFACE && static_cast<const USB_DescInterface*>(desc)->bInterfaceClass == USB_ClassCode::CDC_DATA)
     {
+        const USB_DescInterface* dataInterfaceDesc = static_cast<const USB_DescInterface*>(desc);
+        hasDataInterface = true;
+        dataInterfaceNum = dataInterfaceDesc->bInterfaceNumber;
+
         // Open int/out endpoint pair.
         desc = m_DeviceHandler->OpenEndpointPair(desc->GetNext(), USB_TransferType::BULK, endpointOutAddr, endpointInAddr, endpointOutSize, endpointInSize);
         if (desc == nullptr) {
@@ -104,6 +193,9 @@ const USB_DescriptorHeader* USBClientClassCDC::Open(const USB_DescInterface* int
     m_Channels.push_back(channel);
 
     m_InterfaceToChannelMap[interfaceDesc->bInterfaceNumber] = channel;
+    if (hasDataInterface) {
+        m_InterfaceToChannelMap[dataInterfaceNum] = channel;
+    }
     m_EndpointToChannelMap[endpointOutAddr] = channel;
     m_EndpointToChannelMap[endpointInAddr]  = channel;
 
@@ -123,7 +215,7 @@ bool USBClientClassCDC::HandleControlTransfer(USB_ControlStage stage, const USB_
     if (requestType != USB_RequestType::CLASS) {
         return false;
     }
-    const uint16_t interfaceNum = request.wIndex;
+    const uint8_t interfaceNum = uint8_t(request.wIndex & 0xff);
 
     auto channelItr = m_InterfaceToChannelMap.find(interfaceNum);
     if (channelItr != m_InterfaceToChannelMap.end())
@@ -167,6 +259,111 @@ Ptr<USBClientCDCChannel> USBClientClassCDC::GetChannel(uint32_t channelIndex)
     } else {
         return nullptr;
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBClientClassCDC::CloseChannels(std::vector<Ptr<USBClientCDCChannel>>& closedChannels, std::vector<int>& devNodeHandles)
+{
+    kassert(m_DeviceHandler != nullptr);
+    kassert(m_DeviceHandler->GetMutex().IsLocked());
+
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "USBClientClassCDC::Reset() closing {} channel(s).", m_Channels.size());
+
+    closedChannels.swap(m_Channels);
+    devNodeHandles.reserve(closedChannels.size());
+
+    for (Ptr<USBClientCDCChannel> channel : closedChannels)
+    {
+        try
+        {
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "USBClientClassCDC::Reset() close channel.");
+            const int devNodeHandle = channel->Close();
+            if (devNodeHandle != -1) {
+                devNodeHandles.push_back(devNodeHandle);
+            }
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "USBClientClassCDC::Reset() channel closed.");
+        }
+        PERROR_CATCH([](PErrorCode error)
+        {
+            kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Failed to close channel: {}.", std::to_underlying(error));
+        });
+    }
+
+    m_InterfaceToChannelMap.clear();
+    m_EndpointToChannelMap.clear();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBClientClassCDC::QueueDeviceNodeRemoval(std::vector<int>& devNodeHandles)
+{
+    if (!devNodeHandles.empty())
+    {
+        CRITICAL_SCOPE(m_DeferredNodeMutex);
+        m_DeferredDevNodeHandles.insert(m_DeferredDevNodeHandles.end(), devNodeHandles.begin(), devNodeHandles.end());
+        m_DeferredNodeCondition.WakeupAll();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBClientClassCDC::StopCleanupThread()
+{
+    if (m_CleanupThread != nullptr)
+    {
+        {
+            CRITICAL_SCOPE(m_DeferredNodeMutex);
+            m_CleanupThreadStopRequested = true;
+            m_DeferredNodeCondition.WakeupAll();
+        }
+
+        m_CleanupThread->Join_trw();
+        m_CleanupThread.reset();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void* USBClientClassCDC::RunDeviceNodeCleanup()
+{
+    for (;;)
+    {
+        std::vector<int> devNodeHandles;
+
+        {
+            CRITICAL_SCOPE(m_DeferredNodeMutex);
+
+            while (m_DeferredDevNodeHandles.empty() && !m_CleanupThreadStopRequested) {
+                m_DeferredNodeCondition.Wait(m_DeferredNodeMutex);
+            }
+            if (m_DeferredDevNodeHandles.empty() && m_CleanupThreadStopRequested) {
+                break;
+            }
+            devNodeHandles.swap(m_DeferredDevNodeHandles);
+        }
+
+        for (int devNodeHandle : devNodeHandles)
+        {
+            try
+            {
+                kremove_device_root_trw(devNodeHandle);
+            }
+            PERROR_CATCH([](PErrorCode error)
+            {
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBDevice, "Failed to remove CDC device node: {}.", std::to_underlying(error));
+            });
+        }
+    }
+    return nullptr;
 }
 
 

@@ -155,7 +155,15 @@ void* USBHost::Run()
                     RestartDeviceInitialization();
                     break;
                 case USBHostEventID::DeviceConnected:
+                    if (!m_DeviceAttachDeadline.IsInfinit() && !m_PortEnabled) {
+                        break;
+                    }
                     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device connected.");
+
+                    Stop();
+                    CloseActiveClassDrivers();
+                    Reset();
+                    m_Driver->StartHost();
 
                     snooze_ms(200);
                     m_Driver->ResetPort();
@@ -178,26 +186,9 @@ void* USBHost::Run()
                     m_Enumerator.Enumerate(p_bind_method(this, &USBHost::HandleEnumerationDone));
                     break;
                 case USBHostEventID::DeviceDetached:
-                    m_PortEnabled = false;
-                    break;
+                    [[fallthrough]];
                 case USBHostEventID::DeviceDisconnected:
-                    Stop();
-                    Reset();
-
-                    for (const Ptr<USBClassDriverHost>& driver : m_ClassDrivers)
-                    {
-                        if (driver->IsActive()) {
-                            try
-                            {
-                                driver->Close();
-                            }
-                            PERROR_CATCH([](PErrorCode error) { kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to close channel."); });
-                        }
-                    }
-                    SignalConnectionChanged(false);
-                    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device disconnected.");
-
-                    m_Driver->StartHost();
+                    HandleDeviceDisconnected();
                     break;
                 case USBHostEventID::URBStateChanged:
                     HandleURBStateChanged(event.URBStateChanged.PipeIndex, event.URBStateChanged.URBState, event.URBStateChanged.TransferLength);
@@ -224,7 +215,7 @@ void* USBHost::Run()
 
 void USBHost::RestartDeviceInitialization()
 {
-    PushEvent(USBHostEventID::DeviceConnected);
+    PushEvent(USBHostEventID::DeviceConnected, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -420,7 +411,9 @@ USB_PipeIndex USBHost::AllocPipe(uint8_t endpointAddr)
     {
         if (!m_Pipes[i].Claimed)
         {
+            m_Pipes[i].TransactionCallback = nullptr;
             m_Pipes[i].EndpointAddr = endpointAddr;
+            m_Pipes[i].URBState = USB_URBState::Idle;
             m_Pipes[i].Claimed = true;
             return i;
         }
@@ -439,7 +432,11 @@ USB_PipeIndex USBHost::AllocPipe(uint8_t endpointAddr)
 
 void USBHost::FreePipe(USB_PipeIndex pipeIndex)
 {
-    if (pipeIndex >= 0 && pipeIndex < m_Pipes.size()) {
+    if (pipeIndex >= 0 && pipeIndex < m_Pipes.size())
+    {
+        m_Pipes[pipeIndex].TransactionCallback = nullptr;
+        m_Pipes[pipeIndex].EndpointAddr = 0;
+        m_Pipes[pipeIndex].URBState = USB_URBState::Idle;
         m_Pipes[pipeIndex].Claimed = false;
     }
 }
@@ -526,20 +523,25 @@ bool USBHost::ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t d
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost::PushEvent(USBHostEventID eventID)
+bool USBHost::PushEvent(USBHostEventID eventID, bool clearQueue)
 {
-    return PushEvent(USBHostEvent(eventID));
+    return PushEvent(USBHostEvent(eventID), clearQueue);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHost::PushEvent(const USBHostEvent& event)
+bool USBHost::PushEvent(const USBHostEvent& event, bool clearQueue)
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
 
     static volatile uint32_t maxEvents = 0;
+
+    if (clearQueue)
+    {
+        m_EventQueue.Clear();
+    }
 
     m_EventQueue.Write(&event, 1);
     if (m_EventQueue.GetLength() > maxEvents) {
@@ -589,13 +591,14 @@ void USBHost::Reset()
     m_PortEnabled     = false;
     m_ResetErrorCount = 0;
     m_EnumErrorCount  = 0;
+    m_DeviceAttachDeadline = TimeValNanos::infinit;
 
     m_Device0.m_Address = 0;
     m_Device0.m_Speed   = USB_Speed::FULL;
 
-    m_Pipes.clear();
     m_ControlHandler.Reset();
     m_Enumerator.Reset();
+    m_Pipes.clear();
     m_Devices.clear();
 }
 
@@ -608,6 +611,57 @@ bool USBHost::Stop()
     m_Driver->StopHost();
     m_ControlHandler.FreePipes();
     return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost::CloseActiveClassDrivers()
+{
+    bool closedClassDrivers = false;
+
+    for (const Ptr<USBClassDriverHost>& driver : m_ClassDrivers)
+    {
+        if (driver->IsActive())
+        {
+            try
+            {
+                driver->Close();
+            }
+            PERROR_CATCH(
+                [](PErrorCode error)
+                {
+                    kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to close channel.");
+                }
+            );
+
+            driver->m_IsActive = false;
+            closedClassDrivers = true;
+        }
+    }
+    return closedClassDrivers;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::HandleDeviceDisconnected()
+{
+    const bool wasConnected = m_PortEnabled;
+    const bool wasConnecting = !m_DeviceAttachDeadline.IsInfinit();
+
+    Stop();
+    const bool closedClassDrivers = CloseActiveClassDrivers();
+    Reset();
+
+    if (wasConnected || wasConnecting || closedClassDrivers)
+    {
+        SignalConnectionChanged(false);
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device disconnected.");
+    }
+    m_Driver->StartHost();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -688,26 +742,35 @@ void USBHost::HandleEnumerationDone(bool result, uint8_t deviceAddr)
 
 void USBHost::HandleSetConfigurationResult(bool result, uint8_t deviceAddr)
 {
-    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Configuration set.");
-
-    USBDeviceNode* device = GetDevice(deviceAddr);
-
-    if (device != nullptr && device->m_SupportRemoteWakeup)
+    if (result)
     {
-        USB_ControlRequest request(
-            USB_RequestRecipient::DEVICE,
-            USB_RequestType::STANDARD,
-            USB_RequestDirection::HOST_TO_DEVICE,
-            uint8_t(USB_RequestCode::SET_FEATURE),
-            uint16_t(USB_RequestFeatureSelector::DEVICE_REMOTE_WAKEUP),
-            0,
-            0
-        );
-        m_ControlHandler.SendControlRequest(deviceAddr, request, nullptr, p_bind_method(this, &USBHost::HandleSetWakeupFeatureResult));
+        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Configuration set.");
+
+        USBDeviceNode* device = GetDevice(deviceAddr);
+
+        if (device != nullptr && device->m_SupportRemoteWakeup)
+        {
+            USB_ControlRequest request(
+                USB_RequestRecipient::DEVICE,
+                USB_RequestType::STANDARD,
+                USB_RequestDirection::HOST_TO_DEVICE,
+                uint8_t(USB_RequestCode::SET_FEATURE),
+                uint16_t(USB_RequestFeatureSelector::DEVICE_REMOTE_WAKEUP),
+                0,
+                0
+            );
+            m_ControlHandler.SendControlRequest(deviceAddr, request, nullptr, p_bind_method(this, &USBHost::HandleSetWakeupFeatureResult));
+        }
+        else
+        {
+            SetupClassDrivers();
+        }
     }
     else
     {
-        SetupClassDrivers();
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Set configuration request failed.");
+        m_ControlHandler.FreePipes();
+        RestartDeviceInitialization();
     }
 }
 
@@ -760,7 +823,7 @@ void USBHost::HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbSta
 
 bool USBHost::IRQDeviceConnected()
 {
-    PushEvent(USBHostEventID::DeviceConnected);
+    PushEvent(USBHostEventID::DeviceConnected, true);
     return true;
 }
 
@@ -770,7 +833,7 @@ bool USBHost::IRQDeviceConnected()
 
 void USBHost::IRQDeviceDisconnected()
 {
-    PushEvent(USBHostEventID::DeviceDisconnected);
+    PushEvent(USBHostEventID::DeviceDisconnected, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -782,7 +845,7 @@ void USBHost::IRQPortEnableChange(bool isEnabled)
     if (isEnabled) {
         PushEvent(USBHostEventID::DeviceAttached);
     } else {
-        PushEvent(USBHostEventID::DeviceDetached);
+        PushEvent(USBHostEventID::DeviceDetached, true);
     }
 }
 

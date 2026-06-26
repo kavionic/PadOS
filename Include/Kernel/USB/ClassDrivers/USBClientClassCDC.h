@@ -21,10 +21,15 @@
 #pragma once
 
 #include <map>
+#include <memory>
+#include <vector>
 #include <System/Platform.h>
 #include <Signals/Signal.h>
 #include <Ptr/PtrTarget.h>
 #include <Kernel/HAL/STM32/USB_STM32.h>
+#include <Kernel/KConditionVariable.h>
+#include <Kernel/KMutex.h>
+#include <Kernel/KThread.h>
 #include <Kernel/USB/USBClassDriverDevice.h>
 #include <Kernel/USB/USBProtocolCDC.h>
 
@@ -36,9 +41,12 @@ class USBClientClassCDC : public USBClassDriverDevice
 {
 public:
     USBClientClassCDC();
+    virtual ~USBClientClassCDC();
 
     virtual const char*                 GetName() const override { return "CDC"; }
     virtual uint32_t                    GetInterfaceCount() override { return 2; }
+    virtual void                        Init(USBDevice* deviceHandler) override;
+    virtual void                        Shutdown() override;
     virtual void                        Reset() override;
     virtual const USB_DescriptorHeader* Open(const USB_DescInterface* desc_intf, const void* endDesc) override;
     virtual bool                        HandleControlTransfer(USB_ControlStage stage, const USB_ControlRequest& request) override;
@@ -51,9 +59,22 @@ public:
     Signal<void, Ptr<USBClientCDCChannel>> SignalChannelRemoved;
 
 private:
+    class DeviceNodeCleanupThread;
+
+    void CloseChannels(std::vector<Ptr<USBClientCDCChannel>>& closedChannels, std::vector<int>& devNodeHandles);
+    void QueueDeviceNodeRemoval(std::vector<int>& devNodeHandles);
+    void StopCleanupThread();
+    void* RunDeviceNodeCleanup();
+
     std::vector<Ptr<USBClientCDCChannel>>         m_Channels;
     std::map<uint16_t, Ptr<USBClientCDCChannel>>  m_InterfaceToChannelMap;
     std::map<uint8_t, Ptr<USBClientCDCChannel>>   m_EndpointToChannelMap;
+
+    KMutex m_DeferredNodeMutex;
+    KConditionVariable m_DeferredNodeCondition;
+    std::vector<int> m_DeferredDevNodeHandles;
+    std::unique_ptr<DeviceNodeCleanupThread> m_CleanupThread;
+    bool m_CleanupThreadStopRequested = false;
 };
 
 

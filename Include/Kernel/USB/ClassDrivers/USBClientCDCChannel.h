@@ -42,7 +42,7 @@ public:
     // From KNamedObject:
     virtual bool AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode) override;
 
-    void Close();
+    int Close();
 
     ssize_t  GetReadBytesAvailable() const;
     virtual void    CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;

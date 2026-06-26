@@ -155,7 +155,7 @@ private:
     bool InvokeClassDriverControlTransfer(Ptr<USBClassDriverDevice> driver, const USB_ControlRequest& request);
 
     bool PopEvent(USBDeviceEvent& event);
-    void PushEvent(const USBDeviceEvent& event);
+    void PushEvent(const USBDeviceEvent& event, bool clearQueue = false);
 
     void IRQControlRequestReceived(const USB_ControlRequest& request);
     void IRQTransferComplete(uint8_t endpointAddr, uint32_t length, USB_TransferResult result);

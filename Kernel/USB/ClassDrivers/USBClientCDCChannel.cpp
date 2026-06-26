@@ -105,16 +105,18 @@ bool USBClientCDCChannel::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBClientCDCChannel::Close()
+int USBClientCDCChannel::Close()
 {
-    if (m_DevNodeHandle != -1)
-    {
-        kremove_device_root_trw(m_DevNodeHandle);
-        m_DevNodeHandle = -1;
-    }
+    kassert(m_DeviceHandler->GetMutex().IsLocked());
+
+    const int devNodeHandle = m_DevNodeHandle;
+
+    m_DevNodeHandle = -1;
     m_IsActive = false;
     m_ReceiveCondition.WakeupAll();
     m_TransmitCondition.WakeupAll();
+
+    return devNodeHandle;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -355,8 +357,8 @@ bool USBClientCDCChannel::HandleControlTransfer(USB_ControlStage stage, const US
         case USB_CDC_ManagementRequest::SET_LINE_CODING:
             if (stage == USB_ControlStage::SETUP)
             {
-                kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBDevice, "CDC set line coding.");
-                return m_DeviceHandler->GetControlEndpointHandler().SendControlDataReply(request, &m_LineCoding, sizeof(m_LineCoding));
+                kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "CDC set line coding.");
+                return m_DeviceHandler->GetControlEndpointHandler().ReceiveControlData(request, &m_LineCoding, sizeof(m_LineCoding));
             }
             else if (stage == USB_ControlStage::ACK)
             {
@@ -380,8 +382,11 @@ bool USBClientCDCChannel::HandleControlTransfer(USB_ControlStage stage, const US
 
                 kernel_log<PLogSeverity::INFO_HIGH_VOL>(LogCategoryUSBDevice, "CDC Set control line state: DTR = {}, RTS = {}.", m_DTR, m_RTS);
 
-                SignalControlLineStateChanged(m_DTR, m_RTS);
                 return m_DeviceHandler->GetControlEndpointHandler().SendControlStatusReply(request);
+            }
+            else if (stage == USB_ControlStage::ACK)
+            {
+                SignalControlLineStateChanged(m_DTR, m_RTS);
             }
             break;
         case USB_CDC_ManagementRequest::SEND_BREAK:

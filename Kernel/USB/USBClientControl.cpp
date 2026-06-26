@@ -59,6 +59,7 @@ void USBClientControl::Reset()
     m_TransferBuffer        = nullptr;
     m_TransferLength        = 0;
     m_TransferBytesSent     = 0;
+    m_RequireExactTransferLength = false;
     m_TransferHandlerType   = ControlTransferHandler::None;
     m_TransferHandlerDriver = nullptr;
 }
@@ -73,6 +74,7 @@ void USBClientControl::SetRequest(const USB_ControlRequest& request, void* buffe
     m_TransferBuffer    = reinterpret_cast<uint8_t*>(buffer);
     m_TransferBytesSent = 0;
     m_TransferLength    = std::min(length, uint32_t(PLittleEndianToHost(request.wLength)));
+    m_RequireExactTransferLength = false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -97,10 +99,11 @@ bool USBClientControl::ControlTransferComplete(uint8_t endpointAddr, USB_Transfe
     if (endpointDirIn != requestDirIn)
     {
         if (length != 0) {
-            return InvokeControlTransferHandler(USB_ControlStage::ACK);
-        } else {
             return false;
         }
+        const bool handlerResult = InvokeControlTransferHandler(USB_ControlStage::ACK);
+        Reset();
+        return handlerResult;
     }
     if (!requestDirIn)
     {
@@ -119,6 +122,14 @@ bool USBClientControl::ControlTransferComplete(uint8_t endpointAddr, USB_Transfe
 
     if (m_TransferBytesSent == m_Request.wLength || length < m_ControlEndpointBuffer.size())
     {
+        if (m_RequireExactTransferLength && m_TransferBytesSent != m_TransferLength)
+        {
+            m_Driver->EndpointStall(USB_MK_OUT_ADDRESS(0));
+            m_Driver->EndpointStall(USB_MK_IN_ADDRESS(0));
+            Reset();
+            return false;
+        }
+
         // Data stage completed.
         if (InvokeControlTransferHandler(USB_ControlStage::DATA))
         {
@@ -194,6 +205,28 @@ bool USBClientControl::SendControlDataReply(const USB_ControlRequest& request, v
     {
         return StartControlStatusTransfer(request);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+/// Receive data from the control endpoint. The request direction must be OUT and
+/// the host must provide exactly length bytes.
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBClientControl::ReceiveControlData(const USB_ControlRequest& request, void* buffer, uint32_t length)
+{
+    if ((request.bmRequestType & USB_ControlRequest::REQUESTTYPE_DIR_IN) != 0) {
+        return false;
+    }
+    if (PLittleEndianToHost(request.wLength) != length) {
+        return false;
+    }
+    if (length != 0 && buffer == nullptr) {
+        return false;
+    }
+    SetRequest(request, buffer, length);
+    m_RequireExactTransferLength = true;
+    return StartControlDataTransfer();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

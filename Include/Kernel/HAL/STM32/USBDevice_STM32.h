@@ -68,6 +68,9 @@ private:
 
     void        EndpointDisable(uint8_t endpointAddr, bool stall);
     void        EndpointSchedulePackets(uint8_t endpointAddr, uint32_t packetCount, uint32_t totalLength);
+    void        DiscardFromFIFO(size_t length);
+    bool        FlushTxFifoFromIRQ(uint32_t fifoIndex);
+    bool        FlushRxFifoFromIRQ();
 
     static IRQResult IRQCallback(IRQn_Type irq, void* userData);
     IRQResult HandleIRQ();
@@ -123,6 +126,9 @@ private:
 
     uint32_t    m_AllocatedTXFIFOWords = 0; // TX FIFO size in words (IN endpoints).
     bool        m_UpdateRXFIFOSize = false; // Flag set if RX FIFO size needs an update.
+    bool        m_Endpoint0InTransferActive = false;
+    bool        m_Endpoint0OutTransferActive = false;
+    bool        m_HasPendingSetupRequest = false;
 
     bool        m_SupportHighSpeed = false;
     USB_ControlRequest  m_ControlRequestPackage;

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -42,7 +42,9 @@ public:
     virtual void                        Shutdown() override;
     virtual const USB_DescriptorHeader* Open(uint8_t deviceAddr, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc) override;
     virtual void                        Close() override;
+    virtual void                        CloseDevice(uint8_t deviceAddr) override;
     virtual void                        Startup() override;
+    virtual void                        StartupDevice(uint8_t deviceAddr) override;
     virtual void                        StartOfFrame() override;
 
     uint32_t                GetChannelCount() const { return m_Channels.size(); }
@@ -53,7 +55,10 @@ public:
 
 
 private:
+    bool HasActiveChannels() const;
+
     std::vector<Ptr<USBHostCDCChannel>> m_Channels;
+    uint32_t                            m_NextChannelIndex = 0;
 };
 
 

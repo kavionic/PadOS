@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,7 +20,9 @@
 
 #pragma once
 
+#include <deque>
 #include <stdint.h>
+#include <vector>
 
 #include <Kernel/KThread.h>
 #include <Kernel/KMutex.h>
@@ -30,6 +32,7 @@
 
 #include <Kernel/USB/USBEndpointState.h>
 #include <Kernel/USB/USBProtocol.h>
+#include <Kernel/USB/USBProtocolHub.h>
 #include <Kernel/USB/USBCommon.h>
 #include <Kernel/USB/USBHostControl.h>
 #include <Kernel/USB/USBHostEnumerator.h>
@@ -81,15 +84,35 @@ class USBDeviceNode
 {
 public:
     uint8_t         m_Address               = 0;
+    uint8_t         m_ParentHubAddress      = 0;
+    uint8_t         m_ParentHubPort         = 0;
     uint8_t         m_SelectedConfiguration = 0;
     bool            m_SupportRemoteWakeup   = false;
     bool            m_SelfPowered           = false;
+    bool            m_IsConnected           = false;
+    bool            m_IsConfigured          = false;
+    bool            m_IsHub                 = false;
     USB_Speed       m_Speed                 = USB_Speed::FULL;
 
     PString         m_ManufacturerString;
     PString         m_ProductString;
     PString         m_SerialNumberString;
     USB_DescDevice  m_DeviceDesc;
+
+    USB_PipeIndex   m_HubStatusPipe         = USB_INVALID_PIPE;
+    uint8_t         m_HubStatusEndpoint     = USB_INVALID_ENDPOINT;
+    size_t          m_HubStatusEndpointSize = 0;
+    uint8_t         m_HubPortCount          = 0;
+    uint16_t        m_HubPowerOnDelayMS     = 0;
+    std::vector<uint8_t> m_HubStatusBuffer;
+};
+
+struct USBHostHubPortEvent
+{
+    USBHostHubPortEvent(uint8_t hubAddress = 0, uint8_t portIndex = 0) noexcept : HubAddress(hubAddress), PortIndex(portIndex) {}
+
+    uint8_t HubAddress;
+    uint8_t PortIndex;
 };
 
 struct USBHostEvent
@@ -168,15 +191,40 @@ private:
     bool                Stop();
     bool                CloseActiveClassDrivers();
     void                HandleDeviceDisconnected();
+    void                PrepareDevice0(USB_Speed speed, uint8_t parentHubAddress, uint8_t parentHubPort);
+    void                CloseDevice(uint8_t deviceAddr);
+    void                CloseDeviceClassDrivers(uint8_t deviceAddr);
+    USBDeviceNode*      GetDeviceOnHubPort(uint8_t hubAddress, uint8_t portIndex);
 
     USBHostPipeData*    GetPipeData(USB_PipeIndex pipeIndex);
 
-    void SetupClassDrivers();
+    void SetupClassDrivers(uint8_t deviceAddr);
 
     void HandleEnumerationDone(bool result, uint8_t deviceAddr);
     void HandleSetConfigurationResult(bool result, uint8_t deviceAddr);
     void HandleSetWakeupFeatureResult(bool result, uint8_t deviceAddr);
+    void FinishDeviceConfiguration(uint8_t deviceAddr);
     void HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transferLength);
+
+    bool ConfigureHubInterface(uint8_t deviceAddr, const USB_DescInterface* interfaceDesc, const void* endDesc, const USB_DescriptorHeader** nextDesc);
+    void InitializeHub(uint8_t deviceAddr);
+    void HandleGetHubDescriptorResult(bool result, uint8_t deviceAddr);
+    void PowerHubPort(uint8_t deviceAddr, uint8_t portIndex);
+    void StartHubInterruptReceive(uint8_t deviceAddr);
+    void StopHubInterruptReceive(USBDeviceNode& hub);
+    void HandleHubStatusTransaction(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
+    void QueueHubPortChange(uint8_t hubAddress, uint8_t portIndex);
+    void ProcessNextHubPortChange();
+    void CompleteHubPortChange(uint8_t hubAddress);
+    void QueueHubPollRestart(uint8_t hubAddress);
+    void RestartPendingHubPolls();
+    void HandleHubPortStatusResult(bool result, uint8_t hubAddress, uint8_t portIndex);
+    void ClearHubPortConnectionChange(uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus);
+    void ResetHubPort(uint8_t hubAddress, uint8_t portIndex);
+    void HandleHubPortResetStatusResult(bool result, uint8_t hubAddress, uint8_t portIndex);
+    void HandleHubPortResetChangeCleared(bool result, uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus);
+    void EnumerateHubPortDevice(uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus);
+    USB_Speed GetHubPortDeviceSpeed(uint16_t portStatus) const;
 
     bool IRQDeviceConnected();
     void IRQDeviceDisconnected();
@@ -197,9 +245,12 @@ private:
 
     std::vector<Ptr<USBClassDriverHost>>    m_ClassDrivers;
     std::vector<USBHostPipeData>            m_Pipes;
+    std::deque<USBHostHubPortEvent>         m_PendingHubPortChanges;
+    std::vector<uint8_t>                    m_HubPollRestartList;
     TimeValNanos                            m_DeviceAttachDeadline  = TimeValNanos::infinit;
     uint8_t                                 m_ResetErrorCount       = 0;
     uint8_t                                 m_EnumErrorCount        = 0;
+    bool                                    m_HubPortChangeActive   = false;
     bool                                    m_PortEnabled           = false;
 };
 

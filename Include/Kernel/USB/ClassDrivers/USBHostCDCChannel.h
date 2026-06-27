@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -55,6 +55,8 @@ public:
     void Close();
     void Startup();
 
+    uint8_t GetDeviceAddress() const { return m_DeviceAddress; }
+    bool    IsActive() const { return m_IsActive; }
 
     ssize_t GetReadBytesAvailable() const;
     virtual size_t  Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
@@ -115,5 +117,4 @@ private:
 };
 
 } // namespace kernel
-
 

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -80,7 +80,7 @@ void USBHostClassCDC::Shutdown()
 const USB_DescriptorHeader* USBHostClassCDC::Open(uint8_t deviceAddr, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc)
 {
     Ptr<USBHostCDCChannel> channel = ptr_new<USBHostCDCChannel>(m_HostHandler, this);
-    const int channelIndex = m_Channels.size();
+    const int channelIndex = int(m_NextChannelIndex++);
     const USB_DescriptorHeader* result = channel->Open(deviceAddr, channelIndex, interfaceDesc, interfaceAssociationDesc, endDesc);
 
     m_Channels.push_back(channel);
@@ -101,7 +101,35 @@ void USBHostClassCDC::Close()
         SignalChannelRemoved(channel);
     }
     m_Channels.clear();
+    m_NextChannelIndex = 0;
     m_IsActive = false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostClassCDC::CloseDevice(uint8_t deviceAddr)
+{
+    for (auto channelIterator = m_Channels.begin(); channelIterator != m_Channels.end(); )
+    {
+        Ptr<USBHostCDCChannel> channel = *channelIterator;
+
+        if (channel->GetDeviceAddress() == deviceAddr)
+        {
+            channel->Close();
+            SignalChannelRemoved(channel);
+            channelIterator = m_Channels.erase(channelIterator);
+        }
+        else
+        {
+            ++channelIterator;
+        }
+    }
+    if (m_Channels.empty()) {
+        m_NextChannelIndex = 0;
+    }
+    m_IsActive = HasActiveChannels();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -112,8 +140,26 @@ void USBHostClassCDC::Startup()
 {
     for (Ptr<USBHostCDCChannel> channel : m_Channels)
     {
-        channel->Startup();
+        if (!channel->IsActive()) {
+            channel->Startup();
+        }
     }
+    m_IsActive = HasActiveChannels();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostClassCDC::StartupDevice(uint8_t deviceAddr)
+{
+    for (Ptr<USBHostCDCChannel> channel : m_Channels)
+    {
+        if (channel->GetDeviceAddress() == deviceAddr && !channel->IsActive()) {
+            channel->Startup();
+        }
+    }
+    m_IsActive = HasActiveChannels();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -136,6 +182,21 @@ Ptr<USBHostCDCChannel> USBHostClassCDC::GetChannel(uint32_t channelIndex)
     } else {
         return nullptr;
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHostClassCDC::HasActiveChannels() const
+{
+    for (Ptr<USBHostCDCChannel> channel : m_Channels)
+    {
+        if (channel->IsActive()) {
+            return true;
+        }
+    }
+    return false;
 }
 
 

@@ -11,6 +11,7 @@ target_sources(PadOS_Kernel PRIVATE
 	USBHostEnumerator.h
 	USBProtocol.h
 	USBProtocolCDC.h
+	USBProtocolHub.h
 )
 
 add_subdirectory(ClassDrivers)

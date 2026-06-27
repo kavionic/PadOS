@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 13.06.2022 23:00
 
+#include <algorithm>
 #include <string.h>
 
 #include <System/ExceptionHandling.h>
@@ -107,9 +108,26 @@ USBHostControl& USBHost::GetControlHandler()
 
 USBDeviceNode* USBHost::CreateDeviceNode()
 {
+    for (size_t index = 0; index < m_Devices.size(); ++index)
+    {
+        if (!m_Devices[index].m_IsConnected)
+        {
+            m_Devices[index] = m_Device0;
+            USBDeviceNode* device = &m_Devices[index];
+            device->m_Address = uint8_t(index + 1);
+            device->m_IsConnected = true;
+            device->m_IsConfigured = false;
+            return device;
+        }
+    }
+    if (m_Devices.size() >= 127) {
+        return nullptr;
+    }
     m_Devices.emplace_back(m_Device0);
     USBDeviceNode* device = &m_Devices.back();
     device->m_Address = uint8_t(m_Devices.size());
+    device->m_IsConnected = true;
+    device->m_IsConfigured = false;
     return device;
 }
 
@@ -122,7 +140,7 @@ USBDeviceNode* USBHost::GetDevice(uint8_t deviceAddr)
     if (deviceAddr != 0)
     {
         const size_t index = deviceAddr - 1;
-        if (index < m_Devices.size()) {
+        if (index < m_Devices.size() && m_Devices[index].m_IsConnected) {
             return &m_Devices[index];
         } else {
             return nullptr;
@@ -181,8 +199,8 @@ void* USBHost::Run()
 
                     snooze_ms(100);
 
-                    m_Device0.m_Speed = m_Driver->HostGetSpeed();
-                    m_ControlHandler.AllocPipes(0, m_Device0.m_Speed, 0);
+                    PrepareDevice0(m_Driver->HostGetSpeed(), 0, 0);
+                    m_ControlHandler.AllocPipes(0, m_Device0.m_Speed, (m_Device0.m_Speed == USB_Speed::LOW) ? 8 : 64);
                     m_Enumerator.Enumerate(p_bind_method(this, &USBHost::HandleEnumerationDone));
                     break;
                 case USBHostEventID::DeviceDetached:
@@ -452,7 +470,7 @@ bool USBHost::ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t d
         return false;
     }
 
-    const void* endDesc = reinterpret_cast<const uint8_t*>(configDesc) + configDesc->wTotalLength;
+    const void* endDesc = reinterpret_cast<const uint8_t*>(configDesc) + PLittleEndianToHost(configDesc->wTotalLength);
 
     for (const USB_DescriptorHeader* desc = configDesc->GetNext(); desc < endDesc; )
     {
@@ -483,6 +501,16 @@ bool USBHost::ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t d
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Class    : {:x}h", int(interfaceDesc->bInterfaceClass));
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "SubClass : {:x}h", interfaceDesc->bInterfaceSubClass);
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Protocol : {:x}h", interfaceDesc->bInterfaceProtocol);
+
+        if (interfaceDesc->bInterfaceClass == USB_ClassCode::HUB)
+        {
+            const USB_DescriptorHeader* nextDesc = nullptr;
+            if (!ConfigureHubInterface(deviceAddr, interfaceDesc, endDesc, &nextDesc)) {
+                return false;
+            }
+            desc = nextDesc;
+            continue;
+        }
 
         // Find driver for this interface.
         bool driverFound = false;
@@ -591,8 +619,10 @@ void USBHost::Reset()
     m_PortEnabled     = false;
     m_ResetErrorCount = 0;
     m_EnumErrorCount  = 0;
+    m_HubPortChangeActive = false;
     m_DeviceAttachDeadline = TimeValNanos::infinit;
 
+    m_Device0 = USBDeviceNode();
     m_Device0.m_Address = 0;
     m_Device0.m_Speed   = USB_Speed::FULL;
 
@@ -600,6 +630,8 @@ void USBHost::Reset()
     m_Enumerator.Reset();
     m_Pipes.clear();
     m_Devices.clear();
+    m_PendingHubPortChanges.clear();
+    m_HubPollRestartList.clear();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -668,6 +700,74 @@ void USBHost::HandleDeviceDisconnected()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void USBHost::PrepareDevice0(USB_Speed speed, uint8_t parentHubAddress, uint8_t parentHubPort)
+{
+    m_Device0 = USBDeviceNode();
+    m_Device0.m_Address = 0;
+    m_Device0.m_ParentHubAddress = parentHubAddress;
+    m_Device0.m_ParentHubPort = parentHubPort;
+    m_Device0.m_Speed = speed;
+    m_Device0.m_IsConnected = true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::CloseDevice(uint8_t deviceAddr)
+{
+    USBDeviceNode* device = GetDevice(deviceAddr);
+    if (device == nullptr) {
+        return;
+    }
+
+    for (USBDeviceNode& childDevice : m_Devices)
+    {
+        if (childDevice.m_IsConnected && childDevice.m_ParentHubAddress == deviceAddr) {
+            CloseDevice(childDevice.m_Address);
+        }
+    }
+
+    if (device->m_IsHub) {
+        StopHubInterruptReceive(*device);
+    }
+    CloseDeviceClassDrivers(deviceAddr);
+    *device = USBDeviceNode();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::CloseDeviceClassDrivers(uint8_t deviceAddr)
+{
+    for (const Ptr<USBClassDriverHost>& driver : m_ClassDrivers)
+    {
+        if (driver->IsActive()) {
+            driver->CloseDevice(deviceAddr);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+USBDeviceNode* USBHost::GetDeviceOnHubPort(uint8_t hubAddress, uint8_t portIndex)
+{
+    for (USBDeviceNode& device : m_Devices)
+    {
+        if (device.m_IsConnected && device.m_ParentHubAddress == hubAddress && device.m_ParentHubPort == portIndex) {
+            return &device;
+        }
+    }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 USBHostPipeData* USBHost::GetPipeData(USB_PipeIndex pipeIndex)
 {
     if (pipeIndex >= 0 && pipeIndex < m_Pipes.size() && m_Pipes[pipeIndex].Claimed) {
@@ -681,7 +781,7 @@ USBHostPipeData* USBHost::GetPipeData(USB_PipeIndex pipeIndex)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBHost::SetupClassDrivers()
+void USBHost::SetupClassDrivers(uint8_t deviceAddr)
 {
     if (m_ClassDrivers.empty())
     {
@@ -692,7 +792,7 @@ void USBHost::SetupClassDrivers()
         for (const Ptr<USBClassDriverHost>& driver : m_ClassDrivers)
         {
             if (driver->IsActive()) {
-                driver->Startup();
+                driver->StartupDevice(deviceAddr);
             }
         }
     }
@@ -724,7 +824,12 @@ void USBHost::HandleEnumerationDone(bool result, uint8_t deviceAddr)
     else
     {
         m_Enumerator.Reset();
-        if (++m_EnumErrorCount > 3)
+        if (m_Device0.m_ParentHubAddress != 0)
+        {
+            kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Device enumeration failed on hub {} port {}.", m_Device0.m_ParentHubAddress, m_Device0.m_ParentHubPort);
+            CompleteHubPortChange(m_Device0.m_ParentHubAddress);
+        }
+        else if (++m_EnumErrorCount > 3)
         {
             kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Device enumeration failed.");
         }
@@ -748,7 +853,11 @@ void USBHost::HandleSetConfigurationResult(bool result, uint8_t deviceAddr)
 
         USBDeviceNode* device = GetDevice(deviceAddr);
 
-        if (device != nullptr && device->m_SupportRemoteWakeup)
+        if (device != nullptr && device->m_IsHub)
+        {
+            InitializeHub(deviceAddr);
+        }
+        else if (device != nullptr && device->m_SupportRemoteWakeup)
         {
             USB_ControlRequest request(
                 USB_RequestRecipient::DEVICE,
@@ -763,14 +872,25 @@ void USBHost::HandleSetConfigurationResult(bool result, uint8_t deviceAddr)
         }
         else
         {
-            SetupClassDrivers();
+            SetupClassDrivers(deviceAddr);
+            FinishDeviceConfiguration(deviceAddr);
         }
     }
     else
     {
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Set configuration request failed.");
-        m_ControlHandler.FreePipes();
-        RestartDeviceInitialization();
+        USBDeviceNode* device = GetDevice(deviceAddr);
+        if (device != nullptr && device->m_ParentHubAddress != 0)
+        {
+            const uint8_t parentHubAddress = device->m_ParentHubAddress;
+            CloseDevice(deviceAddr);
+            CompleteHubPortChange(parentHubAddress);
+        }
+        else
+        {
+            m_ControlHandler.FreePipes();
+            RestartDeviceInitialization();
+        }
     }
 }
 
@@ -785,7 +905,24 @@ void USBHost::HandleSetWakeupFeatureResult(bool result, uint8_t deviceAddr)
     } else {
         kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Remote wakeup not supported by device.");
     }
-    SetupClassDrivers();
+    SetupClassDrivers(deviceAddr);
+    FinishDeviceConfiguration(deviceAddr);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::FinishDeviceConfiguration(uint8_t deviceAddr)
+{
+    USBDeviceNode* device = GetDevice(deviceAddr);
+    if (device == nullptr) {
+        return;
+    }
+    device->m_IsConfigured = true;
+    if (device->m_ParentHubAddress != 0) {
+        CompleteHubPortChange(device->m_ParentHubAddress);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -815,6 +952,521 @@ void USBHost::HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbSta
     {
         pipe->URBState = urbState;
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost::ConfigureHubInterface(uint8_t deviceAddr, const USB_DescInterface* interfaceDesc, const void* endDesc, const USB_DescriptorHeader** nextDesc)
+{
+    USBDeviceNode* device = GetDevice(deviceAddr);
+    if (device == nullptr) {
+        return false;
+    }
+
+    device->m_IsHub = true;
+    device->m_HubStatusEndpoint = USB_INVALID_ENDPOINT;
+    device->m_HubStatusEndpointSize = 0;
+
+    const USB_DescriptorHeader* desc = interfaceDesc->GetNext();
+    for (; desc < endDesc; desc = desc->GetNext())
+    {
+        if (desc->bDescriptorType == USB_DescriptorType::INTERFACE || desc->bDescriptorType == USB_DescriptorType::INTERFACE_ASSOCIATION) {
+            break;
+        }
+        if (desc->bDescriptorType != USB_DescriptorType::ENDPOINT) {
+            continue;
+        }
+
+        const USB_DescEndpoint* endpointDesc = static_cast<const USB_DescEndpoint*>(desc);
+        if (endpointDesc->GetTransferType() == USB_TransferType::INTERRUPT && (endpointDesc->bEndpointAddress & USB_ADDRESS_DIR_IN) != 0)
+        {
+            if (!endpointDesc->Validate(device->m_Speed)) {
+                return false;
+            }
+            device->m_HubStatusEndpoint = endpointDesc->bEndpointAddress;
+            device->m_HubStatusEndpointSize = endpointDesc->GetMaxPacketSize();
+            break;
+        }
+    }
+
+    if (device->m_HubStatusEndpoint == USB_INVALID_ENDPOINT || device->m_HubStatusEndpointSize == 0)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Hub interface has no valid interrupt status endpoint.");
+        return false;
+    }
+
+    device->m_HubStatusPipe = AllocPipe(device->m_HubStatusEndpoint);
+    if (device->m_HubStatusPipe == USB_INVALID_PIPE)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to allocate hub status pipe.");
+        return false;
+    }
+
+    if (!OpenPipe(device->m_HubStatusPipe, device->m_HubStatusEndpoint, device->m_Address, device->m_Speed, USB_TransferType::INTERRUPT, device->m_HubStatusEndpointSize))
+    {
+        FreePipe(device->m_HubStatusPipe);
+        device->m_HubStatusPipe = USB_INVALID_PIPE;
+        return false;
+    }
+
+    SetDataToggle(device->m_HubStatusPipe, false);
+    *nextDesc = desc;
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::InitializeHub(uint8_t deviceAddr)
+{
+    uint8_t* buffer = m_ControlHandler.GetCtrlDataBuffer();
+    m_ControlHandler.ReqGetHubDescriptor(deviceAddr, buffer, sizeof(USB_DescHub), p_bind_method(this, &USBHost::HandleGetHubDescriptorResult));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::HandleGetHubDescriptorResult(bool result, uint8_t deviceAddr)
+{
+    USBDeviceNode* device = GetDevice(deviceAddr);
+    if (device == nullptr) {
+        return;
+    }
+
+    if (!result)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to get hub descriptor.");
+        FinishDeviceConfiguration(deviceAddr);
+        return;
+    }
+
+    const USB_DescHub* hubDesc = reinterpret_cast<const USB_DescHub*>(m_ControlHandler.GetCtrlDataBuffer());
+    if (hubDesc->bDescriptorType != USB_DescriptorType::HUB || hubDesc->bNbrPorts == 0)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Invalid hub descriptor.");
+        FinishDeviceConfiguration(deviceAddr);
+        return;
+    }
+
+    device->m_HubPortCount = hubDesc->bNbrPorts;
+    device->m_HubPowerOnDelayMS = std::max<uint16_t>(hubDesc->GetPowerOnDelayMS(), 100);
+
+    const size_t statusBitmapBytes = (size_t(device->m_HubPortCount) + 1 + 7) / 8;
+    device->m_HubStatusBuffer.resize(std::max(device->m_HubStatusEndpointSize, statusBitmapBytes));
+
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Hub {} has {} ports.", deviceAddr, device->m_HubPortCount);
+
+    PowerHubPort(deviceAddr, 1);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::PowerHubPort(uint8_t deviceAddr, uint8_t portIndex)
+{
+    USBDeviceNode* device = GetDevice(deviceAddr);
+    if (device == nullptr) {
+        return;
+    }
+
+    if (portIndex > device->m_HubPortCount)
+    {
+        if (device->m_HubPowerOnDelayMS != 0) {
+            snooze_ms(device->m_HubPowerOnDelayMS);
+        }
+        for (uint8_t port = 1; port <= device->m_HubPortCount; ++port)
+        {
+            QueueHubPortChange(deviceAddr, port);
+        }
+        QueueHubPollRestart(deviceAddr);
+        FinishDeviceConfiguration(deviceAddr);
+        ProcessNextHubPortChange();
+        return;
+    }
+
+    m_ControlHandler.ReqSetHubPortFeature(deviceAddr, portIndex, USB_HubFeatureSelector::PORT_POWER,
+        [this, portIndex](bool result, uint8_t deviceAddr)
+        {
+            if (!result) {
+                kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Failed to power hub {} port {}.", deviceAddr, portIndex);
+            }
+            PowerHubPort(deviceAddr, uint8_t(portIndex + 1));
+        }
+    );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::StartHubInterruptReceive(uint8_t deviceAddr)
+{
+    USBDeviceNode* hub = GetDevice(deviceAddr);
+    if (hub == nullptr || !hub->m_IsHub || hub->m_HubStatusPipe == USB_INVALID_PIPE || hub->m_HubStatusBuffer.empty()) {
+        return;
+    }
+    if (GetURBState(hub->m_HubStatusPipe) != USB_URBState::Idle) {
+        return;
+    }
+    std::fill(hub->m_HubStatusBuffer.begin(), hub->m_HubStatusBuffer.end(), 0);
+    InterruptReceiveData(hub->m_HubStatusPipe, hub->m_HubStatusBuffer.data(), hub->m_HubStatusBuffer.size(), p_bind_method(this, &USBHost::HandleHubStatusTransaction));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::StopHubInterruptReceive(USBDeviceNode& hub)
+{
+    if (hub.m_HubStatusPipe != USB_INVALID_PIPE)
+    {
+        ClosePipe(hub.m_HubStatusPipe);
+        FreePipe(hub.m_HubStatusPipe);
+        hub.m_HubStatusPipe = USB_INVALID_PIPE;
+    }
+    hub.m_HubStatusBuffer.clear();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::HandleHubStatusTransaction(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength)
+{
+    USBDeviceNode* hub = nullptr;
+    for (USBDeviceNode& device : m_Devices)
+    {
+        if (device.m_IsConnected && device.m_IsHub && device.m_HubStatusPipe == pipeIndex)
+        {
+            hub = &device;
+            break;
+        }
+    }
+    if (hub == nullptr) {
+        return;
+    }
+    if (urbState == USB_URBState::NotReady) {
+        return;
+    }
+    if (urbState != USB_URBState::Done)
+    {
+        QueueHubPollRestart(hub->m_Address);
+        ProcessNextHubPortChange();
+        return;
+    }
+
+    bool hasPortChanges = false;
+    const size_t bitCount = std::min(transactionLength * 8, size_t(hub->m_HubPortCount) + 1);
+    for (size_t portIndex = 1; portIndex < bitCount; ++portIndex)
+    {
+        const size_t byteIndex = portIndex / 8;
+        const uint8_t bitMask = uint8_t(1u << (portIndex & 7));
+
+        if ((hub->m_HubStatusBuffer[byteIndex] & bitMask) != 0)
+        {
+            QueueHubPortChange(hub->m_Address, uint8_t(portIndex));
+            hasPortChanges = true;
+        }
+    }
+
+    if (hasPortChanges)
+    {
+        QueueHubPollRestart(hub->m_Address);
+        ProcessNextHubPortChange();
+    }
+    else
+    {
+        StartHubInterruptReceive(hub->m_Address);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::QueueHubPortChange(uint8_t hubAddress, uint8_t portIndex)
+{
+    if (hubAddress == 0 || portIndex == 0) {
+        return;
+    }
+    for (const USBHostHubPortEvent& event : m_PendingHubPortChanges)
+    {
+        if (event.HubAddress == hubAddress && event.PortIndex == portIndex) {
+            return;
+        }
+    }
+    m_PendingHubPortChanges.emplace_back(hubAddress, portIndex);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::ProcessNextHubPortChange()
+{
+    if (m_HubPortChangeActive) {
+        return;
+    }
+
+    while (!m_PendingHubPortChanges.empty())
+    {
+        const USBHostHubPortEvent event = m_PendingHubPortChanges.front();
+        m_PendingHubPortChanges.pop_front();
+
+        USBDeviceNode* hub = GetDevice(event.HubAddress);
+        if (hub == nullptr || !hub->m_IsHub || event.PortIndex == 0 || event.PortIndex > hub->m_HubPortCount) {
+            continue;
+        }
+
+        m_HubPortChangeActive = true;
+        USB_HubPortStatus* status = reinterpret_cast<USB_HubPortStatus*>(m_ControlHandler.GetCtrlDataBuffer());
+        if (m_ControlHandler.ReqGetHubPortStatus(event.HubAddress, event.PortIndex, status,
+            [this, event](bool result, uint8_t deviceAddr)
+            {
+                HandleHubPortStatusResult(result, event.HubAddress, event.PortIndex);
+            }
+        ))
+        {
+            return;
+        }
+        m_HubPortChangeActive = false;
+    }
+    RestartPendingHubPolls();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::CompleteHubPortChange(uint8_t hubAddress)
+{
+    if (hubAddress != 0) {
+        QueueHubPollRestart(hubAddress);
+    }
+    m_HubPortChangeActive = false;
+    ProcessNextHubPortChange();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::QueueHubPollRestart(uint8_t hubAddress)
+{
+    if (hubAddress == 0) {
+        return;
+    }
+    if (std::find(m_HubPollRestartList.begin(), m_HubPollRestartList.end(), hubAddress) == m_HubPollRestartList.end()) {
+        m_HubPollRestartList.push_back(hubAddress);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::RestartPendingHubPolls()
+{
+    std::vector<uint8_t> hubList;
+    hubList.swap(m_HubPollRestartList);
+
+    for (uint8_t hubAddress : hubList)
+    {
+        StartHubInterruptReceive(hubAddress);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::HandleHubPortStatusResult(bool result, uint8_t hubAddress, uint8_t portIndex)
+{
+    if (!result)
+    {
+        kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Failed to get hub {} port {} status.", hubAddress, portIndex);
+        CompleteHubPortChange(hubAddress);
+        return;
+    }
+
+    const USB_HubPortStatus* status = reinterpret_cast<const USB_HubPortStatus*>(m_ControlHandler.GetCtrlDataBuffer());
+    const uint16_t portStatus = PLittleEndianToHost(status->wPortStatus);
+    const uint16_t portChange = PLittleEndianToHost(status->wPortChange);
+
+    if ((portChange & USB_HubPortStatus::PORT_CHANGE_CONNECTION) != 0)
+    {
+        ClearHubPortConnectionChange(hubAddress, portIndex, portStatus);
+        return;
+    }
+
+    if ((portStatus & USB_HubPortStatus::PORT_STATUS_CONNECTION) == 0)
+    {
+        USBDeviceNode* device = GetDeviceOnHubPort(hubAddress, portIndex);
+        if (device != nullptr) {
+            CloseDevice(device->m_Address);
+        }
+        CompleteHubPortChange(hubAddress);
+        return;
+    }
+
+    if ((portStatus & USB_HubPortStatus::PORT_STATUS_ENABLE) == 0 || GetDeviceOnHubPort(hubAddress, portIndex) == nullptr)
+    {
+        ResetHubPort(hubAddress, portIndex);
+        return;
+    }
+
+    CompleteHubPortChange(hubAddress);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::ClearHubPortConnectionChange(uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus)
+{
+    m_ControlHandler.ReqClearHubPortFeature(hubAddress, portIndex, USB_HubFeatureSelector::C_PORT_CONNECTION,
+        [this, hubAddress, portIndex, portStatus](bool result, uint8_t deviceAddr)
+        {
+            if (!result)
+            {
+                CompleteHubPortChange(hubAddress);
+                return;
+            }
+
+            USBDeviceNode* device = GetDeviceOnHubPort(hubAddress, portIndex);
+            if (device != nullptr) {
+                CloseDevice(device->m_Address);
+            }
+
+            if ((portStatus & USB_HubPortStatus::PORT_STATUS_CONNECTION) != 0) {
+                ResetHubPort(hubAddress, portIndex);
+            } else {
+                CompleteHubPortChange(hubAddress);
+            }
+        }
+    );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::ResetHubPort(uint8_t hubAddress, uint8_t portIndex)
+{
+    USBDeviceNode* device = GetDeviceOnHubPort(hubAddress, portIndex);
+    if (device != nullptr) {
+        CloseDevice(device->m_Address);
+    }
+
+    m_ControlHandler.ReqSetHubPortFeature(hubAddress, portIndex, USB_HubFeatureSelector::PORT_RESET,
+        [this, hubAddress, portIndex](bool result, uint8_t deviceAddr)
+        {
+            if (!result)
+            {
+                CompleteHubPortChange(hubAddress);
+                return;
+            }
+
+            snooze_ms(100);
+
+            USB_HubPortStatus* status = reinterpret_cast<USB_HubPortStatus*>(m_ControlHandler.GetCtrlDataBuffer());
+            m_ControlHandler.ReqGetHubPortStatus(hubAddress, portIndex, status,
+                [this, hubAddress, portIndex](bool result, uint8_t deviceAddr)
+                {
+                    HandleHubPortResetStatusResult(result, hubAddress, portIndex);
+                }
+            );
+        }
+    );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::HandleHubPortResetStatusResult(bool result, uint8_t hubAddress, uint8_t portIndex)
+{
+    if (!result)
+    {
+        CompleteHubPortChange(hubAddress);
+        return;
+    }
+
+    const USB_HubPortStatus* status = reinterpret_cast<const USB_HubPortStatus*>(m_ControlHandler.GetCtrlDataBuffer());
+    const uint16_t portStatus = PLittleEndianToHost(status->wPortStatus);
+    const uint16_t portChange = PLittleEndianToHost(status->wPortChange);
+
+    if ((portChange & USB_HubPortStatus::PORT_CHANGE_RESET) != 0)
+    {
+        m_ControlHandler.ReqClearHubPortFeature(hubAddress, portIndex, USB_HubFeatureSelector::C_PORT_RESET,
+            [this, hubAddress, portIndex, portStatus](bool result, uint8_t deviceAddr)
+            {
+                HandleHubPortResetChangeCleared(result, hubAddress, portIndex, portStatus);
+            }
+        );
+    }
+    else
+    {
+        HandleHubPortResetChangeCleared(true, hubAddress, portIndex, portStatus);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::HandleHubPortResetChangeCleared(bool result, uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus)
+{
+    if (!result)
+    {
+        CompleteHubPortChange(hubAddress);
+        return;
+    }
+
+    if ((portStatus & USB_HubPortStatus::PORT_STATUS_CONNECTION) == 0 || (portStatus & USB_HubPortStatus::PORT_STATUS_ENABLE) == 0)
+    {
+        CompleteHubPortChange(hubAddress);
+        return;
+    }
+
+    EnumerateHubPortDevice(hubAddress, portIndex, portStatus);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHost::EnumerateHubPortDevice(uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus)
+{
+    const USB_Speed speed = GetHubPortDeviceSpeed(portStatus);
+
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Enumerating hub {} port {} at {} speed.", hubAddress, portIndex, USB_GetSpeedName(speed));
+
+    PrepareDevice0(speed, hubAddress, portIndex);
+    m_ControlHandler.AllocPipes(0, speed, (speed == USB_Speed::LOW) ? 8 : 64);
+    if (!m_Enumerator.Enumerate(p_bind_method(this, &USBHost::HandleEnumerationDone))) {
+        CompleteHubPortChange(hubAddress);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+USB_Speed USBHost::GetHubPortDeviceSpeed(uint16_t portStatus) const
+{
+    if ((portStatus & USB_HubPortStatus::PORT_STATUS_HIGH_SPEED) != 0) {
+        return USB_Speed::HIGH;
+    }
+    if ((portStatus & USB_HubPortStatus::PORT_STATUS_LOW_SPEED) != 0) {
+        return USB_Speed::LOW;
+    }
+    return USB_Speed::FULL;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,12 +19,14 @@
 
 #pragma once
 
+#include <deque>
 #include <functional>
 #include <stdint.h>
 
 #include <System/Sections.h>
 #include <Utils/String.h>
 #include <Kernel/USB/USBProtocol.h>
+#include <Kernel/USB/USBProtocolHub.h>
 #include <Kernel/USB/USBCommon.h>
 
 namespace kernel
@@ -52,10 +54,26 @@ public:
     bool ReqGetStringDescriptor(uint8_t deviceAddr, uint8_t stringIndex, PString& outString, USBHostControlRequestCallback&& callback);
     bool ReqSetAddress(uint8_t deviceAddr, USBHostControlRequestCallback&& callback);
     bool ReqSetConfiguration(uint8_t deviceAddr, uint16_t configIndex, USBHostControlRequestCallback&& callback);
+    bool ReqGetHubDescriptor(uint8_t deviceAddr, void* buffer, size_t length, USBHostControlRequestCallback&& callback);
+    bool ReqGetHubPortStatus(uint8_t deviceAddr, uint8_t portIndex, USB_HubPortStatus* status, USBHostControlRequestCallback&& callback);
+    bool ReqSetHubPortFeature(uint8_t deviceAddr, uint8_t portIndex, USB_HubFeatureSelector feature, USBHostControlRequestCallback&& callback);
+    bool ReqClearHubPortFeature(uint8_t deviceAddr, uint8_t portIndex, USB_HubFeatureSelector feature, USBHostControlRequestCallback&& callback);
 
     uint8_t* GetCtrlDataBuffer() { return m_CtrlDataBuffer; }
 
 private:
+    struct ControlRequest
+    {
+        uint8_t                         DeviceAddress = 0;
+        uint8_t                         CallbackDeviceAddress = 0;
+        USB_ControlRequest              Request;
+        void*                           Buffer = nullptr;
+        USBHostControlRequestCallback   Callback;
+    };
+
+    bool QueueControlRequest(uint8_t deviceAddr, uint8_t callbackDeviceAddr, const USB_ControlRequest& request, void* buffer, USBHostControlRequestCallback&& callback);
+    bool StartControlRequest(ControlRequest&& request);
+    void StartNextQueuedRequest();
     void HandleRequestError();
     void HandleRequestCompletion(bool status);
 
@@ -78,6 +96,8 @@ private:
     uint8_t*            m_Buffer                = nullptr;
     USB_ControlRequest  m_Setup;
     uint8_t             m_CtrlDataBuffer[1024];
+    bool                m_RequestActive = false;
+    std::deque<ControlRequest> m_RequestQueue;
     
     USBHostControlRequestCallback   m_RequestCallback;
 };

@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -112,6 +112,7 @@ enum class USB_DescriptorType : uint8_t
     CS_STRING                   = 0x23,
     CS_INTERFACE                = 0x24,
     CS_ENDPOINT                 = 0x25,
+    HUB                         = 0x29,
 
     SUPERSPEED_ENDPOINT_COMPANION     = 0x30,
     SUPERSPEED_ISO_ENDPOINT_COMPANION = 0x31
@@ -677,4 +678,3 @@ struct USB_DescWebUSBURL : USB_DescriptorHeader
 } ATTR_PACKED;
 
 static_assert(sizeof(USB_DescWebUSBURL) == 3);
-

@@ -491,11 +491,14 @@ bool USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex, bool dma)
         channelRegs.HCDMA = reinterpret_cast<uint32_t>(channel.TransferBuffer); // TransferBuffer must be 32-bit aligned.
     }
 
-    const bool isOddFrame = (m_Host->HFNUM & 0x01) == 0;
-    if (isOddFrame) {
-        channelRegs.HCCHAR &= ~USB_OTG_HCCHAR_ODDFRM;
-    } else {
-        channelRegs.HCCHAR |= USB_OTG_HCCHAR_ODDFRM;
+    if (channel.EndpointType == USB_TransferType::INTERRUPT || channel.EndpointType == USB_TransferType::ISOCHRONOUS)
+    {
+        const bool nextFrameIsOdd = (m_Host->HFNUM & 0x01) == 0;
+        if (nextFrameIsOdd) {
+            channelRegs.HCCHAR |= USB_OTG_HCCHAR_ODDFRM;
+        } else {
+            channelRegs.HCCHAR &= ~USB_OTG_HCCHAR_ODDFRM;
+        }
     }
 
     uint32_t tmpreg = channelRegs.HCCHAR;
@@ -745,8 +748,11 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
 
     if (interrupts & USB_OTG_HCINT_FRMOR)
     {
-        HaltChannel(pipeIndex);
+        if (channel.EndpointType == USB_TransferType::INTERRUPT) {
+            channel.ChannelState = USB_HostChannelState::NAK;
+        }
         channelRegs.HCINT = USB_OTG_HCINT_FRMOR;
+        HaltChannel(pipeIndex);
     }
     else if (interrupts & USB_OTG_HCINT_XFRC)
     {
@@ -781,6 +787,28 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
             channel.ToggleIn ^= 1;
         }
     }
+    else if (interrupts & USB_OTG_HCINT_NAK)
+    {
+        if (channel.EndpointType == USB_TransferType::INTERRUPT)
+        {
+            channel.ErrorCount = 0;
+            channel.ChannelState = USB_HostChannelState::NAK;
+            HaltChannel(pipeIndex);
+        }
+        else if (channel.EndpointType == USB_TransferType::CONTROL || channel.EndpointType == USB_TransferType::BULK)
+        {
+            channel.ErrorCount = 0;
+
+            if (!m_Driver->UseDMA())
+            {
+                // Workaround NAK interrupt flood issue.
+                channelRegs.HCINTMSK &= ~USB_OTG_HCINT_NAK;
+                channel.ChannelState = USB_HostChannelState::NAK;
+                HaltChannel(pipeIndex);
+            }
+        }
+        channelRegs.HCINT = USB_OTG_HCINT_NAK;
+    }
     else if (interrupts & USB_OTG_HCINT_CHH)
     {
         // Disable host channel Halt interrupt.
@@ -811,10 +839,19 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
         }
         else if (channel.ChannelState == USB_HostChannelState::NAK)
         {
-            SetChannelURBState(pipeIndex, USB_URBState::NotReady);
+            if (channel.EndpointType != USB_TransferType::INTERRUPT)
+            {
+                SetChannelURBState(pipeIndex, USB_URBState::NotReady);
 
-            // Re-activate the channel.
-            set_bit_group(channelRegs.HCCHAR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS, USB_OTG_HCCHAR_CHENA);
+                // Re-activate the channel.
+                set_bit_group(channelRegs.HCCHAR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS, USB_OTG_HCCHAR_CHENA);
+            }
+            else
+            {
+                channelRegs.HCINT = USB_OTG_HCINT_CHH;
+                StartTransfer(pipeIndex, m_Driver->UseDMA());
+                return;
+            }
         }
         else if (channel.ChannelState == USB_HostChannelState::BBLERR)
         {
@@ -822,27 +859,6 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
             SetChannelURBState(pipeIndex, USB_URBState::Error);
         }
         channelRegs.HCINT = USB_OTG_HCINT_CHH;
-    }
-    else if (interrupts & USB_OTG_HCINT_NAK)
-    {
-        if (channel.EndpointType == USB_TransferType::INTERRUPT)
-        {
-            channel.ErrorCount = 0;
-            HaltChannel(pipeIndex);
-        }
-        else if (channel.EndpointType == USB_TransferType::CONTROL || channel.EndpointType == USB_TransferType::BULK)
-        {
-            channel.ErrorCount = 0;
-
-            if (!m_Driver->UseDMA())
-            {
-                // Workaround NAK interrupt flood issue.
-                channelRegs.HCINTMSK &= ~USB_OTG_HCINT_NAK;
-                channel.ChannelState = USB_HostChannelState::NAK;
-                HaltChannel(pipeIndex);
-            }
-        }
-        channelRegs.HCINT = USB_OTG_HCINT_NAK;
     }
 }
 

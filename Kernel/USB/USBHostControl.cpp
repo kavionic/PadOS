@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -16,6 +16,8 @@
 // along with PadOS. If not, see <http://www.gnu.org/licenses/>.
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.07.2022 20:00
+
+#include <utility>
 
 #include <Utils/Utils.h>
 #include <Kernel/KTime.h>
@@ -52,6 +54,8 @@ void USBHostControl::Reset()
     m_Length               = 0;
     m_Buffer               = nullptr;
     m_RequestCallback      = nullptr;
+    m_RequestActive        = false;
+    m_RequestQueue.clear();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -103,30 +107,8 @@ bool USBHostControl::UpdatePipes(uint8_t deviceAddr, USB_Speed speed, size_t pip
 
 bool USBHostControl::SendControlRequest(uint8_t deviceAddr, const USB_ControlRequest& request, void* buffer, USBHostControlRequestCallback&& callback)
 {
-    m_Setup                 = request;
-    m_Buffer                = static_cast<uint8_t*>(buffer);
-    m_Length                = PLittleEndianToHost(request.wLength);
-    m_CurrentDeviceAddress  = deviceAddr;
-    m_ErrorCount            = 0;
-    m_RequestCallback       = std::move(callback);
-
-    TimeValNanos deadline = kget_monotonic_time() + TimeValNanos::FromSeconds(2.0);
-    while (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle && kget_monotonic_time() < deadline) ksnooze_ms(1); // FIXME: Implement proper blocking for state-change waiting.
-    if (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle)
-    {
-        m_ErrorCount = 0;
-        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Control request error. Pipe not idle.");
-        FreePipes();
-        m_HostHandler->RestartDeviceInitialization();
-        HandleRequestCompletion(false);
-        return false;
-    }
-    return m_HostHandler->ControlSendSetup(m_PipeOut, &m_Setup, p_bind_method(this, &USBHostControl::ControlSentCallback));
+    return QueueControlRequest(deviceAddr, deviceAddr, request, buffer, std::move(callback));
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
 bool USBHostControl::ReqGetDescriptor(uint8_t deviceAddr, USB_RequestRecipient recipient, USB_RequestType type, USB_DescriptorType descType, uint16_t descIndex, uint16_t index, void* buffer, size_t length, USBHostControlRequestCallback&& callback)
 {
@@ -149,14 +131,16 @@ bool USBHostControl::ReqGetDescriptor(uint8_t deviceAddr, USB_RequestRecipient r
 bool USBHostControl::ReqGetStringDescriptor(uint8_t deviceAddr, uint8_t stringIndex, PString& outString, USBHostControlRequestCallback&& callback)
 {
     return ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::STRING, stringIndex, uint16_t(USB_LanguageID::ENGLISH_UNITED_STATES), m_CtrlDataBuffer, sizeof(m_CtrlDataBuffer),
-        [this, &outString, callback](bool result, uint8_t deviceAddr)
+        [this, &outString, callback = std::move(callback)](bool result, uint8_t deviceAddr)
         {
             if (result)
             {
                 const USB_DescString* stringDesc = reinterpret_cast<const USB_DescString*>(m_CtrlDataBuffer);
                 outString = ParseStringDescriptor(stringDesc);
             }
-            callback(result, deviceAddr);
+            if (callback) {
+                callback(result, deviceAddr);
+            }
         }
     );
 }
@@ -176,15 +160,7 @@ bool USBHostControl::ReqSetAddress(uint8_t deviceAddr, USBHostControlRequestCall
         0,
         0
     );
-    if (SendControlRequest(0, request, nullptr, std::move(callback)))
-    {
-        m_CurrentDeviceAddress = deviceAddr;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    return QueueControlRequest(0, deviceAddr, request, nullptr, std::move(callback));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -209,6 +185,144 @@ bool USBHostControl::ReqSetConfiguration(uint8_t deviceAddr, uint16_t configInde
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool USBHostControl::ReqGetHubDescriptor(uint8_t deviceAddr, void* buffer, size_t length, USBHostControlRequestCallback&& callback)
+{
+    return ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::CLASS, USB_DescriptorType::HUB, 0, 0, buffer, length, std::move(callback));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHostControl::ReqGetHubPortStatus(uint8_t deviceAddr, uint8_t portIndex, USB_HubPortStatus* status, USBHostControlRequestCallback&& callback)
+{
+    USB_ControlRequest request(
+        USB_RequestRecipient::OTHER,
+        USB_RequestType::CLASS,
+        USB_RequestDirection::DEVICE_TO_HOST,
+        uint8_t(USB_RequestCode::GET_STATUS),
+        0,
+        portIndex,
+        sizeof(USB_HubPortStatus)
+    );
+    return SendControlRequest(deviceAddr, request, status, std::move(callback));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHostControl::ReqSetHubPortFeature(uint8_t deviceAddr, uint8_t portIndex, USB_HubFeatureSelector feature, USBHostControlRequestCallback&& callback)
+{
+    USB_ControlRequest request(
+        USB_RequestRecipient::OTHER,
+        USB_RequestType::CLASS,
+        USB_RequestDirection::HOST_TO_DEVICE,
+        uint8_t(USB_RequestCode::SET_FEATURE),
+        std::to_underlying(feature),
+        portIndex,
+        0
+    );
+    return SendControlRequest(deviceAddr, request, nullptr, std::move(callback));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHostControl::ReqClearHubPortFeature(uint8_t deviceAddr, uint8_t portIndex, USB_HubFeatureSelector feature, USBHostControlRequestCallback&& callback)
+{
+    USB_ControlRequest request(
+        USB_RequestRecipient::OTHER,
+        USB_RequestType::CLASS,
+        USB_RequestDirection::HOST_TO_DEVICE,
+        uint8_t(USB_RequestCode::CLEAR_FEATURE),
+        std::to_underlying(feature),
+        portIndex,
+        0
+    );
+    return SendControlRequest(deviceAddr, request, nullptr, std::move(callback));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHostControl::QueueControlRequest(uint8_t deviceAddr, uint8_t callbackDeviceAddr, const USB_ControlRequest& request, void* buffer, USBHostControlRequestCallback&& callback)
+{
+    ControlRequest controlRequest;
+    controlRequest.DeviceAddress = deviceAddr;
+    controlRequest.CallbackDeviceAddress = callbackDeviceAddr;
+    controlRequest.Request = request;
+    controlRequest.Buffer = buffer;
+    controlRequest.Callback = std::move(callback);
+
+    if (m_RequestActive)
+    {
+        m_RequestQueue.push_back(std::move(controlRequest));
+        return true;
+    }
+    return StartControlRequest(std::move(controlRequest));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHostControl::StartControlRequest(ControlRequest&& request)
+{
+    m_Setup                 = request.Request;
+    m_Buffer                = static_cast<uint8_t*>(request.Buffer);
+    m_Length                = PLittleEndianToHost(request.Request.wLength);
+    m_CurrentDeviceAddress  = request.CallbackDeviceAddress;
+    m_ErrorCount            = 0;
+    m_RequestCallback       = std::move(request.Callback);
+    m_RequestActive         = true;
+
+    USBDeviceNode* device = m_HostHandler->GetDevice(request.DeviceAddress);
+    if (device == nullptr)
+    {
+        HandleRequestCompletion(false);
+        return false;
+    }
+    const size_t pipeSize = (device->m_DeviceDesc.bMaxPacketSize0 != 0) ? device->m_DeviceDesc.bMaxPacketSize0 : m_PipeSize;
+    UpdatePipes(request.DeviceAddress, device->m_Speed, pipeSize);
+
+    TimeValNanos deadline = kget_monotonic_time() + TimeValNanos::FromSeconds(2.0);
+    while (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle && kget_monotonic_time() < deadline) ksnooze_ms(1); // FIXME: Implement proper blocking for state-change waiting.
+    if (m_HostHandler->GetURBState(m_PipeOut) != USB_URBState::Idle)
+    {
+        m_ErrorCount = 0;
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Control request error. Pipe not idle.");
+        HandleRequestCompletion(false);
+        return false;
+    }
+    if (!m_HostHandler->ControlSendSetup(m_PipeOut, &m_Setup, p_bind_method(this, &USBHostControl::ControlSentCallback)))
+    {
+        HandleRequestCompletion(false);
+        return false;
+    }
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostControl::StartNextQueuedRequest()
+{
+    if (!m_RequestActive && !m_RequestQueue.empty())
+    {
+        ControlRequest request = std::move(m_RequestQueue.front());
+        m_RequestQueue.pop_front();
+        StartControlRequest(std::move(request));
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void USBHostControl::HandleRequestError()
 {
     if (m_ErrorCount++ == 0)
@@ -220,8 +334,6 @@ void USBHostControl::HandleRequestError()
     {
         m_ErrorCount = 0;
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Control request error. Device not responding.");
-        FreePipes();
-        m_HostHandler->RestartDeviceInitialization();
         HandleRequestCompletion(false);
     }
 }
@@ -232,11 +344,15 @@ void USBHostControl::HandleRequestError()
 
 void USBHostControl::HandleRequestCompletion(bool status)
 {
+    m_RequestActive = false;
     if (m_RequestCallback)
     {
         USBHostControlRequestCallback callback = std::move(m_RequestCallback);
         m_RequestCallback = nullptr;
         callback(status, m_CurrentDeviceAddress);
+    }
+    if (!m_RequestActive) {
+        StartNextQueuedRequest();
     }
 }
 

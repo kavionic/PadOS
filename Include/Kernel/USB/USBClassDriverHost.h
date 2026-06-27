@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2022 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2022-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -38,7 +38,9 @@ public:
     virtual void                        Shutdown() { m_HostHandler = nullptr; }
     virtual const USB_DescriptorHeader* Open(uint8_t deviceAddress, const USB_DescInterface* interfaceDesc, const USB_DescInterfaceAssociation* interfaceAssociationDesc, const void* endDesc) = 0;
     virtual void                        Close() = 0;
+    virtual void                        CloseDevice(uint8_t deviceAddress) { Close(); }
     virtual void                        Startup() = 0;
+    virtual void                        StartupDevice(uint8_t deviceAddress) { Startup(); }
     virtual void                        StartOfFrame() = 0;
 
     bool IsActive() const { return m_IsActive; }

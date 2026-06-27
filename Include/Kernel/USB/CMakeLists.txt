@@ -9,6 +9,7 @@ target_sources(PadOS_Kernel PRIVATE
 	USBHost.h
 	USBHostControl.h
 	USBHostEnumerator.h
+	USBHostHub.h
 	USBProtocol.h
 	USBProtocolCDC.h
 	USBProtocolHub.h

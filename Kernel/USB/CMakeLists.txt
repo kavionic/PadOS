@@ -9,6 +9,7 @@ if(PADOS_MODULE_USB_HOST)
 	USBHost.cpp
 	USBHostControl.cpp
 	USBHostEnumerator.cpp
+	USBHostHub.cpp
 	)
 endif()
 

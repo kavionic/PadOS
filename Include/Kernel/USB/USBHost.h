@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include <deque>
 #include <stdint.h>
 #include <vector>
 
@@ -32,10 +31,10 @@
 
 #include <Kernel/USB/USBEndpointState.h>
 #include <Kernel/USB/USBProtocol.h>
-#include <Kernel/USB/USBProtocolHub.h>
 #include <Kernel/USB/USBCommon.h>
 #include <Kernel/USB/USBHostControl.h>
 #include <Kernel/USB/USBHostEnumerator.h>
+#include <Kernel/USB/USBHostHub.h>
 
 namespace kernel
 {
@@ -107,14 +106,6 @@ public:
     std::vector<uint8_t> m_HubStatusBuffer;
 };
 
-struct USBHostHubPortEvent
-{
-    USBHostHubPortEvent(uint8_t hubAddress = 0, uint8_t portIndex = 0) noexcept : HubAddress(hubAddress), PortIndex(portIndex) {}
-
-    uint8_t HubAddress;
-    uint8_t PortIndex;
-};
-
 struct USBHostEvent
 {
     USBHostEvent(USBHostEventID eventID = USBHostEventID::None) : EventID(eventID) {}
@@ -148,10 +139,14 @@ public:
     USBHostControl& GetControlHandler();
     USBDeviceNode*  CreateDeviceNode();
     USBDeviceNode*  GetDevice(uint8_t deviceAddr);
+    USBDeviceNode*  GetHubDevice(USB_PipeIndex pipeIndex);
+    USBDeviceNode*  GetDeviceOnHubPort(uint8_t hubAddress, uint8_t portIndex);
 
     void            RestartDeviceInitialization();
 
     bool            AddClassDriver(Ptr<USBClassDriverHost> pclass);
+    bool            Enumerate();
+    bool            EnumeratePortDevice(uint8_t hubAddress, uint8_t portIndex, USB_Speed speed);
     bool            ReEnumerate();
 
     bool            IsPortEnabled();
@@ -173,7 +168,11 @@ public:
     USB_PipeIndex   AllocPipe(uint8_t endpointAddr);
     void            FreePipe(USB_PipeIndex pipeIndex);
 
-    bool ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t deviceAddr);
+    bool            ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t deviceAddr);
+    void            FinishDeviceConfiguration(uint8_t deviceAddr);
+
+    void            CloseDevice(uint8_t deviceAddr);
+
 
     KMutex& GetMutex() { return m_Mutex; }
 
@@ -192,9 +191,7 @@ private:
     bool                CloseActiveClassDrivers();
     void                HandleDeviceDisconnected();
     void                PrepareDevice0(USB_Speed speed, uint8_t parentHubAddress, uint8_t parentHubPort);
-    void                CloseDevice(uint8_t deviceAddr);
     void                CloseDeviceClassDrivers(uint8_t deviceAddr);
-    USBDeviceNode*      GetDeviceOnHubPort(uint8_t hubAddress, uint8_t portIndex);
 
     USBHostPipeData*    GetPipeData(USB_PipeIndex pipeIndex);
 
@@ -203,28 +200,7 @@ private:
     void HandleEnumerationDone(bool result, uint8_t deviceAddr);
     void HandleSetConfigurationResult(bool result, uint8_t deviceAddr);
     void HandleSetWakeupFeatureResult(bool result, uint8_t deviceAddr);
-    void FinishDeviceConfiguration(uint8_t deviceAddr);
     void HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transferLength);
-
-    bool ConfigureHubInterface(uint8_t deviceAddr, const USB_DescInterface* interfaceDesc, const void* endDesc, const USB_DescriptorHeader** nextDesc);
-    void InitializeHub(uint8_t deviceAddr);
-    void HandleGetHubDescriptorResult(bool result, uint8_t deviceAddr);
-    void PowerHubPort(uint8_t deviceAddr, uint8_t portIndex);
-    void StartHubInterruptReceive(uint8_t deviceAddr);
-    void StopHubInterruptReceive(USBDeviceNode& hub);
-    void HandleHubStatusTransaction(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
-    void QueueHubPortChange(uint8_t hubAddress, uint8_t portIndex);
-    void ProcessNextHubPortChange();
-    void CompleteHubPortChange(uint8_t hubAddress);
-    void QueueHubPollRestart(uint8_t hubAddress);
-    void RestartPendingHubPolls();
-    void HandleHubPortStatusResult(bool result, uint8_t hubAddress, uint8_t portIndex);
-    void ClearHubPortConnectionChange(uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus);
-    void ResetHubPort(uint8_t hubAddress, uint8_t portIndex);
-    void HandleHubPortResetStatusResult(bool result, uint8_t hubAddress, uint8_t portIndex);
-    void HandleHubPortResetChangeCleared(bool result, uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus);
-    void EnumerateHubPortDevice(uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus);
-    USB_Speed GetHubPortDeviceSpeed(uint16_t portStatus) const;
 
     bool IRQDeviceConnected();
     void IRQDeviceDisconnected();
@@ -234,6 +210,7 @@ private:
 
     USBHostControl                          m_ControlHandler;
     USBHostEnumerator                       m_Enumerator;
+    USBHostHub                              m_HubHandler;
     USBDriver*                              m_Driver = nullptr;
 
     KMutex                                  m_Mutex;
@@ -245,12 +222,9 @@ private:
 
     std::vector<Ptr<USBClassDriverHost>>    m_ClassDrivers;
     std::vector<USBHostPipeData>            m_Pipes;
-    std::deque<USBHostHubPortEvent>         m_PendingHubPortChanges;
-    std::vector<uint8_t>                    m_HubPollRestartList;
     TimeValNanos                            m_DeviceAttachDeadline  = TimeValNanos::infinit;
     uint8_t                                 m_ResetErrorCount       = 0;
     uint8_t                                 m_EnumErrorCount        = 0;
-    bool                                    m_HubPortChangeActive   = false;
     bool                                    m_PortEnabled           = false;
 };
 

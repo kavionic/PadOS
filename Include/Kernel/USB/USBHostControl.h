@@ -24,6 +24,7 @@
 #include <stdint.h>
 
 #include <System/Sections.h>
+#include <System/TimeValue.h>
 #include <Utils/String.h>
 #include <Kernel/USB/USBProtocol.h>
 #include <Kernel/USB/USBProtocolHub.h>
@@ -49,6 +50,8 @@ public:
     bool UpdatePipes(uint8_t deviceAddr, USB_Speed speed, size_t pipeSize);
 
     bool SendControlRequest(uint8_t deviceAddr, const USB_ControlRequest& request, void* buff, USBHostControlRequestCallback&& callback);
+    TimeValNanos GetRequestDeadline() const { return m_RequestDeadline; }
+    bool HandleRequestTimeout(TimeValNanos currentTime);
 
     bool ReqGetDescriptor(uint8_t deviceAddr, USB_RequestRecipient recipient, USB_RequestType type, USB_DescriptorType descType, uint16_t descIndex, uint16_t index, void* buffer, size_t length, USBHostControlRequestCallback&& callback);
     bool ReqGetStringDescriptor(uint8_t deviceAddr, uint8_t stringIndex, PString& outString, USBHostControlRequestCallback&& callback);
@@ -62,6 +65,8 @@ public:
     uint8_t* GetCtrlDataBuffer() { return m_CtrlDataBuffer; }
 
 private:
+    static constexpr TimeValNanos REQUEST_TIMEOUT = TimeValNanos::FromSeconds(2.0);
+
     struct ControlRequest
     {
         uint8_t                         DeviceAddress = 0;
@@ -74,6 +79,8 @@ private:
     bool QueueControlRequest(uint8_t deviceAddr, uint8_t callbackDeviceAddr, const USB_ControlRequest& request, void* buffer, USBHostControlRequestCallback&& callback);
     bool StartControlRequest(ControlRequest&& request);
     void StartNextQueuedRequest();
+    void CancelCurrentTransfer();
+    void LogRequestError(const char* stage);
     void HandleRequestError();
     void HandleRequestCompletion(bool status);
 
@@ -97,6 +104,7 @@ private:
     USB_ControlRequest  m_Setup;
     uint8_t             m_CtrlDataBuffer[1024];
     bool                m_RequestActive = false;
+    TimeValNanos        m_RequestDeadline = TimeValNanos::infinit;
     std::deque<ControlRequest> m_RequestQueue;
     
     USBHostControlRequestCallback   m_RequestCallback;

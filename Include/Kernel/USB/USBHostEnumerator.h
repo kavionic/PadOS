@@ -42,6 +42,7 @@ private:
     void HandleConfigurationHeaderResult(bool result, uint8_t deviceAddr);
     void HandleConfigurationFullResult(bool result, uint8_t deviceAddr);
     void HandleSetAddressResult(bool result, uint8_t deviceAddr);
+    void StartConfigurationDescriptorRead(uint8_t deviceAddr);
     void GetStringDescriptors(uint8_t deviceAddr);
     void HandleGetManufacturerStringResult(bool result, uint8_t deviceAddr);
     void HandleGetProductStringResult(bool result, uint8_t deviceAddr);

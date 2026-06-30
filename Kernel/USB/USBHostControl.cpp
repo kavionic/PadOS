@@ -30,7 +30,6 @@
 namespace kernel
 {
 
-
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -55,6 +54,7 @@ void USBHostControl::Reset()
     m_Buffer               = nullptr;
     m_RequestCallback      = nullptr;
     m_RequestActive        = false;
+    m_RequestDeadline      = TimeValNanos::infinit;
     m_RequestQueue.clear();
 }
 
@@ -109,6 +109,40 @@ bool USBHostControl::SendControlRequest(uint8_t deviceAddr, const USB_ControlReq
 {
     return QueueControlRequest(deviceAddr, deviceAddr, request, buffer, std::move(callback));
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHostControl::HandleRequestTimeout(TimeValNanos currentTime)
+{
+    if (!m_RequestActive || m_RequestDeadline.IsInfinit() || currentTime < m_RequestDeadline) {
+        return false;
+    }
+
+    const uint8_t  request = m_Setup.bRequest;
+    const uint16_t value   = m_Setup.wValue;
+    const uint16_t index   = m_Setup.wIndex;
+    const uint16_t length  = m_Setup.wLength;
+
+    kernel_log<PLogSeverity::WARNING>(
+        LogCategoryUSBHost,
+        "Control request timeout: device={}, request={}, value={:04x}, index={:04x}, length={}.",
+        m_CurrentDeviceAddress,
+        request,
+        value,
+        index,
+        length
+    );
+
+    CancelCurrentTransfer();
+    HandleRequestCompletion(false);
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
 
 bool USBHostControl::ReqGetDescriptor(uint8_t deviceAddr, USB_RequestRecipient recipient, USB_RequestType type, USB_DescriptorType descType, uint16_t descIndex, uint16_t index, void* buffer, size_t length, USBHostControlRequestCallback&& callback)
 {
@@ -278,6 +312,7 @@ bool USBHostControl::StartControlRequest(ControlRequest&& request)
     m_ErrorCount            = 0;
     m_RequestCallback       = std::move(request.Callback);
     m_RequestActive         = true;
+    m_RequestDeadline       = kget_monotonic_time() + REQUEST_TIMEOUT;
 
     USBDeviceNode* device = m_HostHandler->GetDevice(request.DeviceAddress);
     if (device == nullptr)
@@ -294,6 +329,7 @@ bool USBHostControl::StartControlRequest(ControlRequest&& request)
     {
         m_ErrorCount = 0;
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Control request error. Pipe not idle.");
+        CancelCurrentTransfer();
         HandleRequestCompletion(false);
         return false;
     }
@@ -323,6 +359,47 @@ void USBHostControl::StartNextQueuedRequest()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void USBHostControl::CancelCurrentTransfer()
+{
+    if (m_HostHandler != nullptr)
+    {
+        m_HostHandler->CancelPipe(m_PipeIn);
+        m_HostHandler->CancelPipe(m_PipeOut);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostControl::LogRequestError(const char* stage)
+{
+    if (m_HostHandler == nullptr) {
+        return;
+    }
+
+    const uint8_t  request = m_Setup.bRequest;
+    const uint16_t value   = m_Setup.wValue;
+    const uint16_t index   = m_Setup.wIndex;
+    const uint16_t length  = m_Setup.wLength;
+
+    kernel_log<PLogSeverity::INFO_LOW_VOL>(
+        LogCategoryUSBHost,
+        "Control request {} error: device={}, request={}, value={:04x}, index={:04x}, length={}, retry={}.",
+        (stage != nullptr) ? stage : "unknown",
+        m_CurrentDeviceAddress,
+        request,
+        value,
+        index,
+        length,
+        m_ErrorCount
+    );
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void USBHostControl::HandleRequestError()
 {
     if (m_ErrorCount++ == 0)
@@ -334,6 +411,7 @@ void USBHostControl::HandleRequestError()
     {
         m_ErrorCount = 0;
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Control request error. Device not responding.");
+        CancelCurrentTransfer();
         HandleRequestCompletion(false);
     }
 }
@@ -345,6 +423,7 @@ void USBHostControl::HandleRequestError()
 void USBHostControl::HandleRequestCompletion(bool status)
 {
     m_RequestActive = false;
+    m_RequestDeadline = TimeValNanos::infinit;
     if (m_RequestCallback)
     {
         USBHostControlRequestCallback callback = std::move(m_RequestCallback);
@@ -403,6 +482,7 @@ void USBHostControl::ControlSentCallback(USB_PipeIndex pipeIndex, USB_URBState u
     else
     {
         if (urbState == USB_URBState::Error || urbState == USB_URBState::NotReady) {
+            LogRequestError("setup");
             HandleRequestError();
         }
     }
@@ -419,6 +499,7 @@ void USBHostControl::ControlDataReceivedCallback(USB_PipeIndex pipeIndex, USB_UR
     } else if (urbState == USB_URBState::Stall) {
         HandleRequestCompletion(false);
     } else if (urbState == USB_URBState::Error) {
+        LogRequestError("data IN");
         HandleRequestError();
     }
 }
@@ -436,6 +517,7 @@ void USBHostControl::ControlDataSentCallback(USB_PipeIndex pipeIndex, USB_URBSta
     } else if (urbState == USB_URBState::NotReady) { // Received NAK from device.
         m_HostHandler->ControlSendData(m_PipeOut, m_Buffer, m_Length, true, p_bind_method(this, &USBHostControl::ControlDataSentCallback));
     } else if (urbState == USB_URBState::Error) {
+        LogRequestError("data OUT");
         HandleRequestError();
     }
 }
@@ -451,6 +533,7 @@ void USBHostControl::ControlStatusSentCallback(USB_PipeIndex pipeIndex, USB_URBS
     } else if (urbState == USB_URBState::NotReady) {
         m_HostHandler->ControlSendData(m_PipeOut, nullptr, 0, true, p_bind_method(this, &USBHostControl::ControlStatusSentCallback));
     } else if (urbState == USB_URBState::Error) {
+        LogRequestError("status OUT");
         HandleRequestError();
     }
 }
@@ -464,6 +547,7 @@ void USBHostControl::ControlStatusReceivedCallback(USB_PipeIndex pipeIndex, USB_
     if (urbState == USB_URBState::Done) {
         HandleRequestCompletion(true);
     } else if (urbState == USB_URBState::Error) {
+        LogRequestError("status IN");
         HandleRequestError();
     } else if (urbState == USB_URBState::Stall) {
         HandleRequestCompletion(false);

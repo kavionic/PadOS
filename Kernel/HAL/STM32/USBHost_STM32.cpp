@@ -51,6 +51,9 @@ bool USBHost_STM32::Setup(USB_STM32* driver, USB_OTG_ID portID, bool enableVBusS
     // Restart the Phy clock.
     *m_PCGCCTL = 0;
 
+    // Match the DWC2 host init path: use maximum FS timeout calibration.
+    set_bit_group(m_Port->GUSBCFG, USB_OTG_GUSBCFG_TOCAL_Msk, 7u << USB_OTG_GUSBCFG_TOCAL_Pos);
+
     // Disable VBUS sensing.
     m_Port->GCCFG &= ~USB_OTG_GCCFG_VBDEN;
 
@@ -149,6 +152,8 @@ bool USBHost_STM32::StopHost()
     bool ret = true;
 
     m_Driver->EnableIRQ(false);
+    m_Port->GINTMSK &= ~USB_OTG_GINTMSK_HCIM;
+    m_Host->HAINTMSK = 0;
 
     if (!m_Driver->FlushTxFifo(16))
     {
@@ -170,13 +175,17 @@ bool USBHost_STM32::StopHost()
     {
         set_bit_group(m_HostChannels[i].HCCHAR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS | USB_OTG_HCCHAR_EPDIR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS);
         for (TimeValNanos endTime = kget_monotonic_time() + TimeValNanos::FromMilliseconds(100); kget_monotonic_time() < endTime && (m_HostChannels[i].HCCHAR & USB_OTG_HCCHAR_CHENA); ) {}
+
+        m_HostChannels[i].HCINTMSK = 0;
+        m_HostChannels[i].HCINT = ~0u;
+        m_HostChannels[i].HCTSIZ = 0;
+        m_HostChannels[i].HCDMA = 0;
+        m_ChannelStates[i] = USBHostChannelData();
     }
 
     // Clear any pending host interrupts.
     m_Host->HAINT   = ~0u;
     m_Port->GINTSTS = ~0u;
-
-    m_Driver->EnableIRQ(true);
 
     return ret;
 }
@@ -335,6 +344,35 @@ bool USBHost_STM32::SelectPhyClock(uint32_t clock)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void USBHost_STM32::ActivateChannel(USB_PipeIndex pipeIndex)
+{
+    const USBHostChannelData&   channel = m_ChannelStates[pipeIndex];
+    USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
+
+    uint32_t channelCharacteristics = channelRegs.HCCHAR;
+    const bool nextFrameIsOdd = (m_Host->HFNUM & 0x01) == 0;
+    if (nextFrameIsOdd) {
+        channelCharacteristics |= USB_OTG_HCCHAR_ODDFRM;
+    } else {
+        channelCharacteristics &= ~USB_OTG_HCCHAR_ODDFRM;
+    }
+
+    channelCharacteristics &= ~USB_OTG_HCCHAR_CHDIS;
+
+    if (channel.Direction == USB_RequestDirection::DEVICE_TO_HOST) {
+        channelCharacteristics |= USB_OTG_HCCHAR_EPDIR;
+    } else {
+        channelCharacteristics &= ~USB_OTG_HCCHAR_EPDIR;
+    }
+
+    channelCharacteristics |= USB_OTG_HCCHAR_CHENA;
+    channelRegs.HCCHAR = channelCharacteristics;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 uint32_t USBHost_STM32::GetCurrentFrame()
 {
     return m_Host->HFNUM & USB_OTG_HFNUM_FRNUM;
@@ -416,21 +454,25 @@ bool USBHost_STM32::SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uin
     // Enable channel interrupts.
     m_Port->GINTMSK |= USB_OTG_GINTMSK_HCIM;
 
+    channelRegs.HCSPLT = 0;
+
     const uint32_t hostCoreSpeed = (m_HPRT[0] & USB_OTG_HPRT_PSPD) >> USB_OTG_HPRT_PSPD_Pos;
 
     const bool lowSpeedDevice = speed == USB_Speed::LOW && hostCoreSpeed != USB_OTG_CON_DEVICE_SPEED_LOW;
 
-    channelRegs.HCCHAR
+    uint32_t hostChannelCharacteristics
         = (static_cast<uint32_t>(deviceAddr) << USB_OTG_HCCHAR_DAD_Pos)
         | (static_cast<uint32_t>(USB_ADDRESS_EPNUM(endpointAddr)) << USB_OTG_HCCHAR_EPNUM_Pos)
         | (static_cast<uint32_t>(endpointType) << USB_OTG_HCCHAR_EPTYP_Pos)
         | (static_cast<uint32_t>(maxPacketSize) << USB_OTG_HCCHAR_MPSIZ_Pos)
         | ((channel.Direction == USB_RequestDirection::DEVICE_TO_HOST) ? USB_OTG_HCCHAR_EPDIR : 0)
-        | (lowSpeedDevice ? USB_OTG_HCCHAR_LSDEV : 0);
+        | (lowSpeedDevice ? USB_OTG_HCCHAR_LSDEV : 0)
+        | USB_OTG_HCCHAR_MC_0;
 
     if (endpointType == USB_TransferType::INTERRUPT || endpointType == USB_TransferType::ISOCHRONOUS) {
-        channelRegs.HCCHAR |= USB_OTG_HCCHAR_ODDFRM;
+        hostChannelCharacteristics |= USB_OTG_HCCHAR_ODDFRM;
     }
+    channelRegs.HCCHAR = hostChannelCharacteristics;
     return true;
 }
 
@@ -491,26 +533,7 @@ bool USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex, bool dma)
         channelRegs.HCDMA = reinterpret_cast<uint32_t>(channel.TransferBuffer); // TransferBuffer must be 32-bit aligned.
     }
 
-    if (channel.EndpointType == USB_TransferType::INTERRUPT || channel.EndpointType == USB_TransferType::ISOCHRONOUS)
-    {
-        const bool nextFrameIsOdd = (m_Host->HFNUM & 0x01) == 0;
-        if (nextFrameIsOdd) {
-            channelRegs.HCCHAR |= USB_OTG_HCCHAR_ODDFRM;
-        } else {
-            channelRegs.HCCHAR &= ~USB_OTG_HCCHAR_ODDFRM;
-        }
-    }
-
-    uint32_t tmpreg = channelRegs.HCCHAR;
-    tmpreg &= ~USB_OTG_HCCHAR_CHDIS;
-
-    if (channel.Direction == USB_RequestDirection::DEVICE_TO_HOST) {
-        tmpreg |= USB_OTG_HCCHAR_EPDIR;
-    } else {
-        tmpreg &= ~USB_OTG_HCCHAR_EPDIR;
-    }
-    tmpreg |= USB_OTG_HCCHAR_CHENA;
-    channelRegs.HCCHAR = tmpreg;
+    ActivateChannel(pipeIndex);
 
     if (dma) {
         return true;
@@ -824,17 +847,20 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
         }
         else if (channel.ChannelState == USB_HostChannelState::XACTERR || channel.ChannelState == USB_HostChannelState::DATATGLERR)
         {
-            if (++channel.ErrorCount > 2)
+            if (channel.EndpointType == USB_TransferType::CONTROL && channel.Speed == USB_Speed::LOW && channel.RequestedTransferLength > 0)
+            {
+                channel.ErrorCount = 0;
+                SetChannelURBState(pipeIndex, USB_URBState::Error);
+            }
+            else if (++channel.ErrorCount > 2)
             {
                 channel.ErrorCount = 0;
                 SetChannelURBState(pipeIndex, USB_URBState::Error);
             }
             else
             {
-                SetChannelURBState(pipeIndex, USB_URBState::NotReady);
-
-                // Re-activate the channel.
-                set_bit_group(channelRegs.HCCHAR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS, USB_OTG_HCCHAR_CHENA);
+                // Re-activate the channel for a transient transaction error.
+                ActivateChannel(pipeIndex);
             }
         }
         else if (channel.ChannelState == USB_HostChannelState::NAK)
@@ -844,7 +870,7 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
                 SetChannelURBState(pipeIndex, USB_URBState::NotReady);
 
                 // Re-activate the channel.
-                set_bit_group(channelRegs.HCCHAR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS, USB_OTG_HCCHAR_CHENA);
+                ActivateChannel(pipeIndex);
             }
             else
             {
@@ -1010,9 +1036,8 @@ void USBHost_STM32::HandleChannelOutIRQ(USB_PipeIndex pipeIndex)
             }
             else
             {
-                SetChannelURBState(pipeIndex, USB_URBState::NotReady);
-                // Re-activate the channel.
-                set_bit_group(channelRegs.HCCHAR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS, USB_OTG_HCCHAR_CHENA);
+                // Re-activate the channel for a transient transaction error.
+                ActivateChannel(pipeIndex);
             }
         }
         channelRegs.HCINT = USB_OTG_HCINT_CHH;
@@ -1050,7 +1075,7 @@ void USBHost_STM32::HandleRxFIFONotEmptyIRQ()
                 if (channel.MaxPacketSize == bytesReceived && transferPacketCount > 0)
                 {
                     // Re-activate the channel when more packets are expected.
-                    set_bit_group(channelRegs.HCCHAR, USB_OTG_HCCHAR_CHENA | USB_OTG_HCCHAR_CHDIS, USB_OTG_HCCHAR_CHENA);
+                    ActivateChannel(pipeIndex);
                     channel.ToggleIn ^= 1;
                 }
             }
@@ -1070,14 +1095,24 @@ void USBHost_STM32::HandlePortIRQ()
 {
     const uint32_t  hprt0Src = m_HPRT[0];
     uint32_t        hprt0Dst = hprt0Src;
+    bool            disconnectReported = false;
 
     hprt0Dst &= ~(USB_OTG_HPRT_PENA | USB_OTG_HPRT_PCDET | USB_OTG_HPRT_PENCHNG | USB_OTG_HPRT_POCCHNG);
 
     // Check whether port connect detected.
     if (hprt0Src & USB_OTG_HPRT_PCDET)
     {
-        if (hprt0Src & USB_OTG_HPRT_PCSTS) {
+        if (hprt0Src & USB_OTG_HPRT_PCSTS)
+        {
             m_Driver->IRQDeviceConnected();
+        }
+        else
+        {
+            m_Driver->FlushTxFifo(16);
+            m_Driver->FlushRxFifo();
+            SelectPhyClock(USB_OTG_HCFG_48_MHZ);
+            m_Driver->IRQDeviceDisconnected();
+            disconnectReported = true;
         }
         hprt0Dst |= USB_OTG_HPRT_PCDET;
     }
@@ -1104,7 +1139,12 @@ void USBHost_STM32::HandlePortIRQ()
         }
         else
         {
-            m_Driver->IRQPortEnableChange(false);
+            if (!disconnectReported) {
+                m_Driver->IRQPortEnableChange(false);
+            }
+            if (hprt0Src & USB_OTG_HPRT_PCSTS) {
+                m_Driver->IRQDeviceConnected();
+            }
         }
     }
 

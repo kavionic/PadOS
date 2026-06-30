@@ -77,7 +77,17 @@ void USBHostEnumerator::HandleConfigurationHeaderResult(bool result, uint8_t dev
         if (device != nullptr)
         {
             m_HostHandler->GetControlHandler().UpdatePipes(deviceAddr, device->m_Speed, device->m_DeviceDesc.bMaxPacketSize0);
-            m_HostHandler->GetControlHandler().ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::DEVICE, 0, 0, &device->m_DeviceDesc, sizeof(USB_DescDevice), p_bind_method(this, &USBHostEnumerator::HandleConfigurationFullResult));
+
+            USBDeviceNode* addressedDevice = m_HostHandler->CreateDeviceNode();
+            if (addressedDevice != nullptr)
+            {
+                m_HostHandler->GetControlHandler().ReqSetAddress(addressedDevice->m_Address, p_bind_method(this, &USBHostEnumerator::HandleSetAddressResult));
+            }
+            else
+            {
+                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to allocate new device node.");
+                SendResult(false, deviceAddr);
+            }
         }
     }
     else
@@ -95,18 +105,17 @@ void USBHostEnumerator::HandleConfigurationFullResult(bool result, uint8_t devic
 {
     if (result)
     {
-        USBDeviceNode* device = m_HostHandler->CreateDeviceNode();
+        USBDeviceNode* device = m_HostHandler->GetDevice(deviceAddr);
         if (device != nullptr)
         {
             kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "PID: {:04x}h", int(device->m_DeviceDesc.idProduct));
             kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "VID: {:04x}h", int(device->m_DeviceDesc.idVendor));
 
-            m_HostHandler->GetControlHandler().ReqSetAddress(device->m_Address, p_bind_method(this, &USBHostEnumerator::HandleSetAddressResult));
+            StartConfigurationDescriptorRead(deviceAddr);
         }
         else
         {
-            kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to allocate new device node.");
-            SendResult(result, deviceAddr);
+            SendResult(false, deviceAddr);
         }
     }
     else
@@ -130,53 +139,75 @@ void USBHostEnumerator::HandleSetAddressResult(bool result, uint8_t deviceAddr)
             kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Address {} assigned.", device->m_Address);
 
             USBHostControl& control = m_HostHandler->GetControlHandler();
-            uint8_t* buffer = control.GetCtrlDataBuffer();
-
             control.UpdatePipes(device->m_Address, device->m_Speed, device->m_DeviceDesc.bMaxPacketSize0);
 
-            control.ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::CONFIGURATION, 0, 0, buffer, sizeof(USB_DescConfiguration),
-                [this, buffer, device, &control](bool result, uint8_t deviceAddr)
-                {
-                    if (result)
-                    {
-                        const USB_DescConfiguration* configHeader = reinterpret_cast<const USB_DescConfiguration*>(buffer);
-
-                        control.ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::CONFIGURATION, 0, 0, buffer, configHeader->wTotalLength,
-                            [this, buffer, device](bool result, uint8_t deviceAddr)
-                            {
-                                if (result)
-                                {
-                                    const USB_DescConfiguration* config = reinterpret_cast<const USB_DescConfiguration*>(buffer);
-
-                                    device->m_SelectedConfiguration = config->bConfigurationValue;
-                                    device->m_SupportRemoteWakeup   = (config->bmAttributes & USB_DescConfiguration::ATTRIBUTES_REMOTE_WAKEUP) != 0;
-                                    device->m_SelfPowered           = (config->bmAttributes & USB_DescConfiguration::ATTRIBUTES_SELF_POWERED) != 0;
-
-                                    m_HostHandler->ConfigureDevice(config, deviceAddr);
-                                    GetStringDescriptors(deviceAddr);
-                                }
-                                else
-                                {
-                                    kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to get full configuration descriptor.");
-                                    SendResult(result, deviceAddr);
-                                }
-
-                            }
-                        );
-                    }
-                    else
-                    {
-                        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to get configuration descriptor header.");
-                        SendResult(result, deviceAddr);
-                    }
-                }
-            );
+            control.ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::DEVICE, 0, 0, &device->m_DeviceDesc, sizeof(USB_DescDevice), p_bind_method(this, &USBHostEnumerator::HandleConfigurationFullResult));
+        }
+        else
+        {
+            SendResult(false, deviceAddr);
         }
     }
     else
     {
         kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to set device address.");
         SendResult(result, deviceAddr);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostEnumerator::StartConfigurationDescriptorRead(uint8_t deviceAddr)
+{
+    USBDeviceNode* device = m_HostHandler->GetDevice(deviceAddr);
+    if (device != nullptr)
+    {
+        USBHostControl& control = m_HostHandler->GetControlHandler();
+        uint8_t* buffer = control.GetCtrlDataBuffer();
+
+        control.ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::CONFIGURATION, 0, 0, buffer, sizeof(USB_DescConfiguration),
+            [this, buffer, device, &control](bool result, uint8_t deviceAddr)
+            {
+                if (result)
+                {
+                    const USB_DescConfiguration* configHeader = reinterpret_cast<const USB_DescConfiguration*>(buffer);
+
+                    control.ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::CONFIGURATION, 0, 0, buffer, configHeader->wTotalLength,
+                        [this, buffer, device](bool result, uint8_t deviceAddr)
+                        {
+                            if (result)
+                            {
+                                const USB_DescConfiguration* config = reinterpret_cast<const USB_DescConfiguration*>(buffer);
+
+                                device->m_SelectedConfiguration = config->bConfigurationValue;
+                                device->m_SupportRemoteWakeup   = (config->bmAttributes & USB_DescConfiguration::ATTRIBUTES_REMOTE_WAKEUP) != 0;
+                                device->m_SelfPowered           = (config->bmAttributes & USB_DescConfiguration::ATTRIBUTES_SELF_POWERED) != 0;
+
+                                m_HostHandler->ConfigureDevice(config, deviceAddr);
+                                GetStringDescriptors(deviceAddr);
+                            }
+                            else
+                            {
+                                kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to get full configuration descriptor.");
+                                SendResult(result, deviceAddr);
+                            }
+
+                        }
+                    );
+                }
+                else
+                {
+                    kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to get configuration descriptor header.");
+                    SendResult(result, deviceAddr);
+                }
+            }
+        );
+    }
+    else
+    {
+        SendResult(false, deviceAddr);
     }
 }
 

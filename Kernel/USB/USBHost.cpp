@@ -206,6 +206,11 @@ void* USBHost::Run()
                     if (!m_DeviceAttachDeadline.IsInfinit() && !m_PortEnabled) {
                         break;
                     }
+                    if (m_PortEnabled)
+                    {
+                        kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Ignoring duplicate root-port connect while port is still enabled.");
+                        break;
+                    }
                     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Device connected.");
 
                     Stop();
@@ -245,13 +250,20 @@ void* USBHost::Run()
                     break;
             }
         }
-        else if (!m_DeviceAttachDeadline.IsInfinit() && kget_monotonic_time() > m_DeviceAttachDeadline)
+        else
         {
-            m_DeviceAttachDeadline = TimeValNanos::infinit;
-            if (++m_ResetErrorCount > 3) {
-                kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Device reset failed.");
-            } else {
-                RestartDeviceInitialization();
+            const TimeValNanos currentTime = kget_monotonic_time();
+            if (m_ControlHandler.HandleRequestTimeout(currentTime)) {
+                continue;
+            }
+            if (!m_DeviceAttachDeadline.IsInfinit() && currentTime > m_DeviceAttachDeadline)
+            {
+                m_DeviceAttachDeadline = TimeValNanos::infinit;
+                if (++m_ResetErrorCount > 3) {
+                    kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Device reset failed.");
+                } else {
+                    RestartDeviceInitialization();
+                }
             }
         }
     }
@@ -300,6 +312,17 @@ bool USBHost::EnumeratePortDevice(uint8_t hubAddress, uint8_t portIndex, USB_Spe
 {
     kernel_log<PLogSeverity::INFO_LOW_VOL>(LogCategoryUSBHost, "Enumerating hub {} port {} at {} speed.", hubAddress, portIndex, USB_GetSpeedName(speed));
 
+    if (speed == USB_Speed::LOW && !m_Driver->HostSupportsLowSpeedHubDevices())
+    {
+        kernel_log<PLogSeverity::WARNING>(
+            LogCategoryUSBHost,
+            "Skipping low-speed device on hub {} port {}: host driver does not support low-speed devices behind hubs.",
+            hubAddress,
+            portIndex
+        );
+        return false;
+    }
+
     PrepareDevice0(speed, hubAddress, portIndex);
     GetControlHandler().AllocPipes(0, speed, (speed == USB_Speed::LOW) ? 8 : 64);
     return Enumerate();
@@ -340,6 +363,24 @@ bool USBHost::OpenPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t de
 bool USBHost::ClosePipe(USB_PipeIndex pipeIndex)
 {
     return m_Driver->HaltChannel(pipeIndex);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost::CancelPipe(USB_PipeIndex pipeIndex)
+{
+    USBHostPipeData* pipe = GetPipeData(pipeIndex);
+    if (pipe == nullptr) {
+        return false;
+    }
+
+    pipe->TransactionCallback = nullptr;
+    const bool result = m_Driver->HaltChannel(pipeIndex);
+
+    pipe->URBState = USB_URBState::Idle;
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -568,6 +609,9 @@ bool USBHost::ConfigureDevice(const USB_DescConfiguration* configDesc, uint8_t d
         bool driverFound = false;
         for (const Ptr<USBClassDriverHost>& driver : m_ClassDrivers)
         {
+            if (driver->GetClassCode() != interfaceDesc->bInterfaceClass) {
+                continue;
+            }
             try
             {
                 const USB_DescriptorHeader* nextDesc = driver->Open(deviceAddr, interfaceDesc, desc_iad, endDesc);
@@ -687,7 +731,7 @@ bool USBHost::PopEvent(USBHostEvent& event)
     {
         while (m_EventQueue.GetLength() == 0)
         {
-            const PErrorCode waitResult = m_EventQueueCondition.IRQWaitDeadline(m_DeviceAttachDeadline);
+            const PErrorCode waitResult = m_EventQueueCondition.IRQWaitDeadline(GetNextEventDeadline());
             if (waitResult != PErrorCode::Success)
             {
                 if (waitResult == PErrorCode::TIMEDOUT)
@@ -701,6 +745,19 @@ bool USBHost::PopEvent(USBHostEvent& event)
     } CRITICAL_END;
     m_Mutex.Lock();
     return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+TimeValNanos USBHost::GetNextEventDeadline() const
+{
+    const TimeValNanos controlDeadline = m_ControlHandler.GetRequestDeadline();
+    if (m_DeviceAttachDeadline.IsInfinit() || controlDeadline < m_DeviceAttachDeadline) {
+        return controlDeadline;
+    }
+    return m_DeviceAttachDeadline;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -878,7 +935,7 @@ void USBHost::HandleEnumerationDone(bool result, uint8_t deviceAddr)
         if (m_Device0.m_ParentHubAddress != 0)
         {
             kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "Device enumeration failed on hub {} port {}.", m_Device0.m_ParentHubAddress, m_Device0.m_ParentHubPort);
-            m_HubHandler.CompletePortChange(m_Device0.m_ParentHubAddress);
+            m_HubHandler.HandlePortEnumerationFailed(m_Device0.m_ParentHubAddress, m_Device0.m_ParentHubPort);
         }
         else if (++m_EnumErrorCount > 3)
         {
@@ -970,7 +1027,7 @@ void USBHost::HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbSta
 
     if (pipe != nullptr && pipe->TransactionCallback)
     {
-        if (urbState == USB_URBState::Done || urbState == USB_URBState::Error)
+        if (urbState == USB_URBState::Done || urbState == USB_URBState::Error || urbState == USB_URBState::Stall)
         {
             USB_TransactionCallback callback = std::move(pipe->TransactionCallback);
             pipe->TransactionCallback = nullptr;
@@ -980,18 +1037,20 @@ void USBHost::HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbSta
         else
         {
             pipe->URBState = urbState;
-            pipe->TransactionCallback(pipeIndex, urbState, transferLength);
+            USB_TransactionCallback callback = pipe->TransactionCallback;
+            callback(pipeIndex, urbState, transferLength);
         }
     }
     else if (pipe != nullptr)
     {
-        pipe->URBState = urbState;
+        pipe->URBState = USB_URBState::Idle;
     }
 }
 
 bool USBHost::IRQDeviceConnected()
 {
-    PushEvent(USBHostEventID::DeviceConnected, true);
+    const bool clearPendingEvents = !m_PortEnabled;
+    PushEvent(USBHostEventID::DeviceConnected, clearPendingEvents);
     return true;
 }
 

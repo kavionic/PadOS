@@ -63,6 +63,7 @@ public:
     // Host interface:
 #ifdef PADOS_MODULE_USB_HOST
     virtual USB_Speed   HostGetSpeed() const = 0;
+    virtual bool        HostSupportsLowSpeedHubDevices() const { return true; }
     virtual uint32_t    GetMaxPipeCount() const = 0;
     virtual bool        StartHost() = 0;
     virtual bool        StopHost() = 0;

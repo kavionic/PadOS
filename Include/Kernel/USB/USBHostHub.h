@@ -46,6 +46,7 @@ public:
     void StopInterruptReceive(USBDeviceNode& hub);
     void HandleStatusTransaction(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength);
     void CompletePortChange(uint8_t hubAddress);
+    void HandlePortEnumerationFailed(uint8_t hubAddress, uint8_t portIndex);
 
 private:
     struct HubPortEvent
@@ -67,7 +68,7 @@ private:
     void ClearPortConnectionChange(uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus);
     void ResetPort(uint8_t hubAddress, uint8_t portIndex);
     void HandlePortResetStatusResult(bool result, uint8_t hubAddress, uint8_t portIndex);
-    void HandlePortResetChangeCleared(bool result, uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus);
+    void HandlePortResetChangeCleared(bool result, uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus, uint16_t portChange);
     void EnumeratePortDevice(uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus);
     USB_Speed GetPortDeviceSpeed(uint16_t portStatus) const;
 

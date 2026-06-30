@@ -3,4 +3,6 @@ target_sources(PadOS_Kernel PRIVATE
 	USBClientClassCDC.h
 	USBHostCDCChannel.h
 	USBHostClassCDC.h
+	USBHostClassHID.h
+	USBHostHIDInterface.h
 )

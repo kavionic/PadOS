@@ -88,6 +88,7 @@ public:
     // Host interface:
 #ifdef PADOS_MODULE_USB_HOST
     virtual USB_Speed   HostGetSpeed() const override { return m_HostDriver.HostGetSpeed(); }
+    virtual bool        HostSupportsLowSpeedHubDevices() const override { return false; }
     virtual uint32_t    GetMaxPipeCount() const override { return m_HostDriver.GetMaxPipeCount(); }
     virtual bool        StartHost() override { return m_HostDriver.StartHost(); }
     virtual bool        StopHost() override { return m_HostDriver.StopHost(); }

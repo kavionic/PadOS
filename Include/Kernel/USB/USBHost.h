@@ -152,6 +152,7 @@ public:
     bool            IsPortEnabled();
     bool            OpenPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize);
     bool            ClosePipe(USB_PipeIndex pipeIndex);
+    bool            CancelPipe(USB_PipeIndex pipeIndex);
     USB_URBState    GetURBState(USB_PipeIndex pipeIndex);
     bool            SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
     bool            GetDataToggle(USB_PipeIndex pipeIndex);
@@ -185,6 +186,7 @@ private:
     bool                PushEvent(USBHostEventID eventID, bool clearQueue = false);
     bool                PushEvent(const USBHostEvent& event, bool clearQueue = false);
     bool                PopEvent(USBHostEvent& event);
+    TimeValNanos        GetNextEventDeadline() const;
 
     void                Reset();
     bool                Stop();

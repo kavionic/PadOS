@@ -28,6 +28,8 @@
 namespace kernel
 {
 
+static constexpr uint32_t HUB_PORT_RESET_RECOVERY_DELAY_MS = 50;
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
@@ -206,6 +208,15 @@ void USBHostHub::CompletePortChange(uint8_t hubAddress)
     }
     m_PortChangeActive = false;
     ProcessNextPortChange();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostHub::HandlePortEnumerationFailed(uint8_t hubAddress, uint8_t portIndex)
+{
+    CompletePortChange(hubAddress);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -517,15 +528,15 @@ void USBHostHub::HandlePortResetStatusResult(bool result, uint8_t hubAddress, ui
     if ((portChange & USB_HubPortStatus::PORT_CHANGE_RESET) != 0)
     {
         m_Host->GetControlHandler().ReqClearHubPortFeature(hubAddress, portIndex, USB_HubFeatureSelector::C_PORT_RESET,
-            [this, hubAddress, portIndex, portStatus](bool result, uint8_t deviceAddr)
+            [this, hubAddress, portIndex, portStatus, portChange](bool result, uint8_t deviceAddr)
             {
-                HandlePortResetChangeCleared(result, hubAddress, portIndex, portStatus);
+                HandlePortResetChangeCleared(result, hubAddress, portIndex, portStatus, portChange);
             }
         );
     }
     else
     {
-        HandlePortResetChangeCleared(true, hubAddress, portIndex, portStatus);
+        HandlePortResetChangeCleared(true, hubAddress, portIndex, portStatus, portChange);
     }
 }
 
@@ -533,7 +544,7 @@ void USBHostHub::HandlePortResetStatusResult(bool result, uint8_t hubAddress, ui
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBHostHub::HandlePortResetChangeCleared(bool result, uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus)
+void USBHostHub::HandlePortResetChangeCleared(bool result, uint8_t hubAddress, uint8_t portIndex, uint16_t portStatus, uint16_t portChange)
 {
     if (!result)
     {
@@ -546,6 +557,8 @@ void USBHostHub::HandlePortResetChangeCleared(bool result, uint8_t hubAddress, u
         CompletePortChange(hubAddress);
         return;
     }
+
+    snooze_ms(HUB_PORT_RESET_RECOVERY_DELAY_MS);
 
     EnumeratePortDevice(hubAddress, portIndex, portStatus);
 }

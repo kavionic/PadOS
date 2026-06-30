@@ -72,6 +72,9 @@ struct USBHostChannelData
     size_t                  XferSize;                   // Current OTG Channel transfer size.
     size_t                  RequestedTransferLength;    // Transfer length as requested by user.
     size_t                  BytesTransferred;           // Bytes transferred so far during the transaction.
+    bool                    StartOnNextSOF;             // Deferred start for frame-sensitive transfers.
+    bool                    RetryOnNextSOF;             // Deferred retry requested from channel halt handling.
+    bool                    ActivateOnNextSOF;          // Deferred continuation for frame-sensitive IN transfers.
     bool                    ToggleIn;                   // IN transfer current toggle flag.
     bool                    ToggleOut;                  // OUT transfer current toggle flag.
     uint32_t                ErrorCount;                 // Host channel error count.
@@ -108,6 +111,7 @@ private:
     void DriveVBus(bool state);
 
     bool SelectPhyClock(uint32_t clock);
+    void ActivateChannel(USB_PipeIndex pipeIndex);
   
     bool StartTransfer(USB_PipeIndex pipeIndex, bool dma);
     bool DoPing(USB_PipeIndex pipeIndex);

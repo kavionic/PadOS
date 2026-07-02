@@ -112,7 +112,16 @@ Ptr<KInode> KVirtualFilesystemBase::FindInode(Ptr<KFSVolume> volume, Ptr<KVirtua
         }
         if (child->IsDirectory())
         {
-            return FindInode(volume, ptr_static_cast<KVirtualFSBaseInode>(child), inodeNum, remove, parentNode);
+            try
+            {
+                return FindInode(volume, ptr_static_cast<KVirtualFSBaseInode>(child), inodeNum, remove, parentNode);
+            }
+            catch (const std::system_error& error)
+            {
+                if (PErrorCode(error.code().value()) != PErrorCode::IO) {
+                    throw;
+                }
+            }
         }
     }
     PERROR_THROW_CODE(PErrorCode::IO);
@@ -416,6 +425,57 @@ void KVirtualFilesystemBase::CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> 
         PERROR_THROW_CODE(PErrorCode::EXIST);
     }
     parent->m_Children[nodeName] = dir;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KVirtualFilesystemBase::Unlink(Ptr<KFSVolume> volume, Ptr<KInode> parentBase, const char* name, int nameLength)
+{
+    Ptr<KVirtualFSVolume> fsVolume = ptr_static_cast<KVirtualFSVolume>(volume);
+
+    CRITICAL_SCOPE(fsVolume->m_Mutex);
+
+    Ptr<KVirtualFSBaseInode> parent = ptr_static_cast<KVirtualFSBaseInode>(parentBase);
+    PString nodeName(name, nameLength);
+    auto nodeIterator = parent->m_Children.find(nodeName);
+
+    if (nodeIterator == parent->m_Children.end()) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    if (nodeIterator->second->IsDirectory()) {
+        PERROR_THROW_CODE(PErrorCode::ISDIR);
+    }
+    parent->m_Children.erase(nodeIterator);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KVirtualFilesystemBase::RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parentBase, const char* name, int nameLength)
+{
+    Ptr<KVirtualFSVolume> fsVolume = ptr_static_cast<KVirtualFSVolume>(volume);
+
+    CRITICAL_SCOPE(fsVolume->m_Mutex);
+
+    Ptr<KVirtualFSBaseInode> parent = ptr_static_cast<KVirtualFSBaseInode>(parentBase);
+    PString nodeName(name, nameLength);
+    auto nodeIterator = parent->m_Children.find(nodeName);
+
+    if (nodeIterator == parent->m_Children.end()) {
+        PERROR_THROW_CODE(PErrorCode::NOENT);
+    }
+    if (!nodeIterator->second->IsDirectory()) {
+        PERROR_THROW_CODE(PErrorCode::NOTDIR);
+    }
+
+    Ptr<KVirtualFSBaseInode> directory = ptr_static_cast<KVirtualFSBaseInode>(nodeIterator->second);
+    if (!directory->m_Children.empty()) {
+        PERROR_THROW_CODE(PErrorCode::NOTEMPTY);
+    }
+    parent->m_Children.erase(nodeIterator);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

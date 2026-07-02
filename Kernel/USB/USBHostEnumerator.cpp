@@ -18,6 +18,7 @@
 // Created: 30.07.2022 23:00
 
 #include <Utils/Utils.h>
+#include <System/Endian.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/USB/USBHostEnumerator.h>
 #include <Kernel/USB/USBHost.h>
@@ -174,16 +175,19 @@ void USBHostEnumerator::StartConfigurationDescriptorRead(uint8_t deviceAddr)
                 {
                     const USB_DescConfiguration* configHeader = reinterpret_cast<const USB_DescConfiguration*>(buffer);
 
-                    control.ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::CONFIGURATION, 0, 0, buffer, configHeader->wTotalLength,
+                    const uint16_t configLength = PLittleEndianToHost(configHeader->wTotalLength);
+                    control.ReqGetDescriptor(deviceAddr, USB_RequestRecipient::DEVICE, USB_RequestType::STANDARD, USB_DescriptorType::CONFIGURATION, 0, 0, buffer, configLength,
                         [this, buffer, device](bool result, uint8_t deviceAddr)
                         {
                             if (result)
                             {
                                 const USB_DescConfiguration* config = reinterpret_cast<const USB_DescConfiguration*>(buffer);
+                                const uint16_t configLength = PLittleEndianToHost(config->wTotalLength);
 
                                 device->m_SelectedConfiguration = config->bConfigurationValue;
                                 device->m_SupportRemoteWakeup   = (config->bmAttributes & USB_DescConfiguration::ATTRIBUTES_REMOTE_WAKEUP) != 0;
                                 device->m_SelfPowered           = (config->bmAttributes & USB_DescConfiguration::ATTRIBUTES_SELF_POWERED) != 0;
+                                device->m_ConfigurationDescriptor.assign(buffer, buffer + configLength);
 
                                 m_HostHandler->ConfigureDevice(config, deviceAddr);
                                 GetStringDescriptors(deviceAddr);

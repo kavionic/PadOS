@@ -11,6 +11,7 @@ if(PADOS_MODULE_USB_HOST)
 	USBHostEnumerator.cpp
 	USBHostHub.cpp
 	)
+	add_subdirectory(DevFS)
 endif()
 
 

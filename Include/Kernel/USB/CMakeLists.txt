@@ -10,6 +10,7 @@ target_sources(PadOS_Kernel PRIVATE
 	USBHostControl.h
 	USBHostEnumerator.h
 	USBHostHub.h
+	DevFS/USBDeviceRegistry.h
 	USBProtocol.h
 	USBProtocolCDC.h
 	USBProtocolHID.h

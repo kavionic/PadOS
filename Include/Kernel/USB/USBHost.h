@@ -35,6 +35,7 @@
 #include <Kernel/USB/USBHostControl.h>
 #include <Kernel/USB/USBHostEnumerator.h>
 #include <Kernel/USB/USBHostHub.h>
+#include <Kernel/USB/DevFS/USBDeviceRegistry.h>
 
 namespace kernel
 {
@@ -97,6 +98,7 @@ public:
     PString         m_ProductString;
     PString         m_SerialNumberString;
     USB_DescDevice  m_DeviceDesc;
+    std::vector<uint8_t> m_ConfigurationDescriptor;
 
     USB_PipeIndex   m_HubStatusPipe         = USB_INVALID_PIPE;
     uint8_t         m_HubStatusEndpoint     = USB_INVALID_ENDPOINT;
@@ -213,6 +215,7 @@ private:
     USBHostControl                          m_ControlHandler;
     USBHostEnumerator                       m_Enumerator;
     USBHostHub                              m_HubHandler;
+    USBDeviceRegistry                       m_DeviceRegistry;
     USBDriver*                              m_Driver = nullptr;
 
     KMutex                                  m_Mutex;

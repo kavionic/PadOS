@@ -75,6 +75,8 @@ public:
 
 	virtual Ptr<KInode>         LoadInode(Ptr<KFSVolume> volume, ino_t inode) override;
 	virtual void                CreateDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength, int permission) override;
+    virtual void                Unlink(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength) override;
+    virtual void                RemoveDirectory(Ptr<KFSVolume> volume, Ptr<KInode> parent, const char* name, int nameLength) override;
 
     virtual size_t              Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t position) override;
 

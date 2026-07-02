@@ -37,7 +37,11 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USBHost::USBHost() : KThread("usb_host"), m_Mutex("usb_host", PEMutexRecursionMode_RaiseError), m_EventQueueCondition("usbh_event_queue")
+USBHost::USBHost()
+    : KThread("usb_host")
+    , m_DeviceRegistry(this, 0)
+    , m_Mutex("usb_host", PEMutexRecursionMode_RaiseError)
+    , m_EventQueueCondition("usbh_event_queue")
 {
 }
 
@@ -654,6 +658,14 @@ void USBHost::FinishDeviceConfiguration(uint8_t deviceAddr)
         return;
     }
     device->m_IsConfigured = true;
+    try
+    {
+        m_DeviceRegistry.RegisterDevice(*device);
+    }
+    PERROR_CATCH([](PErrorCode error)
+    {
+        kernel_log<PLogSeverity::ERROR>(LogCategoryUSBHost, "Failed to register USB devfs nodes: {}", strerror(std::to_underlying(error)));
+    });
     if (device->m_ParentHubAddress != 0) {
         m_HubHandler.CompletePortChange(device->m_ParentHubAddress);
     }
@@ -681,6 +693,7 @@ void USBHost::CloseDevice(uint8_t deviceAddr)
         m_HubHandler.StopInterruptReceive(*device);
     }
     CloseDeviceClassDrivers(deviceAddr);
+    m_DeviceRegistry.RemoveDevice(deviceAddr);
     *device = USBDeviceNode();
 }
 
@@ -766,6 +779,8 @@ TimeValNanos USBHost::GetNextEventDeadline() const
 
 void USBHost::Reset()
 {
+    m_DeviceRegistry.Clear();
+
     m_PortEnabled     = false;
     m_ResetErrorCount = 0;
     m_EnumErrorCount  = 0;

@@ -8,5 +8,6 @@ target_sources(PadOS_Kernel PRIVATE
 	SPI.h
 	TLV493D.h
 	USART.h
+	USB.h
 	WS2812B.h
 )

@@ -297,6 +297,19 @@ struct USB_DescriptorHeader
 
     const USB_DescriptorHeader* GetNext() const { return reinterpret_cast<const USB_DescriptorHeader*>(reinterpret_cast<const uint8_t*>(this) + bLength); }
 
+    bool ValidateLength(const void* bufferEnd) const
+    {
+        const uintptr_t descriptorAddress = reinterpret_cast<uintptr_t>(this);
+        const uintptr_t bufferEndAddress = reinterpret_cast<uintptr_t>(bufferEnd);
+
+        if (descriptorAddress > bufferEndAddress) {
+            return false;
+        }
+
+        const uintptr_t remainingLength = bufferEndAddress - descriptorAddress;
+        return remainingLength >= sizeof(USB_DescriptorHeader) && bLength >= sizeof(USB_DescriptorHeader) && bLength <= remainingLength;
+    }
+
     uint8_t             bLength;           // Descriptor size in bytes.
     USB_DescriptorType  bDescriptorType;   // Descriptor Type.
 } ATTR_PACKED;

@@ -111,7 +111,7 @@ void USBDeviceRegistry::Clear()
 
 void USBDeviceRegistry::RegisterControlNode(DeviceEntry& entry)
 {
-    RegisterNode(entry, entry.DevicePath + "/control", ptr_new<USBDeviceControlInode>(m_Host, entry.DeviceAddress));
+    RegisterNode(entry, entry.DevicePath + "/control", ptr_new<USBDeviceControlInode>(m_Host, m_BusIndex, entry.DeviceAddress));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -128,18 +128,16 @@ void USBDeviceRegistry::RegisterInterfaceNodes(DeviceEntry& entry, const USBDevi
     const USB_DescConfiguration* configDesc = reinterpret_cast<const USB_DescConfiguration*>(descriptorData);
     const size_t totalLength = std::min<size_t>(PLittleEndianToHost(configDesc->wTotalLength), device.m_ConfigurationDescriptor.size());
 
-    const uint8_t* descriptor = descriptorData + configDesc->bLength;
     const uint8_t* endDescriptor = descriptorData + totalLength;
+
+    if (!configDesc->ValidateLength(endDescriptor) || configDesc->bLength < sizeof(USB_DescConfiguration)) {
+        return;
+    }
 
     std::vector<uint8_t> registeredInterfaces;
 
-    while (descriptor + sizeof(USB_DescriptorHeader) <= endDescriptor)
+    for (const USB_DescriptorHeader* header = configDesc->GetNext(); header->ValidateLength(endDescriptor); header = header->GetNext())
     {
-        const USB_DescriptorHeader* header = reinterpret_cast<const USB_DescriptorHeader*>(descriptor);
-        if (header->bLength < sizeof(USB_DescriptorHeader) || descriptor + header->bLength > endDescriptor) {
-            break;
-        }
-
         if (header->bDescriptorType == USB_DescriptorType::INTERFACE && header->bLength >= sizeof(USB_DescInterface))
         {
             const USB_DescInterface* interfaceDesc = reinterpret_cast<const USB_DescInterface*>(header);
@@ -148,11 +146,10 @@ void USBDeviceRegistry::RegisterInterfaceNodes(DeviceEntry& entry, const USBDevi
             if (interfaceDesc->bAlternateSetting == 0 && registeredIterator == registeredInterfaces.end())
             {
                 const PString path = entry.DevicePath + PString::format_string("/interface{}", interfaceDesc->bInterfaceNumber);
-                RegisterNode(entry, path, ptr_new<USBDeviceInterfaceInode>(m_Host, entry.DeviceAddress, interfaceDesc->bInterfaceNumber));
+                RegisterNode(entry, path, ptr_new<USBDeviceInterfaceInode>(m_Host, m_BusIndex, entry.DeviceAddress, interfaceDesc->bInterfaceNumber));
                 registeredInterfaces.push_back(interfaceDesc->bInterfaceNumber);
             }
         }
-        descriptor += header->bLength;
     }
 }
 

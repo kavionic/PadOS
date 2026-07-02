@@ -18,26 +18,45 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
+#include <DeviceControl/USB.h>
 #include <Kernel/VFS/KFilesystem.h>
 #include <Kernel/VFS/KInode.h>
+#include <RPC/RPCDispatcher.h>
 
 namespace kernel
 {
+class USBDeviceNode;
 class USBHost;
 
 class USBDeviceInterfaceInode : public KInode, public KFilesystemFileOps
 {
 public:
-    USBDeviceInterfaceInode(USBHost* host, uint8_t deviceAddress, uint8_t interfaceNumber);
+    USBDeviceInterfaceInode(USBHost* host, uint8_t busIndex, uint8_t deviceAddress, uint8_t interfaceNumber);
 
     virtual void ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
+    virtual void DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
 
 private:
-    USBHost* m_Host = nullptr;
-    uint8_t  m_DeviceAddress = 0;
-    uint8_t  m_InterfaceNumber = 0;
+    uint8_t                  GetDeviceAddress() const;
+    uint8_t                  GetInterfaceNumber() const;
+    void                     GetInterfaceInfo(PUSBDeviceInterfaceInfo* outInfo) const;
+    size_t                   GetDescriptorSize() const;
+    size_t                   ReadDescriptor(size_t offset, void* buffer, size_t bufferSize) const;
+    USBHost&                 GetHost() const;
+    const USBDeviceNode&     GetDevice(USBHost& host) const;
+    const USB_DescInterface& FindInterfaceDescriptor(const USBDeviceNode& device, const uint8_t** outDescriptorData, size_t* outDescriptorOffset, size_t* outDescriptorSize) const;
+    static size_t            GetInterfaceDescriptorBlockSize(const USB_DescriptorHeader* descriptor, const uint8_t* endDescriptor, uint8_t interfaceNumber);
+    static size_t            CopyDescriptorBytes(const uint8_t* descriptor, size_t descriptorSize, size_t offset, void* buffer, size_t bufferSize);
+    static void              InitializeEndpointDescriptors(PUSBDeviceInterfaceInfo& info);
+
+    USBHost*       m_Host = nullptr;
+    uint8_t        m_BusIndex = 0;
+    uint8_t        m_DeviceAddress = 0;
+    uint8_t        m_InterfaceNumber = 0;
+    PRPCDispatcher m_DeviceControlDispatcher;
 };
 
 } // namespace kernel

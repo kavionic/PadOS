@@ -27,11 +27,9 @@
 #include <Kernel/VFS/FileIO.h>
 #include <Kernel/VFS/KFSVolume.h>
 #include <Kernel/VFS/KDriverManager.h>
-#include <Kernel/KMessagePort.h>
+#include <Kernel/UserInput/UserInputManager.h>
 #include <DeviceControl/I2C.h>
-#include <DeviceControl/HID.h>
 #include <System/ExceptionHandling.h>
-#include <System/SystemMessageIDs.h>
 #include <GUI/GUIEvent.h>
 
 
@@ -53,6 +51,9 @@ FT5x0xDriver::FT5x0xDriver() : KThread("ft5x0x_driver"), m_Mutex("ft5x0x_mutex",
 
 FT5x0xDriver::~FT5x0xDriver()
 {
+    if (m_SourceID != -1) {
+        KUserInputManager::Get().RemoveSource(m_SourceID);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -105,6 +106,10 @@ void FT5x0xDriver::Setup(const char* devicePath, const DigitalPin& pinWAKE, cons
     }*/
     PrintChipStatus();
 //        kwrite(m_I2CDevice, )
+
+    if (m_SourceID == -1) {
+        m_SourceID = KUserInputManager::Get().AddSource(PInputClass::TouchScreen);
+    }
 
     Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached, 10);
 
@@ -180,44 +185,49 @@ void* FT5x0xDriver::Run()
                 int touchID = FT5x0x_TOUCH_YH_TOUCH_ID(touch.TOUCH_YH);
                 int touchFlags = FT5x0x_TOUCH_XH_TOUCH_FLAGS(touch.TOUCH_XH);
 
-                PMessageID eventID = PMessageID::NONE;
+                PInputEventID eventID = PInputEventID::TouchMove;
+                bool hasEvent = true;
 
                 switch(touchFlags)
                 {
-                    case FT5x0x_TOUCH_FLAGS_DOWN:    eventID = PMessageID::MOUSE_DOWN; break;
-                    case FT5x0x_TOUCH_FLAGS_UP:      eventID = PMessageID::MOUSE_UP;   break;
-                    case FT5x0x_TOUCH_FLAGS_CONTACT: eventID = PMessageID::MOUSE_MOVE; break;
+                    case FT5x0x_TOUCH_FLAGS_DOWN:
+                        eventID = PInputEventID::TouchDown;
+                        break;
+                    case FT5x0x_TOUCH_FLAGS_UP:
+                        eventID = PInputEventID::TouchUp;
+                        break;
+                    case FT5x0x_TOUCH_FLAGS_CONTACT:
+                        eventID = PInputEventID::TouchMove;
+                        break;
+                    default:
+                        hasEvent = false;
+                        break;
                 }
-                if (eventID != PMessageID::NONE && touchID < MAX_POINTS)
+                if (hasEvent && touchID < MAX_POINTS)
                 {
                     PIPoint position(FT5x0x_TOUCH_XH_TOUCH_X(touch.TOUCH_XL, touch.TOUCH_XH), FT5x0x_TOUCH_YH_TOUCH_Y(touch.TOUCH_YL, touch.TOUCH_YH));
-                    if (eventID != PMessageID::MOUSE_MOVE || position != m_TouchPositions[touchID])
+                    if (eventID != PInputEventID::TouchMove || position != m_TouchPositions[touchID])
                     {
                         m_TouchPositions[touchID] = position;
                         
                         PMotionEvent mouseEvent;
+                        mouseEvent.EventSize = sizeof(mouseEvent);
+                        mouseEvent.EventType = PInputEventType::MotionEvent;
+                        mouseEvent.ClassID   = PInputClass::TouchScreen;
                         mouseEvent.Timestamp = kget_monotonic_time();
                         mouseEvent.EventID   = eventID;
+                        mouseEvent.SourceID  = m_SourceID;
                         mouseEvent.ToolType  = PMotionToolType::Finger;
                         mouseEvent.ButtonID  = PMouseButton(int(PMouseButton::FirstTouchID) + touchID);
                         mouseEvent.Position  = PPoint(position);
 
-//                        p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "Mouse event {}: {}/{}", eventID - MessageID::MOUSE_DOWN, position.x, position.y);
-                        CRITICAL_BEGIN(m_Mutex)
-                        {
-                            for (auto file : m_OpenFiles)
-                            {
-                                if (file->m_TargetPort != -1)
-                                {
-                                    try {
-                                        kmessage_port_send_trw(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
-                                    }
-                                    catch (const std::exception& exc) {
-                                        p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "FT5x0xDriver: failed to send event: {}", exc.what());
-                                    }
-                                }
-                            }
-                        } CRITICAL_END;                            
+//                        p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "Mouse event {}: {}/{}", eventID, position.x, position.y);
+                        try {
+                            KUserInputManager::Get().AddEvent(mouseEvent);
+                        }
+                        catch (const std::exception& exc) {
+                            p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "FT5x0xDriver: failed to queue event: {}", exc.what());
+                        }
                         
                     }
                 }
@@ -240,53 +250,9 @@ void* FT5x0xDriver::Run()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<KFileNode> FT5x0xDriver::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int flags)
+void FT5x0xDriver::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
 {
-    CRITICAL_SCOPE(m_Mutex);
-    Ptr<FT5x0xFile> file = ptr_new<FT5x0xFile>(flags);
-    m_OpenFiles.push_back(ptr_raw_pointer_cast(file));
-    return file;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void FT5x0xDriver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
-{
-    CRITICAL_SCOPE(m_Mutex);
-    auto i = std::find(m_OpenFiles.begin(), m_OpenFiles.end(), file);
-    if (i != m_OpenFiles.end())
-    {
-        m_OpenFiles.erase(i);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void FT5x0xDriver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
-{
-    CRITICAL_SCOPE(m_Mutex);
-    Ptr<FT5x0xFile> ftFile = ptr_static_cast<FT5x0xFile>(file);
-    
-    port_id* inArg  = (int*)inData;
-    port_id* outArg = (int*)outData;
-    
-    switch(request)
-    {
-        case HIDIOCTL_SET_TARGET_PORT:
-            if (inArg == nullptr || inDataLength != sizeof(port_id)) PERROR_THROW_CODE(PErrorCode::INVAL);
-            ftFile->m_TargetPort = *inArg;
-            return;
-        case HIDIOCTL_GET_TARGET_PORT:
-            if (outArg == nullptr || outDataLength != sizeof(port_id)) PERROR_THROW_CODE(PErrorCode::INVAL);
-            *outArg = ftFile->m_TargetPort;
-            return;
-        default:
-            PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

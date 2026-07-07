@@ -9,6 +9,7 @@ add_subdirectory(Logging)
 add_subdirectory(Startup)
 add_subdirectory(Syscalls)
 add_subdirectory(USB)
+add_subdirectory(UserInput)
 add_subdirectory(VFS)
 
 target_sources(PadOS_Kernel PRIVATE

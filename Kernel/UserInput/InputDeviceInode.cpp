@@ -1,0 +1,331 @@
+// This file is part of PadOS.
+//
+// Copyright (C) 2026 Kurt Skauen <http://kavionic.com/>
+//
+// PadOS is free software : you can redistribute it and / or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// PadOS is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with PadOS. If not, see <http://www.gnu.org/licenses/>.
+///////////////////////////////////////////////////////////////////////////////
+
+#include <algorithm>
+#include <string.h>
+#include <fcntl.h>
+#include <stddef.h>
+
+#include <Kernel/Kernel.h>
+#include <Kernel/UserInput/InputDeviceInode.h>
+#include <Kernel/VFS/KFileHandle.h>
+#include <System/ExceptionHandling.h>
+
+
+namespace kernel
+{
+
+namespace
+{
+
+PInputEvent ReadInputEventHeader(const std::vector<uint8_t>& event)
+{
+    PInputEvent header;
+    memcpy(&header, event.data(), sizeof(header));
+    return header;
+}
+
+PMouseButton ReadMotionButtonID(const std::vector<uint8_t>& event)
+{
+    PMouseButton buttonID;
+    memcpy(&buttonID, event.data() + offsetof(PMotionEvent, ButtonID), sizeof(buttonID));
+    return buttonID;
+}
+
+} // namespace
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KInputDeviceInode::KInputDeviceInode(PInputClass classID, size_t maxQueuedEvents)
+    : KInode(nullptr, nullptr, this, S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
+    , m_ClassID(classID)
+    , m_MaxQueuedEvents(std::max<size_t>(1, maxQueuedEvents))
+    , m_Mutex("input_device", PEMutexRecursionMode_RaiseError)
+    , m_ReadCondition("input_device_read")
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInputDeviceInode::AddEvent(const PInputEvent& event)
+{
+    ValidateEvent(event, event.EventSize);
+    AddEventBuffer(CreateEventBuffer(event));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t KInputDeviceInode::Read(Ptr<KFileNode> file, void* buffer, size_t length, off64_t /*position*/)
+{
+    if (length == 0) {
+        return 0;
+    }
+    if (buffer == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    KScopedLock lock(m_Mutex);
+
+    while (m_EventQueue.empty())
+    {
+        if (file->GetOpenFlags() & O_NONBLOCK) {
+            PERROR_THROW_CODE(PErrorCode::WOULDBLOCK);
+        }
+        const PErrorCode result = m_ReadCondition.WaitCancelable(m_Mutex);
+        if (result != PErrorCode::Success) {
+            PERROR_THROW_CODE(result);
+        }
+    }
+
+    const EventBuffer& queuedEvent = m_EventQueue.front();
+    if (length < queuedEvent.size()) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    EventBuffer event = std::move(m_EventQueue.front());
+    m_EventQueue.pop_front();
+
+    memcpy(buffer, event.data(), event.size());
+    return event.size();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t KInputDeviceInode::Write(Ptr<KFileNode> file, const void* buffer, size_t length, off64_t /*position*/)
+{
+    if (length == 0) {
+        return 0;
+    }
+    if (buffer == nullptr) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+
+    const uint8_t* currentEvent = static_cast<const uint8_t*>(buffer);
+    size_t remainingLength = length;
+
+    while (remainingLength > 0)
+    {
+        if (remainingLength < sizeof(PInputEvent)) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+
+        PInputEvent eventHeader;
+        memcpy(&eventHeader, currentEvent, sizeof(eventHeader));
+        if (eventHeader.EventSize > remainingLength) {
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+        }
+        ValidateEvent(eventHeader, remainingLength);
+
+        EventBuffer event(eventHeader.EventSize);
+        memcpy(event.data(), currentEvent, event.size());
+        AddEventBuffer(std::move(event));
+
+        currentEvent += eventHeader.EventSize;
+        remainingLength -= eventHeader.EventSize;
+    }
+    return length;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInputDeviceInode::ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf)
+{
+    KFilesystemFileOps::ReadStat(volume, inode, statBuf);
+
+    KScopedLock lock(m_Mutex);
+
+    size_t queuedBytes = 0;
+    for (const EventBuffer& event : m_EventQueue) {
+        queuedBytes += event.size();
+    }
+    statBuf->st_size = static_cast<off_t>(queuedBytes);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KInputDeviceInode::AddListener(KThreadWaitNode* waitNode, ObjectWaitMode mode)
+{
+    kassert(!m_Mutex.IsLocked());
+    CRITICAL_SCOPE(m_Mutex);
+
+    switch (mode)
+    {
+        case ObjectWaitMode::Read:
+        case ObjectWaitMode::ReadWrite:
+            if (m_EventQueue.empty()) {
+                return m_ReadCondition.AddListener(waitNode, ObjectWaitMode::Read);
+            } else {
+                return false;
+            }
+        case ObjectWaitMode::Write:
+            return false;
+        default:
+            return false;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInputDeviceInode::AddEventBuffer(EventBuffer&& event)
+{
+    ValidateEvent(GetEventHeader(event), event.size());
+
+    KScopedLock lock(m_Mutex);
+
+    const bool wasEmpty = m_EventQueue.empty();
+    QueueEvent_pl(std::move(event));
+    if (wasEmpty && !m_EventQueue.empty()) {
+        m_ReadCondition.WakeupAll();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInputDeviceInode::QueueEvent_pl(EventBuffer&& event)
+{
+    if (m_EventQueue.size() >= m_MaxQueuedEvents) {
+        m_EventQueue.pop_front();
+    }
+    m_EventQueue.push_back(std::move(event));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KInputDeviceInode::EventBuffer KInputDeviceInode::CreateEventBuffer(const PInputEvent& event) const
+{
+    EventBuffer eventBuffer(event.EventSize);
+    memcpy(eventBuffer.data(), &event, eventBuffer.size());
+    return eventBuffer;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PInputEvent KInputDeviceInode::GetEventHeader(const EventBuffer& event) const
+{
+    if (event.size() < sizeof(PInputEvent)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    return ReadInputEventHeader(event);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInputDeviceInode::ValidateEvent(const PInputEvent& event, size_t availableSize) const
+{
+    if (event.EventSize < sizeof(PInputEvent) || event.EventSize > MAX_EVENT_SIZE || event.EventSize > availableSize) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    if (event.ClassID != m_ClassID) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KInputMotionDeviceInode::KInputMotionDeviceInode(PInputClass classID, size_t maxQueuedEvents)
+    : KInputDeviceInode(classID, maxQueuedEvents)
+{
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInputMotionDeviceInode::QueueEvent_pl(EventBuffer&& event)
+{
+    const PInputEvent eventHeader = GetEventHeader(event);
+
+    if (m_EventQueue.size() >= m_MaxQueuedEvents && IsMoveEvent(eventHeader.EventID))
+    {
+        const EventQueueIterator coalescableEvent = FindCoalescableEvent_pl(event);
+        if (coalescableEvent != m_EventQueue.end()) {
+            *coalescableEvent = std::move(event);
+            return;
+        }
+    }
+    KInputDeviceInode::QueueEvent_pl(std::move(event));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+KInputMotionDeviceInode::EventQueueIterator KInputMotionDeviceInode::FindCoalescableEvent_pl(const EventBuffer& event)
+{
+    for (EventQueueIterator iterator = m_EventQueue.begin(); iterator != m_EventQueue.end(); ++iterator)
+    {
+        if (IsMatchingMotionEvent(*iterator, event)) {
+            return iterator;
+        }
+    }
+    return m_EventQueue.end();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KInputMotionDeviceInode::IsMoveEvent(PInputEventID eventID)
+{
+    return eventID == PInputEventID::MouseMove || eventID == PInputEventID::TouchMove;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool KInputMotionDeviceInode::IsMatchingMotionEvent(const EventBuffer& lhs, const EventBuffer& rhs)
+{
+    const PInputEvent lhsHeader = ReadInputEventHeader(lhs);
+    const PInputEvent rhsHeader = ReadInputEventHeader(rhs);
+
+    if (lhsHeader.ClassID != rhsHeader.ClassID || lhsHeader.EventID != rhsHeader.EventID || lhsHeader.SourceID != rhsHeader.SourceID) {
+        return false;
+    }
+    if (lhs.size() >= sizeof(PMotionEvent) && rhs.size() >= sizeof(PMotionEvent))
+    {
+        return ReadMotionButtonID(lhs) == ReadMotionButtonID(rhs);
+    }
+    return true;
+}
+
+} // namespace kernel

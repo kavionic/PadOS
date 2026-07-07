@@ -123,15 +123,6 @@ struct FT5x0xOMRegisters
 #define FT5x0x_TOUCH_YH_TOUCH_ID(reg) (((reg) & FT5x0x_TOUCH_YH_TOUCH_ID_bm) >> FT5x0x_TOUCH_YH_TOUCH_ID_bp)
 
 
-class FT5x0xFile : public KFileNode
-{
-public:
-    FT5x0xFile(int openFlags) : KFileNode(openFlags) {}
-
-    port_id m_TargetPort = -1;
-};
-
-
 class FT5x0xDriver : public PtrTarget, public KThread, public KFilesystemFileOps
 {
 public:
@@ -142,9 +133,7 @@ public:
 
     virtual void* Run() override;
 
-    virtual Ptr<KFileNode>  OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int flags) override;
-    virtual void            CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
-    virtual void            DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
+    virtual void ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
 private:
     void PrintChipStatus();
@@ -158,7 +147,7 @@ private:
     
     int m_I2CDevice = -1;
 
-    std::vector<FT5x0xFile*> m_OpenFiles;
+    int32_t m_SourceID = -1;
 
     KMutex     m_Mutex;
     KSemaphore m_EventSemaphore;

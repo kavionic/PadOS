@@ -129,15 +129,6 @@ struct GSLx680_TouchData
 };
 
 
-class GSLx680File : public KFileNode
-{
-public:
-    GSLx680File(int openFlags) : KFileNode(openFlags) {}
-
-    port_id m_TargetPort = -1;
-};
-
-
 class GSLx680Driver : public KInode, public KThread, public KFilesystemFileOps
 {
 public:
@@ -146,9 +137,6 @@ public:
 
     virtual void* Run() override;
 
-    virtual Ptr<KFileNode>  OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int flags) override;
-    virtual void            CloseFile(Ptr<KFSVolume> volume, KFileNode* file) override;
-    virtual void            DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength) override;
     virtual void            ReadStat(Ptr<KFSVolume> volume, Ptr<KInode> inode, struct stat* statBuf) override;
 
 private:
@@ -175,7 +163,7 @@ private:
     int         m_I2CDevice = -1;
     uint32_t    m_ChipID = 0;
 
-    std::vector<GSLx680File*> m_OpenFiles;
+    int32_t     m_SourceID = -1;
 
     KMutex              m_Mutex;
     KConditionVariable  m_EventCondition;

@@ -60,10 +60,14 @@ void PVirtualKeyboardView::SlotKeyPressed(PKeyCodes keyCode, const PString& text
 {
     PKeyEvent event;
 
+    event.EventSize = sizeof(event);
+    event.EventType = PInputEventType::KeyEvent;
+    event.ClassID = PInputClass::Keyboard;
     event.Timestamp = get_monotonic_time();
-    event.EventID = PMessageID::KEY_UP;
+    event.EventID = PInputEventID::KeyUp;
+    event.SourceID = -1;
     event.m_KeyCode = keyCode;
     strncpy(event.m_Text, text.c_str(), PKeyEvent::MAX_TEXT_LENGTH);
 
-    message_port_send(get_input_event_port(), INVALID_HANDLE, int32_t(event.EventID), &event, sizeof(event));
+    message_port_send(get_input_event_port(), INVALID_HANDLE, int32_t(PMessageID::KEY_UP), &event, sizeof(event));
 }

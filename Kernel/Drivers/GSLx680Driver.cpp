@@ -29,10 +29,8 @@
 #include <Kernel/VFS/KDriverDescriptor.h>
 #include <Kernel/Drivers/GSLx680Driver.h>
 #include <Kernel/KTime.h>
-#include <Kernel/KMessagePort.h>
+#include <Kernel/UserInput/UserInputManager.h>
 #include <DeviceControl/I2C.h>
-#include <DeviceControl/HID.h>
-#include <System/SystemMessageIDs.h>
 #include <System/ExceptionHandling.h>
 #include <Utils/Utils.h>
 #include <GUI/GUIEvent.h>
@@ -76,6 +74,8 @@ GSLx680Driver::GSLx680Driver(const GSLx680DriverParameters& parameters)
     I2CIOCTL_SetSlaveAddress(m_I2CDevice, 0x80);
     I2CIOCTL_SetInternalAddrLen(m_I2CDevice, 1);
 
+    m_SourceID = KUserInputManager::Get().AddSource(PInputClass::TouchScreen);
+
     SetDeleteOnExit(false);
     Start_trw(KSpawnThreadFlag::None, PThreadDetachState_Detached, parameters.ThreadPriority);
 }
@@ -86,6 +86,9 @@ GSLx680Driver::GSLx680Driver(const GSLx680DriverParameters& parameters)
 
 GSLx680Driver::~GSLx680Driver()
 {
+    if (m_SourceID != -1) {
+        KUserInputManager::Get().RemoveSource(m_SourceID);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -140,110 +143,56 @@ void* GSLx680Driver::Run()
 		}
 		uint32_t toggledPoints = pointFlags ^ m_PointFlags;
 
-		PMessageID eventID = PMessageID::NONE;
-
 		for (int i = 0; i < MAX_POINTS; ++i)
 		{
 			uint32_t mask = 1 << i;
+            PInputEventID eventID = PInputEventID::TouchMove;
+
 			if (toggledPoints & mask)
 			{
 				if (pointFlags & mask)
 				{
-					eventID = PMessageID::MOUSE_DOWN;
+					eventID = PInputEventID::TouchDown;
 				}
 				else
 				{
-					eventID = PMessageID::MOUSE_UP;
+					eventID = PInputEventID::TouchUp;
 				}
 			}
 			else if (pointFlags & mask)
 			{
-				eventID = PMessageID::MOUSE_MOVE;
+				eventID = PInputEventID::TouchMove;
 			}
 			else
 			{
 				continue;
 			}
 
-			if (eventID != PMessageID::MOUSE_MOVE || (moveFlags & mask))
+			if (eventID != PInputEventID::TouchMove || (moveFlags & mask))
 			{
                 PMotionEvent mouseEvent;
+                mouseEvent.EventSize    = sizeof(mouseEvent);
+                mouseEvent.EventType    = PInputEventType::MotionEvent;
+                mouseEvent.ClassID      = PInputClass::TouchScreen;
 				mouseEvent.Timestamp    = kget_monotonic_time();
 				mouseEvent.EventID      = eventID;
+                mouseEvent.SourceID     = m_SourceID;
                 mouseEvent.ToolType     = PMotionToolType::Finger;
 				mouseEvent.ButtonID     = PMouseButton(int(PMouseButton::FirstTouchID) + i);
 				mouseEvent.Position     = PPoint(m_TouchPositions[i]);
 
-				// p_system_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_Drivers, "Mouse event {}: {}/{}", eventID - MessageID::MOUSE_DOWN, m_TouchPositions[i].x, m_TouchPositions[i].y);
-				for (auto file : m_OpenFiles)
-				{
-					if (file->m_TargetPort != -1) {
-                        try {
-						    kmessage_port_send_trw(file->m_TargetPort, -1, int32_t(eventID), &mouseEvent, sizeof(mouseEvent));
-                        } catch (const std::exception& exc) {
-                            p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "GSLx680Driver: failed to send event: {}", exc.what());
-                        }
-                    }
-				}
+				// p_system_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_Drivers, "Mouse event {}: {}/{}", eventID, m_TouchPositions[i].x, m_TouchPositions[i].y);
+                try {
+                    KUserInputManager::Get().AddEvent(mouseEvent);
+                } catch (const std::exception& exc) {
+                    p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "GSLx680Driver: failed to queue event: {}", exc.what());
+                }
 			}
 
 		}
 		m_PointFlags = pointFlags;
     }
     return nullptr;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-Ptr<KFileNode> GSLx680Driver::OpenFile(Ptr<KFSVolume> volume, Ptr<KInode> inode, int flags)
-{
-    CRITICAL_SCOPE(m_Mutex);
-    Ptr<GSLx680File> file = ptr_new<GSLx680File>(flags);
-    m_OpenFiles.push_back(ptr_raw_pointer_cast(file));
-    return file;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void GSLx680Driver::CloseFile(Ptr<KFSVolume> volume, KFileNode* file)
-{
-    CRITICAL_SCOPE(m_Mutex);
-    auto i = std::find(m_OpenFiles.begin(), m_OpenFiles.end(), file);
-    if (i != m_OpenFiles.end())
-    {
-        m_OpenFiles.erase(i);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void GSLx680Driver::DeviceControl(Ptr<KFileNode> file, int request, const void* inData, size_t inDataLength, void* outData, size_t outDataLength)
-{
-    CRITICAL_SCOPE(m_Mutex);
-    Ptr<GSLx680File> ftFile = ptr_static_cast<GSLx680File>(file);
-    
-    port_id* inArg  = (int*)inData;
-    port_id* outArg = (int*)outData;
-    
-    switch(request)
-    {
-        case HIDIOCTL_SET_TARGET_PORT:
-            if (inArg == nullptr || inDataLength != sizeof(port_id)) PERROR_THROW_CODE(PErrorCode::INVAL);
-            ftFile->m_TargetPort = *inArg;
-            return;
-        case HIDIOCTL_GET_TARGET_PORT:
-            if (outArg == nullptr || outDataLength != sizeof(port_id)) PERROR_THROW_CODE(PErrorCode::INVAL);
-            *outArg = ftFile->m_TargetPort;
-            return;
-        default:
-            PERROR_THROW_CODE(PErrorCode::INVAL);
-    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -19,7 +19,9 @@
 
 
 #include <string.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include <System/AppDefinition.h>
 #include <ApplicationServer/ApplicationServer.h>
@@ -32,7 +34,6 @@
 #include <GUI/View.h>
 
 #include <System/SystemMessageIDs.h>
-#include <DeviceControl/HID.h>
 
 #include "ServerApplication.h"
 
@@ -89,14 +90,16 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
 
     RSRegisterApplication.Connect(this, &ApplicationServer::SlotRegisterApplication); 
     
-    m_TouchInputDevice = open("/dev/touchscreen/0", O_RDWR);
+    m_TouchInputDevice = open("/dev/input/touch", O_RDONLY | O_NONBLOCK);
     if (m_TouchInputDevice != -1)
     {
-        HIDIOCTL_SetTargetPort(m_TouchInputDevice, GetPortID());
+        if (!GetWaitGroup().AddFile(m_TouchInputDevice)) {
+            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ApplicationServer() failed to add touch input device to wait group: {}", strerror(errno));
+        }
     }
     else
     {
-        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ApplicationServer() failed to open touch device.");
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ApplicationServer() failed to open touch input device: {}", strerror(errno));
     }
     g_AppserverPort = GetPortID();
 }
@@ -107,6 +110,12 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
 
 ApplicationServer::~ApplicationServer()
 {
+    if (m_TouchInputDevice != -1)
+    {
+        GetWaitGroup().RemoveFile(m_TouchInputDevice);
+        close(m_TouchInputDevice);
+        m_TouchInputDevice = -1;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -122,16 +131,38 @@ bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, co
             return true;
             
         case int32_t(PMessageID::MOUSE_DOWN):
+        {
+            PMotionEvent event = *static_cast<const PMotionEvent*>(data);
+            event.EventSize = sizeof(event);
+            event.EventType = PInputEventType::MotionEvent;
+            event.ClassID   = PInputClass::Mouse;
+            event.EventID   = PInputEventID::MouseDown;
+            event.SourceID  = -1;
+            QueueMotionEvent(event);
+            return true;
+        }
         case int32_t(PMessageID::MOUSE_UP):
-            m_MouseEventQueue.push(*static_cast<const PMotionEvent*>(data));
+        {
+            PMotionEvent event = *static_cast<const PMotionEvent*>(data);
+            event.EventSize = sizeof(event);
+            event.EventType = PInputEventType::MotionEvent;
+            event.ClassID   = PInputClass::Mouse;
+            event.EventID   = PInputEventID::MouseUp;
+            event.SourceID  = -1;
+            QueueMotionEvent(event);
             return true;
+        }
         case int32_t(PMessageID::MOUSE_MOVE):
-            if (!m_MouseEventQueue.empty() && m_MouseEventQueue.back().EventID == PMessageID::MOUSE_MOVE) {
-                m_MouseEventQueue.back() = *static_cast<const PMotionEvent*>(data);
-            } else {
-                m_MouseEventQueue.push(*static_cast<const PMotionEvent*>(data));
-            }
+        {
+            PMotionEvent event = *static_cast<const PMotionEvent*>(data);
+            event.EventSize = sizeof(event);
+            event.EventType = PInputEventType::MotionEvent;
+            event.ClassID   = PInputClass::Mouse;
+            event.EventID   = PInputEventID::MouseMove;
+            event.SourceID  = -1;
+            QueueMotionEvent(event);
             return true;
+        }
         case int32_t(PMessageID::KEY_DOWN):
         case int32_t(PMessageID::KEY_UP):
         {
@@ -152,22 +183,27 @@ bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, co
 
 void ApplicationServer::Idle()
 {
+    ReadInputEvents();
+
     while(!m_MouseEventQueue.empty())
     {
         const PMotionEvent& event = m_MouseEventQueue.front();
         switch(event.EventID)
         {
-            case PMessageID::MOUSE_DOWN:
+            case PInputEventID::MouseDown:
+            case PInputEventID::TouchDown:
             {
                 HandleMouseDown(event.ButtonID, event.Position, event);
                 break;
             }            
-            case PMessageID::MOUSE_UP:
+            case PInputEventID::MouseUp:
+            case PInputEventID::TouchUp:
             {
                 HandleMouseUp(event.ButtonID, event.Position, event);
                 break;
             }            
-            case PMessageID::MOUSE_MOVE:
+            case PInputEventID::MouseMove:
+            case PInputEventID::TouchMove:
             {
                 HandleMouseMove(event.ButtonID, event.Position, event);
                 break;
@@ -279,6 +315,84 @@ void ApplicationServer::SlotRegisterApplication(port_id replyPort, port_id clien
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::ReadInputEvents()
+{
+    if (m_TouchInputDevice != -1)
+    {
+        for (;;)
+        {
+            const ssize_t bytesRead = read(m_TouchInputDevice, m_InputEventBuffer.data(), m_InputEventBuffer.size());
+
+            if (bytesRead > 0)
+            {
+                const uint8_t* currentEventData = m_InputEventBuffer.data();
+                size_t remainingLength = size_t(bytesRead);
+
+                while (remainingLength > 0)
+                {
+                    if (remainingLength < sizeof(PInputEvent)) {
+                        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received truncated input event header: {}", remainingLength);
+                        break;
+                    }
+
+                    const PInputEvent* eventHeader = reinterpret_cast<const PInputEvent*>(currentEventData);
+                    if (eventHeader->EventSize < sizeof(PInputEvent) || eventHeader->EventSize > remainingLength) {
+                        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received invalid input event size: {} of {}", eventHeader->EventSize, remainingLength);
+                        break;
+                    }
+
+                    if (eventHeader->EventType == PInputEventType::MotionEvent)
+                    {
+                        if (eventHeader->EventSize < sizeof(PMotionEvent)) {
+                            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() received truncated motion event: {}", eventHeader->EventSize);
+                        } else {
+                            QueueMotionEvent(*reinterpret_cast<const PMotionEvent*>(currentEventData));
+                        }
+                    }
+
+                    currentEventData += eventHeader->EventSize;
+                    remainingLength -= eventHeader->EventSize;
+                }
+                continue;
+            }
+            if (bytesRead < 0)
+            {
+                if (errno == EINTR) {
+                    continue;
+                }
+                if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                    p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ReadInputEvents() failed to read touch input: {}", strerror(errno));
+                }
+                break;
+            }
+            break;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::QueueMotionEvent(const PMotionEvent& event)
+{
+    const bool isMoveEvent = event.EventID == PInputEventID::MouseMove || event.EventID == PInputEventID::TouchMove;
+
+    if (isMoveEvent && !m_MouseEventQueue.empty())
+    {
+        PMotionEvent& queuedEvent = m_MouseEventQueue.back();
+        if (queuedEvent.EventID == event.EventID && queuedEvent.SourceID == event.SourceID && queuedEvent.ButtonID == event.ButtonID)
+        {
+            queuedEvent = event;
+            return;
+        }
+    }
+    m_MouseEventQueue.push(event);
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

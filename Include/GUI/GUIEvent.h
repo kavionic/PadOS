@@ -53,12 +53,43 @@ enum class PMotionToolType : uint32_t
 
 static constexpr PMotionToolType GetMotionToolType(PMouseButton button) { return button < PMouseButton::FirstTouchID ? PMotionToolType::Mouse : PMotionToolType::Finger; }
 
+enum class PInputEventType : uint16_t
+{
+    InputEvent,
+    MotionEvent,
+    KeyEvent
+};
+
+enum class PInputClass : uint16_t
+{
+    Keyboard,
+    Mouse,
+    TouchScreen
+};
+
+enum class PInputEventID : uint32_t
+{
+    MouseDown,
+    MouseUp,
+    MouseMove,
+    TouchDown,
+    TouchUp,
+    TouchMove,
+    KeyDown,
+    KeyUp
+};
+
 struct PInputEvent
 {
+    uint32_t        EventSize;
+    PInputEventType EventType;
+    PInputClass     ClassID;
     TimeValNanos    Timestamp;
-    PMessageID       EventID;
-
+    PInputEventID   EventID;
+    int32_t         SourceID;
 };
+
+static_assert(sizeof(PInputEvent) == 24);
 
 struct PMotionEvent : PInputEvent
 {

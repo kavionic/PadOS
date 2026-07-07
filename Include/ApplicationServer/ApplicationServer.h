@@ -19,7 +19,9 @@
 
 #pragma once
 
+#include <array>
 #include <queue>
+#include <stdint.h>
 
 #include "Threads/Looper.h"
 #include "Signals/SignalTarget.h"
@@ -67,6 +69,11 @@ public:
 
     void            PowerLost(bool hasPower);
 private:
+    static constexpr size_t INPUT_EVENT_BUFFER_SIZE = 8192;
+
+    void ReadInputEvents();
+    void QueueMotionEvent(const PMotionEvent& event);
+
     void HandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event);
     void HandleMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event);
     void HandleMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event);
@@ -80,6 +87,8 @@ private:
     PEventTimer m_PollTouchDriverTimer;
 
     std::queue<PMotionEvent> m_MouseEventQueue;
+
+    alignas(PInputEvent) std::array<uint8_t, INPUT_EVENT_BUFFER_SIZE> m_InputEventBuffer;
 
     ASRegisterApplication::Receiver RSRegisterApplication;
     

@@ -23,6 +23,7 @@
 #include <Utils/Utils.h>
 #include <Kernel/KLogging.h>
 #include <Kernel/USB/USBHost.h>
+#include <Kernel/USB/ClassDrivers/USBHIDDriver.h>
 #include <Kernel/USB/ClassDrivers/USBHostHIDInterface.h>
 
 namespace kernel
@@ -147,6 +148,11 @@ const USB_DescriptorHeader* USBHostHIDInterface::Open(uint8_t deviceAddress, uin
 
 void USBHostHIDInterface::Close()
 {
+    if (m_InputDriver != nullptr)
+    {
+        m_InputDriver->Close();
+        m_InputDriver = nullptr;
+    }
     if (m_ReportPipeIn != USB_INVALID_PIPE)
     {
         m_HostHandler->ClosePipe(m_ReportPipeIn);
@@ -173,11 +179,44 @@ void USBHostHIDInterface::Startup()
         if (IsBootKeyboard()) {
             ReqSetIdle();
         }
-        if (UsesBootProtocol()) {
+        if (ShouldUseBootProtocol()) {
             ReqSetBootProtocol();
+        }
+        if (m_InputDriver != nullptr) {
+            m_InputDriver->Startup();
         }
         StartReceive();
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostHIDInterface::SetInputDriver(Ptr<USBHIDDriver> driver)
+{
+    if (m_InputDriver != nullptr) {
+        m_InputDriver->Close();
+    }
+    m_InputDriver = driver;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+USBHIDInterfaceInfo USBHostHIDInterface::GetInterfaceInfo() const
+{
+    USBHIDInterfaceInfo interfaceInfo;
+    interfaceInfo.DeviceAddress = m_DeviceAddress;
+    interfaceInfo.InterfaceIndex = m_InterfaceIndex;
+    interfaceInfo.InterfaceNumber = m_InterfaceNumber;
+    interfaceInfo.Subclass = m_Subclass;
+    interfaceInfo.Protocol = m_Protocol;
+    interfaceInfo.ReportDescriptorLength = m_ReportDescriptorLength;
+    interfaceInfo.ReportEndpointIn = m_ReportEndpointIn;
+    interfaceInfo.ReportEndpointInSize = m_ReportEndpointInSize;
+    return interfaceInfo;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -216,9 +255,9 @@ bool USBHostHIDInterface::IsBootMouse() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool USBHostHIDInterface::UsesBootProtocol() const
+bool USBHostHIDInterface::ShouldUseBootProtocol() const
 {
-    return IsBootKeyboard() || IsBootMouse();
+    return IsBootKeyboard();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -315,8 +354,13 @@ void USBHostHIDInterface::ReceiveTransactionCallback(USB_PipeIndex pipeIndex, US
         if (reportLength > m_ReportBuffer.size()) {
             reportLength = m_ReportBuffer.size();
         }
-        if (reportLength > 0) {
-            LogReport(reportLength);
+        if (reportLength > 0)
+        {
+            if (m_InputDriver != nullptr) {
+                m_InputDriver->HandleReport(m_ReportBuffer.data(), reportLength);
+            } else {
+                LogReport(reportLength);
+            }
         }
         StartReceive();
     }

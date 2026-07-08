@@ -29,6 +29,11 @@ enum class PMouseButton : uint32_t
     Left,
     Middle,
     Right,
+    Button4,
+    Button5,
+    Button6,
+    Button7,
+    Button8,
     FirstTouchID = 100,
     Touch0 = FirstTouchID,
     Touch1,
@@ -76,7 +81,8 @@ enum class PInputEventID : uint32_t
     TouchUp,
     TouchMove,
     KeyDown,
-    KeyUp
+    KeyUp,
+    MouseWheel
 };
 
 struct PInputEvent

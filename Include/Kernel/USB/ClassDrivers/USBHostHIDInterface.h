@@ -22,14 +22,17 @@
 #include <stdint.h>
 #include <vector>
 
+#include <Ptr/Ptr.h>
 #include <Ptr/PtrTarget.h>
 #include <Kernel/USB/USBCommon.h>
 #include <Kernel/USB/USBProtocolHID.h>
+#include <Kernel/USB/ClassDrivers/USBHIDDriver.h>
 
 namespace kernel
 {
 
 class USBHost;
+class USBHIDDriver;
 enum class USB_URBState : uint8_t;
 
 class USBHostHIDInterface : public PtrTarget
@@ -40,15 +43,17 @@ public:
     const USB_DescriptorHeader* Open(uint8_t deviceAddress, uint32_t interfaceIndex, const USB_DescInterface* interfaceDescriptor, const void* endDescriptor);
     void Close();
     void Startup();
+    void SetInputDriver(Ptr<USBHIDDriver> driver);
 
-    uint8_t GetDeviceAddress() const { return m_DeviceAddress; }
-    bool    IsActive() const { return m_IsActive; }
+    USBHIDInterfaceInfo GetInterfaceInfo() const;
+    uint8_t             GetDeviceAddress() const { return m_DeviceAddress; }
+    bool                IsActive() const { return m_IsActive; }
 
 private:
     const char* GetProtocolName() const;
     bool        IsBootKeyboard() const;
     bool        IsBootMouse() const;
-    bool        UsesBootProtocol() const;
+    bool        ShouldUseBootProtocol() const;
 
     void ReqSetIdle();
     void ReqSetBootProtocol();
@@ -82,6 +87,7 @@ private:
     std::vector<uint8_t>    m_ReportBuffer;
     std::array<uint8_t, 8>  m_PreviousKeyboardReport = {};
     uint8_t                 m_PreviousMouseButtons = 0;
+    Ptr<USBHIDDriver>       m_InputDriver;
 };
 
 } // namespace kernel

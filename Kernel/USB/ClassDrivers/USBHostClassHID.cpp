@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <Kernel/USB/USBHost.h>
+#include <Kernel/USB/ClassDrivers/USBHIDDriver.h>
 #include <Kernel/USB/ClassDrivers/USBHostClassHID.h>
 #include <Kernel/USB/ClassDrivers/USBHostHIDInterface.h>
 
@@ -29,6 +30,23 @@ namespace kernel
 
 USBHostClassHID::USBHostClassHID()
 {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHostClassHID::UnregisterInputDriver(int handle)
+{
+    for (auto driverIterator = m_InputDriverRegistrations.begin(); driverIterator != m_InputDriverRegistrations.end(); ++driverIterator)
+    {
+        if (driverIterator->Handle == handle)
+        {
+            m_InputDriverRegistrations.erase(driverIterator);
+            return true;
+        }
+    }
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -75,6 +93,8 @@ const USB_DescriptorHeader* USBHostClassHID::Open(uint8_t deviceAddress, const U
 {
     Ptr<USBHostHIDInterface> hidInterface = ptr_new<USBHostHIDInterface>(m_HostHandler);
     const USB_DescriptorHeader* result = hidInterface->Open(deviceAddress, m_NextInterfaceIndex, interfaceDescriptor, endDescriptor);
+    Ptr<USBHIDDriver> inputDriver = CreateInputDriver(*hidInterface, hidInterface->GetInterfaceInfo());
+    hidInterface->SetInputDriver(inputDriver);
 
     m_Interfaces.push_back(hidInterface);
     ++m_NextInterfaceIndex;
@@ -156,6 +176,27 @@ void USBHostClassHID::StartupDevice(uint8_t deviceAddress)
 
 void USBHostClassHID::StartOfFrame()
 {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<USBHIDDriver> USBHostClassHID::CreateInputDriver(USBHostHIDInterface& hidInterface, const USBHIDInterfaceInfo& interfaceInfo) const
+{
+    Ptr<USBHIDDriver> selectedDriver;
+    int selectedScore = USBHIDDriver::PROBE_SCORE_NONE;
+
+    for (const InputDriverRegistration& registration : m_InputDriverRegistrations)
+    {
+        const int score = registration.Probe(interfaceInfo);
+        if (score > selectedScore)
+        {
+            selectedScore = score;
+            selectedDriver = registration.Create(hidInterface);
+        }
+    }
+    return selectedDriver;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

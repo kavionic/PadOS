@@ -19,21 +19,26 @@
 #pragma once
 
 #include <stdint.h>
+#include <functional>
 #include <vector>
 
 #include <Ptr/Ptr.h>
 #include <Kernel/USB/USBProtocolHID.h>
 #include <Kernel/USB/USBClassDriverHost.h>
+#include <Kernel/USB/ClassDrivers/USBHIDDriver.h>
 
 namespace kernel
 {
 
+class USBHIDDriver;
 class USBHostHIDInterface;
 
 class USBHostClassHID : public USBClassDriverHost
 {
 public:
     USBHostClassHID();
+    template<typename TDriverClass> int RegisterInputDriver();
+    bool UnregisterInputDriver(int handle);
 
     virtual USB_ClassCode               GetClassCode() const override;
     virtual const char*                 GetName() const override;
@@ -47,10 +52,40 @@ public:
     virtual void                        StartOfFrame() override;
 
 private:
+    using InputDriverProbe = std::function<int(const USBHIDInterfaceInfo& interfaceInfo)>;
+    using InputDriverFactory = std::function<Ptr<USBHIDDriver>(USBHostHIDInterface& hidInterface)>;
+
+    struct InputDriverRegistration
+    {
+        int                 Handle = -1;
+        InputDriverProbe    Probe;
+        InputDriverFactory  Create;
+    };
+
+    Ptr<USBHIDDriver> CreateInputDriver(USBHostHIDInterface& hidInterface, const USBHIDInterfaceInfo& interfaceInfo) const;
     bool HasActiveInterfaces() const;
 
     std::vector<Ptr<USBHostHIDInterface>>   m_Interfaces;
+    std::vector<InputDriverRegistration>     m_InputDriverRegistrations;
     uint32_t                                m_NextInterfaceIndex = 0;
+    int                                     m_NextInputDriverHandle = 1;
 };
+
+template<typename TDriverClass>
+int USBHostClassHID::RegisterInputDriver()
+{
+    InputDriverRegistration registration;
+    registration.Handle = m_NextInputDriverHandle++;
+    registration.Probe = [](const USBHIDInterfaceInfo& interfaceInfo)
+    {
+        return TDriverClass::Probe(interfaceInfo);
+    };
+    registration.Create = [](USBHostHIDInterface& hidInterface)
+    {
+        return ptr_new<TDriverClass>(hidInterface);
+    };
+    m_InputDriverRegistrations.push_back(registration);
+    return registration.Handle;
+}
 
 } // namespace kernel

@@ -508,12 +508,12 @@ void PTabView::OnFrameSized(const PPoint& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTabView::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PTabView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (m_HitButton != PMouseButton::None || m_TabList.empty() || position.y >= m_TabHeight) {
+    if (m_HitPointerID != PInvalidPointerID || m_TabList.empty() || position.y >= m_TabHeight) {
         return false;
     }
-    m_HitButton = button;
+    m_HitPointerID = pointerID;
     m_HitPos    = position;
 
     float x = m_ScrollOffset;
@@ -527,7 +527,7 @@ bool PTabView::OnMouseDown(PMouseButton button, const PPoint& position, const PM
         }
         x += width;
     }
-    MakeFocus(button, true);
+    MakeFocus(pointerID, true);
     return true;
 }
 
@@ -535,13 +535,13 @@ bool PTabView::OnMouseDown(PMouseButton button, const PPoint& position, const PM
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTabView::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PTabView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (button != m_HitButton) {
+    if (pointerID != m_HitPointerID) {
         return false;
     }
-    MakeFocus(button, false);
-    m_HitButton = PMouseButton::None;
+    MakeFocus(pointerID, false);
+    m_HitPointerID = PInvalidPointerID;
     return true;
 }
 
@@ -549,9 +549,9 @@ bool PTabView::OnMouseUp(PMouseButton button, const PPoint& position, const PMot
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTabView::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PTabView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (button == m_HitButton)
+    if (pointerID == m_HitPointerID)
     {
         float oldOffset = m_ScrollOffset;
 

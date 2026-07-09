@@ -51,13 +51,10 @@ public:
     // From View:
     virtual void    OnPaint(const PRect& updateRect) override;
 
-    virtual bool    OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
 
-    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
     virtual void    Activated(bool isActive);
 
     virtual void    CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
@@ -75,7 +72,7 @@ private:
     size_t                  m_OldSelection;
     size_t                  m_CurSelection;
     size_t                  m_HitItem = INVALID_INDEX;
-    PMouseButton           m_HitButton = PMouseButton::None;
+    PPointerID           m_HitPointerID = PInvalidPointerID;
     PPoint                   m_HitPos;
     bool                    m_MouseMoved = false;
     const std::vector<PString>& m_ItemList;

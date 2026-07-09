@@ -36,7 +36,7 @@ public:
     Signal<void, PDialogButtonID> SignalSelected;
 
 private:
-    void SlotButtonClicked(PMouseButton mouseButton, PButtonBase* button);
+    void SlotButtonClicked(PPointerID pointerID, PButtonBase* button);
 
     Ptr<PView>                   m_ContentView;
     Ptr<PView>                   m_ButtonContainer;
@@ -247,7 +247,7 @@ Ptr<PButton> PDialogBoxView::FindButton(const PString& buttonName) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PDialogBoxView::SlotButtonClicked(PMouseButton mouseButton, PButtonBase* button)
+void PDialogBoxView::SlotButtonClicked(PPointerID pointerID, PButtonBase* button)
 {
     SignalSelected(PDialogButtonID(button->GetID()));
 }

@@ -52,8 +52,8 @@ public:
     Ptr<PView> FindView(handler_id handle);
 
 
-    void SetFocusView(PMouseButton button, Ptr<PView> view, bool focus);
-    Ptr<PView> GetFocusView(PMouseButton button) const;
+    void SetFocusView(PPointerID pointerID, Ptr<PView> view, bool focus);
+    Ptr<PView> GetFocusView(PPointerID pointerID) const;
 
     void SetKeyboardFocus(Ptr<PView> view, bool focus, bool notifyServer);
     Ptr<PView> GetKeyboardFocus() const;
@@ -79,8 +79,8 @@ private:
     bool CreateServerView(Ptr<PView> view, handler_id parentHandle, PViewDockType dockType, size_t index);
     void RegisterViewForLayout(Ptr<PView> view, bool recursive = false);
 
-    void      SetMouseDownView(PMouseButton button, Ptr<PView> view, const PMotionEvent& motionEvent);
-    Ptr<PView> GetMouseDownView(PMouseButton button) const;
+    void      SetPointerDownView(PPointerID pointerID, Ptr<PView> view, const PPointerEvent& pointerEvent);
+    Ptr<PView> GetPointerDownView(PPointerID pointerID) const;
 
     void LayoutViews();
 
@@ -93,9 +93,9 @@ private:
     uint8_t m_SendBuffer[PAPPSERVER_MSG_BUFFER_SIZE]; 
     int32_t m_UsedSendBufferSize = 0;
 
-    std::map<int, PView*>    m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
-    std::map<int, PView*>    m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
-    PMotionEvent             m_LastClickEvent;
+    std::map<PPointerID, PView*> m_PointerViewMap;    // Maps pointer ID to view last hit.
+    std::map<PPointerID, PView*> m_PointerFocusMap;   // Map of focused view per pointer ID.
+    PPointerEvent               m_LastClickEvent;
     PView*                   m_KeyboardFocusView = nullptr;
 
     PEventTimer              m_LongPressTimer;

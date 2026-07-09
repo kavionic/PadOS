@@ -39,9 +39,9 @@ public:
     virtual PPoint   CalculateContentSize() const override;
     virtual void    OnPaint(const PRect& updateRect) override;
 
-    virtual bool    OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
 
     virtual void OnKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& event) override;
 
@@ -76,7 +76,7 @@ private:
     bool                    m_CursorFrozen = false;
     bool                    m_IsScrolling = false;
     bool                    m_IsDraggingCursor = false;
-    PMouseButton           m_HitButton = PMouseButton::None;
+    PPointerID           m_HitPointerID = PInvalidPointerID;
     PPoint                   m_HitPos;
 
     Ptr<const PTextBoxStyle> m_Style;

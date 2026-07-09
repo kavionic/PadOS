@@ -419,30 +419,30 @@ void PServerView::HandleRemovedFromParent(Ptr<PServerView> parent)
 ///////////////////////////////////////////////////////////////////////////////
 
     
-bool PServerView::HandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PServerView::HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     if (!IsVisible())
     {
         return false;
     }
-    if (m_ClientHandle != INVALID_HANDLE && !HasFlags(PViewFlags::IgnoreMouse))
+    if (m_ClientHandle != INVALID_HANDLE && !HasFlags(PViewFlags::IgnorePointer))
     {
         if (m_ManagerHandle != INVALID_HANDLE)
         {
-            if (!p_post_to_window_manager<ASHandleMouseDown>(m_ManagerHandle, button, position, event))
+            if (!p_post_to_window_manager<ASHandlePointerDown>(m_ManagerHandle, pointerID, position, event))
             {
-                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandleMouseDown() failed to send message: {}", strerror(get_last_error()));
+                p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerDown() failed to send message: {}", strerror(get_last_error()));
                 return false;
             }            
         }
                     
-        if (!p_post_to_remotesignal<ASHandleMouseDown>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandleMouseDown() failed to send message: {}", strerror(get_last_error()));
+        if (!p_post_to_remotesignal<ASHandlePointerDown>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, pointerID, position, event)) {
+            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerDown() failed to send message: {}", strerror(get_last_error()));
             return false;
         }
         ApplicationServer* server = static_cast<ApplicationServer*>(GetLooper());
         if (server !=  nullptr) {
-            server->SetMouseDownView(button, ptr_tmp_cast(this));
+            server->SetPointerDownView(pointerID, ptr_tmp_cast(this));
         }
         return true;
     }
@@ -452,7 +452,7 @@ bool PServerView::HandleMouseDown(PMouseButton button, const PPoint& position, c
         if (child->m_Frame.DoIntersect(position))
         {
             const PPoint childPos = child->ConvertFromParent(position);
-            if (child->HandleMouseDown(button, childPos, event))
+            if (child->HandlePointerDown(pointerID, childPos, event))
             {
                 return true;
             }
@@ -465,12 +465,12 @@ bool PServerView::HandleMouseDown(PMouseButton button, const PPoint& position, c
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PServerView::HandleMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PServerView::HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     if (m_ClientHandle != INVALID_HANDLE)
     {
-        if (!p_post_to_remotesignal<ASHandleMouseUp>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandleMouseUp() failed to send message: {}", strerror(get_last_error()));
+        if (!p_post_to_remotesignal<ASHandlePointerUp>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, pointerID, position, event)) {
+            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerUp() failed to send message: {}", strerror(get_last_error()));
         }
         return true;
     }
@@ -481,12 +481,28 @@ bool PServerView::HandleMouseUp(PMouseButton button, const PPoint& position, con
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PServerView::HandleMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PServerView::HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     if (m_ClientHandle != INVALID_HANDLE)
     {
-        if (!p_post_to_remotesignal<ASHandleMouseMove>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, button, position, event)) {
-            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandleMouseMove() failed to send message: {}", strerror(get_last_error()));
+        if (!p_post_to_remotesignal<ASHandlePointerMove>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, pointerID, position, event)) {
+            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerMove() failed to send message: {}", strerror(get_last_error()));
+        }
+        return true;
+    }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PServerView::HandlePointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
+{
+    if (m_ClientHandle != INVALID_HANDLE)
+    {
+        if (!p_post_to_remotesignal<ASHandlePointerCancel>(m_ClientPort, m_ClientHandle, TimeValNanos::zero, pointerID, position, event)) {
+            p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ServerView::HandlePointerCancel() failed to send message: {}", strerror(get_last_error()));
         }
         return true;
     }

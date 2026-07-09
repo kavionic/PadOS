@@ -67,7 +67,7 @@ private:
                         PColor bgColor,
                         PColor fgColor);
     void SlotDeleteView(handler_id clientHandle);
-    void SlotFocusView(handler_id clientHandle, PMouseButton button, bool focus);
+    void SlotFocusView(handler_id clientHandle, PPointerID pointerID, bool focus);
     void SlotSetKeyboardFocus(handler_id clientHandle, bool focus);
     void SlotCreateBitmap(port_id replyPort, int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags);
     void SlotDeleteBitmap(handle_id bitmapHandle);

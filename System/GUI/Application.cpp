@@ -205,11 +205,9 @@ Ptr<PView> PApplication::FindView(handler_id handle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PApplication::SetFocusView(PMouseButton button, Ptr<PView> view, bool focus)
+void PApplication::SetFocusView(PPointerID pointerID, Ptr<PView> view, bool focus)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
-
-    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
 
     if (view != nullptr)
     {
@@ -218,28 +216,28 @@ void PApplication::SetFocusView(PMouseButton button, Ptr<PView> view, bool focus
 
         if (focus)
         {
-            m_MouseFocusMap[deviceID] = ptr_raw_pointer_cast(view);
-            Post<ASFocusView>(root->m_ServerHandle, button, true);
+            m_PointerFocusMap[pointerID] = ptr_raw_pointer_cast(view);
+            Post<ASFocusView>(root->m_ServerHandle, pointerID, true);
         }
         else
         {
-            auto iterator = m_MouseFocusMap.find(deviceID);
-            if (iterator != m_MouseFocusMap.end() && iterator->second == ptr_raw_pointer_cast(view))
+            auto iterator = m_PointerFocusMap.find(pointerID);
+            if (iterator != m_PointerFocusMap.end() && iterator->second == ptr_raw_pointer_cast(view))
             {
-                m_MouseFocusMap.erase(iterator);
-                Post<ASFocusView>(root->m_ServerHandle, button, false);
+                m_PointerFocusMap.erase(iterator);
+                Post<ASFocusView>(root->m_ServerHandle, pointerID, false);
             }
         }
     }
     else
     {
-        auto iterator = m_MouseFocusMap.find(deviceID);
-        if (iterator != m_MouseFocusMap.end())
+        auto iterator = m_PointerFocusMap.find(pointerID);
+        if (iterator != m_PointerFocusMap.end())
         {
             Ptr<PView> root = ptr_tmp_cast(iterator->second);
             while (root->GetParent() != nullptr) root = root->GetParent();
-            m_MouseFocusMap.erase(iterator);
-            Post<ASFocusView>(root->m_ServerHandle, button, false);
+            m_PointerFocusMap.erase(iterator);
+            Post<ASFocusView>(root->m_ServerHandle, pointerID, false);
         }
     }
 }
@@ -248,14 +246,12 @@ void PApplication::SetFocusView(PMouseButton button, Ptr<PView> view, bool focus
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PView> PApplication::GetFocusView(PMouseButton button) const
+Ptr<PView> PApplication::GetFocusView(PPointerID pointerID) const
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
-
-    auto iterator = m_MouseFocusMap.find(deviceID);
-    if (iterator != m_MouseFocusMap.end()) {
+    auto iterator = m_PointerFocusMap.find(pointerID);
+    if (iterator != m_PointerFocusMap.end()) {
         return ptr_tmp_cast(iterator->second);
     }
     return nullptr;
@@ -399,18 +395,18 @@ void PApplication::DetachView(Ptr<PView> view)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    for (auto i = m_MouseFocusMap.begin(); i != m_MouseFocusMap.end(); )
+    for (auto i = m_PointerFocusMap.begin(); i != m_PointerFocusMap.end(); )
     {
         if (i->second == ptr_raw_pointer_cast(view)) {
-            i = m_MouseFocusMap.erase(i);
+            i = m_PointerFocusMap.erase(i);
         } else {
             ++i;
         }
     }
-    for (auto i = m_MouseViewMap.begin(); i != m_MouseViewMap.end(); )
+    for (auto i = m_PointerViewMap.begin(); i != m_PointerViewMap.end(); )
     {
         if (i->second == ptr_raw_pointer_cast(view)) {
-            i = m_MouseViewMap.erase(i);
+            i = m_PointerViewMap.erase(i);
         } else {
             ++i;
         }
@@ -534,24 +530,22 @@ void PApplication::RegisterViewForLayout(Ptr<PView> view, bool recursive)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PApplication::SetMouseDownView(PMouseButton button, Ptr<PView> view, const PMotionEvent& motionEvent)
+void PApplication::SetPointerDownView(PPointerID pointerID, Ptr<PView> view, const PPointerEvent& pointerEvent)
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
-
     if (view != nullptr)
     {
-        m_MouseViewMap[deviceID] = ptr_raw_pointer_cast(view);
-        m_LastClickEvent = motionEvent;
+        m_PointerViewMap[pointerID] = ptr_raw_pointer_cast(view);
+        m_LastClickEvent = pointerEvent;
         m_LongPressTimer.Start(true);
     }
     else
     {
-        auto iterator = m_MouseViewMap.find(deviceID);
-        if (iterator != m_MouseViewMap.end()) {
-            m_MouseViewMap.erase(iterator);
-            if (button == m_LastClickEvent.ButtonID) {
+        auto iterator = m_PointerViewMap.find(pointerID);
+        if (iterator != m_PointerViewMap.end()) {
+            m_PointerViewMap.erase(iterator);
+            if (pointerID == m_LastClickEvent.PointerID) {
                 m_LongPressTimer.Stop();
             }
         }
@@ -562,14 +556,12 @@ void PApplication::SetMouseDownView(PMouseButton button, Ptr<PView> view, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PView> PApplication::GetMouseDownView(PMouseButton button) const
+Ptr<PView> PApplication::GetPointerDownView(PPointerID pointerID) const
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
-
-    auto iterator = m_MouseViewMap.find(deviceID);
-    if (iterator != m_MouseViewMap.end()) {
+    auto iterator = m_PointerViewMap.find(pointerID);
+    if (iterator != m_PointerViewMap.end()) {
         return ptr_tmp_cast(iterator->second);
     }
     return nullptr;
@@ -607,8 +599,8 @@ void PApplication::SlotLongPressTimer()
 {
     assert(!IsRunning() || GetMutex().IsLocked());
 
-    Ptr<PView> lastPressedView = GetMouseDownView(m_LastClickEvent.ButtonID);
+    Ptr<PView> lastPressedView = GetPointerDownView(m_LastClickEvent.PointerID);
     if (lastPressedView != nullptr) {
-        lastPressedView->DispatchLongPress(m_LastClickEvent.ButtonID, lastPressedView->ConvertFromScreen(m_LastClickEvent.Position), m_LastClickEvent);
+        lastPressedView->DispatchLongPress(m_LastClickEvent.PointerID, lastPressedView->ConvertFromScreen(m_LastClickEvent.Position), m_LastClickEvent);
     }
 }

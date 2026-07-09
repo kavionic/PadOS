@@ -136,27 +136,27 @@ void PTextBox::OnPaint(const PRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextBox::OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PTextBox::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    return m_Editor->OnTouchDown(pointID, m_Editor->ConvertFromParent(position), event);
+    return m_Editor->OnPointerDown(pointerID, m_Editor->ConvertFromParent(position), event);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextBox::OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PTextBox::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    return m_Editor->OnTouchUp(pointID, m_Editor->ConvertFromParent(position), event);
+    return m_Editor->OnPointerUp(pointerID, m_Editor->ConvertFromParent(position), event);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextBox::OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PTextBox::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    return m_Editor->OnTouchMove(pointID, m_Editor->ConvertFromParent(position), event);
+    return m_Editor->OnPointerMove(pointerID, m_Editor->ConvertFromParent(position), event);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

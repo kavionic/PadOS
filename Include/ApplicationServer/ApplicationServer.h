@@ -58,10 +58,10 @@ public:
 
     void ViewDestructed(PServerView* view);
 
-    void            SetFocusView(PMouseButton button, Ptr<PServerView> view, bool focus);
-    Ptr<PServerView> GetFocusView(PMouseButton button) const;
-    void            SetMouseDownView(PMouseButton button, Ptr<PServerView> view);
-    Ptr<PServerView> GetMouseDownView(PMouseButton button) const;
+    void            SetFocusView(PPointerID pointerID, Ptr<PServerView> view, bool focus);
+    Ptr<PServerView> GetFocusView(PPointerID pointerID) const;
+    void            SetPointerDownView(PPointerID pointerID, Ptr<PServerView> view);
+    Ptr<PServerView> GetPointerDownView(PPointerID pointerID) const;
 
     void            SetKeyboardFocus(Ptr<PServerView> view, bool focus);
     Ptr<PServerView> GetKeyboardFocus() const;
@@ -74,9 +74,9 @@ private:
     void ReadInputEvents();
     void QueueMotionEvent(const PMotionEvent& event);
 
-    void HandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event);
-    void HandleMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event);
-    void HandleMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event);
+    void HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
+    void HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
+    void HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
 
     void SlotRegisterApplication(port_id replyPort, port_id clientPort, const PString& name);
 
@@ -86,7 +86,7 @@ private:
     PMessagePort m_ReplyPort;
     PEventTimer m_PollTouchDriverTimer;
 
-    std::queue<PMotionEvent> m_MouseEventQueue;
+    std::queue<PMotionEvent> m_MotionEventQueue;
 
     alignas(PInputEvent) std::array<uint8_t, INPUT_EVENT_BUFFER_SIZE> m_InputEventBuffer;
 
@@ -94,8 +94,8 @@ private:
     
     Ptr<PServerView> m_TopView;
 
-    std::map<int, PServerView*>  m_MouseViewMap;    // Maps pointing device or touch point to view last hit.
-    std::map<int, PServerView*>  m_MouseFocusMap;   // Map of focused view per pointing device or touch point.
+    std::map<PPointerID, PServerView*> m_PointerViewMap;    // Maps pointer ID to view last hit.
+    std::map<PPointerID, PServerView*> m_PointerFocusMap;   // Map of focused view per pointer ID.
     PServerView*                 m_KeyboardFocusView = nullptr;
 
     int        m_TouchInputDevice = -1;

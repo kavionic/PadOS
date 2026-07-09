@@ -38,12 +38,12 @@ PListViewHeaderView::PListViewHeaderView(Ptr<PListView> parent) : PView("header_
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewHeaderView::HasFocus(PMouseButton button) const
+bool PListViewHeaderView::HasFocus(PPointerID pointerID) const
 {
-    if (PView::HasFocus(button)) {
+    if (PView::HasFocus(pointerID)) {
         return true;
     }
-    return m_ScrolledContainerView->HasFocus(button);
+    return m_ScrolledContainerView->HasFocus(pointerID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -100,7 +100,7 @@ void PListViewHeaderView::OnPaint(const PRect& cUpdateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewHeaderView::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PListViewHeaderView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     Ptr<PListView> listView = ptr_static_cast<PListView>(GetParent());
     assert(listView != nullptr);
@@ -169,7 +169,7 @@ void PListViewHeaderView::OnViewScrolled(const PPoint& delta)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewHeaderView::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PListViewHeaderView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     if (m_ScrolledContainerView->m_ColumnMap.empty()) {
         return false;
@@ -188,14 +188,14 @@ bool PListViewHeaderView::OnMouseDown(PMouseButton button, const PPoint& positio
             {
                 m_SizeColumn = i - 1;
                 m_HitPos = position;
-                MakeFocus(button, true);
+                MakeFocus(pointerID, true);
                 break;
             }
             if (containerViewPos.x >= frame.right - 6.0f && containerViewPos.x < frame.right)
             {
                 m_SizeColumn = i;
                 m_HitPos = position;
-                MakeFocus(button, true);
+                MakeFocus(pointerID, true);
                 break;
             }
             m_DragColumn = i;
@@ -209,7 +209,7 @@ bool PListViewHeaderView::OnMouseDown(PMouseButton button, const PPoint& positio
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewHeaderView::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PListViewHeaderView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     m_SizeColumn = INVALID_INDEX;
 

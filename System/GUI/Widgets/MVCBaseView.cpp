@@ -394,9 +394,9 @@ void PMVCBaseView::Construct()
     m_ScrollView->SetScrolledView(m_ContentView);
     m_ScrollView->SetStartScrollThreshold(BEGIN_DRAG_OFFSET);
 
-    m_ScrollView->VFTouchDown.Connect(this, &PMVCBaseView::SlotScrollViewTouchDown);
-    m_ScrollView->VFTouchUp.Connect(this, &PMVCBaseView::SlotScrollViewTouchUp);
-    m_ScrollView->VFTouchMove.Connect(this, &PMVCBaseView::SlotScrollViewTouchMove);
+    m_ScrollView->VFPointerDown.Connect(this, &PMVCBaseView::SlotScrollViewPointerDown);
+    m_ScrollView->VFPointerUp.Connect(this, &PMVCBaseView::SlotScrollViewPointerUp);
+    m_ScrollView->VFPointerMove.Connect(this, &PMVCBaseView::SlotScrollViewPointerMove);
 
     AddChild(m_ScrollView);
     SetLayoutNode(ptr_new<PLayoutNode>());
@@ -418,21 +418,21 @@ void PMVCBaseView::ItemClicked(size_t index)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PMVCBaseView::SlotScrollViewTouchDown(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
+void PMVCBaseView::SlotScrollViewPointerDown(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent)
 {
     const PPoint& itemPosition = m_ContentView->ConvertFromScreen(view->ConvertToScreen(position));
 
     const size_t index = GetItemIndexAtPosition(itemPosition);
     SetHighlightedItem(index);
 
-    view->OnTouchDown(pointID, position, motionEvent);
+    view->OnPointerDown(pointerID, position, motionEvent);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PMVCBaseView::SlotScrollViewTouchUp(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
+void PMVCBaseView::SlotScrollViewPointerUp(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent)
 {
     if (m_ScrollView->GetInertialScrollerState() == PInertialScroller::State::WaitForThreshold)
     {
@@ -445,18 +445,18 @@ void PMVCBaseView::SlotScrollViewTouchUp(PView* view, PMouseButton pointID, cons
             ItemClicked(index);
         }
     }
-    view->OnTouchUp(pointID, position, motionEvent);
+    view->OnPointerUp(pointerID, position, motionEvent);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PMVCBaseView::SlotScrollViewTouchMove(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
+void PMVCBaseView::SlotScrollViewPointerMove(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent)
 {
     if (m_HighlightedItem != INVALID_INDEX && m_ScrollView->GetInertialScrollerState() == PInertialScroller::State::Dragging)
     {
         SetHighlightedItem(INVALID_INDEX);
     }
-    view->OnTouchMove(pointID, position, motionEvent);
+    view->OnPointerMove(pointerID, position, motionEvent);
 }

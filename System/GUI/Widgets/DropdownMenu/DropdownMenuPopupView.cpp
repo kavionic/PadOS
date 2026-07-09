@@ -191,13 +191,31 @@ void DropdownMenuPopupView::CalculatePreferredSize(PPoint* minSize, PPoint* maxS
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool DropdownMenuPopupView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (m_HitButton != PMouseButton::None) {
-        return PView::OnTouchDown(pointID, position, event);
+    if (event.ToolType == PMotionToolType::Mouse)
+    {
+        if (m_HitPointerID != PInvalidPointerID) {
+            return PView::OnPointerDown(pointerID, position, event);
+        }
+        m_HitPointerID = pointerID;
+
+        if (GetBounds().DoIntersect(position))
+        {
+            SignalSelectionChanged(m_CurSelection, true);
+        }
+        else
+        {
+            SignalSelectionChanged(m_OldSelection, true);
+        }
+        return true;
+    }
+
+    if (m_HitPointerID != PInvalidPointerID) {
+        return PView::OnPointerDown(pointerID, position, event);
     }
     m_HitPos = position;
-    m_HitButton = pointID;
+    m_HitPointerID = pointerID;
 
     m_HitItem = PositionToIndex(position);
 
@@ -207,7 +225,7 @@ bool DropdownMenuPopupView::OnTouchDown(PMouseButton pointID, const PPoint& posi
     itemFrame.bottom = itemFrame.top + m_GlyphHeight;
     Invalidate(itemFrame);
 
-    MakeFocus(pointID, true);
+    MakeFocus(pointerID, true);
     return true;
 }
 
@@ -215,13 +233,22 @@ bool DropdownMenuPopupView::OnTouchDown(PMouseButton pointID, const PPoint& posi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool DropdownMenuPopupView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
-        return PView::OnTouchUp(pointID, position, event);
+    if (event.ToolType == PMotionToolType::Mouse)
+    {
+        if (GetBounds().DoIntersect(position))
+        {
+            SignalSelectionChanged(m_CurSelection, true);
+        }
+        return true;
     }
 
-    m_HitButton = PMouseButton::None;
+    if (pointerID != m_HitPointerID) {
+        return PView::OnPointerUp(pointerID, position, event);
+    }
+
+    m_HitPointerID = PInvalidPointerID;
 
     if (m_MouseMoved)
     {
@@ -235,7 +262,7 @@ bool DropdownMenuPopupView::OnTouchUp(PMouseButton pointID, const PPoint& positi
     {
         SignalSelectionChanged(PositionToIndex(position), true);
     }
-    MakeFocus(pointID, false);
+    MakeFocus(pointerID, false);
     return true;
 }
 
@@ -243,10 +270,36 @@ bool DropdownMenuPopupView::OnTouchUp(PMouseButton pointID, const PPoint& positi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DropdownMenuPopupView::OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool DropdownMenuPopupView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
-        return PView::OnTouchMove(pointID, position, event);
+    if (event.ToolType == PMotionToolType::Mouse)
+    {
+        if (!GetBounds().DoIntersect(position)) {
+            return false;
+        }
+        size_t newSelection = PositionToIndex(position);
+
+        if (newSelection != m_CurSelection)
+        {
+            int prevSel = m_CurSelection;
+            m_CurSelection = newSelection;
+            PRect itemFrame = GetBounds();
+
+            itemFrame.top = float(prevSel) * m_GlyphHeight;
+            itemFrame.bottom = itemFrame.top + m_GlyphHeight;
+            Invalidate(itemFrame);
+
+            itemFrame.top = float(m_CurSelection) * m_GlyphHeight;
+            itemFrame.bottom = itemFrame.top + m_GlyphHeight;
+
+            Invalidate(itemFrame);
+            SignalSelectionChanged(newSelection, false);
+        }
+        return true;
+    }
+
+    if (pointerID != m_HitPointerID) {
+        return PView::OnPointerMove(pointerID, position, event);
     }
     if (m_MouseMoved)
     {
@@ -274,71 +327,6 @@ bool DropdownMenuPopupView::OnTouchMove(PMouseButton pointID, const PPoint& posi
             }
             m_MouseMoved = true;
         }
-    }
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool DropdownMenuPopupView::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
-{
-    if (m_HitButton != PMouseButton::None) {
-        return PView::OnMouseDown(button, position, event);
-    }
-    m_HitButton = button;
-
-    if (GetBounds().DoIntersect(position))
-    {
-        SignalSelectionChanged(m_CurSelection, true);
-    }
-    else
-    {
-        SignalSelectionChanged(m_OldSelection, true);
-    }
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool DropdownMenuPopupView::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
-{
-    if (GetBounds().DoIntersect(position))
-    {
-        SignalSelectionChanged(m_CurSelection, true);
-    }
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool DropdownMenuPopupView::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
-{
-    if (!GetBounds().DoIntersect(position)) {
-        return false;
-    }
-    size_t newSelection = PositionToIndex(position);
-
-    if (newSelection != m_CurSelection)
-    {
-        int prevSel = m_CurSelection;
-        m_CurSelection = newSelection;
-        PRect itemFrame = GetBounds();
-
-        itemFrame.top = float(prevSel) * m_GlyphHeight;
-        itemFrame.bottom = itemFrame.top + m_GlyphHeight;
-        Invalidate(itemFrame);
-
-        itemFrame.top = float(m_CurSelection) * m_GlyphHeight;
-        itemFrame.bottom = itemFrame.top + m_GlyphHeight;
-
-        Invalidate(itemFrame);
-        SignalSelectionChanged(newSelection, false);
     }
     return true;
 }

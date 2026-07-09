@@ -118,14 +118,11 @@ public:
 
     virtual void OnPaint(const PRect& updateRect) { EraseRect(updateRect); }
 
-    virtual bool OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)  { return DispatchMouseDown(pointID, position, motionEvent); }
-    virtual bool OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)    { return DispatchMouseUp(pointID, position, motionEvent);   }
-    virtual bool OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)  { return DispatchMouseMove(pointID, position, motionEvent); }
-    virtual bool OnLongPress(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent) { return false; }
-
-    virtual bool OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent);
-    virtual bool OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent);
-    virtual bool OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent);
+    virtual bool OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    virtual bool OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    virtual bool OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    virtual bool OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    virtual bool OnLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
 
     virtual void OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent);
     virtual void OnKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent);
@@ -167,9 +164,9 @@ public:
     void       Show(bool visible = true);
     void       Hide() { Show(false); }
     bool       IsVisible() const;
-    bool       IsVisibleToMouse() const { return IsVisible() && !HasFlags(PViewFlags::IgnoreMouse); }
-    virtual void MakeFocus(PMouseButton button, bool focus = true);
-    virtual bool HasFocus(PMouseButton button) const;
+    bool       IsVisibleToPointer() const { return IsVisible() && !HasFlags(PViewFlags::IgnorePointer); }
+    virtual void MakeFocus(PPointerID pointerID, bool focus = true);
+    virtual bool HasFocus(PPointerID pointerID) const;
 
     void SetKeyboardFocus(bool focus = true);
     bool HasKeyboardFocus() const;
@@ -208,11 +205,12 @@ public:
     void                SetFont(Ptr<PFont> font);
     Ptr<PFont>           GetFont() const;
 
-    bool            SlotHandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent);
+    bool            SlotHandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
 
-    bool            HandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent);
-    void            HandleMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent);
-    void            HandleMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent);
+    bool            HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    void            HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    void            HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    void            HandlePointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
     
     void            SetFgColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 255)   { SetFgColor(PColor(red, green, blue, alpha)); }
     void            SetFgColor(PColor color)                                                     { if (color != m_FgColor) { m_FgColor = color; Post<ASViewSetFgColor>(color); } }
@@ -330,13 +328,11 @@ public:
     PRect        ConvertFromScreen(const PRect& rect) const   { return rect - m_ScreenPos - m_ScrollOffset; }
     void        ConvertFromScreen(PRect* rect) const         { *rect -= m_ScreenPos + m_ScrollOffset; }
 
-    VFConnector<bool (PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)> VFTouchDown;
-    VFConnector<bool (PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)> VFTouchUp;
-    VFConnector<bool (PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)> VFTouchMove;
-    VFConnector<bool (PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)> VFLongPress;
-    VFConnector<bool (PView* view, PMouseButton button , const PPoint& position, const PMotionEvent& motionEvent)> VFMouseDown;
-    VFConnector<bool (PView* view, PMouseButton button , const PPoint& position, const PMotionEvent& motionEvent)> VFMouseUp;
-    VFConnector<bool (PView* view, PMouseButton button , const PPoint& position, const PMotionEvent& motionEvent)> VFMouseMove;
+    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFPointerDown;
+    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFPointerUp;
+    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFPointerMove;
+    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFPointerCancel;
+    VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFLongPress;
 
     VFConnector<void (PView* view, PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent)>               VFKeyDown;
     VFConnector<void (PView* view, PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent)>               VFKeyUp;
@@ -391,13 +387,11 @@ private:
     enum class UpdatePositionNotifyServer { Never, Always, IfChanged };
     void UpdatePosition(UpdatePositionNotifyServer notifyMode);
 
-    bool DispatchTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent);
-    bool DispatchTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent);
-    bool DispatchTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent);
-    bool DispatchLongPress(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent);
-    bool DispatchMouseDown(PMouseButton buttonID, const PPoint& position, const PMotionEvent& motionEvent);
-    bool DispatchMouseUp(PMouseButton buttonID, const PPoint& position, const PMotionEvent& motionEvent);
-    bool DispatchMouseMove(PMouseButton buttonID, const PPoint& position, const PMotionEvent& motionEvent);
+    bool DispatchPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    bool DispatchPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    bool DispatchPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    bool DispatchPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
+    bool DispatchLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent);
     void DispatchKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& motionEvent);
     void DispatchKeyUp(PKeyCodes keyCode, const PString& text, const PKeyEvent& motionEvent);
 
@@ -444,7 +438,8 @@ private:
     ASViewFrameChanged  RSViewFrameChanged;
     ASViewFocusChanged  RSViewFocusChanged;
 
-    ASHandleMouseDown   RSHandleMouseDown;
-    ASHandleMouseUp     RSHandleMouseUp;
-    ASHandleMouseMove   RSHandleMouseMove;
+    ASHandlePointerDown   RSHandlePointerDown;
+    ASHandlePointerUp     RSHandlePointerUp;
+    ASHandlePointerMove   RSHandlePointerMove;
+    ASHandlePointerCancel RSHandlePointerCancel;
 };

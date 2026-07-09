@@ -67,9 +67,10 @@ public:
     void HandleAddedToParent(Ptr<PServerView> parent, size_t index);
     void HandleRemovedFromParent(Ptr<PServerView> parent);
 
-    bool        HandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event);
-    bool        HandleMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event);
-    bool        HandleMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event);
+    bool        HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
+    bool        HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
+    bool        HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
+    bool        HandlePointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
 
     void        AddChild(Ptr<PServerView> child, size_t index);
     void        RemoveChild(Ptr<PServerView> child, bool removeAsHandler);

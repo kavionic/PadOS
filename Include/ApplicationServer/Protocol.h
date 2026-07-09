@@ -125,9 +125,10 @@ namespace PAppserverProtocol
         
         // Appserver -> application messages:
         SYNC_REPLY,
-        HANDLE_MOUSE_DOWN,
-        HANDLE_MOUSE_UP,
-        HANDLE_MOUSE_MOVE
+        HANDLE_POINTER_DOWN,
+        HANDLE_POINTER_UP,
+        HANDLE_POINTER_MOVE,
+        HANDLE_POINTER_CANCEL
     };
 }
 
@@ -190,7 +191,7 @@ using ASCreateView = PRemoteSignal<PAppserverProtocol::CREATE_VIEW,
                                                                
 using ASDeleteView = PRemoteSignal<PAppserverProtocol::DELETE_VIEW, void(handler_id viewHandle)>;
 
-using ASFocusView = PRemoteSignal<PAppserverProtocol::FOCUS_VIEW , void(handler_id viewHandle, PMouseButton button, bool)>; // 'true' for set, 'false' for clear focus.
+using ASFocusView = PRemoteSignal<PAppserverProtocol::FOCUS_VIEW , void(handler_id viewHandle, PPointerID pointerID, bool)>; // 'true' for set, 'false' for clear focus.
 
 using ASSetKeyboardFocus = PRemoteSignal<PAppserverProtocol::SET_KEYBOARD_FOCUS,
     void(
@@ -256,9 +257,10 @@ using ASWindowManagerDisableVKeyboard   = PRemoteSignal<PAppserverProtocol::WIND
 
 using ASSyncReply = PRemoteSignal<PAppserverProtocol::SYNC_REPLY>;
                                         
-using ASHandleMouseDown = PRemoteSignal<PAppserverProtocol::HANDLE_MOUSE_DOWN,    void(PMouseButton button, const PPoint& position, const PMotionEvent& mouseEvent)>;
-using ASHandleMouseUp   = PRemoteSignal<PAppserverProtocol::HANDLE_MOUSE_UP,      void(PMouseButton button, const PPoint& position, const PMotionEvent& mouseEvent)>;
-using ASHandleMouseMove = PRemoteSignal<PAppserverProtocol::HANDLE_MOUSE_MOVE,    void(PMouseButton button, const PPoint& position, const PMotionEvent& mouseEvent)>;
+using ASHandlePointerDown   = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_DOWN,   void(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)>;
+using ASHandlePointerUp     = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_UP,     void(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)>;
+using ASHandlePointerMove   = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_MOVE,   void(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)>;
+using ASHandlePointerCancel = PRemoteSignal<PAppserverProtocol::HANDLE_POINTER_CANCEL, void(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)>;
 
 using ASViewSetCapStyle      = PRemoteSignal<PAppserverProtocol::VIEW_SET_CAP_STYLE,        void(handler_id viewHandle, PCapStyle style)>;
 using ASViewSetJointStyle    = PRemoteSignal<PAppserverProtocol::VIEW_SET_JOINT_STYLE,      void(handler_id viewHandle, PJointStyle style)>;

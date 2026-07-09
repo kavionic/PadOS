@@ -32,9 +32,9 @@ public:
     virtual void OnFrameSized(const PPoint& delta) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 
-    virtual bool OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
 
     // From Window:
     void SetClient(Ptr<PView> client);
@@ -51,6 +51,6 @@ private:
 
     PString m_Title;
 
-    PMouseButton   m_DragHitButton = PMouseButton::None;
+    PPointerID   m_DragHitPointerID = PInvalidPointerID;
     PPoint           m_DragHitPos;
 };

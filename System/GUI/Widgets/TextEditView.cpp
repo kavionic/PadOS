@@ -150,15 +150,15 @@ void PTextEditView::OnPaint(const PRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextEditView::OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PTextEditView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (HasFlags(PTextBoxFlags::ReadOnly) || m_HitButton != PMouseButton::None) {
+    if (HasFlags(PTextBoxFlags::ReadOnly) || m_HitPointerID != PInvalidPointerID) {
         return false;
     }
 
-    MakeFocus(pointID, true);
+    MakeFocus(pointerID, true);
 
-    m_HitButton = pointID;
+    m_HitPointerID = pointerID;
     m_HitPos    = position;
 
     m_IsScrolling = false;
@@ -175,9 +175,9 @@ bool PTextEditView::OnTouchDown(PMouseButton pointID, const PPoint& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextEditView::OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PTextEditView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
+    if (pointerID != m_HitPointerID) {
         return false;
     }
 
@@ -198,9 +198,9 @@ bool PTextEditView::OnTouchUp(PMouseButton pointID, const PPoint& position, cons
     m_IsScrolling       = false;
     m_IsDraggingCursor  = false;
     m_CursorFrozen      = false;
-    m_HitButton         = PMouseButton::None;
+    m_HitPointerID         = PInvalidPointerID;
 
-    MakeFocus(pointID, false);
+    MakeFocus(pointerID, false);
 
     UpdateCursorTimer();
     return true;
@@ -210,9 +210,9 @@ bool PTextEditView::OnTouchUp(PMouseButton pointID, const PPoint& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PTextEditView::OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PTextEditView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
+    if (pointerID != m_HitPointerID) {
         return false;
     }
 

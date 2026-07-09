@@ -50,9 +50,9 @@ public:
 
     virtual void    Layout(const PPoint& delta);
     virtual void    OnFrameSized(const PPoint& delta) override;
-    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
     virtual void    OnKeyDown(PKeyCodes keyCode, const PString& text, const PKeyEvent& event) override;
 
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
@@ -88,7 +88,7 @@ private:
     size_t              m_SelectedTab = INVALID_INDEX;
     float               m_ScrollOffset = 0.0f;
     PPoint               m_HitPos;
-    PMouseButton       m_HitButton = PMouseButton::None;
+    PPointerID       m_HitPointerID = PInvalidPointerID;
     float               m_TabHeight;
     float               m_GlyphHeight;
     PFontHeight          m_FontHeight;

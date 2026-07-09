@@ -151,9 +151,9 @@ private:
 
     void SlotContentScrolled() { InvalidateLayout(); }
 
-    void SlotScrollViewTouchDown(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent);
-    void SlotScrollViewTouchUp(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent);
-    void SlotScrollViewTouchMove(PView* view, PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent);
+    void SlotScrollViewPointerDown(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent);
+    void SlotScrollViewPointerUp(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent);
+    void SlotScrollViewPointerMove(PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& motionEvent);
 
     Ptr<PScrollView>         m_ScrollView;
 

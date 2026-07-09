@@ -118,7 +118,7 @@ public:
     virtual void        OnFrameSized(const PPoint& delta) override;
     //    virtual void      KeyDown( const char* pzString, const char* pzRawString, uint32_t nQualifiers );
     //    virtual void      AllAttachedToScreen() override;
-    virtual bool        HasFocus(PMouseButton button) const override;
+    virtual bool        HasFocus(PPointerID pointerID) const override;
 
     // STL iterator interface to the rows.
     const_iterator begin() const;

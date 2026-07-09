@@ -36,13 +36,13 @@ private:
     void  DrawButton(const char* title, const PRect& frame, Ptr<PFont> font, PFontHeight* fontHeight);
     virtual void    OnPaint(const PRect& updateRect) override;
 
-    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
     virtual void    OnFrameSized(const PPoint& deltaSize) override;
     virtual void    OnViewScrolled(const PPoint& delta) override;
 
-    virtual bool    HasFocus(PMouseButton button) const override;
+    virtual bool    HasFocus(PPointerID pointerID) const override;
 
     void    Layout();
 

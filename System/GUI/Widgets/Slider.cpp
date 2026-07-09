@@ -286,7 +286,7 @@ void PSlider::SetValue(float value, bool sendEvent)
         UpdateValueView();
         Sync();
         if (sendEvent) {
-            SignalValueChanged(m_Value, m_HitButton == PMouseButton::None, this);
+            SignalValueChanged(m_Value, m_HitPointerID == PInvalidPointerID, this);
         }
     }
 }
@@ -458,10 +458,10 @@ void PSlider::SetShadowKnobValue(size_t index, float value)
 
 void PSlider::OnEnableStatusChanged(bool isEnabled)
 {
-    if (m_HitButton != PMouseButton::None)
+    if (m_HitPointerID != PInvalidPointerID)
     {
-        MakeFocus(m_HitButton, false);
-        m_HitButton = PMouseButton::None;
+        MakeFocus(m_HitPointerID, false);
+        m_HitPointerID = PInvalidPointerID;
         if (m_Changed)
         {
             SignalValueChanged(m_Value, true, this);
@@ -475,20 +475,20 @@ void PSlider::OnEnableStatusChanged(bool isEnabled)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSlider::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PSlider::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     if (!IsEnabled()) return false;
-    if (m_HitButton == PMouseButton::None)
+    if (m_HitPointerID == PInvalidPointerID)
     {
-        m_HitButton = button;
+        m_HitPointerID = pointerID;
         m_HitValue = GetValue();
         m_HitPos = position; // (position - ValToPos(m_HitValue));
         m_SmoothedPos = position;
         m_Changed = false;
-        MakeFocus(button, true);
+        MakeFocus(pointerID, true);
         Invalidate(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value));
 
-        SignalBeginDrag(m_Value, this, button);
+        SignalBeginDrag(m_Value, this, pointerID);
     }
     return true;
 }
@@ -497,13 +497,13 @@ bool PSlider::OnMouseDown(PMouseButton button, const PPoint& position, const PMo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSlider::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PSlider::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     if (!IsEnabled()) return false;
-    if (button == m_HitButton)
+    if (pointerID == m_HitPointerID)
     {
-        MakeFocus(m_HitButton, false);
-        m_HitButton = PMouseButton::None;
+        MakeFocus(m_HitPointerID, false);
+        m_HitPointerID = PInvalidPointerID;
         if (m_Changed)
         {
             SignalValueChanged(m_Value, true, this);
@@ -511,7 +511,7 @@ bool PSlider::OnMouseUp(PMouseButton button, const PPoint& position, const PMoti
         }
         Invalidate(GetKnobFrame(m_Orientation, GetKnobFrameMode::FullFrame) + ValToPos(m_Value));
 
-        SignalEndDrag(m_Value, this, button);
+        SignalEndDrag(m_Value, this, pointerID);
     }
     return true;
 }
@@ -520,10 +520,10 @@ bool PSlider::OnMouseUp(PMouseButton button, const PPoint& position, const PMoti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PSlider::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PSlider::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     if (!IsEnabled()) return false;
-    if (button == m_HitButton)
+    if (pointerID == m_HitPointerID)
     {
         PPoint distance(fabsf(m_SmoothedPos.x - position.x), fabsf(m_SmoothedPos.y - position.y));
         PPoint scale = distance * 0.1f;  // Divide by smoothing range.
@@ -567,7 +567,7 @@ void PSlider::OnLabelChanged(const PString& label)
     {
         if (m_ValueView == nullptr)
         {
-            m_ValueView = ptr_new<PTextView>("value", PString::zero, ptr_tmp_cast(this), PViewFlags::IgnoreMouse);
+            m_ValueView = ptr_new<PTextView>("value", PString::zero, ptr_tmp_cast(this), PViewFlags::IgnorePointer);
             m_ValueView->SignalPreferredSizeChanged.Connect(this, &PSlider::LayoutValueView);
         }
         UpdateValueView();

@@ -52,23 +52,23 @@ private:
 
     virtual void    OnFrameSized(const PPoint& delta) override;
 
-    virtual bool    OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
 
-    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
     //    virtual void  WheelMoved(const Point& cDelta);
     virtual void    OnPaint(const PRect& updateRect) override;
     //    virtual void  TimerTick( int nID );
     virtual void    DetachedFromWindow();
-    virtual bool    HasFocus(PMouseButton button) const override;
+    virtual bool    HasFocus(PPointerID pointerID) const override;
 
     //    bool      HandleKey( char nChar, uint32_t nQualifiers );
     void        LayoutColumns();
     Ptr<PListViewColumnView>    GetColumn(int columnIndex) const { return(m_ColumnViews[m_ColumnMap[columnIndex]]); }
 
+    bool HandleMousePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
+    bool HandleMousePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
+    bool HandleMousePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
 
     bool    ClearSelection();
     bool    SelectRange(size_t start, size_t end, bool select);
@@ -82,7 +82,7 @@ private:
     std::vector<Ptr<PListViewRow>>           m_Rows;
     PListView*                               m_ListView;
 
-    PMouseButton                           m_HitButton = PMouseButton::None;
+    PPointerID                           m_HitPointerID = PInvalidPointerID;
     PPoint                                   m_HitPos;
     PInertialScroller                        m_InertialScroller;
     PRect                                    m_SelectRect;

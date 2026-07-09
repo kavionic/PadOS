@@ -219,12 +219,12 @@ void PListView::SetHasColumnHeader(bool value)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListView::HasFocus(PMouseButton button) const
+bool PListView::HasFocus(PPointerID pointerID) const
 {
-    if (PView::HasFocus(button)) {
+    if (PView::HasFocus(pointerID)) {
         return true;
     }
-    return m_HeaderView->HasFocus(button);
+    return m_HeaderView->HasFocus(pointerID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
-<root name="wmgr_root" layout="horizontal" flags="WillDraw|IgnoreMouse">
+<root name="wmgr_root" layout="horizontal" flags="WillDraw|IgnorePointer">
 		<View name="SideBar" layout="vertical" min_height="0" max_height="10000" width="100" flags="WillDraw"/>
-    <View name="ClientView" flags="WillDraw|IgnoreMouse"/>
+    <View name="ClientView" flags="WillDraw|IgnorePointer"/>
 </root>

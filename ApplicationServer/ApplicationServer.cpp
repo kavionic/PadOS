@@ -40,6 +40,36 @@
 
 static volatile port_id g_AppserverPort = -1;
 
+namespace
+{
+
+PMotionToolType GetDefaultMotionToolType(const PMotionEvent& motionEvent)
+{
+    switch (motionEvent.ClassID)
+    {
+        case PInputClass::Mouse:
+            return PMotionToolType::Mouse;
+
+        case PInputClass::TouchScreen:
+            return PMotionToolType::Finger;
+
+        default:
+            return GetMotionToolType(motionEvent.ButtonID);
+    }
+}
+
+PPointerEvent CreatePointerEvent(const PMotionEvent& motionEvent)
+{
+    PPointerEvent pointerEvent;
+    static_cast<PMotionEvent&>(pointerEvent) = motionEvent;
+    pointerEvent.EventSize = sizeof(pointerEvent);
+    pointerEvent.PointerID = GetPointerID(motionEvent.ButtonID);
+    pointerEvent.ToolType = GetDefaultMotionToolType(motionEvent);
+    return pointerEvent;
+}
+
+} // namespace
+
 Ptr<PDisplayDriver>  ApplicationServer::s_DisplayDriver;
 Ptr<PSrvBitmap>          ApplicationServer::s_ScreenBitmap;
 
@@ -138,6 +168,7 @@ bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, co
             event.ClassID   = PInputClass::Mouse;
             event.EventID   = PInputEventID::MouseDown;
             event.SourceID  = -1;
+            event.ToolType  = PMotionToolType::Mouse;
             QueueMotionEvent(event);
             return true;
         }
@@ -149,6 +180,7 @@ bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, co
             event.ClassID   = PInputClass::Mouse;
             event.EventID   = PInputEventID::MouseUp;
             event.SourceID  = -1;
+            event.ToolType  = PMotionToolType::Mouse;
             QueueMotionEvent(event);
             return true;
         }
@@ -160,6 +192,7 @@ bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, co
             event.ClassID   = PInputClass::Mouse;
             event.EventID   = PInputEventID::MouseMove;
             event.SourceID  = -1;
+            event.ToolType  = PMotionToolType::Mouse;
             QueueMotionEvent(event);
             return true;
         }
@@ -185,33 +218,34 @@ void ApplicationServer::Idle()
 {
     ReadInputEvents();
 
-    while(!m_MouseEventQueue.empty())
+    while(!m_MotionEventQueue.empty())
     {
-        const PMotionEvent& event = m_MouseEventQueue.front();
-        switch(event.EventID)
+        const PMotionEvent& motionEvent = m_MotionEventQueue.front();
+        PPointerEvent pointerEvent = CreatePointerEvent(motionEvent);
+        switch(motionEvent.EventID)
         {
             case PInputEventID::MouseDown:
             case PInputEventID::TouchDown:
             {
-                HandleMouseDown(event.ButtonID, event.Position, event);
+                HandlePointerDown(pointerEvent.PointerID, pointerEvent.Position, pointerEvent);
                 break;
             }            
             case PInputEventID::MouseUp:
             case PInputEventID::TouchUp:
             {
-                HandleMouseUp(event.ButtonID, event.Position, event);
+                HandlePointerUp(pointerEvent.PointerID, pointerEvent.Position, pointerEvent);
                 break;
             }            
             case PInputEventID::MouseMove:
             case PInputEventID::TouchMove:
             {
-                HandleMouseMove(event.ButtonID, event.Position, event);
+                HandlePointerMove(pointerEvent.PointerID, pointerEvent.Position, pointerEvent);
                 break;
             }
             default:
                 break;
         }
-        m_MouseEventQueue.pop();
+        m_MotionEventQueue.pop();
     }
 }
 
@@ -275,18 +309,18 @@ Ptr<PServerView> ApplicationServer::FindView(handler_id handle) const
 
 void ApplicationServer::ViewDestructed(PServerView* view)
 {
-    for (auto i = m_MouseViewMap.begin(); i != m_MouseViewMap.end(); )
+    for (auto i = m_PointerViewMap.begin(); i != m_PointerViewMap.end(); )
     {
         if (i->second == view) {
-            i = m_MouseViewMap.erase(i);
+            i = m_PointerViewMap.erase(i);
         } else {
             ++i;
         }
     }
-    for (auto i = m_MouseFocusMap.begin(); i != m_MouseFocusMap.end(); )
+    for (auto i = m_PointerFocusMap.begin(); i != m_PointerFocusMap.end(); )
     {
         if (i->second == view) {
-            i = m_MouseFocusMap.erase(i);
+            i = m_PointerFocusMap.erase(i);
         } else {
             ++i;
         }
@@ -382,27 +416,27 @@ void ApplicationServer::QueueMotionEvent(const PMotionEvent& event)
 {
     const bool isMoveEvent = event.EventID == PInputEventID::MouseMove || event.EventID == PInputEventID::TouchMove;
 
-    if (isMoveEvent && !m_MouseEventQueue.empty())
+    if (isMoveEvent && !m_MotionEventQueue.empty())
     {
-        PMotionEvent& queuedEvent = m_MouseEventQueue.back();
+        PMotionEvent& queuedEvent = m_MotionEventQueue.back();
         if (queuedEvent.EventID == event.EventID && queuedEvent.SourceID == event.SourceID && queuedEvent.ButtonID == event.ButtonID)
         {
             queuedEvent = event;
             return;
         }
     }
-    m_MouseEventQueue.push(event);
+    m_MotionEventQueue.push(event);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::HandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+void ApplicationServer::HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    m_TopView->HandleMouseDown(button, position, event);
+    m_TopView->HandlePointerDown(pointerID, position, event);
 //    if (m_KeyboardFocusView != nullptr) {
-//        m_KeyboardFocusView->HandleMouseDown(button, m_KeyboardFocusView->ConvertFromRoot(position), event);
+//        m_KeyboardFocusView->HandlePointerDown(pointerID, m_KeyboardFocusView->ConvertFromRoot(position), event);
 //    }
 }
 
@@ -410,19 +444,19 @@ void ApplicationServer::HandleMouseDown(PMouseButton button, const PPoint& posit
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::HandleMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+void ApplicationServer::HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    Ptr<PServerView> mouseView = GetMouseDownView(button);
+    Ptr<PServerView> pointerDownView = GetPointerDownView(pointerID);
 
-    if (mouseView != nullptr)
+    if (pointerDownView != nullptr)
     {
-        mouseView->HandleMouseUp(button, mouseView->ConvertFromRoot(position), event);
-        SetMouseDownView(button, nullptr);
+        pointerDownView->HandlePointerUp(pointerID, pointerDownView->ConvertFromRoot(position), event);
+        SetPointerDownView(pointerID, nullptr);
     }
-    Ptr<PServerView> focusView = GetFocusView(button);
-    if (focusView != nullptr && focusView != mouseView)
+    Ptr<PServerView> focusView = GetFocusView(pointerID);
+    if (focusView != nullptr && focusView != pointerDownView)
     {
-        focusView->HandleMouseUp(button, focusView->ConvertFromRoot(position), event);
+        focusView->HandlePointerUp(pointerID, focusView->ConvertFromRoot(position), event);
     }
 }
 
@@ -430,20 +464,20 @@ void ApplicationServer::HandleMouseUp(PMouseButton button, const PPoint& positio
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::HandleMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+void ApplicationServer::HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-//    Ptr<ServerView> mouseView = GetMouseDownView(button);
+//    Ptr<ServerView> pointerDownView = GetPointerDownView(pointerID);
 //    if (mouseView != nullptr)
 //    {
-//        mouseView->HandleMouseMove(button, mouseView->ConvertFromRoot(position));
+//        pointerDownView->HandlePointerMove(pointerID, pointerDownView->ConvertFromRoot(position));
 //    }
-    Ptr<PServerView> focusView = GetFocusView(button);
+    Ptr<PServerView> focusView = GetFocusView(pointerID);
     if (focusView != nullptr /*&& focusView != mouseView*/)
     {
-        focusView->HandleMouseMove(button, focusView->ConvertFromRoot(position), event);
+        focusView->HandlePointerMove(pointerID, focusView->ConvertFromRoot(position), event);
     }
     if (m_KeyboardFocusView != nullptr && m_KeyboardFocusView != ptr_raw_pointer_cast(focusView)) {
-        m_KeyboardFocusView->HandleMouseMove(button, m_KeyboardFocusView->ConvertFromRoot(position), event);
+        m_KeyboardFocusView->HandlePointerMove(pointerID, m_KeyboardFocusView->ConvertFromRoot(position), event);
     }
 }
 
@@ -451,19 +485,17 @@ void ApplicationServer::HandleMouseMove(PMouseButton button, const PPoint& posit
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::SetMouseDownView(PMouseButton button, Ptr<PServerView> view)
+void ApplicationServer::SetPointerDownView(PPointerID pointerID, Ptr<PServerView> view)
 {
-    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
-
     if (view != nullptr)
     {
-        m_MouseViewMap[deviceID] = ptr_raw_pointer_cast(view);
+        m_PointerViewMap[pointerID] = ptr_raw_pointer_cast(view);
     }
     else
     {
-        auto iterator = m_MouseViewMap.find(deviceID);
-        if (iterator != m_MouseViewMap.end()) {
-            m_MouseViewMap.erase(iterator);
+        auto iterator = m_PointerViewMap.find(pointerID);
+        if (iterator != m_PointerViewMap.end()) {
+            m_PointerViewMap.erase(iterator);
         }
     }
 }
@@ -472,12 +504,10 @@ void ApplicationServer::SetMouseDownView(PMouseButton button, Ptr<PServerView> v
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PServerView> ApplicationServer::GetMouseDownView(PMouseButton button) const
+Ptr<PServerView> ApplicationServer::GetPointerDownView(PPointerID pointerID) const
 {
-    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
-
-    auto iterator = m_MouseViewMap.find(deviceID);
-    if (iterator != m_MouseViewMap.end()) {
+    auto iterator = m_PointerViewMap.find(pointerID);
+    if (iterator != m_PointerViewMap.end()) {
         return ptr_tmp_cast(iterator->second);
     }
     return nullptr;
@@ -487,29 +517,27 @@ Ptr<PServerView> ApplicationServer::GetMouseDownView(PMouseButton button) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ApplicationServer::SetFocusView(PMouseButton button, Ptr<PServerView> view, bool focus)
+void ApplicationServer::SetFocusView(PPointerID pointerID, Ptr<PServerView> view, bool focus)
 {
-    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
-
     if (view != nullptr)
     {
         if (focus)
         {
-            m_MouseFocusMap[deviceID] = ptr_raw_pointer_cast(view);
+            m_PointerFocusMap[pointerID] = ptr_raw_pointer_cast(view);
         }
         else
         {
-            auto iterator = m_MouseFocusMap.find(deviceID);
-            if (iterator != m_MouseFocusMap.end() && iterator->second == ptr_raw_pointer_cast(view)) {
-                m_MouseFocusMap.erase(iterator);
+            auto iterator = m_PointerFocusMap.find(pointerID);
+            if (iterator != m_PointerFocusMap.end() && iterator->second == ptr_raw_pointer_cast(view)) {
+                m_PointerFocusMap.erase(iterator);
             }
         }
     }
     else
     {
-        auto iterator = m_MouseFocusMap.find(deviceID);
-        if (iterator != m_MouseFocusMap.end()) {
-            m_MouseFocusMap.erase(iterator);
+        auto iterator = m_PointerFocusMap.find(pointerID);
+        if (iterator != m_PointerFocusMap.end()) {
+            m_PointerFocusMap.erase(iterator);
         }
     }
 }
@@ -518,12 +546,10 @@ void ApplicationServer::SetFocusView(PMouseButton button, Ptr<PServerView> view,
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-Ptr<PServerView> ApplicationServer::GetFocusView(PMouseButton button) const
+Ptr<PServerView> ApplicationServer::GetFocusView(PPointerID pointerID) const
 {
-    int deviceID = (button < PMouseButton::FirstTouchID) ? 0 : int(button);
-
-    auto iterator = m_MouseFocusMap.find(deviceID);
-    if (iterator != m_MouseFocusMap.end()) {
+    auto iterator = m_PointerFocusMap.find(pointerID);
+    if (iterator != m_PointerFocusMap.end()) {
         return ptr_tmp_cast(iterator->second);
     }
     return nullptr;

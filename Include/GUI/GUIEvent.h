@@ -19,7 +19,11 @@
 
 #pragma once
 
+#include <stdint.h>
+#include <utility>
+
 #include <System/SystemMessageIDs.h>
+#include <Math/Point.h>
 #include <GUI/GUIDefines.h>
 
 
@@ -48,6 +52,19 @@ enum class PMouseButton : uint32_t
     LastTouchID = Touch9
 };
 
+using PPointerID = uint32_t;
+
+static constexpr PPointerID PInvalidPointerID = UINT32_MAX;
+static constexpr PPointerID PMousePointerID = 0;
+static constexpr PPointerID PFirstTouchPointerID = 1;
+
+static constexpr PPointerID GetPointerID(PMouseButton button)
+{
+    return (button < PMouseButton::FirstTouchID)
+        ? PMousePointerID
+        : PPointerID(std::to_underlying(button) - std::to_underlying(PMouseButton::FirstTouchID) + PFirstTouchPointerID);
+}
+
 enum class PMotionToolType : uint32_t
 {
     Mouse,
@@ -56,7 +73,7 @@ enum class PMotionToolType : uint32_t
     Eraser
 };
 
-static constexpr PMotionToolType GetMotionToolType(PMouseButton button) { return button < PMouseButton::FirstTouchID ? PMotionToolType::Mouse : PMotionToolType::Finger; }
+static constexpr PMotionToolType GetMotionToolType(PMouseButton button) { return (button < PMouseButton::FirstTouchID) ? PMotionToolType::Mouse : PMotionToolType::Finger; }
 
 enum class PInputEventType : uint16_t
 {
@@ -102,6 +119,11 @@ struct PMotionEvent : PInputEvent
     PMotionToolType  ToolType;
     PMouseButton   ButtonID;
     PPoint           Position;
+};
+
+struct PPointerEvent : PMotionEvent
+{
+    PPointerID PointerID;
 };
 
 struct PKeyEvent : PInputEvent

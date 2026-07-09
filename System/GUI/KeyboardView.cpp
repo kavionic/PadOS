@@ -385,12 +385,12 @@ void PKeyboardView::OnPaint(const PRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PKeyboardView::OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PKeyboardView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (m_HitButton != PMouseButton::None) {
-        return PView::OnTouchDown(pointID, position, event);
+    if (m_HitPointerID != PInvalidPointerID) {
+        return PView::OnPointerDown(pointerID, position, event);
     }
-    m_HitButton = pointID;
+    m_HitPointerID = pointerID;
     m_HitPos = position;
 
     SetPressedButton(GetButtonIndex(position));
@@ -406,7 +406,7 @@ bool PKeyboardView::OnTouchDown(PMouseButton pointID, const PPoint& position, co
             m_RepeatTimer.Start(true);
         }
     }
-    MakeFocus(pointID, true);
+    MakeFocus(pointerID, true);
     return true;
 }
 
@@ -414,9 +414,9 @@ bool PKeyboardView::OnTouchDown(PMouseButton pointID, const PPoint& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PKeyboardView::OnLongPress(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PKeyboardView::OnLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
+    if (pointerID != m_HitPointerID) {
         return false;
     }
     bool cancelPress = false;
@@ -464,8 +464,8 @@ bool PKeyboardView::OnLongPress(PMouseButton pointID, const PPoint& position, co
     if (cancelPress)
     {
         SetPressedButton(INVALID_INDEX);
-        m_HitButton = PMouseButton::None;
-        MakeFocus(pointID, false);
+        m_HitPointerID = PInvalidPointerID;
+        MakeFocus(pointerID, false);
         Invalidate();
     }
     return true;
@@ -475,10 +475,10 @@ bool PKeyboardView::OnLongPress(PMouseButton pointID, const PPoint& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PKeyboardView::OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PKeyboardView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
-        return PView::OnTouchUp(pointID, position, event);
+    if (pointerID != m_HitPointerID) {
+        return PView::OnPointerUp(pointerID, position, event);
     }
 
     if (m_PressedButton != INVALID_INDEX)
@@ -544,8 +544,8 @@ bool PKeyboardView::OnTouchUp(PMouseButton pointID, const PPoint& position, cons
     }
     m_RepeatTimer.Stop();
     m_IsDraggingCursor = false;
-    m_HitButton = PMouseButton::None;
-    MakeFocus(pointID, false);
+    m_HitPointerID = PInvalidPointerID;
+    MakeFocus(pointerID, false);
     return true;
 }
 
@@ -553,10 +553,10 @@ bool PKeyboardView::OnTouchUp(PMouseButton pointID, const PPoint& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PKeyboardView::OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PKeyboardView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
-        return PView::OnTouchMove(pointID, position, event);
+    if (pointerID != m_HitPointerID) {
+        return PView::OnPointerMove(pointerID, position, event);
     }
 
     if (m_IsDraggingCursor)

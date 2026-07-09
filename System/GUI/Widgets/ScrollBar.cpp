@@ -217,7 +217,7 @@ void PScrollBar::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool i
 void PScrollBar::SlotTimerTick()
 {
 	float value = GetValue();
-	if (m_HitButton & 0x01) {
+	if (m_HitArrowIndex & 0x01) {
 		value += m_SmallStep;
 	} else {
 		value -= m_SmallStep;
@@ -239,9 +239,9 @@ void PScrollBar::SlotTimerTick()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollBar::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PScrollBar::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-	MakeFocus(button, true);
+	MakeFocus(pointerID, true);
 	m_HitState = HIT_NONE;
 	m_Changed = false;
 
@@ -250,7 +250,7 @@ bool PScrollBar::OnMouseDown(PMouseButton button, const PPoint& position, const 
 		if (m_ArrowRects[i].DoIntersect(position))
 		{
 			m_ArrowStates[i] = true;
-			m_HitButton = i;
+			m_HitArrowIndex = i;
 			m_HitState = HIT_ARROW;
 			Invalidate(m_ArrowRects[i]);
 			Flush();
@@ -299,7 +299,7 @@ bool PScrollBar::OnMouseDown(PMouseButton button, const PPoint& position, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollBar::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PScrollBar::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
 	if (m_HitState == HIT_ARROW)
 	{
@@ -311,7 +311,7 @@ bool PScrollBar::OnMouseUp(PMouseButton button, const PPoint& position, const PM
 			{
 				if (m_ArrowRects[i].DoIntersect(position))
 				{
-					if (i == m_HitButton)
+					if (i == m_HitArrowIndex)
 					{
 						changed = true;
 						if (i & 0x01) {
@@ -324,12 +324,12 @@ bool PScrollBar::OnMouseUp(PMouseButton button, const PPoint& position, const PM
 				}
 			}
 		}
-		if (m_ArrowStates[m_HitButton])
+		if (m_ArrowStates[m_HitArrowIndex])
 		{
 			m_RepeatTimer.Stop();
-			m_ArrowStates[m_HitButton] = false;
+			m_ArrowStates[m_HitArrowIndex] = false;
 		}
-		Invalidate(m_ArrowRects[m_HitButton]);
+		Invalidate(m_ArrowRects[m_HitArrowIndex]);
 		if (changed)
 		{
 			if (value < m_Min) {
@@ -350,7 +350,7 @@ bool PScrollBar::OnMouseUp(PMouseButton button, const PPoint& position, const PM
 	}
 
 	m_HitState = HIT_NONE;
-	MakeFocus(button, false);
+	MakeFocus(pointerID, false);
 
 	return true;
 }
@@ -359,7 +359,7 @@ bool PScrollBar::OnMouseUp(PMouseButton button, const PPoint& position, const PM
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollBar::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PScrollBar::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
 	if (m_HitState == HIT_ARROW)
 	{
@@ -371,10 +371,10 @@ bool PScrollBar::OnMouseMove(PMouseButton button, const PPoint& position, const 
 				break;
 			}
 		}
-		const bool bHit = m_HitButton == i;
-		if (bHit != m_ArrowStates[m_HitButton])
+		const bool bHit = m_HitArrowIndex == i;
+		if (bHit != m_ArrowStates[m_HitArrowIndex])
 		{
-			if (m_ArrowStates[m_HitButton])
+			if (m_ArrowStates[m_HitArrowIndex])
 			{
                 m_RepeatTimer.Stop();
 			}
@@ -386,8 +386,8 @@ bool PScrollBar::OnMouseMove(PMouseButton button, const PPoint& position, const 
 					GetLooper()->AddTimer(&m_RepeatTimer, true);
 				}
 			}
-			m_ArrowStates[m_HitButton] = bHit;
-			Invalidate(m_ArrowRects[m_HitButton]);
+			m_ArrowStates[m_HitArrowIndex] = bHit;
+			Invalidate(m_ArrowRects[m_HitArrowIndex]);
 			Flush();
 		}
 

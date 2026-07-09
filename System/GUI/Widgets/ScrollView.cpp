@@ -88,16 +88,16 @@ void PScrollView::OnLayoutChanged()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollView::OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PScrollView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (m_HitButton != PMouseButton::None) {
+    if (m_HitPointerID != PInvalidPointerID) {
         return true;
     }
-    m_HitButton = pointID;
+    m_HitPointerID = pointerID;
 
     BeginSwipe(position);
 
-    MakeFocus(pointID, true);
+    MakeFocus(pointerID, true);
     return true;
 }
 
@@ -105,13 +105,13 @@ bool PScrollView::OnTouchDown(PMouseButton pointID, const PPoint& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollView::OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PScrollView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
+    if (pointerID != m_HitPointerID) {
         return true;
     }
-    m_HitButton = PMouseButton::None;
-    MakeFocus(pointID, false);
+    m_HitPointerID = PInvalidPointerID;
+    MakeFocus(pointerID, false);
 
     EndSwipe();
 
@@ -122,9 +122,9 @@ bool PScrollView::OnTouchUp(PMouseButton pointID, const PPoint& position, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PScrollView::OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PScrollView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
+    if (pointerID != m_HitPointerID) {
         return true;
     }
     SwipeMove(position);

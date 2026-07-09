@@ -101,17 +101,17 @@ void PWindow::CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool incl
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PWindow::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PWindow::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (m_DragHitButton != PMouseButton::None) {
+    if (m_DragHitPointerID != PInvalidPointerID) {
         return false;
     }
     if (m_ClientView != nullptr && m_ClientView->GetFrame().DoIntersect(position)) {
         return false;
     }
-    m_DragHitButton = button;
+    m_DragHitPointerID = pointerID;
     m_DragHitPos = event.Position;
-    MakeFocus(button, true);
+    MakeFocus(pointerID, true);
     return true;
 }
 
@@ -119,13 +119,13 @@ bool PWindow::OnMouseDown(PMouseButton button, const PPoint& position, const PMo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PWindow::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PWindow::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (button != m_DragHitButton) {
+    if (pointerID != m_DragHitPointerID) {
         return false;
     }
-    MakeFocus(button, false);
-    m_DragHitButton = PMouseButton::None;
+    MakeFocus(pointerID, false);
+    m_DragHitPointerID = PInvalidPointerID;
     return true;
 }
 
@@ -133,9 +133,9 @@ bool PWindow::OnMouseUp(PMouseButton button, const PPoint& position, const PMoti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PWindow::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PWindow::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (button != m_DragHitButton) {
+    if (pointerID != m_DragHitPointerID) {
         return false;
     }
 

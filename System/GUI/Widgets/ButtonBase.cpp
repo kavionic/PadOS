@@ -87,17 +87,17 @@ Ptr<PButtonGroup> PButtonBase::FindButtonGroup(Ptr<PView> root, const PString& n
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PButtonBase::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PButtonBase::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    //    printf("Button: Mouse down %d, %.1f/%.1f\n", int(button), position.x, position.y);
+    //    printf("Button: Mouse down %d, %.1f/%.1f\n", int(pointerID), position.x, position.y);
 
     if (!IsEnabled()) {
         return false;
     }
 
-    if (m_HitButton == PMouseButton::None)
+    if (m_HitPointerID == PInvalidPointerID)
     {
-        m_HitButton = button;
+        m_HitPointerID = pointerID;
         SetPressedState(true);
         p_beep(PBeepLength::Short);
         if (m_CanBeCheked)
@@ -117,20 +117,20 @@ bool PButtonBase::OnMouseDown(PMouseButton button, const PPoint& position, const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PButtonBase::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PButtonBase::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     if (!IsEnabled()) {
         return false;
     }
-    //    printf("Button: Mouse up %d, %.1f/%.1f\n", int(button), position.x, position.y);
-    if (button == m_HitButton)
+    //    printf("Button: Mouse up %d, %.1f/%.1f\n", int(pointerID), position.x, position.y);
+    if (pointerID == m_HitPointerID)
     {
-        m_HitButton = PMouseButton::None;
+        m_HitPointerID = PInvalidPointerID;
         if (m_IsPressed)
         {
             SetPressedState(false);
             if (!m_CanBeCheked) {
-                SignalActivated(button, this);
+                SignalActivated(pointerID, this);
             }
         }
         return true;
@@ -142,11 +142,11 @@ bool PButtonBase::OnMouseUp(PMouseButton button, const PPoint& position, const P
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PButtonBase::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PButtonBase::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (button == m_HitButton)
+    if (pointerID == m_HitPointerID)
     {
-        //        printf("Button: Mouse move %d, %.1f/%.1f\n", int(button), position.x, position.y);
+        //        printf("Button: Mouse move %d, %.1f/%.1f\n", int(pointerID), position.x, position.y);
         SetPressedState(GetBounds().DoIntersect(position));
     }
     return true;
@@ -187,7 +187,7 @@ void PButtonBase::OnEnableStatusChanged(bool isEnabled)
 {
     if (!isEnabled)
     {
-        m_HitButton = PMouseButton::None;
+        m_HitPointerID = PInvalidPointerID;
         if (m_IsPressed)
         {
             SetPressedState(false);

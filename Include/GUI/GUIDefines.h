@@ -45,8 +45,8 @@ namespace PViewFlags
     static constexpr uint32_t ClearBackground     = 0x0020;   ///< Automatically clear new areas when windows are moved/resized
     static constexpr uint32_t DrawOnChildren      = 0x0040;   ///< Setting this flag allows the view to render atop of all its children.
     static constexpr uint32_t Eavesdropper        = 0x0080;   ///< Client-side view that is connected to a foreign server-side view.
-    static constexpr uint32_t IgnoreMouse         = 0x0100;   ///< Make the view invisible to mouse/touch events.
-    static constexpr uint32_t ForceHandleMouse    = 0x0200;   ///< Handle the mouse/touch event even if a child view is under the mouse.
+    static constexpr uint32_t IgnorePointer       = 0x0100;   ///< Make the view invisible to pointer events.
+    static constexpr uint32_t ForceHandlePointer  = 0x0200;   ///< Handle the pointer event even if a child view is under the pointer.
     static constexpr uint32_t IsAttachedToScreen  = 0x0400;   ///< Set while the view is registered with the server.
     static constexpr int FirstUserBit = 16;    // Inheriting classes should shift their flags this much to the left to avoid collisions.
 

@@ -35,9 +35,9 @@ public:
 
     virtual void AllAttachedToScreen() override { Invalidate(); }
 
-    virtual bool OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
 
     void SetCheckable(bool value) { m_CanBeCheked = value; }
     bool IsCheckable() const { return m_CanBeCheked; }
@@ -54,7 +54,7 @@ public:
 
     Ptr<PButtonGroup> GetButtonGroup() const;
 
-    Signal<void, PMouseButton, PButtonBase*>    SignalActivated;
+    Signal<void, PPointerID, PButtonBase*>    SignalActivated;
     Signal<void, bool, PButtonBase*>             SignalToggled;
 
 protected:
@@ -66,7 +66,7 @@ private:
     friend class PButtonGroup;
 
     void SetButtonGroup(Ptr<PButtonGroup> group);
-    PMouseButton           m_HitButton = PMouseButton::None;
+    PPointerID           m_HitPointerID = PInvalidPointerID;
     Ptr<PButtonGroup>        m_ButtonGroup;
     bool                    m_CanBeCheked = false;
     bool                    m_IsPressed = false;

@@ -48,10 +48,31 @@ void PMenuRenderView::OnPaint(const PRect& updateRect)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PMenuRenderView::OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PMenuRenderView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (m_HitButton != PMouseButton::None) {
-        return PView::OnTouchDown(pointID, position, event);
+    if (event.ToolType == PMotionToolType::Mouse)
+    {
+        if (GetBounds().DoIntersect(position))
+        {
+            Ptr<PMenuItem> item = m_Menu->GetItemAt(position);
+
+            if (item != nullptr)
+            {
+                if (!m_Menu->HasFlags(PMenuFlags::NoKeyboardFocus)) {
+                    m_Menu->SetKeyboardFocus(true);
+                }
+                m_Menu->SelectItem(item);
+            }
+        }
+        else if (!m_Menu->m_HasOpenChildren)
+        {
+            m_Menu->Close(false, true, nullptr);
+        }
+        return true;
+    }
+
+    if (m_HitPointerID != PInvalidPointerID) {
+        return PView::OnPointerDown(pointerID, position, event);
     }
 
     if (m_Menu->m_HasOpenChildren)
@@ -67,7 +88,7 @@ bool PMenuRenderView::OnTouchDown(PMouseButton pointID, const PPoint& position, 
     }
 
     m_HitPos    = position;
-    m_HitButton = pointID;
+    m_HitPointerID = pointerID;
 
     Ptr<PMenuItem> item = m_Menu->GetItemAt(position);
 
@@ -79,7 +100,7 @@ bool PMenuRenderView::OnTouchDown(PMouseButton pointID, const PPoint& position, 
         m_Menu->SelectItem(item);
     }
 
-    MakeFocus(pointID, true);
+    MakeFocus(pointerID, true);
     return true;
 }
 
@@ -87,13 +108,31 @@ bool PMenuRenderView::OnTouchDown(PMouseButton pointID, const PPoint& position, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PMenuRenderView::OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PMenuRenderView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
-        return PView::OnTouchUp(pointID, position, event);
+    if (event.ToolType == PMotionToolType::Mouse)
+    {
+        if (GetBounds().DoIntersect(position))
+        {
+            Ptr<PMenuItem> item = m_Menu->FindMarked();
+
+            if (item != nullptr && item == m_Menu->GetItemAt(position) && item->m_SubMenu == nullptr)
+            {
+                m_Menu->Close(false, true, item);
+            }
+        }
+        else if (!m_Menu->m_HasOpenChildren)
+        {
+            m_Menu->Close(false, true, nullptr);
+        }
+        return true;
     }
 
-    m_HitButton = PMouseButton::None;
+    if (pointerID != m_HitPointerID) {
+        return PView::OnPointerUp(pointerID, position, event);
+    }
+
+    m_HitPointerID = PInvalidPointerID;
 
     if (m_MouseMoved)
     {
@@ -109,7 +148,7 @@ bool PMenuRenderView::OnTouchUp(PMouseButton pointID, const PPoint& position, co
             m_Menu->Close(false, true, item);
         }
     }
-    MakeFocus(pointID, false);
+    MakeFocus(pointerID, false);
     return true;
 }
 
@@ -117,10 +156,30 @@ bool PMenuRenderView::OnTouchUp(PMouseButton pointID, const PPoint& position, co
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PMenuRenderView::OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PMenuRenderView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
-        return PView::OnTouchMove(pointID, position, event);
+    if (event.ToolType == PMotionToolType::Mouse)
+    {
+        if (GetBounds().DoIntersect(position))
+        {
+            Ptr<PMenuItem> item = m_Menu->GetItemAt(position);
+
+            if (item != nullptr)
+            {
+                m_Menu->SelectItem(item);
+//                if (m_Menu->m_eLayout == MenuLayout::Horizontal) {
+//                    m_Menu->OpenSelection();
+//                } else {
+//                    m_Menu->StartOpenTimer(0.2);
+//                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    if (pointerID != m_HitPointerID) {
+        return PView::OnPointerMove(pointerID, position, event);
     }
     if (m_MouseMoved)
     {
@@ -142,83 +201,7 @@ bool PMenuRenderView::OnTouchMove(PMouseButton pointID, const PPoint& position, 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PMenuRenderView::OnLongPress(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PMenuRenderView::OnLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool PMenuRenderView::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
-{
-    if (GetBounds().DoIntersect(position))
-    {
-        Ptr<PMenuItem> pcItem = m_Menu->GetItemAt(position);
-
-        if (pcItem != nullptr)
-        {
-            if (!m_Menu->HasFlags(PMenuFlags::NoKeyboardFocus)) {
-                m_Menu->SetKeyboardFocus(true);
-            }
-            m_Menu->SelectItem(pcItem);
-        }
-    }
-    else
-    {
-        if (!m_Menu->m_HasOpenChildren)
-        {
-            m_Menu->Close(false, true, nullptr);
-        }
-    }
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool PMenuRenderView::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
-{
-    if (GetBounds().DoIntersect(position))
-    {
-        Ptr<PMenuItem> item = m_Menu->FindMarked();
-
-        if (item != nullptr && item == m_Menu->GetItemAt(position) && item->m_SubMenu == nullptr)
-        {
-            m_Menu->Close(false, true, item);
-        }
-    }
-    else
-    {
-        if (!m_Menu->m_HasOpenChildren) {
-            m_Menu->Close(false, true, nullptr);
-        }
-    }
-    return true;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool PMenuRenderView::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
-{
-    if (GetBounds().DoIntersect(position))
-    {
-        Ptr<PMenuItem> item = m_Menu->GetItemAt(position);
-
-        if (item != nullptr)
-        {
-            m_Menu->SelectItem(item);
-//            if (m_Menu->m_eLayout == MenuLayout::Horizontal) {
-//                m_Menu->OpenSelection();
-//            } else {
-//                m_Menu->StartOpenTimer(0.2);
-//            }
-        }
-        return true;
-    }
     return false;
 }

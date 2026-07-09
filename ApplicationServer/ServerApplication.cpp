@@ -299,12 +299,12 @@ void ServerApplication::SlotDeleteView(handler_id clientHandle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void ServerApplication::SlotFocusView(handler_id clientHandle, PMouseButton button, bool focus)
+void ServerApplication::SlotFocusView(handler_id clientHandle, PPointerID pointerID, bool focus)
 {
     const Ptr<PServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr)
     {
-        m_Server->SetFocusView(button, view, focus);
+        m_Server->SetFocusView(pointerID, view, focus);
     }
 }
 

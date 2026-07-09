@@ -31,18 +31,14 @@ public:
 
     virtual void    OnPaint(const PRect& updateRect) override;
 
-    virtual bool    OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnLongPress(PMouseButton pointID, const PPoint& position, const PMotionEvent& event) override;
-
-    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
 
 private:
     PMenu*           m_Menu;
-    PMouseButton   m_HitButton = PMouseButton::None;
+    PPointerID   m_HitPointerID = PInvalidPointerID;
     PPoint           m_HitPos;
     bool            m_MouseMoved = false;
 };

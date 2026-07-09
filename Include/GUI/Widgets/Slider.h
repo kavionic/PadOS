@@ -110,22 +110,22 @@ public:
     size_t          GetShadowKnobsCount() const;
     void            SetShadowKnobValue(size_t index, float value);
 
-    bool            IsBeingDragged() const { return m_HitButton != PMouseButton::None; }
+    bool            IsBeingDragged() const { return m_HitPointerID != PInvalidPointerID; }
     // From Control:
     virtual void    OnEnableStatusChanged(bool isEnabled) override;
     
     // From View
     virtual void AttachedToScreen() override;
-    virtual bool OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
     virtual void OnFrameSized(const PPoint& delta) override;
     virtual void OnPaint(const PRect& updateRect) override;
     virtual void CalculatePreferredSize(PPoint* minSize, PPoint* maxSize, bool includeWidth, bool includeHeight) override;
 
 
-    Signal<void, float, PSlider*, PMouseButton> SignalBeginDrag;
-    Signal<void, float, PSlider*, PMouseButton> SignalEndDrag;
+    Signal<void, float, PSlider*, PPointerID> SignalBeginDrag;
+    Signal<void, float, PSlider*, PPointerID> SignalEndDrag;
     Signal<void, float, bool, PSlider*>          SignalValueChanged;//(float value, bool finalUpdate, os::Slider* slider)
 private:
     void UpdateValueView();
@@ -157,7 +157,7 @@ private:
     std::vector<float>  m_ShadowArrows;
 
     bool            m_Changed = false;
-    PMouseButton   m_HitButton = PMouseButton::None;
+    PPointerID   m_HitPointerID = PInvalidPointerID;
     PPoint           m_HitPos;
     float           m_HitValue = 0.0f;
     PPoint           m_SmoothedPos;

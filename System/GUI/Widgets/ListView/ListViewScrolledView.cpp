@@ -42,13 +42,13 @@ PListViewScrolledView::PListViewScrolledView(Ptr<PListView> listView)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewScrolledView::HasFocus(PMouseButton button) const
+bool PListViewScrolledView::HasFocus(PPointerID pointerID) const
 {
-    if (PView::HasFocus(button)) {
+    if (PView::HasFocus(pointerID)) {
         return true;
     }
     for (size_t i = 0; i < m_ColumnMap.size(); ++i) {
-        if (m_ColumnViews[m_ColumnMap[i]]->HasFocus(button)) {
+        if (m_ColumnViews[m_ColumnMap[i]]->HasFocus(pointerID)) {
             return true;
         }
     }
@@ -130,12 +130,15 @@ void PListViewScrolledView::StopScroll()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewScrolledView::OnTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PListViewScrolledView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (m_HitButton != PMouseButton::None) {
+    if (event.ToolType == PMotionToolType::Mouse) {
+        return HandleMousePointerDown(pointerID, position, event);
+    }
+    if (m_HitPointerID != PInvalidPointerID) {
         return true;
     }
-    m_HitButton = pointID;
+    m_HitPointerID = pointerID;
     m_HitPos = position;
 
     const PRect bounds = GetBounds();
@@ -144,7 +147,7 @@ bool PListViewScrolledView::OnTouchDown(PMouseButton pointID, const PPoint& posi
         m_InertialScroller.BeginDrag(GetScrollOffset(), ConvertToRoot(position));
     }
     m_MouseMoved = false;
-    MakeFocus(pointID, true);
+    MakeFocus(pointerID, true);
     return true;
 }
 
@@ -152,13 +155,16 @@ bool PListViewScrolledView::OnTouchDown(PMouseButton pointID, const PPoint& posi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewScrolledView::OnTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PListViewScrolledView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
+    if (event.ToolType == PMotionToolType::Mouse) {
+        return HandleMousePointerUp(pointerID, position, event);
+    }
+    if (pointerID != m_HitPointerID) {
         return true;
     }
-    m_HitButton = PMouseButton::None;
-    MakeFocus(pointID, false);
+    m_HitPointerID = PInvalidPointerID;
+    MakeFocus(pointerID, false);
 
     m_InertialScroller.EndDrag();
 
@@ -182,9 +188,12 @@ bool PListViewScrolledView::OnTouchUp(PMouseButton pointID, const PPoint& positi
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewScrolledView::OnTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& event)
+bool PListViewScrolledView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    if (pointID != m_HitButton) {
+    if (event.ToolType == PMotionToolType::Mouse) {
+        return HandleMousePointerMove(pointerID, position, event);
+    }
+    if (pointerID != m_HitPointerID) {
         return true;
     }
     if (!m_MouseMoved && (position - m_HitPos).LengthSqr() < PMath::square(20.0f)) {
@@ -208,9 +217,9 @@ void PListViewScrolledView::SlotInertialScrollUpdate(const PPoint& position)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewScrolledView::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PListViewScrolledView::HandleMousePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
-    MakeFocus(button, true);
+    MakeFocus(pointerID, true);
 
     if (m_Rows.empty()) {
         return false;
@@ -295,7 +304,7 @@ bool PListViewScrolledView::OnMouseDown(PMouseButton button, const PPoint& posit
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewScrolledView::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PListViewScrolledView::HandleMousePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     m_MousDownSeen = false;
 
@@ -317,7 +326,7 @@ bool PListViewScrolledView::OnMouseUp(PMouseButton button, const PPoint& positio
         Flush();
     }
     //  if (pcData != NULL) {
-    //      View::OnMouseUp(button, position);
+    //      View::OnPointerUp(button, position);
     //      return;
     //  }
     return true;
@@ -327,7 +336,7 @@ bool PListViewScrolledView::OnMouseUp(PMouseButton button, const PPoint& positio
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PListViewScrolledView::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event)
+bool PListViewScrolledView::HandleMousePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event)
 {
     m_MouseMoved = true;
     if (!m_MousDownSeen) {

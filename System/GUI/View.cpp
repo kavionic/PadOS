@@ -47,8 +47,8 @@ const std::map<PString, uint32_t> PViewFlags::FlagMap
     DEFINE_FLAG_MAP_ENTRY(PViewFlags, ClearBackground),
     DEFINE_FLAG_MAP_ENTRY(PViewFlags, DrawOnChildren),
     DEFINE_FLAG_MAP_ENTRY(PViewFlags, Eavesdropper),
-    DEFINE_FLAG_MAP_ENTRY(PViewFlags, IgnoreMouse),
-    DEFINE_FLAG_MAP_ENTRY(PViewFlags, ForceHandleMouse)
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, IgnorePointer),
+    DEFINE_FLAG_MAP_ENTRY(PViewFlags, ForceHandlePointer)
 };
 
 static PColor g_DefaultColors[] =
@@ -298,9 +298,10 @@ void PView::Initialize()
     RegisterRemoteSignal(&RSPaintView, &PView::HandlePaint);
     RegisterRemoteSignal(&RSViewFrameChanged, &PView::SlotFrameChanged);
     RegisterRemoteSignal(&RSViewFocusChanged, &PView::SlotKeyboardFocusChanged);
-    RegisterRemoteSignal(&RSHandleMouseDown, &PView::SlotHandleMouseDown);
-    RegisterRemoteSignal(&RSHandleMouseUp, &PView::HandleMouseUp);
-    RegisterRemoteSignal(&RSHandleMouseMove, &PView::HandleMouseMove);
+    RegisterRemoteSignal(&RSHandlePointerDown, &PView::SlotHandlePointerDown);
+    RegisterRemoteSignal(&RSHandlePointerUp, &PView::HandlePointerUp);
+    RegisterRemoteSignal(&RSHandlePointerMove, &PView::HandlePointerMove);
+    RegisterRemoteSignal(&RSHandlePointerCancel, &PView::HandlePointerCancel);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -641,7 +642,7 @@ void PView::InvalidateLayout()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
+bool PView::OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
 {
     return false;
 }
@@ -650,7 +651,7 @@ bool PView::OnMouseDown(PMouseButton button, const PPoint& position, const PMoti
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
+bool PView::OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
 {
     return false;
 }
@@ -659,7 +660,25 @@ bool PView::OnMouseUp(PMouseButton button, const PPoint& position, const PMotion
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
+bool PView::OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
+{
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PView::OnPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
+{
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PView::OnLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
 {
     return false;
 }
@@ -1011,11 +1030,11 @@ bool PView::IsVisible() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::MakeFocus(PMouseButton button, bool focus)
+void PView::MakeFocus(PPointerID pointerID, bool focus)
 {
     PApplication* app = GetApplication();
     if (app != nullptr) {
-        app->SetFocusView(button, ptr_tmp_cast(this), focus);
+        app->SetFocusView(pointerID, ptr_tmp_cast(this), focus);
     }
 }
 
@@ -1023,10 +1042,10 @@ void PView::MakeFocus(PMouseButton button, bool focus)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::HasFocus(PMouseButton button) const
+bool PView::HasFocus(PPointerID pointerID) const
 {
     const PApplication* app = GetApplication();
-    return app != nullptr && ptr_raw_pointer_cast(app->GetFocusView(button)) == this;
+    return app != nullptr && ptr_raw_pointer_cast(app->GetFocusView(pointerID)) == this;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1201,42 +1220,37 @@ Ptr<PFont> PView::GetFont() const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::SlotHandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
+bool PView::SlotHandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
 {
-    // Dive down the hierarchy to find the top-most children under the mouse.
+    // Dive down the hierarchy to find the top-most children under the pointer.
     for (Ptr<PView> child : p_reverse_ranged(m_ChildrenList))
     {
         if (child->IsVisible() && child->m_Frame.DoIntersect(position))
         {
             const PPoint childPos = child->ConvertFromParent(position);
-            return child->SlotHandleMouseDown(button, childPos, motionEvent);
+            return child->SlotHandlePointerDown(pointerID, childPos, pointerEvent);
         }
     }
-    // No children eligible for handling the mouse, so attempt to handle it ourself.
-    return HandleMouseDown(button, position, motionEvent);
+    // No children eligible for handling the pointer, so attempt to handle it ourself.
+    return HandlePointerDown(pointerID, position, pointerEvent);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::HandleMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
+bool PView::HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
 {
     bool handled = false;
 
-    if (!HasFlags(PViewFlags::IgnoreMouse))
-    {
-        if (button < PMouseButton::FirstTouchID) {
-            handled = DispatchMouseDown(button, position, motionEvent);
-        } else {
-            handled = DispatchTouchDown(button, position, motionEvent);
-        }
+    if (!HasFlags(PViewFlags::IgnorePointer)) {
+        handled = DispatchPointerDown(pointerID, position, pointerEvent);
     }
     if (handled)
     {
         PApplication* app = GetApplication();
         if (app != nullptr) {
-            app->SetMouseDownView(button, ptr_tmp_cast(this), motionEvent);
+            app->SetPointerDownView(pointerID, ptr_tmp_cast(this), pointerEvent);
         }
     }
     else
@@ -1245,7 +1259,7 @@ bool PView::HandleMouseDown(PMouseButton button, const PPoint& position, const P
 
         if (parent != nullptr)
         {
-            // Event not handled by us. Check if the mouse hit any overlapping siblings below us.
+            // Event not handled by us. Check if the pointer hit any overlapping siblings below us.
             const PPoint parentPos = ConvertToParent(position);
             auto i = parent->GetChildRIterator(ptr_tmp_cast(this));
             if (i != parent->rend())
@@ -1254,12 +1268,12 @@ bool PView::HandleMouseDown(PMouseButton button, const PPoint& position, const P
                 {
                     Ptr<PView> sibling = *i;
                     if (sibling->IsVisible() && sibling->GetFrame().DoIntersect(parentPos)) {
-                        return sibling->HandleMouseDown(button, sibling->ConvertFromParent(parentPos), motionEvent);
+                        return sibling->HandlePointerDown(pointerID, sibling->ConvertFromParent(parentPos), pointerEvent);
                     }
                 }
             }
             // No lower sibling hit, send to parent.
-            return parent->HandleMouseDown(button, parentPos, motionEvent);
+            return parent->HandlePointerDown(pointerID, parentPos, pointerEvent);
         }
     }
     return handled;
@@ -1269,21 +1283,18 @@ bool PView::HandleMouseDown(PMouseButton button, const PPoint& position, const P
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::HandleMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
+void PView::HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
 {
     PApplication* app = GetApplication();
-    Ptr<PView> mouseView = (app != nullptr) ? app->GetMouseDownView(button) : nullptr;
-    if (mouseView != nullptr)
+    Ptr<PView> pointerDownView = (app != nullptr) ? app->GetPointerDownView(pointerID) : nullptr;
+    if (pointerDownView != nullptr)
     {
-        if (button < PMouseButton::FirstTouchID) {
-            mouseView->DispatchMouseUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), motionEvent);
-        } else {
-            mouseView->DispatchTouchUp(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), motionEvent);
-        }
+        pointerDownView->DispatchPointerUp(pointerID, pointerDownView->ConvertFromRoot(ConvertToRoot(position)), pointerEvent);
+        app->SetPointerDownView(pointerID, nullptr, pointerEvent);
     }
     else
     {
-        DispatchMouseUp(button, position, motionEvent);
+        DispatchPointerUp(pointerID, position, pointerEvent);
     }        
 }
 
@@ -1291,26 +1302,37 @@ void PView::HandleMouseUp(PMouseButton button, const PPoint& position, const PMo
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PView::HandleMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& motionEvent)
+void PView::HandlePointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
 {
     PApplication* app = GetApplication();
-    Ptr<PView> mouseView = (app != nullptr) ? app->GetFocusView(button) : nullptr;
-    if (mouseView != nullptr)
+    Ptr<PView> focusView = (app != nullptr) ? app->GetFocusView(pointerID) : nullptr;
+    if (focusView != nullptr)
     {
-        if (button < PMouseButton::FirstTouchID) {
-            mouseView->DispatchMouseMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), motionEvent);
-        } else {
-            mouseView->DispatchTouchMove(button, mouseView->ConvertFromRoot(ConvertToRoot(position)), motionEvent);
-        }
+        focusView->DispatchPointerMove(pointerID, focusView->ConvertFromRoot(ConvertToRoot(position)), pointerEvent);
     }
-    else if (m_HideCount == 0 && !HasFlags(PViewFlags::IgnoreMouse))
+    else if (m_HideCount == 0 && !HasFlags(PViewFlags::IgnorePointer))
     {
-        if (button < PMouseButton::FirstTouchID) {
-            DispatchMouseMove(button, position, motionEvent);
-        } else {
-            DispatchTouchMove(button, position, motionEvent);
-        }
+        DispatchPointerMove(pointerID, position, pointerEvent);
     }        
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PView::HandlePointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
+{
+    PApplication* app = GetApplication();
+    Ptr<PView> pointerDownView = (app != nullptr) ? app->GetPointerDownView(pointerID) : nullptr;
+    if (pointerDownView != nullptr)
+    {
+        pointerDownView->DispatchPointerCancel(pointerID, pointerDownView->ConvertFromRoot(ConvertToRoot(position)), pointerEvent);
+        app->SetPointerDownView(pointerID, nullptr, pointerEvent);
+    }
+    else
+    {
+        DispatchPointerCancel(pointerID, position, pointerEvent);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1926,12 +1948,12 @@ void PView::UpdatePosition(UpdatePositionNotifyServer notifyMode)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::DispatchTouchDown(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
+bool PView::DispatchPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
 {
-    if (VFTouchDown.Empty()) {
-        return OnTouchDown(pointID, position, motionEvent);
+    if (VFPointerDown.Empty()) {
+        return OnPointerDown(pointerID, position, pointerEvent);
     } else {
-        return VFTouchDown(this, pointID, position, motionEvent);
+        return VFPointerDown(this, pointerID, position, pointerEvent);
     }
 }
 
@@ -1939,12 +1961,12 @@ bool PView::DispatchTouchDown(PMouseButton pointID, const PPoint& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::DispatchTouchUp(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
+bool PView::DispatchPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
 {
-    if (VFTouchUp.Empty()) {
-        return OnTouchUp(pointID, position, motionEvent);
+    if (VFPointerUp.Empty()) {
+        return OnPointerUp(pointerID, position, pointerEvent);
     } else {
-        return VFTouchUp(this, pointID, position, motionEvent);
+        return VFPointerUp(this, pointerID, position, pointerEvent);
     }
 }
 
@@ -1952,12 +1974,12 @@ bool PView::DispatchTouchUp(PMouseButton pointID, const PPoint& position, const 
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::DispatchTouchMove(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
+bool PView::DispatchPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
 {
-    if (VFTouchMove.Empty()) {
-        return OnTouchMove(pointID, position, motionEvent);
+    if (VFPointerMove.Empty()) {
+        return OnPointerMove(pointerID, position, pointerEvent);
     } else {
-        return VFTouchMove(this, pointID, position, motionEvent);
+        return VFPointerMove(this, pointerID, position, pointerEvent);
     }
 }
 
@@ -1965,51 +1987,25 @@ bool PView::DispatchTouchMove(PMouseButton pointID, const PPoint& position, cons
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool PView::DispatchLongPress(PMouseButton pointID, const PPoint& position, const PMotionEvent& motionEvent)
+bool PView::DispatchPointerCancel(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
+{
+    if (VFPointerCancel.Empty()) {
+        return OnPointerCancel(pointerID, position, pointerEvent);
+    } else {
+        return VFPointerCancel(this, pointerID, position, pointerEvent);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool PView::DispatchLongPress(PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)
 {
     if (VFLongPress.Empty()) {
-        return OnLongPress(pointID, position, motionEvent);
+        return OnLongPress(pointerID, position, pointerEvent);
     } else {
-        return VFLongPress(this, pointID, position, motionEvent);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool PView::DispatchMouseDown(PMouseButton buttonID, const PPoint& position, const PMotionEvent& motionEvent)
-{
-    if (VFMouseDown.Empty()) {
-        return OnMouseDown(buttonID, position, motionEvent);
-    } else {
-        return VFMouseDown(this, buttonID, position, motionEvent);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool PView::DispatchMouseUp(PMouseButton buttonID, const PPoint& position, const PMotionEvent& motionEvent)
-{
-    if (VFMouseUp.Empty()) {
-        return OnMouseUp(buttonID, position, motionEvent);
-    } else {
-        return VFMouseUp(this, buttonID, position, motionEvent);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-bool PView::DispatchMouseMove(PMouseButton buttonID, const PPoint& position, const PMotionEvent& motionEvent)
-{
-    if (VFMouseMove.Empty()) {
-        return OnMouseMove(buttonID, position, motionEvent);
-    } else {
-        return VFMouseMove(this, buttonID, position, motionEvent);
+        return VFLongPress(this, pointerID, position, pointerEvent);
     }
 }
 

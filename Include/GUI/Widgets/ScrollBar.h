@@ -41,9 +41,9 @@ public:
     // From View
     virtual void    OnFrameSized(const PPoint& delta) override;
 
-    virtual bool    OnMouseDown(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseUp(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
-    virtual bool    OnMouseMove(PMouseButton button, const PPoint& position, const PMotionEvent& event) override;
+    virtual bool    OnPointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
+    virtual bool    OnPointerMove(PPointerID pointerID, const PPoint& position, const PPointerEvent& event) override;
 
 //    virtual void	WheelMoved(const Point& cDelta);
 
@@ -88,6 +88,6 @@ private:
     bool        m_Changed = false;
     bool        m_FirstTick = true;
     PPoint       m_HitPos;
-    int         m_HitButton = 0;
+    int         m_HitArrowIndex = 0;
     int         m_HitState = HIT_NONE;
 };

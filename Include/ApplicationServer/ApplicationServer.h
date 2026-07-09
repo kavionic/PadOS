@@ -20,6 +20,7 @@
 #pragma once
 
 #include <array>
+#include <map>
 #include <queue>
 #include <stdint.h>
 
@@ -73,6 +74,7 @@ private:
 
     void ReadInputEvents();
     void QueueMotionEvent(const PMotionEvent& event);
+    PPointerButtonMask UpdatePointerButtonState(PPointerID pointerID, PInputEventID eventID, PMouseButton button);
 
     void HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
     void HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
@@ -96,6 +98,7 @@ private:
 
     std::map<PPointerID, PServerView*> m_PointerViewMap;    // Maps pointer ID to view last hit.
     std::map<PPointerID, PServerView*> m_PointerFocusMap;   // Map of focused view per pointer ID.
+    std::map<PPointerID, PPointerButtonMask> m_PointerButtonsMap;
     PServerView*                 m_KeyboardFocusView = nullptr;
 
     int        m_TouchInputDevice = -1;

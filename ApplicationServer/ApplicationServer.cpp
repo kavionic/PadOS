@@ -58,13 +58,33 @@ PMotionToolType GetDefaultMotionToolType(const PMotionEvent& motionEvent)
     }
 }
 
-PPointerEvent CreatePointerEvent(const PMotionEvent& motionEvent)
+PMouseButton GetPointerButton(const PMotionEvent& motionEvent)
+{
+    switch (motionEvent.EventID)
+    {
+        case PInputEventID::MouseDown:
+        case PInputEventID::MouseUp:
+            return motionEvent.ButtonID;
+
+        case PInputEventID::TouchDown:
+        case PInputEventID::TouchUp:
+            return PMouseButton::Left;
+
+        default:
+            return PMouseButton::None;
+    }
+}
+
+PPointerEvent CreatePointerEvent(const PMotionEvent& motionEvent, PPointerID pointerID, PMouseButton button, PPointerButtonMask buttons)
 {
     PPointerEvent pointerEvent;
-    static_cast<PMotionEvent&>(pointerEvent) = motionEvent;
-    pointerEvent.EventSize = sizeof(pointerEvent);
-    pointerEvent.PointerID = GetPointerID(motionEvent.ButtonID);
+    pointerEvent.PointerID = pointerID;
+    pointerEvent.Timestamp = motionEvent.Timestamp;
     pointerEvent.ToolType = GetDefaultMotionToolType(motionEvent);
+    pointerEvent.Button = button;
+    pointerEvent.Buttons = buttons;
+    pointerEvent.Pressure = (buttons != PPointerButtonMaskNone) ? 1.0f : 0.0f;
+    pointerEvent.Position = motionEvent.Position;
     return pointerEvent;
 }
 
@@ -160,42 +180,6 @@ bool ApplicationServer::HandleMessage(handler_id targetHandler, int32_t code, co
             RSRegisterApplication.Dispatch(data, length);
             return true;
             
-        case int32_t(PMessageID::MOUSE_DOWN):
-        {
-            PMotionEvent event = *static_cast<const PMotionEvent*>(data);
-            event.EventSize = sizeof(event);
-            event.EventType = PInputEventType::MotionEvent;
-            event.ClassID   = PInputClass::Mouse;
-            event.EventID   = PInputEventID::MouseDown;
-            event.SourceID  = -1;
-            event.ToolType  = PMotionToolType::Mouse;
-            QueueMotionEvent(event);
-            return true;
-        }
-        case int32_t(PMessageID::MOUSE_UP):
-        {
-            PMotionEvent event = *static_cast<const PMotionEvent*>(data);
-            event.EventSize = sizeof(event);
-            event.EventType = PInputEventType::MotionEvent;
-            event.ClassID   = PInputClass::Mouse;
-            event.EventID   = PInputEventID::MouseUp;
-            event.SourceID  = -1;
-            event.ToolType  = PMotionToolType::Mouse;
-            QueueMotionEvent(event);
-            return true;
-        }
-        case int32_t(PMessageID::MOUSE_MOVE):
-        {
-            PMotionEvent event = *static_cast<const PMotionEvent*>(data);
-            event.EventSize = sizeof(event);
-            event.EventType = PInputEventType::MotionEvent;
-            event.ClassID   = PInputClass::Mouse;
-            event.EventID   = PInputEventID::MouseMove;
-            event.SourceID  = -1;
-            event.ToolType  = PMotionToolType::Mouse;
-            QueueMotionEvent(event);
-            return true;
-        }
         case int32_t(PMessageID::KEY_DOWN):
         case int32_t(PMessageID::KEY_UP):
         {
@@ -221,25 +205,28 @@ void ApplicationServer::Idle()
     while(!m_MotionEventQueue.empty())
     {
         const PMotionEvent& motionEvent = m_MotionEventQueue.front();
-        PPointerEvent pointerEvent = CreatePointerEvent(motionEvent);
+        const PPointerID pointerID = GetPointerID(motionEvent.ButtonID);
+        const PMouseButton button = GetPointerButton(motionEvent);
+        const PPointerButtonMask buttons = UpdatePointerButtonState(pointerID, motionEvent.EventID, button);
+        PPointerEvent pointerEvent = CreatePointerEvent(motionEvent, pointerID, button, buttons);
         switch(motionEvent.EventID)
         {
             case PInputEventID::MouseDown:
             case PInputEventID::TouchDown:
             {
-                HandlePointerDown(pointerEvent.PointerID, pointerEvent.Position, pointerEvent);
+                HandlePointerDown(pointerID, pointerEvent.Position, pointerEvent);
                 break;
             }            
             case PInputEventID::MouseUp:
             case PInputEventID::TouchUp:
             {
-                HandlePointerUp(pointerEvent.PointerID, pointerEvent.Position, pointerEvent);
+                HandlePointerUp(pointerID, pointerEvent.Position, pointerEvent);
                 break;
             }            
             case PInputEventID::MouseMove:
             case PInputEventID::TouchMove:
             {
-                HandlePointerMove(pointerEvent.PointerID, pointerEvent.Position, pointerEvent);
+                HandlePointerMove(pointerID, pointerEvent.Position, pointerEvent);
                 break;
             }
             default:
@@ -426,6 +413,43 @@ void ApplicationServer::QueueMotionEvent(const PMotionEvent& event)
         }
     }
     m_MotionEventQueue.push(event);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PPointerButtonMask ApplicationServer::UpdatePointerButtonState(PPointerID pointerID, PInputEventID eventID, PMouseButton button)
+{
+    PPointerButtonMask buttons = PPointerButtonMaskNone;
+    auto iterator = m_PointerButtonsMap.find(pointerID);
+    if (iterator != m_PointerButtonsMap.end()) {
+        buttons = iterator->second;
+    }
+
+    const PPointerButtonMask buttonMask = GetPointerButtonMask(button);
+    switch (eventID)
+    {
+        case PInputEventID::MouseDown:
+        case PInputEventID::TouchDown:
+            buttons |= buttonMask;
+            break;
+
+        case PInputEventID::MouseUp:
+        case PInputEventID::TouchUp:
+            buttons &= ~buttonMask;
+            break;
+
+        default:
+            break;
+    }
+
+    if (buttons != PPointerButtonMaskNone) {
+        m_PointerButtonsMap[pointerID] = buttons;
+    } else if (iterator != m_PointerButtonsMap.end()) {
+        m_PointerButtonsMap.erase(iterator);
+    }
+    return buttons;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -53,16 +53,25 @@ enum class PMouseButton : uint32_t
 };
 
 using PPointerID = uint32_t;
+using PPointerButtonMask = uint32_t;
 
 static constexpr PPointerID PInvalidPointerID = UINT32_MAX;
 static constexpr PPointerID PMousePointerID = 0;
 static constexpr PPointerID PFirstTouchPointerID = 1;
+static constexpr PPointerButtonMask PPointerButtonMaskNone = 0;
 
 static constexpr PPointerID GetPointerID(PMouseButton button)
 {
     return (button < PMouseButton::FirstTouchID)
         ? PMousePointerID
         : PPointerID(std::to_underlying(button) - std::to_underlying(PMouseButton::FirstTouchID) + PFirstTouchPointerID);
+}
+
+static constexpr PPointerButtonMask GetPointerButtonMask(PMouseButton button)
+{
+    return (button >= PMouseButton::Left && button <= PMouseButton::Button8)
+        ? PPointerButtonMask(1U << (std::to_underlying(button) - std::to_underlying(PMouseButton::Left)))
+        : PPointerButtonMaskNone;
 }
 
 enum class PMotionToolType : uint32_t
@@ -121,9 +130,15 @@ struct PMotionEvent : PInputEvent
     PPoint           Position;
 };
 
-struct PPointerEvent : PMotionEvent
+struct PPointerEvent
 {
-    PPointerID PointerID;
+    PPointerID          PointerID = PInvalidPointerID;
+    TimeValNanos        Timestamp;
+    PMotionToolType     ToolType = PMotionToolType::Mouse;
+    PMouseButton        Button = PMouseButton::None;
+    PPointerButtonMask  Buttons = PPointerButtonMaskNone;
+    float               Pressure = 0.0f;
+    PPoint              Position;
 };
 
 struct PKeyEvent : PInputEvent

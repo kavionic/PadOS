@@ -25,9 +25,6 @@ enum class PMessageID : uint32_t
     NONE = 0,
     FIRST_SIGNAL_ID = std::numeric_limits<int32_t>::max() - 200000,
     FIRST_SYSTEM_ID = std::numeric_limits<int32_t>::max() - 100000,
-    MOUSE_DOWN,
-    MOUSE_UP,
-    MOUSE_MOVE,
     KEY_DOWN,
     KEY_UP,
     QUIT

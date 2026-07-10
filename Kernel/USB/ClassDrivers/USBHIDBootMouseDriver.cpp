@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <exception>
+#include <utility>
 
 #include <Kernel/KLogging.h>
 #include <Kernel/KTime.h>
@@ -104,6 +105,7 @@ void USBHIDBootMouseDriver::HandleReport(const uint8_t* report, size_t length)
 
     const uint8_t buttons = report[0];
     const uint8_t changedButtons = buttons ^ m_PreviousButtons;
+    const PPointerButtonMask pointerButtons = GetButtons(buttons);
 
     for (uint8_t buttonFlag = 1; buttonFlag != 0; buttonFlag = uint8_t(buttonFlag << 1))
     {
@@ -111,7 +113,7 @@ void USBHIDBootMouseDriver::HandleReport(const uint8_t* report, size_t length)
         {
             const PMouseButton button = GetButton(buttonFlag);
             if (button != PMouseButton::None) {
-                EmitButtonEvent(button, (buttons & buttonFlag) != 0);
+                EmitButtonEvent(button, pointerButtons, (buttons & buttonFlag) != 0);
             }
         }
     }
@@ -120,11 +122,11 @@ void USBHIDBootMouseDriver::HandleReport(const uint8_t* report, size_t length)
     const int deltaPositionY = int(int8_t(report[2]));
 
     if (deltaPositionX != 0 || deltaPositionY != 0) {
-        EmitMoveEvent(deltaPositionX, deltaPositionY);
+        EmitMoveEvent(deltaPositionX, deltaPositionY, pointerButtons);
     }
     const int deltaWheel = GetWheelDelta(report, length);
     if (deltaWheel != 0) {
-        EmitWheelEvent(deltaWheel);
+        EmitWheelEvent(deltaWheel, pointerButtons);
     }
 
     m_PreviousButtons = buttons;
@@ -134,17 +136,17 @@ void USBHIDBootMouseDriver::HandleReport(const uint8_t* report, size_t length)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBHIDBootMouseDriver::EmitButtonEvent(PMouseButton button, bool pressed)
+void USBHIDBootMouseDriver::EmitButtonEvent(PMouseButton button, PPointerButtonMask buttons, bool pressed)
 {
-    PMotionEvent event;
+    PMouseEvent event;
     event.EventSize = sizeof(event);
-    event.EventType = PInputEventType::MotionEvent;
+    event.EventType = PInputEventType::MouseEvent;
     event.ClassID = PInputClass::Mouse;
     event.Timestamp = kget_monotonic_time();
     event.EventID = pressed ? PInputEventID::MouseDown : PInputEventID::MouseUp;
     event.SourceID = m_SourceID;
-    event.ToolType = PMotionToolType::Mouse;
-    event.ButtonID = button;
+    event.Button = button;
+    event.Buttons = buttons;
     event.Position = PPoint(0.0f);
 
     try {
@@ -152,7 +154,7 @@ void USBHIDBootMouseDriver::EmitButtonEvent(PMouseButton button, bool pressed)
             LogCategoryUSBHost,
             "HID boot mouse button event: source={} button={} {}.",
             event.SourceID,
-            int(event.ButtonID),
+            std::to_underlying(event.Button),
             pressed ? "down" : "up"
         );
         KUserInputManager::Get().AddEvent(event);
@@ -165,17 +167,17 @@ void USBHIDBootMouseDriver::EmitButtonEvent(PMouseButton button, bool pressed)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBHIDBootMouseDriver::EmitMoveEvent(int deltaPositionX, int deltaPositionY)
+void USBHIDBootMouseDriver::EmitMoveEvent(int deltaPositionX, int deltaPositionY, PPointerButtonMask buttons)
 {
-    PMotionEvent event;
+    PMouseEvent event;
     event.EventSize = sizeof(event);
-    event.EventType = PInputEventType::MotionEvent;
+    event.EventType = PInputEventType::MouseEvent;
     event.ClassID = PInputClass::Mouse;
     event.Timestamp = kget_monotonic_time();
     event.EventID = PInputEventID::MouseMove;
     event.SourceID = m_SourceID;
-    event.ToolType = PMotionToolType::Mouse;
-    event.ButtonID = PMouseButton::None;
+    event.Button = PMouseButton::None;
+    event.Buttons = buttons;
     event.Position = PPoint(float(deltaPositionX), float(deltaPositionY));
 
     try {
@@ -196,17 +198,17 @@ void USBHIDBootMouseDriver::EmitMoveEvent(int deltaPositionX, int deltaPositionY
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void USBHIDBootMouseDriver::EmitWheelEvent(int deltaWheel)
+void USBHIDBootMouseDriver::EmitWheelEvent(int deltaWheel, PPointerButtonMask buttons)
 {
-    PMotionEvent event;
+    PMouseEvent event;
     event.EventSize = sizeof(event);
-    event.EventType = PInputEventType::MotionEvent;
+    event.EventType = PInputEventType::MouseEvent;
     event.ClassID = PInputClass::Mouse;
     event.Timestamp = kget_monotonic_time();
     event.EventID = PInputEventID::MouseWheel;
     event.SourceID = m_SourceID;
-    event.ToolType = PMotionToolType::Mouse;
-    event.ButtonID = PMouseButton::None;
+    event.Button = PMouseButton::None;
+    event.Buttons = buttons;
     event.Position = PPoint(0.0f, float(deltaWheel));
 
     try {
@@ -240,6 +242,24 @@ PMouseButton USBHIDBootMouseDriver::GetButton(uint8_t buttonFlag)
         case 0x80: return PMouseButton::Button8;
         default:   return PMouseButton::None;
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PPointerButtonMask USBHIDBootMouseDriver::GetButtons(uint8_t buttonFlags)
+{
+    PPointerButtonMask buttons = PPointerButtonMaskNone;
+
+    for (uint8_t buttonFlag = 1; buttonFlag != 0; buttonFlag = uint8_t(buttonFlag << 1))
+    {
+        if ((buttonFlags & buttonFlag) != 0)
+        {
+            buttons |= GetPointerButtonMask(GetButton(buttonFlag));
+        }
+    }
+    return buttons;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

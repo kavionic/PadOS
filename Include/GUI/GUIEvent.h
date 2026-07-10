@@ -67,6 +67,11 @@ static constexpr PPointerID GetPointerID(PMouseButton button)
         : PPointerID(std::to_underlying(button) - std::to_underlying(PMouseButton::FirstTouchID) + PFirstTouchPointerID);
 }
 
+static constexpr PPointerID GetTouchPointerID(uint32_t touchID)
+{
+    return PFirstTouchPointerID + touchID;
+}
+
 static constexpr PPointerButtonMask GetPointerButtonMask(PMouseButton button)
 {
     return (button >= PMouseButton::Left && button <= PMouseButton::Button8)
@@ -87,7 +92,8 @@ static constexpr PMotionToolType GetMotionToolType(PMouseButton button) { return
 enum class PInputEventType : uint16_t
 {
     InputEvent,
-    MotionEvent,
+    MouseEvent,
+    TouchEvent,
     KeyEvent
 };
 
@@ -123,11 +129,19 @@ struct PInputEvent
 
 static_assert(sizeof(PInputEvent) == 24);
 
-struct PMotionEvent : PInputEvent
+struct PMouseEvent : PInputEvent
 {
-    PMotionToolType  ToolType;
-    PMouseButton   ButtonID;
-    PPoint           Position;
+    PMouseButton        Button;
+    PPointerButtonMask  Buttons;
+    PPoint              Position;
+};
+
+struct PTouchEvent : PInputEvent
+{
+    uint32_t            TouchID;
+    PMotionToolType     ToolType;
+    float               Pressure;
+    PPoint              Position;
 };
 
 struct PPointerEvent

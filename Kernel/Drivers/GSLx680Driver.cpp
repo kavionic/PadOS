@@ -170,20 +170,21 @@ void* GSLx680Driver::Run()
 
 			if (eventID != PInputEventID::TouchMove || (moveFlags & mask))
 			{
-                PMotionEvent mouseEvent;
-                mouseEvent.EventSize    = sizeof(mouseEvent);
-                mouseEvent.EventType    = PInputEventType::MotionEvent;
-                mouseEvent.ClassID      = PInputClass::TouchScreen;
-				mouseEvent.Timestamp    = kget_monotonic_time();
-				mouseEvent.EventID      = eventID;
-                mouseEvent.SourceID     = m_SourceID;
-                mouseEvent.ToolType     = PMotionToolType::Finger;
-				mouseEvent.ButtonID     = PMouseButton(int(PMouseButton::FirstTouchID) + i);
-				mouseEvent.Position     = PPoint(m_TouchPositions[i]);
+                PTouchEvent touchEvent;
+                touchEvent.EventSize    = sizeof(touchEvent);
+                touchEvent.EventType    = PInputEventType::TouchEvent;
+                touchEvent.ClassID      = PInputClass::TouchScreen;
+				touchEvent.Timestamp    = kget_monotonic_time();
+				touchEvent.EventID      = eventID;
+                touchEvent.SourceID     = m_SourceID;
+                touchEvent.TouchID      = uint32_t(i);
+                touchEvent.ToolType     = PMotionToolType::Finger;
+                touchEvent.Pressure     = (eventID != PInputEventID::TouchUp) ? 1.0f : 0.0f;
+				touchEvent.Position     = PPoint(m_TouchPositions[i]);
 
 				// p_system_log<PLogSeverity::INFO_HIGH_VOL>(LogCatKernel_Drivers, "Mouse event {}: {}/{}", eventID, m_TouchPositions[i].x, m_TouchPositions[i].y);
                 try {
-                    KUserInputManager::Get().AddEvent(mouseEvent);
+                    KUserInputManager::Get().AddEvent(touchEvent);
                 } catch (const std::exception& exc) {
                     p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "GSLx680Driver: failed to queue event: {}", exc.what());
                 }

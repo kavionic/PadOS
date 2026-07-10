@@ -71,10 +71,26 @@ public:
     void            PowerLost(bool hasPower);
 private:
     static constexpr size_t INPUT_EVENT_BUFFER_SIZE = 8192;
+    static constexpr PMouseButton TOUCH_POINTER_BUTTON = PMouseButton::Left;
+
+    struct QueuedPointerEvent
+    {
+        PInputEventID EventID;
+        PPointerEvent PointerEvent;
+    };
 
     void ReadInputEvents();
-    void QueueMotionEvent(const PMotionEvent& event);
-    PPointerButtonMask UpdatePointerButtonState(PPointerID pointerID, PInputEventID eventID, PMouseButton button);
+    void ReadInputEvents(int inputDevice, PInputClass inputClass, const char* deviceName);
+    void QueuePointerEvent(PInputEventID eventID, const PPointerEvent& event);
+    void QueueMouseEvent(const PMouseEvent& event);
+    void QueueTouchEvent(const PTouchEvent& event);
+    PPoint UpdateMousePosition(const PMouseEvent& event);
+    PPoint ClampMousePosition(const PPoint& position) const;
+
+    static PMouseButton GetTouchPointerButton(const PTouchEvent& touchEvent);
+    static PPointerButtonMask GetTouchPointerButtons(const PTouchEvent& touchEvent);
+    static PPointerEvent CreatePointerEvent(const PMouseEvent& mouseEvent, const PPoint& position);
+    static PPointerEvent CreatePointerEvent(const PTouchEvent& touchEvent);
 
     void HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
     void HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
@@ -88,7 +104,7 @@ private:
     PMessagePort m_ReplyPort;
     PEventTimer m_PollTouchDriverTimer;
 
-    std::queue<PMotionEvent> m_MotionEventQueue;
+    std::queue<QueuedPointerEvent> m_PointerEventQueue;
 
     alignas(PInputEvent) std::array<uint8_t, INPUT_EVENT_BUFFER_SIZE> m_InputEventBuffer;
 
@@ -98,9 +114,10 @@ private:
 
     std::map<PPointerID, PServerView*> m_PointerViewMap;    // Maps pointer ID to view last hit.
     std::map<PPointerID, PServerView*> m_PointerFocusMap;   // Map of focused view per pointer ID.
-    std::map<PPointerID, PPointerButtonMask> m_PointerButtonsMap;
     PServerView*                 m_KeyboardFocusView = nullptr;
 
+    PPoint     m_MousePosition;
+    int        m_MouseInputDevice = -1;
     int        m_TouchInputDevice = -1;
 
     ApplicationServer(const ApplicationServer&) = delete;

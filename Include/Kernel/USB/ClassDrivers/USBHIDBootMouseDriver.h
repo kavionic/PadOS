@@ -39,11 +39,12 @@ public:
     virtual void HandleReport(const uint8_t* report, size_t length) override;
 
 private:
-    void EmitButtonEvent(PMouseButton button, bool pressed);
-    void EmitMoveEvent(int deltaPositionX, int deltaPositionY);
-    void EmitWheelEvent(int deltaWheel);
+    void EmitButtonEvent(PMouseButton button, PPointerButtonMask buttons, bool pressed);
+    void EmitMoveEvent(int deltaPositionX, int deltaPositionY, PPointerButtonMask buttons);
+    void EmitWheelEvent(int deltaWheel, PPointerButtonMask buttons);
 
     static PMouseButton GetButton(uint8_t buttonFlag);
+    static PPointerButtonMask GetButtons(uint8_t buttonFlags);
     static int GetWheelDelta(const uint8_t* report, size_t length);
     static void LogReport(const uint8_t* report, size_t length);
 

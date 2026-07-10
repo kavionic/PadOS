@@ -58,7 +58,7 @@ protected:
 
     EventBuffer CreateEventBuffer(const PInputEvent& event) const;
     PInputEvent GetEventHeader(const EventBuffer& event) const;
-    void ValidateEvent(const PInputEvent& event, size_t availableSize) const;
+    virtual void ValidateEvent(const PInputEvent& event, size_t availableSize) const;
 
     PInputClass             m_ClassID;
     size_t                  m_MaxQueuedEvents;
@@ -67,6 +67,8 @@ protected:
     std::deque<EventBuffer> m_EventQueue;
 
 private:
+    static const PInputEvent& GetInputEventHeader(const EventBuffer& event);
+
     KInputDeviceInode(const KInputDeviceInode&) = delete;
     KInputDeviceInode& operator=(const KInputDeviceInode&) = delete;
 };
@@ -78,14 +80,20 @@ public:
 
 protected:
     virtual void QueueEvent_pl(EventBuffer&& event) override;
+    virtual void ValidateEvent(const PInputEvent& event, size_t availableSize) const override;
 
 private:
     using EventQueueIterator = std::deque<EventBuffer>::iterator;
 
     EventQueueIterator FindCoalescableEvent_pl(const EventBuffer& event);
 
+    static const PMouseEvent& GetMouseEvent(const EventBuffer& event);
+    static PMouseEvent& GetMouseEvent(EventBuffer& event);
+    static const PTouchEvent& GetTouchEvent(const EventBuffer& event);
+    static void CoalesceMouseMoveEvent(EventBuffer& queuedEvent, const EventBuffer& event);
+
     static bool IsMoveEvent(PInputEventID eventID);
-    static bool IsMatchingMotionEvent(const EventBuffer& lhs, const EventBuffer& rhs);
+    bool IsMatchingMoveEvent(const EventBuffer& lhs, const EventBuffer& rhs) const;
 };
 
 } // namespace kernel

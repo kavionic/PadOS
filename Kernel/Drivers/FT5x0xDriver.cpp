@@ -210,20 +210,21 @@ void* FT5x0xDriver::Run()
                     {
                         m_TouchPositions[touchID] = position;
                         
-                        PMotionEvent mouseEvent;
-                        mouseEvent.EventSize = sizeof(mouseEvent);
-                        mouseEvent.EventType = PInputEventType::MotionEvent;
-                        mouseEvent.ClassID   = PInputClass::TouchScreen;
-                        mouseEvent.Timestamp = kget_monotonic_time();
-                        mouseEvent.EventID   = eventID;
-                        mouseEvent.SourceID  = m_SourceID;
-                        mouseEvent.ToolType  = PMotionToolType::Finger;
-                        mouseEvent.ButtonID  = PMouseButton(int(PMouseButton::FirstTouchID) + touchID);
-                        mouseEvent.Position  = PPoint(position);
+                        PTouchEvent touchEvent;
+                        touchEvent.EventSize = sizeof(touchEvent);
+                        touchEvent.EventType = PInputEventType::TouchEvent;
+                        touchEvent.ClassID   = PInputClass::TouchScreen;
+                        touchEvent.Timestamp = kget_monotonic_time();
+                        touchEvent.EventID   = eventID;
+                        touchEvent.SourceID  = m_SourceID;
+                        touchEvent.TouchID   = uint32_t(touchID);
+                        touchEvent.ToolType  = PMotionToolType::Finger;
+                        touchEvent.Pressure  = (eventID != PInputEventID::TouchUp) ? 1.0f : 0.0f;
+                        touchEvent.Position  = PPoint(position);
 
 //                        p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "Mouse event {}: {}/{}", eventID, position.x, position.y);
                         try {
-                            KUserInputManager::Get().AddEvent(mouseEvent);
+                            KUserInputManager::Get().AddEvent(touchEvent);
                         }
                         catch (const std::exception& exc) {
                             p_system_log<PLogSeverity::ERROR>(LogCatKernel_Drivers, "FT5x0xDriver: failed to queue event: {}", exc.what());

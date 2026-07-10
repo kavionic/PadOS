@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <string.h>
 #include <fcntl.h>
-#include <stddef.h>
 
 #include <Kernel/Kernel.h>
 #include <Kernel/UserInput/InputDeviceInode.h>
@@ -29,25 +28,6 @@
 
 namespace kernel
 {
-
-namespace
-{
-
-PInputEvent ReadInputEventHeader(const std::vector<uint8_t>& event)
-{
-    PInputEvent header;
-    memcpy(&header, event.data(), sizeof(header));
-    return header;
-}
-
-PMouseButton ReadMotionButtonID(const std::vector<uint8_t>& event)
-{
-    PMouseButton buttonID;
-    memcpy(&buttonID, event.data() + offsetof(PMotionEvent, ButtonID), sizeof(buttonID));
-    return buttonID;
-}
-
-} // namespace
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -240,7 +220,7 @@ PInputEvent KInputDeviceInode::GetEventHeader(const EventBuffer& event) const
     if (event.size() < sizeof(PInputEvent)) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
-    return ReadInputEventHeader(event);
+    return GetInputEventHeader(event);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -255,6 +235,15 @@ void KInputDeviceInode::ValidateEvent(const PInputEvent& event, size_t available
     if (event.ClassID != m_ClassID) {
         PERROR_THROW_CODE(PErrorCode::INVAL);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const PInputEvent& KInputDeviceInode::GetInputEventHeader(const EventBuffer& event)
+{
+    return *reinterpret_cast<const PInputEvent*>(event.data());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -277,8 +266,13 @@ void KInputMotionDeviceInode::QueueEvent_pl(EventBuffer&& event)
     if (m_EventQueue.size() >= m_MaxQueuedEvents && IsMoveEvent(eventHeader.EventID))
     {
         const EventQueueIterator coalescableEvent = FindCoalescableEvent_pl(event);
-        if (coalescableEvent != m_EventQueue.end()) {
-            *coalescableEvent = std::move(event);
+        if (coalescableEvent != m_EventQueue.end())
+        {
+            if (eventHeader.ClassID == PInputClass::Mouse && eventHeader.EventID == PInputEventID::MouseMove) {
+                CoalesceMouseMoveEvent(*coalescableEvent, event);
+            } else {
+                *coalescableEvent = std::move(event);
+            }
             return;
         }
     }
@@ -289,15 +283,84 @@ void KInputMotionDeviceInode::QueueEvent_pl(EventBuffer&& event)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void KInputMotionDeviceInode::ValidateEvent(const PInputEvent& event, size_t availableSize) const
+{
+    KInputDeviceInode::ValidateEvent(event, availableSize);
+
+    switch (m_ClassID)
+    {
+        case PInputClass::Mouse:
+            if (event.EventType != PInputEventType::MouseEvent || event.EventSize < sizeof(PMouseEvent)) {
+                PERROR_THROW_CODE(PErrorCode::INVAL);
+            }
+            if (event.EventID != PInputEventID::MouseDown && event.EventID != PInputEventID::MouseUp && event.EventID != PInputEventID::MouseMove && event.EventID != PInputEventID::MouseWheel) {
+                PERROR_THROW_CODE(PErrorCode::INVAL);
+            }
+            break;
+
+        case PInputClass::TouchScreen:
+            if (event.EventType != PInputEventType::TouchEvent || event.EventSize < sizeof(PTouchEvent)) {
+                PERROR_THROW_CODE(PErrorCode::INVAL);
+            }
+            if (event.EventID != PInputEventID::TouchDown && event.EventID != PInputEventID::TouchUp && event.EventID != PInputEventID::TouchMove) {
+                PERROR_THROW_CODE(PErrorCode::INVAL);
+            }
+            break;
+
+        default:
+            PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 KInputMotionDeviceInode::EventQueueIterator KInputMotionDeviceInode::FindCoalescableEvent_pl(const EventBuffer& event)
 {
     for (EventQueueIterator iterator = m_EventQueue.begin(); iterator != m_EventQueue.end(); ++iterator)
     {
-        if (IsMatchingMotionEvent(*iterator, event)) {
+        if (IsMatchingMoveEvent(*iterator, event)) {
             return iterator;
         }
     }
     return m_EventQueue.end();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const PMouseEvent& KInputMotionDeviceInode::GetMouseEvent(const EventBuffer& event)
+{
+    return *reinterpret_cast<const PMouseEvent*>(event.data());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PMouseEvent& KInputMotionDeviceInode::GetMouseEvent(EventBuffer& event)
+{
+    return *reinterpret_cast<PMouseEvent*>(event.data());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const PTouchEvent& KInputMotionDeviceInode::GetTouchEvent(const EventBuffer& event)
+{
+    return *reinterpret_cast<const PTouchEvent*>(event.data());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void KInputMotionDeviceInode::CoalesceMouseMoveEvent(EventBuffer& queuedEvent, const EventBuffer& event)
+{
+    GetMouseEvent(queuedEvent).Position += GetMouseEvent(event).Position;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -313,17 +376,17 @@ bool KInputMotionDeviceInode::IsMoveEvent(PInputEventID eventID)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-bool KInputMotionDeviceInode::IsMatchingMotionEvent(const EventBuffer& lhs, const EventBuffer& rhs)
+bool KInputMotionDeviceInode::IsMatchingMoveEvent(const EventBuffer& lhs, const EventBuffer& rhs) const
 {
-    const PInputEvent lhsHeader = ReadInputEventHeader(lhs);
-    const PInputEvent rhsHeader = ReadInputEventHeader(rhs);
+    const PInputEvent lhsHeader = GetEventHeader(lhs);
+    const PInputEvent rhsHeader = GetEventHeader(rhs);
 
     if (lhsHeader.ClassID != rhsHeader.ClassID || lhsHeader.EventID != rhsHeader.EventID || lhsHeader.SourceID != rhsHeader.SourceID) {
         return false;
     }
-    if (lhs.size() >= sizeof(PMotionEvent) && rhs.size() >= sizeof(PMotionEvent))
+    if (lhsHeader.ClassID == PInputClass::TouchScreen && lhs.size() >= sizeof(PTouchEvent) && rhs.size() >= sizeof(PTouchEvent))
     {
-        return ReadMotionButtonID(lhs) == ReadMotionButtonID(rhs);
+        return GetTouchEvent(lhs).TouchID == GetTouchEvent(rhs).TouchID;
     }
     return true;
 }

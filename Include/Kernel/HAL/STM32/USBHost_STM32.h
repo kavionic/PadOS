@@ -26,6 +26,7 @@
 #include <Kernel/USB/USBProtocol.h>
 #include <Kernel/USB/USBCommon.h>
 
+class PString;
 enum class USB_Speed : uint8_t;
 enum class USB_OTG_ID : int;
 
@@ -34,7 +35,6 @@ namespace kernel
 class USB_STM32;
 enum class IRQResult : int;
 enum class USBH_InitialTransactionPID : uint8_t;
-enum class USB_URBState : uint8_t;
 
 static constexpr uint32_t USB_OTG_CON_DEVICE_SPEED_HIGH = 0;
 static constexpr uint32_t USB_OTG_CON_DEVICE_SPEED_FULL = 1;
@@ -60,6 +60,25 @@ enum class USB_HostChannelState : uint8_t
     DATATGLERR
 };
 
+struct USBHostChannelDiagnostics
+{
+    uint32_t SubmitRequestCount = 0;
+    uint32_t SubmitRequestFailureCount = 0;
+    uint32_t StartTransferCount = 0;
+    uint32_t StartTransferFailureCount = 0;
+    uint32_t TransferCompleteIRQCount = 0;
+    uint32_t NakNyetIRQCount = 0;
+    uint32_t ChannelHaltIRQCount = 0;
+    uint32_t FrameOverrunIRQCount = 0;
+    uint32_t AckIRQCount = 0;
+    uint32_t StallIRQCount = 0;
+    uint32_t TransactionErrorIRQCount = 0;
+    uint32_t NotifyDoneCount = 0;
+    uint32_t NotifyNotReadyCount = 0;
+    uint32_t NotifyStallCount = 0;
+    uint32_t NotifyErrorCount = 0;
+};
+
 struct USBHostChannelData
 {
     USB_RequestDirection    Direction;                  // Endpoint direction.
@@ -80,6 +99,7 @@ struct USBHostChannelData
     uint32_t                ErrorCount;                 // Host channel error count.
     USB_URBState            URBState;                   // URB state.
     USB_HostChannelState    ChannelState;               // Host Channel state.
+    USBHostChannelDiagnostics Diagnostics;
 };
 
 class USBHost_STM32
@@ -102,8 +122,11 @@ public:
     bool        SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing);
 
 
-    bool SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
-    bool GetDataToggle(USB_PipeIndex pipeIndex) const;
+    bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
+    bool        GetDataToggle(USB_PipeIndex pipeIndex) const;
+    size_t      GetPipeDebugEntryCount(USB_PipeIndex pipeIndex) const;
+    bool        GetPipeDebugEntryLabel(USB_PipeIndex pipeIndex, size_t entryIndex, PString* outLabel) const;
+    bool        GetPipeDebugEntryValue(USB_PipeIndex pipeIndex, size_t entryIndex, PString* outValue) const;
 
 private:
     void SetChannelURBState(USB_PipeIndex pipeIndex, USB_URBState state);

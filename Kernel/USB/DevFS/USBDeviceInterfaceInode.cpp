@@ -23,6 +23,7 @@
 #include <System/Endian.h>
 #include <Kernel/KAddressValidation.h>
 #include <Kernel/USB/USBHost.h>
+#include <Utils/String.h>
 
 #include "USBDeviceInterfaceInode.h"
 
@@ -45,6 +46,11 @@ USBDeviceInterfaceInode::USBDeviceInterfaceInode(USBHost* host, uint8_t busIndex
     m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::GetInterfaceInfo, this, &USBDeviceInterfaceInode::GetInterfaceInfo);
     m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::GetDescriptorSize, this, &USBDeviceInterfaceInode::GetDescriptorSize);
     m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::ReadDescriptor, this, &USBDeviceInterfaceInode::ReadDescriptor);
+    m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::GetHostPipeDebugEntryCount, this, &USBDeviceInterfaceInode::GetHostPipeDebugEntryCount);
+    m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::GetHostPipeDebugEntryLabelLength, this, &USBDeviceInterfaceInode::GetHostPipeDebugEntryLabelLength);
+    m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::ReadHostPipeDebugEntryLabel, this, &USBDeviceInterfaceInode::ReadHostPipeDebugEntryLabel);
+    m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::GetHostPipeDebugEntryValueLength, this, &USBDeviceInterfaceInode::GetHostPipeDebugEntryValueLength);
+    m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::ReadHostPipeDebugEntryValue, this, &USBDeviceInterfaceInode::ReadHostPipeDebugEntryValue);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -131,6 +137,11 @@ void USBDeviceInterfaceInode::GetInterfaceInfo(PUSBDeviceInterfaceInfo* outInfo)
             }
         }
     }
+
+    for (size_t endpointIndex = 0; endpointIndex < info.EndpointCount; ++endpointIndex)
+    {
+        host.GetPipeInfo(m_DeviceAddress, info.Endpoints[endpointIndex].bEndpointAddress, &info.HostPipes[endpointIndex]);
+    }
     *outInfo = info;
 }
 
@@ -168,6 +179,86 @@ size_t USBDeviceInterfaceInode::ReadDescriptor(size_t offset, void* buffer, size
     size_t descriptorSize = 0;
     FindInterfaceDescriptor(device, &descriptorData, &descriptorOffset, &descriptorSize);
     return CopyDescriptorBytes(descriptorData, descriptorSize, offset, buffer, bufferSize);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t USBDeviceInterfaceInode::GetHostPipeDebugEntryCount(uint8_t endpointAddr) const
+{
+    USBHost& host = GetHost();
+    CRITICAL_SCOPE(host.GetMutex());
+
+    return host.GetPipeDebugEntryCount(m_DeviceAddress, endpointAddr);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t USBDeviceInterfaceInode::GetHostPipeDebugEntryLabelLength(uint8_t endpointAddr, size_t entryIndex) const
+{
+    USBHost& host = GetHost();
+    CRITICAL_SCOPE(host.GetMutex());
+
+    PString label;
+    if (!host.GetPipeDebugEntryLabel(m_DeviceAddress, endpointAddr, entryIndex, &label)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    return label.size();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t USBDeviceInterfaceInode::ReadHostPipeDebugEntryLabel(uint8_t endpointAddr, size_t entryIndex, char* buffer, size_t bufferSize) const
+{
+    validate_user_write_pointer_trw(buffer, bufferSize);
+
+    USBHost& host = GetHost();
+    CRITICAL_SCOPE(host.GetMutex());
+
+    PString label;
+    if (!host.GetPipeDebugEntryLabel(m_DeviceAddress, endpointAddr, entryIndex, &label)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    return CopyStringBytes(label, buffer, bufferSize);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t USBDeviceInterfaceInode::GetHostPipeDebugEntryValueLength(uint8_t endpointAddr, size_t entryIndex) const
+{
+    USBHost& host = GetHost();
+    CRITICAL_SCOPE(host.GetMutex());
+
+    PString value;
+    if (!host.GetPipeDebugEntryValue(m_DeviceAddress, endpointAddr, entryIndex, &value)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    return value.size();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t USBDeviceInterfaceInode::ReadHostPipeDebugEntryValue(uint8_t endpointAddr, size_t entryIndex, char* buffer, size_t bufferSize) const
+{
+    validate_user_write_pointer_trw(buffer, bufferSize);
+
+    USBHost& host = GetHost();
+    CRITICAL_SCOPE(host.GetMutex());
+
+    PString value;
+    if (!host.GetPipeDebugEntryValue(m_DeviceAddress, endpointAddr, entryIndex, &value)) {
+        PERROR_THROW_CODE(PErrorCode::INVAL);
+    }
+    return CopyStringBytes(value, buffer, bufferSize);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -280,10 +371,26 @@ size_t USBDeviceInterfaceInode::CopyDescriptorBytes(const uint8_t* descriptor, s
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+size_t USBDeviceInterfaceInode::CopyStringBytes(const PString& string, char* buffer, size_t bufferSize)
+{
+    const size_t copyLength = std::min(string.size(), bufferSize);
+
+    if (copyLength != 0) {
+        memcpy(buffer, string.data(), copyLength);
+    }
+    return copyLength;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void USBDeviceInterfaceInode::InitializeEndpointDescriptors(PUSBDeviceInterfaceInfo& info)
 {
-    for (USB_DescEndpoint& endpoint : info.Endpoints) {
-        endpoint = USB_DescEndpoint(0, USB_TransferType::CONTROL, USB_IsoEndpointSyncType::NONE, USB_EndpointUsageType::DATA, 0, 0);
+    for (size_t endpointIndex = 0; endpointIndex < PUSB_MAX_ENDPOINTS_PER_INTERFACE; ++endpointIndex)
+    {
+        info.Endpoints[endpointIndex] = USB_DescEndpoint(0, USB_TransferType::CONTROL, USB_IsoEndpointSyncType::NONE, USB_EndpointUsageType::DATA, 0, 0);
+        info.HostPipes[endpointIndex] = PUSBHostPipeInfo();
     }
 }
 

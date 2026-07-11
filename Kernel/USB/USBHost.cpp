@@ -17,9 +17,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 13.06.2022 23:00
 
+#include <iterator>
 #include <string.h>
 
+#include <DeviceControl/USB.h>
 #include <System/ExceptionHandling.h>
+#include <Utils/String.h>
 #include <Utils/Utils.h>
 #include <Kernel/KTime.h>
 #include <Kernel/KLogging.h>
@@ -32,6 +35,110 @@
 
 namespace kernel
 {
+
+static constexpr const char* USBHOST_PIPE_DEBUG_LABELS[] =
+{
+    "usbhost.queueLength",
+    "usbhost.queueRemainingSpace",
+    "usbhost.queueOverflowCount",
+    "usbhost.submitCount",
+    "usbhost.submitFailureCount",
+    "usbhost.irqDoneCount",
+    "usbhost.irqNotReadyCount",
+    "usbhost.irqStallCount",
+    "usbhost.irqErrorCount",
+    "usbhost.handledDoneCount",
+    "usbhost.handledNotReadyCount",
+    "usbhost.handledStallCount",
+    "usbhost.handledErrorCount",
+    "usbhost.eventQueuedCount",
+    "usbhost.eventDequeuedCount",
+    "usbhost.eventOverwriteCount",
+    "usbhost.pendingIRQStoredCount",
+    "usbhost.pendingIRQDequeuedCount"
+};
+
+static constexpr size_t USBHOST_PIPE_DEBUG_ENTRY_COUNT = std::size(USBHOST_PIPE_DEBUG_LABELS);
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void IncrementUSBHostPipeIRQCounter(USBHostPipeDiagnostics& diagnostics, USB_URBState urbState)
+{
+    switch (urbState)
+    {
+        case USB_URBState::Done:
+            ++diagnostics.IRQDoneCount;
+            break;
+        case USB_URBState::NotReady:
+            ++diagnostics.IRQNotReadyCount;
+            break;
+        case USB_URBState::Stall:
+            ++diagnostics.IRQStallCount;
+            break;
+        case USB_URBState::Error:
+            ++diagnostics.IRQErrorCount;
+            break;
+        case USB_URBState::Idle:
+            break;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void IncrementUSBHostPipeHandledCounter(USBHostPipeDiagnostics& diagnostics, USB_URBState urbState)
+{
+    switch (urbState)
+    {
+        case USB_URBState::Done:
+            ++diagnostics.HandledDoneCount;
+            break;
+        case USB_URBState::NotReady:
+            ++diagnostics.HandledNotReadyCount;
+            break;
+        case USB_URBState::Stall:
+            ++diagnostics.HandledStallCount;
+            break;
+        case USB_URBState::Error:
+            ++diagnostics.HandledErrorCount;
+            break;
+        case USB_URBState::Idle:
+            break;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static PString FormatUSBHostPipeDebugValue(const USBHostPipeData& pipe, size_t queueLength, size_t queueRemainingSpace, uint32_t queueOverflowCount, size_t entryIndex)
+{
+    switch (entryIndex)
+    {
+        case 0:  return PString::format_string("{}", queueLength);
+        case 1:  return PString::format_string("{}", queueRemainingSpace);
+        case 2:  return PString::format_string("{}", queueOverflowCount);
+        case 3:  return PString::format_string("{}", pipe.Diagnostics.SubmitCount);
+        case 4:  return PString::format_string("{}", pipe.Diagnostics.SubmitFailureCount);
+        case 5:  return PString::format_string("{}", pipe.Diagnostics.IRQDoneCount);
+        case 6:  return PString::format_string("{}", pipe.Diagnostics.IRQNotReadyCount);
+        case 7:  return PString::format_string("{}", pipe.Diagnostics.IRQStallCount);
+        case 8:  return PString::format_string("{}", pipe.Diagnostics.IRQErrorCount);
+        case 9:  return PString::format_string("{}", pipe.Diagnostics.HandledDoneCount);
+        case 10: return PString::format_string("{}", pipe.Diagnostics.HandledNotReadyCount);
+        case 11: return PString::format_string("{}", pipe.Diagnostics.HandledStallCount);
+        case 12: return PString::format_string("{}", pipe.Diagnostics.HandledErrorCount);
+        case 13: return PString::format_string("{}", pipe.Diagnostics.EventQueuedCount);
+        case 14: return PString::format_string("{}", pipe.Diagnostics.EventDequeuedCount);
+        case 15: return PString::format_string("{}", pipe.Diagnostics.EventOverwriteCount);
+        case 16: return PString::format_string("{}", pipe.Diagnostics.PendingIRQStoredCount);
+        case 17: return PString::format_string("{}", pipe.Diagnostics.PendingIRQDequeuedCount);
+        default: return PString();
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -357,7 +464,18 @@ bool USBHost::IsPortEnabled()
 
 bool USBHost::OpenPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t deviceAddr, USB_Speed speed, USB_TransferType endpointType, size_t maxPacketSize)
 {
-    return m_Driver->SetupPipe(pipeIndex, endpointAddr, deviceAddr, speed, endpointType, maxPacketSize);
+    const bool result = m_Driver->SetupPipe(pipeIndex, endpointAddr, deviceAddr, speed, endpointType, maxPacketSize);
+    USBHostPipeData* pipe = GetPipeData(pipeIndex);
+    if (result && pipe != nullptr)
+    {
+        pipe->EndpointAddr = endpointAddr;
+        pipe->DeviceAddress = deviceAddr;
+        pipe->Speed = speed;
+        pipe->EndpointType = endpointType;
+        pipe->MaxPacketSize = maxPacketSize;
+        pipe->Diagnostics = USBHostPipeDiagnostics();
+    }
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -381,6 +499,9 @@ bool USBHost::CancelPipe(USB_PipeIndex pipeIndex)
     }
 
     pipe->TransactionCallback = nullptr;
+    pipe->PendingIRQTransferLength = 0;
+    pipe->PendingIRQURBState = USB_URBState::Idle;
+    pipe->HasPendingIRQURBState = false;
     const bool result = m_Driver->HaltChannel(pipeIndex);
 
     pipe->URBState = USB_URBState::Idle;
@@ -423,14 +544,98 @@ bool USBHost::GetDataToggle(USB_PipeIndex pipeIndex)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool USBHost::GetPipeInfo(uint8_t deviceAddress, uint8_t endpointAddr, PUSBHostPipeInfo* outInfo) const
+{
+    if (outInfo == nullptr) {
+        return false;
+    }
+
+    *outInfo = PUSBHostPipeInfo();
+
+    for (size_t pipeIndex = 0; pipeIndex < m_Pipes.size(); ++pipeIndex)
+    {
+        const USBHostPipeData& pipe = m_Pipes[pipeIndex];
+        if (pipe.Claimed && pipe.DeviceAddress == deviceAddress && pipe.EndpointAddr == endpointAddr)
+        {
+            outInfo->IsValid = true;
+            outInfo->PipeIndex = static_cast<int32_t>(pipeIndex);
+            outInfo->DeviceAddress = pipe.DeviceAddress;
+            outInfo->EndpointAddress = pipe.EndpointAddr;
+            outInfo->Speed = pipe.Speed;
+            outInfo->Direction = ((pipe.EndpointAddr & USB_ADDRESS_DIR_IN) != 0) ? USB_RequestDirection::DEVICE_TO_HOST : USB_RequestDirection::HOST_TO_DEVICE;
+            outInfo->EndpointType = pipe.EndpointType;
+            outInfo->MaxPacketSize = pipe.MaxPacketSize;
+            outInfo->URBState = pipe.URBState;
+            outInfo->PendingIRQURBState = pipe.PendingIRQURBState;
+            outInfo->PendingIRQTransferLength = pipe.PendingIRQTransferLength;
+            outInfo->HasTransactionCallback = pipe.TransactionCallback ? true : false;
+            outInfo->HasPendingIRQURBState = pipe.HasPendingIRQURBState;
+
+            return true;
+        }
+    }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t USBHost::GetPipeDebugEntryCount(uint8_t deviceAddress, uint8_t endpointAddr) const
+{
+    USB_PipeIndex pipeIndex = USB_INVALID_PIPE;
+    const USBHostPipeData* pipe = FindPipeData(deviceAddress, endpointAddr, &pipeIndex);
+
+    if (pipe == nullptr) {
+        return 0;
+    }
+
+    size_t entryCount = USBHOST_PIPE_DEBUG_ENTRY_COUNT;
+    if (m_Driver != nullptr) {
+        entryCount += m_Driver->GetHostPipeDebugEntryCount(pipeIndex);
+    }
+    return entryCount;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost::GetPipeDebugEntryLabel(uint8_t deviceAddress, uint8_t endpointAddr, size_t entryIndex, PString* outLabel) const
+{
+    return GetPipeDebugEntryString(deviceAddress, endpointAddr, entryIndex, false, outLabel);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost::GetPipeDebugEntryValue(uint8_t deviceAddress, uint8_t endpointAddr, size_t entryIndex, PString* outValue) const
+{
+    return GetPipeDebugEntryString(deviceAddress, endpointAddr, entryIndex, true, outValue);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType enpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback)
 {
     USBHostPipeData* pipe = GetPipeData(pipeIndex);
     if (pipe != nullptr)
     {
+        pipe->PendingIRQTransferLength = 0;
+        pipe->PendingIRQURBState = USB_URBState::Idle;
+        pipe->HasPendingIRQURBState = false;
+        ++pipe->Diagnostics.SubmitCount;
         pipe->TransactionCallback = std::move(callback);
         pipe->URBState = USB_URBState::NotReady;
-        return m_Driver->HostSubmitRequest(pipeIndex, direction, enpointType, initialPID, buffer, length, doPing);
+
+        const bool result = m_Driver->HostSubmitRequest(pipeIndex, direction, enpointType, initialPID, buffer, length, doPing);
+        if (!result) {
+            ++pipe->Diagnostics.SubmitFailureCount;
+        }
+        return result;
     }
     return false;
 }
@@ -528,7 +733,15 @@ USB_PipeIndex USBHost::AllocPipe(uint8_t endpointAddr)
         {
             m_Pipes[i].TransactionCallback = nullptr;
             m_Pipes[i].EndpointAddr = endpointAddr;
+            m_Pipes[i].DeviceAddress = 0;
+            m_Pipes[i].Speed = USB_Speed::FULL;
+            m_Pipes[i].EndpointType = USB_TransferType::CONTROL;
+            m_Pipes[i].MaxPacketSize = 0;
+            m_Pipes[i].PendingIRQTransferLength = 0;
+            m_Pipes[i].PendingIRQURBState = USB_URBState::Idle;
             m_Pipes[i].URBState = USB_URBState::Idle;
+            m_Pipes[i].HasPendingIRQURBState = false;
+            m_Pipes[i].Diagnostics = USBHostPipeDiagnostics();
             m_Pipes[i].Claimed = true;
             return i;
         }
@@ -551,7 +764,15 @@ void USBHost::FreePipe(USB_PipeIndex pipeIndex)
     {
         m_Pipes[pipeIndex].TransactionCallback = nullptr;
         m_Pipes[pipeIndex].EndpointAddr = 0;
+        m_Pipes[pipeIndex].DeviceAddress = 0;
+        m_Pipes[pipeIndex].Speed = USB_Speed::FULL;
+        m_Pipes[pipeIndex].EndpointType = USB_TransferType::CONTROL;
+        m_Pipes[pipeIndex].MaxPacketSize = 0;
+        m_Pipes[pipeIndex].PendingIRQTransferLength = 0;
+        m_Pipes[pipeIndex].PendingIRQURBState = USB_URBState::Idle;
         m_Pipes[pipeIndex].URBState = USB_URBState::Idle;
+        m_Pipes[pipeIndex].HasPendingIRQURBState = false;
+        m_Pipes[pipeIndex].Diagnostics = USBHostPipeDiagnostics();
         m_Pipes[pipeIndex].Claimed = false;
     }
 }
@@ -701,6 +922,15 @@ void USBHost::CloseDevice(uint8_t deviceAddr)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool USBHost::IsTerminalURBState(USB_URBState urbState)
+{
+    return urbState == USB_URBState::Done || urbState == USB_URBState::Stall || urbState == USB_URBState::Error;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 bool USBHost::PushEvent(USBHostEventID eventID, bool clearQueue)
 {
     return PushEvent(USBHostEvent(eventID), clearQueue);
@@ -719,6 +949,23 @@ bool USBHost::PushEvent(const USBHostEvent& event, bool clearQueue)
     if (clearQueue)
     {
         m_EventQueue.Clear();
+    }
+
+    const bool eventQueueFull = m_EventQueue.GetRemainingSpace() == 0;
+    if (eventQueueFull) {
+        ++m_EventQueueOverflowCount;
+    }
+
+    if (event.EventID == USBHostEventID::URBStateChanged)
+    {
+        USBHostPipeData* pipe = GetPipeData(event.URBStateChanged.PipeIndex);
+        if (pipe != nullptr)
+        {
+            ++pipe->Diagnostics.EventQueuedCount;
+            if (eventQueueFull) {
+                ++pipe->Diagnostics.EventOverwriteCount;
+            }
+        }
     }
 
     m_EventQueue.Write(&event, 1);
@@ -742,7 +989,7 @@ bool USBHost::PopEvent(USBHostEvent& event)
     bool result;
     CRITICAL_BEGIN(CRITICAL_IRQ)
     {
-        while (m_EventQueue.GetLength() == 0)
+        while (m_EventQueue.GetLength() == 0 && !HasPendingURBStateChanged())
         {
             const PErrorCode waitResult = m_EventQueueCondition.IRQWaitDeadline(GetNextEventDeadline());
             if (waitResult != PErrorCode::Success)
@@ -754,10 +1001,62 @@ bool USBHost::PopEvent(USBHostEvent& event)
                 }
             }
         }
-        result = m_EventQueue.Read(&event, 1) == 1;
+        const bool readQueuedEvent = m_EventQueue.Read(&event, 1) == 1;
+        result = readQueuedEvent;
+        if (!result) {
+            result = PopPendingURBStateChanged(event);
+        }
+        if (readQueuedEvent && event.EventID == USBHostEventID::URBStateChanged)
+        {
+            USBHostPipeData* pipe = GetPipeData(event.URBStateChanged.PipeIndex);
+            if (pipe != nullptr) {
+                ++pipe->Diagnostics.EventDequeuedCount;
+            }
+        }
     } CRITICAL_END;
     m_Mutex.Lock();
     return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost::HasPendingURBStateChanged() const
+{
+    for (const USBHostPipeData& pipe : m_Pipes)
+    {
+        if (pipe.Claimed && pipe.HasPendingIRQURBState) {
+            return true;
+        }
+    }
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost::PopPendingURBStateChanged(USBHostEvent& event)
+{
+    for (USB_PipeIndex pipeIndex = 0; pipeIndex < m_Pipes.size(); ++pipeIndex)
+    {
+        USBHostPipeData& pipe = m_Pipes[pipeIndex];
+        if (pipe.Claimed && pipe.HasPendingIRQURBState)
+        {
+            event = USBHostEvent(USBHostEventID::URBStateChanged);
+            event.URBStateChanged.PipeIndex = pipeIndex;
+            event.URBStateChanged.TransferLength = pipe.PendingIRQTransferLength;
+            event.URBStateChanged.URBState = pipe.PendingIRQURBState;
+            ++pipe.Diagnostics.PendingIRQDequeuedCount;
+
+            pipe.PendingIRQTransferLength = 0;
+            pipe.PendingIRQURBState = USB_URBState::Idle;
+            pipe.HasPendingIRQURBState = false;
+            return true;
+        }
+    }
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -784,6 +1083,7 @@ void USBHost::Reset()
     m_PortEnabled     = false;
     m_ResetErrorCount = 0;
     m_EnumErrorCount  = 0;
+    m_EventQueueOverflowCount = 0;
     m_DeviceAttachDeadline = TimeValNanos::infinit;
 
     m_Device0 = USBDeviceNode();
@@ -893,11 +1193,83 @@ void USBHost::CloseDeviceClassDrivers(uint8_t deviceAddr)
 
 USBHostPipeData* USBHost::GetPipeData(USB_PipeIndex pipeIndex)
 {
-    if (pipeIndex >= 0 && pipeIndex < m_Pipes.size() && m_Pipes[pipeIndex].Claimed) {
-        return &m_Pipes[pipeIndex];
-    } else {
-        return nullptr;
+    return const_cast<USBHostPipeData*>(const_cast<const USBHost*>(this)->GetPipeData(pipeIndex));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const USBHostPipeData* USBHost::GetPipeData(USB_PipeIndex pipeIndex) const
+{
+    if (pipeIndex >= 0)
+    {
+        const size_t pipeArrayIndex = static_cast<size_t>(pipeIndex);
+        if (pipeArrayIndex < m_Pipes.size() && m_Pipes[pipeArrayIndex].Claimed) {
+            return &m_Pipes[pipeArrayIndex];
+        }
     }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+const USBHostPipeData* USBHost::FindPipeData(uint8_t deviceAddress, uint8_t endpointAddr, USB_PipeIndex* outPipeIndex) const
+{
+    if (outPipeIndex != nullptr) {
+        *outPipeIndex = USB_INVALID_PIPE;
+    }
+    for (size_t pipeIndex = 0; pipeIndex < m_Pipes.size(); ++pipeIndex)
+    {
+        const USBHostPipeData& pipe = m_Pipes[pipeIndex];
+        if (pipe.Claimed && pipe.DeviceAddress == deviceAddress && pipe.EndpointAddr == endpointAddr)
+        {
+            if (outPipeIndex != nullptr) {
+                *outPipeIndex = static_cast<USB_PipeIndex>(pipeIndex);
+            }
+            return &pipe;
+        }
+    }
+    return nullptr;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost::GetPipeDebugEntryString(uint8_t deviceAddress, uint8_t endpointAddr, size_t entryIndex, bool readValue, PString* outString) const
+{
+    if (outString == nullptr) {
+        return false;
+    }
+
+    USB_PipeIndex pipeIndex = USB_INVALID_PIPE;
+    const USBHostPipeData* pipe = FindPipeData(deviceAddress, endpointAddr, &pipeIndex);
+    if (pipe == nullptr) {
+        return false;
+    }
+
+    if (entryIndex < USBHOST_PIPE_DEBUG_ENTRY_COUNT)
+    {
+        if (readValue) {
+            *outString = FormatUSBHostPipeDebugValue(*pipe, m_EventQueue.GetLength(), m_EventQueue.GetRemainingSpace(), m_EventQueueOverflowCount, entryIndex);
+        } else {
+            *outString = USBHOST_PIPE_DEBUG_LABELS[entryIndex];
+        }
+        return true;
+    }
+
+    if (m_Driver == nullptr) {
+        return false;
+    }
+
+    const size_t driverEntryIndex = entryIndex - USBHOST_PIPE_DEBUG_ENTRY_COUNT;
+    if (readValue) {
+        return m_Driver->GetHostPipeDebugEntryValue(pipeIndex, driverEntryIndex, outString);
+    }
+    return m_Driver->GetHostPipeDebugEntryLabel(pipeIndex, driverEntryIndex, outString);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1040,6 +1412,10 @@ void USBHost::HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbSta
 {
     USBHostPipeData* pipe = GetPipeData(pipeIndex);
 
+    if (pipe != nullptr) {
+        IncrementUSBHostPipeHandledCounter(pipe->Diagnostics, urbState);
+    }
+
     if (pipe != nullptr && pipe->TransactionCallback)
     {
         if (urbState == USB_URBState::Done || urbState == USB_URBState::Error || urbState == USB_URBState::Stall)
@@ -1111,6 +1487,24 @@ void USBHost::IRQStartOfFrame()
 
 void USBHost::IRQPipeURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t length)
 {
+    {
+        CRITICAL_SCOPE(CRITICAL_IRQ);
+        USBHostPipeData* pipe = GetPipeData(pipeIndex);
+        if (pipe != nullptr)
+        {
+            IncrementUSBHostPipeIRQCounter(pipe->Diagnostics, urbState);
+            if (IsTerminalURBState(urbState))
+            {
+                pipe->PendingIRQTransferLength = length;
+                pipe->PendingIRQURBState = urbState;
+                pipe->HasPendingIRQURBState = true;
+                ++pipe->Diagnostics.PendingIRQStoredCount;
+                m_EventQueueCondition.WakeupAll();
+                return;
+            }
+        }
+    }
+
     USBHostEvent event(USBHostEventID::URBStateChanged);
 
     event.URBStateChanged.PipeIndex         = pipeIndex;

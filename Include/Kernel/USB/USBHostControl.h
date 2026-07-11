@@ -33,7 +33,6 @@
 namespace kernel
 {
 class USBHost;
-enum class USB_URBState : uint8_t;
 
 using USBHostControlRequestCallback = std::function<void(bool status, uint8_t deviceAddr)>;
 

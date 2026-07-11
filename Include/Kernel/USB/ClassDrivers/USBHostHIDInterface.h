@@ -33,7 +33,6 @@ namespace kernel
 
 class USBHost;
 class USBHIDDriver;
-enum class USB_URBState : uint8_t;
 
 class USBHostHIDInterface : public PtrTarget
 {

@@ -40,12 +40,34 @@ static constexpr int PUSBDeviceInterfaceRequest_GetInterfaceNumber = 1;
 static constexpr int PUSBDeviceInterfaceRequest_GetInterfaceInfo = 2;
 static constexpr int PUSBDeviceInterfaceRequest_GetDescriptorSize = 3;
 static constexpr int PUSBDeviceInterfaceRequest_ReadDescriptor = 4;
+static constexpr int PUSBDeviceInterfaceRequest_GetHostPipeDebugEntryCount = 5;
+static constexpr int PUSBDeviceInterfaceRequest_GetHostPipeDebugEntryLabelLength = 6;
+static constexpr int PUSBDeviceInterfaceRequest_ReadHostPipeDebugEntryLabel = 7;
+static constexpr int PUSBDeviceInterfaceRequest_GetHostPipeDebugEntryValueLength = 8;
+static constexpr int PUSBDeviceInterfaceRequest_ReadHostPipeDebugEntryValue = 9;
 
 enum class PUSBDeviceStringID : uint8_t
 {
     Manufacturer,
     Product,
     SerialNumber
+};
+
+struct PUSBHostPipeInfo
+{
+    int32_t PipeIndex = -1;
+    uint8_t DeviceAddress = 0;
+    uint8_t EndpointAddress = 0;
+    USB_Speed Speed = USB_Speed::FULL;
+    USB_RequestDirection Direction = USB_RequestDirection::HOST_TO_DEVICE;
+    USB_TransferType EndpointType = USB_TransferType::CONTROL;
+    USB_URBState URBState = USB_URBState::Idle;
+    USB_URBState PendingIRQURBState = USB_URBState::Idle;
+    size_t MaxPacketSize = 0;
+    size_t PendingIRQTransferLength = 0;
+    bool IsValid = false;
+    bool HasTransactionCallback = false;
+    bool HasPendingIRQURBState = false;
 };
 
 struct PUSBDeviceInfo
@@ -89,6 +111,7 @@ struct PUSBDeviceInterfaceInfo
 
     USB_DescInterface InterfaceDescriptor = USB_DescInterface(0, 0, 0, USB_ClassCode::UNSPECIFIED, 0, 0, 0);
     USB_DescEndpoint Endpoints[PUSB_MAX_ENDPOINTS_PER_INTERFACE];
+    PUSBHostPipeInfo HostPipes[PUSB_MAX_ENDPOINTS_PER_INTERFACE];
 };
 
 class PUSBDeviceControl : public PDeviceControlInterface
@@ -127,6 +150,11 @@ public:
         , GetInterfaceInfo(*this)
         , GetDescriptorSize(*this)
         , ReadDescriptor(*this)
+        , GetHostPipeDebugEntryCount(*this)
+        , GetHostPipeDebugEntryLabelLength(*this)
+        , ReadHostPipeDebugEntryLabel(*this)
+        , GetHostPipeDebugEntryValueLength(*this)
+        , ReadHostPipeDebugEntryValue(*this)
     {
     }
     explicit PUSBDeviceInterface(int fileHandle) : PUSBDeviceInterface() { SetDeviceFD(fileHandle); }
@@ -136,4 +164,9 @@ public:
     PDeviceControlInvoker<PUSBDeviceInterfaceRequest_GetInterfaceInfo, void(PUSBDeviceInterfaceInfo* outInfo) const> GetInterfaceInfo;
     PDeviceControlInvoker<PUSBDeviceInterfaceRequest_GetDescriptorSize, size_t() const> GetDescriptorSize;
     PDeviceControlInvoker<PUSBDeviceInterfaceRequest_ReadDescriptor, size_t(size_t offset, void* buffer, size_t bufferSize) const> ReadDescriptor;
+    PDeviceControlInvoker<PUSBDeviceInterfaceRequest_GetHostPipeDebugEntryCount, size_t(uint8_t endpointAddr) const> GetHostPipeDebugEntryCount;
+    PDeviceControlInvoker<PUSBDeviceInterfaceRequest_GetHostPipeDebugEntryLabelLength, size_t(uint8_t endpointAddr, size_t entryIndex) const> GetHostPipeDebugEntryLabelLength;
+    PDeviceControlInvoker<PUSBDeviceInterfaceRequest_ReadHostPipeDebugEntryLabel, size_t(uint8_t endpointAddr, size_t entryIndex, char* buffer, size_t bufferSize) const> ReadHostPipeDebugEntryLabel;
+    PDeviceControlInvoker<PUSBDeviceInterfaceRequest_GetHostPipeDebugEntryValueLength, size_t(uint8_t endpointAddr, size_t entryIndex) const> GetHostPipeDebugEntryValueLength;
+    PDeviceControlInvoker<PUSBDeviceInterfaceRequest_ReadHostPipeDebugEntryValue, size_t(uint8_t endpointAddr, size_t entryIndex, char* buffer, size_t bufferSize) const> ReadHostPipeDebugEntryValue;
 };

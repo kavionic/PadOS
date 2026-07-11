@@ -40,8 +40,6 @@ namespace kernel
 class USBHost;
 class USBHostClassCDC;
 
-enum class USB_URBState : uint8_t;
-
 
 class USBHostCDCChannel : public KInode, public KFilesystemFileOps
 {
@@ -117,4 +115,3 @@ private:
 };
 
 } // namespace kernel
-

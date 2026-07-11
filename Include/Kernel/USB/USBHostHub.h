@@ -27,13 +27,12 @@
 
 struct USB_DescInterface;
 struct USB_DescriptorHeader;
+enum class USB_URBState : uint8_t;
 
 namespace kernel
 {
 class USBDeviceNode;
 class USBHost;
-
-enum class USB_URBState : uint8_t;
 
 class USBHostHub
 {

@@ -25,18 +25,19 @@
 #include <Signals/SignalUnguarded.h>
 #include <Kernel/USB/USBCommon.h>
 
+class PString;
 struct USB_ControlRequest;
 struct USB_DescEndpoint;
 
 enum class USB_Speed : uint8_t;
 enum class USB_TransferType : uint8_t;
 enum class USB_RequestDirection : uint8_t;
+enum class USB_URBState : uint8_t;
 
 
 namespace kernel
 {
 enum class USBH_InitialTransactionPID : uint8_t;
-enum class USB_URBState : uint8_t;
 
 enum class USB_TransferResult : uint8_t
 {
@@ -74,6 +75,9 @@ public:
     virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing) = 0;
     virtual bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle) = 0;
     virtual bool        GetDataToggle(USB_PipeIndex pipeIndex) const = 0;
+    virtual size_t      GetHostPipeDebugEntryCount(USB_PipeIndex) const { return 0; }
+    virtual bool        GetHostPipeDebugEntryLabel(USB_PipeIndex, size_t, PString*) const { return false; }
+    virtual bool        GetHostPipeDebugEntryValue(USB_PipeIndex, size_t, PString*) const { return false; }
 #endif
 
 

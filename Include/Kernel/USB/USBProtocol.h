@@ -66,6 +66,18 @@ enum class USB_Speed : uint8_t
 };
 
 ///////////////////////////////////////////////////////////////////////////////
+/// Host transfer state.
+
+enum class USB_URBState : uint8_t
+{
+    Idle,
+    Done,
+    NotReady,
+    Stall,
+    Error
+};
+
+///////////////////////////////////////////////////////////////////////////////
 /// Standard Request Codes.
 
 enum class USB_RequestCode : uint8_t

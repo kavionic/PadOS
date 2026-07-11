@@ -37,21 +37,15 @@
 #include <Kernel/USB/USBHostHub.h>
 #include <Kernel/USB/DevFS/USBDeviceRegistry.h>
 
+class PString;
+struct PUSBHostPipeInfo;
+
 namespace kernel
 {
 class USBDriver;
 class USBClassDriverHost;
 
 using USB_TransactionCallback = std::function<void(USB_PipeIndex pipeIndex, USB_URBState urbState, size_t transactionLength)>;
-
-enum class USB_URBState : uint8_t
-{
-    Idle,
-    Done,
-    NotReady,
-    Stall,
-    Error
-};
 
 enum class USBH_InitialTransactionPID : uint8_t
 {
@@ -70,14 +64,41 @@ enum class USBHostEventID : uint8_t
     URBStateChanged
 };
 
+struct USBHostPipeDiagnostics
+{
+    uint32_t SubmitCount = 0;
+    uint32_t SubmitFailureCount = 0;
+    uint32_t IRQDoneCount = 0;
+    uint32_t IRQNotReadyCount = 0;
+    uint32_t IRQStallCount = 0;
+    uint32_t IRQErrorCount = 0;
+    uint32_t HandledDoneCount = 0;
+    uint32_t HandledNotReadyCount = 0;
+    uint32_t HandledStallCount = 0;
+    uint32_t HandledErrorCount = 0;
+    uint32_t EventQueuedCount = 0;
+    uint32_t EventDequeuedCount = 0;
+    uint32_t EventOverwriteCount = 0;
+    uint32_t PendingIRQStoredCount = 0;
+    uint32_t PendingIRQDequeuedCount = 0;
+};
+
 struct USBHostPipeData
 {
     USBHostPipeData(uint8_t endpointAddr = 0, bool allocated = false) noexcept : EndpointAddr(endpointAddr), Claimed(allocated) {}
 
     USB_TransactionCallback TransactionCallback;
     uint8_t                 EndpointAddr = 0;
+    uint8_t                 DeviceAddress = 0;
+    USB_Speed               Speed = USB_Speed::FULL;
+    USB_TransferType        EndpointType = USB_TransferType::CONTROL;
+    size_t                  MaxPacketSize = 0;
+    size_t                  PendingIRQTransferLength = 0;
+    USB_URBState            PendingIRQURBState = USB_URBState::Idle;
     USB_URBState            URBState = USB_URBState::Idle;
+    bool                    HasPendingIRQURBState = false;
     bool                    Claimed = false;
+    USBHostPipeDiagnostics  Diagnostics;
 };
 
 class USBDeviceNode
@@ -158,6 +179,10 @@ public:
     USB_URBState    GetURBState(USB_PipeIndex pipeIndex);
     bool            SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
     bool            GetDataToggle(USB_PipeIndex pipeIndex);
+    bool            GetPipeInfo(uint8_t deviceAddress, uint8_t endpointAddr, PUSBHostPipeInfo* outInfo) const;
+    size_t          GetPipeDebugEntryCount(uint8_t deviceAddress, uint8_t endpointAddr) const;
+    bool            GetPipeDebugEntryLabel(uint8_t deviceAddress, uint8_t endpointAddr, size_t entryIndex, PString* outLabel) const;
+    bool            GetPipeDebugEntryValue(uint8_t deviceAddress, uint8_t endpointAddr, size_t entryIndex, PString* outValue) const;
     bool            SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType enpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
     bool            ControlSendSetup(USB_PipeIndex pipeIndex, USB_ControlRequest* request, USB_TransactionCallback&& callback);
     bool            ControlSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
@@ -185,9 +210,12 @@ public:
 private:
     static constexpr float DEVICE_RESET_TIMEOUT = 1.0f;
 
+    static bool         IsTerminalURBState(USB_URBState urbState);
     bool                PushEvent(USBHostEventID eventID, bool clearQueue = false);
     bool                PushEvent(const USBHostEvent& event, bool clearQueue = false);
     bool                PopEvent(USBHostEvent& event);
+    bool                HasPendingURBStateChanged() const;
+    bool                PopPendingURBStateChanged(USBHostEvent& event);
     TimeValNanos        GetNextEventDeadline() const;
 
     void                Reset();
@@ -198,6 +226,9 @@ private:
     void                CloseDeviceClassDrivers(uint8_t deviceAddr);
 
     USBHostPipeData*    GetPipeData(USB_PipeIndex pipeIndex);
+    const USBHostPipeData* GetPipeData(USB_PipeIndex pipeIndex) const;
+    const USBHostPipeData* FindPipeData(uint8_t deviceAddress, uint8_t endpointAddr, USB_PipeIndex* outPipeIndex) const;
+    bool                GetPipeDebugEntryString(uint8_t deviceAddress, uint8_t endpointAddr, size_t entryIndex, bool readValue, PString* outString) const;
 
     void SetupClassDrivers(uint8_t deviceAddr);
 
@@ -221,6 +252,7 @@ private:
     KMutex                                  m_Mutex;
     KConditionVariable                      m_EventQueueCondition;
     PCircularBuffer<USBHostEvent, 256>       m_EventQueue;
+    uint32_t                                m_EventQueueOverflowCount = 0;
 
     USBDeviceNode                           m_Device0;
     std::vector<USBDeviceNode>              m_Devices;

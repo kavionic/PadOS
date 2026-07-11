@@ -71,6 +71,10 @@ public:
             .help("Do not print interface descriptor blocks.")
             .flag();
 
+        program.add_argument("-d", "--debug")
+            .help("Print driver debug entries.")
+            .flag();
+
         try
         {
             program.parse_args(argc, argv);
@@ -90,6 +94,7 @@ public:
 
         m_CompactOutput = program.get<bool>("--compact");
         m_ShowDescriptorBlocks = !program.get<bool>("--no-descriptors");
+        m_ShowDebugInfo = program.get<bool>("--debug");
 
         PrintTopology();
         return m_HadError ? 1 : 0;
@@ -321,7 +326,7 @@ private:
 
             for (size_t endpointIndex = 0; endpointIndex < endpointCount; ++endpointIndex)
             {
-                PrintEndpointInfoTree(interfaceInfo.Endpoints[endpointIndex], childBranches, ++childIndex == childCount);
+                PrintEndpointInfoTree(deviceInterface, interfaceInfo.Endpoints[endpointIndex], interfaceInfo.HostPipes[endpointIndex], childBranches, ++childIndex == childCount);
             }
 
             if (m_ShowDescriptorBlocks) {
@@ -339,7 +344,7 @@ private:
     /// \author Kurt Skauen
     ///////////////////////////////////////////////////////////////////////////////
 
-    void PrintEndpointInfoTree(const USB_DescEndpoint& endpointDescriptor, const std::vector<bool>& treeBranches, bool isLastEndpoint)
+    void PrintEndpointInfoTree(const PUSBDeviceInterface& deviceInterface, const USB_DescEndpoint& endpointDescriptor, const PUSBHostPipeInfo& hostPipeInfo, const std::vector<bool>& treeBranches, bool isLastEndpoint)
     {
         PrintTreeLine(treeBranches, isLastEndpoint, PString::format_string("endpoint0x{:02x}", static_cast<uint32_t>(endpointDescriptor.bEndpointAddress)));
 
@@ -358,7 +363,49 @@ private:
             { "usage", GetEndpointUsageName(endpointDescriptor.GetUsageType()) }
         };
 
-        PrintTreeValues(childBranches, values);
+        for (const NameValue& value : values)
+        {
+            PrintTreeProperty(childBranches, false, value.Name, value.Value);
+        }
+        PrintHostPipeInfoTree(deviceInterface, endpointDescriptor.bEndpointAddress, hostPipeInfo, childBranches, true);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
+    void PrintHostPipeInfoTree(const PUSBDeviceInterface& deviceInterface, uint8_t endpointAddr, const PUSBHostPipeInfo& hostPipeInfo, const std::vector<bool>& treeBranches, bool isLastHostPipe)
+    {
+        if (!hostPipeInfo.IsValid)
+        {
+            PrintTreeProperty(treeBranches, isLastHostPipe, "hostPipe", "none");
+            return;
+        }
+
+        PrintTreeLine(treeBranches, isLastHostPipe, "hostPipe");
+
+        std::vector<bool> childBranches = treeBranches;
+        childBranches.push_back(!isLastHostPipe);
+
+        const std::vector<NameValue> hostPipeValues = MakeHostPipeValues(hostPipeInfo);
+        const std::vector<NameValue> debugValues = m_ShowDebugInfo ? ReadHostPipeDebugEntries(deviceInterface, endpointAddr) : std::vector<NameValue>();
+        const bool hasDebugValues = !debugValues.empty();
+        const size_t childCount = hostPipeValues.size() + (hasDebugValues ? 1 : 0);
+        size_t childIndex = 0;
+
+        for (const NameValue& value : hostPipeValues)
+        {
+            PrintTreeProperty(childBranches, ++childIndex == childCount, value.Name, value.Value);
+        }
+
+        if (hasDebugValues)
+        {
+            PrintTreeLine(childBranches, ++childIndex == childCount, "debug");
+
+            std::vector<bool> debugBranches = childBranches;
+            debugBranches.push_back(false);
+            PrintTreeValues(debugBranches, debugValues);
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -635,7 +682,7 @@ private:
             PUSBDeviceInterfaceInfo interfaceInfo;
 
             deviceInterface.GetInterfaceInfo(&interfaceInfo);
-            PrintInterfaceInfoCompact(interfaceInfo, depth);
+            PrintInterfaceInfoCompact(deviceInterface, interfaceInfo, depth);
 
             if (m_ShowDescriptorBlocks) {
                 PrintInterfaceDescriptorBlockCompact(deviceInterface, interfaceInfo.DescriptorSize, depth + 1);
@@ -652,7 +699,7 @@ private:
     /// \author Kurt Skauen
     ///////////////////////////////////////////////////////////////////////////////
 
-    void PrintInterfaceInfoCompact(const PUSBDeviceInterfaceInfo& interfaceInfo, size_t depth)
+    void PrintInterfaceInfoCompact(const PUSBDeviceInterface& deviceInterface, const PUSBDeviceInterfaceInfo& interfaceInfo, size_t depth)
     {
         const USB_DescInterface& interfaceDescriptor = interfaceInfo.InterfaceDescriptor;
         const size_t endpointCount = std::min<size_t>(interfaceInfo.EndpointCount, PUSB_MAX_ENDPOINTS_PER_INTERFACE);
@@ -674,7 +721,7 @@ private:
 
         for (size_t endpointIndex = 0; endpointIndex < endpointCount; ++endpointIndex)
         {
-            PrintEndpointInfoCompact(interfaceInfo.Endpoints[endpointIndex], depth + 1);
+            PrintEndpointInfoCompact(deviceInterface, interfaceInfo.Endpoints[endpointIndex], interfaceInfo.HostPipes[endpointIndex], depth + 1);
         }
     }
 
@@ -682,9 +729,9 @@ private:
     /// \author Kurt Skauen
     ///////////////////////////////////////////////////////////////////////////////
 
-    void PrintEndpointInfoCompact(const USB_DescEndpoint& endpointDescriptor, size_t depth)
+    void PrintEndpointInfoCompact(const PUSBDeviceInterface& deviceInterface, const USB_DescEndpoint& endpointDescriptor, const PUSBHostPipeInfo& hostPipeInfo, size_t depth)
     {
-        Print("{}endpoint 0x{:02x}: {} {} maxPacket={} extraTransactions={} interval={} sync={} usage={}\n",
+        Print("{}endpoint 0x{:02x}: {} {} maxPacket={} extraTransactions={} interval={} sync={} usage={} {}\n",
             MakeIndent(depth),
             static_cast<uint32_t>(endpointDescriptor.bEndpointAddress),
             GetEndpointDirectionName(endpointDescriptor),
@@ -693,8 +740,18 @@ private:
             static_cast<uint32_t>(endpointDescriptor.GetExtraTransactions()),
             static_cast<uint32_t>(endpointDescriptor.bInterval),
             GetEndpointSyncName(endpointDescriptor.GetSyncType()),
-            GetEndpointUsageName(endpointDescriptor.GetUsageType())
+            GetEndpointUsageName(endpointDescriptor.GetUsageType()),
+            FormatHostPipeCompact(hostPipeInfo)
         );
+
+        if (m_ShowDebugInfo)
+        {
+            const std::vector<NameValue> debugValues = ReadHostPipeDebugEntries(deviceInterface, endpointDescriptor.bEndpointAddress);
+            for (const NameValue& value : debugValues)
+            {
+                Print("{}debug {}={}\n", MakeIndent(depth + 1), value.Name, value.Value);
+            }
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -752,6 +809,54 @@ private:
         std::vector<char> stringBuffer(stringLength + 1);
         const size_t bytesRead = deviceControl.ReadString(stringID, stringBuffer.data(), stringBuffer.size());
         return PString(stringBuffer.data(), bytesRead);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
+    PString ReadHostPipeDebugEntryString(const PUSBDeviceInterface& deviceInterface, uint8_t endpointAddr, size_t entryIndex, bool readValue) const
+    {
+        const size_t stringLength = readValue
+            ? deviceInterface.GetHostPipeDebugEntryValueLength(endpointAddr, entryIndex)
+            : deviceInterface.GetHostPipeDebugEntryLabelLength(endpointAddr, entryIndex);
+        size_t bufferSize = stringLength + 1;
+
+        if (bufferSize == 0) {
+            bufferSize = 1;
+        }
+
+        for (;;)
+        {
+            std::vector<char> stringBuffer(bufferSize);
+            const size_t bytesRead = readValue
+                ? deviceInterface.ReadHostPipeDebugEntryValue(endpointAddr, entryIndex, stringBuffer.data(), stringBuffer.size())
+                : deviceInterface.ReadHostPipeDebugEntryLabel(endpointAddr, entryIndex, stringBuffer.data(), stringBuffer.size());
+
+            if (bytesRead < stringBuffer.size()) {
+                return PString(stringBuffer.data(), bytesRead);
+            }
+            bufferSize *= 2;
+        }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
+    std::vector<NameValue> ReadHostPipeDebugEntries(const PUSBDeviceInterface& deviceInterface, uint8_t endpointAddr) const
+    {
+        std::vector<NameValue> entries;
+        const size_t entryCount = deviceInterface.GetHostPipeDebugEntryCount(endpointAddr);
+
+        for (size_t entryIndex = 0; entryIndex < entryCount; ++entryIndex)
+        {
+            entries.push_back({
+                ReadHostPipeDebugEntryString(deviceInterface, endpointAddr, entryIndex, false),
+                ReadHostPipeDebugEntryString(deviceInterface, endpointAddr, entryIndex, true)
+            });
+        }
+        return entries;
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -958,6 +1063,29 @@ private:
             { "descriptorOffset", PString::format_string("{}", interfaceInfo.DescriptorOffset) },
             { "descriptorSize", PString::format_string("{}", interfaceInfo.DescriptorSize) },
             { "stringIndex", PString::format_string("{}", static_cast<uint32_t>(interfaceDescriptor.iInterface)) }
+        };
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
+    static std::vector<NameValue> MakeHostPipeValues(const PUSBHostPipeInfo& hostPipeInfo)
+    {
+        return
+        {
+            { "pipeIndex", PString::format_string("{}", hostPipeInfo.PipeIndex) },
+            { "deviceAddress", PString::format_string("{}", static_cast<uint32_t>(hostPipeInfo.DeviceAddress)) },
+            { "endpointAddress", PString::format_string("0x{:02x}", static_cast<uint32_t>(hostPipeInfo.EndpointAddress)) },
+            { "urbState", GetURBStateName(hostPipeInfo.URBState) },
+            { "transactionCallback", FormatBool(hostPipeInfo.HasTransactionCallback) },
+            { "pendingIRQ", FormatBool(hostPipeInfo.HasPendingIRQURBState) },
+            { "pendingIRQURBState", GetURBStateName(hostPipeInfo.PendingIRQURBState) },
+            { "pendingIRQTransferLength", PString::format_string("{}", hostPipeInfo.PendingIRQTransferLength) },
+            { "direction", GetRequestDirectionName(hostPipeInfo.Direction) },
+            { "transferType", GetTransferTypeName(hostPipeInfo.EndpointType) },
+            { "speed", GetSpeedName(hostPipeInfo.Speed) },
+            { "maxPacketSize", PString::format_string("{}", hostPipeInfo.MaxPacketSize) }
         };
     }
 
@@ -1231,6 +1359,32 @@ private:
     /// \author Kurt Skauen
     ///////////////////////////////////////////////////////////////////////////////
 
+    static PString FormatHostPipeCompact(const PUSBHostPipeInfo& hostPipeInfo)
+    {
+        if (!hostPipeInfo.IsValid) {
+            return "pipe=none";
+        }
+        return PString::format_string(
+            "pipe={} dev={} ep=0x{:02x} urb={} callback={} pendingIRQ={} pendingURB={} pendingLength={} dir={} transfer={} speed={} maxPacket={}",
+            hostPipeInfo.PipeIndex,
+            static_cast<uint32_t>(hostPipeInfo.DeviceAddress),
+            static_cast<uint32_t>(hostPipeInfo.EndpointAddress),
+            GetURBStateName(hostPipeInfo.URBState),
+            FormatBool(hostPipeInfo.HasTransactionCallback),
+            FormatBool(hostPipeInfo.HasPendingIRQURBState),
+            GetURBStateName(hostPipeInfo.PendingIRQURBState),
+            hostPipeInfo.PendingIRQTransferLength,
+            GetRequestDirectionName(hostPipeInfo.Direction),
+            GetTransferTypeName(hostPipeInfo.EndpointType),
+            GetSpeedName(hostPipeInfo.Speed),
+            hostPipeInfo.MaxPacketSize
+        );
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
     static void AppendFlag(PString& text, bool enabled, const char* name)
     {
         if (enabled)
@@ -1302,7 +1456,38 @@ private:
     /// \author Kurt Skauen
     ///////////////////////////////////////////////////////////////////////////////
 
-    static const char* GetTransferTypeName(USB_TransferType transferType)
+    static const char* GetRequestDirectionName(USB_RequestDirection direction)
+    {
+        switch (direction)
+        {
+            case USB_RequestDirection::HOST_TO_DEVICE: return "host-to-device";
+            case USB_RequestDirection::DEVICE_TO_HOST: return "device-to-host";
+        }
+        return "unknown";
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
+    static const char* GetURBStateName(USB_URBState state)
+    {
+        switch (state)
+        {
+            case USB_URBState::Idle:     return "idle";
+            case USB_URBState::Done:     return "done";
+            case USB_URBState::NotReady: return "not-ready";
+            case USB_URBState::Stall:    return "stall";
+            case USB_URBState::Error:    return "error";
+        }
+        return "unknown";
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// \author Kurt Skauen
+    ///////////////////////////////////////////////////////////////////////////////
+
+     static const char* GetTransferTypeName(USB_TransferType transferType)
     {
         switch (transferType)
         {
@@ -1453,6 +1638,7 @@ private:
     }
 
     bool m_ShowDescriptorBlocks = true;
+    bool m_ShowDebugInfo = false;
     bool m_CompactOutput = false;
     bool m_HadError = false;
 };

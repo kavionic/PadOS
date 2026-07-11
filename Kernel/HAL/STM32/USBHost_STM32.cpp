@@ -17,6 +17,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.07.2022 20:30
 
+#include <iterator>
+#include <utility>
+
+#include <Utils/String.h>
 #include <Utils/Utils.h>
 #include <Kernel/KTime.h>
 #include <Kernel/HAL/STM32/USBHost_STM32.h>
@@ -29,6 +33,239 @@
 namespace kernel
 {
 
+enum class USBHostSTM32DebugEntry : size_t
+{
+    Direction,
+    EndpointType,
+    Speed,
+    MaxPacketSize,
+    URBState,
+    ChannelState,
+    XferSize,
+    RequestedTransferLength,
+    BytesTransferred,
+    ErrorCount,
+    DoPing,
+    ToggleIn,
+    ToggleOut,
+    HCCHAR,
+    HCSPLT,
+    HCINT,
+    HCINTMSK,
+    HCTSIZ,
+    HCDMA,
+    SubmitRequestCount,
+    SubmitRequestFailureCount,
+    StartTransferCount,
+    StartTransferFailureCount,
+    TransferCompleteIRQCount,
+    NakNyetIRQCount,
+    ChannelHaltIRQCount,
+    FrameOverrunIRQCount,
+    AckIRQCount,
+    StallIRQCount,
+    TransactionErrorIRQCount,
+    NotifyDoneCount,
+    NotifyNotReadyCount,
+    NotifyStallCount,
+    NotifyErrorCount,
+    Count
+};
+
+static constexpr const char* USBHOST_STM32_DEBUG_LABELS[] =
+{
+    "stm32.direction",
+    "stm32.endpointType",
+    "stm32.speed",
+    "stm32.maxPacketSize",
+    "stm32.urbState",
+    "stm32.channelState",
+    "stm32.xferSize",
+    "stm32.requestedTransferLength",
+    "stm32.bytesTransferred",
+    "stm32.errorCount",
+    "stm32.doPing",
+    "stm32.toggleIn",
+    "stm32.toggleOut",
+    "stm32.HCCHAR",
+    "stm32.HCSPLT",
+    "stm32.HCINT",
+    "stm32.HCINTMSK",
+    "stm32.HCTSIZ",
+    "stm32.HCDMA",
+    "stm32.submitRequestCount",
+    "stm32.submitRequestFailureCount",
+    "stm32.startTransferCount",
+    "stm32.startTransferFailureCount",
+    "stm32.transferCompleteIRQCount",
+    "stm32.nakNyetIRQCount",
+    "stm32.channelHaltIRQCount",
+    "stm32.frameOverrunIRQCount",
+    "stm32.ackIRQCount",
+    "stm32.stallIRQCount",
+    "stm32.transactionErrorIRQCount",
+    "stm32.notifyDoneCount",
+    "stm32.notifyNotReadyCount",
+    "stm32.notifyStallCount",
+    "stm32.notifyErrorCount"
+};
+
+static constexpr size_t USBHOST_STM32_DEBUG_ENTRY_COUNT = std::size(USBHOST_STM32_DEBUG_LABELS);
+static_assert(USBHOST_STM32_DEBUG_ENTRY_COUNT == std::to_underlying(USBHostSTM32DebugEntry::Count));
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static bool IsUSBHostSTM32PipeIndexValid(USB_PipeIndex pipeIndex)
+{
+    return pipeIndex >= 0 && static_cast<size_t>(pipeIndex) < USBHost_STM32::CHANNEL_COUNT;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static const char* GetUSBHostSTM32BoolName(bool value)
+{
+    return value ? "yes" : "no";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static const char* GetUSBHostSTM32RequestDirectionName(USB_RequestDirection direction)
+{
+    switch (direction)
+    {
+        case USB_RequestDirection::HOST_TO_DEVICE: return "host-to-device";
+        case USB_RequestDirection::DEVICE_TO_HOST: return "device-to-host";
+    }
+    return "unknown";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static const char* GetUSBHostSTM32TransferTypeName(USB_TransferType transferType)
+{
+    switch (transferType)
+    {
+        case USB_TransferType::CONTROL:     return "control";
+        case USB_TransferType::ISOCHRONOUS: return "isochronous";
+        case USB_TransferType::BULK:        return "bulk";
+        case USB_TransferType::INTERRUPT:   return "interrupt";
+    }
+    return "unknown";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static const char* GetUSBHostSTM32SpeedName(USB_Speed speed)
+{
+    switch (speed)
+    {
+        case USB_Speed::LOW:  return "low";
+        case USB_Speed::FULL: return "full";
+        case USB_Speed::HIGH: return "high";
+    }
+    return "unknown";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static const char* GetUSBHostSTM32URBStateName(USB_URBState state)
+{
+    switch (state)
+    {
+        case USB_URBState::Idle:     return "idle";
+        case USB_URBState::Done:     return "done";
+        case USB_URBState::NotReady: return "not-ready";
+        case USB_URBState::Stall:    return "stall";
+        case USB_URBState::Error:    return "error";
+    }
+    return "unknown";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static const char* GetUSBHostSTM32ChannelStateName(USB_HostChannelState state)
+{
+    switch (state)
+    {
+        case USB_HostChannelState::IDLE:       return "idle";
+        case USB_HostChannelState::XFRC:       return "transfer-complete";
+        case USB_HostChannelState::NAK:        return "nak";
+        case USB_HostChannelState::NYET:       return "nyet";
+        case USB_HostChannelState::STALL:      return "stall";
+        case USB_HostChannelState::XACTERR:    return "transaction-error";
+        case USB_HostChannelState::BBLERR:     return "babble-error";
+        case USB_HostChannelState::DATATGLERR: return "data-toggle-error";
+    }
+    return "unknown";
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void CountUSBHostSTM32ChannelInterrupts(USBHostChannelData& channel, uint32_t interrupts)
+{
+    if ((interrupts & USB_OTG_HCINT_XFRC) != 0) {
+        ++channel.Diagnostics.TransferCompleteIRQCount;
+    }
+    if ((interrupts & (USB_OTG_HCINT_NAK | USB_OTG_HCINT_NYET)) != 0) {
+        ++channel.Diagnostics.NakNyetIRQCount;
+    }
+    if ((interrupts & USB_OTG_HCINT_CHH) != 0) {
+        ++channel.Diagnostics.ChannelHaltIRQCount;
+    }
+    if ((interrupts & USB_OTG_HCINT_FRMOR) != 0) {
+        ++channel.Diagnostics.FrameOverrunIRQCount;
+    }
+    if ((interrupts & USB_OTG_HCINT_ACK) != 0) {
+        ++channel.Diagnostics.AckIRQCount;
+    }
+    if ((interrupts & USB_OTG_HCINT_STALL) != 0) {
+        ++channel.Diagnostics.StallIRQCount;
+    }
+    if ((interrupts & (USB_OTG_HCINT_AHBERR | USB_OTG_HCINT_BBERR | USB_OTG_HCINT_DTERR | USB_OTG_HCINT_TXERR)) != 0) {
+        ++channel.Diagnostics.TransactionErrorIRQCount;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+static void IncrementUSBHostSTM32NotifyCounter(USBHostChannelDiagnostics& diagnostics, USB_URBState state)
+{
+    switch (state)
+    {
+        case USB_URBState::Done:
+            ++diagnostics.NotifyDoneCount;
+            break;
+        case USB_URBState::NotReady:
+            ++diagnostics.NotifyNotReadyCount;
+            break;
+        case USB_URBState::Stall:
+            ++diagnostics.NotifyStallCount;
+            break;
+        case USB_URBState::Error:
+            ++diagnostics.NotifyErrorCount;
+            break;
+        case USB_URBState::Idle:
+            break;
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -217,6 +454,7 @@ bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection 
         return false;
     }
     USBHostChannelData& channel = m_ChannelStates[pipeIndex];
+    ++channel.Diagnostics.SubmitRequestCount;
 
     channel.Direction    = direction;
     channel.EndpointType = endpointType;
@@ -263,7 +501,11 @@ bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection 
     channel.BytesTransferred        = 0;
     channel.ChannelState            = USB_HostChannelState::IDLE;
 
-    return StartTransfer(pipeIndex, m_Driver->UseDMA());
+    const bool result = StartTransfer(pipeIndex, m_Driver->UseDMA());
+    if (!result) {
+        ++channel.Diagnostics.SubmitRequestFailureCount;
+    }
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -299,14 +541,174 @@ bool USBHost_STM32::GetDataToggle(USB_PipeIndex pipeIndex) const
     }
 }
 
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t USBHost_STM32::GetPipeDebugEntryCount(USB_PipeIndex pipeIndex) const
+{
+    if (!IsUSBHostSTM32PipeIndexValid(pipeIndex) || m_HostChannels == nullptr) {
+        return 0;
+    }
+    return USBHOST_STM32_DEBUG_ENTRY_COUNT;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost_STM32::GetPipeDebugEntryLabel(USB_PipeIndex pipeIndex, size_t entryIndex, PString* outLabel) const
+{
+    if (outLabel == nullptr) {
+        return false;
+    }
+    if (!IsUSBHostSTM32PipeIndexValid(pipeIndex) || m_HostChannels == nullptr || entryIndex >= USBHOST_STM32_DEBUG_ENTRY_COUNT) {
+        return false;
+    }
+
+    *outLabel = USBHOST_STM32_DEBUG_LABELS[entryIndex];
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool USBHost_STM32::GetPipeDebugEntryValue(USB_PipeIndex pipeIndex, size_t entryIndex, PString* outValue) const
+{
+    if (outValue == nullptr) {
+        return false;
+    }
+    if (!IsUSBHostSTM32PipeIndexValid(pipeIndex) || m_HostChannels == nullptr || entryIndex >= USBHOST_STM32_DEBUG_ENTRY_COUNT) {
+        return false;
+    }
+
+    const size_t channelIndex = static_cast<size_t>(pipeIndex);
+    const USBHostChannelData& channel = m_ChannelStates[channelIndex];
+    const USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[channelIndex];
+
+    switch (static_cast<USBHostSTM32DebugEntry>(entryIndex))
+    {
+        case USBHostSTM32DebugEntry::Direction:
+            *outValue = GetUSBHostSTM32RequestDirectionName(channel.Direction);
+            break;
+        case USBHostSTM32DebugEntry::EndpointType:
+            *outValue = GetUSBHostSTM32TransferTypeName(channel.EndpointType);
+            break;
+        case USBHostSTM32DebugEntry::Speed:
+            *outValue = GetUSBHostSTM32SpeedName(channel.Speed);
+            break;
+        case USBHostSTM32DebugEntry::MaxPacketSize:
+            *outValue = PString::format_string("{}", channel.MaxPacketSize);
+            break;
+        case USBHostSTM32DebugEntry::URBState:
+            *outValue = GetUSBHostSTM32URBStateName(channel.URBState);
+            break;
+        case USBHostSTM32DebugEntry::ChannelState:
+            *outValue = GetUSBHostSTM32ChannelStateName(channel.ChannelState);
+            break;
+        case USBHostSTM32DebugEntry::XferSize:
+            *outValue = PString::format_string("{}", channel.XferSize);
+            break;
+        case USBHostSTM32DebugEntry::RequestedTransferLength:
+            *outValue = PString::format_string("{}", channel.RequestedTransferLength);
+            break;
+        case USBHostSTM32DebugEntry::BytesTransferred:
+            *outValue = PString::format_string("{}", channel.BytesTransferred);
+            break;
+        case USBHostSTM32DebugEntry::ErrorCount:
+            *outValue = PString::format_string("{}", channel.ErrorCount);
+            break;
+        case USBHostSTM32DebugEntry::DoPing:
+            *outValue = GetUSBHostSTM32BoolName(channel.DoPing != 0);
+            break;
+        case USBHostSTM32DebugEntry::ToggleIn:
+            *outValue = GetUSBHostSTM32BoolName(channel.ToggleIn);
+            break;
+        case USBHostSTM32DebugEntry::ToggleOut:
+            *outValue = GetUSBHostSTM32BoolName(channel.ToggleOut);
+            break;
+        case USBHostSTM32DebugEntry::HCCHAR:
+            *outValue = PString::format_string("0x{:08x}", static_cast<uint32_t>(channelRegs.HCCHAR));
+            break;
+        case USBHostSTM32DebugEntry::HCSPLT:
+            *outValue = PString::format_string("0x{:08x}", static_cast<uint32_t>(channelRegs.HCSPLT));
+            break;
+        case USBHostSTM32DebugEntry::HCINT:
+            *outValue = PString::format_string("0x{:08x}", static_cast<uint32_t>(channelRegs.HCINT));
+            break;
+        case USBHostSTM32DebugEntry::HCINTMSK:
+            *outValue = PString::format_string("0x{:08x}", static_cast<uint32_t>(channelRegs.HCINTMSK));
+            break;
+        case USBHostSTM32DebugEntry::HCTSIZ:
+            *outValue = PString::format_string("0x{:08x}", static_cast<uint32_t>(channelRegs.HCTSIZ));
+            break;
+        case USBHostSTM32DebugEntry::HCDMA:
+            *outValue = PString::format_string("0x{:08x}", static_cast<uint32_t>(channelRegs.HCDMA));
+            break;
+        case USBHostSTM32DebugEntry::SubmitRequestCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.SubmitRequestCount);
+            break;
+        case USBHostSTM32DebugEntry::SubmitRequestFailureCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.SubmitRequestFailureCount);
+            break;
+        case USBHostSTM32DebugEntry::StartTransferCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.StartTransferCount);
+            break;
+        case USBHostSTM32DebugEntry::StartTransferFailureCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.StartTransferFailureCount);
+            break;
+        case USBHostSTM32DebugEntry::TransferCompleteIRQCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.TransferCompleteIRQCount);
+            break;
+        case USBHostSTM32DebugEntry::NakNyetIRQCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.NakNyetIRQCount);
+            break;
+        case USBHostSTM32DebugEntry::ChannelHaltIRQCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.ChannelHaltIRQCount);
+            break;
+        case USBHostSTM32DebugEntry::FrameOverrunIRQCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.FrameOverrunIRQCount);
+            break;
+        case USBHostSTM32DebugEntry::AckIRQCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.AckIRQCount);
+            break;
+        case USBHostSTM32DebugEntry::StallIRQCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.StallIRQCount);
+            break;
+        case USBHostSTM32DebugEntry::TransactionErrorIRQCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.TransactionErrorIRQCount);
+            break;
+        case USBHostSTM32DebugEntry::NotifyDoneCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.NotifyDoneCount);
+            break;
+        case USBHostSTM32DebugEntry::NotifyNotReadyCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.NotifyNotReadyCount);
+            break;
+        case USBHostSTM32DebugEntry::NotifyStallCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.NotifyStallCount);
+            break;
+        case USBHostSTM32DebugEntry::NotifyErrorCount:
+            *outValue = PString::format_string("{}", channel.Diagnostics.NotifyErrorCount);
+            break;
+        case USBHostSTM32DebugEntry::Count:
+            return false;
+    }
+    return true;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
 void USBHost_STM32::SetChannelURBState(USB_PipeIndex pipeIndex, USB_URBState state)
 {
-    m_ChannelStates[pipeIndex].URBState = state;
-    m_Driver->IRQPipeURBStateChanged(pipeIndex, state, m_ChannelStates[pipeIndex].BytesTransferred);
+    USBHostChannelData& channel = m_ChannelStates[pipeIndex];
+
+    channel.URBState = state;
+    IncrementUSBHostSTM32NotifyCounter(channel.Diagnostics, state);
+    m_Driver->IRQPipeURBStateChanged(pipeIndex, state, channel.BytesTransferred);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -387,6 +789,7 @@ bool USBHost_STM32::SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uin
     USBHostChannelData&         channel = m_ChannelStates[pipeIndex];
     USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
 
+    channel.Diagnostics = USBHostChannelDiagnostics();
     channel.DoPing          = false;
     channel.MaxPacketSize   = maxPacketSize;
     channel.EndpointType    = endpointType;
@@ -483,6 +886,7 @@ bool USBHost_STM32::SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uin
 bool USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex, bool dma)
 {
     USBHostChannelData& channel = m_ChannelStates[pipeIndex];
+    ++channel.Diagnostics.StartTransferCount;
 
     USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
 
@@ -495,7 +899,11 @@ bool USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex, bool dma)
 
         if (!dma && channel.DoPing)
         {
-            DoPing(pipeIndex);
+            if (!DoPing(pipeIndex))
+            {
+                ++channel.Diagnostics.StartTransferFailureCount;
+                return false;
+            }
             return true;
         }
     }
@@ -733,6 +1141,7 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
     USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
 
     const uint32_t interrupts = channelRegs.HCINT & channelRegs.HCINTMSK;
+    CountUSBHostSTM32ChannelInterrupts(channel, interrupts);
 
     if (interrupts & USB_OTG_HCINT_AHBERR)
     {
@@ -898,6 +1307,7 @@ void USBHost_STM32::HandleChannelOutIRQ(USB_PipeIndex pipeIndex)
     USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
 
     const uint32_t interrupts = channelRegs.HCINT & channelRegs.HCINTMSK;
+    CountUSBHostSTM32ChannelInterrupts(channel, interrupts);
 
     if (interrupts & USB_OTG_HCINT_AHBERR)
     {

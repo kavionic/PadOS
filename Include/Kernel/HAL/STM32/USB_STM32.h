@@ -100,6 +100,9 @@ public:
     virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing) override { return m_HostDriver.SubmitRequest(pipeIndex, direction, endpointType, initialPID, buffer, length, doPing); }
     virtual bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle) override { return m_HostDriver.SetDataToggle(pipeIndex, toggle); }
     virtual bool        GetDataToggle(USB_PipeIndex pipeIndex) const override { return m_HostDriver.GetDataToggle(pipeIndex); }
+    virtual size_t      GetHostPipeDebugEntryCount(USB_PipeIndex pipeIndex) const override { return m_HostDriver.GetPipeDebugEntryCount(pipeIndex); }
+    virtual bool        GetHostPipeDebugEntryLabel(USB_PipeIndex pipeIndex, size_t entryIndex, PString* outLabel) const override { return m_HostDriver.GetPipeDebugEntryLabel(pipeIndex, entryIndex, outLabel); }
+    virtual bool        GetHostPipeDebugEntryValue(USB_PipeIndex pipeIndex, size_t entryIndex, PString* outValue) const override { return m_HostDriver.GetPipeDebugEntryValue(pipeIndex, entryIndex, outValue); }
 #endif
 
     void        ReadFromFIFO(void* buffer, size_t length);

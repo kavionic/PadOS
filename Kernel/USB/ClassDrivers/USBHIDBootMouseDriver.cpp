@@ -95,7 +95,7 @@ void USBHIDBootMouseDriver::HandleReport(const uint8_t* report, size_t length)
     if (report == nullptr) {
         return;
     }
-    if (length < 3)
+    if (length < BOOT_REPORT_SIZE)
     {
         kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "HID boot mouse short report: {} bytes.", length);
         return;
@@ -103,7 +103,16 @@ void USBHIDBootMouseDriver::HandleReport(const uint8_t* report, size_t length)
 
     LogReport(report, length);
 
-    const uint8_t buttons = report[0];
+    const size_t reportDataOffset = GetReportDataOffset(report, length);
+    if (length < reportDataOffset + BOOT_REPORT_SIZE)
+    {
+        kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "HID boot mouse short report data: {} bytes with offset {}.", length, reportDataOffset);
+        return;
+    }
+
+    const uint8_t* mouseReport = report + reportDataOffset;
+    const size_t mouseReportLength = length - reportDataOffset;
+    const uint8_t buttons = mouseReport[0];
     const uint8_t changedButtons = buttons ^ m_PreviousButtons;
     const PPointerButtonMask pointerButtons = GetButtons(buttons);
 
@@ -118,13 +127,13 @@ void USBHIDBootMouseDriver::HandleReport(const uint8_t* report, size_t length)
         }
     }
 
-    const int deltaPositionX = int(int8_t(report[1]));
-    const int deltaPositionY = int(int8_t(report[2]));
+    const int deltaPositionX = GetDeltaPositionX(mouseReport, mouseReportLength);
+    const int deltaPositionY = GetDeltaPositionY(mouseReport, mouseReportLength);
 
     if (deltaPositionX != 0 || deltaPositionY != 0) {
         EmitMoveEvent(deltaPositionX, deltaPositionY, pointerButtons);
     }
-    const int deltaWheel = GetWheelDelta(report, length);
+    const int deltaWheel = GetWheelDelta(mouseReport, mouseReportLength);
     if (deltaWheel != 0) {
         EmitWheelEvent(deltaWheel, pointerButtons);
     }
@@ -266,8 +275,82 @@ PPointerButtonMask USBHIDBootMouseDriver::GetButtons(uint8_t buttonFlags)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+bool USBHIDBootMouseDriver::IsReportProtocol16BitAxisReport(size_t length)
+{
+    return length == REPORT_PROTOCOL_16BIT_AXIS_REPORT_SIZE;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int USBHIDBootMouseDriver::ReadSignedInt16LE(const uint8_t* value)
+{
+    const uint16_t unsignedValue = uint16_t(value[0]) | uint16_t(uint16_t(value[1]) << 8);
+    return int(int16_t(unsignedValue));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+size_t USBHIDBootMouseDriver::GetReportDataOffset(const uint8_t* report, size_t length)
+{
+    if (IsReportProtocol16BitAxisReport(length)) {
+        return 0;
+    }
+    if (length <= BOOT_REPORT_SIZE || report[0] == 0) {
+        return 0;
+    }
+
+    if (length == BOOT_REPORT_SIZE + REPORT_ID_SIZE && report[1] == 0) {
+        return REPORT_ID_SIZE;
+    }
+    if (length > BOOT_REPORT_SIZE + REPORT_ID_SIZE && report[1] <= 0x1f) {
+        return REPORT_ID_SIZE;
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int USBHIDBootMouseDriver::GetDeltaPositionX(const uint8_t* report, size_t length)
+{
+    if (IsReportProtocol16BitAxisReport(length)) {
+        return ReadSignedInt16LE(report + REPORT_PROTOCOL_16BIT_AXIS_X_OFFSET);
+    }
+    if (length >= 2) {
+        return int(int8_t(report[1]));
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+int USBHIDBootMouseDriver::GetDeltaPositionY(const uint8_t* report, size_t length)
+{
+    if (IsReportProtocol16BitAxisReport(length)) {
+        return ReadSignedInt16LE(report + REPORT_PROTOCOL_16BIT_AXIS_Y_OFFSET);
+    }
+    if (length >= 3) {
+        return int(int8_t(report[2]));
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 int USBHIDBootMouseDriver::GetWheelDelta(const uint8_t* report, size_t length)
 {
+    if (IsReportProtocol16BitAxisReport(length)) {
+        return int(int8_t(report[REPORT_PROTOCOL_16BIT_AXIS_WHEEL_OFFSET]));
+    }
     if (length >= 7 && report[6] != 0) {
         return int(int8_t(report[6]));
     }

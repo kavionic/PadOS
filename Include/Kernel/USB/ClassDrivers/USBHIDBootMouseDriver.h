@@ -39,12 +39,24 @@ public:
     virtual void HandleReport(const uint8_t* report, size_t length) override;
 
 private:
+    static constexpr size_t BOOT_REPORT_SIZE = 3;
+    static constexpr size_t REPORT_ID_SIZE = 1;
+    static constexpr size_t REPORT_PROTOCOL_16BIT_AXIS_REPORT_SIZE = 8;
+    static constexpr size_t REPORT_PROTOCOL_16BIT_AXIS_X_OFFSET = 2;
+    static constexpr size_t REPORT_PROTOCOL_16BIT_AXIS_Y_OFFSET = 4;
+    static constexpr size_t REPORT_PROTOCOL_16BIT_AXIS_WHEEL_OFFSET = 6;
+
     void EmitButtonEvent(PMouseButton button, PPointerButtonMask buttons, bool pressed);
     void EmitMoveEvent(int deltaPositionX, int deltaPositionY, PPointerButtonMask buttons);
     void EmitWheelEvent(int deltaWheel, PPointerButtonMask buttons);
 
     static PMouseButton GetButton(uint8_t buttonFlag);
     static PPointerButtonMask GetButtons(uint8_t buttonFlags);
+    static bool IsReportProtocol16BitAxisReport(size_t length);
+    static int ReadSignedInt16LE(const uint8_t* value);
+    static size_t GetReportDataOffset(const uint8_t* report, size_t length);
+    static int GetDeltaPositionX(const uint8_t* report, size_t length);
+    static int GetDeltaPositionY(const uint8_t* report, size_t length);
     static int GetWheelDelta(const uint8_t* report, size_t length);
     static void LogReport(const uint8_t* report, size_t length);
 

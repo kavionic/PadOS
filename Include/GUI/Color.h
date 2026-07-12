@@ -208,9 +208,10 @@ struct PColor
     constexpr PALWAYS_INLINE PColor GetNorimalized() const { return GetNorimalized(GetAlpha()); }
     constexpr PALWAYS_INLINE PColor GetNorimalized(uint8_t alpha) const { return PColor(uint8_t((uint32_t(GetRed()) * alpha + 127) / 255), uint8_t((uint32_t(GetGreen()) * alpha + 127) / 255), uint8_t((uint32_t(GetBlue()) * alpha + 127) / 255)); }
 
-    constexpr PALWAYS_INLINE uint16_t GetColor15() const { return uint16_t(((GetRed() & 0xf8) << 7) | ((GetGreen() & 0xf8) << 2) | ((GetBlue() & 0xf8) >> 3)); }
-    constexpr PALWAYS_INLINE uint16_t GetColor16() const { return uint16_t(((GetRed() & 0xf8) << 8) | ((GetGreen() & 0xfc) << 3) | ((GetBlue() & 0xf8) >> 3)); }
-    constexpr PALWAYS_INLINE uint32_t GetColor32() const { return m_Color; }
+    constexpr PALWAYS_INLINE uint8_t  GetColor332() const { return uint8_t((GetRed() & 0xe0) | ((GetGreen() & 0xe0) >> 3) | (GetBlue() >> 6)); }
+    constexpr PALWAYS_INLINE uint16_t GetColor15() const  { return uint16_t(((GetRed() & 0xf8) << 7) | ((GetGreen() & 0xf8) << 2) | ((GetBlue() & 0xf8) >> 3)); }
+    constexpr PALWAYS_INLINE uint16_t GetColor16() const  { return uint16_t(((GetRed() & 0xf8) << 8) | ((GetGreen() & 0xfc) << 3) | ((GetBlue() & 0xf8) >> 3)); }
+    constexpr PALWAYS_INLINE uint32_t GetColor32() const  { return m_Color; }
 
     constexpr PALWAYS_INLINE PColor GetInverted() const { return PColor(uint8_t(255 - GetRed()), uint8_t(255 - GetGreen()), uint8_t(255 - GetBlue()), GetAlpha()); }
     PALWAYS_INLINE void  Invert() { SetRGBA(uint8_t(255 - GetRed()), uint8_t(255 - GetGreen()), uint8_t(255 - GetBlue()), GetAlpha()); }

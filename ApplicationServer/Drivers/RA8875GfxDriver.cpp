@@ -23,7 +23,11 @@
 
 #include <GUI/Color.h>
 #include <Utils/UTF8Utils.h>
+
+#include <algorithm>
+#include <array>
 #include <fcntl.h>
+#include <utility>
 #include <unistd.h>
 
 
@@ -182,6 +186,61 @@ PEColorSpace RA8875GfxDriver::GetColorSpace()
 
 void RA8875GfxDriver::SetColor(size_t index, PColor color)
 {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool RA8875GfxDriver::SetMouseCursorBitmap(const PMouseCursorBitmap& cursor)
+{
+    if (cursor.Width <= 0 || cursor.Height <= 0 || cursor.Width > RA8875_GRAPHIC_CURSOR_SIZE || cursor.Height > RA8875_GRAPHIC_CURSOR_SIZE) {
+        return false;
+    }
+    if (cursor.HotSpot.x < 0 || cursor.HotSpot.y < 0 || cursor.HotSpot.x >= cursor.Width || cursor.HotSpot.y >= cursor.Height) {
+        return false;
+    }
+
+    const size_t pixelCount = size_t(cursor.Width) * size_t(cursor.Height);
+    if (cursor.Raster.size() < pixelCount) {
+        return false;
+    }
+
+    m_CursorHotSpot = cursor.HotSpot;
+    m_MouseCursorSize = PIPoint(cursor.Width, cursor.Height);
+    m_MouseCursorRaster.resize(pixelCount);
+    for (size_t pixelIndex = 0; pixelIndex < pixelCount; ++pixelIndex) {
+        m_MouseCursorRaster[pixelIndex] = ConvertMouseCursorPixelToRA8875(cursor.Raster[pixelIndex]);
+    }
+    m_IsMouseCursorRasterUploaded = false;
+
+    const bool wasVisible = m_IsMouseCursorVisible;
+    SetGraphicCursorEnabled(false);
+    SetMouseCursorColors(cursor.Color1, cursor.Color2);
+    SetGraphicCursorPosition(m_MousePos);
+    SetGraphicCursorEnabled(wasVisible);
+
+    return true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875GfxDriver::SetMouseCursorVisible(bool visible)
+{
+    m_IsMouseCursorVisible = visible;
+    SetGraphicCursorEnabled(visible);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875GfxDriver::SetMousePos(PIPoint position)
+{
+    m_MousePos = position;
+    SetGraphicCursorPosition(position);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -852,6 +911,143 @@ void RA8875GfxDriver::SetTransparantColor(uint16_t color)
     WriteData((color >> 5) & 0x3f);
     WriteCommand(RA8875_BGTR2);
     WriteData(color & 0x1f);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint8_t RA8875GfxDriver::ConvertMouseCursorPixelToRA8875(PMouseCursorPixel pixel)
+{
+    switch (pixel)
+    {
+        case PMouseCursorPixel::Color1:
+            return RA8875_MOUSE_CURSOR_PIXEL_COLOR1;
+        case PMouseCursorPixel::Color2:
+            return RA8875_MOUSE_CURSOR_PIXEL_COLOR2;
+        case PMouseCursorPixel::Transparent:
+            return RA8875_MOUSE_CURSOR_PIXEL_TRANSPARENT;
+        case PMouseCursorPixel::Invert:
+            return RA8875_MOUSE_CURSOR_PIXEL_INVERT;
+    }
+    return RA8875_MOUSE_CURSOR_PIXEL_TRANSPARENT;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875GfxDriver::SetMouseCursorColors(PColor color1, PColor color2)
+{
+    WriteCommand(RA8875_GCC0, color1.GetColor332());
+    WriteCommand(RA8875_GCC1, color2.GetColor332());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875GfxDriver::UploadMouseCursorRaster(PIPoint rasterOffset)
+{
+    std::array<uint8_t, RA8875_GRAPHIC_CURSOR_BYTES> mouseCursorBuffer = {};
+    mouseCursorBuffer.fill(RA8875_MOUSE_CURSOR_TRANSPARENT_BYTE);
+
+    for (int32_t sourceY = 0; sourceY < m_MouseCursorSize.y; ++sourceY)
+    {
+        const int32_t destY = sourceY + rasterOffset.y;
+        if (destY < 0 || destY >= RA8875_GRAPHIC_CURSOR_SIZE) {
+            continue;
+        }
+
+        for (int32_t sourceX = 0; sourceX < m_MouseCursorSize.x; ++sourceX)
+        {
+            const int32_t destX = sourceX + rasterOffset.x;
+            if (destX < 0 || destX >= RA8875_GRAPHIC_CURSOR_SIZE) {
+                continue;
+            }
+
+            const size_t srcIndex = size_t(sourceY) * size_t(m_MouseCursorSize.x) + size_t(sourceX);
+            const size_t dstIndex = size_t(destY) * size_t(RA8875_GRAPHIC_CURSOR_SIZE / 4) + size_t(destX / 4);
+            const uint8_t shift = uint8_t((3 - (destX & 3)) * 2);
+            const uint8_t mask = uint8_t(0x03 << shift);
+            const uint8_t pixel = m_MouseCursorRaster[srcIndex];
+            mouseCursorBuffer[dstIndex] = uint8_t((mouseCursorBuffer[dstIndex] & ~mask) | (pixel << shift));
+        }
+    }
+
+    WaitBlitter();
+
+    const uint8_t previousMWCR0 = ReadRegister(RA8875_MWCR0);
+    const uint8_t previousMWCR1 = ReadRegister(RA8875_MWCR1);
+    const uint8_t cursorWriteControl = uint8_t((previousMWCR1 & ~(RA8875_MWCR1_WRITE_DEST_bm | RA8875_MWCR1_GCURSOR_SELECT_bm)) | RA8875_MWCR1_WRITE_DEST_GCURSOR_bg);
+    const uint8_t memoryWriteControl = uint8_t((previousMWCR0 & ~RA8875_MWCR0_DIRECTON_bm) | RA8875_MWCR0_LR_TD_bg);
+
+    WriteCommand(RA8875_MWCR1, cursorWriteControl);
+    WriteCommand(RA8875_MWCR0, memoryWriteControl);
+    WriteCommand(RA8875_CURH0, RA8875_CURH1, uint16_t(0));
+    WriteCommand(RA8875_CURV0, RA8875_CURV1, uint16_t(0));
+    BeginWriteData();
+
+    for (size_t i = 0; i < RA8875_GRAPHIC_CURSOR_BYTES; ++i)
+    {
+        WaitMemory();
+        WriteData(mouseCursorBuffer[i]);
+    }
+    WaitMemory();
+
+    WriteCommand(RA8875_MWCR1, previousMWCR1);
+    WriteCommand(RA8875_MWCR0, previousMWCR0);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875GfxDriver::SetGraphicCursorPosition(PIPoint position)
+{
+    const PIPoint desiredOrigin = position - m_CursorHotSpot;
+
+    const PIPoint resolution = GetResolution();
+    PIPoint hardwareOrigin;
+    hardwareOrigin.x = std::clamp(desiredOrigin.x, 0, std::max(0, resolution.x - 1));
+    hardwareOrigin.y = std::clamp(desiredOrigin.y, 0, std::max(0, resolution.y - 1));
+
+    const PIPoint rasterOffset = desiredOrigin - hardwareOrigin;
+    const bool needsRasterUpload = !m_MouseCursorRaster.empty() && (!m_IsMouseCursorRasterUploaded || rasterOffset != m_UploadedMouseCursorRasterOffset);
+    if (needsRasterUpload)
+    {
+        UploadMouseCursorRaster(rasterOffset);
+        m_UploadedMouseCursorRasterOffset = rasterOffset;
+        m_IsMouseCursorRasterUploaded = true;
+    }
+
+    WriteCommand(RA8875_GCHP0, RA8875_GCHP1, uint16_t(hardwareOrigin.x));
+    WriteCommand(RA8875_GCVP0, RA8875_GCVP1, uint16_t(hardwareOrigin.y));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void RA8875GfxDriver::SetGraphicCursorEnabled(bool enabled)
+{
+    uint8_t control = ReadRegister(RA8875_MWCR1);
+    if (enabled) {
+        control |= RA8875_MWCR1_GCURSOR_ENABLE_bm;
+    } else {
+        control &= ~RA8875_MWCR1_GCURSOR_ENABLE_bm;
+    }
+    WriteCommand(RA8875_MWCR1, control);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+uint8_t RA8875GfxDriver::ReadRegister(uint8_t command)
+{
+    WriteCommand(command);
+    return uint8_t(ReadData());
 }
 
 ///////////////////////////////////////////////////////////////////////////////

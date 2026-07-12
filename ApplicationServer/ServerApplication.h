@@ -71,6 +71,8 @@ private:
     void SlotSetKeyboardFocus(handler_id clientHandle, bool focus);
     void SlotCreateBitmap(port_id replyPort, int width, int height, PEColorSpace colorSpace, void* raster, size_t bytesPerRow, uint32_t flags);
     void SlotDeleteBitmap(handle_id bitmapHandle);
+    void SlotPushMouseCursor(PMouseCursorToken token, PMouseCursorID cursorID);
+    void SlotPopMouseCursor(PMouseCursorToken token);
     void SlotViewSetFrame(handler_id clientHandle, const PRect& frame, handler_id requestingClient);
     void SlotViewInvalidate(handler_id clientHandle, const PIRect& frame);
     void SlotViewAddChild(size_t index, handler_id viewHandle, handler_id childHandle, handler_id managerHandle);
@@ -140,6 +142,8 @@ private:
     ASSetKeyboardFocus          RSSetKeyboardFocus;
     ASCreateBitmap              RSCreateBitmap;
     ASDeleteBitmap              RSDeleteBitmap;
+    ASPushMouseCursor           RSPushMouseCursor;
+    ASPopMouseCursor            RSPopMouseCursor;
     ASViewSetFrame              RSViewSetFrame;
     ASViewInvalidate            RSViewInvalidate;
     ASViewAddChild              RSViewAddChild;

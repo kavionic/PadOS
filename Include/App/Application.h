@@ -61,6 +61,9 @@ public:
     bool CreateBitmap(int width, int height, PEColorSpace colorSpace, uint32_t flags, handle_id& outHandle, uint8_t*& inOutFramebuffer, size_t& inOutBytesPerRow);
     void DeleteBitmap(handle_id bitmapHandle);
 
+    PMouseCursorToken PushMouseCursor(PStandardMouseCursor cursor);
+    void PopMouseCursor(PMouseCursorToken token);
+
     template<typename SIGNAL, typename... ARGS>
     void Post(ARGS&&... args) { SIGNAL::Sender::Emit(this, &PApplication::AllocMessageBuffer, SIGNAL::GetID(), args...); }
      
@@ -89,6 +92,7 @@ private:
     static PApplication* s_DefaultApplication;
     PMessagePort m_ReplyPort;
     handler_id m_ServerHandle = -1;
+    PMouseCursorToken m_NextMouseCursorToken = PInvalidMouseCursorToken + 1;
 
     uint8_t m_SendBuffer[PAPPSERVER_MSG_BUFFER_SIZE]; 
     int32_t m_UsedSendBufferSize = 0;

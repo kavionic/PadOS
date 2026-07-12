@@ -42,6 +42,8 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
     RegisterRemoteSignal(&RSSetKeyboardFocus,   &ServerApplication::SlotSetKeyboardFocus);
     RegisterRemoteSignal(&RSCreateBitmap,       &ServerApplication::SlotCreateBitmap);
     RegisterRemoteSignal(&RSDeleteBitmap,       &ServerApplication::SlotDeleteBitmap);
+    RegisterRemoteSignal(&RSPushMouseCursor,    &ServerApplication::SlotPushMouseCursor);
+    RegisterRemoteSignal(&RSPopMouseCursor,     &ServerApplication::SlotPopMouseCursor);
     RegisterRemoteSignal(&RSViewSetFrame,       &ServerApplication::SlotViewSetFrame);
     RegisterRemoteSignal(&RSViewInvalidate,     &ServerApplication::SlotViewInvalidate);
     RegisterRemoteSignal(&RSViewAddChild,       &ServerApplication::SlotViewAddChild);
@@ -90,6 +92,9 @@ ServerApplication::ServerApplication(ApplicationServer* server, const PString& n
 
 ServerApplication::~ServerApplication()
 {
+    if (m_Server != nullptr) {
+        m_Server->RemoveMouseCursorStackEntries(this);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -356,6 +361,24 @@ void ServerApplication::SlotDeleteBitmap(handle_id bitmapHandle)
     } else {
         p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "{}: invalid handle: {}", __PRETTY_FUNCTION__, bitmapHandle);
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotPushMouseCursor(PMouseCursorToken token, PMouseCursorID cursorID)
+{
+    m_Server->PushMouseCursor(this, token, cursorID);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ServerApplication::SlotPopMouseCursor(PMouseCursorToken token)
+{
+    m_Server->PopMouseCursor(this, token);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

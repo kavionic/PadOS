@@ -23,6 +23,7 @@
 #include <map>
 #include <queue>
 #include <stdint.h>
+#include <vector>
 
 #include "Threads/Looper.h"
 #include "Signals/SignalTarget.h"
@@ -37,6 +38,7 @@ PDEFINE_LOG_CATEGORY(LogCategoryAppServer, "APPSERV", PLogSeverity::INFO_HIGH_VO
 
 class PServerView;
 class PDisplayDriver;
+class ServerApplication;
 
 class ApplicationServer : public PLooper, public SignalTarget
 {
@@ -59,6 +61,10 @@ public:
 
     void ViewDestructed(PServerView* view);
 
+    void PushMouseCursor(ServerApplication* owner, PMouseCursorToken token, PMouseCursorID cursorID);
+    void PopMouseCursor(ServerApplication* owner, PMouseCursorToken token);
+    void RemoveMouseCursorStackEntries(ServerApplication* owner);
+
     void            SetFocusView(PPointerID pointerID, Ptr<PServerView> view, bool focus);
     Ptr<PServerView> GetFocusView(PPointerID pointerID) const;
     void            SetPointerDownView(PPointerID pointerID, Ptr<PServerView> view);
@@ -79,6 +85,13 @@ private:
         PPointerEvent PointerEvent;
     };
 
+    struct MouseCursorStackEntry
+    {
+        ServerApplication* Owner = nullptr;
+        PMouseCursorToken  Token = PInvalidMouseCursorToken;
+        PMouseCursorID     CursorID = ToMouseCursorID(PStandardMouseCursor::Pointer);
+    };
+
     void ReadInputEvents();
     void ReadInputEvents(int inputDevice, PInputClass inputClass, const char* deviceName);
     void QueuePointerEvent(PInputEventID eventID, const PPointerEvent& event);
@@ -91,6 +104,9 @@ private:
     static PPointerButtonMask GetTouchPointerButtons(const PTouchEvent& touchEvent);
     static PPointerEvent CreatePointerEvent(const PMouseEvent& mouseEvent, const PPoint& position);
     static PPointerEvent CreatePointerEvent(const PTouchEvent& touchEvent);
+
+    bool ApplyMouseCursor(PMouseCursorID cursorID);
+    void UpdateMouseCursor();
 
     void HandlePointerDown(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
     void HandlePointerUp(PPointerID pointerID, const PPoint& position, const PPointerEvent& event);
@@ -115,6 +131,9 @@ private:
     std::map<PPointerID, PServerView*> m_PointerViewMap;    // Maps pointer ID to view last hit.
     std::map<PPointerID, PServerView*> m_PointerFocusMap;   // Map of focused view per pointer ID.
     PServerView*                 m_KeyboardFocusView = nullptr;
+
+    std::vector<MouseCursorStackEntry> m_MouseCursorStack;
+    PMouseCursorID                     m_CurrentMouseCursorID = PInvalidMouseCursorID;
 
     PPoint     m_MousePosition;
     int        m_MouseInputDevice = -1;

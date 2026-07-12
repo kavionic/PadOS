@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <Utils/Utils.h>
 
 
@@ -126,6 +127,22 @@ static constexpr ra9975_regaddr RA8875_MWCR0    = 0x40; // Memory Write Control 
 #define   RA8875_MWCR0_TEXT_MODE_bm  BIT8(RA8875_MWCR0_TEXT_MODE_bp, 1)
 
 static constexpr ra9975_regaddr RA8875_MWCR1    = 0x41; // Memory Write Control Register 1
+#define   RA8875_MWCR1_LAYER_SELECT_bp       0
+#define   RA8875_MWCR1_LAYER_SELECT_bm       BIT8(RA8875_MWCR1_LAYER_SELECT_bp, 1)
+
+#define   RA8875_MWCR1_WRITE_DEST_bp         2
+#define   RA8875_MWCR1_WRITE_DEST_bm         BIT8(RA8875_MWCR1_WRITE_DEST_bp, 0x03)
+#define   RA8875_MWCR1_WRITE_DEST_LAYER_bg   BIT8(RA8875_MWCR1_WRITE_DEST_bp, 0)
+#define   RA8875_MWCR1_WRITE_DEST_CGRAM_bg   BIT8(RA8875_MWCR1_WRITE_DEST_bp, 1)
+#define   RA8875_MWCR1_WRITE_DEST_GCURSOR_bg BIT8(RA8875_MWCR1_WRITE_DEST_bp, 2)
+#define   RA8875_MWCR1_WRITE_DEST_PATTERN_bg BIT8(RA8875_MWCR1_WRITE_DEST_bp, 3)
+
+#define   RA8875_MWCR1_GCURSOR_SELECT_bp     4
+#define   RA8875_MWCR1_GCURSOR_SELECT_bm     BIT8(RA8875_MWCR1_GCURSOR_SELECT_bp, 0x07)
+
+#define   RA8875_MWCR1_GCURSOR_ENABLE_bp     7
+#define   RA8875_MWCR1_GCURSOR_ENABLE_bm     BIT8(RA8875_MWCR1_GCURSOR_ENABLE_bp, 1)
+
 static constexpr ra9975_regaddr RA8875_BTCR     = 0x44; // Blink Time Control Register
 static constexpr ra9975_regaddr RA8875_MRCD     = 0x45; // Memory Read Cursor Direction
 static constexpr ra9975_regaddr RA8875_CURH0    = 0x46; // Memory Write Cursor Horizontal Position Register 0
@@ -225,6 +242,15 @@ static constexpr ra9975_regaddr RA8875_BECR1 = 0x51; // BTE Function Control Reg
 #define RA8875_GCVP1       0x83 // Graphic Cursor Vertical Position Register 1
 #define RA8875_GCC0        0x84 // Graphic Cursor Color 0
 #define RA8875_GCC1        0x85 // Graphic Cursor Color 1
+
+static constexpr int32_t RA8875_GRAPHIC_CURSOR_SIZE = 32;
+static constexpr size_t RA8875_GRAPHIC_CURSOR_BYTES = RA8875_GRAPHIC_CURSOR_SIZE * RA8875_GRAPHIC_CURSOR_SIZE / 4;
+static constexpr uint8_t RA8875_MOUSE_CURSOR_PIXEL_COLOR1 = 0x00;
+static constexpr uint8_t RA8875_MOUSE_CURSOR_PIXEL_COLOR2 = 0x01;
+static constexpr uint8_t RA8875_MOUSE_CURSOR_PIXEL_TRANSPARENT = 0x02;
+static constexpr uint8_t RA8875_MOUSE_CURSOR_PIXEL_INVERT = 0x03;
+static constexpr uint8_t RA8875_MOUSE_CURSOR_TRANSPARENT_BYTE = 0xaa;
+
 #define RA8875_PLLC1       0x88 // PLL Control Register 1
 #define RA8875_PLLC2       0x89 // PLL Control Register 2
 #define RA8875_P1CR        0x8A // PWM1 Control Register

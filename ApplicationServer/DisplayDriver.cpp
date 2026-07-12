@@ -42,7 +42,7 @@
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-PDisplayDriver::PDisplayDriver() : m_CursorHotSpot(0, 0)
+PDisplayDriver::PDisplayDriver()
 {
 //    m_pcMouseImage = nullptr;
 //    m_pcMouseSprite = nullptr;
@@ -85,77 +85,6 @@ void PDisplayDriver::Close(void)
 int PDisplayDriver::GetFramebufferOffset()
 {
     return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-//void DisplayDriver::SetCursorBitmap(mouse_ptr_mode eMode, const IPoint& cHotSpot, const void* pRaster, int nWidth, int nHeight)
-//{
-//    SrvSprite::Hide();
-//
-//    m_cCursorHotSpot = cHotSpot;
-//    delete m_pcMouseSprite;
-//
-//    if (m_pcMouseImage != NULL) {
-//        m_pcMouseImage->Release();
-//    }
-//    m_pcMouseImage = new SrvBitmap(nWidth, nHeight, ColorSpace::CMAP8);
-//
-//    uint8_t* dstRaster = m_pcMouseImage->m_Raster;
-//    const uint8_t* srcRaster = static_cast<const uint8_t*>(pRaster);
-//
-//    for (int i = 0; i < nWidth * nHeight; ++i) {
-//        uint8_t anPalette[] = { 255, 0, 0, 63 };
-//        if (srcRaster[i] < 4) {
-//            dstRaster[i] = anPalette[srcRaster[i]];
-//        } else {
-//            dstRaster[i] = 255;
-//        }
-//    }
-//    if (m_pcMouseImage != NULL) {
-//        m_pcMouseSprite = new SrvSprite(IRect(0, 0, nWidth, nHeight), m_cMousePos, m_cCursorHotSpot, g_pcScreenBitmap, m_pcMouseImage);
-//    }
-//    SrvSprite::Unhide();
-//}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDisplayDriver::MouseOn()
-{
-//    if (m_pcMouseSprite == NULL) {
-//        m_pcMouseSprite = new SrvSprite(IRect(0, 0, m_pcMouseImage->m_nWidth, m_pcMouseImage->m_nHeight), m_cMousePos, m_cCursorHotSpot, g_pcScreenBitmap, m_pcMouseImage);
-//    } else {
-//        p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "DisplayDriver::MouseOn() called while mouse visible.");
-//    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDisplayDriver::MouseOff()
-{
-//    if (m_pcMouseSprite == NULL) {
-//        p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "VDisplayDriver::MouseOff() called while mouse hidden");
-//    }
-//    delete m_pcMouseSprite;
-//    m_pcMouseSprite = NULL;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void PDisplayDriver::SetMousePos(PIPoint cNewPos)
-{
-//    if (m_pcMouseSprite != NULL) {
-//        m_pcMouseSprite->MoveTo(cNewPos);
-//    }
-    m_MousePos = cNewPos;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -27,6 +27,7 @@
 #include <Math/Rect.h>
 #include <GUI/Font.h>
 #include <GUI/GUIDefines.h>
+#include <GUI/MouseCursor.h>
 #include <ApplicationServer/Font.h>
 
 
@@ -76,11 +77,10 @@ public:
     virtual PEColorSpace    GetColorSpace() = 0;
     virtual void            SetColor(size_t index, PColor color) = 0;
 
-    //    virtual void  SetCursorBitmap(mouse_ptr_mode eMode, const IPoint& cHotSpot, const void* pRaster, int nWidth, int nHeight );
+    virtual bool    SetMouseCursorBitmap(const PMouseCursorBitmap& cursor) = 0;
+    virtual void    SetMouseCursorVisible(bool visible) = 0;
 
-    virtual void    MouseOn();
-    virtual void    MouseOff();
-    virtual void    SetMousePos(PIPoint cNewPos);
+    virtual void    SetMousePos(PIPoint cNewPos) = 0;
 //    virtual bool    IntersectWithMouse(const IRect& cRect) = 0;
 
     virtual void    SetFgColor(PColor color) { m_FgColor = color; }
@@ -114,6 +114,7 @@ public:
     const FONT_INFO* GetFontDesc(PFontID fontID) const;
 
     static PColor   GetPaletteEntry(uint8_t index);
+
 private:
     void    FillTriangleUnion(PSrvBitmap* bitmap, const PIRect& clipRect,
                               std::span<const std::array<PPoint, 3>> triangles,
@@ -128,6 +129,4 @@ private:
 
     PColor  m_FgColor;
     PColor  m_BgColor;
-    PIPoint m_MousePos;
-    PIPoint m_CursorHotSpot;
 };

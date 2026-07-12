@@ -354,6 +354,38 @@ void PApplication::DeleteBitmap(handle_id bitmapHandle)
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+PMouseCursorToken PApplication::PushMouseCursor(PStandardMouseCursor cursor)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    const PMouseCursorToken token = m_NextMouseCursorToken++;
+    if (m_NextMouseCursorToken == PInvalidMouseCursorToken) {
+        m_NextMouseCursorToken = PInvalidMouseCursorToken + 1;
+    }
+    Post<ASPushMouseCursor>(token, ToMouseCursorID(cursor));
+    Flush();
+    return token;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PApplication::PopMouseCursor(PMouseCursorToken token)
+{
+    assert(!IsRunning() || GetMutex().IsLocked());
+
+    if (token != PInvalidMouseCursorToken)
+    {
+        Post<ASPopMouseCursor>(token);
+        Flush();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void PApplication::Flush()
 {
     assert(!IsRunning() || GetMutex().IsLocked());

@@ -25,6 +25,7 @@
 #include <GUI/Color.h>
 #include <GUI/Font.h>
 #include <DeviceControl/RA8875.h>
+#include <vector>
 #include "RA8875Registers.h"
 
 
@@ -84,6 +85,10 @@ public:
     virtual PEColorSpace    GetColorSpace() override;
     virtual void            SetColor(size_t index, PColor color) override;
 
+    virtual bool            SetMouseCursorBitmap(const PMouseCursorBitmap& cursor) override;
+    virtual void            SetMouseCursorVisible(bool visible) override;
+    virtual void            SetMousePos(PIPoint position) override;
+
     virtual void            SetFgColor(PColor color) override { PDisplayDriver::SetFgColor(color); SetFgColor(color.GetColor16()); }
     virtual void            SetBgColor(PColor color) override { PDisplayDriver::SetBgColor(color); SetBgColor(color.GetColor16()); }
 
@@ -105,6 +110,13 @@ private:
     void SetFgColor(uint16_t color);
     void SetBgColor(uint16_t color);
     void SetTransparantColor(uint16_t color);
+
+    static uint8_t ConvertMouseCursorPixelToRA8875(PMouseCursorPixel pixel);
+    void SetMouseCursorColors(PColor color1, PColor color2);
+    void UploadMouseCursorRaster(PIPoint rasterOffset);
+    void SetGraphicCursorPosition(PIPoint position);
+    void SetGraphicCursorEnabled(bool enabled);
+    uint8_t ReadRegister(uint8_t command);
 
     void SetWindow(int x1, int y1, int x2, int y2);
     void SetWindow(const PIRect& frame) { SetWindow(frame.left, frame.top, frame.right, frame.bottom); }
@@ -174,8 +186,16 @@ private:
     DigitalPinID    m_PinBacklightControlID;
 
     Ptr<PSrvBitmap>  m_ScreenBitmap;
+    std::vector<uint8_t> m_MouseCursorRaster;
+    PIPoint         m_MouseCursorSize;
+    PIPoint         m_UploadedMouseCursorRasterOffset;
+
+    PIPoint         m_CursorHotSpot;
+    PIPoint         m_MousePos;
 
     Orientation_e   m_Orientation = e_Landscape;
     FillDirection_e m_FillDirection = e_FillLeftDown;
     bool            m_IsWindowSet = false;
+    bool            m_IsMouseCursorVisible = false;
+    bool            m_IsMouseCursorRasterUploaded = false;
 };

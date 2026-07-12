@@ -22,6 +22,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <string_view>
 #include <unistd.h>
 #include <utility>
 
@@ -44,6 +45,405 @@ static volatile port_id g_AppserverPort = -1;
 
 Ptr<PDisplayDriver>  ApplicationServer::s_DisplayDriver;
 Ptr<PSrvBitmap>          ApplicationServer::s_ScreenBitmap;
+
+namespace
+{
+    constexpr PMouseCursorPixel GetMouseCursorPixel(char value)
+    {
+        switch (value)
+        {
+            case '1':
+                return PMouseCursorPixel::Color1;
+            case '2':
+                return PMouseCursorPixel::Color2;
+            case 'i':
+            case 'I':
+                return PMouseCursorPixel::Invert;
+            default:
+                return PMouseCursorPixel::Transparent;
+        }
+    }
+
+    template<size_t Width, size_t Height>
+    constexpr std::array<PMouseCursorPixel, Width * Height> MakeMouseCursorRaster(const std::array<std::string_view, Height>& rows)
+    {
+        std::array<PMouseCursorPixel, Width * Height> raster{};
+
+        for (size_t y = 0; y < Height; ++y)
+        {
+            const size_t rowWidth = std::min(Width, rows[y].size());
+            for (size_t x = 0; x < rowWidth; ++x) {
+                raster[y * Width + x] = GetMouseCursorPixel(rows[y][x]);
+            }
+        }
+        return raster;
+    }
+
+    static constexpr int32_t STANDARD_MOUSE_CURSOR_WIDTH = 32;
+    static constexpr int32_t STANDARD_MOUSE_CURSOR_HEIGHT = 32;
+
+    static constexpr auto s_PointerCursorRaster = MakeMouseCursorRaster<STANDARD_MOUSE_CURSOR_WIDTH, STANDARD_MOUSE_CURSOR_HEIGHT>(
+        std::array<std::string_view, STANDARD_MOUSE_CURSOR_HEIGHT>{
+            "11..............................",
+            "111.............................",
+            "1111............................",
+            "11111...........................",
+            "112111..........................",
+            "1122111.........................",
+            "11222111........................",
+            "112222111.......................",
+            "1122222111......................",
+            "11222222111.....................",
+            "112222222111....................",
+            "1122222222111...................",
+            "11222222222111..................",
+            "112222222222111.................",
+            "1122222222222111................",
+            "11222222222222111...............",
+            "112222222222222111..............",
+            "1122222222222222111.............",
+            "11222222221111111111............",
+            "112222222221111111111...........",
+            "11222211222211..................",
+            "112221111122211.................",
+            "1122111.1122211.................",
+            "112111...1122211................",
+            "11111....1122211................",
+            "1111......11222211..............",
+            "111.......11222211..............",
+            "11.........11222211.............",
+            "...........11222211.............",
+            "............11222211............",
+            "............1112211.............",
+            "..............1111.............."
+        }
+    );
+
+    static constexpr auto s_TextSelectCursorRaster = MakeMouseCursorRaster<STANDARD_MOUSE_CURSOR_WIDTH, STANDARD_MOUSE_CURSOR_HEIGHT>(
+        std::array<std::string_view, STANDARD_MOUSE_CURSOR_HEIGHT>{
+            "................................",
+            "................................",
+            "....111111111111111111111111....",
+            "....111111111111111111111111....",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "..............1111..............",
+            "....111111111111111111111111....",
+            "....111111111111111111111111....",
+            "................................",
+            "................................"
+        }
+    );
+
+    static constexpr auto s_BusyCursorRaster = MakeMouseCursorRaster<STANDARD_MOUSE_CURSOR_WIDTH, STANDARD_MOUSE_CURSOR_HEIGHT>(
+        std::array<std::string_view, STANDARD_MOUSE_CURSOR_HEIGHT>{
+            "................................",
+            "................................",
+            "...11111111111111111111111111...",
+            "...12222222222222222222222221...",
+            "....122222222222222222222221....",
+            ".....1222222222222222222221.....",
+            "......12222222222222222221......",
+            ".......122222222222222221.......",
+            "........1222222222222221........",
+            ".........12222222222221.........",
+            "..........122222222221..........",
+            "...........1222222221...........",
+            "............12222221............",
+            ".............122221.............",
+            "..............1221..............",
+            "...............11...............",
+            "...............11...............",
+            "..............1221..............",
+            ".............12..21.............",
+            "............12....21............",
+            "...........12......21...........",
+            "..........12........21..........",
+            ".........12..........21.........",
+            "........12............21........",
+            ".......12..............21.......",
+            "......12................21......",
+            ".....12..................21.....",
+            "....12....................21....",
+            "...12222222222222222222222221...",
+            "...11111111111111111111111111...",
+            "................................",
+            "................................"
+        }
+    );
+
+    static constexpr auto s_CrosshairCursorRaster = MakeMouseCursorRaster<STANDARD_MOUSE_CURSOR_WIDTH, STANDARD_MOUSE_CURSOR_HEIGHT>(
+        std::array<std::string_view, STANDARD_MOUSE_CURSOR_HEIGHT>{
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "11111111111111111111111111111111",
+            "11111111111111111111111111111111",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11...............",
+            "...............11..............."
+        }
+    );
+
+    static constexpr auto s_ResizeHorizontalCursorRaster = MakeMouseCursorRaster<STANDARD_MOUSE_CURSOR_WIDTH, STANDARD_MOUSE_CURSOR_HEIGHT>(
+        std::array<std::string_view, STANDARD_MOUSE_CURSOR_HEIGHT>{
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "1..............................1",
+            "11............................11",
+            "121..........................121",
+            "1221........................1221",
+            "12221......................12221",
+            "12222111111111111111111111222221",
+            "12222222222222222222222222222221",
+            "12222111111111111111111111222221",
+            "12221......................12221",
+            "1221........................1221",
+            "121..........................121",
+            "11............................11",
+            "1..............................1",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................"
+        }
+    );
+
+    static constexpr auto s_ResizeVerticalCursorRaster = MakeMouseCursorRaster<STANDARD_MOUSE_CURSOR_WIDTH, STANDARD_MOUSE_CURSOR_HEIGHT>(
+        std::array<std::string_view, STANDARD_MOUSE_CURSOR_HEIGHT>{
+            "...............11...............",
+            "..............1221..............",
+            ".............122221.............",
+            "............12222221............",
+            "...........1222222221...........",
+            "..........122222222221..........",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..............1221..............",
+            "..........122222222221..........",
+            "...........1222222221...........",
+            "............12222221............",
+            ".............122221.............",
+            "..............1221..............",
+            "...............11..............."
+        }
+    );
+
+    static constexpr auto s_ResizeDiagonalNWSECursorRaster = MakeMouseCursorRaster<STANDARD_MOUSE_CURSOR_WIDTH, STANDARD_MOUSE_CURSOR_HEIGHT>(
+        std::array<std::string_view, STANDARD_MOUSE_CURSOR_HEIGHT>{
+            "11..............................",
+            "111.............................",
+            "11221...........................",
+            ".11221..........................",
+            "..11221.........................",
+            "...11221........................",
+            "....11221.......................",
+            ".....11221......................",
+            "......11221.....................",
+            ".......11221....................",
+            "........11221...................",
+            ".........11221..................",
+            "..........11221.................",
+            "...........11221................",
+            "............11221...............",
+            ".............11221..............",
+            "..............11221.............",
+            "...............11221............",
+            "................11221...........",
+            ".................11221..........",
+            "..................11221.........",
+            "...................11221........",
+            "....................11221.......",
+            ".....................11221......",
+            "......................11221.....",
+            ".......................11221....",
+            "........................11221...",
+            ".........................11221..",
+            "..........................11221.",
+            "............................121.",
+            ".............................111",
+            "..............................11"
+        }
+    );
+
+    static constexpr auto s_ResizeDiagonalNESWCursorRaster = MakeMouseCursorRaster<STANDARD_MOUSE_CURSOR_WIDTH, STANDARD_MOUSE_CURSOR_HEIGHT>(
+        std::array<std::string_view, STANDARD_MOUSE_CURSOR_HEIGHT>{
+            "..............................11",
+            ".............................111",
+            "...........................12211",
+            "..........................12211.",
+            ".........................12211..",
+            "........................12211...",
+            ".......................12211....",
+            "......................12211.....",
+            ".....................12211......",
+            "....................12211.......",
+            "...................12211........",
+            "..................12211.........",
+            ".................12211..........",
+            "................12211...........",
+            "...............12211............",
+            "..............12211.............",
+            ".............12211..............",
+            "............12211...............",
+            "...........12211................",
+            "..........12211.................",
+            ".........12211..................",
+            "........12211...................",
+            ".......12211....................",
+            "......12211.....................",
+            ".....12211......................",
+            "....12211.......................",
+            "...12211........................",
+            "..12211.........................",
+            ".12211..........................",
+            ".121............................",
+            "111.............................",
+            "11.............................."
+        }
+    );
+
+    template<size_t PixelCount>
+    PMouseCursorBitmap MakeStandardMouseCursorBitmap(const std::array<PMouseCursorPixel, PixelCount>& raster, PIPoint hotSpot)
+    {
+        return PMouseCursorBitmap{
+            .Width = STANDARD_MOUSE_CURSOR_WIDTH,
+            .Height = STANDARD_MOUSE_CURSOR_HEIGHT,
+            .HotSpot = hotSpot,
+            .Color1 = PColor(0xff000000),
+            .Color2 = PColor(0xffffffff),
+            .Raster = std::span<const PMouseCursorPixel>(raster.data(), raster.size())
+        };
+    }
+
+    bool GetStandardMouseCursorBitmap(PMouseCursorID cursorID, PMouseCursorBitmap& outBitmap, bool& outVisible)
+    {
+        if (!IsStandardMouseCursorID(cursorID)) {
+            return false;
+        }
+
+        outVisible = true;
+
+        switch (PStandardMouseCursor(cursorID))
+        {
+            case PStandardMouseCursor::Pointer:
+                outBitmap = MakeStandardMouseCursorBitmap(s_PointerCursorRaster, PIPoint(0, 0));
+                return true;
+            case PStandardMouseCursor::TextSelect:
+                outBitmap = MakeStandardMouseCursorBitmap(s_TextSelectCursorRaster, PIPoint(15, 15));
+                return true;
+            case PStandardMouseCursor::Busy:
+                outBitmap = MakeStandardMouseCursorBitmap(s_BusyCursorRaster, PIPoint(15, 15));
+                return true;
+            case PStandardMouseCursor::Crosshair:
+                outBitmap = MakeStandardMouseCursorBitmap(s_CrosshairCursorRaster, PIPoint(15, 15));
+                return true;
+            case PStandardMouseCursor::ResizeHorizontal:
+                outBitmap = MakeStandardMouseCursorBitmap(s_ResizeHorizontalCursorRaster, PIPoint(15, 15));
+                return true;
+            case PStandardMouseCursor::ResizeVertical:
+                outBitmap = MakeStandardMouseCursorBitmap(s_ResizeVerticalCursorRaster, PIPoint(15, 15));
+                return true;
+            case PStandardMouseCursor::ResizeDiagonalNWSE:
+                outBitmap = MakeStandardMouseCursorBitmap(s_ResizeDiagonalNWSECursorRaster, PIPoint(15, 15));
+                return true;
+            case PStandardMouseCursor::ResizeDiagonalNESW:
+                outBitmap = MakeStandardMouseCursorBitmap(s_ResizeDiagonalNESWCursorRaster, PIPoint(15, 15));
+                return true;
+            case PStandardMouseCursor::Move:
+                outBitmap = MakeStandardMouseCursorBitmap(s_CrosshairCursorRaster, PIPoint(15, 15));
+                return true;
+            case PStandardMouseCursor::Hand:
+                outBitmap = MakeStandardMouseCursorBitmap(s_PointerCursorRaster, PIPoint(0, 0));
+                return true;
+            case PStandardMouseCursor::NotAllowed:
+                outBitmap = MakeStandardMouseCursorBitmap(s_BusyCursorRaster, PIPoint(15, 15));
+                return true;
+            case PStandardMouseCursor::Hidden:
+                outVisible = false;
+                outBitmap = PMouseCursorBitmap{};
+                return true;
+            case PStandardMouseCursor::Count:
+                break;
+        }
+        return false;
+    }
+}
 
 port_id p_get_appserver_port()
 {
@@ -94,6 +494,7 @@ ApplicationServer::ApplicationServer(Ptr<PDisplayDriver> displayDriver)
 
     m_MousePosition = GetScreenFrame().Center();
     s_DisplayDriver->SetMousePos(PIPoint(m_MousePosition));
+    ApplyMouseCursor(ToMouseCursorID(PStandardMouseCursor::Pointer));
 
     m_MouseInputDevice = open("/dev/input/mouse", O_RDONLY | O_NONBLOCK);
     if (m_MouseInputDevice != -1)
@@ -283,6 +684,86 @@ void ApplicationServer::ViewDestructed(PServerView* view)
     }
     if (view == m_KeyboardFocusView) {
         SetKeyboardFocus(ptr_tmp_cast(view), false);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::PushMouseCursor(ServerApplication* owner, PMouseCursorToken token, PMouseCursorID cursorID)
+{
+    if (owner == nullptr || token == PInvalidMouseCursorToken) {
+        return;
+    }
+    if (!IsStandardMouseCursorID(cursorID))
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::PushMouseCursor() invalid cursor ID: {}", cursorID);
+        return;
+    }
+
+    const auto iterator = std::find_if(m_MouseCursorStack.begin(), m_MouseCursorStack.end(),
+        [owner, token](const MouseCursorStackEntry& entry)
+        {
+            return entry.Owner == owner && entry.Token == token;
+        });
+    if (iterator != m_MouseCursorStack.end())
+    {
+        iterator->CursorID = cursorID;
+        UpdateMouseCursor();
+        return;
+    }
+
+    m_MouseCursorStack.push_back(MouseCursorStackEntry{ .Owner = owner, .Token = token, .CursorID = cursorID });
+    UpdateMouseCursor();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::PopMouseCursor(ServerApplication* owner, PMouseCursorToken token)
+{
+    if (owner == nullptr || token == PInvalidMouseCursorToken) {
+        return;
+    }
+
+    for (auto iterator = m_MouseCursorStack.begin(); iterator != m_MouseCursorStack.end(); ++iterator)
+    {
+        if (iterator->Owner == owner && iterator->Token == token)
+        {
+            m_MouseCursorStack.erase(iterator);
+            UpdateMouseCursor();
+            return;
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::RemoveMouseCursorStackEntries(ServerApplication* owner)
+{
+    if (owner == nullptr) {
+        return;
+    }
+
+    bool wasChanged = false;
+    for (auto iterator = m_MouseCursorStack.begin(); iterator != m_MouseCursorStack.end(); )
+    {
+        if (iterator->Owner == owner)
+        {
+            iterator = m_MouseCursorStack.erase(iterator);
+            wasChanged = true;
+        }
+        else
+        {
+            ++iterator;
+        }
+    }
+    if (wasChanged) {
+        UpdateMouseCursor();
     }
 }
 
@@ -540,6 +1021,55 @@ PPointerEvent ApplicationServer::CreatePointerEvent(const PTouchEvent& touchEven
     pointerEvent.Pressure = touchEvent.Pressure;
     pointerEvent.Position = touchEvent.Position;
     return pointerEvent;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool ApplicationServer::ApplyMouseCursor(PMouseCursorID cursorID)
+{
+    if (cursorID == m_CurrentMouseCursorID) {
+        return true;
+    }
+
+    PMouseCursorBitmap cursorBitmap;
+    bool isVisible = false;
+    if (!GetStandardMouseCursorBitmap(cursorID, cursorBitmap, isVisible))
+    {
+        p_system_log<PLogSeverity::ERROR>(LogCategoryAppServer, "ApplicationServer::ApplyMouseCursor() invalid cursor ID: {}", cursorID);
+        return false;
+    }
+
+    if (!isVisible)
+    {
+        s_DisplayDriver->SetMouseCursorVisible(false);
+        m_CurrentMouseCursorID = cursorID;
+        return true;
+    }
+
+    if (s_DisplayDriver->SetMouseCursorBitmap(cursorBitmap))
+    {
+        s_DisplayDriver->SetMouseCursorVisible(true);
+        m_CurrentMouseCursorID = cursorID;
+        return true;
+    }
+
+    p_system_log<PLogSeverity::WARNING>(LogCategoryAppServer, "ApplicationServer::ApplyMouseCursor() display driver rejected cursor ID: {}", cursorID);
+    return false;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void ApplicationServer::UpdateMouseCursor()
+{
+    PMouseCursorID cursorID = ToMouseCursorID(PStandardMouseCursor::Pointer);
+    if (!m_MouseCursorStack.empty()) {
+        cursorID = m_MouseCursorStack.back().CursorID;
+    }
+    ApplyMouseCursor(cursorID);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

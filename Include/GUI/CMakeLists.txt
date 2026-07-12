@@ -7,6 +7,7 @@ target_sources(PadOS_GUI PRIVATE
 	GUIEvent.h
 	KeyboardView.h
 	LayoutNode.h
+	MouseCursor.h
 	Region.h
 	View.h
 	ViewBase.h

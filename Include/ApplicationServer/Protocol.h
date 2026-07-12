@@ -27,6 +27,7 @@
 #include <GUI/GUIEvent.h>
 #include <GUI/Color.h>
 #include <GUI/GUIDefines.h>
+#include <GUI/MouseCursor.h>
 
 class PString;
 
@@ -64,6 +65,8 @@ namespace PAppserverProtocol
         SET_KEYBOARD_FOCUS,
         CREATE_BITMAP,
         DELETE_BITMAP,
+        PUSH_MOUSE_CURSOR,
+        POP_MOUSE_CURSOR,
 
         // View messages:
         VIEW_SET_FRAME,
@@ -213,6 +216,8 @@ using ASCreateBitmap = PRemoteSignal<PAppserverProtocol::CREATE_BITMAP,
 >;
 
 using ASDeleteBitmap        = PRemoteSignal<PAppserverProtocol::DELETE_BITMAP,        void(handler_id handle)>;
+using ASPushMouseCursor     = PRemoteSignal<PAppserverProtocol::PUSH_MOUSE_CURSOR,    void(PMouseCursorToken token, PMouseCursorID cursorID)>;
+using ASPopMouseCursor      = PRemoteSignal<PAppserverProtocol::POP_MOUSE_CURSOR,     void(PMouseCursorToken token)>;
 using ASViewSetFrame        = PRemoteSignal<PAppserverProtocol::VIEW_SET_FRAME,       void(handler_id viewHandle, const PRect& frame, handler_id requestingClient)>;
 using ASViewInvalidate      = PRemoteSignal<PAppserverProtocol::VIEW_INVALIDATE,      void(handler_id viewHandle, const PIRect& frame)>;
 using ASViewAddChild        = PRemoteSignal<PAppserverProtocol::VIEW_ADD_CHILD,       void(size_t index, handler_id viewHandle, handler_id childHandle, handler_id managerHandle)>;

@@ -24,6 +24,7 @@
 #include <Kernel/KLogging.h>
 #include <Kernel/USB/USBHost.h>
 #include <Kernel/USB/ClassDrivers/USBHIDDriver.h>
+#include <Kernel/USB/ClassDrivers/USBHostClassHID.h>
 #include <Kernel/USB/ClassDrivers/USBHostHIDInterface.h>
 
 namespace kernel
@@ -33,8 +34,9 @@ namespace kernel
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-USBHostHIDInterface::USBHostHIDInterface(USBHost* hostHandler)
+USBHostHIDInterface::USBHostHIDInterface(USBHost* hostHandler, USBHostClassHID* classDriver)
     : m_HostHandler(hostHandler)
+    , m_ClassDriver(classDriver)
 {
 }
 
@@ -64,6 +66,9 @@ const USB_DescriptorHeader* USBHostHIDInterface::Open(uint8_t deviceAddress, uin
     m_ReportEndpointInSize = 0;
     m_PreviousKeyboardReport = {};
     m_PreviousMouseButtons = 0;
+    m_ReportDescriptorBuffer.clear();
+    m_ReportDescriptor.Clear();
+    m_InputDriver = nullptr;
 
     const USB_DescriptorHeader* descriptor = interfaceDescriptor->GetNext();
 
@@ -163,6 +168,8 @@ void USBHostHIDInterface::Close()
     m_ReportEndpointInSize = 0;
     m_ReportDescriptorLength = 0;
     m_ReportBuffer.clear();
+    m_ReportDescriptorBuffer.clear();
+    m_ReportDescriptor.Clear();
     m_IsActive = false;
 }
 
@@ -182,28 +189,13 @@ void USBHostHIDInterface::Startup()
         if (ShouldUseBootProtocol()) {
             ReqSetBootProtocol();
         }
-        if (m_InputDriver != nullptr) {
-            m_InputDriver->Startup();
+        if (m_ReportDescriptorLength != 0 && !ShouldUseBootProtocol()) {
+            ReqGetReportDescriptor();
+        } else {
+            StartInputDriverAndReceive();
         }
-        StartReceive();
     }
 }
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
-
-void USBHostHIDInterface::SetInputDriver(Ptr<USBHIDDriver> driver)
-{
-    if (m_InputDriver != nullptr) {
-        m_InputDriver->Close();
-    }
-    m_InputDriver = driver;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-/// \author Kurt Skauen
-///////////////////////////////////////////////////////////////////////////////
 
 USBHIDInterfaceInfo USBHostHIDInterface::GetInterfaceInfo() const
 {
@@ -214,6 +206,7 @@ USBHIDInterfaceInfo USBHostHIDInterface::GetInterfaceInfo() const
     interfaceInfo.Subclass = m_Subclass;
     interfaceInfo.Protocol = m_Protocol;
     interfaceInfo.ReportDescriptorLength = m_ReportDescriptorLength;
+    interfaceInfo.ReportDescriptor = &m_ReportDescriptor;
     interfaceInfo.ReportEndpointIn = m_ReportEndpointIn;
     interfaceInfo.ReportEndpointInSize = m_ReportEndpointInSize;
     return interfaceInfo;
@@ -300,6 +293,54 @@ void USBHostHIDInterface::ReqSetBootProtocol()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+void USBHostHIDInterface::ReqGetReportDescriptor()
+{
+    m_ReportDescriptorBuffer.resize(m_ReportDescriptorLength);
+
+    USB_ControlRequest request(
+        USB_RequestRecipient::INTERFACE,
+        USB_RequestType::STANDARD,
+        USB_RequestDirection::DEVICE_TO_HOST,
+        uint8_t(USB_RequestCode::GET_DESCRIPTOR),
+        uint16_t((std::to_underlying(USB_HID_DescriptorType::REPORT) << 8) | 0),
+        m_InterfaceNumber,
+        m_ReportDescriptorLength
+    );
+
+    const bool requestStarted = m_HostHandler->GetControlHandler().SendControlRequest(
+        m_DeviceAddress,
+        request,
+        m_ReportDescriptorBuffer.data(),
+        p_bind_method(this, &USBHostHIDInterface::HandleGetReportDescriptorResult)
+    );
+
+    if (!requestStarted)
+    {
+        kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "HID {} failed to request report descriptor.", GetProtocolName());
+        StartInputDriverAndReceive();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostHIDInterface::StartInputDriverAndReceive()
+{
+    if (m_InputDriver == nullptr && m_ClassDriver != nullptr) {
+        m_InputDriver = m_ClassDriver->CreateInputDriver(*this, GetInterfaceInfo());
+    }
+
+    if (m_InputDriver != nullptr) {
+        m_InputDriver->Startup();
+    }
+    StartReceive();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
 void USBHostHIDInterface::StartReceive()
 {
     if (m_IsActive && m_ReportPipeIn != USB_INVALID_PIPE && !m_ReportBuffer.empty())
@@ -336,6 +377,46 @@ void USBHostHIDInterface::HandleSetProtocolResult(bool result, uint8_t deviceAdd
     if (!result) {
         kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "HID {} set boot protocol failed on device {}.", GetProtocolName(), int(deviceAddress));
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void USBHostHIDInterface::HandleGetReportDescriptorResult(bool result, uint8_t deviceAddress)
+{
+    if (!m_IsActive) {
+        return;
+    }
+
+    if (result)
+    {
+        if (m_ReportDescriptor.Parse(m_ReportDescriptorBuffer.data(), m_ReportDescriptorBuffer.size()))
+        {
+            kernel_log<PLogSeverity::INFO_LOW_VOL>(
+                LogCategoryUSBHost,
+                "HID {} parsed report descriptor from device {}: {} fields.",
+                GetProtocolName(),
+                int(deviceAddress),
+                m_ReportDescriptor.GetFields().size()
+            );
+        }
+        else
+        {
+            kernel_log<PLogSeverity::WARNING>(
+                LogCategoryUSBHost,
+                "HID {} failed to parse report descriptor from device {}.",
+                GetProtocolName(),
+                int(deviceAddress)
+            );
+        }
+    }
+    else
+    {
+        kernel_log<PLogSeverity::WARNING>(LogCategoryUSBHost, "HID {} failed to read report descriptor from device {}.", GetProtocolName(), int(deviceAddress));
+    }
+
+    StartInputDriverAndReceive();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

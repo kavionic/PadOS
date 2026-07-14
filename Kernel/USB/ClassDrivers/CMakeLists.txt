@@ -6,8 +6,9 @@ target_sources(PadOS_Drivers_USB PRIVATE
 if(PADOS_MODULE_USB_HOST)
 	target_sources(PadOS_Drivers_USB PRIVATE
 	USBHIDBootKeyboardDriver.cpp
-	USBHIDBootMouseDriver.cpp
+	USBHIDMouseDriver.cpp
 	USBHIDDriver.cpp
+	USBHIDReportParser.cpp
 	USBHostCDCChannel.cpp
 	USBHostClassCDC.cpp
 	USBHostHIDInterface.cpp

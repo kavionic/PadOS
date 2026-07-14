@@ -91,10 +91,8 @@ void USBHostClassHID::Shutdown()
 
 const USB_DescriptorHeader* USBHostClassHID::Open(uint8_t deviceAddress, const USB_DescInterface* interfaceDescriptor, const USB_DescInterfaceAssociation*, const void* endDescriptor)
 {
-    Ptr<USBHostHIDInterface> hidInterface = ptr_new<USBHostHIDInterface>(m_HostHandler);
+    Ptr<USBHostHIDInterface> hidInterface = ptr_new<USBHostHIDInterface>(m_HostHandler, this);
     const USB_DescriptorHeader* result = hidInterface->Open(deviceAddress, m_NextInterfaceIndex, interfaceDescriptor, endDescriptor);
-    Ptr<USBHIDDriver> inputDriver = CreateInputDriver(*hidInterface, hidInterface->GetInterfaceInfo());
-    hidInterface->SetInputDriver(inputDriver);
 
     m_Interfaces.push_back(hidInterface);
     ++m_NextInterfaceIndex;
@@ -184,7 +182,7 @@ void USBHostClassHID::StartOfFrame()
 
 Ptr<USBHIDDriver> USBHostClassHID::CreateInputDriver(USBHostHIDInterface& hidInterface, const USBHIDInterfaceInfo& interfaceInfo) const
 {
-    Ptr<USBHIDDriver> selectedDriver;
+    const InputDriverRegistration* selectedRegistration = nullptr;
     int selectedScore = USBHIDDriver::PROBE_SCORE_NONE;
 
     for (const InputDriverRegistration& registration : m_InputDriverRegistrations)
@@ -193,8 +191,13 @@ Ptr<USBHIDDriver> USBHostClassHID::CreateInputDriver(USBHostHIDInterface& hidInt
         if (score > selectedScore)
         {
             selectedScore = score;
-            selectedDriver = registration.Create(hidInterface);
+            selectedRegistration = &registration;
         }
+    }
+
+    Ptr<USBHIDDriver> selectedDriver;
+    if (selectedRegistration != nullptr) {
+        selectedDriver = selectedRegistration->Create(hidInterface);
     }
     return selectedDriver;
 }

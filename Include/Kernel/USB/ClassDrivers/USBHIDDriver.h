@@ -28,6 +28,7 @@
 namespace kernel
 {
 
+class USBHIDReportDescriptor;
 class USBHostHIDInterface;
 
 struct USBHIDInterfaceInfo
@@ -38,6 +39,7 @@ struct USBHIDInterfaceInfo
     USB_HID_SubclassCode    Subclass = USB_HID_SubclassCode::NONE;
     USB_HID_ProtocolCode    Protocol = USB_HID_ProtocolCode::NONE;
     uint16_t                ReportDescriptorLength = 0;
+    const USBHIDReportDescriptor* ReportDescriptor = nullptr;
     uint8_t                 ReportEndpointIn = USB_INVALID_ENDPOINT;
     size_t                  ReportEndpointInSize = 0;
 };

@@ -50,6 +50,7 @@ public:
     virtual void                        Startup() override;
     virtual void                        StartupDevice(uint8_t deviceAddress) override;
     virtual void                        StartOfFrame() override;
+    Ptr<USBHIDDriver>                   CreateInputDriver(USBHostHIDInterface& hidInterface, const USBHIDInterfaceInfo& interfaceInfo) const;
 
 private:
     using InputDriverProbe = std::function<int(const USBHIDInterfaceInfo& interfaceInfo)>;
@@ -62,7 +63,6 @@ private:
         InputDriverFactory  Create;
     };
 
-    Ptr<USBHIDDriver> CreateInputDriver(USBHostHIDInterface& hidInterface, const USBHIDInterfaceInfo& interfaceInfo) const;
     bool HasActiveInterfaces() const;
 
     std::vector<Ptr<USBHostHIDInterface>>   m_Interfaces;

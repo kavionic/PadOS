@@ -18,6 +18,9 @@
 // Created: 28.10.2025 23:00
 
 #include <sys/pados_syscalls.h>
+
+#include <gtest/gtest.h>
+
 #include <System/ExceptionHandling.h>
 #include <SerialConsole/SerialCommandHandler.h>
 #include <Kernel/Misc.h>
@@ -118,6 +121,24 @@ PErrorCode sys_log_and_clear_nmi_status()
     }
     PERROR_CATCH_RET_CODE;
 }
+
+#ifdef PADOS_MODULE_UNITTESTS
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+PErrorCode sys_run_kernel_unit_tests()
+{
+    try
+    {
+        testing::InitGoogleTest();
+        return (RUN_ALL_TESTS() == 0) ? PErrorCode::Success : PErrorCode::INVAL;
+    }
+    PERROR_CATCH_RET_CODE;
+}
+
+#endif // PADOS_MODULE_UNITTESTS
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

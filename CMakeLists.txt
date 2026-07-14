@@ -112,6 +112,7 @@ pados_add_compile_option(PADOS_FSDRIVER_PIPE			PADOS_FSDRIVER_PIPE)
 pados_add_compile_option(PADOS_MODULE_DEBUG_CONSOLE		PADOS_MODULE_DEBUG_CONSOLE)
 pados_add_compile_option(PADOS_MODULE_POSIX_SPAWN		PADOS_MODULE_POSIX_SPAWN)
 pados_add_compile_option(PADOS_MODULE_POSIX_SIGNALS		PADOS_MODULE_POSIX_SIGNALS)
+pados_add_compile_option(PADOS_MODULE_UNITTESTS			PADOS_MODULE_UNITTESTS)
 
 if(DEFINED PADOS_OPT_MINIMUM_LOG_SEVERITY AND NOT PADOS_OPT_MINIMUM_LOG_SEVERITY STREQUAL "")
 	target_compile_definitions(PadOS_Config INTERFACE PADOS_OPT_MINIMUM_LOG_SEVERITY=${PADOS_OPT_MINIMUM_LOG_SEVERITY})
@@ -178,6 +179,10 @@ pados_add_kernel_library(ON	PadOS_SystemIFlash)
 pados_add_kernel_library(ON	PadOS_IO)
 pados_add_kernel_library(ON	PadOS_Syscalls)
 pados_add_kernel_external_library(ON	fmt::fmt)
+if(PADOS_MODULE_UNITTESTS)
+	target_link_libraries(PadOS_Kernel PRIVATE gtest_kernel)
+	target_compile_definitions(PadOS_Kernel_Unconditional PRIVATE GTEST_HAS_FILE_SYSTEM=0)
+endif()
 
 set_libraries_section("iflash" ${PADOS_OPT_IFLASH_MODULES})
 

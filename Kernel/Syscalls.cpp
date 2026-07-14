@@ -269,6 +269,11 @@ static const void* const gk_SyscallTable[] =
     SYS_PTR_UNIMPLEMENTED(sigprocmask),
 #endif // PADOS_MODULE_POSIX_SIGNALS
     SYS_PTR(pipe),
+#ifdef PADOS_MODULE_UNITTESTS
+    SYS_PTR(run_kernel_unit_tests),
+#else // PADOS_MODULE_UNITTESTS
+    SYS_PTR_UNIMPLEMENTED(run_kernel_unit_tests),
+#endif // PADOS_MODULE_UNITTESTS
 };
 
 #undef SYS_PTR_UNIMPLEMENTED

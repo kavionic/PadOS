@@ -71,9 +71,11 @@ public:
             .help("Do not print interface descriptor blocks.")
             .flag();
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         program.add_argument("-d", "--debug")
             .help("Print driver debug entries.")
             .flag();
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
         try
         {
@@ -94,7 +96,9 @@ public:
 
         m_CompactOutput = program.get<bool>("--compact");
         m_ShowDescriptorBlocks = !program.get<bool>("--no-descriptors");
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         m_ShowDebugInfo = program.get<bool>("--debug");
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
         PrintTopology();
         return m_HadError ? 1 : 0;
@@ -388,9 +392,14 @@ private:
         childBranches.push_back(!isLastHostPipe);
 
         const std::vector<NameValue> hostPipeValues = MakeHostPipeValues(hostPipeInfo);
+        size_t childCount = hostPipeValues.size();
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         const std::vector<NameValue> debugValues = m_ShowDebugInfo ? ReadHostPipeDebugEntries(deviceInterface, endpointAddr) : std::vector<NameValue>();
         const bool hasDebugValues = !debugValues.empty();
-        const size_t childCount = hostPipeValues.size() + (hasDebugValues ? 1 : 0);
+        if (hasDebugValues) {
+            ++childCount;
+        }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         size_t childIndex = 0;
 
         for (const NameValue& value : hostPipeValues)
@@ -398,6 +407,7 @@ private:
             PrintTreeProperty(childBranches, ++childIndex == childCount, value.Name, value.Value);
         }
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         if (hasDebugValues)
         {
             PrintTreeLine(childBranches, ++childIndex == childCount, "debug");
@@ -406,6 +416,7 @@ private:
             debugBranches.push_back(false);
             PrintTreeValues(debugBranches, debugValues);
         }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -744,6 +755,7 @@ private:
             FormatHostPipeCompact(hostPipeInfo)
         );
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         if (m_ShowDebugInfo)
         {
             const std::vector<NameValue> debugValues = ReadHostPipeDebugEntries(deviceInterface, endpointDescriptor.bEndpointAddress);
@@ -752,6 +764,7 @@ private:
                 Print("{}debug {}={}\n", MakeIndent(depth + 1), value.Name, value.Value);
             }
         }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -815,6 +828,7 @@ private:
     /// \author Kurt Skauen
     ///////////////////////////////////////////////////////////////////////////////
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     PString ReadHostPipeDebugEntryString(const PUSBDeviceInterface& deviceInterface, uint8_t endpointAddr, size_t entryIndex, bool readValue) const
     {
         const size_t stringLength = readValue
@@ -858,6 +872,7 @@ private:
         }
         return entries;
     }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     ///////////////////////////////////////////////////////////////////////////////
     /// \author Kurt Skauen
@@ -1638,7 +1653,9 @@ private:
     }
 
     bool m_ShowDescriptorBlocks = true;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     bool m_ShowDebugInfo = false;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     bool m_CompactOutput = false;
     bool m_HadError = false;
 };

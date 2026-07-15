@@ -17,10 +17,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 23.07.2022 20:30
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 #include <iterator>
 #include <utility>
 
 #include <Utils/String.h>
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 #include <Utils/Utils.h>
 #include <Kernel/KTime.h>
 #include <Kernel/HAL/STM32/USBHost_STM32.h>
@@ -33,6 +35,7 @@
 namespace kernel
 {
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 enum class USBHostSTM32DebugEntry : size_t
 {
     Direction,
@@ -266,6 +269,7 @@ static void IncrementUSBHostSTM32NotifyCounter(USBHostChannelDiagnostics& diagno
             break;
     }
 }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -454,7 +458,9 @@ bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection 
         return false;
     }
     USBHostChannelData& channel = m_ChannelStates[pipeIndex];
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     ++channel.Diagnostics.SubmitRequestCount;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     channel.Direction    = direction;
     channel.EndpointType = endpointType;
@@ -502,9 +508,11 @@ bool USBHost_STM32::SubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection 
     channel.ChannelState            = USB_HostChannelState::IDLE;
 
     const bool result = StartTransfer(pipeIndex, m_Driver->UseDMA());
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     if (!result) {
         ++channel.Diagnostics.SubmitRequestFailureCount;
     }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     return result;
 }
 
@@ -546,6 +554,7 @@ bool USBHost_STM32::GetDataToggle(USB_PipeIndex pipeIndex) const
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 size_t USBHost_STM32::GetPipeDebugEntryCount(USB_PipeIndex pipeIndex) const
 {
     if (!IsUSBHostSTM32PipeIndexValid(pipeIndex) || m_HostChannels == nullptr) {
@@ -697,6 +706,7 @@ bool USBHost_STM32::GetPipeDebugEntryValue(USB_PipeIndex pipeIndex, size_t entry
     }
     return true;
 }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -707,7 +717,9 @@ void USBHost_STM32::SetChannelURBState(USB_PipeIndex pipeIndex, USB_URBState sta
     USBHostChannelData& channel = m_ChannelStates[pipeIndex];
 
     channel.URBState = state;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     IncrementUSBHostSTM32NotifyCounter(channel.Diagnostics, state);
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     m_Driver->IRQPipeURBStateChanged(pipeIndex, state, channel.BytesTransferred);
 }
 
@@ -789,7 +801,9 @@ bool USBHost_STM32::SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uin
     USBHostChannelData&         channel = m_ChannelStates[pipeIndex];
     USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     channel.Diagnostics = USBHostChannelDiagnostics();
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     channel.DoPing          = false;
     channel.MaxPacketSize   = maxPacketSize;
     channel.EndpointType    = endpointType;
@@ -886,7 +900,9 @@ bool USBHost_STM32::SetupPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uin
 bool USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex, bool dma)
 {
     USBHostChannelData& channel = m_ChannelStates[pipeIndex];
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     ++channel.Diagnostics.StartTransferCount;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
 
@@ -901,7 +917,9 @@ bool USBHost_STM32::StartTransfer(USB_PipeIndex pipeIndex, bool dma)
         {
             if (!DoPing(pipeIndex))
             {
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
                 ++channel.Diagnostics.StartTransferFailureCount;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
                 return false;
             }
             return true;
@@ -1141,7 +1159,9 @@ void USBHost_STM32::HandleChannelInIRQ(USB_PipeIndex pipeIndex)
     USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
 
     const uint32_t interrupts = channelRegs.HCINT & channelRegs.HCINTMSK;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     CountUSBHostSTM32ChannelInterrupts(channel, interrupts);
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     if (interrupts & USB_OTG_HCINT_AHBERR)
     {
@@ -1307,7 +1327,9 @@ void USBHost_STM32::HandleChannelOutIRQ(USB_PipeIndex pipeIndex)
     USB_OTG_HostChannelTypeDef& channelRegs = m_HostChannels[pipeIndex];
 
     const uint32_t interrupts = channelRegs.HCINT & channelRegs.HCINTMSK;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     CountUSBHostSTM32ChannelInterrupts(channel, interrupts);
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     if (interrupts & USB_OTG_HCINT_AHBERR)
     {

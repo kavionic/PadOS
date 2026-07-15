@@ -64,6 +64,7 @@ enum class USBHostEventID : uint8_t
     URBStateChanged
 };
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 struct USBHostPipeDiagnostics
 {
     uint32_t SubmitCount = 0;
@@ -82,6 +83,7 @@ struct USBHostPipeDiagnostics
     uint32_t PendingIRQStoredCount = 0;
     uint32_t PendingIRQDequeuedCount = 0;
 };
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 struct USBHostPipeData
 {
@@ -98,7 +100,9 @@ struct USBHostPipeData
     USB_URBState            URBState = USB_URBState::Idle;
     bool                    HasPendingIRQURBState = false;
     bool                    Claimed = false;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     USBHostPipeDiagnostics  Diagnostics;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 };
 
 class USBDeviceNode
@@ -180,9 +184,11 @@ public:
     bool            SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
     bool            GetDataToggle(USB_PipeIndex pipeIndex);
     bool            GetPipeInfo(uint8_t deviceAddress, uint8_t endpointAddr, PUSBHostPipeInfo* outInfo) const;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     size_t          GetPipeDebugEntryCount(uint8_t deviceAddress, uint8_t endpointAddr) const;
     bool            GetPipeDebugEntryLabel(uint8_t deviceAddress, uint8_t endpointAddr, size_t entryIndex, PString* outLabel) const;
     bool            GetPipeDebugEntryValue(uint8_t deviceAddress, uint8_t endpointAddr, size_t entryIndex, PString* outValue) const;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     bool            SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType enpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
     bool            ControlSendSetup(USB_PipeIndex pipeIndex, USB_ControlRequest* request, USB_TransactionCallback&& callback);
     bool            ControlSendData(USB_PipeIndex pipeIndex, void* buffer, size_t length, bool doPing, USB_TransactionCallback&& callback);
@@ -228,7 +234,9 @@ private:
     USBHostPipeData*    GetPipeData(USB_PipeIndex pipeIndex);
     const USBHostPipeData* GetPipeData(USB_PipeIndex pipeIndex) const;
     const USBHostPipeData* FindPipeData(uint8_t deviceAddress, uint8_t endpointAddr, USB_PipeIndex* outPipeIndex) const;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     bool                GetPipeDebugEntryString(uint8_t deviceAddress, uint8_t endpointAddr, size_t entryIndex, bool readValue, PString* outString) const;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     void SetupClassDrivers(uint8_t deviceAddr);
 
@@ -252,7 +260,9 @@ private:
     KMutex                                  m_Mutex;
     KConditionVariable                      m_EventQueueCondition;
     PCircularBuffer<USBHostEvent, 256>       m_EventQueue;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     uint32_t                                m_EventQueueOverflowCount = 0;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     USBDeviceNode                           m_Device0;
     std::vector<USBDeviceNode>              m_Devices;

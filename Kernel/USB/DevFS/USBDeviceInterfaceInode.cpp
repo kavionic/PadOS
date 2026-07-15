@@ -46,11 +46,13 @@ USBDeviceInterfaceInode::USBDeviceInterfaceInode(USBHost* host, uint8_t busIndex
     m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::GetInterfaceInfo, this, &USBDeviceInterfaceInode::GetInterfaceInfo);
     m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::GetDescriptorSize, this, &USBDeviceInterfaceInode::GetDescriptorSize);
     m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::ReadDescriptor, this, &USBDeviceInterfaceInode::ReadDescriptor);
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::GetHostPipeDebugEntryCount, this, &USBDeviceInterfaceInode::GetHostPipeDebugEntryCount);
     m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::GetHostPipeDebugEntryLabelLength, this, &USBDeviceInterfaceInode::GetHostPipeDebugEntryLabelLength);
     m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::ReadHostPipeDebugEntryLabel, this, &USBDeviceInterfaceInode::ReadHostPipeDebugEntryLabel);
     m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::GetHostPipeDebugEntryValueLength, this, &USBDeviceInterfaceInode::GetHostPipeDebugEntryValueLength);
     m_DeviceControlDispatcher.AddHandler(&PUSBDeviceInterface::ReadHostPipeDebugEntryValue, this, &USBDeviceInterfaceInode::ReadHostPipeDebugEntryValue);
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -185,6 +187,7 @@ size_t USBDeviceInterfaceInode::ReadDescriptor(size_t offset, void* buffer, size
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 size_t USBDeviceInterfaceInode::GetHostPipeDebugEntryCount(uint8_t endpointAddr) const
 {
     USBHost& host = GetHost();
@@ -260,6 +263,7 @@ size_t USBDeviceInterfaceInode::ReadHostPipeDebugEntryValue(uint8_t endpointAddr
     }
     return CopyStringBytes(value, buffer, bufferSize);
 }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen

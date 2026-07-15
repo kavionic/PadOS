@@ -75,9 +75,11 @@ public:
     virtual bool        HostSubmitRequest(USB_PipeIndex pipeIndex, USB_RequestDirection direction, USB_TransferType endpointType, USBH_InitialTransactionPID initialPID, void* buffer, size_t length, bool doPing) = 0;
     virtual bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle) = 0;
     virtual bool        GetDataToggle(USB_PipeIndex pipeIndex) const = 0;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     virtual size_t      GetHostPipeDebugEntryCount(USB_PipeIndex) const { return 0; }
     virtual bool        GetHostPipeDebugEntryLabel(USB_PipeIndex, size_t, PString*) const { return false; }
     virtual bool        GetHostPipeDebugEntryValue(USB_PipeIndex, size_t, PString*) const { return false; }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 #endif
 
 

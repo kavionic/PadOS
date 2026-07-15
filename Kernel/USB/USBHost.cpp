@@ -17,7 +17,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Created: 13.06.2022 23:00
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 #include <iterator>
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 #include <string.h>
 
 #include <DeviceControl/USB.h>
@@ -36,6 +38,7 @@
 namespace kernel
 {
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 static constexpr const char* USBHOST_PIPE_DEBUG_LABELS[] =
 {
     "usbhost.queueLength",
@@ -139,6 +142,7 @@ static PString FormatUSBHostPipeDebugValue(const USBHostPipeData& pipe, size_t q
         default: return PString();
     }
 }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -473,7 +477,9 @@ bool USBHost::OpenPipe(USB_PipeIndex pipeIndex, uint8_t endpointAddr, uint8_t de
         pipe->Speed = speed;
         pipe->EndpointType = endpointType;
         pipe->MaxPacketSize = maxPacketSize;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         pipe->Diagnostics = USBHostPipeDiagnostics();
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     }
     return result;
 }
@@ -581,6 +587,7 @@ bool USBHost::GetPipeInfo(uint8_t deviceAddress, uint8_t endpointAddr, PUSBHostP
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 size_t USBHost::GetPipeDebugEntryCount(uint8_t deviceAddress, uint8_t endpointAddr) const
 {
     USB_PipeIndex pipeIndex = USB_INVALID_PIPE;
@@ -614,6 +621,7 @@ bool USBHost::GetPipeDebugEntryValue(uint8_t deviceAddress, uint8_t endpointAddr
 {
     return GetPipeDebugEntryString(deviceAddress, endpointAddr, entryIndex, true, outValue);
 }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -627,14 +635,18 @@ bool USBHost::SubmitURB(USB_PipeIndex pipeIndex, USB_RequestDirection direction,
         pipe->PendingIRQTransferLength = 0;
         pipe->PendingIRQURBState = USB_URBState::Idle;
         pipe->HasPendingIRQURBState = false;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         ++pipe->Diagnostics.SubmitCount;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         pipe->TransactionCallback = std::move(callback);
         pipe->URBState = USB_URBState::NotReady;
 
         const bool result = m_Driver->HostSubmitRequest(pipeIndex, direction, enpointType, initialPID, buffer, length, doPing);
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         if (!result) {
             ++pipe->Diagnostics.SubmitFailureCount;
         }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         return result;
     }
     return false;
@@ -741,7 +753,9 @@ USB_PipeIndex USBHost::AllocPipe(uint8_t endpointAddr)
             m_Pipes[i].PendingIRQURBState = USB_URBState::Idle;
             m_Pipes[i].URBState = USB_URBState::Idle;
             m_Pipes[i].HasPendingIRQURBState = false;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
             m_Pipes[i].Diagnostics = USBHostPipeDiagnostics();
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
             m_Pipes[i].Claimed = true;
             return i;
         }
@@ -772,7 +786,9 @@ void USBHost::FreePipe(USB_PipeIndex pipeIndex)
         m_Pipes[pipeIndex].PendingIRQURBState = USB_URBState::Idle;
         m_Pipes[pipeIndex].URBState = USB_URBState::Idle;
         m_Pipes[pipeIndex].HasPendingIRQURBState = false;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         m_Pipes[pipeIndex].Diagnostics = USBHostPipeDiagnostics();
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         m_Pipes[pipeIndex].Claimed = false;
     }
 }
@@ -944,13 +960,13 @@ bool USBHost::PushEvent(const USBHostEvent& event, bool clearQueue)
 {
     CRITICAL_SCOPE(CRITICAL_IRQ);
 
-    static volatile uint32_t maxEvents = 0;
-
     if (clearQueue)
     {
         m_EventQueue.Clear();
     }
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
+    static volatile uint32_t maxEvents = 0;
     const bool eventQueueFull = m_EventQueue.GetRemainingSpace() == 0;
     if (eventQueueFull) {
         ++m_EventQueueOverflowCount;
@@ -967,11 +983,14 @@ bool USBHost::PushEvent(const USBHostEvent& event, bool clearQueue)
             }
         }
     }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     m_EventQueue.Write(&event, 1);
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     if (m_EventQueue.GetLength() > maxEvents) {
         maxEvents = m_EventQueue.GetLength();
     }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     m_EventQueueCondition.WakeupAll();
     return true;
@@ -1006,6 +1025,7 @@ bool USBHost::PopEvent(USBHostEvent& event)
         if (!result) {
             result = PopPendingURBStateChanged(event);
         }
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         if (readQueuedEvent && event.EventID == USBHostEventID::URBStateChanged)
         {
             USBHostPipeData* pipe = GetPipeData(event.URBStateChanged.PipeIndex);
@@ -1013,6 +1033,7 @@ bool USBHost::PopEvent(USBHostEvent& event)
                 ++pipe->Diagnostics.EventDequeuedCount;
             }
         }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     } CRITICAL_END;
     m_Mutex.Lock();
     return result;
@@ -1048,7 +1069,9 @@ bool USBHost::PopPendingURBStateChanged(USBHostEvent& event)
             event.URBStateChanged.PipeIndex = pipeIndex;
             event.URBStateChanged.TransferLength = pipe.PendingIRQTransferLength;
             event.URBStateChanged.URBState = pipe.PendingIRQURBState;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
             ++pipe.Diagnostics.PendingIRQDequeuedCount;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
             pipe.PendingIRQTransferLength = 0;
             pipe.PendingIRQURBState = USB_URBState::Idle;
@@ -1083,7 +1106,9 @@ void USBHost::Reset()
     m_PortEnabled     = false;
     m_ResetErrorCount = 0;
     m_EnumErrorCount  = 0;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     m_EventQueueOverflowCount = 0;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     m_DeviceAttachDeadline = TimeValNanos::infinit;
 
     m_Device0 = USBDeviceNode();
@@ -1239,6 +1264,7 @@ const USBHostPipeData* USBHost::FindPipeData(uint8_t deviceAddress, uint8_t endp
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 bool USBHost::GetPipeDebugEntryString(uint8_t deviceAddress, uint8_t endpointAddr, size_t entryIndex, bool readValue, PString* outString) const
 {
     if (outString == nullptr) {
@@ -1271,6 +1297,7 @@ bool USBHost::GetPipeDebugEntryString(uint8_t deviceAddress, uint8_t endpointAdd
     }
     return m_Driver->GetHostPipeDebugEntryLabel(pipeIndex, driverEntryIndex, outString);
 }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 ///////////////////////////////////////////////////////////////////////////////
 /// \author Kurt Skauen
@@ -1412,9 +1439,11 @@ void USBHost::HandleURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbSta
 {
     USBHostPipeData* pipe = GetPipeData(pipeIndex);
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     if (pipe != nullptr) {
         IncrementUSBHostPipeHandledCounter(pipe->Diagnostics, urbState);
     }
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
     if (pipe != nullptr && pipe->TransactionCallback)
     {
@@ -1492,13 +1521,17 @@ void USBHost::IRQPipeURBStateChanged(USB_PipeIndex pipeIndex, USB_URBState urbSt
         USBHostPipeData* pipe = GetPipeData(pipeIndex);
         if (pipe != nullptr)
         {
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
             IncrementUSBHostPipeIRQCounter(pipe->Diagnostics, urbState);
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
             if (IsTerminalURBState(urbState))
             {
                 pipe->PendingIRQTransferLength = length;
                 pipe->PendingIRQURBState = urbState;
                 pipe->HasPendingIRQURBState = true;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
                 ++pipe->Diagnostics.PendingIRQStoredCount;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
                 m_EventQueueCondition.WakeupAll();
                 return;
             }

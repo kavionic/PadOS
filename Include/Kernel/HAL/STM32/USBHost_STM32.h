@@ -60,6 +60,7 @@ enum class USB_HostChannelState : uint8_t
     DATATGLERR
 };
 
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 struct USBHostChannelDiagnostics
 {
     uint32_t SubmitRequestCount = 0;
@@ -78,6 +79,7 @@ struct USBHostChannelDiagnostics
     uint32_t NotifyStallCount = 0;
     uint32_t NotifyErrorCount = 0;
 };
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 struct USBHostChannelData
 {
@@ -99,7 +101,9 @@ struct USBHostChannelData
     uint32_t                ErrorCount;                 // Host channel error count.
     USB_URBState            URBState;                   // URB state.
     USB_HostChannelState    ChannelState;               // Host Channel state.
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     USBHostChannelDiagnostics Diagnostics;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 };
 
 class USBHost_STM32
@@ -124,9 +128,11 @@ public:
 
     bool        SetDataToggle(USB_PipeIndex pipeIndex, bool toggle);
     bool        GetDataToggle(USB_PipeIndex pipeIndex) const;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     size_t      GetPipeDebugEntryCount(USB_PipeIndex pipeIndex) const;
     bool        GetPipeDebugEntryLabel(USB_PipeIndex pipeIndex, size_t entryIndex, PString* outLabel) const;
     bool        GetPipeDebugEntryValue(USB_PipeIndex pipeIndex, size_t entryIndex, PString* outValue) const;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 
 private:
     void SetChannelURBState(USB_PipeIndex pipeIndex, USB_URBState state);

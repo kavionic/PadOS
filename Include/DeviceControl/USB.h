@@ -150,11 +150,13 @@ public:
         , GetInterfaceInfo(*this)
         , GetDescriptorSize(*this)
         , ReadDescriptor(*this)
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
         , GetHostPipeDebugEntryCount(*this)
         , GetHostPipeDebugEntryLabelLength(*this)
         , ReadHostPipeDebugEntryLabel(*this)
         , GetHostPipeDebugEntryValueLength(*this)
         , ReadHostPipeDebugEntryValue(*this)
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     {
     }
     explicit PUSBDeviceInterface(int fileHandle) : PUSBDeviceInterface() { SetDeviceFD(fileHandle); }
@@ -164,9 +166,11 @@ public:
     PDeviceControlInvoker<PUSBDeviceInterfaceRequest_GetInterfaceInfo, void(PUSBDeviceInterfaceInfo* outInfo) const> GetInterfaceInfo;
     PDeviceControlInvoker<PUSBDeviceInterfaceRequest_GetDescriptorSize, size_t() const> GetDescriptorSize;
     PDeviceControlInvoker<PUSBDeviceInterfaceRequest_ReadDescriptor, size_t(size_t offset, void* buffer, size_t bufferSize) const> ReadDescriptor;
+#if PADOS_OPT_DEBUG_USB_DIAGNOSTICS
     PDeviceControlInvoker<PUSBDeviceInterfaceRequest_GetHostPipeDebugEntryCount, size_t(uint8_t endpointAddr) const> GetHostPipeDebugEntryCount;
     PDeviceControlInvoker<PUSBDeviceInterfaceRequest_GetHostPipeDebugEntryLabelLength, size_t(uint8_t endpointAddr, size_t entryIndex) const> GetHostPipeDebugEntryLabelLength;
     PDeviceControlInvoker<PUSBDeviceInterfaceRequest_ReadHostPipeDebugEntryLabel, size_t(uint8_t endpointAddr, size_t entryIndex, char* buffer, size_t bufferSize) const> ReadHostPipeDebugEntryLabel;
     PDeviceControlInvoker<PUSBDeviceInterfaceRequest_GetHostPipeDebugEntryValueLength, size_t(uint8_t endpointAddr, size_t entryIndex) const> GetHostPipeDebugEntryValueLength;
     PDeviceControlInvoker<PUSBDeviceInterfaceRequest_ReadHostPipeDebugEntryValue, size_t(uint8_t endpointAddr, size_t entryIndex, char* buffer, size_t bufferSize) const> ReadHostPipeDebugEntryValue;
+#endif // PADOS_OPT_DEBUG_USB_DIAGNOSTICS
 };

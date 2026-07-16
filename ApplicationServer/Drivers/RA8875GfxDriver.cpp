@@ -1021,6 +1021,8 @@ void RA8875GfxDriver::SetGraphicCursorPosition(PIPoint position)
         m_IsMouseCursorRasterUploaded = true;
     }
 
+    WaitBlitter();
+
     WriteCommand(RA8875_GCHP0, RA8875_GCHP1, uint16_t(hardwareOrigin.x));
     WriteCommand(RA8875_GCVP0, RA8875_GCVP1, uint16_t(hardwareOrigin.y));
 }

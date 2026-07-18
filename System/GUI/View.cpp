@@ -819,7 +819,7 @@ PPoint PView::GetContentSize() const
     if (VFCalculateContentSize.Empty()) {
         return CalculateContentSize();
     } else {
-        return VFCalculateContentSize();
+        return VFCalculateContentSize(this);
     }
 }
 
@@ -992,9 +992,13 @@ void PView::Show(bool visible)
 {
     const bool wasVisible = IsVisible();
 
-    if (visible) {
+    if (visible)
+    {
+        assert(m_HideCount > 0);
         m_HideCount--;
-    } else {
+    }
+    else
+    {
         m_HideCount++;
     }
     const bool isVisible = IsVisible();
@@ -1690,11 +1694,15 @@ void PView::HandleDetachedFromScreen()
 
 void PView::HandlePaint(const PRect& updateRect)
 {
-    PRect frame = updateRect;
+    const PRect frame = updateRect;
     if (m_BeginPainCount++ == 0) {
         Post<ASViewBeginUpdate>();
-    }        
-    OnPaint(frame);
+    }
+    if (VFPaint.Empty()) {
+        OnPaint(frame);
+    } else {
+        VFPaint(this, frame);
+    }
     if (--m_BeginPainCount == 0) {
         Post<ASViewEndUpdate>();
     }        

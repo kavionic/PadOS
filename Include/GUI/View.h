@@ -328,6 +328,8 @@ public:
     PRect        ConvertFromScreen(const PRect& rect) const   { return rect - m_ScreenPos - m_ScrollOffset; }
     void        ConvertFromScreen(PRect* rect) const         { *rect -= m_ScreenPos + m_ScrollOffset; }
 
+    VFConnector<void (PView* view, const PRect& updateRect)> VFPaint;
+
     VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFPointerDown;
     VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFPointerUp;
     VFConnector<bool (PView* view, PPointerID pointerID, const PPoint& position, const PPointerEvent& pointerEvent)> VFPointerMove;
@@ -337,7 +339,7 @@ public:
     VFConnector<void (PView* view, PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent)>               VFKeyDown;
     VFConnector<void (PView* view, PKeyCodes keyCode, const PString& text, const PKeyEvent& keyEvent)>               VFKeyUp;
 
-    VFConnector<PPoint ()> VFCalculateContentSize;
+    VFConnector<PPoint (const PView* view)> VFCalculateContentSize;
 
     Signal<void (Ptr<PView> view)>                         SignalPreferredSizeChanged;
     Signal<void (PView* view)>                             SignalContentSizeChanged;

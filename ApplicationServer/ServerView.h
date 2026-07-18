@@ -92,7 +92,8 @@ public:
     void        RebuildRegion();
     bool        ExcludeFromRegion(Ptr<PRegion> region, const PIPoint& offset);
     void        ClearDirtyRegFlags();
-    void        UpdateRegions();
+    void        UpdateRegions(bool requestPaint = true);
+    void        FlushPendingDamage();
     void        DeleteRegions();
     Ptr<PRegion> GetRegion();
     

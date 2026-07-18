@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2024 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -125,8 +125,10 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
             wasHandled = true;
             break;
         }
-    }        
-    UpdateRegions();
+    }
+    if (m_HaveInvalidRegions) {
+        UpdateRegions();
+    }
     return wasHandled;
 }
 
@@ -136,17 +138,34 @@ bool ServerApplication::HandleMessage(int32_t code, const void* data, size_t len
 
 void ServerApplication::ProcessMessage(int32_t code, const void* data, size_t length)
 {
-//    if (m_HaveInvalidRegions && (
-//                                 //code != AppserverProtocol::SHOW_VIEW       ||
-//                                 code != AppserverProtocol::VIEW_SET_DRAW_REGION ||
-//                                 code != AppserverProtocol::VIEW_SET_SHAPE_REGION))
-//    {
-//        UpdateRegions();
-//    }    
-    
+    if (m_HaveInvalidRegions && !CanDeferRegionUpdate(code)) {
+        UpdateRegions();
+    }
+
     PRemoteSignalRXBase* const handler = GetSignalForMessage(code);
     if (handler != nullptr) {
         handler->Dispatch(data, length);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+bool ServerApplication::CanDeferRegionUpdate(int32_t messageCode) const
+{
+    switch (messageCode)
+    {
+        case PAppserverProtocol::CREATE_VIEW:
+        case PAppserverProtocol::VIEW_SET_FRAME:
+        case PAppserverProtocol::VIEW_INVALIDATE:
+        case PAppserverProtocol::VIEW_ADD_CHILD:
+        case PAppserverProtocol::VIEW_SHOW:
+        case PAppserverProtocol::VIEW_SET_DRAW_REGION:
+        case PAppserverProtocol::VIEW_SET_SHAPE_REGION:
+            return true;
+        default:
+            return false;
     }
 }
 
@@ -170,17 +189,51 @@ Ptr<PSrvBitmap> ServerApplication::GetBitmap(handle_id bitmapHandle) const
 
 void ServerApplication::UpdateRegions()
 {
-    m_Server->GetTopView()->UpdateRegions();
+    Ptr<PServerView> updateView = (m_LowestInvalidView != nullptr) ? m_LowestInvalidView : m_Server->GetTopView();
+    if (updateView != nullptr) {
+        updateView->UpdateRegions();
+    }
+    m_LowestInvalidView = nullptr;
     m_HaveInvalidRegions = false;
+}
 
-//    if (m_LowestInvalidView != nullptr)
-//    {
-//        m_LowestInvalidView->UpdateRegions();
-//        //HandleMouseTransaction();
-//        m_LowestInvalidView = nullptr;
-//        m_LowestInvalidLevel = std::numeric_limits<int>::max();
-//    }
-    
+///////////////////////////////////////////////////////////////////////////////
+/// Find the deepest common ancestor for two views with pending region changes.
+///
+/// m_LowestInvalidView is the root used for a deferred UpdateRegions() call.
+/// When another view changes, the update root must be high enough to contain
+/// both the previously dirty subtree and the new one, because visible/full
+/// regions are computed from parent and sibling relationships. A nullptr input
+/// means there is no current candidate yet. If the views are unexpectedly
+/// disconnected, fall back to the top view so the next update rebuilds from a
+/// known common root.
+/// 
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+Ptr<PServerView> ServerApplication::GetCommonInvalidView(Ptr<PServerView> currentInvalidRoot, Ptr<PServerView> newInvalidView) const
+{
+    if (currentInvalidRoot == nullptr) {
+        return newInvalidView;
+    }
+    if (newInvalidView == nullptr) {
+        return currentInvalidRoot;
+    }
+    while (currentInvalidRoot != nullptr && currentInvalidRoot->m_Level > newInvalidView->m_Level) {
+        currentInvalidRoot = currentInvalidRoot->GetParent();
+    }
+    while (currentInvalidRoot != nullptr && newInvalidView != nullptr && newInvalidView->m_Level > currentInvalidRoot->m_Level) {
+        newInvalidView = newInvalidView->GetParent();
+    }
+    while (currentInvalidRoot != nullptr && newInvalidView != nullptr && currentInvalidRoot != newInvalidView)
+    {
+        currentInvalidRoot = currentInvalidRoot->GetParent();
+        newInvalidView = newInvalidView->GetParent();
+    }
+    if (currentInvalidRoot != nullptr) {
+        return currentInvalidRoot;
+    }
+    return m_Server->GetTopView();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -189,11 +242,11 @@ void ServerApplication::UpdateRegions()
 
 void ServerApplication::UpdateLowestInvalidView(Ptr<PServerView> view)
 {
-    m_HaveInvalidRegions = true;
-//    if (view->m_Level < m_LowestInvalidLevel) {
-//        m_LowestInvalidLevel = view->m_Level;
-//        m_LowestInvalidView = view;
-//    }    
+    if (view != nullptr)
+    {
+        m_HaveInvalidRegions = true;
+        m_LowestInvalidView = GetCommonInvalidView(m_LowestInvalidView, view);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -390,10 +443,6 @@ void ServerApplication::SlotViewSetFrame(handler_id clientHandle, const PRect& f
     const Ptr<PServerView> view = m_Server->FindView(clientHandle);
     if (view != nullptr)
     {
-//        if (m_HaveInvalidRegions)
-//        {
-//            UpdateRegions();
-//        }
         PIRect modifiedFrame = view->GetIFrame();
         view->SetFrame(frame, requestingClient);
         modifiedFrame |= view->GetIFrame();
@@ -466,10 +515,6 @@ void ServerApplication::SlotViewShow(handler_id viewHandle, bool show)
     const Ptr<PServerView> view = m_Server->FindView(viewHandle);
     if (view != nullptr)
     {
-        if (m_HaveInvalidRegions)
-        {
-            UpdateRegions();
-        }
         const bool wasVisible = view->IsVisible();
         view->Show(show);
         if (view->IsVisible() != wasVisible)

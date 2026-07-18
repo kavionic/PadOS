@@ -345,25 +345,25 @@ bool GetLineIntersectionPoint(const PPoint& firstLinePoint,
 ///////////////////////////////////////////////////////////////////////////////
 
 PServerView::PServerView(
-    PSrvBitmap*          bitmap,
-    const PString&      name,
-    const PRect&         frame,
-    const PPoint&        scrollOffset,
-    PViewDockType        dockType,
-    uint32_t            flags,
-    int32_t             hideCount,
-    PFocusKeyboardMode   focusKeyboardMode,
-    PDrawingMode         drawingMode,
-    float               penWidth,
-    PCapStyle            capStyle,
-    PJointStyle          jointStyle,
-    float                miterLimit,
-    const std::vector<float>& dashPattern,
-    float                dashOffset,
-    PFontID              fontID,
-    PColor               eraseColor,
-    PColor               bgColor,
-    PColor               fgColor
+    PSrvBitmap*                 bitmap,
+    const PString&              name,
+    const PRect&                frame,
+    const PPoint&               scrollOffset,
+    PViewDockType               dockType,
+    uint32_t                    flags,
+    int32_t                     hideCount,
+    PFocusKeyboardMode          focusKeyboardMode,
+    PDrawingMode                drawingMode,
+    float                       penWidth,
+    PCapStyle                   capStyle,
+    PJointStyle                 jointStyle,
+    float                       miterLimit,
+    const std::vector<float>&   dashPattern,
+    float                       dashOffset,
+    PFontID                     fontID,
+    PColor                      eraseColor,
+    PColor                      bgColor,
+    PColor                      fgColor
 )
     : PViewBase(name, frame, scrollOffset, flags, hideCount, penWidth, eraseColor, bgColor, fgColor, capStyle, jointStyle, miterLimit, dashPattern, dashOffset)
     , m_Bitmap(bitmap)
@@ -789,7 +789,7 @@ struct BlitSortCompare
         
     bool operator()(PIRect* lhs, PIRect* rhs) const
     {
-        if (lhs->left >= rhs->right && lhs->right <= rhs->left)
+        if (lhs->right <= rhs->left || lhs->left >= rhs->right)
         {
             if (m_DeltaMove.x < 0) {
                 return lhs->left < rhs->left;
@@ -951,8 +951,7 @@ void PServerView::RebuildRegion()
                     Ptr<PServerView> sibling = *i;
                     if (sibling->m_HideCount == 0)
                     {
-                        if (sibling->GetIFrame().DoIntersect(intFrame))
-                        {
+                        if (sibling->GetIFrame().DoIntersect(intFrame)) {
                             sibling->ExcludeFromRegion(m_FullReg, -topLeft);
                         }
                     }
@@ -1032,12 +1031,24 @@ void PServerView::ClearDirtyRegFlags()
 /// \author Kurt Skauen
 ///////////////////////////////////////////////////////////////////////////////
 
-void PServerView::UpdateRegions()
+void PServerView::UpdateRegions(bool requestPaint)
 {
     RebuildRegion();
     MoveChilds();
     InvalidateNewAreas();
 
+    if (requestPaint) {
+        FlushPendingDamage();
+    }
+    ClearDirtyRegFlags();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// \author Kurt Skauen
+///////////////////////////////////////////////////////////////////////////////
+
+void PServerView::FlushPendingDamage()
+{
     ApplicationServer* const server = static_cast<ApplicationServer*>(GetLooper());
     if (server != nullptr && server->GetTopView() == this /*m_pcBitmap != nullptr*/ && m_DamageReg != nullptr)
     {
@@ -1056,7 +1067,6 @@ void PServerView::UpdateRegions()
         m_DamageReg = nullptr;
     }
     RequestPaintIfNeeded();
-    ClearDirtyRegFlags();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1267,9 +1277,13 @@ void PServerView::Show(bool doShow)
 {
     const bool wasVisible = IsVisible();
 
-    if ( doShow ) {
+    if (doShow)
+    {
+        assert(m_HideCount > 0);
         m_HideCount--;
-    } else {
+    }
+    else
+    {
         m_HideCount++;
     }
 
@@ -3386,6 +3400,16 @@ void PServerView::DebugDraw(PColor color, uint32_t drawFlags)
             }
         }
     }        
+    if (drawFlags & PViewDebugDrawFlags::FullRegion)
+    {
+        if (m_FullReg != nullptr)
+        {
+            for (const PIRect& clip : m_FullReg->m_Rects)
+            {
+                DebugDrawRect(clip + screenPos, color);
+            }
+        }
+    }
     if (drawFlags & PViewDebugDrawFlags::DamageRegion)
     {
         const Ptr<PRegion> region = GetRegion();
@@ -3420,13 +3444,24 @@ void PServerView::ScrollBy(const PPoint& offset)
     }
     UpdateScreenPos();
     const PIPoint intOffset(newOffset - oldOffset);
+
+    if (m_DamageReg != nullptr) {
+        for (PIRect& dstClip : m_DamageReg->m_Rects) {
+            dstClip += intOffset;
+        }
+    }
+    if (m_ActiveDamageReg != nullptr) {
+        for (PIRect& dstClip : m_ActiveDamageReg->m_Rects) {
+            dstClip += intOffset;
+        }
+    }
     
     if ( m_HideCount > 0 ) {
         return;
     }
 
     SetDirtyRegFlags();
-    UpdateRegions();
+    UpdateRegions(false);
     //SrvWindow::HandleMouseTransaction();
     
     if (m_FullReg == nullptr /*|| m_pcBitmap == nullptr*/ ) {
@@ -3483,23 +3518,10 @@ void PServerView::ScrollBy(const PPoint& offset)
         m_Bitmap->m_Driver->CopyRect(m_Bitmap, m_Bitmap, m_BgColor, m_FgColor, *clip - intOffset, clip->TopLeft(), PDrawingMode::Copy);
     }
 
-    if (m_DamageReg != nullptr)
-    {
-        for (PIRect& dstClip : m_DamageReg->m_Rects) {
-            dstClip += intOffset;
-        }
-    }
-
-    if (m_ActiveDamageReg != nullptr)
-    {
-        for (PIRect& dstClip : m_ActiveDamageReg->m_Rects) {
-            dstClip += intOffset;
-        }
-    }
     for (const PIRect& dstClip : damage.m_Rects) {
         Invalidate(dstClip);
     }
-    RequestPaintIfNeeded();
+    FlushPendingDamage();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

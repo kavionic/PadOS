@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2020-2025 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2020-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -59,7 +59,8 @@ namespace PViewDebugDrawFlags
     {
         ViewFrame    = 0x01,
         DrawRegion   = 0x02,
-        DamageRegion = 0x04
+        DamageRegion = 0x04,
+        FullRegion   = 0x08
     };
 }
 

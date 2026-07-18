@@ -1,6 +1,6 @@
 // This file is part of PadOS.
 //
-// Copyright (C) 2018-2021 Kurt Skauen <http://kavionic.com/>
+// Copyright (C) 2018-2026 Kurt Skauen <http://kavionic.com/>
 //
 // PadOS is free software : you can redistribute it and / or modify
 // it under the terms of the GNU General Public License as published by
@@ -40,7 +40,9 @@ public:
 
 private:
     void ProcessMessage(int32_t code, const void* data, size_t length);
+    bool CanDeferRegionUpdate(int32_t messageCode) const;
     void UpdateRegions();
+    Ptr<PServerView> GetCommonInvalidView(Ptr<PServerView> currentInvalidRoot, Ptr<PServerView> newInvalidView) const;
     void UpdateLowestInvalidView(Ptr<PServerView> view);
 
     void SlotCreateView(port_id clientPort,
@@ -128,8 +130,7 @@ private:
     ApplicationServer*  m_Server;
     port_id             m_ClientPort;
     
-//    Ptr<ServerView> m_LowestInvalidView;
-//    int             m_LowestInvalidLevel = std::numeric_limits<int>::max();
+    Ptr<PServerView> m_LowestInvalidView;
     bool            m_HaveInvalidRegions = false;
 
     handle_id                           m_NextBitmapHandle = 1;
